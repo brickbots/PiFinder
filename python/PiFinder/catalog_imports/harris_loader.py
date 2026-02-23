@@ -168,34 +168,21 @@ def is_valid_mag(mag: Any) -> bool:
 
 def normalize_catalog_name(name: str) -> str:
     """
-    Normalize catalog designations by removing spaces for major catalogs.
+    Normalize catalog designations by removing spaces between prefix and number.
 
     Harris catalog has names like "NGC 104", "M 79", "Arp 2" with spaces,
     but the database has them as "NGC104", "M79", "Arp2" without spaces.
-
-    Other catalog prefixes (Pal, AM, Terzan, etc.) are NOT in the official
-    catalog system and should be treated as common names with spaces intact.
 
     Args:
         name: Catalog designation with potential spaces
 
     Returns:
-        Normalized name (spaces removed for NGC, IC, M, Arp)
+        Normalized name with spaces removed
     """
     name = name.strip()
 
-    # Normalize major catalogs by removing spaces
-    # NGC, IC, M (Messier), Arp all need space removal
-    if (
-        name.startswith("NGC ")
-        or name.startswith("IC ")
-        or name.startswith("M ")
-        or name.startswith("Arp ")
-    ):
-        return name.replace(" ", "")
-
-    # All other names keep their spaces
-    return name
+    # Remove spaces between catalog prefix and number
+    return name.replace(" ", "")
 
 
 def identify_catalog_type(name: str) -> Tuple[bool, str]:
@@ -539,7 +526,7 @@ def load_harris():
             for common_name in cluster_result["common_names"]:
                 if VERBOSE:
                     logging.info(f"  - '{common_name}' → names table")
-                objects_db.insert_name(object_id, common_name, origin="Harris")
+                objects_db.insert_name(object_id, common_name, origin="Har")
 
             seq += 1
 
