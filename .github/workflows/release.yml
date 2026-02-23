@@ -84,13 +84,13 @@ jobs:
             cp "$f" "release/pifinder-${TAG}.img.zst"
           done
 
-      - name: Build bootstrap tarball
+      - name: Build migration image
         run: |
-          nix build .#images.bootstrap \
+          nix build .#images.migration \
             --system aarch64-linux \
-            -L -o result-bootstrap
-          for f in result-bootstrap/tarball/*.tar.zst; do
-            cp "$f" "release/pifinder-bootstrap-${TAG}.tar.zst"
+            -L -o result-migration
+          for f in result-migration/sd-image/*.img.zst; do
+            cp "$f" "release/pifinder-migration-${TAG}.img.zst"
           done
 
       - name: Upload build artifacts
@@ -109,4 +109,3 @@ jobs:
           prerelease: ${{ inputs.type == 'beta' }}
           files: |
             release/pifinder-*.img.zst
-            release/pifinder-bootstrap-*.tar.zst

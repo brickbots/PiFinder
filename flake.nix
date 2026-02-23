@@ -31,7 +31,7 @@
       })
     ];
 
-    mkPifinderSystem = { includeSDImage ? false }: nixpkgs.lib.nixosSystem {
+    mkPifinderSystem = { includeSDImage ? false, includeCatalogImages ? true }: nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
       modules = commonModules ++ [
         { pifinder.devMode = false; }
@@ -100,7 +100,7 @@
             installPhase = "mv catalog_images $out";
           };
         in {
-          sdImage.populateRootCommands = ''
+          sdImage.populateRootCommands = lib.optionalString includeCatalogImages ''
             mkdir -p ./files/home/pifinder/PiFinder_data
             cp -r ${catalog-images} ./files/home/pifinder/PiFinder_data/catalog_images
             chmod -R u+w ./files/home/pifinder/PiFinder_data/catalog_images
@@ -281,96 +281,10 @@
       pifinder-netboot = mkPifinderNetboot;
     };
     images = {
-      # SD card image
+      # SD card image (with catalog images)
       pifinder = (mkPifinderSystem { includeSDImage = true; }).config.system.build.sdImage;
-      # Migration bootstrap tarball
-      bootstrap = let
-        system = mkPifinderSystem {};
-        toplevel = system.config.system.build.toplevel;
-        pkgs = import nixpkgs { system = "aarch64-linux"; };
-        closure = pkgs.closureInfo { rootPaths = [ toplevel ]; };
-        kernelParams = builtins.concatStringsSep " " system.config.boot.kernelParams;
-        configTxt = pkgs.writeText "config.txt" ''
-          [pi3]
-          kernel=u-boot-rpi3.bin
-
-          [pi02]
-          kernel=u-boot-rpi3.bin
-
-          [pi4]
-          kernel=u-boot-rpi4.bin
-          enable_gic=1
-          armstub=armstub8-gic.bin
-
-          disable_overscan=1
-          arm_boost=1
-
-          [cm4]
-          otg_mode=1
-
-          [all]
-          arm_64bit=1
-          enable_uart=1
-          avoid_warnings=1
-        '';
-        fw = "${pkgs.raspberrypifw}/share/raspberrypi/boot";
-      in pkgs.stdenv.mkDerivation {
-        name = "pifinder-bootstrap-tarball";
-        __structuredAttrs = true;
-        unsafeDiscardReferences.out = true;
-        nativeBuildInputs = [ pkgs.zstd ];
-        buildCommand = ''
-          root=$(mktemp -d)
-
-          # Copy store closure into isolated root (avoids sandbox nix symlink)
-          mkdir -p "$root/nix/store"
-          while IFS= read -r path; do
-            cp -a "$path" "$root$path"
-          done < ${closure}/store-paths
-
-          # Nix DB registration for nix-store --load-db
-          cp ${closure}/registration "$root/nix-path-registration"
-
-          # System profile symlink
-          mkdir -p "$root/nix/var/nix/profiles"
-          ln -s ${toplevel} "$root/nix/var/nix/profiles/system"
-
-          # Boot firmware (migration init moves these to FAT32 partition)
-          mkdir -p "$root/boot"
-          cp ${fw}/bootcode.bin "$root/boot/"
-          cp ${fw}/fixup4.dat "$root/boot/"
-          cp ${fw}/start4.elf "$root/boot/"
-          cp ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin "$root/boot/"
-          cp ${ubootSD}/u-boot.bin "$root/boot/u-boot-rpi4.bin"
-          cp ${pkgs.ubootRaspberryPi3_64bit}/u-boot.bin "$root/boot/u-boot-rpi3.bin"
-          cp ${configTxt} "$root/boot/config.txt"
-
-          # Device trees
-          cp ${fw}/bcm2711-rpi-4-b.dtb "$root/boot/"
-          cp ${fw}/bcm2711-rpi-400.dtb "$root/boot/"
-          cp ${fw}/bcm2711-rpi-cm4.dtb "$root/boot/"
-          cp ${fw}/bcm2710-rpi-3-b.dtb "$root/boot/"
-          cp ${fw}/bcm2710-rpi-3-b-plus.dtb "$root/boot/"
-          cp ${fw}/bcm2710-rpi-zero-2.dtb "$root/boot/"
-          cp ${fw}/bcm2710-rpi-zero-2-w.dtb "$root/boot/"
-
-          # Bootloader config
-          mkdir -p "$root/boot/extlinux"
-          cat > "$root/boot/extlinux/extlinux.conf" <<EXTLINUX
-          DEFAULT nixos
-          LABEL nixos
-            LINUX ${toplevel}/kernel
-            INITRD ${toplevel}/initrd
-            APPEND init=${toplevel}/init ${kernelParams}
-          EXTLINUX
-
-          # Create tarball
-          mkdir -p $out/tarball $out/nix-support
-          (cd "$root" && tar --sort=name --mtime='@1' --owner=0 --group=0 --numeric-owner -c * \
-            | zstd -T0 -8 > $out/tarball/pifinder-bootstrap.tar.zst)
-          echo "file system-tarball $out/tarball/pifinder-bootstrap.tar.zst" > $out/nix-support/hydra-build-products
-        '';
-      };
+      # Migration SD image (no catalog images — smaller download)
+      migration = (mkPifinderSystem { includeSDImage = true; includeCatalogImages = false; }).config.system.build.sdImage;
     };
     packages.aarch64-linux = {
       uboot-sd = ubootSD;

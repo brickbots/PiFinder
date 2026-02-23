@@ -1,0 +1,95 @@
+name: Build Migration Image
+
+on:
+  push:
+    branches: [nixos]
+    paths:
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'nixos/**'
+      - '.github/workflows/migration-image.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g. 2.5.0)"
+        required: false
+        default: "2.5.0"
+        type: string
+
+jobs:
+  build-migration-image:
+    runs-on: [self-hosted, aarch64]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=2.5.0" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: pifinder
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Build migration SD image
+        run: |
+          nix build .#images.migration --print-out-paths > /tmp/image_path
+          echo "IMAGE_PATH=$(cat /tmp/image_path)" >> "$GITHUB_ENV"
+
+      - name: Copy image to release area
+        run: |
+          IMAGE_FILE=$(find "$IMAGE_PATH" -type f -name "*.img.zst" | head -1)
+          [ -z "${IMAGE_FILE}" ] && { echo "No .img.zst found"; exit 1; }
+          echo "Found image: ${IMAGE_FILE}"
+
+          RELEASE_NAME="pifinder-nixos-v${VERSION}.img.zst"
+          cp "${IMAGE_FILE}" "/tmp/${RELEASE_NAME}"
+
+          sha256sum "/tmp/${RELEASE_NAME}" | awk '{print $1}' > "/tmp/${RELEASE_NAME}.sha256"
+          echo "SHA256=$(cat /tmp/${RELEASE_NAME}.sha256)" >> "$GITHUB_ENV"
+
+          SIZE_MB=$(( $(stat -c%s "/tmp/${RELEASE_NAME}") / 1048576 ))
+          echo "SIZE_MB=${SIZE_MB}" >> "$GITHUB_ENV"
+          echo "RELEASE_FILE=/tmp/${RELEASE_NAME}" >> "$GITHUB_ENV"
+          echo "RELEASE_NAME=${RELEASE_NAME}" >> "$GITHUB_ENV"
+
+          echo "### Migration Image Built" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **File:** ${RELEASE_NAME}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Size:** ${SIZE_MB} MB" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **SHA256:** \`$(cat /tmp/${RELEASE_NAME}.sha256)\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.RELEASE_NAME }}
+          path: |
+            ${{ env.RELEASE_FILE }}
+            ${{ env.RELEASE_FILE }}.sha256
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}-migration
+          name: PiFinder NixOS Migration v${{ env.VERSION }}
+          body: |
+            NixOS SD card image for migration from Raspbian (no catalog images).
+
+            **Size:** ${{ env.SIZE_MB }} MB
+            **SHA256:** `${{ env.SHA256 }}`
+          files: |
+            ${{ env.RELEASE_FILE }}
+            ${{ env.RELEASE_FILE }}.sha256
