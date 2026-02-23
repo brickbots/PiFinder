@@ -31,7 +31,7 @@
       })
     ];
 
-    mkPifinderSystem = { includeSDImage ? false, includeCatalogImages ? true }: nixpkgs.lib.nixosSystem {
+    mkPifinderSystem = { includeSDImage ? false }: nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
       modules = commonModules ++ [
         { pifinder.devMode = false; }
@@ -100,7 +100,7 @@
             installPhase = "mv catalog_images $out";
           };
         in {
-          sdImage.populateRootCommands = lib.optionalString includeCatalogImages ''
+          sdImage.populateRootCommands = ''
             mkdir -p ./files/home/pifinder/PiFinder_data
             cp -r ${catalog-images} ./files/home/pifinder/PiFinder_data/catalog_images
             chmod -R u+w ./files/home/pifinder/PiFinder_data/catalog_images
@@ -281,10 +281,7 @@
       pifinder-netboot = mkPifinderNetboot;
     };
     images = {
-      # SD card image (with catalog images)
       pifinder = (mkPifinderSystem { includeSDImage = true; }).config.system.build.sdImage;
-      # Migration SD image (no catalog images — smaller download)
-      migration = (mkPifinderSystem { includeSDImage = true; includeCatalogImages = false; }).config.system.build.sdImage;
     };
     packages.aarch64-linux = {
       uboot-sd = ubootSD;
