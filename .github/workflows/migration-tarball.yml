@@ -50,11 +50,15 @@ jobs:
           nix build .#images.pifinder --print-out-paths > /tmp/image_path
           echo "IMAGE_PATH=$(cat /tmp/image_path)" >> "$GITHUB_ENV"
 
-      - name: Extract boot and rootfs from image
+      - name: Clean up previous runs
         run: |
           sudo umount /mnt/boot /mnt/root 2>/dev/null || true
           sudo losetup -D 2>/dev/null || true
           sudo rm -rf /tmp/tarball-staging /tmp/pifinder.img /mnt/boot /mnt/root
+          rm -f /tmp/pifinder-nixos-*.tar.zst /tmp/pifinder-nixos-*.tar.zst.sha256
+
+      - name: Extract boot and rootfs from image
+        run: |
 
           IMAGE_FILE=$(find "$IMAGE_PATH" -type f \( -name "*.img" -o -name "*.img.zst" \) | head -1)
           echo "Found image: $IMAGE_FILE"
