@@ -39,6 +39,14 @@ in {
     ];
   };
 
+  # Don't pull nixpkgs source into closure (~189 MB)
+  nix.channel.enable = false;
+  nix.registry = {};
+  nix.nixPath = [];
+
+  # Strip NetworkManager VPN plugins (openconnect/stoken/gtk3 deps)
+  networking.networkmanager.plugins = lib.mkForce [];
+
   # ---------------------------------------------------------------------------
   # SD card optimizations
   # ---------------------------------------------------------------------------
