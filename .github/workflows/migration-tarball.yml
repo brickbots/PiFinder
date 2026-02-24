@@ -45,9 +45,19 @@ jobs:
           name: pifinder
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
-      - name: Build SD image
+      - name: Build full system toplevel
         run: |
-          nix build .#images.pifinder --print-out-paths > /tmp/image_path
+          FULL_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel --print-out-paths)
+          echo "FULL_PATH=$FULL_PATH" >> "$GITHUB_ENV"
+          echo "Full system toplevel: $FULL_PATH"
+
+      - name: Push full system to cachix
+        run: |
+          cachix push pifinder "$FULL_PATH"
+
+      - name: Build migration SD image
+        run: |
+          nix build .#images.pifinder-migration --print-out-paths > /tmp/image_path
           echo "IMAGE_PATH=$(cat /tmp/image_path)" >> "$GITHUB_ENV"
 
       - name: Clean up previous runs
@@ -59,7 +69,6 @@ jobs:
 
       - name: Extract boot and rootfs from image
         run: |
-
           IMAGE_FILE=$(find "$IMAGE_PATH" -type f \( -name "*.img" -o -name "*.img.zst" \) | head -1)
           echo "Found image: $IMAGE_FILE"
 
@@ -79,12 +88,14 @@ jobs:
           sudo cp -a /mnt/boot /tmp/tarball-staging/boot
           sudo cp -a /mnt/root /tmp/tarball-staging/rootfs
 
-          # Remove catalog images (large, not needed for migration)
-          sudo rm -rf /tmp/tarball-staging/rootfs/home/pifinder/PiFinder_data/catalog_images
-
           sudo umount /mnt/boot /mnt/root
           sudo losetup -d "${LOOP}"
           rm -f /tmp/pifinder.img
+
+      - name: Inject first-boot target
+        run: |
+          sudo mkdir -p /tmp/tarball-staging/rootfs/var/lib/pifinder
+          echo "$FULL_PATH" | sudo tee /tmp/tarball-staging/rootfs/var/lib/pifinder/first-boot-target
 
       - name: Create migration tarball
         run: |
@@ -124,7 +135,7 @@ jobs:
           name: PiFinder NixOS Migration v${{ env.VERSION }}
           body: |
             NixOS migration tarball (boot + rootfs, no catalog images).
-            Extracted from SD image, for use by migration initramfs.
+            Extracted from migration SD image with first-boot deferred download.
 
             **Size:** ${{ env.SIZE_MB }} MB
             **SHA256:** `${{ env.SHA256 }}`

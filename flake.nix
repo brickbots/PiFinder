@@ -5,6 +5,20 @@
   };
 
   outputs = { self, nixpkgs, nixos-hardware, ... }: let
+    # Headless config shared by all profiles
+    headlessModule = { lib, ... }: {
+      services.xserver.enable = false;
+      security.polkit.enable = true;
+      fonts.fontconfig.enable = false;
+      documentation.enable = false;
+      documentation.man.enable = false;
+      documentation.nixos.enable = false;
+      xdg.portal.enable = false;
+      services.pipewire.enable = false;
+      services.pulseaudio.enable = false;
+      boot.initrd.availableKernelModules = lib.mkForce [ "mmc_block" "usbhid" "usb_storage" "vc4" ];
+    };
+
     # Shared modules for all PiFinder configurations
     commonModules = [
       nixos-hardware.nixosModules.raspberry-pi-4
@@ -16,19 +30,16 @@
       ({ ... }: {
         _module.args.pifinderGitRev = self.shortRev or self.dirtyShortRev or "unknown";
       })
-      # Headless — strip X11, fonts, docs, desktop bloat
-      ({ lib, ... }: {
-        services.xserver.enable = false;
-        security.polkit.enable = true;
-        fonts.fontconfig.enable = false;
-        documentation.enable = false;
-        documentation.man.enable = false;
-        documentation.nixos.enable = false;
-        xdg.portal.enable = false;
-        services.pipewire.enable = false;
-        services.pulseaudio.enable = false;
-        boot.initrd.availableKernelModules = lib.mkForce [ "mmc_block" "usbhid" "usb_storage" "vc4" ];
-      })
+      headlessModule
+    ];
+
+    # Migration profile — minimal bootable system, full config fetched on first boot
+    migrationModules = [
+      nixos-hardware.nixosModules.raspberry-pi-4
+      ./nixos/hardware.nix
+      ./nixos/networking.nix
+      ./nixos/migration.nix
+      headlessModule
     ];
 
     mkPifinderSystem = { includeSDImage ? false }: nixpkgs.lib.nixosSystem {
@@ -130,6 +141,97 @@
         })
       ] ++ nixpkgs.lib.optionals (!includeSDImage) [
         # Minimal filesystem stub for closure builds (CI)
+        ({ lib, ... }: {
+          fileSystems."/" = {
+            device = "/dev/disk/by-label/NIXOS_SD";
+            fsType = "ext4";
+          };
+          fileSystems."/boot/firmware" = {
+            device = "/dev/disk/by-label/FIRMWARE";
+            fsType = "vfat";
+          };
+        })
+      ];
+    };
+
+    mkPifinderMigration = { includeSDImage ? false }: nixpkgs.lib.nixosSystem {
+      system = "aarch64-linux";
+      modules = migrationModules ++ [
+        { pifinder.devMode = false; }
+        ({ lib, ... }: {
+          boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" ];
+          boot.loader.timeout = 0;
+        })
+      ] ++ nixpkgs.lib.optionals includeSDImage [
+        "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+        ({ config, pkgs, lib, ... }:
+        let
+          ubootSD = pkgs.ubootRaspberryPi4_64bit.override {
+            extraConfig = ''
+              CONFIG_CMD_PXE=y
+              CONFIG_CMD_SYSBOOT=y
+              CONFIG_BOOTDELAY=0
+              CONFIG_PREBOOT=""
+              CONFIG_BOOTCOMMAND="sysboot mmc 0:2 any 0x02400000 /boot/extlinux/extlinux.conf"
+              CONFIG_PCI=n
+              CONFIG_USB=n
+              CONFIG_CMD_USB=n
+              CONFIG_CMD_PCI=n
+              CONFIG_USB_KEYBOARD=n
+              CONFIG_BCMGENET=n
+            '';
+          };
+          configTxt = pkgs.writeText "config.txt" ''
+            [pi3]
+            kernel=u-boot-rpi3.bin
+
+            [pi02]
+            kernel=u-boot-rpi3.bin
+
+            [pi4]
+            kernel=u-boot-rpi4.bin
+            enable_gic=1
+            armstub=armstub8-gic.bin
+
+            disable_overscan=1
+            arm_boost=1
+
+            [cm4]
+            otg_mode=1
+
+            [all]
+            arm_64bit=1
+            enable_uart=1
+            avoid_warnings=1
+          '';
+        in {
+          sdImage.populateRootCommands = ''
+            mkdir -p ./files/home/pifinder/PiFinder_data
+          '';
+          sdImage.populateFirmwareCommands = lib.mkForce ''
+            (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)
+
+            cp ${configTxt} firmware/config.txt
+
+            # Pi3 files
+            cp ${pkgs.ubootRaspberryPi3_64bit}/u-boot.bin firmware/u-boot-rpi3.bin
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-2-b.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b-plus.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-cm3.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2-w.dtb firmware/
+
+            # Pi4 files
+            cp ${ubootSD}/u-boot.bin firmware/u-boot-rpi4.bin
+            cp ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin firmware/armstub8-gic.bin
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-4-b.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-400.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4s.dtb firmware/
+          '';
+        })
+      ] ++ nixpkgs.lib.optionals (!includeSDImage) [
         ({ lib, ... }: {
           fileSystems."/" = {
             device = "/dev/disk/by-label/NIXOS_SD";
@@ -277,11 +379,14 @@
     nixosConfigurations = {
       # SD card boot — camera baked into DT, switched via specialisations
       pifinder = mkPifinderSystem {};
+      # Migration — minimal bootable system, defers full system to first boot
+      pifinder-migration = mkPifinderMigration {};
       # NFS netboot — for development on proxnix
       pifinder-netboot = mkPifinderNetboot;
     };
     images = {
       pifinder = (mkPifinderSystem { includeSDImage = true; }).config.system.build.sdImage;
+      pifinder-migration = (mkPifinderMigration { includeSDImage = true; }).config.system.build.sdImage;
     };
     packages.aarch64-linux = {
       uboot-sd = ubootSD;
