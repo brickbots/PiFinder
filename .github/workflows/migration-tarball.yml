@@ -131,3 +131,19 @@ jobs:
           files: |
             ${{ env.TARBALL }}
             ${{ env.TARBALL }}.sha256
+
+      - name: Update migration branch with new SHA256
+        run: |
+          git fetch origin migration
+          git checkout migration
+          sed -i "s/\"migration_size_mb\": [0-9]*/\"migration_size_mb\": ${SIZE_MB}/" python/PiFinder/ui/software.py
+          sed -i "s/\"migration_sha256\": \"[a-f0-9]*/\"migration_sha256\": \"${SHA256}/" python/PiFinder/ui/software.py
+          if git diff --quiet; then
+            echo "No changes needed"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add python/PiFinder/ui/software.py
+            git commit -m "fix: auto-update migration tarball SHA256 and size"
+            git push origin migration
+          fi
