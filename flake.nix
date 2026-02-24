@@ -61,44 +61,6 @@
         "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
         ({ config, pkgs, lib, ... }:
         let
-          ubootSD = pkgs.ubootRaspberryPi4_64bit.override {
-            extraConfig = ''
-              CONFIG_CMD_PXE=y
-              CONFIG_CMD_SYSBOOT=y
-              CONFIG_BOOTDELAY=0
-              CONFIG_PREBOOT=""
-              CONFIG_BOOTCOMMAND="sysboot mmc 0:2 any 0x02400000 /boot/extlinux/extlinux.conf"
-              CONFIG_PCI=n
-              CONFIG_USB=n
-              CONFIG_CMD_USB=n
-              CONFIG_CMD_PCI=n
-              CONFIG_USB_KEYBOARD=n
-              CONFIG_BCMGENET=n
-            '';
-          };
-          configTxt = pkgs.writeText "config.txt" ''
-            [pi3]
-            kernel=u-boot-rpi3.bin
-
-            [pi02]
-            kernel=u-boot-rpi3.bin
-
-            [pi4]
-            kernel=u-boot-rpi4.bin
-            enable_gic=1
-            armstub=armstub8-gic.bin
-
-            disable_overscan=1
-            arm_boost=1
-
-            [cm4]
-            otg_mode=1
-
-            [all]
-            arm_64bit=1
-            enable_uart=1
-            avoid_warnings=1
-          '';
           catalog-images = pkgs.stdenv.mkDerivation {
             pname = "pifinder-catalog-images";
             version = "1.0";
@@ -164,47 +126,7 @@
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
         "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
-        ({ config, pkgs, lib, ... }:
-        let
-          ubootSD = pkgs.ubootRaspberryPi4_64bit.override {
-            extraConfig = ''
-              CONFIG_CMD_PXE=y
-              CONFIG_CMD_SYSBOOT=y
-              CONFIG_BOOTDELAY=0
-              CONFIG_PREBOOT=""
-              CONFIG_BOOTCOMMAND="sysboot mmc 0:2 any 0x02400000 /boot/extlinux/extlinux.conf"
-              CONFIG_PCI=n
-              CONFIG_USB=n
-              CONFIG_CMD_USB=n
-              CONFIG_CMD_PCI=n
-              CONFIG_USB_KEYBOARD=n
-              CONFIG_BCMGENET=n
-            '';
-          };
-          configTxt = pkgs.writeText "config.txt" ''
-            [pi3]
-            kernel=u-boot-rpi3.bin
-
-            [pi02]
-            kernel=u-boot-rpi3.bin
-
-            [pi4]
-            kernel=u-boot-rpi4.bin
-            enable_gic=1
-            armstub=armstub8-gic.bin
-
-            disable_overscan=1
-            arm_boost=1
-
-            [cm4]
-            otg_mode=1
-
-            [all]
-            arm_64bit=1
-            enable_uart=1
-            avoid_warnings=1
-          '';
-        in {
+        ({ config, pkgs, lib, ... }: {
           sdImage.populateRootCommands = ''
             mkdir -p ./files/home/pifinder/PiFinder_data
           '';
@@ -375,6 +297,30 @@
       '';
     };
 
+    configTxt = pkgsAarch64.writeText "config.txt" ''
+      [pi3]
+      kernel=u-boot-rpi3.bin
+
+      [pi02]
+      kernel=u-boot-rpi3.bin
+
+      [pi4]
+      kernel=u-boot-rpi4.bin
+      enable_gic=1
+      armstub=armstub8-gic.bin
+
+      disable_overscan=1
+      arm_boost=1
+
+      [cm4]
+      otg_mode=1
+
+      [all]
+      arm_64bit=1
+      enable_uart=1
+      avoid_warnings=1
+    '';
+
   in {
     nixosConfigurations = {
       # SD card boot — camera baked into DT, switched via specialisations
@@ -391,6 +337,30 @@
     packages.aarch64-linux = {
       uboot-sd = ubootSD;
       uboot-netboot = ubootNetboot;
+      migration-boot-firmware = pkgsAarch64.runCommand "migration-boot-firmware" {} ''
+        mkdir -p $out
+        FW=${pkgsAarch64.raspberrypifw}/share/raspberrypi/boot
+
+        # RPi firmware
+        cp $FW/bootcode.bin $FW/fixup*.dat $FW/start*.elf $out/
+
+        # Pi3 DTBs
+        cp $FW/bcm2710-rpi-2-b.dtb $FW/bcm2710-rpi-3-b.dtb $FW/bcm2710-rpi-3-b-plus.dtb $out/
+        cp $FW/bcm2710-rpi-cm3.dtb $FW/bcm2710-rpi-zero-2.dtb $FW/bcm2710-rpi-zero-2-w.dtb $out/
+
+        # Pi4 DTBs
+        cp $FW/bcm2711-rpi-4-b.dtb $FW/bcm2711-rpi-400.dtb $FW/bcm2711-rpi-cm4.dtb $FW/bcm2711-rpi-cm4s.dtb $out/
+
+        # config.txt
+        cp ${configTxt} $out/config.txt
+
+        # u-boot binaries
+        cp ${pkgsAarch64.ubootRaspberryPi3_64bit}/u-boot.bin $out/u-boot-rpi3.bin
+        cp ${ubootSD}/u-boot.bin $out/u-boot-rpi4.bin
+
+        # armstub
+        cp ${pkgsAarch64.raspberrypi-armstubs}/armstub8-gic.bin $out/armstub8-gic.bin
+      '';
     };
 
     devShells.x86_64-linux.default = let

@@ -192,59 +192,103 @@ jobs:
           echo "FULL_PATH=$FULL_PATH" >> "$GITHUB_ENV"
           echo "Full system toplevel: $FULL_PATH"
 
-      - name: Build migration SD image
+      - name: Build migration toplevel and boot firmware
         run: |
-          nix build .#images.pifinder-migration --print-out-paths > /tmp/image_path
-          echo "IMAGE_PATH=$(cat /tmp/image_path)" >> "$GITHUB_ENV"
+          MIGRATION_PATH=$(nix build \
+            .#nixosConfigurations.pifinder-migration.config.system.build.toplevel \
+            --json | jq -r '.[].outputs.out')
+          echo "MIGRATION_PATH=$MIGRATION_PATH" >> "$GITHUB_ENV"
+          echo "Migration toplevel: $MIGRATION_PATH"
+
+          BOOT_FW=$(nix build .#packages.aarch64-linux.migration-boot-firmware \
+            --json | jq -r '.[].outputs.out')
+          echo "BOOT_FW=$BOOT_FW" >> "$GITHUB_ENV"
+          echo "Boot firmware: $BOOT_FW"
 
       - name: Clean up previous runs
         run: |
-          sudo umount /mnt/boot /mnt/root 2>/dev/null || true
-          sudo losetup -D 2>/dev/null || true
-          sudo rm -rf /tmp/tarball-staging /tmp/pifinder.img /mnt/boot /mnt/root
+          rm -rf /tmp/tarball-staging
           rm -f /tmp/pifinder-nixos-*.tar.zst /tmp/pifinder-nixos-*.tar.zst.sha256
 
-      - name: Extract boot and rootfs from image
+      - name: Assemble boot partition
         run: |
-          IMAGE_FILE=$(find "$IMAGE_PATH" -type f \( -name "*.img" -o -name "*.img.zst" \) | head -1)
-          echo "Found image: $IMAGE_FILE"
+          set -euo pipefail
+          mkdir -p /tmp/tarball-staging/boot/{nixos,extlinux}
 
-          if [[ "${IMAGE_FILE}" == *.zst ]]; then
-            zstd -d "${IMAGE_FILE}" -o /tmp/pifinder.img
-          else
-            cp "${IMAGE_FILE}" /tmp/pifinder.img
-          fi
+          # RPi firmware, u-boot, config.txt, firmware DTBs
+          cp "$BOOT_FW"/* /tmp/tarball-staging/boot/
 
-          LOOP=$(sudo losetup --find --show --partscan /tmp/pifinder.img)
+          # Kernel, initrd, dtbs from migration toplevel
+          KERNEL=$(readlink -f "$MIGRATION_PATH/kernel")
+          INITRD=$(readlink -f "$MIGRATION_PATH/initrd")
+          DTBS=$(readlink -f "$MIGRATION_PATH/dtbs")
 
-          sudo mkdir -p /mnt/boot /mnt/root
-          sudo mount "${LOOP}p1" /mnt/boot
-          sudo mount "${LOOP}p2" /mnt/root
+          KERNEL_NAME=$(basename "$KERNEL")
+          INITRD_NAME=$(basename "$INITRD")
+          DTBS_NAME=$(basename "$DTBS")
 
-          mkdir -p /tmp/tarball-staging
-          sudo cp -a /mnt/boot /tmp/tarball-staging/boot
-          sudo cp -a /mnt/root /tmp/tarball-staging/rootfs
+          cp "$KERNEL" "/tmp/tarball-staging/boot/nixos/$KERNEL_NAME"
+          cp "$INITRD" "/tmp/tarball-staging/boot/nixos/$INITRD_NAME"
+          cp -r "$DTBS" "/tmp/tarball-staging/boot/nixos/$DTBS_NAME"
 
-          sudo umount /mnt/boot /mnt/root
-          sudo losetup -d "${LOOP}"
-          rm -f /tmp/pifinder.img
+          # Generate extlinux.conf
+          KERNEL_PARAMS=$(cat "$MIGRATION_PATH/kernel-params")
+          cat > /tmp/tarball-staging/boot/extlinux/extlinux.conf <<EXTEOF
+          TIMEOUT 0
+          DEFAULT nixos-default
 
-      - name: Inject first-boot target
+          LABEL nixos-default
+            MENU LABEL NixOS - Default
+            LINUX ../nixos/$KERNEL_NAME
+            INITRD ../nixos/$INITRD_NAME
+            APPEND init=$MIGRATION_PATH/init $KERNEL_PARAMS
+            FDT ../nixos/$DTBS_NAME/broadcom/bcm2711-rpi-4-b.dtb
+          EXTEOF
+
+          echo "Boot partition assembled"
+          du -sh /tmp/tarball-staging/boot/
+
+      - name: Assemble rootfs from closure
         run: |
-          sudo mkdir -p /tmp/tarball-staging/rootfs/var/lib/pifinder
-          echo "$FULL_PATH" | sudo tee /tmp/tarball-staging/rootfs/var/lib/pifinder/first-boot-target
+          set -euo pipefail
+          mkdir -p /tmp/tarball-staging/rootfs/nix/var/nix/{db,gcroots,profiles}
+
+          # Copy nix store closure via tar (faster than per-path cp)
+          echo "Copying nix store closure..."
+          CLOSURE_COUNT=$(nix-store -qR "$MIGRATION_PATH" | wc -l)
+          echo "Closure contains $CLOSURE_COUNT store paths"
+          nix-store -qR "$MIGRATION_PATH" \
+            | tar -cf - -T - \
+            | tar -xf - -C /tmp/tarball-staging/rootfs
+
+          # System profile symlink
+          ln -s "$MIGRATION_PATH" /tmp/tarball-staging/rootfs/nix/var/nix/profiles/system
+
+          # Nix DB registration (loaded by nix-path-registration service on first boot)
+          echo "Generating Nix DB registration..."
+          nix-store --dump-db $(nix-store -qR "$MIGRATION_PATH") \
+            > /tmp/tarball-staging/rootfs/nix-path-registration
+
+          # First-boot target: full system to download from cachix
+          mkdir -p /tmp/tarball-staging/rootfs/var/lib/pifinder
+          echo "$FULL_PATH" > /tmp/tarball-staging/rootfs/var/lib/pifinder/first-boot-target
+
+          # PiFinder data directory
+          mkdir -p /tmp/tarball-staging/rootfs/home/pifinder/PiFinder_data
+
+          echo "Rootfs assembled"
+          du -sh /tmp/tarball-staging/rootfs/
 
       - name: Create migration tarball
         run: |
           TARBALL="pifinder-nixos-v${VERSION}.tar.zst"
 
-          UNCOMPRESSED_MB=$(sudo du -sm /tmp/tarball-staging | awk '{print $1}')
+          UNCOMPRESSED_MB=$(du -sm /tmp/tarball-staging | awk '{print $1}')
           echo "Uncompressed staging: ${UNCOMPRESSED_MB} MB"
 
-          sudo tar -C /tmp/tarball-staging -cf - \
-            --exclude='*/lost+found' \
-            boot rootfs | zstd -T0 -19 -o "/tmp/${TARBALL}"
-          sudo rm -rf /tmp/tarball-staging
+          tar -C /tmp/tarball-staging -cf - boot rootfs \
+            | zstd -T0 -19 -o "/tmp/${TARBALL}"
+          rm -rf /tmp/tarball-staging
 
           echo "TARBALL=/tmp/${TARBALL}" >> "$GITHUB_ENV"
           echo "TARBALL_NAME=${TARBALL}" >> "$GITHUB_ENV"
@@ -260,6 +304,7 @@ jobs:
           echo "- **Uncompressed:** ${UNCOMPRESSED_MB} MB" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Compressed:** ${SIZE_MB} MB" >> "$GITHUB_STEP_SUMMARY"
           echo "- **SHA256:** \`$(cat /tmp/${TARBALL}.sha256)\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Method:** direct closure assembly (no SD image)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -276,7 +321,7 @@ jobs:
           name: PiFinder NixOS Migration v${{ env.VERSION }}
           body: |
             NixOS migration tarball (boot + rootfs, no catalog images).
-            Extracted from migration SD image with first-boot deferred download.
+            Assembled from nix store closure with first-boot deferred download.
 
             **Size:** ${{ env.SIZE_MB }} MB
             **SHA256:** `${{ env.SHA256 }}`
