@@ -207,7 +207,7 @@ jobs:
 
       - name: Clean up previous runs
         run: |
-          rm -rf /tmp/tarball-staging
+          sudo rm -rf /tmp/tarball-staging
           rm -f /tmp/pifinder-nixos-*.tar.zst /tmp/pifinder-nixos-*.tar.zst.sha256
 
       - name: Assemble boot partition
@@ -288,7 +288,7 @@ jobs:
 
           tar -C /tmp/tarball-staging -cf - boot rootfs \
             | zstd -T0 -19 -o "/tmp/${TARBALL}"
-          rm -rf /tmp/tarball-staging
+          sudo rm -rf /tmp/tarball-staging
 
           echo "TARBALL=/tmp/${TARBALL}" >> "$GITHUB_ENV"
           echo "TARBALL_NAME=${TARBALL}" >> "$GITHUB_ENV"
