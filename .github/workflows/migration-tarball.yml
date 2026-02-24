@@ -52,6 +52,8 @@ jobs:
 
       - name: Extract boot and rootfs from image
         run: |
+          sudo umount /mnt/boot /mnt/root 2>/dev/null || true
+          sudo losetup -D 2>/dev/null || true
           sudo rm -rf /tmp/tarball-staging /tmp/pifinder.img /mnt/boot /mnt/root
 
           IMAGE_FILE=$(find "$IMAGE_PATH" -type f \( -name "*.img" -o -name "*.img.zst" \) | head -1)
