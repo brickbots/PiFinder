@@ -15,7 +15,7 @@ in {
   # Minimal system packages for migration troubleshooting
   # ---------------------------------------------------------------------------
   environment.systemPackages = with pkgs; [
-    vim
+    nano
     htop
     e2fsprogs
     dosfstools
@@ -39,10 +39,16 @@ in {
     ];
   };
 
-  # Don't pull nixpkgs source into closure (~189 MB)
+  # Don't pull nixpkgs source into closure (~186 MB)
   nix.channel.enable = false;
-  nix.registry = {};
-  nix.nixPath = [];
+  nix.registry = lib.mkForce {};
+  nix.nixPath = lib.mkForce [];
+
+  # nixos-rebuild-ng pulls in Python 3.13 (~110 MB) — not needed for migration
+  system.disableInstallerTools = true;
+
+  # Perl is included by default (~59 MB) — not needed for migration
+  environment.defaultPackages = lib.mkForce [];
 
   # Strip NetworkManager VPN plugins (openconnect/stoken/gtk3 deps)
   networking.networkmanager.plugins = lib.mkForce [];
