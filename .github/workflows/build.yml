@@ -238,6 +238,9 @@ jobs:
         run: |
           TARBALL="pifinder-nixos-v${VERSION}.tar.zst"
 
+          UNCOMPRESSED_MB=$(sudo du -sm /tmp/tarball-staging | awk '{print $1}')
+          echo "Uncompressed staging: ${UNCOMPRESSED_MB} MB"
+
           sudo tar -C /tmp/tarball-staging -cf - \
             --exclude='*/lost+found' \
             boot rootfs | zstd -T0 -19 -o "/tmp/${TARBALL}"
@@ -254,7 +257,8 @@ jobs:
 
           echo "### Migration Tarball Built" >> "$GITHUB_STEP_SUMMARY"
           echo "- **File:** ${TARBALL}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Size:** ${SIZE_MB} MB" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Uncompressed:** ${UNCOMPRESSED_MB} MB" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Compressed:** ${SIZE_MB} MB" >> "$GITHUB_STEP_SUMMARY"
           echo "- **SHA256:** \`$(cat /tmp/${TARBALL}.sha256)\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload artifact
