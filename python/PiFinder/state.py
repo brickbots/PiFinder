@@ -258,7 +258,9 @@ class SharedStateObj:
         self.__imu = None
         self.__location: Location = Location()
         self.__sqm: SQM = SQM()
-        self.__noise_floor: float = 10.0  # Adaptive noise floor in ADU (default fallback)
+        self.__noise_floor: float = (
+            10.0  # Adaptive noise floor in ADU (default fallback)
+        )
         self.__sqm_details: dict = {}  # Full SQM calculation details for calibration
         self.__datetime = None
         self.__datetime_time = None

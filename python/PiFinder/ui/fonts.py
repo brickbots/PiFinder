@@ -4,7 +4,6 @@
 from pathlib import Path
 from PIL import ImageFont
 import gettext
-import os
 
 
 class Font:
@@ -46,31 +45,30 @@ class Fonts:
     ):
         base_dir = Path(__file__).parent.parent.parent
         font_path = str(Path(Path.cwd(), "../fonts"))
-        print(font_path) 
+        print(font_path)
         # CHANGED: Check if Chinese language is active
         is_chinese = False
         try:
             locale_path = str(base_dir / "locale")
             # Try to load Chinese translation
             lang = gettext.translation(
-                "messages", 
-                locale_path, 
-                languages=["zh"], 
-                fallback=True
+                "messages", locale_path, languages=["zh"], fallback=True
             )
             # Check if translation is actually Chinese (not fallback)
             info = lang.info()
-            if info and info.get('language', '').startswith('zh'):
+            if info and info.get("language", "").startswith("zh"):
                 # Additional check: verify translation works
                 test = lang.gettext("Star")
                 if test and test != "Star":
                     is_chinese = True
         except Exception:
             pass
-        
+
         if is_chinese:
             # Use Chinese font for Chinese language
-            chinesettf = str(Path(font_path, "sarasa-mono-sc-light-nerd-font+patched.ttf"))
+            chinesettf = str(
+                Path(font_path, "sarasa-mono-sc-light-nerd-font+patched.ttf")
+            )
             boldttf = chinesettf
             regularttf = chinesettf
         else:
