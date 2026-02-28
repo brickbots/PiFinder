@@ -32,7 +32,6 @@ from multiprocessing.managers import BaseManager
 
 import PiFinder.i18n  # noqa: F401
 from PiFinder import solver
-from PiFinder import integrator
 from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
@@ -971,14 +970,20 @@ if __name__ == "__main__":
         hardware_platform = "Fake"
         display_hardware = "pg_128"
         imu = importlib.import_module("PiFinder.imu_fake")
+        integrator = importlib.import_module("PiFinder.integrator_classic")
         gps_monitor = importlib.import_module("PiFinder.gps_fake")
     else:
         hardware_platform = "Pi"
         display_hardware = "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
 
-        imu = importlib.import_module("PiFinder.imu_pi")
         cfg = config.Config()
+        if cfg.get_option("imu_dead_reckoning") == "quaternion":
+            imu = importlib.import_module("PiFinder.imu_pi")
+            integrator = importlib.import_module("PiFinder.integrator")
+        else:
+            imu = importlib.import_module("PiFinder.imu_pi_classic")
+            integrator = importlib.import_module("PiFinder.integrator_classic")
 
         # verify and sync GPSD baud rate
         try:
