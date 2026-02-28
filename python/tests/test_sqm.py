@@ -234,7 +234,9 @@ class TestSQMCalculation:
 
         # Check extinction values (ASTAP convention: 0 at zenith)
         # Pickering airmass at 30° ≈ 1.995, so extinction ≈ 0.28 * 0.995 ≈ 0.279
-        assert details_zenith["extinction_for_altitude"] == pytest.approx(0.0, abs=0.001)
+        assert details_zenith["extinction_for_altitude"] == pytest.approx(
+            0.0, abs=0.001
+        )
         expected_ext_30 = 0.28 * (sqm._pickering_airmass(30.0) - 1)
         assert details_30deg["extinction_for_altitude"] == pytest.approx(
             expected_ext_30, abs=0.001

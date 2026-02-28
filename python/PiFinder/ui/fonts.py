@@ -3,8 +3,7 @@
 
 from pathlib import Path
 from PIL import ImageFont
-import gettext
-import os
+from PiFinder import config
 
 
 class Font:
@@ -21,9 +20,16 @@ class Font:
         screen_width: int = 128,
         height: int = 0,
         width: int = 0,
+        use_layout_engine=True,
     ):
-        # CHANGED: Removed layout_engine for better Unicode support
-        self.font = ImageFont.truetype(ttf_file, size)
+        # Some languages (zh) work better without layout_engine
+        # for better Unicode support
+        if use_layout_engine:
+            self.font = ImageFont.truetype(
+                ttf_file, size, layout_engine=ImageFont.Layout.BASIC
+            )
+        else:
+            self.font = ImageFont.truetype(ttf_file, size)
 
         # calculate height/width
         # Use several chars to get space between
@@ -44,44 +50,31 @@ class Fonts:
         huge_size=35,
         screen_width=128,
     ):
-        base_dir = Path(__file__).parent.parent.parent
         font_path = str(Path(Path.cwd(), "../fonts"))
-        print(font_path) 
-        # CHANGED: Check if Chinese language is active
-        is_chinese = False
-        try:
-            locale_path = str(base_dir / "locale")
-            # Try to load Chinese translation
-            lang = gettext.translation(
-                "messages", 
-                locale_path, 
-                languages=["zh"], 
-                fallback=True
-            )
-            # Check if translation is actually Chinese (not fallback)
-            info = lang.info()
-            if info and info.get('language', '').startswith('zh'):
-                # Additional check: verify translation works
-                test = lang.gettext("Star")
-                if test and test != "Star":
-                    is_chinese = True
-        except Exception:
-            pass
-        
-        if is_chinese:
+
+        # Check for chinese language specifically
+        cfg = config.Config()
+        lang = cfg.get_option("language", "en")
+        if lang == "zh":
             # Use Chinese font for Chinese language
-            chinesettf = str(Path(font_path, "sarasa-mono-sc-light-nerd-font+patched.ttf"))
+            chinesettf = str(
+                Path(font_path, "sarasa-mono-sc-light-nerd-font+patched.ttf")
+            )
             boldttf = chinesettf
             regularttf = chinesettf
+            use_layout_engine = False
         else:
             # Use default fonts for other languages
             boldttf = str(Path(font_path, "RobotoMonoNerdFontMono-Bold.ttf"))
             regularttf = str(Path(font_path, "RobotoMonoNerdFontMono-Regular.ttf"))
-        print(boldttf)
-        self.base = Font(boldttf, base_size, screen_width)  # 10
-        self.bold = Font(boldttf, bold_size, screen_width)  # 12
-        self.large = Font(regularttf, large_size, screen_width)  # 15
-        self.small = Font(boldttf, small_size, screen_width)  # 8
-        self.huge = Font(boldttf, huge_size, screen_width)  # 35
+            use_layout_engine = True
 
-        self.icon_bold_large = Font(boldttf, int(base_size * 1.5), screen_width)  # 15
+        self.base = Font(boldttf, base_size, screen_width, use_layout_engine)  # 10
+        self.bold = Font(boldttf, bold_size, screen_width, use_layout_engine)  # 12
+        self.large = Font(regularttf, large_size, screen_width, use_layout_engine)  # 15
+        self.small = Font(boldttf, small_size, screen_width, use_layout_engine)  # 8
+        self.huge = Font(boldttf, huge_size, screen_width, use_layout_engine)  # 35
+
+        self.icon_bold_large = Font(
+            boldttf, int(base_size * 1.5), screen_width, use_layout_engine
+        )  # 15

@@ -32,11 +32,12 @@ def test_object_counts():
         "Abl": 79,
         "Arp": 337,  # should be 338, arp-1 is missing from the original sqlite source database !
         "TLK": 93,
+        "Har": 147,
     }
 
     # catalog count
     num_catalogs = len(list(db.get_catalogs()))
-    assert num_catalogs == 19
+    assert num_catalogs == 20
     actual_catalogs = [row["catalog_code"] for row in db.get_catalogs()]
     expected_catalogs = list(catalog_counts.keys())
     missing_catalogs = set(expected_catalogs) - set(actual_catalogs)
