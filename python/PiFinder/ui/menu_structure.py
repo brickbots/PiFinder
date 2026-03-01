@@ -1092,7 +1092,7 @@ pifinder_menu = {
                     "items": [
                         {"name": "SQM", "class": UISQM},
                         {
-                            "name": _("IMU DR"),
+                            "name": _("Integrator"),
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "imu_dead_reckoning",
