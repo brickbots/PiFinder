@@ -20,8 +20,8 @@ class Font:
         screen_width: int = 128,
         height: int = 0,
         width: int = 0,
-        use_layout_engine=True,
-    ):
+        use_layout_engine: bool = True,
+    ) -> None:
         # Some languages (zh) work better without layout_engine
         # for better Unicode support
         if use_layout_engine:
@@ -69,12 +69,25 @@ class Fonts:
             regularttf = str(Path(font_path, "RobotoMonoNerdFontMono-Regular.ttf"))
             use_layout_engine = True
 
-        self.base = Font(boldttf, base_size, screen_width, use_layout_engine)  # 10
-        self.bold = Font(boldttf, bold_size, screen_width, use_layout_engine)  # 12
-        self.large = Font(regularttf, large_size, screen_width, use_layout_engine)  # 15
-        self.small = Font(boldttf, small_size, screen_width, use_layout_engine)  # 8
-        self.huge = Font(boldttf, huge_size, screen_width, use_layout_engine)  # 35
+        self.base = Font(
+            boldttf, base_size, screen_width, use_layout_engine=use_layout_engine
+        )  # 10
+        self.bold = Font(
+            boldttf, bold_size, screen_width, use_layout_engine=use_layout_engine
+        )  # 12
+        self.large = Font(
+            regularttf, large_size, screen_width, use_layout_engine=use_layout_engine
+        )  # 15
+        self.small = Font(
+            boldttf, small_size, screen_width, use_layout_engine=use_layout_engine
+        )  # 8
+        self.huge = Font(
+            boldttf, huge_size, screen_width, use_layout_engine=use_layout_engine
+        )  # 35
 
         self.icon_bold_large = Font(
-            boldttf, int(base_size * 1.5), screen_width, use_layout_engine
+            boldttf,
+            int(base_size * 1.5),
+            screen_width,
+            use_layout_engine=use_layout_engine,
         )  # 15

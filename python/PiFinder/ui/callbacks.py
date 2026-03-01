@@ -229,7 +229,7 @@ def switch_language(ui_module: UIModule) -> None:
     logger.info("Switch Language: %s", iso2_code)
     if iso2_code == "zh":
         # Chinese requires a new font, so we have to restart
-        restart_pifinder(UIModule)
+        restart_pifinder(ui_module)
 
 
 def go_wifi_ap(ui_module: UIModule) -> None:
