@@ -337,17 +337,8 @@ def solver(
                 is_new_image = (
                     last_image_metadata["exposure_end"] > solved["last_solve_attempt"]
                 )
-                # Use configured max_imu_ang_during_exposure (degrees)
-                is_stationary = (
-                    last_image_metadata["imu_delta"] < max_imu_ang_during_exposure
-                )
 
-                if is_new_image and not is_stationary:
-                    logger.debug(
-                        f"Skipping image - IMU delta {last_image_metadata['imu_delta']:.2f}° >= {max_imu_ang_during_exposure}° (moving)"
-                    )
-
-                if is_new_image and is_stationary:
+                if is_new_image:
                     try:
                         img = camera_image.copy()
                         img = img.convert(mode="L")
