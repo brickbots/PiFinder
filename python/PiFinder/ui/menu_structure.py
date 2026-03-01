@@ -1108,6 +1108,17 @@ pifinder_menu = {
                     "items": [
                         {"name": "SQM", "class": UISQM},
                         {
+                            "name": _("Integrator"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "imu_integrator",
+                            "post_callback": callbacks.restart_pifinder,
+                            "items": [
+                                {"name": _("Classic"), "value": "classic"},
+                                {"name": _("Quaternion"), "value": "quaternion"},
+                            ],
+                        },
+                        {
                             "name": _("AE Algo"),
                             "class": UITextMenu,
                             "select": "single",

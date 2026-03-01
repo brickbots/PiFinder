@@ -284,16 +284,12 @@ class UIAlign(UIModule):
         self.draw.text(
             (
                 26,
-                self.display_class.titlebar_height
-                + 10
-                + self.fonts.large.height
-                + 4,
+                self.display_class.titlebar_height + 10 + self.fonts.large.height + 4,
             ),
             _("No Solve Yet"),
             font=self.fonts.base.font,
             fill=self.colors.get(255),
         )
-
 
     def change_fov(self, direction):
         self.fov_index += direction
@@ -449,18 +445,19 @@ class UIAlign(UIModule):
                 self.update(force=True)
 
     def solution_is_new(self, last_solve_time):
-        """ 
+        """
         Returns True if the solution (coordinates) is valid and new since
         last_solve_time.
         """
-        if (last_solve_time is None
-            or self.last_update is None):
+        if last_solve_time is None or self.last_update is None:
             return False
         if last_solve_time <= self.last_update:
             return False
-        if (self.solution["Roll"] is None
+        if (
+            self.solution["Roll"] is None
             or self.solution["RA"] is None
-            or self.solution["Dec"] is None):
+            or self.solution["Dec"] is None
+        ):
             return False
 
         return True  # Solution is valid and new

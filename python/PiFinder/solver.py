@@ -337,15 +337,8 @@ def solver(
                 is_new_image = (
                     last_image_metadata["exposure_end"] > solved["last_solve_attempt"]
                 )
-                # Use configured max_imu_ang_during_exposure (degrees)
-                is_stationary = last_image_metadata["imu_delta"] < max_imu_ang_during_exposure
 
-                if is_new_image and not is_stationary:
-                    logger.debug(
-                        f"Skipping image - IMU delta {last_image_metadata['imu_delta']:.2f}° >= {max_imu_ang_during_exposure}° (moving)"
-                    )
-
-                if is_new_image and is_stationary:
+                if is_new_image:
                     try:
                         img = camera_image.copy()
                         img = img.convert(mode="L")
@@ -460,8 +453,12 @@ def solver(
 
                             if last_image_metadata.get("imu"):
                                 solved["imu_quat"] = last_image_metadata["imu"]["quat"]
+                                solved["imu_pos"] = last_image_metadata["imu"].get(
+                                    "pos"
+                                )
                             else:
                                 solved["imu_quat"] = None
+                                solved["imu_pos"] = None
 
                             solved["solve_time"] = time.time()
                             solved["cam_solve_time"] = solved["solve_time"]
@@ -561,7 +558,9 @@ def get_initialized_solved_dict() -> dict:
             "Dec": None,
             "Roll": None,
         },
+        "imu_pos": None,  # IMU euler angles (classic integrator)
         "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first)
+        "Roll_offset": 0,  # Roll offset for classic integrator
         # Alt, Az [deg] of scope:
         "Alt": None,
         "Az": None,
