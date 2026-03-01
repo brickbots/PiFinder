@@ -8,6 +8,7 @@ This module is the camera
 * Takes full res images on demand
 
 """
+
 from typing import Tuple, Optional
 from PIL import Image
 import os
@@ -56,6 +57,12 @@ class CameraInterface:
     def capture_raw_file(self, filename) -> None:
         pass
 
+    def _blank_capture(self):
+        """
+        Returns a properly formated black frame
+        """
+        return Image.new("L", (512, 512), 0)  # Black 512x512 image
+
     def capture_bias(self):
         """
         Capture a bias frame for pedestal calculation.
@@ -63,7 +70,7 @@ class CameraInterface:
         Override in subclasses that support bias frames.
         Returns Image.Image or np.ndarray depending on implementation.
         """
-        return Image.new("L", (512, 512), 0)  # Black 512x512 image
+        return self._blank_capture()
 
     def set_camera_config(
         self, exposure_time: float, gain: float
@@ -171,7 +178,7 @@ class CameraInterface:
                         base_image = base_image.convert(
                             "L"
                         )  # Convert to grayscale to match camera output
-                        time.sleep(1)
+                        time.sleep(0.2)
                     image_end_time = time.time()
                     # check imu to make sure we're still static
                     imu_end = shared_state.imu()
@@ -187,7 +194,12 @@ class CameraInterface:
                     else:
                         pointing_diff = 0.0
 
-                    camera_image.paste(base_image)
+                    # Make image available
+                    if debug and abs(pointing_diff) > 0.01:
+                        # Check if we moved and return a blank image
+                        camera_image.paste(self._blank_capture())
+                    else:
+                        camera_image.paste(base_image)
 
                     image_metadata = {
                         "exposure_start": image_start_time,
