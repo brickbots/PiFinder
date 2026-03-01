@@ -122,7 +122,10 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
     "imx296": CameraProfile(
         # Hardware configuration
         format="R10",  # 10-bit raw format
-        raw_size=(1456, 1088),  # Avoid auto 728x544 mode that blacks out at high exposure
+        raw_size=(
+            1456,
+            1088,
+        ),  # Avoid auto 728x544 mode that blacks out at high exposure
         analog_gain=15.0,  # Maximum analog gain for this sensor
         digital_gain=1.0,  # TODO: find optimum value
         bit_depth=10,
@@ -205,7 +208,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         analog_gain=1.0,  # Not applicable to processed images
         digital_gain=1.0,  # Already applied during processing
         bit_depth=8,
-        bias_offset=8.0,  # Conservative - below typical dark pixels (9-12)
+        bias_offset=6.0,  # Calibrated against reference SQM meter
         read_noise_adu=1.5,  # Quantization + residual noise in 8-bit
         dark_current_rate=0.0,  # Negligible after processing
         thermal_coeff=0.0,

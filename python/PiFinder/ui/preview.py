@@ -55,6 +55,8 @@ class UIPreview(UIModule):
                 label=_("Exposure"),
                 menu_jump="camera_exposure",
             ),
+            down=MarkingMenuOption(),
+            right=MarkingMenuOption(),
         )
 
     def draw_reticle(self):

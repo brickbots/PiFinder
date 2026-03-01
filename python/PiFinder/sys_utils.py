@@ -3,7 +3,8 @@ import re
 from typing import Dict, Any
 
 import sh
-from sh import wpa_cli, unzip, su, passwd
+from sh import wpa_cli, unzip, passwd
+import pam
 
 import socket
 from PiFinder import utils
@@ -286,11 +287,9 @@ def verify_password(username, password):
     Checks the provided password against the provided user
     password
     """
-    result = su(username, "-c", "echo", _in=f"{password}\n", _ok_code=(0, 1))
-    if result.exit_code == 0:
-        return True
-    else:
-        return False
+    p = pam.pam()
+
+    return p.authenticate(username, password)
 
 
 def change_password(username, current_password, new_password):

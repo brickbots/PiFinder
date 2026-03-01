@@ -354,12 +354,14 @@ class NoiseFloorEstimator:
             True if calibration was loaded successfully, False otherwise
         """
         try:
-            # Load from ~/PiFinder_data/sqm_calibration.json
+            # Load from ~/PiFinder_data/sqm_calibration_{camera_type}.json
             data_dir = Path.home() / "PiFinder_data"
-            calibration_file = data_dir / "sqm_calibration.json"
+            calibration_file = data_dir / f"sqm_calibration_{self.camera_type}.json"
 
             if not calibration_file.exists():
-                logger.info("No saved calibration found, using default profile")
+                logger.info(
+                    f"No saved calibration found for {self.camera_type}, using default profile"
+                )
                 return False
 
             with open(calibration_file, "r") as f:
@@ -410,11 +412,11 @@ class NoiseFloorEstimator:
                 "timestamp": time.time(),
             }
 
-            # Save to ~/PiFinder_data/sqm_calibration.json
+            # Save to ~/PiFinder_data/sqm_calibration_{camera_type}.json
             data_dir = Path.home() / "PiFinder_data"
             data_dir.mkdir(exist_ok=True)
 
-            calibration_file = data_dir / "sqm_calibration.json"
+            calibration_file = data_dir / f"sqm_calibration_{self.camera_type}.json"
             with open(calibration_file, "w") as f:
                 json.dump(calibration_data, f, indent=2)
 

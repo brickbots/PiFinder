@@ -186,15 +186,16 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                             solved["RA"], solved["Dec"]
                         )
                     )
+                    shared_state.set_solve_state(True)
                 else:
                     # Failed solve - clear constellation
                     solved["solve_source"] = "CAM_FAILED"
                     solved["constellation"] = ""
+                    shared_state.set_solve_state(False)
 
                 # Push all camera solves (success and failure) immediately
                 # This ensures auto-exposure sees Matches=0 for failed solves
                 shared_state.set_solution(solved)
-                shared_state.set_solve_state(True)
 
             # Use IMU dead-reckoning from the last camera solve:
             # Check we have an alt/az solve, otherwise we can't use the IMU
