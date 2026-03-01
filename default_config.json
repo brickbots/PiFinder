@@ -177,5 +177,5 @@
         "active_eyepiece_index": 0
     },
     "imu_threshold_scale": 1,
-    "imu_dead_reckoning": "classic"
+    "imu_integrator": "classic"
 }

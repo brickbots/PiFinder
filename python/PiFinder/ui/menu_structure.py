@@ -1111,7 +1111,7 @@ pifinder_menu = {
                             "name": _("Integrator"),
                             "class": UITextMenu,
                             "select": "single",
-                            "config_option": "imu_dead_reckoning",
+                            "config_option": "imu_integrator",
                             "post_callback": callbacks.restart_pifinder,
                             "items": [
                                 {"name": _("Classic"), "value": "classic"},

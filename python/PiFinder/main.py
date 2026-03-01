@@ -978,7 +978,7 @@ if __name__ == "__main__":
         from rpi_hardware_pwm import HardwarePWM
 
         cfg = config.Config()
-        if cfg.get_option("imu_dead_reckoning") == "quaternion":
+        if cfg.get_option("imu_integrator") == "quaternion":
             imu = importlib.import_module("PiFinder.imu_pi")
             integrator = importlib.import_module("PiFinder.integrator")
         else:
