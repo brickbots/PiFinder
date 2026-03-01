@@ -126,6 +126,7 @@ module = [
     'skyfield.*',
     'sh.*',
     'sklearn.*',
+    'pam.*',
     'PyHotKey.*',
     'PiFinder.tetra3.*',
     'quaternion',
