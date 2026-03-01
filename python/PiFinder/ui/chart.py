@@ -152,12 +152,11 @@ class UIChart(UIModule):
             )
             self.solution = self.shared_state.solution()
             last_solve_time = self.solution["solve_time"]
-            if (
-                last_solve_time > self.last_update
-                and self.solution["Roll"] is not None
-                and self.solution["RA"] is not None
-                and self.solution["Dec"] is not None
-            ):
+
+            if last_solve_time is None:
+                self.plot_no_solve()
+            elif self.solution_is_new(last_solve_time):
+                # Solution is new so plot the updated chart
                 # This needs to be called first to set RA/DEC/ROLL
                 image_obj, _visible_stars = self.starfield.plot_starfield(
                     self.solution["RA"],
@@ -199,32 +198,52 @@ class UIChart(UIModule):
                 self.last_update = last_solve_time
 
                 self.draw_reticle()
-
         else:
-            self.draw.rectangle(
-                [0, 0, self.display_class.resX, self.display_class.resY],
-                fill=self.colors.get(0),
-            )
-            self.draw.text(
-                (16, self.display_class.titlebar_height + 10),
-                _("Can't plot"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (
-                    26,
-                    self.display_class.titlebar_height
-                    + 10
-                    + self.fonts.large.height
-                    + 4,
-                ),
-                _("No Solve Yet"),
-                font=self.fonts.base.font,
-                fill=self.colors.get(255),
-            )
+            self.plot_no_solve()
 
         return self.screen_update()
+
+    def plot_no_solve(self):
+        """Plot message: Can't plot No solve yet"""
+        self.draw.rectangle(
+            [0, 0, self.display_class.resX, self.display_class.resY],
+            fill=self.colors.get(0),
+        )
+        self.draw.text(
+            (16, self.display_class.titlebar_height + 10),
+            _("Can't plot"),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
+        self.draw.text(
+            (
+                26,
+                self.display_class.titlebar_height
+                + 10
+                + self.fonts.large.height
+                + 4,
+            ),
+            _("No Solve Yet"),
+            font=self.fonts.base.font,
+            fill=self.colors.get(255),
+        )
+
+    def solution_is_new(self, last_solve_time):
+        """ 
+        Returns True if the solution (coordinates) is valid and new since
+        last_solve_time.
+        """
+        if (last_solve_time is None
+            or self.last_update is None):
+            return False
+        if last_solve_time <= self.last_update:
+            return False
+        if (self.solution["Roll"] is None
+            or self.solution["RA"] is None
+            or self.solution["Dec"] is None):
+            return False
+
+        return True  # Solution is valid and new
 
     def change_fov(self, direction):
         self.fov_index += direction

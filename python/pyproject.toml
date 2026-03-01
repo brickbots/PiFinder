@@ -129,6 +129,7 @@ module = [
     'pam.*',
     'PyHotKey.*',
     'PiFinder.tetra3.*',
+    'quaternion',
     'tetra3.*',
     'grpc',
     'ceder_detect_pb2',
