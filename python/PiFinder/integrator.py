@@ -111,22 +111,18 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                         )
                     )
                     shared_state.set_solve_state(True)
+                    # We have a new image solve: Use plate-solving for RA/Dec
+                    update_plate_solve_and_imu(imu_dead_reckoning, solved)
                 else:
                     # Failed solve - clear constellation
                     solved["solve_source"] = "CAM_FAILED"
                     solved["constellation"] = ""
+
+                    # Push failed solved immediately
+                    # This ensures auto-exposure sees Matches=0 for failed solves
+                    shared_state.set_solution(solved)
                     shared_state.set_solve_state(False)
 
-                # Push all camera solves (success and failure) immediately
-                # This ensures auto-exposure sees Matches=0 for failed solves
-                shared_state.set_solution(solved)
-                shared_state.set_solve_state(True)
-
-                # We have a new image solve: Use plate-solving for RA/Dec
-                update_plate_solve_and_imu(imu_dead_reckoning, solved)
-
-                # TODO: main also calculates (alt, az) for target & camera center.
-                # Don't think this is needed because they are done by the update functions?
             elif imu_dead_reckoning.tracking:
                 # Previous plate-solve exists so use IMU dead-reckoning from
                 # the last plate solved coordinates.
@@ -135,7 +131,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
 
             # Push IMU updates only if newer than last push
-            # (Camera solves already pushed above at line ~185)  # TODO: Line numbers may have changed in merge
             if (
                 solved["RA"] and solved["solve_time"] > last_solve_time
                 # and solved["solve_source"] == "IMU"
