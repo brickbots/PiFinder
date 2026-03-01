@@ -473,7 +473,10 @@ class Catalogs:
                 if search_digits in digits:
                     result.append(obj)
                     logger.debug(
-                        "Found %s in %s %i via T9", digits, obj.catalog_code, obj.sequence
+                        "Found %s in %s %i via T9",
+                        digits,
+                        obj.catalog_code,
+                        obj.sequence,
                     )
                     break
         return result

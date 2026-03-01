@@ -122,7 +122,6 @@ class UITextEntry(UIModule):
         self._results_updated = False  # Flag to trigger UI refresh
         self.SEARCH_DEBOUNCE_MS = 250  # milliseconds
 
-
     @property
     def t9_search_enabled(self) -> bool:
         return bool(self.config_object.get_option("t9_search", False))

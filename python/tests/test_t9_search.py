@@ -59,7 +59,11 @@ def catalogs_api(monkeypatch):
 
     from PiFinder import catalogs as catalogs_module
 
-    return catalogs_module.Catalogs, catalogs_module.KEYPAD_DIGIT_TO_CHARS, catalogs_module.LETTER_TO_DIGIT_MAP
+    return (
+        catalogs_module.Catalogs,
+        catalogs_module.KEYPAD_DIGIT_TO_CHARS,
+        catalogs_module.LETTER_TO_DIGIT_MAP,
+    )
 
 
 class DummyObject:
