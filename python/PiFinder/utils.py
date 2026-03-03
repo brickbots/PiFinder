@@ -45,11 +45,21 @@ def serialize_solution(solution: dict) -> str:
 
 
 def get_sys_utils():
-    try:
-        # Attempt to import the real sys_utils
-        sys_utils = importlib.import_module("PiFinder.sys_utils")
-    except ImportError:
+    # Check if we should use fake sys_utils for local development
+    use_fake = os.environ.get("PIFINDER_USE_FAKE_SYS_UTILS", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    if use_fake:
         sys_utils = importlib.import_module("PiFinder.sys_utils_fake")
+    else:
+        try:
+            # Attempt to import the real sys_utils
+            sys_utils = importlib.import_module("PiFinder.sys_utils")
+        except ImportError:
+            sys_utils = importlib.import_module("PiFinder.sys_utils_fake")
     return sys_utils
 
 
