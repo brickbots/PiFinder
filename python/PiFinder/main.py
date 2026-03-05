@@ -124,6 +124,11 @@ def setup_dirs():
     os.chmod(Path(utils.data_dir), 0o777)
 
 
+import PiFinder.manager_patch as patch
+
+patch.apply()
+
+
 class StateManager(BaseManager):
     pass
 
@@ -347,10 +352,6 @@ def main(
         "messages", "locale", languages=[lang], fallback=(lang == "en")
     )
     langXX.install()
-
-    import PiFinder.manager_patch as patch
-
-    patch.apply()
 
     with StateManager() as manager:
         shared_state = manager.SharedState()  # type: ignore[attr-defined]

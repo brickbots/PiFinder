@@ -14,7 +14,7 @@ def get_homepage_url():
     """
     Helper function to get the homepage URL from environment variable or default
     """
-    return os.environ.get("PIFINDER_HOMEPAGE", "http://localhost:8080")
+    return os.environ.get("PIFINDER_HOMEPAGE", "http://localhost")
 
 
 def login_to_remote(driver):

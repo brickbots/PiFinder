@@ -342,15 +342,18 @@ def test_ui_state_changes_with_button_presses(driver):
 def test_remote_nav_wakeup(driver):
     login_to_remote(driver)
 
+    # ZL = LNG_LEFT (back to top). Two ZL presses: first wakes device from sleep
+    # (keypress is discarded when waking), second resets stack to root.
+    # UUUUUU ensures we're at the top of the menu (Start), DD navigates to Objects.
     press_keys_and_validate(
         driver,
-        "LLLLLLUUUUUUDD",
+        "ZLZLUUUUUUDD",
         expected_values={
             "ui_type": "UITextMenu",
             "title": "PiFinder",
             "current_item": "Objects",
         },
-    )  # One extra to wake up from sleep.
+    )
 
 
 @pytest.mark.web
@@ -430,37 +433,57 @@ def test_remote_nav_right(driver):
 
 @pytest.mark.web
 def test_remote_entry(driver):
-    test_remote_nav_wakeup(driver)  # Also logs in.
+    login_to_remote(driver)
 
     press_keys_and_validate(
         driver,
-        "RDDDR",
+        "ZLZLUUUUUUDD",
+        expected_values={
+            "ui_type": "UITextMenu",
+            "title": "PiFinder",
+            "current_item": "Objects",
+        },
+    )
+
+    press_keys_and_validate(
+        driver,
+        "RDDDDR",
         expected_values={
             "ui_type": "UITextEntry",
-            "title": "Name Search",
+            "title": "Search",
             "value": "",
         },
     )
 
-    press_keys(driver, "LLL")
+    press_keys(driver, "LLLL")
 
 
 @pytest.mark.web
 def test_remote_entry_digits(driver):
-    test_remote_nav_wakeup(driver)  # Also logs in.
+    login_to_remote(driver)
 
     press_keys_and_validate(
         driver,
-        "RDDDR0123456789",
+        "ZLZLUUUUUUDD",
+        expected_values={
+            "ui_type": "UITextMenu",
+            "title": "PiFinder",
+            "current_item": "Objects",
+        },
+    )
+
+    press_keys_and_validate(
+        driver,
+        "RDDDDR0123456789",
         expected_values={
             "ui_type": "UITextEntry",
-            "title": "Name Search",
+            "title": "Search",
             "value": "0123456789",
         },
     )
 
     # Go back to main menu
-    press_keys(driver, "LLL")
+    press_keys(driver, "LLLL")
 
 
 @pytest.mark.web

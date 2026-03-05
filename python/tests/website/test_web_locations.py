@@ -507,7 +507,7 @@ def test_locations_add_remote(driver):
             "marking_menu_active": False,
             "show_keypad": True,
             "text_entry_mode": True,
-            "title": "Location Name",
+            "title": "Enter Location Name:",
             "ui_type": "UITextEntry",
         },
     )
