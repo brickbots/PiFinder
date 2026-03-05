@@ -59,7 +59,7 @@ def load_egc():
     delete_catalog_from_database(catalog)
 
     insert_catalog(catalog, Path(utils.astro_data_dir, "EGC.desc"))
-    egc = Path(utils.astro_data_dir, "egc.tsv")
+    egc = Path(utils.astro_data_dir, "EGC.tsv")
 
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder

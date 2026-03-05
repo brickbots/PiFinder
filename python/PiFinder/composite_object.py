@@ -45,17 +45,13 @@ class SizeObject:
     # --- serialization ---
 
     def to_json(self) -> str:
-        return json.dumps({
-            "extents": self.extents,
-            "filter_size": self.filter_size,
-        })
+        return json.dumps(self.extents)
 
     @classmethod
     def from_json(cls, json_str: str) -> "SizeObject":
         if not json_str:
             return cls([])
-        data = json.loads(json_str)
-        return cls(data["extents"])
+        return cls(json.loads(json_str))
 
     # --- display ---
 
