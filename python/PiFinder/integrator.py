@@ -40,7 +40,15 @@ logger = logging.getLogger("IMU.Integrator")
 IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.06)
 
 
-def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
+def integrator(
+    shared_state,
+    solver_queue,
+    console_queue,
+    log_queue,
+    is_debug=False,
+    command_queue=None,
+    camera_command_queue=None,
+):
     MultiprocLogging.configurer(log_queue)
     """ """
     if is_debug:
@@ -64,7 +72,101 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         last_image_solve = None
         last_solve_time = time.time()
 
+        # Telemetry recording
+        from PiFinder.telemetry import TelemetryRecorder, TelemetryPlayer
+
+        recorder = TelemetryRecorder()
+        recorder.images_enabled = bool(cfg.get_option("telemetry_images"))
+        if cfg.get_option("telemetry_record"):
+            recorder.start(cfg, shared_state)
+
+        # Replay state
+        replay_mode = False
+        replay_player = None
+
         while True:
+            # Process integrator commands
+            if command_queue is not None:
+                try:
+                    cmd = command_queue.get(block=False)
+                    if isinstance(cmd, tuple):
+                        cmd_name, cmd_arg = cmd
+                        if cmd_name == "telemetry_record_on":
+                            recorder.images_enabled = bool(
+                                cfg.get_option("telemetry_images")
+                            )
+                            recorder.start(cfg, shared_state)
+                            console_queue.put("Telemetry: Recording")
+                        elif cmd_name == "telemetry_record_off":
+                            recorder.stop()
+                            console_queue.put("Telemetry: Stopped")
+                        elif cmd_name == "replay":
+                            logger.info("Entering replay mode: %s", cmd_arg)
+                            replay_player = TelemetryPlayer(cmd_arg)
+                            replay_mode = True
+                            # Set location/datetime from header
+                            if replay_player.header:
+                                hdr = replay_player.header
+                                if hdr.get("loc"):
+                                    loc = shared_state.location()
+                                    loc.lat = hdr["loc"][0]
+                                    loc.lon = hdr["loc"][1]
+                                    loc.altitude = hdr["loc"][2]
+                                    loc.lock = True
+                                    loc.source = "replay"
+                                    shared_state.set_location(loc)
+                                if hdr.get("dt"):
+                                    from datetime import datetime as dt_cls
+
+                                    shared_state.set_datetime(
+                                        dt_cls.fromisoformat(hdr["dt"])
+                                    )
+                            console_queue.put("Telemetry: Replay started")
+                        elif cmd_name == "replay_stop":
+                            logger.info("Exiting replay mode")
+                            replay_mode = False
+                            replay_player = None
+                            if camera_command_queue is not None:
+                                camera_command_queue.put("start")
+                            console_queue.put("Telemetry: Replay stopped")
+                except queue.Empty:
+                    pass
+
+            # Replay mode: feed recorded data instead of live sources
+            if replay_mode and replay_player is not None:
+                state_utils.sleep_for_framerate(shared_state)
+                # Drain real solver queue to prevent buildup
+                try:
+                    while True:
+                        solver_queue.get(block=False)
+                except queue.Empty:
+                    pass
+
+                event, done = replay_player.get_next_event()
+                if done and event is None:
+                    replay_mode = False
+                    replay_player = None
+                    if camera_command_queue is not None:
+                        camera_command_queue.put("start")
+                    console_queue.put("Telemetry: Replay finished")
+                    logger.info("Replay finished")
+                    continue
+
+                if event is not None:
+                    _handle_replay_event(
+                        event,
+                        shared_state,
+                        solved,
+                        last_image_solve,
+                        imu_dead_reckoning,
+                        mount_type,
+                    )
+                    # Update last_image_solve/last_solve_time for solve events
+                    if event["e"] == "solve" and solved["RA"] is not None:
+                        last_image_solve = copy.deepcopy(solved)
+                        last_solve_time = time.time()
+                continue
+
             state_utils.sleep_for_framerate(shared_state)
 
             # Check for new camera solve in queue
@@ -75,6 +177,15 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 pass
 
             if type(next_image_solve) is dict:
+                # Record solve with the current IMU-predicted position
+                # (before it gets overwritten by the new solve).
+                # This lets us measure drift = predicted vs actual.
+                solve_record_t = recorder.record_solve(
+                    next_image_solve,
+                    predicted_ra=solved.get("RA"),
+                    predicted_dec=solved.get("Dec"),
+                )
+
                 # For camera solves, always start from last successful camera solve
                 # NOT from shared_state (which may contain IMU drift)
                 # This prevents IMU noise accumulation during failed solves
@@ -113,6 +224,20 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     shared_state.set_solve_state(True)
                     # We have a new image solve: Use plate-solving for RA/Dec
                     update_plate_solve_and_imu(imu_dead_reckoning, solved)
+
+                    # Save image alongside telemetry if enabled
+                    if (
+                        recorder.enabled
+                        and recorder.images_enabled
+                        and camera_command_queue is not None
+                        and solve_record_t is not None
+                    ):
+                        session_dir = recorder.get_session_dir()
+                        if session_dir:
+                            img_path = str(
+                                session_dir / f"img_{solve_record_t:.3f}.png"
+                            )
+                            camera_command_queue.put(f"save_image:{img_path}")
                 else:
                     # Failed solve - clear constellation
                     solved["solve_source"] = "CAM_FAILED"
@@ -128,6 +253,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # the last plate solved coordinates.
                 imu = shared_state.imu()
                 if imu:
+                    recorder.record_imu(imu)
                     update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
 
             # Push IMU updates only if newer than last push
@@ -171,8 +297,92 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
 
+            recorder.flush()
+
     except EOFError:
         logger.error("Main no longer running for integrator")
+    finally:
+        recorder.stop()
+
+
+# ======== Replay helper ==============================================
+
+
+def _handle_replay_event(
+    event, shared_state, solved, last_image_solve, imu_dead_reckoning, mount_type
+):
+    """Process a single replayed telemetry event."""
+    if event["e"] == "imu":
+        q = event.get("q")
+        if q and last_image_solve and imu_dead_reckoning.tracking:
+            imu = {
+                "quat": quaternion.quaternion(q[0], q[1], q[2], q[3]),
+                "moving": event.get("mv", False),
+                "status": event.get("st", 0),
+            }
+            update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
+
+            # Push updated solution
+            if solved["RA"] is not None:
+                location = shared_state.location()
+                dt = shared_state.datetime()
+                if location:
+                    calc_utils.sf_utils.set_location(
+                        location.lat, location.lon, location.altitude
+                    )
+                solved["Roll"] = get_roll_by_mount_type(
+                    solved["RA"], solved["Dec"], location, dt, mount_type
+                )
+                solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
+                    solved["RA"], solved["Dec"]
+                )
+                if location and dt:
+                    solved["Alt"], solved["Az"] = calc_utils.sf_utils.radec_to_altaz(
+                        solved["RA"], solved["Dec"], dt
+                    )
+                shared_state.set_solution(solved)
+                shared_state.set_solve_state(True)
+
+    elif event["e"] == "solve":
+        # Reconstruct a solve dict from the recorded event
+        if event.get("ra") is not None:
+            solved["RA"] = event["ra"]
+            solved["Dec"] = event["dec"]
+            solved["Roll"] = event.get("roll")
+            solved["camera_center"] = {
+                "RA": event.get("cam_ra"),
+                "Dec": event.get("cam_dec"),
+                "Roll": event.get("cam_roll"),
+                "Alt": None,
+                "Az": None,
+            }
+            iq = event.get("iq")
+            if iq:
+                solved["imu_quat"] = quaternion.quaternion(iq[0], iq[1], iq[2], iq[3])
+            solved["Matches"] = event.get("matches")
+            solved["RMSE"] = event.get("rmse")
+            solved["solve_source"] = "CAM"
+            solved["solve_time"] = time.time()
+            solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
+                solved["RA"], solved["Dec"]
+            )
+            shared_state.set_solve_state(True)
+            update_plate_solve_and_imu(imu_dead_reckoning, solved)
+
+            location = shared_state.location()
+            dt = shared_state.datetime()
+            if location:
+                calc_utils.sf_utils.set_location(
+                    location.lat, location.lon, location.altitude
+                )
+            solved["Roll"] = get_roll_by_mount_type(
+                solved["RA"], solved["Dec"], location, dt, mount_type
+            )
+            if location and dt:
+                solved["Alt"], solved["Az"] = calc_utils.sf_utils.radec_to_altaz(
+                    solved["RA"], solved["Dec"], dt
+                )
+            shared_state.set_solution(solved)
 
 
 # ======== Wrapper and helper functions ===============================

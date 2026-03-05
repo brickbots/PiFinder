@@ -45,7 +45,7 @@ def imu_moved(imu_a, imu_b):
     return False
 
 
-def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
+def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False, **kwargs):
     MultiprocLogging.configurer(log_queue)
     try:
         if is_debug:

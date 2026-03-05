@@ -425,7 +425,17 @@ class CameraInterface:
                                 f"Exposure saved and auto-exposure disabled: {self.exposure_time}µs"
                             )
 
-                        if command.startswith("save"):
+                        if command.startswith("save_image:"):
+                            # Save current camera frame to specified path
+                            save_path = command.split(":", 1)[1]
+                            try:
+                                img = camera_image.copy()
+                                img.save(save_path, "PNG", compress_level=6)
+                                logger.debug("Telemetry image saved: %s", save_path)
+                            except Exception as e:
+                                logger.error("Failed to save telemetry image: %s", e)
+
+                        if command.startswith("save:"):
                             # Set flag to save next capture to this file
                             self._save_next_to = command.split(":")[1]
                             console_queue.put("CAM: Save flag set")
