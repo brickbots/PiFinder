@@ -174,6 +174,11 @@ class MultiprocLogging:
             queue, multiprocessing.queues.Queue
         ), "That's not a Queue! You have to pass a queue"
 
+        log_conf_file = Path("pifinder_logconf.json")
+        with open(log_conf_file, "r") as logconf:
+            config = json5.load(logconf)
+            logging.config.dictConfig(config)
+
         h = logging.handlers.QueueHandler(queue)
         root = logging.getLogger()
         root.addHandler(h)

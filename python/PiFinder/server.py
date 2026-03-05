@@ -572,7 +572,7 @@ class Server:
                     try:
                         cfg.equipment.eyepieces.index(new_eyepiece)
                     except ValueError:
-                        cfg.equipment.eyepieces.append(new_eyepiece)
+                        cfg.equipment.add_eyepiece(new_eyepiece)
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
@@ -609,13 +609,13 @@ class Server:
                 )
 
                 if eyepiece_id >= 0:
-                    cfg.equipment.eyepieces[eyepiece_id] = eyepiece
+                    cfg.equipment.update_eyepiece(eyepiece_id, eyepiece)
                 else:
                     try:
                         index = cfg.equipment.telescopes.index(eyepiece)
-                        cfg.equipment.eyepieces[index] = eyepiece
+                        cfg.equipment.update_eyepiece(index, eyepiece)
                     except ValueError:
-                        cfg.equipment.eyepieces.append(eyepiece)
+                        cfg.equipment.add_eyepiece(eyepiece)
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
@@ -632,7 +632,7 @@ class Server:
         @auth_required
         def equipment_delete_eyepiece(eyepiece_id: int):
             cfg = config.Config()
-            cfg.equipment.eyepieces.pop(eyepiece_id)
+            cfg.equipment.remove_eyepiece(eyepiece_id)
             cfg.save_equipment()
             self.ui_queue.put("reload_config")
             return template(

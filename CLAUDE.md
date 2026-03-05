@@ -29,16 +29,26 @@ pytest -m integration # End-to-end integration tests
 **Development setup:**
 ```bash
 cd python/
+python3.9 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 pip install -r requirements_dev.txt
 ```
+If the .venv dir already exists, you can directly source it and run the app.
+
 
 Watch out for .venv directories containing virtual environments, that you need to activate first. 
 
 **Running the application:**
+Development setup has to have run and you should be in .venv virtual environment
 ```bash
 cd python/
 python -m PiFinder.main [options]
+```
+Usual startup:
+
+```bash
+python3.9 -m PiFinder.main -fh --camera debug --keyboard local -x
 ```
 
 ## Architecture Overview
@@ -54,7 +64,7 @@ python -m PiFinder.main [options]
 - **Web Server Process** - Web interface and SkySafari integration as a telescope 
 - **Position Server Process** - External protocol support
 
-**State Management:** 
+**State Management:**
 - `SharedStateObj` - Process-shared state using multiprocessing managers
 - `UIState` - UI-specific state management
 
@@ -91,7 +101,7 @@ python -m PiFinder.main [options]
 
 **Hardware Configuration:**
 - Camera selection: Pi Camera, ASI cameras, debug mode
-- Display type: OLED vs LCD with brightness/orientation settings  
+- Display type: OLED vs LCD with brightness/orientation settings
 - Input method: hardware keypad, local keyboard, web interface
 - GPS receiver: GPSD daemon vs direct UBlox protocol
 

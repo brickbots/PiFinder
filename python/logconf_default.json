@@ -21,6 +21,7 @@
     },
     "loggers": {
 
+        //
         /////////////////////////////////////////////////////////////////
         ////// root logger
         //
@@ -37,7 +38,6 @@
         //
         // Supported logger hierarchy:
         //   Server2
-        //
         "Server": {
             "level": "DEBUG",
             "handlers": ["console"]
@@ -58,7 +58,13 @@
         },
         "flask.app": {
             "level": "DEBUG",
-            "handlers": ["console"]           
+            "handlers": ["console"]  
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Solver
+        "Solver": {
+            "level": "ERROR"
         },
 
         /////////////////////////////////////////////////////////////////

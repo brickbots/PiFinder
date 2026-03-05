@@ -146,9 +146,7 @@ class MenuManager:
 
     def screengrab(self):
         self.ss_count += 1
-        filename = (
-            f"{self.stack[-1].__uuid__}_{self.ss_count :0>3}_{self.stack[-1].title}"
-        )
+        filename = f"{self.stack[-1].__uuid__}_{self.ss_count :0>3}_{self.stack[-1].title.replace('/','-')}"
         ss_imagepath = self.ss_path + f"/{filename}.png"
         ss = self.shared_state.screen().copy()
         ss.save(ss_imagepath)
@@ -171,6 +169,7 @@ class MenuManager:
         like chart, so they are ready to go
         """
         for module_def in collect_preloads():
+            print(f"Preloading: {module_def['class']}")
             module_def["state"] = module_def["class"](
                 display_class=self.display_class,
                 camera_image=self.camera_image,
@@ -325,12 +324,14 @@ class MenuManager:
         """
         Put an image on the display
         """
+        screen_to_display = screen_image.convert(self.display_class.device.mode)
+
         if time.time() < self.ui_state.message_timeout():
             return None
 
-        screen_to_display = screen_image.convert(self.display_class.device.mode)
         self.display_class.device.display(screen_to_display)
 
+        # Only update shared state when not in message timeout
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
             # Update current UI state for webserver access

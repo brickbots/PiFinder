@@ -1,0 +1,1176 @@
+
+          CATALOG OF PARAMETERS FOR MILKY WAY GLOBULAR CLUSTERS
+
+            Compiled by William E. Harris, McMaster University
+
+                 This revision:  May 15, 1997
+
+
+	This catalog is described in the literature by:
+Harris, W.E. 1996, AJ, 112, 1487.  Please refer to that paper in
+any published use you make of this catalog.
+
+	Source lists, calibration parameters, and conversion
+relations for the cluster data are described below.
+
+The author would welcome being informed about any errors or
+omissions that you find in this catalog.  Please communicate
+by e-mail to   harris@physics.mcmaster.ca
+ 
+The cluster data are contained in the file `mwgc.dat' which is also
+in this anonymous ftp directory.
+Both files are also accessible through WorldWideWeb.
+The URL label is:  http://www.physics.mcmaster.ca/Globular.html
+
+
+______________________________________________________________________
+
+REVISIONS AND HIGHLIGHTS FOR MAY 1997 EDITION:
+
+- IC 1257, previously listed as an open cluster, has been shown 
+  to be a globular cluster (Harris et al. 1997, AJ, 113, 688)
+
+- A major new set of radial velocities (Rutledge et al. 1997,
+  PASP in press) has been added to the database.
+
+- Galactic coordinates (l,b) are now given to 2 decimal places.
+
+- A new DISTANCE SCALE has been adopted, to correspond to the brighter
+  horizontal-branch luminosity now favored by subdwarf parallaxes
+  (both Hipparcos and ground-based data), the matching of the RR Lyrae
+  luminosities to the Cepheid distance scale in Local Group galaxies,
+  and theoretical models for HB star luminosities.  See the "Distances"
+  section below for explanation.
+
+- Many new entries have been made for cluster distances,
+  thanks to continuing activity in color-magnitude studies
+  for the less well known clusters.  Of the 147 cataloged clusters,
+  there are now only two remaining (NGC 6380 and Terzan 12) which have
+  no useful distance estimates at all.
+
+______________________________________________________________________
+
+REVISIONS FOR APRIL 1996 EDITION:
+
+- The Pyxis system is added, as a newly discovered globular cluster by 
+  Irwin, Demers, & Kunkel 1995 (ApJ 453, L21)
+
+- BH 176 is reinstated as a probable globular cluster (Ortolani, 
+  Bica, and Barbuy 1995, A&A 300, 726).
+
+- Lynga 7, sometimes thought to be an old open cluster, is now
+  more likely a globular (Tavarez and Friel 1995, AJ 110, 223)
+
+- ESO 452-SC11 is reinstated as a probable globular cluster
+  on the basis of evidence by Minniti, Olszewski, and Rieke 1995
+  (AJ 110, 1686)
+
+- Terzan 10 is reinstated as a globular cluster on the basis of
+  infrared photometry by Liu et al. 1995 (see the reference given
+  below in the section on distances)
+
+
+Deletions:
+
+- AM-2 is excluded, since it is clearly an old open cluster 
+(Ortolani, Bica, and Barbuy 1995, A&A 300, 726).
+
+- Reticulum is excluded as more likely belonging to the LMC
+(e.g. Walker 1992, AJ 103, 1166).
+
+- A candidate globular cluster announced by Bica (1994, AA 285, 868) 
+was added to earlier versions of this catalog as 'Bica 1', but new data
+(Bica et al. 1995, A&A 303, 747) show that it is not a cluster.
+
+	Certain other objects in the catalog of Webbink (1985)
+proposed as globular cluster candidates have been shown not to 
+be clusters or are improbable globulars, including TJ5, TJ15, TJ16, TJ17, 
+TJ23, TBJ3, Kodaira 1, Grindlay 1, ESO 166-SC11 (UKS2), and ESO 093-SC08.  
+See the discussions of Djorgovski and Meylan (1993), Minniti, 
+Olszewski, and Rieke 1995 (AJ 110, 1686), Bica et al. 1995 (A&A 303, 747),
+and Kodaira, Greene, and Tokunaga 1995 (PASJ 47, 29).
+
+
+______________________________________________________________________
+
+NOTES FROM PRE-1996 EDITIONS:  
+
+- Terzan 12 is restored to its original designation; it has 
+mistakenly been labelled as Terzan 11 in several previous catalogs
+(including Kukarkin 1974, Harris and Racine 1979, Webbink 1985,
+and Djorgovski and Meylan 1993).  To add to the potential
+confusion, the object number 11 in Terzan's lists is actually
+a rediscovery of Terzan 5; furthermore, the `Terzan 12' designation has
+sometimes been applied, quite wrongly, to NGC 6256, which is a 
+completely different object.  To avoid all such identification
+problems, it seems preferable to keep the original notation 
+for these objects.
+
+- Djorgovski 3 has now been cross-identified as NGC 6540
+(Bica, Ortolani, and Barbuy 1994, AA 283, 67).
+
+- A serious error in the coordinates of Palomar 14 has been corrected, 
+using data from the HST Guide Star Catalog. They are now accurate to +-5".
+
+_______________________________________________________________________
+_______________________________________________________________________
+
+
+
+               CLUSTER IDENTIFICATIONS AND COORDINATES
+
+
+	  Sources:
+
+Djorgovski S., and Meylan G. 1993, in Structure and Dynamics
+        of Globular Clusters, ASP Conf.Series 50, ed.G.Meylan
+        and S.Djorgovski (San Francisco: A.S.P.), 325
+
+Webbink R.F. 1985, in Dynamics of Star Clusters, IAU Symposium
+        113, ed. J.Goodman and P.Hut (Dordrecht:  Reidel), 541
+
+
+	The objects in this catalog adopted as Milky Way globular
+clusters essentially follow Djorgovski and Meylan, with the 
+exceptions noted above.  The cluster coordinates are taken from Djorgovski 
+and Meylan unless otherwise noted.
+
+	See the comments above for individual deletions and additions
+in various editions of the catalog.
+
+
+	The present catalog contains
+147 objects adopted as certain or highly probable Milky Way
+globular clusters.  It should be emphasized that some objects -- 
+the ones with virtually no data entries in the catalog -- 
+still have somewhat uncertain identities, and that the adoption
+of a final candidate list continues to be a matter of some 
+arbitrary judgment for certain objects.  The sources given above
+should be consulted for excellent discussions of these individually
+troublesome objects, as well as lists of other less likely candidates.
+
+
+
+                 FOREGROUND REDDENING E(B-V)
+
+
+	Sources:
+
+Reed B.C., Hesser J.E., and Shawl S.J. 1988, PASP 100, 545
+        [85 clusters]
+
+Webbink R.F. 1985, in Dynamics of Star Clusters, IAU Symposium
+        113, ed. J.Goodman and P.Hut (Dordrecht:  Reidel), 541
+        [135 clusters]
+
+Zinn, R. 1985, ApJ 293, 424  [112 clusters]
+
+
+	In addition to the three major sources listed above,
+measurements of E(B-V) from the individual color-magnitude studies
+(listed below) were employed whenever they appeared to be
+well calibrated [114 clusters].  These discussions, which employ 
+a wide variety of semi-independent methods, now agree extremely 
+well for all but a few cases.  The final adopted reddenings are 
+the straight averages of the given sources (up to 4 per cluster).
+
+	The typical uncertainty in the reddening for any cluster
+is on the order of 10 percent, i.e. delta[E(B-V)] = 0.1 E(B-V).
+
+
+
+              DISTANCES:  HORIZONTAL-BRANCH MAGNITUDE V_HB
+
+
+	The primary distance indicator used here is the mean
+V magnitude of the horizontal branch (or RR Lyrae stars), V_HB.
+Wherever possible, the HB level is measured directly from a
+color-magnitude diagram; in a few cases where
+CMDs are not yet available, it can be evaluated from single-color
+photometry of the RR Lyrae variables, or more roughly 
+predicted from the magnitude level of the brightest red giants.
+Whenever one of these latter two methods 
+was used, it is noted in the list below.
+
+	For many clusters, there are several CMD studies to be found
+in the literature, and in some cases the CMD study used here 
+may not be the "best" one for the given cluster according to 
+some other criterion.  For example, it may not provide the 
+best or most precise study of the main sequence, cluster age, 
+metallicity, or some other feature.  The sources listed below
+are simply those which, in the author's judgment, give the best 
+available definition of the horizontal-branch level.
+
+	The absolute calibration of V_HB adopted here uses
+a modest dependence of absolute V magnitude on metallicity,
+
+                M_V(HB) = 0.15 [Fe/H] + 0.85
+
+Please note that M_V(HB) here denotes the mean magnitude
+of the HB stars, without further adjustments to any
+predicted ZAHB level:  for blue-HB clusters, it denotes
+the mean magnitude of the HB stars at the blue edge of
+the RR Lyrae gap.  For red-HB clusters, it denotes the
+mean magnitude of the RHB stars directly.
+
+	The zero point adopted here pegs the horizontal 
+branch at M_V(HB) ~ 0.5 for the most metal-poor
+clusters and M_V(HB) ~ 0.8 for the most metal-rich.
+The slope of 0.15 matches the body of recent evidence both from 
+statistical parallax and Baade-Wesselink measurements of field 
+RR Lyrae stars (e.g. Carney, Storm, and Jones 1992, ApJ, 386, 663; 
+Skillen et al. 1993, MNRAS, 265, 301; Layden et al. 1996, AJ, 112,2110)
+and from theoretical stellar models of HB stars (e.g. Lee, Demarque,
+and Zinn 1990, ApJ, 350, 155; Dorman 1992, ApJSuppl, 81, 221;
+Salaris, Degl'Innocenti, and Weiss 1997, ApJ, 479, 665).
+The zero point adopted here matches the horizontal-branch
+models referred to above, as well as calibrations of the 
+RR Lyrae luminosity level by Cepheids in the various Local Group
+galaxies (e.g. Walker 1992, ApJ, 390, L81; van den Bergh 1995,
+ApJ, 446, 39; Fusi Pecci et al. 1996, AJ, 112, 1461).  It is
+~0.2 mag brighter than the statistical-parallax and Baade-Wesselink
+measurements referred to above would give, but it is also (perhaps)
+the same amount fainter than recent Hipparcos calibrations of
+M_V(HB) through field subdwarfs and other halo stars (e.g. Reid 1997,
+Feast and Catchpole 1997, Pont et al. 1997; the Hipparcos-based
+analyses are just starting to reach the literature at time of writing,
+and these various discussions are not yet in full agreement).
+The currently adopted zero point is a compromise among these 
+many different calibrations, and further revision may yet be required.
+
+	The absolute uncertainty of the predicted M_V(HB) is,
+thus, +-0.1 mag at best, and may still be as large as
++-0.2 mag in extreme cases.  For a few clusters (mostly ones
+in the Galactic bulge region with very heavy reddening), no good
+[Fe/H] estimate is currently available; for these cases,
+a value [Fe/H] = -1 is simply assumed, with the hope that the
+resulting M_V(HB) estimate will not be too far wrong.
+
+Source List:
+
+NGC 104   Hesser J.E., Harris W.E., VandenBerg D.A., Allwright
+          J.W.B., Shott P., and Stetson P.B. 1987, PASP, 99, 739
+
+NGC 288   Bergbusch P.A. 1993, AJ 106, 1024; also
+          Kaluzny, J. 1996, AApSuppl, 120, 83
+
+NGC 362   Harris W.E. 1982, ApJSuppl 50, 573
+
+NGC 1261  Ferraro F.R., Clementini G., Fusi Pecci F., Vitiello E.,
+          and Buonanno R. 1993, MNRAS 264, 273
+
+Pal 1     Borissova, J., and Spassova, N. 1995, AApSuppl 110, 1
+
+AM 1      Madore B.F., and Freedman W.L., 1989, ApJ 340, 812
+
+Eridanus  Ortolani S., and Gratton R., 1989, AApSuppl 79, 155
+
+Pal 2     Harris, W.E., Durrell, P.R., Petitpas, G.R., Webb, T.M.,
+          and Woodworth, S.C. 1997, AJ, submitted
+
+NGC 1851  Walker A.R., 1992, PASP 104, 1063
+
+NGC 1904  Ferraro F.R., Clementini G., Fusi Pecci F., Sortino R.,
+          and Buonanno R., 1992, MNRAS 256, 391
+
+NGC 2298  Janes K.A., and Heasley J.N., 1988, AJ 95, 762
+
+NGC 2419  Christian C.A., and Heasley J.N., 1988, AJ 95, 1422; also
+          Harris, W.E., Bell, R.A., VandenBerg, D.A., Bolte, M.,
+            Stetson, P.B., Hesser, J.E., van den Bergh, S., Bond, H.E.,
+            Fahlman, G.G., and Richer, H.B. 1997, AJ, submitted
+
+Pyxis     Irwin, M.J., Demers, S., and Kunkel, W.E. 1995, ApJ 453, L21;
+          Da Costa, G.S. 1995, PASP 107, 937;
+          Sarajedini, A., and Geisler, D. 1996, AJ, 112, 2013
+
+NGC 2808  Ferraro F.R., Clementini G., Fusi Pecci F., Buonanno R.
+          and Alcaino G., 1990, AApSuppl 84, 59
+
+E 3       McClure R.D., Hesser J.E., Stetson P.B., and Stryker L.L.,
+          1985, PASP 97, 665
+
+Pal 3     Ortolani S., and Gratton R., 1989, AApSuppl 79, 155
+
+NGC 3201  Brewer J.P., Fahlman G.G., Richer H.B., Searle L., and
+          Thompson I., 1993, AJ 105, 2158
+
+Pal 4     Christian C.A., and Heasley J.N., 1986, ApJ 303, 216
+
+NGC 4147  Friel E.D., Heasley J.N., and Christian C.A., 1987, PASP
+          99, 1248
+
+NGC 4372  Brocato, E., Buonanno, R., Malakhova, Y., and Piersimoni, A.M.
+          1996, AAp, 311, 778
+
+Rup 106   Sarajedini, A., and Layden, A. 1997, AJ, 113, 264        
+
+NGC 4590  McClure R.D., VandenBerg D.A., Bell R.A., Hesser, J.E.,
+          and Stetson, P.B., 1987, AJ 93, 1144
+
+NGC 4833  Menzies J., 1972, MNRAS 156, 207
+
+NGC 5024  Heasley J.N., and Christian C.A., 1991, AJ 101, 967
+
+NGC 5053  Sarajedini, A., and Milone, A.A.E. 1995, AJ 109, 269
+
+NGC 5139  Butler D., Dickens R.J., and Epps E., 1978, ApJ 225, 148
+          (RR Lyraes)
+
+NGC 5272  Sandage A., and Katem B., 1982, AJ 87, 537
+
+NGC 5286  Brocato, E., Buonanno, R., Malakhova, Y., and
+          Piersimoni, A.M. 1996, AAp, 311, 778
+
+AM 4      Inman R.T., and Carney B.W., 1987, AJ 93, 1166
+
+NGC 5466  Mateo M., Harris H.C., Nemec J. and Olszewski E.W., 1990,
+          AJ 100, 469
+
+NGC 5634  Racine R., 1976, unpublished CMD
+
+NGC 5694  Ortolani S., and Gratton R., 1990, AApSuppl 82, 71
+
+IC 4499   Walker, A.R., and Nemec, J.M 1996, AJ, 112, 2026         
+
+NGC 5824  Brocato, E., Buonanno, R., Malakhova, Y., and Piersimoni, A.M.
+          1996, AAp, 311, 778
+
+Pal 5     Smith G.H., McClure R.D., Stetson P.B., Hesser J.E., 
+          and Bell R.A., 1986, AJ 91, 842
+
+NGC 5897  Ferraro F.R., Fusi Pecci F., and Buonanno R., 1992, MNRAS
+          256, 376
+
+NGC 5904  Brocato, E., Castellani, V., and Ripepi, V. 1996, AJ, 111, 809
+          Sandquist, E.L., Bolte, M., Stetson, P.B., and Hesser, J.E. 1996,
+             ApJ, 470, 910
+
+NGC 5927  Sarajedini A., and Norris J.E., 1994, ApJSuppl 93, 161;
+          also Friel E.D., and Geisler D., 1991, AJ 101, 1338
+
+NGC 5946  Alcaino G., Liller W., Alvarado F., and Wenderoth E.,
+          1991, AJ 102, 1371
+
+BH 176    Ortolani, S., Bica, E., and Barbuy, B. 1995, AAp 300, 726
+
+NGC 5986  Bond H., Harris W.E., Harris G.L.H., Mittermeier R.,
+          and Palmer K., 1994, unpublished
+
+Lynga 7   Ortolani, S., Bica, E., and Barbuy, B. 1993, AAp 273, 415
+          see also Tavarez, M., and Friel, E.D. 1995, AJ 110, 223
+
+Pal 14    Holland S., and Harris W.E., 1992, AJ 103, 131
+
+NGC 6093  Harris W.E., and Racine R., 1974, AJ 79, 472
+
+NGC 6101  Sarajedini A., and DaCosta G.S., 1991, AJ 102, 628
+
+NGC 6121  Cudworth K.M., and Rees R., 1990, AJ 99, 1491
+
+NGC 6144  Alcaino G., 1980, AApSuppl 39, 315
+
+NGC 6139  Samus, N.N., Kravtsov, V.V., Pavlov, M.V., Alcaino, G.,
+          Liller, W., and Alvarado, F. 1996, Astron.Letters, 22, 686
+
+Terzan 3  Webbink R.F., 1985, in Dynamics of Star Clusters, IAU
+          Symposium 113, ed. J.Goodman and P.Hut 
+          (Dordrecht: Reidel), 541  (Brightest Giants)
+
+NGC 6171  Cudworth K.M., Smetanka J.J., and Majewski S.R., 1992,
+          AJ 103, 1252
+
+ESO452-SC11   Peterson, C.J. 1986, PASP 98, 1258 (from unpublished
+          data of Webbink and Hunter)
+
+NGC 6205  Sandage A., 1970, ApJ 162, 841
+
+NGC 6218  Brocato, E., Buonanno, R., Malakhova, Y., and Piersimoni, A.M.
+          1996, AAp, 311, 778
+
+NGC 6229  Carney B.W., Fullton L.K., and Trammell S.R., 1991, 
+          AJ 101, 1699
+
+NGC 6235  Liller M.H., 1980, AJ 85, 673
+
+NGC 6254  Hurley D.J.C., Richer H.B., and Fahlman G.G., 1989, AJ 98,
+          2124
+
+NGC 6256  Alcaino G., 1983, AApSuppl 53, 47
+
+Pal 15    Harris W.E., 1991, AJ 102, 1348
+
+NGC 6266  Brocato, E., Buonanno, R., Malakhova, Y., and Piersimoni, A.M.
+          1996, AAp, 311, 778
+
+NGC 6273  Harris W.E., Racine R., and de Roux J., 1976, ApJSuppl
+          31, 13
+
+NGC 6284  Harris H.C., and Harris W.E., 1994, in preparation
+
+NGC 6287  Stetson P.B., and West, M.J. 1995, PASP 106, 726 
+
+NGC 6293  Janes K.A., and Heasley J.N., 1991, AJ 101, 2097
+
+NGC 6304  Davidge T.J., Harris W.E., Bridges T.J., and Hanes D.A.,
+          1992, ApJSuppl 81, 251
+
+NGC 6316  Davidge T.J., Harris W.E., Bridges T.J., and Hanes D.A.,
+          1992, ApJSuppl 81, 251
+
+NGC 6325  Mittermeier R., Harris G.L.H., Bond H., Harris W.E.,
+          and Palmer K., 1994, unpublished   
+
+NGC 6341  Carney B.W., Storm J., Trammell S.R., and Jones R.V.,
+          1992, PASP 104, 44
+
+NGC 6333  Janes K.A., and Heasley J.N., 1991, AJ 101, 2097
+
+NGC 6342  Armandroff T.E., 1988, AJ 96, 588
+
+NGC 6356  Bica, E., Ortolani, S., and Barbuy, B. 1994, AApSuppl 106, 161
+
+NGC 6355  Harris W.E., 1980, in Star Clusters, IAU Symposium 85
+          ed. J.E.Hesser (Dordrecht: Reidel), 81  (Brightest Giants)
+
+NGC 6352  Fullton, L.K., Carney, B.W., Olszewski, E.W., Zinn, R.,
+          Demarque, P., Janes, K.A., Da Costa, G.S., and Seitzer, P.
+          1995, AJ 110, 652
+
+IC 1257   Harris, W.E., Phelps, R.L., Madore, B.F., Pevunova, O., Skiff, B.A.,
+          Crute, C., Wilson, B., and Archinal, B. 1997, AJ, 113, 688
+
+Terzan 2  Kuchinski, L.E., Frogel, J.A., Terndrup, D.M., and Persson, S.E.
+          1995, AJ 109, 1131
+
+NGC 6366  Harris H.C., 1993, AJ 106, 604
+
+Terzan 4  Ortolani, S., Barbuy, B., and Bica, E. 1997, AAp, 319, 850
+
+NGC 6362  Alcaino G., and Liller W., 1986, AJ 91, 303
+
+HP 1      Ortolani, S., Bica, E., and Barbuy, B. 1997, MNRAS, 284, 692 
+
+Liller 1  Frogel, J.A., Kuchinski, L.E., and Tiede, G.P. 1995, AJ 109, 1154
+          (see Ortolani, S., Bica, E., and Barbuy, B. 1996, AAp 306, 134
+           for improved reddening estimate)
+
+Terzan 1  Ortolani S., Bica E., and Barbuy B., 1993, AAp 267, 66
+
+NGC 6388  Silbermann, N.A., Smith, H.A., Bolte, M., and Hazen, M.L.
+          1994, AJ 107, 1764
+
+Ton 2     Bica, E., Ortolani, S., and Barbuy, B. 1996, AApSuppl, 120, 153
+
+NGC 6402  Shara M.M., Moffat A.F.J., Potter M., Hogg H.S., and
+          Wehlau A., 1986, ApJ 311, 796
+
+NGC 6401  Mittermeier R., Harris G.L.H., Bond H., Harris W.E.,
+          and Palmer K., 1994, unpublished   
+
+NGC 6397  Alcaino G., Buonanno R., Caloi V., Castellani V., 
+          Corsi C.E., Iannicolo G., and Liller W., 1987, AJ 94, 917
+
+Pal 6     Ortolani, S., Bica, E., and Barbuy, B. 1995, AAp 296, 680
+
+NGC 6426  Zinn, R., and Barnes, S. 1996, AJ, 112, 1054           
+
+Djorg 1   Ortolani, S., Bica, E., and Barbuy, B. 1995, AAp 296, 680
+
+Terzan 5  Ortolani, S., Barbuy, B., and Bica, E. 1996, AAp, 308, 733
+
+NGC 6440  Ortolani, S., Barbuy, B., and Bica, E. 1994, AApSuppl 108, 653
+
+NGC 6441  Hesser J.E., and Hartwick F.D.A., 1976, ApJ 203, 97 
+
+NGC 6453  Harris W.E., 1980, in Star Clusters, IAU Symposium 85,
+          ed. J.E.Hesser (Dordrecht: Reidel), 81  (Brightest Giants)
+
+Terzan 6  Fahlman, G.G., Douglas, K.A., and Thompson, I.B. 1995,
+          AJ 110, 2189
+
+UKS 1     Liu, T., McLean, I., and Becklin, E. 1994, in Infrared
+          Astronomy with Arrays, ed. I.McLean (Kluwer), 101
+
+NGC 6496  Sarajedini A., and Norris J.E., 1994, ApJSuppl 93, 161   
+          also Friel E.D., and Geisler D., 1992, AJ 101, 1338
+
+Terzan 9  Liu, T., McLean, I., and Becklin, E. 1994, in Infrared
+          Astronomy with Arrays, ed. I.McLean (Kluwer), 101
+
+Djorg 2   Mallen-Ornelas G., and Djorgovski S., 1993, ASP Conf. Series
+          50, Structure and Dynamics of Globular Clusters,
+          ed. G.Meylan and S.Djorgovski (San Francisco: ASP), 313
+          (Brightest Giants)
+
+NGC 6517  Kavelaars J.J., Hanes D.A., Bridges T.J., and Harris W.E.
+          1995, AJ, 109, 2081
+
+Terzan 10 Liu, T., McLean, I., and Becklin, E. 1994, in Infrared
+          Astronomy with Arrays, ed. I.McLean (Kluwer), 101
+
+NGC 6522  Terndrup, D., and Walker A., 1994, AJ, 107, 1786 
+
+NGC 6535  Sarajedini A., 1994, PASP, 106, 404
+
+NGC 6528  Ortolani S., Bica E., and Barbuy B., 1992, AApSuppl 92, 441
+
+NGC 6539  Armandroff T.E., 1988, AJ 96, 588
+
+NGC 6540  Bica E., Ortolani S., and Barbuy B. 1994, AA 283, 67
+
+NGC 6544  Alcaino G., 1983, AApSuppl 52, 105
+
+NGC 6541  Alcaino G., 1979, AApSuppl 35, 233
+
+NGC 6553  Ortolani S., Barbuy B., and Bica E., 1990, AAp 236, 362
+
+NGC 6558  Hazen, M.L. 1996, AJ, 111, 1184 [RR Lyraes]            
+
+IC 1276   Kinman T.D., and Rosino L., 1962, PASP 74, 499
+          (RR Lyraes)
+
+NGC 6569  Hazen-Liller M.L., 1985, AJ 90, 1807  (RR Lyraes)
+
+NGC 6584  Sarajedini A., and Forrester, W.L. 1995, AJ 109, 1112
+
+NGC 6624  Sarajedini A., and Norris J.E., 1994, ApJSuppl 93, 161  
+
+NGC 6626  Rees R.F., and Cudworth K.M., 1991, AJ 102, 152
+
+NGC 6638  Alcaino G., and Liller W., 1983, AJ 88, 1166 ; also
+          Smith H.A., and Stryker L.L., 1986, PASP 98, 453 
+
+NGC 6637  Ferraro, F.R., Fusi Pecci, F., Guarnieri, M.D., Moneti, A.,
+          Origlia, L., and Testa, V. 1994, MNRAS 266, 829
+
+NGC 6642  Hazen M.L., 1993, AJ 105, 557  (RR Lyraes)
+
+NGC 6652  Ortolani S., Bica E., and Barbuy B. 1994, AA 286, 444
+
+NGC 6656  Cudworth K.M., 1986, AJ 92, 348
+
+Pal 8     Armandroff T.E., 1988, AJ 96, 588
+
+NGC 6681  Brocato, E., Buonanno, R., Malakhova, Y., and Piersimoni, A.M.
+          1996, AAp, 311, 778
+
+NGC 6712  Cudworth K.M., 1988, AJ 96, 105
+
+NGC 6715  Sarajedini, A., and Layden, A.C. 1995, AJ 109, 1086
+
+NGC 6717  Brocato, E., Buonanno, R., Malakhova, Y., and Piersimoni, A.M.
+          1996, AAp, 311, 778
+
+NGC 6723  Fullton L.K., 1996, in preparation
+
+NGC 6749  Kaisler, D., Harris, W.E., and McLaughlin, D.E. 1997,
+          PASP, in press
+
+NGC 6752  Buonanno R., Caloi V., Castellani V., Corsi C., 
+          Fusi Pecci F., and Gratton R., 1986, AApSuppl 66, 79
+
+NGC 6760  Armandroff T.E., 1988, AJ 96, 588
+
+Terzan 7  Buonanno, R., Corsi, C.E., Pulone, L., Fusi Pecci, F.,
+          Richer, H.B., and Fahlman, G.G. 1995, AJ 109, 663
+
+NGC 6779  Wehlau A., and Sawyer Hogg H., 1985, AJ 90, 2514
+
+Pal 10    Kaisler, D., Harris, W.E., and McLaughlin, D.E. 1997,
+          PASP, in press
+
+Arp 2     Sarajedini, A., and Layden, A. 1997, AJ, 113, 264       
+
+NGC 6809  Lee S-W., 1977, AApSuppl 29, 1
+
+Terzan 8  Ortolani S. ,and Gratton R., 1990, AApSuppl 82, 71
+
+Pal 11    Cersosimo S., Lydon T.J., Sarajedini A., and Zinn R., 1993,
+          Bull.AAS 25, 884
+
+NGC 6838  Hodder P.C., Nemec J.M., Richer H.B., and Fahlman G.G.,
+          1992, AJ 103, 460
+
+NGC 6864  Harris W.E., 1975, ApJSuppl 29, 397
+
+NGC 6934  Brocato, E., Buonanno, R., Malakhova, Y., and Piersimoni, A.M.
+          1996, AAp, 311, 778
+
+NGC 6981  Brocato, E., Buonanno, R., Malakhova, Y., and Piersimoni, A.M.
+          1996, AAp, 311, 778
+
+NGC 7006  Buonanno R., Fusi Pecci F., Cappellaro E., Ortolani S.,
+          Richtler T., and Geyer E.H., 1991, AJ 102, 1005
+
+NGC 7078  Durrell P.R., and Harris W.E., 1993, AJ 105, 1420
+
+NGC 7089  Harris W.E., 1975, ApJSuppl 29, 397
+
+NGC 7099  Bolte M., 1987, ApJ 319, 760
+
+Pal 12    Stetson P.B., VandenBerg D.A., Bolte M., Hesser J.E., and
+          Smith G.H., 1989, AJ 97, 1360
+
+Pal 13    Borissova, J., Markov, H., and Spassova, N. 1997, 
+          AApSuppl, 121, 499
+
+NGC 7492  Cote P., Richer H.B., and Fahlman G.G., 1991, AJ 102, 1358
+
+
+
+                    INTEGRATED VISUAL MAGNITUDE V_t
+
+
+	Sources:
+
+
+Mallen-Ornelas G., and Djorgovski S. 1993, in Structure and
+	Dynamics of Globular Clusters, ASP Conf.Series 50,
+	ed. S.G.Djorgovski and G.Meylan (San Francisco: A.S.P.), 313
+	[Djorg 1, 2, 3, Liller 1, HP 1]
+
+Peterson C., and Reed, B.C. 1987, PASP 99, 20
+	[73 clusters; not including NGC 362,4590,4833,5946,6218,
+	6235,6522,6535,6717]
+
+van den Bergh S., Morbey C., and Pazder J. 1991, ApJ 375, 594
+	[97 clusters; not including NGC 6401]
+
+Webbink R.F. 1985, in Dynamics of Star Clusters, IAU Symposium
+        113, ed. J.Goodman and P.Hut (Dordrecht:  Reidel), 541
+	[131 clusters; not including NGC 5694, 5824, Pal 1,
+	Pal 3, Pal 15, E3, AM4]
+
+
+	All data from the given sources are used, with the 
+exception of the clusters specifically mentioned above (in these
+latter instances the V_t values are significantly discrepant 
+compared with the other studies.  The three major sources 
+(Peterson and Reed, van den Bergh et al., Webbink) all use 
+similar original databases (mostly concentric-aperture photometry 
+of the clusters), but calculate total magnitudes independently 
+by a variety of curve-of-growth methods.
+
+	For several sparse or low-luminosity clusters (Pal 1,
+AM-1, E3, Pal 3, AM-4, Pal 14, Pal 15, IC 1257, Ter 12, Pal 12), 
+the cluster luminosity function (from the color-magnitude study
+or other data in the literature) has been used by the present
+author to estimate V_t.
+
+	The adopted integrated magnitudes are the straight averages
+of the data from all sources.  
+
+
+
+                INTEGRATED COLORS (U-B, B-V, V-R, V-I)
+
+
+	The integrated colors U-B and B-V are on the standard
+Johnson system, and V-R, V-I on the Kron-Cousins system.
+The adopted values are the straight average of the two sources;
+see Peterson (1993) for a discussion of the (good) internal
+agreement of the databases and additional references.
+
+	In a few cases, the integrated colors are derived from
+direct addition of stars in the color-magnitude diagrams (usually
+for very sparse clusters with no direct color measurements).
+
+	Sources:
+
+Peterson C.J. 1993, in Structure and Dynamics of Globular Clusters, 
+	ASP Conf.Series 50, ed. S.G.Djorgovski and G.Meylan 
+	(San Francisco: A.S.P.), 337
+
+Reed B.C. 1986, PASP 97, 120
+
+
+
+                   INTEGRATED SPECTRAL TYPES
+
+
+	Integrated spectral types are taken from:
+
+Hesser, J.E., and Shawl, S.J. 1985, PASP 97, 465
+
+
+
+            SPECIFIC FREQUENCY OF RR LYRAE STARS, S_RR
+
+
+	S_RR is the number of RR Lyrae stars in the cluster,
+normalized to a total cluster luminosity M_Vt = -7.5; i.e.
+
+              S_RR = N_RR * 10**(0.4 (7.5 + M_Vt))
+
+The data source for N_RR is the comprehensive discussion of
+Suntzeff, Kinman, and Kraft 1991, ApJ, 367, 528.  The resulting
+values for S_RR in the present catalog differ noticeably from theirs
+in some cases because of revisions in the cluster distance and 
+(thus) luminosity.
+
+	A few updates for N_RR have been taken from the more recent
+literature.
+
+
+
+                 HORIZONTAL BRANCH MORPHOLOGY
+
+
+
+	The HBR parameter defined by Lee (1990, ApJ 363, 159)
+is equal to (B-R)/(B+V+R), where in this case B denotes the 
+number of horizontal-branch stars on the blue side of the 
+RR Lyrae region; V the number of stars in the RR Lyrae region; 
+and R the number of stars on the red side
+of the RR Lyrae region.  The adopted HBR value is the direct
+average of the sources listed.
+
+	Sources:
+
+Lee Y.-W., Demarque P., and Zinn R. 1994, ApJ, 423, 248
+ 
+Fusi Pecci F., Ferraro F.R., Bellazzini M., Djorgovski S,
+Piotto G., and Buonanno R. 1993, AJ, 105, 1145
+ 
+Preston G.W., Schectman S.A., and Beers T.C. 1991, ApJ, 375, 121
+
+
+
+	The morphological type of the horizontal branch as
+originally defined by Dickens (1972, MNRAS 157, 281) is on an integer
+scale from 1 to 7, where 1 denotes a cluster with a completely
+blue HB (all stars on the blue side of the RR Lyrae region)
+and 7 denotes a completely red HB.  From the individual 
+color-magnitude studies listed above, the HB type has been
+evaluated anew by the present author for the purpose of this catalog.  
+In addition, a new type "0" has also been introduced, 
+to denote any cluster with an extremely
+blue extension of the HB.  In a few cases, where the distribution
+of stars along the HB is bimodal, the cluster is
+assigned two simultaneous HB types.  
+
+	In general, the distribution of stars along the HB cannot
+be described adequately by any one parameter or ratio.  Many recent
+investigations have shown that the relative proportions of stars
+in different parts of the HB depend on radius within the cluster;
+the blue HB can show very distinct gaps or clumps; many clusters
+at a wide range of metallicities have highly extended blue BHB tails; 
+several clusters have now been found to have clearly bimodal HB distributions 
+with large populations of both blue and red stars but few or none in the 
+intermediate (RR Lyrae) region.  For thorough discussion, see the papers
+of Fusi Pecci et al. 1993 (AJ 105, 1145) or Borissova et al. 1997 (AJ 113, 692).
+The former paper in particular defines several additional HB parameters
+which are not listed in this catalog.
+
+
+
+
+                     METALLICITIES:  [Fe/H] VALUES
+
+
+	The heavy-element abundance scale adopted here is
+basically the one established by Zinn and West (1984, ApJSuppl, 55, 45).   
+READERS PLEASE NOTE:
+This scale has recently been called into serious question
+as possibly being nonlinear when calibrated against the best modern
+measurements of [Fe/H] from high-dispersion spectra  
+(see Carretta and Gratton 1997, AApSuppl 121, 95 and
+Rutledge, Hesser, and Stetson 1997, PASP 109, in press). 
+In particular, these authors suggest that the Zinn-West scale 
+overestimates the metallicities of the most metal-rich clusters.
+However, the present catalog maintains the older (Zinn-West) scale until a
+new consensus is reached in the primary literature.
+
+	In addition to the two major compilations of
+cluster metallicities listed below on the Zinn-West scale,
+data of two types are used:  (1) [Fe/H] values from spectroscopy
+of individual cluster stars, from various more recent papers (listed
+below); and (2) metallicity estimates from the color-magnitude
+diagrams, in cases where the CMD is precise and well calibrated
+(references given in the V_HB section above).  The final adopted 
+[Fe/H] for each cluster is the straight average of the available
+measurements.
+
+
+          Major Sources:
+
+
+Armandroff, T.E., and Zinn, R. 1988, AJ 96, 92  [27 clusters]
+
+Zinn, R. 1985, ApJ 293, 424  [111 clusters]
+
+
+          Additional Sources:
+
+
+Armandroff, T.E., and Da Costa, G.S. 1991, AJ 101, 1329  
+          [Eridanus, Pal 12]
+
+Armandroff, T.E., Da Costa, G.S., and Zinn, R. 1992, AJ 104, 164
+          [Pal 3,4,11,14]
+
+Barbuy, B., Castro, S., Ortolani, S., and Bica, E. 1992,
+          AAp 259, 607  [NGC 6553]
+
+Beers, T.C., Preston, G.W., Shectman, S.A., and Kage, J.A. 1990,
+          AJ, 100, 849 [NGC 3201,6121,6341,6397,6752]
+
+Brown, J.A., and Wallerstein, G. 1992, AJ 104, 1818  
+          [NGC 104, 6121, 6656]
+
+Caldwell, S.P., and Dickens, R.J. 1988, MNRAS 234, 87
+          [NGC 288,362,6397,6809]
+
+Cannon, R. 1996, quoted in Walker, A.R., and Nemec, J.M 1996,
+          AJ, 112, 2026 [IC 4499]
+
+Clementini, G., Merighi, R., Gratton, R., and Carretta, E. 1994, 
+          MNRAS 267, 43  [NGC 6121]
+
+Costar, D., and Smith, H.A. 1988, AJ 96, 1925  [NGC 104,6838]
+
+Da Costa, G.S., and Armandroff, T.E. 1995, AJ 109, 2533
+          [NGC 6218, 6366, 6626, 6715, Pal 11, 12, 15, Ter 7, Ter 8,
+           Arp 2]
+
+Da Costa, G.S., Armandroff, T.E., and Norris, J.E. 1992, AJ 104, 154
+          [Rup 106]
+
+Da Costa, G.S., and Seitzer, P. 1989, AJ 97, 405  [NGC 6366]
+
+D'Odorico, S., Gratton, R., and Ponz, D. 1985, AAp 142, 232
+          [NGC 104]
+
+Drake, J.J., Smith, V.V., and Suntzeff, N.B. 1994, ApJ, 430, 610 [NGC 6121]
+
+Francois, P. 1991, AAp 247, 56  [NGC 1904,5927,6352]
+
+Geisler, D., Piatti, A.E., Claria, J.J., and Minniti, D. 1995,
+          AJ 109, 605  [NGC 2298, 4372, 4833, 5053, 5694, 5897,
+          6101, 6144]
+
+Gratton, R.G. 1987, AAp 179, 181  [NGC 288,362,5897,6352,6362]
+
+Gratton, R.G., and Ortolani, S. 1986, AAp 169, 201
+          [NGC 104,5904,6121,6752,6838]
+
+Gratton, R.G., and Ortolani, S. 1989, AAp 211, 41
+          [NGC 1904,3201,4590,4833,6254,6397,6656]
+
+Kraft, R.P., Sneden, C., Langer, G.E., and Prosser, C.F. 1992, 
+          AJ 104, 645  [NGC 5272,6205]
+
+Kraft, R.P., Sneden, C., Langer, G.E., and Shetrone, M.D. 1993, 
+          AJ 106, 1490  [NGC 6205]
+
+Kraft, R.P., Sneden, C., Langer, G.E., Shetrone, M.D., and Bolte, M.
+          1995, AJ 109, 2586  [NGC 6254]
+
+Kraft, R.P., Sneden, C., Smith, G.H., Shetrone, M.D., Langer, G.E.,
+          and Pilachowski, C.A. 1997, AJ, 113, 279 [NGC 6205]
+
+Lehnert, M.D., Bell, R.A., and Cohen, J.G. 1991, ApJ 367, 514
+          [NGC 6205,6656]
+
+Leep, E.M., Oke, J.B., and Wallerstein, G. 1987, AJ 93, 338  [NGC 6838]
+
+McWilliam, A., Geisler, D., and Rich, R.M. 1992, PASP 104, 1193  
+          [NGC 2298]
+
+Minniti, D. 1995, A&A 303, 468  [NGC 6121, 6325, 6356, 6401, 6440, 
+          6517, 6642, 6656, Pal 6]
+
+Minniti, D. 1995, A&ASuppl 113, 299  [NGC 6637, 6626]
+
+Minniti, D., Geisler, D., Peterson, R.C., and Claria, J.J. 1993,
+          ApJ 413, 548  [NGC 4590,4833,6144,6397,6752,6809,7078,7099]
+
+Ortolani, S., and Gratton, R.G. 1989, AApSuppl 79, 155  [Pal 3, Eridanus]
+
+Paltoglou, G., and Norris, J.E. 1989, ApJ 336, 185  [NGC 5139]
+
+Peterson, R.C., Kurucz, R.L., and Carney, B.W. 1990, ApJ 350, 173
+          [NGC 6341]
+
+Pilachowski, C.A., and Armandroff, T.E. 1996, AJ, 111, 1175 [NGC 6205]
+
+Shetrone, M.D. 1996, AJ, 112, 1517 [NGC 5904,6205,6341,6838]
+
+Smith, H.A., and Stryker, L.L. 1986, PASP 98, 453  [NGC 6638]
+
+Sneden, C., Kraft, R.P., Prosser, C.F., and Langer, G.E. 1991,
+          AJ 102, 2001  [NGC 6341, 7078]
+
+Sneden, C., Kraft, R.P., Langer, G.E., Prosser, C.F., and Shetrone, M.D.
+          1994, AJ 107, 1773  [NGC 6838]
+
+Sneden, C., Kraft, R.P., Prosser, C.F., and Langer, G.E. 1992,
+          AJ 104, 2121  [NGC 5904]
+
+Suntzeff, N.B., and Kraft, R.P. 1996, AJ, 111, 1913 [NGC 5139]
+
+Suntzeff, N.B., Kraft, R.P., and Kinman, T.D. 1988, AJ 95, 91 
+          [NGC 2419,4147,5024,5053]
+
+Suntzeff, N., Olszewski, E., and Stetson, P.B. 1985, AJ 90, 1481  [AM-1]
+
+Tavarez, M, and Friel, E.D. 1995, AJ 110, 223  [Lynga 7]
+
+
+
+
+                        RADIAL VELOCITY 
+
+
+	Most of the radial velocity data come from the 
+four major sources listed below.  However, numerous more
+recent sources are also available for smaller lists of
+objects; in many cases these are based on large samples 
+of stars from CORAVEL or multi-object echelle spectra with very
+high internal precision (+-1 km/s or less) and almost totally
+supersede any previous data.  The adopted v_r for each cluster
+is the average of the available measurements, each one weighted
+inversely as the published uncertainty.  Unlike many 
+globular cluster parameters, it is possible to quantify 
+the uncertainty in v_r on an individual basis reasonably
+well, so the calculated uncertainty in the mean v_r is also given
+in the data table.
+
+	The quoted uncertainties should be taken as internal ones
+(precisions).  The true external uncertainties are likely to be
+a factor of 2 higher in general and are harder to evaluate correctly;
+see the extensive discussions of Webbink (1981) and Rutledge et al. (1997).
+
+	Correction of the heliocentric velocity v_r to the
+Solar Local Standard of Rest is calculated by
+
+ v_LSR = v_r + 10.4 cos b cos l + 14.8 cos b sin l + 7.3 sin b
+
+
+          Major Sources:
+
+
+Armandroff, T.E., and Zinn, R. 1988, AJ 96, 92  [27 clusters]
+
+Hesser, J.E., Shawl, S.J., and Meyer, J.E. 1986, PASP 98, 403
+          [90 clusters]
+
+Webbink, R.F. 1981, ApJSuppl 45, 259  [85 clusters; complete
+          literature survey up to 1981]
+
+Zinn, R., and West, M.J. 1984, ApJSuppl 55, 45  [58 clusters; these
+          velocities are corrected by -5 km/s to normalize them to the
+          more recently calibrated velocity of their adopted 
+          reference cluster, NGC 104.  The adopted uncertainty of these
+          velocities is taken to be 15 km/sec.]
+
+Rutledge, G.A., Hesser, J.e., Stetson, P.B., Mateo, M., Simard, L.,
+          Bolte, M., Friel, E.D., and Copin, Y. 1997, PASP, in press
+          [52 clusters; their quoted uncertainties have been reduced
+          by a factor of 2.3 throughout to correspond to their INTERNAL
+          measurement uncertainties and thus to make them comparable
+          to the other studies; see their discussion.]
+
+
+          Additional Sources:
+
+
+Armandroff, T.E., and Da Costa, G.S. 1986, AJ 92, 777
+          [NGC 104,1851,7078,7089]
+
+Armandroff, T.E., and Da Costa, G.S. 1991, AJ 101, 1329
+          [Pal 12, Eridanus]
+
+Armandroff, T.E., Da Costa, G.S., and Zinn, R. 1992, AJ 104, 164
+          [Pal 3,4,14]
+
+Beers, T.C., Preston, G.W., Shectman, S.A., and Kage, J.A. 1990,
+          AJ, 100, 849 [NGC 3201,5272,6121,6341,6397,6752]
+
+Clementini, G., Merighi, R., Pasquini, L., Cacciari, C., and
+          Gouiffes, C. 1994, MNRAS 267, 83  [NGC 6121]
+
+Cote, P., Hanes, D.A., McLaughlin, D.E., Bridges, T.J., Hesser, J.E.,
+          and Harris, G.L.H. 1997, ApJLett, 476, L15
+
+Cote, P., Pryor, C., McClure, R., Fletcher, J.M., and Hesser, J.E.
+          1996, AJ, 112, 574
+
+Cote, P., Welch, D.L., Fischer, P., and Gebhardt, K. 1995,
+          ApJ 454, 788 [NGC 3201]
+
+Da Costa, G.S. 1982, PASP 94, 769  [NGC 1851]
+
+Da Costa, G.S., and Armandroff, T.E. 1995, AJ 109, 2533
+          [NGC 6366, 6626, 6715, Pal 15, Ter 7, Ter 8, Arp 2]
+
+Da Costa, G.S., and Seitzer, P. 1989, AJ 97, 405  [NGC 6171,6366]
+
+Dubath, P., and Meylan, G. 1994, AAp, 290, 104 [NGC 7078]
+
+Fischer, P., Welch, D.L., Mateo, M., and Cote, P. 1993, 
+          AJ 106, 1508 [NGC 362]
+
+Gebhardt, K., Pryor, C., Williams, T.B., Hesser, J.E., and Stetson, P.B.
+          1997, AJ, 113, 1026 [NGC 7078]
+
+Geisler, D., Piatti, A.E., Claria, J.J., and Minniti, D. 1995,
+          AJ 109, 605  [NGC 1904, 2298, 4372, 4590, 4833, 5053, 5694, 
+          5897, 6101, 6121, 6144, 6397]
+
+Grindlay, J., Bailyn, C., Mathieu, R., and Latham, D. 1987, in
+          Globular Cluster Systems in Galaxies, IAU Symposium 126,
+          ed. J.Grindlay and A.G.D.Philip (Dordrecht: Reidel), 659
+          [NGC 6712]
+
+Harris, H.C., Nemec, J.M., and Hesser, J.E. 1983, PASP 95, 256
+          [NGC 6218,6779]
+
+Lin, D.N.C., and Richer, H.B. 1992, ApJ 388, L57  [Rup 106]
+
+Lupton, R.H., Gunn, J.E., and Griffin, R.F. 1987, AJ 93, 1114
+          [NGC 6205]
+
+Meylan, G., Dubath, P., and Mayor, M. 1991, ApJ, 383, 587  [NGC 104]
+
+Meylan, G., and Mayor, M. 1986, AAp 166, 122  [NGC 104,5139]
+
+Minniti, D. 1995, A&ASuppl 113, 299 [NGC 104, 288, 362, 1851, 5272,
+          6121, 6356, 6366, 6401, 6440, 6517, 6528, 6553, 6624, 6637,
+          6642, 6626, 6656, 6838, 7078, Pal 6]
+
+Olszewski, E.W., Peterson, R.C., and Aaronson, M. 1986, ApJ 302, L45
+          [NGC 5272,5904, Pal 4,14,15]
+
+Olszewski, E.W., Pryor, C., and Schommer, R.A. 1993, in 
+          The Globular Cluster - Galaxy Connection, ASP Conf.Series
+          48, ed. G.H.Smith and J.P.Brodie (San Francisco: ASP), 99
+          [NGC 2419]
+
+Peterson, R.C. 1985, ApJ 297, 309
+          [NGC 1904,2419,4147,5634, Pal 3,5,14, Eridanus]
+
+Peterson, R.C., and Cudworth, K.M. 1994, ApJ 420, 612
+          [NGC 6656]
+
+Peterson, R.C., and Latham, D.W. 1986, ApJ 305, 645
+          [NGC 5466,6121,6656,6838]
+
+Peterson, R.C., and Latham, D.W. 1989, ApJ 336, 178  [Pal 15]
+
+Peterson, R.C., Olszewski, E.W., and Aaronson, M. 1986, ApJ 307, 139
+          [NGC 288,1904,2419,4147,5272,5466,5904,6121,7078, Pal 3,4,
+          Eridanus]
+
+Peterson, R.C., Rees, R.F., and Cudworth, K.M 1995, ApJ 443, 124
+          [NGC 6121]
+
+Peterson, R.C., Seitzer, P., and Cudworth, K.M. 1989, ApJ 347, 251
+          [NGC 7078]
+
+Piatek, S., Pryor, C., McClure, R.E., Fletcher, J.M., and Hesser, J.E.
+          1994, AJ 107, 1397  [NGC 6171]
+
+Pryor, C., McClure, R.D., Fletcher, J.M., and Hesser, J.E. 1987, in
+          Globular Cluster Systems in Galaxies, IAU Symposium 126,
+          ed. J.Grindlay and A.G.D.Philip (Dordrecht: Reidel), 661
+          [NGC 4147,6171,6218]
+
+Pryor, C., McClure, R.D., Fletcher, J.M., and Hesser, J.E. 1989,
+          AJ 98, 596  [NGC 6624,6626,6681]
+
+Pryor, C., McClure, R.D., Fletcher, J.M., and Hesser, J.E. 1991,
+          AJ 102, 1026  [NGC 288,5466,6809]
+
+Pryor, C., and Meylan, G. 1993, in Structure and Dynamics of Globular
+          Clusters, ASP Conf.Series 50, ed. G.Meylan and
+          S. Djorgovski (San Francisco: ASP), 357
+          [NGC 288,1904,4590,6362,6535,6624,6656,6779,6809,
+          6838,6934,7099]
+
+Pryor, C., Schommer, R.A. and Olszewski, E.W. 1991, in 
+          ASP Conf.Series 13, ed. K.Janes (San Francisco: ASP), 439
+          [NGC 5053,5466]
+
+Rastorguev, A.S., and Samus, N.N. 1991, Sov.Astron.Letters 17, 388
+          [NGC 5904,6121,6218,6254,6838]
+
+Suntzeff, N., and Kraft, R.P. 1996, AJ, 111, 1913 [NGC 5139]
+
+Suntzeff, N., Olszewski, E., and Stetson, P.B. 1985, AJ 90, 1481
+          [AM-1]
+
+Tavarez, M., and Friel, E.D. 1995, AJ 110, 223  [Lynga 7]
+
+Yan, L., and Cohen, J.G. 1996, AJ, 112, 1489 [NGC 5053]
+
+Zaggia, S.R., Capaccioli, m., Piotto, G., and Stiavelli, M.
+          1992, AAp 258, 302  [NGC 1904]
+
+Zaritsky, D., Olszewski, E.W., Schommer, R.A., Peterson, R.C., and
+          Aaronson, M. 1989, ApJ 345, 759  [Pal 14, Eridanus]
+
+
+
+
+              STRUCTURAL AND DYNAMIC PARAMETERS
+
+
+	Sources:
+
+
+Djorgovski S. 1993, in Structure and Dynamics of Globular Clusters, 
+	ASP Conf.Series 50, ed. S.G.Djorgovski and G.Meylan 
+	(San Francisco: A.S.P.), 373
+
+Trager S.C, Djorgovski S., and King I.R. 1993, in Structure
+	and Dynamics of Globular Clusters, ASP Conf.Series 50,
+	ed. S.G.Djorgovski and G.Meylan (San Francisco: A.S.P.), 347
+
+Trager, S.C., King, I.R., and Djorgovski, S. 1995, AJ 109, 218
+
+van den Bergh S., Morbey C., and Pazder J. 1991, ApJ 375, 594
+
+Webbink R.F. 1985, in Dynamics of Star Clusters, IAU Symposium
+        113, ed. J.Goodman and P.Hut (Dordrecht:  Reidel), 541
+
+
+
+	The cluster core radii r_c, and the central concentration 
+c = log(r_t/r_c), where r_t is the tidal radius, are taken from
+the comprehensive discussion of Trager et al. (1993).  Updates for a 
+few clusters (Pal 2, N6144, N6352, Ter 5, N6544, Pal 8, Pal 10, 
+Pal 12, Pal 13) are taken from Trager, King, and Djorgovski (1995).
+The half-mass radius r_h is taken from the direct average of Trager et al. and
+van den Bergh et al.  There are about 20 clusters for which Trager et al.
+quote values of c and r_c, but for which r_h is not given by 
+either source.  For these, estimates of r_h have been calculated from 
+the approximate relation
+
+            log (r_h/r_c) = 0.6 c - 0.4
+
+which is accurate to about 20%.  These objects are mostly sparse
+or low-luminosity clusters.
+
+	WARNING:  The listed values of r_c and c should not be used
+to calculate a value of tidal radius r_t for core-collapsed clusters.
+King (private communication) notes that their lists arbitrarily 
+adopt c = 2.50 for such clusters, and these have been carried over to
+the present catalog.  
+
+	The relaxation times in the core and at the half-mass
+radius, t(r_c) and t(r_h), are taken from Djorgovski (1993).
+
+	The central surface brightness mu_V (magnitudes per square
+arcsecond) is the average of the values from Trager et al. (1993)
+and Webbink (1985), with a few updates from Trager et al. (1995)
+(for HP 1, Ter 5, Pal 12, and Pal 13).
+The central luminosity density, rho_0, in 
+solar luminosities per cubic parsec, is calculated from the 
+prescription given by Djorgovski (1993), using the previously
+determined values of the central surface brightness, 
+total cluster luminosity, and core radius.  These are different
+in some cases from the values listed by Djorgovski, because
+of revisions to the cluster distances.
+

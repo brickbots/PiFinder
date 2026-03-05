@@ -32,7 +32,7 @@ class CameraDebug(CameraInterface):
 
     def __init__(self, exposure_time) -> None:
         logger.debug("init camera debug")
-        self.camType = "Debug camera"
+        self.camType = "Debug imx296"  # Format matches PI cameras for compatibility
         self.path = utils.pifinder_dir / "test_images"
         self.exposure_time = exposure_time
         self.gain = 10
@@ -41,13 +41,15 @@ class CameraDebug(CameraInterface):
         self.initialize()
 
     def setup_debug_images(self) -> None:
-        self.image1 = Image.open(self.path / "debug1.png")
-        self.image2 = Image.open(self.path / "debug2.png")
-        self.image3 = Image.open(self.path / "debug3.png")
-        self.images = [self.image1, self.image2, self.image3]
+        images = [
+            Image.open(self.path / "pifinder_debug_01.png"),  # Solves, brighter sky
+            Image.open(self.path / "pifinder_debug_02.png"),  # Solves, darker sky
+            Image.open(self.path / "empty.png"),  # Doesn't solve (no stars)
+        ]
+        self.images = list(zip(range(1, len(images) + 1), images))
         self.image_cycle = cycle(self.images)
-        self.last_image_time: float = 0
-        self.last_image = self.image2
+        self.last_image_time: float = time.time()
+        self.current_image_num, self.last_image = self.images[0]
 
     def initialize(self) -> None:
         self._camera_started = True
@@ -61,19 +63,35 @@ class CameraDebug(CameraInterface):
     def capture(self) -> Image.Image:
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
-        logger.debug("CameraDebug exposed for %s seconds", sleep_time)
-        if time.time() - self.last_image_time > 5:
-            self.last_image = next(self.image_cycle)
-            self.last_image_time = time.time()
+        # Change images every 10 seconds
+        elapsed = time.time() - self.last_image_time
+        if elapsed > 10:
+            self.current_image_num, self.last_image = next(self.image_cycle)
+            logger.debug(
+                f"Debug camera switched to test image #{self.current_image_num}"
+            )
         return self.last_image
+
+    def capture_bias(self):
+        """Return black frame (bias capture not active)."""
+        return Image.new("L", (512, 512), 0)
 
     def capture_file(self, filename) -> None:
         logger.warn("capture_file not implemented in Camera Debug")
         pass
 
+    def capture_raw_file(self, filename) -> None:
+        logger.warn("capture_raw_file not implemented in Camera Debug")
+        pass
+
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
+        logger.info(
+            f"Setting debug camera config - Exposure: {exposure_time}µs, Gain: {gain}x"
+        )
+        self.exposure_time = exposure_time
+        self.gain = gain
         return exposure_time, gain
 
     def get_cam_type(self) -> str:
@@ -88,6 +106,11 @@ def get_images(shared_state, camera_image, command_queue, console_queue, log_que
     MultiprocLogging.configurer(log_queue)
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
+
+    # Handle auto-exposure mode: use default value, auto-exposure will adjust
+    if exposure_time == "auto":
+        exposure_time = 400000  # Start with default 400ms
+
     camera_hardware = CameraDebug(exposure_time)
     camera_hardware.get_image_loop(
         shared_state, camera_image, command_queue, console_queue, cfg

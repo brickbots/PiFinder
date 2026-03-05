@@ -14,10 +14,12 @@ The **Steinicke catalog** is the primary and most comprehensive source for NGC, 
 - Based on Wolfgang Steinicke's comprehensive revision of the NGC/IC catalogs
 
 **Key files:**
-- `NI2023.xls` - Main catalog data (extracted from zip)
-- `NI2024.zip` - Original source archive
-- `extract.py` - Python script to process XLS data into JSON format
-- `explanation.md` - Detailed column documentation
+- `steinicke_catalog_source.zip` - Original source archive
+- `steinicke_extractor.py` - Python script to process XLS data into JSON format
+- `description_extractor.py` - Script to extract NGC2000 descriptions
+- `steinicke_column_reference.md` - Detailed column documentation
+- `steinicke_catalog.json` - Processed catalog data (12MB) ==> not in git
+- `ngc2000_descriptions.json` - Extracted object descriptions ==> not in git
 
 ### ngc2000/
 The **NGC2000 catalog** is used supplementarily to provide **object descriptions** that are missing from the Steinicke catalog. While Steinicke provides comprehensive technical data, NGC2000 contains the descriptive text that helps observers understand what they're looking at.

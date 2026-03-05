@@ -96,6 +96,10 @@ def dec_to_deg(dec, dec_m, dec_s):
 
 
 def dec_to_dms(dec):
+    try:
+        dec = float(dec)
+    except TypeError:
+        return 0, 0, 0
     degree = int(dec)
     fractional_degree = abs(dec - degree)
     minute = int(fractional_degree * 60)
@@ -104,6 +108,11 @@ def dec_to_dms(dec):
 
 
 def ra_to_hms(ra):
+    try:
+        ra = float(ra)
+    except TypeError:
+        return 0, 0, 0
+
     if ra < 0.0:
         ra = ra + 360
     mm, hh = math.modf(ra / 15.0)
@@ -158,8 +167,6 @@ def aim_degrees(shared_state, mount_type, screen_direction, target):
                 )
                 az_diff = target_az - solution["Az"]
                 az_diff = (az_diff + 180) % 360 - 180
-                if screen_direction in ["flat", "as_dream"]:
-                    az_diff *= -1
 
                 alt_diff = target_alt - solution["Alt"]
                 alt_diff = (alt_diff + 180) % 360 - 180
@@ -168,8 +175,11 @@ def aim_degrees(shared_state, mount_type, screen_direction, target):
         else:
             # EQ Mount type
             ra_diff = target.ra - solution["RA"]
+            ra_diff = (ra_diff + 180) % 360 - 180  # Convert to -180 to +180
+
             dec_diff = target.dec - solution["Dec"]
             dec_diff = (dec_diff + 180) % 360 - 180
+
             return ra_diff, dec_diff
     return None, None
 

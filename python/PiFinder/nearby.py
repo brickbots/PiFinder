@@ -26,12 +26,12 @@ class Nearby:
         )
 
     def should_refresh(self):
-        if not self.shared_state.solution():
+        solution = self.shared_state.solution()
+        if not solution or solution["RA"] is None:
+            # No solution yet (initial state before first successful solve)
             return False
-        ra, dec = (
-            self.shared_state.solution()["RA"],
-            self.shared_state.solution()["Dec"],
-        )
+        ra, dec = solution["RA"], solution["Dec"]
+        # After first successful solve, RA/Dec are guaranteed to be valid
         should = (
             abs(ra - self.last_ra) > MAX_DEVIATION
             or abs(dec - self.last_dec) > MAX_DEVIATION
@@ -47,20 +47,18 @@ class Nearby:
         return should
 
     def refresh(self):
-        if not self.shared_state.solution():
+        solution = self.shared_state.solution()
+        if not solution or solution["RA"] is None:
+            # No solution yet (initial state before first successful solve)
             return []
-        else:
-            # with Timer("Nearby.refresh"):
-            ra, dec = (
-                self.shared_state.solution()["RA"],
-                self.shared_state.solution()["Dec"],
-            )
-            self.last_ra = ra
-            self.last_dec = dec
-            self.last_refresh = time.time()
+        # After first successful solve, RA/Dec are guaranteed to be valid
+        ra, dec = solution["RA"], solution["Dec"]
+        self.last_ra = ra
+        self.last_dec = dec
+        self.last_refresh = time.time()
 
-            self.result = self.closest_objects_finder.get_closest_objects(ra, dec)
-            return self.result
+        self.result = self.closest_objects_finder.get_closest_objects(ra, dec)
+        return self.result
 
 
 class ClosestObjectsFinder:

@@ -113,7 +113,7 @@ def babel(session: nox.Session) -> None:
         "TRANSLATORS",
         "-o",
         "locale/messages.pot",
-        ".",
+        "./PiFinder",
     )
     session.run("pybabel", "update", "-i", "locale/messages.pot", "-d", "locale")
     session.run("pybabel", "compile", "-d", "locale")

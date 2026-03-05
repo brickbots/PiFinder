@@ -33,7 +33,7 @@ In order to direct you to wonders of the night sky, the PiFinder needs
 to know where your telescope is currently pointed.  The primary way it does this 
 is directly, by taking photos of the night sky and examining the star patterns 
 to determine what section of the sky it's seeing.  It can do 
-this incredibly fast (up to two times per second!) and very accurately.  
+this incredibly fast (up to 20 times per second!) and very accurately.  
 This only works well if your telescope is not moving, so it couples this 
 very accurate system with an accelerometer to provide an estimate of how far your telescope 
 has moved from the last known position.  This estimate will contain some error, 
@@ -64,7 +64,7 @@ site, you can turn the brightness down to preserve your dark-adapted vision.
    at the eyepiece in especially dark environments. The default is 30 seconds and this can be configured, 
    or turned off completely, in the :ref:`user_guide:settings menu`
 
-   Pressing any button, or moving the PFinder will wake it from power save mode.
+   Pressing any button, or moving the PiFinder will wake it from power save mode.
 
 The Menu System
 =====================================
@@ -88,7 +88,7 @@ Screens
 --------
 
 When you choose some menu items, like Camera, these will lead you to a specific screen such as showing the 
-camera preview, a start chart or details about a particular catalog object.  Each one of the screens is
+camera preview, a star chart or details about a particular catalog object.  Each one of the screens is
 covered in more detail below.
 
 Options
@@ -488,7 +488,7 @@ state and operation of the PiFinder.
 
 Some of the key bits of information displayed:
 
-- The current solver state displayed as LST SLV on the top line.  It shows the
+- The current solver state displayed as LAST SLV on the top line.  It shows the
   number of seconds since the last plate solve, the current solve state (i for IMU 
   or C for camera) and the number of stars matched if the current solve is a camera solve
 - WiFi information is displayed a bit further down including the current WiFi mode, 
@@ -556,7 +556,7 @@ Web Interface
 The PiFinder provides an easy to use web interface which allows you to:
 
 * See the current PiFinder status
-* Remote control the PiFinder via a virtural screen and keypad
+* Remote control the PiFinder via a virtual screen and keypad
 * Change network settings and connect to new WiFi networks
 * Backup and restore your observing logs, settings and other data
 * View and download your logged observations

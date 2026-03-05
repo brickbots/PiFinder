@@ -17,13 +17,14 @@ logger = logging.getLogger("Keyboard.Pi")
 
 
 class KeyboardPi(KeyboardInterface):
-    def __init__(self, q, dream_remap=False):
+    def __init__(self, q, bloom_remap=False):
         self.q = q
 
+        # GPIO pin numbers for the rows and columns of the keyboard matrix
         self.cols = [16, 23, 26, 27]
         self.rows = [19, 17, 18, 22, 20]
 
-        if dream_remap:
+        if bloom_remap:
             _up = self.RIGHT
             _down = self.LEFT
             _left = self.UP
@@ -58,6 +59,7 @@ class KeyboardPi(KeyboardInterface):
             self.NA, 0 , self.NA, self.SQUARE,
             _left, _up , _down , _right,
         ]
+        # If SQUARE is pressed together with key, ALT_<key> is sent
         self.alt_keymap = [
             self.NA, self.NA, self.NA, self.NA,
             self.NA, self.NA, self.NA, self.ALT_PLUS,
@@ -74,7 +76,7 @@ class KeyboardPi(KeyboardInterface):
         ]
         # fmt: on
 
-        # keyboard support init
+        # physical keyboard support init
         self.li_kb = libinput.LibInput(context_type=libinput.ContextType.UDEV)
         self.li_kb.assign_seat("seat0")
 
@@ -170,7 +172,7 @@ class KeyboardPi(KeyboardInterface):
                 GPIO.setup(self.rows[i], GPIO.IN)
 
 
-def run_keyboard(q, shared_state, log_queue, dream_remap=False):
+def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
     MultiprocLogging.configurer(log_queue)
-    keyboard = KeyboardPi(q, dream_remap=dream_remap)
+    keyboard = KeyboardPi(q, bloom_remap=bloom_remap)
     keyboard.run_keyboard(log_queue)

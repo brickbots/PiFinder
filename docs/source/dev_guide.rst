@@ -3,14 +3,18 @@
 Contributors Guide
 ===================
 
-If you'd like to help with developing PiFinder, this is the place to start. You don't need to be a developer to help out, as there are many ways to contribute to the project. Whether it's improving documentation, testing new features, or suggesting ideas, your contribution is valuable.
+If you'd like to help with developing PiFinder, this is the place 
+to start. You don't need to be a developer to help out, as there 
+are many ways to contribute to the project. Whether it's improving 
+documentation, testing new features, or suggesting ideas, your 
+contribution is valuable.
 
 Here are some ways you can get involved:
 
 - **Report Bugs**: If you encounter any issues, report them with detailed steps to reproduce the problem. This helps developers identify and fix bugs quickly.
 - **Suggest Enhancements**: Share your ideas for new features or improvements. Your suggestions can help shape the future of PiFinder.
 - **Improve Documentation**: Help make the documentation clearer and more comprehensive. If you find something confusing or incomplete, feel free to update it or suggest changes.
-- **Translate the user interface**: Since v2.3.0 PiFinder is available in multiple languages. If you want to help with translations, please check the `translation guide`_ section below.
+- **Translate the user interface**: Since v2.3.0 PiFinder is available in multiple languages. If you want to help with translations, please check the `internationalization`_ section below.
 - **Beta Testing**: Try out new features and provide feedback. Testing helps ensure the software is stable and works as expected.
 - **Contribute Code**: If you're a developer, you can contribute code by fixing bugs, adding features, or improving existing functionality.
 
@@ -20,7 +24,7 @@ The easiest way to get started is to join the `PiFinder Discord server <https://
 
 If you have some experience with Unix/Linux and are willing to spend a little more time, you can improve the documentation or be a beta tester. See `beta testing`_ section below for more information.
 
-If you are a developer, like to tinker with the code, troubleshoot you 
+If you are a developer, like to tinker with the code, troubleshoot your
 PiFinder in depth or contribute to the project: this guide helps you to
 do all these cool things. 
 
@@ -131,7 +135,7 @@ Documentation
 The `PiFinder documentation <https://pifinder.readthedocs.io/en/release/index.html>`_
 is written in `reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`_ . 
 The files are located in PiFinders GitHub repository under ``docs/source`` and have 
-the ending ``.rst``. The documentation is then published to `redthedocs.io <eadthedocs.io>`_, when the change is committed 
+the ending ``.rst``. The documentation is then published to `readthedocs.io <https://readthedocs.io>`_, when the change is committed 
 to the official GitHub repository (using readthedocs's infrastructure). 
 
 You can link your fork also to your account on readthedocs.io, but it is easier to build the documentation locally. 
@@ -154,7 +158,7 @@ Internationalization
 PiFinder uses ``gettext`` and ``pybabel`` for internationalization.
 You can find the information in folder ``python/locale`` in the repository. 
 This means that strings that need translation must be 
-enclosed in a call to ``_()`` such als ``_("string that needs translation")``. 
+enclosed in a call to ``_()`` such as ``_("string that needs translation")``. 
 
 As we would like to allow users to switch the language of the user interface from the menu, and with-out restarting PiFinder,
 care must be taken, that translations are performed dynamically, i.e. not at load time of python files. 
@@ -180,7 +184,7 @@ also contain the compiled ``.mo`` files, which are binary representations of the
 When you edit the files, check for each entry that has a ``msgstr ""`` line, which means the string is not translated yet.
 You also need to check the translations of strings marked as "fuzzy". You need to remove the "fuzzy" line, once you have checked the translation.
 
-In order to run the PiFinder software with the latest translation, you need to run the folloing commands: 
+In order to run the PiFinder software with the latest translation, you need to run the following commands: 
 
 .. code-block::
 
@@ -272,7 +276,7 @@ Code Quality Automation
 -----------------------
 
 The PiFinder codebase includes features for maintaining code quality,
-adherance to style guide and for evaluation and testing.  These will
+adherence to style guide and for evaluation and testing.  These will
 be installed along with the dev dependencies and should be available
 to run immediately.
 
@@ -283,12 +287,12 @@ We use `Nox <https://nox.thea.codes/en/stable/>`_ as an entrypoint to all of
 the code quality tools. Simply run ``nox`` to from the ``PiFinder/python`` 
 directory and it will run (almost) all of the code quality checks and tests.
 
-The first time it runs Nox will set up suitible environments for each session
+The first time it runs Nox will set up suitable environments for each session
 it manages and this might take a bit.  Subsequent runs will be much faster.
 
 To see what sessions are available use ``nox -l``
 
-To run only a specfic session use ``nox -s [session_name]``
+To run only a specific session use ``nox -s [session_name]``
 
 The defined sessions are:
 
@@ -316,7 +320,7 @@ The defined sessions are:
 
 - babel -> Runs the complete toolchain for internationalization (based on `pybabel`).
   That means extracts strings to translate and updates the `.po`-files in `python/locale/**`
-  Then these are compiled into `.mo`-files. Unfortuntely, this changes the `.mo`-files in any case,
+  Then these are compiled into `.mo`-files. Unfortunately, this changes the `.mo`-files in any case,
   even if the there have been no changes to strings or their translation. As this will show up 
   as changes to checked-in, this is not run by default.
 
@@ -396,7 +400,7 @@ Running/Debugging from the command line
 
 When you installed all the dependencies, you like to develop and test your
 code. You like to see debugging information and all verbose messages. You
-probably like to save these informations into a file. 
+probably like to save this information into a file. 
 
 Therefore, switch to the ``~/PiFinder/python`` folder and start the PiFinder
 python program with the command line parameters you need for the certain use case. 
@@ -413,12 +417,21 @@ PiFinder process is likely running. Before you can start a PiFinder process for
 testing purposes from the command line, you have to stop all currently running
 PiFinder instances. Simply, because you can not run multiple PiFinder instances
 in parallel. They would try to access the same hardware, which is not possible.
-You can do this e.g. with the following code, which uses awk to kill all runnding processes of
+You can do this e.g. with the following code, which uses awk to kill all running processes of
 PiFinder:
 
 .. code-block::
 
     ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'
+
+You will need to start the ``cedar-detect`` process manually, if your development machine is not a PiFinder, 
+as it is started as a separate process on the PiFinder starting with v2.4.0. 
+You can do this by running the following command in another terminal window:
+
+.. code-block::
+
+    cd /home/pifinder/PiFinder/python/PiFinder/bin
+    ./cedar-detect-server-<your arch> -p 50551
 
 -h, --help | available command line arguments
 .............................................
@@ -472,7 +485,7 @@ You enable the debug information output simply by passing the '-x' flag.
 ..........................
 
 Start the PiFinder software with a particular display device.  This is useful
-for devloping on a different posix system like MacOS or Linux.  Available options
+for developing on a different posix system like MacOS or Linux.  Available options
 are:
 
 - ssd1351 - This is the standard 1.5" OLED screen (DEFAULT)
@@ -542,7 +555,7 @@ the IMU is defect or you have a problem on your board.
 
 1. Please check, if the board is soldered all pins correctly and did not shorten anything (spurious lead). 
 2. If you sourced the parts by you own, it might be, that you bought the wrong
-   IMU hardware version. You need the 4646 versio. On the non-stemma QT versions,
+   IMU hardware version. You need the 4646 version. On the non-stemma QT versions,
    the data pins are switched. 
    `See here on Discord <https://discord.com/channels/1087556380724052059/1112859631702781992/1183859911982055525>`_. 
 3. The IMU is defect. 
