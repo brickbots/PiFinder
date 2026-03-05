@@ -40,7 +40,7 @@ class ObjectsDatabase(Database):
                 dec NUMERIC,
                 const TEXT,
                 size TEXT,
-                mag NUMERIC,
+                mag TEXT,
                 surface_brightness NUMERIC
             );
         """
