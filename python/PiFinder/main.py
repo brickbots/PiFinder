@@ -38,6 +38,7 @@ from PiFinder import pos_server
 from PiFinder import utils
 from PiFinder import server
 from PiFinder import keyboard_interface
+from PiFinder import mountcontrol_indi
 
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
@@ -308,6 +309,7 @@ def main(
     alignment_command_queue: Queue = Queue()
     alignment_response_queue: Queue = Queue()
     ui_queue: Queue = Queue()
+    mountcontrol_queue: Queue = Queue()
 
     # init queues for logging
     keyboard_logqueue: Queue = log_helper.get_queue()
@@ -318,6 +320,7 @@ def main(
     posserver_logqueue: Queue = log_helper.get_queue()
     integrator_logqueque: Queue = log_helper.get_queue()
     imu_logqueue: Queue = log_helper.get_queue()
+    mountcontrol_logqueue: Queue = log_helper.get_queue()
 
     # Start log consolidation process first.
     log_helper.start()
@@ -333,6 +336,7 @@ def main(
         "align_command": alignment_command_queue,
         "align_response": alignment_response_queue,
         "gps": gps_queue,
+        "mountcontrol": mountcontrol_queue,
     }
     cfg = config.Config()
 
@@ -505,6 +509,26 @@ def main(
         )
         posserver_process.start()
 
+        # Mount Control
+        sys_utils = utils.get_sys_utils()
+        if sys_utils.is_mountcontrol_active():
+            console.write("  Mount Control")
+            logger.info("  Mount Control")
+            console.update()
+            mountcontrol_process = Process(
+                name="MountControl",
+                target=mountcontrol_indi.run,
+                args=(
+                    mountcontrol_queue,
+                    console_queue,
+                    shared_state,
+                    mountcontrol_logqueue,
+                    "localhost",
+                    7624,
+                ),
+            )
+            mountcontrol_process.start()
+
         # Initialize Catalogs
         console.write("   Catalogs")
         logger.info("   Catalogs")
@@ -551,9 +575,13 @@ def main(
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
-                    if console_msg.startswith("DEGRADED_OPS"):
-                        menu_manager.message(_("Degraded\nCheck Status"), 5)
-                        time.sleep(5)
+                    if isinstance(console_msg, list) and console_msg[0] == "WARNING":
+                        menu_manager.message(_("WARNING") + "\n" + console_msg[1], 3)
+                    elif (
+                        isinstance(console_msg, list)
+                        and console_msg[0] == "DEGRADED_OPS"
+                    ):
+                        menu_manager.message(console_msg[1], 5)
                     else:
                         console.write(console_msg)
                 except queue.Empty:
@@ -848,6 +876,9 @@ def main(
             logger.info("\tPos Server...")
             posserver_process.join()
 
+            logger.info("\tMount Control...")
+            mountcontrol_process.join()
+
             logger.info("\tGPS...")
             gps_process.terminate()
 
@@ -864,7 +895,7 @@ def main(
             solver_process.join()
 
             log_helper.join()
-            exit()
+            exit(0)
 
 
 if __name__ == "__main__":
@@ -879,6 +910,7 @@ if __name__ == "__main__":
             log_path,
         )
         MultiprocLogging.configurer(log_helper.get_queue())
+        rlogger = logging.getLogger()
     except FileNotFoundError:
         rlogger.warning(
             "Cannot find log configuration file, proceeding with basic configuration."

@@ -175,5 +175,6 @@
         "active_telescope_index": 0,
         "active_eyepiece_index": 0
     },
-    "imu_threshold_scale": 1
+    "imu_threshold_scale": 1,
+    "mountcontrol": "mountcontrol_deactivated"
 }

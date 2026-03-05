@@ -10,7 +10,7 @@
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "level": "INFO",
+            "level": "DEBUG",
             "formatter": "default",
             "stream": "ext://sys.stdout"
         },
@@ -28,17 +28,25 @@
         // This is the main logging configuration
         //
         "": {
-            "level": "INFO",
+            "level": "DEBUG",
             "handlers": ["console"]
             // The file handler is added automatically by code
+        },
+
+        "main": {
+            "level": "WARNING"
+        },
+
+        "Comets": {
+            "level": "WARNING"
         },
 
         /////////////////////////////////////////////////////////////////
         ////// State shared between Subsystems
         //
-        // "SharedState": {
-        //     "level": "DEBUG"
-        // }
+        "SharedState": {
+            "level": "ERROR"
+        },
 
         /////////////////////////////////////////////////////////////////
         ////// User Interface loggging configuration
@@ -47,9 +55,9 @@
         //   UI
         //   UI.Callbacks
         //
-        // "UI": {
-        //     "level": "DEBUG"
-        // }
+        "UI": {
+            "level": "WARNING"
+        },
 
         /////////////////////////////////////////////////////////////////
         ////// Camera Subsystem
@@ -62,7 +70,7 @@
         //   Camera.None
         //
         "Camera": {
-            "level": "INFO"
+            "level": "WARNING"
         },
         // You can set different configurations for child loggers like this:
         // "Camera.Debug": {
@@ -76,7 +84,7 @@
         //   Solver
         //
         "Solver": {
-            "level": "INFO"
+            "level": "ERROR"
         },
 
         /////////////////////////////////////////////////////////////////
@@ -85,7 +93,7 @@
             "level": "WARNING" // Set this to DEBUG, to see results parsed from the GPS
         },
         "GPS.parser": {
-            "level": "WARNING" // Set this to DEBUG, to see results parsed from the GPS
+            "level": "ERROR" // Set this to DEBUG, to see results parsed from the GPS
         },
         // "GPS.fake": {
         //     "level": "WARNING"
@@ -101,7 +109,20 @@
         //   Catalog.Nearby
         //
         "Catalog": {
-           "level": "INFO"
+           "level": "ERROR"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Mount Control Subsystem
+        //
+        // Supported logger hierarchy:
+        //   MountControl
+        //   MountControl.Indi
+        //   MountControl.Indi.PyIndi
+        //   MountControl.UI
+        //
+        "MountControl": {
+            "level": "DEBUG"
         },
 
         /////////////////////////////////////////////////////////////////
@@ -110,9 +131,9 @@
         // Supports only:
         //   Database
         //
-        // "Database": {
-        //   "level": "WARNING"
-        // }
+        "Database": {
+          "level": "WARNING"
+        },
 
         /////////////////////////////////////////////////////////////////
         // IMU Subsystem
@@ -120,9 +141,9 @@
         //   IMU
         //   IMU.Integrator
         //
-        // "IMU": {
-        //    "level": "WARNING"
-        // },
+        "IMU": {
+           "level": "WARNING"
+        },
 
         /////////////////////////////////////////////////////////////////
         //////  Keyboard Subsystem
@@ -134,7 +155,7 @@
         //   Keybaord.None
 
         "Keyboard": {
-            "level": "INFO"
+            "level": "WARNING"
         },
 
         /////////////////////////////////////////////////////////////////
@@ -145,9 +166,9 @@
         //   Observation.List
         //   Observation.Log
         //
-        // "Observation": {
-        //    "level": "WARNING"
-        // },
+        "Observation": {
+           "level": "WARNING"
+        },
 
         /////////////////////////////////////////////////////////////////
         ////// Web Server Subsystem
@@ -155,9 +176,9 @@
         // Supported logger hierarchy:
         //   Server
         //
-        // "Server": {
-        //    "level": "DEBUG"
-        //}
+        "Server": {
+           "level": "WARNING"
+        },
 
         /////////////////////////////////////////////////////////////////
         ////// Pos Server Subsystem (SkySafari LX200 Interface)
@@ -165,9 +186,9 @@
         // Supported logger hierarchy:
         //   PosServer
         //
-        // "PosServer": {
-        //    "level": "DEBUG"
-        //}
+        "PosServer": {
+           "level": "WARNING"
+        },
 
         /////////////////////////////////////////////////////////////////
         ////// Utils Libraries
@@ -198,5 +219,14 @@
             "propagate": false,
             "handlers": ["null"]
         },
-   }
+        "urllib3.connectionpool": {
+            "level": "ERROR"
+        },
+        "Utils.Timer": {
+           "level": "WARNING"
+        },
+        "asyncio": {
+            "level": "ERROR"
+        },
+    }
 }
