@@ -5,6 +5,7 @@ This module is used at runtime
 to handle catalog image loading
 """
 
+import math
 import os
 from PIL import Image, ImageChops, ImageDraw
 from PiFinder import image_util
@@ -27,6 +28,9 @@ def get_display_image(
     display_class,
     burn_in=True,
     magnification=None,
+    telescope=None,
+    show_nsew=True,
+    show_bbox=True,
 ):
     """
     Returns a 128x128 image buffer for
@@ -37,6 +41,8 @@ def get_display_image(
     roll:
         degrees
     """
+    flip = telescope.flip_image if telescope else False
+    flop = telescope.flop_image if telescope else False
 
     object_image_path = resolve_image_name(catalog_object, source="POSS")
     logger.debug("object_image_path = %s", object_image_path)
@@ -59,6 +65,10 @@ def get_display_image(
             image_rotate += roll
 
         return_image = return_image.rotate(image_rotate)
+        if flip:
+            return_image = return_image.transpose(Image.FLIP_LEFT_RIGHT)
+        if flop:
+            return_image = return_image.transpose(Image.FLIP_TOP_BOTTOM)
 
         # FOV
         fov_size = int(1024 * fov / 2)
@@ -97,6 +107,99 @@ def get_display_image(
                 outline=display_class.colors.get(64),
                 width=1,
             )
+
+            cx = display_class.fov_res / 2
+            cy = display_class.fov_res / 2
+            fx = -1 if flip else 1
+            fy = -1 if flop else 1
+
+            # NSEW cardinal labels
+            if show_nsew:
+                theta_n = math.radians(image_rotate)
+                label_font = display_class.fonts.base
+                label_color = display_class.colors.get(64)
+                r_label = display_class.fov_res / 2 - 2
+
+                # North unit vector, rotated and flipped
+                nx, ny = math.sin(theta_n), -math.cos(theta_n)
+                ex, ey = -ny, nx
+                if flip:
+                    nx, ex = -nx, -ex
+                if flop:
+                    ny, ey = -ny, -ey
+
+                top_limit = display_class.titlebar_height
+                bottom_limit = display_class.fov_res - label_font.height * 2
+
+                for label, dx, dy in [
+                    ("N", nx, ny),
+                    ("S", -nx, -ny),
+                    ("E", ex, ey),
+                    ("W", -ex, -ey),
+                ]:
+                    lx = cx + dx * r_label - label_font.width / 2
+                    ly = cy + dy * r_label - label_font.height / 2
+                    lx = max(0, min(lx, display_class.fov_res - label_font.width))
+                    ly = max(top_limit, min(ly, bottom_limit))
+                    ui_utils.shadow_outline_text(
+                        ri_draw,
+                        (lx, ly),
+                        label,
+                        font=label_font,
+                        align="left",
+                        fill=label_color,
+                        shadow_color=display_class.colors.get(0),
+                        outline=1,
+                    )
+
+            # Size overlay
+            extents = catalog_object.size.extents
+            if show_bbox and extents and fov > 0:
+                px_per_arcsec = display_class.fov_res / (fov * 3600)
+                overlay_color = display_class.colors.get(100)
+
+                if len(extents) == 1:
+                    r = extents[0] * px_per_arcsec / 2
+                    ri_draw.ellipse(
+                        [cx - r, cy - r, cx + r, cy + r],
+                        outline=overlay_color,
+                        width=1,
+                    )
+                else:
+                    pa = catalog_object.size.position_angle
+                    theta = math.radians(image_rotate + pa)
+                    cos_t = math.cos(theta)
+                    sin_t = math.sin(theta)
+
+                    if len(extents) == 2:
+                        rx = extents[0] * px_per_arcsec / 2
+                        ry = extents[1] * px_per_arcsec / 2
+                        points = []
+                        for i in range(36):
+                            t = 2 * math.pi * i / 36
+                            x = rx * math.cos(t)
+                            y = ry * math.sin(t)
+                            points.append(
+                                (
+                                    cx + fx * (x * cos_t - y * sin_t),
+                                    cy + fy * (x * sin_t + y * cos_t),
+                                )
+                            )
+                    else:
+                        step = 2 * math.pi / len(extents)
+                        points = []
+                        for i, ext in enumerate(extents):
+                            angle = i * step - math.pi / 2
+                            r = ext * px_per_arcsec / 2
+                            x = r * math.cos(angle)
+                            y = r * math.sin(angle)
+                            points.append(
+                                (
+                                    cx + fx * (x * cos_t - y * sin_t),
+                                    cy + fy * (x * sin_t + y * cos_t),
+                                )
+                            )
+                    ri_draw.polygon(points, outline=overlay_color)
 
         # Pad out image if needed
         if display_class.fov_res != display_class.resX:

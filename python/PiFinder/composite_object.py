@@ -18,8 +18,9 @@ class SizeObject:
 
     UNKNOWN_SIZE: float = -1.0
 
-    def __init__(self, extents: List[float]):
+    def __init__(self, extents: List[float], position_angle: float = 0.0):
         self.extents: List[float] = extents
+        self.position_angle: float = position_angle
         self.filter_size: float = self._calc_filter_size()
 
     def _calc_filter_size(self) -> float:
@@ -31,27 +32,31 @@ class SizeObject:
     # --- constructors ---
 
     @classmethod
-    def from_arcmin(cls, *values: float) -> "SizeObject":
-        return cls([v * 60.0 for v in values])
+    def from_arcmin(cls, *values: float, position_angle: float = 0.0) -> "SizeObject":
+        return cls([v * 60.0 for v in values], position_angle=position_angle)
 
     @classmethod
-    def from_arcsec(cls, *values: float) -> "SizeObject":
-        return cls(list(values))
+    def from_arcsec(cls, *values: float, position_angle: float = 0.0) -> "SizeObject":
+        return cls(list(values), position_angle=position_angle)
 
     @classmethod
-    def from_degrees(cls, *values: float) -> "SizeObject":
-        return cls([v * 3600.0 for v in values])
+    def from_degrees(cls, *values: float, position_angle: float = 0.0) -> "SizeObject":
+        return cls([v * 3600.0 for v in values], position_angle=position_angle)
 
     # --- serialization ---
 
     def to_json(self) -> str:
-        return json.dumps(self.extents)
+        data = {"extents": self.extents, "pa": self.position_angle}
+        return json.dumps(data)
 
     @classmethod
     def from_json(cls, json_str: str) -> "SizeObject":
         if not json_str:
             return cls([])
-        return cls(json.loads(json_str))
+        parsed = json.loads(json_str)
+        if isinstance(parsed, list):
+            return cls(parsed)
+        return cls(parsed["extents"], position_angle=parsed.get("pa", 0.0))
 
     # --- display ---
 

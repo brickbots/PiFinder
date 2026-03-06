@@ -455,12 +455,15 @@ def load_ngc_catalog():
         surface_brightness = obj.get("surface_brightness")
 
         # Format size information (arcminutes from Steinicke)
+        pa = float(obj["position_angle"]) if obj.get("position_angle") else 0.0
         if obj.get("diameter_larger"):
             larger = float(obj["diameter_larger"])
             if obj.get("diameter_smaller"):
-                size = SizeObject.from_arcmin(larger, float(obj["diameter_smaller"]))
+                size = SizeObject.from_arcmin(
+                    larger, float(obj["diameter_smaller"]), position_angle=pa
+                )
             else:
-                size = SizeObject.from_arcmin(larger)
+                size = SizeObject.from_arcmin(larger, position_angle=pa)
         else:
             size = SizeObject([])
 
