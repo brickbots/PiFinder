@@ -20,6 +20,55 @@ CATALOG_PATH = f"{utils.astro_data_dir}/pifinder_objects.db"
 logger = logging.getLogger("Catalog.Images")
 
 
+def cardinal_vectors(image_rotate, fx=1, fy=1):
+    """Return (nx, ny), (ex, ey) unit vectors for North and East.
+
+    image_rotate: degrees the POSS image was rotated (180 + roll).
+    fx, fy: -1 to mirror that axis (flip/flop), +1 otherwise.
+    """
+    theta = math.radians(image_rotate)
+    n = (fx * math.sin(theta), fy * -math.cos(theta))
+    e = (fx * math.cos(theta), fy * math.sin(theta))
+    return n, e
+
+
+def size_overlay_points(extents, pa, image_rotate, px_per_arcsec, cx, cy, fx=1, fy=1):
+    """Compute outline points for the size overlay.
+
+    Returns a list of (x, y) tuples.
+    For 1 extent returns None (caller should use native ellipse).
+    """
+    if not extents or len(extents) == 1:
+        return None
+
+    theta = math.radians(image_rotate + pa)
+    cos_t = math.cos(theta)
+    sin_t = math.sin(theta)
+
+    points = []
+    if len(extents) == 2:
+        rx = extents[0] * px_per_arcsec / 2
+        ry = extents[1] * px_per_arcsec / 2
+        for i in range(36):
+            t = 2 * math.pi * i / 36
+            x = rx * math.cos(t)
+            y = ry * math.sin(t)
+            points.append(
+                (cx + fx * (x * cos_t - y * sin_t), cy + fy * (x * sin_t + y * cos_t))
+            )
+    else:
+        step = 2 * math.pi / len(extents)
+        for i, ext in enumerate(extents):
+            angle = i * step - math.pi / 2
+            r = ext * px_per_arcsec / 2
+            x = r * math.cos(angle)
+            y = r * math.sin(angle)
+            points.append(
+                (cx + fx * (x * cos_t - y * sin_t), cy + fy * (x * sin_t + y * cos_t))
+            )
+    return points
+
+
 def get_display_image(
     catalog_object,
     eyepiece_text,
@@ -115,19 +164,10 @@ def get_display_image(
 
             # NSEW cardinal labels
             if show_nsew:
-                theta_n = math.radians(image_rotate)
+                (nx, ny), (ex, ey) = cardinal_vectors(image_rotate, fx, fy)
                 label_font = display_class.fonts.base
                 label_color = display_class.colors.get(64)
                 r_label = display_class.fov_res / 2 - 2
-
-                # North unit vector, rotated and flipped
-                nx, ny = math.sin(theta_n), -math.cos(theta_n)
-                ex, ey = -ny, nx
-                if flip:
-                    nx, ex = -nx, -ex
-                if flop:
-                    ny, ey = -ny, -ey
-
                 top_limit = display_class.titlebar_height
                 bottom_limit = display_class.fov_res - label_font.height * 2
 
@@ -166,40 +206,18 @@ def get_display_image(
                         width=1,
                     )
                 else:
-                    pa = catalog_object.size.position_angle
-                    theta = math.radians(image_rotate + pa)
-                    cos_t = math.cos(theta)
-                    sin_t = math.sin(theta)
-
-                    if len(extents) == 2:
-                        rx = extents[0] * px_per_arcsec / 2
-                        ry = extents[1] * px_per_arcsec / 2
-                        points = []
-                        for i in range(36):
-                            t = 2 * math.pi * i / 36
-                            x = rx * math.cos(t)
-                            y = ry * math.sin(t)
-                            points.append(
-                                (
-                                    cx + fx * (x * cos_t - y * sin_t),
-                                    cy + fy * (x * sin_t + y * cos_t),
-                                )
-                            )
-                    else:
-                        step = 2 * math.pi / len(extents)
-                        points = []
-                        for i, ext in enumerate(extents):
-                            angle = i * step - math.pi / 2
-                            r = ext * px_per_arcsec / 2
-                            x = r * math.cos(angle)
-                            y = r * math.sin(angle)
-                            points.append(
-                                (
-                                    cx + fx * (x * cos_t - y * sin_t),
-                                    cy + fy * (x * sin_t + y * cos_t),
-                                )
-                            )
-                    ri_draw.polygon(points, outline=overlay_color)
+                    points = size_overlay_points(
+                        extents,
+                        catalog_object.size.position_angle,
+                        image_rotate,
+                        px_per_arcsec,
+                        cx,
+                        cy,
+                        fx,
+                        fy,
+                    )
+                    if points:
+                        ri_draw.polygon(points, outline=overlay_color)
 
         # Pad out image if needed
         if display_class.fov_res != display_class.resX:
