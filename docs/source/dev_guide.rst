@@ -424,6 +424,9 @@ PiFinder:
 
     ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'
 
+Running cedar-detect-server
+.............................
+
 You will need to start the ``cedar-detect`` process manually, if your development machine is not a PiFinder, 
 as it is started as a separate process on the PiFinder starting with v2.4.0. 
 You can do this by running the following command in another terminal window:
@@ -527,6 +530,23 @@ be retired because the remote server is always started.
 
 Troubleshooting
 ---------------
+
+Shared Memory location already exists
+.......................................
+
+It can happen that during development the shared memory location 
+``//cedar_detect_image`` is not cleaned up properly, e.g. because of a crash. 
+In this case, you can simply remove the shared memory location with the following command: 
+
+.. code-block:: bash
+
+    sudo rm /dev/shm/cedar_detect_image
+
+on Linux or with the following command on MacOS:
+
+.. code-block:: bash
+
+    python -c "import _posixshmem; _posixshmem.shm_unlink('//cedar_detect_image')"
 
 My app crashes
 ..............
