@@ -855,6 +855,45 @@ pifinder_menu = {
                     ],
                 },
                 {
+                    "name": _("Image..."),
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": _("NSEW Labels"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "image_nsew",
+                            "items": [
+                                {
+                                    "name": _("On"),
+                                    "value": True,
+                                },
+                                {
+                                    "name": _("Off"),
+                                    "value": False,
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Object Size"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "image_bbox",
+                            "items": [
+                                {
+                                    "name": _("On"),
+                                    "value": True,
+                                },
+                                {
+                                    "name": _("Off"),
+                                    "value": False,
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
                     "name": _("Camera Exp"),
                     "class": UITextMenu,
                     "select": "single",

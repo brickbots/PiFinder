@@ -9,7 +9,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 import PiFinder.utils as utils
-from PiFinder.composite_object import MagnitudeObject
+from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg
 from .catalog_import_utils import (
     NewCatalogObject,
@@ -21,6 +21,33 @@ from .catalog_import_utils import (
 
 # Import shared database object
 from .database import objects_db
+
+
+def _parse_sac_asterism_size(raw: str) -> SizeObject:
+    """Parse SAC asterism size strings like '3d X 2.4d', '10x5', '20deg x 15deg'.
+
+    Values with 'd', 'deg', or '°' are degrees; plain numbers are arcminutes.
+    """
+    cleaned = raw.strip().replace(" ", "").replace("X", "x")
+    if not cleaned:
+        return SizeObject([])
+    parts = cleaned.split("x")
+    values = []
+    is_degrees = False
+    for p in parts:
+        p = p.strip()
+        if "deg" in p or "°" in p or p.endswith("d"):
+            is_degrees = True
+            p = p.replace("deg", "").replace("°", "").rstrip("d")
+        try:
+            values.append(float(p))
+        except ValueError:
+            return SizeObject([])
+    if not values:
+        return SizeObject([])
+    if is_degrees:
+        return SizeObject.from_degrees(*values)
+    return SizeObject.from_arcmin(*values)
 
 
 def load_sac_asterisms():
@@ -64,13 +91,7 @@ def load_sac_asterisms():
                 mag = MagnitudeObject([])
             else:
                 mag = MagnitudeObject([float(mag)])
-            size = (
-                dfs[6]
-                .replace(" ", "")
-                .replace("X", "x")
-                .replace("deg", "°")
-                .replace("d", "°")
-            )
+            size = _parse_sac_asterism_size(dfs[6])
             desc = dfs[9].strip()
 
             ra = ra.split()
@@ -182,6 +203,11 @@ def load_sac_multistars():
             dec_m = float(dec[1])
             dec_deg = dec_to_deg(dec_d, dec_m, 0)
 
+            if sep and utils.is_number(sep):
+                size = SizeObject.from_arcsec(float(sep))
+            else:
+                size = SizeObject([])
+
             new_object = NewCatalogObject(
                 object_type=obj_type,
                 catalog_code=catalog,
@@ -189,7 +215,7 @@ def load_sac_multistars():
                 ra=ra_deg,
                 dec=dec_deg,
                 mag=mag,
-                size=sep,
+                size=size,
                 description=desc,
                 aka_names=name,
             )
@@ -252,7 +278,7 @@ def load_sac_redstars():
             # const = dfs[3].strip()
             ra = dfs[4].strip()
             dec = dfs[5].strip()
-            size = ""
+            size = SizeObject([])
             mag = dfs[6].strip()
             if mag == "none":
                 mag = MagnitudeObject([])

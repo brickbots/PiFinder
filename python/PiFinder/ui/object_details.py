@@ -226,6 +226,9 @@ class UIObjectDetails(UIModule):
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
             magnification=magnification,
+            telescope=self.config_object.equipment.active_telescope,
+            show_nsew=self.config_object.get_option("image_nsew", True),
+            show_bbox=self.config_object.get_option("image_bbox", True),
         )
 
     def active(self):

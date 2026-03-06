@@ -15,7 +15,7 @@ from tqdm import tqdm
 from collections import namedtuple, defaultdict
 
 import PiFinder.utils as utils
-from PiFinder.composite_object import MagnitudeObject
+from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg, b1950_to_j2000
 from .catalog_import_utils import (
     NewCatalogObject,
@@ -27,6 +27,22 @@ from .catalog_import_utils import (
 
 # Import shared database object
 from .database import objects_db
+
+
+def _parse_arcmin_size(raw: str) -> SizeObject:
+    """Parse a size string assumed to be in arcminutes. Handles 'NxM' format."""
+    if not raw:
+        return SizeObject([])
+    parts = raw.lower().replace("x", " ").split()
+    values = []
+    for p in parts:
+        try:
+            values.append(float(p))
+        except ValueError:
+            pass
+    if not values:
+        return SizeObject([])
+    return SizeObject.from_arcmin(*values)
 
 
 def load_egc():
@@ -43,7 +59,7 @@ def load_egc():
     delete_catalog_from_database(catalog)
 
     insert_catalog(catalog, Path(utils.astro_data_dir, "EGC.desc"))
-    egc = Path(utils.astro_data_dir, "egc.tsv")
+    egc = Path(utils.astro_data_dir, "EGC.tsv")
 
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
@@ -72,7 +88,8 @@ def load_egc():
                 dec_s = int(dec[2])
                 dec_deg = dec_to_deg(dec_deg, dec_m, dec_s)
 
-                size = dfs[5]
+                raw_size = dfs[5].strip()
+                size = _parse_arcmin_size(raw_size)
                 mag = MagnitudeObject([float(dfs[4])])
                 desc = dfs[7]
 
@@ -138,7 +155,7 @@ def load_collinder():
             dec_s = int(dec[9:11])
             dec_deg = dec_to_deg(dec_deg, dec_m, dec_s)
 
-            size = dfs[7]
+            size = _parse_arcmin_size(dfs[7])
             desc = f"{dfs[6]} stars, like {dfs[8]}"
 
             # Assuming all the parsing logic is done and all variables are available...
@@ -284,7 +301,7 @@ def load_taas200():
                 mag = MagnitudeObject([])
             else:
                 mag = MagnitudeObject([float(mag)])
-            size = row["Size"]
+            size = _parse_arcmin_size(row["Size"])
             desc = row["Description"]
             nr_stars = row["# Stars"]
             gc = row["GC Conc or Class"]
@@ -366,7 +383,11 @@ def load_rasc_double_Stars():
                 # const = dfs[4]
                 mags = json.loads(dfs[7])
                 mag = MagnitudeObject(mags)
-                size = dfs[8]
+                raw_sep = dfs[8].strip()
+                try:
+                    size = SizeObject.from_arcsec(float(raw_sep))
+                except (ValueError, TypeError):
+                    size = SizeObject([])
                 # 03 31.1	+27 44
                 ra = dfs[5].split()
                 ra_h = int(ra[0])
@@ -437,7 +458,7 @@ def load_barnard():
                 DE2000_sign = row[32]
                 DE2000d = int(row[33:35])
                 DE2000m = int(row[36:38])
-                Diam = float(row[39:44]) if row[39:44].strip() else ""
+                raw_diam = row[39:44].strip()
                 sequence = Barn
                 logging.debug(f"<------------- Barnard {sequence=} ------------->")
                 obj_type = "Nb"
@@ -451,6 +472,11 @@ def load_barnard():
                 dec_deg = dec_to_deg(dec_deg, dec_m, 0)
                 desc = barn_dict[Barn].strip()
 
+                if raw_diam:
+                    barn_size = SizeObject.from_arcmin(float(raw_diam))
+                else:
+                    barn_size = SizeObject([])
+
                 new_object = NewCatalogObject(
                     object_type=obj_type,
                     catalog_code=catalog,
@@ -458,7 +484,7 @@ def load_barnard():
                     ra=ra_deg,
                     dec=dec_deg,
                     mag=MagnitudeObject([]),
-                    size=str(Diam),
+                    size=barn_size,
                     description=desc,
                     aka_names=[],
                 )
@@ -569,7 +595,7 @@ def load_sharpless():
                 sequence=record["Sh2"],
                 ra=j_ra_deg,
                 dec=dec_deg,
-                size=str(record["Diam"]),
+                size=SizeObject.from_arcmin(float(record["Diam"])),
                 mag=MagnitudeObject([]),
                 description=desc,
                 aka_names=current_akas,
@@ -738,7 +764,6 @@ def load_tlk_90_vars():
                     ra=ra_deg,
                     dec=dec_deg,
                     mag=mag_object,
-                    size="",
                     description=desc,
                     aka_names=current_akas,
                 )
@@ -778,6 +803,12 @@ def load_abell():
                 if other_name != "":
                     aka_names.append(other_name)
 
+                raw_abell_size = split_line[6].strip()
+                try:
+                    abell_size = SizeObject.from_arcmin(float(raw_abell_size))
+                except (ValueError, TypeError):
+                    abell_size = SizeObject([])
+
                 new_object = NewCatalogObject(
                     object_type=obj_type,
                     catalog_code=catalog,
@@ -785,7 +816,7 @@ def load_abell():
                     ra=float(split_line[3].strip()),
                     dec=float(split_line[4].strip()),
                     mag=MagnitudeObject([float(split_line[5].strip())]),
-                    size=split_line[6].strip(),
+                    size=abell_size,
                     aka_names=aka_names,
                 )
 

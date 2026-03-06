@@ -11,6 +11,7 @@ from tqdm import tqdm
 from PIL import Image, ImageOps
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.catalogs import CompositeObject
+from PiFinder.composite_object import SizeObject, MagnitudeObject
 
 BASE_IMAGE_PATH = "/Users/rich/Projects/Astronomy/PiFinder/astro_data/catalog_images"
 
@@ -56,7 +57,10 @@ def fetch_object_image(_obj, low_cut=10):
 
     Returns image path
     """
-    catalog_object = CompositeObject.from_dict(dict(_obj))
+    obj_dict = dict(_obj)
+    obj_dict["size"] = SizeObject.from_json(obj_dict.get("size", ""))
+    obj_dict["mag"] = MagnitudeObject.from_json(obj_dict.get("mag", ""))
+    catalog_object = CompositeObject.from_dict(obj_dict)
     ra = catalog_object.ra
     dec = catalog_object.dec
 
