@@ -116,8 +116,8 @@ def shared_driver(request):
 @pytest.fixture
 def driver(shared_driver):
     """Provide access to shared driver with cleanup between tests."""
-    # safaridriver terminates the session when delete_all_cookies is called;
-    # skip it for Safari since tests navigate to specific pages anyway.
+    # safaridriver terminates the session when delete_all_cookies is called
+    # while the browser is on a real URL (it only works on about:blank).
     is_safari = shared_driver.capabilities.get("browserName", "").lower() == "safari"
     if not is_safari:
         shared_driver.delete_all_cookies()
