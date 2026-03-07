@@ -105,7 +105,7 @@ def shared_driver(request):
     try:
         driver.set_window_size(1920, 1080)
     except Exception:
-        pass  # Safari may not support arbitrary window sizes
+        pass  # Some drivers (e.g. Safari) may reject set_window_rect
     yield driver
     try:
         driver.quit()
@@ -116,9 +116,13 @@ def shared_driver(request):
 @pytest.fixture
 def driver(shared_driver):
     """Provide access to shared driver with cleanup between tests."""
-    shared_driver.delete_all_cookies()
+    # safaridriver terminates the session when delete_all_cookies is called;
+    # skip it for Safari since tests navigate to specific pages anyway.
+    is_safari = shared_driver.capabilities.get("browserName", "").lower() == "safari"
+    if not is_safari:
+        shared_driver.delete_all_cookies()
     try:
         shared_driver.set_window_size(1920, 1080)
     except Exception:
-        pass  # Safari may not support arbitrary window sizes
+        pass  # Some drivers may not support arbitrary window sizes
     yield shared_driver

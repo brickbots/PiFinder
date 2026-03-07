@@ -257,12 +257,11 @@ def test_equipment_add_instrument_functionality(driver):
     )
     save_button.click()
 
-    # Wait for redirect back to equipment page (allow for parameters or redirects)
-    WebDriverWait(driver, 10).until(lambda d: "/equipment" in d.current_url)
-
-    # Verify the instrument was added to the table
-    instruments_table = driver.find_element(
-        By.XPATH, "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]"
+    # Wait for equipment.html to load (the Instruments table only exists there, not on edit pages)
+    instruments_table = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located(
+            (By.XPATH, "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]")
+        )
     )
 
     # Look for the test instrument in the table
@@ -285,18 +284,20 @@ def test_equipment_add_instrument_functionality(driver):
         test_instrument_found
     ), f"Test instrument '{test_instrument['name']}' not found in instruments table"
 
-    # Now delete the test instrument to clean up
-    delete_button = rows[test_instrument_row_index].find_element(
-        By.CSS_SELECTOR, "a[href*='delete_instrument'] i.material-icons"
+    # Now delete the test instrument to clean up.
+    delete_link = rows[test_instrument_row_index].find_element(
+        By.CSS_SELECTOR, "a[href*='delete_instrument']"
     )
-    delete_button.click()
+    old_instruments_table = instruments_table
+    delete_link.click()
 
-    # Wait for redirect and verify instrument is removed (allow for parameters or redirects)
-    WebDriverWait(driver, 10).until(lambda d: "/equipment" in d.current_url)
-
-    # Verify the test instrument is no longer in the table
-    instruments_table = driver.find_element(
-        By.XPATH, "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]"
+    # Wait for the old table to become stale (proves the page navigated),
+    # then find the freshly rendered table on the new page.
+    WebDriverWait(driver, 10).until(EC.staleness_of(old_instruments_table))
+    instruments_table = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located(
+            (By.XPATH, "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]")
+        )
     )
 
     updated_rows = instruments_table.find_elements(By.TAG_NAME, "tr")[
@@ -360,12 +361,11 @@ def test_equipment_add_eyepiece_functionality(driver):
     )
     save_button.click()
 
-    # Wait for redirect back to equipment page (allow for parameters or redirects)
-    WebDriverWait(driver, 10).until(lambda d: "/equipment" in d.current_url)
-
-    # Verify the eyepiece was added to the table
-    eyepieces_table = driver.find_element(
-        By.XPATH, "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]"
+    # Wait for equipment.html to load (the Eyepieces table only exists there, not on edit pages)
+    eyepieces_table = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located(
+            (By.XPATH, "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]")
+        )
     )
 
     # Look for the test eyepiece in the table
@@ -388,18 +388,20 @@ def test_equipment_add_eyepiece_functionality(driver):
         test_eyepiece_found
     ), f"Test eyepiece '{test_eyepiece['name']}' not found in eyepieces table"
 
-    # Now delete the test eyepiece to clean up
-    delete_button = rows[test_eyepiece_row_index].find_element(
-        By.CSS_SELECTOR, "a[href*='delete_eyepiece'] i.material-icons"
+    # Now delete the test eyepiece to clean up.
+    delete_link = rows[test_eyepiece_row_index].find_element(
+        By.CSS_SELECTOR, "a[href*='delete_eyepiece']"
     )
-    delete_button.click()
+    old_eyepieces_table = eyepieces_table
+    delete_link.click()
 
-    # Wait for redirect and verify eyepiece is removed (allow for parameters or redirects)
-    WebDriverWait(driver, 10).until(lambda d: "/equipment" in d.current_url)
-
-    # Verify the test eyepiece is no longer in the table
-    eyepieces_table = driver.find_element(
-        By.XPATH, "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]"
+    # Wait for the old table to become stale (proves the page navigated),
+    # then find the freshly rendered table on the new page.
+    WebDriverWait(driver, 10).until(EC.staleness_of(old_eyepieces_table))
+    eyepieces_table = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located(
+            (By.XPATH, "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]")
+        )
     )
 
     updated_rows = eyepieces_table.find_elements(By.TAG_NAME, "tr")[

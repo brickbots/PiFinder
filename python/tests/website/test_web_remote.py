@@ -492,7 +492,7 @@ def test_remote_backtotop(driver):
 
     press_keys_and_validate(
         driver,
-        "RDRDDDR31R",
+        "RDRDDDR31RW",  # W = 1s wait to let async key callback and UI state update settle
         expected_values={
             "ui_type": "UIObjectDetails",
             "object": {"display_name": "M 31"},
