@@ -6,6 +6,7 @@ in ~/PiFinder_data/telemetry/. Replay mode feeds recorded data back through
 the integrator for bench testing.
 """
 
+import copy
 import json
 import logging
 import threading
@@ -14,7 +15,14 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 
+import quaternion as quaternion_module
+
 from PiFinder import utils
+from PiFinder.pointing import (
+    finalize_and_push_solution,
+    update_imu,
+    update_plate_solve_and_imu,
+)
 
 logger = logging.getLogger("Telemetry")
 
@@ -222,9 +230,7 @@ class TelemetryPlayer:
 
         if self.events:
             self._base_time = self.events[0]["t"]
-        logger.info(
-            "Loaded telemetry: %d events from %s", len(self.events), file_path
-        )
+        logger.info("Loaded telemetry: %d events from %s", len(self.events), file_path)
 
     def reset(self):
         """Reset replay to the beginning."""
@@ -268,3 +274,182 @@ class TelemetryPlayer:
     @property
     def current_index(self):
         return self._index
+
+    @staticmethod
+    def event_to_solve_dict(event):
+        """Convert a recorded solve event to the fields needed by solved dict."""
+        result = {
+            "RA": event["ra"],
+            "Dec": event["dec"],
+            "Roll": event.get("roll"),
+            "camera_center": {
+                "RA": event.get("cam_ra"),
+                "Dec": event.get("cam_dec"),
+                "Roll": event.get("cam_roll"),
+                "Alt": None,
+                "Az": None,
+            },
+            "Matches": event.get("matches"),
+            "RMSE": event.get("rmse"),
+            "solve_source": "CAM",
+            "solve_time": time.time(),
+        }
+        iq = event.get("iq")
+        if iq:
+            result["imu_quat"] = quaternion_module.quaternion(
+                iq[0], iq[1], iq[2], iq[3]
+            )
+        return result
+
+    @staticmethod
+    def event_to_imu_dict(event):
+        """Convert a recorded IMU event to an imu dict, or None if no quat."""
+        q = event.get("q")
+        if not q:
+            return None
+        return {
+            "quat": quaternion_module.quaternion(q[0], q[1], q[2], q[3]),
+            "moving": event.get("mv", False),
+            "status": event.get("st", 0),
+        }
+
+
+class TelemetryManager:
+    """
+    Facade over TelemetryRecorder and TelemetryPlayer.
+
+    Owns all telemetry I/O: command dispatch, recording, replay state,
+    image saving, and console/camera queue messaging.  The integrator
+    only needs to call a handful of one-liners.
+    """
+
+    def __init__(self, cfg, shared_state, console_queue, camera_command_queue=None):
+        self._cfg = cfg
+        self._shared_state = shared_state
+        self._console_queue = console_queue
+        self._camera_command_queue = camera_command_queue
+        self._recorder = TelemetryRecorder()
+        self._recorder.images_enabled = bool(cfg.get_option("telemetry_images"))
+        self._player = None
+        if cfg.get_option("telemetry_record"):
+            self._recorder.start(cfg, shared_state)
+
+    @property
+    def replaying(self):
+        return self._player is not None
+
+    def poll_commands(self, command_queue):
+        """Check for and dispatch any pending telemetry commands."""
+        if command_queue is None:
+            return
+        import queue
+
+        try:
+            cmd = command_queue.get(block=False)
+            if isinstance(cmd, tuple):
+                self._handle_command(cmd[0], cmd[1])
+        except queue.Empty:
+            pass
+
+    def _handle_command(self, cmd_name, cmd_arg):
+        """Dispatch a telemetry command."""
+        if cmd_name == "telemetry_record_on":
+            self._recorder.images_enabled = bool(
+                self._cfg.get_option("telemetry_images")
+            )
+            self._recorder.start(self._cfg, self._shared_state)
+            self._console_queue.put("Telemetry: Recording")
+
+        elif cmd_name == "telemetry_record_off":
+            self._recorder.stop()
+            self._console_queue.put("Telemetry: Stopped")
+
+        elif cmd_name == "replay":
+            logger.info("Entering replay mode: %s", cmd_arg)
+            self._player = TelemetryPlayer(cmd_arg)
+            if self._player.header:
+                self._apply_replay_header(self._player.header, self._shared_state)
+            self._console_queue.put("Telemetry: Replay started")
+
+        elif cmd_name == "replay_stop":
+            logger.info("Exiting replay mode")
+            self._player = None
+            self._restart_camera()
+            self._console_queue.put("Telemetry: Replay stopped")
+
+    def next_replay_event(self):
+        """Return the next replay event, or None.
+
+        Automatically clears replay state and restarts camera when done.
+        """
+        if self._player is None:
+            return None
+        event, done = self._player.get_next_event()
+        if done and event is None:
+            self._player = None
+            self._restart_camera()
+            self._console_queue.put("Telemetry: Replay finished")
+            logger.info("Replay finished")
+            return None
+        return event
+
+    def handle_replay_event(
+        self, event, solved, last_image_solve, imu_dead_reckoning, mount_type
+    ):
+        """Process a single replayed event. Returns updated last_image_solve."""
+        if event["e"] == "imu":
+            imu = TelemetryPlayer.event_to_imu_dict(event)
+            if imu and last_image_solve and imu_dead_reckoning.tracking:
+                update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
+                if solved["RA"] is not None:
+                    finalize_and_push_solution(self._shared_state, solved, mount_type)
+
+        elif event["e"] == "solve" and event.get("ra") is not None:
+            solved.update(TelemetryPlayer.event_to_solve_dict(event))
+            self._shared_state.set_solve_state(True)
+            update_plate_solve_and_imu(imu_dead_reckoning, solved)
+            finalize_and_push_solution(self._shared_state, solved, mount_type)
+            return copy.deepcopy(solved)
+
+        return last_image_solve
+
+    def record_solve(self, solve_dict, predicted_ra=None, predicted_dec=None):
+        """Record a solve event and send save_image command if enabled."""
+        t = self._recorder.record_solve(solve_dict, predicted_ra, predicted_dec)
+        if (
+            t is not None
+            and self._recorder.images_enabled
+            and self._camera_command_queue is not None
+        ):
+            session_dir = self._recorder.get_session_dir()
+            if session_dir:
+                self._camera_command_queue.put(
+                    f"save_image:{session_dir / f'img_{t:.3f}.png'}"
+                )
+
+    def record_imu(self, imu):
+        self._recorder.record_imu(imu)
+
+    def flush(self):
+        self._recorder.flush()
+
+    def stop(self):
+        self._recorder.stop()
+
+    def _restart_camera(self):
+        if self._camera_command_queue is not None:
+            self._camera_command_queue.put("start")
+
+    @staticmethod
+    def _apply_replay_header(hdr, shared_state):
+        """Apply location/datetime from a replay session header."""
+        if hdr.get("loc"):
+            loc = shared_state.location()
+            loc.lat = hdr["loc"][0]
+            loc.lon = hdr["loc"][1]
+            loc.altitude = hdr["loc"][2]
+            loc.lock = True
+            loc.source = "replay"
+            shared_state.set_location(loc)
+        if hdr.get("dt"):
+            shared_state.set_datetime(datetime.fromisoformat(hdr["dt"]))
