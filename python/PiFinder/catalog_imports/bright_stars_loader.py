@@ -46,7 +46,6 @@ def load_bright_stars():
 
             logging.debug(f"---------------> Bright Stars {sequence=} <---------------")
             size = SizeObject([])
-            # const = dfs[2].strip()
             desc = ""
 
             ra_h = int(dfs[3])
@@ -58,7 +57,6 @@ def load_bright_stars():
             dec_deg = dec_to_deg(dec_d, dec_m, 0)
 
             mag = MagnitudeObject([float(dfs[7].strip())])
-            # const = dfs[8]
 
             new_object = NewCatalogObject(
                 object_type=obj_type,

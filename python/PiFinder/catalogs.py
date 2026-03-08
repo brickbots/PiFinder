@@ -840,13 +840,7 @@ class CatalogBackgroundLoader:
             composite_instance.mag = MagnitudeObject([])
             composite_instance.mag_str = "-"
 
-        # Parse size
-        try:
-            composite_instance.size = SizeObject.from_json(
-                obj_data.get("size", "")
-            )
-        except Exception:
-            composite_instance.size = SizeObject([])
+        composite_instance.size = SizeObject.from_json(obj_data.get("size", ""))
 
         composite_instance._details_loaded = True
         return composite_instance
@@ -961,13 +955,7 @@ class CatalogBuilder:
             composite_instance.mag = MagnitudeObject([])
             composite_instance.mag_str = "-"
 
-        # Parse size
-        try:
-            composite_instance.size = SizeObject.from_json(
-                obj_data.get("size", "")
-            )
-        except Exception:
-            composite_instance.size = SizeObject([])
+        composite_instance.size = SizeObject.from_json(obj_data.get("size", ""))
 
         composite_instance._details_loaded = True
         return composite_instance

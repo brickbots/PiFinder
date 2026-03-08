@@ -158,6 +158,22 @@ class ObjectFinder:
         return result
 
 
+def parse_arcmin_size(raw: str) -> SizeObject:
+    """Parse a size string assumed to be in arcminutes. Handles 'NxM' format."""
+    if not raw:
+        return SizeObject([])
+    parts = raw.lower().replace("x", " ").split()
+    values = []
+    for p in parts:
+        try:
+            values.append(float(p))
+        except ValueError:
+            logging.warning("Non-numeric size token %r in %r", p, raw)
+    if not values:
+        return SizeObject([])
+    return SizeObject.from_arcmin(*values)
+
+
 def safe_convert_to_float(x):
     """Convert to float, filtering out non-numeric values"""
     try:

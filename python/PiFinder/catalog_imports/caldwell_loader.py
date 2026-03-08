@@ -9,7 +9,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 import PiFinder.utils as utils
-from PiFinder.composite_object import MagnitudeObject, SizeObject
+from PiFinder.composite_object import MagnitudeObject
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg
 from .catalog_import_utils import (
     NewCatalogObject,
@@ -17,26 +17,11 @@ from .catalog_import_utils import (
     insert_catalog,
     insert_catalog_max_sequence,
     add_space_after_prefix,
+    parse_arcmin_size,
 )
 
 # Import shared database object
 from .database import objects_db
-
-
-def _parse_caldwell_size(raw: str) -> SizeObject:
-    """Parse Caldwell size like '14', '0.6', '19 x 7' — all arcminutes."""
-    if not raw:
-        return SizeObject([])
-    parts = raw.lower().replace("x", " ").split()
-    values = []
-    for p in parts:
-        try:
-            values.append(float(p))
-        except ValueError:
-            pass
-    if not values:
-        return SizeObject([])
-    return SizeObject.from_arcmin(*values)
 
 
 def load_caldwell():
@@ -62,7 +47,7 @@ def load_caldwell():
                 mag = MagnitudeObject([])
             else:
                 mag = MagnitudeObject([float(mag)])
-            size = _parse_caldwell_size(dfs[5][5:].strip())
+            size = parse_arcmin_size(dfs[5][5:].strip())
             ra_h = int(dfs[6])
             ra_m = float(dfs[7])
             ra_deg = ra_to_deg(ra_h, ra_m, 0)

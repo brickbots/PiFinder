@@ -23,26 +23,11 @@ from .catalog_import_utils import (
     insert_catalog,
     insert_catalog_max_sequence,
     add_space_after_prefix,
+    parse_arcmin_size,
 )
 
 # Import shared database object
 from .database import objects_db
-
-
-def _parse_arcmin_size(raw: str) -> SizeObject:
-    """Parse a size string assumed to be in arcminutes. Handles 'NxM' format."""
-    if not raw:
-        return SizeObject([])
-    parts = raw.lower().replace("x", " ").split()
-    values = []
-    for p in parts:
-        try:
-            values.append(float(p))
-        except ValueError:
-            pass
-    if not values:
-        return SizeObject([])
-    return SizeObject.from_arcmin(*values)
 
 
 def load_egc():
@@ -89,7 +74,7 @@ def load_egc():
                 dec_deg = dec_to_deg(dec_deg, dec_m, dec_s)
 
                 raw_size = dfs[5].strip()
-                size = _parse_arcmin_size(raw_size)
+                size = parse_arcmin_size(raw_size)
                 mag = MagnitudeObject([float(dfs[4])])
                 desc = dfs[7]
 
@@ -155,7 +140,7 @@ def load_collinder():
             dec_s = int(dec[9:11])
             dec_deg = dec_to_deg(dec_deg, dec_m, dec_s)
 
-            size = _parse_arcmin_size(dfs[7])
+            size = parse_arcmin_size(dfs[7])
             desc = f"{dfs[6]} stars, like {dfs[8]}"
 
             # Assuming all the parsing logic is done and all variables are available...
@@ -301,7 +286,7 @@ def load_taas200():
                 mag = MagnitudeObject([])
             else:
                 mag = MagnitudeObject([float(mag)])
-            size = _parse_arcmin_size(row["Size"])
+            size = parse_arcmin_size(row["Size"])
             desc = row["Description"]
             nr_stars = row["# Stars"]
             gc = row["GC Conc or Class"]
@@ -380,7 +365,6 @@ def load_rasc_double_Stars():
                 alternate_ids = dfs[2].split(",")
                 wds = dfs[3]
                 obj_type = "D*"
-                # const = dfs[4]
                 mags = json.loads(dfs[7])
                 mag = MagnitudeObject(mags)
                 raw_sep = dfs[8].strip()

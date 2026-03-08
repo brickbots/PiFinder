@@ -16,18 +16,9 @@ class SizeObject:
     - [v1, v2, ...] -> polygon radial distances at equal angular intervals
     """
 
-    UNKNOWN_SIZE: float = -1.0
-
     def __init__(self, extents: List[float], position_angle: float = 0.0):
         self.extents: List[float] = extents
         self.position_angle: float = position_angle
-        self.filter_size: float = self._calc_filter_size()
-
-    def _calc_filter_size(self) -> float:
-        """Max extent in arcminutes, for filtering."""
-        if not self.extents:
-            return self.UNKNOWN_SIZE
-        return max(self.extents) / 60.0
 
     # --- constructors ---
 
@@ -46,17 +37,14 @@ class SizeObject:
     # --- serialization ---
 
     def to_json(self) -> str:
-        data = {"extents": self.extents, "pa": self.position_angle}
-        return json.dumps(data)
+        return json.dumps({"e": self.extents, "p": self.position_angle})
 
     @classmethod
     def from_json(cls, json_str: str) -> "SizeObject":
         if not json_str:
             return cls([])
         parsed = json.loads(json_str)
-        if isinstance(parsed, list):
-            return cls(parsed)
-        return cls(parsed["extents"], position_angle=parsed.get("pa", 0.0))
+        return cls(parsed["e"], position_angle=parsed.get("p", 0.0))
 
     # --- display ---
 
@@ -96,7 +84,7 @@ class SizeObject:
         return f"~{self._format_value(max(self.extents), unit)}"
 
     def __repr__(self) -> str:
-        return f"SizeObject({self.extents}, filter={self.filter_size})"
+        return f"SizeObject({self.extents})"
 
     def __str__(self) -> str:
         return self.to_display_string()
