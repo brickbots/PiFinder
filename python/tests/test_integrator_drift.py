@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import quaternion
 
-from PiFinder.integrator import (
+from PiFinder.pointing import (
     update_imu,
     update_plate_solve_and_imu,
 )
