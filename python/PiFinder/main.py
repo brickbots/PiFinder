@@ -35,7 +35,7 @@ from PiFinder import solver
 from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
-from PiFinder import server
+from PiFinder import server2
 from PiFinder import keyboard_interface
 
 from PiFinder.multiproclogging import MultiprocLogging
@@ -122,6 +122,11 @@ def setup_dirs():
     utils.create_path(Path(utils.data_dir, "solver_debug_dumps"))
     utils.create_path(Path(utils.data_dir, "logs"))
     os.chmod(Path(utils.data_dir), 0o777)
+
+
+import PiFinder.manager_patch as patch
+
+patch.apply()
 
 
 class StateManager(BaseManager):
@@ -348,10 +353,6 @@ def main(
     )
     langXX.install()
 
-    import PiFinder.manager_patch as patch
-
-    patch.apply()
-
     with StateManager() as manager:
         shared_state = manager.SharedState()  # type: ignore[attr-defined]
         location = shared_state.location()
@@ -414,7 +415,7 @@ def main(
 
         server_process = Process(
             name="Webserver",
-            target=server.run_server,
+            target=server2.run_server,
             args=(
                 keyboard_queue,
                 ui_queue,
@@ -578,7 +579,7 @@ def main(
                                     )  # Only if new error is smaller
                                 )
                             ):
-                                logger.info(
+                                logger.debug(
                                     f"Updating GPS location: new content: {gps_content}, old content: {location}"
                                 )
                                 location.lat = gps_content["lat"]
