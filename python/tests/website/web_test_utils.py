@@ -161,13 +161,17 @@ def navigate_to_page(driver, page_path):
         )
         hamburger.click()
 
-        # Wait for mobile menu to open and find page link
+        # Wait for mobile menu to open and find page link.
+        # Use JS click: Safari's sidenav animation may not be complete even
+        # when element_to_be_clickable passes, causing ElementNotInteractable.
         page_link = WebDriverWait(driver, 5).until(
             EC.element_to_be_clickable(
                 (By.CSS_SELECTOR, f"#nav-mobile a[href='{page_path}']")
             )
         )
-    page_link.click()
+        driver.execute_script("arguments[0].click();", page_link)
+        return
+    driver.execute_script("arguments[0].click();", page_link)
 
 
 def login_with_password(driver, password="solveit"):

@@ -1,3 +1,4 @@
+import re
 import pytest
 import time
 import requests
@@ -683,7 +684,8 @@ def test_locations_default_switching(driver):
             name_cell = cells[0]
             # Get only the text content, excluding icon text
             full_text = name_cell.text.strip()
-            location_name = full_text.replace("star ", "").strip()  # Remove icon text
+            # Remove Material Icons "star" text (Safari may include trailing newlines/spaces)
+            location_name = re.sub(r"star\s*", "", full_text).strip()
 
             # Check if this location has a tiny star (default indicator)
             tiny_star_icons = name_cell.find_elements(
@@ -782,7 +784,8 @@ def test_locations_default_switching(driver):
             name_cell = cells[0]
             # Get only the text content, excluding icon text
             full_text = name_cell.text.strip()
-            location_name = full_text.replace("star ", "").strip()  # Remove icon text
+            # Remove Material Icons "star" text (Safari may include trailing newlines/spaces)
+            location_name = re.sub(r"star\s*", "", full_text).strip()
 
             # Check if this location has a tiny star (default indicator)
             tiny_star_icons = name_cell.find_elements(
@@ -815,7 +818,8 @@ def test_locations_default_switching(driver):
         if cells and len(cells) >= 7:
             # Get only the text content, excluding icon text
             full_text = cells[0].text.strip()
-            location_name = full_text.replace("star ", "").strip()  # Remove icon text
+            # Remove Material Icons "star" text (Safari may include trailing newlines/spaces)
+            location_name = re.sub(r"star\s*", "", full_text).strip()
             if location_name == current_default_name:
                 original_default_new_index = i
                 break
@@ -858,7 +862,8 @@ def test_locations_default_switching(driver):
             name_cell = cells[0]
             # Get only the text content, excluding icon text
             full_text = name_cell.text.strip()
-            location_name = full_text.replace("star ", "").strip()  # Remove icon text
+            # Remove Material Icons "star" text (Safari may include trailing newlines/spaces)
+            location_name = re.sub(r"star\s*", "", full_text).strip()
 
             # Check if this location has a tiny star (default indicator)
             tiny_star_icons = name_cell.find_elements(

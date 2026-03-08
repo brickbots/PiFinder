@@ -116,14 +116,19 @@ def shared_driver(request):
 @pytest.fixture
 def driver(shared_driver):
     """Provide access to shared driver with cleanup between tests."""
-    # safaridriver terminates the session when delete_all_cookies is called
-    # while the browser URL is empty (no navigation has occurred yet).
-    # Navigating to about:blank first ensures the session is initialized.
-    # It is necessary for Safari, but should be safe for other browsers as well.
+    # Navigate to the PiFinder homepage before deleting cookies so that
+    # Safari's safaridriver clears cookies for the correct origin (localhost).
+    # When called while on about:blank (no origin), safaridriver only clears
+    # cookies for that origin and leaves localhost session cookies intact,
+    # which causes auth state to leak between tests.
+    # Fall back to about:blank if the server is unreachable.
     try:
-        shared_driver.get("about:blank")
+        shared_driver.get(get_homepage_url())
     except Exception:
-        pass
+        try:
+            shared_driver.get("about:blank")
+        except Exception:
+            pass
     shared_driver.delete_all_cookies()
     try:
         shared_driver.set_window_size(1920, 1080)

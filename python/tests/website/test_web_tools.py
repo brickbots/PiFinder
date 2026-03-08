@@ -68,7 +68,9 @@ def test_tools_navigation_from_home(driver, window_size, viewport_name):
                 (By.CSS_SELECTOR, "#nav-mobile a[href='/tools']")
             )
         )
-    tools_link.click()
+    # Use JS click: Safari's sidenav animation may not be complete even when
+    # element_to_be_clickable passes, causing ElementNotInteractableException.
+    driver.execute_script("arguments[0].click();", tools_link)
 
     # Check if we need to login (redirected to login page)
     try:
@@ -119,9 +121,12 @@ def test_tools_page_elements(driver):
 
     # Verify that the page has the expected functionality elements
     body_text = driver.find_element(By.TAG_NAME, "body").text
-    assert "DOWNLOAD BACKUP FILE" in body_text, "Download backup button not found"
-    assert "UPLOAD AND RESTORE" in body_text, "Upload and restore button not found"
-    assert "CHANGE PASSWORD" in body_text, "Change password button not found"
+    # Use case-insensitive comparison: Safari's element.text returns the raw DOM
+    # text without CSS text-transform, so buttons may appear in mixed case.
+    body_lower = body_text.lower()
+    assert "download backup file" in body_lower, "Download backup button not found"
+    assert "upload and restore" in body_lower, "Upload and restore button not found"
+    assert "change password" in body_lower, "Change password button not found"
 
 
 @pytest.mark.web
@@ -281,8 +286,9 @@ def test_upload_and_restore_section_elements(driver):
 
     # Verify upload and restore functionality exists in the User Data and Settings section
     body_text = driver.find_element(By.TAG_NAME, "body").text
-    assert "CHOOSE FILE" in body_text, "File chooser not found"
-    assert "UPLOAD AND RESTORE" in body_text, "Upload and restore button not found"
+    body_lower = body_text.lower()
+    assert "choose file" in body_lower, "File chooser not found"
+    assert "upload and restore" in body_lower, "Upload and restore button not found"
 
     # Look for file input (name is backup_file)
     file_input = driver.find_element(
@@ -344,6 +350,8 @@ def test_complete_download_and_upload_workflow(driver):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".backup") as temp_file:
         temp_file.write(response.content)
         temp_file_path = temp_file.name
+    # Safari's safaridriver requires uploaded files to be world-readable.
+    os.chmod(temp_file_path, 0o644)
 
     try:
         # Find the file input for upload

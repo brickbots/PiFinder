@@ -89,7 +89,9 @@ def test_equipment_navigation_from_home(driver, window_size, viewport_name):
                 (By.CSS_SELECTOR, "#nav-mobile a[href='/equipment']")
             )
         )
-    equipment_link.click()
+    # Use JS click: Safari's sidenav animation may not be complete even when
+    # element_to_be_clickable passes, causing ElementNotInteractableException.
+    driver.execute_script("arguments[0].click();", equipment_link)
 
     # Check if we need to login (redirected to login page)
     try:
@@ -658,8 +660,12 @@ def _fill_eyepiece_form(driver, eyepiece_data):
         EC.presence_of_element_located((By.CSS_SELECTOR, "form"))
     )
 
-    # Fill in form fields
-    make_field = driver.find_element(By.ID, "make")
+    # Fill in form fields.
+    # Wait for the first field explicitly: Safari may render form fields
+    # slightly after the <form> tag appears in the DOM.
+    make_field = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.ID, "make"))
+    )
     make_field.clear()
     make_field.send_keys(eyepiece_data["make"])
 

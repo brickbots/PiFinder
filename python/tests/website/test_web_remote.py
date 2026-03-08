@@ -113,7 +113,9 @@ def test_remote_login_and_interface(driver, window_size, viewport_name):
                 (By.CSS_SELECTOR, "#nav-mobile a[href='/remote']")
             )
         )
-    remote_link.click()
+    # Use JS click: Safari's sidenav animation may not be complete even when
+    # element_to_be_clickable passes, causing ElementNotInteractableException.
+    driver.execute_script("arguments[0].click();", remote_link)
 
     # Wait for login page to load
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "password")))
@@ -228,7 +230,8 @@ def test_remote_special_buttons_present(driver, window_size, viewport_name):
     assert ent_button.text == "■ +", "'■ +' button not found or incorrect text"
 
     long_button = driver.find_element(By.ID, "longButton")
-    assert long_button.text == "LONG", "LONG button not found or incorrect text"
+    # Case-insensitive: Safari's .text returns raw DOM text without CSS text-transform
+    assert long_button.text.upper() == "LONG", "LONG button not found or incorrect text"
 
 
 @pytest.mark.parametrize(
