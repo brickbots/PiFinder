@@ -117,10 +117,14 @@ def shared_driver(request):
 def driver(shared_driver):
     """Provide access to shared driver with cleanup between tests."""
     # safaridriver terminates the session when delete_all_cookies is called
-    # while the browser is on a real URL (it only works on about:blank).
-    is_safari = shared_driver.capabilities.get("browserName", "").lower() == "safari"
-    if not is_safari:
-        shared_driver.delete_all_cookies()
+    # while the browser URL is empty (no navigation has occurred yet).
+    # Navigating to about:blank first ensures the session is initialized.
+    # It is necessary for Safari, but should be safe for other browsers as well.
+    try:
+        shared_driver.get("about:blank")
+    except Exception:
+        pass
+    shared_driver.delete_all_cookies()
     try:
         shared_driver.set_window_size(1920, 1080)
     except Exception:
