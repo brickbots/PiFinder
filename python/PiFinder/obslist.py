@@ -1,79 +1,80 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module reads and writes observing
-lists in the .skylist format used by
-SkySafari.
+Observing list management for PiFinder.
 
-Supported skylist fields per SkyObject:
-  - CatalogNumber  (one or more): resolved against PiFinder catalogs
-  - EndObjectRA    (optional): RA in decimal hours (J2000)
-  - EndObjectDec   (optional): Dec in decimal degrees (J2000)
-  - Comment        (optional): stored as the object description
+Reads observing lists in any supported format (via obslist_formats),
+resolves entries against the PiFinder catalog database, and provides
+the list as CompositeObject instances for the UI.
 
-Objects can be specified by catalog reference (CatalogNumber) or by
-coordinates (EndObjectRA/EndObjectDec).  When both are present, catalog
-resolution is attempted first.  Objects with neither are skipped.
+Writing always produces SkySafari .skylist format.
 """
 
 from __future__ import annotations
 
 import os
 import logging
-from textwrap import dedent
 from PiFinder import utils
 from PiFinder.catalogs import Catalogs
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
+from PiFinder.obslist_formats import (
+    ObsList,
+    ObsListEntry,
+    SKYSAFARI_CATALOG_NAMES_INV,
+    SUPPORTED_EXTENSIONS,
+    read_file as formats_read_file,
+    write_skylist,
+)
 
 logger = logging.getLogger("Observation.List")
 
 OBSLIST_DIR = f"{utils.data_dir}/obslists/"
 
-SKYSAFARI_CATALOG_NAMES = {
-    "CAL": "C",
-    "COL": "Cr",
-}
-
-SKYSAFARI_CATALOG_NAMES_INV = {v: k for k, v in SKYSAFARI_CATALOG_NAMES.items()}
-
 
 def write_list(catalog_objects, name):
     """
     Writes the list of catalog objects
-    to a file.
+    to a .skylist file.
     """
-    index_num = 0
-    with open(OBSLIST_DIR + name + ".skylist", "w") as skylist:
-        skylist.write("SkySafariObservingListVersion=3.0\n")
-        for obj in catalog_objects:
-            catalog_name = SKYSAFARI_CATALOG_NAMES.get(
-                obj.catalog_code, obj.catalog_code
-            )
-            catalog_number = f"{catalog_name} {obj.sequence}"
-            entry_text = dedent(
-                f"""
-                SkyObject=BeginObject
-                    ObjectID=4,-1,-1
-                    CatalogNumber={catalog_number}
-                    DefaultIndex={index_num}
-                EndObject=SkyObject
-                """
-            ).strip()
-            skylist.write(entry_text + "\n")
-            index_num += 1
+    entries = [_entry_from_composite(obj) for obj in catalog_objects]
+    obs_list = ObsList(name=name, entries=entries)
+    content = write_skylist(obs_list)
+    with open(OBSLIST_DIR + name + ".skylist", "w") as f:
+        f.write(content)
+
+
+def _entry_from_composite(obj: CompositeObject) -> ObsListEntry:
+    """Convert a CompositeObject to an ObsListEntry."""
+    mag_val = obj.mag.filter_mag if obj.mag.filter_mag != MagnitudeObject.UNKNOWN_MAG else None
+    return ObsListEntry(
+        name=obj.display_name,
+        ra=obj.ra,
+        dec=obj.dec,
+        obj_type=obj.obj_type,
+        mag=mag_val,
+        catalog_code=obj.catalog_code,
+        sequence=obj.sequence,
+        description=obj.description,
+    )
+
+
+CATALOG_ALIASES: dict = {
+    "Messier": "M",
+    "Caldwell": "C",
+    "Collinder": "Cr",
+}
 
 
 def resolve_object(catalog_numbers, catalogs: Catalogs, comment: str = ""):
     """
-    Takes a list of SkySafari catalog
-    numbers and tries to find an object
-    in our DB which matches.
-    If comment is provided and the object
-    has no description, use it.
+    Takes a list of catalog number strings
+    (e.g. ["M 31", "NGC 224"]) and tries to
+    find a matching object in the PiFinder DB.
     """
     for catalog_number in catalog_numbers:
         parts = catalog_number.strip().split(" ", 1)
         catalog = SKYSAFARI_CATALOG_NAMES_INV.get(parts[0], parts[0])
+        catalog = CATALOG_ALIASES.get(catalog, catalog)
         try:
             sequence = int(parts[1].strip())
         except (ValueError, IndexError):
@@ -88,140 +89,115 @@ def resolve_object(catalog_numbers, catalogs: Catalogs, comment: str = ""):
     return None
 
 
-def _make_coordinate_object(
-    ra_hours: float,
-    dec_degrees: float,
-    catalog_numbers: list,
-    comment: str,
-    index: int,
-) -> CompositeObject:
+def _coordinate_object(entry: ObsListEntry, index: int) -> CompositeObject:
     """
-    Creates a CompositeObject from EndObjectRA/EndObjectDec
-    when catalog resolution fails.  EndObjectRA is in decimal
-    hours, so we convert to degrees for CompositeObject.
+    Creates a CompositeObject from an ObsListEntry's coordinates
+    when catalog resolution fails.
     """
-    display_name = catalog_numbers[0].strip() if catalog_numbers else f"OBJ {index + 1}"
     return CompositeObject(
         id=-(index + 1),
         object_id=-(index + 1),
-        ra=ra_hours * 15.0,
-        dec=dec_degrees,
-        catalog_code="OBS",
-        sequence=index + 1,
-        description=comment or display_name,
-        names=[display_name],
-        mag=MagnitudeObject([]),
+        ra=entry.ra,
+        dec=entry.dec,
+        catalog_code=entry.catalog_code or "OBS",
+        sequence=entry.sequence or (index + 1),
+        description=entry.description or entry.name,
+        names=[entry.name],
+        mag=MagnitudeObject([entry.mag] if entry.mag is not None else []),
     )
 
 
 def read_list(catalogs: Catalogs, name):
     """
-    Reads a skylist style observing
-    list.  Matches against catalogs
-    and returns a catalog list
+    Reads an observing list file in any supported format.
+    Resolves entries against catalogs and returns a catalog list.
     """
+    filepath = os.path.join(OBSLIST_DIR, name)
+
+    try:
+        obs_list = formats_read_file(filepath)
+    except Exception as e:
+        logger.critical("Failed to read observing list %s: %s", name, e)
+        return {
+            "result": "error",
+            "objects_parsed": 0,
+            "message": str(e),
+            "catalog_objects": [],
+        }
 
     list_catalog: list = []
-    catalog_numbers: list = []
-    comment: str = ""
-    end_ra: float | None = None
-    end_dec: float | None = None
-    objects_parsed = 0
-    in_object = False
-    with open(OBSLIST_DIR + name + ".skylist", "r") as skylist:
-        for line in skylist:
-            line = line.strip()
-            if line == "SkyObject=BeginObject":
-                if in_object:
-                    logger.critical(
-                        "Encountered object start while in object.  File is corrupt"
-                    )
-                    return {
-                        "result": "error",
-                        "objects_parsed": objects_parsed,
-                        "message": "Bad start tag",
-                        "catalog_objects": list_catalog,
-                    }
+    for i, entry in enumerate(obs_list.entries):
+        _object = None
 
-                catalog_numbers = []
-                comment = ""
-                end_ra = None
-                end_dec = None
-                in_object = True
+        # Try catalog resolution with catalog_names (skylist multi-name support)
+        if entry.catalog_names:
+            _object = resolve_object(entry.catalog_names, catalogs, entry.description)
+        elif entry.catalog_code and entry.sequence:
+            _object = resolve_object(
+                [f"{entry.catalog_code} {entry.sequence}"],
+                catalogs,
+                entry.description,
+            )
 
-            elif line == "EndObject=SkyObject":
-                if not in_object:
-                    logger.critical(
-                        "Encountered object end while not in object.  File is corrupt"
-                    )
-                    return {
-                        "result": "error",
-                        "objects_parsed": objects_parsed,
-                        "message": "Bad end tag",
-                        "catalog_objects": list_catalog,
-                    }
+        # Fall back to coordinate-based object
+        if not _object and (entry.ra or entry.dec):
+            _object = _coordinate_object(entry, i)
 
-                _object = resolve_object(catalog_numbers, catalogs, comment)
-
-                if not _object and end_ra is not None and end_dec is not None:
-                    _object = _make_coordinate_object(
-                        end_ra, end_dec, catalog_numbers, comment, objects_parsed
-                    )
-
-                if _object:
-                    list_catalog.append(_object)
-
-                objects_parsed += 1
-                in_object = False
-
-            elif line.startswith("CatalogNumber="):
-                if not in_object:
-                    logger.critical(
-                        "Encountered catalog number while not in object.  File is corrupt"
-                    )
-                    return {
-                        "result": "error",
-                        "objects_parsed": objects_parsed,
-                        "message": "Bad catalog tag",
-                        "catalog_objects": list_catalog,
-                    }
-                catalog_numbers.append(line.split("=", 1)[1])
-
-            elif line.startswith("Comment="):
-                if in_object:
-                    comment = line.split("=", 1)[1].strip()
-
-            elif line.startswith("EndObjectRA="):
-                if in_object:
-                    try:
-                        end_ra = float(line.split("=", 1)[1])
-                    except ValueError:
-                        pass
-
-            elif line.startswith("EndObjectDec="):
-                if in_object:
-                    try:
-                        end_dec = float(line.split("=", 1)[1])
-                    except ValueError:
-                        pass
+        if _object:
+            list_catalog.append(_object)
 
     return {
         "result": "success",
-        "objects_parsed": objects_parsed,
+        "objects_parsed": len(obs_list.entries),
         "message": "Complete",
         "catalog_objects": list_catalog,
     }
 
 
-def get_lists():
+def get_lists(subdir=""):
     """
-    Returns a list of list names on disk
-    """
-    if not os.path.isdir(OBSLIST_DIR):
-        return []
-    obs_files = []
-    for filename in os.listdir(OBSLIST_DIR):
-        if not filename.startswith(".") and filename.endswith(".skylist"):
-            obs_files.append(filename[:-8])
+    Returns entries (folders and observing list files) under OBSLIST_DIR/subdir.
+    Each entry is a dict with 'name', 'type' ('folder' or 'file'),
+    and either 'subdir' (for folders) or 'path' (for files).
 
-    return obs_files
+    When multiple files share the same stem (e.g. CSOG.skylist and CSOG.csv),
+    an extension tag is appended to the display name: "CSOG [skylist]".
+    """
+    target = os.path.join(OBSLIST_DIR, subdir)
+    if not os.path.isdir(target):
+        return []
+
+    folders = []
+    files = []
+    stem_counts: dict = {}
+    for name in sorted(os.listdir(target)):
+        if name.startswith("."):
+            continue
+        full = os.path.join(target, name)
+        if os.path.isdir(full):
+            folders.append(
+                {"name": name, "type": "folder", "subdir": os.path.join(subdir, name)}
+            )
+        else:
+            for ext in SUPPORTED_EXTENSIONS:
+                if name.endswith(ext):
+                    stem = name[: -len(ext)]
+                    tag = ext[1:]  # strip the dot
+                    files.append(
+                        {
+                            "stem": stem,
+                            "tag": tag,
+                            "type": "file",
+                            "path": os.path.join(subdir, name),
+                        }
+                    )
+                    stem_counts[stem] = stem_counts.get(stem, 0) + 1
+                    break
+
+    entries = list(folders)
+    for f in files:
+        display = f["stem"]
+        if stem_counts.get(f["stem"], 1) > 1:
+            display = f'{f["stem"]} [{f["tag"]}]'
+        entries.append({"name": display, "type": "file", "path": f["path"]})
+    return entries
