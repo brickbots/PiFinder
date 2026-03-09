@@ -93,23 +93,24 @@ class TestSizeOverlayPoints:
         assert avg_y == pytest.approx(cy, abs=0.1)
 
     def test_two_extents_symmetry(self):
-        """No rotation, no PA: ellipse should be symmetric about axes."""
+        """No rotation, no PA: major axis aligned with North (vertical)."""
         cx, cy = 64, 64
         pts = size_overlay_points([120, 60], 0, 0, 1.0, cx, cy)
         xs = [p[0] - cx for p in pts]
         ys = [p[1] - cy for p in pts]
-        assert max(abs(x) for x in xs) == pytest.approx(60, abs=0.5)
-        assert max(abs(y) for y in ys) == pytest.approx(30, abs=0.5)
+        # PA=0 → major axis along North → vertical
+        assert max(abs(x) for x in xs) == pytest.approx(30, abs=0.5)
+        assert max(abs(y) for y in ys) == pytest.approx(60, abs=0.5)
 
     def test_two_extents_rotation(self):
-        """90° rotation swaps major/minor axis orientation."""
+        """90° image rotation moves major axis from vertical to horizontal."""
         cx, cy = 64, 64
         pts = size_overlay_points([120, 60], 0, 90, 1.0, cx, cy)
         xs = [p[0] - cx for p in pts]
         ys = [p[1] - cy for p in pts]
-        # After 90° rotation, the 120-arcsec axis is now vertical
-        assert max(abs(x) for x in xs) == pytest.approx(30, abs=0.5)
-        assert max(abs(y) for y in ys) == pytest.approx(60, abs=0.5)
+        # 90° rotation: North moves to +X, major axis now horizontal
+        assert max(abs(x) for x in xs) == pytest.approx(60, abs=0.5)
+        assert max(abs(y) for y in ys) == pytest.approx(30, abs=0.5)
 
     def test_position_angle(self):
         """PA=90 should rotate the ellipse like image_rotate=90."""
@@ -119,6 +120,23 @@ class TestSizeOverlayPoints:
         for a, b in zip(pts_rot, pts_pa):
             assert a[0] == pytest.approx(b[0], abs=1e-6)
             assert a[1] == pytest.approx(b[1], abs=1e-6)
+
+    def test_pa0_aligns_with_north(self):
+        """PA=0 major axis must align with the North vector from cardinal_vectors."""
+        cx, cy = 64, 64
+        for rot in [0, 90, 180, 270]:
+            (nx, ny), _ = cardinal_vectors(rot)
+            pts = size_overlay_points([200, 40], 0, rot, 1.0, cx, cy)
+            # Find the point farthest from center — should be along North
+            dists = [(p[0] - cx, p[1] - cy) for p in pts]
+            farthest = max(dists, key=lambda d: math.hypot(*d))
+            direction = (farthest[0] / math.hypot(*farthest),
+                         farthest[1] / math.hypot(*farthest))
+            # Should be parallel to North (same or opposite direction)
+            dot = abs(direction[0] * nx + direction[1] * ny)
+            assert dot == pytest.approx(1.0, abs=0.02), (
+                f"PA=0 major axis not along North at image_rotate={rot}"
+            )
 
     def test_flip_mirrors_x(self):
         """fx=-1 mirrors all points horizontally around cx."""

@@ -41,7 +41,7 @@ def size_overlay_points(extents, pa, image_rotate, px_per_arcsec, cx, cy, fx=1, 
     if not extents or len(extents) == 1:
         return None
 
-    theta = math.radians(image_rotate + pa)
+    theta = math.radians(image_rotate + pa - 90)
     cos_t = math.cos(theta)
     sin_t = math.sin(theta)
 
