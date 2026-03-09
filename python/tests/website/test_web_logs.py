@@ -1,3 +1,54 @@
+"""
+Selenium tests for PiFinder's log viewer web interface.
+
+Test Overview
+
+The test suite validates the live log viewer page at localhost:8080/logs through
+automated browser testing using Selenium WebDriver. Authentication uses the default
+password "solveit".
+
+Static Structure Tests
+
+Page Layout: Tests verify the page title, h5 header ("PiFinder Logs"), and the
+Materialize card/grid structure that wraps the log viewer.
+
+Control Buttons: Tests confirm presence of the Download All Logs link, Pause button,
+and Copy to Clipboard button. Hidden buttons (Resume from Current, Restart from End)
+are also verified to exist in the DOM with display:none styling.
+
+Select Dropdowns: Tests validate the Global Level select (Debug/Info/Warning/Error
+options) and the Component select, including the conditional Component Level select
+that becomes visible once a component is chosen.
+
+Dynamic / Live Log Tests
+
+Auto Refresh: Tests that logs appear automatically after page load and that the
+total-lines counter increments above zero.
+
+Pause / Resume: Tests that clicking Pause changes the button text to "Resume" and
+clicking it again restores "Pause".
+
+Log Level Colors: Tests that every rendered log line uses a color from the known
+set (grey for default, red for ERROR, yellow for WARNING, green for INFO, blue for DEBUG).
+
+Clipboard Feedback: Tests that the Copy button changes text to "Copied" or
+"Failed to Copy" after being clicked.
+
+Scrolling: Tests that the log viewer container has overflow-y:auto and a fixed
+600 px height so that long log output scrolls rather than expanding the page.
+
+API Endpoint Tests
+
+/logs/stream: Tests that the endpoint returns HTTP 200 with a JSON body containing
+"logs" (list) and "position" (int) keys.
+
+/logs/components: Tests that the endpoint returns HTTP 200 with a JSON body
+containing a "components" dict.
+
+Infrastructure: Uses the same Selenium Grid setup as other web tests with
+automatic skipping when unavailable.
+"""
+
 import pytest
 import requests
 import time

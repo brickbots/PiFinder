@@ -1,5 +1,51 @@
 """
-Test the observations page functionality.
+Selenium tests for PiFinder's observation tracking web interface.
+
+Test Overview
+
+The test suite validates the observations page at localhost:8080/observations through
+automated browser testing using Selenium WebDriver. Authentication uses the default
+password "solveit".
+
+Observations List Tests
+
+Page Load: Tests that the observations list page loads and contains the word
+"Observations" in the title or body.
+
+Summary Counters: Tests that the session counter ("Sessions"), observation object
+counter ("Objects"), and total hours display ("Total Hours") are all visible on
+the page.
+
+Table Structure: Tests that the sessions table is present with at least four header
+columns: Date, Location, Hours, and objects. Validates the header row contains the
+minimum expected cells.
+
+Responsive Layout: Tests that the table remains visible when the viewport is
+reduced to a mobile size (375×667).
+
+Session Detail Tests
+
+Row Navigation: Tests that clicking a session row navigates to a detail URL of
+the form /observations/<id>. Skips gracefully when the database is empty.
+
+Detail Page Content: Tests that the detail page shows "Observing Session", "Objects",
+"Hours", and a download link. Also validates the detail table has the required
+headers: Time, Catalog, Sequence, Notes.
+
+Detail Table Structure: Tests that the detail table's header row contains exactly
+4 cells. Skips when no sessions are available.
+
+Download / Export Tests
+
+List Download: Tests the download link on the observations list page by making a
+direct HTTP request (with session cookies). Verifies HTTP 200, Content-Type text/tsv,
+Content-Disposition: attachment; filename=observations.tsv, and valid TSV content.
+
+Session Download: Tests the per-session download link on a detail page, verifying
+the filename contains the session ID and the content is valid TSV.
+
+Infrastructure: Uses the same Selenium Grid setup as other web tests with
+automatic skipping when unavailable or when the database contains no data.
 """
 
 import pytest

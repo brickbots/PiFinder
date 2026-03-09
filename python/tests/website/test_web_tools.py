@@ -1,5 +1,46 @@
 """
-Test the tools page functionality.
+Selenium tests for PiFinder's tools / administration web interface.
+
+Test Overview
+
+The test suite validates the tools page at localhost:8080/tools through automated
+browser testing using Selenium WebDriver. Authentication uses the default password
+"solveit".
+
+Navigation Tests
+
+Home-page Navigation: Tests that the "Tools" link in both the desktop and mobile
+navigation menus loads the tools page and, when redirected, completes the login
+flow before arriving at /tools.
+
+Change Password Tests
+
+Section Presence: Tests that the "Change Password" heading and the pwchange_form
+are present with all three input fields (current password, new_passworda,
+new_passwordb) and a submit button.
+
+Password Change Functionality: Tests that submitting the form with "solveit" as
+both current and new password completes without error and returns the browser to
+the /tools page.
+
+User Data and Settings Tests
+
+Download Backup Section: Tests that the "User Data and Settings" heading is present
+and that the "Download Backup File" link points to /tools/backup.
+
+Download Functionality: Issues a direct HTTP request (with session cookies) to
+/tools/backup and verifies HTTP 200 and non-empty content. Skips gracefully when
+the server returns 500 due to path configuration differences in the test environment.
+
+Upload/Restore Section: Tests that a file input (name=backup_file) and an "Upload
+and Restore" button are both present.
+
+End-to-End Workflow: Downloads the backup file, saves it to a temporary file,
+uploads it via the file input, confirms the restore modal ("Do It"), and verifies
+the page returns to /tools. Skips on server-side path errors.
+
+Infrastructure: Uses the same Selenium Grid setup as other web tests with
+automatic skipping when unavailable.
 """
 
 import pytest

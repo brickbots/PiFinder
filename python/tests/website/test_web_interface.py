@@ -1,3 +1,18 @@
+"""
+Selenium tests for the PiFinder web interface home page.
+
+Verifies that the home page loads correctly and that the main status
+table contains the expected UI elements: page title, visual content
+(images/canvas/video), Mode, latitude/longitude, Sky Position (RA/DEC),
+and Software Version.
+
+Prerequisites:
+    - Cedar_detect_server running on port 50551. 
+    - PiFinder web server running and accessible
+
+All tests are marked with ``@pytest.mark.web``
+"""
+
 import pytest
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait

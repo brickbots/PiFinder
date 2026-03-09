@@ -343,6 +343,7 @@ def test_ui_state_changes_with_button_presses(driver):
 
 @pytest.mark.web
 def test_remote_nav_wakeup(driver):
+    """Wake the device and navigate to the Objects item in the PiFinder main menu."""
     login_to_remote(driver)
 
     # ZL = LNG_LEFT (back to top). Two ZL presses: first wakes device from sleep

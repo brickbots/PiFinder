@@ -1,3 +1,52 @@
+"""
+Selenium tests for PiFinder's location management web interface.
+
+Test Overview
+
+The test suite validates the location management page at localhost:8080/locations
+through automated browser testing using Selenium WebDriver. Authentication uses
+the default password "solveit".
+
+Core Interface Tests
+
+Page Load via Navigation: Tests that navigating from the home page via the
+"Locations" link (desktop and mobile menus) loads the Location Management page
+correctly and authenticates if redirected to the login form.
+
+Table Structure: Tests verify the locations table is present with all expected
+column headers: Name, Latitude, Longitude, Altitude, Error, Source, and Actions.
+
+Location CRUD Tests
+
+Test Locations (Decimal): Tests adding three predefined test locations using
+decimal degree coordinates, verifying they are stored with the correct values
+(latitude, longitude, altitude, error) and skipping creation when they already exist.
+
+DMS Coordinate Entry: Tests adding a location (Tokyo) using the Degrees/Minutes/Seconds
+format switch on the add-location form, verifying that DMS values are correctly
+converted to decimal degrees on save.
+
+Remote Save via GPS Status: Tests the end-to-end flow of saving the current GPS
+position as a named location through the remote control interface's marking menu,
+then verifying and cleaning up the entry from the locations table.
+
+Default Switching: Tests that clicking "set default" transfers the star indicator
+from the current default location to the chosen one, and that the original can be
+restored, leaving the table in its pre-test state.
+
+Technical Implementation
+
+Authentication: Uses the same login flow as other web tests.
+Form Validation: Tests check that Materialize form validation passes before
+submission and that the save button becomes enabled.
+Cross-browser Compatibility: Modal-based deletion uses a staleness-of fallback
+for Firefox, where Materialize's close() detaches the anchor before the browser
+can follow the href.
+
+Infrastructure: Uses the same Selenium Grid setup as other web tests with
+automatic skipping when unavailable.
+"""
+
 import re
 import pytest
 import time
