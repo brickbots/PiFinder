@@ -85,6 +85,8 @@ def main():
     objects_db, _ = init_shared_database()
 
     logging.info("creating catalog tables")
+    conn, _ = objects_db.get_conn_cursor()
+    conn.execute("PRAGMA journal_mode = WAL")
     objects_db.destroy_tables()
     objects_db.create_tables()
 
@@ -120,6 +122,12 @@ def main():
     logging.info("Resolving object images...")
     resolve_object_images()
     print_database()
+
+    # Finalize: checkpoint WAL and switch to DELETE mode so the .db is
+    # self-contained (no -wal/-shm sidecars needed at runtime).
+    logging.info("Finalizing database...")
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    conn.execute("PRAGMA journal_mode = DELETE")
 
 
 if __name__ == "__main__":

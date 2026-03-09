@@ -19,9 +19,6 @@ class ObjectsDatabase(Database):
         self.cursor.execute("PRAGMA cache_size = -64000;")  # 64MB cache (negative = KB)
         self.cursor.execute("PRAGMA temp_store = MEMORY;")  # Keep temporary data in RAM
         self.cursor.execute(
-            "PRAGMA journal_mode = WAL;"
-        )  # Write-ahead logging for better concurrency
-        self.cursor.execute(
             "PRAGMA synchronous = NORMAL;"
         )  # Balanced safety/performance
         logging.info("Database optimizations applied")
