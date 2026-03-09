@@ -13,40 +13,40 @@ def approx_pt(pt, abs=1e-6):
 @pytest.mark.unit
 class TestCardinalVectors:
     def test_no_rotation(self):
-        """image_rotate=0: POSS north-up → N at (0, -1), E at (1, 0)."""
+        """image_rotate=0: POSS north-up, east-left → N at (0, -1), E at (-1, 0)."""
         (nx, ny), (ex, ey) = cardinal_vectors(0)
         assert (nx, ny) == approx_pt((0, -1))
-        assert (ex, ey) == approx_pt((1, 0))
-
-    def test_180_rotation(self):
-        """image_rotate=180: N flips to (0, 1), E to (-1, 0)."""
-        (nx, ny), (ex, ey) = cardinal_vectors(180)
-        assert (nx, ny) == approx_pt((0, 1))
         assert (ex, ey) == approx_pt((-1, 0))
 
+    def test_180_rotation(self):
+        """image_rotate=180: N flips to (0, 1), E to (1, 0)."""
+        (nx, ny), (ex, ey) = cardinal_vectors(180)
+        assert (nx, ny) == approx_pt((0, 1))
+        assert (ex, ey) == approx_pt((1, 0))
+
     def test_90_rotation(self):
-        """image_rotate=90: N at (1, 0), E at (0, 1)."""
+        """image_rotate=90: N at (1, 0), E at (0, -1)."""
         (nx, ny), (ex, ey) = cardinal_vectors(90)
         assert (nx, ny) == approx_pt((1, 0))
-        assert (ex, ey) == approx_pt((0, 1))
+        assert (ex, ey) == approx_pt((0, -1))
 
     def test_flip_mirrors_x(self):
         """flip negates x components of both vectors."""
         (nx, ny), (ex, ey) = cardinal_vectors(0, fx=-1)
         assert (nx, ny) == approx_pt((0, -1))
-        assert (ex, ey) == approx_pt((-1, 0))
+        assert (ex, ey) == approx_pt((1, 0))
 
     def test_flop_mirrors_y(self):
         """flop negates y components of both vectors."""
         (nx, ny), (ex, ey) = cardinal_vectors(0, fy=-1)
         assert (nx, ny) == approx_pt((0, 1))
-        assert (ex, ey) == approx_pt((1, 0))
+        assert (ex, ey) == approx_pt((-1, 0))
 
     def test_flip_and_flop(self):
         """Both flip and flop: equivalent to 180° rotation of vectors."""
         (nx, ny), (ex, ey) = cardinal_vectors(0, fx=-1, fy=-1)
         assert (nx, ny) == approx_pt((0, 1))
-        assert (ex, ey) == approx_pt((-1, 0))
+        assert (ex, ey) == approx_pt((1, 0))
 
     def test_orthogonality(self):
         """N and E should always be perpendicular."""
@@ -113,13 +113,28 @@ class TestSizeOverlayPoints:
         assert max(abs(y) for y in ys) == pytest.approx(30, abs=0.5)
 
     def test_position_angle(self):
-        """PA=90 should rotate the ellipse like image_rotate=90."""
+        """PA=90 rotates opposite to image_rotate (PA goes N→E, image_rotate goes CW)."""
         cx, cy = 64, 64
-        pts_rot = size_overlay_points([120, 60], 0, 90, 1.0, cx, cy)
+        pts_rot = size_overlay_points([120, 60], 0, 270, 1.0, cx, cy)
         pts_pa = size_overlay_points([120, 60], 90, 0, 1.0, cx, cy)
         for a, b in zip(pts_rot, pts_pa):
             assert a[0] == pytest.approx(b[0], abs=1e-6)
             assert a[1] == pytest.approx(b[1], abs=1e-6)
+
+    def test_pa90_aligns_with_east(self):
+        """PA=90° major axis must align with the East vector from cardinal_vectors."""
+        cx, cy = 64, 64
+        for rot in [0, 90, 180, 270]:
+            _, (ex, ey) = cardinal_vectors(rot)
+            pts = size_overlay_points([200, 40], 90, rot, 1.0, cx, cy)
+            dists = [(p[0] - cx, p[1] - cy) for p in pts]
+            farthest = max(dists, key=lambda d: math.hypot(*d))
+            direction = (farthest[0] / math.hypot(*farthest),
+                         farthest[1] / math.hypot(*farthest))
+            dot = abs(direction[0] * ex + direction[1] * ey)
+            assert dot == pytest.approx(1.0, abs=0.02), (
+                f"PA=90 major axis not along East at image_rotate={rot}"
+            )
 
     def test_pa0_aligns_with_north(self):
         """PA=0 major axis must align with the North vector from cardinal_vectors."""
