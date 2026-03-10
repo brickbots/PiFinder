@@ -1,4 +1,5 @@
 import functools
+import logging
 from collections import namedtuple
 
 import numpy as np
@@ -10,7 +11,9 @@ from luma.oled.device import ssd1351
 from luma.lcd.device import st7789
 
 from PiFinder.ui.fonts import Fonts
+from PiFinder.keyboard_interface import KeyboardInterface
 
+logger = logging.getLogger("Display")
 
 ColorMask = namedtuple("ColorMask", ["mask", "mode"])
 RED_RGB: ColorMask = ColorMask(np.array([1, 0, 0]), "RGB")
@@ -64,14 +67,91 @@ class DisplayBase:
     def set_brightness(self, brightness: int) -> None:
         return None
 
+    def set_keyboard_queue(self, q) -> None:
+        pass
+
+
+# Pygame key → PiFinder keycode mapping (mirrors keyboard_local.py)
+_PYGAME_KEY_MAP: dict[int, int] = {}
+
+
+def _build_key_map(pg) -> dict[int, int]:
+    if _PYGAME_KEY_MAP:
+        return _PYGAME_KEY_MAP
+    KI = KeyboardInterface
+    m = {
+        pg.K_LEFT: KI.LEFT,
+        pg.K_UP: KI.UP,
+        pg.K_DOWN: KI.DOWN,
+        pg.K_RIGHT: KI.RIGHT,
+        pg.K_q: KI.PLUS,
+        pg.K_a: KI.MINUS,
+        pg.K_z: KI.SQUARE,
+        pg.K_w: KI.ALT_PLUS,
+        pg.K_s: KI.ALT_MINUS,
+        pg.K_d: KI.ALT_LEFT,
+        pg.K_r: KI.ALT_UP,
+        pg.K_f: KI.ALT_DOWN,
+        pg.K_g: KI.ALT_RIGHT,
+        pg.K_e: KI.ALT_0,
+        pg.K_j: KI.LNG_LEFT,
+        pg.K_i: KI.LNG_UP,
+        pg.K_k: KI.LNG_DOWN,
+        pg.K_l: KI.LNG_RIGHT,
+        pg.K_m: KI.LNG_SQUARE,
+        pg.K_0: 0,
+        pg.K_1: 1,
+        pg.K_2: 2,
+        pg.K_3: 3,
+        pg.K_4: 4,
+        pg.K_5: 5,
+        pg.K_6: 6,
+        pg.K_7: 7,
+        pg.K_8: 8,
+        pg.K_9: 9,
+    }
+    _PYGAME_KEY_MAP.update(m)
+    return _PYGAME_KEY_MAP
+
+
+def _patch_pygame_keyboard(display_obj):
+    """Replace luma's _abort on the pygame device to capture keyboard events."""
+    device = display_obj.device
+    pg = device._pygame
+    key_map = _build_key_map(pg)
+
+    def _abort_with_keys():
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                return True
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_ESCAPE:
+                    return True
+                q = display_obj._keyboard_queue
+                if q is not None:
+                    keycode = key_map.get(event.key)
+                    if keycode is not None:
+                        q.put(keycode)
+        return False
+
+    device._abort = _abort_with_keys
+
 
 class DisplayPygame_128(DisplayBase):
     resolution = (128, 128)
 
     def __init__(self):
         from luma.emulator.device import pygame
+        import pygame as pg
+        from pathlib import Path
 
-        # init display  (SPI hardware)
+        # Set window icon to welcome splash screen before creating display
+        icon_path = Path(__file__).parent.parent.parent / "images" / "welcome.png"
+        if icon_path.exists():
+            icon = pg.image.load(str(icon_path))
+            pg.display.set_icon(icon)
+
+        self._keyboard_queue = None
         pygame = pygame(
             width=128,
             height=128,
@@ -82,7 +162,11 @@ class DisplayPygame_128(DisplayBase):
             frame_rate=60,
         )
         self.device = pygame
+        _patch_pygame_keyboard(self)
         super().__init__()
+
+    def set_keyboard_queue(self, q) -> None:
+        self._keyboard_queue = q
 
 
 class DisplayPygame_320(DisplayBase):
@@ -90,8 +174,16 @@ class DisplayPygame_320(DisplayBase):
 
     def __init__(self):
         from luma.emulator.device import pygame
+        import pygame as pg
+        from pathlib import Path
 
-        # init display  (SPI hardware)
+        # Set window icon to welcome splash screen before creating display
+        icon_path = Path(__file__).parent.parent.parent / "images" / "welcome.png"
+        if icon_path.exists():
+            icon = pg.image.load(str(icon_path))
+            pg.display.set_icon(icon)
+
+        self._keyboard_queue = None
         pygame = pygame(
             width=320,
             height=240,
@@ -100,7 +192,11 @@ class DisplayPygame_320(DisplayBase):
             frame_rate=60,
         )
         self.device = pygame
+        _patch_pygame_keyboard(self)
         super().__init__()
+
+    def set_keyboard_queue(self, q) -> None:
+        self._keyboard_queue = q
 
 
 class DisplaySSD1351(DisplayBase):

@@ -16,7 +16,6 @@ from PiFinder.composite_object import CompositeObject
 from typing import Optional
 from dataclasses import dataclass, asdict
 import json
-from timezonefinder import TimezoneFinder
 
 logger = logging.getLogger("SharedState")
 
@@ -126,12 +125,12 @@ Example shared_state object:
 SharedStateObj(
     power_state=1,
     solve_state=True,
-    solution={'RA': 22.86683471463411, 'Dec': 15.347716050003328, 
+    solution={'RA': 22.86683471463411, 'Dec': 15.347716050003328, 'imu_pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
               'solve_time': 1695297930.5532792, 'cam_solve_time': 1695297930.5532837, 'Roll': 306.2951794424281, 'FOV': 10.200729425086111,
               'RMSE': 21.995567413046142, 'Matches': 12, 'Prob': 6.987725483613384e-13, 'T_solve': 15.00384000246413, 'RA_target': 22.86683471463411,
               'Dec_target': 15.347716050003328, 'T_extract': 75.79255499877036, 'Alt': None, 'Az': None, 'solve_source': 'CAM', 'constellation': 'Psc'},
-    imu={'moving': False, 'move_start': 1695297928.69749, 'move_end': 1695297928.764207,
-         'status': 3},
+    imu={'moving': False, 'move_start': 1695297928.69749, 'move_end': 1695297928.764207, 'pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
+         'start_pos': [171.4009455613444, 202.76321535004726, 358.2587208386012], 'status': 3},
     location={'lat': 59.05139745, 'lon': 7.987654, 'altitude': 151.4, 'source': 'GPS', gps_lock': False, 'timezone': 'Europe/Stockholm', 'last_gps_lock': None},
     datetime=None,
     screen=<PIL.Image.Image image mode=RGB size=128x128 at 0xE693C910>,
@@ -238,8 +237,8 @@ class Location:
 
 
 class SharedStateObj:
-    def __init__(self):
-        self.__power_state = 1  # 0 = sleep state, 1 = awake state
+    def __init__(self) -> None:
+        self.__power_state = 1
         # self.__solve_state
         # None = No solve attempted yet
         # True = Valid solve data from either IMU or Camera
@@ -251,7 +250,7 @@ class SharedStateObj:
             "exposure_end": 0,
             "exposure_time": 500000,  # Default exposure time in microseconds (0.5s)
             "imu": None,
-            "imu_delta": 0.0,  # Angle between quaternion at start and end of exposure [deg]
+            "imu_delta": 0,
         }
         self.__solution = None
         self.__sats = None
@@ -272,7 +271,7 @@ class SharedStateObj:
         self.__cam_raw = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
-        self.__tz_finder = TimezoneFinder()
+        self.__tz_finder = None
 
     def serialize(self, output_file):
         with open(output_file, "wb") as f:
@@ -298,16 +297,7 @@ class SharedStateObj:
         return self.__power_state
 
     def set_power_state(self, v):
-        """
-        Sets the power_state. Allowed states are 0 (sleep) or 1 (awake). If
-        the input v is any other value, power_state will be unchanged.
-        """
-        if v in (0, 1):
-            self.__power_state = v
-        else:
-            logger.error(
-                f"Invalid value for set_power_state: {v}. power_state not changed."
-            )
+        self.__power_state = v
 
     def arch(self):
         return self.__arch
@@ -359,6 +349,10 @@ class SharedStateObj:
         # if value is not none, set the timezone
         # before saving the value
         if v:
+            if self.__tz_finder is None:
+                from timezonefinder import TimezoneFinder
+
+                self.__tz_finder = TimezoneFinder()
             v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
         self.__location = v
 

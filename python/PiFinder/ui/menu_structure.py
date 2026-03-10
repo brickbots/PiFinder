@@ -14,6 +14,7 @@ from PiFinder.ui.sqm import UISQM
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
 from PiFinder.ui.radec_entry import UIRADecEntry
+from PiFinder.ui.lm_entry import UILMEntry
 import PiFinder.ui.callbacks as callbacks
 
 
@@ -26,7 +27,6 @@ s = _("Language: de")  # this way ruff lint and mypy type_hints warnings are sil
 s = _("Language: en")
 s = _("Language: es")
 s = _("Language: fr")
-s = _("Language: zh")
 s = s
 del s
 
@@ -49,7 +49,6 @@ pifinder_menu = {
                     "name": _("Align"),
                     "class": UIAlign,
                     "stateful": True,
-                    "preload": True,
                 },
                 {
                     "name": _("GPS Status"),
@@ -61,7 +60,6 @@ pifinder_menu = {
             "name": _("Chart"),
             "class": UIChart,
             "stateful": True,
-            "preload": True,
         },
         {
             "name": _("Objects"),
@@ -142,12 +140,6 @@ pifinder_menu = {
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "EGC",
-                                },
-                                {
-                                    "name": _("Harris Globs"),
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Har",
                                 },
                                 {
                                     "name": _("Herschel 400"),
@@ -321,10 +313,6 @@ pifinder_menu = {
                                 {
                                     "name": _("E.G. Globs"),
                                     "value": "EGC",
-                                },
-                                {
-                                    "name": _("Harris Globs"),
-                                    "value": "Har",
                                 },
                                 {
                                     "name": _("Herschel 400"),
@@ -691,22 +679,6 @@ pifinder_menu = {
                             ],
                         },
                         {
-                            "name": _("T9 Search"),
-                            "class": UITextMenu,
-                            "select": "single",
-                            "config_option": "t9_search",
-                            "items": [
-                                {
-                                    "name": _("Off"),
-                                    "value": False,
-                                },
-                                {
-                                    "name": _("On"),
-                                    "value": True,
-                                },
-                            ],
-                        },
-                        {
                             "name": _("Az Arrows"),
                             "class": UITextMenu,
                             "select": "single",
@@ -745,10 +717,6 @@ pifinder_menu = {
                                 {
                                     "name": _("Spanish"),
                                     "value": "es",
-                                },
-                                {
-                                    "name": _("Chinese"),
-                                    "value": "zh",
                                 },
                             ],
                         },
@@ -849,6 +817,117 @@ pifinder_menu = {
                                 {
                                     "name": _("Degrees"),
                                     "value": "Degr",
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "name": _("Obj Chart..."),
+                    "class": UITextMenu,
+                    "select": "single",
+                    "label": "obj_chart_settings",
+                    "items": [
+                        {
+                            "name": _("Crosshair"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "obj_chart_crosshair",
+                            "config_option": "obj_chart_crosshair",
+                            "items": [
+                                {
+                                    "name": _("Off"),
+                                    "value": "off",
+                                },
+                                {
+                                    "name": _("On"),
+                                    "value": "on",
+                                },
+                                {
+                                    "name": _("Pulse"),
+                                    "value": "pulse",
+                                },
+                                {
+                                    "name": _("Fade"),
+                                    "value": "fade",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Style"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "obj_chart_style",
+                            "config_option": "obj_chart_crosshair_style",
+                            "items": [
+                                {
+                                    "name": _("Simple"),
+                                    "value": "simple",
+                                },
+                                {
+                                    "name": _("Circle"),
+                                    "value": "circle",
+                                },
+                                {
+                                    "name": _("Bullseye"),
+                                    "value": "bullseye",
+                                },
+                                {
+                                    "name": _("Brackets"),
+                                    "value": "brackets",
+                                },
+                                {
+                                    "name": _("Dots"),
+                                    "value": "dots",
+                                },
+                                {
+                                    "name": _("Cross"),
+                                    "value": "cross",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Speed"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "obj_chart_speed",
+                            "config_option": "obj_chart_crosshair_speed",
+                            "items": [
+                                {
+                                    "name": _("Fast (1s)"),
+                                    "value": "1.0",
+                                },
+                                {
+                                    "name": _("Medium (2s)"),
+                                    "value": "2.0",
+                                },
+                                {
+                                    "name": _("Slow (3s)"),
+                                    "value": "3.0",
+                                },
+                                {
+                                    "name": _("Very Slow (4s)"),
+                                    "value": "4.0",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Set LM"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "obj_chart_lm",
+                            "config_option": "obj_chart_lm_mode",
+                            "items": [
+                                {
+                                    "name": _("Auto"),
+                                    "value": "auto",
+                                },
+                                {
+                                    "name": _("Fixed"),
+                                    "value": "fixed",
+                                    "class": UILMEntry,
+                                    "mode": "lm_entry",
+                                    "config_option": "obj_chart_lm_fixed",
                                 },
                             ],
                         },
@@ -1107,17 +1186,6 @@ pifinder_menu = {
                     "select": "Single",
                     "items": [
                         {"name": "SQM", "class": UISQM},
-                        {
-                            "name": _("Integrator"),
-                            "class": UITextMenu,
-                            "select": "single",
-                            "config_option": "imu_integrator",
-                            "post_callback": callbacks.restart_pifinder,
-                            "items": [
-                                {"name": _("Classic"), "value": "classic"},
-                                {"name": _("Quaternion"), "value": "quaternion"},
-                            ],
-                        },
                         {
                             "name": _("AE Algo"),
                             "class": UITextMenu,
