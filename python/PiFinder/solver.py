@@ -603,5 +603,42 @@ def solver(
                 logger.error(
                     f"Active threads: {[t.name for t in threading.enumerate()]}"
                 )
-            except Exception as e:
+            except Exception:
                 pass  # Don't let diagnostic logging fail
+
+
+def get_initialized_solved_dict() -> dict:
+    """
+    Returns an initialized 'solved' dictionary with coordinate and other
+    information.
+    """
+    solved = {
+        "RA": None,
+        "Dec": None,
+        "Roll": None,
+        "camera_center": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+            "Alt": None,
+            "Az": None,
+        },
+        "camera_solve": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+        },
+        "imu_pos": None,
+        "imu_quat": None,
+        "Roll_offset": 0,
+        "Alt": None,
+        "Az": None,
+        "solve_source": None,
+        "solve_time": None,
+        "cam_solve_time": 0,
+        "last_solve_attempt": 0,
+        "last_solve_success": None,
+        "constellation": None,
+    }
+
+    return solved

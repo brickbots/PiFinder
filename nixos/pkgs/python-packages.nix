@@ -448,6 +448,7 @@ except ImportError:
   commonPackages = ps: with ps; [
     # Packages from nixpkgs
     numpy
+    quaternion
     scipy
     scikit-learn
     pillow

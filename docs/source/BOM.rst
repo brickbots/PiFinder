@@ -96,7 +96,7 @@ These are the bigger items/assemblies which you'll need to purchase to include i
      - Other lenses might work here, but something fast with a 10deg FOV is ideal
 
 You can use either the imx296 or imx462 module from innomaker.  They both 
-perform about the same so choose the least expesive/easiest to get model 
+perform about the same so choose the least expensive/easiest to get model 
 in your particular location.
 
 Case hardware
@@ -132,6 +132,6 @@ In addition to the 3d printed parts detailed in the :doc:`Build Guide<build_guid
 Power
 -----
 
-The PiFinder takes about .9amp at 5v under full load, and about 60% of this when in power-save/idle mode.  For battery sizing a good rule of thumb would be 1.25 hour of run time per 1000mah of battery capacity.  You can use any batter pack that will produce at least 1.5 amp of power and plug this into the USB-C port on the unit.
+The PiFinder takes about .9amp at 5v under full load, and about 60% of this when in power-save/idle mode.  For battery sizing a good rule of thumb would be 1.25 hour of run time per 1000mah of battery capacity.  You can use any battery pack that will produce at least 1.5 amp of power and plug this into the USB-C port on the unit.
 
-If you'd like to have a fully stand-alone unit with integrated rechargeable battery, there are instructing in the build guide for integrating a `PiSugar S plus <https://github.com/PiSugar/PiSugar/wiki/PiSugarS-Plus>`_.  This is the lower-cost version without RTC, but it has a 5000mah battery which should provide about 5 hours of run time.  
+If you'd like to have a fully stand-alone unit with integrated rechargeable battery, there are instructions in the build guide for integrating a `PiSugar S plus <https://github.com/PiSugar/PiSugar/wiki/PiSugarS-Plus>`_.  This is the lower-cost version without RTC, but it has a 5000mah battery which should provide about 5 hours of run time.  
