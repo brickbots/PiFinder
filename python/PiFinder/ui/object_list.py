@@ -285,8 +285,7 @@ class UIObjectList(UITextMenu):
                 self.message(_("No Solve Yet"), 1)
                 self.current_sort = SortOrder.CATALOG_SEQUENCE
             else:
-                is_custom = self.item_definition.get("objects") == "custom"
-                if self.catalogs.catalog_filter and not is_custom:
+                if self.catalogs.catalog_filter:
                     self._menu_items = self.catalogs.catalog_filter.apply(
                         self._menu_items
                     )

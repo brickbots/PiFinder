@@ -107,6 +107,7 @@ def _coordinate_object(entry: ObsListEntry, index: int) -> CompositeObject:
         object_id=-(index + 1),
         ra=entry.ra,
         dec=entry.dec,
+        obj_type=entry.obj_type or "?",
         const=const,
         catalog_code=entry.catalog_code or "OBS",
         sequence=entry.sequence or (index + 1),
