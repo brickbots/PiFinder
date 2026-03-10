@@ -9,9 +9,11 @@ of detected stars for plate solving.
 
 The controller targets 17 matched stars (acceptable range: 12-22) which provides
 reliable plate solving while avoiding over-saturation and maintaining good performance.
+Rate limiting on downward adjustments reduces CPU usage.
 """
 
 import logging
+import time
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
@@ -692,7 +694,7 @@ class ExposureSNRController:
         profile = get_camera_profile(camera_type)
 
         # Derive thresholds from camera specs
-        max_adu = (2 ** profile.bit_depth) - 1
+        max_adu = (2**profile.bit_depth) - 1
         bias = profile.bias_offset
 
         # min_background: bias + margin (2x bias or bias + 8, whichever larger)
@@ -724,7 +726,7 @@ class ExposureSNRController:
         current_exposure: int,
         image: Image.Image,
         noise_floor: Optional[float] = None,
-        **kwargs  # Ignore other params (matched_stars, etc.)
+        **kwargs,  # Ignore other params (matched_stars, etc.)
     ) -> Optional[int]:
         """
         Update exposure based on background level.
@@ -806,30 +808,50 @@ class ExposurePIDController:
     def __init__(
         self,
         target_stars: int = 17,
-        gains: tuple = (2000.0, 100.0, 750.0),  # Kp, Ki, Kd
+        gains_decrease: tuple = (
+            500.0,  # Kp: Conservative (was 2000, reduced 75% to prevent crash)
+            5.0,  # Ki: Minimal (was 10, reduced to prevent drift)
+            250.0,  # Kd: Proportional (was 750, reduced 67%)
+        ),  # Kp, Ki, Kd for too many stars (conservative descent)
+        gains_increase: tuple = (
+            4000.0,  # Kp: Moderate aggression (was 8000, reduced 50%)
+            250.0,  # Ki: Moderate (was 500, reduced 50%)
+            1500.0,  # Kd: Moderate (was 3000, reduced 50%)
+        ),  # Kp, Ki, Kd for too few stars (faster ascent)
         min_exposure: int = 25000,
         max_exposure: int = 1000000,
         deadband: int = 5,
+        update_interval: float = 0.5,  # Minimum seconds between decreasing adjustments
         zero_star_handler: Optional[ZeroStarHandler] = None,
     ):
-        """Initialize PID controller."""
+        """
+        Initialize PID controller with asymmetric gains.
+
+        Uses conservative gains when decreasing exposure (gentle descent),
+        aggressive gains when increasing (fast recovery).
+        """
         self.target_stars = target_stars
-        self.gains = gains
+        self.gains_decrease = gains_decrease
+        self.gains_increase = gains_increase
         self.min_exposure = min_exposure
         self.max_exposure = max_exposure
         self.deadband = deadband
+        self.update_interval = update_interval
 
         self._integral = 0.0
         self._last_error: Optional[float] = None
         self._zero_star_count = 0
         self._nonzero_star_count = 0  # Hysteresis: consecutive non-zero solves
+        self._last_adjustment_time = 0.0
         self._zero_star_handler = zero_star_handler or SweepZeroStarHandler(
             min_exposure=min_exposure, max_exposure=max_exposure
         )
 
         logger.info(
             f"AutoExposure PID: target={target_stars}, deadband={deadband}, "
-            f"gains={gains}, range=[{min_exposure}, {max_exposure}]µs"
+            f"update_interval={update_interval}s, "
+            f"gains_dec={gains_decrease}, gains_inc={gains_increase}, "
+            f"range=[{min_exposure}, {max_exposure}]µs"
         )
 
     def reset(self) -> None:
@@ -837,6 +859,7 @@ class ExposurePIDController:
         self._last_error = None
         self._zero_star_count = 0
         self._nonzero_star_count = 0
+        self._last_adjustment_time = 0.0
         self._zero_star_handler.reset()
         logger.debug("PID controller reset")
 
@@ -862,19 +885,32 @@ class ExposurePIDController:
         )
 
     def _update_pid(self, matched_stars: int, current_exposure: int) -> Optional[int]:
-        """Core PID algorithm."""
+        """Core PID algorithm with asymmetric gains."""
         error = self.target_stars - matched_stars
 
         if abs(error) <= self.deadband:
             return None
 
-        kp, ki, kd = self.gains
+        # Rate limiting: only when decreasing (too many stars)
+        # When increasing (too few stars), respond immediately for faster recovery
+        if error < 0:  # Too many stars, going down
+            current_time = time.time()
+            time_since_last = current_time - self._last_adjustment_time
+            if time_since_last < self.update_interval:
+                return None  # Skip debug log for performance
+        else:
+            current_time = time.time()  # Only get time when needed
+
+        # Select gains: conservative when decreasing, aggressive when increasing
+        kp, ki, kd = self.gains_decrease if error < 0 else self.gains_increase
 
         # Reset integral when error changes sign to prevent accumulated integral
         # from crashing exposure when conditions change suddenly
         # (e.g., going from too many stars to too few stars)
         if self._last_error is not None:
-            if (error > 0 and self._last_error < 0) or (error < 0 and self._last_error > 0):
+            if (error > 0 and self._last_error < 0) or (
+                error < 0 and self._last_error > 0
+            ):
                 logger.debug(
                     f"PID: Error sign changed ({self._last_error:.0f} → {error:.0f}), resetting integral"
                 )
@@ -901,6 +937,7 @@ class ExposurePIDController:
                 self._integral -= overshoot / ki
 
         self._last_error = error
+        self._last_adjustment_time = current_time
 
         return clamped_exposure
 
@@ -950,18 +987,27 @@ class ExposurePIDController:
         self.target_stars = target_stars
         logger.debug(f"Target stars changed: {old_target} → {target_stars}")
 
-    def set_gains(self, gains: tuple) -> None:
-        """Update PID gains. Tuple is (Kp, Ki, Kd)."""
-        self.gains = gains
-        logger.debug(f"PID gains: {self.gains}")
+    def set_gains(
+        self,
+        gains_decrease: Optional[tuple] = None,
+        gains_increase: Optional[tuple] = None,
+    ) -> None:
+        """Update PID gains. Each tuple is (Kp, Ki, Kd)."""
+        if gains_decrease is not None:
+            self.gains_decrease = gains_decrease
+        if gains_increase is not None:
+            self.gains_increase = gains_increase
+        logger.debug(f"PID gains: dec={self.gains_decrease}, inc={self.gains_increase}")
 
     def get_status(self) -> dict:
         return {
             "target_stars": self.target_stars,
-            "gains": self.gains,
+            "gains_decrease": self.gains_decrease,
+            "gains_increase": self.gains_increase,
             "integral": self._integral,
             "last_error": self._last_error,
             "min_exposure": self.min_exposure,
             "max_exposure": self.max_exposure,
             "deadband": self.deadband,
+            "update_interval": self.update_interval,
         }

@@ -9,16 +9,17 @@ This module is the camera
 
 """
 
-import datetime
-import logging
-import os
-import queue
-import time
 from typing import Tuple, Optional
-
 from PIL import Image
+import os
+import time
+import datetime
+import numpy as np
+import queue
+import logging
 
 from PiFinder import state_utils, utils
+import PiFinder.pointing_model.quaternion_transforms as qt
 from PiFinder.auto_exposure import (
     ExposurePIDController,
     ExposureSNRController,
@@ -56,6 +57,12 @@ class CameraInterface:
     def capture_raw_file(self, filename) -> None:
         pass
 
+    def _blank_capture(self):
+        """
+        Returns a properly formated black frame
+        """
+        return Image.new("L", (512, 512), 0)  # Black 512x512 image
+
     def capture_bias(self):
         """
         Capture a bias frame for pedestal calculation.
@@ -63,7 +70,7 @@ class CameraInterface:
         Override in subclasses that support bias frames.
         Returns Image.Image or np.ndarray depending on implementation.
         """
-        return Image.new("L", (512, 512), 0)  # Black 512x512 image
+        return self._blank_capture()
 
     def set_camera_config(
         self, exposure_time: float, gain: float
@@ -171,26 +178,34 @@ class CameraInterface:
                         base_image = base_image.convert(
                             "L"
                         )  # Convert to grayscale to match camera output
-                        time.sleep(1)
+                        time.sleep(0.2)
                     image_end_time = time.time()
                     # check imu to make sure we're still static
                     imu_end = shared_state.imu()
 
                     # see if we moved during exposure
-                    reading_diff = 0
                     if imu_start and imu_end:
-                        reading_diff = (
-                            abs(imu_start["pos"][0] - imu_end["pos"][0])
-                            + abs(imu_start["pos"][1] - imu_end["pos"][1])
-                            + abs(imu_start["pos"][2] - imu_end["pos"][2])
+                        # Returns the pointing difference between successive IMU quaternions as
+                        # an angle (radians). Note that this also accounts for rotation around the
+                        # scope axis. Returns an angle in radians.
+                        pointing_diff = qt.get_quat_angular_diff(
+                            imu_start["quat"], imu_end["quat"]
                         )
+                    else:
+                        pointing_diff = 0.0
 
-                    camera_image.paste(base_image)
+                    # Make image available
+                    if debug and abs(pointing_diff) > 0.01:
+                        # Check if we moved and return a blank image
+                        camera_image.paste(self._blank_capture())
+                    else:
+                        camera_image.paste(base_image)
+
                     image_metadata = {
                         "exposure_start": image_start_time,
                         "exposure_end": image_end_time,
                         "imu": imu_end,
-                        "imu_delta": reading_diff,
+                        "imu_delta": np.rad2deg(pointing_diff),
                         "exposure_time": self.exposure_time,
                         "gain": self.gain,
                     }
@@ -232,22 +247,29 @@ class CameraInterface:
                                     if self._auto_exposure_snr is None:
                                         # Use camera profile to derive thresholds
                                         try:
-                                            cam_type = detect_camera_type(self.get_cam_type())
+                                            cam_type = detect_camera_type(
+                                                self.get_cam_type()
+                                            )
                                             cam_type = f"{cam_type}_processed"
-                                            self._auto_exposure_snr = (
-                                                ExposureSNRController.from_camera_profile(cam_type)
+                                            self._auto_exposure_snr = ExposureSNRController.from_camera_profile(
+                                                cam_type
                                             )
                                         except ValueError as e:
                                             # Unknown camera, use defaults
                                             logger.warning(
                                                 f"Camera detection failed: {e}, using default SNR thresholds"
                                             )
-                                            self._auto_exposure_snr = ExposureSNRController()
+                                            self._auto_exposure_snr = (
+                                                ExposureSNRController()
+                                            )
                                     # Get adaptive noise floor from shared state
-                                    adaptive_noise_floor = self.shared_state.noise_floor()
+                                    adaptive_noise_floor = (
+                                        self.shared_state.noise_floor()
+                                    )
                                     new_exposure = self._auto_exposure_snr.update(
-                                        self.exposure_time, base_image,
-                                        noise_floor=adaptive_noise_floor
+                                        self.exposure_time,
+                                        base_image,
+                                        noise_floor=adaptive_noise_floor,
                                     )
                                 else:
                                     # PID mode: use star-count based controller (default)

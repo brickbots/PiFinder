@@ -202,6 +202,7 @@ class SQM:
                 n_saturated += 1
                 continue
 
+
             # Total flux in aperture (includes background)
             total_flux = np.sum(aperture_pixels)
 
