@@ -6,6 +6,90 @@ from typing import List
 from PiFinder.utils import is_number
 
 
+class SizeObject:
+    """Structured angular size for astronomical objects.
+
+    All extents are stored internally in arcseconds.
+    - []           -> unknown / point source
+    - [d]          -> circular, diameter d
+    - [major, minor] -> elliptical (major x minor axes)
+    - [v1, v2, ...] -> polygon radial distances at equal angular intervals
+    """
+
+    def __init__(self, extents: List[float], position_angle: float = 0.0):
+        self.extents: List[float] = extents
+        self.position_angle: float = position_angle
+
+    # --- constructors ---
+
+    @classmethod
+    def from_arcmin(cls, *values: float, position_angle: float = 0.0) -> "SizeObject":
+        return cls([v * 60.0 for v in values], position_angle=position_angle)
+
+    @classmethod
+    def from_arcsec(cls, *values: float, position_angle: float = 0.0) -> "SizeObject":
+        return cls(list(values), position_angle=position_angle)
+
+    @classmethod
+    def from_degrees(cls, *values: float, position_angle: float = 0.0) -> "SizeObject":
+        return cls([v * 3600.0 for v in values], position_angle=position_angle)
+
+    # --- serialization ---
+
+    def to_json(self) -> str:
+        return json.dumps({"e": self.extents, "p": self.position_angle})
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "SizeObject":
+        if not json_str:
+            return cls([])
+        parsed = json.loads(json_str)
+        return cls(parsed["e"], position_angle=parsed.get("p", 0.0))
+
+    # --- display ---
+
+    def _format_value(self, arcsec: float, unit_suffix: str) -> str:
+        """Format a single value, dropping .0 for whole numbers."""
+        if unit_suffix == '"':
+            val = arcsec
+        elif unit_suffix == "'":
+            val = arcsec / 60.0
+        else:
+            val = arcsec / 3600.0
+        if val == int(val):
+            return f"{int(val)}{unit_suffix}"
+        return f"{val:.1f}{unit_suffix}"
+
+    def _pick_unit(self) -> str:
+        """Choose display unit based on largest extent."""
+        largest = max(self.extents)
+        if largest >= 3600.0:
+            return "°"
+        if largest >= 60.0:
+            return "'"
+        return '"'
+
+    def to_display_string(self) -> str:
+        if not self.extents:
+            return ""
+        unit = self._pick_unit()
+        if len(self.extents) == 1:
+            return self._format_value(self.extents[0], unit)
+        if len(self.extents) == 2:
+            a = self._format_value(self.extents[0], unit)
+            b = self._format_value(self.extents[1], unit)
+            # strip repeated unit suffix for compact display: 17'x8'
+            return f"{a}x{b}"
+        # 3+ extents: show max extent only with polygon marker
+        return f"~{self._format_value(max(self.extents), unit)}"
+
+    def __repr__(self) -> str:
+        return f"SizeObject({self.extents})"
+
+    def __str__(self) -> str:
+        return self.to_display_string()
+
+
 class MagnitudeObject:
     UNKNOWN_MAG: float = 99
     mags: List = []
@@ -67,7 +151,7 @@ class CompositeObject:
     # dec in degrees, J2000
     dec: float = field(default=0.0)
     const: str = field(default="")
-    size: str = field(default="")
+    size: "SizeObject" = field(default_factory=lambda: SizeObject([]))
     mag: MagnitudeObject = field(default=MagnitudeObject([]))
     mag_str: str = field(default="")
     catalog_code: str = field(default="")
