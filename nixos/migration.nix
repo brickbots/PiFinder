@@ -122,6 +122,11 @@ in {
     script = ''
       set -euo pipefail
 
+      # Show scanner animation on OLED during download
+      ${boot-splash}/bin/boot-splash &
+      SPLASH_PID=$!
+      trap 'kill $SPLASH_PID 2>/dev/null || true' EXIT
+
       STORE_PATH=$(cat /var/lib/pifinder/first-boot-target)
       if [ -z "$STORE_PATH" ] || [[ "$STORE_PATH" != /nix/store/* ]]; then
         echo "ERROR: Invalid store path: $STORE_PATH"
