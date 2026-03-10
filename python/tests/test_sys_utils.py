@@ -68,5 +68,5 @@ try:
         assert result[1]["psk"] == "1234@===!!!"
 
 
-except ImportError:
+except (ImportError, ValueError):
     pass

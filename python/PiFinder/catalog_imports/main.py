@@ -33,7 +33,6 @@ CATALOG_LOADERS = [
     ("specialized_loaders", "load_arp"),
     ("specialized_loaders", "load_tlk_90_vars"),
     ("wds_loader", "load_wds"),
-    ("harris_loader", "load_harris"),
 ]
 
 POST_PROCESSING_FUNCTIONS = [
@@ -120,6 +119,14 @@ def main():
     logging.info("Resolving object images...")
     resolve_object_images()
     print_database()
+
+    # Finalize database for read-only deployment (NixOS)
+    logging.info("Finalizing database for read-only deployment...")
+    conn, _ = objects_db.get_conn_cursor()
+    conn.execute("PRAGMA journal_mode = DELETE")  # Required for read-only FS
+    conn.execute("VACUUM")  # Compact database
+    conn.commit()
+    logging.info("Database finalization complete")
 
 
 if __name__ == "__main__":
