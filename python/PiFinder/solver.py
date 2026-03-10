@@ -171,7 +171,7 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
         self._shmem = None
         self._shmem_size = 0
         # Try shared memory, fall back if an error occurs.
-        self._use_shmem = True
+        self._use_shmem = False
 
     def _get_stub(self):
         if self._stub is None:

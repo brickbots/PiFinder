@@ -94,11 +94,20 @@ def _coordinate_object(entry: ObsListEntry, index: int) -> CompositeObject:
     Creates a CompositeObject from an ObsListEntry's coordinates
     when catalog resolution fails.
     """
+    const = ""
+    if entry.ra is not None and entry.dec is not None:
+        try:
+            from PiFinder.calc_utils import sf_utils
+
+            const = sf_utils.radec_to_constellation(entry.ra, entry.dec)
+        except Exception:
+            pass
     return CompositeObject(
         id=-(index + 1),
         object_id=-(index + 1),
         ra=entry.ra,
         dec=entry.dec,
+        const=const,
         catalog_code=entry.catalog_code or "OBS",
         sequence=entry.sequence or (index + 1),
         description=entry.description or entry.name,
