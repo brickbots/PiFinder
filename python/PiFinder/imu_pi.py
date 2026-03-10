@@ -171,6 +171,8 @@ def imu_monitor(shared_state, console_queue, log_queue):
             0, 0, 0, 0
         ),  # Scalar-first numpy quaternion(w, x, y, z) - Init to invalid quaternion
         "status": 0,  # IMU Status: 3=Calibrated
+        "gyro": None,  # Raw gyroscope angular velocity (rad/s)
+        "accel": None,  # Raw linear acceleration (m/s², gravity removed)
     }
 
     while True:
@@ -178,12 +180,18 @@ def imu_monitor(shared_state, console_queue, log_queue):
         imu_data["status"] = imu.calibration
 
         # TODO: move_start and move_end don't seem to be used?
+        # Read raw sensor data for telemetry
+        try:
+            imu_data["gyro"] = imu.sensor.gyro
+            imu_data["accel"] = imu.sensor.linear_acceleration
+        except Exception:
+            pass
+
         if imu.moving():
             if not imu_data["moving"]:
                 logger.debug("IMU: move start")
                 imu_data["moving"] = True
                 imu_data["move_start"] = time.time()
-            # DISABLE old method
             imu_data["quat"] = quaternion.from_float_array(
                 imu.avg_quat
             )  # Scalar-first (w, x, y, z)

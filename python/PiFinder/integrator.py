@@ -54,6 +54,7 @@ def integrator(
 
         last_image_solve = None
         last_solve_time = time.time()
+        was_replaying = False
 
         telemetry = TelemetryManager(
             cfg, shared_state, console_queue, camera_command_queue
@@ -64,6 +65,7 @@ def integrator(
 
             # --- Replay mode ---
             if telemetry.replaying:
+                was_replaying = True
                 state_utils.sleep_for_framerate(shared_state)
                 _drain_queue(solver_queue)
                 event = telemetry.next_replay_event()
@@ -76,6 +78,14 @@ def integrator(
                         mount_type,
                     )
                 continue
+
+            # Reset integrator state when replay finishes
+            if was_replaying:
+                was_replaying = False
+                last_image_solve = None
+                solved = get_initialized_solved_dict()
+                last_solve_time = time.time()
+                logger.info("Replay ended, integrator state reset")
 
             # --- Normal mode ---
             state_utils.sleep_for_framerate(shared_state)

@@ -44,7 +44,12 @@ def _make_shared_state(location=None, dt=None):
     return ss
 
 
-def _make_cfg(telemetry_record=False, telemetry_images=False, imu_integrator="flat"):
+def _make_cfg(
+    telemetry_record=False,
+    telemetry_images=False,
+    imu_integrator="flat",
+    mount_type="Alt/Az",
+):
     cfg = MagicMock()
 
     def get_option(key):
@@ -52,6 +57,7 @@ def _make_cfg(telemetry_record=False, telemetry_images=False, imu_integrator="fl
             "telemetry_record": telemetry_record,
             "telemetry_images": telemetry_images,
             "imu_integrator": imu_integrator,
+            "mount_type": mount_type,
         }.get(key)
 
     cfg.get_option = get_option
@@ -134,13 +140,20 @@ class TestTelemetryRecorder:
         with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
             rec = TelemetryRecorder()
             rec.start(_make_cfg(), _make_shared_state())
-            session_file = rec._session_dir / "session.jsonl"
+            session_dir = rec._session_dir
+            session_file = session_dir / "session.jsonl"
             rec.stop()
             assert not rec.enabled
             assert rec._file is None
             assert rec._session_dir is None
             content = session_file.read_text()
             assert '"e": "hdr"' in content
+            # Location should be in separate file, not in header
+            assert '"loc"' not in content
+            loc_file = session_dir / "session.location"
+            assert loc_file.exists()
+            loc_data = json.loads(loc_file.read_text())
+            assert loc_data["lat"] == 40.0
 
     def test_record_imu_when_enabled(self, tmp_path):
         with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
@@ -153,6 +166,8 @@ class TestTelemetryRecorder:
                         "pos": [1.0, 2.0, 3.0],
                         "moving": True,
                         "status": 3,
+                        "gyro": (0.01, -0.02, 0.03),
+                        "accel": (0.1, 0.2, -0.3),
                     }
                 )
                 assert len(rec._buffer) == 2  # header + imu
@@ -160,6 +175,8 @@ class TestTelemetryRecorder:
                 assert line["e"] == "imu"
                 assert line["q"] == [1.0, 0.0, 0.0, 0.0]
                 assert line["mv"] is True
+                assert line["gyro"] == [0.01, -0.02, 0.03]
+                assert line["accel"] == [0.1, 0.2, -0.3]
             finally:
                 rec.stop()
 
@@ -175,6 +192,8 @@ class TestTelemetryRecorder:
                         "Roll": 10.0,
                         "camera_center": {"RA": 180.1, "Dec": 44.9, "Roll": 10.0},
                         "imu_quat": _make_quat(1, 0, 0, 0),
+                        "last_solve_attempt": 1000.4,
+                        "last_solve_success": 1000.5,
                     },
                     predicted_ra=179.5,
                     predicted_dec=44.8,
@@ -186,6 +205,8 @@ class TestTelemetryRecorder:
                 assert line["ra"] == 180.0
                 assert line["pred_ra"] == 179.5
                 assert line["cam_ra"] == 180.1
+                assert line["lsa"] == 1000.4
+                assert line["lss"] == 1000.5
             finally:
                 rec.stop()
 
@@ -206,7 +227,7 @@ class TestTelemetryRecorder:
             rec = TelemetryRecorder()
             rec.start(_make_cfg(), _make_shared_state())
             try:
-                rec.record_imu({"quat": _make_quat(), "pos": None})
+                rec.record_imu({"quat": _make_quat(), "pos": None, "moving": True})
                 rec._do_flush()
                 assert len(rec._buffer) == 0
                 content = (rec._session_dir / "session.jsonl").read_text()
@@ -230,6 +251,87 @@ class TestTelemetryRecorder:
         rec = TelemetryRecorder()
         rec.stop()  # no-op
         rec.stop()  # still no-op
+
+    def test_record_target(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                target = MagicMock()
+                target.object_id = 42
+                target.display_name = "NGC 7331"
+                target.ra = 339.267
+                target.dec = 34.416
+                rec.record_target(target)
+                assert len(rec._buffer) == 2  # header + target
+                line = json.loads(rec._buffer[-1])
+                assert line["e"] == "tgt"
+                assert line["name"] == "NGC 7331"
+                assert line["ra"] == 339.267
+                assert line["dec"] == 34.416
+                assert "alt" in line
+                assert "az" in line
+            finally:
+                rec.stop()
+
+    def test_record_target_dedup(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                target = MagicMock()
+                target.object_id = 42
+                target.display_name = "NGC 7331"
+                target.ra = 339.267
+                target.dec = 34.416
+                rec.record_target(target)
+                rec.record_target(target)  # same target, should be deduped
+                assert len(rec._buffer) == 2  # header + one target
+            finally:
+                rec.stop()
+
+    def test_record_target_change(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                t1 = MagicMock()
+                t1.object_id = 42
+                t1.display_name = "NGC 7331"
+                t1.ra = 339.267
+                t1.dec = 34.416
+                t2 = MagicMock()
+                t2.object_id = 99
+                t2.display_name = "M 31"
+                t2.ra = 10.684
+                t2.dec = 41.269
+                rec.record_target(t1)
+                rec.record_target(t2)
+                assert len(rec._buffer) == 3  # header + 2 targets
+            finally:
+                rec.stop()
+
+    def test_record_target_cleared(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                target = MagicMock()
+                target.object_id = 42
+                target.display_name = "NGC 7331"
+                target.ra = 339.267
+                target.dec = 34.416
+                rec.record_target(target)
+                rec.record_target(None)
+                assert len(rec._buffer) == 3  # header + target + clear
+                line = json.loads(rec._buffer[-1])
+                assert line["e"] == "tgt"
+                assert line["name"] is None
+                assert line["ra"] is None
+                assert line["alt"] is None
+                assert line["az"] is None
+            finally:
+                rec.stop()
 
 
 # ── TelemetryPlayer ─────────────────────────────────────────────────
@@ -320,6 +422,7 @@ class TestTelemetryPlayer:
 
     def test_event_to_solve_dict(self):
         event = {
+            "t": 1000.5,
             "ra": 180.0,
             "dec": 45.0,
             "roll": 10.0,
@@ -329,6 +432,10 @@ class TestTelemetryPlayer:
             "matches": 15,
             "rmse": 0.5,
             "iq": [1.0, 0.0, 0.0, 0.0],
+            "ip": [0.1, 0.2, 0.3],
+            "lsa": 1000.4,
+            "lss": 1000.5,
+            "src": "CAM",
         }
         result = TelemetryPlayer.event_to_solve_dict(event)
         assert result["RA"] == 180.0
@@ -337,14 +444,26 @@ class TestTelemetryPlayer:
         assert result["camera_center"]["RA"] == 180.1
         assert result["Matches"] == 15
         assert result["solve_source"] == "CAM"
+        assert result["solve_time"] == 1000.5
+        assert result["imu_pos"] == [0.1, 0.2, 0.3]
+        assert result["last_solve_attempt"] == 1000.4
+        assert result["last_solve_success"] == 1000.5
         assert isinstance(result["imu_quat"], quaternion_module.quaternion)
         assert result["imu_quat"].w == 1.0
 
     def test_event_to_solve_dict_no_imu_quat(self):
-        event = {"ra": 180.0, "dec": 45.0}
+        event = {"t": 1000.0, "ra": 180.0, "dec": 45.0}
         result = TelemetryPlayer.event_to_solve_dict(event)
         assert result["RA"] == 180.0
+        assert result["solve_time"] == 1000.0
+        assert result["solve_source"] == "CAM"
+        assert result["imu_pos"] is None
         assert "imu_quat" not in result
+
+    def test_event_to_solve_dict_uses_recorded_source(self):
+        event = {"t": 1000.0, "ra": 180.0, "dec": 45.0, "src": "CAM_FAILED"}
+        result = TelemetryPlayer.event_to_solve_dict(event)
+        assert result["solve_source"] == "CAM_FAILED"
 
     def test_event_to_imu_dict(self):
         event = {"q": [1.0, 0.0, 0.0, 0.0], "mv": True, "st": 3}
@@ -430,14 +549,11 @@ class TestTelemetryManager:
         assert cq.get_nowait() == "Telemetry: Replay started"
 
     def test_handle_command_replay_with_header(self, tmp_path):
-        hdr = {
-            "t": 999.0,
-            "e": "hdr",
-            "loc": [35.0, -120.0, 200.0],
-            "dt": "2024-01-15T22:30:00",
-        }
+        hdr = {"t": 999.0, "e": "hdr", "dt": "2024-01-15T22:30:00"}
         events = [{"t": 1000.0, "e": "imu", "q": [1, 0, 0, 0]}]
         _write_session_jsonl(tmp_path / "session.jsonl", events, header=hdr)
+        loc_file = tmp_path / "session.location"
+        loc_file.write_text(json.dumps({"lat": 35.0, "lon": -120.0, "altitude": 200.0}))
 
         ss = _make_shared_state()
         cq = queue.Queue()
@@ -445,6 +561,9 @@ class TestTelemetryManager:
         mgr._handle_command("replay", str(tmp_path))
 
         ss.set_location.assert_called_once()
+        loc_arg = ss.set_location.call_args[0][0]
+        assert loc_arg.lat == 35.0
+        assert loc_arg.source == "replay"
         ss.set_datetime.assert_called_once()
 
     def test_handle_command_replay_stop(self, tmp_path):
@@ -518,6 +637,7 @@ class TestTelemetryManager:
     def test_flush_delegates(self):
         mgr = TelemetryManager(_make_cfg(), _make_shared_state(), queue.Queue())
         mgr._recorder = MagicMock()
+        mgr._recorder.enabled = False
         mgr.flush()
         mgr._recorder.flush.assert_called_once()
 
@@ -551,6 +671,169 @@ class TestTelemetryManager:
             _make_cfg(), _make_shared_state(), queue.Queue(), None
         )
         mgr._restart_camera()  # no-op, no crash
+
+    def test_handle_replay_event_failed_solve(self):
+        """Failed solves during replay should set solve_state(False) and CAM_FAILED."""
+        ss = _make_shared_state()
+        mgr = TelemetryManager(_make_cfg(), ss, queue.Queue())
+        imu_dr = MagicMock()
+
+        solved = {
+            "RA": 180.0,
+            "Dec": 45.0,
+            "Matches": 15,
+            "RMSE": 0.5,
+            "solve_source": "CAM",
+            "constellation": "Vir",
+        }
+        last_image_solve = {"RA": 180.0, "Dec": 45.0}
+
+        failed_event = {
+            "t": 1000.0,
+            "e": "solve",
+            "ra": None,
+            "dec": None,
+            "matches": 0,
+            "rmse": None,
+            "lsa": 1000.0,
+        }
+
+        result = mgr.handle_replay_event(
+            failed_event, solved, last_image_solve, imu_dr, "Alt/Az"
+        )
+
+        # last_image_solve should be unchanged (returned as-is)
+        assert result is last_image_solve
+        # Metadata updated
+        assert solved["Matches"] == 0
+        assert solved["last_solve_attempt"] == 1000.0
+        # Failed solve behavior
+        assert solved["solve_source"] == "CAM_FAILED"
+        assert solved["constellation"] == ""
+        ss.set_solve_state.assert_called_with(False)
+        ss.set_solution.assert_called_once()
+
+    def test_handle_replay_event_successful_solve(self):
+        """Successful solves during replay should update position and metadata."""
+        ss = _make_shared_state()
+        mgr = TelemetryManager(_make_cfg(), ss, queue.Queue())
+        imu_dr = MagicMock()
+
+        solved = {"RA": None, "Dec": None, "Matches": None, "imu_quat": None}
+
+        event = {
+            "t": 1000.0,
+            "e": "solve",
+            "ra": 180.0,
+            "dec": 45.0,
+            "cam_ra": 180.1,
+            "cam_dec": 44.9,
+            "cam_roll": 10.0,
+            "matches": 15,
+            "rmse": 0.5,
+            "lsa": 1000.0,
+            "lss": 1000.0,
+            "iq": [1.0, 0.0, 0.0, 0.0],
+            "src": "CAM",
+        }
+
+        with patch("PiFinder.telemetry.update_plate_solve_and_imu"), patch(
+            "PiFinder.telemetry.finalize_and_push_solution"
+        ):
+            result = mgr.handle_replay_event(
+                event, solved, None, imu_dr, "Alt/Az"
+            )
+
+        assert result is not None
+        assert result["RA"] == 180.0
+        assert result["Matches"] == 15
+        assert result["last_solve_attempt"] == 1000.0
+        ss.set_solve_state.assert_called_with(True)
+
+    def test_replay_header_mount_type_mismatch_warns(self, tmp_path):
+        """Replay should warn when header mount_type differs from config."""
+        hdr = {
+            "t": 999.0,
+            "e": "hdr",
+            "dt": "2024-01-15T22:30:00",
+            "cfg": {"integrator": "flat", "mount_type": "EQ"},
+        }
+        events = [{"t": 1000.0, "e": "imu", "q": [1, 0, 0, 0]}]
+        _write_session_jsonl(tmp_path / "session.jsonl", events, header=hdr)
+
+        ss = _make_shared_state()
+        cq = queue.Queue()
+        cfg = _make_cfg(mount_type="Alt/Az")
+        mgr = TelemetryManager(cfg, ss, cq)
+
+        with patch("PiFinder.telemetry.logger") as mock_logger:
+            mgr._handle_command("replay", str(tmp_path))
+            mock_logger.warning.assert_called_once()
+            assert "EQ" in mock_logger.warning.call_args[0][1]
+            assert "Alt/Az" in mock_logger.warning.call_args[0][2]
+
+    def test_replay_header_mount_type_match_no_warn(self, tmp_path):
+        """No warning when header mount_type matches config."""
+        hdr = {
+            "t": 999.0,
+            "e": "hdr",
+            "cfg": {"integrator": "flat", "mount_type": "Alt/Az"},
+        }
+        events = [{"t": 1000.0, "e": "imu", "q": [1, 0, 0, 0]}]
+        _write_session_jsonl(tmp_path / "session.jsonl", events, header=hdr)
+
+        cfg = _make_cfg(mount_type="Alt/Az")
+        mgr = TelemetryManager(cfg, _make_shared_state(), queue.Queue())
+
+        with patch("PiFinder.telemetry.logger") as mock_logger:
+            mgr._handle_command("replay", str(tmp_path))
+            mock_logger.warning.assert_not_called()
+
+    def test_flush_polls_target(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            ss = _make_shared_state()
+            target = MagicMock()
+            target.object_id = 42
+            target.display_name = "M 31"
+            target.ra = 10.684
+            target.dec = 41.269
+            ui_state = MagicMock()
+            ui_state.target.return_value = target
+            ss.ui_state.return_value = ui_state
+
+            mgr = TelemetryManager(_make_cfg(telemetry_record=True), ss, queue.Queue())
+            try:
+                mgr.flush()
+                assert mgr._recorder._last_target_id == 42
+                # Check a target event was buffered (header + target)
+                assert len(mgr._recorder._buffer) >= 2
+                lines = [json.loads(l) for l in mgr._recorder._buffer]
+                tgt_lines = [l for l in lines if l.get("e") == "tgt"]
+                assert len(tgt_lines) == 1
+                assert tgt_lines[0]["name"] == "M 31"
+            finally:
+                mgr.stop()
+
+    def test_poll_target_no_ui_state(self):
+        """_poll_target should not crash if ui_state() raises."""
+        ss = _make_shared_state()
+        ss.ui_state.side_effect = Exception("no ui state")
+        mgr = TelemetryManager(_make_cfg(), ss, queue.Queue())
+        mgr._recorder.enabled = True
+        mgr._poll_target()  # should not raise
+
+    def test_header_includes_mount_type(self, tmp_path):
+        """Recording header should include mount_type from config."""
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            cfg = _make_cfg(mount_type="EQ")
+            ss = _make_shared_state()
+            rec.start(cfg, ss)
+            try:
+                line = json.loads(rec._buffer[0])
+                assert line["cfg"]["mount_type"] == "EQ"
+            finally:
+                rec.stop()
 
 
 # ── pointing.py ──────────────────────────────────────────────────────
