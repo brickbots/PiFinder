@@ -151,6 +151,8 @@ module = [
     'pydeepskylog.*',
     'dbus',
     'pam',
+    'pam.*',
+    'quaternion',
     'gi',
     'gi.*',
 ]
