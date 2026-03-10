@@ -15,7 +15,7 @@ in {
   # Minimal system packages for migration troubleshooting
   # ---------------------------------------------------------------------------
   environment.systemPackages = with pkgs; [
-    nano
+    vim
     htop
     e2fsprogs
     dosfstools
@@ -110,7 +110,7 @@ in {
   systemd.services.pifinder-first-boot = {
     description = "Download full PiFinder NixOS system from cachix";
     after = [ "network-online.target" "nix-path-registration.service" "nix-daemon.service" ];
-    wants = [ "network-online.target" ];
+    requires = [ "network-online.target" ];
     wantedBy = [ "multi-user.target" ];
     unitConfig.ConditionPathExists = "/var/lib/pifinder/first-boot-target";
     serviceConfig = {
@@ -158,6 +158,12 @@ in {
         if (action.id.indexOf("org.freedesktop.NetworkManager") == 0) {
           return polkit.Result.YES;
         }
+        if (action.id == "org.freedesktop.login1.reboot" ||
+            action.id == "org.freedesktop.login1.reboot-multiple-sessions" ||
+            action.id == "org.freedesktop.login1.power-off" ||
+            action.id == "org.freedesktop.login1.power-off-multiple-sessions") {
+          return polkit.Result.YES;
+        }
       }
     });
   '';
@@ -169,8 +175,14 @@ in {
     users = [ "pifinder" ];
     commands = [
       { command = "/run/current-system/sw/bin/shutdown *"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/hostnamectl *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/hostname *"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/avahi-set-host-name *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/dmesg"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl restart pifinder-first-boot.service"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl restart pifinder*"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl status *"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/journalctl *"; options = [ "NOPASSWD" ]; }
     ];
   }];
 
@@ -245,7 +257,10 @@ in {
     };
   };
 
-  systemd.services.NetworkManager-wait-online.enable = false;
+  # NetworkManager-wait-online adds ~10s to boot but is needed for
+  # pifinder-first-boot to have internet. The first-boot script also has
+  # its own connectivity retry loop as a fallback.
+  systemd.services.NetworkManager-wait-online.serviceConfig.TimeoutStartSec = "30s";
 
   system.stateVersion = "24.11";
   }; # config
