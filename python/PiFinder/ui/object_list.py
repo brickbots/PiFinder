@@ -382,7 +382,8 @@ class UIObjectList(UITextMenu):
     def create_info_text(self, obj: CompositeObject) -> str:
         obj_mag = self._safe_obj_mag(obj)
         mag = f"m{obj_mag:2.0f}" if obj_mag != MagnitudeObject.UNKNOWN_MAG else "m--"
-        size = f"{self.ruler}{obj.size.strip()}" if obj.size.strip() else ""
+        size_str = str(obj.size)
+        size = f"{self.ruler}{size_str}" if size_str else ""
         check = f" {self.checkmark}" if obj.logged else ""
         size_logged = f"{mag} {size}{check}"
         if len(size_logged) > 12:

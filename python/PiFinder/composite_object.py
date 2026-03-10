@@ -89,10 +89,6 @@ class SizeObject:
     def __str__(self) -> str:
         return self.to_display_string()
 
-    def strip(self) -> str:
-        """Compatibility shim: UI code calls size.strip()."""
-        return self.to_display_string().strip()
-
 
 class MagnitudeObject:
     UNKNOWN_MAG: float = 99

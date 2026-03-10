@@ -434,7 +434,7 @@ def load_barnard():
             for row in tqdm(list(df), leave=False):
                 Barn = row[1:5].strip()
                 if Barn[-1] == "a":
-                    print(f"Skipping {Barn=}")
+                    logging.debug(f"Skipping {Barn=}")
                     continue
                 RA2000h = int(row[22:24])
                 RA2000m = int(row[25:27])
@@ -500,8 +500,8 @@ def load_sharpless():
 
     # read description dictionary
     descriptions_dict = {}
-    with open(akas, mode="r", newline="", encoding="utf-8") as file:
-        reader = csv.reader(open(descriptions, "r"))
+    with open(descriptions, "r") as file:
+        reader = csv.reader(file)
         for row in reader:
             if len(row) == 2:
                 k, v = row

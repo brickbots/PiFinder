@@ -162,7 +162,7 @@ def get_display_image(
             fx = -1 if flip else 1
             fy = -1 if flop else 1
 
-            # NSEW cardinal labels
+            # NSEW cardinal labels — show only 2: topmost and leftmost
             if show_nsew:
                 (nx, ny), (ex, ey) = cardinal_vectors(image_rotate, fx, fy)
                 label_font = display_class.fonts.base
@@ -171,12 +171,22 @@ def get_display_image(
                 top_limit = display_class.titlebar_height
                 bottom_limit = display_class.fov_res - label_font.height * 2
 
-                for label, dx, dy in [
+                candidates = [
                     ("N", nx, ny),
                     ("S", -nx, -ny),
                     ("E", ex, ey),
                     ("W", -ex, -ey),
-                ]:
+                ]
+                by_top = sorted(candidates, key=lambda c: c[2])
+                by_left = sorted(candidates, key=lambda c: c[1])
+                chosen = {by_top[0][0]: by_top[0]}
+                # pick leftmost that isn't already chosen
+                for c in by_left:
+                    if c[0] not in chosen:
+                        chosen[c[0]] = c
+                        break
+
+                for label, dx, dy in chosen.values():
                     lx = cx + dx * r_label - label_font.width / 2
                     ly = cy + dy * r_label - label_font.height / 2
                     lx = max(0, min(lx, display_class.fov_res - label_font.width))
