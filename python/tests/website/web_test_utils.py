@@ -110,7 +110,8 @@ def press_keys(driver, keys):
 
 def press_keys_and_validate(driver, keys, expected_values):
     """
-    Helper function to press keys on remote UI and validate response
+    Helper function to press keys on remote UI and validate response.
+    Returns the API response dict.
     """
     # Get cookies from the selenium session for authentication
     cookies = {cookie["name"]: cookie["value"] for cookie in driver.get_cookies()}
@@ -131,6 +132,45 @@ def press_keys_and_validate(driver, keys, expected_values):
 
     # Recursively compare expected values with actual response
     recursive_dict_compare(data, expected_values)
+
+    return data
+
+
+def get_current_selection(driver) -> dict:
+    """
+    Fetch the current UI state from the API without pressing any keys.
+    Returns the /api/current-selection response dict.
+    """
+    cookies = {cookie["name"]: cookie["value"] for cookie in driver.get_cookies()}
+    response = requests.get(
+        f"{get_homepage_url()}/api/current-selection", cookies=cookies
+    )
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+    data = response.json()
+    assert isinstance(data, dict), "Response should be a JSON object"
+    return data
+
+
+def navigate_to_root_menu(driver) -> dict:
+    """
+    Navigate to the top-level PiFinder menu, landing on the Objects item.
+
+    Sends LONG+LEFT twice (first press wakes the device and is discarded,
+    second resets the navigation stack to root), then presses UP six times
+    to reach the Start item, then DOWN twice to land on Objects.
+
+    Must be called while on the /remote page (i.e. after login_to_remote).
+    Returns the /api/current-selection response dict.
+    """
+    return press_keys_and_validate(
+        driver,
+        "ZLZLUUUUUUDD",
+        {
+            "ui_type": "UITextMenu",
+            "title": "PiFinder",
+            "current_item": "Objects",
+        },
+    )
 
 
 def navigate_to_page(driver, page_path):
