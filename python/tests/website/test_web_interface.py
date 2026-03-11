@@ -7,7 +7,7 @@ table contains the expected UI elements: page title, visual content
 and Software Version.
 
 Prerequisites:
-    - Cedar_detect_server running on port 50551. 
+    - Cedar_detect_server running on port 50551.
     - PiFinder web server running and accessible
 
 All tests are marked with ``@pytest.mark.web``

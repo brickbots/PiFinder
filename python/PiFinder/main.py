@@ -51,6 +51,8 @@ from PiFinder.image_util import subtract_background
 
 from PiFinder.displays import DisplayBase, get_display
 
+import PiFinder.manager_patch as patch
+
 from typing import Any, TYPE_CHECKING
 
 # Mypy i8n fix
@@ -122,9 +124,6 @@ def setup_dirs():
     utils.create_path(Path(utils.data_dir, "solver_debug_dumps"))
     utils.create_path(Path(utils.data_dir, "logs"))
     os.chmod(Path(utils.data_dir), 0o777)
-
-
-import PiFinder.manager_patch as patch
 
 patch.apply()
 

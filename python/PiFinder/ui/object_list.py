@@ -827,6 +827,7 @@ class UIObjectList(UITextMenu):
             }
         except Exception as e:
             return {"error": f"Failed to serialize object list state: {str(e)}"}
+
     def mm_refresh_comets(self, marking_menu, menu_item):
         """Force refresh of comet data from the internet"""
         catalog = self.catalogs.get_catalog_by_code("CM")

@@ -262,7 +262,10 @@ def test_equipment_add_instrument_functionality(driver):
     # Wait for equipment.html to load (the Instruments table only exists there, not on edit pages)
     instruments_table = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located(
-            (By.XPATH, "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]")
+            (
+                By.XPATH,
+                "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]",
+            )
         )
     )
 
@@ -298,7 +301,10 @@ def test_equipment_add_instrument_functionality(driver):
     WebDriverWait(driver, 10).until(EC.staleness_of(old_instruments_table))
     instruments_table = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located(
-            (By.XPATH, "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]")
+            (
+                By.XPATH,
+                "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]",
+            )
         )
     )
 
@@ -366,7 +372,10 @@ def test_equipment_add_eyepiece_functionality(driver):
     # Wait for equipment.html to load (the Eyepieces table only exists there, not on edit pages)
     eyepieces_table = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located(
-            (By.XPATH, "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]")
+            (
+                By.XPATH,
+                "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]",
+            )
         )
     )
 
@@ -402,7 +411,10 @@ def test_equipment_add_eyepiece_functionality(driver):
     WebDriverWait(driver, 10).until(EC.staleness_of(old_eyepieces_table))
     eyepieces_table = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located(
-            (By.XPATH, "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]")
+            (
+                By.XPATH,
+                "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]",
+            )
         )
     )
 
