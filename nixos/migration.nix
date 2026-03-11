@@ -118,7 +118,7 @@ in {
       RemainAfterExit = true;
       TimeoutStartSec = "30min";
     };
-    path = with pkgs; [ nix coreutils systemd ];
+    path = with pkgs; [ nix coreutils systemd curl jq ];
     script = ''
       set -euo pipefail
 
@@ -127,9 +127,21 @@ in {
       SPLASH_PID=$!
       trap 'kill $SPLASH_PID 2>/dev/null || true' EXIT
 
-      STORE_PATH=$(cat /var/lib/pifinder/first-boot-target)
+      # Try fetching latest store path from GitHub, fall back to baked-in file
+      BUILD_JSON_URL="https://raw.githubusercontent.com/mrosseel/PiFinder/nixos/pifinder-build.json"
+      STORE_PATH=""
+      if REMOTE_JSON=$(curl -sf --max-time 15 "$BUILD_JSON_URL" 2>/dev/null); then
+        STORE_PATH=$(echo "$REMOTE_JSON" | jq -r '.store_path // empty')
+        if [ -n "$STORE_PATH" ]; then
+          echo "Using store path from GitHub: $STORE_PATH"
+        fi
+      fi
       if [ -z "$STORE_PATH" ] || [[ "$STORE_PATH" != /nix/store/* ]]; then
-        echo "ERROR: Invalid store path: $STORE_PATH"
+        echo "Remote fetch failed or invalid, falling back to baked-in target"
+        STORE_PATH=$(cat /var/lib/pifinder/first-boot-target)
+      fi
+      if [ -z "$STORE_PATH" ] || [[ "$STORE_PATH" != /nix/store/* ]]; then
+        echo "ERROR: No valid store path found"
         exit 1
       fi
 

@@ -339,6 +339,8 @@ class UIModule:
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
+                    if solution is None:
+                        return
                     cam_active = solution["solve_time"] == solution["cam_solve_time"]
                     # a fresh cam solve sets unmoved to True
                     self._unmoved = True if cam_active else self._unmoved
