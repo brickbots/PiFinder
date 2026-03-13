@@ -25,6 +25,7 @@ from PiFinder.sqm import SQM as SQMCalculator
 from PiFinder.state import SQM as SQMState
 
 sys.path.append(str(utils.tetra3_dir))
+sys.path.append(str(utils.tetra3_dir / "tetra3"))
 import tetra3
 from tetra3 import cedar_detect_client
 
@@ -159,19 +160,50 @@ class CedarConnectionError(Exception):
 
 class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
     def __init__(self, port=50551):
-        """Set up the client without spawning the server as we
-        run this as a service on the PiFinder
+        """Connect to cedar-detect-server.
 
-        Also changing this to a different default port
+        On the Pi the server runs as a systemd service.
+        In dev mode we spawn it as a subprocess (like upstream does).
         """
         self._port = port
-        time.sleep(2)
+        self._subprocess = None
+
+        # Check if the server is already listening (systemd service on Pi)
+        if not self._server_reachable():
+            # Dev mode: spawn the server ourselves
+            import shutil
+
+            binary = shutil.which("cedar-detect-server")
+            if binary is None:
+                raise FileNotFoundError("cedar-detect-server")
+            my_env = os.environ.copy()
+            my_env["RUST_BACKTRACE"] = "1"
+            import subprocess
+
+            self._subprocess = subprocess.Popen(
+                [binary, "--port", str(self._port)], env=my_env
+            )
+            time.sleep(1)
+
         # Will initialize on first use.
         self._stub = None
         self._shmem = None
         self._shmem_size = 0
         # Try shared memory, fall back if an error occurs.
         self._use_shmem = True
+
+    def __del__(self):
+        if self._subprocess is not None:
+            self._subprocess.kill()
+        self._del_shmem()
+
+    def _server_reachable(self):
+        """Quick check if cedar-detect-server is already listening."""
+        import socket
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.2)
+            return s.connect_ex(("127.0.0.1", self._port)) == 0
 
     def _get_stub(self):
         if self._stub is None:
@@ -180,6 +212,31 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                 channel
             )
         return self._stub
+
+    def _alloc_shmem(self, size):
+        """Override to fix shared memory name (no leading / for Python's SharedMemory)."""
+        from multiprocessing import shared_memory
+
+        if self._shmem is not None and size > self._shmem_size:
+            self._shmem.close()
+            self._shmem.unlink()
+            self._shmem = None
+        if self._shmem is None:
+            # Use name without leading / - Python's SharedMemory adds it automatically
+            self._shmem = shared_memory.SharedMemory(
+                "cedar_detect_image", create=True, size=size
+            )
+            self._shmem_size = size
+
+    def _del_shmem(self):
+        """Override to match _alloc_shmem naming."""
+        if self._shmem is not None:
+            self._shmem.close()
+            try:
+                self._shmem.unlink()
+            except FileNotFoundError:
+                pass
+            self._shmem = None
 
     def extract_centroids(
         self, image, sigma, max_size, use_binned, detect_hot_pixels=True
@@ -247,9 +304,6 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                 tetra_centroids.append((sc.centroid_position.y, sc.centroid_position.x))
         return tetra_centroids
 
-    def __del__(self):
-        self._del_shmem()
-
 
 def solver(
     shared_state,
@@ -261,7 +315,6 @@ def solver(
     align_result_queue,
     camera_command_queue,
     is_debug=False,
-    max_imu_ang_during_exposure=1.0,  # Max allowed turn during exp [degrees]
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
@@ -270,9 +323,34 @@ def solver(
     )
     align_ra = 0
     align_dec = 0
-    # Dict of RA, Dec, etc. initialized to None:
-    solved = get_initialized_solved_dict()
     solution = {}
+    solved = {
+        # RA, Dec, Roll solved at the center of the camera FoV
+        # update by integrator
+        "camera_center": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+            "Alt": None,
+            "Az": None,
+        },
+        # RA, Dec, Roll from the camera, not
+        # affected by IMU in integrator
+        "camera_solve": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+        },
+        # RA, Dec, Roll at the target pixel
+        "RA": None,
+        "Dec": None,
+        "Roll": None,
+        "imu_pos": None,
+        "solve_time": None,
+        "cam_solve_time": 0,
+        "last_solve_attempt": 0,  # Timestamp of last solve attempt - tracks exposure_end of last processed image
+        "last_solve_success": None,  # Timestamp of last successful solve
+    }
 
     centroids = []
     log_no_stars_found = True
@@ -337,8 +415,14 @@ def solver(
                 is_new_image = (
                     last_image_metadata["exposure_end"] > solved["last_solve_attempt"]
                 )
+                is_stationary = last_image_metadata["imu_delta"] < 1
 
-                if is_new_image:
+                if is_new_image and not is_stationary:
+                    logger.debug(
+                        f"Skipping image - IMU delta {last_image_metadata['imu_delta']:.2f}° >= 1° (moving)"
+                    )
+
+                if is_new_image and is_stationary:
                     try:
                         img = camera_image.copy()
                         img = img.convert(mode="L")
@@ -441,25 +525,19 @@ def solver(
                             solved["camera_center"]["Dec"] = solved["Dec"]
                             solved["camera_center"]["Roll"] = solved["Roll"]
 
-                            # RA, Dec, Roll at the camera center from plate-solve (no IMU compensation)
+                            # RA, Dec, Roll at the center of the camera's not imu:
                             solved["camera_solve"]["RA"] = solved["RA"]
                             solved["camera_solve"]["Dec"] = solved["Dec"]
                             solved["camera_solve"]["Roll"] = solved["Roll"]
-
                             # RA, Dec, Roll at the target pixel:
-                            # Replace the camera center RA/Dec with the RA/Dec for the target pixel
                             solved["RA"] = solved["RA_target"]
                             solved["Dec"] = solved["Dec_target"]
-
-                            if last_image_metadata.get("imu"):
+                            if last_image_metadata["imu"]:
+                                solved["imu_pos"] = last_image_metadata["imu"]["pos"]
                                 solved["imu_quat"] = last_image_metadata["imu"]["quat"]
-                                solved["imu_pos"] = last_image_metadata["imu"].get(
-                                    "pos"
-                                )
                             else:
-                                solved["imu_quat"] = None
                                 solved["imu_pos"] = None
-
+                                solved["imu_quat"] = None
                             solved["solve_time"] = time.time()
                             solved["cam_solve_time"] = solved["solve_time"]
                             # Mark successful solve - use same timestamp as last_solve_attempt for comparison
@@ -531,45 +609,35 @@ def solver(
 
 def get_initialized_solved_dict() -> dict:
     """
-    Returns an initialized 'solved' dictionary with cooridnate and other
+    Returns an initialized 'solved' dictionary with coordinate and other
     information.
-
-    TODO: Update solver_main.py with this
-    TODO: use RaDecRoll class for the RA, Dec, Roll coordinates here?
-    TODO: "Alt" and "Az" could be removed but seems to be required by catalogs?
     """
     solved = {
-        # RA, Dec, Roll [deg] of the scope at the target pixel
         "RA": None,
         "Dec": None,
         "Roll": None,
-        # RA, Dec, Roll [deg] solved at the center of the camera FoV
-        # update by the IMU in the integrator
         "camera_center": {
             "RA": None,
             "Dec": None,
             "Roll": None,
-            "Alt": None,  # NOTE: Altaz needed by catalogs for altaz mounts
+            "Alt": None,
             "Az": None,
         },
-        # RA, Dec, Roll [deg] from the camera, not updated by IMU in integrator
         "camera_solve": {
             "RA": None,
             "Dec": None,
             "Roll": None,
         },
-        "imu_pos": None,  # IMU euler angles (classic integrator)
-        "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first)
-        "Roll_offset": 0,  # Roll offset for classic integrator
-        # Alt, Az [deg] of scope:
+        "imu_pos": None,
+        "imu_quat": None,
+        "Roll_offset": 0,
         "Alt": None,
         "Az": None,
-        # Diagnostics:
-        "solve_source": None,  # Source of the solve ("CAM", "CAM_FAILED", "IMU")
+        "solve_source": None,
         "solve_time": None,
         "cam_solve_time": 0,
-        "last_solve_attempt": 0,  # Timestamp of last solve attempt - tracks exposure_end of last processed image
-        "last_solve_success": None,  # Timestamp of last successful solve
+        "last_solve_attempt": 0,
+        "last_solve_success": None,
         "constellation": None,
     }
 

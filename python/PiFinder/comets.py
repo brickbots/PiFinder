@@ -8,6 +8,7 @@ import requests
 import os
 import logging
 import math
+import time
 
 logger = logging.getLogger("Comets")
 
@@ -212,8 +213,9 @@ def calc_comets(
                 if result:
                     comet_dict[result["name"]] = result
 
-            # Report progress
+            # Yield CPU to UI thread every comet
             processed += 1
+            time.sleep(0.05)
             if progress_callback and total_comets > 0:
                 progress = int((processed / total_comets) * 100)
                 progress_callback(progress)

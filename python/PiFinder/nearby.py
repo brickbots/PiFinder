@@ -2,7 +2,6 @@ from PiFinder.catalogs import CompositeObject
 from typing import List
 import time
 import numpy as np
-from sklearn.neighbors import BallTree
 import logging
 
 logger = logging.getLogger("Catalog.Nearby")
@@ -74,6 +73,8 @@ class ClosestObjectsFinder:
         object_radecs = np.array(
             [[np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in deduplicated_objects]
         )
+        from sklearn.neighbors import BallTree
+
         self._objects = np.array(deduplicated_objects)
         self._objects_balltree = BallTree(
             object_radecs, leaf_size=20, metric="haversine"

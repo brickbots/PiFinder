@@ -26,7 +26,6 @@ s = _("Language: de")  # this way ruff lint and mypy type_hints warnings are sil
 s = _("Language: en")
 s = _("Language: es")
 s = _("Language: fr")
-s = _("Language: zh")
 s = s
 del s
 
@@ -49,7 +48,6 @@ pifinder_menu = {
                     "name": _("Align"),
                     "class": UIAlign,
                     "stateful": True,
-                    "preload": True,
                 },
                 {
                     "name": _("GPS Status"),
@@ -61,7 +59,6 @@ pifinder_menu = {
             "name": _("Chart"),
             "class": UIChart,
             "stateful": True,
-            "preload": True,
         },
         {
             "name": _("Objects"),
@@ -142,12 +139,6 @@ pifinder_menu = {
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "EGC",
-                                },
-                                {
-                                    "name": _("Harris Globs"),
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Har",
                                 },
                                 {
                                     "name": _("Herschel 400"),
@@ -321,10 +312,6 @@ pifinder_menu = {
                                 {
                                     "name": _("E.G. Globs"),
                                     "value": "EGC",
-                                },
-                                {
-                                    "name": _("Harris Globs"),
-                                    "value": "Har",
                                 },
                                 {
                                     "name": _("Herschel 400"),
@@ -691,22 +678,6 @@ pifinder_menu = {
                             ],
                         },
                         {
-                            "name": _("T9 Search"),
-                            "class": UITextMenu,
-                            "select": "single",
-                            "config_option": "t9_search",
-                            "items": [
-                                {
-                                    "name": _("Off"),
-                                    "value": False,
-                                },
-                                {
-                                    "name": _("On"),
-                                    "value": True,
-                                },
-                            ],
-                        },
-                        {
                             "name": _("Az Arrows"),
                             "class": UITextMenu,
                             "select": "single",
@@ -745,10 +716,6 @@ pifinder_menu = {
                                 {
                                     "name": _("Spanish"),
                                     "value": "es",
-                                },
-                                {
-                                    "name": _("Chinese"),
-                                    "value": "zh",
                                 },
                             ],
                         },
@@ -1107,17 +1074,6 @@ pifinder_menu = {
                     "select": "Single",
                     "items": [
                         {"name": "SQM", "class": UISQM},
-                        {
-                            "name": _("Integrator"),
-                            "class": UITextMenu,
-                            "select": "single",
-                            "config_option": "imu_integrator",
-                            "post_callback": callbacks.restart_pifinder,
-                            "items": [
-                                {"name": _("Classic"), "value": "classic"},
-                                {"name": _("Quaternion"), "value": "quaternion"},
-                            ],
-                        },
                         {
                             "name": _("AE Algo"),
                             "class": UITextMenu,

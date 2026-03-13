@@ -1,0 +1,28 @@
+Locations that reference mrosseel/PiFinder and need updating after merge to brickbots/PiFinder
+=============================================================================================
+
+1. nixos/migration.nix
+   - BUILD_JSON_URL points to: https://raw.githubusercontent.com/mrosseel/PiFinder/nixos/pifinder-build.json
+   - Change to: https://raw.githubusercontent.com/brickbots/PiFinder/<branch>/pifinder-build.json
+   - Also: branch name may change from "nixos" to something else
+
+2. nixos/migration.nix
+   - Cachix substituter: https://pifinder.cachix.org
+   - Cachix public key: pifinder.cachix.org-1:ALuxYs8tMU34zwSTWjenI2wpJA+AclmW6H5vyTgnTjc=
+   - May need new cachix cache under brickbots org, or keep shared
+
+3. nixos/services.nix
+   - Same cachix substituter + public key as above
+
+4. flake.nix
+   - catalog_images.tar.zst hosted at: https://files.miker.be/public/pifinder/catalog_images.tar.zst
+   - Move to brickbots-hosted URL or keep as-is
+
+5. CLAUDE.md
+   - References: github:mrosseel/PiFinder/nixos#nixosConfigurations...
+   - Change to: github:brickbots/PiFinder/<branch>#nixosConfigurations...
+
+6. .github/workflows/build.yml
+   - stamp-build job commits pifinder-build.json back to the repo
+   - No explicit mrosseel reference, but the repo context changes implicitly
+   - Migration tarball release tags: v2.5.0-migration — may need new versioning scheme

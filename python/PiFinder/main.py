@@ -32,6 +32,7 @@ from multiprocessing.managers import BaseManager
 
 import PiFinder.i18n  # noqa: F401
 from PiFinder import solver
+from PiFinder import integrator
 from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
@@ -238,53 +239,11 @@ class PowerManager:
         self.display_device.device.show()
 
 
-def start_profiling():
-    """Start profiling for performance analysis"""
-    import cProfile
-
-    profiler = cProfile.Profile()
-    profiler.enable()
-    startup_profile_start = time.time()
-    return profiler, startup_profile_start
-
-
-def stop_profiling(profiler, startup_profile_start):
-    """Stop profiling and save results"""
-    import pstats
-
-    profiler.disable()
-    startup_profile_time = time.time() - startup_profile_start
-    profile_path = utils.data_dir / "startup_profile.prof"
-    profiler.dump_stats(str(profile_path))
-
-    logger = logging.getLogger("Main.Profiling")
-    logger.info(f"=== Startup Profiling Complete ({startup_profile_time:.2f}s) ===")
-    logger.info(f"Profile saved to: {profile_path}")
-    logger.info("To analyze, run:")
-    logger.info(
-        f"  python -c \"import pstats; p = pstats.Stats('{profile_path}'); p.sort_stats('cumulative').print_stats(30)\""
-    )
-
-    summary_path = utils.data_dir / "startup_profile.txt"
-    with open(summary_path, "w") as f:
-        ps = pstats.Stats(profiler, stream=f)
-        f.write(f"=== STARTUP PROFILING ({startup_profile_time:.2f}s) ===\n\n")
-        f.write("Top 30 functions by cumulative time:\n")
-        f.write("=" * 80 + "\n")
-        ps.sort_stats("cumulative").print_stats(30)
-        f.write("\n" + "=" * 80 + "\n")
-        f.write("Top 30 functions by internal time:\n")
-        f.write("=" * 80 + "\n")
-        ps.sort_stats("time").print_stats(30)
-    logger.info(f"Text summary saved to: {summary_path}")
-
-
 def main(
     log_helper: MultiprocLogging,
     script_name=None,
     show_fps=False,
     verbose=False,
-    profile_startup=False,
 ) -> None:
     """
     Get this show on the road!
@@ -301,6 +260,7 @@ def main(
     # init queues
     console_queue: Queue = Queue()
     keyboard_queue: Queue = Queue()
+    display_device.set_keyboard_queue(keyboard_queue)
     gps_queue: Queue = Queue()
     camera_command_queue: Queue = Queue()
     solver_queue: Queue = Queue()
@@ -504,13 +464,9 @@ def main(
         )
         posserver_process.start()
 
-        # Initialize Catalogs
         console.write("   Catalogs")
         logger.info("   Catalogs")
         console.update()
-
-        # Start profiling (uncomment to enable performance analysis)
-        # profiler, startup_profile_start = start_profiling()
 
         # Initialize Catalogs (pass ui_queue for background loading completion signal)
         catalogs: Catalogs = CatalogBuilder().build(shared_state, ui_queue)
@@ -535,13 +491,14 @@ def main(
         # Initialize power manager
         power_manager = PowerManager(cfg, shared_state, display_device)
 
-        # Start main event loop
-        console.write("   Event Loop")
-        logger.info("   Event Loop")
+        # Startup complete — clear welcome backdrop
+        console.write("   Ready")
         console.update()
+        console.finish_startup()
 
-        # Stop profiling (uncomment to analyze startup performance)
-        # stop_profiling(profiler, startup_profile_start)
+        # Start deferred catalog loading now that UI is ready
+        logger.info("   Event Loop")
+        catalogs.start_background_loading()
 
         log_time = True
         # Start of main except handler / loop
@@ -952,13 +909,6 @@ if __name__ == "__main__":
         help="Force user interface language (iso2 code). Changes configuration",
         type=str,
     )
-    parser.add_argument(
-        "--profile-startup",
-        help="Profile startup performance (catalog/menu loading)",
-        default=False,
-        action="store_true",
-        required=False,
-    )
     args = parser.parse_args()
     # add the handlers to the logger
     if args.verbose:
@@ -970,25 +920,18 @@ if __name__ == "__main__":
         hardware_platform = "Fake"
         display_hardware = "pg_128"
         imu = importlib.import_module("PiFinder.imu_fake")
-        integrator = importlib.import_module("PiFinder.integrator_classic")
         gps_monitor = importlib.import_module("PiFinder.gps_fake")
     else:
         hardware_platform = "Pi"
         display_hardware = "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
 
+        imu = importlib.import_module("PiFinder.imu_pi")
         cfg = config.Config()
-        if cfg.get_option("imu_integrator") == "quaternion":
-            imu = importlib.import_module("PiFinder.imu_pi")
-            integrator = importlib.import_module("PiFinder.integrator")
-        else:
-            imu = importlib.import_module("PiFinder.imu_pi_classic")
-            integrator = importlib.import_module("PiFinder.integrator_classic")
 
         # verify and sync GPSD baud rate
         try:
-            from PiFinder import sys_utils
-
+            sys_utils = utils.get_sys_utils()
             baud_rate = cfg.get_option(
                 "gps_baud_rate", 9600
             )  # Default to 9600 if not set
@@ -1023,9 +966,14 @@ if __name__ == "__main__":
 
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
-        from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+        if display_hardware.startswith("pg_"):
+            from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
-        rlogger.info("using local keyboard")
+            rlogger.info("using pygame keyboard (display captures keys)")
+        else:
+            from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+
+            rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
@@ -1038,7 +986,7 @@ if __name__ == "__main__":
             config.Config().set_option("language", args.lang)
 
     try:
-        main(log_helper, args.script, args.fps, args.verbose, args.profile_startup)
+        main(log_helper, args.script, args.fps, args.verbose)
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
         os._exit(1)
