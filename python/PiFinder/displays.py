@@ -9,6 +9,8 @@ from luma.core.interface.serial import spi
 from luma.oled.device import ssd1351
 from luma.lcd.device import st7789
 
+from PiFinder.ssd1333_device import ssd1333
+
 from PiFinder.ui.fonts import Fonts
 
 
@@ -119,10 +121,48 @@ class DisplaySSD1351(DisplayBase):
 
     def set_brightness(self, level):
         """
-        Sets oled brightness
-        0-255
+        Sets oled brightness 0-255, combining master brightness (0xC7)
+        and per-channel contrast (0xC1) for maximum dimming range.
+
+        Levels 0-15:  both master and contrast scale together, giving
+                      very dim output below what contrast alone can achieve.
+        Levels 16-255: master at full, contrast varies linearly.
         """
-        self.device.contrast(level)
+        level = max(0, min(255, level))
+        if level <= 15:
+            self.device.command(0xC7, level)
+            self.device.contrast(level)
+        else:
+            self.device.command(0xC7, 0x0F)
+            self.device.contrast(level)
+
+
+class DisplaySSD1333(DisplayBase):
+    resolution = (176, 176)
+
+    def __init__(self):
+        # init display  (SPI hardware)
+        serial = spi(device=0, port=0, bus_speed_hz=40000000)
+        device_serial = ssd1333(serial, width=176, height=176, rotate=0, bgr=True)
+        self.device = device_serial
+        super().__init__()
+
+    def set_brightness(self, level):
+        """
+        Sets oled brightness 0-255, combining master brightness (0xC7)
+        and per-channel contrast (0xC1) for maximum dimming range.
+
+        Levels 0-15:  both master and contrast scale together, giving
+                      very dim output below what contrast alone can achieve.
+        Levels 16-255: master at full, contrast varies linearly.
+        """
+        level = max(0, min(255, level))
+        if level <= 15:
+            self.device.master_brightness(level)
+            self.device.contrast(level)
+        else:
+            self.device.master_brightness(15)
+            self.device.contrast(level)
 
 
 class DisplayST7789_128(DisplayBase):
@@ -170,6 +210,9 @@ def get_display(display_hardware: str) -> DisplayBase:
 
     if display_hardware == "ssd1351":
         return DisplaySSD1351()
+
+    if display_hardware == "ssd1333":
+        return DisplaySSD1333()
 
     if display_hardware == "st7789":
         return DisplayST7789()
