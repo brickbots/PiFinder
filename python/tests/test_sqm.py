@@ -793,7 +793,7 @@ class TestMeasureStarFluxWithLocalBackground:
 
         centroids = np.array([[50, 50]])
 
-        fluxes, backgrounds, n_saturated = sqm._measure_star_flux_with_local_background(
+        fluxes, _, n_saturated = sqm._measure_star_flux_with_local_background(
             image=image,
             centroids=centroids,
             aperture_radius=5,
@@ -854,7 +854,7 @@ class TestMeasureStarFluxWithLocalBackground:
 
         centroids = np.array([[7, 7]])
 
-        fluxes, backgrounds, n_saturated = sqm._measure_star_flux_with_local_background(
+        fluxes, _, _ = sqm._measure_star_flux_with_local_background(
             image=image,
             centroids=centroids,
             aperture_radius=3,
@@ -889,7 +889,7 @@ class TestMeasureStarFluxWithLocalBackground:
 
         centroids = np.array([[30, 100], [170, 100]])
 
-        fluxes, backgrounds, n_saturated = sqm._measure_star_flux_with_local_background(
+        _, backgrounds, _ = sqm._measure_star_flux_with_local_background(
             image=image,
             centroids=centroids,
             aperture_radius=5,
