@@ -125,6 +125,7 @@ def setup_dirs():
     utils.create_path(Path(utils.data_dir, "logs"))
     os.chmod(Path(utils.data_dir), 0o777)
 
+
 patch.apply()
 
 

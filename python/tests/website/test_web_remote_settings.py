@@ -142,9 +142,9 @@ def test_settings_language_has_english_default(driver):
     # The first language entry should represent English.
     # The exact label depends on the translation config (e.g. "Language: en").
     first_item = result.get("current_item", "")
-    assert "en" in first_item.lower() or "english" in first_item.lower(), (
-        f"Expected first Language entry to be English, got: {first_item!r}"
-    )
+    assert (
+        "en" in first_item.lower() or "english" in first_item.lower()
+    ), f"Expected first Language entry to be English, got: {first_item!r}"
 
     press_keys(driver, "ZL")  # back to root
 
