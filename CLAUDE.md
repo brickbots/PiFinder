@@ -40,6 +40,10 @@ If the .venv dir already exists, you can directly source it and run the app.
 Watch out for .venv directories containing virtual environments, that you need to activate first. 
 
 **Running the application:**
+
+First start the `cedar-detect-server` which is in `bin` (you need to use `-p 50551`, when invoking it).
+Use the correct architecture suffix for cedar-detect-server according to the platform you're running on. 
+
 Development setup has to have run and you should be in .venv virtual environment
 ```bash
 cd python/

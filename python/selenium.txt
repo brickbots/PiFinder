@@ -1,0 +1,21 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.9.2, pytest-8.2.2, pluggy-1.6.0
+rootdir: /Users/grimaldi/Projects/PiFinder/jscheidtmann/python
+configfile: pyproject.toml
+testpaths: tests, tests/webserver
+collected 284 items / 157 deselected / 127 selected
+
+tests/website/test_web_equipment.py ......s.                             [  6%]
+tests/website/test_web_interface.py ......                               [ 11%]
+tests/website/test_web_locations.py .......                              [ 16%]
+tests/website/test_web_logs.py .................                         [ 29%]
+tests/website/test_web_network.py .............                          [ 40%]
+tests/website/test_web_observations.py .......sss.s                      [ 49%]
+tests/website/test_web_remote.py .....................                   [ 66%]
+tests/website/test_web_remote_filter.py ...........                      [ 74%]
+tests/website/test_web_remote_objects.py ...........                     [ 83%]
+tests/website/test_web_remote_settings.py .....                          [ 87%]
+tests/website/test_web_remote_tools.py .......                           [ 92%]
+tests/website/test_web_tools.py .........                                [100%]
+
+========= 122 passed, 5 skipped, 157 deselected in 1025.97s (0:17:05) ==========
