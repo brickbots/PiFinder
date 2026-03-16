@@ -326,16 +326,18 @@ class MenuManager:
         """
         screen_to_display = screen_image.convert(self.display_class.device.mode)
 
+        # Always update the logical UI state so the API reflects the current stack top,
+        # even while a visual message popup is displayed.
+        if self.shared_state:
+            self.shared_state.set_current_ui_state(self.serialize_current_ui_state())
+
         if time.time() < self.ui_state.message_timeout():
             return None
 
         self.display_class.device.display(screen_to_display)
 
-        # Only update shared state when not in message timeout
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
-            # Update current UI state for webserver access
-            self.shared_state.set_current_ui_state(self.serialize_current_ui_state())
 
     def key_number(self, number):
         if self.help_images is not None:

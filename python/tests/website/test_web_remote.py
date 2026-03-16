@@ -585,10 +585,20 @@ def test_remote_markingmenu(driver):
 def test_remote_recent(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
+    # Reset all filters to defaults so Messier catalog shows all objects (not filtered by observed, etc.)
+    # D → Filter; R → enter Filter menu; R → Reset All; R → Confirm
+    press_keys(driver, "DRRR")
+    # Re-navigate to root (sequence provides enough time for the 2s "Filters Reset" message to clear)
+    press_keys_and_validate(
+        driver,
+        "ZLZLUUUUUUDD",
+        {"ui_type": "UITextMenu", "title": "PiFinder", "current_item": "Objects"},
+    )
+
     # Navigate to M31 object details
     press_keys_and_validate(
         driver,
-        "RDRDDDR31R",
+        "RDRDDDR31RW",  # W = 1s wait to let async key callback and UI state update settle
         expected_values={
             "ui_type": "UIObjectDetails",
             "object": {"display_name": "M 31"},
