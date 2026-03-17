@@ -16,17 +16,18 @@ import time
 import zipfile
 import logging
 from pathlib import Path
+from typing import Optional
 
 import requests
 
 import dbus
 import pam
+from PiFinder import utils
+
 import gi
 
 gi.require_version("NM", "1.0")
-from gi.repository import GLib, NM
-
-from PiFinder import utils
+from gi.repository import GLib, NM  # noqa: E402
 
 BACKUP_PATH = str(utils.data_dir / "PiFinder_backup.zip")
 AP_CONNECTION_NAME = "PiFinder-AP"
@@ -424,7 +425,7 @@ VERSIONS_URL = (
 UPGRADE_REF_FILE = Path("/run/pifinder/upgrade-ref")
 
 
-def fetch_version_manifest() -> dict | None:
+def fetch_version_manifest() -> Optional[dict]:
     """Fetch the channel/version manifest from GitHub."""
     try:
         resp = requests.get(VERSIONS_URL, timeout=10)
@@ -542,7 +543,7 @@ def switch_camera(cam_type: str) -> None:
     Requires reboot (dtoverlay change).
     """
     logger.info("SYS: Switching camera to %s via nixos-rebuild", cam_type)
-    flake_path = str(utils.pifinder_home)
+    flake_path = str(utils.home_dir / "PiFinder")
     result = _run([
         "sudo", "nixos-rebuild", "switch",
         "--flake", f"{flake_path}#pifinder-{cam_type}",
