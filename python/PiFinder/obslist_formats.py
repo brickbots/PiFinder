@@ -22,6 +22,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
+from PiFinder.composite_object import MagnitudeObject, SizeObject
+
 
 # ── Data model ──────────────────────────────────────────────────────────
 
@@ -34,10 +36,11 @@ class ObsListEntry:
     ra: float  # RA in degrees (0-360), J2000
     dec: float  # Dec in degrees (-90 to +90), J2000
     obj_type: str = ""
-    mag: Optional[float] = None
+    mag: MagnitudeObject = field(default_factory=lambda: MagnitudeObject([]))
     catalog_code: str = ""
     sequence: int = 0
     description: str = ""
+    size: SizeObject = field(default_factory=lambda: SizeObject([]))
     catalog_names: list[str] = field(default_factory=list)
 
 
@@ -51,7 +54,16 @@ class ObsList:
 
 # ── Supported extensions ────────────────────────────────────────────────
 
-SUPPORTED_EXTENSIONS = (".skylist", ".csv", ".sol", ".hct", ".lst", ".txt", ".mtf")
+SUPPORTED_EXTENSIONS = (
+    ".skylist",
+    ".csv",
+    ".sol",
+    ".hct",
+    ".lst",
+    ".txt",
+    ".mtf",
+    ".pifinder",
+)
 
 
 # ── Coordinate helpers ──────────────────────────────────────────────────
@@ -98,7 +110,7 @@ def format_ra_string(ra: float) -> str:
 
 def format_dec_string(dec: float) -> str:
     sign, d, m, s = dec_to_dms(dec)
-    return f'{sign}{d}\u00b0 {m}\' {round(s)}"'
+    return f"{sign}{d}\u00b0 {m}' {round(s)}\""
 
 
 def _parse_ra_string(s: str) -> float:
@@ -319,9 +331,15 @@ _CSV_HEADER = "Name,RA,Dec,Magnitude,Type,CatalogCode,Sequence"
 def write_csv(obs_list: ObsList) -> str:
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["Name", "RA", "Dec", "Magnitude", "Type", "CatalogCode", "Sequence"])
+    writer.writerow(
+        ["Name", "RA", "Dec", "Magnitude", "Type", "CatalogCode", "Sequence"]
+    )
     for entry in obs_list.entries:
-        mag_str = f"{entry.mag:.1f}" if entry.mag is not None else ""
+        mag_str = (
+            f"{entry.mag.filter_mag:.1f}"
+            if entry.mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
+            else ""
+        )
         writer.writerow(
             [
                 entry.name,
@@ -367,7 +385,7 @@ def read_csv(text: str) -> ObsList:
                 ra=ra,
                 dec=dec,
                 obj_type=obj_type,
-                mag=mag,
+                mag=MagnitudeObject([mag] if mag is not None else []),
                 catalog_code=catalog_code,
                 sequence=sequence,
             )
@@ -415,7 +433,9 @@ def write_stellarium(obs_list: ObsList) -> str:
                 "objtype": entry.obj_type,
                 "ra": format_ra_string(entry.ra),
                 "dec": format_dec_string(entry.dec),
-                "magnitude": f"{entry.mag:.2f}" if entry.mag is not None else "",
+                "magnitude": f"{entry.mag.filter_mag:.2f}"
+                if entry.mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
+                else "",
             }
             for entry in obs_list.entries
         ],
@@ -446,7 +466,7 @@ def read_stellarium(text: str) -> ObsList:
                 ra=ra,
                 dec=dec,
                 obj_type=obj_type,
-                mag=mag,
+                mag=MagnitudeObject([mag] if mag is not None else []),
                 catalog_code=catalog_code,
                 sequence=sequence,
             )
@@ -467,8 +487,14 @@ def write_autostar(obs_list: ObsList) -> str:
         sign_char = "-" if sign == "-" else ""
         dec_str = f"{sign_char}{d:02d}d{dm:02d}m{round(ds):02d}s"
         obj_title = entry.name[:16]
-        mag_str = f" mag {entry.mag:.1f}" if entry.mag is not None else ""
-        lines.append(f'USER {ra_str} {dec_str} "{obj_title}" "{entry.obj_type}{mag_str}"')
+        mag_str = (
+            f" mag {entry.mag:.1f}"
+            if entry.mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
+            else ""
+        )
+        lines.append(
+            f'USER {ra_str} {dec_str} "{obj_title}" "{entry.obj_type}{mag_str}"'
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -524,7 +550,7 @@ def read_autostar(text: str) -> ObsList:
                 ra=ra,
                 dec=dec,
                 obj_type=obj_type,
-                mag=mag,
+                mag=MagnitudeObject([mag] if mag is not None else []),
                 catalog_code=catalog_code,
                 sequence=sequence,
             )
@@ -543,7 +569,11 @@ def write_argo(obs_list: ObsList) -> str:
         sign, d, dm, ds = dec_to_dms(entry.dec)
         dec_str = f"{sign}{d:02d}:{dm:02d}:{round(ds):02d}"
         atype = ARGO_TYPE_MAP.get(entry.obj_type, "USER")
-        mag_str = f"{entry.mag:.1f}" if entry.mag is not None else "ANY"
+        mag_str = (
+            f"{entry.mag.filter_mag:.1f}"
+            if entry.mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
+            else "ANY"
+        )
         lines.append(f"{entry.name}|{ra_str}|{dec_str}|{atype}|{mag_str}|")
     return "\r\n".join(lines) + "\r\n"
 
@@ -575,7 +605,7 @@ def read_argo(text: str) -> ObsList:
                 ra=ra,
                 dec=dec,
                 obj_type=obj_type,
-                mag=mag,
+                mag=MagnitudeObject([mag] if mag is not None else []),
                 catalog_code=catalog_code,
                 sequence=sequence,
             )
@@ -599,7 +629,11 @@ def write_nextour(obs_list: ObsList) -> str:
         category = entry.catalog_code or "User"
         obj_num = str(entry.sequence) if entry.sequence else ""
         ctype = CELESTRON_TYPE_MAP.get(entry.obj_type, "Star")
-        mag_str = f"{entry.mag:.1f}" if entry.mag is not None else ""
+        mag_str = (
+            f"{entry.mag.filter_mag:.1f}"
+            if entry.mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
+            else ""
+        )
         lines.append(
             f"{category}#{obj_num}#{entry.name}#{ctype}#{mag_str}#"
             f"#{ra_h}#{ra_m:.1f}#{dec_sign}#{dec_d}#{dec_m:.1f}#"
@@ -708,7 +742,7 @@ def _read_nextour_catalog_first(text: str) -> ObsList:
                 ra=ra,
                 dec=dec,
                 obj_type=obj_type,
-                mag=mag,
+                mag=MagnitudeObject([mag] if mag is not None else []),
                 catalog_code=catalog_code,
                 sequence=obj_num,
             )
@@ -773,6 +807,190 @@ def read_eqmod(text: str) -> ObsList:
     return ObsList(name=name, entries=entries)
 
 
+# ── PiFinder (.pifinder) ───────────────────────────────────────────────
+
+
+def write_pifinder(obs_list: ObsList) -> str:
+    objects = []
+    for entry in obs_list.entries:
+        if entry.catalog_code and entry.sequence:
+            obj: dict = {
+                "catalog_code": entry.catalog_code,
+                "sequence": entry.sequence,
+            }
+        else:
+            obj = {
+                "name": entry.name,
+                "obj_type": entry.obj_type or "?",
+                "ra": entry.ra,
+                "dec": entry.dec,
+            }
+            if entry.mag.filter_mag != MagnitudeObject.UNKNOWN_MAG:
+                obj["mag"] = {
+                    "mags": entry.mag.mags,
+                    "filter_mag": entry.mag.filter_mag,
+                }
+        if entry.description:
+            obj["notes"] = entry.description
+        objects.append(obj)
+    data = {
+        "version": 1,
+        "name": obs_list.name,
+        "objects": objects,
+    }
+    return json.dumps(data, indent=2)
+
+
+_EPOCH_JD = {
+    "J2000": 2451545.0,
+}
+_J2000_JD = 2451545.0
+
+
+def _epoch_to_jd(epoch_str: str) -> float:
+    """Convert epoch string like 'J2000' or 'J2016.0' to Julian Date."""
+    if epoch_str in _EPOCH_JD:
+        return _EPOCH_JD[epoch_str]
+    if epoch_str.startswith("J"):
+        year = float(epoch_str[1:])
+        return _J2000_JD + (year - 2000.0) * 365.25
+    raise ValueError(f"Unsupported epoch: {epoch_str}")
+
+
+def _precess_to_j2000(ra_deg: float, dec_deg: float, from_jd: float) -> tuple:
+    """Precess (ra_deg, dec_deg) from given epoch to J2000."""
+    if from_jd == _J2000_JD:
+        return ra_deg, dec_deg
+    from PiFinder.calc_utils import epoch_to_epoch
+
+    ra_h_from = ra_deg / 15.0
+    ra_h, dec = epoch_to_epoch(from_jd, _J2000_JD, ra_h_from, dec_deg)
+    return ra_h._degrees, dec.degrees
+
+
+class PiFinderFormatError(ValueError):
+    """Raised when a .pifinder file fails validation."""
+
+
+def _validate_pifinder(data: dict) -> None:
+    """Validate top-level .pifinder structure."""
+    if not isinstance(data, dict):
+        raise PiFinderFormatError("Root must be a JSON object")
+    for key in ("version", "name", "objects"):
+        if key not in data:
+            raise PiFinderFormatError(f"Missing required field: {key}")
+    if data["version"] != 1:
+        raise PiFinderFormatError(f"Unsupported version: {data['version']}")
+    if not isinstance(data["objects"], list):
+        raise PiFinderFormatError("'objects' must be an array")
+
+
+def _validate_pifinder_object(obj: dict, index: int) -> None:
+    """Validate a single object entry."""
+    prefix = f"objects[{index}]"
+    if not isinstance(obj, dict):
+        raise PiFinderFormatError(f"{prefix}: must be a JSON object")
+    if "catalog_code" in obj:
+        if "sequence" not in obj:
+            raise PiFinderFormatError(f"{prefix}: catalog entry missing 'sequence'")
+    else:
+        for key in ("name", "obj_type", "ra", "dec"):
+            if key not in obj:
+                raise PiFinderFormatError(f"{prefix}: custom entry missing '{key}'")
+        extents = obj.get("extents")
+        if extents is not None:
+            if not isinstance(extents, dict):
+                raise PiFinderFormatError(f"{prefix}: 'extents' must be an object")
+            if "shape" not in extents:
+                raise PiFinderFormatError(f"{prefix}: extents missing 'shape'")
+            shape = extents["shape"]
+            if isinstance(shape, list) and shape and isinstance(shape[0], list):
+                if "geometry" not in extents:
+                    raise PiFinderFormatError(
+                        f"{prefix}: nested shape requires 'geometry' "
+                        f"('polyline' or 'segments')"
+                    )
+
+
+def _precess_size_to_j2000(size: SizeObject, from_jd: float) -> SizeObject:
+    """Precess all RA/Dec coordinates in a SizeObject to J2000."""
+    if from_jd == _J2000_JD:
+        return size
+    if size.is_segments:
+        new_shape = []
+        for seg in size.extents:
+            new_seg = []
+            for pt in seg:
+                ra, dec = _precess_to_j2000(pt[0], pt[1], from_jd)
+                new_seg.append([ra, dec])
+            new_shape.append(new_seg)
+        return SizeObject(new_shape, size.position_angle, geometry=size.geometry)
+    if size.is_vertices:
+        new_shape = []
+        for pt in size.extents:
+            ra, dec = _precess_to_j2000(pt[0], pt[1], from_jd)
+            new_shape.append([ra, dec])
+        return SizeObject(new_shape, size.position_angle, geometry=size.geometry)
+    return size
+
+
+def read_pifinder(text: str) -> ObsList:
+    data = json.loads(text)
+    _validate_pifinder(data)
+    name = data["name"]
+    entries: list[ObsListEntry] = []
+    for i, obj in enumerate(data["objects"]):
+        _validate_pifinder_object(obj, i)
+        notes = obj.get("notes", "")
+        if "catalog_code" in obj:
+            entries.append(
+                ObsListEntry(
+                    name=f"{obj['catalog_code']} {obj['sequence']}",
+                    ra=0.0,
+                    dec=0.0,
+                    catalog_code=obj["catalog_code"],
+                    sequence=obj["sequence"],
+                    description=notes,
+                )
+            )
+        else:
+            epoch_str = obj.get("epoch", "J2000")
+            from_jd = _epoch_to_jd(epoch_str)
+
+            raw_mag = obj.get("mag")
+            if isinstance(raw_mag, dict):
+                mag_obj = MagnitudeObject(raw_mag.get("mags", []))
+            elif raw_mag is not None:
+                mag_obj = MagnitudeObject([float(raw_mag)])
+            else:
+                mag_obj = MagnitudeObject([])
+
+            ra, dec = _precess_to_j2000(float(obj["ra"]), float(obj["dec"]), from_jd)
+
+            extents_data = obj.get("extents")
+            if extents_data:
+                shape = extents_data["shape"]
+                pa = extents_data.get("position_angle", 0.0)
+                geometry = extents_data.get("geometry", "")
+                size = _precess_size_to_j2000(
+                    SizeObject(shape, pa, geometry=geometry), from_jd
+                )
+            else:
+                size = SizeObject([])
+            entries.append(
+                ObsListEntry(
+                    name=obj["name"],
+                    ra=ra,
+                    dec=dec,
+                    obj_type=obj["obj_type"],
+                    mag=mag_obj,
+                    description=notes,
+                    size=size,
+                )
+            )
+    return ObsList(name=name, entries=entries)
+
+
 # ── Format detection ───────────────────────────────────────────────────
 
 _FORMAT_BY_EXT: dict[str, str] = {
@@ -782,6 +1000,7 @@ _FORMAT_BY_EXT: dict[str, str] = {
     ".lst": "eqmod",
     ".csv": "csv",
     ".mtf": "autostar",
+    ".pifinder": "pifinder",
 }
 
 _READERS: dict[str, object] = {
@@ -793,6 +1012,7 @@ _READERS: dict[str, object] = {
     "argo": read_argo,
     "nextour": read_nextour,
     "eqmod": read_eqmod,
+    "pifinder": read_pifinder,
 }
 
 _WRITERS: dict[str, object] = {
@@ -804,6 +1024,7 @@ _WRITERS: dict[str, object] = {
     "argo": write_argo,
     "nextour": write_nextour,
     "eqmod": write_eqmod,
+    "pifinder": write_pifinder,
 }
 
 
@@ -819,6 +1040,12 @@ def detect_format(text: str, filename: str = "") -> str:
     if "SkySafariObservingListVersion" in text:
         return "skylist"
     if stripped.startswith("{"):
+        try:
+            data = json.loads(text)
+            if "version" in data and "objects" in data:
+                return "pifinder"
+        except (json.JSONDecodeError, ValueError):
+            pass
         return "stellarium"
     if stripped.startswith("!J2000"):
         return "eqmod"
