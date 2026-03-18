@@ -2,7 +2,8 @@
 from dataclasses import dataclass, field
 import numpy as np
 import json
-from typing import List
+import math
+from typing import List, Union
 from PiFinder.utils import is_number
 
 
@@ -14,11 +15,71 @@ class SizeObject:
     - [d]          -> circular, diameter d
     - [major, minor] -> elliptical (major x minor axes)
     - [v1, v2, ...] -> polygon radial distances at equal angular intervals
+    - [[ra,dec], ...] -> RA/Dec polyline vertices (degrees)
+    - [[[ra,dec],[ra,dec]], ...] -> disconnected line segments (degrees)
+
+    The geometry field disambiguates: "polyline" or "segments".
     """
 
-    def __init__(self, extents: List[float], position_angle: float = 0.0):
-        self.extents: List[float] = extents
+    def __init__(
+        self,
+        extents: Union[List[float], List[List[float]]],
+        position_angle: float = 0.0,
+        geometry: str = "",
+    ):
+        self.extents: Union[List[float], List[List[float]]] = extents
         self.position_angle: float = position_angle
+        self.geometry: str = geometry
+
+    # --- mode detection ---
+
+    @property
+    def is_vertices(self) -> bool:
+        """True for polyline vertices: [[ra,dec], ...]"""
+        if not self.extents:
+            return False
+        if self.geometry == "segments":
+            return False
+        if self.geometry == "polyline":
+            return True
+        return isinstance(self.extents[0], (list, tuple))
+
+    @property
+    def is_segments(self) -> bool:
+        """True for disconnected segments: [[[ra,dec],[ra,dec]], ...]"""
+        if self.geometry == "segments":
+            return True
+        return False
+
+    def _all_vertices(self) -> List[List[float]]:
+        """Collect all RA/Dec vertices regardless of geometry type."""
+        if self.is_segments:
+            verts = []
+            for seg in self.extents:
+                verts.extend(seg)
+            return verts
+        if self.is_vertices:
+            return self.extents
+        return []
+
+    @property
+    def max_extent_arcsec(self) -> float:
+        if not self.extents:
+            return 0.0
+        verts = self._all_vertices()
+        if verts:
+            max_sep = 0.0
+            for i in range(len(verts)):
+                for j in range(i + 1, len(verts)):
+                    ra1, dec1 = math.radians(verts[i][0]), math.radians(verts[i][1])
+                    ra2, dec2 = math.radians(verts[j][0]), math.radians(verts[j][1])
+                    dra = ra2 - ra1
+                    ddec = dec2 - dec1
+                    cos_dec = math.cos((dec1 + dec2) / 2)
+                    sep = math.sqrt((dra * cos_dec) ** 2 + ddec**2)
+                    max_sep = max(max_sep, sep)
+            return math.degrees(max_sep) * 3600.0
+        return max(self.extents)
 
     # --- constructors ---
 
@@ -33,6 +94,10 @@ class SizeObject:
     @classmethod
     def from_degrees(cls, *values: float, position_angle: float = 0.0) -> "SizeObject":
         return cls([v * 3600.0 for v in values], position_angle=position_angle)
+
+    @classmethod
+    def from_vertices(cls, vertices: List[List[float]]) -> "SizeObject":
+        return cls(vertices, position_angle=0.0)
 
     # --- serialization ---
 
@@ -60,19 +125,21 @@ class SizeObject:
             return f"{int(val)}{unit_suffix}"
         return f"{val:.1f}{unit_suffix}"
 
-    def _pick_unit(self) -> str:
-        """Choose display unit based on largest extent."""
-        largest = max(self.extents)
-        if largest >= 3600.0:
+    def _pick_unit(self, arcsec: float) -> str:
+        """Choose display unit for a value in arcseconds."""
+        if arcsec >= 3600.0:
             return "°"
-        if largest >= 60.0:
+        if arcsec >= 60.0:
             return "'"
         return '"'
 
     def to_display_string(self) -> str:
         if not self.extents:
             return ""
-        unit = self._pick_unit()
+        if self.is_vertices or self.is_segments:
+            extent = self.max_extent_arcsec
+            return f"~{self._format_value(extent, self._pick_unit(extent))}"
+        unit = self._pick_unit(max(self.extents))
         if len(self.extents) == 1:
             return self._format_value(self.extents[0], unit)
         if len(self.extents) == 2:
