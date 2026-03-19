@@ -781,7 +781,7 @@ class Server:
         def stream_logs():
             try:
                 position = int(request.query.get("position", 0))
-                log_file = "/home/pifinder/PiFinder_data/pifinder.log"
+                log_file = str(utils.data_dir / "pifinder.log") 
 
                 try:
                     file_size = os.path.getsize(log_file)
