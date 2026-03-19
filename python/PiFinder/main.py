@@ -35,7 +35,6 @@ from PiFinder import solver
 from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
-from PiFinder import server
 from PiFinder import keyboard_interface
 
 from PiFinder.multiproclogging import MultiprocLogging
@@ -50,6 +49,8 @@ from PiFinder.state import SharedStateObj, UIState
 from PiFinder.image_util import subtract_background
 
 from PiFinder.displays import DisplayBase, get_display
+
+import PiFinder.manager_patch as patch
 
 from typing import Any, TYPE_CHECKING
 
@@ -122,6 +123,9 @@ def setup_dirs():
     utils.create_path(Path(utils.data_dir, "solver_debug_dumps"))
     utils.create_path(Path(utils.data_dir, "logs"))
     os.chmod(Path(utils.data_dir), 0o777)
+
+
+patch.apply()
 
 
 class StateManager(BaseManager):
@@ -347,10 +351,6 @@ def main(
         "messages", "locale", languages=[lang], fallback=(lang == "en")
     )
     langXX.install()
-
-    import PiFinder.manager_patch as patch
-
-    patch.apply()
 
     with StateManager() as manager:
         shared_state = manager.SharedState()  # type: ignore[attr-defined]
