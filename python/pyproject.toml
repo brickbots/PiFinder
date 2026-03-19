@@ -42,6 +42,9 @@ indent-width = 4
 # Assume Python 3.9
 target-version = "py39"
 
+# _ is the i18n/gettext builtin injected at runtime
+builtins = ["_"]
+
 [tool.ruff.lint]
 # Enable preview mode, allow os.env changes before imports
 preview = true
