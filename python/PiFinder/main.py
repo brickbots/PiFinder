@@ -35,6 +35,7 @@ from PiFinder import solver
 from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
+from PiFinder import server
 from PiFinder import keyboard_interface
 
 from PiFinder.multiproclogging import MultiprocLogging
