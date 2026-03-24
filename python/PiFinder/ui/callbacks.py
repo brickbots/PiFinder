@@ -17,8 +17,10 @@ import pytz
 
 from typing import Any, TYPE_CHECKING
 from PiFinder import utils, calc_utils
+from PiFinder.locations import Location as SavedLocation
 from PiFinder.state import Location
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.textentry import UITextEntry
 from PiFinder.catalogs import CatalogFilter
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 
@@ -279,6 +281,37 @@ def gps_reset(ui_module: UIModule) -> None:
 def datetime_reset(ui_module: UIModule) -> None:
     ui_module.command_queues["gps"].put(("reset_datetime", {}))
     ui_module.message("Time/Date Reset", 2)
+
+
+def save_location(ui_module: UIModule) -> None:
+    """Save current location — prompts for name via text entry."""
+    location = ui_module.shared_state.location()
+    if not location.lock:
+        ui_module.message(_("No location lock"), 2)
+        return
+
+    def _save(name):
+        new_loc = SavedLocation(
+            name=name,
+            latitude=location.lat,
+            longitude=location.lon,
+            height=location.altitude,
+            error_in_m=location.error_in_m,
+            source=location.source,
+        )
+        ui_module.config_object.locations.add_location(new_loc)
+        ui_module.config_object.save_locations()
+        ui_module.message(_("Saved: {name}").format(name=name), 2)
+
+    num = len(ui_module.config_object.locations.locations) + 1
+    item_definition = {
+        "name": _("Location Name"),
+        "class": UITextEntry,
+        "mode": "text_entry",
+        "initial_text": _("Loc {number}").format(number=num),
+        "callback": _save,
+    }
+    ui_module.add_to_stack(item_definition)
 
 
 def set_time(ui_module: UIModule, time_str: str) -> None:

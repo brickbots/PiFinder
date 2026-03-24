@@ -1097,8 +1097,12 @@ pifinder_menu = {
                                     "class": UILocationEntry,
                                 },
                                 {
-                                    "name": _("Saved"),
+                                    "name": _("Load Location"),
                                     "class": UILocationList,
+                                },
+                                {
+                                    "name": _("Save Location"),
+                                    "callback": callbacks.save_location,
                                 },
                             ],
                         },
