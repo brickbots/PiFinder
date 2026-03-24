@@ -1108,6 +1108,7 @@ pifinder_menu = {
                             "custom_callback": callbacks.set_time,
                         },
                         {"name": _("Reset Location"), "callback": callbacks.gps_reset},
+                        {"name": _("Reset Time/Date"), "callback": callbacks.datetime_reset},
                     ],
                 },
                 {"name": _("Console"), "class": UIConsole},

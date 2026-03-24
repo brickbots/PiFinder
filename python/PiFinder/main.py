@@ -625,6 +625,7 @@ def main(
                         if gps_msg == "reset":
                             location.reset()
                             shared_state.set_location(location)
+                        if gps_msg == "reset_datetime":
                             shared_state.reset_datetime()
                         if gps_msg == "satellites":
                             # logger.debug("Main: GPS nr sats seen: %s", gps_content)

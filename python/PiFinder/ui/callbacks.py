@@ -276,6 +276,11 @@ def gps_reset(ui_module: UIModule) -> None:
     ui_module.message("Location Reset", 2)
 
 
+def datetime_reset(ui_module: UIModule) -> None:
+    ui_module.command_queues["gps"].put(("reset_datetime", {}))
+    ui_module.message("Time/Date Reset", 2)
+
+
 def set_time(ui_module: UIModule, time_str: str) -> None:
     """
     Sets the time from the time entry UI
