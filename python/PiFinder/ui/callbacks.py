@@ -301,7 +301,7 @@ def save_location(ui_module: UIModule) -> None:
         )
         ui_module.config_object.locations.add_location(new_loc)
         ui_module.config_object.save_locations()
-        ui_module.message(_("Saved: {name}").format(name=name), 2)
+        ui_module.message(_("Saved\n{name}").format(name=name), 2)
 
     num = len(ui_module.config_object.locations.locations) + 1
     item_definition = {
