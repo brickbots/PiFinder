@@ -168,8 +168,8 @@ class UITimeEntry(UIModule):
         if self.validate_box(self.current_box, new_value):
             self.boxes[self.current_box] = new_value
             # Auto-advance to next box if we have 2 digits
-            if len(new_value) == 2:
-                self.current_box = (self.current_box + 1) % 3
+            if len(new_value) == 2 and self.current_box < 2:
+                self.current_box += 1
 
     def key_minus(self):
         """Delete last digit in current box or move to previous box if empty"""
@@ -197,7 +197,8 @@ class UITimeEntry(UIModule):
             }
             self.add_to_stack(date_item)
             return False
-        self.current_box = (self.current_box + 1) % 3
+        if self.current_box < 2:
+            self.current_box += 1
         return False
 
     def key_left(self) -> bool:

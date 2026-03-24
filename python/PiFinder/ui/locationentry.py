@@ -265,8 +265,8 @@ class UILocationEntry(UIModule):
 
         if self.validate_box(self.current_box, new_value):
             self.boxes[self.current_box] = new_value
-            if self.num_boxes > 1 and len(new_value) == max_d:
-                self.current_box = (self.current_box + 1) % self.num_boxes
+            if len(new_value) == max_d and self.current_box < self.num_boxes - 1:
+                self.current_box += 1
 
     def key_minus(self):
         if self.boxes[self.current_box]:
@@ -325,7 +325,8 @@ class UILocationEntry(UIModule):
                 self._confirmed = True
                 self.remove_from_stack()
             return False
-        self.current_box = (self.current_box + 1) % self.num_boxes
+        if self.current_box < self.num_boxes - 1:
+            self.current_box += 1
         return False
 
     def key_left(self) -> bool:

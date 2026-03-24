@@ -193,8 +193,8 @@ class UIDateEntry(UIModule):
 
         if self.validate_box(self.current_box, new_value):
             self.boxes[self.current_box] = new_value
-            if len(new_value) == max_d:
-                self.current_box = (self.current_box + 1) % 3
+            if len(new_value) == max_d and self.current_box < 2:
+                self.current_box += 1
 
     def key_minus(self):
         """Delete last digit in current box or move to previous box if empty."""
@@ -209,7 +209,8 @@ class UIDateEntry(UIModule):
             self._confirmed = True
             self.remove_from_stack()
             return False
-        self.current_box = (self.current_box + 1) % 3
+        if self.current_box < 2:
+            self.current_box += 1
         return False
 
     def key_left(self) -> bool:
