@@ -353,7 +353,7 @@ def set_datetime(ui_module: UIModule, date_str: str) -> None:
     dt_with_timezone = timezone.localize(dt)
 
     ui_module.command_queues["gps"].put(("time_force", {"time": dt_with_timezone}))
-    ui_module.message(_("Set: {date} {time}").format(date=date_str, time=time_str), 2)
+    ui_module.message(_("{date}\n{time}").format(date=date_str, time=time_str), 2)
 
 
 def handle_radec_entry(ui_module: UIModule, ra_deg: float, dec_deg: float) -> None:

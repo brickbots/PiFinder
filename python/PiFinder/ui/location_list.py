@@ -177,7 +177,7 @@ class UILocationList(UITextMenu):
             draw_pos = self.display_class.titlebar_height + 20
             self.draw.text(
                 (10, draw_pos),
-                _("No saved locations"),
+                _("No locations"),
                 font=self.fonts.bold.font,
                 fill=self.colors.get(192),
             )
