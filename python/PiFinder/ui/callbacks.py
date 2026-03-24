@@ -296,7 +296,7 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     dt_with_date = datetime(now.year, now.month, now.day, dt.hour, dt.minute, dt.second)
     dt_with_timezone = timezone.localize(dt_with_date)
 
-    ui_module.command_queues["gps"].put(("time", {"time": dt_with_timezone}))
+    ui_module.command_queues["gps"].put(("time_force", {"time": dt_with_timezone}))
     ui_module.message(_("Time: {time}").format(time=time_str), 2)
 
 
@@ -314,7 +314,7 @@ def set_datetime(ui_module: UIModule, date_str: str) -> None:
     dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
     dt_with_timezone = timezone.localize(dt)
 
-    ui_module.command_queues["gps"].put(("time", {"time": dt_with_timezone}))
+    ui_module.command_queues["gps"].put(("time_force", {"time": dt_with_timezone}))
     ui_module.message(_("Set: {date} {time}").format(date=date_str, time=time_str), 2)
 
 

@@ -611,12 +611,14 @@ def main(
                                         location.lon,
                                         location.altitude,
                                     )
-                        if gps_msg == "time":
+                        if gps_msg in ("time", "time_force"):
                             if isinstance(gps_content, datetime.datetime):
                                 gps_dt = gps_content
                             else:
                                 gps_dt = gps_content["time"]
-                            shared_state.set_datetime(gps_dt)
+                            shared_state.set_datetime(
+                                gps_dt, force=(gps_msg == "time_force")
+                            )
                             if log_time:
                                 logger.info("GPS Time (logged only once): %s", gps_dt)
                                 log_time = False
