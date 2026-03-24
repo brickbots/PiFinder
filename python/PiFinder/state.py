@@ -206,6 +206,24 @@ class Location:
             f"{f', last_lock={self.last_gps_lock}' if self.last_gps_lock else ''})"
         )
 
+    @staticmethod
+    def make_fix(
+        lat: float, lon: float, altitude: float = 0, source: str = "MANUAL"
+    ) -> tuple:
+        """Build a GPS fix message tuple for the gps_queue."""
+        return (
+            "fix",
+            {
+                "lat": lat,
+                "lon": lon,
+                "altitude": altitude,
+                "error_in_m": 0,
+                "source": source,
+                "lock": True,
+                "lock_type": 2,
+            },
+        )
+
     def reset(self):
         self.lat = 0.0
         self.lon = 0.0

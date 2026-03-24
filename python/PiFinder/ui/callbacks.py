@@ -11,9 +11,13 @@ Each one takes the current ui module as an argument
 import logging
 import gettext
 import time
+from datetime import datetime
+
+import pytz
 
 from typing import Any, TYPE_CHECKING
 from PiFinder import utils, calc_utils
+from PiFinder.state import Location
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
@@ -250,6 +254,23 @@ def get_wifi_mode(ui_module: UIModule) -> list[str]:
         return [wfs.read()]
 
 
+def set_location(ui_module: UIModule) -> None:
+    """
+    Sets location from the coordinate entry UI.
+    Reads lat, lon, alt from item_definition (passed through the chain).
+    """
+    lat = ui_module.item_definition.get("lat", 0.0)
+    lon = ui_module.item_definition.get("lon", 0.0)
+    alt = ui_module.item_definition.get("alt", 0)
+    logger.info(f"Setting location to: lat={lat}, lon={lon}, alt={alt}")
+
+    ui_module.command_queues["gps"].put(Location.make_fix(lat, lon, alt, "MANUAL"))
+    ui_module.message(
+        _("{lat:.2f}, {lon:.2f}\n{alt}m alt").format(lat=lat, lon=lon, alt=alt),
+        2,
+    )
+
+
 def gps_reset(ui_module: UIModule) -> None:
     ui_module.command_queues["gps"].put(("reset", {}))
     ui_module.message("Location Reset", 2)
@@ -259,9 +280,6 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     """
     Sets the time from the time entry UI
     """
-    from datetime import datetime
-    import pytz
-
     logger.info(f"Setting time to: {time_str}")
 
     timezone_str = ui_module.shared_state.location().timezone
@@ -280,6 +298,24 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
 
     ui_module.command_queues["gps"].put(("time", {"time": dt_with_timezone}))
     ui_module.message(_("Time: {time}").format(time=time_str), 2)
+
+
+def set_datetime(ui_module: UIModule, date_str: str) -> None:
+    """
+    Sets both date and time from the date entry UI.
+    Reads the time_str from the item_definition (passed from UITimeEntry).
+    """
+    time_str = ui_module.item_definition.get("time_str", "00:00:00")
+    logger.info(f"Setting datetime to: {date_str} {time_str}")
+
+    timezone_str = ui_module.shared_state.location().timezone
+    timezone = pytz.timezone(timezone_str)
+
+    dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
+    dt_with_timezone = timezone.localize(dt)
+
+    ui_module.command_queues["gps"].put(("time", {"time": dt_with_timezone}))
+    ui_module.message(_("Set: {date} {time}").format(date=date_str, time=time_str), 2)
 
 
 def handle_radec_entry(ui_module: UIModule, ra_deg: float, dec_deg: float) -> None:

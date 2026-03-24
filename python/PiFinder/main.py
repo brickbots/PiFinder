@@ -570,6 +570,7 @@ def main(
                             if (
                                 not location.source == "WEB"
                                 and not location.source.startswith("CONFIG:")
+                                and not location.source == "MANUAL"
                                 and (
                                     location.error_in_m == 0
                                     or float(gps_content["error_in_m"])
