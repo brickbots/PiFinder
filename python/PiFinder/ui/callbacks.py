@@ -113,13 +113,13 @@ def capture_exposure_sweep(ui_module: UIModule) -> None:
     logger.info("Starting exposure sweep capture")
 
     # Import the sweep UI module
-    from PiFinder.ui.exp_sweep import UIExpSweep
+    from PiFinder.ui.sqm_sweep import UISQMSweep
 
     # Push the sweep progress UI onto the stack
     # It will handle starting the sweep and showing progress
     sweep_item = {
-        "class": UIExpSweep,
-        "label": "exp_sweep_progress",
+        "class": UISQMSweep,
+        "label": "sqm_sweep_progress",
     }
     ui_module.add_to_stack(sweep_item)
 
