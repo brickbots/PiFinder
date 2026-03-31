@@ -870,6 +870,11 @@ def main(
 if __name__ == "__main__":
     import sys
 
+    # Ensure the active log config symlink exists, defaulting to logconf_default.json
+    _logconf_link = Path("pifinder_logconf.json")
+    if not _logconf_link.exists():
+        _logconf_link.symlink_to("logconf_default.json")
+
     debug_no_file_logs = "--debug-no-file-logs" in sys.argv
     if debug_no_file_logs:
         os.environ["PIFINDER_DEBUG_NO_FILE_LOGS"] = "1"

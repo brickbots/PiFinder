@@ -844,6 +844,64 @@ class Server:
                 logging.error(f"Error reading log configuration: {e}")
                 return {"status": "error", "message": str(e)}
 
+        @app.route("/logs/configs")
+        @auth_required
+        def list_log_configs():
+            """Return all available logconf_*.json files with display names."""
+            import glob
+
+            configs = []
+            active = os.path.realpath("pifinder_logconf.json") if os.path.exists("pifinder_logconf.json") else None
+            for path in sorted(glob.glob("logconf_*.json")):
+                stem = path[len("logconf_"):-len(".json")]
+                display = stem.replace("_", " ").title()
+                configs.append({
+                    "file": path,
+                    "name": display,
+                    "active": os.path.realpath(path) == active,
+                })
+            return {"configs": configs}
+
+        @app.route("/logs/switch_config", method="post")
+        @auth_required
+        def switch_log_config():
+            """Atomically repoint pifinder_logconf.json to the chosen config, then restart."""
+            logconf_file = request.forms.get("logconf_file", "").strip()
+            if not logconf_file or not logconf_file.startswith("logconf_") or not logconf_file.endswith(".json"):
+                return {"status": "error", "message": "Invalid log config file name"}
+            if not os.path.exists(logconf_file):
+                return {"status": "error", "message": f"Log config file not found: {logconf_file}"}
+            try:
+                link = "pifinder_logconf.json"
+                tmp = link + ".tmp"
+                os.symlink(logconf_file, tmp)
+                os.replace(tmp, link)
+                logger.info("Switched log config to %s", logconf_file)
+            except Exception as e:
+                logger.error("Failed to switch log config: %s", e)
+                return {"status": "error", "message": str(e)}
+            return template("restart_pifinder")
+
+        @app.route("/logs/upload_config", method="post")
+        @auth_required
+        def upload_log_config():
+            """Upload a new logconf_*.json file."""
+            upload = request.files.get("config_file")
+            if not upload:
+                return {"status": "error", "message": "No file provided"}
+            filename = upload.filename
+            if not filename.startswith("logconf_") or not filename.endswith(".json"):
+                return {"status": "error", "message": "File must be named logconf_<name>.json"}
+            if os.path.exists(filename):
+                return {"status": "error", "message": f"File already exists: {filename}"}
+            try:
+                upload.save(filename, overwrite=False)
+                logger.info("Uploaded log config: %s", filename)
+                return {"status": "ok", "file": filename}
+            except Exception as e:
+                logger.error("Failed to save uploaded log config: %s", e)
+                return {"status": "error", "message": str(e)}
+
         @app.route("/logs/download")
         @auth_required
         def download_logs():
