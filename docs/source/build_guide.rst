@@ -815,18 +815,6 @@ and secure the bottom dovetail portion to the top:
 .. image:: images/build_guide/dovetail_4.jpeg
 
 
-The final step is to Go ahead and screw on the camera lens.  The cap on the Pi HQ camera screws off, 
-but leave the knurled metal spacer there or the lens will not reach focus properly. 
-
-Gently screw the lens into the camera module.  You'll need to hold the module with your hand as you tighten the lens.
-
-
-.. image:: images/build_guide/cam_1.jpeg
-   :target: images/build_guide/cam_1.jpeg
-
-.. image:: images/build_guide/cam_2.jpeg
-   :target: images/build_guide/cam_2.jpeg
-
 
 That's it! You now have a fully assembled PiFinder!  
 

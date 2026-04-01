@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
+from operator import attrgetter
 from typing import Union
 
 
@@ -56,6 +57,31 @@ class Equipment:
             return self.eyepieces[self.active_eyepiece_index]
         except (IndexError, TypeError):
             return None
+
+    def __post_init__(self):
+        self.sort_eyepieces()
+
+    def sort_eyepieces(self) -> None:
+        active = self.active_eyepiece
+        self.eyepieces.sort(key=attrgetter("focal_length_mm"))
+        if active is not None:
+            try:
+                self.active_eyepiece_index = self.eyepieces.index(active)
+            except ValueError:
+                self.active_eyepiece_index = -1
+
+    def add_eyepiece(self, eyepiece: Eyepiece) -> None:
+        self.eyepieces.append(eyepiece)
+        self.sort_eyepieces()
+
+    def remove_eyepiece(self, index: int) -> Eyepiece:
+        eyepiece = self.eyepieces.pop(index)
+        self.sort_eyepieces()
+        return eyepiece
+
+    def update_eyepiece(self, index: int, eyepiece: Eyepiece) -> None:
+        self.eyepieces[index] = eyepiece
+        self.sort_eyepieces()
 
     def cycle_eyepieces(self, direction: int) -> Eyepiece:
         self.active_eyepiece_index += direction
