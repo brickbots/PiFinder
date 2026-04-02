@@ -20,6 +20,7 @@
         <li><a href="/observations">Observations</a></li>
         <li><a href="/locations">Locations</a></li>
         <li><a href="/equipment">Equipment</a></li>
+        <li><a href="/indi">INDI</a></li>
         <li><a href="/tools">Tools</a></li>
         <li><a href="/logs">Logs</a></li>
         % if mount_control_active:
@@ -34,6 +35,7 @@
         <li><a href="/observations">Observations</a></li>
         <li><a href="/locations">Locations</a></li>
         <li><a href="/equipment">Equipment</a></li>
+        <li><a href="/indi">INDI</a></li>
         <li><a href="/tools">Tools</a></li>
         <li><a href="/logs">Logs</a></li>
         % if mount_control_active:

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import pydeepskylog as pds
 from PIL import Image
-from PiFinder import utils, calc_utils, config
+from PiFinder import utils, calc_utils, config, indi_alignment
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
@@ -787,7 +787,7 @@ class Server:
         def stream_logs():
             try:
                 position = int(request.query.get("position", 0))
-                log_file = "/home/pifinder/PiFinder_data/pifinder.log"
+                log_file = str(utils.data_dir / "pifinder.log")
 
                 try:
                     file_size = os.path.getsize(log_file)
@@ -911,6 +911,48 @@ class Server:
             )
 
             return template("restart_pifinder")
+
+        @app.route("/indi")
+        @auth_required
+        def indi_page():
+            status = indi_alignment.read_status()
+            diff_lines = indi_alignment.diff_configs()
+            user_config_exists = indi_alignment.get_user_config_path().exists()
+            user_config_modified = bool(diff_lines)
+            return template(
+                "indi",
+                status=status,
+                diff_lines=diff_lines,
+                user_config_exists=user_config_exists,
+                user_config_modified=user_config_modified,
+                repo_config_path=str(indi_alignment.get_repo_config_path()),
+                user_config_path=str(indi_alignment.get_user_config_path()),
+            )
+
+        @app.route("/indi/copy_config", method="post")
+        @auth_required
+        def indi_copy_config():
+            ok, msg = indi_alignment.copy_repo_config_to_user()
+            status = indi_alignment.read_status()
+            diff_lines = indi_alignment.diff_configs()
+            user_config_exists = indi_alignment.get_user_config_path().exists()
+            return template(
+                "indi",
+                status=status,
+                diff_lines=diff_lines,
+                user_config_exists=user_config_exists,
+                user_config_modified=False,
+                repo_config_path=str(indi_alignment.get_repo_config_path()),
+                user_config_path=str(indi_alignment.get_user_config_path()),
+                copy_message=msg,
+                copy_success=ok,
+            )
+
+        @app.route("/indi/status.json")
+        @auth_required
+        def indi_status_json():
+            response.content_type = "application/json"
+            return json.dumps(indi_alignment.read_status(), indent=2, default=str)
 
         @app.route("/key_callback", method="POST")
         @auth_required

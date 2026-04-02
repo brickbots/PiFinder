@@ -67,7 +67,20 @@ def save_sweep_metadata(
         if altitude_deg is not None:
             metadata['coordinates']['altitude_deg'] = altitude_deg
         if azimuth_deg is not None:
-            metadata['coordinates']['azimuth_deg'] = azimuth_deg
+            metadata["coordinates"]["azimuth_deg"] = azimuth_deg
+
+    # Noise floor estimation details (from NoiseFloorEstimator)
+    if noise_floor_details is not None:
+        metadata["noise_floor_estimator"] = {
+            k: v
+            for k, v in noise_floor_details.items()
+            if k != "request_zero_sec_sample"  # Exclude internal flags
+        }
+        if camera_type is not None:
+            metadata["noise_floor_estimator"]["camera_type"] = camera_type
+    elif camera_type is not None:
+        # Fallback: just record camera type if no noise floor details
+        metadata["noise_floor_estimator"] = {"camera_type": camera_type}
 
     if notes:
         metadata['notes'] = notes

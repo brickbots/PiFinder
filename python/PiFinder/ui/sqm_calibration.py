@@ -692,8 +692,13 @@ class UISQMCalibration(UIModule):
             bias_stack = np.array(self.bias_frames, dtype=np.float32)
             self.bias_offset = float(np.median(bias_stack))
 
-            # 2. Compute read noise (std of all pixels in all bias frames)
-            self.read_noise = float(np.std(bias_stack))
+            # 2. Compute read noise using temporal variance (not spatial)
+            # Spatial std includes fixed pattern noise (PRNU), which is wrong.
+            # Temporal variance at each pixel measures true read noise.
+            temporal_variance = np.var(
+                bias_stack, axis=0
+            )  # variance across frames per pixel
+            self.read_noise = float(np.sqrt(np.mean(temporal_variance)))
 
             # 3. Compute dark current rate
             dark_stack = np.array(self.dark_frames, dtype=np.float32)
