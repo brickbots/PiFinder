@@ -11,6 +11,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+from PiFinder import mountcontrol_alignment
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.state import SharedStateObj
 
@@ -830,6 +831,19 @@ class MountControlIndi(MountControlBase):
                     # Don't fail initialization if sync fails
                 else:
                     logger.info("Mount successfully synced to solved position")
+
+            # Check for and optionally disable INDI alignment subsystem.
+            # This runs once at startup using the already-established connection.
+            device = self.client.get_telescope_device()
+            if device:
+                try:
+                    mountcontrol_alignment.check_and_disable_alignment(
+                        self.client, device, self.console_queue
+                    )
+                except Exception as align_exc:
+                    logger.error(
+                        "INDI alignment check failed (non-fatal): %s", align_exc
+                    )
 
             return True
 
