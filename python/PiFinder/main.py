@@ -34,7 +34,7 @@ import PiFinder.i18n  # noqa: F401
 from PiFinder import solver
 from PiFinder import integrator
 from PiFinder import config
-from PiFinder import indi_alignment
+from PiFinder import mountcontrol_alignment
 from PiFinder import pos_server
 from PiFinder import utils
 from PiFinder import server
@@ -560,15 +560,6 @@ def main(
 
         # Initialize power manager
         power_manager = PowerManager(cfg, shared_state, display_device)
-
-        # Start INDI alignment monitor (background thread, non-blocking)
-        console.write("   INDI")
-        logger.info("   INDI alignment monitor")
-        console.update()
-        indi_alignment.start_alignment_monitor(
-            console_queue=console_queue,
-            menu_manager=menu_manager,
-        )
 
         # Start main event loop
         console.write("   Event Loop")
