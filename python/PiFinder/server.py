@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import pydeepskylog as pds
 from PIL import Image
-from PiFinder import utils, calc_utils, config, indi_alignment
+from PiFinder import utils, calc_utils, config, mountcontrol_alignment
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
@@ -915,9 +915,9 @@ class Server:
         @app.route("/indi")
         @auth_required
         def indi_page():
-            status = indi_alignment.read_status()
-            diff_lines = indi_alignment.diff_configs()
-            user_config_exists = indi_alignment.get_user_config_path().exists()
+            status = mountcontrol_alignment.read_status()
+            diff_lines = mountcontrol_alignment.diff_configs()
+            user_config_exists = mountcontrol_alignment.get_user_config_path().exists()
             user_config_modified = bool(diff_lines)
             return template(
                 "indi",
@@ -925,25 +925,25 @@ class Server:
                 diff_lines=diff_lines,
                 user_config_exists=user_config_exists,
                 user_config_modified=user_config_modified,
-                repo_config_path=str(indi_alignment.get_repo_config_path()),
-                user_config_path=str(indi_alignment.get_user_config_path()),
+                repo_config_path=str(mountcontrol_alignment.get_repo_config_path()),
+                user_config_path=str(mountcontrol_alignment.get_user_config_path()),
             )
 
         @app.route("/indi/copy_config", method="post")
         @auth_required
         def indi_copy_config():
-            ok, msg = indi_alignment.copy_repo_config_to_user()
-            status = indi_alignment.read_status()
-            diff_lines = indi_alignment.diff_configs()
-            user_config_exists = indi_alignment.get_user_config_path().exists()
+            ok, msg = mountcontrol_alignment.copy_repo_config_to_user()
+            status = mountcontrol_alignment.read_status()
+            diff_lines = mountcontrol_alignment.diff_configs()
+            user_config_exists = mountcontrol_alignment.get_user_config_path().exists()
             return template(
                 "indi",
                 status=status,
                 diff_lines=diff_lines,
                 user_config_exists=user_config_exists,
                 user_config_modified=False,
-                repo_config_path=str(indi_alignment.get_repo_config_path()),
-                user_config_path=str(indi_alignment.get_user_config_path()),
+                repo_config_path=str(mountcontrol_alignment.get_repo_config_path()),
+                user_config_path=str(mountcontrol_alignment.get_user_config_path()),
                 copy_message=msg,
                 copy_success=ok,
             )
@@ -952,7 +952,7 @@ class Server:
         @auth_required
         def indi_status_json():
             response.content_type = "application/json"
-            return json.dumps(indi_alignment.read_status(), indent=2, default=str)
+            return json.dumps(mountcontrol_alignment.read_status(), indent=2, default=str)
 
         @app.route("/key_callback", method="POST")
         @auth_required
