@@ -58,43 +58,6 @@ class SQM:
                 camera_type=camera_type,
                 enable_zero_sec_sampling=True,
                 zero_sec_interval=300,  # Every 5 minutes
-
-
-    def _load_calibration(self) -> bool:
-        """
-        Load calibration from JSON file if it exists.
-
-        Calibration file is saved by the SQM calibration wizard to:
-        ~/PiFinder_data/sqm_calibration_{camera_type}.json
-
-        Returns:
-            True if calibration was loaded, False if using defaults
-        """
-        calibration_file = (
-            Path.home() / "PiFinder_data" / f"sqm_calibration_{self.camera_type}.json"
-        )
-
-        if not calibration_file.exists():
-            logger.debug(
-                f"No calibration file found at {calibration_file}, using defaults"
-            )
-            return False
-
-        try:
-            with open(calibration_file, "r") as f:
-                calibration = json.load(f)
-
-            # Update profile with calibrated values
-            if "bias_offset" in calibration:
-                self.profile.bias_offset = float(calibration["bias_offset"])
-            if "read_noise" in calibration:
-                self.profile.read_noise_adu = float(calibration["read_noise"])
-            if "dark_current_rate" in calibration:
-                self.profile.dark_current_rate = float(calibration["dark_current_rate"])
-
-            logger.info(
-                f"Loaded calibration from {calibration_file.name}: "
-                f"bias_offset={self.profile.bias_offset:.1f}"
             )
             logger.info(
                 f"SQM initialized with adaptive noise floor estimation (camera: {camera_type})"
@@ -214,19 +177,6 @@ class SQM:
                     f"Star at ({cx:.0f},{cy:.0f}) has no annulus pixels, using global median"
                 )
 
-            # Check for saturation in aperture
-            aperture_pixels = image_patch[aperture_mask]
-            max_aperture_pixel = (
-                np.max(aperture_pixels) if len(aperture_pixels) > 0 else 0
-            )
-
-            if max_aperture_pixel >= saturation_threshold:
-                # Mark saturated star with flux=-1 to be excluded from mzero calculation
-                star_fluxes.append(-1)
-                local_backgrounds.append(local_bg_per_pixel)
-                n_saturated += 1
-                continue
-
             # Total flux in aperture (includes background)
             total_flux = np.sum(image_patch[aperture_mask])
 
@@ -280,12 +230,8 @@ class SQM:
             logger.error("No valid stars for mzero calculation")
             return None, mzeros
 
-        # Flux-weighted mean: brighter stars contribute more
-        valid_mzeros_arr = np.array(valid_mzeros)
-        valid_fluxes_arr = np.array(valid_fluxes)
-        weighted_mzero = float(np.average(valid_mzeros_arr, weights=valid_fluxes_arr))
-
-        return weighted_mzero, mzeros
+        # Return mean and the full mzeros list (which may contain None values)
+        return float(np.mean(valid_mzeros)), mzeros
 
     def _detect_aperture_overlaps(
         self,
@@ -577,18 +523,9 @@ class SQM:
 
         sqm_raw = mzero - 2.5 * np.log10(background_flux_density)
 
-        # 7. Apply atmospheric extinction correction (ASTAP convention)
-        # Following ASTAP: zenith is reference point where extinction = 0
-        # Only ADDITIONAL extinction below zenith is added: 0.28 * (airmass - 1)
-        # This allows comparing measurements at different altitudes
-        extinction_for_altitude = self._atmospheric_extinction(
-            altitude_deg
-        )  # 0.28*(airmass-1)
-
-        # Main SQM value: no extinction correction (raw measurement)
-        sqm_final = sqm_uncorrected
-        # Altitude-corrected value: adds extinction for altitude comparison
-        sqm_altitude_corrected = sqm_uncorrected + extinction_for_altitude
+        # 7. Apply atmospheric extinction correction
+        extinction_correction = self._atmospheric_extinction(altitude_deg)
+        sqm_final = sqm_raw + extinction_correction
 
         # Filter out None values for statistics in diagnostics
         valid_mzeros_for_stats = [mz for mz in mzeros if mz is not None]
