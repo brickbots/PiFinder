@@ -131,7 +131,7 @@ class MultiprocLogging:
         if output is None:
             import sys
 
-            h = logging.StreamHandler(sys.stderr)
+            h: logging.Handler = logging.StreamHandler(sys.stderr)
             rLogger.setLevel(logging.DEBUG)
             rLogger.warning("Starting logging process (console only, no file output)")
         else:
