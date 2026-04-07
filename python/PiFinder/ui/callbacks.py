@@ -401,14 +401,16 @@ def generate_custom_object_name(ui_module: UIModule) -> str:
     # Return next available number
     return f"CUSTOM {max_num + 1}"
 
+
 def get_mountcontrol_status(ui_module: UIModule) -> list[str]:
     """
     Returns the current status of the mount control service
     """
     status_str = "mountcontrol_off"
     if sys_utils.is_mountcontrol_active():
-         status_str = "mountcontrol_on"
+        status_str = "mountcontrol_on"
     return [status_str]
+
 
 def mountcontrol_activate(ui_module: UIModule) -> None:
     """
@@ -418,6 +420,7 @@ def mountcontrol_activate(ui_module: UIModule) -> None:
     sys_utils.mountcontrol_activate()
     restart_system(ui_module)
 
+
 def mountcontrol_deactivate(ui_module: UIModule) -> None:
     """
     Deactivates the mount control service
@@ -425,6 +428,7 @@ def mountcontrol_deactivate(ui_module: UIModule) -> None:
     ui_module.message(_("Deactivating\nMount Control"), 2)
     sys_utils.mountcontrol_deactivate()
     restart_system(ui_module)
+
 
 def update_gpsd_baud_rate(ui_module: UIModule) -> None:
     """

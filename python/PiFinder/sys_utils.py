@@ -328,12 +328,15 @@ def is_mountcontrol_active() -> bool:
     """
     Returns True if mount control service is active
     """
-    status = sh.sudo("systemctl", "is-active", "indiwebmanager.service", _ok_code=(0, 3))
+    status = sh.sudo(
+        "systemctl", "is-active", "indiwebmanager.service", _ok_code=(0, 3)
+    )
     if status.exit_code == 0:
         return True
     else:
         return False
-    
+
+
 def mountcontrol_activate() -> None:
     """
     Activates the mount control service
@@ -354,6 +357,8 @@ def mountcontrol_deactivate() -> None:
     # sh.sudo("systemctl", "stop", "indiwebmanager.service")
     # We do NOT need to start the mount control process during startup, so reboot
     sh.sudo("shutdown", "-r", "now")
+
+
 def check_and_sync_gpsd_config(baud_rate: int) -> bool:
     """
     Checks if GPSD configuration matches the desired baud rate,
