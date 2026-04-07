@@ -802,8 +802,8 @@ class Server:
                     else:
                         return {"logs": [], "position": position}
                 except FileNotFoundError:
-                    logger.error(f"Log file not found: {log_file}")
-                    return {"logs": [], "position": 0}
+                    logger.warning(f"Log file not found: {log_file}")
+                    return {"logs": [], "position": 0, "file_not_found": True}
 
             except Exception as e:
                 logger.error(f"Error streaming logs: {e}")
