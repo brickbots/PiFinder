@@ -96,6 +96,10 @@ def dec_to_deg(dec, dec_m, dec_s):
 
 
 def dec_to_dms(dec):
+    try:
+        dec = float(dec)
+    except TypeError:
+        return 0, 0, 0
     degree = int(dec)
     fractional_degree = abs(dec - degree)
     minute = int(fractional_degree * 60)
@@ -104,6 +108,11 @@ def dec_to_dms(dec):
 
 
 def ra_to_hms(ra):
+    try:
+        ra = float(ra)
+    except TypeError:
+        return 0, 0, 0
+
     if ra < 0.0:
         ra = ra + 360
     mm, hh = math.modf(ra / 15.0)

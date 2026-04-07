@@ -121,10 +121,10 @@ class SweepZeroStarHandler(ZeroStarHandler):
         self._repeat_count = 0
 
         # Sweep pattern: exposure values in microseconds
-        # Uses doubling pattern (2x each step)
+        # Start at 400ms (reasonable middle), sweep up, then try shorter exposures
         # Note: This is intentionally NOT using generate_exposure_sweep() because
-        # it uses a specific doubling pattern
-        self._exposures = [25000, 50000, 100000, 200000, 400000, 800000, 1000000]
+        # it uses a specific pattern optimized for recovery
+        self._exposures = [400000, 800000, 1000000, 200000, 100000, 50000, 25000]
         self._repeats_per_exposure = 2  # Try each exposure 2 times
 
         logger.info(
@@ -189,9 +189,7 @@ class SweepZeroStarHandler(ZeroStarHandler):
             # Wrap around to start of sweep
             if self._exposure_index >= len(self._exposures):
                 self._exposure_index = 0
-                logger.debug(
-                    f"Sweep: complete, restarting from {self._exposures[0]}µs"
-                )
+                logger.debug(f"Sweep: complete, restarting from {self._exposures[0]}µs")
             else:
                 next_exposure = self._exposures[self._exposure_index]
                 logger.debug(f"Sweep: advancing to {next_exposure}µs")
@@ -621,6 +619,183 @@ class HistogramZeroStarHandler(ZeroStarHandler):
         logger.debug("HistogramZeroStarHandler reset")
 
 
+class ExposureSNRController:
+    """
+    SNR-based auto exposure for SQM measurements.
+
+    Targets a minimum background SNR and exposure time instead of star count.
+    This provides more stable, longer exposures that are better for accurate
+    SQM measurements compared to the histogram-based approach.
+
+    Strategy:
+    - Target specific background level above noise floor
+    - Derive thresholds from camera profile (bit depth, bias offset)
+    - Slower adjustments for stability
+    """
+
+    def __init__(
+        self,
+        min_exposure: int = 10000,  # 10ms minimum
+        max_exposure: int = 1000000,  # 1.0s maximum
+        target_background: int = 30,  # Target background level in ADU
+        min_background: int = 15,  # Minimum acceptable background
+        max_background: int = 100,  # Maximum before saturating
+        adjustment_factor: float = 1.3,  # Gentle adjustments (30% steps)
+    ):
+        """
+        Initialize SNR-based auto exposure.
+
+        Args:
+            min_exposure: Minimum exposure in microseconds (default 10ms)
+            max_exposure: Maximum exposure in microseconds (default 1000ms)
+            target_background: Target median background level in ADU
+            min_background: Minimum acceptable background (increase if below)
+            max_background: Maximum acceptable background (decrease if above)
+            adjustment_factor: Multiplicative adjustment step (default 1.3 = 30%)
+        """
+        self.min_exposure = min_exposure
+        self.max_exposure = max_exposure
+        self.target_background = target_background
+        self.min_background = min_background
+        self.max_background = max_background
+        self.adjustment_factor = adjustment_factor
+
+        logger.info(
+            f"AutoExposure SNR: target_bg={target_background}, "
+            f"range=[{min_background}, {max_background}] ADU, "
+            f"exp_range=[{min_exposure/1000:.0f}, {max_exposure/1000:.0f}]ms, "
+            f"adjustment={adjustment_factor}x"
+        )
+
+    @classmethod
+    def from_camera_profile(
+        cls,
+        camera_type: str,
+        min_exposure: int = 10000,
+        max_exposure: int = 1000000,
+        adjustment_factor: float = 1.3,
+    ) -> "ExposureSNRController":
+        """
+        Create controller with thresholds derived from camera profile.
+
+        Calculates min/target/max background based on bit depth and bias offset.
+
+        Args:
+            camera_type: Camera type (e.g., "imx296_processed", "imx462_processed")
+            min_exposure: Minimum exposure in microseconds
+            max_exposure: Maximum exposure in microseconds
+            adjustment_factor: Multiplicative adjustment step
+
+        Returns:
+            ExposureSNRController configured for the camera
+        """
+        from PiFinder.sqm.camera_profiles import get_camera_profile
+
+        profile = get_camera_profile(camera_type)
+
+        # Derive thresholds from camera specs
+        max_adu = (2 ** profile.bit_depth) - 1
+        bias = profile.bias_offset
+
+        # min_background: bias + margin (2x bias or bias + 8, whichever larger)
+        min_background = int(max(bias * 2, bias + 8))
+
+        # max_background: ~40% of full range (avoid saturation/nonlinearity)
+        max_background = int(max_adu * 0.4)
+
+        # target_background: just above min (lower = shorter exposure = more linear response)
+        target_background = min_background + 2
+
+        logger.info(
+            f"SNR controller from {camera_type}: "
+            f"bit_depth={profile.bit_depth}, bias={bias:.0f}, "
+            f"thresholds=[{min_background}, {target_background}, {max_background}]"
+        )
+
+        return cls(
+            min_exposure=min_exposure,
+            max_exposure=max_exposure,
+            target_background=target_background,
+            min_background=min_background,
+            max_background=max_background,
+            adjustment_factor=adjustment_factor,
+        )
+
+    def update(
+        self,
+        current_exposure: int,
+        image: Image.Image,
+        noise_floor: Optional[float] = None,
+        **kwargs  # Ignore other params (matched_stars, etc.)
+    ) -> Optional[int]:
+        """
+        Update exposure based on background level.
+
+        Args:
+            current_exposure: Current exposure in microseconds
+            image: Current image for analysis
+            noise_floor: Adaptive noise floor from SQM calculator (if available)
+            **kwargs: Ignored (for compatibility with PID interface)
+
+        Returns:
+            New exposure in microseconds, or None if no change needed
+        """
+        # Use adaptive noise floor if available, otherwise fall back to static config
+        # Need margin above noise floor so background_corrected isn't near zero
+        if noise_floor is not None:
+            min_bg = noise_floor + 2
+        else:
+            min_bg = self.min_background
+
+        # Analyze image
+        if image.mode != "L":
+            image = image.convert("L")
+        img_array = np.asarray(image, dtype=np.float32)
+
+        # Use 10th percentile as background estimate (dark pixels)
+        background = float(np.percentile(img_array, 10))
+
+        logger.debug(
+            f"SNR AE: bg={background:.1f}, min={min_bg:.1f} ADU, exp={current_exposure/1000:.0f}ms"
+        )
+
+        # Determine adjustment
+        new_exposure = None
+
+        if background < min_bg:
+            # Too dark - increase exposure
+            new_exposure = int(current_exposure * self.adjustment_factor)
+            logger.info(
+                f"SNR AE: Background too low ({background:.1f} < {min_bg:.1f}), "
+                f"increasing exposure {current_exposure/1000:.0f}ms → {new_exposure/1000:.0f}ms"
+            )
+        elif background > self.max_background:
+            # Too bright - decrease exposure
+            new_exposure = int(current_exposure / self.adjustment_factor)
+            logger.info(
+                f"SNR AE: Background too high ({background:.1f} > {self.max_background}), "
+                f"decreasing exposure {current_exposure/1000:.0f}ms → {new_exposure/1000:.0f}ms"
+            )
+        else:
+            # Background is in acceptable range
+            logger.debug(f"SNR AE: OK (bg={background:.1f} ADU)")
+            return None
+
+        # Clamp to limits
+        new_exposure = max(self.min_exposure, min(self.max_exposure, new_exposure))
+        return new_exposure
+
+    def get_status(self) -> dict:
+        return {
+            "mode": "SNR",
+            "target_background": self.target_background,
+            "min_background": self.min_background,
+            "max_background": self.max_background,
+            "min_exposure": self.min_exposure,
+            "max_exposure": self.max_exposure,
+        }
+
+
 class ExposurePIDController:
     """
     PID controller for automatic camera exposure adjustment.
@@ -666,6 +841,7 @@ class ExposurePIDController:
         self._integral = 0.0
         self._last_error: Optional[float] = None
         self._zero_star_count = 0
+        self._nonzero_star_count = 0  # Hysteresis: consecutive non-zero solves
         self._last_adjustment_time = 0.0
         self._zero_star_handler = zero_star_handler or SweepZeroStarHandler(
             min_exposure=min_exposure, max_exposure=max_exposure
@@ -682,6 +858,7 @@ class ExposurePIDController:
         self._integral = 0.0
         self._last_error = None
         self._zero_star_count = 0
+        self._nonzero_star_count = 0
         self._last_adjustment_time = 0.0
         self._zero_star_handler.reset()
         logger.debug("PID controller reset")
@@ -726,6 +903,16 @@ class ExposurePIDController:
 
         # Select gains: conservative when decreasing, aggressive when increasing
         kp, ki, kd = self.gains_decrease if error < 0 else self.gains_increase
+
+        # Reset integral when error changes sign to prevent accumulated integral
+        # from crashing exposure when conditions change suddenly
+        # (e.g., going from too many stars to too few stars)
+        if self._last_error is not None:
+            if (error > 0 and self._last_error < 0) or (error < 0 and self._last_error > 0):
+                logger.debug(
+                    f"PID: Error sign changed ({self._last_error:.0f} → {error:.0f}), resetting integral"
+                )
+                self._integral = 0.0
 
         # PID calculation
         p_term = kp * error

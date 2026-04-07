@@ -146,19 +146,13 @@ class SQM:
     Sky Quality Meter - represents the sky brightness measurement.
     """
 
-    value: float = (
-        20.15  # mag/arcsec² - default typical dark sky value (processed 8-bit)
-    )
-    value_raw: Optional[float] = (
-        None  # mag/arcsec² - from raw 16-bit pipeline (more accurate)
-    )
+    value: float = 20.15  # mag/arcsec² - default typical dark sky value
     source: str = "None"  # "None", "Calculated", "Manual", etc.
     last_update: Optional[str] = None  # ISO timestamp of last update
 
     def __str__(self):
-        raw_str = f", raw={self.value_raw:.2f}" if self.value_raw is not None else ""
         return (
-            f"SQM(value={self.value:.2f} mag/arcsec²{raw_str}, "
+            f"SQM(value={self.value:.2f} mag/arcsec², "
             f"source={self.source}, "
             f"last_update={self.last_update or 'Never'})"
         )
@@ -246,6 +240,10 @@ class Location:
 class SharedStateObj:
     def __init__(self):
         self.__power_state = 1
+        # self.__solve_state
+        # None = No solve attempted yet
+        # True = Valid solve data from either IMU or Camera
+        # False = Invalid solve data
         self.__solve_state = None
         self.__ui_state = None
         self.__last_image_metadata = {
@@ -260,6 +258,8 @@ class SharedStateObj:
         self.__imu = None
         self.__location: Location = Location()
         self.__sqm: SQM = SQM()
+        self.__noise_floor: float = 10.0  # Adaptive noise floor in ADU (default fallback)
+        self.__sqm_details: dict = {}  # Full SQM calculation details for calibration
         self.__datetime = None
         self.__datetime_time = None
         self.__screen = None
@@ -358,6 +358,22 @@ class SharedStateObj:
     def set_sqm(self, sqm: SQM):
         """Update the SQM value"""
         self.__sqm = sqm
+
+    def noise_floor(self) -> float:
+        """Return the adaptive noise floor in ADU"""
+        return self.__noise_floor
+
+    def set_noise_floor(self, v: float):
+        """Update the adaptive noise floor (from SQM calculator)"""
+        self.__noise_floor = v
+
+    def sqm_details(self) -> dict:
+        """Return the full SQM calculation details"""
+        return self.__sqm_details
+
+    def set_sqm_details(self, v: dict):
+        """Update the SQM calculation details"""
+        self.__sqm_details = v
 
     def get_sky_brightness(self):
         """Return just the numeric SQM value for convenience"""

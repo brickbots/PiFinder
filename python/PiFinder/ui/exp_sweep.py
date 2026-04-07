@@ -15,6 +15,7 @@ from PiFinder.ui.base import UIModule
 
 class SweepState(Enum):
     """Sweep wizard states"""
+
     ASK_SQM = "ask_sqm"  # Ask for reference SQM value
     CONFIRM = "confirm"  # Confirm ready to start
     CAPTURING = "capturing"  # Capturing sweep
@@ -44,8 +45,8 @@ class UIExpSweep(UIModule):
         self.start_time = None
         self.sweep_dir = None  # Track the actual sweep directory
         self.initial_file_count = None  # Files that existed before we started
-        self.total_images = 100  # Expected number of images
-        self.estimated_duration = 240  # 4 minutes estimated
+        self.total_images = 20  # Expected number of images
+        self.estimated_duration = 60  # ~1 minute estimated
 
     def active(self):
         """Called when module becomes active"""
@@ -96,7 +97,12 @@ class UIExpSweep(UIModule):
                 display = self.sqm_input + "_" * (2 - len(self.sqm_input)) + "." + "__"
             else:
                 # Insert decimal point after 2 digits
-                display = self.sqm_input[:2] + "." + self.sqm_input[2:] + "_" * (4 - len(self.sqm_input))
+                display = (
+                    self.sqm_input[:2]
+                    + "."
+                    + self.sqm_input[2:]
+                    + "_" * (4 - len(self.sqm_input))
+                )
         else:
             display = "__.__"
 
@@ -147,13 +153,13 @@ class UIExpSweep(UIModule):
 
         self.draw.text(
             (10, 65),
-            "100 images",
+            "20 images",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
         )
         self.draw.text(
             (10, 77),
-            "~4 minutes",
+            "~1 minute",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
         )
@@ -173,7 +179,9 @@ class UIExpSweep(UIModule):
             self.sweep_started = True
             self.start_time = time.time()
             # Send command with reference SQM
-            cmd = f"capture_exp_sweep:{self.reference_sqm if self.reference_sqm else 0.0}"
+            cmd = (
+                f"capture_exp_sweep:{self.reference_sqm if self.reference_sqm else 0.0}"
+            )
             self.command_queues["camera"].put(cmd)
             # Wait a moment for sweep directory to be created
             time.sleep(0.2)
@@ -416,7 +424,9 @@ class UIExpSweep(UIModule):
             if self.sqm_input and len(self.sqm_input) == 4:
                 # Convert to XX.XX format
                 try:
-                    self.reference_sqm = float(self.sqm_input[:2] + "." + self.sqm_input[2:])
+                    self.reference_sqm = float(
+                        self.sqm_input[:2] + "." + self.sqm_input[2:]
+                    )
                     self.state = SweepState.CONFIRM
                 except ValueError:
                     # Invalid input, clear and try again

@@ -64,7 +64,7 @@ site, you can turn the brightness down to preserve your dark-adapted vision.
    at the eyepiece in especially dark environments. The default is 30 seconds and this can be configured, 
    or turned off completely, in the :ref:`user_guide:settings menu`
 
-   Pressing any button, or moving the PFinder will wake it from power save mode.
+   Pressing any button, or moving the PiFinder will wake it from power save mode.
 
 The Menu System
 =====================================
@@ -88,7 +88,7 @@ Screens
 --------
 
 When you choose some menu items, like Camera, these will lead you to a specific screen such as showing the 
-camera preview, a start chart or details about a particular catalog object.  Each one of the screens is
+camera preview, a star chart or details about a particular catalog object.  Each one of the screens is
 covered in more detail below.
 
 Options
@@ -556,7 +556,7 @@ Web Interface
 The PiFinder provides an easy to use web interface which allows you to:
 
 * See the current PiFinder status
-* Remote control the PiFinder via a virtural screen and keypad
+* Remote control the PiFinder via a virtual screen and keypad
 * Change network settings and connect to new WiFi networks
 * Backup and restore your observing logs, settings and other data
 * View and download your logged observations
