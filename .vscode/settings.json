@@ -1,0 +1,9 @@
+{
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportUndefinedVariable": "none"
+  },
+  "files.associations": {
+    "*logconf*.json": "jsonc"
+  }
+}
+
