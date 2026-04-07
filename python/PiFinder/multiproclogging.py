@@ -67,14 +67,18 @@ class MultiprocLogging:
         log_conf: Optional[Path] = None,
         out_file: Optional[Path] = None,
         formatter: str = "%(asctime)s %(processName)s-%(name)s:%(levelname)s:%(message)s",
+        console_only: bool = False,
     ):
         self._queues: List[Queue] = []
         self._log_conf_file = log_conf
         self._log_output_file = out_file
         self._formatter = formatter
+        self._console_only = console_only
         self._proc: Optional[Process] = None
 
         self.apply_config()
+        if console_only:
+            logging.getLogger().setLevel(logging.DEBUG)
 
     def apply_config(self):
         if self._log_conf_file is not None:
@@ -94,7 +98,7 @@ class MultiprocLogging:
         self._proc = Process(
             target=self._run_sink,
             args=(
-                self._log_output_file,
+                None if self._console_only else self._log_output_file,
                 self._queues,
             ),
         )
@@ -109,7 +113,7 @@ class MultiprocLogging:
         self._queues[0].put(None)
         self._proc.join()
 
-    def _run_sink(self, output: Path, queues: List[Queue]):
+    def _run_sink(self, output: Optional[Path], queues: List[Queue]):
         """
         This is the process that consumes every log message (sink)
 
@@ -124,15 +128,22 @@ class MultiprocLogging:
         for hdlr in hdlrs:
             rLogger.removeHandler(hdlr)
 
-        # Set maxBytes to 50MB (50 * 1024 * 1024 bytes) and keep 5 backup files
-        h = logging.handlers.RotatingFileHandler(
-            output, maxBytes=50 * 1024 * 1024, backupCount=5, encoding="utf-8"
-        )
+        if output is None:
+            import sys
+
+            h: logging.Handler = logging.StreamHandler(sys.stderr)
+            rLogger.setLevel(logging.DEBUG)
+            rLogger.warning("Starting logging process (console only, no file output)")
+        else:
+            # Set maxBytes to 50MB (50 * 1024 * 1024 bytes) and keep 5 backup files
+            h = logging.handlers.RotatingFileHandler(
+                output, maxBytes=50 * 1024 * 1024, backupCount=5, encoding="utf-8"
+            )
+            rLogger.warning("Starting logging process")
+            rLogger.warning("Logging to %s", output)
         f = logging.Formatter(self._formatter)
         h.setFormatter(f)
         rLogger.addHandler(h)
-        rLogger.warning("Starting logging process")
-        rLogger.warning("Logging to %s", output)
 
         # import logging_tree
         # logging_tree.printout()
@@ -172,6 +183,8 @@ class MultiprocLogging:
         This method needs to be called once in each process, so that log records get forwarded to the single process writing
         log messages.
         """
+        import os
+
         assert queue is not None, "You passed a None to configurer! You cannot do that"
         assert isinstance(
             queue, multiprocessing.queues.Queue
@@ -182,8 +195,11 @@ class MultiprocLogging:
             config = json5.load(logconf)
             logging.config.dictConfig(config)
 
-        h = logging.handlers.QueueHandler(queue)
         root = logging.getLogger()
+        if os.environ.get("PIFINDER_DEBUG_NO_FILE_LOGS"):
+            root.setLevel(logging.DEBUG)
+
+        h = logging.handlers.QueueHandler(queue)
         root.addHandler(h)
 
     def set_log_conf_file(self, config: Path) -> None:

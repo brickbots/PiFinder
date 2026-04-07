@@ -164,17 +164,41 @@ const LINE_HEIGHT = 20;
 let updateInterval;
 let lastLine = '';
 
+// Backoff state for when the log file is not yet available.
+// This page intentionally does NOT fetch the home route, so iwgetid is never triggered here.
+const MIN_POLL_INTERVAL = 1000;
+const MAX_POLL_INTERVAL = 10000;
+let currentPollInterval = MIN_POLL_INTERVAL;
+
+function scheduleFetch() {
+    clearInterval(updateInterval);
+    updateInterval = setInterval(fetchLogs, currentPollInterval);
+}
+
 function fetchLogs() {
     if (isPaused) return;
-    
+
     fetch(`/logs/stream?position=${currentPosition}`)
         .then(response => response.json())
         .then(data => {
+            if (data.file_not_found) {
+                // Back off exponentially up to MAX_POLL_INTERVAL
+                currentPollInterval = Math.min(currentPollInterval * 2, MAX_POLL_INTERVAL);
+                scheduleFetch();
+                return;
+            }
+
+            // Reset backoff on a successful response
+            if (currentPollInterval !== MIN_POLL_INTERVAL) {
+                currentPollInterval = MIN_POLL_INTERVAL;
+                scheduleFetch();
+            }
+
             if (!data.logs || data.logs.length === 0) return;
-            
+
             currentPosition = data.position;
             const logContent = document.getElementById('logContent');
-            
+
             // Add new logs to buffer, skipping duplicates
             data.logs.forEach(line => {
                 if (line !== lastLine) {
@@ -182,12 +206,12 @@ function fetchLogs() {
                     lastLine = line;
                 }
             });
-            
+
             // Trim buffer if it exceeds size
             if (logBuffer.length > BUFFER_SIZE) {
                 logBuffer = logBuffer.slice(-BUFFER_SIZE);
             }
-            
+
             // Update display
             updateLogDisplay();
         })
@@ -239,8 +263,10 @@ function restartFromEnd() {
     currentPosition = 0;
     logBuffer = [];
     isPaused = false;
+    currentPollInterval = MIN_POLL_INTERVAL;
     document.getElementById('pauseButton').textContent = 'Pause';
     fetchLogs();
+    scheduleFetch();
 }
 
 // Start fetching logs when page loads
@@ -251,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Start log fetching
     fetchLogs();
-    updateInterval = setInterval(fetchLogs, 1000);
+    scheduleFetch();
     
     // Hide loading message after first logs appear
     const observer = new MutationObserver((mutations) => {
