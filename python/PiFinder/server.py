@@ -851,15 +851,21 @@ class Server:
             import glob
 
             configs = []
-            active = os.path.realpath("pifinder_logconf.json") if os.path.exists("pifinder_logconf.json") else None
+            active = (
+                os.path.realpath("pifinder_logconf.json")
+                if os.path.exists("pifinder_logconf.json")
+                else None
+            )
             for path in sorted(glob.glob("logconf_*.json")):
-                stem = path[len("logconf_"):-len(".json")]
+                stem = path[len("logconf_") : -len(".json")]
                 display = stem.replace("_", " ").title()
-                configs.append({
-                    "file": path,
-                    "name": display,
-                    "active": os.path.realpath(path) == active,
-                })
+                configs.append(
+                    {
+                        "file": path,
+                        "name": display,
+                        "active": os.path.realpath(path) == active,
+                    }
+                )
             return {"configs": configs}
 
         @app.route("/logs/switch_config", method="post")
@@ -867,10 +873,17 @@ class Server:
         def switch_log_config():
             """Atomically repoint pifinder_logconf.json to the chosen config, then restart."""
             logconf_file = request.forms.get("logconf_file", "").strip()
-            if not logconf_file or not logconf_file.startswith("logconf_") or not logconf_file.endswith(".json"):
+            if (
+                not logconf_file
+                or not logconf_file.startswith("logconf_")
+                or not logconf_file.endswith(".json")
+            ):
                 return {"status": "error", "message": "Invalid log config file name"}
             if not os.path.exists(logconf_file):
-                return {"status": "error", "message": f"Log config file not found: {logconf_file}"}
+                return {
+                    "status": "error",
+                    "message": f"Log config file not found: {logconf_file}",
+                }
             try:
                 link = "pifinder_logconf.json"
                 tmp = link + ".tmp"
@@ -891,9 +904,15 @@ class Server:
                 return {"status": "error", "message": "No file provided"}
             filename = upload.filename
             if not filename.startswith("logconf_") or not filename.endswith(".json"):
-                return {"status": "error", "message": "File must be named logconf_<name>.json"}
+                return {
+                    "status": "error",
+                    "message": "File must be named logconf_<name>.json",
+                }
             if os.path.exists(filename):
-                return {"status": "error", "message": f"File already exists: {filename}"}
+                return {
+                    "status": "error",
+                    "message": f"File already exists: {filename}",
+                }
             try:
                 upload.save(filename, overwrite=False)
                 logger.info("Uploaded log config: %s", filename)
