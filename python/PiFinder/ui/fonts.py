@@ -3,7 +3,6 @@
 
 from pathlib import Path
 from PIL import ImageFont
-from PiFinder import config
 
 
 class Font:
@@ -20,16 +19,10 @@ class Font:
         screen_width: int = 128,
         height: int = 0,
         width: int = 0,
-        use_layout_engine: bool = True,
-    ) -> None:
-        # Some languages (zh) work better without layout_engine
-        # for better Unicode support
-        if use_layout_engine:
-            self.font = ImageFont.truetype(
-                ttf_file, size, layout_engine=ImageFont.Layout.BASIC
-            )
-        else:
-            self.font = ImageFont.truetype(ttf_file, size)
+    ):
+        self.font = ImageFont.truetype(
+            ttf_file, size, layout_engine=ImageFont.Layout.BASIC
+        )
 
         # calculate height/width
         # Use several chars to get space between
@@ -50,44 +43,14 @@ class Fonts:
         huge_size=35,
         screen_width=128,
     ):
-        font_path = str(Path(Path.cwd(), "../fonts"))
+        font_path = str(Path(__file__).parent.parent.parent.parent / "fonts")
+        boldttf = str(Path(font_path, "RobotoMonoNerdFontMono-Bold.ttf"))
+        regularttf = str(Path(font_path, "RobotoMonoNerdFontMono-Regular.ttf"))
 
-        # Check for chinese language specifically
-        cfg = config.Config()
-        lang = cfg.get_option("language", "en")
-        if lang == "zh":
-            # Use Chinese font for Chinese language
-            chinesettf = str(
-                Path(font_path, "sarasa-mono-sc-light-nerd-font+patched.ttf")
-            )
-            boldttf = chinesettf
-            regularttf = chinesettf
-            use_layout_engine = False
-        else:
-            # Use default fonts for other languages
-            boldttf = str(Path(font_path, "RobotoMonoNerdFontMono-Bold.ttf"))
-            regularttf = str(Path(font_path, "RobotoMonoNerdFontMono-Regular.ttf"))
-            use_layout_engine = True
+        self.base = Font(boldttf, base_size, screen_width)  # 10
+        self.bold = Font(boldttf, bold_size, screen_width)  # 12
+        self.large = Font(regularttf, large_size, screen_width)  # 15
+        self.small = Font(boldttf, small_size, screen_width)  # 8
+        self.huge = Font(boldttf, huge_size, screen_width)  # 35
 
-        self.base = Font(
-            boldttf, base_size, screen_width, use_layout_engine=use_layout_engine
-        )  # 10
-        self.bold = Font(
-            boldttf, bold_size, screen_width, use_layout_engine=use_layout_engine
-        )  # 12
-        self.large = Font(
-            regularttf, large_size, screen_width, use_layout_engine=use_layout_engine
-        )  # 15
-        self.small = Font(
-            boldttf, small_size, screen_width, use_layout_engine=use_layout_engine
-        )  # 8
-        self.huge = Font(
-            boldttf, huge_size, screen_width, use_layout_engine=use_layout_engine
-        )  # 35
-
-        self.icon_bold_large = Font(
-            boldttf,
-            int(base_size * 1.5),
-            screen_width,
-            use_layout_engine=use_layout_engine,
-        )  # 15
+        self.icon_bold_large = Font(boldttf, int(base_size * 1.5), screen_width)  # 15

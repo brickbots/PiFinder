@@ -308,7 +308,7 @@ class SQM:
                     excluded_stars.add(i)
                     excluded_stars.add(j)
                     logger.debug(
-                        f"CRITICAL overlap: stars {i} and {j} (d={distance:.1f}px < {2*aperture_radius}px)"
+                        f"CRITICAL overlap: stars {i} and {j} (d={distance:.1f}px < {2 * aperture_radius}px)"
                     )
                 # HIGH: Aperture inside another star's annulus (background contamination)
                 elif distance < aperture_radius + annulus_outer_radius:
@@ -456,7 +456,7 @@ class SQM:
 
                 logger.info(
                     f"Overlap correction: excluded {n_stars_excluded}/{n_stars_original} stars "
-                    f"({n_stars_excluded*100//n_stars_original}%), using {len(valid_indices)} stars"
+                    f"({n_stars_excluded * 100 // n_stars_original}%), using {len(valid_indices)} stars"
                 )
 
                 if len(valid_indices) < 3:

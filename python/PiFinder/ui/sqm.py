@@ -169,7 +169,7 @@ class UISQM(UIModule):
                 if image_metadata and "exposure_time" in image_metadata:
                     exp_ms = image_metadata["exposure_time"] / 1000  # Convert µs to ms
                     if exp_ms >= 1000:
-                        exp_str = f"{exp_ms/1000:.2f}s"
+                        exp_str = f"{exp_ms / 1000:.2f}s"
                     else:
                         exp_str = f"{exp_ms:.0f}ms"
                     self.draw.text(
