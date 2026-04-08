@@ -1,15 +1,27 @@
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
 repos:
-  - repo: https://github.com/saltstack/mirrors-nox
-    rev: 'v2022.11.21'  # Use the sha / tag you want to point at
+  - repo: local
     hooks:
-      - id: nox
-        files: ^.*\.py$
-        args:
-          - -f
-          - python/noxfile.py
-          - -s
-          - type_hints
-          - smoke_tests
-          - --
+      - id: ruff-lint
+        name: ruff lint
+        entry: bash -c 'cd python && ruff check'
+        language: system
+        files: ^python/.*\.py$
+        pass_filenames: false
+      - id: ruff-format
+        name: ruff format check
+        entry: bash -c 'cd python && ruff format --check'
+        language: system
+        files: ^python/.*\.py$
+        pass_filenames: false
+      - id: mypy
+        name: mypy type check
+        entry: bash -c 'cd python && mypy .'
+        language: system
+        files: ^python/.*\.py$
+        pass_filenames: false
+      - id: smoke-tests
+        name: smoke tests
+        entry: bash -c 'cd python && pytest -m smoke'
+        language: system
+        files: ^python/.*\.py$
+        pass_filenames: false

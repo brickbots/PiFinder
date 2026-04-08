@@ -94,6 +94,7 @@ class UIModule:
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options: dict
     _CAM_ICON = ""
+    _CAM_ICON_HOLLOW = ""
     _IMU_ICON = ""
     _GPS_ICON = "󰤉"
     _LEFT_ARROW = ""
@@ -312,7 +313,7 @@ class UIModule:
                     (6, 1), _(self.title), font=self.fonts.bold.font, fill=fg
                 )
             imu = self.shared_state.imu()
-            moving = True if imu and imu["quat"] and imu["moving"] else False
+            moving = True if imu and imu["pos"] and imu["moving"] else False
 
             # GPS status
             if self.shared_state.altaz_ready():
@@ -348,12 +349,28 @@ class UIModule:
                     # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
                     if self._unmoved:
-                        self.draw.text(
-                            (self.display_class.resX * 0.91, -2),
-                            self._CAM_ICON,
-                            font=self.fonts.icon_bold_large.font,
-                            fill=var_fg,
-                        )
+                        is_test = self.config_object.get_option("test_mode", False)
+                        icon_x = self.display_class.resX * 0.91
+                        icon_y = -2
+                        if is_test:
+                            # Invert camera icon: white bg, dark icon
+                            self.draw.rectangle(
+                                [icon_x - 1, 0, icon_x + 13, 13],
+                                fill=self.colors.get(128),
+                            )
+                            self.draw.text(
+                                (icon_x, icon_y),
+                                self._CAM_ICON,
+                                font=self.fonts.icon_bold_large.font,
+                                fill=self.colors.get(0),
+                            )
+                        else:
+                            self.draw.text(
+                                (icon_x, icon_y),
+                                self._CAM_ICON,
+                                font=self.fonts.icon_bold_large.font,
+                                fill=var_fg,
+                            )
 
                     if len(self.title) < 9:
                         # Draw rotating constellation/SQM wheel (replaces static constellation)

@@ -20,7 +20,7 @@ class KeyboardNone(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, shared_state, log_queue):
+def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
     MultiprocLogging.configurer(log_queue)
     KeyboardNone(q)
 
