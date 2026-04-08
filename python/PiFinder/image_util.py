@@ -10,7 +10,6 @@ function
 
 from PIL import Image, ImageChops
 import numpy as np
-import scipy.ndimage
 
 
 def make_red(in_image, colors):
@@ -37,6 +36,8 @@ def gamma_correct(in_value, gamma):
 
 
 def subtract_background(image, percent=1):
+    import scipy.ndimage
+
     image = np.asarray(image, dtype=np.float32)
     if image.ndim == 3:
         assert image.shape[2] in (1, 3), "Colour image must have 1 or 3 colour channels"
