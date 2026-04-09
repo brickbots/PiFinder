@@ -13,6 +13,7 @@ from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.sqm import UISQM
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
+from PiFinder.ui.obs_list import UIObsList
 from PiFinder.ui.radec_entry import UIRADecEntry
 import PiFinder.ui.callbacks as callbacks
 
@@ -243,6 +244,10 @@ pifinder_menu = {
                     "class": UIObjectList,
                     "objects": "recent",
                     "label": "recent",
+                },
+                {
+                    "name": _("Obs Lists"),
+                    "class": UIObsList,
                 },
                 {
                     "name": _("Custom"),
