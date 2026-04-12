@@ -757,7 +757,7 @@ class CatalogBackgroundLoader:
             with self._init_lock:
                 if not self.initialized:
                     logger.debug("Comets not yet initialized, skip periodic update...")
-                    
+
     def stop(self) -> None:
         """Stop background loading gracefully"""
         self._stop_flag.set()

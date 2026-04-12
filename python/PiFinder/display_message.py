@@ -16,7 +16,6 @@ import sys
 import argparse
 from PIL import Image, ImageDraw
 from PiFinder import displays
-from PiFinder import config
 
 
 def display_message(lines, brightness=255, display_type=None):
@@ -107,26 +106,28 @@ Examples:
   %(prog)s --brightness 200 "Bright message"
   %(prog)s --display st7789 "Message for LCD"
         """,
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     parser.add_argument(
         "message",
         nargs="+",
-        help="Message text (multiple arguments will be displayed on separate lines)"
+        help="Message text (multiple arguments will be displayed on separate lines)",
     )
 
     parser.add_argument(
-        "-b", "--brightness",
+        "-b",
+        "--brightness",
         type=int,
         default=125,
-        help="Display brightness (0-255, default: 125)"
+        help="Display brightness (0-255, default: 125)",
     )
 
     parser.add_argument(
-        "-d", "--display",
+        "-d",
+        "--display",
         choices=["ssd1351", "st7789", "pg_128", "pg_320"],
-        help="Display hardware type (auto-detected from config if not specified)"
+        help="Display hardware type (auto-detected from config if not specified)",
     )
 
     args = parser.parse_args()
@@ -138,11 +139,16 @@ Examples:
 
     # Display the message
     try:
-        display_message(args.message, brightness=args.brightness, display_type=args.display)
-        print(f"Message displayed successfully on {args.display or 'auto-detected'} display")
+        display_message(
+            args.message, brightness=args.brightness, display_type=args.display
+        )
+        print(
+            f"Message displayed successfully on {args.display or 'auto-detected'} display"
+        )
     except Exception as e:
         print(f"Error displaying message: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

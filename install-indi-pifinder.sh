@@ -63,9 +63,46 @@ else
     git clone --branch v2.1.6 --depth 1 https://github.com/indilib/indi.git
 fi
 
+# Build with-out camera drivers to save time and resources. 
 mkdir -p ./indi/build
 cd ./indi/build
-cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/usr ..
+cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/usr \
+      -DWITH_WEBCAM=OFF \
+      -DWITH_SX=OFF \
+      -DWITH_MI=OFF \
+      -DWITH_FLI=OFF \
+      -DWITH_SBIG=OFF \
+      -DWITH_INOVAPLX=OFF \
+      -DWITH_APOGEE=OFF \
+      -DWITH_FFMV=OFF \
+      -DWITH_QHY=OFF \
+      -DWITH_GPHOTO=OFF \
+      -DWITH_QSI=OFF \
+      -DWITH_FISHCAMP=OFF \
+      -DWITH_DSI=OFF \
+      -DWITH_ASICAM=OFF \
+      -DWITH_GIGE=OFF \
+      -DWITH_NIGHTSCAPE=OFF \
+      -DWITH_ATIK=OFF \
+      -DWITH_TOUPCAM=OFF \
+      -DWITH_ALTAIRCAM=OFF \
+      -DWITH_BRESSERCAM=OFF \
+      -DWITH_MALLINCAM=OFF \
+      -DWITH_MEADECAM=OFF \
+      -DWITH_NNCAM=OFF \
+      -DWITH_OGMACAM=OFF \
+      -DWITH_OPENOGMA=OFF \
+      -DWITH_OMEGONPROCAM=OFF \
+      -DWITH_STARSHOOTG=OFF \
+      -DWITH_TSCAM=OFF \
+      -DWITH_SVBONYCAM=OFF \
+      -DWITH_PENTAX=OFF \
+      -DWITH_ORION_SSG3=OFF \
+      -DWITH_SVBONY=OFF \
+      -DWITH_PLAYERONE=OFF \
+      -DWITH_MGEN=OFF \
+      -DWITH_ASTROASIS=OFF \
+      ..
 make -j2
 sudo make install
 
@@ -86,10 +123,45 @@ else
 fi
 
 
-# Build libs
+# Build libs, with-out camera drivers, to save time and resources.
 mkdir -p ./indi-3rdparty/build-libs
 cd ./indi-3rdparty/build-libs
-cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Debug -DBUILD_LIBS=1 ..
+cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Debug -DBUILD_LIBS=1 \
+      -DWITH_WEBCAM=OFF \
+      -DWITH_SX=OFF \
+      -DWITH_MI=OFF \
+      -DWITH_FLI=OFF \
+      -DWITH_SBIG=OFF \
+      -DWITH_INOVAPLX=OFF \
+      -DWITH_APOGEE=OFF \
+      -DWITH_FFMV=OFF \
+      -DWITH_QHY=OFF \
+      -DWITH_GPHOTO=OFF \
+      -DWITH_QSI=OFF \
+      -DWITH_FISHCAMP=OFF \
+      -DWITH_DSI=OFF \
+      -DWITH_ASICAM=OFF \
+      -DWITH_GIGE=OFF \
+      -DWITH_NIGHTSCAPE=OFF \
+      -DWITH_ATIK=OFF \
+      -DWITH_TOUPCAM=OFF \
+      -DWITH_ALTAIRCAM=OFF \
+      -DWITH_BRESSERCAM=OFF \
+      -DWITH_MALLINCAM=OFF \
+      -DWITH_MEADECAM=OFF \
+      -DWITH_NNCAM=OFF \
+      -DWITH_OGMACAM=OFF \
+      -DWITH_OPENOGMA=OFF \
+      -DWITH_OMEGONPROCAM=OFF \
+      -DWITH_STARSHOOTG=OFF \
+      -DWITH_TSCAM=OFF \
+      -DWITH_SVBONYCAM=OFF \
+      -DWITH_PENTAX=OFF \
+      -DWITH_ORION_SSG3=OFF \
+      -DWITH_SVBONY=OFF \
+      -DWITH_PLAYERONE=OFF \
+      -DWITH_MGEN=OFF \
+      -DWITH_ASTROASIS=OFF \
 make -j2
 sudo make install
 
@@ -102,7 +174,43 @@ cd ./indi-3rdparty/build-drivers
 export LDFLAGS="-ludev"
 export CXXFLAGS="-DUSE_UDEV"
 
-cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Debug -DCMAKE_SHARED_LINKER_FLAGS="-ludev" ..
+cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Debug -DCMAKE_SHARED_LINKER_FLAGS="-ludev" \
+      -DWITH_WEBCAM=OFF \
+      -DWITH_SX=OFF \
+      -DWITH_MI=OFF \
+      -DWITH_FLI=OFF \
+      -DWITH_SBIG=OFF \
+      -DWITH_INOVAPLX=OFF \
+      -DWITH_APOGEE=OFF \
+      -DWITH_FFMV=OFF \
+      -DWITH_QHY=OFF \
+      -DWITH_GPHOTO=OFF \
+      -DWITH_QSI=OFF \
+      -DWITH_FISHCAMP=OFF \
+      -DWITH_DSI=OFF \
+      -DWITH_ASICAM=OFF \
+      -DWITH_GIGE=OFF \
+      -DWITH_NIGHTSCAPE=OFF \
+      -DWITH_ATIK=OFF \
+      -DWITH_TOUPCAM=OFF \
+      -DWITH_ALTAIRCAM=OFF \
+      -DWITH_BRESSERCAM=OFF \
+      -DWITH_MALLINCAM=OFF \
+      -DWITH_MEADECAM=OFF \
+      -DWITH_NNCAM=OFF \
+      -DWITH_OGMACAM=OFF \
+      -DWITH_OPENOGMA=OFF \
+      -DWITH_OMEGONPROCAM=OFF \
+      -DWITH_STARSHOOTG=OFF \
+      -DWITH_TSCAM=OFF \
+      -DWITH_SVBONYCAM=OFF \
+      -DWITH_PENTAX=OFF \
+      -DWITH_ORION_SSG3=OFF \
+      -DWITH_SVBONY=OFF \
+      -DWITH_PLAYERONE=OFF \
+      -DWITH_MGEN=OFF \
+      -DWITH_ASTROASIS=OFF \
+      ..
 make -j2
 sudo make install
 
@@ -158,7 +266,8 @@ echo "PiFinder: Install time synchronization..."
 echo "==============================================================================="
 
 sudo apt install chrony -y
-sudo bash -c 'echo -e "\n# Sync time from GPSD\nrefclock SHM 0 poll 3 refid gps1" >> /etc/chrony/chrony.conf'
+
+sudo grep -q "refclock.*gps1" /etc/chrony/chrony.conf || sudo bash -c 'echo -e "\n# Sync time from GPSD\nrefclock SHM 0 poll 3 refid gps1" >> /etc/chrony/chrony.conf'
 sudo systemctl restart chrony
 
 

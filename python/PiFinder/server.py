@@ -952,7 +952,9 @@ class Server:
         @auth_required
         def indi_status_json():
             response.content_type = "application/json"
-            return json.dumps(mountcontrol_alignment.read_status(), indent=2, default=str)
+            return json.dumps(
+                mountcontrol_alignment.read_status(), indent=2, default=str
+            )
 
         @app.route("/key_callback", method="POST")
         @auth_required

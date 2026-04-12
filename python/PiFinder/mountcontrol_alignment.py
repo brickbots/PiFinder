@@ -51,6 +51,7 @@ STATUS_FILE_PATH: Path = utils.data_dir / "mountcontrol_alignment_status.json"
 # Config loading and merging
 # ---------------------------------------------------------------------------
 
+
 def _load_yaml_safe(path: Path) -> Optional[dict]:
     """Load a YAML file, returning None on any error."""
     try:
@@ -133,6 +134,7 @@ def load_merged_config() -> dict:
 # Status persistence
 # ---------------------------------------------------------------------------
 
+
 def _save_status(status: dict) -> None:
     try:
         STATUS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -159,6 +161,7 @@ def read_status() -> dict:
 # ---------------------------------------------------------------------------
 # PyIndi helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_switch_value(device, prop_name: str, elem_name: str) -> Optional[str]:
     """
@@ -199,6 +202,7 @@ def _apply_switch_command(
 # ---------------------------------------------------------------------------
 # Main entry point (called from mountcontrol_indi.init_mount)
 # ---------------------------------------------------------------------------
+
 
 def check_and_disable_alignment(client, device, console_queue=None) -> None:
     """
@@ -257,7 +261,10 @@ def check_and_disable_alignment(client, device, console_queue=None) -> None:
         if current_val is None:
             logger.debug(
                 "Driver '%s': property '%s' / element '%s' not found on '%s'",
-                key, detect_prop, detect_elem, device_name,
+                key,
+                detect_prop,
+                detect_elem,
+                device_name,
             )
             status["drivers"][key] = result
             continue
@@ -269,7 +276,8 @@ def check_and_disable_alignment(client, device, console_queue=None) -> None:
         if not is_active:
             logger.info(
                 "Driver '%s' (%s): alignment subsystem is already inactive",
-                key, device_name,
+                key,
+                device_name,
             )
             status["drivers"][key] = result
             continue
@@ -284,7 +292,9 @@ def check_and_disable_alignment(client, device, console_queue=None) -> None:
             "INDI alignment subsystem ACTIVE on '%s' (%s)%s",
             device_name,
             drv.get("description", key),
-            " — will disable" if disable_commands else " — no disable commands configured",
+            " — will disable"
+            if disable_commands
+            else " — no disable commands configured",
         )
         _push_console(console_queue, msg)
 
@@ -308,7 +318,10 @@ def check_and_disable_alignment(client, device, console_queue=None) -> None:
 
             logger.info(
                 "Sending: device=%s prop=%s element=%s value=%s",
-                device_name, prop, elem, val,
+                device_name,
+                prop,
+                elem,
+                val,
             )
             ok = _apply_switch_command(client, device, prop, elem, val)
             result["commands_sent"].append(
@@ -329,7 +342,9 @@ def check_and_disable_alignment(client, device, console_queue=None) -> None:
             _push_console(console_queue, f"INDI: alignment disabled on {device_name}")
         else:
             logger.error("Alignment disable INCOMPLETE on '%s'", device_name)
-            _push_console(console_queue, f"INDI: alignment disable FAILED on {device_name}")
+            _push_console(
+                console_queue, f"INDI: alignment disable FAILED on {device_name}"
+            )
 
         status["drivers"][key] = result
 
@@ -348,6 +363,7 @@ def _push_console(console_queue, message: str) -> None:
 # ---------------------------------------------------------------------------
 # Utility functions for the web server
 # ---------------------------------------------------------------------------
+
 
 def get_repo_config_path() -> Path:
     return REPO_CONFIG_PATH
