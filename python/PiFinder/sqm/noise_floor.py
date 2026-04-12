@@ -359,7 +359,9 @@ class NoiseFloorEstimator:
             calibration_file = data_dir / f"sqm_calibration_{self.camera_type}.json"
 
             if not calibration_file.exists():
-                logger.info(f"No saved calibration found for {self.camera_type}, using default profile")
+                logger.info(
+                    f"No saved calibration found for {self.camera_type}, using default profile"
+                )
                 return False
 
             with open(calibration_file, "r") as f:

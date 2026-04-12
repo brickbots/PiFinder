@@ -35,40 +35,18 @@ SQM_CALCULATION_INTERVAL_SECONDS = 5.0
 
 
 def create_sqm_calculator(shared_state):
-    """Create a new SQM calculator instance for PROCESSED images with current calibration."""
-    # Get camera type from shared state and use "_processed" profile
-    # since images are already processed 8-bit (not raw)
+    """Create a new SQM calculator instance with current calibration."""
     camera_type = shared_state.camera_type()
     camera_type_processed = f"{camera_type}_processed"
 
-    logger.info(
-        f"Creating processed SQM calculator for camera: {camera_type_processed}"
-    )
+    logger.info(f"Creating SQM calculator for camera: {camera_type_processed}")
 
-    return SQMCalculator(
-        camera_type=camera_type_processed,
-        use_adaptive_noise_floor=True,
-    )
+    return SQMCalculator(camera_type=camera_type_processed)
 
 
-def create_sqm_calculator_raw(shared_state):
-    """Create a new SQM calculator instance for RAW 16-bit images with current calibration."""
-    # Get camera type from shared state (raw profile, e.g., "imx296", "hq")
-    camera_type_raw = shared_state.camera_type()
-
-    logger.info(f"Creating raw SQM calculator for camera: {camera_type_raw}")
-
-    return SQMCalculator(
-        camera_type=camera_type_raw,
-        use_adaptive_noise_floor=True,
-    )
-
-
-def update_sqm_dual_pipeline(
+def update_sqm(
     shared_state,
     sqm_calculator,
-    sqm_calculator_raw,
-    camera_command_queue,
     centroids,
     solution,
     image_processed,
@@ -80,22 +58,14 @@ def update_sqm_dual_pipeline(
     annulus_outer_radius=14,
 ):
     """
-    Calculate SQM for BOTH processed (8-bit) and raw (16-bit) images.
-
-    This function:
-    1. Checks if enough time has passed since last update
-    2. Calculates SQM from processed 8-bit image
-    3. Captures a raw 16-bit frame, loads it, and calculates raw SQM
-    4. Updates shared state with both values
+    Calculate SQM from image.
 
     Args:
         shared_state: SharedStateObj instance
-        sqm_calculator: SQM calculator for processed images
-        sqm_calculator_raw: SQM calculator for raw images
-        camera_command_queue: Queue to send raw capture command
+        sqm_calculator: SQM calculator instance
         centroids: List of detected star centroids
         solution: Tetra3 solve solution with matched stars
-        image_processed: Processed 8-bit image array
+        image_processed: Processed image array (numpy)
         exposure_sec: Exposure time in seconds
         altitude_deg: Altitude in degrees for extinction correction
         calculation_interval_seconds: Minimum time between calculations (default: 5.0)
@@ -131,8 +101,8 @@ def update_sqm_dual_pipeline(
         return False
 
     try:
-        # ========== Calculate PROCESSED (8-bit) SQM ==========
-        sqm_value_processed, _ = sqm_calculator.calculate(
+        # Calculate SQM from image
+        sqm_value, details = sqm_calculator.calculate(
             centroids=centroids,
             solution=solution,
             image=image_processed,
@@ -143,48 +113,35 @@ def update_sqm_dual_pipeline(
             annulus_outer_radius=annulus_outer_radius,
         )
 
-        # ========== Calculate RAW (16-bit) SQM from shared state ==========
-        sqm_value_raw = None
+        # Update noise floor in shared state (for SNR auto-exposure)
+        noise_floor_details = details.get("noise_floor_details")
+        if noise_floor_details and "noise_floor_adu" in noise_floor_details:
+            shared_state.set_noise_floor(noise_floor_details["noise_floor_adu"])
 
-        try:
-            # Get raw frame from shared state (already captured by camera)
-            raw_array = shared_state.cam_raw()
+        # Store SQM details (filter out large per-star arrays)
+        filtered_details = {
+            k: v
+            for k, v in details.items()
+            if k
+            not in (
+                "star_centroids",
+                "star_mags",
+                "star_fluxes",
+                "star_local_backgrounds",
+                "star_mzeros",
+            )
+        }
+        shared_state.set_sqm_details(filtered_details)
 
-            if raw_array is not None:
-                raw_array = np.asarray(raw_array, dtype=np.float32)
-
-                # Calculate raw SQM
-                sqm_value_raw, _ = sqm_calculator_raw.calculate(
-                    centroids=centroids,
-                    solution=solution,
-                    image=raw_array,
-                    exposure_sec=exposure_sec,
-                    altitude_deg=altitude_deg,
-                    aperture_radius=aperture_radius,
-                    annulus_inner_radius=annulus_inner_radius,
-                    annulus_outer_radius=annulus_outer_radius,
-                )
-
-        except Exception as e:
-            logger.warning(f"Failed to calculate raw SQM: {e}")
-            # Continue with just processed SQM
-
-        # ========== Update shared state with BOTH values ==========
-        if sqm_value_processed is not None:
+        # Update shared state
+        if sqm_value is not None:
             new_sqm_state = SQMState(
-                value=sqm_value_processed,
-                value_raw=sqm_value_raw,  # May be None if raw failed
+                value=sqm_value,
                 source="Calculated",
                 last_update=datetime.now().isoformat(),
             )
             shared_state.set_sqm(new_sqm_state)
-
-            raw_str = (
-                f", raw={sqm_value_raw:.2f}"
-                if sqm_value_raw is not None
-                else ", raw=N/A"
-            )
-            logger.info(f"SQM updated: processed={sqm_value_processed:.2f}{raw_str}")
+            logger.info(f"SQM updated: {sqm_value:.2f} mag/arcsec²")
             return True
 
     except Exception as e:
@@ -192,6 +149,12 @@ def update_sqm_dual_pipeline(
         return False
 
     return False
+
+
+class CedarConnectionError(Exception):
+    """Raised when Cedar gRPC connection fails."""
+
+    pass
 
 
 class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
@@ -218,6 +181,72 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             )
         return self._stub
 
+    def extract_centroids(
+        self, image, sigma, max_size, use_binned, detect_hot_pixels=True
+    ):
+        """Override to raise CedarConnectionError on gRPC failure instead of returning empty list."""
+        import numpy as np
+        from tetra3 import cedar_detect_pb2
+
+        np_image = np.asarray(image, dtype=np.uint8)
+        (height, width) = np_image.shape
+        centroids_result = None
+
+        # Use shared memory path (same machine)
+        if self._use_shmem:
+            self._alloc_shmem(size=width * height)
+            shimg = np.ndarray(
+                np_image.shape, dtype=np_image.dtype, buffer=self._shmem.buf
+            )
+            shimg[:] = np_image[:]
+
+            im = cedar_detect_pb2.Image(
+                width=width, height=height, shmem_name=self._shmem.name
+            )
+            req = cedar_detect_pb2.CentroidsRequest(
+                input_image=im,
+                sigma=sigma,
+                max_size=max_size,
+                return_binned=False,
+                use_binned_for_star_candidates=use_binned,
+                detect_hot_pixels=detect_hot_pixels,
+            )
+            try:
+                centroids_result = self._get_stub().ExtractCentroids(req)
+            except grpc.RpcError as err:
+                if err.code() == grpc.StatusCode.INTERNAL:
+                    # Shared memory issue, fall back to non-shmem
+                    self._del_shmem()
+                    self._use_shmem = False
+                else:
+                    raise CedarConnectionError(
+                        f"Cedar gRPC failed: {err.details()}"
+                    ) from err
+
+        if not self._use_shmem:
+            im = cedar_detect_pb2.Image(
+                width=width, height=height, image_data=np_image.tobytes()
+            )
+            req = cedar_detect_pb2.CentroidsRequest(
+                input_image=im,
+                sigma=sigma,
+                max_size=max_size,
+                return_binned=False,
+                use_binned_for_star_candidates=use_binned,
+            )
+            try:
+                centroids_result = self._get_stub().ExtractCentroids(req)
+            except grpc.RpcError as err:
+                raise CedarConnectionError(
+                    f"Cedar gRPC failed: {err.details()}"
+                ) from err
+
+        tetra_centroids = []
+        if centroids_result is not None:
+            for sc in centroids_result.star_candidates:
+                tetra_centroids.append((sc.centroid_position.y, sc.centroid_position.x))
+        return tetra_centroids
+
     def __del__(self):
         self._del_shmem()
 
@@ -232,6 +261,7 @@ def solver(
     align_result_queue,
     camera_command_queue,
     is_debug=False,
+    max_imu_ang_during_exposure=1.0,  # Max allowed turn during exp [degrees]
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
@@ -240,45 +270,20 @@ def solver(
     )
     align_ra = 0
     align_dec = 0
+    # Dict of RA, Dec, etc. initialized to None:
+    solved = get_initialized_solved_dict()
     solution = {}
-    solved = {
-        # RA, Dec, Roll solved at the center of the camera FoV
-        # update by integrator
-        "camera_center": {
-            "RA": None,
-            "Dec": None,
-            "Roll": None,
-            "Alt": None,
-            "Az": None,
-        },
-        # RA, Dec, Roll from the camera, not
-        # affected by IMU in integrator
-        "camera_solve": {
-            "RA": None,
-            "Dec": None,
-            "Roll": None,
-        },
-        # RA, Dec, Roll at the target pixel
-        "RA": None,
-        "Dec": None,
-        "Roll": None,
-        "imu_pos": None,
-        "solve_time": None,
-        "cam_solve_time": 0,
-        "last_solve_attempt": 0,  # Timestamp of last solve attempt - tracks exposure_end of last processed image
-        "last_solve_success": None,  # Timestamp of last successful solve
-    }
 
     centroids = []
     log_no_stars_found = True
 
-    # Create SQM calculators (processed and raw) - can be reloaded via command queue
+    # Create SQM calculator - can be reloaded via command queue
     sqm_calculator = create_sqm_calculator(shared_state)
-    sqm_calculator_raw = create_sqm_calculator_raw(shared_state)
 
     while True:
         logger.info("Starting Solver Loop")
-        # Start cedar detect server
+        # Try to start cedar detect server, fall back to tetra3 centroider if unavailable
+        cedar_detect = None
         try:
             cedar_detect = PFCedarDetectClient()
         except FileNotFoundError as e:
@@ -286,10 +291,8 @@ def solver(
                 "Not using cedar_detect, as corresponding file '%s' could not be found",
                 e.filename,
             )
-            cedar_detect = None
         except ValueError:
             logger.exception("Not using cedar_detect")
-            cedar_detect = None
 
         try:
             while True:
@@ -316,12 +319,9 @@ def solver(
                             align_dec = 0
 
                         if command[0] == "reload_sqm_calibration":
-                            logger.info(
-                                "Reloading SQM calibration (both processed and raw)..."
-                            )
+                            logger.info("Reloading SQM calibration...")
                             sqm_calculator = create_sqm_calculator(shared_state)
-                            sqm_calculator_raw = create_sqm_calculator_raw(shared_state)
-                            logger.info("SQM calibration reloaded for both pipelines")
+                            logger.info("SQM calibration reloaded")
 
                 state_utils.sleep_for_framerate(shared_state)
 
@@ -337,14 +337,8 @@ def solver(
                 is_new_image = (
                     last_image_metadata["exposure_end"] > solved["last_solve_attempt"]
                 )
-                is_stationary = last_image_metadata["imu_delta"] < 1
 
-                if is_new_image and not is_stationary:
-                    logger.debug(
-                        f"Skipping image - IMU delta {last_image_metadata['imu_delta']:.2f}° >= 1° (moving)"
-                    )
-
-                if is_new_image and is_stationary:
+                if is_new_image:
                     try:
                         img = camera_image.copy()
                         img = img.convert(mode="L")
@@ -357,13 +351,20 @@ def solver(
                         ]
 
                         t0 = precision_timestamp()
-                        if cedar_detect is None:
-                            # Use old tetr3 centroider
-                            centroids = tetra3.get_centroids_from_image(np_image)
+                        if cedar_detect is not None:
+                            # Try Cedar first
+                            try:
+                                centroids = cedar_detect.extract_centroids(
+                                    np_image, sigma=8, max_size=10, use_binned=True
+                                )
+                            except CedarConnectionError as e:
+                                logger.warning(
+                                    f"Cedar connection failed: {e}, falling back to tetra3"
+                                )
+                                centroids = tetra3.get_centroids_from_image(np_image)
                         else:
-                            centroids = cedar_detect.extract_centroids(
-                                np_image, sigma=8, max_size=10, use_binned=True
-                            )
+                            # Cedar not available, use tetra3
+                            centroids = tetra3.get_centroids_from_image(np_image)
                         t_extract = (precision_timestamp() - t0) * 1000
 
                         logger.debug(
@@ -408,11 +409,9 @@ def solver(
                                 last_image_metadata["exposure_time"] / 1_000_000.0
                             )
 
-                            update_sqm_dual_pipeline(
+                            update_sqm(
                                 shared_state=shared_state,
                                 sqm_calculator=sqm_calculator,
-                                sqm_calculator_raw=sqm_calculator_raw,
-                                camera_command_queue=camera_command_queue,
                                 centroids=centroids,
                                 solution=solution,
                                 image_processed=np_image,
@@ -421,16 +420,16 @@ def solver(
                                 calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
                             )
 
-                            # Don't clutter printed solution with these fields.
-                            del solution["matched_catID"]
-                            del solution["pattern_centroids"]
-                            del solution["epoch_equinox"]
-                            del solution["epoch_proper_motion"]
-                            del solution["cache_hit_fraction"]
+                            # Don't clutter printed solution with these fields (use pop to safely remove)
+                            solution.pop("matched_catID", None)
+                            solution.pop("pattern_centroids", None)
+                            solution.pop("epoch_equinox", None)
+                            solution.pop("epoch_proper_motion", None)
+                            solution.pop("cache_hit_fraction", None)
 
                         solved |= solution
 
-                        if "T_solve" in solution:
+                        if "T_solve" in solved:
                             total_tetra_time = t_extract + solved["T_solve"]
                             if total_tetra_time > 1000:
                                 console_queue.put(f"SLV: Long: {total_tetra_time}")
@@ -442,19 +441,25 @@ def solver(
                             solved["camera_center"]["Dec"] = solved["Dec"]
                             solved["camera_center"]["Roll"] = solved["Roll"]
 
-                            # RA, Dec, Roll at the center of the camera's not imu:
+                            # RA, Dec, Roll at the camera center from plate-solve (no IMU compensation)
                             solved["camera_solve"]["RA"] = solved["RA"]
                             solved["camera_solve"]["Dec"] = solved["Dec"]
                             solved["camera_solve"]["Roll"] = solved["Roll"]
+
                             # RA, Dec, Roll at the target pixel:
+                            # Replace the camera center RA/Dec with the RA/Dec for the target pixel
                             solved["RA"] = solved["RA_target"]
                             solved["Dec"] = solved["Dec_target"]
-                            if last_image_metadata["imu"]:
-                                solved["imu_pos"] = last_image_metadata["imu"]["pos"]
+
+                            if last_image_metadata.get("imu"):
                                 solved["imu_quat"] = last_image_metadata["imu"]["quat"]
+                                solved["imu_pos"] = last_image_metadata["imu"].get(
+                                    "pos"
+                                )
                             else:
-                                solved["imu_pos"] = None
                                 solved["imu_quat"] = None
+                                solved["imu_pos"] = None
+
                             solved["solve_time"] = time.time()
                             solved["cam_solve_time"] = solved["solve_time"]
                             # Mark successful solve - use same timestamp as last_solve_attempt for comparison
@@ -466,101 +471,31 @@ def solver(
                                 f"RMSE: {solved.get('RMSE', 0):.1f}px"
                             )
 
-                            if "matched_centroids" in solution:
-                                # Update SQM for BOTH processed and raw pipelines
-                                # Convert exposure time from microseconds to seconds
-                                exposure_sec = (
-                                    last_image_metadata["exposure_time"] / 1_000_000.0
-                                )
+                            # See if we are waiting for alignment
+                            if align_ra != 0 and align_dec != 0:
+                                if solved.get("x_target") is not None:
+                                    align_target_pixel = (
+                                        solved["y_target"],
+                                        solved["x_target"],
+                                    )
+                                    logger.debug(f"Align {align_target_pixel=}")
+                                    align_result_queue.put(
+                                        ["aligned", align_target_pixel]
+                                    )
+                                align_ra = 0
+                                align_dec = 0
+                                solved["x_target"] = None
+                                solved["y_target"] = None
+                        else:
+                            # Centroids found but solve failed - clear Matches
+                            solved["Matches"] = 0
+                            logger.warning(
+                                f"Solve FAILED - {len(centroids)} centroids detected but "
+                                f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
+                            )
 
-                                update_sqm_dual_pipeline(
-                                    shared_state=shared_state,
-                                    sqm_calculator=sqm_calculator,
-                                    sqm_calculator_raw=sqm_calculator_raw,
-                                    camera_command_queue=camera_command_queue,
-                                    centroids=centroids,
-                                    solution=solution,
-                                    image_processed=np_image,
-                                    exposure_sec=exposure_sec,
-                                    altitude_deg=solved.get("Alt") or 90.0,
-                                    calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
-                                )
-
-                                # Don't clutter printed solution with these fields.
-                                del solution["matched_catID"]
-                                del solution["pattern_centroids"]
-                                del solution["epoch_equinox"]
-                                del solution["epoch_proper_motion"]
-                                del solution["cache_hit_fraction"]
-
-                            solved |= solution
-
-                            total_tetra_time = t_extract + solved["T_solve"]
-                            if total_tetra_time > 1000:
-                                console_queue.put(f"SLV: Long: {total_tetra_time}")
-                                logger.warning("Long solver time: %i", total_tetra_time)
-
-                            if solved["RA"] is not None:
-                                # RA, Dec, Roll at the center of the camera's FoV:
-                                solved["camera_center"]["RA"] = solved["RA"]
-                                solved["camera_center"]["Dec"] = solved["Dec"]
-                                solved["camera_center"]["Roll"] = solved["Roll"]
-
-                                # RA, Dec, Roll at the center of the camera's not imu:
-                                solved["camera_solve"]["RA"] = solved["RA"]
-                                solved["camera_solve"]["Dec"] = solved["Dec"]
-                                solved["camera_solve"]["Roll"] = solved["Roll"]
-                                # RA, Dec, Roll at the target pixel:
-                                solved["RA"] = solved["RA_target"]
-                                solved["Dec"] = solved["Dec_target"]
-                                if last_image_metadata["imu"]:
-                                    solved["imu_pos"] = last_image_metadata["imu"][
-                                        "pos"
-                                    ]
-                                    solved["imu_quat"] = last_image_metadata["imu"][
-                                        "quat"
-                                    ]
-                                else:
-                                    solved["imu_pos"] = None
-                                    solved["imu_quat"] = None
-                                solved["solve_time"] = time.time()
-                                solved["cam_solve_time"] = solved["solve_time"]
-                                # Mark successful solve - use same timestamp as last_solve_attempt for comparison
-                                solved["last_solve_success"] = solved[
-                                    "last_solve_attempt"
-                                ]
-
-                                logger.info(
-                                    f"Solve SUCCESS - {len(centroids)} centroids → "
-                                    f"{solved.get('Matches', 0)} matches, "
-                                    f"RMSE: {solved.get('RMSE', 0):.1f}px"
-                                )
-
-                                # See if we are waiting for alignment
-                                if align_ra != 0 and align_dec != 0:
-                                    if solved.get("x_target") is not None:
-                                        align_target_pixel = (
-                                            solved["y_target"],
-                                            solved["x_target"],
-                                        )
-                                        logger.debug(f"Align {align_target_pixel=}")
-                                        align_result_queue.put(
-                                            ["aligned", align_target_pixel]
-                                        )
-                                    align_ra = 0
-                                    align_dec = 0
-                                    solved["x_target"] = None
-                                    solved["y_target"] = None
-                            else:
-                                # Centroids found but solve failed - clear Matches
-                                solved["Matches"] = 0
-                                logger.warning(
-                                    f"Solve FAILED - {len(centroids)} centroids detected but "
-                                    f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
-                                )
-
-                            # Always push to queue after every solve attempt (success or failure)
-                            solver_queue.put(solved)
+                        # Always push to queue after every solve attempt (success or failure)
+                        solver_queue.put(solved)
                     except Exception as e:
                         # If solve attempt fails, still send update with Matches=0
                         # so auto-exposure can continue running
@@ -590,5 +525,52 @@ def solver(
                 logger.error(
                     f"Active threads: {[t.name for t in threading.enumerate()]}"
                 )
-            except Exception as e:
+            except Exception:
                 pass  # Don't let diagnostic logging fail
+
+
+def get_initialized_solved_dict() -> dict:
+    """
+    Returns an initialized 'solved' dictionary with cooridnate and other
+    information.
+
+    TODO: Update solver_main.py with this
+    TODO: use RaDecRoll class for the RA, Dec, Roll coordinates here?
+    TODO: "Alt" and "Az" could be removed but seems to be required by catalogs?
+    """
+    solved = {
+        # RA, Dec, Roll [deg] of the scope at the target pixel
+        "RA": None,
+        "Dec": None,
+        "Roll": None,
+        # RA, Dec, Roll [deg] solved at the center of the camera FoV
+        # update by the IMU in the integrator
+        "camera_center": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+            "Alt": None,  # NOTE: Altaz needed by catalogs for altaz mounts
+            "Az": None,
+        },
+        # RA, Dec, Roll [deg] from the camera, not updated by IMU in integrator
+        "camera_solve": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+        },
+        "imu_pos": None,  # IMU euler angles (classic integrator)
+        "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first)
+        "Roll_offset": 0,  # Roll offset for classic integrator
+        # Alt, Az [deg] of scope:
+        "Alt": None,
+        "Az": None,
+        # Diagnostics:
+        "solve_source": None,  # Source of the solve ("CAM", "CAM_FAILED", "IMU")
+        "solve_time": None,
+        "cam_solve_time": 0,
+        "last_solve_attempt": 0,  # Timestamp of last solve attempt - tracks exposure_end of last processed image
+        "last_solve_success": None,  # Timestamp of last successful solve
+        "constellation": None,
+    }
+
+    return solved

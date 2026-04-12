@@ -86,7 +86,7 @@
   <div class="modal-content">
     <h4>Restore User Data</h4>
     <p>This will use the provided file to restore your user data.  This will overwrite any existing
-    preference and observations. Are you sure?</p>
+    preferences and observations. Are you sure?</p>
   </div>
   <div class="modal-footer">
     <a href="#" onClick="document.getElementById('restore_form').submit();" class="modal-close btn-flat">Do It</a>

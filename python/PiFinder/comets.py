@@ -4,6 +4,7 @@ from skyfield.data import mpc
 from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
 from PiFinder.utils import Timer, comet_file
 from PiFinder.calc_utils import sf_utils
+import pandas as pd
 import requests
 import os
 import logging
@@ -196,6 +197,14 @@ def calc_comets(
             .groupby("designation", as_index=False)
             .last()
             .set_index("designation", drop=False)
+        )
+
+        # groupby/last can coerce numeric columns to strings when NaN values
+        # are present; ensure perihelion date fields are numeric before use
+        for col in ("perihelion_year", "perihelion_month", "perihelion_day"):
+            comets_df[col] = pd.to_numeric(comets_df[col], errors="coerce")
+        comets_df = comets_df.dropna(
+            subset=["perihelion_year", "perihelion_month", "perihelion_day"]
         )
 
         # Report progress after pandas processing (roughly 66% of setup time)

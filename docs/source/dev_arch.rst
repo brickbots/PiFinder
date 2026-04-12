@@ -48,7 +48,7 @@ there are some time-critical requirements:
    information, that would be cumbersome to change using the keyboard. 
    This means that in parallel http requests MUST be parsed and serviced.
 5. `SkySafari <https://skysafariastronomy.com/>`_ can connect to PiFinder and 
-   be used as planetarium software to a) see there PiFinder is pointing and 
+   be used as planetarium software to a) see where PiFinder is pointing and 
    b) to push targets to PiFinder. This means that PiFinder MUST support the 
    LX200 protocol as supported by SkySafari. 
 
@@ -197,8 +197,8 @@ Here some details:
    commands on exposure time through `camera_command_queue`
  - The solver processes the image and notifies the integrator of new solves 
    through the `solver_queue`
- - The `aligment_command_queue` is used to ask the solver, which pixel corresponds 
-   to a given position and the result is handed back using the `aligment_response_queue`
+ - The `alignment_command_queue` is used to ask the solver, which pixel corresponds 
+   to a given position and the result is handed back using the `alignment_response_queue`
  - Through the `ui_queue` a new target is set by the SkySafari server
  - Commands and telescope location (GPS) are injected by the `webserver` into the respective queues.
 
@@ -219,12 +219,12 @@ There are three types of shared state in PiFinder
    SharedStateObj(
       power_state=1,
       solve_state=True,
-      solution={'RA': 22.86683471463411, 'Dec': 15.347716050003328, 'imu_pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
+      solution={'RA': 22.86683471463411, 'Dec': 15.347716050003328, 
                 'solve_time': 1695297930.5532792, 'cam_solve_time': 1695297930.5532837, 'Roll': 306.2951794424281, 'FOV': 10.200729425086111,
                 RMSE': 21.995567413046142, 'Matches': 12, 'Prob': 6.987725483613384e-13, 'T_solve': 15.00384000246413, 'RA_target': 22.86683471463411,
                 'Dec_target': 15.347716050003328, 'T_extract': 75.79255499877036, 'Alt': None, 'Az': None, 'solve_source': 'CAM', 'constellation': 'Psc'},
-      imu={'moving': False, 'move_start': 1695297928.69749, 'move_end': 1695297928.764207, 'pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
-           'start_pos': [171.4009455613444, 202.76321535004726, 358.2587208386012], 'status': 3},
+      imu={'moving': False, 'move_start': 1695297928.69749, 'move_end': 1695297928.764207,
+            'status': 3},
       location={'lat': 59.05139745, 'lon': 7.987654, 'altitude': 151.4, 'gps_lock': False, 'timezone': 'Europe/Stockholm', 'last_gps_lock': None},
       datetime=None,
       screen=<PIL.Image.Image image mode=RGB size=128x128 at 0xE693C910>,
@@ -234,7 +234,7 @@ There are three types of shared state in PiFinder
 
 - The shared image - 
   This uses a **shared memory image, that is constantly updated by the 
-  image acquision thread**. Whenever working on this image, make sure that 
+  image acquisition thread**. Whenever working on this image, make sure that 
   you create your own local copy of it, so it does not get changed while you process it. 
 
 - An UIState object - see ``ui/status.py`` 

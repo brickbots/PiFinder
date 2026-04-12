@@ -24,7 +24,9 @@ def save_sweep_metadata(
     dec_deg: Optional[float] = None,
     altitude_deg: Optional[float] = None,
     azimuth_deg: Optional[float] = None,
-    notes: str = ""
+    noise_floor_details: Optional[Dict[str, Any]] = None,
+    camera_type: Optional[str] = None,
+    notes: str = "",
 ):
     """
     Save metadata file in sweep directory.
@@ -42,42 +44,60 @@ def save_sweep_metadata(
         dec_deg: Declination from solver (optional)
         altitude_deg: Altitude angle above horizon in degrees (optional)
         azimuth_deg: Azimuth angle in degrees (optional)
+        noise_floor_details: Output from NoiseFloorEstimator.estimate_noise_floor() (optional)
+            Contains: noise_floor_adu, dark_pixel_raw, dark_pixel_smoothed, theoretical_floor,
+            temporal_noise, read_noise, dark_current_contribution, bias_offset, etc.
+        camera_type: Camera type string (optional)
         notes: Any additional notes
     """
     metadata: Dict[str, Any] = {
-        'timestamp': gps_datetime if gps_datetime else datetime.now(pytz.timezone('Europe/Brussels')).isoformat(),
-        'observer': {
-            'latitude_deg': observer_lat,
-            'longitude_deg': observer_lon,
+        "timestamp": gps_datetime
+        if gps_datetime
+        else datetime.now(pytz.timezone("Europe/Brussels")).isoformat(),
+        "observer": {
+            "latitude_deg": observer_lat,
+            "longitude_deg": observer_lon,
         },
-        'sweep_directory': str(sweep_dir),
+        "sweep_directory": str(sweep_dir),
     }
 
     if observer_altitude_m is not None:
-        metadata['observer']['altitude_m'] = observer_altitude_m
+        metadata["observer"]["altitude_m"] = observer_altitude_m
 
     if reference_sqm is not None:
-        metadata['reference_sqm'] = reference_sqm
+        metadata["reference_sqm"] = reference_sqm
 
     if ra_deg is not None and dec_deg is not None:
-        metadata['coordinates'] = {
-            'ra_deg': ra_deg,
-            'dec_deg': dec_deg,
+        metadata["coordinates"] = {
+            "ra_deg": ra_deg,
+            "dec_deg": dec_deg,
         }
         if altitude_deg is not None:
-            metadata['coordinates']['altitude_deg'] = altitude_deg
+            metadata["coordinates"]["altitude_deg"] = altitude_deg
         if azimuth_deg is not None:
-            metadata['coordinates']['azimuth_deg'] = azimuth_deg
+            metadata["coordinates"]["azimuth_deg"] = azimuth_deg
+
+    # Noise floor estimation details (from NoiseFloorEstimator)
+    if noise_floor_details is not None:
+        metadata["noise_floor_estimator"] = {
+            k: v for k, v in noise_floor_details.items()
+            if k != "request_zero_sec_sample"  # Exclude internal flags
+        }
+        if camera_type is not None:
+            metadata["noise_floor_estimator"]["camera_type"] = camera_type
+    elif camera_type is not None:
+        # Fallback: just record camera type if no noise floor details
+        metadata["noise_floor_estimator"] = {"camera_type": camera_type}
 
     if notes:
-        metadata['notes'] = notes
+        metadata["notes"] = notes
 
     # Save to JSON file
-    metadata_file = sweep_dir / 'sweep_metadata.json'
+    metadata_file = sweep_dir / "sweep_metadata.json"
     logger.info(f"Writing metadata to: {metadata_file}")
 
     try:
-        with open(metadata_file, 'w') as f:
+        with open(metadata_file, "w") as f:
             json.dump(metadata, f, indent=2)
         logger.info(f"Successfully saved metadata to {metadata_file}")
     except Exception as e:
@@ -99,5 +119,5 @@ if __name__ == "__main__":
         observer_lat=50.8503,  # Brussels
         observer_lon=4.3517,
         reference_sqm=18.7,
-        notes="Diaphragm fully open, clear sky"
+        notes="Diaphragm fully open, clear sky",
     )

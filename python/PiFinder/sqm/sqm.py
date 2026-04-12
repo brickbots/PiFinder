@@ -1,10 +1,11 @@
-import numpy as np
+import json
 import logging
-from typing import Tuple, Dict, Optional, Any
-from datetime import datetime
-import time
-from PiFinder.state import SQM as SQMState
-from .noise_floor import NoiseFloorEstimator
+from pathlib import Path
+from typing import Tuple, Dict, Optional
+
+import numpy as np
+
+from .camera_profiles import get_camera_profile
 
 logger = logging.getLogger("Solver")
 
@@ -34,36 +35,60 @@ class SQM:
     def __init__(
         self,
         camera_type: str = "imx296",
-        pedestal_from_background: bool = False,
-        use_adaptive_noise_floor: bool = True,
     ):
         """
         Initialize SQM calculator.
 
         Args:
-            camera_type: Camera model (imx296, imx462, imx290, hq) for noise estimation
-            pedestal_from_background: If True, automatically estimate pedestal from
-                median of local backgrounds. Default False (manual pedestal only).
-            use_adaptive_noise_floor: If True, use adaptive noise floor estimation.
-                If False, fall back to manual pedestal parameter. Default True.
+            camera_type: Camera model (imx296, imx462, imx290, hq).
+                Use "_processed" suffix for 8-bit ISP-processed images.
         """
-        super()
-        self.pedestal_from_background = pedestal_from_background
-        self.use_adaptive_noise_floor = use_adaptive_noise_floor
+        self.camera_type = camera_type
+        self.profile = get_camera_profile(camera_type)
+        self._load_calibration()
+        logger.info(
+            f"SQM initialized (camera: {camera_type}, bias_offset: {self.profile.bias_offset})"
+        )
 
-        # Initialize noise floor estimator if enabled
-        self.noise_estimator: Optional[NoiseFloorEstimator] = None
-        if use_adaptive_noise_floor:
-            self.noise_estimator = NoiseFloorEstimator(
-                camera_type=camera_type,
-                enable_zero_sec_sampling=True,
-                zero_sec_interval=300,  # Every 5 minutes
-            )
+    def _load_calibration(self) -> bool:
+        """
+        Load calibration from JSON file if it exists.
+
+        Calibration file is saved by the SQM calibration wizard to:
+        ~/PiFinder_data/sqm_calibration_{camera_type}.json
+
+        Returns:
+            True if calibration was loaded, False if using defaults
+        """
+        calibration_file = (
+            Path.home() / "PiFinder_data" / f"sqm_calibration_{self.camera_type}.json"
+        )
+
+        if not calibration_file.exists():
+            logger.debug(f"No calibration file found at {calibration_file}, using defaults")
+            return False
+
+        try:
+            with open(calibration_file, "r") as f:
+                calibration = json.load(f)
+
+            # Update profile with calibrated values
+            if "bias_offset" in calibration:
+                self.profile.bias_offset = float(calibration["bias_offset"])
+            if "read_noise" in calibration:
+                self.profile.read_noise_adu = float(calibration["read_noise"])
+            if "dark_current_rate" in calibration:
+                self.profile.dark_current_rate = float(calibration["dark_current_rate"])
+
             logger.info(
-                f"SQM initialized with adaptive noise floor estimation (camera: {camera_type})"
+                f"Loaded calibration from {calibration_file.name}: "
+                f"bias_offset={self.profile.bias_offset:.1f}"
             )
-        else:
-            logger.info("SQM initialized with manual pedestal mode")
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to load calibration: {e}, using defaults")
+            return False
 
     def _calc_field_parameters(self, fov_degrees: float) -> None:
         """Calculate field of view parameters."""
@@ -72,43 +97,24 @@ class SQM:
         self.pixels_total = 512**2
         self.arcsec_squared_per_pixel = self.field_arcsec_squared / self.pixels_total
 
-    def _calculate_background(
-        self, image: np.ndarray, centroids: np.ndarray, exclusion_radius: int
-    ) -> float:
+    def _pickering_airmass(self, altitude_deg: float) -> float:
         """
-        Calculate background from star-free regions using median.
+        Calculate airmass using Pickering (2002) formula.
+
+        More accurate than simple 1/sin(alt) near the horizon.
+        Accounts for atmospheric refraction.
+
+        Reference: Pickering, K.A. (2002), "The Southern Limits of the Ancient
+        Star Catalogs", DIO 12, 1-15.
 
         Args:
-            image: Image array
-            centroids: All detected centroids (for masking)
-            exclusion_radius: Radius around each star to exclude (pixels)
+            altitude_deg: Altitude in degrees (must be > 0)
 
         Returns:
-            Background level in ADU per pixel
+            Airmass value (1.0 at zenith, increases toward horizon)
         """
-        height, width = image.shape
-        mask = np.ones((height, width), dtype=bool)
-
-        # Create coordinate grids
-        y, x = np.ogrid[:height, :width]
-
-        # Mask out regions around all stars
-        for cx, cy in centroids:
-            if 0 <= cx < width and 0 <= cy < height:
-                star_mask = (x - cx) ** 2 + (y - cy) ** 2 <= exclusion_radius**2
-                mask &= ~star_mask
-
-        # Calculate median background from unmasked regions
-        if np.sum(mask) > 100:  # Need enough pixels for reliable median
-            background_per_pixel = np.median(image[mask])
-        else:
-            # Fallback to percentile if too many stars
-            background_per_pixel = np.percentile(image, 10)
-            logger.warning(
-                f"Using 10th percentile for background (only {np.sum(mask)} unmasked pixels)"
-            )
-
-        return float(background_per_pixel)
+        h = altitude_deg
+        return 1.0 / np.sin(np.radians(h + 244.0 / (165.0 + 47.0 * h**1.1)))
 
     def _measure_star_flux_with_local_background(
         self,
@@ -117,25 +123,33 @@ class SQM:
         aperture_radius: int,
         annulus_inner_radius: int,
         annulus_outer_radius: int,
-    ) -> Tuple[list, list]:
+        saturation_threshold: int = 250,
+    ) -> Tuple[list, list, int]:
         """
         Measure star flux with local background from annulus around each star.
 
         Args:
             image: Image array
-            centroids: Star centroids to measure
+            centroids: Star centroids to measure, shape (N, 2).
+                       Each row is (row_idx, col_idx) = (y, x) to match numpy indexing.
+                       This is the convention used by Tetra3 matched_centroids.
             aperture_radius: Aperture radius for star flux in pixels
             annulus_inner_radius: Inner radius of background annulus in pixels
             annulus_outer_radius: Outer radius of background annulus in pixels
+            saturation_threshold: Pixel value threshold for saturation detection (default: 250)
+                                  Stars with any aperture pixel >= this value are marked saturated
 
         Returns:
-            Tuple of (star_fluxes, local_backgrounds) where:
+            Tuple of (star_fluxes, local_backgrounds, n_saturated) where:
                 star_fluxes: Background-subtracted star fluxes (total ADU above local background)
+                            Saturated stars have flux set to -1 to be excluded from mzero calculation
                 local_backgrounds: Local background per pixel for each star (ADU/pixel)
+                n_saturated: Number of stars excluded due to saturation
         """
         height, width = image.shape
         star_fluxes = []
         local_backgrounds = []
+        n_saturated = 0
 
         # Pre-compute squared radii
         aperture_r2 = aperture_radius**2
@@ -177,8 +191,20 @@ class SQM:
                     f"Star at ({cx:.0f},{cy:.0f}) has no annulus pixels, using global median"
                 )
 
+            # Check for saturation in aperture
+            aperture_pixels = image_patch[aperture_mask]
+            max_aperture_pixel = np.max(aperture_pixels) if len(aperture_pixels) > 0 else 0
+
+            if max_aperture_pixel >= saturation_threshold:
+                # Mark saturated star with flux=-1 to be excluded from mzero calculation
+                star_fluxes.append(-1)
+                local_backgrounds.append(local_bg_per_pixel)
+                n_saturated += 1
+                continue
+
+
             # Total flux in aperture (includes background)
-            total_flux = np.sum(image_patch[aperture_mask])
+            total_flux = np.sum(aperture_pixels)
 
             # Subtract background contribution
             aperture_area_pixels = np.sum(aperture_mask)
@@ -188,28 +214,33 @@ class SQM:
             star_fluxes.append(star_flux)
             local_backgrounds.append(local_bg_per_pixel)
 
-        return star_fluxes, local_backgrounds
+        return star_fluxes, local_backgrounds, n_saturated
 
     def _calculate_mzero(
         self, star_fluxes: list, star_mags: list
     ) -> Tuple[Optional[float], list]:
         """
-        Calculate photometric zero point from calibrated stars.
+        Calculate photometric zero point from calibrated stars using flux-weighted mean.
 
         For point sources: mzero = catalog_mag + 2.5 × log10(total_flux_ADU)
 
         This zero point allows converting any ADU measurement to magnitudes:
             mag = mzero - 2.5 × log10(flux_ADU)
 
+        Uses flux-weighted mean: brighter stars have higher SNR so their
+        mzero estimates are more reliable.
+
         Args:
             star_fluxes: Background-subtracted star fluxes (ADU)
             star_mags: Catalog magnitudes for matched stars
 
         Returns:
-            Tuple of (mean_mzero, list_of_individual_mzeros)
+            Tuple of (weighted_mean_mzero, list_of_individual_mzeros)
             Note: The mzeros list will contain None for stars with invalid flux
         """
         mzeros: list[Optional[float]] = []
+        valid_mzeros = []
+        valid_fluxes = []
 
         for flux, mag in zip(star_fluxes, star_mags):
             if flux <= 0:
@@ -222,16 +253,21 @@ class SQM:
             # Calculate zero point: ZP = m + 2.5*log10(F)
             mzero = mag + 2.5 * np.log10(flux)
             mzeros.append(mzero)
-
-        # Filter out None values for statistics calculation
-        valid_mzeros = [mz for mz in mzeros if mz is not None]
+            valid_mzeros.append(mzero)
+            valid_fluxes.append(flux)
 
         if len(valid_mzeros) == 0:
             logger.error("No valid stars for mzero calculation")
             return None, mzeros
 
-        # Return mean and the full mzeros list (which may contain None values)
-        return float(np.mean(valid_mzeros)), mzeros
+        # Flux-weighted mean: brighter stars contribute more
+        valid_mzeros_arr = np.array(valid_mzeros)
+        valid_fluxes_arr = np.array(valid_fluxes)
+        weighted_mzero = float(
+            np.average(valid_mzeros_arr, weights=valid_fluxes_arr)
+        )
+
+        return weighted_mzero, mzeros
 
     def _detect_aperture_overlaps(
         self,
@@ -286,22 +322,20 @@ class SQM:
 
     def _atmospheric_extinction(self, altitude_deg: float) -> float:
         """
-        Calculate atmospheric extinction correction to above-atmosphere equivalent.
+        Calculate atmospheric extinction correction.
 
-        Uses simplified airmass model and typical V-band extinction coefficient.
-
-        The atmosphere ALWAYS dims starlight - even at zenith there's 0.28 mag extinction.
-        This correction accounts for the total atmospheric extinction to estimate what
-        the sky brightness would be if measured from above the atmosphere.
+        Uses Pickering (2002) airmass formula for improved accuracy near horizon.
+        Zenith is the reference point (extinction=0), with additional extinction
+        added for lower altitudes.
 
         Args:
             altitude_deg: Altitude of field center in degrees
 
         Returns:
             Extinction correction in magnitudes (add to measured SQM)
-            - At zenith (90°): 0.28 mag (minimum)
-            - At 45°: ~0.40 mag
-            - At 30°: 0.56 mag
+            - At zenith (90°): 0.0 mag (reference point)
+            - At 45°: ~0.12 mag
+            - At 30°: ~0.28 mag
         """
         if altitude_deg <= 0:
             logger.warning(
@@ -309,15 +343,19 @@ class SQM:
             )
             return 0.0
 
-        # Simplified airmass calculation
-        altitude_rad = np.radians(altitude_deg)
-        airmass = 1.0 / np.sin(altitude_rad)
+        # Use Pickering (2002) airmass formula for better accuracy near horizon
+        airmass = self._pickering_airmass(altitude_deg)
 
-        # Typical V-band extinction: 0.28 mag/airmass at sea level
-        # Total extinction is always present (minimum 0.28 mag at zenith)
-        extinction_correction = 0.28 * airmass
+        # V-band extinction coefficient: 0.28 mag/airmass
+        # Following ASTAP convention: zenith is reference point (extinction=0 at zenith)
+        # Only the ADDITIONAL extinction below zenith is added: k * (airmass - 1)
+        extinction_correction = 0.28 * (airmass - 1)
 
         return extinction_correction
+
+    def _determine_pedestal_source(self) -> str:
+        """Determine the source of the pedestal value for diagnostics."""
+        return "bias_offset"
 
     def calculate(
         self,
@@ -325,32 +363,32 @@ class SQM:
         solution: dict,
         image: np.ndarray,
         exposure_sec: float,
-        bias_image: Optional[np.ndarray] = None,
         altitude_deg: float = 90.0,
         aperture_radius: int = 5,
         annulus_inner_radius: int = 6,
         annulus_outer_radius: int = 14,
-        pedestal: float = 0.0,
         correct_overlaps: bool = False,
+        saturation_threshold: int = 250,
+        include_noise_floor_details: bool = False,
     ) -> Tuple[Optional[float], Dict]:
         """
         Calculate SQM (Sky Quality Meter) value using local background annuli.
 
         Args:
             centroids: All detected centroids (unused, kept for compatibility)
-            solution: Tetra3 solution dict with 'FOV', 'matched_centroids', 'matched_stars'
+            solution: Tetra3 solution dict with 'FOV', 'matched_centroids', 'matched_stars'.
+                      Note: matched_centroids uses (row, col) = (y, x) convention to match
+                      numpy array indexing (image[row, col]).
             image: Image array (uint8 or float)
-            exposure_sec: Exposure time in seconds (required for adaptive noise floor)
-            bias_image: Optional bias/dark frame for pedestal calculation (default: None)
+            exposure_sec: Exposure time in seconds (required for noise floor estimation)
             altitude_deg: Altitude of field center for extinction correction (default: 90 = zenith)
             aperture_radius: Radius for star photometry in pixels (default: 5)
             annulus_inner_radius: Inner radius of background annulus in pixels (default: 6)
             annulus_outer_radius: Outer radius of background annulus in pixels (default: 14)
-            pedestal: Bias/pedestal level to subtract from background (default: 0)
-                     Only used if use_adaptive_noise_floor=False
-                     If bias_image is provided and pedestal=0, pedestal is calculated from bias_image
             correct_overlaps: If True, exclude stars with overlapping apertures/annuli (default: False)
-                            Excludes CRITICAL and HIGH overlaps to prevent contamination
+            saturation_threshold: Pixel value threshold for saturation detection (default: 250)
+            include_noise_floor_details: If True, run NoiseFloorEstimator and include full output
+                in details dict under "noise_floor_estimator" key (default: False)
 
         Returns:
             Tuple of (sqm_value, details_dict) where:
@@ -358,17 +396,12 @@ class SQM:
                 details_dict: Dictionary with intermediate values for diagnostics
 
         Example:
-            # Using local annulus backgrounds (handles uneven backgrounds)
             sqm_value, details = sqm_calculator.calculate(
                 centroids=all_centroids,
                 solution=tetra3_solution,
                 image=np_image,
-                bias_image=bias_frame,
+                exposure_sec=0.5,
                 altitude_deg=45.0,
-                aperture_radius=5,
-                annulus_inner_radius=6,
-                annulus_outer_radius=14,
-                correct_overlaps=True  # Exclude overlapping stars
             )
 
             if sqm_value:
@@ -432,61 +465,41 @@ class SQM:
                     )
                     return None, {}
 
-        # 0. Determine noise floor / pedestal
-        noise_floor_details: Dict[str, Any] = {}
+        # Pedestal = bias_offset only (from camera profile)
+        # - Bias offset: electronic pedestal, systematic DC offset - SUBTRACT
+        # - Dark current: contributes to noise variance, not a DC offset - do NOT subtract
+        # - Read noise: random fluctuation around 0 - do NOT subtract
+        # Validated against SQM-L reference meter: bias_offset only gives ±0.07 mag accuracy
+        pedestal = self.profile.bias_offset
 
-        if self.use_adaptive_noise_floor and self.noise_estimator is not None:
-            # Use adaptive noise floor estimation
-            noise_floor, noise_floor_details = (
-                self.noise_estimator.estimate_noise_floor(
-                    image=image,
-                    exposure_sec=exposure_sec,
-                    percentile=5.0,
-                )
-            )
-            pedestal = noise_floor
+        # Calculate temporal noise for diagnostics (not used in pedestal)
+        read_noise = self.profile.read_noise_adu
+        dark_current_contribution = self.profile.dark_current_rate * exposure_sec
+        temporal_noise = read_noise + dark_current_contribution
 
-            logger.info(
-                f"Adaptive noise floor: {noise_floor:.1f} ADU "
-                f"(dark_px={noise_floor_details['dark_pixel_smoothed']:.1f}, "
-                f"theory={noise_floor_details['theoretical_floor']:.1f}, "
-                f"valid={noise_floor_details['is_valid']})"
-            )
-
-            # Check if zero-sec sample requested
-            if noise_floor_details.get("request_zero_sec_sample"):
-                logger.info(
-                    "Zero-second calibration sample requested by noise estimator "
-                    "(will be captured in next cycle)"
-                )
-        else:
-            # Use manual pedestal (legacy mode)
-            if bias_image is not None and pedestal == 0.0:
-                pedestal = float(np.median(bias_image))
-                logger.debug(f"Pedestal from bias: {pedestal:.2f} ADU")
-            elif pedestal > 0:
-                logger.debug(f"Using manual pedestal: {pedestal:.2f} ADU")
-            else:
-                logger.debug("No pedestal applied")
-
-        # 1. Measure star fluxes with local background from annulus
-        star_fluxes, local_backgrounds = self._measure_star_flux_with_local_background(
-            image,
-            matched_centroids_arr,
-            aperture_radius,
-            annulus_inner_radius,
-            annulus_outer_radius,
+        logger.debug(
+            f"Calibration: pedestal={pedestal:.1f} ADU (bias_offset), "
+            f"read_noise={read_noise:.2f}, dark_current={dark_current_contribution:.2f} "
+            f"(rate={self.profile.dark_current_rate:.3f} ADU/s × {exposure_sec:.2f}s), "
+            f"temporal_noise={temporal_noise:.2f}"
         )
 
-        # 1a. Estimate pedestal from median local background if enabled and not already set
-        if (
-            self.pedestal_from_background
-            and pedestal == 0.0
-            and len(local_backgrounds) > 0
-        ):
-            pedestal = float(np.median(local_backgrounds))
-            logger.debug(
-                f"Pedestal estimated from median(local_backgrounds): {pedestal:.2f} ADU"
+        # 1. Measure star fluxes with local background from annulus
+        star_fluxes, local_backgrounds, n_saturated = (
+            self._measure_star_flux_with_local_background(
+                image,
+                matched_centroids_arr,
+                aperture_radius,
+                annulus_inner_radius,
+                annulus_outer_radius,
+                saturation_threshold,
+            )
+        )
+
+        if n_saturated > 0:
+            logger.info(
+                f"Excluded {n_saturated}/{len(matched_centroids_arr)} saturated stars "
+                f"(threshold={saturation_threshold})"
             )
 
         # 2. Calculate sky background from median of local backgrounds
@@ -516,16 +529,23 @@ class SQM:
         # 5. Convert background to flux density (ADU per arcsec²)
         background_flux_density = background_corrected / self.arcsec_squared_per_pixel
 
-        # 6. Calculate raw SQM
+        # 6. Calculate SQM (before extinction correction)
         if background_flux_density <= 0:
             logger.error(f"Invalid background flux density: {background_flux_density}")
             return None, {}
 
-        sqm_raw = mzero - 2.5 * np.log10(background_flux_density)
+        sqm_uncorrected = mzero - 2.5 * np.log10(background_flux_density)
 
-        # 7. Apply atmospheric extinction correction
-        extinction_correction = self._atmospheric_extinction(altitude_deg)
-        sqm_final = sqm_raw + extinction_correction
+        # 7. Apply atmospheric extinction correction (ASTAP convention)
+        # Following ASTAP: zenith is reference point where extinction = 0
+        # Only ADDITIONAL extinction below zenith is added: 0.28 * (airmass - 1)
+        # This allows comparing measurements at different altitudes
+        extinction_for_altitude = self._atmospheric_extinction(altitude_deg)  # 0.28*(airmass-1)
+
+        # Main SQM value: no extinction correction (raw measurement)
+        sqm_final = sqm_uncorrected
+        # Altitude-corrected value: adds extinction for altitude comparison
+        sqm_altitude_corrected = sqm_uncorrected + extinction_for_altitude
 
         # Filter out None values for statistics in diagnostics
         valid_mzeros_for_stats = [mz for mz in mzeros if mz is not None]
@@ -540,25 +560,16 @@ class SQM:
             "n_matched_stars_original": n_stars_original,
             "overlap_correction_enabled": correct_overlaps,
             "n_stars_excluded_overlaps": n_stars_excluded,
+            "n_stars_excluded_saturation": n_saturated,
+            "saturation_threshold": saturation_threshold,
             "background_per_pixel": background_per_pixel,
             "background_method": "local_annulus",
             "pedestal": pedestal,
-            "pedestal_source": (
-                "adaptive_noise_floor"
-                if self.use_adaptive_noise_floor and self.noise_estimator is not None
-                else (
-                    "bias_image"
-                    if bias_image is not None
-                    else (
-                        "median_local_backgrounds"
-                        if pedestal > 0
-                        and bias_image is None
-                        and self.pedestal_from_background
-                        else ("manual" if pedestal > 0 else "none")
-                    )
-                )
-            ),
-            "noise_floor_details": noise_floor_details if noise_floor_details else None,
+            "pedestal_source": self._determine_pedestal_source(),
+            "read_noise_adu": read_noise,
+            "dark_current_rate": self.profile.dark_current_rate,
+            "dark_current_contribution": dark_current_contribution,
+            "temporal_noise": temporal_noise,
             "exposure_sec": exposure_sec,
             "background_corrected": background_corrected,
             "background_flux_density": background_flux_density,
@@ -572,10 +583,11 @@ class SQM:
                 float(np.min(valid_mzeros_for_stats)),
                 float(np.max(valid_mzeros_for_stats)),
             ),
-            "sqm_raw": sqm_raw,
+            "sqm_uncorrected": sqm_uncorrected,
             "altitude_deg": altitude_deg,
-            "extinction_correction": extinction_correction,
+            "extinction_for_altitude": extinction_for_altitude,
             "sqm_final": sqm_final,
+            "sqm_altitude_corrected": sqm_altitude_corrected,
             # Per-star details for diagnostics
             "star_centroids": matched_centroids_arr.tolist(),
             "star_mags": star_mags,
@@ -584,105 +596,32 @@ class SQM:
             "star_mzeros": mzeros,
         }
 
+        # Optionally include full NoiseFloorEstimator output
+        if include_noise_floor_details:
+            try:
+                from .noise_floor import NoiseFloorEstimator
+
+                estimator = NoiseFloorEstimator(
+                    camera_type=self.camera_type,
+                    enable_zero_sec_sampling=False,
+                )
+                _, nf_details = estimator.estimate_noise_floor(
+                    image=image,
+                    exposure_sec=exposure_sec,
+                )
+                # Remove internal flags, add camera type
+                nf_details.pop("request_zero_sec_sample", None)
+                nf_details["camera_type"] = self.camera_type
+                details["noise_floor_estimator"] = nf_details
+            except Exception as e:
+                logger.warning(f"Failed to get noise floor details: {e}")
+                details["noise_floor_estimator"] = {"error": str(e)}
+
         logger.debug(
             f"SQM: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "
             f"bg={background_flux_density:.6f} ADU/arcsec², pedestal={pedestal:.2f}, "
-            f"raw={sqm_raw:.2f}, extinction={extinction_correction:.2f}, final={sqm_final:.2f}"
+            f"raw={sqm_uncorrected:.2f}, ext_alt={extinction_for_altitude:.2f}, "
+            f"final={sqm_final:.2f}, alt_corr={sqm_altitude_corrected:.2f}"
         )
 
         return sqm_final, details
-
-
-def update_sqm_if_needed(
-    shared_state,
-    sqm_calculator: SQM,
-    centroids: list,
-    solution: dict,
-    image: np.ndarray,
-    exposure_sec: float,
-    altitude_deg: float,
-    calculation_interval_seconds: float = 5.0,
-    aperture_radius: int = 5,
-    annulus_inner_radius: int = 6,
-    annulus_outer_radius: int = 14,
-) -> bool:
-    """
-    Check if SQM needs updating and calculate/store new value if needed.
-
-    This function encapsulates all the logic for time-based SQM updates:
-    - Checks if enough time has passed since last update
-    - Calculates new SQM value if needed
-    - Updates shared state with new SQM object
-    - Handles all timestamp conversions and error cases
-
-    Args:
-        shared_state: SharedStateObj instance to read/write SQM state
-        sqm_calculator: SQM calculator instance
-        centroids: List of detected star centroids
-        solution: Tetra3 solve solution with matched stars
-        image: Raw image array
-        exposure_sec: Exposure time in seconds (required for adaptive noise floor)
-        altitude_deg: Altitude in degrees for extinction correction
-        calculation_interval_seconds: Minimum time between calculations (default: 5.0)
-        aperture_radius: Aperture radius for photometry (default: 5)
-        annulus_inner_radius: Inner annulus radius (default: 6)
-        annulus_outer_radius: Outer annulus radius (default: 14)
-
-    Returns:
-        bool: True if SQM was calculated and updated, False otherwise
-    """
-    # Get current SQM state from shared state
-    current_sqm = shared_state.sqm()
-    current_time = time.time()
-
-    # Check if we should calculate SQM:
-    # - No previous calculation (last_update is None), OR
-    # - Enough time has passed since last update
-    should_calculate = current_sqm.last_update is None
-
-    if current_sqm.last_update is not None:
-        try:
-            last_update_time = datetime.fromisoformat(
-                current_sqm.last_update
-            ).timestamp()
-            should_calculate = (
-                current_time - last_update_time
-            ) >= calculation_interval_seconds
-        except (ValueError, AttributeError):
-            # If timestamp parsing fails, recalculate
-            logger.warning("Failed to parse SQM timestamp, recalculating")
-            should_calculate = True
-
-    if not should_calculate:
-        return False
-
-    # Calculate new SQM value
-    try:
-        sqm_value, _ = sqm_calculator.calculate(
-            centroids=centroids,
-            solution=solution,
-            image=image,
-            exposure_sec=exposure_sec,
-            altitude_deg=altitude_deg,
-            aperture_radius=aperture_radius,
-            annulus_inner_radius=annulus_inner_radius,
-            annulus_outer_radius=annulus_outer_radius,
-        )
-
-        if sqm_value is not None:
-            # Create new SQM state object
-            new_sqm_state = SQMState(
-                value=sqm_value,
-                source="Calculated",
-                last_update=datetime.now().isoformat(),
-            )
-            shared_state.set_sqm(new_sqm_state)
-            logger.debug(f"SQM: {sqm_value:.2f} mag/arcsec²")
-            return True
-        else:
-            logger.warning("SQM calculation returned None")
-            return False
-
-    except Exception as e:
-        logger.error(f"SQM calculation failed: {e}", exc_info=True)
-        return False

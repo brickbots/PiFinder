@@ -268,10 +268,16 @@ class UISQMCalibration(UIModule):
             fill=self.colors.get(192),
         )
 
-        # Legend
+        # Legend - show skip option for indoor calibration
         self.draw.text(
-            (10, 110),
-            f"{self._SQUARE_} READY  0 CANCEL",
+            (10, 100),
+            f"{self._SQUARE_} READY",
+            font=self.fonts.base.font,
+            fill=self.colors.get(192),
+        )
+        self.draw.text(
+            (10, 112),
+            "0 SKIP (indoor cal)",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
         )
@@ -351,7 +357,7 @@ class UISQMCalibration(UIModule):
         else:
             self.draw.text(
                 (10, 90),
-                "Hold steady...",
+                "Keep cap on...",
                 font=self.fonts.base.font,
                 fill=self.colors.get(64),
             )
@@ -695,9 +701,7 @@ class UISQMCalibration(UIModule):
             # 2. Compute read noise using temporal variance (not spatial)
             # Spatial std includes fixed pattern noise (PRNU), which is wrong.
             # Temporal variance at each pixel measures true read noise.
-            temporal_variance = np.var(
-                bias_stack, axis=0
-            )  # variance across frames per pixel
+            temporal_variance = np.var(bias_stack, axis=0)  # variance across frames per pixel
             self.read_noise = float(np.sqrt(np.mean(temporal_variance)))
 
             # 3. Compute dark current rate
@@ -715,8 +719,9 @@ class UISQMCalibration(UIModule):
             bias_stack_raw = np.array(self.bias_frames_raw, dtype=np.float32)
             self.bias_offset_raw = float(np.median(bias_stack_raw))
 
-            # 2. Compute read noise from raw frames
-            self.read_noise_raw = float(np.std(bias_stack_raw))
+            # 2. Compute read noise using temporal variance (not spatial)
+            temporal_variance_raw = np.var(bias_stack_raw, axis=0)
+            self.read_noise_raw = float(np.sqrt(np.mean(temporal_variance_raw)))
 
             # 3. Compute dark current rate from raw frames
             dark_stack_raw = np.array(self.dark_frames_raw, dtype=np.float32)
@@ -769,22 +774,15 @@ class UISQMCalibration(UIModule):
             # Create SQM calculator with the newly measured calibration
             # Use PROCESSED (8-bit) pipeline
             camera_type_processed = f"{self.shared_state.camera_type()}_processed"
-            sqm_calc = SQM(
-                camera_type=camera_type_processed, use_adaptive_noise_floor=True
-            )
+            sqm_calc = SQM(camera_type=camera_type_processed)
 
             # Manually set the calibration values we just measured
-            if (
-                sqm_calc.noise_estimator is not None
-                and self.bias_offset is not None
-                and self.read_noise is not None
-                and self.dark_current_rate is not None
-            ):
-                sqm_calc.noise_estimator.profile.bias_offset = self.bias_offset
-                sqm_calc.noise_estimator.profile.read_noise_adu = self.read_noise
-                sqm_calc.noise_estimator.profile.dark_current_rate = (
-                    self.dark_current_rate
-                )
+            if self.bias_offset is not None:
+                sqm_calc.profile.bias_offset = self.bias_offset
+            if self.read_noise is not None:
+                sqm_calc.profile.read_noise_adu = self.read_noise
+            if self.dark_current_rate is not None:
+                sqm_calc.profile.dark_current_rate = self.dark_current_rate
 
             self.sqm_values = []
 
@@ -948,16 +946,20 @@ class UISQMCalibration(UIModule):
     def key_number(self, number):
         """Number key cancels calibration or skips sky frames"""
         if number == 0:
+            # Skip sky frames and proceed to analysis (indoor calibration)
+            if self.state == CalibrationState.CAP_OFF_INSTRUCTION:
+                logger.info("User skipped sky frames (indoor calibration)")
+                self.state = CalibrationState.ANALYZING
+                self.current_frame = 0
             # If capturing sky frames, skip to analysis
-            if self.state == CalibrationState.CAPTURING_SKY:
-                logger.info("User skipped sky frame capture")
+            elif self.state == CalibrationState.CAPTURING_SKY:
+                logger.info("User skipped remaining sky frame capture")
                 self.state = CalibrationState.ANALYZING
                 self.current_frame = 0
             # Otherwise cancel and exit
             elif self.state in [
                 CalibrationState.INTRO,
                 CalibrationState.CAP_ON_INSTRUCTION,
-                CalibrationState.CAP_OFF_INSTRUCTION,
             ]:
                 if self.remove_from_stack:
                     self.remove_from_stack()

@@ -87,6 +87,10 @@ class MultiprocLogging:
             len(self._queues) >= 1
         ), "No queues in use. You should have requested at least one queue."
 
+        # Create the main-process queue BEFORE starting the sink so the sink
+        # receives it in its queue list and monitors it.
+        queue = initial_queue if initial_queue is not None else self.get_queue()
+
         self._proc = Process(
             target=self._run_sink,
             args=(
@@ -97,7 +101,6 @@ class MultiprocLogging:
         # Start separate process that consumes from the queues.
         self._proc.start()
         # Now in this process we can divert logging to the newly created class
-        queue = self.get_queue()
         MultiprocLogging.configurer(queue)
 
     def join(self):

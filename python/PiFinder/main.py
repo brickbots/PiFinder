@@ -32,7 +32,6 @@ from multiprocessing.managers import BaseManager
 
 import PiFinder.i18n  # noqa: F401
 from PiFinder import solver
-from PiFinder import integrator
 from PiFinder import config
 from PiFinder import mountcontrol_alignment
 from PiFinder import pos_server
@@ -53,6 +52,8 @@ from PiFinder.state import SharedStateObj, UIState
 from PiFinder.image_util import subtract_background
 
 from PiFinder.displays import DisplayBase, get_display
+
+import PiFinder.manager_patch as patch
 
 from typing import Any, TYPE_CHECKING
 
@@ -125,6 +126,9 @@ def setup_dirs():
     utils.create_path(Path(utils.data_dir, "solver_debug_dumps"))
     utils.create_path(Path(utils.data_dir, "logs"))
     os.chmod(Path(utils.data_dir), 0o777)
+
+
+patch.apply()
 
 
 class StateManager(BaseManager):
@@ -353,10 +357,6 @@ def main(
         "messages", "locale", languages=[lang], fallback=(lang == "en")
     )
     langXX.install()
-
-    import PiFinder.manager_patch as patch
-
-    patch.apply()
 
     with StateManager() as manager:
         shared_state = manager.SharedState()  # type: ignore[attr-defined]
@@ -1004,14 +1004,20 @@ if __name__ == "__main__":
         hardware_platform = "Fake"
         display_hardware = "pg_128"
         imu = importlib.import_module("PiFinder.imu_fake")
+        integrator = importlib.import_module("PiFinder.integrator_classic")
         gps_monitor = importlib.import_module("PiFinder.gps_fake")
     else:
         hardware_platform = "Pi"
         display_hardware = "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
 
-        imu = importlib.import_module("PiFinder.imu_pi")
         cfg = config.Config()
+        if cfg.get_option("imu_integrator") == "quaternion":
+            imu = importlib.import_module("PiFinder.imu_pi")
+            integrator = importlib.import_module("PiFinder.integrator")
+        else:
+            imu = importlib.import_module("PiFinder.imu_pi_classic")
+            integrator = importlib.import_module("PiFinder.integrator_classic")
 
         # verify and sync GPSD baud rate
         try:

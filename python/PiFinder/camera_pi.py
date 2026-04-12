@@ -96,7 +96,7 @@ class CameraPI(CameraInterface):
         raw_capture = self.profile.crop_and_rotate(raw_capture)
 
         # Store raw in shared state (before processing) for calibration and analysis
-        if hasattr(self, 'shared_state'):
+        if hasattr(self, "shared_state"):
             self.shared_state.set_cam_raw(raw_capture.copy())
 
         # covert to 32 bit int to avoid overflow
@@ -109,8 +109,10 @@ class CameraPI(CameraInterface):
         raw_capture *= self.profile.digital_gain
 
         # rescale to 8 bit
-        raw_capture = raw_capture * 255 / (
-            2**self.profile.bit_depth - self.profile.bias_offset - 1
+        raw_capture = (
+            raw_capture
+            * 255
+            / (2**self.profile.bit_depth - self.profile.bias_offset - 1)
         )
 
         # clip to avoid <0 or >255 values

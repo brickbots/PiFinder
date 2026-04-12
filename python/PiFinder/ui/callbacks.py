@@ -113,13 +113,13 @@ def capture_exposure_sweep(ui_module: UIModule) -> None:
     logger.info("Starting exposure sweep capture")
 
     # Import the sweep UI module
-    from PiFinder.ui.exp_sweep import UIExpSweep
+    from PiFinder.ui.sqm_sweep import UISQMSweep
 
     # Push the sweep progress UI onto the stack
     # It will handle starting the sweep and showing progress
     sweep_item = {
-        "class": UIExpSweep,
-        "label": "exp_sweep_progress",
+        "class": UISQMSweep,
+        "label": "sqm_sweep_progress",
     }
     ui_module.add_to_stack(sweep_item)
 
@@ -227,6 +227,9 @@ def switch_language(ui_module: UIModule) -> None:
     )
     lang.install()
     logger.info("Switch Language: %s", iso2_code)
+    if iso2_code == "zh":
+        # Chinese requires a new font, so we have to restart
+        restart_pifinder(ui_module)
 
 
 def go_wifi_ap(ui_module: UIModule) -> None:
