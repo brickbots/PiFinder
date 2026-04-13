@@ -385,6 +385,9 @@ def load_harris() -> None:
     logging.info("Loading Harris Globular Cluster catalog")
     catalog: str = "Har"
     obj_type: str = "Gb"  # Globular Cluster
+    
+    if objects_db is None:
+        raise RuntimeError("Database not initialized. Call init_shared_database() first.")
     conn, _ = objects_db.get_conn_cursor()
 
     # Enable bulk mode to prevent commits during insert operations
