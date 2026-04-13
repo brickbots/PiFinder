@@ -163,9 +163,7 @@ def j2000_to_jnow(ra_deg, dec_deg, dt):
 
     # Create position at J2000 epoch
     j2000_pos = position_of_radec(
-        ra_hours=ra_deg / 15.0,
-        dec_degrees=dec_deg,
-        epoch=ts.tt(jd=J2000)
+        ra_hours=ra_deg / 15.0, dec_degrees=dec_deg, epoch=ts.tt(jd=J2000)
     )
 
     # Get coordinates at current epoch (JNow)

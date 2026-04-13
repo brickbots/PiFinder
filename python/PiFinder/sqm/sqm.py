@@ -65,7 +65,9 @@ class SQM:
         )
 
         if not calibration_file.exists():
-            logger.debug(f"No calibration file found at {calibration_file}, using defaults")
+            logger.debug(
+                f"No calibration file found at {calibration_file}, using defaults"
+            )
             return False
 
         try:
@@ -193,7 +195,9 @@ class SQM:
 
             # Check for saturation in aperture
             aperture_pixels = image_patch[aperture_mask]
-            max_aperture_pixel = np.max(aperture_pixels) if len(aperture_pixels) > 0 else 0
+            max_aperture_pixel = (
+                np.max(aperture_pixels) if len(aperture_pixels) > 0 else 0
+            )
 
             if max_aperture_pixel >= saturation_threshold:
                 # Mark saturated star with flux=-1 to be excluded from mzero calculation
@@ -201,7 +205,6 @@ class SQM:
                 local_backgrounds.append(local_bg_per_pixel)
                 n_saturated += 1
                 continue
-
 
             # Total flux in aperture (includes background)
             total_flux = np.sum(aperture_pixels)
@@ -263,9 +266,7 @@ class SQM:
         # Flux-weighted mean: brighter stars contribute more
         valid_mzeros_arr = np.array(valid_mzeros)
         valid_fluxes_arr = np.array(valid_fluxes)
-        weighted_mzero = float(
-            np.average(valid_mzeros_arr, weights=valid_fluxes_arr)
-        )
+        weighted_mzero = float(np.average(valid_mzeros_arr, weights=valid_fluxes_arr))
 
         return weighted_mzero, mzeros
 
@@ -540,7 +541,9 @@ class SQM:
         # Following ASTAP: zenith is reference point where extinction = 0
         # Only ADDITIONAL extinction below zenith is added: 0.28 * (airmass - 1)
         # This allows comparing measurements at different altitudes
-        extinction_for_altitude = self._atmospheric_extinction(altitude_deg)  # 0.28*(airmass-1)
+        extinction_for_altitude = self._atmospheric_extinction(
+            altitude_deg
+        )  # 0.28*(airmass-1)
 
         # Main SQM value: no extinction correction (raw measurement)
         sqm_final = sqm_uncorrected
