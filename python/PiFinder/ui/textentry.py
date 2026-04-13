@@ -80,7 +80,7 @@ class KeyPad:
 
 
 class UITextEntry(UIModule):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         # Get mode from item_definition
