@@ -1,3 +1,4 @@
+import os
 import nox
 
 nox.options.sessions = ["lint", "format", "type_hints", "smoke_tests"]
@@ -48,6 +49,24 @@ def format(session: nox.Session) -> None:
     session.run("ruff", "format")
 
 
+def install_pyindi_client(session: nox.Session) -> None:
+    """
+    Install the pyindi-client library.
+
+    This function checks if the pyindi-client library is installed in a non-standard location and if that is the case, installs from a local patched version.
+    If not found, it installs the library from the GitHub repository.
+
+    Args:
+        session (nox.Session): The Nox session being run, providing context and methods for session actions.
+    """
+    if os.path.isdir("/opt/indi"):
+        session.install("/Users/grimaldi/Projects/PiFinder/pyindi-client")
+    else:
+        session.install(
+            "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
+        )
+
+
 @nox.session(reuse_venv=True, python="3.9")
 def type_hints(session: nox.Session) -> None:
     """
@@ -61,9 +80,7 @@ def type_hints(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
-    session.install(
-        "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
-    )
+    install_pyindi_client(session)
     session.run(
         "mypy", "--install-types", "--non-interactive", "--exclude", "indi_tools", "."
     )
@@ -82,9 +99,7 @@ def unit_tests(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
-    session.install(
-        "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
-    )
+    install_pyindi_client(session)
     session.run("pytest", "-m", "unit")
 
 
@@ -101,9 +116,7 @@ def smoke_tests(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
-    session.install(
-        "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
-    )
+    install_pyindi_client(session)
     session.run("pytest", "-m", "smoke")
 
 
