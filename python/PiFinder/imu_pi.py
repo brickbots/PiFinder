@@ -12,7 +12,6 @@ import board
 import adafruit_bno055
 import logging
 
-from PiFinder import config
 import PiFinder.i18n  # noqa: F401
 import quaternion  # Numpy quaternion
 
