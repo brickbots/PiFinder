@@ -21,6 +21,8 @@ from .catalog_import_utils import (
 # Import shared database object
 from .database import objects_db
 
+logger = logging.getLogger("BrightStarsLoader")
+
 
 def load_bright_stars():
     """Load the catalog of bright named stars"""
@@ -44,7 +46,7 @@ def load_bright_stars():
             other_names = dfs[1:3]
             sequence = int(dfs[0])
 
-            logging.debug(f"---------------> Bright Stars {sequence=} <---------------")
+            logger.debug(f"---------------> Bright Stars {sequence=} <---------------")
             size = ""
             # const = dfs[2].strip()
             desc = ""

@@ -1,0 +1,97 @@
+# INDI Alignment Subsystem — Disable Configuration
+#
+# PiFinder reads this file at startup and merges it with
+# ~/PiFinder_data/indi_disable_alignment.yml (user overrides).
+#
+# Merge rules for the user override file:
+#   - Driver key present + non-empty disable_commands  → user list replaces repo list
+#   - Driver key present + empty disable_commands: []  → detect only, do NOT disable
+#   - Driver key absent from user file                 → repo defaults apply
+#
+# For each driver:
+#   device_name       : exact INDI device name as returned by getDefaultName()
+#   description       : human-readable label
+#   detect_property   : INDI property name to check for alignment activity
+#   detect_element    : element within that property to inspect
+#   detect_active_value: the value that indicates alignment IS active
+#   disable_commands  : ordered list of switch commands to send to disable alignment
+#     - type     : "switch"
+#       property : INDI property name
+#       element  : switch element to toggle
+#       value    : "On" or "Off"
+
+indi:
+  host: localhost
+  port: 7624
+  connect_timeout: 5.0     # seconds to wait for INDI server connection
+  read_timeout: 3.0         # seconds to wait for property response
+  retry_interval: 30.0      # seconds between retries if INDI is not available
+  max_retries: 10           # stop retrying after this many failed attempts
+
+drivers:
+  skywatcher_altaz:
+    description: "Sky-Watcher Alt-Az mounts (SkywatcherAPIMount driver)"
+    device_name: "Skywatcher Alt-Az"
+    detect_property: "ALIGNMENT_SUBSYSTEM_ACTIVE"
+    detect_element: "ALIGNMENT SUBSYSTEM ACTIVE"
+    detect_active_value: "On"
+    disable_commands:
+      - type: switch
+        property: "ALIGNMENT_SUBSYSTEM_ACTIVE"
+        element: "ALIGNMENT SUBSYSTEM ACTIVE"
+        value: "Off"
+
+  astrotrac:
+    description: "AstroTrac tracking mounts"
+    device_name: "AstroTrac"
+    detect_property: "ALIGNMENT_SUBSYSTEM_ACTIVE"
+    detect_element: "ALIGNMENT SUBSYSTEM ACTIVE"
+    detect_active_value: "On"
+    disable_commands:
+      - type: switch
+        property: "ALIGNMENT_SUBSYSTEM_ACTIVE"
+        element: "ALIGNMENT SUBSYSTEM ACTIVE"
+        value: "Off"
+
+  dsc:
+    description: "Digital Setting Circle encoders (DSC driver)"
+    device_name: "Digital Setting Circle"
+    detect_property: "ALIGNMENT_SUBSYSTEM_ACTIVE"
+    detect_element: "ALIGNMENT SUBSYSTEM ACTIVE"
+    detect_active_value: "On"
+    disable_commands:
+      - type: switch
+        property: "ALIGNMENT_SUBSYSTEM_ACTIVE"
+        element: "ALIGNMENT SUBSYSTEM ACTIVE"
+        value: "Off"
+
+  eqmod:
+    description: "EQMod equatorial mounts (HEQ5, EQ6, AZ-EQ6, etc.)"
+    device_name: "EQMod Mount"
+    # EQMod uses its own ALIGNMODE switch. NOALIGN=Off means another mode is
+    # active, i.e. alignment IS on.
+    detect_property: "ALIGNMODE"
+    detect_element: "NOALIGN"
+    detect_active_value: "Off"
+    disable_commands:
+      - type: switch
+        property: "ALIGNMODE"
+        element: "NOALIGN"
+        value: "On"
+      # Also disable the INDI subsystem if compiled with WITH_ALIGN
+      - type: switch
+        property: "ALIGNMENT_SUBSYSTEM_ACTIVE"
+        element: "ALIGNMENT SUBSYSTEM ACTIVE"
+        value: "Off"
+
+  celestronaux:
+    description: "Celestron AUX protocol mounts (NexStar, CGX, AVX, etc.)"
+    device_name: "Celestron AUX"
+    detect_property: "ALIGNMENT_SUBSYSTEM_ACTIVE"
+    detect_element: "ALIGNMENT SUBSYSTEM ACTIVE"
+    detect_active_value: "On"
+    disable_commands:
+      - type: switch
+        property: "ALIGNMENT_SUBSYSTEM_ACTIVE"
+        element: "ALIGNMENT SUBSYSTEM ACTIVE"
+        value: "Off"

@@ -124,10 +124,19 @@ class MultiprocLogging:
         for hdlr in hdlrs:
             rLogger.removeHandler(hdlr)
 
-        # Set maxBytes to 50MB (50 * 1024 * 1024 bytes) and keep 5 backup files
-        h = logging.handlers.RotatingFileHandler(
-            output, maxBytes=50 * 1024 * 1024, backupCount=5, encoding="utf-8"
-        )
+        if output is None:
+            import sys
+
+            h: logging.Handler = logging.StreamHandler(sys.stderr)
+            rLogger.setLevel(logging.DEBUG)
+            rLogger.warning("Starting logging process (console only, no file output)")
+        else:
+            # Set maxBytes to 50MB (50 * 1024 * 1024 bytes) and keep 5 backup files
+            h = logging.handlers.RotatingFileHandler(
+                output, maxBytes=50 * 1024 * 1024, backupCount=5, encoding="utf-8"
+            )
+            rLogger.warning("Starting logging process")
+            rLogger.warning("Logging to %s", output)
         f = logging.Formatter(self._formatter)
         h.setFormatter(f)
         rLogger.addHandler(h)

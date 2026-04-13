@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Python Syntax Checking
+
+**Always use the project script — never use `python -c "import ast ..."`:**
+```bash
+cd python/
+python check_syntax.py PiFinder/file1.py PiFinder/file2.py
+```
+
 ## Development Commands
 
 **Development workflow uses Nox for task automation:**

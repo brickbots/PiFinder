@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import pydeepskylog as pds
 from PIL import Image
-from PiFinder import utils, calc_utils, config
+from PiFinder import utils, calc_utils, config, mountcontrol_alignment
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
@@ -25,6 +25,7 @@ from bottle import (
     debug,
     redirect,
     CherootServer,
+    SimpleTemplate,
 )
 
 sys_utils = utils.get_sys_utils()
@@ -96,6 +97,11 @@ class Server:
         }
 
         self.network = sys_utils.Network()
+
+        # Set global template variables
+        SimpleTemplate.defaults["mount_control_active"] = (
+            sys_utils.is_mountcontrol_active()
+        )
 
         app = Bottle()
         debug(True)
@@ -905,6 +911,50 @@ class Server:
             )
 
             return template("restart_pifinder")
+
+        @app.route("/indi")
+        @auth_required
+        def indi_page():
+            status = mountcontrol_alignment.read_status()
+            diff_lines = mountcontrol_alignment.diff_configs()
+            user_config_exists = mountcontrol_alignment.get_user_config_path().exists()
+            user_config_modified = bool(diff_lines)
+            return template(
+                "indi",
+                status=status,
+                diff_lines=diff_lines,
+                user_config_exists=user_config_exists,
+                user_config_modified=user_config_modified,
+                repo_config_path=str(mountcontrol_alignment.get_repo_config_path()),
+                user_config_path=str(mountcontrol_alignment.get_user_config_path()),
+            )
+
+        @app.route("/indi/copy_config", method="post")
+        @auth_required
+        def indi_copy_config():
+            ok, msg = mountcontrol_alignment.copy_repo_config_to_user()
+            status = mountcontrol_alignment.read_status()
+            diff_lines = mountcontrol_alignment.diff_configs()
+            user_config_exists = mountcontrol_alignment.get_user_config_path().exists()
+            return template(
+                "indi",
+                status=status,
+                diff_lines=diff_lines,
+                user_config_exists=user_config_exists,
+                user_config_modified=False,
+                repo_config_path=str(mountcontrol_alignment.get_repo_config_path()),
+                user_config_path=str(mountcontrol_alignment.get_user_config_path()),
+                copy_message=msg,
+                copy_success=ok,
+            )
+
+        @app.route("/indi/status.json")
+        @auth_required
+        def indi_status_json():
+            response.content_type = "application/json"
+            return json.dumps(
+                mountcontrol_alignment.read_status(), indent=2, default=str
+            )
 
         @app.route("/key_callback", method="POST")
         @auth_required

@@ -1,3 +1,4 @@
+import os
 import nox
 
 nox.options.sessions = ["lint", "format", "type_hints", "smoke_tests"]
@@ -19,6 +20,21 @@ def lint(session: nox.Session) -> None:
 
 
 @nox.session(reuse_venv=True, python="3.9")
+def format_check(session: nox.Session) -> None:
+    """
+    Check the formatting of the project's codebase.
+
+    This session installs necessary dependencies for code formatting and runs the formatter
+    to check if the code format adheres to the project's style guide without making any changes.
+
+    Args:
+        session (nox.Session): The Nox session being run, providing context and methods for session actions.
+    """
+    session.install("ruff==0.4.8")
+    session.run("ruff", "format", "--check")
+
+
+@nox.session(reuse_venv=True, python="3.9")
 def format(session: nox.Session) -> None:
     """
     Format the project's codebase.
@@ -31,6 +47,24 @@ def format(session: nox.Session) -> None:
     """
     session.install("ruff==0.4.8")
     session.run("ruff", "format")
+
+
+def install_pyindi_client(session: nox.Session) -> None:
+    """
+    Install the pyindi-client library.
+
+    This function checks if the pyindi-client library is installed in a non-standard location and if that is the case, installs from a local patched version.
+    If not found, it installs the library from the GitHub repository.
+
+    Args:
+        session (nox.Session): The Nox session being run, providing context and methods for session actions.
+    """
+    if os.path.isdir("/opt/indi"):
+        session.install("/Users/grimaldi/Projects/PiFinder/pyindi-client")
+    else:
+        session.install(
+            "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
+        )
 
 
 @nox.session(reuse_venv=True, python="3.9")
@@ -46,7 +80,10 @@ def type_hints(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
-    session.run("mypy", "--install-types", "--non-interactive", ".")
+    install_pyindi_client(session)
+    session.run(
+        "mypy", "--install-types", "--non-interactive", "--exclude", "indi_tools", "."
+    )
 
 
 @nox.session(reuse_venv=True, python="3.9")
@@ -62,6 +99,7 @@ def unit_tests(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
+    install_pyindi_client(session)
     session.run("pytest", "-m", "unit")
 
 
@@ -78,6 +116,7 @@ def smoke_tests(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
+    install_pyindi_client(session)
     session.run("pytest", "-m", "smoke")
 
 

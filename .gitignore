@@ -153,6 +153,7 @@ case/my_printer
 .serena/
 astro_data/comets.txt
 python/tetra3
+.vscode/*
 
 # users GPS data
 test_ubx

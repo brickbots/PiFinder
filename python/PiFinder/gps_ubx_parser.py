@@ -281,7 +281,7 @@ class UBXParser:
         numSV = data[47]
         result = {}
         if ecefX == 0 or ecefY == 0 or ecefZ == 0:
-            logging.debug(
+            logger.debug(
                 f"nav_sol zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}, pAcc: {pAcc}, numSV: {numSV}"
             )
         else:
@@ -446,7 +446,7 @@ class UBXParser:
         ecefZ = int.from_bytes(data[12:16], "little", signed=True) / 100.0
         result = {}
         if ecefX == 0 or ecefY == 0 or ecefZ == 0:
-            logging.debug(
+            logger.debug(
                 f"nav_posecef zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}"
             )
         else:

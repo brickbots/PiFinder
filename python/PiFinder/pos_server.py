@@ -248,7 +248,7 @@ def handle_client(client_socket, shared_state):
             if not in_data:
                 break
 
-            logging.debug("Received from skysafari: %s", in_data)
+            logger.debug("Received from skysafari: %s", in_data)
             command = extract_command(in_data)
             if command:
                 command_handler = lx_command_dict.get(command, not_implemented)
@@ -265,10 +265,10 @@ def handle_client(client_socket, shared_state):
                 # A indicates alt-az mode
                 client_socket.send("A".encode())
         except socket.timeout:
-            logging.warning("Connection timed out.")
+            logger.warning("Connection timed out.")
             break
         except ConnectionResetError:
-            logging.warning("Client disconnected unexpectedly.")
+            logger.warning("Client disconnected unexpectedly.")
             break
 
     client_socket.close()
@@ -294,4 +294,4 @@ def run_server(shared_state, p_ui_queue, log_queue):
             time.sleep(5)
         except KeyboardInterrupt:
             logger.info("Server shutting down...")
-            break
+            return
