@@ -33,7 +33,6 @@ from multiprocessing.managers import BaseManager
 import PiFinder.i18n  # noqa: F401
 from PiFinder import solver
 from PiFinder import config
-from PiFinder import mountcontrol_alignment
 from PiFinder import pos_server
 from PiFinder import utils
 from PiFinder import server
