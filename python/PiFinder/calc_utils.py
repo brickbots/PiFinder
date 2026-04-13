@@ -140,7 +140,6 @@ def b1950_to_j2000(ra_hours, dec_deg):
     """
     return epoch_to_epoch(B1950, J2000, ra_hours, dec_deg)
 
-
 def aim_degrees(shared_state, mount_type, screen_direction, target):
     """
     Returns degrees in either
