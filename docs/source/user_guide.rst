@@ -711,10 +711,10 @@ Can I use the PiFinder on an EQ mount?
 The PiFinder works with any mount, including EQ mounts.  The plate solving will work the same regardless of mount type. You can switch PiFinder to EQ mode by navigating 
 to :ref:`user_guide:settings menu` and changing the "Mount Type" to EQ.  This will change the Push-To instructions to be in RA/Dec instead of Alt/Az (indicating +/- in both axes).  
 
-In prior versions of the software (2.4.0 and less) the accelerometer-based tracking will not work correctly in EQ mode.  This means that the Push-To instructions will be strange when 
+In prior versions of the software (2.5.0 and less) the accelerometer-based tracking will not work correctly in EQ mode.  This means that the Push-To instructions will be strange when 
 you move the scope, but when you stop moving and the camera can plate solve, the real distances to the target will be shown.
 
-From version 2.5.0 on, EQ mode will be fully supported with accelerometer tracking.
+From version 2.6.0 on, EQ mode will be fully supported with accelerometer tracking.
 
 Can I control my motorized mount with the PiFinder?
 -----------------------------------------------------
