@@ -33,11 +33,12 @@ def test_object_counts():
         "Arp": 337,  # should be 338, arp-1 is missing from the original sqlite source database !
         "TLK": 93,
         "Har": 147,
+        "Lyn": 1151,
     }
 
     # catalog count
     num_catalogs = len(list(db.get_catalogs()))
-    assert num_catalogs == 20
+    assert num_catalogs == 21
     actual_catalogs = [row["catalog_code"] for row in db.get_catalogs()]
     expected_catalogs = list(catalog_counts.keys())
     missing_catalogs = set(expected_catalogs) - set(actual_catalogs)
@@ -56,12 +57,21 @@ def test_missing_catalog_data():
     db = objects_db.ObjectsDatabase()
     # missing data
 
+    dec_zero_objects = []
     for obj in db.get_objects():
         assert obj["ra"] != 0
-        assert obj["dec"] != 0
-        assert obj["const"] != ""
         assert obj["ra"] is not None
         assert obj["dec"] is not None
+        assert obj["const"] != ""
+        if obj["dec"] == 0:
+            dec_zero_objects.append(obj)
+
+    # Exactly one object with dec=0 is expected: Lyn 239 (Dolidze 23 / C0640+000)
+    # which genuinely sits on the celestial equator in Monoceros
+    assert len(dec_zero_objects) == 1, (
+        f"Expected exactly 1 object with dec=0 (Lyn 239 / Dolidze 23), "
+        f"got {len(dec_zero_objects)}: {[o['id'] for o in dec_zero_objects]}"
+    )
 
 
 def coords_are_close(coord1, coord2, tolerance=0.02):

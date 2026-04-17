@@ -162,6 +162,12 @@ pifinder_menu = {
                                     "value": "IC",
                                 },
                                 {
+                                    "name": _("Lynga Opn Cl"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Lyn",
+                                },
+                                {
                                     "name": _("Messier"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
@@ -333,6 +339,10 @@ pifinder_menu = {
                                 {
                                     "name": _("IC"),
                                     "value": "IC",
+                                },
+                                {
+                                    "name": _("Lynga Opn Cl"),
+                                    "value": "Lyn",
                                 },
                                 {
                                     "name": _("Messier"),
