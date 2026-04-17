@@ -695,7 +695,9 @@ class UISQMCalibration(UIModule):
             # 2. Compute read noise using temporal variance (not spatial)
             # Spatial std includes fixed pattern noise (PRNU), which is wrong.
             # Temporal variance at each pixel measures true read noise.
-            temporal_variance = np.var(bias_stack, axis=0)  # variance across frames per pixel
+            temporal_variance = np.var(
+                bias_stack, axis=0
+            )  # variance across frames per pixel
             self.read_noise = float(np.sqrt(np.mean(temporal_variance)))
 
             # 3. Compute dark current rate

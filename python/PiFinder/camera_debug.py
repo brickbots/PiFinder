@@ -61,15 +61,18 @@ class CameraDebug(CameraInterface):
         self._camera_started = False
 
     def capture(self) -> Image.Image:
+        # Sleep for exposure time
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
-        # Change images every 10 seconds
+
         elapsed = time.time() - self.last_image_time
+        # Swap every x seconds
         if elapsed > 10:
             self.current_image_num, self.last_image = next(self.image_cycle)
             logger.debug(
                 f"Debug camera switched to test image #{self.current_image_num}"
             )
+            self.last_image_time = time.time()
         return self.last_image
 
     def capture_bias(self):

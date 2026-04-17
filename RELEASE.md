@@ -1,65 +1,47 @@
-# PiFinder v2.4.0 Release Notes
+# PiFinder v2.5.0 Release Notes
 
-## Major New Features
+## New Features
 
-### Sky Quality Meter (SQM) - Experimental
-A new Sky Quality Meter feature measures sky brightness and displays the corresponding Bortle scale classification. This helps observers assess observing conditions at their location.
-- Real-time SQM measurement with Bortle class display
-- Calibration UI for accurate readings across different camera configurations
-- Camera profiles for IMX296 and other supported sensors
-- Rotating constellation/SQM display in title bar
+### T9 Input Support (#364)
+Added T9-style text input for searching object catalogs using the hardware keypad. Type object names by pressing number keys to quickly filter catalog searches, just like texting on an old phone. Includes cached digit mapping for fast performance.
 
-### Camera Auto Exposure
-Automatic exposure control using a PID-based algorithm that adapts to changing sky conditions.
-- Asymmetric tuning for responsive exposure adjustments
-- Exposure sweep functionality for calibration
-- SNR-based thresholds derived from camera profiles
-- Visual exposure overlay in preview mode
+### Harris Globular Cluster Catalog (#384)
+New catalog loader for the Harris Globular Cluster catalog, adding 147 globular clusters with detailed metadata (distance, metallicity, concentration, etc.) to the searchable database.
 
-### Cedar-Detect System Service
-Cedar-Detect now runs as a dedicated system service rather than a subprocess, improving stability and resource management. This change is transparent to users but provides better crash recovery and memory handling.
+### Stellarium+ Mobile Support (#375)
+Added support for connecting to Stellarium+ Mobile, including the ACK command and additional protocol responses needed for reliable connections without timeouts.
 
-## Improvements
+### Stellarium J2000 Epoch Handling (#376)
+Corrected coordinate epoch handling when connected to Stellarium, which uses J2000 rather than JNOW. Skips unnecessary epoch conversion when J2000 is the input.
 
-### GPS
-- **Configurable baud rate**: GPS baud rate can now be configured via the Advanced settings menu (#345)
-- **Reorganized GPS settings**: GPS options now grouped under Settings > Advanced > GPS Settings
-- **GPSD improvements**: Fixed lock_type handling for GPSD-based GPS messages (#358)
-- **Early dongle fix**: Fixed issue where some GPS dongles never reported sky data (#373)
-
-### Catalogs
-- **WDS catalog**: Improved loading speed with background loading for better UI responsiveness (#352, #355)
-- **Async search**: Search is now asynchronous for improved responsiveness
-- **Comet catalog**: Better refresh and download handling with non-blocking updates (#353)
-- **Bright stars**: Fixed off-by-one error in bright stars catalog
-
-### User Interface
-- **EQ mode**: Push-to now uses +/- buttons rather than arrows for clearer directional guidance
-- **Settings reorganization**: Advanced settings (PiFinder Type, Camera Type, GPS Settings) now grouped under an "Advanced" submenu
-- **Preview cleanup**: Removed background subtraction and gamma functions from preview
-- **Experimental menu**: Moved higher in menu structure for easier access
+### Chinese (zh) Locale (#377)
+Full Chinese language translation with a custom Sarasa Mono SC font for proper CJK character rendering. The font is conditionally loaded only when Chinese is selected, keeping memory usage low for other languages.
 
 ## Bug Fixes
 
-- Fixed preview crash when marking menu items are missing
-- Fixed crash when screenshot title contains a slash
-- Fixed OSX logging levels by applying log config in each subprocess
-- Fixed various solver stability issues with improved error handling
-- Fixed typo in SkySafari documentation
-- Fixed typo in menu
+- **GPSD + Cedar crash fix** (#386): Fixed an issue where early GPS dongles that never reported sky data could stall the GPS process. Also fixed auth-related solver crashes with Cedar.
+- **Camera fade on non-solves**: Solver now clears RA/Dec/Matches before attempting a solve (not just when no stars are found), preventing stale position data from persisting after a failed solve. The UI fade timer was also doubled in speed (3s vs 6s ramp) for quicker visual feedback when the solver loses lock.
+- **Position server TypeError**: Added defensive type coercion and error handling in `pos_server.py` for RA/Dec values, preventing crashes when solution coordinates are None or non-numeric.
+- **Debug camera rotation timing**: Fixed the debug camera so it actually resets its timer when switching images, preventing images from cycling every frame after the first 10-second interval.
+- **Double update bug**: Fixed an issue in the update process that could cause updates to run twice.
+- **Eyepiece sorting** (#387): Eyepieces are now always sorted by focal length (magnification) in the equipment list.
+- **Push-to display fix**: Fixed a display/typing issue in the push-to screen introduced by the Chinese locale update.
+
+## Developer Improvements
+
+- **Fake sys_utils environment toggle** (#380): Added `PIFINDER_USE_FAKE_SYS_UTILS` environment variable for deterministic local development and testing without hardware dependencies.
+- **Fake GPS argument**: New `--gps fake` CLI argument to use a fake GPS module during development, complementing the existing `--camera debug` flag.
+- **Solver log level**: Reduced solver log verbosity for cleaner output during normal operation.
+- **T9 test suite**: Added comprehensive tests for T9 digit mapping and search filtering (`test_t9_search.py`).
 
 ## Hardware & Documentation
 
-- Adjusted GPS antenna holder sizing
-- Improved case tolerances and new dovetail design
-- Updated shroud with tighter tolerance
-- Added instructions to build guide for testing LEDs and buttons
-- Clarified DIY vs Assembled parts in case documentation
-
-## Migration Notes
-
-This release includes a migration script (`migration_source/v2.4.0.sh`) that sets up the Cedar-Detect system service. The migration will run automatically during the update process.
+- Added `pi_mount_noinserts.stl` variant for cases assembled without heat-set inserts.
+- Removed references to the discontinued HQ camera and assembled kit version.
+- Various typo and spelling fixes throughout the documentation.
 
 ---
 
-**Full Changelog**: 40 commits from release to main
+**Version**: 2.4.0 → 2.5.0
+**Commits**: 22 (including 1 merge)
+**Files changed**: 41 (+3,434 / -147 lines)
