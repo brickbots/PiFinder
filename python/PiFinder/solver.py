@@ -402,16 +402,20 @@ def solver(
                             % ("camera", len(centroids), t_extract)
                         )
 
+                        # Clear solve results which indicate solve as failed
+                        # (otherwise old values persist)
+
+                        solved["RA"] = None
+                        solved["Dec"] = None
+                        solved["Matches"] = 0
+                        solution = {}
+
                         if len(centroids) == 0:
                             if log_no_stars_found:
                                 logger.info(
                                     "No stars found, skipping (Logged only once)"
                                 )
                                 log_no_stars_found = False
-                            # Clear solve results to mark solve as failed (otherwise old values persist)
-                            solved["RA"] = None
-                            solved["Dec"] = None
-                            solved["Matches"] = 0
                         else:
                             log_no_stars_found = True
                             _solver_args = {}

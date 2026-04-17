@@ -45,8 +45,17 @@ def get_telescope_ra(shared_state, _):
         return "+00*00'01"
 
     # Convert from J2000 to now epoch
-    RA_deg = solution["RA"]
-    Dec_deg = solution["Dec"]
+    try:
+        RA_deg = float(solution["RA"])
+        Dec_deg = float(solution["Dec"])
+    except TypeError:
+        hh = 0
+        mm = 0
+        ss = 0
+        ra_result = f"{hh:02.0f}:{mm:02.0f}:{ss:02.0f}"
+        logger.warning("get_telescope_ra: Type Error")
+        return ra_result
+
     _p = position_of_radec(ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=ts.J2000)
 
     RA_h, _Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
@@ -69,8 +78,18 @@ def get_telescope_dec(shared_state, _):
         return "+00*00'01"
 
     # Convert from J2000 to now epoch
-    RA_deg = solution["RA"]
-    Dec_deg = solution["Dec"]
+    try:
+        RA_deg = float(solution["RA"])
+        Dec_deg = float(solution["Dec"])
+    except TypeError:
+        sign = "+"
+        hh = 0
+        mm = 0
+        ss = 0
+        dec_result = f"{sign}{hh:02.0f}*{mm:02.0f}'{ss:02.0f}"
+        logger.warning("get_telescope_dec: Type error in coords")
+        return dec_result
+
     _p = position_of_radec(ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=ts.J2000)
 
     _RA_h, Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
