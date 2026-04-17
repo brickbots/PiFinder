@@ -381,7 +381,8 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, Any]:
     return result
 
 
-def load_harris():
+def load_harris() -> None:
+    assert objects_db is not None, "Database not initialized before load_harris()"
     logging.info("Loading Harris Globular Cluster catalog")
     catalog: str = "Har"
     obj_type: str = "Gb"  # Globular Cluster

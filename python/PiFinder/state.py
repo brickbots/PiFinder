@@ -238,7 +238,7 @@ class Location:
 
 
 class SharedStateObj:
-    def __init__(self):
+    def __init__(self) -> None:
         self.__power_state = 1  # 0 = sleep state, 1 = awake state
         # self.__solve_state
         # None = No solve attempted yet
