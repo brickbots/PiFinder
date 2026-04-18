@@ -586,7 +586,7 @@ class LayoutConfig:
 class UIRADecEntry(UIModule):
     __title__ = _("RA/DEC Entry")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.callback = self.item_definition.get("callback")

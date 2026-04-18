@@ -4,11 +4,12 @@ Shared database module for catalog imports.
 This module provides centralized access to database objects for all catalog loaders.
 """
 
-from .catalog_import_utils import init_databases
+from typing import Optional
+from .catalog_import_utils import init_databases, ObjectsDatabase, ObservationsDatabase
 
 # Global database objects shared across all catalog loaders
-objects_db = None
-observations_db = None
+objects_db: Optional[ObjectsDatabase] = None
+observations_db: Optional[ObservationsDatabase] = None
 
 
 def init_shared_database():

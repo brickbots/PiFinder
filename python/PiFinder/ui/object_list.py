@@ -358,10 +358,24 @@ class UIObjectList(UITextMenu):
         result = ", ".join(dedups)
         return result
 
+    # Use 3-letter abbreviations for planets instead of PL1, PL2, etc.
+    # Falls back to full name if planet is not in the dictionary.
     def create_shortname_text(self, obj: CompositeObject) -> str:
-        name = f"{obj.catalog_code}{obj.sequence}"
-        return name
-        # return f"{name: <7}"
+        if obj.catalog_code == "PL" and obj.names:
+            planet_abbrevs = {
+                "Mercury": "MER",
+                "Venus":   "VEN",
+                "Moon":    "MON",
+                "Mars":    "MAR",
+                "Jupiter": "JUP",
+                "Saturn":  "SAT",
+                "Uranus":  "URA",
+                "Neptune": "NEP",
+                "Pluto":   "PLU",
+            }
+            return planet_abbrevs.get(obj.names[0], obj.names[0])
+        return f"{obj.catalog_code}{obj.sequence}"
+
 
     def create_locate_text(self, obj: CompositeObject) -> str:
         az, alt = aim_degrees(
@@ -372,6 +386,7 @@ class UIObjectList(UITextMenu):
             distance = f"{az_txt} {alt_txt}"
         else:
             distance = "--- ---"
+            # distance = obj.names[0] if obj.names else "--- ---"
 
         return distance
 

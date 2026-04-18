@@ -6,6 +6,8 @@ This module contains all the UI code for the object details screen
 
 """
 
+from pydeepskylog.exceptions import InvalidParameterError
+
 from PiFinder import cat_images
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
@@ -25,6 +27,7 @@ import functools
 from PiFinder.db.observations_db import ObservationsDatabase
 import numpy as np
 import time
+import pydeepskylog as pds
 
 
 # Constants for display modes
@@ -32,6 +35,7 @@ DM_DESC = 0  # Display mode for description
 DM_LOCATE = 1  # Display mode for LOCATE
 DM_POSS = 2  # Display mode for POSS
 DM_SDSS = 3  # Display mode for SDSS
+DM_CONTRAST = 4  # Display mode for Contrast Reserve explanation
 
 
 class UIObjectDetails(UIModule):
@@ -46,6 +50,7 @@ class UIObjectDetails(UIModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.contrast = None
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
         self.object = self.item_definition["object"]
@@ -68,7 +73,7 @@ class UIObjectDetails(UIModule):
             ),
         )
 
-        # Used for displaying obsevation counts
+        # Used for displaying observation counts
         self.observations_db = ObservationsDatabase()
 
         self.simpleTextLayout = functools.partial(
@@ -117,8 +122,15 @@ class UIObjectDetails(UIModule):
         designator_color = 255
         if not self.object.last_filtered_result:
             designator_color = 128
+
+        # layout the name - contrast reserve line
+        space_calculator = SpaceCalculatorFixed(14)
+
+        _, typeconst = space_calculator.calculate_spaces(
+            self.object.display_name, self.contrast
+        )
         return self.simpleTextLayout(
-            self.object.display_name,
+            typeconst,
             font=self.fonts.large,
             color=self.colors.get(designator_color),
         )
@@ -194,6 +206,85 @@ class UIObjectDetails(UIModule):
             self.texts["aka"] = self.ScrollTextLayout(
                 ", ".join(dedups),
                 font=self.fonts.base,
+                scrollspeed=self._get_scrollspeed_config(),
+            )
+
+        # Get the SQM from the shared state
+        sqm = self.shared_state.get_sky_brightness()
+
+        # Check if a telescope and eyepiece are set
+        if (
+            self.config_object.equipment.active_eyepiece is None
+            or self.config_object.equipment.active_eyepiece is None
+        ):
+            self.contrast = ""
+        else:
+            # Calculate contrast reserve. The object diameters are given in arc seconds.
+            magnification = self.config_object.equipment.calc_magnification(
+                self.config_object.equipment.active_telescope,
+                self.config_object.equipment.active_eyepiece,
+            )
+            if self.object.mag_str == "-":
+                self.contrast = ""
+            else:
+                try:
+                    if self.object.size:
+                        # Check if the size contains 'x'
+                        if "x" in self.object.size:
+                            diameter1, diameter2 = map(
+                                float, self.object.size.split("x")
+                            )
+                            diameter1 = (
+                                diameter1 * 60.0
+                            )  # Convert arc seconds to arc minutes
+                            diameter2 = diameter2 * 60.0
+                        elif "'" in self.object.size:
+                            # Convert arc minutes to arc seconds
+                            diameter1 = float(self.object.size.replace("'", "")) * 60.0
+                            diameter2 = diameter1
+                        else:
+                            diameter1 = diameter2 = float(self.object.size) * 60.0
+                    else:
+                        diameter1 = diameter2 = None
+
+                    self.contrast = pds.contrast_reserve(
+                        sqm=sqm,
+                        telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
+                        magnification=magnification,
+                        surf_brightness=None,
+                        magnitude=float(self.object.mag_str),
+                        object_diameter1=diameter1,
+                        object_diameter2=diameter2,
+                    )
+                except InvalidParameterError as e:
+                    print(f"Error calculating contrast reserve: {e}")
+                    self.contrast = ""
+        if self.contrast is not None and self.contrast != "":
+            self.contrast = f"{self.contrast: .1f}"
+        else:
+            self.contrast = ""
+
+        # Add contrast reserve line to details with interpretation
+        if self.contrast:
+            contrast_val = float(self.contrast)
+            if contrast_val < -0.2:
+                contrast_str = "Object is not visible"
+            elif -0.2 <= contrast_val < 0.1:
+                contrast_str = "Questionable detection"
+            elif 0.1 <= contrast_val < 0.35:
+                contrast_str = "Difficult to see"
+            elif 0.35 <= contrast_val < 0.5:
+                contrast_str = "Quite difficult to see"
+            elif 0.5 <= contrast_val < 1.0:
+                contrast_str = "Easy to see"
+            elif contrast_val >= 1.0:
+                contrast_str = "Very easy to see"
+            else:
+                contrast_str = ""
+            self.texts["contrast_reserve"] = self.ScrollTextLayout(
+                contrast_str,
+                font=self.fonts.base,
+                color=self.colors.get(255),
                 scrollspeed=self._get_scrollspeed_config(),
             )
 
@@ -452,6 +543,62 @@ class UIObjectDetails(UIModule):
                 desc.set_available_lines(desc_available_lines)
                 desc.draw((0, posy))
 
+        elif self.object_display_mode == DM_CONTRAST:
+            # Display contrast reserve explanation page
+            y_pos = 20
+
+            # Title
+            self.draw.text(
+                (0, y_pos),
+                _("Contrast Reserve"),
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),
+            )
+            y_pos += 14
+
+            # Display the contrast value
+            contrast = self.texts.get("contrast_reserve")
+
+            if self.contrast:
+                contrast_display = f"CR: {self.contrast}"
+                self.draw.text(
+                    (0, y_pos),
+                    contrast_display,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                y_pos += 17
+
+                # Display the interpretation
+                if contrast and contrast.text.strip():
+                    contrast.draw((0, y_pos))
+                    y_pos += 17
+            else:
+                self.draw.text(
+                    (0, y_pos),
+                    _("No contrast data"),
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(128),
+                )
+                y_pos += 14
+
+            # Add explanation about what CR means
+            explanation_lines = [
+                _("CR measures object"),
+                _("visibility based on"),
+                _("sky brightness,"),
+                _("telescope, and EP."),
+            ]
+
+            for line in explanation_lines:
+                self.draw.text(
+                    (0, y_pos),
+                    line,
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(200),
+                )
+                y_pos += 11
+
         return self.screen_update()
 
     def cycle_display_mode(self):
@@ -460,9 +607,15 @@ class UIObjectDetails(UIModule):
         for a module.  Invoked when the square
         key is pressed
         """
-        self.object_display_mode = (
-            self.object_display_mode + 1 if self.object_display_mode < 2 else 0
-        )
+        # Cycle: LOCATE -> POSS -> DESC -> CONTRAST -> LOCATE
+        if self.object_display_mode == DM_LOCATE:
+            self.object_display_mode = DM_POSS
+        elif self.object_display_mode == DM_POSS:
+            self.object_display_mode = DM_DESC
+        elif self.object_display_mode == DM_DESC:
+            self.object_display_mode = DM_CONTRAST
+        else:  # DM_CONTRAST or any other mode
+            self.object_display_mode = DM_LOCATE
         self.update_object_info()
         self.update()
 
