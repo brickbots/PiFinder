@@ -206,6 +206,24 @@ class Location:
             f"{f', last_lock={self.last_gps_lock}' if self.last_gps_lock else ''})"
         )
 
+    @staticmethod
+    def make_fix(
+        lat: float, lon: float, altitude: float = 0, source: str = "MANUAL"
+    ) -> tuple:
+        """Build a GPS fix message tuple for the gps_queue."""
+        return (
+            "fix",
+            {
+                "lat": lat,
+                "lon": lon,
+                "altitude": altitude,
+                "error_in_m": 0,
+                "source": source,
+                "lock": True,
+                "lock_type": 2,
+            },
+        )
+
     def reset(self):
         self.lat = 0.0
         self.lon = 0.0
@@ -264,6 +282,7 @@ class SharedStateObj:
         self.__sqm_details: dict = {}  # Full SQM calculation details for calibration
         self.__datetime = None
         self.__datetime_time = None
+        self.__datetime_manual = False  # True when manually set, blocks GPS overrides
         self.__screen = None
         self.__solve_pixel = config.Config().get_option("solve_pixel")
         self.__arch = None
@@ -416,10 +435,20 @@ class SharedStateObj:
                 return dt.astimezone(pytz.timezone("UTC"))
         return dt.astimezone(pytz.timezone("UTC"))
 
-    def set_datetime(self, dt):
+    def set_datetime(self, dt, force=False):
         if dt.tzname() is None:
             utc_tz = pytz.timezone("UTC")
             dt = utc_tz.localize(dt)
+
+        if force:
+            self.__datetime_time = time.time()
+            self.__datetime = dt
+            self.__datetime_manual = True
+            return
+
+        # Skip GPS time updates when time was manually set
+        if self.__datetime_manual:
+            return
 
         if self.__datetime is None:
             self.__datetime_time = time.time()
@@ -434,6 +463,12 @@ class SharedStateObj:
             if curtime < dt:
                 self.__datetime_time = time.time()
                 self.__datetime = dt
+
+    def reset_datetime(self):
+        """Clear manual datetime override, allowing GPS time updates again."""
+        self.__datetime = None
+        self.__datetime_time = None
+        self.__datetime_manual = False
 
     def screen(self):
         return self.__screen

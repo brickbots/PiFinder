@@ -294,8 +294,12 @@ class CometCatalog(Catalog):
             logger.error(f"Error adding comet {name}: {e}")
 
     def do_timed_task(self):
-        """Update comet catalog data periodically"""
-        # Prevent concurrent execution
+        """Recalculate comet catalog periodically.
+
+        Full reinit ensures comets are added/removed as magnitudes change
+        and corrects for inaccurate initial datetime before GPS lock.
+        init_comets() is idempotent with identical computation cost.
+        """
         with self._task_lock:
             with Timer("Comet Catalog periodic update"):
                 if not self.shared_state.altaz_ready():
@@ -303,25 +307,5 @@ class CometCatalog(Catalog):
 
                 dt = self.shared_state.datetime()
 
-                # If catalog is empty, (re)initialize - but only if file exists
-                if not self.get_objects():
-                    if os.path.exists(comet_file):
-                        self.init_comets(dt)
-                    return
-
-                # Regular update - recalculate positions
-                comet_dict = comets.calc_comets(dt)
-                if not comet_dict:
-                    return
-
-                for obj in self._get_objects():
-                    try:
-                        name = obj.names[0]
-                        if name in comet_dict:
-                            comet = comet_dict[name]
-                            obj.ra, obj.dec = comet["radec"]
-                            obj.mag = MagnitudeObject([comet["mag"]])
-                            obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
-                            obj.mag_str = obj.mag.calc_two_mag_representation()
-                    except (KeyError, ValueError) as e:
-                        logger.error(f"Error updating comet {name}: {e}")
+                if os.path.exists(comet_file):
+                    self.init_comets(dt)

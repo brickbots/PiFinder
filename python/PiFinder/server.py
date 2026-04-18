@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import pydeepskylog as pds
 from PIL import Image
 from PiFinder import utils, calc_utils, config
+from PiFinder.state import Location
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
@@ -1015,18 +1016,7 @@ class Server:
 
         @auth_required
         def gps_lock(lat: float = 50, lon: float = 3, altitude: float = 10):
-            msg = (
-                "fix",
-                {
-                    "lat": lat,
-                    "lon": lon,
-                    "altitude": altitude,
-                    "error_in_m": 0,
-                    "source": "WEB",
-                    "lock": True,
-                },
-            )
-            self.gps_queue.put(msg)
+            self.gps_queue.put(Location.make_fix(lat, lon, altitude, "WEB"))
             logger.debug("Putting location msg on gps_queue: {msg}")
 
         @auth_required

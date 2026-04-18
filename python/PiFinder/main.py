@@ -571,6 +571,7 @@ def main(
                             if (
                                 not location.source == "WEB"
                                 and not location.source.startswith("CONFIG:")
+                                and not location.source == "MANUAL"
                                 and (
                                     location.error_in_m == 0
                                     or float(gps_content["error_in_m"])
@@ -611,18 +612,22 @@ def main(
                                         location.lon,
                                         location.altitude,
                                     )
-                        if gps_msg == "time":
+                        if gps_msg in ("time", "time_force"):
                             if isinstance(gps_content, datetime.datetime):
                                 gps_dt = gps_content
                             else:
                                 gps_dt = gps_content["time"]
-                            shared_state.set_datetime(gps_dt)
+                            shared_state.set_datetime(
+                                gps_dt, force=(gps_msg == "time_force")
+                            )
                             if log_time:
                                 logger.info("GPS Time (logged only once): %s", gps_dt)
                                 log_time = False
                         if gps_msg == "reset":
                             location.reset()
                             shared_state.set_location(location)
+                        if gps_msg == "reset_datetime":
+                            shared_state.reset_datetime()
                         if gps_msg == "satellites":
                             # logger.debug("Main: GPS nr sats seen: %s", gps_content)
                             shared_state.set_sats(gps_content)

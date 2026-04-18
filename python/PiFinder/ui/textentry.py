@@ -6,9 +6,9 @@ from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.ui_utils import format_number
 import time
 import threading
-from typing import Any, TYPE_CHECKING
+from typing import Any, List, TYPE_CHECKING
 import logging
-
+from PiFinder.composite_object import CompositeObject
 
 if TYPE_CHECKING:
 
@@ -108,7 +108,7 @@ class UITextEntry(UIModule):
         self.KEYPRESS_TIMEOUT = 1
         self.last_key_press_time = 0
         self.char_index = 0
-        self.search_results: list[CompositeObject] = []
+        self.search_results: List[CompositeObject] = []
         self.search_results_len_str = "0"
         self.show_keypad = True
         self.keys = KeyPad()
