@@ -21,6 +21,7 @@ from PiFinder.keyboard_interface import KeyboardInterface
 from flask import Flask, request, jsonify, send_file, redirect, session, make_response
 from flask_babel import Babel, gettext  # type: ignore[import-untyped]
 from werkzeug.routing import IntegerConverter
+from waitress import serve as waitress_serve
 
 from PiFinder import i18n  # noqa: F401
 
@@ -1124,26 +1125,14 @@ class Server2:
         # If the PiFinder software is running as a service
         # it can grab port 80.  If not, it needs to use 8080
         try:
-            self.app.run(
-                host="0.0.0.0",
-                port=80,
-                debug=True,
-                use_reloader=False,
-                passthrough_errors=False,
-            )
+            waitress_serve(self.app, host="0.0.0.0", port=80)
             logger.info("Webserver started on port 80")
-        except (PermissionError, OSError, SystemExit) as e:
+        except (PermissionError, OSError) as e:
             logger.debug(f"Permission denied on port 80, trying 8080. {e}")
             try:
-                self.app.run(
-                    host="0.0.0.0",
-                    port=8080,
-                    debug=True,
-                    use_reloader=False,
-                    passthrough_errors=False,
-                )
+                waitress_serve(self.app, host="0.0.0.0", port=8080)
                 logger.info("Webserver started on port 8080")
-            except (Exception, SystemExit) as e2:
+            except Exception as e2:
                 logger.exception(f"Failed to start server on port 8080. {e2}")
                 raise
         logger.debug("Webserver is running")
