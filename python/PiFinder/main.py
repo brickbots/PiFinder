@@ -873,25 +873,41 @@ def main(
 
 
 if __name__ == "__main__":
+    import sys
+
+    # Ensure the active log config symlink exists, defaulting to logconf_default.json
+    _logconf_link = Path("pifinder_logconf.json")
+    if not _logconf_link.exists():
+        _logconf_link.symlink_to("logconf_default.json")
+
+    debug_no_file_logs = "--debug-no-file-logs" in sys.argv
+    if debug_no_file_logs:
+        os.environ["PIFINDER_DEBUG_NO_FILE_LOGS"] = "1"
+
     print("Bootstrap logging configuration ...")
     logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
     rlogger = logging.getLogger()
-    rlogger.setLevel(logging.INFO)
-    log_path = utils.data_dir / "pifinder.log"
-    try:
-        log_helper = MultiprocLogging(
-            Path("pifinder_logconf.json"),
-            log_path,
-        )
+    rlogger.setLevel(logging.DEBUG if debug_no_file_logs else logging.INFO)
+
+    if debug_no_file_logs:
+        log_helper = MultiprocLogging(Path("pifinder_logconf.json"), console_only=True)
         MultiprocLogging.configurer(log_helper.get_queue())
-    except FileNotFoundError:
-        rlogger.warning(
-            "Cannot find log configuration file, proceeding with basic configuration."
-        )
-        rlogger.warning("Logs will not be stored on disk, unless you use --log")
-        logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
-        logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
-        logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
+    else:
+        log_path = utils.data_dir / "pifinder.log"
+        try:
+            log_helper = MultiprocLogging(
+                Path("pifinder_logconf.json"),
+                log_path,
+            )
+            MultiprocLogging.configurer(log_helper.get_queue())
+        except FileNotFoundError:
+            rlogger.warning(
+                "Cannot find log configuration file, proceeding with basic configuration."
+            )
+            rlogger.warning("Logs will not be stored on disk, unless you use --log")
+            logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
+            logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
+            logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
 
     rlogger.info("Starting PiFinder ...")
     parser = argparse.ArgumentParser(description="eFinder")
@@ -953,6 +969,11 @@ if __name__ == "__main__":
         "-x", "--verbose", help="Set logging to debug mode", action="store_true"
     )
     parser.add_argument("-l", "--log", help="Log to file", action="store_true")
+    parser.add_argument(
+        "--debug-no-file-logs",
+        help="Debug: log everything at DEBUG level to console only, bypassing log configuration and file output",
+        action="store_true",
+    )
     parser.add_argument(
         "--lang",
         help="Force user interface language (iso2 code). Changes configuration",
