@@ -279,7 +279,7 @@ def handle_client(client_socket, shared_state):
                     client_socket.send(response.encode())
             # Special case for the ACK command in the LX200 protocol sent by Stellarium
             # No leading : for the ACK command but Stellarium leads all commands with #
-            elif in_data[0] == 0x06 or (in_data[0] == b"#" and in_data[1] == 0x06):
+            elif in_data.endswith("\x06"):
                 is_stellarium = True
                 # A indicates alt-az mode
                 client_socket.send("A".encode())
