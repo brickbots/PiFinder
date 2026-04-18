@@ -8,7 +8,6 @@ import time
 import threading
 from typing import Any, List, TYPE_CHECKING
 import logging
-from PiFinder.composite_object import CompositeObject
 
 if TYPE_CHECKING:
 
