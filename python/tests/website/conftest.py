@@ -15,6 +15,8 @@ def _create_local_driver(browser: str):
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--lang=en-US")
+        options.add_experimental_option("prefs", {"intl.accept_languages": "en-US,en"})
         return webdriver.Chrome(options=options)
     elif browser == "firefox":
         options = FirefoxOptions()
@@ -36,6 +38,8 @@ def _create_grid_driver(selenium_grid_url: str, browser: str):
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--lang=en-US")
+        options.add_experimental_option("prefs", {"intl.accept_languages": "en-US,en"})
     elif browser == "firefox":
         options = FirefoxOptions()
         options.add_argument("--headless")
