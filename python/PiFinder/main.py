@@ -544,10 +544,73 @@ def main(
         # Stop profiling (uncomment to analyze startup performance)
         # stop_profiling(profiler, startup_profile_start)
 
+        # Set up pygame keyboard polling when using pygame display
+        pygame_events_enabled = display_hardware.startswith("pg_")
+        if pygame_events_enabled:
+            import pygame
+            from PiFinder.keyboard_interface import KeyboardInterface
+
+            logger.info("Pygame event polling enabled for keyboard input")
+
+            # Key mapping: +/= and - for PLUS/MINUS, Enter/Space/Z for SQUARE
+            # Ctrl+key for ALT_ variants (emulates SQUARE+key on hardware keypad)
+            pygame_key_map = {
+                pygame.K_LEFT: KeyboardInterface.LEFT,
+                pygame.K_UP: KeyboardInterface.UP,
+                pygame.K_DOWN: KeyboardInterface.DOWN,
+                pygame.K_RIGHT: KeyboardInterface.RIGHT,
+                pygame.K_EQUALS: KeyboardInterface.PLUS,
+                pygame.K_PLUS: KeyboardInterface.PLUS,
+                pygame.K_KP_PLUS: KeyboardInterface.PLUS,
+                pygame.K_MINUS: KeyboardInterface.MINUS,
+                pygame.K_KP_MINUS: KeyboardInterface.MINUS,
+                pygame.K_RETURN: KeyboardInterface.SQUARE,
+                pygame.K_KP_ENTER: KeyboardInterface.SQUARE,
+                pygame.K_SPACE: KeyboardInterface.SQUARE,
+                pygame.K_z: KeyboardInterface.SQUARE,
+                pygame.K_m: KeyboardInterface.LNG_SQUARE,
+                pygame.K_0: 0,
+                pygame.K_1: 1,
+                pygame.K_2: 2,
+                pygame.K_3: 3,
+                pygame.K_4: 4,
+                pygame.K_5: 5,
+                pygame.K_6: 6,
+                pygame.K_7: 7,
+                pygame.K_8: 8,
+                pygame.K_9: 9,
+            }
+
+            pygame_ctrl_key_map = {
+                pygame.K_EQUALS: KeyboardInterface.ALT_PLUS,
+                pygame.K_PLUS: KeyboardInterface.ALT_PLUS,
+                pygame.K_KP_PLUS: KeyboardInterface.ALT_PLUS,
+                pygame.K_MINUS: KeyboardInterface.ALT_MINUS,
+                pygame.K_KP_MINUS: KeyboardInterface.ALT_MINUS,
+                pygame.K_LEFT: KeyboardInterface.ALT_LEFT,
+                pygame.K_UP: KeyboardInterface.ALT_UP,
+                pygame.K_DOWN: KeyboardInterface.ALT_DOWN,
+                pygame.K_RIGHT: KeyboardInterface.ALT_RIGHT,
+                pygame.K_0: KeyboardInterface.ALT_0,
+            }
+
         log_time = True
         # Start of main except handler / loop
         try:
             while True:
+                # Poll pygame keyboard events
+                if pygame_events_enabled:
+                    for event in pygame.event.get():
+                        if event.type == pygame.KEYDOWN:
+                            ctrl_held = event.mod & pygame.KMOD_CTRL
+                            if ctrl_held and event.key in pygame_ctrl_key_map:
+                                keyboard_queue.put(pygame_ctrl_key_map[event.key])
+                            elif event.key in pygame_key_map:
+                                keyboard_queue.put(pygame_key_map[event.key])
+                        elif event.type == pygame.QUIT:
+                            logger.info("Pygame window closed, exiting...")
+                            raise KeyboardInterrupt
+
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
@@ -1050,9 +1113,14 @@ if __name__ == "__main__":
 
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
-        from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+        if display_hardware.startswith("pg_"):
+            from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
-        rlogger.info("using local keyboard")
+            rlogger.info("using pygame keyboard (main loop captures keys)")
+        else:
+            from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+
+            rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
