@@ -17,6 +17,7 @@ from PiFinder.db.observations_db import (
 )
 from PiFinder.equipment import Telescope, Eyepiece
 from PiFinder.keyboard_interface import KeyboardInterface
+from PiFinder.multiproclogging import MultiprocLogging
 
 from flask import Flask, request, jsonify, send_file, redirect, session, make_response
 from flask_babel import Babel, gettext  # type: ignore[import-untyped]
@@ -124,7 +125,7 @@ class Server2:
             "ALT_DOWN": self.ki.ALT_DOWN,
             "ALT_RIGHT": self.ki.ALT_RIGHT,
             "ALT_0": self.ki.ALT_0,
-            # "ALT_SQUARE": self.ki.ALT_SQUARE,
+            # "ALT_SQUARE": self.ki.ALT_SQUARE,  # not defined in KeyboardInterface
             "LNG_LEFT": self.ki.LNG_LEFT,
             "LNG_UP": self.ki.LNG_UP,
             "LNG_DOWN": self.ki.LNG_DOWN,
@@ -671,7 +672,7 @@ class Server2:
                     try:
                         cfg.equipment.eyepieces.index(new_eyepiece)
                     except ValueError:
-                        cfg.equipment.eyepieces.append(new_eyepiece)
+                        cfg.equipment.eyepieces.add_eyepiece(new_eyepiece)
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
@@ -718,13 +719,13 @@ class Server2:
                 )
 
                 if eyepiece_id >= 0:
-                    cfg.equipment.eyepieces[eyepiece_id] = eyepiece
+                    cfg.equipment.update_eyepiece(eyepiece_id, eyepiece)
                 else:
                     try:
                         index = cfg.equipment.telescopes.index(eyepiece)
-                        cfg.equipment.eyepieces[index] = eyepiece
+                        cfg.equipment.update_eyepiece(index, eyepiece)
                     except ValueError:
-                        cfg.equipment.eyepieces.append(eyepiece)
+                        cfg.equipment.add_eyepiece(eyepiece)
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
@@ -1159,10 +1160,7 @@ class Server2:
 def run_server(
     keyboard_queue, ui_queue, gps_queue, shared_state, log_queue, verbose=False
 ):
-    # MultiprocLogging.configurer(log_queue)
-    logging.basicConfig(
-        level=logging.DEBUG, format="%(asctime)s %(name)s:%(levelname)s:%(message)s"
-    )
+    MultiprocLogging.configurer(log_queue)
     server = Server2(keyboard_queue, ui_queue, gps_queue, shared_state, verbose)
     server.run()
 
