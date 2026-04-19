@@ -288,7 +288,8 @@ class UISQMSweep(UIModule):
             # Find the sweep directory
             captures_dir = Path(utils.data_dir) / "captures"
             sweep_dirs = [
-                d for d in captures_dir.glob("sweep_*")
+                d
+                for d in captures_dir.glob("sweep_*")
                 if d.stat().st_ctime >= (self.start_time - 1)
             ]
             if not sweep_dirs:
@@ -313,7 +314,8 @@ class UISQMSweep(UIModule):
                     "pifinder_value": sqm_state.value,
                     "reference_value": self.reference_sqm,
                     "difference": (self.reference_sqm - sqm_state.value)
-                                  if self.reference_sqm and sqm_state.value else None,
+                    if self.reference_sqm and sqm_state.value
+                    else None,
                     "source": sqm_state.source,
                 }
 
@@ -327,7 +329,8 @@ class UISQMSweep(UIModule):
             if image_metadata:
                 metadata["image"] = {
                     "exposure_us": image_metadata.get("exposure_time"),
-                    "exposure_sec": image_metadata.get("exposure_time", 0) / 1_000_000.0,
+                    "exposure_sec": image_metadata.get("exposure_time", 0)
+                    / 1_000_000.0,
                     "gain": image_metadata.get("gain"),
                     "imu_delta": image_metadata.get("imu_delta"),
                 }
@@ -348,8 +351,11 @@ class UISQMSweep(UIModule):
             # Add NoiseFloorEstimator output
             camera_type = self.shared_state.camera_type()
             camera_type_processed = f"{camera_type}_processed"
-            exposure_sec = (image_metadata.get("exposure_time", 500000) / 1_000_000.0
-                          if image_metadata else 0.5)
+            exposure_sec = (
+                image_metadata.get("exposure_time", 500000) / 1_000_000.0
+                if image_metadata
+                else 0.5
+            )
 
             if self.camera_image is not None:
                 image_array = np.array(self.camera_image.convert("L"))

@@ -65,7 +65,9 @@ class SQM:
         )
 
         if not calibration_file.exists():
-            logger.debug(f"No calibration file found at {calibration_file}, using defaults")
+            logger.debug(
+                f"No calibration file found at {calibration_file}, using defaults"
+            )
             return False
 
         try:
@@ -203,7 +205,6 @@ class SQM:
                 local_backgrounds.append(local_bg_per_pixel)
                 n_saturated += 1
                 continue
-
 
             # Total flux in aperture (includes background)
             total_flux = np.sum(aperture_pixels)

@@ -528,7 +528,8 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, Any]:
     return result
 
 
-def load_lynga():
+def load_lynga() -> None:
+    assert objects_db is not None, "Database not initialized before load_lynga()"
     logging.info("Loading Lynga Open Cluster catalog")
     catalog: str = "Lyn"
     obj_type: str = "OC"  # Open Cluster

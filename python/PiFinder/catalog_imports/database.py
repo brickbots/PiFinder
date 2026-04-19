@@ -5,7 +5,11 @@ This module provides centralized access to database objects for all catalog load
 """
 
 from typing import Optional
-from .catalog_import_utils import init_databases, ObjectsDatabase, ObservationsDatabase
+
+from PiFinder.db.objects_db import ObjectsDatabase
+from PiFinder.db.observations_db import ObservationsDatabase
+
+from .catalog_import_utils import init_databases
 
 # Global database objects shared across all catalog loaders
 objects_db: Optional[ObjectsDatabase] = None

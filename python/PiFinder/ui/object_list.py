@@ -364,18 +364,17 @@ class UIObjectList(UITextMenu):
         if obj.catalog_code == "PL" and obj.names:
             planet_abbrevs = {
                 "Mercury": "MER",
-                "Venus":   "VEN",
-                "Moon":    "MON",
-                "Mars":    "MAR",
+                "Venus": "VEN",
+                "Moon": "MON",
+                "Mars": "MAR",
                 "Jupiter": "JUP",
-                "Saturn":  "SAT",
-                "Uranus":  "URA",
+                "Saturn": "SAT",
+                "Uranus": "URA",
                 "Neptune": "NEP",
-                "Pluto":   "PLU",
+                "Pluto": "PLU",
             }
             return planet_abbrevs.get(obj.names[0], obj.names[0])
         return f"{obj.catalog_code}{obj.sequence}"
-
 
     def create_locate_text(self, obj: CompositeObject) -> str:
         az, alt = aim_degrees(
