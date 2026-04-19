@@ -1,4 +1,6 @@
-# PiFinder v2.5.0 Release Notes
+# PiFinder v2.5.1 Release Notes
+
+These release notes include v2.5.0 and 2.5.1
 
 ## New Features
 
@@ -26,6 +28,8 @@ Full Chinese language translation with a custom Sarasa Mono SC font for proper C
 - **Double update bug**: Fixed an issue in the update process that could cause updates to run twice.
 - **Eyepiece sorting** (#387): Eyepieces are now always sorted by focal length (magnification) in the equipment list.
 - **Push-to display fix**: Fixed a display/typing issue in the push-to screen introduced by the Chinese locale update.
+- **Catalog Name Ordering Fix**: (2.5.1) Common names are now sorted deterministically and in insert order
+- **Fix Stellarium Probe response**: (2.5.1) Proper ACK was not being sent in resposne to LX200 probe from Stellarium Plus App
 
 ## Developer Improvements
 
