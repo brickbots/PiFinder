@@ -3,6 +3,7 @@ from PiFinder import calc_utils
 import time
 from typing import Any, TYPE_CHECKING, List, Dict
 from dataclasses import dataclass, replace
+import PiFinder.i18n # noqa: F401 - for translation function _s
 
 if TYPE_CHECKING:
 
