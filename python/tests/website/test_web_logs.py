@@ -13,12 +13,12 @@ Page Layout: Tests verify the page title, h5 header ("PiFinder Logs"), and the
 Materialize card/grid structure that wraps the log viewer.
 
 Control Buttons: Tests confirm presence of the Download All Logs link, Pause button,
-and Copy to Clipboard button. Hidden buttons (Resume from Current, Restart from End)
-are also verified to exist in the DOM with display:none styling.
+Copy to Clipboard button, and Upload Log Conf button. Hidden buttons (Resume from
+Current, Restart from End) are also verified to exist in the DOM with display:none
+styling.
 
-Select Dropdowns: Tests validate the Global Level select (Debug/Info/Warning/Error
-options) and the Component select, including the conditional Component Level select
-that becomes visible once a component is chosen.
+Log Config Dropdown: Tests validate the config select dropdown that lists available
+logconf_*.json files and is populated via /logs/configs.
 
 Dynamic / Live Log Tests
 
@@ -42,8 +42,8 @@ API Endpoint Tests
 /logs/stream: Tests that the endpoint returns HTTP 200 with a JSON body containing
 "logs" (list) and "position" (int) keys.
 
-/logs/components: Tests that the endpoint returns HTTP 200 with a JSON body
-containing a "components" dict.
+/logs/configs: Tests that the endpoint returns HTTP 200 with a JSON body containing
+a "configs" list.
 
 Infrastructure: Uses the same Selenium Grid setup as other web tests with
 automatic skipping when unavailable.
@@ -55,7 +55,6 @@ import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import Select
 from web_test_utils import (
     login_to_logs as util_login_to_logs,
     login_with_password,
@@ -113,33 +112,24 @@ def test_logs_control_buttons_present(driver):
     copy_btn = driver.find_element(By.ID, "copyButton")
     assert "COPY TO CLIPBOARD" in copy_btn.text.upper()
 
+    # Check for Upload Log Conf button
+    upload_btn = driver.find_element(By.ID, "uploadLogConfButton")
+    assert "UPLOAD LOG CONF" in upload_btn.text.upper()
+
 
 @pytest.mark.web
-def test_logs_select_dropdowns_present(driver):
-    """Test that log level and component select dropdowns are present"""
+def test_logs_config_controls_present(driver):
+    """Test that log config upload input and config select dropdown are present"""
     login_to_logs(driver)
 
-    # Check for Global Level select
-    global_level_select = driver.find_element(By.ID, "globalLevel")
-    assert global_level_select is not None
+    # Check for hidden file input
+    upload_input = driver.find_element(By.ID, "uploadLogConfInput")
+    assert upload_input is not None
+    assert upload_input.value_of_css_property("display") == "none"
 
-    # Verify Global Level options
-    options = global_level_select.find_elements(By.TAG_NAME, "option")
-    option_texts = [opt.text for opt in options]
-    assert "Global: Debug" in option_texts
-    assert "Global: Info" in option_texts
-    assert "Global: Warning" in option_texts
-    assert "Global: Error" in option_texts
-
-    # Check for Component Select
-    component_select = driver.find_element(By.ID, "componentSelect")
-    assert component_select is not None
-
-    # Check for Component Level select (initially hidden)
-    component_level_select = driver.find_element(By.ID, "componentLevel")
-    assert component_level_select is not None
-    # Should be hidden by default
-    assert component_level_select.value_of_css_property("display") == "none"
+    # Check for config select dropdown
+    config_select = driver.find_element(By.ID, "configSelect")
+    assert config_select is not None
 
 
 @pytest.mark.web
@@ -244,20 +234,66 @@ def test_logs_stream_api_response(driver):
 
 
 @pytest.mark.web
-def test_logs_components_api_response(driver):
-    """Test that /logs/components API returns proper JSON structure"""
+def test_logs_configs_api_response(driver):
+    """Test that /logs/configs API returns proper JSON structure"""
     try:
         # Login first to get authenticated cookies
         login_to_logs(driver)
         cookies = {cookie["name"]: cookie["value"] for cookie in driver.get_cookies()}
 
         response = requests.get(
-            f"{get_homepage_url()}/logs/components", cookies=cookies, timeout=10
+            f"{get_homepage_url()}/logs/configs", cookies=cookies, timeout=10
         )
         assert response.status_code == 200
         data = response.json()
-        assert "components" in data
-        assert isinstance(data["components"], dict)
+        assert "configs" in data
+        assert isinstance(data["configs"], list)
+    except requests.exceptions.RequestException:
+        pytest.skip("PiFinder web server not available")
+
+
+@pytest.mark.web
+def test_logs_config_select_reflects_available_files(driver):
+    """Test that the config select dropdown is populated with available logconf_*.json files"""
+    try:
+        login_to_logs(driver)
+        cookies = {cookie["name"]: cookie["value"] for cookie in driver.get_cookies()}
+
+        # Fetch expected configs from the API
+        response = requests.get(
+            f"{get_homepage_url()}/logs/configs", cookies=cookies, timeout=10
+        )
+        assert response.status_code == 200
+        expected_configs = response.json()["configs"]
+
+        # Wait for the dropdown to be populated by loadLogConfigs()
+        WebDriverWait(driver, 10).until(
+            lambda d: len(
+                d.find_element(By.ID, "configSelect").find_elements(
+                    By.TAG_NAME, "option"
+                )
+            )
+            > 1
+        )
+
+        config_select = driver.find_element(By.ID, "configSelect")
+        options = config_select.find_elements(By.TAG_NAME, "option")
+        option_values = {opt.get_attribute("value") for opt in options if opt.get_attribute("value")}
+        option_texts = {opt.text for opt in options if opt.get_attribute("value")}
+
+        # Every config returned by the API must appear in the dropdown
+        for cfg in expected_configs:
+            assert cfg["file"] in option_values, f"Missing file value in dropdown: {cfg['file']}"
+            assert cfg["name"] in option_texts, f"Missing display name in dropdown: {cfg['name']}"
+
+        # The active config (if any) must be the selected option
+        active_configs = [cfg for cfg in expected_configs if cfg["active"]]
+        if active_configs:
+            selected = config_select.find_element(
+                By.CSS_SELECTOR, "option:checked"
+            )
+            assert selected.get_attribute("value") == active_configs[0]["file"]
+
     except requests.exceptions.RequestException:
         pytest.skip("PiFinder web server not available")
 
@@ -355,7 +391,7 @@ def test_log_level_colors(driver):
     log_lines = driver.find_elements(By.CSS_SELECTOR, "#logContent > div")
     assert len(log_lines) > 0
 
-    # Expected colors from logs.html (lines 220-228 and CSS)
+    # Expected colors from logs.html CSS
     # Note: Browsers may return colors in rgb() or rgba() format
     expected_colors = {
         "rgb(212, 212, 212)",
@@ -391,75 +427,6 @@ def test_log_level_colors(driver):
     assert (
         len(valid_colors_found) > 0
     ), f"No expected colors found. Found: {colors_found}, Expected: {expected_colors}"
-
-
-@pytest.mark.web
-def test_component_level_loading(driver):
-    """Test that component levels are loaded dynamically"""
-    login_to_logs(driver)
-
-    # Wait for page to load
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID, "componentSelect"))
-    )
-
-    # Wait for component select to be populated (may take time for API call)
-    WebDriverWait(driver, 15).until(
-        lambda d: len(
-            d.find_element(By.ID, "componentSelect").find_elements(
-                By.TAG_NAME, "option"
-            )
-        )
-        > 1
-    )
-    time.sleep(0.5)  # Extra wait to ensure options are fully loaded
-
-    component_select = driver.find_element(By.ID, "componentSelect")
-    options = component_select.find_elements(By.TAG_NAME, "option")
-
-    # Should have more than just the default "Select Component" option
-    assert len(options) > 1
-
-    # Check that options have meaningful text (not empty)
-    option_texts = [opt.text for opt in options if opt.text != "Select Component"]
-    assert len(option_texts) > 0, "No options beyond 'Select Component'"
-    # assert all(text.strip() != "" for text in option_texts), "At least one option name is empty"
-
-
-@pytest.mark.web
-def test_component_level_selection(driver):
-    """Test component level selection functionality"""
-    login_to_logs(driver)
-
-    # Wait for component select to be populated
-    WebDriverWait(driver, 15).until(
-        lambda d: len(
-            d.find_element(By.ID, "componentSelect").find_elements(
-                By.TAG_NAME, "option"
-            )
-        )
-        > 1
-    )
-    time.sleep(0.5)  # Extra wait to ensure options are fully loaded
-
-    component_select = Select(driver.find_element(By.ID, "componentSelect"))
-    component_level_select = driver.find_element(By.ID, "componentLevel")
-
-    # Initially, component level should be hidden
-    assert component_level_select.value_of_css_property("display") == "none"
-
-    # Select a component (skip the first option which is "Select Component")
-    options = component_select.options
-    if len(options) > 1:
-        component_select.select_by_index(2)  # First one might be empty
-
-        # Component level select should now be visible
-        WebDriverWait(driver, 5).until(
-            lambda d: d.find_element(By.ID, "componentLevel").value_of_css_property(
-                "display"
-            )
-            != "none"
-        )  # If this wait fails, the selection box to set the components log level did not appear
 
 
 @pytest.mark.web
