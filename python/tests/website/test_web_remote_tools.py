@@ -146,15 +146,16 @@ def test_tools_set_time_screen(driver):
 
 @pytest.mark.web
 def test_tools_set_location_screen(driver):
-    """Tools > Place & Time > Set Location opens the UILocationList screen."""
+    """Tools > Place & Time > Set Location > Load Location opens the UILocationList screen."""
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
     # DDDRDDR = enter Place & Time at GPS Status (index 0)
-    # D = navigate to Set Location (index 1); R = enter UILocationList
+    # D = navigate to Set Location (index 1); R = enter Set Location submenu
+    # D = navigate to Load Location (index 1); R = enter UILocationList
     press_keys_and_validate(
         driver,
-        "DDDRDDRDR",
+        "DDDRDDRDRDR",
         {
             "ui_type": "UILocationList",
         },
