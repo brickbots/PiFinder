@@ -125,7 +125,7 @@ class Server2:
             "ALT_DOWN": self.ki.ALT_DOWN,
             "ALT_RIGHT": self.ki.ALT_RIGHT,
             "ALT_0": self.ki.ALT_0,
-            # "ALT_SQUARE": self.ki.ALT_SQUARE,  # not defined in KeyboardInterface
+            "ALT_SQUARE": self.ki.ALT_SQUARE,
             "LNG_LEFT": self.ki.LNG_LEFT,
             "LNG_UP": self.ki.LNG_UP,
             "LNG_DOWN": self.ki.LNG_DOWN,
