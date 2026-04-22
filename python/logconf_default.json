@@ -34,13 +34,12 @@
         },
 
         /////////////////////////////////////////////////////////////////
-        ////// Web Server2 Subsystem (Flask with Jinja2 i18n)
+        ////// Web Server Subsystem (Flask with Jinja2 i18n)
         //
         // Supported logger hierarchy:
-        //   Server2
+        //   Server
         "Server": {
-            "level": "INFO",
-            "handlers": ["console"]
+            "level": "INFO"
         },
 
         /////////////////////////////////////////////////////////////////
@@ -48,17 +47,14 @@
         //
         // Flask and related component logging
         //
-        "werkzeug": {
-            "level": "ERROR",
-            "handlers": ["console"]           
+        "waitress": {
+            "level": "ERROR"
         },
         "flask": {
-            "level": "ERROR",
-            "handlers": ["console"]           
+            "level": "ERROR"
         },
         "flask.app": {
-            "level": "ERROR",
-            "handlers": ["console"]  
+            "level": "ERROR"
         },
 
         /////////////////////////////////////////////////////////////////

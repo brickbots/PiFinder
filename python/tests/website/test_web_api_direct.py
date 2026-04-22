@@ -1,8 +1,8 @@
 """
-Direct API tests for server2.py endpoints.
+Direct API tests for server.py endpoints.
 
 Covers:
-- /key_callback for every named button in Server2.button_dict
+- /key_callback for every named button in Server.button_dict
 - /image (unauthenticated PNG endpoint)
 - /api/current-selection
 - /logs/stream
