@@ -30,10 +30,10 @@ def _authenticated_cookies(driver):
 
 
 def _make_minimal_zip() -> bytes:
-    """Return a minimal in-memory zip file for use as a fake backup."""
+    """Return a minimal in-memory zip with the directory structure expected by restore_userdata."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
-        zf.writestr("dummy.txt", "test")
+        zf.writestr("home/pifinder/PiFinder_data/.keep", "")
     return buf.getvalue()
 
 
