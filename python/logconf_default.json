@@ -39,25 +39,25 @@
         // Supported logger hierarchy:
         //   Server2
         "Server": {
-            "level": "DEBUG",
+            "level": "INFO",
             "handlers": ["console"]
         },
 
         /////////////////////////////////////////////////////////////////
-        ////// Flask Framework
+        ////// Flask Framework (used for webserver)
         //
         // Flask and related component logging
         //
         "werkzeug": {
-            "level": "DEBUG",
+            "level": "ERROR",
             "handlers": ["console"]           
         },
         "flask": {
-            "level": "DEBUG",
+            "level": "ERROR",
             "handlers": ["console"]           
         },
         "flask.app": {
-            "level": "DEBUG",
+            "level": "ERROR",
             "handlers": ["console"]  
         },
 
