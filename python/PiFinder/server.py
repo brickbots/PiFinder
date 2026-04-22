@@ -136,7 +136,7 @@ class Server:
         self.network = sys_utils.Network()
 
         # Initialize Flask app with absolute template path
-        views2_path = os.path.join(os.path.dirname(__file__), "..", "views2")
+        views2_path = os.path.join(os.path.dirname(__file__), "..", "views")
         views2_path = os.path.abspath(views2_path)
         logger.debug(f"Template folder path: {views2_path}")
 
@@ -184,15 +184,15 @@ class Server:
         # Static files routes
         @app.route("/images/<path:filename>")
         def send_image(filename):
-            return send_file(f"../views2/images/{filename}", mimetype="image/png")
+            return send_file(f"../views/images/{filename}", mimetype="image/png")
 
         @app.route("/js/<path:filename>")
         def send_js(filename):
-            return send_file(f"../views2/js/{filename}")
+            return send_file(f"../views/js/{filename}")
 
         @app.route("/css/<path:filename>")
         def send_css(filename):
-            return send_file(f"../views2/css/{filename}")
+            return send_file(f"../views/css/{filename}")
 
         @app.route("/")
         def home():
