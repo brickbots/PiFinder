@@ -905,28 +905,46 @@ class Server:
         @app.route("/logs/stream")
         @auth_required
         def stream_logs():
+            import time
+
+            TAIL_BYTES = 100 * 1024  # serve only the last 100 KB on first load
+            t0 = time.monotonic()
             try:
                 position = int(request.args.get("position", 0))
                 log_file = os.path.expanduser("~/PiFinder_data/pifinder.log")
 
                 try:
                     file_size = os.path.getsize(log_file)
-                    # If position is beyond file size or 0, start from beginning
-                    if position >= file_size or position == 0:
-                        position = 0
+                    logger.debug(
+                        "stream_logs: position=%d file_size=%d", position, file_size
+                    )
 
+                    # Reset when file shrank (rotation) or on first call; tail large files.
+                    if position > file_size or position == 0:
+                        position = max(0, file_size - TAIL_BYTES)
+
+                    t1 = time.monotonic()
                     with open(log_file, "r") as f:
-                        if position > 0:
-                            f.seek(position)
+                        f.seek(position)
                         new_lines = f.readlines()
                         new_position = f.tell()
+                    logger.debug(
+                        "stream_logs: read %d lines (%d bytes) in %.3fs",
+                        len(new_lines),
+                        new_position - position,
+                        time.monotonic() - t1,
+                    )
 
-                    # If we're at the start of the file, get all lines
-                    # Otherwise, only return new lines if there are any
-                    if position == 0 or new_lines:
+                    if new_position - position > 1024 * 1024:
+                        logger.warning(
+                            "stream_logs: large response %.1f MB",
+                            (new_position - position) / 1e6,
+                        )
+
+                    if new_lines:
                         return jsonify({"logs": new_lines, "position": new_position})
                     else:
-                        return jsonify({"logs": [], "position": position})
+                        return jsonify({"logs": [], "position": new_position})
                 except FileNotFoundError:
                     logger.error(f"Log file not found: {log_file}")
                     return jsonify({"logs": [], "position": 0, "file_not_found": True})
@@ -934,6 +952,8 @@ class Server:
             except Exception as e:
                 logger.error(f"Error streaming logs: {e}")
                 return jsonify({"logs": [], "position": position})
+            finally:
+                logger.debug("stream_logs: total %.3fs", time.monotonic() - t0)
 
         @app.route("/logs/download")
         @auth_required
@@ -1043,9 +1063,11 @@ class Server:
             """Upload a new logconf_*.json file."""
             upload = request.files.get("config_file")
             if not upload:
+                logger.warning("No file provided for log config upload")
                 return jsonify({"status": "error", "message": "No file provided"})
             filename = upload.filename
             if not filename.startswith("logconf_") or not filename.endswith(".json"):
+                logger.warning("Invalid log config file name: %s", filename)
                 return jsonify(
                     {
                         "status": "error",
@@ -1053,6 +1075,7 @@ class Server:
                     }
                 )
             if os.path.exists(filename):
+                logger.warning("Log config file already exists: %s", filename)
                 return jsonify(
                     {
                         "status": "error",
