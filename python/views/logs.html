@@ -165,40 +165,41 @@ let isPaused = false;
 let logBuffer = [];
 const BUFFER_SIZE = 100;
 const LINE_HEIGHT = 20;
-let updateInterval;
+let pollTimer = null;
 let lastLine = '';
 
 const MIN_POLL_INTERVAL = 1000;
 const MAX_POLL_INTERVAL = 10000;
 let currentPollInterval = MIN_POLL_INTERVAL;
 
-function scheduleFetch() {
-    clearInterval(updateInterval);
-    updateInterval = setInterval(fetchLogs, currentPollInterval);
+function scheduleNextFetch(delay) {
+    clearTimeout(pollTimer);
+    if (!isPaused) {
+        pollTimer = setTimeout(fetchLogs, delay);
+    }
 }
 
-function fetchLogs() {
+async function fetchLogs() {
     if (isPaused) return;
 
-    fetch(`/logs/stream?position=${currentPosition}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.file_not_found) {
-                currentPollInterval = Math.min(currentPollInterval * 2, MAX_POLL_INTERVAL);
-                scheduleFetch();
-                return;
-            }
+    try {
+        const response = await fetch(`/logs/stream?position=${currentPosition}`);
+        const data = await response.json();
 
-            if (currentPollInterval !== MIN_POLL_INTERVAL) {
-                currentPollInterval = MIN_POLL_INTERVAL;
-                scheduleFetch();
-            }
+        if (data.file_not_found) {
+            currentPollInterval = Math.min(currentPollInterval * 2, MAX_POLL_INTERVAL);
+            scheduleNextFetch(currentPollInterval);
+            return;
+        }
 
-            if (!data.logs || data.logs.length === 0) return;
+        currentPollInterval = MIN_POLL_INTERVAL;
 
+        // Always advance position so we never re-read old data
+        if (data.position !== undefined) {
             currentPosition = data.position;
-            const logContent = document.getElementById('logContent');
+        }
 
+        if (data.logs && data.logs.length > 0) {
             // Add new logs to buffer, skipping duplicates
             data.logs.forEach(line => {
                 if (line !== lastLine) {
@@ -212,10 +213,14 @@ function fetchLogs() {
                 logBuffer = logBuffer.slice(-BUFFER_SIZE);
             }
 
-            // Update display
             updateLogDisplay();
-        })
-        .catch(error => console.error('Error fetching logs:', error));
+        }
+    } catch (error) {
+        console.error('Error fetching logs:', error);
+        currentPollInterval = Math.min(currentPollInterval * 2, MAX_POLL_INTERVAL);
+    } finally {
+        scheduleNextFetch(currentPollInterval);
+    }
 }
 
 function updateLogDisplay() {
@@ -255,9 +260,8 @@ function togglePause() {
     isPaused = !isPaused;
     const pauseButton = document.getElementById('pauseButton');
     pauseButton.innerHTML = isPaused ? '<i class="material-icons left">play_arrow</i>{{ _('Resume') }}' : '<i class="material-icons left">pause</i>{{ _('Pause') }}';
-    
+
     if (!isPaused) {
-        // Resume fetching from last position
         fetchLogs();
     }
 }
@@ -269,7 +273,6 @@ function restartFromEnd() {
     currentPollInterval = MIN_POLL_INTERVAL;
     document.getElementById('pauseButton').innerHTML = '<i class="material-icons left">pause</i>{{ _('Pause') }}';
     fetchLogs();
-    scheduleFetch();
 }
 
 // Start fetching logs when page loads
@@ -277,10 +280,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show loading message
     const loadingMessage = document.querySelector('.loading-message');
     loadingMessage.style.display = 'flex';
-    
-    // Start log fetching
+
+    // Start log fetching (sequential — next fetch waits for this one to finish)
     fetchLogs();
-    scheduleFetch();
     
     // Hide loading message after first logs appear
     const observer = new MutationObserver((mutations) => {
