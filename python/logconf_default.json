@@ -41,6 +41,9 @@
         "Server": {
             "level": "INFO"
         },
+        "Server.Logs": {
+            "level": "ERROR"
+        },
 
         /////////////////////////////////////////////////////////////////
         ////// Flask Framework (used for webserver)

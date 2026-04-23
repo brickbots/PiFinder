@@ -40,6 +40,7 @@ class SignedIntConverter(IntegerConverter):
 sys_utils = utils.get_sys_utils()
 
 logger = logging.getLogger("Server")
+logs_logger = logging.getLogger("Server.Logs")
 
 # Generate a secret to validate the auth cookie
 SESSION_SECRET = str(uuid.uuid4())
@@ -915,7 +916,7 @@ class Server:
 
                 try:
                     file_size = os.path.getsize(log_file)
-                    logger.debug(
+                    logs_logger.debug(
                         "stream_logs: position=%d file_size=%d", position, file_size
                     )
 
@@ -928,7 +929,7 @@ class Server:
                         f.seek(position)
                         new_lines = f.readlines()
                         new_position = f.tell()
-                    logger.debug(
+                    logs_logger.debug(
                         "stream_logs: read %d lines (%d bytes) in %.3fs",
                         len(new_lines),
                         new_position - position,
@@ -936,7 +937,7 @@ class Server:
                     )
 
                     if new_position - position > 1024 * 1024:
-                        logger.warning(
+                        logs_logger.warning(
                             "stream_logs: large response %.1f MB",
                             (new_position - position) / 1e6,
                         )

@@ -36,6 +36,10 @@
         "Server": {
             "level": "DEBUG"
         },
+        // Disable logs related to streaming the actual log in the webserver. 
+        "Server.Logs": {
+            "level": "ERROR"
+        },
 
         /////////////////////////////////////////////////////////////////
         ////// Flask Framework
