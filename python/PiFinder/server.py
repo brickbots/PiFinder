@@ -1166,12 +1166,13 @@ class Server:
 
             return send_file(img_byte_arr, mimetype="image/png")
 
-        @app.after_request
-        def log_request(response):
-            logger.debug(
-                "%s %s %s", request.method, request.path, response.status_code
-            )
-            return response
+        # # If you want to see a log of all requests for debugging, you can uncomment this:
+        # @app.after_request
+        # def log_request(response):
+        #     logger.debug(
+        #         "%s %s %s", request.method, request.path, response.status_code
+        #     )
+        #     return response
 
         def gps_lock(lat: float = 50, lon: float = 3, altitude: float = 10):
             msg = (
