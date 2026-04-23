@@ -5,6 +5,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.safari.options import Options as SafariOptions
+from selenium.common.exceptions import InvalidSessionIdException
 from web_test_utils import get_homepage_url
 
 
@@ -60,28 +61,17 @@ def _check_pifinder_server():
         return False
 
 
-@pytest.fixture(scope="session")
-def shared_driver(request):
-    """Setup WebDriver - local or via Selenium Grid, configurable via CLI options."""
-    if not _check_pifinder_server():
-        pytest.skip(
-            f"PiFinder web server not reachable at {get_homepage_url()} - "
-            "start PiFinder before running web tests"
-        )
-
+def _make_driver(request):
+    """Create a WebDriver using the CLI options on request.config."""
     browser = request.config.getoption("--browser")
     use_local = request.config.getoption("--local")
 
     if use_local:
-        try:
-            driver = _create_local_driver(browser)
-        except Exception as e:
-            pytest.skip(f"Failed to create local {browser} driver: {e}")
+        driver = _create_local_driver(browser)
     else:
         selenium_grid_url = os.environ.get(
             "SELENIUM_GRID_URL", "http://localhost:4444/wd/hub"
         )
-        # Check if Selenium Grid is available; fall back to local if not
         grid_available = False
         try:
             status_url = selenium_grid_url.replace("/wd/hub", "/status")
@@ -91,35 +81,48 @@ def shared_driver(request):
             pass
 
         if grid_available:
-            try:
-                driver = _create_grid_driver(selenium_grid_url, browser)
-            except Exception as e:
-                pytest.skip(
-                    f"Failed to connect to Selenium Grid at {selenium_grid_url}: {e}"
-                )
+            driver = _create_grid_driver(selenium_grid_url, browser)
         else:
-            # Fall back to local driver
-            try:
-                driver = _create_local_driver(browser)
-            except Exception as e:
-                pytest.skip(
-                    f"Selenium Grid unavailable and local {browser} driver failed: {e}"
-                )
+            driver = _create_local_driver(browser)
 
     try:
         driver.set_window_size(1920, 1080)
     except Exception:
         pass  # Some drivers (e.g. Safari) may reject set_window_rect
-    yield driver
+    return driver
+
+
+@pytest.fixture(scope="session")
+def shared_driver(request):
+    """Setup WebDriver - local or via Selenium Grid, configurable via CLI options."""
+    if not _check_pifinder_server():
+        pytest.skip(
+            f"PiFinder web server not reachable at {get_homepage_url()} - "
+            "start PiFinder before running web tests"
+        )
+
     try:
-        driver.quit()
+        driver = _make_driver(request)
+    except Exception as e:
+        pytest.skip(f"Failed to create WebDriver: {e}")
+
+    container = [driver]
+    yield container
+    try:
+        container[0].quit()
     except Exception:
         pass  # Ignore errors on shutdown
 
 
 @pytest.fixture
-def driver(shared_driver):
-    """Provide access to shared driver with cleanup between tests."""
+def driver(shared_driver, request):
+    """Provide access to shared driver with cleanup between tests.
+
+    If the browser session has died (e.g. Chrome crashed), the session is
+    transparently recreated so that the remaining tests can continue.
+    """
+    current = shared_driver[0]
+
     # Navigate to the PiFinder homepage before deleting cookies so that
     # Safari's safaridriver clears cookies for the correct origin (localhost).
     # When called while on about:blank (no origin), safaridriver only clears
@@ -127,15 +130,29 @@ def driver(shared_driver):
     # which causes auth state to leak between tests.
     # Fall back to about:blank if the server is unreachable.
     try:
-        shared_driver.get(get_homepage_url())
-    except Exception:
         try:
-            shared_driver.get("about:blank")
+            current.get(get_homepage_url())
+        except Exception:
+            try:
+                current.get("about:blank")
+            except Exception:
+                pass
+        current.delete_all_cookies()
+    except InvalidSessionIdException:
+        # The browser session died (e.g. Chrome crashed mid-run). Recreate it
+        # so subsequent tests are not all failed by a single crash.
+        try:
+            current.quit()
         except Exception:
             pass
-    shared_driver.delete_all_cookies()
+        try:
+            current = _make_driver(request)
+        except Exception as e:
+            pytest.skip(f"Failed to recreate WebDriver after session loss: {e}")
+        shared_driver[0] = current
+
     try:
-        shared_driver.set_window_size(1920, 1080)
+        current.set_window_size(1920, 1080)
     except Exception:
         pass  # Some drivers may not support arbitrary window sizes
-    yield shared_driver
+    yield current

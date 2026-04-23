@@ -309,22 +309,25 @@ window.addEventListener('beforeunload', () => {
 document.getElementById('copyButton').addEventListener('click', function() {
     const logContent = document.getElementById('logContent');
     const text = logContent.innerText;
-    
+    const btn = this;
+    const originalText = btn.innerHTML;
+
+    const showFeedback = (html) => {
+        btn.innerHTML = html;
+        setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+    };
+
+    if (!navigator.clipboard) {
+        console.error('Clipboard API not available');
+        showFeedback('<i class="material-icons left">error</i>{{ _('Failed to copy') }}');
+        return;
+    }
+
     navigator.clipboard.writeText(text).then(() => {
-        // Visual feedback
-        const originalText = this.innerHTML;
-        this.innerHTML = '<i class="material-icons left">check</i>{{ _('Copied!') }}';
-        setTimeout(() => {
-            this.innerHTML = originalText;
-        }, 2000);
+        showFeedback('<i class="material-icons left">check</i>{{ _('Copied!') }}');
     }).catch(err => {
         console.error('Failed to copy text: ', err);
-        // Visual feedback for error
-        const originalText = this.innerHTML;
-        this.innerHTML = '<i class="material-icons left">error</i>{{ _('Failed to copy') }}';
-        setTimeout(() => {
-            this.innerHTML = originalText;
-        }, 2000);
+        showFeedback('<i class="material-icons left">error</i>{{ _('Failed to copy') }}');
     });
 });
 
