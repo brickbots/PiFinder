@@ -54,6 +54,7 @@ def _make_minimal_zip() -> bytes:
 ALL_BUTTON_NAMES = [
     "PLUS",
     "MINUS",
+    "LNG_SQUARE", # Opens up context menu. Square then closes it. 
     "SQUARE",
     "LEFT",
     "UP",
@@ -71,7 +72,6 @@ ALL_BUTTON_NAMES = [
     "LNG_UP",
     "LNG_DOWN",
     "LNG_RIGHT",
-    "LNG_SQUARE",
 ]
 
 
