@@ -51,6 +51,8 @@ from PiFinder.image_util import subtract_background
 
 from PiFinder.displays import DisplayBase, get_display
 
+import PiFinder.manager_patch as patch
+
 from typing import Any, TYPE_CHECKING
 
 # Mypy i8n fix
@@ -123,6 +125,9 @@ def setup_dirs():
     utils.create_path(Path(utils.data_dir, "logs"))
     utils.create_path(Path(utils.data_dir, "telemetry"))
     os.chmod(Path(utils.data_dir), 0o777)
+
+
+patch.apply()
 
 
 class StateManager(BaseManager):
@@ -352,10 +357,6 @@ def main(
     )
     langXX.install()
 
-    import PiFinder.manager_patch as patch
-
-    patch.apply()
-
     with StateManager() as manager:
         shared_state = manager.SharedState()  # type: ignore[attr-defined]
         location = shared_state.location()
@@ -578,6 +579,7 @@ def main(
                             if (
                                 not location.source == "WEB"
                                 and not location.source.startswith("CONFIG:")
+                                and not location.source == "MANUAL"
                                 and (
                                     location.error_in_m == 0
                                     or float(gps_content["error_in_m"])
@@ -618,18 +620,22 @@ def main(
                                         location.lon,
                                         location.altitude,
                                     )
-                        if gps_msg == "time":
+                        if gps_msg in ("time", "time_force"):
                             if isinstance(gps_content, datetime.datetime):
                                 gps_dt = gps_content
                             else:
                                 gps_dt = gps_content["time"]
-                            shared_state.set_datetime(gps_dt)
+                            shared_state.set_datetime(
+                                gps_dt, force=(gps_msg == "time_force")
+                            )
                             if log_time:
                                 logger.info("GPS Time (logged only once): %s", gps_dt)
                                 log_time = False
                         if gps_msg == "reset":
                             location.reset()
                             shared_state.set_location(location)
+                        if gps_msg == "reset_datetime":
+                            shared_state.reset_datetime()
                         if gps_msg == "satellites":
                             # logger.debug("Main: GPS nr sats seen: %s", gps_content)
                             shared_state.set_sats(gps_content)
@@ -875,25 +881,41 @@ def main(
 
 
 if __name__ == "__main__":
+    import sys
+
+    # Ensure the active log config symlink exists, defaulting to logconf_default.json
+    _logconf_link = Path("pifinder_logconf.json")
+    if not _logconf_link.exists():
+        _logconf_link.symlink_to("logconf_default.json")
+
+    debug_no_file_logs = "--debug-no-file-logs" in sys.argv
+    if debug_no_file_logs:
+        os.environ["PIFINDER_DEBUG_NO_FILE_LOGS"] = "1"
+
     print("Bootstrap logging configuration ...")
     logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
     rlogger = logging.getLogger()
-    rlogger.setLevel(logging.INFO)
-    log_path = utils.data_dir / "pifinder.log"
-    try:
-        log_helper = MultiprocLogging(
-            Path("pifinder_logconf.json"),
-            log_path,
-        )
+    rlogger.setLevel(logging.DEBUG if debug_no_file_logs else logging.INFO)
+
+    if debug_no_file_logs:
+        log_helper = MultiprocLogging(Path("pifinder_logconf.json"), console_only=True)
         MultiprocLogging.configurer(log_helper.get_queue())
-    except FileNotFoundError:
-        rlogger.warning(
-            "Cannot find log configuration file, proceeding with basic configuration."
-        )
-        rlogger.warning("Logs will not be stored on disk, unless you use --log")
-        logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
-        logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
-        logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
+    else:
+        log_path = utils.data_dir / "pifinder.log"
+        try:
+            log_helper = MultiprocLogging(
+                Path("pifinder_logconf.json"),
+                log_path,
+            )
+            MultiprocLogging.configurer(log_helper.get_queue())
+        except FileNotFoundError:
+            rlogger.warning(
+                "Cannot find log configuration file, proceeding with basic configuration."
+            )
+            rlogger.warning("Logs will not be stored on disk, unless you use --log")
+            logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
+            logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
+            logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
 
     rlogger.info("Starting PiFinder ...")
     parser = argparse.ArgumentParser(description="eFinder")
@@ -955,6 +977,11 @@ if __name__ == "__main__":
         "-x", "--verbose", help="Set logging to debug mode", action="store_true"
     )
     parser.add_argument("-l", "--log", help="Log to file", action="store_true")
+    parser.add_argument(
+        "--debug-no-file-logs",
+        help="Debug: log everything at DEBUG level to console only, bypassing log configuration and file output",
+        action="store_true",
+    )
     parser.add_argument(
         "--lang",
         help="Force user interface language (iso2 code). Changes configuration",

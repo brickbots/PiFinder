@@ -122,20 +122,12 @@
           <button id="copyButton" class="btn">
             <i class="material-icons left">content_copy</i>Copy to Clipboard
           </button>
-          <select id="globalLevel" class="browser-default" disabled>
-            <option value="DEBUG">Global: Debug</option>
-            <option value="INFO">Global: Info</option>
-            <option value="WARNING">Global: Warning</option>
-            <option value="ERROR">Global: Error</option>
-          </select>
-          <select id="componentSelect" class="browser-default">
-            <option value="" disabled selected>Select Component</option>
-          </select>
-          <select id="componentLevel" class="browser-default" style="display: none;" disabled>
-            <option value="DEBUG">Debug</option>
-            <option value="INFO">Info</option>
-            <option value="WARNING">Warning</option>
-            <option value="ERROR">Error</option>
+          <button id="uploadLogConfButton" class="btn" onclick="document.getElementById('uploadLogConfInput').click()">
+            <i class="material-icons left">upload_file</i>Upload Log Conf
+          </button>
+          <input type="file" id="uploadLogConfInput" accept=".json" style="display:none">
+          <select id="configSelect" class="browser-default">
+            <option value="" disabled selected>Select Log Configuration</option>
           </select>
         </div>
         <div class="log-stats">
@@ -164,17 +156,41 @@ const LINE_HEIGHT = 20;
 let updateInterval;
 let lastLine = '';
 
+// Backoff state for when the log file is not yet available.
+// This page intentionally does NOT fetch the home route, so iwgetid is never triggered here.
+const MIN_POLL_INTERVAL = 1000;
+const MAX_POLL_INTERVAL = 10000;
+let currentPollInterval = MIN_POLL_INTERVAL;
+
+function scheduleFetch() {
+    clearInterval(updateInterval);
+    updateInterval = setInterval(fetchLogs, currentPollInterval);
+}
+
 function fetchLogs() {
     if (isPaused) return;
-    
+
     fetch(`/logs/stream?position=${currentPosition}`)
         .then(response => response.json())
         .then(data => {
+            if (data.file_not_found) {
+                // Back off exponentially up to MAX_POLL_INTERVAL
+                currentPollInterval = Math.min(currentPollInterval * 2, MAX_POLL_INTERVAL);
+                scheduleFetch();
+                return;
+            }
+
+            // Reset backoff on a successful response
+            if (currentPollInterval !== MIN_POLL_INTERVAL) {
+                currentPollInterval = MIN_POLL_INTERVAL;
+                scheduleFetch();
+            }
+
             if (!data.logs || data.logs.length === 0) return;
-            
+
             currentPosition = data.position;
             const logContent = document.getElementById('logContent');
-            
+
             // Add new logs to buffer, skipping duplicates
             data.logs.forEach(line => {
                 if (line !== lastLine) {
@@ -182,12 +198,12 @@ function fetchLogs() {
                     lastLine = line;
                 }
             });
-            
+
             // Trim buffer if it exceeds size
             if (logBuffer.length > BUFFER_SIZE) {
                 logBuffer = logBuffer.slice(-BUFFER_SIZE);
             }
-            
+
             // Update display
             updateLogDisplay();
         })
@@ -239,8 +255,10 @@ function restartFromEnd() {
     currentPosition = 0;
     logBuffer = [];
     isPaused = false;
+    currentPollInterval = MIN_POLL_INTERVAL;
     document.getElementById('pauseButton').textContent = 'Pause';
     fetchLogs();
+    scheduleFetch();
 }
 
 // Start fetching logs when page loads
@@ -251,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Start log fetching
     fetchLogs();
-    updateInterval = setInterval(fetchLogs, 1000);
+    scheduleFetch();
     
     // Hide loading message after first logs appear
     const observer = new MutationObserver((mutations) => {
@@ -299,94 +317,69 @@ document.getElementById('copyButton').addEventListener('click', function() {
     });
 });
 
-// Log level management
-function updateComponentLevels() {
-    fetch('/logs/components')
+// Log configuration management
+function loadLogConfigs() {
+    fetch('/logs/configs')
         .then(response => response.json())
         .then(data => {
-            const componentSelect = document.getElementById('componentSelect');
-            componentSelect.innerHTML = '<option value="" disabled selected>Select Component</option>';
-            
-            // Sort components alphabetically
-            const sortedComponents = Object.entries(data.components).sort(([a], [b]) => a.localeCompare(b));
-            
-            sortedComponents.forEach(([component, levels]) => {
+            const configSelect = document.getElementById('configSelect');
+            configSelect.innerHTML = '<option value="" disabled>Select Log Configuration</option>';
+            data.configs.forEach(cfg => {
                 const option = document.createElement('option');
-                option.value = component;
-                option.textContent = component;
-                componentSelect.appendChild(option);
+                option.value = cfg.file;
+                option.textContent = cfg.name;
+                if (cfg.active) option.selected = true;
+                configSelect.appendChild(option);
             });
         })
-        .catch(error => console.error('Error fetching component levels:', error));
+        .catch(error => console.error('Error fetching log configs:', error));
 }
 
-// Handle global level change
-document.getElementById('globalLevel').addEventListener('change', function(e) {
-    const newLevel = e.target.value;
-    fetch('/logs/level', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `level=${encodeURIComponent(newLevel)}`
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.status === 'success') {
-            console.log(`Changed global log level to ${newLevel}`);
-        } else {
-            console.error('Failed to update global log level:', result.message);
-        }
-    })
-    .catch(error => console.error('Error updating global log level:', error));
-});
-
-// Handle component selection
-document.getElementById('componentSelect').addEventListener('change', function(e) {
-    const component = e.target.value;
-    if (!component) {
-        document.getElementById('componentLevel').style.display = 'none';
+document.getElementById('configSelect').addEventListener('change', function(e) {
+    const configFile = e.target.value;
+    if (!configFile) return;
+    if (!confirm(`Switch log configuration to "${e.target.options[e.target.selectedIndex].text}" and restart PiFinder?`)) {
+        loadLogConfigs(); // reset selection
         return;
     }
-    
-    // Show level select and set current level
-    const levelSelect = document.getElementById('componentLevel');
-    levelSelect.style.display = 'block';
-    
-    // Get current level for selected component
-    fetch('/logs/components')
+    // Use a real form POST so the browser navigates to the restart page HTML
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/logs/switch_config';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'logconf_file';
+    input.value = configFile;
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+});
+
+document.getElementById('uploadLogConfInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.name.startsWith('logconf_') || !file.name.endsWith('.json')) {
+        alert('File must be named logconf_<name>.json');
+        e.target.value = '';
+        return;
+    }
+    const formData = new FormData();
+    formData.append('config_file', file);
+    fetch('/logs/upload_config', { method: 'POST', body: formData })
         .then(response => response.json())
-        .then(data => {
-            const currentLevel = data.components[component].current_level;
-            levelSelect.value = currentLevel;
-        });
+        .then(result => {
+            if (result.status === 'ok') {
+                loadLogConfigs();
+            } else {
+                alert('Upload failed: ' + result.message);
+            }
+        })
+        .catch(error => console.error('Error uploading log config:', error));
+    e.target.value = '';
 });
 
-// Handle component level change
-document.getElementById('componentLevel').addEventListener('change', function(e) {
-    const component = document.getElementById('componentSelect').value;
-    const newLevel = e.target.value;
-    
-    fetch('/logs/component_level', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `component=${encodeURIComponent(component)}&level=${encodeURIComponent(newLevel)}`
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.status === 'success') {
-            console.log(`Changed ${component} log level to ${newLevel}`);
-        } else {
-            console.error('Failed to update log level:', result.message);
-        }
-    })
-    .catch(error => console.error('Error updating log level:', error));
-});
-
-// Initial load of components
-updateComponentLevels();
+// Initial load of configs
+loadLogConfigs();
 
 // Set up button event listeners
 document.getElementById('pauseButton').addEventListener('click', function() {

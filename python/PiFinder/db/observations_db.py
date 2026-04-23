@@ -121,6 +121,10 @@ class ObservationsDatabase(Database):
         )
         self.conn.commit()
 
+        # Update cache so filters reflect the new observation immediately
+        if (catalog, sequence) not in self.observed_objects_cache:
+            self.observed_objects_cache.append((catalog, sequence))
+
         observation_id = self.cursor.execute(
             "select last_insert_rowid() as id"
         ).fetchone()["id"]

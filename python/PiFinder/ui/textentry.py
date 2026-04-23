@@ -1,11 +1,13 @@
 from PIL import Image, ImageDraw
+from PiFinder.composite_object import CompositeObject
 from PiFinder.ui.base import UIModule
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.ui_utils import format_number
 import time
 import threading
-from typing import Any, TYPE_CHECKING
+from typing import Any, List, TYPE_CHECKING
+import logging
 
 if TYPE_CHECKING:
 
@@ -80,7 +82,7 @@ class KeyPad:
 
 
 class UITextEntry(UIModule):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         # Get mode from item_definition
@@ -105,7 +107,7 @@ class UITextEntry(UIModule):
         self.KEYPRESS_TIMEOUT = 1
         self.last_key_press_time = 0
         self.char_index = 0
-        self.search_results = []
+        self.search_results: List[CompositeObject] = []
         self.search_results_len_str = "0"
         self.show_keypad = True
         self.keys = KeyPad()
@@ -231,8 +233,6 @@ class UITextEntry(UIModule):
         Debounced async search - waits 250ms after last keystroke before searching.
         Only updates search results in search mode.
         """
-        import logging
-
         logger = logging.getLogger("TextEntry")
 
         if self.text_entry_mode:
@@ -271,8 +271,6 @@ class UITextEntry(UIModule):
         Perform the actual search in background thread.
         Only updates results if this search version is still current.
         """
-        import logging
-
         logger = logging.getLogger("TextEntry")
 
         try:

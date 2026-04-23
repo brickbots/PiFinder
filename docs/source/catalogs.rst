@@ -82,3 +82,7 @@ Harris
 ----
 Globular Clusters in the Milky Way (Harris, 1997)
 This catalog compiled was by William E. Harris and used by permisson.
+
+Lynga
+----
+Catalogue of Open Cluster Data (5th Ed.) LYNGA G.: 1987 <Lund Observatory>
