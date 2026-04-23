@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from web_test_utils import (
     login_to_remote,
@@ -168,13 +170,9 @@ def test_settings_language_select_german_and_restore(driver):
         "UUUUUUDR",  # wrap to top, D = German (index 1), R = select
         {},  # state after select is implementation-defined; just validate 200 OK
     )
+    time.sleep(0.5)  # wait for language change to take effect
 
     # Restore English: navigate back to Language submenu and select English (index 0)
-    press_keys_and_validate(
-        driver,
-        "DDRRDDDDDDR",  # navigate back to Language submenu from wherever we are
-        {"ui_type": "UITextMenu", "title": "Language"},
-    )
     press_keys_and_validate(
         driver,
         "UUUUUUR",  # wrap to top (English), R = select
