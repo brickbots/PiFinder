@@ -15,6 +15,7 @@ from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
 from PiFinder.ui.locationentry import UILocationEntry
 from PiFinder.ui.radec_entry import UIRADecEntry
+from PiFinder.ui.telemetry_list import UITelemetryList
 import PiFinder.ui.callbacks as callbacks
 
 
@@ -1171,6 +1172,57 @@ pifinder_menu = {
                                 {
                                     "name": _("Histogram"),
                                     "value": "histogram",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Dev Tools"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": _("Telemetry"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "items": [
+                                        {
+                                            "name": _("Record"),
+                                            "class": UITextMenu,
+                                            "select": "single",
+                                            "config_option": "telemetry_record",
+                                            "post_callback": callbacks.telemetry_record_toggle,
+                                            "items": [
+                                                {
+                                                    "name": _("Off"),
+                                                    "value": False,
+                                                },
+                                                {
+                                                    "name": _("On"),
+                                                    "value": True,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            "name": _("Images"),
+                                            "class": UITextMenu,
+                                            "select": "single",
+                                            "config_option": "telemetry_images",
+                                            "items": [
+                                                {
+                                                    "name": _("Off"),
+                                                    "value": False,
+                                                },
+                                                {
+                                                    "name": _("On"),
+                                                    "value": True,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            "name": _("Load"),
+                                            "class": UITelemetryList,
+                                        },
+                                    ],
                                 },
                             ],
                         },

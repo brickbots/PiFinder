@@ -161,3 +161,4 @@ python/tetra3
 # users GPS data
 test_ubx
 test_ubx/*
+python/telemetry_analysis/

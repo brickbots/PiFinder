@@ -479,6 +479,20 @@ def generate_custom_object_name(ui_module: UIModule) -> str:
     return f"CUSTOM {max_num + 1}"
 
 
+def telemetry_record_toggle(ui_module: UIModule) -> None:
+    """Toggle telemetry recording on/off via integrator command queue."""
+    enabled = ui_module.config_object.get_option("telemetry_record")
+    if "integrator" in ui_module.command_queues:
+        if enabled:
+            ui_module.command_queues["integrator"].put(("telemetry_record_on", None))
+            ui_module.message("Telemetry\nRecording", 2)
+        else:
+            ui_module.command_queues["integrator"].put(("telemetry_record_off", None))
+            ui_module.message("Telemetry\nStopped", 2)
+    else:
+        ui_module.message("No integrator\nqueue", 2)
+
+
 def update_gpsd_baud_rate(ui_module: UIModule) -> None:
     """
     Updates the GPSD configuration with the current baud rate setting.
