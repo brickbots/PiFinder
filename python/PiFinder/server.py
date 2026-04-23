@@ -142,8 +142,6 @@ class Server:
 
         app = Flask(__name__, template_folder=views2_path)
         app.secret_key = SESSION_SECRET
-        app.config["DEBUG"] = True
-
         # Register the custom signed integer converter
         app.url_map.converters["signed_int"] = SignedIntConverter
 
