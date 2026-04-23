@@ -14,13 +14,6 @@ nox -s unit_tests    # Full unit test suite
 nox -s babel         # I18n message extraction and compilation
 ```
 
-**Direct testing with pytest:**
-```bash
-pytest -m smoke      # Smoke tests for core functionality
-pytest -m unit       # Unit tests for isolated components
-pytest -m integration # End-to-end integration tests
-```
-
 **Development setup:**
 ```bash
 cd python/
@@ -101,7 +94,7 @@ python3.9 -m PiFinder.main -fh --camera debug --keyboard local -x
 
 ## Testing Strategy
 
-Tests use pytest with custom markers for different test types. The smoke tests provide quick validation while unit tests cover isolated functionality. Integration tests validate end-to-end workflows including the multi-process architecture.
+Tests use pytest with custom markers for different test types. The smoke tests provide quick validation while unit tests cover isolated functionality. Integration tests validate end-to-end workflows including the multi-process architecture.  Although using pytest under the hood, nox should be used as an entrypoint for all linting, testing and other code quality tooling.
 
 **Key test areas:**
 - Calculation utilities and coordinate transformations
@@ -111,6 +104,7 @@ Tests use pytest with custom markers for different test types. The smoke tests p
 - Hardware interface abstractions
 
 ## Code Quality
+nox should be used as the front end for all code quality checking and testing.  Nox is using these technologies under the hood, but these should always be called through a specific nox session.
 
 - **Linting:** Ruff with Python 3.9 target, Black-compatible formatting
 - **Type Checking:** MyPy with gradual typing adoption
