@@ -9,7 +9,9 @@ import os
 from pathlib import Path
 from PiFinder import utils, equipment, locations
 from typing import Any
+import logging
 
+logger = logging.getLogger("config")
 
 class Config:
     def __init__(self):
@@ -34,7 +36,7 @@ class Config:
             self._config_dict = {}
         else:
             with open(self.config_file_path, "r") as config_file:
-                print("Loading config from", self.config_file_path)
+                logger.info("Loading config from %s", self.config_file_path)
                 self._config_dict = json.load(config_file)
 
         # open default default_config

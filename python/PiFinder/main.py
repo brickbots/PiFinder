@@ -296,13 +296,6 @@ def main(
     """
     global display_device, display_hardware
 
-    display_device = get_display(display_hardware)
-    init_keypad_pwm()
-    setup_dirs()
-
-    # Instantiate base keyboard class for keycode
-    keyboard_base = keyboard_interface.KeyboardInterface()
-
     # init queues
     console_queue: Queue = Queue()
     keyboard_queue: Queue = Queue()
@@ -325,6 +318,13 @@ def main(
 
     # Start log consolidation process first.
     log_helper.start()
+
+    display_device = get_display(display_hardware)
+    init_keypad_pwm()
+    setup_dirs()
+
+    # Instantiate base keyboard class for keycode
+    keyboard_base = keyboard_interface.KeyboardInterface()
 
     os_detail, platform, arch = utils.get_os_info()
     logger.info("PiFinder running on %s, %s, %s", os_detail, platform, arch)
