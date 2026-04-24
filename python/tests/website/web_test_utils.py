@@ -108,10 +108,15 @@ def press_keys(driver, keys):
         time.sleep(0.5)
 
 
-def press_keys_and_validate(driver, keys, expected_values):
+def press_keys_and_validate(driver, keys, expected_values, timeout=8):
     """
     Helper function to press keys on remote UI and validate response.
     Returns the API response dict.
+
+    After pressing the keys, polls /api/current-selection until the expected
+    state is seen or *timeout* seconds elapse.  This absorbs the async gap
+    between the browser dispatching the last key's fetch() and the PiFinder UI
+    process finishing its state transition.
     """
     # Get cookies from the selenium session for authentication
     cookies = {cookie["name"]: cookie["value"] for cookie in driver.get_cookies()}
@@ -119,21 +124,29 @@ def press_keys_and_validate(driver, keys, expected_values):
     # Press the keys
     press_keys(driver, keys)
 
-    # Get the API response after pressing keys
-    response = requests.get(
-        f"{get_homepage_url()}/api/current-selection", cookies=cookies
-    )
+    # Poll until expected state matches or timeout
+    deadline = time.monotonic() + timeout
+    last_error = None
+    while True:
+        response = requests.get(
+            f"{get_homepage_url()}/api/current-selection", cookies=cookies
+        )
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        data = response.json()
+        assert isinstance(data, dict), "Response should be a JSON object"
 
-    # Validate basic response structure
-    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        if not expected_values:
+            return data
 
-    data = response.json()
-    assert isinstance(data, dict), "Response should be a JSON object"
+        try:
+            recursive_dict_compare(data, expected_values)
+            return data
+        except AssertionError as e:
+            last_error = e
 
-    # Recursively compare expected values with actual response
-    recursive_dict_compare(data, expected_values)
-
-    return data
+        if time.monotonic() > deadline:
+            raise last_error  # type: ignore[misc]
+        time.sleep(0.3)
 
 
 def get_current_selection(driver) -> dict:
