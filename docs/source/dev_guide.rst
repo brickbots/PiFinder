@@ -349,11 +349,26 @@ the web interface works correctly.
 The tests exercise the remote control features of PiFinder, changing **the state of the PiFinder** and
 therefore should **not be run** against a PiFinder you are actively using for observing.
 
-Running Website Tests
-______________________________
+Running Website Tests locally
+_______________________________
 
-To run the website tests needs a running Selenium Grid server and a running PiFinder web server. 
-You can test against a real PiFinder or a locally running instance. 
+You can run ``pytest -m web --browser <browser> --local`` to run the website tests locally. 
+This will have Selenium launch a browser on your local machine and run the tests against a locally running instance of PiFinder. 
+The respective browsers need to be installed on your machine. Recognized browsers are ``chrome``, ``firefox`` and ``safari``. 
+
+If you want to run the tests against a real PiFinder, set the ``PIFINDER_HOMEPAGE`` environment variable to the URL of your PiFinder instance or 
+pass the URL directly as a command line paramters with ``--url``. The PiFinder instance needs to be in the same WiFi as your machine, so that it is reachable via the network.
+
+Running Website Tests remotely
+________________________________
+
+Using Selenium Grid you can set up servers with different operating systems and different browsers to run your tests in parallel. 
+As the PiFinder is designed to have only one client accessing the web interface at a time, we recommend to run one Raspberry Pi per computer 
+instance and browser in the grid. You can install the software on bare bones Raspberry Pi and fake the non-existing hardware.  
+Or you can test against real PiFinders. 
+
+In the following we describe a simple setup with Selenium Grid running locally and running tests againt a locally running instance of PiFinder. 
+You can easily adapt this to more complex setups, e.g. by running the Selenium Grid server on a different machine or testing against a real PiFinder. 
 
 Running against a locally running instance at localhost:8080:
 
@@ -384,15 +399,15 @@ Note that the tests run approximately 10 minutes.
 Setting up Selenium Grid
 ___________________________
 
-The website tests require a Selenium Grid server to run browser automation. The easiest way is to download the Selenum Grid server jar 
+If you choose to run the website tests using a Selenium Grid server, the easiest way is to download the Selenum Grid server jar 
 from the selenium website, see https://www.selenium.dev/downloads/ and run it with Java:
 
 .. code-block:: bash
   
     java -jar selenium-server-<version>.jar standalone
 
-The Selenium Grid server needs to run on the same machine where you have the browser installed, which you want to use for testing.
-At the moment the tests will use Chrome.
+If you run the Selenium Grid server this way, the browsers need to be installed on the same machine. 
+You'll have to consult the Selenium documentation for setting up a more complex grid with different machines and browsers.
 
 
 Running/Debugging from the command line
