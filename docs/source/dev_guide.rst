@@ -356,6 +356,9 @@ You can run ``pytest -m web --browser <browser> --local`` to run the website tes
 This will have Selenium launch a browser on your local machine and run the tests against a locally running instance of PiFinder. 
 The respective browsers need to be installed on your machine. Recognized browsers are ``chrome``, ``firefox`` and ``safari``. 
 
+Note that when running the tests on Safari, you need to enable "Allow Remote Automation" in the Develop menu of Safari. In addition Safari
+does not support the "headless" mode, so you will see the browser window when running the tests and you cannot use other windows while the tests are running.
+
 If you want to run the tests against a real PiFinder, set the ``PIFINDER_HOMEPAGE`` environment variable to the URL of your PiFinder instance or 
 pass the URL directly as a command line paramters with ``--url``. The PiFinder instance needs to be in the same WiFi as your machine, so that it is reachable via the network.
 
