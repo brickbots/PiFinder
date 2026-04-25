@@ -278,20 +278,24 @@ def test_logs_config_select_reflects_available_files(driver):
 
         config_select = driver.find_element(By.ID, "configSelect")
         options = config_select.find_elements(By.TAG_NAME, "option")
-        option_values = {opt.get_attribute("value") for opt in options if opt.get_attribute("value")}
+        option_values = {
+            opt.get_attribute("value") for opt in options if opt.get_attribute("value")
+        }
         option_texts = {opt.text for opt in options if opt.get_attribute("value")}
 
         # Every config returned by the API must appear in the dropdown
         for cfg in expected_configs:
-            assert cfg["file"] in option_values, f"Missing file value in dropdown: {cfg['file']}"
-            assert cfg["name"] in option_texts, f"Missing display name in dropdown: {cfg['name']}"
+            assert (
+                cfg["file"] in option_values
+            ), f"Missing file value in dropdown: {cfg['file']}"
+            assert (
+                cfg["name"] in option_texts
+            ), f"Missing display name in dropdown: {cfg['name']}"
 
         # The active config (if any) must be the selected option
         active_configs = [cfg for cfg in expected_configs if cfg["active"]]
         if active_configs:
-            selected = config_select.find_element(
-                By.CSS_SELECTOR, "option:checked"
-            )
+            selected = config_select.find_element(By.CSS_SELECTOR, "option:checked")
             assert selected.get_attribute("value") == active_configs[0]["file"]
 
     except requests.exceptions.RequestException:

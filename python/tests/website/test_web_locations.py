@@ -618,9 +618,9 @@ def test_locations_add_remote(driver):
 
     # Verify the location was saved with a source recorded (GPS, WEB, fakeGPS, etc.)
     assert found_location_data is not None, "Location data should not be None"
-    assert (
-        found_location_data["source"]
-    ), f"Expected a non-empty source, got: {found_location_data['source']}"
+    assert found_location_data[
+        "source"
+    ], f"Expected a non-empty source, got: {found_location_data['source']}"
 
     # Log the found location for debugging/verification
     # Successfully found location: {found_location_data}

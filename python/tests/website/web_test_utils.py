@@ -145,7 +145,7 @@ def press_keys_and_validate(driver, keys, expected_values, timeout=8):
             last_error = e
 
         if time.monotonic() > deadline:
-            raise last_error  # type: ignore[misc]
+            raise last_error
         time.sleep(0.3)
 
 

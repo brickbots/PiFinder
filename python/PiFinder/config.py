@@ -13,6 +13,7 @@ import logging
 
 logger = logging.getLogger("config")
 
+
 class Config:
     def __init__(self):
         """

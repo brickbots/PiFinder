@@ -54,7 +54,7 @@ def _make_minimal_zip() -> bytes:
 ALL_BUTTON_NAMES = [
     "PLUS",
     "MINUS",
-    "LNG_SQUARE", # Opens up context menu. Square then closes it. 
+    "LNG_SQUARE",  # Opens up context menu. Square then closes it.
     "SQUARE",
     "LEFT",
     "UP",
@@ -85,12 +85,12 @@ def test_key_callback_button(driver, button):
         json={"button": button},
         cookies=cookies,
     )
-    assert response.status_code == 200, (
-        f"Expected 200 for button '{button}', got {response.status_code}: {response.text}"
-    )
-    assert response.json().get("message") == "success", (
-        f"Unexpected response for button '{button}': {response.json()}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Expected 200 for button '{button}', got {response.status_code}: {response.text}"
+    assert (
+        response.json().get("message") == "success"
+    ), f"Unexpected response for button '{button}': {response.json()}"
 
 
 # ── /image ────────────────────────────────────────────────────────────────────
@@ -100,12 +100,10 @@ def test_key_callback_button(driver, button):
 def test_image_endpoint_returns_png(driver):
     """/image must return 200 with image/png content without authentication."""
     response = requests.get(f"{get_homepage_url()}/image")
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}"
-    )
-    assert "image/png" in response.headers.get("Content-Type", ""), (
-        f"Expected image/png, got {response.headers.get('Content-Type')}"
-    )
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+    assert "image/png" in response.headers.get(
+        "Content-Type", ""
+    ), f"Expected image/png, got {response.headers.get('Content-Type')}"
     assert len(response.content) > 0, "Image response body must not be empty"
 
 
@@ -120,9 +118,9 @@ def test_api_current_selection_returns_json(driver):
         f"{get_homepage_url()}/api/current-selection",
         cookies=cookies,
     )
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}: {response.text[:200]}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Expected 200, got {response.status_code}: {response.text[:200]}"
     data = response.json()
     assert isinstance(data, dict), f"Expected a JSON object, got {type(data)}"
 
@@ -139,9 +137,9 @@ def test_logs_stream_returns_json(driver):
         params={"position": 0},
         cookies=cookies,
     )
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}: {response.text[:200]}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Expected 200, got {response.status_code}: {response.text[:200]}"
     data = response.json()
     assert "logs" in data, f"Missing 'logs' key in response: {data}"
     assert "position" in data, f"Missing 'position' key in response: {data}"
@@ -159,9 +157,9 @@ def test_logs_configs_returns_json(driver):
         f"{get_homepage_url()}/logs/configs",
         cookies=cookies,
     )
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}: {response.text[:200]}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Expected 200, got {response.status_code}: {response.text[:200]}"
     data = response.json()
     assert "configs" in data, f"Missing 'configs' key in response: {data}"
     assert isinstance(data["configs"], list), "'configs' must be a list"
@@ -179,13 +177,13 @@ def test_logs_switch_config_rejects_invalid_filename(driver):
         data={"logconf_file": "evil.json"},
         cookies=cookies,
     )
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}: {response.text[:200]}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Expected 200, got {response.status_code}: {response.text[:200]}"
     data = response.json()
-    assert data.get("status") == "error", (
-        f"Expected error status for invalid filename, got: {data}"
-    )
+    assert (
+        data.get("status") == "error"
+    ), f"Expected error status for invalid filename, got: {data}"
 
 
 @pytest.mark.web
@@ -197,13 +195,13 @@ def test_logs_switch_config_rejects_nonexistent_file(driver):
         data={"logconf_file": "logconf_nonexistent_xyzzy.json"},
         cookies=cookies,
     )
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}: {response.text[:200]}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Expected 200, got {response.status_code}: {response.text[:200]}"
     data = response.json()
-    assert data.get("status") == "error", (
-        f"Expected error status for missing file, got: {data}"
-    )
+    assert (
+        data.get("status") == "error"
+    ), f"Expected error status for missing file, got: {data}"
 
 
 # ── /logs/upload_config ───────────────────────────────────────────────────────
@@ -218,13 +216,13 @@ def test_logs_upload_config_rejects_bad_filename(driver):
         files={"config_file": ("bad_name.json", b"{}", "application/json")},
         cookies=cookies,
     )
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}: {response.text[:200]}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Expected 200, got {response.status_code}: {response.text[:200]}"
     data = response.json()
-    assert data.get("status") == "error", (
-        f"Expected error status for bad filename, got: {data}"
-    )
+    assert (
+        data.get("status") == "error"
+    ), f"Expected error status for bad filename, got: {data}"
 
 
 @pytest.mark.web
@@ -235,13 +233,13 @@ def test_logs_upload_config_rejects_missing_file(driver):
         f"{get_homepage_url()}/logs/upload_config",
         cookies=cookies,
     )
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}: {response.text[:200]}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Expected 200, got {response.status_code}: {response.text[:200]}"
     data = response.json()
-    assert data.get("status") == "error", (
-        f"Expected error status when no file provided, got: {data}"
-    )
+    assert (
+        data.get("status") == "error"
+    ), f"Expected error status when no file provided, got: {data}"
 
 
 # ── /tools/restore ────────────────────────────────────────────────────────────
@@ -257,12 +255,12 @@ def test_tools_restore_renders_restart_page(driver):
         files={"backup_file": ("PiFinder_backup.zip", zip_bytes, "application/zip")},
         cookies=cookies,
     )
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}: {response.text[:200]}"
-    )
-    assert "Restarting PiFinder" in response.text, (
-        "Expected restart_pifinder.html content in response"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Expected 200, got {response.status_code}: {response.text[:200]}"
+    assert (
+        "Restarting PiFinder" in response.text
+    ), "Expected restart_pifinder.html content in response"
 
 
 # ── /logs/download ────────────────────────────────────────────────────────────
@@ -276,12 +274,12 @@ def test_logs_download_returns_zip(driver):
         f"{get_homepage_url()}/logs/download",
         cookies=cookies,
     )
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}: {response.text[:200]}"
-    )
-    assert "zip" in response.headers.get("Content-Type", ""), (
-        f"Expected zip content-type, got {response.headers.get('Content-Type')}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Expected 200, got {response.status_code}: {response.text[:200]}"
+    assert "zip" in response.headers.get(
+        "Content-Type", ""
+    ), f"Expected zip content-type, got {response.headers.get('Content-Type')}"
     assert len(response.content) > 0, "Zip response body must not be empty"
 
 
@@ -296,12 +294,12 @@ def test_tools_backup_returns_zip(driver):
         f"{get_homepage_url()}/tools/backup",
         cookies=cookies,
     )
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}: {response.text[:200]}"
-    )
-    assert "zip" in response.headers.get("Content-Type", ""), (
-        f"Expected zip content-type, got {response.headers.get('Content-Type')}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Expected 200, got {response.status_code}: {response.text[:200]}"
+    assert "zip" in response.headers.get(
+        "Content-Type", ""
+    ), f"Expected zip content-type, got {response.headers.get('Content-Type')}"
     assert len(response.content) > 0, "Backup zip body must not be empty"
 
 
@@ -315,9 +313,9 @@ def test_system_restart_requires_auth(driver):
         f"{get_homepage_url()}/system/restart",
         allow_redirects=False,
     )
-    assert response.status_code in (302, 401), (
-        f"Expected redirect for unauthenticated /system/restart, got {response.status_code}"
-    )
+    assert (
+        response.status_code in (302, 401)
+    ), f"Expected redirect for unauthenticated /system/restart, got {response.status_code}"
 
 
 @pytest.mark.web
@@ -327,9 +325,9 @@ def test_system_restart_pifinder_requires_auth(driver):
         f"{get_homepage_url()}/system/restart_pifinder",
         allow_redirects=False,
     )
-    assert response.status_code in (302, 401), (
-        f"Expected redirect for unauthenticated /system/restart_pifinder, got {response.status_code}"
-    )
+    assert (
+        response.status_code in (302, 401)
+    ), f"Expected redirect for unauthenticated /system/restart_pifinder, got {response.status_code}"
 
 
 # ── /gps/update ───────────────────────────────────────────────────────────────
@@ -345,9 +343,9 @@ def test_gps_update_redirects_to_home(driver):
         cookies=cookies,
         allow_redirects=False,
     )
-    assert response.status_code == 302, (
-        f"Expected 302 redirect, got {response.status_code}: {response.text[:200]}"
-    )
+    assert (
+        response.status_code == 302
+    ), f"Expected 302 redirect, got {response.status_code}: {response.text[:200]}"
 
 
 # ── auth guards ───────────────────────────────────────────────────────────────
@@ -368,7 +366,17 @@ def test_gps_update_redirects_to_home(driver):
         ("get", "/tools/backup", {}),
         ("get", "/system/restart", {}),
         ("get", "/system/restart_pifinder", {}),
-        ("post", "/gps/update", {"data": {"latitudeDecimal": "0", "longitudeDecimal": "0", "altitude": "0"}}),
+        (
+            "post",
+            "/gps/update",
+            {
+                "data": {
+                    "latitudeDecimal": "0",
+                    "longitudeDecimal": "0",
+                    "altitude": "0",
+                }
+            },
+        ),
     ],
 )
 def test_protected_endpoint_requires_auth(driver, method, path, kwargs):
@@ -379,6 +387,7 @@ def test_protected_endpoint_requires_auth(driver, method, path, kwargs):
         allow_redirects=False,
         **kwargs,
     )
-    assert response.status_code in (302, 401), (
-        f"{method.upper()} {path} should require auth, got {response.status_code}"
-    )
+    assert response.status_code in (
+        302,
+        401,
+    ), f"{method.upper()} {path} should require auth, got {response.status_code}"

@@ -195,7 +195,7 @@ class Server:
 
         @app.route("/")
         def home():
-            logger.debug("/ called")
+            # logger.debug("/ called")
             # Get version info
             software_version = "Unknown"
             try:
@@ -1037,7 +1037,9 @@ class Server:
                 or not logconf_file.startswith("logconf_")
                 or not logconf_file.endswith(".json")
             ):
-                return jsonify({"status": "error", "message": "Invalid log config file name"})
+                return jsonify(
+                    {"status": "error", "message": "Invalid log config file name"}
+                )
             if not os.path.exists(logconf_file):
                 return jsonify(
                     {
