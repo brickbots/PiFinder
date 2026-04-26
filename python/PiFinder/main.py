@@ -927,6 +927,13 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
+        "-g",
+        "--gps",
+        help="Specify which camera to use: pi, fake",
+        default="pi",
+        required=False,
+    )
+    parser.add_argument(
         "-k",
         "--keyboard",
         help="Specify which keyboard to use: pi, local or server",
@@ -1025,7 +1032,9 @@ if __name__ == "__main__":
             logger.warning(f"Could not check/sync GPSD configuration: {e}")
 
         gps_type = cfg.get_option("gps_type")
-        if gps_type == "ublox":
+        if args.gps == "fake":
+            gps_monitor = importlib.import_module("PiFinder.gps_fake")
+        elif gps_type == "ublox":
             gps_monitor = importlib.import_module("PiFinder.gps_ubx")
         else:
             gps_monitor = importlib.import_module("PiFinder.gps_gpsd")
