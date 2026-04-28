@@ -21,7 +21,10 @@ def login_to_remote(driver):
     """Helper function to login to remote interface"""
     navigate_to_page(driver, "/remote")
     login_with_password(driver)
-    # Wait for remote page to load after successful login
+    # Wait until the browser is actually on /remote (not still on /login after redirect)
+    WebDriverWait(driver, 15).until(
+        lambda d: "/remote" in d.current_url and "/login" not in d.current_url
+    )
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "image")))
 
 
@@ -99,9 +102,9 @@ def press_keys(driver, keys):
             button.click()
             time.sleep(0.2)
 
-            # Extra delay after special button presses
+            # Extra delay after special button presses — Safari CSS updates need more than 1s
             if key_char in ["T", "Z"]:
-                WebDriverWait(driver, 1).until(
+                WebDriverWait(driver, 3).until(
                     lambda d: "pressed" in button.get_attribute("class")
                 )
 
@@ -168,16 +171,16 @@ def navigate_to_root_menu(driver) -> dict:
     """
     Navigate to the top-level PiFinder menu, landing on the Objects item.
 
-    Sends LONG+LEFT twice (first press wakes the device and is discarded,
-    second resets the navigation stack to root), then presses UP six times
-    to reach the Start item, then DOWN twice to land on Objects.
+    Sends LONG+LEFT to reset the navigation stack to root (also exits any
+    active marking/context menu), then presses UP six times to reach the
+    Start item, then DOWN twice to land on Objects.
 
     Must be called while on the /remote page (i.e. after login_to_remote).
     Returns the /api/current-selection response dict.
     """
     return press_keys_and_validate(
         driver,
-        "ZLZLUUUUUUDD",
+        "ZLUUUUUUDD",
         {
             "ui_type": "UITextMenu",
             "title": "PiFinder",
