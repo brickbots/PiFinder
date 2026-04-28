@@ -126,19 +126,14 @@ def test_equipment_instruments_table_structure(driver):
     _login_to_equipment(driver)
 
     # Wait for page to load
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "h5")))
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "instruments-table")))
 
-    # Find the instruments section
-    instruments_heading = driver.find_element(
-        By.XPATH, "//h5[contains(text(), 'Instruments')]"
-    )
+    # Find the instruments section heading
+    instruments_heading = driver.find_element(By.ID, "instruments-heading")
     assert instruments_heading is not None, "Instruments heading not found"
 
     # Find the instruments table
-    # Look for table that comes after the instruments heading
-    instruments_table = driver.find_element(
-        By.XPATH, "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]"
-    )
+    instruments_table = driver.find_element(By.ID, "instruments-table")
     assert instruments_table is not None, "Instruments table not found"
 
     # Check for expected table headers
@@ -177,18 +172,14 @@ def test_equipment_eyepieces_table_structure(driver):
     _login_to_equipment(driver)
 
     # Wait for page to load
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "h5")))
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "eyepieces-table")))
 
-    # Find the eyepieces section
-    eyepieces_heading = driver.find_element(
-        By.XPATH, "//h5[contains(text(), 'Eyepieces')]"
-    )
+    # Find the eyepieces section heading
+    eyepieces_heading = driver.find_element(By.ID, "eyepieces-heading")
     assert eyepieces_heading is not None, "Eyepieces heading not found"
 
     # Find the eyepieces table
-    eyepieces_table = driver.find_element(
-        By.XPATH, "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]"
-    )
+    eyepieces_table = driver.find_element(By.ID, "eyepieces-table")
     assert eyepieces_table is not None, "Eyepieces table not found"
 
     # Check for expected table headers
@@ -261,13 +252,9 @@ def test_equipment_add_instrument_functionality(driver):
 
     # Wait for equipment.html to load (the Instruments table only exists there, not on edit pages)
     instruments_table = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located(
-            (
-                By.XPATH,
-                "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]",
-            )
-        )
+        EC.presence_of_element_located((By.ID, "instruments-table"))
     )
+    instruments_table = driver.find_element(By.ID, "instruments-table")
 
     # Look for the test instrument in the table
     test_instrument_found = False
@@ -300,13 +287,9 @@ def test_equipment_add_instrument_functionality(driver):
     # then find the freshly rendered table on the new page.
     WebDriverWait(driver, 10).until(EC.staleness_of(old_instruments_table))
     instruments_table = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located(
-            (
-                By.XPATH,
-                "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]",
-            )
-        )
+        EC.presence_of_element_located((By.ID, "instruments-table"))
     )
+    instruments_table = driver.find_element(By.ID, "instruments-table")
 
     updated_rows = instruments_table.find_elements(By.TAG_NAME, "tr")[
         1:
@@ -371,13 +354,9 @@ def test_equipment_add_eyepiece_functionality(driver):
 
     # Wait for equipment.html to load (the Eyepieces table only exists there, not on edit pages)
     eyepieces_table = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located(
-            (
-                By.XPATH,
-                "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]",
-            )
-        )
+        EC.presence_of_element_located((By.ID, "eyepieces-table"))
     )
+    eyepieces_table = driver.find_element(By.ID, "eyepieces-table")
 
     # Look for the test eyepiece in the table
     test_eyepiece_found = False
@@ -410,13 +389,9 @@ def test_equipment_add_eyepiece_functionality(driver):
     # then find the freshly rendered table on the new page.
     WebDriverWait(driver, 10).until(EC.staleness_of(old_eyepieces_table))
     eyepieces_table = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located(
-            (
-                By.XPATH,
-                "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]",
-            )
-        )
+        EC.presence_of_element_located((By.ID, "eyepieces-table"))
     )
+    eyepieces_table = driver.find_element(By.ID, "eyepieces-table")
 
     updated_rows = eyepieces_table.find_elements(By.TAG_NAME, "tr")[
         1:
@@ -446,13 +421,9 @@ def test_equipment_select_active_instrument(driver):
 
     # Wait for instruments table to load
     instruments_table = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located(
-            (
-                By.XPATH,
-                "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]",
-            )
-        )
+        EC.presence_of_element_located((By.ID, "instruments-table"))
     )
+    instruments_table = driver.find_element(By.ID, "instruments-table")
 
     # Get all instrument rows (skip header)
     instrument_rows = instruments_table.find_elements(By.TAG_NAME, "tr")[1:]
@@ -493,9 +464,7 @@ def test_equipment_select_active_instrument(driver):
     time.sleep(1)
 
     # Verify the instrument is now active
-    instruments_table = driver.find_element(
-        By.XPATH, "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]"
-    )
+    instruments_table = driver.find_element(By.ID, "instruments-table")
 
     updated_rows = instruments_table.find_elements(By.TAG_NAME, "tr")[1:]
 
@@ -520,13 +489,9 @@ def test_equipment_select_active_eyepiece(driver):
 
     # Wait for eyepieces table to load
     eyepieces_table = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located(
-            (
-                By.XPATH,
-                "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]",
-            )
-        )
+        EC.presence_of_element_located((By.ID, "eyepieces-table"))
     )
+    eyepieces_table = driver.find_element(By.ID, "eyepieces-table")
 
     # Get all eyepiece rows (skip header)
     eyepiece_rows = eyepieces_table.find_elements(By.TAG_NAME, "tr")[1:]
@@ -567,9 +532,7 @@ def test_equipment_select_active_eyepiece(driver):
     time.sleep(1)
 
     # Verify the eyepiece is now active
-    eyepieces_table = driver.find_element(
-        By.XPATH, "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]"
-    )
+    eyepieces_table = driver.find_element(By.ID, "eyepieces-table")
 
     updated_rows = eyepieces_table.find_elements(By.TAG_NAME, "tr")[1:]
 
@@ -594,8 +557,8 @@ def _login_to_equipment(driver):
 
     # Check if we need to login (redirected to login page)
     try:
-        # Wait briefly to see if login form appears
-        WebDriverWait(driver, 2).until(
+        # Wait for login form — Safari needs more time to load after redirect
+        WebDriverWait(driver, 6).until(
             EC.presence_of_element_located((By.ID, "password"))
         )
         # We're on the login page, use centralized login function

@@ -62,8 +62,8 @@
 <a href="/equipment/edit_instrument/-1" class="btn modal-trigger">{{ _('Add new instrument') }}</a>
 <a href="/equipment/edit_eyepiece/-1" class="btn modal-trigger">{{ _('Add new eyepiece') }}</a>
 
-<h5 class="grey-text">{{ _('Instruments') }}</h5>
-<table class="grey darken-2 grey-text z-depth-1">
+<h5 class="grey-text" id="instruments-heading">{{ _('Instruments') }}</h5>
+<table id="instruments-table" class="grey darken-2 grey-text z-depth-1">
     <tr>
         <th>{{ _('Make') }}</th>
         <th>{{ _('Name') }}</th>
@@ -110,8 +110,8 @@
     {% endfor %}
 </table>
 
-<h5 class="grey-text">{{ _('Eyepieces') }}</h5>
-<table class="grey darken-2 grey-text z-depth-1">
+<h5 class="grey-text" id="eyepieces-heading">{{ _('Eyepieces') }}</h5>
+<table id="eyepieces-table" class="grey darken-2 grey-text z-depth-1">
     <tr>
         <th>{{ _('Make') }}</th>
         <th>{{ _('Name') }}</th>

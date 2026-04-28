@@ -416,6 +416,9 @@ class MenuManager:
             self.help_images = None
             self.update()
 
+        if self.marking_menu_stack:
+            self.exit_marking_menu()
+
         self.stack[-1].inactive()
         self.stack = self.stack[:1]
         self.stack[0].active()
