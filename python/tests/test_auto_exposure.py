@@ -380,7 +380,9 @@ class TestExposurePIDController:
     def test_pid_clamps_to_min_exposure(self):
         """PID clamps output to minimum exposure."""
         pid = ExposurePIDController(
-            target_stars=15, min_exposure=25000, gains_decrease=(50000.0, 0.0, 0.0)
+            target_stars=15,
+            min_exposure=25000,
+            gains_decrease=(50000.0, 0.0, 0.0),
         )
 
         # Many stars should drive exposure down to minimum
@@ -390,7 +392,9 @@ class TestExposurePIDController:
     def test_pid_clamps_to_max_exposure(self):
         """PID clamps output to maximum exposure."""
         pid = ExposurePIDController(
-            target_stars=15, max_exposure=1000000, gains_increase=(50000.0, 0.0, 0.0)
+            target_stars=15,
+            max_exposure=1000000,
+            gains_increase=(50000.0, 0.0, 0.0),
         )
 
         # Very few stars should drive exposure up to maximum
@@ -463,15 +467,8 @@ class TestExposurePIDController:
         """set_gains updates PID coefficients."""
         pid = ExposurePIDController()
 
-        # Update decrease gains
         pid.set_gains(gains_decrease=(5000.0, 300.0, 2000.0))
         assert pid.gains_decrease == (5000.0, 300.0, 2000.0)
-        assert pid.gains_increase == (4000.0, 250.0, 1500.0)  # Unchanged (new default)
-
-        # Update increase gains
-        pid.set_gains(gains_increase=(10000.0, 600.0, 4000.0))
-        assert pid.gains_increase == (10000.0, 600.0, 4000.0)
-        assert pid.gains_decrease == (5000.0, 300.0, 2000.0)  # Unchanged
 
     def test_get_status(self):
         """get_status returns controller state."""
@@ -481,8 +478,8 @@ class TestExposurePIDController:
 
         status = pid.get_status()
         assert status["target_stars"] == 15
-        assert status["gains_decrease"] == (500.0, 5.0, 250.0)  # New defaults
-        assert status["gains_increase"] == (4000.0, 250.0, 1500.0)  # New defaults
+        assert status["gains_decrease"] == (500.0, 5.0, 250.0)
+        assert status["gains_increase"] == (4000.0, 250.0, 1500.0)
         assert status["min_exposure"] == 25000
         assert status["max_exposure"] == 1000000
         assert status["deadband"] == 2
@@ -529,8 +526,7 @@ class TestPIDIntegration:
         """Test that PID responds proportionally to error magnitude."""
         pid = ExposurePIDController(
             target_stars=15,
-            gains_decrease=(1000.0, 0.0, 0.0),
-            gains_increase=(1000.0, 0.0, 0.0),
+            gains=(1000.0, 0.0, 0.0),
             deadband=0,
         )
 
@@ -554,8 +550,7 @@ class TestPIDIntegration:
         """Test that integral term is clamped to prevent windup."""
         pid = ExposurePIDController(
             target_stars=15,
-            gains_decrease=(0.0, 100.0, 0.0),
-            gains_increase=(0.0, 100.0, 0.0),
+            gains=(0.0, 100.0, 0.0),
             min_exposure=25000,
             max_exposure=1000000,
         )
@@ -567,17 +562,14 @@ class TestPIDIntegration:
             current_exposure = result
 
         # Integral should be clamped, not infinite
-        max_integral = (pid.max_exposure - pid.min_exposure) / (
-            2.0 * pid.gains_increase[1]
-        )
+        max_integral = (pid.max_exposure - pid.min_exposure) / (2.0 * pid.gains[1])
         assert abs(pid._integral) <= max_integral
 
     def test_derivative_dampens_oscillation(self):
         """Test that derivative term responds to rate of change."""
         pid = ExposurePIDController(
             target_stars=15,
-            gains_decrease=(0.0, 0.0, 1000.0),
-            gains_increase=(0.0, 0.0, 1000.0),
+            gains=(0.0, 0.0, 1000.0),
             deadband=0,
         )
 

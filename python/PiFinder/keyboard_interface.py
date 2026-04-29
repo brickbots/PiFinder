@@ -21,6 +21,7 @@ class KeyboardInterface:
     ALT_UP = 104
     ALT_DOWN = 105
     ALT_RIGHT = 106
+    ALT_SQUARE = 107
     ALT_0 = 110
     LNG_LEFT = 200
     LNG_UP = 201

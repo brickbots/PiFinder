@@ -358,10 +358,23 @@ class UIObjectList(UITextMenu):
         result = ", ".join(dedups)
         return result
 
+    # Use 3-letter abbreviations for planets instead of PL1, PL2, etc.
+    # Falls back to full name if planet is not in the dictionary.
     def create_shortname_text(self, obj: CompositeObject) -> str:
-        name = f"{obj.catalog_code}{obj.sequence}"
-        return name
-        # return f"{name: <7}"
+        if obj.catalog_code == "PL" and obj.names:
+            planet_abbrevs = {
+                "Mercury": "MER",
+                "Venus": "VEN",
+                "Moon": "MON",
+                "Mars": "MAR",
+                "Jupiter": "JUP",
+                "Saturn": "SAT",
+                "Uranus": "URA",
+                "Neptune": "NEP",
+                "Pluto": "PLU",
+            }
+            return planet_abbrevs.get(obj.names[0], obj.names[0])
+        return f"{obj.catalog_code}{obj.sequence}"
 
     def create_locate_text(self, obj: CompositeObject) -> str:
         az, alt = aim_degrees(
@@ -372,6 +385,7 @@ class UIObjectList(UITextMenu):
             distance = f"{az_txt} {alt_txt}"
         else:
             distance = "--- ---"
+            # distance = obj.names[0] if obj.names else "--- ---"
 
         return distance
 
@@ -799,6 +813,35 @@ class UIObjectList(UITextMenu):
 
     def mm_jump_to_filter(self, marking_menu, menu_item):
         pass
+
+    def serialize_ui_state(self) -> dict:
+        """
+        Serialize the current state of the object list for inter-process communication
+        """
+        try:
+            current_item = None
+            if 0 <= self._current_item_index < len(self._menu_items):
+                obj = self._menu_items[self._current_item_index]
+                # For CompositeObject, use display_name which is JSON serializable
+                current_item = (
+                    obj.display_name if hasattr(obj, "display_name") else str(obj)
+                )
+
+            return {
+                "current_index": self._current_item_index,
+                "current_item": current_item,
+                "total_items": len(self._menu_items),
+                "display_mode": self.current_mode.name
+                if hasattr(self.current_mode, "name")
+                else str(self.current_mode),
+                "sort_order": self.current_sort.name
+                if hasattr(self.current_sort, "name")
+                else str(self.current_sort),
+                "catalog_info_1": self.catalog_info_1,
+                "catalog_info_2": self.catalog_info_2,
+            }
+        except Exception as e:
+            return {"error": f"Failed to serialize object list state: {str(e)}"}
 
     def mm_refresh_comets(self, marking_menu, menu_item):
         """Force refresh of comet data from the internet"""

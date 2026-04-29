@@ -191,7 +191,7 @@ class ObjectsDatabase(Database):
         logging.info("Starting get_object_id_to_names query...")
 
         query_start = time.time()
-        self.cursor.execute("SELECT object_id, common_name FROM names;")
+        self.cursor.execute("SELECT object_id, common_name FROM names ORDER BY rowid;")
         results = self.cursor.fetchall()
         query_time = time.time() - query_start
         logging.info(
@@ -203,7 +203,7 @@ class ObjectsDatabase(Database):
         for object_id, common_name in results:
             name_dict[object_id].append(common_name.strip())
         for object_id in name_dict:
-            name_dict[object_id] = list(set(name_dict[object_id]))
+            name_dict[object_id] = list(dict.fromkeys(name_dict[object_id]))
         process_time = time.time() - process_start
         logging.info(
             f"Processing took {process_time:.2f}s, created {len(name_dict)} object entries"

@@ -11,7 +11,7 @@ from typing import Any, Union
 
 from PIL import Image, ImageDraw, ImageChops
 from PiFinder.ui.fonts import Font
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from PiFinder.displays import DisplayBase
 
 
@@ -35,7 +35,9 @@ class MarkingMenu:
     down: MarkingMenuOption
     left: MarkingMenuOption
     right: MarkingMenuOption
-    up: MarkingMenuOption = MarkingMenuOption(label="HELP")
+    up: MarkingMenuOption = field(
+        default_factory=lambda: MarkingMenuOption(label="HELP")
+    )
 
     def select_none(self):
         self.up.selected = False

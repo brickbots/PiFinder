@@ -322,7 +322,12 @@ The defined sessions are:
   That means extracts strings to translate and updates the `.po`-files in `python/locale/**`
   Then these are compiled into `.mo`-files. Unfortunately, this changes the `.mo`-files in any case,
   even if the there have been no changes to strings or their translation. As this will show up 
-  as changes to checked-in, this is not run by default. 
+  as changes to checked-in, this is not run by default.
+
+- web_tests -> Runs PyTest and executes all tests marked as WEB. Web tests use Selenium 
+  to automate browser testing of the PiFinder web interface. These tests require a 
+  running Selenium Grid server and a running PiFinder web server. You can test against a real PiFinder 
+  or a locally running instance. See the sections below for setup instructions. 
   
 
 CI/CD
@@ -333,6 +338,79 @@ for PR's will need to be triggered by a maintainer, but you can (and should!) se
 your fork to run the existing automation to validate your code as you develop.
 
 If you need help, reach out via email or discord.  We are happy to help :-)
+
+Website Tests
+.............
+
+The PiFinder web interface can be tested using automated browser tests powered by Selenium.
+These tests verify functionality across different viewports (desktop and mobile) and ensure
+the web interface works correctly.
+
+The tests exercise the remote control features of PiFinder, changing **the state of the PiFinder** and
+therefore should **not be run** against a PiFinder you are actively using for observing.
+
+Running Website Tests locally
+_______________________________
+
+You can run ``pytest -m web --browser <browser> --local`` to run the website tests locally. 
+This will have Selenium launch a browser on your local machine and run the tests against a locally running instance of PiFinder. 
+The respective browsers need to be installed on your machine. Recognized browsers are ``chrome``, ``firefox`` and ``safari``. 
+
+Note that when running the tests on Safari, you need to enable "Allow Remote Automation" in the Develop menu of Safari. In addition Safari
+does not support the "headless" mode, so you will see the browser window when running the tests and you cannot use other windows while the tests are running.
+
+If you want to run the tests against a real PiFinder, set the ``PIFINDER_HOMEPAGE`` environment variable to the URL of your PiFinder instance or 
+pass the URL directly as a command line paramters with ``--url``. The PiFinder instance needs to be in the same WiFi as your machine, so that it is reachable via the network.
+
+Running Website Tests remotely
+________________________________
+
+Using Selenium Grid you can set up servers with different operating systems and different browsers to run your tests in parallel. 
+As the PiFinder is designed to have only one client accessing the web interface at a time, we recommend to run one Raspberry Pi per computer 
+instance and browser in the grid. You can install the software on bare bones Raspberry Pi and fake the non-existing hardware.  
+Or you can test against real PiFinders. 
+
+In the following we describe a simple setup with Selenium Grid running locally and running tests againt a locally running instance of PiFinder. 
+You can easily adapt this to more complex setups, e.g. by running the Selenium Grid server on a different machine or testing against a real PiFinder. 
+
+Running against a locally running instance at localhost:8080:
+
+.. code-block:: bash
+
+    cd ~/PiFinder/python
+    . .venv/bin/activate # Optionally active your virtual environment
+    export SELENIUM_GRID_URL=<your selenium grid url which ends in /wd/hub> # Optional, default is http://localhost:4444/wd/hub
+    nox -s web_tests
+
+If you want to test against a real PiFinder, set the ``PIFINDER_HOMEPAGE`` environment variable to the URL of your PiFinder instance:
+
+.. code-block:: bash
+
+    cd ~/PiFinder/python
+    . .venv/bin/activate # Optionally active your virtual environment
+    export SELENIUM_GRID_URL=<your selenium grid url which ends in /wd/hub> # Optional, default is http://localhost:4444/wd/hub
+    export PIFINDER_HOMEPAGE=http://pifinder.local # Change to the URL of your PiFinder, which needs to be in the same WiFi
+    nox -s web_tests
+
+If you run the tests with-out a working Selenium Grid instance, the tests will all be skipped. 
+You can also run individual tests with PyTest directly, use ``SELENIUM_GRID_URL=... PIFINDER_HOMEPAGE=... pytest tests/webstite/test_file.py``.
+
+Note that due to the tests depending on the response times of the PiFinder web server and the Selenium Grid server, there may be occasional timeouts or failures.
+If you encounter such issues, simply re-run the tests. We need to strike a balance between test speed and reliability, and this may require some tuning in the future.
+Note that the tests run approximately 10 minutes.
+
+Setting up Selenium Grid
+___________________________
+
+If you choose to run the website tests using a Selenium Grid server, the easiest way is to download the Selenum Grid server jar 
+from the selenium website, see https://www.selenium.dev/downloads/ and run it with Java:
+
+.. code-block:: bash
+  
+    java -jar selenium-server-<version>.jar standalone
+
+If you run the Selenium Grid server this way, the browsers need to be installed on the same machine. 
+You'll have to consult the Selenium documentation for setting up a more complex grid with different machines and browsers.
 
 
 Running/Debugging from the command line
@@ -363,6 +441,9 @@ PiFinder:
 .. code-block::
 
     ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'
+
+Running cedar-detect-server
+.............................
 
 You will need to start the ``cedar-detect`` process manually, if your development machine is not a PiFinder, 
 as it is started as a separate process on the PiFinder starting with v2.4.0. 
@@ -467,6 +548,23 @@ be retired because the remote server is always started.
 
 Troubleshooting
 ---------------
+
+Shared Memory location already exists
+.......................................
+
+It can happen that during development the shared memory location 
+``//cedar_detect_image`` is not cleaned up properly, e.g. because of a crash. 
+In this case, you can simply remove the shared memory location with the following command: 
+
+.. code-block:: bash
+
+    sudo rm /dev/shm/cedar_detect_image
+
+on Linux or with the following command on MacOS:
+
+.. code-block:: bash
+
+    python -c "import _posixshmem; _posixshmem.shm_unlink('//cedar_detect_image')"
 
 My app crashes
 ..............

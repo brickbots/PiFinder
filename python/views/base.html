@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
+  <title>PiFinder - {% block title %}{{ title }}{% endblock %}</title>
+
+  <!-- CSS  -->
+  <link href="/css/material_icons.css" rel="stylesheet">
+  <link href="/css/materialize.css" type="text/css" rel="stylesheet" media="screen,projection"/>
+  <link href="/css/style.css" type="text/css" rel="stylesheet" media="screen,projection"/>
+</head>
+<body class="grey darken-3">
+  <nav class="grey darken-1" role="navigation">
+    <div class="nav-wrapper container"><a id="logo-container" href="#" class="brand-logo"><img src="/images/WebLogo_RED.png" class="pf-logo"></a>
+      <ul class="right hide-on-med-and-down">
+        <li><a href="/">{{ _('Home') }}</a></li>
+        <li><a href="/remote">{{ _('Remote') }}</a></li>
+        <li><a href="/network">{{ _('Network Setup') }}</a></li>
+        <li><a href="/observations">{{ _('Observations') }}</a></li>
+        <li><a href="/locations">{{ _('Locations') }}</a></li>
+        <li><a href="/equipment">{{ _('Equipment') }}</a></li>
+        <li><a href="/tools">{{ _('Tools') }}</a></li>
+        <li><a href="/logs">{{ _('Logs') }}</a></li>
+      </ul>
+
+      <ul id="nav-mobile" class="sidenav">
+        <li><a href="/">{{ _('Home') }}</a></li>
+        <li><a href="/remote">{{ _('Remote') }}</a></li>
+        <li><a href="/network">{{ _('Network Setup') }}</a></li>
+        <li><a href="/observations">{{ _('Observations') }}</a></li>
+        <li><a href="/locations">{{ _('Locations') }}</a></li>
+        <li><a href="/equipment">{{ _('Equipment') }}</a></li>
+        <li><a href="/tools">{{ _('Tools') }}</a></li>
+        <li><a href="/logs">{{ _('Logs') }}</a></li>
+      </ul>
+      <a href="#" data-target="nav-mobile" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+    </div>
+  </nav>
+  <main>
+    <div class="container">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+  <footer class="page-footer grey darken-1">
+    <div class="container">
+      <div class="row">
+        <div class="col l3 s12">
+          <ul>
+            <li><a class="white-text" href="https://pifinder.readthedocs.io/en/release/user_guide.html">{{ _('PiFinder User Guide') }}</a></li>
+            <li><a class="white-text" href="https://pifinder.io/support">{{ _('PiFinder Support Page') }}</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!--  Scripts-->
+  <script src="/js/jquery-2.1.1.min.js"></script>
+  <script src="/js/materialize.js"></script>
+  <script src="/js/init.js"></script>
+  {% block scripts %}{% endblock %}
+
+  </body>
+</html>

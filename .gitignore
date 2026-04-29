@@ -1,3 +1,7 @@
+# Active log configuration symlink (auto-created at startup)
+python/pifinder_logconf.json
+python/logconf_*.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

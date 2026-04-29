@@ -1,0 +1,151 @@
+{
+    // Note that the JSON5 library that we use for configuration supports comments in JSON files.
+    "version": 1,
+    "disable_existing_loggers": false, // THIS MUST BE FALSE for logging to work
+    "formatters": {
+        "default": {
+            "format": "%(asctime)s %(processName)s-%(name)s:%(levelname)s:%(message)s"
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "level": "DEBUG",
+            "formatter": "default",
+            "stream": "ext://sys.stdout"
+        },
+        // Used for GRPC, avoids a "No handlers can be found" warning.
+        "null": {
+            "class": "logging.NullHandler",
+            "level": "ERROR"
+        }
+    },
+    "loggers": {
+
+        /////////////////////////////////////////////////////////////////
+        ////// root logger
+        //
+        "": {
+            "level": "DEBUG",
+            "handlers": ["console"]
+            // The file handler is added automatically by code
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// State shared between Subsystems
+        //
+        "SharedState": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// User Interface
+        //
+        "UI": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Camera Subsystem
+        //
+        "Camera": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Platesolver Subsystem
+        //
+        "Solver": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// GPS Subsystem
+        //
+        "GPS": {
+            "level": "DEBUG"
+        },
+        "GPS.parser": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Catalog Subsystem
+        //
+        "Catalog": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Database
+        //
+        "Database": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// IMU Subsystem
+        //
+        "IMU": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Keyboard Subsystem
+        //
+        "Keyboard": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Observations Subsystem
+        //
+        "Observation": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Web Server Subsystem
+        //
+        "Server": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Pos Server Subsystem (SkySafari LX200 Interface)
+        //
+        "PosServer": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Utils Libraries
+        //
+        "SysUtils": {
+            "level": "DEBUG"
+        },
+        "Utils": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Third party Libraries
+        //
+        // Keep these suppressed to avoid noise.
+        //
+        "PIL.PngImagePlugin": {
+            "level": "WARNING"
+        },
+        "tetra3.Tetra3": {
+            "level": "WARNING"
+        },
+        "picamera2.picamera2": {
+            "level": "WARNING"
+        },
+        "grpc": {
+            "level": "ERROR",
+            "propagate": false,
+            "handlers": ["null"]
+        },
+   }
+}
