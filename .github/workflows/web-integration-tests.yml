@@ -51,7 +51,7 @@ jobs:
         run: |
           source .venv/bin/activate
           SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
-            python -m PiFinder.main -fh --camera debug --keyboard none \
+            python -m PiFinder.main -fh --camera debug --keyboard local \
             > /tmp/pifinder.log 2>&1 &
           echo $! > /tmp/pifinder.pid
           echo "PiFinder started with PID $(cat /tmp/pifinder.pid)"
