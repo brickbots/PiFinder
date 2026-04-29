@@ -228,22 +228,19 @@ class UIObjectDetails(UIModule):
                 self.contrast = ""
             else:
                 try:
-                    if self.object.size:
-                        # Check if the size contains 'x'
-                        if "x" in self.object.size:
-                            diameter1, diameter2 = map(
-                                float, self.object.size.split("x")
-                            )
-                            diameter1 = (
-                                diameter1 * 60.0
-                            )  # Convert arc seconds to arc minutes
-                            diameter2 = diameter2 * 60.0
-                        elif "'" in self.object.size:
-                            # Convert arc minutes to arc seconds
-                            diameter1 = float(self.object.size.replace("'", "")) * 60.0
-                            diameter2 = diameter1
+                    size = self.object.size
+                    if (
+                        size
+                        and size.extents
+                        and not size.is_vertices
+                        and not size.is_segments
+                    ):
+                        # SizeObject.extents are stored in arcseconds.
+                        if len(size.extents) >= 2:
+                            diameter1 = float(size.extents[0])
+                            diameter2 = float(size.extents[1])
                         else:
-                            diameter1 = diameter2 = float(self.object.size) * 60.0
+                            diameter1 = diameter2 = float(size.extents[0])
                     else:
                         diameter1 = diameter2 = None
 
