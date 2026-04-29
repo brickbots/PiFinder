@@ -17,7 +17,7 @@ from tqdm import tqdm
 import numpy as np
 import numpy.typing as npt
 import PiFinder.utils as utils
-from PiFinder.composite_object import MagnitudeObject
+from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg
 from .catalog_import_utils import (
     delete_catalog_from_database,
@@ -410,11 +410,11 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, Any]:
     # Angular diameter in arcminutes
     diam = entry["Diam"].item()
     if is_valid_value(diam):
-        result["size"] = utils.format_size_value(diam)
+        result["size"] = SizeObject.from_arcmin(float(diam))
         if VERBOSE:
-            logging.debug(f"  Size: {result['size']} arcmin")
+            logging.debug(f"  Size: {result['size']}")
     else:
-        result["size"] = ""
+        result["size"] = SizeObject([])
 
     # --- Description ---
     description_parts: List[str] = []

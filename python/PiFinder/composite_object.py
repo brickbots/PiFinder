@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import json
 import math
-from typing import List, Union
+from typing import List, Union, cast
 from PiFinder.utils import is_number
 
 
@@ -54,12 +54,13 @@ class SizeObject:
     def _all_vertices(self) -> List[List[float]]:
         """Collect all RA/Dec vertices regardless of geometry type."""
         if self.is_segments:
-            verts = []
-            for seg in self.extents:
+            verts: List[List[float]] = []
+            # Segments-mode extents: list of [[ra,dec],[ra,dec]] segments.
+            for seg in cast(List[List[List[float]]], self.extents):
                 verts.extend(seg)
             return verts
         if self.is_vertices:
-            return self.extents
+            return cast(List[List[float]], self.extents)
         return []
 
     @property
@@ -79,7 +80,8 @@ class SizeObject:
                     sep = math.sqrt((dra * cos_dec) ** 2 + ddec**2)
                     max_sep = max(max_sep, sep)
             return math.degrees(max_sep) * 3600.0
-        return max(self.extents)
+        # Numeric extents at this point — vertex/segment branches handled above.
+        return max(cast(List[float], self.extents))
 
     # --- constructors ---
 
@@ -147,16 +149,18 @@ class SizeObject:
         if self.is_vertices or self.is_segments:
             extent = self.max_extent_arcsec
             return f"~{self._format_value(extent, self._pick_unit(extent))}"
-        unit = self._pick_unit(max(self.extents))
-        if len(self.extents) == 1:
-            return self._format_value(self.extents[0], unit)
-        if len(self.extents) == 2:
-            a = self._format_value(self.extents[0], unit)
-            b = self._format_value(self.extents[1], unit)
+        # Numeric-extent path: extents is List[float] here.
+        extents = cast(List[float], self.extents)
+        unit = self._pick_unit(max(extents))
+        if len(extents) == 1:
+            return self._format_value(extents[0], unit)
+        if len(extents) == 2:
+            a = self._format_value(extents[0], unit)
+            b = self._format_value(extents[1], unit)
             # strip repeated unit suffix for compact display: 17'x8'
             return f"{a}x{b}"
         # 3+ extents: show max extent only with polygon marker
-        return f"~{self._format_value(max(self.extents), unit)}"
+        return f"~{self._format_value(max(extents), unit)}"
 
     def __repr__(self) -> str:
         return f"SizeObject({self.extents})"
