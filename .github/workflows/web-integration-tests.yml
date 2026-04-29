@@ -31,7 +31,7 @@ jobs:
       - name: Initialize tetra3
         working-directory: python
         run: |
-          git submodules update --init --recursive
+          git submodule update --init --recursive
           ln -s PiFinder/tetra3/tetra3 tetra3 
 
       - name: Set up PiFinder_data directory
