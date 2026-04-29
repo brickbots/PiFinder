@@ -13,7 +13,7 @@ from PiFinder.catalog_base import (
 )
 from PiFinder.catalogs import Catalog
 from PiFinder.state import SharedStateObj
-from PiFinder.composite_object import CompositeObject, MagnitudeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 import PiFinder.comets as comets
 from PiFinder.utils import Timer, comet_file
 from PiFinder.calc_utils import sf_utils
@@ -280,7 +280,7 @@ class CometCatalog(Catalog):
                     "ra": ra,
                     "dec": dec,
                     "const": constellation,
-                    "size": "",
+                    "size": SizeObject([]),
                     "mag": mag,
                     "mag_str": mag.calc_two_mag_representation(),
                     "names": [name],

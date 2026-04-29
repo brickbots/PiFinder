@@ -52,6 +52,7 @@ class UIChart(UIModule):
             return
 
         marker_list = []
+        vertex_objects = []
 
         # is there a target?
         target = self.ui_state.target()
@@ -59,12 +60,16 @@ class UIChart(UIModule):
             marker_list.append(
                 (plot.Angle(degrees=target.ra)._hours, target.dec, "target")
             )
+            if target.size.is_vertices:
+                vertex_objects.append(target)
 
         marker_brightness = self.config_object.get_option("chart_dso", 128)
         if marker_brightness == 0:
             return
 
         for obs_target in self.ui_state.observing_list():
+            if obs_target.size.is_vertices:
+                vertex_objects.append(obs_target)
             marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
             if marker:
                 marker_list.append(
@@ -89,6 +94,13 @@ class UIChart(UIModule):
                 ),
             )
             self.screen.paste(ImageChops.add(self.screen, marker_image))
+
+        if vertex_objects:
+            line_color = self.colors.get(marker_brightness)
+            for obj in vertex_objects:
+                screen_pts = self.starfield.project_vertices(obj.size.extents)
+                if len(screen_pts) >= 2:
+                    self.draw.line(screen_pts, fill=line_color, width=1)
 
     def draw_reticle(self):
         """

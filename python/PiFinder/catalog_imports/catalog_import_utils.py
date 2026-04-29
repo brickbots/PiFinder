@@ -10,7 +10,7 @@ from typing import Dict, Optional
 from dataclasses import dataclass, field
 from tqdm import tqdm
 
-from PiFinder.composite_object import MagnitudeObject
+from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.ui.ui_utils import normalize
 from PiFinder import calc_utils
 from PiFinder.db.objects_db import ObjectsDatabase
@@ -30,7 +30,7 @@ class NewCatalogObject:
     dec: float
     mag: MagnitudeObject
     object_id: int = 0
-    size: str = ""
+    size: SizeObject = field(default_factory=lambda: SizeObject([]))
     description: str = ""
     aka_names: list[str] = field(default_factory=list)
     surface_brightness: float = 0.0
@@ -76,7 +76,7 @@ class NewCatalogObject:
                     self.ra,
                     self.dec,
                     self.constellation,
-                    self.size,
+                    self.size.to_json(),
                     self.mag.to_json(),
                     self.surface_brightness,
                 )
@@ -156,6 +156,22 @@ class ObjectFinder:
         else:
             logging.debug(f"DID NOT Find object id {result} for {object_name}")
         return result
+
+
+def parse_arcmin_size(raw: str) -> SizeObject:
+    """Parse a size string assumed to be in arcminutes. Handles 'NxM' format."""
+    if not raw:
+        return SizeObject([])
+    parts = raw.lower().replace("x", " ").split()
+    values = []
+    for p in parts:
+        try:
+            values.append(float(p))
+        except ValueError:
+            logging.warning("Non-numeric size token %r in %r", p, raw)
+    if not values:
+        return SizeObject([])
+    return SizeObject.from_arcmin(*values)
 
 
 def safe_convert_to_float(x):

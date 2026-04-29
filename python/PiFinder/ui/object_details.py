@@ -9,6 +9,7 @@ This module contains all the UI code for the object details screen
 from pydeepskylog.exceptions import InvalidParameterError
 
 from PiFinder import cat_images
+from PiFinder.composite_object import MagnitudeObject
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.align import align_on_radec
@@ -224,26 +225,29 @@ class UIObjectDetails(UIModule):
                 self.config_object.equipment.active_telescope,
                 self.config_object.equipment.active_eyepiece,
             )
-            if self.object.mag_str == "-":
+            mag = self.object.mag
+            magnitude = (
+                mag.filter_mag
+                if mag is not None and mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
+                else None
+            )
+            if magnitude is None:
                 self.contrast = ""
             else:
                 try:
-                    if self.object.size:
-                        # Check if the size contains 'x'
-                        if "x" in self.object.size:
-                            diameter1, diameter2 = map(
-                                float, self.object.size.split("x")
-                            )
-                            diameter1 = (
-                                diameter1 * 60.0
-                            )  # Convert arc seconds to arc minutes
-                            diameter2 = diameter2 * 60.0
-                        elif "'" in self.object.size:
-                            # Convert arc minutes to arc seconds
-                            diameter1 = float(self.object.size.replace("'", "")) * 60.0
-                            diameter2 = diameter1
+                    size = self.object.size
+                    if (
+                        size
+                        and size.extents
+                        and not size.is_vertices
+                        and not size.is_segments
+                    ):
+                        # SizeObject.extents are stored in arcseconds.
+                        if len(size.extents) >= 2:
+                            diameter1 = float(size.extents[0])
+                            diameter2 = float(size.extents[1])
                         else:
-                            diameter1 = diameter2 = float(self.object.size) * 60.0
+                            diameter1 = diameter2 = float(size.extents[0])
                     else:
                         diameter1 = diameter2 = None
 
@@ -252,7 +256,7 @@ class UIObjectDetails(UIModule):
                         telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
                         magnification=magnification,
                         surf_brightness=None,
-                        magnitude=float(self.object.mag_str),
+                        magnitude=magnitude,
                         object_diameter1=diameter1,
                         object_diameter2=diameter2,
                     )
@@ -317,6 +321,9 @@ class UIObjectDetails(UIModule):
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
             magnification=magnification,
+            telescope=self.config_object.equipment.active_telescope,
+            show_nsew=self.config_object.get_option("image_nsew", True),
+            show_bbox=self.config_object.get_option("image_bbox", True),
         )
 
     def active(self):

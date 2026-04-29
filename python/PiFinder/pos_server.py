@@ -16,7 +16,7 @@ import re
 from multiprocessing import Queue
 from typing import Tuple, Union
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
-from PiFinder.composite_object import CompositeObject, MagnitudeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 from PiFinder.multiproclogging import MultiprocLogging
 from skyfield.positionlib import position_of_radec
 import sys
@@ -209,7 +209,7 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
             "ra": comp_ra,
             "dec": comp_dec,
             "const": constellation,
-            "size": "",
+            "size": SizeObject([]),
             "mag": MagnitudeObject([]),
             "catalog_code": "PUSH",
             "sequence": sequence,

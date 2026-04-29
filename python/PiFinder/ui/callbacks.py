@@ -22,7 +22,7 @@ from PiFinder.state import Location
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.catalogs import CatalogFilter
-from PiFinder.composite_object import CompositeObject, MagnitudeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 
 if TYPE_CHECKING:
 
@@ -419,7 +419,7 @@ def create_custom_object_from_coords(
             "ra": ra_deg,
             "dec": dec_deg,
             "const": constellation,
-            "size": "",
+            "size": SizeObject([]),
             "mag": MagnitudeObject([]),
             "mag_str": "",
             "catalog_code": "USER",
