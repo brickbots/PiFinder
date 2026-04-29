@@ -17,7 +17,7 @@ jobs:
       - name: Set up Python 3.9.25
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9.2'
+          python-version: '3.9.25'
 
       - name: Create virtual environment and install dependencies
         working-directory: python
