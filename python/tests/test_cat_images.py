@@ -1,6 +1,11 @@
 import math
 import pytest
-from PiFinder.cat_images import cardinal_vectors, size_overlay_points
+from PiFinder.cat_images import (
+    cardinal_vectors,
+    size_overlay_points,
+    vertex_overlay_points,
+)
+from PiFinder.composite_object import SizeObject
 
 
 def approx_pt(pt, abs=1e-6):
@@ -129,8 +134,10 @@ class TestSizeOverlayPoints:
             pts = size_overlay_points([200, 40], 90, rot, 1.0, cx, cy)
             dists = [(p[0] - cx, p[1] - cy) for p in pts]
             farthest = max(dists, key=lambda d: math.hypot(*d))
-            direction = (farthest[0] / math.hypot(*farthest),
-                         farthest[1] / math.hypot(*farthest))
+            direction = (
+                farthest[0] / math.hypot(*farthest),
+                farthest[1] / math.hypot(*farthest),
+            )
             dot = abs(direction[0] * ex + direction[1] * ey)
             assert dot == pytest.approx(1.0, abs=0.02), (
                 f"PA=90 major axis not along East at image_rotate={rot}"
@@ -145,8 +152,10 @@ class TestSizeOverlayPoints:
             # Find the point farthest from center — should be along North
             dists = [(p[0] - cx, p[1] - cy) for p in pts]
             farthest = max(dists, key=lambda d: math.hypot(*d))
-            direction = (farthest[0] / math.hypot(*farthest),
-                         farthest[1] / math.hypot(*farthest))
+            direction = (
+                farthest[0] / math.hypot(*farthest),
+                farthest[1] / math.hypot(*farthest),
+            )
             # Should be parallel to North (same or opposite direction)
             dot = abs(direction[0] * nx + direction[1] * ny)
             assert dot == pytest.approx(1.0, abs=0.02), (
@@ -184,3 +193,105 @@ class TestSizeOverlayPoints:
         for a, b in zip(pts1, pts2):
             assert (b[0] - cx) == pytest.approx(2 * (a[0] - cx), abs=1e-6)
             assert (b[1] - cy) == pytest.approx(2 * (a[1] - cy), abs=1e-6)
+
+
+# --- SizeObject vertex mode ---
+
+
+@pytest.mark.unit
+class TestSizeObjectVertices:
+    def test_from_vertices_stores_nested_pairs(self):
+        verts = [[10.0, 20.0], [10.1, 20.1], [10.2, 20.0]]
+        s = SizeObject.from_vertices(verts)
+        assert s.extents == verts
+        assert s.position_angle == 0.0
+
+    def test_is_vertices_true(self):
+        s = SizeObject.from_vertices([[10.0, 20.0], [10.1, 20.1]])
+        assert s.is_vertices is True
+
+    def test_is_vertices_false_for_numeric(self):
+        s = SizeObject.from_arcsec(100, 50)
+        assert s.is_vertices is False
+
+    def test_is_vertices_false_for_empty(self):
+        s = SizeObject([])
+        assert s.is_vertices is False
+
+    def test_max_extent_arcsec_same_dec(self):
+        """Two points at same dec, 1° apart in RA at dec=0."""
+        s = SizeObject.from_vertices([[10.0, 0.0], [11.0, 0.0]])
+        expected = 3600.0  # 1 degree = 3600 arcsec
+        assert s.max_extent_arcsec == pytest.approx(expected, rel=1e-3)
+
+    def test_max_extent_arcsec_same_ra(self):
+        """Two points at same RA, 0.5° apart in dec."""
+        s = SizeObject.from_vertices([[10.0, 20.0], [10.0, 20.5]])
+        expected = 1800.0  # 0.5 degree
+        assert s.max_extent_arcsec == pytest.approx(expected, rel=1e-3)
+
+    def test_max_extent_arcsec_numeric_fallback(self):
+        s = SizeObject.from_arcsec(100, 200, 150)
+        assert s.max_extent_arcsec == 200
+
+    def test_to_display_string_vertices(self):
+        """Vertex mode shows ~span format."""
+        s = SizeObject.from_vertices([[10.0, 20.0], [10.0, 20.5]])
+        display = s.to_display_string()
+        assert display.startswith("~")
+        assert "'" in display  # 1800 arcsec = 30 arcmin
+
+    def test_json_roundtrip(self):
+        verts = [[10.0, 20.0], [10.1, 20.1]]
+        s = SizeObject.from_vertices(verts)
+        s2 = SizeObject.from_json(s.to_json())
+        assert s2.is_vertices is True
+        assert s2.extents == verts
+
+
+# --- vertex_overlay_points ---
+
+
+@pytest.mark.unit
+class TestVertexOverlayPoints:
+    def test_center_vertex_at_center(self):
+        """A vertex at the object center projects to (cx, cy)."""
+        pts = vertex_overlay_points([[10.0, 20.0]], 10.0, 20.0, 0, 1.0, 64, 64)
+        assert len(pts) == 1
+        assert pts[0][0] == pytest.approx(64, abs=0.1)
+        assert pts[0][1] == pytest.approx(64, abs=0.1)
+
+    def test_offset_vertex_north(self):
+        """A vertex 100" north of center should appear above center (lower y)."""
+        dec_offset = 100.0 / 3600.0  # 100 arcsec in degrees
+        pts = vertex_overlay_points(
+            [[10.0, 20.0 + dec_offset]], 10.0, 20.0, 0, 1.0, 64, 64
+        )
+        # image_rotate=0: POSS has N at top of raw image but after
+        # the 180+roll rotation in get_display_image, here we test
+        # raw projection
+        assert len(pts) == 1
+        # With image_rotate=0 and no flip, north (positive dec) goes to negative dy
+        assert pts[0][1] < 64
+
+    def test_two_vertices_produce_two_points(self):
+        pts = vertex_overlay_points(
+            [[10.0, 20.0], [10.01, 20.01]], 10.0, 20.0, 0, 1.0, 64, 64
+        )
+        assert len(pts) == 2
+
+    def test_scaling(self):
+        """Doubling px_per_arcsec doubles offset from center."""
+        dec_off = 100.0 / 3600.0
+        pts1 = vertex_overlay_points(
+            [[10.0, 20.0 + dec_off]], 10.0, 20.0, 0, 1.0, 64, 64
+        )
+        pts2 = vertex_overlay_points(
+            [[10.0, 20.0 + dec_off]], 10.0, 20.0, 0, 2.0, 64, 64
+        )
+        dx1 = pts1[0][0] - 64
+        dy1 = pts1[0][1] - 64
+        dx2 = pts2[0][0] - 64
+        dy2 = pts2[0][1] - 64
+        assert dx2 == pytest.approx(2 * dx1, abs=0.1)
+        assert dy2 == pytest.approx(2 * dy1, abs=0.1)

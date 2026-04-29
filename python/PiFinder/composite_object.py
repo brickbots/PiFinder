@@ -108,7 +108,15 @@ class SizeObject:
     def from_json(cls, json_str: str) -> "SizeObject":
         if not json_str:
             return cls([])
-        parsed = json.loads(json_str)
+        try:
+            parsed = json.loads(json_str)
+        except (json.JSONDecodeError, TypeError):
+            # Legacy DB rows store size as plain text (e.g. "5'", "17x8"),
+            # not JSON. Degrade to an empty SizeObject so the catalog
+            # still loads; a re-import populates proper extents.
+            return cls([])
+        if not isinstance(parsed, dict) or "e" not in parsed:
+            return cls([])
         return cls(parsed["e"], position_angle=parsed.get("p", 0.0))
 
     # --- display ---
@@ -199,9 +207,17 @@ class MagnitudeObject:
 
     @classmethod
     def from_json(cls, json_str):
-        data = json.loads(json_str)
-        obj = cls(data["mags"])
-        return obj
+        if not json_str:
+            return cls([])
+        try:
+            data = json.loads(json_str)
+        except (json.JSONDecodeError, TypeError):
+            # Legacy DB rows store mag as plain text (e.g. "12.5", "12.5/13.5"),
+            # not JSON. Degrade to an empty MagnitudeObject.
+            return cls([])
+        if not isinstance(data, dict) or "mags" not in data:
+            return cls([])
+        return cls(data["mags"])
 
 
 @dataclass

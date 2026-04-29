@@ -69,6 +69,54 @@ def size_overlay_points(extents, pa, image_rotate, px_per_arcsec, cx, cy, fx=1, 
     return points
 
 
+def vertex_overlay_points(
+    vertices, obj_ra, obj_dec, image_rotate, px_per_arcsec, cx, cy, fx=1, fy=1
+):
+    """Project RA/Dec vertex pairs to pixel coords via gnomonic projection.
+
+    vertices: list of [ra, dec] pairs in degrees.
+    obj_ra, obj_dec: object center in degrees.
+    Returns list of (x, y) pixel tuples.
+    """
+    theta = math.radians(image_rotate)
+    cos_t = math.cos(theta)
+    sin_t = math.sin(theta)
+
+    ra0 = math.radians(obj_ra)
+    dec0 = math.radians(obj_dec)
+    cos_dec0 = math.cos(dec0)
+    sin_dec0 = math.sin(dec0)
+
+    points = []
+    for ra_deg, dec_deg in vertices:
+        ra = math.radians(ra_deg)
+        dec = math.radians(dec_deg)
+        cos_dec = math.cos(dec)
+        sin_dec = math.sin(dec)
+        dra = ra - ra0
+
+        cos_c = sin_dec0 * sin_dec + cos_dec0 * cos_dec * math.cos(dra)
+        if cos_c <= 0:
+            continue
+        # gnomonic: xi points East, eta points North (radians)
+        xi = (cos_dec * math.sin(dra)) / cos_c
+        eta = (cos_dec0 * sin_dec - sin_dec0 * cos_dec * math.cos(dra)) / cos_c
+
+        # convert to arcsec offsets then pixels
+        dx_arcsec = -xi * 206264.806  # negate: East is left on POSS
+        dy_arcsec = -eta * 206264.806  # negate: North is up, pixel y is down
+
+        dx_px = dx_arcsec * px_per_arcsec
+        dy_px = dy_arcsec * px_per_arcsec
+
+        # apply image rotation
+        rx = dx_px * cos_t - dy_px * sin_t
+        ry = dx_px * sin_t + dy_px * cos_t
+
+        points.append((cx + fx * rx, cy + fy * ry))
+    return points
+
+
 def get_display_image(
     catalog_object,
     eyepiece_text,
@@ -208,7 +256,21 @@ def get_display_image(
                 px_per_arcsec = display_class.fov_res / (fov * 3600)
                 overlay_color = display_class.colors.get(100)
 
-                if len(extents) == 1:
+                if catalog_object.size.is_vertices:
+                    points = vertex_overlay_points(
+                        extents,
+                        catalog_object.ra,
+                        catalog_object.dec,
+                        image_rotate,
+                        px_per_arcsec,
+                        cx,
+                        cy,
+                        fx,
+                        fy,
+                    )
+                    if len(points) >= 2:
+                        ri_draw.line(points, fill=overlay_color, width=1)
+                elif len(extents) == 1:
                     r = extents[0] * px_per_arcsec / 2
                     ri_draw.ellipse(
                         [cx - r, cy - r, cx + r, cy + r],
