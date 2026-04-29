@@ -28,9 +28,15 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements_dev.txt
 
+      - name: Use webserver log configuration
+        working-directory: python
+        run: |
+          ln -s logconf_webserver.json pifinder_logconf.json
+
       - name: Initialize tetra3
         working-directory: python
         run: |
+          git submodule sync
           git submodule update --init --recursive
           ln -s PiFinder/tetra3/tetra3 tetra3 
 
