@@ -9,6 +9,7 @@ This module contains all the UI code for the object details screen
 from pydeepskylog.exceptions import InvalidParameterError
 
 from PiFinder import cat_images
+from PiFinder.composite_object import MagnitudeObject
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.align import align_on_radec
@@ -224,10 +225,12 @@ class UIObjectDetails(UIModule):
                 self.config_object.equipment.active_telescope,
                 self.config_object.equipment.active_eyepiece,
             )
-            try:
-                magnitude = float(self.object.mag_str)
-            except (TypeError, ValueError):
-                magnitude = None
+            mag = self.object.mag
+            magnitude = (
+                mag.filter_mag
+                if mag is not None and mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
+                else None
+            )
             if magnitude is None:
                 self.contrast = ""
             else:
