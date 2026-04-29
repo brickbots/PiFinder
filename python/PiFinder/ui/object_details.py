@@ -224,7 +224,11 @@ class UIObjectDetails(UIModule):
                 self.config_object.equipment.active_telescope,
                 self.config_object.equipment.active_eyepiece,
             )
-            if self.object.mag_str == "-":
+            try:
+                magnitude = float(self.object.mag_str)
+            except (TypeError, ValueError):
+                magnitude = None
+            if magnitude is None:
                 self.contrast = ""
             else:
                 try:
@@ -249,7 +253,7 @@ class UIObjectDetails(UIModule):
                         telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
                         magnification=magnification,
                         surf_brightness=None,
-                        magnitude=float(self.object.mag_str),
+                        magnitude=magnitude,
                         object_diameter1=diameter1,
                         object_diameter2=diameter2,
                     )
