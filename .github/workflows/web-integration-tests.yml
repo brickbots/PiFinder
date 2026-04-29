@@ -2,15 +2,6 @@ name: Web Integration Tests
 
 on:
   workflow_dispatch:
-    inputs:
-      branch:
-        description: Branch to run tests on
-        required: true
-        default: main
-        type: choice
-        options:
-          - main
-          - release
 
 permissions:
   issues: write
@@ -22,8 +13,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.branch }}
 
       - name: Set up Python 3.9.2
         uses: actions/setup-python@v5
