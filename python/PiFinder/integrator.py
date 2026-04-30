@@ -319,6 +319,7 @@ def get_roll_by_mount_type(
     if mount_type == "Alt/Az":
         # Altaz mounts: Display chart in horizontal coordinates
         if location and dt:
+            """
             # We have location and time/date (and assume that location has been set)
             # Roll at the target RA/Dec in the horizontal frame
             roll_deg = calc_utils.sf_utils.radec_to_roll(ra_deg, dec_deg, dt)
@@ -332,12 +333,16 @@ def get_roll_by_mount_type(
                 roll_deg - np.sign(ha_deg) * 180
             )  # In essence, gives: roll_deg = -pa_deg
             # End of HACK
+            """
+            # chart.py uses roll to rotate the chart around the target center
+            # by roll in anti-clockwise direction. Use -parallactic_angle
+            roll_deg = -calc_utils.sf_utils.radec_to_pa(ra_deg, dec_deg, dt)
         else:
             # No position or time/date available, so set roll to 0.0
-            roll_deg = 0.0
+            roll_deg = 0.0  # NCP up
     elif mount_type == "EQ":
         # EQ-mounts: Display chart with NCP up so roll = 0.0
-        roll_deg = 0.0
+        roll_deg = 0.0  # NCP up
     else:
         logger.error(f"Unknown mount type: {mount_type}. Cannot set roll.")
         roll_deg = 0.0
@@ -347,6 +352,6 @@ def get_roll_by_mount_type(
     # EQ mounts: NCP up in northern hemisphere, SCP up in southern hemisphere
     if location:
         if location.lat < 0.0:
-            roll_deg += 180.0  # Southern hemisphere
+            roll_deg += 180.0  # Southern hemisphere TODO: Verify this
 
     return roll_deg
