@@ -7,7 +7,8 @@ permissions:
   issues: write
 
 jobs:
-  web-integration:
+  web-integration-tests:
+    name: Web Integration Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -40,6 +41,11 @@ jobs:
           git submodule update --init --recursive
           ln -s PiFinder/tetra3/tetra3 tetra3 
 
+      - name: Download hip_main.dat star catalog
+        run: |
+          wget -q -O astro_data/hip_main.dat \
+            https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
+
       - name: Set up PiFinder_data directory
         run: |
           mkdir -p ~/PiFinder_data/obslists
@@ -50,8 +56,7 @@ jobs:
         working-directory: python
         run: |
           source .venv/bin/activate
-          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
-            python -m PiFinder.main -fh --camera debug --keyboard local \
+          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m PiFinder.main -fh --camera debug --keyboard local \
             > /tmp/pifinder.log 2>&1 &
           echo $! > /tmp/pifinder.pid
           echo "PiFinder started with PID $(cat /tmp/pifinder.pid)"
