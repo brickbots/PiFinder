@@ -62,9 +62,10 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         # This holds the last image solve position info
         # so we can delta for IMU updates
         last_image_solve = None
-        last_solve_time = time.time()
+        #last_solve_time = time.time()
 
         while True:
+            pointing_updated = False  # Flag to track if pointing was updated in this loop
             state_utils.sleep_for_framerate(shared_state)
 
             # Check for new camera solve in queue
@@ -101,19 +102,15 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # For failed solves, preserve ALL position data from previous solve
                 # Don't recalculate from GPS (causes drift from GPS noise)
 
-                # Set solve_source and push camera solves immediately
                 if solved["RA"] is not None:
+                    # Successfully plate-solved:
                     last_image_solve = copy.deepcopy(solved)
                     solved["solve_source"] = "CAM"
-                    # Calculate constellation for successful solve
-                    solved["constellation"] = (
-                        calc_utils.sf_utils.radec_to_constellation(
-                            solved["RA"], solved["Dec"]
-                        )
-                    )
                     shared_state.set_solve_state(True)
                     # We have a new image solve: Use plate-solving for RA/Dec
                     update_plate_solve_and_imu(imu_dead_reckoning, solved)
+                    #last_solve_time = solved["solve_time"]
+                    pointing_updated = True
                 else:
                     # TODO: In this case, it should run update_imu()
                     # Failed solve - clear constellation
@@ -125,20 +122,18 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     shared_state.set_solution(solved)
                     shared_state.set_solve_state(False)
 
-            elif imu_dead_reckoning.tracking:
+            if imu_dead_reckoning.tracking and not pointing_updated:
                 # Previous plate-solve exists so use IMU dead-reckoning from
                 # the last plate solved coordinates.
                 imu = shared_state.imu()
                 if imu:
+                    #last_solve_time = time.time()
                     update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
+                    pointing_updated = True
 
             # Update Alt, Az, Roll only if newer than last push
-            if (
-                solved["RA"] is not None and solved["solve_time"] > last_solve_time
-                # and solved["solve_source"] == "IMU"
-            ):
-                last_solve_time = time.time()  # TODO: solve_time is ambiguous because it's also used for IMU dead-reckoning
-
+            if pointing_updated:
+                #last_solve_time = time.time()
                 # Set location for roll and altaz calculations.
                 # TODO: Is it necessary to set location?
                 # TODO: Altaz doesn't seem to be required for catalogs when in
