@@ -75,6 +75,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 pass
 
             if type(next_image_solve) is dict:
+                # TODO: Refactor this bit:
                 # For camera solves, always start from last successful camera solve
                 # NOT from shared_state (which may contain IMU drift)
                 # This prevents IMU noise accumulation during failed solves
@@ -114,6 +115,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     # We have a new image solve: Use plate-solving for RA/Dec
                     update_plate_solve_and_imu(imu_dead_reckoning, solved)
                 else:
+                    # TODO: In this case, it should run update_imu()
                     # Failed solve - clear constellation
                     solved["solve_source"] = "CAM_FAILED"
                     solved["constellation"] = ""
@@ -130,9 +132,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 if imu:
                     update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
 
-            # Push IMU updates only if newer than last push
+            # Update Alt, Az, Roll only if newer than last push
             if (
-                solved["RA"] and solved["solve_time"] > last_solve_time
+                solved["RA"] is not None and solved["solve_time"] > last_solve_time
                 # and solved["solve_source"] == "IMU"
             ):
                 last_solve_time = time.time()  # TODO: solve_time is ambiguous because it's also used for IMU dead-reckoning
@@ -141,31 +143,10 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # TODO: Is it necessary to set location?
                 # TODO: Altaz doesn't seem to be required for catalogs when in
                 #  EQ mode? Could be disabled in future when in EQ mode?
-                location = shared_state.location()
-                dt = shared_state.datetime()
-                if location:
-                    calc_utils.sf_utils.set_location(
-                        location.lat, location.lon, location.altitude
-                    )
-
-                # Set the roll so that the chart is displayed appropriately for the mount type
-                solved["Roll"] = get_roll_by_mount_type(
-                    solved["RA"], solved["Dec"], location, dt, mount_type
-                )
-
-                # Update remaining solved keys
-                # Calculate constellation for current position
-                solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
-                    solved["RA"], solved["Dec"]
-                )  # TODO: Can the outer brackets be omitted?
-
-                # Set Alt/Az because it's needed for the catalogs for the
-                # Alt/Az mount type. TODO: Can this be moved to the catalog?
-                if location and dt:
-                    solved["Alt"], solved["Az"] = calc_utils.sf_utils.radec_to_altaz(
-                        solved["RA"], solved["Dec"], dt
-                    )
-
+                update_solved_coords(solved, 
+                                     location=shared_state.location(), 
+                                     dt=shared_state.datetime(),
+                                     mount_type=mount_type)
                 # Push IMU update
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
@@ -175,7 +156,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
 
 # ======== Wrapper and helper functions ===============================
-
 
 def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     """
@@ -272,6 +252,36 @@ def update_imu(
                 solved["camera_center"]["Roll"],
             )
         )
+
+
+def update_solved_coords(solved, location, dt, mount_type):
+    """
+    Based on RA/Dec, update the following in dictionary 'solved':
+    solved["Alt"], solved["Az"], solved["Roll"], solved["constellation"]
+    """
+    if solved["RA"] is None or solved["Dec"] is None:
+        solved["constellation"] = None
+        solved["Alt"], solved["Az"] = None, None
+        solved["Roll"] = None
+        return
+
+    # Calculate constellation for current position
+    solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
+        solved["RA"], solved["Dec"]
+    )
+
+    if location and dt:
+        # Location needs to be set for Alt/Az and roll calculations
+        calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
+        # Set Alt/Az
+        solved["Alt"], solved["Az"] = calc_utils.sf_utils.radec_to_altaz(
+            solved["RA"], solved["Dec"], dt)
+        # Set the roll so that the chart is displayed appropriately for the mount type
+        solved["Roll"] = get_roll_by_mount_type(
+            solved["RA"], solved["Dec"], location, dt, mount_type)
+    else:
+        solved["Alt"], solved["Az"] = None, None
+        solved["Roll"] = None
 
 
 def set_cam2scope_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
