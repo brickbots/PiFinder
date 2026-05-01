@@ -40,11 +40,11 @@ class UISQM(UIModule):
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
-                label=_("CAL"),
+                label=_("CAL"), # TRANSLATORS: Marking menu option to launch SQM calibration wizard
                 callback=self._launch_calibration,
             ),
             down=MarkingMenuOption(
-                label=_("CORRECT"),
+                label=_("CORRECT"), # TRANSLATORS: Marking menu option to launch SQM correction sweep tool
                 callback=self._launch_sqm_sweep,
             ),
             right=MarkingMenuOption(),

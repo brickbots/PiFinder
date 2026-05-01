@@ -129,7 +129,7 @@ class UIObjectList(UITextMenu):
             and self.item_definition.get("value") == "CM"
         ):
             marking_menu_down = MarkingMenuOption(
-                label=_("Refresh"), callback=self.mm_refresh_comets
+                label=_("Refresh"), callback=self.mm_refresh_comets # TRANSLATORS: Marking menu option to refresh comet catalog
             )
 
         self.marking_menu = MarkingMenu(
@@ -846,7 +846,7 @@ class UIObjectList(UITextMenu):
         """Force refresh of comet data from the internet"""
         catalog = self.catalogs.get_catalog_by_code("CM")
         if catalog and hasattr(catalog, "refresh"):
-            self.message(_("Refreshing..."), 1)
+            self.message(_("Refreshing..."), 1) # TRANSLATORS: Status message when refreshing comet catalog
             catalog.refresh()
             # Clear the UI object list and refresh to show status
             self.refresh_object_list(force_update=True)
