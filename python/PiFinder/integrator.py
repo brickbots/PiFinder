@@ -161,7 +161,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
                 # Set Alt/Az because it's needed for the catalogs for the
                 # Alt/Az mount type. TODO: Can this be moved to the catalog?
-                dt = shared_state.datetime()
                 if location and dt:
                     solved["Alt"], solved["Az"] = calc_utils.sf_utils.radec_to_altaz(
                         solved["RA"], solved["Dec"], dt
