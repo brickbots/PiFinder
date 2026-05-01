@@ -27,12 +27,16 @@ msgid ""
 "Degraded\n"
 "Check Status"
 msgstr ""
+"Eingeschränkt\n"
+"Status checken"
 
 #: PiFinder/main.py:652
 msgid ""
 "Catalogs\n"
 "Fully Loaded"
 msgstr ""
+"Kataloge\n"
+"geladen"
 
 #: PiFinder/obj_types.py:7 PiFinder/ui/menu_structure.py:407
 msgid "Galaxy"
@@ -254,7 +258,6 @@ msgid "Error creating log archive"
 msgstr "Fehler beim zippen der Logs"
 
 #: PiFinder/server.py:1064
-#, fuzzy
 msgid "Restarting PiFinder"
 msgstr "PiFinder Neustart..."
 
@@ -296,6 +299,8 @@ msgid ""
 "Options for\n"
 "DIY PiFinders"
 msgstr ""
+"Optionen für\n"
+"DIY PiFinder"
 
 #: PiFinder/ui/callbacks.py:66
 msgid "Filters Reset"
@@ -331,17 +336,20 @@ msgid ""
 "{lat:.2f}, {lon:.2f}\n"
 "{alt}m alt"
 msgstr ""
+"{lat:.2f}, {lon:.2f}\n"
+"{alt}m hoch"
 
 #: PiFinder/ui/callbacks.py:290
-#, fuzzy
 msgid "No location lock"
-msgstr "Ort gesetzt"
+msgstr "Ort nicht gesetzt"
 
 #: PiFinder/ui/callbacks.py:304
 msgid ""
 "Saved\n"
 "{name}"
 msgstr ""
+"{name}\n"
+"gespeichert"
 
 #: PiFinder/ui/callbacks.py:308 PiFinder/ui/gpsstatus.py:80
 msgid "Location Name"
@@ -356,35 +364,44 @@ msgid "Time: {time}"
 msgstr "Zeit: {time}"
 
 #: PiFinder/ui/callbacks.py:356
-#, fuzzy
 msgid ""
 "{date}\n"
 "{time}"
-msgstr "Zeit: {time}"
+msgstr ""
+"{date}\n"
+"{time}"
 
 #: PiFinder/ui/callbacks.py:489
 msgid ""
 "Checking GPS\n"
 "config..."
 msgstr ""
+"Überprüfen GPS\n"
+"Konfiguration..."
 
 #: PiFinder/ui/callbacks.py:494
 msgid ""
 "GPS config\n"
 "updated"
 msgstr ""
+"GPS Konfiguration\n"
+"aktualisiert"
 
 #: PiFinder/ui/callbacks.py:496
 msgid ""
 "GPS config\n"
 "OK"
 msgstr ""
+"GPS Konfiguration\n"
+"Ok"
 
 #: PiFinder/ui/callbacks.py:499
 msgid ""
 "GPS config\n"
 "failed"
 msgstr ""
+"GPS Konfig\n"
+"kaputt"
 
 #: PiFinder/ui/chart.py:40 PiFinder/ui/menu_structure.py:575
 msgid "Settings"
@@ -392,7 +409,7 @@ msgstr "Einstellungen"
 
 #: PiFinder/ui/dateentry.py:25
 msgid "yyyy"
-msgstr ""
+msgstr "jjjj"
 
 #: PiFinder/ui/dateentry.py:26 PiFinder/ui/timeentry.py:27
 msgid "mm"
@@ -401,35 +418,30 @@ msgstr "mm"
 #: PiFinder/ui/dateentry.py:27 PiFinder/ui/locationentry.py:33
 #: PiFinder/ui/locationentry.py:40
 msgid "dd"
-msgstr ""
+msgstr "tt"
 
 #: PiFinder/ui/dateentry.py:131
-#, fuzzy
 msgid "Enter Local Date"
 msgstr "lok Zeit eingeben"
 
 #: PiFinder/ui/dateentry.py:149 PiFinder/ui/timeentry.py:127
-#, fuzzy
 msgid " Done"
-msgstr "  Fertig"
+msgstr " Fertig"
 
 #: PiFinder/ui/dateentry.py:156 PiFinder/ui/locationentry.py:213
 #: PiFinder/ui/timeentry.py:134
-#, fuzzy
 msgid " Cancel"
-msgstr "ABBR"
+msgstr " Abbruch"
 
 #: PiFinder/ui/dateentry.py:163 PiFinder/ui/locationentry.py:223
 #: PiFinder/ui/timeentry.py:141
-#, fuzzy
 msgid "󰍴 Delete/Previous"
-msgstr "󰍴  Löschen/Zurück"
+msgstr "󰍴 Löschen/Zurück"
 
 #: PiFinder/ui/dateentry.py:220 PiFinder/ui/locationentry.py:337
 #: PiFinder/ui/timeentry.py:209
-#, fuzzy
 msgid "Cancelled"
-msgstr "ABBR"
+msgstr "Abgebrochen"
 
 #: PiFinder/ui/equipment.py:35
 msgid "No telescope selected"
@@ -573,64 +585,57 @@ msgid "Time:  {time}"
 msgstr "Zeit:  {time}"
 
 #: PiFinder/ui/gpsstatus.py:320
-#, fuzzy
 msgid "Date:  {date}"
-msgstr "Zeit:  {time}"
+msgstr "Datum:  {date}"
 
 #: PiFinder/ui/gpsstatus.py:329
 msgid "From:  {location_source}"
 msgstr "Quelle: {location_source}"
 
 #: PiFinder/ui/location_list.py:180
-#, fuzzy
 msgid "No locations"
-msgstr "Orte"
+msgstr "Keine Orte"
 
 #: PiFinder/ui/locationentry.py:30
-#, fuzzy
 msgid "Enter Latitude"
-msgstr "lok Zeit eingeben"
+msgstr "Höhe eingeben"
 
 #: PiFinder/ui/locationentry.py:33
 msgid "DD"
-msgstr ""
+msgstr "GG"
 
 #: PiFinder/ui/locationentry.py:37
-#, fuzzy
 msgid "Enter Longitude"
-msgstr "lok Zeit eingeben"
+msgstr "Breite eingeben"
 
 #: PiFinder/ui/locationentry.py:40
 msgid "DDD"
-msgstr ""
+msgstr "ggg"
 
 #: PiFinder/ui/locationentry.py:44
-#, fuzzy
 msgid "Altitude (m)"
-msgstr "Höhe"
+msgstr "Höhe (m)"
 
 #: PiFinder/ui/locationentry.py:45
-#, fuzzy
 msgid "meters"
-msgstr "Komet"
+msgstr "Meter"
 
 #: PiFinder/ui/locationentry.py:206
 msgid " Next/Done"
-msgstr ""
+msgstr " Weiter/Fertig"
 
 #: PiFinder/ui/locationentry.py:219
-#, fuzzy
 msgid "󰍴 Delete  󰐕 N/S"
-msgstr "󰍴  Löschen/Zurück"
+msgstr "󰍴  Löschen  󰐕 N/S"
 
 #: PiFinder/ui/locationentry.py:221
 msgid "󰍴 Delete  󰐕 E/W"
-msgstr ""
+msgstr "󰍴 Löschen  󰐕 O/W"
 
 #: PiFinder/ui/locationentry.py:303 PiFinder/ui/locationentry.py:315
 #: PiFinder/ui/menu_structure.py:1106
 msgid "Enter Coords"
-msgstr ""
+msgstr "Koord eingeben"
 
 #: PiFinder/ui/log.py:58
 msgid "Conditions"
@@ -716,9 +721,8 @@ msgid "Language: fr"
 msgstr "Sprache: Französisch"
 
 #: PiFinder/ui/menu_structure.py:30
-#, fuzzy
 msgid "Language: zh"
-msgstr "Sprache: Französisch"
+msgstr "Sprache: Chinesisch"
 
 #: PiFinder/ui/menu_structure.py:41
 msgid "Start"
@@ -796,7 +800,7 @@ msgstr "E.G. Globs"
 
 #: PiFinder/ui/menu_structure.py:148 PiFinder/ui/menu_structure.py:333
 msgid "Harris Globs"
-msgstr ""
+msgstr "Harris Globulare"
 
 #: PiFinder/ui/menu_structure.py:154 PiFinder/ui/menu_structure.py:337
 msgid "Herschel 400"
@@ -808,7 +812,7 @@ msgstr "IC"
 
 #: PiFinder/ui/menu_structure.py:166 PiFinder/ui/menu_structure.py:345
 msgid "Lynga Opn Cl"
-msgstr ""
+msgstr "Lynga Opn Cl"
 
 #: PiFinder/ui/menu_structure.py:184 PiFinder/ui/menu_structure.py:357
 msgid "Sharpless"
@@ -843,9 +847,8 @@ msgid "RASC Doubles"
 msgstr "RASC Doppel"
 
 #: PiFinder/ui/menu_structure.py:233
-#, fuzzy
 msgid "WDS Doubles"
-msgstr "SAC Doppel"
+msgstr "WDS Doppel"
 
 #: PiFinder/ui/menu_structure.py:239 PiFinder/ui/menu_structure.py:393
 msgid "TLK 90 Variables"
@@ -857,7 +860,7 @@ msgstr "Letzte..."
 
 #: PiFinder/ui/menu_structure.py:255
 msgid "Custom"
-msgstr ""
+msgstr "RA/Dec"
 
 #: PiFinder/ui/menu_structure.py:260
 msgid "Name Search"
@@ -885,9 +888,8 @@ msgid "Catalogs"
 msgstr "Kataloge"
 
 #: PiFinder/ui/menu_structure.py:291
-#, fuzzy
 msgid "Comets"
-msgstr "Komet"
+msgstr "Kometen"
 
 #: PiFinder/ui/menu_structure.py:401
 msgid "Type"
@@ -910,7 +912,6 @@ msgid "Triple Str"
 msgstr "Dreif. Strn"
 
 #: PiFinder/ui/menu_structure.py:463
-#, fuzzy
 msgid "Unknown"
 msgstr "Unbkt"
 
@@ -977,14 +978,12 @@ msgid "Scroll Speed"
 msgstr "Scrollgeschwindigkeit"
 
 #: PiFinder/ui/menu_structure.py:705
-#, fuzzy
 msgid "T9 Search"
-msgstr "Namenssuche:"
+msgstr "T9 Suche"
 
 #: PiFinder/ui/menu_structure.py:715
-#, fuzzy
 msgid "On"
-msgstr "Nix"
+msgstr "An"
 
 #: PiFinder/ui/menu_structure.py:721
 msgid "Az Arrows"
@@ -1020,7 +1019,7 @@ msgstr "Spanisch"
 
 #: PiFinder/ui/menu_structure.py:761
 msgid "Chinese"
-msgstr ""
+msgstr "Chinesisch"
 
 #: PiFinder/ui/menu_structure.py:769
 msgid "Chart..."
@@ -1066,7 +1065,7 @@ msgstr "Belichtungsz."
 
 #: PiFinder/ui/menu_structure.py:877
 msgid "Auto"
-msgstr ""
+msgstr "Auto"
 
 #: PiFinder/ui/menu_structure.py:882
 msgid "0.025s"
@@ -1117,7 +1116,6 @@ msgid "Alt/Az"
 msgstr "Azimutal"
 
 #: PiFinder/ui/menu_structure.py:941
-#, fuzzy
 msgid "Equatorial"
 msgstr "Parallaktisch"
 
@@ -1147,7 +1145,7 @@ msgstr "Flach v2"
 
 #: PiFinder/ui/menu_structure.py:980
 msgid "AS Bloom"
-msgstr ""
+msgstr "AS Bloom"
 
 #: PiFinder/ui/menu_structure.py:986
 msgid "Camera Type"
@@ -1166,9 +1164,8 @@ msgid "v3 - imx462"
 msgstr "v3 - imx462"
 
 #: PiFinder/ui/menu_structure.py:1009
-#, fuzzy
 msgid "GPS Settings"
-msgstr "Einstellungen"
+msgstr "GPS Einstell."
 
 #: PiFinder/ui/menu_structure.py:1014
 msgid "GPS Type"
@@ -1184,25 +1181,23 @@ msgstr "GPSD (generisch)"
 
 #: PiFinder/ui/menu_structure.py:1032
 msgid "GPS Baud Rate"
-msgstr ""
+msgstr "GPS Baud Rate"
 
 #: PiFinder/ui/menu_structure.py:1040
-#, fuzzy
 msgid "9600 (standard)"
-msgstr "Standard"
+msgstr "9600 (Standard)"
 
 #: PiFinder/ui/menu_structure.py:1044
 msgid "115200 (UBlox-10)"
-msgstr ""
+msgstr "115200 (Ublox-10)"
 
 #: PiFinder/ui/menu_structure.py:1054
 msgid "IMU Sensit."
-msgstr ""
+msgstr "IMU Sensit."
 
 #: PiFinder/ui/menu_structure.py:1065
-#, fuzzy
 msgid "Very Low"
-msgstr "Sehr gut"
+msgstr "Sehr klein"
 
 #: PiFinder/ui/menu_structure.py:1089
 msgid "Status"
@@ -1217,29 +1212,24 @@ msgid "Set Location"
 msgstr "Ort setzen"
 
 #: PiFinder/ui/menu_structure.py:1110
-#, fuzzy
 msgid "Load Location"
-msgstr "Orte"
+msgstr "Ort laden"
 
 #: PiFinder/ui/menu_structure.py:1114
-#, fuzzy
 msgid "Save Location"
-msgstr "Ort setzen"
+msgstr "Ort speichern"
 
 #: PiFinder/ui/menu_structure.py:1120
-#, fuzzy
 msgid "Set Time/Date"
-msgstr "Zeit setzen"
+msgstr "Zeit/Datum setzen"
 
 #: PiFinder/ui/menu_structure.py:1124
-#, fuzzy
 msgid "Reset Location"
-msgstr "Ort setzen"
+msgstr "Ort resetten"
 
 #: PiFinder/ui/menu_structure.py:1126
-#, fuzzy
 msgid "Reset Time/Date"
-msgstr "Zeit setzen"
+msgstr "Rest Zeit/Datum"
 
 #: PiFinder/ui/menu_structure.py:1131
 msgid "Console"
@@ -1255,39 +1245,35 @@ msgstr "Experimentell"
 
 #: PiFinder/ui/menu_structure.py:1141
 msgid "Integrator"
-msgstr ""
+msgstr "Integrator"
 
 #: PiFinder/ui/menu_structure.py:1147
-#, fuzzy
 msgid "Classic"
-msgstr "Geht so"
+msgstr "Klassisch"
 
 #: PiFinder/ui/menu_structure.py:1148
-#, fuzzy
 msgid "Quaternion"
-msgstr "Jetzt Updaten"
+msgstr "Quaternion"
 
 #: PiFinder/ui/menu_structure.py:1152
-#, fuzzy
 msgid "AE Algo"
-msgstr "Log speichern"
+msgstr "Autom. BLZ"
 
 #: PiFinder/ui/menu_structure.py:1160
 msgid "Sweep"
-msgstr ""
+msgstr "Sweep"
 
 #: PiFinder/ui/menu_structure.py:1164
-#, fuzzy
 msgid "Exponential"
-msgstr "Experimentell"
+msgstr "Exponentiell"
 
 #: PiFinder/ui/menu_structure.py:1168
 msgid "Reset to 0.4s"
-msgstr ""
+msgstr "Reset auf 0.4s"
 
 #: PiFinder/ui/menu_structure.py:1172
 msgid "Histogram"
-msgstr ""
+msgstr "Histogramm"
 
 #: PiFinder/ui/menu_structure.py:1180
 msgid "Power"
@@ -1348,30 +1334,27 @@ msgstr "berechne..."
 
 #: PiFinder/ui/object_details.py:553
 msgid "Contrast Reserve"
-msgstr ""
+msgstr "Kontrast Reserve"
 
 #: PiFinder/ui/object_details.py:579
-#, fuzzy
 msgid "No contrast data"
-msgstr "KEINE SQM DATEN"
+msgstr "Keine Kontrast Daten"
 
 #: PiFinder/ui/object_details.py:587
 msgid "CR measures object"
-msgstr ""
+msgstr "KR misst die Objekt"
 
 #: PiFinder/ui/object_details.py:588
 msgid "visibility based on"
-msgstr ""
+msgstr "Sichtbarkeit basierend auf"
 
 #: PiFinder/ui/object_details.py:589
-#, fuzzy
 msgid "sky brightness,"
-msgstr "Tasten Helligkeit"
+msgstr "der Himmelshelligkeit"
 
 #: PiFinder/ui/object_details.py:590
-#, fuzzy
 msgid "telescope, and EP."
-msgstr "Teleskop..."
+msgstr "Teleskop, und Eintr.pup."
 
 #: PiFinder/ui/object_details.py:664
 msgid "Too Far"
@@ -1382,9 +1365,8 @@ msgid "LOG"
 msgstr "Loggen"
 
 #: PiFinder/ui/object_list.py:132
-#, fuzzy
 msgid "Refresh"
-msgstr "Französisch"
+msgstr "Aktualis."
 
 #: PiFinder/ui/object_list.py:137
 msgid "Sort"
@@ -1460,9 +1442,8 @@ msgid "Sort: {sort_order}"
 msgstr "Sort.: {sort_order}"
 
 #: PiFinder/ui/object_list.py:849
-#, fuzzy
 msgid "Refreshing..."
-msgstr "Neustart..."
+msgstr "Erneuern..."
 
 #: PiFinder/ui/preview.py:55
 msgid "Exposure"
@@ -1482,31 +1463,27 @@ msgstr ""
 
 #: PiFinder/ui/radec_entry.py:540
 msgid "D/D"
-msgstr ""
+msgstr "G/G"
 
 #: PiFinder/ui/radec_entry.py:588
-#, fuzzy
 msgid "RA/DEC Entry"
-msgstr "Letzte..."
+msgstr "RA/Dec Eingabe"
 
 #: PiFinder/ui/radec_entry.py:825
-#, fuzzy
 msgid "RA:"
-msgstr "RA"
+msgstr "RA:"
 
 #: PiFinder/ui/radec_entry.py:831
 msgid "DEC:"
-msgstr ""
+msgstr "Dec:"
 
 #: PiFinder/ui/radec_entry.py:837
-#, fuzzy
 msgid "EPOCH:"
-msgstr "Namenssuche:"
+msgstr "Epoche:"
 
 #: PiFinder/ui/radec_entry.py:981
-#, fuzzy
 msgid "RA/DEC"
-msgstr "RA/DEC Anzeige"
+msgstr "RA/Dec"
 
 #: PiFinder/ui/software.py:88
 msgid "Updating..."
@@ -1521,9 +1498,8 @@ msgid "Error on Upd"
 msgstr "Fehler beim Upd"
 
 #: PiFinder/ui/software.py:101
-#, fuzzy
 msgid "Wifi Mode: {}"
-msgstr "WLAN"
+msgstr "WLAN Modus: {}"
 
 #: PiFinder/ui/software.py:109
 msgid "Current Version"
@@ -1566,14 +1542,12 @@ msgid "SQM"
 msgstr "SQM"
 
 #: PiFinder/ui/sqm.py:43
-#, fuzzy
 msgid "CAL"
-msgstr "ABBR"
+msgstr "SQM Cal"
 
 #: PiFinder/ui/sqm.py:47
-#, fuzzy
 msgid "CORRECT"
-msgstr "Komet"
+msgstr "Korrektur"
 
 #: PiFinder/ui/sqm.py:79
 msgid "NO SQM DATA"
@@ -1609,11 +1583,11 @@ msgstr "DETAILS"
 
 #: PiFinder/ui/sqm.py:292
 msgid "SQM Calibration"
-msgstr ""
+msgstr "SQM Kalibration"
 
 #: PiFinder/ui/sqm.py:304
 msgid "SQM Sweep"
-msgstr ""
+msgstr "SQM Sweep"
 
 #: PiFinder/ui/sqm.py:326
 msgid "Excellent Dark-Sky Site"
@@ -1666,7 +1640,7 @@ msgstr "Ländlicher Himmel"
 #: PiFinder/ui/sqm.py:359
 msgid "The zodiacal light is striking in spring and autumn, color still visible."
 msgstr ""
-"Das Zodiakallicht ist im Frühling und Herbst auffällig, Farbe noch "
+"Das Zodiakallicht ist im Frühling und Herbst auffällig, Farben noch "
 "sichtbar."
 
 #: PiFinder/ui/sqm.py:362
@@ -1829,47 +1803,43 @@ msgstr ""
 
 #: PiFinder/ui/sqm_correction.py:45 PiFinder/ui/sqm_correction.py:87
 msgid "SQM Correction"
-msgstr ""
+msgstr "SQM Korrektur"
 
 #: PiFinder/ui/sqm_correction.py:72
-#, fuzzy
 msgid "Del"
-msgstr "DETAILS"
+msgstr "Löschen"
 
 #: PiFinder/ui/sqm_correction.py:96
 msgid "Original: {sqm:.2f}"
-msgstr ""
+msgstr "Original: {sqm:.2f}"
 
 #: PiFinder/ui/sqm_correction.py:105
 msgid "Corrected:"
-msgstr ""
+msgstr "Korrigiert:"
 
 #: PiFinder/ui/sqm_correction.py:203
-#, fuzzy
 msgid "Enter a value"
-msgstr "lok Zeit eingeben"
+msgstr "Wert eingeben"
 
 #: PiFinder/ui/sqm_correction.py:205
 msgid "Range: 10-23"
-msgstr ""
+msgstr "Bereich: 10-23"
 
 #: PiFinder/ui/sqm_correction.py:210
-#, fuzzy
 msgid "Saving..."
-msgstr "Laden..."
+msgstr "Speichern..."
 
 #: PiFinder/ui/sqm_correction.py:217
 msgid "Saved: {filename}"
-msgstr ""
+msgstr "gespeichert: {filename}"
 
 #: PiFinder/ui/sqm_correction.py:224
-#, fuzzy
 msgid "Save failed"
-msgstr "Justage abgebrochen"
+msgstr "Speichern fehlgeschlagen"
 
 #: PiFinder/ui/sqm_correction.py:332
 msgid "Saving {label}..."
-msgstr ""
+msgstr "Speichern {label}..."
 
 #: PiFinder/ui/text_menu.py:60
 msgid "Select None"
@@ -1888,9 +1858,8 @@ msgid "Enter Location Name:"
 msgstr "Ort eingeben:"
 
 #: PiFinder/ui/textentry.py:400
-#, fuzzy
 msgid "Search"
-msgstr "Namenssuche:"
+msgstr "Suche"
 
 #: PiFinder/ui/timeentry.py:26
 msgid "hh"
