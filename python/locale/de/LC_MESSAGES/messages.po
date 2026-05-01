@@ -1357,7 +1357,7 @@ msgstr "der Himmelshelligkeit"
 #. TRANSLATORS: Contrast reserve explanation line 3
 #: PiFinder/ui/object_details.py:590
 msgid "telescope, and EP."
-msgstr "Teleskop, und Eintr.pup."
+msgstr "Teleskop, und Okular"
 
 #: PiFinder/ui/object_details.py:664
 msgid "Too Far"
