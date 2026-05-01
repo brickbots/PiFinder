@@ -254,7 +254,9 @@ class Server:
             if request.method == "POST":
                 password = request.form.get("password")
                 # Read from hidden form field (set by GET handler); fall back to session
-                origin_url = request.form.get("origin_url") or session.get("origin_url", "/")
+                origin_url = request.form.get("origin_url") or session.get(
+                    "origin_url", "/"
+                )
                 if sys_utils.verify_password("pifinder", password):
                     session["authenticated"] = True
                     session.pop("origin_url", None)

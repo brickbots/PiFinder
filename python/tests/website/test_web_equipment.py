@@ -126,7 +126,9 @@ def test_equipment_instruments_table_structure(driver):
     _login_to_equipment(driver)
 
     # Wait for page to load
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "instruments-table")))
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.ID, "instruments-table"))
+    )
 
     # Find the instruments section heading
     instruments_heading = driver.find_element(By.ID, "instruments-heading")
@@ -172,7 +174,9 @@ def test_equipment_eyepieces_table_structure(driver):
     _login_to_equipment(driver)
 
     # Wait for page to load
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "eyepieces-table")))
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.ID, "eyepieces-table"))
+    )
 
     # Find the eyepieces section heading
     eyepieces_heading = driver.find_element(By.ID, "eyepieces-heading")
