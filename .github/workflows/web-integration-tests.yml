@@ -41,7 +41,17 @@ jobs:
           git submodule update --init --recursive
           ln -s PiFinder/tetra3/tetra3 tetra3 
 
+      - name: Use cache of hip_main.dat star catalog
+        
+        id: cache-hip-main
+        uses: actions/cache@v4
+        with:
+          path: astro_data/hip_main.dat
+          key: hip_main-dat-v1
+          # Bump this key, to force redownloading the catalog if it changes or if we want to refresh the cache
+
       - name: Download hip_main.dat star catalog
+        if: steps.cache-hip-main.outputs.cache-hit != 'true'
         run: |
           wget -q -O astro_data/hip_main.dat \
             https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
@@ -85,7 +95,7 @@ jobs:
           PIFINDER_HOMEPAGE: http://localhost:8080
         run: |
           source .venv/bin/activate
-          pytest -m web --local -v
+          pytest -ra -m web --local -v
 
       - name: Rerun failed tests with --lf
         id: pytest_rerun
@@ -96,7 +106,7 @@ jobs:
           PIFINDER_HOMEPAGE: http://localhost:8080
         run: |
           source .venv/bin/activate
-          pytest -m web --local -v --lf
+          pytest -ra -m web --local -v --lf
 
       - name: Alert maintainers via GitHub Issue
         if: steps.pytest_rerun.outcome == 'failure'
