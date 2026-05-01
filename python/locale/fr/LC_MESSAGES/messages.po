@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-05-01 20:31+0200\n"
+"POT-Creation-Date: 2026-05-01 21:40+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: xxxxxx <xxxxx@xxxxx.com>\n"
 "Language: fr_FR\n"
@@ -1423,15 +1423,18 @@ msgstr "AUCUNE DONNÉE SQM"
 msgid "CR measures object"
 msgstr ""
 
+#. TRANSLATORS: Contrast reserve explanation line 1
 #: PiFinder/ui/object_details.py:588
 msgid "visibility based on"
 msgstr ""
 
+#. TRANSLATORS: Contrast reserve explanation line 2
 #: PiFinder/ui/object_details.py:589
 #, fuzzy
 msgid "sky brightness,"
 msgstr "Brillance Touche"
 
+#. TRANSLATORS: Contrast reserve explanation line 3
 #: PiFinder/ui/object_details.py:590
 #, fuzzy
 msgid "telescope, and EP."

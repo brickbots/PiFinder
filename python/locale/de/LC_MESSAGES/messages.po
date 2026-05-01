@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-05-01 20:31+0200\n"
+"POT-Creation-Date: 2026-05-01 21:40+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: Jens Scheidtmann\n"
 "Language: de_DE\n"
@@ -1344,14 +1344,17 @@ msgstr "Keine Kontrast Daten"
 msgid "CR measures object"
 msgstr "KR misst die Objekt"
 
+#. TRANSLATORS: Contrast reserve explanation line 1
 #: PiFinder/ui/object_details.py:588
 msgid "visibility based on"
 msgstr "Sichtbarkeit basierend auf"
 
+#. TRANSLATORS: Contrast reserve explanation line 2
 #: PiFinder/ui/object_details.py:589
 msgid "sky brightness,"
 msgstr "der Himmelshelligkeit"
 
+#. TRANSLATORS: Contrast reserve explanation line 3
 #: PiFinder/ui/object_details.py:590
 msgid "telescope, and EP."
 msgstr "Teleskop, und Eintr.pup."
