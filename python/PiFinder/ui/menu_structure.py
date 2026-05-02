@@ -867,7 +867,7 @@ pifinder_menu = {
                             "name": _("Coordinate Sys."),
                             "class": UITextMenu,
                             "select": "single",
-                            "config_option": "chart_coord",
+                            "config_option": "chart_coord_sys",
                             "items": [
                                 {
                                     "name": _("Horizontal"),
