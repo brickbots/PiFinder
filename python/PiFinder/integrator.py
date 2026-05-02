@@ -342,20 +342,17 @@ def get_roll_by_mount_type(
             # by roll in anti-clockwise direction. Use -parallactic_angle
             roll_deg = -calc_utils.sf_utils.radec_to_pa(ra_deg, dec_deg, dt)
         else:
-            # No position or time/date available, so set roll to 0.0
+            # No position or time/date available. Default to display in equatorial coordinate
             roll_deg = 0.0  # NCP up
     elif mount_type == "EQ":
-        # EQ-mounts: Display chart with NCP up so roll = 0.0
+        # EQ-mounts: Display chart in equatorial coordinates
         roll_deg = 0.0  # NCP up
+        # If location is available, adjust roll for hemisphere:
+        if location:
+            if location.lat < 0.0:
+                roll_deg = 180.0  # SCP up (for southern hemisphere)
     else:
         logger.error(f"Unknown mount type: {mount_type}. Cannot set roll.")
-        roll_deg = 0.0
-
-    # If location is available, adjust roll for hemisphere:
-    # Altaz: North up in northern hemisphere, South up in southern hemisphere
-    # EQ mounts: NCP up in northern hemisphere, SCP up in southern hemisphere
-    if location:
-        if location.lat < 0.0:
-            roll_deg += 180.0  # Southern hemisphere TODO: Verify this
+        roll_deg = 0.0  # NCP up
 
     return roll_deg
