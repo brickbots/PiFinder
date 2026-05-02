@@ -59,7 +59,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         # This holds the last image solve position info
         # so we can delta for IMU updates
         last_image_solve = None
-        #last_solve_time = time.time()
+        last_solve_time = time.time()
 
         while True:
             pointing_updated = False  # Flag to track if pointing was updated in this loop
@@ -106,14 +106,11 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     shared_state.set_solve_state(True)
                     # We have a new image solve: Use plate-solving for RA/Dec
                     update_plate_solve_and_imu(imu_dead_reckoning, solved)
-                    #last_solve_time = solved["solve_time"]
                     pointing_updated = True
                 else:
-                    # TODO: In this case, it should run update_imu()
                     # Failed solve - clear constellation
                     solved["solve_source"] = "CAM_FAILED"
-                    solved["constellation"] = ""
-
+                    solved["constellation"] = ""  # NOTE: This gets over-written by IMU dead-reckoning
                     # Push failed solved immediately
                     # This ensures auto-exposure sees Matches=0 for failed solves
                     shared_state.set_solution(solved)
@@ -124,13 +121,11 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # the last plate solved coordinates.
                 imu = shared_state.imu()
                 if imu:
-                    #last_solve_time = time.time()
                     update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
                     pointing_updated = True
 
             # Update Alt, Az, Roll only if newer than last push
-            if pointing_updated:
-                #last_solve_time = time.time()
+            if pointing_updated and solved["solve_time"] > last_solve_time:
                 # Set location for roll and altaz calculations.
                 # TODO: Is it necessary to set location?
                 # TODO: Altaz doesn't seem to be required for catalogs when in
@@ -139,6 +134,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                                      location=shared_state.location(), 
                                      dt=shared_state.datetime(),
                                      chart_coord_sys=cfg.get_option("chart_coord_sys"))
+                last_solve_time = solved["solved_time"]
+                
                 # Push IMU update
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
@@ -196,6 +193,7 @@ def update_imu(
         imu["quat"], quaternion.quaternion
     ), "Expecting quaternion.quaternion type"  # TODO: Can be removed later
     q_x2imu = imu["quat"]  # Current IMU measurement (quaternion)
+    imu_time = time.time()
 
     # When moving, switch to tracking using the IMU
     angle_moved = qt.get_quat_angular_diff(last_image_solve["imu_quat"], q_x2imu)
@@ -227,8 +225,7 @@ def update_imu(
         # Store the current scope pointing estimate
         scope_eq = imu_dead_reckoning.get_scope_radec()
         solved["RA"], solved["Dec"], solved["Roll"] = scope_eq.get_deg(use_none=True)
-
-        solved["solve_time"] = time.time()
+        solved["solve_time"] = imu_time
         solved["solve_source"] = "IMU"
 
         # Logging for states updated in solved:
@@ -250,6 +247,8 @@ def convert_solved_coords(solved, location, dt, chart_coord_sys):
     """
     Convert RA/Dec coordinate to the following in the dictionary 'solved':
     solved["Alt"], solved["Az"], solved["Roll"], solved["constellation"]
+
+    TODO: This functionality should be moved to chart.py
     """
     if solved["RA"] is None or solved["Dec"] is None:
         solved["constellation"] = None
