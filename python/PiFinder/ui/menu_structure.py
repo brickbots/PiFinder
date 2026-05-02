@@ -863,6 +863,30 @@ pifinder_menu = {
                                 },
                             ],
                         },
+                        {
+                            "name": _("Coordinate Sys."),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_coord",
+                            "items": [
+                                {
+                                    "name": _("Horizontal"),
+                                    "value": "horiz",
+                                },
+                                {
+                                    "name": _("EQ (auto)"),
+                                    "value": "eq_auto",
+                                },
+                                {
+                                    "name": _("EQ (NCP up)"),
+                                    "value": "eq_ncp",
+                                },
+                                {
+                                    "name": _("EQ (SCP up)"),
+                                    "value": "eq_scp",
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
