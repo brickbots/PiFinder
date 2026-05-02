@@ -874,15 +874,15 @@ pifinder_menu = {
                                     "value": "horiz",
                                 },
                                 {
-                                    "name": _("EQ (auto)"),
+                                    "name": _("EQ (Auto)"),
                                     "value": "eq_auto",
                                 },
                                 {
-                                    "name": _("EQ (NCP up)"),
+                                    "name": _("EQ (North-up)"),
                                     "value": "eq_ncp",
                                 },
                                 {
-                                    "name": _("EQ (SCP up)"),
+                                    "name": _("EQ (South-up)"),
                                     "value": "eq_scp",
                                 },
                             ],
