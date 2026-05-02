@@ -275,28 +275,6 @@ def convert_solved_coords(solved, location, dt, chart_coord_sys):
         solved["Roll"] = None
 
 
-def set_cam2scope_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
-    """
-    Set alignment.
-    TODO: Do this once at alignment
-    """
-    # RA, Dec of camera center::
-    solved_cam = RaDecRoll()
-    solved_cam.set_from_deg(
-        solved["camera_center"]["RA"],
-        solved["camera_center"]["Dec"],
-        solved["camera_center"]["Roll"],
-    )
-
-    # RA, Dec of target (where scope is pointing):
-    solved["Roll"] = 0  # Target roll isn't calculated by Tetra3. Set to zero here
-    solved_scope = RaDecRoll()
-    solved_scope.set_from_deg(solved["RA"], solved["Dec"], solved["Roll"])
-
-    # Set alignment in imu_dead_reckoning
-    imu_dead_reckoning.set_cam2scope_alignment(solved_cam, solved_scope)
-
-
 def get_roll_by_chart_coord_sys(
     ra_deg: float,  # Right Ascension of the target in degrees
     dec_deg: float,  # Declination of the target in degrees
@@ -316,6 +294,8 @@ def get_roll_by_chart_coord_sys(
       system with NCP or SCP up.
 
     Assumes that location has already been set in calc_utils.sf_utils.
+
+    # TODO: Move this to chart.py
     """
     if chart_coord_sys == "horiz":
         # Horizontal coordinates (alt/az):
@@ -342,3 +322,25 @@ def get_roll_by_chart_coord_sys(
         roll_deg = 0.0  # NCP up
 
     return roll_deg
+
+
+def set_cam2scope_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
+    """
+    Set alignment.
+    TODO: Do this once at alignment
+    """
+    # RA, Dec of camera center::
+    solved_cam = RaDecRoll()
+    solved_cam.set_from_deg(
+        solved["camera_center"]["RA"],
+        solved["camera_center"]["Dec"],
+        solved["camera_center"]["Roll"],
+    )
+
+    # RA, Dec of target (where scope is pointing):
+    solved["Roll"] = 0  # Target roll isn't calculated by Tetra3. Set to zero here
+    solved_scope = RaDecRoll()
+    solved_scope.set_from_deg(solved["RA"], solved["Dec"], solved["Roll"])
+
+    # Set alignment in imu_dead_reckoning
+    imu_dead_reckoning.set_cam2scope_alignment(solved_cam, solved_scope)
