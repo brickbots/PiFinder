@@ -126,19 +126,24 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
             # Update Alt, Az, Roll only if newer than last push
             if pointing_updated and solved["solve_time"] > last_solve_time:
-                # Set location for roll and altaz calculations.
-                # TODO: Is it necessary to set location?
-                # TODO: Altaz doesn't seem to be required for catalogs when in
-                #  EQ mode? Could be disabled in future when in EQ mode?
-                convert_solved_coords(solved, 
-                                     location=shared_state.location(), 
-                                     dt=shared_state.datetime(),
-                                     chart_coord_sys=cfg.get_option("chart_coord_sys"))
-                last_solve_time = solved["solved_time"]
+                solved["constellation"] = get_constellation(solved["RA"], solved["Dec"])
+
+                # TODO: Altaz doesn't seem to be required for catalogs when in 
+                # EQ mode? Could be disabled in future when in EQ mode?
+                solved["Alt"], solved["Az"] = get_alt_az(solved["RA"], solved["Dec"], 
+                                                        shared_state.location(), 
+                                                        shared_state.datetime())
+
+                solved["Roll"] = get_roll_by_chart_coord_sys(solved["RA"], solved["Dec"], 
+                                                                chart_coord_sys=cfg.get_option("chart_coord_sys"),
+                                                                location=shared_state.location(), 
+                                                                dt=shared_state.datetime())
                 
-                # Push IMU update
-                shared_state.set_solution(solved)
-                shared_state.set_solve_state(True)
+                if (solved["RA"] is not None) and (solved["Dec"] is not None):
+                    # Push new solved to shared state
+                    shared_state.set_solution(solved)
+                    shared_state.set_solve_state(True)
+                    last_solve_time = solved["solved_time"]
 
     except EOFError:
         logger.error("Main no longer running for integrator")
@@ -243,36 +248,26 @@ def update_imu(
         )
 
 
-def convert_solved_coords(solved, location, dt, chart_coord_sys):
+def get_constellation(RA_deg, Dec_deg) -> str:
     """
-    Convert RA/Dec coordinate to the following in the dictionary 'solved':
-    solved["Alt"], solved["Az"], solved["Roll"], solved["constellation"]
-
-    TODO: This functionality should be moved to chart.py
+    Get constellation name from the current RA/Dec position.
     """
-    if solved["RA"] is None or solved["Dec"] is None:
-        solved["constellation"] = None
-        solved["Alt"], solved["Az"] = None, None
-        solved["Roll"] = None
-        return
-
-    # Calculate constellation for current position
-    solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
-        solved["RA"], solved["Dec"]
-    )
-
-    if location and dt:
-        # Location needs to be set for Alt/Az and roll calculations
-        calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
-        # Set Alt/Az
-        solved["Alt"], solved["Az"] = calc_utils.sf_utils.radec_to_altaz(
-            solved["RA"], solved["Dec"], dt)
-        # Set the roll for the chart depending on the configuration
-        solved["Roll"] = get_roll_by_chart_coord_sys(
-            solved["RA"], solved["Dec"], chart_coord_sys, location=location, dt=dt)
+    if RA_deg is None or Dec_deg is None:
+        return ""
     else:
-        solved["Alt"], solved["Az"] = None, None
-        solved["Roll"] = None
+        return calc_utils.sf_utils.radec_to_constellation(RA_deg, Dec_deg)
+
+
+def get_alt_az(RA_deg, Dec_deg, location, dt) -> tuple[float | None, float | None]:
+    """
+    Get Alt/Az from RA/Dec, location and datetime.
+    RETURNS: alt_deg, az_deg
+    """
+    if RA_deg is None or Dec_deg is None:
+        return None, None
+    else:
+        calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
+        return calc_utils.sf_utils.radec_to_altaz(RA_deg, Dec_deg, dt)
 
 
 def get_roll_by_chart_coord_sys(
@@ -280,7 +275,7 @@ def get_roll_by_chart_coord_sys(
     dec_deg: float,  # Declination of the target in degrees
     chart_coord_sys: str,  # "Alt/Az" or "EQ"
     location=None,  # astropy EarthLocation object or None
-    dt: datetime.datetime | None = None,  # datetime.datetime object or None
+    dt: datetime.datetime | None=None,  # datetime.datetime object or None
 ) -> float:
     """
     Returns the roll (in degrees) depending on the configured chart coordinate
@@ -294,12 +289,15 @@ def get_roll_by_chart_coord_sys(
       system with NCP or SCP up.
 
     Assumes that location has already been set in calc_utils.sf_utils.
-
     # TODO: Move this to chart.py
     """
+    if (ra_deg is None) or (dec_deg is None):
+        return None  # Can't calculate roll without RA/Dec
+
     if chart_coord_sys == "horiz":
         # Horizontal coordinates (alt/az):
         if location and dt:
+            calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
             # chart.py uses roll to rotate the chart around the target center
             # by roll in anti-clockwise direction. Use -parallactic_angle
             roll_deg = -calc_utils.sf_utils.radec_to_pa(ra_deg, dec_deg, dt)
