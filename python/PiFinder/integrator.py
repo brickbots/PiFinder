@@ -52,9 +52,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         solved = get_initialized_solved_dict()
         cfg = config.Config()
 
-        mount_type = cfg.get_option("mount_type")
-        logger.debug(f"mount_type = {mount_type}")
-
         # Set up dead-reckoning tracking by the IMU:
         imu_dead_reckoning = ImuDeadReckoning(cfg.get_option("screen_direction"))
         # imu_dead_reckoning.set_cam2scope_alignment(q_scope2cam)  # TODO: Enable when q_scope2cam is available from alignment
@@ -138,10 +135,10 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # TODO: Is it necessary to set location?
                 # TODO: Altaz doesn't seem to be required for catalogs when in
                 #  EQ mode? Could be disabled in future when in EQ mode?
-                update_solved_coords(solved, 
+                convert_solved_coords(solved, 
                                      location=shared_state.location(), 
                                      dt=shared_state.datetime(),
-                                     mount_type=mount_type)
+                                     chart_coord_sys=cfg.get_option("chart_coord_sys"))
                 # Push IMU update
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
@@ -249,9 +246,9 @@ def update_imu(
         )
 
 
-def update_solved_coords(solved, location, dt, mount_type):
+def convert_solved_coords(solved, location, dt, chart_coord_sys):
     """
-    Based on RA/Dec, update the following in dictionary 'solved':
+    Convert RA/Dec coordinate to the following in the dictionary 'solved':
     solved["Alt"], solved["Az"], solved["Roll"], solved["constellation"]
     """
     if solved["RA"] is None or solved["Dec"] is None:
@@ -271,9 +268,9 @@ def update_solved_coords(solved, location, dt, mount_type):
         # Set Alt/Az
         solved["Alt"], solved["Az"] = calc_utils.sf_utils.radec_to_altaz(
             solved["RA"], solved["Dec"], dt)
-        # Set the roll so that the chart is displayed appropriately for the mount type
-        solved["Roll"] = get_roll_by_mount_type(
-            solved["RA"], solved["Dec"], location, dt, mount_type)
+        # Set the roll for the chart depending on the configuration
+        solved["Roll"] = get_roll_by_chart_coord_sys(
+            solved["RA"], solved["Dec"], chart_coord_sys, location=location, dt=dt)
     else:
         solved["Alt"], solved["Az"] = None, None
         solved["Roll"] = None
@@ -301,58 +298,48 @@ def set_cam2scope_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     imu_dead_reckoning.set_cam2scope_alignment(solved_cam, solved_scope)
 
 
-def get_roll_by_mount_type(
+def get_roll_by_chart_coord_sys(
     ra_deg: float,  # Right Ascension of the target in degrees
     dec_deg: float,  # Declination of the target in degrees
-    location,  # astropy EarthLocation object or None
-    dt: datetime.datetime,  # datetime.datetime object or None
-    mount_type: str,  # "Alt/Az" or "EQ"
+    chart_coord_sys: str,  # "Alt/Az" or "EQ"
+    location=None,  # astropy EarthLocation object or None
+    dt: datetime.datetime | None = None,  # datetime.datetime object or None
 ) -> float:
     """
-    Returns the roll (in degrees) depending on the mount type so that the chart
-    is displayed appropriately for the mount type. The RA and Dec of the target
-    should be provided (in degrees).
+    Returns the roll (in degrees) depending on the configured chart coordinate
+    system. The RA and Dec of the target should be provided (in degrees).
 
-    * Alt/Az mount: Display the chart in the horizontal coordinate so that up
-      in the chart points to the Zenith.
-    * EQ mount: Display the chart in the equatorial coordinate system with the
-      NCP up so roll = 0.
+    * horiz: Display the chart in the horizontal coordinate so that up in the
+      chart points to the Zenith.
+    * EQ (Auto): Display the chart in the equatorial coordinate system.
+      Automatically select NCP or SCP-up based on location.
+    * EQ (North-up), EQ (South-up): Display chart in the equatorial coordinate
+      system with NCP or SCP up.
 
     Assumes that location has already been set in calc_utils.sf_utils.
     """
-    if mount_type == "Alt/Az":
-        # Altaz mounts: Display chart in horizontal coordinates
+    if chart_coord_sys == "horiz":
+        # Horizontal coordinates (alt/az):
         if location and dt:
-            """
-            # We have location and time/date (and assume that location has been set)
-            # Roll at the target RA/Dec in the horizontal frame
-            roll_deg = calc_utils.sf_utils.radec_to_roll(ra_deg, dec_deg, dt)
-
-            # HACK:
-            # The IMU direction flips at a certaint point. Could due to a
-            # an issue in the formula in calc_utils.sf_utils.hadec_to_roll()
-            # This is a temperary hack for testing.
-            ha_deg = calc_utils.sf_utils.ra_to_ha(ra_deg, dt)
-            roll_deg = (
-                roll_deg - np.sign(ha_deg) * 180
-            )  # In essence, gives: roll_deg = -pa_deg
-            # End of HACK
-            """
             # chart.py uses roll to rotate the chart around the target center
             # by roll in anti-clockwise direction. Use -parallactic_angle
             roll_deg = -calc_utils.sf_utils.radec_to_pa(ra_deg, dec_deg, dt)
         else:
             # No position or time/date available. Default to display in equatorial coordinate
             roll_deg = 0.0  # NCP up
-    elif mount_type == "EQ":
-        # EQ-mounts: Display chart in equatorial coordinates
-        roll_deg = 0.0  # NCP up
+    elif chart_coord_sys == "EQ (Auto)":
+        # Equatorial coordinates: (North-up/south-up depending on latitude)
+        roll_deg = 0.0  # Default (NCP up)
         # If location is available, adjust roll for hemisphere:
         if location:
             if location.lat < 0.0:
                 roll_deg = 180.0  # SCP up (for southern hemisphere)
+    elif chart_coord_sys == "EQ (North-up)":
+        roll_deg = 0.0
+    elif chart_coord_sys == "EQ (South-up)":
+        roll_deg = 180.0
     else:
-        logger.error(f"Unknown mount type: {mount_type}. Cannot set roll.")
+        logger.error(f"Unknown chart coordinate system: {chart_coord_sys}. Defaulting to EQ North-up.")
         roll_deg = 0.0  # NCP up
 
     return roll_deg
