@@ -282,6 +282,7 @@ class UILog(UIModule):
             solution=self.shared_state.solution(),
             notes=notes,
         )
+        self.object.logged = True
         self.reset_config()
 
     def key_number(self, number: int):

@@ -33,6 +33,8 @@ CATALOG_LOADERS = [
     ("specialized_loaders", "load_arp"),
     ("specialized_loaders", "load_tlk_90_vars"),
     ("wds_loader", "load_wds"),
+    ("harris_loader", "load_harris"),
+    ("lynga_loader", "load_lynga"),
 ]
 
 POST_PROCESSING_FUNCTIONS = [

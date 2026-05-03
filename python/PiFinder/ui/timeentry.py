@@ -1,5 +1,15 @@
+from typing import Any, TYPE_CHECKING
+
 from PIL import Image, ImageDraw
+
+import PiFinder.ui.callbacks as callbacks
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.dateentry import UIDateEntry
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
 
 
 class UITimeEntry(UIModule):
@@ -8,6 +18,7 @@ class UITimeEntry(UIModule):
 
         self.callback = self.item_definition.get("callback")
         self.custom_callback = self.item_definition.get("custom_callback")
+        self._skip_callback = False
         # Initialize three empty boxes for hours, minutes, seconds
         self.boxes = ["", "", ""]
         self.current_box = 0  # Start with hours
@@ -96,7 +107,7 @@ class UITimeEntry(UIModule):
             (10, note_y),
             _("Enter Local Time"),
             font=self.fonts.base.font,
-            fill=self.red,  # Brighter color for better visibility
+            fill=self.red,
         )
         return note_y + 15  # Return the Y position after this element
 
@@ -109,26 +120,25 @@ class UITimeEntry(UIModule):
 
     def draw_legend(self, start_y):
         legend_y = start_y
-        # Still using full red for better visibility but smaller font
         legend_color = self.red
 
         self.draw.text(
             (10, legend_y),
-            _("  Next box"),  # Right
-            font=self.fonts.base.font,  # Using base font
-            fill=legend_color,
-        )
-        legend_y += 12  # Standard spacing
-        self.draw.text(
-            (10, legend_y),
-            _("  Done"),  # Left
+            _("\uf054 Done"),
             font=self.fonts.base.font,
             fill=legend_color,
         )
-        legend_y += 12  # Standard spacing
+        legend_y += 12
         self.draw.text(
             (10, legend_y),
-            _("󰍴  Delete/Previous"),  # minus
+            _("\uf053 Cancel"),
+            font=self.fonts.base.font,
+            fill=legend_color,
+        )
+        legend_y += 12
+        self.draw.text(
+            (10, legend_y),
+            _("\U000f0374 Delete/Previous"),
             font=self.fonts.base.font,
             fill=legend_color,
         )
@@ -158,8 +168,8 @@ class UITimeEntry(UIModule):
         if self.validate_box(self.current_box, new_value):
             self.boxes[self.current_box] = new_value
             # Auto-advance to next box if we have 2 digits
-            if len(new_value) == 2:
-                self.current_box = (self.current_box + 1) % 3
+            if len(new_value) == 2 and self.current_box < 2:
+                self.current_box += 1
 
     def key_minus(self):
         """Delete last digit in current box or move to previous box if empty"""
@@ -171,12 +181,38 @@ class UITimeEntry(UIModule):
             self.current_box = (self.current_box - 1) % 3
 
     def key_right(self):
-        """Move to next box"""
-        self.current_box = (self.current_box + 1) % 3
+        """Confirm time and chain to date entry, or cycle to next box."""
+        if all(self.boxes) and self.current_box == 2:
+            time_str = (
+                f"{self.boxes[0] or '00'}:{self.boxes[1] or '00'}"
+                f":{self.boxes[2] or '00'}"
+            )
+            self._skip_callback = True
+            self.remove_from_stack()
+            date_item = {
+                "name": "Set Date",
+                "class": UIDateEntry,
+                "time_str": time_str,
+                "custom_callback": callbacks.set_datetime,
+            }
+            self.add_to_stack(date_item)
+            return False
+        if self.current_box < 2:
+            self.current_box += 1
         return False
+
+    def key_left(self) -> bool:
+        if self.current_box > 0:
+            self.current_box -= 1
+            return False
+        self._skip_callback = True
+        self.message(_("Cancelled"), 1)
+        return True
 
     def inactive(self):
         """Called when the module is no longer the active module"""
+        if self._skip_callback:
+            return
         if self.custom_callback:
             time_str = f"{self.boxes[0] or '00'}:{self.boxes[1] or '00'}:{self.boxes[2] or '00'}"
             self.custom_callback(self, time_str)
@@ -184,17 +220,8 @@ class UITimeEntry(UIModule):
     def update(self, force=False):
         self.draw.rectangle((0, 0, 128, 128), fill=self.black)
 
-        # Draw title
-        # self.draw.text(
-        #     (7, 5),
-        #     "Enter Time:",
-        #     font=self.fonts.base.font,
-        #     fill=self.half_red,
-        # )
-
         self.draw_time_boxes()
 
-        # Draw additional elements with proper positioning
         note_y = self.draw_local_time_note()
         separator_y = self.draw_separator(note_y + 15)
         self.draw_legend(separator_y)
@@ -202,3 +229,21 @@ class UITimeEntry(UIModule):
         if self.shared_state:
             self.shared_state.set_screen(self.screen)
         return self.screen_update()
+
+    def serialize_ui_state(self) -> dict:
+        """
+        Serialize the current state of the time entry for inter-process communication
+        """
+        try:
+            # Format the current time value as HH:MM:SS
+            time_str = f"{self.boxes[0] or '00'}:{self.boxes[1] or '00'}:{self.boxes[2] or '00'}"
+
+            return {
+                "current_box": self.current_box,
+                "time_values": self.boxes,
+                "total_boxes": len(self.boxes),
+                "placeholders": self.placeholders,
+                "value": time_str,
+            }
+        except Exception as e:
+            return {"error": f"Failed to serialize time entry state: {str(e)}"}

@@ -455,8 +455,9 @@ except ImportError:
     pandas
     grpcio
     protobuf
-    bottle
-    cheroot
+    flask
+    flask-babel
+    waitress
     requests
     pytz
     skyfield
@@ -501,6 +502,7 @@ except ImportError:
     mypy
     luma-emulator
     pyhotkey
+    selenium
   ];
 
   pifinderEnv = pifinderPython.withPackages (ps:

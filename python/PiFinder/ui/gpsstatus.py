@@ -317,6 +317,15 @@ class UIGPSStatus(UIModule):
             draw_pos += 10
             self.draw.text(
                 (0, draw_pos),
+                _("Date:  {date}").format(
+                    date=time.strftime("%Y-%m-%d") if time else "---"
+                ),
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+            draw_pos += 10
+            self.draw.text(
+                (0, draw_pos),
                 _("From:  {location_source}").format(location_source=location.source),
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
