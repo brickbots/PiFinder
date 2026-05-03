@@ -13,6 +13,7 @@ TODO:
 - Refactor into class PointingTracker
 
 """
+from __future__ import annotations  # To support | in typehints (remove this for Python 3.10+)
 
 import datetime
 import queue
@@ -275,7 +276,7 @@ def get_roll_by_chart_coord_sys(
     dec_deg: float,  # Declination of the target in degrees
     chart_coord_sys: str,  # "Alt/Az" or "EQ"
     location=None,  # astropy EarthLocation object or None
-    dt: datetime.datetime | None=None,  # datetime.datetime object or None
+    dt: datetime.datetime | None = None,  # datetime object or None
 ) -> float:
     """
     Returns the roll (in degrees) depending on the configured chart coordinate
