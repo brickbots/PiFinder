@@ -144,6 +144,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     # Push new solved to shared state
                     shared_state.set_solution(solved)
                     shared_state.set_solve_state(True)
+                    print(solved)
                     last_solve_time = solved["solved_time"]
 
     except EOFError:
@@ -305,16 +306,16 @@ def get_roll_by_chart_coord_sys(
         else:
             # No position or time/date available. Default to display in equatorial coordinate
             roll_deg = 0.0  # NCP up
-    elif chart_coord_sys == "EQ (Auto)":
+    elif chart_coord_sys == "eq_auto":
         # Equatorial coordinates: (North-up/south-up depending on latitude)
         roll_deg = 0.0  # Default (NCP up)
         # If location is available, adjust roll for hemisphere:
         if location:
             if location.lat < 0.0:
                 roll_deg = 180.0  # SCP up (for southern hemisphere)
-    elif chart_coord_sys == "EQ (North-up)":
+    elif chart_coord_sys == "eq_north_up":
         roll_deg = 0.0
-    elif chart_coord_sys == "EQ (South-up)":
+    elif chart_coord_sys == "eq_south_up":
         roll_deg = 180.0
     else:
         logger.error(f"Unknown chart coordinate system: {chart_coord_sys}. Defaulting to EQ North-up.")

@@ -879,11 +879,11 @@ pifinder_menu = {
                                 },
                                 {
                                     "name": _("EQ (North-up)"),
-                                    "value": "eq_ncp",
+                                    "value": "eq_north_up",
                                 },
                                 {
                                     "name": _("EQ (South-up)"),
-                                    "value": "eq_scp",
+                                    "value": "eq_south_up",
                                 },
                             ],
                         },
