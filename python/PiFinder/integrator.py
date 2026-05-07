@@ -144,8 +144,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     # Push new solved to shared state
                     shared_state.set_solution(solved)
                     shared_state.set_solve_state(True)
-                    print(solved)
-                    last_solve_time = solved["solved_time"]
+                    last_solve_time = solved["solve_time"]
 
     except EOFError:
         logger.error("Main no longer running for integrator")
