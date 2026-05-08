@@ -264,7 +264,7 @@ def get_alt_az(RA_deg, Dec_deg, location, dt) -> tuple[float | None, float | Non
     Get Alt/Az from RA/Dec, location and datetime.
     RETURNS: alt_deg, az_deg
     """
-    if RA_deg is None or Dec_deg is None:
+    if RA_deg is None or Dec_deg is None or location is None or dt is None:
         return None, None
     else:
         calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
