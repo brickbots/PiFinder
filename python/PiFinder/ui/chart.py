@@ -271,7 +271,7 @@ class UIChart(UIModule):
         self.set_fov(self.fov_list[self.fov_index])
         self.update()
 
-    def _get_roll_by_chart_coord_sys(
+    def _get_roll_by_chart_coord_sys(self,
         ra_deg: float,  # Right Ascension of the target in degrees
         dec_deg: float,  # Declination of the target in degrees
         chart_coord_sys: str,  # "Alt/Az" or "EQ"
