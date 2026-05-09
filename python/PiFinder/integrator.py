@@ -15,7 +15,6 @@ TODO:
 """
 from __future__ import annotations  # To support | in typehints (remove this for Python 3.10+)
 
-import datetime
 import queue
 import time
 import copy

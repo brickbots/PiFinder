@@ -5,7 +5,9 @@
 This module contains the chart (starfield + constellation lines) UI Module class
 
 """
+from __future__ import annotations  # To support | in typehints (remove this for Python 3.10+)
 
+import datetime
 import time
 from PIL import ImageChops, Image
 
@@ -163,7 +165,6 @@ class UIChart(UIModule):
                     location=self.shared_state.location(), 
                     dt=self.shared_state.datetime()  # TODO used solution["solve_time"]?
                 )
-
                 # This needs to be called first to set RA/DEC/ROLL
                 image_obj, _visible_stars = self.starfield.plot_starfield(
                     self.solution["RA"],
@@ -274,9 +275,9 @@ class UIChart(UIModule):
     def _get_roll_by_chart_coord_sys(self,
         ra_deg: float,  # Right Ascension of the target in degrees
         dec_deg: float,  # Declination of the target in degrees
-        chart_coord_sys: str,  # "Alt/Az" or "EQ"
-        location=None,  # astropy EarthLocation object or None
-        dt: datetime.datetime | None = None,  # datetime object or None
+        chart_coord_sys: str,
+        location=None,
+        dt: datetime.datetime | None = None,
     ) -> float:
         """
         Returns the roll (in degrees) depending on the configured chart coordinate
@@ -290,7 +291,6 @@ class UIChart(UIModule):
         system with NCP or SCP up.
 
         Assumes that location has already been set in calc_utils.sf_utils.
-        # TODO: Move this to chart.py
         """
         if (ra_deg is None) or (dec_deg is None):
             return None  # Can't calculate roll without RA/Dec
