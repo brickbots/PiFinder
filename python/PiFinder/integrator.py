@@ -135,11 +135,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                                                         shared_state.location(), 
                                                         shared_state.datetime())
 
-                solved["Roll"] = get_roll_by_chart_coord_sys(solved["RA"], solved["Dec"], 
-                                                                chart_coord_sys=cfg.get_option("chart_coord_sys"),
-                                                                location=shared_state.location(), 
-                                                                dt=shared_state.datetime())
-                
                 if (solved["RA"] is not None) and (solved["Dec"] is not None):
                     # Push new solved to shared state
                     shared_state.set_solution(solved)
@@ -269,58 +264,6 @@ def get_alt_az(RA_deg, Dec_deg, location, dt) -> tuple[float | None, float | Non
     else:
         calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
         return calc_utils.sf_utils.radec_to_altaz(RA_deg, Dec_deg, dt)
-
-
-def get_roll_by_chart_coord_sys(
-    ra_deg: float,  # Right Ascension of the target in degrees
-    dec_deg: float,  # Declination of the target in degrees
-    chart_coord_sys: str,  # "Alt/Az" or "EQ"
-    location=None,  # astropy EarthLocation object or None
-    dt: datetime.datetime | None = None,  # datetime object or None
-) -> float:
-    """
-    Returns the roll (in degrees) depending on the configured chart coordinate
-    system. The RA and Dec of the target should be provided (in degrees).
-
-    * horiz: Display the chart in the horizontal coordinate so that up in the
-      chart points to the Zenith.
-    * EQ (Auto): Display the chart in the equatorial coordinate system.
-      Automatically select NCP or SCP-up based on location.
-    * EQ (North-up), EQ (South-up): Display chart in the equatorial coordinate
-      system with NCP or SCP up.
-
-    Assumes that location has already been set in calc_utils.sf_utils.
-    # TODO: Move this to chart.py
-    """
-    if (ra_deg is None) or (dec_deg is None):
-        return None  # Can't calculate roll without RA/Dec
-
-    if chart_coord_sys == "horiz":
-        # Horizontal coordinates (alt/az):
-        if location and dt:
-            calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
-            # chart.py uses roll to rotate the chart around the target center
-            # by roll in anti-clockwise direction. Use -parallactic_angle
-            roll_deg = -calc_utils.sf_utils.radec_to_pa(ra_deg, dec_deg, dt)
-        else:
-            # No position or time/date available. Default to display in equatorial coordinate
-            roll_deg = 0.0  # NCP up
-    elif chart_coord_sys == "eq_auto":
-        # Equatorial coordinates: (North-up/south-up depending on latitude)
-        roll_deg = 0.0  # Default (NCP up)
-        # If location is available, adjust roll for hemisphere:
-        if location:
-            if location.lat < 0.0:
-                roll_deg = 180.0  # SCP up (for southern hemisphere)
-    elif chart_coord_sys == "eq_north_up":
-        roll_deg = 0.0
-    elif chart_coord_sys == "eq_south_up":
-        roll_deg = 180.0
-    else:
-        logger.error(f"Unknown chart coordinate system: {chart_coord_sys}. Defaulting to EQ North-up.")
-        roll_deg = 0.0  # NCP up
-
-    return roll_deg
 
 
 def set_cam2scope_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
