@@ -159,7 +159,7 @@ class UIChart(UIModule):
                 self.plot_no_solve()
             elif self.solution_is_new(last_solve_time):
                 # Solution is new so plot the updated chart
-                self.solution["Roll"] = self._get_roll_by_chart_coord_sys(
+                self.solution["Roll"] = get_roll_by_chart_coord_sys(
                     self.solution["RA"], self.solution["Dec"], 
                     chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
                     location=self.shared_state.location(), 
@@ -272,52 +272,54 @@ class UIChart(UIModule):
         self.set_fov(self.fov_list[self.fov_index])
         self.update()
 
-    def _get_roll_by_chart_coord_sys(self,
-        ra_deg: float,  # Right Ascension of the target in degrees
-        dec_deg: float,  # Declination of the target in degrees
-        chart_coord_sys: str,
-        location=None,
-        dt: datetime.datetime | None = None,
-    ) -> float:
-        """
-        Returns the roll (in degrees) depending on the configured chart coordinate
-        system. The RA and Dec of the target should be provided (in degrees).
 
-        * horiz: Display the chart in the horizontal coordinate so that up in the
-        chart points to the Zenith.
-        * EQ (Auto): Display the chart in the equatorial coordinate system.
-        Automatically select NCP or SCP-up based on location.
-        * EQ (North-up), EQ (South-up): Display chart in the equatorial coordinate
-        system with NCP or SCP up.
 
-        Assumes that location has already been set in calc_utils.sf_utils.
-        """
-        if (ra_deg is None) or (dec_deg is None):
-            return None  # Can't calculate roll without RA/Dec
+def get_roll_by_chart_coord_sys(
+    ra_deg: float,  # Right Ascension of the target in degrees
+    dec_deg: float,  # Declination of the target in degrees
+    chart_coord_sys: str,
+    location=None,
+    dt: datetime.datetime | None = None,
+) -> float:
+    """
+    Returns the roll (in degrees) depending on the configured chart coordinate
+    system. The RA and Dec of the target should be provided (in degrees).
 
-        if chart_coord_sys == "horiz":
-            # Horizontal coordinates (alt/az):
-            if location and dt:
-                calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
-                # chart.py uses roll to rotate the chart around the target center
-                # by roll in anti-clockwise direction. Use -parallactic_angle
-                roll_deg = -calc_utils.sf_utils.radec_to_pa(ra_deg, dec_deg, dt)
-            else:
-                # No position or time/date available. Default to display in equatorial coordinate
-                roll_deg = 0.0  # NCP up
-        elif chart_coord_sys == "eq_auto":
-            # Equatorial coordinates: (North-up/south-up depending on latitude)
-            roll_deg = 0.0  # Default (NCP up)
-            # If location is available, adjust roll for hemisphere:
-            if location:
-                if location.lat < 0.0:
-                    roll_deg = 180.0  # SCP up (for southern hemisphere)
-        elif chart_coord_sys == "eq_north_up":
-            roll_deg = 0.0
-        elif chart_coord_sys == "eq_south_up":
-            roll_deg = 180.0
+    * horiz: Display the chart in the horizontal coordinate so that up in the
+    chart points to the Zenith.
+    * EQ (Auto): Display the chart in the equatorial coordinate system.
+    Automatically select NCP or SCP-up based on location.
+    * EQ (North-up), EQ (South-up): Display chart in the equatorial coordinate
+    system with NCP or SCP up.
+
+    Assumes that location has already been set in calc_utils.sf_utils.
+    """
+    if (ra_deg is None) or (dec_deg is None):
+        return None  # Can't calculate roll without RA/Dec
+
+    if chart_coord_sys == "horiz":
+        # Horizontal coordinates (alt/az):
+        if location and dt:
+            calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
+            # chart.py uses roll to rotate the chart around the target center
+            # by roll in anti-clockwise direction. Use -parallactic_angle
+            roll_deg = -calc_utils.sf_utils.radec_to_pa(ra_deg, dec_deg, dt)
         else:
-            logger.error(f"Unknown chart coordinate system: {chart_coord_sys}. Defaulting to EQ North-up.")
+            # No position or time/date available. Default to display in equatorial coordinate
             roll_deg = 0.0  # NCP up
+    elif chart_coord_sys == "eq_auto":
+        # Equatorial coordinates: (North-up/south-up depending on latitude)
+        roll_deg = 0.0  # Default (NCP up)
+        # If location is available, adjust roll for hemisphere:
+        if location:
+            if location.lat < 0.0:
+                roll_deg = 180.0  # SCP up (for southern hemisphere)
+    elif chart_coord_sys == "eq_north_up":
+        roll_deg = 0.0
+    elif chart_coord_sys == "eq_south_up":
+        roll_deg = 180.0
+    else:
+        logger.error(f"Unknown chart coordinate system: {chart_coord_sys}. Defaulting to EQ North-up.")
+        roll_deg = 0.0  # NCP up
 
-        return roll_deg
+    return roll_deg
