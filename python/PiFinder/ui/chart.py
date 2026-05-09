@@ -8,6 +8,7 @@ This module contains the chart (starfield + constellation lines) UI Module class
 from __future__ import annotations  # To support | in typehints (remove this for Python 3.10+)
 
 import datetime
+import logging
 import time
 from PIL import ImageChops, Image
 
@@ -16,6 +17,9 @@ from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
 from PiFinder import calc_utils
+
+
+logger = logging.getLogger("Chart")
 
 
 class UIChart(UIModule):
