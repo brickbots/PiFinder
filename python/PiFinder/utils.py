@@ -39,6 +39,10 @@ def serialize_solution(solution: dict) -> str:
 
         if "numpy.float" in str(type(v)):
             v = float(v)
+
+        if "quaternion" in str(type(v)):
+            v = v.components.tolist()
+
         out_dict[k] = v
 
     return json.dumps(out_dict)

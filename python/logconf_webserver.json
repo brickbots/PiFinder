@@ -1,0 +1,81 @@
+{
+    // Note that the JSON5 library that we use for configuration supports comments in JSON files.
+    "version": 1,
+    "disable_existing_loggers": false, // THIS MUST BE FALSE for logging to work
+    "formatters": {
+        "default": {
+            "format": "%(asctime)s %(processName)s-%(name)s:%(levelname)s:%(message)s"
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "level": "DEBUG",
+            "formatter": "default",
+            "stream": "ext://sys.stdout"
+        },
+        "null": {
+            "class": "logging.NullHandler",
+            "level": "ERROR"
+        }
+    },
+    "loggers": {
+
+        /////////////////////////////////////////////////////////////////
+        ////// root logger
+        //
+        "": {
+            "level": "ERROR",
+            "handlers": ["console"]
+            // The file handler is added automatically by code
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Web Server Subsystem
+        //
+        "Server": {
+            "level": "DEBUG"
+        },
+        // Disable logs related to streaming the actual log in the webserver. 
+        "Server.Logs": {
+            "level": "ERROR"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Flask Framework
+        //
+        "flask": {
+            "level": "DEBUG"
+        },
+        "flask.app": {
+            "level": "DEBUG"
+        },
+        "jinja2": {
+            "level": "DEBUG"
+        },
+        "waitress": {
+            "level": "DEBUG"
+        },
+        "werkzeug": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Third party Libraries
+        //
+        "PIL.PngImagePlugin": {
+            "level": "WARNING"
+        },
+        "tetra3.Tetra3": {
+            "level": "WARNING"
+        },
+        "picamera2.picamera2": {
+            "level": "WARNING"
+        },
+        "grpc": {
+            "level": "ERROR",
+            "propagate": false,
+            "handlers": ["null"]
+        },
+   }
+}
