@@ -243,8 +243,7 @@ class UIChart(UIModule):
         if last_solve_time <= self.last_update:
             return False
         if (
-            self.solution["Roll"] is None
-            or self.solution["RA"] is None
+            self.solution["RA"] is None
             or self.solution["Dec"] is None
         ):
             return False
