@@ -388,6 +388,25 @@ class Skyfield_utils:
 
         return ha_hrs * 180 / 12  # Hour angle [deg]
 
+    def radec_to_pa(self, ra_deg, dec_deg, dt):
+        """
+        Returns the parallactic angle of an object at (ra, dec) as seen from an
+        observer at latitiude, lat and time, dt. See hadec_to_pa() for how
+        parallactic angle is defined.
+
+        INPUTS:
+        ra_deg: Right ascension [deg]
+        dec_deg: Declination [deg]
+        dt: Python datetime object (must be timezone-aware)
+
+        RETURNS:
+        pa_deg: Parallactic angle [deg]
+        """
+        ha_deg = self.ra_to_ha(ra_deg, dt)  # Note that HA is in deg
+        lat_deg = self._observer_geoid.latitude.degrees
+        pa_deg = hadec_to_pa(ha_deg, dec_deg, lat_deg)
+        return pa_deg  # Parallactic angle [deg]
+
     def radec_to_roll(self, ra_deg, dec_deg, dt):
         """
         Returns the roll (field rotation) of an object at (ra, dec) as
