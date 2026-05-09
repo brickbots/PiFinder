@@ -124,7 +124,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
                     pointing_updated = True
 
-            # Update Alt, Az, Roll only if newer than last push
+            # Update Alt, Az only if newer than last push
             if pointing_updated and solved["solve_time"] > last_solve_time:
                 solved["constellation"] = get_constellation(solved["RA"], solved["Dec"])
 

@@ -163,9 +163,9 @@ class UIChart(UIModule):
                     self.solution["RA"], self.solution["Dec"], 
                     chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
                     location=self.shared_state.location(), 
-                    dt=self.shared_state.datetime()  # TODO used solution["solve_time"]?
+                    dt=self.shared_state.datetime()
                 )
-                # This needs to be called first to set RA/DEC/rot_angle
+                # This needs to be called first to set RA/DEC/chart_rot_angle
                 image_obj, _visible_stars = self.starfield.plot_starfield(
                     self.solution["RA"],
                     self.solution["Dec"],
