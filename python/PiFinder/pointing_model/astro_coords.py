@@ -10,6 +10,7 @@ from typing import Union  # When updated to Python 3.10+, remove and use new typ
 from PiFinder.pointing_model.quaternion_transforms import q_eq2radec
 
 
+
 @dataclass
 class RaDecRoll:
     """
@@ -21,10 +22,10 @@ class RaDecRoll:
     return None if the value is np.nan.
     """
 
-    ra: float = np.nan  # Angles in radians
+    ra: float = np.nan  # All angles in radians
     dec: float = np.nan
     roll: float = np.nan
-    is_set = False
+    valid = False
 
     def __init__(self, ra: float, dec: float, roll: float, deg=False):
         self.set(ra, dec, roll, deg=deg)
@@ -39,7 +40,7 @@ class RaDecRoll:
         self.ra = np.nan
         self.dec = np.nan
         self.roll = np.nan
-        self.is_set = False
+        self.valid = False
     
     def set(
         self, 
@@ -52,7 +53,12 @@ class RaDecRoll:
         self.ra = ra if ra is not None else np.nan
         self.dec = dec if dec is not None else np.nan
         self.roll = roll if roll is not None else np.nan
-        self.is_set = True
+        
+        if np.isnan(self.ra) or np.isnan(self.dec) or np.isnan(self.roll):
+            self.valid = False
+        else:
+            self.valid = True
+        
         if deg:
             self.ra = np.deg2rad(self.ra)
             self.dec = np.deg2rad(self.dec)
