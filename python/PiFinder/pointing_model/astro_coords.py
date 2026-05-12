@@ -7,7 +7,7 @@ import numpy as np
 import quaternion
 from typing import Union  # When updated to Python 3.10+, remove and use new type hints
 
-import PiFinder.pointing_model.quaternion_transforms as qt
+from PiFinder.pointing_model.quaternion_transforms import q_eq2radec
 
 
 @dataclass
@@ -59,7 +59,7 @@ class RaDecRoll:
         Set from a quaternion rotation relative to the Equatorial frame.
         Re-using code from quaternion_transforms.q_eq2radec.
         """
-        ra, dec, roll = qt.q_eq2radec(q_eq)
+        ra, dec, roll = q_eq2radec(q_eq)
         cls.set(ra, dec, roll)
 
     def get(self, 
@@ -70,14 +70,14 @@ class RaDecRoll:
         Returns (ra, dec, roll) in radians.  If use_none is True, returns None
         for any unset (nan) values.
         """
-        if use_none:
-            ra = self.ra if not np.isnan(self.ra) else None
-            dec = self.dec if not np.isnan(self.dec) else None
-            roll = self.roll if not np.isnan(self.roll) else None
+        if deg:
+            ra, dec, roll = np.rad2deg(ra), np.rad2deg(dec), np.rad2deg(roll)
         else:
             ra, dec, roll = self.ra, self.dec, self.roll
 
-        if deg:
-            return np.rad2deg(ra), np.rad2deg(dec), np.rad2deg(roll)
-        else:
-            return ra, dec, roll
+        if use_none:
+            ra = ra if not np.isnan(ra) else None
+            dec = dec if not np.isnan(dec) else None
+            roll = roll if not np.isnan(roll) else None
+
+        return ra, dec, roll
