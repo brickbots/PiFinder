@@ -7,8 +7,7 @@ import numpy as np
 import quaternion
 from typing import Union  # When updated to Python 3.10+, remove and use new type hints
 
-from PiFinder.pointing_model.quaternion_transforms import q_eq2radec
-
+from PiFinder.pointing_model.quaternion_transforms import q_eq2radec, radec2q_eq
 
 
 @dataclass
