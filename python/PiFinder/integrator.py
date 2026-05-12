@@ -164,11 +164,11 @@ def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dic
             q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
 
         # Update:
-        solved_cam = RaDecRoll()
-        solved_cam.set_from_deg(
+        solved_cam = RaDecRoll.set(
             solved["camera_center"]["RA"],
             solved["camera_center"]["Dec"],
             solved["camera_center"]["Roll"],
+            deg=True
         )
         imu_dead_reckoning.update_plate_solve_and_imu(solved_cam, q_x2imu)
 
@@ -220,11 +220,11 @@ def update_imu(
             solved["camera_center"]["RA"],
             solved["camera_center"]["Dec"],
             solved["camera_center"]["Roll"],
-        ) = cam_eq.get_deg(use_none=True)
+        ) = cam_eq.get(deg=True)
 
         # Store the current scope pointing estimate
         scope_eq = imu_dead_reckoning.get_scope_radec()
-        solved["RA"], solved["Dec"], solved["Roll"] = scope_eq.get_deg(use_none=True)
+        solved["RA"], solved["Dec"], solved["Roll"] = scope_eq.get(deg=True)
         solved["solve_time"] = imu_time
         solved["solve_source"] = "IMU"
 
@@ -271,17 +271,16 @@ def set_cam2scope_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     TODO: Do this once at alignment
     """
     # RA, Dec of camera center::
-    solved_cam = RaDecRoll()
-    solved_cam.set_from_deg(
+    solved_cam = RaDecRoll.set(
         solved["camera_center"]["RA"],
         solved["camera_center"]["Dec"],
         solved["camera_center"]["Roll"],
+        deg=True
     )
 
     # RA, Dec of target (where scope is pointing):
     solved["Roll"] = 0  # Target roll isn't calculated by Tetra3. Set to zero here
-    solved_scope = RaDecRoll()
-    solved_scope.set_from_deg(solved["RA"], solved["Dec"], solved["Roll"])
+    solved_scope = RaDecRoll.set(solved["RA"], solved["Dec"], solved["Roll"], deg=True)
 
     # Set alignment in imu_dead_reckoning
     imu_dead_reckoning.set_cam2scope_alignment(solved_cam, solved_scope)
