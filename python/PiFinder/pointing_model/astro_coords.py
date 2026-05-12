@@ -85,7 +85,7 @@ class RaDecRoll:
         for any unset (nan) values.
         """
         if deg:
-            ra, dec, roll = np.rad2deg(ra), np.rad2deg(dec), np.rad2deg(roll)
+            ra, dec, roll = np.rad2deg(self.ra), np.rad2deg(self.dec), np.rad2deg(self.roll)
         else:
             ra, dec, roll = self.ra, self.dec, self.roll
 
