@@ -19,14 +19,20 @@ class RaDecRoll:
     The set methods allow values to be float or None but internally, None will
     be stored as np.nan so that the type is consistent. the get methods will
     return None if the value is np.nan.
-
-    NOTE: All angles are in radians.
     """
 
-    ra: float = np.nan
+    ra: float = np.nan  # Angles in radians
     dec: float = np.nan
     roll: float = np.nan
     is_set = False
+
+    def __init__(self, ra: float, dec: float, roll: float, deg=False):
+        self.set(ra, dec, roll, deg=deg)
+    
+    @classmethod
+    def from_quaternion(cls, q_eq: quaternion.quaternion):
+        ra, dec, roll = q_eq2radec(q_eq)
+        return cls(ra, dec, roll)
 
     def reset(self):
         """Reset to unset state"""
@@ -35,32 +41,30 @@ class RaDecRoll:
         self.roll = np.nan
         self.is_set = False
     
-    @classmethod
     def set(
-        cls, 
+        self, 
         ra: Union[float, None], 
         dec: Union[float, None], 
         roll: Union[float, None],
         deg=False  # If True, input angles are in degrees
     ):
         """Set using radians"""
-        cls.ra = ra if ra is not None else np.nan
-        cls.dec = dec if dec is not None else np.nan
-        cls.roll = roll if roll is not None else np.nan
-        cls.is_set = True
+        self.ra = ra if ra is not None else np.nan
+        self.dec = dec if dec is not None else np.nan
+        self.roll = roll if roll is not None else np.nan
+        self.is_set = True
         if deg:
-            cls.ra = np.deg2rad(cls.ra)
-            cls.dec = np.deg2rad(cls.dec)
-            cls.roll = np.deg2rad(cls.roll)
+            self.ra = np.deg2rad(self.ra)
+            self.dec = np.deg2rad(self.dec)
+            self.roll = np.deg2rad(self.roll)
 
-    @classmethod
-    def set_from_quaternion(cls, q_eq: quaternion.quaternion):
+    def set_from_quaternion(self, q_eq: quaternion.quaternion):
         """
         Set from a quaternion rotation relative to the Equatorial frame.
         Re-using code from quaternion_transforms.q_eq2radec.
         """
         ra, dec, roll = q_eq2radec(q_eq)
-        cls.set(ra, dec, roll)
+        self.set(ra, dec, roll)
 
     def get(self, 
             use_none=True, # If True, returns None instead of np.nan
