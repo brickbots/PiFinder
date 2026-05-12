@@ -101,7 +101,7 @@ class ImuDeadReckoning:
         q_x2imu: [quaternion] Raw IMU measurement quaternions. This is the IMU
             frame orientation wrt unknown drifting reference frame X.
         """
-        if not solved_cam.is_set:
+        if not solved_cam.valid:
             return  # No update
 
         # Update plate-solved coord: Camera frame relative to the Equatorial
