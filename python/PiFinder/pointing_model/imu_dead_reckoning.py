@@ -142,7 +142,7 @@ class ImuDeadReckoning:
         dead_reckoning to indicate if the estimate is from dead-reckoning
         (True) or from plate solving (False).
         """
-        ra_dec_roll = RaDecRoll.set_from_quaternion(self.q_eq2cam)
+        ra_dec_roll = RaDecRoll.from_quaternion(self.q_eq2cam)
 
         return ra_dec_roll
 
@@ -152,7 +152,7 @@ class ImuDeadReckoning:
         to indicate if the estimate is from dead-reckoning (True) or from plate
         solving (False).
         """
-        ra_dec_roll = RaDecRoll.set_from_quaternion(self.q_eq2scope)
+        ra_dec_roll = RaDecRoll.from_quaternion(self.q_eq2scope)
 
         return ra_dec_roll
 
