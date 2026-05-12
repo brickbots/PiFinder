@@ -61,10 +61,15 @@ class RaDecRoll:
     def set_from_quaternion(self, q_eq: quaternion.quaternion):
         """
         Set from a quaternion rotation relative to the Equatorial frame.
-        Re-using code from quaternion_transforms.q_eq2radec.
         """
         ra, dec, roll = q_eq2radec(q_eq)
         self.set(ra, dec, roll)
+
+    def as_quaternion(self) -> quaternion.quaternion:
+        """
+        Return the quaternion rotation relative to the Equatorial frame.
+        """
+        return radec2q_eq(self.ra, self.dec, self.roll)
 
     def get(self, 
             use_none=True, # If True, returns None instead of np.nan
