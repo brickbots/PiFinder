@@ -10,7 +10,7 @@ NOTE: All angles are in radians.
 import numpy as np
 import quaternion
 
-from PiFinder.pointing_model.astro_coords import RaDecRoll
+from PiFinder.types.coordinates import RaDecRoll
 import PiFinder.pointing_model.quaternion_transforms as qt
 
 
