@@ -1,5 +1,5 @@
 """
-Various astronomical coordinates functions
+Astronomical coordinate types
 """
 
 from dataclasses import dataclass
@@ -20,7 +20,6 @@ class RaDecRoll:
     be stored as np.nan so that the type is consistent. the get methods will
     return None if the value is np.nan.
     """
-
     ra: float = np.nan  # All angles in radians
     dec: float = np.nan
     roll: float = np.nan
@@ -95,3 +94,37 @@ class RaDecRoll:
             roll = roll if not np.isnan(roll) else None
 
         return ra, dec, roll
+
+
+@dataclass
+class RaDec:
+    """
+    Data class for equatorial coordinates defined by (RA, Dec).
+
+    The set methods allow values to be float or None but internally, None will
+    be stored as np.nan so that the type is consistent. the get methods will
+    return None if the value is np.nan.
+    """
+    ra: float = np.nan  # All angles in radians
+    dec: float = np.nan
+    valid = False
+
+    def __init__(self, ra: float, dec: float, roll: float, deg=False):
+        raise NotImplementedError("Outline for RaDec class")
+  
+
+@dataclass
+class AltAz:
+    """
+    Data class for horizontal coordinates defined by (Alt, Az).
+
+    The set methods allow values to be float or None but internally, None will
+    be stored as np.nan so that the type is consistent. the get methods will
+    return None if the value is np.nan.
+    """
+    alt: float = np.nan  # All angles in radians
+    az: float = np.nan
+    valid = False
+
+    def __init__(self, alt: float, az: float, deg=False):
+        raise NotImplementedError("Outline for AltAz class")
