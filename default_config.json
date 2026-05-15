@@ -16,6 +16,7 @@
     "chart_dso": 128,
     "chart_reticle": 128,
     "chart_constellations": 64,
+    "chart_coord_sys": "horiz",
     "solve_pixel": [256, 256],
     "gps_type": "ublox",
     "gps_baud_rate": 9600,

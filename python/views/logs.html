@@ -1,4 +1,6 @@
-% include("header.tpl", title="PiFinder Logs")
+{% extends "base.html" %}
+
+{% block content %}
 <style>
   .log-container {
     background-color: #1e1e1e;
@@ -98,40 +100,48 @@
 
 <div class="row valign-wrapper" style="margin: 0px;">
   <div class="col s12">
-    <h5 class="grey-text">PiFinder Logs</h5>
+    <h5 class="grey-text">{{ _('PiFinder Logs') }}</h5>
   </div>
 </div>
+
+{% if error_message %}
+<div class="row">
+  <div class="col s12">
+    <p class="red-text">{{ error_message }}</p>
+  </div>
+</div>
+{% endif %}
 
 <div class="card grey darken-2">
   <div class="card-content">
     <div class="row">
       <div class="col s12">
         <div class="controls">
-          <button id="downloadButton" class="btn">
-            <i class="material-icons left">download</i>Download All Logs
-          </button>
+          <a href="/logs/download" class="btn">
+            <i class="material-icons left">download</i>{{ _('Download All Logs') }}
+          </a>
           <button id="pauseButton" class="btn">
-            <i class="material-icons left">pause</i>Pause
+            <i class="material-icons left">pause</i>{{ _('Pause') }}
           </button>
           <button id="restartFromCurrent" class="btn" style="display: none;">
-            <i class="material-icons left">play_arrow</i>Resume from Current
+            <i class="material-icons left">play_arrow</i>{{ _('Resume from Current') }}
           </button>
           <button id="restartFromEnd" class="btn" style="display: none;">
-            <i class="material-icons left">replay</i>Restart from End
+            <i class="material-icons left">replay</i>{{ _('Restart from End') }}
           </button>
           <button id="copyButton" class="btn">
-            <i class="material-icons left">content_copy</i>Copy to Clipboard
+            <i class="material-icons left">content_copy</i>{{ _('Copy to Clipboard') }}
           </button>
           <button id="uploadLogConfButton" class="btn" onclick="document.getElementById('uploadLogConfInput').click()">
-            <i class="material-icons left">upload_file</i>Upload Log Conf
+            <i class="material-icons left">upload_file</i>{{ _('Upload Log Conf') }}
           </button>
           <input type="file" id="uploadLogConfInput" accept=".json" style="display:none">
           <select id="configSelect" class="browser-default">
-            <option value="" disabled selected>Select Log Configuration</option>
+            <option value="" disabled selected>{{ _('Select Log Configuration') }}</option>
           </select>
         </div>
         <div class="log-stats">
-          Total lines: <span id="totalLines">0</span>
+          {{ _('Total lines:') }} <span id="totalLines">0</span>
         </div>
       </div>
     </div>
@@ -139,58 +149,57 @@
     <div class="row">
       <div class="col s12">
         <div class="log-container" id="logViewer">
-          <div id="loadingMessage" class="loading-message">Loading log files...</div>
+          <div id="loadingMessage" class="loading-message">{{ _('Loading log files...') }}</div>
           <div id="logContent" class="log-content"></div>
         </div>
       </div>
     </div>
   </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
 let currentPosition = 0;
 let isPaused = false;
 let logBuffer = [];
 const BUFFER_SIZE = 100;
 const LINE_HEIGHT = 20;
-let updateInterval;
+let pollTimer = null;
 let lastLine = '';
 
-// Backoff state for when the log file is not yet available.
-// This page intentionally does NOT fetch the home route, so iwgetid is never triggered here.
 const MIN_POLL_INTERVAL = 1000;
 const MAX_POLL_INTERVAL = 10000;
 let currentPollInterval = MIN_POLL_INTERVAL;
 
-function scheduleFetch() {
-    clearInterval(updateInterval);
-    updateInterval = setInterval(fetchLogs, currentPollInterval);
+function scheduleNextFetch(delay) {
+    clearTimeout(pollTimer);
+    if (!isPaused) {
+        pollTimer = setTimeout(fetchLogs, delay);
+    }
 }
 
-function fetchLogs() {
+async function fetchLogs() {
     if (isPaused) return;
 
-    fetch(`/logs/stream?position=${currentPosition}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.file_not_found) {
-                // Back off exponentially up to MAX_POLL_INTERVAL
-                currentPollInterval = Math.min(currentPollInterval * 2, MAX_POLL_INTERVAL);
-                scheduleFetch();
-                return;
-            }
+    try {
+        const response = await fetch(`/logs/stream?position=${currentPosition}`);
+        const data = await response.json();
 
-            // Reset backoff on a successful response
-            if (currentPollInterval !== MIN_POLL_INTERVAL) {
-                currentPollInterval = MIN_POLL_INTERVAL;
-                scheduleFetch();
-            }
+        if (data.file_not_found) {
+            currentPollInterval = Math.min(currentPollInterval * 2, MAX_POLL_INTERVAL);
+            scheduleNextFetch(currentPollInterval);
+            return;
+        }
 
-            if (!data.logs || data.logs.length === 0) return;
+        currentPollInterval = MIN_POLL_INTERVAL;
 
+        // Always advance position so we never re-read old data
+        if (data.position !== undefined) {
             currentPosition = data.position;
-            const logContent = document.getElementById('logContent');
+        }
 
+        if (data.logs && data.logs.length > 0) {
             // Add new logs to buffer, skipping duplicates
             data.logs.forEach(line => {
                 if (line !== lastLine) {
@@ -204,10 +213,14 @@ function fetchLogs() {
                 logBuffer = logBuffer.slice(-BUFFER_SIZE);
             }
 
-            // Update display
             updateLogDisplay();
-        })
-        .catch(error => console.error('Error fetching logs:', error));
+        }
+    } catch (error) {
+        console.error('Error fetching logs:', error);
+        currentPollInterval = Math.min(currentPollInterval * 2, MAX_POLL_INTERVAL);
+    } finally {
+        scheduleNextFetch(currentPollInterval);
+    }
 }
 
 function updateLogDisplay() {
@@ -238,15 +251,17 @@ function updateLogDisplay() {
     if (!isPaused) {
         logContent.scrollTop = logContent.scrollHeight;
     }
+    
+    // Update total lines counter
+    document.getElementById('totalLines').textContent = logBuffer.length;
 }
 
 function togglePause() {
     isPaused = !isPaused;
     const pauseButton = document.getElementById('pauseButton');
-    pauseButton.textContent = isPaused ? 'Resume' : 'Pause';
-    
+    pauseButton.innerHTML = isPaused ? '<i class="material-icons left">play_arrow</i>{{ _('Resume') }}' : '<i class="material-icons left">pause</i>{{ _('Pause') }}';
+
     if (!isPaused) {
-        // Resume fetching from last position
         fetchLogs();
     }
 }
@@ -256,9 +271,8 @@ function restartFromEnd() {
     logBuffer = [];
     isPaused = false;
     currentPollInterval = MIN_POLL_INTERVAL;
-    document.getElementById('pauseButton').textContent = 'Pause';
+    document.getElementById('pauseButton').innerHTML = '<i class="material-icons left">pause</i>{{ _('Pause') }}';
     fetchLogs();
-    scheduleFetch();
 }
 
 // Start fetching logs when page loads
@@ -266,10 +280,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show loading message
     const loadingMessage = document.querySelector('.loading-message');
     loadingMessage.style.display = 'flex';
-    
-    // Start log fetching
+
+    // Start log fetching (sequential — next fetch waits for this one to finish)
     fetchLogs();
-    scheduleFetch();
     
     // Hide loading message after first logs appear
     const observer = new MutationObserver((mutations) => {
@@ -285,8 +298,6 @@ document.addEventListener('DOMContentLoaded', () => {
         characterData: true
     });
 
-    // Load component levels
-    updateComponentLevels();
 });
 
 // Cleanup on page unload
@@ -298,22 +309,25 @@ window.addEventListener('beforeunload', () => {
 document.getElementById('copyButton').addEventListener('click', function() {
     const logContent = document.getElementById('logContent');
     const text = logContent.innerText;
-    
+    const btn = this;
+    const originalText = btn.innerHTML;
+
+    const showFeedback = (html) => {
+        btn.innerHTML = html;
+        setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+    };
+
+    if (!navigator.clipboard) {
+        console.error('Clipboard API not available');
+        showFeedback('<i class="material-icons left">error</i>{{ _('Failed to copy') }}');
+        return;
+    }
+
     navigator.clipboard.writeText(text).then(() => {
-        // Visual feedback
-        const originalText = this.innerHTML;
-        this.innerHTML = '<i class="material-icons left">check</i>Copied!';
-        setTimeout(() => {
-            this.innerHTML = originalText;
-        }, 2000);
+        showFeedback('<i class="material-icons left">check</i>{{ _('Copied!') }}');
     }).catch(err => {
         console.error('Failed to copy text: ', err);
-        // Visual feedback for error
-        const originalText = this.innerHTML;
-        this.innerHTML = '<i class="material-icons left">error</i>Failed to copy';
-        setTimeout(() => {
-            this.innerHTML = originalText;
-        }, 2000);
+        showFeedback('<i class="material-icons left">error</i>{{ _('Failed to copy') }}');
     });
 });
 
@@ -323,7 +337,7 @@ function loadLogConfigs() {
         .then(response => response.json())
         .then(data => {
             const configSelect = document.getElementById('configSelect');
-            configSelect.innerHTML = '<option value="" disabled>Select Log Configuration</option>';
+            configSelect.innerHTML = '<option value="" disabled>{{ _('Select Log Configuration') }}</option>';
             data.configs.forEach(cfg => {
                 const option = document.createElement('option');
                 option.value = cfg.file;
@@ -338,11 +352,10 @@ function loadLogConfigs() {
 document.getElementById('configSelect').addEventListener('change', function(e) {
     const configFile = e.target.value;
     if (!configFile) return;
-    if (!confirm(`Switch log configuration to "${e.target.options[e.target.selectedIndex].text}" and restart PiFinder?`)) {
-        loadLogConfigs(); // reset selection
+    if (!confirm(`{{ _('Switch log configuration to') }} "${e.target.options[e.target.selectedIndex].text}" {{ _('and restart PiFinder?') }}`)) {
+        loadLogConfigs();
         return;
     }
-    // Use a real form POST so the browser navigates to the restart page HTML
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '/logs/switch_config';
@@ -359,7 +372,7 @@ document.getElementById('uploadLogConfInput').addEventListener('change', functio
     const file = e.target.files[0];
     if (!file) return;
     if (!file.name.startsWith('logconf_') || !file.name.endsWith('.json')) {
-        alert('File must be named logconf_<name>.json');
+        alert('{{ _('File must be named logconf_<name>.json') }}');
         e.target.value = '';
         return;
     }
@@ -371,7 +384,7 @@ document.getElementById('uploadLogConfInput').addEventListener('change', functio
             if (result.status === 'ok') {
                 loadLogConfigs();
             } else {
-                alert('Upload failed: ' + result.message);
+                alert('{{ _('Upload failed:') }} ' + result.message);
             }
         })
         .catch(error => console.error('Error uploading log config:', error));
@@ -383,11 +396,7 @@ loadLogConfigs();
 
 // Set up button event listeners
 document.getElementById('pauseButton').addEventListener('click', function() {
-    if (isPaused) {
-        togglePause();
-    } else {
-        togglePause();
-    }
+    togglePause();
 });
 
 document.getElementById('restartFromCurrent').addEventListener('click', function() {
@@ -398,5 +407,4 @@ document.getElementById('restartFromEnd').addEventListener('click', function() {
     restartFromEnd();
 });
 </script>
-
-% include("footer.tpl") 
+{% endblock %}

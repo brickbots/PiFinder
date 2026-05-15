@@ -344,7 +344,7 @@ class UIModule:
                     self._unmoved = True if cam_active else self._unmoved
                     if self._unmoved:
                         time_since_cam_solve = time.time() - solution["cam_solve_time"]
-                        var_fg = min(64, int(time_since_cam_solve / 6 * 64))
+                        var_fg = min(64, int(time_since_cam_solve / 3 * 64))
                     # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
                     if self._unmoved:

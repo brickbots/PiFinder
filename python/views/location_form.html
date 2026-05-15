@@ -1,0 +1,81 @@
+<div class="row">
+  <form action="/locations/add" method="post" class="col s12" id="location_form">
+    <div class="row">
+      <div class="input-field col s12">
+        <input id="name-location_form" type="text" name="name" value="" required/>
+        <label for="name-location_form">{{ _('Location Name') }}</label>
+        <span class="helper-text"></span>
+      </div>
+    </div>
+    <div class="row">
+      <div class="input-field col s12">
+        <label>
+          <input type="checkbox" id="formatSwitch-location_form" onclick="toggleFormat('location_form')"/>
+          <span>{{ _('Use DMS Format') }}</span>
+        </label>
+      </div>
+    </div>
+    <div class="row" id="decimalFormat-location_form">
+      <div class="input-field col s6">
+        <input id="latitude-location_form" type="number" step="any" name="latitude" value="" required/>
+        <label for="latitude-location_form">{{ _('Latitude (Decimal)') }}</label>
+        <span class="helper-text"></span>
+      </div>
+      <div class="input-field col s6">
+        <input id="longitude-location_form" type="number" step="any" name="longitude" value="" required/>
+        <label for="longitude-location_form">{{ _('Longitude (Decimal)') }}</label>
+        <span class="helper-text"></span>
+      </div>
+    </div>
+    <div class="row" id="dmsFormat-location_form" style="display:none;">
+      <div class="input-field col s4">
+        <input id="latitudeD-location_form" type="number" name="latitudeD"/>
+        <label for="latitudeD-location_form">{{ _('Latitude Degrees') }}</label>
+      </div>
+      <div class="input-field col s4">
+        <input id="latitudeM-location_form" type="number" name="latitudeM"/>
+        <label for="latitudeM-location_form">{{ _('Latitude Minutes') }}</label>
+      </div>
+      <div class="input-field col s4">
+        <input id="latitudeS-location_form" type="number" name="latitudeS"/>
+        <label for="latitudeS-location_form">{{ _('Latitude Seconds') }}</label>
+      </div>
+      <div class="input-field col s4">
+        <input id="longitudeD-location_form" type="number" name="longitudeD"/>
+        <label for="longitudeD-location_form">{{ _('Longitude Degrees') }}</label>
+      </div>
+      <div class="input-field col s4">
+        <input id="longitudeM-location_form" type="number" name="longitudeM"/>
+        <label for="longitudeM-location_form">{{ _('Longitude Minutes') }}</label>
+      </div>
+      <div class="input-field col s4">
+        <input id="longitudeS-location_form" type="number" name="longitudeS"/>
+        <label for="longitudeS-location_form">{{ _('Longitude Seconds') }}</label>
+      </div>
+    </div>
+    <div class="row">
+      <div class="input-field col s12">
+        <input id="altitude-location_form" type="number" step="any" name="altitude" value="" required/>
+        <label for="altitude-location_form">{{ _('Altitude (meters)') }}</label>
+        <span class="helper-text"></span>
+      </div>
+    </div>
+    <div class="row">
+      <div class="input-field col s6">
+        <input id="error_in_m-location_form" type="number" step="any" name="error_in_m" value="10"/>
+        <label for="error_in_m-location_form">{{ _('Error (meters)') }}</label>
+        <span class="helper-text"></span>
+      </div>
+      <div class="input-field col s6">
+        <input id="source-location_form" type="text" name="source" value="Manual Entry"/>
+        <label for="source-location_form">{{ _('Source') }}</label>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col s12">
+        <button type="submit" id="saveButton-location_form" class="waves-effect waves-light btn">{{ _('Save Location') }}</button>
+        <a href="/locations" class="waves-effect waves-light btn grey">{{ _('Cancel') }}</a>
+      </div>
+    </div>
+  </form>
+</div>

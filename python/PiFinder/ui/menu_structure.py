@@ -772,6 +772,30 @@ pifinder_menu = {
                     "select": "single",
                     "label": "chart_settings",
                     "items": [
+                                                {
+                            "name": _("Coordinate Sys."),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_coord_sys",
+                            "items": [
+                                {
+                                    "name": _("Horizontal"),
+                                    "value": "horiz",
+                                },
+                                {
+                                    "name": _("EQ (Auto)"),
+                                    "value": "eq_auto",
+                                },
+                                {
+                                    "name": _("EQ (North-up)"),
+                                    "value": "eq_north_up",
+                                },
+                                {
+                                    "name": _("EQ (South-up)"),
+                                    "value": "eq_south_up",
+                                },
+                            ],
+                        },
                         {
                             "name": _("Reticle"),
                             "class": UITextMenu,

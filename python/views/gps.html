@@ -1,7 +1,9 @@
-% include("header.tpl", title="GPS Settings")
+{% extends "base.html" %}
+
+{% block content %}
 <div class="row valign-wrapper" style="margin: 0px;">
   <div class="col s12">
-        <h5 class="grey-text">GPS Settings</h5>
+        <h5 class="grey-text">{{ _('GPS Settings') }}</h5>
   </div>
 </div>
 <div class="card grey darken-2">
@@ -11,73 +13,76 @@
             <div class="input-field col s12">
                 <label>
                     <input type="checkbox" id="formatSwitch" onclick="toggleFormat()"/>
-                    <span>Use DMS Format</span>
+                    <span>{{ _('Use DMS Format') }}</span>
                 </label>
             </div>
         </div>
         <div class="row" id="decimalFormat">
             <div class="input-field col s6">
-                <input id="latitudeDecimal" type="text" name="latitudeDecimal" value="{{ lat if lat is not None else '' }}"/>
-                <label for="latitudeDecimal">Latitude (Decimal)</label>
+                <input id="latitudeDecimal" type="text" name="latitudeDecimal" value="{% if lat is not none %}{{ lat }}{% endif %}"/>
+                <label for="latitudeDecimal">{{ _('Latitude (Decimal)') }}</label>
             </div>
             <div class="input-field col s6">
-                <input id="longitudeDecimal" type="text" name="longitudeDecimal" value="{{ lon if lon is not None else '' }}"/>
-                <label for="longitudeDecimal">Longitude (Decimal)</label>
+                <input id="longitudeDecimal" type="text" name="longitudeDecimal" value="{% if lon is not none %}{{ lon }}{% endif %}"/>
+                <label for="longitudeDecimal">{{ _('Longitude (Decimal)') }}</label>
             </div>
         </div>
         <div class="row" id="dmsFormat" style="display:none;">
             <div class="input-field col s4">
                 <input id="latitudeD" type="text" name="latitudeD"/>
-                <label for="latitudeD">Latitude Degrees</label>
+                <label for="latitudeD">{{ _('Latitude Degrees') }}</label>
             </div>
             <div class="input-field col s4">
                 <input id="latitudeM" type="text" name="latitudeM"/>
-                <label for="latitudeM">Latitude Minutes</label>
+                <label for="latitudeM">{{ _('Latitude Minutes') }}</label>
             </div>
             <div class="input-field col s4">
                 <input id="latitudeS" type="text" name="latitudeS"/>
-                <label for="latitudeS">Latitude Seconds</label>
+                <label for="latitudeS">{{ _('Latitude Seconds') }}</label>
             </div>
             <div class="input-field col s4">
                 <input id="longitudeD" type="text" name="longitudeD"/>
-                <label for="longitudeD">Longitude Degrees</label>
+                <label for="longitudeD">{{ _('Longitude Degrees') }}</label>
             </div>
             <div class="input-field col s4">
                 <input id="longitudeM" type="text" name="longitudeM"/>
-                <label for="longitudeM">Longitude Minutes</label>
+                <label for="longitudeM">{{ _('Longitude Minutes') }}</label>
             </div>
             <div class="input-field col s4">
                 <input id="longitudeS" type="text" name="longitudeS"/>
-                <label for="longitudeS">Longitude Seconds</label>
+                <label for="longitudeS">{{ _('Longitude Seconds') }}</label>
             </div>
         </div>
         <div class="row">
             <div class="input-field col s8">
-                <input id="altitude" type="text" name="altitude" value="{{ altitude if altitude is not None else '' }}"/>
-                <label for="altitude">Altitude in meters</label>
+                <input id="altitude" type="text" name="altitude" value="{% if altitude is not none %}{{ altitude }}{% endif %}"/>
+                <label for="altitude">{{ _('Altitude in meter') }}</label>
             </div>
             </div>
         <div class="row">
             <div class="input-field col s4">
                 <input id="date" type="date" name="date"/>
-                <label for="date">Date</label>
+                <label for="date">{{ _('Date') }}</label>
             </div>
             <div class="input-field col s4">
                 <input id="time" type="text" name="time"/>
-                <label for="time">UTC Time (h:m:s)</label>
+                <label for="time">{{ _('UTC Time (h:m:s)') }}</label>
             </div>
             <div class="input-field col s8">
-                 <button type="button" class="waves-effect waves-light btn" onclick="setBrowserDateTime()">Set to Browser Date/Time</button>
+                 <button type="button" class="waves-effect waves-light btn" onclick="setBrowserDateTime()">{{ _('Set to Browser Date/Time') }}</button>
             </div>
         </div>
         <div class="row">
             <div class="col s12">
-                <button type="submit" id="saveButton" class="waves-effect waves-light btn">Save</button>
+                <button type="submit" id="saveButton" class="waves-effect waves-light btn">{{ _('Save') }}</button>
             </div>
         </div>
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
 <script>
 function toggleFormat() {
     var checkBox = document.getElementById("formatSwitch");
@@ -114,7 +119,6 @@ function focusFirstDMSField() {
         setTimeout(focusFirstDMSField, 50);
     }
 }
-
 
 function setBrowserDateTime() {
     var now = new Date();
@@ -190,7 +194,6 @@ function decimalToDMS(decimal) {
 
     return [degrees, minutes, seconds];
 }
-
 
 // Conversion from DMS to Decimal
 function DMSToDecimal(degrees, minutes, seconds) {
@@ -268,7 +271,5 @@ document.getElementById("latitudeS").addEventListener("input", updateDecimalLati
 document.getElementById("longitudeD").addEventListener("input", updateDecimalLongitude);
 document.getElementById("longitudeM").addEventListener("input", updateDecimalLongitude);
 document.getElementById("longitudeS").addEventListener("input", updateDecimalLongitude);
-
 </script>
-
-% include("footer.tpl")
+{% endblock %}

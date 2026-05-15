@@ -1,4 +1,5 @@
 {
+  "python-envs.defaultEnvManager": "ms-python.python:pyenv",
   "python.analysis.diagnosticSeverityOverrides": {
     "reportUndefinedVariable": "none"
   },

@@ -297,13 +297,6 @@ def main(
     """
     global display_device, display_hardware
 
-    display_device = get_display(display_hardware)
-    init_keypad_pwm()
-    setup_dirs()
-
-    # Instantiate base keyboard class for keycode
-    keyboard_base = keyboard_interface.KeyboardInterface()
-
     # init queues
     console_queue: Queue = Queue()
     keyboard_queue: Queue = Queue()
@@ -326,6 +319,13 @@ def main(
 
     # Start log consolidation process first.
     log_helper.start()
+
+    display_device = get_display(display_hardware)
+    init_keypad_pwm()
+    setup_dirs()
+
+    # Instantiate base keyboard class for keycode
+    keyboard_base = keyboard_interface.KeyboardInterface()
 
     os_detail, platform, arch = utils.get_os_info()
     logger.info("PiFinder running on %s, %s, %s", os_detail, platform, arch)
@@ -588,7 +588,7 @@ def main(
                                     )  # Only if new error is smaller
                                 )
                             ):
-                                logger.info(
+                                logger.debug(
                                     f"Updating GPS location: new content: {gps_content}, old content: {location}"
                                 )
                                 location.lat = gps_content["lat"]
@@ -935,6 +935,13 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
+        "-g",
+        "--gps",
+        help="Specify which camera to use: pi, fake",
+        default="pi",
+        required=False,
+    )
+    parser.add_argument(
         "-k",
         "--keyboard",
         help="Specify which keyboard to use: pi, local or server",
@@ -1033,7 +1040,9 @@ if __name__ == "__main__":
             logger.warning(f"Could not check/sync GPSD configuration: {e}")
 
         gps_type = cfg.get_option("gps_type")
-        if gps_type == "ublox":
+        if args.gps == "fake":
+            gps_monitor = importlib.import_module("PiFinder.gps_fake")
+        elif gps_type == "ublox":
             gps_monitor = importlib.import_module("PiFinder.gps_ubx")
         else:
             gps_monitor = importlib.import_module("PiFinder.gps_gpsd")
