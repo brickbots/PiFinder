@@ -1004,7 +1004,7 @@ if __name__ == "__main__":
         hardware_platform = "Fake"
         display_hardware = "pg_128"
         imu = importlib.import_module("PiFinder.imu_fake")
-        integrator = importlib.import_module("PiFinder.integrator_classic")
+        integrator = importlib.import_module("PiFinder.integrator")
         gps_monitor = importlib.import_module("PiFinder.gps_fake")
     else:
         hardware_platform = "Pi"
@@ -1012,12 +1012,8 @@ if __name__ == "__main__":
         from rpi_hardware_pwm import HardwarePWM
 
         cfg = config.Config()
-        if cfg.get_option("imu_integrator") == "quaternion":
-            imu = importlib.import_module("PiFinder.imu_pi")
-            integrator = importlib.import_module("PiFinder.integrator")
-        else:
-            imu = importlib.import_module("PiFinder.imu_pi_classic")
-            integrator = importlib.import_module("PiFinder.integrator_classic")
+        imu = importlib.import_module("PiFinder.imu_pi")
+        integrator = importlib.import_module("PiFinder.integrator")
 
         # verify and sync GPSD baud rate
         try:
