@@ -457,12 +457,8 @@ def solver(
 
                             if last_image_metadata.get("imu"):
                                 solved["imu_quat"] = last_image_metadata["imu"]["quat"]
-                                solved["imu_pos"] = last_image_metadata["imu"].get(
-                                    "pos"
-                                )
                             else:
                                 solved["imu_quat"] = None
-                                solved["imu_pos"] = None
 
                             solved["solve_time"] = time.time()
                             solved["cam_solve_time"] = solved["solve_time"]
@@ -562,9 +558,7 @@ def get_initialized_solved_dict() -> dict:
             "Dec": None,
             "Roll": None,
         },
-        "imu_pos": None,  # IMU euler angles (classic integrator)
         "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first)
-        "Roll_offset": 0,  # Roll offset for classic integrator
         # Alt, Az [deg] of scope:
         "Alt": None,
         "Az": None,

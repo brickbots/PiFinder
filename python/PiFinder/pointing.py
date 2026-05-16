@@ -14,7 +14,7 @@ import numpy as np
 import quaternion  # numpy-quaternion
 
 import PiFinder.calc_utils as calc_utils
-from PiFinder.pointing_model.astro_coords import RaDecRoll
+from PiFinder.types.coordinates import RaDecRoll
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 import PiFinder.pointing_model.quaternion_transforms as qt
 
@@ -62,11 +62,11 @@ def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dic
     else:
         q_x2imu = solved["imu_quat"]
 
-    solved_cam = RaDecRoll()
-    solved_cam.set_from_deg(
+    solved_cam = RaDecRoll(
         solved["camera_center"]["RA"],
         solved["camera_center"]["Dec"],
         solved["camera_center"]["Roll"],
+        deg=True,
     )
     imu_dead_reckoning.update_plate_solve_and_imu(solved_cam, q_x2imu)
 
@@ -112,10 +112,10 @@ def update_imu(
             solved["camera_center"]["RA"],
             solved["camera_center"]["Dec"],
             solved["camera_center"]["Roll"],
-        ) = cam_eq.get_deg(use_none=True)
+        ) = cam_eq.get(deg=True)
 
         scope_eq = imu_dead_reckoning.get_scope_radec()
-        solved["RA"], solved["Dec"], solved["Roll"] = scope_eq.get_deg(use_none=True)
+        solved["RA"], solved["Dec"], solved["Roll"] = scope_eq.get(deg=True)
 
         solved["solve_time"] = time.time()
         solved["solve_source"] = "IMU"
@@ -136,16 +136,17 @@ def update_imu(
 
 def set_cam2scope_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     """Set the camera-to-scope alignment in the dead-reckoning model."""
-    solved_cam = RaDecRoll()
-    solved_cam.set_from_deg(
+    solved_cam = RaDecRoll(
         solved["camera_center"]["RA"],
         solved["camera_center"]["Dec"],
         solved["camera_center"]["Roll"],
+        deg=True,
     )
 
     solved["Roll"] = 0  # Target roll isn't calculated by Tetra3
-    solved_scope = RaDecRoll()
-    solved_scope.set_from_deg(solved["RA"], solved["Dec"], solved["Roll"])
+    solved_scope = RaDecRoll(
+        solved["RA"], solved["Dec"], solved["Roll"], deg=True
+    )
 
     imu_dead_reckoning.set_cam2scope_alignment(solved_cam, solved_scope)
 
