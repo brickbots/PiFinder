@@ -46,15 +46,6 @@ def solver(
     align_ra = 0
     align_dec = 0
     solved = {
-        # RA, Dec, Roll solved at the center of the camera FoV
-        # update by integrator
-        "camera_center": {
-            "RA": None,
-            "Dec": None,
-            "Roll": None,
-            "Alt": None,
-            "Az": None,
-        },
         # RA, Dec, Roll from the camera, not
         # affected by IMU in integrator
         "camera_solve": {
@@ -206,11 +197,6 @@ def solver(
                             logger.warning("Long solver time: %i", total_tetra_time)
 
                         if solved["RA"] is not None:
-                            # RA, Dec, Roll at the center of the camera's FoV:
-                            solved["camera_center"]["RA"] = solved["RA"]
-                            solved["camera_center"]["Dec"] = solved["Dec"]
-                            solved["camera_center"]["Roll"] = solved["Roll"]
-
                             # RA, Dec, Roll at the center of the camera's not imu:
                             solved["camera_solve"]["RA"] = solved["RA"]
                             solved["camera_solve"]["Dec"] = solved["Dec"]

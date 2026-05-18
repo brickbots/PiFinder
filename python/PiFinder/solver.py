@@ -440,11 +440,6 @@ def solver(
                                 logger.warning("Long solver time: %i", total_tetra_time)
 
                         if solved["RA"] is not None:
-                            # RA, Dec, Roll at the center of the camera's FoV:
-                            solved["camera_center"]["RA"] = solved["RA"]
-                            solved["camera_center"]["Dec"] = solved["Dec"]
-                            solved["camera_center"]["Roll"] = solved["Roll"]
-
                             # RA, Dec, Roll at the camera center from plate-solve (no IMU compensation)
                             solved["camera_solve"]["RA"] = solved["RA"]
                             solved["camera_solve"]["Dec"] = solved["Dec"]
@@ -543,15 +538,6 @@ def get_initialized_solved_dict() -> dict:
         "RA": None,
         "Dec": None,
         "Roll": None,
-        # RA, Dec, Roll [deg] solved at the center of the camera FoV
-        # update by the IMU in the integrator
-        "camera_center": {
-            "RA": None,
-            "Dec": None,
-            "Roll": None,
-            "Alt": None,  # NOTE: Altaz needed by catalogs for altaz mounts
-            "Az": None,
-        },
         # RA, Dec, Roll [deg] from the camera, not updated by IMU in integrator
         "camera_solve": {
             "RA": None,

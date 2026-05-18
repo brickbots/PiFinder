@@ -148,7 +148,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     """
     Wrapper for ImuDeadReckoning.solve() that converts angles from degrees to
-    radians and builds RaDecRoll from the plate-solved camera_center.
+    radians and builds RaDecRoll from the plate-solved camera_solve.
     """
     if (solved["RA"] is None) or (solved["Dec"] is None):
         return  # No update
@@ -159,9 +159,9 @@ def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dic
         q_x2imu = solved["imu_quat"]
 
     pointing = RaDecRoll(
-        solved["camera_center"]["RA"],
-        solved["camera_center"]["Dec"],
-        solved["camera_center"]["Roll"],
+        solved["camera_solve"]["RA"],
+        solved["camera_solve"]["Dec"],
+        solved["camera_solve"]["Roll"],
         deg=True,
     )
     imu_dead_reckoning.solve(pointing, q_x2imu)
@@ -174,11 +174,8 @@ def update_imu(
     imu: dict,
 ):
     """
-    Dead-reckon pointing from the latest IMU sample and write it into solved.
-
-    Camera/scope alignment is no longer applied here, so both
-    solved["RA"/"Dec"/"Roll"] and solved["camera_center"][...] receive the
-    same predicted pointing.
+    Dead-reckon pointing from the latest IMU sample and write it into
+    solved["RA"/"Dec"/"Roll"].
     """
     if not (last_image_solve and imu_dead_reckoning.is_initialized()):
         return
@@ -207,13 +204,7 @@ def update_imu(
 
     pointing = imu_dead_reckoning.predict(q_x2imu)
     assert pointing is not None  # guaranteed by the is_initialized() check above
-    ra_deg, dec_deg, roll_deg = pointing.get(deg=True)
-    solved["RA"], solved["Dec"], solved["Roll"] = ra_deg, dec_deg, roll_deg
-    (
-        solved["camera_center"]["RA"],
-        solved["camera_center"]["Dec"],
-        solved["camera_center"]["Roll"],
-    ) = ra_deg, dec_deg, roll_deg
+    solved["RA"], solved["Dec"], solved["Roll"] = pointing.get(deg=True)
     solved["solve_time"] = imu_time
     solved["solve_source"] = "IMU"
 
