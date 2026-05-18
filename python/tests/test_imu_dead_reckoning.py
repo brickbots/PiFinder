@@ -50,7 +50,7 @@ class TestSolve:
 
         expected_q_eq2pointing = qt.radec2q_eq(ra, dec, roll)
         expected_q_eq2x = (
-            expected_q_eq2pointing * (q_x2imu * dr.q_imu2pointing).conj()
+            expected_q_eq2pointing * (q_x2imu * dr.q_imu2cam).conj()
         ).normalized()
         assert_quat_close(dr.q_eq2x, expected_q_eq2x)
         assert dr.is_initialized() is True
@@ -101,14 +101,14 @@ class TestPredict:
         q0 = make_imu(theta=0.0)
         dr.solve(RaDecRoll(1.0, 0.2, 0.0), q0)
         q_eq2pointing_at_solve = (
-            dr.q_eq2x * q0 * dr.q_imu2pointing
+            dr.q_eq2x * q0 * dr.q_imu2cam
         ).normalized()
 
         delta = 0.05
         q1 = (q0 * qt.axis_angle2quat([0, 0, 1], delta)).normalized()
         out = dr.predict(q1)
         q_eq2pointing_pred = (
-            dr.q_eq2x * q1 * dr.q_imu2pointing
+            dr.q_eq2x * q1 * dr.q_imu2cam
         ).normalized()
         moved = qt.get_quat_angular_diff(
             q_eq2pointing_at_solve, q_eq2pointing_pred

@@ -25,21 +25,23 @@ class ImuDeadReckoning:
     """Dead-reckoning of pointing from matched plate-solve / IMU samples.
 
     Stored state:
-        q_imu2pointing: fixed body rotation from IMU frame to the pointing
-            frame, set at construction from `screen_direction`.
+        q_imu2cam: fixed body rotation from IMU frame to the camera
+            frame (hardware geometry), set at construction from
+            `screen_direction`. The class treats the camera frame as the
+            pointing frame.
         q_eq2x: rotation from EQ to the IMU's internal reference frame X.
             Initialised to NaN; set by solve() and cleared by reset().
 
     Math:
-        solve:    q_eq2x = q_eq2pointing * (q_x2imu * q_imu2pointing).conj()
-        predict:  q_eq2pointing = q_eq2x * q_x2imu * q_imu2pointing
+        solve:    q_eq2x = q_eq2pointing * (q_x2imu * q_imu2cam).conj()
+        predict:  q_eq2pointing = q_eq2x * q_x2imu * q_imu2cam
     """
 
-    q_imu2pointing: quaternion.quaternion
+    q_imu2cam: quaternion.quaternion
     q_eq2x: quaternion.quaternion
 
     def __init__(self, screen_direction: str):
-        self.q_imu2pointing = self._q_imu2pointing(screen_direction)
+        self.q_imu2cam = self._q_imu2cam(screen_direction)
         self.q_eq2x = quaternion.quaternion(np.nan)
 
     def solve(
@@ -54,7 +56,7 @@ class ImuDeadReckoning:
             return
         q_eq2pointing = qt.radec2q_eq(pointing.ra, pointing.dec, pointing.roll)
         self.q_eq2x = (
-            q_eq2pointing * (q_x2imu * self.q_imu2pointing).conj()
+            q_eq2pointing * (q_x2imu * self.q_imu2cam).conj()
         ).normalized()
 
     def predict(self, q_x2imu: quaternion.quaternion) -> Optional[RaDecRoll]:
@@ -65,7 +67,7 @@ class ImuDeadReckoning:
         if not self.is_initialized():
             return None
         q_eq2pointing = (
-            self.q_eq2x * q_x2imu * self.q_imu2pointing
+            self.q_eq2x * q_x2imu * self.q_imu2cam
         ).normalized()
         return RaDecRoll.from_quaternion(q_eq2pointing)
 
@@ -78,10 +80,10 @@ class ImuDeadReckoning:
         self.q_eq2x = quaternion.quaternion(np.nan)
 
     @staticmethod
-    def _q_imu2pointing(screen_direction: str) -> quaternion.quaternion:
-        """Fixed IMU-to-pointing rotation for the given PiFinder geometry.
+    def _q_imu2cam(screen_direction: str) -> quaternion.quaternion:
+        """Fixed IMU-to-camera rotation for the given PiFinder geometry.
 
-        This is hardware geometry only; no per-unit calibration is applied.
+        Hardware geometry only; no per-unit calibration is applied.
         """
         if screen_direction == "left":
             q1 = qt.axis_angle2quat([1, 0, 0], np.pi / 2)
