@@ -3,6 +3,7 @@ from PiFinder import calc_utils
 import time
 from typing import Any, TYPE_CHECKING, List, Dict
 from dataclasses import dataclass, replace
+import PiFinder.i18n  # noqa: F401 - for translation function _s
 
 if TYPE_CHECKING:
 
@@ -586,7 +587,7 @@ class LayoutConfig:
 class UIRADecEntry(UIModule):
     __title__ = _("RA/DEC Entry")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.callback = self.item_definition.get("callback")

@@ -5,7 +5,10 @@
 This module contains the chart (starfield + constellation lines) UI Module class
 
 """
+from __future__ import annotations  # To support | in typehints (remove this for Python 3.10+)
 
+import datetime
+import logging
 import time
 from PIL import ImageChops, Image
 
@@ -14,6 +17,9 @@ from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
 from PiFinder import calc_utils
+
+
+logger = logging.getLogger("Chart")
 
 
 class UIChart(UIModule):
@@ -152,17 +158,22 @@ class UIChart(UIModule):
             )
             self.solution = self.shared_state.solution()
             last_solve_time = self.solution["solve_time"]
-            if (
-                last_solve_time > self.last_update
-                and self.solution["Roll"] is not None
-                and self.solution["RA"] is not None
-                and self.solution["Dec"] is not None
-            ):
-                # This needs to be called first to set RA/DEC/ROLL
+
+            if last_solve_time is None:
+                self.plot_no_solve()
+            elif self.solution_is_new(last_solve_time):
+                # Solution is new so plot the updated chart
+                chart_rot_angle = get_chart_rotation_angle(
+                    self.solution["RA"], self.solution["Dec"], 
+                    chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
+                    location=self.shared_state.location(), 
+                    dt=self.shared_state.datetime()
+                )
+                # This needs to be called first to set RA/DEC/chart_rot_angle
                 image_obj, _visible_stars = self.starfield.plot_starfield(
                     self.solution["RA"],
                     self.solution["Dec"],
-                    self.solution["Roll"],
+                    chart_rot_angle,
                     constellation_brightness,
                 )
                 image_obj = ImageChops.multiply(
@@ -199,32 +210,49 @@ class UIChart(UIModule):
                 self.last_update = last_solve_time
 
                 self.draw_reticle()
-
         else:
-            self.draw.rectangle(
-                [0, 0, self.display_class.resX, self.display_class.resY],
-                fill=self.colors.get(0),
-            )
-            self.draw.text(
-                (16, self.display_class.titlebar_height + 10),
-                _("Can't plot"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (
-                    26,
-                    self.display_class.titlebar_height
-                    + 10
-                    + self.fonts.large.height
-                    + 4,
-                ),
-                _("No Solve Yet"),
-                font=self.fonts.base.font,
-                fill=self.colors.get(255),
-            )
+            self.plot_no_solve()
 
         return self.screen_update()
+
+    def plot_no_solve(self):
+        """Plot message: Can't plot No solve yet"""
+        self.draw.rectangle(
+            [0, 0, self.display_class.resX, self.display_class.resY],
+            fill=self.colors.get(0),
+        )
+        self.draw.text(
+            (16, self.display_class.titlebar_height + 10),
+            _("Can't plot"),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
+        self.draw.text(
+            (
+                26,
+                self.display_class.titlebar_height + 10 + self.fonts.large.height + 4,
+            ),
+            _("No Solve Yet"),
+            font=self.fonts.base.font,
+            fill=self.colors.get(255),
+        )
+
+    def solution_is_new(self, last_solve_time):
+        """
+        Returns True if the solution (coordinates) is valid and new since
+        last_solve_time.
+        """
+        if last_solve_time is None or self.last_update is None:
+            return False
+        if last_solve_time <= self.last_update:
+            return False
+        if (
+            self.solution["RA"] is None
+            or self.solution["Dec"] is None
+        ):
+            return False
+
+        return True  # Solution is valid and new
 
     def change_fov(self, direction):
         self.fov_index += direction
@@ -246,3 +274,53 @@ class UIChart(UIModule):
         self.fov_index = 1
         self.set_fov(self.fov_list[self.fov_index])
         self.update()
+
+
+
+def get_chart_rotation_angle(
+    ra_deg: float,  # Right Ascension of the target in degrees
+    dec_deg: float,  # Declination of the target in degrees
+    chart_coord_sys: str,
+    location=None,
+    dt: datetime.datetime | None = None,
+) -> float:
+    """
+    Returns angle (in degrees) to rotate the chart by depending on the 
+    configured chart coordinate system. This was previously called "roll". 
+    Chart will be plotted rotated around (RA, Dec); +ve means anti-clockwise 
+    rotation. The RA and Dec of the target should be provided (in degrees).
+
+    * horiz: Display the chart in the horizontal coordinate so that up in the
+    chart points to the Zenith.
+    * EQ (Auto): Display the chart in the equatorial coordinate system.
+    Automatically select NCP or SCP-up based on location.
+    * EQ (North-up), EQ (South-up): Display chart in the equatorial coordinate
+    system with NCP or SCP up.
+    """
+    if (ra_deg is None) or (dec_deg is None):
+        return None  # Can't calculate without RA/Dec
+
+    if chart_coord_sys == "horiz":
+        # Horizontal coordinates (alt/az):
+        if location and dt:
+            calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
+            # Use -parallactic_angle
+            rot_deg = -calc_utils.sf_utils.radec_to_pa(ra_deg, dec_deg, dt)
+        else:
+            # No position or time/date available. Default to display in equatorial coordinate
+            rot_deg = 0.0  # NCP up
+    elif chart_coord_sys == "eq_auto":
+        # Equatorial coordinates: (North-up/south-up depending on latitude)
+        rot_deg = 0.0  # NCP up (default & northern hemisphere)
+        if location:
+            if location.lat < 0.0:
+                rot_deg = 180.0  # SCP up (for southern hemisphere)
+    elif chart_coord_sys == "eq_north_up":
+        rot_deg = 0.0
+    elif chart_coord_sys == "eq_south_up":
+        rot_deg = 180.0
+    else:
+        logger.error(f"Unknown chart coordinate system: {chart_coord_sys}. Defaulting to EQ North-up.")
+        rot_deg = 0.0  # NCP up
+
+    return rot_deg

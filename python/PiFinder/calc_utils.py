@@ -189,8 +189,6 @@ def aim_degrees(shared_state, mount_type, screen_direction, target):
                 )
                 az_diff = target_az - solution["Az"]
                 az_diff = (az_diff + 180) % 360 - 180
-                if screen_direction in ["flat", "as_bloom"]:
-                    az_diff *= -1
 
                 alt_diff = target_alt - solution["Alt"]
                 alt_diff = (alt_diff + 180) % 360 - 180
@@ -199,8 +197,11 @@ def aim_degrees(shared_state, mount_type, screen_direction, target):
         else:
             # EQ Mount type
             ra_diff = target.ra - solution["RA"]
+            ra_diff = (ra_diff + 180) % 360 - 180  # Convert to -180 to +180
+
             dec_diff = target.dec - solution["Dec"]
             dec_diff = (dec_diff + 180) % 360 - 180
+
             return ra_diff, dec_diff
     return None, None
 
@@ -437,6 +438,25 @@ class Skyfield_utils:
         ha_hrs = (ha_hrs + 12) % 24 - 12  # Unwrap to -12 to +12hrs
 
         return ha_hrs * 180 / 12  # Hour angle [deg]
+
+    def radec_to_pa(self, ra_deg, dec_deg, dt):
+        """
+        Returns the parallactic angle of an object at (ra, dec) as seen from an
+        observer at latitiude, lat and time, dt. See hadec_to_pa() for how
+        parallactic angle is defined.
+
+        INPUTS:
+        ra_deg: Right ascension [deg]
+        dec_deg: Declination [deg]
+        dt: Python datetime object (must be timezone-aware)
+
+        RETURNS:
+        pa_deg: Parallactic angle [deg]
+        """
+        ha_deg = self.ra_to_ha(ra_deg, dt)  # Note that HA is in deg
+        lat_deg = self._observer_geoid.latitude.degrees
+        pa_deg = hadec_to_pa(ha_deg, dec_deg, lat_deg)
+        return pa_deg  # Parallactic angle [deg]
 
     def radec_to_roll(self, ra_deg, dec_deg, dt):
         """

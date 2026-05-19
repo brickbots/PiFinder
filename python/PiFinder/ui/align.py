@@ -14,6 +14,7 @@ from PIL import ImageChops
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.chart import get_chart_rotation_angle
 
 
 def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool:
@@ -78,6 +79,7 @@ def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool
 
 
 class UIAlign(UIModule):
+    # NOTE: This is very similar to UIChart.update. Can we encapsulate the common parts?
     __title__ = "ALIGN"
     __help_name__ = "align"
 
@@ -212,32 +214,27 @@ class UIAlign(UIModule):
             constellation_brightness = 64
             self.solution = self.shared_state.solution()
             last_solve_time = self.solution["solve_time"]
-            if (
-                last_solve_time > self.last_update
-                and self.solution["Roll"] is not None
-                and self.solution["RA"] is not None
-                and self.solution["Dec"] is not None
-            ) or force:
-                # This needs to be called first to set RA/DEC/ROLL
+
+            if self.solution_is_new(last_solve_time) or force:
                 if self.align_mode:
                     # We want to use the CAMERA solve as
                     # it's not updated by the IMU and we'll be moving
                     # the reticle to the star
-                    image_obj, self.visible_stars = self.starfield.plot_starfield(
-                        self.solution["camera_solve"]["RA"],
-                        self.solution["camera_solve"]["Dec"],
-                        self.solution["camera_solve"]["Roll"],
-                        constellation_brightness,
-                        shade_frustrum=True,
-                    )
+                    chart_center = self.solution["camera_solve"]
                 else:
-                    image_obj, self.visible_stars = self.starfield.plot_starfield(
-                        self.solution["camera_center"]["RA"],
-                        self.solution["camera_center"]["Dec"],
-                        self.solution["camera_center"]["Roll"],
-                        constellation_brightness,
-                        shade_frustrum=True,
-                    )
+                    chart_center = self.solution["camera_center"]
+
+                chart_rot_angle = get_chart_rotation_angle(
+                    chart_center["RA"], chart_center["Dec"], 
+                    chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
+                    location=self.shared_state.location(), 
+                    dt=self.shared_state.datetime()
+                )
+                # This needs to be called first to set RA/DEC/chart_rot_angle
+                image_obj, self.visible_stars = self.starfield.plot_starfield(
+                        chart_center["RA"], chart_center["Dec"], chart_rot_angle, 
+                        constellation_brightness, shade_frustrum=True,
+                )
 
                 image_obj = ImageChops.multiply(
                     image_obj.convert("RGB"), self.colors.red_image
@@ -265,32 +262,34 @@ class UIAlign(UIModule):
                     font=self.fonts.base.font,
                     fill=self.colors.get(255),
                 )
-
+            elif last_solve_time is None:
+                self.plot_no_solve()
         else:
-            self.draw.rectangle(
-                [0, 0, self.display_class.resX, self.display_class.resY],
-                fill=self.colors.get(0),
-            )
-            self.draw.text(
-                (16, self.display_class.titlebar_height + 10),
-                _("Can't plot"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (
-                    26,
-                    self.display_class.titlebar_height
-                    + 10
-                    + self.fonts.large.height
-                    + 4,
-                ),
-                _("No Solve Yet"),
-                font=self.fonts.base.font,
-                fill=self.colors.get(255),
-            )
+            self.plot_no_solve()
 
         return self.screen_update(title_bar=not self.align_mode)
+
+    def plot_no_solve(self):
+        """Plot message: Can't plot No solve yet"""
+        self.draw.rectangle(
+            [0, 0, self.display_class.resX, self.display_class.resY],
+            fill=self.colors.get(0),
+        )
+        self.draw.text(
+            (16, self.display_class.titlebar_height + 10),
+            _("Can't plot"),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
+        self.draw.text(
+            (
+                26,
+                self.display_class.titlebar_height + 10 + self.fonts.large.height + 4,
+            ),
+            _("No Solve Yet"),
+            font=self.fonts.base.font,
+            fill=self.colors.get(255),
+        )
 
     def change_fov(self, direction):
         self.fov_index += direction
@@ -444,3 +443,20 @@ class UIAlign(UIModule):
                 # cancel without changing alignment
                 self.align_mode = False
                 self.update(force=True)
+
+    def solution_is_new(self, last_solve_time):
+        """
+        Returns True if the solution (coordinates) is valid and new since
+        last_solve_time.
+        """
+        if last_solve_time is None or self.last_update is None:
+            return False
+        if last_solve_time <= self.last_update:
+            return False
+        if (
+            self.solution["RA"] is None
+            or self.solution["Dec"] is None
+        ):
+            return False
+
+        return True  # Solution is valid and new

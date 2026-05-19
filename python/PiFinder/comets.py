@@ -4,6 +4,7 @@ from skyfield.data import mpc
 from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
 from PiFinder.utils import Timer, comet_file
 from PiFinder.calc_utils import sf_utils
+import pandas as pd
 import requests
 import os
 import logging
@@ -187,6 +188,39 @@ def calc_comets(
         with open(comet_file, "rb") as f:
             comets_df = mpc.load_comets_dataframe(f)
 
+        # Ensure orbital element columns are numeric — MPC data sometimes
+        # contains rows that Skyfield's parser can't handle (e.g. MPEC
+        # 2026-F34 historical comets), which causes the entire column to
+        # become dtype=object (strings).  Skyfield's comet_orbit() then
+        # crashes on every comet with a numpy UFuncNoLoopError.
+        numeric_cols = [
+            "perihelion_year",
+            "perihelion_month",
+            "perihelion_day",
+            "argument_of_perihelion_degrees",
+            "longitude_of_ascending_node_degrees",
+            "inclination_degrees",
+            "eccentricity",
+            "perihelion_distance_au",
+            "magnitude_g",
+            "magnitude_k",
+        ]
+        for col in numeric_cols:
+            if col in comets_df.columns:
+                comets_df[col] = pd.to_numeric(comets_df[col], errors="coerce")
+
+        # Drop rows where essential orbital elements couldn't be parsed
+        essential = [
+            "perihelion_year",
+            "perihelion_month",
+            "perihelion_day",
+            "eccentricity",
+            "perihelion_distance_au",
+        ]
+        comets_df = comets_df.dropna(
+            subset=[c for c in essential if c in comets_df.columns]
+        )
+
         # Report progress after file loading (roughly 33% of setup time)
         if progress_callback:
             progress_callback(1)
@@ -196,6 +230,14 @@ def calc_comets(
             .groupby("designation", as_index=False)
             .last()
             .set_index("designation", drop=False)
+        )
+
+        # groupby/last can coerce numeric columns to strings when NaN values
+        # are present; ensure perihelion date fields are numeric before use
+        for col in ("perihelion_year", "perihelion_month", "perihelion_day"):
+            comets_df[col] = pd.to_numeric(comets_df[col], errors="coerce")
+        comets_df = comets_df.dropna(
+            subset=["perihelion_year", "perihelion_month", "perihelion_day"]
         )
 
         # Report progress after pandas processing (roughly 66% of setup time)
@@ -208,7 +250,11 @@ def calc_comets(
 
         for comet in comet_data:
             if comet_names is None or comet[0] in comet_names:
-                result = process_comet(comet, dt)
+                try:
+                    result = process_comet(comet, dt)
+                except Exception as e:
+                    logger.warning(f"Skipping comet {comet[0]}: {e}")
+                    result = {}
                 if result:
                     comet_dict[result["name"]] = result
 
