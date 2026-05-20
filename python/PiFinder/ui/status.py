@@ -304,7 +304,6 @@ class UIStatus(UIModule):
                 self.status_dict["SSID"] = self.net.get_connected_ssid()
 
     def update(self, force=False):
-        time.sleep(1 / 30)
         self.update_status_dict()
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
         lines = []
