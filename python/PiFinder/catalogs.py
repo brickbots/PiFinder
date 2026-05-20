@@ -878,14 +878,11 @@ class CatalogBuilder:
                 composite_objects, catalogs_info
             )
 
-            # No background loader on cache hit — signal completion now.
+            # All objects loaded synchronously from cache — no background
+            # loader, no completion signal (there is nothing for the UI to
+            # transition from).
             self._background_loader = None
             self._pending_catalogs_ref = all_catalogs
-            if ui_queue:
-                try:
-                    ui_queue.put("catalogs_fully_loaded")
-                except Exception as e:
-                    logger.error(f"Failed to signal catalog completion: {e}")
         else:
             db: Database = ObjectsDatabase()
 
