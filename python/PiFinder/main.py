@@ -41,6 +41,7 @@ from PiFinder import keyboard_interface
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
 from PiFinder.calc_utils import sf_utils
+from PiFinder.state_utils import sleep_for_framerate
 
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.menu_manager import MenuManager
@@ -198,10 +199,6 @@ class PowerManager:
             if _imu:
                 if _imu["moving"]:
                     self.wake_up()
-
-        # should we pause execution for a bit?
-        if self.shared_state.power_state() < 1:
-            time.sleep(0.2)
 
     def get_sleep_timeout(self):
         """
@@ -557,7 +554,9 @@ def main(
                     else:
                         console.write(console_msg)
                 except queue.Empty:
-                    time.sleep(0.1)
+                    # Frame-rate-limit the main loop; sleep_for_framerate also
+                    # handles power-save by sleeping longer when asleep.
+                    sleep_for_framerate(shared_state)
 
                 # GPS
                 try:
