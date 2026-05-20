@@ -1,7 +1,6 @@
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import utils
-from PiFinder.state_utils import sleep_for_framerate
 from PiFinder.ui.ui_utils import TextLayouter
 from PiFinder.image_util import gamma_correct_med, subtract_background
 import time
@@ -51,8 +50,6 @@ class UISQM(UIModule):
         )
 
     def update(self, force=False):
-        sleep_for_framerate(self.shared_state)
-
         # Show camera image in background (same processing as preview)
         image_obj = self.camera_image.copy()
         image_obj = image_obj.resize((128, 128))
