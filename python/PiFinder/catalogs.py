@@ -24,6 +24,7 @@ from PiFinder.catalog_base import (
     TimerMixin,
     VirtualIDManager,
 )
+from PiFinder import catalog_cache
 
 logger = logging.getLogger("Catalog")
 
@@ -859,34 +860,70 @@ class CatalogBuilder:
             shared_state: Shared state object
             ui_queue: Optional queue to signal completion (for main loop integration)
         """
-        db: Database = ObjectsDatabase()
         obs_db: Database = ObservationsDatabase()
 
-        # list of dicts, one dict for each entry in the catalog_objects table
-        catalog_objects: List[Dict] = [dict(row) for row in db.get_catalog_objects()]
-        objects = db.get_objects()
-        common_names = Names()
-        catalogs_info = db.get_catalogs_dict()
-        objects = {row["id"]: dict(row) for row in objects}
+        cached = catalog_cache.load()
+        if cached is not None:
+            composite_objects, catalogs_info = cached
+            obs_db.load_observed_objects_cache()
+            for obj in composite_objects:
+                obj.logged = obs_db.check_logged(obj)
 
-        composite_objects: List[CompositeObject] = self._build_composite(
-            catalog_objects, objects, common_names, obs_db, ui_queue
-        )
+            self.catalog_dicts = {}
+            logger.info(
+                "Loaded %i objects from catalog cache", len(composite_objects)
+            )
 
-        # This is used for caching catalog dicts
-        # to speed up repeated searches
-        self.catalog_dicts = {}
-        logger.debug("Loaded %i objects from database", len(composite_objects))
+            all_catalogs: Catalogs = self._get_catalogs(
+                composite_objects, catalogs_info
+            )
 
-        all_catalogs: Catalogs = self._get_catalogs(composite_objects, catalogs_info)
+            # All objects loaded synchronously from cache — no background
+            # loader, no completion signal (there is nothing for the UI to
+            # transition from).
+            self._background_loader = None
+            self._pending_catalogs_ref = all_catalogs
+        else:
+            db: Database = ObjectsDatabase()
 
-        # Store catalogs reference for background loader completion
-        self._pending_catalogs_ref = all_catalogs
+            # list of dicts, one dict for each entry in the catalog_objects table
+            catalog_objects: List[Dict] = [
+                dict(row) for row in db.get_catalog_objects()
+            ]
+            objects = db.get_objects()
+            common_names = Names()
+            catalogs_info = db.get_catalogs_dict()
+            objects = {row["id"]: dict(row) for row in objects}
 
-        # Pass background loader reference to Catalogs instance so it can check loading status
-        # This is set in _build_composite() if there are deferred objects
-        if hasattr(self, "_background_loader") and self._background_loader is not None:
-            all_catalogs._background_loader = self._background_loader
+            composite_objects = self._build_composite(
+                catalog_objects, objects, common_names, obs_db, ui_queue
+            )
+
+            # Cache write context for _on_loader_complete
+            self._cache_priority_objects = list(composite_objects)
+            self._cache_catalogs_info = catalogs_info
+
+            # This is used for caching catalog dicts
+            # to speed up repeated searches
+            self.catalog_dicts = {}
+            logger.debug("Loaded %i objects from database", len(composite_objects))
+
+            all_catalogs = self._get_catalogs(composite_objects, catalogs_info)
+
+            # Store catalogs reference for background loader completion
+            self._pending_catalogs_ref = all_catalogs
+
+            # Pass background loader reference to Catalogs instance so it can check loading status
+            # This is set in _build_composite() if there are deferred objects
+            if (
+                hasattr(self, "_background_loader")
+                and self._background_loader is not None
+            ):
+                all_catalogs._background_loader = self._background_loader
+            else:
+                # No deferred objects — write cache immediately since
+                # _on_loader_complete will never fire.
+                catalog_cache.save(list(composite_objects), catalogs_info)
         # Initialize planet catalog with whatever date we have for now
         # This will be re-initialized on activation of Catalog ui module
         # if we have GPS lock
@@ -1045,6 +1082,14 @@ class CatalogBuilder:
                     # Re-filter this catalog now that it has objects
                     if catalog.catalog_filter:
                         catalog.filter_objects()
+
+        # Persist the full composite list (priority + deferred) for next startup.
+        priority_objects = getattr(self, "_cache_priority_objects", []) or []
+        catalogs_info_for_cache = getattr(self, "_cache_catalogs_info", None)
+        if catalogs_info_for_cache is not None:
+            catalog_cache.save(
+                priority_objects + list(loaded_objects), catalogs_info_for_cache
+            )
 
         # Signal main loop that catalogs are fully loaded
         if ui_queue:
