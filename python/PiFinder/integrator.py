@@ -13,7 +13,12 @@ TODO:
 - Refactor into class PointingTracker
 
 """
-from __future__ import annotations  # To support | in typehints (remove this for Python 3.10+)
+
+from __future__ import (
+    annotations,
+)  # To support | in typehints (remove this for Python 3.10+)
+
+from typing import Optional
 
 import queue
 import time
@@ -64,7 +69,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         last_solve_time = time.time()
 
         while True:
-            pointing_updated = False  # Flag to track if pointing was updated in this loop
+            pointing_updated = (
+                False  # Flag to track if pointing was updated in this loop
+            )
             state_utils.sleep_for_framerate(shared_state)
 
             # Check for new camera solve in queue
@@ -99,7 +106,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     solved.update(next_image_solve)
 
                 # For failed solves, preserve ALL position data from previous solve
-                # Don't recalculate from GPS (causes drift from GPS noise)
+                # Don't recalculate from IMU (causes drift from IMU noise)
 
                 if solved["RA"] is not None:
                     # Successfully plate-solved:
@@ -107,13 +114,23 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     solved["solve_source"] = "CAM"
                     shared_state.set_solve_state(True)
                     # We have a new image solve: Use plate-solving for RA/Dec
-                    update_plate_solve_and_imu(imu_dead_reckoning_target, solved)
-                    update_plate_solve_and_imu(imu_dead_reckoning_camera, solved["camera_center"])
+                    update_plate_solve_and_imu(
+                        imu_dead_reckoning_target,
+                        solved["target_pixel"],
+                        solved["imu_quat"],
+                    )
+                    update_plate_solve_and_imu(
+                        imu_dead_reckoning_camera,
+                        solved["camera_center"],
+                        solved["imu_quat"],
+                    )
                     pointing_updated = True
                 else:
                     # Failed solve - clear constellation
                     solved["solve_source"] = "CAM_FAILED"
-                    solved["constellation"] = ""  # NOTE: This gets over-written by IMU dead-reckoning
+                    solved["constellation"] = (
+                        ""  # NOTE: This gets over-written by IMU dead-reckoning
+                    )
                     # Push failed solved immediately
                     # This ensures auto-exposure sees Matches=0 for failed solves
                     shared_state.set_solution(solved)
@@ -124,19 +141,39 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # the last plate solved coordinates.
                 imu = shared_state.imu()
                 if imu:
-                    update_imu(imu_dead_reckoning_target, solved, last_image_solve, imu)
-                    update_imu(imu_dead_reckoning_camera, solved["camera_center"], last_image_solve["camera_center"], imu)
+                    update_imu(
+                        imu_dead_reckoning_target,
+                        solved["target_pixel"],
+                        last_image_solve,
+                        imu["quat"],
+                    )
+                    # we need to manually promote the target pixel estimate
+                    # here
+                    solved["RA"] = solved["target_pixel"]["estimate"]["RA"]
+                    solved["Dec"] = solved["target_pixel"]["estimate"]["Dec"]
+                    solved["Roll"] = solved["target_pixel"]["estimate"]["Roll"]
+                    solved["solve_time"] = time.time()
+                    solved["solve_source"] = "IMU"
+                    update_imu(
+                        imu_dead_reckoning_camera,
+                        solved["camera_center"],
+                        last_image_solve,
+                        imu["quat"],
+                    )
                     pointing_updated = True
 
             # Update Alt, Az only if newer than last push
             if pointing_updated and solved["solve_time"] > last_solve_time:
                 solved["constellation"] = get_constellation(solved["RA"], solved["Dec"])
 
-                # TODO: Altaz doesn't seem to be required for catalogs when in 
+                # TODO: Altaz doesn't seem to be required for catalogs when in
                 # EQ mode? Could be disabled in future when in EQ mode?
-                solved["Alt"], solved["Az"] = get_alt_az(solved["RA"], solved["Dec"], 
-                                                        shared_state.location(), 
-                                                        shared_state.datetime())
+                solved["Alt"], solved["Az"] = get_alt_az(
+                    solved["RA"],
+                    solved["Dec"],
+                    shared_state.location(),
+                    shared_state.datetime(),
+                )
 
                 if (solved["RA"] is not None) and (solved["Dec"] is not None):
                     # Push new solved to shared state
@@ -150,23 +187,28 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
 # ======== Wrapper and helper functions ===============================
 
-def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
+
+def update_plate_solve_and_imu(
+    imu_dead_reckoning: ImuDeadReckoning,
+    solved: dict,
+    imu_quat: Optional[quaternion.quaternion],
+):
     """
     Wrapper for ImuDeadReckoning.solve() that converts angles from degrees to
     radians and builds RaDecRoll from the plate-solved camera_solve.
     """
-    if (solved["RA"] is None) or (solved["Dec"] is None):
+    if (solved["solve"]["RA"] is None) or (solved["solve"]["Dec"] is None):
         return  # No update
 
-    if solved["imu_quat"] is None:
+    if imu_quat is None:
         q_x2imu = quaternion.quaternion(np.nan)
     else:
-        q_x2imu = solved["imu_quat"]
+        q_x2imu = imu_quat
 
     pointing = RaDecRoll(
-        solved["camera_solve"]["RA"],
-        solved["camera_solve"]["Dec"],
-        solved["camera_solve"]["Roll"],
+        solved["solve"]["RA"],
+        solved["solve"]["Dec"],
+        solved["solve"]["Roll"],
         deg=True,
     )
     imu_dead_reckoning.solve(pointing, q_x2imu)
@@ -176,7 +218,7 @@ def update_imu(
     imu_dead_reckoning: ImuDeadReckoning,
     solved: dict,
     last_image_solve: dict,
-    imu: dict,
+    imu_quat: quaternion.quaternion,
 ):
     """
     Dead-reckon pointing from the latest IMU sample and write it into
@@ -186,10 +228,9 @@ def update_imu(
         return
 
     assert isinstance(
-        imu["quat"], quaternion.quaternion
+        imu_quat, quaternion.quaternion
     ), "Expecting quaternion.quaternion type"
-    q_x2imu = imu["quat"]
-    imu_time = time.time()
+    q_x2imu = imu_quat
 
     angle_moved = qt.get_quat_angular_diff(last_image_solve["imu_quat"], q_x2imu)
     if angle_moved <= IMU_MOVED_ANG_THRESHOLD:
@@ -209,13 +250,15 @@ def update_imu(
 
     pointing = imu_dead_reckoning.predict(q_x2imu)
     assert pointing is not None  # guaranteed by the is_initialized() check above
-    solved["RA"], solved["Dec"], solved["Roll"] = pointing.get(deg=True)
-    solved["solve_time"] = imu_time
-    solved["solve_source"] = "IMU"
+    solved["estimate"]["RA"], solved["estimate"]["Dec"], solved["estimate"]["Roll"] = (
+        pointing.get(deg=True)
+    )
 
     logger.debug(
         "IMU update: pointing: RA: {:}, Dec: {:}, Roll: {:}".format(
-            solved["RA"], solved["Dec"], solved["Roll"]
+            solved["estimate"]["RA"],
+            solved["estimate"]["Dec"],
+            solved["estimate"]["Roll"],
         )
     )
 
@@ -240,5 +283,3 @@ def get_alt_az(RA_deg, Dec_deg, location, dt) -> tuple[float | None, float | Non
     else:
         calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
         return calc_utils.sf_utils.radec_to_altaz(RA_deg, Dec_deg, dt)
-
-

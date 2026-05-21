@@ -220,20 +220,24 @@ class UIAlign(UIModule):
                     # We want to use the CAMERA solve as
                     # it's not updated by the IMU and we'll be moving
                     # the reticle to the star
-                    chart_center = self.solution["camera_solve"]
+                    chart_center = self.solution["camera_center"]["solve"]
                 else:
-                    chart_center = self.solution["camera_center"]
+                    chart_center = self.solution["camera_center"]["estimate"]
 
                 chart_rot_angle = get_chart_rotation_angle(
-                    chart_center["RA"], chart_center["Dec"], 
+                    chart_center["RA"],
+                    chart_center["Dec"],
                     chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
-                    location=self.shared_state.location(), 
-                    dt=self.shared_state.datetime()
+                    location=self.shared_state.location(),
+                    dt=self.shared_state.datetime(),
                 )
                 # This needs to be called first to set RA/DEC/chart_rot_angle
                 image_obj, self.visible_stars = self.starfield.plot_starfield(
-                        chart_center["RA"], chart_center["Dec"], chart_rot_angle, 
-                        constellation_brightness, shade_frustrum=True,
+                    chart_center["RA"],
+                    chart_center["Dec"],
+                    chart_rot_angle,
+                    constellation_brightness,
+                    shade_frustrum=True,
                 )
 
                 image_obj = ImageChops.multiply(
@@ -453,10 +457,7 @@ class UIAlign(UIModule):
             return False
         if last_solve_time <= self.last_update:
             return False
-        if (
-            self.solution["RA"] is None
-            or self.solution["Dec"] is None
-        ):
+        if self.solution["RA"] is None or self.solution["Dec"] is None:
             return False
 
         return True  # Solution is valid and new
