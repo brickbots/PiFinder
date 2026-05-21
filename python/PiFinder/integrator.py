@@ -53,7 +53,10 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         cfg = config.Config()
 
         # Set up dead-reckoning tracking by the IMU:
-        imu_dead_reckoning = ImuDeadReckoning(cfg.get_option("screen_direction"))
+        # One for each position provided by tetra3, camera center and target
+        # pixel
+        imu_dead_reckoning_target = ImuDeadReckoning(cfg.get_option("screen_direction"))
+        imu_dead_reckoning_camera = ImuDeadReckoning(cfg.get_option("screen_direction"))
 
         # This holds the last image solve position info
         # so we can delta for IMU updates
@@ -104,7 +107,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     solved["solve_source"] = "CAM"
                     shared_state.set_solve_state(True)
                     # We have a new image solve: Use plate-solving for RA/Dec
-                    update_plate_solve_and_imu(imu_dead_reckoning, solved)
+                    update_plate_solve_and_imu(imu_dead_reckoning_target, solved)
+                    update_plate_solve_and_imu(imu_dead_reckoning_camera, solved["camera_center"])
                     pointing_updated = True
                 else:
                     # Failed solve - clear constellation
@@ -115,12 +119,13 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     shared_state.set_solution(solved)
                     shared_state.set_solve_state(False)
 
-            if imu_dead_reckoning.is_initialized() and not pointing_updated:
+            if imu_dead_reckoning_target.is_initialized() and not pointing_updated:
                 # Previous plate-solve exists so use IMU dead-reckoning from
                 # the last plate solved coordinates.
                 imu = shared_state.imu()
                 if imu:
-                    update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
+                    update_imu(imu_dead_reckoning_target, solved, last_image_solve, imu)
+                    update_imu(imu_dead_reckoning_camera, solved["camera_center"], last_image_solve["camera_center"], imu)
                     pointing_updated = True
 
             # Update Alt, Az only if newer than last push

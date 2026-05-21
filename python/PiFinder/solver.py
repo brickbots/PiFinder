@@ -445,6 +445,10 @@ def solver(
                             solved["camera_solve"]["Dec"] = solved["Dec"]
                             solved["camera_solve"]["Roll"] = solved["Roll"]
 
+                            solved["camera_center"]["RA"] = solved["RA"]
+                            solved["camera_center"]["Dec"] = solved["Dec"]
+                            solved["camera_center"]["Roll"] = solved["Roll"]
+
                             # RA, Dec, Roll at the target pixel:
                             # Replace the camera center RA/Dec with the RA/Dec for the target pixel
                             solved["RA"] = solved["RA_target"]
@@ -540,6 +544,12 @@ def get_initialized_solved_dict() -> dict:
         "Roll": None,
         # RA, Dec, Roll [deg] from the camera, not updated by IMU in integrator
         "camera_solve": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+        },
+        # RA, Dec, Roll [deg] from the camera, updated by IMU in integrator
+        "camera_center": {
             "RA": None,
             "Dec": None,
             "Roll": None,

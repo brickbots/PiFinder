@@ -222,7 +222,7 @@ class UIAlign(UIModule):
                     # the reticle to the star
                     chart_center = self.solution["camera_solve"]
                 else:
-                    chart_center = self.solution
+                    chart_center = self.solution["camera_center"]
 
                 chart_rot_angle = get_chart_rotation_angle(
                     chart_center["RA"], chart_center["Dec"], 
