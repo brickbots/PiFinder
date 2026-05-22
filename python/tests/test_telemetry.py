@@ -8,7 +8,6 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pytest
 import quaternion as quaternion_module
 
@@ -231,7 +230,7 @@ class TestTelemetryRecorder:
                 rec._do_flush()
                 assert len(rec._buffer) == 0
                 content = (rec._session_dir / "session.jsonl").read_text()
-                lines = [l for l in content.strip().split("\n") if l]
+                lines = [line for line in content.strip().split("\n") if line]
                 assert len(lines) == 2  # header + imu
             finally:
                 rec.stop()
@@ -807,8 +806,8 @@ class TestTelemetryManager:
                 assert mgr._recorder._last_target_id == 42
                 # Check a target event was buffered (header + target)
                 assert len(mgr._recorder._buffer) >= 2
-                lines = [json.loads(l) for l in mgr._recorder._buffer]
-                tgt_lines = [l for l in lines if l.get("e") == "tgt"]
+                lines = [json.loads(line) for line in mgr._recorder._buffer]
+                tgt_lines = [line for line in lines if line.get("e") == "tgt"]
                 assert len(tgt_lines) == 1
                 assert tgt_lines[0]["name"] == "M 31"
             finally:

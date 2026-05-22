@@ -12,7 +12,7 @@ Catches regressions in:
 
 import copy
 from dataclasses import dataclass
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import pytest
@@ -24,7 +24,7 @@ from PiFinder.pointing import (
 )
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 from PiFinder.pointing_model.quaternion_transforms import axis_angle2quat, radec2q_eq
-from PiFinder.solver import get_initialized_solved_dict
+from PiFinder.solved import get_initialized_solved_dict
 
 
 # ── Synthetic telemetry generation ──────────────────────────────────
@@ -105,7 +105,7 @@ def generate_stationary_session(
     tmp_dr = ImuDeadReckoning("flat")
     base_quat = _make_imu_quat_for_radec(tmp_dr, ra_rad, dec_rad, roll_rad)
 
-    events = []
+    events: List[Union[SolveEvent, ImuEvent]] = []
     t = 0.0
     imu_dt = 1.0 / imu_rate_hz
     next_solve = 0.0
@@ -161,7 +161,7 @@ def generate_slew_session(
     start_ra_deg, dec_deg, roll_deg = 90.0, 30.0, 0.0
 
     tmp_dr = ImuDeadReckoning("flat")
-    events = []
+    events: List[Union[SolveEvent, ImuEvent]] = []
     t = 0.0
     imu_dt = 1.0 / imu_rate_hz
     next_solve = 0.0
