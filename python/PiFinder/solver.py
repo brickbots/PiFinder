@@ -378,6 +378,12 @@ def solver(
                         solved["RA"] = None
                         solved["Dec"] = None
                         solved["Matches"] = 0
+                        solved["camera_center"]["RA"] = None
+                        solved["camera_center"]["Dec"] = None
+                        solved["camera_center"]["Roll"] = None
+                        solved["camera_solve"]["RA"] = None
+                        solved["camera_solve"]["Dec"] = None
+                        solved["camera_solve"]["Roll"] = None
                         solution = {}
 
                         if len(centroids) == 0:
