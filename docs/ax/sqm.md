@@ -12,7 +12,8 @@ It focuses on the runtime path that executes during normal solving:
 - `PiFinder/solver.py` — the only runtime caller of `SQM.calculate()`.
 
 The UI side (`ui/sqm.py`, `ui/sqm_calibration.py`, `ui/sqm_correction.py`)
-is summarized at the end. A draft glossary appears at the very bottom.
+is summarized at the end. For the canonical glossary of terms and data
+structures, see [`sqm/CONTEXT.md`](./sqm/CONTEXT.md).
 
 ---
 
@@ -305,89 +306,14 @@ A few invariants worth knowing when modifying the SQM path:
 
 ---
 
-## 10. Glossary (draft — to be reviewed)
+## 10. Glossary
 
-> These definitions are working notes synthesized from the source. They
-> should be reviewed for correctness and refined before being treated as
-> canonical.
+The canonical glossary lives at [`sqm/CONTEXT.md`](./sqm/CONTEXT.md).
+Use those terms when reading, writing, and discussing code in this area.
 
-**SQM (Sky Quality Meter)** — Sky brightness in magnitudes per square
-arcsecond. Higher values are darker skies. The PiFinder measurement is a
-photometric reduction from a single plate-solved frame; it is not a
-hardware SQM-LE-style sensor reading.
-
-**`mag/arcsec²`** — Astronomical surface brightness unit. Typical dark
-sky is 21–22; suburban is 18–19; bright city is 16–17.
-
-**Photometric zero point (`mzero`)** — The conversion constant between
-ADU and apparent magnitude for the current frame:
-`mag = mzero − 2.5 · log10(flux_ADU)`. Computed from matched stars of
-known catalog magnitude.
-
-**Pedestal** — The fixed electronic offset added to every pixel by the
-sensor and ISP, before any real signal. PiFinder estimates this as
-`bias_offset + dark_current_contribution` and subtracts it from the
-measured sky background.
-
-**Bias offset** — The sensor's quiescent ADU value (zero exposure, no
-signal). Comes from `CameraProfile.bias_offset`, refinable via
-calibration JSON or zero-second samples.
-
-**Read noise** — Random per-pixel noise introduced by the ADC. Constant
-w.r.t. exposure. Stored as `CameraProfile.read_noise_adu`.
-
-**Dark current** — Thermal electrons per second per pixel. Scaled by
-`exposure_sec` to a per-frame dark contribution. Stored as
-`CameraProfile.dark_current_rate` (ADU/s at ~20 °C).
-
-**Aperture** — Circular pixel region around a star centroid where flux
-is summed. Default radius 5 px.
-
-**Annulus** — Ring around each star (default inner 6 px, outer 14 px)
-used to measure *local* sky background. Local annuli (vs a single global
-sky measurement) handle uneven backgrounds and gradient illumination.
-
-**Saturation threshold** — Pixel value above which a star's aperture is
-considered saturated and the star is excluded from the `mzero` average.
-Default 250 ADU (for 8-bit processed images).
-
-**Noise floor** — The ADU level below which we treat values as
-"empty sky + sensor noise" rather than real signal. Used as the lower
-bound for sky background and as a target for SNR-based auto-exposure.
-
-**`NoiseFloorEstimator`** — Class that fuses a per-frame measurement
-(`np.percentile` of darkest pixels) with a physics-based theoretical
-floor (`bias_offset + read_noise + dark_current_rate · exposure_sec`),
-choosing the more conservative value and smoothing with a 20-deep
-history.
-
-**Airmass** — Path length through the atmosphere relative to zenith.
-Computed by Pickering (2002):
-`airmass(h) = 1 / sin(h + 244 / (165 + 47 · h^1.1))` with `h` in
-degrees. More accurate than `1/sin(h)` near the horizon.
-
-**Extinction** — Magnitudes of atmospheric attenuation per unit
-airmass. PiFinder uses 0.28 mag/airmass (V-band) and reports two SQM
-numbers: a raw `sqm_final` with no extinction correction, and an
-`sqm_altitude_corrected` that adds `0.28 · (airmass − 1)` so
-measurements at different altitudes can be compared.
-
-**Zero-second sample** — A 0-s exposure used to directly measure
-`bias_offset` and `read_noise_adu` without any sky signal or dark
-current. `NoiseFloorEstimator` periodically flags
-`request_zero_sec_sample=True` in its details so the camera process
-can capture one.
-
-**`SQM_CALCULATION_INTERVAL_SECONDS`** — The minimum wall-clock interval
-between SQM calculations in the solver loop. Default 5.0 s
-(`solver.py:34`).
-
-**`reload_sqm_calibration`** — A command string posted on
-`align_command_queue` by the calibration wizard. Causes the solver to
-rebuild its `SQMCalculator` instance, picking up freshly-saved
-calibration JSON.
-
-**Per-star arrays in `details`** — `star_centroids`, `star_mags`,
-`star_fluxes`, `star_local_backgrounds`, `star_mzeros`. Returned by
-`SQM.calculate()` for diagnostics but **stripped** before publishing
-via `set_sqm_details` to avoid bloating shared-state proxy traffic.
+In particular: bare "SQM" means the published `sqm_final` (no altitude
+correction) — see [`docs/adr/0002-sqm-published-value-uncorrected.md`](../adr/0002-sqm-published-value-uncorrected.md)
+for the rationale. The wizard-time **dark sequence** (multi-frame
+multi-exposure, fits noise constants) is distinct from the runtime
+**zero-second sample** (single 0-s exposure, refreshes
+`bias_offset`/`read_noise_adu`).

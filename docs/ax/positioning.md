@@ -8,8 +8,8 @@ two processes that produce the canonical "where am I pointing?" answer:
 - `PiFinder/integrator.py` — fuses plate-solves with IMU dead-reckoning
   and publishes the result to the rest of the system.
 
-A glossary of terms and data structures appears at the end. Definitions
-there are draft notes and should be reviewed.
+For the canonical glossary of terms and data structures, see
+[`positioning/CONTEXT.md`](./positioning/CONTEXT.md).
 
 ---
 
@@ -294,142 +294,12 @@ A few subtle rules worth knowing when modifying either file:
 
 ---
 
-## 8. Glossary (draft — to be reviewed)
+## 8. Glossary
 
-> These definitions are working notes synthesized from the source. They
-> should be reviewed for correctness and refined before being treated as
-> canonical.
+The canonical glossary lives at [`positioning/CONTEXT.md`](./positioning/CONTEXT.md).
+Use those terms when reading, writing, and discussing code in this area.
 
-**Plate solve** — The process of identifying which patch of sky an image
-shows by matching detected star centroids against a catalog of star
-patterns. PiFinder uses [tetra3](https://github.com/esa/tetra3).
-
-**Centroid** — A sub-pixel `(y, x)` coordinate of a star-like point
-source detected in the image. Produced either by `cedar-detect-server`
-(preferred) or by `tetra3.get_centroids_from_image` (fallback).
-
-**Cedar / cedar-detect** — A separate gRPC service (`cedar-detect-server`)
-running on `127.0.0.1:50551` that performs fast star detection. PiFinder
-talks to it via `PFCedarDetectClient`, optionally using POSIX shared
-memory for zero-copy image transfer.
-
-**Tetra3** — The plate-solving library; bundled under
-`python/PiFinder/tetra3/`. Database used:
-`tetra3/data/default_database.npz`.
-
-**`solved` dict** — The canonical position record passed from the solver
-to the integrator and into shared state. Shape is defined by
-`get_initialized_solved_dict()` in `solver.py`.
-
-**`camera_solve`** — Sub-dict inside `solved` holding the RA/Dec/Roll at
-the **camera center** from the last plate-solve. Distinct from the
-top-level `RA`/`Dec`/`Roll`, which refer to the **target pixel** and may
-be updated by the IMU.
-
-**Target pixel / solve pixel** — A user-configurable image pixel where
-the eyepiece/finder reticle is aligned. tetra3 is asked to report the
-sky coordinate at this pixel via the `target_pixel` argument; the
-resulting RA/Dec is what the user actually sees as their pointing.
-
-**IMU (Inertial Measurement Unit)** — The BNO055 sensor that supplies
-orientation. Samples are produced by the IMU process and read by the
-integrator via `shared_state.imu()`.
-
-**IMU quaternion (`q_x2imu` / `imu_quat`)** — A unit quaternion
-expressing the IMU's current orientation in its world frame. PiFinder
-uses scalar-first convention via the `numpy-quaternion` package.
-The naming `q_x2imu` (in `ImuDeadReckoning`) denotes a transform from
-some reference frame `x` to the IMU frame.
-
-**Dead reckoning (`ImuDeadReckoning`)** — Given (a) a known pointing at
-the moment of the last successful plate-solve and (b) the IMU quaternion
-at that same moment, project the current IMU quaternion forward to a
-new RA/Dec/Roll. Defined in
-`PiFinder/pointing_model/imu_dead_reckoning.py`.
-
-**`RaDecRoll`** — Coordinate dataclass defined in
-`PiFinder/types/coordinates.py`. Constructed with `deg=True` from degree
-values; `.get(deg=True)` returns a `(RA, Dec, Roll)` tuple in degrees.
-
-**`solve_source`** — String tag on the published solution:
-- `"CAM"` — pointing came from a fresh plate-solve.
-- `"CAM_FAILED"` — most recent plate-solve attempt failed; position may
-  be from an earlier solve or IMU.
-- `"IMU"` — pointing came from IMU dead-reckoning since the last solve.
-
-**`Matches` / `RMSE`** — Tetra3 plate-solve diagnostics. `Matches` is the
-count of matched stars; `RMSE` is the residual in pixels. Surfaced via
-the `solved` dict and consumed by auto-exposure.
-
-**`last_solve_attempt` / `last_solve_success`** — Timestamps (as the
-camera's `exposure_end` value, not wall clock) of, respectively, the
-most recent frame the solver tried to solve and the most recent frame
-it succeeded on.
-
-**`shared_state` / `SharedStateObj`** — The multiprocessing-manager
-proxy that lets every PiFinder process read and write shared
-configuration, IMU samples, GPS fixes, the latest image, and the
-published pointing solution.
-
-**Screen direction** — Configuration field (`screen_direction`) that
-tells `ImuDeadReckoning` how the display/IMU is physically mounted
-relative to the optical axis. Used to bake in the right axis
-conventions when initializing dead-reckoning.
-
-**SQM (Sky Quality Meter)** — A measurement of sky brightness in
-magnitudes per square arcsecond, computed by `PiFinder/sqm.py` from
-matched stars. Calculated opportunistically inside the solver loop
-(every `SQM_CALCULATION_INTERVAL_SECONDS`, default 5 s) and published
-via `shared_state.set_sqm()`.
-
-**Noise floor** — A per-image ADU level derived during SQM calculation
-and stored via `shared_state.set_noise_floor`. Consumed by auto-exposure
-(SNR-based) in the camera process.
-
-**Camera-to-telescope alignment** — The process of learning which
-pixel in the camera image corresponds to the center of the eyepiece
-view. The user centers a known sky target in the eyepiece, and the
-solver reports back the pixel coordinate where that target lands in
-the camera frame. That pixel is stored as `solve_pixel` in
-`shared_state` and persisted to `Config`. From then on, every
-plate-solve asks tetra3 for the RA/Dec at that pixel, and publishes
-it as the pointing — so `solved["RA"/"Dec"]` reflects the eyepiece,
-not the camera center.
-
-**`solve_pixel`** — `(Y, X)` pixel in 512×512 camera image space
-representing the calibrated eyepiece-center location. Default
-`(256, 256)` means no alignment offset. Read on every plate-solve as
-the `target_pixel` argument to tetra3. Updated by
-`shared_state.set_solve_pixel(...)` and persisted via
-`Config.set_option("solve_pixel", ...)`. Accessible in screen space
-(128×128, X/Y) via `shared_state.solve_pixel(screen_space=True)` for
-UI reticle overlays.
-
-**`align_ra` / `align_dec`** — Local state in the solver process that
-holds the user's chosen sky coordinate during an alignment request.
-Non-zero values cause the next plate-solve to pass `target_sky_coord`
-to tetra3 and return the pixel where that coordinate lands. Cleared
-back to zero once the result is posted.
-
-**`align_on_radec` / `align_cancel`** — Command strings on
-`align_command_queue`. `align_on_radec` carries `(ra, dec)` and
-arms alignment; `align_cancel` clears it (sent by the UI on timeout
-or user cancel).
-
-**`["aligned", (y, x)]`** — Response message on `align_result_queue`
-carrying the pixel coordinates of the alignment target. Consumed by
-`ui/align.py::align_on_radec()`.
-
-**`solver_queue`** — Multiprocessing queue, solver → integrator. Carries
-the `solved` dict on every attempt, success or failure.
-
-**`align_command_queue` / `align_result_queue`** — Queues that carry
-alignment commands into the solver and pixel results back out.
-
-**`solve_state`** — Boolean flag set on `shared_state` indicating
-whether a current pointing solution exists; separate from the
-`solved` dict for cheap UI polling.
-
-**IMU_MOVED_ANG_THRESHOLD** — Deadband (0.06°, 1.05 mrad) below which
-IMU motion is treated as noise and no dead-reckoning update is
-published.
+Note in particular: the dataclass model in `PiFinder/types/positioning.py`
+supersedes the legacy `solved` dict described above. The canonical access
+shape is `pointing.<axis>.<state>.<RA|Dec|Roll>` — see also
+[`docs/adr/0001-positioning-vocabulary.md`](../adr/0001-positioning-vocabulary.md).
