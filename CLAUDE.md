@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Branch Model
+
+- **`main`** is the integration / development branch. **All PRs target `main`.**
+- **`release`** is the production branch — code is promoted from `main` to `release` as part of a release cut. Do not open PRs directly against `release`.
+- Feature branches: branch off `main` and PR back to `main`.
+
+Note: the auto-detected "Main branch" shown in the Claude Code env block may currently read `release` (because the GitHub default branch points there). Disregard that — the rule above is authoritative for this repo.
+
 ## Development Commands
 
 **Running Python**
