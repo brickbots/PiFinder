@@ -16,7 +16,7 @@ import logging
 from PiFinder import config
 from PiFinder import state_utils
 from PiFinder.multiproclogging import MultiprocLogging
-from PiFinder.solver import get_initialized_solved_dict
+from PiFinder.solved import get_initialized_solved_dict
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 from PiFinder.pointing import (
     finalize_and_push_solution,
