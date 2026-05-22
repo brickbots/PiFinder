@@ -63,6 +63,17 @@ Usual startup:
 python3.9 -m PiFinder.main -fh --camera debug --keyboard local -x
 ```
 
+## Reference Documentation
+
+Before working in an area of the codebase, check whether it has reference docs:
+
+- **`CONTEXT-MAP.md`** (repo root) — index of bounded contexts and how they relate. Start here for any cross-context question.
+- **`docs/ax/<area>/CONTEXT.md`** — canonical glossary for each context (Catalog, Positioning, SQM…). These define the project's vocabulary: what each domain term means, which words to avoid, and how related concepts compose. **Use these terms when reading, writing, and discussing code.**
+- **`docs/ax/<area>.md`** — architecture deep-dives (data flow, lifecycle, gotchas) alongside each CONTEXT.md.
+- **`docs/adr/NNNN-*.md`** — short architecture-decision records capturing the *why* behind non-obvious or hard-to-reverse choices.
+
+When a `CONTEXT.md` defines a term, prefer that term over synonyms in code comments, commit messages, and PR descriptions. If you encounter language in code or chat that conflicts with a CONTEXT.md, flag it.
+
 ## Architecture Overview
 
 **Multi-Process Design:** PiFinder uses a process-based architecture where each major subsystem runs in its own process, communicating via queues and shared state objects:
