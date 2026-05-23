@@ -5,7 +5,10 @@
 This module contains the chart (starfield + constellation lines) UI Module class
 
 """
-from __future__ import annotations  # To support | in typehints (remove this for Python 3.10+)
+
+from __future__ import (
+    annotations,
+)  # To support | in typehints (remove this for Python 3.10+)
 
 import datetime
 import logging
@@ -157,22 +160,24 @@ class UIChart(UIModule):
                 "chart_constellations", 64
             )
             self.solution = self.shared_state.solution()
-            last_solve_time = self.solution["solve_time"]
+            last_solve_time = self.solution.solve_time
 
             if last_solve_time is None:
                 self.plot_no_solve()
             elif self.solution_is_new(last_solve_time):
+                aligned = self.solution.pointing.aligned.estimate
                 # Solution is new so plot the updated chart
                 chart_rot_angle = get_chart_rotation_angle(
-                    self.solution["RA"], self.solution["Dec"], 
+                    aligned.RA,
+                    aligned.Dec,
                     chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
-                    location=self.shared_state.location(), 
-                    dt=self.shared_state.datetime()
+                    location=self.shared_state.location(),
+                    dt=self.shared_state.datetime(),
                 )
                 # This needs to be called first to set RA/DEC/chart_rot_angle
                 image_obj, _visible_stars = self.starfield.plot_starfield(
-                    self.solution["RA"],
-                    self.solution["Dec"],
+                    aligned.RA,
+                    aligned.Dec,
                     chart_rot_angle,
                     constellation_brightness,
                 )
@@ -185,8 +190,8 @@ class UIChart(UIModule):
 
                 # Display RA/DEC in selected format if enabled
                 if self.config_object.get_option("chart_radec") == "HH:MM":
-                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
-                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
+                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(aligned.RA)
+                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(aligned.Dec)
                     ra_dec_disp = f"{ra_h:02d}:{ra_m:02d}:{ra_s:02d} / {dec_d:02d}°{dec_m:02d}:{dec_s}"
                     self.draw.text(
                         (0, 114),
@@ -195,11 +200,9 @@ class UIChart(UIModule):
                         fill=self.colors.get(255),
                     )
                 if self.config_object.get_option("chart_radec") == "Degr":
-                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
-                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
-                    ra_dec_disp = (
-                        f"{self.solution['RA']:0>6.2f} / {self.solution['Dec']:0>5.2f}"
-                    )
+                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(aligned.RA)
+                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(aligned.Dec)
+                    ra_dec_disp = f"{aligned.RA:0>6.2f} / {aligned.Dec:0>5.2f}"
                     self.draw.text(
                         (0, 114),
                         ra_dec_disp,
@@ -246,10 +249,7 @@ class UIChart(UIModule):
             return False
         if last_solve_time <= self.last_update:
             return False
-        if (
-            self.solution["RA"] is None
-            or self.solution["Dec"] is None
-        ):
+        if not self.solution.has_pointing():
             return False
 
         return True  # Solution is valid and new
@@ -276,7 +276,6 @@ class UIChart(UIModule):
         self.update()
 
 
-
 def get_chart_rotation_angle(
     ra_deg: float,  # Right Ascension of the target in degrees
     dec_deg: float,  # Declination of the target in degrees
@@ -285,9 +284,9 @@ def get_chart_rotation_angle(
     dt: datetime.datetime | None = None,
 ) -> float:
     """
-    Returns angle (in degrees) to rotate the chart by depending on the 
-    configured chart coordinate system. This was previously called "roll". 
-    Chart will be plotted rotated around (RA, Dec); +ve means anti-clockwise 
+    Returns angle (in degrees) to rotate the chart by depending on the
+    configured chart coordinate system. This was previously called "roll".
+    Chart will be plotted rotated around (RA, Dec); +ve means anti-clockwise
     rotation. The RA and Dec of the target should be provided (in degrees).
 
     * horiz: Display the chart in the horizontal coordinate so that up in the
@@ -303,7 +302,9 @@ def get_chart_rotation_angle(
     if chart_coord_sys == "horiz":
         # Horizontal coordinates (alt/az):
         if location and dt:
-            calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
+            calc_utils.sf_utils.set_location(
+                location.lat, location.lon, location.altitude
+            )
             # Use -parallactic_angle
             rot_deg = -calc_utils.sf_utils.radec_to_pa(ra_deg, dec_deg, dt)
         else:
@@ -320,7 +321,9 @@ def get_chart_rotation_angle(
     elif chart_coord_sys == "eq_south_up":
         rot_deg = 180.0
     else:
-        logger.error(f"Unknown chart coordinate system: {chart_coord_sys}. Defaulting to EQ North-up.")
+        logger.error(
+            f"Unknown chart coordinate system: {chart_coord_sys}. Defaulting to EQ North-up."
+        )
         rot_deg = 0.0  # NCP up
 
     return rot_deg

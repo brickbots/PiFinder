@@ -26,25 +26,60 @@ def create_path(apath: Path):
     os.makedirs(apath, exist_ok=True)
 
 
-def serialize_solution(solution: dict) -> str:
+def serialize_solution(solution) -> str:
     """
-    Take a solution dictionary and serialize it to a string
-    for logging and other debug output
+    Render a :class:`PointingEstimate` to a JSON string for observation
+    logging. The output captures the published aligned-axis pointing,
+    horizontal coords, source/timing, diagnostics, and the camera-axis
+    solve cell.
     """
+    from PiFinder.types.positioning import PointingEstimate
 
-    out_dict = {}
-    for k, v in solution.items():
-        if "uint16" in str(type(v)):
-            v = int(v)
+    if solution is None:
+        return json.dumps({})
 
-        if "numpy.float" in str(type(v)):
-            v = float(v)
+    if not isinstance(solution, PointingEstimate):
+        # Defensive: if anything still passes a dict, emit it directly
+        # so we don't crash. Strip non-JSON-friendly types like before.
+        out_dict = {}
+        for k, v in solution.items():
+            if "uint16" in str(type(v)):
+                v = int(v)
+            if "numpy.float" in str(type(v)):
+                v = float(v)
+            if "quaternion" in str(type(v)):
+                v = v.components.tolist()
+            out_dict[k] = v
+        return json.dumps(out_dict)
 
-        if "quaternion" in str(type(v)):
-            v = v.components.tolist()
-
-        out_dict[k] = v
-
+    aligned = solution.pointing.aligned.estimate
+    camera_solve = solution.pointing.camera.solve
+    imu_anchor = solution.imu_anchor
+    out_dict = {
+        "RA": aligned.RA if aligned else None,
+        "Dec": aligned.Dec if aligned else None,
+        "Roll": aligned.Roll if aligned else None,
+        "Alt": solution.Alt,
+        "Az": solution.Az,
+        "camera_solve": {
+            "RA": camera_solve.RA if camera_solve else None,
+            "Dec": camera_solve.Dec if camera_solve else None,
+            "Roll": camera_solve.Roll if camera_solve else None,
+        },
+        "imu_quat": imu_anchor.components.tolist() if imu_anchor else None,
+        "solve_source": solution.solve_source.value if solution.solve_source else None,
+        "solve_time": solution.solve_time,
+        "cam_solve_time": solution.cam_solve_time,
+        "last_solve_attempt": solution.last_solve_attempt,
+        "last_solve_success": solution.last_solve_success,
+        "constellation": solution.constellation,
+        "Matches": solution.diagnostics.Matches,
+        "RMSE": solution.diagnostics.RMSE,
+        "Prob": solution.diagnostics.Prob,
+        "FOV": solution.diagnostics.FOV,
+        "T_solve": solution.diagnostics.T_solve,
+        "T_extract": solution.diagnostics.T_extract,
+    }
     return json.dumps(out_dict)
 
 

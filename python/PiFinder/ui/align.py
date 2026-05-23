@@ -13,6 +13,7 @@ from PIL import ImageChops
 
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import plot
+from PiFinder.types.positioning import AlignCancel, AlignOnRaDec, AlignedResult
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.chart import get_chart_rotation_angle
 
@@ -23,58 +24,41 @@ def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool
     * Telling the solver to figure out alignment pixel
     * Wait for it to be done
     * Set the config item and the shared state
-    * return the pixel or -1/-1 for error
+    * return True on success, False on timeout / failure
     """
 
     # Clear out any pending responses
     while True:
         try:
-            command = command_queues["align_response"].get(block=False)
+            command_queues["align_response"].get(block=False)
         except queue.Empty:
             break
 
     # Send command to solver to work out the camera pixel for this target
-    command_queues["align_command"].put(
-        [
-            "align_on_radec",
-            ra,
-            dec,
-        ]
-    )
+    command_queues["align_command"].put(AlignOnRaDec(ra=ra, dec=dec))
 
-    received_response = False
+    response: AlignedResult | None = None
     start_time = time.time()
-    while not received_response:
-        # only wait two seconds
+    while response is None:
         if time.time() - start_time > 2:
-            command_queues["align_command"].put(
-                [
-                    "align_cancel",
-                    ra,
-                    dec,
-                ]
-            )
+            command_queues["align_command"].put(AlignCancel())
             command_queues["console"].put(_("Align Timeout"))
             return False
 
         try:
-            command = command_queues["align_response"].get(block=False)
+            response = command_queues["align_response"].get(block=False)
         except queue.Empty:
-            command = False
+            response = None
 
-        if command is not False:
-            received_response = True
-            if command[0] == "aligned":
-                target_pixel = command[1]
-
+    target_pixel = response.as_target_pixel()
     if target_pixel[0] == -1:
         # Failed to align
         return False
 
     # success, set all the things...
     command_queues["console"].put(_("Alignment Set"))
-    shared_state.set_solve_pixel(target_pixel)
-    config_object.set_option("solve_pixel", target_pixel)
+    shared_state.set_target_pixel(target_pixel)
+    config_object.set_option("target_pixel", target_pixel)
     return True
 
 
@@ -100,8 +84,8 @@ class UIAlign(UIModule):
         self.star_list = np.empty((0, 2))
         self.alignment_star = None
         self.marker_position = (
-            self.config_object.get_option("solve_pixel", (256, 256))[1] / 4,
-            self.config_object.get_option("solve_pixel", (256, 256))[0] / 4,
+            self.config_object.get_option("target_pixel", (256, 256))[1] / 4,
+            self.config_object.get_option("target_pixel", (256, 256))[0] / 4,
         )
 
         # Marking menu definition
@@ -121,12 +105,11 @@ class UIAlign(UIModule):
             return
 
         # No solution yet (initial state before first successful solve)
-        if not self.solution or self.solution["RA"] is None:
+        if not self.solution or not self.solution.has_pointing():
             return
 
-        reticle_position = self.starfield.radec_to_xy(
-            self.solution["RA"], self.solution["Dec"]
-        )
+        aligned = self.solution.pointing.aligned.estimate
+        reticle_position = self.starfield.radec_to_xy(aligned.RA, aligned.Dec)
 
         fov = self.fov
         for circ_deg in [4, 2, 0.5]:
@@ -213,27 +196,31 @@ class UIAlign(UIModule):
             self.animate_fov()
             constellation_brightness = 64
             self.solution = self.shared_state.solution()
-            last_solve_time = self.solution["solve_time"]
+            last_solve_time = self.solution.solve_time
 
             if self.solution_is_new(last_solve_time) or force:
                 if self.align_mode:
                     # We want to use the CAMERA solve as
                     # it's not updated by the IMU and we'll be moving
                     # the reticle to the star
-                    chart_center = self.solution["camera_solve"]
+                    chart_center = self.solution.pointing.camera.solve
                 else:
-                    chart_center = self.solution["camera_center"]
+                    chart_center = self.solution.pointing.camera.estimate
 
                 chart_rot_angle = get_chart_rotation_angle(
-                    chart_center["RA"], chart_center["Dec"], 
+                    chart_center.RA,
+                    chart_center.Dec,
                     chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
-                    location=self.shared_state.location(), 
-                    dt=self.shared_state.datetime()
+                    location=self.shared_state.location(),
+                    dt=self.shared_state.datetime(),
                 )
                 # This needs to be called first to set RA/DEC/chart_rot_angle
                 image_obj, self.visible_stars = self.starfield.plot_starfield(
-                        chart_center["RA"], chart_center["Dec"], chart_rot_angle, 
-                        constellation_brightness, shade_frustrum=True,
+                    chart_center.RA,
+                    chart_center.Dec,
+                    chart_rot_angle,
+                    constellation_brightness,
+                    shade_frustrum=True,
                 )
 
                 image_obj = ImageChops.multiply(
@@ -251,19 +238,13 @@ class UIAlign(UIModule):
                 # draw the help text
                 if not self.align_mode:
                     # TRANSLATORS: hint bar; preserve leading spaces for layout
-                    hint_text = _("  {icon} START ALIGN").format(
-                        icon=self._SQUARE_
-                    )
+                    hint_text = _("  {icon} START ALIGN").format(icon=self._SQUARE_)
                 elif self.alignment_star is None:
                     # TRANSLATORS: hint bar; {icon} is a directional-arrows glyph
-                    hint_text = _("{icon} SELECT STAR").format(
-                        icon=self._ARROWS_
-                    )
+                    hint_text = _("{icon} SELECT STAR").format(icon=self._ARROWS_)
                 else:
                     # TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
-                    hint_text = _("{icon} SAVE / 0 CANCEL").format(
-                        icon=self._SQUARE_
-                    )
+                    hint_text = _("{icon} SAVE / 0 CANCEL").format(icon=self._SQUARE_)
                 self.draw.text(
                     (15, self.display_class.resY - self.fonts.base.height - 2),
                     hint_text,
@@ -442,8 +423,8 @@ class UIAlign(UIModule):
         if self.align_mode:
             if number == 1:
                 # reset reticle to center
-                self.shared_state.set_solve_pixel((256, 256))
-                self.config_object.set_option("solve_pixel", (256, 256))
+                self.shared_state.set_target_pixel((256, 256))
+                self.config_object.set_option("target_pixel", (256, 256))
                 self.marker_position = (64, 64)
                 self.update(force=True)
                 self.align_mode = False
@@ -461,10 +442,7 @@ class UIAlign(UIModule):
             return False
         if last_solve_time <= self.last_update:
             return False
-        if (
-            self.solution["RA"] is None
-            or self.solution["Dec"] is None
-        ):
+        if not self.solution.has_pointing():
             return False
 
         return True  # Solution is valid and new

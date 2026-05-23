@@ -215,15 +215,13 @@ class CameraInterface:
                     # Updates as fast as new solve results arrive (naturally rate-limited)
                     if self._auto_exposure_enabled and self._auto_exposure_pid:
                         solution = shared_state.solution()
-                        solve_source = (
-                            solution.get("solve_source") if solution else None
-                        )
+                        solve_source = solution.solve_source if solution else None
 
                         # Handle camera solves (successful or failed)
                         if solve_source in ("CAM", "CAM_FAILED"):
-                            matched_stars = solution.get("Matches", 0)
-                            solve_attempt_time = solution.get("last_solve_attempt")
-                            solve_rmse = solution.get("RMSE")
+                            matched_stars = solution.diagnostics.Matches
+                            solve_attempt_time = solution.last_solve_attempt
+                            solve_rmse = solution.diagnostics.RMSE
 
                             # Only update on NEW solve results (not re-processing same solution)
                             # Use last_solve_attempt since it's set for both success and failure
@@ -593,11 +591,15 @@ class CameraInterface:
                                 altitude_deg = None
                                 azimuth_deg = None
 
-                                if solve_state is not None:
-                                    ra_deg = solve_state.get("RA")
-                                    dec_deg = solve_state.get("Dec")
-                                    altitude_deg = solve_state.get("Alt")
-                                    azimuth_deg = solve_state.get("Az")
+                                if (
+                                    solve_state is not None
+                                    and solve_state.has_pointing()
+                                ):
+                                    aligned = solve_state.pointing.aligned.estimate
+                                    ra_deg = aligned.RA
+                                    dec_deg = aligned.Dec
+                                    altitude_deg = solve_state.Alt
+                                    azimuth_deg = solve_state.Az
                                     logger.debug(
                                         f"Solve: RA={ra_deg}, Dec={dec_deg}, Alt={altitude_deg}, Az={azimuth_deg}"
                                     )

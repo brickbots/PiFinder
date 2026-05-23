@@ -7,6 +7,7 @@ Cache layout under ~/PiFinder_data/cache/catalogs/:
 The `logged` flag on each CompositeObject is user state; it is reset to False
 before pickling and re-applied from the observations DB after load.
 """
+
 from __future__ import annotations
 
 import json

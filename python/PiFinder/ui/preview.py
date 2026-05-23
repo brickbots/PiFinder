@@ -69,14 +69,14 @@ class UIPreview(UIModule):
             return
 
         fov = 10.2
-        solve_pixel = self.shared_state.solve_pixel(screen_space=True)
+        target_pixel = self.shared_state.target_pixel(screen_space=True)
         for circ_deg in [4, 2, 0.5]:
             circ_rad = ((circ_deg / fov) * self.display_class.resX) / 2
             bbox = [
-                solve_pixel[0] - circ_rad,
-                solve_pixel[1] - circ_rad,
-                solve_pixel[0] + circ_rad,
-                solve_pixel[1] + circ_rad,
+                target_pixel[0] - circ_rad,
+                target_pixel[1] - circ_rad,
+                target_pixel[0] + circ_rad,
+                target_pixel[1] + circ_rad,
             ]
             self.draw.arc(bbox, 20, 70, fill=self.colors.get(reticle_brightness))
             self.draw.arc(bbox, 110, 160, fill=self.colors.get(reticle_brightness))
@@ -161,14 +161,13 @@ class UIPreview(UIModule):
         star_count_text = "---"
         try:
             solution = self.shared_state.solution()
-            solve_source = solution.get("solve_source") if solution else None
-            solve_time = solution.get("solve_time") if solution else None
+            solve_source = solution.solve_source if solution else None
+            solve_time = solution.solve_time if solution else None
 
             # Show star count only for recent camera solves (within last 10 seconds)
             if solve_source in ("CAM", "CAM_FAILED") and solve_time:
                 if time.time() - solve_time < 10:
-                    matched_stars = solution.get("Matches", 0)
-                    star_count_text = str(matched_stars)
+                    star_count_text = str(solution.diagnostics.Matches)
         except Exception:
             pass
 

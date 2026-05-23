@@ -45,8 +45,8 @@ class UILog(UIModule):
 
         solution = self.shared_state.solution()
         roll = 0
-        if solution:
-            roll = solution["Roll"]
+        if solution and solution.has_pointing():
+            roll = solution.pointing.aligned.estimate.Roll
         self.object_image = cat_images.get_display_image(
             self.object, "POSS", 1, roll, self.display_class, burn_in=False
         )

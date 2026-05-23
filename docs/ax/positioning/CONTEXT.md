@@ -9,14 +9,8 @@ The Positioning context produces and publishes the canonical "where is the teles
 ### Core record
 
 **`PointingEstimate`**:
-The canonical "where are we pointing?" record. Replaces the legacy `solved` dict. Travels through `solver_queue` and `shared_state.set_solution()`. Holds two `PointingPair`s (current and last-solve), the IMU anchor, Alt/Az, source/timing fields, `SolveDiagnostics`, and `AlignmentResult`. Defined in `PiFinder/types/positioning.py`.
-_Avoid_: solved dict (legacy; still in use during migration but being replaced), pointing dict, solution record.
-
-> Migration note: the dataclass coexists with the legacy `solved` dict. `to_legacy_dict()` / `from_legacy_dict()` bridge them so consumers move incrementally. In prose, prefer the new vocabulary even when reading older code paths.
-
-**`solved` dict** (legacy):
-The pre-dataclass position record (`get_initialized_solved_dict()`). Being replaced by `PointingEstimate`. Use only when describing the legacy code path or the wire-compatible bridge format.
-_Avoid_: pointing dict — say "the legacy `solved` dict" when this is what you mean.
+The canonical "where are we pointing?" record. Travels through `solver_queue` and `shared_state.set_solution()`. Holds a `PointingMatrix` (the four cells of the 2 × 2 matrix), the IMU anchor, Alt/Az, source/timing fields, `SolveDiagnostics`, and `AlignmentResult`. Defined in `PiFinder/types/positioning.py`.
+_Avoid_: solved dict, pointing dict, solution record.
 
 **`solve_source`** / **`SolveSource`**:
 Tag on the record recording who produced the current pointing. New `SolveSource` enum: `CAMERA` (`"CAM"`), `CAMERA_FAILED` (`"CAM_FAILED"`), `IMU`. Enum inherits `str` so legacy string equality still works.
@@ -35,7 +29,6 @@ The positioning system tracks **two axes** (the camera optical axis, and the ali
 | **`camera`** — optical axis  | `pointing.camera.solve`  | `pointing.camera.estimate`   |
 | **`aligned`** — eyepiece direction | `pointing.aligned.solve` | `pointing.aligned.estimate` |
 
-> The code currently uses `target_pixel` / `camera_center` field names (see `PiFinder/types/positioning.py`); the canonical *language* is `aligned` / `camera`, and the dataclass will be renamed to match. Use the new names in prose and review; let the rename land separately. The same applies to `last_solve` (legacy field name) vs the `solve` column above.
 
 **Camera axis** (`camera`):
 The pointing at the camera's optical centre. The IMU dead-reckoning anchor is `pointing.camera.solve` paired with `last_solve_imu`. Never `aligned.*` — the IMU is rigidly attached to the camera, not the eyepiece.
@@ -66,8 +59,8 @@ _Avoid_: confusion with the prose word — context disambiguates by markup.
 _Avoid_: scope direction, telescope direction (fine in user-facing copy; in dev prose say "pointing").
 
 **Target pixel** (`target_pixel`):
-The `(Y, X)` pixel in 512×512 camera-image space where the eyepiece centre is calibrated by the alignment system. This is the (x, y) coordinate the alignment flow produces. Currently persisted as `Config["solve_pixel"]` and `shared_state.solve_pixel()`; the code rename to `target_pixel` follows the language rename. Default `(256, 256)` means no offset known. Passed to tetra3 as its `target_pixel` argument on every solve.
-_Avoid_: solve_pixel (legacy name; pending rename), reticle pixel, aligned pixel (the *axis* is called aligned; the *pixel* is called target).
+The `(Y, X)` pixel in 512×512 camera-image space where the eyepiece centre is calibrated by the alignment system. This is the coordinate the alignment flow produces. Persisted as `Config["target_pixel"]` and read via `shared_state.target_pixel()`. Default `(256, 256)` means no offset known. Passed to tetra3 as its `target_pixel` argument on every solve.
+_Avoid_: solve_pixel (legacy name), reticle pixel, aligned pixel (the *axis* is called aligned; the *pixel* is called target).
 
 > Three names, three concepts, no overlap:
 > - **Target pixel** = `(Y, X)` image-space coordinate from alignment (the *pixel*).
@@ -128,9 +121,9 @@ _Avoid_: last_ok.
 The process that fuses fresh plate-solves with IMU samples and publishes the result. Single owner of the `solve`-state values (`pointing.camera.solve`, `pointing.aligned.solve`) and the `ImuDeadReckoning` instance.
 _Avoid_: fuser, merger.
 
-**Last image solve** (legacy `last_image_solve`):
-The integrator's deep copy of the most recent **successful** plate-solve, used as the IMU anchor and recovery base. In the new model this is just the `solve` state on `pointing.camera` and `pointing.aligned` (plus `last_solve_imu`); the legacy `last_image_solve` dict goes away with the dataclass migration.
-_Avoid_: last_solve (this is the *state* name in the new model, not a field), last_solution.
+**Anchor**:
+The IMU dead-reckoning reference: the pair of `pointing.camera.solve` (camera-axis truth from the latest plate-solve) and `imu_anchor` (the IMU quaternion sampled on the same frame). Owned by the integrator. Updated only on successful plate-solves; preserved across failed solves so dead-reckoning continues.
+_Avoid_: last_image_solve (legacy name), last_solve (this is the *state* name on a `PointingAxis`, not a field), last_solution.
 
 **Dead reckoning** (`ImuDeadReckoning`):
 Given a known pointing at the moment of the last plate-solve and the IMU quaternion at that moment, project the current IMU quaternion forward to a fresh `RaDecRoll`. Lives in `PiFinder/pointing_model/imu_dead_reckoning.py`.
@@ -197,7 +190,7 @@ _Avoid_: align queue (singular — there are two).
 - **"Solver"** — the PiFinder *process*. The plate-solving *library* is "tetra3". Don't conflate.
 - **"Target pixel"** vs the **`aligned`** axis — the *pixel* is `(Y, X)` in image space, produced by alignment; the *axis* is the RA/Dec direction at that pixel. Don't say "target pixel" when you mean the direction; don't say "aligned" when you mean the pixel.
 - **"Solution"** — be specific: `shared_state.solution()` returns the latest published `PointingEstimate`. The latest plate-solve values are the `solve` state inside; the current values consumers see are the `estimate` state.
-- **Legacy code field names** — `target_pixel` and `camera_center` still exist in `PiFinder/types/positioning.py` and the legacy `solved` dict (`camera_solve`). The canonical *language* is `aligned` / `camera` / `solve` / `estimate`; treat the field names as a code rename pending.
+- **Legacy `solved` dict** — historical name for the pre-dataclass position record. Code now uses `PointingEstimate`; the term may appear in old commits and PR descriptions but should not appear in current code or prose.
 
 ## Example dialogue
 
