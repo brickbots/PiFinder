@@ -19,10 +19,12 @@ Responsibility split:
   updated only on a successful solve. On a failed solve the integrator
   preserves the previous ``solve`` cells so dead-reckoning continues.
 
-Two :class:`ImuDeadReckoning` instances run in parallel, one per axis.
-After the IDR simplification (commit 321579b3) the class treats its
-input pointing as the truth direction directly; the alignment offset is
-applied upstream by tetra3 via ``target_sky_coord`` / ``RA_target``.
+A single :class:`ImuDeadReckoning` instance handles both axes: it
+captures the (camera, aligned) pair at each successful solve as a
+static ``q_cam2aligned`` rotation, and reapplies it to the camera
+prediction during dead-reckoning. The IDR remains a math primitive
+(``RaDecRoll`` in, ``RaDecRoll`` out); this module bridges between it
+and :class:`PointingEstimate`.
 """
 
 from __future__ import annotations
@@ -65,10 +67,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         cfg = config.Config()
         screen_direction = cfg.get_option("screen_direction")
 
-        # One IMU dead-reckoner per axis. Both fed independently with
-        # the matching `solve` cell at each successful plate-solve.
-        idr_camera = ImuDeadReckoning(screen_direction)
-        idr_aligned = ImuDeadReckoning(screen_direction)
+        # Single IMU dead-reckoner handling both axes. Seeded with the
+        # (camera, aligned) pair at each successful plate-solve.
+        idr = ImuDeadReckoning(screen_direction)
 
         # Long-lived estimate. `solve` cells == anchor; `estimate` cells
         # are what consumers read. Empty until the first successful solve.
@@ -90,7 +91,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             if solver_snapshot is not None:
                 if solver_snapshot.solve_source == SolveSource.CAMERA:
                     estimate = _apply_successful_solve(
-                        estimate, solver_snapshot, idr_camera, idr_aligned
+                        estimate, solver_snapshot, idr
                     )
                     shared_state.set_solve_state(True)
                     pointing_updated = True
@@ -111,12 +112,12 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             #    try to advance the estimate via IMU dead-reckoning.
             if (
                 not pointing_updated
-                and idr_aligned.is_initialized()
+                and idr.is_initialized()
                 and estimate.imu_anchor is not None
             ):
                 imu = shared_state.imu()
                 if imu:
-                    if _advance_with_imu(estimate, idr_camera, idr_aligned, imu):
+                    if _advance_with_imu(estimate, idr, imu):
                         pointing_updated = True
 
             # 3. Publish if we updated something newer than what we last sent.
@@ -146,14 +147,13 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 def _apply_successful_solve(
     estimate: PointingEstimate,
     snapshot: PointingEstimate,
-    idr_camera: ImuDeadReckoning,
-    idr_aligned: ImuDeadReckoning,
+    idr: ImuDeadReckoning,
 ) -> PointingEstimate:
     """Merge a successful solver snapshot into the long-lived estimate.
 
     Replaces both ``solve`` and ``estimate`` cells on both axes and
-    refreshes the IMU anchor. Reseeds both dead-reckoners with the
-    matching ``solve`` cell + anchor quaternion.
+    refreshes the IMU anchor. Reseeds the dead-reckoner with the
+    (camera, aligned) pair + anchor quaternion.
     """
     snap = snapshot.pointing
     estimate.pointing.camera = PointingAxis(
@@ -176,22 +176,23 @@ def _apply_successful_solve(
     estimate.matched_centroids = snapshot.matched_centroids
     estimate.matched_stars = snapshot.matched_stars
 
-    # Reseed the dead-reckoners from the new anchor.
+    # Reseed the dead-reckoner from the new anchor.
     q_anchor = snapshot.imu_anchor
     if q_anchor is None:
         q_anchor = quaternion.quaternion(np.nan)
-    if snap.camera.solve is not None:
-        idr_camera.solve(snap.camera.solve.as_radecroll(), q_anchor)
-    if snap.aligned.solve is not None:
-        idr_aligned.solve(snap.aligned.solve.as_radecroll(), q_anchor)
+    if snap.camera.solve is not None and snap.aligned.solve is not None:
+        idr.solve(
+            snap.camera.solve.as_radecroll(),
+            snap.aligned.solve.as_radecroll(),
+            q_anchor,
+        )
 
     return estimate
 
 
 def _advance_with_imu(
     estimate: PointingEstimate,
-    idr_camera: ImuDeadReckoning,
-    idr_aligned: ImuDeadReckoning,
+    idr: ImuDeadReckoning,
     imu: dict,
 ) -> bool:
     """Advance ``estimate``'s ``estimate`` cells via IMU dead-reckoning.
@@ -214,10 +215,10 @@ def _advance_with_imu(
         np.rad2deg(IMU_MOVED_ANG_THRESHOLD),
     )
 
-    aligned_radecroll = idr_aligned.predict(q_x2imu)
-    camera_radecroll = idr_camera.predict(q_x2imu)
-    if aligned_radecroll is None or camera_radecroll is None:
+    predicted = idr.predict(q_x2imu)
+    if predicted is None:
         return False
+    camera_radecroll, aligned_radecroll = predicted
 
     # predict() returned non-None RaDecRoll, so .get() values are not None.
     ra_a, dec_a, roll_a = aligned_radecroll.get(deg=True)

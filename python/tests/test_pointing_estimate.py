@@ -263,8 +263,8 @@ class _FakeIdr:
         self.solve_calls = []
         self._initialized = False
 
-    def solve(self, radecroll, q_x2imu):
-        self.solve_calls.append((radecroll, q_x2imu))
+    def solve(self, camera, aligned, q_x2imu):
+        self.solve_calls.append((camera, aligned, q_x2imu))
         self._initialized = True
 
     def predict(self, q_x2imu):  # pragma: no cover - not used in these tests
@@ -302,15 +302,14 @@ class TestIntegratorApplySuccess:
             matched_stars=[[1.0, 2.0, 5.5]],
         )
 
-    def test_successful_solve_replaces_anchor_and_reseeds_both_idrs(self):
+    def test_successful_solve_replaces_anchor_and_reseeds_idr(self):
         from PiFinder.integrator import _apply_successful_solve
 
         estimate = PointingEstimate()
         snapshot = self._make_snapshot()
-        idr_camera = _FakeIdr()
-        idr_aligned = _FakeIdr()
+        idr = _FakeIdr()
 
-        merged = _apply_successful_solve(estimate, snapshot, idr_camera, idr_aligned)
+        merged = _apply_successful_solve(estimate, snapshot, idr)
 
         # Both axes now reflect the snapshot's solve and estimate cells.
         assert merged.pointing.camera.solve == snapshot.pointing.camera.solve
@@ -321,29 +320,25 @@ class TestIntegratorApplySuccess:
         assert merged.matched_centroids == snapshot.matched_centroids
         assert merged.matched_stars == snapshot.matched_stars
 
-        # Each IDR reseeded with the matching axis solve.
-        assert len(idr_camera.solve_calls) == 1
-        assert len(idr_aligned.solve_calls) == 1
-        camera_radecroll, camera_q = idr_camera.solve_calls[0]
-        aligned_radecroll, aligned_q = idr_aligned.solve_calls[0]
+        # Single IDR reseeded with the (camera, aligned) pair.
+        assert len(idr.solve_calls) == 1
+        camera_radecroll, aligned_radecroll, q = idr.solve_calls[0]
         # RaDecRoll round-trip back to degrees for comparison.
         assert camera_radecroll.get(deg=True) == pytest.approx((1.0, 2.0, 3.0))
         assert aligned_radecroll.get(deg=True) == pytest.approx((1.5, 2.5, 3.0))
-        assert camera_q == snapshot.imu_anchor
-        assert aligned_q == snapshot.imu_anchor
+        assert q == snapshot.imu_anchor
 
     def test_solve_with_no_anchor_passes_nan_quaternion(self):
         from PiFinder.integrator import _apply_successful_solve
 
         snapshot = self._make_snapshot()
         snapshot.imu_anchor = None  # IMU not available on this frame
-        idr_camera = _FakeIdr()
-        idr_aligned = _FakeIdr()
+        idr = _FakeIdr()
 
-        _apply_successful_solve(PointingEstimate(), snapshot, idr_camera, idr_aligned)
+        _apply_successful_solve(PointingEstimate(), snapshot, idr)
 
         # The fake captured a quaternion that's NaN-on-all-components.
-        _, q = idr_camera.solve_calls[0]
+        _, _, q = idr.solve_calls[0]
         assert bool(np.isnan(q))
 
 
