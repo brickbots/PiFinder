@@ -254,12 +254,20 @@ class UIAlign(UIModule):
 
                 # draw the help text
                 if not self.align_mode:
-                    # Prompt to start align
-                    hint_text = _(f"  {self._SQUARE_} START ALIGN")
+                    # TRANSLATORS: hint bar; preserve leading spaces for layout
+                    hint_text = _("  {icon} START ALIGN").format(
+                        icon=self._SQUARE_
+                    )
                 elif self.alignment_star is None:
-                    hint_text = _(f"{self._ARROWS_} SELECT STAR")
+                    # TRANSLATORS: hint bar; {icon} is a directional-arrows glyph
+                    hint_text = _("{icon} SELECT STAR").format(
+                        icon=self._ARROWS_
+                    )
                 else:
-                    hint_text = _(f"{self._SQUARE_} SAVE / 0 CANCEL")
+                    # TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
+                    hint_text = _("{icon} SAVE / 0 CANCEL").format(
+                        icon=self._SQUARE_
+                    )
                 self.draw.text(
                     (15, self.display_class.resY - self.fonts.base.height - 2),
                     hint_text,
