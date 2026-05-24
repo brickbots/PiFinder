@@ -61,7 +61,9 @@ def assert_radec_close(new_pt, old_pt, abs_tol=1e-9):
     ), f"roll: new={new_pt.roll} old={old_pt.roll}"
 
 
-def derive_aligned(camera: RaDecRoll, q_cam2aligned: quaternion.quaternion) -> RaDecRoll:
+def derive_aligned(
+    camera: RaDecRoll, q_cam2aligned: quaternion.quaternion
+) -> RaDecRoll:
     """Given a camera pointing and the fixed alignment offset, return
     the matching aligned pointing."""
     q_eq2cam = camera.as_quaternion()

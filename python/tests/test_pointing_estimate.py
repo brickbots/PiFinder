@@ -2,6 +2,7 @@
 solver/integrator merge semantics that travel through it."""
 
 import copy
+import math
 
 import numpy as np
 import pytest
@@ -12,6 +13,7 @@ from PiFinder.types.positioning import (
     AlignOnRaDec,
     AlignedResult,
     AlignmentResult,
+    FailedSolve,
     Pointing,
     PointingAxis,
     PointingEstimate,
@@ -19,6 +21,7 @@ from PiFinder.types.positioning import (
     ReloadSqmCalibration,
     SolveDiagnostics,
     SolveSource,
+    SuccessfulSolve,
 )
 
 
@@ -161,6 +164,29 @@ class TestPicklability:
         ):
             assert pickle.loads(pickle.dumps(msg)) == msg
 
+    def test_solve_result_messages_round_trip(self):
+        import pickle
+
+        success = SuccessfulSolve(
+            camera=Pointing(RA=1.0, Dec=2.0, Roll=3.0),
+            aligned=Pointing(RA=1.5, Dec=2.5, Roll=3.0),
+            imu_anchor=quaternion.quaternion(1, 0, 0, 0),
+            solve_time=12345.6,
+            last_solve_attempt=12345.0,
+            last_solve_success=12345.0,
+            diagnostics=SolveDiagnostics(Matches=9, RMSE=0.3),
+            alignment=AlignmentResult(x_target=128.0, y_target=256.0),
+            matched_centroids=[(1.0, 2.0)],
+            matched_stars=[[1.0, 2.0, 5.5]],
+        )
+        failure = FailedSolve(
+            diagnostics=SolveDiagnostics(Matches=0, T_extract=40.0),
+            last_solve_attempt=200.0,
+            last_solve_success=None,
+        )
+        for msg in (success, failure):
+            assert pickle.loads(pickle.dumps(msg)) == msg
+
 
 # ---------------------------------------------------------------------
 # Solver builder semantics
@@ -168,9 +194,9 @@ class TestPicklability:
 
 
 class TestSolverBuilders:
-    """The solver builds a fresh PointingEstimate per attempt; verify
-    both the success and failure shapes match what the integrator
-    expects to merge."""
+    """The solver builds a SolveResult per attempt; verify both the
+    success (SuccessfulSolve) and failure (FailedSolve) shapes match
+    what the integrator expects to apply."""
 
     def _make_image_metadata(self, with_imu=True):
         meta = {"exposure_end": 1000.5, "exposure_time": 500_000}
@@ -178,8 +204,8 @@ class TestSolverBuilders:
             meta["imu"] = {"quat": quaternion.quaternion(1, 0, 0, 0)}
         return meta
 
-    def test_successful_solve_populates_both_axes_and_imu(self):
-        from PiFinder.solver import _build_solved_estimate
+    def test_successful_solve_carries_flat_axes_and_imu(self):
+        from PiFinder.solver import _build_successful_solve
 
         solution = {
             "RA": 100.0,
@@ -197,57 +223,60 @@ class TestSolverBuilders:
             "matched_centroids": [(1.0, 2.0)],
             "matched_stars": [[1.0, 2.0, 5.5]],
         }
-        est = _build_solved_estimate(
+        result = _build_successful_solve(
             solution=solution,
             last_image_metadata=self._make_image_metadata(),
             last_solve_attempt=999.0,
             last_solve_success=999.0,
         )
-        # Camera axis = matched-stars solution (no target offset).
-        assert est.pointing.camera.solve == Pointing(RA=100.0, Dec=20.0, Roll=5.0)
-        assert est.pointing.camera.estimate == Pointing(RA=100.0, Dec=20.0, Roll=5.0)
-        # Aligned axis = target-pixel solution.
-        assert est.pointing.aligned.solve == Pointing(RA=100.5, Dec=20.5, Roll=5.0)
-        assert est.pointing.aligned.estimate == Pointing(RA=100.5, Dec=20.5, Roll=5.0)
+        assert isinstance(result, SuccessfulSolve)
+        # Flat camera axis = matched-stars solution (no target offset).
+        assert result.camera == Pointing(RA=100.0, Dec=20.0, Roll=5.0)
+        # Flat aligned axis = target-pixel solution.
+        assert result.aligned == Pointing(RA=100.5, Dec=20.5, Roll=5.0)
         # Anchor + diagnostics + matched-* payloads.
-        assert est.imu_anchor == quaternion.quaternion(1, 0, 0, 0)
-        assert est.diagnostics.Matches == 12
-        assert est.diagnostics.RMSE == pytest.approx(0.4)
-        assert est.diagnostics.FOV == pytest.approx(10.2)
-        assert est.solve_source == SolveSource.CAMERA
-        assert est.alignment.is_set()
-        assert est.matched_centroids == [(1.0, 2.0)]
-        assert est.matched_stars == [[1.0, 2.0, 5.5]]
+        assert result.imu_anchor == quaternion.quaternion(1, 0, 0, 0)
+        assert result.diagnostics.Matches == 12
+        assert result.diagnostics.RMSE == pytest.approx(0.4)
+        assert result.diagnostics.FOV == pytest.approx(10.2)
+        assert result.alignment.is_set()
+        assert result.matched_centroids == [(1.0, 2.0)]
+        assert result.matched_stars == [[1.0, 2.0, 5.5]]
+        # Single solve-completion timestamp (no separate cam_solve_time).
+        assert result.solve_time > 0
+        assert result.last_solve_attempt == pytest.approx(999.0)
 
     def test_successful_solve_without_imu_has_none_anchor(self):
-        from PiFinder.solver import _build_solved_estimate
+        from PiFinder.solver import _build_successful_solve
 
         solution = {"RA": 1.0, "Dec": 2.0, "Roll": 3.0}
-        est = _build_solved_estimate(
+        result = _build_successful_solve(
             solution=solution,
             last_image_metadata=self._make_image_metadata(with_imu=False),
             last_solve_attempt=999.0,
             last_solve_success=999.0,
         )
-        assert est.imu_anchor is None
-        assert est.has_pointing() is True
+        assert result.imu_anchor is None
+        # Aligned falls back to the camera RA/Dec when no target offset.
+        assert result.camera == Pointing(RA=1.0, Dec=2.0, Roll=3.0)
+        assert result.aligned == Pointing(RA=1.0, Dec=2.0, Roll=3.0)
 
-    def test_failed_solve_has_empty_pointing_and_failed_source(self):
-        from PiFinder.solver import _build_failed_estimate
+    def test_failed_solve_carries_diagnostics_and_timing_only(self):
+        from PiFinder.solver import _build_failed_solve
 
-        est = _build_failed_estimate(
-            last_image_metadata=self._make_image_metadata(),
+        result = _build_failed_solve(
             last_solve_attempt=999.0,
             last_solve_success=None,
             t_extract_ms=42.0,
         )
-        assert est.has_pointing() is False
-        assert est.solve_source == SolveSource.CAMERA_FAILED
-        assert est.diagnostics.Matches == 0
-        assert est.diagnostics.T_extract == pytest.approx(42.0)
-        assert est.last_solve_attempt == pytest.approx(999.0)
-        # Anchor not populated on failure.
-        assert est.imu_anchor is None
+        assert isinstance(result, FailedSolve)
+        assert result.diagnostics.Matches == 0
+        assert result.diagnostics.T_extract == pytest.approx(42.0)
+        assert result.last_solve_attempt == pytest.approx(999.0)
+        assert result.last_solve_success is None
+        # No pointing / anchor fields exist on a FailedSolve.
+        assert not hasattr(result, "imu_anchor")
+        assert not hasattr(result, "camera")
 
 
 # ---------------------------------------------------------------------
@@ -278,22 +307,12 @@ class _FakeIdr:
 
 
 class TestIntegratorApplySuccess:
-    def _make_snapshot(self):
-        return PointingEstimate(
-            pointing=PointingMatrix(
-                camera=PointingAxis(
-                    solve=Pointing(RA=1.0, Dec=2.0, Roll=3.0),
-                    estimate=Pointing(RA=1.0, Dec=2.0, Roll=3.0),
-                ),
-                aligned=PointingAxis(
-                    solve=Pointing(RA=1.5, Dec=2.5, Roll=3.0),
-                    estimate=Pointing(RA=1.5, Dec=2.5, Roll=3.0),
-                ),
-            ),
+    def _make_result(self):
+        return SuccessfulSolve(
+            camera=Pointing(RA=1.0, Dec=2.0, Roll=3.0),
+            aligned=Pointing(RA=1.5, Dec=2.5, Roll=3.0),
             imu_anchor=quaternion.quaternion(1, 0, 0, 0),
-            solve_source=SolveSource.CAMERA,
             solve_time=500.0,
-            cam_solve_time=500.0,
             last_solve_attempt=499.5,
             last_solve_success=499.5,
             diagnostics=SolveDiagnostics(Matches=7),
@@ -302,23 +321,27 @@ class TestIntegratorApplySuccess:
             matched_stars=[[1.0, 2.0, 5.5]],
         )
 
-    def test_successful_solve_replaces_anchor_and_reseeds_idr(self):
+    def test_successful_solve_fans_into_both_cells_and_reseeds_idr(self):
         from PiFinder.integrator import _apply_successful_solve
 
         estimate = PointingEstimate()
-        snapshot = self._make_snapshot()
+        result = self._make_result()
         idr = _FakeIdr()
 
-        merged = _apply_successful_solve(estimate, snapshot, idr)
+        merged = _apply_successful_solve(estimate, result, idr)
 
-        # Both axes now reflect the snapshot's solve and estimate cells.
-        assert merged.pointing.camera.solve == snapshot.pointing.camera.solve
-        assert merged.pointing.aligned.solve == snapshot.pointing.aligned.solve
-        assert merged.pointing.camera.estimate == snapshot.pointing.camera.estimate
-        assert merged.pointing.aligned.estimate == snapshot.pointing.aligned.estimate
-        assert merged.imu_anchor == snapshot.imu_anchor
-        assert merged.matched_centroids == snapshot.matched_centroids
-        assert merged.matched_stars == snapshot.matched_stars
+        # The flat solve-truth fans into both solve and estimate cells.
+        assert merged.pointing.camera.solve == result.camera
+        assert merged.pointing.camera.estimate == result.camera
+        assert merged.pointing.aligned.solve == result.aligned
+        assert merged.pointing.aligned.estimate == result.aligned
+        assert merged.imu_anchor == result.imu_anchor
+        assert merged.matched_centroids == result.matched_centroids
+        assert merged.matched_stars == result.matched_stars
+        assert merged.solve_source == SolveSource.CAMERA
+        # The single solve_time lands on both aggregate timestamps.
+        assert merged.solve_time == pytest.approx(500.0)
+        assert merged.cam_solve_time == pytest.approx(500.0)
 
         # Single IDR reseeded with the (camera, aligned) pair.
         assert len(idr.solve_calls) == 1
@@ -326,20 +349,20 @@ class TestIntegratorApplySuccess:
         # RaDecRoll round-trip back to degrees for comparison.
         assert camera_radecroll.get(deg=True) == pytest.approx((1.0, 2.0, 3.0))
         assert aligned_radecroll.get(deg=True) == pytest.approx((1.5, 2.5, 3.0))
-        assert q == snapshot.imu_anchor
+        assert q == result.imu_anchor
 
     def test_solve_with_no_anchor_passes_nan_quaternion(self):
         from PiFinder.integrator import _apply_successful_solve
 
-        snapshot = self._make_snapshot()
-        snapshot.imu_anchor = None  # IMU not available on this frame
+        result = self._make_result()
+        result.imu_anchor = None  # IMU not available on this frame
         idr = _FakeIdr()
 
-        _apply_successful_solve(PointingEstimate(), snapshot, idr)
+        _apply_successful_solve(PointingEstimate(), result, idr)
 
-        # The fake captured a quaternion that's NaN-on-all-components.
+        # The fake captured the NaN sentinel quaternion (nan, 0, 0, 0).
         _, _, q = idr.solve_calls[0]
-        assert bool(np.isnan(q))
+        assert math.isnan(q.w)
 
 
 class TestIntegratorFailedSolve:
@@ -367,22 +390,16 @@ class TestIntegratorFailedSolve:
             diagnostics=SolveDiagnostics(Matches=8, RMSE=0.6),
         )
 
-        # Simulate the failed-solve branch of the integrator loop body.
-        from PiFinder.solver import _build_failed_estimate
+        # Drive the real integrator failed-solve path end to end.
+        from PiFinder.solver import _build_failed_solve
+        from PiFinder.integrator import _apply_failed_solve
 
-        failed_snapshot = _build_failed_estimate(
-            last_image_metadata={"exposure_end": 200.0, "exposure_time": 500_000},
+        failed_result = _build_failed_solve(
             last_solve_attempt=200.0,
             last_solve_success=100.0,
             t_extract_ms=50.0,
         )
-        # Same body as integrator loop (failed-solve branch).
-        integrator_estimate.diagnostics = failed_snapshot.diagnostics
-        integrator_estimate.last_solve_attempt = failed_snapshot.last_solve_attempt
-        integrator_estimate.last_solve_success = failed_snapshot.last_solve_success
-        integrator_estimate.solve_source = SolveSource.CAMERA_FAILED
-        integrator_estimate.pointing.camera.estimate = None
-        integrator_estimate.pointing.aligned.estimate = None
+        integrator_estimate = _apply_failed_solve(integrator_estimate, failed_result)
 
         # solve cells + anchor still present so IMU dead-reckoning has
         # something to track against.
@@ -422,7 +439,11 @@ class TestAlignmentQueueDispatch:
         return ("unknown", type(command).__name__)
 
     def test_align_on_radec_routes_correctly(self):
-        assert self._dispatch(AlignOnRaDec(ra=12.3, dec=45.6)) == ("align_on", 12.3, 45.6)
+        assert self._dispatch(AlignOnRaDec(ra=12.3, dec=45.6)) == (
+            "align_on",
+            12.3,
+            45.6,
+        )
 
     def test_align_cancel_routes_correctly(self):
         assert self._dispatch(AlignCancel()) == "cancel"

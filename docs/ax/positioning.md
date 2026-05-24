@@ -24,7 +24,7 @@ camera, IMU, GPS, web, and UI processes. They communicate through:
   manager. Used for camera frames, IMU samples, GPS/time, configuration,
   and the published pointing solution.
 - `solver_queue` — a one-way `multiprocessing.Queue` from solver to
-  integrator carrying a fresh `PointingEstimate` on every attempt.
+  integrator carrying a `SolveResult` on every attempt.
 - `align_command_queue` / `align_result_queue` — used by the alignment
   flow to request a plate-solve targeted at a particular RA/Dec and
   return the resulting pixel coordinates.
@@ -44,10 +44,12 @@ camera, IMU, GPS, web, and UI processes. They communicate through:
 
 ## 2. The `PointingEstimate` record
 
-The unit of information that travels through `solver_queue` and is stored
-via `shared_state.set_solution()` is a **`PointingEstimate`** dataclass
-(`PiFinder/types/positioning.py`), not a dict. It replaces the legacy
-`solved` dict.
+The canonical pointing record published via `shared_state.set_solution()`
+is a **`PointingEstimate`** dataclass (`PiFinder/types/positioning.py`),
+not a dict. It is built and owned by the integrator. The solver→integrator
+message is a separate **`SolveResult`** (§3); both replaced the legacy
+`solved` dict — see
+[`docs/adr/0003-solver-integrator-message.md`](../adr/0003-solver-integrator-message.md).
 
 At its heart is a **2 × 2 matrix** of pointings — two **axes** crossed with
 two **states** — reached as `pointing.<axis>.<state>.<RA|Dec|Roll>`:
@@ -75,8 +77,8 @@ until the first successful solve). The other fields:
 | `matched_centroids`, `matched_stars` | Raw tetra3 matched-star outputs, carried so the SQM calibration UI can replay SQM calculations on cached frames. `None` on failures. |
 
 **Two processes, two ownership rules.** The solver holds *no* long-lived
-state: it builds a fresh `PointingEstimate` per attempt and pushes it.
-The integrator owns *the* long-lived `PointingEstimate` — the `solve`
+state: it builds a `SolveResult` per attempt and pushes it. The
+integrator owns *the* long-lived `PointingEstimate` — the `solve`
 cells on it are the dead-reckoning anchor, advanced only on a successful
 solve and preserved across failures.
 
@@ -110,17 +112,18 @@ The solver process owns one tight loop:
    - `target_pixel=shared_state.target_pixel()` so tetra3 also reports the
      RA/Dec at the user's chosen pixel (as `RA_target`/`Dec_target`),
    - optional `target_sky_coord` when alignment is active.
-6. **On success**, `_build_solved_estimate()` folds the tetra3 `solution`
-   dict into a fresh `PointingEstimate`:
-   - `pointing.camera.{solve,estimate}` ← `solution["RA"/"Dec"/"Roll"]`
-     (the camera optical centre).
-   - `pointing.aligned.{solve,estimate}` ← `solution["RA_target"/"Dec_target"]`,
-     falling back to the camera RA/Dec when no target offset is present.
+6. **On success**, `_build_successful_solve()` folds the tetra3 `solution`
+   dict into a `SuccessfulSolve` message carrying flat per-axis
+   solve-truth:
+   - `camera` ← `solution["RA"/"Dec"/"Roll"]` (the camera optical centre).
+   - `aligned` ← `solution["RA_target"/"Dec_target"]`, falling back to the
+     camera RA/Dec when no target offset is present.
    - `imu_anchor` ← `last_image_metadata["imu"]["quat"]` when available.
-   - `solve_time`/`cam_solve_time` ← `time.time()`; `last_solve_success`
-     ← the frame's `exposure_end`; `diagnostics` ← tetra3 metrics.
-   Note both `solve` and `estimate` cells start equal; the integrator
-   advances only the `estimate` cells later.
+   - `solve_time` ← `time.time()`; `last_solve_success` ← the frame's
+     `exposure_end`; `diagnostics` ← tetra3 metrics.
+   The message carries no `solve`/`estimate` split — the integrator fans
+   `camera`/`aligned` into both cells of each axis and advances only the
+   `estimate` cells later.
 7. **SQM update.** When the solve produced `matched_centroids`,
    `update_sqm()` runs `SQMCalculator.calculate` on the same frame and
    stores the result (plus the noise-floor) into `shared_state`. SQM is
@@ -131,8 +134,8 @@ The solver process owns one tight loop:
    `align_result_queue` as an `AlignedResult(y_target, x_target)`, the
    alignment target is cleared, and `alignment` is reset on the estimate
    before it is published.
-9. **Failures** build a `_build_failed_estimate()` — empty pointing cells,
-   `solve_source=CAMERA_FAILED`, `diagnostics.Matches=0` — and **still
+9. **Failures** build a `_build_failed_solve()` — a `FailedSolve` carrying
+   `diagnostics.Matches=0` and timing only, no pointing — and **still
    push** it to `solver_queue`. This is required so the integrator (and
    downstream auto-exposure) can react to repeated failed solves.
 
@@ -160,16 +163,18 @@ when plate-solves are sparse or fail. It runs another tight loop.
 
 ### 4.2 Per-iteration flow
 
-1. **Try to read one snapshot** from `solver_queue` (non-blocking).
-2. **If a `CAMERA` snapshot arrived** (`_apply_successful_solve`):
-   - Replace both axes' `solve` and `estimate` cells from the snapshot,
-     and refresh `imu_anchor`, timing, diagnostics, alignment, and the
-     `matched_*` fields.
+1. **Try to read one `SolveResult`** from `solver_queue` (non-blocking).
+2. **If a `SuccessfulSolve` arrived** (`_apply_successful_solve`), dispatched
+   by `isinstance`:
+   - Fan the flat `camera`/`aligned` pointings into both the `solve` and
+     `estimate` cells of each axis, and refresh `imu_anchor`, timing
+     (`solve_time` and `cam_solve_time` both from the message's single
+     `solve_time`), diagnostics, alignment, and the `matched_*` fields.
    - Reseed the dead-reckoner:
-     `idr.solve(camera.solve.as_radecroll(), aligned.solve.as_radecroll(), imu_anchor)`.
+     `idr.solve(camera.as_radecroll(), aligned.as_radecroll(), imu_anchor)`.
    - Mark `solve_source = CAMERA`, set `pointing_updated = True`, and call
      `set_solve_state(True)`.
-3. **If a `CAMERA_FAILED` snapshot arrived:**
+3. **If a `FailedSolve` arrived** (`_apply_failed_solve`):
    - **Preserve** the `solve` cells and `imu_anchor` (the anchor must
      survive so dead-reckoning continues), refresh `diagnostics` / timing /
      `solve_source = CAMERA_FAILED`, blank `constellation`, and **clear**
@@ -200,7 +205,7 @@ when plate-solves are sparse or fail. It runs another tight loop.
 The published `estimate` cells drift between camera solves (IMU
 dead-reckoning). If the integrator re-derived its anchor from
 `shared_state.solution()`, that drift would fold into successive solves'
-metadata. It avoids this two ways: the **solver** builds each snapshot
+metadata. It avoids this two ways: the **solver** builds each `SolveResult`
 from the raw tetra3 result (no drift), and the **integrator** treats the
 `solve` cells on its long-lived `PointingEstimate` as the single source
 of anchor truth — replaced wholesale on a successful solve, preserved
@@ -259,14 +264,15 @@ solution = t3.solve_from_centroids(
 
 tetra3, given `target_pixel`, returns both the RA/Dec at the camera
 center **and** the RA/Dec at that pixel as `RA_target`/`Dec_target`.
-`_build_solved_estimate()` then:
+`_build_successful_solve()` then:
 
-1. Sets `pointing.camera.{solve,estimate}` from the camera-center RA/Dec
-   (preserved for IMU dead-reckoning — the IMU calibration is anchored to
-   the camera's optical axis, not the eyepiece).
-2. Sets `pointing.aligned.{solve,estimate}` from `RA_target`/`Dec_target`.
+1. Sets `camera` from the camera-center RA/Dec (preserved for IMU
+   dead-reckoning — the IMU calibration is anchored to the camera's
+   optical axis, not the eyepiece).
+2. Sets `aligned` from `RA_target`/`Dec_target`.
 
-That second assignment is what makes `pointing.aligned` reflect the
+The integrator later fans each into the `solve` and `estimate` cells;
+that second assignment is what makes `pointing.aligned` reflect the
 eyepiece direction. Every downstream consumer (UI, web, SkySafari) reads
 `pointing.aligned.estimate`, never the camera pointing.
 

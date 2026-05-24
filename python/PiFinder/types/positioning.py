@@ -17,11 +17,16 @@ These types implement the canonical Positioning vocabulary
 
 The data structures here replace four legacy dicts:
 
-1. The ``solved`` dict that travels through ``solver_queue`` and
-   ``shared_state.set_solution()``.
-   →  :class:`PointingEstimate`, whose :attr:`pointing` field holds a
+1. The ``solved`` dict, which was split by role:
+   →  :class:`PointingEstimate`, the canonical record published via
+      ``shared_state.set_solution()``. Its :attr:`pointing` field holds a
       :class:`PointingMatrix` with the four cells of the 2 × 2 matrix,
-      plus :class:`SolveDiagnostics` and :class:`AlignmentResult`.
+      plus :class:`SolveDiagnostics` and :class:`AlignmentResult`. Built
+      and owned by the integrator.
+   →  :class:`SolveResult` (``SuccessfulSolve`` | ``FailedSolve``), the
+      message the solver puts on ``solver_queue`` describing one
+      plate-solve attempt. See
+      ``docs/adr/0003-solver-integrator-message.md``.
 
 2. The tagged-list messages on the alignment queues.
    →  :class:`AlignOnRaDec`, :class:`AlignCancel`,
@@ -315,6 +320,71 @@ class PointingEstimate:
 
 
 # =====================================================================
+# SolveResult — the solver → integrator message (rides solver_queue)
+# =====================================================================
+#
+# The solver produces *solve-truth only*; it has no ``estimate`` concept
+# (IMU progression happens in the integrator). So the message carries
+# flat per-axis :class:`Pointing`s, not the 2 × 2 matrix. The integrator
+# alone builds the canonical :class:`PointingEstimate`, applying a
+# ``SolveResult`` onto its long-lived instance.
+#
+# Two concrete types under a union, dispatched by ``isinstance()`` in the
+# integrator (mirroring :data:`SolverCommand` / :data:`AlignResponse`).
+# See ``docs/adr/0003-solver-integrator-message.md``.
+
+
+@dataclass
+class SuccessfulSolve:
+    """A plate-solve attempt that produced a pointing.
+
+    Carries solve-truth for both axes as **flat** :class:`Pointing`s
+    (no ``solve``/``estimate`` split — the solver never IMU-progresses).
+    The integrator fans ``camera``/``aligned`` into both the ``solve``
+    and ``estimate`` cells of its long-lived :class:`PointingEstimate`
+    and reseeds the dead-reckoner.
+
+    ``imu_anchor`` is ``Optional``: a solve can succeed on a frame that
+    carried no IMU sample.
+
+    ``solve_time`` is a single solve-completion timestamp
+    (``time.time()``); the integrator assigns it to both ``solve_time``
+    and ``cam_solve_time`` on the aggregate.
+    """
+
+    camera: Pointing
+    aligned: Pointing
+    imu_anchor: Optional[quaternion.quaternion]
+    solve_time: float
+    last_solve_attempt: float
+    last_solve_success: float
+    diagnostics: SolveDiagnostics = field(default_factory=SolveDiagnostics)
+    alignment: AlignmentResult = field(default_factory=AlignmentResult)
+    matched_centroids: Optional[List[Tuple[float, float]]] = None
+    matched_stars: Optional[list] = None
+
+
+@dataclass
+class FailedSolve:
+    """A solve attempt that produced no pointing.
+
+    Carries only the diagnostics and timing the integrator needs to
+    refresh auto-exposure and dedupe stale frames. Triggers the
+    integrator to preserve its ``solve`` cells + anchor, clear the
+    ``estimate`` cells, and publish with ``solve_source=CAMERA_FAILED``.
+    """
+
+    diagnostics: SolveDiagnostics = field(default_factory=SolveDiagnostics)
+    last_solve_attempt: float = 0.0
+    last_solve_success: Optional[float] = None
+
+
+SolveResult = Union[SuccessfulSolve, FailedSolve]
+"""The message on ``solver_queue`` describing one plate-solve attempt.
+The integrator dispatches on ``isinstance()``."""
+
+
+# =====================================================================
 # IMU sample — future replacement for shared_state.imu() dict
 # =====================================================================
 
@@ -446,6 +516,7 @@ __all__ = [
     "AlignedResult",
     "AlignmentResult",
     "CameraFrameMetadata",
+    "FailedSolve",
     "ImuSample",
     "Pointing",
     "PointingAxis",
@@ -453,6 +524,8 @@ __all__ = [
     "PointingMatrix",
     "ReloadSqmCalibration",
     "SolveDiagnostics",
+    "SolveResult",
     "SolveSource",
     "SolverCommand",
+    "SuccessfulSolve",
 ]

@@ -18,6 +18,7 @@ RaDecRoll out. It does not import the PointingEstimate dataclass.
 All angles are in radians. See quaternion_transforms.py for conventions.
 """
 
+import math
 from typing import Optional, Tuple
 
 import numpy as np
@@ -25,6 +26,17 @@ import quaternion
 
 from PiFinder.types.coordinates import RaDecRoll
 import PiFinder.pointing_model.quaternion_transforms as qt
+
+
+def _quat_has_nan(q: quaternion.quaternion) -> bool:
+    """True if any component of ``q`` is NaN.
+
+    Detects the uninitialised sentinel ``quaternion(nan, 0, 0, 0)``.
+    Uses :func:`math.isnan` per component rather than ``np.isnan(q)``
+    because the latter raises a spurious 'invalid value encountered in
+    isnan' ``RuntimeWarning`` whenever the quaternion already holds a NaN.
+    """
+    return math.isnan(q.w) or math.isnan(q.x) or math.isnan(q.y) or math.isnan(q.z)
 
 
 class ImuDeadReckoning:
@@ -75,7 +87,7 @@ class ImuDeadReckoning:
         three observations are needed to fix the drifting reference
         frame and the alignment offset.
         """
-        if not camera.valid or not aligned.valid or np.isnan(q_x2imu):
+        if not camera.valid or not aligned.valid or _quat_has_nan(q_x2imu):
             return
         q_eq2cam = qt.radec2q_eq(camera.ra, camera.dec, camera.roll)
         q_eq2aligned = qt.radec2q_eq(aligned.ra, aligned.dec, aligned.roll)
@@ -104,7 +116,7 @@ class ImuDeadReckoning:
         """True once solve() has produced a valid q_eq2x. Because
         q_cam2aligned is set inside the same solve() call, it is also
         valid whenever q_eq2x is."""
-        return not bool(np.isnan(self.q_eq2x))
+        return not _quat_has_nan(self.q_eq2x)
 
     def reset(self) -> None:
         """Clear q_eq2x and q_cam2aligned so the next solve()

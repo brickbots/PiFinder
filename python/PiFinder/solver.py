@@ -28,13 +28,11 @@ from PiFinder.types.positioning import (
     AlignOnRaDec,
     AlignedResult,
     AlignmentResult,
+    FailedSolve,
     Pointing,
-    PointingAxis,
-    PointingEstimate,
-    PointingMatrix,
     ReloadSqmCalibration,
     SolveDiagnostics,
-    SolveSource,
+    SuccessfulSolve,
 )
 
 sys.path.append(str(utils.tetra3_dir))
@@ -264,19 +262,19 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
         self._del_shmem()
 
 
-def _build_solved_estimate(
+def _build_successful_solve(
     solution: dict,
     last_image_metadata: dict,
     last_solve_attempt: float,
     last_solve_success: float,
-) -> PointingEstimate:
-    """Fold a successful tetra3 ``solution`` dict into a fresh
-    :class:`PointingEstimate`.
+) -> SuccessfulSolve:
+    """Fold a successful tetra3 ``solution`` dict into a
+    :class:`SuccessfulSolve` message.
 
-    Both axes' ``solve`` and ``estimate`` cells are populated together;
-    the integrator will advance the ``estimate`` cells via IMU
-    dead-reckoning between solves while leaving the ``solve`` cells
-    anchored at this snapshot.
+    Carries flat per-axis solve-truth (no ``solve``/``estimate`` split);
+    the integrator fans ``camera``/``aligned`` into both cells of its
+    long-lived :class:`PointingEstimate` and advances only the
+    ``estimate`` cells via IMU dead-reckoning between solves.
     """
     camera_value = Pointing(
         RA=solution["RA"],
@@ -293,17 +291,11 @@ def _build_solved_estimate(
     if last_image_metadata.get("imu"):
         imu_anchor = last_image_metadata["imu"]["quat"]
 
-    solve_time = time.time()
-
-    return PointingEstimate(
-        pointing=PointingMatrix(
-            camera=PointingAxis(solve=camera_value, estimate=camera_value),
-            aligned=PointingAxis(solve=aligned_value, estimate=aligned_value),
-        ),
+    return SuccessfulSolve(
+        camera=camera_value,
+        aligned=aligned_value,
         imu_anchor=imu_anchor,
-        solve_source=SolveSource.CAMERA,
-        solve_time=solve_time,
-        cam_solve_time=solve_time,
+        solve_time=time.time(),
         last_solve_attempt=last_solve_attempt,
         last_solve_success=last_solve_success,
         diagnostics=SolveDiagnostics(
@@ -323,18 +315,15 @@ def _build_solved_estimate(
     )
 
 
-def _build_failed_estimate(
-    last_image_metadata: dict,
+def _build_failed_solve(
     last_solve_attempt: float,
     last_solve_success,
     t_extract_ms: float,
-) -> PointingEstimate:
-    """Build a fresh :class:`PointingEstimate` representing a failed
-    solve attempt. Pointing cells are left empty; the integrator's
-    long-lived estimate preserves the previous ``solve`` cells so IMU
-    dead-reckoning continues."""
-    return PointingEstimate(
-        solve_source=SolveSource.CAMERA_FAILED,
+) -> FailedSolve:
+    """Build a :class:`FailedSolve` message for an attempt that produced
+    no pointing. The integrator's long-lived estimate preserves the
+    previous ``solve`` cells so IMU dead-reckoning continues."""
+    return FailedSolve(
         last_solve_attempt=last_solve_attempt,
         last_solve_success=last_solve_success,
         diagnostics=SolveDiagnostics(
@@ -513,7 +502,7 @@ def solver(
 
                     if solution and solution.get("RA") is not None:
                         last_solve_success = last_solve_attempt
-                        estimate = _build_solved_estimate(
+                        solve_result = _build_successful_solve(
                             solution=solution,
                             last_image_metadata=last_image_metadata,
                             last_solve_attempt=last_solve_attempt,
@@ -527,31 +516,31 @@ def solver(
 
                         logger.info(
                             f"Solve SUCCESS - {len(centroids)} centroids → "
-                            f"{estimate.diagnostics.Matches} matches, "
-                            f"RMSE: {estimate.diagnostics.RMSE:.1f}px"
+                            f"{solve_result.diagnostics.Matches} matches, "
+                            f"RMSE: {solve_result.diagnostics.RMSE:.1f}px"
                         )
 
                         # See if we are waiting for alignment
                         if align_ra != 0 and align_dec != 0:
-                            if estimate.alignment.is_set():
+                            if solve_result.alignment.is_set():
                                 align_result_queue.put(
                                     AlignedResult(
-                                        y_target=estimate.alignment.y_target,
-                                        x_target=estimate.alignment.x_target,
+                                        y_target=solve_result.alignment.y_target,
+                                        x_target=solve_result.alignment.x_target,
                                     )
                                 )
                                 logger.debug(
                                     "Align target_pixel=(%s, %s)",
-                                    estimate.alignment.y_target,
-                                    estimate.alignment.x_target,
+                                    solve_result.alignment.y_target,
+                                    solve_result.alignment.x_target,
                                 )
                             align_ra = 0
                             align_dec = 0
-                            # Clear alignment fields from the published estimate
-                            # now that the result has been consumed.
-                            estimate.alignment = AlignmentResult()
+                            # Clear alignment fields from the message now that
+                            # the result has been consumed.
+                            solve_result.alignment = AlignmentResult()
 
-                        solver_queue.put(estimate)
+                        solver_queue.put(solve_result)
                     else:
                         if solution:
                             logger.warning(
@@ -559,8 +548,7 @@ def solver(
                                 f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
                             )
                         solver_queue.put(
-                            _build_failed_estimate(
-                                last_image_metadata=last_image_metadata,
+                            _build_failed_solve(
                                 last_solve_attempt=last_solve_attempt,
                                 last_solve_success=last_solve_success,
                                 t_extract_ms=t_extract,
@@ -573,8 +561,7 @@ def solver(
                     logger.exception(e)
                     last_solve_attempt = last_image_metadata["exposure_end"]
                     solver_queue.put(
-                        _build_failed_estimate(
-                            last_image_metadata=last_image_metadata,
+                        _build_failed_solve(
                             last_solve_attempt=last_solve_attempt,
                             last_solve_success=last_solve_success,
                             t_extract_ms=0.0,

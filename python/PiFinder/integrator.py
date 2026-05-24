@@ -3,21 +3,22 @@
 """
 Integrator process.
 
-Owns the long-lived :class:`PointingEstimate`. Merges per-attempt solver
-snapshots from ``solver_queue`` into the long-lived estimate, advances
-the ``estimate`` cells via IMU dead-reckoning between solves, and
-publishes the result to ``shared_state``.
+Owns the long-lived :class:`PointingEstimate`. Applies per-attempt
+:class:`SolveResult` messages from ``solver_queue`` onto the long-lived
+estimate, advances the ``estimate`` cells via IMU dead-reckoning between
+solves, and publishes the result to ``shared_state``.
 
 Responsibility split:
 
-* The **solver** holds no long-lived state. It builds a fresh
-  :class:`PointingEstimate` per attempt and pushes to ``solver_queue``.
-  On failure, the pushed estimate has empty pointing cells.
+* The **solver** holds no long-lived state. It builds a
+  :class:`SolveResult` per attempt (a :class:`SuccessfulSolve` or
+  :class:`FailedSolve`) and pushes it to ``solver_queue``.
 
-* The **integrator** holds the anchor. ``pointing.<axis>.solve`` cells
-  on its long-lived estimate are the IMU dead-reckoning reference,
-  updated only on a successful solve. On a failed solve the integrator
-  preserves the previous ``solve`` cells so dead-reckoning continues.
+* The **integrator** holds the anchor and is the sole owner of the
+  :class:`PointingEstimate`. ``pointing.<axis>.solve`` cells are the IMU
+  dead-reckoning reference, updated only on a :class:`SuccessfulSolve`.
+  On a :class:`FailedSolve` it preserves the previous ``solve`` cells so
+  dead-reckoning continues.
 
 A single :class:`ImuDeadReckoning` instance handles both axes: it
 captures the (camera, aligned) pair at each successful solve as a
@@ -45,10 +46,13 @@ from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 import PiFinder.pointing_model.quaternion_transforms as qt
 from PiFinder.types.positioning import (
+    FailedSolve,
     Pointing,
     PointingAxis,
     PointingEstimate,
+    SolveResult,
     SolveSource,
+    SuccessfulSolve,
 )
 
 logger = logging.getLogger("IMU.Integrator")
@@ -81,32 +85,21 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
             pointing_updated = False
 
-            # 1. Pull any pending solver snapshot from the queue.
-            solver_snapshot: Optional[PointingEstimate] = None
+            # 1. Pull any pending solve result from the queue.
+            solve_result: Optional[SolveResult] = None
             try:
-                solver_snapshot = solver_queue.get(block=False)
+                solve_result = solver_queue.get(block=False)
             except queue.Empty:
                 pass
 
-            if solver_snapshot is not None:
-                if solver_snapshot.solve_source == SolveSource.CAMERA:
-                    estimate = _apply_successful_solve(
-                        estimate, solver_snapshot, idr
-                    )
-                    shared_state.set_solve_state(True)
-                    pointing_updated = True
-                else:
-                    # Failed solve: preserve solve cells + imu_anchor.
-                    # Refresh diagnostics/timing/source; clear estimate cells.
-                    estimate.diagnostics = solver_snapshot.diagnostics
-                    estimate.last_solve_attempt = solver_snapshot.last_solve_attempt
-                    estimate.last_solve_success = solver_snapshot.last_solve_success
-                    estimate.solve_source = SolveSource.CAMERA_FAILED
-                    estimate.constellation = ""  # may be overwritten below by IMU
-                    estimate.pointing.camera.estimate = None
-                    estimate.pointing.aligned.estimate = None
-                    shared_state.set_solution(copy.deepcopy(estimate))
-                    shared_state.set_solve_state(False)
+            if isinstance(solve_result, SuccessfulSolve):
+                estimate = _apply_successful_solve(estimate, solve_result, idr)
+                shared_state.set_solve_state(True)
+                pointing_updated = True
+            elif isinstance(solve_result, FailedSolve):
+                estimate = _apply_failed_solve(estimate, solve_result)
+                shared_state.set_solution(copy.deepcopy(estimate))
+                shared_state.set_solve_state(False)
 
             # 2. If we have an anchor and didn't just do a fresh plate-solve,
             #    try to advance the estimate via IMU dead-reckoning.
@@ -146,47 +139,70 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
 def _apply_successful_solve(
     estimate: PointingEstimate,
-    snapshot: PointingEstimate,
+    result: SuccessfulSolve,
     idr: ImuDeadReckoning,
 ) -> PointingEstimate:
-    """Merge a successful solver snapshot into the long-lived estimate.
+    """Apply a :class:`SuccessfulSolve` onto the long-lived estimate.
 
-    Replaces both ``solve`` and ``estimate`` cells on both axes and
-    refreshes the IMU anchor. Reseeds the dead-reckoner with the
-    (camera, aligned) pair + anchor quaternion.
+    Fans the flat ``camera``/``aligned`` solve-truth into both the
+    ``solve`` and ``estimate`` cells of each axis, refreshes the IMU
+    anchor, and reseeds the dead-reckoner with the (camera, aligned)
+    pair + anchor quaternion. The single ``solve_time`` on the message
+    is assigned to both ``solve_time`` and ``cam_solve_time`` on the
+    aggregate.
     """
-    snap = snapshot.pointing
     estimate.pointing.camera = PointingAxis(
-        solve=snap.camera.solve,
-        estimate=snap.camera.estimate,
+        solve=result.camera,
+        estimate=result.camera,
     )
     estimate.pointing.aligned = PointingAxis(
-        solve=snap.aligned.solve,
-        estimate=snap.aligned.estimate,
+        solve=result.aligned,
+        estimate=result.aligned,
     )
 
-    estimate.imu_anchor = snapshot.imu_anchor
+    estimate.imu_anchor = result.imu_anchor
     estimate.solve_source = SolveSource.CAMERA
-    estimate.solve_time = snapshot.solve_time
-    estimate.cam_solve_time = snapshot.cam_solve_time
-    estimate.last_solve_attempt = snapshot.last_solve_attempt
-    estimate.last_solve_success = snapshot.last_solve_success
-    estimate.diagnostics = snapshot.diagnostics
-    estimate.alignment = snapshot.alignment
-    estimate.matched_centroids = snapshot.matched_centroids
-    estimate.matched_stars = snapshot.matched_stars
+    estimate.solve_time = result.solve_time
+    estimate.cam_solve_time = result.solve_time
+    estimate.last_solve_attempt = result.last_solve_attempt
+    estimate.last_solve_success = result.last_solve_success
+    estimate.diagnostics = result.diagnostics
+    estimate.alignment = result.alignment
+    estimate.matched_centroids = result.matched_centroids
+    estimate.matched_stars = result.matched_stars
 
-    # Reseed the dead-reckoner from the new anchor.
-    q_anchor = snapshot.imu_anchor
+    # Reseed the dead-reckoner from the new anchor. camera/aligned are
+    # always present on a SuccessfulSolve, so no None-guard is needed.
+    q_anchor = result.imu_anchor
     if q_anchor is None:
         q_anchor = quaternion.quaternion(np.nan)
-    if snap.camera.solve is not None and snap.aligned.solve is not None:
-        idr.solve(
-            snap.camera.solve.as_radecroll(),
-            snap.aligned.solve.as_radecroll(),
-            q_anchor,
-        )
+    idr.solve(
+        result.camera.as_radecroll(),
+        result.aligned.as_radecroll(),
+        q_anchor,
+    )
 
+    return estimate
+
+
+def _apply_failed_solve(
+    estimate: PointingEstimate,
+    result: FailedSolve,
+) -> PointingEstimate:
+    """Apply a :class:`FailedSolve` onto the long-lived estimate.
+
+    Preserves the ``solve`` cells and ``imu_anchor`` (the anchor must
+    survive so dead-reckoning continues), refreshes diagnostics/timing,
+    sets ``solve_source=CAMERA_FAILED``, and clears the ``estimate``
+    cells so consumers stop reading a stale camera pointing.
+    """
+    estimate.diagnostics = result.diagnostics
+    estimate.last_solve_attempt = result.last_solve_attempt
+    estimate.last_solve_success = result.last_solve_success
+    estimate.solve_source = SolveSource.CAMERA_FAILED
+    estimate.constellation = ""  # may be overwritten below by IMU
+    estimate.pointing.camera.estimate = None
+    estimate.pointing.aligned.estimate = None
     return estimate
 
 

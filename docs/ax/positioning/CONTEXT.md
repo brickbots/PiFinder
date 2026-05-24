@@ -9,7 +9,7 @@ The Positioning context produces and publishes the canonical "where is the teles
 ### Core record
 
 **`PointingEstimate`**:
-The canonical "where are we pointing?" record. Travels through `solver_queue` and `shared_state.set_solution()`. Holds a `PointingMatrix` (the four cells of the 2 × 2 matrix), the IMU anchor, Alt/Az, source/timing fields, `SolveDiagnostics`, and `AlignmentResult`. Defined in `PiFinder/types/positioning.py`.
+The canonical "where are we pointing?" record. Owned by the integrator and published via `shared_state.set_solution()`. The integrator builds it by applying a `SolveResult` (see below) onto its long-lived instance — it does **not** travel on `solver_queue`. Holds a `PointingMatrix` (the four cells of the 2 × 2 matrix), the IMU anchor, Alt/Az, source/timing fields, `SolveDiagnostics`, and `AlignmentResult`. Defined in `PiFinder/types/positioning.py`.
 _Avoid_: solved dict, pointing dict, solution record.
 
 **`solve_source`** / **`SolveSource`**:
@@ -97,6 +97,18 @@ _Avoid_: solver (that name is overloaded — see below).
 The PiFinder process owning `solver.py`. It drives the plate-solve loop and is the sole runtime caller of `SQM.calculate()`.
 _Avoid_: tetra3 (the library is one thing the solver process uses; they are not synonyms).
 
+**`SolveResult`**:
+The message the solver puts on `solver_queue` describing one plate-solve attempt. A union — `SolveResult = SuccessfulSolve | FailedSolve` — on which the integrator dispatches via `isinstance()` (mirroring `SolverCommand` / `AlignResponse`). It is a transport DTO, **not** the published record: only the integrator builds the canonical `PointingEstimate`, by applying a `SolveResult` onto its long-lived instance. Defined in `PiFinder/types/positioning.py`. See [`docs/adr/0003-solver-integrator-message.md`](../../adr/0003-solver-integrator-message.md).
+_Avoid_: snapshot, solved dict, solution record.
+
+**`SuccessfulSolve`**:
+The `SolveResult` variant carrying solve-truth: **flat** `camera` and `aligned` `Pointing`s (no `solve`/`estimate` split — the solver never IMU-progresses), the IMU anchor (`Optional` — a solve can succeed on a frame with no IMU sample), one `solve_time`, `SolveDiagnostics`, `AlignmentResult`, and the matched-star arrays. The integrator fans `camera`/`aligned` into both the `solve` and `estimate` cells and reseeds the dead-reckoner.
+_Avoid_: solved estimate, PointingEstimate (a `SuccessfulSolve` is not one).
+
+**`FailedSolve`**:
+The `SolveResult` variant for an attempt that produced no pointing: `SolveDiagnostics` (with `Matches=0`) plus `last_solve_attempt` / `last_solve_success`. Triggers the integrator to preserve its `solve` cells + anchor, clear the `estimate` cells, and set `solve_source=CAMERA_FAILED`.
+_Avoid_: empty PointingEstimate, hollow estimate.
+
 ### Diagnostics
 
 **`Matches`**:
@@ -174,7 +186,7 @@ Multiprocessing-manager proxy carrying configuration, IMU samples, GPS fixes, th
 _Avoid_: state, global state.
 
 **`solver_queue`**:
-One-way `multiprocessing.Queue`, solver → integrator. Carries a fresh `PointingEstimate` on every attempt, success or failure.
+One-way `multiprocessing.Queue`, solver → integrator. Carries a `SolveResult` (a `SuccessfulSolve` or `FailedSolve`) on every attempt, success or failure.
 _Avoid_: solve queue, pointing queue.
 
 **`align_command_queue` / `align_result_queue`**:
@@ -204,4 +216,4 @@ _Avoid_: align queue (singular — there are two).
 >
 > **Dev:** What if the solve fails right after alignment?
 >
-> **Domain:** The solver pushes a `PointingEstimate` with `solve_source=CAMERA_FAILED`. The `solve`-state cells (`pointing.camera.solve`, `pointing.aligned.solve`) and `last_solve_imu` are preserved, so the integrator keeps producing `pointing.aligned.estimate` from IMU dead-reckoning. Auto-exposure still sees `diagnostics.Matches=0`, which is why we push on every attempt — success or failure.
+> **Domain:** The solver pushes a `FailedSolve`. The integrator preserves its `solve`-state cells (`pointing.camera.solve`, `pointing.aligned.solve`) and the IMU anchor, and sets `solve_source=CAMERA_FAILED` on the published `PointingEstimate`, so it keeps producing `pointing.aligned.estimate` from IMU dead-reckoning. Auto-exposure still sees `diagnostics.Matches=0`, which is why the solver pushes on every attempt — success or failure.

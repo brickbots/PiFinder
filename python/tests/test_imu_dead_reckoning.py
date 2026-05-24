@@ -17,7 +17,7 @@ import pytest
 import quaternion
 
 import PiFinder.pointing_model.quaternion_transforms as qt
-from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
+from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning, _quat_has_nan
 from PiFinder.types.coordinates import RaDecRoll
 
 
@@ -205,9 +205,7 @@ class TestPredict:
             (5.9, 0.45, 0.1),
         ],
     )
-    def test_solve_then_predict_round_trip_identity_alignment(
-        self, dr, ra, dec, roll
-    ):
+    def test_solve_then_predict_round_trip_identity_alignment(self, dr, ra, dec, roll):
         """solve(radec, radec, q) then predict(q) returns radec on both axes."""
         camera = RaDecRoll(ra, dec, roll)
         q = make_imu(theta=0.2)
@@ -229,14 +227,14 @@ class TestReset:
         aligned = RaDecRoll(1.05, 0.22, 0.0)
         dr.solve(camera, aligned, make_imu())
         assert dr.is_initialized() is True
-        assert not np.isnan(dr.q_cam2aligned)
+        assert not _quat_has_nan(dr.q_cam2aligned)
 
         dr.reset()
         assert dr.is_initialized() is False
         assert isinstance(dr.q_eq2x, quaternion.quaternion)
         assert isinstance(dr.q_cam2aligned, quaternion.quaternion)
-        assert np.isnan(dr.q_eq2x)
-        assert np.isnan(dr.q_cam2aligned)
+        assert _quat_has_nan(dr.q_eq2x)
+        assert _quat_has_nan(dr.q_cam2aligned)
 
     def test_predict_after_reset_returns_none(self, dr):
         camera = RaDecRoll(1.0, 0.2, 0.0)
@@ -252,8 +250,8 @@ class TestReset:
         camera_b = RaDecRoll(2.0, -0.1, 0.0)
         dr.solve(camera_b, camera_b, make_imu(theta=0.4))
         assert dr.is_initialized() is True
-        assert not np.isnan(dr.q_eq2x)
-        assert not np.isnan(dr.q_cam2aligned)
+        assert not _quat_has_nan(dr.q_eq2x)
+        assert not _quat_has_nan(dr.q_cam2aligned)
 
 
 # =============================== 4. State sequence =========================
