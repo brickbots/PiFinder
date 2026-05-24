@@ -11,11 +11,13 @@ than dark red at the same intensity — so no separate brightness curve is neede
 Pipeline (matched to the existing docs/source/images screenshots):
   1. intensity = the brightest channel per pixel (== the red channel for a
      red-only capture; also works for grayscale input)
-  2. recolor: out = tint * (intensity / 255)   [linear ramp, black stays black]
-  3. upscale by --scale (default 2x -> 128 becomes the 256x256 docs use)
+  2. gamma: lift mid-tones (--gamma, >1 brightens) so dim elements like the
+     title bar text stay legible once recolored
+  3. recolor: out = tint * (intensity / 255)   [linear ramp, black stays black]
+  4. upscale by --scale (default 2x -> 128 becomes the 256x256 docs use)
 
 Defaults (the house values measured from the existing doc images):
-  tint = 245,76,10   scale = 2   resample = nearest (crisp doubled pixels)
+  gamma = 1.5   tint = 245,76,10   scale = 2   resample = nearest (crisp pixels)
 
 Naming is explicit: you pass the output path (-o) or an output directory
 (--out-dir) so each doc image can be named to fit its place in the manual.
@@ -66,13 +68,20 @@ def parse_tint(text: str) -> tuple[int, int, int]:
     return parts  # type: ignore[return-value]
 
 
-def convert(src: Path, dst: Path, tint, scale: int, resample) -> None:
+def convert(src: Path, dst: Path, tint, scale: int, resample, gamma: float) -> None:
     """Recolor a raw screenshot onto the tint and scale it up."""
     im = Image.open(src).convert("RGB")
     r, g, b = im.split()
     # Per-pixel brightest channel == intensity. For a red-only PiFinder capture
     # this is just the red channel; for grayscale it's the gray value.
     intensity = ImageChops.lighter(ImageChops.lighter(r, g), b)
+    # Optional gamma to lift mid-tones so dim elements (notably the title bar
+    # text) stay legible once recolored. gamma > 1 brightens; pure black and
+    # full white stay fixed either way.
+    if gamma != 1.0:
+        exponent = 1.0 / gamma
+        lut = [round(255 * (v / 255.0) ** exponent) for v in range(256)]
+        intensity = intensity.point(lut)
     # Linear ramp black->tint: value v maps to tint * (v/255).
     colored = ImageOps.colorize(intensity, black=(0, 0, 0), white=tint)
     w, h = colored.size
@@ -91,6 +100,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("-o", "--output", type=Path, help="output path (single input only)")
     p.add_argument("--out-dir", type=Path, help="output directory (keeps each input's name)")
     p.add_argument("--scale", type=int, default=2, help="upscale factor (default: 2)")
+    p.add_argument("--gamma", type=float, default=1.5,
+                   help="mid-tone lift; >1 brightens, 1.0 = linear (default: 1.5)")
     p.add_argument("--tint", type=parse_tint, default="245,76,10",
                    help="amber tint as R,G,B (default: 245,76,10)")
     p.add_argument("--resample", choices=RESAMPLE, default="nearest",
@@ -125,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
             p.error("output exists (use --force to overwrite): " + ", ".join(clashes))
 
     for src, dst in jobs:
-        convert(src, dst, tint, args.scale, resample)
+        convert(src, dst, tint, args.scale, resample, args.gamma)
         print(f"{src}  ->  {dst}")
     return 0
 
