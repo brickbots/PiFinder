@@ -1,7 +1,6 @@
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import utils
-from PiFinder.state_utils import sleep_for_framerate
 from PiFinder.ui.ui_utils import TextLayouter
 from PiFinder.image_util import gamma_correct_med, subtract_background
 import time
@@ -40,19 +39,17 @@ class UISQM(UIModule):
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
-                label=_("CAL"),
+                label=_("CAL"), # TRANSLATORS: Marking menu option to launch SQM calibration wizard
                 callback=self._launch_calibration,
             ),
             down=MarkingMenuOption(
-                label=_("CORRECT"),
+                label=_("CORRECT"), # TRANSLATORS: Marking menu option to launch SQM correction sweep tool
                 callback=self._launch_sqm_sweep,
             ),
             right=MarkingMenuOption(),
         )
 
     def update(self, force=False):
-        sleep_for_framerate(self.shared_state)
-
         # Show camera image in background (same processing as preview)
         image_obj = self.camera_image.copy()
         image_obj = image_obj.resize((128, 128))
@@ -262,7 +259,9 @@ class UISQM(UIModule):
         camera_type = self.shared_state.camera_type()
         camera_type_processed = f"{camera_type}_processed"
         calibration_file = (
-            Path.home() / "PiFinder_data" / f"sqm_calibration_{camera_type_processed}.json"
+            Path.home()
+            / "PiFinder_data"
+            / f"sqm_calibration_{camera_type_processed}.json"
         )
         return calibration_file.exists()
 

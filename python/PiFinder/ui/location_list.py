@@ -1,11 +1,19 @@
+from typing import Any, TYPE_CHECKING
+
+from PiFinder.state import Location
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.text_menu import UITextMenu
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
 
 
 class UILocationList(UITextMenu):
     """UI for managing saved locations"""
 
-    __title__ = "Saved Locations"
+    __title__ = "Load Location"
 
     def __init__(self, *args, **kwargs):
         # Set up menu items before calling parent init
@@ -73,19 +81,12 @@ class UILocationList(UITextMenu):
             action = self.actions[self.action_index]
 
             if action == "Load":
-                # Set location as current
                 self.command_queues["gps"].put(
-                    (
-                        "fix",
-                        {
-                            "lat": location.latitude,
-                            "lon": location.longitude,
-                            "altitude": location.height,
-                            "source": f"CONFIG: {location.name}",
-                            "lock": True,
-                            "lock_type": 2,
-                            "error_in_m": location.error_in_m,
-                        },
+                    Location.make_fix(
+                        location.latitude,
+                        location.longitude,
+                        location.height,
+                        f"CONFIG: {location.name}",
                     )
                 )
                 # Set as default if desired
@@ -171,7 +172,16 @@ class UILocationList(UITextMenu):
         return True
 
     def update(self, force=False):
-        if self.action_menu_active:
+        if not self.locations:
+            self.clear_screen()
+            draw_pos = self.display_class.titlebar_height + 20
+            self.draw.text(
+                (10, draw_pos),
+                _("No locations"),
+                font=self.fonts.bold.font,
+                fill=self.colors.get(192),
+            )
+        elif self.action_menu_active:
             self.draw_action_menu()
         else:
             super().update(force)

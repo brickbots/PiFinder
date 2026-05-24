@@ -80,7 +80,8 @@ def save_sweep_metadata(
     # Noise floor estimation details (from NoiseFloorEstimator)
     if noise_floor_details is not None:
         metadata["noise_floor_estimator"] = {
-            k: v for k, v in noise_floor_details.items()
+            k: v
+            for k, v in noise_floor_details.items()
             if k != "request_zero_sec_sample"  # Exclude internal flags
         }
         if camera_type is not None:

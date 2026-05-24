@@ -7,7 +7,6 @@ This module contains all the UI Module classes
 
 import logging
 from typing import TYPE_CHECKING, Any
-from PiFinder import state_utils
 from PiFinder.ui.base import UIModule
 from PiFinder.locations import Location
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
@@ -140,7 +139,6 @@ class UIGPSStatus(UIModule):
         self.command_queues["camera"].put("start")
 
     def update(self, force=False):
-        state_utils.sleep_for_framerate(self.shared_state)
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 1
         location = self.shared_state.location()
@@ -310,6 +308,15 @@ class UIGPSStatus(UIModule):
                 (0, draw_pos),
                 _("Time:  {time}").format(
                     time=time.strftime("%H:%M:%S") if time else "---"
+                ),
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+            draw_pos += 10
+            self.draw.text(
+                (0, draw_pos),
+                _("Date:  {date}").format(
+                    date=time.strftime("%Y-%m-%d") if time else "---"
                 ),
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),

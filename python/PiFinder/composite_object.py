@@ -97,9 +97,12 @@ class CompositeObject:
     def from_dict(cls, d):
         return cls(**d)
 
+    # Planets use their common name; all other catalogs use the standard format.
     @property
     def display_name(self):
         """
         Returns the display name for this object
         """
+        if self.catalog_code == "PL" and self.names:
+            return self.names[0]
         return f"{self.catalog_code} {self.sequence}"
