@@ -356,9 +356,15 @@ focus section above.
 
 .. image:: images/quick_start/align_intro.png
 
-In this chart view the current alignment point is shown with a Telrad style reticle. As 
+In this chart view the current alignment point is shown with a Telrad style reticle. As
 you move your telescope, this chart will update and you can zoom in and out using the **+/-**
 keys.
+
+.. note::
+   The Telrad-style reticle marks where your telescope is currently pointing *within* the
+   camera's wide 10° field of view.  It is not meant to sit in the center of the chart, so
+   seeing it off to one side — as in the image above — is completely normal and does not
+   mean your PiFinder is misaligned or faulty.
 
 Next, pick a star you can easily recognize in the sky.  This can be a bright star, or 
 a star which is part of a distinctive constellation or asterism.  You can choose any star
