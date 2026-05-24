@@ -1,0 +1,26 @@
+{
+  "skill_name": "docs",
+  "evals": [
+    {
+      "id": 1,
+      "name": "feature-in-user-guide",
+      "prompt": "We just added a setting to the PiFinder. In the Settings menu there's now a 'Screen Off Timeout' option that turns the screen completely off after a period of inactivity — this is separate from the existing power-save dimming, and it's meant for very dark sites where even the dimmed screen is distracting. The choices are 30 seconds, 1 minute, 5 minutes, and Off. Please document this in the user guide so people know it exists and how to set it.",
+      "expected_output": "A new section added to docs/source/user_guide.rst (NOT the docs/user_guide.md stub) under/near the Settings Menu, written in the manual's warm second-person voice, explaining what the setting does and why (dark-site use), the four options, and how to reach it. Hardware keys/menu names styled per house conventions. Any cross-reference uses :ref:`user_guide:...` lowercase form. Builds without new Sphinx warnings.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "new-troubleshooting-page",
+      "prompt": "Can you add a Troubleshooting page to the docs? It should cover the three issues we get asked about most: the PiFinder can't get a GPS lock, the camera isn't solving (plate solving fails), and people can't connect to the PiFinder's wifi. Give a couple of likely causes and fixes for each. Make sure it actually shows up in the documentation site navigation.",
+      "expected_output": "A new docs/source/troubleshooting.rst page with a proper rST heading ladder and three sections, written in house voice, AND the page registered in the toctree in docs/source/index.rst so it appears in navigation (otherwise Sphinx flags an orphan). Cross-references to existing sections (gps/wifi/solver) use :doc:/:ref: correctly. Builds clean with -n.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "polish-how-it-works",
+      "prompt": "The 'How It Works' section at the top of the user guide reads a little flat and technical. Can you revise it so it has the same friendly, welcoming tone as the rest of the manual? Don't change what it's telling people, just the feel of it.",
+      "expected_output": "The How It Works section in docs/source/user_guide.rst rewritten in a warmer, second-person, why-first voice matching quick_start.rst — same information preserved, no broken cross-references or image paths, valid rST, no level/heading changes. Subjective; judged qualitatively for voice match.",
+      "files": []
+    }
+  ]
+}
