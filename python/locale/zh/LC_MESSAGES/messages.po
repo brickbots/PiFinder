@@ -1194,7 +1194,7 @@ msgstr "深空天体显示"
 
 #: PiFinder/ui/menu_structure.py:872
 msgid "RA/DEC Disp."
-msgstr "RA/DEC显示"
+msgstr "RA/Dec显示"
 
 #: PiFinder/ui/menu_structure.py:882
 msgid "HH:MM"
@@ -1660,7 +1660,7 @@ msgstr "D/D"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:588
 msgid "RA/DEC Entry"
-msgstr "RA/DEC输入"
+msgstr "RA/Dec输入"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:825
@@ -1670,7 +1670,7 @@ msgstr "RA:"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:831
 msgid "DEC:"
-msgstr "DEC:"
+msgstr "Dec:"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:837
@@ -1680,7 +1680,7 @@ msgstr "历元:"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:981
 msgid "RA/DEC"
-msgstr "RA/DEC"
+msgstr "RA/Dec"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/software.py:87

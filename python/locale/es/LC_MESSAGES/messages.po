@@ -1139,7 +1139,7 @@ msgstr "Visualización OCP"
 
 #: PiFinder/ui/menu_structure.py:872
 msgid "RA/DEC Disp."
-msgstr "Visual. RA/DEC"
+msgstr "Visual. RA/Dec"
 
 #: PiFinder/ui/menu_structure.py:882
 msgid "HH:MM"
@@ -1585,7 +1585,7 @@ msgstr "G/G"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:588
 msgid "RA/DEC Entry"
-msgstr "Entrada RA/DEC"
+msgstr "Entrada RA/Dec"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:825
@@ -1595,7 +1595,7 @@ msgstr "RA:"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:831
 msgid "DEC:"
-msgstr "DEC:"
+msgstr "Dec:"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:837
@@ -1605,7 +1605,7 @@ msgstr "ÉPOCA:"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:981
 msgid "RA/DEC"
-msgstr "RA/DEC"
+msgstr "RA/Dec"
 
 #: PiFinder/ui/software.py:87
 msgid "Updating..."

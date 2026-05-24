@@ -1184,7 +1184,7 @@ msgstr "Affichage DSO"
 
 #: PiFinder/ui/menu_structure.py:872
 msgid "RA/DEC Disp."
-msgstr "Affichage RA/DEC"
+msgstr "Affichage RA/Dec"
 
 #: PiFinder/ui/menu_structure.py:882
 msgid "HH:MM"
@@ -1645,7 +1645,7 @@ msgstr "D/D"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:588
 msgid "RA/DEC Entry"
-msgstr "Saisie RA/DEC"
+msgstr "Saisie RA/Dec"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:825
@@ -1655,7 +1655,7 @@ msgstr "RA:"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:831
 msgid "DEC:"
-msgstr "DEC:"
+msgstr "Dec:"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:837
@@ -1665,7 +1665,7 @@ msgstr "ÉPOQUE:"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:981
 msgid "RA/DEC"
-msgstr "RA/DEC"
+msgstr "RA/Dec"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/software.py:87

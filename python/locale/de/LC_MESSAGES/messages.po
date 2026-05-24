@@ -1093,7 +1093,7 @@ msgstr "DSO Anzeige"
 
 #: PiFinder/ui/menu_structure.py:872
 msgid "RA/DEC Disp."
-msgstr "RA/DEC Anzeige"
+msgstr "RA/Dec Anzeige"
 
 #: PiFinder/ui/menu_structure.py:882
 msgid "HH:MM"
