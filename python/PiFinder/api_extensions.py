@@ -699,6 +699,59 @@ def register_api_routes(app, server_instance, require_auth=False):
             logger.error("api/key error: %s", e)
             return _json_response({"error": str(e)}, 500)
 
+    @app.route("/api/stop", methods=["POST"])
+    def api_stop():
+        """Cleanly shut down the entire PiFinder application.
+
+        PiFinder's normal shutdown is driven by a terminal Ctrl-C: SIGINT is
+        delivered to the *whole* foreground process group at once, so every
+        child (camera, solver, integrator, imu, web server, multiprocessing
+        helpers) exits from its own KeyboardInterrupt and the main process's
+        .join() calls return. Most children run bare ``while True`` loops and
+        neither catch KeyboardInterrupt nor watch a stop flag, so signalling
+        only the main process would leave it hanging in .join() forever.
+
+        This handler runs inside the web-server child, so ``os.getpgid(0)`` is
+        the PiFinder process group. Signalling that group reproduces the Ctrl-C
+        path. The signal is fired from a short-lived timer thread so this HTTP
+        response can flush before the server process itself is torn down.
+
+        For automation that launched PiFinder in its own session (the expected
+        case), this group is isolated from the launcher, so the launcher
+        survives and can escalate to SIGTERM/SIGKILL if a child still stalls.
+
+        Body (optional JSON): {"delay": <seconds before signalling, default 0.5>}
+        """
+        import os
+        import signal
+        import threading
+
+        try:
+            body = request.get_json(silent=True) or {}
+            delay = float(body.get("delay", 0.5))
+        except Exception:
+            delay = 0.5
+        # Keep the delay sane: long enough to flush the response, not so long
+        # that an automated stop appears to hang.
+        delay = min(max(delay, 0.0), 5.0)
+
+        def _shutdown():
+            try:
+                pgid = os.getpgid(0)
+                logger.info("api/stop: sending SIGINT to process group %s", pgid)
+                os.killpg(pgid, signal.SIGINT)
+            except Exception:
+                logger.exception("api/stop: killpg failed; signalling self instead")
+                try:
+                    os.kill(os.getpid(), signal.SIGINT)
+                except Exception:
+                    logger.exception("api/stop: self-signal failed")
+
+        threading.Timer(delay, _shutdown).start()
+        return _json_response(
+            {"success": True, "note": "Shutting down PiFinder", "delay": delay}
+        )
+
     logger.info(
         "PiFinder API extensions registered (%s auth)",
         "with" if require_auth else "without",

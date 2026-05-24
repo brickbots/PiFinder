@@ -584,10 +584,10 @@ class UIObjectDetails(UIModule):
 
             # Add explanation about what CR means
             explanation_lines = [
-                _("CR measures object"),
-                _("visibility based on"),
-                _("sky brightness,"),
-                _("telescope, and EP."),
+                _("CR measures object"), # TRANSLATORS: Contrast reserve explanation line 1
+                _("visibility based on"), # TRANSLATORS: Contrast reserve explanation line 2
+                _("sky brightness,"), # TRANSLATORS: Contrast reserve explanation line 3
+                _("telescope, and EP."), # TRANSLATORS: Contrast reserve explanation (EP = entrance pupil) line 4
             ]
 
             for line in explanation_lines:

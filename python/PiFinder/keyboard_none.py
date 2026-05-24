@@ -20,7 +20,9 @@ class KeyboardNone(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, shared_state, log_queue):
+def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
+    # bloom_remap is accepted for signature parity with the local/pi keyboards
+    # (main.py always passes it); the "none" keyboard has no keys to remap.
     MultiprocLogging.configurer(log_queue)
     KeyboardNone(q)
 

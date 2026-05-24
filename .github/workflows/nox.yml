@@ -8,6 +8,8 @@ jobs:
         working-directory: ./python
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: wntrblm/nox@2024.04.15
         with:
           python-versions: "3.9"
