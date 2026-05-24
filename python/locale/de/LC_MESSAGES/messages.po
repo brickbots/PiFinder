@@ -469,9 +469,10 @@ msgstr "Kein Teleskop gewählt"
 msgid "No eyepiece selected"
 msgstr "Kein Okular gewählt"
 
+# AI-TRANSLATED (claude): needs human review; previous "M" dropped the {mag} value
 #: PiFinder/ui/equipment.py:68
 msgid "Mag: {mag:.0f}x"
-msgstr "M"
+msgstr "Vergr: {mag:.0f}x"
 
 #: PiFinder/ui/equipment.py:80
 msgid "TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
@@ -1043,25 +1044,30 @@ msgstr "Chinesisch"
 msgid "Chart..."
 msgstr "Karte..."
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:776
 msgid "Coordinate Sys."
-msgstr ""
+msgstr "Koord.-System"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:782
 msgid "Horizontal"
-msgstr ""
+msgstr "Horizontal"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:786
 msgid "EQ (Auto)"
-msgstr ""
+msgstr "EQ (Auto)"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:790
 msgid "EQ (North-up)"
-msgstr ""
+msgstr "EQ (N oben)"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:794
 msgid "EQ (South-up)"
-msgstr ""
+msgstr "EQ (S oben)"
 
 #: PiFinder/ui/menu_structure.py:800
 msgid "Reticle"
@@ -1087,7 +1093,7 @@ msgstr "DSO Anzeige"
 
 #: PiFinder/ui/menu_structure.py:872
 msgid "RA/DEC Disp."
-msgstr "RA/DEC Anzeige"
+msgstr "RA/Dec Anzeige"
 
 #: PiFinder/ui/menu_structure.py:882
 msgid "HH:MM"
@@ -1151,7 +1157,7 @@ msgstr "Montierungsart"
 
 #: PiFinder/ui/menu_structure.py:962
 msgid "Alt/Az"
-msgstr "Azimutal"
+msgstr "Alt/Az"
 
 #: PiFinder/ui/menu_structure.py:966
 msgid "Equatorial"
@@ -1352,7 +1358,7 @@ msgstr "Suche"
 
 #: PiFinder/ui/object_details.py:364
 msgid "for GPS{elipsis}"
-msgstr "nach Satelliten{elipsis}"
+msgstr "nach GPS{elipsis}"
 
 #: PiFinder/ui/object_details.py:378 PiFinder/ui/object_details.py:406
 msgid "Calculating"
@@ -1486,9 +1492,10 @@ msgstr "Zoom x{zoom_number}"
 msgid "Full"
 msgstr "Voll"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:530
 msgid "H/D"
-msgstr ""
+msgstr "H/G"
 
 #: PiFinder/ui/radec_entry.py:540
 msgid "D/D"
