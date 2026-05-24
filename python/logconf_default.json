@@ -67,6 +67,15 @@
         },
 
         /////////////////////////////////////////////////////////////////
+        ////// On-disk caches (Hipparcos pickle, catalog composite pickle)
+        "Plot": {
+            "level": "INFO"
+        },
+        "Catalog.Cache": {
+            "level": "INFO"
+        },
+
+        /////////////////////////////////////////////////////////////////
         ////// GPS Subsystem
         "GPS": {
             "level": "WARNING" // Set this to DEBUG, to see results parsed from the GPS
