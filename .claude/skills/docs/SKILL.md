@@ -75,18 +75,23 @@ Crucial framing: both files were written to guide **customer-support emails**,
 not docs. Mine them for *facts* — specs, defaults, behaviors, the steps that
 actually fix a problem — but never carry over their support voice (reassurance
 scripts, escalation advice, sign-offs). Rewrite every fact in the manual's own
-voice. And if anything there conflicts with the code or the existing docs, trust
-the code/docs and flag the conflict to the user rather than documenting the
+voice. If anything there conflicts with the code or the existing docs, trust the
+code/docs and flag the conflict to the user rather than documenting the
 discrepancy.
 
 ## The house voice
 
-The manual is written warmly and directly, as if Richard (the creator) is
-walking a friend through their new telescope accessory. Match it:
+The manual is written warmly and directly, but it stays measured and
+professional — clear guidance from someone who knows the instrument well, not
+breezy chat. Match it:
 
 - **Talk to the reader as "you."** "You'll then see the Main Menu appear."
-- **Be encouraging and a little excited.** Exclamation points are welcome where
-  something is genuinely delightful ("point it at the sky!"). Don't force them.
+- **Be warm but measured.** Keep the tone calm and confident rather than
+  breathless. Reserve exclamation points for the rare genuinely delightful
+  moment and prefer plain, declarative sentences the rest of the time.
+- **Write complete sentences; don't open with a conjunction.** Never begin a
+  sentence with "And" — join the thought to the sentence before it, or rephrase.
+  The same goes for opening with "But" or "So."
 - **Explain the *why*, not just the *what*.** The existing docs constantly say
   things like "This helps save battery power and can prevent glare at the
   eyepiece." A reader who understands the reason trusts the instruction.
