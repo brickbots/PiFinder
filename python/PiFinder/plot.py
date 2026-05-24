@@ -5,6 +5,7 @@ This module handles plotting starfields
 and constelleations
 """
 
+import logging
 import os
 import datetime
 import numpy as np
@@ -17,6 +18,54 @@ from skyfield.api import Star, load, utc, Angle
 from skyfield.data import hipparcos, stellarium
 from skyfield.projections import build_stereographic_projection
 from PiFinder.calc_utils import sf_utils
+
+
+logger = logging.getLogger("Plot")
+
+_RAW_STARS_DF = None
+
+
+def _load_raw_stars():
+    """
+    Lazy-load the Hipparcos catalogue, cached in-process and on disk.
+
+    The fixed-width parse of hip_main.dat takes ~1.4s on a Pi; reading
+    the pickled DataFrame instead takes ~10ms. The on-disk cache lives at
+    ~/PiFinder_data/cache/hip_main.pkl and is rebuilt when hip_main.dat
+    is newer or when the pickle fails to load (e.g. pandas version skew).
+    """
+    global _RAW_STARS_DF
+    if _RAW_STARS_DF is not None:
+        return _RAW_STARS_DF
+
+    dat_path = Path(utils.astro_data_dir, "hip_main.dat")
+    cache_dir = Path(utils.data_dir, "cache")
+    pkl_path = cache_dir / "hip_main.pkl"
+
+    if (
+        pkl_path.exists()
+        and pkl_path.stat().st_mtime >= dat_path.stat().st_mtime
+    ):
+        try:
+            _RAW_STARS_DF = pandas.read_pickle(pkl_path)
+            logger.info("Loaded Hipparcos catalog from cache: %s", pkl_path)
+            return _RAW_STARS_DF
+        except Exception as e:
+            logger.warning(
+                "Hipparcos cache unreadable, reparsing %s: %s", dat_path, e
+            )
+
+    logger.info("Parsing Hipparcos catalog from %s", dat_path)
+    with load.open(str(dat_path)) as f:
+        _RAW_STARS_DF = hipparcos.load_dataframe(f)
+
+    utils.create_path(cache_dir)
+    try:
+        _RAW_STARS_DF.to_pickle(pkl_path)
+        logger.info("Wrote Hipparcos cache: %s", pkl_path)
+    except OSError as e:
+        logger.warning("Failed to write Hipparcos cache %s: %s", pkl_path, e)
+    return _RAW_STARS_DF
 
 
 class Starfield:
@@ -36,9 +85,7 @@ class Starfield:
         self.earth = sf_utils.earth.at(self.t)
 
         # The Hipparcos mission provides our star catalog.
-        hip_path = Path(utils.astro_data_dir, "hip_main.dat")
-        with load.open(str(hip_path)) as f:
-            self.raw_stars = hipparcos.load_dataframe(f)
+        self.raw_stars = _load_raw_stars()
 
         # Image size stuff
         self.render_size = resolution
@@ -53,6 +100,14 @@ class Starfield:
         bright_stars = self.raw_stars.magnitude <= 7.5
         self.stars = self.raw_stars[bright_stars].copy()
 
+        # Per-frame projection math runs on numpy arrays (much cheaper than
+        # the equivalent pandas .assign() chain). Cache the catalog's
+        # magnitude column once; the projected x/y arrays are refreshed in
+        # plot_starfield().
+        self._star_magnitudes = self.stars["magnitude"].to_numpy(dtype=np.float64)
+        self._stars_x = None
+        self._stars_y = None
+
         self.star_positions = self.earth.observe(Star.from_dataframe(self.stars))
         self.set_fov(fov)
 
@@ -64,12 +119,16 @@ class Starfield:
         const_start_stars = [star1 for star1, star2 in edges]
         const_end_stars = [star2 for star1, star2 in edges]
 
-        # Start the main dataframe to hold edge info (start + end stars)
-        self.const_edges_df = self.stars.loc[const_start_stars]
+        # Constellation start/end positions are projected per-frame; their
+        # x/y arrays live as instance attributes (initialised lazily).
+        self._const_sx = None
+        self._const_sy = None
+        self._const_ex = None
+        self._const_ey = None
 
         # We need position lists for both start/end of constellation lines
         self.const_start_star_positions = self.earth.observe(
-            Star.from_dataframe(self.const_edges_df)
+            Star.from_dataframe(self.stars.loc[const_start_stars])
         )
         self.const_end_star_positions = self.earth.observe(
             Star.from_dataframe(self.stars.loc[const_end_stars])
@@ -133,34 +192,29 @@ class Starfield:
         """
         Converts and RA/DEC to screen space x/y for the current projection
         """
-        markers = pandas.DataFrame(
-            [(Angle(degrees=ra)._hours, dec)], columns=["ra_hours", "dec_degrees"]
+        # Skyfield needs a DataFrame to build the Star; rotate/screen-space
+        # math is scalar numpy/python after that point.
+        marker_df = pandas.DataFrame(
+            {
+                "ra_hours": [Angle(degrees=ra)._hours],
+                "dec_degrees": [dec],
+                "epoch_year": 1991.25,
+            }
         )
+        marker_position = self.earth.observe(Star.from_dataframe(marker_df))
+        x_arr, y_arr = self.projection(marker_position)
+        x = float(x_arr[0])
+        y = float(y_arr[0])
 
-        # required, use the same epoch as stars
-        markers["epoch_year"] = 1991.25
-        marker_positions = self.earth.observe(Star.from_dataframe(markers))
-
-        markers["x"], markers["y"] = self.projection(marker_positions)
-
-        # prep rotate by roll....
-        roll_rad = (self.roll) * (np.pi / 180)
+        roll_rad = self.roll * (np.pi / 180.0)
         roll_sin = np.sin(roll_rad)
         roll_cos = np.cos(roll_rad)
+        xr = x * roll_cos - y * roll_sin
+        yr = y * roll_cos + x * roll_sin
 
-        # Rotate them
-        markers = markers.assign(
-            xr=((markers["x"]) * roll_cos - (markers["y"]) * roll_sin),
-            yr=((markers["y"]) * roll_cos + (markers["x"]) * roll_sin),
-        )
-
-        # Rasterize marker positions
-        markers = markers.assign(
-            x_pos=markers["xr"] * self.pixel_scale + self.render_center[0],
-            y_pos=markers["yr"] * -1 * self.pixel_scale + self.render_center[1],
-        )
-
-        return markers["x_pos"][0], markers["y_pos"][0]
+        x_pos = xr * self.pixel_scale + self.render_center[0]
+        y_pos = -yr * self.pixel_scale + self.render_center[1]
+        return x_pos, y_pos
 
     def plot_markers(self, marker_list):
         """
@@ -171,84 +225,91 @@ class Starfield:
         ret_image = Image.new("RGB", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
 
-        markers = pandas.DataFrame(
-            marker_list, columns=["ra_hours", "dec_degrees", "symbol"]
+        if not marker_list:
+            return ret_image
+
+        # Skyfield needs a DataFrame to build Star objects. Build the
+        # smallest one possible and drop pandas after that point; the per-
+        # frame rotate/screen-space/visibility work below runs in numpy.
+        ra_hours = np.fromiter(
+            (m[0] for m in marker_list), dtype=np.float64, count=len(marker_list)
         )
+        dec_degrees = np.fromiter(
+            (m[1] for m in marker_list), dtype=np.float64, count=len(marker_list)
+        )
+        symbols = [m[2] for m in marker_list]
+        markers_df = pandas.DataFrame(
+            {
+                "ra_hours": ra_hours,
+                "dec_degrees": dec_degrees,
+                "epoch_year": 1991.25,
+            }
+        )
+        marker_positions = self.earth.observe(Star.from_dataframe(markers_df))
+        x, y = self.projection(marker_positions)
 
-        # required, use the same epoch as stars
-        markers["epoch_year"] = 1991.25
-        marker_positions = self.earth.observe(Star.from_dataframe(markers))
-
-        markers["x"], markers["y"] = self.projection(marker_positions)
-
-        # prep rotate by roll....
-        roll_rad = (self.roll) * (np.pi / 180)
+        # Roll rotation in numpy.
+        roll_rad = self.roll * (np.pi / 180.0)
         roll_sin = np.sin(roll_rad)
         roll_cos = np.cos(roll_rad)
+        xr = x * roll_cos - y * roll_sin
+        yr = y * roll_cos + x * roll_sin
 
-        # Rotate them
-        markers = markers.assign(
-            xr=((markers["x"]) * roll_cos - (markers["y"]) * roll_sin),
-            yr=((markers["y"]) * roll_cos + (markers["x"]) * roll_sin),
+        # Convert to screen-space pixel coordinates.
+        x_pos = xr * self.pixel_scale + self.render_center[0]
+        y_pos = -yr * self.pixel_scale + self.render_center[1]
+
+        # Visibility: keep on-screen markers; always keep "target" markers
+        # since they may need their off-screen pointer drawn.
+        on_screen = (
+            (x_pos > 0)
+            & (x_pos < self.render_size[0])
+            & (y_pos > 0)
+            & (y_pos < self.render_size[1])
         )
-
-        # Rasterize marker positions
-        markers = markers.assign(
-            x_pos=markers["xr"] * self.pixel_scale + self.render_center[0],
-            y_pos=markers["yr"] * -1 * self.pixel_scale + self.render_center[1],
+        is_target = np.array(
+            [s == "target" for s in symbols], dtype=bool
         )
-        # now filter by visiblity
-        markers = markers[
-            (
-                (markers["x_pos"] > 0)
-                & (markers["x_pos"] < self.render_size[0])
-                & (markers["y_pos"] > 0)
-                & (markers["y_pos"] < self.render_size[1])
-            )
-            | (markers["symbol"] == "target")
-        ]
+        visible = on_screen | is_target
 
-        for x_pos, y_pos, symbol in zip(
-            markers["x_pos"], markers["y_pos"], markers["symbol"]
-        ):
+        cx, cy = self.render_center
+        for i in np.flatnonzero(visible):
+            symbol = symbols[i]
+            xp = float(x_pos[i])
+            yp = float(y_pos[i])
+
             if symbol == "target":
                 # Draw cross
                 idraw.line(
-                    [x_pos, y_pos - 5, x_pos, y_pos + 5],
+                    [xp, yp - 5, xp, yp + 5],
                     fill=self.colors.get(255),
                 )
                 idraw.line(
-                    [x_pos - 5, y_pos, x_pos + 5, y_pos],
+                    [xp - 5, yp, xp + 5, yp],
                     fill=self.colors.get(255),
                 )
 
-                # Draw pointer....
-                # if not within screen
+                # Draw pointer.
+                # Note: the original condition below is tautological for any
+                # finite xp/yp (any reasonable coord is > 0 OR < W); preserved
+                # verbatim to keep behaviour identical for this refactor.
                 if (
-                    x_pos > 0
-                    or x_pos < self.render_size[0]
-                    or y_pos > 0
-                    or y_pos < self.render_size[1]
+                    xp > 0
+                    or xp < self.render_size[0]
+                    or yp > 0
+                    or yp < self.render_size[1]
                 ):
-                    # calc degrees to target....
                     deg_to_target = (
-                        np.rad2deg(
-                            np.arctan2(
-                                y_pos - self.render_center[1],
-                                x_pos - self.render_center[0],
-                            )
-                        )
-                        + 180
+                        np.rad2deg(np.arctan2(yp - cy, xp - cx)) + 180
                     )
                     tmp_pointer = self.pointer_image.copy()
                     tmp_pointer = tmp_pointer.rotate(-deg_to_target)
                     ret_image = ImageChops.add(ret_image, tmp_pointer)
-
             else:
                 _image = ImageChops.offset(
                     self.markers[symbol],
-                    int(x_pos) - (self.render_center[0] - 5),
-                    int(y_pos) - (self.render_center[1] - 5),
+                    int(xp) - (cx - 5),
+                    int(yp) - (cy - 5),
                 )
                 ret_image = ImageChops.add(ret_image, _image)
 
@@ -277,16 +338,14 @@ class Starfield:
         self.update_projection(ra, dec)
         self.roll = roll
 
-        # Set star x/y for projection
-        # This is in a -1 to 1 space for the entire sky
-        # with 0,0 being the provided RA/DEC
-        self.stars["x"], self.stars["y"] = self.projection(self.star_positions)
-
-        # set start/end star x/y for const
-        self.const_edges_df["sx"], self.const_edges_df["sy"] = self.projection(
+        # Project stars + constellation edges into the unit "sky" plane
+        # centred on the current RA/Dec. Results are numpy arrays; the
+        # per-frame rotate/screen-space math lives in render_starfield_pil.
+        self._stars_x, self._stars_y = self.projection(self.star_positions)
+        self._const_sx, self._const_sy = self.projection(
             self.const_start_star_positions
         )
-        self.const_edges_df["ex"], self.const_edges_df["ey"] = self.projection(
+        self._const_ex, self._const_ey = self.projection(
             self.const_end_star_positions
         )
 
@@ -307,156 +366,123 @@ class Starfield:
         ret_image = Image.new("L", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
 
+        W, H = self.render_size
+        cx, cy = self.render_center
+
         frustrum_perc = 9.5 / self.fov
         if shade_frustrum and frustrum_perc < 0.99:
-            idraw.rectangle(
-                [
-                    0,
-                    0,
-                    self.render_size[0],
-                    self.render_size[1],
-                ],
-                fill=32,
-            )
+            idraw.rectangle([0, 0, W, H], fill=32)
 
             # Calc square for in-frustrum
-            frustrum_offset = (
-                self.render_size[0] - frustrum_perc * self.render_size[0]
-            ) / 2
+            frustrum_offset = (W - frustrum_perc * W) / 2
             idraw.rectangle(
                 [
                     frustrum_offset,
                     frustrum_offset,
-                    self.render_size[0] - frustrum_offset,
-                    self.render_size[1] - frustrum_offset,
+                    W - frustrum_offset,
+                    H - frustrum_offset,
                 ],
                 fill=0,
             )
 
         # prep rotate by roll....
-        roll_rad = (self.roll) * (np.pi / 180)
+        roll_rad = self.roll * (np.pi / 180.0)
         roll_sin = np.sin(roll_rad)
         roll_cos = np.cos(roll_rad)
 
         # constellation lines first
         if constellation_brightness:
-            # convert projection positions to screen space
-            # using pandas to interate
+            # Rotate each endpoint by roll, then project to screen-space.
+            # All in numpy -- the previous pandas .assign chain dominated
+            # the per-frame cost.
+            sx = self._const_sx
+            sy = self._const_sy
+            ex = self._const_ex
+            ey = self._const_ey
+            sxr = sx * roll_cos - sy * roll_sin
+            syr = sy * roll_cos + sx * roll_sin
+            exr = ex * roll_cos - ey * roll_sin
+            eyr = ey * roll_cos + ex * roll_sin
+            sx_pos = sxr * self.pixel_scale + cx
+            sy_pos = -syr * self.pixel_scale + cy
+            ex_pos = exr * self.pixel_scale + cx
+            ey_pos = -eyr * self.pixel_scale + cy
 
-            # roll the constellation lines
-            self.const_edges_df = self.const_edges_df.assign(
-                sxr=(
-                    (self.const_edges_df["sx"]) * roll_cos
-                    - (self.const_edges_df["sy"]) * roll_sin
-                ),
-                syr=(
-                    (self.const_edges_df["sy"]) * roll_cos
-                    + (self.const_edges_df["sx"]) * roll_sin
-                ),
-                exr=(
-                    (self.const_edges_df["ex"]) * roll_cos
-                    - (self.const_edges_df["ey"]) * roll_sin
-                ),
-                eyr=(
-                    (self.const_edges_df["ey"]) * roll_cos
-                    + (self.const_edges_df["ex"]) * roll_sin
-                ),
+            # Keep edges where at least one endpoint is on-screen.
+            start_on = (
+                (sx_pos > 0) & (sx_pos < W) & (sy_pos > 0) & (sy_pos < H)
             )
-
-            const_edges = self.const_edges_df.assign(
-                sx_pos=self.const_edges_df["sxr"] * self.pixel_scale
-                + self.render_center[0],
-                sy_pos=self.const_edges_df["syr"] * -1 * self.pixel_scale
-                + self.render_center[1],
-                ex_pos=self.const_edges_df["exr"] * self.pixel_scale
-                + self.render_center[0],
-                ey_pos=self.const_edges_df["eyr"] * -1 * self.pixel_scale
-                + self.render_center[1],
+            end_on = (
+                (ex_pos > 0) & (ex_pos < W) & (ey_pos > 0) & (ey_pos < H)
             )
-
-            # Now that all the star/end points are in screen space
-            # remove any where both the start/end are not on screen
-            # filter for visibility
-            visible_edges = const_edges[
-                (
-                    (const_edges["sx_pos"] > 0)
-                    & (const_edges["sx_pos"] < self.render_size[0])
-                    & (const_edges["sy_pos"] > 0)
-                    & (const_edges["sy_pos"] < self.render_size[1])
-                )
-                | (
-                    (const_edges["ex_pos"] > 0)
-                    & (const_edges["ex_pos"] < self.render_size[0])
-                    & (const_edges["ey_pos"] > 0)
-                    & (const_edges["ey_pos"] < self.render_size[1])
-                )
-            ]
-
-            # This seems strange, but is one of the generally recommended
-            # way to iterate through pandas frames.
-            for start_x, start_y, end_x, end_y in zip(
-                visible_edges["sx_pos"],
-                visible_edges["sy_pos"],
-                visible_edges["ex_pos"],
-                visible_edges["ey_pos"],
-            ):
+            for i in np.flatnonzero(start_on | end_on):
                 idraw.line(
-                    [start_x, start_y, end_x, end_y],
-                    fill=(constellation_brightness),
+                    [sx_pos[i], sy_pos[i], ex_pos[i], ey_pos[i]],
+                    fill=constellation_brightness,
                 )
 
-        # filter stars by magnitude
-        visible_stars = self.stars[self.stars["magnitude"] < self.mag_limit]
-
-        # now filter by visiblity on screen in projection space
-        visible_stars = visible_stars[
-            (visible_stars["x"] > -self.limit)
-            & (visible_stars["x"] < self.limit)
-            & (visible_stars["y"] > -self.limit)
-            & (visible_stars["y"] < self.limit)
-        ]
-
-        # Rotate them
-        visible_stars = visible_stars.assign(
-            xr=((visible_stars["x"]) * roll_cos - (visible_stars["y"]) * roll_sin),
-            yr=((visible_stars["y"]) * roll_cos + (visible_stars["x"]) * roll_sin),
+        # Star filter: by magnitude, then by visibility in projection space.
+        # We track the surviving indices into self.stars so we can rebuild
+        # the visible_stars DataFrame at the end (align.py consumes its
+        # catalog columns like ra_degrees / dec_degrees / magnitude).
+        sx = self._stars_x
+        sy = self._stars_y
+        mag = self._star_magnitudes
+        keep = (
+            (mag < self.mag_limit)
+            & (sx > -self.limit)
+            & (sx < self.limit)
+            & (sy > -self.limit)
+            & (sy < self.limit)
         )
+        visible_idx = np.flatnonzero(keep)
+        sx = sx[visible_idx]
+        sy = sy[visible_idx]
+        mag = mag[visible_idx]
 
-        # convert star positions to screen space
-        visible_stars = visible_stars.assign(
-            x_pos=visible_stars["xr"] * self.pixel_scale + self.render_center[0],
-            y_pos=visible_stars["yr"] * -1 * self.pixel_scale + self.render_center[1],
-        )
+        # Rotate and convert to screen space.
+        xr = sx * roll_cos - sy * roll_sin
+        yr = sy * roll_cos + sx * roll_sin
+        x_pos = xr * self.pixel_scale + cx
+        y_pos = -yr * self.pixel_scale + cy
 
-        for x_pos, y_pos, mag in zip(
-            visible_stars["x_pos"], visible_stars["y_pos"], visible_stars["magnitude"]
-        ):
-            # This could be moved to a pandas assign after filtering
-            # for vis for a small boost
-            plot_size = (self.mag_limit - mag) / 3
-            fill = 255
-            if mag > 4.5:
-                fill = 128
+        # Draw each visible star.
+        mag_limit = self.mag_limit
+        for i in range(len(x_pos)):
+            m = mag[i]
+            plot_size = (mag_limit - m) / 3
+            fill = 128 if m > 4.5 else 255
+            xp = x_pos[i]
+            yp = y_pos[i]
             if plot_size < 0.5:
-                idraw.point((x_pos, y_pos), fill=fill)
+                idraw.point((xp, yp), fill=fill)
             else:
                 idraw.circle(
-                    (round(x_pos), round(y_pos)),
+                    (round(xp), round(yp)),
                     radius=plot_size,
-                    fill=(255),
+                    fill=255,
                     width=0,
                 )
 
-        # now filter to stars in frustrum
+        # Frustrum filter for the returned visible_stars set.
         if frustrum_perc < 0.99:
-            frustrum_offset = (
-                self.render_size[0] - frustrum_perc * self.render_size[0]
-            ) / 2
-            visible_stars = visible_stars[
-                (visible_stars["x_pos"] > frustrum_offset)
-                & (visible_stars["x_pos"] < self.render_size[0] - frustrum_offset)
-                & (visible_stars["y_pos"] > frustrum_offset)
-                & (visible_stars["y_pos"] < self.render_size[1] - frustrum_offset)
-            ]
+            frustrum_offset = (W - frustrum_perc * W) / 2
+            in_frustrum = (
+                (x_pos > frustrum_offset)
+                & (x_pos < W - frustrum_offset)
+                & (y_pos > frustrum_offset)
+                & (y_pos < H - frustrum_offset)
+            )
+            visible_idx = visible_idx[in_frustrum]
+            x_pos = x_pos[in_frustrum]
+            y_pos = y_pos[in_frustrum]
+
+        # Rebuild visible_stars as a DataFrame for align.py compatibility:
+        # it expects pandas semantics (.iloc, .sort_values, .assign) and
+        # accesses catalog columns like ra_degrees / dec_degrees in addition
+        # to x_pos / y_pos / magnitude.
+        visible_stars = self.stars.iloc[visible_idx].copy()
+        visible_stars["x_pos"] = x_pos
+        visible_stars["y_pos"] = y_pos
 
         return ret_image, visible_stars

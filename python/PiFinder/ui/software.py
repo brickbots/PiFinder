@@ -5,7 +5,6 @@ This module contains all the UI Module classes
 
 """
 
-import time
 import requests
 
 from PiFinder import utils
@@ -93,7 +92,6 @@ class UISoftware(UIModule):
             self.message(_("Error on Upd"), 3)
 
     def update(self, force=False):
-        time.sleep(1 / 30)
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 2
         self.draw.text(
