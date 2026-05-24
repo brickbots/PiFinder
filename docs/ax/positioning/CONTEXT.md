@@ -126,8 +126,12 @@ The IMU dead-reckoning reference: the pair of `pointing.camera.solve` (camera-ax
 _Avoid_: last_image_solve (legacy name), last_solve (this is the *state* name on a `PointingAxis`, not a field), last_solution.
 
 **Dead reckoning** (`ImuDeadReckoning`):
-Given a known pointing at the moment of the last plate-solve and the IMU quaternion at that moment, project the current IMU quaternion forward to a fresh `RaDecRoll`. Lives in `PiFinder/pointing_model/imu_dead_reckoning.py`.
-_Avoid_: IMU tracking, prediction.
+A **single** instance handles both axes. `solve(camera, aligned, q_x2imu)` captures, at each successful plate-solve, both the drifting reference frame `q_eq2x` (from the camera pointing + IMU sample) and the static `q_cam2aligned` rotation (from the camera↔aligned pair). `predict(q_x2imu)` then dead-reckons the camera pointing forward from the latest IMU sample and composes it with `q_cam2aligned`, returning **both** `(camera, aligned)` as `RaDecRoll`. A math primitive — `RaDecRoll` in, `RaDecRoll` out; it never imports `PointingEstimate`. Lives in `PiFinder/pointing_model/imu_dead_reckoning.py`.
+_Avoid_: IMU tracking, prediction, two IDR instances (the old `idr_camera` / `idr_aligned` split was collapsed into one dual-axis instance).
+
+**`q_cam2aligned`**:
+The static rotation from the camera optical axis to the aligned (eyepiece) axis, captured by `ImuDeadReckoning.solve()` from the (camera, aligned) pair on each successful plate-solve and reapplied in `predict()`. Identity when no alignment offset is calibrated (target pixel at image centre). Replaced — not accumulated — on every solve.
+_Avoid_: q_cam2scope (earlier working name), cam-to-scope offset.
 
 **IMU**:
 The BNO055 sensor that supplies orientation. Sampled by the IMU process; read by the integrator via `shared_state.imu()`.
@@ -155,22 +159,22 @@ _Avoid_: telescope alignment, eyepiece alignment, scope alignment.
 Local state in the solver process holding the user's chosen sky coordinate while an alignment request is pending. Cleared once the result is posted.
 _Avoid_: aim target.
 
-**`align_on_radec`**:
-Command on `align_command_queue` carrying `(ra, dec)` that arms alignment. Cleared by the matching `align_cancel` (timeout/user cancel).
-_Avoid_: align command, request alignment.
+**`AlignOnRaDec`** / **`AlignCancel`**:
+Dataclass commands on `align_command_queue`. `AlignOnRaDec(ra, dec)` arms alignment; `AlignCancel()` clears it (timeout/user cancel). The solver dispatches on `isinstance()`. `ReloadSqmCalibration` rides the same queue.
+_Avoid_: `align_on_radec` / `align_cancel` (legacy tagged-list string tags — `align_on_radec` is now only the `ui/align.py` orchestrator function), align command, request alignment.
 
-**`["aligned", (y, x)]`**:
-Response on `align_result_queue` carrying the pixel coordinates where the alignment target lands in the current frame.
-_Avoid_: align result, pixel result.
+**`AlignedResult`**:
+Dataclass response on `align_result_queue` carrying `(y_target, x_target)` — the pixel where the alignment target landed in the current frame. `as_target_pixel()` returns the canonical `(Y, X)`.
+_Avoid_: `["aligned", (y, x)]` (legacy tagged-list form), align result, pixel result.
 
 ### Queues & shared state
 
 **`shared_state`** (`SharedStateObj`):
-Multiprocessing-manager proxy carrying configuration, IMU samples, GPS fixes, the latest image, the published `solved` dict, and the SQM/noise-floor state. Read by every process.
+Multiprocessing-manager proxy carrying configuration, IMU samples, GPS fixes, the latest image, the published `PointingEstimate` (via `set_solution()` / `solution()`), and the SQM/noise-floor state. Read by every process.
 _Avoid_: state, global state.
 
 **`solver_queue`**:
-One-way `multiprocessing.Queue`, solver → integrator. Carries the `solved` dict on every attempt, success or failure.
+One-way `multiprocessing.Queue`, solver → integrator. Carries a fresh `PointingEstimate` on every attempt, success or failure.
 _Avoid_: solve queue, pointing queue.
 
 **`align_command_queue` / `align_result_queue`**:
