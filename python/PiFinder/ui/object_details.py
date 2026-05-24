@@ -256,7 +256,12 @@ class UIObjectDetails(UIModule):
                         object_diameter1=diameter1,
                         object_diameter2=diameter2,
                     )
-                except InvalidParameterError as e:
+                except (ValueError, TypeError, InvalidParameterError) as e:
+                    # mag_str / size are not always plain numbers: double stars
+                    # carry component mags like "7.0/9.5", asterisms a size like
+                    # "3°", and some objects have no magnitude. float() then
+                    # raises ValueError/TypeError; treat it like the "-"
+                    # magnitude case above and skip the contrast calc.
                     print(f"Error calculating contrast reserve: {e}")
                     self.contrast = ""
         if self.contrast is not None and self.contrast != "":
