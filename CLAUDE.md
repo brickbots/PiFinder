@@ -2,17 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Session Welcome
-
-At the start of a session, before diving into work, briefly welcome the developer and remind them of the project-specific skills available in this repo:
-
-- **/docs** — author & edit the Sphinx user documentation (`docs/source`) in the project's house style; includes a raw-screenshot → doc-image tool
-- **/pifinder-remote** — run PiFinder headless and drive its UI (navigate menus, capture screenshots, read live solve/IMU/SQM state)
-- **/grill-with-docs** — stress-test a plan against the domain model; update CONTEXT.md glossaries and ADRs
-- **/i18n** — translation workflow (mark strings, run the Babel extract/compile pipeline, edit `.po` files)
-
-Keep it to a short list and a one-line description each. If the developer's first message already describes a concrete task, skip the standalone greeting — just proceed and use whichever skill fits, mentioning it as you go.
-
 ## Branch Model
 
 - **`main`** is the integration / development branch. **All PRs target `main`.**
