@@ -647,6 +647,10 @@ Update Software
 The PiFinder offers a way to download and install software updates directly from the PiFinder screen and 
 keypad.  To start this process you can choose Software Upd from the :ref:`user_guide:tools`
 
+Updates happen right on the device — there is no need to send your PiFinder anywhere.  New
+units often ship a version or two behind the latest release, so running an update is a
+normal part of your first night out.
+
 .. image:: images/user_guide/software_update_01_docs.png
 
 The PiFinder will need to be connected to the internet, so you'll need to have it in Client Mode and connected
@@ -656,6 +660,14 @@ The PiFinder will check to make sure it can access the internet then compare the
 the version installed.  
 
 .. image:: images/user_guide/software_update_02_docs.png
+
+.. note::
+   If the release version shows as **unknown**, the PiFinder cannot reach the internet to
+   check — it is either in Access Point mode or its WiFi is not configured.  Put it in
+   Client mode on a network with internet access (see
+   :ref:`user_guide:connecting to a new wifi network`); re-imaging the SD card is not the
+   fix for this.  If WiFi is configured but the check still fails, move closer to the
+   router or re-enter the network details.
 
 If a new version is available, you can use the presented option to start the update.  This may take several minutes
 and the PiFinder will restart when it's done.  
