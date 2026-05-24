@@ -163,12 +163,14 @@ two side by side:
 ```
 
 Reference real, existing image files. If a feature needs a screenshot that
-doesn't exist yet but you have a **raw PiFinder capture** for it, convert it to a
-doc-ready image with the bundled tool (see *Preparing screenshots* below) and
-drop it in the right `images/<page>/` folder. If you have no capture at all,
-**don't invent a filename** — add the `.. image::` directive with a clearly-named
-placeholder path and call out, in your summary to the user, that they need to
-capture and supply that screenshot.
+doesn't exist yet, you can usually **capture and prepare it yourself** — drive
+the running app to the screen, grab it, and convert it (see *Preparing
+screenshots* below), then drop it in the right `images/<page>/` folder. Only when
+the shot genuinely can't be produced this way (e.g. it needs a real night sky,
+specific hardware, or a physical setup) should you fall back to a clearly-named
+placeholder path in the `.. image::` directive and flag, in your summary, that
+the user needs to supply it. Never invent a filename for an image you haven't
+actually produced.
 
 **Notes** use the `note` admonition (body indented under it):
 
@@ -184,28 +186,52 @@ trailing underscore.
 
 ## Preparing screenshots
 
-Raw PiFinder captures are 128×128 and rendered red-only (the OLED is driven red
-to protect night vision), so straight out of the device they're tiny and dim. The
-docs use larger, brighter images: the red intensity is recolored onto a warm
-amber tint and scaled up to 256×256. The amber recolor is what makes them look
-"brighter" — you don't need to fiddle with brightness yourself.
+Getting a doc-ready screenshot is two steps: **capture** the raw screen from a
+running PiFinder, then **convert** it to the larger, brighter house style.
 
-Use the bundled tool instead of doing this by hand — it bakes in the house tint
-(`245,76,10`), the 2× scale, and crisp pixel upscaling:
+### Step 1 — capture the raw screen (`pifinder-remote` skill)
+
+You don't need real hardware. The **`pifinder-remote`** skill runs PiFinder
+headlessly and lets you drive it like a user over its HTTP API — launch it,
+press keys to navigate to the screen you're documenting, and save the live
+128×128 display as a PNG. Read that skill's `SKILL.md` for the full command set;
+the shape of it is:
+
+```
+S=.claude/skills/pifinder-remote/scripts/pf_remote.py
+
+python3 $S launch                       # start headless PiFinder (first run ~90s)
+python3 $S key DOWN DOWN RIGHT          # navigate to the screen you want
+python3 $S screen -o /tmp/raw_shot.png  # capture the current 128x128 screen
+python3 $S stop                         # clean shutdown when done
+```
+
+After each key press, capture a fresh `screen` and **Read** the PNG to confirm
+you're on the right screen before you keep it — menu order shifts between
+versions, so the screen is the ground truth.
+
+### Step 2 — convert to a doc-ready image (`screenshot_to_doc.py`)
+
+Raw captures are 128×128 and red-only (the OLED is driven red to protect night
+vision), so they're tiny and dim. The docs use larger, brighter images: the red
+intensity is recolored onto a warm amber tint and scaled to 256×256. The amber
+recolor is what makes them look "brighter" — don't fiddle with brightness
+yourself; the bundled tool bakes in the house tint (`245,76,10`), the 2× scale,
+and crisp pixel upscaling:
 
 ```
 # one screenshot, named for where it lands in the manual:
-python scripts/screenshot_to_doc.py <raw.png> \
+python scripts/screenshot_to_doc.py /tmp/raw_shot.png \
     -o docs/source/images/user_guide/status_screen_docs.png
 
 # several at once into a page's image folder (keeps each input's name):
-python scripts/screenshot_to_doc.py <raw1.png> <raw2.png> \
+python scripts/screenshot_to_doc.py /tmp/shot1.png /tmp/shot2.png \
     --out-dir docs/source/images/quick_start/
 ```
 
 Name outputs for their role in the docs, not after the raw capture — a reader
 (and the `.. image::` directive) should see `status_screen_docs.png`, not
-`IMG_4821.png`. Run `python scripts/screenshot_to_doc.py -h` for the options
+`raw_shot.png`. Run `python scripts/screenshot_to_doc.py -h` for the options
 (`--resample lanczos` for smoother edges, `--tint`, `--scale`, `--force`). It
 needs Pillow, which is already a PiFinder dependency — activate the project venv
 if the import fails.
