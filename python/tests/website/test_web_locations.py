@@ -100,8 +100,8 @@ def test_locations_page_load(driver):
 
     # Check if we need to login (redirected to login page)
     try:
-        # Wait briefly to see if login form appears
-        WebDriverWait(driver, 2).until(
+        # Wait for login form — Safari needs more time to load after redirect
+        WebDriverWait(driver, 6).until(
             EC.presence_of_element_located((By.ID, "password"))
         )
 
@@ -937,8 +937,8 @@ def _login_to_interface(driver):
 
     # Check if we need to login (redirected to login page)
     try:
-        # Wait briefly to see if login form appears
-        WebDriverWait(driver, 2).until(
+        # Wait for login form — Safari needs more time to load after redirect
+        WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.ID, "password"))
         )
         # We're on the login page, use centralized login function
