@@ -5,6 +5,7 @@ This module handles plotting starfields
 and constelleations
 """
 
+import logging
 import os
 import datetime
 import numpy as np
@@ -17,6 +18,54 @@ from skyfield.api import Star, load, utc, Angle
 from skyfield.data import hipparcos, stellarium
 from skyfield.projections import build_stereographic_projection
 from PiFinder.calc_utils import sf_utils
+
+
+logger = logging.getLogger("Plot")
+
+_RAW_STARS_DF = None
+
+
+def _load_raw_stars():
+    """
+    Lazy-load the Hipparcos catalogue, cached in-process and on disk.
+
+    The fixed-width parse of hip_main.dat takes ~1.4s on a Pi; reading
+    the pickled DataFrame instead takes ~10ms. The on-disk cache lives at
+    ~/PiFinder_data/cache/hip_main.pkl and is rebuilt when hip_main.dat
+    is newer or when the pickle fails to load (e.g. pandas version skew).
+    """
+    global _RAW_STARS_DF
+    if _RAW_STARS_DF is not None:
+        return _RAW_STARS_DF
+
+    dat_path = Path(utils.astro_data_dir, "hip_main.dat")
+    cache_dir = Path(utils.data_dir, "cache")
+    pkl_path = cache_dir / "hip_main.pkl"
+
+    if (
+        pkl_path.exists()
+        and pkl_path.stat().st_mtime >= dat_path.stat().st_mtime
+    ):
+        try:
+            _RAW_STARS_DF = pandas.read_pickle(pkl_path)
+            logger.info("Loaded Hipparcos catalog from cache: %s", pkl_path)
+            return _RAW_STARS_DF
+        except Exception as e:
+            logger.warning(
+                "Hipparcos cache unreadable, reparsing %s: %s", dat_path, e
+            )
+
+    logger.info("Parsing Hipparcos catalog from %s", dat_path)
+    with load.open(str(dat_path)) as f:
+        _RAW_STARS_DF = hipparcos.load_dataframe(f)
+
+    utils.create_path(cache_dir)
+    try:
+        _RAW_STARS_DF.to_pickle(pkl_path)
+        logger.info("Wrote Hipparcos cache: %s", pkl_path)
+    except OSError as e:
+        logger.warning("Failed to write Hipparcos cache %s: %s", pkl_path, e)
+    return _RAW_STARS_DF
 
 
 class Starfield:
@@ -36,9 +85,7 @@ class Starfield:
         self.earth = sf_utils.earth.at(self.t)
 
         # The Hipparcos mission provides our star catalog.
-        hip_path = Path(utils.astro_data_dir, "hip_main.dat")
-        with load.open(str(hip_path)) as f:
-            self.raw_stars = hipparcos.load_dataframe(f)
+        self.raw_stars = _load_raw_stars()
 
         # Image size stuff
         self.render_size = resolution

@@ -77,6 +77,11 @@ def load() -> Optional[Tuple[List[CompositeObject], Dict[str, Dict]]]:
     for obj in composite_objects:
         obj.logged = False
 
+    logger.info(
+        "Loaded catalog cache: %d composite objects from %s",
+        len(composite_objects),
+        PICKLE_PATH,
+    )
     return composite_objects, catalogs_info
 
 
