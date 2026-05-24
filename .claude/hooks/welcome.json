@@ -1,0 +1,3 @@
+{
+  "systemMessage": "👋  PiFinder dev session — project skills available in this repo:\n\n  • /docs            Author & edit the Sphinx user docs (docs/source) in house style; includes a raw-screenshot → doc-image tool\n  • /pifinder-remote Run PiFinder headless & drive the UI — navigate menus, capture screenshots, read live solve/IMU/SQM state\n  • /grill-with-docs Stress-test a plan against the domain model; update CONTEXT.md glossaries & ADRs\n  • /i18n            Translation workflow — mark strings, run the Babel extract/compile pipeline, edit .po files\n\nType /<name> to run one, or just describe your task and the matching skill will kick in."
+}
