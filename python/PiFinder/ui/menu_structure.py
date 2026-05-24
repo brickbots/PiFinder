@@ -586,6 +586,7 @@ pifinder_menu = {
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "keypad_brightness",
+                            "post_callback": callbacks.apply_brightness,
                             "items": [
                                 {
                                     "name": "-4",
@@ -771,6 +772,30 @@ pifinder_menu = {
                     "select": "single",
                     "label": "chart_settings",
                     "items": [
+                        {
+                            "name": _("Coordinate Sys."),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_coord_sys",
+                            "items": [
+                                {
+                                    "name": _("Horizontal"),
+                                    "value": "horiz",
+                                },
+                                {
+                                    "name": _("EQ (Auto)"),
+                                    "value": "eq_auto",
+                                },
+                                {
+                                    "name": _("EQ (North-up)"),
+                                    "value": "eq_north_up",
+                                },
+                                {
+                                    "name": _("EQ (South-up)"),
+                                    "value": "eq_south_up",
+                                },
+                            ],
+                        },
                         {
                             "name": _("Reticle"),
                             "class": UITextMenu,
@@ -1137,17 +1162,6 @@ pifinder_menu = {
                     "select": "Single",
                     "items": [
                         {"name": "SQM", "class": UISQM},
-                        {
-                            "name": _("Integrator"),
-                            "class": UITextMenu,
-                            "select": "single",
-                            "config_option": "imu_integrator",
-                            "post_callback": callbacks.restart_pifinder,
-                            "items": [
-                                {"name": _("Classic"), "value": "classic"},
-                                {"name": _("Quaternion"), "value": "quaternion"},
-                            ],
-                        },
                         {
                             "name": _("AE Algo"),
                             "class": UITextMenu,
