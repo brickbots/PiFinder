@@ -1178,10 +1178,11 @@ class Server:
 
         try:
             from PiFinder.api_extensions import register_api_routes
+
             register_api_routes(app, self, require_auth=False)
         except Exception:
             logger.exception("Failed to register API extension routes")
-            
+
         @auth_required
         def gps_lock(lat: float = 50, lon: float = 3, altitude: float = 10):
             msg = (

@@ -3,24 +3,23 @@
 """
 PiFinder API Extensions
 =======================
-Registers machine-readable REST API endpoints on PiFinder's Bottle Web Server.
+Registers machine-readable REST API endpoints on PiFinder's Flask Web Server.
 
 Usage:
     Add the following at the end of Server.__init__ in
     PiFinder/python/PiFinder/server.py, before run() is called:
 
-        from pifinder_api.api_extensions import register_api_routes
+        from PiFinder.api_extensions import register_api_routes
         register_api_routes(app, self, require_auth=False)
 
-Dependencies: No additional dependencies. Reuses PiFinder's existing Bottle / PIL / shared state.
+Dependencies: No additional dependencies. Reuses PiFinder's existing Flask / PIL / shared state.
 """
 
 import io
 import json
 import logging
-from datetime import datetime, timezone
 
-from bottle import response, request
+from flask import request, session, Response
 from PIL import Image
 
 logger = logging.getLogger("PiFinderAPI")
@@ -28,9 +27,11 @@ logger = logging.getLogger("PiFinderAPI")
 
 def _json_response(data, status=200):
     """Unified JSON response format"""
-    response.content_type = "application/json"
-    response.status = status
-    return json.dumps(data, default=str, ensure_ascii=False)
+    return Response(
+        json.dumps(data, default=str, ensure_ascii=False),
+        status=status,
+        content_type="application/json; charset=utf-8",
+    )
 
 
 def _pil_to_png_bytes(img: Image.Image) -> bytes:
@@ -40,18 +41,23 @@ def _pil_to_png_bytes(img: Image.Image) -> bytes:
     return buf.getvalue()
 
 
+def _png_response(img: Image.Image) -> Response:
+    """Wrap a PIL Image in a Flask PNG response"""
+    return Response(_pil_to_png_bytes(img), content_type="image/png")
+
+
 def register_api_routes(app, server_instance, require_auth=False):
     """
-    Register all /api/* routes on the Bottle app.
+    Register all /api/* routes on the Flask app.
 
     Parameters
     ----------
-    app : Bottle
-        The existing Bottle application instance in the PiFinder Server
+    app : Flask
+        The existing Flask application instance in the PiFinder Server
     server_instance : Server
         The PiFinder Server class instance (self), used to access shared_state, etc.
     require_auth : bool
-        Whether to enable cookie authentication for /api/* endpoints.
+        Whether to enable session authentication for /api/* endpoints.
         Defaults to False for easier access by automation tools.
     """
 
@@ -61,24 +67,22 @@ def register_api_routes(app, server_instance, require_auth=False):
     def _check_auth():
         if not require_auth and not api_token:
             return True
-        # 1) Cookie authentication (same as the Web UI)
-        from bottle import request
-        auth_cookie = request.get_cookie(
-            "pf_auth", secret=getattr(server_instance, "SESSION_SECRET", "")
-        )
-        if auth_cookie:
+        # 1) Session authentication (same as the Web UI)
+        if session.get("authenticated"):
             return True
         # 2) URL query token authentication (convenient for scripts/OpenClaw)
-        if api_token and request.query.get("token") == api_token:
+        if api_token and request.args.get("token") == api_token:
             return True
         return False
 
     def _auth_wrapper(func):
         """Return 401 if authentication is enabled and the request is not authorized"""
+
         def wrapper(*args, **kwargs):
             if not _check_auth():
                 return _json_response({"error": "Unauthorized"}, 401)
             return func(*args, **kwargs)
+
         return wrapper
 
     # ───────────────────────────────────────────────
@@ -169,12 +173,16 @@ def register_api_routes(app, server_instance, require_auth=False):
             if ss.altaz_ready():
                 try:
                     from PiFinder.calc_utils import sf_utils
+
                     ts = sf_utils.ts
                     dt = ss.datetime()
                     ra_h = float(sol["RA"]) / 15.0
                     dec_d = float(sol["Dec"])
                     from skyfield.positionlib import position_of_radec
-                    p = position_of_radec(ra_hours=ra_h, dec_degrees=dec_d, epoch=ts.J2000)
+
+                    p = position_of_radec(
+                        ra_hours=ra_h, dec_degrees=dec_d, epoch=ts.J2000
+                    )
                     alt, az, _ = p.altaz(
                         observer=sf_utils.topos(
                             ss.location().lat, ss.location().lon, ss.location().altitude
@@ -283,9 +291,9 @@ def register_api_routes(app, server_instance, require_auth=False):
             # In the new logic, render_mag_limit represents the magnitude limit for "drawing star points".
             try:
                 render_mag_limit = float(
-                    request.query.get(
+                    request.args.get(
                         "render_mag_limit",
-                        request.query.get("mag_limit", 5.5),
+                        request.args.get("mag_limit", 5.5),
                     )
                 )
             except Exception:
@@ -293,13 +301,13 @@ def register_api_routes(app, server_instance, require_auth=False):
 
             # label_mag_limit represents the magnitude limit for "recommended star name labeling".
             try:
-                label_mag_limit = float(request.query.get("label_mag_limit", 2.5))
+                label_mag_limit = float(request.args.get("label_mag_limit", 2.5))
             except Exception:
                 label_mag_limit = 2.5
 
             # If there are not enough stars within label_mag_limit, add the brightest stars currently in the field of view.
             try:
-                max_labels = int(request.query.get("max_labels", 5))
+                max_labels = int(request.args.get("max_labels", 5))
             except Exception:
                 max_labels = 5
 
@@ -310,33 +318,29 @@ def register_api_routes(app, server_instance, require_auth=False):
 
             try:
                 constellation_brightness = int(
-                    request.query.get("constellation_brightness", 32)
+                    request.args.get("constellation_brightness", 32)
                 )
             except Exception:
                 constellation_brightness = 32
 
-            shade_frustrum_q = str(
-                request.query.get("shade_frustrum", "true")
-            ).lower()
+            shade_frustrum_q = str(request.args.get("shade_frustrum", "true")).lower()
             shade_frustrum = shade_frustrum_q not in ("0", "false", "no", "off")
 
-            include_image_q = str(
-                request.query.get("include_image", "false")
-            ).lower()
+            include_image_q = str(request.args.get("include_image", "false")).lower()
             include_image = include_image_q in ("1", "true", "yes", "on")
 
             use_camera_solve_q = str(
-                request.query.get("use_camera_solve", "true")
+                request.args.get("use_camera_solve", "true")
             ).lower()
             use_camera_solve = use_camera_solve_q not in ("0", "false", "no", "off")
 
             try:
-                fov = float(request.query.get("fov", sol.get("FOV", 10.2)))
+                fov = float(request.args.get("fov", sol.get("FOV", 10.2)))
             except Exception:
                 fov = 10.2
 
             try:
-                render_size = int(request.query.get("render_size", 1088))
+                render_size = int(request.args.get("render_size", 1088))
             except Exception:
                 render_size = 1088
 
@@ -497,7 +501,8 @@ def register_api_routes(app, server_instance, require_auth=False):
                 if len(label_ids) < max_labels:
                     sortable_items.sort(
                         key=lambda x: (
-                            99 if x.get("_mag_value_for_sort") is None
+                            99
+                            if x.get("_mag_value_for_sort") is None
                             else x.get("_mag_value_for_sort")
                         )
                     )
@@ -535,9 +540,7 @@ def register_api_routes(app, server_instance, require_auth=False):
             try:
                 stars_payload.sort(
                     key=lambda s: (
-                        99
-                        if _extract_mag_value(s) is None
-                        else _extract_mag_value(s)
+                        99 if _extract_mag_value(s) is None else _extract_mag_value(s)
                     )
                 )
             except Exception:
@@ -618,13 +621,11 @@ def register_api_routes(app, server_instance, require_auth=False):
             img = server_instance.shared_state.screen()
             if img is None:
                 img = Image.new("RGB", (128, 128), color=(0, 0, 0))
-            response.content_type = "image/png"
-            return _pil_to_png_bytes(img)
+            return _png_response(img)
         except Exception as e:
             logger.error("api/screen error: %s", e)
-            response.content_type = "image/png"
             empty = Image.new("RGB", (128, 128), color=(73, 109, 137))
-            return _pil_to_png_bytes(empty)
+            return _png_response(empty)
 
     @app.route("/api/camera/raw")
     def api_camera_raw():
@@ -638,13 +639,13 @@ def register_api_routes(app, server_instance, require_auth=False):
                 img = raw.convert("RGB") if raw.mode != "RGB" else raw
             else:
                 import numpy as np
+
                 arr = np.asarray(raw)
                 if arr.ndim == 2:
                     img = Image.fromarray(arr, mode="L").convert("RGB")
                 else:
                     img = Image.fromarray(arr)
-            response.content_type = "image/png"
-            return _pil_to_png_bytes(img)
+            return _png_response(img)
         except Exception as e:
             logger.error("api/camera/raw error: %s", e)
             return _json_response({"error": str(e)}, 500)
@@ -653,8 +654,8 @@ def register_api_routes(app, server_instance, require_auth=False):
     def api_camera_debug():
         """Return the latest debug frame from the solver_debug_dumps directory"""
         try:
-            import os
             from pathlib import Path
+
             debug_dir = Path("/home/pifinder/PiFinder_data/solver_debug_dumps")
             if not debug_dir.exists():
                 debug_dir = Path("solver_debug_dumps")
@@ -670,8 +671,7 @@ def register_api_routes(app, server_instance, require_auth=False):
                 return _json_response({"note": "No debug frames available"}, 503)
 
             with open(files[0], "rb") as f:
-                response.content_type = "image/png"
-                return f.read()
+                return Response(f.read(), content_type="image/png")
         except Exception as e:
             logger.error("api/camera/debug error: %s", e)
             return _json_response({"error": str(e)}, 500)
@@ -680,12 +680,11 @@ def register_api_routes(app, server_instance, require_auth=False):
     # 4. Lightweight control endpoints (optional, for remote triggering by OpenClaw)
     # ───────────────────────────────────────────────
 
-    @app.route("/api/key", method="POST")
+    @app.route("/api/key", methods=["POST"])
     def api_key():
         """Simulate button input. JSON body: {"button": "UP"} or {"button": 1}"""
         try:
-            from bottle import request
-            body = request.json
+            body = request.get_json(silent=True)
             if not body or "button" not in body:
                 return _json_response({"error": "Missing 'button' field"}, 400)
             btn = body["button"]
@@ -700,7 +699,10 @@ def register_api_routes(app, server_instance, require_auth=False):
             logger.error("api/key error: %s", e)
             return _json_response({"error": str(e)}, 500)
 
-    logger.info("PiFinder API extensions registered (%s auth)", "with" if require_auth else "without")
+    logger.info(
+        "PiFinder API extensions registered (%s auth)",
+        "with" if require_auth else "without",
+    )
 
 
 def _get_version(server_instance) -> str:
@@ -713,6 +715,7 @@ def _get_version(server_instance) -> str:
     except Exception:
         pass
     return "Unknown"
+
 
 def _safe_json_value(value):
     """
@@ -796,6 +799,7 @@ def _extract_mag_value(item):
                 return None
     return None
 
+
 class _ApiGrayColors:
     """
     Minimal colors object used by PiFinder.plot.Starfield.
@@ -804,6 +808,7 @@ class _ApiGrayColors:
     For API-side star chart re-rendering, we do not need the full UI theme colors;
     we only need to return a valid RGB tuple.
     """
+
     def get(self, value):
         try:
             v = int(value)
