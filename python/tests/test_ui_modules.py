@@ -53,7 +53,7 @@ import pkgutil
 import queue
 import shutil
 import urllib.request
-from typing import cast
+from typing import Iterator, cast
 from unittest import mock
 
 import pytest
@@ -383,12 +383,26 @@ def camera_image():
 
 
 @pytest.fixture(scope="session")
-def catalogs(_no_comet_download) -> Catalogs:
-    """Build the real catalogs once from the bundled DB."""
+def catalogs(_no_comet_download) -> Iterator[Catalogs]:
+    """Build the real catalogs once from the bundled DB.
+
+    Teardown stops the perpetual catalog timers. The planet and comet catalogs
+    run a self-rescheduling, *non-daemon* threading.Timer (via TimerMixin); left
+    running they keep the interpreter alive at shutdown, so `nox -s ui_tests`
+    would never exit. Stopping them on teardown lets the process end cleanly.
+    """
     boot_state = SharedStateObj()
     boot_state.set_ui_state(UIState())
     built = CatalogBuilder().build(boot_state, queue.Queue())
-    return built
+    yield built
+
+    for catalog in built.get_catalogs(only_selected=False):
+        timer = getattr(catalog, "_timer", None)
+        if timer is not None:
+            timer.stop()
+    loader = getattr(built, "_background_loader", None)
+    if loader is not None:
+        loader.stop()
 
 
 @pytest.fixture(scope="session")
