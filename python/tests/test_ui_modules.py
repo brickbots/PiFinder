@@ -53,6 +53,7 @@ import pkgutil
 import queue
 import shutil
 import urllib.request
+from typing import cast
 from unittest import mock
 
 import pytest
@@ -190,7 +191,7 @@ def _build_dynamic_item_definition(spec_id: str, sample_object) -> dict:
         }
     if spec_id == "UILog":
         # object_details.py:690
-        return {"name": _("LOG"), "class": UILog, "object": sample_object}
+        return {"name": "LOG", "class": UILog, "object": sample_object}
     if spec_id == "UIDateEntry":
         # timeentry.py:194
         return {
@@ -202,17 +203,17 @@ def _build_dynamic_item_definition(spec_id: str, sample_object) -> dict:
     if spec_id == "UISQMCalibration":
         # sqm.py:290
         return {
-            "name": _("SQM Calibration"),
+            "name": "SQM Calibration",
             "class": UISQMCalibration,
             "label": "sqm_calibration",
         }
     if spec_id == "UISQMSweep":
         # sqm.py:302
-        return {"name": _("SQM Sweep"), "class": UISQMSweep, "label": "sqm_sweep"}
+        return {"name": "SQM Sweep", "class": UISQMSweep, "label": "sqm_sweep"}
     if spec_id == "UISQMCorrection":
         # No launch site in the tree; best-effort fixture (constructs from sqm()).
         return {
-            "name": _("SQM Correction"),
+            "name": "SQM Correction",
             "class": UISQMCorrection,
             "label": "sqm_correction",
         }
@@ -502,7 +503,9 @@ def _sweep_stack(menu_manager: MenuManager, seen: set) -> None:
     """
     count = 0
     while count < _MAX_SWEEP_MODULES:
-        pending = [m for m in menu_manager.stack if id(m) not in seen]
+        # MenuManager.stack is annotated list[type[UIModule]] upstream but holds
+        # instances; cast so the sweep sees them as the UIModule instances they are.
+        pending = [cast(UIModule, m) for m in menu_manager.stack if id(m) not in seen]
         if not pending:
             break
         for module in pending:

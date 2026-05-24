@@ -10,7 +10,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+      # Cache the Hipparcos catalog (git-ignored, ~53MB) that the UI smoke
+      # tests download on demand for the chart/align screens. On a miss the
+      # test fixture downloads it and this saves it for next time; chart/align
+      # skip gracefully if the download is unavailable.
+      - uses: actions/cache@v4
+        with:
+          path: astro_data/hip_main.dat
+          key: hip-main-dat-v1
       - uses: wntrblm/nox@2024.04.15
         with:
           python-versions: "3.9"
-      - run: nox -s lint format type_hints smoke_tests unit_tests
+      - run: nox -s lint format type_hints smoke_tests unit_tests ui_tests
