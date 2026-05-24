@@ -1057,17 +1057,17 @@ msgstr "Horizontal"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:786
 msgid "EQ (Auto)"
-msgstr "ÄQ (Auto)"
+msgstr "EQ (Auto)"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:790
 msgid "EQ (North-up)"
-msgstr "ÄQ (N oben)"
+msgstr "EQ (N oben)"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:794
 msgid "EQ (South-up)"
-msgstr "ÄQ (S oben)"
+msgstr "EQ (S oben)"
 
 #: PiFinder/ui/menu_structure.py:800
 msgid "Reticle"
@@ -1157,7 +1157,7 @@ msgstr "Montierungsart"
 
 #: PiFinder/ui/menu_structure.py:962
 msgid "Alt/Az"
-msgstr "Azimutal"
+msgstr "Alt/Az"
 
 #: PiFinder/ui/menu_structure.py:966
 msgid "Equatorial"
@@ -1358,7 +1358,7 @@ msgstr "Suche"
 
 #: PiFinder/ui/object_details.py:364
 msgid "for GPS{elipsis}"
-msgstr "nach Satelliten{elipsis}"
+msgstr "nach GPS{elipsis}"
 
 #: PiFinder/ui/object_details.py:378 PiFinder/ui/object_details.py:406
 msgid "Calculating"

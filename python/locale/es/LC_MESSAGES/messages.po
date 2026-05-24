@@ -1103,17 +1103,17 @@ msgstr "Horizontal"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:786
 msgid "EQ (Auto)"
-msgstr "EC (Auto)"
+msgstr "EQ (Auto)"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:790
 msgid "EQ (North-up)"
-msgstr "EC (Norte)"
+msgstr "EQ (Norte)"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:794
 msgid "EQ (South-up)"
-msgstr "EC (Sur)"
+msgstr "EQ (Sur)"
 
 #: PiFinder/ui/menu_structure.py:800
 msgid "Reticle"
@@ -1139,7 +1139,7 @@ msgstr "Visualización OCP"
 
 #: PiFinder/ui/menu_structure.py:872
 msgid "RA/DEC Disp."
-msgstr "Visual. AR/DEC"
+msgstr "Visual. RA/DEC"
 
 #: PiFinder/ui/menu_structure.py:882
 msgid "HH:MM"
@@ -1585,12 +1585,12 @@ msgstr "G/G"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:588
 msgid "RA/DEC Entry"
-msgstr "Entrada AR/DEC"
+msgstr "Entrada RA/DEC"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:825
 msgid "RA:"
-msgstr "AR:"
+msgstr "RA:"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:831
@@ -1605,7 +1605,7 @@ msgstr "ÉPOCA:"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:981
 msgid "RA/DEC"
-msgstr "AR/DEC"
+msgstr "RA/DEC"
 
 #: PiFinder/ui/software.py:87
 msgid "Updating..."

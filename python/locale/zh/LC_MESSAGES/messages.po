@@ -1158,17 +1158,17 @@ msgstr "地平坐标"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:786
 msgid "EQ (Auto)"
-msgstr "赤道(自动)"
+msgstr "EQ (自动)"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:790
 msgid "EQ (North-up)"
-msgstr "赤道(北上)"
+msgstr "EQ (北上)"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:794
 msgid "EQ (South-up)"
-msgstr "赤道(南上)"
+msgstr "EQ (南上)"
 
 #: PiFinder/ui/menu_structure.py:800
 msgid "Reticle"
@@ -1194,7 +1194,7 @@ msgstr "深空天体显示"
 
 #: PiFinder/ui/menu_structure.py:872
 msgid "RA/DEC Disp."
-msgstr "赤经/赤纬显示"
+msgstr "RA/DEC显示"
 
 #: PiFinder/ui/menu_structure.py:882
 msgid "HH:MM"
@@ -1265,7 +1265,7 @@ msgstr "望远镜类型"
 
 #: PiFinder/ui/menu_structure.py:962
 msgid "Alt/Az"
-msgstr "地平式"
+msgstr "Alt/Az"
 
 #: PiFinder/ui/menu_structure.py:966
 msgid "Equatorial"
@@ -1660,17 +1660,17 @@ msgstr "D/D"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:588
 msgid "RA/DEC Entry"
-msgstr "输入赤经/赤纬"
+msgstr "RA/DEC输入"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:825
 msgid "RA:"
-msgstr "赤经:"
+msgstr "RA:"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:831
 msgid "DEC:"
-msgstr "赤纬:"
+msgstr "DEC:"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:837
@@ -1680,7 +1680,7 @@ msgstr "历元:"
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/radec_entry.py:981
 msgid "RA/DEC"
-msgstr "赤经/赤纬"
+msgstr "RA/DEC"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/software.py:87
