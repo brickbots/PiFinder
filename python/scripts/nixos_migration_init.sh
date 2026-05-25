@@ -56,6 +56,12 @@ fail() {
     exec /bin/sh
 }
 
+if [ -f /migration_meta ]; then
+    . /migration_meta
+    export MIGRATION_DISPLAY_CLASS="${DISPLAY_CLASS:-}"
+    export MIGRATION_DISPLAY_RESOLUTION="${DISPLAY_RESOLUTION:-}"
+fi
+
 show 28 "Migrating..."
 
 # Wait for SD card device to appear
@@ -88,11 +94,12 @@ fi
 . /migration_meta
 # Now we have: TARBALL_PATH, TARBALL_SIZE, PIFINDER_DATA_PATH
 
-# RAM check: tarball + backup + overhead must fit
+# Initial RAM check: tarball + fixed overhead must fit. The exact user-data
+# backup size is checked after the old root is mounted, before formatting.
 MEM_KB=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
 MEM_MB=$((MEM_KB / 1024))
 TARBALL_SIZE_MB=$((TARBALL_SIZE / 1048576))
-NEEDED_MB=$((TARBALL_SIZE_MB + 150))  # tarball + backup + overhead
+NEEDED_MB=$((TARBALL_SIZE_MB + 150))
 [ "${MEM_MB}" -lt "${NEEDED_MB}" ] && fail "Insufficient RAM: ${MEM_MB}MB available, need ${NEEDED_MB}MB"
 
 show 31 "Validated (${MEM_MB}MB free)"
@@ -130,16 +137,44 @@ rm -rf /tmp/backup_stage
 mkdir -p "${BACKUP_STAGE}"
 
 if [ -d "${PIFINDER_DATA_ON_ROOT}" ]; then
+    BACKUP_NEED_KB=0
+
+    # Root-level files are preserved, except pifinder.log which is truncated
+    # while copying so a large log cannot exhaust initramfs RAM.
+    for f in "${PIFINDER_DATA_ON_ROOT}"/*; do
+        if [ -f "$f" ]; then
+            case "$(basename "$f")" in
+                pifinder.log)
+                    BACKUP_NEED_KB=$((BACKUP_NEED_KB + 256))
+                    ;;
+                *)
+                    FILE_KB=$(du -sk "$f" 2>/dev/null | awk '{print $1}')
+                    BACKUP_NEED_KB=$((BACKUP_NEED_KB + ${FILE_KB:-0}))
+                    ;;
+            esac
+        fi
+    done
+    if [ -d "${PIFINDER_DATA_ON_ROOT}/obslists" ]; then
+        OBSLISTS_KB=$(du -sk "${PIFINDER_DATA_ON_ROOT}/obslists" 2>/dev/null | awk '{print $1}')
+        BACKUP_NEED_KB=$((BACKUP_NEED_KB + ${OBSLISTS_KB:-0}))
+    fi
+
+    MEM_KB=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
+    TARBALL_KB=$((TARBALL_SIZE / 1024))
+    # Keep a conservative 150 MiB for tools, page cache, and shell overhead.
+    NEEDED_KB=$((TARBALL_KB + BACKUP_NEED_KB + 153600))
+    [ "${MEM_KB}" -lt "${NEEDED_KB}" ] && fail "Insufficient RAM for backup: $((MEM_KB / 1024))MB available, need $((NEEDED_KB / 1024))MB"
+
     # Copy root-level files (observations.db, configs, etc.)
     for f in "${PIFINDER_DATA_ON_ROOT}"/*; do
-        [ -f "$f" ] && cp "$f" "${BACKUP_STAGE}/" 2>/dev/null || true
+        if [ -f "$f" ]; then
+            if [ "$(basename "$f")" = "pifinder.log" ]; then
+                tail -n 1000 "$f" > "${BACKUP_STAGE}/pifinder.log" 2>/dev/null || true
+            else
+                cp "$f" "${BACKUP_STAGE}/" 2>/dev/null || true
+            fi
+        fi
     done
-
-    # Truncate log to last 1000 lines
-    if [ -f "${BACKUP_STAGE}/pifinder.log" ]; then
-        tail -n 1000 "${BACKUP_STAGE}/pifinder.log" > "${BACKUP_STAGE}/pifinder.log.tmp"
-        mv "${BACKUP_STAGE}/pifinder.log.tmp" "${BACKUP_STAGE}/pifinder.log"
-    fi
 
     # Copy obslists directory
     if [ -d "${PIFINDER_DATA_ON_ROOT}/obslists" ]; then

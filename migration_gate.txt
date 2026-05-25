@@ -1,6 +1,0 @@
-# Migration killswitch — read by UISoftware._fetch_migration_gate() once per
-# Software screen entry from the 'release' branch via raw.githubusercontent.com.
-# Lines starting with '#' are ignored; the first non-comment, non-blank line is
-# the gate value. "1" unlocks the NixOS migration UI; anything else keeps it
-# hidden. Only the value on the 'release' branch is consulted at runtime.
-0

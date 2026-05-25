@@ -458,6 +458,12 @@ def start_nixos_migration(version_info: dict) -> None:
             "migration_sha256 produced a value); refusing to migrate without "
             "checksum verification"
         )
+    display_class = str(version_info.get("display_class", ""))
+    display_resolution_value = version_info.get("display_resolution", "")
+    if isinstance(display_resolution_value, (list, tuple)):
+        display_resolution = "x".join(str(part) for part in display_resolution_value)
+    else:
+        display_resolution = str(display_resolution_value)
 
     logger.info(f"SYS: Starting NixOS migration to {version_info.get('version', '?')}")
 
@@ -480,6 +486,8 @@ def start_nixos_migration(version_info: dict) -> None:
             url,
             sha256,
             MIGRATION_PROGRESS_FILE,
+            display_class,
+            display_resolution,
             _bg=True,
             _bg_exc=False,
             _out=_log_output,

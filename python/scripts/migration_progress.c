@@ -1,19 +1,19 @@
 /*
- * migration_progress - SSD1351 progress display for PiFinder initramfs
+ * migration_progress - OLED progress display for PiFinder initramfs
  *
- * Drives the 128x128 SSD1351 OLED via SPI to show migration progress.
+ * Drives supported SPI OLED displays to show migration progress.
  * Designed to be statically compiled and included in the initramfs.
  *
- * Usage: migration_progress <percent> <message>
+ * Usage: migration_progress <percent> <stage_num> <stage_total> <message>
  *   percent: 0-100
  *   message: status text (max ~20 chars fits on screen)
  *
  * Examples:
- *   migration_progress 0  "Starting..."
- *   migration_progress 45 "Moving user data"
- *   migration_progress 100 "Complete!"
+ *   migration_progress 0 1 22 "Starting..."
+ *   migration_progress 45 10 22 "Moving data"
+ *   migration_progress 100 22 22 "Complete!"
  *
- * Hardware: SPI0.0, DC=GPIO24, RST=GPIO25, 128x128 BGR
+ * Hardware: SPI0.0, DC=GPIO24, RST=GPIO25, BGR565
  */
 
 #include <fcntl.h>
@@ -27,8 +27,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#define WIDTH 128
-#define HEIGHT 128
+#define MAX_WIDTH 176
+#define MAX_HEIGHT 176
 #define SPI_DEVICE "/dev/spidev0.0"
 #define SPI_SPEED 40000000
 #define GPIO_DC 24
@@ -46,7 +46,16 @@ static int spi_fd = -1;
 static int gpio_fd = -1;
 static struct gpio_v2_line_request dc_req;
 static struct gpio_v2_line_request rst_req;
-static uint16_t framebuf[WIDTH * HEIGHT];
+static uint16_t framebuf[MAX_WIDTH * MAX_HEIGHT];
+
+enum oled_controller {
+    CTRL_SSD1351,
+    CTRL_SSD1333,
+};
+
+static enum oled_controller controller = CTRL_SSD1351;
+static int display_width = 128;
+static int display_height = 128;
 
 /* 5x7 bitmap font - ASCII 32-126 */
 static const uint8_t font5x7[][5] = {
@@ -194,156 +203,165 @@ static void spi_write(const uint8_t *data, size_t len)
     }
 }
 
-static void ssd1351_cmd(uint8_t cmd)
+static void oled_cmd(uint8_t cmd)
 {
     gpio_set(&dc_req, 0);
     spi_write(&cmd, 1);
 }
 
-static void ssd1351_data(const uint8_t *data, size_t len)
+static void oled_data(const uint8_t *data, size_t len)
 {
     gpio_set(&dc_req, 1);
     spi_write(data, len);
 }
 
-static void ssd1351_cmd_data(uint8_t cmd, const uint8_t *data, size_t len)
+static void oled_cmd_data(uint8_t cmd, uint8_t data)
 {
-    ssd1351_cmd(cmd);
-    if (len > 0)
-        ssd1351_data(data, len);
+    oled_cmd(cmd);
+    oled_data(&data, 1);
 }
 
 static int skip_reset = 0;  /* set via --update flag in main */
 static int display_on = 0;
 
-static void ssd1351_init(void)
+static void detect_display(void)
 {
-    uint8_t d;
+    const char *display_class = getenv("MIGRATION_DISPLAY_CLASS");
+    const char *display_resolution = getenv("MIGRATION_DISPLAY_RESOLUTION");
 
-    if (skip_reset) {
-        /* Just ensure display is on, skip full init */
-        ssd1351_cmd(0xAF);
-        display_on = 1;
+    controller = CTRL_SSD1351;
+    display_width = 128;
+    display_height = 128;
+
+    if (display_class && strstr(display_class, "SSD1333")) {
+        controller = CTRL_SSD1333;
+        display_width = 176;
+        display_height = 176;
         return;
     }
 
-    /* Hardware reset */
+    if (display_resolution && strcmp(display_resolution, "176x176") == 0) {
+        controller = CTRL_SSD1333;
+        display_width = 176;
+        display_height = 176;
+    }
+}
+
+static void oled_reset(void)
+{
     gpio_set(&rst_req, 1);
     msleep(10);
     gpio_set(&rst_req, 0);
     msleep(10);
     gpio_set(&rst_req, 1);
     msleep(10);
-
-    /* Init sequence matching luma.oled exactly */
-    ssd1351_cmd(0xFD); /* Unlock */
-    d = 0x12; ssd1351_data(&d, 1);
-
-    ssd1351_cmd(0xFD); /* Unlock commands */
-    d = 0xB1; ssd1351_data(&d, 1);
-
-    ssd1351_cmd(0xAE); /* Display off */
-
-    ssd1351_cmd(0xB3); /* Clock divider */
-    d = 0xF1; ssd1351_data(&d, 1);
-
-    ssd1351_cmd(0xCA); /* Mux ratio */
-    d = 0x7F; ssd1351_data(&d, 1);
-
-    ssd1351_cmd(0x15); /* Column address */
-    uint8_t col[2] = {0x00, 0x7F};
-    ssd1351_data(col, 2);
-
-    ssd1351_cmd(0x75); /* Row address */
-    uint8_t row[2] = {0x00, 0x7F};
-    ssd1351_data(row, 2);
-
-    ssd1351_cmd(0xA0); /* Remap/color depth */
-    d = 0x74; ssd1351_data(&d, 1); /* BGR, 65k color, COM split */
-
-    ssd1351_cmd(0xA1); /* Start line */
-    d = 0x00; ssd1351_data(&d, 1);
-
-    ssd1351_cmd(0xA2); /* Display offset */
-    d = 0x00; ssd1351_data(&d, 1);
-
-    ssd1351_cmd(0xB5); /* GPIO */
-    d = 0x00; ssd1351_data(&d, 1);
-
-    ssd1351_cmd(0xAB); /* Function select */
-    d = 0x01; ssd1351_data(&d, 1);
-
-    ssd1351_cmd(0xB1); /* Precharge */
-    d = 0x32; ssd1351_data(&d, 1);
-
-    ssd1351_cmd(0xB4); /* VSL */
-    uint8_t vsl[3] = {0xA0, 0xB5, 0x55};
-    ssd1351_data(vsl, 3);
-
-    ssd1351_cmd(0xBE); /* VCOMH */
-    d = 0x05; ssd1351_data(&d, 1);
-
-    ssd1351_cmd(0xC7); /* Master contrast */
-    d = 0x0F; ssd1351_data(&d, 1);
-
-    ssd1351_cmd(0xB6); /* Precharge2 */
-    d = 0x01; ssd1351_data(&d, 1);
-
-    ssd1351_cmd(0xA6); /* Normal display */
-
-    /* NOTE: Display ON (0xAF) moved to after framebuffer flush */
 }
 
-static void ssd1351_flush(void)
+static void oled_common_init(int mux_ratio, uint8_t remap)
+{
+    if (skip_reset) {
+        /* Just ensure display is on, skip full init */
+        oled_cmd(0xAF);
+        display_on = 1;
+        return;
+    }
+
+    oled_reset();
+
+    /* SSD13xx 65k-color OLED setup. */
+    oled_cmd_data(0xFD, 0x12); /* Unlock */
+    oled_cmd_data(0xFD, 0xB1); /* Unlock commands */
+
+    oled_cmd(0xAE); /* Display off */
+    oled_cmd_data(0xB3, 0xF1); /* Clock divider */
+    oled_cmd_data(0xCA, (uint8_t)mux_ratio); /* Mux ratio */
+
+    oled_cmd(0x15); /* Column address */
+    uint8_t col[2] = {0x00, (uint8_t)(display_width - 1)};
+    oled_data(col, 2);
+
+    oled_cmd(0x75); /* Row address */
+    uint8_t row[2] = {0x00, (uint8_t)(display_height - 1)};
+    oled_data(row, 2);
+
+    oled_cmd_data(0xA0, remap); /* Remap/color depth */
+    oled_cmd_data(0xA1, 0x00); /* Start line */
+    oled_cmd_data(0xA2, 0x00); /* Display offset */
+    oled_cmd_data(0xB5, 0x00); /* GPIO */
+    oled_cmd_data(0xAB, 0x01); /* Function select */
+    oled_cmd_data(0xB1, 0x32); /* Precharge */
+
+    oled_cmd(0xB4); /* VSL */
+    uint8_t vsl[3] = {0xA0, 0xB5, 0x55};
+    oled_data(vsl, 3);
+
+    oled_cmd_data(0xBE, 0x05); /* VCOMH */
+    oled_cmd_data(0xC7, 0x0F); /* Master contrast */
+    oled_cmd_data(0xB6, 0x01); /* Precharge2 */
+    oled_cmd(0xA6); /* Normal display */
+
+    /* Display ON (0xAF) happens after first framebuffer flush. */
+}
+
+static void oled_init(void)
+{
+    if (controller == CTRL_SSD1333)
+        oled_common_init(0xAF, 0x74);
+    else
+        oled_common_init(0x7F, 0x74);
+}
+
+static void oled_flush(void)
 {
     /* Set contrast before first frame (matching luma) */
     if (!display_on) {
-        ssd1351_cmd(0xC1); /* Contrast */
+        oled_cmd(0xC1); /* Contrast */
         uint8_t contrast[3] = {0xFF, 0xFF, 0xFF};
-        ssd1351_data(contrast, 3);
+        oled_data(contrast, 3);
     }
 
-    ssd1351_cmd(0x15);
-    uint8_t col[2] = {0x00, 0x7F};
-    ssd1351_data(col, 2);
+    oled_cmd(0x15);
+    uint8_t col[2] = {0x00, (uint8_t)(display_width - 1)};
+    oled_data(col, 2);
 
-    ssd1351_cmd(0x75);
-    uint8_t row[2] = {0x00, 0x7F};
-    ssd1351_data(row, 2);
+    oled_cmd(0x75);
+    uint8_t row[2] = {0x00, (uint8_t)(display_height - 1)};
+    oled_data(row, 2);
 
-    ssd1351_cmd(0x5C); /* Write RAM */
+    oled_cmd(0x5C); /* Write RAM */
 
     /* Send framebuffer as big-endian 16-bit pixels */
-    uint8_t buf[WIDTH * HEIGHT * 2];
-    for (int i = 0; i < WIDTH * HEIGHT; i++) {
+    uint8_t buf[MAX_WIDTH * MAX_HEIGHT * 2];
+    int pixels = display_width * display_height;
+    for (int i = 0; i < pixels; i++) {
         buf[i * 2] = framebuf[i] >> 8;
         buf[i * 2 + 1] = framebuf[i] & 0xFF;
     }
-    ssd1351_data(buf, sizeof(buf));
+    oled_data(buf, (size_t)pixels * 2);
 
     /* Turn display on after first frame */
     if (!display_on) {
-        ssd1351_cmd(0xAF); /* Display on */
+        oled_cmd(0xAF); /* Display on */
         display_on = 1;
     }
 }
 
 static void fb_clear(uint16_t color)
 {
-    for (int i = 0; i < WIDTH * HEIGHT; i++)
+    for (int i = 0; i < display_width * display_height; i++)
         framebuf[i] = color;
 }
 
 static void fb_pixel(int x, int y, uint16_t color)
 {
-    if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT)
-        framebuf[y * WIDTH + x] = color;
+    if (x >= 0 && x < display_width && y >= 0 && y < display_height)
+        framebuf[y * display_width + x] = color;
 }
 
 static void fb_rect(int x, int y, int w, int h, uint16_t color)
 {
-    for (int j = y; j < y + h && j < HEIGHT; j++)
-        for (int i = x; i < x + w && i < WIDTH; i++)
+    for (int j = y; j < y + h && j < display_height; j++)
+        for (int i = x; i < x + w && i < display_width; i++)
             fb_pixel(i, j, color);
 }
 
@@ -380,7 +398,7 @@ static void fb_string_centered(int y, const char *s, uint16_t color, int scale)
 {
     int len = strlen(s);
     int px_width = len * 6 * scale - scale; /* subtract trailing gap */
-    int x = (WIDTH - px_width) / 2;
+    int x = (display_width - px_width) / 2;
     if (x < 0) x = 0;
     fb_string(x, y, s, color, scale);
 }
@@ -392,26 +410,36 @@ static void draw_progress(int percent, const char *stage, int stage_num, int sta
 
     fb_clear(COL_BLACK);
 
+    int scale = display_width >= 160 ? 2 : 1;
+    int margin = display_width >= 160 ? 14 : 10;
+    int banner_h = display_width >= 160 ? 18 : 12;
+    int title_y = display_width >= 160 ? 28 : 18;
+    int subtitle_y = display_width >= 160 ? 55 : 38;
+    int stage_y = display_width >= 160 ? 76 : 52;
+    int bar_y = display_width >= 160 ? 94 : 65;
+    int pct_y = display_width >= 160 ? 116 : 82;
+    int stage_name_y = display_width >= 160 ? 145 : 105;
+    int wait_y = display_height - (8 * scale);
+
     /* Warning banner at top */
-    fb_rect(0, 0, WIDTH, 12, COL_DKRED);
-    fb_string_centered(2, "DO NOT POWER OFF", COL_RED, 1);
+    fb_rect(0, 0, display_width, banner_h, COL_DKRED);
+    fb_string_centered(3, "DO NOT POWER OFF", COL_RED, scale);
 
     /* Title */
-    fb_string_centered(18, "NixOS", COL_RED, 2);
-    fb_string_centered(38, "Migration", COL_RED, 1);
+    fb_string_centered(title_y, "NixOS", COL_RED, 2);
+    fb_string_centered(subtitle_y, "Migration", COL_RED, scale);
 
     /* Stage indicator (e.g., "3/7") */
     if (stage_total > 0) {
-        char stage_str[16];
+        char stage_str[32];
         snprintf(stage_str, sizeof(stage_str), "Stage %d/%d", stage_num, stage_total);
-        fb_string_centered(52, stage_str, COL_DKGRAY, 1);
+        fb_string_centered(stage_y, stage_str, COL_DKGRAY, scale);
     }
 
     /* Progress bar */
-    int bar_x = 10;
-    int bar_y = 65;
-    int bar_w = WIDTH - 20;
-    int bar_h = 12;
+    int bar_x = margin;
+    int bar_w = display_width - (margin * 2);
+    int bar_h = display_width >= 160 ? 16 : 12;
 
     /* Border */
     fb_rect(bar_x, bar_y, bar_w, 1, COL_DKGRAY);
@@ -433,16 +461,16 @@ static void draw_progress(int percent, const char *stage, int stage_num, int sta
     /* Percentage */
     char pct_str[8];
     snprintf(pct_str, sizeof(pct_str), "%d%%", percent);
-    fb_string_centered(82, pct_str, COL_RED, 2);
+    fb_string_centered(pct_y, pct_str, COL_RED, 2);
 
     /* Current stage name */
     if (stage && *stage)
-        fb_string_centered(105, stage, COL_RED, 1);
+        fb_string_centered(stage_name_y, stage, COL_RED, scale);
 
     /* Bottom warning */
-    fb_string_centered(118, "Please wait...", COL_DKGRAY, 1);
+    fb_string_centered(wait_y, "Please wait...", COL_DKGRAY, scale);
 
-    ssd1351_flush();
+    oled_flush();
 }
 
 static int hw_init(void)
@@ -473,7 +501,8 @@ static int hw_init(void)
     if (gpio_request_line(gpio_fd, GPIO_RST, &rst_req) < 0)
         return -1;
 
-    ssd1351_init();
+    detect_display();
+    oled_init();
     return 0;
 }
 

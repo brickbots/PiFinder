@@ -10,7 +10,7 @@
 #   3. Expand partition, restore WiFi + user data
 #   4. Reboot into NixOS
 #
-# Usage: nixos_migration.sh <migration_url> [sha256] [progress_file]
+# Usage: nixos_migration.sh <migration_url> [sha256] [progress_file] [display_class] [display_resolution]
 #
 # Exit codes:
 #   0 - Success (initramfs staged, ready to reboot)
@@ -26,6 +26,8 @@ export PATH="/usr/sbin:/sbin:${PATH}"
 MIGRATION_URL="${1:?Usage: nixos_migration.sh <url> [sha256] [progress_file]}"
 MIGRATION_SHA256="${2:-}"
 PROGRESS_FILE="${3:-/tmp/nixos_migration_progress}"
+DISPLAY_CLASS="${4:-}"
+DISPLAY_RESOLUTION="${5:-}"
 
 trap '_trap_err $LINENO "$BASH_COMMAND"' ERR
 _trap_err() {
@@ -73,28 +75,24 @@ copy_with_libs() {
 
 # --- Phase 0: Install required packages ---
 progress 0 "Installing dependencies"
-for pkg in e2fsprogs dosfstools fdisk zstd; do
+for pkg in busybox cpio curl dosfstools e2fsprogs fdisk gzip xz-utils zstd; do
     if ! dpkg -s "${pkg}" >/dev/null 2>&1; then
         sudo apt-get install -y "${pkg}" || fail 1 "Failed to install ${pkg}"
     fi
 done
 
 # --- Phase 1: Pre-flight checks ---
+# nixos_migration_calc.py is the single source of truth for whether this
+# system is ready to migrate (model, RAM, SD size + layout, free space,
+# WiFi mode, supported display). A non-zero exit means all_ok is false.
 progress 3 "Running pre-flight checks"
 
-if ! python3 "${SCRIPT_DIR}/nixos_migration_calc.py" --json > /tmp/migration_checks.json 2>&1; then
+if ! python3 "${SCRIPT_DIR}/nixos_migration_calc.py" --json \
+    --display-class "${DISPLAY_CLASS}" \
+    --display-resolution "${DISPLAY_RESOLUTION}" \
+    > /tmp/migration_checks.json 2>&1; then
     fail 1 "Pre-flight checks failed"
 fi
-
-WIFI_MODE=$(python3 -c "import json; print(json.load(open('/tmp/migration_checks.json'))['wifi_mode'])")
-if [ "${WIFI_MODE}" != "Client" ]; then
-    fail 1 "WiFi must be in Client mode"
-fi
-
-# RAM check: image must fit in available RAM during initramfs
-MEM_KB=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
-MEM_MB=$((MEM_KB / 1024))
-[ "${MEM_MB}" -lt 1800 ] && fail 1 "Insufficient RAM: ${MEM_MB}MB (need 2GB)"
 
 progress 5 "Pre-flight OK"
 
@@ -216,6 +214,8 @@ cat > "${INITRAMFS_DIR}/migration_meta" <<METAEOF
 TARBALL_PATH=${TARBALL}
 TARBALL_SIZE=${TARBALL_SIZE}
 PIFINDER_DATA_PATH=${PIFINDER_HOME}/PiFinder_data
+DISPLAY_CLASS=${DISPLAY_CLASS}
+DISPLAY_RESOLUTION=${DISPLAY_RESOLUTION}
 METAEOF
 
 progress 85 "Staging initramfs"

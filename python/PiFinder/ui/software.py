@@ -7,6 +7,7 @@ software updates and NixOS migration.
 
 import logging
 import time
+from typing import Any, Optional, TYPE_CHECKING
 
 import requests
 
@@ -14,39 +15,54 @@ from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.ui_utils import TextLayouter
 
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
+
+
 sys_utils = utils.get_sys_utils()
 logger = logging.getLogger("UISoftware")
 
 REQUEST_TIMEOUT = 10
-MIGRATION_GATE_URL = "https://raw.githubusercontent.com/brickbots/PiFinder/release/migration_gate.txt"
+MIGRATION_GATE_URL = (
+    "https://raw.githubusercontent.com/brickbots/PiFinder/release/migration_gate.json"
+)
 
 # Secret unlock: 7x square button
 _UNLOCK_SEQUENCE = ["square"] * 7
 
 _MIGRATION_VERSION_INFO = {
-    "version": "2.5.0",
+    "version": "3.0.0",
     "type": "upgrade",
-    "migration_url": "https://github.com/mrosseel/PiFinder/releases/download/v2.5.0-migration/pifinder-nixos-v2.5.0.tar.zst",
     "migration_size_mb": 292,
-    "migration_sha256_url": "https://github.com/mrosseel/PiFinder/releases/download/v2.5.0-migration/pifinder-nixos-v2.5.0.tar.zst.sha256",
+    "migration_url": "https://github.com/mrosseel/PiFinder/releases/download/v3.0.0-migration/pifinder-nixos-v3.0.0.tar.zst",
+    "migration_sha256_url": "https://github.com/mrosseel/PiFinder/releases/download/v3.0.0-migration/pifinder-nixos-v3.0.0.tar.zst.sha256",
 }
 
 
-def _fetch_migration_gate() -> bool:
-    """Check remote gate file. Returns True only if the first non-comment,
-    non-blank line is exactly '1'."""
+def _fetch_migration_config() -> Optional[dict]:
+    """Fetch and parse the remote migration config JSON.
+
+    Returns the parsed dict if it contains a usable `nixos_url`; None on
+    network error, non-200 response, malformed JSON, or missing url.
+    The `nixos_for_everyone` gate is enforced by the caller.
+    """
     try:
         res = requests.get(MIGRATION_GATE_URL, timeout=REQUEST_TIMEOUT)
     except requests.exceptions.RequestException:
-        return False
+        return None
     if res.status_code != 200:
-        return False
-    for line in res.text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        return line == "1"
-    return False
+        return None
+    try:
+        data = res.json()
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    if not data.get("nixos_url"):
+        return None
+    return data
 
 
 def update_needed(current_version: str, repo_version: str) -> bool:
@@ -111,15 +127,19 @@ class UISoftware(UIModule):
             self._key_buffer = self._key_buffer[-len(_UNLOCK_SEQUENCE) :]
         if self._key_buffer == _UNLOCK_SEQUENCE:
             self._key_buffer = []
-            self._trigger_migration()
+            # Unlock: self-contained — uses the hardcoded URLs and does not
+            # require the remote migration_gate.json to exist.
+            self._trigger_migration(dict(_MIGRATION_VERSION_INFO))
 
-    def _trigger_migration(self):
-        """Push UIMigrationConfirm onto the UI stack."""
+    def _trigger_migration(self, version_info: dict):
+        """Push UIMigrationConfirm onto the UI stack with the supplied
+        version_info (must already contain migration_url and
+        migration_sha256_url)."""
         self.message("System Upgrade", 1)
         self.add_to_stack(
             {
                 "class": UIMigrationConfirm,
-                "version_info": _MIGRATION_VERSION_INFO,
+                "version_info": version_info,
                 "current_version": self._software_version.strip(),
             }
         )
@@ -128,10 +148,15 @@ class UISoftware(UIModule):
         """
         Fetches current release version from
         github, sets class variable if found.
-        Also checks the remote migration gate.
+        Also checks the remote migration config.
         """
-        if _fetch_migration_gate():
-            self._trigger_migration()
+        config = _fetch_migration_config()
+        if config and config.get("nixos_for_everyone"):
+            version_info = dict(_MIGRATION_VERSION_INFO)
+            nixos_url = config["nixos_url"]
+            version_info["migration_url"] = nixos_url
+            version_info["migration_sha256_url"] = f"{nixos_url}.sha256"
+            self._trigger_migration(version_info)
             return
 
         try:
@@ -372,7 +397,9 @@ class UIMigrationConfirm(UIModule):
         )
         y += 11
 
-        if not self._version_info.get("migration_sha256_url") and not self._version_info.get("migration_sha256"):
+        if not self._version_info.get(
+            "migration_sha256_url"
+        ) and not self._version_info.get("migration_sha256"):
             self.draw.text(
                 (0, y),
                 _("No checksum avail."),
@@ -437,8 +464,9 @@ class UIMigrationProgress(UIModule):
         self._started = False
         self._status = _("Starting...")
         self._progress = 0
+        self._terminal_failure = False
         self._status_layout = TextLayouter(
-            "",
+            self._status,
             draw=self.draw,
             color=self.colors.get(255),
             colors=self.colors,
@@ -456,13 +484,39 @@ class UIMigrationProgress(UIModule):
         """Kick off the migration process in the background."""
         self._status = _("Downloading...")
         try:
-            sys_utils.start_nixos_migration(self._version_info)
+            version_info = dict(self._version_info)
+            version_info["display_class"] = self.display_class.__class__.__name__
+            version_info["display_resolution"] = list(self.display_class.resolution)
+            supported_displays = {
+                "DisplaySSD1351": (128, 128),
+                "DisplaySSD1333": (176, 176),
+            }
+            display_class = version_info["display_class"]
+            display_resolution = tuple(version_info["display_resolution"])
+            display_supported = (
+                supported_displays.get(display_class) == display_resolution
+            )
+            display_supported = display_supported or (
+                "SSD1333" in display_class and display_resolution == (176, 176)
+            )
+            if not display_supported:
+                logger.error(
+                    "Unsupported migration progress renderer display: "
+                    f"{display_class} {version_info['display_resolution']}"
+                )
+                self._status = _("Not supported")
+                return
+            sys_utils.start_nixos_migration(version_info)
         except AttributeError:
             logger.error("sys_utils.start_nixos_migration not available")
             self._status = _("Not supported")
+            self._status_layout.set_text(self._status)
+            self._terminal_failure = True
         except Exception as e:
             logger.error(f"Migration failed to start: {e}")
-            self._status = _("Failed")
+            self._status = _("Failed: ") + str(e)
+            self._status_layout.set_text(self._status)
+            self._terminal_failure = True
 
     def update(self, force=False):
         time.sleep(1 / 30)
@@ -532,7 +586,12 @@ class UIMigrationProgress(UIModule):
         self._status_layout.next()
 
     def key_left(self):
-        # No going back during migration
+        # Allow exit only if the migration never actually started (e.g.,
+        # pre-flight refused due to missing checksum or unsupported display).
+        # Once the bash script is running, going back is unsafe.
+        if self._terminal_failure:
+            self.remove_from_stack()
+            return True
         return False
 
 
@@ -573,9 +632,7 @@ class UIReleaseNotes(UIModule):
                 self._loaded = True
             else:
                 self._error = True
-                logger.warning(
-                    f"Failed to fetch release notes: HTTP {res.status_code}"
-                )
+                logger.warning(f"Failed to fetch release notes: HTTP {res.status_code}")
         except requests.exceptions.RequestException as e:
             self._error = True
             logger.warning(f"Failed to fetch release notes: {e}")
