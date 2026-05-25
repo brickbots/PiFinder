@@ -8,6 +8,7 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - [Positioning](./docs/ax/positioning/CONTEXT.md) — acquires telescope pointing via plate-solving and IMU dead-reckoning; publishes the canonical "where am I looking?" answer.
 - [SQM](./docs/ax/sqm/CONTEXT.md) — estimates sky brightness in mag/arcsec² from solved frames; also produces the noise-floor signal auto-exposure consumes.
 - [Equipment](./docs/ax/equipment/CONTEXT.md) — models the user's telescopes and eyepieces; supplies the active optics that drive magnification, true field of view, and object-image orientation.
+- [UI](./docs/ax/ui/CONTEXT.md) — the on-device menu system: menu tree, screen modules, the navigation stack and key dispatch, marking menus.
 
 ## Relationships
 
@@ -23,3 +24,4 @@ Companion architecture docs live next to each `CONTEXT.md`:
 - [`docs/ax/positioning.md`](./docs/ax/positioning.md)
 - [`docs/ax/sqm.md`](./docs/ax/sqm.md)
 - [`docs/ax/equipment.md`](./docs/ax/equipment.md)
+- [`docs/ax/ui.md`](./docs/ax/ui.md)
