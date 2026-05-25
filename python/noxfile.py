@@ -111,25 +111,7 @@ def ui_tests(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
-    # TEMP DIAGNOSTIC: a test hangs in CI (not locally). Run under a hard
-    # timeout that sends SIGABRT; with PYTHONFAULTHANDLER=1 that dumps every
-    # thread's stack so we can see exactly where it blocks, and the job ends
-    # on its own instead of running for 10+ minutes. Revert after diagnosis.
-    session.run(
-        "timeout",
-        "--signal=ABRT",
-        "200",
-        "python",
-        "-m",
-        "pytest",
-        "-v",
-        "-m",
-        "integration",
-        "tests/test_ui_modules.py",
-        external=True,
-        success_codes=[0, 1, 124, 134],
-        env={"PYTHONFAULTHANDLER": "1", "PYTHONUNBUFFERED": "1"},
-    )
+    session.run("pytest", "-m", "integration", "tests/test_ui_modules.py")
 
 
 @nox.session(reuse_venv=True, python="3.9")

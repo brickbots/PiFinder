@@ -35,9 +35,8 @@ autouse session fixture:
   * ``time.sleep`` -> no-op (the SQM wizards are per-update capture state
     machines that sleep on every frame; otherwise the sweep takes minutes).
 All UI logic itself stays real. (``UIStatus``'s ``/sys`` read is already
-``try/except``-guarded.) ``UIChart`` / ``UIAlign`` need ``hip_main.dat`` (53MB,
-git-ignored); a session fixture downloads it on demand and those cases skip if
-it is unavailable.
+``try/except``-guarded.) ``UIChart`` / ``UIAlign`` need ``hip_main.dat``, which
+ships in the repo under ``astro_data/``; those cases skip if it is ever missing.
 
 Run from ``python/`` (paths in ``PiFinder.utils`` are relative to CWD):
     pytest -m integration tests/test_ui_modules.py
@@ -52,7 +51,6 @@ import io
 import pkgutil
 import queue
 import shutil
-import urllib.request
 from typing import Iterator, cast
 from unittest import mock
 
@@ -99,7 +97,6 @@ _COMMAND_QUEUE_KEYS = (
 
 # Modules that need the Hipparcos catalogue to construct (build plot.Starfield).
 _HIP_REQUIRED = {"UIChart", "UIAlign"}
-_HIP_DAT_URL = "https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat"
 
 # Modules the generic sweep can't fairly exercise, with the reason. These are
 # still constructed and covered by the completeness guard -- only the key sweep
@@ -275,6 +272,27 @@ def _sandbox_data_dir(tmp_path_factory):
         yield sandbox
 
 
+class _StubTimezoneFinder:
+    """Instant stand-in for timezonefinder.TimezoneFinder."""
+
+    def timezone_at(self, **kwargs):
+        return "UTC"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _fast_timezonefinder():
+    """Stub TimezoneFinder so SharedStateObj construction is instant.
+
+    SharedStateObj.__init__ builds a fresh TimezoneFinder (loads a multi-MB
+    timezone binary), and the harness constructs a SharedStateObj per test
+    (cold/warm). The real init is cheap-ish on a dev box but brutally slow on a
+    CI runner -- hundreds of inits take ~10 min and look like a hang. Timezone
+    resolution is irrelevant to UI crash-smoke, so a constant-"UTC" stub is fine.
+    """
+    with mock.patch("PiFinder.state.TimezoneFinder", _StubTimezoneFinder):
+        yield
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _fast_sleep():
     """No-op time.sleep for the whole harness.
@@ -416,15 +434,12 @@ def sample_object(catalogs):
 
 @pytest.fixture(scope="session")
 def hip_main_available() -> bool:
-    """Ensure astro_data/hip_main.dat exists, downloading it once if missing."""
-    path = utils.astro_data_dir / "hip_main.dat"
-    if path.exists():
-        return True
-    try:
-        urllib.request.urlretrieve(_HIP_DAT_URL, path)
-        return path.exists()
-    except Exception:
-        return False
+    """Whether the Hipparcos catalog is present (it ships in the repo).
+
+    Kept as a defensive guard: if astro_data/hip_main.dat is ever missing, the
+    chart/align cases skip instead of erroring.
+    """
+    return (utils.astro_data_dir / "hip_main.dat").exists()
 
 
 # --------------------------------------------------------------------------- #

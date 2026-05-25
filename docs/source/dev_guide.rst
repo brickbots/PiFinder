@@ -249,15 +249,17 @@ files: one for getting PiFinder to run, one for development purposes:
     pip install -r requirements_dev.txt
 
 
-Install the Hipparcos catalog
-.............................
+Hipparcos catalog
+.................
 
-The `hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>`_ will be
-downloaded to the following location: ``/home/pifinder/PiFinder/astro_data/``
+The `hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>`_
+(``astro_data/hip_main.dat``) now ships in the repository, so no separate
+download is required. If you ever need to refresh it, it can be re-fetched
+from:
 
 .. code-block::
 
-    wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
+    wget -O astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
 
 Install the Tetra3/Cedar solver
 ................................
