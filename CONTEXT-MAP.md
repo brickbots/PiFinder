@@ -7,6 +7,7 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - [Catalog](./docs/ax/catalog/CONTEXT.md) — loads, filters, searches astronomical catalogs (M, NGC, IC, WDS, planets, comets) for the UI.
 - [Positioning](./docs/ax/positioning/CONTEXT.md) — acquires telescope pointing via plate-solving and IMU dead-reckoning; publishes the canonical "where am I looking?" answer.
 - [SQM](./docs/ax/sqm/CONTEXT.md) — estimates sky brightness in mag/arcsec² from solved frames; also produces the noise-floor signal auto-exposure consumes.
+- [Equipment](./docs/ax/equipment/CONTEXT.md) — models the user's telescopes and eyepieces; supplies the active optics that drive magnification, true field of view, and object-image orientation.
 
 ## Relationships
 
@@ -14,8 +15,11 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - **Positioning → SQM**: SQM is a side effect of every successful plate solve in the solver process; it reuses the tetra3 `matched_centroids` and the camera frame.
 - **SQM → Camera (auto-exposure)**: `shared_state.set_noise_floor()` feeds the SNR target used by auto-exposure in the camera process.
 - **Catalog ↔ Positioning**: Catalog supplies the `(RA, Dec)` target for the alignment flow that calibrates `solve_pixel` in Positioning.
+- **Equipment → Catalog**: the active telescope's flip/flop flags and the active eyepiece's true field of view orient and scale the POSS/SDSS object image in `cat_images.get_display_image`.
+- **Positioning → Equipment**: the object-image baseline rotation combines the active telescope's flip/flop with the live solve **roll** from `shared_state` (see [ADR 0003](./docs/adr/0003-object-image-orientation.md)).
 
 Companion architecture docs live next to each `CONTEXT.md`:
 - [`docs/ax/catalog.md`](./docs/ax/catalog.md)
 - [`docs/ax/positioning.md`](./docs/ax/positioning.md)
 - [`docs/ax/sqm.md`](./docs/ax/sqm.md)
+- [`docs/ax/equipment.md`](./docs/ax/equipment.md)

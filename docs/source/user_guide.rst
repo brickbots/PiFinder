@@ -417,10 +417,13 @@ As an example, here are the images available for M57
    :alt: Catalog Image
 
 
-These images are oriented as they would be through the eyepiece in a Newtonian reflector 
-pointing at a specific area of the sky from your current location.   You can 
+These images are oriented to match the view through your eyepiece for the
+telescope you're using, pointing at a specific area of the sky from your current
+location.  By default they're oriented for a Newtonian reflector; if you use a
+refractor or an SCT with a star diagonal, set the orientation options for your
+telescope as described in :doc:`equipment`.  You can
 use the **+** and **-** keys to switch between the field of view provided by the different
-eyepieces you configured via the :ref:`user_guide:Web Interface` 
+eyepieces you configured via the :ref:`user_guide:Web Interface`
 
 The bottom left of the screen shows the source of the current image and the left side shows the current FOV information.
 
@@ -472,7 +475,8 @@ that are not observing related but provide useful information about the PiFinder
 
 .. image:: images/user_guide/tools_menu_docs.png
 
-- :ref:`Status<user_guide:status screen>`: General info about about the PiFinder operation. 
+- :ref:`Status<user_guide:status screen>`: General info about about the PiFinder operation.
+- :doc:`Equipment <equipment>`: Choose your active telescope and eyepiece, and see the resulting magnification and field of view.
 - Console: Shows messages from various PiFinder subsystems
 - :ref:`Software Upd<user_guide:update software>`: Updates the software of your PiFinder.  
 - Test Mode: Puts the PiFinder into a demo/debug mode which loads and solves an image from disk.  Will prevent proper operation at night, but allows exploration of PiFinder features during the day.
@@ -558,6 +562,7 @@ The PiFinder provides an easy to use web interface which allows you to:
 * See the current PiFinder status
 * Remote control the PiFinder via a virtual screen and keypad
 * Change network settings and connect to new WiFi networks
+* Add and edit your telescopes and eyepieces (see :doc:`equipment`)
 * Backup and restore your observing logs, settings and other data
 * View and download your logged observations
 

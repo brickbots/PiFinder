@@ -19,6 +19,33 @@ CATALOG_PATH = f"{utils.astro_data_dir}/pifinder_objects.db"
 logger = logging.getLogger("Catalog.Images")
 
 
+def _orient_image(return_image, roll, flip_image, flop_image):
+    """
+    Orient a source survey image to match the eyepiece view.
+
+    Applies the fixed 180° baseline rotation (plus the live solve roll),
+    then the active telescope's flip/flop mirrors:
+        flip_image -> top-to-bottom (vertical) mirror
+        flop_image -> left-to-right (horizontal) mirror
+
+    Mirrors are applied AFTER the rotation so a mirrored optical train
+    (e.g. a refractor/SCT with a star diagonal) correctly reverses the
+    apparent sense of roll. See ADR 0003.
+    """
+    # rotate for roll / newtonian orientation
+    image_rotate = 180
+    if roll is not None:
+        image_rotate += roll
+    return_image = return_image.rotate(image_rotate)
+
+    if flip_image:
+        return_image = return_image.transpose(Image.FLIP_TOP_BOTTOM)
+    if flop_image:
+        return_image = return_image.transpose(Image.FLIP_LEFT_RIGHT)
+
+    return return_image
+
+
 def get_display_image(
     catalog_object,
     eyepiece_text,
@@ -27,6 +54,8 @@ def get_display_image(
     display_class,
     burn_in=True,
     magnification=None,
+    flip_image=False,
+    flop_image=False,
 ):
     """
     Returns a 128x128 image buffer for
@@ -53,12 +82,8 @@ def get_display_image(
     else:
         return_image = Image.open(object_image_path)
 
-        # rotate for roll / newtonian orientation
-        image_rotate = 180
-        if roll is not None:
-            image_rotate += roll
-
-        return_image = return_image.rotate(image_rotate)
+        # Orient to match the eyepiece view (see ADR 0003)
+        return_image = _orient_image(return_image, roll, flip_image, flop_image)
 
         # FOV
         fov_size = int(1024 * fov / 2)

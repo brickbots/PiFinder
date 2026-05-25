@@ -309,6 +309,9 @@ class UIObjectDetails(UIModule):
             roll = solution["Roll"]
 
         magnification = self.config_object.equipment.calc_magnification()
+        flip_image, flop_image = (
+            self.config_object.equipment.active_telescope_image_orientation()
+        )
         self.object_image = cat_images.get_display_image(
             self.object,
             str(self.config_object.equipment.active_eyepiece),
@@ -317,6 +320,8 @@ class UIObjectDetails(UIModule):
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
             magnification=magnification,
+            flip_image=flip_image,
+            flop_image=flop_image,
         )
 
     def active(self):
