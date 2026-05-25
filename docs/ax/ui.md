@@ -447,10 +447,12 @@ both sufficient and faster. The one mandatory step is installing a
 `ui_state.message_timeout()`. (`shared_state` is the only argument the
 base asserts non-None — `base.py:127`.)
 
-Caveat: a few `SharedStateObj` reads return `None`/empty by default
-(`solution()`, `imu()`, `sqm()`), which `screen_update` and several
-modules tolerate; but altaz-dependent code paths stay inert without a GPS
-lock and datetime (`altaz_ready()` is `False`).
+Caveat: a few `SharedStateObj` reads start out empty by default —
+`solution()` returns a fresh empty `PointingEstimate()` (`has_pointing()`
+is `False` until the first solve), and `imu()`/`sqm()` return `None` —
+which `screen_update` and several modules tolerate; but altaz-dependent
+code paths stay inert without a GPS lock and datetime (`altaz_ready()` is
+`False`).
 
 ### 9.3 `camera_image` — cheap PIL image (must be real for SQM/preview)
 

@@ -19,7 +19,8 @@ How it works (see ``docs/ax/ui.md`` section 9 for the construction recipe):
   headless display, a directly-instantiated ``SharedStateObj`` (+ ``UIState``),
   a real ``Config`` and a real ``Catalogs`` built from the bundled DB.
 * Each module is exercised twice -- ``cold`` (fresh shared state) and ``warm``
-  (a representative solved fixture) -- to cover the "no solve yet" and "solved"
+  (a representative ``PointingEstimate`` from a camera solve, published via
+  ``set_solution``) -- to cover the "no solve yet" and "solved"
   branches modules guard on.
 * Because the real ``add_to_stack`` callback is wired in, modules a handler
   pushes onto the stack as a side effect get swept too (bounded).
@@ -66,8 +67,15 @@ from PiFinder import utils
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
 from PiFinder.config import Config
 from PiFinder.displays import get_display
-from PiFinder.solver import get_initialized_solved_dict
 from PiFinder.state import Location, SharedStateObj, UIState
+from PiFinder.types.positioning import (
+    Pointing,
+    PointingAxis,
+    PointingEstimate,
+    PointingMatrix,
+    SolveDiagnostics,
+    SolveSource,
+)
 from PiFinder.ui import callbacks, menu_structure
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.menu_manager import MenuManager
@@ -463,28 +471,27 @@ def _make_shared_state(state: str) -> SharedStateObj:
             datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc),
             force=True,
         )
-        solved = get_initialized_solved_dict()
         now = shared_state.datetime().timestamp() if shared_state.datetime() else 0
-        solved.update(
-            {
-                "RA": 83.82,
-                "Dec": -5.39,
-                "Roll": 0.0,
-                "Alt": 45.0,
-                "Az": 120.0,
-                "solve_source": "CAM",
-                "solve_time": now,
-                "cam_solve_time": now,
-                "last_solve_success": now,
-                "constellation": "Ori",
-                # Solver diagnostics several screens read off a CAM solve.
-                "Matches": 12,
-                "RMSE": 0.5,
-                "FOV": 10.2,
-            }
-        )
-        solved["camera_center"].update(
-            {"RA": 83.82, "Dec": -5.39, "Roll": 0.0, "Alt": 45.0, "Az": 120.0}
+        # A fresh camera plate-solve: both axes' solve and estimate cells are
+        # populated together (no IMU progression yet, so estimate == solve), and
+        # the eyepiece-aligned axis equals the camera axis (no alignment offset).
+        # Mirrors what the integrator produces from a SuccessfulSolve.
+        direction = Pointing(RA=83.82, Dec=-5.39, Roll=0.0)
+        solved = PointingEstimate(
+            pointing=PointingMatrix(
+                camera=PointingAxis(solve=direction, estimate=direction),
+                aligned=PointingAxis(solve=direction, estimate=direction),
+            ),
+            # imu_anchor stays None: a CAM solve on a frame with no IMU sample.
+            Alt=45.0,
+            Az=120.0,
+            solve_source=SolveSource.CAMERA,
+            solve_time=now,
+            cam_solve_time=now,
+            last_solve_success=now,
+            constellation="Ori",
+            # Solver diagnostics several screens read off a CAM solve.
+            diagnostics=SolveDiagnostics(Matches=12, RMSE=0.5, FOV=10.2),
         )
         shared_state.set_solution(solved)
         shared_state.set_solve_state(True)
