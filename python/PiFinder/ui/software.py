@@ -33,12 +33,20 @@ _MIGRATION_VERSION_INFO = {
 
 
 def _fetch_migration_gate() -> bool:
-    """Check remote gate file. Returns True only if content is '1'."""
+    """Check remote gate file. Returns True only if the first non-comment,
+    non-blank line is exactly '1'."""
     try:
         res = requests.get(MIGRATION_GATE_URL, timeout=REQUEST_TIMEOUT)
-        return res.status_code == 200 and res.text.strip() == "1"
     except requests.exceptions.RequestException:
         return False
+    if res.status_code != 200:
+        return False
+    for line in res.text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        return line == "1"
+    return False
 
 
 def update_needed(current_version: str, repo_version: str) -> bool:
