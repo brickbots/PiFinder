@@ -464,9 +464,12 @@ class UIMigrationProgress(UIModule):
         try:
             progress = sys_utils.get_migration_progress()
             if progress:
-                self._progress = progress.get("percent", self._progress)
+                try:
+                    self._progress = int(progress.get("percent", self._progress))
+                except (TypeError, ValueError):
+                    pass  # bad/missing percent — keep prior value
                 new_status = progress.get("status", self._status)
-                if new_status != self._status:
+                if isinstance(new_status, str) and new_status != self._status:
                     self._status = new_status
                     self._status_layout.set_text(self._status)
         except (AttributeError, Exception):

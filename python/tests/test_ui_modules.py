@@ -79,6 +79,7 @@ from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
 from PiFinder.ui.sqm_sweep import UISQMSweep
 from PiFinder.ui.sqm_correction import UISQMCorrection
+from PiFinder.ui.software import UIMigrationConfirm, UIMigrationProgress
 
 
 # --------------------------------------------------------------------------- #
@@ -111,7 +112,8 @@ _SWEEP_SKIP: dict[str, str] = {
 # UIModule subclasses that are intentionally *not* exercised, with the reason.
 # Keeps the completeness guard (test_all_ui_modules_covered) honest.
 _COVERAGE_SKIP: dict[str, str] = {
-    # (none currently -- UISQMCorrection is covered via the dynamic fixtures)
+    # (UISQMCorrection is covered via the dynamic fixtures)
+    "UIReleaseNotes": "fetches markdown via HTTP in active(); needs a network mock",
 }
 
 # Bound on the auto-sweep so a handler that keeps pushing modules can't run away.
@@ -172,6 +174,8 @@ _DYNAMIC_IDS = [
     "UISQMCalibration",
     "UISQMSweep",
     "UISQMCorrection",
+    "UIMigrationConfirm",
+    "UIMigrationProgress",
 ]
 
 
@@ -213,6 +217,23 @@ def _build_dynamic_item_definition(spec_id: str, sample_object) -> dict:
             "name": "SQM Correction",
             "class": UISQMCorrection,
             "label": "sqm_correction",
+        }
+    if spec_id == "UIMigrationConfirm":
+        # Pushed by UISoftware.key_square() after a 7x-square unlock.
+        return {
+            "name": "Confirm Migration",
+            "class": UIMigrationConfirm,
+            "version_info": {"version": "2.5.0"},
+            "current_version": "2.4.0",
+            "label": "migration_confirm",
+        }
+    if spec_id == "UIMigrationProgress":
+        # Pushed by UIMigrationConfirm after the user confirms.
+        return {
+            "name": "Migration Progress",
+            "class": UIMigrationProgress,
+            "version_info": {"version": "2.5.0"},
+            "label": "migration_progress",
         }
     raise KeyError(spec_id)  # pragma: no cover
 
