@@ -20,6 +20,7 @@ from PiFinder.ui.base import UIModule
 from PiFinder.ui.ui_utils import outline_text
 
 sys.path.append(str(utils.tetra3_dir))
+sys.path.append(str(utils.tetra3_dir / "tetra3"))
 
 
 class UIPreview(UIModule):

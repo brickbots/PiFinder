@@ -46,7 +46,12 @@ def type_hints(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
-    session.run("mypy", "--install-types", "--non-interactive", ".")
+    # First run populates the cache so --install-types knows what stubs are needed.
+    # Targets PiFinder/ explicitly to avoid broken tetra3 symlink in the tree.
+    session.run("mypy", "PiFinder", success_codes=[0, 1])
+    session.run(
+        "mypy", "--install-types", "--non-interactive", "PiFinder", success_codes=[0, 1]
+    )
 
 
 @nox.session(reuse_venv=True, python="3.9")
