@@ -72,4 +72,5 @@ Join the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ for support 
    skysafari
    dev_guide
    dev_arch
+   api
    BOM
