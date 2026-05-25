@@ -249,15 +249,17 @@ files: one for getting PiFinder to run, one for development purposes:
     pip install -r requirements_dev.txt
 
 
-Install the Hipparcos catalog
-.............................
+Hipparcos catalog
+.................
 
-The `hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>`_ will be
-downloaded to the following location: ``/home/pifinder/PiFinder/astro_data/``
+The `hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>`_
+(``astro_data/hip_main.dat``) now ships in the repository, so no separate
+download is required. If you ever need to refresh it, it can be re-fetched
+from:
 
 .. code-block::
 
-    wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
+    wget -O astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
 
 Install the Tetra3/Cedar solver
 ................................
@@ -349,6 +351,10 @@ the web interface works correctly.
 The tests exercise the remote control features of PiFinder, changing **the state of the PiFinder** and
 therefore should **not be run** against a PiFinder you are actively using for observing.
 
+... tip
+
+    Note that the whole test suite runs approximately 20 min. 
+
 Running Website Tests locally
 _______________________________
 
@@ -360,7 +366,8 @@ Note that when running the tests on Safari, you need to enable "Allow Remote Aut
 does not support the "headless" mode, so you will see the browser window when running the tests and you cannot use other windows while the tests are running.
 
 If you want to run the tests against a real PiFinder, set the ``PIFINDER_HOMEPAGE`` environment variable to the URL of your PiFinder instance or 
-pass the URL directly as a command line paramters with ``--url``. The PiFinder instance needs to be in the same WiFi as your machine, so that it is reachable via the network.
+pass the URL directly as a command line parameter with ``--url``. The PiFinder instance needs to be in the same WiFi as your machine, so that it is 
+reachable via the network.
 
 Running Website Tests remotely
 ________________________________
@@ -397,7 +404,6 @@ You can also run individual tests with PyTest directly, use ``SELENIUM_GRID_URL=
 
 Note that due to the tests depending on the response times of the PiFinder web server and the Selenium Grid server, there may be occasional timeouts or failures.
 If you encounter such issues, simply re-run the tests. We need to strike a balance between test speed and reliability, and this may require some tuning in the future.
-Note that the tests run approximately 10 minutes.
 
 Setting up Selenium Grid
 ___________________________
