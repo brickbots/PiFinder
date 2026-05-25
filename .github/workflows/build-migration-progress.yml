@@ -1,0 +1,59 @@
+name: build-migration-progress
+# Cross-compiles python/scripts/migration_progress.c for aarch64 and attaches
+# the binary + its SHA256 to the release. nixos_migration.sh downloads both
+# at migration time (with hash verification) instead of consuming a pre-built
+# blob from git.
+#
+# Triggers:
+#   - Tag push matching v*-migration   (auto for new migration releases)
+#   - workflow_dispatch with a tag name (re-build for an existing release)
+on:
+  push:
+    tags:
+      - 'v*-migration'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing release tag to attach the binary to'
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install aarch64 cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build + strip + sha256
+        working-directory: python/scripts
+        run: |
+          aarch64-linux-gnu-gcc -static -O2 -Wall -o migration_progress migration_progress.c
+          aarch64-linux-gnu-strip migration_progress
+          sha256sum migration_progress | awk '{print $1}' > migration_progress.sha256
+          ls -la migration_progress migration_progress.sha256
+
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: python/scripts
+        run: |
+          gh release upload "${{ steps.tag.outputs.tag }}" \
+            migration_progress migration_progress.sha256 \
+            --clobber
