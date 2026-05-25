@@ -278,7 +278,7 @@ class SharedStateObj:
         # None = No solve attempted yet
         # True = Valid solve data from either IMU or Camera
         # False = Invalid solve data
-        self.__solve_state = None
+        self.__solve_state: Optional[bool] = None
         self.__ui_state = None
         self.__last_image_metadata = {
             "exposure_start": 0,
