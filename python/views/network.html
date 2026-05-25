@@ -15,12 +15,8 @@
         <div class="row">
             <div class="input-field col s12">
                 <select name="wifi_mode">
-                    <option value="AP" {% if net.wifi_mode() == "AP" %}selected{% endif %}>
-                        {{ _('Access Point') }}
-                    </option>
-                    <option value="Client" {% if net.wifi_mode() == "Client" %}selected{% endif %}>
-                        {{ _('Client') }}
-                    </option>
+                    <option value="AP" {% if net.wifi_mode() == "AP" %}selected{% endif %}>{{ _('Access Point') }}</option>
+                    <option value="Client" {% if net.wifi_mode() == "Client" %}selected{% endif %}>{{ _('Client') }}</option>
                 </select>
                 <label>{{ _('Wifi Mode') }}</label>
             </div>

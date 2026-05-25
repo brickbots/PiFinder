@@ -122,8 +122,7 @@ class ObservationsDatabase(Database):
         self.conn.commit()
 
         # Update cache so filters reflect the new observation immediately
-        if (catalog, sequence) not in self.observed_objects_cache:
-            self.observed_objects_cache.append((catalog, sequence))
+        self.observed_objects_cache.add((catalog, sequence))
 
         observation_id = self.cursor.execute(
             "select last_insert_rowid() as id"
@@ -146,9 +145,9 @@ class ObservationsDatabase(Database):
         """
         (re)Loads the logged object cache
         """
-        self.observed_objects_cache: list[tuple[str, int]] = [
+        self.observed_objects_cache: set[tuple[str, int]] = {
             (x["catalog"], x["sequence"]) for x in self.get_observed_objects()
-        ]
+        }
 
     def check_logged(self, obj_record: CompositeObject):
         """

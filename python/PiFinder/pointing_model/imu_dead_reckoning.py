@@ -10,7 +10,7 @@ NOTE: All angles are in radians.
 import numpy as np
 import quaternion
 
-from PiFinder.pointing_model.astro_coords import RaDecRoll
+from PiFinder.types.coordinates import RaDecRoll
 import PiFinder.pointing_model.quaternion_transforms as qt
 
 
@@ -101,7 +101,7 @@ class ImuDeadReckoning:
         q_x2imu: [quaternion] Raw IMU measurement quaternions. This is the IMU
             frame orientation wrt unknown drifting reference frame X.
         """
-        if not solved_cam.is_set:
+        if not solved_cam.valid:
             return  # No update
 
         # Update plate-solved coord: Camera frame relative to the Equatorial
@@ -142,8 +142,7 @@ class ImuDeadReckoning:
         dead_reckoning to indicate if the estimate is from dead-reckoning
         (True) or from plate solving (False).
         """
-        ra_dec_roll = RaDecRoll()
-        ra_dec_roll.set_from_quaternion(self.q_eq2cam)
+        ra_dec_roll = RaDecRoll.from_quaternion(self.q_eq2cam)
 
         return ra_dec_roll
 
@@ -153,8 +152,7 @@ class ImuDeadReckoning:
         to indicate if the estimate is from dead-reckoning (True) or from plate
         solving (False).
         """
-        ra_dec_roll = RaDecRoll()
-        ra_dec_roll.set_from_quaternion(self.q_eq2scope)
+        ra_dec_roll = RaDecRoll.from_quaternion(self.q_eq2scope)
 
         return ra_dec_roll
 

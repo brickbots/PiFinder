@@ -269,7 +269,16 @@ best stars you can see. Make sure your lens cap is off, and immediately PiFinder
 what it sees.... the focus point of the lens is set when your PiFinder is assembled, but it may need
 some adjustment to see the dimmest stars.
 
-Screw the lens in and out in the holder to adjust focus if needed.
+.. note::
+   **Focus is the single most common reason a PiFinder won't solve.**  Stars that look
+   perfectly sharp at the normal zoom level are often not tight enough, so always zoom in
+   to 2x and 4x with the **+/-** keys and keep adjusting until the stars are as small as
+   you can make them.
+
+Screw the lens in and out in the holder to adjust focus if needed.  If you're starting
+from scratch — a new build, or a lens that's been moved — set the lens so about 6mm of
+thread is showing (roughly the width of a pencil).  That's close to in focus and a good
+place to begin.
 
 Use the menu system to select the 'Focus' option under the 'Start' menu
 
@@ -296,7 +305,7 @@ Try to pan your scope until you see some bright object in the camera view.  You 
 to adjust focus.  Once something star-like is in the FOV and near focus, the image processing in the preview screen 
 will work properly and start dimming the background and highlighting the stars.
 
-Good focus is important for the quickest solves.  Close will work, but you should use the **+/-** keys to zoom in the view
+Good focus is important for the quickest solves.  Close will work, but you should use the **+/-** keys to zoom the view to 2x and 4x
 to get the stars as tight as you reasonably can.  If the sky is dark enough and you've got focus 
 correct, you should see the camera icon appear in the top right and the current constellation will be shown in 
 the title bar.  Congratulations, the PiFinder knows where it is pointing!
@@ -304,9 +313,18 @@ the title bar.  Congratulations, the PiFinder knows where it is pointing!
 
 .. note::
    **Can’t get a plate solve?** Check to make sure your lens cap is off, the PiFinder is not moving and
-   the lens is properly focused.
-   **Still not working?** Make sure nothing is impeding PiFinder’s view of the sky, and its 
-   lens has not dewed or fogged over.
+   the lens is properly focused — remember to zoom to 2x and 4x to judge focus, as soft stars are
+   the usual culprit.
+
+   **Still not working?** Make sure nothing is impeding PiFinder’s view of the sky, and its
+   lens has not dewed or fogged over.  A bank of high, thin cloud drifting through can also stop
+   solves at an otherwise perfect site, even when you can’t see it by eye.
+
+   **Under a bright, light-polluted sky** a longer exposure helps; under dark skies, try setting
+   the exposure to **AUTO** and letting the PiFinder choose.  (Software version 2.2.x and earlier
+   doesn’t have the AUTO exposure option — another good reason to keep your PiFinder updated.)
+
+   For more solving and setup fixes, see the :doc:`troubleshooting` page.
 
 
 Alignment
@@ -338,9 +356,15 @@ focus section above.
 
 .. image:: images/quick_start/align_intro.png
 
-In this chart view the current alignment point is shown with a Telrad style reticle. As 
+In this chart view the current alignment point is shown with a Telrad style reticle. As
 you move your telescope, this chart will update and you can zoom in and out using the **+/-**
 keys.
+
+.. note::
+   The Telrad-style reticle marks where your telescope is currently pointing *within* the
+   camera's wide 10° field of view.  It is not meant to sit in the center of the chart, so
+   seeing it off to one side — as in the image above — is completely normal and does not
+   mean your PiFinder is misaligned or faulty.
 
 Next, pick a star you can easily recognize in the sky.  This can be a bright star, or 
 a star which is part of a distinctive constellation or asterism.  You can choose any star

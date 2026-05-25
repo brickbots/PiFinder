@@ -7,13 +7,8 @@ let
     hash = "sha256-eJtBuBmsElEojXLYfYy3gQ/s2+8qjyvOYAqROe4sNO0=";
   };
 
-  # Hipparcos star catalog for starfield plotting
-  hip_main = pkgs.fetchurl {
-    url = "https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat";
-    sha256 = "1q0n6sa55z92bad8gy6r9axkd802798nxkipjh6iciyn0jqspkjq";
-  };
-
   # Stable astro data — catalogs, star patterns, ephemeris (~193MB, rarely changes)
+  # hip_main.dat is now committed to astro_data/ upstream, so cp -r picks it up.
   astro-data = pkgs.stdenv.mkDerivation {
     pname = "pifinder-astro-data";
     version = "1.0";
@@ -22,7 +17,6 @@ let
     installPhase = ''
       mkdir -p $out
       cp -r $src/* $out/
-      cp ${hip_main} $out/hip_main.dat
     '';
   };
 

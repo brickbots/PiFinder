@@ -20,6 +20,7 @@ from PiFinder.keyboard_interface import KeyboardInterface
 from PiFinder.multiproclogging import MultiprocLogging
 
 from flask import Flask, request, jsonify, send_file, redirect, session, make_response
+from urllib.parse import quote
 from flask_babel import Babel, gettext  # type: ignore[import-untyped]
 from werkzeug.routing import IntegerConverter
 from waitress import serve as waitress_serve
@@ -52,9 +53,8 @@ def auth_required(func):
         if "authenticated" in session and session["authenticated"]:
             return func(*args, **kwargs)
 
-        # Store the original URL for redirect after login
-        session["origin_url"] = request.url
-        return redirect("/login")
+        # Pass the original URL via ?next= so Safari preserves it across redirects
+        return redirect(f"/login?next={quote(request.url, safe='')}")
 
     auth_wrapper.__name__ = func.__name__
     return auth_wrapper
@@ -249,7 +249,10 @@ class Server:
         def login():
             if request.method == "POST":
                 password = request.form.get("password")
-                origin_url = session.get("origin_url", "/")
+                # Read from hidden form field (set by GET handler); fall back to session
+                origin_url = request.form.get("origin_url") or session.get(
+                    "origin_url", "/"
+                )
                 if sys_utils.verify_password("pifinder", password):
                     session["authenticated"] = True
                     session.pop("origin_url", None)
@@ -261,7 +264,8 @@ class Server:
                         error_message=gettext("Invalid Password"),
                     )
             else:
-                origin_url = session.get("origin_url", "/")
+                # Prefer ?next= URL param (set by auth_required); fall back to session
+                origin_url = request.args.get("next", session.get("origin_url", "/"))
                 return app.jinja_env.get_template("login.html").render(
                     title=gettext("Login"), origin_url=origin_url
                 )
@@ -1177,6 +1181,14 @@ class Server:
         #     )
         #     return response
 
+        try:
+            from PiFinder.api_extensions import register_api_routes
+
+            register_api_routes(app, self, require_auth=False)
+        except Exception:
+            logger.exception("Failed to register API extension routes")
+
+        @auth_required
         def gps_lock(lat: float = 50, lon: float = 3, altitude: float = 10):
             msg = (
                 "fix",

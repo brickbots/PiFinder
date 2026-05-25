@@ -142,7 +142,6 @@ kicad/PiFinder/PiFinder-backups
 .obsidian
 *.ps?
 config.json
-astro_data/hip_main.dat
 astro_data/comets.txt
 
 # 3d printing business
@@ -153,7 +152,8 @@ case/my_printer
 *.db-shm
 *.db-wal
 .devenv/
-.claude/
+**/.claude/*
+!**/.claude/skills/
 .serena/
 astro_data/comets.txt
 python/tetra3

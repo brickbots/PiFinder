@@ -14,6 +14,7 @@ from PIL import ImageChops
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.chart import get_chart_rotation_angle
 
 
 def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool:
@@ -215,26 +216,25 @@ class UIAlign(UIModule):
             last_solve_time = self.solution["solve_time"]
 
             if self.solution_is_new(last_solve_time) or force:
-                # This needs to be called first to set RA/DEC/ROLL
                 if self.align_mode:
                     # We want to use the CAMERA solve as
                     # it's not updated by the IMU and we'll be moving
                     # the reticle to the star
-                    image_obj, self.visible_stars = self.starfield.plot_starfield(
-                        self.solution["camera_solve"]["RA"],
-                        self.solution["camera_solve"]["Dec"],
-                        self.solution["camera_solve"]["Roll"],
-                        constellation_brightness,
-                        shade_frustrum=True,
-                    )
+                    chart_center = self.solution["camera_solve"]
                 else:
-                    image_obj, self.visible_stars = self.starfield.plot_starfield(
-                        self.solution["camera_center"]["RA"],
-                        self.solution["camera_center"]["Dec"],
-                        self.solution["camera_center"]["Roll"],
-                        constellation_brightness,
-                        shade_frustrum=True,
-                    )
+                    chart_center = self.solution["camera_center"]
+
+                chart_rot_angle = get_chart_rotation_angle(
+                    chart_center["RA"], chart_center["Dec"], 
+                    chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
+                    location=self.shared_state.location(), 
+                    dt=self.shared_state.datetime()
+                )
+                # This needs to be called first to set RA/DEC/chart_rot_angle
+                image_obj, self.visible_stars = self.starfield.plot_starfield(
+                        chart_center["RA"], chart_center["Dec"], chart_rot_angle, 
+                        constellation_brightness, shade_frustrum=True,
+                )
 
                 image_obj = ImageChops.multiply(
                     image_obj.convert("RGB"), self.colors.red_image
@@ -250,12 +250,20 @@ class UIAlign(UIModule):
 
                 # draw the help text
                 if not self.align_mode:
-                    # Prompt to start align
-                    hint_text = _(f"  {self._SQUARE_} START ALIGN")
+                    # TRANSLATORS: hint bar; preserve leading spaces for layout
+                    hint_text = _("  {icon} START ALIGN").format(
+                        icon=self._SQUARE_
+                    )
                 elif self.alignment_star is None:
-                    hint_text = _(f"{self._ARROWS_} SELECT STAR")
+                    # TRANSLATORS: hint bar; {icon} is a directional-arrows glyph
+                    hint_text = _("{icon} SELECT STAR").format(
+                        icon=self._ARROWS_
+                    )
                 else:
-                    hint_text = _(f"{self._SQUARE_} SAVE / 0 CANCEL")
+                    # TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
+                    hint_text = _("{icon} SAVE / 0 CANCEL").format(
+                        icon=self._SQUARE_
+                    )
                 self.draw.text(
                     (15, self.display_class.resY - self.fonts.base.height - 2),
                     hint_text,
@@ -454,8 +462,7 @@ class UIAlign(UIModule):
         if last_solve_time <= self.last_update:
             return False
         if (
-            self.solution["Roll"] is None
-            or self.solution["RA"] is None
+            self.solution["RA"] is None
             or self.solution["Dec"] is None
         ):
             return False

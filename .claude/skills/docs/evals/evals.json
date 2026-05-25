@@ -1,0 +1,34 @@
+{
+  "skill_name": "docs",
+  "evals": [
+    {
+      "id": 1,
+      "name": "feature-in-user-guide",
+      "prompt": "We just added a setting to the PiFinder. In the Settings menu there's now a 'Screen Off Timeout' option that turns the screen completely off after a period of inactivity — this is separate from the existing power-save dimming, and it's meant for very dark sites where even the dimmed screen is distracting. The choices are 30 seconds, 1 minute, 5 minutes, and Off. Please document this in the user guide so people know it exists and how to set it.",
+      "expected_output": "A new section added to docs/source/user_guide.rst (NOT the docs/user_guide.md stub) under/near the Settings Menu, written in the manual's warm second-person voice, explaining what the setting does and why (dark-site use), the four options, and how to reach it. Hardware keys/menu names styled per house conventions. Any cross-reference uses :ref:`user_guide:...` lowercase form. Builds without new Sphinx warnings.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "new-troubleshooting-page",
+      "prompt": "Can you add a Troubleshooting page to the docs? It should cover the three issues we get asked about most: the PiFinder can't get a GPS lock, the camera isn't solving (plate solving fails), and people can't connect to the PiFinder's wifi. Give a couple of likely causes and fixes for each. Make sure it actually shows up in the documentation site navigation.",
+      "expected_output": "A new docs/source/troubleshooting.rst page with a proper rST heading ladder and three sections, written in house voice, AND the page registered in the toctree in docs/source/index.rst so it appears in navigation (otherwise Sphinx flags an orphan). Cross-references to existing sections (gps/wifi/solver) use :doc:/:ref: correctly. Builds clean with -n.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "polish-how-it-works",
+      "prompt": "The 'How It Works' section at the top of the user guide reads a little flat and technical. Can you revise it so it has the same friendly, welcoming tone as the rest of the manual? Don't change what it's telling people, just the feel of it.",
+      "expected_output": "The How It Works section in docs/source/user_guide.rst rewritten in a warmer, second-person, why-first voice matching quick_start.rst — same information preserved, no broken cross-references or image paths, valid rST, no level/heading changes. Subjective; judged qualitatively for voice match.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "screenshot-a-feature",
+      "prompt": "I want the user guide's 'The Menu System' section to include a screenshot of the actual main menu. Launch the PiFinder, capture the main menu screen, turn it into a documentation-ready image, and add it to that section.",
+      "expected_output": "End-to-end screenshot pipeline: uses the pifinder-remote skill to launch the headless app and capture the live 128x128 main-menu screen, converts it with scripts/screenshot_to_doc.py into a 256x256 amber-tinted PNG, saves it under docs/source/images/user_guide/ with a role-appropriate name (not a temp/raw name), references it via a .. image:: directive in user_guide.rst's 'The Menu System' section, and stops the app cleanly. The committed image is a real captured screenshot (amber, 256x256), not a placeholder. Valid rST / clean build.",
+      "files": [],
+      "notes": "Heavier than the doc-only evals: it launches the real multi-process app. Constraints — (1) only one PiFinder instance can run at a time (binds port 80/8080, cedar on 50551), so with_skill and baseline must run SERIALLY, not in parallel; (2) the app needs the project venv + cedar-detect-server binary + object DB, which live in the main checkout and are NOT present in a fresh git worktree, so this eval must run in the main working tree (or with pf_remote --repo pointed at it), then clean up edits afterward. A live end-to-end smoke run is the practical way to validate it."
+    }
+  ]
+}

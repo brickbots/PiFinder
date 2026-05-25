@@ -92,6 +92,11 @@ def set_exposure(ui_module: UIModule) -> None:
     ui_module.command_queues["camera"].put(f"set_exp:{new_exposure}")
 
 
+def apply_brightness(ui_module: UIModule) -> None:
+    """Re-apply display + keypad brightness from current config."""
+    ui_module.command_queues["ui_queue"].put("set_brightness")
+
+
 def set_auto_exposure_zero_star_handler(ui_module: UIModule) -> None:
     """
     Sets the zero-star handler plugin for auto-exposure.

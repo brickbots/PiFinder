@@ -241,7 +241,41 @@ class DisplayST7789(DisplayBase):
         super().__init__()
 
 
+class DisplayHeadless(DisplayBase):
+    """In-memory display for remote control / automation.
+
+    Renders to a luma ``dummy`` device, which keeps the most recent frame as a
+    PIL image but draws no window and talks to no SPI hardware. This lets
+    PiFinder run on a machine with no physical display and no SDL/X session
+    (e.g. a CI box or a headless dev session) without pulling in pygame.
+
+    Nothing here feeds the API directly: the UI render loop already calls
+    ``shared_state.set_screen()`` right beside ``device.display()``, so the
+    current screen stays available over ``GET /api/screen`` no matter which
+    display driver is active. This driver simply makes the hardware-facing
+    half of that pair a no-op.
+    """
+
+    resolution = (128, 128)
+    color_mask = RED_RGB
+
+    def __init__(self):
+        # luma.core.device.dummy lives in luma.core (not the emulator package),
+        # so importing it does not require pygame to be installed.
+        from luma.core.device import dummy
+
+        self.device = dummy(
+            width=self.resolution[0],
+            height=self.resolution[1],
+            mode="RGB",
+        )
+        super().__init__()
+
+
 def get_display(display_hardware: str) -> DisplayBase:
+    if display_hardware == "headless":
+        return DisplayHeadless()
+
     if display_hardware == "pg_128":
         return DisplayPygame_128()
 

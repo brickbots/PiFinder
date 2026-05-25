@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Branch Model
+
+- **`main`** is the integration / development branch. **All PRs target `main`.**
+- **`release`** is the production branch — code is promoted from `main` to `release` as part of a release cut. Do not open PRs directly against `release`.
+- Feature branches: branch off `main` and PR back to `main`.
+
+Note: the auto-detected "Main branch" shown in the Claude Code env block may currently read `release` (because the GitHub default branch points there). Disregard that — the rule above is authoritative for this repo.
+
 ## Development Commands
 
 **Running Python**
@@ -54,6 +62,17 @@ Usual startup:
 ```bash
 python3.9 -m PiFinder.main -fh --camera debug --keyboard local -x
 ```
+
+## Reference Documentation
+
+Before working in an area of the codebase, check whether it has reference docs:
+
+- **`CONTEXT-MAP.md`** (repo root) — index of bounded contexts and how they relate. Start here for any cross-context question.
+- **`docs/ax/<area>/CONTEXT.md`** — canonical glossary for each context (Catalog, Positioning, SQM…). These define the project's vocabulary: what each domain term means, which words to avoid, and how related concepts compose. **Use these terms when reading, writing, and discussing code.**
+- **`docs/ax/<area>.md`** — architecture deep-dives (data flow, lifecycle, gotchas) alongside each CONTEXT.md.
+- **`docs/adr/NNNN-*.md`** — short architecture-decision records capturing the *why* behind non-obvious or hard-to-reverse choices.
+
+When a `CONTEXT.md` defines a term, prefer that term over synonyms in code comments, commit messages, and PR descriptions. If you encounter language in code or chat that conflicts with a CONTEXT.md, flag it.
 
 ## Architecture Overview
 

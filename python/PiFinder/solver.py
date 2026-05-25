@@ -462,6 +462,12 @@ def solver(
                         solved["RA"] = None
                         solved["Dec"] = None
                         solved["Matches"] = 0
+                        solved["camera_center"]["RA"] = None
+                        solved["camera_center"]["Dec"] = None
+                        solved["camera_center"]["Roll"] = None
+                        solved["camera_solve"]["RA"] = None
+                        solved["camera_solve"]["Dec"] = None
+                        solved["camera_solve"]["Roll"] = None
                         solution = {}
 
                         if len(centroids) == 0:
@@ -542,6 +548,7 @@ def solver(
                             else:
                                 solved["imu_pos"] = None
                                 solved["imu_quat"] = None
+
                             solved["solve_time"] = time.time()
                             solved["cam_solve_time"] = solved["solve_time"]
                             # Mark successful solve - use same timestamp as last_solve_attempt for comparison
@@ -632,9 +639,8 @@ def get_initialized_solved_dict() -> dict:
             "Dec": None,
             "Roll": None,
         },
-        "imu_pos": None,
-        "imu_quat": None,
-        "Roll_offset": 0,
+        "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first)
+        # Alt, Az [deg] of scope:
         "Alt": None,
         "Az": None,
         "solve_source": None,

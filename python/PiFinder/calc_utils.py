@@ -1,12 +1,11 @@
-from datetime import datetime
-import pytz
 import math
 import numpy as np
 from typing import Tuple, Optional
+
+import erfa  # type: ignore[import-untyped]
 from skyfield.api import (
     wgs84,
     Loader,
-    Star,
     Angle,
     position_of_radec,
     load_constellation_map,
@@ -23,52 +22,75 @@ logger = logging.getLogger("Catalogs.calc_utils")
 
 class FastAltAz:
     """
-    Adapted from example at:
-    http://www.stargazing.net/kepler/altaz.html
+    Fast spherical-trig RA/Dec -> Alt/Az conversion.
+
+    Treats catalog RA/Dec as apparent (no precession / nutation /
+    aberration). For PiFinder this is fine -- alt/az is used for
+    "above the horizon" visibility filtering, not for telescope
+    pointing. Total error vs a full apparent-place chain is ~0.3 deg
+    in 2026, dominated by J2000 -> epoch precession.
+
+    Construct once per (lat, lon, dt); call radec_to_altaz() for many
+    objects. `dt` must be timezone-aware (UTC handling via timestamp()).
     """
+
+    # GMST polynomial coefficients (IAU 1982 / Meeus Ch 12), in seconds.
+    _GMST_C0 = 67310.54841
+    _GMST_C1 = 876600.0 * 3600.0 + 8640184.812866
+    _GMST_C2 = 0.093104
+    _GMST_C3 = -6.2e-6
 
     def __init__(self, lat, lon, dt):
         self.lat = lat
         self.lon = lon
         self.dt = dt
 
-        j2000 = datetime(2000, 1, 1, 12, 0, 0)
-        utc_tz = pytz.timezone("UTC")
-        j2000 = utc_tz.localize(j2000)
-        _d = self.dt - j2000
-        days_since_j2000 = _d.total_seconds() / 60 / 60 / 24
+        # Precompute lat trig -- reused for every star.
+        self._sin_lat = math.sin(math.radians(lat))
+        self._cos_lat = math.cos(math.radians(lat))
 
-        dec_hours = self.dt.hour + (self.dt.minute / 60)
-
-        lst = 100.46 + 0.985647 * days_since_j2000 + self.lon + 15 * dec_hours
-
-        self.local_siderial_time = lst % 360
+        # IAU-1982 GMST from UTC. Earth-rotation only; nutation /
+        # equation-of-equinoxes are omitted (sub-arcsec).
+        jd = 2440587.5 + dt.timestamp() / 86400.0
+        T = (jd - 2451545.0) / 36525.0
+        gmst_sec = (
+            self._GMST_C0
+            + self._GMST_C1 * T
+            + self._GMST_C2 * T * T
+            + self._GMST_C3 * T * T * T
+        ) % 86400.0
+        # 86400 sec / 360 deg = 240 sec per degree.
+        self.local_siderial_time = (gmst_sec / 240.0 + lon) % 360.0
 
     def radec_to_altaz(self, ra, dec, alt_only=False) -> Tuple[float, Optional[float]]:
-        hour_angle = (self.local_siderial_time - ra) % 360
+        ha_rad = math.radians((self.local_siderial_time - ra) % 360.0)
+        dec_rad = math.radians(dec)
+        sin_dec = math.sin(dec_rad)
+        cos_dec = math.cos(dec_rad)
+        sin_ha = math.sin(ha_rad)
+        cos_ha = math.cos(ha_rad)
 
-        _alt = math.sin(dec * math.pi / 180) * math.sin(
-            self.lat * math.pi / 180
-        ) + math.cos(dec * math.pi / 180) * math.cos(
-            self.lat * math.pi / 180
-        ) * math.cos(hour_angle * math.pi / 180)
+        sin_alt = sin_dec * self._sin_lat + cos_dec * self._cos_lat * cos_ha
+        # Clamp for FP rounding past +/- 1.
+        if sin_alt > 1.0:
+            sin_alt = 1.0
+        elif sin_alt < -1.0:
+            sin_alt = -1.0
+        alt_deg = math.degrees(math.asin(sin_alt))
 
-        alt = math.asin(_alt) * 180 / math.pi
+        # Bennett (1982) refraction -- lifts apparent altitude above horizon.
+        if alt_deg > -1.0:
+            cot_arg = math.radians(alt_deg + 7.31 / (alt_deg + 4.4))
+            alt_deg += (1.0 / math.tan(cot_arg)) / 60.0
+
         if alt_only:
-            return alt, None
+            return alt_deg, None
 
-        _az = (
-            math.sin(dec * math.pi / 180)
-            - math.sin(alt * math.pi / 180) * math.sin(self.lat * math.pi / 180)
-        ) / (math.cos(alt * math.pi / 180) * math.cos(self.lat * math.pi / 180))
-
-        _az = math.acos(_az) * 180 / math.pi
-
-        if math.sin(hour_angle * math.pi / 180) < 0:
-            az = _az
-        else:
-            az = 360 - _az
-        return alt, az
+        # Az from north, east-positive. atan2 gives the correct quadrant.
+        y = -cos_dec * sin_ha
+        x = sin_dec * self._cos_lat - cos_dec * self._sin_lat * cos_ha
+        az_deg = math.degrees(math.atan2(y, x)) % 360.0
+        return alt_deg, az_deg
 
 
 def ra_to_deg(ra_h, ra_m, ra_s):
@@ -281,6 +303,7 @@ class Skyfield_utils:
         self.earth = self.eph["earth"]
         self.observer_loc = None  # Barycenter used to calculate the target pos
         self._observer_geoid = None  # To get geographic position (lat, long)
+        self._last_location = None  # (lat, lon, altitude) of last set_location
         self.constellation_map = load_constellation_map()
         self.ts = load.timescale()
         self._set_planet_names()
@@ -310,11 +333,16 @@ class Skyfield_utils:
         set observing location.
         lat, long are in degrees. altitude is in meters.
         """
+        # Skip the wgs84 rebuilds when the location hasn't changed -- callers
+        # like integrator/chart invoke this on every tick.
+        if self._last_location == (lat, lon, altitude):
+            return
         # Barycenter used to calculate the target position:
         self.observer_loc = self.earth + wgs84.latlon(lat, lon, altitude)
         # To get geographic position (e.g. latitude, longitude)
         # Note: We can't get this info from self.observer_loc
         self._observer_geoid = wgs84.latlon(lat, lon, altitude)
+        self._last_location = (lat, lon, altitude)
 
     def get_lat_lon_alt(self):
         """Returns the observer latitude & longitude in degrees"""
@@ -338,24 +366,47 @@ class Skyfield_utils:
 
     def radec_to_altaz(self, ra, dec, dt, atmos=True):
         """
-        returns the apparent ALT/AZ of a specfic
-        RA/DEC at the given time
+        returns the apparent ALT/AZ of a specific RA/DEC at the given time.
+
+        Implemented via erfa.atco13 (ICRS -> observed), which runs the same
+        precession / nutation / aberration / diurnal-aberration chain
+        skyfield uses, but in C; ~20x faster than the skyfield call and
+        accurate to ~arcsec for finder use. Refraction is included when
+        `atmos` is True (standard atmosphere: 1010 hPa, 10 C, 50 % RH).
         """
-        t = self.ts.from_datetime(dt)
+        if self._last_location is None:
+            raise RuntimeError("radec_to_altaz: set_location() must be called first")
+        lat, lon, altitude = self._last_location
 
-        observer = self.observer_loc.at(t)
-        # Logger.debug("radec_to_altaz: '%f' '%f' '%f'", ra, dec, dt)
-        sky_pos = Star(
-            ra=Angle(degrees=ra),
-            dec_degrees=dec,
+        # POSIX UTC seconds -> Julian Date, split into two parts to preserve
+        # precision over short intervals.
+        utc1 = 2440587.5
+        utc2 = dt.timestamp() / 86400.0
+
+        phpa = 1010.0 if atmos else 0.0  # 0 hPa disables refraction in atco13.
+        aob, zob, _hob, _dob, _rob, _eo = erfa.atco13(
+            math.radians(ra),
+            math.radians(dec),
+            0.0,
+            0.0,
+            0.0,
+            0.0,  # pmRA, pmDec, parallax, RV (unused)
+            utc1,
+            utc2,
+            0.0,  # dut1 (UT1-UTC) -- sub-arcsec impact
+            math.radians(lon),
+            math.radians(lat),
+            altitude,
+            0.0,
+            0.0,  # polar motion (unused)
+            phpa,
+            10.0,
+            0.5,
+            0.55,  # pressure, T(C), RH, wavelength(um)
         )
-
-        apparent = observer.observe(sky_pos).apparent()
-        if atmos:
-            alt, az, _distance = apparent.altaz("standard")
-        else:
-            alt, az, _distance = apparent.altaz()
-        return alt.degrees, az.degrees
+        alt_deg = 90.0 - math.degrees(zob)
+        az_deg = math.degrees(aob) % 360.0
+        return alt_deg, az_deg
 
     def get_lst_hrs(self, dt):
         """
@@ -387,6 +438,25 @@ class Skyfield_utils:
         ha_hrs = (ha_hrs + 12) % 24 - 12  # Unwrap to -12 to +12hrs
 
         return ha_hrs * 180 / 12  # Hour angle [deg]
+
+    def radec_to_pa(self, ra_deg, dec_deg, dt):
+        """
+        Returns the parallactic angle of an object at (ra, dec) as seen from an
+        observer at latitiude, lat and time, dt. See hadec_to_pa() for how
+        parallactic angle is defined.
+
+        INPUTS:
+        ra_deg: Right ascension [deg]
+        dec_deg: Declination [deg]
+        dt: Python datetime object (must be timezone-aware)
+
+        RETURNS:
+        pa_deg: Parallactic angle [deg]
+        """
+        ha_deg = self.ra_to_ha(ra_deg, dt)  # Note that HA is in deg
+        lat_deg = self._observer_geoid.latitude.degrees
+        pa_deg = hadec_to_pa(ha_deg, dec_deg, lat_deg)
+        return pa_deg  # Parallactic angle [deg]
 
     def radec_to_roll(self, ra_deg, dec_deg, dt):
         """

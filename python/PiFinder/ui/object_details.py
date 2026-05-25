@@ -256,7 +256,12 @@ class UIObjectDetails(UIModule):
                         object_diameter1=diameter1,
                         object_diameter2=diameter2,
                     )
-                except InvalidParameterError as e:
+                except (ValueError, TypeError, InvalidParameterError) as e:
+                    # mag_str / size are not always plain numbers: double stars
+                    # carry component mags like "7.0/9.5", asterisms a size like
+                    # "3°", and some objects have no magnitude. float() then
+                    # raises ValueError/TypeError; treat it like the "-"
+                    # magnitude case above and skip the contrast calc.
                     print(f"Error calculating contrast reserve: {e}")
                     self.contrast = ""
         if self.contrast is not None and self.contrast != "":
@@ -309,6 +314,9 @@ class UIObjectDetails(UIModule):
             roll = solution["Roll"]
 
         magnification = self.config_object.equipment.calc_magnification()
+        flip_image, flop_image = (
+            self.config_object.equipment.active_telescope_image_orientation()
+        )
         self.object_image = cat_images.get_display_image(
             self.object,
             str(self.config_object.equipment.active_eyepiece),
@@ -317,6 +325,8 @@ class UIObjectDetails(UIModule):
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
             magnification=magnification,
+            flip_image=flip_image,
+            flop_image=flop_image,
         )
 
     def active(self):
@@ -584,10 +594,10 @@ class UIObjectDetails(UIModule):
 
             # Add explanation about what CR means
             explanation_lines = [
-                _("CR measures object"),
-                _("visibility based on"),
-                _("sky brightness,"),
-                _("telescope, and EP."),
+                _("CR measures object"), # TRANSLATORS: Contrast reserve explanation line 1
+                _("visibility based on"), # TRANSLATORS: Contrast reserve explanation line 2
+                _("sky brightness,"), # TRANSLATORS: Contrast reserve explanation line 3
+                _("telescope, and EP."), # TRANSLATORS: Contrast reserve explanation (EP = entrance pupil) line 4
             ]
 
             for line in explanation_lines:
