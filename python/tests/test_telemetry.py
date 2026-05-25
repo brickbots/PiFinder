@@ -46,7 +46,7 @@ def _make_shared_state(location=None, dt=None):
 def _make_cfg(
     telemetry_record=False,
     telemetry_images=False,
-    imu_integrator="flat",
+    screen_direction="flat",
     mount_type="Alt/Az",
 ):
     cfg = MagicMock()
@@ -55,7 +55,7 @@ def _make_cfg(
         return {
             "telemetry_record": telemetry_record,
             "telemetry_images": telemetry_images,
-            "imu_integrator": imu_integrator,
+            "screen_direction": screen_direction,
             "mount_type": mount_type,
         }.get(key)
 
@@ -124,7 +124,7 @@ class TestTelemetryRecorder:
     def test_start_creates_session(self, tmp_path):
         with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
             rec = TelemetryRecorder()
-            cfg = _make_cfg(imu_integrator="flat")
+            cfg = _make_cfg(screen_direction="flat")
             ss = _make_shared_state()
             rec.start(cfg, ss)
             try:
@@ -444,7 +444,6 @@ class TestTelemetryPlayer:
         assert result["Matches"] == 15
         assert result["solve_source"] == "CAM"
         assert result["solve_time"] == 1000.5
-        assert result["imu_pos"] == [0.1, 0.2, 0.3]
         assert result["last_solve_attempt"] == 1000.4
         assert result["last_solve_success"] == 1000.5
         assert isinstance(result["imu_quat"], quaternion_module.quaternion)
@@ -456,7 +455,6 @@ class TestTelemetryPlayer:
         assert result["RA"] == 180.0
         assert result["solve_time"] == 1000.0
         assert result["solve_source"] == "CAM"
-        assert result["imu_pos"] is None
         assert "imu_quat" not in result
 
     def test_event_to_solve_dict_uses_recorded_source(self):

@@ -103,7 +103,7 @@ class TelemetryRecorder:
             "e": "hdr",
             "dt": dt.isoformat() if dt else None,
             "cfg": {
-                "integrator": cfg.get_option("imu_integrator"),
+                "screen_direction": cfg.get_option("screen_direction"),
                 "mount_type": cfg.get_option("mount_type"),
             },
         }
@@ -164,7 +164,6 @@ class TelemetryRecorder:
             "t": _rf(time.time()),
             "e": "imu",
             "q": _serialize_quat(imu.get("quat")),
-            "pos": _serialize_vec(imu.get("pos")),
             "mv": moving,
             "st": imu.get("status", 0),
             "gyro": _serialize_vec(imu.get("gyro")),
@@ -207,7 +206,6 @@ class TelemetryRecorder:
             if cam_is_dict and cam.get("Roll") is not None
             else None,
             "iq": _serialize_quat(solve_dict.get("imu_quat")),
-            "ip": _serialize_vec(solve_dict.get("imu_pos")),
             "matches": solve_dict.get("Matches"),
             "rmse": _rf(solve_dict["RMSE"])
             if solve_dict.get("RMSE") is not None
@@ -386,7 +384,6 @@ class TelemetryPlayer:
             "last_solve_success": event.get("lss"),
             "solve_source": event.get("src", "CAM"),
             "solve_time": event["t"],
-            "imu_pos": event.get("ip"),
         }
         iq = event.get("iq")
         if iq:
