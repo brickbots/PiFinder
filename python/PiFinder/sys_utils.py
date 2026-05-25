@@ -437,19 +437,27 @@ def _fetch_migration_sha256(version_info: dict) -> str:
     sha256 = version_info.get("migration_sha256", "")
     if sha256:
         logger.info("SYS: Using hardcoded migration SHA256")
-    else:
-        logger.warning("SYS: No SHA256 available, checksum verification disabled")
     return sha256
 
 
 def start_nixos_migration(version_info: dict) -> None:
     """
     Start the NixOS migration process in the background.
+
+    Raises ValueError if migration_url or a migration SHA256 cannot be
+    obtained — an in-place OS replacement must not run without checksum
+    verification.
     """
     url = version_info.get("migration_url", "")
-    sha256 = _fetch_migration_sha256(version_info)
     if not url:
         raise ValueError("Missing migration_url")
+    sha256 = _fetch_migration_sha256(version_info)
+    if not sha256:
+        raise ValueError(
+            "No migration SHA256 available (neither migration_sha256_url nor "
+            "migration_sha256 produced a value); refusing to migrate without "
+            "checksum verification"
+        )
 
     logger.info(f"SYS: Starting NixOS migration to {version_info.get('version', '?')}")
 

@@ -136,10 +136,11 @@ class UISoftware(UIModule):
 
         try:
             res = requests.get(
-                "https://raw.githubusercontent.com/brickbots/PiFinder/release/version.txt"
+                "https://raw.githubusercontent.com/brickbots/PiFinder/release/version.txt",
+                timeout=REQUEST_TIMEOUT,
             )
-        except requests.exceptions.ConnectionError:
-            print("Could not connect to github")
+        except requests.exceptions.RequestException:
+            logger.warning("Could not fetch release version from github")
             self._release_version = "Unknown"
             return
 
@@ -468,20 +469,22 @@ class UIMigrationProgress(UIModule):
         self.clear_screen()
         y = self.display_class.titlebar_height + 2
 
-        # Try to read progress from sys_utils
+        # Try to read progress from sys_utils. AttributeError happens when
+        # running against sys_utils_fake (no migration support); the helper
+        # itself swallows OS/JSON errors and returns {}.
         try:
             progress = sys_utils.get_migration_progress()
-            if progress:
-                try:
-                    self._progress = int(progress.get("percent", self._progress))
-                except (TypeError, ValueError):
-                    pass  # bad/missing percent — keep prior value
-                new_status = progress.get("status", self._status)
-                if isinstance(new_status, str) and new_status != self._status:
-                    self._status = new_status
-                    self._status_layout.set_text(self._status)
-        except (AttributeError, Exception):
-            pass
+        except AttributeError:
+            progress = None
+        if progress:
+            try:
+                self._progress = int(progress.get("percent", self._progress))
+            except (TypeError, ValueError):
+                pass  # bad/missing percent — keep prior value
+            new_status = progress.get("status", self._status)
+            if isinstance(new_status, str) and new_status != self._status:
+                self._status = new_status
+                self._status_layout.set_text(self._status)
 
         self.draw.text(
             (0, y),
