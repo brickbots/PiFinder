@@ -63,6 +63,7 @@ Join the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ for support 
    self
    quick_start
    user_guide
+   equipment
    troubleshooting
    catalogs
    build_guide
