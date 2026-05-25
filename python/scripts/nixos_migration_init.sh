@@ -244,13 +244,26 @@ show 70 "Migrating WiFi"
 NM_DIR="${MOUNT_NEW}/etc/NetworkManager/system-connections"
 mkdir -p "${NM_DIR}"
 
+# NM keyfile helpers — SSID becomes hex bytes (safe for any content),
+# PSK gets minimal keyfile escaping (backslash + semicolon), filename
+# is sanitized so a hostile or unusual SSID can't escape NM_DIR.
+ssid_to_hex() {
+    printf '%s' "$1" | od -An -tx1 | tr -d ' \n' | sed 's/\(..\)/\1;/g'
+}
+escape_kf() {
+    printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/;/\\;/g'
+}
+sanitize_fn() {
+    printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_'
+}
+
 if [ -f /tmp/wifi/wpa_supplicant.conf ]; then
     SSID=""
     PSK=""
     IN_NET=0
 
     while IFS= read -r line; do
-        line=$(echo "${line}" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+        line=$(printf '%s' "${line}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
 
         case "${line}" in
             network=*)
@@ -260,22 +273,30 @@ if [ -f /tmp/wifi/wpa_supplicant.conf ]; then
                 ;;
             "}")
                 if [ "${IN_NET}" = "1" ] && [ -n "${SSID}" ]; then
-                    NM_FILE="${NM_DIR}/${SSID}.nmconnection"
+                    SSID_HEX=$(ssid_to_hex "${SSID}")
+                    ID_ESC=$(escape_kf "${SSID}")
+                    FN=$(sanitize_fn "${SSID}")
+                    # Guard against empty/dotfile filenames after sanitization
+                    case "${FN}" in
+                        ""|.|..) FN="wifi" ;;
+                    esac
+                    NM_FILE="${NM_DIR}/${FN}.nmconnection"
 
                     if [ -n "${PSK}" ]; then
+                        PSK_ESC=$(escape_kf "${PSK}")
                         cat > "${NM_FILE}" <<NMEOF
 [connection]
-id=${SSID}
+id=${ID_ESC}
 type=wifi
 autoconnect=true
 
 [wifi]
 mode=infrastructure
-ssid=${SSID}
+ssid=${SSID_HEX}
 
 [wifi-security]
 key-mgmt=wpa-psk
-psk=${PSK}
+psk=${PSK_ESC}
 
 [ipv4]
 method=auto
@@ -286,13 +307,13 @@ NMEOF
                     else
                         cat > "${NM_FILE}" <<NMEOF
 [connection]
-id=${SSID}
+id=${ID_ESC}
 type=wifi
 autoconnect=true
 
 [wifi]
 mode=infrastructure
-ssid=${SSID}
+ssid=${SSID_HEX}
 
 [ipv4]
 method=auto
@@ -307,10 +328,10 @@ NMEOF
                 IN_NET=0
                 ;;
             ssid=*)
-                [ "${IN_NET}" = "1" ] && SSID=$(echo "${line}" | sed 's/^ssid="//' | sed 's/"$//')
+                [ "${IN_NET}" = "1" ] && SSID=$(printf '%s' "${line}" | sed 's/^ssid=//; s/^"//; s/"$//')
                 ;;
             psk=*)
-                [ "${IN_NET}" = "1" ] && PSK=$(echo "${line}" | sed 's/^psk="//' | sed 's/"$//')
+                [ "${IN_NET}" = "1" ] && PSK=$(printf '%s' "${line}" | sed 's/^psk=//; s/^"//; s/"$//')
                 ;;
         esac
     done < /tmp/wifi/wpa_supplicant.conf
