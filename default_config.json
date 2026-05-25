@@ -146,7 +146,7 @@
                 "obstruction_perc": 17.0,
                 "mount_type": "alt/az",
                 "flip_image": false,
-                "flop_image": true,
+                "flop_image": false,
                 "reverse_arrow_a": false,
                 "reverse_arrow_b": false
             }
