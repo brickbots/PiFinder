@@ -206,3 +206,47 @@ Frequently Asked Questions
    Yes.  You can type in an arbitrary RA/Dec for objects that aren't in the built-in
    catalogs — handy for asteroids, comets, or newly discovered objects — and you can also
    send targets to the PiFinder from SkySafari.
+
+**Can I use the PiFinder on an EQ mount?**
+   Yes — the PiFinder works with any mount, and plate solving behaves the same whatever the
+   mount type.  Switch it to EQ mode in the :ref:`user_guide:settings menu` by setting
+   "Mount Type" to EQ, which presents Push-To distances in RA/Dec instead of Alt/Az.  On
+   software 2.5.0 and earlier the accelerometer tracking does not work correctly in EQ
+   mode, so the Push-To numbers are unreliable while you move the scope; once you stop and
+   the camera solves, the correct distances appear.  From version 2.6.0 on, EQ mode is
+   fully supported with accelerometer tracking.
+
+**Can I control my motorized (GoTo) mount with the PiFinder?**
+   Not yet — this is in active development.  It will rely on INDI support for your mount,
+   so even once the software is ready it may not work with every mount; check INDI's
+   supported-mount list at http://drivers.indilib.org/mounts/.  There is no arrival date
+   yet, as it depends on a planned move to a newer operating-system distribution with a
+   more current version of INDI.
+
+**The operating system clock is wrong — does that matter?**
+   No.  The PiFinder is built to run standalone without internet, and the Raspberry Pi has
+   no real-time clock, so it cannot keep accurate time on its own.  It saves the time at
+   shutdown and reads it back at startup as a rough estimate, which can be off by days if
+   the unit has been powered down for a while.  The software does not trust the system
+   clock — it uses GPS time for everything except log-file timestamps.
+
+   To sync the system clock to GPS time, run these commands in a terminal on the PiFinder:
+
+   .. code-block:: bash
+
+      sudo apt update
+      sudo apt install chrony
+
+   Then add the following to ``/etc/chrony/chrony.conf`` before the ``pool`` directive:
+
+   .. code-block:: text
+
+      refclock SHM 0 poll 3 refid gps1
+
+   This lets chrony use GPS time as a reference.  In WiFi client mode chrony will usually
+   prefer internet NTP servers over GPS, so the OS time may still be a second or two off.
+   When running off-grid, the system clock stays inaccurate until you get a GPS lock.
+
+Have another question?  Send it to `info@PiFinder.io <mailto:info@pifinder.io>`_ and I'll
+do my best to help, and maybe add it here.  Better yet, fork the repo and contribute the
+answer via a pull request.
