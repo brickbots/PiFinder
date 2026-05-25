@@ -7,6 +7,11 @@ Each has a short catalog code displayed on the PiFinder UI.  You can select whic
 are active via the :ref:`Filters<user_guide:filters>`
 menu.
 
+A few of these catalogs — the Washington Double Star catalog especially — hold far too many
+entries to scroll through.  For those, use **Name Search** to jump straight to an object by
+its designation, or sort a list by **Nearest** to surface the objects closest to where your
+scope is currently pointed.
+
 Abl
 ----
 The Abell Catalog of Planetary Nebulae (1966 by George O. Abell) contains 79 entries confirmed to be planetary nebulae.
@@ -44,6 +49,10 @@ This catalog compiled was by William E. Harris and used by permisson.
 IC
 ----------
 IC catalog
+
+Lyn
+----
+Open Cluster Data, 5th Edition (Lyngå 1987) — 1,151 open clusters.
 
 M
 ----------
@@ -83,7 +92,14 @@ Ta2
 ----------
 The TAAS 200 deep sky astronomical observing list designed for the intermediate observer, and includes the best 200 non Messier objects easily visible from central New Mexico, (objects north of declination -48).
 
+TLK
+----
+TLK's hand-picked list of interesting variable stars visible from the northern hemisphere.
+
 WDS
 ----
-Washington Double Star catalog with over 150,000 double star pairs
-For more information on WDS, pleased see: `https://www.astro.gsu.edu/wds/ <https://www.astro.gsu.edu/wds/>`_
+The Washington Double Star Catalog — the PiFinder includes over 130,000 double and multiple
+star pairs from it.  Because the full list is far too long to scroll, find a pair with
+**Name Search** (type its WDS designation) or sort the list by **Nearest** to bring up the
+doubles closest to where your scope is pointing.
+For more information on WDS, please see: `https://www.astro.gsu.edu/wds/ <https://www.astro.gsu.edu/wds/>`_

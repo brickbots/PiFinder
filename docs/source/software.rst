@@ -46,6 +46,11 @@ for using the PiFinder, no matter how you have built/purchased one.
 * Click the 'Select Storage' button and choose the SD card on your computer
 * Then click the 'Write' button to start.
 
+.. note::
+   If the imager reports that the image is **"not a multiple of 512 bytes"** (or otherwise
+   refuses to write it), the download was incomplete or corrupted.  Download the release
+   image again and retry.
+
 Once the image writing is complete, you can insert the SD card into your PiFinder and power it up.  The first boot will take a bit longer as it will expand the filesystem to fill the entire SD card, so be patient.
 
 Now that you have the software installed, you're ready to hit the :doc:`Quick Start Guide<quick_start>` to get ready for a night of observing!
