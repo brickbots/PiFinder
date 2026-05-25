@@ -493,8 +493,8 @@ def _make_shared_state(state: str) -> SharedStateObj:
             # Solver diagnostics several screens read off a CAM solve.
             diagnostics=SolveDiagnostics(Matches=12, RMSE=0.5, FOV=10.2),
         )
+        # set_solution derives solve_state from has_pointing() (True here).
         shared_state.set_solution(solved)
-        shared_state.set_solve_state(True)
     return shared_state
 
 

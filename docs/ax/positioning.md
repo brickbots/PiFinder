@@ -172,15 +172,16 @@ when plate-solves are sparse or fail. It runs another tight loop.
      `solve_time`), diagnostics, alignment, and the `matched_*` fields.
    - Reseed the dead-reckoner:
      `idr.solve(camera.as_radecroll(), aligned.as_radecroll(), imu_anchor)`.
-   - Mark `solve_source = CAMERA`, set `pointing_updated = True`, and call
-     `set_solve_state(True)`.
+   - Mark `solve_source = CAMERA` and set `pointing_updated = True`. (The
+     publish in step 5 sets `solve_state` via `set_solution`.)
 3. **If a `FailedSolve` arrived** (`_apply_failed_solve`):
    - **Preserve** the `solve` cells and `imu_anchor` (the anchor must
      survive so dead-reckoning continues), refresh `diagnostics` / timing /
      `solve_source = CAMERA_FAILED`, blank `constellation`, and **clear**
      the `estimate` cells.
-   - Publish immediately with `set_solution(...)` + `set_solve_state(False)`
-     so auto-exposure sees `diagnostics.Matches=0`.
+   - Publish immediately with `set_solution(...)`; because the `estimate`
+     cells were cleared, this derives `solve_state = False`, and
+     auto-exposure sees `diagnostics.Matches=0`.
 4. **If no camera solve was applied and `idr.is_initialized()` and we have
    an anchor** (`_advance_with_imu`):
    - Read `shared_state.imu()`.
@@ -197,8 +198,8 @@ when plate-solves are sparse or fail. It runs another tight loop.
    - Fill `constellation` from `pointing.aligned.estimate`.
    - Compute `Alt`, `Az` from `pointing.aligned.estimate` + GPS location +
      current datetime.
-   - Call `shared_state.set_solution(deepcopy(estimate))` and
-     `set_solve_state(True)`.
+   - Call `shared_state.set_solution(deepcopy(estimate))`, which derives
+     `solve_state = True` from the populated `aligned.estimate`.
 
 ### 4.3 Why the integrator preserves its own `solve` cells
 
@@ -339,9 +340,12 @@ read the record by polling `shared_state.solution()` (which returns a
 - **Catalogs** — use `pointing.aligned.estimate` (and `Alt`/`Az` when
   available) to compute visibility and "near me" lists.
 
-`shared_state.set_solve_state(bool)` is a separate, lighter signal that
-tells consumers whether a current solution exists (used by the UI to
-show the "no solve" indicator).
+`shared_state.solve_state()` is a cheap-to-poll cache of
+`solution().has_pointing()` — the bool tells consumers whether a current
+pointing exists (used by the UI to show the "no solve" indicator) without
+round-tripping the whole `PointingEstimate` across the manager proxy every
+frame. It is written **only** by `set_solution`, which derives it from
+`has_pointing()`, so the two can never drift.
 
 ---
 

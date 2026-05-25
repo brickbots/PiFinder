@@ -94,12 +94,13 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
             if isinstance(solve_result, SuccessfulSolve):
                 estimate = _apply_successful_solve(estimate, solve_result, idr)
-                shared_state.set_solve_state(True)
                 pointing_updated = True
             elif isinstance(solve_result, FailedSolve):
                 estimate = _apply_failed_solve(estimate, solve_result)
+                # set_solution derives solve_state from has_pointing(); the
+                # failed solve cleared the estimate cells, so this publishes
+                # the cleared pointing with solve_state=False.
                 shared_state.set_solution(copy.deepcopy(estimate))
-                shared_state.set_solve_state(False)
 
             # 2. If we have an anchor and didn't just do a fresh plate-solve,
             #    try to advance the estimate via IMU dead-reckoning.
@@ -130,7 +131,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 )
 
                 shared_state.set_solution(copy.deepcopy(estimate))
-                shared_state.set_solve_state(True)
                 last_solve_time = estimate.solve_time
 
     except EOFError:

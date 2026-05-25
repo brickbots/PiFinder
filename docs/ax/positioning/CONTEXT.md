@@ -17,8 +17,8 @@ Tag on the record recording who produced the current pointing. New `SolveSource`
 _Avoid_: origin, source.
 
 **`solve_state`**:
-Boolean flag on `shared_state` indicating whether *any* current pointing solution exists. Separate from the `PointingEstimate` so the UI can poll cheaply.
-_Avoid_: is_solved, has_pointing.
+Boolean flag on `shared_state` indicating whether *any* current pointing exists — the cheap-to-poll cache of `solution().has_pointing()`, kept as a bare bool so the UI need not round-trip the whole `PointingEstimate` across the manager proxy every frame. Written only by `set_solution` (which derives it from `has_pointing()`); never set independently.
+_Avoid_: is_solved (for the flag's name). Note the value mirrors `PointingEstimate.has_pointing()` — that method is the source of truth; `solve_state` is its shared-state cache.
 
 ### Coordinates: the 2 × 2 matrix
 

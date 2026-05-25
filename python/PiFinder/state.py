@@ -386,6 +386,10 @@ class SharedStateObj:
 
     def set_solution(self, v: PointingEstimate):
         self.__solution = v
+        # solve_state is the cheap-to-poll cache of "does a current pointing
+        # exist?" -- exactly solution().has_pointing(). Derive it here so the
+        # two can never drift and callers can't forget to update it.
+        self.__solve_state = v.has_pointing()
 
     def location(self):
         """Return the current location"""
