@@ -379,13 +379,16 @@ in the current handler new items are appended/deduped rather than wiped.
   `flop_image: false`). But because the default template is *frozen* into a
   user's config the first time they select active gear (§3.2), fixing the
   default alone cannot repair already-persisted configs; per ADR 0003 those
-  are meant to be repaired by a post-update migration via
-  `pifinder_post_update.sh`. **Discrepancy flagged:** at the time of writing
-  no flop-repair step exists in `pifinder_post_update.sh` or under
-  `migration_source/` — the latest migration (`v2.4.0.sh`) only installs the
-  cedar-detect service. The repair migration described by ADR 0003 still
-  needs to be added. If a Dob's object image looks mirrored, clearing
-  `flop` on that telescope fixes it.
+  are repaired by a post-update migration via `pifinder_post_update.sh`. That
+  repair ships as `migration_source/v2.6.0.sh` (version-gated by the
+  `…/migrations/v2.6.0` marker), which invokes
+  `PiFinder/migrations/v2_6_0_dob_flop.py` to clear `flop_image` on any
+  persisted copy of the bad default. The match is a conservative
+  full-signature one (`make`/`name`/`aperture_mm`/`focal_length_mm`/`mount_type`
+  plus `flip==false && flop==true`), so it only touches the untouched shipped
+  default and is idempotent. If a Dob's object image still looks mirrored —
+  e.g. the user customized the record enough that it no longer matches the
+  signature — clearing `flop` on that telescope fixes it.
 
 - **flip vs flop axis confusion.** flip = **top-to-bottom** (vertical)
   mirror (`Image.FLIP_TOP_BOTTOM`); flop = **left-to-right** (horizontal)
