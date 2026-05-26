@@ -26,7 +26,7 @@ GITHUB_REPO = "brickbots/PiFinder"
 GITHUB_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
 GITHUB_PULLS_URL = f"https://api.github.com/repos/{GITHUB_REPO}/pulls"
 GITHUB_RAW_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}"
-MIN_NIXOS_VERSION = "2.5.0"
+MIN_NIXOS_VERSION = "3.0.0"
 REQUEST_TIMEOUT = 10
 _PR_VERSION_RE = re.compile(r"^PR#(\d+)-")
 

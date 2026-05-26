@@ -364,10 +364,15 @@ def load_source(name, path):
         pname = "simplejpeg";
         version = "1.9.0";
         format = "wheel";
-        src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/88/8b/d8ca384f1362371d61690d7460d3ae4cec4a5a25d9eb06cd15623de3725a/simplejpeg-1.9.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl";
-          hash = "sha256-oMN1Ew9zuwgimj3tOS2E7i2Raz6H5+xdKsTke3FENGo=";
-        };
+        src = pkgs.fetchurl (
+          if pkgs.stdenv.hostPlatform.isAarch64 then {
+            url = "https://files.pythonhosted.org/packages/88/8b/d8ca384f1362371d61690d7460d3ae4cec4a5a25d9eb06cd15623de3725a/simplejpeg-1.9.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl";
+            hash = "sha256-oMN1Ew9zuwgimj3tOS2E7i2Raz6H5+xdKsTke3FENGo=";
+          } else {
+            url = "https://files.pythonhosted.org/packages/cf/0a/58d6d8e997ee01486cfcfd4406a74638f2f63bb65122694b10411dadf1d5/simplejpeg-1.9.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
+            hash = "sha256-0A/rHMA0iroKQdttvaTbRo25IJmxs9RzFZ5vaKqZB5U=";
+          }
+        );
         propagatedBuildInputs = [ self.numpy ];
         doCheck = false;
       };
@@ -449,6 +454,7 @@ except ImportError:
     # Packages from nixpkgs
     numpy
     quaternion
+    pyerfa
     scipy
     scikit-learn
     pillow
@@ -510,7 +516,7 @@ except ImportError:
   );
 
   devEnv = pifinderPython.withPackages (ps:
-    commonPackages ps ++ devPackages ps
+    commonPackages ps ++ hardwarePackages ps ++ devPackages ps
   );
 
 in {

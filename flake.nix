@@ -364,11 +364,25 @@
     };
 
     devShells.x86_64-linux.default = let
-      pkgs = import nixpkgs { system = "x86_64-linux"; };
+      pkgs = import nixpkgs {
+        system = "x86_64-linux";
+        overlays = [(final: prev: {
+          libcamera = prev.libcamera.overrideAttrs (old: {
+            mesonFlags = (old.mesonFlags or []) ++ [ "-Dpycamera=enabled" ];
+            buildInputs = (old.buildInputs or []) ++ [
+              final.python313
+              final.python313.pkgs.pybind11
+            ];
+          });
+        })];
+      };
       pyPkgs = import ./nixos/pkgs/python-packages.nix { inherit pkgs; };
       cedar-detect = import ./nixos/pkgs/cedar-detect.nix { inherit pkgs; };
     in pkgs.mkShell {
       packages = [ pyPkgs.devEnv pkgs.ruff cedar-detect ];
+      shellHook = ''
+        export PYTHONPATH="${pkgs.libcamera}/lib/python3.13/site-packages:$PYTHONPATH"
+      '';
     };
   };
 }
