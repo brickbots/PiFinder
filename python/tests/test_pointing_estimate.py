@@ -411,9 +411,17 @@ class TestIntegratorFailedSolve:
             RA=10.5, Dec=20.5, Roll=0.0
         )
         assert integrator_estimate.imu_anchor == previous_anchor
-        # estimate cells cleared.
-        assert integrator_estimate.pointing.camera.estimate is None
-        assert integrator_estimate.pointing.aligned.estimate is None
+        # estimate cells PRESERVED: once anchored, a failed solve must not
+        # drop to "no solve" — dead-reckoning still knows where we point.
+        assert integrator_estimate.pointing.camera.estimate == Pointing(
+            RA=10.0, Dec=20.0, Roll=0.0
+        )
+        assert integrator_estimate.pointing.aligned.estimate == Pointing(
+            RA=10.5, Dec=20.5, Roll=0.0
+        )
+        assert integrator_estimate.has_pointing() is True
+        # Source flips to CAMERA_FAILED but solve_state (has_pointing) holds.
+        assert integrator_estimate.solve_source == SolveSource.CAMERA_FAILED
         # Diagnostics refreshed.
         assert integrator_estimate.diagnostics.Matches == 0
         assert integrator_estimate.last_solve_attempt == pytest.approx(200.0)

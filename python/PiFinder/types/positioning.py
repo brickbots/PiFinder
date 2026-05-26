@@ -377,8 +377,10 @@ class FailedSolve:
 
     Carries only the diagnostics and timing the integrator needs to
     refresh auto-exposure and dedupe stale frames. Triggers the
-    integrator to preserve its ``solve`` cells + anchor, clear the
-    ``estimate`` cells, and publish with ``solve_source=CAMERA_FAILED``.
+    integrator to preserve its ``solve`` cells + anchor **and** its
+    ``estimate`` cells (so once anchored, dead-reckoning keeps a pointing
+    and ``solve_state`` stays true), refresh diagnostics, and publish with
+    ``solve_source=CAMERA_FAILED``.
     """
 
     diagnostics: SolveDiagnostics = field(default_factory=SolveDiagnostics)

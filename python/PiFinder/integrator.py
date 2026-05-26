@@ -99,9 +99,11 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 pointing_updated = True
             elif isinstance(solve_result, FailedSolve):
                 estimate = _apply_failed_solve(estimate, solve_result)
-                # set_solution derives solve_state from has_pointing(); the
-                # failed solve cleared the estimate cells, so this publishes
-                # the cleared pointing with solve_state=False.
+                # Publish unconditionally so auto-exposure sees the failed
+                # attempt (Matches=0, fresh last_solve_attempt). The estimate
+                # cells are preserved, so once anchored this keeps solve_state
+                # True and the last pointing visible; the IMU advance below
+                # progresses it when motion exceeds the deadband.
                 shared_state.set_solution(copy.deepcopy(estimate))
 
             # 2. If we have an anchor and didn't just do a fresh plate-solve,
@@ -193,17 +195,21 @@ def _apply_failed_solve(
     """Apply a :class:`FailedSolve` onto the long-lived estimate.
 
     Preserves the ``solve`` cells and ``imu_anchor`` (the anchor must
-    survive so dead-reckoning continues), refreshes diagnostics/timing,
-    sets ``solve_source=CAMERA_FAILED``, and clears the ``estimate``
-    cells so consumers stop reading a stale camera pointing.
+    survive so dead-reckoning continues) and refreshes diagnostics/timing
+    with ``solve_source=CAMERA_FAILED``.
+
+    The ``estimate`` cells are **preserved**, not cleared: once anchored,
+    the last (IMU-progressed) pointing remains the best available answer
+    and the IMU advance progresses it on subsequent loops. Clearing them
+    here would drop ``solve_state`` to False ("no solve") whenever a solve
+    failed while the IMU sat in its deadband — even though dead-reckoning
+    still knows where we point. ``estimate_time`` is likewise left intact;
+    a fresh epoch only attaches when the IMU actually advances the cells.
     """
     estimate.diagnostics = result.diagnostics
     estimate.last_solve_attempt = result.last_solve_attempt
     estimate.last_solve_success = result.last_solve_success
     estimate.solve_source = SolveSource.CAMERA_FAILED
-    estimate.constellation = ""  # may be overwritten below by IMU
-    estimate.pointing.camera.estimate = None
-    estimate.pointing.aligned.estimate = None
     return estimate
 
 
