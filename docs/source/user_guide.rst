@@ -417,10 +417,13 @@ As an example, here are the images available for M57
    :alt: Catalog Image
 
 
-These images are oriented as they would be through the eyepiece in a Newtonian reflector 
-pointing at a specific area of the sky from your current location.   You can 
+These images are oriented to match the view through your eyepiece for the
+telescope you're using, pointing at a specific area of the sky from your current
+location.  By default they're oriented for a Newtonian reflector; if you use a
+refractor or an SCT with a star diagonal, set the orientation options for your
+telescope as described in :doc:`equipment`.  You can
 use the **+** and **-** keys to switch between the field of view provided by the different
-eyepieces you configured via the :ref:`user_guide:Web Interface` 
+eyepieces you configured via the :ref:`user_guide:Web Interface`
 
 The bottom left of the screen shows the source of the current image and the left side shows the current FOV information.
 
@@ -472,7 +475,8 @@ that are not observing related but provide useful information about the PiFinder
 
 .. image:: images/user_guide/tools_menu_docs.png
 
-- :ref:`Status<user_guide:status screen>`: General info about about the PiFinder operation. 
+- :ref:`Status<user_guide:status screen>`: General info about about the PiFinder operation.
+- :doc:`Equipment <equipment>`: Choose your active telescope and eyepiece, and see the resulting magnification and field of view.
 - Console: Shows messages from various PiFinder subsystems
 - :ref:`Software Upd<user_guide:update software>`: Updates the software of your PiFinder.  
 - Test Mode: Puts the PiFinder into a demo/debug mode which loads and solves an image from disk.  Will prevent proper operation at night, but allows exploration of PiFinder features during the day.
@@ -558,6 +562,7 @@ The PiFinder provides an easy to use web interface which allows you to:
 * See the current PiFinder status
 * Remote control the PiFinder via a virtual screen and keypad
 * Change network settings and connect to new WiFi networks
+* Add and edit your telescopes and eyepieces (see :doc:`equipment`)
 * Backup and restore your observing logs, settings and other data
 * View and download your logged observations
 
@@ -647,6 +652,10 @@ Update Software
 The PiFinder offers a way to download and install software updates directly from the PiFinder screen and 
 keypad.  To start this process you can choose Software Upd from the :ref:`user_guide:tools`
 
+Updates happen right on the device — there is no need to send your PiFinder anywhere.  New
+units often ship a version or two behind the latest release, so running an update is a
+normal part of your first night out.
+
 .. image:: images/user_guide/software_update_01_docs.png
 
 The PiFinder will need to be connected to the internet, so you'll need to have it in Client Mode and connected
@@ -656,6 +665,14 @@ The PiFinder will check to make sure it can access the internet then compare the
 the version installed.  
 
 .. image:: images/user_guide/software_update_02_docs.png
+
+.. note::
+   If the release version shows as **unknown**, the PiFinder cannot reach the internet to
+   check — it is either in Access Point mode or its WiFi is not configured.  Put it in
+   Client mode on a network with internet access (see
+   :ref:`user_guide:connecting to a new wifi network`); re-imaging the SD card is not the
+   fix for this.  If WiFi is configured but the check still fails, move closer to the
+   router or re-enter the network details.
 
 If a new version is available, you can use the presented option to start the update.  This may take several minutes
 and the PiFinder will restart when it's done.  
@@ -674,53 +691,4 @@ Instructions for writing software release images to an SD card can be found on t
 FAQ
 ====
 
-Have any other questions?  Please send them through to me at `info@PiFinder.io <mailto:info@pifinder.io>`_ and I'll do my best to help and potentially add your question here.  Better yet, feel free to fork this repo and contribute via a pull request!
-
-The operating system clock of PiFinder is off?!?
---------------------------------------------------
-
-PiFinder is designed to run standalone, with-out internet. The Raspberry Pi does not have a real-time clock, so it cannot keep track of time accurately without an internet connection. 
-It stores the current time in a file when it shuts down and reads that time when it starts up to get an estimate of the current time, but this will be off by several days or more if the PiFinder has been off for a while.
-Therefore we cannot rely on the system clock being correct. The PiFinder software only trusts the GPS time and does not use system time. There's one exception and that is for timestamps 
-in log files. 
-
-If you want to synchronize the system clock to the GPS time, you can run the following commands from a terminal on the PiFinder:
-
-.. code-block:: bash
-
-   sudo apt update
-   sudo apt install chrony
- 
-Then in /etc/chrony/chrony.conf add 
-
-.. code-block:: text
-
-   refclock SHM 0 poll 3 refid gps1
- 
-before the „pool“ directive. 
-
-This enables chrony to use the GPS time as a reference and will keep the system clock synchronized with GPS time.
-If you're using PiFinder, when connected to the WiFi (in client mode), chrony will very probably prefer internet NTP servers over the GPS time, so 
-OS time may still be a couple of seconds off. 
-
-Note that when running off grid, and until you get a GPS lock, the system clock will still be off and timestamps in the log may still be inaccurate. 
-
-Can I use the PiFinder on an EQ mount?
-----------------------------------------
-
-The PiFinder works with any mount, including EQ mounts.  The plate solving will work the same regardless of mount type. You can switch PiFinder to EQ mode by navigating 
-to :ref:`user_guide:settings menu` and changing the "Mount Type" to EQ.  This will change the Push-To instructions to be in RA/Dec instead of Alt/Az (indicating +/- in both axes).  
-
-In prior versions of the software (2.5.0 and less) the accelerometer-based tracking will not work correctly in EQ mode.  This means that the Push-To instructions will be strange when 
-you move the scope, but when you stop moving and the camera can plate solve, the real distances to the target will be shown.
-
-From version 2.6.0 on, EQ mode will be fully supported with accelerometer tracking.
-
-Can I control my motorized mount with the PiFinder?
------------------------------------------------------
-
-Not yet. Development of this functionality is ongoing. Note that this feature will depend on INDI support for your mount, so even when we have the software ready, it may not work with all mounts. 
-Please check INDI's list of supported mounts to see if yours is supported: http://drivers.indilib.org/mounts/
-
-Most likely this will be based on another improvement, that we are working on, which updates the operating system to a different distribution, 
-which will allow us to use a more recent version of INDI that has better support for current mounts. Therefore we do not have an arrival date for this feature yet. 
+Frequently asked questions now live on the :doc:`Troubleshooting & FAQ <troubleshooting>` page.

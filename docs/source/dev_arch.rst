@@ -2,8 +2,17 @@
 Architecture
 ================
 
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED",  
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED",
 "MAY", and "OPTIONAL" in this page are to be interpreted as described in `RFC 2119 <https://datatracker.ietf.org/doc/html/rfc2119>`_.
+
+.. note::
+
+   This page describes the system-wide architecture. Per-context detail — the
+   vocabulary, data flow and design decisions for each slice of the system
+   (Catalog, Positioning, SQM, Equipment, UI) — lives in the repository under
+   ``CONTEXT-MAP.md`` and ``docs/ax/``. See
+   :ref:`dev_guide:reference documentation and ai assistant skills` for how that
+   documentation is organised.
 
 Solution Platform Constraints
 --------------------------------
