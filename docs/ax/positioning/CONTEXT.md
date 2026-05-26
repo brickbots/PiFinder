@@ -102,7 +102,7 @@ The message the solver puts on `solver_queue` describing one plate-solve attempt
 _Avoid_: snapshot, solved dict, solution record.
 
 **`SuccessfulSolve`**:
-The `SolveResult` variant carrying solve-truth: **flat** `camera` and `aligned` `Pointing`s (no `solve`/`estimate` split — the solver never IMU-progresses), the IMU anchor (`Optional` — a solve can succeed on a frame with no IMU sample), one `solve_time`, `SolveDiagnostics`, `AlignmentResult`, and the matched-star arrays. The integrator fans `camera`/`aligned` into both the `solve` and `estimate` cells and reseeds the dead-reckoner.
+The `SolveResult` variant carrying solve-truth: **flat** `camera` and `aligned` `Pointing`s (no `solve`/`estimate` split — the solver never IMU-progresses), the IMU anchor (`Optional` — a solve can succeed on a frame with no IMU sample), `last_solve_attempt` / `last_solve_success` (the solved frame's `exposure_end`), `SolveDiagnostics`, `AlignmentResult`, and the matched-star arrays. The integrator fans `camera`/`aligned` into both the `solve` and `estimate` cells, reseeds the dead-reckoner, and promotes `last_solve_success` to `estimate_time` (there is no separate `solve_time` on the message).
 _Avoid_: solved estimate, PointingEstimate (a `SuccessfulSolve` is not one).
 
 **`FailedSolve`**:
@@ -127,6 +127,12 @@ _Avoid_: last_try, last_solve_time (different field).
 The `exposure_end` of the most recent **successful** plate-solve.
 _Avoid_: last_ok.
 
+### Timing
+
+**`estimate_time`**:
+The measurement **epoch** of the data behind the *current* `estimate` — i.e. *when the reading this value is based on was captured*, not when the integrator computed or published it. For a camera estimate it is the frame's `exposure_end`; for an IMU-progressed estimate it is the IMU sample's `timestamp`. Both sit on the same `time.time()` wall clock, so `time.time() - estimate_time` is a true "age of the fix" regardless of source. Updated on **every** estimate — each plate-solve and each IMU advance. Right after a solve `estimate_time == last_solve_success`; between solves the IMU advances `estimate_time` to each sample's epoch while `last_solve_success` stays anchored.
+_Avoid_: solve_time (legacy name — "solve" is reserved for plate-solve; this value is an *estimate*, often IMU-derived), cam_solve_time (removed), publish time, integration time. Whether the current estimate is the raw plate-solve or IMU-progressed is told by `solve_source` (`is_camera_solve()`), **not** by comparing timestamps.
+
 ### Integration
 
 **Integrator** (the process):
@@ -148,6 +154,14 @@ _Avoid_: q_cam2scope (earlier working name), cam-to-scope offset.
 **IMU**:
 The BNO055 sensor that supplies orientation. Sampled by the IMU process; read by the integrator via `shared_state.imu()`.
 _Avoid_: gyro, sensor.
+
+**`ImuSample`**:
+A single IMU orientation reading carried on `shared_state` (via `set_imu()` / `imu()`) and bundled into each camera frame's metadata. Holds the scalar-first `quat`, the BNO055 calibration `status`, a `moving` flag, and a `timestamp` (the sample epoch — see below). Defined in `PiFinder/types/positioning.py`; `is_calibrated()` is true at `status == 3`.
+_Avoid_: imu dict (the legacy `{"quat", "status", "moving", ...}` form it replaces), the unused `move_start` / `move_end` keys (dropped).
+
+**`timestamp`** (on `ImuSample`):
+The wall-clock (`time.time()`) instant at which the IMU process sampled this orientation. The IMU-side input to `estimate_time` when the integrator dead-reckons from this sample. Distinct from the moment the integrator *reads* the sample (which lags it by the IMU → `shared_state` → integrator latency).
+_Avoid_: read time, integration time.
 
 **IMU quaternion** (`imu_quat`, `q_x2imu`):
 Unit quaternion (scalar-first) describing the IMU's orientation in its world frame. The name `q_x2imu` reads as "transform from frame `x` to IMU frame."
@@ -207,6 +221,8 @@ _Avoid_: align queue (singular — there are two).
 - **"Target pixel"** vs the **`aligned`** axis — the *pixel* is `(Y, X)` in image space, produced by alignment; the *axis* is the RA/Dec direction at that pixel. Don't say "target pixel" when you mean the direction; don't say "aligned" when you mean the pixel.
 - **"Solution"** — be specific: `shared_state.solution()` returns the latest published `PointingEstimate`. The latest plate-solve values are the `solve` state inside; the current values consumers see are the `estimate` state.
 - **Legacy `solved` dict** — historical name for the pre-dataclass position record. Code now uses `PointingEstimate`; the term may appear in old commits and PR descriptions but should not appear in current code or prose.
+- **"Solve" means plate-solve — always** — a "solve" is a camera plate-solve event or its resulting value (the `solve` state, `last_solve_attempt`, `last_solve_success`). It is **never** an IMU-derived value. The current value (which the IMU may have progressed) is the **estimate**, and its epoch is **`estimate_time`**, never "solve_time".
+- **Removed legacy timing names** — `solve_time` was renamed to `estimate_time` (it is an estimate, not a solve, and is often IMU-derived). `cam_solve_time` was removed: under epoch semantics it was value-identical to `last_solve_success`, and the "is the live value still the raw camera solve?" question is answered by `solve_source` / `is_camera_solve()` rather than a `solve_time == cam_solve_time` timestamp comparison.
 
 ## Example dialogue
 

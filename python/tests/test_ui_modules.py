@@ -486,8 +486,7 @@ def _make_shared_state(state: str) -> SharedStateObj:
             Alt=45.0,
             Az=120.0,
             solve_source=SolveSource.CAMERA,
-            solve_time=now,
-            cam_solve_time=now,
+            estimate_time=now,
             last_solve_success=now,
             constellation="Ori",
             # Solver diagnostics several screens read off a CAM solve.

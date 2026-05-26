@@ -196,9 +196,9 @@ class UIAlign(UIModule):
             self.animate_fov()
             constellation_brightness = 64
             self.solution = self.shared_state.solution()
-            last_solve_time = self.solution.solve_time
+            last_estimate_time = self.solution.estimate_time
 
-            if self.solution_is_new(last_solve_time) or force:
+            if self.solution_is_new(last_estimate_time) or force:
                 if self.align_mode:
                     # We want to use the CAMERA solve as
                     # it's not updated by the IMU and we'll be moving
@@ -228,7 +228,7 @@ class UIAlign(UIModule):
                 )
                 self.screen.paste(image_obj)
 
-                self.last_update = last_solve_time
+                self.last_update = last_estimate_time
                 # draw_reticle if we have a camera solve
                 if self.align_mode:
                     self.draw_marker()
@@ -251,7 +251,7 @@ class UIAlign(UIModule):
                     font=self.fonts.base.font,
                     fill=self.colors.get(255),
                 )
-            elif last_solve_time is None:
+            elif last_estimate_time is None:
                 self.plot_no_solve()
         else:
             self.plot_no_solve()
@@ -433,14 +433,14 @@ class UIAlign(UIModule):
                 self.align_mode = False
                 self.update(force=True)
 
-    def solution_is_new(self, last_solve_time):
+    def solution_is_new(self, last_estimate_time):
         """
         Returns True if the solution (coordinates) is valid and new since
-        last_solve_time.
+        last_estimate_time.
         """
-        if last_solve_time is None or self.last_update is None:
+        if last_estimate_time is None or self.last_update is None:
             return False
-        if last_solve_time <= self.last_update:
+        if last_estimate_time <= self.last_update:
             return False
         if not self.solution.has_pointing():
             return False

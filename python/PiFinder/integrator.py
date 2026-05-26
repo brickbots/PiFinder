@@ -47,6 +47,7 @@ from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 import PiFinder.pointing_model.quaternion_transforms as qt
 from PiFinder.types.positioning import (
     FailedSolve,
+    ImuSample,
     Pointing,
     PointingAxis,
     PointingEstimate,
@@ -78,7 +79,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         # Long-lived estimate. `solve` cells == anchor; `estimate` cells
         # are what consumers read. Empty until the first successful solve.
         estimate = PointingEstimate()
-        last_solve_time = time.time()
+        # Epoch of the last estimate we published; gate re-publishing on it.
+        last_published_time = time.time()
 
         while True:
             state_utils.sleep_for_framerate(shared_state)
@@ -117,8 +119,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             # 3. Publish if we updated something newer than what we last sent.
             if (
                 pointing_updated
-                and estimate.solve_time is not None
-                and estimate.solve_time > last_solve_time
+                and estimate.estimate_time is not None
+                and estimate.estimate_time > last_published_time
                 and estimate.pointing.aligned.estimate is not None
             ):
                 aligned = estimate.pointing.aligned.estimate
@@ -131,7 +133,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 )
 
                 shared_state.set_solution(copy.deepcopy(estimate))
-                last_solve_time = estimate.solve_time
+                last_published_time = estimate.estimate_time
 
     except EOFError:
         logger.error("Main no longer running for integrator")
@@ -147,9 +149,9 @@ def _apply_successful_solve(
     Fans the flat ``camera``/``aligned`` solve-truth into both the
     ``solve`` and ``estimate`` cells of each axis, refreshes the IMU
     anchor, and reseeds the dead-reckoner with the (camera, aligned)
-    pair + anchor quaternion. The single ``solve_time`` on the message
-    is assigned to both ``solve_time`` and ``cam_solve_time`` on the
-    aggregate.
+    pair + anchor quaternion. The solved frame's epoch
+    (``last_solve_success`` == the frame's ``exposure_end``) becomes
+    the aggregate's ``estimate_time``.
     """
     estimate.pointing.camera = PointingAxis(
         solve=result.camera,
@@ -162,8 +164,7 @@ def _apply_successful_solve(
 
     estimate.imu_anchor = result.imu_anchor
     estimate.solve_source = SolveSource.CAMERA
-    estimate.solve_time = result.solve_time
-    estimate.cam_solve_time = result.solve_time
+    estimate.estimate_time = result.last_solve_success
     estimate.last_solve_attempt = result.last_solve_attempt
     estimate.last_solve_success = result.last_solve_success
     estimate.diagnostics = result.diagnostics
@@ -209,14 +210,14 @@ def _apply_failed_solve(
 def _advance_with_imu(
     estimate: PointingEstimate,
     idr: ImuDeadReckoning,
-    imu: dict,
+    imu: ImuSample,
 ) -> bool:
     """Advance ``estimate``'s ``estimate`` cells via IMU dead-reckoning.
 
     Returns ``True`` if cells were advanced, ``False`` if IMU motion
     was below the deadband.
     """
-    q_x2imu = imu["quat"]
+    q_x2imu = imu.quat
     assert isinstance(
         q_x2imu, quaternion.quaternion
     ), "Expecting quaternion.quaternion type"
@@ -251,7 +252,7 @@ def _advance_with_imu(
         Roll=cast(float, roll_c),
     )
 
-    estimate.solve_time = time.time()
+    estimate.estimate_time = imu.timestamp
     estimate.solve_source = SolveSource.IMU
     return True
 

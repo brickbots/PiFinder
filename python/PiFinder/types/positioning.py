@@ -253,10 +253,15 @@ class PointingEstimate:
     :attr:`Alt` / :attr:`Az` are topocentric, derived in the integrator
     from ``pointing.aligned.estimate`` + GPS + datetime.
 
-    Timing fields use ``time.time()`` for ``solve_time`` and
-    ``cam_solve_time``, but ``last_solve_attempt`` and
-    ``last_solve_success`` use the camera frame's ``exposure_end``
-    (not wall clock) so the solver can dedupe stale frames precisely.
+    :attr:`estimate_time` is the **measurement epoch** of the data behind
+    the current estimate — *when the reading this value is based on was
+    captured*, not when the integrator produced it. Camera estimate →
+    the frame's ``exposure_end``; IMU-progressed estimate → the IMU
+    sample's ``timestamp``. Both ride the same ``time.time()`` clock, so
+    ``time.time() - estimate_time`` is a true "age of the fix" regardless
+    of source. ``last_solve_attempt`` / ``last_solve_success`` are the
+    camera frame's ``exposure_end`` (so the solver can dedupe stale
+    frames precisely); "solve" there means plate-solve, never IMU.
 
     :attr:`matched_centroids` and :attr:`matched_stars` carry raw
     tetra3 matched-star outputs needed by the SQM calibration UI for
@@ -282,8 +287,10 @@ class PointingEstimate:
 
     # --- Source and timing ---
     solve_source: Optional[SolveSource] = None
-    solve_time: Optional[float] = None
-    cam_solve_time: float = 0.0
+    # Measurement epoch of the current estimate's data: camera frame
+    # ``exposure_end`` on a solve, IMU sample ``timestamp`` on an IMU
+    # advance. See class docstring.
+    estimate_time: Optional[float] = None
     last_solve_attempt: float = 0.0
     last_solve_success: Optional[float] = None
 
@@ -347,15 +354,15 @@ class SuccessfulSolve:
     ``imu_anchor`` is ``Optional``: a solve can succeed on a frame that
     carried no IMU sample.
 
-    ``solve_time`` is a single solve-completion timestamp
-    (``time.time()``); the integrator assigns it to both ``solve_time``
-    and ``cam_solve_time`` on the aggregate.
+    There is no separate ``solve_time``: the solved frame's epoch is
+    ``last_solve_success`` (== ``last_solve_attempt`` == the frame's
+    ``exposure_end`` on a success), which the integrator assigns to
+    :attr:`PointingEstimate.estimate_time`.
     """
 
     camera: Pointing
     aligned: Pointing
     imu_anchor: Optional[quaternion.quaternion]
-    solve_time: float
     last_solve_attempt: float
     last_solve_success: float
     diagnostics: SolveDiagnostics = field(default_factory=SolveDiagnostics)
@@ -393,20 +400,37 @@ The integrator dispatches on ``isinstance()``."""
 class ImuSample:
     """Single IMU orientation reading.
 
-    Not wired into ``shared_state`` yet — the IMU sample still travels
-    as a dict (``{"quat": ..., "status": ..., "moving": ...}``); this
-    dataclass is the destination shape for a future migration.
+    The value carried on ``shared_state`` via ``set_imu()`` / ``imu()``
+    and bundled into each camera frame's metadata. Replaces the legacy
+    ``{"quat": ..., "status": ..., "moving": ...}`` dict (the unused
+    ``move_start`` / ``move_end`` keys were dropped in the migration).
 
     ``quat`` is scalar-first ``(w, x, y, z)``, as produced by
     ``quaternion.from_float_array(imu.avg_quat)``.
+
+    ``timestamp`` is the wall-clock (``time.time()``) instant the IMU
+    process sampled this orientation — the IMU-side input to
+    :attr:`PointingEstimate.estimate_time`. It is the sample epoch, not
+    the (later) moment a consumer reads the sample.
     """
 
     quat: quaternion.quaternion
+    timestamp: float
     status: int = 0  # 3 == fully calibrated (BNO055)
     moving: bool = False
 
     def is_calibrated(self) -> bool:
         return self.status == 3
+
+    def to_dict(self) -> dict:
+        """JSON-friendly form for the web API. ``quat`` becomes a
+        scalar-first ``[w, x, y, z]`` list."""
+        return {
+            "quat": quaternion.as_float_array(self.quat).tolist(),
+            "timestamp": self.timestamp,
+            "status": self.status,
+            "moving": self.moving,
+        }
 
 
 # =====================================================================

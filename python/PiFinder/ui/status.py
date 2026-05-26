@@ -68,8 +68,8 @@ class UIStatus(UIModule):
             solution = self.shared_state.solution()
 
             # Time since last solve
-            if solution.cam_solve_time:
-                time_since_solve = f"{time.time() - solution.cam_solve_time:.1f}"
+            if solution.last_solve_success:
+                time_since_solve = f"{time.time() - solution.last_solve_success:.1f}"
             else:
                 time_since_solve = "--"
             # Number of matched stars
@@ -113,18 +113,18 @@ class UIStatus(UIModule):
         imu = self.shared_state.imu()
         # IMU Status & reading
         if imu:
-            if imu["quat"] is not None:
-                if imu["moving"]:
+            if imu.quat is not None:
+                if imu.moving:
                     mtext = "Moving"
                 else:
                     mtext = "Static"
-                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
+                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu.status)
 
                 self.status_dict["IMU qw,qx"] = (
-                    f"{imu['quat'].w:>.2f},{imu['quat'].x : >.2f}"
+                    f"{imu.quat.w:>.2f},{imu.quat.x : >.2f}"
                 )
                 self.status_dict["IMU qy,qz"] = (
-                    f"{imu['quat'].y:>.2f},{imu['quat'].z : >.2f}"
+                    f"{imu.quat.y:>.2f},{imu.quat.z : >.2f}"
                 )
         else:
             self.status_dict["IMU"] = "--"

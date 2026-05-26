@@ -189,7 +189,7 @@ class CameraInterface:
                         # an angle (radians). Note that this also accounts for rotation around the
                         # scope axis. Returns an angle in radians.
                         pointing_diff = qt.get_quat_angular_diff(
-                            imu_start["quat"], imu_end["quat"]
+                            imu_start.quat, imu_end.quat
                         )
                     else:
                         pointing_diff = 0.0

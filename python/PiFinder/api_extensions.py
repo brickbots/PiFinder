@@ -106,7 +106,7 @@ def register_api_routes(app, server_instance, require_auth=False):
                     "utc": dt_utc.isoformat() if dt_utc else None,
                     "local": ss.local_datetime().isoformat() if dt_utc else None,
                 },
-                "imu": ss.imu(),
+                "imu": ss.imu().to_dict() if ss.imu() else None,
                 "sqm": ss.sqm().to_dict() if ss.sqm() else None,
                 "software_version": _get_version(server_instance),
             }
@@ -593,7 +593,7 @@ def register_api_routes(app, server_instance, require_auth=False):
         try:
             imu = server_instance.shared_state.imu()
             if imu:
-                return _json_response(imu)
+                return _json_response(imu.to_dict())
             return _json_response({"note": "IMU data not available"}, 503)
         except Exception as e:
             logger.error("api/imu error: %s", e)

@@ -289,13 +289,12 @@ def _build_successful_solve(
 
     imu_anchor = None
     if last_image_metadata.get("imu"):
-        imu_anchor = last_image_metadata["imu"]["quat"]
+        imu_anchor = last_image_metadata["imu"].quat
 
     return SuccessfulSolve(
         camera=camera_value,
         aligned=aligned_value,
         imu_anchor=imu_anchor,
-        solve_time=time.time(),
         last_solve_attempt=last_solve_attempt,
         last_solve_success=last_solve_success,
         diagnostics=SolveDiagnostics(

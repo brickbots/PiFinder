@@ -160,11 +160,11 @@ class UIChart(UIModule):
                 "chart_constellations", 64
             )
             self.solution = self.shared_state.solution()
-            last_solve_time = self.solution.solve_time
+            last_estimate_time = self.solution.estimate_time
 
-            if last_solve_time is None:
+            if last_estimate_time is None:
                 self.plot_no_solve()
-            elif self.solution_is_new(last_solve_time):
+            elif self.solution_is_new(last_estimate_time):
                 aligned = self.solution.pointing.aligned.estimate
                 # Solution is new so plot the updated chart
                 chart_rot_angle = get_chart_rotation_angle(
@@ -210,7 +210,7 @@ class UIChart(UIModule):
                         fill=self.colors.get(255),
                     )
 
-                self.last_update = last_solve_time
+                self.last_update = last_estimate_time
 
                 self.draw_reticle()
         else:
@@ -240,14 +240,14 @@ class UIChart(UIModule):
             fill=self.colors.get(255),
         )
 
-    def solution_is_new(self, last_solve_time):
+    def solution_is_new(self, last_estimate_time):
         """
         Returns True if the solution (coordinates) is valid and new since
-        last_solve_time.
+        last_estimate_time.
         """
-        if last_solve_time is None or self.last_update is None:
+        if last_estimate_time is None or self.last_update is None:
             return False
-        if last_solve_time <= self.last_update:
+        if last_estimate_time <= self.last_update:
             return False
         if not self.solution.has_pointing():
             return False
