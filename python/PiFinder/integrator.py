@@ -34,7 +34,7 @@ import copy
 import logging
 import queue
 import time
-from typing import Optional, cast
+from typing import Optional
 
 import numpy as np
 import quaternion  # numpy-quaternion
@@ -243,20 +243,9 @@ def _advance_with_imu(
         return False
     camera_radecroll, aligned_radecroll = predicted
 
-    # predict() returned non-None RaDecRoll, so .get() values are not None.
-    ra_a, dec_a, roll_a = aligned_radecroll.get(deg=True)
-    estimate.pointing.aligned.estimate = Pointing(
-        RA=cast(float, ra_a),
-        Dec=cast(float, dec_a),
-        Roll=cast(float, roll_a),
-    )
-
-    ra_c, dec_c, roll_c = camera_radecroll.get(deg=True)
-    estimate.pointing.camera.estimate = Pointing(
-        RA=cast(float, ra_c),
-        Dec=cast(float, dec_c),
-        Roll=cast(float, roll_c),
-    )
+    # predict() returned non-None RaDecRoll, so these are valid pointings.
+    estimate.pointing.aligned.estimate = Pointing.from_radecroll(aligned_radecroll)
+    estimate.pointing.camera.estimate = Pointing.from_radecroll(camera_radecroll)
 
     estimate.estimate_time = imu.timestamp
     estimate.solve_source = SolveSource.IMU

@@ -88,6 +88,20 @@ class TestPointing:
         assert r.dec == pytest.approx(np.pi / 4)
         assert r.roll == pytest.approx(np.pi / 2)
 
+    def test_from_radecroll_converts_radians_to_degrees(self):
+        from PiFinder.types.coordinates import RaDecRoll
+
+        r = RaDecRoll(np.pi, np.pi / 4, np.pi / 2)
+        p = Pointing.from_radecroll(r)
+        assert p == Pointing(RA=180.0, Dec=45.0, Roll=90.0)
+
+    def test_radecroll_round_trip_is_identity(self):
+        original = Pointing(RA=123.4, Dec=-12.3, Roll=271.0)
+        round_tripped = Pointing.from_radecroll(original.as_radecroll())
+        assert round_tripped.RA == pytest.approx(original.RA)
+        assert round_tripped.Dec == pytest.approx(original.Dec)
+        assert round_tripped.Roll == pytest.approx(original.Roll)
+
 
 # ---------------------------------------------------------------------
 # AlignmentResult helpers

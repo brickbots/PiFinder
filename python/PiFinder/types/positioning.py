@@ -58,6 +58,7 @@ Design notes
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional, Tuple, Union
@@ -121,6 +122,24 @@ class Pointing:
     def as_radecroll(self) -> RaDecRoll:
         """Return a :class:`RaDecRoll` (radians internally)."""
         return RaDecRoll(self.RA, self.Dec, self.Roll, deg=True)
+
+    @classmethod
+    def from_radecroll(cls, rdr: RaDecRoll) -> "Pointing":
+        """Build a degrees-based :class:`Pointing` from a radian
+        :class:`RaDecRoll` — the inverse of :meth:`as_radecroll`.
+
+        Lives on ``Pointing`` (not ``RaDecRoll``) so the dependency only
+        runs ``positioning`` → ``coordinates``, never back. Reads the
+        radian fields directly: they are always plain floats (``nan`` for
+        an unset axis), matching ``Pointing``'s invariant that every
+        instance is a full triple. The caller is responsible for only
+        converting a valid (non-``nan``) ``RaDecRoll``.
+        """
+        return cls(
+            RA=math.degrees(rdr.ra),
+            Dec=math.degrees(rdr.dec),
+            Roll=math.degrees(rdr.roll),
+        )
 
 
 # =====================================================================

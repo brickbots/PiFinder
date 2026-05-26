@@ -47,7 +47,7 @@ The current value, equal to `solve` immediately after a plate-solve and progress
 _Avoid_: current, IMU pointing (the IMU only progresses the estimate; saying "IMU pointing" obscures that it's still anchored on a plate-solve).
 
 **Pointing** (`Pointing`):
-The unit triple `(RA, Dec, Roll)` in degrees. The leaf type at every cell of the matrix. Bridge to radians via `Pointing.as_radecroll()`.
+The unit triple `(RA, Dec, Roll)` in degrees. The leaf type at every cell of the matrix. Bridges to/from the radian `RaDecRoll` math form via the inverse pair `Pointing.as_radecroll()` (degrees → radians) and `Pointing.from_radecroll()` (radians → degrees). Both live on `Pointing` so the dependency only runs `positioning` → `coordinates`.
 _Avoid_: pointing (lower-case, unqualified) — that means `pointing.aligned.estimate`. See below.
 
 **`pointing`** (the dataclass field):
@@ -68,8 +68,8 @@ _Avoid_: solve_pixel (legacy name), reticle pixel, aligned pixel (the *axis* is 
 > - **`pointing.aligned.estimate`** = the current IMU-progressed value of that direction (the *value the user sees*).
 
 **`RaDecRoll`**:
-Radian-based, quaternion-aware coordinate dataclass in `PiFinder/types/coordinates.py`. Used by `ImuDeadReckoning`. `Pointing.as_radecroll()` bridges from degrees → radians.
-_Avoid_: coords, position tuple.
+Radian-based, quaternion-aware coordinate dataclass in `PiFinder/types/coordinates.py`. Used by `ImuDeadReckoning`. `Pointing.as_radecroll()` bridges degrees → radians; `Pointing.from_radecroll()` bridges back radians → degrees. The radian form is confined to the dead-reckoning math; the published data model stays in degrees (`Pointing`).
+_Avoid_: coords, position tuple, using `RaDecRoll` in the published model (the degrees/radians split at the math boundary is deliberate).
 
 ### Acquisition
 
