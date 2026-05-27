@@ -1,8 +1,8 @@
-{ config, lib, pkgs, pifinderPythonEnv, pifinderGitRev, ... }:
+{ config, lib, pkgs, pifinderPythonEnv, ... }:
 let
   cfg = config.pifinder;
   cedar-detect = import ./pkgs/cedar-detect.nix { inherit pkgs; };
-  pifinder-src = import ./pkgs/pifinder-src.nix { inherit pkgs; gitRev = pifinderGitRev; };
+  pifinder-src = import ./pkgs/pifinder-src.nix { inherit pkgs; };
   boot-splash = import ./pkgs/boot-splash.nix { inherit pkgs; };
   pifinder-switch-camera = pkgs.writeShellScriptBin "pifinder-switch-camera" ''
     CAM="$1"

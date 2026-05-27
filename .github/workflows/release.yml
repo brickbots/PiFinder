@@ -46,6 +46,16 @@ jobs:
       - name: Register QEMU binfmt for aarch64
         run: sudo apt-get update && sudo apt-get install -y qemu-user-static
 
+      - name: Compute tag and stamp version into pifinder-build.json
+        run: |
+          TAG="v${{ inputs.version }}"
+          [[ "${{ inputs.type }}" == "beta" ]] && TAG="${TAG}-beta"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+          VERSION="${{ inputs.version }}"
+          jq -n --arg sp "" --arg v "$VERSION" \
+            '{store_path: $sp, version: $v}' > pifinder-build.json
+
       - name: Build and push closure to Cachix
         id: push
         run: |
@@ -54,11 +64,18 @@ jobs:
           echo "$STORE_PATH" | cachix push pifinder
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
-      - name: Stamp pifinder-build.json and create tag
+      - name: Build SD image
         run: |
-          TAG="v${{ inputs.version }}"
-          [[ "${{ inputs.type }}" == "beta" ]] && TAG="${TAG}-beta"
+          nix build .#images.pifinder \
+            --system aarch64-linux \
+            -L -o result-sd
+          mkdir -p release
+          for f in result-sd/sd-image/*.img.zst; do
+            cp "$f" "release/pifinder-${TAG}.img.zst"
+          done
 
+      - name: Re-stamp pifinder-build.json with store_path, commit, tag
+        run: |
           STORE_PATH="${{ steps.push.outputs.store_path }}"
           VERSION="${{ inputs.version }}"
           jq -n --arg sp "$STORE_PATH" --arg v "$VERSION" \
@@ -72,17 +89,6 @@ jobs:
 
           git tag "$TAG"
           git push origin "$TAG"
-          echo "TAG=$TAG" >> $GITHUB_ENV
-
-      - name: Build SD image
-        run: |
-          nix build .#images.pifinder \
-            --system aarch64-linux \
-            -L -o result-sd
-          mkdir -p release
-          for f in result-sd/sd-image/*.img.zst; do
-            cp "$f" "release/pifinder-${TAG}.img.zst"
-          done
 
       - name: Build migration tarball from SD image
         run: |
