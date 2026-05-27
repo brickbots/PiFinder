@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       migration_version:
-        description: "Migration tarball version tag (e.g. 2.5.0)"
+        description: "Migration tarball version tag (e.g. 3.0.0)"
         required: false
-        default: "2.5.0"
+        default: "3.0.0"
         type: string
 
 concurrency:
@@ -183,7 +183,7 @@ jobs:
           if [ -n "${{ inputs.migration_version }}" ]; then
             echo "VERSION=${{ inputs.migration_version }}" >> "$GITHUB_ENV"
           else
-            echo "VERSION=2.5.0" >> "$GITHUB_ENV"
+            echo "VERSION=3.0.0" >> "$GITHUB_ENV"
           fi
 
       - name: Resolve full system store path
