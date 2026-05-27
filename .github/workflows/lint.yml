@@ -10,9 +10,7 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
         with:
           determinate: false
-      - uses: cachix/cachix-action@v17
-        with:
-          name: pifinder
+      - uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Lint
         run: nix develop --command bash -c "cd python && ruff check"
       - name: Format check
@@ -40,9 +38,7 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
         with:
           determinate: false
-      - uses: cachix/cachix-action@v17
-        with:
-          name: pifinder
+      - uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Type check
         run: nix develop --command bash -c "cd python && mypy --install-types --non-interactive ."
 
@@ -53,9 +49,7 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
         with:
           determinate: false
-      - uses: cachix/cachix-action@v17
-        with:
-          name: pifinder
+      - uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Smoke tests
         run: nix develop --command bash -c "cd python && pytest -m smoke"
       - name: Unit tests
