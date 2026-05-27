@@ -319,7 +319,7 @@ in {
       RemainAfterExit = true;
       TimeoutStartSec = "10min";
     };
-    path = with pkgs; [ nix systemd coreutils ];
+    path = with pkgs; [ nix systemd coreutils gawk ];
     script = ''
       set -euo pipefail
       STORE_PATH=$(cat /run/pifinder/upgrade-ref 2>/dev/null || true)
@@ -339,35 +339,43 @@ in {
       fi
 
       echo "Upgrading to $STORE_PATH"
+      echo "downloading 0/0" > "$STATUS_FILE"
 
-      # Count paths to download for progress reporting
-      DRY_RUN=$(nix build "$STORE_PATH" --max-jobs 0 --dry-run 2>&1 || true)
-      PATHS_FILE=$(mktemp)
-      echo "$DRY_RUN" | grep '^\s*/nix/store/' | sed 's/^\s*//' > "$PATHS_FILE" || true
-      TOTAL=$(wc -l < "$PATHS_FILE")
-
-      echo "downloading 0/$TOTAL" > "$STATUS_FILE"
-
-      # Download with progress monitoring
-      nix build "$STORE_PATH" --max-jobs 0 &
-      BUILD_PID=$!
-
-      while kill -0 "$BUILD_PID" 2>/dev/null; do
-        DONE=0
-        while IFS= read -r p; do
-          [ -n "$p" ] && [ -e "$p" ] && DONE=$((DONE + 1))
-        done < "$PATHS_FILE"
-        echo "downloading $DONE/$TOTAL" > "$STATUS_FILE"
-        sleep 2
-      done
-
-      if ! wait "$BUILD_PID"; then
+      # Progress via nix's internal JSON event stream — stable machine format,
+      # avoids scraping human-formatted --dry-run output. Each line is:
+      #   @nix {"action":"start"|"stop"|...,"id":N,"type":N,...}
+      # type 100 = actCopyPath: one event per store path being substituted from
+      # the binary cache, with text "copying path '/nix/store/...' from '...'".
+      # We track start ids and increment DONE on the matching stop. --max-jobs 0
+      # keeps this strictly a download path; if anything is missing from Cachix
+      # nix errors instead of building locally. Enum source: nix
+      # src/libutil/logging.hh ActivityType (stable since Nix 2.4).
+      set +e
+      nix --log-format internal-json build "$STORE_PATH" --max-jobs 0 2>&1 \
+        | gawk -v status="$STATUS_FILE" '
+            /^@nix / {
+              line = substr($0, 6)
+              if (!match(line, /"id":[0-9]+/)) next
+              id = substr(line, RSTART + 5, RLENGTH - 5)
+              if (match(line, /"action":"start"/) && match(line, /"type":100/)) {
+                pending[id] = 1
+                total++
+              } else if (match(line, /"action":"stop"/) && (id in pending)) {
+                delete pending[id]
+                done++
+              } else {
+                next
+              }
+              printf "downloading %d/%d\n", done, total > status
+              close(status)
+            }
+          '
+      BUILD_RC=''${PIPESTATUS[0]}
+      set -e
+      if [ "$BUILD_RC" -ne 0 ]; then
         echo "failed" > "$STATUS_FILE"
-        rm -f "$PATHS_FILE"
         exit 1
       fi
-      rm -f "$PATHS_FILE"
-      echo "downloading $TOTAL/$TOTAL" > "$STATUS_FILE"
 
       echo "activating" > "$STATUS_FILE"
 
@@ -466,10 +474,15 @@ in {
     wantedBy = [ "sockets.target" ];
   };
 
-  # Configure USBAUTO for gpsdctl (triggered by udev when USB GPS plugs in)
+  # /etc/default/gpsd — kept identical to upstream pi_config_files/gpsd.conf so
+  # the Debian and NixOS images present the same operator-visible config.
+  # DEVICES opens the on-board UART GPS at startup; USBAUTO lets udev hotplug
+  # USB GPSes via gpsdctl. GPSD_SOCKET is intentionally omitted — gpsd's
+  # default (/var/run/gpsd.sock) is already what we want.
   environment.etc."default/gpsd".text = ''
+    DEVICES="/dev/ttyAMA1"
+    GPSD_OPTIONS=""
     USBAUTO="true"
-    GPSD_SOCKET="/var/run/gpsd.sock"
   '';
 
   # Ensure gpsd user/group exist (normally created by services.gpsd module)
@@ -480,20 +493,20 @@ in {
   };
   users.groups.gpsd = {};
 
-  # Add UART GPS on boot (ttyAMA3 from uart3 overlay, not auto-detected by udev)
+  # Add UART GPS on boot (ttyAMA1 from uart3 overlay, not auto-detected by udev)
   # This runs after gpsd.socket is ready, adding the UART device to gpsd
   systemd.services.gpsd-add-uart = {
     description = "Add UART GPS to gpsd";
-    after = [ "gpsd.socket" "dev-ttyAMA3.device" ];
+    after = [ "gpsd.socket" "dev-ttyAMA1.device" ];
     requires = [ "gpsd.socket" ];
     wantedBy = [ "multi-user.target" ];
-    # BindsTo ensures this stops if ttyAMA3 disappears (though it shouldn't)
-    bindsTo = [ "dev-ttyAMA3.device" ];
+    # BindsTo ensures this stops if ttyAMA1 disappears (though it shouldn't)
+    bindsTo = [ "dev-ttyAMA1.device" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      ExecStart = "${pkgs.gpsd}/sbin/gpsdctl add /dev/ttyAMA3";
-      ExecStop = "${pkgs.gpsd}/sbin/gpsdctl remove /dev/ttyAMA3";
+      ExecStart = "${pkgs.gpsd}/sbin/gpsdctl add /dev/ttyAMA1";
+      ExecStop = "${pkgs.gpsd}/sbin/gpsdctl remove /dev/ttyAMA1";
     };
   };
 
