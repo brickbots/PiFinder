@@ -136,10 +136,16 @@ jobs:
           attic push pifinder:pifinder "$STORE_PATH"
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
-  # Commit pifinder-build.json with store path to the same branch
+  # Commit pifinder-build.json with store path to the same branch.
+  # Only on push events — PR-event runs (in particular on brickbots/PiFinder
+  # as the base of PR #379 from mrosseel:nixos) can't write back to the PR
+  # head branch on the fork. Push-event runs on mrosseel:nixos remain the
+  # canonical stamper; PR runs only verify the build succeeds.
   stamp-build:
     needs: [build-native, build-emulated]
-    if: always() && (needs.build-native.result == 'success' || needs.build-emulated.result == 'success')
+    if: |
+      github.event_name == 'push' &&
+      (needs.build-native.result == 'success' || needs.build-emulated.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
