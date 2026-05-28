@@ -54,17 +54,19 @@ in {
 
 
   # ---------------------------------------------------------------------------
-  # Cachix binary substituter — Pi downloads pre-built paths, never compiles
+  # Binary substituters — Pi downloads pre-built paths, never compiles.
+  # cache.pifinder.eu is the self-hosted Attic instance (ADR 0004).
+  # cache.nixos.org serves everything not built locally.
   # ---------------------------------------------------------------------------
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     substituters = [
+      "https://cache.pifinder.eu/pifinder"
       "https://cache.nixos.org"
-      "https://pifinder.cachix.org"
     ];
     trusted-public-keys = [
+      "pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE="
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-      "pifinder.cachix.org-1:ALuxYs8tMU34zwSTWjenI2wpJA+AclmW6H5vyTgnTjc="
     ];
   };
 

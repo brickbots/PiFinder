@@ -33,10 +33,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cachix/cachix-action@v15
-        with:
-          name: pifinder
-          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - name: Setup Attic substituter (cache.pifinder.eu)
+        # Self-hosted FastCDC-chunked binary cache — see ADR 0004. The
+        # `attic use` command writes the substituter + public key into
+        # nix.conf so the build below substitutes from cache.pifinder.eu
+        # before falling back to cache.nixos.org.
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
 
       - name: Build NixOS system closure
         id: build
@@ -44,12 +51,12 @@ jobs:
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             -L --no-link
 
-      - name: Push to Cachix
+      - name: Push to Attic
         id: push
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             --json | jq -r '.[].outputs.out')
-          echo "$STORE_PATH" | cachix push pifinder
+          attic push pifinder:pifinder "$STORE_PATH"
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
   # Wait up to 15 min for native builder, then decide on fallback
@@ -96,16 +103,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cachix/install-nix-action@v27
+      - uses: DeterminateSystems/nix-installer-action@main
         with:
-          extra_nix_config: |
+          determinate: false
+          extra-conf: |
             extra-platforms = aarch64-linux
             extra-system-features = big-parallel
 
-      - uses: cachix/cachix-action@v15
-        with:
-          name: pifinder
-          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - name: Setup Attic substituter (cache.pifinder.eu)
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
 
       - name: Register QEMU binfmt for aarch64
         run: sudo apt-get update && sudo apt-get install -y qemu-user-static
@@ -116,13 +127,13 @@ jobs:
             --system aarch64-linux \
             -L --no-link
 
-      - name: Push to Cachix
+      - name: Push to Attic
         id: push
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             --system aarch64-linux \
             --json | jq -r '.[].outputs.out')
-          echo "$STORE_PATH" | cachix push pifinder
+          attic push pifinder:pifinder "$STORE_PATH"
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
   # Commit pifinder-build.json with store path to the same branch
@@ -173,10 +184,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cachix/cachix-action@v15
-        with:
-          name: pifinder
-          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - name: Setup Attic substituter (cache.pifinder.eu)
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
 
       - name: Set version
         run: |
@@ -269,7 +283,7 @@ jobs:
           nix-store --dump-db $(nix-store -qR "$MIGRATION_PATH") \
             > /tmp/tarball-staging/rootfs/nix-path-registration
 
-          # First-boot target: full system to download from cachix
+          # First-boot target: full system to download from cache.pifinder.eu
           mkdir -p /tmp/tarball-staging/rootfs/var/lib/pifinder
           echo "$FULL_PATH" > /tmp/tarball-staging/rootfs/var/lib/pifinder/first-boot-target
 
