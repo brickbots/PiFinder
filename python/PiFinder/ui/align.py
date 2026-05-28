@@ -224,12 +224,13 @@ class UIAlign(UIModule):
                 else:
                     chart_center = self.solution["camera_center"]
 
-                chart_rot_angle = get_chart_rotation_angle(
-                    chart_center["RA"], chart_center["Dec"], 
+                orientation = get_chart_rotation_angle(
+                    chart_center["RA"], chart_center["Dec"],
                     chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
-                    location=self.shared_state.location(), 
+                    location=self.shared_state.location(),
                     dt=self.shared_state.datetime()
                 )
+                chart_rot_angle = orientation.rot_deg if orientation else None
                 # This needs to be called first to set RA/DEC/chart_rot_angle
                 image_obj, self.visible_stars = self.starfield.plot_starfield(
                         chart_center["RA"], chart_center["Dec"], chart_rot_angle, 
