@@ -27,15 +27,14 @@ class UIStatus(UIModule):
         self._draw_pos = (0, self.display_class.titlebar_height)
         self.spacecalc = SpaceCalculatorFixed(self.fonts.base.line_length)
         self.status_dict = {
-            "LAST SLV": "--",
+            "LST SLV": "--",
             "RA/DEC": "--",
             "AZ/ALT": "--",
             "WIFI": "--",
             "IP": "--",
             "SSID": "--",
             "IMU": "--",
-            "IMU qw,qx": "--",
-            "IMU qy,qz": "--",
+            "IMU PS": "--",
             "GPS": "--",
             "GPS ALT": "--",
             "GPS LST": "--",
@@ -62,71 +61,41 @@ class UIStatus(UIModule):
 
     def update_status_dict(self):
         """
-        Updates all the status dict values
+        Updates all the
+        status dict values
         """
         if self.shared_state.solve_state():
             solution = self.shared_state.solution()
-
-            # Time since last solve
-            if solution["cam_solve_time"]:
-                time_since_solve = f"{time.time() - solution['cam_solve_time']:.1f}"
-            else:
-                time_since_solve = "--"
-            # Number of matched stars
+            # last solve time
             if solution["solve_source"] == "CAM":
                 stars_matched = solution["Matches"]
             else:
                 stars_matched = "--"
-            # Solve source
-            if solution["solve_source"] == "CAM":
-                solve_source = "C"
-            elif solution["solve_source"] == "CAM_FAILED":
-                solve_source = "F"
-            else:
-                solve_source = str(solution["solve_source"][0])
-            # Collect togethers
-            self.status_dict["LAST SLV"] = (
-                time_since_solve + "s " + solve_source + f" {stars_matched: >2}"
+            self.status_dict["LST SLV"] = (
+                f"{time.time() - solution['cam_solve_time']:.1f}"
+                + " - "
+                + str(solution["solve_source"][0])
+                + f" {stars_matched: >2}"
             )
+            hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
+            self.status_dict["RA/DEC"] = f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec']:.2f}"
 
-            # RA/DEC
-            if solution["RA"] is None or solution["Dec"] is None:
-                self.status_dict["RA/DEC"] = "--/--"
-            else:
-                hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
-                self.status_dict["RA/DEC"] = (
-                    f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] :.2f}"
-                )
-
-            # AZ/ALT
-            if solution["Az"] is None or solution["Alt"] is None:
-                self.status_dict["AZ/ALT"] = "--/--"
-            else:
+            if solution["Az"]:
                 self.status_dict["AZ/ALT"] = (
-                    f"{solution['Az'] : >6.2f}/{solution['Alt'] : >6.2f}"
+                    f"{solution['Az']: >6.2f}/{solution['Alt']: >6.2f}"
                 )
 
         imu = self.shared_state.imu()
-        # IMU Status & reading
         if imu:
-            if imu["quat"] is not None:
+            if imu["pos"] is not None:
                 if imu["moving"]:
                     mtext = "Moving"
                 else:
                     mtext = "Static"
-                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
-
-                self.status_dict["IMU qw,qx"] = (
-                    f"{imu['quat'].w:>.2f},{imu['quat'].x : >.2f}"
+                self.status_dict["IMU"] = f"{mtext: >11}" + " " + str(imu["status"])
+                self.status_dict["IMU PS"] = (
+                    f"{imu['pos'][0]: >6.1f}/{imu['pos'][2]: >6.1f}"
                 )
-                self.status_dict["IMU qy,qz"] = (
-                    f"{imu['quat'].y:>.2f},{imu['quat'].z : >.2f}"
-                )
-        else:
-            self.status_dict["IMU"] = "--"
-            self.status_dict["IMU qw,qx"] = "--"
-            self.status_dict["IMU qy,qz"] = "--"
-
         location = self.shared_state.location()
         sats = self.shared_state.sats()
         self.status_dict["GPS"] = [
@@ -151,7 +120,7 @@ class UIStatus(UIModule):
             try:
                 with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
                     raw_temp = int(f.read().strip())
-                self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
+                self.status_dict["CPU TMP"] = f"{raw_temp / 1000: >13.1f}"
             except FileNotFoundError:
                 self.status_dict["CPU TMP"] = "Error"
 
@@ -166,7 +135,10 @@ class UIStatus(UIModule):
 
     def update(self, force=False):
         self.update_status_dict()
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.draw.rectangle(
+            [0, 0, self.display_class.resX, self.display_class.resY],
+            fill=self.colors.get(0),
+        )
         lines = []
         # Insert IP address here...
         for k, v in self.status_dict.items():

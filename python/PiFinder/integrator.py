@@ -189,9 +189,9 @@ def update_imu(
     if not (last_image_solve and imu_dead_reckoning.tracking):
         return  # Need all of these to do IMU dead-reckoning
 
-    assert isinstance(
-        imu["quat"], quaternion.quaternion
-    ), "Expecting quaternion.quaternion type"  # TODO: Can be removed later
+    assert isinstance(imu["quat"], quaternion.quaternion), (
+        "Expecting quaternion.quaternion type"
+    )  # TODO: Can be removed later
     q_x2imu = imu["quat"]  # Current IMU measurement (quaternion)
     imu_time = time.time()
 

@@ -534,7 +534,7 @@ class HistogramZeroStarHandler(ZeroStarHandler):
             self._sweep_results = []
             logger.debug(
                 f"Histogram handler activated: starting {self._sweep_steps}-step histogram sweep "
-                f"from {self._sweep_exposures[0]/1000:.1f}ms to {self._sweep_exposures[-1]/1000:.1f}ms"
+                f"from {self._sweep_exposures[0] / 1000:.1f}ms to {self._sweep_exposures[-1] / 1000:.1f}ms"
             )
             return self._sweep_exposures[0]
 
@@ -548,7 +548,7 @@ class HistogramZeroStarHandler(ZeroStarHandler):
             self._sweep_results.append((sweep_exposure, viable, metrics))
 
             logger.debug(
-                f"Histogram analysis for {sweep_exposure/1000:.1f}ms: "
+                f"Histogram analysis for {sweep_exposure / 1000:.1f}ms: "
                 f"viable={'YES' if viable else 'NO'}, "
                 f"mean={metrics['mean']:.1f}, std={metrics['std']:.1f}, sat={metrics['saturation_pct']:.1f}%"
             )
@@ -556,8 +556,8 @@ class HistogramZeroStarHandler(ZeroStarHandler):
             # Track viable exposures but continue sweep to find best option
             if viable:
                 logger.debug(
-                    f"Histogram handler: found viable exposure {sweep_exposure/1000:.1f}ms "
-                    f"(step {self._sweep_index+1}/{self._sweep_steps}), continuing sweep"
+                    f"Histogram handler: found viable exposure {sweep_exposure / 1000:.1f}ms "
+                    f"(step {self._sweep_index + 1}/{self._sweep_steps}), continuing sweep"
                 )
 
         # If we've completed the sweep, settle on target exposure
@@ -574,14 +574,14 @@ class HistogramZeroStarHandler(ZeroStarHandler):
                         # Use highest viable exposure for best star detection
                         self._target_exposure = max(viable_exposures)
                         logger.debug(
-                            f"Histogram handler: settling on highest viable exposure {self._target_exposure/1000:.1f}ms"
+                            f"Histogram handler: settling on highest viable exposure {self._target_exposure / 1000:.1f}ms"
                         )
                     else:
                         # No viable exposures - use highest from sweep
                         highest_exp = self._sweep_results[-1][0]
                         self._target_exposure = highest_exp
                         logger.debug(
-                            f"Histogram handler: no viable exposure found, using highest {highest_exp/1000:.1f}ms"
+                            f"Histogram handler: no viable exposure found, using highest {highest_exp / 1000:.1f}ms"
                         )
                 else:
                     # Fallback to middle exposure
@@ -589,7 +589,7 @@ class HistogramZeroStarHandler(ZeroStarHandler):
                     middle_exp = self._sweep_exposures[middle_idx]
                     self._target_exposure = middle_exp
                     logger.debug(
-                        f"Histogram handler: no analysis data, using middle {middle_exp/1000:.1f}ms"
+                        f"Histogram handler: no analysis data, using middle {middle_exp / 1000:.1f}ms"
                     )
 
             # Hold at target
@@ -602,7 +602,7 @@ class HistogramZeroStarHandler(ZeroStarHandler):
         if self._sweep_index < len(self._sweep_exposures):
             next_exp = self._sweep_exposures[self._sweep_index]
             logger.debug(
-                f"Histogram handler: sweep step {self._sweep_index+1}/{self._sweep_steps} → {next_exp/1000:.1f}ms"
+                f"Histogram handler: sweep step {self._sweep_index + 1}/{self._sweep_steps} → {next_exp / 1000:.1f}ms"
             )
             return next_exp
         else:
@@ -663,7 +663,7 @@ class ExposureSNRController:
         logger.info(
             f"AutoExposure SNR: target_bg={target_background}, "
             f"range=[{min_background}, {max_background}] ADU, "
-            f"exp_range=[{min_exposure/1000:.0f}, {max_exposure/1000:.0f}]ms, "
+            f"exp_range=[{min_exposure / 1000:.0f}, {max_exposure / 1000:.0f}]ms, "
             f"adjustment={adjustment_factor}x"
         )
 
@@ -756,7 +756,7 @@ class ExposureSNRController:
         background = float(np.percentile(img_array, 10))
 
         logger.debug(
-            f"SNR AE: bg={background:.1f}, min={min_bg:.1f} ADU, exp={current_exposure/1000:.0f}ms"
+            f"SNR AE: bg={background:.1f}, min={min_bg:.1f} ADU, exp={current_exposure / 1000:.0f}ms"
         )
 
         # Determine adjustment
@@ -767,14 +767,14 @@ class ExposureSNRController:
             new_exposure = int(current_exposure * self.adjustment_factor)
             logger.info(
                 f"SNR AE: Background too low ({background:.1f} < {min_bg:.1f}), "
-                f"increasing exposure {current_exposure/1000:.0f}ms → {new_exposure/1000:.0f}ms"
+                f"increasing exposure {current_exposure / 1000:.0f}ms → {new_exposure / 1000:.0f}ms"
             )
         elif background > self.max_background:
             # Too bright - decrease exposure
             new_exposure = int(current_exposure / self.adjustment_factor)
             logger.info(
                 f"SNR AE: Background too high ({background:.1f} > {self.max_background}), "
-                f"decreasing exposure {current_exposure/1000:.0f}ms → {new_exposure/1000:.0f}ms"
+                f"decreasing exposure {current_exposure / 1000:.0f}ms → {new_exposure / 1000:.0f}ms"
             )
         else:
             # Background is in acceptable range

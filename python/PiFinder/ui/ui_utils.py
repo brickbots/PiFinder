@@ -314,7 +314,7 @@ def format_number(num: float, width=5):
         return f"{num:{width}d}"
     elif num < 1000000:
         decimal_places = max(0, width - 3)  # 'K' and at least one digit
-        return f"{num/1000:{width}.{decimal_places}f}K"
+        return f"{num / 1000:{width}.{decimal_places}f}K"
     else:
         decimal_places = max(0, width - 3)  # 'M' and at least one digit
-        return f"{num/1000000:{width}.{decimal_places}f}M"
+        return f"{num / 1000000:{width}.{decimal_places}f}M"

@@ -99,7 +99,7 @@ class Server:
         shared_state=None,
         is_debug=False,
     ):
-        self.version_txt = f"{utils.pifinder_dir}/version.txt"
+        self._software_version = utils.get_version()
         self.keyboard_queue = keyboard_queue or multiprocessing.Queue()
         self.ui_queue = ui_queue or multiprocessing.Queue()
         self.gps_queue = gps_queue or multiprocessing.Queue()
@@ -197,12 +197,8 @@ class Server:
         def home():
             # logger.debug("/ called")
             # Get version info
-            software_version = "Unknown"
-            try:
-                with open(self.version_txt, "r") as ver_f:
-                    software_version = ver_f.read()
-            except (FileNotFoundError, IOError) as e:
-                logger.warning(f"Could not read version file: {str(e)}")
+            
+            software_version = self._software_version
 
             # Try to update GPS state
             try:
@@ -517,7 +513,12 @@ class Server:
             self.network.set_wifi_mode(wifi_mode)
             self.network.set_ap_name(ap_name)
             self.network.set_host_name(host_name)
-            return app.jinja_env.get_template("restart.html").render(title=_("Restart"))
+            return app.jinja_env.get_template("network.html").render(
+                title=_("Network"),
+                net=self.network,
+                show_new_form=0,
+                status_message=_("Network settings updated. You may need to reconnect."),
+            )
 
         @app.route("/tools/pwchange", methods=["POST"])
         @auth_required
@@ -675,7 +676,7 @@ class Server:
                     try:
                         cfg.equipment.eyepieces.index(new_eyepiece)
                     except ValueError:
-                        cfg.equipment.eyepieces.add_eyepiece(new_eyepiece)
+                        cfg.equipment.eyepieces.append(new_eyepiece)
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
@@ -722,13 +723,13 @@ class Server:
                 )
 
                 if eyepiece_id >= 0:
-                    cfg.equipment.update_eyepiece(eyepiece_id, eyepiece)
+                    cfg.equipment.eyepieces[eyepiece_id] = eyepiece
                 else:
                     try:
                         index = cfg.equipment.telescopes.index(eyepiece)
-                        cfg.equipment.update_eyepiece(index, eyepiece)
+                        cfg.equipment.eyepieces[index] = eyepiece
                     except ValueError:
-                        cfg.equipment.add_eyepiece(eyepiece)
+                        cfg.equipment.eyepieces.append(eyepiece)
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")

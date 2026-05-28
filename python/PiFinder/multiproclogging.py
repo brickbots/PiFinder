@@ -10,7 +10,6 @@ the approach implemented here: A single process that is fed log records using `Q
 import multiprocessing.queues
 from pathlib import Path
 from multiprocessing import Queue, Process
-import multiprocessing
 from queue import Empty
 from time import sleep
 from typing import TextIO, List, Optional
@@ -87,9 +86,9 @@ class MultiprocLogging:
 
     def start(self, initial_queue: Optional[Queue] = None):
         assert self._proc is None, "You should only start once!"
-        assert (
-            len(self._queues) >= 1
-        ), "No queues in use. You should have requested at least one queue."
+        assert len(self._queues) >= 1, (
+            "No queues in use. You should have requested at least one queue."
+        )
 
         # Create the main-process queue BEFORE starting the sink so the sink
         # receives it in its queue list and monitors it.
@@ -186,9 +185,9 @@ class MultiprocLogging:
         import os
 
         assert queue is not None, "You passed a None to configurer! You cannot do that"
-        assert isinstance(
-            queue, multiprocessing.queues.Queue
-        ), "That's not a Queue! You have to pass a queue"
+        assert isinstance(queue, multiprocessing.queues.Queue), (
+            "That's not a Queue! You have to pass a queue"
+        )
 
         log_conf_file = Path("pifinder_logconf.json")
         with open(log_conf_file, "r") as logconf:
