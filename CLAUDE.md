@@ -10,6 +10,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Note: the auto-detected "Main branch" shown in the Claude Code env block may currently read `release` (because the GitHub default branch points there). Disregard that — the rule above is authoritative for this repo.
 
+### Agent worktrees
+
+Worktrees must be rooted on **`main`**. The harness's `fresh` base resolves to this clone's `origin/HEAD`, which may point at `release` (the GitHub default) — in which case `EnterWorktree` lands on `release`, not `main`. CLAUDE.md cannot change this; it is decided by the harness before any instruction here is read.
+
+After `EnterWorktree`, **verify the base before making changes**: if `git merge-base HEAD origin/main` does not equal `origin/main`'s tip, the worktree is on the wrong branch — run `git reset --hard origin/main` and proceed from there.
+
+Maintainers can make `fresh` root on `main` automatically per clone (without changing GitHub's default branch) by repointing the local default-branch pointer:
+
+```bash
+git remote set-head origin main
+```
+
 ## Development Commands
 
 **Running Python**
