@@ -51,10 +51,139 @@ you can be assured you are on target!
    of the first time set-up items in the Quick Start
 
 
+Power & Charging
+=====================================
+
+PiFinders ordered with the optional internal battery will run for an evening on a single
+charge, and you can keep one going indefinitely from any USB-C power source.  This section
+covers how the two USB-C ports differ, how charging behaves, how long a charge lasts, and
+how to look after the battery.  For the very first power-on, the :ref:`quick_start:powering the pifinder`
+section of the Quick Start walks through it step by step.
+
+The two USB-C ports
+-------------------
+
+A battery-equipped PiFinder has two USB-C ports on top of the unit, and they do different
+things:
+
+.. image:: images/quick_start/power.jpeg
+
+- The port nearest the **back** of the case (marked with the arrow above) both powers the
+  PiFinder **and** charges the internal battery.  This is the one to use for charging.
+- The port nearest the **keypad** powers the unit only — it does not charge the battery.
+  It is also wired ahead of the power switch, so plugging into it turns the PiFinder on
+  immediately *regardless of the switch position*.
+
+During an observing session the keypad-side (power-only) port is the nicer one to run from,
+because the charging port's indicator LED is quite bright in the dark.  A unit without the
+internal battery has only the single power-only port.
+
+The power switch is the small white **slide** switch on top of the unit, above the screen
+(highlighted with a box in the image above).  Facing the screen, slide it right for on and
+left for off.  It is a switch, not a button.
+
+Charging
+--------
+
+Plug a USB-C cable into the charging port (nearest the back).  The indicator LED glows
+**blue** while charging and turns **green** when the battery is full.  From empty, a full
+charge takes roughly three hours, though this varies a good deal with the power source —
+a Power Delivery (PD) charger negotiates more power and fills faster, while a basic 5V
+supply charges more slowly but works fine.
+
+Charge with the power switch in the **off** position.  If the PiFinder is running while
+plugged in, it can draw about as much current as the charger supplies, so the battery may
+barely fill.  A long charge that leaves the battery still flat almost always means the unit
+was switched on the whole time.
+
+.. note::
+   The last stretch of charging is slow.  As the battery approaches full the charging
+   current tapers off, so the change from blue to green can take a while even though the
+   battery is nearly there.  This is normal and not a fault.
+
+Battery life
+------------
+
+The internal battery runs the PiFinder for about **four to five hours**, but real runtime
+depends heavily on how hard you work it.  Sitting at the eyepiece on one object, or stepping
+away from the scope, lets the PiFinder drop into power-save mode and stretches the time
+considerably.  A fast tour through many objects — with the camera, motion sensor, and screen
+all busy — draws more power and shortens it.
+
+There is **no battery-level indicator** on the screen and no low-battery warning: when the
+charge is depleted the PiFinder simply shuts off.  For a long night, top up beforehand and
+keep a USB-C power bank handy.  You can plug external power in at any time without restarting
+(see below).
+
+.. note::
+   The PiFinder drops into power-save mode after it has been idle for a while, dimming the
+   screen and slowing the camera to save power.  Any button press or movement of the scope
+   wakes it.  The idle time can be changed, or turned off entirely, in the
+   :ref:`user_guide:settings menu`.
+
+Running on external power
+-------------------------
+
+Any USB-C power source rated for at least **2A** will run the PiFinder — a wall charger, a
+USB power bank, or a portable power station's USB output.  As a rough guide, about
+1,000mAh of power-bank capacity runs the PiFinder for an hour, so a 10,000mAh bank is good
+for the better part of a night.
+
+External power can be plugged in mid-session without a restart.  A useful trick for
+stretching a long night: plug a power bank into the power-only port, then switch the battery
+**off**.  The PiFinder keeps running on the external power while the internal battery is held
+in reserve for after the bank is unplugged.
+
+If you experience power dropouts, suspect the cable first — some USB-C cables are unreliable
+at the ~2A the PiFinder draws, especially on long runs.
+
+.. warning::
+   Feed the PiFinder **5V USB-C power only**.  If you want to run it from a telescope's 12V
+   supply, you must use a 12V-to-5V step-down (DC-DC) converter with a USB-C output.  Never
+   connect 12V directly to the PiFinder — doing so will damage it.
+
+Battery safety & care
+---------------------
+
+The internal battery is a lithium-polymer (LiPo) cell.  Treated sensibly it will last for
+years, but like any lithium battery it deserves a little respect.
+
+.. warning::
+   Stop using the battery and disconnect power if it ever becomes **swollen, damaged,
+   unusually hot, or develops an odour**.  A puffed-up or punctured LiPo cell can vent or
+   catch fire.  Do not continue to charge or use a cell in this condition — contact us about
+   a replacement.
+
+.. warning::
+   Do not **puncture, crush, drop, or open** the battery, and do not attempt to disassemble
+   the PiSugar power board it sits on.  Keep the unit dry; the battery and electronics are
+   not waterproof.
+
+A few habits that keep the cell healthy:
+
+- **Charge from the built-in port only.**  The PiSugar power board manages charging for you;
+  just supply 5V USB-C as described above.  There is no need for an external LiPo charger,
+  and you should not connect one.
+- **Charge where you can keep an eye on it,** and not on or near anything flammable.  Avoid
+  charging or leaving the unit in extreme heat — a closed car on a sunny day is the classic
+  way to cook a battery.
+- **Mind the temperature.**  The PiFinder has been used from about -15°C (5°F) to 40°C
+  (100°F).  Capacity drops in the cold, though the computer's own heat keeps the cell warm
+  enough to work in most conditions.  Avoid charging a battery that is below freezing.
+- **For long-term storage,** leave the cell partly charged rather than full or empty and keep
+  it somewhere cool and dry.  Top it up every few months so it does not discharge completely.
+- **Dispose of it responsibly.**  A worn-out lithium battery should go to a battery-recycling
+  drop-off, not the household rubbish.
+
+.. note::
+   If you ever need to replace the battery, the only compatible part is the **PiSugar S Plus
+   5000mAh**.  Other PiSugar models share the I2C bus with the PiFinder's motion sensor and
+   will cause problems, so make sure you fit the S Plus.
+
 Adjusting Brightness
 =====================================
 
-The PiFinder is designed to allow you to adjust the brightness of the screen and keypad at any 
+The PiFinder is designed to allow you to adjust the brightness of the screen and keypad at any
 time: simply hold down the **SQUARE** button and push **+** for brighter, or **-** for dimmer. In a dark sky 
 site, you can turn the brightness down to preserve your dark-adapted vision.
 
