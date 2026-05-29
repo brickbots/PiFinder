@@ -3,9 +3,20 @@ A plate solving telescope finder based around a Raspberry PI, imx296 camera, and
 
 For an overview of what the PiFinder™ is and how it came to be visit the official project website at [PiFinder.io](https://www.pifinder.io/build-yours) 
 
-The PiFinder™ uses the [Ceder Detect](https://github.com/smroid/cedar-detect) and
-[Cedar Solve](https://github.com/smroid/cedar-solve) libraries with express permission.
-Thank you to [smroid] for all your support of the PiFinder project!
+The PiFinder™ uses the [Cedar Detect](https://github.com/smroid/cedar-detect) and
+[Cedar Solve](https://github.com/smroid/cedar-solve) libraries by
+[smroid](https://github.com/smroid). Cedar Solve is licensed under Apache-2.0.
+
+**Cedar Detect** is published under the Functional Source License (`FSL-1.1-MIT`),
+which permits broad non-commercial use but excludes commercial uses that compete
+with Cedar Detect. Because the PiFinder™ is also offered commercially, it bundles
+and distributes the Cedar Detect binaries under a **separate license granted
+expressly by the copyright holder** — not under the public FSL terms. The prebuilt
+binaries live in [`bin/`](./bin/); see [`bin/README.md`](./bin/README.md) for the
+full licensing details and a copy of the Cedar Detect license. Note this is
+distinct from the PiFinder project's own GPL-3.0 [`LICENSE`](./LICENSE).
+
+Thank you to [smroid](https://github.com/smroid) for all your support of the PiFinder project!
 
 ![Banner](./docs/source/images/PiFinder_v3_banner.png)
 The PiFinder™ is my attempt to improve my time at my telescope.  I don't get nearly enough of it and I want to enjoy it as much as possible.  So after years of observing with paper charts and, later, a Nexus DSC here is what I felt I was missing:
