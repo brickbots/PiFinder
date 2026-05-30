@@ -5,7 +5,10 @@
 This module contains the chart (starfield + constellation lines) UI Module class
 
 """
-from __future__ import annotations  # To support | in typehints (remove this for Python 3.10+)
+
+from __future__ import (
+    annotations,
+)  # To support | in typehints (remove this for Python 3.10+)
 
 import datetime
 import logging
@@ -99,7 +102,7 @@ class UIChart(UIModule):
 
     def _draw_orientation_indicator(self, orientation: "ChartOrientation"):
         """
-        Draw a small "up" indicator at the bottom-right of the chart.
+        Draw a small "up" indicator at the top-left of the chart.
 
         Communicates which orientation the chart is using (NCP / SCP / Zenith)
         and, when GPS hasn't arrived yet but the user picked a GPS-dependent
@@ -112,11 +115,10 @@ class UIChart(UIModule):
             text = "!" + text
         font = self.fonts.base
         # Brighter when fallback so the "!" reads as a hint, not noise.
-        brightness = 255 if orientation.is_fallback else 192
-        text_width = font.width * len(text)
-        x = self.display_class.resX - text_width - 2
-        # Sit just above the optional RA/Dec text row (drawn at y=114).
-        y = 114 - font.height - 1
+        brightness = 255 if orientation.is_fallback else 128
+        x = 2
+        # Sit just below the title bar
+        y = self.display_class.titlebar_height + 1
         self.draw.text(
             (x, y),
             text,
@@ -192,10 +194,11 @@ class UIChart(UIModule):
             elif self.solution_is_new(last_solve_time):
                 # Solution is new so plot the updated chart
                 orientation = get_chart_rotation_angle(
-                    self.solution["RA"], self.solution["Dec"],
+                    self.solution["RA"],
+                    self.solution["Dec"],
                     chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
                     location=self.shared_state.location(),
-                    dt=self.shared_state.datetime()
+                    dt=self.shared_state.datetime(),
                 )
                 chart_rot_angle = orientation.rot_deg if orientation else None
                 # This needs to be called first to set RA/DEC/chart_rot_angle
@@ -277,10 +280,7 @@ class UIChart(UIModule):
             return False
         if last_solve_time <= self.last_update:
             return False
-        if (
-            self.solution["RA"] is None
-            or self.solution["Dec"] is None
-        ):
+        if self.solution["RA"] is None or self.solution["Dec"] is None:
             return False
 
         return True  # Solution is valid and new
@@ -307,7 +307,6 @@ class UIChart(UIModule):
         self.update()
 
 
-
 @dataclass
 class ChartOrientation:
     """
@@ -323,6 +322,7 @@ class ChartOrientation:
       orientation that will change once GPS arrives. The chart UI surfaces
       this so the user isn't startled by the orientation flip.
     """
+
     rot_deg: float
     up_label: str
     is_fallback: bool
@@ -360,7 +360,9 @@ def get_chart_rotation_angle(
 
     if chart_coord_sys == "horiz":
         if has_gps and dt:
-            calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
+            calc_utils.sf_utils.set_location(
+                location.lat, location.lon, location.altitude
+            )
             # Use -parallactic_angle
             rot_deg = -calc_utils.sf_utils.radec_to_pa(ra_deg, dec_deg, dt)
             return ChartOrientation(rot_deg, "Zenith", False)
@@ -379,5 +381,7 @@ def get_chart_rotation_angle(
     if chart_coord_sys == "eq_south_up":
         return ChartOrientation(180.0, "SCP", False)
 
-    logger.error(f"Unknown chart coordinate system: {chart_coord_sys}. Defaulting to EQ North-up.")
+    logger.error(
+        f"Unknown chart coordinate system: {chart_coord_sys}. Defaulting to EQ North-up."
+    )
     return ChartOrientation(0.0, "NCP", False)
