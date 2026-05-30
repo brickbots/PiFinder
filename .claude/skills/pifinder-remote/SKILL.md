@@ -99,6 +99,49 @@ the screen is the ground truth, menu order changes between versions.
   a short grace period. `stop` returns as soon as the process is actually gone.
   This guarantees no orphaned processes even when the graceful path stalls.
 
+## Running in a git worktree
+
+A fresh worktree (one created via `git worktree add` or `EnterWorktree`) is
+missing two things PiFinder needs to start, because git worktrees only check
+out tracked files and don't share git-ignored files or submodule contents with
+the main checkout. Copy them in from the main checkout before the first
+`launch`:
+
+1. **Hipparcos catalog** — `astro_data/hip_main.dat` (~53 MB) is git-ignored
+   (see `python/.gitignore`) but required by `UIChart` / `UIAlign`. The chart
+   screen will crash on construction if it's missing.
+2. **`tetra3` submodule** — `python/PiFinder/tetra3/` is a git submodule
+   (`https://github.com/smroid/cedar-solve`). `git submodule update --init`
+   inside a worktree typically fails ("Unable to find current revision in
+   submodule path") because the submodule's git metadata isn't replicated to
+   the worktree. Copying the populated directory in from the main checkout is
+   the reliable path.
+
+Both copies are one-time per worktree. Run from the worktree root:
+
+```bash
+# Adjust MAIN to point at the main checkout (typically three dirs up from a
+# .claude/worktrees/<name>/ worktree).
+MAIN=../../..
+
+cp "$MAIN/astro_data/hip_main.dat" astro_data/
+cp -R "$MAIN/python/PiFinder/tetra3/." python/PiFinder/tetra3/
+```
+
+**Venv:** the worktree has no venv of its own and `pf_remote.py launch` only
+auto-discovers a venv *inside the repo it was invoked from* (`python/venv`,
+`python/.venv`, `.venv`, `venv`) — it does not cross into the main checkout
+to find one. So activate the main checkout's venv in your shell *before*
+launching, so `pf_remote` inherits it via `sys.executable`:
+
+```bash
+source "$MAIN/python/venv/bin/activate"   # or python/.venv if that's where yours is
+```
+
+Alternatively, point `pf_remote.py` at the main checkout with `--repo
+"$MAIN"` so it finds the venv there — but then it also runs PiFinder from
+that checkout, not your worktree, which defeats the purpose.
+
 ## When startup fails
 
 `launch` waits up to `--timeout` seconds (default 90) for the API. The **first**
@@ -108,9 +151,11 @@ launches come up in a few seconds. If it times out:
 1. `python3 $S logs` — read the PiFinder/cedar startup logs.
 2. Confirm the venv exists (`python/venv` or `python/.venv`) and the object DB
    is present (`astro_data/pifinder_objects.db`).
-3. The API binds port 80 when it can, else 8080; `launch` probes both and
+3. If you're in a git worktree, confirm `astro_data/hip_main.dat` and
+   `python/PiFinder/tetra3/` are populated — see "Running in a git worktree".
+4. The API binds port 80 when it can, else 8080; `launch` probes both and
    records the winner. Pass `--base-url http://host:port` to override.
-4. If a previous run left something behind, `python3 $S kill` clears it.
+5. If a previous run left something behind, `python3 $S kill` clears it.
 
 ## Notes
 
