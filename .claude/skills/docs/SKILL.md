@@ -83,18 +83,28 @@ discrepancy.
 
 The manual is written warmly and directly, but it stays measured and
 professional — clear guidance from someone who knows the instrument well, not
-breezy chat. Match it:
+breezy chat. It is also **lean**: the reader is usually at the eyepiece in the
+dark, so every sentence earns its place. Keep the warmth, cut the padding. Match
+it:
 
 - **Talk to the reader as "you."** "You'll then see the Main Menu appear."
 - **Be warm but measured.** Keep the tone calm and confident rather than
   breathless. Reserve exclamation points for the rare genuinely delightful
   moment and prefer plain, declarative sentences the rest of the time.
+- **Be succinct.** Say it once, in as few words as carry the meaning. Cut
+  throat-clearing ("In order to…", "You should note that…"), redundant
+  restatement, and hedging. Favour the active voice and concrete verbs. When a
+  procedure runs to more than two or three ordered steps, prefer a numbered list
+  over a chain of "To begin… Next… Once you have…" paragraphs.
 - **Write complete sentences; don't open with a conjunction.** Never begin a
   sentence with "And" — join the thought to the sentence before it, or rephrase.
   The same goes for opening with "But" or "So."
-- **Explain the *why*, not just the *what*.** The existing docs constantly say
-  things like "This helps save battery power and can prevent glare at the
-  eyepiece." A reader who understands the reason trusts the instruction.
+- **Explain the *why*, but compress it.** A reader who understands the reason
+  trusts the instruction, so keep the *why* — but state it in a clause, not a
+  paragraph. "The PiFinder dims the screen after a while to save battery and
+  prevent glare" earns its keep; a three-sentence aside reassuring the reader
+  that this is normal usually does not. When a caveat genuinely needs more room,
+  put it in a `.. note::` rather than swelling the main flow.
 - **Plain language over jargon.** When a technical term is unavoidable (plate
   solving, alt/az), define it in passing the first time, the way the quick start
   glosses "plate solving" as taking continuous pictures and comparing them.
