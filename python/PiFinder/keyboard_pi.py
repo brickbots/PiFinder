@@ -76,6 +76,16 @@ class KeyboardPi(KeyboardInterface):
         ]
         # fmt: on
 
+        # Derive keycodes from the keymap so they track the matrix layout
+        # (cols/rows) rather than being hard-coded. SQUARE is the brightness/
+        # alt-chord modifier; the d-pad up/down buttons auto-repeat when held.
+        self.square_keycodes = {
+            i for i, v in enumerate(self.keymap) if v == self.SQUARE
+        }
+        self.repeat_keycodes = {
+            i for i, v in enumerate(self.keymap) if v in (_up, _down)
+        }
+
         # physical keyboard support init
         self.li_kb = libinput.LibInput(context_type=libinput.ContextType.UDEV)
         self.li_kb.assign_seat("seat0")
@@ -134,7 +144,7 @@ class KeyboardPi(KeyboardInterface):
                 hold_counter += 1
                 if hold_counter > scan_freq:
                     # Held for more than 1 second
-                    if list(pressed)[-1] in [17, 18]:
+                    if list(pressed)[-1] in self.repeat_keycodes:
                         # Up/Down arrows repeat
                         self.q.put(self.keymap[list(pressed)[-1]])
                         hold_counter = int(scan_freq / 1.05)
@@ -158,12 +168,12 @@ class KeyboardPi(KeyboardInterface):
                     elif not newval and keycode in pressed:
                         # release
                         pressed.discard(keycode)
-                        if 15 in pressed:
-                            # Released while ENT is pressed
+                        if pressed & self.square_keycodes:
+                            # Released while SQUARE is pressed
                             alt_sent = True
                             self.q.put(self.alt_keymap[keycode])
                         else:
-                            if keycode == 15 and alt_sent:
+                            if keycode in self.square_keycodes and alt_sent:
                                 alt_sent = False
                             elif hold_sent:
                                 hold_sent = False
