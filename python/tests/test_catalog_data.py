@@ -151,7 +151,7 @@ def check_ngc_objects():
     """
     db = objects_db.ObjectsDatabase()
 
-    # Test 5 well-known NGC objects with their expected data
+    # Test well-known NGC objects with their expected data
     test_objects = [
         {
             "ngc": 104,
@@ -160,6 +160,26 @@ def check_ngc_objects():
             "dec": -72.081,  # Dec = -72° 04' 51"
             "obj_type": "Gb",  # Globular cluster
             "const": "Tuc",  # Tucana
+        },
+        {
+            # Regression: Steinicke TYPE "I" (concentration class) + GCL
+            # cross-ID must map to Gb, not Irregular galaxy. See
+            # preprocess_steinicke_type() in steinicke_loader.py.
+            "ngc": 7006,
+            "name": "NGC 7006 (GCL 119)",
+            "ra": 315.373,  # RA = 21h 01m 29.5s
+            "dec": 16.188,  # Dec = +16° 11' 17"
+            "obj_type": "Gb",  # Globular cluster
+            "const": "Del",  # Delphinus
+        },
+        {
+            # Regression: same as NGC 7006; M 75 was also mis-typed as Gx.
+            "ngc": 6864,
+            "name": "M 75 (GCL 116)",
+            "ra": 301.520,  # RA = 20h 06m 04.8s
+            "dec": -21.921,  # Dec = -21° 55' 17"
+            "obj_type": "Gb",  # Globular cluster
+            "const": "Sgr",  # Sagittarius
         },
         {
             "ngc": 224,

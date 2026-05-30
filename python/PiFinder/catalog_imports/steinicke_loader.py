@@ -92,11 +92,16 @@ def preprocess_steinicke_type(obj_type, remarks=""):
             if all(is_star_type(p) for p in parts):
                 return "***"
 
-    # Galaxy type patterns (most common in Steinicke)
-    if is_galaxy_type(cleaned):
-        return "Gx"
-
-    # Check for globular cluster indicators in remarks before Trumpler class check
+    # Globular-cluster disambiguation MUST run before the galaxy check.
+    # For a globular, Steinicke's TYPE is the Shapley-Sawyer concentration
+    # class -- a Roman numeral such as "I" -- which is_galaxy_type() would
+    # otherwise read as an Irregular galaxy. A "GCL"/globular cross-ID in the
+    # remarks (the ID1-ID11 fields) confirms the object really is a globular,
+    # so when both hold we map to "Gb". Without this ordering, globulars like
+    # NGC 7006, NGC 2808, NGC 5824, NGC 5834 and NGC 6864 (M 75) are
+    # mis-typed as galaxies. The is_trumpler_class() guard keeps objects that
+    # merely mention a globular in their remarks (e.g. IC 4802, a star group
+    # *inside* a globular) from being reclassified.
     remarks_str = ""
     if isinstance(remarks, list):
         remarks_str = " ".join(str(r) for r in remarks if r)
@@ -108,6 +113,10 @@ def preprocess_steinicke_type(obj_type, remarks=""):
             cleaned
         ):  # Roman numerals that could be globular concentration classes
             return "Gb"
+
+    # Galaxy type patterns (most common in Steinicke)
+    if is_galaxy_type(cleaned):
+        return "Gx"
 
     # Trumpler class patterns for open clusters
     if is_trumpler_class(cleaned):
