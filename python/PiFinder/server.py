@@ -226,10 +226,11 @@ class Server:
                 if self.shared_state.solve_state() is True:
                     camera_icon = "camera_alt"
                     solution = self.shared_state.solution()
-                    if solution:
-                        hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
+                    if solution and solution.has_pointing():
+                        aligned = solution.pointing.aligned.estimate
+                        hh, mm, _ = calc_utils.ra_to_hms(aligned.RA)
                         ra_text = f"{hh:02.0f}h{mm:02.0f}m"
-                        dec_text = f"{solution['Dec']: .2f}"
+                        dec_text = f"{aligned.Dec: .2f}"
             except Exception as e:
                 logger.error(f"Failed to get solution data: {str(e)}")
 

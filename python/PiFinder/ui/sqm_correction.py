@@ -401,15 +401,16 @@ class UISQMCorrection(UIModule):
 
         # Get solve data (RA/Dec/Alt/Az)
         solution = self.shared_state.solution()
-        if solution:
+        if solution and solution.has_pointing():
+            aligned = solution.pointing.aligned.estimate
             metadata["solve"] = {
-                "ra_deg": solution.get("RA"),
-                "dec_deg": solution.get("Dec"),
-                "altitude_deg": solution.get("Alt"),
-                "azimuth_deg": solution.get("Az"),
-                "fov_deg": solution.get("FOV"),
-                "matches": solution.get("Matches"),
-                "rmse": solution.get("RMSE"),
+                "ra_deg": aligned.RA,
+                "dec_deg": aligned.Dec,
+                "altitude_deg": solution.Alt,
+                "azimuth_deg": solution.Az,
+                "fov_deg": solution.diagnostics.FOV,
+                "matches": solution.diagnostics.Matches,
+                "rmse": solution.diagnostics.RMSE,
             }
 
         # Get image metadata (exposure, gain, etc.)

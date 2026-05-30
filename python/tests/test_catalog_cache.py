@@ -1,4 +1,5 @@
 """Tests for PiFinder.catalog_cache."""
+
 import os
 import pickle
 import pytest

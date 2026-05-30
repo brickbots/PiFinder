@@ -23,6 +23,17 @@ from PiFinder import state_utils
 from PiFinder import utils
 from PiFinder.sqm import SQM as SQMCalculator
 from PiFinder.state import SQM as SQMState
+from PiFinder.types.positioning import (
+    AlignCancel,
+    AlignOnRaDec,
+    AlignedResult,
+    AlignmentResult,
+    FailedSolve,
+    Pointing,
+    ReloadSqmCalibration,
+    SolveDiagnostics,
+    SuccessfulSolve,
+)
 
 sys.path.append(str(utils.tetra3_dir))
 import tetra3
@@ -251,6 +262,76 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
         self._del_shmem()
 
 
+def _build_successful_solve(
+    solution: dict,
+    last_image_metadata: dict,
+    last_solve_attempt: float,
+    last_solve_success: float,
+) -> SuccessfulSolve:
+    """Fold a successful tetra3 ``solution`` dict into a
+    :class:`SuccessfulSolve` message.
+
+    Carries flat per-axis solve-truth (no ``solve``/``estimate`` split);
+    the integrator fans ``camera``/``aligned`` into both cells of its
+    long-lived :class:`PointingEstimate` and advances only the
+    ``estimate`` cells via IMU dead-reckoning between solves.
+    """
+    camera_value = Pointing(
+        RA=solution["RA"],
+        Dec=solution["Dec"],
+        Roll=solution["Roll"],
+    )
+    aligned_value = Pointing(
+        RA=solution.get("RA_target", solution["RA"]),
+        Dec=solution.get("Dec_target", solution["Dec"]),
+        Roll=solution["Roll"],
+    )
+
+    imu_anchor = None
+    if last_image_metadata.get("imu"):
+        imu_anchor = last_image_metadata["imu"].quat
+
+    return SuccessfulSolve(
+        camera=camera_value,
+        aligned=aligned_value,
+        imu_anchor=imu_anchor,
+        last_solve_attempt=last_solve_attempt,
+        last_solve_success=last_solve_success,
+        diagnostics=SolveDiagnostics(
+            Matches=solution.get("Matches", 0),
+            RMSE=solution.get("RMSE"),
+            Prob=solution.get("Prob"),
+            FOV=solution.get("FOV"),
+            T_solve=solution.get("T_solve"),
+            T_extract=solution.get("T_extract"),
+        ),
+        alignment=AlignmentResult(
+            x_target=solution.get("x_target"),
+            y_target=solution.get("y_target"),
+        ),
+        matched_centroids=solution.get("matched_centroids"),
+        matched_stars=solution.get("matched_stars"),
+    )
+
+
+def _build_failed_solve(
+    last_solve_attempt: float,
+    last_solve_success,
+    t_extract_ms: float,
+) -> FailedSolve:
+    """Build a :class:`FailedSolve` message for an attempt that produced
+    no pointing. The integrator's long-lived estimate preserves the
+    previous ``solve`` cells so IMU dead-reckoning continues."""
+    return FailedSolve(
+        last_solve_attempt=last_solve_attempt,
+        last_solve_success=last_solve_success,
+        diagnostics=SolveDiagnostics(
+            Matches=0,
+            T_extract=t_extract_ms,
+        ),
+    )
+
+
 def solver(
     shared_state,
     solver_queue,
@@ -270,9 +351,8 @@ def solver(
     )
     align_ra = 0
     align_dec = 0
-    # Dict of RA, Dec, etc. initialized to None:
-    solved = get_initialized_solved_dict()
-    solution = {}
+    last_solve_attempt: float = 0.0
+    last_solve_success = None  # exposure_end of most recent successful solve
 
     centroids = []
     log_no_stars_found = True
@@ -296,32 +376,30 @@ def solver(
 
         try:
             while True:
-                # Loop over any pending commands
-                # There may be more than one!
-                command = True
-                while command:
+                # Drain any pending command queue messages.
+                while True:
                     try:
                         command = align_command_queue.get(block=False)
-                        print(f"the command is {command}")
                     except queue.Empty:
-                        command = False
+                        break
 
-                    if command is not False:
-                        if command[0] == "align_on_radec":
-                            logger.debug("Align Command Received")
-                            # search image pixels to find the best match
-                            # for this RA/DEC and set it as alignment pixel
-                            align_ra = command[1]
-                            align_dec = command[2]
-
-                        if command[0] == "align_cancel":
-                            align_ra = 0
-                            align_dec = 0
-
-                        if command[0] == "reload_sqm_calibration":
-                            logger.info("Reloading SQM calibration...")
-                            sqm_calculator = create_sqm_calculator(shared_state)
-                            logger.info("SQM calibration reloaded")
+                    if isinstance(command, AlignOnRaDec):
+                        logger.debug("Align Command Received: %s", command)
+                        align_ra = command.ra
+                        align_dec = command.dec
+                    elif isinstance(command, AlignCancel):
+                        align_ra = 0
+                        align_dec = 0
+                    elif isinstance(command, ReloadSqmCalibration):
+                        logger.info("Reloading SQM calibration...")
+                        sqm_calculator = create_sqm_calculator(shared_state)
+                        logger.info("SQM calibration reloaded")
+                    else:
+                        logger.warning(
+                            "Unknown solver command (type=%s): %r",
+                            type(command).__name__,
+                            command,
+                        )
 
                 state_utils.sleep_for_framerate(shared_state)
 
@@ -332,199 +410,171 @@ def solver(
                     last_image_metadata = shared_state.last_image_metadata()
                 except (BrokenPipeError, ConnectionResetError) as e:
                     logger.error(f"Lost connection to shared state manager: {e}")
+                    continue
 
                 # Check if we should process this image
-                is_new_image = (
-                    last_image_metadata["exposure_end"] > solved["last_solve_attempt"]
-                )
+                is_new_image = last_image_metadata["exposure_end"] > last_solve_attempt
 
-                if is_new_image:
-                    try:
-                        img = camera_image.copy()
-                        img = img.convert(mode="L")
-                        np_image = np.asarray(img, dtype=np.uint8)
+                if not is_new_image:
+                    continue
 
-                        # Mark that we're attempting a solve - use image exposure_end timestamp
-                        # This is more accurate than wall clock and ties the attempt to the actual image
-                        solved["last_solve_attempt"] = last_image_metadata[
-                            "exposure_end"
-                        ]
+                try:
+                    img = camera_image.copy()
+                    img = img.convert(mode="L")
+                    np_image = np.asarray(img, dtype=np.uint8)
 
-                        t0 = precision_timestamp()
-                        if cedar_detect is not None:
-                            # Try Cedar first
-                            try:
-                                centroids = cedar_detect.extract_centroids(
-                                    np_image, sigma=8, max_size=10, use_binned=True
-                                )
-                            except CedarConnectionError as e:
-                                logger.warning(
-                                    f"Cedar connection failed: {e}, falling back to tetra3"
-                                )
-                                centroids = tetra3.get_centroids_from_image(np_image)
-                        else:
-                            # Cedar not available, use tetra3
+                    # Mark that we're attempting a solve - use image exposure_end timestamp.
+                    # This is more accurate than wall clock and ties the attempt to the
+                    # actual image so the integrator can dedupe.
+                    last_solve_attempt = last_image_metadata["exposure_end"]
+
+                    t0 = precision_timestamp()
+                    if cedar_detect is not None:
+                        # Try Cedar first
+                        try:
+                            centroids = cedar_detect.extract_centroids(
+                                np_image, sigma=8, max_size=10, use_binned=True
+                            )
+                        except CedarConnectionError as e:
+                            logger.warning(
+                                f"Cedar connection failed: {e}, falling back to tetra3"
+                            )
                             centroids = tetra3.get_centroids_from_image(np_image)
-                        t_extract = (precision_timestamp() - t0) * 1000
+                    else:
+                        # Cedar not available, use tetra3
+                        centroids = tetra3.get_centroids_from_image(np_image)
+                    t_extract = (precision_timestamp() - t0) * 1000
 
-                        logger.debug(
-                            "File %s, extracted %d centroids in %.2fms"
-                            % ("camera", len(centroids), t_extract)
+                    logger.debug(
+                        "File %s, extracted %d centroids in %.2fms"
+                        % ("camera", len(centroids), t_extract)
+                    )
+
+                    solution: dict = {}
+
+                    if len(centroids) == 0:
+                        if log_no_stars_found:
+                            logger.info("No stars found, skipping (Logged only once)")
+                            log_no_stars_found = False
+                    else:
+                        log_no_stars_found = True
+                        _solver_args = {}
+                        if align_ra != 0 and align_dec != 0:
+                            _solver_args["target_sky_coord"] = [[align_ra, align_dec]]
+
+                        solution = t3.solve_from_centroids(
+                            centroids,
+                            (512, 512),
+                            fov_estimate=12.0,
+                            fov_max_error=4.0,
+                            match_max_error=0.005,
+                            return_matches=True,  # Required for SQM calculation
+                            target_pixel=shared_state.target_pixel(),
+                            solve_timeout=1000,
+                            **_solver_args,
                         )
 
-                        # Clear solve results which indicate solve as failed
-                        # (otherwise old values persist)
+                    if "matched_centroids" in solution:
+                        # Update SQM (auto-exposure consumes the noise floor)
+                        exposure_sec = (
+                            last_image_metadata["exposure_time"] / 1_000_000.0
+                        )
+                        altitude_for_sqm = 90.0  # Topocentric Alt is computed in the integrator; SQM uses zenith fallback here
 
-                        solved["RA"] = None
-                        solved["Dec"] = None
-                        solved["Matches"] = 0
-                        solved["camera_center"]["RA"] = None
-                        solved["camera_center"]["Dec"] = None
-                        solved["camera_center"]["Roll"] = None
-                        solved["camera_solve"]["RA"] = None
-                        solved["camera_solve"]["Dec"] = None
-                        solved["camera_solve"]["Roll"] = None
-                        solution = {}
+                        update_sqm(
+                            shared_state=shared_state,
+                            sqm_calculator=sqm_calculator,
+                            centroids=centroids,
+                            solution=solution,
+                            image_processed=np_image,
+                            exposure_sec=exposure_sec,
+                            altitude_deg=altitude_for_sqm,
+                            calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
+                        )
 
-                        if len(centroids) == 0:
-                            if log_no_stars_found:
-                                logger.info(
-                                    "No stars found, skipping (Logged only once)"
+                        # Don't clutter printed solution with these fields (use pop to safely remove)
+                        solution.pop("matched_catID", None)
+                        solution.pop("pattern_centroids", None)
+                        solution.pop("epoch_equinox", None)
+                        solution.pop("epoch_proper_motion", None)
+                        solution.pop("cache_hit_fraction", None)
+
+                    if solution and solution.get("RA") is not None:
+                        last_solve_success = last_solve_attempt
+                        solve_result = _build_successful_solve(
+                            solution=solution,
+                            last_image_metadata=last_image_metadata,
+                            last_solve_attempt=last_solve_attempt,
+                            last_solve_success=last_solve_success,
+                        )
+
+                        total_tetra_time = t_extract + (solution.get("T_solve") or 0)
+                        if total_tetra_time > 1000:
+                            console_queue.put(f"SLV: Long: {total_tetra_time}")
+                            logger.warning("Long solver time: %i", total_tetra_time)
+
+                        logger.info(
+                            f"Solve SUCCESS - {len(centroids)} centroids → "
+                            f"{solve_result.diagnostics.Matches} matches, "
+                            f"RMSE: {solve_result.diagnostics.RMSE:.1f}px"
+                        )
+
+                        # See if we are waiting for alignment
+                        if align_ra != 0 and align_dec != 0:
+                            if solve_result.alignment.is_set():
+                                align_result_queue.put(
+                                    AlignedResult(
+                                        y_target=solve_result.alignment.y_target,
+                                        x_target=solve_result.alignment.x_target,
+                                    )
                                 )
-                                log_no_stars_found = False
-                        else:
-                            log_no_stars_found = True
-                            _solver_args = {}
-                            if align_ra != 0 and align_dec != 0:
-                                _solver_args["target_sky_coord"] = [
-                                    [align_ra, align_dec]
-                                ]
+                                logger.debug(
+                                    "Align target_pixel=(%s, %s)",
+                                    solve_result.alignment.y_target,
+                                    solve_result.alignment.x_target,
+                                )
+                            align_ra = 0
+                            align_dec = 0
+                            # Clear alignment fields from the message now that
+                            # the result has been consumed.
+                            solve_result.alignment = AlignmentResult()
 
-                            solution = t3.solve_from_centroids(
-                                centroids,
-                                (512, 512),
-                                fov_estimate=12.0,
-                                fov_max_error=4.0,
-                                match_max_error=0.005,
-                                return_matches=True,  # Required for SQM calculation
-                                target_pixel=shared_state.solve_pixel(),
-                                solve_timeout=1000,
-                                **_solver_args,
-                            )
-
-                        if "matched_centroids" in solution:
-                            # Update SQM for BOTH processed and raw pipelines
-                            # Convert exposure time from microseconds to seconds
-                            exposure_sec = (
-                                last_image_metadata["exposure_time"] / 1_000_000.0
-                            )
-
-                            update_sqm(
-                                shared_state=shared_state,
-                                sqm_calculator=sqm_calculator,
-                                centroids=centroids,
-                                solution=solution,
-                                image_processed=np_image,
-                                exposure_sec=exposure_sec,
-                                altitude_deg=solved.get("Alt") or 90.0,
-                                calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
-                            )
-
-                            # Don't clutter printed solution with these fields (use pop to safely remove)
-                            solution.pop("matched_catID", None)
-                            solution.pop("pattern_centroids", None)
-                            solution.pop("epoch_equinox", None)
-                            solution.pop("epoch_proper_motion", None)
-                            solution.pop("cache_hit_fraction", None)
-
-                        solved |= solution
-
-                        if "T_solve" in solved:
-                            total_tetra_time = t_extract + solved["T_solve"]
-                            if total_tetra_time > 1000:
-                                console_queue.put(f"SLV: Long: {total_tetra_time}")
-                                logger.warning("Long solver time: %i", total_tetra_time)
-
-                        if solved["RA"] is not None:
-                            # RA, Dec, Roll at the center of the camera's FoV:
-                            solved["camera_center"]["RA"] = solved["RA"]
-                            solved["camera_center"]["Dec"] = solved["Dec"]
-                            solved["camera_center"]["Roll"] = solved["Roll"]
-
-                            # RA, Dec, Roll at the camera center from plate-solve (no IMU compensation)
-                            solved["camera_solve"]["RA"] = solved["RA"]
-                            solved["camera_solve"]["Dec"] = solved["Dec"]
-                            solved["camera_solve"]["Roll"] = solved["Roll"]
-
-                            # RA, Dec, Roll at the target pixel:
-                            # Replace the camera center RA/Dec with the RA/Dec for the target pixel
-                            solved["RA"] = solved["RA_target"]
-                            solved["Dec"] = solved["Dec_target"]
-
-                            if last_image_metadata.get("imu"):
-                                solved["imu_quat"] = last_image_metadata["imu"]["quat"]
-                            else:
-                                solved["imu_quat"] = None
-
-                            solved["solve_time"] = time.time()
-                            solved["cam_solve_time"] = solved["solve_time"]
-                            # Mark successful solve - use same timestamp as last_solve_attempt for comparison
-                            solved["last_solve_success"] = solved["last_solve_attempt"]
-
-                            logger.info(
-                                f"Solve SUCCESS - {len(centroids)} centroids → "
-                                f"{solved.get('Matches', 0)} matches, "
-                                f"RMSE: {solved.get('RMSE', 0):.1f}px"
-                            )
-
-                            # See if we are waiting for alignment
-                            if align_ra != 0 and align_dec != 0:
-                                if solved.get("x_target") is not None:
-                                    align_target_pixel = (
-                                        solved["y_target"],
-                                        solved["x_target"],
-                                    )
-                                    logger.debug(f"Align {align_target_pixel=}")
-                                    align_result_queue.put(
-                                        ["aligned", align_target_pixel]
-                                    )
-                                align_ra = 0
-                                align_dec = 0
-                                solved["x_target"] = None
-                                solved["y_target"] = None
-                        else:
-                            # Centroids found but solve failed - clear Matches
-                            solved["Matches"] = 0
+                        solver_queue.put(solve_result)
+                    else:
+                        if solution:
                             logger.warning(
                                 f"Solve FAILED - {len(centroids)} centroids detected but "
                                 f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
                             )
-
-                        # Always push to queue after every solve attempt (success or failure)
-                        solver_queue.put(solved)
-                    except Exception as e:
-                        # If solve attempt fails, still send update with Matches=0
-                        # so auto-exposure can continue running
-                        logger.error(
-                            f"Exception during solve attempt: {e.__class__.__name__}: {str(e)}"
+                        solver_queue.put(
+                            _build_failed_solve(
+                                last_solve_attempt=last_solve_attempt,
+                                last_solve_success=last_solve_success,
+                                t_extract_ms=t_extract,
+                            )
                         )
-                        logger.exception(e)
-                        solved["last_solve_attempt"] = last_image_metadata[
-                            "exposure_end"
-                        ]
-                        solved["Matches"] = 0
-                        solved["RA"] = None
-                        solved["Dec"] = None
-                        solver_queue.put(solved)
+                except Exception as e:
+                    logger.error(
+                        f"Exception during solve attempt: {e.__class__.__name__}: {str(e)}"
+                    )
+                    logger.exception(e)
+                    last_solve_attempt = last_image_metadata["exposure_end"]
+                    solver_queue.put(
+                        _build_failed_solve(
+                            last_solve_attempt=last_solve_attempt,
+                            last_solve_success=last_solve_success,
+                            t_extract_ms=0.0,
+                        )
+                    )
         except EOFError as eof:
             logger.error(f"Main process no longer running for solver: {eof}")
-            logger.exception(eof)  # This logs the full stack trace
-            # Optionally log additional context
-            logger.error(f"Current solver state: {solved}")  # If you have state info
+            logger.exception(eof)
+            logger.error(
+                f"Last solve attempt: {last_solve_attempt}, last success: {last_solve_success}"
+            )
         except Exception as e:
             logger.error(f"Exception in Solver: {e.__class__.__name__}: {str(e)}")
-            logger.exception(e)  # Logs the full stack trace
-            # Log additional context that might be helpful
+            logger.exception(e)
             logger.error(f"Current process ID: {os.getpid()}")
             logger.error(f"Current thread: {threading.current_thread().name}")
             try:
@@ -533,48 +583,3 @@ def solver(
                 )
             except Exception:
                 pass  # Don't let diagnostic logging fail
-
-
-def get_initialized_solved_dict() -> dict:
-    """
-    Returns an initialized 'solved' dictionary with cooridnate and other
-    information.
-
-    TODO: Update solver_main.py with this
-    TODO: use RaDecRoll class for the RA, Dec, Roll coordinates here?
-    TODO: "Alt" and "Az" could be removed but seems to be required by catalogs?
-    """
-    solved = {
-        # RA, Dec, Roll [deg] of the scope at the target pixel
-        "RA": None,
-        "Dec": None,
-        "Roll": None,
-        # RA, Dec, Roll [deg] solved at the center of the camera FoV
-        # update by the IMU in the integrator
-        "camera_center": {
-            "RA": None,
-            "Dec": None,
-            "Roll": None,
-            "Alt": None,  # NOTE: Altaz needed by catalogs for altaz mounts
-            "Az": None,
-        },
-        # RA, Dec, Roll [deg] from the camera, not updated by IMU in integrator
-        "camera_solve": {
-            "RA": None,
-            "Dec": None,
-            "Roll": None,
-        },
-        "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first)
-        # Alt, Az [deg] of scope:
-        "Alt": None,
-        "Az": None,
-        # Diagnostics:
-        "solve_source": None,  # Source of the solve ("CAM", "CAM_FAILED", "IMU")
-        "solve_time": None,
-        "cam_solve_time": 0,
-        "last_solve_attempt": 0,  # Timestamp of last solve attempt - tracks exposure_end of last processed image
-        "last_solve_success": None,  # Timestamp of last successful solve
-        "constellation": None,
-    }
-
-    return solved

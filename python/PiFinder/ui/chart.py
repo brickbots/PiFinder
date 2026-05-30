@@ -187,15 +187,16 @@ class UIChart(UIModule):
                 "chart_constellations", 64
             )
             self.solution = self.shared_state.solution()
-            last_solve_time = self.solution["solve_time"]
+            last_estimate_time = self.solution.estimate_time
 
-            if last_solve_time is None:
+            if last_estimate_time is None:
                 self.plot_no_solve()
-            elif self.solution_is_new(last_solve_time):
+            elif self.solution_is_new(last_estimate_time):
+                aligned = self.solution.pointing.aligned.estimate
                 # Solution is new so plot the updated chart
                 orientation = get_chart_rotation_angle(
-                    self.solution["RA"],
-                    self.solution["Dec"],
+                    aligned.RA,
+                    aligned.Dec,
                     chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
                     location=self.shared_state.location(),
                     dt=self.shared_state.datetime(),
@@ -203,8 +204,8 @@ class UIChart(UIModule):
                 chart_rot_angle = orientation.rot_deg if orientation else None
                 # This needs to be called first to set RA/DEC/chart_rot_angle
                 image_obj, _visible_stars = self.starfield.plot_starfield(
-                    self.solution["RA"],
-                    self.solution["Dec"],
+                    aligned.RA,
+                    aligned.Dec,
                     chart_rot_angle,
                     constellation_brightness,
                 )
@@ -219,8 +220,8 @@ class UIChart(UIModule):
 
                 # Display RA/DEC in selected format if enabled
                 if self.config_object.get_option("chart_radec") == "HH:MM":
-                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
-                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
+                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(aligned.RA)
+                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(aligned.Dec)
                     ra_dec_disp = f"{ra_h:02d}:{ra_m:02d}:{ra_s:02d} / {dec_d:02d}°{dec_m:02d}:{dec_s}"
                     self.draw.text(
                         (0, 114),
@@ -229,11 +230,9 @@ class UIChart(UIModule):
                         fill=self.colors.get(255),
                     )
                 if self.config_object.get_option("chart_radec") == "Degr":
-                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
-                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
-                    ra_dec_disp = (
-                        f"{self.solution['RA']:0>6.2f} / {self.solution['Dec']:0>5.2f}"
-                    )
+                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(aligned.RA)
+                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(aligned.Dec)
+                    ra_dec_disp = f"{aligned.RA:0>6.2f} / {aligned.Dec:0>5.2f}"
                     self.draw.text(
                         (0, 114),
                         ra_dec_disp,
@@ -241,7 +240,7 @@ class UIChart(UIModule):
                         fill=self.colors.get(255),
                     )
 
-                self.last_update = last_solve_time
+                self.last_update = last_estimate_time
 
                 self.draw_reticle()
         else:
@@ -271,16 +270,16 @@ class UIChart(UIModule):
             fill=self.colors.get(255),
         )
 
-    def solution_is_new(self, last_solve_time):
+    def solution_is_new(self, last_estimate_time):
         """
         Returns True if the solution (coordinates) is valid and new since
-        last_solve_time.
+        last_estimate_time.
         """
-        if last_solve_time is None or self.last_update is None:
+        if last_estimate_time is None or self.last_update is None:
             return False
-        if last_solve_time <= self.last_update:
+        if last_estimate_time <= self.last_update:
             return False
-        if self.solution["RA"] is None or self.solution["Dec"] is None:
+        if not self.solution.has_pointing():
             return False
 
         return True  # Solution is valid and new

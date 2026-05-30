@@ -46,6 +46,66 @@ def _png_response(img: Image.Image) -> Response:
     return Response(_pil_to_png_bytes(img), content_type="image/png")
 
 
+def _pointing_to_dict(p):
+    """Serialize a :class:`Pointing` (or ``None``) to a plain
+    ``{RA, Dec, Roll}`` dict of floats."""
+    if p is None:
+        return {"RA": None, "Dec": None, "Roll": None}
+    return {"RA": float(p.RA), "Dec": float(p.Dec), "Roll": float(p.Roll)}
+
+
+def _solution_to_dict(sol) -> dict:
+    """Serialize a :class:`PointingEstimate` to the JSON shape the REST API
+    has always emitted (the legacy ``solved`` dict keys), so external
+    clients (e.g. OpenClaw) keep a stable contract across the dataclass
+    migration in PR #429.
+
+    Mapping back to the canonical access shape:
+
+    * top-level ``RA``/``Dec``/``Roll`` ← ``pointing.aligned.estimate``
+      (where the eyepiece points — the IMU-progressed aligned pointing).
+    * ``camera_center`` ← ``pointing.camera.estimate`` (IMU-progressed
+      camera-axis pointing).
+    * ``camera_solve`` ← ``pointing.camera.solve`` (the IMU-untouched
+      plate-solve at the camera centre).
+    * ``solve_time`` ← ``estimate_time`` (renamed in ADR-0004; the old key
+      is kept here for wire compatibility).
+
+    ``imu_quat`` from the old dict is intentionally dropped — it was a raw
+    numpy quaternion that no endpoint reads and never serialized cleanly.
+    """
+    pm = sol.pointing
+    aligned = _pointing_to_dict(pm.aligned.estimate)
+    diag = sol.diagnostics
+    return {
+        "RA": aligned["RA"],
+        "Dec": aligned["Dec"],
+        "Roll": aligned["Roll"],
+        "camera_center": {
+            **_pointing_to_dict(pm.camera.estimate),
+            "Alt": None,
+            "Az": None,
+        },
+        "camera_solve": _pointing_to_dict(pm.camera.solve),
+        "Alt": float(sol.Alt) if sol.Alt is not None else None,
+        "Az": float(sol.Az) if sol.Az is not None else None,
+        "solve_source": sol.solve_source.value if sol.solve_source else None,
+        "solve_time": sol.estimate_time,
+        # cam_solve_time was dropped from the dataclass (value-identical to
+        # last_solve_success under epoch semantics); keep the key for clients.
+        "cam_solve_time": sol.last_solve_success,
+        "last_solve_attempt": sol.last_solve_attempt,
+        "last_solve_success": sol.last_solve_success,
+        "constellation": sol.constellation,
+        "FOV": diag.FOV,
+        "Matches": diag.Matches,
+        "RMSE": diag.RMSE,
+        "Prob": diag.Prob,
+        "T_solve": diag.T_solve,
+        "T_extract": diag.T_extract,
+    }
+
+
 def register_api_routes(app, server_instance, require_auth=False):
     """
     Register all /api/* routes on the Flask app.
@@ -101,12 +161,12 @@ def register_api_routes(app, server_instance, require_auth=False):
                 "solve_state": ss.solve_state(),
                 "camera_type": ss.camera_type(),
                 "location": loc.to_dict() if loc else None,
-                "solution": sol,
+                "solution": _solution_to_dict(sol),
                 "datetime": {
                     "utc": dt_utc.isoformat() if dt_utc else None,
                     "local": ss.local_datetime().isoformat() if dt_utc else None,
                 },
-                "imu": ss.imu(),
+                "imu": ss.imu().to_dict() if ss.imu() else None,
                 "sqm": ss.sqm().to_dict() if ss.sqm() else None,
                 "software_version": _get_version(server_instance),
             }
@@ -166,8 +226,10 @@ def register_api_routes(app, server_instance, require_auth=False):
                     503,
                 )
             sol = ss.solution()
-            if not sol:
+            if not sol.has_pointing():
                 return _json_response({"note": "Solution data empty"}, 503)
+
+            payload = _solution_to_dict(sol)
 
             # Add Alt/Az if location and datetime are ready
             if ss.altaz_ready():
@@ -176,8 +238,9 @@ def register_api_routes(app, server_instance, require_auth=False):
 
                     ts = sf_utils.ts
                     dt = ss.datetime()
-                    ra_h = float(sol["RA"]) / 15.0
-                    dec_d = float(sol["Dec"])
+                    aligned = sol.pointing.aligned.estimate
+                    ra_h = float(aligned.RA) / 15.0
+                    dec_d = float(aligned.Dec)
                     from skyfield.positionlib import position_of_radec
 
                     p = position_of_radec(
@@ -189,13 +252,12 @@ def register_api_routes(app, server_instance, require_auth=False):
                         ),
                         epoch=ts.from_datetime(dt),
                     )
-                    sol = dict(sol)
-                    sol["Alt"] = alt.degrees
-                    sol["Az"] = az.degrees
+                    payload["Alt"] = alt.degrees
+                    payload["Az"] = az.degrees
                 except Exception:
                     pass
 
-            return _json_response(sol)
+            return _json_response(payload)
         except Exception as e:
             logger.error("api/solution error: %s", e)
             return _json_response({"error": str(e)}, 500)
@@ -242,7 +304,9 @@ def register_api_routes(app, server_instance, require_auth=False):
                 Default is false.
 
             use_camera_solve:
-                Whether to prefer solution["camera_solve"]. Default is true.
+                Whether to prefer the camera-axis plate-solve
+                (pointing.camera.solve) over the aligned estimate.
+                Default is true.
 
             fov:
                 Rendering FOV. Default is 10.2.
@@ -274,7 +338,7 @@ def register_api_routes(app, server_instance, require_auth=False):
 
             sol = ss.solution()
 
-            if not sol:
+            if not sol.has_pointing():
                 return _json_response(
                     {
                         "success": False,
@@ -335,7 +399,12 @@ def register_api_routes(app, server_instance, require_auth=False):
             use_camera_solve = use_camera_solve_q not in ("0", "false", "no", "off")
 
             try:
-                fov = float(request.args.get("fov", sol.get("FOV", 10.2)))
+                solve_fov = sol.diagnostics.FOV
+                fov = float(
+                    request.args.get(
+                        "fov", solve_fov if solve_fov is not None else 10.2
+                    )
+                )
             except Exception:
                 fov = 10.2
 
@@ -354,19 +423,20 @@ def register_api_routes(app, server_instance, require_auth=False):
             # --------------------------------------------------
             source = "camera_solve"
 
-            if use_camera_solve and isinstance(sol, dict) and sol.get("camera_solve"):
-                camera_solve = sol["camera_solve"]
+            if use_camera_solve and sol.pointing.camera.solve is not None:
+                camera_solve = sol.pointing.camera.solve
 
-                ra = float(camera_solve["RA"])
-                dec = float(camera_solve["Dec"])
-                roll = float(camera_solve["Roll"])
+                ra = float(camera_solve.RA)
+                dec = float(camera_solve.Dec)
+                roll = float(camera_solve.Roll)
 
             else:
                 source = "solution"
 
-                ra = float(sol["RA"])
-                dec = float(sol["Dec"])
-                roll = float(sol.get("Roll", 0.0))
+                aligned = sol.pointing.aligned.estimate
+                ra = float(aligned.RA)
+                dec = float(aligned.Dec)
+                roll = float(aligned.Roll)
 
             # --------------------------------------------------
             # 4. Get the API-specific Starfield object
@@ -593,7 +663,7 @@ def register_api_routes(app, server_instance, require_auth=False):
         try:
             imu = server_instance.shared_state.imu()
             if imu:
-                return _json_response(imu)
+                return _json_response(imu.to_dict())
             return _json_response({"note": "IMU data not available"}, 503)
         except Exception as e:
             logger.error("api/imu error: %s", e)

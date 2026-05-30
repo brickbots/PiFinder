@@ -197,7 +197,7 @@ class PowerManager:
         else:  # We are asleepd, should we wake up?
             _imu = self.shared_state.imu()
             if _imu:
-                if _imu["moving"]:
+                if _imu.moving:
                     self.wake_up()
 
     def get_sleep_timeout(self):
