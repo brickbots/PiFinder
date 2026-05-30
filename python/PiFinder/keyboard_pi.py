@@ -21,7 +21,7 @@ class KeyboardPi(KeyboardInterface):
         self.q = q
 
         # GPIO pin numbers for the rows and columns of the keyboard matrix
-        self.cols = [16, 23, 26, 27]
+        self.cols = [16, 23, 26, 27, 21]
         self.rows = [19, 17, 18, 22, 20]
 
         if bloom_remap:
@@ -53,26 +53,26 @@ class KeyboardPi(KeyboardInterface):
 
         # fmt: off
         self.keymap = [
-            7 , 8 , 9 , self.NA,
-            4 , 5 , 6 , self.PLUS,
-            1 , 2 , 3 , self.MINUS,
-            self.NA, 0 , self.NA, self.SQUARE,
-            _left, _up , _down , _right,
+            7 , 8 , 9 , self.NA, _up,
+            4 , 5 , 6 , self.PLUS, _left,
+            1 , 2 , 3 , self.MINUS, _down,
+            self.NA, 0 , self.NA, self.SQUARE, _right,
+            _left, _up , _down , _right, self.SQUARE,
         ]
         # If SQUARE is pressed together with key, ALT_<key> is sent
         self.alt_keymap = [
-            self.NA, self.NA, self.NA, self.NA,
-            self.NA, self.NA, self.NA, self.ALT_PLUS,
-            self.NA, self.NA, self.NA, self.ALT_MINUS,
-            self.NA, self.ALT_0, self.NA, self.NA,
-            _alt_left, _alt_up, _alt_down, _alt_right,
+            self.NA, self.NA, self.NA, self.NA, _alt_up,
+            self.NA, self.NA, self.NA, self.ALT_PLUS, _alt_left,
+            self.NA, self.NA, self.NA, self.ALT_MINUS, _alt_down,
+            self.NA, self.ALT_0, self.NA, self.NA, _alt_right,
+            _alt_left, _alt_up, _alt_down, _alt_right,  self.NA,
         ]
         self.long_keymap = [
-            self.NA, self.NA, self.NA, self.NA,
-            self.NA, self.NA, self.NA, self.NA,
-            self.NA, self.NA, self.NA, self.NA,
-            self.NA, self.NA, self.NA, self.LNG_SQUARE,
-            _lng_left, _lng_up, _lng_down, _lng_right,
+            self.NA, self.NA, self.NA, self.NA, _lng_up,
+            self.NA, self.NA, self.NA, self.NA, _lng_left,
+            self.NA, self.NA, self.NA, self.NA, _lng_down,
+            self.NA, self.NA, self.NA, self.LNG_SQUARE, _lng_right,
+            _lng_left, _lng_up, _lng_down, _lng_right, self.LNG_SQUARE,
         ]
         # fmt: on
 
