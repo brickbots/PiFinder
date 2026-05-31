@@ -1108,18 +1108,22 @@ if __name__ == "__main__":
         battery = importlib.import_module("PiFinder.battery_fake")
     else:
         hardware_platform = "Pi"
-        display_hardware = "ssd1351"
+        # Probe the real board; the battery monitor only spawns if a
+        from PiFinder import hardware_detect
+
+        capabilities = hardware_detect.detect_capabilities()
+
+        if capabilities.has_bq25895:
+            # BQ25895 is actually present (rev-4 hardware).
+            battery = importlib.import_module("PiFinder.battery_bq25895")
+            display_hardware = "ssd1333"
+        else:
+            display_hardware = "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
 
         cfg = config.Config()
         imu = importlib.import_module("PiFinder.imu_pi")
         integrator = importlib.import_module("PiFinder.integrator")
-        # Probe the real board; the battery monitor only spawns if a
-        # BQ25895 is actually present (rev-4 hardware).
-        from PiFinder import hardware_detect
-
-        capabilities = hardware_detect.detect_capabilities()
-        battery = importlib.import_module("PiFinder.battery_bq25895")
 
         # verify and sync GPSD baud rate
         try:
