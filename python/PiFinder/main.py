@@ -369,6 +369,7 @@ def main(
     posserver_logqueue: Queue = log_helper.get_queue()
     integrator_logqueque: Queue = log_helper.get_queue()
     imu_logqueue: Queue = log_helper.get_queue()
+    battery_logqueue: Queue = log_helper.get_queue()
 
     # Start log consolidation process first.
     log_helper.start()
@@ -415,6 +416,7 @@ def main(
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
+        shared_state.set_hardware(capabilities)
         logger.debug("Ui state in main is" + str(shared_state.ui_state()))
         console = UIConsole(
             display_device, None, shared_state, command_queues, cfg, Catalogs([])
@@ -509,6 +511,18 @@ def main(
             args=(shared_state, console_queue, imu_logqueue),
         )
         imu_process.start()
+
+        # Battery monitor (rev-4 BQ25895 only; read-only telemetry)
+        if capabilities.has_bq25895:
+            console.write("   Battery")
+            logger.info("   Battery")
+            console.update()
+            battery_process = Process(
+                name="Battery",
+                target=battery.battery_monitor,
+                args=(shared_state, console_queue, battery_logqueue),
+            )
+            battery_process.start()
 
         # Solver
         console.write("   Solver")
@@ -1087,6 +1101,11 @@ if __name__ == "__main__":
         imu = importlib.import_module("PiFinder.imu_fake")
         integrator = importlib.import_module("PiFinder.integrator")
         gps_monitor = importlib.import_module("PiFinder.gps_fake")
+        # Force has_bq25895=True under -fh so the fake battery monitor runs.
+        from PiFinder.types.hardware import HardwareCapabilities
+
+        capabilities = HardwareCapabilities(has_bq25895=True)
+        battery = importlib.import_module("PiFinder.battery_fake")
     else:
         hardware_platform = "Pi"
         display_hardware = "ssd1351"
@@ -1095,6 +1114,12 @@ if __name__ == "__main__":
         cfg = config.Config()
         imu = importlib.import_module("PiFinder.imu_pi")
         integrator = importlib.import_module("PiFinder.integrator")
+        # Probe the real board; the battery monitor only spawns if a
+        # BQ25895 is actually present (rev-4 hardware).
+        from PiFinder import hardware_detect
+
+        capabilities = hardware_detect.detect_capabilities()
+        battery = importlib.import_module("PiFinder.battery_bq25895")
 
         # verify and sync GPSD baud rate
         try:

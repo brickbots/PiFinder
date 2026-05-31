@@ -289,6 +289,8 @@ class SharedStateObj:
         self.__solution: PointingEstimate = PointingEstimate()
         self.__sats = None
         self.__imu = None
+        self.__battery = None
+        self.__hardware = None
         self.__location: Location = Location()
         self.__sqm: SQM = SQM()
         self.__noise_floor: float = (
@@ -379,6 +381,22 @@ class SharedStateObj:
 
     def set_imu(self, v):
         self.__imu = v
+
+    def battery(self):
+        """Latest BatteryState, or None when no charger is present
+        (rev-3 hardware / monitor not running). None is distinct from a
+        low state_of_charge_pct -- see docs/ax/battery/CONTEXT.md."""
+        return self.__battery
+
+    def set_battery(self, v):
+        self.__battery = v
+
+    def hardware(self):
+        """Detected HardwareCapabilities for this board."""
+        return self.__hardware
+
+    def set_hardware(self, v):
+        self.__hardware = v
 
     def solution(self) -> PointingEstimate:
         return self.__solution
@@ -538,6 +556,7 @@ class SharedStateObj:
             f"UI_state={self.__ui_state})"
             f"Solution: {self.__solution}\n"
             f"IMU: {self.__imu}\n"
+            f"Battery: {self.__battery}\n"
             f"Location: {self.__location}\n"
             f"Date-Time: {self.datetime()}\n"
             f"Screen: {self.__screen}\n"
