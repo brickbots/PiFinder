@@ -41,8 +41,12 @@ _Avoid_: "scan", "autodetect" (reserve for the camera-type detection).
 ### Power path (hardware, not software)
 
 **OTG / boost**:
-The charger's reverse-boost mode (battery → 5 V out). On rev-4 it is disabled **in hardware** (the `/OTG` pin is strapped low), so software never manages it — this is why the Battery code is read-only. Not to be confused with the external **SYS → 5.1 V boost** (a separate TPS61089 part).
+The charger's reverse-boost mode (battery → 5 V out). On rev-4 it is disabled **in hardware** (the `/OTG` pin is strapped low), so software never manages it — this is why the Battery code is read-only. Not to be confused with the external **SYS → 5.1 V boost** (a separate TPS61088 part).
 _Avoid_: implying software enables/disables OTG.
+
+**Power-off latch** (GPIO14):
+The rev-4 hardware power-down path. At kernel power-off the `gpio-poweroff` device-tree overlay drives **GPIO14 low**, tripping the **LTC2954** power-button controller's KILL input; the LTC2954 drops **EN** on the **TPS61088** SYS boost and the system loses power. It is **active-low and fail-safe**: GPIO14 carries a hardware pull-up, so the pin sits high (power on) through early boot and reboot, and only the kernel power-off handler ever pulls it low. This is a *firmware / device-tree* mechanism provisioned in `pifinder_setup.sh` (see ADR 0007) — **not** application code, so the "Battery code never writes the power path" invariant still holds: no Python writes the power path; the kernel drives the kill line once, at shutdown. Added for every board; a no-op on rev-3, which has no latch.
+_Avoid_: calling it a "shutdown command" (it's a hardware kill line, not a syscall); implying the Battery monitor or any Python code drives it.
 
 ## Flagged ambiguities
 
