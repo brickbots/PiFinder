@@ -9,6 +9,7 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - [SQM](./docs/ax/sqm/CONTEXT.md) — estimates sky brightness in mag/arcsec² from solved frames; also produces the noise-floor signal auto-exposure consumes.
 - [Equipment](./docs/ax/equipment/CONTEXT.md) — models the user's telescopes and eyepieces; supplies the active optics that drive magnification, true field of view, and object-image orientation.
 - [UI](./docs/ax/ui/CONTEXT.md) — the on-device menu system: menu tree, screen modules, the navigation stack and key dispatch, marking menus.
+- [Battery](./docs/ax/battery/CONTEXT.md) — reads battery voltage and charge state from the rev-4 BQ25895 charger and publishes `BatteryState`; read-only telemetry, gated on hardware presence.
 
 ## Relationships
 
@@ -18,6 +19,8 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - **Catalog ↔ Positioning**: Catalog supplies the `(RA, Dec)` target for the alignment flow that calibrates `solve_pixel` in Positioning.
 - **Equipment → Catalog**: the active telescope's flip/flop flags and the active eyepiece's true field of view orient and scale the POSS/SDSS object image in `cat_images.get_display_image`.
 - **Positioning → Equipment**: the object-image baseline rotation combines the active telescope's flip/flop with the live solve **roll** from `shared_state` (see [ADR 0003](./docs/adr/0003-object-image-orientation.md)).
+- **Battery → UI**: STATUS (and web/API) display `BatteryState` from `shared_state.battery()` — *consumption is future work; this run is plumbing + tests only*.
+- **Battery → system-wide**: `hardware_detect` probes the I²C bus at startup and publishes `HardwareCapabilities` into `shared_state`; the battery monitor process only runs when `has_bq25895` is detected (rev-4). The same capabilities record is the source of truth for other rev-dependent decisions.
 
 Companion architecture docs live next to each `CONTEXT.md`:
 - [`docs/ax/catalog.md`](./docs/ax/catalog.md)

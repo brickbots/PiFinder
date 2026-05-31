@@ -1,0 +1,66 @@
+# Battery (Power & Charging)
+
+The Battery context reads battery voltage and charge state from the rev-4 on-board **BQ25895** charger over I²C and publishes a `BatteryState` into shared state. It is **read-only telemetry** — it never writes the power path. The user-facing docs call this domain "Power & Charging"; the *code* uses the `battery_` prefix to stay clear of the unrelated sleep/wake `power_state`.
+
+> Companion design notes: [`../../bq25895_design_notes.md`](../../bq25895_design_notes.md) (chip behaviour, power path, register map).
+
+## Language
+
+### Battery state
+
+**Battery voltage**:
+The measured single-cell Li-ion terminal voltage, in volts. The **canonical** battery reading and the source of truth — everything else about charge is derived from it. The BQ25895 has no fuel gauge, so this is the only thing actually *measured*.
+_Avoid_: "battery level" (ambiguous — see Flagged ambiguities), "charge level".
+
+**State of charge** (a.k.a. battery percent):
+A coarse 0–100% **estimate** derived from battery voltage through a fixed Li-ion discharge curve. UI-only, never a control input, and **undefined while charging** (the charger pulls the terminal voltage up, so a percentage would lie) — represented as `None` in that case.
+_Avoid_: treating it as a measured quantity, "fuel gauge" (there isn't one), "battery level".
+
+**Charge status**:
+Which charge phase the charger reports: **Not charging / Pre-charge / Charging (fast) / Charged (done)**. A property of the charger's state machine, distinct from whether external power is present.
+_Avoid_: conflating with **power source** — "charging" and "on external power" are different facts.
+
+**Power source** (`on_external_power`):
+Whether the unit is currently running from USB/adapter input (input present and power-good) versus from the battery. You can be on external power and **not** charging (e.g. charge complete), so this is reported separately from **charge status**.
+_Avoid_: "plugged in" (says nothing about power-good), implying it from charge status.
+
+**`BatteryState`**:
+The published dataclass carried in `SharedStateObj` (`shared_state.battery()` / `set_battery()`). Holds **battery voltage**, **charge status**, **power source**, the estimated **state of charge**, the cheap adjacent diagnostics (charge current, VBUS voltage, SYS voltage) and a timestamp. Read-only for consumers. `None` when no charger is present (rev-3 hardware).
+_Avoid_: "battery info", "power state" (collides with the sleep/wake `power_state`).
+
+### Hardware presence
+
+**`HardwareCapabilities`**:
+The startup-detected record of which optional hardware is present on this board (e.g. `has_bq25895`, with room to grow). Built once by `hardware_detect` and published into `SharedStateObj` (`shared_state.hardware()` / `set_hardware()`) as the single source of truth for rev-dependent decisions. Distinct from `hardware_platform` (the `"Pi"`/`"Fake"` selector string).
+_Avoid_: "hardware platform", "config" (it's detected at runtime, not user-set).
+
+**Hardware probe**:
+A non-destructive I²C presence check (`hardware_detect.i2c_present(address, bus)`, confirmed by reading the BQ25895 part-number register) used at startup to populate `HardwareCapabilities`. The battery monitor only spawns when the charger is detected.
+_Avoid_: "scan", "autodetect" (reserve for the camera-type detection).
+
+### Power path (hardware, not software)
+
+**OTG / boost**:
+The charger's reverse-boost mode (battery → 5 V out). On rev-4 it is disabled **in hardware** (the `/OTG` pin is strapped low), so software never manages it — this is why the Battery code is read-only. Not to be confused with the external **SYS → 5.1 V boost** (a separate TPS61089 part).
+_Avoid_: implying software enables/disables OTG.
+
+## Flagged ambiguities
+
+- **"battery level"** (bare) — do not use. It conflates the *measured* **battery voltage** with the *estimated* **state of charge**. Name one: voltage (measured, canonical) or state-of-charge % (estimated, UI-only, `None` while charging).
+- **`power_state` / `PowerManager`** — these are the **display sleep/wake** concept (`0`=sleep, `1`=awake) and have **nothing** to do with the battery or charger. The Battery context deliberately uses the `battery_` prefix to avoid this collision. Never reach for `power_*` names in charger code.
+- **"charging" vs "on external power"** — separate facts. Charge status reports the charger's phase; power source reports whether input power is present. A unit on external power with a full cell is "on external power, not charging".
+- **`BatteryState` is `None` vs 0%** — `None` means *no charger detected* (rev-3 board, monitor not running); a real `BatteryState` with a low `state_of_charge_pct` means *detected and nearly empty*. Consumers must distinguish "no battery hardware" from "empty battery".
+
+## Example dialogue
+
+> **Dev:** The status line should show battery level — what field do I read?
+>
+> **Domain:** Don't say "battery level". Read `BatteryState.battery_voltage` for the real measured value; if you want a percentage, read `state_of_charge_pct`, but it's a rough estimate off a voltage curve and it's `None` whenever we're charging — show the voltage or a "charging" state then, not a fake number.
+>
+> **Dev:** What if the board has no charger?
+>
+> **Domain:** `shared_state.battery()` returns `None`. That's distinct from a low battery. Gate the whole row on `has_bq25895` in `shared_state.hardware()` — same fact that decides whether the monitor process runs at all.
+>
+> **Dev:** Do we ever turn charging on/off from software?
+>
+> **Domain:** No. The Battery code only ever reads (apart from kicking a one-shot ADC conversion to get a fresh sample). OTG is disabled in hardware via the `/OTG` strap; the whole power path is the schematic's job, not ours.
