@@ -17,6 +17,13 @@ from PiFinder.telemetry import (
     TelemetryRecorder,
     _serialize_quat,
 )
+from PiFinder.types.positioning import (
+    FailedSolve,
+    ImuSample,
+    Pointing,
+    SolveDiagnostics,
+    SuccessfulSolve,
+)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -24,6 +31,50 @@ from PiFinder.telemetry import (
 
 def _make_quat(w=1.0, x=0.0, y=0.0, z=0.0):
     return quaternion_module.quaternion(w, x, y, z)
+
+
+def _make_imu_sample(
+    quat=None, timestamp=1000.0, status=3, moving=False, gyro=None, accel=None
+):
+    return ImuSample(
+        quat=quat or _make_quat(),
+        timestamp=timestamp,
+        status=status,
+        moving=moving,
+        gyro=gyro,
+        accel=accel,
+    )
+
+
+def _make_successful_solve(
+    ra=180.0,
+    dec=45.0,
+    roll=10.0,
+    cam_ra=180.1,
+    cam_dec=44.9,
+    cam_roll=10.0,
+    imu_anchor=None,
+    last_solve_attempt=1000.4,
+    last_solve_success=1000.5,
+    matches=15,
+    rmse=0.5,
+):
+    return SuccessfulSolve(
+        camera=Pointing(RA=cam_ra, Dec=cam_dec, Roll=cam_roll),
+        aligned=Pointing(RA=ra, Dec=dec, Roll=roll),
+        imu_anchor=imu_anchor,
+        last_solve_attempt=last_solve_attempt,
+        last_solve_success=last_solve_success,
+        diagnostics=SolveDiagnostics(Matches=matches, RMSE=rmse),
+    )
+
+
+def _make_failed_solve(last_solve_attempt=1000.4, last_solve_success=None):
+    return FailedSolve(
+        diagnostics=SolveDiagnostics(Matches=0),
+        last_solve_attempt=last_solve_attempt,
+        last_solve_success=last_solve_success,
+    )
 
 
 def _make_location(lat=40.0, lon=-74.0, alt=100.0):
@@ -106,12 +157,12 @@ class TestTelemetryRecorder:
 
     def test_record_imu_noop_when_disabled(self):
         rec = TelemetryRecorder()
-        rec.record_imu({"quat": _make_quat(), "pos": [0, 0, 0]})
+        rec.record_imu(_make_imu_sample())
         assert len(rec._buffer) == 0
 
     def test_record_solve_noop_when_disabled(self):
         rec = TelemetryRecorder()
-        result = rec.record_solve({"RA": 180.0, "Dec": 45.0})
+        result = rec.record_solve(_make_successful_solve())
         assert result is None
         assert len(rec._buffer) == 0
 
@@ -160,14 +211,13 @@ class TestTelemetryRecorder:
             rec.start(_make_cfg(), _make_shared_state())
             try:
                 rec.record_imu(
-                    {
-                        "quat": _make_quat(1, 0, 0, 0),
-                        "pos": [1.0, 2.0, 3.0],
-                        "moving": True,
-                        "status": 3,
-                        "gyro": (0.01, -0.02, 0.03),
-                        "accel": (0.1, 0.2, -0.3),
-                    }
+                    _make_imu_sample(
+                        quat=_make_quat(1, 0, 0, 0),
+                        moving=True,
+                        status=3,
+                        gyro=(0.01, -0.02, 0.03),
+                        accel=(0.1, 0.2, -0.3),
+                    )
                 )
                 assert len(rec._buffer) == 2  # header + imu
                 line = json.loads(rec._buffer[-1])
@@ -179,23 +229,40 @@ class TestTelemetryRecorder:
             finally:
                 rec.stop()
 
+    def test_record_imu_stationary_decimation(self, tmp_path):
+        """Stationary samples are decimated; moving samples are not."""
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                for _ in range(10):
+                    rec.record_imu(_make_imu_sample(moving=False))
+                # Only every 10th stationary sample is recorded
+                assert len(rec._buffer) == 2  # header + 1 imu
+                for _ in range(3):
+                    rec.record_imu(_make_imu_sample(moving=True))
+                assert len(rec._buffer) == 5  # + 3 moving samples
+            finally:
+                rec.stop()
+
     def test_record_solve_when_enabled(self, tmp_path):
         with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
             rec = TelemetryRecorder()
             rec.start(_make_cfg(), _make_shared_state())
             try:
                 t = rec.record_solve(
-                    {
-                        "RA": 180.0,
-                        "Dec": 45.0,
-                        "Roll": 10.0,
-                        "camera_center": {"RA": 180.1, "Dec": 44.9, "Roll": 10.0},
-                        "imu_quat": _make_quat(1, 0, 0, 0),
-                        "last_solve_attempt": 1000.4,
-                        "last_solve_success": 1000.5,
-                    },
-                    predicted_ra=179.5,
-                    predicted_dec=44.8,
+                    _make_successful_solve(
+                        ra=180.0,
+                        dec=45.0,
+                        roll=10.0,
+                        cam_ra=180.1,
+                        cam_dec=44.9,
+                        cam_roll=10.0,
+                        imu_anchor=_make_quat(1, 0, 0, 0),
+                        last_solve_attempt=1000.4,
+                        last_solve_success=1000.5,
+                    ),
+                    predicted=Pointing(RA=179.5, Dec=44.8, Roll=0.0),
                 )
                 assert t is not None
                 assert len(rec._buffer) == 2  # header + solve
@@ -204,8 +271,28 @@ class TestTelemetryRecorder:
                 assert line["ra"] == 180.0
                 assert line["pred_ra"] == 179.5
                 assert line["cam_ra"] == 180.1
+                assert line["iq"] == [1.0, 0.0, 0.0, 0.0]
                 assert line["lsa"] == 1000.4
                 assert line["lss"] == 1000.5
+                assert line["src"] == "CAM"
+            finally:
+                rec.stop()
+
+    def test_record_failed_solve(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                t = rec.record_solve(_make_failed_solve(last_solve_attempt=1000.4))
+                assert t is not None
+                line = json.loads(rec._buffer[-1])
+                assert line["e"] == "solve"
+                assert line["ra"] is None
+                assert line["cam_ra"] is None
+                assert line["iq"] is None
+                assert line["matches"] == 0
+                assert line["lsa"] == 1000.4
+                assert line["src"] == "CAM_FAILED"
             finally:
                 rec.stop()
 
@@ -226,7 +313,7 @@ class TestTelemetryRecorder:
             rec = TelemetryRecorder()
             rec.start(_make_cfg(), _make_shared_state())
             try:
-                rec.record_imu({"quat": _make_quat(), "pos": None, "moving": True})
+                rec.record_imu(_make_imu_sample(moving=True))
                 rec._do_flush()
                 assert len(rec._buffer) == 0
                 content = (rec._session_dir / "session.jsonl").read_text()
@@ -419,7 +506,7 @@ class TestTelemetryPlayer:
         assert player.current_index == 0
         assert player._replay_start is None
 
-    def test_event_to_solve_dict(self):
+    def test_event_to_solve_result_success(self):
         event = {
             "t": 1000.5,
             "ra": 180.0,
@@ -431,54 +518,86 @@ class TestTelemetryPlayer:
             "matches": 15,
             "rmse": 0.5,
             "iq": [1.0, 0.0, 0.0, 0.0],
-            "ip": [0.1, 0.2, 0.3],
             "lsa": 1000.4,
             "lss": 1000.5,
             "src": "CAM",
         }
-        result = TelemetryPlayer.event_to_solve_dict(event)
-        assert result["RA"] == 180.0
-        assert result["Dec"] == 45.0
-        assert result["Roll"] == 10.0
-        assert result["camera_center"]["RA"] == 180.1
-        assert result["Matches"] == 15
-        assert result["solve_source"] == "CAM"
-        assert result["solve_time"] == 1000.5
-        assert result["last_solve_attempt"] == 1000.4
-        assert result["last_solve_success"] == 1000.5
-        assert isinstance(result["imu_quat"], quaternion_module.quaternion)
-        assert result["imu_quat"].w == 1.0
+        result = TelemetryPlayer.event_to_solve_result(event)
+        assert isinstance(result, SuccessfulSolve)
+        assert result.aligned.RA == 180.0
+        assert result.aligned.Dec == 45.0
+        assert result.aligned.Roll == 10.0
+        assert result.camera.RA == 180.1
+        assert result.diagnostics.Matches == 15
+        assert result.diagnostics.RMSE == 0.5
+        assert result.last_solve_attempt == 1000.4
+        assert result.last_solve_success == 1000.5
+        assert isinstance(result.imu_anchor, quaternion_module.quaternion)
+        assert result.imu_anchor.w == 1.0
 
-    def test_event_to_solve_dict_no_imu_quat(self):
+    def test_event_to_solve_result_no_imu_quat(self):
         event = {"t": 1000.0, "ra": 180.0, "dec": 45.0}
-        result = TelemetryPlayer.event_to_solve_dict(event)
-        assert result["RA"] == 180.0
-        assert result["solve_time"] == 1000.0
-        assert result["solve_source"] == "CAM"
-        assert "imu_quat" not in result
+        result = TelemetryPlayer.event_to_solve_result(event)
+        assert isinstance(result, SuccessfulSolve)
+        assert result.aligned.RA == 180.0
+        assert result.imu_anchor is None
+        # Missing lsa/lss fall back to the event timestamp
+        assert result.last_solve_attempt == 1000.0
+        assert result.last_solve_success == 1000.0
 
-    def test_event_to_solve_dict_uses_recorded_source(self):
-        event = {"t": 1000.0, "ra": 180.0, "dec": 45.0, "src": "CAM_FAILED"}
-        result = TelemetryPlayer.event_to_solve_dict(event)
-        assert result["solve_source"] == "CAM_FAILED"
+    def test_event_to_solve_result_no_camera_falls_back_to_aligned(self):
+        event = {"t": 1000.0, "ra": 180.0, "dec": 45.0, "roll": 10.0}
+        result = TelemetryPlayer.event_to_solve_result(event)
+        assert isinstance(result, SuccessfulSolve)
+        assert result.camera.RA == 180.0
+        assert result.camera.Dec == 45.0
 
-    def test_event_to_imu_dict(self):
-        event = {"q": [1.0, 0.0, 0.0, 0.0], "mv": True, "st": 3}
-        result = TelemetryPlayer.event_to_imu_dict(event)
+    def test_event_to_solve_result_failed(self):
+        event = {
+            "t": 1000.0,
+            "ra": None,
+            "dec": None,
+            "matches": 0,
+            "lsa": 1000.0,
+        }
+        result = TelemetryPlayer.event_to_solve_result(event)
+        assert isinstance(result, FailedSolve)
+        assert result.diagnostics.Matches == 0
+        assert result.last_solve_attempt == 1000.0
+        assert result.last_solve_success is None
+
+    def test_event_to_imu_sample(self):
+        event = {"t": 1000.0, "q": [1.0, 0.0, 0.0, 0.0], "mv": True, "st": 3}
+        result = TelemetryPlayer.event_to_imu_sample(event)
         assert result is not None
-        assert isinstance(result["quat"], quaternion_module.quaternion)
-        assert result["moving"] is True
-        assert result["status"] == 3
+        assert isinstance(result, ImuSample)
+        assert isinstance(result.quat, quaternion_module.quaternion)
+        assert result.timestamp == 1000.0
+        assert result.moving is True
+        assert result.status == 3
 
-    def test_event_to_imu_dict_no_quat(self):
-        event = {"mv": False}
-        assert TelemetryPlayer.event_to_imu_dict(event) is None
+    def test_event_to_imu_sample_no_quat(self):
+        event = {"t": 1000.0, "mv": False}
+        assert TelemetryPlayer.event_to_imu_sample(event) is None
 
-    def test_event_to_imu_dict_defaults(self):
-        event = {"q": [1.0, 0.0, 0.0, 0.0]}
-        result = TelemetryPlayer.event_to_imu_dict(event)
-        assert result["moving"] is False
-        assert result["status"] == 0
+    def test_event_to_imu_sample_defaults(self):
+        event = {"t": 1000.0, "q": [1.0, 0.0, 0.0, 0.0]}
+        result = TelemetryPlayer.event_to_imu_sample(event)
+        assert result.moving is False
+        assert result.status == 0
+        assert result.gyro is None
+        assert result.accel is None
+
+    def test_event_to_imu_sample_with_raw_sensors(self):
+        event = {
+            "t": 1000.0,
+            "q": [1.0, 0.0, 0.0, 0.0],
+            "gyro": [0.01, -0.02, 0.03],
+            "accel": [0.1, 0.2, -0.3],
+        }
+        result = TelemetryPlayer.event_to_imu_sample(event)
+        assert result.gyro == (0.01, -0.02, 0.03)
+        assert result.accel == (0.1, 0.2, -0.3)
 
 
 # ── TelemetryManager ────────────────────────────────────────────────
@@ -578,11 +697,63 @@ class TestTelemetryManager:
         assert cq.get_nowait() == "Telemetry: Replay stopped"
         assert cam_q.get_nowait() == "start"
 
-    def test_next_replay_event_not_replaying(self):
+    def test_next_replay_message_not_replaying(self):
         mgr = TelemetryManager(_make_cfg(), _make_shared_state(), queue.Queue())
-        assert mgr.next_replay_event() is None
+        assert mgr.next_replay_message() is None
 
-    def test_next_replay_event_auto_finish(self, tmp_path):
+    def test_next_replay_message_imu_event(self, tmp_path):
+        now = time.time()
+        events = [{"t": now, "e": "imu", "q": [1, 0, 0, 0], "mv": True, "st": 3}]
+        _write_session_jsonl(tmp_path / "session.jsonl", events)
+
+        cq = queue.Queue()
+        mgr = TelemetryManager(_make_cfg(), _make_shared_state(), cq)
+        mgr._handle_command("replay", str(tmp_path))
+        cq.get_nowait()  # drain "Replay started"
+
+        message = mgr.next_replay_message()
+        assert isinstance(message, ImuSample)
+        assert message.moving is True
+
+    def test_next_replay_message_solve_event(self, tmp_path):
+        now = time.time()
+        events = [
+            {
+                "t": now,
+                "e": "solve",
+                "ra": 180.0,
+                "dec": 45.0,
+                "roll": 10.0,
+                "cam_ra": 180.1,
+                "cam_dec": 44.9,
+                "cam_roll": 10.0,
+            }
+        ]
+        _write_session_jsonl(tmp_path / "session.jsonl", events)
+
+        cq = queue.Queue()
+        mgr = TelemetryManager(_make_cfg(), _make_shared_state(), cq)
+        mgr._handle_command("replay", str(tmp_path))
+        cq.get_nowait()  # drain "Replay started"
+
+        message = mgr.next_replay_message()
+        assert isinstance(message, SuccessfulSolve)
+        assert message.aligned.RA == 180.0
+
+    def test_next_replay_message_failed_solve_event(self, tmp_path):
+        now = time.time()
+        events = [{"t": now, "e": "solve", "ra": None, "dec": None, "matches": 0}]
+        _write_session_jsonl(tmp_path / "session.jsonl", events)
+
+        cq = queue.Queue()
+        mgr = TelemetryManager(_make_cfg(), _make_shared_state(), cq)
+        mgr._handle_command("replay", str(tmp_path))
+        cq.get_nowait()  # drain "Replay started"
+
+        message = mgr.next_replay_message()
+        assert isinstance(message, FailedSolve)
+
+    def test_next_replay_message_auto_finish(self, tmp_path):
         now = time.time()
         events = [{"t": now, "e": "imu", "q": [1, 0, 0, 0]}]
         _write_session_jsonl(tmp_path / "session.jsonl", events)
@@ -594,12 +765,12 @@ class TestTelemetryManager:
         cq.get_nowait()  # drain "Replay started"
 
         # First call returns the event
-        event = mgr.next_replay_event()
-        assert event is not None
+        message = mgr.next_replay_message()
+        assert message is not None
 
         # Next call: done → auto-cleanup
-        event2 = mgr.next_replay_event()
-        assert event2 is None
+        message2 = mgr.next_replay_message()
+        assert message2 is None
         assert not mgr.replaying
         assert cq.get_nowait() == "Telemetry: Replay finished"
         assert cam_q.get_nowait() == "start"
@@ -608,7 +779,7 @@ class TestTelemetryManager:
         mgr = TelemetryManager(_make_cfg(), _make_shared_state(), queue.Queue())
         mgr._recorder = MagicMock()
         mgr._recorder.record_solve.return_value = None
-        mgr.record_solve({"RA": 180.0})
+        mgr.record_solve(_make_successful_solve())
         mgr._recorder.record_solve.assert_called_once()
 
     def test_record_solve_sends_image_command(self, tmp_path):
@@ -619,7 +790,7 @@ class TestTelemetryManager:
             mgr._recorder.start(_make_cfg(), _make_shared_state())
             mgr._recorder.images_enabled = True
             try:
-                mgr.record_solve({"RA": 180.0, "Dec": 45.0})
+                mgr.record_solve(_make_successful_solve())
                 msg = cam_q.get_nowait()
                 assert msg.startswith("save_image:")
             finally:
@@ -628,8 +799,24 @@ class TestTelemetryManager:
     def test_record_imu_delegates(self):
         mgr = TelemetryManager(_make_cfg(), _make_shared_state(), queue.Queue())
         mgr._recorder = MagicMock()
-        mgr.record_imu({"quat": _make_quat()})
+        mgr.record_imu(_make_imu_sample())
         mgr._recorder.record_imu.assert_called_once()
+
+    def test_record_noop_while_replaying(self, tmp_path):
+        """Recording is suppressed while replaying to avoid re-recording
+        the replayed session."""
+        events = [{"t": 1000.0, "e": "imu", "q": [1, 0, 0, 0]}]
+        _write_session_jsonl(tmp_path / "session.jsonl", events)
+
+        cq = queue.Queue()
+        mgr = TelemetryManager(_make_cfg(), _make_shared_state(), cq)
+        mgr._recorder = MagicMock()
+        mgr._handle_command("replay", str(tmp_path))
+
+        mgr.record_solve(_make_successful_solve())
+        mgr.record_imu(_make_imu_sample())
+        mgr._recorder.record_solve.assert_not_called()
+        mgr._recorder.record_imu.assert_not_called()
 
     def test_flush_delegates(self):
         mgr = TelemetryManager(_make_cfg(), _make_shared_state(), queue.Queue())
@@ -664,88 +851,8 @@ class TestTelemetryManager:
         mgr.poll_commands(cmd_q)  # should not crash
 
     def test_restart_camera_no_queue(self):
-        mgr = TelemetryManager(
-            _make_cfg(), _make_shared_state(), queue.Queue(), None
-        )
+        mgr = TelemetryManager(_make_cfg(), _make_shared_state(), queue.Queue(), None)
         mgr._restart_camera()  # no-op, no crash
-
-    def test_handle_replay_event_failed_solve(self):
-        """Failed solves during replay should set solve_state(False) and CAM_FAILED."""
-        ss = _make_shared_state()
-        mgr = TelemetryManager(_make_cfg(), ss, queue.Queue())
-        imu_dr = MagicMock()
-
-        solved = {
-            "RA": 180.0,
-            "Dec": 45.0,
-            "Matches": 15,
-            "RMSE": 0.5,
-            "solve_source": "CAM",
-            "constellation": "Vir",
-        }
-        last_image_solve = {"RA": 180.0, "Dec": 45.0}
-
-        failed_event = {
-            "t": 1000.0,
-            "e": "solve",
-            "ra": None,
-            "dec": None,
-            "matches": 0,
-            "rmse": None,
-            "lsa": 1000.0,
-        }
-
-        result = mgr.handle_replay_event(
-            failed_event, solved, last_image_solve, imu_dr, "Alt/Az"
-        )
-
-        # last_image_solve should be unchanged (returned as-is)
-        assert result is last_image_solve
-        # Metadata updated
-        assert solved["Matches"] == 0
-        assert solved["last_solve_attempt"] == 1000.0
-        # Failed solve behavior
-        assert solved["solve_source"] == "CAM_FAILED"
-        assert solved["constellation"] == ""
-        ss.set_solve_state.assert_called_with(False)
-        ss.set_solution.assert_called_once()
-
-    def test_handle_replay_event_successful_solve(self):
-        """Successful solves during replay should update position and metadata."""
-        ss = _make_shared_state()
-        mgr = TelemetryManager(_make_cfg(), ss, queue.Queue())
-        imu_dr = MagicMock()
-
-        solved = {"RA": None, "Dec": None, "Matches": None, "imu_quat": None}
-
-        event = {
-            "t": 1000.0,
-            "e": "solve",
-            "ra": 180.0,
-            "dec": 45.0,
-            "cam_ra": 180.1,
-            "cam_dec": 44.9,
-            "cam_roll": 10.0,
-            "matches": 15,
-            "rmse": 0.5,
-            "lsa": 1000.0,
-            "lss": 1000.0,
-            "iq": [1.0, 0.0, 0.0, 0.0],
-            "src": "CAM",
-        }
-
-        with patch("PiFinder.telemetry.update_plate_solve_and_imu"), patch(
-            "PiFinder.telemetry.finalize_and_push_solution"
-        ):
-            result = mgr.handle_replay_event(
-                event, solved, None, imu_dr, "Alt/Az"
-            )
-
-        assert result is not None
-        assert result["RA"] == 180.0
-        assert result["Matches"] == 15
-        assert result["last_solve_attempt"] == 1000.0
-        ss.set_solve_state.assert_called_with(True)
 
     def test_replay_header_mount_type_mismatch_warns(self, tmp_path):
         """Replay should warn when header mount_type differs from config."""
@@ -753,7 +860,7 @@ class TestTelemetryManager:
             "t": 999.0,
             "e": "hdr",
             "dt": "2024-01-15T22:30:00",
-            "cfg": {"integrator": "flat", "mount_type": "EQ"},
+            "cfg": {"screen_direction": "flat", "mount_type": "EQ"},
         }
         events = [{"t": 1000.0, "e": "imu", "q": [1, 0, 0, 0]}]
         _write_session_jsonl(tmp_path / "session.jsonl", events, header=hdr)
@@ -774,7 +881,7 @@ class TestTelemetryManager:
         hdr = {
             "t": 999.0,
             "e": "hdr",
-            "cfg": {"integrator": "flat", "mount_type": "Alt/Az"},
+            "cfg": {"screen_direction": "flat", "mount_type": "Alt/Az"},
         }
         events = [{"t": 1000.0, "e": "imu", "q": [1, 0, 0, 0]}]
         _write_session_jsonl(tmp_path / "session.jsonl", events, header=hdr)
@@ -833,75 +940,57 @@ class TestTelemetryManager:
                 rec.stop()
 
 
-# ── pointing.py ──────────────────────────────────────────────────────
+# ── Recording → replay round trip ───────────────────────────────────
 
 
 @pytest.mark.unit
-class TestGetRollByMountType:
-    def test_eq_mount_returns_zero(self):
-        from PiFinder.pointing import get_roll_by_mount_type
+class TestRecordReplayRoundTrip:
+    def test_recorded_solve_replays_as_equivalent_message(self, tmp_path):
+        """A recorded SuccessfulSolve comes back as an equivalent message."""
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            original = _make_successful_solve(imu_anchor=_make_quat(1, 0, 0, 0))
+            rec.record_solve(original)
+            rec._do_flush()
+            session_dir = rec._session_dir
+            rec.stop()
 
-        roll = get_roll_by_mount_type(180.0, 45.0, None, None, "EQ")
-        assert roll == 0.0
+            player = TelemetryPlayer(session_dir)
+            assert player.total_events == 1
+            replayed = TelemetryPlayer.event_to_solve_result(player.events[0])
+            assert isinstance(replayed, SuccessfulSolve)
+            assert replayed.aligned.RA == original.aligned.RA
+            assert replayed.aligned.Dec == original.aligned.Dec
+            assert replayed.camera.RA == original.camera.RA
+            assert replayed.imu_anchor == original.imu_anchor
+            assert replayed.last_solve_attempt == original.last_solve_attempt
+            assert replayed.last_solve_success == original.last_solve_success
+            assert replayed.diagnostics.Matches == original.diagnostics.Matches
 
-    def test_eq_mount_southern_hemisphere(self):
-        from PiFinder.pointing import get_roll_by_mount_type
+    def test_recorded_imu_replays_as_equivalent_sample(self, tmp_path):
+        """A recorded ImuSample comes back as an equivalent sample."""
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            original = _make_imu_sample(
+                quat=_make_quat(0.5, 0.5, 0.5, 0.5),
+                moving=True,
+                status=3,
+                gyro=(0.01, -0.02, 0.03),
+                accel=(0.1, 0.2, -0.3),
+            )
+            rec.record_imu(original)
+            rec._do_flush()
+            session_dir = rec._session_dir
+            rec.stop()
 
-        loc = _make_location(lat=-35.0)
-        roll = get_roll_by_mount_type(180.0, 45.0, loc, None, "EQ")
-        assert roll == 180.0
-
-    def test_altaz_no_location_returns_zero(self):
-        from PiFinder.pointing import get_roll_by_mount_type
-
-        roll = get_roll_by_mount_type(180.0, 45.0, None, None, "Alt/Az")
-        assert roll == 0.0
-
-    def test_unknown_mount_returns_zero(self):
-        from PiFinder.pointing import get_roll_by_mount_type
-
-        roll = get_roll_by_mount_type(180.0, 45.0, None, None, "Dobsonian")
-        assert roll == 0.0
-
-
-@pytest.mark.unit
-class TestUpdatePlateSolveAndImu:
-    def test_returns_early_on_none_ra(self):
-        from PiFinder.pointing import update_plate_solve_and_imu
-
-        imu_dr = MagicMock()
-        solved = {"RA": None, "Dec": 45.0}
-        update_plate_solve_and_imu(imu_dr, solved)
-        imu_dr.update_plate_solve_and_imu.assert_not_called()
-
-    def test_returns_early_on_none_dec(self):
-        from PiFinder.pointing import update_plate_solve_and_imu
-
-        imu_dr = MagicMock()
-        solved = {"RA": 180.0, "Dec": None}
-        update_plate_solve_and_imu(imu_dr, solved)
-        imu_dr.update_plate_solve_and_imu.assert_not_called()
-
-
-@pytest.mark.unit
-class TestUpdateImu:
-    def test_returns_early_no_last_image_solve(self):
-        from PiFinder.pointing import update_imu
-
-        imu_dr = MagicMock()
-        imu_dr.tracking = True
-        solved = {"RA": 180.0}
-        imu = {"quat": _make_quat()}
-        update_imu(imu_dr, solved, None, imu)
-        imu_dr.update_imu.assert_not_called()
-
-    def test_returns_early_not_tracking(self):
-        from PiFinder.pointing import update_imu
-
-        imu_dr = MagicMock()
-        imu_dr.tracking = False
-        solved = {"RA": 180.0}
-        last = {"imu_quat": _make_quat()}
-        imu = {"quat": _make_quat()}
-        update_imu(imu_dr, solved, last, imu)
-        imu_dr.update_imu.assert_not_called()
+            player = TelemetryPlayer(session_dir)
+            assert player.total_events == 1
+            replayed = TelemetryPlayer.event_to_imu_sample(player.events[0])
+            assert isinstance(replayed, ImuSample)
+            assert replayed.quat == original.quat
+            assert replayed.moving is True
+            assert replayed.status == 3
+            assert replayed.gyro == original.gyro
+            assert replayed.accel == original.accel

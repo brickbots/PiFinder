@@ -310,8 +310,8 @@ class UIObjectDetails(UIModule):
 
         solution = self.shared_state.solution()
         roll = 0
-        if solution:
-            roll = solution["Roll"]
+        if solution and solution.has_pointing():
+            roll = solution.pointing.aligned.estimate.Roll
 
         magnification = self.config_object.equipment.calc_magnification()
         flip_image, flop_image = (
@@ -342,7 +342,7 @@ class UIObjectDetails(UIModule):
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
-        if self.shared_state.solution() is None:
+        if not self.shared_state.solution().has_pointing():
             self.draw.text(
                 (10, 70),
                 _("No solve"),  # TRANSLATORS: No solve yet... (Part 1/2)
@@ -693,7 +693,7 @@ class UIObjectDetails(UIModule):
         logging screen
         """
         self.maybe_add_to_recents()
-        if self.shared_state.solution() is None:
+        if not self.shared_state.solution().has_pointing():
             return
         object_item_definition = {
             "name": _("LOG"),

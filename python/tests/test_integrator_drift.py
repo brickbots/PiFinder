@@ -1,7 +1,7 @@
 """
 Integration tests for IMU dead-reckoning drift through the real integrator
-wrapper functions. Replays synthetic telemetry through ImuDeadReckoning and
-measures pointing error vs ground truth.
+apply/advance functions. Replays synthetic telemetry through ImuDeadReckoning
+and measures pointing error vs ground truth.
 
 Catches regressions in:
 - Quaternion math (drift explodes)
@@ -10,7 +10,6 @@ Catches regressions in:
 - RaDecRoll / quaternion transform correctness
 """
 
-import copy
 from dataclasses import dataclass
 from typing import List, Union
 
@@ -18,13 +17,15 @@ import numpy as np
 import pytest
 import quaternion
 
-from PiFinder.pointing import (
-    update_imu,
-    update_plate_solve_and_imu,
-)
+from PiFinder.integrator import _advance_with_imu, _apply_successful_solve
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 from PiFinder.pointing_model.quaternion_transforms import axis_angle2quat, radec2q_eq
-from PiFinder.solved import get_initialized_solved_dict
+from PiFinder.types.positioning import (
+    ImuSample,
+    Pointing,
+    PointingEstimate,
+    SuccessfulSolve,
+)
 
 
 # ── Synthetic telemetry generation ──────────────────────────────────
@@ -79,10 +80,10 @@ def _make_imu_quat_for_radec(
     assuming q_eq2x is identity.
 
     From: q_eq2cam = q_eq2x * q_x2imu * q_imu2cam
-    With q_eq2x = I: q_x2imu = q_eq2cam * q_cam2imu
+    With q_eq2x = I: q_x2imu = q_eq2cam * q_imu2cam.conj()
     """
     q_eq2cam = radec2q_eq(ra_rad, dec_rad, roll_rad)
-    q_x2imu = q_eq2cam * imu_dr.q_cam2imu
+    q_x2imu = q_eq2cam * imu_dr.q_imu2cam.conj()
     return q_x2imu.normalized()
 
 
@@ -221,57 +222,71 @@ def generate_slew_session(
 # ── Replay engine ───────────────────────────────────────────────────
 
 
-def _populate_solved_from_event(solved: dict, event: SolveEvent):
-    """Fill the solved dict from a solve event, mirroring the real integrator."""
-    solved["RA"] = event.ra_deg
-    solved["Dec"] = event.dec_deg
-    solved["Roll"] = event.roll_deg
-    solved["camera_center"]["RA"] = event.ra_deg
-    solved["camera_center"]["Dec"] = event.dec_deg
-    solved["camera_center"]["Roll"] = event.roll_deg
-    solved["camera_solve"] = {
-        "RA": event.ra_deg,
-        "Dec": event.dec_deg,
-        "Roll": event.roll_deg,
-    }
-    solved["imu_quat"] = event.imu_quat
-    solved["solve_time"] = event.timestamp
-    solved["solve_source"] = "CAM"
+def _solve_event_to_message(event: SolveEvent) -> SuccessfulSolve:
+    """Build the solver→integrator message for a synthetic solve event,
+    mirroring the real solver (camera == aligned: no alignment offset)."""
+    pointing = Pointing(RA=event.ra_deg, Dec=event.dec_deg, Roll=event.roll_deg)
+    return SuccessfulSolve(
+        camera=pointing,
+        aligned=pointing,
+        imu_anchor=event.imu_quat,
+        last_solve_attempt=event.timestamp,
+        last_solve_success=event.timestamp,
+    )
+
+
+def _imu_event_to_sample(event: ImuEvent) -> ImuSample:
+    """Build the shared-state IMU sample for a synthetic IMU event."""
+    return ImuSample(
+        quat=event.imu_quat,
+        timestamp=event.timestamp,
+        status=3,
+        moving=event.moving,
+    )
+
+
+def _aligned_estimate_error_arcsec(
+    estimate: PointingEstimate, event: ImuEvent
+) -> float:
+    """Angular error of the published aligned estimate vs ground truth."""
+    aligned = estimate.pointing.aligned.estimate
+    assert aligned is not None, "callers only measure populated estimates"
+    error_deg = angular_separation_deg(
+        aligned.RA,
+        aligned.Dec,
+        event.true_ra_deg,
+        event.true_dec_deg,
+    )
+    return error_deg * 3600.0
 
 
 def replay_imu_drift(events: list) -> List[Measurement]:
     """
     Replay telemetry and measure dead-reckoning error at each IMU update
-    by comparing the integrator's solved position to ground truth.
+    by comparing the integrator's published estimate to ground truth.
     """
-    imu_dr = ImuDeadReckoning("flat")
-    solved = get_initialized_solved_dict()
-    last_image_solve = None
+    idr = ImuDeadReckoning("flat")
+    estimate = PointingEstimate()
     measurements: List[Measurement] = []
 
     for event in events:
         if isinstance(event, SolveEvent):
-            _populate_solved_from_event(solved, event)
-            last_image_solve = copy.deepcopy(solved)
-            update_plate_solve_and_imu(imu_dr, solved)
+            estimate = _apply_successful_solve(
+                estimate, _solve_event_to_message(event), idr
+            )
 
         elif isinstance(event, ImuEvent):
-            if last_image_solve is None:
+            if not idr.is_initialized() or estimate.imu_anchor is None:
                 continue
 
-            imu_dict = {"quat": event.imu_quat, "moving": event.moving}
-            update_imu(imu_dr, solved, last_image_solve, imu_dict)
+            # May not advance (below deadband); the estimate then stays at
+            # the last applied value, which is still the published answer.
+            _advance_with_imu(estimate, idr, _imu_event_to_sample(event))
 
-            if solved["RA"] is not None:
-                error_deg = angular_separation_deg(
-                    solved["RA"],
-                    solved["Dec"],
-                    event.true_ra_deg,
-                    event.true_dec_deg,
-                )
+            if estimate.pointing.aligned.estimate is not None:
                 measurements.append(
                     Measurement(
-                        error_arcsec=error_deg * 3600.0,
+                        error_arcsec=_aligned_estimate_error_arcsec(estimate, event),
                         timestamp=event.timestamp,
                     )
                 )
@@ -284,36 +299,31 @@ def replay_post_solve_errors(events: list, max_readings: int = 3) -> List[Measur
     Measure dead-reckoning error of the first few IMU readings after each solve
     vs ground truth. Verifies that solve incorporation resets drift.
     """
-    imu_dr = ImuDeadReckoning("flat")
-    solved = get_initialized_solved_dict()
-    last_image_solve = None
+    idr = ImuDeadReckoning("flat")
+    estimate = PointingEstimate()
     measurements: List[Measurement] = []
     readings_since_solve = max_readings
 
     for event in events:
         if isinstance(event, SolveEvent):
-            _populate_solved_from_event(solved, event)
-            last_image_solve = copy.deepcopy(solved)
-            update_plate_solve_and_imu(imu_dr, solved)
+            estimate = _apply_successful_solve(
+                estimate, _solve_event_to_message(event), idr
+            )
             readings_since_solve = 0
 
         elif isinstance(event, ImuEvent):
-            if last_image_solve is None:
+            if not idr.is_initialized() or estimate.imu_anchor is None:
                 continue
 
-            imu_dict = {"quat": event.imu_quat, "moving": event.moving}
-            update_imu(imu_dr, solved, last_image_solve, imu_dict)
+            _advance_with_imu(estimate, idr, _imu_event_to_sample(event))
 
-            if readings_since_solve < max_readings and solved["RA"] is not None:
-                error_deg = angular_separation_deg(
-                    solved["RA"],
-                    solved["Dec"],
-                    event.true_ra_deg,
-                    event.true_dec_deg,
-                )
+            if (
+                readings_since_solve < max_readings
+                and estimate.pointing.aligned.estimate is not None
+            ):
                 measurements.append(
                     Measurement(
-                        error_arcsec=error_deg * 3600.0,
+                        error_arcsec=_aligned_estimate_error_arcsec(estimate, event),
                         timestamp=event.timestamp,
                     )
                 )
@@ -329,8 +339,8 @@ def replay_post_solve_errors(events: list, max_readings: int = 3) -> List[Measur
 class TestIntegratorDrift:
     """
     Integration tests that replay synthetic telemetry through the real
-    ImuDeadReckoning and integrator wrapper functions, measuring drift
-    vs ground truth.
+    ImuDeadReckoning and integrator apply/advance functions, measuring
+    drift vs ground truth.
     """
 
     def test_stationary_drift(self):
@@ -348,12 +358,12 @@ class TestIntegratorDrift:
 
         # Stationary scope with 1 arcsec noise: drift should be tiny
         # Baseline: ~0 arcsec (noise below measurement precision)
-        assert mean_error < 5, (
-            f"Stationary mean drift {mean_error:.1f} arcsec exceeds 5 arcsec threshold"
-        )
-        assert max_error < 10, (
-            f"Stationary max drift {max_error:.1f} arcsec exceeds 10 arcsec threshold"
-        )
+        assert (
+            mean_error < 5
+        ), f"Stationary mean drift {mean_error:.1f} arcsec exceeds 5 arcsec threshold"
+        assert (
+            max_error < 10
+        ), f"Stationary max drift {max_error:.1f} arcsec exceeds 10 arcsec threshold"
 
     def test_slew_tracking_accuracy(self):
         """
@@ -370,9 +380,9 @@ class TestIntegratorDrift:
 
         # With 5 arcsec/s drift and 3s solve intervals, accumulated drift
         # between solves is bounded. Baseline: mean ~6, max ~13 arcsec.
-        assert mean_error < 15, (
-            f"Slew mean drift {mean_error:.1f} arcsec exceeds 15 arcsec threshold"
-        )
+        assert (
+            mean_error < 15
+        ), f"Slew mean drift {mean_error:.1f} arcsec exceeds 15 arcsec threshold"
 
         # Verify errors don't grow without bound across the session
         if len(errors) >= 20:

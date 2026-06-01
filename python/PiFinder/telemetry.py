@@ -1,14 +1,16 @@
 """
 Telemetry recording and replay for the integrator.
 
-Records IMU readings and plate solves with accurate timing to JSONL files
-in ~/PiFinder_data/telemetry/. Replay mode feeds recorded data back through
-the integrator for bench testing.
+Records IMU samples and plate solves with accurate timing to JSONL files
+in ~/PiFinder_data/telemetry/. Replay mode converts recorded events back
+into :class:`SolveResult` / :class:`ImuSample` messages that the
+integrator feeds through its normal apply/advance paths for bench
+testing.
 """
 
-import copy
 import json
 import logging
+import queue
 import threading
 import time
 from collections import deque
@@ -17,12 +19,14 @@ from pathlib import Path
 
 import quaternion as quaternion_module
 
-from PiFinder import utils
 from PiFinder import calc_utils
-from PiFinder.pointing import (
-    finalize_and_push_solution,
-    update_imu,
-    update_plate_solve_and_imu,
+from PiFinder import utils
+from PiFinder.types.positioning import (
+    FailedSolve,
+    ImuSample,
+    Pointing,
+    SolveDiagnostics,
+    SuccessfulSolve,
 )
 
 logger = logging.getLogger("Telemetry")
@@ -145,14 +149,14 @@ class TelemetryRecorder:
         logger.info("Telemetry recording stopped")
 
     def record_imu(self, imu):
-        """Record an IMU reading. No-op if disabled.
+        """Record an :class:`ImuSample`. No-op if disabled.
 
         When stationary, only records every _STATIONARY_DECIMATION-th sample
         to reduce file size during long sessions.
         """
         if not self.enabled or imu is None:
             return
-        moving = imu.get("moving", False)
+        moving = imu.moving
         if not moving:
             self._imu_skip_count += 1
             if self._imu_skip_count < _STATIONARY_DECIMATION:
@@ -163,56 +167,46 @@ class TelemetryRecorder:
         record = {
             "t": _rf(time.time()),
             "e": "imu",
-            "q": _serialize_quat(imu.get("quat")),
+            "q": _serialize_quat(imu.quat),
             "mv": moving,
-            "st": imu.get("status", 0),
-            "gyro": _serialize_vec(imu.get("gyro")),
-            "accel": _serialize_vec(imu.get("accel")),
+            "st": imu.status,
+            "gyro": _serialize_vec(imu.gyro),
+            "accel": _serialize_vec(imu.accel),
         }
         self._buffer.append(json.dumps(record) + "\n")
 
-    def record_solve(self, solve_dict, predicted_ra=None, predicted_dec=None):
-        """Record a plate solve result. No-op if disabled.
+    def record_solve(self, solve_result, predicted=None):
+        """Record a :class:`SolveResult`. No-op if disabled.
 
-        predicted_ra/predicted_dec are the integrator's IMU-predicted position
-        just before the solve arrived, enabling drift measurement.
+        ``predicted`` is the integrator's current aligned-axis estimate
+        (the IMU-progressed :class:`Pointing`) just before the solve was
+        applied, enabling drift measurement.
 
         Returns the timestamp used for the record, or None if not recorded.
         """
-        if not self.enabled or solve_dict is None:
+        if not self.enabled or solve_result is None:
             return None
         t = time.time()
-        cam = solve_dict.get("camera_center", {})
-        cam_is_dict = isinstance(cam, dict)
+        success = isinstance(solve_result, SuccessfulSolve)
         record = {
             "t": _rf(t),
             "e": "solve",
-            "ra": _rf(solve_dict["RA"]) if solve_dict.get("RA") is not None else None,
-            "dec": _rf(solve_dict["Dec"])
-            if solve_dict.get("Dec") is not None
+            "ra": _rf(solve_result.aligned.RA) if success else None,
+            "dec": _rf(solve_result.aligned.Dec) if success else None,
+            "roll": _rf(solve_result.aligned.Roll) if success else None,
+            "pred_ra": _rf(predicted.RA) if predicted is not None else None,
+            "pred_dec": _rf(predicted.Dec) if predicted is not None else None,
+            "cam_ra": _rf(solve_result.camera.RA) if success else None,
+            "cam_dec": _rf(solve_result.camera.Dec) if success else None,
+            "cam_roll": _rf(solve_result.camera.Roll) if success else None,
+            "iq": _serialize_quat(solve_result.imu_anchor) if success else None,
+            "matches": solve_result.diagnostics.Matches,
+            "rmse": _rf(solve_result.diagnostics.RMSE)
+            if solve_result.diagnostics.RMSE is not None
             else None,
-            "roll": _rf(solve_dict["Roll"])
-            if solve_dict.get("Roll") is not None
-            else None,
-            "pred_ra": _rf(predicted_ra) if predicted_ra is not None else None,
-            "pred_dec": _rf(predicted_dec) if predicted_dec is not None else None,
-            "cam_ra": _rf(cam["RA"])
-            if cam_is_dict and cam.get("RA") is not None
-            else None,
-            "cam_dec": _rf(cam["Dec"])
-            if cam_is_dict and cam.get("Dec") is not None
-            else None,
-            "cam_roll": _rf(cam["Roll"])
-            if cam_is_dict and cam.get("Roll") is not None
-            else None,
-            "iq": _serialize_quat(solve_dict.get("imu_quat")),
-            "matches": solve_dict.get("Matches"),
-            "rmse": _rf(solve_dict["RMSE"])
-            if solve_dict.get("RMSE") is not None
-            else None,
-            "lsa": solve_dict.get("last_solve_attempt"),
-            "lss": solve_dict.get("last_solve_success"),
-            "src": solve_dict.get("solve_source"),
+            "lsa": solve_result.last_solve_attempt,
+            "lss": solve_result.last_solve_success,
+            "src": "CAM" if success else "CAM_FAILED",
         }
         self._buffer.append(json.dumps(record) + "\n")
         return t
@@ -365,44 +359,71 @@ class TelemetryPlayer:
         return self._index
 
     @staticmethod
-    def event_to_solve_dict(event):
-        """Convert a recorded solve event to the fields needed by solved dict."""
-        result = {
-            "RA": event["ra"],
-            "Dec": event["dec"],
-            "Roll": event.get("roll"),
-            "camera_center": {
-                "RA": event.get("cam_ra"),
-                "Dec": event.get("cam_dec"),
-                "Roll": event.get("cam_roll"),
-                "Alt": None,
-                "Az": None,
-            },
-            "Matches": event.get("matches"),
-            "RMSE": event.get("rmse"),
-            "last_solve_attempt": event.get("lsa"),
-            "last_solve_success": event.get("lss"),
-            "solve_source": event.get("src", "CAM"),
-            "solve_time": event["t"],
-        }
+    def event_to_solve_result(event):
+        """Convert a recorded solve event back into a SolveResult message.
+
+        A recorded ``ra`` of None means the original attempt failed —
+        rebuild it as a :class:`FailedSolve`; otherwise as a
+        :class:`SuccessfulSolve`.
+        """
+        t = event["t"]
+        diagnostics = SolveDiagnostics(
+            Matches=event.get("matches") or 0,
+            RMSE=event.get("rmse"),
+        )
+
+        if event.get("ra") is None:
+            return FailedSolve(
+                diagnostics=diagnostics,
+                last_solve_attempt=event.get("lsa") or t,
+                last_solve_success=event.get("lss"),
+            )
+
+        aligned = Pointing(
+            RA=event["ra"],
+            Dec=event["dec"],
+            Roll=event.get("roll") or 0.0,
+        )
+        if event.get("cam_ra") is not None:
+            camera = Pointing(
+                RA=event["cam_ra"],
+                Dec=event["cam_dec"],
+                Roll=event.get("cam_roll") or 0.0,
+            )
+        else:
+            # Recordings without camera-axis data: fall back to aligned.
+            camera = aligned
+
+        imu_anchor = None
         iq = event.get("iq")
         if iq:
-            result["imu_quat"] = quaternion_module.quaternion(
-                iq[0], iq[1], iq[2], iq[3]
-            )
-        return result
+            imu_anchor = quaternion_module.quaternion(iq[0], iq[1], iq[2], iq[3])
+
+        return SuccessfulSolve(
+            camera=camera,
+            aligned=aligned,
+            imu_anchor=imu_anchor,
+            last_solve_attempt=event.get("lsa") or t,
+            last_solve_success=event.get("lss") or t,
+            diagnostics=diagnostics,
+        )
 
     @staticmethod
-    def event_to_imu_dict(event):
-        """Convert a recorded IMU event to an imu dict, or None if no quat."""
+    def event_to_imu_sample(event):
+        """Convert a recorded IMU event into an ImuSample, or None if no quat."""
         q = event.get("q")
         if not q:
             return None
-        return {
-            "quat": quaternion_module.quaternion(q[0], q[1], q[2], q[3]),
-            "moving": event.get("mv", False),
-            "status": event.get("st", 0),
-        }
+        gyro = event.get("gyro")
+        accel = event.get("accel")
+        return ImuSample(
+            quat=quaternion_module.quaternion(q[0], q[1], q[2], q[3]),
+            timestamp=event["t"],
+            status=event.get("st", 0),
+            moving=event.get("mv", False),
+            gyro=tuple(gyro) if gyro else None,
+            accel=tuple(accel) if accel else None,
+        )
 
 
 class TelemetryManager:
@@ -411,7 +432,8 @@ class TelemetryManager:
 
     Owns all telemetry I/O: command dispatch, recording, replay state,
     image saving, and console/camera queue messaging.  The integrator
-    only needs to call a handful of one-liners.
+    only needs to call a handful of one-liners and feed replayed
+    messages through its normal apply/advance paths.
     """
 
     def __init__(self, cfg, shared_state, console_queue, camera_command_queue=None):
@@ -433,8 +455,6 @@ class TelemetryManager:
         """Check for and dispatch any pending telemetry commands."""
         if command_queue is None:
             return
-        import queue
-
         try:
             cmd = command_queue.get(block=False)
             if isinstance(cmd, tuple):
@@ -468,10 +488,14 @@ class TelemetryManager:
             self._restart_camera()
             self._console_queue.put("Telemetry: Replay stopped")
 
-    def next_replay_event(self):
-        """Return the next replay event, or None.
+    def next_replay_message(self):
+        """Return the next replayed message, or None.
 
-        Automatically clears replay state and restarts camera when done.
+        Converts the next due recorded event into a
+        :class:`SuccessfulSolve` / :class:`FailedSolve` / :class:`ImuSample`
+        for the integrator to feed through its normal paths. Returns None
+        when no event is due yet. Automatically clears replay state and
+        restarts the camera when the session is exhausted.
         """
         if self._player is None:
             return None
@@ -482,51 +506,21 @@ class TelemetryManager:
             self._console_queue.put("Telemetry: Replay finished")
             logger.info("Replay finished")
             return None
-        return event
+        if event is None:
+            return None
 
-    def handle_replay_event(
-        self, event, solved, last_image_solve, imu_dead_reckoning, mount_type
-    ):
-        """Process a single replayed event. Returns updated last_image_solve."""
-        if event["e"] == "imu":
-            imu = TelemetryPlayer.event_to_imu_dict(event)
-            if imu and last_image_solve and imu_dead_reckoning.tracking:
-                update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
-                if solved["RA"] is not None:
-                    finalize_and_push_solution(self._shared_state, solved, mount_type)
+        event_type = event.get("e")
+        if event_type == "imu":
+            return TelemetryPlayer.event_to_imu_sample(event)
+        elif event_type == "solve":
+            return TelemetryPlayer.event_to_solve_result(event)
+        return None
 
-        elif event["e"] == "solve":
-            replay_dict = TelemetryPlayer.event_to_solve_dict(event)
-
-            # Always update metadata (needed for auto-exposure)
-            for key in [
-                "Matches",
-                "RMSE",
-                "last_solve_attempt",
-                "last_solve_success",
-            ]:
-                if replay_dict.get(key) is not None:
-                    solved[key] = replay_dict[key]
-
-            if event.get("ra") is not None:
-                # Successful solve — update position and push
-                solved.update(replay_dict)
-                self._shared_state.set_solve_state(True)
-                update_plate_solve_and_imu(imu_dead_reckoning, solved)
-                finalize_and_push_solution(self._shared_state, solved, mount_type)
-                return copy.deepcopy(solved)
-            else:
-                # Failed solve — mirror normal-mode behavior
-                solved["solve_source"] = "CAM_FAILED"
-                solved["constellation"] = ""
-                self._shared_state.set_solution(solved)
-                self._shared_state.set_solve_state(False)
-
-        return last_image_solve
-
-    def record_solve(self, solve_dict, predicted_ra=None, predicted_dec=None):
+    def record_solve(self, solve_result, predicted=None):
         """Record a solve event and send save_image command if enabled."""
-        t = self._recorder.record_solve(solve_dict, predicted_ra, predicted_dec)
+        if self.replaying:
+            return
+        t = self._recorder.record_solve(solve_result, predicted)
         if (
             t is not None
             and self._recorder.images_enabled
@@ -539,6 +533,8 @@ class TelemetryManager:
                 )
 
     def record_imu(self, imu):
+        if self.replaying:
+            return
         self._recorder.record_imu(imu)
 
     def flush(self):

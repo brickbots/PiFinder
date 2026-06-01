@@ -120,6 +120,38 @@ _Avoid_: ui config, session state.
 The dict `MenuManager` writes to `shared_state.set_current_ui_state(...)` each redraw — `ui_type`, `title`, marking-menu options, and the active module's own `serialize_ui_state()`. This is what `/api/current-selection` reflects.
 _Avoid_: api state, ui snapshot.
 
+### Focus indicator
+
+The focus screen's quantitative focus-quality aid. Lives entirely inside `UIPreview` (the **Focus** menu item, titled "CAMERA") in the main process. Self-contained: it does its own star finding and measurement and shares no code with **SQM** photometry.
+
+**HFD** (Half-Flux Diameter):
+The focus-quality metric — the diameter (in pixels) of the circle enclosing half a star's background-subtracted flux: `2 · Σ(fluxᵢ·rᵢ) / Σ(fluxᵢ)` over aperture pixels. Lower = sharper. Chosen over FWHM because it stays stable and monotonic on saturated cores and broad defocused blobs, where a Gaussian fit fails.
+_Avoid_: FWHM (a different, fit-based metric — not what we compute), star size, spot size, sharpness.
+
+**Detected star**:
+A blob the focus screen's own lightweight detector finds in the raw 512×512 frame, deliberately tuned to accept broad/defocused blobs (up to a ~50 px size cap). The few brightest detected stars are what HFD is measured on. Distinct from a **matched star** (the solver's tetra3 catalog match), which goes to zero when defocused.
+_Avoid_: centroid (reserve for the solver/SQM sense), matched star, blob (in prose; fine informally).
+
+**Focus HFD** (the reported value):
+The **median** HFD over the few brightest detected stars in the current frame — steadier frame-to-frame than any single star. When someone says "the HFD" on the focus screen, this is it.
+_Avoid_: best HFD (that's the marker), single-star HFD.
+
+**Focus strip**:
+The bottom-of-screen overlay (~30 px) that renders the focus indicator over the live image: the V-curve, best-focus marker, past-best cue, focus HFD readout, exposure, detected-star count, and the (kept) matched-star count. On by default; `square` hides the whole strip. Persists across all zoom levels (HFD is zoom-independent).
+_Avoid_: HUD (loosely the same overlay; "focus strip" is the canonical name), info overlay (the prior exposure+matched-count overlay this replaces).
+
+**V-curve** (focus trend graph):
+The scrolling sparkline of focus HFD over the **rolling 10-second window**, plotted in the focus strip. Cleared on screen entry. Named for the V shape traced as the user sweeps a focuser through best focus.
+_Avoid_: focus graph, history graph, trend line.
+
+**Best-focus marker**:
+The minimum focus HFD within the rolling 10-second window — the bottom of the current V. Auto-rearms as old samples scroll out of the window; there is no manual reset.
+_Avoid_: best focus (the state), minimum line, target HFD.
+
+**Past-best cue**:
+The explicit "you've passed best focus — back up" signal. Fires when the current focus HFD exceeds `best-focus marker × (1 + threshold)` and that minimum occurred earlier in the window.
+_Avoid_: overshoot warning, back-up arrow, alert.
+
 ## Boundary terms
 
 - **`shared_state`** is read and written by the UI but **owned by Positioning**. See [Positioning](../positioning/CONTEXT.md). The UI publishes the screen image and UI-state dict onto it; it reads `solution()`, `imu()`, `sqm()`, `location()`, `altaz_ready()`.

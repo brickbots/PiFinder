@@ -8,6 +8,7 @@ This module is for IMU related functions
 import time
 from PiFinder import config
 from PiFinder.multiproclogging import MultiprocLogging
+from PiFinder.types.positioning import ImuSample
 import board
 import adafruit_bno055
 import logging
@@ -162,56 +163,47 @@ def imu_monitor(shared_state, console_queue, log_queue):
 
     imu = Imu()
     imu_calibrated = False
-    # TODO: Remove move_start, move_end
-    imu_data = {
-        "moving": False,
-        "move_start": None,
-        "move_end": None,
-        "quat": quaternion.quaternion(
-            0, 0, 0, 0
-        ),  # Scalar-first numpy quaternion(w, x, y, z) - Init to invalid quaternion
-        "status": 0,  # IMU Status: 3=Calibrated
-        "gyro": None,  # Raw gyroscope angular velocity (rad/s)
-        "accel": None,  # Raw linear acceleration (m/s², gravity removed)
-    }
+    imu_sample = ImuSample(
+        # Scalar-first numpy quaternion(w, x, y, z) - init to invalid quaternion
+        quat=quaternion.quaternion(0, 0, 0, 0),
+        timestamp=0.0,  # set together with quat below, at sample time
+        status=0,  # IMU Status: 3=Calibrated
+        moving=False,
+    )
 
     while True:
         imu.update()
-        imu_data["status"] = imu.calibration
+        imu_sample.status = imu.calibration
 
-        # TODO: move_start and move_end don't seem to be used?
         # Read raw sensor data for telemetry
         try:
-            imu_data["gyro"] = imu.sensor.gyro
-            imu_data["accel"] = imu.sensor.linear_acceleration
+            imu_sample.gyro = imu.sensor.gyro
+            imu_sample.accel = imu.sensor.linear_acceleration
         except Exception:
             pass
 
         if imu.moving():
-            if not imu_data["moving"]:
+            if not imu_sample.moving:
                 logger.debug("IMU: move start")
-                imu_data["moving"] = True
-                imu_data["move_start"] = time.time()
-            imu_data["quat"] = quaternion.from_float_array(
-                imu.avg_quat
-            )  # Scalar-first (w, x, y, z)
+                imu_sample.moving = True
+            # Scalar-first (w, x, y, z); stamp the sample epoch alongside it
+            imu_sample.quat = quaternion.from_float_array(imu.avg_quat)
+            imu_sample.timestamp = time.time()
         else:
-            if imu_data["moving"]:
+            if imu_sample.moving:
                 # If we were moving and we now stopped
                 logger.debug("IMU: move end")
-                imu_data["moving"] = False
-                imu_data["move_end"] = time.time()
-                imu_data["quat"] = quaternion.from_float_array(
-                    imu.avg_quat
-                )  # Scalar-first (w, x, y, z)
+                imu_sample.moving = False
+                imu_sample.quat = quaternion.from_float_array(imu.avg_quat)
+                imu_sample.timestamp = time.time()
 
         if not imu_calibrated:
-            if imu_data["status"] == 3:
+            if imu_sample.status == 3:
                 imu_calibrated = True
                 console_queue.put("IMU: NDOF Calibrated!")
 
         if shared_state is not None and imu_calibrated:
-            shared_state.set_imu(imu_data)
+            shared_state.set_imu(imu_sample)
 
 
 if __name__ == "__main__":
