@@ -1,8 +1,3 @@
-[tool.babel]
-mapping = [
-    { "*.py" = "python" }          # Scan all Python files
-]
-
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
@@ -41,6 +36,9 @@ indent-width = 4
 
 # Assume Python 3.9
 target-version = "py39"
+
+# _ is the i18n/gettext builtin injected at runtime
+builtins = ["_"]
 
 [tool.ruff.lint]
 # Enable preview mode, allow os.env changes before imports
@@ -87,7 +85,7 @@ docstring-code-format = false
 docstring-code-line-length = "dynamic"
 
 [tool.mypy]
-exclude = "venv|tetra3"
+exclude = "venv|tetra3|conftest"
 # Start off with these
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -145,9 +143,11 @@ ignore_errors = true
 pythonpath = ["."]
 testpaths = [
     "tests",
+    "tests/webserver",
 ]
 markers = [
     "smoke",
     "unit",
     "integration",
+    "web",
 ]

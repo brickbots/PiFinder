@@ -47,6 +47,14 @@ then
     touch /home/pifinder/PiFinder_data/migrations/v2.4.0
 fi
 
+# v2.6.0
+# Clear stale flop_image=true on the default Dobsonian (flip/flop now live)
+if ! [ -f "/home/pifinder/PiFinder_data/migrations/v2.6.0" ]
+then
+    source /home/pifinder/PiFinder/migration_source/v2.6.0.sh
+    touch /home/pifinder/PiFinder_data/migrations/v2.6.0
+fi
+
 # DONE
 echo "Post Update Complete"
 

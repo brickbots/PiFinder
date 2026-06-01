@@ -15,6 +15,7 @@ noise floor estimation. The calibration process:
 The wizard guides the user through lens cap placement and displays progress.
 """
 
+import copy
 import time
 import os
 import logging
@@ -22,6 +23,7 @@ import numpy as np
 from enum import Enum
 from typing import Optional, List
 
+from PiFinder.types.positioning import PointingEstimate
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 
@@ -52,7 +54,7 @@ class UISQMCalibration(UIModule):
     __title__ = "SQM CAL"
     __help_name__ = ""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         # Wizard state machine
@@ -81,7 +83,7 @@ class UISQMCalibration(UIModule):
         self.sky_frames_raw: List[np.ndarray] = []
 
         # Store solution for each sky frame (needed for SQM calculation)
-        self.sky_solutions: List[dict] = []
+        self.sky_solutions: List[PointingEstimate] = []
 
         # Calibration results - PROCESSED (8-bit)
         self.bias_offset: Optional[float] = None
@@ -268,10 +270,16 @@ class UISQMCalibration(UIModule):
             fill=self.colors.get(192),
         )
 
-        # Legend
+        # Legend - show skip option for indoor calibration
         self.draw.text(
-            (10, 110),
-            f"{self._SQUARE_} READY  0 CANCEL",
+            (10, 100),
+            f"{self._SQUARE_} READY",
+            font=self.fonts.base.font,
+            fill=self.colors.get(192),
+        )
+        self.draw.text(
+            (10, 112),
+            "0 SKIP (indoor cal)",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
         )
@@ -351,7 +359,7 @@ class UISQMCalibration(UIModule):
         else:
             self.draw.text(
                 (10, 90),
-                "Hold steady...",
+                "Keep cap on...",
                 font=self.fonts.base.font,
                 fill=self.colors.get(64),
             )
@@ -604,7 +612,7 @@ class UISQMCalibration(UIModule):
             return
 
         solution = self.shared_state.solution()
-        if solution.get("RA") is None:
+        if not solution.has_pointing():
             # Invalid solve, wait
             time.sleep(0.1)
             return
@@ -630,8 +638,8 @@ class UISQMCalibration(UIModule):
         if raw_array is not None:
             self.sky_frames_raw.append(raw_array.copy())
 
-        # Store the solution for this frame (copy it so it doesn't change)
-        self.sky_solutions.append(solution.copy())
+        # Store the solution for this frame (deep copy so it doesn't change)
+        self.sky_solutions.append(copy.deepcopy(solution))
 
         self.current_frame += 1
 
@@ -773,17 +781,12 @@ class UISQMCalibration(UIModule):
             sqm_calc = SQM(camera_type=camera_type_processed)
 
             # Manually set the calibration values we just measured
-            if (
-                sqm_calc.noise_estimator is not None
-                and self.bias_offset is not None
-                and self.read_noise is not None
-                and self.dark_current_rate is not None
-            ):
-                sqm_calc.noise_estimator.profile.bias_offset = self.bias_offset
-                sqm_calc.noise_estimator.profile.read_noise_adu = self.read_noise
-                sqm_calc.noise_estimator.profile.dark_current_rate = (
-                    self.dark_current_rate
-                )
+            if self.bias_offset is not None:
+                sqm_calc.profile.bias_offset = self.bias_offset
+            if self.read_noise is not None:
+                sqm_calc.profile.read_noise_adu = self.read_noise
+            if self.dark_current_rate is not None:
+                sqm_calc.profile.dark_current_rate = self.dark_current_rate
 
             self.sqm_values = []
 
@@ -791,31 +794,39 @@ class UISQMCalibration(UIModule):
             for i, (sky_frame, solution) in enumerate(
                 zip(self.sky_frames, self.sky_solutions)
             ):
-                if solution is None or solution.get("RA") is None:
+                if solution is None or not solution.has_pointing():
                     # No valid solve - skip SQM calculation
                     logger.warning(f"No valid solve for sky frame {i}, skipping SQM")
                     continue
 
-                altitude_deg = solution.get("Alt", 90.0)
+                altitude_deg = solution.Alt if solution.Alt is not None else 90.0
 
                 # Check if we have matched centroids (needed for SQM calculation)
-                if "matched_centroids" not in solution:
+                if solution.matched_centroids is None or solution.matched_stars is None:
                     logger.warning(
-                        f"No matched centroids for sky frame {i}, skipping SQM"
+                        f"No matched centroids/stars for sky frame {i}, skipping SQM"
                     )
                     continue
 
-                centroids = solution["matched_centroids"]
+                centroids = solution.matched_centroids
 
                 if len(centroids) == 0:
                     logger.warning(f"Empty centroids for sky frame {i}, skipping SQM")
                     continue
 
+                # Adapter dict for SQM (sqm.calculate still consumes a
+                # raw-tetra3-shaped dict so SQM stays loose of our types).
+                sqm_solution = {
+                    "FOV": solution.diagnostics.FOV,
+                    "matched_centroids": solution.matched_centroids,
+                    "matched_stars": solution.matched_stars,
+                }
+
                 # Calculate SQM for this frame (using processed 8-bit image)
                 # Returns Tuple[Optional[float], Dict]
                 sqm_value, _details = sqm_calc.calculate(
                     centroids=centroids,
-                    solution=solution,
+                    solution=sqm_solution,
                     image=sky_frame,
                     exposure_sec=exposure_sec,
                     altitude_deg=altitude_deg,
@@ -947,16 +958,20 @@ class UISQMCalibration(UIModule):
     def key_number(self, number):
         """Number key cancels calibration or skips sky frames"""
         if number == 0:
+            # Skip sky frames and proceed to analysis (indoor calibration)
+            if self.state == CalibrationState.CAP_OFF_INSTRUCTION:
+                logger.info("User skipped sky frames (indoor calibration)")
+                self.state = CalibrationState.ANALYZING
+                self.current_frame = 0
             # If capturing sky frames, skip to analysis
-            if self.state == CalibrationState.CAPTURING_SKY:
-                logger.info("User skipped sky frame capture")
+            elif self.state == CalibrationState.CAPTURING_SKY:
+                logger.info("User skipped remaining sky frame capture")
                 self.state = CalibrationState.ANALYZING
                 self.current_frame = 0
             # Otherwise cancel and exit
             elif self.state in [
                 CalibrationState.INTRO,
                 CalibrationState.CAP_ON_INSTRUCTION,
-                CalibrationState.CAP_OFF_INSTRUCTION,
             ]:
                 if self.remove_from_stack:
                     self.remove_from_stack()

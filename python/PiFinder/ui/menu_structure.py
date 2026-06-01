@@ -13,6 +13,7 @@ from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.sqm import UISQM
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
+from PiFinder.ui.locationentry import UILocationEntry
 from PiFinder.ui.radec_entry import UIRADecEntry
 import PiFinder.ui.callbacks as callbacks
 
@@ -160,6 +161,12 @@ pifinder_menu = {
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "IC",
+                                },
+                                {
+                                    "name": _("Lynga Opn Cl"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Lyn",
                                 },
                                 {
                                     "name": _("Messier"),
@@ -333,6 +340,10 @@ pifinder_menu = {
                                 {
                                     "name": _("IC"),
                                     "value": "IC",
+                                },
+                                {
+                                    "name": _("Lynga Opn Cl"),
+                                    "value": "Lyn",
                                 },
                                 {
                                     "name": _("Messier"),
@@ -575,6 +586,7 @@ pifinder_menu = {
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "keypad_brightness",
+                            "post_callback": callbacks.apply_brightness,
                             "items": [
                                 {
                                     "name": "-4",
@@ -760,6 +772,30 @@ pifinder_menu = {
                     "select": "single",
                     "label": "chart_settings",
                     "items": [
+                        {
+                            "name": _("Coordinate Sys."),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_coord_sys",
+                            "items": [
+                                {
+                                    "name": _("Horizontal"),
+                                    "value": "horiz",
+                                },
+                                {
+                                    "name": _("EQ (Auto)"),
+                                    "value": "eq_auto",
+                                },
+                                {
+                                    "name": _("EQ (North-up)"),
+                                    "value": "eq_north_up",
+                                },
+                                {
+                                    "name": _("EQ (South-up)"),
+                                    "value": "eq_south_up",
+                                },
+                            ],
+                        },
                         {
                             "name": _("Reticle"),
                             "class": UITextMenu,
@@ -1047,23 +1083,23 @@ pifinder_menu = {
                     "post_callback": callbacks.restart_pifinder,
                     "items": [
                         {
-                            "name": _("Off"),
+                            "name": _("Off"), # TRANSLATORS: IMU sensitivity setting
                             "value": 100,
                         },
                         {
-                            "name": _("Very Low"),
+                            "name": _("Very Low"), # TRANSLATORS: IMU sensitivity setting
                             "value": 3,
                         },
                         {
-                            "name": _("Low"),
+                            "name": _("Low"), # TRANSLATORS: IMU sensitivity setting
                             "value": 2,
                         },
                         {
-                            "name": _("Medium"),
+                            "name": _("Medium"), # TRANSLATORS: IMU sensitivity setting
                             "value": 1,
                         },
                         {
-                            "name": _("High"),
+                            "name": _("High"), # TRANSLATORS: IMU sensitivity setting
                             "value": 0.5,
                         },
                     ],
@@ -1088,14 +1124,33 @@ pifinder_menu = {
                         },
                         {
                             "name": _("Set Location"),
-                            "class": UILocationList,
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": _("Enter Coords"),
+                                    "class": UILocationEntry,
+                                },
+                                {
+                                    "name": _("Load Location"),
+                                    "class": UILocationList,
+                                },
+                                {
+                                    "name": _("Save Location"),
+                                    "callback": callbacks.save_location,
+                                },
+                            ],
                         },
                         {
-                            "name": _("Set Time"),
+                            "name": _("Set Time/Date"),
                             "class": UITimeEntry,
                             "custom_callback": callbacks.set_time,
                         },
-                        {"name": _("Reset"), "callback": callbacks.gps_reset},
+                        {"name": _("Reset Location"), "callback": callbacks.gps_reset},
+                        {
+                            "name": _("Reset Time/Date"),
+                            "callback": callbacks.datetime_reset,
+                        },
                     ],
                 },
                 {"name": _("Console"), "class": UIConsole},
@@ -1107,17 +1162,6 @@ pifinder_menu = {
                     "select": "Single",
                     "items": [
                         {"name": "SQM", "class": UISQM},
-                        {
-                            "name": _("Integrator"),
-                            "class": UITextMenu,
-                            "select": "single",
-                            "config_option": "imu_integrator",
-                            "post_callback": callbacks.restart_pifinder,
-                            "items": [
-                                {"name": _("Classic"), "value": "classic"},
-                                {"name": _("Quaternion"), "value": "quaternion"},
-                            ],
-                        },
                         {
                             "name": _("AE Algo"),
                             "class": UITextMenu,

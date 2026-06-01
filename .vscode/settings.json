@@ -1,0 +1,10 @@
+{
+  "python-envs.defaultEnvManager": "ms-python.python:pyenv",
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportUndefinedVariable": "none"
+  },
+  "files.associations": {
+    "*logconf*.json": "jsonc"
+  }
+}
+

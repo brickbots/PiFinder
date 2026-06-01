@@ -1,6 +1,5 @@
 from PiFinder.ui.base import UIModule
 from PiFinder import utils
-from PiFinder.state_utils import sleep_for_framerate
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 
 sys_utils = utils.get_sys_utils()
@@ -26,7 +25,6 @@ class UIEquipment(UIModule):
         )
 
     def update(self, force=False):
-        sleep_for_framerate(self.shared_state)
         self.clear_screen()
 
         if self.config_object.equipment.active_telescope is None:

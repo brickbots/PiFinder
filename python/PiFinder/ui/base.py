@@ -42,7 +42,7 @@ class RotatingInfoDisplay:
             return f"{sqm.value:.1f}" if sqm and sqm.value else "---"
         else:
             sol = self.shared_state.solution()
-            return sol.get("constellation", "---") if sol else "---"
+            return sol.constellation if sol and sol.constellation else "---"
 
     def update(self):
         """Update state, returns (current_text, previous_text, progress)."""
@@ -312,7 +312,7 @@ class UIModule:
                     (6, 1), _(self.title), font=self.fonts.bold.font, fill=fg
                 )
             imu = self.shared_state.imu()
-            moving = True if imu and imu["quat"] and imu["moving"] else False
+            moving = True if imu and imu.quat and imu.moving else False
 
             # GPS status
             if self.shared_state.altaz_ready():
@@ -339,12 +339,14 @@ class UIModule:
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
-                    cam_active = solution["solve_time"] == solution["cam_solve_time"]
+                    cam_active = solution.is_camera_solve()
                     # a fresh cam solve sets unmoved to True
                     self._unmoved = True if cam_active else self._unmoved
                     if self._unmoved:
-                        time_since_cam_solve = time.time() - solution["cam_solve_time"]
-                        var_fg = min(64, int(time_since_cam_solve / 6 * 64))
+                        time_since_cam_solve = time.time() - (
+                            solution.last_solve_success or 0.0
+                        )
+                        var_fg = min(64, int(time_since_cam_solve / 3 * 64))
                     # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
                     if self._unmoved:

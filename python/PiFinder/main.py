@@ -41,6 +41,7 @@ from PiFinder import keyboard_interface
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
 from PiFinder.calc_utils import sf_utils
+from PiFinder.state_utils import sleep_for_framerate
 
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.menu_manager import MenuManager
@@ -50,6 +51,8 @@ from PiFinder.state import SharedStateObj, UIState
 from PiFinder.image_util import subtract_background
 
 from PiFinder.displays import DisplayBase, get_display
+
+import PiFinder.manager_patch as patch
 
 from typing import Any, TYPE_CHECKING
 
@@ -124,6 +127,9 @@ def setup_dirs():
     os.chmod(Path(utils.data_dir), 0o777)
 
 
+patch.apply()
+
+
 class StateManager(BaseManager):
     pass
 
@@ -191,12 +197,8 @@ class PowerManager:
         else:  # We are asleepd, should we wake up?
             _imu = self.shared_state.imu()
             if _imu:
-                if _imu["moving"]:
+                if _imu.moving:
                     self.wake_up()
-
-        # should we pause execution for a bit?
-        if self.shared_state.power_state() < 1:
-            time.sleep(0.2)
 
     def get_sleep_timeout(self):
         """
@@ -279,6 +281,63 @@ def stop_profiling(profiler, startup_profile_start):
     logger.info(f"Text summary saved to: {summary_path}")
 
 
+def _build_pygame_keymaps():
+    """
+    Build the pygame key -> KeyboardInterface keycode maps used when a pygame
+    display is active. Returns (key_map, ctrl_key_map).
+
+    Ctrl+key produces the ALT_* keycodes, which emulate the hardware keypad's
+    SQUARE-modifier chord (see keyboard_local.py). Pulled out of main() purely
+    to keep the event loop readable; see docs/adr/0004 for why pygame keys are
+    captured in the main process at all rather than in a keyboard_* subprocess.
+    """
+    import pygame
+    from PiFinder.keyboard_interface import KeyboardInterface
+
+    # +/= and - for PLUS/MINUS, Enter/Space/Z for SQUARE, M for LNG_SQUARE
+    key_map = {
+        pygame.K_LEFT: KeyboardInterface.LEFT,
+        pygame.K_UP: KeyboardInterface.UP,
+        pygame.K_DOWN: KeyboardInterface.DOWN,
+        pygame.K_RIGHT: KeyboardInterface.RIGHT,
+        pygame.K_EQUALS: KeyboardInterface.PLUS,
+        pygame.K_PLUS: KeyboardInterface.PLUS,
+        pygame.K_KP_PLUS: KeyboardInterface.PLUS,
+        pygame.K_MINUS: KeyboardInterface.MINUS,
+        pygame.K_KP_MINUS: KeyboardInterface.MINUS,
+        pygame.K_RETURN: KeyboardInterface.SQUARE,
+        pygame.K_KP_ENTER: KeyboardInterface.SQUARE,
+        pygame.K_SPACE: KeyboardInterface.SQUARE,
+        pygame.K_z: KeyboardInterface.SQUARE,
+        pygame.K_m: KeyboardInterface.LNG_SQUARE,
+        pygame.K_0: 0,
+        pygame.K_1: 1,
+        pygame.K_2: 2,
+        pygame.K_3: 3,
+        pygame.K_4: 4,
+        pygame.K_5: 5,
+        pygame.K_6: 6,
+        pygame.K_7: 7,
+        pygame.K_8: 8,
+        pygame.K_9: 9,
+    }
+
+    ctrl_key_map = {
+        pygame.K_EQUALS: KeyboardInterface.ALT_PLUS,
+        pygame.K_PLUS: KeyboardInterface.ALT_PLUS,
+        pygame.K_KP_PLUS: KeyboardInterface.ALT_PLUS,
+        pygame.K_MINUS: KeyboardInterface.ALT_MINUS,
+        pygame.K_KP_MINUS: KeyboardInterface.ALT_MINUS,
+        pygame.K_LEFT: KeyboardInterface.ALT_LEFT,
+        pygame.K_UP: KeyboardInterface.ALT_UP,
+        pygame.K_DOWN: KeyboardInterface.ALT_DOWN,
+        pygame.K_RIGHT: KeyboardInterface.ALT_RIGHT,
+        pygame.K_0: KeyboardInterface.ALT_0,
+    }
+
+    return key_map, ctrl_key_map
+
+
 def main(
     log_helper: MultiprocLogging,
     script_name=None,
@@ -290,13 +349,6 @@ def main(
     Get this show on the road!
     """
     global display_device, display_hardware
-
-    display_device = get_display(display_hardware)
-    init_keypad_pwm()
-    setup_dirs()
-
-    # Instantiate base keyboard class for keycode
-    keyboard_base = keyboard_interface.KeyboardInterface()
 
     # init queues
     console_queue: Queue = Queue()
@@ -320,6 +372,13 @@ def main(
 
     # Start log consolidation process first.
     log_helper.start()
+
+    display_device = get_display(display_hardware)
+    init_keypad_pwm()
+    setup_dirs()
+
+    # Instantiate base keyboard class for keycode
+    keyboard_base = keyboard_interface.KeyboardInterface()
 
     os_detail, platform, arch = utils.get_os_info()
     logger.info("PiFinder running on %s, %s, %s", os_detail, platform, arch)
@@ -347,10 +406,6 @@ def main(
         "messages", "locale", languages=[lang], fallback=(lang == "en")
     )
     langXX.install()
-
-    import PiFinder.manager_patch as patch
-
-    patch.apply()
 
     with StateManager() as manager:
         shared_state = manager.SharedState()  # type: ignore[attr-defined]
@@ -543,10 +598,35 @@ def main(
         # Stop profiling (uncomment to analyze startup performance)
         # stop_profiling(profiler, startup_profile_start)
 
+        # Pygame can only read keyboard events from the process that owns the
+        # display window, and pynput/PyHotKey (keyboard_local) can't read the
+        # keyboard under Wayland. So when a pygame display is active we capture
+        # keys here in the main loop; the spawned keyboard process is the no-op
+        # keyboard_none. See docs/adr/0004-pygame-keyboard-in-main-loop.md.
+        pygame_events_enabled = display_hardware.startswith("pg_")
+        if pygame_events_enabled:
+            import pygame
+
+            logger.info("Pygame event polling enabled for keyboard input")
+            pygame_key_map, pygame_ctrl_key_map = _build_pygame_keymaps()
+
         log_time = True
         # Start of main except handler / loop
         try:
             while True:
+                # Poll pygame keyboard events
+                if pygame_events_enabled:
+                    for event in pygame.event.get():
+                        if event.type == pygame.KEYDOWN:
+                            ctrl_held = event.mod & pygame.KMOD_CTRL
+                            if ctrl_held and event.key in pygame_ctrl_key_map:
+                                keyboard_queue.put(pygame_ctrl_key_map[event.key])
+                            elif event.key in pygame_key_map:
+                                keyboard_queue.put(pygame_key_map[event.key])
+                        elif event.type == pygame.QUIT:
+                            logger.info("Pygame window closed, exiting...")
+                            raise KeyboardInterrupt
+
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
@@ -556,7 +636,9 @@ def main(
                     else:
                         console.write(console_msg)
                 except queue.Empty:
-                    time.sleep(0.1)
+                    # Frame-rate-limit the main loop; sleep_for_framerate also
+                    # handles power-save by sleeping longer when asleep.
+                    sleep_for_framerate(shared_state)
 
                 # GPS
                 try:
@@ -570,6 +652,7 @@ def main(
                             if (
                                 not location.source == "WEB"
                                 and not location.source.startswith("CONFIG:")
+                                and not location.source == "MANUAL"
                                 and (
                                     location.error_in_m == 0
                                     or float(gps_content["error_in_m"])
@@ -578,7 +661,7 @@ def main(
                                     )  # Only if new error is smaller
                                 )
                             ):
-                                logger.info(
+                                logger.debug(
                                     f"Updating GPS location: new content: {gps_content}, old content: {location}"
                                 )
                                 location.lat = gps_content["lat"]
@@ -610,18 +693,22 @@ def main(
                                         location.lon,
                                         location.altitude,
                                     )
-                        if gps_msg == "time":
+                        if gps_msg in ("time", "time_force"):
                             if isinstance(gps_content, datetime.datetime):
                                 gps_dt = gps_content
                             else:
                                 gps_dt = gps_content["time"]
-                            shared_state.set_datetime(gps_dt)
+                            shared_state.set_datetime(
+                                gps_dt, force=(gps_msg == "time_force")
+                            )
                             if log_time:
                                 logger.info("GPS Time (logged only once): %s", gps_dt)
                                 log_time = False
                         if gps_msg == "reset":
                             location.reset()
                             shared_state.set_location(location)
+                        if gps_msg == "reset_datetime":
+                            shared_state.reset_datetime()
                         if gps_msg == "satellites":
                             # logger.debug("Main: GPS nr sats seen: %s", gps_content)
                             shared_state.set_sats(gps_content)
@@ -867,25 +954,41 @@ def main(
 
 
 if __name__ == "__main__":
+    import sys
+
+    # Ensure the active log config symlink exists, defaulting to logconf_default.json
+    _logconf_link = Path("pifinder_logconf.json")
+    if not _logconf_link.exists():
+        _logconf_link.symlink_to("logconf_default.json")
+
+    debug_no_file_logs = "--debug-no-file-logs" in sys.argv
+    if debug_no_file_logs:
+        os.environ["PIFINDER_DEBUG_NO_FILE_LOGS"] = "1"
+
     print("Bootstrap logging configuration ...")
     logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
     rlogger = logging.getLogger()
-    rlogger.setLevel(logging.INFO)
-    log_path = utils.data_dir / "pifinder.log"
-    try:
-        log_helper = MultiprocLogging(
-            Path("pifinder_logconf.json"),
-            log_path,
-        )
+    rlogger.setLevel(logging.DEBUG if debug_no_file_logs else logging.INFO)
+
+    if debug_no_file_logs:
+        log_helper = MultiprocLogging(Path("pifinder_logconf.json"), console_only=True)
         MultiprocLogging.configurer(log_helper.get_queue())
-    except FileNotFoundError:
-        rlogger.warning(
-            "Cannot find log configuration file, proceeding with basic configuration."
-        )
-        rlogger.warning("Logs will not be stored on disk, unless you use --log")
-        logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
-        logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
-        logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
+    else:
+        log_path = utils.data_dir / "pifinder.log"
+        try:
+            log_helper = MultiprocLogging(
+                Path("pifinder_logconf.json"),
+                log_path,
+            )
+            MultiprocLogging.configurer(log_helper.get_queue())
+        except FileNotFoundError:
+            rlogger.warning(
+                "Cannot find log configuration file, proceeding with basic configuration."
+            )
+            rlogger.warning("Logs will not be stored on disk, unless you use --log")
+            logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
+            logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
+            logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
 
     rlogger.info("Starting PiFinder ...")
     parser = argparse.ArgumentParser(description="eFinder")
@@ -901,6 +1004,13 @@ if __name__ == "__main__":
         "-c",
         "--camera",
         help="Specify which camera to use: pi, asi, debug or none",
+        default="pi",
+        required=False,
+    )
+    parser.add_argument(
+        "-g",
+        "--gps",
+        help="Specify which camera to use: pi, fake",
         default="pi",
         required=False,
     )
@@ -948,6 +1058,11 @@ if __name__ == "__main__":
     )
     parser.add_argument("-l", "--log", help="Log to file", action="store_true")
     parser.add_argument(
+        "--debug-no-file-logs",
+        help="Debug: log everything at DEBUG level to console only, bypassing log configuration and file output",
+        action="store_true",
+    )
+    parser.add_argument(
         "--lang",
         help="Force user interface language (iso2 code). Changes configuration",
         type=str,
@@ -970,7 +1085,7 @@ if __name__ == "__main__":
         hardware_platform = "Fake"
         display_hardware = "pg_128"
         imu = importlib.import_module("PiFinder.imu_fake")
-        integrator = importlib.import_module("PiFinder.integrator_classic")
+        integrator = importlib.import_module("PiFinder.integrator")
         gps_monitor = importlib.import_module("PiFinder.gps_fake")
     else:
         hardware_platform = "Pi"
@@ -978,12 +1093,8 @@ if __name__ == "__main__":
         from rpi_hardware_pwm import HardwarePWM
 
         cfg = config.Config()
-        if cfg.get_option("imu_integrator") == "quaternion":
-            imu = importlib.import_module("PiFinder.imu_pi")
-            integrator = importlib.import_module("PiFinder.integrator")
-        else:
-            imu = importlib.import_module("PiFinder.imu_pi_classic")
-            integrator = importlib.import_module("PiFinder.integrator_classic")
+        imu = importlib.import_module("PiFinder.imu_pi")
+        integrator = importlib.import_module("PiFinder.integrator")
 
         # verify and sync GPSD baud rate
         try:
@@ -998,7 +1109,9 @@ if __name__ == "__main__":
             logger.warning(f"Could not check/sync GPSD configuration: {e}")
 
         gps_type = cfg.get_option("gps_type")
-        if gps_type == "ublox":
+        if args.gps == "fake":
+            gps_monitor = importlib.import_module("PiFinder.gps_fake")
+        elif gps_type == "ublox":
             gps_monitor = importlib.import_module("PiFinder.gps_ubx")
         else:
             gps_monitor = importlib.import_module("PiFinder.gps_gpsd")
@@ -1023,9 +1136,14 @@ if __name__ == "__main__":
 
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
-        from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+        if display_hardware.startswith("pg_"):
+            from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
-        rlogger.info("using local keyboard")
+            rlogger.info("using pygame keyboard (main loop captures keys)")
+        else:
+            from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+
+            rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 

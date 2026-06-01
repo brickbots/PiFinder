@@ -66,6 +66,21 @@ def unit_tests(session: nox.Session) -> None:
 
 
 @nox.session(reuse_venv=True, python="3.9")
+def web_tests(session: nox.Session) -> None:
+    """
+    Run the project's test suite on the web interface.
+
+    This session installs the necessary dependencies and tests the web interface using Selenium.
+
+    Args:
+        session (nox.Session): The Nox session being run, providing context and methods for session actions.
+    """
+    session.install("-r", "requirements.txt")
+    session.install("-r", "requirements_dev.txt")
+    session.run("pytest", "-m", "web")
+
+
+@nox.session(reuse_venv=True, python="3.9")
 def smoke_tests(session: nox.Session) -> None:
     """
         Run the project's smoke tests.
@@ -82,6 +97,24 @@ def smoke_tests(session: nox.Session) -> None:
 
 
 @nox.session(reuse_venv=True, python="3.9")
+def ui_tests(session: nox.Session) -> None:
+    """
+    Run the UI module smoke harness (tests/test_ui_modules.py).
+
+    Constructs every UI screen through a real MenuManager and exercises its
+    key_* methods (crash-only smoke). Builds the real catalogs and, for
+    chart/align, may download hip_main.dat on first run. Heavier and more
+    network-dependent than the unit suite, so it lives in its own session.
+
+    Args:
+        session (nox.Session): The Nox session being run, providing context and methods for session actions.
+    """
+    session.install("-r", "requirements.txt")
+    session.install("-r", "requirements_dev.txt")
+    session.run("pytest", "-m", "integration", "tests/test_ui_modules.py")
+
+
+@nox.session(reuse_venv=True, python="3.9")
 def babel(session: nox.Session) -> None:
     """
     Run the I18N toolchain
@@ -92,6 +125,8 @@ def babel(session: nox.Session) -> None:
     session.run(
         "pybabel",
         "extract",
+        "-F",
+        "babel.cfg",
         "-c",
         "TRANSLATORS",
         "-o",

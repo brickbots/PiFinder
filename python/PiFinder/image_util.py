@@ -52,8 +52,7 @@ def subtract_background(image, percent=1):
         assert image.ndim == 2, "Image must be 2D or 3D array"
 
     image = image - (
-        scipy.ndimage.filters.uniform_filter(image, size=25, output=image.dtype)
-        * percent
+        scipy.ndimage.uniform_filter(image, size=25, output=image.dtype) * percent
     )
     return Image.fromarray(image)
 

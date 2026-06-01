@@ -22,72 +22,9 @@ class UIStatus(UIModule):
 
     __title__ = "STATUS"
 
-    _config_options = {
-        "Key Brit": {
-            "type": "enum",
-            "value": "",
-            "options": ["+3", "+2", "+1", "0", "-1", "-2", "-3", "Off"],
-            "callback": "set_key_brightness",
-        },
-        "Sleep Tim": {
-            "type": "enum",
-            "value": "",
-            "options": ["Off", "10s", "30s", "1m"],
-            "callback": "set_sleep_timeout",
-        },
-        "Screen Off": {
-            "type": "enum",
-            "value": "",
-            "options": ["Off", "30s", "1m", "10m", "30m"],
-            "callback": "set_screen_off_timeout",
-        },
-        "Hint Time": {
-            "type": "enum",
-            "value": "2s",
-            "options": ["Off", "2s", "4s", "On"],
-            "callback": "set_hint_timeout",
-        },
-        "WiFi Mode": {
-            "type": "enum",
-            "value": "UNK",
-            "options": ["AP", "Client", "CANCEL"],
-            "callback": "wifi_switch",
-        },
-        "Mnt Side": {
-            "type": "enum",
-            "value": "",
-            "options": ["right", "left", "flat", "CANCEL"],
-            "callback": "side_switch",
-        },
-        "Mnt Type": {
-            "type": "enum",
-            "value": "",
-            "options": ["Alt/Az", "EQ", "CANCEL"],
-            "callback": "mount_switch",
-        },
-        "Shutdown": {
-            "type": "enum",
-            "value": "",
-            "options": ["System", "CANCEL"],
-            "callback": "shutdown",
-        },
-        "Software": {
-            "type": "enum",
-            "value": "",
-            "options": ["Update", "CANCEL"],
-            "callback": "update_software",
-        },
-    }
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.version_txt = f"{utils.pifinder_dir}/version.txt"
-        self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
         self._draw_pos = (0, self.display_class.titlebar_height)
-        with open(self.wifi_txt, "r") as wfs:
-            self._config_options["WiFi Mode"]["value"] = wfs.read()
-        with open(self.version_txt, "r") as ver:
-            self._config_options["Software"]["value"] = ver.read()
         self.spacecalc = SpaceCalculatorFixed(self.fonts.base.line_length)
         self.status_dict = {
             "LAST SLV": "--",
@@ -107,29 +44,9 @@ class UIStatus(UIModule):
             "CPU TMP": "--",
         }
 
-        if self._config_options["WiFi Mode"]["value"] == "Client":
-            self.status_dict["WIFI"] = "Client"
-        else:
-            self.status_dict["WIFI"] = "AP"
-
-        self._config_options["Mnt Type"]["value"] = self.config_object.get_option(
-            "mount_type"
-        )
-        self._config_options["Mnt Side"]["value"] = self.config_object.get_option(
-            "screen_direction"
-        )
-        self._config_options["Sleep Tim"]["value"] = self.config_object.get_option(
-            "sleep_timeout"
-        )
-        self._config_options["Screen Off"]["value"] = self.config_object.get_option(
-            "screen_off_timeout"
-        )
-        self._config_options["Hint Time"]["value"] = self.config_object.get_option(
-            "hint_timeout"
-        )
-        self._config_options["Key Brit"]["value"] = self.config_object.get_option(
-            "keypad_brightness"
-        )
+        with open(f"{utils.pifinder_dir}/wifi_status.txt", "r") as wfs:
+            wifi_mode = wfs.read()
+        self.status_dict["WIFI"] = "Client" if wifi_mode == "Client" else "AP"
 
         self.last_temp_time = 0
         self.last_IP_time = 0
@@ -143,91 +60,6 @@ class UIStatus(UIModule):
             available_lines=9,
         )
 
-    def update_software(self, option):
-        if option == "CANCEL":
-            with open(self.version_txt, "r") as ver:
-                self._config_options["Software"]["value"] = ver.read()
-            return False
-
-        self.message("Updating...", 10)
-        if sys_utils.update_software():
-            self.message("Ok! Restarting", 10)
-            sys_utils.restart_pifinder()
-        else:
-            self.message("Error on Upd", 3)
-
-    def set_key_brightness(self, option):
-        self.command_queues["ui_queue"].put("set_brightness")
-        self.config_object.set_option("keypad_brightness", option)
-        return False
-
-    def set_sleep_timeout(self, option):
-        self.config_object.set_option("sleep_timeout", option)
-        return False
-
-    def set_hint_timeout(self, option):
-        self.config_object.set_option("hint_timeout", option)
-        self.ui_state.set_hint_timeout(option)
-        return False
-
-    def set_screen_off_timeout(self, option):
-        self.config_object.set_option("screen_off_timeout", option)
-        return False
-
-    def mount_switch(self, option):
-        if option == "CANCEL":
-            self._config_options["Mnt Type"]["value"] = self.config_object.get_option(
-                "mount_type"
-            )
-            return False
-
-        self.message("Ok! Restarting", 10)
-        self.config_object.set_option("mount_type", option)
-        sys_utils.restart_pifinder()
-
-    def side_switch(self, option):
-        if option == "CANCEL":
-            self._config_options["Mnt Side"]["value"] = self.config_object.get_option(
-                "screen_direction"
-            )
-            return False
-
-        self.message("Ok! Restarting", 10)
-        self.config_object.set_option("screen_direction", option)
-        sys_utils.restart_pifinder()
-
-    def wifi_switch(self, option):
-        with open(self.wifi_txt, "r") as wfs:
-            current_state = wfs.read()
-        if option == current_state or option == "CANCEL":
-            self._config_options["WiFi Mode"]["value"] = current_state
-            return False
-
-        if option == "AP":
-            self.message("Switch to AP", 10)
-            sys_utils.go_wifi_ap()
-        else:
-            self.message("Switch to Client", 10)
-            sys_utils.go_wifi_cli()
-
-        sys_utils.restart_system()
-
-    def shutdown(self, option):
-        if option == "System":
-            self.message("Shutting down", 10)
-            sys_utils.shutdown()
-        else:
-            self._config_options["Shutdown"]["value"] = ""
-            return False
-
-    def restart(self, option):
-        if option == "PiFi":
-            self.message("Restarting", 10)
-            sys_utils.restart_pifinder()
-        else:
-            self._config_options["Restart"]["value"] = ""
-            return False
-
     def update_status_dict(self):
         """
         Updates all the status dict values
@@ -236,59 +68,63 @@ class UIStatus(UIModule):
             solution = self.shared_state.solution()
 
             # Time since last solve
-            if solution["cam_solve_time"]:
-                time_since_solve = f"{time.time() - solution['cam_solve_time']:.1f}"
+            if solution.last_solve_success:
+                time_since_solve = f"{time.time() - solution.last_solve_success:.1f}"
             else:
                 time_since_solve = "--"
             # Number of matched stars
-            if solution["solve_source"] == "CAM":
-                stars_matched = solution["Matches"]
+            if solution.is_camera_solve():
+                stars_matched = solution.diagnostics.Matches
             else:
                 stars_matched = "--"
             # Solve source
-            if solution["solve_source"] == "CAM":
+            source = solution.solve_source
+            if source is None:
+                solve_source = "-"
+            elif source == "CAM":
                 solve_source = "C"
-            elif solution["solve_source"] == "CAM_FAILED":
+            elif source == "CAM_FAILED":
                 solve_source = "F"
             else:
-                solve_source = str(solution["solve_source"][0])
+                solve_source = str(source.value[0])
             # Collect togethers
             self.status_dict["LAST SLV"] = (
                 time_since_solve + "s " + solve_source + f" {stars_matched: >2}"
             )
 
             # RA/DEC
-            if solution["RA"] is None or solution["Dec"] is None:
+            aligned = solution.pointing.aligned.estimate
+            if aligned is None:
                 self.status_dict["RA/DEC"] = "--/--"
             else:
-                hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
+                hh, mm, _ = calc_utils.ra_to_hms(aligned.RA)
                 self.status_dict["RA/DEC"] = (
-                    f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] :.2f}"
+                    f"{hh:02.0f}h{mm:02.0f}m/{aligned.Dec :.2f}"
                 )
 
             # AZ/ALT
-            if solution["Az"] is None or solution["Alt"] is None:
+            if solution.Az is None or solution.Alt is None:
                 self.status_dict["AZ/ALT"] = "--/--"
             else:
                 self.status_dict["AZ/ALT"] = (
-                    f"{solution['Az'] : >6.2f}/{solution['Alt'] : >6.2f}"
+                    f"{solution.Az : >6.2f}/{solution.Alt : >6.2f}"
                 )
 
         imu = self.shared_state.imu()
         # IMU Status & reading
         if imu:
-            if imu["quat"] is not None:
-                if imu["moving"]:
+            if imu.quat is not None:
+                if imu.moving:
                     mtext = "Moving"
                 else:
                     mtext = "Static"
-                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
+                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu.status)
 
                 self.status_dict["IMU qw,qx"] = (
-                    f"{imu['quat'].w:>.2f},{imu['quat'].x : >.2f}"
+                    f"{imu.quat.w:>.2f},{imu.quat.x : >.2f}"
                 )
                 self.status_dict["IMU qy,qz"] = (
-                    f"{imu['quat'].y:>.2f},{imu['quat'].z : >.2f}"
+                    f"{imu.quat.y:>.2f},{imu.quat.z : >.2f}"
                 )
         else:
             self.status_dict["IMU"] = "--"
@@ -333,7 +169,6 @@ class UIStatus(UIModule):
                 self.status_dict["SSID"] = self.net.get_connected_ssid()
 
     def update(self, force=False):
-        time.sleep(1 / 30)
         self.update_status_dict()
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
         lines = []
@@ -355,11 +190,3 @@ class UIStatus(UIModule):
 
     def key_down(self):
         self.text_layout.next()
-
-    def active(self):
-        """
-        Called when a module becomes active
-        i.e. foreground controlling display
-        """
-        with open(self.wifi_txt, "r") as wfs:
-            self._config_options["WiFi Mode"]["value"] = wfs.read()

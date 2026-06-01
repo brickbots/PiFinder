@@ -6,7 +6,6 @@ This module contains all the UI Module classes
 
 """
 
-from PiFinder import cat_images
 from PiFinder import obslog
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.base import UIModule
@@ -42,14 +41,6 @@ class UILog(UIModule):
 
         # Used for displaying obsevation counts
         self.observations_db = ObservationsDatabase()
-
-        solution = self.shared_state.solution()
-        roll = 0
-        if solution:
-            roll = solution["Roll"]
-        self.object_image = cat_images.get_display_image(
-            self.object, "POSS", 1, roll, self.display_class, burn_in=False
-        )
 
         self.menu_index = 1  # Observability
 
@@ -153,9 +144,6 @@ class UILog(UIModule):
     def update(self, force=True):
         # Clear Screen
         self.clear_screen()
-
-        # paste image
-        # self.screen.paste(self.object_image)
 
         # dim image
         self.draw.rectangle(
@@ -282,6 +270,7 @@ class UILog(UIModule):
             solution=self.shared_state.solution(),
             notes=notes,
         )
+        self.object.logged = True
         self.reset_config()
 
     def key_number(self, number: int):
