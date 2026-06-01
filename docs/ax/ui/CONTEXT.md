@@ -72,6 +72,10 @@ _Avoid_: current screen, focused module, top module.
 The flow where `MenuManager.key_*` forwards a keypad event to `stack[-1].key_*`, after first checking for help mode and marking-menu mode.
 _Avoid_: event routing, input handling.
 
+**Power key** (`POWER_BTN` / `key_power`):
+The dedicated hardware power button, dispatched as a normal keypad event in **key dispatch**. Its meaning is "open the shutdown confirmation": from any active module it jumps (`jump_to_label`) to the `shutdown` menu item. On that confirmation screen it doubles as **select** (behaves like the right key), so one press raises the confirmation and a second press confirms.
+_Avoid_: power switch / off button (it does not cut power directly — it opens the normal shutdown menu), kill switch.
+
 **Display mode**:
 A per-module variant cycled by the square key via `cycle_display_mode()` over the class's `_display_mode_list` (default `[None]`; e.g. `UIGPSStatus` has `["large", "detailed"]`).
 _Avoid_: view mode, layout, skin.

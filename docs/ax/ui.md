@@ -192,6 +192,7 @@ manager dispatches to whichever the active module implements:
 | `key_square()` | `cycle_display_mode()` then `update()` — `base.py:402` |
 | `key_up()` / `key_down()` / `key_right()` | no-op |
 | `key_left()` | returns `True` → tells `MenuManager` to pop this module off the stack. Return `False` to stay (`base.py:424`). |
+| `key_power()` | `jump_to_label("shutdown")` — the dedicated power button opens the shutdown confirmation from any screen (`base.py`). `UITextMenu` overrides it so that *on the `shutdown` screen itself* it acts as `key_right` (select); everywhere else it falls back to the jump. Net effect: one press raises the Confirm/Cancel screen, a second press confirms. |
 | `key_long_up/down/right()` | no-op |
 
 `cycle_display_mode()` (`base.py:385`) advances `self.display_mode`
@@ -260,6 +261,13 @@ pops the stack if it returns `True` (`menu_manager.py:440`) — this is how
 a screen can intercept "back". `key_long_left` resets the stack to just
 the root (`menu_manager.py:410`). `key_long_right` jumps to the most
 recent object's detail screen (`menu_manager.py:396`).
+
+`key_power` (the power button) follows the same pre-emption rule as the
+direction keys: if help mode is on it exits help and swallows the press,
+if a marking menu is open it closes it and swallows the press, otherwise
+it forwards to `stack[-1].key_power()`. The power keycode (`POWER_BTN`)
+arrives in `main.py`'s dispatch in the same `keycode > 99` band as the
+`ALT_*`/`LNG_*` codes.
 
 ### 4.3 The render loop
 

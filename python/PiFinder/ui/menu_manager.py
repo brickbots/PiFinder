@@ -480,6 +480,20 @@ class MenuManager:
         else:
             self.stack[-1].key_right()
 
+    def key_power(self):
+        if self.help_images is not None:
+            # Exit help
+            self.help_images = None
+            self.update()
+            return
+
+        if self.marking_menu_stack != []:
+            self.exit_marking_menu()
+            self.update()
+            return
+
+        self.stack[-1].key_power()
+
     def mm_select(self, selected_item):
         if selected_item.label == "" or not selected_item.enabled:
             # Just bail out for non active menu items

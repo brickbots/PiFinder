@@ -253,6 +253,18 @@ class UITextMenu(UIModule):
     def key_down(self):
         self.menu_scroll(1)
 
+    def key_power(self):
+        """
+        On the shutdown confirmation screen the power button acts as a
+        select (right key), so a second press confirms the highlighted
+        option.  Every other text menu keeps the default behaviour of
+        jumping to that confirmation screen.
+        """
+        if self.item_definition.get("label") == "shutdown":
+            self.key_right()
+        else:
+            super().key_power()
+
     def serialize_ui_state(self) -> dict:
         """
         Serialize the current state of the text menu for inter-process communication

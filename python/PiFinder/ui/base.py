@@ -431,3 +431,12 @@ class UIModule:
         override the remove from stack behavior
         """
         return True
+
+    def key_power(self):
+        """
+        Power button.  Default behaviour for every module is to jump
+        straight to the shutdown confirmation menu.  The shutdown screen
+        itself (a UITextMenu) overrides this to act as a select, so a
+        first press raises the confirmation and a second press confirms.
+        """
+        self.jump_to_label("shutdown")
