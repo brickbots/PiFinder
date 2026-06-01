@@ -793,6 +793,10 @@ def main(
                         if keycode == keyboard_base.LNG_SQUARE:
                             menu_manager.key_long_square()
 
+                        # Power button: jump to / confirm shutdown
+                        if keycode == keyboard_base.POWER_BTN:
+                            menu_manager.key_power()
+
                         # Special codes....
                         if (
                             keycode == keyboard_base.ALT_PLUS

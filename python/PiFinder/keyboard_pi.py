@@ -6,7 +6,7 @@ and adds keys to the provided queue
 
 """
 
-from time import sleep
+from time import sleep, time
 import libinput
 from PiFinder.keyboard_interface import KeyboardInterface
 import RPi.GPIO as GPIO
@@ -23,6 +23,12 @@ class KeyboardPi(KeyboardInterface):
         # GPIO pin numbers for the rows and columns of the keyboard matrix
         self.cols = [16, 23, 26, 27, 21]
         self.rows = [19, 17, 18, 22, 20]
+        self.power_gpio = 15
+
+        # Timer for power-off debounce, and latch so we only emit
+        # one POWER_BTN per physical press
+        self.power_press_time = 0
+        self.power_sent = False
 
         if bloom_remap:
             _up = self.RIGHT
@@ -129,6 +135,10 @@ class KeyboardPi(KeyboardInterface):
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.rows, GPIO.IN)
         GPIO.setup(self.cols, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+        # Setup power GPIO, no pullup needed, has it's own
+        GPIO.setup(self.power_gpio, GPIO.IN)
+
         pressed = set()
         alt_sent = False
         hold_counter = 0
@@ -180,6 +190,19 @@ class KeyboardPi(KeyboardInterface):
                             else:
                                 self.q.put(self.keymap[keycode])
                 GPIO.setup(self.rows[i], GPIO.IN)
+
+            # Check power button explicitly it is wired directly to a GPIO
+            # and goes LOW when pressed
+            if not GPIO.input(self.power_gpio):
+                if self.power_press_time == 0:
+                    self.power_press_time = time()
+                else:
+                    if time() - self.power_press_time > 1 and not self.power_sent:
+                        self.q.put(self.POWER_BTN)
+                        self.power_sent = True
+            else:
+                self.power_press_time = 0
+                self.power_sent = False
 
 
 def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
