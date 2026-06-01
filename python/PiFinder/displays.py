@@ -42,6 +42,9 @@ class DisplayBase:
     small_font_size = 8
     large_font_size = 15
     huge_font_size = 35
+    # Number of carousel rows a UITextMenu shows at once. Must be ODD so the
+    # selected item sits on the symmetric center (focus) line.
+    menu_visible_items = 7
     device = luma.core.device.device
 
     def __init__(self):
@@ -137,13 +140,33 @@ class DisplaySSD1351(DisplayBase):
             self.device.contrast(level)
 
 
-class DisplaySSD1333(DisplayBase):
-    resolution = (176, 176)
+class Layout176:
+    """Shared 176x176 layout profile for the 1.91" panel.
 
+    The SSD1333 controller only addresses 176x176 (see ``ssd1333_device``), so
+    every 176 render target — the real OLED, the pygame emulator, and the
+    headless dummy — must lay out identically for the emulator to faithfully
+    preview the hardware. These knobs are the hand-tuned half of the
+    resolution-flexible UI (geometry derives from them + font metrics):
+    fonts run ~15-20% larger than the 128 panel for slightly bigger glyphs at
+    near-identical pixel density, and the carousel shows two extra rows.
+    """
+
+    resolution = (176, 176)
+    titlebar_height = 20
+    base_font_size = 12
+    bold_font_size = 14
+    small_font_size = 10
+    large_font_size = 18
+    huge_font_size = 42
+    menu_visible_items = 9
+
+
+class DisplaySSD1333(Layout176, DisplayBase):
     def __init__(self):
         # init display  (SPI hardware)
         serial = spi(device=0, port=0, bus_speed_hz=40000000)
-        device_serial = ssd1333(serial, width=176, height=176, rotate=0, bgr=True)
+        device_serial = ssd1333(serial, width=176, height=176, rotate=2, bgr=True)
         self.device = device_serial
         super().__init__()
 
@@ -163,6 +186,30 @@ class DisplaySSD1333(DisplayBase):
         else:
             self.device.master_brightness(15)
             self.device.contrast(level)
+
+
+class DisplayPygame_176(Layout176, DisplayBase):
+    """Pygame emulator at 176x176 with the SSD1333 layout profile.
+
+    Lets the 1.91" UI be previewed on a dev machine with no Pi/panel; the
+    ``Layout176`` profile means it renders with the same fonts/spacing as the
+    real OLED. Select with ``--display pg_176``.
+    """
+
+    def __init__(self):
+        from luma.emulator.device import pygame
+
+        pygame = pygame(
+            width=self.resolution[0],
+            height=self.resolution[1],
+            rotate=0,
+            mode="RGB",
+            transform="scale2x",
+            scale=2,
+            frame_rate=60,
+        )
+        self.device = pygame
+        super().__init__()
 
 
 class DisplayST7789_128(DisplayBase):
@@ -232,12 +279,27 @@ class DisplayHeadless(DisplayBase):
         super().__init__()
 
 
+class DisplayHeadless176(Layout176, DisplayHeadless):
+    """Headless (luma ``dummy``) display at 176x176 with the SSD1333 layout.
+
+    The no-hardware target for driving/screenshotting the 1.91" UI over the
+    HTTP API (``/api/screen`` serves whatever resolution the UI publishes).
+    Select with ``--display headless_176``.
+    """
+
+
 def get_display(display_hardware: str) -> DisplayBase:
     if display_hardware == "headless":
         return DisplayHeadless()
 
+    if display_hardware == "headless_176":
+        return DisplayHeadless176()
+
     if display_hardware == "pg_128":
         return DisplayPygame_128()
+
+    if display_hardware == "pg_176":
+        return DisplayPygame_176()
 
     if display_hardware == "pg_320":
         return DisplayPygame_320()
