@@ -73,13 +73,13 @@ MASTER_DUTY: Dict[str, float] = {
 CATALOG: Dict[Earcon, EarconDef] = {
     Earcon.STARTUP: EarconDef(
         important=True,
-        notes=(Note(3000, 80, 0.8), Note(4000, 120, 1.0)),
+        notes=(Note(3000, 80, 0.8), Note(4000, 120, 1.0), Note(2500, 80, 1)),
     ),
     Earcon.SHUTDOWN: EarconDef(
         important=True,
         notes=(Note(4000, 120, 1.0), Note(3000, 160, 0.8)),
     ),
-    Earcon.KEYPRESS: EarconDef(notes=(Note(1000, 25, 0.6),)),
+    Earcon.KEYPRESS: EarconDef(notes=(Note(480, 10, 0.2),)),
     Earcon.VOLUME_SAMPLE: EarconDef(notes=(Note(4000, 120, 1.0),)),
     # Defined-but-unwired in v1 (no producer requests these yet). They have
     # catalog entries so the data model is complete and they are tunable now.
