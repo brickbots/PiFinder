@@ -1,6 +1,7 @@
 from PiFinder.ui.base import UIModule
 from PiFinder import utils
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
+from PiFinder.ui.layout import rows_below_titlebar
 
 sys_utils = utils.get_sys_utils()
 
@@ -27,16 +28,21 @@ class UIEquipment(UIModule):
     def update(self, force=False):
         self.clear_screen()
 
+        # Top info rows stack below the title bar; the Telescope.../Eyepiece...
+        # option block is anchored up from the bottom so it stays put as the
+        # info section grows.
+        info = rows_below_titlebar(self.display_class, gap=4)
+
         if self.config_object.equipment.active_telescope is None:
             self.draw.text(
-                (10, 20),
+                (10, info.rows[0]),
                 _("No telescope selected"),
                 font=self.fonts.small.font,
                 fill=self.colors.get(128),
             )
         else:
             self.draw.text(
-                (10, 20),
+                (10, info.rows[0]),
                 self.config_object.equipment.active_telescope.name.strip(),
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
@@ -44,14 +50,14 @@ class UIEquipment(UIModule):
 
         if self.config_object.equipment.active_eyepiece is None:
             self.draw.text(
-                (10, 35),
+                (10, info.rows[1]),
                 _("No eyepiece selected"),
                 font=self.fonts.small.font,
                 fill=self.colors.get(128),
             )
         else:
             self.draw.text(
-                (10, 35),
+                (10, info.rows[1]),
                 f"{self.config_object.equipment.active_eyepiece.focal_length_mm}mm {self.config_object.equipment.active_eyepiece.name}",
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
@@ -64,7 +70,7 @@ class UIEquipment(UIModule):
             mag = self.config_object.equipment.calc_magnification()
             if mag > 0:
                 self.draw.text(
-                    (10, 50),
+                    (10, info.rows[2]),
                     _("Mag: {mag:.0f}x").format(
                         mag=mag
                     ),  # TRANSLATORS: Magnification e.g. 200x
@@ -76,7 +82,7 @@ class UIEquipment(UIModule):
                 tfov_degrees = int(tfov)
                 tfov_minutes = int((tfov - tfov_degrees) * 60)
                 self.draw.text(
-                    (10, 70),
+                    (10, info.rows[3]),
                     _(
                         "TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
                     ).format(  # TRANSLATORS: True field of View in degree and minutes
@@ -86,7 +92,12 @@ class UIEquipment(UIModule):
                     fill=self.colors.get(128),
                 )
 
-        horiz_pos = self.display_class.titlebar_height + 70
+        opt_pitch = self.fonts.large.height + 2
+        horiz_pos = (
+            self.display_class.resY
+            - 2 * opt_pitch
+            - max(2, self.fonts.base.height // 4)
+        )
 
         self.draw.text(
             (10, horiz_pos),
@@ -97,7 +108,7 @@ class UIEquipment(UIModule):
         if self.menu_index == 0:
             self.draw_menu_pointer(horiz_pos)
 
-        horiz_pos += 18
+        horiz_pos += opt_pitch
 
         self.draw.text(
             (10, horiz_pos),

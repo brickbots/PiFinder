@@ -3,6 +3,7 @@ from typing import Any, TYPE_CHECKING
 from PIL import Image, ImageDraw
 
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.layout import center_box_row
 
 if TYPE_CHECKING:
 
@@ -36,8 +37,8 @@ class UIDateEntry(UIModule):
             self.boxes[2] = f"{local_dt.day:02d}"
 
         # Screen setup
-        self.width = 128
-        self.height = 128
+        self.width = self.display_class.resX
+        self.height = self.display_class.resY
         self.red = self.colors.get(255)
         self.black = self.colors.get(0)
         self.half_red = self.colors.get(128)
@@ -45,30 +46,28 @@ class UIDateEntry(UIModule):
         self.draw = ImageDraw.Draw(self.screen)
         self.bold = self.fonts.bold
 
-        # Layout constants
-        self.text_y = 25
-        self.year_box_width = 38
-        self.md_box_width = 25
-        self.box_height = 20
-        self.box_spacing = 10
+        # Layout constants - box widths derive from the bold font so the
+        # YYYY-MM-DD boxes scale with the display (38 / 25 / 20 on the 128 panel).
+        self.text_y = self.display_class.titlebar_height + 8
+        self.year_box_width = self.bold.width * 4 + 10
+        self.md_box_width = self.bold.width * 2 + 11
+        self.box_height = self.bold.height + 7
+        self.box_spacing = round(self.display_class.resX * 10 / 128)
 
-        # Calculate start_x to center the boxes
-        total_width = self.year_box_width + 2 * self.md_box_width + 2 * self.box_spacing
-        self.start_x = (self.width - total_width) // 2
+        # Center year + month + day boxes on the actual screen width
+        box_row = center_box_row(
+            self.display_class,
+            [self.year_box_width, self.md_box_width, self.md_box_width],
+            self.box_spacing,
+            self.text_y,
+            self.box_height,
+        )
+        self.box_xs = box_row.xs
+        self.start_x = box_row.xs[0]
 
     def _box_x(self, i):
         """Get the x position for box i."""
-        if i == 0:
-            return self.start_x
-        elif i == 1:
-            return self.start_x + self.year_box_width + self.box_spacing
-        else:
-            return (
-                self.start_x
-                + self.year_box_width
-                + self.md_box_width
-                + 2 * self.box_spacing
-            )
+        return self.box_xs[i]
 
     def _box_width(self, i):
         """Get the width for box i."""
@@ -150,14 +149,14 @@ class UIDateEntry(UIModule):
             font=self.fonts.base.font,
             fill=legend_color,
         )
-        legend_y += 12
+        legend_y += self.fonts.base.height + 1
         self.draw.text(
             (10, legend_y),
             _("\uf053 Cancel"),
             font=self.fonts.base.font,
             fill=legend_color,
         )
-        legend_y += 12
+        legend_y += self.fonts.base.height + 1
         self.draw.text(
             (10, legend_y),
             _("\U000f0374 Delete/Previous"),
@@ -227,7 +226,7 @@ class UIDateEntry(UIModule):
             self.custom_callback(self, date_str)
 
     def update(self, force=False):
-        self.draw.rectangle((0, 0, 128, 128), fill=self.black)
+        self.draw.rectangle((0, 0, self.width, self.height), fill=self.black)
 
         self.draw_date_boxes()
 

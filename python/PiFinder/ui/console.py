@@ -11,7 +11,8 @@ import datetime
 import time
 
 from PIL import Image
-from PiFinder.ui.base import UIModule
+from PiFinder.ui.base import GPS_ANIM_RATE, UIModule
+from PiFinder.ui.layout import rows_below_titlebar
 from PiFinder.image_util import convert_image_to_mode
 
 
@@ -109,9 +110,15 @@ class UIConsole(UIModule):
                 return self.screen_update(title_bar=False)
             else:
                 self.clear_screen()
-                for i, line in enumerate(self.lines[-10 - self.scroll_offset :][:10]):
+                # Dense scrollback: as many base-font rows as fit below the
+                # title bar (9 on the 128 panel, more on taller displays).
+                layout = rows_below_titlebar(self.display_class, gap=1)
+                window = layout.max_visible
+                for i, line in enumerate(
+                    self.lines[-window - self.scroll_offset :][:window]
+                ):
                     self.draw.text(
-                        (0, i * 10 + 20),
+                        (0, layout.rows[i]),
                         line,
                         font=self.fonts.base.font,
                         fill=self.colors.get(255),
@@ -141,7 +148,9 @@ class UIConsole(UIModule):
             if self.shared_state.altaz_ready():
                 self._gps_brightness = 0
             else:
-                gps_anim = int(128 * (time.time() - self.last_update_time)) + 1
+                gps_anim = (
+                    int(GPS_ANIM_RATE * (time.time() - self.last_update_time)) + 1
+                )
                 self._gps_brightness += gps_anim
                 if self._gps_brightness > 64:
                     self._gps_brightness = -128

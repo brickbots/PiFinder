@@ -1,7 +1,7 @@
 # Handoff — Resolution-flexible UI for the 176×176 SSD1333 panel
 
-**Status:** **Phase 0 + Phase 1 COMPLETE**, committed (`4bf2daf9`) and pushed to `ssd1333_ui_hw_test` (brickbots). Validated by in-process render at 128 and 176 + `pytest -m "smoke or unit"` (313 passed); ruff + mypy clean. **Next work = Phase 2 screens — see §5, written for a fresh agent.**
-**Branch:** `ssd1333_ui_hw_test` on `origin` (brickbots), tip `4bf2daf9`. Worktree local branch `worktree-ssd1333-ui-flex` is the **same commit**.
+**Status:** **Phase 0 + Phase 1 + Phase 2 COMPLETE.** Phase 1 validated on the physical panel by the user. Phase 2 (the deferred secondary / entry / SQM screens) implemented and validated by in-process render at 128 and 176 + `pytest -m "smoke or unit"` (313 passed); ruff check/format clean; mypy clean apart from the pre-existing pandas/requests missing-stub notes (resolved by the nox gate's `--install-types`). **Awaiting the user's ruler/readability sign-off on the physical panel for Phase 2.** See §5 for what shipped.
+**Branch:** `ssd1333_ui_hw_test` on `origin` (brickbots). Worktree local branch `worktree-ssd1333-ui-flex` is the same commit; Phase 2 was committed here and fast-forwarded onto `ssd1333_ui_hw_test`.
 **Worktree:** `/Users/rich/Projects/Astronomy/PiFinder/.claude/worktrees/ssd1333-ui-flex`.
 **Awaiting from the user:** ruler/readability sign-off on the physical panel — the 176 font sizes (§2.3) are a deliberate starting point and may be nudged.
 
@@ -61,7 +61,19 @@ All seven screens made resolution-flexible; rendered at 128 and 176 and diffed.
 
 These keep Phase 2 consistent with Phase 1 and with ADR 0008 (derive geometry, don't hand-place).
 
-## 5. Phase 2 work plan — the deferred screens  ← START HERE, new agent
+## 5. Phase 2 — the deferred screens  ← DONE
+
+**Shipped** (all rendered at 128 + 176 and diffed):
+- **`ui/layout.py`** — two new helpers: `rows_below_titlebar(display_class, font, gap, top_pad)` (stacked text rows + `max_visible`) and `center_box_row(display_class, box_widths, spacing, y, height)` (centred fixed-width box row). Both reproduce the 128 layout exactly and feed the screens below.
+- **5A** `console` (derived scrollback window + rows; `GPS_ANIM_RATE`), `status` (`available_lines` derived; `clear_screen()`), `sqm` (resize/overlay → `resX/resY`; **dashboard rows fully re-anchored** off titlebar + font heights so the value/detail/legend block fills the panel).
+- **5B** `equipment` (stacked info rows + bottom-anchored option block), `software` (font-derived info cadence + bottom-anchored message), `location_list` (action-menu cadence + helper fallback row), `log` (font-derived menu cadence + star pitch from glyph width), `sqm_calibration` / `sqm_sweep` (**all `_draw_*` states re-anchored**: headers off titlebar, body font-stepped, legends bottom-anchored, progress bar spans `resX`, char limit → `line_length`), `sqm_correction` (entry centred on `resX`, legend dims → `resX/resY`, vertical stack derived).
+- **5C** `timeentry` / `dateentry` / `locationentry` (box dims from the bold glyph, centred via `center_box_row`, clears → `resX/resY`), `radec_entry` (`LayoutConfig` now computes from `display_class` — reproduces 128 exactly, scales to 176), `textentry` (**T9 keypad grid derived from `resX/resY`** — `key_w=(resX-2·text_x)//3`, `key_h` from remaining height).
+
+**Scope notes:** `sqm.py`, `sqm_calibration`, `sqm_sweep`, and `sqm_correction` got **fuller vertical re-layout than the original narrow §5 scope** (which only listed the progress bar / resize / centring). Leaving the rest hard-coded would have stranded content in the top-left of the 176 panel and collided headers with the taller titlebar, so the body rows were re-anchored too — all low-risk arithmetic, render-validated at both sizes. `gpsstatus.py` and `numeric_entry.py` were already flexible — untouched. No per-display knob (`Layout176`) re-tuning was done; that follows the user's hardware sign-off.
+
+---
+
+### 5-original. Phase 2 work plan (historical — what the plan called for)
 
 > Line numbers below are from a read-only scan of the current tree (Explore sweep). **Re-grep before editing — they drift.** Validate each screen with the in-process harness (§6) at `headless` and `headless_176`. Many of these screens are **not exercised by the smoke/unit suite**, so visual render is the real check.
 
