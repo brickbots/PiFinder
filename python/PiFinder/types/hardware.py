@@ -68,4 +68,5 @@ class HardwareCapabilities:
     """
 
     has_bq25895: bool = False
+    has_buzzer: bool = False  # rev-4 passive piezo on PWM ch0 (see Sound context)
     # room to grow: other rev-dependent hardware facts go here

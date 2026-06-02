@@ -61,9 +61,15 @@ def detect_capabilities() -> HardwareCapabilities:
 
     On any failure (no blinka, no I2C bus, probe error) returns all-False
     capabilities — a dev machine or a rev-3 board simply has no charger.
+
+    ``has_buzzer`` is set from the **same** rev-4 charger probe: the buzzer is
+    a bare GPIO piezo (PWM ch0) that can't be probed directly, so the BQ25895
+    ACK is the rev-4 marker that implies both (see CONTEXT-MAP "Sound →
+    system-wide").
     """
     try:
-        return HardwareCapabilities(has_bq25895=i2c_present(BQ25895_ADDRESS))
+        present = i2c_present(BQ25895_ADDRESS)
+        return HardwareCapabilities(has_bq25895=present, has_buzzer=present)
     except Exception as e:
         logger.debug("Hardware detect: BQ25895 probe unavailable (%s)", e)
         return HardwareCapabilities()

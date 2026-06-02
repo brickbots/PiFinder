@@ -1,6 +1,7 @@
 {
     "display_brightness": 255,
     "keypad_brightness": "0",
+    "sound_volume": "2",
     "camera_exp": 400000,
     "camera_gain": 20,
     "auto_exposure_zero_star_handler": "sweep",

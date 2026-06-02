@@ -2016,6 +2016,10 @@ msgstr "ss"
 msgid "Enter Local Time"
 msgstr "Ingresar Hora Local"
 
+#: PiFinder/ui/menu_structure.py:626
+msgid "Volume"
+msgstr ""
+
 #~ msgid "Integrator"
 #~ msgstr ""
 
