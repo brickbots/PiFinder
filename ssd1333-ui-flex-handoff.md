@@ -16,10 +16,10 @@ Adapt the PiFinder UI to a new larger display — the NHD **SSD1333, 176×176 px
 
 Crucial physical fact: the two panels have **near-identical pixel density** (128px/1.5″ ≈ 121 ppi; 176px/1.91″ ≈ 130 ppi). So a glyph at the same pixel count looks ~the same physical size; "bigger by ruler" requires spending pixels on larger fonts. The 176 panel has ~1.34× the linear pixels to split between "bigger" and "more."
 
-## 2. The plan — 5 locked decisions (from a /grill-with-docs session; now ADR 0008)
+## 2. The plan — 5 locked decisions (from a /grill-with-docs session; now ADR 0009)
 
 1. **Target:** render **176×176 edge-to-edge**, no safe area. The SSD1333 controller only addresses 176×176 (`ssd1333_device.py`: MUX 175, `_supported_dimensions()==[(176,176)]`).
-2. **Mechanism = HYBRID:** derive **geometry** (item counts, line positions, text anchors, image scaling, scroll-bar edges) from font metrics + `resX/resY`; hand-tune a **small set of per-display knobs** (font sizes, `titlebar_height`, `menu_visible_items`). Minor (≤1–2px) drift on the existing 128 layout is **acceptable** — do NOT special-case 128 to reproduce exact pixels. *Recorded in `docs/adr/0008-resolution-flexible-ui-hybrid.md`.*
+2. **Mechanism = HYBRID:** derive **geometry** (item counts, line positions, text anchors, image scaling, scroll-bar edges) from font metrics + `resX/resY`; hand-tune a **small set of per-display knobs** (font sizes, `titlebar_height`, `menu_visible_items`). Minor (≤1–2px) drift on the existing 128 layout is **acceptable** — do NOT special-case 128 to reproduce exact pixels. *Recorded in `docs/adr/0009-resolution-flexible-ui-hybrid.md`.*
 3. **Sizing = BALANCED:** 176 fonts `base 12 / bold 14 / small 10 / large 18 / huge 42`, `titlebar_height 20`, carousel **7→9** items. (Measured live: base h11/bold h13 @128 vs base h13/bold h15 @176; ~10% bigger by ruler, +2 rows.)
 4. **Scope:** Phase 0 + Phase 1 done; **Phase 2 = the deferred entry / secondary / SQM screens (§5).**
 5. **Validation:** 176 headless + pygame on the dev machine (screenshot iteration); the user does the final **ruler/readability sign-off on the physical prototype**.
@@ -45,7 +45,7 @@ All seven screens made resolution-flexible; rendered at 128 and 176 and diffed.
 ### Docs (commit `4bf2daf9`)
 - `docs/ax/ui/CONTEXT.md` — `self.screen` now described as `resolution`-sized; new canonical **"carousel"** term.
 - `docs/ax/ui.md` — §1 made resolution-based.
-- `docs/adr/0008-resolution-flexible-ui-hybrid.md` — the hybrid mechanism + A/B/C trade-off.
+- `docs/adr/0009-resolution-flexible-ui-hybrid.md` — the hybrid mechanism + A/B/C trade-off.
 
 ## 4. The layout toolkit you'll reuse in Phase 2
 
@@ -59,7 +59,7 @@ All seven screens made resolution-flexible; rendered at 128 and 176 and diffed.
 1. **Stacked text rows** — `rows_below_titlebar(display_class, font=base, gap=…)` returning row y-positions and `max_visible = (resY - titlebar_height) // (font.height + gap)`. Covers `console`, `status`, `gpsstatus`, `equipment`, `software`, `location_list`, `log` menu rows.
 2. **Centred box row** — `center_box_row(display_class, box_widths, spacing, y, height)` returning the x of each box (centres `sum(widths)+spacing*(n-1)` on `resX`). Covers `timeentry`, `dateentry`, `locationentry`, `sqm_correction`, and is the basis for `textentry`'s keypad grid.
 
-These keep Phase 2 consistent with Phase 1 and with ADR 0008 (derive geometry, don't hand-place).
+These keep Phase 2 consistent with Phase 1 and with ADR 0009 (derive geometry, don't hand-place).
 
 ## 5. Phase 2 — the deferred screens  ← DONE
 
@@ -104,7 +104,7 @@ These centre fixed-width boxes on a 128 width and lay out a keypad/box grid; the
 - **`numeric_entry.py`** — reusable component (`NumericEntryField`/`EntryLegend`/`BlinkingCursor`). Mostly flexible; only `cursor_y_offset=4` is pixel-based. Touch only if a consumer needs it.
 
 ### Phase 2 sequencing suggestion
-1. Add the two `layout.py` helpers (§4). 2. Sweep 5A (cheap wins, low risk). 3. 5B menus. 4. 5C entry grids last, reusing the box-row helper. Keep 128 within ~1–2px (ADR 0008); render-diff each at both sizes.
+1. Add the two `layout.py` helpers (§4). 2. Sweep 5A (cheap wins, low risk). 3. 5B menus. 4. 5C entry grids last, reusing the box-row helper. Keep 128 within ~1–2px (ADR 0009); render-diff each at both sizes.
 
 ## 6. How to develop & validate
 
@@ -149,7 +149,7 @@ These centre fixed-width boxes on a 128 width and lay out a keypad/box grid; the
 - **tetra3 submodule:** fresh worktrees need `git submodule update --init python/PiFinder/tetra3` (also required for mypy and for importing `preview.py`). See CLAUDE.md.
 - **`_` (gettext)** is a runtime builtin installed at app boot; in-process harnesses must stub it (see §6).
 - **Native camera frame is 512×512** (`SharedStateObj.target_pixel` docstring). `target_pixel(screen_space=True)` is hardcoded `/4` (128-space) — scale from raw native + `CAMERA_NATIVE_RES` in the UI instead (as `preview.py`/`align.py` now do).
-- Don't chase pixel-exact 128 — ADR 0008 accepts ≤1–2px drift.
+- Don't chase pixel-exact 128 — ADR 0009 accepts ≤1–2px drift.
 
 ## 8. Branch / process notes
 
