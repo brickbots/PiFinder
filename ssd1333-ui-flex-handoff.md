@@ -1,9 +1,32 @@
 # Handoff — Resolution-flexible UI for the 176×176 SSD1333 panel
 
-**Status:** **Phase 0 + Phase 1 + Phase 2 COMPLETE.** Phase 1 validated on the physical panel by the user. Phase 2 (the deferred secondary / entry / SQM screens) implemented and validated by in-process render at 128 and 176 + `pytest -m "smoke or unit"` (313 passed); ruff check/format clean; mypy clean apart from the pre-existing pandas/requests missing-stub notes (resolved by the nox gate's `--install-types`). **Awaiting the user's ruler/readability sign-off on the physical panel for Phase 2.** See §5 for what shipped.
-**Branch:** `ssd1333_ui_hw_test` on `origin` (brickbots). Worktree local branch `worktree-ssd1333-ui-flex` is the same commit; Phase 2 was committed here and fast-forwarded onto `ssd1333_ui_hw_test`.
+**Status:** **Phase 0 + Phase 1 + Phase 2 COMPLETE and merged with the latest hardware work.** Phase 1 validated on the physical panel. Phase 2 (the deferred secondary / entry / SQM screens) implemented + validated by in-process render at 128 and 176 + `pytest -m "smoke or unit"`; ruff clean. **The user then validated on hardware and found three rendering/crash bugs — see the "Known bugs" section below. THAT IS THE NEXT SESSION'S WORK.** Phase 2 itself (the screens listed in §5) is otherwise done and awaiting ruler/readability sign-off.
+**Branch:** `ssd1333_ui_hw_test` on `origin` (brickbots), **tip `2f14b843`**. Worktree local branch `worktree-ssd1333-ui-flex` is the same commit. This session also: merged `origin/new_hardware_features` (the buzzer-earcon "Sound" subsystem — `sound.py`, CLI, tests, `docs/adr/0008-sound-best-effort-delivery.md`) in via `900b9df5` (clean merge, `pytest -m "smoke or unit"` → 364 passed), and renumbered the UI ADR to **`docs/adr/0009-resolution-flexible-ui-hybrid.md`** (`2f14b843`) to clear the ADR-0008 collision (Sound keeps 0008). Commits this session: `7ed0cb61` Phase 2 · `900b9df5` NHF/Sound merge · `2f14b843` ADR renumber.
 **Worktree:** `/Users/rich/Projects/Astronomy/PiFinder/.claude/worktrees/ssd1333-ui-flex`.
-**Awaiting from the user:** ruler/readability sign-off on the physical panel — the 176 font sizes (§2.3) are a deliberate starting point and may be nudged.
+**Awaiting from the user:** ruler/readability sign-off on the physical panel — the 176 font sizes (§2.3) are a deliberate starting point and may be nudged. (Independent of the bug fixes below.)
+
+---
+
+## Known bugs — fix next session  ← START HERE
+
+Found by the user validating Phase 2 **on the 176 panel**. All three were investigated read-only this session (root causes below are strong hypotheses with file pointers, **not yet fixed**). Re-grep line numbers before editing — they drift. Reproduce on `--display pg_176` (emulator) or hardware; the headless dummy device is lenient and hides #2 (see its note). After fixing, render-diff at 128 **and** 176 and re-run `pytest -m "smoke or unit"`.
+
+### Bug 1 — Carousel highlight box touches the line of text above
+- **Symptom:** the menu's selected-item highlight bracket intersects the text row immediately above it.
+- **Where:** `python/PiFinder/ui/layout.py` → `carousel_layout()` (used by `UITextMenu`). This is Phase 0 code, *not* changed in Phase 2.
+- **Root cause (measured):** the focus selection box top is `focus.y - pad`, which lands **exactly** on the bottom of the row above — `box_top == row_above_bottom` (62 == 62 on 128; 85 == 85 on 176), i.e. a **0px gap**, so the bracket sits on the previous line's baseline. The sibling `list_layout()` (object list) keeps a 2–3px gap and looks fine — mirror that clearance.
+- **Fix direction:** give the carousel focus box ~2px more top clearance (raise `box_top`, or add a bit of gap above the focus row) so it no longer touches the row above. Keep it symmetric (box bottom too) and re-check the 128 carousel still looks right.
+
+### Bug 2 — Help screen crashes (on the 176 panel)
+- **Symptom:** opening Help (marking-menu "HELP" / `__help_name__` screens) crashes.
+- **Root cause (confirmed):** the 23 help PNGs under `help/<name>/*.png` are all **128×128**. `base.py::help()` loads them + `make_red` (preserves 128×128); `menu_manager.py::update_screen()` then calls `self.display_class.device.display(image)`, and luma requires the image to match the **device resolution (176×176)** → exception. `help()` *alone* does **not** raise (it just builds the list), so this only reproduces through the real display path on `pg_176`/hardware, **not** the headless dummy — that's why it slipped through Phase 2's in-process render checks.
+- **Where:** `python/PiFinder/ui/base.py` → `help()` (builds the image list); display happens in `python/PiFinder/ui/menu_manager.py` → `update_screen()` (and the help nav at the `self.help_images[...]` lines).
+- **Fix direction:** normalize each help image to the display resolution in `help()` before returning — paste the 128 image centered onto a `resX×resY` black frame (or scale it). Don't special-case 176; derive from `display_class.resX/resY`. (Longer term the help PNGs could be re-authored per resolution, but pad/scale is the cheap fix.)
+
+### Bug 3 — Quick (marking) menu text overruns the radial quarter bounds
+- **Symptom:** curved option text in the radial "quick menu" spills outside its pie-slice quadrant on 176.
+- **Root cause:** `python/PiFinder/ui/menu_manager.py` calls `render_marking_menu(..., radius=39)` with a **hardcoded radius of 39** at **two** sites (the marking-menu draw and `flash_marking_menu_option`). `marking_menus.py` itself is already resolution-aware (center, fonts, pie geometry all derive from `display_class`), but with a fixed radius the circle stays 128-sized while `render_menu_item()` lays the curved label in `fonts.large` (width 11 on 176 vs 9 on 128) → wider per-char angle around a too-small radius → text overruns the slice.
+- **Fix direction:** scale the radius with resolution at both call sites — e.g. `round(self.display_class.resX * 39 / 128)` (≈54 on 176) or derive from `display_class.fov_res`. Verify the four labels + the inner circle + arrows still fit on both panels.
 
 ---
 
