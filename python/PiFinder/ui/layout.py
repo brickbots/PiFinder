@@ -112,20 +112,32 @@ def carousel_layout(display_class) -> CarouselLayout:
     heights = [font.height for font, _ in rows_meta]
 
     gap = max(2, fonts.base.height // 4)
-    block = sum(heights) + gap * (n - 1)
+    pad = max(2, gap)  # padding between the focus text and its selection box
+
+    # The focus row reserves extra vertical space -- its glyph plus the box
+    # padding on each side -- so the selection box keeps a full ``gap`` of
+    # clearance from the rows above and below instead of touching them (the
+    # box top used to land exactly on the previous row's baseline). Mirrors
+    # the focus-slot reservation in ``list_layout``.
+    slot_heights = [
+        height + 2 * pad if i == half else height for i, height in enumerate(heights)
+    ]
+    block = sum(slot_heights) + gap * (n - 1)
     area = resY - tb
     top = tb + max(0, (area - block) // 2)
 
     rows = []
     y = top
     for i, (font, brightness) in enumerate(rows_meta):
+        row_y = y + pad if i == half else y
         rows.append(
-            CarouselRow(y=y, font=font, brightness=brightness, distance=abs(i - half))
+            CarouselRow(
+                y=row_y, font=font, brightness=brightness, distance=abs(i - half)
+            )
         )
-        y += font.height + gap
+        y += slot_heights[i] + gap
 
     focus = rows[half]
-    pad = max(2, gap)
     box = (-1, focus.y - pad, resX, focus.y + focus.font.height + pad)
 
     # x indents scale with width (13 / 3 px on the 128 panel).

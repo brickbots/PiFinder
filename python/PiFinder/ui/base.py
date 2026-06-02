@@ -206,7 +206,30 @@ class UIModule:
             #    convert_image_to_mode(help_image, self.colors.mode)
             # )
 
-            help_image_list.append(make_red(help_image, self.colors))
+            red_help_image = make_red(help_image, self.colors)
+
+            # Help PNGs are authored at 128x128, but luma requires every
+            # displayed image to match the device resolution. Normalise each
+            # frame onto a black resX x resY canvas (centred) so it renders on
+            # any panel; scale down first if a frame is larger than the display
+            # so it always fits. Derived from the display, not special-cased to
+            # 176.
+            res = (self.display_class.resX, self.display_class.resY)
+            if red_help_image.size != res:
+                if red_help_image.width > res[0] or red_help_image.height > res[1]:
+                    red_help_image = red_help_image.copy()
+                    red_help_image.thumbnail(res)
+                frame = Image.new("RGB", res, self.colors.get(0))
+                frame.paste(
+                    red_help_image,
+                    (
+                        (res[0] - red_help_image.width) // 2,
+                        (res[1] - red_help_image.height) // 2,
+                    ),
+                )
+                red_help_image = frame
+
+            help_image_list.append(red_help_image)
 
         if help_image_list == []:
             return None
