@@ -1,6 +1,20 @@
 # Handoff — Resolution-flexible UI for the 176×176 SSD1333 panel
 
-**Status:** Phase 0 complete + Phase 1 carousel done & validated; rest of Phase 1 pending.
+**Status:** Phase 0 + **all of Phase 1 done & validated** (in-process render at 128 and 176 + smoke/unit tests green). Pending-docs (§5) applied. Remaining: ruler/readability sign-off on the physical panel; the deferred Phase 2 screens; the optional ADR.
+
+> **Phase 1 completion note (this pass).** All seven §4 screens were made resolution-flexible and validated by rendering each at `headless` (128) and `headless_176` plus `pytest -m "smoke or unit"` (313 passed). Changes:
+> - **`ui/layout.py`** — added `list_layout()` (uniform-row sibling of `carousel_layout`) returning per-row `y`, the focus selection box, text/marker indents and the row/focus fonts. Reproduces the legacy 128 object-list within ~4px (focus y 66 vs 62) and extends to `menu_visible_items` rows on 176 (focus dead-centre at y 90, no row/box overlap — asserted in a geometry test).
+> - **`ui/object_list.py`** — `line_position`/`color_modifier`/selection-box/row-loop now derive from `list_layout` + `menu_visible_items`; the two brightness curves are generated for N rows (exact legacy values at 7, extended to 9). Sort-info `<3`/`2.0` literals generalised to `center`/`center-1`.
+> - **`ui/base.py`** — title/FPS/icon/X/rotating-info y-offsets centre in `titlebar_height`; the `128 * …` GPS-pulse rate is now the named `GPS_ANIM_RATE` (animation speed, *not* geometry — value unchanged); `message()` default popup box now centres on `resolution` (exact `(5,44,123,84)` on 128).
+> - **`ui/chart.py`** — RA/Dec text anchors to `resY - base.height - 3`.
+> - **`ui/preview.py`** — resize→`(resX,resY)`; zoom crops a centred native-frame region (½ for 2×, ¼ for 4×) then scales, so magnification stays 2×/4× at any res; the reticle centre now scales `target_pixel` from native space (the `screen_space=True` helper is hardcoded to 128); zoom/info-overlay/star-selector positions derived. `CAMERA_NATIVE_RES = 512` constant added.
+> - **`ui/align.py`** — initial `marker_position` and the `key_number` reticle reset scale via `CAMERA_NATIVE_RES`/`centerX,centerY` instead of `/4` and `(64,64)`.
+> - **`ui/object_details.py`** — two-line pointing-status messages anchor off `resolution`+font (was `(10,70)/(10,90)`); designator/type-const headers derive (exact 20/36 on 128); DESC-mode `posy` follows the header so it doesn't crowd on 176. The az/alt `*2.2`/`*1.2` multipliers already track resY+huge.height — left as-is.
+> - **`ui/ui_utils.py`** — `TextLayouter` scrollbar derives `resX-1`/`resY-1` from `colors.red_image.size` (no `display_class` on hand). The dead `uparrow`/`downarrow` class-attrs were left untouched (defined, never referenced).
+>
+> Changes are **uncommitted** in the worktree (8 files, +255/−69; ruff + mypy clean).
+
+**Status (original):** Phase 0 complete + Phase 1 carousel done & validated; rest of Phase 1 pending.
 **Branch:** `ssd1333_ui_hw_test` on `origin` (brickbots), tip `657baebc`.
 **Worktree:** `/Users/rich/Projects/Astronomy/PiFinder/.claude/worktrees/ssd1333-ui-flex` (local branch `worktree-ssd1333-ui-flex`).
 
@@ -64,10 +78,10 @@ Line numbers below are from a pre-merge sweep. **NHF did NOT touch** `object_lis
 
 ## 5. Pending docs (this is a /grill-with-docs project — keep the glossary in sync)
 
-Reference docs live under `docs/ax/`; the UI ones are `docs/ax/ui/CONTEXT.md` (glossary) and `docs/ax/ui.md` (architecture). Use the canonical terms (menu item, submenu, UIModule, UITextMenu, **active module**, **stack**, **display instance**). Apply these:
-- `docs/ax/ui/CONTEXT.md` — **UIModule** entry still says "owns a **128x128** `self.screen`": change to *"a `self.screen` PIL image sized to the display instance's `resolution` (128×128 on the SSD1351, 176×176 on the SSD1333)."* And **add a new canonical term "carousel"** (the center-magnified scrolling list: large/bright focus line, neighbors shrinking and dimming; selected item = the focus line).
-- `docs/ax/ui.md` — §1 (~L52) and §3.1 (~L150) repeat "128x128 `PIL.Image`" — make resolution-based.
-- **Optional ADR** (was offered, user didn't explicitly accept): the hybrid mechanism (derive geometry + per-display knobs, accept minor 128 drift) is a fair ADR candidate — hard-ish to reverse, non-obvious, real A/B/C trade-off. See `docs/adr/` for format. Confirm with the user before writing.
+Reference docs live under `docs/ax/`; the UI ones are `docs/ax/ui/CONTEXT.md` (glossary) and `docs/ax/ui.md` (architecture). Use the canonical terms (menu item, submenu, UIModule, UITextMenu, **active module**, **stack**, **display instance**).
+- ✅ **DONE** `docs/ax/ui/CONTEXT.md` — **UIModule** entry now describes the `self.screen` image as sized to the display instance's `resolution` (128×128 SSD1351 / 176×176 SSD1333); a new canonical **"carousel"** term was added (center-magnified scrolling list; focus line = selected item; `UIObjectList` = uniform-row variant; geometry from `ui/layout.py`).
+- ✅ **DONE** `docs/ax/ui.md` — §1 (L52) made resolution-based. §3.1 (L152) already read `Image.new("RGB", resolution)`, so no change needed.
+- ✅ **DONE** ADR written: `docs/adr/0008-resolution-flexible-ui-hybrid.md` captures the hybrid mechanism (derive geometry + per-display knobs, accept minor 128 drift) and the A/B/C trade-off the grill session weighed.
 
 ## 6. How to develop & validate
 

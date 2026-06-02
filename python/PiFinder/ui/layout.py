@@ -32,6 +32,27 @@ class CarouselLayout:
     check_x: int  # left x for the multi-select checkmark
 
 
+@dataclass
+class ListRow:
+    """One visible row of a uniform-height object list."""
+
+    y: int
+    is_focus: bool
+    distance: int  # rows away from the focus (selected) line
+
+
+@dataclass
+class ListLayout:
+    rows: list  # list[ListRow], ordered top -> bottom
+    center_index: int  # index into rows of the focus / selected line
+    selection_box: tuple  # (x0, y0, x1, y1) outline bracketing the focus row
+    text_x: int  # left x for item text (after the type marker)
+    marker_x: int  # left x for the object-type marker
+    marker_dy: int  # vertical offset to paste the marker relative to a row's y
+    row_font: Font  # font for the non-focus rows (base)
+    focus_font: Font  # font for the focus / selected row (bold)
+
+
 def _tier(distance: int, fonts) -> tuple:
     """Font + brightness for a row ``distance`` rows from the focus line.
 
@@ -77,9 +98,7 @@ def carousel_layout(display_class) -> CarouselLayout:
     y = top
     for i, (font, brightness) in enumerate(rows_meta):
         rows.append(
-            CarouselRow(
-                y=y, font=font, brightness=brightness, distance=abs(i - half)
-            )
+            CarouselRow(y=y, font=font, brightness=brightness, distance=abs(i - half))
         )
         y += font.height + gap
 
@@ -96,4 +115,59 @@ def carousel_layout(display_class) -> CarouselLayout:
         selection_box=box,
         text_x=text_x,
         check_x=check_x,
+    )
+
+
+def list_layout(display_class) -> ListLayout:
+    """Compute the uniform-row layout for a UIObjectList.
+
+    Unlike the carousel, the object list draws every row in the base font (the
+    focus / selected row in bold), so rows are near-uniform height. The focus
+    row reserves extra vertical space for its selection box; rows stack by font
+    height plus a small gap and the block is centred below the title bar so the
+    focus line lands near the screen centre. Reproduces the legacy 128 layout
+    (7 rows) within a couple of pixels and extends to the taller 176 panel
+    (``menu_visible_items`` rows).
+    """
+    fonts = display_class.fonts
+    n = display_class.menu_visible_items
+    center = n // 2
+    tb = display_class.titlebar_height
+    resX = display_class.resX
+    resY = display_class.resY
+    base = fonts.base
+    bold = fonts.bold
+
+    gap = max(2, base.height // 4)
+    pad = gap  # padding between the focus text and its selection box
+
+    # The focus row reserves room for the bold text plus the box padding so the
+    # outline never collides with its neighbours.
+    focus_slot = bold.height + 2 * pad
+    heights = [focus_slot if i == center else base.height for i in range(n)]
+    block = sum(heights) + gap * (n - 1)
+    area = resY - tb
+    top = tb + max(0, (area - block) // 2)
+
+    rows = []
+    y = top
+    for i in range(n):
+        if i == center:
+            rows.append(ListRow(y=y + pad, is_focus=True, distance=0))
+        else:
+            rows.append(ListRow(y=y, is_focus=False, distance=abs(i - center)))
+        y += heights[i] + gap
+
+    focus = rows[center]
+    box = (-1, focus.y - pad, resX, focus.y + bold.height + pad)
+
+    return ListLayout(
+        rows=rows,
+        center_index=center,
+        selection_box=box,
+        text_x=round(resX * 12 / 128),
+        marker_x=0,
+        marker_dy=2,
+        row_font=base,
+        focus_font=bold,
     )

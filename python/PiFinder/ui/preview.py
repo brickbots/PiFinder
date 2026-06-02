@@ -21,6 +21,11 @@ from PiFinder.ui.ui_utils import outline_text
 
 sys.path.append(str(utils.tetra3_dir))
 
+# Native camera frame size. target_pixel and centroid coordinates live in this
+# (square) pixel space (see SharedStateObj.target_pixel, documented 512x512);
+# the preview scales them down to the display resolution.
+CAMERA_NATIVE_RES = 512
+
 
 class UIPreview(UIModule):
     from PiFinder import tetra3
@@ -69,7 +74,13 @@ class UIPreview(UIModule):
             return
 
         fov = 10.2
-        target_pixel = self.shared_state.target_pixel(screen_space=True)
+        # target_pixel is (Y, X) in native camera space; scale to display space
+        # (the built-in screen_space helper is hardcoded to a 128px screen).
+        native_tp = self.shared_state.target_pixel()
+        target_pixel = (
+            native_tp[1] * self.display_class.resX / CAMERA_NATIVE_RES,
+            native_tp[0] * self.display_class.resY / CAMERA_NATIVE_RES,
+        )
         for circ_deg in [4, 2, 0.5]:
             circ_rad = ((circ_deg / fov) * self.display_class.resX) / 2
             bbox = [
@@ -92,18 +103,20 @@ class UIPreview(UIModule):
 
             for _i in range(self.highlight_count):
                 raw_y, raw_x = self.star_list[_i]
-                star_x = int(raw_x / 4)
-                star_y = int(raw_y / 4)
+                # centroids are in native camera space; scale to the display
+                star_x = int(raw_x * self.display_class.resX / CAMERA_NATIVE_RES)
+                star_y = int(raw_y * self.display_class.resY / CAMERA_NATIVE_RES)
 
                 x_direction = 1
                 x_text_offset = 6
                 y_direction = 1
                 y_text_offset = -12
 
-                if star_x > 108:
+                # flip the marker/label when too close to the right edge or top
+                if star_x > self.display_class.resX - 20:
                     x_direction = -1
                     x_text_offset = -10
-                if star_y < 38:
+                if star_y < self.display_class.titlebar_height + 21:
                     y_direction = -1
                     y_text_offset = 1
 
@@ -191,14 +204,14 @@ class UIPreview(UIModule):
 
         outline_text(
             self.draw,
-            (126, y_offset),
+            (self.display_class.resX - 2, y_offset),
             stars_text,
             align="left",
             font=self.fonts.bold,
             fill=(192, 0, 0),  # Medium bright red
             shadow_color=(0, 0, 0),  # Black outline
             stroke=1,
-            anchor="ra",  # Right-anchor: right edge at x=126
+            anchor="ra",  # Right-anchor: right edge near the screen's right edge
         )
 
     def update(self, force=False):
@@ -210,16 +223,26 @@ class UIPreview(UIModule):
         if last_image_time > self.last_update:
             image_updated = True
             image_obj = self.camera_image.copy()
+            native_w, native_h = image_obj.size
+            resX, resY = self.display_class.resX, self.display_class.resY
 
-            # Resize
+            # Resize / zoom. Zoom crops a centred region of the native camera
+            # frame (half of it for 2x, a quarter for 4x) then scales to the
+            # display, so the zoom factor stays 2x / 4x at any resolution.
             if self.zoom_level == 0:
-                image_obj = image_obj.resize((128, 128))
+                image_obj = image_obj.resize((resX, resY))
             elif self.zoom_level == 1:
-                image_obj = image_obj.resize((256, 256))
-                image_obj = image_obj.crop((64, 64, 192, 192))
+                crop_w, crop_h = native_w // 2, native_h // 2
+                ox, oy = (native_w - crop_w) // 2, (native_h - crop_h) // 2
+                image_obj = image_obj.crop((ox, oy, ox + crop_w, oy + crop_h)).resize(
+                    (resX, resY)
+                )
             elif self.zoom_level == 2:
-                # no resize, just crop
-                image_obj = image_obj.crop((192, 192, 320, 320))
+                crop_w, crop_h = native_w // 4, native_h // 4
+                ox, oy = (native_w - crop_w) // 2, (native_h - crop_h) // 2
+                image_obj = image_obj.crop((ox, oy, ox + crop_w, oy + crop_h)).resize(
+                    (resX, resY)
+                )
 
             # Convert to RED
             image_obj = image_obj.convert("RGB")
@@ -232,7 +255,10 @@ class UIPreview(UIModule):
             if self.zoom_level > 0:
                 zoom_number = self.zoom_level * 2
                 self.draw.text(
-                    (75, 112),
+                    (
+                        round(resX * 75 / 128),
+                        resY - self.fonts.bold.height - 3,
+                    ),
                     _("Zoom x{zoom_number}").format(zoom_number=zoom_number),
                     font=self.fonts.bold.font,
                     fill=self.colors.get(128),

@@ -25,6 +25,13 @@ if TYPE_CHECKING:
         return a
 
 
+# Rate (brightness units per second of elapsed time) for the pulsing GPS
+# "searching" animation in the title bar. This is an animation speed, not a
+# geometry value — it must NOT scale with display resolution (it previously
+# read as a bare ``128`` which looked resolution-derived).
+GPS_ANIM_RATE = 128
+
+
 class RotatingInfoDisplay:
     """Alternates between constellation and SQM with cross-fade animation."""
 
@@ -230,11 +237,19 @@ class UIModule:
             fill=self.colors.get(0),
         )
 
-    def message(self, message, timeout: float = 2, size=(5, 44, 123, 84)):
+    def message(self, message, timeout: float = 2, size=None):
         """
         Creates a box with text in the center of the screen.
         Waits timeout in seconds
         """
+        if size is None:
+            # Centre the popup box on the screen, deriving from the display
+            # resolution (was hardcoded to 128: (5, 44, 123, 84)).
+            box_w = self.display_class.resX - 10
+            box_h = round(self.display_class.resY * 40 / 128)
+            x0 = 5
+            y0 = (self.display_class.resY - box_h) // 2
+            size = (x0, y0, x0 + box_w, y0 + box_h)
 
         # shadow
         self.draw.rectangle(
@@ -299,17 +314,22 @@ class UIModule:
         if title_bar:
             fg = self.colors.get(0)
             bg = self.colors.get(64)
+            tb_height = self.display_class.titlebar_height
             self.draw.rectangle(
-                [0, 0, self.display_class.resX, self.display_class.titlebar_height],
+                [0, 0, self.display_class.resX, tb_height],
                 fill=bg,
             )
+            # Vertically centre the title-bar text / icons in the bar so they
+            # track titlebar_height across displays (was hardcoded for 128).
+            title_y = max(0, (tb_height - self.fonts.bold.height) // 2)
+            icon_y = (tb_height - self.fonts.icon_bold_large.height) // 2
             if self.ui_state.show_fps():
                 self.draw.text(
-                    (6, 1), str(self.fps), font=self.fonts.bold.font, fill=fg
+                    (6, title_y), str(self.fps), font=self.fonts.bold.font, fill=fg
                 )
             else:
                 self.draw.text(
-                    (6, 1), _(self.title), font=self.fonts.bold.font, fill=fg
+                    (6, title_y), _(self.title), font=self.fonts.bold.font, fill=fg
                 )
             imu = self.shared_state.imu()
             moving = True if imu and imu.quat and imu.moving else False
@@ -318,7 +338,9 @@ class UIModule:
             if self.shared_state.altaz_ready():
                 self._gps_brightness = 0
             else:
-                gps_anim = int(128 * (time.time() - self.last_update_time)) + 1
+                gps_anim = (
+                    int(GPS_ANIM_RATE * (time.time() - self.last_update_time)) + 1
+                )
                 self._gps_brightness += gps_anim
                 if self._gps_brightness > 64:
                     self._gps_brightness = -128
@@ -327,7 +349,7 @@ class UIModule:
                 self._gps_brightness if self._gps_brightness > 0 else 0
             )
             self.draw.text(
-                (self.display_class.resX * 0.8, -2),
+                (self.display_class.resX * 0.8, icon_y),
                 self._GPS_ICON,
                 font=self.fonts.icon_bold_large.font,
                 fill=_gps_color,
@@ -351,7 +373,7 @@ class UIModule:
 
                     if self._unmoved:
                         self.draw.text(
-                            (self.display_class.resX * 0.91, -2),
+                            (self.display_class.resX * 0.91, icon_y),
                             self._CAM_ICON,
                             font=self.fonts.icon_bold_large.font,
                             fill=var_fg,
@@ -361,13 +383,13 @@ class UIModule:
                         # Draw rotating constellation/SQM wheel (replaces static constellation)
                         self._draw_titlebar_rotating_info(
                             x=int(self.display_class.resX * 0.54),
-                            y=1,
+                            y=title_y,
                             fg=fg if self._unmoved else self.colors.get(32),
                         )
                 else:
                     # no solve yet....
                     self.draw.text(
-                        (self.display_class.resX * 0.91, 0),
+                        (self.display_class.resX * 0.91, title_y),
                         "X",
                         font=self.fonts.bold.font,
                         fill=fg,

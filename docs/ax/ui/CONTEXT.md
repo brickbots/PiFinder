@@ -35,7 +35,7 @@ _Avoid_: setting, config key (in prose), option.
 ### Modules
 
 **UIModule**:
-The base class for every screen (`ui/base.py`). Owns a 128x128 `self.screen` PIL image, the `key_*` handlers, the lifecycle hooks, and the display-mode cycle. The bare word "module" in this context means a `UIModule` subclass or instance.
+The base class for every screen (`ui/base.py`). Owns a `self.screen` PIL image sized to the display instance's `resolution` (128×128 on the SSD1351, 176×176 on the SSD1333), the `key_*` handlers, the lifecycle hooks, and the display-mode cycle. The bare word "module" in this context means a `UIModule` subclass or instance.
 _Avoid_: screen class, widget, view, page.
 
 **Screen**:
@@ -45,6 +45,10 @@ _Avoid_: canvas, frame (a "frame" is a camera image).
 **UITextMenu**:
 The general scrolling-list module (`ui/text_menu.py`). The root menu and every submenu are `UITextMenu` instances; it handles single/multi selection and writes `config_option`s.
 _Avoid_: list module, text list.
+
+**Carousel**:
+The centre-magnified scrolling list a `UITextMenu` draws: the focus line (the selected item) sits at the vertical centre in the large font at full brightness, and neighbouring rows shrink and dim with distance (a "fisheye" falloff). `UIObjectList` uses a uniform-row variant (every row in the base font, the focus row in bold). Row geometry — count, positions, fonts, the focus selection box — is computed by `ui/layout.py` (`carousel_layout` / `list_layout`) from the display instance's `resolution`, `titlebar_height`, font metrics and the `menu_visible_items` knob, so the same code lays out on the 128 and 176 panels.
+_Avoid_: fisheye menu (in code/glossary — describe it as the carousel), spinner, wheel.
 
 **display_class**:
 The constructor argument carrying a `DisplayBase` **instance** (not a class, despite the name) — the source of `device`, `colors`, `fonts`, and `resolution`. `DisplayHeadless` is the no-hardware variant.
