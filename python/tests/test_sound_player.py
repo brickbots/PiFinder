@@ -9,7 +9,7 @@ no-op, so there is no hardware and no wall-clock delay.
 import pytest
 
 from PiFinder import sound
-from PiFinder.sound import CATALOG, note_duty, play_earcon
+from PiFinder.sound import MAX_DUTY, CATALOG, note_duty, play_earcon, play_tone
 from PiFinder.types.sound import Earcon
 
 
@@ -71,3 +71,23 @@ def test_play_earcon_off_is_silent_but_keeps_rhythm(no_sleep):
     tones = [c for c in driver.calls if c[0] == "tone"]
     assert tones  # rhythm still emitted
     assert all(duty == 0.0 for _tag, _freq, duty in tones)
+
+
+@pytest.mark.unit
+def test_play_tone_passes_duty_through_unchanged(no_sleep):
+    """play_tone uses an absolute duty (no master-volume mapping) then
+    silences."""
+    driver = FakeDriver()
+    play_tone(driver, 4000, 200, 25.0)
+    assert driver.calls == [("tone", 4000, 25.0), ("silence",)]
+
+
+@pytest.mark.unit
+def test_play_tone_clamps_duty_to_max(no_sleep):
+    """A duty above MAX_DUTY is clamped; a negative duty floors at 0."""
+    driver = FakeDriver()
+    play_tone(driver, 4000, 50, 80.0)
+    play_tone(driver, 4000, 50, -5.0)
+    tone_calls = [c for c in driver.calls if c[0] == "tone"]
+    assert tone_calls[0] == ("tone", 4000, MAX_DUTY)
+    assert tone_calls[1] == ("tone", 4000, 0.0)

@@ -36,6 +36,7 @@ Dev / rev-3 boards have no buzzer: no process is spawned, ``sound_queue`` is
 translate to a PC speaker and would mislead earcon tuning.
 """
 
+import argparse
 import logging
 import queue
 import signal
@@ -78,7 +79,7 @@ CATALOG: Dict[Earcon, EarconDef] = {
         important=True,
         notes=(Note(4000, 120, 1.0), Note(3000, 160, 0.8)),
     ),
-    Earcon.KEYPRESS: EarconDef(notes=(Note(4000, 25, 0.6),)),
+    Earcon.KEYPRESS: EarconDef(notes=(Note(1000, 25, 0.6),)),
     Earcon.VOLUME_SAMPLE: EarconDef(notes=(Note(4000, 120, 1.0),)),
     # Defined-but-unwired in v1 (no producer requests these yet). They have
     # catalog entries so the data model is complete and they are tunable now.
@@ -210,6 +211,19 @@ def play_earcon(driver: BuzzerPWM, earcon: Earcon, level: str) -> None:
     driver.silence()
 
 
+def play_tone(
+    driver: BuzzerPWM, frequency_hz: int, duration_ms: int, duty: float
+) -> None:
+    """Play a single raw tone, then silence. ``duty`` is an **absolute** PWM
+    duty cycle (%), clamped to ``[0, MAX_DUTY]`` — it does NOT pass through the
+    master-volume mapping. Used by the standalone player to probe the buzzer
+    (find the resonant peak, choose duty values) independently of the catalog.
+    """
+    driver.tone(frequency_hz, max(0.0, min(MAX_DUTY, duty)))
+    time.sleep(duration_ms / 1000.0)
+    driver.silence()
+
+
 def sound_monitor(sound_queue, shared_state, log_queue) -> None:
     """Process entry. Mirrors ``battery_monitor``: configure logging, build
     the hardware seam (exit if it fails — never fall back to fake audio), then
@@ -285,15 +299,164 @@ def sound_monitor(sound_queue, shared_state, log_queue) -> None:
             pass
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    logger.info("Playing the earcon catalog on the buzzer")
+# ---------------------------------------------------------------------------
+# Standalone player (CLI)
+#
+# A small command-line tool to play earcons and raw tones on the buzzer, for
+# tuning the catalog and MASTER_DUTY by ear. Requires real hardware (PWM ch0);
+# only ``--list`` works without it. Run from ``python/`` with:
+#
+#   python3 -m PiFinder.sound --list
+#   python3 -m PiFinder.sound --earcon startup --level 5
+#   python3 -m PiFinder.sound --all --level 3 --repeat 2
+#   python3 -m PiFinder.sound --tone 4000:200:25        # FREQ:MS:DUTY
+#   python3 -m PiFinder.sound --sweep 2000:6000:200:120 # START:STOP:STEP:MS
+# ---------------------------------------------------------------------------
+
+
+def _print_catalog() -> None:
+    """Print the catalog (name, important/transient, total ms, notes)."""
+    print("Earcon catalog:")
+    for earcon, definition in CATALOG.items():
+        kind = "important" if definition.important else "transient"
+        notes = ", ".join(
+            f"{n.frequency_hz}Hz/{n.duration_ms}ms@{n.volume}" for n in definition.notes
+        )
+        print(
+            f"  {earcon.value:<14} [{kind:<9}] "
+            f"{total_duration_ms(earcon):>4}ms  {notes}"
+        )
+    print(f"\nMaster levels (peak duty %): {MASTER_DUTY}")
+
+
+def _parse_earcons(spec: str) -> List[Earcon]:
+    """Resolve a comma-separated list of earcon names (or ``all``)."""
+    if spec.strip().lower() == "all":
+        return list(CATALOG)
+    earcons: List[Earcon] = []
+    known = ", ".join(e.value for e in CATALOG)
+    for part in spec.split(","):
+        name = part.strip()
+        if not name:
+            continue
+        try:
+            earcons.append(Earcon(name))
+        except ValueError:
+            raise SystemExit(f"Unknown earcon '{name}'. Known: {known}")
+    return earcons
+
+
+def _parse_ints(spec: str, count: int, usage: str) -> List[int]:
+    """Parse a ``:``-separated list of exactly ``count`` ints, or exit."""
+    parts = spec.split(":")
+    if len(parts) != count:
+        raise SystemExit(usage)
     try:
-        _driver = BuzzerPWM()
-        for _earcon in (Earcon.STARTUP, Earcon.KEYPRESS, Earcon.SHUTDOWN):
-            logger.info("  %s", _earcon.value)
-            play_earcon(_driver, _earcon, "5")
-            time.sleep(0.5)
-        _driver.stop()
-    except Exception:
-        logger.exception("Error driving the buzzer")
+        return [int(p) for p in parts]
+    except ValueError:
+        raise SystemExit(usage)
+
+
+def _run_cli(argv: Optional[List[str]] = None) -> None:
+    parser = argparse.ArgumentParser(
+        prog="python -m PiFinder.sound",
+        description=(
+            "Standalone earcon player for tuning the rev-4 buzzer by ear. "
+            "Requires real hardware (PWM ch0); only --list works without it."
+        ),
+    )
+    parser.add_argument("--list", action="store_true", help="List the catalog and exit")
+    parser.add_argument(
+        "--earcon",
+        help="Earcon name(s) to play, comma-separated (e.g. startup,keypress), "
+        "or 'all'",
+    )
+    parser.add_argument(
+        "--all", action="store_true", help="Play every catalog earcon in order"
+    )
+    parser.add_argument(
+        "--level",
+        default="5",
+        help="Master volume level for earcons: Off,1,2,3,4,5 (default 5)",
+    )
+    parser.add_argument(
+        "--tone",
+        metavar="FREQ:MS:DUTY",
+        help="Play one raw tone, e.g. 4000:200:25 (duty %% clamped to 0-50)",
+    )
+    parser.add_argument(
+        "--sweep",
+        metavar="START:STOP:STEP:MS",
+        help="Sweep frequencies to find resonance, e.g. 2000:6000:200:120",
+    )
+    parser.add_argument(
+        "--duty",
+        type=float,
+        default=25.0,
+        help="Duty %% used by --sweep (default 25; clamped to 0-50)",
+    )
+    parser.add_argument(
+        "--repeat", type=int, default=1, help="Repeat the whole sequence N times"
+    )
+    parser.add_argument(
+        "--gap",
+        type=float,
+        default=0.5,
+        help="Seconds of silence between earcons (default 0.5)",
+    )
+    args = parser.parse_args(argv)
+
+    if args.list:
+        _print_catalog()
+        return
+
+    if not (args.earcon or args.all or args.tone or args.sweep):
+        parser.error("nothing to do: pass --earcon, --all, --tone, --sweep, or --list")
+
+    if args.level not in MASTER_DUTY:
+        parser.error(
+            f"invalid --level {args.level!r}; choose one of {', '.join(MASTER_DUTY)}"
+        )
+
+    earcons: List[Earcon] = []
+    if args.all:
+        earcons = list(CATALOG)
+    elif args.earcon:
+        earcons = _parse_earcons(args.earcon)
+
+    try:
+        driver = BuzzerPWM()
+    except Exception as e:
+        raise SystemExit(f"Cannot open the buzzer (needs real hardware + PWM ch0): {e}")
+
+    try:
+        for _ in range(max(1, args.repeat)):
+            if args.tone:
+                freq, ms, duty = _parse_ints(
+                    args.tone, 3, "--tone must be FREQ:MS:DUTY, e.g. 4000:200:25"
+                )
+                print(f"tone {freq}Hz {ms}ms duty {duty}%")
+                play_tone(driver, freq, ms, float(duty))
+            if args.sweep:
+                start, stop, step, ms = _parse_ints(
+                    args.sweep,
+                    4,
+                    "--sweep must be START:STOP:STEP:MS, e.g. 2000:6000:200:120",
+                )
+                duty = max(0.0, min(MAX_DUTY, args.duty))
+                for freq in range(start, stop + 1, max(1, step)):
+                    print(f"sweep {freq}Hz {ms}ms duty {duty}%")
+                    play_tone(driver, freq, ms, duty)
+            for earcon in earcons:
+                print(f"earcon {earcon.value} @ level {args.level}")
+                play_earcon(driver, earcon, args.level)
+                time.sleep(args.gap)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        driver.stop()
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    _run_cli()
