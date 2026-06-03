@@ -27,6 +27,12 @@ Found by the user validating Phase 2 **on the 176 panel**; **fixed and validated
 - **Root cause:** `menu_manager.py` called `render_marking_menu(..., radius=39)` with a **hardcoded 39** at **two** sites. `marking_menus.py` is otherwise resolution-aware, but a fixed radius kept the circle 128-sized while the curved label is laid in `fonts.large` (wider on 176) → text overran the slice.
 - **Fix applied:** `MenuManager.__init__` now computes `self.marking_menu_radius = round(resX * 39 / 128)` once (39 @128, 54 @176) and both call sites use it. Verified: labels (HELP/SETTINGS/CHART/OBJECTS) fit the slices on 176; 128 unchanged (radius still 39).
 
+### Follow-on: boot splash + console welcome image (two more foreign-sized-image sites) — FIXED
+A sweep for *other* code paths that push a non-`self.screen` image to `device.display()` (the same class as Bug 2) found two more, both displaying the 128×128 `images/welcome.png`:
+- **`splash.py`** (`pifinder_splash.service`, a **boot service** separate from the app) hardcoded `get_display("ssd1351")` + a 128 `welcome.png` + `rectangle([0,0,128,16])` → on real SSD1333 hardware it inits the **wrong controller**. **Fix:** detect the panel via `hardware_detect.detect_capabilities()` (rev-4 → `ssd1333`, else `ssd1351`, mirroring `main.py`), scale the welcome image to fill `resX×resY`, and span the banner across `resX` at a resolution-scaled height. No-op on 128.
+- **`ui/console.py`** pasted the 128 `welcome.png` at `(0,0)` (top-left quadrant on 176; **cosmetic**, no crash). **Fix:** scale it to fill `resX×resY` so it stays full-bleed behind the boot console. No-op on 128.
+- **Validated:** splash + console render at 128 and 176 and are accepted by `device.display()`; a full **Phase 2 crash-sweep** (16 screens through the real display path, one resolution per process) found **no genuine 176-only render crash** — every screen renders `resX×resY` and displays. `pytest -m "smoke or unit"` → 364 passed; ruff + mypy clean.
+
 ---
 
 ## 1. Goal
