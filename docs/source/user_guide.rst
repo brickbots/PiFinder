@@ -258,16 +258,19 @@ Hold the **SQUARE** key to open the Quick Menu
 
 This menu presents up to four options, one per arrow button; press the arrow to select its
 item.  The menu changes with the screen you're on, but often has
-:ref:`HELP<user_guide:help system>` at the UP option.
+:ref:`HELP<user_guide:help system>` at the UP option.  The Focus screen above offers HELP
+and Exposure.
 
-Some Quick Menus have multiple layers, like the one above.  Selecting RIGHT opens the
-Background Subtraction (BG SUB) options.  Subtle shading marks the current setting — the
-image below shows BG SUB set to HALF.
+Some Quick Menus have a second layer.  The Object List's Quick Menu, for example, offers
+Sort and Filter; pressing LEFT for Sort opens a ring of sort orders, with subtle shading
+marking the current one.
 
 .. image:: images/user_guide/quick_menu_01.png
+   :width: 45%
+.. image:: images/user_guide/quick_menu_02.png
+   :width: 45%
 
-Selecting LEFT would switch this to FULL.  Exit the Quick Menu at any time by pressing
-SQUARE again.
+Pick a sort order to apply it.  Exit the Quick Menu at any time by pressing SQUARE again.
 
 
 Help System
