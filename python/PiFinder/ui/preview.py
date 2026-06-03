@@ -4,8 +4,8 @@
 This module contains the UIPreview class, a UI module for displaying and interacting with camera images.
 
 It handles image processing and provides zoom
-functionality. It also manages a marking menu for adjusting camera settings and draws reticles and star
-selectors on the images.
+functionality. It also manages a marking menu for adjusting camera settings and draws the focus
+strip and star selectors on the images.
 """
 
 import sys
@@ -48,7 +48,6 @@ class UIPreview(UIModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None
 
@@ -151,30 +150,6 @@ class UIPreview(UIModule):
         stretched += np.random.uniform(-dither, dither, size=arr.shape)
         np.clip(stretched, 0, 255, out=stretched)
         return Image.fromarray(stretched.astype(np.uint8), mode="L")
-
-    def draw_reticle(self):
-        """
-        draw the reticle if desired
-        """
-        reticle_brightness = self.config_object.get_option("camera_reticle", 128)
-        if reticle_brightness == 0:
-            # None....
-            return
-
-        fov = 10.2
-        solve_pixel = self.shared_state.solve_pixel(screen_space=True)
-        for circ_deg in [4, 2, 0.5]:
-            circ_rad = ((circ_deg / fov) * self.display_class.resX) / 2
-            bbox = [
-                solve_pixel[0] - circ_rad,
-                solve_pixel[1] - circ_rad,
-                solve_pixel[0] + circ_rad,
-                solve_pixel[1] + circ_rad,
-            ]
-            self.draw.arc(bbox, 20, 70, fill=self.colors.get(reticle_brightness))
-            self.draw.arc(bbox, 110, 160, fill=self.colors.get(reticle_brightness))
-            self.draw.arc(bbox, 200, 250, fill=self.colors.get(reticle_brightness))
-            self.draw.arc(bbox, 290, 340, fill=self.colors.get(reticle_brightness))
 
     def draw_star_selectors(self):
         # Draw star selectors
@@ -425,8 +400,8 @@ class UIPreview(UIModule):
                 image_obj = image_obj.crop((192, 192, 320, 320))
 
             # Background-anchored linear stretch (replaces autocontrast), then RED.
-            # Stretch on a single-band image so the 256-entry LUT applies cleanly
-            # (debug frames are RGB; hardware frames are already mode "L").
+            # Stretch on a single luminance band (debug frames are RGB; hardware
+            # frames are already mode "L").
             image_obj = image_obj.convert("L")
             image_obj = self._apply_stretch(image_obj)
             image_obj = image_obj.convert("RGB")
@@ -434,9 +409,6 @@ class UIPreview(UIModule):
 
             self.screen.paste(image_obj)
             self.last_update = last_image_time
-
-            if self.zoom_level == 0:
-                self.draw_reticle()
 
         # Image paste cleared the screen, so redraw overlays after a paste.
         if image_updated or force:
