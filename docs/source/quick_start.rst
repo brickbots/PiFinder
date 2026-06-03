@@ -306,22 +306,23 @@ to adjust focus.  Once something star-like is in the FOV and near focus, the ima
 will work properly and start dimming the background and highlighting the stars.
 
 Along the bottom of the Focus screen is the **focus strip**, which turns focusing from a judgement
-call into a number you can chase.  At the left it reports **HFD** — the Half-Flux Diameter of the
-stars it finds, measured in pixels.  This is simply how spread-out the stars are, so a smaller
-number means tighter, sharper stars: as you adjust the lens, your goal is to make the HFD as small
-as you can.
+call into a number you can chase.  A large **HFD** readout — the Half-Flux Diameter of the stars it
+finds, in pixels — fills the right of the strip.  This is simply how spread-out the stars are, so a
+smaller number means tighter, sharper stars: as you adjust the lens, your goal is to make the HFD as
+small as you can.
 
 .. image:: images/quick_start/focus_strip_docs.png
 
-The graph in the strip plots the HFD over the last several seconds.  As you slowly turn the focuser
-the line traces a "V" — dropping as the stars sharpen, reaching a low point at best focus, then
-climbing again as you go past it.  Stop at the bottom of the V.  A marker line shows the best (lowest)
-HFD seen recently, and if you overshoot, the strip flashes **BACK UP** with an up arrow so you know
-to reverse direction.  The readout also shows the current exposure time, **det** (the number of stars
-the focus screen detected) and, once a solve succeeds, the matched-star count next to the star icon —
-watch that jump from zero the moment your stars are sharp enough for the PiFinder to recognise them.
+To the left of the readout a graph plots the HFD over the last several seconds.  As you slowly turn
+the focuser the line traces a "V" — dropping as the stars sharpen, reaching a low point at best focus,
+then climbing again as you go past it.  Stop at the bottom of the V.  The graph is scaled to the range
+a real lens reaches — about 4 px at sharp focus up to 20 px when clearly soft — and a marker line shows
+the best (lowest) HFD seen recently.  Small labels show the current exposure time, **det** (the number
+of stars the focus screen detected) and, once a solve succeeds, the matched-star count next to the star
+icon — watch that jump from zero the moment your stars are sharp enough for the PiFinder to recognise
+them.
 
-If the image is too far out of focus to measure, the HFD reads ``keep adjusting…`` until a star comes
+If the image is too far out of focus to measure, the readout shows ``keep going`` until a star comes
 into range.  The strip works at every zoom level, since the HFD doesn't depend on zoom, and you can
 press the **SQUARE** button to hide or show it if you'd rather see the bare image.
 

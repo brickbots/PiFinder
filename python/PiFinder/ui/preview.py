@@ -13,7 +13,7 @@ import time
 from collections import deque
 
 import numpy as np
-from PIL import ImageChops
+from PIL import Image, ImageChops
 
 from PiFinder import focus, utils
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
@@ -26,12 +26,16 @@ sys.path.append(str(utils.tetra3_dir))
 # docs/adr/0005-focus-hfd-self-contained-in-ui.md). Starting values -- adjust
 # on real hardware.
 FOCUS_WINDOW_S = 10.0  # rolling V-curve window
-HFD_AXIS_MIN = 1.0  # log Y-axis bottom (px)
-HFD_AXIS_MAX = 50.0  # log Y-axis top (px), matches detector size cap
-PAST_BEST_RATIO = 1.20  # current HFD > marker * this -> past-best cue
-CUE_SMOOTHING = 3  # samples to smooth the cue decision over
-STRETCH_EMA_ALPHA = 0.3  # display-stretch black/white smoothing
-STRETCH_MIN_SPAN = 25.0  # min ADU span so a starless frame stays near-black
+# V-curve axis: 4 px is about the best a real camera/lens can hit, so it anchors
+# the bottom; 20 px is "clearly defocused". Readings outside [4, 20] clamp to the
+# axis ends (the big numeric readout still shows the true value).
+HFD_AXIS_MIN = 4.0  # log Y-axis bottom (px) -- best achievable focus
+HFD_AXIS_MAX = 20.0  # log Y-axis top (px) -- clearly defocused
+# Display-stretch: smaller alpha + larger min span keep the preview calm (the
+# stretch was over-reacting frame to frame); the dither breaks 8-bit banding.
+STRETCH_EMA_ALPHA = 0.15  # display-stretch black/white smoothing (lower = calmer)
+STRETCH_MIN_SPAN = 50.0  # min ADU span so a faint frame isn't stretched hard
+STRETCH_DITHER_FRAC = 0.5  # uniform dither amplitude as a fraction of one step
 
 
 class UIPreview(UIModule):
@@ -75,7 +79,7 @@ class UIPreview(UIModule):
         )
 
     def _reset_focus_state(self):
-        """Clear rolling focus-indicator state (history, stretch EMA, cue)."""
+        """Clear rolling focus-indicator state (history, stretch EMA points)."""
         # (timestamp, hfd) samples over the rolling window; hfd is None for a
         # frame with no usable star (a gap -- never carried forward).
         self.focus_history: deque = deque()
@@ -84,8 +88,6 @@ class UIPreview(UIModule):
         # Display-stretch black/white points (raw ADU), EMA-smoothed.
         self._stretch_black = None
         self._stretch_white = None
-        # Recent raw past-best decisions, smoothed for display.
-        self._cue_history: deque = deque(maxlen=CUE_SMOOTHING)
 
     def active(self):
         """Reset the rolling focus history when the screen is entered."""
@@ -95,8 +97,8 @@ class UIPreview(UIModule):
         """Run the self-contained HFD detector on a raw frame and update state.
 
         Appends a timestamped sample (HFD or None for a gap), prunes the rolling
-        window, updates the EMA display-stretch points, and records the smoothed
-        past-best cue decision. All measurement is on the raw frame.
+        window, and updates the EMA display-stretch points. All measurement is on
+        the raw frame.
         """
         result = focus.focus_hfd(raw_np)
         self.last_focus_result = result
@@ -119,48 +121,36 @@ class UIPreview(UIModule):
             self._stretch_black = a * black + (1 - a) * self._stretch_black
             self._stretch_white = a * white + (1 - a) * self._stretch_white
 
-        # Past-best cue raw decision: current HFD has risen well above the window
-        # minimum, and that minimum happened earlier (not on the latest sample).
-        cue_raw = False
-        marker, marker_ts = self._focus_marker()
-        if (
-            result.median_hfd is not None
-            and marker is not None
-            and marker_ts is not None
-            and result.median_hfd > marker * PAST_BEST_RATIO
-            and marker_ts < now
-        ):
-            cue_raw = True
-        self._cue_history.append(cue_raw)
-
     def _focus_marker(self):
-        """Return (min_hfd, timestamp_of_min) over the window, or (None, None)."""
-        samples = [(t, h) for (t, h) in self.focus_history if h is not None]
-        if not samples:
-            return None, None
-        ts, hfd = min(samples, key=lambda s: s[1])
-        return hfd, ts
-
-    def _cue_active(self):
-        """Smoothed past-best cue: majority of recent raw decisions are True."""
-        if not self._cue_history:
-            return False
-        return sum(self._cue_history) * 2 >= len(self._cue_history)
+        """Return the best (min) HFD over the window, or None if no samples."""
+        samples = [h for (_t, h) in self.focus_history if h is not None]
+        return min(samples) if samples else None
 
     def _apply_stretch(self, image_obj):
         """Background-anchored linear stretch of a mode-'L' image (cosmetic).
 
         Replaces per-frame autocontrast: black/white points come from the
         detector's EMA-smoothed background/peak, so the stretch is stable and a
-        starless frame does not get its noise amplified.
+        starless frame does not get its noise amplified. The minimum span keeps
+        a faint frame from being stretched hard, and a little uniform dither is
+        added before quantising back to 8-bit so a narrow stretch doesn't band
+        into visible contour steps. Cosmetic only -- HFD is measured on the raw
+        frame, never on this.
         """
         if self._stretch_black is None or self._stretch_white is None:
             return image_obj
         black = self._stretch_black
-        span = max(self._stretch_white - black, 1.0)
+        span = max(self._stretch_white - black, STRETCH_MIN_SPAN)
         scale = 255.0 / span
-        lut = [min(255, max(0, int((i - black) * scale))) for i in range(256)]
-        return image_obj.point(lut)
+
+        arr = np.asarray(image_obj, dtype=np.float32)
+        stretched = (arr - black) * scale
+        # Uniform dither, peak-to-peak ~ one output step, so a narrow stretch
+        # blends across band boundaries instead of posterising into contours.
+        dither = scale * STRETCH_DITHER_FRAC
+        stretched += np.random.uniform(-dither, dither, size=arr.shape)
+        np.clip(stretched, 0, 255, out=stretched)
+        return Image.fromarray(stretched.astype(np.uint8), mode="L")
 
     def draw_reticle(self):
         """
@@ -276,18 +266,16 @@ class UIPreview(UIModule):
         return int(plot_bottom - norm * (plot_bottom - plot_top))
 
     def draw_focus_strip(self):
-        """Render the focus strip: V-curve, marker, past-best cue, and HUD.
+        """Render the focus strip: big HFD readout, V-curve, marker, and HUD.
 
         ~38 px bottom band, on by default; square hides it. Persists across all
-        zoom levels (HFD is zoom-independent).
+        zoom levels (HFD is zoom-independent). Layout: a large right-justified
+        HFD number (the hero readout) fills the strip height; the V-curve and
+        small labels sit in the freed left region.
         """
         strip_top = 90
         res_x = self.display_class.resX
         res_y = self.display_class.resY
-        plot_top = strip_top + 11
-        plot_bottom = res_y - 11
-        plot_left = 2
-        plot_right = res_x - 3
 
         # Dim band so the overlay stays legible over a bright image.
         self.draw.rectangle([0, strip_top, res_x, res_y], fill=(0, 0, 0, 150))
@@ -296,16 +284,95 @@ class UIPreview(UIModule):
         medium = self.colors.get(128)
         dim = self.colors.get(64)
 
+        result = self.last_focus_result
+        detected = str(result.n_used) if result is not None else "0"
+
+        # --- HFD readout: right-justified in a fixed-width slot so the V-curve's
+        # right edge never shifts as the value changes. A real reading is the big
+        # hero number (filling the strip height); the no-reading states fall back
+        # to a small dim hint rather than a giant placeholder glyph. ---
+        big_font = self.fonts.huge
+        slot_w = int(self.draw.textlength("00.0", font=big_font.font))
+        num_right = res_x - 2
+        num_left = num_right - slot_w
+        num_mid_y = (strip_top + res_y) // 2 - 1
+
+        if result is not None and result.median_hfd is not None:
+            self.draw.text(
+                (num_right, num_mid_y),
+                f"{result.median_hfd:.1f}",
+                font=big_font.font,
+                fill=bright,
+                anchor="rm",
+            )
+        else:
+            # too_defocused = a star is there but too broad to measure (keep
+            # adjusting toward focus); otherwise nothing usable was found.
+            hint = _("keep going") if (result and result.too_defocused) else "—"
+            outline_text(
+                self.draw,
+                (num_right, num_mid_y),
+                hint,
+                align="right",
+                font=self.fonts.base,
+                fill=dim,
+                shadow_color=(0, 0, 0),
+                stroke=1,
+                anchor="rm",
+            )
+
+        # --- Left region: V-curve framed by small labels ---
+        plot_left = 2
+        plot_right = num_left - 3
+        plot_top = strip_top + 9
+        plot_bottom = res_y - 10
+
+        # Top labels: exposure (left), matched-star count (right of the graph).
+        # The matched 0 -> N jump still signals "sharp enough to solve".
+        outline_text(
+            self.draw,
+            (plot_left, strip_top),
+            self.format_exposure_display(),
+            align="left",
+            font=self.fonts.small,
+            fill=medium,
+            shadow_color=(0, 0, 0),
+            stroke=1,
+        )
+        outline_text(
+            self.draw,
+            (plot_right, strip_top),
+            f"{self._STAR_ICON}{self._matched_star_text()}",
+            align="left",
+            font=self.fonts.small,
+            fill=medium,
+            shadow_color=(0, 0, 0),
+            stroke=1,
+            anchor="ra",
+        )
+
+        # Bottom label: detected-star count (the self-contained detector).
+        outline_text(
+            self.draw,
+            (plot_left, res_y - 9),
+            _("det {n}").format(n=detected),
+            align="left",
+            font=self.fonts.small,
+            fill=medium,
+            shadow_color=(0, 0, 0),
+            stroke=1,
+        )
+
         # --- V-curve + best-focus marker over the rolling window ---
         now = time.time()
         window_start = now - FOCUS_WINDOW_S
-        span = plot_right - plot_left
+        span = max(plot_right - plot_left, 1)
 
         def x_of(ts):
             frac = (ts - window_start) / FOCUS_WINDOW_S
             return int(plot_left + min(max(frac, 0.0), 1.0) * span)
 
-        marker, _marker_ts = self._focus_marker()
+        marker = self._focus_marker()
         if marker is not None:
             marker_y = self._hfd_to_y(marker, plot_top, plot_bottom)
             self.draw.line([(plot_left, marker_y), (plot_right, marker_y)], fill=dim)
@@ -321,81 +388,6 @@ class UIPreview(UIModule):
             else:
                 self.draw.point(point, fill=bright)
             prev = point
-
-        # --- HUD text ---
-        result = self.last_focus_result
-        if result is not None and result.median_hfd is not None:
-            hfd_text = f"HFD {result.median_hfd:.1f}"
-            detected = str(result.n_used)
-        elif result is not None and result.too_defocused:
-            hfd_text = _("keep adjusting…")
-            detected = "0"
-        else:
-            hfd_text = "HFD —"
-            detected = "0"
-
-        cue = self._cue_active()
-        hfd_fill = bright if cue else medium
-        if cue:
-            hfd_text = f"↑ {hfd_text}"  # up-arrow: back up toward best focus
-
-        outline_text(
-            self.draw,
-            (2, strip_top),
-            hfd_text,
-            align="left",
-            font=self.fonts.small,
-            fill=hfd_fill,
-            shadow_color=(0, 0, 0),
-            stroke=1,
-        )
-        outline_text(
-            self.draw,
-            (res_x - 2, strip_top),
-            self.format_exposure_display(),
-            align="left",
-            font=self.fonts.small,
-            fill=medium,
-            shadow_color=(0, 0, 0),
-            stroke=1,
-            anchor="ra",
-        )
-
-        # Bottom row: detected-star count (left) and matched-star count (right).
-        bottom_y = res_y - 9
-        outline_text(
-            self.draw,
-            (2, bottom_y),
-            _("det {n}").format(n=detected),
-            align="left",
-            font=self.fonts.small,
-            fill=medium,
-            shadow_color=(0, 0, 0),
-            stroke=1,
-        )
-        if cue:
-            outline_text(
-                self.draw,
-                (res_x // 2, bottom_y),
-                _("BACK UP"),
-                align="center",
-                font=self.fonts.small,
-                fill=bright,
-                shadow_color=(0, 0, 0),
-                stroke=1,
-                anchor="ma",
-            )
-        outline_text(
-            self.draw,
-            (res_x - 2, bottom_y),
-            f"{self._STAR_ICON} {self._matched_star_text()}",
-            align="left",
-            font=self.fonts.small,
-            fill=medium,
-            shadow_color=(0, 0, 0),
-            stroke=1,
-            anchor="ra",
-        )
 
     def update(self, force=False):
         if force:
