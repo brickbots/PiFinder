@@ -39,7 +39,8 @@ jobs:
         run: |
           git submodule sync
           git submodule update --init --recursive
-          ln -s PiFinder/tetra3/tetra3 tetra3 
+          # The python/tetra3 -> PiFinder/tetra3/tetra3 symlink is tracked in
+          # the repo, so it no longer needs to be created here.
 
       - name: Use cache of hip_main.dat star catalog
         

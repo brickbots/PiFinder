@@ -225,11 +225,11 @@ class UIPreview(UIModule):
         """
         try:
             solution = self.shared_state.solution()
-            solve_source = solution.get("solve_source") if solution else None
-            solve_time = solution.get("solve_time") if solution else None
-            if solve_source in ("CAM", "CAM_FAILED") and solve_time:
-                if time.time() - solve_time < 10:
-                    return str(solution.get("Matches", 0))
+            solve_source = solution.solve_source if solution else None
+            estimate_time = solution.estimate_time if solution else None
+            if solve_source in ("CAM", "CAM_FAILED") and estimate_time:
+                if time.time() - estimate_time < 10:
+                    return str(solution.diagnostics.Matches)
         except Exception:
             pass
         return "-"

@@ -22,6 +22,14 @@ Maintainers can make `fresh` root on `main` automatically per clone (without cha
 git remote set-head origin main
 ```
 
+**Initialise the `tetra3` submodule in every new worktree.** `python/PiFinder/tetra3` is a git submodule (the `cedar-solve`/Tetra3 solver); the importable package is its inner `tetra3/tetra3/` dir, surfaced through the tracked symlink `python/tetra3`. `git worktree add` / `EnterWorktree` does **not** populate submodules, so a fresh worktree starts with an empty submodule dir and a dangling symlink. Any test that imports the solver then fails with `ModuleNotFoundError: No module named 'tetra3'` (or `cedar_detect_pb2`) — this is a missing checkout, **not** a code problem, so don't reach for `PYTHONPATH` hacks. Fix it once per worktree:
+
+```bash
+git submodule update --init python/PiFinder/tetra3
+```
+
+mypy also needs this: its config points at `python/PiFinder/tetra3/tetra3`, so `nox -s type_hints` can't run in a worktree until the submodule is initialised.
+
 ## Development Commands
 
 **Running Python**

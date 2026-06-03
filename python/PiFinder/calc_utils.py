@@ -173,9 +173,10 @@ def aim_degrees(shared_state, mount_type, screen_direction, target):
     solution = shared_state.solution()
     location = shared_state.location()
     dt = shared_state.datetime()
-    if location.lock and dt and solution:
+    if location.lock and dt and solution and solution.has_pointing():
+        aligned = solution.pointing.aligned.estimate
         if mount_type == "Alt/Az":
-            if solution["Alt"]:
+            if solution.Alt:
                 # We have position and time/date!
                 sf_utils.set_location(
                     location.lat,
@@ -187,19 +188,19 @@ def aim_degrees(shared_state, mount_type, screen_direction, target):
                     target.dec,
                     dt,
                 )
-                az_diff = target_az - solution["Az"]
+                az_diff = target_az - solution.Az
                 az_diff = (az_diff + 180) % 360 - 180
 
-                alt_diff = target_alt - solution["Alt"]
+                alt_diff = target_alt - solution.Alt
                 alt_diff = (alt_diff + 180) % 360 - 180
 
                 return az_diff, alt_diff
         else:
             # EQ Mount type
-            ra_diff = target.ra - solution["RA"]
+            ra_diff = target.ra - aligned.RA
             ra_diff = (ra_diff + 180) % 360 - 180  # Convert to -180 to +180
 
-            dec_diff = target.dec - solution["Dec"]
+            dec_diff = target.dec - aligned.Dec
             dec_diff = (dec_diff + 180) % 360 - 180
 
             return ra_diff, dec_diff

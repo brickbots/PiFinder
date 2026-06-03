@@ -5,166 +5,287 @@ PiFinder™ User Manual
 
 .. note::
    This documentation is for v3 and v2.5 PiFinders running software 2.2.0 or above.
-   You can see what version of software is running by looking in the upper right of
-   the welcome screen. 
+   You can see which version you're running in the upper right of the welcome screen.
 
    If you need docs for a previous version please choose `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
    , `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_
    or `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_
 
-Thanks for your interest in the PiFinder!  This guide describes how to use a 
-PiFinder but if you want information on building one, please see the :doc
-:`Build Guide <build_guide>` and the :doc:`Bill of Materials <BOM>`.
+Thanks for your interest in the PiFinder!  This guide describes how to use one; if you
+want to build one, see the :doc:`Build Guide <build_guide>` and the
+:doc:`Bill of Materials <BOM>`.
 
-This user manual is divided into several sections which you can access using the links 
-to the left.  Now, let's dig deeper into the various functions of the PiFinder!
+The manual is divided into sections you can reach from the links to the left.  Let's dig
+into what the PiFinder can do.
 
 How It Works
 ===============
 
-The PiFinder is a self-contained telescope positioning device.  It will let you 
-know where your telescope is pointed, provide the ability to choose a particular target 
-(like a Galaxy or other DSO) and direct you on how to move 
-your telescope to find that object.  There are some other nice features along with 
-these core functions, but the PiFinder is designed primarily as a way to get 
-interesting objects into your eyepiece so you can take a look at them.
+The PiFinder is a self-contained telescope positioning device.  It tells you where your
+telescope is pointed, lets you pick a target such as a galaxy or other DSO, and directs
+you on how to move the scope to find it.  There are other nice features alongside these
+core functions, but the PiFinder is designed primarily to get interesting objects into
+your eyepiece for a look.
 
-In order to direct you to wonders of the night sky, the PiFinder needs 
-to know where your telescope is currently pointed.  The primary way it does this 
-is directly, by taking photos of the night sky and examining the star patterns 
-to determine what section of the sky it's seeing.  It can do 
-this incredibly fast (up to 20 times per second!) and very accurately.  
-This only works well if your telescope is not moving, so it couples this 
-very accurate system with an accelerometer to provide an estimate of how far your telescope 
-has moved from the last known position.  This estimate will contain some error, 
-but as soon as you stop moving the scope a new photo will be taken and any inaccuracy will be corrected.
+To direct you, the PiFinder needs to know where your telescope is pointed.  It works this
+out directly, by photographing the night sky and examining the star patterns to determine
+which section of sky it's seeing — incredibly fast (up to 20 times per second!) and very
+accurately.  This only works while the scope is still, so it pairs that camera with an
+accelerometer that estimates how far the scope has moved since the last solve.  The
+estimate carries some error, but the moment you stop, a fresh photo corrects it.
 
-Along with knowing where your telescope is pointing, the PiFinder knows where thousands of 
-interesting objects are located. It can use these two pieces of information to indicate 
-how you should move your telescope to bring any of those thousands of objects into 
-your eyepiece.  Since it's directly observing where your telescope is pointing, 
-you can be assured you are on target!
+Knowing where your scope points and where thousands of interesting objects sit, the
+PiFinder combines the two to show you how to move the scope to bring any of those objects
+into your eyepiece.  Because it observes your actual pointing direction, you can trust
+you're on target.
 
 .. note::
-   If you would like a general overview of how to use the PiFinder, please give the 
-   :doc:`quick_start` a read.  This manual goes more in depth but does not cover some
-   of the first time set-up items in the Quick Start
+   For a general overview of using the PiFinder, read the :doc:`quick_start`.  This manual
+   goes deeper but doesn't cover the first-time set-up steps in the Quick Start.
 
+
+Power & Charging
+=====================================
+
+PiFinders ordered with the optional internal battery run for an evening on a single
+charge, and you can keep one going indefinitely from any USB-C power source.  This section
+covers how the two USB-C ports differ, how charging behaves, how long a charge lasts, and
+how to look after the battery.  For the very first power-on, the
+:ref:`quick_start:powering the pifinder` section of the Quick Start walks through it step
+by step.
+
+The two USB-C ports
+-------------------
+
+A battery-equipped PiFinder has two USB-C ports on top, and they do different things:
+
+.. image:: images/quick_start/power.jpeg
+
+- The port nearest the **back** of the case (marked with the arrow above) both powers the
+  PiFinder **and** charges the battery.  Use this one for charging.
+- The port nearest the **keypad** powers the unit only — it does not charge the battery.
+  It is also wired ahead of the power switch, so plugging into it turns the PiFinder on
+  immediately *regardless of the switch position*.
+
+During a session the keypad-side (power-only) port is the nicer one to run from, because
+the charging port's indicator LED is quite bright in the dark.  A unit without the battery
+has only the single power-only port.
+
+The power switch is the small white **slide** switch on top, above the screen (boxed in
+the image above).  Facing the screen, slide it right for on and left for off.  It is a
+switch, not a button.
+
+Charging
+--------
+
+Plug a USB-C cable into the charging port (nearest the back).  The indicator LED glows
+**blue** while charging and turns **green** when full.  From empty, a full charge takes
+roughly three hours, though this varies with the power source — a Power Delivery (PD)
+charger negotiates more power and fills faster, while a basic 5V supply charges more
+slowly but works fine.
+
+Charge with the power switch **off**.  If the PiFinder runs while plugged in, it can draw
+about as much current as the charger supplies, so the battery may barely fill.  A long
+charge that leaves the battery still flat almost always means the unit was switched on the
+whole time.
+
+.. note::
+   The last stretch of charging is slow.  As the battery approaches full the charging
+   current tapers off, so the change from blue to green can take a while even though the
+   battery is nearly there.  This is normal and not a fault.
+
+Battery life
+------------
+
+The battery runs the PiFinder for about **four to five hours**, but real runtime depends
+heavily on how hard you work it.  Sitting at the eyepiece on one object, or stepping away
+from the scope, lets the PiFinder drop into power-save mode and stretches the time
+considerably.  A fast tour through many objects — camera, motion sensor, and screen all
+busy — draws more power and shortens it.
+
+There is **no battery-level indicator** on the screen and no low-battery warning: when the
+charge is depleted the PiFinder simply shuts off.  For a long night, top up beforehand and
+keep a USB-C power bank handy.  You can add external power at any time without restarting
+(see below).
+
+.. note::
+   The PiFinder drops into power-save mode after it has been idle for a while, dimming the
+   screen and slowing the camera to save power.  Any button press or movement of the scope
+   wakes it.  The idle time can be changed, or turned off entirely, in the
+   :ref:`user_guide:settings menu`.
+
+Running on external power
+-------------------------
+
+Any USB-C source rated for at least **2A** will run the PiFinder — a wall charger, a USB
+power bank, or a portable power station's USB output.  As a rough guide, about 1,000mAh of
+power-bank capacity runs the PiFinder for an hour, so a 10,000mAh bank is good for the
+better part of a night.
+
+External power can be added mid-session without a restart.  A useful trick for stretching
+a long night: plug a power bank into the power-only port, then switch the battery **off**.
+The PiFinder keeps running on the external power while the battery is held in reserve for
+after the bank is unplugged.
+
+If you hit power dropouts, suspect the cable first — some USB-C cables are unreliable at
+the ~2A the PiFinder draws, especially on long runs.
+
+.. warning::
+   Feed the PiFinder **5V USB-C power only**.  To run it from a telescope's 12V supply, you
+   must use a 12V-to-5V step-down (DC-DC) converter with a USB-C output.  Never connect 12V
+   directly to the PiFinder — doing so will damage it.
+
+Battery safety & care
+---------------------
+
+The internal battery is a lithium-polymer (LiPo) cell.  Treated sensibly it will last for
+years, but like any lithium battery it deserves a little respect.
+
+.. warning::
+   Stop using the battery and disconnect power if it ever becomes **swollen, damaged,
+   unusually hot, or develops an odour**.  A puffed-up or punctured LiPo cell can vent or
+   catch fire.  Do not continue to charge or use a cell in this condition — contact us about
+   a replacement.
+
+.. warning::
+   Do not **puncture, crush, drop, or open** the battery, and do not attempt to disassemble
+   the PiSugar power board it sits on.  Keep the unit dry; the battery and electronics are
+   not waterproof.
+
+A few habits keep the cell healthy:
+
+- **Charge from the built-in port only.**  The PiSugar power board manages charging for you;
+  just supply 5V USB-C as described above.  There is no need for an external LiPo charger,
+  and you should not connect one.
+- **Charge where you can keep an eye on it,** and not on or near anything flammable.  Avoid
+  charging or leaving the unit in extreme heat — a closed car on a sunny day is the classic
+  way to cook a battery.
+- **Mind the temperature.**  The PiFinder has been used from about -15°C (5°F) to 40°C
+  (100°F).  Capacity drops in the cold, though the computer's own heat keeps the cell warm
+  enough to work in most conditions.  Avoid charging a battery that is below freezing.
+- **For long-term storage,** leave the cell partly charged rather than full or empty and keep
+  it somewhere cool and dry.  Top it up every few months so it does not discharge completely.
+- **Dispose of it responsibly.**  A worn-out lithium battery should go to a battery-recycling
+  drop-off, not the household rubbish.
+
+.. note::
+   If you ever need to replace the battery, the only compatible part is the **PiSugar S Plus
+   5000mAh**.  Other PiSugar models share the I2C bus with the PiFinder's motion sensor and
+   will cause problems, so make sure you fit the S Plus.
 
 Adjusting Brightness
 =====================================
 
-The PiFinder is designed to allow you to adjust the brightness of the screen and keypad at any 
-time: simply hold down the **SQUARE** button and push **+** for brighter, or **-** for dimmer. In a dark sky 
-site, you can turn the brightness down to preserve your dark-adapted vision.
+You can adjust the brightness of the screen and keypad at any time: hold the **SQUARE**
+button and press **+** for brighter or **-** for dimmer.  At a dark-sky site, turn the
+brightness right down to preserve your dark-adapted vision.
 
 .. note::
-   The PiFinder will dim the screen and reduce the frequency of exposures, solving, and other processes 
-   when it’s been idle for a period of time. This helps save battery power and can also prevent glare 
-   at the eyepiece in especially dark environments. The default is 30 seconds and this can be configured, 
-   or turned off completely, in the :ref:`user_guide:settings menu`
+   The PiFinder dims the screen and slows exposures, solving, and other processes after
+   it's been idle for a while.  This saves battery power and prevents glare at the eyepiece
+   in especially dark environments.  The default is 30 seconds; you can change it, or turn
+   it off completely, in the :ref:`user_guide:settings menu`
 
-   Pressing any button, or moving the PiFinder will wake it from power save mode.
+   Pressing any button, or moving the PiFinder, will wake it from power-save mode.
 
 The Menu System
 =====================================
 
-All the functions of the PiFinder can be accessed via its menu system:
+All of the PiFinder's functions are reached through its menu system:
 
 .. image:: images/quick_start/main_menu_01_docs.png
 
 
-Each menu is a list of items that represent a submenu, screen, or a set of options you can choose from.  You can scroll
-though each menu and make selections using these keys:
+Each menu is a list of items representing a submenu, a screen, or a set of options.  Scroll
+through a menu and make selections with these keys:
 
-- The **UP** and **DOWN** arrows will scroll the current menu
-- The **RIGHT** arrow will activate the current option; selecting it or moving to another menu
-- The **LEFT** arrow will take you back to the previous menu or screen
-- Holding **LEFT** for more than one second will always take you back to the TOP of the menus
+- The **UP** and **DOWN** arrows scroll the current menu
+- The **RIGHT** arrow activates the current option, selecting it or moving to another menu
+- The **LEFT** arrow takes you back to the previous menu or screen
+- Holding **LEFT** for more than a second always returns to the TOP of the menus
 
-The status bar at the top of the screen will show the name of the menu you are currently viewing.  
+The status bar at the top of the screen shows the name of the menu you're viewing.
 
 Screens
 --------
 
-When you choose some menu items, like Camera, these will lead you to a specific screen such as showing the 
-camera preview, a star chart or details about a particular catalog object.  Each one of the screens is
-covered in more detail below.
+Some menu items, like Camera, lead to a specific screen — a camera preview, a star chart,
+or details about a catalog object.  Each screen is covered in more detail below.
 
 Options
 --------
 
-Some menus present a list of options where you can choose one or more items to control how
-the PiFinder operates.  For instance, the Filter menu items take you to a sub-menu of different
-ways you can filter your object lists:
+Some menus present a list of options where you choose one or more items to control how the
+PiFinder operates.  For instance, the Filter menu items take you to a sub-menu of ways to
+filter your object lists:
 
 
 .. image:: images/user_guide/options_menu_01.png
 .. image:: images/user_guide/options_menu_02.png
 
-Selecting Type presents you with various DSO types that 
-you can select to control what objects appear in your object lists.
+Selecting Type presents the DSO types you can choose to control which objects appear in
+your object lists.
 
 .. image:: images/user_guide/options_menu_03.png
 .. image:: images/user_guide/options_menu_04.png
 
-Lists that offer selections will usually have a check-mark next to the one, or many, 
-option selected.  Pressing the **RIGHT** arrow with an option highlighted will select
-or de-select that item.
+Lists that offer selections show a check-mark next to the one or many options selected.
+Pressing the **RIGHT** arrow with an option highlighted selects or de-selects it.
 
 
 .. image:: images/user_guide/options_menu_04.png
 .. image:: images/user_guide/options_menu_05.png
 
-For some menus that only allow a single item to be selected, such as Altitude, selecting
-one item will de-select any others.  Multi-Select menus have options to select or de-select
-all items for ease of use.
+For menus that allow only a single selection, such as Altitude, choosing one item
+de-selects any others.  Multi-Select menus offer options to select or de-select all items
+at once.
 
-When you are done selecting options for a particular setting, you can use the **LEFT** arrow
-key to return to your last menu or screen.
+When you're done, press the **LEFT** arrow to return to your last menu or screen.
 
 
-With this simple set of scroll and select tools you can access all the powerful features of
-the PiFinder.
+With this simple set of scroll-and-select tools you can reach all the PiFinder's powerful
+features.
 
 Quick Menu
 =====================================
 
-Although you can access everything the PiFinder has to offer using just the menu system, we've
-introduced a secondary quick-menu to bring some of those functions into easier reach.  
+You can reach everything through the menu system, but a secondary quick-menu brings some
+functions into easier reach.
 
-Hold down the **SQUARE** key to access the Quick Menu
+Hold the **SQUARE** key to open the Quick Menu
 
 .. image:: images/user_guide/quick_menu_00.png
 
-This menu presents up to four options, one for each arrow button.  Pressing that arrow
-will select that item.  This menu is different depending on what screen you are on, but 
-often has :ref:`HELP<user_guide:help system>` at the UP option.
+This menu presents up to four options, one per arrow button; press the arrow to select its
+item.  The menu changes with the screen you're on, but often has
+:ref:`HELP<user_guide:help system>` at the UP option.  The Focus screen above offers HELP
+and Exposure.
 
-Some Quick Menus have multiple layers like the one above.  Selecting RIGHT will open the 
-Background Subtraction (BG SUB) options.  To indicate a current setting, one option may
-have some subtle shading.  The image below is showing that the BG SUB setting is currently
-HALF.
+Some Quick Menus have a second layer.  The Object List's Quick Menu, for example, offers
+Sort and Filter; pressing LEFT for Sort opens a ring of sort orders, with subtle shading
+marking the current one.
 
 .. image:: images/user_guide/quick_menu_01.png
+   :width: 45%
+.. image:: images/user_guide/quick_menu_02.png
+   :width: 45%
 
-Selecting LEFT would switch this option to FULL.  You can exit the Quick Menu at any time
-by pressing the SQUARE button again.
+Pick a sort order to apply it.  Exit the Quick Menu at any time by pressing SQUARE again.
 
 
 Help System
 ==============
 
-Many screens offer help with specific button functions and other details about how things 
-work or the purpose of a particular page.  
+Many screens offer help with specific button functions and other details about how things
+work or what a page is for.
 
-When available, HELP will be the UP option in the Quick Menu
+When available, HELP is the UP option in the Quick Menu
 
 .. image:: images/user_guide/quick_menu_00.png
 
-Pressing the UP arrow will select the help option and display one or more pages of help.  There
-will be a prompt at the top or bottom of the screen to show if more pages are available and 
-pressing UP or DOWN will scroll through them
+Pressing the UP arrow selects help and displays one or more pages.  A prompt at the top or
+bottom of the screen shows when more pages are available; press UP or DOWN to scroll
+through them.
 
 .. image:: images/user_guide/camera_help_01.png
 .. image:: images/user_guide/camera_help_02.png
@@ -173,18 +294,18 @@ pressing UP or DOWN will scroll through them
 Settings Menu
 ==============
 
-All of the user configurable items for the PiFinder can be found in the Settings Menu which is near the
-bottom of the main PiFinder menu
+All user-configurable items live in the Settings Menu, near the bottom of the main
+PiFinder menu.
 
 .. image:: images/user_guide/settings_01.png
 
-The top items collect several options together under User Preferences and Chart Screen.   The ellipsis (...) indicates
-that there are more options below.
+The top items collect several options under User Preferences and Chart Screen.  An ellipsis
+(...) indicates more options below.
 
 .. image:: images/user_guide/settings_02.png
 
-Below the general UI options are settings to change which :ref:`user_guide:wifi` mode your PiFinder is in, what its 
-physical configuration is and more physical configuration items.
+Below the general UI options are settings to change which :ref:`user_guide:wifi` mode your
+PiFinder is in and its physical configuration.
 
 .. image:: images/user_guide/settings_03.png
 
@@ -192,47 +313,49 @@ physical configuration is and more physical configuration items.
 Observing with PiFinder
 ========================
 
-When using the PiFinder under the stars to explore the universe, you'll be doing four basic things in various combinations:
+Out under the stars, you'll be doing four basic things in various combinations:
 
-* Curating a list of objects you are interested in
+* Curating a list of objects you're interested in
 * Viewing details about those objects
 * Pushing the scope to bring them into your eyepiece
 * Logging your observations
-  
-Everyone has their own unique way to observe, so the PiFinder offers different ways to use (or not use!) these features
-to facilitate a great night of observing.
+
+Everyone observes their own way, so the PiFinder offers different ways to use (or skip!)
+these features for a great night out.
 
 Object List
 --------------------
 
-The Object list is one of the main features of the PiFinder.  It presents a collection of objects you've selected using 
-catalogs, filters, observing lists and text search tools.  
+The Object List is one of the PiFinder's main features.  It presents a collection of
+objects you've selected using catalogs, filters, observing lists, and text search.
 
-To select a starting point for your observing journey, choose Objects from the main PiFinder menu.  You can then choose
-from one of four options:
+To pick a starting point, choose Objects from the main PiFinder menu, then choose one of
+four options:
 
 .. image:: images/user_guide/objects_menu.png
 
-- **All Filtered**: This will show you all the objects across all catalogs that meet 
-  your :ref:`filter criteria<user_guide:filters>`.  This could be thousands of objects and is most useful with very
-  strict filter settings, such as only looking for globulars above 30 degree altitude and brighter than magnitude 10.
-- **By Catalog**: Shows all objects from a specific catalog that meet your filter criteria.  Great for observing projects
-  and looking for the nearest objects in a particular catalog.
-- **Recent**: This list starts empty and will contain a history of all the objects you've checked out during your current
-  observing session
-- **Name Search**: Using the number keypad and T9 style text entry, you can search for objects by name.  The snowball planetary?
-  Cats-Eye?  This is the way to find them!
+- **All Filtered**: All objects across all catalogs that meet your
+  :ref:`filter criteria<user_guide:filters>`.  This could be thousands of objects and is
+  most useful with strict filters, such as globulars above 30 degrees altitude and brighter
+  than magnitude 10.
+- **By Catalog**: All objects from a specific catalog that meet your filter criteria.  Great
+  for observing projects and finding the nearest objects in a particular catalog.
+- **Recent**: Starts empty and builds a history of the objects you've checked out during
+  the current session.
+- **Name Search**: Using the number keypad and T9-style text entry, search for objects by
+  name.  The Snowball planetary?  Cat's Eye?  This is the way to find them.
 
-No matter how you get objects onto the list, it always displays 
-the same information and allows you to sort and select the same way.
+However you build the list, it always displays the same information and offers the same
+sorting and selection.
 
 .. image:: images/user_guide/object_list_01_docs.png
 
-Along the left side is a symbol showing what sort of object each line represents.  Next to that is the designation of the
-object, usually the catalog abbreviation and index number, then the distance from your current telescope position to this
-object. The brightness of each entry in the list gives a little hint about its magnitude.
+A symbol along the left shows each object's type.  Next to it is the designation — usually
+the catalog abbreviation and index number — then the distance from your current telescope
+position.  Each entry's brightness hints at its magnitude.
 
-Pressing the **SQUARE** key will cycle through additional information for the objects on the list.
+Pressing the **SQUARE** key cycles through additional information for the objects on the
+list.
 
 .. image:: images/user_guide/object_list_02_docs.png
 
@@ -240,169 +363,168 @@ You can see a scrolling list of common names for each object.
 
 .. image:: images/user_guide/object_list_03_docs.png
 
-And the magnitude and size of each object along with a little check mark to indicate if you've observed and logged
-this object previously.
+And the magnitude and size of each object, with a check mark to indicate whether you've
+observed and logged it before.
 
-Holding down the **SQUARE** key will bring up the Quick Menu which allows you to sort and filter this list
+Holding the **SQUARE** key brings up the Quick Menu to sort and filter this list.
 
 .. image:: images/user_guide/object_list_radial_docs.png
 
-Pressing **LEFT** will select SORT
+Pressing **LEFT** selects SORT
 
 .. image:: images/user_guide/object_list_sort_docs.png
 
-By default, lists are sorted in STANDARD order... usually the order they appear in catalogs.  You can choose
-another sort order such as NEAREST by pressing the arrow key indicated.  Sorting by NEAREST puts the object 
-that is closest to your current telescope position at the top of the list.
+By default, lists use STANDARD order — usually the order they appear in catalogs.  Press
+the indicated arrow to choose another order such as NEAREST, which puts the object closest
+to your current telescope position at the top.
 
 .. image:: images/user_guide/object_list_04_docs.png
 
-If you start typing a number, the Object list will jump to the next object with that index number.  You can
-use the **UP/DOWN** down arrows to go to the next/previous match and use the **SQUARE** key to exit the 
-jump mode and select an object.
+If you start typing a number, the Object List jumps to the next object with that index
+number.  Use the **UP/DOWN** arrows to step to the next or previous match, and the
+**SQUARE** key to exit jump mode and select an object.
 
-Pressing the **RIGHT** key will bring you to details for the selected object....
+Pressing the **RIGHT** key brings you to details for the selected object.
 
 Object Details
 --------------------
 
-Pressing the **RIGHT** key from the Object list will bring you to the Object Details screen 
-for the highlighted object. This screen shows large Push-To instructions, :ref:`object images<user_guide:object images>` and 
-catalog details for objects.
+Pressing the **RIGHT** key from the Object List brings up the Object Details screen for the
+highlighted object.  This screen shows large Push-To instructions,
+:ref:`object images<user_guide:object images>`, and catalog details.
 
-Pressing **SQUARE** will cycle through the different information for the object and **UP/DOWN** will move to the next
-or previous object in the list.  **LEFT** will bring you back to the full list and **RIGHT** brings 
-up the :ref:`Logging<user_guide:logging observations>` interface for the current object.
+Pressing **SQUARE** cycles through the object's information and **UP/DOWN** moves to the
+next or previous object in the list.  **LEFT** returns to the full list, and **RIGHT**
+brings up the :ref:`Logging<user_guide:logging observations>` interface for the current
+object.
 
 .. image:: images/user_guide/object_details_01.png
 
-The Push-To info shows which way, and how far, to move your telescope to put the selected object in your 
-eyepiece.  As you move the scope the numbers will dim a bit to indicate that the PiFinder is using the
-accelerometer to provide an estimate of where the telescope is currently pointing.  When you stop, or 
-move slowly enough, the camera will be able to plate solve and provide an absolute position which will
-cause the numbers to brighten again.
+The Push-To info shows which way, and how far, to move your telescope to put the object in
+your eyepiece.  As you move the scope the numbers dim, indicating the PiFinder is using the
+accelerometer to estimate where the telescope is pointing.  When you stop, or move slowly
+enough, the camera plate solves to provide an absolute position and the numbers brighten
+again.
 
-When the numbers are near 0.00 the object should be in your eyepiece.  The numbers indicate the distance
-to the object in degrees.  So if you have an eyepiece with a 0.5 degree true field of view, getting the
-numbers below 0.25 (half the true field of view) should be enough to put the object within the eyepiece.
+When the numbers are near 0.00 the object should be in your eyepiece.  The numbers are the
+distance to the object in degrees, so with an eyepiece offering a 0.5 degree true field of
+view, getting them below 0.25 (half the true field) should put the object in view.
 
-Closer to zero will mean more centered. If you are trying to find a very dim object, knowing it's right in 
-the center of field and consulting the object image can really make a difference.
+Closer to zero means more centered.  For a very dim object, knowing it's dead center and
+consulting the object image can make all the difference.
 
 .. image:: images/user_guide/object_details_02.png
 
-The PiFinder can display images of all the objects in its catalog!  
-See the section on :ref:`object images<user_guide:object images>`
-below for more information
+The PiFinder can display images of every object in its catalog.  See the section on
+:ref:`object images<user_guide:object images>` below for more.
 
 .. image:: images/user_guide/object_details_03.png
 
-Depending on the catalog, the PiFinder may have detailed notes about objects along with Type, constellation,
-magnitude and size.  Use the **+/-** keys to scroll the notes field.  At the bottom of the notes is a counter
-of how many times you've logged this object.
+Depending on the catalog, the PiFinder may have detailed notes along with Type,
+constellation, magnitude, and size.  Use the **+/-** keys to scroll the notes field.  At
+the bottom of the notes is a count of how many times you've logged this object.
 
 Filters
 ----------
 
-All the object lists aside from :ref:`user_guide:name search` and Recent will only show objects that meet
-the filter criteria you have set.  You can always view and adjust your filter settings using the Filter menu
-available from the main PiFinder menu
+Every object list aside from :ref:`user_guide:name search` and Recent shows only objects
+that meet the filter criteria you've set.  View and adjust your filters from the Filter
+menu, available on the main PiFinder menu.
 
 .. image:: images/user_guide/main_filter_option.png
 
-You can also jump to the filter options using the :ref:`user_guide:quick menu` available from the 
-Object List screen
+You can also jump to the filter options from the :ref:`user_guide:quick menu` on the Object
+List screen.
 
 .. image:: images/user_guide/object_list_radial_docs.png
 
-The Filter menu has several ways to limit which objects appear in the object list along with a 
-Reset All option to completely remove all filters.  
+The Filter menu offers several ways to limit which objects appear, plus a Reset All option
+to clear every filter.
 
 .. image:: images/user_guide/filter_menu.png
 
-With no filters set every object available will appear on the object list.  
-For instance the All Filtered list will show over 18,000 objects!  
+With no filters set, every available object appears — the All Filtered list will show over
+18,000 objects!
 
-Some filter types can have a single value, like Altitude, and some allow you to select multiple 
-options, like Object type.  Here's a brief explanation of each:
+Some filter types take a single value, like Altitude, and some allow multiple selections,
+like Object type.  Here's a brief explanation of each:
 
-- **Catalogs**: This allows you to limit which catalogs are included in the All Filtered list.  This 
-  is distinct from the Catalog specific object lists, which are a sort of shortcut to view objects
-  only from one specific catalog.  Using the Catalogs filter you can use the All Filtered list to 
-  see all of the different globular clusters across multiple catalogs.
-- **Type**: Limits by object type.  You can select multiple types of objects to include in your lists.
-- **Altitude**: The current apparent altitude of this object from your observing location.  
-- **Magnitude**: Limit objects displayed to those at least as bright as the selected magnitude.
-- **Observed**: Only include objects you've logged already, never logged, or any logged state.
+- **Catalogs**: Limit which catalogs are included in the All Filtered list.  This is
+  distinct from the catalog-specific object lists, which are a shortcut to one catalog.
+  Using the Catalogs filter, the All Filtered list can show globular clusters across
+  multiple catalogs at once.
+- **Type**: Limit by object type.  You can select multiple types to include.
+- **Altitude**: The current apparent altitude of an object from your observing location.
+- **Magnitude**: Limit to objects at least as bright as the selected magnitude.
+- **Observed**: Include only objects you've logged, never logged, or any logged state.
 
 Catalogs Filter
 ^^^^^^^^^^^^^^^^^
 
-The PiFinder has many different catalogs so this menu groups them by categories.
+The PiFinder has many catalogs, so this menu groups them by category.
 
 .. image:: images/user_guide/filter_catalogs.png
 
-Some common catalogs are listed on the top level for quick reference and less 
-common catalogs are listed in their sub-categories indicated with an ellipsis (...)
+Common catalogs appear at the top level for quick reference; less common ones sit in
+sub-categories marked with an ellipsis (...).
 
 Here's the DSO... category as an example:
 
 .. image:: images/user_guide/filter_catalogs_dso.png
 
-Selected catalogs are indicated with a check box and you may see the same catalog, like Messier,
-listed in multiple spots.  Selecting or de-selecting anywhere will change the state everywhere.
+Selected catalogs show a check box, and you may see the same catalog, like Messier, in
+multiple spots.  Selecting or de-selecting anywhere changes its state everywhere.
 
 
 Name Search
 ------------
 
-A powerful way to search the large database of objects included with the PiFinder is by name.  
-This lets you find objects by their common description, like the Cat's Eye nebula.  To access 
-the Name Search screen select it from the Objects menu:
+A powerful way to search the PiFinder's large object database is by name, letting you find
+objects by their common description, like the Cat's Eye nebula.  To reach the Name Search
+screen, select it from the Objects menu:
 
 .. image:: images/user_guide/name_search_01.png
 
-It uses a T9 style text input, like some popular cellular phones at the dawn of text messages!  
-The on-screen keypad shows the letters that are available by pressing each number key multiple
-times in a row.  
+It uses T9-style text input, like the cellphones from the dawn of text messaging.  The
+on-screen keypad shows the letters available by pressing each number key several times in a
+row.
 
 .. image:: images/user_guide/name_search_02.png
 
-Each number key will generate its number, then the three or four letters displayed
-in turn.  If you pause long enough between key-presses, or press a different key, the cursor
-will move to the next position.
+Each number key generates its number, then the three or four letters shown, in turn.  Pause
+long enough between presses, or press a different key, and the cursor moves to the next
+position.
 
 .. image:: images/user_guide/name_search_cat_01.png
 
-As you enter text, the PiFinder will show you how many objects match your search term to
-the far right of the text you are entering.
+As you type, the PiFinder shows how many objects match your search term, to the far right
+of your text.
 
 .. image:: images/user_guide/name_search_cat_02.png
 
-You can see the number of objects reducing as we add more text....
+The count drops as you add more text.
 
 .. image:: images/user_guide/name_search_cat_03.png
 
-Once you have enough of a search term to limit the list of objects, press the **SQUARE** key
-to see the full list of matching objects.
+Once you've narrowed the list enough, press the **SQUARE** key to see the full list of
+matches.
 
 .. image:: images/user_guide/name_search_results.png
 
 Object Images
 ---------------
 
-If you have used the prebuilt PiFinder image or have :ref:`downloaded<software:catalog image download>`
-the set of catalog images you can view what the selected object looks like via images from sky surveys.  
-These images will display in the background of the :ref:`user_guide:object details` screen and you 
-can see them in full detail by pressing the **SQUARE** key to cycle through various pages of 
-information about each object. 
+If you used the prebuilt PiFinder image or have :ref:`downloaded<software:catalog image download>`
+the set of catalog images, you can see what the selected object looks like via sky-survey
+images.  These display in the background of the :ref:`user_guide:object details` screen,
+and you can view them in full detail by pressing the **SQUARE** key to cycle through the
+pages of information about each object.
 
-The images will be rotated and oriented as they will appear through
-the eyepiece at the position and time you are observing them to help you identify the faintest of 
-targets.
+The images are rotated and oriented as they appear through the eyepiece at your position
+and time, to help you identify the faintest targets.
 
-You can zoom in an out via the **+/-** keys and the FOV will
-be displayed at the bottom of the image so you can match it with your eyepiece FOV.
+Zoom in and out with the **+/-** keys; the FOV is displayed at the bottom of the image so
+you can match it to your eyepiece.
 
 As an example, here are the images available for M57
 
@@ -417,22 +539,21 @@ As an example, here are the images available for M57
    :alt: Catalog Image
 
 
-These images are oriented to match the view through your eyepiece for the
-telescope you're using, pointing at a specific area of the sky from your current
-location.  By default they're oriented for a Newtonian reflector; if you use a
-refractor or an SCT with a star diagonal, set the orientation options for your
-telescope as described in :doc:`equipment`.  You can
-use the **+** and **-** keys to switch between the field of view provided by the different
-eyepieces you configured via the :ref:`user_guide:Web Interface`
+These images are oriented to match the view through your eyepiece for the telescope you're
+using, pointing at a specific area of sky from your current location.  By default they're
+oriented for a Newtonian reflector; if you use a refractor or an SCT with a star diagonal,
+set the orientation options for your telescope as described in :doc:`equipment`.  Use the
+**+** and **-** keys to switch between the fields of view of the eyepieces you configured
+via the :ref:`user_guide:Web Interface`
 
-The bottom left of the screen shows the source of the current image and the left side shows the current FOV information.
+The bottom left of the screen shows the source of the current image, and the left side
+shows the current FOV information.
 
 Logging Observations
 -----------------------
 
-Pressing the **RIGHT** arrow when looking at the details of any object will bring you to the 
-logging interface.  Here you can add a bit of context about your observation and save it to
-your log.
+Pressing the **RIGHT** arrow while viewing any object's details brings up the logging
+interface, where you can add context about your observation and save it to your log.
 
 .. image:: images/user_guide/logging_01_docs.png
 .. image:: images/user_guide/logging_02_docs.png
@@ -440,75 +561,75 @@ your log.
 Use the **UP/DOWN** arrows to select one of the four context items to change:
 
 - **Observability**: How easy is it to spot and recognize this object
-- **Appeal**: Overall rating of this object.. would you refer a friend?
+- **Appeal**: Overall rating — would you refer a friend?
 
-Both of these first two items are set by choosing a number between 1 and 5 to set the rating
-or pressing the **RIGHT** arrow to cycle through the stars.
+Set these first two by choosing a number from 1 to 5, or pressing the **RIGHT** arrow to
+cycle through the stars.
 
 - **Conditions**...
 
-  - **Transparency**: A relative measure of contrast. 
+  - **Transparency**: A relative measure of contrast.
 
-  - **Seeing**: The stillness of the atmosphere. 
+  - **Seeing**: The stillness of the atmosphere.
 
-- **Eyepiece**: You can note which of your eyepieces you are using.
+- **Eyepiece**: Note which of your eyepieces you're using.
 
-When you are done adding context, or if you want to just note that you observed an object 
-without context, use the **UP/DOWN** arrows to select **SAVE LOG** to record your observation.
+When you're done — or if you just want to note that you observed an object without context
+— use the **UP/DOWN** arrows to select **SAVE LOG** and record your observation.
 
 
 Observing Projects
 --------------------
 
-If you are like me, you may enjoy various observing projects, such as observing all the Messier 
-or Herschel objects.  The PiFinder makes these longer term efforts easy by allowing you to log each 
-object and then only showing you objects you have left that are visible during any observing session!
+If you're like me, you may enjoy observing projects, such as working through all the
+Messier or Herschel objects.  The PiFinder makes these long-term efforts easy: log each
+object, and it will then show you only the objects you have left that are visible during
+any session.
 
-Combining the ability to :ref:`filter<user_guide:filters>` a catalog by observation status and sorting the object list 
-by the nearest objects allows you to work your way through a collection of objects easily.
+Combining a :ref:`filter<user_guide:filters>` on observation status with an object list
+sorted by NEAREST lets you work through a collection easily.
 
 Tools
 ==========================
 
-Near the bottom of the main PiFinder menu is an option that brings you to a set of tools.  These are screens
-that are not observing related but provide useful information about the PiFinder or let you perform actions.
+Near the bottom of the main PiFinder menu, the Tools option leads to a set of screens that
+aren't observing-related but provide useful information or let you perform actions.
 
 .. image:: images/user_guide/tools_menu_docs.png
 
-- :ref:`Status<user_guide:status screen>`: General info about about the PiFinder operation.
+- :ref:`Status<user_guide:status screen>`: General info about PiFinder operation.
 - :doc:`Equipment <equipment>`: Choose your active telescope and eyepiece, and see the resulting magnification and field of view.
 - Console: Shows messages from various PiFinder subsystems
-- :ref:`Software Upd<user_guide:update software>`: Updates the software of your PiFinder.  
-- Test Mode: Puts the PiFinder into a demo/debug mode which loads and solves an image from disk.  Will prevent proper operation at night, but allows exploration of PiFinder features during the day.
+- :ref:`Software Upd<user_guide:update software>`: Updates the software of your PiFinder.
+- Test Mode: Puts the PiFinder into a demo/debug mode that loads and solves an image from disk.  It prevents proper operation at night but lets you explore PiFinder features during the day.
 - :ref:`Shutdown<user_guide:shutdown>`: Shuts down the PiFinder
 
 Status Screen
 ----------------------------------
 
-The Status Screen is the central place to get information about the current 
-state and operation of the PiFinder.  
+The Status Screen is the central place to check the PiFinder's current state and operation.
 
 .. image:: images/user_guide/status_screen_docs.png
 
-Some of the key bits of information displayed:
+Some of the key information shown:
 
-- The current solver state displayed as LAST SLV on the top line.  It shows the
-  number of seconds since the last plate solve, the current solve state (i for IMU 
-  or C for camera) and the number of stars matched if the current solve is a camera solve
-- WiFi information is displayed a bit further down including the current WiFi mode, 
-  network name and IP address.
+- The current solver state, as LAST SLV on the top line.  It shows the seconds since the
+  last plate solve, the solve type (i for IMU or C for camera), and, for a camera solve,
+  the number of stars matched.
+- WiFi information a bit further down, including the current WiFi mode, network name, and
+  IP address.
 
 
-Shutdown 
+Shutdown
 ---------------------------
 
-Although shutting down is not strictly needed before power-off, the PiFinder is a 
-computer and there is a chance of file corruption if you do not.  Some MicroSD 
-cards are more sensitive to this than others.
+Shutting down isn't strictly required before power-off, but the PiFinder is a computer and
+there's a chance of file corruption if you skip it.  Some MicroSD cards are more sensitive
+than others.
 
-The Tools menu offers a Shutdown option, and there is a quick way to access this as well.
+The Tools menu offers a Shutdown option, and there's a quick way to reach it too.
 
-To easily shut down the PiFinder:
+To shut down the PiFinder quickly:
 
 - Hold the **LEFT** arrow button for more than a second to jump to the main menu
 - Hold the **SQUARE** button to access the Radial menu
@@ -521,8 +642,8 @@ To easily shut down the PiFinder:
 
 .. image:: images/quick_start/shutdown_confirm.png
 
-When you confirm the screen and keypad will turn off after a few seconds and it's then safe to
-turn off the unit using the power switch or unplugging the battery.
+After you confirm, the screen and keypad turn off within a few seconds; it's then safe to
+turn off the unit with the power switch or by unplugging the battery.
 
 WiFi
 ==========================
@@ -530,50 +651,50 @@ WiFi
 Access Point and Client Mode
 ----------------------------------
 
-The PiFinder can either connect to an existing network via the Client mode, or serve as a 
-wireless access point for other devices to connect to via the Access Point (AP) mode.  Use the 
-:ref:`user_guide:Web Interface` or the :ref:`user_guide:status screen` to switch between these two modes 
-and to see which mode is currently active.
+The PiFinder can connect to an existing network in Client mode, or serve as a wireless
+access point for other devices in Access Point (AP) mode.  Use the
+:ref:`user_guide:Web Interface` or the :ref:`user_guide:status screen` to switch between
+the two modes and see which is active.
 
-Using the PiFinder in Access Point mode creates a network called PiFinderAP with no password to allow 
-easy connection of phones, tablets and other devices in the field.
+In Access Point mode the PiFinder creates a network called PiFinderAP with no password, for
+easy connection of phones, tablets, and other devices in the field.
 
-To use the Client mode, you'll need to add information about the WiFi network you'd like the 
-PiFinder to connect to using the Web Interface as described in :ref:`user_guide:connecting to a new wifi network`
+To use Client mode, add the WiFi network you'd like the PiFinder to connect to using the
+Web Interface, as described in :ref:`user_guide:connecting to a new wifi network`
 
 PiFinder address
 -----------------
 
-In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computers 
-or those that don't support zeroconf networking, you can use the IP address provided on the :ref:`Global 
-Options<user_guide:settings menu>` screen to connect.  You can connect to the PiFinder via:
+In most cases you can reach the PiFinder at ``pifinder.local``.  On older computers, or
+those without zeroconf networking, use the IP address shown on the :ref:`Global
+Options<user_guide:settings menu>` screen.  You can connect via:
 
 
-* A web browser to use the :ref:`user_guide:Web Interface` for remote control, setting up access to other WiFi networks and for configuration changes
-* SSH to get shell access for advanced users
-* SMB (Samba) to access saved images, logs and observing lists
-* LX200 protocol to allow updating of a planetarium app, such as :doc:`skysafari` , with the position of the telescope
+* A web browser, for the :ref:`user_guide:Web Interface` — remote control, WiFi setup, and configuration changes
+* SSH, for shell access (advanced users)
+* SMB (Samba), to access saved images, logs, and observing lists
+* LX200 protocol, to update a planetarium app such as :doc:`skysafari` with the telescope's position
 
 Web Interface
 ==============
 
-The PiFinder provides an easy to use web interface which allows you to:
+The PiFinder's web interface lets you:
 
 * See the current PiFinder status
 * Remote control the PiFinder via a virtual screen and keypad
 * Change network settings and connect to new WiFi networks
 * Add and edit your telescopes and eyepieces (see :doc:`equipment`)
-* Backup and restore your observing logs, settings and other data
+* Back up and restore your observing logs, settings, and other data
 * View and download your logged observations
 
-To access the web interface for the first time, make sure the PiFinder is in Access Point mode (see :ref:`user_guide:settings menu`).  This is the default for new PiFinders to make first time set up easier.  Using a phone, tablet or computer, connect to the PiFinder's wireless network called PiFinderAP.  It's an open network with no password required.  Once connected, open your web browser and visit:
+To reach the web interface for the first time, make sure the PiFinder is in Access Point mode (see :ref:`user_guide:settings menu`) — the default for new PiFinders, to ease first-time setup.  From a phone, tablet, or computer, connect to the PiFinder's open wireless network, PiFinderAP (no password), then open your browser and visit:
 ``http://pifinder.local``
 
 
 .. note::
-   If you are connected to the PiFinderAP network and can't load the PiFinder web interface using
-   http://pifinder.local try http://10.10.10.1 as some systems may not support the network features
-   required to resolve local computer names
+   If you're connected to the PiFinderAP network and can't load the web interface at
+   http://pifinder.local, try http://10.10.10.1 — some systems don't support the network
+   features needed to resolve local computer names.
 
 .. list-table::
    :width: 100%
@@ -582,75 +703,76 @@ To access the web interface for the first time, make sure the PiFinder is in Acc
 
      - .. image:: images/user_guide/pf_web_home_hamburger.jpg
 
-The home screen shows the general PiFinder status info and a live view of the screen.  Depending 
-on your screen size you'll either see a navigation bar along the top of the page, or a 'hamburger' menu in the upper-left which contains these same options for smaller screens.
+The home screen shows general PiFinder status and a live view of the screen.  Depending on
+your screen size you'll see either a navigation bar along the top or a 'hamburger' menu in
+the upper-left holding the same options on smaller screens.
 
-While the home screen not require a password, most other functions will.  The password for the web 
-interface is the same as what is used for the ``pifinder`` user and changing one will change 
-the other.  The default password for new images and PiFinders is ``solveit``.  This can be changed using 
-the Tools option in the web interface.
+The home screen needs no password, but most other functions do.  The web interface password
+is the same as the ``pifinder`` user's; changing one changes the other.  The default for new
+images and PiFinders is ``solveit``, and you can change it from the Tools option in the web
+interface.
 
 Connecting to a new WiFi network
 ---------------------------------
 
-The default behavior of the PiFinder is to generate its own WiFi network called ``PiFinderAP`` that you can connect to 
-and configure additional networks. To get the PiFinder to connect to an existing WiFi network with Internet access you
-can follow the steps below:
+By default the PiFinder generates its own WiFi network, ``PiFinderAP``, that you connect to
+in order to configure additional networks.  To have the PiFinder connect to an existing
+WiFi network with Internet access, follow these steps:
 
 1) Make sure the PiFinder is in Access Point mode
 2) Connect your phone, tablet, or computer to the PiFinder's wifi network called PiFinderAP
 3) Visit http://pifinder.local using your web browser
-4) Click the 'Network' link in the top bar, or if you have a smaller screen, click the three stacked horizontal lines in the upper-right corner to access the menu and choose 'Network' from there.
+4) Click the 'Network' link in the top bar, or on a smaller screen click the three stacked horizontal lines in the upper-right corner and choose 'Network'.
     .. image:: images/user_guide/pf_web_net0.png
-5) When prompted enter the password for your PiFinder.  The default is `solveit`.
-6) Scroll down until you see the 'Wifi Networks' section and click the + button to add a new network
+5) When prompted, enter the password for your PiFinder.  The default is `solveit`.
+6) Scroll down to the 'Wifi Networks' section and click the + button to add a network
     .. image:: images/user_guide/pf_web_net1.jpg
-7) Enter the name (SSID) of your network and the password in the form.  If your network does not have a password, leave the Password field blank.
+7) Enter the name (SSID) and password of your network.  If your network has no password, leave the Password field blank.
 8) Click the 'SAVE' button to save the new network
-9)  You should now see the network you added in the 'Wifi Networks' section of the page
-10) Scroll up and change the Wifi mode from 'Access Point' to 'Client' so that the PiFinder will attempt to connect to your network next time it restarts
+9)  The network you added should now appear in the 'Wifi Networks' section
+10) Scroll up and change the Wifi mode from 'Access Point' to 'Client' so the PiFinder connects to your network on its next restart
 11) Click the 'UPDATE AND RESTART' button
 
-To add more WiFi networks for the PiFinder to look for, navigate to the Network Setup page of the :ref:`user_guide:web interface` and click the + button near the list of WiFi networks and repeat the steps above.
+To add more WiFi networks, navigate to the Network Setup page of the :ref:`user_guide:web interface`, click the + button near the WiFi networks list, and repeat the steps above.
 
 
 SkySafari
 ===================
 
-The PiFinder can provide real-time pointing information to a device running SkySafari via the LX200 protocol.  See 
-this :doc:`skysafari` document for complete details, but here is the connection info:
+The PiFinder can provide real-time pointing information to a device running SkySafari via
+the LX200 protocol.  See the :doc:`skysafari` document for full details; here's the
+connection info:
 
 
 * Use 'Other' telescope type
-* Mount Type: Alt-Az, GoTo.. even if your scope is Push-To.  This allows sending of targets from SkySafari to the PiFinder
+* Mount Type: Alt-Az, GoTo — even if your scope is Push-To.  This lets SkySafari send targets to the PiFinder
 * Scope Type: Meade LX200 classic
-* IP Address: ``pifinder.local`` or IP address provides on the Status screen
+* IP Address: ``pifinder.local`` or the IP address shown on the Status screen
 * Port: 4030
 
 Shared Data Access
 ===================
 
-In the course of using the PiFinder several data files are created that may be of interest.  
-These are available via a SMB (samba) network share called ``//pifinder.local/shared``.  Accessing this will depend on your 
-OS, but the PiFinder should be visible in a network browser provided.  There is no password requirement, 
-just connect as ``guest`` with no password provided.
+The PiFinder creates several data files you may want.  They're available via an SMB (samba)
+network share, ``//pifinder.local/shared``.  Access depends on your OS, but the PiFinder
+should appear in a network browser.  No password is required — connect as ``guest`` with no
+password.
 
 Once connected, you'll see:
 
 
-* ``captures/``\ : These are images saved when logging objects.  They are named with the observation ID from the database.
-* ``obslists/``\ : This folder holds observing saved during a PiFinder session or to load for future sessions.
-* ``screenshots/``\ :  It's possible to take screenshots while using the PiFinder (hold down **ENT** and press 
-  *0*\ ).  They are stored here.
-* ``solver_debug_dumps/``\ : If enabled, information about solver performance is stored here as a collection of images 
-  and json files.
-* ``observations.db``\ : This is the SQLite database which holds all the logged observations.
+* ``captures/``\ : Images saved when logging objects, named with the observation ID from the database.
+* ``obslists/``\ : Observing lists saved during a session or kept for future sessions.
+* ``screenshots/``\ : Screenshots taken while using the PiFinder (hold **ENT** and press
+  *0*\ ) are stored here.
+* ``solver_debug_dumps/``\ : If enabled, solver performance information is stored here as a collection of images and json files.
+* ``observations.db``\ : The SQLite database holding all logged observations.
 
 Update Software
 ==================
 
-The PiFinder offers a way to download and install software updates directly from the PiFinder screen and 
-keypad.  To start this process you can choose Software Upd from the :ref:`user_guide:tools`
+The PiFinder can download and install software updates directly from its screen and keypad.
+To start, choose Software Upd from the :ref:`user_guide:tools`
 
 Updates happen right on the device — there is no need to send your PiFinder anywhere.  New
 units often ship a version or two behind the latest release, so running an update is a
@@ -658,11 +780,11 @@ normal part of your first night out.
 
 .. image:: images/user_guide/software_update_01_docs.png
 
-The PiFinder will need to be connected to the internet, so you'll need to have it in Client Mode and connected
-to a WiFi network.  See :ref:`user_guide:connecting to a new wifi network` for more details.
+The PiFinder needs internet access, so put it in Client Mode connected to a WiFi network.
+See :ref:`user_guide:connecting to a new wifi network` for details.
 
-The PiFinder will check to make sure it can access the internet then compare the current release version to
-the version installed.  
+The PiFinder confirms it can reach the internet, then compares the current release version
+to the one installed.
 
 .. image:: images/user_guide/software_update_02_docs.png
 
@@ -674,19 +796,20 @@ the version installed.
    fix for this.  If WiFi is configured but the check still fails, move closer to the
    router or re-enter the network details.
 
-If a new version is available, you can use the presented option to start the update.  This may take several minutes
-and the PiFinder will restart when it's done.  
+If a new version is available, use the presented option to start the update.  This may take
+several minutes, and the PiFinder restarts when it's done.
 
 .. image:: images/user_guide/software_update_04_docs.png
 
 
 .. image:: images/user_guide/software_update_03_docs.png
 
-You can also download a pre-built image of any software release and write it to the PiFinder's SD card.  
-See our `release page <https://github.com/brickbots/PiFinder/releases>`_ to find information about any
-of our releases and a link to download the images.
+You can also download a pre-built image of any software release and write it to the
+PiFinder's SD card.  See our `release page <https://github.com/brickbots/PiFinder/releases>`_
+for information about each release and a download link.
 
-Instructions for writing software release images to an SD card can be found on the :doc:`software setup<software>` page.
+Instructions for writing release images to an SD card are on the :doc:`software setup<software>`
+page.
 
 FAQ
 ====

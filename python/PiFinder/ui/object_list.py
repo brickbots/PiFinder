@@ -281,7 +281,7 @@ class UIObjectList(UITextMenu):
         self.update()
 
         if self.current_sort == SortOrder.NEAREST:
-            if self.shared_state.solution() is None:
+            if not self.shared_state.solution().has_pointing():
                 self.message(_("No Solve Yet"), 1)
                 self.current_sort = SortOrder.CATALOG_SEQUENCE
             else:
