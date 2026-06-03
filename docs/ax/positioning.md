@@ -307,8 +307,9 @@ eyepiece direction. Every downstream consumer (UI, web, SkySafari) reads
 
 - `target_pixel` is stored as `(Y, X)` in camera-image space (512×512).
 - `shared_state.target_pixel(screen_space=True)` returns `(X, Y)`
-  rescaled to display space (128×128 = camera/4) for UI overlays
-  (`ui/preview.py` draws the reticle at this point).
+  rescaled to display space (128×128 = camera/4) for UI overlays.
+  (No UI currently consumes this form — the Focus-screen reticle that
+  did was removed; the accessor remains for future overlays.)
 - Resetting alignment in the UI calls
   `shared_state.set_target_pixel((256, 256))` and writes the same value
   to `Config` — i.e. recenter the eyepiece pixel on the image center.
