@@ -261,9 +261,9 @@ dimmest stars.
 
 .. note::
    **Focus is the single most common reason a PiFinder won't solve.**  Stars that look
-   perfectly sharp at the normal zoom level are often not tight enough, so always zoom in
-   to 2x and 4x with the **+/-** keys and keep adjusting until the stars are as small as
-   you can make them.
+   sharp by eye are often still too soft to solve, so rather than judging focus by sight,
+   use the **HFD** readout and its graph on the Focus screen (described below) to find the
+   sharpest point precisely.
 
 Screw the lens in and out in the holder to adjust focus. Starting from scratch — a new
 build, or a lens that's been moved — set the lens so about 6 mm of thread is showing
@@ -281,29 +281,51 @@ dark, or noisy — normal until the camera is near focus. Some examples:
 
 .. list-table::
 
-   * - .. figure:: images/quick_start/CAMERA_unfocused.png
+   * - .. figure:: images/quick_start/CAMERA_unfocused_hud.png
 
-          Unfocused star with bright background
+          Unfocused: bright, noisy background and a high HFD
 
-     - .. figure:: images/quick_start/CAMERA_focused.png
+     - .. figure:: images/quick_start/CAMERA_focused_hud.png
 
-          Tightly focused star with darkened background
+          At best focus: dark background, a tight star and a low HFD
 
 
-Pan your scope until a bright object appears in the camera view. Screw the lens in and out
+Pan your scope until a bright object appears in the camera view.  Screw the lens in and out
 to focus; once something star-like is in the FOV and near focus, the preview's image
 processing will work properly and start dimming the background and highlighting the stars.
 
-Good focus means the quickest solves. Close will work, but use the **+/-** keys to zoom the
-view to 2x and 4x and get the stars as tight as you reasonably can. With dark enough skies
-and good focus, the camera icon appears in the top right and the current constellation
-shows in the title bar. Congratulations — the PiFinder knows where it's pointing!
+Along the bottom of the Focus screen is the **focus strip**, which turns focusing from a judgement
+call into a number you can chase.  A large **HFD** readout — the Half-Flux Diameter of the stars it
+finds, in pixels — fills the right of the strip.  This is simply how spread-out the stars are, so a
+smaller number means tighter, sharper stars: as you adjust the lens, your goal is to make the HFD as
+small as you can.
+
+.. image:: images/quick_start/focus_strip_docs.png
+
+To the left of the readout a graph plots the HFD over the last several seconds.  As you slowly turn
+the focuser the line traces a "V" — dropping as the stars sharpen, reaching a low point at best focus,
+then climbing again as you go past it.  Stop at the bottom of the V.  The graph is scaled to the range
+a real lens reaches — about 4 px at sharp focus up to 20 px when clearly soft — and a marker line shows
+the best (lowest) HFD seen recently.  Small labels show the current exposure time, **det** (the number
+of stars the focus screen detected) and, once a solve succeeds, the matched-star count next to the star
+icon — watch that jump from zero the moment your stars are sharp enough for the PiFinder to recognise
+them.
+
+If the image is too far out of focus to measure, the readout shows ``keep going`` until a star comes
+into range.  The strip works at every zoom level, since the HFD doesn't depend on zoom, and you can
+press the **SQUARE** button to hide or show it if you'd rather see the bare image.
+
+Good focus means the quickest solves.  Close will work, but it's worth driving the HFD down to its
+lowest point — use the **+/-** keys to zoom the view to 2x and 4x and get the stars as tight as you
+reasonably can.  With dark enough skies and good focus, the camera icon appears in the top right and
+the current constellation shows in the title bar.  Congratulations — the PiFinder knows where it's
+pointing!
 
 
 .. note::
    **Can’t get a plate solve?** Check to make sure your lens cap is off, the PiFinder is not moving and
-   the lens is properly focused — remember to zoom to 2x and 4x to judge focus, as soft stars are
-   the usual culprit.
+   the lens is properly focused — soft stars are the usual culprit, so check the HFD on the Focus
+   screen and adjust the lens until it reaches its lowest value.
 
    **Still not working?** Make sure nothing is impeding PiFinder’s view of the sky, and its
    lens has not dewed or fogged over.  A bank of high, thin cloud drifting through can also stop
