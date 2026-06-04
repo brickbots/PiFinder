@@ -73,11 +73,35 @@ MASTER_DUTY: Dict[str, float] = {
 CATALOG: Dict[Earcon, EarconDef] = {
     Earcon.STARTUP: EarconDef(
         important=True,
-        notes=(Note(3000, 80, 0.8), Note(4000, 120, 1.0), Note(2500, 80, 1)),
+        # Rising "wake" cue, tuned by ear: G5-A5-C6-G6 (do-re-fa-do' in G major),
+        # a gentle pentatonic-flavored climb that resolves up an octave to the
+        # held tonic. The notes sit below the ~4 kHz resonance, so loudness rises
+        # naturally toward the final note. ~12 ms rests articulate the run, and
+        # the note lengths are deliberately de-quantized (not all equal) to give
+        # the cue a looser, more natural feel rather than a metronomic one.
+        notes=(
+            Note(784, 101, 1.0),  # G5
+            Note(0, 12),
+            Note(880, 78, 1.0),  # A5
+            Note(0, 12),
+            Note(1047, 99, 1.0),  # C6
+            Note(0, 12),
+            Note(1568, 218, 1.0),  # G6 — held tonic
+        ),
     ),
     Earcon.SHUTDOWN: EarconDef(
         important=True,
-        notes=(Note(4000, 120, 1.0), Note(3000, 160, 0.8)),
+        # Falling "sleep" cue and bookend to STARTUP: G6-C6-G5 (do'-fa-do in G),
+        # the startup's octave climb mirrored back down to the held low tonic.
+        # ~12 ms rests articulate the descent; the note lengths carry the same
+        # de-quantized (jittered) timing as STARTUP for a looser, natural feel.
+        notes=(
+            Note(1568, 132, 1.0),  # G6
+            Note(0, 12),
+            Note(1047, 107, 1.0),  # C6
+            Note(0, 12),
+            Note(784, 292, 1.0),  # G5 — held low tonic
+        ),
     ),
     Earcon.KEYPRESS: EarconDef(notes=(Note(480, 10, 0.2),)),
     Earcon.VOLUME_SAMPLE: EarconDef(notes=(Note(4000, 120, 1.0),)),
