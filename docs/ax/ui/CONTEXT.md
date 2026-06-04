@@ -141,7 +141,7 @@ The **median** HFD over the few brightest detected stars in the current frame �
 _Avoid_: best HFD (that's the marker), single-star HFD.
 
 **Focus strip**:
-The bottom-of-screen overlay (~30 px) that renders the focus indicator over the live image: the V-curve, best-focus marker, past-best cue, focus HFD readout, exposure, detected-star count, and the (kept) matched-star count. On by default; `square` hides the whole strip. Persists across all zoom levels (HFD is zoom-independent).
+The bottom-of-screen overlay (~38 px) that renders the focus indicator over the live image: a large right-justified **focus HFD** readout (filling the strip height), and in the freed left region the V-curve, best-focus marker, exposure, detected-star count, and the (kept) matched-star count. On by default; `square` hides the whole strip. Persists across all zoom levels (HFD is zoom-independent).
 _Avoid_: HUD (loosely the same overlay; "focus strip" is the canonical name), info overlay (the prior exposure+matched-count overlay this replaces).
 
 **V-curve** (focus trend graph):
@@ -151,10 +151,6 @@ _Avoid_: focus graph, history graph, trend line.
 **Best-focus marker**:
 The minimum focus HFD within the rolling 10-second window — the bottom of the current V. Auto-rearms as old samples scroll out of the window; there is no manual reset.
 _Avoid_: best focus (the state), minimum line, target HFD.
-
-**Past-best cue**:
-The explicit "you've passed best focus — back up" signal. Fires when the current focus HFD exceeds `best-focus marker × (1 + threshold)` and that minimum occurred earlier in the window.
-_Avoid_: overshoot warning, back-up arrow, alert.
 
 ## Boundary terms
 
