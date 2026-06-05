@@ -92,10 +92,20 @@ class UISQMCorrection(UIModule):
             fill=self.colors.get(255),
         )
 
+        # Stack the rows below the title bar; offsets derive from font heights
+        # so the block fills a larger panel instead of clustering at the top
+        # (reproduces the 128 panel's 25 / 45 / 60 / 85 positions).
+        tb = self.display_class.titlebar_height
+        base_h = self.fonts.base.height
+        original_y = tb + 8
+        corrected_y = original_y + base_h + 9
+        entry_y = corrected_y + base_h + 4
+        message_y = entry_y + self.fonts.large.height + 9
+
         # Show original SQM value
         original_text = _("Original: {sqm:.2f}").format(sqm=self.original_sqm)
         self.draw.text(
-            (0, 25),
+            (0, original_y),
             original_text,
             font=self.fonts.base.font,
             fill=self.colors.get(128),
@@ -104,17 +114,16 @@ class UISQMCorrection(UIModule):
         # Show correction input label
         corrected_label = _("Corrected:")
         self.draw.text(
-            (0, 45),
+            (0, corrected_y),
             corrected_label,
             font=self.fonts.base.font,
             fill=self.colors.get(192),
         )
 
-        # Calculate centered position for entry field
-        entry_y = 60
+        # Center the entry field on the actual screen width
         char_width = self.fonts.large.width
         total_width = char_width * len(self.entry_field.positions)
-        entry_x = (128 - total_width) // 2
+        entry_x = (self.display_class.resX - total_width) // 2
 
         # Draw numeric entry field using component with blinking cursor
         self.entry_field.draw(
@@ -130,7 +139,6 @@ class UISQMCorrection(UIModule):
         )
 
         # Show error or success message
-        message_y = 85
         if self.error_message and self.message_time:
             # Show error for 3 seconds
             if (datetime.now() - self.message_time).total_seconds() < 3:
@@ -161,8 +169,8 @@ class UISQMCorrection(UIModule):
         # Draw legend at bottom using component
         self.legend.draw(
             draw=self.draw,
-            screen_width=128,
-            screen_height=128,
+            screen_width=self.display_class.resX,
+            screen_height=self.display_class.resY,
             font=self.fonts.base.font,
             font_height=self.fonts.base.height,
             separator_color=self.colors.get(128),

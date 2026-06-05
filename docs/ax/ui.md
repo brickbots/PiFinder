@@ -49,7 +49,9 @@ For the canonical glossary of terms, see [`ui/CONTEXT.md`](./ui/CONTEXT.md).
                                   + shared_state.set_current_ui_state(serialize…)
 ```
 
-Each `UIModule` owns a 128x128 `PIL.Image` (`self.screen`) it draws into.
+Each `UIModule` owns a `PIL.Image` (`self.screen`) sized to the display
+instance's `resolution` (128×128 on the SSD1351, 176×176 on the SSD1333)
+that it draws into.
 `MenuManager.update()` asks the active module to redraw, then pushes the
 resulting image both to the physical display and onto `shared_state` so
 the web/API layer can mirror it. The whole UI runs in the **main
