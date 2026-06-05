@@ -340,20 +340,23 @@ class UIModule:
             return self._BATT_80
         return self._BATT_FULL
 
-    def _draw_battery_icon(self, fg) -> None:
+    def _draw_battery_icon(self, fg) -> bool:
         """Draw the battery indicator to the left of the GPS/solver icons.
 
         Only rendered on battery-enabled hardware once a real reading exists;
         ``shared_state.battery()`` is ``None`` both on non-battery boards and in
         the brief window before the monitor's first sample, so we show nothing
         rather than a fake level.
+
+        returns True if battery indicated was drawn (has battery)
+                False if no battery hardware
         """
         hardware = self.shared_state.hardware()
         if not (hardware and hardware.has_bq25895):
-            return
+            return False
         battery = self.shared_state.battery()
         if battery is None:
-            return
+            return False
 
         icon = self._battery_icon(battery)
         font = self.fonts.icon_bold_large.font
@@ -370,6 +373,8 @@ class UIModule:
             font=font,
             fill=fg,
         )
+
+        return True
 
     def _draw_titlebar_rotating_info(self, x, y, fg):
         """Draw rotating constellation/SQM in title bar (dark text on gray bg)."""
@@ -439,7 +444,7 @@ class UIModule:
             )
 
             # Battery indicator (battery-enabled hardware only), just left of GPS
-            self._draw_battery_icon(fg)
+            battery_drawn = self._draw_battery_icon(fg)
 
             if moving:
                 self._unmoved = False
@@ -467,8 +472,12 @@ class UIModule:
 
                     if len(self.title) < 9:
                         # Draw rotating constellation/SQM wheel (replaces static constellation)
+
+                        # Adjust spacing a bit of battery indicator is present
+                        titlebar_position = 0.50 if battery_drawn else 0.54
+
                         self._draw_titlebar_rotating_info(
-                            x=int(self.display_class.resX * 0.50),
+                            x=int(self.display_class.resX * titlebar_position),
                             y=title_y,
                             fg=fg if self._unmoved else self.colors.get(32),
                         )
