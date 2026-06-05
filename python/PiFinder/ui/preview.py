@@ -250,14 +250,24 @@ class UIPreview(UIModule):
     def draw_focus_strip(self):
         """Render the focus strip: big HFD readout, V-curve, marker, and HUD.
 
-        ~38 px bottom band, on by default; square hides it. Persists across all
-        zoom levels (HFD is zoom-independent). Layout: a large right-justified
-        HFD number (the hero readout) fills the strip height; the V-curve and
-        small labels sit in the freed left region.
+        Bottom band, on by default; square hides it. Persists across all zoom
+        levels (HFD is zoom-independent). Layout: a large right-justified HFD
+        number (the hero readout) fills the strip height; the V-curve and small
+        labels sit in the freed left region.
+
+        Geometry is resolution-flexible (ADR 0009): the band is a fixed fraction
+        of the screen height (~38 px on the 128 panel, proportionally taller on
+        a larger panel) and the label clearances derive from the small-font
+        height, so the rows never collide with the V-curve as the font grows.
         """
-        strip_top = 90
         res_x = self.display_class.resX
         res_y = self.display_class.resY
+        # Bottom band height scales with the screen (38 px / 128 px on the
+        # 128 panel); strip_top was a 128-only literal (90) before #453.
+        strip_top = res_y - round(res_y * 38 / 128)
+        # Small-font height drives the label-row clearances (9 px on the 128
+        # panel); deriving them keeps the rows clear of the V-curve at 176.
+        small_h = self.fonts.small.height
 
         # Dim band so the overlay stays legible over a bright image.
         self.draw.rectangle([0, strip_top, res_x, res_y], fill=(0, 0, 0, 150))
@@ -304,10 +314,13 @@ class UIPreview(UIModule):
             )
 
         # --- Left region: V-curve framed by small labels ---
+        # plot_top clears the top label row; plot_bottom sits just above the
+        # bottom label row -- both derived from the small-font height so they
+        # track the font across resolutions (9 / 10 px on the 128 panel).
         plot_left = 2
         plot_right = num_left - 3
-        plot_top = strip_top + 9
-        plot_bottom = res_y - 10
+        plot_top = strip_top + small_h
+        plot_bottom = res_y - small_h - 1
 
         # Top labels: exposure (left), matched-star count (right of the graph).
         # The matched 0 -> N jump still signals "sharp enough to solve".
@@ -336,7 +349,7 @@ class UIPreview(UIModule):
         # Bottom label: detected-star count (the self-contained detector).
         outline_text(
             self.draw,
-            (plot_left, res_y - 9),
+            (plot_left, res_y - small_h),
             _("det {n}").format(n=detected),
             align="left",
             font=self.fonts.small,
