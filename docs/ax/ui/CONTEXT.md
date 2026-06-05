@@ -141,7 +141,7 @@ The **median** HFD over the few brightest detected stars in the current frame â€
 _Avoid_: best HFD (that's the marker), single-star HFD.
 
 **Focus strip**:
-The bottom-of-screen overlay (~38 px) that renders the focus indicator over the live image: a large right-justified **focus HFD** readout (filling the strip height), and in the freed left region the V-curve, best-focus marker, exposure, detected-star count, and the (kept) matched-star count. On by default; `square` hides the whole strip. Persists across all zoom levels (HFD is zoom-independent).
+The bottom-of-screen overlay (a fixed fraction of the screen height â€” ~38 px on the 128 panel, proportionally taller on a larger panel; see ADR 0009) that renders the focus indicator over the live image: a large right-justified **focus HFD** readout (filling the strip height), and in the freed left region the V-curve, best-focus marker, exposure, detected-star count, and the (kept) matched-star count. On by default; `square` hides the whole strip. Persists across all zoom levels (HFD is zoom-independent).
 _Avoid_: HUD (loosely the same overlay; "focus strip" is the canonical name), info overlay (the prior exposure+matched-count overlay this replaces).
 
 **V-curve** (focus trend graph):
