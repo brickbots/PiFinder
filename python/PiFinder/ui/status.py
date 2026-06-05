@@ -11,6 +11,7 @@ from PiFinder.ui.base import UIModule
 from PiFinder import calc_utils
 from PiFinder import utils
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
+from PiFinder.ui.layout import rows_below_titlebar
 
 sys_utils = utils.get_sys_utils()
 
@@ -57,7 +58,9 @@ class UIStatus(UIModule):
             color=self.colors.get(255),
             colors=self.colors,
             font=self.fonts.base,
-            available_lines=9,
+            # As many base-font rows as fit below the title bar (9 on the 128
+            # panel, more on taller displays).
+            available_lines=rows_below_titlebar(self.display_class, gap=1).max_visible,
         )
 
     def update_status_dict(self):
@@ -120,12 +123,8 @@ class UIStatus(UIModule):
                     mtext = "Static"
                 self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu.status)
 
-                self.status_dict["IMU qw,qx"] = (
-                    f"{imu.quat.w:>.2f},{imu.quat.x : >.2f}"
-                )
-                self.status_dict["IMU qy,qz"] = (
-                    f"{imu.quat.y:>.2f},{imu.quat.z : >.2f}"
-                )
+                self.status_dict["IMU qw,qx"] = f"{imu.quat.w:>.2f},{imu.quat.x : >.2f}"
+                self.status_dict["IMU qy,qz"] = f"{imu.quat.y:>.2f},{imu.quat.z : >.2f}"
         else:
             self.status_dict["IMU"] = "--"
             self.status_dict["IMU qw,qx"] = "--"
@@ -170,7 +169,7 @@ class UIStatus(UIModule):
 
     def update(self, force=False):
         self.update_status_dict()
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.clear_screen()
         lines = []
         # Insert IP address here...
         for k, v in self.status_dict.items():

@@ -37,6 +37,11 @@ STRETCH_EMA_ALPHA = 0.15  # display-stretch black/white smoothing (lower = calme
 STRETCH_MIN_SPAN = 50.0  # min ADU span so a faint frame isn't stretched hard
 STRETCH_DITHER_FRAC = 0.5  # uniform dither amplitude as a fraction of one step
 
+# Native camera frame size. target_pixel and centroid coordinates live in this
+# (square) pixel space (see SharedStateObj.target_pixel, documented 512x512);
+# the preview scales them down to the display resolution.
+CAMERA_NATIVE_RES = 512
+
 
 class UIPreview(UIModule):
     from PiFinder import tetra3
@@ -160,18 +165,20 @@ class UIPreview(UIModule):
 
             for _i in range(self.highlight_count):
                 raw_y, raw_x = self.star_list[_i]
-                star_x = int(raw_x / 4)
-                star_y = int(raw_y / 4)
+                # centroids are in native camera space; scale to the display
+                star_x = int(raw_x * self.display_class.resX / CAMERA_NATIVE_RES)
+                star_y = int(raw_y * self.display_class.resY / CAMERA_NATIVE_RES)
 
                 x_direction = 1
                 x_text_offset = 6
                 y_direction = 1
                 y_text_offset = -12
 
-                if star_x > 108:
+                # flip the marker/label when too close to the right edge or top
+                if star_x > self.display_class.resX - 20:
                     x_direction = -1
                     x_text_offset = -10
-                if star_y < 38:
+                if star_y < self.display_class.titlebar_height + 21:
                     y_direction = -1
                     y_text_offset = 1
 
@@ -388,16 +395,26 @@ class UIPreview(UIModule):
                 self._last_focus_frame_time = last_image_time
 
             image_obj = raw_image
+            native_w, native_h = image_obj.size
+            resX, resY = self.display_class.resX, self.display_class.resY
 
-            # Resize
+            # Resize / zoom. Zoom crops a centred region of the native camera
+            # frame (half of it for 2x, a quarter for 4x) then scales to the
+            # display, so the zoom factor stays 2x / 4x at any resolution.
             if self.zoom_level == 0:
-                image_obj = image_obj.resize((128, 128))
+                image_obj = image_obj.resize((resX, resY))
             elif self.zoom_level == 1:
-                image_obj = image_obj.resize((256, 256))
-                image_obj = image_obj.crop((64, 64, 192, 192))
+                crop_w, crop_h = native_w // 2, native_h // 2
+                ox, oy = (native_w - crop_w) // 2, (native_h - crop_h) // 2
+                image_obj = image_obj.crop((ox, oy, ox + crop_w, oy + crop_h)).resize(
+                    (resX, resY)
+                )
             elif self.zoom_level == 2:
-                # no resize, just crop
-                image_obj = image_obj.crop((192, 192, 320, 320))
+                crop_w, crop_h = native_w // 4, native_h // 4
+                ox, oy = (native_w - crop_w) // 2, (native_h - crop_h) // 2
+                image_obj = image_obj.crop((ox, oy, ox + crop_w, oy + crop_h)).resize(
+                    (resX, resY)
+                )
 
             # Background-anchored linear stretch (replaces autocontrast), then RED.
             # Stretch on a single luminance band (debug frames are RGB; hardware
