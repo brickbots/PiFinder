@@ -17,6 +17,7 @@ from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
 from PiFinder.ui.marking_menus import MarkingMenu
 from PiFinder.catalogs import Catalogs
+from PiFinder.types.hardware import ChargeStatus
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -113,6 +114,16 @@ class UIModule:
     _PLUS_ = "󰐕"
     _MINUS_ = "󰍴"
     _PLUSMINUS_ = "󰐕/󰍴"
+    # Battery title-bar icons (Material Design glyphs in the bundled Nerd Font).
+    # Charging shows a single bolt glyph; otherwise the level is quantized into
+    # ~20% buckets with an "empty" glyph at <=10%.  See _battery_icon().
+    _BATT_CHARGING = "󰂄"  # F0084 battery + bolt
+    _BATT_EMPTY = "󰂎"  # F008E empty outline (<=10%)
+    _BATT_20 = "󰁻"  # F007B
+    _BATT_40 = "󰁽"  # F007D
+    _BATT_60 = "󰁿"  # F007F
+    _BATT_80 = "󰂁"  # F0081
+    _BATT_FULL = "󰁹"  # F0079
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
     _display_mode_list: Union[list[None], list[str]] = [None]  # List of display modes
@@ -300,6 +311,66 @@ class UIModule:
 
         self.ui_state.set_message_timeout(timeout + time.time())
 
+    def _battery_icon(self, battery) -> str:
+        """Pick the title-bar battery glyph for a ``BatteryState``.
+
+        Charging (the charger pulls voltage up, so ``state_of_charge_pct`` is
+        ``None``) shows a bolt; otherwise the state of charge is quantized into
+        ~20% buckets, with the empty glyph at <=10% remaining.
+        """
+        if battery.charge_status in (
+            ChargeStatus.PRE_CHARGE,
+            ChargeStatus.FAST_CHARGING,
+        ):
+            return self._BATT_CHARGING
+
+        soc = battery.state_of_charge_pct
+        if soc is None:
+            # Not charging but no estimate (shouldn't happen) — fail safe to full.
+            return self._BATT_FULL
+        if soc <= 10:
+            return self._BATT_EMPTY
+        if soc <= 30:
+            return self._BATT_20
+        if soc <= 50:
+            return self._BATT_40
+        if soc <= 70:
+            return self._BATT_60
+        if soc <= 90:
+            return self._BATT_80
+        return self._BATT_FULL
+
+    def _draw_battery_icon(self, fg) -> None:
+        """Draw the battery indicator to the left of the GPS/solver icons.
+
+        Only rendered on battery-enabled hardware once a real reading exists;
+        ``shared_state.battery()`` is ``None`` both on non-battery boards and in
+        the brief window before the monitor's first sample, so we show nothing
+        rather than a fake level.
+        """
+        hardware = self.shared_state.hardware()
+        if not (hardware and hardware.has_bq25895):
+            return
+        battery = self.shared_state.battery()
+        if battery is None:
+            return
+
+        icon = self._battery_icon(battery)
+        font = self.fonts.icon_bold_large.font
+        # Sit just left of the GPS icon (resX * 0.8) with a small, proportional
+        # gap so the battery reads as its own group.  Battery hardware is always
+        # paired with a 176px+ display, so this clears the rotating
+        # constellation/SQM without needing to reflow it.
+        gps_x = self.display_class.resX * 0.8
+        icon_w = font.getlength(icon)
+        gap = self.display_class.resX * 0.035
+        self.draw.text(
+            (gps_x - icon_w - gap, -2),
+            icon,
+            font=font,
+            fill=fg,
+        )
+
     def _draw_titlebar_rotating_info(self, x, y, fg):
         """Draw rotating constellation/SQM in title bar (dark text on gray bg)."""
         self._rotating_display.draw(
@@ -377,6 +448,9 @@ class UIModule:
                 font=self.fonts.icon_bold_large.font,
                 fill=_gps_color,
             )
+
+            # Battery indicator (battery-enabled hardware only), just left of GPS
+            self._draw_battery_icon(fg)
 
             if moving:
                 self._unmoved = False
