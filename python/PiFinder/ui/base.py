@@ -383,17 +383,6 @@ class UIModule:
             inverted=True,
         )
 
-    def draw_rotating_info(self, x=10, y=92, font=None):
-        """Draw rotating constellation/SQM display with cross-fade."""
-        self._rotating_display.draw(
-            self.draw,
-            x,
-            y,
-            font or self.fonts.bold.font,
-            self.colors,
-            max_brightness=255,
-        )
-
     def screen_update(self, title_bar=True, button_hints=True) -> None:
         """
         called to trigger UI updates
@@ -479,7 +468,7 @@ class UIModule:
                     if len(self.title) < 9:
                         # Draw rotating constellation/SQM wheel (replaces static constellation)
                         self._draw_titlebar_rotating_info(
-                            x=int(self.display_class.resX * 0.54),
+                            x=int(self.display_class.resX * 0.50),
                             y=title_y,
                             fg=fg if self._unmoved else self.colors.get(32),
                         )
