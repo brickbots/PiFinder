@@ -401,6 +401,15 @@ def main(
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
+
+    # Now that the keypad backlights are up, turn off the Raspberry Pi's red
+    # power LED — it's a bright, fixed-on light that hurts night vision.  The
+    # LED is on/off only (not dimmable).  Best-effort; never block startup.
+    try:
+        utils.get_sys_utils().set_power_led(False)
+    except Exception as e:
+        logger.warning("Could not turn off power LED: %s", e)
+
     if cfg.get_option("screen_direction") == "as_bloom":
         display_device.device.rotate = 3
 
