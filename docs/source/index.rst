@@ -69,6 +69,7 @@ Join the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ for support 
    build_guide
    v25_upgrade
    software
+   sd_card
    skysafari
    dev_guide
    dev_arch
