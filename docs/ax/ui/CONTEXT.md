@@ -76,6 +76,20 @@ _Avoid_: current screen, focused module, top module.
 The flow where `MenuManager.key_*` forwards a keypad event to `stack[-1].key_*`, after first checking for help mode and marking-menu mode.
 _Avoid_: event routing, input handling.
 
+**Keypad layout**:
+The physical pad is **TKL / calculator style — `7 8 9` is the TOP row**, not phone style. The full grid (from `keyboard_pi.py`'s `keymap`) is:
+
+```
+7  8  9   (na)
+4  5  6   PLUS
+1  2  3   MINUS
+   0      SQUARE
+LEFT UP DOWN RIGHT
+```
+
+So when a module maps number keys to on-screen **2×2 screen quadrants**, the spatially-faithful corners are `7`=top-left, `9`=top-right, `1`=bottom-left, `3`=bottom-right (used by daytime alignment's quadrant picker). `SQUARE`+key sends the `ALT_*` variant; a long press sends the `LNG_*` variant (long-`SQUARE` opens the marking menu).
+_Avoid_: assuming phone-style `1 2 3` on top — it is inverted.
+
 **Display mode**:
 A per-module variant cycled by the square key via `cycle_display_mode()` over the class's `_display_mode_list` (default `[None]`; e.g. `UIGPSStatus` has `["large", "detailed"]`).
 _Avoid_: view mode, layout, skin.

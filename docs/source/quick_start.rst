@@ -405,6 +405,40 @@ the PiFinder to your telescope.
    eyepiece you'd like objects placed if your initial alignment wasn't quite right.
 
 
+Daytime alignment
+^^^^^^^^^^^^^^^^^^^
+The alignment above relies on a plate solve, so it only works once there are stars to see. To
+set things up during the day, choose 'Align (Day)' from the 'Start' menu. It reaches the same
+result by hand: you point your telescope at a distant object, find where the camera sees it,
+and mark that spot directly — no solve required.
+
+.. image:: images/quick_start/align_day_start.png
+
+Opening the screen switches the camera to a short daytime exposure so you can see what it's
+pointing at. Press **SQUARE** to begin.
+
+The view splits into four quadrants labelled to match the keypad corners — **7** top-left,
+**9** top-right, **1** bottom-left, **3** bottom-right. Press the key for the quadrant your
+object sits in and that quarter fills the screen, divided again. Up to three rounds of this
+narrow the marker down to a small area.
+
+.. image:: images/quick_start/align_day_quadrant.png
+
+From there the arrow keys nudge the marker a pixel at a time for fine placement. The first
+arrow press also leaves quadrant mode, so you can switch to fine adjustment at any point.
+
+Center your distant object in the eyepiece, move the marker onto it on screen, then press
+**SQUARE** to save. Press **0** to exit without changing the alignment. Pick something far
+enough away that the focus matches the night sky — a distant treetop, chimney, or hilltop,
+not something across the room.
+
+.. note::
+   In daylight the image is shown in plain white rather than the usual red, since night vision
+   isn't a concern. If the view is washed out or too dark, **+** and **-** adjust the exposure
+   by hand. Hold **SQUARE** for the marking menu, where 'Exp Auto' hands exposure back to the
+   camera and 'Center' returns the marker to the middle.
+
+
 GPS Status
 ^^^^^^^^^^^
 
