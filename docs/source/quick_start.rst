@@ -124,7 +124,7 @@ Configuration Setup
 The PiFinder comes in several configurations (Right/Left/Straight/Flat). Set yours in the
 software so the PiFinder can give pointing directions that match your setup.
 
-From the main menu, select Settings, then scroll down and select PiFinder Type.
+From the main menu, select Settings, scroll down to Advanced, then select PiFinder Type.
 
 .. image:: images/quick_start/settings_select.png
 .. image:: images/quick_start/settings_menu_config.png

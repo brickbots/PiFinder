@@ -70,7 +70,7 @@ The camera view is blank or black
 If the Focus screen shows nothing at all — not even faint noise with the lens cap on —
 the **Camera Type** setting probably doesn't match the camera in your unit.
 
-- Open Settings and try a different Camera Type.  The v3 sensors are ``imx462`` and
+- Open Settings → Advanced and try a different Camera Type.  The v3 sensors are ``imx462`` and
   ``imx296``; older v2 cameras are ``imx477``.  It won't hurt to try each.
 - **After changing Camera Type you must fully power the PiFinder off and on** — a software
   restart alone won't apply it.

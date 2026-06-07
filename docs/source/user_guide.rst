@@ -309,6 +309,11 @@ PiFinder is in and its physical configuration.
 
 .. image:: images/user_guide/settings_03.png
 
+Hardware setup that's normally configured once — PiFinder Type, Camera Type, and GPS
+Settings (type and baud rate) — lives under the Advanced submenu near the bottom of the
+Settings Menu.  Opening it shows a brief "Options for DIY PiFinders" reminder, since on a
+fully built unit these are already set to match your hardware.
+
 
 Observing with PiFinder
 ========================

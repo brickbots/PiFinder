@@ -137,7 +137,7 @@ which. From the main PiFinder menu:
 
 .. image:: images/v25_upgrade/v25_upgrade_41.png
 
-* Choose Camera Type near the bottom
+* Scroll down to Advanced, then choose Camera Type
 
 .. image:: images/v25_upgrade/v25_upgrade_42.png
 
@@ -145,9 +145,11 @@ which. From the main PiFinder menu:
 
 .. image:: images/v25_upgrade/v25_upgrade_44.png
 
-Your PiFinder reboots, and the camera preview screen shows a bright image or static, depending on
-lighting. Set your exposure to 0.4 or 0.2 at most with the new camera, and try lower once you're
-out under the stars.
+Choosing the new sensor restarts the software, but that restart alone won't initialize the
+camera.  **Fully power the PiFinder off and back on** — otherwise the camera view stays blank
+and it looks as though the switch didn't take.  After the power cycle the camera preview shows
+a bright image or static, depending on lighting. Set your exposure to 0.4 or 0.2 at most with
+the new camera, and try lower once you're out under the stars.
 
 That's it; congratulations on your new PiFinder v2.5.
 
