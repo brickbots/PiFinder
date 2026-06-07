@@ -419,13 +419,22 @@ pointing at. Press **SQUARE** to begin.
 
 The view splits into four quadrants labelled to match the keypad corners — **7** top-left,
 **9** top-right, **1** bottom-left, **3** bottom-right. Press the key for the quadrant your
-object sits in and that quarter fills the screen, divided again. Up to three rounds of this
-narrow the marker down to a small area.
+object sits in.
 
-.. image:: images/quick_start/align_day_quadrant.png
+.. image:: images/quick_start/align_day_quad1.png
+
+That quarter fills the screen and divides into quadrants again, so each press narrows the
+marker into a smaller area. Repeat for up to three rounds:
+
+.. image:: images/quick_start/align_day_quad2.png
+   :width: 45%
+.. image:: images/quick_start/align_day_quad3.png
+   :width: 45%
 
 From there the arrow keys nudge the marker a pixel at a time for fine placement. The first
 arrow press also leaves quadrant mode, so you can switch to fine adjustment at any point.
+
+.. image:: images/quick_start/align_day_fine.png
 
 Center your distant object in the eyepiece, move the marker onto it on screen, then press
 **SQUARE** to save. Press **0** to exit without changing the alignment. Pick something far
