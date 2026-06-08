@@ -124,10 +124,6 @@ class UITextEntry(UIModule):
         self._results_updated = False  # Flag to trigger UI refresh
         self.SEARCH_DEBOUNCE_MS = 250  # milliseconds
 
-    @property
-    def t9_search_enabled(self) -> bool:
-        return bool(self.config_object.get_option("t9_search", False))
-
     def draw_text_entry(self):
         line_text_y = self.text_y + self.bold.height + 2
         self.draw.line(
@@ -175,7 +171,7 @@ class UITextEntry(UIModule):
             )
 
     def draw_keypad(self):
-        # 3-column x 4-row T9 grid filling the width below the text line; key
+        # 3-column x 4-row keypad grid filling the width below the text line; key
         # size derives from the screen so it scales (38x23 on the 128 panel).
         start_x = self.text_x
         start_y = self.text_y + self.bold.height
@@ -286,10 +282,7 @@ class UITextEntry(UIModule):
             # Priority catalogs (NGC, IC, M) are loaded first, WDS loads in background
             # So search will work immediately with those, WDS results appear when loading completes
             logger.info(f"Starting search for '{search_text}'")
-            if self.t9_search_enabled:
-                results = self.catalogs.search_by_t9(search_text)
-            else:
-                results = self.catalogs.search_by_text(search_text)
+            results = self.catalogs.search_by_text(search_text)
             logger.info(f"Search for '{search_text}' found {len(results)} results")
 
             # Only update if this search is still current (not superseded by newer search)
@@ -353,15 +346,6 @@ class UITextEntry(UIModule):
     def key_number(self, number):
         current_time = time.time()
         number_key = str(number)
-        if not self.text_entry_mode and self.t9_search_enabled:
-            # In T9 mode we simply append the pressed digit
-            self.last_key_press_time = current_time
-            self.last_key = number
-            if number_key in self.keys:
-                self.char_index = 0
-                self.add_char(number_key)
-            return
-
         # Check if the same key is pressed within a short time
         if self.last_key == number and self.within_keypress_window(current_time):
             self.char_index = (self.char_index + 1) % self.keys.get_nr_entries(

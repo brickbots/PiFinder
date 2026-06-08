@@ -36,7 +36,6 @@ At a high level:
         └─► Catalogs object (single instance shared across the app)
                  │
                  ├── CatalogFilter (one shared instance set on every catalog)
-                 ├── T9 / text search caches
                  └── Iterates as List[Catalog], each holding List[CompositeObject]
 ```
 
@@ -119,7 +118,7 @@ External code is expected to read through `get_objects()` (returns a
 ### 2.5 `Catalogs`
 
 A container that holds a `List[Catalog]` plus the singleton
-`CatalogFilter` and the T9 search cache. It exposes:
+`CatalogFilter`. It exposes:
 
 - `filter_catalogs()` — runs `filter_objects()` on every catalog.
 - `set_catalog_filter(filter)` — installs one filter object on every
@@ -131,10 +130,9 @@ A container that holds a `List[Catalog]` plus the singleton
 - `get_catalog_by_code(code)` / `get_object(code, sequence)` — direct
   lookup.
 - `search_by_text(s)` — substring match against all names (selected or
-  not, filtered or not).
-- `search_by_t9(digits)` — see §5.
+  not, filtered or not). See §5.
 - `add(catalog)` / `remove(code)` / `set(catalogs)` — mutate the
-  collection and invalidate the T9 cache.
+  collection.
 - `is_loading()` — reports whether the background loader thread is
   still alive (UI uses this to show a "still loading" indicator).
 - `__iter__` — yields only selected catalogs.
@@ -254,31 +252,17 @@ filter is restored on app start.
 
 ## 5. Search
 
-### 5.1 Text search
-
 `Catalogs.search_by_text(s)` does a substring lower-case match against
 each name on each object. Returns a `List[CompositeObject]`. No indexing
-— it's O(n_names) per call but fine in practice.
+— it's O(n_names) per call but fine in practice. It is the only catalog
+search.
 
-### 5.2 T9 (keypad) search
-
-PiFinder's hardware keypad uses a non-standard digit-to-letter mapping
-(`KEYPAD_DIGIT_TO_CHARS` at the top of `catalogs.py` — note `7→abc`,
-`1→tuv`, `3→'-+/`, etc.). `Catalogs.search_by_t9(digits)`:
-
-1. Translates every object name to its digit-form via a
-   `str.maketrans` table.
-2. Filters out characters that aren't valid T9 digits.
-3. Caches `(catalog_code, sequence) → list[digit_string]` in
-   `_t9_cache`, invalidated when catalogs are added/removed/replaced.
-4. Returns any object whose digit string contains the search pattern as
-   a substring (skipping objects whose digit string is shorter than the
-   query, since the substring couldn't match).
-
-The cache is rebuilt lazily by `_ensure_t9_cache(objs)` only if the
-dirty flag is set **or** the set of object keys has changed since the
-last rebuild — so dynamic catalogs (PL, comets) updating their
-positions don't trigger a rebuild as long as their key set is stable.
+On the hardware keypad, `UITextEntry` builds the search string with
+multitap entry: each number key cycles through its letters (the keypad
+uses a non-standard layout — `7→abc`, `1→tuv`, `3→'-+/`, etc.), and the
+resulting text is passed to `search_by_text`. (An earlier `t9_search`
+option that matched names against keypad-digit sequences has been
+removed.)
 
 ---
 

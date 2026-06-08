@@ -59,7 +59,7 @@ A `CatalogBase` (object list + sequence/id indices) plus filtering: holds the sh
 _Avoid_: catalog object, catalog instance — use `Catalog` when the class is meant.
 
 **Catalogs** (the catalog collection):
-The container of `Catalog`s. Owns the singleton `CatalogFilter` and the T9/text search caches; this is the runtime API used by the UI and web. In prose, say "the catalog collection"; reserve `Catalogs` (code-style) for the type itself.
+The container of `Catalog`s. Owns the singleton `CatalogFilter`; this is the runtime API used by the UI and web. In prose, say "the catalog collection"; reserve `Catalogs` (code-style) for the type itself.
 _Avoid_: catalog list, catalog set, the catalogs object.
 
 ### Filtering
@@ -149,12 +149,8 @@ _Avoid_: catalog state (the enum is `CatalogState`; the wrapper is `CatalogStatu
 ### Search
 
 **Text search** (`search_by_text`):
-Lower-case substring match against every name in every catalog. Selection and filter state are ignored.
+Lower-case substring match against every name in every catalog. Selection and filter state are ignored. This is the only catalog search; the on-screen keypad in `UITextEntry` uses multitap (cycle through a key's letters) to build the search string.
 _Avoid_: name search, full-text search.
-
-**T9 search** (`search_by_t9`):
-Substring search after translating names to PiFinder's non-standard keypad-digit form (`KEYPAD_DIGIT_TO_CHARS` — `7→abc`, `1→tuv`, …). Backed by `_t9_cache` keyed on `(catalog_code, sequence)`.
-_Avoid_: keypad search, digit search (use T9 search for the public concept).
 
 ### UI helpers
 

@@ -347,7 +347,7 @@ four options:
   for observing projects and finding the nearest objects in a particular catalog.
 - **Recent**: Starts empty and builds a history of the objects you've checked out during
   the current session.
-- **Name Search**: Using the number keypad and T9-style text entry, search for objects by
+- **Name Search**: Using the number keypad and keypad text entry, search for objects by
   name.  The Snowball planetary?  Cat's Eye?  This is the way to find them.
 
 However you build the list, it always displays the same information and offers the same
@@ -490,7 +490,7 @@ screen, select it from the Objects menu:
 
 .. image:: images/user_guide/name_search_01.png
 
-It uses T9-style text input, like the cellphones from the dawn of text messaging.  The
+It uses keypad text input, like the cellphones from the dawn of text messaging.  The
 on-screen keypad shows the letters available by pressing each number key several times in a
 row.
 

@@ -364,7 +364,7 @@ hardware, or network dependency at construct or update time — are:
 | `UIObjectList` | `object_list.py:108` | Reads `catalogs` heavily (filtered/by-code lists). Loads marker PNGs from `PiFinder/markers/`. Constructor mutates the passed `item_definition` (`select`/`items`). |
 | `UIObjectDetails` | `object_details.py:56`, `:77` | Requires `item_definition["object"]` and `["object_list"]`. Opens an `ObservationsDatabase` (SQLite, `~/PiFinder_data/observations.db`). Reads `catalogs`, `shared_state`. |
 | `UILog` | `log.py:30`, `:44` | Requires `item_definition["object"]`. Opens `ObservationsDatabase`. |
-| `UITextEntry` | `textentry.py:104` | In catalog-search mode opens `ObjectsDatabase` (the bundled `pifinder_objects.db`) and calls `catalogs.search_by_t9` / `search_by_text`. |
+| `UITextEntry` | `textentry.py:104` | In catalog-search mode opens `ObjectsDatabase` (the bundled `pifinder_objects.db`) and calls `catalogs.search_by_text`. |
 | `UISQM` | `sqm.py:54` | `update()` calls `self.camera_image.copy()` — needs a real `camera_image` (a `PIL.Image`, **not** `None`). Reads `shared_state.sqm()`, sends camera commands. |
 | `UIPreview` | `preview.py:213` | Also `self.camera_image.copy()` — needs a real camera image; reads `shared_state.last_image_metadata()`. |
 | `UISoftware` | `software.py:55`–`:74` | Constructor `open()`s `version.txt` and `wifi_status.txt` from `utils.pifinder_dir` (must exist). Update path does `requests.get(...)` to GitHub — network. |
