@@ -446,6 +446,23 @@ class TestTelemetryPlayer:
         player = TelemetryPlayer(tmp_path)
         assert len(player.events) == 1
 
+    def test_load_skips_corrupt_lines(self, tmp_path):
+        """Truncated/corrupt lines (e.g. from a power cut) are skipped."""
+        session_file = tmp_path / "session.jsonl"
+        session_file.write_text(
+            json.dumps({"t": 999.0, "e": "hdr"})
+            + "\n"
+            + json.dumps({"t": 1000.0, "e": "imu", "q": [1, 0, 0, 0]})
+            + "\n"
+            + '{"e": "imu", "q": [1, 0, 0, 0]}\n'  # valid JSON, missing "t"
+            + '["not", "a", "dict"]\n'  # valid JSON, wrong shape
+            + '{"t": 1001.0, "e": "imu", "q": [1, 0'  # truncated tail
+        )
+        player = TelemetryPlayer(session_file)
+        assert player.header is not None
+        assert len(player.events) == 1
+        assert player.events[0]["t"] == 1000.0
+
     def test_progress(self, tmp_path):
         events = [
             {"t": 1000.0, "e": "imu", "q": [1, 0, 0, 0]},
@@ -681,6 +698,35 @@ class TestTelemetryManager:
         assert loc_arg.lat == 35.0
         assert loc_arg.source == "replay"
         ss.set_datetime.assert_called_once()
+        # Recordings are from the past; set_datetime rejects "older" times
+        # unless forced, so replay must force-apply.
+        assert ss.set_datetime.call_args.kwargs.get("force") is True
+
+    def test_handle_command_replay_missing_path_survives(self, tmp_path):
+        """A nonexistent session must not raise out of the command handler."""
+        cq = queue.Queue()
+        cam_q = queue.Queue()
+        mgr = TelemetryManager(_make_cfg(), _make_shared_state(), cq, cam_q)
+        mgr._handle_command("replay", str(tmp_path / "does_not_exist"))
+        assert not mgr.replaying
+        assert cq.get_nowait() == "Telemetry: Replay load failed"
+        # The UI stops the camera before sending the command; on a failed
+        # load the manager must restart it.
+        assert cam_q.get_nowait() == "start"
+
+    def test_next_replay_message_malformed_event_skipped(self, tmp_path):
+        """A structurally-broken event is skipped, not raised."""
+        events = [
+            {"t": 1000.0, "e": "imu", "q": [1, 0]},  # truncated quat
+            {"t": 1000.0, "e": "imu", "q": [1, 0, 0, 0]},  # same t → due at once
+        ]
+        _write_session_jsonl(tmp_path / "session.jsonl", events)
+        mgr = TelemetryManager(_make_cfg(), _make_shared_state(), queue.Queue())
+        mgr._handle_command("replay", str(tmp_path))
+        first = mgr.next_replay_message()  # malformed → skipped → None
+        assert first is None
+        second = mgr.next_replay_message()
+        assert isinstance(second, ImuSample)
 
     def test_handle_command_replay_stop(self, tmp_path):
         events = [{"t": 1000.0, "e": "imu", "q": [1, 0, 0, 0]}]

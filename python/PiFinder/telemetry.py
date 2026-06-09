@@ -295,22 +295,39 @@ class TelemetryPlayer:
         self._load()
 
     def _load(self):
-        """Load all events from the JSONL file."""
+        """Load all events from the JSONL file.
+
+        Tolerates corrupt lines (e.g. a truncated tail from a power cut
+        mid-recording): unparseable or timestamp-less lines are skipped
+        with a warning instead of aborting the load.
+        """
         file_path = self.path
         if file_path.is_dir():
             file_path = file_path / "session.jsonl"
 
+        skipped = 0
         with open(file_path) as f:
             for line in f:
                 line = line.strip()
                 if not line:
                     continue
-                event = json.loads(line)
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    skipped += 1
+                    continue
+                if not isinstance(event, dict) or "t" not in event:
+                    skipped += 1
+                    continue
                 if event.get("e") == "hdr":
                     self.header = event
                 else:
                     self.events.append(event)
 
+        if skipped:
+            logger.warning(
+                "Skipped %d corrupt telemetry lines in %s", skipped, file_path
+            )
         if self.events:
             self._base_time = self.events[0]["t"]
         logger.info("Loaded telemetry: %d events from %s", len(self.events), file_path)
@@ -477,7 +494,15 @@ class TelemetryManager:
 
         elif cmd_name == "replay":
             logger.info("Entering replay mode: %s", cmd_arg)
-            self._player = TelemetryPlayer(cmd_arg)
+            try:
+                self._player = TelemetryPlayer(cmd_arg)
+            except OSError as e:
+                # Missing/unreadable session must not kill the integrator.
+                # The UI already stopped the camera, so restart it.
+                logger.error("Failed to load telemetry session %s: %s", cmd_arg, e)
+                self._restart_camera()
+                self._console_queue.put("Telemetry: Replay load failed")
+                return
             if self._player.header:
                 self._apply_replay_header(self._player.header, self._shared_state)
             self._console_queue.put("Telemetry: Replay started")
@@ -510,10 +535,14 @@ class TelemetryManager:
             return None
 
         event_type = event.get("e")
-        if event_type == "imu":
-            return TelemetryPlayer.event_to_imu_sample(event)
-        elif event_type == "solve":
-            return TelemetryPlayer.event_to_solve_result(event)
+        try:
+            if event_type == "imu":
+                return TelemetryPlayer.event_to_imu_sample(event)
+            elif event_type == "solve":
+                return TelemetryPlayer.event_to_solve_result(event)
+        except (KeyError, IndexError, TypeError) as e:
+            # A malformed event must not kill the integrator mid-replay.
+            logger.warning("Skipping malformed replay event: %s", e)
         return None
 
     def record_solve(self, solve_result, predicted=None):
@@ -584,7 +613,10 @@ class TelemetryManager:
             loc.source = "replay"
             shared_state.set_location(loc)
         if hdr.get("dt"):
-            shared_state.set_datetime(datetime.fromisoformat(hdr["dt"]))
+            # force=True so a recording from the past actually overwrites
+            # the current clock — set_datetime otherwise rejects "older"
+            # times, and it also blocks later GPS updates mid-replay.
+            shared_state.set_datetime(datetime.fromisoformat(hdr["dt"]), force=True)
 
         cfg = hdr.get("cfg", {})
         recorded_mount = cfg.get("mount_type")

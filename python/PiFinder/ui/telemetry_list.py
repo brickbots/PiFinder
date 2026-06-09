@@ -63,8 +63,10 @@ class UITelemetryList(UITextMenu):
                 )
         return sessions
 
+    _STOP_SENTINEL = "__stop_replay__"
+
     def _create_menu_definition(self):
-        items = []
+        items = [{"name": _("Stop replay"), "value": self._STOP_SENTINEL}]
         for s in self._sessions:
             items.append(
                 {
@@ -72,33 +74,34 @@ class UITelemetryList(UITextMenu):
                     "value": s["path"],
                 }
             )
-        if not items:
+        if len(items) == 1:
             items.append({"name": "No sessions found", "value": None})
         return {"name": "Telemetry", "select": "single", "items": items}
 
     def key_right(self):
-        """Select a session to replay."""
-        if not self._sessions:
-            self.message("No sessions", 2)
-            return False
-
+        """Select a session to replay, or stop a running replay."""
         idx = self._current_item_index
         items = self.item_definition["items"]
         if idx >= len(items):
             return False
 
-        session_path = items[idx].get("value")
-        if session_path is None:
+        value = items[idx].get("value")
+        if value is None:
             return False
 
-        # Send replay command to integrator
-        if "integrator" in self.command_queues:
-            self.command_queues["camera"].put("stop")
-            self.command_queues["integrator"].put(("replay", session_path))
-            self.message("Replay\nstarted", 2)
-            logger.info("Starting telemetry replay: %s", session_path)
-        else:
+        if "integrator" not in self.command_queues:
             self.message("No integrator\nqueue", 2)
             logger.warning("Integrator command queue not available")
+            return True
 
+        if value == self._STOP_SENTINEL:
+            self.command_queues["integrator"].put(("replay_stop", None))
+            self.message("Replay\nstopped", 2)
+            logger.info("Stopping telemetry replay")
+            return True
+
+        self.command_queues["camera"].put("stop")
+        self.command_queues["integrator"].put(("replay", value))
+        self.message("Replay\nstarted", 2)
+        logger.info("Starting telemetry replay: %s", value)
         return True
