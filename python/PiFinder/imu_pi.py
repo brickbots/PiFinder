@@ -55,6 +55,10 @@ class Imu:
         # to stop moving.
 
         cfg = config.Config()
+        # Raw gyro/accel capture is opt-in: two extra I2C transactions per
+        # sample on a bus the BNO055 is sensitive about, and only useful
+        # for telemetry analysis.
+        self._raw_telemetry = bool(cfg.get_option("telemetry_raw_imu", False))
         imu_threshold_scale = cfg.get_option("imu_threshold_scale", 1)
         self.__moving_threshold = (
             0.0005 * imu_threshold_scale,
@@ -86,14 +90,15 @@ class Imu:
             logger.warning("IMU: Failed to get sensor values")
             return
 
-        # Read raw sensor data alongside the quaternion so the telemetry
-        # sample is coherent (same instant, same I2C burst).
-        try:
-            self.gyro = self.sensor.gyro
-            self.accel = self.sensor.linear_acceleration
-        except (OSError, RuntimeError):
-            self.gyro = None
-            self.accel = None
+        # When enabled, read raw sensor data alongside the quaternion so
+        # the telemetry sample is coherent (same instant, same I2C burst).
+        if self._raw_telemetry:
+            try:
+                self.gyro = self.sensor.gyro
+                self.accel = self.sensor.linear_acceleration
+            except (OSError, RuntimeError):
+                self.gyro = None
+                self.accel = None
         self.last_read_time = time.time()
 
         _quat_diff = []

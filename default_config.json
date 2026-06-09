@@ -179,5 +179,6 @@
     },
     "imu_threshold_scale": 1,
     "telemetry_record": false,
-    "telemetry_images": false
+    "telemetry_images": false,
+    "telemetry_raw_imu": false
 }
