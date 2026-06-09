@@ -178,8 +178,16 @@ _Avoid_: orientation, mount direction.
 ### Alignment
 
 **Camera-to-telescope alignment**:
-The process of learning which camera pixel coincides with the centre of the eyepiece view. Outcome: an updated **target pixel**. From then on, every solve reports RA/Dec at that pixel as `pointing.aligned`.
+The process of learning which camera pixel coincides with the centre of the eyepiece view. Outcome: an updated **target pixel**. From then on, every solve reports RA/Dec at that pixel as `pointing.aligned`. There are **two paths** to that outcome — *solve-based alignment* and *daytime (manual) alignment* — which differ only in how the target pixel is discovered; both write the same `Config["target_pixel"]` / `shared_state.set_target_pixel()`.
 _Avoid_: telescope alignment, eyepiece alignment, scope alignment.
+
+**Solve-based alignment**:
+The default alignment path (`ui/align.py` `UIAlign` + `align_on_radec`): the user picks a star on the starfield chart, the solver plate-solves the live frame against that star's RA/Dec, and tetra3 reports the pixel where it landed (`AlignedResult` → target pixel). Requires a successful plate-solve, so it is a night-sky path.
+_Avoid_: star alignment, chart alignment (describe it as solve-based).
+
+**Daytime alignment** (manual alignment):
+The manual alignment path (`ui/align_daytime.py` `UIAlignDaytime`): with the scope pointed at a distant **daytime** object centred in the eyepiece, the user looks at the live camera image and marks, by eye, the pixel showing that same object. That pixel **is** the target pixel — no plate-solve, no `align_command_queue` round-trip; the module writes `target_pixel` directly. The use case is daylight (no stars to solve); the mechanic is a manual pixel pick.
+_Avoid_: daytime mode (it is an alignment, not a camera mode), visual alignment, manual solve (there is no solve).
 
 **Alignment target** (`align_ra` / `align_dec`):
 Local state in the solver process holding the user's chosen sky coordinate while an alignment request is pending. Cleared once the result is posted.
