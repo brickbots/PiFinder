@@ -1,0 +1,383 @@
+"""
+Tests for the polar-alignment-from-plate-solves module
+(PiFinder.polar_alignment).
+
+Covers:
+- attitude matrix construction / extraction round trips
+- two-solve exact recovery of dAlt/dAz/sweep in both hemispheres
+- three-solve optimiser recovery, with and without noise
+- ignore_roll (RA/Dec-only) path and its immunity to camera flop
+- sweep sign conventions and the sidereal drift correction
+- MIN_SWEEP_DEG degenerate handling
+- precession (skyfield TETE) accuracy
+- correction_target geometry
+- degenerate inputs: 180° sweep, collinear boresights, out-of-order solves
+"""
+
+import numpy as np
+import pytest
+
+from PiFinder.polar_alignment import (
+    MIN_SWEEP_DEG,
+    attitude_mat,
+    axis_to_altaz_error,
+    correction_target,
+    extract_plate_solve,
+    get_platform_adjustments,
+    make_solve_2,
+    _precession_matrix,
+)
+
+LAT_NH = 51.2
+LAT_SH = -34.0
+LST = 112.0
+SIDEREAL_DEG_PER_SEC = 360.0 / 86164.09
+
+
+def _axis_vec(ra_deg, dec_deg):
+    cd = np.cos(np.radians(dec_deg))
+    return np.array(
+        [
+            cd * np.cos(np.radians(ra_deg)),
+            cd * np.sin(np.radians(ra_deg)),
+            np.sin(np.radians(dec_deg)),
+        ]
+    )
+
+
+def _true_axis(latitude, dAlt, dAz, lst_deg):
+    """Equatorial unit vector of the pole-end of a misaligned axis."""
+    lat = np.radians(latitude)
+    if latitude >= 0:
+        alt = np.radians(latitude + dAlt)
+        az = np.radians(dAz)
+    else:
+        alt = np.radians(abs(latitude) + dAlt)
+        az = np.radians(180.0 + dAz)
+    dec = np.arcsin(np.sin(lat) * np.sin(alt) + np.cos(lat) * np.cos(alt) * np.cos(az))
+    ha = np.arctan2(
+        -np.cos(alt) * np.sin(az),
+        np.cos(lat) * np.sin(alt) - np.sin(lat) * np.cos(alt) * np.cos(az),
+    )
+    ra = np.radians(lst_deg) - ha
+    cd = np.cos(dec)
+    return np.array([cd * np.cos(ra), cd * np.sin(ra), np.sin(dec)])
+
+
+def _three_solves(ra1, dec1, latitude, dAlt, dAz, sweep_total, lst_deg):
+    s2 = make_solve_2(ra1, dec1, 0.0, latitude, dAlt, dAz, sweep_total / 2, lst_deg)
+    s3 = make_solve_2(ra1, dec1, 0.0, latitude, dAlt, dAz, sweep_total, lst_deg)
+    return [(ra1, dec1, 0.0, 0), (*s2, 0), (*s3, 0)]
+
+
+@pytest.mark.unit
+class TestAttitudeMatrix:
+    def test_round_trip(self):
+        rng = np.random.default_rng(1)
+        for _ in range(50):
+            ra = rng.uniform(0, 360)
+            dec = rng.uniform(-85, 85)
+            roll = rng.uniform(-180, 180)
+            ra2, dec2, roll2 = extract_plate_solve(attitude_mat(ra, dec, roll))
+            assert ra2 == pytest.approx(ra, abs=1e-9)
+            assert dec2 == pytest.approx(dec, abs=1e-9)
+            assert np.isclose((roll2 - roll + 180) % 360 - 180, 0, atol=1e-9)
+
+    def test_boresight_column(self):
+        M = attitude_mat(30.0, 40.0, 17.0)
+        assert np.allclose(M[:, 2], _axis_vec(30.0, 40.0))
+
+    def test_is_rotation(self):
+        M = attitude_mat(123.0, -45.0, 67.0)
+        assert np.allclose(M @ M.T, np.eye(3), atol=1e-12)
+        assert np.linalg.det(M) == pytest.approx(1.0)
+
+
+@pytest.mark.unit
+class TestAxisToAltAzError:
+    def test_perfect_axis_nh(self):
+        dAlt, dAz = axis_to_altaz_error([0.0, 0.0, 1.0], LAT_NH, LST)
+        assert dAlt == pytest.approx(0.0, abs=1e-9)
+        assert dAz == pytest.approx(0.0, abs=1e-9)
+
+    def test_perfect_axis_sh(self):
+        # SH: the function flips to the S-end, which points at the SCP
+        dAlt, dAz = axis_to_altaz_error([0.0, 0.0, 1.0], LAT_SH, LST)
+        assert dAlt == pytest.approx(0.0, abs=1e-9)
+        assert dAz == pytest.approx(0.0, abs=1e-9)
+
+    def test_known_offset_round_trip(self):
+        # axis_to_altaz_error expects the NCP-side (z >= 0) axis direction,
+        # as produced by get_platform_adjustments; it flips internally for SH.
+        for lat in (LAT_NH, LAT_SH):
+            axis = _true_axis(lat, 1.5, 3.0, LST)
+            if axis[2] < 0:
+                axis = -axis
+            dAlt, dAz = axis_to_altaz_error(axis, lat, LST)
+            assert dAlt == pytest.approx(1.5, abs=1e-9)
+            assert dAz == pytest.approx(3.0, abs=1e-9)
+
+
+@pytest.mark.unit
+class TestTwoSolve:
+    @pytest.mark.parametrize(
+        "lat,dec1",
+        [(LAT_NH, 30.0), (LAT_NH, 80.0), (LAT_SH, -30.0), (0.0, 20.0)],
+    )
+    def test_exact_recovery(self, lat, dec1):
+        s2 = make_solve_2(180.0, dec1, 0.0, lat, 1.5, 3.0, 14.0, LST)
+        dAlt, dAz, sweep, _, _, fq = get_platform_adjustments(
+            [(180.0, dec1, 0.0, 0), (*s2, 0)], lat, LST
+        )
+        assert dAlt == pytest.approx(1.5, abs=1e-6)
+        assert dAz == pytest.approx(3.0, abs=1e-6)
+        assert sweep == pytest.approx(14.0, abs=1e-6)
+        assert np.isnan(fq)  # two-solve has no residual
+
+    def test_negative_errors(self):
+        s2 = make_solve_2(180.0, 30.0, 0.0, LAT_NH, -0.7, -2.1, 20.0, LST)
+        dAlt, dAz, *_ = get_platform_adjustments(
+            [(180.0, 30.0, 0.0, 0), (*s2, 0)], LAT_NH, LST
+        )
+        assert dAlt == pytest.approx(-0.7, abs=1e-6)
+        assert dAz == pytest.approx(-2.1, abs=1e-6)
+
+    def test_boresight_at_axis_roll_only(self):
+        # Pointing at the mechanical axis: RA/Dec fixed, only roll changes.
+        axis = _true_axis(LAT_NH, 1.5, 3.0, LST)
+        ra_pt = np.degrees(np.arctan2(axis[1], axis[0])) % 360
+        dec_pt = np.degrees(np.arcsin(axis[2]))
+        dAlt, dAz, sweep, *_ = get_platform_adjustments(
+            [(ra_pt, dec_pt, 0.0, 0), (ra_pt, dec_pt, 14.0, 0)], LAT_NH, LST
+        )
+        assert dAlt == pytest.approx(1.5, abs=1e-6)
+        assert dAz == pytest.approx(3.0, abs=1e-6)
+        assert abs(sweep) == pytest.approx(14.0, abs=1e-6)
+
+    def test_requires_two_solves(self):
+        with pytest.raises(ValueError):
+            get_platform_adjustments([(180.0, 30.0, 0.0, 0)], LAT_NH, LST)
+
+    def test_min_sweep_returns_nan_axis(self):
+        s2 = make_solve_2(180.0, 30.0, 0.0, LAT_NH, 1.5, 3.0, 1.0, LST)
+        _, _, sweep, ax_ra, ax_dec, _ = get_platform_adjustments(
+            [(180.0, 30.0, 0.0, 0), (*s2, 0)], LAT_NH, LST
+        )
+        assert abs(sweep) < MIN_SWEEP_DEG
+        assert abs(sweep) == pytest.approx(1.0, abs=1e-6)
+        assert np.isnan(ax_ra) and np.isnan(ax_dec)
+
+
+@pytest.mark.unit
+class TestSiderealDriftCorrection:
+    def test_perfect_tracking_sweep(self):
+        # Identical solves 1h apart: the platform followed the stars, so the
+        # mechanical sweep equals the sidereal angle and is positive.
+        gap = 3600.0
+        _, _, sweep, *_ = get_platform_adjustments(
+            [(180.0, 30.0, 0.0, 0.0), (180.0, 30.0, 0.0, gap)], LAT_NH, 0.0
+        )
+        assert sweep == pytest.approx(gap * SIDEREAL_DEG_PER_SEC, abs=1e-6)
+
+    def test_stationary_platform_drifted_sky(self):
+        # Object drifted by exactly the sidereal rate: platform did not move,
+        # so there is no rotation information.
+        gap = 3600.0
+        ra2 = 180.0 + gap * SIDEREAL_DEG_PER_SEC
+        _, _, sweep, ax_ra, *_ = get_platform_adjustments(
+            [(180.0, 30.0, 0.0, 0.0), (ra2, 30.0, 0.0, gap)], LAT_NH, 0.0
+        )
+        assert sweep == pytest.approx(0.0, abs=1e-6)
+        assert np.isnan(ax_ra)
+
+
+@pytest.mark.unit
+class TestThreeSolve:
+    @pytest.mark.parametrize("lat,dec1", [(LAT_NH, 30.0), (LAT_SH, -30.0)])
+    def test_exact_recovery(self, lat, dec1):
+        solves = _three_solves(180.0, dec1, lat, 1.5, 3.0, 14.0, LST)
+        dAlt, dAz, _, _, _, fq = get_platform_adjustments(solves, lat, LST)
+        assert dAlt == pytest.approx(1.5, abs=1e-5)
+        assert dAz == pytest.approx(3.0, abs=1e-5)
+        assert fq == pytest.approx(0.0, abs=1e-4)
+
+    def test_noisy_recovery_beats_sigma(self):
+        sigma_ra = sigma_dec = 0.5 / 60
+        sigma_roll = sigma_ra / np.radians(5.0)
+        solves = _three_solves(180.0, 45.0, LAT_NH, 1.5, 3.0, 37.5, LST)
+        true_ax = _true_axis(LAT_NH, 1.5, 3.0, LST)
+        rng = np.random.default_rng(7)
+        errs, fqs = [], []
+        for _ in range(15):
+            noisy = [
+                (
+                    ra + rng.normal(0, sigma_ra),
+                    dec + rng.normal(0, sigma_dec),
+                    roll + rng.normal(0, sigma_roll),
+                    t,
+                )
+                for ra, dec, roll, t in solves
+            ]
+            _, _, _, ax_ra, ax_dec, fq = get_platform_adjustments(
+                noisy,
+                LAT_NH,
+                LST,
+                sigma_ra=sigma_ra,
+                sigma_dec=sigma_dec,
+                sigma_roll=sigma_roll,
+            )
+            err = np.degrees(
+                np.arccos(np.clip(np.dot(_axis_vec(ax_ra, ax_dec), true_ax), -1, 1))
+            )
+            errs.append(err * 60)
+            fqs.append(fq)
+        # axis recovered to a few arcminutes with 0.5' input noise
+        assert np.mean(errs) < 8.0
+        # fit quality consistent with pure noise (not a systematic error)
+        assert np.mean(fqs) < 3.0
+
+    def test_ignore_roll_exact(self):
+        solves = _three_solves(180.0, 45.0, LAT_NH, 1.5, 3.0, 30.0, LST)
+        dAlt, dAz, _, _, _, fq = get_platform_adjustments(
+            solves, LAT_NH, LST, ignore_roll=True
+        )
+        assert dAlt == pytest.approx(1.5, abs=1e-6)
+        assert dAz == pytest.approx(3.0, abs=1e-6)
+        assert fq == pytest.approx(0.0, abs=1e-4)
+
+    def test_camera_flop_detected_and_survivable(self):
+        # A 2-degree systematic roll error on the last solve (camera flop):
+        # ignore_roll recovers the axis exactly; the optimised path reports
+        # a fit_quality far above the noise-only expectation.
+        solves = _three_solves(180.0, 45.0, LAT_NH, 1.5, 3.0, 30.0, LST)
+        ra3, dec3, roll3, t3 = solves[2]
+        flopped = solves[:2] + [(ra3, dec3, roll3 + 2.0, t3)]
+
+        dAlt, dAz, _, _, _, fq_ir = get_platform_adjustments(
+            flopped, LAT_NH, LST, ignore_roll=True
+        )
+        assert dAlt == pytest.approx(1.5, abs=1e-6)
+        assert dAz == pytest.approx(3.0, abs=1e-6)
+        assert fq_ir > 3.0  # roll inconsistency clearly flagged
+
+        _, _, _, _, _, fq_opt = get_platform_adjustments(flopped, LAT_NH, LST)
+        assert fq_opt > 3.0
+
+
+@pytest.mark.unit
+class TestPrecession:
+    def test_aldebaran_tete(self):
+        # Skyfield ICRS -> true equator/equinox of date (TETE) at 2025.41.
+        # Expected values cross-checked once against astropy; the FK5
+        # mean-of-date (precession only) reference is RA=69.3451,
+        # Dec=16.5596, and TETE adds ~8" of nutation at this epoch.
+        P = _precession_matrix(2025.41)
+        v = P @ _axis_vec(68.9802, 16.5093)
+        ra = np.degrees(np.arctan2(v[1], v[0])) % 360
+        dec = np.degrees(np.arcsin(v[2]))
+        assert ra == pytest.approx(69.3452, abs=1 / 3600)
+        assert dec == pytest.approx(16.5619, abs=1 / 3600)
+
+    def test_near_identity_at_j2000(self):
+        # TETE at J2000.0 differs from ICRS by nutation at that epoch
+        # (~17" peak) plus the small frame bias — not exactly identity.
+        P = _precession_matrix(2000.0)
+        assert np.abs(P - np.eye(3)).max() < 2e-4
+
+    def test_is_rotation(self):
+        P = _precession_matrix(2026.4)
+        assert np.allclose(P @ P.T, np.eye(3), atol=1e-12)
+
+
+@pytest.mark.unit
+class TestCorrectionTarget:
+    def test_scope_at_axis_lands_on_pole(self):
+        # Scope pointing at the mechanical axis; after the Alt/Az correction
+        # the boresight must sit on the NCP (alt = latitude, az = 0).
+        axis = _true_axis(LAT_NH, 1.5, 3.0, LST)
+        ra_pt = np.degrees(np.arctan2(axis[1], axis[0])) % 360
+        dec_pt = np.degrees(np.arcsin(axis[2]))
+        _, _, _, ax_ra, ax_dec, _ = get_platform_adjustments(
+            [(ra_pt, dec_pt, 0.0, 0), (ra_pt, dec_pt, 14.0, 0)], LAT_NH, LST
+        )
+        _, dec_t, _ = correction_target(ax_ra, ax_dec, (ra_pt, dec_pt, 14.0))
+        assert dec_t == pytest.approx(90.0, abs=1e-4)
+
+    def test_aligned_axis_is_identity(self):
+        ra_t, dec_t, roll_t = correction_target(0.0, 90.0, (180.0, 30.0, 5.0))
+        assert ra_t == pytest.approx(180.0, abs=1e-9)
+        assert dec_t == pytest.approx(30.0, abs=1e-9)
+        assert roll_t == pytest.approx(5.0, abs=1e-9)
+
+    def test_antipodal_axis(self):
+        # Axis pointing exactly at the SCP; the correction rotation must map
+        # it to the NCP, carrying the boresight from dec=-30 to dec=+30.
+        _, dec_t, _ = correction_target(0.0, -90.0, (180.0, -30.0, 0.0))
+        assert dec_t == pytest.approx(30.0, abs=1e-6)
+
+    def test_roll_survives_precession_round_trip(self):
+        # With the axis already on the JNOW pole (axis_ra/axis_dec are JNOW
+        # coordinates) the correction is identity, so the J2000 input must
+        # come back unchanged — including roll, which is converted through
+        # the full precession matrix.
+        ra_t, dec_t, roll_t = correction_target(
+            0.0, 90.0, (180.0, 30.0, 45.0), observation_jyear=2026.44
+        )
+        assert ra_t == pytest.approx(180.0, abs=1e-6)
+        assert dec_t == pytest.approx(30.0, abs=1e-6)
+        assert roll_t == pytest.approx(45.0, abs=1e-6)
+
+
+@pytest.mark.unit
+class TestDegenerateInputs:
+    def test_min_sweep_dalt_daz_nan(self):
+        # Below MIN_SWEEP_DEG the axis is unreliable; dAlt/dAz must be nan,
+        # never 0.0 (which would read as "perfectly aligned").
+        s2 = make_solve_2(180.0, 30.0, 0.0, LAT_NH, 1.5, 3.0, 1.0, LST)
+        dAlt, dAz, *_ = get_platform_adjustments(
+            [(180.0, 30.0, 0.0, 0), (*s2, 0)], LAT_NH, LST
+        )
+        assert np.isnan(dAlt) and np.isnan(dAz)
+
+    def test_180_degree_sweep(self):
+        # At exactly 180 degrees the antisymmetric part of the rotation
+        # vanishes; the axis must be recovered from the symmetric part.
+        s2 = make_solve_2(180.0, 30.0, 0.0, LAT_NH, 1.5, 3.0, 180.0, LST)
+        dAlt, dAz, sweep, *_ = get_platform_adjustments(
+            [(180.0, 30.0, 0.0, 0), (*s2, 0)], LAT_NH, LST
+        )
+        assert abs(sweep) == pytest.approx(180.0, abs=1e-6)
+        assert dAlt == pytest.approx(1.5, abs=1e-6)
+        assert dAz == pytest.approx(3.0, abs=1e-6)
+
+    def test_ignore_roll_collinear_boresights_nan(self):
+        # Scope pointing at the mechanical axis: all boresights identical, so
+        # RA/Dec carry no rotation information.  With ignore_roll=True the
+        # axis must come back nan rather than silently derived from roll.
+        axis = _true_axis(LAT_NH, 1.5, 3.0, LST)
+        ra_pt = np.degrees(np.arctan2(axis[1], axis[0])) % 360
+        dec_pt = np.degrees(np.arcsin(axis[2]))
+        solves = [
+            (ra_pt, dec_pt, 0.0, 0),
+            (ra_pt, dec_pt, 7.0, 0),
+            (ra_pt, dec_pt, 14.0, 0),
+        ]
+        dAlt, dAz, sweep, ax_ra, ax_dec, _ = get_platform_adjustments(
+            solves, LAT_NH, LST, ignore_roll=True
+        )
+        assert np.isnan(dAlt) and np.isnan(dAz)
+        assert np.isnan(ax_ra) and np.isnan(ax_dec)
+        assert abs(sweep) == pytest.approx(14.0, abs=1e-6)
+
+    def test_out_of_order_solves_sorted(self):
+        # Solves are sorted by timestamp internally, so a shuffled input
+        # gives the same result as the chronological one.
+        solves = _three_solves(180.0, 45.0, LAT_NH, 1.5, 3.0, 30.0, LST)
+        timed = [
+            (ra, dec, roll, t)
+            for (ra, dec, roll, _), t in zip(solves, (0.0, 60.0, 120.0))
+        ]
+        expected = get_platform_adjustments(timed, LAT_NH, LST)
+        shuffled = [timed[2], timed[0], timed[1]]
+        result = get_platform_adjustments(shuffled, LAT_NH, LST)
+        assert result == pytest.approx(expected, abs=1e-9)
