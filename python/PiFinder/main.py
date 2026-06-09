@@ -657,10 +657,13 @@ def main(
                                 location = shared_state.location()
 
                             # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
+                            # "replay" is protected too: a telemetry replay owns the
+                            # location until it ends and restores the original.
                             if (
                                 not location.source == "WEB"
                                 and not location.source.startswith("CONFIG:")
                                 and not location.source == "MANUAL"
+                                and not location.source == "replay"
                                 and (
                                     location.error_in_m == 0
                                     or float(gps_content["error_in_m"])

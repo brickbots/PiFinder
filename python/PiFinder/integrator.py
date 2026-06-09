@@ -158,19 +158,26 @@ def integrator(
                 # progresses it when motion exceeds the deadband.
                 shared_state.set_solution(copy.deepcopy(estimate))
 
-            # 2. If we have an anchor and didn't just do a fresh plate-solve,
-            #    try to advance the estimate via IMU dead-reckoning. The IMU
-            #    sample comes from the replay stream when replaying.
+            # 2. Pull the current IMU sample — from the replay stream when
+            #    replaying — and record it. Recording happens before the
+            #    anchor gate so sessions capture IMU data from the start,
+            #    not only once the first solve has anchored dead-reckoning.
+            #    (record_imu dedupes on sample timestamp and is a no-op
+            #    while replaying or when recording is off.)
+            imu = replay_imu if telemetry.replaying else shared_state.imu()
+            if imu:
+                telemetry.record_imu(imu)
+
+            # If we have an anchor and didn't just do a fresh plate-solve,
+            # try to advance the estimate via IMU dead-reckoning.
             if (
-                not pointing_updated
+                imu
+                and not pointing_updated
                 and idr.is_initialized()
                 and estimate.imu_anchor is not None
             ):
-                imu = replay_imu if telemetry.replaying else shared_state.imu()
-                if imu:
-                    telemetry.record_imu(imu)
-                    if _advance_with_imu(estimate, idr, imu):
-                        pointing_updated = True
+                if _advance_with_imu(estimate, idr, imu):
+                    pointing_updated = True
 
             # 3. Publish if we updated something newer than what we last sent.
             if (

@@ -5,6 +5,7 @@ Unit tests for telemetry recording, replay, and the TelemetryManager facade.
 import json
 import queue
 import time
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -235,13 +236,90 @@ class TestTelemetryRecorder:
             rec = TelemetryRecorder()
             rec.start(_make_cfg(), _make_shared_state())
             try:
-                for _ in range(10):
-                    rec.record_imu(_make_imu_sample(moving=False))
+                for i in range(10):
+                    rec.record_imu(_make_imu_sample(moving=False, timestamp=1000.0 + i))
                 # Only every 10th stationary sample is recorded
                 assert len(rec._buffer) == 2  # header + 1 imu
-                for _ in range(3):
-                    rec.record_imu(_make_imu_sample(moving=True))
+                for i in range(3):
+                    rec.record_imu(_make_imu_sample(moving=True, timestamp=2000.0 + i))
                 assert len(rec._buffer) == 5  # + 3 moving samples
+            finally:
+                rec.stop()
+
+    def test_record_imu_dedups_repolled_sample(self, tmp_path):
+        """The same sample polled twice by a faster loop records once."""
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                sample = _make_imu_sample(moving=True, timestamp=1000.0)
+                rec.record_imu(sample)
+                rec.record_imu(sample)
+                rec.record_imu(sample)
+                assert len(rec._buffer) == 2  # header + 1 imu
+                rec.record_imu(_make_imu_sample(moving=True, timestamp=1000.1))
+                assert len(rec._buffer) == 3
+            finally:
+                rec.stop()
+
+    def test_record_imu_stamped_with_sample_time(self, tmp_path):
+        """Records carry the IMU sample epoch, not the poll time."""
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                rec.record_imu(_make_imu_sample(moving=True, timestamp=1234.5))
+                line = json.loads(rec._buffer[-1])
+                assert line["t"] == 1234.5
+            finally:
+                rec.stop()
+
+    def test_update_session_context_late_binds_dt_and_location(self, tmp_path):
+        """A session started before GPS lock gains dt/location later."""
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            ss = MagicMock()
+            ss.location.return_value = None
+            ss.datetime.return_value = None
+            rec.start(_make_cfg(), ss)
+            try:
+                assert rec._dt_recorded is False
+                assert rec._loc_recorded is False
+
+                rec.update_session_context(
+                    datetime.fromisoformat("2024-01-15T22:30:00"),
+                    _make_location(lat=35.0),
+                )
+                assert rec._dt_recorded and rec._loc_recorded
+                lines = [json.loads(line) for line in rec._buffer]
+                hdrs = [ln for ln in lines if ln["e"] == "hdr"]
+                assert len(hdrs) == 2  # initial (dt=null) + late-bound
+                assert hdrs[-1]["dt"] == "2024-01-15T22:30:00"
+                assert (rec._session_dir / "session.location").exists()
+
+                # Idempotent once bound
+                rec.update_session_context(
+                    datetime.fromisoformat("2024-01-15T22:31:00"),
+                    _make_location(lat=36.0),
+                )
+                lines = [json.loads(line) for line in rec._buffer]
+                assert len([ln for ln in lines if ln["e"] == "hdr"]) == 2
+            finally:
+                rec.stop()
+
+    def test_buffer_overflow_counted(self, tmp_path):
+        """Events evicted by the bounded buffer are counted for warning."""
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                overshoot = rec._buffer.maxlen + 100
+                for i in range(overshoot):
+                    rec.record_imu(
+                        _make_imu_sample(moving=True, timestamp=1000.0 + i)
+                    )
+                # header + overshoot appends into a maxlen buffer
+                assert rec._dropped_events == overshoot + 1 - rec._buffer.maxlen
             finally:
                 rec.stop()
 
@@ -701,6 +779,44 @@ class TestTelemetryManager:
         # Recordings are from the past; set_datetime rejects "older" times
         # unless forced, so replay must force-apply.
         assert ss.set_datetime.call_args.kwargs.get("force") is True
+
+    def test_replay_restores_location_and_datetime(self, tmp_path):
+        """Replay saves the pre-replay location and restores it on stop,
+        and clears the forced replay clock so GPS time resumes."""
+        hdr = {"t": 999.0, "e": "hdr", "dt": "2024-01-15T22:30:00"}
+        events = [{"t": 1000.0, "e": "imu", "q": [1, 0, 0, 0]}]
+        _write_session_jsonl(tmp_path / "session.jsonl", events, header=hdr)
+        (tmp_path / "session.location").write_text(
+            json.dumps({"lat": 35.0, "lon": -120.0, "altitude": 200.0})
+        )
+
+        original_loc = _make_location(lat=51.0, lon=4.0, alt=10.0)
+        ss = _make_shared_state(location=original_loc)
+        cq = queue.Queue()
+        mgr = TelemetryManager(_make_cfg(), ss, cq)
+        mgr._handle_command("replay", str(tmp_path))
+        assert mgr.replaying
+
+        mgr._handle_command("replay_stop", None)
+        assert not mgr.replaying
+        restored = ss.set_location.call_args[0][0]
+        assert restored.lat == 51.0
+        assert restored.lon == 4.0
+        ss.reset_datetime.assert_called_once()
+
+    def test_replay_late_header_dt_shifted_to_stream_start(self, tmp_path):
+        """A late-bound header's dt is shifted back to the first event."""
+        event = {"t": 1000.0, "e": "imu", "q": [1, 0, 0, 0]}
+        hdr = {"t": 1060.0, "e": "hdr", "dt": "2024-01-15T22:31:00"}
+        session = tmp_path / "session.jsonl"
+        session.write_text(json.dumps(event) + "\n" + json.dumps(hdr) + "\n")
+
+        ss = _make_shared_state()
+        mgr = TelemetryManager(_make_cfg(), ss, queue.Queue())
+        mgr._handle_command("replay", str(tmp_path))
+
+        dt_arg = ss.set_datetime.call_args[0][0]
+        assert dt_arg == datetime.fromisoformat("2024-01-15T22:30:00")
 
     def test_handle_command_replay_missing_path_survives(self, tmp_path):
         """A nonexistent session must not raise out of the command handler."""

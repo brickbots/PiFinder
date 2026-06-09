@@ -8,13 +8,14 @@ integrator feeds through its normal apply/advance paths for bench
 testing.
 """
 
+import copy
 import json
 import logging
 import queue
 import threading
 import time
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import quaternion as quaternion_module
@@ -80,10 +81,23 @@ class TelemetryRecorder:
         self._file = None
         self._flush_thread = None
         self._stop_event = threading.Event()
+        self._flush_lock = threading.Lock()
         self._session_dir = None
         self._last_flush = 0.0
         self._imu_skip_count = 0
+        self._last_imu_timestamp = None
         self._last_target_id = None
+        self._dropped_events = 0
+        self._header_cfg = None
+        self._dt_recorded = False
+        self._loc_recorded = False
+
+    def _append(self, record):
+        """Serialize a record into the buffer, counting overflow drops."""
+        if len(self._buffer) == self._buffer.maxlen:
+            # deque(maxlen) silently evicts the oldest entry on append.
+            self._dropped_events += 1
+        self._buffer.append(json.dumps(record) + "\n")
 
     def start(self, cfg, shared_state):
         """Start a new recording session."""
@@ -100,29 +114,30 @@ class TelemetryRecorder:
         self.enabled = True
         self._last_flush = time.time()
 
+        # Reset per-session state
+        self._imu_skip_count = 0
+        self._last_imu_timestamp = None
+        self._last_target_id = None
+        self._dropped_events = 0
+
         # Write header (no location — written to separate .location file)
         dt = shared_state.datetime()
+        self._header_cfg = {
+            "screen_direction": cfg.get_option("screen_direction"),
+            "mount_type": cfg.get_option("mount_type"),
+        }
         header = {
             "t": time.time(),
             "e": "hdr",
             "dt": dt.isoformat() if dt else None,
-            "cfg": {
-                "screen_direction": cfg.get_option("screen_direction"),
-                "mount_type": cfg.get_option("mount_type"),
-            },
+            "cfg": self._header_cfg,
         }
-        self._buffer.append(json.dumps(header) + "\n")
+        self._append(header)
+        self._dt_recorded = dt is not None
 
         # Write location to a separate file to avoid leaking it in shared recordings
         location = shared_state.location()
-        if location:
-            loc_file = self._session_dir / "session.location"
-            loc_data = {
-                "lat": location.lat,
-                "lon": location.lon,
-                "altitude": location.altitude,
-            }
-            loc_file.write_text(json.dumps(loc_data))
+        self._loc_recorded = self._write_location_sidecar(location)
 
         # Start flush thread
         self._stop_event.clear()
@@ -131,6 +146,42 @@ class TelemetryRecorder:
         )
         self._flush_thread.start()
         logger.info("Telemetry recording started: %s", session_file)
+
+    def _write_location_sidecar(self, location):
+        """Write the .location sidecar. Returns True if written."""
+        if not location or self._session_dir is None:
+            return False
+        loc_file = self._session_dir / "session.location"
+        loc_data = {
+            "lat": location.lat,
+            "lon": location.lon,
+            "altitude": location.altitude,
+        }
+        loc_file.write_text(json.dumps(loc_data))
+        return True
+
+    def update_session_context(self, dt, location):
+        """Late-bind datetime/location that weren't available at start().
+
+        A recording often starts before GPS lock; once time/place arrive,
+        write an updated header record (the player keeps the last header
+        seen) and the location sidecar, so the session replays with the
+        correct clock and Alt/Az.
+        """
+        if not self.enabled:
+            return
+        if dt is not None and not self._dt_recorded:
+            self._append(
+                {
+                    "t": time.time(),
+                    "e": "hdr",
+                    "dt": dt.isoformat(),
+                    "cfg": self._header_cfg,
+                }
+            )
+            self._dt_recorded = True
+        if location is not None and not self._loc_recorded:
+            self._loc_recorded = self._write_location_sidecar(location)
 
     def stop(self):
         """Stop the current recording session."""
@@ -151,11 +202,18 @@ class TelemetryRecorder:
     def record_imu(self, imu):
         """Record an :class:`ImuSample`. No-op if disabled.
 
+        Stamps the record with the sample's own epoch (``imu.timestamp``)
+        and dedupes on it: the integrator loop polls faster than the IMU
+        updates, so the same sample is seen multiple times.
+
         When stationary, only records every _STATIONARY_DECIMATION-th sample
         to reduce file size during long sessions.
         """
         if not self.enabled or imu is None:
             return
+        if imu.timestamp == self._last_imu_timestamp:
+            return  # same sample re-polled by a faster loop
+        self._last_imu_timestamp = imu.timestamp
         moving = imu.moving
         if not moving:
             self._imu_skip_count += 1
@@ -165,7 +223,7 @@ class TelemetryRecorder:
         else:
             self._imu_skip_count = 0
         record = {
-            "t": _rf(time.time()),
+            "t": _rf(imu.timestamp),
             "e": "imu",
             "q": _serialize_quat(imu.quat),
             "mv": moving,
@@ -173,7 +231,7 @@ class TelemetryRecorder:
             "gyro": _serialize_vec(imu.gyro),
             "accel": _serialize_vec(imu.accel),
         }
-        self._buffer.append(json.dumps(record) + "\n")
+        self._append(record)
 
     def record_solve(self, solve_result, predicted=None):
         """Record a :class:`SolveResult`. No-op if disabled.
@@ -208,7 +266,7 @@ class TelemetryRecorder:
             "lss": solve_result.last_solve_success,
             "src": "CAM" if success else "CAM_FAILED",
         }
-        self._buffer.append(json.dumps(record) + "\n")
+        self._append(record)
         return t
 
     def record_target(self, target, alt=None, az=None):
@@ -244,7 +302,7 @@ class TelemetryRecorder:
                 "alt": _rf(alt) if alt is not None else None,
                 "az": _rf(az) if az is not None else None,
             }
-        self._buffer.append(json.dumps(record) + "\n")
+        self._append(record)
 
     def get_session_dir(self):
         """Return current session directory path, or None."""
@@ -260,18 +318,30 @@ class TelemetryRecorder:
             self._last_flush = now
 
     def _do_flush(self):
-        """Flush the buffer to disk."""
-        if not self._file or not self._buffer:
-            return
-        lines = []
-        while self._buffer:
-            try:
-                lines.append(self._buffer.popleft())
-            except IndexError:
-                break
-        if lines:
-            self._file.writelines(lines)
-            self._file.flush()
+        """Flush the buffer to disk.
+
+        Locked: the background flush thread and the integrator loop's
+        time-gated flush may run concurrently, and interleaved writes
+        would scramble event order.
+        """
+        with self._flush_lock:
+            if not self._file or not self._buffer:
+                return
+            if self._dropped_events:
+                logger.warning(
+                    "Telemetry buffer overflow: %d events dropped since last flush",
+                    self._dropped_events,
+                )
+                self._dropped_events = 0
+            lines = []
+            while self._buffer:
+                try:
+                    lines.append(self._buffer.popleft())
+                except IndexError:
+                    break
+            if lines:
+                self._file.writelines(lines)
+                self._file.flush()
 
     def _flush_loop(self):
         """Background thread that flushes every 5 seconds."""
@@ -461,6 +531,9 @@ class TelemetryManager:
         self._recorder = TelemetryRecorder()
         self._recorder.images_enabled = bool(cfg.get_option("telemetry_images"))
         self._player = None
+        # Pre-replay state to restore when replay ends.
+        self._saved_location = None
+        self._datetime_overridden = False
         if cfg.get_option("telemetry_record"):
             self._recorder.start(cfg, shared_state)
 
@@ -509,9 +582,7 @@ class TelemetryManager:
 
         elif cmd_name == "replay_stop":
             logger.info("Exiting replay mode")
-            self._player = None
-            self._restart_camera()
-            self._console_queue.put("Telemetry: Replay stopped")
+            self._end_replay("Telemetry: Replay stopped")
 
     def next_replay_message(self):
         """Return the next replayed message, or None.
@@ -526,10 +597,8 @@ class TelemetryManager:
             return None
         event, done = self._player.get_next_event()
         if done and event is None:
-            self._player = None
-            self._restart_camera()
-            self._console_queue.put("Telemetry: Replay finished")
             logger.info("Replay finished")
+            self._end_replay("Telemetry: Replay finished")
             return None
         if event is None:
             return None
@@ -568,7 +637,17 @@ class TelemetryManager:
 
     def flush(self):
         self._poll_target()
+        self._update_session_context()
         self._recorder.flush()
+
+    def _update_session_context(self):
+        """Late-bind session datetime/location once they become available."""
+        rec = self._recorder
+        if not rec.enabled or (rec._dt_recorded and rec._loc_recorded):
+            return
+        rec.update_session_context(
+            self._shared_state.datetime(), self._shared_state.location()
+        )
 
     def _poll_target(self):
         """Check if the user's target changed and record it."""
@@ -578,6 +657,9 @@ class TelemetryManager:
             target = self._shared_state.ui_state().target()
         except Exception:
             return
+        target_id = None if target is None else getattr(target, "object_id", None)
+        if target_id == self._recorder._last_target_id:
+            return  # unchanged — skip the per-loop Alt/Az computation
         alt, az = None, None
         if target is not None and target.ra is not None:
             try:
@@ -601,10 +683,27 @@ class TelemetryManager:
         if self._camera_command_queue is not None:
             self._camera_command_queue.put("start")
 
+    def _end_replay(self, console_msg):
+        """Leave replay mode: restore hijacked state and restart the camera."""
+        self._player = None
+        if self._saved_location is not None:
+            self._shared_state.set_location(self._saved_location)
+            self._saved_location = None
+        if self._datetime_overridden:
+            # Clear the forced replay clock so GPS time updates resume.
+            self._shared_state.reset_datetime()
+            self._datetime_overridden = False
+        self._restart_camera()
+        self._console_queue.put(console_msg)
+
     def _apply_replay_header(self, hdr, shared_state):
-        """Apply location/datetime from a replay session header."""
+        """Apply location/datetime from a replay session header.
+
+        The pre-replay location is saved for restoration by _end_replay.
+        """
         loc_data = self._load_replay_location()
         if loc_data:
+            self._saved_location = copy.deepcopy(shared_state.location())
             loc = shared_state.location()
             loc.lat = loc_data["lat"]
             loc.lon = loc_data["lon"]
@@ -613,10 +712,18 @@ class TelemetryManager:
             loc.source = "replay"
             shared_state.set_location(loc)
         if hdr.get("dt"):
+            replay_dt = datetime.fromisoformat(hdr["dt"])
+            # The header may have been written later than the first event
+            # (e.g. a late-bound header once GPS time arrived); shift dt
+            # back so the clock matches the start of the event stream.
+            base_time = self._player._base_time if self._player else None
+            if base_time is not None and hdr.get("t") is not None:
+                replay_dt -= timedelta(seconds=max(0.0, hdr["t"] - base_time))
             # force=True so a recording from the past actually overwrites
             # the current clock — set_datetime otherwise rejects "older"
             # times, and it also blocks later GPS updates mid-replay.
-            shared_state.set_datetime(datetime.fromisoformat(hdr["dt"]), force=True)
+            shared_state.set_datetime(replay_dt, force=True)
+            self._datetime_overridden = True
 
         cfg = hdr.get("cfg", {})
         recorded_mount = cfg.get("mount_type")
