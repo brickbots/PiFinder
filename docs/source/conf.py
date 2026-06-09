@@ -19,6 +19,7 @@ exclude_patterns = []
 extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx_rtd_theme",
+    "sphinxcontrib.mermaid",
 ]
 
 autosectionlabel_prefix_document = True

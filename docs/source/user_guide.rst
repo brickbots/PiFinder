@@ -206,6 +206,9 @@ through a menu and make selections with these keys:
 
 The status bar at the top of the screen shows the name of the menu you're viewing.
 
+For a bird's-eye view of every menu and what each option does, see the
+:doc:`menu_map`.
+
 Screens
 --------
 
