@@ -127,6 +127,15 @@ When asked to translate missing strings in a `.po` file:
 
 4. **Don't translate technical identifiers.** Catalog codes (NGC, M, IC), units (°, m, px), and proper nouns generally stay as-is.
 
+   Some abbreviations must **never** be translated, transliterated, or expanded — even when the words around them are. Keep them as-is:
+
+   - **`EQ`** — equatorial coordinate mode (e.g. `EQ (Auto)`, `EQ (North-up)`, `EQ (South-up)`). Keep verbatim; never translate or expand.
+   - **`RA`** (acronym for Right Ascension) and **`Dec`** (abbreviation for Declination) — keep as abbreviations; never expand or localize. Use the form **`RA/Dec`** — note `Dec`, not `DEC` — even when a source string is written `RA/DEC` or `DEC:`. `RA` stays uppercase; only the declination part is `Dec`.
+   - **`Alt/Az`** — altitude/azimuth. Keep verbatim; do not translate or reorder the two parts.
+   - **`GPS`** — any message containing `GPS` keeps it as `GPS`; it's recognized under that acronym across languages.
+
+   These show up in strings like `EQ (North-up)`, `RA/DEC Disp.`, `RA:` / `DEC:`, `Alt/Az`, and `GPS Settings`. Translate only the *surrounding* words (e.g. "Settings", "Disp.") and render the abbreviation in its canonical form (`RA/Dec`, `EQ`, `Alt/Az`, `GPS`).
+
 5. **After editing, recompile:**
    ```bash
    cd python/ && pybabel compile -d locale

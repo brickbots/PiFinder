@@ -223,9 +223,6 @@ class CatalogFilter:
             if obj.const not in self._constellations:
                 obj.last_filtered_result = False
                 return False
-        else:
-            obj.last_filtered_result = False
-            return False
 
         # check altitude
         if self._altitude != -1 and self.fast_aa:
@@ -259,9 +256,6 @@ class CatalogFilter:
             if obj.obj_type not in self._object_types:
                 obj.last_filtered_result = False
                 return False
-        else:
-            obj.last_filtered_result = False
-            return False
 
         # check observed
         if self._observed is not None and self._observed != "Any":
@@ -871,9 +865,7 @@ class CatalogBuilder:
                 obj.logged = obs_db.check_logged(obj)
 
             self.catalog_dicts = {}
-            logger.info(
-                "Loaded %i objects from catalog cache", len(composite_objects)
-            )
+            logger.info("Loaded %i objects from catalog cache", len(composite_objects))
 
             all_catalogs: Catalogs = self._get_catalogs(
                 composite_objects, catalogs_info

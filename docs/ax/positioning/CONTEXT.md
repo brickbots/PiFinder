@@ -9,22 +9,16 @@ The Positioning context produces and publishes the canonical "where is the teles
 ### Core record
 
 **`PointingEstimate`**:
-The canonical "where are we pointing?" record. Replaces the legacy `solved` dict. Travels through `solver_queue` and `shared_state.set_solution()`. Holds two `PointingPair`s (current and last-solve), the IMU anchor, Alt/Az, source/timing fields, `SolveDiagnostics`, and `AlignmentResult`. Defined in `PiFinder/types/positioning.py`.
-_Avoid_: solved dict (legacy; still in use during migration but being replaced), pointing dict, solution record.
-
-> Migration note: the dataclass coexists with the legacy `solved` dict. `to_legacy_dict()` / `from_legacy_dict()` bridge them so consumers move incrementally. In prose, prefer the new vocabulary even when reading older code paths.
-
-**`solved` dict** (legacy):
-The pre-dataclass position record (`get_initialized_solved_dict()`). Being replaced by `PointingEstimate`. Use only when describing the legacy code path or the wire-compatible bridge format.
-_Avoid_: pointing dict — say "the legacy `solved` dict" when this is what you mean.
+The canonical "where are we pointing?" record. Owned by the integrator and published via `shared_state.set_solution()`. The integrator builds it by applying a `SolveResult` (see below) onto its long-lived instance — it does **not** travel on `solver_queue`. Holds a `PointingMatrix` (the four cells of the 2 × 2 matrix), the IMU anchor, Alt/Az, source/timing fields, `SolveDiagnostics`, and `AlignmentResult`. Defined in `PiFinder/types/positioning.py`.
+_Avoid_: solved dict, pointing dict, solution record.
 
 **`solve_source`** / **`SolveSource`**:
 Tag on the record recording who produced the current pointing. New `SolveSource` enum: `CAMERA` (`"CAM"`), `CAMERA_FAILED` (`"CAM_FAILED"`), `IMU`. Enum inherits `str` so legacy string equality still works.
 _Avoid_: origin, source.
 
 **`solve_state`**:
-Boolean flag on `shared_state` indicating whether *any* current pointing solution exists. Separate from the `PointingEstimate` so the UI can poll cheaply.
-_Avoid_: is_solved, has_pointing.
+Boolean flag on `shared_state` indicating whether *any* current pointing exists — the cheap-to-poll cache of `solution().has_pointing()`, kept as a bare bool so the UI need not round-trip the whole `PointingEstimate` across the manager proxy every frame. Written only by `set_solution` (which derives it from `has_pointing()`); never set independently.
+_Avoid_: is_solved (for the flag's name). Note the value mirrors `PointingEstimate.has_pointing()` — that method is the source of truth; `solve_state` is its shared-state cache.
 
 ### Coordinates: the 2 × 2 matrix
 
@@ -35,7 +29,6 @@ The positioning system tracks **two axes** (the camera optical axis, and the ali
 | **`camera`** — optical axis  | `pointing.camera.solve`  | `pointing.camera.estimate`   |
 | **`aligned`** — eyepiece direction | `pointing.aligned.solve` | `pointing.aligned.estimate` |
 
-> The code currently uses `target_pixel` / `camera_center` field names (see `PiFinder/types/positioning.py`); the canonical *language* is `aligned` / `camera`, and the dataclass will be renamed to match. Use the new names in prose and review; let the rename land separately. The same applies to `last_solve` (legacy field name) vs the `solve` column above.
 
 **Camera axis** (`camera`):
 The pointing at the camera's optical centre. The IMU dead-reckoning anchor is `pointing.camera.solve` paired with `last_solve_imu`. Never `aligned.*` — the IMU is rigidly attached to the camera, not the eyepiece.
@@ -54,7 +47,7 @@ The current value, equal to `solve` immediately after a plate-solve and progress
 _Avoid_: current, IMU pointing (the IMU only progresses the estimate; saying "IMU pointing" obscures that it's still anchored on a plate-solve).
 
 **Pointing** (`Pointing`):
-The unit triple `(RA, Dec, Roll)` in degrees. The leaf type at every cell of the matrix. Bridge to radians via `Pointing.as_radecroll()`.
+The unit triple `(RA, Dec, Roll)` in degrees. The leaf type at every cell of the matrix. Bridges to/from the radian `RaDecRoll` math form via the inverse pair `Pointing.as_radecroll()` (degrees → radians) and `Pointing.from_radecroll()` (radians → degrees). Both live on `Pointing` so the dependency only runs `positioning` → `coordinates`.
 _Avoid_: pointing (lower-case, unqualified) — that means `pointing.aligned.estimate`. See below.
 
 **`pointing`** (the dataclass field):
@@ -66,8 +59,8 @@ _Avoid_: confusion with the prose word — context disambiguates by markup.
 _Avoid_: scope direction, telescope direction (fine in user-facing copy; in dev prose say "pointing").
 
 **Target pixel** (`target_pixel`):
-The `(Y, X)` pixel in 512×512 camera-image space where the eyepiece centre is calibrated by the alignment system. This is the (x, y) coordinate the alignment flow produces. Currently persisted as `Config["solve_pixel"]` and `shared_state.solve_pixel()`; the code rename to `target_pixel` follows the language rename. Default `(256, 256)` means no offset known. Passed to tetra3 as its `target_pixel` argument on every solve.
-_Avoid_: solve_pixel (legacy name; pending rename), reticle pixel, aligned pixel (the *axis* is called aligned; the *pixel* is called target).
+The `(Y, X)` pixel in 512×512 camera-image space where the eyepiece centre is calibrated by the alignment system. This is the coordinate the alignment flow produces. Persisted as `Config["target_pixel"]` and read via `shared_state.target_pixel()`. Default `(256, 256)` means no offset known. Passed to tetra3 as its `target_pixel` argument on every solve.
+_Avoid_: solve_pixel (legacy name), reticle pixel, aligned pixel (the *axis* is called aligned; the *pixel* is called target).
 
 > Three names, three concepts, no overlap:
 > - **Target pixel** = `(Y, X)` image-space coordinate from alignment (the *pixel*).
@@ -75,8 +68,8 @@ _Avoid_: solve_pixel (legacy name; pending rename), reticle pixel, aligned pixel
 > - **`pointing.aligned.estimate`** = the current IMU-progressed value of that direction (the *value the user sees*).
 
 **`RaDecRoll`**:
-Radian-based, quaternion-aware coordinate dataclass in `PiFinder/types/coordinates.py`. Used by `ImuDeadReckoning`. `Pointing.as_radecroll()` bridges from degrees → radians.
-_Avoid_: coords, position tuple.
+Radian-based, quaternion-aware coordinate dataclass in `PiFinder/types/coordinates.py`. Used by `ImuDeadReckoning`. `Pointing.as_radecroll()` bridges degrees → radians; `Pointing.from_radecroll()` bridges back radians → degrees. The radian form is confined to the dead-reckoning math; the published data model stays in degrees (`Pointing`).
+_Avoid_: coords, position tuple, using `RaDecRoll` in the published model (the degrees/radians split at the math boundary is deliberate).
 
 ### Acquisition
 
@@ -104,6 +97,18 @@ _Avoid_: solver (that name is overloaded — see below).
 The PiFinder process owning `solver.py`. It drives the plate-solve loop and is the sole runtime caller of `SQM.calculate()`.
 _Avoid_: tetra3 (the library is one thing the solver process uses; they are not synonyms).
 
+**`SolveResult`**:
+The message the solver puts on `solver_queue` describing one plate-solve attempt. A union — `SolveResult = SuccessfulSolve | FailedSolve` — on which the integrator dispatches via `isinstance()` (mirroring `SolverCommand` / `AlignResponse`). It is a transport DTO, **not** the published record: only the integrator builds the canonical `PointingEstimate`, by applying a `SolveResult` onto its long-lived instance. Defined in `PiFinder/types/positioning.py`. See [`docs/adr/0003-solver-integrator-message.md`](../../adr/0003-solver-integrator-message.md).
+_Avoid_: snapshot, solved dict, solution record.
+
+**`SuccessfulSolve`**:
+The `SolveResult` variant carrying solve-truth: **flat** `camera` and `aligned` `Pointing`s (no `solve`/`estimate` split — the solver never IMU-progresses), the IMU anchor (`Optional` — a solve can succeed on a frame with no IMU sample), `last_solve_attempt` / `last_solve_success` (the solved frame's `exposure_end`), `SolveDiagnostics`, `AlignmentResult`, and the matched-star arrays. The integrator fans `camera`/`aligned` into both the `solve` and `estimate` cells, reseeds the dead-reckoner, and promotes `last_solve_success` to `estimate_time` (there is no separate `solve_time` on the message).
+_Avoid_: solved estimate, PointingEstimate (a `SuccessfulSolve` is not one).
+
+**`FailedSolve`**:
+The `SolveResult` variant for an attempt that produced no pointing: `SolveDiagnostics` (with `Matches=0`) plus `last_solve_attempt` / `last_solve_success`. Triggers the integrator to preserve its `solve` cells + anchor **and** its `estimate` cells, and set `solve_source=CAMERA_FAILED`. The estimate cells are **not** cleared: once anchored, the last (IMU-progressed) pointing stays published and `solve_state` stays true, while the IMU advance keeps progressing it. A failed solve only shows "no solve" before the first successful solve. See [ADR 0005](../../adr/0005-failed-solve-preserves-estimate.md).
+_Avoid_: empty PointingEstimate, hollow estimate, clearing the estimate on failure (that caused the "reverts to no-solve while stationary" bug).
+
 ### Diagnostics
 
 **`Matches`**:
@@ -122,23 +127,41 @@ _Avoid_: last_try, last_solve_time (different field).
 The `exposure_end` of the most recent **successful** plate-solve.
 _Avoid_: last_ok.
 
+### Timing
+
+**`estimate_time`**:
+The measurement **epoch** of the data behind the *current* `estimate` — i.e. *when the reading this value is based on was captured*, not when the integrator computed or published it. For a camera estimate it is the frame's `exposure_end`; for an IMU-progressed estimate it is the IMU sample's `timestamp`. Both sit on the same `time.time()` wall clock, so `time.time() - estimate_time` is a true "age of the fix" regardless of source. Updated on **every** estimate — each plate-solve and each IMU advance. Right after a solve `estimate_time == last_solve_success`; between solves the IMU advances `estimate_time` to each sample's epoch while `last_solve_success` stays anchored.
+_Avoid_: solve_time (legacy name — "solve" is reserved for plate-solve; this value is an *estimate*, often IMU-derived), cam_solve_time (removed), publish time, integration time. Whether the current estimate is the raw plate-solve or IMU-progressed is told by `solve_source` (`is_camera_solve()`), **not** by comparing timestamps.
+
 ### Integration
 
 **Integrator** (the process):
 The process that fuses fresh plate-solves with IMU samples and publishes the result. Single owner of the `solve`-state values (`pointing.camera.solve`, `pointing.aligned.solve`) and the `ImuDeadReckoning` instance.
 _Avoid_: fuser, merger.
 
-**Last image solve** (legacy `last_image_solve`):
-The integrator's deep copy of the most recent **successful** plate-solve, used as the IMU anchor and recovery base. In the new model this is just the `solve` state on `pointing.camera` and `pointing.aligned` (plus `last_solve_imu`); the legacy `last_image_solve` dict goes away with the dataclass migration.
-_Avoid_: last_solve (this is the *state* name in the new model, not a field), last_solution.
+**Anchor**:
+The IMU dead-reckoning reference: the pair of `pointing.camera.solve` (camera-axis truth from the latest plate-solve) and `imu_anchor` (the IMU quaternion sampled on the same frame). Owned by the integrator. Updated only on successful plate-solves; preserved across failed solves so dead-reckoning continues.
+_Avoid_: last_image_solve (legacy name), last_solve (this is the *state* name on a `PointingAxis`, not a field), last_solution.
 
 **Dead reckoning** (`ImuDeadReckoning`):
-Given a known pointing at the moment of the last plate-solve and the IMU quaternion at that moment, project the current IMU quaternion forward to a fresh `RaDecRoll`. Lives in `PiFinder/pointing_model/imu_dead_reckoning.py`.
-_Avoid_: IMU tracking, prediction.
+A **single** instance handles both axes. `solve(camera, aligned, q_x2imu)` captures, at each successful plate-solve, both the drifting reference frame `q_eq2x` (from the camera pointing + IMU sample) and the static `q_cam2aligned` rotation (from the camera↔aligned pair). `predict(q_x2imu)` then dead-reckons the camera pointing forward from the latest IMU sample and composes it with `q_cam2aligned`, returning **both** `(camera, aligned)` as `RaDecRoll`. A math primitive — `RaDecRoll` in, `RaDecRoll` out; it never imports `PointingEstimate`. Lives in `PiFinder/pointing_model/imu_dead_reckoning.py`.
+_Avoid_: IMU tracking, prediction, two IDR instances (the old `idr_camera` / `idr_aligned` split was collapsed into one dual-axis instance).
+
+**`q_cam2aligned`**:
+The static rotation from the camera optical axis to the aligned (eyepiece) axis, captured by `ImuDeadReckoning.solve()` from the (camera, aligned) pair on each successful plate-solve and reapplied in `predict()`. Identity when no alignment offset is calibrated (target pixel at image centre). Replaced — not accumulated — on every solve.
+_Avoid_: q_cam2scope (earlier working name), cam-to-scope offset.
 
 **IMU**:
 The BNO055 sensor that supplies orientation. Sampled by the IMU process; read by the integrator via `shared_state.imu()`.
 _Avoid_: gyro, sensor.
+
+**`ImuSample`**:
+A single IMU orientation reading carried on `shared_state` (via `set_imu()` / `imu()`) and bundled into each camera frame's metadata. Holds the scalar-first `quat`, the BNO055 calibration `status`, a `moving` flag, and a `timestamp` (the sample epoch — see below). Defined in `PiFinder/types/positioning.py`; `is_calibrated()` is true at `status == 3`.
+_Avoid_: imu dict (the legacy `{"quat", "status", "moving", ...}` form it replaces), the unused `move_start` / `move_end` keys (dropped).
+
+**`timestamp`** (on `ImuSample`):
+The wall-clock (`time.time()`) instant at which the IMU process sampled this orientation. The IMU-side input to `estimate_time` when the integrator dead-reckons from this sample. Distinct from the moment the integrator *reads* the sample (which lags it by the IMU → `shared_state` → integrator latency).
+_Avoid_: read time, integration time.
 
 **IMU quaternion** (`imu_quat`, `q_x2imu`):
 Unit quaternion (scalar-first) describing the IMU's orientation in its world frame. The name `q_x2imu` reads as "transform from frame `x` to IMU frame."
@@ -155,29 +178,37 @@ _Avoid_: orientation, mount direction.
 ### Alignment
 
 **Camera-to-telescope alignment**:
-The process of learning which camera pixel coincides with the centre of the eyepiece view. Outcome: an updated **target pixel**. From then on, every solve reports RA/Dec at that pixel as `pointing.aligned`.
+The process of learning which camera pixel coincides with the centre of the eyepiece view. Outcome: an updated **target pixel**. From then on, every solve reports RA/Dec at that pixel as `pointing.aligned`. There are **two paths** to that outcome — *solve-based alignment* and *daytime (manual) alignment* — which differ only in how the target pixel is discovered; both write the same `Config["target_pixel"]` / `shared_state.set_target_pixel()`.
 _Avoid_: telescope alignment, eyepiece alignment, scope alignment.
+
+**Solve-based alignment**:
+The default alignment path (`ui/align.py` `UIAlign` + `align_on_radec`): the user picks a star on the starfield chart, the solver plate-solves the live frame against that star's RA/Dec, and tetra3 reports the pixel where it landed (`AlignedResult` → target pixel). Requires a successful plate-solve, so it is a night-sky path.
+_Avoid_: star alignment, chart alignment (describe it as solve-based).
+
+**Daytime alignment** (manual alignment):
+The manual alignment path (`ui/align_daytime.py` `UIAlignDaytime`): with the scope pointed at a distant **daytime** object centred in the eyepiece, the user looks at the live camera image and marks, by eye, the pixel showing that same object. That pixel **is** the target pixel — no plate-solve, no `align_command_queue` round-trip; the module writes `target_pixel` directly. The use case is daylight (no stars to solve); the mechanic is a manual pixel pick.
+_Avoid_: daytime mode (it is an alignment, not a camera mode), visual alignment, manual solve (there is no solve).
 
 **Alignment target** (`align_ra` / `align_dec`):
 Local state in the solver process holding the user's chosen sky coordinate while an alignment request is pending. Cleared once the result is posted.
 _Avoid_: aim target.
 
-**`align_on_radec`**:
-Command on `align_command_queue` carrying `(ra, dec)` that arms alignment. Cleared by the matching `align_cancel` (timeout/user cancel).
-_Avoid_: align command, request alignment.
+**`AlignOnRaDec`** / **`AlignCancel`**:
+Dataclass commands on `align_command_queue`. `AlignOnRaDec(ra, dec)` arms alignment; `AlignCancel()` clears it (timeout/user cancel). The solver dispatches on `isinstance()`. `ReloadSqmCalibration` rides the same queue.
+_Avoid_: `align_on_radec` / `align_cancel` (legacy tagged-list string tags — `align_on_radec` is now only the `ui/align.py` orchestrator function), align command, request alignment.
 
-**`["aligned", (y, x)]`**:
-Response on `align_result_queue` carrying the pixel coordinates where the alignment target lands in the current frame.
-_Avoid_: align result, pixel result.
+**`AlignedResult`**:
+Dataclass response on `align_result_queue` carrying `(y_target, x_target)` — the pixel where the alignment target landed in the current frame. `as_target_pixel()` returns the canonical `(Y, X)`.
+_Avoid_: `["aligned", (y, x)]` (legacy tagged-list form), align result, pixel result.
 
 ### Queues & shared state
 
 **`shared_state`** (`SharedStateObj`):
-Multiprocessing-manager proxy carrying configuration, IMU samples, GPS fixes, the latest image, the published `solved` dict, and the SQM/noise-floor state. Read by every process.
+Multiprocessing-manager proxy carrying configuration, IMU samples, GPS fixes, the latest image, the published `PointingEstimate` (via `set_solution()` / `solution()`), and the SQM/noise-floor state. Read by every process.
 _Avoid_: state, global state.
 
 **`solver_queue`**:
-One-way `multiprocessing.Queue`, solver → integrator. Carries the `solved` dict on every attempt, success or failure.
+One-way `multiprocessing.Queue`, solver → integrator. Carries a `SolveResult` (a `SuccessfulSolve` or `FailedSolve`) on every attempt, success or failure.
 _Avoid_: solve queue, pointing queue.
 
 **`align_command_queue` / `align_result_queue`**:
@@ -197,7 +228,9 @@ _Avoid_: align queue (singular — there are two).
 - **"Solver"** — the PiFinder *process*. The plate-solving *library* is "tetra3". Don't conflate.
 - **"Target pixel"** vs the **`aligned`** axis — the *pixel* is `(Y, X)` in image space, produced by alignment; the *axis* is the RA/Dec direction at that pixel. Don't say "target pixel" when you mean the direction; don't say "aligned" when you mean the pixel.
 - **"Solution"** — be specific: `shared_state.solution()` returns the latest published `PointingEstimate`. The latest plate-solve values are the `solve` state inside; the current values consumers see are the `estimate` state.
-- **Legacy code field names** — `target_pixel` and `camera_center` still exist in `PiFinder/types/positioning.py` and the legacy `solved` dict (`camera_solve`). The canonical *language* is `aligned` / `camera` / `solve` / `estimate`; treat the field names as a code rename pending.
+- **Legacy `solved` dict** — historical name for the pre-dataclass position record. Code now uses `PointingEstimate`; the term may appear in old commits and PR descriptions but should not appear in current code or prose.
+- **"Solve" means plate-solve — always** — a "solve" is a camera plate-solve event or its resulting value (the `solve` state, `last_solve_attempt`, `last_solve_success`). It is **never** an IMU-derived value. The current value (which the IMU may have progressed) is the **estimate**, and its epoch is **`estimate_time`**, never "solve_time".
+- **Removed legacy timing names** — `solve_time` was renamed to `estimate_time` (it is an estimate, not a solve, and is often IMU-derived). `cam_solve_time` was removed: under epoch semantics it was value-identical to `last_solve_success`, and the "is the live value still the raw camera solve?" question is answered by `solve_source` / `is_camera_solve()` rather than a `solve_time == cam_solve_time` timestamp comparison.
 
 ## Example dialogue
 
@@ -207,4 +240,4 @@ _Avoid_: align queue (singular — there are two).
 >
 > **Dev:** What if the solve fails right after alignment?
 >
-> **Domain:** The solver pushes a `PointingEstimate` with `solve_source=CAMERA_FAILED`. The `solve`-state cells (`pointing.camera.solve`, `pointing.aligned.solve`) and `last_solve_imu` are preserved, so the integrator keeps producing `pointing.aligned.estimate` from IMU dead-reckoning. Auto-exposure still sees `diagnostics.Matches=0`, which is why we push on every attempt — success or failure.
+> **Domain:** The solver pushes a `FailedSolve`. The integrator preserves its `solve`-state cells (`pointing.camera.solve`, `pointing.aligned.solve`), the IMU anchor, **and** the `estimate` cells, and sets `solve_source=CAMERA_FAILED` on the published `PointingEstimate`. The last pointing stays published (so `solve_state` stays true) and the IMU advance keeps progressing it from dead-reckoning. Crucially the estimate is **not** cleared on failure: clearing it dropped to "no solve" whenever a solve failed while the IMU was in its deadband — see [ADR 0005](../../adr/0005-failed-solve-preserves-estimate.md). Auto-exposure still sees `diagnostics.Matches=0`, which is why the solver pushes on every attempt — success or failure.

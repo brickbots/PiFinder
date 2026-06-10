@@ -117,6 +117,33 @@ def vertex_overlay_points(
     return points
 
 
+def _orient_image(return_image, roll, flip_image, flop_image):
+    """
+    Orient a source survey image to match the eyepiece view.
+
+    Applies the fixed 180° baseline rotation (plus the live solve roll),
+    then the active telescope's flip/flop mirrors:
+        flip_image -> top-to-bottom (vertical) mirror
+        flop_image -> left-to-right (horizontal) mirror
+
+    Mirrors are applied AFTER the rotation so a mirrored optical train
+    (e.g. a refractor/SCT with a star diagonal) correctly reverses the
+    apparent sense of roll. See ADR 0003.
+    """
+    # rotate for roll / newtonian orientation
+    image_rotate = 180
+    if roll is not None:
+        image_rotate += roll
+    return_image = return_image.rotate(image_rotate)
+
+    if flip_image:
+        return_image = return_image.transpose(Image.FLIP_TOP_BOTTOM)
+    if flop_image:
+        return_image = return_image.transpose(Image.FLIP_LEFT_RIGHT)
+
+    return return_image
+
+
 def get_display_image(
     catalog_object,
     eyepiece_text,
@@ -125,9 +152,10 @@ def get_display_image(
     display_class,
     burn_in=True,
     magnification=None,
-    telescope=None,
     show_nsew=True,
     show_bbox=True,
+    flip_image=False,
+    flop_image=False,
 ):
     """
     Returns a 128x128 image buffer for
@@ -138,9 +166,6 @@ def get_display_image(
     roll:
         degrees
     """
-    flip = telescope.flip_image if telescope else False
-    flop = telescope.flop_image if telescope else False
-
     object_image_path = resolve_image_name(catalog_object, source="POSS")
     logger.debug("object_image_path = %s", object_image_path)
     if not os.path.exists(object_image_path):
@@ -156,16 +181,12 @@ def get_display_image(
     else:
         return_image = Image.open(object_image_path)
 
-        # rotate for roll / newtonian orientation
         image_rotate = 180
         if roll is not None:
             image_rotate += roll
 
-        return_image = return_image.rotate(image_rotate)
-        if flip:
-            return_image = return_image.transpose(Image.FLIP_LEFT_RIGHT)
-        if flop:
-            return_image = return_image.transpose(Image.FLIP_TOP_BOTTOM)
+        # Orient to match the eyepiece view (see ADR 0003)
+        return_image = _orient_image(return_image, roll, flip_image, flop_image)
 
         # FOV
         fov_size = int(1024 * fov / 2)
@@ -207,8 +228,8 @@ def get_display_image(
 
             cx = display_class.fov_res / 2
             cy = display_class.fov_res / 2
-            fx = -1 if flip else 1
-            fy = -1 if flop else 1
+            fx = -1 if flop_image else 1
+            fy = -1 if flip_image else 1
 
             # NSEW cardinal labels — show only 2: topmost and leftmost
             if show_nsew:

@@ -42,18 +42,13 @@ def _load_raw_stars():
     cache_dir = Path(utils.data_dir, "cache")
     pkl_path = cache_dir / "hip_main.pkl"
 
-    if (
-        pkl_path.exists()
-        and pkl_path.stat().st_mtime >= dat_path.stat().st_mtime
-    ):
+    if pkl_path.exists() and pkl_path.stat().st_mtime >= dat_path.stat().st_mtime:
         try:
             _RAW_STARS_DF = pandas.read_pickle(pkl_path)
             logger.info("Loaded Hipparcos catalog from cache: %s", pkl_path)
             return _RAW_STARS_DF
         except Exception as e:
-            logger.warning(
-                "Hipparcos cache unreadable, reparsing %s: %s", dat_path, e
-            )
+            logger.warning("Hipparcos cache unreadable, reparsing %s: %s", dat_path, e)
 
     logger.info("Parsing Hipparcos catalog from %s", dat_path)
     with load.open(str(dat_path)) as f:
@@ -267,9 +262,7 @@ class Starfield:
             & (y_pos > 0)
             & (y_pos < self.render_size[1])
         )
-        is_target = np.array(
-            [s == "target" for s in symbols], dtype=bool
-        )
+        is_target = np.array([s == "target" for s in symbols], dtype=bool)
         visible = on_screen | is_target
 
         cx, cy = self.render_center
@@ -299,9 +292,7 @@ class Starfield:
                     or yp > 0
                     or yp < self.render_size[1]
                 ):
-                    deg_to_target = (
-                        np.rad2deg(np.arctan2(yp - cy, xp - cx)) + 180
-                    )
+                    deg_to_target = np.rad2deg(np.arctan2(yp - cy, xp - cx)) + 180
                     tmp_pointer = self.pointer_image.copy()
                     tmp_pointer = tmp_pointer.rotate(-deg_to_target)
                     ret_image = ImageChops.add(ret_image, tmp_pointer)
@@ -371,9 +362,7 @@ class Starfield:
         self._const_sx, self._const_sy = self.projection(
             self.const_start_star_positions
         )
-        self._const_ex, self._const_ey = self.projection(
-            self.const_end_star_positions
-        )
+        self._const_ex, self._const_ey = self.projection(self.const_end_star_positions)
 
         pil_image, visible_stars = self.render_starfield_pil(
             constellation_brightness, shade_frustrum
@@ -435,12 +424,8 @@ class Starfield:
             ey_pos = -eyr * self.pixel_scale + cy
 
             # Keep edges where at least one endpoint is on-screen.
-            start_on = (
-                (sx_pos > 0) & (sx_pos < W) & (sy_pos > 0) & (sy_pos < H)
-            )
-            end_on = (
-                (ex_pos > 0) & (ex_pos < W) & (ey_pos > 0) & (ey_pos < H)
-            )
+            start_on = (sx_pos > 0) & (sx_pos < W) & (sy_pos > 0) & (sy_pos < H)
+            end_on = (ex_pos > 0) & (ex_pos < W) & (ey_pos > 0) & (ey_pos < H)
             for i in np.flatnonzero(start_on | end_on):
                 idraw.line(
                     [sx_pos[i], sy_pos[i], ex_pos[i], ey_pos[i]],

@@ -96,21 +96,22 @@ To checkout one of the forks of the repository, run the following commands:
 .. code-block:: bash
 
     cd ~/PiFinder
-    git add remote <rname> <url-of-fork>
+    git remote add <rname> <url-of-fork>
     git fetch --all
     git checkout -b <branch> <rname>/<branch>
 
 You have to replace <rname> with the name of the remote you added, <url-of-fork> with the URL of the fork you want to check out (you can copy this from github, by pressing on the "code" button), and <branch> with the name of the branch you want to check out. This will create a new branch in your local repository, which follows the branch of the fork you checked out.
 
 To keep up to date with the latest changes in the fork, you can run the following commands:
+
 .. code-block:: bash
 
     cd ~/PiFinder
-    git pull 
+    git pull
     cd python
     sudo pip install -r requirements.txt
 
- The last command will install the requirements and only needs to be run occasionally, depending on the changes in the branch. You need to restart the pifinder service to see the changes.   
+The last command will install the requirements and only needs to be run occasionally, depending on the changes in the branch. You need to restart the pifinder service to see the changes.
 
 Fork me - getting or contributing to the sources with pull request
 ------------------------------------------------------------------
@@ -139,11 +140,12 @@ the ending ``.rst``. The documentation is then published to `readthedocs.io <htt
 to the official GitHub repository (using readthedocs's infrastructure). 
 
 You can link your fork also to your account on readthedocs.io, but it is easier to build the documentation locally. 
-For this install sphinx using pip: 
+For this, install Sphinx and the Read the Docs theme from the pinned
+requirements file (run this from the ``docs`` directory):
 
 .. code-block::
 
-    pip install -r sphinx sphinx_rtd_theme
+    pip install -r source/requirements.txt
 
 You can then use the supplied ``Makefile`` to build a html tree using ``make html`` and running a http server in the directory with the files: 
 
@@ -151,6 +153,68 @@ You can then use the supplied ``Makefile`` to build a html tree using ``make htm
 
     cd build/html; python -m http.server
 
+
+Reference documentation and AI assistant skills
+-----------------------------------------------
+
+Alongside this manual, the repository carries a second layer of documentation
+aimed at people working *in* the code rather than reading about the product. It
+captures the project's vocabulary and the reasoning behind choices that aren't
+obvious from the code alone, and it doubles as guidance for AI coding assistants
+working in the repo. Reading the relevant pieces before you change an area saves
+you from guessing, and from accidentally renaming a concept the rest of the
+codebase depends on.
+
+The domain model
+................
+
+PiFinder is split into a handful of *contexts* — distinct slices of the running
+system, each with its own vocabulary. This documentation lives under ``docs/`` in
+the repository (it is not part of this Sphinx site) and is organised like this:
+
+- ``CONTEXT-MAP.md`` (repository root) — the index of contexts (Catalog,
+  Positioning, SQM, Equipment, UI) and how they relate to one another. Start
+  here for any cross-context question.
+- ``docs/ax/<area>/CONTEXT.md`` — the canonical glossary for each context. These
+  define what each domain term means, which words to avoid, and how related
+  ideas fit together. When one of these defines a term, prefer it over synonyms
+  in your code, comments, commit messages and pull requests.
+- ``docs/ax/<area>.md`` — an architecture deep-dive for each context: data flow,
+  lifecycle and the gotchas that catch newcomers out. These sit alongside the
+  system-wide :doc:`dev_arch` page.
+- ``docs/adr/NNNN-*.md`` — short Architecture Decision Records that capture the
+  *why* behind a non-obvious or hard-to-reverse choice, so you can tell a
+  deliberate decision from an accident.
+
+Keeping everyone on the same words is the point: when the code, the conversation
+and the commit history all use the same terms, changes are far easier to discuss
+and review. If you find language in the code that conflicts with a ``CONTEXT.md``,
+that's worth flagging.
+
+AI assistant skills
+...................
+
+If you work with an AI coding assistant such as
+`Claude Code <https://www.claude.com/product/claude-code>`_, the repository
+bundles a set of *skills* in ``.claude/skills/``. Each one packages a common
+PiFinder workflow — the right files, conventions and steps — so the assistant
+follows the house way of doing things instead of guessing. They are entirely
+optional; you don't need them to contribute, but they save time. Invoke one by
+its name (for example ``/docs``):
+
+- **docs** — author and edit this user-facing manual in the house style,
+  including building it to check for broken cross-references. See the
+  `Documentation`_ section above.
+- **grill-with-docs** — stress-test a plan against the domain model described
+  above, sharpen the terminology, and update the ``CONTEXT.md`` glossaries and
+  ADRs as decisions settle.
+- **i18n** — run the translation workflow: mark strings, run the Babel
+  extract/update/compile pipeline, and fill in missing translations. See
+  `Internationalization`_ below.
+- **pifinder-remote** — run PiFinder headlessly and drive it like a user over
+  its HTTP API: press keys to navigate the menus, capture the 128×128 screen as
+  a PNG, and read live state such as the current solve, location and IMU. Handy
+  for reproducing a UI bug or grabbing a screenshot without real hardware.
 
 Internationalization
 -----------------------
@@ -249,15 +313,17 @@ files: one for getting PiFinder to run, one for development purposes:
     pip install -r requirements_dev.txt
 
 
-Install the Hipparcos catalog
-.............................
+Hipparcos catalog
+.................
 
-The `hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>`_ will be
-downloaded to the following location: ``/home/pifinder/PiFinder/astro_data/``
+The `hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>`_
+(``astro_data/hip_main.dat``) now ships in the repository, so no separate
+download is required. If you ever need to refresh it, it can be re-fetched
+from:
 
 .. code-block::
 
-    wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
+    wget -O astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
 
 Install the Tetra3/Cedar solver
 ................................
@@ -318,6 +384,13 @@ The defined sessions are:
   session is not run by default, but is executed on code check in to the PiFinder
   repository.
 
+- ui_tests -> Runs PyTest against the UI module smoke harness
+  (``tests/test_ui_modules.py``).  It builds every UI screen through a real
+  ``MenuManager`` and exercises each screen's key handlers as a crash-only smoke
+  test.  Because it builds the real catalogs and may download ``hip_main.dat`` on
+  first run, it is heavier and more network-dependent than the unit suite, so it
+  lives in its own session and is not run by default.
+
 - babel -> Runs the complete toolchain for internationalization (based on `pybabel`).
   That means extracts strings to translate and updates the `.po`-files in `python/locale/**`
   Then these are compiled into `.mo`-files. Unfortunately, this changes the `.mo`-files in any case,
@@ -349,6 +422,10 @@ the web interface works correctly.
 The tests exercise the remote control features of PiFinder, changing **the state of the PiFinder** and
 therefore should **not be run** against a PiFinder you are actively using for observing.
 
+.. tip::
+
+    Note that the whole test suite runs approximately 20 min.
+
 Running Website Tests locally
 _______________________________
 
@@ -360,7 +437,8 @@ Note that when running the tests on Safari, you need to enable "Allow Remote Aut
 does not support the "headless" mode, so you will see the browser window when running the tests and you cannot use other windows while the tests are running.
 
 If you want to run the tests against a real PiFinder, set the ``PIFINDER_HOMEPAGE`` environment variable to the URL of your PiFinder instance or 
-pass the URL directly as a command line paramters with ``--url``. The PiFinder instance needs to be in the same WiFi as your machine, so that it is reachable via the network.
+pass the URL directly as a command line parameter with ``--url``. The PiFinder instance needs to be in the same WiFi as your machine, so that it is 
+reachable via the network.
 
 Running Website Tests remotely
 ________________________________
@@ -393,11 +471,10 @@ If you want to test against a real PiFinder, set the ``PIFINDER_HOMEPAGE`` envir
     nox -s web_tests
 
 If you run the tests with-out a working Selenium Grid instance, the tests will all be skipped. 
-You can also run individual tests with PyTest directly, use ``SELENIUM_GRID_URL=... PIFINDER_HOMEPAGE=... pytest tests/webstite/test_file.py``.
+You can also run individual tests with PyTest directly, use ``SELENIUM_GRID_URL=... PIFINDER_HOMEPAGE=... pytest tests/website/test_file.py``.
 
 Note that due to the tests depending on the response times of the PiFinder web server and the Selenium Grid server, there may be occasional timeouts or failures.
 If you encounter such issues, simply re-run the tests. We need to strike a balance between test speed and reliability, and this may require some tuning in the future.
-Note that the tests run approximately 10 minutes.
 
 Setting up Selenium Grid
 ___________________________
@@ -451,38 +528,24 @@ You can do this by running the following command in another terminal window:
 
 .. code-block::
 
-    cd /home/pifinder/PiFinder/python/PiFinder/bin
+    cd /home/pifinder/PiFinder/bin
     ./cedar-detect-server-<your arch> -p 50551
 
 -h, --help | available command line arguments
 .............................................
 
-Get all ``PiFinder.main`` options with the "--help" flag.
+Run ``PiFinder.main`` with the ``-h`` flag to print every available option:
 
 .. code-block::
 
-    pifinder@pifinder:~/PiFinder/python $ python3 -m PiFinder.main -h
-    Starting PiFinder ...
-    usage: main.py [-h] [-fh] [-c CAMERA] [-k KEYBOARD] [--script SCRIPT] [-f] [-n] [-x] [-l]
-    
-    eFinder
-    
-    optional arguments:
-      -h, --help            show this help message and exit
-      -fh, --fakehardware   Use a fake hardware for imu, gps
-      -c CAMERA, --camera CAMERA
-                            Specify which camera to use: pi, asi, debug or none
-      -k KEYBOARD, --keyboard KEYBOARD
-                            Specify which keyboard to use: pi, local or server
-      --script SCRIPT       Specify a testing script to run
-      -f, --fps             Display FPS in title bar
-      -n, --notmp           Don't use the /dev/shm temporary directory. (useful if not on pi)
-      -x, --verbose         Set logging to debug mode
-      -l, --log             Log to file
+    python3 -m PiFinder.main -h
 
 .. note::
 
-   The available command line flags may change with forthcoming releases. Always refer to the real output of the command line parameter "-h".
+   The set of command line flags changes between releases, so rather than
+   reproduce the full list here it is best to consult the real output of
+   ``-h``.  The flags you'll reach for most often are described in their own
+   sections below.
 
 -x, --verbose | debug information
 .................................
@@ -517,7 +580,7 @@ are:
 -c CAMERA, --camera CAMERA
 ..........................
 
-Use the "fake" camera module, so the PiFinder cam ist physically not necessary
+Use the "fake" camera module, so the PiFinder camera is not physically necessary
 for testing purposes. Else specify which camera to use: pi, asi, debug or none.
 
 .. code-block::
@@ -572,16 +635,8 @@ My app crashes
 When crashing, there are many unrelated stack traces running. Search for the
 relevant one. The rest is not important, these are the other threads stopping.
 
-.. ::attention
-
-   Needs an example
-
 Test the IMU
 ............
-
-.. ATTENTION::
-
-   Other possibilities? E.g. cover some pins?
 
 First power up the unit and look at the Status page while moving it around. The
 status screen is part of the :ref:`user_guide:tools` menu.
@@ -605,11 +660,19 @@ The demo mode - it is cloudy, but I like to test my PiFinder anyways
 
 Using the **demo mode** you will be able to run the PiFinder and almost all it's functionality, but not under the stars. Therefore the PiFinder get's an image of the sky from the disc instead from the camera and uses it. You can use all PiFinder commands, like searching for an object, you see the IMU run and you get a "fake" GPS signal. You also can check the PiFinder keyboard and the complete menu cycle. 
 
-The way to get this functionality, is to enter PiFinder in the 'test' or 'debug' mode.
+There are a few ways to enter this 'test' (or 'debug') mode.
 
-First method: Press (short press) **"ENT-A"** again and again to cycle through the screens until you get to the **Console screen**. There press the **"0"** key (the display shows the message "Debug: true"). This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock. You can leave the "demo mode" by just again cycle to the Console screen and press "0" again (the display shows the message "Debug: false").
+The easiest is from the menu: open **Tools › Test Mode**. This supplies a fake
+GPS lock and time and has the PiFinder solve a stored image from disk instead of
+the camera, while still responding to IMU movement, so Push-To and everything
+else that needs a solve/lock keeps working.
 
-Second method: run PiFinder with the :ref:`dev_guide:Running/Debugging from the command line` functionality.
+You can also toggle it from the **Console screen**: open **Tools › Console**,
+then press **0** (the display shows "Debug: true"). Press **0** on the Console
+screen again to leave it (the display shows "Debug: false").
+
+Finally, you can start straight into this mode from the command line — see the
+:ref:`dev_guide:Running/Debugging from the command line` section above.
 
 .. note::
 

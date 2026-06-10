@@ -2,22 +2,19 @@
 Software Setup
 ==============
 
-Once you've built or otherwise obtained a PiFinder, here's how to setup a fresh SD card to run it.  The easy and recommended way is to download the current prebuilt release image file and use the Raspberry Pi imager to burn it and configure your wifi settings.  If you prefer, you can build an image from scratch following the instructions below.
+Once you've built or otherwise obtained a PiFinder, here's how to set up a fresh SD card to run it.  The recommended way is to download the current prebuilt release image and use the Raspberry Pi imager to burn it and configure your wifi.  If you prefer, you can build an image from scratch following the instructions below.
 
 Prebuilt Release Image
 ----------------------
 
-The image files on our release pages contain the proper version of the Raspberry Pi OS,
-the installed and configured PiFinder software, and all the catalog images for deep sky 
-objects.  This is the recommended method for getting the PiFinder software on to an SD card
-for using the PiFinder, no matter how you have built/purchased one.
+The image files on our release pages bundle the correct Raspberry Pi OS version, the installed and configured PiFinder software, and all the deep sky catalog images.  This is the recommended way to get PiFinder onto an SD card, however you built or purchased the unit.
 
 
 * Download the latest release image from our `releases page <https://github.com/brickbots/PiFinder/releases>`_
 
 * Install the Raspberry Pi imager: https://www.raspberrypi.com/software/
 
-* Run the imager and click 'Choose OS' and select 'Use Custom' then select the image you downloaded
+* Run the imager, click 'Choose OS', select 'Use Custom', then choose the image you downloaded
 
 .. image:: images/software/rpi_imager_001.png
    :width: 47%
@@ -26,13 +23,13 @@ for using the PiFinder, no matter how you have built/purchased one.
    :width: 47%
 
 
-* If you'd like to set up your network so the PiFinder can connect to it, click the gear icon at the lower left and fill in:
+* To let the PiFinder connect to your network, click the gear icon at the lower left and fill in:
 
   * SSID: The name of your wifi network
   * Password: The password for your wifi network
-  * Wireless LAN Country: Where you live to configure wifi in accordance with local laws
+  * Wireless LAN Country: Where you live, so wifi follows local regulations
 
-* You can also setup your locale and keyboard settings if you like, but these are not used by the PiFinder software and only affect the language of the underlying operating system.
+* You can also set your locale and keyboard, but the PiFinder software ignores these; they only affect the underlying operating system.
 
 .. image:: images/software/rpi_imager_003.png
    :width: 47%
@@ -43,25 +40,30 @@ for using the PiFinder, no matter how you have built/purchased one.
 .. important::
    Do not set the hostname or username/password.  SSH is enabled on this image by default.
 
-* Click the 'Select Storage' button and choose the SD card on your computer
-* Then click the 'Write' button to start.
+* Click 'Select Storage' and choose the SD card on your computer
+* Click 'Write' to start
 
-Once the image writing is complete, you can insert the SD card into your PiFinder and power it up.  The first boot will take a bit longer as it will expand the filesystem to fill the entire SD card, so be patient.
+.. note::
+   If the imager reports that the image is **"not a multiple of 512 bytes"** (or otherwise
+   refuses to write it), the download was incomplete or corrupted.  Download the release
+   image again and retry.
 
-Now that you have the software installed, you're ready to hit the :doc:`Quick Start Guide<quick_start>` to get ready for a night of observing!
+Once writing is complete, insert the SD card into your PiFinder and power it up.  The first boot takes a bit longer as it expands the filesystem to fill the card, so be patient.
+
+With the software installed, you're ready for the :doc:`Quick Start Guide<quick_start>` and a night of observing.
 
 Build From Scratch
 ------------------
 
 .. warning::
 
-   You probably do not want to do this.  These instructions are primarily for developer
+   You probably do not want to do this.  These instructions are primarily for developers
    who are making a new image file from scratch.  To just use your PiFinder you will
    want to use the instructions above to download and use a pre-built image for your
    sd card.
 
 
-You can do this completely headless (no monitor / keyboard) if desired.
+You can do this completely headless (no monitor or keyboard) if you like.
 
 General Pi Setup
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -71,16 +73,16 @@ General Pi Setup
    You must use the specific Raspberry Pi OS version listed here or the PiFinder software will not work.  The software is designed and tested for a specific version with each release.
 
 
-* Create Image:  I'd strongly recommend using the Raspberry Pi imager.  It's available for most platforms and lets you easily setup wifi and SSH for your new image.
+* Create the image using the Raspberry Pi imager.  It's available for most platforms and makes it easy to set up wifi and SSH.
 
   * Select the 64-Bit version of Pi OS (**Legacy**) Lite (No Desktop Environment)
 
     * **Make sure you select the Legacy Bullseye option here**
 
-  * Setup SSH / Wifi / User and Host name using the gear icon.  Below is a screengrab showing the suggested settings.
+  * Set up SSH / Wifi / User and Host name using the gear icon.  Below is a screengrab showing the suggested settings.
 
     * **The username must be** ``pifinder``
-    * The host name, password, network settings and locale should be customized for your needs.
+    * Customize the host name, password, network settings, and locale for your needs.
 
 
 .. image:: ../../images/raspi_imager_settings.png
@@ -88,14 +90,14 @@ General Pi Setup
 
 
 
-* Once the image is burned to an SD card, insert it into the PiFinder and power it up.   It will probably take a few minutes to boot the first time.
-* SSH into the Pifinder using ``pifinder@pifinder.local`` and the password you  setup.
-* Update all packages.  This is not strictly required, but is a good practice.
+* Once the image is burned to an SD card, insert it into the PiFinder and power it up.  The first boot will probably take a few minutes.
+* SSH into the PiFinder using ``pifinder@pifinder.local`` and the password you set up.
+* Update all packages.  This isn't strictly required, but it's good practice.
 
   * ``sudo apt update``
   * ``sudo apt upgrade``
 
-    * Enable SPI / I2C.  The screen and IMU use these to communicate.  
+    * Enable SPI / I2C, which the screen and IMU use to communicate.
     * run ``sudo raspi-config``
     * Select 3 - Interface Options
     * Then I4 - SPI  and choose Enable
@@ -104,24 +106,24 @@ General Pi Setup
 PiFinder Software Install
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Great!  You have a nice fresh install of Raspberry Pi OS ready to go.  The rest of the setup is completed by running the ``pifinder_setup.sh`` script in this repo.  Here's the command to download and run the script in one step:
+You now have a fresh install of Raspberry Pi OS.  The rest of the setup is handled by the ``pifinder_setup.sh`` script in this repo.  Download and run it in one step:
 
  ``wget -O - https://raw.githubusercontent.com/brickbots/PiFinder/release/pifinder_setup.sh | bash``
 
-The script will do the following:
+The script will:
 
 
 * Clone this repo
 * Install the needed packages/dependencies
 * Download some required astronomy data files
-* Setup Wifi access point capabilities
-* Create a samba share for pulling images, and observations logs and adding observing lists
-* Finally, setup the PiFinder service to start on reboot.
+* Set up Wifi access point capabilities
+* Create a samba share for pulling images and observation logs and adding observing lists
+* Set up the PiFinder service to start on reboot
 
-Once the script is done, reboot the PiFinder:
+Once the script finishes, reboot the PiFinder:
 ``sudo shutdown -r now``
 
-It will take up to two minutes to boot, but you should see the startup screen before too long:
+Booting takes up to two minutes, but you should see the startup screen before long:
 
 .. image:: ../../images/screenshots/WELCOME_001_docs.png
    :alt: Startup log
@@ -130,11 +132,11 @@ It will take up to two minutes to boot, but you should see the startup screen be
 Catalog Image Download
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The PiFinder can display images of objects in it's catalogs if they are available on your SD card.  These images take approximately 5gb of space and could potentially take several hours or more to download... but you can cancel and resume the download process at any time.
+The PiFinder can display catalog object images when they're present on your SD card.  These images take about 5gb of space and can take several hours or more to download, but you can cancel and resume at any time.
 
-The :ref:`software:prebuilt release image` already has these images downloaded and is much quicker to download as a single file from your main computer.
+The :ref:`software:prebuilt release image` already includes these images and is much quicker to download as a single file from your main computer.
 
-To download the catalog images, make sure your PiFinder is in WIFI client mode so it can access the internet and SSH into it using the password you setup initially.
+To download the catalog images, put your PiFinder in WIFI client mode so it can reach the internet, then SSH into it using the password you set up initially.
 
 Once connected, type:
 
@@ -143,12 +145,11 @@ Once connected, type:
    cd PiFinder/python
    python -m PiFinder.get_images
 
-The PiFinder will quickly check which images are missing and start the download process.  You can monitor it's progress via the status bar displayed.  
+The PiFinder checks which images are missing and starts downloading.  You can monitor progress on the status bar.
 
 
 .. image:: ../../images/screenshots/Image_download_001.png
-   :alt: Image Download 
+   :alt: Image Download
 
 
-There are 13,000+ images, so it will take a bit of time, but can be done in multiple sessions.  The PiFinder will use whichever images you have on hand each time you observe.
-
+There are 13,000+ images, so it takes a while, but you can do it across multiple sessions.  The PiFinder uses whichever images you have on hand each time you observe.

@@ -78,25 +78,20 @@ class UISQMSweep(UIModule):
 
     def _draw_ask_sqm(self):
         """Draw SQM input screen"""
+        tb = self.display_class.titlebar_height
         self.draw.text(
-            (10, 15),
+            (10, tb + 3),
             "REFERENCE SQM",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
 
-        self.draw.text(
-            (10, 35),
-            "Enter SQM from",
-            font=self.fonts.base.font,
-            fill=self.colors.get(192),
-        )
-        self.draw.text(
-            (10, 47),
-            "external meter:",
-            font=self.fonts.base.font,
-            fill=self.colors.get(192),
-        )
+        y = tb + 18
+        for line in ("Enter SQM from", "external meter:"):
+            self.draw.text(
+                (10, y), line, font=self.fonts.base.font, fill=self.colors.get(192)
+            )
+            y += self.fonts.base.height + 1
 
         # Show current input with decimal separator (XX.XX format)
         if self.sqm_input:
@@ -115,21 +110,23 @@ class UISQMSweep(UIModule):
             display = "__.__"
 
         self.draw.text(
-            (10, 65),
+            (10, tb + 48),
             f"SQM: {display}",
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
 
-        # Legend
+        # Legend (two rows anchored to the bottom)
+        base_h = self.fonts.base.height
+        legend_y = self.display_class.resY - base_h - 7
         self.draw.text(
-            (10, 95),
+            (10, legend_y - (base_h + 1)),
             "0-9: Enter  -: Del",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
         self.draw.text(
-            (10, 107),
+            (10, legend_y),
             f"{self._SQUARE_}: OK  0: Skip",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
@@ -137,8 +134,9 @@ class UISQMSweep(UIModule):
 
     def _draw_confirm(self):
         """Draw confirmation screen"""
+        tb = self.display_class.titlebar_height
         self.draw.text(
-            (10, 20),
+            (10, tb + 3),
             "READY?",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
@@ -146,35 +144,29 @@ class UISQMSweep(UIModule):
 
         if self.reference_sqm:
             self.draw.text(
-                (10, 45),
+                (10, tb + 28),
                 f"Ref SQM: {self.reference_sqm:.2f}",
                 font=self.fonts.base.font,
                 fill=self.colors.get(192),
             )
         else:
             self.draw.text(
-                (10, 45),
+                (10, tb + 28),
                 "No reference SQM",
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
 
-        self.draw.text(
-            (10, 65),
-            "20 images",
-            font=self.fonts.base.font,
-            fill=self.colors.get(192),
-        )
-        self.draw.text(
-            (10, 77),
-            "~1 minute",
-            font=self.fonts.base.font,
-            fill=self.colors.get(192),
-        )
+        y = tb + 48
+        for line in ("20 images", "~1 minute"):
+            self.draw.text(
+                (10, y), line, font=self.fonts.base.font, fill=self.colors.get(192)
+            )
+            y += self.fonts.base.height + 1
 
         # Legend
         self.draw.text(
-            (10, 110),
+            (10, self.display_class.resY - self.fonts.base.height - 7),
             f"{self._SQUARE_}: START  0: CANCEL",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
@@ -194,8 +186,9 @@ class UISQMSweep(UIModule):
             # Wait a moment for sweep directory to be created
             time.sleep(0.2)
 
+        tb = self.display_class.titlebar_height
         self.draw.text(
-            (10, 15),
+            (10, tb + 3),
             "CAPTURING...",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
@@ -207,17 +200,17 @@ class UISQMSweep(UIModule):
 
         # Show actual file count
         self.draw.text(
-            (10, 40),
+            (10, tb + 23),
             f"{file_count} / {self.total_images}",
             font=self.fonts.large.font,
             fill=self.colors.get(192),
         )
 
-        # Progress bar
-        bar_x = 10
-        bar_y = 65
-        bar_width = 108
-        bar_height = 12
+        # Progress bar spans the width with a symmetric margin
+        bar_x = round(self.display_class.resX * 10 / 128)
+        bar_y = tb + 48
+        bar_width = self.display_class.resX - 2 * bar_x
+        bar_height = round(self.display_class.resY * 12 / 128)
 
         self.draw.rectangle(
             [bar_x, bar_y, bar_x + bar_width, bar_y + bar_height],
@@ -242,7 +235,7 @@ class UISQMSweep(UIModule):
         mins = remaining // 60
         secs = remaining % 60
         self.draw.text(
-            (10, 85),
+            (10, bar_y + bar_height + 8),
             f"~{mins}:{secs:02d} remaining",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
@@ -337,15 +330,16 @@ class UISQMSweep(UIModule):
 
             # Add solve data
             solution = self.shared_state.solution()
-            if solution:
+            if solution and solution.has_pointing():
+                aligned = solution.pointing.aligned.estimate
                 metadata["solve"] = {
-                    "ra_deg": solution.get("RA"),
-                    "dec_deg": solution.get("Dec"),
-                    "altitude_deg": solution.get("Alt"),
-                    "azimuth_deg": solution.get("Az"),
-                    "fov_deg": solution.get("FOV"),
-                    "matches": solution.get("Matches"),
-                    "rmse": solution.get("RMSE"),
+                    "ra_deg": aligned.RA,
+                    "dec_deg": aligned.Dec,
+                    "altitude_deg": solution.Alt,
+                    "azimuth_deg": solution.Az,
+                    "fov_deg": solution.diagnostics.FOV,
+                    "matches": solution.diagnostics.Matches,
+                    "rmse": solution.diagnostics.RMSE,
                 }
 
             # Add NoiseFloorEstimator output
@@ -384,22 +378,23 @@ class UISQMSweep(UIModule):
 
     def _draw_complete(self):
         """Draw completion screen"""
+        tb = self.display_class.titlebar_height
         self.draw.text(
-            (10, 40),
+            (10, tb + 23),
             "SWEEP COMPLETE!",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
 
         self.draw.text(
-            (10, 70),
+            (10, tb + 53),
             "Metadata saved",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
         )
 
         self.draw.text(
-            (10, 110),
+            (10, self.display_class.resY - self.fonts.base.height - 7),
             f"{self._SQUARE_}: EXIT",
             font=self.fonts.base.font,
             fill=self.colors.get(192),

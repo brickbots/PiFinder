@@ -59,9 +59,9 @@ class TestCardinalVectors:
             for fx, fy in [(1, 1), (-1, 1), (1, -1), (-1, -1)]:
                 (nx, ny), (ex, ey) = cardinal_vectors(angle, fx, fy)
                 dot = nx * ex + ny * ey
-                assert dot == pytest.approx(0, abs=1e-10), (
-                    f"Not orthogonal at angle={angle}, fx={fx}, fy={fy}"
-                )
+                assert dot == pytest.approx(
+                    0, abs=1e-10
+                ), f"Not orthogonal at angle={angle}, fx={fx}, fy={fy}"
 
     def test_unit_length(self):
         """N and E vectors should have unit length."""
@@ -139,9 +139,9 @@ class TestSizeOverlayPoints:
                 farthest[1] / math.hypot(*farthest),
             )
             dot = abs(direction[0] * ex + direction[1] * ey)
-            assert dot == pytest.approx(1.0, abs=0.02), (
-                f"PA=90 major axis not along East at image_rotate={rot}"
-            )
+            assert dot == pytest.approx(
+                1.0, abs=0.02
+            ), f"PA=90 major axis not along East at image_rotate={rot}"
 
     def test_pa0_aligns_with_north(self):
         """PA=0 major axis must align with the North vector from cardinal_vectors."""
@@ -158,9 +158,9 @@ class TestSizeOverlayPoints:
             )
             # Should be parallel to North (same or opposite direction)
             dot = abs(direction[0] * nx + direction[1] * ny)
-            assert dot == pytest.approx(1.0, abs=0.02), (
-                f"PA=0 major axis not along North at image_rotate={rot}"
-            )
+            assert dot == pytest.approx(
+                1.0, abs=0.02
+            ), f"PA=0 major axis not along North at image_rotate={rot}"
 
     def test_flip_mirrors_x(self):
         """fx=-1 mirrors all points horizontally around cx."""

@@ -326,17 +326,16 @@ def test_network_add_form_submission(driver):
     form = driver.find_element(By.ID, "new_network_form")
     form.submit()
 
-    # Wait for redirect back to network page and verify
+    # Wait for redirect back to /network (not /network/add or /network/...)
     WebDriverWait(driver, 10).until(
-        lambda driver: "/network" in driver.current_url
-        and "add_new=1" not in driver.current_url
+        lambda d: d.current_url.rstrip("/").endswith("/network")
     )
 
     # Verify that the form submission was successful by checking we're back on the network page
     assert (
         "Network Settings" in driver.page_source
     ), "Not on network settings page after form submission"
-    assert driver.current_url.endswith(
+    assert driver.current_url.rstrip("/").endswith(
         "/network"
     ), "URL not correct after form submission"
 
@@ -417,11 +416,16 @@ def _login_to_network(driver):
     """Helper function to login and navigate to network interface"""
     login_to_network(driver)
 
-    # Wait for login page to load
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "password")))
-
-    # Use centralized login function
-    login_with_password(driver)
+    # Detect login page by form ID, not #password — network.html also has id="password" (WiFi PSK)
+    try:
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, "login_form"))
+        )
+        login_with_password(driver)
+    except Exception:
+        pass  # Already authenticated; browser is on the network page
 
     # Wait for network page to load after successful login
-    WebDriverWait(driver, 10).until(lambda driver: "/network" in driver.current_url)
+    WebDriverWait(driver, 10).until(
+        lambda d: d.current_url.rstrip("/").endswith("/network")
+    )
