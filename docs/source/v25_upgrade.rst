@@ -24,37 +24,7 @@ Camera Prep
 The new v3 camera ships with one of two lens holders installed. Either way, you'll remove it and
 fit the one from the kit.
 
-.. image:: images/v25_upgrade/v25_upgrade_11.jpeg
-
-If your camera has pin headers, clip them as close to the board as you reasonably can.
-
-.. image:: images/v25_upgrade/v25_upgrade_12.jpeg
-
-.. image:: images/v25_upgrade/v25_upgrade_13.jpeg
-
-Look through the lens holder to confirm it's clear of obstructions.
-
-Place the lens holder on the table, large side up, oriented as in the photo below. Its two screw
-tabs must stick out the opposite sides from the cream-white and dark-grey cable connector on the
-PCB. Remove the two screws (yours might be black) near the center of the green PCB and lift it
-gently onto the new lens holder.
-
-Mind the sensor surface on the underside of the PCB; it should sit neatly in the square recess of
-the lens holder. Refit the same two screws to fasten the PCB to the lens holder. The screws cut
-their own threads, but the holes help get them started. Tighten them down so nothing wiggles.
-
-.. image:: images/v25_upgrade/v25_upgrade_14.jpeg
-
-.. image:: images/v25_upgrade/v25_upgrade_15.jpeg
-
-Flip the camera assembly over and thread in the lens, slowly and carefully. With gentle force it
-slides in a few MM, aligns, and stops. Once it stops, check that it sits straight and screw it into
-place. For a rough focus, leave a 6mm gap (pictured below) between the top of the lens holder and
-the bottom of the lip on the lens. Don't fret over it; you'll do final focus under the stars.
-
-.. image:: images/v25_upgrade/v25_upgrade_16.jpeg
-
-.. image:: images/v25_upgrade/v25_upgrade_17.jpeg
+.. include:: includes/camera_prep.rst
 
 Installing the Camera
 ----------------------
@@ -86,24 +56,9 @@ opening on one side for the cable to exit; align it with the direction the cable
 
 .. image:: images/v25_upgrade/v25_upgrade_23.jpeg
 
-Next, connect the cable to the new camera module. Open the connector fully by sliding the dark-grey
-piece away from the PCB. Be gentle, as this part breaks with too much force.
+Next, connect the cable to the new camera module.
 
-With the connector open, slide the cable in with gentle force, keeping it well aligned. Take your
-time and watch the dark-grey clip. It should stay open as you insert the cable; if it closes,
-re-open it so the cable can slide all the way in.
-
-Once the cable is seated, close the dark-grey clip by sliding it shut. This may take a little force
-to fully close. Check the photo below if in doubt!
-
-.. image:: images/v25_upgrade/v25_upgrade_24.jpeg
-
-Situate the camera in the adapter and secure it with the two new screws. They match the other four,
-in case they get mixed up.
-
-.. image:: images/v25_upgrade/v25_upgrade_25.jpeg
-
-.. image:: images/v25_upgrade/v25_upgrade_26.jpeg
+.. include:: includes/camera_cable_connect.rst
 
 .. image:: images/v25_upgrade/v25_upgrade_27.jpeg
 
