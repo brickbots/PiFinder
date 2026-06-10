@@ -14,7 +14,9 @@ author = "Richard Wolff-Jacobson"
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 templates_path = ["_templates"]
-exclude_patterns = []
+# includes/ holds shared snippets pulled in via `.. include::` — they are not
+# standalone pages, so keep Sphinx from treating them as documents.
+exclude_patterns = ["includes/*"]
 
 extensions = [
     "sphinx.ext.autosectionlabel",
@@ -24,13 +26,18 @@ extensions = [
 
 autosectionlabel_prefix_document = True
 
+# The minimum software version these docs describe.  Pages reference it as
+# |min_software| so a release bump only needs changing here.
+rst_epilog = """
+.. |min_software| replace:: 2.2.0
+"""
+
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "sphinx_rtd_theme"
 html_logo = "images/WebLogo_RED.png"
 # html_logo = "images/square_logo.png"
-html_static_path = ["_static"]
 html_theme_options = {
     "style_nav_header_background": "#343131",
     "logo_only": True,

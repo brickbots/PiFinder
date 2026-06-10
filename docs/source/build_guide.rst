@@ -6,6 +6,11 @@ Build Guide
 Introduction and Overview
 =================================
 
+.. note::
+   This guide covers the self-built (DIY) PiFinder, which uses the v2.5 hardware
+   and comes together in one of three configurations: Left, Right, or Flat.
+   v3 PiFinders are sold assembled and aren't built from these instructions.
+
 Welcome to the PiFinder build guide. It's split into three main parts: building the :ref:`UI Board<build_guide:pifinder ui hat>` with its screen and buttons, :ref:`3d printing<build_guide:printed parts>` and preparing the case parts, and :ref:`final assembly<build_guide:assembly>`. Alongside these, consult the :doc:`Bill of Materials<BOM>` for the full parts list, and reach out with any questions via `email <mailto:info@pifinder.io>`_ or `discord <https://discord.gg/Nk5fHcAtWD>`_
 
 
@@ -51,7 +56,7 @@ The two resistors and the transistor are next. R2 is the vertical 330 ohm part; 
 .. image:: images/build_guide/ui_module_6a.jpeg
 
 Testing the Backlight
-______________________________________
+^^^^^^^^^^^^^^^^^^^^^^
 
 Test the backlight (and LEDs) now using any 3V coin cell, such as a CR2032. Connect the positive side of the battery to the longer pin of an LED and the negative side to the shorter pin, as shown below with a single LED. This works for all the LEDs at once since they're wired in parallel on the board. Once connected, every LED should light up:
 
@@ -506,29 +511,7 @@ Camera Prep
 
 The new v3 camera may come with one of two lens holders already installed. Either way, you'll remove and replace it.
 
-.. image:: images/v25_upgrade/v25_upgrade_11.jpeg
-
-Some cameras have pin headers installed. If yours does, clip them as close to the board as reasonable. It helps to remove the black plastic portion by pulling it off with pliers, or just cut through it to get as close to the PCB as possible. Take care not to clip any surrounding components.
-
-.. image:: images/v25_upgrade/v25_upgrade_12.jpeg
-
-.. image:: images/v25_upgrade/v25_upgrade_13.jpeg
-
-Grab the lens holder and look through it to make sure it's clear of obstructions.
-
-Place the lens holder on the table with the large side up, oriented as in the photo below. The two screw tabs on the lens holder must stick out the opposite sides from the cream-white and dark-grey cable connector on the PCB. Remove the two screws (yours might be black) near the center of the green PCB and lift it gently onto the new lens holder.
-
-Mind the sensor surface on the underside of the PCB; it should sit nicely in the square recess of the lens holder. Use the same two screws to affix the sensor PCB to the lens holder. The screws cut their own threads, but the holes help get them started. Tighten them down against the PCB so nothing wiggles.
-
-.. image:: images/v25_upgrade/v25_upgrade_14.jpeg
-
-.. image:: images/v25_upgrade/v25_upgrade_15.jpeg
-
-Flip the camera assembly over and thread in the lens. Go slow and careful here. With gentle force the lens should slide in a few mm to align everything and stop. When it stops, check that it looks straight and start screwing it into place. To get focus about right, aim for a 6mm gap (pictured below) between the top of the lens holder and the bottom of the lip on the lens. Don't fret too much; you'll do final focus under the stars.
-
-.. image:: images/v25_upgrade/v25_upgrade_16.jpeg
-
-.. image:: images/v25_upgrade/v25_upgrade_17.jpeg
+.. include:: includes/camera_prep.rst
 
 
 Cable Routing
@@ -656,19 +639,9 @@ Now mount the camera module. You'll need the module, camera tray, and 2x 12mm M2
    The camera holder is secured with longer screws through the tray into the two holes
    in the back piece
 
-Start by connecting the cable to the new camera module. Open the connector all the way by sliding the dark-grey piece away from the PCB. Be gentle, as this part can break under too much force.
+Start by connecting the cable to the new camera module.
 
-With the connector open, slide the cable in using gentle force, keeping it well aligned. Take your time and watch the dark-grey clip. It shouldn't close as you insert the cable; if it does, re-open it so the cable can slide all the way in.
-
-Once the cable is seated, close the dark-grey clip by sliding it shut. This may take a little force to fully close. Check the photo below if in doubt.
-
-.. image:: images/v25_upgrade/v25_upgrade_24.jpeg
-
-Situate the camera in the adapter and use the two new screws to secure it. They're the same size as the other four, in case they get mixed up.
-
-.. image:: images/v25_upgrade/v25_upgrade_25.jpeg
-
-.. image:: images/v25_upgrade/v25_upgrade_26.jpeg
+.. include:: includes/camera_cable_connect.rst
 
 .. note::
    The remainder of the build guide is yet to be updated with new photos
