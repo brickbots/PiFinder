@@ -318,3 +318,73 @@ def format_number(num: float, width=5):
     else:
         decimal_places = max(0, width - 3)  # 'M' and at least one digit
         return f"{num/1000000:{width}.{decimal_places}f}M"
+
+
+def pointing_arrows(ui, point_az, point_alt, mount_type=None):
+    """
+    Resolve the push-to direction indicators for a (point_az, point_alt)
+    movement, honoring the mount_type and pushto_az_arrows config
+    options: directional arrows for Alt/Az mounts, +/- signs for EQ
+    mounts (where the values are RA/Dec offsets).
+
+    Returns (az_indicator, point_az, alt_indicator, point_alt) with the
+    point values made positive.
+
+    mount_type must match the one the point values were computed with
+    (e.g. the value passed to aim_degrees); when None, the current
+    config option is used.
+    """
+    if mount_type is None:
+        mount_type = ui.config_object.get_option("mount_type")
+    mount_altaz = mount_type == "Alt/Az"
+
+    if point_az < 0:
+        point_az *= -1
+        az_arrow = ui._LEFT_ARROW if mount_altaz else "-"
+    else:
+        az_arrow = ui._RIGHT_ARROW if mount_altaz else "+"
+
+    if (
+        mount_altaz
+        and ui.config_object.get_option("pushto_az_arrows", "Default") == "Reverse"
+    ):
+        if az_arrow is ui._LEFT_ARROW:
+            az_arrow = ui._RIGHT_ARROW
+        else:
+            az_arrow = ui._LEFT_ARROW
+
+    if point_alt < 0:
+        point_alt *= -1
+        alt_arrow = ui._DOWN_ARROW if mount_altaz else "-"
+    else:
+        alt_arrow = ui._UP_ARROW if mount_altaz else "+"
+
+    return az_arrow, point_az, alt_arrow, point_alt
+
+
+def draw_pointing_instructions(
+    ui, point_az, point_alt, brightness=255, mount_type=None
+):
+    """
+    Draw the standard push-to display: the az and alt movements as two
+    huge-font lines with direction indicators anchored at the bottom of
+    the screen, as on the object locate screen.
+    """
+    az_arrow, point_az, alt_arrow, point_alt = pointing_arrows(
+        ui, point_az, point_alt, mount_type
+    )
+
+    az_anchor = (0, ui.display_class.resY - (ui.fonts.huge.height * 2.2))
+    alt_anchor = (0, ui.display_class.resY - (ui.fonts.huge.height * 1.2))
+    for anchor, arrow, value in (
+        (az_anchor, az_arrow, point_az),
+        (alt_anchor, alt_arrow, point_alt),
+    ):
+        # Change decimal points when within 1 degree
+        decimals = 2 if value < 1 else 1
+        ui.draw.text(
+            anchor,
+            f"{arrow}{value : >5.{decimals}f}",
+            font=ui.fonts.huge.font,
+            fill=ui.colors.get(brightness),
+        )

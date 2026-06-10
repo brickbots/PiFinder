@@ -20,6 +20,7 @@ from PiFinder.ui.ui_utils import (
     TextLayouterSimple,
     SpaceCalculatorFixed,
     name_deduplicate,
+    draw_pointing_instructions,
 )
 from PiFinder import calc_utils
 import functools
@@ -104,9 +105,6 @@ class UIObjectDetails(UIModule):
             ),
         }
 
-        # cache some display stuff for locate
-        self.az_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 2.2))
-        self.alt_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 1.2))
         self._elipsis_count = 0
 
         self.active()  # fill in activation time
@@ -418,72 +416,9 @@ class UIObjectDetails(UIModule):
                 self._elipsis_count = 0
             return
 
-        if point_az < 0:
-            point_az *= -1
-            if self.mount_type == "Alt/Az":
-                az_arrow = self._LEFT_ARROW
-            else:
-                az_arrow = "-"
-
-        else:
-            if self.mount_type == "Alt/Az":
-                az_arrow = self._RIGHT_ARROW
-            else:
-                az_arrow = "+"
-
-        # Check az arrow config
-        if (
-            self.config_object.get_option("pushto_az_arrows", "Default") == "Reverse"
-            and self.mount_type == "Alt/Az"
-        ):
-            if az_arrow is self._LEFT_ARROW:
-                az_arrow = self._RIGHT_ARROW
-            else:
-                az_arrow = self._LEFT_ARROW
-
-        # Change decimal points when within 1 degree
-        if point_az < 1:
-            self.draw.text(
-                self.az_anchor,
-                f"{az_arrow}{point_az : >5.2f}",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(indicator_color),
-            )
-        else:
-            self.draw.text(
-                self.az_anchor,
-                f"{az_arrow}{point_az : >5.1f}",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(indicator_color),
-            )
-
-        if point_alt < 0:
-            point_alt *= -1
-            if self.mount_type == "Alt/Az":
-                alt_arrow = self._DOWN_ARROW
-            else:
-                alt_arrow = "-"
-        else:
-            if self.mount_type == "Alt/Az":
-                alt_arrow = self._UP_ARROW
-            else:
-                alt_arrow = "+"
-
-        # Change decimal points when within 1 degree
-        if point_alt < 1:
-            self.draw.text(
-                self.alt_anchor,
-                f"{alt_arrow}{point_alt : >5.2f}",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(indicator_color),
-            )
-        else:
-            self.draw.text(
-                self.alt_anchor,
-                f"{alt_arrow}{point_alt : >5.1f}",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(indicator_color),
-            )
+        draw_pointing_instructions(
+            self, point_az, point_alt, indicator_color, self.mount_type
+        )
 
     def update(self, force=True):
         # Clear Screen

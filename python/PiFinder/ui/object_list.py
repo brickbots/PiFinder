@@ -30,6 +30,7 @@ from PiFinder.catalogs import CatalogState
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     name_deduplicate,
+    pointing_arrows,
 )
 from typing import Any, TYPE_CHECKING
 
@@ -305,21 +306,9 @@ class UIObjectList(UITextMenu):
             self.message(_("No Solve Yet"), 1)
 
     def format_az_alt(self, point_az, point_alt):
-        if point_az >= 0:
-            az_arrow_symbol = self._RIGHT_ARROW
-        else:
-            point_az *= -1
-            az_arrow_symbol = self._LEFT_ARROW
-
-            # Check az arrow config
-            if (
-                self.config_object.get_option("pushto_az_arrows", "Default")
-                == "Reverse"
-            ):
-                if az_arrow_symbol == self._LEFT_ARROW:
-                    az_arrow_symbol = self._RIGHT_ARROW
-                else:
-                    az_arrow_symbol = self._LEFT_ARROW
+        az_arrow_symbol, point_az, alt_arrow_symbol, point_alt = pointing_arrows(
+            self, point_az, point_alt, self.mount_type
+        )
 
         if point_az > 100:
             point_az = 99
@@ -328,12 +317,6 @@ class UIObjectList(UITextMenu):
             az_string = f"{az_arrow_symbol}{point_az:03.1f}"
         else:
             az_string = f"{az_arrow_symbol}{point_az:03.0f}"
-
-        if point_alt >= 0:
-            alt_arrow_symbol = self._UP_ARROW
-        else:
-            point_alt *= -1
-            alt_arrow_symbol = self._DOWN_ARROW
 
         if point_alt < 10:
             alt_string = f"{alt_arrow_symbol}{point_alt:03.1f}"
