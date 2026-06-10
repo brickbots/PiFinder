@@ -8,6 +8,7 @@ from PiFinder.ui.software import UISoftware
 from PiFinder.ui.gpsstatus import UIGPSStatus
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
+from PiFinder.ui.align_daytime import UIAlignDaytime
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.sqm import UISQM
@@ -50,6 +51,12 @@ pifinder_menu = {
                 {
                     "name": _("Align"),
                     "class": UIAlign,
+                    "stateful": True,
+                    "preload": True,
+                },
+                {
+                    "name": _("Align (Day)"),
+                    "class": UIAlignDaytime,
                     "stateful": True,
                     "preload": True,
                 },

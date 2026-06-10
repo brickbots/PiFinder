@@ -17,6 +17,11 @@ from PiFinder.types.positioning import AlignCancel, AlignOnRaDec, AlignedResult
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.chart import get_chart_rotation_angle
 
+# Native camera/solver frame size. target_pixel is stored in this (square)
+# pixel space (see SharedStateObj.target_pixel, documented as 512x512); the
+# preview/align screens scale it down to the display resolution.
+CAMERA_NATIVE_RES = 512
+
 
 def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool:
     """
@@ -83,9 +88,13 @@ class UIAlign(UIModule):
         self.visible_stars = None
         self.star_list = np.empty((0, 2))
         self.alignment_star = None
+        # target_pixel is (Y, X) in native camera space; scale to display space.
+        target_pixel = self.config_object.get_option("target_pixel", (256, 256))
+        scale_x = self.display_class.resX / CAMERA_NATIVE_RES
+        scale_y = self.display_class.resY / CAMERA_NATIVE_RES
         self.marker_position = (
-            self.config_object.get_option("target_pixel", (256, 256))[1] / 4,
-            self.config_object.get_option("target_pixel", (256, 256))[0] / 4,
+            target_pixel[1] * scale_x,
+            target_pixel[0] * scale_y,
         )
 
         # Marking menu definition
@@ -424,9 +433,13 @@ class UIAlign(UIModule):
         if self.align_mode:
             if number == 1:
                 # reset reticle to center
-                self.shared_state.set_target_pixel((256, 256))
-                self.config_object.set_option("target_pixel", (256, 256))
-                self.marker_position = (64, 64)
+                center_pixel = (CAMERA_NATIVE_RES // 2, CAMERA_NATIVE_RES // 2)
+                self.shared_state.set_target_pixel(center_pixel)
+                self.config_object.set_option("target_pixel", center_pixel)
+                self.marker_position = (
+                    self.display_class.centerX,
+                    self.display_class.centerY,
+                )
                 self.update(force=True)
                 self.align_mode = False
             if number == 0:

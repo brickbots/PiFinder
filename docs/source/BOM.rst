@@ -20,7 +20,7 @@ These are the electronic bits needed to build the Display/Keypad unit that fits 
      - Notes
    * - 1
      - PCB Set
-     - https://github.com/brickbots/PiFinder/tree/main/gerbers
+     - https://github.com/brickbots/PiFinder/tree/release/gerbers
      - You'll need a PiFinder board and the PiFinder top plate
    * - 17
      - 6 x 6mm x 7mm PCB Momentary Switch 4 Pin DIP
@@ -132,6 +132,6 @@ In addition to the 3d printed parts detailed in the :doc:`Build Guide<build_guid
 Power
 -----
 
-The PiFinder takes about .9amp at 5v under full load, and about 60% of this when in power-save/idle mode.  For battery sizing a good rule of thumb would be 1.25 hour of run time per 1000mah of battery capacity.  You can use any battery pack that will produce at least 1.5 amp of power and plug this into the USB-C port on the unit.
+The PiFinder takes about .9amp at 5v under full load, and about 60% of this when in power-save/idle mode.  For battery sizing a good rule of thumb is about an hour of run time per 1,000mAh of battery capacity.  You can use any battery pack rated for at least 2 amps (start-up draws brief peaks of 1.5 amps) and plug this into the USB-C port on the unit.
 
-If you'd like to have a fully stand-alone unit with integrated rechargeable battery, there are instructions in the build guide for integrating a `PiSugar S plus <https://github.com/PiSugar/PiSugar/wiki/PiSugarS-Plus>`_.  This is the lower-cost version without RTC, but it has a 5000mah battery which should provide about 5 hours of run time.  
+If you'd like to have a fully stand-alone unit with integrated rechargeable battery, there are instructions in the build guide for integrating a `PiSugar S plus <https://github.com/PiSugar/PiSugar/wiki/PiSugarS-Plus>`_.  This is the lower-cost version without RTC, but it has a 5000mah battery which should provide four to five hours of run time.

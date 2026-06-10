@@ -131,6 +131,10 @@ class MenuManager:
 
         self.marking_menu_stack: list[MarkingMenu] = []
         self.marking_menu_bg: Union[Image.Image, None] = None
+        # Radial marking-menu radius, scaled from the 128-panel value (39) so
+        # the curved option labels (laid out in fonts.large, which is wider on
+        # the 176 panel) stay inside their pie slices on any resolution.
+        self.marking_menu_radius = round(self.display_class.resX * 39 / 128)
 
         # This will be populated if we are in 'help' mode
         self.help_images: Union[None, list[Image.Image]] = None
@@ -260,7 +264,7 @@ class MenuManager:
                 self.marking_menu_bg.copy(),
                 self.marking_menu_stack[-1],
                 self.display_class,
-                39,
+                self.marking_menu_radius,
             )
             self.update_screen(marking_menu_image)
 
@@ -270,7 +274,7 @@ class MenuManager:
             self.marking_menu_bg.copy(),
             self.marking_menu_stack[-1],
             self.display_class,
-            39,
+            self.marking_menu_radius,
             option,
         )
         self.update_screen(marking_menu_image)

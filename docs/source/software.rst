@@ -57,7 +57,7 @@ Build From Scratch
 
 .. warning::
 
-   You probably do not want to do this.  These instructions are primarily for developer
+   You probably do not want to do this.  These instructions are primarily for developers
    who are making a new image file from scratch.  To just use your PiFinder you will
    want to use the instructions above to download and use a pre-built image for your
    sd card.

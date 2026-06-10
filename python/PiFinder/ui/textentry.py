@@ -90,8 +90,8 @@ class UITextEntry(UIModule):
         self.current_text = self.item_definition.get("initial_text", "")
         self.callback = self.item_definition.get("callback")
 
-        self.width = 128
-        self.height = 128
+        self.width = self.display_class.resX
+        self.height = self.display_class.resY
         self.red = self.colors.get(255)
         self.black = self.colors.get(0)
         self.half_red = self.colors.get(128)
@@ -114,7 +114,7 @@ class UITextEntry(UIModule):
         self.cursor_width = self.fonts.bold.width
         self.cursor_height = self.fonts.bold.height
         self.text_x = 7
-        self.text_x_end = 128 - self.text_x
+        self.text_x_end = self.width - self.text_x
         self.text_y = self.display_class.titlebar_height + 2
 
         # Async search state
@@ -129,7 +129,7 @@ class UITextEntry(UIModule):
         return bool(self.config_object.get_option("t9_search", False))
 
     def draw_text_entry(self):
-        line_text_y = self.text_y + 15
+        line_text_y = self.text_y + self.bold.height + 2
         self.draw.line(
             [(self.text_x, line_text_y), (self.text_x_end, line_text_y)],
             fill=self.half_red,
@@ -175,21 +175,25 @@ class UITextEntry(UIModule):
             )
 
     def draw_keypad(self):
-        key_size = (38, 23)
-        padding = 0
-        start_x, start_y = self.text_x, 32
+        # 3-column x 4-row T9 grid filling the width below the text line; key
+        # size derives from the screen so it scales (38x23 on the 128 panel).
+        start_x = self.text_x
+        start_y = self.text_y + self.bold.height
+        key_w = (self.width - 2 * self.text_x) // 3
+        key_h = (self.height - start_y - 4) // 4
+        letter_dy = self.fonts.base.height - 3
 
         for i, (num, letters) in enumerate(self.keys):
-            x = start_x + (i % 3) * (key_size[0] + padding)
-            y = start_y + (i // 3) * (key_size[1] + padding)
+            x = start_x + (i % 3) * key_w
+            y = start_y + (i // 3) * key_h
             self.draw.rectangle(
-                [x, y, x + key_size[0], y + key_size[1]], outline=self.half_red, width=1
+                [x, y, x + key_w, y + key_h], outline=self.half_red, width=1
             )
             self.draw.text(
                 (x + 2, y), str(num), font=self.fonts.base.font, fill=self.half_red
             )
             self.draw.text(
-                (x + 2, y + 8),
+                (x + 2, y + letter_dy),
                 letters[1],
                 font=self.fonts.bold.font,
                 fill=self.colors.get(192),
@@ -215,7 +219,7 @@ class UITextEntry(UIModule):
 
         formatted_len = format_number(result_count, 4).strip()
         self.text_x_end = (
-            128 - 2 - self.text_x - self.bold.font.getbbox(formatted_len)[2]
+            self.width - 2 - self.text_x - self.bold.font.getbbox(formatted_len)[2]
         )
         self.draw.text(
             (self.text_x_end + 2, self.text_y),
@@ -391,7 +395,7 @@ class UITextEntry(UIModule):
             self._search_version += 1
 
     def update(self, force=False):
-        self.draw.rectangle((0, 0, 128, 128), fill=self.colors.get(0))
+        self.draw.rectangle((0, 0, self.width, self.height), fill=self.colors.get(0))
 
         # Set title based on mode (will be drawn by screen_update())
         if self.text_entry_mode:

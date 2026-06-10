@@ -195,9 +195,13 @@ class TextLayouter(TextLayouterSimple):
         self.updated = True
 
     def _draw_pos(self, pos):
-        xpos = 127
+        # Derive the scrollbar extent from the display resolution. TextLayouter
+        # isn't handed a display_class, but its ``colors`` carries a red_image
+        # sized to the display resolution, so read the size from there.
+        resX, resY = self.colors.red_image.size
+        xpos = resX - 1
         starty = pos[1] + 1
-        endy = 127
+        endy = resY - 1
         therange = endy - starty
         blockextent = math.floor((self.available_lines / self.nr_lines) * therange)
         blockstart = ((self.pointer) / self.nr_lines) * therange

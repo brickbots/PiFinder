@@ -218,13 +218,15 @@ class UIChart(UIModule):
                 if orientation is not None:
                     self._draw_orientation_indicator(orientation)
 
-                # Display RA/DEC in selected format if enabled
+                # Display RA/DEC in selected format if enabled, anchored just
+                # above the bottom edge (derived so it tracks resolution).
+                radec_y = self.display_class.resY - self.fonts.base.height - 3
                 if self.config_object.get_option("chart_radec") == "HH:MM":
                     ra_h, ra_m, ra_s = calc_utils.ra_to_hms(aligned.RA)
                     dec_d, dec_m, dec_s = calc_utils.dec_to_dms(aligned.Dec)
                     ra_dec_disp = f"{ra_h:02d}:{ra_m:02d}:{ra_s:02d} / {dec_d:02d}°{dec_m:02d}:{dec_s}"
                     self.draw.text(
-                        (0, 114),
+                        (0, radec_y),
                         ra_dec_disp,
                         font=self.fonts.base.font,
                         fill=self.colors.get(255),
@@ -234,7 +236,7 @@ class UIChart(UIModule):
                     dec_d, dec_m, dec_s = calc_utils.dec_to_dms(aligned.Dec)
                     ra_dec_disp = f"{aligned.RA:0>6.2f} / {aligned.Dec:0>5.2f}"
                     self.draw.text(
-                        (0, 114),
+                        (0, radec_y),
                         ra_dec_disp,
                         font=self.fonts.base.font,
                         fill=self.colors.get(255),
