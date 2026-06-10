@@ -3,7 +3,7 @@ PiFinder™ Menu Map
 ==================
 
 .. note::
-   This map reflects v3 and v2.5 PiFinders running software 2.2.0 or above.  The
+   This map reflects v3 and v2.5 PiFinders running software |min_software| or above.  The
    exact items you see can vary slightly with your configuration and software
    version.
 
@@ -120,7 +120,7 @@ Recent
    each session.
 Custom
    Enter a right ascension and declination by hand to make a one-off target you
-   can push to.
+   can push to.  See :ref:`user_guide:custom targets`.
 Name Search
    Find objects by common name using T9-style text entry.  See
    :ref:`user_guide:name search`.

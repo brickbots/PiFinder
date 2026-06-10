@@ -103,14 +103,15 @@ To checkout one of the forks of the repository, run the following commands:
 You have to replace <rname> with the name of the remote you added, <url-of-fork> with the URL of the fork you want to check out (you can copy this from github, by pressing on the "code" button), and <branch> with the name of the branch you want to check out. This will create a new branch in your local repository, which follows the branch of the fork you checked out.
 
 To keep up to date with the latest changes in the fork, you can run the following commands:
+
 .. code-block:: bash
 
     cd ~/PiFinder
-    git pull 
+    git pull
     cd python
     sudo pip install -r requirements.txt
 
- The last command will install the requirements and only needs to be run occasionally, depending on the changes in the branch. You need to restart the pifinder service to see the changes.   
+The last command will install the requirements and only needs to be run occasionally, depending on the changes in the branch. You need to restart the pifinder service to see the changes.
 
 Fork me - getting or contributing to the sources with pull request
 ------------------------------------------------------------------
@@ -521,7 +522,7 @@ are:
 -c CAMERA, --camera CAMERA
 ..........................
 
-Use the "fake" camera module, so the PiFinder cam ist physically not necessary
+Use the "fake" camera module, so the PiFinder camera is not physically necessary
 for testing purposes. Else specify which camera to use: pi, asi, debug or none.
 
 .. code-block::
@@ -611,7 +612,7 @@ Using the **demo mode** you will be able to run the PiFinder and almost all it's
 
 The way to get this functionality, is to enter PiFinder in the 'test' or 'debug' mode.
 
-First method: Press (short press) **"ENT-A"** again and again to cycle through the screens until you get to the **Console screen**. There press the **"0"** key (the display shows the message "Debug: true"). This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock. You can leave the "demo mode" by just again cycle to the Console screen and press "0" again (the display shows the message "Debug: false").
+First method: open the **Console screen** via **Tools › Console**, then press the **"0"** key (the display shows the message "Debug: true"). This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock. You can leave the "demo mode" by pressing **"0"** on the Console screen again (the display shows the message "Debug: false").
 
 Second method: run PiFinder with the :ref:`dev_guide:Running/Debugging from the command line` functionality.
 

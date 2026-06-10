@@ -2,7 +2,7 @@ Quick Start
 ================
 
 .. note::
-   This documentation is for v3 and v2.5 PiFinders running software 2.2.0 or above.
+   This documentation is for v3 and v2.5 PiFinders running software |min_software| or above.
    You can see what version of software is running by looking in the upper right of
    the welcome screen. 
 
@@ -85,10 +85,12 @@ The PiFinder features a scrolling menu with the active option highlighted in the
 All the features of the PiFinder are available through this menu by scrolling, selecting options
 or moving to new menu screens.
 
-- The **UP** and **DOWN** arrows will scroll the current menu
-- The **RIGHT** arrow will activate the current option; selecting it or moving to another menu
-- The **LEFT** arrow will take you back to the previous menu or screen
-- Holding **LEFT** for more than one second will always take you back to the TOP of the menus
+.. This key list is duplicated in user_guide.rst (The Menu System) — keep the two in sync.
+
+- The **UP** and **DOWN** arrows scroll the current menu
+- The **RIGHT** arrow activates the current option, selecting it or moving to another menu
+- The **LEFT** arrow takes you back to the previous menu or screen
+- Holding **LEFT** for more than a second always jumps back to the TOP of the menus
 
 Some menus, like the catalog selection, allow you to check on an off multiple options using
 the RIGHT arrow
@@ -107,14 +109,14 @@ The **LEFT** arrow will always take you back to the previous menu or screen.
 Many screens will use the number keys along with **+**,**-**, and **SQUARE** to perform other functions.  
 These are listed in the help pages for that screen.
 
-To access the help page for a screen (along with other useful screen specific items) hold down 
-the **SQUARE** button for more than 1 second to bring up the handy Radial Menu
+To open a screen's help (and other screen-specific options), hold **SQUARE** for more than
+a second to bring up the handy Quick Menu (the radial menu).
 
 
 .. image:: images/quick_start/main_menu_marking.png
 
-The Radial menu presents four options you can access quickly using the arrow keys.  The **UP** 
-arrow will normally select HELP.  
+The Quick Menu offers four options you can reach quickly with the arrow keys; **UP**
+normally selects HELP.
 
 .. image:: images/quick_start/main_menu_help.png
 
@@ -312,19 +314,10 @@ the title bar.  Congratulations, the PiFinder knows where it is pointing!
 
 
 .. note::
-   **Can’t get a plate solve?** Check to make sure your lens cap is off, the PiFinder is not moving and
-   the lens is properly focused — remember to zoom to 2x and 4x to judge focus, as soft stars are
-   the usual culprit.
-
-   **Still not working?** Make sure nothing is impeding PiFinder’s view of the sky, and its
-   lens has not dewed or fogged over.  A bank of high, thin cloud drifting through can also stop
-   solves at an otherwise perfect site, even when you can’t see it by eye.
-
-   **Under a bright, light-polluted sky** a longer exposure helps; under dark skies, try setting
-   the exposure to **AUTO** and letting the PiFinder choose.  (Software version 2.2.x and earlier
-   doesn’t have the AUTO exposure option — another good reason to keep your PiFinder updated.)
-
-   For more solving and setup fixes, see the :doc:`troubleshooting` page.
+   **Can’t get a plate solve?** The usual culprits are simple: make sure the lens cap is off
+   and the PiFinder isn't moving, then check focus — soft stars stop solves, so zoom to 2x
+   and 4x and get the stars as tight as you can.  For anything beyond that — obstructions,
+   dew, thin cloud, exposure settings — see the :doc:`troubleshooting` page.
 
 
 Alignment
@@ -405,7 +398,7 @@ unless you remove and re-attach your PiFinder to your telescope.
    and it's not centered in your eyepiece, center it up, hold down the **SQUARE** key for one 
    second and choose align.  
 
-   This is not the same as adding alignment points to a standard DSC to improve accuracy, this is 
+   This is not the same as adding alignment points to a standard DSC to improve accuracy, this is
    simply telling the PiFinder where in your eyepiece you'd like objects to be put if your initial
    alignment was not quite to your liking.
 
@@ -512,23 +505,10 @@ be in your eyepiece!
 Shutting down the PiFinder
 ---------------------------
 
-Although shutting down is not strictly needed before power-off, the PiFinder is a computer and there is a chance of
-file corruption if you do not.  Some MicroSD cards are more sensitive to this than others.
-
-To easily shut down the PiFinder:
-
-- Hold the **LEFT** arrow button for more than a second to jump to the main menu
-- Hold the **SQUARE** button to access the Radial menu
-
-.. image:: images/quick_start/main_menu_01_docs.png
-.. image:: images/quick_start/main_menu_marking.png
-
-- Press **DOWN** to select the SHUTDOWN option
-- Use the **RIGHT** arrow to confirm, or the **LEFT** arrow to go back
-
-.. image:: images/quick_start/shutdown_confirm.png
-
-When you confirm the screen and keypad will turn off after a few seconds and it's then safe to
-turn off the unit using the power switch or unplugging the battery.
+Shutting down isn't strictly required before power-off, but the PiFinder is a computer and
+skipping it risks file corruption.  Hold **LEFT** for more than a second to jump to the
+main menu, hold **SQUARE** to open the Quick Menu, then press **DOWN** for SHUTDOWN and
+confirm with **RIGHT**.  Once the screen and keypad turn off, it's safe to cut power.
+The :ref:`user_guide:shutdown` section walks through it with pictures.
 
 You've now got the basics of using the PiFinder sorted, to learn more you can continue on to the full :doc:`user_guide`
