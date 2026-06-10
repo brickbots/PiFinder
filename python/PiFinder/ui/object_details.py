@@ -107,8 +107,6 @@ class UIObjectDetails(UIModule):
 
         # Two-line status messages ("No solve", "Searching for GPS"...) shown in
         # place of the az/alt readout; positions derive from resolution + font.
-        # The az/alt readout itself is drawn by draw_pointing_instructions(),
-        # which computes its own anchors.
         msg_x = round(self.display_class.resX * 10 / 128)
         msg_y1 = round(self.display_class.resY * 70 / 128)
         self._pointing_msg_anchor_1 = (msg_x, msg_y1)
