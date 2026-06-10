@@ -19,9 +19,6 @@ class ObjectsDatabase(Database):
         self.cursor.execute("PRAGMA cache_size = -64000;")  # 64MB cache (negative = KB)
         self.cursor.execute("PRAGMA temp_store = MEMORY;")  # Keep temporary data in RAM
         self.cursor.execute(
-            "PRAGMA journal_mode = WAL;"
-        )  # Write-ahead logging for better concurrency
-        self.cursor.execute(
             "PRAGMA synchronous = NORMAL;"
         )  # Balanced safety/performance
         logging.info("Database optimizations applied")
@@ -40,7 +37,7 @@ class ObjectsDatabase(Database):
                 dec NUMERIC,
                 const TEXT,
                 size TEXT,
-                mag NUMERIC,
+                mag TEXT,
                 surface_brightness NUMERIC
             );
         """
@@ -194,7 +191,7 @@ class ObjectsDatabase(Database):
         logging.info("Starting get_object_id_to_names query...")
 
         query_start = time.time()
-        self.cursor.execute("SELECT object_id, common_name FROM names;")
+        self.cursor.execute("SELECT object_id, common_name FROM names ORDER BY rowid;")
         results = self.cursor.fetchall()
         query_time = time.time() - query_start
         logging.info(
@@ -206,7 +203,7 @@ class ObjectsDatabase(Database):
         for object_id, common_name in results:
             name_dict[object_id].append(common_name.strip())
         for object_id in name_dict:
-            name_dict[object_id] = list(set(name_dict[object_id]))
+            name_dict[object_id] = list(dict.fromkeys(name_dict[object_id]))
         process_time = time.time() - process_start
         logging.info(
             f"Processing took {process_time:.2f}s, created {len(name_dict)} object entries"

@@ -9,7 +9,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 import PiFinder.utils as utils
-from PiFinder.composite_object import MagnitudeObject
+from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg
 from .catalog_import_utils import (
     NewCatalogObject,
@@ -45,8 +45,7 @@ def load_bright_stars():
             sequence = int(dfs[0])
 
             logging.debug(f"---------------> Bright Stars {sequence=} <---------------")
-            size = ""
-            # const = dfs[2].strip()
+            size = SizeObject([])
             desc = ""
 
             ra_h = int(dfs[3])
@@ -58,7 +57,6 @@ def load_bright_stars():
             dec_deg = dec_to_deg(dec_d, dec_m, 0)
 
             mag = MagnitudeObject([float(dfs[7].strip())])
-            # const = dfs[8]
 
             new_object = NewCatalogObject(
                 object_type=obj_type,

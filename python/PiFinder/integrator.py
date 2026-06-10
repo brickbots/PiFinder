@@ -13,8 +13,8 @@ TODO:
 - Refactor into class PointingTracker
 
 """
+from __future__ import annotations  # To support | in typehints (remove this for Python 3.10+)
 
-import datetime
 import queue
 import time
 import copy
@@ -26,7 +26,7 @@ from PiFinder import config
 from PiFinder import state_utils
 import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
-from PiFinder.pointing_model.astro_coords import RaDecRoll
+from PiFinder.types.coordinates import RaDecRoll
 from PiFinder.solver import get_initialized_solved_dict
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 import PiFinder.pointing_model.quaternion_transforms as qt
@@ -52,9 +52,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         solved = get_initialized_solved_dict()
         cfg = config.Config()
 
-        mount_type = cfg.get_option("mount_type")
-        logger.debug(f"mount_type = {mount_type}")
-
         # Set up dead-reckoning tracking by the IMU:
         imu_dead_reckoning = ImuDeadReckoning(cfg.get_option("screen_direction"))
         # imu_dead_reckoning.set_cam2scope_alignment(q_scope2cam)  # TODO: Enable when q_scope2cam is available from alignment
@@ -65,6 +62,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         last_solve_time = time.time()
 
         while True:
+            pointing_updated = False  # Flag to track if pointing was updated in this loop
             state_utils.sleep_for_framerate(shared_state)
 
             # Check for new camera solve in queue
@@ -75,6 +73,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 pass
 
             if type(next_image_solve) is dict:
+                # TODO: Refactor this bit:
                 # For camera solves, always start from last successful camera solve
                 # NOT from shared_state (which may contain IMU drift)
                 # This prevents IMU noise accumulation during failed solves
@@ -100,83 +99,52 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # For failed solves, preserve ALL position data from previous solve
                 # Don't recalculate from GPS (causes drift from GPS noise)
 
-                # Set solve_source and push camera solves immediately
                 if solved["RA"] is not None:
+                    # Successfully plate-solved:
                     last_image_solve = copy.deepcopy(solved)
                     solved["solve_source"] = "CAM"
-                    # Calculate constellation for successful solve
-                    solved["constellation"] = (
-                        calc_utils.sf_utils.radec_to_constellation(
-                            solved["RA"], solved["Dec"]
-                        )
-                    )
                     shared_state.set_solve_state(True)
                     # We have a new image solve: Use plate-solving for RA/Dec
                     update_plate_solve_and_imu(imu_dead_reckoning, solved)
+                    pointing_updated = True
                 else:
                     # Failed solve - clear constellation
                     solved["solve_source"] = "CAM_FAILED"
-                    solved["constellation"] = ""
-
+                    solved["constellation"] = ""  # NOTE: This gets over-written by IMU dead-reckoning
                     # Push failed solved immediately
                     # This ensures auto-exposure sees Matches=0 for failed solves
                     shared_state.set_solution(solved)
                     shared_state.set_solve_state(False)
 
-            elif imu_dead_reckoning.tracking:
+            if imu_dead_reckoning.tracking and not pointing_updated:
                 # Previous plate-solve exists so use IMU dead-reckoning from
                 # the last plate solved coordinates.
                 imu = shared_state.imu()
                 if imu:
                     update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
+                    pointing_updated = True
 
-            # Push IMU updates only if newer than last push
-            if (
-                solved["RA"] and solved["solve_time"] > last_solve_time
-                # and solved["solve_source"] == "IMU"
-            ):
-                last_solve_time = time.time()  # TODO: solve_time is ambiguous because it's also used for IMU dead-reckoning
+            # Update Alt, Az only if newer than last push
+            if pointing_updated and solved["solve_time"] > last_solve_time:
+                solved["constellation"] = get_constellation(solved["RA"], solved["Dec"])
 
-                # Set location for roll and altaz calculations.
-                # TODO: Is it necessary to set location?
-                # TODO: Altaz doesn't seem to be required for catalogs when in
-                #  EQ mode? Could be disabled in future when in EQ mode?
-                location = shared_state.location()
-                dt = shared_state.datetime()
-                if location:
-                    calc_utils.sf_utils.set_location(
-                        location.lat, location.lon, location.altitude
-                    )
+                # TODO: Altaz doesn't seem to be required for catalogs when in 
+                # EQ mode? Could be disabled in future when in EQ mode?
+                solved["Alt"], solved["Az"] = get_alt_az(solved["RA"], solved["Dec"], 
+                                                        shared_state.location(), 
+                                                        shared_state.datetime())
 
-                # Set the roll so that the chart is displayed appropriately for the mount type
-                solved["Roll"] = get_roll_by_mount_type(
-                    solved["RA"], solved["Dec"], location, dt, mount_type
-                )
-
-                # Update remaining solved keys
-                # Calculate constellation for current position
-                solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
-                    solved["RA"], solved["Dec"]
-                )  # TODO: Can the outer brackets be omitted?
-
-                # Set Alt/Az because it's needed for the catalogs for the
-                # Alt/Az mount type. TODO: Can this be moved to the catalog?
-                dt = shared_state.datetime()
-                if location and dt:
-                    solved["Alt"], solved["Az"] = calc_utils.sf_utils.radec_to_altaz(
-                        solved["RA"], solved["Dec"], dt
-                    )
-
-                # Push IMU update
-                shared_state.set_solution(solved)
-                shared_state.set_solve_state(True)
+                if (solved["RA"] is not None) and (solved["Dec"] is not None):
+                    # Push new solved to shared state
+                    shared_state.set_solution(solved)
+                    shared_state.set_solve_state(True)
+                    last_solve_time = solved["solve_time"]
 
     except EOFError:
         logger.error("Main no longer running for integrator")
 
 
 # ======== Wrapper and helper functions ===============================
-
 
 def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     """
@@ -196,11 +164,11 @@ def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dic
             q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
 
         # Update:
-        solved_cam = RaDecRoll()
-        solved_cam.set_from_deg(
+        solved_cam = RaDecRoll(
             solved["camera_center"]["RA"],
             solved["camera_center"]["Dec"],
             solved["camera_center"]["Roll"],
+            deg=True
         )
         imu_dead_reckoning.update_plate_solve_and_imu(solved_cam, q_x2imu)
 
@@ -225,6 +193,7 @@ def update_imu(
         imu["quat"], quaternion.quaternion
     ), "Expecting quaternion.quaternion type"  # TODO: Can be removed later
     q_x2imu = imu["quat"]  # Current IMU measurement (quaternion)
+    imu_time = time.time()
 
     # When moving, switch to tracking using the IMU
     angle_moved = qt.get_quat_angular_diff(last_image_solve["imu_quat"], q_x2imu)
@@ -251,13 +220,12 @@ def update_imu(
             solved["camera_center"]["RA"],
             solved["camera_center"]["Dec"],
             solved["camera_center"]["Roll"],
-        ) = cam_eq.get_deg(use_none=True)
+        ) = cam_eq.get(deg=True)
 
         # Store the current scope pointing estimate
         scope_eq = imu_dead_reckoning.get_scope_radec()
-        solved["RA"], solved["Dec"], solved["Roll"] = scope_eq.get_deg(use_none=True)
-
-        solved["solve_time"] = time.time()
+        solved["RA"], solved["Dec"], solved["Roll"] = scope_eq.get(deg=True)
+        solved["solve_time"] = imu_time
         solved["solve_source"] = "IMU"
 
         # Logging for states updated in solved:
@@ -275,78 +243,44 @@ def update_imu(
         )
 
 
+def get_constellation(RA_deg, Dec_deg) -> str:
+    """
+    Get constellation name from the current RA/Dec position.
+    """
+    if RA_deg is None or Dec_deg is None:
+        return ""
+    else:
+        return calc_utils.sf_utils.radec_to_constellation(RA_deg, Dec_deg)
+
+
+def get_alt_az(RA_deg, Dec_deg, location, dt) -> tuple[float | None, float | None]:
+    """
+    Get Alt/Az from RA/Dec, location and datetime.
+    RETURNS: alt_deg, az_deg
+    """
+    if RA_deg is None or Dec_deg is None or location is None or dt is None:
+        return None, None
+    else:
+        calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
+        return calc_utils.sf_utils.radec_to_altaz(RA_deg, Dec_deg, dt)
+
+
 def set_cam2scope_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     """
     Set alignment.
     TODO: Do this once at alignment
     """
     # RA, Dec of camera center::
-    solved_cam = RaDecRoll()
-    solved_cam.set_from_deg(
+    solved_cam = RaDecRoll(
         solved["camera_center"]["RA"],
         solved["camera_center"]["Dec"],
         solved["camera_center"]["Roll"],
+        deg=True
     )
 
     # RA, Dec of target (where scope is pointing):
     solved["Roll"] = 0  # Target roll isn't calculated by Tetra3. Set to zero here
-    solved_scope = RaDecRoll()
-    solved_scope.set_from_deg(solved["RA"], solved["Dec"], solved["Roll"])
+    solved_scope = RaDecRoll(solved["RA"], solved["Dec"], solved["Roll"], deg=True)
 
     # Set alignment in imu_dead_reckoning
     imu_dead_reckoning.set_cam2scope_alignment(solved_cam, solved_scope)
-
-
-def get_roll_by_mount_type(
-    ra_deg: float,  # Right Ascension of the target in degrees
-    dec_deg: float,  # Declination of the target in degrees
-    location,  # astropy EarthLocation object or None
-    dt: datetime.datetime,  # datetime.datetime object or None
-    mount_type: str,  # "Alt/Az" or "EQ"
-) -> float:
-    """
-    Returns the roll (in degrees) depending on the mount type so that the chart
-    is displayed appropriately for the mount type. The RA and Dec of the target
-    should be provided (in degrees).
-
-    * Alt/Az mount: Display the chart in the horizontal coordinate so that up
-      in the chart points to the Zenith.
-    * EQ mount: Display the chart in the equatorial coordinate system with the
-      NCP up so roll = 0.
-
-    Assumes that location has already been set in calc_utils.sf_utils.
-    """
-    if mount_type == "Alt/Az":
-        # Altaz mounts: Display chart in horizontal coordinates
-        if location and dt:
-            # We have location and time/date (and assume that location has been set)
-            # Roll at the target RA/Dec in the horizontal frame
-            roll_deg = calc_utils.sf_utils.radec_to_roll(ra_deg, dec_deg, dt)
-
-            # HACK:
-            # The IMU direction flips at a certaint point. Could due to a
-            # an issue in the formula in calc_utils.sf_utils.hadec_to_roll()
-            # This is a temperary hack for testing.
-            ha_deg = calc_utils.sf_utils.ra_to_ha(ra_deg, dt)
-            roll_deg = (
-                roll_deg - np.sign(ha_deg) * 180
-            )  # In essence, gives: roll_deg = -pa_deg
-            # End of HACK
-        else:
-            # No position or time/date available, so set roll to 0.0
-            roll_deg = 0.0
-    elif mount_type == "EQ":
-        # EQ-mounts: Display chart with NCP up so roll = 0.0
-        roll_deg = 0.0
-    else:
-        logger.error(f"Unknown mount type: {mount_type}. Cannot set roll.")
-        roll_deg = 0.0
-
-    # If location is available, adjust roll for hemisphere:
-    # Altaz: North up in northern hemisphere, South up in southern hemisphere
-    # EQ mounts: NCP up in northern hemisphere, SCP up in southern hemisphere
-    if location:
-        if location.lat < 0.0:
-            roll_deg += 180.0  # Southern hemisphere
-
-    return roll_deg

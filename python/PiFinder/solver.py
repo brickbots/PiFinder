@@ -372,16 +372,26 @@ def solver(
                             % ("camera", len(centroids), t_extract)
                         )
 
+                        # Clear solve results which indicate solve as failed
+                        # (otherwise old values persist)
+
+                        solved["RA"] = None
+                        solved["Dec"] = None
+                        solved["Matches"] = 0
+                        solved["camera_center"]["RA"] = None
+                        solved["camera_center"]["Dec"] = None
+                        solved["camera_center"]["Roll"] = None
+                        solved["camera_solve"]["RA"] = None
+                        solved["camera_solve"]["Dec"] = None
+                        solved["camera_solve"]["Roll"] = None
+                        solution = {}
+
                         if len(centroids) == 0:
                             if log_no_stars_found:
                                 logger.info(
                                     "No stars found, skipping (Logged only once)"
                                 )
                                 log_no_stars_found = False
-                            # Clear solve results to mark solve as failed (otherwise old values persist)
-                            solved["RA"] = None
-                            solved["Dec"] = None
-                            solved["Matches"] = 0
                         else:
                             log_no_stars_found = True
                             _solver_args = {}
@@ -453,12 +463,8 @@ def solver(
 
                             if last_image_metadata.get("imu"):
                                 solved["imu_quat"] = last_image_metadata["imu"]["quat"]
-                                solved["imu_pos"] = last_image_metadata["imu"].get(
-                                    "pos"
-                                )
                             else:
                                 solved["imu_quat"] = None
-                                solved["imu_pos"] = None
 
                             solved["solve_time"] = time.time()
                             solved["cam_solve_time"] = solved["solve_time"]
@@ -558,9 +564,7 @@ def get_initialized_solved_dict() -> dict:
             "Dec": None,
             "Roll": None,
         },
-        "imu_pos": None,  # IMU euler angles (classic integrator)
         "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first)
-        "Roll_offset": 0,  # Roll offset for classic integrator
         # Alt, Az [deg] of scope:
         "Alt": None,
         "Az": None,

@@ -15,8 +15,7 @@ from tqdm import tqdm
 from collections import defaultdict
 
 import PiFinder.utils as utils
-from PiFinder.utils import format_size_value
-from PiFinder.composite_object import MagnitudeObject
+from PiFinder.composite_object import MagnitudeObject, SizeObject
 from .catalog_import_utils import (
     NewCatalogObject,
     delete_catalog_from_database,
@@ -455,12 +454,18 @@ def load_ngc_catalog():
         # Get surface brightness
         surface_brightness = obj.get("surface_brightness")
 
-        # Format size information
-        size = ""
+        # Format size information (arcminutes from Steinicke)
+        pa = float(obj["position_angle"]) if obj.get("position_angle") else 0.0
         if obj.get("diameter_larger"):
-            size = format_size_value(obj["diameter_larger"])
+            larger = float(obj["diameter_larger"])
             if obj.get("diameter_smaller"):
-                size += f"x{format_size_value(obj['diameter_smaller'])}"
+                size = SizeObject.from_arcmin(
+                    larger, float(obj["diameter_smaller"]), position_angle=pa
+                )
+            else:
+                size = SizeObject.from_arcmin(larger, position_angle=pa)
+        else:
+            size = SizeObject([])
 
         desc = ""
         extra = ""
