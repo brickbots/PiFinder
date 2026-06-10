@@ -41,6 +41,8 @@ Start
    flowchart LR
        Start --> Focus
        Start --> Align
+       Start --> AlignDay["Align (Day)"]
+       Start --> Polar["Polar Align"]
        Start --> GPS["GPS Status"]
 
 Focus
@@ -51,6 +53,13 @@ Align
    Align the PiFinder to your eyepiece.  Center a known star, confirm, and your
    Push-To distances then account for any offset between the camera and where
    you're actually looking.
+Align (Day)
+   Set the same eyepiece alignment in daylight by marking where a distant
+   eyepiece-centered object appears in the camera image.
+Polar Align
+   For equatorial platforms: capture two or three solves while rotating the
+   platform, then use the platform's altitude and azimuth adjusters until the
+   displayed correction reaches zero.
 GPS Status
    The current GPS fix: satellites in view, lock state, and the location and
    time the PiFinder has acquired.  (Also reachable from Tools, under Place &

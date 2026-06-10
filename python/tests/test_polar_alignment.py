@@ -26,6 +26,8 @@ from PiFinder.polar_alignment import (
     get_platform_adjustments,
     make_solve_2,
     _precession_matrix,
+    _SKYFIELD_TETE_FRAME,
+    _SKYFIELD_TS,
 )
 
 LAT_NH = 51.2
@@ -293,16 +295,21 @@ class TestPrecession:
         # mechanical axis IS the J2000 pole.  With observation_jyear the
         # function precesses to JNOW and must see the axis offset from the
         # true pole by exactly the precession amount.  Checked against the
-        # precession matrix directly, so this exercises the full
-        # solve -> precess -> axis -> alt/az pipeline, not the matrix alone.
-        lat, lst_deg, sweep, jyear = 51.2, 0.0, 14.0, 2026.44
+        # Skyfield's TETE frame directly, so this exercises the full
+        # solve -> precess -> axis -> alt/az pipeline and will fail if
+        # _precession_matrix() is rewritten incorrectly.
+        lat, lst_deg, sweep, jyear_c = 51.2, 0.0, 14.0, 2026.44
         dAlt, dAz, sw, ax_ra, _, _ = get_platform_adjustments(
             [(0.0, 90.0, 0.0, 0), (0.0, 90.0, sweep, 0)],
             lat,
             lst_deg,
-            observation_jyear=jyear,
+            observation_jyear=jyear_c,
         )
-        exp_axis = _precession_matrix(jyear) @ np.array([0.0, 0.0, 1.0])
+        _ts_c = _SKYFIELD_TS.J(jyear_c)
+        _ncp = _SKYFIELD_TETE_FRAME.rotation_at(_ts_c) @ np.array([0.0, 0.0, 1.0])
+        gt_ra_c = np.degrees(np.arctan2(_ncp[1], _ncp[0])) % 360
+        gt_dec_c = np.degrees(np.arcsin(np.clip(_ncp[2], -1, 1)))
+        exp_axis = _axis_vec(gt_ra_c, gt_dec_c)
         exp_dAlt, exp_dAz = axis_to_altaz_error(exp_axis, lat, lst_deg)
         exp_ax_ra = np.degrees(np.arctan2(exp_axis[1], exp_axis[0])) % 360
         assert dAlt == pytest.approx(exp_dAlt, abs=1 / 3600)
@@ -368,19 +375,22 @@ class TestCorrectionTarget:
         # Mechanical axis is the J2000 pole; with observation_jyear the
         # correction target (returned in J2000) must equal the JNOW NCP
         # expressed in J2000 — the JNOW pole back through the precession
-        # matrix.  Compared by angular separation since RA is meaningless
+        # matrix.  Use Skyfield's TETE frame directly so the expected value
+        # is independent of _precession_matrix(). Compared by angular
+        # separation since RA is meaningless
         # near the pole; tolerance relaxed for the gimbal zone.
-        jyear = 2026.44
+        jyear_c = 2026.44
         _, _, _, ax_ra, ax_dec, _ = get_platform_adjustments(
             [(0.0, 90.0, 0.0, 0), (0.0, 90.0, 14.0, 0)],
             51.2,
             0.0,
-            observation_jyear=jyear,
+            observation_jyear=jyear_c,
         )
         ra_t, dec_t, _ = correction_target(
-            ax_ra, ax_dec, (0.0, 90.0, 14.0), observation_jyear=jyear
+            ax_ra, ax_dec, (0.0, 90.0, 14.0), observation_jyear=jyear_c
         )
-        gt = _precession_matrix(jyear).T @ np.array([0.0, 0.0, 1.0])
+        _ts_c = _SKYFIELD_TS.J(jyear_c)
+        gt = _SKYFIELD_TETE_FRAME.rotation_at(_ts_c).T @ np.array([0.0, 0.0, 1.0])
         sep_arcsec = (
             np.degrees(np.arccos(np.clip(np.dot(_axis_vec(ra_t, dec_t), gt), -1, 1)))
             * 3600

@@ -815,7 +815,7 @@ if __name__ == "__main__":
         )
         return ((ra1, dec1, roll1), (ra2, dec2, roll2), (ra3, dec3, roll3))
 
-    def _mc_test(ra1, dec1, sweep_total, N=300):
+    def _mc_test(ra1, dec1, sweep_total, N=50):
         """
         Monte Carlo comparison of two-solve vs three-solve optimised vs
         RA/Dec-only (cross-product) for a given starting pointing and total sweep.
@@ -921,7 +921,7 @@ if __name__ == "__main__":
     pax = np.array([cd * np.cos(ra_pax), cd * np.sin(ra_pax), np.sin(dec_pax)])
 
     # Monte Carlo comparison across four scenarios
-    N_MC = 300
+    N_MC = 50
     logger.info(
         "Monte Carlo N=%d  sigma_RA/Dec=%.1f'  sigma_roll=%.1f'  (%.0fx)",
         N_MC,
