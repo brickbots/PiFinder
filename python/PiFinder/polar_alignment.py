@@ -477,11 +477,11 @@ def get_platform_adjustments(
     observation_jyear=None,
 ):
     """
-    Calculate polar-axis misalignment from two or more plate solves.
+    Calculate polar-axis misalignment from two or three plate solves.
 
     Parameters
     ----------
-    solves            : iterable of (ra, dec, roll, timestamp) tuples
+    solves            : iterable of two or three (ra, dec, roll, timestamp) tuples
                         Each tuple is one plate solve:
                           ra        — Right Ascension in degrees
                           dec       — Declination in degrees
@@ -489,26 +489,26 @@ def get_platform_adjustments(
                           timestamp — Time of the solve in seconds (any epoch;
                                       only differences matter).
                         Solves are sorted by timestamp internally (ties keep
-                        their input order).  At least two are required; three
-                        or more trigger the weighted
-                        optimisation.  The latest timestamp is the reference
-                        epoch: all earlier RAs are advanced by their individual
-                        sidereal drift to match it.  Dec and roll are unaffected.
+                        their input order).  Exactly two or three solves are
+                        supported; three trigger the weighted optimisation.
+                        The latest timestamp is the reference epoch: all
+                        earlier RAs are advanced by their individual sidereal
+                        drift to match it.  Dec and roll are unaffected.
     latitude          : float   Observer's geographic latitude in degrees.
     lst_deg           : float   Local Sidereal Time at the time of the *last*
                                 solve, in degrees (0–360).
                                 To convert from hours: lst_deg = lst_hours * 15.
     sigma_ra          : float   Expected 1-sigma RA noise in degrees (default 1').
-                                Used only when three or more solves are given.
+                                Used only when three solves are given.
     sigma_dec         : float   Expected 1-sigma Dec noise in degrees (default 1').
-                                Used only when three or more solves are given.
+                                Used only when three solves are given.
     sigma_roll        : float   Expected 1-sigma roll noise in degrees
                                 (default 1/R where R = field radius in radians;
                                 for a 10° field, R = 5° = 0.0873 rad giving
                                 sigma_roll = 11.4592 x sigma_RA/Dec ≈ 11.46x).
                                 Set higher to downweight roll relative to RA/Dec.
-                                Used only when three or more solves are given.
-    ignore_roll       : bool    If True and three or more solves are given, use
+                                Used only when three solves are given.
+    ignore_roll       : bool    If True and three solves are given, use
                                 the RA/Dec-only cross-product method instead of
                                 the weighted optimiser.  Roll values in the
                                 input tuples are ignored entirely.  Useful when
@@ -600,7 +600,7 @@ def get_platform_adjustments(
 
     # 3. Two-solve axis estimate from the first and last solve.
     #    Used as-is for two solves, and as the seed for the optimiser when
-    #    three or more solves are provided.
+    #    three solves are provided.
     ra1, dec1, roll1, _ = solves[0]
     ra2, dec2, roll2, _ = solves[-1]
 
@@ -641,7 +641,7 @@ def get_platform_adjustments(
     axis_dec = np.degrees(np.arcsin(np.clip(axis[2], -1.0, 1.0)))
     axis_ra = np.degrees(np.arctan2(axis[1], axis[0])) % 360.0
 
-    # 4. If three or more solves are given, refine the axis.
+    # 4. If three solves are given, refine the axis.
     _three_solve_final_cost = float("nan")
     _ignore_roll_final_cost = float("nan")
     if len(solves) >= 3:
