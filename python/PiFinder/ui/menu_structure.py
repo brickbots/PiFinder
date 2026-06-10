@@ -8,6 +8,7 @@ from PiFinder.ui.software import UISoftware
 from PiFinder.ui.gpsstatus import UIGPSStatus
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
+from PiFinder.ui.polar_align import UIPolarAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.sqm import UISQM
@@ -51,6 +52,11 @@ pifinder_menu = {
                     "class": UIAlign,
                     "stateful": True,
                     "preload": True,
+                },
+                {
+                    "name": _("Polar Align"),
+                    "class": UIPolarAlign,
+                    "stateful": True,
                 },
                 {
                     "name": _("GPS Status"),
@@ -771,7 +777,7 @@ pifinder_menu = {
                     "select": "single",
                     "label": "chart_settings",
                     "items": [
-                                                {
+                        {
                             "name": _("Coordinate Sys."),
                             "class": UITextMenu,
                             "select": "single",
