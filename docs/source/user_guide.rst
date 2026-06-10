@@ -4,7 +4,7 @@ PiFinder™ User Manual
 ======================
 
 .. note::
-   This documentation is for v3 and v2.5 PiFinders running software 2.2.0 or above.
+   This documentation is for v3 and v2.5 PiFinders running software |min_software| or above.
    You can see which version you're running in the upper right of the welcome screen.
 
    If you need docs for a previous version please choose `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
@@ -31,7 +31,8 @@ To direct you, the PiFinder needs to know where your telescope is pointed.  It w
 out directly, by photographing the night sky and examining the star patterns to determine
 which section of sky it's seeing — incredibly fast (up to 20 times per second!) and very
 accurately.  This only works while the scope is still, so it pairs that camera with an
-accelerometer that estimates how far the scope has moved since the last solve.  The
+accelerometer (the IMU, as the Status screen and Settings menu call it) that estimates
+how far the scope has moved since the last solve.  The
 estimate carries some error, but the moment you stop, a fresh photo corrects it.
 
 Knowing where your scope points and where thousands of interesting objects sit, the
@@ -101,7 +102,8 @@ The battery runs the PiFinder for about **four to five hours**, but real runtime
 heavily on how hard you work it.  Sitting at the eyepiece on one object, or stepping away
 from the scope, lets the PiFinder drop into power-save mode and stretches the time
 considerably.  A fast tour through many objects — camera, motion sensor, and screen all
-busy — draws more power and shortens it.
+busy — draws more power and shortens it.  Turning the brightness down helps too: hold
+**SQUARE** and press **+** or **-** to adjust the screen and keypad at any time.
 
 There is **no battery-level indicator** on the screen and no low-battery warning: when the
 charge is depleted the PiFinder simply shuts off.  For a long night, top up beforehand and
@@ -173,21 +175,6 @@ A few habits keep the cell healthy:
    5000mAh**.  Other PiSugar models share the I2C bus with the PiFinder's motion sensor and
    will cause problems, so make sure you fit the S Plus.
 
-Adjusting Brightness
-=====================================
-
-You can adjust the brightness of the screen and keypad at any time: hold the **SQUARE**
-button and press **+** for brighter or **-** for dimmer.  At a dark-sky site, turn the
-brightness right down to preserve your dark-adapted vision.
-
-.. note::
-   The PiFinder dims the screen and slows exposures, solving, and other processes after
-   it's been idle for a while.  This saves battery power and prevents glare at the eyepiece
-   in especially dark environments.  The default is 30 seconds; you can change it, or turn
-   it off completely, in the :ref:`user_guide:settings menu`
-
-   Pressing any button, or moving the PiFinder, will wake it from power-save mode.
-
 The Menu System
 =====================================
 
@@ -198,6 +185,8 @@ All of the PiFinder's functions are reached through its menu system:
 
 Each menu is a list of items representing a submenu, a screen, or a set of options.  Scroll
 through a menu and make selections with these keys:
+
+.. This key list is duplicated in quick_start.rst (Using the PiFinder) — keep the two in sync.
 
 - The **UP** and **DOWN** arrows scroll the current menu
 - The **RIGHT** arrow activates the current option, selecting it or moving to another menu
@@ -338,7 +327,7 @@ The Object List is one of the PiFinder's main features.  It presents a collectio
 objects you've selected using catalogs, filters, observing lists, and text search.
 
 To pick a starting point, choose Objects from the main PiFinder menu, then choose one of
-four options:
+five options:
 
 .. image:: images/user_guide/objects_menu.png
 
@@ -350,6 +339,8 @@ four options:
   for observing projects and finding the nearest objects in a particular catalog.
 - **Recent**: Starts empty and builds a history of the objects you've checked out during
   the current session.
+- **Custom**: Enter a right ascension and declination by hand to make a one-off target.
+  See :ref:`user_guide:custom targets`.
 - **Name Search**: Using the number keypad and T9-style text entry, search for objects by
   name.  The Snowball planetary?  Cat's Eye?  This is the way to find them.
 
@@ -519,6 +510,29 @@ matches.
 
 .. image:: images/user_guide/name_search_results.png
 
+Custom Targets
+---------------
+
+Sometimes the object you're after isn't in any catalog — a newly discovered comet, or a
+position from a chart or article.  Choose Custom from the Objects menu to enter a right
+ascension and declination by hand, then push to it like any other object.
+
+.. image:: images/user_guide/custom_radec_entry_docs.png
+
+Type the coordinates with the number keys; the **UP/DOWN** arrows move between fields and
+**-** deletes the last digit.  The **SQUARE** key cycles the entry format — full
+hours/minutes/seconds (shown above), decimal hours and degrees, or decimal degrees for
+both — with the active format named in the title bar.  With the declination degrees
+selected, **+** flips its sign; on the EPOCH field, **+** cycles between J2000, JNOW, and
+B1950.
+
+When the numbers look right, press **RIGHT** to create the target.  The PiFinder makes a
+one-off object, opens its :ref:`Object Details<user_guide:object details>` screen with
+Push-To guidance, and adds it to the Recent list so you can return to it during the
+session.  Press **LEFT** to back out without creating anything.
+
+.. image:: images/user_guide/custom_radec_result_docs.png
+
 Object Images
 ---------------
 
@@ -601,16 +615,17 @@ Tools
 ==========================
 
 Near the bottom of the main PiFinder menu, the Tools option leads to a set of screens that
-aren't observing-related but provide useful information or let you perform actions.
+aren't observing-related but provide useful information or let you perform actions —
+checking the PiFinder's :ref:`status<user_guide:status screen>`, choosing your active
+:doc:`telescope and eyepiece <equipment>`, setting your place and time by hand,
+:ref:`updating the software<user_guide:update software>`, and
+:ref:`shutting down<user_guide:shutdown>` or restarting.
 
 .. image:: images/user_guide/tools_menu_docs.png
 
-- :ref:`Status<user_guide:status screen>`: General info about PiFinder operation.
-- :doc:`Equipment <equipment>`: Choose your active telescope and eyepiece, and see the resulting magnification and field of view.
-- Console: Shows messages from various PiFinder subsystems
-- :ref:`Software Upd<user_guide:update software>`: Updates the software of your PiFinder.
-- Test Mode: Puts the PiFinder into a demo/debug mode that loads and solves an image from disk.  It prevents proper operation at night but lets you explore PiFinder features during the day.
-- :ref:`Shutdown<user_guide:shutdown>`: Shuts down the PiFinder
+For the full tree and a note on what every item does, see the
+:ref:`Tools section of the Menu Map<menu_map:tools>`.  The two screens you'll reach for
+most often are covered below.
 
 Status Screen
 ----------------------------------
@@ -635,12 +650,13 @@ Shutting down isn't strictly required before power-off, but the PiFinder is a co
 there's a chance of file corruption if you skip it.  Some MicroSD cards are more sensitive
 than others.
 
-The Tools menu offers a Shutdown option, and there's a quick way to reach it too.
+The Tools menu offers a Shutdown option under Power, and there's a quick way to reach it
+too.
 
 To shut down the PiFinder quickly:
 
 - Hold the **LEFT** arrow button for more than a second to jump to the main menu
-- Hold the **SQUARE** button to access the Radial menu
+- Hold the **SQUARE** button to access the Quick Menu
 
 .. image:: images/quick_start/main_menu_01_docs.png
 .. image:: images/quick_start/main_menu_marking.png
@@ -674,8 +690,8 @@ PiFinder address
 -----------------
 
 In most cases you can reach the PiFinder at ``pifinder.local``.  On older computers, or
-those without zeroconf networking, use the IP address shown on the :ref:`Global
-Options<user_guide:settings menu>` screen.  You can connect via:
+those without zeroconf networking, use the IP address shown on the
+:ref:`Status<user_guide:status screen>` screen.  You can connect via:
 
 
 * A web browser, for the :ref:`user_guide:Web Interface` — remote control, WiFi setup, and configuration changes
@@ -747,16 +763,9 @@ To add more WiFi networks, navigate to the Network Setup page of the :ref:`user_
 SkySafari
 ===================
 
-The PiFinder can provide real-time pointing information to a device running SkySafari via
-the LX200 protocol.  See the :doc:`skysafari` document for full details; here's the
-connection info:
-
-
-* Use 'Other' telescope type
-* Mount Type: Alt-Az, GoTo — even if your scope is Push-To.  This lets SkySafari send targets to the PiFinder
-* Scope Type: Meade LX200 classic
-* IP Address: ``pifinder.local`` or the IP address shown on the Status screen
-* Port: 4030
+The PiFinder can provide real-time pointing information to SkySafari and other planetarium
+apps via the LX200 protocol, and accept targets they send back.  The :doc:`skysafari` page
+has the connection settings and walks through the setup step by step.
 
 Shared Data Access
 ===================
@@ -771,8 +780,8 @@ Once connected, you'll see:
 
 * ``captures/``\ : Images saved when logging objects, named with the observation ID from the database.
 * ``obslists/``\ : Observing lists saved during a session or kept for future sessions.
-* ``screenshots/``\ : Screenshots taken while using the PiFinder (hold **ENT** and press
-  *0*\ ) are stored here.
+* ``screenshots/``\ : Screenshots taken while using the PiFinder (hold **SQUARE** and
+  press **0**) are stored here.
 * ``solver_debug_dumps/``\ : If enabled, solver performance information is stored here as a collection of images and json files.
 * ``observations.db``\ : The SQLite database holding all logged observations.
 
@@ -818,8 +827,3 @@ for information about each release and a download link.
 
 Instructions for writing release images to an SD card are on the :doc:`software setup<software>`
 page.
-
-FAQ
-====
-
-Frequently asked questions now live on the :doc:`Troubleshooting & FAQ <troubleshooting>` page.
