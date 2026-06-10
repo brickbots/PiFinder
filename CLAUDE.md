@@ -2,6 +2,34 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Branch Model
+
+- **`main`** is the integration / development branch. **All PRs target `main`.**
+- **`release`** is the production branch — code is promoted from `main` to `release` as part of a release cut. Do not open PRs directly against `release`.
+- Feature branches: branch off `main` and PR back to `main`.
+
+Note: the auto-detected "Main branch" shown in the Claude Code env block may currently read `release` (because the GitHub default branch points there). Disregard that — the rule above is authoritative for this repo.
+
+### Agent worktrees
+
+Worktrees must be rooted on **`main`**. The harness's `fresh` base resolves to this clone's `origin/HEAD`, which may point at `release` (the GitHub default) — in which case `EnterWorktree` lands on `release`, not `main`. CLAUDE.md cannot change this; it is decided by the harness before any instruction here is read.
+
+After `EnterWorktree`, **verify the base before making changes**: if `git merge-base HEAD origin/main` does not equal `origin/main`'s tip, the worktree is on the wrong branch — run `git reset --hard origin/main` and proceed from there.
+
+Maintainers can make `fresh` root on `main` automatically per clone (without changing GitHub's default branch) by repointing the local default-branch pointer:
+
+```bash
+git remote set-head origin main
+```
+
+**Initialise the `tetra3` submodule in every new worktree.** `python/PiFinder/tetra3` is a git submodule (the `cedar-solve`/Tetra3 solver); the importable package is its inner `tetra3/tetra3/` dir, surfaced through the tracked symlink `python/tetra3`. `git worktree add` / `EnterWorktree` does **not** populate submodules, so a fresh worktree starts with an empty submodule dir and a dangling symlink. Any test that imports the solver then fails with `ModuleNotFoundError: No module named 'tetra3'` (or `cedar_detect_pb2`) — this is a missing checkout, **not** a code problem, so don't reach for `PYTHONPATH` hacks. Fix it once per worktree:
+
+```bash
+git submodule update --init python/PiFinder/tetra3
+```
+
+mypy also needs this: its config points at `python/PiFinder/tetra3/tetra3`, so `nox -s type_hints` can't run in a worktree until the submodule is initialised.
+
 ## Development Commands
 
 **Running Python**
@@ -54,6 +82,17 @@ Usual startup:
 ```bash
 python3.9 -m PiFinder.main -fh --camera debug --keyboard local -x
 ```
+
+## Reference Documentation
+
+Before working in an area of the codebase, check whether it has reference docs:
+
+- **`CONTEXT-MAP.md`** (repo root) — index of bounded contexts and how they relate. Start here for any cross-context question.
+- **`docs/ax/<area>/CONTEXT.md`** — canonical glossary for each context (Catalog, Positioning, SQM…). These define the project's vocabulary: what each domain term means, which words to avoid, and how related concepts compose. **Use these terms when reading, writing, and discussing code.**
+- **`docs/ax/<area>.md`** — architecture deep-dives (data flow, lifecycle, gotchas) alongside each CONTEXT.md.
+- **`docs/adr/NNNN-*.md`** — short architecture-decision records capturing the *why* behind non-obvious or hard-to-reverse choices.
+
+When a `CONTEXT.md` defines a term, prefer that term over synonyms in code comments, commit messages, and PR descriptions. If you encounter language in code or chat that conflicts with a CONTEXT.md, flag it.
 
 ## Architecture Overview
 

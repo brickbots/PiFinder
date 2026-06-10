@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw
 
 import PiFinder.ui.callbacks as callbacks
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.layout import center_box_row
 
 if TYPE_CHECKING:
 
@@ -73,8 +74,8 @@ class UILocationEntry(UIModule):
                 self.boxes[0] = str(int(location.altitude))
 
         # Screen setup
-        self.width = 128
-        self.height = 128
+        self.width = self.display_class.resX
+        self.height = self.display_class.resY
         self.red = self.colors.get(255)
         self.black = self.colors.get(0)
         self.half_red = self.colors.get(128)
@@ -82,16 +83,18 @@ class UILocationEntry(UIModule):
         self.draw = ImageDraw.Draw(self.screen)
         self.bold = self.fonts.bold
 
-        # Layout
-        self.text_y = 25
-        self.box_height = 20
-        self.box_spacing = 12
+        # Layout - box widths derive from the bold glyph width so the coordinate
+        # boxes scale with the display (50 / 32 / 28 on the 128 panel).
+        bw = self.bold.width
+        self.text_y = self.display_class.titlebar_height + 8
+        self.box_height = self.bold.height + 7
+        self.box_spacing = round(self.display_class.resX * 12 / 128)
         if self.coordinate == "alt":
-            self.box_widths = [50]
+            self.box_widths = [bw * 5 + 15]
         elif self.coordinate == "lon":
-            self.box_widths = [32, 28]
+            self.box_widths = [bw * 3 + 11, bw * 2 + 14]
         else:
-            self.box_widths = [28, 28]
+            self.box_widths = [bw * 2 + 14, bw * 2 + 14]
 
     def _sign_label(self):
         if self.coordinate == "lat":
@@ -99,12 +102,18 @@ class UILocationEntry(UIModule):
         return "E" if self.sign == "+" else "W"
 
     def draw_boxes(self):
-        total_width = sum(self.box_widths) + (self.num_boxes - 1) * self.box_spacing
-        start_x = (self.width - total_width) // 2
+        box_row = center_box_row(
+            self.display_class,
+            self.box_widths,
+            self.box_spacing,
+            self.text_y,
+            self.box_height,
+        )
+        start_x = box_row.xs[0]
 
         # Draw sign indicator for lat/lon
         if self.has_sign:
-            sign_x = start_x - 14
+            sign_x = start_x - (self.bold.width + 7)
             self.draw.text(
                 (sign_x, self.text_y + 2),
                 self._sign_label(),
@@ -207,14 +216,14 @@ class UILocationEntry(UIModule):
             font=self.fonts.base.font,
             fill=legend_color,
         )
-        legend_y += 12
+        legend_y += self.fonts.base.height + 1
         self.draw.text(
             (10, legend_y),
             _("\uf053 Cancel"),
             font=self.fonts.base.font,
             fill=legend_color,
         )
-        legend_y += 12
+        legend_y += self.fonts.base.height + 1
         if self.coordinate == "lat":
             hint = _("\U000f0374 Delete  \U000f0415 N/S")
         elif self.coordinate == "lon":
@@ -344,7 +353,7 @@ class UILocationEntry(UIModule):
             self.custom_callback(self)
 
     def update(self, force=False):
-        self.draw.rectangle((0, 0, 128, 128), fill=self.black)
+        self.draw.rectangle((0, 0, self.width, self.height), fill=self.black)
         self.draw_boxes()
         note_y = self.draw_label()
         separator_y = self.draw_separator(note_y + 15)

@@ -17,7 +17,7 @@
     "chart_reticle": 128,
     "chart_constellations": 64,
     "chart_coord_sys": "horiz",
-    "solve_pixel": [256, 256],
+    "target_pixel": [256, 256],
     "gps_type": "ublox",
     "gps_baud_rate": 9600,
     "filter.selected_catalogs": [
@@ -146,7 +146,7 @@
                 "obstruction_perc": 17.0,
                 "mount_type": "alt/az",
                 "flip_image": false,
-                "flop_image": true,
+                "flop_image": false,
                 "reverse_arrow_a": false,
                 "reverse_arrow_b": false
             }
@@ -177,6 +177,5 @@
         "active_telescope_index": 0,
         "active_eyepiece_index": 0
     },
-    "imu_threshold_scale": 1,
-    "imu_integrator": "classic"
+    "imu_threshold_scale": 1
 }

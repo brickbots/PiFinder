@@ -9,6 +9,7 @@ from PiFinder.ui.gpsstatus import UIGPSStatus
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.polar_align import UIPolarAlign
+from PiFinder.ui.align_daytime import UIAlignDaytime
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.sqm import UISQM
@@ -50,6 +51,12 @@ pifinder_menu = {
                 {
                     "name": _("Align"),
                     "class": UIAlign,
+                    "stateful": True,
+                    "preload": True,
+                },
+                {
+                    "name": _("Align (Day)"),
+                    "class": UIAlignDaytime,
                     "stateful": True,
                     "preload": True,
                 },
@@ -592,6 +599,7 @@ pifinder_menu = {
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "keypad_brightness",
+                            "post_callback": callbacks.apply_brightness,
                             "items": [
                                 {
                                     "name": "-4",
@@ -1088,23 +1096,25 @@ pifinder_menu = {
                     "post_callback": callbacks.restart_pifinder,
                     "items": [
                         {
-                            "name": _("Off"),
+                            "name": _("Off"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 100,
                         },
                         {
-                            "name": _("Very Low"),
+                            "name": _(
+                                "Very Low"
+                            ),  # TRANSLATORS: IMU sensitivity setting
                             "value": 3,
                         },
                         {
-                            "name": _("Low"),
+                            "name": _("Low"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 2,
                         },
                         {
-                            "name": _("Medium"),
+                            "name": _("Medium"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 1,
                         },
                         {
-                            "name": _("High"),
+                            "name": _("High"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 0.5,
                         },
                     ],
@@ -1167,17 +1177,6 @@ pifinder_menu = {
                     "select": "Single",
                     "items": [
                         {"name": "SQM", "class": UISQM},
-                        {
-                            "name": _("Integrator"),
-                            "class": UITextMenu,
-                            "select": "single",
-                            "config_option": "imu_integrator",
-                            "post_callback": callbacks.restart_pifinder,
-                            "items": [
-                                {"name": _("Classic"), "value": "classic"},
-                                {"name": _("Quaternion"), "value": "quaternion"},
-                            ],
-                        },
                         {
                             "name": _("AE Algo"),
                             "class": UITextMenu,

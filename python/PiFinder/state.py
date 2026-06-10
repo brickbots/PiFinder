@@ -13,6 +13,7 @@ from PiFinder import config
 import logging
 from typing import List
 from PiFinder.composite_object import CompositeObject
+from PiFinder.types.positioning import PointingEstimate
 from typing import Optional
 from dataclasses import dataclass, asdict
 import json
@@ -126,16 +127,30 @@ Example shared_state object:
 SharedStateObj(
     power_state=1,
     solve_state=True,
-    solution={'RA': 22.86683471463411, 'Dec': 15.347716050003328, 
-              'solve_time': 1695297930.5532792, 'cam_solve_time': 1695297930.5532837, 'Roll': 306.2951794424281, 'FOV': 10.200729425086111,
-              'RMSE': 21.995567413046142, 'Matches': 12, 'Prob': 6.987725483613384e-13, 'T_solve': 15.00384000246413, 'RA_target': 22.86683471463411,
-              'Dec_target': 15.347716050003328, 'T_extract': 75.79255499877036, 'Alt': None, 'Az': None, 'solve_source': 'CAM', 'constellation': 'Psc'},
-    imu={'moving': False, 'move_start': 1695297928.69749, 'move_end': 1695297928.764207,
-         'status': 3},
-    location={'lat': 59.05139745, 'lon': 7.987654, 'altitude': 151.4, 'source': 'GPS', gps_lock': False, 'timezone': 'Europe/Stockholm', 'last_gps_lock': None},
+    solution=PointingEstimate(
+        pointing=PointingMatrix(
+            camera=PointingAxis(
+                solve=Pointing(RA=22.866, Dec=15.347, Roll=306.295),
+                estimate=Pointing(RA=22.866, Dec=15.347, Roll=306.295),
+            ),
+            aligned=PointingAxis(
+                solve=Pointing(RA=22.866, Dec=15.347, Roll=306.295),
+                estimate=Pointing(RA=22.866, Dec=15.347, Roll=306.295),
+            ),
+        ),
+        imu_anchor=<quaternion>,
+        Alt=None, Az=None,
+        solve_source=SolveSource.CAMERA,
+        estimate_time=1695297930.5532792,
+        constellation='Psc',
+        diagnostics=SolveDiagnostics(Matches=12, RMSE=21.99, FOV=10.20, ...),
+        alignment=AlignmentResult(x_target=None, y_target=None),
+    ),
+    imu=ImuSample(quat=<quaternion>, timestamp=1695297930.55, status=3, moving=False),
+    location=Location(lat=59.05, lon=7.99, altitude=151.4, source='GPS', ...),
     datetime=None,
     screen=<PIL.Image.Image image mode=RGB size=128x128 at 0xE693C910>,
-    solve_pixel=[305.6970520019531, 351.9438781738281]
+    target_pixel=[305.697, 351.944]
 )
 """
 
@@ -262,7 +277,7 @@ class SharedStateObj:
         # None = No solve attempted yet
         # True = Valid solve data from either IMU or Camera
         # False = Invalid solve data
-        self.__solve_state = None
+        self.__solve_state: Optional[bool] = None
         self.__ui_state = None
         self.__last_image_metadata = {
             "exposure_start": 0,
@@ -271,7 +286,7 @@ class SharedStateObj:
             "imu": None,
             "imu_delta": 0.0,  # Angle between quaternion at start and end of exposure [deg]
         }
-        self.__solution = None
+        self.__solution: PointingEstimate = PointingEstimate()
         self.__sats = None
         self.__imu = None
         self.__location: Location = Location()
@@ -284,7 +299,7 @@ class SharedStateObj:
         self.__datetime_time = None
         self.__datetime_manual = False  # True when manually set, blocks GPS overrides
         self.__screen = None
-        self.__solve_pixel = config.Config().get_option("solve_pixel")
+        self.__target_pixel = config.Config().get_option("target_pixel")
         self.__arch = None
         self.__camera_align = False
         self.__camera_type = "imx296"  # Default, will be set by camera process
@@ -301,18 +316,18 @@ class SharedStateObj:
     def altaz_ready(self):
         return bool(self.__location.lock and self.datetime())
 
-    def solve_pixel(self, screen_space=False):
+    def target_pixel(self, screen_space=False):
         """
-        solve_pixel is (Y,X) in camera image (512x512) space
+        target_pixel is (Y,X) in camera image (512x512) space
 
         if screen_space=True, this is returned as (X,Y) in screen (128x128) space
         """
         if screen_space:
-            return (int(self.__solve_pixel[1] / 4), int(self.__solve_pixel[0] / 4))
-        return self.__solve_pixel
+            return (int(self.__target_pixel[1] / 4), int(self.__target_pixel[0] / 4))
+        return self.__target_pixel
 
-    def set_solve_pixel(self, coords):
-        self.__solve_pixel = coords
+    def set_target_pixel(self, coords):
+        self.__target_pixel = coords
 
     def power_state(self):
         return self.__power_state
@@ -365,11 +380,15 @@ class SharedStateObj:
     def set_imu(self, v):
         self.__imu = v
 
-    def solution(self):
+    def solution(self) -> PointingEstimate:
         return self.__solution
 
-    def set_solution(self, v):
+    def set_solution(self, v: PointingEstimate):
         self.__solution = v
+        # solve_state is the cheap-to-poll cache of "does a current pointing
+        # exist?" -- exactly solution().has_pointing(). Derive it here so the
+        # two can never drift and callers can't forget to update it.
+        self.__solve_state = v.has_pointing()
 
     def location(self):
         """Return the current location"""
@@ -507,7 +526,7 @@ class SharedStateObj:
             f"location={self.__location}, "
             f"datetime={self.datetime()}, "
             f"screen={self.__screen}, "
-            f"solve_pixel={self.__solve_pixel})"
+            f"target_pixel={self.__target_pixel})"
         )
 
     def __str__(self):
@@ -522,5 +541,5 @@ class SharedStateObj:
             f"Location: {self.__location}\n"
             f"Date-Time: {self.datetime()}\n"
             f"Screen: {self.__screen}\n"
-            f"Solve Pixel: {self.__solve_pixel}"
+            f"Target Pixel: {self.__target_pixel}"
         )

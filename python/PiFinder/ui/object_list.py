@@ -20,6 +20,7 @@ from itertools import cycle
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.ui.text_menu import UITextMenu
+from PiFinder.ui.layout import list_layout
 from PiFinder.ui.object_details import UIObjectDetails
 
 from PiFinder.calc_utils import aim_degrees
@@ -130,7 +131,8 @@ class UIObjectList(UITextMenu):
             and self.item_definition.get("value") == "CM"
         ):
             marking_menu_down = MarkingMenuOption(
-                label=_("Refresh"), callback=self.mm_refresh_comets
+                label=_("Refresh"),
+                callback=self.mm_refresh_comets,  # TRANSLATORS: Marking menu option to refresh comet catalog
             )
 
         self.marking_menu = MarkingMenu(
@@ -282,7 +284,7 @@ class UIObjectList(UITextMenu):
         self.update()
 
         if self.current_sort == SortOrder.NEAREST:
-            if self.shared_state.solution() is None:
+            if not self.shared_state.solution().has_pointing():
                 self.message(_("No Solve Yet"), 1)
                 self.current_sort = SortOrder.CATALOG_SEQUENCE
             else:
@@ -451,16 +453,25 @@ class UIObjectList(UITextMenu):
 
     @cache
     def color_modifier(self, line_number: int, sort_order: SortOrder):
+        # Brightness falloff per row, generated for however many rows the
+        # display shows (menu_visible_items). Reproduces the legacy 7-row
+        # curves exactly and extends them for the taller 176 panel.
+        n = self.display_class.menu_visible_items
+        center = n // 2
         if sort_order == SortOrder.NEAREST:
-            line_number_modifiers = [0.38, 0.5, 0.75, 0.8, 0.75, 0.5, 0.38]
-        else:
-            line_number_modifiers = [1, 0.75, 0.75, 0.5, 0.5, 0.38, 0.38]
-        return line_number_modifiers[line_number]
+            # symmetric fisheye falloff, brightest at the focus (centre) line
+            by_distance = [0.8, 0.75, 0.5, 0.38, 0.3]
+            return by_distance[min(abs(line_number - center), len(by_distance) - 1)]
+        # CATALOG_SEQUENCE / RA: brightest at the top, descending
+        descending = [1, 0.75, 0.75, 0.5, 0.5, 0.38, 0.38, 0.3, 0.3]
+        return descending[min(line_number, len(descending) - 1)]
 
     @cache
     def line_position(self, line_number, title_offset=20):
-        line_number_positions = [0, 13, 25, 42, 60, 76, 89]
-        return line_number_positions[line_number] + title_offset
+        # Row y-positions derive from the display resolution, title-bar height
+        # and font metrics (see ui.layout.list_layout). title_offset is kept for
+        # call-site compatibility but the anchor now comes from the layout.
+        return list_layout(self.display_class).rows[line_number].y
 
     def active(self):
         # trigger refilter
@@ -476,7 +487,13 @@ class UIObjectList(UITextMenu):
 
     def update(self, force: bool = False) -> None:
         self.clear_screen()
-        begin_x = 12
+
+        # Resolution-flexible row layout: y-positions, the focus selection box
+        # and text indent all derive from the display resolution, title-bar
+        # height and font metrics.
+        layout = list_layout(self.display_class)
+        half = layout.center_index
+        begin_x = layout.text_x
 
         # Check if loading just completed and refresh if so
         is_loading = self.catalogs.is_loading()
@@ -536,9 +553,9 @@ class UIObjectList(UITextMenu):
         if self.current_sort == SortOrder.NEAREST and self.nearby.should_refresh():
             self.nearby_refresh()
 
-        # Draw sorting mode in empty space
-        if self._current_item_index < 3:
-            intensity: int = int(64 + ((2.0 - self._current_item_index) * 32.0))
+        # Draw sorting mode in the empty rows above the focus line
+        if self._current_item_index < half:
+            intensity: int = int(64 + (((half - 1) - self._current_item_index) * 32.0))
             self.draw.text(
                 (begin_x, self.line_position(0)),
                 _("{catalog_info_1} obj").format(
@@ -563,13 +580,15 @@ class UIObjectList(UITextMenu):
                 fill=self.colors.get(intensity),
             )
         # Draw current selection hint
-        self.draw.rectangle((-1, 60, 129, 80), outline=self.colors.get(128), width=1)
+        self.draw.rectangle(layout.selection_box, outline=self.colors.get(128), width=1)
         line_number, line_pos = 0, 0
         line_color = None
-        for i in range(self._current_item_index - 3, self._current_item_index + 4):
+        for i in range(
+            self._current_item_index - half, self._current_item_index + half + 1
+        ):
             if i >= 0 and i < len(self._menu_items_sorted):
                 _menu_item = self._menu_items_sorted[i]
-                is_focus = line_number == 3
+                is_focus = line_number == half
 
                 item_name = self.create_shortname_text(_menu_item)
                 item_text = ""
@@ -589,10 +608,12 @@ class UIObjectList(UITextMenu):
                 line_bg = 32 if is_focus else 0
                 marker = self.get_marker(_menu_item.obj_type, line_color, line_bg)
                 if marker is not None:
-                    self.screen.paste(marker, (0, line_pos + 2))
+                    self.screen.paste(
+                        marker, (layout.marker_x, line_pos + layout.marker_dy)
+                    )
 
                 # calculate start of both pieces of text
-                begin_x = 12
+                begin_x = layout.text_x
                 begin_x2 = begin_x + (len(item_name) + 1) * line_font.width
 
                 # draw first text
@@ -829,7 +850,9 @@ class UIObjectList(UITextMenu):
         """Force refresh of comet data from the internet"""
         catalog = self.catalogs.get_catalog_by_code("CM")
         if catalog and hasattr(catalog, "refresh"):
-            self.message(_("Refreshing..."), 1)
+            self.message(
+                _("Refreshing..."), 1
+            )  # TRANSLATORS: Status message when refreshing comet catalog
             catalog.refresh()
             # Clear the UI object list and refresh to show status
             self.refresh_object_list(force_update=True)

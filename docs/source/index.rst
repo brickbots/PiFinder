@@ -8,8 +8,10 @@ For an overview of what the PiFinder is and how it came to be visit the official
 
 
 .. note::
-   This documentation is for v3 and v2.5 PiFinders running software 2.0.0 or above.
-   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+   This documentation is for v3 and v2.5 PiFinders running software |min_software| or above.
+   If you need docs for a previous version please choose `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+   , `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_
+   or `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_
 
 
 * If you are new to the PiFinder, you probably want the :doc:`quick_start`
@@ -48,7 +50,7 @@ If you would like pre-assembled units, kits or other items to jump start your Pi
 
 .. image:: ../../images/PiFinder_on_scope.jpg
 
-If you'd like to learn more about how it works, and potentially build your own, everything you need should be here.  I recommend starting with the [User Manual](./docs/user_guide.md) and then checking out the build process using the links below.
+If you'd like to learn more about how it works, and potentially build your own, everything you need should be here.  I recommend starting with the :doc:`User Manual <user_guide>` and then checking out the :doc:`Build Guide <build_guide>`.
 
 Discord
 -------
@@ -57,17 +59,38 @@ Join the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ for support 
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Contents:
-   :glob:
 
    self
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+   :caption: Using your PiFinder
+
    quick_start
    user_guide
+   menu_map
+   equipment
    catalogs
-   build_guide
-   v25_upgrade
-   software
    skysafari
+   troubleshooting
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+   :caption: Building & upgrading
+
+   build_guide
+   BOM
+   software
+   sd_card
+   v25_upgrade
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+   :caption: For developers
+
    dev_guide
    dev_arch
-   BOM
+   api

@@ -27,10 +27,11 @@ class Nearby:
 
     def should_refresh(self):
         solution = self.shared_state.solution()
-        if not solution or solution["RA"] is None:
+        if not solution or not solution.has_pointing():
             # No solution yet (initial state before first successful solve)
             return False
-        ra, dec = solution["RA"], solution["Dec"]
+        aligned = solution.pointing.aligned.estimate
+        ra, dec = aligned.RA, aligned.Dec
         # After first successful solve, RA/Dec are guaranteed to be valid
         should = (
             abs(ra - self.last_ra) > MAX_DEVIATION
@@ -48,11 +49,12 @@ class Nearby:
 
     def refresh(self):
         solution = self.shared_state.solution()
-        if not solution or solution["RA"] is None:
+        if not solution or not solution.has_pointing():
             # No solution yet (initial state before first successful solve)
             return []
         # After first successful solve, RA/Dec are guaranteed to be valid
-        ra, dec = solution["RA"], solution["Dec"]
+        aligned = solution.pointing.aligned.estimate
+        ra, dec = aligned.RA, aligned.Dec
         self.last_ra = ra
         self.last_dec = dec
         self.last_refresh = time.time()
@@ -71,6 +73,10 @@ class ClosestObjectsFinder:
         Calculates a flat list of objects and the balltree for those objects
         """
         deduplicated_objects = deduplicate_objects(objects)
+        if not deduplicated_objects:
+            self._objects = np.array([])
+            self._objects_balltree = None
+            return
         object_radecs = np.array(
             [[np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in deduplicated_objects]
         )

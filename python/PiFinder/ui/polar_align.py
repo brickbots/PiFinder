@@ -95,28 +95,41 @@ class UIPolarAlign(UIModule):
             return None
         return dt - timedelta(seconds=time.time() - timestamp)
 
-    def _cam_solve_age(self) -> Optional[float]:
+    def _camera_solve(self):
+        """
+        Latest camera plate-solve as (Pointing, solve_time), or
+        (None, None) if no solve is available.
+
+        ``pointing.camera.solve`` is the camera-axis RA/Dec/Roll from the
+        last plate-solve and is never touched by the IMU, so it is the
+        right source for polar alignment regardless of mount motion.
+        ``last_solve_success`` is its time.time() epoch.
+        """
         solution = self.shared_state.solution()
-        if not solution or not solution.get("cam_solve_time"):
+        if not solution or not solution.has_pointing():
+            return None, None
+        cam = solution.pointing.camera.solve
+        solve_time = solution.last_solve_success
+        if cam is None or solve_time is None or cam.RA is None:
+            return None, None
+        return cam, solve_time
+
+    def _cam_solve_age(self) -> Optional[float]:
+        _cam, solve_time = self._camera_solve()
+        if solve_time is None:
             return None
-        return time.time() - solution["cam_solve_time"]
+        return time.time() - solve_time
 
     def _try_capture(self):
         """
         In WAIT_SOLVE: capture the first camera solve that completed
         after the user pressed square.
         """
-        solution = self.shared_state.solution()
-        if not solution:
+        cam, solve_time = self._camera_solve()
+        if cam is None or solve_time is None:
             return
-        cam_time = solution.get("cam_solve_time")
-        cam = solution.get("camera_solve", {})
-        if (
-            cam_time
-            and cam_time > self.capture_request_time
-            and cam.get("RA") is not None
-        ):
-            self.solves.append((cam["RA"], cam["Dec"], cam["Roll"], cam_time))
+        if solve_time > self.capture_request_time:
+            self.solves.append((cam.RA, cam.Dec, cam.Roll, solve_time))
             if len(self.solves) >= MAX_POINTS:
                 self._compute()
             else:
@@ -177,24 +190,22 @@ class UIPolarAlign(UIModule):
         ground-frame degrees (push-to convention: target - current).
         (0, 0) means the knobs are set correctly.
         """
-        solution = self.shared_state.solution()
-        if not solution or self.target_altaz is None:
+        if self.target_altaz is None:
             return None
-        cam_time = solution.get("cam_solve_time")
-        cam = solution.get("camera_solve", {})
-        if not cam_time or cam.get("RA") is None:
+        cam, solve_time = self._camera_solve()
+        if cam is None or solve_time is None:
             return None
-        dt_solve = self._solve_datetime(cam_time)
+        dt_solve = self._solve_datetime(solve_time)
         if dt_solve is None:
             return None
         alt_c, az_c = calc_utils.sf_utils.radec_to_altaz(
-            cam["RA"], cam["Dec"], dt_solve, atmos=False
+            cam.RA, cam.Dec, dt_solve, atmos=False
         )
         alt_t, az_t = self.target_altaz
         return (
             wrap180(az_t - az_c),
             alt_t - alt_c,
-            time.time() - cam_time,
+            time.time() - solve_time,
         )
 
     def update(self, force=False):
