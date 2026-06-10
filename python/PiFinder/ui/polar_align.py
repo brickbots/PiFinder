@@ -5,8 +5,10 @@ Polar Alignment UI
 
 Guides the user through capturing two or three plate solves while an
 equatorial platform is rotated around its polar axis, then shows the
-required correction as a live target: drive the marker to (0,0) using
-the platform's alt/az adjusters and the polar axis is aligned.
+required correction as a live target. During capture, keep the telescope
+fixed relative to the platform and rotate only the platform. During
+adjustment, use only the platform's altitude and azimuth adjusters until
+the displayed push-to offsets reach zero.
 """
 
 import math
@@ -54,11 +56,15 @@ class UIPolarAlign(UIModule):
     Polar alignment wizard for equatorial platforms.
 
     Steps:
-    1. Capture a plate solve (square)
-    2. Rotate the platform, capture a second solve
-    3. Optionally rotate further and capture a third solve (or 0 to
-       solve with two points)
-    4. Adjust the platform alt/az knobs until the arrows read 0,0
+    1. Aim away from the celestial pole and capture a fresh plate solve
+       with SQUARE.
+    2. Rotate the equatorial platform by at least about 10 degrees,
+       keeping the telescope fixed on the mount, then capture point 2.
+    3. Optionally rotate farther and capture point 3, or press 0 after
+       point 2 to solve with two points.
+    4. Adjust the platform's altitude and azimuth knobs until the live
+       push-to arrows read 0,0. Do not use the telescope's normal
+       pointing controls during this phase.
     """
 
     __title__ = "POLAR ALIGN"
@@ -168,8 +174,9 @@ class UIPolarAlign(UIModule):
             axis_ra, axis_dec, self.solves[-1][:3], observation_jyear=jyear
         )
         # The correction target as a fixed ground direction at the epoch
-        # of the last solve: where the boresight must end up after the
-        # alt/az knobs are adjusted.
+        # of the last solve. During adjustment the user moves the boresight
+        # to this target with the platform's altitude/azimuth adjusters,
+        # not with the telescope's normal pointing controls.
         alt_t, az_t = calc_utils.sf_utils.radec_to_altaz(
             ra_target, dec_target, dt_last, atmos=False
         )
@@ -186,9 +193,9 @@ class UIPolarAlign(UIModule):
     def _current_offset(self) -> Optional[Tuple[float, float, float]]:
         """
         Live (point_az, point_alt, solve_age): how far to move the
-        boresight with the knobs to reach the correction target, in
-        ground-frame degrees (push-to convention: target - current).
-        (0, 0) means the knobs are set correctly.
+        boresight with the platform adjusters to reach the correction
+        target, in ground-frame degrees (push-to convention:
+        target - current). (0, 0) means the platform axis is aligned.
         """
         if self.target_altaz is None:
             return None
@@ -268,7 +275,7 @@ class UIPolarAlign(UIModule):
                 _("Solve 2-3 points,"),
                 _("rotating platform"),
                 _("between them."),
-                _("Keep scope fixed"),
+                _("Do not move scope"),
                 _("on the mount."),
             ],
         )
