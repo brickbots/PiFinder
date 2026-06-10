@@ -2,6 +2,7 @@ from PIL import Image, ImageDraw
 from PiFinder.composite_object import CompositeObject
 from PiFinder.ui.base import UIModule
 from PiFinder.db.objects_db import ObjectsDatabase
+from PiFinder.ui.marking_menus import MarkingMenu, MarkingMenuOption
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.ui_utils import format_number
 import time
@@ -102,6 +103,13 @@ class UITextEntry(UIModule):
         # Only initialize database if we're in search mode
         if not self.text_entry_mode:
             self.db: ObjectsDatabase = ObjectsDatabase()
+            self.marking_menu = MarkingMenu(
+                left=MarkingMenuOption(),
+                down=MarkingMenuOption(),
+                right=MarkingMenuOption(
+                    label=_("Input"), menu_jump="search_input_method"
+                ),
+            )
 
         self.last_key = None
         self.KEYPRESS_TIMEOUT = 1
@@ -124,9 +132,14 @@ class UITextEntry(UIModule):
         self._results_updated = False  # Flag to trigger UI refresh
         self.SEARCH_DEBOUNCE_MS = 250  # milliseconds
 
+        # Input method the current text was typed with; if the user jumps
+        # to the Search Input setting and changes it, the pending entry is
+        # meaningless in the other system and gets cleared on return
+        self._text_input_method = self.search_input_method
+
     @property
-    def t9_search_enabled(self) -> bool:
-        return bool(self.config_object.get_option("t9_search", False))
+    def search_input_method(self) -> str:
+        return str(self.config_object.get_option("search_input_method", "multi_tap"))
 
     def draw_text_entry(self):
         line_text_y = self.text_y + self.bold.height + 2
@@ -286,7 +299,7 @@ class UITextEntry(UIModule):
             # Priority catalogs (NGC, IC, M) are loaded first, WDS loads in background
             # So search will work immediately with those, WDS results appear when loading completes
             logger.info(f"Starting search for '{search_text}'")
-            if self.t9_search_enabled:
+            if self.search_input_method == "t9":
                 results = self.catalogs.search_by_t9(search_text)
             else:
                 results = self.catalogs.search_by_text(search_text)
@@ -353,7 +366,7 @@ class UITextEntry(UIModule):
     def key_number(self, number):
         current_time = time.time()
         number_key = str(number)
-        if not self.text_entry_mode and self.t9_search_enabled:
+        if not self.text_entry_mode and self.search_input_method == "t9":
             # In T9 mode we simply append the pressed digit
             self.last_key_press_time = current_time
             self.last_key = number
@@ -382,6 +395,17 @@ class UITextEntry(UIModule):
             self.add_char(char)
         else:
             print("didn't find key", number_key)
+
+    def active(self):
+        """Clear any entry typed with a different input method"""
+        if not self.text_entry_mode:
+            if (
+                self.current_text
+                and self.search_input_method != self._text_input_method
+            ):
+                self.current_text = ""
+                self.update_search_results()
+            self._text_input_method = self.search_input_method
 
     def inactive(self):
         """Cancel/invalidate any in-flight searches when screen becomes inactive"""

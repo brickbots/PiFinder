@@ -237,7 +237,7 @@ The PiFinder has a digital alignment system that maps where within its 10° fiel
 - **Physical alignment vs digital alignment**: When a customer reports alignment problems, first verify they understand the alignment procedure (especially the SQUARE button press). If the camera is physically pointed too far from the telescope's optical axis (>5 degrees), no amount of digital alignment will help — the star won't be in the camera's FOV at all.
 
 ### Finding Objects & Push-To Guidance
-- Access objects via main menu → **Objects** → choose **By Catalog**, **All Filtered**, **Recent** (session history), or **Name Search** (T9-style text entry).
+- Access objects via main menu → **Objects** → choose **By Catalog**, **All Filtered**, **Recent** (session history), or **Name Search** (keypad text entry — multi-tap by default, or T9 via the Search Input setting).
 - In object lists, pressing **SQUARE** cycles through info displays: catalog designation → common names → magnitude/size with observation checkmarks.
 - **Push-to guidance** (from Object Details screen):
   - **Top number**: Rotational direction (CW/CCW) and degrees to move
@@ -403,7 +403,7 @@ The PiFinder connects to SkySafari (and other planetarium apps) via WiFi using t
 - PiFinder initially sends 0° RA/DEC until the first plate solve completes
 - Works with **SkySafari 5 Plus, 6, and 7** (7 is most reliable)
 - SkySafari can lock the view to the scope's position
-- SkySafari can send objects to PiFinder's observing list (useful alternative to T9 keypad entry)
+- SkySafari can send objects to PiFinder's observing list (useful alternative to keypad text entry)
 - **Single connection limit**: Only one device/app can connect to the PiFinder's LX200 server at a time. If SkySafari is connected on an iPhone, it must be disconnected before connecting from an iPad (or vice versa).
 - **SkySafari cannot connect to PiFinder and a GoTo mount simultaneously** — choose one
 - **Sleep mode warning**: If PiFinder enters sleep mode, it stops sending position updates. Extend or disable the sleep timer if using SkySafari continuously.

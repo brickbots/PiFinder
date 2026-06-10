@@ -710,18 +710,19 @@ pifinder_menu = {
                             ],
                         },
                         {
-                            "name": _("T9 Search"),
+                            "name": _("Search Input"),
                             "class": UITextMenu,
                             "select": "single",
-                            "config_option": "t9_search",
+                            "config_option": "search_input_method",
+                            "label": "search_input_method",
                             "items": [
                                 {
-                                    "name": _("Off"),
-                                    "value": False,
+                                    "name": _("Multi-Tap"),
+                                    "value": "multi_tap",
                                 },
                                 {
-                                    "name": _("On"),
-                                    "value": True,
+                                    "name": _("T9"),
+                                    "value": "t9",
                                 },
                             ],
                         },
@@ -1090,23 +1091,25 @@ pifinder_menu = {
                     "post_callback": callbacks.restart_pifinder,
                     "items": [
                         {
-                            "name": _("Off"), # TRANSLATORS: IMU sensitivity setting
+                            "name": _("Off"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 100,
                         },
                         {
-                            "name": _("Very Low"), # TRANSLATORS: IMU sensitivity setting
+                            "name": _(
+                                "Very Low"
+                            ),  # TRANSLATORS: IMU sensitivity setting
                             "value": 3,
                         },
                         {
-                            "name": _("Low"), # TRANSLATORS: IMU sensitivity setting
+                            "name": _("Low"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 2,
                         },
                         {
-                            "name": _("Medium"), # TRANSLATORS: IMU sensitivity setting
+                            "name": _("Medium"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 1,
                         },
                         {
-                            "name": _("High"), # TRANSLATORS: IMU sensitivity setting
+                            "name": _("High"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 0.5,
                         },
                     ],

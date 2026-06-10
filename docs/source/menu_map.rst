@@ -122,8 +122,8 @@ Custom
    Enter a right ascension and declination by hand to make a one-off target you
    can push to.  See :ref:`user_guide:custom targets`.
 Name Search
-   Find objects by common name using T9-style text entry.  See
-   :ref:`user_guide:name search`.
+   Find objects by common name using the keypad — multi-tap or T9 text entry.
+   See :ref:`user_guide:name search`.
 
 
 Filter
@@ -197,8 +197,9 @@ User Pref...
       Menu scrolling animation speed — Off, Fast, Medium, or Slow.
    Scroll Speed
       How fast long lines of text scroll — Off, Fast, Medium, or Slow.
-   T9 Search
-      Turn T9 predictive text in Name Search on or off.
+   Search Input
+      How Name Search reads the keypad — Multi-Tap (cycle through each key's
+      letters) or T9 (one press per letter).
    Az Arrows
       Direction of the azimuth Push-To arrows — Default or Reverse, to match how
       you read them at the scope.
