@@ -288,6 +288,29 @@ class TestPrecession:
         P = _precession_matrix(2026.4)
         assert np.allclose(P @ P.T, np.eye(3), atol=1e-12)
 
+    def test_j2000_pole_axis_recovered_through_pipeline(self):
+        # Both solves point at the J2000 pole (only roll changes), so the
+        # mechanical axis IS the J2000 pole.  With observation_jyear the
+        # function precesses to JNOW and must see the axis offset from the
+        # true pole by exactly the precession amount.  Checked against the
+        # precession matrix directly, so this exercises the full
+        # solve -> precess -> axis -> alt/az pipeline, not the matrix alone.
+        lat, lst_deg, sweep, jyear = 51.2, 0.0, 14.0, 2026.44
+        dAlt, dAz, sw, ax_ra, _, _ = get_platform_adjustments(
+            [(0.0, 90.0, 0.0, 0), (0.0, 90.0, sweep, 0)],
+            lat,
+            lst_deg,
+            observation_jyear=jyear,
+        )
+        exp_axis = _precession_matrix(jyear) @ np.array([0.0, 0.0, 1.0])
+        exp_dAlt, exp_dAz = axis_to_altaz_error(exp_axis, lat, lst_deg)
+        exp_ax_ra = np.degrees(np.arctan2(exp_axis[1], exp_axis[0])) % 360
+        assert dAlt == pytest.approx(exp_dAlt, abs=1 / 3600)
+        assert dAz == pytest.approx(exp_dAz, abs=1 / 3600)
+        assert sw == pytest.approx(sweep, abs=1e-6)
+        # axis RA near the pole is in the gimbal zone — relaxed tolerance
+        assert abs((ax_ra - exp_ax_ra + 180) % 360 - 180) < 10 / 3600
+
 
 @pytest.mark.unit
 class TestCorrectionTarget:
@@ -326,6 +349,43 @@ class TestCorrectionTarget:
         assert ra_t == pytest.approx(180.0, abs=1e-6)
         assert dec_t == pytest.approx(30.0, abs=1e-6)
         assert roll_t == pytest.approx(45.0, abs=1e-6)
+
+    def test_scope_at_axis_sh_lands_on_scp(self):
+        # SH mirror of test_scope_at_axis_lands_on_pole: the scope points at
+        # the S-end of the mechanical axis (only roll changes between solves).
+        # After the Alt/Az correction the boresight must sit on the SCP
+        # (dec = -90), the pole-pointing end in the southern hemisphere.
+        s_end = _true_axis(LAT_SH, 1.5, 3.0, LST)  # S-end (z < 0) in SH
+        ra_pt = np.degrees(np.arctan2(s_end[1], s_end[0])) % 360
+        dec_pt = np.degrees(np.arcsin(s_end[2]))
+        _, _, _, ax_ra, ax_dec, _ = get_platform_adjustments(
+            [(ra_pt, dec_pt, 0.0, 0), (ra_pt, dec_pt, 14.0, 0)], LAT_SH, LST
+        )
+        _, dec_t, _ = correction_target(ax_ra, ax_dec, (ra_pt, dec_pt, 14.0))
+        assert dec_t == pytest.approx(-90.0, abs=1e-4)
+
+    def test_j2000_pole_axis_target_back_precessed(self):
+        # Mechanical axis is the J2000 pole; with observation_jyear the
+        # correction target (returned in J2000) must equal the JNOW NCP
+        # expressed in J2000 — the JNOW pole back through the precession
+        # matrix.  Compared by angular separation since RA is meaningless
+        # near the pole; tolerance relaxed for the gimbal zone.
+        jyear = 2026.44
+        _, _, _, ax_ra, ax_dec, _ = get_platform_adjustments(
+            [(0.0, 90.0, 0.0, 0), (0.0, 90.0, 14.0, 0)],
+            51.2,
+            0.0,
+            observation_jyear=jyear,
+        )
+        ra_t, dec_t, _ = correction_target(
+            ax_ra, ax_dec, (0.0, 90.0, 14.0), observation_jyear=jyear
+        )
+        gt = _precession_matrix(jyear).T @ np.array([0.0, 0.0, 1.0])
+        sep_arcsec = (
+            np.degrees(np.arccos(np.clip(np.dot(_axis_vec(ra_t, dec_t), gt), -1, 1)))
+            * 3600
+        )
+        assert sep_arcsec < 30.0
 
 
 @pytest.mark.unit
