@@ -27,8 +27,8 @@ from PiFinder.polar_alignment import (
     make_solve_2,
     _precession_matrix,
     _SKYFIELD_TETE_FRAME,
-    _SKYFIELD_TS,
 )
+from PiFinder.calc_utils import sf_utils
 
 LAT_NH = 51.2
 LAT_SH = -34.0
@@ -309,7 +309,7 @@ class TestPrecession:
             lst_deg,
             observation_jyear=jyear_c,
         )
-        _ts_c = _SKYFIELD_TS.J(jyear_c)
+        _ts_c = sf_utils.ts.J(jyear_c)
         _ncp = (_SKYFIELD_TETE_FRAME.rotation_at(_ts_c)
                 @ np.array([0.0, 0.0, 1.0]))
         gt_ra_c = np.degrees(np.arctan2(_ncp[1], _ncp[0])) % 360
@@ -371,13 +371,17 @@ class TestCorrectionTarget:
             LAT_NH, LST, observation_jyear=2026.44
         )
         sep_arcsec = (
-            np.degrees(np.arccos(np.clip(np.dot(_axis_vec(ra_t, dec_t),
-                                                _axis_vec(180.0, 30.0)),
-                                         -1, 1)))
+            np.degrees(
+                np.arccos(
+                    np.clip(
+                        np.dot(_axis_vec(ra_t, dec_t), _axis_vec(180.0, 30.0)), -1, 1
+                    )
+                )
+            )
             * 3600
         )
         assert sep_arcsec < 30.0
-        assert roll_t == pytest.approx(45.0, abs=20.0/3600)
+        assert roll_t == pytest.approx(45.0, abs=20.0 / 3600)
 
     def test_scope_at_axis_sh_lands_on_scp(self):
         # SH mirror of test_scope_at_axis_lands_on_pole: the scope points at
@@ -430,8 +434,7 @@ class TestCorrectionTarget:
         # separation
         t_vec_c = _axis_vec(ra_t, dec_t)
         sep_arcsec = (
-            np.degrees(np.arccos(np.clip(np.dot(t_vec_c, gt_vec_c), -1, 1)))
-            * 3600
+            np.degrees(np.arccos(np.clip(np.dot(t_vec_c, gt_vec_c), -1, 1))) * 3600
         )
         assert sep_arcsec < 30.0
 
