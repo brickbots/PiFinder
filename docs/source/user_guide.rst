@@ -341,8 +341,8 @@ five options:
   the current session.
 - **Custom**: Enter a right ascension and declination by hand to make a one-off target.
   See :ref:`user_guide:custom targets`.
-- **Name Search**: Using the number keypad and T9-style text entry, search for objects by
-  name.  The Snowball planetary?  Cat's Eye?  This is the way to find them.
+- **Name Search**: Using the number keypad, search for objects by name.  The Snowball
+  planetary?  Cat's Eye?  This is the way to find them.
 
 However you build the list, it always displays the same information and offers the same
 sorting and selection.
@@ -484,7 +484,7 @@ screen, select it from the Objects menu:
 
 .. image:: images/user_guide/name_search_01.png
 
-It uses T9-style text input, like the cellphones from the dawn of text messaging.  The
+It uses multi-tap text input, like the cellphones from the dawn of text messaging.  The
 on-screen keypad shows the letters available by pressing each number key several times in a
 row.
 
@@ -493,6 +493,12 @@ row.
 Each number key generates its number, then the three or four letters shown, in turn.  Pause
 long enough between presses, or press a different key, and the cursor moves to the next
 position.
+
+If you'd rather press each key just once, switch the search input to T9: every press enters
+its digit, and the PiFinder matches the digit sequence against the letters of each object
+name — ``1897`` finds Vega.  Choose between Multi-Tap and T9 under Search Input in the
+:ref:`user_guide:settings menu`, or hold **SQUARE** here and pick Input from the
+:ref:`user_guide:quick menu` to jump straight to the setting.
 
 .. image:: images/user_guide/name_search_cat_01.png
 
@@ -505,7 +511,7 @@ The count drops as you add more text.
 
 .. image:: images/user_guide/name_search_cat_03.png
 
-Once you've narrowed the list enough, press the **SQUARE** key to see the full list of
+Once you've narrowed the list enough, press the **RIGHT** key to see the full list of
 matches.
 
 .. image:: images/user_guide/name_search_results.png

@@ -6,7 +6,7 @@
     "auto_exposure_zero_star_handler": "sweep",
     "menu_anim_speed": 0.1,
     "text_scroll_speed": "Med",
-    "t9_search": false,
+    "search_input_method": "multi_tap",
     "screen_direction": "right",
     "mount_type": "Alt/Az",
     "solver_debug": 0,
