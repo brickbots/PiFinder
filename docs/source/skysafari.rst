@@ -6,7 +6,7 @@ SkySafari
 Network Setup
 -------------
 
-First, make sure your device is on the same network as the PiFinder.  See the :ref:`User Guide<user_guide:wifi>` for changing WiFi modes and finding the PiFinder's IP address.
+First, make sure your device is on the same network as the PiFinder.  See :doc:`connectivity` for changing WiFi modes and finding the PiFinder's IP address.
 
 App Setup
 ---------

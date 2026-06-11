@@ -56,7 +56,7 @@ If the screen is still blank, the keypad backlight tells you where the problem i
   jump.
 - **Keypad lights up, but the screen is blank or garbled**: that points to the screen's
   connection, not the software.  Confirm it through the
-  :ref:`web interface <user_guide:web interface>` — if the remote screen looks correct
+  :ref:`web interface <connectivity:web interface>` — if the remote screen looks correct
   there, the software is fine and the physical screen connection needs attention (a solder
   reflow on DIY builds).
 
@@ -189,7 +189,7 @@ Frequently Asked Questions
 
 **Where are my saved observations and images?**
    On the PiFinder's network share, reachable at ``//pifinder.local/shared`` (connect as
-   guest, no password).  See :ref:`user_guide:shared data access`.
+   guest, no password).  See :ref:`connectivity:shared data access`.
 
 **Can I connect SkySafari?**
    Yes — the PiFinder talks to SkySafari and other planetarium apps over WiFi.  See the
