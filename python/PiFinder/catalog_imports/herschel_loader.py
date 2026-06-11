@@ -54,9 +54,13 @@ def load_herschel400():
                     f"---------------> Herschel 400 {sequence=} <---------------"
                 )
 
-                object_id = objects_db.get_catalog_object_by_sequence(
+                result = objects_db.get_catalog_object_by_sequence(
                     "NGC", NGC_sequence
-                )["id"]
+                )
+                if result is None:
+                    logging.warning("NGC %s not found, skipping H%d", NGC_sequence, sequence)
+                    continue
+                object_id = result["id"]
                 objects_db.insert_name(object_id, h_name, catalog)
                 objects_db.insert_catalog_object(object_id, catalog, sequence, h_desc)
         conn.commit()

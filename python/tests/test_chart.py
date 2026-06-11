@@ -50,9 +50,7 @@ class TestGetChartRotationAngle:
 
     def test_eq_auto_no_gps_falls_back_to_ncp(self):
         # No location lock yet: northern-hemisphere default, but flagged.
-        result = get_chart_rotation_angle(
-            10.0, 20.0, "eq_auto", location=_no_gps()
-        )
+        result = get_chart_rotation_angle(10.0, 20.0, "eq_auto", location=_no_gps())
         assert result == ChartOrientation(0.0, "NCP", True)
 
     def test_eq_auto_lockless_location_object_is_fallback(self):
@@ -80,7 +78,9 @@ class TestGetChartRotationAngle:
         import datetime as _dt
 
         result = get_chart_rotation_angle(
-            10.0, 20.0, "horiz",
+            10.0,
+            20.0,
+            "horiz",
             location=_gps_at(lat=45.0, lon=-75.0, altitude=100.0),
             dt=_dt.datetime(2024, 6, 1, 22, 0, 0, tzinfo=_dt.timezone.utc),
         )

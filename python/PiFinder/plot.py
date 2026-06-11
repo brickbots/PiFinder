@@ -42,18 +42,13 @@ def _load_raw_stars():
     cache_dir = Path(utils.data_dir, "cache")
     pkl_path = cache_dir / "hip_main.pkl"
 
-    if (
-        pkl_path.exists()
-        and pkl_path.stat().st_mtime >= dat_path.stat().st_mtime
-    ):
+    if pkl_path.exists() and pkl_path.stat().st_mtime >= dat_path.stat().st_mtime:
         try:
             _RAW_STARS_DF = pandas.read_pickle(pkl_path)
             logger.info("Loaded Hipparcos catalog from cache: %s", pkl_path)
             return _RAW_STARS_DF
         except Exception as e:
-            logger.warning(
-                "Hipparcos cache unreadable, reparsing %s: %s", dat_path, e
-            )
+            logger.warning("Hipparcos cache unreadable, reparsing %s: %s", dat_path, e)
 
     logger.info("Parsing Hipparcos catalog from %s", dat_path)
     with load.open(str(dat_path)) as f:
@@ -310,6 +305,32 @@ class Starfield:
                 ret_image = ImageChops.add(ret_image, _image)
 
         return ret_image
+
+    def project_vertices(self, vertices):
+        """Project RA/Dec vertex pairs to screen pixel coords.
+
+        vertices: list of [ra_deg, dec_deg] pairs.
+        Returns list of (x, y) screen tuples.
+        """
+        rows = [(Angle(degrees=ra)._hours, dec) for ra, dec in vertices]
+        df = pandas.DataFrame(rows, columns=["ra_hours", "dec_degrees"])
+        df["epoch_year"] = 1991.25
+        positions = self.earth.observe(Star.from_dataframe(df))
+        df["x"], df["y"] = self.projection(positions)
+
+        roll_rad = self.roll * (np.pi / 180)
+        roll_sin = np.sin(roll_rad)
+        roll_cos = np.cos(roll_rad)
+
+        df = df.assign(
+            xr=df["x"] * roll_cos - df["y"] * roll_sin,
+            yr=df["y"] * roll_cos + df["x"] * roll_sin,
+        )
+        df = df.assign(
+            x_pos=df["xr"] * self.pixel_scale + self.render_center[0],
+            y_pos=df["yr"] * -1 * self.pixel_scale + self.render_center[1],
+        )
+        return list(zip(df["x_pos"], df["y_pos"]))
 
     def update_projection(self, ra, dec):
         """

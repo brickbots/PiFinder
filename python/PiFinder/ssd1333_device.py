@@ -51,48 +51,66 @@ class ssd1333(color_device):
     :type v_offset: int
     """
 
-    def __init__(self, serial_interface=None, width=176, height=176, rotate=0,
-                 framebuffer=None, h_offset=0, v_offset=0,
-                 bgr=False, **kwargs):
+    def __init__(
+        self,
+        serial_interface=None,
+        width=176,
+        height=176,
+        rotate=0,
+        framebuffer=None,
+        h_offset=0,
+        v_offset=0,
+        bgr=False,
+        **kwargs,
+    ):
         # A[2] in remap register: 0=color sequence A-B-C, 1=swapped C-B-A
         self._color_order = 0x04 if bgr else 0x00
 
         if h_offset != 0 or v_offset != 0:
+
             def offset(bbox):
                 left, top, right, bottom = bbox
-                return (left + h_offset, top + v_offset,
-                        right + h_offset, bottom + v_offset)
+                return (
+                    left + h_offset,
+                    top + v_offset,
+                    right + h_offset,
+                    bottom + v_offset,
+                )
+
             self._apply_offsets = offset
 
-        super(ssd1333, self).__init__(serial_interface, width, height,
-                                      rotate, framebuffer, **kwargs)
+        super(ssd1333, self).__init__(
+            serial_interface, width, height, rotate, framebuffer, **kwargs
+        )
 
     def _supported_dimensions(self):
         return [(176, 176)]
 
     def _init_sequence(self):
-        self.command(0xFD, 0x12)                    # Unlock IC MCU interface
-        self.command(0xAE)                          # Display OFF (sleep mode on)
-        self.command(0xB3, 0xF1)                    # Front clock: osc freq max (0xF), divide by 2
-        self.command(0xCA, 0xAF)                    # MUX ratio = 175 (176 lines)
-        self.command(0x15, 0x00, self._w - 1)       # Set column address range
-        self.command(0x75, 0x00, self._h - 1)       # Set row address range
-        self.command(0xA0, 0x70 | self._color_order) # Remap: 65k color, COM split odd even,
-                                                     #        COM scan reversed, color order
-        self.command(0xA1, 0x00)                    # Display start line = 0
-        self.command(0xA2, 0x00)                    # Display offset = 0
-        self.command(0xB1, 0x32)                    # Phase 1 = 4 DCLKs, Phase 2 = 6 DCLKs
-        self.command(0xBB, 0x17)                    # Pre-charge voltage = 0.40 x VCC
-        self.command(0xBE, 0x05)                    # VCOMH = 0.82 x VCC
-        self.command(0xC7, 0x0F)                    # Master contrast: no reduction (max)
-        self.command(0xB6, 0x08)                    # Second pre-charge period = 8 DCLKs
-        self.command(0xB9)                          # Use built-in linear LUT
-        self.command(0xA6)                          # Normal display mode
+        self.command(0xFD, 0x12)  # Unlock IC MCU interface
+        self.command(0xAE)  # Display OFF (sleep mode on)
+        self.command(0xB3, 0xF1)  # Front clock: osc freq max (0xF), divide by 2
+        self.command(0xCA, 0xAF)  # MUX ratio = 175 (176 lines)
+        self.command(0x15, 0x00, self._w - 1)  # Set column address range
+        self.command(0x75, 0x00, self._h - 1)  # Set row address range
+        self.command(
+            0xA0, 0x70 | self._color_order
+        )  # Remap: 65k color, COM split odd even,
+        #        COM scan reversed, color order
+        self.command(0xA1, 0x00)  # Display start line = 0
+        self.command(0xA2, 0x00)  # Display offset = 0
+        self.command(0xB1, 0x32)  # Phase 1 = 4 DCLKs, Phase 2 = 6 DCLKs
+        self.command(0xBB, 0x17)  # Pre-charge voltage = 0.40 x VCC
+        self.command(0xBE, 0x05)  # VCOMH = 0.82 x VCC
+        self.command(0xC7, 0x0F)  # Master contrast: no reduction (max)
+        self.command(0xB6, 0x08)  # Second pre-charge period = 8 DCLKs
+        self.command(0xB9)  # Use built-in linear LUT
+        self.command(0xA6)  # Normal display mode
 
     def _set_position(self, top, right, bottom, left):
-        self.command(0x15, left, right - 1)         # Set column address
-        self.command(0x75, top, bottom - 1)         # Set row address
-        self.command(0x5C)                          # Write RAM command
+        self.command(0x15, left, right - 1)  # Set column address
+        self.command(0x75, top, bottom - 1)  # Set row address
+        self.command(0x5C)  # Write RAM command
 
     def contrast(self, level):
         """

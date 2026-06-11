@@ -14,7 +14,7 @@ from tqdm import tqdm
 import numpy as np
 import numpy.typing as npt
 import PiFinder.utils as utils
-from PiFinder.composite_object import MagnitudeObject
+from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg
 from .catalog_import_utils import (
     delete_catalog_from_database,
@@ -286,15 +286,13 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, Any]:
             logging.debug(f"  Magnitude: None (invalid value: {mag_value})")
 
     # Size - use half-mass radius (Rh) in arcminutes
-    # Format using utils.format_size_value to match other catalogs
     rh = entry["Rh"].item()
     if is_valid_value(rh):
-        # Convert to string, removing unnecessary decimals
-        result["size"] = utils.format_size_value(rh)
+        result["size"] = SizeObject.from_arcmin(float(rh))
         if VERBOSE:
-            logging.debug(f"  Size (half-mass radius): {result['size']} arcmin")
+            logging.debug(f"  Size (half-mass radius): {rh} arcmin")
     else:
-        result["size"] = ""
+        result["size"] = SizeObject([])
         if VERBOSE:
             logging.debug(f"  Size: None (invalid Rh value: {rh})")
 

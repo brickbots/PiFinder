@@ -14,7 +14,7 @@ from PiFinder.state import SharedStateObj
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
-from PiFinder.composite_object import CompositeObject, MagnitudeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 from PiFinder.utils import Timer
 from PiFinder.config import Config
 from PiFinder.catalog_base import (
@@ -651,7 +651,7 @@ class PlanetCatalog(Catalog):
                     "ra": ra,
                     "dec": dec,
                     "const": constellation,
-                    "size": "",
+                    "size": SizeObject([]),
                     "mag": MagnitudeObject([planet["mag"]]),
                     "names": [name.capitalize()],
                     "catalog_code": "PL",
@@ -819,7 +819,6 @@ class CatalogBackgroundLoader:
             "sequence": catalog_obj["sequence"],
             "description": catalog_obj.get("description", ""),
             "const": obj_data.get("const", ""),
-            "size": obj_data.get("size", ""),
             "surface_brightness": obj_data.get("surface_brightness", None),
         }
 
@@ -835,6 +834,8 @@ class CatalogBackgroundLoader:
         except Exception:
             composite_instance.mag = MagnitudeObject([])
             composite_instance.mag_str = "-"
+
+        composite_instance.size = SizeObject.from_json(obj_data.get("size", ""))
 
         composite_instance._details_loaded = True
         return composite_instance
@@ -967,7 +968,6 @@ class CatalogBuilder:
             "sequence": catalog_obj["sequence"],
             "description": catalog_obj.get("description", ""),
             "const": obj_data.get("const", ""),
-            "size": obj_data.get("size", ""),
             "surface_brightness": obj_data.get("surface_brightness", None),
         }
 
@@ -983,6 +983,8 @@ class CatalogBuilder:
         except Exception:
             composite_instance.mag = MagnitudeObject([])
             composite_instance.mag_str = "-"
+
+        composite_instance.size = SizeObject.from_json(obj_data.get("size", ""))
 
         composite_instance._details_loaded = True
         return composite_instance
