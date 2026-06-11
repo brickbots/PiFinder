@@ -172,7 +172,7 @@ Deadband (0.06° ≈ 1.05 mrad) below which IMU motion is treated as noise and n
 _Avoid_: jitter threshold, IMU noise.
 
 **Screen direction** (`screen_direction`):
-Configuration field that tells `ImuDeadReckoning` how the display/IMU is physically mounted relative to the optical axis. Used to bake in axis conventions on initialisation.
+Configuration field that tells `ImuDeadReckoning` how the display/IMU is physically mounted relative to the optical axis. Used to bake in axis conventions on initialisation. Surfaced to users as the **PiFinder Type** setting (Settings → Advanced); the user docs call the physical build variants *configurations* (Left/Right/Straight/Flat). The setting's value list is wider than any one product generation — it includes legacy variants (Flat v2, AS Bloom) — so user docs must scope claims like "there are N configurations" to a generation (DIY v2.5 builds: Left/Right/Flat; assembled v3 units: Left/Right/Straight/Flat).
 _Avoid_: orientation, mount direction.
 
 ### Alignment
