@@ -370,6 +370,12 @@ def main(
     integrator_logqueque: Queue = log_helper.get_queue()
     imu_logqueue: Queue = log_helper.get_queue()
 
+    # Refuse to start if another instance is already running. A second copy
+    # would otherwise boot and let its subsystems (web/pos-server ports, cedar
+    # shmem, hardware devices) silently collide with the live one.
+    if not utils.acquire_single_instance_lock():
+        return
+
     # Start log consolidation process first.
     log_helper.start()
 

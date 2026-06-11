@@ -1,8 +1,11 @@
 import os
+import errno
+import fcntl
 import time
 import logging
 import json
 from pathlib import Path
+from typing import Optional
 import importlib
 
 
@@ -24,6 +27,86 @@ def create_dir(adir: str):
 
 def create_path(apath: Path):
     os.makedirs(apath, exist_ok=True)
+
+
+# Held open for the whole process lifetime: the flock lives on this open file
+# description, so the kernel drops it the moment the process exits.
+_instance_lock_file = None
+
+
+def runtime_lock_dir() -> Optional[Path]:
+    """RAM-backed dir for the single-instance lock, or None if none exists.
+
+    Prefer /dev/shm (tmpfs on Linux/Raspberry Pi OS, already used for the cedar
+    image buffer) so the lock never wears the SD card and is cleared on reboot.
+    We deliberately do NOT fall back to the SD-card data dir: if no writable
+    tmpfs is available we skip locking entirely (see
+    :func:`acquire_single_instance_lock`) rather than wear the card.
+    """
+    shm = Path("/dev/shm")
+    if shm.is_dir() and os.access(shm, os.W_OK):
+        return shm
+    return None
+
+
+def acquire_single_instance_lock(
+    lock_name: str = "pifinder.lock", lock_dir: Optional[Path] = None
+) -> bool:
+    """Best-effort guard so only one PiFinder runs at a time.
+
+    Uses an advisory ``fcntl.flock`` on a tmpfs lock file (see
+    :func:`runtime_lock_dir`), so it costs no SD-card writes. The kernel
+    releases the lock when this process exits for ANY reason — clean shutdown,
+    crash, ``kill -9``, or power loss — so an unclean stop never leaves a stale
+    lock that blocks the next boot. A leftover lock *file* is harmless; only a
+    live lock-holder blocks.
+
+    The guard fails OPEN: it returns False (caller should not start) ONLY when
+    another instance is confirmed to be holding the lock. Anything that breaks
+    the locking mechanism itself — no tmpfs, an unopenable file, flock
+    unsupported on the filesystem — is logged and treated as success, so a
+    missing lock can never stop PiFinder from starting.
+    """
+    global _instance_lock_file
+    log = logging.getLogger("utils")
+    if lock_dir is None:
+        lock_dir = runtime_lock_dir()
+    if lock_dir is None:
+        log.warning("No tmpfs lock dir available; starting without instance lock.")
+        return True
+
+    try:
+        lock_file = open(lock_dir / lock_name, "a+")
+    except OSError as e:
+        log.warning("Could not open instance lock (%s); starting without it.", e)
+        return True
+
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError as e:
+        if e.errno in (errno.EWOULDBLOCK, errno.EAGAIN):
+            # Held by a live process -> a genuine second instance.
+            lock_file.seek(0)
+            holder = lock_file.read().strip() or "unknown"
+            lock_file.close()
+            log.error(
+                "Another PiFinder instance is already running (pid %s); not starting.",
+                holder,
+            )
+            return False
+        # Any other error means the lock mechanism is unavailable, not that a
+        # duplicate is running -> fail open so startup is never hindered.
+        log.warning("Instance lock unavailable (%s); starting without it.", e)
+        lock_file.close()
+        return True
+
+    # Record our pid so a later blocked instance can name the holder.
+    lock_file.seek(0)
+    lock_file.truncate(0)
+    lock_file.write(f"{os.getpid()}\n")
+    lock_file.flush()
+    _instance_lock_file = lock_file
+    return True
 
 
 def serialize_solution(solution) -> str:
