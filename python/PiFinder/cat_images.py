@@ -26,7 +26,9 @@ def cardinal_vectors(image_rotate, fx=1, fy=1):
     image_rotate: degrees the POSS image was rotated (180 + roll).
     fx, fy: -1 to mirror that axis (flip/flop), +1 otherwise.
     """
-    theta = math.radians(image_rotate)
+    # PIL's Image.rotate() turns the image counterclockwise, which in
+    # y-down pixel coordinates is a rotation by -image_rotate.
+    theta = math.radians(-image_rotate)
     n = (fx * math.sin(theta), fy * -math.cos(theta))
     e = (-fx * math.cos(theta), -fy * math.sin(theta))
     return n, e
@@ -41,7 +43,9 @@ def size_overlay_points(extents, pa, image_rotate, px_per_arcsec, cx, cy, fx=1, 
     if not extents or len(extents) == 1:
         return None
 
-    theta = math.radians(image_rotate - pa - 90)
+    # -image_rotate: PIL rotates the image counterclockwise, which in
+    # y-down pixel coordinates is a rotation by the negated angle.
+    theta = math.radians(-image_rotate - pa - 90)
     cos_t = math.cos(theta)
     sin_t = math.sin(theta)
 
@@ -78,7 +82,9 @@ def vertex_overlay_points(
     obj_ra, obj_dec: object center in degrees.
     Returns list of (x, y) pixel tuples.
     """
-    theta = math.radians(image_rotate)
+    # PIL's Image.rotate() turns the image counterclockwise, which in
+    # y-down pixel coordinates is a rotation by -image_rotate.
+    theta = math.radians(-image_rotate)
     cos_t = math.cos(theta)
     sin_t = math.sin(theta)
 
@@ -231,31 +237,25 @@ def get_display_image(
             fx = -1 if flop_image else 1
             fy = -1 if flip_image else 1
 
-            # NSEW cardinal labels — show only 2: topmost and leftmost
+            # NSEW cardinal labels — show the leftmost and rightmost of the
+            # four cardinals, out at the FOV ring. Clamped clear of the
+            # titlebar and footer text (drawn later, full brightness) so
+            # both letters always stay visible.
             if show_nsew:
                 (nx, ny), (ex, ey) = cardinal_vectors(image_rotate, fx, fy)
                 label_font = display_class.fonts.base
-                label_color = display_class.colors.get(64)
+                label_color = display_class.colors.get(128)
                 r_label = display_class.fov_res / 2 - 2
-                top_limit = display_class.titlebar_height
+                top_limit = display_class.titlebar_height + label_font.height
                 bottom_limit = display_class.fov_res - label_font.height * 2
-
                 candidates = [
                     ("N", nx, ny),
                     ("S", -nx, -ny),
                     ("E", ex, ey),
                     ("W", -ex, -ey),
                 ]
-                by_top = sorted(candidates, key=lambda c: c[2])
-                by_left = sorted(candidates, key=lambda c: c[1])
-                chosen = {by_top[0][0]: by_top[0]}
-                # pick leftmost that isn't already chosen
-                for c in by_left:
-                    if c[0] not in chosen:
-                        chosen[c[0]] = c
-                        break
-
-                for label, dx, dy in chosen.values():
+                by_x = sorted(candidates, key=lambda c: c[1])
+                for label, dx, dy in (by_x[0], by_x[-1]):
                     lx = cx + dx * r_label - label_font.width / 2
                     ly = cy + dy * r_label - label_font.height / 2
                     lx = max(0, min(lx, display_class.fov_res - label_font.width))
