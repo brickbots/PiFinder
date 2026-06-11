@@ -46,7 +46,6 @@ import logging
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from scipy.optimize import minimize
-from skyfield.api import load as _skyfield_load
 from skyfield.framelib import (
     true_equator_and_equinox_of_date as _SKYFIELD_TETE_FRAME,
 )
@@ -60,7 +59,14 @@ logger = logging.getLogger("PiFinder.polar_alignment")
 # the caller can report it to the user and ask for more platform rotation.
 MIN_SWEEP_DEG = 3.0
 
-_SKYFIELD_TS = _skyfield_load.timescale(builtin=True)  # bundled, no internet
+from skyfield.api import Loader as _skyfield_Loader
+from pathlib import Path as pathlib_Path
+_SCRIPT_DIR = pathlib_Path(__file__).resolve().parent
+_ASTRODATA_PATH = str((_SCRIPT_DIR / '..' / '..' / 'astro_data').resolve())
+print(f"Astro data path: {_ASTRODATA_PATH}")
+_SKYFIELD_LOADER = _skyfield_Loader(_ASTRODATA_PATH, expire=False) # try to get it locally
+_SKYFIELD_EPH = _SKYFIELD_LOADER('de421.bsp')       # PiFinder already ships this file
+_SKYFIELD_TS = _SKYFIELD_LOADER.timescale(builtin=True)  # bundled, no internet
 
 
 # ── Low-level rotation helpers ────────────────────────────────────────────────
@@ -186,16 +192,21 @@ def axis_to_altaz_error(axis, latitude_deg, lst_deg):
     return dAlt, dAz
 
 
-def correction_target(axis_ra, axis_dec, last_solve, observation_jyear=None):
+def correction_target(axis_ra, axis_dec, last_solve, latitude, lst_deg,
+                       observation_jyear=None):
     """
-    Compute the J2000 coordinates the user must centre after applying the
-    polar-axis correction.
+    Compute the coordinates the user must centre after applying the
+    polar-axis correction with the mount's Alt/Az adjusters.
 
-    When the user tweaks the mount's Alt and Az adjusters to move the
-    mechanical axis onto the celestial pole, the scope boresight shifts by
-    the same rotation Q that maps the current (misaligned) axis onto the NCP.
-    This function applies Q to the last plate-solve attitude and returns the
-    resulting boresight in J2000/ICRS, ready to hand to a plate solver.
+    The correction is modelled as the PHYSICAL adjuster composition:
+    first a rotation about the local vertical (azimuth knob), then a
+    rotation about the horizontal east-west altitude pin.  Applied in
+    that order with the knob amounts equal to the azimuth and altitude
+    coordinate differences, this composition places the mechanical axis
+    on the celestial pole EXACTLY, at any error magnitude — unlike the
+    minimal 3D rotation axis→NCP, which differs from what the knobs can
+    realise at second order (≈ error²: ~3' residual from a 2° start,
+    ~1.8° residual from a 10° start when the boresight is chased).
 
     The user does NOT move the RA/Dec axes of the mount — only Alt/Az.
     The scope therefore ends up pointing at a different sky position, and
@@ -209,6 +220,10 @@ def correction_target(axis_ra, axis_dec, last_solve, observation_jyear=None):
                         in the same coordinate system that was passed to
                         get_platform_adjustments() — i.e. J2000/ICRS if
                         observation_jyear is provided, otherwise JNOW.
+    latitude   : float  Observer latitude in degrees (south negative).
+    lst_deg    : float  Local sidereal time in degrees.  Together with
+                        latitude this fixes the local vertical, which the
+                        physical adjusters rotate about.
     observation_jyear : float or None
                         Julian year of the observation, matching the value
                         passed to get_platform_adjustments().  When provided,
@@ -225,47 +240,71 @@ def correction_target(axis_ra, axis_dec, last_solve, observation_jyear=None):
     roll_target: float  Expected roll at the target in degrees.
     """
     # Build the current axis unit vector (JNOW)
-    cd = np.cos(np.radians(axis_dec))
-    axis = np.array(
-        [
-            cd * np.cos(np.radians(axis_ra)),
-            cd * np.sin(np.radians(axis_ra)),
-            np.sin(np.radians(axis_dec)),
-        ]
-    )
+    cd   = np.cos(np.radians(axis_dec))
+    axis = np.array([cd * np.cos(np.radians(axis_ra)),
+                     cd * np.sin(np.radians(axis_ra)),
+                     np.sin(np.radians(axis_dec))])
 
     # Precess last_solve from J2000/ICRS to JNOW so it matches the axis frame.
     ra_ls, dec_ls, roll_ls = last_solve[0], last_solve[1], last_solve[2]
     if observation_jyear is not None:
         P = _precession_matrix(observation_jyear)
         ra_ls, dec_ls, roll_ls = extract_plate_solve(
-            P @ attitude_mat(ra_ls, dec_ls, roll_ls)
-        )
+            P @ attitude_mat(ra_ls, dec_ls, roll_ls))
 
-    # Rotation Q that maps axis -> NCP [0,0,1]
-    ncp = np.array([0.0, 0.0, 1.0])
-    cos_angle = np.clip(np.dot(axis, ncp), -1.0, 1.0)
-    if abs(cos_angle - 1.0) < 1e-12:
-        Q = np.eye(3)
-    elif abs(cos_angle + 1.0) < 1e-12:
-        # Antipodal: any 180° rotation about an axis in the xy-plane maps
-        # -Z onto +Z (a rotation about Z would leave -Z where it is).
-        Q = _Ry(180.0)
+    # Local vertical in JNOW equatorial components.
+    phi = np.radians(latitude)
+    lst = np.radians(lst_deg)
+    zen = np.array([np.cos(phi) * np.cos(lst),
+                    np.cos(phi) * np.sin(lst),
+                    np.sin(phi)])
+
+    ncp = np.array([0., 0., 1.])   # target axis direction (JNOW pole)
+
+    # ── Physical correction, step 1: azimuth knob ────────────────────────────
+    # Rotate about the local vertical until the axis lies in the same
+    # vertical plane as the target.  This changes every azimuth by exactly
+    # the knob angle and no altitude — so the knob angle is simply the
+    # signed angle between the horizontal projections.
+    n_h = axis - np.dot(axis, zen) * zen
+    t_h = ncp  - np.dot(ncp,  zen) * zen
+    if np.linalg.norm(n_h) > 1e-12 and np.linalg.norm(t_h) > 1e-12:
+        d_az = np.arctan2(np.dot(np.cross(n_h, t_h), zen),
+                          np.dot(n_h, t_h))
+        R_az = R.from_rotvec(d_az * zen).as_matrix()
     else:
-        rot_axis = np.cross(axis, ncp)
-        rot_axis /= np.linalg.norm(rot_axis)
-        Q = R.from_rotvec(np.arccos(cos_angle) * rot_axis).as_matrix()
+        R_az = np.eye(3)           # axis or pole at the zenith: no azimuth dof
+    n1 = R_az @ axis
 
-    # Apply Q to the last-solve attitude matrix (JNOW)
-    M_last = attitude_mat(ra_ls, dec_ls, roll_ls)
-    M_corrected = Q @ M_last
+    # ── Physical correction, step 2: altitude knob ───────────────────────────
+    # n1 and the target now share a vertical plane; the altitude pin is the
+    # horizontal normal of that plane, so the in-plane minimal rotation from
+    # n1 to the target IS the altitude-knob rotation.
+    c = np.cross(n1, ncp)
+    s = np.linalg.norm(c)
+    cosg = np.clip(np.dot(n1, ncp), -1.0, 1.0)
+    if s < 1e-15:
+        if cosg > 0.0:
+            R_alt = np.eye(3)
+        else:
+            # Antipodal within the plane: 180° about the horizontal pin.
+            pin = np.cross(zen, ncp)
+            pin /= np.linalg.norm(pin)
+            R_alt = R.from_rotvec(np.pi * pin).as_matrix()
+    else:
+        R_alt = R.from_rotvec(np.arctan2(s, cosg) * (c / s)).as_matrix()
+
+    S = R_alt @ R_az
+
+    # Apply the physical correction to the last-solve attitude (JNOW)
+    M_last      = attitude_mat(ra_ls, dec_ls, roll_ls)
+    M_corrected = S @ M_last
 
     # Precess back to J2000/ICRS if requested, through the full attitude
     # matrix so that roll is converted consistently with RA/Dec.
     if observation_jyear is not None:
         return extract_plate_solve(P.T @ M_corrected)
     return extract_plate_solve(M_corrected)
-
 
 def _boresight_vec(ra_deg, dec_deg):
     """Unit vector in equatorial frame pointing at (RA, Dec)."""

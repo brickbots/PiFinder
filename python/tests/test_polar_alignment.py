@@ -347,15 +347,27 @@ class TestCorrectionTarget:
 
     def test_roll_survives_precession_round_trip(self):
         # With the axis already on the JNOW pole (axis_ra/axis_dec are JNOW
-        # coordinates) the correction is identity, so the J2000 input must
-        # come back unchanged — including roll, which is converted through
-        # the full precession matrix.
+        # coordinates) the correction (in solar reference) is identity,
+        # so the J2000 input must come back almost unchanged
+
+        # correction_target now corrects the J2000 target for annual aberration,
+        # (solar->earth reference frame) which can wiggle Ra and Dec coordinates 20",
+        # so we need to allow for 30" separation.
+     
+        # Note: the annual aberration correction can *severely* change
+        # roll very close to the pole, it will stay under 20" with Dec < 45°
+        
         ra_t, dec_t, roll_t = correction_target(
             0.0, 90.0, (180.0, 30.0, 45.0), observation_jyear=2026.44
         )
-        assert ra_t == pytest.approx(180.0, abs=1e-6)
-        assert dec_t == pytest.approx(30.0, abs=1e-6)
-        assert roll_t == pytest.approx(45.0, abs=1e-6)
+        sep_arcsec = (
+            np.degrees(np.arccos(np.clip(np.dot(_axis_vec(ra_t, dec_t),
+                                                _axis_vec(180.0, 30.0)),
+                                         -1, 1)))
+            * 3600
+        )
+        assert sep_arcsec < 30.0
+        assert roll_t == pytest.approx(45.0, abs=20.0/3600)
 
     def test_scope_at_axis_sh_lands_on_scp(self):
         # SH mirror of test_scope_at_axis_lands_on_pole: the scope points at
@@ -379,7 +391,10 @@ class TestCorrectionTarget:
         # is independent of _precession_matrix(). Compared by angular
         # separation since RA is meaningless
         # near the pole; tolerance relaxed for the gimbal zone.
-        jyear_c = 2026.44
+
+        # 10th of June 2026, time of astropy extraction of TETE apparent pole
+        jyear_c = 2026.4398009005236
+
         _, _, _, ax_ra, ax_dec, _ = get_platform_adjustments(
             [(0.0, 90.0, 0.0, 0), (0.0, 90.0, 14.0, 0)],
             51.2,
@@ -389,10 +404,20 @@ class TestCorrectionTarget:
         ra_t, dec_t, _ = correction_target(
             ax_ra, ax_dec, (0.0, 90.0, 14.0), observation_jyear=jyear_c
         )
-        _ts_c = _SKYFIELD_TS.J(jyear_c)
-        gt = _SKYFIELD_TETE_FRAME.rotation_at(_ts_c).T @ np.array([0.0, 0.0, 1.0])
+        # Ground truth: TETE Dec=90° (JNOW NCP) expressed in ICRS/J2000, recovered through astropy
+        # i.e. the JNOW *apparent* pole back-rotated through the precession matrix.
+        # We're pointing right to the pole, so the target needs to be the apparent pole:
+        # we want the mount to point to the *geometric* pole but for that the plate solver
+        # must appear to point to the *apparent* pole
+        # With sweeps further from the pole we need less correction
+        gt_ra_c  = 1.0848564758628065
+        gt_dec_c = 89.85753549689021
+        gt_vec_c = _axis_vec(gt_ra_c, gt_dec_c)
+
+        # Near Dec=90° RA in degrees is not meaningful — compare by angular separation
+        t_vec_c = _axis_vec(ra_t, dec_t)
         sep_arcsec = (
-            np.degrees(np.arccos(np.clip(np.dot(_axis_vec(ra_t, dec_t), gt), -1, 1)))
+            np.degrees(np.arccos(np.clip(np.dot(t_vec_c, gt_vec_c), -1, 1)))
             * 3600
         )
         assert sep_arcsec < 30.0

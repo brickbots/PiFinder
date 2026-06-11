@@ -154,7 +154,7 @@ class UIPolarAlign(UIModule):
             return
 
         calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
-        lst_deg = calc_utils.sf_utils.get_lst_hrs(dt_last) * 15.0
+        lst_deg = calc_utils.sf_utils.get_lst_hrs(dt_last) * 15.0 # 15 = 360°/24h
         t_last = calc_utils.sf_utils.ts.from_datetime(dt_last)
         jyear = 2000.0 + (t_last.tt - 2451545.0) / 365.25
 
@@ -171,8 +171,11 @@ class UIPolarAlign(UIModule):
             return
 
         ra_target, dec_target, _roll_target = correction_target(
-            axis_ra, axis_dec, self.solves[-1][:3], observation_jyear=jyear
+            axis_ra, axis_dec, self.solves[-1][:3],
+            location.lat, lst_deg,
+            observation_jyear=jyear
         )
+
         # The correction target as a fixed ground direction at the epoch
         # of the last solve. During adjustment the user moves the boresight
         # to this target with the platform's altitude/azimuth adjusters,
