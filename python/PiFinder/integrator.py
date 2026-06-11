@@ -26,6 +26,11 @@ static ``q_cam2aligned`` rotation, and reapplies it to the camera
 prediction during dead-reckoning. The IDR remains a math primitive
 (``RaDecRoll`` in, ``RaDecRoll`` out); this module bridges between it
 and :class:`PointingEstimate`.
+
+Telemetry record/replay is handled by :class:`TelemetryManager`
+(``telemetry.py``). Replayed sessions are converted back into
+:class:`SolveResult` / :class:`ImuSample` messages and fed through the
+same ``_apply_*`` / ``_advance_with_imu`` paths as live data.
 """
 
 from __future__ import annotations
@@ -45,6 +50,7 @@ from PiFinder import state_utils
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 import PiFinder.pointing_model.quaternion_transforms as qt
+from PiFinder.telemetry import TelemetryManager
 from PiFinder.types.positioning import (
     FailedSolve,
     ImuSample,
@@ -62,12 +68,21 @@ logger = logging.getLogger("IMU.Integrator")
 IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.06)
 
 
-def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
+def integrator(
+    shared_state,
+    solver_queue,
+    console_queue,
+    log_queue,
+    is_debug=False,
+    command_queue=None,
+    camera_command_queue=None,
+):
     MultiprocLogging.configurer(log_queue)
     if is_debug:
         logger.setLevel(logging.DEBUG)
     logger.debug("Starting Integrator")
 
+    telemetry = None
     try:
         cfg = config.Config()
         screen_direction = cfg.get_option("screen_direction")
@@ -82,22 +97,59 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         # Epoch of the last estimate we published; gate re-publishing on it.
         last_published_time = time.time()
 
+        was_replaying = False
+        telemetry = TelemetryManager(
+            cfg, shared_state, console_queue, camera_command_queue
+        )
+
         while True:
             state_utils.sleep_for_framerate(shared_state)
 
+            telemetry.poll_commands(command_queue)
+
             pointing_updated = False
 
-            # 1. Pull any pending solve result from the queue.
+            # 1. Pull the next message — from the replay stream when
+            #    replaying, otherwise from the solver queue.
             solve_result: Optional[SolveResult] = None
-            try:
-                solve_result = solver_queue.get(block=False)
-            except queue.Empty:
-                pass
+            replay_imu: Optional[ImuSample] = None
+
+            if telemetry.replaying:
+                if not was_replaying:
+                    was_replaying = True
+                    # Recorded epochs are in the past; rewind the publish
+                    # gate so replayed estimates pass the newer-than check.
+                    last_published_time = 0.0
+                # The solver keeps running during replay; discard its output.
+                _drain_queue(solver_queue)
+                message = telemetry.next_replay_message()
+                if isinstance(message, (SuccessfulSolve, FailedSolve)):
+                    solve_result = message
+                elif isinstance(message, ImuSample):
+                    replay_imu = message
+            else:
+                if was_replaying:
+                    # Replay ended — reset to a clean unanchored state.
+                    was_replaying = False
+                    estimate = PointingEstimate()
+                    idr.reset()
+                    last_published_time = time.time()
+                    logger.info("Replay ended, integrator state reset")
+                try:
+                    solve_result = solver_queue.get(block=False)
+                except queue.Empty:
+                    pass
 
             if isinstance(solve_result, SuccessfulSolve):
+                telemetry.record_solve(
+                    solve_result, predicted=estimate.pointing.aligned.estimate
+                )
                 estimate = _apply_successful_solve(estimate, solve_result, idr)
                 pointing_updated = True
             elif isinstance(solve_result, FailedSolve):
+                telemetry.record_solve(
+                    solve_result, predicted=estimate.pointing.aligned.estimate
+                )
                 estimate = _apply_failed_solve(estimate, solve_result)
                 # Publish unconditionally so auto-exposure sees the failed
                 # attempt (Matches=0, fresh last_solve_attempt). The estimate
@@ -106,17 +158,26 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # progresses it when motion exceeds the deadband.
                 shared_state.set_solution(copy.deepcopy(estimate))
 
-            # 2. If we have an anchor and didn't just do a fresh plate-solve,
-            #    try to advance the estimate via IMU dead-reckoning.
+            # 2. Pull the current IMU sample — from the replay stream when
+            #    replaying — and record it. Recording happens before the
+            #    anchor gate so sessions capture IMU data from the start,
+            #    not only once the first solve has anchored dead-reckoning.
+            #    (record_imu dedupes on sample timestamp and is a no-op
+            #    while replaying or when recording is off.)
+            imu = replay_imu if telemetry.replaying else shared_state.imu()
+            if imu:
+                telemetry.record_imu(imu)
+
+            # If we have an anchor and didn't just do a fresh plate-solve,
+            # try to advance the estimate via IMU dead-reckoning.
             if (
-                not pointing_updated
+                imu
+                and not pointing_updated
                 and idr.is_initialized()
                 and estimate.imu_anchor is not None
             ):
-                imu = shared_state.imu()
-                if imu:
-                    if _advance_with_imu(estimate, idr, imu):
-                        pointing_updated = True
+                if _advance_with_imu(estimate, idr, imu):
+                    pointing_updated = True
 
             # 3. Publish if we updated something newer than what we last sent.
             if (
@@ -137,8 +198,13 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 shared_state.set_solution(copy.deepcopy(estimate))
                 last_published_time = estimate.estimate_time
 
+            telemetry.flush()
+
     except EOFError:
         logger.error("Main no longer running for integrator")
+    finally:
+        if telemetry is not None:
+            telemetry.stop()
 
 
 def _apply_successful_solve(
@@ -263,3 +329,12 @@ def _get_alt_az(ra_deg, dec_deg, location, dt) -> tuple[float | None, float | No
         return None, None
     calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
     return calc_utils.sf_utils.radec_to_altaz(ra_deg, dec_deg, dt)
+
+
+def _drain_queue(q):
+    """Discard all pending items from a queue."""
+    try:
+        while True:
+            q.get(block=False)
+    except queue.Empty:
+        pass
