@@ -49,6 +49,8 @@ from scipy.optimize import minimize
 from skyfield.framelib import (
     true_equator_and_equinox_of_date as _SKYFIELD_TETE_FRAME,
 )
+from skyfield.api import Loader as _skyfield_Loader
+from pathlib import Path as pathlib_Path
 
 logger = logging.getLogger("PiFinder.polar_alignment")
 
@@ -59,8 +61,6 @@ logger = logging.getLogger("PiFinder.polar_alignment")
 # the caller can report it to the user and ask for more platform rotation.
 MIN_SWEEP_DEG = 3.0
 
-from skyfield.api import Loader as _skyfield_Loader
-from pathlib import Path as pathlib_Path
 _SCRIPT_DIR = pathlib_Path(__file__).resolve().parent
 _ASTRODATA_PATH = str((_SCRIPT_DIR / '..' / '..' / 'astro_data').resolve())
 print(f"Astro data path: {_ASTRODATA_PATH}")

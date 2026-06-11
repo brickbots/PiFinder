@@ -56,7 +56,8 @@ def _true_axis(latitude, dAlt, dAz, lst_deg):
     else:
         alt = np.radians(abs(latitude) + dAlt)
         az = np.radians(180.0 + dAz)
-    dec = np.arcsin(np.sin(lat) * np.sin(alt) + np.cos(lat) * np.cos(alt) * np.cos(az))
+    dec = (np.arcsin(np.sin(lat) * np.sin(alt)
+                     + np.cos(lat) * np.cos(alt) * np.cos(az)))
     ha = np.arctan2(
         -np.cos(alt) * np.sin(az),
         np.cos(lat) * np.sin(alt) - np.sin(lat) * np.cos(alt) * np.cos(az),
@@ -67,8 +68,10 @@ def _true_axis(latitude, dAlt, dAz, lst_deg):
 
 
 def _three_solves(ra1, dec1, latitude, dAlt, dAz, sweep_total, lst_deg):
-    s2 = make_solve_2(ra1, dec1, 0.0, latitude, dAlt, dAz, sweep_total / 2, lst_deg)
-    s3 = make_solve_2(ra1, dec1, 0.0, latitude, dAlt, dAz, sweep_total, lst_deg)
+    s2 = make_solve_2(ra1, dec1, 0.0, latitude, dAlt, dAz,
+                      sweep_total / 2, lst_deg)
+    s3 = make_solve_2(ra1, dec1, 0.0, latitude, dAlt, dAz,
+                      sweep_total, lst_deg)
     return [(ra1, dec1, 0.0, 0), (*s2, 0), (*s3, 0)]
 
 
@@ -229,7 +232,8 @@ class TestThreeSolve:
                 sigma_roll=sigma_roll,
             )
             err = np.degrees(
-                np.arccos(np.clip(np.dot(_axis_vec(ax_ra, ax_dec), true_ax), -1, 1))
+                np.arccos(np.clip(np.dot(_axis_vec(ax_ra, ax_dec), true_ax),
+                                  -1, 1))
             )
             errs.append(err * 60)
             fqs.append(fq)
@@ -306,7 +310,8 @@ class TestPrecession:
             observation_jyear=jyear_c,
         )
         _ts_c = _SKYFIELD_TS.J(jyear_c)
-        _ncp = _SKYFIELD_TETE_FRAME.rotation_at(_ts_c) @ np.array([0.0, 0.0, 1.0])
+        _ncp = (_SKYFIELD_TETE_FRAME.rotation_at(_ts_c)
+                @ np.array([0.0, 0.0, 1.0]))
         gt_ra_c = np.degrees(np.arctan2(_ncp[1], _ncp[0])) % 360
         gt_dec_c = np.degrees(np.arcsin(np.clip(_ncp[2], -1, 1)))
         exp_axis = _axis_vec(gt_ra_c, gt_dec_c)
@@ -330,11 +335,13 @@ class TestCorrectionTarget:
         _, _, _, ax_ra, ax_dec, _ = get_platform_adjustments(
             [(ra_pt, dec_pt, 0.0, 0), (ra_pt, dec_pt, 14.0, 0)], LAT_NH, LST
         )
-        _, dec_t, _ = correction_target(ax_ra, ax_dec, (ra_pt, dec_pt, 14.0))
+        _, dec_t, _ = correction_target(ax_ra, ax_dec, (ra_pt, dec_pt, 14.0),
+                                        LAT_NH, LST)
         assert dec_t == pytest.approx(90.0, abs=1e-4)
 
     def test_aligned_axis_is_identity(self):
-        ra_t, dec_t, roll_t = correction_target(0.0, 90.0, (180.0, 30.0, 5.0))
+        ra_t, dec_t, roll_t = correction_target(0.0, 90.0, (180.0, 30.0, 5.0),
+                                                LAT_NH, LST)
         assert ra_t == pytest.approx(180.0, abs=1e-9)
         assert dec_t == pytest.approx(30.0, abs=1e-9)
         assert roll_t == pytest.approx(5.0, abs=1e-9)
@@ -342,7 +349,8 @@ class TestCorrectionTarget:
     def test_antipodal_axis(self):
         # Axis pointing exactly at the SCP; the correction rotation must map
         # it to the NCP, carrying the boresight from dec=-30 to dec=+30.
-        _, dec_t, _ = correction_target(0.0, -90.0, (180.0, -30.0, 0.0))
+        _, dec_t, _ = correction_target(0.0, -90.0, (180.0, -30.0, 0.0),
+                                        LAT_NH, LST)
         assert dec_t == pytest.approx(30.0, abs=1e-6)
 
     def test_roll_survives_precession_round_trip(self):
@@ -350,15 +358,17 @@ class TestCorrectionTarget:
         # coordinates) the correction (in solar reference) is identity,
         # so the J2000 input must come back almost unchanged
 
-        # correction_target now corrects the J2000 target for annual aberration,
-        # (solar->earth reference frame) which can wiggle Ra and Dec coordinates 20",
+        # correction_target now corrects the J2000 target for annual
+        # aberration, (solar->earth reference frame)
+        # which can wiggle Ra and Dec coordinates 20",
         # so we need to allow for 30" separation.
-     
+
         # Note: the annual aberration correction can *severely* change
         # roll very close to the pole, it will stay under 20" with Dec < 45°
-        
+
         ra_t, dec_t, roll_t = correction_target(
-            0.0, 90.0, (180.0, 30.0, 45.0), observation_jyear=2026.44
+            0.0, 90.0, (180.0, 30.0, 45.0),
+            LAT_NH, LST, observation_jyear=2026.44
         )
         sep_arcsec = (
             np.degrees(np.arccos(np.clip(np.dot(_axis_vec(ra_t, dec_t),
@@ -380,7 +390,8 @@ class TestCorrectionTarget:
         _, _, _, ax_ra, ax_dec, _ = get_platform_adjustments(
             [(ra_pt, dec_pt, 0.0, 0), (ra_pt, dec_pt, 14.0, 0)], LAT_SH, LST
         )
-        _, dec_t, _ = correction_target(ax_ra, ax_dec, (ra_pt, dec_pt, 14.0))
+        _, dec_t, _ = correction_target(ax_ra, ax_dec, (ra_pt, dec_pt, 14.0),
+                                        LAT_SH, LST)
         assert dec_t == pytest.approx(-90.0, abs=1e-4)
 
     def test_j2000_pole_axis_target_back_precessed(self):
@@ -397,24 +408,26 @@ class TestCorrectionTarget:
 
         _, _, _, ax_ra, ax_dec, _ = get_platform_adjustments(
             [(0.0, 90.0, 0.0, 0), (0.0, 90.0, 14.0, 0)],
-            51.2,
-            0.0,
+            LAT_NH,
+            LST,
             observation_jyear=jyear_c,
         )
         ra_t, dec_t, _ = correction_target(
-            ax_ra, ax_dec, (0.0, 90.0, 14.0), observation_jyear=jyear_c
+            ax_ra, ax_dec, (0.0, 90.0, 14.0),
+            LAT_NH, LST, observation_jyear=jyear_c
         )
-        # Ground truth: TETE Dec=90° (JNOW NCP) expressed in ICRS/J2000, recovered through astropy
-        # i.e. the JNOW *apparent* pole back-rotated through the precession matrix.
-        # We're pointing right to the pole, so the target needs to be the apparent pole:
-        # we want the mount to point to the *geometric* pole but for that the plate solver
-        # must appear to point to the *apparent* pole
+        # Ground truth: TETE Dec=90° (JNOW NCP) expressed in ICRS/J2000,
+        # recovered through astropy i.e. the JNOW *apparent* pole back-rotated
+        # through the precession matrix.
+        # We're pointing right to the pole, so the target needs to be
+        # the apparent pole.
         # With sweeps further from the pole we need less correction
-        gt_ra_c  = 1.0848564758628065
+        gt_ra_c = 1.0848564758628065
         gt_dec_c = 89.85753549689021
         gt_vec_c = _axis_vec(gt_ra_c, gt_dec_c)
 
-        # Near Dec=90° RA in degrees is not meaningful — compare by angular separation
+        # Near Dec=90° RA in degrees is not meaningful — compare by angular
+        # separation
         t_vec_c = _axis_vec(ra_t, dec_t)
         sep_arcsec = (
             np.degrees(np.arccos(np.clip(np.dot(t_vec_c, gt_vec_c), -1, 1)))
