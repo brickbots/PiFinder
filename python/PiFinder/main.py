@@ -126,6 +126,7 @@ def setup_dirs():
     utils.create_path(Path(utils.data_dir, "screenshots"))
     utils.create_path(Path(utils.data_dir, "solver_debug_dumps"))
     utils.create_path(Path(utils.data_dir, "logs"))
+    utils.create_path(Path(utils.data_dir, "telemetry"))
     os.chmod(Path(utils.data_dir), 0o777)
 
 
@@ -388,6 +389,8 @@ def main(
     logger.info("PiFinder running on %s, %s, %s", os_detail, platform, arch)
 
     # init UI Modes
+    integrator_command_queue: Queue = Queue()
+
     command_queues = {
         "camera": camera_command_queue,
         "console": console_queue,
@@ -395,6 +398,7 @@ def main(
         "align_command": alignment_command_queue,
         "align_response": alignment_response_queue,
         "gps": gps_queue,
+        "integrator": integrator_command_queue,
     }
     cfg = config.Config()
 
@@ -593,6 +597,10 @@ def main(
                 integrator_logqueque,
                 verbose,
             ),
+            kwargs={
+                "command_queue": integrator_command_queue,
+                "camera_command_queue": camera_command_queue,
+            },
         )
         integrator_process.start()
 
@@ -697,10 +705,13 @@ def main(
                                 location = shared_state.location()
 
                             # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
+                            # "replay" is protected too: a telemetry replay owns the
+                            # location until it ends and restores the original.
                             if (
                                 not location.source == "WEB"
                                 and not location.source.startswith("CONFIG:")
                                 and not location.source == "MANUAL"
+                                and not location.source == "replay"
                                 and (
                                     location.error_in_m == 0
                                     or float(gps_content["error_in_m"])

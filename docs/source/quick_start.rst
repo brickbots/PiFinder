@@ -2,7 +2,7 @@ Quick Start
 ================
 
 .. note::
-   This documentation is for v3 and v2.5 PiFinders running software 2.2.0 or above.
+   This documentation is for v3 and v2.5 PiFinders running software |min_software| or above.
    You can see what version of software is running by looking in the upper right of
    the welcome screen.
 
@@ -80,6 +80,8 @@ the screen.
 Every feature is reached through this menu — by scrolling, selecting options, or moving
 between screens:
 
+.. This key list is duplicated in user_guide.rst (The Menu System) — keep the two in sync.
+
 - The **UP** and **DOWN** arrows scroll the current menu
 - The **RIGHT** arrow activates the current option, selecting it or moving to another menu
 - The **LEFT** arrow takes you back to the previous menu or screen
@@ -103,12 +105,12 @@ Many screens use the number keys along with **+**, **-**, and **SQUARE** for ext
 functions, listed in that screen's help pages.
 
 To open a screen's help (and other screen-specific options), hold **SQUARE** for more than
-a second to bring up the handy Radial Menu.
+a second to bring up the handy Quick Menu (the radial menu).
 
 
 .. image:: images/quick_start/main_menu_marking.png
 
-The Radial Menu offers four options you can reach quickly with the arrow keys; **UP**
+The Quick Menu offers four options you can reach quickly with the arrow keys; **UP**
 normally selects HELP.
 
 .. image:: images/quick_start/main_menu_help.png
@@ -124,7 +126,7 @@ Configuration Setup
 The PiFinder comes in several configurations (Right/Left/Straight/Flat). Set yours in the
 software so the PiFinder can give pointing directions that match your setup.
 
-From the main menu, select Settings, then scroll down and select PiFinder Type.
+From the main menu, select Settings, scroll down to Advanced, then select PiFinder Type.
 
 .. image:: images/quick_start/settings_select.png
 .. image:: images/quick_start/settings_menu_config.png
@@ -323,19 +325,11 @@ pointing!
 
 
 .. note::
-   **Can’t get a plate solve?** Check to make sure your lens cap is off, the PiFinder is not moving and
-   the lens is properly focused — soft stars are the usual culprit, so check the HFD on the Focus
-   screen and adjust the lens until it reaches its lowest value.
-
-   **Still not working?** Make sure nothing is impeding PiFinder’s view of the sky, and its
-   lens has not dewed or fogged over.  A bank of high, thin cloud drifting through can also stop
-   solves at an otherwise perfect site, even when you can’t see it by eye.
-
-   **Under a bright, light-polluted sky** a longer exposure helps; under dark skies, try setting
-   the exposure to **AUTO** and letting the PiFinder choose.  (Software version 2.2.x and earlier
-   doesn’t have the AUTO exposure option — another good reason to keep your PiFinder updated.)
-
-   For more solving and setup fixes, see the :doc:`troubleshooting` page.
+   **Can’t get a plate solve?** The usual culprits are simple: make sure the lens cap is off
+   and the PiFinder isn't moving, then check focus — soft stars stop solves, so watch the HFD
+   on the Focus screen and adjust the lens until it reaches its lowest value.  For anything
+   beyond that — obstructions, dew, thin cloud, exposure settings — see the
+   :doc:`troubleshooting` page.
 
 
 Alignment
@@ -403,6 +397,49 @@ the PiFinder to your telescope.
    center it up, hold **SQUARE** for one second, and choose align. This isn't like adding
    alignment points to a standard DSC for accuracy — it simply tells PiFinder where in your
    eyepiece you'd like objects placed if your initial alignment wasn't quite right.
+
+
+Daytime alignment
+^^^^^^^^^^^^^^^^^^^
+The alignment above relies on a plate solve, so it only works once there are stars to see. To
+set things up during the day, choose 'Align (Day)' from the 'Start' menu. It reaches the same
+result by hand: you point your telescope at a distant object, find where the camera sees it,
+and mark that spot directly — no solve required.
+
+.. image:: images/quick_start/align_day_start.png
+
+Opening the screen switches the camera to a short daytime exposure so you can see what it's
+pointing at. Press **SQUARE** to begin.
+
+The view splits into four quadrants labelled to match the keypad corners — **7** top-left,
+**9** top-right, **1** bottom-left, **3** bottom-right. Press the key for the quadrant your
+object sits in.
+
+.. image:: images/quick_start/align_day_quad1.png
+
+That quarter fills the screen and divides into quadrants again, so each press narrows the
+marker into a smaller area. Repeat for up to three rounds:
+
+.. image:: images/quick_start/align_day_quad2.png
+   :width: 45%
+.. image:: images/quick_start/align_day_quad3.png
+   :width: 45%
+
+From there the arrow keys nudge the marker a pixel at a time for fine placement. The first
+arrow press also leaves quadrant mode, so you can switch to fine adjustment at any point.
+
+.. image:: images/quick_start/align_day_fine.png
+
+Center your distant object in the eyepiece, move the marker onto it on screen, then press
+**SQUARE** to save. Press **0** to exit without changing the alignment. Pick something far
+enough away that the focus matches the night sky — a distant treetop, chimney, or hilltop,
+not something across the room.
+
+.. note::
+   In daylight the image is shown in plain white rather than the usual red, since night vision
+   isn't a concern. If the view is washed out or too dark, **+** and **-** adjust the exposure
+   by hand. Hold **SQUARE** for the Quick Menu, where 'Exp Auto' hands exposure back to the
+   camera and 'Center' returns the marker to the middle.
 
 
 GPS Status
@@ -507,23 +544,10 @@ Shutting down the PiFinder
 ---------------------------
 
 Shutting down isn't strictly required before power-off, but the PiFinder is a computer and
-skipping it risks file corruption — some MicroSD cards more than others.
-
-To shut down cleanly:
-
-- Hold the **LEFT** arrow for more than a second to jump to the main menu
-- Hold the **SQUARE** button to open the Radial Menu
-
-.. image:: images/quick_start/main_menu_01_docs.png
-.. image:: images/quick_start/main_menu_marking.png
-
-- Press **DOWN** to select the SHUTDOWN option
-- Press the **RIGHT** arrow to confirm, or the **LEFT** arrow to go back
-
-.. image:: images/quick_start/shutdown_confirm.png
-
-The screen and keypad turn off after a few seconds; it's then safe to switch off the unit
-with the power switch or unplug the battery.
+skipping it risks file corruption.  Hold **LEFT** for more than a second to jump to the
+main menu, hold **SQUARE** to open the Quick Menu, then press **DOWN** for SHUTDOWN and
+confirm with **RIGHT**.  Once the screen and keypad turn off, it's safe to cut power.
+The :ref:`user_guide:shutdown` section walks through it with pictures.
 
 That's the basics of using your PiFinder sorted. To learn more, continue to the full
 :doc:`user_guide`.

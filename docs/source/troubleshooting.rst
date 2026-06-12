@@ -2,7 +2,7 @@ Troubleshooting & FAQ
 =====================
 
 .. note::
-   This page applies to v3 and v2.5 PiFinders running software 2.x.  If you're on
+   This page applies to v3 and v2.5 PiFinders running software |min_software| or above.  If you're on
    older software, updating is often the fix in itself — see
    :ref:`user_guide:update software`.
 
@@ -56,7 +56,7 @@ If the screen is still blank, the keypad backlight tells you where the problem i
   jump.
 - **Keypad lights up, but the screen is blank or garbled**: that points to the screen's
   connection, not the software.  Confirm it through the
-  :ref:`web interface <user_guide:web interface>` — if the remote screen looks correct
+  :ref:`web interface <connectivity:web interface>` — if the remote screen looks correct
   there, the software is fine and the physical screen connection needs attention (a solder
   reflow on DIY builds).
 
@@ -70,7 +70,7 @@ The camera view is blank or black
 If the Focus screen shows nothing at all — not even faint noise with the lens cap on —
 the **Camera Type** setting probably doesn't match the camera in your unit.
 
-- Open Settings and try a different Camera Type.  The v3 sensors are ``imx462`` and
+- Open Settings → Advanced and try a different Camera Type.  The v3 sensors are ``imx462`` and
   ``imx296``; older v2 cameras are ``imx477``.  It won't hurt to try each.
 - **After changing Camera Type you must fully power the PiFinder off and on** — a software
   restart alone won't apply it.
@@ -189,7 +189,7 @@ Frequently Asked Questions
 
 **Where are my saved observations and images?**
    On the PiFinder's network share, reachable at ``//pifinder.local/shared`` (connect as
-   guest, no password).  See :ref:`user_guide:shared data access`.
+   guest, no password).  See :ref:`connectivity:shared data access`.
 
 **Can I connect SkySafari?**
    Yes — the PiFinder talks to SkySafari and other planetarium apps over WiFi.  See the
@@ -198,7 +198,7 @@ Frequently Asked Questions
 **Can I enter my own coordinates?**
    Yes.  You can type an arbitrary RA/Dec for objects that aren't in the built-in catalogs
    — handy for asteroids, comets, or newly discovered objects — and you can also send
-   targets from SkySafari.
+   targets from SkySafari.  See :ref:`user_guide:custom targets` for how.
 
 **Can I use the PiFinder on an EQ mount?**
    Yes — the PiFinder works with any mount, and plate solving behaves the same whatever the

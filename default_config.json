@@ -7,7 +7,7 @@
     "auto_exposure_zero_star_handler": "sweep",
     "menu_anim_speed": 0.1,
     "text_scroll_speed": "Med",
-    "t9_search": false,
+    "search_input_method": "multi_tap",
     "screen_direction": "right",
     "mount_type": "Alt/Az",
     "solver_debug": 0,
@@ -17,6 +17,8 @@
     "chart_dso": 128,
     "chart_reticle": 128,
     "chart_constellations": 64,
+    "image_nsew": true,
+    "image_bbox": true,
     "chart_coord_sys": "horiz",
     "target_pixel": [256, 256],
     "gps_type": "ublox",
@@ -178,5 +180,8 @@
         "active_telescope_index": 0,
         "active_eyepiece_index": 0
     },
-    "imu_threshold_scale": 1
+    "imu_threshold_scale": 1,
+    "telemetry_record": false,
+    "telemetry_images": false,
+    "telemetry_raw_imu": false
 }

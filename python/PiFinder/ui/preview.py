@@ -16,6 +16,7 @@ import numpy as np
 from PIL import Image, ImageChops
 
 from PiFinder import focus, utils
+from PiFinder.ui.camera_render import resize_for_display
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.ui_utils import outline_text
@@ -407,27 +408,13 @@ class UIPreview(UIModule):
                 self._measure_focus(np.asarray(raw_image.convert("L")))
                 self._last_focus_frame_time = last_image_time
 
-            image_obj = raw_image
-            native_w, native_h = image_obj.size
             resX, resY = self.display_class.resX, self.display_class.resY
 
             # Resize / zoom. Zoom crops a centred region of the native camera
             # frame (half of it for 2x, a quarter for 4x) then scales to the
             # display, so the zoom factor stays 2x / 4x at any resolution.
-            if self.zoom_level == 0:
-                image_obj = image_obj.resize((resX, resY))
-            elif self.zoom_level == 1:
-                crop_w, crop_h = native_w // 2, native_h // 2
-                ox, oy = (native_w - crop_w) // 2, (native_h - crop_h) // 2
-                image_obj = image_obj.crop((ox, oy, ox + crop_w, oy + crop_h)).resize(
-                    (resX, resY)
-                )
-            elif self.zoom_level == 2:
-                crop_w, crop_h = native_w // 4, native_h // 4
-                ox, oy = (native_w - crop_w) // 2, (native_h - crop_h) // 2
-                image_obj = image_obj.crop((ox, oy, ox + crop_w, oy + crop_h)).resize(
-                    (resX, resY)
-                )
+            # (Shared with the daytime-align screen via ui.camera_render.)
+            image_obj = resize_for_display(raw_image, (resX, resY), self.zoom_level)
 
             # Background-anchored linear stretch (replaces autocontrast), then RED.
             # Stretch on a single luminance band (debug frames are RGB; hardware

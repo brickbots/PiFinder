@@ -29,7 +29,7 @@ User Pref submenu (0-indexed):
   1: Sleep Time    (not tested: hardware display)
   2: Menu Anim     (not tested: animation param)
   3: Scroll Speed  (not tested: animation param)
-  4: T9 Search     (not tested: input method)
+  4: Search Input  (not tested: input method)
   5: Az Arrows     (not tested: hardware keypad)
   6: Language      (testable: software language switch)
 

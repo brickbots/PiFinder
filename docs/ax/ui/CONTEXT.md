@@ -76,6 +76,20 @@ _Avoid_: current screen, focused module, top module.
 The flow where `MenuManager.key_*` forwards a keypad event to `stack[-1].key_*`, after first checking for help mode and marking-menu mode.
 _Avoid_: event routing, input handling.
 
+**Keypad layout**:
+The physical pad is **TKL / calculator style — `7 8 9` is the TOP row**, not phone style. The full grid (from `keyboard_pi.py`'s `keymap`) is:
+
+```
+7  8  9   (na)
+4  5  6   PLUS
+1  2  3   MINUS
+   0      SQUARE
+LEFT UP DOWN RIGHT
+```
+
+So when a module maps number keys to on-screen **2×2 screen quadrants**, the spatially-faithful corners are `7`=top-left, `9`=top-right, `1`=bottom-left, `3`=bottom-right (used by daytime alignment's quadrant picker). `SQUARE`+key sends the `ALT_*` variant; a long press sends the `LNG_*` variant (long-`SQUARE` opens the marking menu).
+_Avoid_: assuming phone-style `1 2 3` on top — it is inverted.
+
 **Power key** (`POWER_BTN` / `key_power`):
 The dedicated hardware power button, dispatched as a normal keypad event in **key dispatch**. Its meaning is "open the shutdown confirmation": from any active module it jumps (`jump_to_label`) to the `shutdown` menu item. On that confirmation screen it doubles as **select** (behaves like the right key), so one press raises the confirmation and a second press confirms.
 _Avoid_: power switch / off button (it does not cut power directly — it opens the normal shutdown menu), kill switch.
@@ -101,7 +115,7 @@ _Avoid_: cached, singleton, persistent.
 ### Marking menus
 
 **Marking menu**:
-The four-direction radial overlay (`MarkingMenu`) drawn over the current screen, toggled by long-press of square. Each direction is a `MarkingMenuOption`.
+The four-direction radial overlay (`MarkingMenu`) drawn over the current screen, toggled by long-press of square. Each direction is a `MarkingMenuOption`. In user-facing prose (user guide, on-device help) this is the **Quick Menu**; "marking menu" is the code/architecture term.
 _Avoid_: radial menu, context menu, pie menu (the rendering is a pie, but the concept is "marking menu").
 
 **Marking-menu option** (`MarkingMenuOption`):
@@ -111,6 +125,28 @@ _Avoid_: marking item, menu button.
 **Marking-menu stack**:
 `MenuManager.marking_menu_stack` — the stack of currently-open (possibly nested) marking menus. Non-empty means the UI is in marking-menu mode and direction keys select options instead of reaching the active module.
 _Avoid_: overlay stack.
+
+### Text entry
+
+**Name Search**:
+The Objects-menu feature for finding objects by name: `UITextEntry` in its search personality, re-querying the catalog collection as the user types. Which system interprets the number keys is the **search input method**.
+_Avoid_: text search (reserve for the catalog-side algorithm), object search.
+
+**Search input method** (`search_input_method`):
+The user-selectable system that turns number-key presses into a Name Search query: **multi-tap** (the default) or **T9**. Chosen at Settings → User Pref → Search Input, jumpable from the Name Search marking menu. Applies to Name Search only — **free-text mode** is always multi-tap.
+_Avoid_: input mode, text entry method, T9 search on/off (the retired boolean framing).
+
+**Multi-tap**:
+The default search input method: pressing a number key cycles through that key's characters (`7` → `7 a b c`…); pausing, or pressing a different key, commits the character and moves on. Produces a text query backed by the catalog context's **text search**. Spelled "multi-tap" in prose, "Multi-Tap" as the menu option.
+_Avoid_: T9 (a long-standing misnomer for this system — T9 is the other one), multitap.
+
+**T9** (as input method):
+The opt-in search input method: each key press appends its digit — one press per letter — and the digit string is matched against object names translated to keypad digits, backed by the catalog context's **T9 search**. Matching uses PiFinder's own key layout (`7→abc`, `1→tuv`), not the standard phone layout.
+_Avoid_: predictive text (it matches catalog names, not a language dictionary).
+
+**Free-text mode** (`text_entry_mode`):
+`UITextEntry`'s other personality: editing an arbitrary string (e.g. a location name) returned via callback, with no live search. Always multi-tap — T9 cannot apply because there is no name list to match against.
+_Avoid_: text entry mode in prose (ambiguous with the screen's own name; the code flag is `text_entry_mode`).
 
 ### Dynamic menus
 
