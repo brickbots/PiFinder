@@ -6,7 +6,7 @@ RA/Dec-only (cross-product) methods across a range of pointing geometries and
 sweeps.  This is not a test -- the pass/fail correctness checks live in
 tests/test_polar_alignment.py.  Run with
 
-    python -m PiFinder.polar_alignment_benchmark
+    python -m PiFinder.polar_alignment.benchmark
 
 to print the comparison table.
 """
@@ -19,7 +19,7 @@ import numpy as np
 
 from PiFinder.polar_alignment import get_platform_adjustments, make_solve_2
 
-logger = logging.getLogger("PiFinder.polar_alignment_benchmark")
+logger = logging.getLogger("PiFinder.polar_alignment.benchmark")
 
 
 def main():
