@@ -174,6 +174,7 @@ The Settings menu holds every user-configurable item.  See
    flowchart LR
        Settings --> UP["User Pref..."]
        Settings --> CH["Chart..."]
+       Settings --> IM["Image..."]
        Settings --> CE["Camera Exp"]
        Settings --> WM["WiFi Mode"]
        Settings --> MT["Mount Type"]
@@ -219,6 +220,13 @@ Chart...
       Brightness of deep-sky object markers — Off, Low, Medium, or High.
    RA/DEC Disp.
       Show a coordinate readout — Off, HH:MM, or Degrees.
+Image...
+   Overlays on the :ref:`object image <user_guide:object images>`.
+
+   NSEW Labels
+      Mark the cardinal directions at the edge of the image — On or Off.
+   Object Size
+      Outline the object's cataloged size and orientation — On or Off.
 Camera Exp
    Camera exposure time — Auto, or a fixed value from 0.025s to 1s.  Longer
    exposures catch fainter stars but blur sooner as the scope moves.
