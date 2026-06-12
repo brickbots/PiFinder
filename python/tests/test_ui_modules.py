@@ -121,7 +121,8 @@ _SWEEP_SKIP: dict[str, str] = {
 # UIModule subclasses that are intentionally *not* exercised, with the reason.
 # Keeps the completeness guard (test_all_ui_modules_covered) honest.
 _COVERAGE_SKIP: dict[str, str] = {
-    # (none currently -- UISQMCorrection is covered via the dynamic fixtures)
+    "UIAlignDaytime": "menu entry removed pending rework; "
+    "the screen is kept in code but is not user-reachable",
 }
 
 # Bound on the auto-sweep so a handler that keeps pushing modules
@@ -279,10 +280,8 @@ def _sandbox_data_dir(tmp_path_factory):
 
     with (
         mock.patch.object(utils, "data_dir", sandbox),
-        mock.patch.object(utils, "observations_db",
-                          sandbox / "observations.db"),
-        mock.patch.object(utils, "debug_dump_dir",
-                          sandbox / "solver_debug_dumps"),
+        mock.patch.object(utils, "observations_db", sandbox / "observations.db"),
+        mock.patch.object(utils, "debug_dump_dir", sandbox / "solver_debug_dumps"),
     ):
         yield sandbox
 
@@ -480,12 +479,10 @@ def _make_shared_state(state: str) -> SharedStateObj:
         location.source = "TEST"
         shared_state.set_location(location)
         shared_state.set_datetime(
-            datetime.datetime(2024, 1, 1, 12, 0, 0,
-                              tzinfo=datetime.timezone.utc),
+            datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc),
             force=True,
         )
-        now = (shared_state.datetime().timestamp()
-               if shared_state.datetime() else 0)
+        now = shared_state.datetime().timestamp() if shared_state.datetime() else 0
         # A fresh camera plate-solve: both axes' solve and estimate cells are
         # populated together (no IMU progression yet, so estimate == solve),
         # and the eyepiece-aligned axis equals the camera axis
@@ -556,8 +553,7 @@ def _sweep_stack(menu_manager: MenuManager, seen: set) -> None:
         # MenuManager.stack is annotated list[type[UIModule]] upstream
         # but holds instances; cast so the sweep sees them
         # as the UIModule instances they are.
-        pending = [cast(UIModule, m)
-                   for m in menu_manager.stack if id(m) not in seen]
+        pending = [cast(UIModule, m) for m in menu_manager.stack if id(m) not in seen]
         if not pending:
             break
         for module in pending:
@@ -572,8 +568,7 @@ def _sweep_stack(menu_manager: MenuManager, seen: set) -> None:
                 break
 
 
-def _build_and_exercise(item_definition, state, display,
-                        camera_image, catalogs):
+def _build_and_exercise(item_definition, state, display, camera_image, catalogs):
     """Construct a module through a real MenuManager and exercise it."""
     cfg = Config()
     shared_state = _make_shared_state(state)
@@ -620,16 +615,13 @@ def test_menu_node_module(
 @pytest.mark.parametrize("state", ["cold", "warm"])
 @pytest.mark.parametrize("spec_id", _DYNAMIC_IDS)
 def test_dynamic_ui_module(
-    spec_id, state, display, camera_image, catalogs, sample_object,
-    hip_main_available
+    spec_id, state, display, camera_image, catalogs, sample_object, hip_main_available
 ):
     """Dynamically-pushed modules construct and survive a key sweep."""
     item_definition = _build_dynamic_item_definition(spec_id, sample_object)
-    if (item_definition["class"].__name__ in _HIP_REQUIRED
-            and not hip_main_available):
+    if item_definition["class"].__name__ in _HIP_REQUIRED and not hip_main_available:
         pytest.skip("hip_main.dat unavailable (needed by chart/align)")
-    _build_and_exercise(item_definition, state, display, camera_image,
-                        catalogs)
+    _build_and_exercise(item_definition, state, display, camera_image, catalogs)
 
 
 @pytest.mark.integration
