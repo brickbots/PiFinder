@@ -232,7 +232,7 @@ Camera Exp
    exposures catch fainter stars but blur sooner as the scope moves.
 WiFi Mode
    Switch between Client Mode (join an existing network) and AP Mode (the
-   PiFinder serves its own PiFinderAP network).  See :ref:`user_guide:wifi`.
+   PiFinder serves its own PiFinderAP network).  See :ref:`connectivity:wifi`.
 Mount Type
    Tell the PiFinder whether your scope is Alt/Az or Equatorial.  Changing this
    restarts the PiFinder.
