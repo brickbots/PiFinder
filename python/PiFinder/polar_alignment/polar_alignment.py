@@ -1,6 +1,6 @@
 """
-polar_alignment.solver
-======================
+polar_alignment.polar_alignment
+===============================
 Determines polar-axis misalignment from two plate solves taken while an
 equatorial platform rotates around its (possibly mis-pointed) mechanical axis.
 
