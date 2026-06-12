@@ -121,8 +121,7 @@ _SWEEP_SKIP: dict[str, str] = {
 # UIModule subclasses that are intentionally *not* exercised, with the reason.
 # Keeps the completeness guard (test_all_ui_modules_covered) honest.
 _COVERAGE_SKIP: dict[str, str] = {
-    "UIAlignDaytime": "menu entry removed pending rework; "
-    "the screen is kept in code but is not user-reachable",
+    # (none currently -- UISQMCorrection is covered via the dynamic fixtures)
 }
 
 # Bound on the auto-sweep so a handler that keeps pushing modules
