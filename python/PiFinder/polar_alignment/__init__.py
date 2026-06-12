@@ -44,6 +44,7 @@ Alt/Az sign convention
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from scipy.optimize import minimize
+from skyfield.constants import C as _SPEED_OF_LIGHT_M_S
 from skyfield.framelib import (
     true_equator_and_equinox_of_date as _SKYFIELD_TETE_FRAME,
 )
@@ -246,6 +247,17 @@ def correction_target(
     zen = np.array([np.cos(phi) * np.cos(lst), np.cos(phi) * np.sin(lst), np.sin(phi)])
 
     ncp = np.array([0.0, 0.0, 1.0])  # target axis direction (JNOW pole)
+    if observation_jyear is not None:
+        # Annual aberration: blend geometric pole (JNOW, no aberration) →
+        # apparent pole (where the geometric JNOW pole appears in the sky)
+        # by cos(theta), theta = sweep cone angle.  Near-pole sweeps need
+        # the apparent pole, great-circle sweeps the geometric one; the
+        # blend is exact to first order in v/c.
+        t_obs = sf_utils.ts.J(observation_jyear)
+        v_e = sf_utils.eph["earth"].at(t_obs).velocity.m_per_s
+        cos_theta = np.dot(axis, _boresight_vec(ra_ls, dec_ls))  # SIGNED
+        ncp = ncp - cos_theta * (P @ v_e) / _SPEED_OF_LIGHT_M_S
+        ncp = ncp / np.linalg.norm(ncp)
 
     S = _altaz_knob_rotation(axis, ncp, zen)
 
@@ -747,7 +759,8 @@ def get_platform_adjustments(
         # No measurable rotation between the solves.
         return nan, nan, 0.0, nan, nan, nan
     if abs(sweep_deg) < MIN_SWEEP_DEG:
-        return nan, nan, abs(sweep_deg), nan, nan, nan
+        # Same sign convention as the full-result sweep below.
+        return nan, nan, -sweep_deg, nan, nan, nan
 
     axis_dec = np.degrees(np.arcsin(np.clip(axis[2], -1.0, 1.0)))
     axis_ra = np.degrees(np.arctan2(axis[1], axis[0])) % 360.0
