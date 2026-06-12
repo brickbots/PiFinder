@@ -7,6 +7,7 @@ to handle catalog image loading
 
 import math
 import os
+from typing import List, Optional, Tuple
 from PIL import Image, ImageChops, ImageDraw
 from PiFinder import image_util
 from PiFinder import utils
@@ -20,21 +21,39 @@ CATALOG_PATH = f"{utils.astro_data_dir}/pifinder_objects.db"
 logger = logging.getLogger("Catalog.Images")
 
 
-def cardinal_vectors(image_rotate, fx=1, fy=1):
+def rotation_radians(image_rotate: float) -> float:
+    """Image rotation as a y-down pixel-space angle, in radians.
+
+    PIL's Image.rotate() turns the image counterclockwise, which in
+    y-down pixel coordinates is a rotation by the negated angle.
+    """
+    return math.radians(-image_rotate)
+
+
+def cardinal_vectors(
+    image_rotate: float, fx: int = 1, fy: int = 1
+) -> Tuple[Tuple[float, float], Tuple[float, float]]:
     """Return (nx, ny), (ex, ey) unit vectors for North and East.
 
     image_rotate: degrees the POSS image was rotated (180 + roll).
     fx, fy: -1 to mirror that axis (flip/flop), +1 otherwise.
     """
-    # PIL's Image.rotate() turns the image counterclockwise, which in
-    # y-down pixel coordinates is a rotation by -image_rotate.
-    theta = math.radians(-image_rotate)
+    theta = rotation_radians(image_rotate)
     n = (fx * math.sin(theta), fy * -math.cos(theta))
     e = (-fx * math.cos(theta), -fy * math.sin(theta))
     return n, e
 
 
-def size_overlay_points(extents, pa, image_rotate, px_per_arcsec, cx, cy, fx=1, fy=1):
+def size_overlay_points(
+    extents: List[float],
+    pa: float,
+    image_rotate: float,
+    px_per_arcsec: float,
+    cx: float,
+    cy: float,
+    fx: int = 1,
+    fy: int = 1,
+) -> Optional[List[Tuple[float, float]]]:
     """Compute outline points for the size overlay.
 
     Returns a list of (x, y) tuples.
@@ -43,9 +62,7 @@ def size_overlay_points(extents, pa, image_rotate, px_per_arcsec, cx, cy, fx=1, 
     if not extents or len(extents) == 1:
         return None
 
-    # -image_rotate: PIL rotates the image counterclockwise, which in
-    # y-down pixel coordinates is a rotation by the negated angle.
-    theta = math.radians(-image_rotate - pa - 90)
+    theta = rotation_radians(image_rotate) - math.radians(pa + 90)
     cos_t = math.cos(theta)
     sin_t = math.sin(theta)
 
@@ -74,17 +91,23 @@ def size_overlay_points(extents, pa, image_rotate, px_per_arcsec, cx, cy, fx=1, 
 
 
 def vertex_overlay_points(
-    vertices, obj_ra, obj_dec, image_rotate, px_per_arcsec, cx, cy, fx=1, fy=1
-):
+    vertices: List[List[float]],
+    obj_ra: float,
+    obj_dec: float,
+    image_rotate: float,
+    px_per_arcsec: float,
+    cx: float,
+    cy: float,
+    fx: int = 1,
+    fy: int = 1,
+) -> List[Tuple[float, float]]:
     """Project RA/Dec vertex pairs to pixel coords via gnomonic projection.
 
     vertices: list of [ra, dec] pairs in degrees.
     obj_ra, obj_dec: object center in degrees.
     Returns list of (x, y) pixel tuples.
     """
-    # PIL's Image.rotate() turns the image counterclockwise, which in
-    # y-down pixel coordinates is a rotation by -image_rotate.
-    theta = math.radians(-image_rotate)
+    theta = rotation_radians(image_rotate)
     cos_t = math.cos(theta)
     sin_t = math.sin(theta)
 

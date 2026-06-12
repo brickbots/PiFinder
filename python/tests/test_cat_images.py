@@ -30,10 +30,10 @@ class TestCardinalVectors:
         assert (ex, ey) == approx_pt((1, 0))
 
     def test_90_rotation(self):
-        """image_rotate=90: N at (1, 0), E at (0, -1)."""
+        """image_rotate=90 turns the image CCW: N at (-1, 0), E at (0, 1)."""
         (nx, ny), (ex, ey) = cardinal_vectors(90)
-        assert (nx, ny) == approx_pt((1, 0))
-        assert (ex, ey) == approx_pt((0, -1))
+        assert (nx, ny) == approx_pt((-1, 0))
+        assert (ex, ey) == approx_pt((0, 1))
 
     def test_flip_mirrors_x(self):
         """flip negates x components of both vectors."""
@@ -118,9 +118,9 @@ class TestSizeOverlayPoints:
         assert max(abs(y) for y in ys) == pytest.approx(30, abs=0.5)
 
     def test_position_angle(self):
-        """PA=90 rotates opposite to image_rotate (PA goes N→E, image_rotate goes CW)."""
+        """PA=90 matches a 90° image rotation (both turn N toward E on screen)."""
         cx, cy = 64, 64
-        pts_rot = size_overlay_points([120, 60], 0, 270, 1.0, cx, cy)
+        pts_rot = size_overlay_points([120, 60], 0, 90, 1.0, cx, cy)
         pts_pa = size_overlay_points([120, 60], 90, 0, 1.0, cx, cy)
         for a, b in zip(pts_rot, pts_pa):
             assert a[0] == pytest.approx(b[0], abs=1e-6)
