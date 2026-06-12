@@ -865,9 +865,7 @@ class CatalogBuilder:
                 obj.logged = obs_db.check_logged(obj)
 
             self.catalog_dicts = {}
-            logger.info(
-                "Loaded %i objects from catalog cache", len(composite_objects)
-            )
+            logger.info("Loaded %i objects from catalog cache", len(composite_objects))
 
             all_catalogs: Catalogs = self._get_catalogs(
                 composite_objects, catalogs_info

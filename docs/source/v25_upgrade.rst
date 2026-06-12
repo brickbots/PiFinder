@@ -1,78 +1,44 @@
 Version 2.5 Upgrade Kit Guide
 ================================================
 
-Thanks for ordering a PiFinder v2.5 upgrade kit!  This kit includes everything you need to update
-the camera in your PiFinder to match the capabilities of a v3 and replace the button faceplate
-so you can have the proper labels for the new software.
+Thanks for ordering a PiFinder v2.5 upgrade kit! It contains everything you need to bring your
+PiFinder's camera up to v3 capabilities and swap the button faceplate for one labelled to match
+the new software.
 
-In this guide we show a Right handed PiFinder, but these instructions are generally the same 
-for Left and Flat units as well.
+These photos show a Right-handed PiFinder, but the steps are the same for Left and Flat units.
 
 Get Started
 ------------
 
-Collect your PiFinder v2 and unpack all the parts from the upgrade kit.  Put them all on a messy
-workbench and take an out of focus picture....
+Unpack your PiFinder v2 and all the kit parts. Put them on a messy workbench and take an
+out-of-focus picture....
 
-You'll also need a small philips head screwdriver, and a pair of side cutters to complete the assembly.  
-This whole process should take about 10 minutes and is not tricky, but it's probably a good idea to read through this 
-guide once before diving in.
+You'll also need a small Phillips screwdriver and a pair of side cutters. The whole process takes
+about 10 minutes and isn't tricky, but read through this guide once before diving in.
 
 .. image:: images/v25_upgrade/v25_upgrade_10.jpeg
 
 Camera Prep
 ----------------
 
-The new v3 camera may come with one of two different lens holders already installed. No matter 
-which your camera has you'll be removing and replacing it.
+The new v3 camera ships with one of two lens holders installed. Either way, you'll remove it and
+fit the one from the kit.
 
-.. image:: images/v25_upgrade/v25_upgrade_11.jpeg
-
-Some cameras have pin headers installed, if you have one of these, you'll need to clip them as close
-as reasonable to the board.
-
-.. image:: images/v25_upgrade/v25_upgrade_12.jpeg
-
-.. image:: images/v25_upgrade/v25_upgrade_13.jpeg
-
-Grab the lens holder and look through it to make sure it's clear of any obstructions.
-
-Place the lens holder on the table with the large side up oriented as in the photo below.  The two screw
-tabs on the lens holder must stick out the opposite sides from the cream-white and dark-grey cable connector on the PCB.
-You'll be removing the two screws (yours might be black) near the center of the green PCB and lifting it gently
-to the new lens holder.  
-
-Mind the sensor surface on the under side of the PCB. It should sit nicely in the square recess of the lens holder.
-Use the same two screws to affix the sensor PCB to the lens holder.  The screws will be cutting their own threads, but
-there are holes there to help get started.  Tighten the screws down against the PCB so nothing is wiggling/moving.
-
-.. image:: images/v25_upgrade/v25_upgrade_14.jpeg
-
-.. image:: images/v25_upgrade/v25_upgrade_15.jpeg
-
-Flip the camera assembly over and thread in the lens.  Be slow and careful here.  With gentle force
-the lens should slide in a few MM to get everything aligned and stop.  When it stops, check to make sure it seems
-straight and start screwing it into place.  To get focus about right, You'll want a 6mm gap (pictured below) between the 
-top of the lens holder and the bottom of the lip on the lens.  Don't fret too much about it as you'll do final focus 
-under the stars.
-
-.. image:: images/v25_upgrade/v25_upgrade_16.jpeg
-
-.. image:: images/v25_upgrade/v25_upgrade_17.jpeg
+.. include:: includes/camera_prep.rst
 
 Installing the Camera
 ----------------------
 
-Grab your PiFinder and remove the four screws holding on the camera.  It may be
-easier to remove the lens first if you have the internal battery installed.
+Grab your PiFinder and remove the four screws holding the camera. If the internal battery is
+installed, it's easier to remove the lens first.
 
 
 .. image:: images/v25_upgrade/v25_upgrade_18.jpeg
 
 .. image:: images/v25_upgrade/v25_upgrade_19.jpeg
 
-Open the cable connector on the camera by gently sliding the dark-grey part of the 
-connector towards the cable.  Once open the cable should come loose easily.
+Open the camera's cable connector by gently sliding the dark-grey part toward the cable. The cable
+then comes loose easily.
 
 Unplug the cable and set the camera aside, saving the four m2.5 8mm screws.
 
@@ -81,47 +47,27 @@ Unplug the cable and set the camera aside, saving the four m2.5 8mm screws.
 .. image:: images/v25_upgrade/v25_upgrade_21.jpeg
 
 
-Remove the four brass stand-offs holding that used to hold the camera, these
-are no longer needed.
+Remove the four brass stand-offs that held the camera; these are no longer needed.
 
 .. image:: images/v25_upgrade/v25_upgrade_22.jpeg
 
-Use the four screws to secure the adaptor to the PiFinder back plate as shown.  The 
-adapter has an opening in one side to allow the cable to exit.  Make sure 
-this is aligned with the direction the cable is coming from.
+Use the four screws to secure the adaptor to the PiFinder back plate as shown. The adapter has an
+opening on one side for the cable to exit; align it with the direction the cable comes from.
 
 .. image:: images/v25_upgrade/v25_upgrade_23.jpeg
 
-Next you'll connect the cable to the new camera module.  Open the connector all the way
-by sliding the dark-grey piece away from the PCB.  Be gentle as this part can break with too
-much force. 
+Next, connect the cable to the new camera module.
 
-Once the connector is open, slide the cable into the connector using gentle force and making 
-sure it's well aligned.  Take your time and watch the
-dark-grey clip.  It should not close as you are inserting the cable, and if it does, you'll need
-to re-open it to get the cable to slide in all the way.
-
-Once the cable is seated in the connector, close the dark-grey clip by sliding it shut, this 
-may take a little force to get it completely closed.  Check the photo below if in doubt!
-
-.. image:: images/v25_upgrade/v25_upgrade_24.jpeg
-
-Situate the camera in the adapter and use the two new screws to secure it.  They are 
-the same size as the other four, if they get mixed up.
-
-.. image:: images/v25_upgrade/v25_upgrade_25.jpeg
-
-.. image:: images/v25_upgrade/v25_upgrade_26.jpeg
+.. include:: includes/camera_cable_connect.rst
 
 .. image:: images/v25_upgrade/v25_upgrade_27.jpeg
 
 Swapping the Faceplate
 -----------------------
 
-Not a whole lot to say here.. except to ignore the well-used state of my development 
-PiFinder here.  
+Not much to say here, except to ignore the well-used state of my development PiFinder.
 
-Remove the three screws, swap the plate and screw it back on
+Remove the three screws, swap the plate, and screw it back on.
 
 .. image:: images/v25_upgrade/v25_upgrade_28.jpeg
 
@@ -134,34 +80,33 @@ Remove the three screws, swap the plate and screw it back on
 Software and Camera Set Up
 ----------------------------
 
-To use the new camera, you'll need to update to the latest PiFinder software.  Check the 
-`Version 1.x software update guide <https://pifinder.readthedocs.io/en/v1.11.2/user_guide.html#update-software>`_ 
-for details on different ways to update your software.  If you PiFinder is very old, you 
-may need to write a new SD card.
+To use the new camera, update to the latest PiFinder software. See the
+`Version 1.x software update guide <https://pifinder.readthedocs.io/en/v1.11.2/user_guide.html#update-software>`_
+for the different ways to update. If your PiFinder is very old, you may need to write a new SD card.
 
-Once you have the new software running, you'll need to switch camera types to one of the
-sensors used in the v3.  PiFinder upgrade kits currently shipping will include the Sony
-imx462 or imx296 sensor. The box your camera module came in should indicate the 
-type.  From the main PiFinder menu:
+With the new software running, switch the camera type to one of the v3 sensors. Upgrade kits
+currently ship with the Sony imx462 or imx296 sensor; the box your camera module came in indicates
+which. From the main PiFinder menu:
 
 * Scroll down and choose Settings
 
 .. image:: images/v25_upgrade/v25_upgrade_41.png
 
-* Then choose Camera Type near the bottom
+* Scroll down to Advanced, then choose Camera Type
 
 .. image:: images/v25_upgrade/v25_upgrade_42.png
 
-* Finally, choose either v3 - imx462 or v3 - imx296
+* Choose either v3 - imx462 or v3 - imx296
 
 .. image:: images/v25_upgrade/v25_upgrade_44.png
 
-Your PiFinder will reboot and you should be able to see a bright image or static from the 
-camera preview screen depending on lighting conditions and such.  You might want to use the
-settings menu to set your exposure to 0.4 or 0.2 at a maximum with the new camera and I'd 
-encourage you to try lower once you are out under the stars.
+Choosing the new sensor restarts the software, but that restart alone won't initialize the
+camera.  **Fully power the PiFinder off and back on** — otherwise the camera view stays blank
+and it looks as though the switch didn't take.  After the power cycle the camera preview shows
+a bright image or static, depending on lighting. Set your exposure to 0.4 or 0.2 at most with
+the new camera, and try lower once you're out under the stars.
 
-And you are DONE!  Congratulations on your new PiFinder v2.5
+That's it; congratulations on your new PiFinder v2.5.
 
-Check out the :doc:`quick_start` for details on focusing and a primer on the new 
-software interface.
+Check out the :doc:`quick_start` for details on focusing and a primer on the new software
+interface.

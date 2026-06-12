@@ -41,13 +41,14 @@ def get_telescope_ra(shared_state, _):
     """
     solution = shared_state.solution()
     dt = shared_state.datetime()
-    if not solution or not dt:
+    if not solution or not dt or not solution.has_pointing():
         return "+00*00'01"
 
+    aligned = solution.pointing.aligned.estimate
     # Convert from J2000 to now epoch
     try:
-        RA_deg = float(solution["RA"])
-        Dec_deg = float(solution["Dec"])
+        RA_deg = float(aligned.RA)
+        Dec_deg = float(aligned.Dec)
     except TypeError:
         hh = 0
         mm = 0
@@ -74,13 +75,14 @@ def get_telescope_dec(shared_state, _):
     """
     solution = shared_state.solution()
     dt = shared_state.datetime()
-    if not solution or not dt:
+    if not solution or not dt or not solution.has_pointing():
         return "+00*00'01"
 
+    aligned = solution.pointing.aligned.estimate
     # Convert from J2000 to now epoch
     try:
-        RA_deg = float(solution["RA"])
-        Dec_deg = float(solution["Dec"])
+        RA_deg = float(aligned.RA)
+        Dec_deg = float(aligned.Dec)
     except TypeError:
         sign = "+"
         hh = 0

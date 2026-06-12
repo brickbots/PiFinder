@@ -3,6 +3,7 @@ from typing import Any, TYPE_CHECKING
 from PiFinder.state import Location
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.text_menu import UITextMenu
+from PiFinder.ui.layout import rows_below_titlebar
 
 if TYPE_CHECKING:
 
@@ -51,7 +52,7 @@ class UILocationList(UITextMenu):
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
-        draw_pos += 12
+        draw_pos += self.fonts.bold.height - 1
 
         # Draw coordinates in base font
         self.draw.text(
@@ -60,7 +61,7 @@ class UILocationList(UITextMenu):
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
-        draw_pos += 16
+        draw_pos += self.fonts.base.height + 5
 
         # Draw actions
         for i, action in enumerate(self.actions):
@@ -71,7 +72,7 @@ class UILocationList(UITextMenu):
                 font=self.fonts.base.font,
                 fill=self.colors.get(color),
             )
-            draw_pos += 10
+            draw_pos += self.fonts.base.height
 
     def perform_action(self):
         """Execute the selected action on the current location"""
@@ -174,7 +175,7 @@ class UILocationList(UITextMenu):
     def update(self, force=False):
         if not self.locations:
             self.clear_screen()
-            draw_pos = self.display_class.titlebar_height + 20
+            draw_pos = rows_below_titlebar(self.display_class, gap=4).rows[1]
             self.draw.text(
                 (10, draw_pos),
                 _("No locations"),

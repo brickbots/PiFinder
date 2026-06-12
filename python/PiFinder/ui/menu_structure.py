@@ -8,6 +8,7 @@ from PiFinder.ui.software import UISoftware
 from PiFinder.ui.gpsstatus import UIGPSStatus
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
+from PiFinder.ui.align_daytime import UIAlignDaytime
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.sqm import UISQM
@@ -16,6 +17,7 @@ from PiFinder.ui.location_list import UILocationList
 from PiFinder.ui.obs_list import UIObsList
 from PiFinder.ui.locationentry import UILocationEntry
 from PiFinder.ui.radec_entry import UIRADecEntry
+from PiFinder.ui.telemetry_list import UITelemetryList
 import PiFinder.ui.callbacks as callbacks
 
 
@@ -50,6 +52,12 @@ pifinder_menu = {
                 {
                     "name": _("Align"),
                     "class": UIAlign,
+                    "stateful": True,
+                    "preload": True,
+                },
+                {
+                    "name": _("Align (Day)"),
+                    "class": UIAlignDaytime,
                     "stateful": True,
                     "preload": True,
                 },
@@ -708,18 +716,19 @@ pifinder_menu = {
                             ],
                         },
                         {
-                            "name": _("T9 Search"),
+                            "name": _("Search Input"),
                             "class": UITextMenu,
                             "select": "single",
-                            "config_option": "t9_search",
+                            "config_option": "search_input_method",
+                            "label": "search_input_method",
                             "items": [
                                 {
-                                    "name": _("Off"),
-                                    "value": False,
+                                    "name": _("Multi-Tap"),
+                                    "value": "multi_tap",
                                 },
                                 {
-                                    "name": _("On"),
-                                    "value": True,
+                                    "name": _("T9"),
+                                    "value": "t9",
                                 },
                             ],
                         },
@@ -1127,23 +1136,25 @@ pifinder_menu = {
                     "post_callback": callbacks.restart_pifinder,
                     "items": [
                         {
-                            "name": _("Off"),
+                            "name": _("Off"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 100,
                         },
                         {
-                            "name": _("Very Low"),
+                            "name": _(
+                                "Very Low"
+                            ),  # TRANSLATORS: IMU sensitivity setting
                             "value": 3,
                         },
                         {
-                            "name": _("Low"),
+                            "name": _("Low"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 2,
                         },
                         {
-                            "name": _("Medium"),
+                            "name": _("Medium"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 1,
                         },
                         {
-                            "name": _("High"),
+                            "name": _("High"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 0.5,
                         },
                     ],
@@ -1229,6 +1240,57 @@ pifinder_menu = {
                                 {
                                     "name": _("Histogram"),
                                     "value": "histogram",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Dev Tools"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": _("Telemetry"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "items": [
+                                        {
+                                            "name": _("Record"),
+                                            "class": UITextMenu,
+                                            "select": "single",
+                                            "config_option": "telemetry_record",
+                                            "post_callback": callbacks.telemetry_record_toggle,
+                                            "items": [
+                                                {
+                                                    "name": _("Off"),
+                                                    "value": False,
+                                                },
+                                                {
+                                                    "name": _("On"),
+                                                    "value": True,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            "name": _("Images"),
+                                            "class": UITextMenu,
+                                            "select": "single",
+                                            "config_option": "telemetry_images",
+                                            "items": [
+                                                {
+                                                    "name": _("Off"),
+                                                    "value": False,
+                                                },
+                                                {
+                                                    "name": _("On"),
+                                                    "value": True,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            "name": _("Load"),
+                                            "class": UITelemetryList,
+                                        },
+                                    ],
                                 },
                             ],
                         },

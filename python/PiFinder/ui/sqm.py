@@ -39,11 +39,15 @@ class UISQM(UIModule):
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
-                label=_("CAL"),
+                label=_(
+                    "CAL"
+                ),  # TRANSLATORS: Marking menu option to launch SQM calibration wizard
                 callback=self._launch_calibration,
             ),
             down=MarkingMenuOption(
-                label=_("CORRECT"),
+                label=_(
+                    "CORRECT"
+                ),  # TRANSLATORS: Marking menu option to launch SQM correction sweep tool
                 callback=self._launch_sqm_sweep,
             ),
             right=MarkingMenuOption(),
@@ -52,7 +56,7 @@ class UISQM(UIModule):
     def update(self, force=False):
         # Show camera image in background (same processing as preview)
         image_obj = self.camera_image.copy()
-        image_obj = image_obj.resize((128, 128))
+        image_obj = image_obj.resize((self.display_class.resX, self.display_class.resY))
         image_obj = subtract_background(image_obj, percent=0.5)
         image_obj = image_obj.convert("RGB")
         image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
@@ -63,16 +67,37 @@ class UISQM(UIModule):
         # Draw semi-transparent dark overlay for text readability
         overlay_draw = ImageDraw.Draw(self.screen, "RGBA")
         overlay_draw.rectangle(
-            [(0, 0), (128, 128)],
+            [(0, 0), (self.display_class.resX, self.display_class.resY)],
             fill=(0, 0, 0, 180),  # Black with 70% opacity
         )
+
+        # Dashboard layout anchors derived from the title bar + font heights so
+        # the value / detail rows fill the panel instead of clustering in the
+        # top-left of a larger display (was hand-placed for the 128 panel).
+        resX = self.display_class.resX
+        resY = self.display_class.resY
+        tb = self.display_class.titlebar_height
+        base_h = self.fonts.base.height
+        left = round(resX * 10 / 128)  # ~10px left margin on the 128 panel
+        info_y = tb + 3  # top status row (time / stars / exposure)
+        value_y = info_y + base_h  # big SQM value (huge font)
+        units_y = value_y + self.fonts.huge.height  # units line under the value
+        detail_y = units_y + base_h  # altitude-corrected value
+        bortle_y = detail_y + base_h  # Bortle class
+        legend_y = resY - base_h - 3  # bottom legend row
+        desc_y = info_y + self.fonts.bold.height + 5  # scrollable description top
+        # right-hand columns scale with width
+        stars_x = round(resX * 60 / 128)
+        exp_x = round(resX * 95 / 128)
+        cal_x = round(resX * 105 / 128)
+        ncal_x = round(resX * 98 / 128)
 
         # Get SQM from shared state
         sqm_state = self.shared_state.sqm()
 
         if sqm_state.last_update is None:
             self.draw.text(
-                (10, 30),
+                (left, value_y),
                 _("NO SQM DATA"),
                 font=self.fonts.bold.font,
                 fill=self.colors.get(128),
@@ -94,13 +119,13 @@ class UISQM(UIModule):
             # If no details found, show SQM value only
             if details is None:
                 self.draw.text(
-                    (10, 30),
+                    (left, value_y),
                     f"{sqm:.2f}",
                     font=self.fonts.huge.font,
                     fill=self.colors.get(192),
                 )
                 self.draw.text(
-                    (12, 68),
+                    (left + 2, units_y),
                     _("mag/arcsec²"),
                     font=self.fonts.base.font,
                     fill=self.colors.get(64),
@@ -113,24 +138,26 @@ class UISQM(UIModule):
                 desc_lines.append("─" * self.fonts.base.line_length)  # End marker
                 desc_text = "\n".join(desc_lines)
                 self.text_layout.set_text(desc_text, reset_pointer=False)
-                self.text_layout.set_available_lines(7)
+                self.text_layout.set_available_lines(
+                    max(1, (legend_y - desc_y) // (base_h + 1))
+                )
 
                 # Title
                 self.draw.text(
-                    (0, 20),
+                    (0, info_y),
                     _("Bortle {bc}").format(bc=details["bortle_class"]),
                     font=self.fonts.bold.font,
                     fill=self.colors.get(255),
                 )
 
                 # Scrollable description
-                self.text_layout.draw((0, 38))
+                self.text_layout.draw((0, desc_y))
 
                 # Legend
                 back_text = _("BACK")
                 scroll_text = _("SCROLL")
                 self.draw.text(
-                    (0, 115),
+                    (0, legend_y),
                     f"{self._SQUARE_} {back_text}  {self._PLUSMINUS_} {scroll_text}",
                     font=self.fonts.base.font,
                     fill=self.colors.get(128),
@@ -145,7 +172,7 @@ class UISQM(UIModule):
                     else:
                         time_str = _("{m}m ago").format(m=elapsed // 60)
                     self.draw.text(
-                        (10, 20),
+                        (left, info_y),
                         time_str,
                         font=self.fonts.base.font,
                         fill=self.colors.get(64),
@@ -156,7 +183,7 @@ class UISQM(UIModule):
                 if sqm_details:
                     n_stars = sqm_details.get("n_matched_stars", 0)
                     self.draw.text(
-                        (60, 20),
+                        (stars_x, info_y),
                         f"{n_stars}★",
                         font=self.fonts.base.font,
                         fill=self.colors.get(64),
@@ -170,14 +197,14 @@ class UISQM(UIModule):
                     else:
                         exp_str = f"{exp_ms:.0f}ms"
                     self.draw.text(
-                        (95, 20),
+                        (exp_x, info_y),
                         exp_str,
                         font=self.fonts.base.font,
                         fill=self.colors.get(64),
                     )
 
                 self.draw.text(
-                    (10, 30),
+                    (left, value_y),
                     f"{sqm:.2f}",
                     font=self.fonts.huge.font,
                     fill=self.colors.get(192),
@@ -185,7 +212,7 @@ class UISQM(UIModule):
 
                 # Units in small, subtle text
                 self.draw.text(
-                    (12, 68),
+                    (left + 2, units_y),
                     _("mag/arcsec²"),
                     font=self.fonts.base.font,
                     fill=self.colors.get(64),
@@ -194,14 +221,14 @@ class UISQM(UIModule):
                 # Calibration indicator (right side of units line)
                 if self._is_calibrated():
                     self.draw.text(
-                        (105, 68),
+                        (cal_x, units_y),
                         "CAL",
                         font=self.fonts.base.font,
                         fill=self.colors.get(128),
                     )
                 else:
                     self.draw.text(
-                        (98, 68),
+                        (ncal_x, units_y),
                         "!CAL",
                         font=self.fonts.base.font,
                         fill=self.colors.get(64),
@@ -212,7 +239,7 @@ class UISQM(UIModule):
                     sqm_alt = sqm_details.get("sqm_altitude_corrected")
                     if sqm_alt:
                         self.draw.text(
-                            (12, 80),
+                            (left + 2, detail_y),
                             f"alt: {sqm_alt:.2f}",
                             font=self.fonts.base.font,
                             fill=self.colors.get(64),
@@ -221,7 +248,7 @@ class UISQM(UIModule):
                 # Bortle class
                 if details:
                     self.draw.text(
-                        (10, 92),
+                        (left, bortle_y),
                         _("Bortle {bc}").format(bc=details["bortle_class"]),
                         font=self.fonts.base.font,
                         fill=self.colors.get(128),
@@ -230,7 +257,7 @@ class UISQM(UIModule):
                 # Legend
                 details_text = _("DETAILS")
                 self.draw.text(
-                    (10, 110),
+                    (left, legend_y),
                     f"{self._SQUARE_} {details_text}",
                     font=self.fonts.base.font,
                     fill=self.colors.get(64),

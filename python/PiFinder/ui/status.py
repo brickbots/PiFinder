@@ -11,6 +11,7 @@ from PiFinder.ui.base import UIModule
 from PiFinder import calc_utils
 from PiFinder import utils
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
+from PiFinder.ui.layout import rows_below_titlebar
 
 sys_utils = utils.get_sys_utils()
 
@@ -57,7 +58,9 @@ class UIStatus(UIModule):
             color=self.colors.get(255),
             colors=self.colors,
             font=self.fonts.base,
-            available_lines=9,
+            # As many base-font rows as fit below the title bar (9 on the 128
+            # panel, more on taller displays).
+            available_lines=rows_below_titlebar(self.display_class, gap=1).max_visible,
         )
 
     def update_status_dict(self):
@@ -68,60 +71,60 @@ class UIStatus(UIModule):
             solution = self.shared_state.solution()
 
             # Time since last solve
-            if solution["cam_solve_time"]:
-                time_since_solve = f"{time.time() - solution['cam_solve_time']:.1f}"
+            if solution.last_solve_success:
+                time_since_solve = f"{time.time() - solution.last_solve_success:.1f}"
             else:
                 time_since_solve = "--"
             # Number of matched stars
-            if solution["solve_source"] == "CAM":
-                stars_matched = solution["Matches"]
+            if solution.is_camera_solve():
+                stars_matched = solution.diagnostics.Matches
             else:
                 stars_matched = "--"
             # Solve source
-            if solution["solve_source"] == "CAM":
+            source = solution.solve_source
+            if source is None:
+                solve_source = "-"
+            elif source == "CAM":
                 solve_source = "C"
-            elif solution["solve_source"] == "CAM_FAILED":
+            elif source == "CAM_FAILED":
                 solve_source = "F"
             else:
-                solve_source = str(solution["solve_source"][0])
+                solve_source = str(source.value[0])
             # Collect togethers
             self.status_dict["LAST SLV"] = (
                 time_since_solve + "s " + solve_source + f" {stars_matched: >2}"
             )
 
             # RA/DEC
-            if solution["RA"] is None or solution["Dec"] is None:
+            aligned = solution.pointing.aligned.estimate
+            if aligned is None:
                 self.status_dict["RA/DEC"] = "--/--"
             else:
-                hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
+                hh, mm, _ = calc_utils.ra_to_hms(aligned.RA)
                 self.status_dict["RA/DEC"] = (
-                    f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] :.2f}"
+                    f"{hh:02.0f}h{mm:02.0f}m/{aligned.Dec :.2f}"
                 )
 
             # AZ/ALT
-            if solution["Az"] is None or solution["Alt"] is None:
+            if solution.Az is None or solution.Alt is None:
                 self.status_dict["AZ/ALT"] = "--/--"
             else:
                 self.status_dict["AZ/ALT"] = (
-                    f"{solution['Az'] : >6.2f}/{solution['Alt'] : >6.2f}"
+                    f"{solution.Az : >6.2f}/{solution.Alt : >6.2f}"
                 )
 
         imu = self.shared_state.imu()
         # IMU Status & reading
         if imu:
-            if imu["quat"] is not None:
-                if imu["moving"]:
+            if imu.quat is not None:
+                if imu.moving:
                     mtext = "Moving"
                 else:
                     mtext = "Static"
-                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
+                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu.status)
 
-                self.status_dict["IMU qw,qx"] = (
-                    f"{imu['quat'].w:>.2f},{imu['quat'].x : >.2f}"
-                )
-                self.status_dict["IMU qy,qz"] = (
-                    f"{imu['quat'].y:>.2f},{imu['quat'].z : >.2f}"
-                )
+                self.status_dict["IMU qw,qx"] = f"{imu.quat.w:>.2f},{imu.quat.x : >.2f}"
+                self.status_dict["IMU qy,qz"] = f"{imu.quat.y:>.2f},{imu.quat.z : >.2f}"
         else:
             self.status_dict["IMU"] = "--"
             self.status_dict["IMU qw,qx"] = "--"
@@ -166,7 +169,7 @@ class UIStatus(UIModule):
 
     def update(self, force=False):
         self.update_status_dict()
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.clear_screen()
         lines = []
         # Insert IP address here...
         for k, v in self.status_dict.items():

@@ -7,6 +7,7 @@ to handle catalog image loading
 
 import math
 import os
+from typing import List, Optional, Tuple
 from PIL import Image, ImageChops, ImageDraw
 from PiFinder import image_util
 from PiFinder import utils
@@ -20,19 +21,39 @@ CATALOG_PATH = f"{utils.astro_data_dir}/pifinder_objects.db"
 logger = logging.getLogger("Catalog.Images")
 
 
-def cardinal_vectors(image_rotate, fx=1, fy=1):
+def rotation_radians(image_rotate: float) -> float:
+    """Image rotation as a y-down pixel-space angle, in radians.
+
+    PIL's Image.rotate() turns the image counterclockwise, which in
+    y-down pixel coordinates is a rotation by the negated angle.
+    """
+    return math.radians(-image_rotate)
+
+
+def cardinal_vectors(
+    image_rotate: float, fx: int = 1, fy: int = 1
+) -> Tuple[Tuple[float, float], Tuple[float, float]]:
     """Return (nx, ny), (ex, ey) unit vectors for North and East.
 
     image_rotate: degrees the POSS image was rotated (180 + roll).
     fx, fy: -1 to mirror that axis (flip/flop), +1 otherwise.
     """
-    theta = math.radians(image_rotate)
+    theta = rotation_radians(image_rotate)
     n = (fx * math.sin(theta), fy * -math.cos(theta))
     e = (-fx * math.cos(theta), -fy * math.sin(theta))
     return n, e
 
 
-def size_overlay_points(extents, pa, image_rotate, px_per_arcsec, cx, cy, fx=1, fy=1):
+def size_overlay_points(
+    extents: List[float],
+    pa: float,
+    image_rotate: float,
+    px_per_arcsec: float,
+    cx: float,
+    cy: float,
+    fx: int = 1,
+    fy: int = 1,
+) -> Optional[List[Tuple[float, float]]]:
     """Compute outline points for the size overlay.
 
     Returns a list of (x, y) tuples.
@@ -41,7 +62,7 @@ def size_overlay_points(extents, pa, image_rotate, px_per_arcsec, cx, cy, fx=1, 
     if not extents or len(extents) == 1:
         return None
 
-    theta = math.radians(image_rotate - pa - 90)
+    theta = rotation_radians(image_rotate) - math.radians(pa + 90)
     cos_t = math.cos(theta)
     sin_t = math.sin(theta)
 
@@ -70,15 +91,23 @@ def size_overlay_points(extents, pa, image_rotate, px_per_arcsec, cx, cy, fx=1, 
 
 
 def vertex_overlay_points(
-    vertices, obj_ra, obj_dec, image_rotate, px_per_arcsec, cx, cy, fx=1, fy=1
-):
+    vertices: List[List[float]],
+    obj_ra: float,
+    obj_dec: float,
+    image_rotate: float,
+    px_per_arcsec: float,
+    cx: float,
+    cy: float,
+    fx: int = 1,
+    fy: int = 1,
+) -> List[Tuple[float, float]]:
     """Project RA/Dec vertex pairs to pixel coords via gnomonic projection.
 
     vertices: list of [ra, dec] pairs in degrees.
     obj_ra, obj_dec: object center in degrees.
     Returns list of (x, y) pixel tuples.
     """
-    theta = math.radians(image_rotate)
+    theta = rotation_radians(image_rotate)
     cos_t = math.cos(theta)
     sin_t = math.sin(theta)
 
@@ -117,6 +146,33 @@ def vertex_overlay_points(
     return points
 
 
+def _orient_image(return_image, roll, flip_image, flop_image):
+    """
+    Orient a source survey image to match the eyepiece view.
+
+    Applies the fixed 180° baseline rotation (plus the live solve roll),
+    then the active telescope's flip/flop mirrors:
+        flip_image -> top-to-bottom (vertical) mirror
+        flop_image -> left-to-right (horizontal) mirror
+
+    Mirrors are applied AFTER the rotation so a mirrored optical train
+    (e.g. a refractor/SCT with a star diagonal) correctly reverses the
+    apparent sense of roll. See ADR 0003.
+    """
+    # rotate for roll / newtonian orientation
+    image_rotate = 180
+    if roll is not None:
+        image_rotate += roll
+    return_image = return_image.rotate(image_rotate)
+
+    if flip_image:
+        return_image = return_image.transpose(Image.FLIP_TOP_BOTTOM)
+    if flop_image:
+        return_image = return_image.transpose(Image.FLIP_LEFT_RIGHT)
+
+    return return_image
+
+
 def get_display_image(
     catalog_object,
     eyepiece_text,
@@ -125,9 +181,10 @@ def get_display_image(
     display_class,
     burn_in=True,
     magnification=None,
-    telescope=None,
     show_nsew=True,
     show_bbox=True,
+    flip_image=False,
+    flop_image=False,
 ):
     """
     Returns a 128x128 image buffer for
@@ -138,9 +195,6 @@ def get_display_image(
     roll:
         degrees
     """
-    flip = telescope.flip_image if telescope else False
-    flop = telescope.flop_image if telescope else False
-
     object_image_path = resolve_image_name(catalog_object, source="POSS")
     logger.debug("object_image_path = %s", object_image_path)
     if not os.path.exists(object_image_path):
@@ -156,16 +210,12 @@ def get_display_image(
     else:
         return_image = Image.open(object_image_path)
 
-        # rotate for roll / newtonian orientation
         image_rotate = 180
         if roll is not None:
             image_rotate += roll
 
-        return_image = return_image.rotate(image_rotate)
-        if flip:
-            return_image = return_image.transpose(Image.FLIP_LEFT_RIGHT)
-        if flop:
-            return_image = return_image.transpose(Image.FLIP_TOP_BOTTOM)
+        # Orient to match the eyepiece view (see ADR 0003)
+        return_image = _orient_image(return_image, roll, flip_image, flop_image)
 
         # FOV
         fov_size = int(1024 * fov / 2)
@@ -207,34 +257,28 @@ def get_display_image(
 
             cx = display_class.fov_res / 2
             cy = display_class.fov_res / 2
-            fx = -1 if flip else 1
-            fy = -1 if flop else 1
+            fx = -1 if flop_image else 1
+            fy = -1 if flip_image else 1
 
-            # NSEW cardinal labels — show only 2: topmost and leftmost
+            # NSEW cardinal labels — show the leftmost and rightmost of the
+            # four cardinals, out at the FOV ring. Clamped clear of the
+            # titlebar and footer text (drawn later, full brightness) so
+            # both letters always stay visible.
             if show_nsew:
                 (nx, ny), (ex, ey) = cardinal_vectors(image_rotate, fx, fy)
                 label_font = display_class.fonts.base
-                label_color = display_class.colors.get(64)
+                label_color = display_class.colors.get(128)
                 r_label = display_class.fov_res / 2 - 2
-                top_limit = display_class.titlebar_height
+                top_limit = display_class.titlebar_height + label_font.height
                 bottom_limit = display_class.fov_res - label_font.height * 2
-
                 candidates = [
                     ("N", nx, ny),
                     ("S", -nx, -ny),
                     ("E", ex, ey),
                     ("W", -ex, -ey),
                 ]
-                by_top = sorted(candidates, key=lambda c: c[2])
-                by_left = sorted(candidates, key=lambda c: c[1])
-                chosen = {by_top[0][0]: by_top[0]}
-                # pick leftmost that isn't already chosen
-                for c in by_left:
-                    if c[0] not in chosen:
-                        chosen[c[0]] = c
-                        break
-
-                for label, dx, dy in chosen.values():
+                by_x = sorted(candidates, key=lambda c: c[1])
+                for label, dx, dy in (by_x[0], by_x[-1]):
                     lx = cx + dx * r_label - label_font.width / 2
                     ly = cy + dy * r_label - label_font.height / 2
                     lx = max(0, min(lx, display_class.fov_res - label_font.width))

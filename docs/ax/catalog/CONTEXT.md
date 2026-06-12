@@ -149,12 +149,12 @@ _Avoid_: catalog state (the enum is `CatalogState`; the wrapper is `CatalogStatu
 ### Search
 
 **Text search** (`search_by_text`):
-Lower-case substring match against every name in every catalog. Selection and filter state are ignored.
+Lower-case substring match against every name in every catalog. Selection and filter state are ignored. Backs the UI context's **multi-tap** search input method.
 _Avoid_: name search, full-text search.
 
 **T9 search** (`search_by_t9`):
-Substring search after translating names to PiFinder's non-standard keypad-digit form (`KEYPAD_DIGIT_TO_CHARS` — `7→abc`, `1→tuv`, …). Backed by `_t9_cache` keyed on `(catalog_code, sequence)`.
-_Avoid_: keypad search, digit search (use T9 search for the public concept).
+Substring search after translating names to PiFinder's non-standard keypad-digit form (`KEYPAD_DIGIT_TO_CHARS` — `7→abc`, `1→tuv`, …). Backed by `_t9_cache` keyed on `(catalog_code, sequence)`. Backs the UI context's **T9** search input method; reserve "T9 search" for this algorithm — the user-facing setting is the **search input method**.
+_Avoid_: keypad search, digit search.
 
 ### Observing lists
 

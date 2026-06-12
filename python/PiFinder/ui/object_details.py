@@ -105,9 +105,17 @@ class UIObjectDetails(UIModule):
             ),
         }
 
-        # cache some display stuff for locate
+        # cache some display stuff for locate. az/alt readouts stack two huge
+        # lines up from the bottom; the multipliers are relative to resY and the
+        # huge-font height, so they already track resolution.
         self.az_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 2.2))
         self.alt_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 1.2))
+        # Two-line status messages ("No solve", "Searching for GPS"...) shown in
+        # place of the az/alt readout; positions derive from resolution + font.
+        msg_x = round(self.display_class.resX * 10 / 128)
+        msg_y1 = round(self.display_class.resY * 70 / 128)
+        self._pointing_msg_anchor_1 = (msg_x, msg_y1)
+        self._pointing_msg_anchor_2 = (msg_x, msg_y1 + self.fonts.large.height + 2)
         self._elipsis_count = 0
 
         self.active()  # fill in activation time
@@ -260,7 +268,12 @@ class UIObjectDetails(UIModule):
                         object_diameter1=diameter1,
                         object_diameter2=diameter2,
                     )
-                except InvalidParameterError as e:
+                except (ValueError, TypeError, InvalidParameterError) as e:
+                    # mag_str / size are not always plain numbers: double stars
+                    # carry component mags like "7.0/9.5", asterisms a size like
+                    # "3°", and some objects have no magnitude. float() then
+                    # raises ValueError/TypeError; treat it like the "-"
+                    # magnitude case above and skip the contrast calc.
                     print(f"Error calculating contrast reserve: {e}")
                     self.contrast = ""
         if self.contrast is not None and self.contrast != "":
@@ -309,10 +322,13 @@ class UIObjectDetails(UIModule):
 
         solution = self.shared_state.solution()
         roll = 0
-        if solution:
-            roll = solution["Roll"]
+        if solution and solution.has_pointing():
+            roll = solution.pointing.aligned.estimate.Roll
 
         magnification = self.config_object.equipment.calc_magnification()
+        flip_image, flop_image = (
+            self.config_object.equipment.active_telescope_image_orientation()
+        )
         self.object_image = cat_images.get_display_image(
             self.object,
             str(self.config_object.equipment.active_eyepiece),
@@ -321,9 +337,10 @@ class UIObjectDetails(UIModule):
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
             magnification=magnification,
-            telescope=self.config_object.equipment.active_telescope,
             show_nsew=self.config_object.get_option("image_nsew", True),
             show_bbox=self.config_object.get_option("image_bbox", True),
+            flip_image=flip_image,
+            flop_image=flop_image,
         )
 
     def active(self):
@@ -331,22 +348,23 @@ class UIObjectDetails(UIModule):
 
     def _check_catalog_initialized(self):
         code = self.object.catalog_code
-        catalog = self.catalogs.get_catalog_by_code(code)
-        if catalog is None:
+        if code in ["PUSH", "USER"]:
+            # Special codes for objects pushed from sky-safari or created by user
             return True
-        return catalog.initialized
+        catalog = self.catalogs.get_catalog_by_code(code)
+        return catalog and catalog.initialized
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
-        if self.shared_state.solution() is None:
+        if not self.shared_state.solution().has_pointing():
             self.draw.text(
-                (10, 70),
+                self._pointing_msg_anchor_1,
                 _("No solve"),  # TRANSLATORS: No solve yet... (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 90),
+                self._pointing_msg_anchor_2,
                 _("yet{elipsis}").format(
                     elipsis="." * int(self._elipsis_count / 10)
                 ),  # TRANSLATORS: No solve yet... (Part 2/2)
@@ -360,13 +378,13 @@ class UIObjectDetails(UIModule):
 
         if not self.shared_state.altaz_ready():
             self.draw.text(
-                (10, 70),
+                self._pointing_msg_anchor_1,
                 _("Searching"),  # TRANSLATORS: Searching for GPS (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 90),
+                self._pointing_msg_anchor_2,
                 _("for GPS{elipsis}").format(
                     elipsis="." * int(self._elipsis_count / 10)
                 ),  # TRANSLATORS: Searching for GPS (Part 2/2)
@@ -380,13 +398,13 @@ class UIObjectDetails(UIModule):
 
         if not self._check_catalog_initialized():
             self.draw.text(
-                (10, 70),
+                self._pointing_msg_anchor_1,
                 _("Calculating"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 90),
+                self._pointing_msg_anchor_2,
                 _(f"positions{'.' * int(self._elipsis_count / 10)}"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
@@ -408,13 +426,13 @@ class UIObjectDetails(UIModule):
         if point_az is None or point_alt is None:
             # No valid pointing data available
             self.draw.text(
-                (10, 70),
+                self._pointing_msg_anchor_1,
                 _("Calculating"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 90),
+                self._pointing_msg_anchor_2,
                 _(f"position{'.' * int(self._elipsis_count / 10)}"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
@@ -503,13 +521,17 @@ class UIObjectDetails(UIModule):
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
             desc_available_lines = 4
+            # Header lines sit just below the title bar; type/const stacks one
+            # large-font line below the designator (derived so they track res).
+            desig_y = self.display_class.titlebar_height + 3
+            typeconst_y = desig_y + self.fonts.large.height
             desig = self.texts["designator"]
-            desig.draw((0, 20))
+            desig.draw((0, desig_y))
 
             # Object TYPE and Constellation i.e. 'Galaxy    PER'
             typeconst = self.texts.get("type-const")
             if typeconst:
-                typeconst.draw((0, 36))
+                typeconst.draw((0, typeconst_y))
 
         if self.object_display_mode == DM_LOCATE:
             self._render_pointing_instructions()
@@ -517,7 +539,9 @@ class UIObjectDetails(UIModule):
         elif self.object_display_mode == DM_DESC:
             # Object Magnitude and size i.e. 'Mag:4.0   Sz:7"'
             magsize = self.texts.get("magsize")
-            posy = 52
+            # Start just below the type/const header (derived; 52 on the 128
+            # panel, lower on taller panels so it doesn't crowd the header).
+            posy = typeconst_y + self.fonts.bold.height + 3
             if magsize and magsize.text.strip():
                 if self.object:
                     # check for visibility and adjust mag/size text color
@@ -590,10 +614,18 @@ class UIObjectDetails(UIModule):
 
             # Add explanation about what CR means
             explanation_lines = [
-                _("CR measures object"),
-                _("visibility based on"),
-                _("sky brightness,"),
-                _("telescope, and EP."),
+                _(
+                    "CR measures object"
+                ),  # TRANSLATORS: Contrast reserve explanation line 1
+                _(
+                    "visibility based on"
+                ),  # TRANSLATORS: Contrast reserve explanation line 2
+                _(
+                    "sky brightness,"
+                ),  # TRANSLATORS: Contrast reserve explanation line 3
+                _(
+                    "telescope, and EP."
+                ),  # TRANSLATORS: Contrast reserve explanation (EP = entrance pupil) line 4
             ]
 
             for line in explanation_lines:
@@ -689,7 +721,7 @@ class UIObjectDetails(UIModule):
         logging screen
         """
         self.maybe_add_to_recents()
-        if self.shared_state.solution() is None:
+        if not self.shared_state.solution().has_pointing():
             return
         object_item_definition = {
             "name": _("LOG"),

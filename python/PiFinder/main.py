@@ -124,6 +124,7 @@ def setup_dirs():
     utils.create_path(Path(utils.data_dir, "screenshots"))
     utils.create_path(Path(utils.data_dir, "solver_debug_dumps"))
     utils.create_path(Path(utils.data_dir, "logs"))
+    utils.create_path(Path(utils.data_dir, "telemetry"))
     os.chmod(Path(utils.data_dir), 0o777)
 
 
@@ -197,7 +198,7 @@ class PowerManager:
         else:  # We are asleepd, should we wake up?
             _imu = self.shared_state.imu()
             if _imu:
-                if _imu["moving"]:
+                if _imu.moving:
                     self.wake_up()
 
     def get_sleep_timeout(self):
@@ -281,6 +282,63 @@ def stop_profiling(profiler, startup_profile_start):
     logger.info(f"Text summary saved to: {summary_path}")
 
 
+def _build_pygame_keymaps():
+    """
+    Build the pygame key -> KeyboardInterface keycode maps used when a pygame
+    display is active. Returns (key_map, ctrl_key_map).
+
+    Ctrl+key produces the ALT_* keycodes, which emulate the hardware keypad's
+    SQUARE-modifier chord (see keyboard_local.py). Pulled out of main() purely
+    to keep the event loop readable; see docs/adr/0004 for why pygame keys are
+    captured in the main process at all rather than in a keyboard_* subprocess.
+    """
+    import pygame
+    from PiFinder.keyboard_interface import KeyboardInterface
+
+    # +/= and - for PLUS/MINUS, Enter/Space/Z for SQUARE, M for LNG_SQUARE
+    key_map = {
+        pygame.K_LEFT: KeyboardInterface.LEFT,
+        pygame.K_UP: KeyboardInterface.UP,
+        pygame.K_DOWN: KeyboardInterface.DOWN,
+        pygame.K_RIGHT: KeyboardInterface.RIGHT,
+        pygame.K_EQUALS: KeyboardInterface.PLUS,
+        pygame.K_PLUS: KeyboardInterface.PLUS,
+        pygame.K_KP_PLUS: KeyboardInterface.PLUS,
+        pygame.K_MINUS: KeyboardInterface.MINUS,
+        pygame.K_KP_MINUS: KeyboardInterface.MINUS,
+        pygame.K_RETURN: KeyboardInterface.SQUARE,
+        pygame.K_KP_ENTER: KeyboardInterface.SQUARE,
+        pygame.K_SPACE: KeyboardInterface.SQUARE,
+        pygame.K_z: KeyboardInterface.SQUARE,
+        pygame.K_m: KeyboardInterface.LNG_SQUARE,
+        pygame.K_0: 0,
+        pygame.K_1: 1,
+        pygame.K_2: 2,
+        pygame.K_3: 3,
+        pygame.K_4: 4,
+        pygame.K_5: 5,
+        pygame.K_6: 6,
+        pygame.K_7: 7,
+        pygame.K_8: 8,
+        pygame.K_9: 9,
+    }
+
+    ctrl_key_map = {
+        pygame.K_EQUALS: KeyboardInterface.ALT_PLUS,
+        pygame.K_PLUS: KeyboardInterface.ALT_PLUS,
+        pygame.K_KP_PLUS: KeyboardInterface.ALT_PLUS,
+        pygame.K_MINUS: KeyboardInterface.ALT_MINUS,
+        pygame.K_KP_MINUS: KeyboardInterface.ALT_MINUS,
+        pygame.K_LEFT: KeyboardInterface.ALT_LEFT,
+        pygame.K_UP: KeyboardInterface.ALT_UP,
+        pygame.K_DOWN: KeyboardInterface.ALT_DOWN,
+        pygame.K_RIGHT: KeyboardInterface.ALT_RIGHT,
+        pygame.K_0: KeyboardInterface.ALT_0,
+    }
+
+    return key_map, ctrl_key_map
+
+
 def main(
     log_helper: MultiprocLogging,
     script_name=None,
@@ -327,6 +385,8 @@ def main(
     logger.info("PiFinder running on %s, %s, %s", os_detail, platform, arch)
 
     # init UI Modes
+    integrator_command_queue: Queue = Queue()
+
     command_queues = {
         "camera": camera_command_queue,
         "console": console_queue,
@@ -334,6 +394,7 @@ def main(
         "align_command": alignment_command_queue,
         "align_response": alignment_response_queue,
         "gps": gps_queue,
+        "integrator": integrator_command_queue,
     }
     cfg = config.Config()
 
@@ -488,6 +549,10 @@ def main(
                 integrator_logqueque,
                 verbose,
             ),
+            kwargs={
+                "command_queue": integrator_command_queue,
+                "camera_command_queue": camera_command_queue,
+            },
         )
         integrator_process.start()
 
@@ -541,10 +606,35 @@ def main(
         # Stop profiling (uncomment to analyze startup performance)
         # stop_profiling(profiler, startup_profile_start)
 
+        # Pygame can only read keyboard events from the process that owns the
+        # display window, and pynput/PyHotKey (keyboard_local) can't read the
+        # keyboard under Wayland. So when a pygame display is active we capture
+        # keys here in the main loop; the spawned keyboard process is the no-op
+        # keyboard_none. See docs/adr/0004-pygame-keyboard-in-main-loop.md.
+        pygame_events_enabled = display_hardware.startswith("pg_")
+        if pygame_events_enabled:
+            import pygame
+
+            logger.info("Pygame event polling enabled for keyboard input")
+            pygame_key_map, pygame_ctrl_key_map = _build_pygame_keymaps()
+
         log_time = True
         # Start of main except handler / loop
         try:
             while True:
+                # Poll pygame keyboard events
+                if pygame_events_enabled:
+                    for event in pygame.event.get():
+                        if event.type == pygame.KEYDOWN:
+                            ctrl_held = event.mod & pygame.KMOD_CTRL
+                            if ctrl_held and event.key in pygame_ctrl_key_map:
+                                keyboard_queue.put(pygame_ctrl_key_map[event.key])
+                            elif event.key in pygame_key_map:
+                                keyboard_queue.put(pygame_key_map[event.key])
+                        elif event.type == pygame.QUIT:
+                            logger.info("Pygame window closed, exiting...")
+                            raise KeyboardInterrupt
+
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
@@ -567,10 +657,13 @@ def main(
                                 location = shared_state.location()
 
                             # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
+                            # "replay" is protected too: a telemetry replay owns the
+                            # location until it ends and restores the original.
                             if (
                                 not location.source == "WEB"
                                 and not location.source.startswith("CONFIG:")
                                 and not location.source == "MANUAL"
+                                and not location.source == "replay"
                                 and (
                                     location.error_in_m == 0
                                     or float(gps_content["error_in_m"])
@@ -1054,9 +1147,14 @@ if __name__ == "__main__":
 
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
-        from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+        if display_hardware.startswith("pg_"):
+            from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
-        rlogger.info("using local keyboard")
+            rlogger.info("using pygame keyboard (main loop captures keys)")
+        else:
+            from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+
+            rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 

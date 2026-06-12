@@ -30,10 +30,10 @@ class TestCardinalVectors:
         assert (ex, ey) == approx_pt((1, 0))
 
     def test_90_rotation(self):
-        """image_rotate=90: N at (1, 0), E at (0, -1)."""
+        """image_rotate=90 turns the image CCW: N at (-1, 0), E at (0, 1)."""
         (nx, ny), (ex, ey) = cardinal_vectors(90)
-        assert (nx, ny) == approx_pt((1, 0))
-        assert (ex, ey) == approx_pt((0, -1))
+        assert (nx, ny) == approx_pt((-1, 0))
+        assert (ex, ey) == approx_pt((0, 1))
 
     def test_flip_mirrors_x(self):
         """flip negates x components of both vectors."""
@@ -59,9 +59,9 @@ class TestCardinalVectors:
             for fx, fy in [(1, 1), (-1, 1), (1, -1), (-1, -1)]:
                 (nx, ny), (ex, ey) = cardinal_vectors(angle, fx, fy)
                 dot = nx * ex + ny * ey
-                assert dot == pytest.approx(0, abs=1e-10), (
-                    f"Not orthogonal at angle={angle}, fx={fx}, fy={fy}"
-                )
+                assert dot == pytest.approx(
+                    0, abs=1e-10
+                ), f"Not orthogonal at angle={angle}, fx={fx}, fy={fy}"
 
     def test_unit_length(self):
         """N and E vectors should have unit length."""
@@ -118,9 +118,9 @@ class TestSizeOverlayPoints:
         assert max(abs(y) for y in ys) == pytest.approx(30, abs=0.5)
 
     def test_position_angle(self):
-        """PA=90 rotates opposite to image_rotate (PA goes N→E, image_rotate goes CW)."""
+        """PA=90 matches a 90° image rotation (both turn N toward E on screen)."""
         cx, cy = 64, 64
-        pts_rot = size_overlay_points([120, 60], 0, 270, 1.0, cx, cy)
+        pts_rot = size_overlay_points([120, 60], 0, 90, 1.0, cx, cy)
         pts_pa = size_overlay_points([120, 60], 90, 0, 1.0, cx, cy)
         for a, b in zip(pts_rot, pts_pa):
             assert a[0] == pytest.approx(b[0], abs=1e-6)
@@ -139,9 +139,9 @@ class TestSizeOverlayPoints:
                 farthest[1] / math.hypot(*farthest),
             )
             dot = abs(direction[0] * ex + direction[1] * ey)
-            assert dot == pytest.approx(1.0, abs=0.02), (
-                f"PA=90 major axis not along East at image_rotate={rot}"
-            )
+            assert dot == pytest.approx(
+                1.0, abs=0.02
+            ), f"PA=90 major axis not along East at image_rotate={rot}"
 
     def test_pa0_aligns_with_north(self):
         """PA=0 major axis must align with the North vector from cardinal_vectors."""
@@ -158,9 +158,9 @@ class TestSizeOverlayPoints:
             )
             # Should be parallel to North (same or opposite direction)
             dot = abs(direction[0] * nx + direction[1] * ny)
-            assert dot == pytest.approx(1.0, abs=0.02), (
-                f"PA=0 major axis not along North at image_rotate={rot}"
-            )
+            assert dot == pytest.approx(
+                1.0, abs=0.02
+            ), f"PA=0 major axis not along North at image_rotate={rot}"
 
     def test_flip_mirrors_x(self):
         """fx=-1 mirrors all points horizontally around cx."""
