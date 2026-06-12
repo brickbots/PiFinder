@@ -291,8 +291,9 @@ PiFinder menu.
 
 .. image:: images/user_guide/settings_01.png
 
-The top items collect several options under User Preferences and Chart Screen.  An ellipsis
-(...) indicates more options below.
+The top items collect several options under User Preferences, the Chart Screen, and the
+:ref:`object image <user_guide:object images>` overlays.  An ellipsis (...) indicates
+more options below.
 
 .. image:: images/user_guide/settings_02.png
 
@@ -573,6 +574,16 @@ oriented for a Newtonian reflector; if you use a refractor or an SCT with a star
 set the orientation options for your telescope as described in :doc:`equipment`.  Use the
 **+** and **-** keys to switch between the fields of view of the eyepieces you configured
 via the :ref:`user_guide:Web Interface`
+
+Two overlays help you read the image.  Letters near the edge of the field mark the
+cardinal directions — two of N, S, E, and W, depending on how the image is rotated — so
+you can relate the view to a chart.  A thin outline traces the object's cataloged size
+and orientation; when only the bright core shows in the eyepiece, it gives you a feel
+for the object's full extent.  Both overlays can be switched off under Image... in the
+:ref:`user_guide:settings menu`.
+
+.. image:: images/user_guide/object_image_overlays_docs.png
+   :alt: Object image with cardinal-direction letters and size outline
 
 The bottom left of the screen shows the source of the current image, and the left side
 shows the current FOV information.
