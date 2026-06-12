@@ -6,14 +6,18 @@ reading it back, and verifying the entries match.
 """
 
 import pytest
+from PiFinder.calc_utils import (
+    ra_to_hms_exact,
+    dec_to_dms_exact,
+    ra_to_deg,
+    dms_to_dec,
+)
+from PiFinder.composite_object import MagnitudeObject
 from PiFinder.obslist_formats import (
     ObsList,
     ObsListEntry,
+    PiFinderFormatError,
     detect_format,
-    ra_to_hms,
-    dec_to_dms,
-    hms_to_ra,
-    dms_to_dec,
     read_skylist,
     write_skylist,
     read_csv,
@@ -30,6 +34,8 @@ from PiFinder.obslist_formats import (
     write_nextour,
     read_eqmod,
     write_eqmod,
+    read_pifinder,
+    write_pifinder,
 )
 
 
@@ -40,7 +46,7 @@ def _sample_entries():
             ra=10.6847,
             dec=41.2689,
             obj_type="Gx",
-            mag=3.4,
+            mag=MagnitudeObject([3.4]),
             catalog_code="NGC",
             sequence=224,
             description="Andromeda Galaxy",
@@ -50,7 +56,7 @@ def _sample_entries():
             ra=83.8221,
             dec=-5.3911,
             obj_type="Nb",
-            mag=4.0,
+            mag=MagnitudeObject([4.0]),
             catalog_code="M",
             sequence=42,
         ),
@@ -59,7 +65,7 @@ def _sample_entries():
             ra=359.33,
             dec=56.726,
             obj_type="OC",
-            mag=6.7,
+            mag=MagnitudeObject([6.7]),
             catalog_code="NGC",
             sequence=7789,
         ),
@@ -70,7 +76,9 @@ def _sample_list():
     return ObsList(name="Test List", entries=_sample_entries())
 
 
-def _assert_entries_close(original, parsed, check_type=True, check_mag=True, ra_tol=0.1, dec_tol=0.05):
+def _assert_entries_close(
+    original, parsed, check_type=True, check_mag=True, ra_tol=0.1, dec_tol=0.05
+):
     """Verify parsed entries match originals within tolerance."""
     assert len(parsed) == len(original)
     for orig, got in zip(original, parsed):
@@ -80,8 +88,8 @@ def _assert_entries_close(original, parsed, check_type=True, check_mag=True, ra_
             assert got.dec == pytest.approx(orig.dec, abs=dec_tol)
         if check_type:
             assert got.obj_type == orig.obj_type
-        if check_mag and orig.mag is not None:
-            assert got.mag == pytest.approx(orig.mag, abs=0.15)
+        if check_mag and orig.mag.filter_mag != MagnitudeObject.UNKNOWN_MAG:
+            assert got.mag.filter_mag == pytest.approx(orig.mag.filter_mag, abs=0.15)
         assert got.catalog_code == orig.catalog_code
         assert got.sequence == orig.sequence
 
@@ -93,12 +101,12 @@ def _assert_entries_close(original, parsed, check_type=True, check_mag=True, ra_
 class TestCoordinateHelpers:
     def test_ra_roundtrip(self):
         for ra in [0.0, 45.0, 90.0, 180.0, 270.0, 359.99]:
-            h, m, s = ra_to_hms(ra)
-            assert hms_to_ra(h, m, s) == pytest.approx(ra, abs=0.01)
+            h, m, s = ra_to_hms_exact(ra)
+            assert ra_to_deg(h, m, s) == pytest.approx(ra, abs=0.01)
 
     def test_dec_roundtrip(self):
-        for dec in [-89.5, -45.0, 0.0, 41.27, 89.99]:
-            sign, d, m, s = dec_to_dms(dec)
+        for dec in [-89.5, -45.0, -0.5, 0.0, 41.27, 89.99]:
+            sign, d, m, s = dec_to_dms_exact(dec)
             assert dms_to_dec(sign, d, m, s) == pytest.approx(dec, abs=0.01)
 
 
@@ -192,8 +200,99 @@ def test_eqmod_roundtrip():
     assert parsed.name == "Test List"
     # EQMOD stores 4 decimal places, good precision
     _assert_entries_close(
-        obs.entries, parsed.entries, ra_tol=0.02, dec_tol=0.01, check_type=False, check_mag=False
+        obs.entries,
+        parsed.entries,
+        ra_tol=0.02,
+        dec_tol=0.01,
+        check_type=False,
+        check_mag=False,
     )
+
+
+@pytest.mark.unit
+def test_pifinder_roundtrip():
+    obs = _sample_list()
+    text = write_pifinder(obs)
+    parsed = read_pifinder(text)
+    assert parsed.name == "Test List"
+    # Catalog-keyed entries carry only catalog_code/sequence through the
+    # native format; coordinates are restored at resolution time.
+    assert len(parsed.entries) == 3
+    for orig, got in zip(obs.entries, parsed.entries):
+        assert got.catalog_code == orig.catalog_code
+        assert got.sequence == orig.sequence
+        assert got.description == orig.description
+
+
+@pytest.mark.unit
+def test_pifinder_coordinate_entry_roundtrip():
+    obs = ObsList(
+        name="Custom",
+        entries=[
+            ObsListEntry(
+                name="My Nova",
+                ra=123.456,
+                dec=-12.345,
+                obj_type="Nova",
+                mag=MagnitudeObject([8.2]),
+                description="discovered last night",
+            )
+        ],
+    )
+    text = write_pifinder(obs)
+    parsed = read_pifinder(text)
+    _assert_entries_close(obs.entries, parsed.entries, ra_tol=0.001, dec_tol=0.001)
+    assert parsed.entries[0].description == "discovered last night"
+
+
+@pytest.mark.unit
+def test_pifinder_epoch_precession():
+    import json
+
+    data = {
+        "version": 1,
+        "name": "Epoch test",
+        "objects": [
+            {
+                "name": "Target",
+                "obj_type": "?",
+                "ra": 10.0,
+                "dec": 20.0,
+                "epoch": "J2016.0",
+            }
+        ],
+    }
+    parsed = read_pifinder(json.dumps(data))
+    entry = parsed.entries[0]
+    # J2016 coordinates must be precessed to J2000 — moved, but only by
+    # roughly 16 years of precession (~0.2 deg in RA).
+    assert entry.ra != 10.0
+    assert entry.ra == pytest.approx(10.0, abs=0.5)
+    assert entry.dec == pytest.approx(20.0, abs=0.5)
+
+
+@pytest.mark.unit
+class TestPiFinderValidation:
+    def test_missing_top_level_field(self):
+        with pytest.raises(PiFinderFormatError, match="objects"):
+            read_pifinder('{"version": 1, "name": "x"}')
+
+    def test_unsupported_version(self):
+        with pytest.raises(PiFinderFormatError, match="version"):
+            read_pifinder('{"version": 99, "name": "x", "objects": []}')
+
+    def test_catalog_entry_missing_sequence(self):
+        with pytest.raises(PiFinderFormatError, match="sequence"):
+            read_pifinder(
+                '{"version": 1, "name": "x", "objects": [{"catalog_code": "M"}]}'
+            )
+
+    def test_custom_entry_missing_coords(self):
+        with pytest.raises(PiFinderFormatError, match="ra"):
+            read_pifinder(
+                '{"version": 1, "name": "x",'
+                ' "objects": [{"name": "n", "obj_type": "?", "dec": 1.0}]}'
+            )
 
 
 # ── Format detection tests ──────────────────────────────────────────────
@@ -207,6 +306,10 @@ class TestDetectFormat:
         assert detect_format("", "mylist.hct") == "nextour"
         assert detect_format("", "mylist.lst") == "eqmod"
         assert detect_format("", "mylist.csv") == "csv"
+        assert detect_format("", "mylist.pifinder") == "pifinder"
+
+    def test_by_content_pifinder(self):
+        assert detect_format('{"version": 1, "objects": []}') == "pifinder"
 
     def test_by_content_skylist(self):
         assert detect_format("SkySafariObservingListVersion=3.0\n") == "skylist"

@@ -20,8 +20,16 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Callable, Optional, cast
 
+from PiFinder.calc_utils import (
+    J2000,
+    dec_to_dms_exact,
+    dms_to_dec,
+    epoch_to_epoch,
+    ra_to_deg,
+    ra_to_hms_exact,
+)
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 
 
@@ -67,49 +75,17 @@ SUPPORTED_EXTENSIONS = (
 
 
 # ── Coordinate helpers ──────────────────────────────────────────────────
-
-
-def ra_to_hms(ra_deg: float) -> tuple[int, int, float]:
-    """Convert RA in degrees to (hours, minutes, seconds)."""
-    hours = ra_deg / 15.0
-    h = int(hours)
-    rem = (hours - h) * 60
-    m = int(rem)
-    s = (rem - m) * 60
-    return h, m, s
-
-
-def dec_to_dms(dec_deg: float) -> tuple[str, int, int, float]:
-    """Convert Dec in degrees to (sign, degrees, arcminutes, arcseconds)."""
-    sign = "+" if dec_deg >= 0 else "-"
-    abs_dec = abs(dec_deg)
-    d = int(abs_dec)
-    rem = (abs_dec - d) * 60
-    m = int(rem)
-    s = (rem - m) * 60
-    return sign, d, m, s
-
-
-def hms_to_ra(h: int, m: int, s: float) -> float:
-    """Convert (hours, minutes, seconds) to RA in degrees."""
-    return (h + m / 60.0 + s / 3600.0) * 15.0
-
-
-def dms_to_dec(sign: str, d: int, m: int, s: float) -> float:
-    """Convert (sign, degrees, arcminutes, arcseconds) to Dec in degrees."""
-    dec = d + m / 60.0 + s / 3600.0
-    if sign == "-":
-        dec = -dec
-    return dec
+# HMS/DMS conversion lives in calc_utils; only the string parsing and
+# formatting specific to list formats is defined here.
 
 
 def format_ra_string(ra: float) -> str:
-    h, m, s = ra_to_hms(ra)
+    h, m, s = ra_to_hms_exact(ra)
     return f"{h}h {m}m {s:.1f}s"
 
 
 def format_dec_string(dec: float) -> str:
-    sign, d, m, s = dec_to_dms(dec)
+    sign, d, m, s = dec_to_dms_exact(dec)
     return f"{sign}{d}\u00b0 {m}' {round(s)}\""
 
 
@@ -117,7 +93,7 @@ def _parse_ra_string(s: str) -> float:
     """Parse RA from 'Xh Xm X.Xs' format to degrees."""
     match = re.match(r"(\d+)h\s+(\d+)m\s+([\d.]+)s", s.strip())
     if match:
-        return hms_to_ra(
+        return ra_to_deg(
             int(match.group(1)), int(match.group(2)), float(match.group(3))
         )
     return 0.0
@@ -145,7 +121,7 @@ def _parse_hms_colon(s: str) -> float:
     """Parse RA from 'HH:MM:SS' to degrees."""
     parts = s.strip().split(":")
     if len(parts) == 3:
-        return hms_to_ra(int(parts[0]), int(parts[1]), float(parts[2]))
+        return ra_to_deg(int(parts[0]), int(parts[1]), float(parts[2]))
     return 0.0
 
 
@@ -481,14 +457,14 @@ def write_autostar(obs_list: ObsList) -> str:
     title = obs_list.name[:15]
     lines = ["/ PiFinder export", f'TITLE "{title}"']
     for entry in obs_list.entries:
-        h, m, s = ra_to_hms(entry.ra)
+        h, m, s = ra_to_hms_exact(entry.ra)
         ra_str = f"{h:02d}:{m:02d}:{round(s):02d}"
-        sign, d, dm, ds = dec_to_dms(entry.dec)
+        sign, d, dm, ds = dec_to_dms_exact(entry.dec)
         sign_char = "-" if sign == "-" else ""
         dec_str = f"{sign_char}{d:02d}d{dm:02d}m{round(ds):02d}s"
         obj_title = entry.name[:16]
         mag_str = (
-            f" mag {entry.mag:.1f}"
+            f" mag {entry.mag.filter_mag:.1f}"
             if entry.mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
             else ""
         )
@@ -564,9 +540,9 @@ def read_autostar(text: str) -> ObsList:
 def write_argo(obs_list: ObsList) -> str:
     lines: list[str] = []
     for entry in obs_list.entries:
-        h, m, s = ra_to_hms(entry.ra)
+        h, m, s = ra_to_hms_exact(entry.ra)
         ra_str = f"{h:02d}:{m:02d}:{round(s):02d}"
-        sign, d, dm, ds = dec_to_dms(entry.dec)
+        sign, d, dm, ds = dec_to_dms_exact(entry.dec)
         dec_str = f"{sign}{d:02d}:{dm:02d}:{round(ds):02d}"
         atype = ARGO_TYPE_MAP.get(entry.obj_type, "USER")
         mag_str = (
@@ -842,9 +818,8 @@ def write_pifinder(obs_list: ObsList) -> str:
 
 
 _EPOCH_JD = {
-    "J2000": 2451545.0,
+    "J2000": J2000,
 }
-_J2000_JD = 2451545.0
 
 
 def _epoch_to_jd(epoch_str: str) -> float:
@@ -853,18 +828,16 @@ def _epoch_to_jd(epoch_str: str) -> float:
         return _EPOCH_JD[epoch_str]
     if epoch_str.startswith("J"):
         year = float(epoch_str[1:])
-        return _J2000_JD + (year - 2000.0) * 365.25
+        return J2000 + (year - 2000.0) * 365.25
     raise ValueError(f"Unsupported epoch: {epoch_str}")
 
 
 def _precess_to_j2000(ra_deg: float, dec_deg: float, from_jd: float) -> tuple:
     """Precess (ra_deg, dec_deg) from given epoch to J2000."""
-    if from_jd == _J2000_JD:
+    if from_jd == J2000:
         return ra_deg, dec_deg
-    from PiFinder.calc_utils import epoch_to_epoch
-
     ra_h_from = ra_deg / 15.0
-    ra_h, dec = epoch_to_epoch(from_jd, _J2000_JD, ra_h_from, dec_deg)
+    ra_h, dec = epoch_to_epoch(from_jd, J2000, ra_h_from, dec_deg)
     return ra_h._degrees, dec.degrees
 
 
@@ -914,23 +887,28 @@ def _validate_pifinder_object(obj: dict, index: int) -> None:
 
 def _precess_size_to_j2000(size: SizeObject, from_jd: float) -> SizeObject:
     """Precess all RA/Dec coordinates in a SizeObject to J2000."""
-    if from_jd == _J2000_JD:
+    if from_jd == J2000:
         return size
     if size.is_segments:
-        new_shape = []
-        for seg in size.extents:
+        # Segments-mode extents: list of [[ra,dec],[ra,dec]] segments.
+        new_segments = []
+        for seg in cast("list[list[list[float]]]", size.extents):
             new_seg = []
             for pt in seg:
                 ra, dec = _precess_to_j2000(pt[0], pt[1], from_jd)
                 new_seg.append([ra, dec])
-            new_shape.append(new_seg)
-        return SizeObject(new_shape, size.position_angle, geometry=size.geometry)
+            new_segments.append(new_seg)
+        return SizeObject(
+            cast("list[list[float]]", new_segments),
+            size.position_angle,
+            geometry=size.geometry,
+        )
     if size.is_vertices:
-        new_shape = []
-        for pt in size.extents:
+        new_vertices = []
+        for pt in cast("list[list[float]]", size.extents):
             ra, dec = _precess_to_j2000(pt[0], pt[1], from_jd)
-            new_shape.append([ra, dec])
-        return SizeObject(new_shape, size.position_angle, geometry=size.geometry)
+            new_vertices.append([ra, dec])
+        return SizeObject(new_vertices, size.position_angle, geometry=size.geometry)
     return size
 
 
@@ -1003,7 +981,7 @@ _FORMAT_BY_EXT: dict[str, str] = {
     ".pifinder": "pifinder",
 }
 
-_READERS: dict[str, object] = {
+_READERS: dict[str, Callable[[str], ObsList]] = {
     "skylist": read_skylist,
     "csv": read_csv,
     "text": read_text,
@@ -1015,7 +993,7 @@ _READERS: dict[str, object] = {
     "pifinder": read_pifinder,
 }
 
-_WRITERS: dict[str, object] = {
+_WRITERS: dict[str, Callable[[ObsList], str]] = {
     "skylist": write_skylist,
     "csv": write_csv,
     "text": write_text,

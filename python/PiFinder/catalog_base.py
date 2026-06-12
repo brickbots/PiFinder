@@ -167,6 +167,16 @@ class VirtualIDManager:
             obj.object_id = low_id
         return low_id
 
+    @staticmethod
+    def mint_id() -> int:
+        """
+        Mint a single virtual object_id, unique across all minters
+        (planet/comet catalogs, observing-list coordinate objects).
+        """
+        with VirtualIDManager.virtual_id_lock:
+            VirtualIDManager.virtual_id_low -= 1
+            return VirtualIDManager.virtual_id_low
+
 
 class TimerMixin:
     """Provides timer functionality via composition"""

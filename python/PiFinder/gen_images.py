@@ -18,7 +18,7 @@ import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, cast
 
 import requests
 from PIL import Image, ImageOps
@@ -52,7 +52,7 @@ def check_sdss_image(image: Image.Image) -> bool:
     """Check SDSS image for defects (blank/out-of-range)."""
     blank = True
     for y in range(0, 24):
-        if image.getpixel((0, y + 50)) > 0:
+        if cast(int, image.getpixel((0, y + 50))) > 0:
             blank = False
             break
     if blank:
@@ -77,7 +77,7 @@ def fetch_poss(
         resp = session.get(url, timeout=60)
         if resp.status_code != 200:
             return False, f"HTTP {resp.status_code}"
-        img = Image.open(BytesIO(resp.content))
+        img: Image.Image = Image.open(BytesIO(resp.content))
         img = img.convert("L")
         img = ImageOps.autocontrast(img, cutoff=(low_cut, 0))
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -97,7 +97,7 @@ def fetch_sdss(
         resp = session.get(url, timeout=60)
         if resp.status_code != 200:
             return False, f"HTTP {resp.status_code}"
-        img = Image.open(BytesIO(resp.content))
+        img: Image.Image = Image.open(BytesIO(resp.content))
         img = img.convert("L")
         if not check_sdss_image(img):
             return False, "out of range"

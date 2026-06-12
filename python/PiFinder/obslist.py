@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import logging
 from PiFinder import utils
+from PiFinder.catalog_base import VirtualIDManager
 from PiFinder.catalogs import Catalogs
 from PiFinder.composite_object import CompositeObject
 from PiFinder.obslist_formats import (
@@ -102,9 +103,10 @@ def _coordinate_object(entry: ObsListEntry, index: int) -> CompositeObject:
             const = sf_utils.radec_to_constellation(entry.ra, entry.dec)
         except Exception:
             pass
+    virtual_id = VirtualIDManager.mint_id()
     return CompositeObject(
-        id=-(index + 1),
-        object_id=-(index + 1),
+        id=virtual_id,
+        object_id=virtual_id,
         ra=entry.ra,
         dec=entry.dec,
         obj_type=entry.obj_type or "?",
