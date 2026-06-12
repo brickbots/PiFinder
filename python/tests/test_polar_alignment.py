@@ -497,6 +497,12 @@ class TestCorrectionTargetSanity:
     rotation recovered from the (last solve -> target) attitudes must put the
     reported axis on the celestial pole via an azimuth-then-altitude knob
     composition.
+
+    The exact match only holds with observation_jyear=None.  With it set,
+    correction_target aims the knobs at the annual-aberration-nudged
+    (apparent) pole while get_platform_adjustments reports dAlt/dAz against
+    the geometric pole, so the two deliberately disagree by up to ~20.5"
+    (see test_aberration_nudge_offsets_target_pole).
     """
 
     @staticmethod
@@ -578,3 +584,36 @@ class TestCorrectionTargetSanity:
 
     def test_knobs_match_target_sh_negative_errors(self):
         self._check(LAT_SH, -0.75, -2.5)
+
+    def test_aberration_nudge_offsets_target_pole(self):
+        # With observation_jyear set, correction_target aims the physical
+        # knobs at the APPARENT pole (annual-aberration nudge), so the
+        # rotation recovered from its output lands the reported axis close
+        # to -- but deliberately NOT exactly on -- the geometric pole.  The
+        # offset is the aberration displacement scaled by cos(theta),
+        # bounded by the aberration constant (~20.5").
+        jyear = 2026.44
+        ra1, dec1, roll1 = 180.0, 40.0, 10.0
+        ra2, dec2, roll2 = make_solve_2(ra1, dec1, roll1, LAT_NH, 1.5, 3.0, 30.0, LST)
+        _, _, _, ax_ra, ax_dec, _ = get_platform_adjustments(
+            [(ra1, dec1, roll1, 0), (ra2, dec2, roll2, 0)],
+            LAT_NH,
+            LST,
+            observation_jyear=jyear,
+        )
+        ra_t, dec_t, roll_t = correction_target(
+            ax_ra, ax_dec, (ra2, dec2, roll2), LAT_NH, LST, observation_jyear=jyear
+        )
+
+        # Both target and last_solve are J2000; the knob rotation acts in
+        # JNOW, so conjugate the recovered rotation with the precession
+        # matrix to express it there, where the axis (ax_ra/ax_dec) lives.
+        P = _precession_matrix(jyear)
+        S = (
+            P
+            @ (attitude_mat(ra_t, dec_t, roll_t) @ attitude_mat(ra2, dec2, roll2).T)
+            @ P.T
+        )
+        landed = S @ _axis_vec(ax_ra, ax_dec)
+        sep_arcsec = np.degrees(np.arccos(np.clip(landed[2], -1.0, 1.0))) * 3600.0
+        assert 5.0 < sep_arcsec < 25.0
