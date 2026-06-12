@@ -7,9 +7,11 @@ import importlib
 
 
 home_dir = Path.home()
-cwd_dir = Path.cwd()
-pifinder_dir = Path("..")
-astro_data_dir = cwd_dir / pifinder_dir / "astro_data"
+# Repo root, anchored on this file (python/PiFinder/utils.py) so paths
+# resolve regardless of cwd. All other modules derive paths from here.
+pifinder_dir = Path(__file__).resolve().parents[2]
+assert (pifinder_dir / "astro_data").is_dir(), f"repo root not at {pifinder_dir}"
+astro_data_dir = pifinder_dir / "astro_data"
 tetra3_dir = pifinder_dir / "python/PiFinder/tetra3/tetra3"
 data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
