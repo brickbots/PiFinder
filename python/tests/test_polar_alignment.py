@@ -56,8 +56,7 @@ def _true_axis(latitude, dAlt, dAz, lst_deg):
     else:
         alt = np.radians(abs(latitude) + dAlt)
         az = np.radians(180.0 + dAz)
-    dec = (np.arcsin(np.sin(lat) * np.sin(alt)
-                     + np.cos(lat) * np.cos(alt) * np.cos(az)))
+    dec = np.arcsin(np.sin(lat) * np.sin(alt) + np.cos(lat) * np.cos(alt) * np.cos(az))
     ha = np.arctan2(
         -np.cos(alt) * np.sin(az),
         np.cos(lat) * np.sin(alt) - np.sin(lat) * np.cos(alt) * np.cos(az),
@@ -68,10 +67,8 @@ def _true_axis(latitude, dAlt, dAz, lst_deg):
 
 
 def _three_solves(ra1, dec1, latitude, dAlt, dAz, sweep_total, lst_deg):
-    s2 = make_solve_2(ra1, dec1, 0.0, latitude, dAlt, dAz,
-                      sweep_total / 2, lst_deg)
-    s3 = make_solve_2(ra1, dec1, 0.0, latitude, dAlt, dAz,
-                      sweep_total, lst_deg)
+    s2 = make_solve_2(ra1, dec1, 0.0, latitude, dAlt, dAz, sweep_total / 2, lst_deg)
+    s3 = make_solve_2(ra1, dec1, 0.0, latitude, dAlt, dAz, sweep_total, lst_deg)
     return [(ra1, dec1, 0.0, 0), (*s2, 0), (*s3, 0)]
 
 
@@ -232,8 +229,7 @@ class TestThreeSolve:
                 sigma_roll=sigma_roll,
             )
             err = np.degrees(
-                np.arccos(np.clip(np.dot(_axis_vec(ax_ra, ax_dec), true_ax),
-                                  -1, 1))
+                np.arccos(np.clip(np.dot(_axis_vec(ax_ra, ax_dec), true_ax), -1, 1))
             )
             errs.append(err * 60)
             fqs.append(fq)
@@ -310,8 +306,7 @@ class TestPrecession:
             observation_jyear=jyear_c,
         )
         _ts_c = sf_utils.ts.J(jyear_c)
-        _ncp = (_SKYFIELD_TETE_FRAME.rotation_at(_ts_c)
-                @ np.array([0.0, 0.0, 1.0]))
+        _ncp = _SKYFIELD_TETE_FRAME.rotation_at(_ts_c) @ np.array([0.0, 0.0, 1.0])
         gt_ra_c = np.degrees(np.arctan2(_ncp[1], _ncp[0])) % 360
         gt_dec_c = np.degrees(np.arcsin(np.clip(_ncp[2], -1, 1)))
         exp_axis = _axis_vec(gt_ra_c, gt_dec_c)
@@ -335,13 +330,15 @@ class TestCorrectionTarget:
         _, _, _, ax_ra, ax_dec, _ = get_platform_adjustments(
             [(ra_pt, dec_pt, 0.0, 0), (ra_pt, dec_pt, 14.0, 0)], LAT_NH, LST
         )
-        _, dec_t, _ = correction_target(ax_ra, ax_dec, (ra_pt, dec_pt, 14.0),
-                                        LAT_NH, LST)
+        _, dec_t, _ = correction_target(
+            ax_ra, ax_dec, (ra_pt, dec_pt, 14.0), LAT_NH, LST
+        )
         assert dec_t == pytest.approx(90.0, abs=1e-4)
 
     def test_aligned_axis_is_identity(self):
-        ra_t, dec_t, roll_t = correction_target(0.0, 90.0, (180.0, 30.0, 5.0),
-                                                LAT_NH, LST)
+        ra_t, dec_t, roll_t = correction_target(
+            0.0, 90.0, (180.0, 30.0, 5.0), LAT_NH, LST
+        )
         assert ra_t == pytest.approx(180.0, abs=1e-9)
         assert dec_t == pytest.approx(30.0, abs=1e-9)
         assert roll_t == pytest.approx(5.0, abs=1e-9)
@@ -349,8 +346,7 @@ class TestCorrectionTarget:
     def test_antipodal_axis(self):
         # Axis pointing exactly at the SCP; the correction rotation must map
         # it to the NCP, carrying the boresight from dec=-30 to dec=+30.
-        _, dec_t, _ = correction_target(0.0, -90.0, (180.0, -30.0, 0.0),
-                                        LAT_NH, LST)
+        _, dec_t, _ = correction_target(0.0, -90.0, (180.0, -30.0, 0.0), LAT_NH, LST)
         assert dec_t == pytest.approx(30.0, abs=1e-6)
 
     def test_roll_survives_precession_round_trip(self):
@@ -367,8 +363,7 @@ class TestCorrectionTarget:
         # roll very close to the pole, it will stay under 20" with Dec < 45°
 
         ra_t, dec_t, roll_t = correction_target(
-            0.0, 90.0, (180.0, 30.0, 45.0),
-            LAT_NH, LST, observation_jyear=2026.44
+            0.0, 90.0, (180.0, 30.0, 45.0), LAT_NH, LST, observation_jyear=2026.44
         )
         sep_arcsec = (
             np.degrees(
@@ -394,8 +389,9 @@ class TestCorrectionTarget:
         _, _, _, ax_ra, ax_dec, _ = get_platform_adjustments(
             [(ra_pt, dec_pt, 0.0, 0), (ra_pt, dec_pt, 14.0, 0)], LAT_SH, LST
         )
-        _, dec_t, _ = correction_target(ax_ra, ax_dec, (ra_pt, dec_pt, 14.0),
-                                        LAT_SH, LST)
+        _, dec_t, _ = correction_target(
+            ax_ra, ax_dec, (ra_pt, dec_pt, 14.0), LAT_SH, LST
+        )
         assert dec_t == pytest.approx(-90.0, abs=1e-4)
 
     def test_j2000_pole_axis_target_back_precessed(self):
@@ -417,8 +413,7 @@ class TestCorrectionTarget:
             observation_jyear=jyear_c,
         )
         ra_t, dec_t, _ = correction_target(
-            ax_ra, ax_dec, (0.0, 90.0, 14.0),
-            LAT_NH, LST, observation_jyear=jyear_c
+            ax_ra, ax_dec, (0.0, 90.0, 14.0), LAT_NH, LST, observation_jyear=jyear_c
         )
         # Ground truth: TETE Dec=90° (JNOW NCP) expressed in ICRS/J2000,
         # recovered through astropy i.e. the JNOW *apparent* pole back-rotated
@@ -492,3 +487,94 @@ class TestDegenerateInputs:
         shuffled = [timed[2], timed[0], timed[1]]
         result = get_platform_adjustments(shuffled, LAT_NH, LST)
         assert result == pytest.approx(expected, abs=1e-9)
+
+
+@pytest.mark.unit
+class TestCorrectionTargetSanity:
+    """
+    Validate that the dAlt/dAz reported by get_platform_adjustments are
+    exactly the knob movements embodied by correction_target: applying the
+    rotation recovered from the (last solve -> target) attitudes must put the
+    reported axis on the celestial pole via an azimuth-then-altitude knob
+    composition.
+    """
+
+    @staticmethod
+    def _altaz(v, lat_deg, lst_deg):
+        """Ground-frame (alt, az) in degrees of an equatorial unit vector."""
+        dec = np.degrees(np.arcsin(np.clip(v[2], -1.0, 1.0)))
+        ra = np.degrees(np.arctan2(v[1], v[0]))
+        ha = np.radians(lst_deg - ra)
+        lat = np.radians(lat_deg)
+        dec_r = np.radians(dec)
+        sin_alt = np.sin(lat) * np.sin(dec_r) + np.cos(lat) * np.cos(dec_r) * np.cos(ha)
+        alt = np.degrees(np.arcsin(np.clip(sin_alt, -1.0, 1.0)))
+        az = np.degrees(
+            np.arctan2(
+                -np.cos(dec_r) * np.sin(ha),
+                np.cos(lat) * np.sin(dec_r) - np.sin(lat) * np.cos(dec_r) * np.cos(ha),
+            )
+        )
+        return alt, az % 360.0
+
+    def _check(self, latitude, dAlt_true, dAz_true):
+        ra1, dec1, roll1 = 180.0, 40.0 if latitude >= 0 else -40.0, 10.0
+        ra2, dec2, roll2 = make_solve_2(
+            ra1, dec1, roll1, latitude, dAlt_true, dAz_true, 30.0, LST
+        )
+        dAlt, dAz, _, ax_ra, ax_dec, _ = get_platform_adjustments(
+            [(ra1, dec1, roll1, 0), (ra2, dec2, roll2, 0)], latitude, LST
+        )
+        assert dAlt == pytest.approx(dAlt_true, abs=1e-6)
+        assert dAz == pytest.approx(dAz_true, abs=1e-6)
+
+        ra_t, dec_t, roll_t = correction_target(
+            ax_ra, ax_dec, (ra2, dec2, roll2), latitude, LST
+        )
+
+        # The physical correction rotation, recovered purely from the
+        # public outputs of correction_target.
+        S = attitude_mat(ra_t, dec_t, roll_t) @ attitude_mat(ra2, dec2, roll2).T
+
+        # 1) It puts the reported axis exactly on the celestial pole
+        #    (angular separation -- azimuth is ill-conditioned at the pole).
+        axis = _axis_vec(ax_ra, ax_dec)
+        pole = np.array([0.0, 0.0, 1.0 if latitude >= 0 else 1.0])
+        sep = np.degrees(np.arccos(np.clip(np.dot(S @ axis, pole), -1.0, 1.0)))
+        assert sep == pytest.approx(0.0, abs=1e-6)
+
+        # 2) The pole-pointing end of the axis moves by exactly the reported
+        #    knob amounts: altitude down by dAlt, azimuth back by dAz.
+        pole_end = axis if latitude >= 0 else -axis
+        alt_before, az_before = self._altaz(pole_end, latitude, LST)
+        alt_after, az_after = self._altaz(S @ pole_end, latitude, LST)
+        assert alt_before - alt_after == pytest.approx(dAlt, abs=1e-6)
+        d_az_moved = (az_before - az_after + 180.0) % 360.0 - 180.0
+        # Azimuth of the corrected (near-pole) axis is ill-conditioned:
+        # extract/rebuild float noise is amplified by 1/sin(colatitude).
+        assert d_az_moved == pytest.approx(dAz, abs=1e-4)
+
+        # 3) Knob composition: the azimuth stage leaves the zenith fixed and
+        #    the altitude pin then tilts it within the pole's vertical
+        #    (north-south) plane — so the corrected zenith must stay in that
+        #    plane.  A single minimal rotation axis->pole would generally
+        #    move it sideways.
+        phi = np.radians(latitude)
+        lst = np.radians(LST)
+        zen = np.array(
+            [np.cos(phi) * np.cos(lst), np.cos(phi) * np.sin(lst), np.sin(phi)]
+        )
+        _, az_zen = self._altaz(S @ zen, latitude, LST)
+        assert abs(np.sin(np.radians(az_zen))) == pytest.approx(0.0, abs=1e-6)
+
+    def test_knobs_match_target_nh(self):
+        self._check(LAT_NH, 1.5, 3.0)
+
+    def test_knobs_match_target_nh_negative_errors(self):
+        self._check(LAT_NH, -2.0, -1.25)
+
+    def test_knobs_match_target_sh(self):
+        self._check(LAT_SH, 1.5, 3.0)
+
+    def test_knobs_match_target_sh_negative_errors(self):
+        self._check(LAT_SH, -0.75, -2.5)
