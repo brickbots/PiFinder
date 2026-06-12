@@ -48,7 +48,7 @@ The escape hatch entered when a solve attempt matches nothing: the match-count c
 _Avoid_: zero-star handling (legacy code name — the trigger is zero `Matches`, not an empty sky; a star-filled frame can still match nothing).
 
 **Recovery ladder**:
-The ordered list of exposures zero-match recovery walks through, trying each rung a fixed number of times before advancing, wrapping around until matches return. The ordering is deliberate: start at the known-safe shipped default, climb to longer exposures first (too-dark dominates at night), then try short.
+The ordered list of exposures zero-match recovery walks through, trying each rung a fixed number of times before advancing, wrapping around until matches return. The ordering is deliberate: start at the known-safe shipped default, climb to longer exposures first (too-dark dominates at night), then try short. The ladder floors at 200 ms — shorter exposures are unlikely to pick up enough stars to solve (see [ADR 0010](../../adr/0010-zero-match-recovery-single-ladder.md)).
 _Avoid_: sweep (unqualified — see flagged ambiguities).
 
 **Trigger count**:

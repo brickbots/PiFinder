@@ -89,10 +89,18 @@ stops trusting its feedback signal and delegates to recovery
 
 - **Trigger count** 2: recovery activates on the second consecutive
   zero-match attempt.
-- **Recovery ladder**: `[400, 800, 1000, 200, 100, 50, 25]` ms — start at
-  the known-safe shipped default, climb first (too-dark dominates at
-  night), then try short. Each rung is tried twice (two solve attempts),
-  and the ladder wraps until matches return.
+- **Recovery ladder**: `[400, 800, 1000, 200]` ms — start at the
+  known-safe shipped default, climb first (too-dark dominates at night),
+  then one short rung. The ladder floors at 200 ms (ADR 0010): below
+  that, a frame is unlikely to pick up enough stars to solve, even under
+  a bright sky. Each rung is tried twice (two solve attempts), and the
+  ladder wraps until matches return.
+  (The shipped code still walks the legacy ladder down through
+  100/50/25 ms until the consolidation lands.)
+- **The floor is recovery's, not the controller's**: the match-count
+  controller's clamp range (§3) still reaches down to 25 ms — a
+  feedback-justified descent is fine; recovery's blind search below
+  200 ms isn't.
 - **Exit**: the first nonzero-`Matches` attempt deactivates recovery and
   resets the controller's integral and last-error so the excursion
   doesn't bias the next adjustment.
