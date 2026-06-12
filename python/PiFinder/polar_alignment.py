@@ -41,8 +41,6 @@ Alt/Az sign convention
   Azimuth is measured from North, positive toward East.
 """
 
-import logging
-
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from scipy.optimize import minimize
@@ -51,8 +49,6 @@ from skyfield.framelib import (
 )
 
 from PiFinder.calc_utils import sf_utils
-
-logger = logging.getLogger("PiFinder.polar_alignment")
 
 # Minimum angular sweep between the first and last solve for a valid result.
 # If the recovered sweep is below this threshold, the solves are too close
@@ -234,14 +230,7 @@ def correction_target(
     roll_target: float  Expected roll at the target in degrees.
     """
     # Build the current axis unit vector (JNOW)
-    cd = np.cos(np.radians(axis_dec))
-    axis = np.array(
-        [
-            cd * np.cos(np.radians(axis_ra)),
-            cd * np.sin(np.radians(axis_ra)),
-            np.sin(np.radians(axis_dec)),
-        ]
-    )
+    axis = _boresight_vec(axis_ra, axis_dec)
 
     # Precess last_solve from J2000/ICRS to JNOW so it matches the axis frame.
     ra_ls, dec_ls, roll_ls = last_solve[0], last_solve[1], last_solve[2]
@@ -258,39 +247,7 @@ def correction_target(
 
     ncp = np.array([0.0, 0.0, 1.0])  # target axis direction (JNOW pole)
 
-    # ── Physical correction, step 1: azimuth knob ────────────────────────────
-    # Rotate about the local vertical until the axis lies in the same
-    # vertical plane as the target.  This changes every azimuth by exactly
-    # the knob angle and no altitude — so the knob angle is simply the
-    # signed angle between the horizontal projections.
-    n_h = axis - np.dot(axis, zen) * zen
-    t_h = ncp - np.dot(ncp, zen) * zen
-    if np.linalg.norm(n_h) > 1e-12 and np.linalg.norm(t_h) > 1e-12:
-        d_az = np.arctan2(np.dot(np.cross(n_h, t_h), zen), np.dot(n_h, t_h))
-        R_az = R.from_rotvec(d_az * zen).as_matrix()
-    else:
-        R_az = np.eye(3)  # axis or pole at the zenith: no azimuth dof
-    n1 = R_az @ axis
-
-    # ── Physical correction, step 2: altitude knob ───────────────────────────
-    # n1 and the target now share a vertical plane; the altitude pin is the
-    # horizontal normal of that plane, so the in-plane minimal rotation from
-    # n1 to the target IS the altitude-knob rotation.
-    c = np.cross(n1, ncp)
-    s = np.linalg.norm(c)
-    cosg = np.clip(np.dot(n1, ncp), -1.0, 1.0)
-    if s < 1e-15:
-        if cosg > 0.0:
-            R_alt = np.eye(3)
-        else:
-            # Antipodal within the plane: 180° about the horizontal pin.
-            pin = np.cross(zen, ncp)
-            pin /= np.linalg.norm(pin)
-            R_alt = R.from_rotvec(np.pi * pin).as_matrix()
-    else:
-        R_alt = R.from_rotvec(np.arctan2(s, cosg) * (c / s)).as_matrix()
-
-    S = R_alt @ R_az
+    S = _altaz_knob_rotation(axis, ncp, zen)
 
     # Apply the physical correction to the last-solve attitude (JNOW)
     M_last = attitude_mat(ra_ls, dec_ls, roll_ls)
@@ -303,6 +260,49 @@ def correction_target(
     return extract_plate_solve(M_corrected)
 
 
+def _altaz_knob_rotation(axis, target, zen):
+    """
+    Rotation realised by the mount's physical adjusters that carries
+    ``axis`` onto ``target``: first the azimuth knob (about the local
+    vertical ``zen``), then the altitude pin (about the horizontal normal
+    of the shared vertical plane).  All vectors are unit vectors in the
+    same equatorial frame.
+    """
+    # ── Step 1: azimuth knob ──────────────────────────────────────────────────
+    # Rotate about the local vertical until the axis lies in the same
+    # vertical plane as the target.  This changes every azimuth by exactly
+    # the knob angle and no altitude — so the knob angle is simply the
+    # signed angle between the horizontal projections.
+    n_h = axis - np.dot(axis, zen) * zen
+    t_h = target - np.dot(target, zen) * zen
+    if np.linalg.norm(n_h) > 1e-12 and np.linalg.norm(t_h) > 1e-12:
+        d_az = np.arctan2(np.dot(np.cross(n_h, t_h), zen), np.dot(n_h, t_h))
+        R_az = R.from_rotvec(d_az * zen).as_matrix()
+    else:
+        R_az = np.eye(3)  # axis or pole at the zenith: no azimuth dof
+    n1 = R_az @ axis
+
+    # ── Step 2: altitude knob ─────────────────────────────────────────────────
+    # n1 and the target now share a vertical plane; the altitude pin is the
+    # horizontal normal of that plane, so the in-plane minimal rotation from
+    # n1 to the target IS the altitude-knob rotation.
+    c = np.cross(n1, target)
+    s = np.linalg.norm(c)
+    cosg = np.clip(np.dot(n1, target), -1.0, 1.0)
+    if s < 1e-15:
+        if cosg > 0.0:
+            R_alt = np.eye(3)
+        else:
+            # Antipodal within the plane: 180° about the horizontal pin.
+            pin = np.cross(zen, target)
+            pin /= np.linalg.norm(pin)
+            R_alt = R.from_rotvec(np.pi * pin).as_matrix()
+    else:
+        R_alt = R.from_rotvec(np.arctan2(s, cosg) * (c / s)).as_matrix()
+
+    return R_alt @ R_az
+
+
 def _boresight_vec(ra_deg, dec_deg):
     """Unit vector in equatorial frame pointing at (RA, Dec)."""
     r, d = np.radians(ra_deg), np.radians(dec_deg)
@@ -312,13 +312,6 @@ def _boresight_vec(ra_deg, dec_deg):
 def _wrap180(angle):
     """Wrap angle in degrees to (−180, +180]."""
     return (angle + 180.0) % 360.0 - 180.0
-
-
-def _axis_from_dec_ra(dec_ax_rad, ra_ax_rad):
-    cd = np.cos(dec_ax_rad)
-    return np.array(
-        [cd * np.cos(ra_ax_rad), cd * np.sin(ra_ax_rad), np.sin(dec_ax_rad)]
-    )
 
 
 def _axis_from_nx_ny(nx, ny):
@@ -499,6 +492,133 @@ def _refine_axis_three_solves(obs, axis_seed, sigma_ra, sigma_dec, sigma_roll):
     return n, final_cost
 
 
+# ── Pipeline stages ───────────────────────────────────────────────────────────
+
+_SIDEREAL_DEG_PER_SEC = 360.0 / 86164.09
+
+
+def _epoch_align_solves(solves, observation_jyear):
+    """
+    Express every solve in the equatorial frame at the epoch of the last solve.
+
+    First precess all solves from J2000/ICRS to JNOW (TETE) if
+    observation_jyear is given — this must happen before the sidereal drift
+    correction so that RA is advanced in the already-precessed (JNOW)
+    coordinate system.  Then advance each solve's RA to the epoch of the
+    *last* solve by adding its individual sidereal drift.  Dec and roll are
+    unaffected.
+    """
+    if observation_jyear is not None:
+        P = _precession_matrix(observation_jyear)
+        solves = [
+            extract_plate_solve(P @ attitude_mat(ra, dec, roll)) + (t,)
+            for ra, dec, roll, t in solves
+        ]
+
+    t_ref = solves[-1][3]
+    return [
+        (ra + (t_ref - t) * _SIDEREAL_DEG_PER_SEC, dec, roll, t)
+        for ra, dec, roll, t in solves
+    ]
+
+
+def _two_solve_axis(solve_a, solve_b):
+    """
+    Axis and sweep of the relative rotation between two plate solves.
+
+    Returns (axis, sweep_deg):
+      axis      : unit vector with axis[2] >= 0, or None when there is no
+                  measurable rotation between the solves (sweep_deg is 0.0).
+      sweep_deg : sweep angle in degrees; negated when the axis had to be
+                  flipped to the axis[2] >= 0 hemisphere.
+    """
+    ra1, dec1, roll1, _ = solve_a
+    ra2, dec2, roll2, _ = solve_b
+
+    m1 = attitude_mat(ra1, dec1, roll1)
+    m2 = attitude_mat(ra2, dec2, roll2)
+    r_clean = R.from_matrix(m2 @ m1.T).as_matrix()
+
+    cos_theta = np.clip((np.trace(r_clean) - 1.0) / 2.0, -1.0, 1.0)
+    sweep_deg = np.degrees(np.arccos(cos_theta))
+
+    axis = np.array(
+        [
+            r_clean[2, 1] - r_clean[1, 2],
+            r_clean[0, 2] - r_clean[2, 0],
+            r_clean[1, 0] - r_clean[0, 1],
+        ]
+    )
+    norm = np.linalg.norm(axis)
+    if norm < 1e-8:
+        if cos_theta > 0:
+            return None, 0.0
+        # Sweep is numerically 180°: the antisymmetric part of the rotation
+        # vanishes, but the axis survives in the symmetric part,
+        # R + I = 2·n·nᵀ.  Take its largest column for numerical stability.
+        sym = r_clean + np.eye(3)
+        axis = sym[:, np.argmax(np.linalg.norm(sym, axis=0))]
+        norm = np.linalg.norm(axis)
+
+    axis /= norm
+    if axis[2] < 0:
+        axis = -axis
+        sweep_deg = -sweep_deg
+    return axis, sweep_deg
+
+
+def _ignore_roll_axis(solves, sweep_deg, sigma_roll):
+    """
+    RA/Dec-only axis: the pole of the arc defined by the boresight directions
+    of the first, middle, and last solve.  Roll is not used to find the axis,
+    making this immune to systematic roll errors (e.g. camera flop).
+
+    Returns (axis, roll_cost):
+      axis      : unit vector with axis[2] >= 0, or None when the boresights
+                  are (nearly) identical — the scope is pointing at the
+                  mechanical axis and RA/Dec carry no rotation information,
+                  so the axis is undetermined.
+      roll_cost : roll-consistency check.  The axis and sweeps are fully
+                  determined by the three RA/Dec positions (no free
+                  parameters), so the roll residuals measure only how
+                  consistent the roll observations are with the RA/Dec-derived
+                  axis.  Expected ~1 under pure noise; nan if the prediction
+                  fails.  sweep_deg (from the two-solve estimate) only orients
+                  the axis so the sweeps keep the same sign.
+    """
+    mid = len(solves) // 2
+    b1 = _boresight_vec(solves[0][0], solves[0][1])
+    b2 = _boresight_vec(solves[mid][0], solves[mid][1])
+    b3 = _boresight_vec(solves[-1][0], solves[-1][1])
+    n = np.cross(b1 - b2, b2 - b3)
+    nm = np.linalg.norm(n)
+    if nm <= 1e-9:
+        return None, float("nan")
+    axis = n / nm
+    if axis[2] < 0:
+        axis = -axis
+
+    obs = [(ra, dec, roll) for ra, dec, roll, _ in solves]
+    bs = [_boresight_vec(o[0], o[1]) for o in obs]
+
+    # Orient axis so sweeps have same sign as the two-solve sweep
+    t1_pos = _signed_sweep_angle(axis, bs[0], bs[1])
+    t1_neg = _signed_sweep_angle(-axis, bs[0], bs[1])
+    n_ir = axis if abs(t1_pos - sweep_deg) < abs(t1_neg - sweep_deg) else -axis
+    t1 = _signed_sweep_angle(n_ir, bs[0], bs[1])
+    t2 = _signed_sweep_angle(n_ir, bs[1], bs[2])
+
+    roll_cost = float("nan")
+    try:
+        ps = _predict_three_solves(n_ir, t1, t2, obs[0][0], obs[0][1], obs[0][2])
+        roll_cost = sum(
+            (_wrap180(p[2] - m[2]) / sigma_roll) ** 2 for p, m in zip(ps, obs)
+        )
+    except Exception:
+        pass
+    return axis, roll_cost
+
+
 # ── Main function ─────────────────────────────────────────────────────────────
 
 
@@ -614,143 +734,59 @@ def get_platform_adjustments(
     if len(solves) < 2:
         raise ValueError("At least two plate solves are required.")
 
-    SIDEREAL_DEG_PER_SEC = 360.0 / 86164.09
+    # 1. Express every solve in the equatorial frame at the epoch of the
+    #    last solve (precess to JNOW if requested, then sidereal drift).
+    solves = _epoch_align_solves(solves, observation_jyear)
 
-    # 1. Precess all solves from J2000/ICRS to JNOW (TETE) if requested.
-    #    Must happen before the sidereal drift correction so that we add RA
-    #    in the already-precessed (JNOW) coordinate system.
-    if observation_jyear is not None:
-        P = _precession_matrix(observation_jyear)
-        solves = [
-            extract_plate_solve(P @ attitude_mat(ra, dec, roll)) + (t,)
-            for ra, dec, roll, t in solves
-        ]
-
-    # 2. Advance each solve's RA to the epoch of the *last* solve by adding
-    #    its individual sidereal drift.  Dec and roll are unaffected.
-    t_ref = solves[-1][3]
-    solves = [
-        (ra + (t_ref - t) * SIDEREAL_DEG_PER_SEC, dec, roll, t)
-        for ra, dec, roll, t in solves
-    ]
-
-    # 3. Two-solve axis estimate from the first and last solve.
+    # 2. Two-solve axis estimate from the first and last solve.
     #    Used as-is for two solves, and as the seed for the optimiser when
     #    three solves are provided.
-    ra1, dec1, roll1, _ = solves[0]
-    ra2, dec2, roll2, _ = solves[-1]
-
-    m1 = attitude_mat(ra1, dec1, roll1)
-    m2 = attitude_mat(ra2, dec2, roll2)
-    r_clean = R.from_matrix(m2 @ m1.T).as_matrix()
-
-    cos_theta = np.clip((np.trace(r_clean) - 1.0) / 2.0, -1.0, 1.0)
-    sweep_deg = np.degrees(np.arccos(cos_theta))
-
     nan = float("nan")
-    axis = np.array(
-        [
-            r_clean[2, 1] - r_clean[1, 2],
-            r_clean[0, 2] - r_clean[2, 0],
-            r_clean[1, 0] - r_clean[0, 1],
-        ]
-    )
-    norm = np.linalg.norm(axis)
-    if norm < 1e-8:
-        if cos_theta > 0:
-            # No measurable rotation between the solves.
-            return nan, nan, 0.0, nan, nan, nan
-        # Sweep is numerically 180°: the antisymmetric part of the rotation
-        # vanishes, but the axis survives in the symmetric part,
-        # R + I = 2·n·nᵀ.  Take its largest column for numerical stability.
-        sym = r_clean + np.eye(3)
-        axis = sym[:, np.argmax(np.linalg.norm(sym, axis=0))]
-        norm = np.linalg.norm(axis)
-
-    if sweep_deg < MIN_SWEEP_DEG:
-        return nan, nan, sweep_deg, nan, nan, nan
-    axis /= norm
-    if axis[2] < 0:
-        axis = -axis
-        sweep_deg = -sweep_deg
+    axis, sweep_deg = _two_solve_axis(solves[0], solves[-1])
+    if axis is None:
+        # No measurable rotation between the solves.
+        return nan, nan, 0.0, nan, nan, nan
+    if abs(sweep_deg) < MIN_SWEEP_DEG:
+        return nan, nan, abs(sweep_deg), nan, nan, nan
 
     axis_dec = np.degrees(np.arcsin(np.clip(axis[2], -1.0, 1.0)))
     axis_ra = np.degrees(np.arctan2(axis[1], axis[0])) % 360.0
 
-    # 4. If three solves are given, refine the axis.
-    _three_solve_final_cost = float("nan")
-    _ignore_roll_final_cost = float("nan")
+    # 3. If three solves are given, refine the axis.
+    opt_cost = nan
+    roll_cost = nan
     if len(solves) >= 3:
         if ignore_roll:
-            # RA/Dec-only: find the axis as the pole of the arc defined by
-            # the three boresight directions.  Roll is not used at all,
-            # making this immune to systematic roll errors (e.g. camera flop).
-            # Uses the first, middle, and last solve for the best arc coverage.
-            mid = len(solves) // 2
-            b1 = _boresight_vec(solves[0][0], solves[0][1])
-            b2 = _boresight_vec(solves[mid][0], solves[mid][1])
-            b3 = _boresight_vec(solves[-1][0], solves[-1][1])
-            n = np.cross(b1 - b2, b2 - b3)
-            nm = np.linalg.norm(n)
-            if nm <= 1e-9:
+            axis, roll_cost = _ignore_roll_axis(solves, sweep_deg, sigma_roll)
+            if axis is None:
                 # Boresights are (nearly) identical — the scope is pointing at
                 # the mechanical axis and RA/Dec carry no rotation information.
                 # The roll-based two-solve estimate is exactly what the caller
                 # asked to avoid, so the axis is undetermined.
                 return nan, nan, -sweep_deg, nan, nan, nan
-            axis = n / nm
-            if axis[2] < 0:
-                axis = -axis
-            # fit_quality for ignore_roll=True: roll-consistency check.
-            # The axis and sweeps are fully determined by the three RA/Dec
-            # positions (no free parameters), so the roll residuals measure
-            # only how consistent the roll observations are with the
-            # RA/Dec-derived axis.  Expected ~1 under pure noise.
-            _obs_ir = [(ra, dec, roll) for ra, dec, roll, _ in solves]
-            _bs = [_boresight_vec(o[0], o[1]) for o in _obs_ir]
-
-            # Orient axis so sweeps have same sign as the two-solve sweep
-            _t1_pos = _signed_sweep_angle(axis, _bs[0], _bs[1])
-            _t1_neg = _signed_sweep_angle(-axis, _bs[0], _bs[1])
-            _n_ir = (
-                axis if abs(_t1_pos - sweep_deg) < abs(_t1_neg - sweep_deg) else -axis
-            )
-            _t1 = _signed_sweep_angle(_n_ir, _bs[0], _bs[1])
-            _t2 = _signed_sweep_angle(_n_ir, _bs[1], _bs[2])
-
-            try:
-                _ps = _predict_three_solves(
-                    _n_ir, _t1, _t2, _obs_ir[0][0], _obs_ir[0][1], _obs_ir[0][2]
-                )
-                _ignore_roll_final_cost = sum(
-                    (_wrap180(_p[2] - _m[2]) / sigma_roll) ** 2
-                    for _p, _m in zip(_ps, _obs_ir)
-                )
-            except Exception:
-                pass
         else:
             obs = [(ra, dec, roll) for ra, dec, roll, _ in solves]
-            axis, _three_solve_final_cost = _refine_axis_three_solves(
+            axis, opt_cost = _refine_axis_three_solves(
                 obs, axis, sigma_ra, sigma_dec, sigma_roll
             )
         axis_dec = np.degrees(np.arcsin(np.clip(axis[2], -1.0, 1.0)))
         axis_ra = np.degrees(np.arctan2(axis[1], axis[0])) % 360.0
 
-    # 5. Convert the equatorial axis direction to physical mount errors,
+    # 4. Convert the equatorial axis direction to physical mount errors,
     #    using LST to resolve the RA -> azimuth mapping.
     dAlt, dAz = axis_to_altaz_error(axis, latitude, lst_deg)
 
-    # 6. Fit quality: sqrt(final_cost / n_obs) at the optimiser solution.
+    # 5. Fit quality: sqrt(final_cost / n_obs) at the optimiser solution.
     #    Uses the cost at the actual solution parameters — no sweep re-estimation.
     #    For ignore_roll=True: roll-only cost at the best-fit sweep for the
     #    cross-product axis — measures roll consistency with the RA/Dec-derived
     #    axis, with expected value ~1 under pure noise.
-    fit_quality = float("nan")
+    fit_quality = nan
     if len(solves) >= 3:
-        if ignore_roll and np.isfinite(_ignore_roll_final_cost):
-            fit_quality = np.sqrt(_ignore_roll_final_cost / len(solves))
+        if ignore_roll and np.isfinite(roll_cost):
+            fit_quality = np.sqrt(roll_cost / len(solves))
         elif not ignore_roll:
-            fit_quality = np.sqrt(_three_solve_final_cost / len(solves))
+            fit_quality = np.sqrt(opt_cost / len(solves))
 
     return dAlt, dAz, -sweep_deg, axis_ra, axis_dec, fit_quality
 
@@ -798,207 +834,3 @@ def make_solve_2(ra1, dec1, roll1, latitude, dAlt, dAz, sweep_deg, lst_deg):
     M2 = Rtrack @ M1
 
     return extract_plate_solve(M2)
-
-
-# ── Monte Carlo benchmark ─────────────────────────────────────────────────────
-# Exploratory accuracy comparison of the two-solve, three-solve-optimised, and
-# RA/Dec-only (cross-product) methods across a range of pointing geometries and
-# sweeps.  This is not a test — the pass/fail correctness checks live in
-# tests/test_polar_alignment.py.  Run with `python -m PiFinder.polar_alignment`
-# to print the comparison table.
-
-if __name__ == "__main__":
-    import time as _time
-    import platform as _platform
-
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-
-    observing_latitude = 51.2
-    lst = 112.0  # degrees  (= 7h 28m sidereal time)
-
-    dAlt_true = 1.5  # axis too high by 1.5°
-    dAz_true = 3.0  # axis too far East by 3.0°
-
-    sigma_ra = sigma_dec = 0.5 / 60  # 0.5 arcmin  (PiFinder/Tetra3 RA/Dec noise)
-    sigma_roll = sigma_ra / np.radians(5.0)  # ≈11.46× sigma_ra  (1/R, R = 5° field)
-
-    def _make_three_solves(ra1, dec1, roll1, sweep_total):
-        """
-        Return three plate solves for the given starting position and total sweep.
-        Solve 1 is at 0°, solve 3 is at sweep_total°, and solve 2 is placed in
-        the middle (sweep_total/2°) so the three solves span the full arc and the
-        optimiser has the maximum geometric leverage.
-        """
-        ra2, dec2, roll2 = make_solve_2(
-            ra1=ra1,
-            dec1=dec1,
-            roll1=roll1,
-            latitude=observing_latitude,
-            dAlt=dAlt_true,
-            dAz=dAz_true,
-            sweep_deg=sweep_total / 2,
-            lst_deg=lst,
-        )
-        ra3, dec3, roll3 = make_solve_2(
-            ra1=ra1,
-            dec1=dec1,
-            roll1=roll1,
-            latitude=observing_latitude,
-            dAlt=dAlt_true,
-            dAz=dAz_true,
-            sweep_deg=sweep_total,
-            lst_deg=lst,
-        )
-        return ((ra1, dec1, roll1), (ra2, dec2, roll2), (ra3, dec3, roll3))
-
-    def _mc_test(ra1, dec1, sweep_total, N=50):
-        """
-        Monte Carlo comparison of two-solve vs three-solve optimised vs
-        RA/Dec-only (cross-product) for a given starting pointing and total sweep.
-        Returns (mean2, p95_2, mean3, p95_3, mean_rd, p95_rd, t_per_call_3).
-        """
-        s1e, s2e, s3e = _make_three_solves(ra1, dec1, 0.0, sweep_total)
-
-        rng = np.random.default_rng(42)
-        e2, e3, erd, t3s, fqs, fqs_ir = [], [], [], [], [], []
-        for _ in range(N):
-
-            def noisy(s):
-                return (
-                    s[0] + rng.normal(0, sigma_ra),
-                    s[1] + rng.normal(0, sigma_dec),
-                    s[2] + rng.normal(0, sigma_roll),
-                    0,
-                )
-
-            sn1, sn2, sn3 = noisy(s1e), noisy(s2e), noisy(s3e)
-
-            def to_n(ar, ad):
-                cd = np.cos(np.radians(ad))
-                return np.array(
-                    [
-                        cd * np.cos(np.radians(ar)),
-                        cd * np.sin(np.radians(ar)),
-                        np.sin(np.radians(ad)),
-                    ]
-                )
-
-            def aerr(n):
-                return np.degrees(np.arccos(np.clip(np.dot(n, pax), -1, 1))) * 60
-
-            # Two-solve
-            _, _, _, ar, ad, _ = get_platform_adjustments(
-                [sn1, sn2], observing_latitude, lst
-            )
-            if not np.isnan(ar):
-                e2.append(aerr(to_n(ar, ad)))
-
-            # Three-solve optimised — timed individually
-            _t = _time.time()
-            _, _, _, ar, ad, fq = get_platform_adjustments(
-                [sn1, sn2, sn3],
-                observing_latitude,
-                lst,
-                sigma_ra=sigma_ra,
-                sigma_dec=sigma_dec,
-                sigma_roll=sigma_roll,
-            )
-            t3s.append(_time.time() - _t)
-            if not np.isnan(ar):
-                e3.append(aerr(to_n(ar, ad)))
-            if not np.isnan(fq):
-                fqs.append(fq)
-
-            # RA/Dec-only via ignore_roll=True
-            _, _, _, ar, ad, fq_ir = get_platform_adjustments(
-                [sn1, sn2, sn3],
-                observing_latitude,
-                lst,
-                sigma_ra=sigma_ra,
-                sigma_dec=sigma_dec,
-                sigma_roll=sigma_roll,
-                ignore_roll=True,
-            )
-            if not np.isnan(ar):
-                erd.append(aerr(to_n(ar, ad)))
-            if not np.isnan(fq_ir):
-                fqs_ir.append(fq_ir)
-
-        a2, a3, ard = np.array(e2), np.array(e3), np.array(erd)
-        afq = np.array(fqs) if fqs else np.array([float("nan")])
-        afq_ir = np.array(fqs_ir) if fqs_ir else np.array([float("nan")])
-        return (
-            np.mean(a2),
-            np.percentile(a2, 95),
-            np.mean(a3),
-            np.percentile(a3, 95),
-            np.mean(ard),
-            np.percentile(ard, 95),
-            np.mean(afq),
-            np.percentile(afq, 95),
-            np.mean(afq_ir),
-            np.percentile(afq_ir, 95),
-            np.mean(t3s),
-        )
-
-    # Build the true platform axis (needed to compute axis errors)
-    lat_r = np.radians(observing_latitude)
-    alt_ax = np.radians(observing_latitude + dAlt_true)
-    az_ax = np.radians(dAz_true)
-    dec_pax = np.arcsin(
-        np.sin(lat_r) * np.sin(alt_ax) + np.cos(lat_r) * np.cos(alt_ax) * np.cos(az_ax)
-    )
-    ha_pax = np.arctan2(
-        -np.cos(alt_ax) * np.sin(az_ax),
-        np.cos(lat_r) * np.sin(alt_ax) - np.sin(lat_r) * np.cos(alt_ax) * np.cos(az_ax),
-    )
-    ra_pax = np.radians(lst) - ha_pax
-    cd = np.cos(dec_pax)
-    pax = np.array([cd * np.cos(ra_pax), cd * np.sin(ra_pax), np.sin(dec_pax)])
-
-    # Monte Carlo comparison across four scenarios
-    N_MC = 50
-    logger.info(
-        "Monte Carlo N=%d  sigma_RA/Dec=%.1f'  sigma_roll=%.1f'  (%.0fx)",
-        N_MC,
-        sigma_ra * 60,
-        sigma_roll * 60,
-        sigma_roll / sigma_ra,
-    )
-    logger.info(
-        "Platform: %s  %s  Python %s",
-        _platform.node(),
-        _platform.processor() or _platform.machine(),
-        _platform.python_version(),
-    )
-    logger.info("")
-    hdr = (
-        f"  {'Pointing':<18} {'Sweep':>7} | "
-        f"{'2-solve':>8} {'p95':>7} | "
-        f"{'3-solve opt':>11} {'p95':>7} | "
-        f"{'RA/Dec only':>11} {'p95':>7} | "
-        f"{'fq(3s)':>7} {'p95':>6} | "
-        f"{'fq(ir)':>7} {'p95':>6} | {'3s t/call':>9}"
-    )
-    logger.info(hdr)
-    logger.info("  " + "-" * (len(hdr) - 2))
-
-    for label, (ra1, dec1) in [
-        ("Dec=30° (far)", (180.0, 30.0)),
-        ("Dec=45°", (180.0, 45.0)),
-        ("Dec=70°", (180.0, 70.0)),
-        ("Polaris (near)", (37.95, 89.26)),
-    ]:
-        for sweep in [14.0, 37.5, 90.0]:
-            m2, p2, m3, p3, mrd, prd, mfq, pfq, mfq_ir, pfq_ir, dt = _mc_test(
-                ra1, dec1, sweep, N=N_MC
-            )
-            logger.info(
-                f"  {label:<18} {sweep:>6.0f}° | "
-                f"{m2:>7.2f}' {p2:>6.2f}' | "
-                f"{m3:>10.2f}' {p3:>6.2f}' | "
-                f"{mrd:>10.2f}' {prd:>6.2f}' | "
-                f"{mfq:>6.2f}  {pfq:>5.2f} | "
-                f"{mfq_ir:>6.2f}  {pfq_ir:>5.2f} | {dt:>8.3f}s"
-            )
-        logger.info("")
