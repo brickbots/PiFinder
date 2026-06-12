@@ -1,15 +1,23 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-Read-only battery telemetry for the rev-4 PiFinder board's TI BQ25895
-single-cell Li-ion charger (I2C address 0x6A on bus 1).
+Battery telemetry and fast-charge configuration for the rev-4 PiFinder
+board's TI BQ25895 single-cell Li-ion charger (I2C address 0x6A on bus 1).
 
-This is **read-only telemetry** — it never configures the power path
-(no OTG/HIZ/current-limit/charge-enable writes). The *only* write it
-makes is pulsing REG02 ``CONV_START`` to trigger a one-shot ADC
-conversion, which is a telemetry trigger, not power-path control. See
-``docs/adr/0006-battery-read-only-telemetry.md`` and the glossary at
-``docs/ax/battery/CONTEXT.md``.
+Mostly telemetry: it reads battery voltage, charge status, power source
+and a few diagnostics. The remaining writes are deliberate and narrow:
+
+* pulsing REG02 ``CONV_START`` to trigger a one-shot ADC conversion (a
+  telemetry trigger), and
+* applying a fixed **fast-charge configuration** on each poll —
+  disabling the I2C watchdog, raising the input current limit and the
+  fast-charge current to ~1.5 A. This is idempotent (writes only the
+  registers that have drifted), so it both sets the config at power-up
+  and re-asserts it after a chip reset or USB re-detection. It does NOT
+  touch OTG/HIZ/charge-enable: OTG/boost stays disabled in hardware via
+  the ``/OTG`` strap. See ``docs/adr/0011-battery-fast-charge-config.md``
+  (which supersedes ``0006``) and the glossary at
+  ``docs/ax/battery/CONTEXT.md``.
 
 Register scaling below was verified against ``BQ25895-datasheet.pdf``
 (TI SLUSC88C, the REGxx field-description tables) and cross-checked
@@ -43,7 +51,10 @@ logger = logging.getLogger("Battery.bq25895")
 BQ25895_ADDRESS = 0x6A
 
 # --- Register addresses (verified against the datasheet register map) ---
+REG00 = 0x00  # input source: EN_HIZ [7], EN_ILIM [6], IINLIM [5:0]
 REG02 = 0x02  # ADC control: CONV_START [7], CONV_RATE [6]
+REG04 = 0x04  # charge current: EN_PUMPX [7], ICHG [6:0]
+REG07 = 0x07  # timers/watchdog: EN_TERM [7], WATCHDOG [5:4], EN_TIMER [3]
 REG0B = 0x0B  # status: VBUS_STAT [7:5], CHRG_STAT [4:3], PG_STAT [2], VSYS_STAT [0]
 REG0E = 0x0E  # BATV [6:0] (bit7 THERM_STAT) — battery voltage
 REG0F = 0x0F  # SYSV [6:0] — system voltage
@@ -58,6 +69,66 @@ CONV_START_MASK = 0x80
 
 # REG14 expected part-number value (PN[5:3]) for the BQ25895.
 EXPECTED_PN = 0b111
+
+# --- Fast-charge configuration (written at runtime; see ADR 0011) ---
+# Targets are ~1.5 A. The chip quantises each field, so the achieved
+# value is the nearest representable step (see the _encode_* helpers).
+TARGET_INPUT_LIMIT_MA = 1500  # REG00 IINLIM (input current limit)
+TARGET_CHARGE_CURRENT_MA = 1500  # REG04 ICHG (fast-charge current)
+
+# Field scaling (datasheet REG00 / REG04 tables).
+IINLIM_OFFSET_MA = 100  # IINLIM minimum / offset
+IINLIM_STEP_MA = 50
+ICHG_STEP_MA = 64  # ICHG has no offset
+
+# Field masks for read-modify-write — every config write preserves the
+# bits outside its field. In particular REG00 bit6 EN_ILIM is preserved,
+# so the external ILIM-pin resistor stays a hardware ceiling on input
+# current (effective limit = min(IINLIM, ILIM pin)); REG04 bit7 EN_PUMPX
+# is preserved.
+WATCHDOG_MASK = 0x30  # REG07[5:4]; writing 00 disables the I2C watchdog
+IINLIM_MASK = 0x3F  # REG00[5:0]
+ICHG_MASK = 0x7F  # REG04[6:0]
+
+
+def _encode_iinlim(ma: int) -> int:
+    """Encode an input current limit (mA) into the REG00 IINLIM field."""
+    field = round((ma - IINLIM_OFFSET_MA) / IINLIM_STEP_MA)
+    return max(0, min(IINLIM_MASK, field))
+
+
+def _encode_ichg(ma: int) -> int:
+    """Encode a fast-charge current (mA) into the REG04 ICHG field."""
+    field = round(ma / ICHG_STEP_MA)
+    return max(0, min(ICHG_MASK, field))
+
+
+def plan_charging_writes(reg00: int, reg04: int, reg07: int):
+    """Given the current REG00/04/07 bytes, return the ``[(reg, value),
+    ...]`` writes needed to reach the fast-charge config, preserving the
+    bits outside each field.
+
+    PURE — no hardware; the main unit-test target for the config path.
+
+    Returns only the registers whose value actually changes, so once the
+    chip is configured it returns ``[]`` and the per-poll re-assert costs
+    nothing. REG07 (watchdog) is emitted **first** so that disabling the
+    watchdog precedes the REG00/REG04 writes — otherwise a watchdog
+    timeout mid-sequence could reset them back to defaults.
+    """
+    desired07 = reg07 & ~WATCHDOG_MASK
+    desired00 = (reg00 & ~IINLIM_MASK) | _encode_iinlim(TARGET_INPUT_LIMIT_MA)
+    desired04 = (reg04 & ~ICHG_MASK) | _encode_ichg(TARGET_CHARGE_CURRENT_MA)
+
+    writes = []
+    if desired07 != reg07:
+        writes.append((REG07, desired07))
+    if desired00 != reg00:
+        writes.append((REG00, desired00))
+    if desired04 != reg04:
+        writes.append((REG04, desired04))
+    return writes
+
 
 # --- ADC scaling (datasheet REGxx field tables; verified on hardware) ---
 BATV_OFFSET_V = 2.304
@@ -152,8 +223,10 @@ def decode_registers(
 class BQ25895:
     """Thin I2C wrapper around the BQ25895 charger.
 
-    Reads registers and triggers one-shot ADC conversions. Makes no
-    power-path writes (the one write is the conversion trigger).
+    Reads registers, triggers one-shot ADC conversions, and applies the
+    fast-charge configuration (input/charge current limits + watchdog).
+    It does not touch OTG/HIZ/charge-enable — OTG/boost stays disabled in
+    hardware via the ``/OTG`` strap.
     """
 
     def __init__(self, address: int = BQ25895_ADDRESS, i2c=None):
@@ -196,6 +269,27 @@ class BQ25895:
         )
         return False
 
+    def apply_charging_config(self) -> None:
+        """Apply the fast-charge configuration (~1.5 A input limit and
+        fast-charge current, I2C watchdog disabled), preserving unrelated
+        bits in each register.
+
+        Idempotent: reads REG00/04/07, computes the needed writes via
+        :func:`plan_charging_writes`, and writes only what has drifted.
+        In steady state this is three reads and no writes; after a chip
+        reset or USB re-detection (which revert the registers to
+        defaults) it re-applies the config. Called once per poll, so the
+        config is set at power-up and continuously re-asserted.
+        """
+        reg00 = self.read_reg(REG00)
+        reg04 = self.read_reg(REG04)
+        reg07 = self.read_reg(REG07)
+        for reg, value in plan_charging_writes(reg00, reg04, reg07):
+            self.write_reg(reg, value)
+            logger.info(
+                "BQ25895: set REG%02X = 0x%02X (fast-charge config)", reg, value
+            )
+
     def read_state(self) -> BatteryState:
         """Trigger a fresh conversion, read the telemetry registers and
         decode them into a :class:`BatteryState`."""
@@ -227,6 +321,14 @@ def battery_monitor(shared_state, console_queue, log_queue):
         return
 
     while True:
+        try:
+            # Re-assert the fast-charge config every poll: applies it at
+            # power-up and restores it after a chip reset / USB
+            # re-detection. Idempotent, so this is a no-op once set.
+            chip.apply_charging_config()
+        except Exception as e:
+            # A failed config write must not stop telemetry.
+            logger.warning("Battery: applying fast-charge config failed: %s", e)
         try:
             state = chip.read_state()
             if shared_state is not None:

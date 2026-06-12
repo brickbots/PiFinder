@@ -1,6 +1,6 @@
 # Battery (Power & Charging)
 
-The Battery context reads battery voltage and charge state from the rev-4 on-board **BQ25895** charger over I²C and publishes a `BatteryState` into shared state. It is **read-only telemetry** — it never writes the power path. The user-facing docs call this domain "Power & Charging"; the *code* uses the `battery_` prefix to stay clear of the unrelated sleep/wake `power_state`.
+The Battery context reads battery voltage and charge state from the rev-4 on-board **BQ25895** charger over I²C and publishes a `BatteryState` into shared state. It is **mostly telemetry**: the only writes are a one-shot ADC conversion trigger and a fixed **fast-charge configuration** (disable the I²C watchdog, set the input and fast-charge current limits to ~1.5 A) re-asserted on each poll — see [ADR 0011](../../adr/0011-battery-fast-charge-config.md). It never touches OTG/HIZ/charge-enable; OTG/boost is disabled in hardware. The user-facing docs call this domain "Power & Charging"; the *code* uses the `battery_` prefix to stay clear of the unrelated sleep/wake `power_state`.
 
 > Companion design notes: [`../../bq25895_design_notes.md`](../../bq25895_design_notes.md) (chip behaviour, power path, register map).
 
@@ -41,11 +41,11 @@ _Avoid_: "scan", "autodetect" (reserve for the camera-type detection).
 ### Power path (hardware, not software)
 
 **OTG / boost**:
-The charger's reverse-boost mode (battery → 5 V out). On rev-4 it is disabled **in hardware** (the `/OTG` pin is strapped low), so software never manages it — this is why the Battery code is read-only. Not to be confused with the external **SYS → 5.1 V boost** (a separate TPS61088 part).
+The charger's reverse-boost mode (battery → 5 V out). On rev-4 it is disabled **in hardware** (the `/OTG` pin is strapped low), so software never manages it — software's only power-path writes are the fast-charge config (watchdog + current limits, see [ADR 0011](../../adr/0011-battery-fast-charge-config.md)), never `OTG_CONFIG`. Not to be confused with the external **SYS → 5.1 V boost** (a separate TPS61088 part).
 _Avoid_: implying software enables/disables OTG.
 
 **Power-off latch** (GPIO14):
-The rev-4 hardware power-down path. At kernel power-off the `gpio-poweroff` device-tree overlay drives **GPIO14 low**, tripping the **LTC2954** power-button controller's KILL input; the LTC2954 drops **EN** on the **TPS61088** SYS boost and the system loses power. It is **active-low and fail-safe**: GPIO14 carries a hardware pull-up, so the pin sits high (power on) through early boot and reboot, and only the kernel power-off handler ever pulls it low. This is a *firmware / device-tree* mechanism provisioned in `pifinder_setup.sh` (see ADR 0007) — **not** application code, so the "Battery code never writes the power path" invariant still holds: no Python writes the power path; the kernel drives the kill line once, at shutdown. Added for every board; a no-op on rev-3, which has no latch.
+The rev-4 hardware power-down path. At kernel power-off the `gpio-poweroff` device-tree overlay drives **GPIO14 low**, tripping the **LTC2954** power-button controller's KILL input; the LTC2954 drops **EN** on the **TPS61088** SYS boost and the system loses power. It is **active-low and fail-safe**: GPIO14 carries a hardware pull-up, so the pin sits high (power on) through early boot and reboot, and only the kernel power-off handler ever pulls it low. This is a *firmware / device-tree* mechanism provisioned in `pifinder_setup.sh` (see ADR 0007) — **not** application code: no Python drives the kill line; the kernel drives it once, at shutdown. (The Battery monitor does write the charger's watchdog and current-limit registers per [ADR 0011](../../adr/0011-battery-fast-charge-config.md), but never this latch.) Added for every board; a no-op on rev-3, which has no latch.
 _Avoid_: calling it a "shutdown command" (it's a hardware kill line, not a syscall); implying the Battery monitor or any Python code drives it.
 
 ## Flagged ambiguities
@@ -67,4 +67,4 @@ _Avoid_: calling it a "shutdown command" (it's a hardware kill line, not a sysca
 >
 > **Dev:** Do we ever turn charging on/off from software?
 >
-> **Domain:** No. The Battery code only ever reads (apart from kicking a one-shot ADC conversion to get a fresh sample). OTG is disabled in hardware via the `/OTG` strap; the whole power path is the schematic's job, not ours.
+> **Domain:** No — we never touch charge-enable (`/CE`) or OTG; OTG is disabled in hardware via the `/OTG` strap. We *do* set the charge *rate*: the monitor writes the input and fast-charge current limits to ~1.5 A and disables the I²C watchdog on every poll so those limits stick (ADR 0011). Beyond reads and the one-shot ADC trigger, those watchdog/current-limit writes are the only ones — enabling/disabling charging itself stays the schematic's job.
