@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-14 00:43+0200\n"
+"POT-Creation-Date: 2026-06-14 00:51+0200\n"
 "PO-Revision-Date: 2025-02-05 15:00+0800\n"
 "Last-Translator: ClawdPulse\n"
 "Language: zh_CN\n"
@@ -536,7 +536,7 @@ msgstr "󰍴 删除/上一步"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/dateentry.py:219 PiFinder/ui/locationentry.py:346
-#: PiFinder/ui/polar_align.py:499 PiFinder/ui/timeentry.py:217
+#: PiFinder/ui/polar_align.py:504 PiFinder/ui/timeentry.py:217
 msgid "Cancelled"
 msgstr "已取消"
 
@@ -1508,7 +1508,7 @@ msgid "  {logs} Logs"
 msgstr "  {logs} 条记录"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/object_details.py:352 PiFinder/ui/polar_align.py:424
+#: PiFinder/ui/object_details.py:352 PiFinder/ui/polar_align.py:433
 msgid "No solve"
 msgstr "未解析"
 
@@ -1782,94 +1782,90 @@ msgid "camera solve."
 msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:398 PiFinder/ui/polar_align.py:456
+#: PiFinder/ui/polar_align.py:401
+msgid "ok"
+msgstr "良好"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:403
+msgid "chk"
+msgstr "存疑"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:404
+msgid "bad"
+msgstr "不良"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:409 PiFinder/ui/polar_align.py:461
 msgid "pt"
 msgstr "点"
 
-#: PiFinder/ui/polar_align.py:402
-msgid "fit"
-msgstr ""
-
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:439
+#: PiFinder/ui/polar_align.py:448
 msgid "No result yet"
 msgstr "暂无结果"
 
 # AI-TRANSLATED (claude): needs human review
 #. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
-#: PiFinder/ui/polar_align.py:441 PiFinder/ui/polar_align.py:474
+#: PiFinder/ui/polar_align.py:450 PiFinder/ui/polar_align.py:479
 msgid "{icon} BACK"
 msgstr "{icon} 返回"
 
-#: PiFinder/ui/polar_align.py:448
+#: PiFinder/ui/polar_align.py:457
 msgid "RA/Dec"
 msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:448
+#: PiFinder/ui/polar_align.py:457
 msgid "3-axis"
 msgstr "三轴"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:453
-msgid "ok"
-msgstr "良好"
-
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:453
-msgid "chk"
-msgstr "存疑"
-
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:453
-msgid "bad"
-msgstr "不良"
-
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:459
+#: PiFinder/ui/polar_align.py:464
 msgid "Fit"
 msgstr "拟合"
 
-#: PiFinder/ui/polar_align.py:460
+#: PiFinder/ui/polar_align.py:465
 msgid "Alt"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:461
+#: PiFinder/ui/polar_align.py:466
 msgid "Az"
 msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:462
+#: PiFinder/ui/polar_align.py:467
 msgid "Axis"
 msgstr "轴"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:471
+#: PiFinder/ui/polar_align.py:476
 msgid "Gap"
 msgstr "间隔"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:519
+#: PiFinder/ui/polar_align.py:524
 msgid "No result"
 msgstr "无结果"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:529 PiFinder/ui/polar_align.py:536
+#: PiFinder/ui/polar_align.py:534 PiFinder/ui/polar_align.py:541
 msgid "Roll Off"
 msgstr "忽略滚转"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:529 PiFinder/ui/polar_align.py:536
+#: PiFinder/ui/polar_align.py:534 PiFinder/ui/polar_align.py:541
 msgid "Roll On"
 msgstr "用滚转"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:544
+#: PiFinder/ui/polar_align.py:549
 msgid "No points"
 msgstr "无点"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:550
+#: PiFinder/ui/polar_align.py:555
 msgid "Dropped point"
 msgstr "已删除点"
 
@@ -2408,4 +2404,7 @@ msgstr "输入本地时间"
 # AI-TRANSLATED (claude): needs human review
 #~ msgid "Age"
 #~ msgstr "时长"
+
+#~ msgid "fit"
+#~ msgstr ""
 

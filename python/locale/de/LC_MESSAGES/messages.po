@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-14 00:43+0200\n"
+"POT-Creation-Date: 2026-06-14 00:51+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: Jens Scheidtmann\n"
 "Language: de_DE\n"
@@ -486,7 +486,7 @@ msgid "󰍴 Delete/Previous"
 msgstr "󰍴 Löschen/Zurück"
 
 #: PiFinder/ui/dateentry.py:219 PiFinder/ui/locationentry.py:346
-#: PiFinder/ui/polar_align.py:499 PiFinder/ui/timeentry.py:217
+#: PiFinder/ui/polar_align.py:504 PiFinder/ui/timeentry.py:217
 msgid "Cancelled"
 msgstr "Abgebrochen"
 
@@ -1383,7 +1383,7 @@ msgstr "  Nicht geloggt"
 msgid "  {logs} Logs"
 msgstr "  {logs} Logs"
 
-#: PiFinder/ui/object_details.py:352 PiFinder/ui/polar_align.py:424
+#: PiFinder/ui/object_details.py:352 PiFinder/ui/polar_align.py:433
 msgid "No solve"
 msgstr "Bisher keine"
 
@@ -1626,94 +1626,90 @@ msgid "camera solve."
 msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:398 PiFinder/ui/polar_align.py:456
+#: PiFinder/ui/polar_align.py:401
+msgid "ok"
+msgstr "ok"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:403
+msgid "chk"
+msgstr "prüf"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:404
+msgid "bad"
+msgstr "schl."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:409 PiFinder/ui/polar_align.py:461
 msgid "pt"
 msgstr "Pkt"
 
-#: PiFinder/ui/polar_align.py:402
-msgid "fit"
-msgstr ""
-
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:439
+#: PiFinder/ui/polar_align.py:448
 msgid "No result yet"
 msgstr "Noch kein Erg."
 
 # AI-TRANSLATED (claude): needs human review
 #. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
-#: PiFinder/ui/polar_align.py:441 PiFinder/ui/polar_align.py:474
+#: PiFinder/ui/polar_align.py:450 PiFinder/ui/polar_align.py:479
 msgid "{icon} BACK"
 msgstr "{icon} ZURÜCK"
 
-#: PiFinder/ui/polar_align.py:448
+#: PiFinder/ui/polar_align.py:457
 msgid "RA/Dec"
 msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:448
+#: PiFinder/ui/polar_align.py:457
 msgid "3-axis"
 msgstr "3 Achsen"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:453
-msgid "ok"
-msgstr "ok"
-
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:453
-msgid "chk"
-msgstr "prüf"
-
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:453
-msgid "bad"
-msgstr "schl."
-
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:459
+#: PiFinder/ui/polar_align.py:464
 msgid "Fit"
 msgstr "Güte"
 
-#: PiFinder/ui/polar_align.py:460
+#: PiFinder/ui/polar_align.py:465
 msgid "Alt"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:461
+#: PiFinder/ui/polar_align.py:466
 msgid "Az"
 msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:462
+#: PiFinder/ui/polar_align.py:467
 msgid "Axis"
 msgstr "Achse"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:471
+#: PiFinder/ui/polar_align.py:476
 msgid "Gap"
 msgstr "Abst."
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:519
+#: PiFinder/ui/polar_align.py:524
 msgid "No result"
 msgstr "Kein Erg."
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:529 PiFinder/ui/polar_align.py:536
+#: PiFinder/ui/polar_align.py:534 PiFinder/ui/polar_align.py:541
 msgid "Roll Off"
 msgstr "Roll Aus"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:529 PiFinder/ui/polar_align.py:536
+#: PiFinder/ui/polar_align.py:534 PiFinder/ui/polar_align.py:541
 msgid "Roll On"
 msgstr "Roll Ein"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:544
+#: PiFinder/ui/polar_align.py:549
 msgid "No points"
 msgstr "Keine Pkte"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:550
+#: PiFinder/ui/polar_align.py:555
 msgid "Dropped point"
 msgstr "Pkt verworfen"
 
@@ -2167,4 +2163,7 @@ msgstr "lok Zeit eingeben"
 # AI-TRANSLATED (claude): needs human review
 #~ msgid "Age"
 #~ msgstr "Alter"
+
+#~ msgid "fit"
+#~ msgstr ""
 
