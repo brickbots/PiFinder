@@ -1675,13 +1675,15 @@ msgstr "排序: {sort_order}"
 msgid "Refreshing..."
 msgstr "刷新中..."
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:89
 msgid "REDO PT"
-msgstr ""
+msgstr "重做点"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:91
 msgid "STATS"
-msgstr ""
+msgstr "统计"
 
 #: PiFinder/ui/polar_align.py:159
 msgid "Need GPS lock"
@@ -1779,46 +1781,54 @@ msgstr ""
 msgid "camera solve."
 msgstr ""
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:374 PiFinder/ui/polar_align.py:429
 msgid "pt"
-msgstr ""
+msgstr "点"
 
 #: PiFinder/ui/polar_align.py:378
 msgid "fit"
 msgstr ""
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:415
 msgid "No result yet"
-msgstr ""
+msgstr "暂无结果"
 
+# AI-TRANSLATED (claude): needs human review
 #. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
 #: PiFinder/ui/polar_align.py:417 PiFinder/ui/polar_align.py:443
 msgid "{icon} BACK"
-msgstr ""
+msgstr "{icon} 返回"
 
 #: PiFinder/ui/polar_align.py:420
 msgid "RA/Dec"
 msgstr ""
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:420
 msgid "3-axis"
-msgstr ""
+msgstr "三轴"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:425
 msgid "ok"
-msgstr ""
+msgstr "良好"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:425
 msgid "chk"
-msgstr ""
+msgstr "存疑"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:425
 msgid "bad"
-msgstr ""
+msgstr "不良"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:430
 msgid "Fit"
-msgstr ""
+msgstr "拟合"
 
 #: PiFinder/ui/polar_align.py:431
 msgid "Alt"
@@ -1828,33 +1838,40 @@ msgstr ""
 msgid "Az"
 msgstr ""
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:433
 msgid "Axis"
-msgstr ""
+msgstr "轴"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:440
 msgid "Age"
-msgstr ""
+msgstr "时长"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:481
 msgid "No result"
-msgstr ""
+msgstr "无结果"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:489 PiFinder/ui/polar_align.py:496
 msgid "Roll Off"
-msgstr ""
+msgstr "忽略滚转"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:489 PiFinder/ui/polar_align.py:496
 msgid "Roll On"
-msgstr ""
+msgstr "用滚转"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:504
 msgid "No points"
-msgstr ""
+msgstr "无点"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:510
 msgid "Dropped point"
-msgstr ""
+msgstr "已删除点"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/preview.py:79

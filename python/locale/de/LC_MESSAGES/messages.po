@@ -1519,13 +1519,15 @@ msgstr "Sort.: {sort_order}"
 msgid "Refreshing..."
 msgstr "Erneuern..."
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:89
 msgid "REDO PT"
-msgstr ""
+msgstr "PKT NEU"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:91
 msgid "STATS"
-msgstr ""
+msgstr "WERTE"
 
 #: PiFinder/ui/polar_align.py:159
 msgid "Need GPS lock"
@@ -1623,46 +1625,54 @@ msgstr ""
 msgid "camera solve."
 msgstr ""
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:374 PiFinder/ui/polar_align.py:429
 msgid "pt"
-msgstr ""
+msgstr "Pkt"
 
 #: PiFinder/ui/polar_align.py:378
 msgid "fit"
 msgstr ""
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:415
 msgid "No result yet"
-msgstr ""
+msgstr "Noch kein Erg."
 
+# AI-TRANSLATED (claude): needs human review
 #. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
 #: PiFinder/ui/polar_align.py:417 PiFinder/ui/polar_align.py:443
 msgid "{icon} BACK"
-msgstr ""
+msgstr "{icon} ZURÜCK"
 
 #: PiFinder/ui/polar_align.py:420
 msgid "RA/Dec"
 msgstr ""
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:420
 msgid "3-axis"
-msgstr ""
+msgstr "3 Achsen"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:425
 msgid "ok"
-msgstr ""
+msgstr "ok"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:425
 msgid "chk"
-msgstr ""
+msgstr "prüf"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:425
 msgid "bad"
-msgstr ""
+msgstr "schl."
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:430
 msgid "Fit"
-msgstr ""
+msgstr "Güte"
 
 #: PiFinder/ui/polar_align.py:431
 msgid "Alt"
@@ -1672,33 +1682,40 @@ msgstr ""
 msgid "Az"
 msgstr ""
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:433
 msgid "Axis"
-msgstr ""
+msgstr "Achse"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:440
 msgid "Age"
-msgstr ""
+msgstr "Alter"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:481
 msgid "No result"
-msgstr ""
+msgstr "Kein Erg."
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:489 PiFinder/ui/polar_align.py:496
 msgid "Roll Off"
-msgstr ""
+msgstr "Roll Aus"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:489 PiFinder/ui/polar_align.py:496
 msgid "Roll On"
-msgstr ""
+msgstr "Roll Ein"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:504
 msgid "No points"
-msgstr ""
+msgstr "Keine Pkte"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:510
 msgid "Dropped point"
-msgstr ""
+msgstr "Pkt verworfen"
 
 #: PiFinder/ui/preview.py:79
 msgid "Exposure"
