@@ -81,6 +81,7 @@ for how the lists work.
        Objects --> AF["All Filtered"]
        Objects --> BC["By Catalog"]
        Objects --> Recent
+       Objects --> OL["Obs Lists"]
        Objects --> Custom
        Objects --> NS["Name Search"]
        BC --> Planets
@@ -118,6 +119,9 @@ By Catalog
 Recent
    The objects you've viewed this session, most recent first.  It starts empty
    each session.
+Obs Lists
+   Load an observing list file you've copied to the PiFinder — SkySafari,
+   CSV, and several other formats.  See :ref:`user_guide:observing lists`.
 Custom
    Enter a right ascension and declination by hand to make a one-off target you
    can push to.  See :ref:`user_guide:custom targets`.

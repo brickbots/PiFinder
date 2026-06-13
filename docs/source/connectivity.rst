@@ -116,7 +116,8 @@ Once connected, you'll see:
 
 
 * ``captures/``\ : Images saved when logging objects, named with the observation ID from the database.
-* ``obslists/``\ : Observing lists saved during a session or kept for future sessions.
+* ``obslists/``\ : Observing lists.  Copy list files here (subfolders welcome) to load
+  them at the scope — see :ref:`user_guide:observing lists`.
 * ``screenshots/``\ : Screenshots taken while using the PiFinder (hold **SQUARE** and
   press **0**) are stored here.
 * ``solver_debug_dumps/``\ : If enabled, solver performance information is stored here as a collection of images and json files.
