@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-14 00:51+0200\n"
+"POT-Creation-Date: 2026-06-14 00:56+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: Jens Scheidtmann\n"
 "Language: de_DE\n"
@@ -1632,8 +1632,8 @@ msgstr "ok"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:403
-msgid "chk"
-msgstr "prüf"
+msgid "mid"
+msgstr "mittel"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:404
@@ -2166,4 +2166,8 @@ msgstr "lok Zeit eingeben"
 
 #~ msgid "fit"
 #~ msgstr ""
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "chk"
+#~ msgstr "prüf"
 
