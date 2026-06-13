@@ -78,6 +78,8 @@ class UIPolarAlign(UIModule):
         self.capture_request_time = 0.0
         self.result: Optional[dict] = None
         self.target_altaz: Optional[Tuple[float, float]] = None
+        # State to return to when leaving the STATS detail view.
+        self._stats_return = PAState.ADJUST
         # RA/Dec-only axis fit, ignoring camera roll (e.g. after a camera
         # flop). A session-level preference toggled from the marking menu;
         # only affects three-point solves.
@@ -148,17 +150,26 @@ class UIPolarAlign(UIModule):
             else:
                 self.state = PAState.AIM
 
-    def _compute(self):
+    def _gps_ready(self) -> bool:
+        """True when location/time are available to compute a result."""
+        if not self.shared_state.altaz_ready():
+            return False
+        return self._solve_datetime(self.solves[-1][3]) is not None
+
+    def _recompute(self) -> bool:
         """
-        Run the polar alignment calculation on the captured solves and
-        build the fixed ground-frame target for the adjustment phase.
+        Run the polar alignment calculation on the captured solves and build
+        the fixed ground-frame target for the adjustment phase. Sets
+        self.result and self.target_altaz and returns True on success;
+        returns False (leaving them unchanged) if GPS isn't ready or the
+        rotation is too small to determine an axis. Silent and
+        non-destructive: it does not message, change state, or mutate
+        self.solves -- callers decide what to do on each failure.
         """
+        if not self._gps_ready():
+            return False
         location = self.shared_state.location()
         dt_last = self._solve_datetime(self.solves[-1][3])
-        if not self.shared_state.altaz_ready() or dt_last is None:
-            self.message(_("Need GPS lock"), 2)
-            self.state = PAState.AIM
-            return
 
         calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
         lst_deg = calc_utils.sf_utils.get_lst_hrs(dt_last) * 15.0  # 15 = 360°/24h
@@ -174,12 +185,7 @@ class UIPolarAlign(UIModule):
         )
 
         if math.isnan(axis_ra):
-            # Not enough rotation between solves: drop the last point so
-            # the user can rotate further and capture it again.
-            self.solves.pop()
-            self.message(_("Rotate more"), 2)
-            self.state = PAState.AIM
-            return
+            return False
 
         ra_target, dec_target, _roll_target = correction_target(
             axis_ra,
@@ -208,7 +214,25 @@ class UIPolarAlign(UIModule):
             "n_points": len(self.solves),
             "ignore_roll": self.ignore_roll,
         }
-        self.state = PAState.ADJUST
+        return True
+
+    def _compute(self):
+        """
+        Capture-flow compute: on success move to the live adjustment display;
+        if the rotation is too small, drop the last point so the user can
+        rotate further and capture it again.
+        """
+        if self._recompute():
+            self.state = PAState.ADJUST
+        elif not self._gps_ready():
+            self.message(_("Need GPS lock"), 2)
+            self.state = PAState.AIM
+        else:
+            # Enough GPS, but too little rotation to determine an axis: drop
+            # the last point so the user can rotate further and recapture.
+            self.solves.pop()
+            self.message(_("Rotate more"), 2)
+            self.state = PAState.AIM
 
     def _current_offset(self) -> Optional[Tuple[float, float, float]]:
         """
@@ -417,7 +441,11 @@ class UIPolarAlign(UIModule):
             self._draw_hints(_("{icon} BACK").format(icon=self._SQUARE_))
             return
 
-        mode = _("RA/Dec") if r["ignore_roll"] else _("3-axis")
+        # Fit method only applies to three-point solves; for two points it's
+        # the basic two-solve estimate, so omit the mode label there.
+        mode = ""
+        if r["n_points"] >= 3:
+            mode = _("RA/Dec") if r["ignore_roll"] else _("3-axis")
         fit = r["fit_quality"]
         if math.isnan(fit):
             fit_txt = "--"
@@ -425,8 +453,9 @@ class UIPolarAlign(UIModule):
             verdict = _("ok") if fit < 3 else (_("chk") if fit < 10 else _("bad"))
             fit_txt = f"{fit:.1f} {verdict}"
 
+        count = f"{r['n_points']}" + _("pt") + f" {abs(r['sweep']):.0f}°"
         lines = [
-            f"{r['n_points']}" + _("pt") + f" {abs(r['sweep']):.0f}°  " + mode,
+            count + (f"  {mode}" if mode else ""),
             _("Fit") + f" {fit_txt}",
             _("Alt") + f" {r['dAlt']:+.2f}° {r['dAlt'] * 60:+.0f}'",
             _("Az") + f"  {r['dAz']:+.2f}° {r['dAz'] * 60:+.0f}'",
@@ -434,18 +463,20 @@ class UIPolarAlign(UIModule):
         ]
         y = self._draw_lines(y, lines)
 
-        # Per-point capture ages -- pointing drift accrues with age.
-        ages = "/".join(f"{time.time() - s[3]:.0f}" for s in self.solves)
-        if ages:
-            self._draw_lines(y + 2, [_("Age") + f" {ages}s"], fill=128)
+        # Time gaps between consecutive captures (stable; unlike a live age,
+        # these don't change between frames). Wider spacing -> better axis.
+        ts = sorted(s[3] for s in self.solves)
+        if len(ts) >= 2:
+            gaps = "/".join(f"{b - a:.0f}" for a, b in zip(ts, ts[1:]))
+            self._draw_lines(y + 2, [_("Gap") + f" {gaps}s"], fill=128)
 
         # TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
         self._draw_hints(_("{icon} BACK").format(icon=self._SQUARE_))
 
     def key_square(self):
         if self.state == PAState.STATS:
-            # Back to the live adjustment display.
-            self.state = PAState.ADJUST
+            # Back to wherever stats was opened from.
+            self.state = self._stats_return
         elif self.state == PAState.INTRO:
             self.state = PAState.AIM
         elif self.state == PAState.AIM:
@@ -458,8 +489,8 @@ class UIPolarAlign(UIModule):
 
     def key_minus(self):
         if self.state == PAState.STATS:
-            # Back to the live adjustment display, keep the result.
-            self.state = PAState.ADJUST
+            # Back to wherever stats was opened from, keep the result.
+            self.state = self._stats_return
         elif self.state == PAState.WAIT_SOLVE:
             # Abort just this capture, keep earlier points
             self.state = PAState.AIM
@@ -476,11 +507,20 @@ class UIPolarAlign(UIModule):
     # ── Marking-menu actions ──────────────────────────────────────────────────
 
     def mm_stats(self, _marking_menu, _menu_item) -> bool:
-        """Show the read-only detail view of the last result."""
+        """
+        Show the read-only detail view. With two or more points captured but
+        no result yet (still aiming), compute one on demand so stats is
+        available without first leaving the capture flow. A single point
+        carries no axis information, so nothing can be shown.
+        """
+        if self.result is None and len(self.solves) >= 2:
+            self._recompute()
         if self.result is None:
             self.message(_("No result"), 1)
-        else:
-            self.state = PAState.STATS
+            return True
+        if self.state != PAState.STATS:
+            self._stats_return = self.state
+        self.state = PAState.STATS
         return True
 
     def _update_roll_label(self):
