@@ -468,12 +468,13 @@ class UIPolarAlign(UIModule):
         ]
         y = self._draw_lines(y, lines)
 
-        # Time gaps between consecutive captures (stable; unlike a live age,
-        # these don't change between frames). Wider spacing -> better axis.
+        # Each point's capture time in seconds relative to the first (first =
+        # 0); stable between frames and shows how the captures are spread out.
         ts = sorted(s[3] for s in self.solves)
-        if len(ts) >= 2:
-            gaps = "/".join(f"{b - a:.0f}" for a, b in zip(ts, ts[1:]))
-            self._draw_lines(y + 2, [_("Gap") + f" {gaps}s"], fill=128)
+        if ts:
+            t0 = ts[0]
+            times = "/".join(f"{t - t0:.0f}" for t in ts)
+            self._draw_lines(y + 2, [f"t {times} sec"], fill=128)
 
         # TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
         self._draw_hints(_("{icon} BACK").format(icon=self._SQUARE_))
@@ -521,7 +522,13 @@ class UIPolarAlign(UIModule):
         if self.result is None and len(self.solves) >= 2:
             self._recompute()
         if self.result is None:
-            self.message(_("No result"), 1)
+            # Explain why there's nothing to show, matching the capture flow.
+            if len(self.solves) < 2:
+                self.message(_("Need 2 points"), 2)
+            elif not self._gps_ready():
+                self.message(_("Need GPS lock"), 2)
+            else:
+                self.message(_("Rotate more"), 2)
             return True
         if self.state != PAState.STATS:
             self._stats_return = self.state
