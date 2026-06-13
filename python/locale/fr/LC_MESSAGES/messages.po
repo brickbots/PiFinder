@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-13 12:46+0200\n"
+"POT-Creation-Date: 2026-06-14 00:43+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: xxxxxx <xxxxx@xxxxx.com>\n"
 "Language: fr_FR\n"
@@ -530,7 +530,7 @@ msgstr "󰍴 Effacer/Préc."
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/dateentry.py:219 PiFinder/ui/locationentry.py:346
-#: PiFinder/ui/polar_align.py:468 PiFinder/ui/timeentry.py:217
+#: PiFinder/ui/polar_align.py:499 PiFinder/ui/timeentry.py:217
 msgid "Cancelled"
 msgstr "Annulé"
 
@@ -1506,7 +1506,7 @@ msgid "  {logs} Logs"
 msgstr " {logs} Logs"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/object_details.py:352 PiFinder/ui/polar_align.py:400
+#: PiFinder/ui/object_details.py:352 PiFinder/ui/polar_align.py:424
 msgid "No solve"
 msgstr "Pas de résolution"
 
@@ -1660,200 +1660,200 @@ msgid "Refreshing..."
 msgstr "Actualisation..."
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:89
+#: PiFinder/ui/polar_align.py:91
 msgid "REDO PT"
 msgstr "REFAIRE"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:91
+#: PiFinder/ui/polar_align.py:93
 msgid "STATS"
 msgstr "DÉTAILS"
 
-#: PiFinder/ui/polar_align.py:159
+#: PiFinder/ui/polar_align.py:228
 msgid "Need GPS lock"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:180
+#: PiFinder/ui/polar_align.py:234
 msgid "Rotate more"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:289
+#: PiFinder/ui/polar_align.py:313
 msgid "PLATFORM PA"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:297
+#: PiFinder/ui/polar_align.py:321
 msgid "Solve 2-3 points,"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:298
+#: PiFinder/ui/polar_align.py:322
 msgid "rotating platform"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:299
+#: PiFinder/ui/polar_align.py:323
 msgid "between them."
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:300
+#: PiFinder/ui/polar_align.py:324
 msgid "Do not move scope"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:301
+#: PiFinder/ui/polar_align.py:325
 msgid "on the mount."
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:305
+#: PiFinder/ui/polar_align.py:329
 msgid "GPS: waiting..."
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:313
+#: PiFinder/ui/polar_align.py:337
 msgid "POINT"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:321
+#: PiFinder/ui/polar_align.py:345
 msgid "Aim away from"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:322
+#: PiFinder/ui/polar_align.py:346
 msgid "the pole, wait"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:323
+#: PiFinder/ui/polar_align.py:347
 msgid "for a solve."
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:327
+#: PiFinder/ui/polar_align.py:351
 msgid "Rotate platform"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:328
+#: PiFinder/ui/polar_align.py:352
 msgid "10° or more."
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:332
+#: PiFinder/ui/polar_align.py:356
 msgid "Rotate further"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:333
+#: PiFinder/ui/polar_align.py:357
 msgid "or solve now."
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:339
+#: PiFinder/ui/polar_align.py:363
 msgid "Solve"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:342
+#: PiFinder/ui/polar_align.py:366
 msgid "No recent solve"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:348
+#: PiFinder/ui/polar_align.py:372
 msgid "0 SOLVE NOW"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:356
+#: PiFinder/ui/polar_align.py:380
 msgid "CAPTURING"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:364
+#: PiFinder/ui/polar_align.py:388
 msgid "Hold still,"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:365
+#: PiFinder/ui/polar_align.py:389
 msgid "waiting for"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:366
+#: PiFinder/ui/polar_align.py:390
 msgid "camera solve."
 msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:374 PiFinder/ui/polar_align.py:429
+#: PiFinder/ui/polar_align.py:398 PiFinder/ui/polar_align.py:456
 msgid "pt"
 msgstr "pt"
 
-#: PiFinder/ui/polar_align.py:378
+#: PiFinder/ui/polar_align.py:402
 msgid "fit"
 msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:415
+#: PiFinder/ui/polar_align.py:439
 msgid "No result yet"
 msgstr "Pas de rés."
 
 # AI-TRANSLATED (claude): needs human review
 #. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
-#: PiFinder/ui/polar_align.py:417 PiFinder/ui/polar_align.py:443
+#: PiFinder/ui/polar_align.py:441 PiFinder/ui/polar_align.py:474
 msgid "{icon} BACK"
 msgstr "{icon} RETOUR"
 
-#: PiFinder/ui/polar_align.py:420
+#: PiFinder/ui/polar_align.py:448
 msgid "RA/Dec"
 msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:420
+#: PiFinder/ui/polar_align.py:448
 msgid "3-axis"
 msgstr "3 axes"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:425
+#: PiFinder/ui/polar_align.py:453
 msgid "ok"
 msgstr "ok"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:425
+#: PiFinder/ui/polar_align.py:453
 msgid "chk"
 msgstr "vérif"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:425
+#: PiFinder/ui/polar_align.py:453
 msgid "bad"
 msgstr "mauv."
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:430
+#: PiFinder/ui/polar_align.py:459
 msgid "Fit"
 msgstr "Ajust."
 
-#: PiFinder/ui/polar_align.py:431
+#: PiFinder/ui/polar_align.py:460
 msgid "Alt"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:432
+#: PiFinder/ui/polar_align.py:461
 msgid "Az"
 msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:433
+#: PiFinder/ui/polar_align.py:462
 msgid "Axis"
 msgstr "Axe"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:440
-msgid "Age"
-msgstr "Âge"
+#: PiFinder/ui/polar_align.py:471
+msgid "Gap"
+msgstr "Écart"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:481
+#: PiFinder/ui/polar_align.py:519
 msgid "No result"
 msgstr "Aucun rés."
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:489 PiFinder/ui/polar_align.py:496
+#: PiFinder/ui/polar_align.py:529 PiFinder/ui/polar_align.py:536
 msgid "Roll Off"
 msgstr "Sans Roll"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:489 PiFinder/ui/polar_align.py:496
+#: PiFinder/ui/polar_align.py:529 PiFinder/ui/polar_align.py:536
 msgid "Roll On"
 msgstr "Avec Roll"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:504
+#: PiFinder/ui/polar_align.py:544
 msgid "No points"
 msgstr "Aucun point"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:510
+#: PiFinder/ui/polar_align.py:550
 msgid "Dropped point"
 msgstr "Point retiré"
 
@@ -2347,4 +2347,8 @@ msgstr "Entrez heure locale"
 
 #~ msgid "Quaternion"
 #~ msgstr "Mise à jour maintenant"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Age"
+#~ msgstr "Âge"
 
