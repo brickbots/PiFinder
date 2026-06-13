@@ -381,6 +381,71 @@ session.  Press **LEFT** to back out without creating anything.
 
 .. image:: images/user_guide/custom_radec_result_docs.png
 
+Observing Lists
+---------------
+
+If you like to plan a session ahead of time — in SkySafari, a spreadsheet, or a list a
+fellow observer shared — you can bring that plan to the eyepiece.  Copy the list file into
+the ``obslists/`` folder of the PiFinder's :ref:`shared data
+folder <connectivity:shared data access>`, then load it from Obs Lists in the Objects
+menu.
+
+.. image:: images/user_guide/obs_lists_menu_docs.png
+
+The PiFinder reads observing lists in all of these formats, recognizing each by its file
+extension and, for ``.txt`` files, by the content itself:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Format
+     - Extension
+   * - SkySafari observing list
+     - ``.skylist``
+   * - PiFinder native
+     - ``.pifinder``
+   * - CSV
+     - ``.csv``
+   * - Stellarium observing list
+     - ``.sol``
+   * - Autostar / Meade tour
+     - ``.txt``, ``.mtf``
+   * - Argo Navis catalog
+     - ``.txt``
+   * - NexTour / Celestron tour
+     - ``.hct``
+   * - EQMOD tour
+     - ``.lst``
+   * - Plain text, one object name per line
+     - ``.txt``
+
+The Obs Lists screen shows every list it finds, along with any folders — shown in
+``[brackets]`` — so you can organize lists into subfolders by trip, season, or source.
+Scroll with the **UP/DOWN** arrows and press **RIGHT** to open a folder or load a list.
+
+.. image:: images/user_guide/obs_lists_browse_docs.png
+
+When two lists share a name — say you have both ``Messier Marathon.skylist`` and
+``Messier Marathon.csv`` — the format is appended to tell them apart, as in the image
+above.
+
+Loading a list matches each entry against the PiFinder's catalogs, briefly reports how
+many objects matched, and opens the result as a regular
+:ref:`Object List <user_guide:object list>` you can sort, browse, and push to.
+
+.. image:: images/user_guide/obs_lists_loaded_docs.png
+
+Entries that match a catalog behave exactly like objects you'd find by browsing — images,
+descriptions, and your observation logs all come along.  An entry the PiFinder can't match
+but that includes coordinates becomes a one-off target under the code OBS, so nothing on
+your list is left behind.
+
+.. note::
+   The ``.pifinder`` format is the PiFinder's own JSON list format, and the one to choose
+   when a planning tool offers it: it carries catalog references, magnitudes, object sizes,
+   and coordinate epochs that the other formats drop.  Tools like
+   `py-asterisms <https://github.com/mrosseel/py-asterisms>`_ produce it directly.
+
 Object Images
 ---------------
 

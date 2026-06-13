@@ -33,7 +33,7 @@ A row in the `catalog_objects` SQLite table — how a sky object appears in one 
 _Avoid_: catalog object (sounds like `CompositeObject`), entry, catalog row.
 
 **Virtual ID**:
-Negative `object_id` minted by `VirtualIDManager` for in-memory-only catalog objects (planets, comets) so they still hash uniquely.
+Negative `object_id` minted by `VirtualIDManager` for in-memory-only catalog objects (planets, comets, coordinate objects from observing lists) so they still hash uniquely. All virtual IDs come from the manager — never hand-pick a negative number, or two in-memory objects can collide and compare equal.
 _Avoid_: synthetic id, fake id.
 
 **Designator**:
@@ -156,6 +156,32 @@ _Avoid_: name search, full-text search.
 Substring search after translating names to PiFinder's non-standard keypad-digit form (`KEYPAD_DIGIT_TO_CHARS` — `7→abc`, `1→tuv`, …). Backed by `_t9_cache` keyed on `(catalog_code, sequence)`. Backs the UI context's **T9** search input method; reserve "T9 search" for this algorithm — the user-facing setting is the **search input method**.
 _Avoid_: keypad search, digit search.
 
+### Observing lists
+
+**Observing list**:
+A user-curated, ordered set of targets stored as one file under `PiFinder_data/obslists/`. Readable in any supported list format; PiFinder itself saves lists in SkySafari format.
+_Avoid_: target list, tour (a tour is a device-specific format family, not the concept), skylist (that's one format).
+
+**Observing list entry** (`ObsListEntry`):
+One target as parsed from a list file — the format-neutral interchange item every reader produces and every writer consumes. Either **catalog-keyed** (carries a catalog code + sequence) or a **coordinate entry** (carries RA/Dec plus name and type). It is not a `CompositeObject`; it becomes one through resolution.
+_Avoid_: entry (unqualified — too close to "catalog listing"), row, line, custom object.
+
+**List format**:
+One of the supported on-disk representations of an observing list: SkySafari, CSV, plain text, Stellarium, Autostar Tour, Argo Navis, NexTour, EQMOD Tour, and the native format. Detected by file extension first, content sniffing second; unrecognized content degrades to plain text (names only).
+_Avoid_: file type, flavor.
+
+**Native format** (`.pifinder`):
+PiFinder's own versioned JSON list format — the only one that losslessly carries catalog keys, structured magnitudes, size/extent geometry, and non-J2000 epochs (precessed to J2000 at read time). See [ADR 0003](../../adr/0003-pifinder-native-observing-list-format.md).
+_Avoid_: PiFinder format (ambiguous in prose), JSON format (Stellarium is JSON too).
+
+**Resolution**:
+Matching an observing list entry to a `CompositeObject` in the catalog collection by catalog code + sequence, with alias mapping (Messier→M, Caldwell→C, Collinder→Cr). Entries that fail resolution but carry coordinates become coordinate objects; entries with neither are dropped.
+_Avoid_: lookup, import (import is the whole read-then-resolve flow).
+
+**Coordinate object**:
+A `CompositeObject` minted at list-load time from a coordinate entry when resolution fails. In-memory only, carries a virtual ID, catalog code `OBS`.
+_Avoid_: custom object, user object, unresolved object (it *is* resolved — to coordinates).
+
 ### UI helpers
 
 **CatalogDesignator**:
@@ -182,6 +208,7 @@ _Avoid_: readonly list, immutable view.
   - **Selected object** = the single object currently displayed in `UIObjectDetails`. UI-cursor concept.
   - The catalog-level concept used to be called "selected catalogs" in code and is still named that way (`CatalogFilter.selected_catalogs`, `Catalog.is_selected()`). In **prose** we now say "enabled catalog" to avoid confusion with the selected object. Don't rename the code identifiers — just the words you use to talk about them.
 - **"Filtered"** vs **"enabled"** — filtered is per-object inside a catalog; enabled is whole-catalog in/out. They compose: a filtered-out object can live in an enabled catalog.
+- **"Entry"** — never bare. An **observing list entry** is the parsed interchange item from a list file; a **catalog listing** is a `catalog_objects` DB row. They are unrelated despite both sounding like "entry".
 
 ## Example dialogue
 
@@ -196,3 +223,7 @@ _Avoid_: readonly list, immutable view.
 > **Dev:** What if no galaxies are logged yet?
 >
 > **Domain:** Then `filtered_objects` is empty — which is fine. Watch out though: if you bound the type list to a UI list and the user unchecks everything, you'll send `object_types=[]`, which **rejects everything**. Only `None` means "don't filter on type."
+>
+> **Dev:** The user loads an observing list with "M 31" and a nameless target at some RA/Dec. What comes out?
+>
+> **Domain:** Two **observing list entries**. "M 31" is **catalog-keyed**, so **resolution** finds the existing `CompositeObject` — same `object_id`, same logged state. The RA/Dec one is a **coordinate entry**; it can't resolve, so it's minted as a **coordinate object** with a fresh **virtual ID** under catalog code `OBS`. Don't call either one a "catalog listing" — that's a DB row.
