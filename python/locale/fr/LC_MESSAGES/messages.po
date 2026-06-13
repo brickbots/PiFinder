@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-14 01:08+0200\n"
+"POT-Creation-Date: 2026-06-14 01:15+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: xxxxxx <xxxxx@xxxxx.com>\n"
 "Language: fr_FR\n"
@@ -1822,6 +1822,16 @@ msgstr ""
 #: PiFinder/ui/polar_align.py:467
 msgid "Axis"
 msgstr "Axe"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:477
+msgid "time"
+msgstr "temps"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:477
+msgid "sec"
+msgstr "sec"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:527

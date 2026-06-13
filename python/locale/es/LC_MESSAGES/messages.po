@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-14 01:08+0200\n"
+"POT-Creation-Date: 2026-06-14 01:15+0200\n"
 "PO-Revision-Date: 2025-01-22 17:58+0100\n"
 "Last-Translator: Claude Code\n"
 "Language: es\n"
@@ -1761,6 +1761,16 @@ msgstr ""
 #: PiFinder/ui/polar_align.py:467
 msgid "Axis"
 msgstr "Eje"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:477
+msgid "time"
+msgstr "tiempo"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:477
+msgid "sec"
+msgstr "seg"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:527

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-14 01:08+0200\n"
+"POT-Creation-Date: 2026-06-14 01:15+0200\n"
 "PO-Revision-Date: 2025-02-05 15:00+0800\n"
 "Last-Translator: ClawdPulse\n"
 "Language: zh_CN\n"
@@ -1838,6 +1838,16 @@ msgstr ""
 #: PiFinder/ui/polar_align.py:467
 msgid "Axis"
 msgstr "轴"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:477
+msgid "time"
+msgstr "时间"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:477
+msgid "sec"
+msgstr "秒"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/polar_align.py:527
