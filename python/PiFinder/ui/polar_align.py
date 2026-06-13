@@ -400,7 +400,7 @@ class UIPolarAlign(UIModule):
         if fit < 3:
             return _("ok")
         if fit < 10:
-            return _("chk")
+            return _("mid")
         return _("bad")
 
     def _draw_adjust(self):
