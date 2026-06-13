@@ -49,6 +49,7 @@ class PAState(Enum):
     AIM = "aim"  # Waiting for user to confirm a capture
     WAIT_SOLVE = "wait_solve"  # Waiting for a fresh camera solve
     ADJUST = "adjust"  # Live target display for the alt/az knobs
+    STATS = "stats"  # Read-only detail view of the last result
 
 
 class UIPolarAlign(UIModule):
@@ -77,12 +78,16 @@ class UIPolarAlign(UIModule):
         self.capture_request_time = 0.0
         self.result: Optional[dict] = None
         self.target_altaz: Optional[Tuple[float, float]] = None
+        # RA/Dec-only axis fit, ignoring camera roll (e.g. after a camera
+        # flop). A session-level preference toggled from the marking menu;
+        # only affects three-point solves.
+        self.ignore_roll = False
 
-        # Marking menu definition
+        # Marking menu (long-press square): advanced actions.
         self.marking_menu = MarkingMenu(
-            left=MarkingMenuOption(),
-            down=MarkingMenuOption(),
-            right=MarkingMenuOption(),
+            left=MarkingMenuOption(label=_("REDO PT"), callback=self.mm_redo_point),
+            down=MarkingMenuOption(label=_("IGN ROLL"), callback=self.mm_toggle_roll),
+            right=MarkingMenuOption(label=_("STATS"), callback=self.mm_stats),
         )
 
     def active(self):
@@ -154,12 +159,16 @@ class UIPolarAlign(UIModule):
             return
 
         calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
-        lst_deg = calc_utils.sf_utils.get_lst_hrs(dt_last) * 15.0 # 15 = 360°/24h
+        lst_deg = calc_utils.sf_utils.get_lst_hrs(dt_last) * 15.0  # 15 = 360°/24h
         t_last = calc_utils.sf_utils.ts.from_datetime(dt_last)
         jyear = 2000.0 + (t_last.tt - 2451545.0) / 365.25
 
         dAlt, dAz, sweep, axis_ra, axis_dec, fit_quality = get_platform_adjustments(
-            self.solves, location.lat, lst_deg, observation_jyear=jyear
+            self.solves,
+            location.lat,
+            lst_deg,
+            ignore_roll=self.ignore_roll,
+            observation_jyear=jyear,
         )
 
         if math.isnan(axis_ra):
@@ -171,9 +180,12 @@ class UIPolarAlign(UIModule):
             return
 
         ra_target, dec_target, _roll_target = correction_target(
-            axis_ra, axis_dec, self.solves[-1][:3],
-            location.lat, lst_deg,
-            observation_jyear=jyear
+            axis_ra,
+            axis_dec,
+            self.solves[-1][:3],
+            location.lat,
+            lst_deg,
+            observation_jyear=jyear,
         )
 
         # The correction target as a fixed ground direction at the epoch
@@ -188,8 +200,11 @@ class UIPolarAlign(UIModule):
             "dAlt": dAlt,
             "dAz": dAz,
             "sweep": sweep,
+            "axis_ra": axis_ra,
+            "axis_dec": axis_dec,
             "fit_quality": fit_quality,
             "n_points": len(self.solves),
+            "ignore_roll": self.ignore_roll,
         }
         self.state = PAState.ADJUST
 
@@ -232,6 +247,8 @@ class UIPolarAlign(UIModule):
             self._draw_wait_solve()
         elif self.state == PAState.ADJUST:
             self._draw_adjust()
+        elif self.state == PAState.STATS:
+            self._draw_stats()
 
         return self.screen_update()
 
@@ -388,8 +405,44 @@ class UIPolarAlign(UIModule):
         brightness = 255 if age < SOLVE_FRESH_SECS else 128
         draw_pointing_instructions(self, point_az, point_alt, brightness)
 
+    def _draw_stats(self):
+        """Read-only detail view of the last computed result."""
+        y = self.display_class.titlebar_height + 4
+        r = self.result
+        if r is None:
+            self._draw_lines(y, [_("No result yet")])
+            self._draw_hints(_(f"{self._SQUARE_} BACK"))
+            return
+
+        mode = _("RA/Dec") if r["ignore_roll"] else _("3-axis")
+        fit = r["fit_quality"]
+        if math.isnan(fit):
+            fit_txt = "--"
+        else:
+            verdict = _("ok") if fit < 3 else (_("chk") if fit < 10 else _("bad"))
+            fit_txt = f"{fit:.1f} {verdict}"
+
+        lines = [
+            f"{r['n_points']}" + _("pt") + f" {abs(r['sweep']):.0f}°  " + mode,
+            _("Fit") + f" {fit_txt}",
+            _("Alt") + f" {r['dAlt']:+.2f}° {r['dAlt'] * 60:+.0f}'",
+            _("Az") + f"  {r['dAz']:+.2f}° {r['dAz'] * 60:+.0f}'",
+            _("Axis") + f" {r['axis_ra']:.1f} {r['axis_dec']:+.1f}",
+        ]
+        y = self._draw_lines(y, lines)
+
+        # Per-point capture ages -- pointing drift accrues with age.
+        ages = "/".join(f"{time.time() - s[3]:.0f}" for s in self.solves)
+        if ages:
+            self._draw_lines(y + 2, [_("Age") + f" {ages}s"], fill=128)
+
+        self._draw_hints(_(f"{self._SQUARE_} BACK"))
+
     def key_square(self):
-        if self.state == PAState.INTRO:
+        if self.state == PAState.STATS:
+            # Back to the live adjustment display.
+            self.state = PAState.ADJUST
+        elif self.state == PAState.INTRO:
             self.state = PAState.AIM
         elif self.state == PAState.AIM:
             self.capture_request_time = time.time()
@@ -400,7 +453,10 @@ class UIPolarAlign(UIModule):
         self.update(force=True)
 
     def key_minus(self):
-        if self.state == PAState.WAIT_SOLVE:
+        if self.state == PAState.STATS:
+            # Back to the live adjustment display, keep the result.
+            self.state = PAState.ADJUST
+        elif self.state == PAState.WAIT_SOLVE:
             # Abort just this capture, keep earlier points
             self.state = PAState.AIM
         elif self.state != PAState.INTRO:
@@ -412,3 +468,33 @@ class UIPolarAlign(UIModule):
         if number == 0 and self.state == PAState.AIM and len(self.solves) >= 2:
             self._compute()
             self.update(force=True)
+
+    # ── Marking-menu actions ──────────────────────────────────────────────────
+
+    def mm_stats(self, _marking_menu, _menu_item) -> bool:
+        """Show the read-only detail view of the last result."""
+        if self.result is None:
+            self.message(_("No result"), 1)
+        else:
+            self.state = PAState.STATS
+        return True
+
+    def mm_toggle_roll(self, _marking_menu, _menu_item) -> bool:
+        """Toggle the RA/Dec-only (ignore camera roll) fit and recompute."""
+        self.ignore_roll = not self.ignore_roll
+        self.message(_("Ignore roll") if self.ignore_roll else _("Use roll"), 1)
+        if self.result is not None and len(self.solves) >= 2:
+            self._compute()
+        return True
+
+    def mm_redo_point(self, _marking_menu, _menu_item) -> bool:
+        """Drop just the last captured point and re-aim it."""
+        if not self.solves:
+            self.message(_("No points"), 1)
+            return True
+        self.solves.pop()
+        self.result = None
+        self.target_altaz = None
+        self.state = PAState.AIM
+        self.message(_("Dropped point"), 1)
+        return True
