@@ -83,12 +83,14 @@ class UIPolarAlign(UIModule):
         # only affects three-point solves.
         self.ignore_roll = False
 
-        # Marking menu (long-press square): advanced actions.
+        # Marking menu (long-press square): advanced actions. The roll
+        # option's label tracks the current state (see _update_roll_label).
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(label=_("REDO PT"), callback=self.mm_redo_point),
-            down=MarkingMenuOption(label=_("IGN ROLL"), callback=self.mm_toggle_roll),
+            down=MarkingMenuOption(callback=self.mm_toggle_roll),
             right=MarkingMenuOption(label=_("STATS"), callback=self.mm_stats),
         )
+        self._update_roll_label()
 
     def active(self):
         self.update(force=True)
@@ -411,7 +413,8 @@ class UIPolarAlign(UIModule):
         r = self.result
         if r is None:
             self._draw_lines(y, [_("No result yet")])
-            self._draw_hints(_(f"{self._SQUARE_} BACK"))
+            # TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
+            self._draw_hints(_("{icon} BACK").format(icon=self._SQUARE_))
             return
 
         mode = _("RA/Dec") if r["ignore_roll"] else _("3-axis")
@@ -436,7 +439,8 @@ class UIPolarAlign(UIModule):
         if ages:
             self._draw_lines(y + 2, [_("Age") + f" {ages}s"], fill=128)
 
-        self._draw_hints(_(f"{self._SQUARE_} BACK"))
+        # TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
+        self._draw_hints(_("{icon} BACK").format(icon=self._SQUARE_))
 
     def key_square(self):
         if self.state == PAState.STATS:
@@ -479,10 +483,17 @@ class UIPolarAlign(UIModule):
             self.state = PAState.STATS
         return True
 
+    def _update_roll_label(self):
+        """Roll option shows the current state: on = roll used in the fit."""
+        self.marking_menu.down.label = (
+            _("Roll Off") if self.ignore_roll else _("Roll On")
+        )
+
     def mm_toggle_roll(self, _marking_menu, _menu_item) -> bool:
         """Toggle the RA/Dec-only (ignore camera roll) fit and recompute."""
         self.ignore_roll = not self.ignore_roll
-        self.message(_("Ignore roll") if self.ignore_roll else _("Use roll"), 1)
+        self._update_roll_label()
+        self.message(_("Roll Off") if self.ignore_roll else _("Roll On"), 1)
         if self.result is not None and len(self.solves) >= 2:
             self._compute()
         return True
