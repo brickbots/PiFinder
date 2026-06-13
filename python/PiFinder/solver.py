@@ -346,9 +346,7 @@ def solver(
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
-    t3 = tetra3.Tetra3(
-        str(utils.cwd_dir / "PiFinder/tetra3/tetra3/data/default_database.npz")
-    )
+    t3 = tetra3.Tetra3(str(utils.tetra3_dir / "data" / "default_database.npz"))
     align_ra = 0
     align_dec = 0
     last_solve_attempt: float = 0.0

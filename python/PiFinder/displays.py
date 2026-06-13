@@ -90,16 +90,37 @@ class DisplayPygame_128(DisplayBase):
         super().__init__()
 
 
-class DisplayPygame_320(DisplayBase):
+class Layout320:
+    """Shared 320x240 layout profile for the ST7789 LCD.
+
+    Every 320 render target — the real LCD, the pygame emulator, and the
+    headless dummy — must lay out identically for the emulator to faithfully
+    preview the hardware (same role as ``Layout176`` for the 1.91" panel).
+    """
+
     resolution = (320, 240)
+    titlebar_height = 22
+    base_font_size = 16
+    bold_font_size = 19
+    small_font_size = 13
+    large_font_size = 24
+    huge_font_size = 70
+
+
+class DisplayPygame_320(Layout320, DisplayBase):
+    """Pygame emulator at 320x240 with the ST7789 layout profile.
+
+    Lets the LCD UI be previewed on a dev machine with no Pi/panel; the
+    ``Layout320`` profile means it renders with the same fonts/spacing as the
+    real LCD. Select with ``--display pg_320``.
+    """
 
     def __init__(self):
         from luma.emulator.device import pygame
 
-        # init display  (SPI hardware)
         pygame = pygame(
-            width=320,
-            height=240,
+            width=self.resolution[0],
+            height=self.resolution[1],
             rotate=0,
             mode="RGB",
             frame_rate=60,
@@ -227,15 +248,7 @@ class DisplayST7789_128(DisplayBase):
         super().__init__()
 
 
-class DisplayST7789(DisplayBase):
-    resolution = (320, 240)
-    titlebar_height = 22
-    base_font_size = 16
-    bold_font_size = 19
-    small_font_size = 13
-    large_font_size = 24
-    huge_font_size = 70
-
+class DisplayST7789(Layout320, DisplayBase):
     def __init__(self):
         # init display  (SPI hardware)
         serial = spi(device=0, port=0, bus_speed_hz=52000000)
@@ -288,12 +301,23 @@ class DisplayHeadless176(Layout176, DisplayHeadless):
     """
 
 
+class DisplayHeadless320(Layout320, DisplayHeadless):
+    """Headless (luma ``dummy``) display at 320x240 with the ST7789 layout.
+
+    The no-hardware target for driving/screenshotting the LCD UI over the
+    HTTP API. Select with ``--display headless_320``.
+    """
+
+
 def get_display(display_hardware: str) -> DisplayBase:
     if display_hardware == "headless":
         return DisplayHeadless()
 
     if display_hardware == "headless_176":
         return DisplayHeadless176()
+
+    if display_hardware == "headless_320":
+        return DisplayHeadless320()
 
     if display_hardware == "pg_128":
         return DisplayPygame_128()

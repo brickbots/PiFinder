@@ -458,7 +458,7 @@ def main(
         )
         keyboard_process.start()
         if script_name:
-            script_path = f"../scripts/{script_name}.pfs"
+            script_path = str(utils.pifinder_dir / "scripts" / f"{script_name}.pfs")
             p = Process(
                 name="Script",
                 target=keyboard_interface.KeyboardInterface.run_script,
