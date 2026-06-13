@@ -392,16 +392,25 @@ class UIPolarAlign(UIModule):
         )
         self._draw_hints(_(f"{self._MINUS_} BACK"))
 
+    def _fit_verdict(self, fit) -> str:
+        """Plain-language fit-quality assessment, or "" when unavailable
+        (two-solve has no residual). Shared by the adjust and stats screens."""
+        if math.isnan(fit):
+            return ""
+        if fit < 3:
+            return _("ok")
+        if fit < 10:
+            return _("chk")
+        return _("bad")
+
     def _draw_adjust(self):
         y = self.display_class.titlebar_height + 4
         if self.result is not None:
             info = f"{self.result['n_points']}" + _("pt")
             info += f" {abs(self.result['sweep']):.0f}°"
-            fit_quality = self.result["fit_quality"]
-            if not math.isnan(fit_quality):
-                info += " " + _("fit") + f" {fit_quality:.1f}"
-                if fit_quality > 3.0:
-                    info += "!"
+            verdict = self._fit_verdict(self.result["fit_quality"])
+            if verdict:
+                info += " " + verdict
             self.draw.text(
                 (10, y),
                 info,
@@ -447,11 +456,7 @@ class UIPolarAlign(UIModule):
         if r["n_points"] >= 3:
             mode = _("RA/Dec") if r["ignore_roll"] else _("3-axis")
         fit = r["fit_quality"]
-        if math.isnan(fit):
-            fit_txt = "--"
-        else:
-            verdict = _("ok") if fit < 3 else (_("chk") if fit < 10 else _("bad"))
-            fit_txt = f"{fit:.1f} {verdict}"
+        fit_txt = "--" if math.isnan(fit) else f"{fit:.1f} {self._fit_verdict(fit)}"
 
         count = f"{r['n_points']}" + _("pt") + f" {abs(r['sweep']):.0f}°"
         lines = [
