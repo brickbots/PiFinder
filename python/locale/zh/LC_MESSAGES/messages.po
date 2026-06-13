@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-14 00:56+0200\n"
+"POT-Creation-Date: 2026-06-14 01:08+0200\n"
 "PO-Revision-Date: 2025-02-05 15:00+0800\n"
 "Last-Translator: ClawdPulse\n"
 "Language: zh_CN\n"
@@ -536,7 +536,7 @@ msgstr "󰍴 删除/上一步"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/dateentry.py:219 PiFinder/ui/locationentry.py:346
-#: PiFinder/ui/polar_align.py:504 PiFinder/ui/timeentry.py:217
+#: PiFinder/ui/polar_align.py:505 PiFinder/ui/timeentry.py:217
 msgid "Cancelled"
 msgstr "已取消"
 
@@ -1685,11 +1685,11 @@ msgstr "重做点"
 msgid "STATS"
 msgstr "统计"
 
-#: PiFinder/ui/polar_align.py:228
+#: PiFinder/ui/polar_align.py:228 PiFinder/ui/polar_align.py:529
 msgid "Need GPS lock"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:234
+#: PiFinder/ui/polar_align.py:234 PiFinder/ui/polar_align.py:531
 msgid "Rotate more"
 msgstr ""
 
@@ -1808,7 +1808,7 @@ msgstr "暂无结果"
 
 # AI-TRANSLATED (claude): needs human review
 #. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
-#: PiFinder/ui/polar_align.py:450 PiFinder/ui/polar_align.py:479
+#: PiFinder/ui/polar_align.py:450 PiFinder/ui/polar_align.py:480
 msgid "{icon} BACK"
 msgstr "{icon} 返回"
 
@@ -1840,32 +1840,27 @@ msgid "Axis"
 msgstr "轴"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:476
-msgid "Gap"
-msgstr "间隔"
+#: PiFinder/ui/polar_align.py:527
+msgid "Need 2 points"
+msgstr "需要2个点"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:524
-msgid "No result"
-msgstr "无结果"
-
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:534 PiFinder/ui/polar_align.py:541
+#: PiFinder/ui/polar_align.py:541 PiFinder/ui/polar_align.py:548
 msgid "Roll Off"
 msgstr "忽略滚转"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:534 PiFinder/ui/polar_align.py:541
+#: PiFinder/ui/polar_align.py:541 PiFinder/ui/polar_align.py:548
 msgid "Roll On"
 msgstr "用滚转"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:549
+#: PiFinder/ui/polar_align.py:556
 msgid "No points"
 msgstr "无点"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:555
+#: PiFinder/ui/polar_align.py:562
 msgid "Dropped point"
 msgstr "已删除点"
 
@@ -2411,4 +2406,12 @@ msgstr "输入本地时间"
 # AI-TRANSLATED (claude): needs human review
 #~ msgid "chk"
 #~ msgstr "存疑"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "No result"
+#~ msgstr "无结果"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Gap"
+#~ msgstr "间隔"
 

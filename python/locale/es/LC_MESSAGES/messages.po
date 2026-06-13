@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-14 00:56+0200\n"
+"POT-Creation-Date: 2026-06-14 01:08+0200\n"
 "PO-Revision-Date: 2025-01-22 17:58+0100\n"
 "Last-Translator: Claude Code\n"
 "Language: es\n"
@@ -507,7 +507,7 @@ msgstr "󰍴 Eliminar/Anterior"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/dateentry.py:219 PiFinder/ui/locationentry.py:346
-#: PiFinder/ui/polar_align.py:504 PiFinder/ui/timeentry.py:217
+#: PiFinder/ui/polar_align.py:505 PiFinder/ui/timeentry.py:217
 msgid "Cancelled"
 msgstr "Cancelado"
 
@@ -1608,11 +1608,11 @@ msgstr "REHACER"
 msgid "STATS"
 msgstr "DATOS"
 
-#: PiFinder/ui/polar_align.py:228
+#: PiFinder/ui/polar_align.py:228 PiFinder/ui/polar_align.py:529
 msgid "Need GPS lock"
 msgstr ""
 
-#: PiFinder/ui/polar_align.py:234
+#: PiFinder/ui/polar_align.py:234 PiFinder/ui/polar_align.py:531
 msgid "Rotate more"
 msgstr ""
 
@@ -1731,7 +1731,7 @@ msgstr "Sin result. aún"
 
 # AI-TRANSLATED (claude): needs human review
 #. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
-#: PiFinder/ui/polar_align.py:450 PiFinder/ui/polar_align.py:479
+#: PiFinder/ui/polar_align.py:450 PiFinder/ui/polar_align.py:480
 msgid "{icon} BACK"
 msgstr "{icon} ATRÁS"
 
@@ -1763,32 +1763,27 @@ msgid "Axis"
 msgstr "Eje"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:476
-msgid "Gap"
-msgstr "Interv."
+#: PiFinder/ui/polar_align.py:527
+msgid "Need 2 points"
+msgstr "Faltan 2 puntos"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:524
-msgid "No result"
-msgstr "Sin result."
-
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:534 PiFinder/ui/polar_align.py:541
+#: PiFinder/ui/polar_align.py:541 PiFinder/ui/polar_align.py:548
 msgid "Roll Off"
 msgstr "Sin Roll"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:534 PiFinder/ui/polar_align.py:541
+#: PiFinder/ui/polar_align.py:541 PiFinder/ui/polar_align.py:548
 msgid "Roll On"
 msgstr "Con Roll"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:549
+#: PiFinder/ui/polar_align.py:556
 msgid "No points"
 msgstr "Sin puntos"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/polar_align.py:555
+#: PiFinder/ui/polar_align.py:562
 msgid "Dropped point"
 msgstr "Punto borrado"
 
@@ -2277,4 +2272,12 @@ msgstr "Ingresar Hora Local"
 # AI-TRANSLATED (claude): needs human review
 #~ msgid "chk"
 #~ msgstr "rev."
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "No result"
+#~ msgstr "Sin result."
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Gap"
+#~ msgstr "Interv."
 
