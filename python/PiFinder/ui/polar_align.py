@@ -474,7 +474,7 @@ class UIPolarAlign(UIModule):
         if ts:
             t0 = ts[0]
             times = "/".join(f"{t - t0:.0f}" for t in ts)
-            self._draw_lines(y + 2, [f"t {times} sec"], fill=128)
+            self._draw_lines(y + 2, [_("time") + f" {times} " + _("sec")], fill=128)
 
         # TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
         self._draw_hints(_("{icon} BACK").format(icon=self._SQUARE_))
