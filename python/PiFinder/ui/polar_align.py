@@ -327,7 +327,8 @@ class UIPolarAlign(UIModule):
         )
         if not self.shared_state.altaz_ready():
             self._draw_lines(y + 2, [_("GPS: waiting...")], fill=128)
-        self._draw_hints(_(f"{self._SQUARE_} START"))
+        # TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
+        self._draw_hints(_("{icon} START").format(icon=self._SQUARE_))
 
     def _draw_aim(self):
         point_number = len(self.solves) + 1
@@ -367,10 +368,13 @@ class UIPolarAlign(UIModule):
             solve_fill = 96
         self._draw_lines(y + 4, [solve_text], fill=solve_fill)
 
-        self._draw_hints(
-            _(f"{self._SQUARE_} CAPTURE  {self._MINUS_} CANCEL"),
-            _("0 SOLVE NOW") if point_number > 2 else None,
+        # TRANSLATORS: hint bar; {square} is the SQUARE button glyph, {minus}
+        # is the MINUS button glyph.
+        capture_hint = _("{square} CAPTURE  {minus} CANCEL").format(
+            square=self._SQUARE_,
+            minus=self._MINUS_,
         )
+        self._draw_hints(capture_hint, _("0 SOLVE NOW") if point_number > 2 else None)
 
     def _draw_wait_solve(self):
         y = self.display_class.titlebar_height + 6
@@ -390,7 +394,8 @@ class UIPolarAlign(UIModule):
                 _("camera solve."),
             ],
         )
-        self._draw_hints(_(f"{self._MINUS_} BACK"))
+        # TRANSLATORS: hint bar; {icon} is the MINUS button glyph
+        self._draw_hints(_("{icon} BACK").format(icon=self._MINUS_))
 
     def _fit_verdict(self, fit) -> str:
         """Plain-language fit-quality assessment, or "" when unavailable
@@ -418,9 +423,15 @@ class UIPolarAlign(UIModule):
                 fill=self.colors.get(255),
             )
         y += self.fonts.bold.height + 4
+        # TRANSLATORS: hint bar; {square} is the SQUARE button glyph, {minus}
+        # is the MINUS button glyph.
+        redo_hint = _("{square} REDO  {minus} CANCEL").format(
+            square=self._SQUARE_,
+            minus=self._MINUS_,
+        )
         self.draw.text(
             (10, y),
-            _(f"{self._SQUARE_} REDO  {self._MINUS_} CANCEL"),
+            redo_hint,
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
