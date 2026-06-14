@@ -433,12 +433,20 @@ class ImuSample:
     process sampled this orientation — the IMU-side input to
     :attr:`PointingEstimate.estimate_time`. It is the sample epoch, not
     the (later) moment a consumer reads the sample.
+
+    ``gyro`` / ``accel`` are the raw sensor readings at the same sample,
+    recorded for telemetry. ``None`` when the sensor doesn't expose them
+    (e.g. the fake IMU).
     """
 
     quat: quaternion.quaternion
     timestamp: float
     status: int = 0  # 3 == fully calibrated (BNO055)
     moving: bool = False
+    # Raw gyroscope angular velocity (rad/s) and linear acceleration
+    # (m/s², gravity removed) — captured for telemetry recording.
+    gyro: Optional[Tuple[float, float, float]] = None
+    accel: Optional[Tuple[float, float, float]] = None
 
     def is_calibrated(self) -> bool:
         return self.status == 3
@@ -451,6 +459,8 @@ class ImuSample:
             "timestamp": self.timestamp,
             "status": self.status,
             "moving": self.moving,
+            "gyro": list(self.gyro) if self.gyro is not None else None,
+            "accel": list(self.accel) if self.accel is not None else None,
         }
 
 

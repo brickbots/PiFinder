@@ -37,6 +37,11 @@ class Imu:
         self._flip_count = 0
         self.calibration = 0
         self.avg_quat = (0, 0, 0, 0)  # Scalar-first quaternion as float: (w, x, y, z)
+        # Raw sensor readings taken alongside the quaternion, for telemetry
+        self.gyro = None
+        self.accel = None
+        # Epoch of the last successful sensor read
+        self.last_read_time = 0.0
         self.__moving = False
         self.__reading_diff = 0.0
 
@@ -50,6 +55,10 @@ class Imu:
         # to stop moving.
 
         cfg = config.Config()
+        # Raw gyro/accel capture is opt-in: two extra I2C transactions per
+        # sample on a bus the BNO055 is sensitive about, and only useful
+        # for telemetry analysis.
+        self._raw_telemetry = bool(cfg.get_option("telemetry_raw_imu", False))
         imu_threshold_scale = cfg.get_option("imu_threshold_scale", 1)
         self.__moving_threshold = (
             0.0005 * imu_threshold_scale,
@@ -80,6 +89,17 @@ class Imu:
         if quat[0] is None:
             logger.warning("IMU: Failed to get sensor values")
             return
+
+        # When enabled, read raw sensor data alongside the quaternion so
+        # the telemetry sample is coherent (same instant, same I2C burst).
+        if self._raw_telemetry:
+            try:
+                self.gyro = self.sensor.gyro
+                self.accel = self.sensor.linear_acceleration
+            except (OSError, RuntimeError):
+                self.gyro = None
+                self.accel = None
+        self.last_read_time = time.time()
 
         _quat_diff = []
         for i in range(4):
@@ -161,7 +181,6 @@ def imu_monitor(shared_state, console_queue, log_queue):
 
         imu = ImuFake()
 
-    imu = Imu()
     imu_calibrated = False
     imu_sample = ImuSample(
         # Scalar-first numpy quaternion(w, x, y, z) - init to invalid quaternion
@@ -175,20 +194,27 @@ def imu_monitor(shared_state, console_queue, log_queue):
         imu.update()
         imu_sample.status = imu.calibration
 
+        # Raw data + read epoch are captured by imu.update() in the same
+        # I2C burst as the quaternion; copy them onto the published sample.
+        # The fresh timestamp per read keeps the telemetry recorder's
+        # dedup-by-sample-epoch working while stationary.
+        imu_sample.gyro = imu.gyro
+        imu_sample.accel = imu.accel
+        if imu.last_read_time:
+            imu_sample.timestamp = imu.last_read_time
+
         if imu.moving():
             if not imu_sample.moving:
                 logger.debug("IMU: move start")
                 imu_sample.moving = True
-            # Scalar-first (w, x, y, z); stamp the sample epoch alongside it
+            # Scalar-first (w, x, y, z)
             imu_sample.quat = quaternion.from_float_array(imu.avg_quat)
-            imu_sample.timestamp = time.time()
         else:
             if imu_sample.moving:
                 # If we were moving and we now stopped
                 logger.debug("IMU: move end")
                 imu_sample.moving = False
                 imu_sample.quat = quaternion.from_float_array(imu.avg_quat)
-                imu_sample.timestamp = time.time()
 
         if not imu_calibrated:
             if imu_sample.status == 3:

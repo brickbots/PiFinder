@@ -38,14 +38,28 @@ The page set (registered in `docs/source/index.rst`):
 | File | Covers |
 |------|--------|
 | `quick_start.rst` | First-night, get-observing walkthrough |
-| `user_guide.rst` | Full reference for every menu, screen, and setting |
+| `user_guide.rst` | Workflow reference for operating & observing — the printable core; defers enumeration to `menu_map`, deep topics to satellite pages |
+| `menu_map.rst` | Every menu item in the tree, one entry each |
+| `equipment.rst` | Telescopes & eyepieces: gear setup, magnification/TFOV, flip/flop |
 | `catalogs.rst` | Object catalogs included |
+| `connectivity.rst` | Reaching the device from another device: WiFi modes, web interface, SMB share |
+| `skysafari.rst` | SkySafari / planetarium integration |
+| `troubleshooting.rst` | Symptom-led fixes and FAQ |
 | `build_guide.rst` | Assembling the hardware |
 | `v25_upgrade.rst` | Upgrading a v2 unit |
 | `software.rst` | Flashing / updating the software image |
-| `skysafari.rst` | SkySafari / planetarium integration |
+| `sd_card.rst` | Swapping / re-imaging the SD card |
 | `dev_guide.rst`, `dev_arch.rst` | Contributor / architecture docs |
+| `api.rst` | HTTP API reference |
 | `BOM.rst` | Bill of materials |
+
+**Section in `user_guide` vs standalone page** — a topic earns its own page only
+when readers *arrive at it directly* with a task in hand (search, a Discord
+answer, a cross-page link) **and** it is *separable* from the guide's
+operate-and-observe storyline (a sentence + link suffices in its place).
+Otherwise it's a `user_guide` section. Standalone page URLs get linked from the
+wild — don't merge or rename pages casually. Rationale and worked examples:
+`docs/adr/0010-user-docs-page-granularity.md`.
 
 **Before writing a single line, read the page you're about to touch (or the
 closest sibling).** The fastest way to match the house style is to mirror the

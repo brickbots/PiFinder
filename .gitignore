@@ -160,3 +160,4 @@ astro_data/comets.txt
 # users GPS data
 test_ubx
 test_ubx/*
+python/telemetry_analysis/

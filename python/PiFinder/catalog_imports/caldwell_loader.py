@@ -17,6 +17,7 @@ from .catalog_import_utils import (
     insert_catalog,
     insert_catalog_max_sequence,
     add_space_after_prefix,
+    parse_arcmin_size,
 )
 
 # Import shared database object
@@ -46,7 +47,7 @@ def load_caldwell():
                 mag = MagnitudeObject([])
             else:
                 mag = MagnitudeObject([float(mag)])
-            size = dfs[5][5:].strip()
+            size = parse_arcmin_size(dfs[5][5:].strip())
             ra_h = int(dfs[6])
             ra_m = float(dfs[7])
             ra_deg = ra_to_deg(ra_h, ra_m, 0)

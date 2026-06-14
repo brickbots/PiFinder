@@ -11,7 +11,7 @@ from pathlib import Path
 # Import shared database object
 from .database import objects_db
 from .catalog_import_utils import NewCatalogObject
-from PiFinder.composite_object import MagnitudeObject
+from PiFinder.composite_object import MagnitudeObject, SizeObject
 import PiFinder.utils as utils
 
 
@@ -123,7 +123,7 @@ def add_missing_messier_objects():
         ra=185.552,  # 12h 22m 12.5272s in degrees
         dec=58.083,  # +58° 4′ 58.549″ in degrees
         mag=MagnitudeObject([9.9]),  # Average of components A (9.64) and B (10.11)
-        size="0.1'",
+        size=SizeObject.from_arcmin(0.1),
         description="Winnecke 4 double star",
         aka_names=m40_aka_names,
     )
@@ -143,7 +143,7 @@ def add_missing_messier_objects():
         ra=56.85,  # 03h 47m 24s in degrees
         dec=24.117,  # +24° 07′ 00″ in degrees
         mag=MagnitudeObject([1.6]),
-        size="120'",  # 2° = 120 arcminutes
+        size=SizeObject.from_degrees(2.0),  # 2°
         description="Pleiades open cluster",
         aka_names=m45_aka_names,
     )
@@ -163,7 +163,7 @@ def add_missing_messier_objects():
         ra=274.6,  # 18h 18m 24s in degrees
         dec=-18.4,  # -18° 24′ 00″ in degrees
         mag=MagnitudeObject([4.6]),  # Visual magnitude of the brightest part
-        size="90'",  # About 1.5 degrees
+        size=SizeObject.from_degrees(1.5),  # ~1.5°
         description="Sagittarius Star Cloud",
         aka_names=m24_aka_names,
     )
@@ -183,7 +183,7 @@ def add_missing_messier_objects():
         ra=226.623,  # 15h 06m 29.5s in degrees
         dec=55.763,  # +55° 45′ 48″ in degrees
         mag=MagnitudeObject([10.7]),
-        size="5.2'x2.3'",
+        size=SizeObject.from_arcmin(5.2, 2.3),
         description="Spindle Galaxy (controversial Messier object)",
         aka_names=m102_aka_names,
     )

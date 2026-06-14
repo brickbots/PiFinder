@@ -17,6 +17,7 @@ from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
 from PiFinder.ui.locationentry import UILocationEntry
 from PiFinder.ui.radec_entry import UIRADecEntry
+from PiFinder.ui.telemetry_list import UITelemetryList
 import PiFinder.ui.callbacks as callbacks
 
 
@@ -711,18 +712,19 @@ pifinder_menu = {
                             ],
                         },
                         {
-                            "name": _("T9 Search"),
+                            "name": _("Search Input"),
                             "class": UITextMenu,
                             "select": "single",
-                            "config_option": "t9_search",
+                            "config_option": "search_input_method",
+                            "label": "search_input_method",
                             "items": [
                                 {
-                                    "name": _("Off"),
-                                    "value": False,
+                                    "name": _("Multi-Tap"),
+                                    "value": "multi_tap",
                                 },
                                 {
-                                    "name": _("On"),
-                                    "value": True,
+                                    "name": _("T9"),
+                                    "value": "t9",
                                 },
                             ],
                         },
@@ -893,6 +895,45 @@ pifinder_menu = {
                                 {
                                     "name": _("Degrees"),
                                     "value": "Degr",
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "name": _("Image..."),
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": _("NSEW Labels"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "image_nsew",
+                            "items": [
+                                {
+                                    "name": _("On"),
+                                    "value": True,
+                                },
+                                {
+                                    "name": _("Off"),
+                                    "value": False,
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Object Size"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "image_bbox",
+                            "items": [
+                                {
+                                    "name": _("On"),
+                                    "value": True,
+                                },
+                                {
+                                    "name": _("Off"),
+                                    "value": False,
                                 },
                             ],
                         },
@@ -1200,6 +1241,57 @@ pifinder_menu = {
                                 {
                                     "name": _("Histogram"),
                                     "value": "histogram",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Dev Tools"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": _("Telemetry"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "items": [
+                                        {
+                                            "name": _("Record"),
+                                            "class": UITextMenu,
+                                            "select": "single",
+                                            "config_option": "telemetry_record",
+                                            "post_callback": callbacks.telemetry_record_toggle,
+                                            "items": [
+                                                {
+                                                    "name": _("Off"),
+                                                    "value": False,
+                                                },
+                                                {
+                                                    "name": _("On"),
+                                                    "value": True,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            "name": _("Images"),
+                                            "class": UITextMenu,
+                                            "select": "single",
+                                            "config_option": "telemetry_images",
+                                            "items": [
+                                                {
+                                                    "name": _("Off"),
+                                                    "value": False,
+                                                },
+                                                {
+                                                    "name": _("On"),
+                                                    "value": True,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            "name": _("Load"),
+                                            "class": UITelemetryList,
+                                        },
+                                    ],
                                 },
                             ],
                         },
