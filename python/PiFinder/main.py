@@ -1015,13 +1015,13 @@ if __name__ == "__main__":
         "-c",
         "--camera",
         help="Specify which camera to use: pi, asi, debug or none",
-        default="pi",
+        default=None,
         required=False,
     )
     parser.add_argument(
         "-g",
         "--gps",
-        help="Specify which camera to use: pi, fake",
+        help="Specify which GPS to use: pi, fake",
         default="pi",
         required=False,
     )
@@ -1130,13 +1130,17 @@ if __name__ == "__main__":
     if args.display is not None:
         display_hardware = args.display.lower()
 
-    if args.camera.lower() == "pi":
+    camera_type = args.camera.lower() if args.camera is not None else None
+    if camera_type is None:
+        camera_type = "debug" if args.fakehardware else "pi"
+
+    if camera_type == "pi":
         rlogger.info("using pi camera")
         from PiFinder import camera_pi as camera
-    elif args.camera.lower() == "debug":
+    elif camera_type == "debug":
         rlogger.info("using debug camera")
         from PiFinder import camera_debug as camera  # type: ignore[no-redef]
-    elif args.camera.lower() == "asi":
+    elif camera_type == "asi":
         rlogger.info("using asi camera")
     else:
         rlogger.warn("not using camera")
