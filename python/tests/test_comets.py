@@ -27,7 +27,7 @@ _DT = datetime(2026, 6, 14, 6, 0, 0, tzinfo=timezone.utc)
 # is gitignored and only exists on a live unit after a download, so CI has no
 # comet data.  This fixture lives under tests/ on purpose: nothing in the app
 # reads from here, so checking it in can never change production behaviour.
-_TEST_COMET_FILE = Path(__file__).parent / "data" / "comets.txt"
+_TEST_COMET_FILE = Path(__file__).parent / "data" / "comets_fixture.txt"
 
 
 @pytest.fixture(autouse=True)
