@@ -51,8 +51,6 @@ def process_comet(comet_data, dt) -> Dict[str, Any]:
         "mag": mag,
         "earth_distance": earth_distance.au,
         "sun_distance": sun_distance.au,
-        "orbital_elements": None,  # could add this later
-        "row": row,
     }
 
 
@@ -230,11 +228,14 @@ def _calc_comets_vectorized(comets_df: pd.DataFrame, dt) -> Dict[str, Any]:
 
     Skyfield's Kepler ``propagate()`` is array-aware, so all comets are
     advanced to time ``dt`` in one numpy call instead of the old per-comet
-    Python loop (957 comets x 2 skyfield propagations each).  That loop ran
-    longer than its own 293 s timer interval, so the background comet thread
-    re-ran it back-to-back and — being pure-Python skyfield holding the GIL —
-    pegged a CPU core continuously whenever PiFinder was locked on a target
-    (commit 4aafd89a regressed an incremental update to this full reinit).
+    Python loop (957 comets x 2 skyfield propagations each).  That loop took
+    tens of seconds of pure-Python skyfield (which holds the GIL), and the
+    comet thread re-ran it far more often than the data changes, so it pegged
+    a CPU core continuously whenever PiFinder was locked on a target and
+    starved the UI loop (commit 4aafd89a regressed an incremental update to
+    this full reinit; see comet_catalog.py / catalog_base.py TimerMixin for
+    the 5 s-while-uninitialised timer + _task_lock requeue that made it run
+    back-to-back).
 
     RA/Dec are referred to the mean equator and equinox of J2000, matching
     the old per-comet ``radec(ts.J2000)`` call to floating-point precision
@@ -243,6 +244,8 @@ def _calc_comets_vectorized(comets_df: pd.DataFrame, dt) -> Dict[str, Any]:
     its quirk of keeping comets whose magnitude is NaN (``nan > 15`` is
     False).
     """
+    if comets_df.empty:  # self-safe; calc_comets also guards before calling
+        return {}
     t = sf_utils.ts.from_datetime(dt)
 
     # One batched KeplerOrbit covering every comet (Skyfield's vectorized
@@ -289,8 +292,6 @@ def _calc_comets_vectorized(comets_df: pd.DataFrame, dt) -> Dict[str, Any]:
             "mag": float(mag[i]),
             "earth_distance": float(earth_distance[i]),
             "sun_distance": float(sun_distance[i]),
-            "orbital_elements": None,
-            "row": comets_df.iloc[i],
         }
     return comet_dict
 
@@ -365,15 +366,17 @@ def calc_comets(
 
         try:
             comet_dict = _calc_comets_vectorized(comets_df, dt)
-        except Exception as e:
+        except Exception:
             # The batched call shouldn't fail with pinned Skyfield + curated
             # MPC data (a unit test guards this), but if it ever does, fall
             # back to the slower-but-tolerant per-comet path rather than
-            # dropping all comets.
-            logger.warning(
-                "Vectorized comet propagation failed (%s); "
-                "falling back to per-comet path",
-                e,
+            # dropping all comets.  Log loudly (error + traceback): this path
+            # silently burns ~minute-scale CPU every cycle, and the Comets
+            # logger inherits root=ERROR so a warning here would be suppressed.
+            logger.error(
+                "VECTORIZED COMET PROPAGATION FAILED — using slow per-comet "
+                "fallback (this is the CPU-hog path; investigate)",
+                exc_info=True,
             )
             comet_dict = _calc_comets_per_comet(comets_df, dt, progress_callback)
 

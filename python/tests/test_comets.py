@@ -125,3 +125,59 @@ def test_calc_comets_empty_without_location():
     finally:
         sf_utils.observer_loc = saved_loc
         sf_utils._last_location = saved_last
+
+
+@pytest.mark.unit
+def test_vectorized_single_comet_matches_oracle():
+    """N==1: skyfield's propagate() squeezes one comet to shape (3,); the
+    ndim==1 reshape in the vectorized path must restore (3, 1).  Not hit by
+    the multi-comet tests, so cover it explicitly."""
+    sf_utils.set_location(_LAT, _LON, _ALT)
+    df = comets._load_comets_dataframe()
+    one = df.iloc[[0]].copy()
+    one["magnitude_g"] = -50.0  # force visible
+    one["magnitude_k"] = 0.0
+
+    vec = comets._calc_comets_vectorized(one, _DT)
+    oracle = comets._calc_comets_per_comet(one, _DT)
+
+    assert set(vec) == set(oracle)
+    assert len(vec) == 1
+    name = next(iter(vec))
+    o, v = oracle[name], vec[name]
+    sep = _angsep_arcsec(o["radec"][0], o["radec"][1], v["radec"][0], v["radec"][1])
+    assert sep < 0.05
+    assert v["mag"] == pytest.approx(o["mag"], abs=1e-6)
+    assert v["earth_distance"] == pytest.approx(o["earth_distance"], rel=1e-9)
+    assert v["sun_distance"] == pytest.approx(o["sun_distance"], rel=1e-9)
+
+
+@pytest.mark.unit
+def test_calc_comets_falls_back_on_vectorized_error(monkeypatch):
+    """If the batched path raises, calc_comets must fall back to the per-comet
+    path and still return the same comets (not silently drop them)."""
+    sf_utils.set_location(_LAT, _LON, _ALT)
+    df = comets._load_comets_dataframe()
+    visible = list(comets._calc_comets_vectorized(df, _DT))
+    assert visible, "expected at least one visible comet on the fixed date"
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("simulated skyfield breakage")
+
+    monkeypatch.setattr(comets, "_calc_comets_vectorized", boom)
+    # comet_names keeps the (slow) per-comet fallback bounded to the few
+    # already-known-visible comets so the test stays fast.
+    result = comets.calc_comets(_DT, comet_names=visible)
+    assert set(result) == set(visible)
+
+
+@pytest.mark.unit
+def test_calc_comets_respects_comet_names_filter():
+    """comet_names restricts the result to the requested designations."""
+    sf_utils.set_location(_LAT, _LON, _ALT)
+    df = comets._load_comets_dataframe()
+    visible = list(comets._calc_comets_vectorized(df, _DT))
+    assert len(visible) >= 2
+    subset = visible[:1]
+    result = comets.calc_comets(_DT, comet_names=subset)
+    assert set(result) == set(subset)
