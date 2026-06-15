@@ -81,7 +81,7 @@ Thermal electrons per second per pixel. `CameraProfile.dark_current_rate` (ADU/s
 _Avoid_: thermal noise (it isn't noise — it's signal).
 
 **Noise floor**:
-The **published** ADU value (`shared_state.set_noise_floor()`) below which we treat pixel values as "empty sky + sensor noise" rather than real signal. Lower bound for sky background; auto-exposure's SNR target. When someone says "the noise floor" without qualifier, this is what they mean — never one of the intermediate quantities inside `NoiseFloorEstimator`.
+The **published** ADU value (`shared_state.set_noise_floor()`) below which we treat pixel values as "empty sky + sensor noise" rather than real signal. Lower bound for sky background; the minimum acceptable background for the Camera context's background controller. When someone says "the noise floor" without qualifier, this is what they mean — never one of the intermediate quantities inside `NoiseFloorEstimator`.
 _Avoid_: dark level, baseline, raw noise floor (use a qualifier — see below).
 
 **Measured noise floor**:
@@ -137,7 +137,7 @@ Publishes the diagnostic dict (with per-star arrays stripped). Consumed by the U
 _Avoid_: set details.
 
 **`shared_state.set_noise_floor(float)`**:
-Publishes the latest noise floor. Read by the camera process and forwarded into `auto_exposure.SNR_target_offset(noise_floor=...)`.
+Publishes the latest noise floor. Read by the camera process and forwarded into the background controller (`ExposureSNRController.update(..., noise_floor=...)`) — see the [Camera context](../camera/CONTEXT.md).
 _Avoid_: set floor.
 
 ### Timing
@@ -171,4 +171,4 @@ _Avoid_: refresh calibration, reload sqm.
 >
 > **Dev:** What does the camera process care about?
 >
-> **Domain:** Just the noise floor. `set_noise_floor()` is the only line of communication. Auto-exposure uses it as the SNR floor — change SQM's interval gate and that auto-exposure signal changes cadence too.
+> **Domain:** Just the noise floor. `set_noise_floor()` is the only line of communication. The background controller uses it as the minimum acceptable background — change SQM's interval gate and that auto-exposure signal changes cadence too.
