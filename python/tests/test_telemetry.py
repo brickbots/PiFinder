@@ -315,9 +315,7 @@ class TestTelemetryRecorder:
             try:
                 overshoot = rec._buffer.maxlen + 100
                 for i in range(overshoot):
-                    rec.record_imu(
-                        _make_imu_sample(moving=True, timestamp=1000.0 + i)
-                    )
+                    rec.record_imu(_make_imu_sample(moving=True, timestamp=1000.0 + i))
                 # header + overshoot appends into a maxlen buffer
                 assert rec._dropped_events == overshoot + 1 - rec._buffer.maxlen
             finally:
