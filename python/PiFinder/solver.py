@@ -17,6 +17,7 @@ import sys
 from time import perf_counter as precision_timestamp
 import os
 import threading
+from multiprocessing import shared_memory
 import grpc
 
 from PiFinder import state_utils
@@ -168,6 +169,13 @@ class CedarConnectionError(Exception):
     pass
 
 
+# Must match the hard-coded segment name in
+# tetra3/cedar_detect_client.py:_alloc_shmem(). The segment is unlinked on a
+# clean close(), but a solver process that is killed (or crashes) leaves it in
+# /dev/shm, so the next run's create=True fails with FileExistsError.
+_CEDAR_DETECT_SHMEM_NAME = "/cedar_detect_image"
+
+
 class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
     def __init__(self, port=50551):
         """Set up the client without spawning the server as we
@@ -183,6 +191,26 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
         self._shmem_size = 0
         # Try shared memory, fall back if an error occurs.
         self._use_shmem = True
+        # A killed solver leaves its shmem segment behind; clear any stale one
+        # so this run can re-create it instead of dying on FileExistsError.
+        self._clear_stale_shmem()
+
+    def _clear_stale_shmem(self):
+        """Unlink a leaked cedar_detect_image segment from a prior solver.
+
+        Makes solver restarts self-healing. Safe because PiFinder runs a
+        single solver process, so any existing segment is necessarily stale.
+        """
+        try:
+            stale = shared_memory.SharedMemory(_CEDAR_DETECT_SHMEM_NAME)
+        except FileNotFoundError:
+            return
+        stale.close()
+        stale.unlink()
+        logger.warning(
+            "Cleared stale %s shared memory segment from a prior solver",
+            _CEDAR_DETECT_SHMEM_NAME,
+        )
 
     def _get_stub(self):
         if self._stub is None:
