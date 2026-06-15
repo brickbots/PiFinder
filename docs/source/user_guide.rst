@@ -254,6 +254,10 @@ view, getting them below 0.25 (half the true field) should put the object in vie
 Closer to zero means more centered.  For a very dim object, knowing it's dead center and
 consulting the object image can make all the difference.
 
+The number in the upper right is the object's
+:ref:`contrast reserve <user_guide:contrast reserve>` — an estimate of how easily it
+should show in your eyepiece tonight.
+
 .. image:: images/user_guide/object_details_02.png
 
 The PiFinder can display images of every object in its catalog.  See the section on
@@ -264,6 +268,61 @@ The PiFinder can display images of every object in its catalog.  See the section
 Depending on the catalog, the PiFinder may have detailed notes along with Type,
 constellation, magnitude, and size.  Use the **+/-** keys to scroll the notes field.  At
 the bottom of the notes is a count of how many times you've logged this object.
+
+What each part of the screen shows
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Object Details screen packs a lot in.  These two views label every part — the Push-To
+screen, and the catalog details you reach by pressing **SQUARE**:
+
+.. image:: images/user_guide/object_details_pushto_annotated.png
+
+.. image:: images/user_guide/object_details_notes_annotated.png
+
+Contrast Reserve
+^^^^^^^^^^^^^^^^^
+
+The number in the upper right of the Object Details screen is the **contrast reserve** — an
+estimate of how easily an object should stand out in your eyepiece.  It weighs the object's
+brightness and size against your sky brightness, your telescope's aperture, and the
+magnification of your active eyepiece, then compares the result to what the eye can detect.
+A higher number means the object should be easier to see.
+
+.. image:: images/user_guide/object_details_contrast.png
+
+Keep pressing **SQUARE** to reach the Contrast Reserve page, which shows the value on its
+own with a plain-language reading of what to expect:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Contrast reserve
+     - What to expect
+   * - Below −0.2
+     - Object is not visible
+   * - −0.2 to 0.1
+     - Questionable detection
+   * - 0.1 to 0.35
+     - Difficult to see
+   * - 0.35 to 0.5
+     - Quite difficult to see
+   * - 0.5 to 1.0
+     - Easy to see
+   * - 1.0 and above
+     - Very easy to see
+
+The contrast reserve appears only when the PiFinder has everything it needs to work it out:
+an active :ref:`telescope and eyepiece <equipment:choosing your active telescope and eyepiece>`,
+a sky-brightness reading, and an object with a known magnitude and size.  If any of these is
+missing — a double star with no single magnitude, or before the camera has estimated the sky
+brightness — the number is simply left off.
+
+.. note::
+   The sky-brightness figure comes from the PiFinder's Sky Quality Meter (SQM), its
+   camera-based estimate of how dark your sky is, so the contrast reserve tracks your real
+   conditions: the same object reads higher under a dark sky than from town.  Treat it as a
+   guide rather than a guarantee — averted vision, transparency, and how dark-adapted you
+   are all still play their part at the eyepiece.
 
 Filters
 ----------
