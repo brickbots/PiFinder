@@ -453,14 +453,10 @@ def main(
         console.write("   Keyboard")
         logger.info("   Keyboard")
         console.update()
-        if cfg.get_option("screen_direction") == "as_bloom":
-            bloom_key_remap = True
-        else:
-            bloom_key_remap = False
         keyboard_process = Process(
             name="Keyboard",
             target=keyboard.run_keyboard,
-            args=(keyboard_queue, shared_state, keyboard_logqueue, bloom_key_remap),
+            args=(keyboard_queue, shared_state, keyboard_logqueue),
         )
         keyboard_process.start()
         if script_name:
