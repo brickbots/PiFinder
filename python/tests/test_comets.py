@@ -10,6 +10,7 @@ breaks the batched call is caught in CI rather than in the field.
 
 import math
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -20,6 +21,24 @@ import PiFinder.comets as comets
 # Fixed observer + time so both code paths see identical inputs.
 _LAT, _LON, _ALT = 37.5, -122.3, 100.0
 _DT = datetime(2026, 6, 14, 6, 0, 0, tzinfo=timezone.utc)
+
+# A real MPC CometEls.txt snapshot checked in solely as a test fixture.  The
+# production comet file (``PiFinder.utils.comet_file`` -> astro_data/comets.txt)
+# is gitignored and only exists on a live unit after a download, so CI has no
+# comet data.  This fixture lives under tests/ on purpose: nothing in the app
+# reads from here, so checking it in can never change production behaviour.
+_TEST_COMET_FILE = Path(__file__).parent / "data" / "comets.txt"
+
+
+@pytest.fixture(autouse=True)
+def _use_test_comet_file(monkeypatch):
+    """Point comet loading at the checked-in fixture for every test here.
+
+    ``comets._load_comets_dataframe`` (and therefore ``calc_comets``) reads the
+    module-level ``comet_file``; rebinding it on the comets module keeps the
+    real download path untouched while giving the tests deterministic data.
+    """
+    monkeypatch.setattr(comets, "comet_file", _TEST_COMET_FILE)
 
 
 def _angsep_arcsec(ra1, dec1, ra2, dec2):
