@@ -255,15 +255,23 @@ class UIObjectDetails(UIModule):
                     else:
                         diameter1 = diameter2 = None
 
-                    self.contrast = pds.contrast_reserve(
-                        sqm=sqm,
-                        telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
-                        magnification=magnification,
-                        surf_brightness=None,
-                        magnitude=magnitude,
-                        object_diameter1=diameter1,
-                        object_diameter2=diameter2,
-                    )
+                    if diameter1 is None or diameter2 is None:
+                        # No usable object size: pydeepskylog can't compute a
+                        # contrast reserve without diameters — it logs an ERROR
+                        # and *returns* (doesn't raise), so the except below
+                        # can't suppress it. Skip the call and leave the
+                        # contrast line blank.
+                        self.contrast = ""
+                    else:
+                        self.contrast = pds.contrast_reserve(
+                            sqm=sqm,
+                            telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
+                            magnification=magnification,
+                            surf_brightness=None,
+                            magnitude=magnitude,
+                            object_diameter1=diameter1,
+                            object_diameter2=diameter2,
+                        )
                 except (ValueError, TypeError, InvalidParameterError) as e:
                     # mag_str / size are not always plain numbers: double stars
                     # carry component mags like "7.0/9.5", asterisms a size like
