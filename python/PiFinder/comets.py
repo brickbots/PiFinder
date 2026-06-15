@@ -4,6 +4,7 @@ from skyfield.data import mpc
 from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
 from PiFinder.utils import Timer, comet_file
 from PiFinder.calc_utils import sf_utils
+import numpy as np
 import pandas as pd
 import requests
 import os
@@ -162,6 +163,171 @@ def comet_data_download(
         return False, None, None
 
 
+def _load_comets_dataframe() -> pd.DataFrame:
+    """Load and clean the MPC comet-elements file into a dataframe.
+
+    Coerces orbital-element columns to numeric (MPC data occasionally
+    contains rows Skyfield's parser leaves as strings, which would poison
+    the whole column), drops rows missing essential elements, and keeps the
+    most recent orbit solution per designation.
+    """
+    with open(comet_file, "rb") as f:
+        comets_df = mpc.load_comets_dataframe(f)
+
+    # Ensure orbital element columns are numeric — MPC data sometimes
+    # contains rows that Skyfield's parser can't handle (e.g. MPEC
+    # 2026-F34 historical comets), which causes the entire column to
+    # become dtype=object (strings).  Skyfield's comet_orbit() then
+    # crashes on every comet with a numpy UFuncNoLoopError.
+    numeric_cols = [
+        "perihelion_year",
+        "perihelion_month",
+        "perihelion_day",
+        "argument_of_perihelion_degrees",
+        "longitude_of_ascending_node_degrees",
+        "inclination_degrees",
+        "eccentricity",
+        "perihelion_distance_au",
+        "magnitude_g",
+        "magnitude_k",
+    ]
+    for col in numeric_cols:
+        if col in comets_df.columns:
+            comets_df[col] = pd.to_numeric(comets_df[col], errors="coerce")
+
+    # Drop rows where essential orbital elements couldn't be parsed
+    essential = [
+        "perihelion_year",
+        "perihelion_month",
+        "perihelion_day",
+        "eccentricity",
+        "perihelion_distance_au",
+    ]
+    comets_df = comets_df.dropna(
+        subset=[c for c in essential if c in comets_df.columns]
+    )
+
+    comets_df = (
+        comets_df.sort_values("reference")
+        .groupby("designation", as_index=False)
+        .last()
+        .set_index("designation", drop=False)
+    )
+
+    # groupby/last can coerce numeric columns to strings when NaN values
+    # are present; ensure perihelion date fields are numeric before use
+    for col in ("perihelion_year", "perihelion_month", "perihelion_day"):
+        comets_df[col] = pd.to_numeric(comets_df[col], errors="coerce")
+    comets_df = comets_df.dropna(
+        subset=["perihelion_year", "perihelion_month", "perihelion_day"]
+    )
+
+    return comets_df
+
+
+def _calc_comets_vectorized(comets_df: pd.DataFrame, dt) -> Dict[str, Any]:
+    """Compute every comet's position in a single batched propagation.
+
+    Skyfield's Kepler ``propagate()`` is array-aware, so all comets are
+    advanced to time ``dt`` in one numpy call instead of the old per-comet
+    Python loop (957 comets x 2 skyfield propagations each).  That loop ran
+    longer than its own 293 s timer interval, so the background comet thread
+    re-ran it back-to-back and — being pure-Python skyfield holding the GIL —
+    pegged a CPU core continuously whenever PiFinder was locked on a target
+    (commit 4aafd89a regressed an incremental update to this full reinit).
+
+    RA/Dec are referred to the mean equator and equinox of J2000, matching
+    the old per-comet ``radec(ts.J2000)`` call to floating-point precision
+    (verified against the per-comet path in tests/test_comets.py).  The
+    magnitude cut reproduces the old ``if mag > 15`` test exactly, including
+    its quirk of keeping comets whose magnitude is NaN (``nan > 15`` is
+    False).
+    """
+    t = sf_utils.ts.from_datetime(dt)
+
+    # One batched KeplerOrbit covering every comet (Skyfield's vectorized
+    # builder), propagated in a single call -> heliocentric state, AU,
+    # equatorial ICRF, relative to the Sun.
+    kepler = mpc._comet_orbits(comets_df, sf_utils.ts, GM_SUN)
+    helio_pos = kepler._at(t)[0]
+    if helio_pos.ndim == 1:  # propagate() squeezes a single comet to (3,)
+        helio_pos = helio_pos[:, np.newaxis]
+
+    # Sun and observer are single 3-vectors relative to the solar-system
+    # barycentre; broadcast them across all comets.  topocentric = observer
+    # -> comet, heliocentric = Sun -> comet (matches the old VectorSum math).
+    sun_pos = sf_utils.eph["sun"].at(t).position.au
+    observer_pos = sf_utils.observer_loc.at(t).position.au
+    topo_pos = sun_pos[:, np.newaxis] + helio_pos - observer_pos[:, np.newaxis]
+
+    earth_distance = np.linalg.norm(topo_pos, axis=0)
+    sun_distance = np.linalg.norm(helio_pos, axis=0)
+
+    # Reproduce skyfield's radec(ts.J2000): it rotates the ICRF position by
+    # the epoch precession matrix (epoch.M) then converts to spherical.  We
+    # apply the same constant (3,3) rotation to the whole (3,N) array at once.
+    # M is orthonormal, so it preserves earth_distance (used for the arcsin).
+    eq_pos = sf_utils.ts.J2000.M @ topo_pos
+    ra_deg = np.degrees(np.arctan2(eq_pos[1], eq_pos[0])) % 360.0
+    dec_deg = np.degrees(np.arcsin(np.clip(eq_pos[2] / earth_distance, -1.0, 1.0)))
+
+    mag_g = comets_df["magnitude_g"].to_numpy(dtype=float)
+    mag_k = comets_df["magnitude_k"].to_numpy(dtype=float)
+    mag = mag_g + 2.5 * mag_k * np.log10(sun_distance) + 5.0 * np.log10(earth_distance)
+
+    names = comets_df["designation"].to_numpy()
+
+    # Keep comets that are NOT dimmer than mag 15.  Phrased as ~(mag > 15)
+    # rather than (mag <= 15) so NaN magnitudes are kept, matching the old
+    # per-comet filter.
+    comet_dict: Dict[str, Any] = {}
+    for i in np.nonzero(~(mag > 15))[0]:
+        name = str(names[i])
+        comet_dict[name] = {
+            "name": name,
+            "radec": (float(ra_deg[i]), float(dec_deg[i])),
+            "mag": float(mag[i]),
+            "earth_distance": float(earth_distance[i]),
+            "sun_distance": float(sun_distance[i]),
+            "orbital_elements": None,
+            "row": comets_df.iloc[i],
+        }
+    return comet_dict
+
+
+def _calc_comets_per_comet(
+    comets_df: pd.DataFrame,
+    dt,
+    progress_callback: Optional[Callable[[int], None]] = None,
+) -> Dict[str, Any]:
+    """Per-comet fallback path (the original loop).
+
+    Slow — one Python skyfield propagation per comet — but tolerant of a
+    single bad row, so it backstops the vectorized path if a future Skyfield
+    release or a malformed MPC row ever breaks the batched call.  Also serves
+    as the reference oracle in tests.
+    """
+    comet_dict: Dict[str, Any] = {}
+    comet_data = list(comets_df.iterrows())
+    total_comets = len(comet_data)
+    processed = 0
+
+    for comet in comet_data:
+        try:
+            result = process_comet(comet, dt)
+        except Exception as e:
+            logger.warning(f"Skipping comet {comet[0]}: {e}")
+            result = {}
+        if result:
+            comet_dict[result["name"]] = result
+
+        processed += 1
+        if progress_callback and total_comets > 0:
+            progress_callback(int((processed / total_comets) * 100))
+
+    return comet_dict
+
+
 def calc_comets(
     dt, comet_names=None, progress_callback: Optional[Callable[[int], None]] = None
 ) -> dict:
@@ -185,83 +351,33 @@ def calc_comets(
         if progress_callback:
             progress_callback(0)
 
-        with open(comet_file, "rb") as f:
-            comets_df = mpc.load_comets_dataframe(f)
+        comets_df = _load_comets_dataframe()
 
-        # Ensure orbital element columns are numeric — MPC data sometimes
-        # contains rows that Skyfield's parser can't handle (e.g. MPEC
-        # 2026-F34 historical comets), which causes the entire column to
-        # become dtype=object (strings).  Skyfield's comet_orbit() then
-        # crashes on every comet with a numpy UFuncNoLoopError.
-        numeric_cols = [
-            "perihelion_year",
-            "perihelion_month",
-            "perihelion_day",
-            "argument_of_perihelion_degrees",
-            "longitude_of_ascending_node_degrees",
-            "inclination_degrees",
-            "eccentricity",
-            "perihelion_distance_au",
-            "magnitude_g",
-            "magnitude_k",
-        ]
-        for col in numeric_cols:
-            if col in comets_df.columns:
-                comets_df[col] = pd.to_numeric(comets_df[col], errors="coerce")
+        if comet_names is not None:
+            comets_df = comets_df[comets_df["designation"].isin(comet_names)]
 
-        # Drop rows where essential orbital elements couldn't be parsed
-        essential = [
-            "perihelion_year",
-            "perihelion_month",
-            "perihelion_day",
-            "eccentricity",
-            "perihelion_distance_au",
-        ]
-        comets_df = comets_df.dropna(
-            subset=[c for c in essential if c in comets_df.columns]
-        )
-
-        # Report progress after file loading (roughly 33% of setup time)
-        if progress_callback:
-            progress_callback(1)
-
-        comets_df = (
-            comets_df.sort_values("reference")
-            .groupby("designation", as_index=False)
-            .last()
-            .set_index("designation", drop=False)
-        )
-
-        # groupby/last can coerce numeric columns to strings when NaN values
-        # are present; ensure perihelion date fields are numeric before use
-        for col in ("perihelion_year", "perihelion_month", "perihelion_day"):
-            comets_df[col] = pd.to_numeric(comets_df[col], errors="coerce")
-        comets_df = comets_df.dropna(
-            subset=["perihelion_year", "perihelion_month", "perihelion_day"]
-        )
-
-        # Report progress after pandas processing (roughly 66% of setup time)
+        # Report progress after file loading + pandas processing
         if progress_callback:
             progress_callback(2)
 
-        comet_data = list(comets_df.iterrows())
-        total_comets = len(comet_data)
-        processed = 0
+        if len(comets_df) == 0:
+            return comet_dict
 
-        for comet in comet_data:
-            if comet_names is None or comet[0] in comet_names:
-                try:
-                    result = process_comet(comet, dt)
-                except Exception as e:
-                    logger.warning(f"Skipping comet {comet[0]}: {e}")
-                    result = {}
-                if result:
-                    comet_dict[result["name"]] = result
+        try:
+            comet_dict = _calc_comets_vectorized(comets_df, dt)
+        except Exception as e:
+            # The batched call shouldn't fail with pinned Skyfield + curated
+            # MPC data (a unit test guards this), but if it ever does, fall
+            # back to the slower-but-tolerant per-comet path rather than
+            # dropping all comets.
+            logger.warning(
+                "Vectorized comet propagation failed (%s); "
+                "falling back to per-comet path",
+                e,
+            )
+            comet_dict = _calc_comets_per_comet(comets_df, dt, progress_callback)
 
-            # Report progress
-            processed += 1
-            if progress_callback and total_comets > 0:
-                progress = int((processed / total_comets) * 100)
-                progress_callback(progress)
+        if progress_callback:
+            progress_callback(100)
 
         return comet_dict
