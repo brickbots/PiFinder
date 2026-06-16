@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-14 14:59+0200\n"
+"POT-Creation-Date: 2026-06-16 12:35-0700\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: Jens Scheidtmann\n"
 "Language: de_DE\n"
@@ -22,7 +22,7 @@ msgstr ""
 msgid "No Image"
 msgstr "Kein Bild"
 
-#: PiFinder/main.py:642
+#: PiFinder/main.py:648
 msgid ""
 "Degraded\n"
 "Check Status"
@@ -30,7 +30,7 @@ msgstr ""
 "Eingeschränkt\n"
 "Status checken"
 
-#: PiFinder/main.py:744
+#: PiFinder/main.py:750
 msgid ""
 "Catalogs\n"
 "Fully Loaded"
@@ -172,7 +172,7 @@ msgstr "Höhe muss zwischen -1000 und 10000 Metern sein"
 msgid "Error must be between 0 and 10000 meters"
 msgstr "Unsicherheit muss zwichen 0 und 10000 Metern liegen"
 
-#: PiFinder/server.py:523 PiFinder/ui/menu_structure.py:1317
+#: PiFinder/server.py:523 PiFinder/ui/menu_structure.py:1291
 msgid "Restart"
 msgstr "Neu starten"
 
@@ -300,12 +300,12 @@ msgstr "keine Anz."
 msgid "No Solve Yet"
 msgstr "kein Platesolve"
 
-#: PiFinder/ui/align.py:399 PiFinder/ui/object_details.py:625
+#: PiFinder/ui/align.py:399 PiFinder/ui/object_details.py:633
 msgid "Aligning..."
 msgstr "Justage..."
 
 #: PiFinder/ui/align.py:407 PiFinder/ui/align_daytime.py:310
-#: PiFinder/ui/object_details.py:633
+#: PiFinder/ui/object_details.py:641
 msgid "Aligned!"
 msgstr "Justiert!"
 
@@ -351,28 +351,28 @@ msgstr "Filterreset"
 msgid "Test Mode"
 msgstr "Test Modus"
 
-#: PiFinder/ui/callbacks.py:175
+#: PiFinder/ui/callbacks.py:161
 msgid "Shutting Down"
 msgstr "Ausschalten"
 
-#: PiFinder/ui/callbacks.py:184 PiFinder/ui/callbacks.py:192
+#: PiFinder/ui/callbacks.py:170 PiFinder/ui/callbacks.py:178
 msgid "Restarting..."
 msgstr "Neustart..."
 
-#: PiFinder/ui/callbacks.py:197 PiFinder/ui/callbacks.py:203
-#: PiFinder/ui/callbacks.py:209
+#: PiFinder/ui/callbacks.py:183 PiFinder/ui/callbacks.py:189
+#: PiFinder/ui/callbacks.py:195
 msgid "Switching cam"
 msgstr "andere Kamera"
 
-#: PiFinder/ui/callbacks.py:247
+#: PiFinder/ui/callbacks.py:233
 msgid "WiFi to AP"
 msgstr "WLAN AP"
 
-#: PiFinder/ui/callbacks.py:253
+#: PiFinder/ui/callbacks.py:239
 msgid "WiFi to Client"
 msgstr "WLAN Client"
 
-#: PiFinder/ui/callbacks.py:276
+#: PiFinder/ui/callbacks.py:262
 msgid ""
 "{lat:.2f}, {lon:.2f}\n"
 "{alt}m alt"
@@ -380,11 +380,11 @@ msgstr ""
 "{lat:.2f}, {lon:.2f}\n"
 "{alt}m hoch"
 
-#: PiFinder/ui/callbacks.py:295
+#: PiFinder/ui/callbacks.py:281
 msgid "No location lock"
 msgstr "Ort nicht gesetzt"
 
-#: PiFinder/ui/callbacks.py:309
+#: PiFinder/ui/callbacks.py:295
 msgid ""
 "Saved\n"
 "{name}"
@@ -392,19 +392,19 @@ msgstr ""
 "{name}\n"
 "gespeichert"
 
-#: PiFinder/ui/callbacks.py:313 PiFinder/ui/gpsstatus.py:79
+#: PiFinder/ui/callbacks.py:299 PiFinder/ui/gpsstatus.py:79
 msgid "Location Name"
 msgstr "Ort setzen"
 
-#: PiFinder/ui/callbacks.py:316 PiFinder/ui/gpsstatus.py:82
+#: PiFinder/ui/callbacks.py:302 PiFinder/ui/gpsstatus.py:82
 msgid "Loc {number}"
 msgstr "Ort {number}"
 
-#: PiFinder/ui/callbacks.py:343
+#: PiFinder/ui/callbacks.py:329
 msgid "Time: {time}"
 msgstr "Zeit: {time}"
 
-#: PiFinder/ui/callbacks.py:361
+#: PiFinder/ui/callbacks.py:347
 msgid ""
 "{date}\n"
 "{time}"
@@ -412,7 +412,7 @@ msgstr ""
 "{date}\n"
 "{time}"
 
-#: PiFinder/ui/callbacks.py:508
+#: PiFinder/ui/callbacks.py:494
 msgid ""
 "Checking GPS\n"
 "config..."
@@ -420,7 +420,7 @@ msgstr ""
 "Überprüfen GPS\n"
 "Konfiguration..."
 
-#: PiFinder/ui/callbacks.py:513
+#: PiFinder/ui/callbacks.py:499
 msgid ""
 "GPS config\n"
 "updated"
@@ -428,7 +428,7 @@ msgstr ""
 "GPS Konfiguration\n"
 "aktualisiert"
 
-#: PiFinder/ui/callbacks.py:515
+#: PiFinder/ui/callbacks.py:501
 msgid ""
 "GPS config\n"
 "OK"
@@ -436,7 +436,7 @@ msgstr ""
 "GPS Konfiguration\n"
 "Ok"
 
-#: PiFinder/ui/callbacks.py:518
+#: PiFinder/ui/callbacks.py:504
 msgid ""
 "GPS config\n"
 "failed"
@@ -928,11 +928,11 @@ msgstr "Filter"
 msgid "Reset All"
 msgstr "Zurücksetzen"
 
-#: PiFinder/ui/menu_structure.py:285 PiFinder/ui/menu_structure.py:1323
+#: PiFinder/ui/menu_structure.py:285 PiFinder/ui/menu_structure.py:1297
 msgid "Confirm"
 msgstr "Bestätigen"
 
-#: PiFinder/ui/menu_structure.py:286 PiFinder/ui/menu_structure.py:1326
+#: PiFinder/ui/menu_structure.py:286 PiFinder/ui/menu_structure.py:1300
 #: PiFinder/ui/software.py:208 PiFinder/ui/sqm_correction.py:70
 msgid "Cancel"
 msgstr "Abbrechen"
@@ -1006,7 +1006,7 @@ msgstr "Ruhezustand"
 #: PiFinder/ui/menu_structure.py:840 PiFinder/ui/menu_structure.py:864
 #: PiFinder/ui/menu_structure.py:888 PiFinder/ui/menu_structure.py:919
 #: PiFinder/ui/menu_structure.py:935 PiFinder/ui/menu_structure.py:1135
-#: PiFinder/ui/menu_structure.py:1265 PiFinder/ui/menu_structure.py:1281
+#: PiFinder/ui/menu_structure.py:1239 PiFinder/ui/menu_structure.py:1255
 msgid "Off"
 msgstr "Aus"
 
@@ -1152,7 +1152,7 @@ msgid "NSEW Labels"
 msgstr ""
 
 #: PiFinder/ui/menu_structure.py:915 PiFinder/ui/menu_structure.py:931
-#: PiFinder/ui/menu_structure.py:1269 PiFinder/ui/menu_structure.py:1285
+#: PiFinder/ui/menu_structure.py:1243 PiFinder/ui/menu_structure.py:1259
 msgid "On"
 msgstr "An"
 
@@ -1349,50 +1349,30 @@ msgid "Polar Align"
 msgstr ""
 
 #: PiFinder/ui/menu_structure.py:1222
-msgid "AE Algo"
-msgstr "Autom. BLZ"
-
-#: PiFinder/ui/menu_structure.py:1230
-msgid "Sweep"
-msgstr "Sweep"
-
-#: PiFinder/ui/menu_structure.py:1234
-msgid "Exponential"
-msgstr "Exponentiell"
-
-#: PiFinder/ui/menu_structure.py:1238
-msgid "Reset to 0.4s"
-msgstr "Reset auf 0.4s"
-
-#: PiFinder/ui/menu_structure.py:1242
-msgid "Histogram"
-msgstr "Histogramm"
-
-#: PiFinder/ui/menu_structure.py:1248
 msgid "Dev Tools"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:1253
+#: PiFinder/ui/menu_structure.py:1227
 msgid "Telemetry"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:1258
+#: PiFinder/ui/menu_structure.py:1232
 msgid "Record"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:1275
+#: PiFinder/ui/menu_structure.py:1249
 msgid "Images"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:1291
+#: PiFinder/ui/menu_structure.py:1265
 msgid "Load"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:1301
+#: PiFinder/ui/menu_structure.py:1275
 msgid "Power"
 msgstr "Ein/Aus"
 
-#: PiFinder/ui/menu_structure.py:1307
+#: PiFinder/ui/menu_structure.py:1281
 msgid "Shutdown"
 msgstr "Ausschalten"
 
@@ -1417,66 +1397,66 @@ msgstr "Gr:{obj_mag}"
 msgid "Sz:{size}"
 msgstr "D:{size}"
 
-#: PiFinder/ui/object_details.py:312
+#: PiFinder/ui/object_details.py:320
 msgid "  Not Logged"
 msgstr "  Nicht geloggt"
 
-#: PiFinder/ui/object_details.py:314
+#: PiFinder/ui/object_details.py:322
 msgid "  {logs} Logs"
 msgstr "  {logs} Logs"
 
-#: PiFinder/ui/object_details.py:358 PiFinder/ui/polar_align.py:444
+#: PiFinder/ui/object_details.py:366 PiFinder/ui/polar_align.py:444
 msgid "No solve"
 msgstr "Bisher keine"
 
-#: PiFinder/ui/object_details.py:364
+#: PiFinder/ui/object_details.py:372
 msgid "yet{elipsis}"
 msgstr "Lösung{elipsis}"
 
-#: PiFinder/ui/object_details.py:378
+#: PiFinder/ui/object_details.py:386
 msgid "Searching"
 msgstr "Suche"
 
-#: PiFinder/ui/object_details.py:384
+#: PiFinder/ui/object_details.py:392
 msgid "for GPS{elipsis}"
 msgstr "nach GPS{elipsis}"
 
-#: PiFinder/ui/object_details.py:398 PiFinder/ui/object_details.py:426
+#: PiFinder/ui/object_details.py:406 PiFinder/ui/object_details.py:434
 msgid "Calculating"
 msgstr "berechne..."
 
-#: PiFinder/ui/object_details.py:516
+#: PiFinder/ui/object_details.py:524
 msgid "Contrast Reserve"
 msgstr "Kontrast Reserve"
 
-#: PiFinder/ui/object_details.py:542
+#: PiFinder/ui/object_details.py:550
 msgid "No contrast data"
 msgstr "Keine Kontrast Daten"
 
-#: PiFinder/ui/object_details.py:550
+#: PiFinder/ui/object_details.py:558
 msgid "CR measures object"
 msgstr "KR misst die Objekt"
 
 #. TRANSLATORS: Contrast reserve explanation line 1
-#: PiFinder/ui/object_details.py:553
+#: PiFinder/ui/object_details.py:561
 msgid "visibility based on"
 msgstr "Sichtbarkeit basierend auf"
 
 #. TRANSLATORS: Contrast reserve explanation line 2
-#: PiFinder/ui/object_details.py:556
+#: PiFinder/ui/object_details.py:564
 msgid "sky brightness,"
 msgstr "der Himmelshelligkeit"
 
 #. TRANSLATORS: Contrast reserve explanation line 3
-#: PiFinder/ui/object_details.py:559
+#: PiFinder/ui/object_details.py:567
 msgid "telescope, and EP."
 msgstr "Teleskop, und Okular"
 
-#: PiFinder/ui/object_details.py:635
+#: PiFinder/ui/object_details.py:643
 msgid "Too Far"
 msgstr "zu weit"
 
-#: PiFinder/ui/object_details.py:660
+#: PiFinder/ui/object_details.py:668
 msgid "LOG"
 msgstr "Loggen"
 
@@ -2282,3 +2262,19 @@ msgstr "lok Zeit eingeben"
 
 #~ msgid "T9 Search"
 #~ msgstr "T9 Suche"
+
+#~ msgid "AE Algo"
+#~ msgstr "Autom. BLZ"
+
+#~ msgid "Sweep"
+#~ msgstr "Sweep"
+
+#~ msgid "Exponential"
+#~ msgstr "Exponentiell"
+
+#~ msgid "Reset to 0.4s"
+#~ msgstr "Reset auf 0.4s"
+
+#~ msgid "Histogram"
+#~ msgstr "Histogramm"
+

@@ -85,7 +85,7 @@ solver keeps matching a healthy number of stars.
 
 When a solve attempt produces zero `Matches`, the match-count controller
 stops trusting its feedback signal and delegates to recovery
-(`update()` → `_handle_zero_stars`, legacy name).
+(`update()` → `_handle_zero_match` → `ZeroMatchRecovery`).
 
 - **Trigger count** 2: recovery activates on the second consecutive
   zero-match attempt.
@@ -95,8 +95,6 @@ stops trusting its feedback signal and delegates to recovery
   that, a frame is unlikely to pick up enough stars to solve, even under
   a bright sky. Each rung is tried twice (two solve attempts), and the
   ladder wraps until matches return.
-  (The shipped code still walks the legacy ladder down through
-  100/50/25 ms until the consolidation lands.)
 - **The floor is recovery's, not the controller's**: the match-count
   controller's clamp range (§3) still reaches down to 25 ms — a
   feedback-justified descent is fine; recovery's blind search below
@@ -108,12 +106,13 @@ stops trusting its feedback signal and delegates to recovery
 Recovery's responsibility is exactly one failure cause: **the exposure is
 badly wrong** (dusk/dawn, slew into bright sky, returning from daytime
 alignment). Defocus, transient blockage, and solver-side failures are
-deliberately out of scope — see ADR 0010, which also retires the three
-alternative strategies (Exponential, Reset, Histogram), the
+deliberately out of scope — see ADR 0010. That decision also removed the
+three alternative strategies (Exponential, Reset, Histogram), the
 `ZeroStarHandler` plugin seam, the `set_ae_handler` command, the
 Experimental "AE Algo" menu, and the `auto_exposure_zero_star_handler`
-config key. Until that lands, the retired classes are still in
-`auto_exposure.py`; don't build on them.
+config key. Recovery is now the single concrete `ZeroMatchRecovery` class;
+stale `auto_exposure_zero_star_handler` values in a user's config are
+ignored.
 
 ## 5. Background controller
 
@@ -146,12 +145,16 @@ for offline analysis. Auto-exposure is disabled for the duration.
 
 ## 7. Gotchas
 
-- **Shipped default regime is manual.** `default_config.json` ships
-  `camera_exp: 400000`, so solver-driven auto-exposure — including all
-  recovery machinery — never runs out of the box until the user selects
-  "Auto". **Open question** (deliberately undecided as of ADR 0010):
-  whether the default should become `"auto"`. The consolidation PR should
-  confront this.
+- **Shipped default regime is solver-driven auto-exposure.**
+  `default_config.json` ships `camera_exp: "auto"`, so auto-exposure —
+  including all recovery machinery — runs out of the box. The recovery
+  ladder starts at 400 ms (the previous fixed default), so the first-frame
+  behavior is unchanged; from there feedback control takes over. Existing
+  users keep whatever `camera_exp` their saved config holds (a manual µs
+  value or `"auto"`); only fresh installs and config resets get the new
+  default. (ADR 0010 deferred this regime choice; it was resolved in
+  favor of `"auto"` once the floored single-ladder recovery made
+  auto-exposure safe by default.)
 - **The AE gate requires the match-count controller object even in
   background mode**: `get_image_loop` checks
   `_auto_exposure_enabled and _auto_exposure_pid` before dispatching to

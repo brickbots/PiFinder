@@ -23,10 +23,6 @@ import PiFinder.pointing_model.quaternion_transforms as qt
 from PiFinder.auto_exposure import (
     ExposurePIDController,
     ExposureSNRController,
-    SweepZeroStarHandler,
-    ExponentialSweepZeroStarHandler,
-    ResetZeroStarHandler,
-    HistogramZeroStarHandler,
     generate_exposure_sweep,
 )
 from PiFinder.sqm.camera_profiles import detect_camera_type
@@ -289,9 +285,8 @@ class CameraInterface:
                                     )
                                 else:
                                     # PID mode: use star-count based controller (default)
-                                    # Pass base_image for histogram analysis in zero-star handler
                                     new_exposure = self._auto_exposure_pid.update(
-                                        matched_stars, self.exposure_time, base_image
+                                        matched_stars, self.exposure_time
                                     )
 
                                 if (
@@ -392,47 +387,6 @@ class CameraInterface:
                             )
                             console_queue.put("CAM: Gain=" + str(self.gain))
                             logger.info(f"Gain changed: {old_gain}x → {self.gain}x")
-
-                        if command.startswith("set_ae_handler"):
-                            handler_type = command.split(":")[1]
-                            if self._auto_exposure_pid is not None:
-                                new_handler = None
-                                if handler_type == "sweep":
-                                    new_handler = SweepZeroStarHandler(
-                                        min_exposure=self._auto_exposure_pid.min_exposure,
-                                        max_exposure=self._auto_exposure_pid.max_exposure,
-                                    )
-                                elif handler_type == "exponential":
-                                    new_handler = ExponentialSweepZeroStarHandler(
-                                        min_exposure=self._auto_exposure_pid.min_exposure,
-                                        max_exposure=self._auto_exposure_pid.max_exposure,
-                                    )
-                                elif handler_type == "reset":
-                                    new_handler = ResetZeroStarHandler(
-                                        reset_exposure=400000  # 0.4s
-                                    )
-                                elif handler_type == "histogram":
-                                    new_handler = HistogramZeroStarHandler(
-                                        min_exposure=self._auto_exposure_pid.min_exposure,
-                                        max_exposure=self._auto_exposure_pid.max_exposure,
-                                    )
-                                else:
-                                    logger.warning(
-                                        f"Unknown zero-star handler type: {handler_type}"
-                                    )
-
-                                if new_handler is not None:
-                                    self._auto_exposure_pid._zero_star_handler = (
-                                        new_handler
-                                    )
-                                    console_queue.put(f"CAM: AE Handler={handler_type}")
-                                    logger.info(
-                                        f"Auto-exposure zero-star handler changed to: {handler_type}"
-                                    )
-                            else:
-                                logger.warning(
-                                    "Cannot set AE handler: auto-exposure not initialized"
-                                )
 
                         if command.startswith("set_ae_mode"):
                             mode = command.split(":")[1]

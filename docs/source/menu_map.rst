@@ -237,8 +237,10 @@ Image...
    Object Size
       Outline the object's cataloged size and orientation — On or Off.
 Camera Exp
-   Camera exposure time — Auto, or a fixed value from 0.025s to 1s.  Longer
-   exposures catch fainter stars but blur sooner as the scope moves.
+   Camera exposure time — Auto (the default), or a fixed value from 0.025s to
+   1s.  On Auto the PiFinder adjusts the exposure itself from the plate-solve
+   results.  Longer fixed exposures catch fainter stars but blur sooner as the
+   scope moves.
 WiFi Mode
    Switch between Client Mode (join an existing network) and AP Mode (the
    PiFinder serves its own PiFinderAP network).  See :ref:`connectivity:wifi`.
@@ -295,7 +297,6 @@ information or perform actions.  See :ref:`user_guide:tools`.
        SL --> LL["Load Location"]
        SL --> SV["Save Location"]
        Exp --> SQM
-       Exp --> AE["AE Algo"]
        Power --> Shutdown
        Power --> Restart
 
@@ -339,9 +340,6 @@ Experimental
 
    SQM
       A Sky Quality Meter that estimates sky brightness from the camera.
-   AE Algo
-      How auto-exposure recovers when no stars are detected — Sweep,
-      Exponential, Reset to 0.4s, or Histogram.
 Power
    Shut down or restart the PiFinder.
 
