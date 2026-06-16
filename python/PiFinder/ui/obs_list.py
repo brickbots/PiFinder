@@ -95,7 +95,7 @@ class UIObsList(UITextMenu):
                     line_font = self.fonts.bold
                     line_pos = 25
                 elif line_number == 3:
-                    line_color = 256
+                    line_color = 255
                     line_font = self.fonts.large
                     line_pos = 40
                 elif line_number == 4:

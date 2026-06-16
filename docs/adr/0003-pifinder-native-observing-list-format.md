@@ -12,5 +12,5 @@ An entry is either **catalog-keyed** (`catalog_code` + `sequence`, resolved agai
 
 ## Consequences
 
-- The format is a public contract: external generators (e.g. [py-asterisms](https://github.com/mrosseel/py-asterisms)) emit it, so any change requires a version bump and a migration story.
+- The format is a public contract: external generators emit it, so any change requires a version bump and a migration story.
 - Catalog-keyed entries are only as portable as the receiving device's catalog DB; coordinate entries are fully self-contained.

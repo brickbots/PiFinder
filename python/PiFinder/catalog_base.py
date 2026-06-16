@@ -152,30 +152,28 @@ class CatalogBase:
 
 
 class VirtualIDManager:
-    """Manages virtual ID assignment for non-DB catalog objects"""
+    """Mints virtual object_ids for non-DB catalog objects (planets, comets,
+    observing-list coordinate objects).
+
+    Every virtual id comes from one monotonically-decreasing counter guarded by
+    one lock, so ids minted for different in-memory objects never collide.
+    """
 
     virtual_id_lock = threading.Lock()
     virtual_id_low = 0
 
     @staticmethod
-    def assign_virtual_object_ids(catalog, low_id: int) -> int:
-        """
-        Assigns virtual object_ids for non-DB objects. Return new low.
-        """
-        for obj in catalog.get_objects():
-            low_id -= 1
-            obj.object_id = low_id
-        return low_id
-
-    @staticmethod
     def mint_id() -> int:
-        """
-        Mint a single virtual object_id, unique across all minters
-        (planet/comet catalogs, observing-list coordinate objects).
-        """
+        """Mint a single, unique virtual object_id."""
         with VirtualIDManager.virtual_id_lock:
             VirtualIDManager.virtual_id_low -= 1
             return VirtualIDManager.virtual_id_low
+
+    @staticmethod
+    def mint_ids(catalog) -> None:
+        """Mint a fresh virtual id for every object in `catalog`."""
+        for obj in catalog.get_objects():
+            obj.object_id = VirtualIDManager.mint_id()
 
 
 class TimerMixin:

@@ -443,8 +443,7 @@ your list is left behind.
 .. note::
    The ``.pifinder`` format is the PiFinder's own JSON list format, and the one to choose
    when a planning tool offers it: it carries catalog references, magnitudes, object sizes,
-   and coordinate epochs that the other formats drop.  Tools like
-   `py-asterisms <https://github.com/mrosseel/py-asterisms>`_ produce it directly.
+   and coordinate epochs that the other formats drop.
 
 Object Images
 ---------------

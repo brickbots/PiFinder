@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import logging
 from PiFinder import utils
+from PiFinder.calc_utils import sf_utils
 from PiFinder.catalog_base import VirtualIDManager
 from PiFinder.catalogs import Catalogs
 from PiFinder.composite_object import CompositeObject
@@ -66,11 +67,14 @@ CATALOG_ALIASES: dict = {
 }
 
 
-def resolve_object(catalog_numbers, catalogs: Catalogs, comment: str = ""):
+def resolve_object(catalog_numbers, catalogs: Catalogs):
     """
     Takes a list of catalog number strings
     (e.g. ["M 31", "NGC 224"]) and tries to
     find a matching object in the PiFinder DB.
+
+    Pure lookup: returns the shared catalog object (or None). Callers must not
+    mutate its catalog description; per-list notes go in `list_notes`.
     """
     for catalog_number in catalog_numbers:
         parts = catalog_number.strip().split(" ", 1)
@@ -84,8 +88,6 @@ def resolve_object(catalog_numbers, catalogs: Catalogs, comment: str = ""):
         if sequence is not None:
             _object = catalogs.get_object(catalog, sequence)
             if _object:
-                if comment and not _object.description:
-                    _object.description = comment
                 return _object
     return None
 
@@ -98,8 +100,6 @@ def _coordinate_object(entry: ObsListEntry, index: int) -> CompositeObject:
     const = ""
     if entry.ra is not None and entry.dec is not None:
         try:
-            from PiFinder.calc_utils import sf_utils
-
             const = sf_utils.radec_to_constellation(entry.ra, entry.dec)
         except Exception:
             pass
@@ -112,12 +112,164 @@ def _coordinate_object(entry: ObsListEntry, index: int) -> CompositeObject:
         obj_type=entry.obj_type or "?",
         const=const,
         size=entry.size,
-        catalog_code=entry.catalog_code or "OBS",
-        sequence=entry.sequence or (index + 1),
-        description=entry.description or entry.name,
+        # Coordinate objects always carry catalog code OBS (see Catalog
+        # CONTEXT.md). A name like "CGCS135" parses to a bogus catalog code that
+        # resolves to nothing, so don't let it leak onto the object -- it breaks
+        # display and the OBS whitelist. The original designation lives in names.
+        catalog_code="OBS",
+        sequence=index + 1,
+        # No description fallback to the name: that just duplicates the name
+        # (shown as the title) in the description area.
+        description=entry.description,
         names=[entry.name],
         mag=entry.mag,
     )
+
+
+# Latin genitive constellation names (as used in variable/Bayer designations
+# like "VY Andromedae") -> IAU 3-letter abbreviation. PiFinder stores the short
+# form ("VY And"), so a name is normalized to this before matching.
+CONSTELLATION_GENITIVE_ABBR: dict = {
+    "andromedae": "And",
+    "antliae": "Ant",
+    "apodis": "Aps",
+    "aquarii": "Aqr",
+    "aquilae": "Aql",
+    "arae": "Ara",
+    "arietis": "Ari",
+    "aurigae": "Aur",
+    "bootis": "Boo",
+    "caeli": "Cae",
+    "camelopardalis": "Cam",
+    "cancri": "Cnc",
+    "canum venaticorum": "CVn",
+    "canis majoris": "CMa",
+    "canis minoris": "CMi",
+    "capricorni": "Cap",
+    "carinae": "Car",
+    "cassiopeiae": "Cas",
+    "centauri": "Cen",
+    "cephei": "Cep",
+    "ceti": "Cet",
+    "chamaeleontis": "Cha",
+    "circini": "Cir",
+    "columbae": "Col",
+    "comae berenices": "Com",
+    "coronae australis": "CrA",
+    "coronae borealis": "CrB",
+    "corvi": "Crv",
+    "crateris": "Crt",
+    "crucis": "Cru",
+    "cygni": "Cyg",
+    "delphini": "Del",
+    "doradus": "Dor",
+    "draconis": "Dra",
+    "equulei": "Equ",
+    "eridani": "Eri",
+    "fornacis": "For",
+    "geminorum": "Gem",
+    "gruis": "Gru",
+    "herculis": "Her",
+    "horologii": "Hor",
+    "hydrae": "Hya",
+    "hydri": "Hyi",
+    "indi": "Ind",
+    "lacertae": "Lac",
+    "leonis": "Leo",
+    "leonis minoris": "LMi",
+    "leporis": "Lep",
+    "librae": "Lib",
+    "lupi": "Lup",
+    "lyncis": "Lyn",
+    "lyrae": "Lyr",
+    "mensae": "Men",
+    "microscopii": "Mic",
+    "monocerotis": "Mon",
+    "muscae": "Mus",
+    "normae": "Nor",
+    "octantis": "Oct",
+    "ophiuchi": "Oph",
+    "orionis": "Ori",
+    "pavonis": "Pav",
+    "pegasi": "Peg",
+    "persei": "Per",
+    "phoenicis": "Phe",
+    "pictoris": "Pic",
+    "piscium": "Psc",
+    "piscis austrini": "PsA",
+    "puppis": "Pup",
+    "pyxidis": "Pyx",
+    "reticuli": "Ret",
+    "sagittae": "Sge",
+    "sagittarii": "Sgr",
+    "scorpii": "Sco",
+    "sculptoris": "Scl",
+    "scuti": "Sct",
+    "serpentis": "Ser",
+    "sextantis": "Sex",
+    "tauri": "Tau",
+    "telescopii": "Tel",
+    "trianguli": "Tri",
+    "trianguli australis": "TrA",
+    "tucanae": "Tuc",
+    "ursae majoris": "UMa",
+    "ursae minoris": "UMi",
+    "velorum": "Vel",
+    "virginis": "Vir",
+    "volantis": "Vol",
+    "vulpeculae": "Vul",
+}
+
+
+def _normalize_designation(name: str):
+    """
+    If `name` ends in a Latin genitive constellation ("VY Andromedae"),
+    return it with the IAU abbreviation ("VY And"); otherwise None.
+    """
+    parts = name.strip().split()
+    if len(parts) < 2:
+        return None
+    # Match the longest trailing genitive first ("Canum Venaticorum").
+    for take in (2, 1):
+        if len(parts) > take:
+            genitive = " ".join(parts[-take:]).lower()
+            abbr = CONSTELLATION_GENITIVE_ABBR.get(genitive)
+            if abbr:
+                return " ".join(parts[:-take] + [abbr])
+    return None
+
+
+def _build_name_index(catalogs: Catalogs) -> dict:
+    """
+    Map every catalog object's names (lowercased) to the object, for name-based
+    resolution. First writer wins, so a name resolves to one stable object.
+    """
+    index: dict = {}
+    for obj in catalogs.get_objects(only_selected=False, filtered=False):
+        for nm in obj.names:
+            key = nm.strip().lower()
+            if key and key not in index:
+                index[key] = obj
+    return index
+
+
+def resolve_by_name(name: str, name_index: dict):
+    """
+    Resolve an entry to a catalog object by exact (case-insensitive) name,
+    trying a constellation-normalized variant ("VY Andromedae" -> "VY And").
+    Returns the shared catalog object or None.
+    """
+    if not name:
+        return None
+    keys = [name.strip().lower()]
+    normalized = _normalize_designation(name)
+    if normalized:
+        keys.append(normalized.lower())
+    for key in keys:
+        obj = name_index.get(key)
+        if obj:
+            return obj
+    return None
 
 
 def read_list(catalogs: Catalogs, name):
@@ -139,18 +291,29 @@ def read_list(catalogs: Catalogs, name):
         }
 
     list_catalog: list = []
+    name_index = None  # built lazily, only if an entry needs name resolution
     for i, entry in enumerate(obs_list.entries):
         _object = None
 
         # Try catalog resolution with catalog_names (skylist multi-name support)
         if entry.catalog_names:
-            _object = resolve_object(entry.catalog_names, catalogs, entry.description)
+            _object = resolve_object(entry.catalog_names, catalogs)
         elif entry.catalog_code and entry.sequence:
             _object = resolve_object(
-                [f"{entry.catalog_code} {entry.sequence}"],
-                catalogs,
-                entry.description,
+                [f"{entry.catalog_code} {entry.sequence}"], catalogs
             )
+
+        # No catalog match: try resolving by object name (handles lists that
+        # identify objects only by name, e.g. carbon stars "VY Andromedae").
+        if not _object and entry.name:
+            if name_index is None:
+                name_index = _build_name_index(catalogs)
+            _object = resolve_by_name(entry.name, name_index)
+
+        # Resolved objects are shared catalog instances: record this list's
+        # note under the list name instead of clobbering the catalog description.
+        if _object and entry.description:
+            _object.list_notes[obs_list.name] = entry.description
 
         # Fall back to coordinate-based object
         if not _object and (entry.ra or entry.dec):
@@ -173,8 +336,9 @@ def get_lists(subdir=""):
     Each entry is a dict with 'name', 'type' ('folder' or 'file'),
     and either 'subdir' (for folders) or 'path' (for files).
 
-    When multiple files share the same stem (e.g. CSOG.skylist and CSOG.csv),
-    an extension tag is appended to the display name: "CSOG [skylist]".
+    When multiple files share the same stem (e.g. Messier.skylist and
+    Messier.csv), an extension tag is appended to the display name:
+    "Messier [skylist]".
     """
     target = os.path.join(OBSLIST_DIR, subdir)
     if not os.path.isdir(target):

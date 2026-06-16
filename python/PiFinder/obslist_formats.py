@@ -623,7 +623,7 @@ def _detect_nextour_variant(text: str) -> str:
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        # CSOG variant starts with HH:MM:SS
+        # coord-first variant starts with HH:MM:SS
         if re.match(r"\d{2}:\d{2}:\d{2}", line):
             return "coord_first"
         return "catalog_first"
@@ -631,7 +631,7 @@ def _detect_nextour_variant(text: str) -> str:
 
 
 def _read_nextour_coord_first(text: str) -> ObsList:
-    """Parse CSOG-style NexTour: RA#±Dec#Name#..."""
+    """Parse coord-first NexTour: RA#±Dec#Name#..."""
     entries: list[ObsListEntry] = []
     for line in text.splitlines():
         line = line.strip()
