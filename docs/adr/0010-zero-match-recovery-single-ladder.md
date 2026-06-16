@@ -17,4 +17,4 @@ Explicitly out of recovery's scope, by decision rather than omission: defocus, t
 - The 200 ms floor bounds recovery's blind search only. The match-count controller's normal feedback clamp still reaches down to 25 ms when matches justify the descent — don't "align" the two ranges.
 - A full ladder cycle shortens from 14 solve attempts (7 rungs × 2) to 8.
 - The recovery logic becomes a single concrete class — it carries real state (ladder position, per-rung repeat count) — not an ABC with one implementation. Re-introducing a strategy seam later is cheap if field evidence demands it; carrying dead abstraction is not.
-- Whether the shipped default exposure regime stays manual 0.4 s or becomes solver-driven auto-exposure is a separate open question (flagged in `docs/ax/camera.md`), deliberately not decided here.
+- Whether the shipped default exposure regime stays manual 0.4 s or becomes solver-driven auto-exposure was left open here. It has since been resolved in favour of `"auto"` — the floored single-ladder recovery is what made auto-exposure safe enough to ship as the default. See `docs/ax/camera.md` §7 for the current behavior.

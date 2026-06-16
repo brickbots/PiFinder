@@ -1219,32 +1219,6 @@ pifinder_menu = {
                             "stateful": True,
                         },
                         {
-                            "name": _("AE Algo"),
-                            "class": UITextMenu,
-                            "select": "single",
-                            "config_option": "auto_exposure_zero_star_handler",
-                            "label": "auto_exp_zero_star_handler",
-                            "post_callback": callbacks.set_auto_exposure_zero_star_handler,
-                            "items": [
-                                {
-                                    "name": _("Sweep"),
-                                    "value": "sweep",
-                                },
-                                {
-                                    "name": _("Exponential"),
-                                    "value": "exponential",
-                                },
-                                {
-                                    "name": _("Reset to 0.4s"),
-                                    "value": "reset",
-                                },
-                                {
-                                    "name": _("Histogram"),
-                                    "value": "histogram",
-                                },
-                            ],
-                        },
-                        {
                             "name": _("Dev Tools"),
                             "class": UITextMenu,
                             "select": "single",
