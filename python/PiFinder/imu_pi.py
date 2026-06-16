@@ -190,7 +190,15 @@ def imu_monitor(shared_state, console_queue, log_queue):
         moving=False,
     )
 
+    # update() already throttles the I2C reads to imu_sample_frequency (30 Hz),
+    # but the loop body still runs every iteration — publishing the sample via
+    # set_imu(), a Manager-proxy pickle. Without pacing this spins thousands/sec
+    # (~19% CPU) and the per-publish pickle leaks. Capture the period once; the
+    # fake-IMU fallback has no such attr (and self-throttles), hence the default.
+    sample_period = getattr(imu, "imu_sample_frequency", 1 / 30)
+
     while True:
+        loop_start = time.monotonic()
         imu.update()
         imu_sample.status = imu.calibration
 
@@ -223,6 +231,15 @@ def imu_monitor(shared_state, console_queue, log_queue):
 
         if shared_state is not None and imu_calibrated:
             shared_state.set_imu(imu_sample)
+
+        # Pace the loop to the IMU sample rate: sleep only the remainder of the
+        # sample period (period minus the work already done this iteration), so
+        # the publish cadence tracks the sample rate instead of drifting to
+        # period + work. The guard keeps the fake-IMU fallback (whose update()
+        # already sleeps 0.1s) from sleeping a second time.
+        sleep_remaining = sample_period - (time.monotonic() - loop_start)
+        if sleep_remaining > 0:
+            time.sleep(sleep_remaining)
 
 
 if __name__ == "__main__":

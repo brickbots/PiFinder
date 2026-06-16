@@ -371,6 +371,12 @@ def main(
     integrator_logqueque: Queue = log_helper.get_queue()
     imu_logqueue: Queue = log_helper.get_queue()
 
+    # Refuse to start if another instance is already running. A second copy
+    # would otherwise boot and let its subsystems (web/pos-server ports, cedar
+    # shmem, hardware devices) silently collide with the live one.
+    if not utils.acquire_single_instance_lock():
+        return
+
     # Start log consolidation process first.
     log_helper.start()
 
@@ -458,7 +464,7 @@ def main(
         )
         keyboard_process.start()
         if script_name:
-            script_path = f"../scripts/{script_name}.pfs"
+            script_path = str(utils.pifinder_dir / "scripts" / f"{script_name}.pfs")
             p = Process(
                 name="Script",
                 target=keyboard_interface.KeyboardInterface.run_script,
@@ -1015,13 +1021,13 @@ if __name__ == "__main__":
         "-c",
         "--camera",
         help="Specify which camera to use: pi, asi, debug or none",
-        default="pi",
+        default=None,
         required=False,
     )
     parser.add_argument(
         "-g",
         "--gps",
-        help="Specify which camera to use: pi, fake",
+        help="Specify which GPS to use: pi, fake",
         default="pi",
         required=False,
     )
@@ -1130,13 +1136,17 @@ if __name__ == "__main__":
     if args.display is not None:
         display_hardware = args.display.lower()
 
-    if args.camera.lower() == "pi":
+    camera_type = args.camera.lower() if args.camera is not None else None
+    if camera_type is None:
+        camera_type = "debug" if args.fakehardware else "pi"
+
+    if camera_type == "pi":
         rlogger.info("using pi camera")
         from PiFinder import camera_pi as camera
-    elif args.camera.lower() == "debug":
+    elif camera_type == "debug":
         rlogger.info("using debug camera")
         from PiFinder import camera_debug as camera  # type: ignore[no-redef]
-    elif args.camera.lower() == "asi":
+    elif camera_type == "asi":
         rlogger.info("using asi camera")
     else:
         rlogger.warn("not using camera")

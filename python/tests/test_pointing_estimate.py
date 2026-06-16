@@ -201,6 +201,44 @@ class TestPicklability:
         for msg in (success, failure):
             assert pickle.loads(pickle.dumps(msg)) == msg
 
+    def test_imu_sample_round_trips_with_quaternion(self):
+        import pickle
+
+        original = ImuSample(
+            quat=quaternion.quaternion(0.1, 0.2, 0.3, 0.4),
+            timestamp=12345.6789,
+            status=3,
+            moving=True,
+            gyro=(0.01, 0.02, 0.03),
+            accel=(0.1, 0.2, 0.3),
+        )
+        roundtripped = pickle.loads(pickle.dumps(original))
+        assert roundtripped == original
+        # quat must come back as a real numpy.quaternion — consumers rely on
+        # quaternion math / .w/.x/.y/.z — not the 4-float pickle form.
+        assert isinstance(roundtripped.quat, quaternion.quaternion)
+        assert roundtripped.quat == original.quat
+        # __getstate__ must not mutate the live object in place.
+        assert isinstance(original.quat, quaternion.quaternion)
+
+    def test_none_quaternion_anchor_round_trips(self):
+        import pickle
+
+        # A solve on a frame with no IMU sample carries imu_anchor=None; the
+        # float round-trip must preserve None (the helpers are None-safe).
+        est = PointingEstimate()  # imu_anchor defaults to None
+        assert est.imu_anchor is None
+        assert pickle.loads(pickle.dumps(est)).imu_anchor is None
+
+        solve = SuccessfulSolve(
+            camera=Pointing(RA=1.0, Dec=2.0, Roll=3.0),
+            aligned=Pointing(RA=1.5, Dec=2.5, Roll=3.0),
+            imu_anchor=None,
+            last_solve_attempt=1.0,
+            last_solve_success=1.0,
+        )
+        assert pickle.loads(pickle.dumps(solve)).imu_anchor is None
+
 
 # ---------------------------------------------------------------------
 # Solver builder semantics

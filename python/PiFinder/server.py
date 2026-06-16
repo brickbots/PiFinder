@@ -183,15 +183,17 @@ class Server:
         # Static files routes
         @app.route("/images/<path:filename>")
         def send_image(filename):
-            return send_file(f"../views/images/{filename}", mimetype="image/png")
+            return send_file(
+                os.path.join(views2_path, "images", filename), mimetype="image/png"
+            )
 
         @app.route("/js/<path:filename>")
         def send_js(filename):
-            return send_file(f"../views/js/{filename}")
+            return send_file(os.path.join(views2_path, "js", filename))
 
         @app.route("/css/<path:filename>")
         def send_css(filename):
-            return send_file(f"../views/css/{filename}")
+            return send_file(os.path.join(views2_path, "css", filename))
 
         @app.route("/")
         def home():
