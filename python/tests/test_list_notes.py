@@ -15,18 +15,19 @@ from PiFinder.composite_object import CompositeObject, _section_header
 
 
 @pytest.mark.unit
-def test_home_description_first_then_labeled_notes():
+def test_labeled_notes_first_then_home_description():
     obj = CompositeObject(
         object_id=1, catalog_code="NGC", sequence=224, description="Andromeda Galaxy"
     )
     obj.list_notes["Autumn Targets"] = "naked eye from the cabin"
     obj.list_notes["Messier Best"] = "start here"
     assert obj.composed_description() == (
-        "Andromeda Galaxy\n"
         f"{_section_header('Autumn Targets')}\n"
         "naked eye from the cabin\n"
         f"{_section_header('Messier Best')}\n"
-        "start here"
+        "start here\n"
+        f"{_section_header('NGC 224')}\n"
+        "Andromeda Galaxy"
     )
 
 
@@ -58,10 +59,23 @@ def test_no_notes_is_just_the_description():
 
 @pytest.mark.unit
 def test_composed_sections_structure():
-    obj = CompositeObject(object_id=1, catalog_code="NGC", description="home")
+    obj = CompositeObject(
+        object_id=1, catalog_code="NGC", sequence=224, description="home"
+    )
     obj.list_notes["My List"] = "note"
     secs = obj.composed_sections(extra_descriptions={"M 1": "other"})
-    assert secs == [(None, "home"), ("M 1", "other"), ("My List", "note")]
+    assert secs == [("My List", "note"), ("NGC 224", "home"), ("M 1", "other")]
+
+
+@pytest.mark.unit
+def test_home_unlabeled_when_no_note_precedes():
+    # Home leads unlabeled even with other catalogs after it; only a preceding
+    # list note promotes it to its own designator-labeled section.
+    obj = CompositeObject(
+        object_id=1, catalog_code="NGC", sequence=224, description="home"
+    )
+    secs = obj.composed_sections(extra_descriptions={"M 1": "other"})
+    assert secs == [(None, "home"), ("M 1", "other")]
 
 
 @pytest.mark.unit
@@ -121,14 +135,17 @@ def test_extra_description_dedup_can_be_disabled():
 
 
 @pytest.mark.unit
-def test_home_then_extra_catalogs_then_list_notes():
-    obj = CompositeObject(object_id=1, catalog_code="NGC", description="home")
+def test_list_notes_then_home_then_extra_catalogs():
+    obj = CompositeObject(
+        object_id=1, catalog_code="NGC", sequence=224, description="home"
+    )
     obj.list_notes["My List"] = "go see it"
     out = obj.composed_description(extra_descriptions={"M 1": "other catalog"})
     assert out == (
+        f"{_section_header('My List')}\n"
+        "go see it\n"
+        f"{_section_header('NGC 224')}\n"
         "home\n"
         f"{_section_header('M 1')}\n"
-        "other catalog\n"
-        f"{_section_header('My List')}\n"
-        "go see it"
+        "other catalog"
     )

@@ -284,18 +284,27 @@ class CompositeObject:
     def composed_sections(self, extra_descriptions=None, dedup=True) -> list:
         """
         Merge this object's description sources into ordered ``(label, text)``
-        sections. The home catalog's description comes first with ``label=None``
-        (unlabeled -- you already know what you're looking at); then any
-        ``extra_descriptions`` (the same object's other catalog listings); then
-        observing-list notes collected this session.
+        sections. Observing-list notes collected this session come first (your
+        own annotation for the list you're viewing is the most relevant text);
+        then the home catalog's description -- unlabeled when it leads (you
+        already know what you're looking at), but labeled with this object's
+        designator once a list note precedes it, so it isn't read as part of the
+        note above; then any ``extra_descriptions`` (the same object's other
+        catalog listings).
 
         With ``dedup``, a source whose text is identical to one already shown is
         skipped -- common because a Messier listing often copies its NGC text.
         """
         sections: list = []
         seen: set = set()
+        have_note = False
+        for source, note in self.list_notes.items():
+            if note:
+                sections.append((source, note))
+                have_note = True
         if self.description:
-            sections.append((None, self.description))
+            home_label = self.display_name if have_note else None
+            sections.append((home_label, self.description))
             seen.add(self.description.strip())
         for source, desc in (extra_descriptions or {}).items():
             if not desc:
@@ -304,9 +313,6 @@ class CompositeObject:
                 continue
             seen.add(desc.strip())
             sections.append((source, desc))
-        for source, note in self.list_notes.items():
-            if note:
-                sections.append((source, note))
         return sections
 
     def composed_description(self, extra_descriptions=None, dedup=True) -> str:
