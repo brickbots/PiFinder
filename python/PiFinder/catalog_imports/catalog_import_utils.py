@@ -242,11 +242,15 @@ def delete_catalog_from_database(catalog_code: str):
     conn.commit()
 
 
-def insert_catalog(catalog_name, description_path):
-    """Insert a catalog description into the database"""
+def insert_catalog(catalog_name, description_path, display_name=None):
+    """Insert a catalog description into the database.
+
+    ``display_name`` is the readable catalog name (e.g. "Collinder" for code
+    "Col") surfaced in the UI; it is stored alongside the code.
+    """
     with open(description_path, "r") as desc:
         description = "".join(desc.readlines())
-    objects_db.insert_catalog(catalog_name, -1, description)
+    objects_db.insert_catalog(catalog_name, -1, description, display_name)
 
 
 def insert_catalog_max_sequence(catalog_name):

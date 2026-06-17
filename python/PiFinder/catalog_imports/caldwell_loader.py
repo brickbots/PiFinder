@@ -30,7 +30,7 @@ def load_caldwell():
     catalog = "C"
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, Path(utils.astro_data_dir, "caldwell.desc"))
+    insert_catalog(catalog, Path(utils.astro_data_dir, "caldwell.desc"), "Caldwell")
     data = Path(utils.astro_data_dir, "caldwell.dat")
 
     # Prepare objects for batch insertion

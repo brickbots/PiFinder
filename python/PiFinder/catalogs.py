@@ -280,8 +280,14 @@ class CatalogFilter:
 class Catalog(CatalogBase):
     """Extends the CatalogBase with filtering"""
 
-    def __init__(self, catalog_code: str, desc: str, max_sequence: int = 0):
-        super().__init__(catalog_code, desc, max_sequence)
+    def __init__(
+        self,
+        catalog_code: str,
+        desc: str,
+        max_sequence: int = 0,
+        name: Optional[str] = None,
+    ):
+        super().__init__(catalog_code, desc, max_sequence, name=name)
         self.catalog_filter: Union[CatalogFilter, None] = None
         self.filtered_objects: List[CompositeObject] = self.get_objects()
         self.filtered_objects_seq: List[int] = self._filtered_objects_to_seq()
@@ -1108,6 +1114,7 @@ class CatalogBuilder:
                 catalog_code,
                 desc=catalog_info["desc"],
                 max_sequence=catalog_info["max_sequence"],
+                name=catalog_info.get("name"),
             )
             catalog.add_objects(composite_dict.get(catalog_code, []))
             catalog_list.append(catalog)
