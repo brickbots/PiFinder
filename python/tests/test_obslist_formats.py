@@ -12,7 +12,7 @@ from PiFinder.calc_utils import (
     ra_to_deg,
     dms_to_dec,
 )
-from PiFinder.composite_object import MagnitudeObject
+from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.obslist_formats import (
     ObsList,
     ObsListEntry,
@@ -243,6 +243,93 @@ def test_pifinder_coordinate_entry_roundtrip():
     parsed = read_pifinder(text)
     _assert_entries_close(obs.entries, parsed.entries, ra_tol=0.001, dec_tol=0.001)
     assert parsed.entries[0].description == "discovered last night"
+
+
+@pytest.mark.unit
+def test_pifinder_extents_roundtrip():
+    # The native writer must emit size/extent geometry so a round trip is
+    # lossless for everything PiFinder holds.
+    obs = ObsList(
+        name="Extents",
+        entries=[
+            ObsListEntry(
+                name="Ellipse",
+                ra=10.0,
+                dec=20.0,
+                obj_type="Gx",
+                size=SizeObject([180.0, 60.0], position_angle=45.0),
+            ),
+            ObsListEntry(
+                name="Asterism",
+                ra=30.0,
+                dec=40.0,
+                obj_type="Ast",
+                size=SizeObject(
+                    [[30.0, 40.0], [30.1, 40.1], [30.2, 39.9]],
+                    geometry="polyline",
+                ),
+            ),
+        ],
+    )
+    parsed = read_pifinder(write_pifinder(obs)).entries
+    assert parsed[0].size.extents == [180.0, 60.0]
+    assert parsed[0].size.position_angle == 45.0
+    assert parsed[1].size.geometry == "polyline"
+    assert parsed[1].size.extents == [[30.0, 40.0], [30.1, 40.1], [30.2, 39.9]]
+
+
+@pytest.mark.unit
+def test_pifinder_writer_infers_geometry_for_nested_shape():
+    # A nested RA/Dec shape with no explicit geometry must still write a valid
+    # file: the reader rejects nested shapes that lack 'geometry'.
+    obs = ObsList(
+        name="Inferred",
+        entries=[
+            ObsListEntry(
+                name="Line",
+                ra=10.0,
+                dec=20.0,
+                obj_type="?",
+                size=SizeObject([[10.0, 20.0], [10.5, 20.5]]),  # geometry=""
+            )
+        ],
+    )
+    text = write_pifinder(obs)
+    assert '"geometry": "polyline"' in text
+    parsed = read_pifinder(text).entries  # must not raise
+    assert parsed[0].size.extents == [[10.0, 20.0], [10.5, 20.5]]
+
+
+@pytest.mark.unit
+def test_pifinder_writer_file_epoch_with_overrides():
+    # The file declares one epoch (always present); an entry only carries its own
+    # epoch when it overrides the file default -- no per-entry repetition.
+    obs = ObsList(
+        name="x",
+        entries=[
+            ObsListEntry(name="a", ra=1.0, dec=2.0, obj_type="*"),  # inherits J2000
+            ObsListEntry(
+                name="b", ra=3.0, dec=4.0, obj_type="*", epoch="J2016.0"
+            ),  # override
+        ],
+    )
+    text = write_pifinder(obs)
+    assert text.count('"epoch"') == 2  # one file-level + one override, not three
+    assert '"epoch": "J2000"' in text  # file-level default
+    assert '"epoch": "J2016.0"' in text  # override on entry b only
+
+
+@pytest.mark.unit
+def test_pifinder_file_epoch_applies_to_entries():
+    # An entry with no epoch of its own inherits the file-level epoch on read.
+    data = (
+        '{"version": 1, "name": "x", "epoch": "J2016.0", '
+        '"objects": [{"name": "t", "obj_type": "?", "ra": 10.0, "dec": 20.0}]}'
+    )
+    entry = read_pifinder(data).entries[0]
+    # J2016 file epoch applied -> precessed to J2000 (RA moved ~0.2 deg).
+    assert entry.ra != 10.0
+    assert entry.ra == pytest.approx(10.0, abs=0.5)
 
 
 @pytest.mark.unit

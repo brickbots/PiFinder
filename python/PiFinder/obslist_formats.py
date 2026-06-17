@@ -50,6 +50,10 @@ class ObsListEntry:
     description: str = ""
     size: SizeObject = field(default_factory=lambda: SizeObject([]))
     catalog_names: list[str] = field(default_factory=list)
+    # Coordinate epoch of ra/dec. PiFinder is always J2000 (the reader precesses
+    # non-J2000 inputs to J2000); a library caller may construct other epochs and
+    # the writer will stamp them.
+    epoch: str = "J2000"
 
 
 @dataclass
@@ -58,6 +62,8 @@ class ObsList:
 
     name: str
     entries: list[ObsListEntry] = field(default_factory=list)
+    # File-level default coordinate epoch; individual entries may override it.
+    epoch: str = "J2000"
 
 
 # ── Supported extensions ────────────────────────────────────────────────
@@ -787,6 +793,7 @@ def read_eqmod(text: str) -> ObsList:
 
 
 def write_pifinder(obs_list: ObsList) -> str:
+    file_epoch = obs_list.epoch or "J2000"
     objects = []
     for entry in obs_list.entries:
         if entry.catalog_code and entry.sequence:
@@ -801,17 +808,40 @@ def write_pifinder(obs_list: ObsList) -> str:
                 "ra": entry.ra,
                 "dec": entry.dec,
             }
+            # A per-entry epoch is written only when it overrides the file
+            # default; the file-level epoch (below) keeps every file self-describing.
+            entry_epoch = entry.epoch or "J2000"
+            if entry_epoch != file_epoch:
+                obj["epoch"] = entry_epoch
             if entry.mag.filter_mag != MagnitudeObject.UNKNOWN_MAG:
                 obj["mag"] = {
                     "mags": entry.mag.mags,
                     "filter_mag": entry.mag.filter_mag,
                 }
+            if entry.size.extents:
+                extents: dict = {"shape": entry.size.extents}
+                geometry = entry.size.geometry
+                # The reader requires 'geometry' for nested (RA/Dec) shapes;
+                # infer it from the shape's nesting when it isn't already set.
+                first = entry.size.extents[0]
+                if not geometry and isinstance(first, (list, tuple)):
+                    geometry = (
+                        "segments"
+                        if (first and isinstance(first[0], (list, tuple)))
+                        else "polyline"
+                    )
+                if geometry:
+                    extents["geometry"] = geometry
+                if entry.size.position_angle:
+                    extents["position_angle"] = entry.size.position_angle
+                obj["extents"] = extents
         if entry.description:
             obj["notes"] = entry.description
         objects.append(obj)
     data = {
         "version": 1,
         "name": obs_list.name,
+        "epoch": file_epoch,
         "objects": objects,
     }
     return json.dumps(data, indent=2)
@@ -854,6 +884,8 @@ def _validate_pifinder(data: dict) -> None:
             raise PiFinderFormatError(f"Missing required field: {key}")
     if data["version"] != 1:
         raise PiFinderFormatError(f"Unsupported version: {data['version']}")
+    if "epoch" in data and not isinstance(data["epoch"], str):
+        raise PiFinderFormatError("'epoch' must be a string")
     if not isinstance(data["objects"], list):
         raise PiFinderFormatError("'objects' must be an array")
 
@@ -916,6 +948,7 @@ def read_pifinder(text: str) -> ObsList:
     data = json.loads(text)
     _validate_pifinder(data)
     name = data["name"]
+    file_epoch = data.get("epoch", "J2000")
     entries: list[ObsListEntry] = []
     for i, obj in enumerate(data["objects"]):
         _validate_pifinder_object(obj, i)
@@ -932,7 +965,7 @@ def read_pifinder(text: str) -> ObsList:
                 )
             )
         else:
-            epoch_str = obj.get("epoch", "J2000")
+            epoch_str = obj.get("epoch", file_epoch)
             from_jd = _epoch_to_jd(epoch_str)
 
             raw_mag = obj.get("mag")
