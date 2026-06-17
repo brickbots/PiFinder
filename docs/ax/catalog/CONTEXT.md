@@ -9,8 +9,12 @@ The Catalog context owns runtime loading, filtering, searching and display of as
 ### Identity
 
 **Catalog code**:
-Short string identifier for a catalog as a whole — `"M"`, `"NGC"`, `"IC"`, `"WDS"`, `"PL"` (planets). Drives DB queries and the UI designator.
-_Avoid_: catalog name, catalog id, prefix.
+Short string identifier for a catalog as a whole — `"M"`, `"NGC"`, `"IC"`, `"WDS"`, `"PL"` (planets). Drives DB queries and the UI designator. Its readable sibling is the **catalog display name** ("Collinder" for code `"Cr"`).
+_Avoid_: catalog id, prefix; for the readable form say **catalog display name**, not "catalog name".
+
+**Catalog display name**:
+The readable, human-facing label for a catalog as a whole — `"Collinder"`, `"Caldwell"`, `"SAC Doubles"` — the prose twin of the terse **catalog code** (`"Cr"`, `"C"`). Stored as `Catalog.name` (DB column `name`); `None` for virtual/legacy catalogs, where the UI falls back to the code. Distinct from object-level **Names** ("Andromeda"): a display name names the *catalog*, not a sky object.
+_Avoid_: catalog name (prefer the full term), catalog title, long name.
 
 **Sequence**:
 Integer position of an object inside one catalog (e.g. `13` for M 13). Must be unique within a catalog (enforced by `CatalogBase.check_sequences()`).
@@ -175,12 +179,29 @@ PiFinder's own versioned JSON list format — the only one that losslessly carri
 _Avoid_: PiFinder format (ambiguous in prose), JSON format (Stellarium is JSON too).
 
 **Resolution**:
-Matching an observing list entry to a `CompositeObject` in the catalog collection by catalog code + sequence, with alias mapping (Messier→M, Caldwell→C, Collinder→Cr). Entries that fail resolution but carry coordinates become coordinate objects; entries with neither are dropped.
+The umbrella term for matching an observing list entry to a `CompositeObject` in the catalog collection. Two strategies are tried in a fixed order, then a coordinate fallback:
+1. **Catalog-keyed resolution** — match by catalog code + sequence, with alias mapping (Messier→M, Caldwell→C, Collinder→Cr). Tried whenever the entry carries a catalog key.
+2. **Name resolution** — exact, case-insensitive match of the entry's name against catalog object names, also trying a constellation-genitive–normalized variant ("VY Andromedae" → "VY And"). **Strictly a fallback**: attempted only when catalog-keyed resolution finds nothing. Names collide more readily than catalog keys, so a name never overrides a key match.
+3. If both fail, an entry carrying coordinates becomes a **coordinate object**; an entry with no key, no name match, and no coordinates is dropped.
 _Avoid_: lookup, import (import is the whole read-then-resolve flow).
 
 **Coordinate object**:
 A `CompositeObject` minted at list-load time from a coordinate entry when resolution fails. In-memory only, carries a virtual ID, catalog code `OBS`.
 _Avoid_: custom object, user object, unresolved object (it *is* resolved — to coordinates).
+
+### Composed descriptions
+
+**Composed description**:
+The merged, multi-source description shown for the selected object in object details. Sections appear in a fixed order: **list notes first** (this session's observing-list notes), then the **home** catalog description, then the object's **other catalog listings'** descriptions (deduped). Built by `CompositeObject.composed_sections()`; `composed_description()` is the flat-string form for non-UI consumers.
+_Avoid_: aggregated description, full description, merged text.
+
+**Section source**:
+The provenance label on one section of a composed description. Three kinds: *observing-list source* — a per-list **list note**, labeled with the **observing list** name, shown **first**; *home* — the selected object's own catalog description, **unlabeled when it leads** (you already know what you're looking at), but labeled with the object's own **Designator** once a list note precedes it, so it doesn't read as part of the note above; *catalog-listing source* — the same sky object's description in another catalog listing, labeled with that listing's **Designator** (`"Cr 24"`, kept code-based — not the catalog display name — to stay short on a 128-px screen). The label is drawn as a rule (`─── Cr 24 ───`) above its text.
+_Avoid_: section header / section heading (that's the visual rendering of the label), provenance, origin.
+
+**List note**:
+A per-`(observing list, object)` annotation — the description text an observing list carries for one of its targets. Session-only, held in `CompositeObject.list_notes` keyed by list name (re-loading a list replaces its own note, never duplicates). Set only on **resolved** objects; a **coordinate object** has no list note (its list text becomes its own description, since it has nothing else).
+_Avoid_: comment, annotation, list comment, user description.
 
 ### UI helpers
 
