@@ -5,6 +5,7 @@ from PIL import Image, ImageDraw
 import PiFinder.ui.callbacks as callbacks
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.dateentry import UIDateEntry
+from PiFinder.ui.layout import center_box_row
 
 if TYPE_CHECKING:
 
@@ -29,8 +30,8 @@ class UITimeEntry(UIModule):
         ]  # TRANSLATORS: Place holders for hours, minutes, seconds in time entry
 
         # Screen setup
-        self.width = 128
-        self.height = 128
+        self.width = self.display_class.resX
+        self.height = self.display_class.resY
         self.red = self.colors.get(255)
         self.black = self.colors.get(0)
         self.half_red = self.colors.get(128)
@@ -38,15 +39,22 @@ class UITimeEntry(UIModule):
         self.draw = ImageDraw.Draw(self.screen)
         self.bold = self.fonts.bold
 
-        # Layout constants - updated to center the boxes
-        self.text_y = 25
-        self.box_width = 25
-        self.box_height = 20
-        self.box_spacing = 15
+        # Layout constants - box dimensions derive from the bold font so the
+        # two-digit boxes scale with the display (25 / 20 / 15 on the 128 panel).
+        self.text_y = self.display_class.titlebar_height + 8
+        self.box_width = self.bold.width * 2 + 11
+        self.box_height = self.bold.height + 7
+        self.box_spacing = round(self.display_class.resX * 15 / 128)
 
-        # Calculate start_x to center the boxes on screen
-        total_width = (3 * self.box_width) + (2 * self.box_spacing)
-        self.start_x = (self.width - total_width) // 2
+        # Center the three boxes on the actual screen width
+        box_row = center_box_row(
+            self.display_class,
+            [self.box_width] * 3,
+            self.box_spacing,
+            self.text_y,
+            self.box_height,
+        )
+        self.start_x = box_row.xs[0]
 
     def draw_time_boxes(self):
         # Draw the three boxes with colons between them
@@ -128,14 +136,14 @@ class UITimeEntry(UIModule):
             font=self.fonts.base.font,
             fill=legend_color,
         )
-        legend_y += 12
+        legend_y += self.fonts.base.height + 1
         self.draw.text(
             (10, legend_y),
             _("\uf053 Cancel"),
             font=self.fonts.base.font,
             fill=legend_color,
         )
-        legend_y += 12
+        legend_y += self.fonts.base.height + 1
         self.draw.text(
             (10, legend_y),
             _("\U000f0374 Delete/Previous"),
@@ -218,7 +226,7 @@ class UITimeEntry(UIModule):
             self.custom_callback(self, time_str)
 
     def update(self, force=False):
-        self.draw.rectangle((0, 0, 128, 128), fill=self.black)
+        self.draw.rectangle((0, 0, self.width, self.height), fill=self.black)
 
         self.draw_time_boxes()
 

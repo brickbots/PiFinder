@@ -169,6 +169,43 @@ class Network:
         if hostname == self.get_host_name():
             return
         _result = sh.sudo("hostnamectl", "set-hostname", hostname)
+        self._update_etc_hosts(hostname)
+
+    @staticmethod
+    def _rewrite_hosts(contents: str, new_hostname: str) -> str:
+        """
+        Rewrite the Debian-convention ``127.0.1.1`` line in /etc/hosts to point
+        at ``new_hostname``. Preserves indentation, the IP, and any trailing
+        aliases/comments. If no ``127.0.1.1`` line exists, appends one so that
+        ``sudo`` can still resolve the host.
+        """
+        lines = contents.splitlines(keepends=True)
+        pattern = re.compile(r"^(\s*127\.0\.1\.1\s+)\S+(.*)$")
+        replaced = False
+        for i, line in enumerate(lines):
+            match = pattern.match(line)
+            if match:
+                eol = "\n" if line.endswith("\n") else ""
+                lines[i] = f"{match.group(1)}{new_hostname}{match.group(2)}{eol}"
+                replaced = True
+                break
+        if not replaced:
+            if lines and not lines[-1].endswith("\n"):
+                lines[-1] += "\n"
+            lines.append(f"127.0.1.1\t{new_hostname}\n")
+        return "".join(lines)
+
+    def _update_etc_hosts(self, new_hostname: str) -> None:
+        try:
+            with open("/etc/hosts", "r") as hosts_f:
+                contents = hosts_f.read()
+        except IOError as e:
+            logger.error(f"Error reading /etc/hosts: {e}")
+            return
+        new_contents = Network._rewrite_hosts(contents, new_hostname)
+        with open("/tmp/hosts", "w") as new_hosts:
+            new_hosts.write(new_contents)
+        sh.sudo("cp", "/tmp/hosts", "/etc/hosts")
 
     def wifi_mode(self):
         return self._wifi_mode

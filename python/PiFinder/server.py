@@ -183,15 +183,17 @@ class Server:
         # Static files routes
         @app.route("/images/<path:filename>")
         def send_image(filename):
-            return send_file(f"../views/images/{filename}", mimetype="image/png")
+            return send_file(
+                os.path.join(views2_path, "images", filename), mimetype="image/png"
+            )
 
         @app.route("/js/<path:filename>")
         def send_js(filename):
-            return send_file(f"../views/js/{filename}")
+            return send_file(os.path.join(views2_path, "js", filename))
 
         @app.route("/css/<path:filename>")
         def send_css(filename):
-            return send_file(f"../views/css/{filename}")
+            return send_file(os.path.join(views2_path, "css", filename))
 
         @app.route("/")
         def home():
@@ -226,10 +228,11 @@ class Server:
                 if self.shared_state.solve_state() is True:
                     camera_icon = "camera_alt"
                     solution = self.shared_state.solution()
-                    if solution:
-                        hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
+                    if solution and solution.has_pointing():
+                        aligned = solution.pointing.aligned.estimate
+                        hh, mm, _ = calc_utils.ra_to_hms(aligned.RA)
                         ra_text = f"{hh:02.0f}h{mm:02.0f}m"
-                        dec_text = f"{solution['Dec']: .2f}"
+                        dec_text = f"{aligned.Dec: .2f}"
             except Exception as e:
                 logger.error(f"Failed to get solution data: {str(e)}")
 

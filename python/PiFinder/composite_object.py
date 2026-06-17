@@ -2,8 +2,171 @@
 from dataclasses import dataclass, field
 import numpy as np
 import json
-from typing import List
+import math
+from typing import List, Union, cast
 from PiFinder.utils import is_number
+
+
+class SizeObject:
+    """Structured angular size for astronomical objects.
+
+    All extents are stored internally in arcseconds.
+    - []           -> unknown / point source
+    - [d]          -> circular, diameter d
+    - [major, minor] -> elliptical (major x minor axes)
+    - [v1, v2, ...] -> polygon radial distances at equal angular intervals
+    - [[ra,dec], ...] -> RA/Dec polyline vertices (degrees)
+    - [[[ra,dec],[ra,dec]], ...] -> disconnected line segments (degrees)
+
+    The geometry field disambiguates: "polyline" or "segments".
+    """
+
+    def __init__(
+        self,
+        extents: Union[List[float], List[List[float]]],
+        position_angle: float = 0.0,
+        geometry: str = "",
+    ):
+        self.extents: Union[List[float], List[List[float]]] = extents
+        self.position_angle: float = position_angle
+        self.geometry: str = geometry
+
+    # --- mode detection ---
+
+    @property
+    def is_vertices(self) -> bool:
+        """True for polyline vertices: [[ra,dec], ...]"""
+        if not self.extents:
+            return False
+        if self.geometry == "segments":
+            return False
+        if self.geometry == "polyline":
+            return True
+        return isinstance(self.extents[0], (list, tuple))
+
+    @property
+    def is_segments(self) -> bool:
+        """True for disconnected segments: [[[ra,dec],[ra,dec]], ...]"""
+        if self.geometry == "segments":
+            return True
+        return False
+
+    def _all_vertices(self) -> List[List[float]]:
+        """Collect all RA/Dec vertices regardless of geometry type."""
+        if self.is_segments:
+            verts: List[List[float]] = []
+            # Segments-mode extents: list of [[ra,dec],[ra,dec]] segments.
+            for seg in cast(List[List[List[float]]], self.extents):
+                verts.extend(seg)
+            return verts
+        if self.is_vertices:
+            return cast(List[List[float]], self.extents)
+        return []
+
+    @property
+    def max_extent_arcsec(self) -> float:
+        if not self.extents:
+            return 0.0
+        verts = self._all_vertices()
+        if verts:
+            max_sep = 0.0
+            for i in range(len(verts)):
+                for j in range(i + 1, len(verts)):
+                    ra1, dec1 = math.radians(verts[i][0]), math.radians(verts[i][1])
+                    ra2, dec2 = math.radians(verts[j][0]), math.radians(verts[j][1])
+                    dra = ra2 - ra1
+                    ddec = dec2 - dec1
+                    cos_dec = math.cos((dec1 + dec2) / 2)
+                    sep = math.sqrt((dra * cos_dec) ** 2 + ddec**2)
+                    max_sep = max(max_sep, sep)
+            return math.degrees(max_sep) * 3600.0
+        # Numeric extents at this point — vertex/segment branches handled above.
+        return max(cast(List[float], self.extents))
+
+    # --- constructors ---
+
+    @classmethod
+    def from_arcmin(cls, *values: float, position_angle: float = 0.0) -> "SizeObject":
+        return cls([v * 60.0 for v in values], position_angle=position_angle)
+
+    @classmethod
+    def from_arcsec(cls, *values: float, position_angle: float = 0.0) -> "SizeObject":
+        return cls(list(values), position_angle=position_angle)
+
+    @classmethod
+    def from_degrees(cls, *values: float, position_angle: float = 0.0) -> "SizeObject":
+        return cls([v * 3600.0 for v in values], position_angle=position_angle)
+
+    @classmethod
+    def from_vertices(cls, vertices: List[List[float]]) -> "SizeObject":
+        return cls(vertices, position_angle=0.0)
+
+    # --- serialization ---
+
+    def to_json(self) -> str:
+        return json.dumps({"e": self.extents, "p": self.position_angle})
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "SizeObject":
+        if not json_str:
+            return cls([])
+        try:
+            parsed = json.loads(json_str)
+        except (json.JSONDecodeError, TypeError):
+            # Legacy DB rows store size as plain text (e.g. "5'", "17x8"),
+            # not JSON. Degrade to an empty SizeObject so the catalog
+            # still loads; a re-import populates proper extents.
+            return cls([])
+        if not isinstance(parsed, dict) or "e" not in parsed:
+            return cls([])
+        return cls(parsed["e"], position_angle=parsed.get("p", 0.0))
+
+    # --- display ---
+
+    def _format_value(self, arcsec: float, unit_suffix: str) -> str:
+        """Format a single value, dropping .0 for whole numbers."""
+        if unit_suffix == '"':
+            val = arcsec
+        elif unit_suffix == "'":
+            val = arcsec / 60.0
+        else:
+            val = arcsec / 3600.0
+        if val == int(val):
+            return f"{int(val)}{unit_suffix}"
+        return f"{val:.1f}{unit_suffix}"
+
+    def _pick_unit(self, arcsec: float) -> str:
+        """Choose display unit for a value in arcseconds."""
+        if arcsec >= 3600.0:
+            return "°"
+        if arcsec >= 60.0:
+            return "'"
+        return '"'
+
+    def to_display_string(self) -> str:
+        if not self.extents:
+            return ""
+        if self.is_vertices or self.is_segments:
+            extent = self.max_extent_arcsec
+            return f"~{self._format_value(extent, self._pick_unit(extent))}"
+        # Numeric-extent path: extents is List[float] here.
+        extents = cast(List[float], self.extents)
+        unit = self._pick_unit(max(extents))
+        if len(extents) == 1:
+            return self._format_value(extents[0], unit)
+        if len(extents) == 2:
+            a = self._format_value(extents[0], unit)
+            b = self._format_value(extents[1], unit)
+            # strip repeated unit suffix for compact display: 17'x8'
+            return f"{a}x{b}"
+        # 3+ extents: show max extent only with polygon marker
+        return f"~{self._format_value(max(extents), unit)}"
+
+    def __repr__(self) -> str:
+        return f"SizeObject({self.extents})"
+
+    def __str__(self) -> str:
+        return self.to_display_string()
 
 
 class MagnitudeObject:
@@ -48,9 +211,17 @@ class MagnitudeObject:
 
     @classmethod
     def from_json(cls, json_str):
-        data = json.loads(json_str)
-        obj = cls(data["mags"])
-        return obj
+        if not json_str:
+            return cls([])
+        try:
+            data = json.loads(json_str)
+        except (json.JSONDecodeError, TypeError):
+            # Legacy DB rows store mag as plain text (e.g. "12.5", "12.5/13.5"),
+            # not JSON. Degrade to an empty MagnitudeObject.
+            return cls([])
+        if not isinstance(data, dict) or "mags" not in data:
+            return cls([])
+        return cls(data["mags"])
 
 
 @dataclass
@@ -67,7 +238,7 @@ class CompositeObject:
     # dec in degrees, J2000
     dec: float = field(default=0.0)
     const: str = field(default="")
-    size: str = field(default="")
+    size: "SizeObject" = field(default_factory=lambda: SizeObject([]))
     mag: MagnitudeObject = field(default=MagnitudeObject([]))
     mag_str: str = field(default="")
     catalog_code: str = field(default="")

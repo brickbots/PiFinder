@@ -35,7 +35,7 @@ _Avoid_: setting, config key (in prose), option.
 ### Modules
 
 **UIModule**:
-The base class for every screen (`ui/base.py`). Owns a 128x128 `self.screen` PIL image, the `key_*` handlers, the lifecycle hooks, and the display-mode cycle. The bare word "module" in this context means a `UIModule` subclass or instance.
+The base class for every screen (`ui/base.py`). Owns a `self.screen` PIL image sized to the display instance's `resolution` (128×128 on the SSD1351, 176×176 on the SSD1333), the `key_*` handlers, the lifecycle hooks, and the display-mode cycle. The bare word "module" in this context means a `UIModule` subclass or instance.
 _Avoid_: screen class, widget, view, page.
 
 **Screen**:
@@ -45,6 +45,10 @@ _Avoid_: canvas, frame (a "frame" is a camera image).
 **UITextMenu**:
 The general scrolling-list module (`ui/text_menu.py`). The root menu and every submenu are `UITextMenu` instances; it handles single/multi selection and writes `config_option`s.
 _Avoid_: list module, text list.
+
+**Carousel**:
+The centre-magnified scrolling list a `UITextMenu` draws: the focus line (the selected item) sits at the vertical centre in the large font at full brightness, and neighbouring rows shrink and dim with distance (a "fisheye" falloff). `UIObjectList` uses a uniform-row variant (every row in the base font, the focus row in bold). Row geometry — count, positions, fonts, the focus selection box — is computed by `ui/layout.py` (`carousel_layout` / `list_layout`) from the display instance's `resolution`, `titlebar_height`, font metrics and the `menu_visible_items` knob, so the same code lays out on the 128 and 176 panels.
+_Avoid_: fisheye menu (in code/glossary — describe it as the carousel), spinner, wheel.
 
 **display_class**:
 The constructor argument carrying a `DisplayBase` **instance** (not a class, despite the name) — the source of `device`, `colors`, `fonts`, and `resolution`. `DisplayHeadless` is the no-hardware variant.
@@ -72,6 +76,20 @@ _Avoid_: current screen, focused module, top module.
 The flow where `MenuManager.key_*` forwards a keypad event to `stack[-1].key_*`, after first checking for help mode and marking-menu mode.
 _Avoid_: event routing, input handling.
 
+**Keypad layout**:
+The physical pad is **TKL / calculator style — `7 8 9` is the TOP row**, not phone style. The full grid (from `keyboard_pi.py`'s `keymap`) is:
+
+```
+7  8  9   (na)
+4  5  6   PLUS
+1  2  3   MINUS
+   0      SQUARE
+LEFT UP DOWN RIGHT
+```
+
+So when a module maps number keys to on-screen **2×2 screen quadrants**, the spatially-faithful corners are `7`=top-left, `9`=top-right, `1`=bottom-left, `3`=bottom-right (used by daytime alignment's quadrant picker). `SQUARE`+key sends the `ALT_*` variant; a long press sends the `LNG_*` variant (long-`SQUARE` opens the marking menu).
+_Avoid_: assuming phone-style `1 2 3` on top — it is inverted.
+
 **Display mode**:
 A per-module variant cycled by the square key via `cycle_display_mode()` over the class's `_display_mode_list` (default `[None]`; e.g. `UIGPSStatus` has `["large", "detailed"]`).
 _Avoid_: view mode, layout, skin.
@@ -93,7 +111,7 @@ _Avoid_: cached, singleton, persistent.
 ### Marking menus
 
 **Marking menu**:
-The four-direction radial overlay (`MarkingMenu`) drawn over the current screen, toggled by long-press of square. Each direction is a `MarkingMenuOption`.
+The four-direction radial overlay (`MarkingMenu`) drawn over the current screen, toggled by long-press of square. Each direction is a `MarkingMenuOption`. In user-facing prose (user guide, on-device help) this is the **Quick Menu**; "marking menu" is the code/architecture term.
 _Avoid_: radial menu, context menu, pie menu (the rendering is a pie, but the concept is "marking menu").
 
 **Marking-menu option** (`MarkingMenuOption`):
@@ -103,6 +121,28 @@ _Avoid_: marking item, menu button.
 **Marking-menu stack**:
 `MenuManager.marking_menu_stack` — the stack of currently-open (possibly nested) marking menus. Non-empty means the UI is in marking-menu mode and direction keys select options instead of reaching the active module.
 _Avoid_: overlay stack.
+
+### Text entry
+
+**Name Search**:
+The Objects-menu feature for finding objects by name: `UITextEntry` in its search personality, re-querying the catalog collection as the user types. Which system interprets the number keys is the **search input method**.
+_Avoid_: text search (reserve for the catalog-side algorithm), object search.
+
+**Search input method** (`search_input_method`):
+The user-selectable system that turns number-key presses into a Name Search query: **multi-tap** (the default) or **T9**. Chosen at Settings → User Pref → Search Input, jumpable from the Name Search marking menu. Applies to Name Search only — **free-text mode** is always multi-tap.
+_Avoid_: input mode, text entry method, T9 search on/off (the retired boolean framing).
+
+**Multi-tap**:
+The default search input method: pressing a number key cycles through that key's characters (`7` → `7 a b c`…); pausing, or pressing a different key, commits the character and moves on. Produces a text query backed by the catalog context's **text search**. Spelled "multi-tap" in prose, "Multi-Tap" as the menu option.
+_Avoid_: T9 (a long-standing misnomer for this system — T9 is the other one), multitap.
+
+**T9** (as input method):
+The opt-in search input method: each key press appends its digit — one press per letter — and the digit string is matched against object names translated to keypad digits, backed by the catalog context's **T9 search**. Matching uses PiFinder's own key layout (`7→abc`, `1→tuv`), not the standard phone layout.
+_Avoid_: predictive text (it matches catalog names, not a language dictionary).
+
+**Free-text mode** (`text_entry_mode`):
+`UITextEntry`'s other personality: editing an arbitrary string (e.g. a location name) returned via callback, with no live search. Always multi-tap — T9 cannot apply because there is no name list to match against.
+_Avoid_: text entry mode in prose (ambiguous with the screen's own name; the code flag is `text_entry_mode`).
 
 ### Dynamic menus
 
@@ -119,6 +159,34 @@ _Avoid_: ui config, session state.
 **Published UI state** (`serialize_current_ui_state`):
 The dict `MenuManager` writes to `shared_state.set_current_ui_state(...)` each redraw — `ui_type`, `title`, marking-menu options, and the active module's own `serialize_ui_state()`. This is what `/api/current-selection` reflects.
 _Avoid_: api state, ui snapshot.
+
+### Focus indicator
+
+The focus screen's quantitative focus-quality aid. Lives entirely inside `UIPreview` (the **Focus** menu item, titled "CAMERA") in the main process. Self-contained: it does its own star finding and measurement and shares no code with **SQM** photometry.
+
+**HFD** (Half-Flux Diameter):
+The focus-quality metric — the diameter (in pixels) of the circle enclosing half a star's background-subtracted flux: `2 · Σ(fluxᵢ·rᵢ) / Σ(fluxᵢ)` over aperture pixels. Lower = sharper. Chosen over FWHM because it stays stable and monotonic on saturated cores and broad defocused blobs, where a Gaussian fit fails.
+_Avoid_: FWHM (a different, fit-based metric — not what we compute), star size, spot size, sharpness.
+
+**Detected star**:
+A blob the focus screen's own lightweight detector finds in the raw 512×512 frame, deliberately tuned to accept broad/defocused blobs (up to a ~50 px size cap). The few brightest detected stars are what HFD is measured on. Distinct from a **matched star** (the solver's tetra3 catalog match), which goes to zero when defocused.
+_Avoid_: centroid (reserve for the solver/SQM sense), matched star, blob (in prose; fine informally).
+
+**Focus HFD** (the reported value):
+The **median** HFD over the few brightest detected stars in the current frame — steadier frame-to-frame than any single star. When someone says "the HFD" on the focus screen, this is it.
+_Avoid_: best HFD (that's the marker), single-star HFD.
+
+**Focus strip**:
+The bottom-of-screen overlay (a fixed fraction of the screen height — ~38 px on the 128 panel, proportionally taller on a larger panel; see ADR 0009) that renders the focus indicator over the live image: a large right-justified **focus HFD** readout (filling the strip height), and in the freed left region the V-curve, best-focus marker, exposure, detected-star count, and the (kept) matched-star count. On by default; `square` hides the whole strip. Persists across all zoom levels (HFD is zoom-independent).
+_Avoid_: HUD (loosely the same overlay; "focus strip" is the canonical name), info overlay (the prior exposure+matched-count overlay this replaces).
+
+**V-curve** (focus trend graph):
+The scrolling sparkline of focus HFD over the **rolling 10-second window**, plotted in the focus strip. Cleared on screen entry. Named for the V shape traced as the user sweeps a focuser through best focus.
+_Avoid_: focus graph, history graph, trend line.
+
+**Best-focus marker**:
+The minimum focus HFD within the rolling 10-second window — the bottom of the current V. Auto-rearms as old samples scroll out of the window; there is no manual reset.
+_Avoid_: best focus (the state), minimum line, target HFD.
 
 ## Boundary terms
 

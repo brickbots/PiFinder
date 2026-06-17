@@ -9,12 +9,14 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - [SQM](./docs/ax/sqm/CONTEXT.md) — estimates sky brightness in mag/arcsec² from solved frames; also produces the noise-floor signal auto-exposure consumes.
 - [Equipment](./docs/ax/equipment/CONTEXT.md) — models the user's telescopes and eyepieces; supplies the active optics that drive magnification, true field of view, and object-image orientation.
 - [UI](./docs/ax/ui/CONTEXT.md) — the on-device menu system: menu tree, screen modules, the navigation stack and key dispatch, marking menus.
+- [Camera](./docs/ax/camera/CONTEXT.md) — captures frames and decides exposure: the three exposure regimes, the auto-exposure controllers, and zero-match recovery.
 
 ## Relationships
 
 - **Positioning → Catalog**: Catalog reads RA/Dec/Alt/Az from `shared_state.solution()` to compute visibility and "near me" lists.
 - **Positioning → SQM**: SQM is a side effect of every successful plate solve in the solver process; it reuses the tetra3 `matched_centroids` and the camera frame.
-- **SQM → Camera (auto-exposure)**: `shared_state.set_noise_floor()` feeds the SNR target used by auto-exposure in the camera process.
+- **SQM → Camera**: `shared_state.set_noise_floor()` feeds the minimum acceptable background used by the Camera context's background controller.
+- **Positioning → Camera**: `Matches` is published on every solve attempt (success or failure) as the feedback signal for solver-driven auto-exposure.
 - **Catalog ↔ Positioning**: Catalog supplies the `(RA, Dec)` target for the alignment flow that calibrates `solve_pixel` in Positioning.
 - **Equipment → Catalog**: the active telescope's flip/flop flags and the active eyepiece's true field of view orient and scale the POSS/SDSS object image in `cat_images.get_display_image`.
 - **Positioning → Equipment**: the object-image baseline rotation combines the active telescope's flip/flop with the live solve **roll** from `shared_state` (see [ADR 0003](./docs/adr/0003-object-image-orientation.md)).
@@ -25,3 +27,4 @@ Companion architecture docs live next to each `CONTEXT.md`:
 - [`docs/ax/sqm.md`](./docs/ax/sqm.md)
 - [`docs/ax/equipment.md`](./docs/ax/equipment.md)
 - [`docs/ax/ui.md`](./docs/ax/ui.md)
+- [`docs/ax/camera.md`](./docs/ax/camera.md)

@@ -191,7 +191,7 @@ class UISoftware(UIModule):
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
-        draw_pos += 15
+        draw_pos += self.fonts.base.height + 4
 
         self.draw.text(
             (0, draw_pos),
@@ -199,7 +199,7 @@ class UISoftware(UIModule):
             font=self.fonts.bold.font,
             fill=self.colors.get(128),
         )
-        draw_pos += 10
+        draw_pos += self.fonts.bold.height - 3
 
         self.draw.text(
             (10, draw_pos),
@@ -207,7 +207,7 @@ class UISoftware(UIModule):
             font=self.fonts.bold.font,
             fill=self.colors.get(192),
         )
-        draw_pos += 16
+        draw_pos += self.fonts.bold.height + 3
 
         self.draw.text(
             (0, draw_pos),
@@ -215,7 +215,7 @@ class UISoftware(UIModule):
             font=self.fonts.bold.font,
             fill=self.colors.get(128),
         )
-        draw_pos += 10
+        draw_pos += self.fonts.bold.height - 3
 
         self.draw.text(
             (10, draw_pos),
@@ -224,15 +224,21 @@ class UISoftware(UIModule):
             fill=self.colors.get(192),
         )
 
+        # The two-line status / action message is anchored up from the bottom
+        # so it clears the (taller-font) info block on larger displays.
+        msg_pitch = self.fonts.large.height
+        msg_top = self.display_class.resY - 2 * msg_pitch - 6
+        msg_bottom = msg_top + msg_pitch
+
         if self._wifi_mode != "Client":
             self.draw.text(
-                (10, 90),
+                (10, msg_top),
                 _("WiFi must be"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 105),
+                (10, msg_bottom),
                 _("client mode"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
@@ -245,13 +251,13 @@ class UISoftware(UIModule):
             if self._elipsis_count > 30:
                 self.get_release_version()
             self.draw.text(
-                (10, 90),
+                (10, msg_top),
                 _("Checking for"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 105),
+                (10, msg_bottom),
                 _("updates{elipsis}").format(
                     elipsis="." * int(self._elipsis_count / 10)
                 ),
@@ -267,13 +273,13 @@ class UISoftware(UIModule):
             self._software_version.strip(), self._release_version.strip()
         ):
             self.draw.text(
-                (10, 90),
+                (10, msg_top),
                 _("No Update"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 105),
+                (10, msg_bottom),
                 _("needed"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
@@ -295,9 +301,9 @@ class UISoftware(UIModule):
             fill=self.colors.get(255),
         )
         if self._option_select == "Update":
-            ind_pos = 90
+            ind_pos = msg_top
         else:
-            ind_pos = 105
+            ind_pos = msg_bottom
         self.draw.text(
             (0, ind_pos),
             self._RIGHT_ARROW,
