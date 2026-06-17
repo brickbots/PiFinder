@@ -16,6 +16,7 @@ import time
 import datetime
 import numpy as np
 import queue
+import threading
 import logging
 
 from PiFinder import state_utils, utils
@@ -76,6 +77,33 @@ class CameraInterface:
         Returns a properly formated black frame
         """
         return Image.new("L", (512, 512), 0)  # Black 512x512 image
+
+    def _capture_with_timeout(self, timeout=10) -> Optional[Image.Image]:
+        """Run capture() with a timeout.
+
+        A V4L2 capture can hang indefinitely (e.g. the sensor wedges), which
+        would otherwise freeze the whole camera process. Run the capture on a
+        daemon thread and give up after ``timeout`` seconds, returning None so
+        the caller can recover instead of blocking forever.
+        """
+        result: list = [None]
+        exc: list = [None]
+
+        def _do_capture():
+            try:
+                result[0] = self.capture()
+            except Exception as e:  # propagate to the caller's thread
+                exc[0] = e
+
+        thread = threading.Thread(target=_do_capture, daemon=True)
+        thread.start()
+        thread.join(timeout)
+
+        if thread.is_alive():
+            return None
+        if exc[0]:
+            raise exc[0]
+        return result[0]
 
     def capture_bias(self):
         """
@@ -167,7 +195,14 @@ class CameraInterface:
                 image_start_time = time.time()
                 if self._camera_started:
                     if not debug:
-                        base_image = self.capture()
+                        base_image = self._capture_with_timeout()
+                        if base_image is None:
+                            # Capture hung; fall back to a blank frame so the
+                            # loop keeps running and stays responsive to
+                            # commands instead of freezing. The blank frame
+                            # simply fails to solve.
+                            logger.warning("Camera capture timed out; blank frame")
+                            base_image = self._blank_capture()
                         base_image = base_image.convert("L")
 
                         rotate_amount = 0
