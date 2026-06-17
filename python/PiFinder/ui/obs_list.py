@@ -52,7 +52,7 @@ class UIObsList(UITextMenu):
                     }
                 )
 
-        title = os.path.basename(subdir) if subdir else "Obs Lists"
+        title = os.path.basename(subdir) if subdir else _("Obs Lists")
         kwargs["item_definition"] = {
             "name": title,
             "select": "single",
@@ -156,12 +156,17 @@ class UIObsList(UITextMenu):
         matched = len(catalog_objects)
 
         if result["result"] != "success":
-            self.message(f"Error loading\n{parsed} parsed", 2)
+            self.message(_("Error loading\n{parsed} parsed").format(parsed=parsed), 2)
             return False
 
         self.ui_state.set_observing_list(catalog_objects)
         display_name = os.path.splitext(os.path.basename(list_name))[0]
-        self.message(f"{display_name}\n{matched}/{parsed} objects", 2)
+        self.message(
+            _("{name}\n{matched}/{parsed} objects").format(
+                name=display_name, matched=matched, parsed=parsed
+            ),
+            2,
+        )
 
         object_list_def = {
             "name": display_name,
