@@ -22,7 +22,7 @@ from PiFinder.state import Location
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.catalogs import CatalogFilter
-from PiFinder.composite_object import CompositeObject, MagnitudeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 
 if TYPE_CHECKING:
 
@@ -95,20 +95,6 @@ def set_exposure(ui_module: UIModule) -> None:
 def apply_brightness(ui_module: UIModule) -> None:
     """Re-apply display + keypad brightness from current config."""
     ui_module.command_queues["ui_queue"].put("set_brightness")
-
-
-def set_auto_exposure_zero_star_handler(ui_module: UIModule) -> None:
-    """
-    Sets the zero-star handler plugin for auto-exposure.
-    Supports:
-      - "sweep": Systematic doubling sweep (25ms→1s, 2× ratio)
-      - "exponential": Logarithmic sweep (25ms→1s, 1.85× ratio, 7 steps)
-      - "reset": Quick reset to 0.4s default
-      - "histogram": Histogram-based adaptive with viable exposure selection
-    """
-    handler_type = ui_module.config_object.get_option("auto_exposure_zero_star_handler")
-    logger.info("Set auto-exposure zero-star handler to: %s", handler_type)
-    ui_module.command_queues["camera"].put(f"set_ae_handler:{handler_type}")
 
 
 def capture_exposure_sweep(ui_module: UIModule) -> None:
@@ -407,7 +393,7 @@ def create_custom_object_from_coords(
             "ra": ra_deg,
             "dec": dec_deg,
             "const": constellation,
-            "size": "",
+            "size": SizeObject([]),
             "mag": MagnitudeObject([]),
             "mag_str": "",
             "catalog_code": "USER",
@@ -465,6 +451,20 @@ def generate_custom_object_name(ui_module: UIModule) -> str:
 
     # Return next available number
     return f"CUSTOM {max_num + 1}"
+
+
+def telemetry_record_toggle(ui_module: UIModule) -> None:
+    """Toggle telemetry recording on/off via integrator command queue."""
+    enabled = ui_module.config_object.get_option("telemetry_record")
+    if "integrator" in ui_module.command_queues:
+        if enabled:
+            ui_module.command_queues["integrator"].put(("telemetry_record_on", None))
+            ui_module.message("Telemetry\nRecording", 2)
+        else:
+            ui_module.command_queues["integrator"].put(("telemetry_record_off", None))
+            ui_module.message("Telemetry\nStopped", 2)
+    else:
+        ui_module.message("No integrator\nqueue", 2)
 
 
 def update_gpsd_baud_rate(ui_module: UIModule) -> None:

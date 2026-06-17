@@ -231,7 +231,10 @@ class CameraPI(CameraInterface):
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
-        # picamera2 supports changing controls on-the-fly without restart
+        # picamera2 supports changing controls on-the-fly without restart.
+        # Setting a manual exposure always disables native auto-exposure, so a
+        # prior `set_exp:native` (daytime align) can't keep overriding it.
+        self.camera.set_controls({"AeEnable": False})
         self.camera.set_controls({"AnalogueGain": gain})
         self.camera.set_controls({"ExposureTime": exposure_time})
 
@@ -239,6 +242,17 @@ class CameraPI(CameraInterface):
         if not self._camera_started:
             self.start_camera()
         return exposure_time, gain
+
+    def set_native_ae(self, enabled: bool) -> bool:
+        """Enable/disable picamera2's native auto-exposure (AEC/AGC).
+
+        Used by the daytime alignment screen so the driver picks a short
+        daylight exposure automatically. Returns True (Pi cameras support it).
+        """
+        self.camera.set_controls({"AeEnable": enabled})
+        if not self._camera_started:
+            self.start_camera()
+        return True
 
     def get_cam_type(self) -> str:
         return self.camType

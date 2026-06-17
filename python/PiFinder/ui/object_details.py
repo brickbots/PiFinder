@@ -9,6 +9,7 @@ This module contains all the UI code for the object details screen
 from pydeepskylog.exceptions import InvalidParameterError
 
 from PiFinder import cat_images
+from PiFinder.composite_object import MagnitudeObject
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.align import align_on_radec
@@ -20,6 +21,7 @@ from PiFinder.ui.ui_utils import (
     TextLayouterSimple,
     SpaceCalculatorFixed,
     name_deduplicate,
+    draw_pointing_instructions,
 )
 from PiFinder import calc_utils
 import functools
@@ -104,9 +106,12 @@ class UIObjectDetails(UIModule):
             ),
         }
 
-        # cache some display stuff for locate
-        self.az_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 2.2))
-        self.alt_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 1.2))
+        # Two-line status messages ("No solve", "Searching for GPS"...) shown in
+        # place of the az/alt readout; positions derive from resolution + font.
+        msg_x = round(self.display_class.resX * 10 / 128)
+        msg_y1 = round(self.display_class.resY * 70 / 128)
+        self._pointing_msg_anchor_1 = (msg_x, msg_y1)
+        self._pointing_msg_anchor_2 = (msg_x, msg_y1 + self.fonts.large.height + 2)
         self._elipsis_count = 0
 
         self.active()  # fill in activation time
@@ -224,38 +229,49 @@ class UIObjectDetails(UIModule):
                 self.config_object.equipment.active_telescope,
                 self.config_object.equipment.active_eyepiece,
             )
-            if self.object.mag_str == "-":
+            mag = self.object.mag
+            magnitude = (
+                mag.filter_mag
+                if mag is not None and mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
+                else None
+            )
+            if magnitude is None:
                 self.contrast = ""
             else:
                 try:
-                    if self.object.size:
-                        # Check if the size contains 'x'
-                        if "x" in self.object.size:
-                            diameter1, diameter2 = map(
-                                float, self.object.size.split("x")
-                            )
-                            diameter1 = (
-                                diameter1 * 60.0
-                            )  # Convert arc seconds to arc minutes
-                            diameter2 = diameter2 * 60.0
-                        elif "'" in self.object.size:
-                            # Convert arc minutes to arc seconds
-                            diameter1 = float(self.object.size.replace("'", "")) * 60.0
-                            diameter2 = diameter1
+                    size = self.object.size
+                    if (
+                        size
+                        and size.extents
+                        and not size.is_vertices
+                        and not size.is_segments
+                    ):
+                        # SizeObject.extents are stored in arcseconds.
+                        if len(size.extents) >= 2:
+                            diameter1 = float(size.extents[0])
+                            diameter2 = float(size.extents[1])
                         else:
-                            diameter1 = diameter2 = float(self.object.size) * 60.0
+                            diameter1 = diameter2 = float(size.extents[0])
                     else:
                         diameter1 = diameter2 = None
 
-                    self.contrast = pds.contrast_reserve(
-                        sqm=sqm,
-                        telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
-                        magnification=magnification,
-                        surf_brightness=None,
-                        magnitude=float(self.object.mag_str),
-                        object_diameter1=diameter1,
-                        object_diameter2=diameter2,
-                    )
+                    if diameter1 is None or diameter2 is None:
+                        # No usable object size: pydeepskylog can't compute a
+                        # contrast reserve without diameters — it logs an ERROR
+                        # and *returns* (doesn't raise), so the except below
+                        # can't suppress it. Skip the call and leave the
+                        # contrast line blank.
+                        self.contrast = ""
+                    else:
+                        self.contrast = pds.contrast_reserve(
+                            sqm=sqm,
+                            telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
+                            magnification=magnification,
+                            surf_brightness=None,
+                            magnitude=magnitude,
+                            object_diameter1=diameter1,
+                            object_diameter2=diameter2,
+                        )
                 except (ValueError, TypeError, InvalidParameterError) as e:
                     # mag_str / size are not always plain numbers: double stars
                     # carry component mags like "7.0/9.5", asterisms a size like
@@ -310,8 +326,8 @@ class UIObjectDetails(UIModule):
 
         solution = self.shared_state.solution()
         roll = 0
-        if solution:
-            roll = solution["Roll"]
+        if solution and solution.has_pointing():
+            roll = solution.pointing.aligned.estimate.Roll
 
         magnification = self.config_object.equipment.calc_magnification()
         flip_image, flop_image = (
@@ -325,6 +341,8 @@ class UIObjectDetails(UIModule):
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
             magnification=magnification,
+            show_nsew=self.config_object.get_option("image_nsew", True),
+            show_bbox=self.config_object.get_option("image_bbox", True),
             flip_image=flip_image,
             flop_image=flop_image,
         )
@@ -342,15 +360,15 @@ class UIObjectDetails(UIModule):
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
-        if self.shared_state.solution() is None:
+        if not self.shared_state.solution().has_pointing():
             self.draw.text(
-                (10, 70),
+                self._pointing_msg_anchor_1,
                 _("No solve"),  # TRANSLATORS: No solve yet... (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 90),
+                self._pointing_msg_anchor_2,
                 _("yet{elipsis}").format(
                     elipsis="." * int(self._elipsis_count / 10)
                 ),  # TRANSLATORS: No solve yet... (Part 2/2)
@@ -364,13 +382,13 @@ class UIObjectDetails(UIModule):
 
         if not self.shared_state.altaz_ready():
             self.draw.text(
-                (10, 70),
+                self._pointing_msg_anchor_1,
                 _("Searching"),  # TRANSLATORS: Searching for GPS (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 90),
+                self._pointing_msg_anchor_2,
                 _("for GPS{elipsis}").format(
                     elipsis="." * int(self._elipsis_count / 10)
                 ),  # TRANSLATORS: Searching for GPS (Part 2/2)
@@ -384,13 +402,13 @@ class UIObjectDetails(UIModule):
 
         if not self._check_catalog_initialized():
             self.draw.text(
-                (10, 70),
+                self._pointing_msg_anchor_1,
                 _("Calculating"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 90),
+                self._pointing_msg_anchor_2,
                 _(f"positions{'.' * int(self._elipsis_count / 10)}"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
@@ -412,13 +430,13 @@ class UIObjectDetails(UIModule):
         if point_az is None or point_alt is None:
             # No valid pointing data available
             self.draw.text(
-                (10, 70),
+                self._pointing_msg_anchor_1,
                 _("Calculating"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 90),
+                self._pointing_msg_anchor_2,
                 _(f"position{'.' * int(self._elipsis_count / 10)}"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
@@ -428,72 +446,9 @@ class UIObjectDetails(UIModule):
                 self._elipsis_count = 0
             return
 
-        if point_az < 0:
-            point_az *= -1
-            if self.mount_type == "Alt/Az":
-                az_arrow = self._LEFT_ARROW
-            else:
-                az_arrow = "-"
-
-        else:
-            if self.mount_type == "Alt/Az":
-                az_arrow = self._RIGHT_ARROW
-            else:
-                az_arrow = "+"
-
-        # Check az arrow config
-        if (
-            self.config_object.get_option("pushto_az_arrows", "Default") == "Reverse"
-            and self.mount_type == "Alt/Az"
-        ):
-            if az_arrow is self._LEFT_ARROW:
-                az_arrow = self._RIGHT_ARROW
-            else:
-                az_arrow = self._LEFT_ARROW
-
-        # Change decimal points when within 1 degree
-        if point_az < 1:
-            self.draw.text(
-                self.az_anchor,
-                f"{az_arrow}{point_az: >5.2f}",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(indicator_color),
-            )
-        else:
-            self.draw.text(
-                self.az_anchor,
-                f"{az_arrow}{point_az: >5.1f}",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(indicator_color),
-            )
-
-        if point_alt < 0:
-            point_alt *= -1
-            if self.mount_type == "Alt/Az":
-                alt_arrow = self._DOWN_ARROW
-            else:
-                alt_arrow = "-"
-        else:
-            if self.mount_type == "Alt/Az":
-                alt_arrow = self._UP_ARROW
-            else:
-                alt_arrow = "+"
-
-        # Change decimal points when within 1 degree
-        if point_alt < 1:
-            self.draw.text(
-                self.alt_anchor,
-                f"{alt_arrow}{point_alt: >5.2f}",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(indicator_color),
-            )
-        else:
-            self.draw.text(
-                self.alt_anchor,
-                f"{alt_arrow}{point_alt: >5.1f}",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(indicator_color),
-            )
+        draw_pointing_instructions(
+            self, point_az, point_alt, indicator_color, self.mount_type
+        )
 
     def update(self, force=True):
         # Clear Screen
@@ -507,13 +462,17 @@ class UIObjectDetails(UIModule):
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
             desc_available_lines = 4
+            # Header lines sit just below the title bar; type/const stacks one
+            # large-font line below the designator (derived so they track res).
+            desig_y = self.display_class.titlebar_height + 3
+            typeconst_y = desig_y + self.fonts.large.height
             desig = self.texts["designator"]
-            desig.draw((0, 20))
+            desig.draw((0, desig_y))
 
             # Object TYPE and Constellation i.e. 'Galaxy    PER'
             typeconst = self.texts.get("type-const")
             if typeconst:
-                typeconst.draw((0, 36))
+                typeconst.draw((0, typeconst_y))
 
         if self.object_display_mode == DM_LOCATE:
             self._render_pointing_instructions()
@@ -521,7 +480,9 @@ class UIObjectDetails(UIModule):
         elif self.object_display_mode == DM_DESC:
             # Object Magnitude and size i.e. 'Mag:4.0   Sz:7"'
             magsize = self.texts.get("magsize")
-            posy = 52
+            # Start just below the type/const header (derived; 52 on the 128
+            # panel, lower on taller panels so it doesn't crowd the header).
+            posy = typeconst_y + self.fonts.bold.height + 3
             if magsize and magsize.text.strip():
                 if self.object:
                     # check for visibility and adjust mag/size text color
@@ -594,10 +555,18 @@ class UIObjectDetails(UIModule):
 
             # Add explanation about what CR means
             explanation_lines = [
-                _("CR measures object"), # TRANSLATORS: Contrast reserve explanation line 1
-                _("visibility based on"), # TRANSLATORS: Contrast reserve explanation line 2
-                _("sky brightness,"), # TRANSLATORS: Contrast reserve explanation line 3
-                _("telescope, and EP."), # TRANSLATORS: Contrast reserve explanation (EP = entrance pupil) line 4
+                _(
+                    "CR measures object"
+                ),  # TRANSLATORS: Contrast reserve explanation line 1
+                _(
+                    "visibility based on"
+                ),  # TRANSLATORS: Contrast reserve explanation line 2
+                _(
+                    "sky brightness,"
+                ),  # TRANSLATORS: Contrast reserve explanation line 3
+                _(
+                    "telescope, and EP."
+                ),  # TRANSLATORS: Contrast reserve explanation (EP = entrance pupil) line 4
             ]
 
             for line in explanation_lines:
@@ -693,7 +662,7 @@ class UIObjectDetails(UIModule):
         logging screen
         """
         self.maybe_add_to_recents()
-        if self.shared_state.solution() is None:
+        if not self.shared_state.solution().has_pointing():
             return
         object_item_definition = {
             "name": _("LOG"),

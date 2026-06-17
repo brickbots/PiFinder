@@ -29,10 +29,9 @@ class Config:
         Loads all config from disk useful if another
         process has changed config
         """
-        cwd = Path.cwd()
         self.config_file_path = Path(utils.data_dir, "config.json")
 
-        self.default_file_path = Path(cwd, "../default_config.json")
+        self.default_file_path = Path(utils.pifinder_dir, "default_config.json")
         if not os.path.exists(self.config_file_path):
             self._config_dict = {}
         else:

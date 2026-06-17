@@ -38,14 +38,28 @@ The page set (registered in `docs/source/index.rst`):
 | File | Covers |
 |------|--------|
 | `quick_start.rst` | First-night, get-observing walkthrough |
-| `user_guide.rst` | Full reference for every menu, screen, and setting |
+| `user_guide.rst` | Workflow reference for operating & observing — the printable core; defers enumeration to `menu_map`, deep topics to satellite pages |
+| `menu_map.rst` | Every menu item in the tree, one entry each |
+| `equipment.rst` | Telescopes & eyepieces: gear setup, magnification/TFOV, flip/flop |
 | `catalogs.rst` | Object catalogs included |
+| `connectivity.rst` | Reaching the device from another device: WiFi modes, web interface, SMB share |
+| `skysafari.rst` | SkySafari / planetarium integration |
+| `troubleshooting.rst` | Symptom-led fixes and FAQ |
 | `build_guide.rst` | Assembling the hardware |
 | `v25_upgrade.rst` | Upgrading a v2 unit |
 | `software.rst` | Flashing / updating the software image |
-| `skysafari.rst` | SkySafari / planetarium integration |
+| `sd_card.rst` | Swapping / re-imaging the SD card |
 | `dev_guide.rst`, `dev_arch.rst` | Contributor / architecture docs |
+| `api.rst` | HTTP API reference |
 | `BOM.rst` | Bill of materials |
+
+**Section in `user_guide` vs standalone page** — a topic earns its own page only
+when readers *arrive at it directly* with a task in hand (search, a Discord
+answer, a cross-page link) **and** it is *separable* from the guide's
+operate-and-observe storyline (a sentence + link suffices in its place).
+Otherwise it's a `user_guide` section. Standalone page URLs get linked from the
+wild — don't merge or rename pages casually. Rationale and worked examples:
+`docs/adr/0010-user-docs-page-granularity.md`.
 
 **Before writing a single line, read the page you're about to touch (or the
 closest sibling).** The fastest way to match the house style is to mirror the
@@ -83,18 +97,28 @@ discrepancy.
 
 The manual is written warmly and directly, but it stays measured and
 professional — clear guidance from someone who knows the instrument well, not
-breezy chat. Match it:
+breezy chat. It is also **lean**: the reader is usually at the eyepiece in the
+dark, so every sentence earns its place. Keep the warmth, cut the padding. Match
+it:
 
 - **Talk to the reader as "you."** "You'll then see the Main Menu appear."
 - **Be warm but measured.** Keep the tone calm and confident rather than
   breathless. Reserve exclamation points for the rare genuinely delightful
   moment and prefer plain, declarative sentences the rest of the time.
+- **Be succinct.** Say it once, in as few words as carry the meaning. Cut
+  throat-clearing ("In order to…", "You should note that…"), redundant
+  restatement, and hedging. Favour the active voice and concrete verbs. When a
+  procedure runs to more than two or three ordered steps, prefer a numbered list
+  over a chain of "To begin… Next… Once you have…" paragraphs.
 - **Write complete sentences; don't open with a conjunction.** Never begin a
   sentence with "And" — join the thought to the sentence before it, or rephrase.
   The same goes for opening with "But" or "So."
-- **Explain the *why*, not just the *what*.** The existing docs constantly say
-  things like "This helps save battery power and can prevent glare at the
-  eyepiece." A reader who understands the reason trusts the instruction.
+- **Explain the *why*, but compress it.** A reader who understands the reason
+  trusts the instruction, so keep the *why* — but state it in a clause, not a
+  paragraph. "The PiFinder dims the screen after a while to save battery and
+  prevent glare" earns its keep; a three-sentence aside reassuring the reader
+  that this is normal usually does not. When a caveat genuinely needs more room,
+  put it in a `.. note::` rather than swelling the main flow.
 - **Plain language over jargon.** When a technical term is unavoidable (plate
   solving, alt/az), define it in passing the first time, the way the quick start
   glosses "plate solving" as taking continuous pictures and comparing them.

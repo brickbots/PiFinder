@@ -67,6 +67,45 @@ try:
         result = sys_utils.Network._parse_wpa_supplicant(wpa_list)
         assert result[1]["psk"] == "1234@===!!!"
 
+    @pytest.mark.unit
+    def test_rewrite_hosts_standard_line():
+        contents = (
+            "127.0.0.1\tlocalhost\n"
+            "::1\t\tlocalhost ip6-localhost ip6-loopback\n"
+            "127.0.1.1\tpifinder\n"
+        )
+        result = sys_utils.Network._rewrite_hosts(contents, "pf-rich")
+        assert "127.0.1.1\tpf-rich\n" in result
+        assert "pifinder" not in result
+        assert "127.0.0.1\tlocalhost\n" in result
+
+    @pytest.mark.unit
+    def test_rewrite_hosts_preserves_aliases_and_spacing():
+        contents = "  127.0.1.1   pifinder pifinder.local  # primary\n"
+        result = sys_utils.Network._rewrite_hosts(contents, "pf-rich")
+        assert result == "  127.0.1.1   pf-rich pifinder.local  # primary\n"
+
+    @pytest.mark.unit
+    def test_rewrite_hosts_appends_when_missing():
+        contents = "127.0.0.1\tlocalhost\n"
+        result = sys_utils.Network._rewrite_hosts(contents, "pf-rich")
+        assert result.endswith("127.0.1.1\tpf-rich\n")
+        assert "127.0.0.1\tlocalhost\n" in result
+
+    @pytest.mark.unit
+    def test_rewrite_hosts_appends_with_missing_trailing_newline():
+        contents = "127.0.0.1\tlocalhost"
+        result = sys_utils.Network._rewrite_hosts(contents, "pf-rich")
+        assert result == "127.0.0.1\tlocalhost\n127.0.1.1\tpf-rich\n"
+
+    @pytest.mark.unit
+    def test_rewrite_hosts_ignores_commented_line():
+        contents = "# 127.0.1.1 oldname\n127.0.0.1\tlocalhost\n"
+        result = sys_utils.Network._rewrite_hosts(contents, "pf-rich")
+        # commented line is untouched; a real 127.0.1.1 entry is appended
+        assert "# 127.0.1.1 oldname\n" in result
+        assert result.endswith("127.0.1.1\tpf-rich\n")
+
 
 except (ImportError, ValueError):
     pass

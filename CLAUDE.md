@@ -10,6 +10,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Note: the auto-detected "Main branch" shown in the Claude Code env block may currently read `release` (because the GitHub default branch points there). Disregard that — the rule above is authoritative for this repo.
 
+### Agent worktrees
+
+Worktrees must be rooted on **`main`**. The harness's `fresh` base resolves to this clone's `origin/HEAD`, which may point at `release` (the GitHub default) — in which case `EnterWorktree` lands on `release`, not `main`. CLAUDE.md cannot change this; it is decided by the harness before any instruction here is read.
+
+After `EnterWorktree`, **verify the base before making changes**: if `git merge-base HEAD origin/main` does not equal `origin/main`'s tip, the worktree is on the wrong branch — run `git reset --hard origin/main` and proceed from there.
+
+Maintainers can make `fresh` root on `main` automatically per clone (without changing GitHub's default branch) by repointing the local default-branch pointer:
+
+```bash
+git remote set-head origin main
+```
+
+**Initialise the `tetra3` submodule in every new worktree.** `python/PiFinder/tetra3` is a git submodule (the `cedar-solve`/Tetra3 solver); the importable package is its inner `tetra3/tetra3/` dir, surfaced through the tracked symlink `python/tetra3`. `git worktree add` / `EnterWorktree` does **not** populate submodules, so a fresh worktree starts with an empty submodule dir and a dangling symlink. Any test that imports the solver then fails with `ModuleNotFoundError: No module named 'tetra3'` (or `cedar_detect_pb2`) — this is a missing checkout, **not** a code problem, so don't reach for `PYTHONPATH` hacks. Fix it once per worktree:
+
+```bash
+git submodule update --init python/PiFinder/tetra3
+```
+
+mypy also needs this: its config points at `python/PiFinder/tetra3/tetra3`, so `nox -s type_hints` can't run in a worktree until the submodule is initialised.
+
 ## Development Commands
 
 **Running Python**

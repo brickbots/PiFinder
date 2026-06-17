@@ -122,12 +122,16 @@ class UILog(UIModule):
         self.reset_config()
 
     def draw_stars(self, horiz_pos, star_count):
+        # Star pitch / left margin derive from the star glyph width so the five
+        # stars spread with the display instead of bunching on the left.
+        star_pitch = self.fonts.large.width + 6
+        star_x0 = round(self.display_class.resX * 20 / 128)
         for i in range(5):
             star_color = 64
             if star_count > i:
                 star_color = 255
             self.draw.text(
-                (i * 15 + 20, horiz_pos),
+                (star_x0 + i * star_pitch, horiz_pos),
                 self._STAR,
                 font=self.fonts.large.font,
                 fill=self.colors.get(star_color),
@@ -158,7 +162,7 @@ class UILog(UIModule):
 
         if not self.shared_state.solve_state():
             self.draw.text(
-                (0, 20),
+                (0, self.display_class.titlebar_height + 3),
                 _("No Solve Yet"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
@@ -166,6 +170,12 @@ class UILog(UIModule):
             return self.screen_update()
 
         horiz_pos = self.display_class.titlebar_height
+        # Row advances derived from the large-font height: item->item is a touch
+        # over the glyph height; label->its-stars and stars->next-label are a
+        # touch under (reproduces the 128 panel's 18 / 14 / 11-15 cadence).
+        label_gap = self.fonts.large.height + 2
+        to_stars = self.fonts.large.height - 2
+        from_stars = self.fonts.large.height - 2
 
         # Target Name
         self.draw.text(
@@ -176,7 +186,7 @@ class UILog(UIModule):
         )
         if self.menu_index == 0:
             self.draw_menu_pointer(horiz_pos)
-        horiz_pos += 18
+        horiz_pos += label_gap
 
         # Observability
         self.draw.text(
@@ -187,9 +197,9 @@ class UILog(UIModule):
         )
         if self.menu_index == 1:
             self.draw_menu_pointer(horiz_pos)
-        horiz_pos += 14
+        horiz_pos += to_stars
         self.draw_stars(horiz_pos, self.log_observability)
-        horiz_pos += 11
+        horiz_pos += from_stars
 
         # Appeal
         self.draw.text(
@@ -200,9 +210,9 @@ class UILog(UIModule):
         )
         if self.menu_index == 2:
             self.draw_menu_pointer(horiz_pos)
-        horiz_pos += 14
+        horiz_pos += to_stars
         self.draw_stars(horiz_pos, self.log_appeal)
-        horiz_pos += 15
+        horiz_pos += from_stars
 
         self.draw.text(
             (10, horiz_pos),
@@ -212,7 +222,7 @@ class UILog(UIModule):
         )
         if self.menu_index == 3:
             self.draw_menu_pointer(horiz_pos)
-        horiz_pos += 17
+        horiz_pos += label_gap
 
         self.draw.text(
             (10, horiz_pos),

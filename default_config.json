@@ -1,11 +1,11 @@
 {
     "display_brightness": 255,
     "keypad_brightness": "0",
-    "camera_exp": 400000,
+    "camera_exp": "auto",
     "camera_gain": 20,
-    "auto_exposure_zero_star_handler": "sweep",
     "menu_anim_speed": 0.1,
     "text_scroll_speed": "Med",
+    "search_input_method": "multi_tap",
     "screen_direction": "right",
     "mount_type": "Alt/Az",
     "solver_debug": 0,
@@ -15,8 +15,10 @@
     "chart_dso": 128,
     "chart_reticle": 128,
     "chart_constellations": 64,
+    "image_nsew": true,
+    "image_bbox": true,
     "chart_coord_sys": "horiz",
-    "solve_pixel": [256, 256],
+    "target_pixel": [256, 256],
     "gps_type": "ublox",
     "gps_baud_rate": 9600,
     "filter.selected_catalogs": [
@@ -177,5 +179,8 @@
         "active_eyepiece_index": 0
     },
     "imu_threshold_scale": 1,
-    "software_unstable_unlocked": false
+    "software_unstable_unlocked": false,
+    "telemetry_record": false,
+    "telemetry_images": false,
+    "telemetry_raw_imu": false
 }

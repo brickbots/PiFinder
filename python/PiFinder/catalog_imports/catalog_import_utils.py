@@ -10,7 +10,7 @@ from typing import Dict, Optional
 from dataclasses import dataclass, field
 from tqdm import tqdm
 
-from PiFinder.composite_object import MagnitudeObject
+from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.ui.ui_utils import normalize
 from PiFinder import calc_utils
 from PiFinder.db.objects_db import ObjectsDatabase
@@ -30,7 +30,7 @@ class NewCatalogObject:
     dec: float
     mag: MagnitudeObject
     object_id: int = 0
-    size: str = ""
+    size: SizeObject = field(default_factory=lambda: SizeObject([]))
     description: str = ""
     aka_names: list[str] = field(default_factory=list)
     surface_brightness: float = 0.0
@@ -76,7 +76,7 @@ class NewCatalogObject:
                     self.ra,
                     self.dec,
                     self.constellation,
-                    self.size,
+                    self.size.to_json(),
                     self.mag.to_json(),
                     self.surface_brightness,
                 )
@@ -156,6 +156,54 @@ class ObjectFinder:
         else:
             logging.debug(f"DID NOT Find object id {result} for {object_name}")
         return result
+
+
+# Trailing unit suffixes a size token may carry, mapped to their arcsecond
+# multiplier. A bare token defaults to arcminutes (see parse_arcmin_size).
+_SIZE_UNIT_MULTIPLIERS = {'"': 1.0, "'": 60.0, "°": 3600.0}
+
+
+def _size_token_to_arcsec(token: str) -> Optional[float]:
+    """Convert one size token to arcseconds, honouring a trailing unit suffix.
+
+    ' -> arcmin, " -> arcsec, ° -> degrees; a bare number defaults to arcmin.
+    Returns None when the numeric part can't be parsed.
+    """
+    multiplier = _SIZE_UNIT_MULTIPLIERS["'"]  # bare tokens are arcminutes
+    if token and token[-1] in _SIZE_UNIT_MULTIPLIERS:
+        multiplier = _SIZE_UNIT_MULTIPLIERS[token[-1]]
+        token = token[:-1]
+    try:
+        return float(token) * multiplier
+    except ValueError:
+        return None
+
+
+def parse_arcmin_size(raw: str) -> SizeObject:
+    """Parse a size string into a SizeObject (extents stored in arcseconds).
+
+    Values default to arcminutes, but a token may override its unit with a
+    trailing suffix: ' (arcmin), " (arcsec), or ° (degrees) — so arcsecond
+    catalogs like EGC ('36"') parse correctly. The axis separators 'x', '×',
+    '/', and '+' are all treated as delimiters, so "32'x6.5'", "0.3/5.8", and
+    "30'+30'" each yield two extents. Tokens whose numeric part can't be
+    parsed (e.g. "nl", "see") are skipped with a warning.
+    """
+    if not raw:
+        return SizeObject([])
+    cleaned = raw.lower()
+    for separator in ("x", "×", "/", "+"):
+        cleaned = cleaned.replace(separator, " ")
+    values = []
+    for token in cleaned.split():
+        arcsec = _size_token_to_arcsec(token)
+        if arcsec is None:
+            logging.warning("Non-numeric size token %r in %r", token, raw)
+        else:
+            values.append(arcsec)
+    if not values:
+        return SizeObject([])
+    return SizeObject.from_arcsec(*values)
 
 
 def safe_convert_to_float(x):
@@ -279,11 +327,52 @@ def count_empty_entries_in_tables():
     )
 
 
+def count_nonempty_sizes_per_catalog():
+    """Report per-catalog coverage of non-empty size extents.
+
+    A valid-but-empty size payload ({"e": []}) still counts as "has a size"
+    when you only check for a JSON payload, so a size-parsing regression can
+    silently wipe a catalog's extents without tripping a presence check. This
+    counts payloads that actually carry extents, joining catalog_objects to
+    objects since size lives on the object (shared across catalogs).
+    """
+    _, db_c = objects_db.get_conn_cursor()
+    rows = db_c.execute(
+        """
+        SELECT co.catalog_code AS catalog_code,
+               COUNT(*) AS total,
+               SUM(
+                   CASE WHEN o.size IS NOT NULL
+                             AND o.size != ''
+                             AND o.size NOT LIKE '%"e": []%'
+                        THEN 1 ELSE 0 END
+               ) AS with_size
+        FROM catalog_objects co
+        JOIN objects o ON o.id = co.object_id
+        GROUP BY co.catalog_code
+        ORDER BY co.catalog_code
+        """
+    ).fetchall()
+    logging.info("Size extent coverage per catalog (objects with non-empty extents):")
+    for row in rows:
+        total = row["total"]
+        with_size = row["with_size"] or 0
+        pct = (with_size / total * 100) if total else 0.0
+        logging.info(
+            "  %-8s %6d/%-6d (%3.0f%%)",
+            row["catalog_code"],
+            with_size,
+            total,
+            pct,
+        )
+
+
 def print_database():
     """Print database statistics"""
     logging.info(">-------------------------------------------------------")
     count_common_names_per_catalog()
     count_empty_entries_in_tables()
+    count_nonempty_sizes_per_catalog()
     logging.info("<-------------------------------------------------------")
 
 

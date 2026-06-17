@@ -156,8 +156,8 @@ case/my_printer
 !**/.claude/skills/
 .serena/
 astro_data/comets.txt
-python/tetra3
 
 # users GPS data
 test_ubx
 test_ubx/*
+python/telemetry_analysis/

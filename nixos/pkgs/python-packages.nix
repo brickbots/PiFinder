@@ -467,6 +467,7 @@ except ImportError:
     requests
     pytz
     skyfield
+    xlrd
     tqdm
     pyjwt
     aiofiles

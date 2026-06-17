@@ -15,7 +15,7 @@ from tqdm import tqdm
 from collections import defaultdict
 
 import PiFinder.utils as utils
-from PiFinder.composite_object import MagnitudeObject
+from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg
 from .catalog_import_utils import (
     delete_catalog_from_database,
@@ -206,8 +206,8 @@ def load_wds():
                 result["ra"] = value["ra"]
                 result["dec"] = value["dec"]
                 result["mag"] = MagnitudeObject([mag1, mag2])
-                sizemax = np.max([value["Sep_First"], value["Sep_Last"]])
-                result["size"] = str(round(sizemax, 1))
+                sizemax = float(np.max([value["Sep_First"], value["Sep_Last"]]))
+                result["size"] = SizeObject.from_arcsec(round(sizemax, 1))
             discoverers.add(value["Discoverer_Number"])
             notes = value["Notes"].strip()
             notes_str = "" if len(notes) == 0 else f" Notes: {notes}"

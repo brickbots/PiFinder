@@ -1,13 +1,5 @@
 """
-Proposed dataclasses for the solving / integration flow.
-
-PROPOSAL ONLY — nothing in this module is referenced by existing code yet.
-The goal is to replace the loose dicts and tagged-list messages that
-travel between camera → solver → integrator → shared_state with named,
-type-checked structures.
-
-Vocabulary
-----------
+Dataclasses for the plate-solving / integration flow.
 
 These types implement the canonical Positioning vocabulary
 (see ``docs/ax/positioning/CONTEXT.md`` and
@@ -23,27 +15,28 @@ These types implement the canonical Positioning vocabulary
   e.g. ``pointing.aligned.estimate.RA``.
 * Bare "pointing" in prose means ``pointing.aligned.estimate``.
 
-Dicts these types replace
--------------------------
+The data structures here replace four legacy dicts:
 
-1. The ``solved`` dict built by ``solver.get_initialized_solved_dict()``
-   and merged with tetra3's ``solution`` return value.
-   →  :class:`PointingEstimate`, whose :attr:`pointing` field holds a
+1. The ``solved`` dict, which was split by role:
+   →  :class:`PointingEstimate`, the canonical record published via
+      ``shared_state.set_solution()``. Its :attr:`pointing` field holds a
       :class:`PointingMatrix` with the four cells of the 2 × 2 matrix,
-      plus :class:`SolveDiagnostics` and :class:`AlignmentResult`.
+      plus :class:`SolveDiagnostics` and :class:`AlignmentResult`. Built
+      and owned by the integrator.
+   →  :class:`SolveResult` (``SuccessfulSolve`` | ``FailedSolve``), the
+      message the solver puts on ``solver_queue`` describing one
+      plate-solve attempt. See
+      ``docs/adr/0003-solver-integrator-message.md``.
 
-2. The ``last_image_metadata`` dict stamped by the camera process and
-   read by the solver via ``shared_state.last_image_metadata()``.
-   →  :class:`CameraFrameMetadata`
-
-3. The ``imu_data`` dict produced by ``imu_pi.py`` and read via
-   ``shared_state.imu()``.
-   →  :class:`ImuSample`
-
-4. The tagged-list messages on the alignment queues.
+2. The tagged-list messages on the alignment queues.
    →  :class:`AlignOnRaDec`, :class:`AlignCancel`,
-      :class:`ReloadSqmCalibration`, :class:`AlignedResult`
+      :class:`ReloadSqmCalibration` (commands → solver)
+   →  :class:`AlignedResult` (response → UI)
    →  Union aliases :data:`SolverCommand`, :data:`AlignResponse`
+
+The ``last_image_metadata`` and ``imu_data`` dicts continue to travel as
+plain dicts; :class:`CameraFrameMetadata` / :class:`ImuSample` are
+defined here for a future migration of those interfaces.
 
 Design notes
 ------------
@@ -53,38 +46,61 @@ Design notes
   the 2 × 2 matrix; the cell is identified by its position
   (``pointing.<axis>.<state>``), not by a separate type.
 
-* Field names that already exist as keys in the legacy dicts are
-  preserved verbatim (including non-PEP-8 capitalisation like
-  ``Matches`` / ``RMSE`` / ``RA``) to minimise churn during migration
-  and to match the keys tetra3 returns in its ``solution`` dict.
-
-* Angles remain in degrees here — the existing ``solved`` dict is in
-  degrees end-to-end, and changing that is a separate refactor. For
-  the radian-based, quaternion-aware form used by
-  :class:`ImuDeadReckoning`, see
-  :class:`PiFinder.types.coordinates.RaDecRoll`; bridge via
-  :meth:`Pointing.as_radecroll`.
+* Angles remain in degrees here — :class:`PiFinder.types.coordinates.RaDecRoll`
+  is the radian-based, quaternion-aware form used by
+  :class:`ImuDeadReckoning`. Bridge via :meth:`Pointing.as_radecroll`.
 
 * All structures must remain picklable so they can ride on
-  ``multiprocessing.Queue`` and ``SharedStateObj`` proxies.
-  ``numpy.quaternion`` already pickles, dataclasses pickle by default,
-  and we avoid lambdas/closures in defaults.
-
-* ``to_legacy_dict()`` / ``from_legacy_dict()`` helpers are included
-  on :class:`PointingEstimate` so consumers and shared-state setters
-  can be migrated incrementally (write the dataclass, read either
-  form).
+  ``multiprocessing.Queue`` and ``SharedStateObj`` proxies. Dataclasses
+  pickle by default and we avoid lambdas/closures in defaults — but a bare
+  ``numpy.quaternion`` must **not** be pickled directly: it leaks in
+  numpy-quaternion 2023.0.4 (see ``_quat_to_floats`` and
+  ``memory/imu-quaternion-pickle-leak``). The dataclasses carrying a
+  quaternion field (:class:`ImuSample`, :class:`PointingEstimate`,
+  :class:`SuccessfulSolve`) override ``__getstate__``/``__setstate__`` to
+  pickle it as 4 floats; the in-process attribute stays a quaternion.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import quaternion
 
 from PiFinder.types.coordinates import RaDecRoll
+
+
+# =====================================================================
+# Pickle helpers: never serialise a bare numpy.quaternion
+# =====================================================================
+#
+# ``pickle.dumps(numpy.quaternion)`` leaks memory in numpy-quaternion
+# 2023.0.4 (~16 MB/min when a hot loop publishes one across a multiprocessing
+# Manager proxy — see ``memory/imu-quaternion-pickle-leak``). A tuple of plain
+# floats pickles cleanly. Dataclasses that carry a bare quaternion field
+# therefore override ``__getstate__``/``__setstate__`` to round-trip it through
+# these helpers: the in-process attribute stays a real ``numpy.quaternion``
+# (zero consumer changes), only the pickled form is 4 floats. The float
+# round-trip is bit-exact.
+
+
+def _quat_to_floats(q):
+    """Scalar-first ``(w, x, y, z)`` floats for pickling, or ``None``."""
+    if q is None:
+        return None
+    return (float(q.w), float(q.x), float(q.y), float(q.z))
+
+
+def _floats_to_quat(v):
+    """Inverse of :func:`_quat_to_floats`: rebuild a ``numpy.quaternion``.
+
+    Idempotent and ``None``-safe — only a 4-tuple is converted, so an
+    already-rebuilt value (or ``None``) passes through unchanged.
+    """
+    return quaternion.quaternion(*v) if isinstance(v, tuple) else v
 
 
 # =====================================================================
@@ -93,10 +109,11 @@ from PiFinder.types.coordinates import RaDecRoll
 
 
 class SolveSource(str, Enum):
-    """Replaces the free-form ``solved["solve_source"]`` string.
+    """Records which subsystem produced the current pointing estimate.
 
-    Inherits from ``str`` so existing equality checks against literals
-    (``solved["solve_source"] == "CAM"``) keep working during migration.
+    Inherits from ``str`` so equality checks against literals
+    (``estimate.solve_source == "CAM"``) keep working in any consumer
+    that hasn't been migrated to the enum yet.
     """
 
     CAMERA = "CAM"
@@ -141,33 +158,23 @@ class Pointing:
         """Return a :class:`RaDecRoll` (radians internally)."""
         return RaDecRoll(self.RA, self.Dec, self.Roll, deg=True)
 
-    def to_dict(self) -> dict:
-        """Legacy dict shape: ``{"RA": ..., "Dec": ..., "Roll": ...}``."""
-        return {"RA": self.RA, "Dec": self.Dec, "Roll": self.Roll}
-
     @classmethod
-    def from_dict(cls, d: dict) -> "Pointing":
-        """Strict inverse of :meth:`to_dict`. Raises ``KeyError`` if any
-        of ``RA`` / ``Dec`` / ``Roll`` is missing. For the partially-
-        populated dicts seen during migration, gate the call at the
-        :class:`PointingEstimate` level instead."""
-        return cls(RA=d["RA"], Dec=d["Dec"], Roll=d["Roll"])
+    def from_radecroll(cls, rdr: RaDecRoll) -> "Pointing":
+        """Build a degrees-based :class:`Pointing` from a radian
+        :class:`RaDecRoll` — the inverse of :meth:`as_radecroll`.
 
-
-# =====================================================================
-# Helpers
-# =====================================================================
-
-
-def _pointing_from_legacy(d: dict) -> Optional[Pointing]:
-    """Build a :class:`Pointing` from a legacy-shaped dict if all three
-    of RA/Dec/Roll are populated; otherwise ``None``. Used by the
-    :meth:`PointingEstimate.from_legacy_dict` migration shim where
-    partially-populated dicts are expected."""
-    ra, dec, roll = d.get("RA"), d.get("Dec"), d.get("Roll")
-    if ra is None or dec is None or roll is None:
-        return None
-    return Pointing(RA=ra, Dec=dec, Roll=roll)
+        Lives on ``Pointing`` (not ``RaDecRoll``) so the dependency only
+        runs ``positioning`` → ``coordinates``, never back. Reads the
+        radian fields directly: they are always plain floats (``nan`` for
+        an unset axis), matching ``Pointing``'s invariant that every
+        instance is a full triple. The caller is responsible for only
+        converting a valid (non-``nan``) ``RaDecRoll``.
+        """
+        return cls(
+            RA=math.degrees(rdr.ra),
+            Dec=math.degrees(rdr.dec),
+            Roll=math.degrees(rdr.roll),
+        )
 
 
 # =====================================================================
@@ -235,10 +242,6 @@ class SolveDiagnostics:
     """Plate-solver diagnostics carried alongside the pointing.
     Forwarded from tetra3's ``solution`` dict.
 
-    Replaces the loose ``Matches`` / ``RMSE`` / ``T_solve`` / ``FOV`` /
-    ``Prob`` / ``T_extract`` keys that today get merged onto ``solved``
-    via ``solved |= solution``.
-
     ``Matches`` defaults to 0 (not ``None``) because auto-exposure reads
     it on every solve, including failures, and expects an int.
     """
@@ -257,13 +260,10 @@ class AlignmentResult:
 
     In the canonical vocabulary this **is** the target pixel — the
     ``(Y, X)`` image-space coordinate produced by the alignment system.
-    Replaces ``solved["x_target"]`` / ``solved["y_target"]``, which
-    today are populated when ``target_sky_coord`` was passed to tetra3
-    and then cleared after the solver posts ``["aligned", (y, x)]``.
 
-    Field names ``x_target`` / ``y_target`` are kept to match the
-    tetra3 ``solution`` dict keys; use :meth:`target_pixel` to retrieve
-    the canonical ``(Y, X)`` tuple.
+    Field names ``x_target`` / ``y_target`` match the tetra3
+    ``solution`` dict keys; use :meth:`target_pixel` to retrieve the
+    canonical ``(Y, X)`` tuple.
     """
 
     x_target: Optional[float] = None
@@ -282,7 +282,7 @@ class AlignmentResult:
 
 
 # =====================================================================
-# The big one: replaces the `solved` dict
+# The big one: the published pointing record
 # =====================================================================
 
 
@@ -290,12 +290,7 @@ class AlignmentResult:
 class PointingEstimate:
     """Canonical 'where are we pointing?' record.
 
-    Replaces the dict returned by
-    ``solver.get_initialized_solved_dict()`` and travels through
-    ``solver_queue`` and ``shared_state.set_solution()``.
-
-    Naming follows the existing TODO at the top of ``integrator.py``
-    (``solved -> pointing_estimate``).
+    Travels through ``solver_queue`` and ``shared_state.set_solution()``.
 
     Pointing semantics
     ------------------
@@ -307,16 +302,25 @@ class PointingEstimate:
 
     The IMU anchor used for dead-reckoning is the pair of
     ``pointing.camera.solve`` (camera-axis truth) and :attr:`imu_anchor`
-    (the IMU quaternion sampled at the same frame). Together these are
-    the input to :meth:`ImuDeadReckoning.solve`.
+    (the IMU quaternion sampled at the same frame).
 
     :attr:`Alt` / :attr:`Az` are topocentric, derived in the integrator
     from ``pointing.aligned.estimate`` + GPS + datetime.
 
-    Timing fields use ``time.time()`` for ``solve_time`` and
-    ``cam_solve_time``, but ``last_solve_attempt`` and
-    ``last_solve_success`` use the camera frame's ``exposure_end``
-    (not wall clock) so the solver can dedupe stale frames precisely.
+    :attr:`estimate_time` is the **measurement epoch** of the data behind
+    the current estimate — *when the reading this value is based on was
+    captured*, not when the integrator produced it. Camera estimate →
+    the frame's ``exposure_end``; IMU-progressed estimate → the IMU
+    sample's ``timestamp``. Both ride the same ``time.time()`` clock, so
+    ``time.time() - estimate_time`` is a true "age of the fix" regardless
+    of source. ``last_solve_attempt`` / ``last_solve_success`` are the
+    camera frame's ``exposure_end`` (so the solver can dedupe stale
+    frames precisely); "solve" there means plate-solve, never IMU.
+
+    :attr:`matched_centroids` and :attr:`matched_stars` carry raw
+    tetra3 matched-star outputs needed by the SQM calibration UI for
+    offline replay of SQM calculations against cached frames.
+    ``None`` on failures.
     """
 
     # --- The 2 × 2 pointing matrix ---
@@ -337,8 +341,10 @@ class PointingEstimate:
 
     # --- Source and timing ---
     solve_source: Optional[SolveSource] = None
-    solve_time: Optional[float] = None
-    cam_solve_time: float = 0.0
+    # Measurement epoch of the current estimate's data: camera frame
+    # ``exposure_end`` on a solve, IMU sample ``timestamp`` on an IMU
+    # advance. See class docstring.
+    estimate_time: Optional[float] = None
     last_solve_attempt: float = 0.0
     last_solve_success: Optional[float] = None
 
@@ -348,6 +354,15 @@ class PointingEstimate:
     # --- Sub-records ---
     diagnostics: SolveDiagnostics = field(default_factory=SolveDiagnostics)
     alignment: AlignmentResult = field(default_factory=AlignmentResult)
+
+    # --- Raw tetra3 output kept for SQM replay ---
+    # ``matched_centroids``: list of (y, x) tuples for stars tetra3
+    # matched to known references.
+    # ``matched_stars``: parallel list of catalog star records, where
+    # index [2] is the catalog magnitude (consumed by SQM).
+    # Both cleared on failed solves.
+    matched_centroids: Optional[List[Tuple[float, float]]] = None
+    matched_stars: Optional[list] = None
 
     # ----------------------------------------------------------------
     # Convenience predicates
@@ -364,100 +379,99 @@ class PointingEstimate:
     def is_imu_solve(self) -> bool:
         return self.solve_source == SolveSource.IMU
 
-    # ----------------------------------------------------------------
-    # Compatibility shim — emit the legacy dict shape so existing
-    # consumers (web/UI/SkySafari) can be migrated incrementally.
-    # ----------------------------------------------------------------
+    # Pickle the ``imu_anchor`` quaternion as floats (see _quat_to_floats):
+    # the integrator publishes a deepcopy of this estimate across the proxy
+    # via ``set_solution`` on every cycle.
+    def __getstate__(self) -> dict:
+        state = self.__dict__.copy()
+        state["imu_anchor"] = _quat_to_floats(state["imu_anchor"])
+        return state
 
-    def to_legacy_dict(self) -> dict:
-        """Render this estimate in the legacy ``solved`` dict shape so
-        consumers that still expect a dict keep working during the
-        rollout.
-
-        Legacy mapping:
-          solved["RA"/"Dec"/"Roll"]   ← pointing.aligned.estimate
-                                        (the published current pointing)
-          solved["camera_solve"]      ← pointing.camera.solve
-                                        (the never-IMU-touched anchor)
-        """
-        empty_pointing = {"RA": None, "Dec": None, "Roll": None}
-        target = self.pointing.aligned.estimate
-        anchor = self.pointing.camera.solve
-        d: dict = {
-            "RA": target.RA if target else None,
-            "Dec": target.Dec if target else None,
-            "Roll": target.Roll if target else None,
-            "camera_solve": anchor.to_dict() if anchor else dict(empty_pointing),
-            "imu_quat": self.imu_anchor,
-            "Alt": self.Alt,
-            "Az": self.Az,
-            "solve_source": (self.solve_source.value if self.solve_source else None),
-            "solve_time": self.solve_time,
-            "cam_solve_time": self.cam_solve_time,
-            "last_solve_attempt": self.last_solve_attempt,
-            "last_solve_success": self.last_solve_success,
-            "constellation": self.constellation,
-            "Matches": self.diagnostics.Matches,
-        }
-        # Optional diagnostic fields are only included when set, to
-        # match how tetra3 merges its solution into `solved`.
-        for k in ("RMSE", "Prob", "FOV", "T_solve", "T_extract"):
-            v = getattr(self.diagnostics, k)
-            if v is not None:
-                d[k] = v
-        if self.alignment.x_target is not None:
-            d["x_target"] = self.alignment.x_target
-            d["y_target"] = self.alignment.y_target
-        return d
-
-    @classmethod
-    def from_legacy_dict(cls, d: dict) -> "PointingEstimate":
-        """Inverse of :meth:`to_legacy_dict`. Tolerant of missing keys
-        so it can absorb partially-built dicts during migration.
-
-        Note this conversion is lossy: the legacy dict carries only the
-        published aligned-axis direction and the camera-axis solve
-        anchor. The aligned-axis ``solve`` and the camera-axis
-        ``estimate`` cells are reconstructed by sharing values
-        (aligned.solve = aligned.estimate; camera.estimate =
-        camera.solve), which is correct at solve time but loses any
-        IMU drift the camera axis might independently track. New
-        producers populate all four cells natively.
-        """
-        source_str = d.get("solve_source")
-        aligned_value = _pointing_from_legacy(d)
-        camera_value = _pointing_from_legacy(d.get("camera_solve") or {})
-        return cls(
-            pointing=PointingMatrix(
-                camera=PointingAxis(solve=camera_value, estimate=camera_value),
-                aligned=PointingAxis(solve=aligned_value, estimate=aligned_value),
-            ),
-            imu_anchor=d.get("imu_quat"),
-            Alt=d.get("Alt"),
-            Az=d.get("Az"),
-            solve_source=SolveSource(source_str) if source_str else None,
-            solve_time=d.get("solve_time"),
-            cam_solve_time=d.get("cam_solve_time", 0.0),
-            last_solve_attempt=d.get("last_solve_attempt", 0.0),
-            last_solve_success=d.get("last_solve_success"),
-            constellation=d.get("constellation"),
-            diagnostics=SolveDiagnostics(
-                Matches=d.get("Matches", 0),
-                RMSE=d.get("RMSE"),
-                Prob=d.get("Prob"),
-                FOV=d.get("FOV"),
-                T_solve=d.get("T_solve"),
-                T_extract=d.get("T_extract"),
-            ),
-            alignment=AlignmentResult(
-                x_target=d.get("x_target"),
-                y_target=d.get("y_target"),
-            ),
-        )
+    def __setstate__(self, state: dict) -> None:
+        state["imu_anchor"] = _floats_to_quat(state.get("imu_anchor"))
+        self.__dict__.update(state)
 
 
 # =====================================================================
-# IMU sample — replaces shared_state.imu() dict
+# SolveResult — the solver → integrator message (rides solver_queue)
+# =====================================================================
+#
+# The solver produces *solve-truth only*; it has no ``estimate`` concept
+# (IMU progression happens in the integrator). So the message carries
+# flat per-axis :class:`Pointing`s, not the 2 × 2 matrix. The integrator
+# alone builds the canonical :class:`PointingEstimate`, applying a
+# ``SolveResult`` onto its long-lived instance.
+#
+# Two concrete types under a union, dispatched by ``isinstance()`` in the
+# integrator (mirroring :data:`SolverCommand` / :data:`AlignResponse`).
+# See ``docs/adr/0003-solver-integrator-message.md``.
+
+
+@dataclass
+class SuccessfulSolve:
+    """A plate-solve attempt that produced a pointing.
+
+    Carries solve-truth for both axes as **flat** :class:`Pointing`s
+    (no ``solve``/``estimate`` split — the solver never IMU-progresses).
+    The integrator fans ``camera``/``aligned`` into both the ``solve``
+    and ``estimate`` cells of its long-lived :class:`PointingEstimate`
+    and reseeds the dead-reckoner.
+
+    ``imu_anchor`` is ``Optional``: a solve can succeed on a frame that
+    carried no IMU sample.
+
+    There is no separate ``solve_time``: the solved frame's epoch is
+    ``last_solve_success`` (== ``last_solve_attempt`` == the frame's
+    ``exposure_end`` on a success), which the integrator assigns to
+    :attr:`PointingEstimate.estimate_time`.
+    """
+
+    camera: Pointing
+    aligned: Pointing
+    imu_anchor: Optional[quaternion.quaternion]
+    last_solve_attempt: float
+    last_solve_success: float
+    diagnostics: SolveDiagnostics = field(default_factory=SolveDiagnostics)
+    alignment: AlignmentResult = field(default_factory=AlignmentResult)
+    matched_centroids: Optional[List[Tuple[float, float]]] = None
+    matched_stars: Optional[list] = None
+
+    # Pickle the ``imu_anchor`` quaternion as floats (see _quat_to_floats):
+    # this message rides ``solver_queue``, a pickle boundary.
+    def __getstate__(self) -> dict:
+        state = self.__dict__.copy()
+        state["imu_anchor"] = _quat_to_floats(state["imu_anchor"])
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        state["imu_anchor"] = _floats_to_quat(state.get("imu_anchor"))
+        self.__dict__.update(state)
+
+
+@dataclass
+class FailedSolve:
+    """A solve attempt that produced no pointing.
+
+    Carries only the diagnostics and timing the integrator needs to
+    refresh auto-exposure and dedupe stale frames. Triggers the
+    integrator to preserve its ``solve`` cells + anchor **and** its
+    ``estimate`` cells (so once anchored, dead-reckoning keeps a pointing
+    and ``solve_state`` stays true), refresh diagnostics, and publish with
+    ``solve_source=CAMERA_FAILED``.
+    """
+
+    diagnostics: SolveDiagnostics = field(default_factory=SolveDiagnostics)
+    last_solve_attempt: float = 0.0
+    last_solve_success: Optional[float] = None
+
+
+SolveResult = Union[SuccessfulSolve, FailedSolve]
+"""The message on ``solver_queue`` describing one plate-solve attempt.
+The integrator dispatches on ``isinstance()``."""
+
+
+# =====================================================================
+# IMU sample — future replacement for shared_state.imu() dict
 # =====================================================================
 
 
@@ -465,28 +479,65 @@ class PointingEstimate:
 class ImuSample:
     """Single IMU orientation reading.
 
-    Replaces the ``imu_data`` dict in ``imu_pi.py`` (keys: ``moving``,
-    ``move_start``, ``move_end``, ``quat``, ``status``). The
-    ``move_start`` / ``move_end`` fields are flagged ``# TODO: Remove``
-    in the source — leaving them here for now so this is a strict
-    superset of today's shape; they can be dropped in a follow-up.
+    The value carried on ``shared_state`` via ``set_imu()`` / ``imu()``
+    and bundled into each camera frame's metadata. Replaces the legacy
+    ``{"quat": ..., "status": ..., "moving": ...}`` dict (the unused
+    ``move_start`` / ``move_end`` keys were dropped in the migration).
 
     ``quat`` is scalar-first ``(w, x, y, z)``, as produced by
-    ``quaternion.from_float_array(imu.avg_quat)``.
+    ``quaternion.from_float_array(imu.avg_quat)``. It pickles as 4 plain
+    floats (see ``__getstate__``) to dodge the numpy-quaternion leak — the
+    IMU loop publishes this sample across the proxy every cycle; keep those
+    hooks.
+
+    ``timestamp`` is the wall-clock (``time.time()``) instant the IMU
+    process sampled this orientation — the IMU-side input to
+    :attr:`PointingEstimate.estimate_time`. It is the sample epoch, not
+    the (later) moment a consumer reads the sample.
+
+    ``gyro`` / ``accel`` are the raw sensor readings at the same sample,
+    recorded for telemetry. ``None`` when the sensor doesn't expose them
+    (e.g. the fake IMU).
     """
 
     quat: quaternion.quaternion
+    timestamp: float
     status: int = 0  # 3 == fully calibrated (BNO055)
     moving: bool = False
-    move_start: Optional[float] = None  # TODO: remove (unused)
-    move_end: Optional[float] = None  # TODO: remove (unused)
+    # Raw gyroscope angular velocity (rad/s) and linear acceleration
+    # (m/s², gravity removed) — captured for telemetry recording.
+    gyro: Optional[Tuple[float, float, float]] = None
+    accel: Optional[Tuple[float, float, float]] = None
 
     def is_calibrated(self) -> bool:
         return self.status == 3
 
+    def to_dict(self) -> dict:
+        """JSON-friendly form for the web API. ``quat`` becomes a
+        scalar-first ``[w, x, y, z]`` list."""
+        return {
+            "quat": quaternion.as_float_array(self.quat).tolist(),
+            "timestamp": self.timestamp,
+            "status": self.status,
+            "moving": self.moving,
+            "gyro": list(self.gyro) if self.gyro is not None else None,
+            "accel": list(self.accel) if self.accel is not None else None,
+        }
+
+    # Pickle ``quat`` as floats (see _quat_to_floats): the IMU loop publishes
+    # this sample across the proxy via ``set_imu`` on every cycle.
+    def __getstate__(self) -> dict:
+        state = self.__dict__.copy()
+        state["quat"] = _quat_to_floats(state["quat"])
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        state["quat"] = _floats_to_quat(state.get("quat"))
+        self.__dict__.update(state)
+
 
 # =====================================================================
-# Camera frame metadata — replaces shared_state.last_image_metadata()
+# Camera frame metadata — future replacement for shared_state.last_image_metadata()
 # =====================================================================
 
 
@@ -494,13 +545,13 @@ class ImuSample:
 class CameraFrameMetadata:
     """Metadata stamped by the camera process when an exposure finishes.
 
-    Replaces the ``image_metadata`` dict built in
-    ``camera_interface.py`` and read by the solver via
-    ``shared_state.last_image_metadata()``.
+    Not wired into ``shared_state`` yet — frame metadata still travels
+    as a dict; this dataclass is the destination shape for a future
+    migration.
 
     ``exposure_time`` is in **microseconds** (matching the existing
     convention); convert with ``exposure_time / 1_000_000`` for
-    seconds (the solver already does this for SQM).
+    seconds.
 
     ``imu_delta`` is the angular delta between IMU quaternions sampled
     at the start and end of the exposure, in **degrees**. The solver's
@@ -519,10 +570,9 @@ class CameraFrameMetadata:
 # Queue messages
 # =====================================================================
 #
-# Today these are tagged lists like ["align_on_radec", ra, dec] /
-# ["aligned", (y, x)]. Receivers dispatch on the leading string.
-# Dataclasses + isinstance() dispatch give the same ergonomics with
-# proper field names and type checking.
+# Replace tagged lists like ["align_on_radec", ra, dec] /
+# ["aligned", (y, x)]. Receivers dispatch on isinstance() with proper
+# field names and type checking.
 
 
 @dataclass
@@ -583,79 +633,6 @@ AlignResponse = Union[AlignedResult]
 
 
 # =====================================================================
-# Convenience: the tetra3 raw return is also a dict, but it isn't our
-# code to retype. We document the merge boundary here so consumers can
-# see what flows in.
-# =====================================================================
-
-
-def merge_tetra3_solution(
-    estimate: PointingEstimate,
-    solution: dict,
-    imu_sample: Optional[ImuSample],
-) -> PointingEstimate:
-    """Reference implementation of how a tetra3 ``solution`` dict
-    should be folded into a :class:`PointingEstimate`. This mirrors
-    the existing ``solved |= solution`` step in ``solver.py``, plus
-    the camera-vs-aligned-axis swap.
-
-    Not wired up — illustrative only. Lives here so the proposed
-    dataclasses have a clear seam against the upstream library that
-    still returns dicts.
-    """
-    estimate.diagnostics = SolveDiagnostics(
-        Matches=solution.get("Matches", 0),
-        RMSE=solution.get("RMSE"),
-        Prob=solution.get("Prob"),
-        FOV=solution.get("FOV"),
-        T_solve=solution.get("T_solve"),
-        T_extract=solution.get("T_extract"),
-    )
-
-    if solution.get("RA") is None:
-        # Failed solve — clear the current estimate cells, but preserve
-        # the solve cells and ``imu_anchor`` so the integrator still has
-        # an anchor for IMU dead-reckoning.
-        estimate.pointing.camera.estimate = None
-        estimate.pointing.aligned.estimate = None
-        return estimate
-
-    # On a successful tetra3 solve, RA / Dec / Roll are all populated.
-    # Use direct indexing so a missing field surfaces loudly rather
-    # than silently producing a half-defined pointing.
-    camera_value = Pointing(
-        RA=solution["RA"],
-        Dec=solution["Dec"],
-        Roll=solution["Roll"],
-    )
-    aligned_value = Pointing(
-        RA=solution.get("RA_target", solution["RA"]),
-        Dec=solution.get("Dec_target", solution["Dec"]),
-        Roll=solution["Roll"],
-    )
-
-    # Fresh plate-solve: both states equal each cell's value. The IMU
-    # will then advance only the ``estimate`` cells from here on, while
-    # the ``solve`` cells stay anchored at this snapshot.
-    estimate.pointing.camera.solve = camera_value
-    estimate.pointing.camera.estimate = camera_value
-    estimate.pointing.aligned.solve = aligned_value
-    estimate.pointing.aligned.estimate = aligned_value
-
-    # Alignment pixel (only present when target_sky_coord was set)
-    estimate.alignment = AlignmentResult(
-        x_target=solution.get("x_target"),
-        y_target=solution.get("y_target"),
-    )
-
-    # IMU anchor for the dead-reckoner
-    if imu_sample is not None:
-        estimate.imu_anchor = imu_sample.quat
-
-    return estimate
-
-
-# =====================================================================
 # Exports
 # =====================================================================
 
@@ -666,6 +643,7 @@ __all__ = [
     "AlignedResult",
     "AlignmentResult",
     "CameraFrameMetadata",
+    "FailedSolve",
     "ImuSample",
     "Pointing",
     "PointingAxis",
@@ -673,7 +651,8 @@ __all__ = [
     "PointingMatrix",
     "ReloadSqmCalibration",
     "SolveDiagnostics",
+    "SolveResult",
     "SolveSource",
     "SolverCommand",
-    "merge_tetra3_solution",
+    "SuccessfulSolve",
 ]

@@ -19,7 +19,8 @@ How it works (see ``docs/ax/ui.md`` section 9 for the construction recipe):
   headless display, a directly-instantiated ``SharedStateObj`` (+ ``UIState``),
   a real ``Config`` and a real ``Catalogs`` built from the bundled DB.
 * Each module is exercised twice -- ``cold`` (fresh shared state) and ``warm``
-  (a representative solved fixture) -- to cover the "no solve yet" and "solved"
+  (a representative ``PointingEstimate`` from a camera solve, published via
+  ``set_solution``) -- to cover the "no solve yet" and "solved"
   branches modules guard on.
 * Because the real ``add_to_stack`` callback is wired in, modules a handler
   pushes onto the stack as a side effect get swept too (bounded).
@@ -35,8 +36,9 @@ autouse session fixture:
   * ``time.sleep`` -> no-op (the SQM wizards are per-update capture state
     machines that sleep on every frame; otherwise the sweep takes minutes).
 All UI logic itself stays real. (``UIStatus``'s ``/sys`` read is already
-``try/except``-guarded.) ``UIChart`` / ``UIAlign`` need ``hip_main.dat``, which
-ships in the repo under ``astro_data/``; those cases skip if it is ever missing.
+``try/except``-guarded.) ``UIChart`` / ``UIAlign`` need ``hip_main.dat``,
+which ships in the repo under ``astro_data/``; those cases skip
+if it is ever missing.
 
 Run from ``python/`` (paths in ``PiFinder.utils`` are relative to CWD):
     pytest -m integration tests/test_ui_modules.py
@@ -66,8 +68,15 @@ from PiFinder import utils
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
 from PiFinder.config import Config
 from PiFinder.displays import get_display
-from PiFinder.solver import get_initialized_solved_dict
 from PiFinder.state import Location, SharedStateObj, UIState
+from PiFinder.types.positioning import (
+    Pointing,
+    PointingAxis,
+    PointingEstimate,
+    PointingMatrix,
+    SolveDiagnostics,
+    SolveSource,
+)
 from PiFinder.ui import callbacks, menu_structure
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.menu_manager import MenuManager
@@ -85,7 +94,7 @@ from PiFinder.ui.sqm_correction import UISQMCorrection
 # Constants
 # --------------------------------------------------------------------------- #
 
-# command_queues keys main.py wires up; modules .put() onto these (no consumer).
+# command_queues keys main.py wires up; modules .put() onto these (no consumer)
 _COMMAND_QUEUE_KEYS = (
     "camera",
     "console",
@@ -95,17 +104,18 @@ _COMMAND_QUEUE_KEYS = (
     "gps",
 )
 
-# Modules that need the Hipparcos catalogue to construct (build plot.Starfield).
+# Modules that need the Hipparcos catalogue to construct (build plot.Starfield)
 _HIP_REQUIRED = {"UIChart", "UIAlign"}
 
 # Modules the generic sweep can't fairly exercise, with the reason. These are
 # still constructed and covered by the completeness guard -- only the key sweep
 # is skipped. UIAlign is a stateful alignment wizard: its update()/key handlers
 # assume a live solve has populated self.solution and self.visible_stars via a
-# prior successful starfield plot, which a generic isolated sweep can't provide.
-# It warrants dedicated alignment-flow tests instead.
+# prior successful starfield plot, which a generic isolated sweep
+# can't provide. It warrants dedicated alignment-flow tests instead.
 _SWEEP_SKIP: dict[str, str] = {
-    "UIAlign": "needs a live solve + alignment-star sequence; cover via dedicated tests",
+    "UIAlign": "needs a live solve + alignment-star sequence; "
+    "cover via dedicated tests",
 }
 
 # UIModule subclasses that are intentionally *not* exercised, with the reason.
@@ -114,7 +124,8 @@ _COVERAGE_SKIP: dict[str, str] = {
     # (none currently -- UISQMCorrection is covered via the dynamic fixtures)
 }
 
-# Bound on the auto-sweep so a handler that keeps pushing modules can't run away.
+# Bound on the auto-sweep so a handler that keeps pushing modules
+# can't run away.
 _MAX_SWEEP_MODULES = 80
 
 
@@ -208,7 +219,8 @@ def _build_dynamic_item_definition(spec_id: str, sample_object) -> dict:
         # sqm.py:302
         return {"name": "SQM Sweep", "class": UISQMSweep, "label": "sqm_sweep"}
     if spec_id == "UISQMCorrection":
-        # No launch site in the tree; best-effort fixture (constructs from sqm()).
+        # No launch site in the tree; best-effort fixture
+        # (constructs from sqm()).
         return {
             "name": "SQM Correction",
             "class": UISQMCorrection,
@@ -240,17 +252,18 @@ def _all_uimodule_subclasses() -> set[str]:
 
 @pytest.fixture(scope="session", autouse=True)
 def _require_data_files():
-    """Skip the whole module if not run from python/ (paths are CWD-relative)."""
+    """Skip the whole module if not run from python/
+    (paths are CWD-relative)."""
     if not utils.pifinder_db.exists():
         pytest.skip(
-            f"{utils.pifinder_db} not found -- run the UI harness from python/ "
-            "(astro_data paths are relative to CWD)."
+            f"{utils.pifinder_db} not found -- run the UI harness from python/"
+            " (astro_data paths are relative to CWD)."
         )
 
 
 @pytest.fixture(scope="session", autouse=True)
 def _sandbox_data_dir(tmp_path_factory):
-    """Redirect the user data dir to a temp dir so no test writes real settings.
+    """Redirect user data dir to a temp dir so no test writes real settings.
 
     Copies the developer's config.json in (reads stay realistic) but points all
     writes -- config, observations DB, debug dumps -- at the sandbox.
@@ -285,9 +298,10 @@ def _fast_timezonefinder():
 
     SharedStateObj.__init__ builds a fresh TimezoneFinder (loads a multi-MB
     timezone binary), and the harness constructs a SharedStateObj per test
-    (cold/warm). The real init is cheap-ish on a dev box but brutally slow on a
-    CI runner -- hundreds of inits take ~10 min and look like a hang. Timezone
-    resolution is irrelevant to UI crash-smoke, so a constant-"UTC" stub is fine.
+    (cold/warm). The real init is cheap-ish on a dev box but brutally slow
+    on a CI runner -- hundreds of inits take ~10 min and look like a hang.
+    Timezone resolution is irrelevant to UI crash-smoke,
+    so a constant-"UTC" stub is fine.
     """
     with mock.patch("PiFinder.state.TimezoneFinder", _StubTimezoneFinder):
         yield
@@ -301,8 +315,8 @@ def _fast_sleep():
     machines that sleep 0.2-0.5s on every frame while driving the real camera.
     Driven by the key sweep with no camera process, those sleeps add up to
     minutes of pure wall-clock waiting. None of these modules busy-loop on a
-    condition (no ``while``+sleep), so removing the waits is safe and changes no
-    logic -- we only care that nothing raises.
+    condition (no ``while``+sleep), so removing the waits is safe and changes
+    no logic -- we only care that nothing raises.
     """
     with mock.patch("time.sleep", lambda *a, **k: None):
         yield
@@ -310,7 +324,8 @@ def _fast_sleep():
 
 @pytest.fixture(scope="session", autouse=True)
 def _no_network():
-    """Stub UISoftware's live GitHub version check (the one hard network call)."""
+    """Stub UISoftware's live GitHub version check
+    the one hard network call)."""
     fake = mock.Mock()
     fake.text = "1.0.0"
     fake.status_code = 200
@@ -322,10 +337,11 @@ def _no_network():
 def _no_comet_download():
     """Stop the comet catalog from downloading over the network.
 
-    CometCatalog.__init__ spawns a daemon thread that fetches the comet TSV via
-    requests.get during CatalogBuilder.build(). Stub the network function to
-    report "no download" (success=False); the real catalog/threading logic stays
-    intact and just loads no comets, keeping the suite hermetic.
+    CometCatalog.__init__ spawns a daemon thread that fetches the comet TSV
+    via requests.get during CatalogBuilder.build().
+    Stub the network function to report "no download" (success=False);
+    the real catalog/threading logic stays intact
+    and just loads no comets, keeping the suite hermetic.
     """
     import PiFinder.comets as comets
 
@@ -341,10 +357,11 @@ def _inert_sys_utils():
 
     sys_utils is the OS/hardware action layer: shutdown(), restart_system(),
     switch_cam_*(), go_wifi_*(), update_software(). The key sweep selects menu
-    items, which fire these as real actions -- on a Pi this harness would reboot
-    or reconfigure the device, and off-Pi sys_utils_fake is missing some of them
-    (e.g. switch_cam_imx462). Replace it with an inert mock everywhere the UI
-    imported it, so actions are safe no-ops while all UI logic stays real.
+    items, which fire these as real actions -- on a Pi this harness would
+    reboot or reconfigure the device, and off-Pi sys_utils_fake is missing
+    some of them (e.g. switch_cam_imx462).
+    Replace it with an inert mock everywhere the UI imported it,
+    so actions are safe no-ops while all UI logic stays real.
     """
     inert = mock.MagicMock(name="sys_utils")
     with (
@@ -381,9 +398,9 @@ def _no_preload():
     """Disable MenuManager's chart/align preload.
 
     Preloading constructs plot.Starfield (needs hip_main.dat) at *every*
-    MenuManager construction, which would couple all cases to Hipparcos. With it
-    off, chart/align are constructed on demand only when their own node is the
-    case under test, and gated behind hip_main_available.
+    MenuManager construction, which would couple all cases to Hipparcos.
+    With it off, chart/align are constructed on demand only when
+    their own node is the case under test, and gated behind hip_main_available.
     """
     with mock.patch.object(MenuManager, "preload_modules", lambda self: None):
         yield
@@ -405,9 +422,10 @@ def catalogs(_no_comet_download) -> Iterator[Catalogs]:
     """Build the real catalogs once from the bundled DB.
 
     Teardown stops the perpetual catalog timers. The planet and comet catalogs
-    run a self-rescheduling, *non-daemon* threading.Timer (via TimerMixin); left
-    running they keep the interpreter alive at shutdown, so `nox -s ui_tests`
-    would never exit. Stopping them on teardown lets the process end cleanly.
+    run a self-rescheduling, *non-daemon* threading.Timer (via TimerMixin);
+    left running they keep the interpreter alive at shutdown,
+    so `nox -s ui_tests` would never exit.
+    Stopping them on teardown lets the process end cleanly.
     """
     boot_state = SharedStateObj()
     boot_state.set_ui_state(UIState())
@@ -436,8 +454,8 @@ def sample_object(catalogs):
 def hip_main_available() -> bool:
     """Whether the Hipparcos catalog is present (it ships in the repo).
 
-    Kept as a defensive guard: if astro_data/hip_main.dat is ever missing, the
-    chart/align cases skip instead of erroring.
+    Kept as a defensive guard: if astro_data/hip_main.dat is ever missing,
+    the chart/align cases skip instead of erroring.
     """
     return (utils.astro_data_dir / "hip_main.dat").exists()
 
@@ -463,31 +481,30 @@ def _make_shared_state(state: str) -> SharedStateObj:
             datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc),
             force=True,
         )
-        solved = get_initialized_solved_dict()
         now = shared_state.datetime().timestamp() if shared_state.datetime() else 0
-        solved.update(
-            {
-                "RA": 83.82,
-                "Dec": -5.39,
-                "Roll": 0.0,
-                "Alt": 45.0,
-                "Az": 120.0,
-                "solve_source": "CAM",
-                "solve_time": now,
-                "cam_solve_time": now,
-                "last_solve_success": now,
-                "constellation": "Ori",
-                # Solver diagnostics several screens read off a CAM solve.
-                "Matches": 12,
-                "RMSE": 0.5,
-                "FOV": 10.2,
-            }
+        # A fresh camera plate-solve: both axes' solve and estimate cells are
+        # populated together (no IMU progression yet, so estimate == solve),
+        # and the eyepiece-aligned axis equals the camera axis
+        # (no alignment offset).
+        # Mirrors what the integrator produces from a SuccessfulSolve.
+        direction = Pointing(RA=83.82, Dec=-5.39, Roll=0.0)
+        solved = PointingEstimate(
+            pointing=PointingMatrix(
+                camera=PointingAxis(solve=direction, estimate=direction),
+                aligned=PointingAxis(solve=direction, estimate=direction),
+            ),
+            # imu_anchor stays None: a CAM solve on a frame with no IMU sample.
+            Alt=45.0,
+            Az=120.0,
+            solve_source=SolveSource.CAMERA,
+            estimate_time=now,
+            last_solve_success=now,
+            constellation="Ori",
+            # Solver diagnostics several screens read off a CAM solve.
+            diagnostics=SolveDiagnostics(Matches=12, RMSE=0.5, FOV=10.2),
         )
-        solved["camera_center"].update(
-            {"RA": 83.82, "Dec": -5.39, "Roll": 0.0, "Alt": 45.0, "Az": 120.0}
-        )
+        # set_solution derives solve_state from has_pointing() (True here).
         shared_state.set_solution(solved)
-        shared_state.set_solve_state(True)
     return shared_state
 
 
@@ -532,8 +549,9 @@ def _sweep_stack(menu_manager: MenuManager, seen: set) -> None:
     """
     count = 0
     while count < _MAX_SWEEP_MODULES:
-        # MenuManager.stack is annotated list[type[UIModule]] upstream but holds
-        # instances; cast so the sweep sees them as the UIModule instances they are.
+        # MenuManager.stack is annotated list[type[UIModule]] upstream
+        # but holds instances; cast so the sweep sees them
+        # as the UIModule instances they are.
         pending = [cast(UIModule, m) for m in menu_manager.stack if id(m) not in seen]
         if not pending:
             break
@@ -564,8 +582,8 @@ def _build_and_exercise(item_definition, state, display, camera_image, catalogs)
         display, camera_image, shared_state, command_queues, cfg, catalogs
     )
 
-    # Ignore whatever MenuManager pushed at construction (the root menu); only
-    # exercise the module under test and anything it pushes.
+    # Ignore whatever MenuManager pushed at construction (the root menu);
+    # only exercise the module under test and anything it pushes.
     seen = {id(m) for m in menu_manager.stack}
     menu_manager.add_to_stack(copy.deepcopy(item_definition))
     _sweep_stack(menu_manager, seen)
@@ -582,7 +600,8 @@ def _build_and_exercise(item_definition, state, display, camera_image, catalogs)
 def test_menu_node_module(
     node, state, display, camera_image, catalogs, hip_main_available
 ):
-    """Every menu-tree node with a class constructs and survives a key sweep."""
+    """Every menu-tree node with a class constructs
+    and survives a key sweep."""
     class_name = _resolve_class_name(node["class"])
     if class_name in _SWEEP_SKIP:
         pytest.skip(_SWEEP_SKIP[class_name])
@@ -608,8 +627,9 @@ def test_dynamic_ui_module(
 def test_all_ui_modules_covered():
     """Fail if a UIModule subclass is reached by neither discovery path.
 
-    Guards against a newly-added screen silently escaping smoke coverage. Known,
-    deliberate exceptions live in _COVERAGE_SKIP with a documented reason.
+    Guards against a newly-added screen silently escaping smoke coverage.
+    Known, deliberate exceptions live in _COVERAGE_SKIP
+    with a documented reason.
     """
     covered = {_resolve_class_name(node["class"]) for node in _MENU_NODES}
     covered |= set(_DYNAMIC_IDS)
@@ -619,6 +639,6 @@ def test_all_ui_modules_covered():
 
     assert not uncovered, (
         "UIModule subclasses with no smoke coverage: "
-        f"{sorted(uncovered)}. Wire them into the menu tree, add a fixture to "
-        "_DYNAMIC_IDS, or document an exception in _COVERAGE_SKIP."
+        f"{sorted(uncovered)}. Wire them into the menu tree, add a fixture"
+        " to _DYNAMIC_IDS, or document an exception in _COVERAGE_SKIP."
     )

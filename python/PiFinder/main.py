@@ -32,7 +32,6 @@ from multiprocessing.managers import BaseManager
 
 import PiFinder.i18n  # noqa: F401
 from PiFinder import solver
-from PiFinder import integrator
 from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
@@ -125,6 +124,7 @@ def setup_dirs():
     utils.create_path(Path(utils.data_dir, "screenshots"))
     utils.create_path(Path(utils.data_dir, "solver_debug_dumps"))
     utils.create_path(Path(utils.data_dir, "logs"))
+    utils.create_path(Path(utils.data_dir, "telemetry"))
     os.chmod(Path(utils.data_dir), 0o777)
 
 
@@ -198,7 +198,7 @@ class PowerManager:
         else:  # We are asleepd, should we wake up?
             _imu = self.shared_state.imu()
             if _imu:
-                if _imu["moving"]:
+                if _imu.moving:
                     self.wake_up()
 
     def get_sleep_timeout(self):
@@ -241,11 +241,110 @@ class PowerManager:
         self.display_device.device.show()
 
 
+def start_profiling():
+    """Start profiling for performance analysis"""
+    import cProfile
+
+    profiler = cProfile.Profile()
+    profiler.enable()
+    startup_profile_start = time.time()
+    return profiler, startup_profile_start
+
+
+def stop_profiling(profiler, startup_profile_start):
+    """Stop profiling and save results"""
+    import pstats
+
+    profiler.disable()
+    startup_profile_time = time.time() - startup_profile_start
+    profile_path = utils.data_dir / "startup_profile.prof"
+    profiler.dump_stats(str(profile_path))
+
+    logger = logging.getLogger("Main.Profiling")
+    logger.info(f"=== Startup Profiling Complete ({startup_profile_time:.2f}s) ===")
+    logger.info(f"Profile saved to: {profile_path}")
+    logger.info("To analyze, run:")
+    logger.info(
+        f"  python -c \"import pstats; p = pstats.Stats('{profile_path}'); p.sort_stats('cumulative').print_stats(30)\""
+    )
+
+    summary_path = utils.data_dir / "startup_profile.txt"
+    with open(summary_path, "w") as f:
+        ps = pstats.Stats(profiler, stream=f)
+        f.write(f"=== STARTUP PROFILING ({startup_profile_time:.2f}s) ===\n\n")
+        f.write("Top 30 functions by cumulative time:\n")
+        f.write("=" * 80 + "\n")
+        ps.sort_stats("cumulative").print_stats(30)
+        f.write("\n" + "=" * 80 + "\n")
+        f.write("Top 30 functions by internal time:\n")
+        f.write("=" * 80 + "\n")
+        ps.sort_stats("time").print_stats(30)
+    logger.info(f"Text summary saved to: {summary_path}")
+
+
+def _build_pygame_keymaps():
+    """
+    Build the pygame key -> KeyboardInterface keycode maps used when a pygame
+    display is active. Returns (key_map, ctrl_key_map).
+
+    Ctrl+key produces the ALT_* keycodes, which emulate the hardware keypad's
+    SQUARE-modifier chord (see keyboard_local.py). Pulled out of main() purely
+    to keep the event loop readable; see docs/adr/0004 for why pygame keys are
+    captured in the main process at all rather than in a keyboard_* subprocess.
+    """
+    import pygame
+    from PiFinder.keyboard_interface import KeyboardInterface
+
+    # +/= and - for PLUS/MINUS, Enter/Space/Z for SQUARE, M for LNG_SQUARE
+    key_map = {
+        pygame.K_LEFT: KeyboardInterface.LEFT,
+        pygame.K_UP: KeyboardInterface.UP,
+        pygame.K_DOWN: KeyboardInterface.DOWN,
+        pygame.K_RIGHT: KeyboardInterface.RIGHT,
+        pygame.K_EQUALS: KeyboardInterface.PLUS,
+        pygame.K_PLUS: KeyboardInterface.PLUS,
+        pygame.K_KP_PLUS: KeyboardInterface.PLUS,
+        pygame.K_MINUS: KeyboardInterface.MINUS,
+        pygame.K_KP_MINUS: KeyboardInterface.MINUS,
+        pygame.K_RETURN: KeyboardInterface.SQUARE,
+        pygame.K_KP_ENTER: KeyboardInterface.SQUARE,
+        pygame.K_SPACE: KeyboardInterface.SQUARE,
+        pygame.K_z: KeyboardInterface.SQUARE,
+        pygame.K_m: KeyboardInterface.LNG_SQUARE,
+        pygame.K_0: 0,
+        pygame.K_1: 1,
+        pygame.K_2: 2,
+        pygame.K_3: 3,
+        pygame.K_4: 4,
+        pygame.K_5: 5,
+        pygame.K_6: 6,
+        pygame.K_7: 7,
+        pygame.K_8: 8,
+        pygame.K_9: 9,
+    }
+
+    ctrl_key_map = {
+        pygame.K_EQUALS: KeyboardInterface.ALT_PLUS,
+        pygame.K_PLUS: KeyboardInterface.ALT_PLUS,
+        pygame.K_KP_PLUS: KeyboardInterface.ALT_PLUS,
+        pygame.K_MINUS: KeyboardInterface.ALT_MINUS,
+        pygame.K_KP_MINUS: KeyboardInterface.ALT_MINUS,
+        pygame.K_LEFT: KeyboardInterface.ALT_LEFT,
+        pygame.K_UP: KeyboardInterface.ALT_UP,
+        pygame.K_DOWN: KeyboardInterface.ALT_DOWN,
+        pygame.K_RIGHT: KeyboardInterface.ALT_RIGHT,
+        pygame.K_0: KeyboardInterface.ALT_0,
+    }
+
+    return key_map, ctrl_key_map
+
+
 def main(
     log_helper: MultiprocLogging,
     script_name=None,
     show_fps=False,
     verbose=False,
+    profile_startup=False,
 ) -> None:
     """
     Get this show on the road!
@@ -255,7 +354,6 @@ def main(
     # init queues
     console_queue: Queue = Queue()
     keyboard_queue: Queue = Queue()
-    display_device.set_keyboard_queue(keyboard_queue)
     gps_queue: Queue = Queue()
     camera_command_queue: Queue = Queue()
     solver_queue: Queue = Queue()
@@ -273,6 +371,12 @@ def main(
     integrator_logqueque: Queue = log_helper.get_queue()
     imu_logqueue: Queue = log_helper.get_queue()
 
+    # Refuse to start if another instance is already running. A second copy
+    # would otherwise boot and let its subsystems (web/pos-server ports, cedar
+    # shmem, hardware devices) silently collide with the live one.
+    if not utils.acquire_single_instance_lock():
+        return
+
     # Start log consolidation process first.
     log_helper.start()
 
@@ -287,6 +391,8 @@ def main(
     logger.info("PiFinder running on %s, %s, %s", os_detail, platform, arch)
 
     # init UI Modes
+    integrator_command_queue: Queue = Queue()
+
     command_queues = {
         "camera": camera_command_queue,
         "console": console_queue,
@@ -294,6 +400,7 @@ def main(
         "align_command": alignment_command_queue,
         "align_response": alignment_response_queue,
         "gps": gps_queue,
+        "integrator": integrator_command_queue,
     }
     cfg = config.Config()
 
@@ -357,7 +464,7 @@ def main(
         )
         keyboard_process.start()
         if script_name:
-            script_path = f"../scripts/{script_name}.pfs"
+            script_path = str(utils.pifinder_dir / "scripts" / f"{script_name}.pfs")
             p = Process(
                 name="Script",
                 target=keyboard_interface.KeyboardInterface.run_script,
@@ -448,6 +555,10 @@ def main(
                 integrator_logqueque,
                 verbose,
             ),
+            kwargs={
+                "command_queue": integrator_command_queue,
+                "camera_command_queue": camera_command_queue,
+            },
         )
         integrator_process.start()
 
@@ -462,9 +573,13 @@ def main(
         )
         posserver_process.start()
 
+        # Initialize Catalogs
         console.write("   Catalogs")
         logger.info("   Catalogs")
         console.update()
+
+        # Start profiling (uncomment to enable performance analysis)
+        # profiler, startup_profile_start = start_profiling()
 
         # Initialize Catalogs (pass ui_queue for background loading completion signal)
         catalogs: Catalogs = CatalogBuilder().build(shared_state, ui_queue)
@@ -489,19 +604,43 @@ def main(
         # Initialize power manager
         power_manager = PowerManager(cfg, shared_state, display_device)
 
-        # Startup complete — clear welcome backdrop
-        console.write("   Ready")
-        console.update()
-        console.finish_startup()
-
-        # Start deferred catalog loading now that UI is ready
+        # Start main event loop
+        console.write("   Event Loop")
         logger.info("   Event Loop")
-        catalogs.start_background_loading()
+        console.update()
+
+        # Stop profiling (uncomment to analyze startup performance)
+        # stop_profiling(profiler, startup_profile_start)
+
+        # Pygame can only read keyboard events from the process that owns the
+        # display window, and pynput/PyHotKey (keyboard_local) can't read the
+        # keyboard under Wayland. So when a pygame display is active we capture
+        # keys here in the main loop; the spawned keyboard process is the no-op
+        # keyboard_none. See docs/adr/0004-pygame-keyboard-in-main-loop.md.
+        pygame_events_enabled = display_hardware.startswith("pg_")
+        if pygame_events_enabled:
+            import pygame
+
+            logger.info("Pygame event polling enabled for keyboard input")
+            pygame_key_map, pygame_ctrl_key_map = _build_pygame_keymaps()
 
         log_time = True
         # Start of main except handler / loop
         try:
             while True:
+                # Poll pygame keyboard events
+                if pygame_events_enabled:
+                    for event in pygame.event.get():
+                        if event.type == pygame.KEYDOWN:
+                            ctrl_held = event.mod & pygame.KMOD_CTRL
+                            if ctrl_held and event.key in pygame_ctrl_key_map:
+                                keyboard_queue.put(pygame_ctrl_key_map[event.key])
+                            elif event.key in pygame_key_map:
+                                keyboard_queue.put(pygame_key_map[event.key])
+                        elif event.type == pygame.QUIT:
+                            logger.info("Pygame window closed, exiting...")
+                            raise KeyboardInterrupt
+
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
@@ -524,10 +663,13 @@ def main(
                                 location = shared_state.location()
 
                             # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
+                            # "replay" is protected too: a telemetry replay owns the
+                            # location until it ends and restores the original.
                             if (
                                 not location.source == "WEB"
                                 and not location.source.startswith("CONFIG:")
                                 and not location.source == "MANUAL"
+                                and not location.source == "replay"
                                 and (
                                     location.error_in_m == 0
                                     or float(gps_content["error_in_m"])
@@ -879,13 +1021,13 @@ if __name__ == "__main__":
         "-c",
         "--camera",
         help="Specify which camera to use: pi, asi, debug or none",
-        default="pi",
+        default=None,
         required=False,
     )
     parser.add_argument(
         "-g",
         "--gps",
-        help="Specify which camera to use: pi, fake",
+        help="Specify which GPS to use: pi, fake",
         default="pi",
         required=False,
     )
@@ -942,6 +1084,13 @@ if __name__ == "__main__":
         help="Force user interface language (iso2 code). Changes configuration",
         type=str,
     )
+    parser.add_argument(
+        "--profile-startup",
+        help="Profile startup performance (catalog/menu loading)",
+        default=False,
+        action="store_true",
+        required=False,
+    )
     args = parser.parse_args()
     # add the handlers to the logger
     if args.verbose:
@@ -966,7 +1115,8 @@ if __name__ == "__main__":
 
         # verify and sync GPSD baud rate
         try:
-            sys_utils = utils.get_sys_utils()
+            from PiFinder import sys_utils
+
             baud_rate = cfg.get_option(
                 "gps_baud_rate", 9600
             )  # Default to 9600 if not set
@@ -986,13 +1136,17 @@ if __name__ == "__main__":
     if args.display is not None:
         display_hardware = args.display.lower()
 
-    if args.camera.lower() == "pi":
+    camera_type = args.camera.lower() if args.camera is not None else None
+    if camera_type is None:
+        camera_type = "debug" if args.fakehardware else "pi"
+
+    if camera_type == "pi":
         rlogger.info("using pi camera")
         from PiFinder import camera_pi as camera
-    elif args.camera.lower() == "debug":
+    elif camera_type == "debug":
         rlogger.info("using debug camera")
         from PiFinder import camera_debug as camera  # type: ignore[no-redef]
-    elif args.camera.lower() == "asi":
+    elif camera_type == "asi":
         rlogger.info("using asi camera")
     else:
         rlogger.warn("not using camera")
@@ -1006,7 +1160,7 @@ if __name__ == "__main__":
         if display_hardware.startswith("pg_"):
             from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
-            rlogger.info("using pygame keyboard (display captures keys)")
+            rlogger.info("using pygame keyboard (main loop captures keys)")
         else:
             from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
 
@@ -1023,7 +1177,7 @@ if __name__ == "__main__":
             config.Config().set_option("language", args.lang)
 
     try:
-        main(log_helper, args.script, args.fps, args.verbose)
+        main(log_helper, args.script, args.fps, args.verbose, args.profile_startup)
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
         os._exit(1)

@@ -1,286 +1,340 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module is the solver
-* Checks IMU
-* Plate solves high-res image
+Integrator process.
 
-TODO:
-- Rename solved --> pointing_estimate (also includes IMU)
-- Rename next_image_solved --> new_solve
-- Rename last_image_solve --> prev_solve (previous successful solve)
-- Simplify program flow and explain in comments at top
-- Refactor into class PointingTracker
+Owns the long-lived :class:`PointingEstimate`. Applies per-attempt
+:class:`SolveResult` messages from ``solver_queue`` onto the long-lived
+estimate, advances the ``estimate`` cells via IMU dead-reckoning between
+solves, and publishes the result to ``shared_state``.
 
+Responsibility split:
+
+* The **solver** holds no long-lived state. It builds a
+  :class:`SolveResult` per attempt (a :class:`SuccessfulSolve` or
+  :class:`FailedSolve`) and pushes it to ``solver_queue``.
+
+* The **integrator** holds the anchor and is the sole owner of the
+  :class:`PointingEstimate`. ``pointing.<axis>.solve`` cells are the IMU
+  dead-reckoning reference, updated only on a :class:`SuccessfulSolve`.
+  On a :class:`FailedSolve` it preserves the previous ``solve`` cells so
+  dead-reckoning continues.
+
+A single :class:`ImuDeadReckoning` instance handles both axes: it
+captures the (camera, aligned) pair at each successful solve as a
+static ``q_cam2aligned`` rotation, and reapplies it to the camera
+prediction during dead-reckoning. The IDR remains a math primitive
+(``RaDecRoll`` in, ``RaDecRoll`` out); this module bridges between it
+and :class:`PointingEstimate`.
+
+Telemetry record/replay is handled by :class:`TelemetryManager`
+(``telemetry.py``). Replayed sessions are converted back into
+:class:`SolveResult` / :class:`ImuSample` messages and fed through the
+same ``_apply_*`` / ``_advance_with_imu`` paths as live data.
 """
-from __future__ import annotations  # To support | in typehints (remove this for Python 3.10+)
 
-import queue
-import time
+from __future__ import annotations
+
 import copy
 import logging
+import queue
+import time
+from typing import Optional
+
 import numpy as np
 import quaternion  # numpy-quaternion
 
+import PiFinder.calc_utils as calc_utils
 from PiFinder import config
 from PiFinder import state_utils
-import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
-from PiFinder.types.coordinates import RaDecRoll
-from PiFinder.solver import get_initialized_solved_dict
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 import PiFinder.pointing_model.quaternion_transforms as qt
-
+from PiFinder.telemetry import TelemetryManager
+from PiFinder.types.positioning import (
+    FailedSolve,
+    ImuSample,
+    Pointing,
+    PointingAxis,
+    PointingEstimate,
+    SolveResult,
+    SolveSource,
+    SuccessfulSolve,
+)
 
 logger = logging.getLogger("IMU.Integrator")
 
-# Constants:
-# Use IMU tracking if the angle moved is above this
-# TODO: May need to adjust this depending on the IMU sensitivity thresholds
+# Use IMU tracking if the angle moved is above this deadband.
 IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.06)
 
 
-def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
+def integrator(
+    shared_state,
+    solver_queue,
+    console_queue,
+    log_queue,
+    is_debug=False,
+    command_queue=None,
+    camera_command_queue=None,
+):
     MultiprocLogging.configurer(log_queue)
-    """ """
     if is_debug:
         logger.setLevel(logging.DEBUG)
     logger.debug("Starting Integrator")
 
+    telemetry = None
     try:
-        # Dict of RA, Dec, etc. initialized to None:
-        solved = get_initialized_solved_dict()
         cfg = config.Config()
+        screen_direction = cfg.get_option("screen_direction")
 
-        # Set up dead-reckoning tracking by the IMU:
-        imu_dead_reckoning = ImuDeadReckoning(cfg.get_option("screen_direction"))
-        # imu_dead_reckoning.set_cam2scope_alignment(q_scope2cam)  # TODO: Enable when q_scope2cam is available from alignment
+        # Single IMU dead-reckoner handling both axes. Seeded with the
+        # (camera, aligned) pair at each successful plate-solve.
+        idr = ImuDeadReckoning(screen_direction)
 
-        # This holds the last image solve position info
-        # so we can delta for IMU updates
-        last_image_solve = None
-        last_solve_time = time.time()
+        # Long-lived estimate. `solve` cells == anchor; `estimate` cells
+        # are what consumers read. Empty until the first successful solve.
+        estimate = PointingEstimate()
+        # Epoch of the last estimate we published; gate re-publishing on it.
+        last_published_time = time.time()
+
+        was_replaying = False
+        telemetry = TelemetryManager(
+            cfg, shared_state, console_queue, camera_command_queue
+        )
 
         while True:
-            pointing_updated = False  # Flag to track if pointing was updated in this loop
             state_utils.sleep_for_framerate(shared_state)
 
-            # Check for new camera solve in queue
-            next_image_solve = None
-            try:
-                next_image_solve = solver_queue.get(block=False)
-            except queue.Empty:
-                pass
+            telemetry.poll_commands(command_queue)
 
-            if type(next_image_solve) is dict:
-                # TODO: Refactor this bit:
-                # For camera solves, always start from last successful camera solve
-                # NOT from shared_state (which may contain IMU drift)
-                # This prevents IMU noise accumulation during failed solves
-                if last_image_solve:
-                    solved = copy.deepcopy(last_image_solve)
-                # If no successful solve yet, keep initial solved dict
+            pointing_updated = False
 
-                # TODO: Create a function to update solve?
-                # Update solve metadata (always needed for auto-exposure)
-                for key in [
-                    "Matches",
-                    "RMSE",
-                    "last_solve_attempt",
-                    "last_solve_success",
-                ]:
-                    if key in next_image_solve:
-                        solved[key] = next_image_solve[key]
+            # 1. Pull the next message — from the replay stream when
+            #    replaying, otherwise from the solver queue.
+            solve_result: Optional[SolveResult] = None
+            replay_imu: Optional[ImuSample] = None
 
-                # Only update position data if solve succeeded (RA not None)
-                if next_image_solve.get("RA") is not None:
-                    solved.update(next_image_solve)
+            if telemetry.replaying:
+                if not was_replaying:
+                    was_replaying = True
+                    # Recorded epochs are in the past; rewind the publish
+                    # gate so replayed estimates pass the newer-than check.
+                    last_published_time = 0.0
+                # The solver keeps running during replay; discard its output.
+                _drain_queue(solver_queue)
+                message = telemetry.next_replay_message()
+                if isinstance(message, (SuccessfulSolve, FailedSolve)):
+                    solve_result = message
+                elif isinstance(message, ImuSample):
+                    replay_imu = message
+            else:
+                if was_replaying:
+                    # Replay ended — reset to a clean unanchored state.
+                    was_replaying = False
+                    estimate = PointingEstimate()
+                    idr.reset()
+                    last_published_time = time.time()
+                    logger.info("Replay ended, integrator state reset")
+                try:
+                    solve_result = solver_queue.get(block=False)
+                except queue.Empty:
+                    pass
 
-                # For failed solves, preserve ALL position data from previous solve
-                # Don't recalculate from GPS (causes drift from GPS noise)
+            if isinstance(solve_result, SuccessfulSolve):
+                telemetry.record_solve(
+                    solve_result, predicted=estimate.pointing.aligned.estimate
+                )
+                estimate = _apply_successful_solve(estimate, solve_result, idr)
+                pointing_updated = True
+            elif isinstance(solve_result, FailedSolve):
+                telemetry.record_solve(
+                    solve_result, predicted=estimate.pointing.aligned.estimate
+                )
+                estimate = _apply_failed_solve(estimate, solve_result)
+                # Publish unconditionally so auto-exposure sees the failed
+                # attempt (Matches=0, fresh last_solve_attempt). The estimate
+                # cells are preserved, so once anchored this keeps solve_state
+                # True and the last pointing visible; the IMU advance below
+                # progresses it when motion exceeds the deadband.
+                shared_state.set_solution(copy.deepcopy(estimate))
 
-                if solved["RA"] is not None:
-                    # Successfully plate-solved:
-                    last_image_solve = copy.deepcopy(solved)
-                    solved["solve_source"] = "CAM"
-                    shared_state.set_solve_state(True)
-                    # We have a new image solve: Use plate-solving for RA/Dec
-                    update_plate_solve_and_imu(imu_dead_reckoning, solved)
+            # 2. Pull the current IMU sample — from the replay stream when
+            #    replaying — and record it. Recording happens before the
+            #    anchor gate so sessions capture IMU data from the start,
+            #    not only once the first solve has anchored dead-reckoning.
+            #    (record_imu dedupes on sample timestamp and is a no-op
+            #    while replaying or when recording is off.)
+            imu = replay_imu if telemetry.replaying else shared_state.imu()
+            if imu:
+                telemetry.record_imu(imu)
+
+            # If we have an anchor and didn't just do a fresh plate-solve,
+            # try to advance the estimate via IMU dead-reckoning.
+            if (
+                imu
+                and not pointing_updated
+                and idr.is_initialized()
+                and estimate.imu_anchor is not None
+            ):
+                if _advance_with_imu(estimate, idr, imu):
                     pointing_updated = True
-                else:
-                    # Failed solve - clear constellation
-                    solved["solve_source"] = "CAM_FAILED"
-                    solved["constellation"] = ""  # NOTE: This gets over-written by IMU dead-reckoning
-                    # Push failed solved immediately
-                    # This ensures auto-exposure sees Matches=0 for failed solves
-                    shared_state.set_solution(solved)
-                    shared_state.set_solve_state(False)
 
-            if imu_dead_reckoning.tracking and not pointing_updated:
-                # Previous plate-solve exists so use IMU dead-reckoning from
-                # the last plate solved coordinates.
-                imu = shared_state.imu()
-                if imu:
-                    update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
-                    pointing_updated = True
+            # 3. Publish if we updated something newer than what we last sent.
+            if (
+                pointing_updated
+                and estimate.estimate_time is not None
+                and estimate.estimate_time > last_published_time
+                and estimate.pointing.aligned.estimate is not None
+            ):
+                aligned = estimate.pointing.aligned.estimate
+                estimate.constellation = _get_constellation(aligned.RA, aligned.Dec)
+                estimate.Alt, estimate.Az = _get_alt_az(
+                    aligned.RA,
+                    aligned.Dec,
+                    shared_state.location(),
+                    shared_state.datetime(),
+                )
 
-            # Update Alt, Az only if newer than last push
-            if pointing_updated and solved["solve_time"] > last_solve_time:
-                solved["constellation"] = get_constellation(solved["RA"], solved["Dec"])
+                shared_state.set_solution(copy.deepcopy(estimate))
+                last_published_time = estimate.estimate_time
 
-                # TODO: Altaz doesn't seem to be required for catalogs when in 
-                # EQ mode? Could be disabled in future when in EQ mode?
-                solved["Alt"], solved["Az"] = get_alt_az(solved["RA"], solved["Dec"], 
-                                                        shared_state.location(), 
-                                                        shared_state.datetime())
-
-                if (solved["RA"] is not None) and (solved["Dec"] is not None):
-                    # Push new solved to shared state
-                    shared_state.set_solution(solved)
-                    shared_state.set_solve_state(True)
-                    last_solve_time = solved["solve_time"]
+            telemetry.flush()
 
     except EOFError:
         logger.error("Main no longer running for integrator")
+    finally:
+        if telemetry is not None:
+            telemetry.stop()
 
 
-# ======== Wrapper and helper functions ===============================
+def _apply_successful_solve(
+    estimate: PointingEstimate,
+    result: SuccessfulSolve,
+    idr: ImuDeadReckoning,
+) -> PointingEstimate:
+    """Apply a :class:`SuccessfulSolve` onto the long-lived estimate.
 
-def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
+    Fans the flat ``camera``/``aligned`` solve-truth into both the
+    ``solve`` and ``estimate`` cells of each axis, refreshes the IMU
+    anchor, and reseeds the dead-reckoner with the (camera, aligned)
+    pair + anchor quaternion. The solved frame's epoch
+    (``last_solve_success`` == the frame's ``exposure_end``) becomes
+    the aggregate's ``estimate_time``.
     """
-    Wrapper for ImuDeadReckoning.update_plate_solve_and_imu() to
-    interface angles in degrees to radians.
-
-    This updates the pointing model with the plate-solved coordinates and the
-    IMU measurements which are assumed to have been taken at the same time.
-    """
-    if (solved["RA"] is None) or (solved["Dec"] is None):
-        return  # No update
-    else:
-        # Successfully plate solved & camera pointing exists
-        if solved["imu_quat"] is None:
-            q_x2imu = quaternion.quaternion(np.nan)
-        else:
-            q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
-
-        # Update:
-        solved_cam = RaDecRoll(
-            solved["camera_center"]["RA"],
-            solved["camera_center"]["Dec"],
-            solved["camera_center"]["Roll"],
-            deg=True
-        )
-        imu_dead_reckoning.update_plate_solve_and_imu(solved_cam, q_x2imu)
-
-        # Set alignment. TODO: Do this once at alignment. Move out of here.
-        set_cam2scope_alignment(imu_dead_reckoning, solved)
-
-
-def update_imu(
-    imu_dead_reckoning: ImuDeadReckoning,
-    solved: dict,
-    last_image_solve: dict,
-    imu: dict,
-):
-    """
-    Updates the solved dictionary using IMU dead-reckoning from the last
-    solved pointing.
-    """
-    if not (last_image_solve and imu_dead_reckoning.tracking):
-        return  # Need all of these to do IMU dead-reckoning
-
-    assert isinstance(imu["quat"], quaternion.quaternion), (
-        "Expecting quaternion.quaternion type"
-    )  # TODO: Can be removed later
-    q_x2imu = imu["quat"]  # Current IMU measurement (quaternion)
-    imu_time = time.time()
-
-    # When moving, switch to tracking using the IMU
-    angle_moved = qt.get_quat_angular_diff(last_image_solve["imu_quat"], q_x2imu)
-    if angle_moved > IMU_MOVED_ANG_THRESHOLD:
-        # Estimate camera pointing using IMU dead-reckoning
-        logger.debug(
-            "Track using IMU: Angle moved since last_image_solve = "
-            "{:}(> threshold = {:}) | IMU quat = ({:}, {:}, {:}, {:})".format(
-                np.rad2deg(angle_moved),
-                np.rad2deg(IMU_MOVED_ANG_THRESHOLD),
-                q_x2imu.w,
-                q_x2imu.x,
-                q_x2imu.y,
-                q_x2imu.z,
-            )
-        )
-
-        # Dead-reckoning using IMU
-        imu_dead_reckoning.update_imu(q_x2imu)  # Latest IMU measurement
-
-        # Store current camera pointing estimate:
-        cam_eq = imu_dead_reckoning.get_cam_radec()
-        (
-            solved["camera_center"]["RA"],
-            solved["camera_center"]["Dec"],
-            solved["camera_center"]["Roll"],
-        ) = cam_eq.get(deg=True)
-
-        # Store the current scope pointing estimate
-        scope_eq = imu_dead_reckoning.get_scope_radec()
-        solved["RA"], solved["Dec"], solved["Roll"] = scope_eq.get(deg=True)
-        solved["solve_time"] = imu_time
-        solved["solve_source"] = "IMU"
-
-        # Logging for states updated in solved:
-        logger.debug(
-            "IMU update: scope: RA: {:}, Dec: {:}, Roll: {:}".format(
-                solved["RA"], solved["Dec"], solved["Roll"]
-            )
-        )
-        logger.debug(
-            "IMU update: camera_center: RA: {:}, Dec: {:}, Roll: {:}".format(
-                solved["camera_center"]["RA"],
-                solved["camera_center"]["Dec"],
-                solved["camera_center"]["Roll"],
-            )
-        )
-
-
-def get_constellation(RA_deg, Dec_deg) -> str:
-    """
-    Get constellation name from the current RA/Dec position.
-    """
-    if RA_deg is None or Dec_deg is None:
-        return ""
-    else:
-        return calc_utils.sf_utils.radec_to_constellation(RA_deg, Dec_deg)
-
-
-def get_alt_az(RA_deg, Dec_deg, location, dt) -> tuple[float | None, float | None]:
-    """
-    Get Alt/Az from RA/Dec, location and datetime.
-    RETURNS: alt_deg, az_deg
-    """
-    if RA_deg is None or Dec_deg is None or location is None or dt is None:
-        return None, None
-    else:
-        calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
-        return calc_utils.sf_utils.radec_to_altaz(RA_deg, Dec_deg, dt)
-
-
-def set_cam2scope_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
-    """
-    Set alignment.
-    TODO: Do this once at alignment
-    """
-    # RA, Dec of camera center::
-    solved_cam = RaDecRoll(
-        solved["camera_center"]["RA"],
-        solved["camera_center"]["Dec"],
-        solved["camera_center"]["Roll"],
-        deg=True
+    estimate.pointing.camera = PointingAxis(
+        solve=result.camera,
+        estimate=result.camera,
+    )
+    estimate.pointing.aligned = PointingAxis(
+        solve=result.aligned,
+        estimate=result.aligned,
     )
 
-    # RA, Dec of target (where scope is pointing):
-    solved["Roll"] = 0  # Target roll isn't calculated by Tetra3. Set to zero here
-    solved_scope = RaDecRoll(solved["RA"], solved["Dec"], solved["Roll"], deg=True)
+    estimate.imu_anchor = result.imu_anchor
+    estimate.solve_source = SolveSource.CAMERA
+    estimate.estimate_time = result.last_solve_success
+    estimate.last_solve_attempt = result.last_solve_attempt
+    estimate.last_solve_success = result.last_solve_success
+    estimate.diagnostics = result.diagnostics
+    estimate.alignment = result.alignment
+    estimate.matched_centroids = result.matched_centroids
+    estimate.matched_stars = result.matched_stars
 
-    # Set alignment in imu_dead_reckoning
-    imu_dead_reckoning.set_cam2scope_alignment(solved_cam, solved_scope)
+    # Reseed the dead-reckoner from the new anchor. camera/aligned are
+    # always present on a SuccessfulSolve, so no None-guard is needed.
+    q_anchor = result.imu_anchor
+    if q_anchor is None:
+        q_anchor = quaternion.quaternion(np.nan)
+    idr.solve(
+        result.camera.as_radecroll(),
+        result.aligned.as_radecroll(),
+        q_anchor,
+    )
+
+    return estimate
+
+
+def _apply_failed_solve(
+    estimate: PointingEstimate,
+    result: FailedSolve,
+) -> PointingEstimate:
+    """Apply a :class:`FailedSolve` onto the long-lived estimate.
+
+    Preserves the ``solve`` cells and ``imu_anchor`` (the anchor must
+    survive so dead-reckoning continues) and refreshes diagnostics/timing
+    with ``solve_source=CAMERA_FAILED``.
+
+    The ``estimate`` cells are **preserved**, not cleared: once anchored,
+    the last (IMU-progressed) pointing remains the best available answer
+    and the IMU advance progresses it on subsequent loops. Clearing them
+    here would drop ``solve_state`` to False ("no solve") whenever a solve
+    failed while the IMU sat in its deadband — even though dead-reckoning
+    still knows where we point. ``estimate_time`` is likewise left intact;
+    a fresh epoch only attaches when the IMU actually advances the cells.
+    """
+    estimate.diagnostics = result.diagnostics
+    estimate.last_solve_attempt = result.last_solve_attempt
+    estimate.last_solve_success = result.last_solve_success
+    estimate.solve_source = SolveSource.CAMERA_FAILED
+    return estimate
+
+
+def _advance_with_imu(
+    estimate: PointingEstimate,
+    idr: ImuDeadReckoning,
+    imu: ImuSample,
+) -> bool:
+    """Advance ``estimate``'s ``estimate`` cells via IMU dead-reckoning.
+
+    Returns ``True`` if cells were advanced, ``False`` if IMU motion
+    was below the deadband.
+    """
+    q_x2imu = imu.quat
+    assert isinstance(
+        q_x2imu, quaternion.quaternion
+    ), "Expecting quaternion.quaternion type"
+
+    angle_moved = qt.get_quat_angular_diff(estimate.imu_anchor, q_x2imu)
+    if angle_moved <= IMU_MOVED_ANG_THRESHOLD:
+        return False
+
+    logger.debug(
+        "Track using IMU: angle moved since anchor = %.4f deg (> threshold %.4f deg)",
+        np.rad2deg(angle_moved),
+        np.rad2deg(IMU_MOVED_ANG_THRESHOLD),
+    )
+
+    predicted = idr.predict(q_x2imu)
+    if predicted is None:
+        return False
+    camera_radecroll, aligned_radecroll = predicted
+
+    # predict() returned non-None RaDecRoll, so these are valid pointings.
+    estimate.pointing.aligned.estimate = Pointing.from_radecroll(aligned_radecroll)
+    estimate.pointing.camera.estimate = Pointing.from_radecroll(camera_radecroll)
+
+    estimate.estimate_time = imu.timestamp
+    estimate.solve_source = SolveSource.IMU
+    return True
+
+
+def _get_constellation(ra_deg, dec_deg) -> str:
+    if ra_deg is None or dec_deg is None:
+        return ""
+    return calc_utils.sf_utils.radec_to_constellation(ra_deg, dec_deg)
+
+
+def _get_alt_az(ra_deg, dec_deg, location, dt) -> tuple[float | None, float | None]:
+    if ra_deg is None or dec_deg is None or location is None or dt is None:
+        return None, None
+    calc_utils.sf_utils.set_location(location.lat, location.lon, location.altitude)
+    return calc_utils.sf_utils.radec_to_altaz(ra_deg, dec_deg, dt)
+
+
+def _drain_queue(q):
+    """Discard all pending items from a queue."""
+    try:
+        while True:
+            q.get(block=False)
+    except queue.Empty:
+        pass
