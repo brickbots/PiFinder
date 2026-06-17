@@ -76,20 +76,20 @@ class TestStripMarkdown:
 @pytest.mark.unit
 class TestMeetsMinVersion:
     def test_exact_min_version(self):
-        assert _meets_min_version("2.5.0") is True
+        assert _meets_min_version("3.0.0") is True
 
     def test_above_min_version(self):
-        assert _meets_min_version("2.6.0") is True
+        assert _meets_min_version("3.1.0") is True
 
     def test_below_min_version(self):
         assert _meets_min_version("2.4.0") is False
 
     def test_prerelease_at_min(self):
-        # 2.5.0-beta.1 < 2.5.0, so below minimum
-        assert _meets_min_version("2.5.0-beta.1") is False
+        # 3.0.0-beta.1 < 3.0.0, so below minimum
+        assert _meets_min_version("3.0.0-beta.1") is False
 
     def test_prerelease_above_min(self):
-        assert _meets_min_version("2.6.0-beta.1") is True
+        assert _meets_min_version("3.1.0-beta.1") is True
 
     def test_garbage_returns_false(self):
         assert _meets_min_version("garbage") is False
@@ -169,19 +169,19 @@ class TestFetchBuildJson:
 
 MOCK_RELEASES = [
     {
-        "tag_name": "v2.6.0",
+        "tag_name": "v3.1.0",
         "prerelease": False,
         "draft": False,
-        "body": "## v2.6.0\n- Feature A",
+        "body": "## v3.1.0\n- Feature A",
     },
     {
-        "tag_name": "v2.5.1",
+        "tag_name": "v3.0.1",
         "prerelease": False,
         "draft": False,
         "body": "Bugfix release",
     },
     {
-        "tag_name": "v2.6.0-beta.1",
+        "tag_name": "v3.1.0-beta.1",
         "prerelease": True,
         "draft": False,
         "body": "Beta changelog",
@@ -207,17 +207,17 @@ MOCK_RELEASES = [
 ]
 
 BUILD_JSONS = {
-    "v2.6.0": {
+    "v3.1.0": {
         "store_path": "/nix/store/aaa-nixos-system-pifinder",
-        "version": "2.6.0",
+        "version": "3.1.0",
     },
-    "v2.5.1": {
+    "v3.0.1": {
         "store_path": "/nix/store/bbb-nixos-system-pifinder",
-        "version": "2.5.1",
+        "version": "3.0.1",
     },
-    "v2.6.0-beta.1": {
+    "v3.1.0-beta.1": {
         "store_path": "/nix/store/ccc-nixos-system-pifinder",
-        "version": "2.6.0-beta.1",
+        "version": "3.1.0-beta.1",
     },
 }
 
@@ -247,9 +247,9 @@ class TestFetchGitHubReleases:
         stable_versions = [e["version"] for e in stable]
         beta_versions = [e["version"] for e in beta]
 
-        assert "2.6.0" in stable_versions
-        assert "2.5.1" in stable_versions
-        assert "2.6.0-beta.1" in beta_versions
+        assert "3.1.0" in stable_versions
+        assert "3.0.1" in stable_versions
+        assert "3.1.0-beta.1" in beta_versions
 
     @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
@@ -286,7 +286,7 @@ class TestFetchGitHubReleases:
         mock_resp.status_code = 200
         mock_resp.json.return_value = [MOCK_RELEASES[0]]
         mock_get.return_value = mock_resp
-        mock_build.return_value = BUILD_JSONS["v2.6.0"]
+        mock_build.return_value = BUILD_JSONS["v3.1.0"]
 
         stable, _ = _fetch_github_releases()
 
@@ -299,11 +299,11 @@ class TestFetchGitHubReleases:
         mock_resp.status_code = 200
         mock_resp.json.return_value = [MOCK_RELEASES[0]]
         mock_get.return_value = mock_resp
-        mock_build.return_value = BUILD_JSONS["v2.6.0"]
+        mock_build.return_value = BUILD_JSONS["v3.1.0"]
 
         stable, _ = _fetch_github_releases()
 
-        assert stable[0]["notes"] == "## v2.6.0\n- Feature A"
+        assert stable[0]["notes"] == "## v3.1.0\n- Feature A"
 
     @patch("PiFinder.ui.software.requests.get")
     def test_api_failure_returns_empty(self, mock_get):
