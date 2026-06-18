@@ -147,6 +147,14 @@ class DisplayPygame_128(DisplayBase):
 
     def __init__(self):
         from luma.emulator.device import pygame
+        import pygame as pg
+        from pathlib import Path
+
+        # Set window icon to welcome splash screen before creating display
+        icon_path = Path(__file__).parent.parent.parent / "images" / "welcome.png"
+        if icon_path.exists():
+            icon = pg.image.load(str(icon_path))
+            pg.display.set_icon(icon)
 
         self._keyboard_queue = None
         pygame = pygame(
@@ -193,6 +201,14 @@ class DisplayPygame_320(Layout320, DisplayBase):
 
     def __init__(self):
         from luma.emulator.device import pygame
+        import pygame as pg
+        from pathlib import Path
+
+        # Set window icon to welcome splash screen before creating display
+        icon_path = Path(__file__).parent.parent.parent / "images" / "welcome.png"
+        if icon_path.exists():
+            icon = pg.image.load(str(icon_path))
+            pg.display.set_icon(icon)
 
         self._keyboard_queue = None
         pygame = pygame(
