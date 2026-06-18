@@ -55,7 +55,7 @@ _Avoid_: sweep (unqualified — see flagged ambiguities).
 The number of consecutive zero-match solve attempts required before recovery activates.
 
 **Retired recovery strategies**:
-Zero-match recovery was briefly a plugin point with four selectable strategies (Sweep, Exponential, Reset, Histogram) behind the Experimental "AE Algo" menu. [ADR 0010](../../adr/0010-zero-match-recovery-single-ladder.md) keeps the Sweep ladder as the only behavior and retires the rest, the plugin seam, and the menu. Until the consolidation lands in code, the retired classes still exist — don't build on them.
+Zero-match recovery was briefly a plugin point with four selectable strategies (Sweep, Exponential, Reset, Histogram) behind the Experimental "AE Algo" menu. [ADR 0010](../../adr/0010-zero-match-recovery-single-ladder.md) kept the Sweep ladder as the only behavior and removed the rest, the plugin seam, the menu, and the `auto_exposure_zero_star_handler` config key. Recovery is now the single concrete `ZeroMatchRecovery` class.
 _Avoid_: AE algo, zero-star handler, handler, plugin.
 
 ### Cross-context terms
@@ -67,9 +67,9 @@ _Avoid_: AE algo, zero-star handler, handler, plugin.
 
 - **"Mode"** is overloaded in code: `_auto_exposure_mode` is the pid/snr controller split, while "auto-exposure mode enabled" in logs means the solver-driven regime is on, and the menu's "Auto" is a regime choice. In discussion, use **regime** for the three-way state and **controller** for the pid/snr split; avoid bare "mode".
 - **"SNR"** appears throughout code and the SQM docs for the background controller (`set_ae_mode:snr`, `ExposureSNRController`, "SNR target"). No signal-to-noise ratio is computed — the mechanism is "background above noise floor". Say **background controller**; treat "SNR" as a wire-protocol/code artifact.
-- **"Sweep"** is overloaded: the sweeping recovery strategies, and the 100-frame diagnostic **exposure sweep capture** (saved to `captures/sweep_*` for offline analysis) are unrelated mechanisms. Qualify: "recovery ladder" vs "exposure sweep capture".
-- **"AE Algo"** (the Experimental menu label, slated for removal by ADR 0010) selects only the zero-match recovery strategy, not the auto-exposure algorithm. The label overstates its scope.
-- **"Zero-star"** survives in class names, the config key, and log strings. In discussion, always "zero-match" — the distinction is load-bearing (zero matches with a sky full of stars is a different failure than an empty frame, and only one of them is recovery's job).
+- **"Sweep"** still names the 100-frame diagnostic **exposure sweep capture** (saved to `captures/sweep_*` for offline analysis, via `generate_exposure_sweep`). Now that the sweeping recovery strategies are gone (ADR 0010), this is recovery-independent — qualify as "exposure sweep capture", and use "recovery ladder" for the recovery exposures.
+- **"AE Algo"** was the Experimental menu label for selecting the zero-match recovery strategy; ADR 0010 removed it (recovery is now a single fixed behavior). It may still appear in stale translation catalogs.
+- **"Zero-star"** is retired from the code — recovery uses "zero-match" throughout (`ZeroMatchRecovery`, `_zero_match_count`, `_handle_zero_match`). The name lingers only in the historical ADR 0010 title and old user configs. Always "zero-match" in discussion — the distinction is load-bearing (zero matches with a sky full of stars is a different failure than an empty frame, and only one of them is recovery's job).
 
 ## Example dialogue
 
