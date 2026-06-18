@@ -130,6 +130,7 @@ def _fetch_github_releases() -> tuple[list[dict], list[dict]]:
 
     except requests.exceptions.RequestException as e:
         logger.warning("Could not fetch GitHub releases: %s", e)
+        raise
 
     return stable, beta
 
@@ -283,7 +284,12 @@ class UISoftware(UIModule):
     # ------------------------------------------------------------------
 
     def _fetch_channels(self):
-        stable, beta = _fetch_github_releases()
+        try:
+            stable, beta = _fetch_github_releases()
+        except requests.exceptions.RequestException as e:
+            logger.warning("Software update check failed (offline?): %s", e)
+            self._phase = "offline"
+            return
 
         self._channels = {
             "stable": stable,
@@ -424,6 +430,29 @@ class UISoftware(UIModule):
         self.draw.text(
             (10, 105),
             _("client mode"),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
+
+    def _draw_offline(self):
+        y = self.display_class.titlebar_height + 2
+        ver_scroller = self._get_scroller(
+            "offline_ver",
+            self._software_version,
+            self.fonts.bold,
+            self.colors.get(255),
+            self.fonts.bold.line_length,
+        )
+        ver_scroller.draw((0, y))
+        self.draw.text(
+            (10, 90),
+            _("No internet -"),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
+        self.draw.text(
+            (10, 105),
+            _("check WiFi"),
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
@@ -660,10 +689,14 @@ class UISoftware(UIModule):
         if self._phase == "loading":
             if self._elipsis_count > 30:
                 self._fetch_channels()
-                # phase is now "browse", fall through
+                # phase is now "browse" or "offline", fall through
             else:
                 self._draw_loading()
                 return self.screen_update()
+
+        if self._phase == "offline":
+            self._draw_offline()
+            return self.screen_update()
 
         if self._phase == "browse":
             self._draw_browse()

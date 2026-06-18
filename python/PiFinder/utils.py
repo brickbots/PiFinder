@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Optional
 import importlib
 
+logger = logging.getLogger("Utils")
+
 
 home_dir = Path.home()
 # Repo root, anchored on this file (python/PiFinder/utils.py) so paths
@@ -224,6 +226,11 @@ def get_sys_utils():
     try:
         return importlib.import_module("PiFinder.sys_utils")
     except Exception:
+        logger.warning(
+            "PiFinder.sys_utils failed to import; falling back to the no-op "
+            "fake. WiFi/AP/hostname/reboot controls will not work.",
+            exc_info=True,
+        )
         return importlib.import_module("PiFinder.sys_utils_fake")
 
 

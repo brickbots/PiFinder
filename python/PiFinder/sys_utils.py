@@ -271,12 +271,28 @@ class Network(NetworkBase):
         (data_dir / "hostname").write_text(hostname)
 
     def _go_ap(self) -> None:
-        """Activate the AP connection."""
+        """Activate the AP connection and remember the choice across reboots."""
+        self._persist_wifi_mode("AP")
         self._activate_connection(AP_CONNECTION_NAME)
 
     def _go_client(self) -> None:
         """Deactivate the AP connection (fall back to client)."""
+        self._persist_wifi_mode("Client")
         self._deactivate_connection(AP_CONNECTION_NAME)
+
+    @staticmethod
+    def _persist_wifi_mode(mode: str) -> None:
+        """Persist the desired WiFi mode for the boot-time fallback service.
+
+        The PiFinder-AP NetworkManager profile has a low autoconnect priority,
+        so a forced AP would otherwise be lost on reboot; the fallback service
+        reads this file to restore it.
+        """
+        data_dir = Path(os.environ.get("PIFINDER_DATA", "/home/pifinder/PiFinder_data"))
+        try:
+            (data_dir / "wifi_mode").write_text(mode)
+        except OSError as e:
+            logger.warning("Could not persist WiFi mode %r: %s", mode, e)
 
     def _activate_connection(self, name: str) -> None:
         """Activate a saved connection by name."""
