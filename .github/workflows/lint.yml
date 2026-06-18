@@ -10,7 +10,21 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
         with:
           determinate: false
-      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Setup Attic substituter (cache.pifinder.eu)
+        # Self-hosted FastCDC-chunked binary cache (ADR 0004), same as build.yml.
+        # Replaces the retired DeterminateSystems magic-nix-cache (HTTP 418 /
+        # GitHub Actions cache rate limits). Falls back to cache.nixos.org when
+        # the token is unavailable (e.g. fork PRs) so the job never hard-fails.
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          if [ -z "$ATTIC_TOKEN" ]; then
+            echo "ATTIC_TOKEN unavailable — using cache.nixos.org only"
+            exit 0
+          fi
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
       - name: Lint
         run: nix develop --command bash -c "cd python && ruff check"
       - name: Format check
@@ -38,7 +52,21 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
         with:
           determinate: false
-      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Setup Attic substituter (cache.pifinder.eu)
+        # Self-hosted FastCDC-chunked binary cache (ADR 0004), same as build.yml.
+        # Replaces the retired DeterminateSystems magic-nix-cache (HTTP 418 /
+        # GitHub Actions cache rate limits). Falls back to cache.nixos.org when
+        # the token is unavailable (e.g. fork PRs) so the job never hard-fails.
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          if [ -z "$ATTIC_TOKEN" ]; then
+            echo "ATTIC_TOKEN unavailable — using cache.nixos.org only"
+            exit 0
+          fi
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
       - name: Type check
         run: nix develop --command bash -c "cd python && mypy --install-types --non-interactive ."
 
@@ -49,7 +77,21 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
         with:
           determinate: false
-      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Setup Attic substituter (cache.pifinder.eu)
+        # Self-hosted FastCDC-chunked binary cache (ADR 0004), same as build.yml.
+        # Replaces the retired DeterminateSystems magic-nix-cache (HTTP 418 /
+        # GitHub Actions cache rate limits). Falls back to cache.nixos.org when
+        # the token is unavailable (e.g. fork PRs) so the job never hard-fails.
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          if [ -z "$ATTIC_TOKEN" ]; then
+            echo "ATTIC_TOKEN unavailable — using cache.nixos.org only"
+            exit 0
+          fi
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
       - name: Smoke tests
         run: nix develop --command bash -c "cd python && pytest -m smoke"
       - name: Unit tests
