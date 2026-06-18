@@ -28,6 +28,7 @@ Objects submenu (entered from root menu Objects → R) items (0-indexed):
   2: Recent        (UIObjectList)
   3: Custom        (UIRADecEntry)
   4: Name Search   (UITextEntry)  ← already tested in test_web_remote.py
+  5: Set Filters   (submenu)      ← navigation tested in test_web_remote_filter.py
 
 By Catalog submenu (0-indexed):
   0: Planets   (UIObjectList, catalog "PL")
@@ -43,6 +44,7 @@ Key sequences from navigate_to_root_menu() (lands on Objects in root menu):
   DD    → Recent     (index 2)
   DDD   → Custom     (index 3)
   DDDD  → Name Search (index 4) ← confirmed by test_remote_entry in test_web_remote.py
+  DDDDD → Set Filters (index 5) ← see test_web_remote_filter.py
 """
 
 # ---------------------------------------------------------------------------
@@ -286,6 +288,32 @@ def test_objects_custom_radec_entry_screen(driver):
         "RDDDR",
         {
             "ui_type": "UIRADecEntry",
+        },
+    )
+
+    press_keys(driver, "ZL")  # back to root
+
+
+# ---------------------------------------------------------------------------
+# Objects > Set Filters (relocated from the old top-level Filter menu in 2.6.0)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.web
+def test_objects_set_filters_is_last_item(driver):
+    """Set Filters is the last Objects item (index 5) and opens the filter menu."""
+    login_to_remote(driver)
+    navigate_to_root_menu(driver)
+
+    # R = Objects submenu at All Filtered (0)
+    # DDDDD = Set Filters (index 5); R = enter the Set Filters submenu at Reset All
+    press_keys_and_validate(
+        driver,
+        "RDDDDDR",
+        {
+            "ui_type": "UITextMenu",
+            "title": "Set Filters",
+            "current_item": "Reset All",
         },
     )
 
