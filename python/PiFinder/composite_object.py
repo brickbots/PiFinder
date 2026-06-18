@@ -265,9 +265,9 @@ class CompositeObject:
     logged: bool = field(default=False)
     last_filtered_time: float = 0
     last_filtered_result: bool = True
-    # session-only: observing-list name -> that list's note for this object.
-    # Not persisted; populated when an observing list is loaded.
-    list_notes: dict = field(default_factory=dict)
+    # session-only: observing-list name -> that list's description for this
+    # object. Not persisted; populated when an observing list is loaded.
+    list_descriptions: dict = field(default_factory=dict)
 
     def __eq__(self, other):
         if not isinstance(other, CompositeObject):
@@ -284,26 +284,26 @@ class CompositeObject:
     def composed_sections(self, extra_descriptions=None, dedup=True) -> list:
         """
         Merge this object's description sources into ordered ``(label, text)``
-        sections. Observing-list notes collected this session come first (your
-        own annotation for the list you're viewing is the most relevant text);
+        sections. Observing list descriptions collected this session come first
+        (the list's own text for the object you're viewing is the most relevant);
         then the home catalog's description -- unlabeled when it leads (you
         already know what you're looking at), but labeled with this object's
-        designator once a list note precedes it, so it isn't read as part of the
-        note above; then any ``extra_descriptions`` (the same object's other
-        catalog listings).
+        designator once an observing list description precedes it, so it isn't
+        read as part of it; then any ``extra_descriptions`` (the same object's
+        other catalog listings).
 
         With ``dedup``, a source whose text is identical to one already shown is
         skipped -- common because a Messier listing often copies its NGC text.
         """
         sections: list = []
         seen: set = set()
-        have_note = False
-        for source, note in self.list_notes.items():
-            if note:
-                sections.append((source, note))
-                have_note = True
+        have_list_description = False
+        for source, desc in self.list_descriptions.items():
+            if desc:
+                sections.append((source, desc))
+                have_list_description = True
         if self.description:
-            home_label = self.display_name if have_note else None
+            home_label = self.display_name if have_list_description else None
             sections.append((home_label, self.description))
             seen.add(self.description.strip())
         for source, desc in (extra_descriptions or {}).items():

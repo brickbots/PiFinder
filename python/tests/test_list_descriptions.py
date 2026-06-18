@@ -1,8 +1,9 @@
 """
 Tests for multi-source object descriptions: a CompositeObject's own catalog
-description plus per-observing-list notes, aggregated into one rendered string.
+description plus per-observing-list descriptions, aggregated into one rendered
+string.
 
-This is the obslist "testing ground" for showing every list's comment on an
+This is the obslist "testing ground" for showing every list's description of an
 object that appears in several lists.
 
 Section headers are built with `_section_header` rather than hardcoded dashes,
@@ -15,12 +16,12 @@ from PiFinder.composite_object import CompositeObject, _section_header
 
 
 @pytest.mark.unit
-def test_labeled_notes_first_then_home_description():
+def test_labeled_descriptions_first_then_home_description():
     obj = CompositeObject(
         object_id=1, catalog_code="NGC", sequence=224, description="Andromeda Galaxy"
     )
-    obj.list_notes["Autumn Targets"] = "naked eye from the cabin"
-    obj.list_notes["Messier Best"] = "start here"
+    obj.list_descriptions["Autumn Targets"] = "naked eye from the cabin"
+    obj.list_descriptions["Messier Best"] = "start here"
     assert obj.composed_description() == (
         f"{_section_header('Autumn Targets')}\n"
         "naked eye from the cabin\n"
@@ -32,10 +33,10 @@ def test_labeled_notes_first_then_home_description():
 
 
 @pytest.mark.unit
-def test_notes_render_in_insertion_order():
+def test_descriptions_render_in_insertion_order():
     obj = CompositeObject(object_id=1, description="home")
     for name in ("B", "A", "C"):
-        obj.list_notes[name] = name.lower()
+        obj.list_descriptions[name] = name.lower()
     out = obj.composed_description()
     assert (
         out.index(_section_header("B"))
@@ -45,14 +46,14 @@ def test_notes_render_in_insertion_order():
 
 
 @pytest.mark.unit
-def test_empty_home_description_shows_only_notes():
+def test_empty_home_description_shows_only_list_descriptions():
     obj = CompositeObject(object_id=1, description="")
-    obj.list_notes["L"] = "note"
-    assert obj.composed_description() == f"{_section_header('L')}\nnote"
+    obj.list_descriptions["L"] = "from the list"
+    assert obj.composed_description() == f"{_section_header('L')}\nfrom the list"
 
 
 @pytest.mark.unit
-def test_no_notes_is_just_the_description():
+def test_no_list_descriptions_is_just_the_description():
     obj = CompositeObject(object_id=1, description="solo")
     assert obj.composed_description() == "solo"
 
@@ -62,15 +63,15 @@ def test_composed_sections_structure():
     obj = CompositeObject(
         object_id=1, catalog_code="NGC", sequence=224, description="home"
     )
-    obj.list_notes["My List"] = "note"
+    obj.list_descriptions["My List"] = "from the list"
     secs = obj.composed_sections(extra_descriptions={"M 1": "other"})
-    assert secs == [("My List", "note"), ("NGC 224", "home"), ("M 1", "other")]
+    assert secs == [("My List", "from the list"), ("NGC 224", "home"), ("M 1", "other")]
 
 
 @pytest.mark.unit
-def test_home_unlabeled_when_no_note_precedes():
+def test_home_unlabeled_when_no_list_description_precedes():
     # Home leads unlabeled even with other catalogs after it; only a preceding
-    # list note promotes it to its own designator-labeled section.
+    # observing list description promotes it to its own designator-labeled section.
     obj = CompositeObject(
         object_id=1, catalog_code="NGC", sequence=224, description="home"
     )
@@ -79,23 +80,23 @@ def test_home_unlabeled_when_no_note_precedes():
 
 
 @pytest.mark.unit
-def test_reloading_a_list_overwrites_its_own_note():
+def test_reloading_a_list_overwrites_its_own_description():
     # A list name is the key, so re-loading it replaces (never duplicates) it.
     obj = CompositeObject(object_id=1, description="home")
-    obj.list_notes["L"] = "first"
-    obj.list_notes["L"] = "second"
+    obj.list_descriptions["L"] = "first"
+    obj.list_descriptions["L"] = "second"
     out = obj.composed_description()
     assert out.count(_section_header("L")) == 1
     assert "second" in out and "first" not in out
 
 
 @pytest.mark.unit
-def test_list_notes_is_per_instance():
+def test_list_descriptions_is_per_instance():
     # Guards against a shared mutable default.
     a = CompositeObject(object_id=1)
     b = CompositeObject(object_id=2)
-    a.list_notes["L"] = "x"
-    assert b.list_notes == {}
+    a.list_descriptions["L"] = "x"
+    assert b.list_descriptions == {}
 
 
 # cross-catalog descriptions
@@ -135,11 +136,11 @@ def test_extra_description_dedup_can_be_disabled():
 
 
 @pytest.mark.unit
-def test_list_notes_then_home_then_extra_catalogs():
+def test_list_descriptions_then_home_then_extra_catalogs():
     obj = CompositeObject(
         object_id=1, catalog_code="NGC", sequence=224, description="home"
     )
-    obj.list_notes["My List"] = "go see it"
+    obj.list_descriptions["My List"] = "go see it"
     out = obj.composed_description(extra_descriptions={"M 1": "other catalog"})
     assert out == (
         f"{_section_header('My List')}\n"

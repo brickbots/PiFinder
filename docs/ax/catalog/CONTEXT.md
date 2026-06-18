@@ -163,7 +163,7 @@ _Avoid_: keypad search, digit search.
 ### Observing lists
 
 **Observing list**:
-A user-curated, ordered set of targets stored as one file under `PiFinder_data/obslists/`. Readable in any supported list format; PiFinder itself saves lists in SkySafari format.
+An ordered set of targets stored as one file under `PiFinder_data/obslists/`. A list's **origin** is just how that file got there — exported from another app (any of the third-party **list formats**), hand-authored, the **native format**, or saved by PiFinder itself (SkySafari `.skylist`); PiFinder reads the file regardless. There is no built-in online/download source for lists today (the DeepSkyLog integration is for **equipment**, not lists).
 _Avoid_: target list, tour (a tour is a device-specific format family, not the concept), skylist (that's one format).
 
 **Observing list entry** (`ObsListEntry`):
@@ -192,16 +192,16 @@ _Avoid_: custom object, user object, unresolved object (it *is* resolved — to 
 ### Composed descriptions
 
 **Composed description**:
-The merged, multi-source description shown for the selected object in object details. Sections appear in a fixed order: **list notes first** (this session's observing-list notes), then the **home** catalog description, then the object's **other catalog listings'** descriptions (deduped). Built by `CompositeObject.composed_sections()`; `composed_description()` is the flat-string form for non-UI consumers.
+The merged, multi-source description shown for the selected object in object details. Sections appear in a fixed order: **observing list descriptions first** (this session's), then the **home** catalog description, then the object's **other catalog listings'** descriptions (deduped). Built by `CompositeObject.composed_sections()`; `composed_description()` is the flat-string form for non-UI consumers.
 _Avoid_: aggregated description, full description, merged text.
 
 **Section source**:
-The provenance label on one section of a composed description. Three kinds: *observing-list source* — a per-list **list note**, labeled with the **observing list** name, shown **first**; *home* — the selected object's own catalog description, **unlabeled when it leads** (you already know what you're looking at), but labeled with the object's own **Designator** once a list note precedes it, so it doesn't read as part of the note above; *catalog-listing source* — the same sky object's description in another catalog listing, labeled with that listing's **Designator** (`"Cr 24"`, kept code-based — not the catalog display name — to stay short on a 128-px screen). The label is drawn as a rule (`─── Cr 24 ───`) above its text.
+The provenance label on one section of a composed description. Three kinds: *observing-list source* — a per-list **observing list description**, labeled with the **observing list** name, shown **first**; *home* — the selected object's own catalog description, **unlabeled when it leads** (you already know what you're looking at), but labeled with the object's own **Designator** once an observing list description precedes it, so it doesn't read as part of it; *catalog-listing source* — the same sky object's description in another catalog listing, labeled with that listing's **Designator** (`"Cr 24"`, kept code-based — not the catalog display name — to stay short on a 128-px screen). The label is drawn as a rule (`─── Cr 24 ───`) above its text.
 _Avoid_: section header / section heading (that's the visual rendering of the label), provenance, origin.
 
-**List note**:
-A per-`(observing list, object)` annotation — the description text an observing list carries for one of its targets. Session-only, held in `CompositeObject.list_notes` keyed by list name (re-loading a list replaces its own note, never duplicates). Set only on **resolved** objects; a **coordinate object** has no list note (its list text becomes its own description, since it has nothing else).
-_Avoid_: comment, annotation, list comment, user description.
+**Observing list description**:
+The description text an observing list carries for one of its targets — the observing-list counterpart of a **catalog description**. So an object's description can come from a catalog *or* from an observing list, and the **composed description** shows both. Session-only, held in `CompositeObject.list_descriptions` keyed by list name (re-loading a list replaces its own entry, never duplicates). Set only on **resolved** objects; a **coordinate object** has none (its list text becomes its own catalog-side description, since it has nothing else).
+_Avoid_: list note, note, comment, annotation, user description.
 
 ### UI helpers
 

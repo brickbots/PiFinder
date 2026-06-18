@@ -51,7 +51,7 @@ device's catalog DB at load time. Compact, but only as portable as that DB.
 |---|---|---|---|
 | `catalog_code` | string | yes | e.g. `"NGC"`, `"M"`, `"IC"`. |
 | `sequence` | integer | yes | e.g. `224` for `NGC 224`. |
-| `notes` | string | no | Per-list note. |
+| `notes` | string | no | The object's observing-list description for this list. |
 
 ```json
 { "catalog_code": "NGC", "sequence": 7000, "notes": "North America Nebula" }
@@ -71,7 +71,7 @@ catalog-keyed.
 | `epoch` | string | no | Per-entry override of the file-level `epoch`. |
 | `mag` | number **or** object | no | See *Magnitude*. |
 | `extents` | object | no | See *Extents*. |
-| `notes` | string | no | Per-list note. |
+| `notes` | string | no | The object's observing-list description for this list. |
 
 ```json
 { "name": "VY Andromedae", "obj_type": "*", "ra": 6.984, "dec": 44.281, "mag": 9.7 }

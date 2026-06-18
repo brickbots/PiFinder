@@ -345,7 +345,7 @@ class UIObjectDetails(UIModule):
                 scrollspeed=self._get_scrollspeed_config(),
             )
 
-        # NGC description (plus other-catalog descriptions and list notes)....
+        # Home description (plus other-catalog and observing list descriptions).
         logs = self.observations_db.get_logs_for_object(self.object)
         sections = [
             (label, text.replace("\t", " "))  # I18N: descriptions not translated

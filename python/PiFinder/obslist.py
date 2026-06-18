@@ -74,7 +74,7 @@ def resolve_object(catalog_numbers, catalogs: Catalogs):
     find a matching object in the PiFinder DB.
 
     Pure lookup: returns the shared catalog object (or None). Callers must not
-    mutate its catalog description; per-list notes go in `list_notes`.
+    mutate its catalog description; per-list text goes in `list_descriptions`.
     """
     for catalog_number in catalog_numbers:
         parts = catalog_number.strip().split(" ", 1)
@@ -311,9 +311,9 @@ def read_list(catalogs: Catalogs, name):
             _object = resolve_by_name(entry.name, name_index)
 
         # Resolved objects are shared catalog instances: record this list's
-        # note under the list name instead of clobbering the catalog description.
+        # description under the list name instead of clobbering the catalog one.
         if _object and entry.description:
-            _object.list_notes[obs_list.name] = entry.description
+            _object.list_descriptions[obs_list.name] = entry.description
 
         # Fall back to coordinate-based object
         if not _object and (entry.ra or entry.dec):

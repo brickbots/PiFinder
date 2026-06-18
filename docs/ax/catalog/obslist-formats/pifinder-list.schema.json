@@ -48,7 +48,7 @@
         },
         "notes": {
           "type": "string",
-          "description": "Optional per-list note for this target."
+          "description": "Optional observing-list description for this target."
         }
       }
     },
