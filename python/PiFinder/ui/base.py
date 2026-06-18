@@ -101,6 +101,7 @@ class UIModule:
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options: dict
     _CAM_ICON = ""
+    _CAM_ICON_HOLLOW = ""
     _IMU_ICON = ""
     _GPS_ICON = "󰤉"
     _LEFT_ARROW = ""
@@ -398,9 +399,14 @@ class UIModule:
                     # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
                     if self._unmoved:
+                        is_test = self.config_object.get_option("test_mode", False)
+                        icon_x = self.display_class.resX * 0.91
+                        # In test mode the camera feed is faked, so show the
+                        # hollow (outline) camera icon as a subtle indicator
+                        # rather than a bright inverted box.
                         self.draw.text(
-                            (self.display_class.resX * 0.91, icon_y),
-                            self._CAM_ICON,
+                            (icon_x, icon_y),
+                            self._CAM_ICON_HOLLOW if is_test else self._CAM_ICON,
                             font=self.fonts.icon_bold_large.font,
                             fill=var_fg,
                         )

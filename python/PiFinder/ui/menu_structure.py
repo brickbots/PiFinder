@@ -1218,7 +1218,11 @@ pifinder_menu = {
                 },
                 {"name": _("Console"), "class": UIConsole},
                 {"name": _("Software Upd"), "class": UISoftware},
-                {"name": _("Test Mode"), "callback": callbacks.activate_debug},
+                {
+                    "name": _("Test Mode"),
+                    "callback": callbacks.activate_debug,
+                    "name_suffix_callback": callbacks.test_mode_suffix,
+                },
                 {
                     "name": _("Experimental"),
                     "class": UITextMenu,
@@ -1234,6 +1238,20 @@ pifinder_menu = {
                             "class": UITextMenu,
                             "select": "single",
                             "items": [
+                                {
+                                    "name": _("Screen Off"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "screen_off_timeout",
+                                    "dev_mode_only": True,
+                                    "items": [
+                                        {"name": _("Off"), "value": "Off"},
+                                        {"name": "30s", "value": "30s"},
+                                        {"name": "1m", "value": "1m"},
+                                        {"name": "10m", "value": "10m"},
+                                        {"name": "30m", "value": "30m"},
+                                    ],
+                                },
                                 {
                                     "name": _("Telemetry"),
                                     "class": UITextMenu,
