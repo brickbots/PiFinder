@@ -247,9 +247,7 @@ class SQM:
 
         for flux, mag in zip(star_fluxes, star_mags):
             if flux <= 0:
-                logger.warning(
-                    f"Skipping star with flux={flux:.1f} ADU (mag={mag:.2f})"
-                )
+                logger.debug(f"Skipping star with flux={flux:.1f} ADU (mag={mag:.2f})")
                 mzeros.append(None)  # Keep array aligned
                 continue
 
