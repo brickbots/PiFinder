@@ -50,6 +50,11 @@ class CameraInterface:
     # Native (camera-driver) auto-exposure, distinct from the solver-driven
     # auto-exposure above. Enabled for daytime alignment via `set_exp:native`.
     _native_ae_enabled = False
+    # Handle to an in-flight capture thread (see _capture_with_timeout). A
+    # wedged V4L2 capture can outlive its timeout; tracking it lets the next
+    # frame decline to start a second, concurrent capture on a camera that is
+    # not thread-safe.
+    _capture_thread: Optional[threading.Thread] = None
 
     def set_native_ae(self, enabled: bool) -> bool:
         """Enable/disable the camera's native (driver) auto-exposure.
@@ -79,13 +84,27 @@ class CameraInterface:
         return Image.new("L", (512, 512), 0)  # Black 512x512 image
 
     def _capture_with_timeout(self, timeout=10) -> Optional[Image.Image]:
-        """Run capture() with a timeout.
+        """Run capture() with a timeout, never overlapping two captures.
 
         A V4L2 capture can hang indefinitely (e.g. the sensor wedges), which
         would otherwise freeze the whole camera process. Run the capture on a
         daemon thread and give up after ``timeout`` seconds, returning None so
         the caller can recover instead of blocking forever.
+
+        A timed-out capture cannot be cancelled (picamera2/V4L2 exposes no such
+        API), so the daemon thread stays stuck inside the driver until it
+        eventually returns. To avoid piling concurrent capture_request() calls
+        onto a camera that is not thread-safe -- and racing on shared camera
+        state -- we keep a handle to the in-flight thread and refuse to launch a
+        second capture while it is still alive. At most one capture is ever
+        running; the caller just gets blank frames until the stuck one clears.
         """
+        # A previous capture is still wedged in the driver -- don't start a
+        # second one. Returning None lets the caller fall back to a blank frame
+        # while we wait for the stuck capture to clear.
+        if self._capture_thread is not None and self._capture_thread.is_alive():
+            return None
+
         result: list = [None]
         exc: list = [None]
 
@@ -96,11 +115,18 @@ class CameraInterface:
                 exc[0] = e
 
         thread = threading.Thread(target=_do_capture, daemon=True)
+        self._capture_thread = thread
         thread.start()
         thread.join(timeout)
 
         if thread.is_alive():
+            # Still running: leave it tracked so the next call sees it and
+            # declines to start an overlapping capture.
             return None
+
+        # Finished within the timeout -- clear the handle so the next frame
+        # starts a fresh capture.
+        self._capture_thread = None
         if exc[0]:
             raise exc[0]
         return result[0]
