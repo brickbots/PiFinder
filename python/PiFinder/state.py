@@ -310,6 +310,7 @@ class SharedStateObj:
         # We need gps lock and datetime
         self.__tz_finder = TimezoneFinder()
         self.__current_ui_state = None
+        self.__test_mode = False
 
     def serialize(self, output_file):
         with open(output_file, "wb") as f:
@@ -595,3 +596,9 @@ class SharedStateObj:
             f"Screen: {self.__screen}\n"
             f"Target Pixel: {self.__target_pixel}"
         )
+
+    def test_mode(self):
+        return self.__test_mode
+
+    def set_test_mode(self, v: bool):
+        self.__test_mode = v
