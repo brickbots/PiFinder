@@ -29,6 +29,21 @@ class UIObsList(UITextMenu):
 
     __title__ = "Obs Lists"
 
+    # The list is drawn as a 7-row window centered on the selection. Each row has
+    # a fixed color, vertical offset and font; the middle row is the selected
+    # item -- brightest and largest, and it scrolls when its text overflows.
+    _SELECTED_ROW = 3
+    _ROW_STYLES = (
+        # (color, y_offset, font_name)
+        (96, 0, "base"),
+        (128, 13, "base"),
+        (192, 25, "bold"),
+        (255, 40, "large"),
+        (192, 60, "bold"),
+        (128, 76, "base"),
+        (96, 89, "base"),
+    )
+
     def __init__(self, *args, **kwargs):
         incoming = kwargs.get("item_definition", {})
         subdir = incoming.get("subdir", "")
@@ -78,61 +93,38 @@ class UIObsList(UITextMenu):
         self.clear_screen()
         self.draw.rectangle((-1, 60, 129, 80), outline=self.colors.get(128), width=1)
 
-        line_number = 0
         line_horiz_pos = 13
+        window_start = self._current_item_index - self._SELECTED_ROW
 
-        for i in range(self._current_item_index - 3, self._current_item_index + 4):
-            if 0 <= i < self.get_nr_of_menu_items():
-                line_font = self.fonts.base
-                if line_number == 0:
-                    line_color = 96
-                    line_pos = 0
-                elif line_number == 1:
-                    line_color = 128
-                    line_pos = 13
-                elif line_number == 2:
-                    line_color = 192
-                    line_font = self.fonts.bold
-                    line_pos = 25
-                elif line_number == 3:
-                    line_color = 255
-                    line_font = self.fonts.large
-                    line_pos = 40
-                elif line_number == 4:
-                    line_color = 192
-                    line_font = self.fonts.bold
-                    line_pos = 60
-                elif line_number == 5:
-                    line_color = 128
-                    line_pos = 76
-                else:
-                    line_color = 96
-                    line_pos = 89
+        for line_number, style in enumerate(self._ROW_STYLES):
+            i = window_start + line_number
+            if not (0 <= i < self.get_nr_of_menu_items()):
+                continue
 
-                line_pos += 20
-                item_text = str(self._menu_items[i])
+            line_color, line_pos, font_name = style
+            line_font = getattr(self.fonts, font_name)
+            line_pos += 20
+            item_text = str(self._menu_items[i])
 
-                if line_number == 3:
-                    # Scroll the selected item if it's too long
-                    if self._scroll_item != item_text:
-                        self._scroll_item = item_text
-                        self._scroll_text = TextLayouterScroll(
-                            text=_(item_text),
-                            draw=self.draw,
-                            color=self.colors.get(line_color),
-                            font=line_font,
-                            scrollspeed=self._get_scrollspeed(),
-                        )
-                    self._scroll_text.draw((line_horiz_pos, line_pos))
-                else:
-                    self.draw.text(
-                        (line_horiz_pos, line_pos),
-                        _(item_text),
-                        font=line_font.font,
-                        fill=self.colors.get(line_color),
+            if line_number == self._SELECTED_ROW:
+                # Scroll the selected item if it's too long
+                if self._scroll_item != item_text:
+                    self._scroll_item = item_text
+                    self._scroll_text = TextLayouterScroll(
+                        text=_(item_text),
+                        draw=self.draw,
+                        color=self.colors.get(line_color),
+                        font=line_font,
+                        scrollspeed=self._get_scrollspeed(),
                     )
-
-            line_number += 1
+                self._scroll_text.draw((line_horiz_pos, line_pos))
+            else:
+                self.draw.text(
+                    (line_horiz_pos, line_pos),
+                    _(item_text),
+                    font=line_font.font,
+                    fill=self.colors.get(line_color),
+                )
 
         return self.screen_update()
 
