@@ -735,5 +735,9 @@ class CameraInterface:
             logger.info(
                 f"CameraInterface: Camera loop exited with command: '{command}'"
             )
-        except (BrokenPipeError, EOFError, FileNotFoundError):
+        except FileNotFoundError:
             logger.exception("Error in Camera Loop")
+        except Exception as e:
+            if not state_utils.is_dead_manager_error(e):
+                raise
+            logger.error("Shared-state manager gone; stopping camera loop: %s", e)
