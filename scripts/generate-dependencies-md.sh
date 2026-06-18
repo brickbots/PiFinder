@@ -16,7 +16,7 @@ pkgs = sorted(
     key=lambda x: x[0].lower(),
 )
 
-# Dev-only packages (from python-packages.nix devPackages)
+# Dev-only packages (from pyproject.toml [dependency-groups].dev)
 dev_only = {"pytest", "mypy", "mypy_extensions", "luma.emulator", "PyHotKey",
             "pynput", "python-xlib", "pygame", "pathspec", "pluggy", "iniconfig"}
 
@@ -34,10 +34,10 @@ print(f"""\
 > nix develop --command ./scripts/generate-dependencies-md.sh
 > ```
 
-> **Note:** These dependencies are managed by Nix (`nixos/pkgs/python-packages.nix`).
-> The versions listed here reflect the nixpkgs pin used by the flake and are
-> **not necessarily installable via pip**. Some packages require system libraries
-> or hardware (SPI, I2C, GPIO) only available on the Raspberry Pi.
+> **Note:** These dependencies are declared in `python/pyproject.toml`, pinned in
+> `python/uv.lock`, and realized into the Nix store via uv2nix. Some packages
+> require system libraries or hardware (SPI, I2C, GPIO) only available on the
+> Raspberry Pi.
 
 # Python Dependencies
 

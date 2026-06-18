@@ -2,9 +2,27 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     nixos-hardware.url = "github:NixOS/nixos-hardware";
+
+    pyproject-nix = {
+      url = "github:pyproject-nix/pyproject.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    uv2nix = {
+      url = "github:pyproject-nix/uv2nix";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    pyproject-build-systems = {
+      url = "github:pyproject-nix/build-system-pkgs";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.uv2nix.follows = "uv2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, nixos-hardware, ... }: let
+  outputs = { self, nixpkgs, nixos-hardware, pyproject-nix, uv2nix, pyproject-build-systems, ... }: let
+    # Flake inputs the python-env module needs, passed via specialArgs.
+    pythonInputs = { inherit pyproject-nix uv2nix pyproject-build-systems; };
     # Headless config shared by all profiles
     headlessModule = { lib, ... }: {
       services.xserver.enable = false;
@@ -40,6 +58,7 @@
 
     mkPifinderSystem = { includeSDImage ? false }: nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
+      specialArgs = pythonInputs;
       modules = commonModules ++ [
         { pifinder.devMode = false; }
         # Camera specialisations — base is imx462 (default), specialisations for others
@@ -166,6 +185,7 @@
     # Netboot configuration — NFS root, DHCP network in initrd
     mkPifinderNetboot = nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
+      specialArgs = pythonInputs;
       modules = commonModules ++ [
         { pifinder.devMode = true; }
         { pifinder.cameraType = nixpkgs.lib.mkDefault "imx477"; }  # HQ camera for netboot dev
@@ -372,10 +392,12 @@
           });
         })];
       };
-      pyPkgs = import ./nixos/pkgs/python-packages.nix { inherit pkgs; };
+      pyPkgs = import ./nixos/pkgs/uv-python.nix {
+        inherit pkgs pyproject-nix uv2nix pyproject-build-systems;
+      };
       cedar-detect = import ./nixos/pkgs/cedar-detect.nix { inherit pkgs; };
     in pkgs.mkShell {
-      packages = [ pyPkgs.devEnv pkgs.ruff cedar-detect ];
+      packages = [ pyPkgs.devEnv pkgs.ruff pkgs.uv cedar-detect ];
       shellHook = ''
         export PYTHONPATH="${pkgs.libcamera}/lib/python3.13/site-packages:$PYTHONPATH"
       '';

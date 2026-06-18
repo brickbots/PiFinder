@@ -1,7 +1,8 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, pyproject-nix, uv2nix, pyproject-build-systems, ... }:
 let
-  pyPkgs = import ./pkgs/python-packages.nix { inherit pkgs lib; };
-  env = pyPkgs.pifinderEnv;
+  env = (import ./pkgs/uv-python.nix {
+    inherit pkgs lib pyproject-nix uv2nix pyproject-build-systems;
+  }).pifinderEnv;
 in {
   # libcamera overlay — enable Python bindings for picamera2
   nixpkgs.overlays = [(final: prev: {
