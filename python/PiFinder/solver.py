@@ -374,7 +374,10 @@ def solver(
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
-    t3 = tetra3.Tetra3(str(utils.tetra3_dir / "data" / "default_database.npz"))
+    # Load tetra3's bundled pattern database by name; tetra3 resolves it from
+    # its own package data dir, which avoids depending on the inner/outer
+    # tetra3_dir layout (the submodule nests the package at tetra3/tetra3).
+    t3 = tetra3.Tetra3("default_database")
     align_ra = 0
     align_dec = 0
     last_solve_attempt: float = 0.0
