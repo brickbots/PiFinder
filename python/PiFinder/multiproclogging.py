@@ -18,6 +18,8 @@ import logging
 import logging.config
 import logging.handlers
 
+from PiFinder import utils
+
 
 class MultiprocLogging:
     """
@@ -189,7 +191,7 @@ class MultiprocLogging:
             "That's not a Queue! You have to pass a queue"
         )
 
-        log_conf_file = Path("pifinder_logconf.json")
+        log_conf_file = utils.active_logconf_path()
         with open(log_conf_file, "r") as logconf:
             config = json5.load(logconf)
             logging.config.dictConfig(config)

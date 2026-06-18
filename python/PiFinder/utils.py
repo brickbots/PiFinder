@@ -33,6 +33,48 @@ def get_version() -> str:
 debug_dump_dir = data_dir / "solver_debug_dumps"
 comet_file = data_dir / "comets.txt"
 
+# Logging-config presets ship read-only in the source tree; the user's active
+# selection is persisted in the writable data dir (like config.json), stored as
+# a bare filename so it survives upgrades (no immutable store path is baked in).
+logconf_dir = pifinder_dir / "python"
+_active_logconf_file = data_dir / "log_config"
+DEFAULT_LOGCONF = "logconf_default.json"
+
+
+def _valid_logconf_name(name: str) -> bool:
+    return (
+        name.startswith("logconf_")
+        and name.endswith(".json")
+        and (logconf_dir / name).is_file()
+    )
+
+
+def active_logconf_name() -> str:
+    """Name of the active logging-config preset (defaults to logconf_default.json)."""
+    try:
+        name = _active_logconf_file.read_text().strip()
+    except OSError:
+        return DEFAULT_LOGCONF
+    return name if _valid_logconf_name(name) else DEFAULT_LOGCONF
+
+
+def active_logconf_path() -> Path:
+    """Absolute path to the active logging-config file in the source tree."""
+    return logconf_dir / active_logconf_name()
+
+
+def available_logconfs() -> list:
+    """Sorted bare filenames of the available logconf_*.json presets."""
+    return sorted(p.name for p in logconf_dir.glob("logconf_*.json"))
+
+
+def set_active_logconf(name: str) -> None:
+    """Persist the chosen logging-config preset name to the writable data dir."""
+    if not _valid_logconf_name(name):
+        raise ValueError(f"Invalid log config: {name}")
+    _active_logconf_file.parent.mkdir(parents=True, exist_ok=True)
+    _active_logconf_file.write_text(name + "\n")
+
 
 def create_dir(adir: str):
     create_path(Path(adir))
