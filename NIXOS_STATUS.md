@@ -6,7 +6,7 @@
 - **PAM authentication** - Fixed /etc symlinks using /etc/static
 - **Netboot** - TFTP/NFS working with u-boot → extlinux chain
 - **CI/CD** - Pi5 native builds on self-hosted runner with ubuntu-latest fallback
-- **Cachix** - pifinder.cachix.org for binary cache
+- **Attic** - cache.pifinder.eu self-hosted binary cache, split into `pifinder-release` (retained) + `pifinder` (dev); see ADR 0004
 
 ## Recent Fixes (this session)
 1. PWM overlay: added pinctrl to route PWM signal to GPIO 13

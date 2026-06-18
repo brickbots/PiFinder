@@ -55,16 +55,23 @@ in {
 
   # ---------------------------------------------------------------------------
   # Binary substituters — Pi downloads pre-built paths, never compiles.
-  # cache.pifinder.eu is the self-hosted Attic instance (ADR 0004).
+  # Two Attic caches on cache.pifinder.eu (ADR 0004):
+  #   pifinder-release — tagged release closures, never garbage-collected, so a
+  #                      device upgrading long after a release still resolves it.
+  #   pifinder         — dev/nightly builds, short retention.
   # cache.nixos.org serves everything not built locally.
   # ---------------------------------------------------------------------------
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     substituters = [
+      "https://cache.pifinder.eu/pifinder-release"
       "https://cache.pifinder.eu/pifinder"
       "https://cache.nixos.org"
     ];
     trusted-public-keys = [
+      # TODO: replace placeholder with the real pifinder-release public key
+      # emitted by `attic cache create pifinder-release` on the server.
+      "pifinder-release:REPLACE_WITH_PIFINDER_RELEASE_PUBKEY="
       "pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE="
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
     ];
@@ -349,8 +356,8 @@ in {
       # type 100 = actCopyPath: one event per store path being substituted from
       # the binary cache, with text "copying path '/nix/store/...' from '...'".
       # We track start ids and increment DONE on the matching stop. --max-jobs 0
-      # keeps this strictly a download path; if anything is missing from Cachix
-      # nix errors instead of building locally. Enum source: nix
+      # keeps this strictly a download path; if anything is missing from the
+      # binary cache nix errors instead of building locally. Enum source: nix
       # src/libutil/logging.hh ActivityType (stable since Nix 2.4).
       set +e
       nix --log-format internal-json build "$STORE_PATH" --max-jobs 0 2>&1 \

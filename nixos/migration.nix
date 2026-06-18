@@ -25,17 +25,24 @@ in {
   ];
 
   # ---------------------------------------------------------------------------
-  # Cachix binary substituter — Pi downloads pre-built paths, never compiles
+  # Binary substituters — Pi downloads pre-built paths, never compiles.
+  # Two Attic caches on cache.pifinder.eu (ADR 0004): pifinder-release (retained
+  # release closures) and pifinder (dev/nightly). The first-boot download below
+  # pulls whichever closure pifinder-build.json points at.
   # ---------------------------------------------------------------------------
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     substituters = [
+      "https://cache.pifinder.eu/pifinder-release"
+      "https://cache.pifinder.eu/pifinder"
       "https://cache.nixos.org"
-      "https://pifinder.cachix.org"
     ];
     trusted-public-keys = [
+      # TODO: replace placeholder with the real pifinder-release public key
+      # (same value as nixos/services.nix).
+      "pifinder-release:REPLACE_WITH_PIFINDER_RELEASE_PUBKEY="
+      "pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE="
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-      "pifinder.cachix.org-1:ALuxYs8tMU34zwSTWjenI2wpJA+AclmW6H5vyTgnTjc="
     ];
   };
 
@@ -105,10 +112,10 @@ in {
   };
 
   # ---------------------------------------------------------------------------
-  # First boot: download full PiFinder system from cachix and switch
+  # First boot: download full PiFinder system from the binary cache and switch
   # ---------------------------------------------------------------------------
   systemd.services.pifinder-first-boot = {
-    description = "Download full PiFinder NixOS system from cachix";
+    description = "Download full PiFinder NixOS system from the binary cache";
     after = [ "network-online.target" "nix-path-registration.service" "nix-daemon.service" ];
     requires = [ "network-online.target" ];
     wantedBy = [ "multi-user.target" ];
