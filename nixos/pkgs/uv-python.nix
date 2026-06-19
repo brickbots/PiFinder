@@ -110,6 +110,13 @@ def load_source(name, path):
         ++ final.resolveBuildSystem { setuptools = []; };
     });
 
+    # No aarch64 wheel, so it builds from sdist on the Pi (fine on x86 via wheel).
+    timezonefinder = prev.timezonefinder.overrideAttrs (old: {
+      nativeBuildInputs =
+        (old.nativeBuildInputs or [])
+        ++ final.resolveBuildSystem { setuptools = []; };
+    });
+
     sh = prev.sh.overrideAttrs (old: {
       nativeBuildInputs =
         (old.nativeBuildInputs or [])
