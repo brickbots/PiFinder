@@ -67,6 +67,17 @@ dev = [
     "selenium",
 ]
 
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+# Dependency-only (virtual) workspace — nothing here is installed into the env
+# (the PiFinder source is deployed separately via pkgs/pifinder-src.nix). Declare
+# an empty package set so uv2nix's build of the root produces an empty wheel
+# instead of tripping setuptools flat-layout discovery on views/locale/PiFinder.
+[tool.setuptools]
+packages = []
+
 [tool.uv]
 # Dependency-only workspace: the PiFinder source itself is deployed separately
 # (pkgs/pifinder-src.nix), so uv must not try to build/install this root project.

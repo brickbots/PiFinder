@@ -38,9 +38,12 @@ def load_source(name, path):
       buildInputs = (old.buildInputs or []) ++ [ pkgs.libcap ];
     });
 
+    # Installed from a prebuilt wheel (no source at patchPhase), so patch the
+    # installed module in $out: ctypes find_library("pam") can't locate libpam on
+    # NixOS, so pin it to the store path.
     python-pam = prev.python-pam.overrideAttrs (old: {
-      postPatch = (old.postPatch or "") + ''
-        substituteInPlace src/pam/__internals.py \
+      postInstall = (old.postInstall or "") + ''
+        substituteInPlace "$out/${python.sitePackages}/pam/__internals.py" \
           --replace-fail 'find_library("pam")' '"${pkgs.pam}/lib/libpam.so"' \
           --replace-fail 'find_library("pam_misc")' '"${pkgs.pam}/lib/libpam_misc.so"'
       '';
@@ -53,7 +56,7 @@ def load_source(name, path):
     dbus-python = prev.dbus-python.overrideAttrs (old: {
       nativeBuildInputs =
         (old.nativeBuildInputs or [])
-        ++ [ pkgs.pkg-config ]
+        ++ [ pkgs.pkg-config pkgs.ninja ]
         ++ final.resolveBuildSystem { meson-python = []; };
       buildInputs = (old.buildInputs or []) ++ [ pkgs.dbus pkgs.glib ];
     });
@@ -61,19 +64,70 @@ def load_source(name, path):
     pygobject = prev.pygobject.overrideAttrs (old: {
       nativeBuildInputs =
         (old.nativeBuildInputs or [])
-        ++ [ pkgs.pkg-config ]
+        ++ [ pkgs.pkg-config pkgs.ninja ]
         ++ final.resolveBuildSystem { meson-python = []; };
       buildInputs =
         (old.buildInputs or [])
-        ++ [ pkgs.glib pkgs.gobject-introspection pkgs.cairo ];
+        ++ [ pkgs.glib pkgs.gobject-introspection pkgs.cairo pkgs.python313Packages.pycairo ];
     });
 
-    # evdev builds a C extension from sdist and needs the setuptools build
-    # backend, otherwise the build fails with "No module named 'setuptools'".
+    # evdev builds a C extension from sdist: it needs the setuptools backend, the
+    # kernel input headers on the compiler path (for build_ext), and its setup.py
+    # only searches /usr/include for linux/input.h — repoint that at linuxHeaders.
     evdev = prev.evdev.overrideAttrs (old: {
       nativeBuildInputs =
         (old.nativeBuildInputs or [])
         ++ final.resolveBuildSystem { setuptools = []; };
+      buildInputs = (old.buildInputs or []) ++ [ pkgs.linuxHeaders ];
+      postPatch = (old.postPatch or "") + ''
+        substituteInPlace setup.py \
+          --replace-fail 'include_paths.add("/usr/include")' 'include_paths.add("${pkgs.linuxHeaders}/include")'
+      '';
+    });
+
+    # pycairo builds from sdist with meson-python (pulled in by pygobject's
+    # cairo support); same meson stack as dbus-python/pygobject.
+    pycairo = prev.pycairo.overrideAttrs (old: {
+      nativeBuildInputs =
+        (old.nativeBuildInputs or [])
+        ++ [ pkgs.pkg-config pkgs.ninja ]
+        ++ final.resolveBuildSystem { meson-python = []; };
+      buildInputs = (old.buildInputs or []) ++ [ pkgs.cairo ];
+    });
+
+    # Legacy setup.py packages (no [build-system]) need the setuptools backend
+    # provided explicitly, else the sdist build fails with "No module named
+    # 'setuptools'".
+    pidng = prev.pidng.overrideAttrs (old: {
+      nativeBuildInputs =
+        (old.nativeBuildInputs or [])
+        ++ final.resolveBuildSystem { setuptools = []; };
+    });
+
+    rpi-gpio = prev.rpi-gpio.overrideAttrs (old: {
+      nativeBuildInputs =
+        (old.nativeBuildInputs or [])
+        ++ final.resolveBuildSystem { setuptools = []; };
+    });
+
+    sh = prev.sh.overrideAttrs (old: {
+      nativeBuildInputs =
+        (old.nativeBuildInputs or [])
+        ++ final.resolveBuildSystem { setuptools = []; };
+    });
+
+    spidev = prev.spidev.overrideAttrs (old: {
+      nativeBuildInputs =
+        (old.nativeBuildInputs or [])
+        ++ final.resolveBuildSystem { setuptools = []; };
+    });
+
+    # adafruit-blinka's wheel vendors prebuilt libgpiod_pulsein helpers for
+    # non-Pi SoCs (amlogic, etc.) that link libgpiod.so.2. PiFinder never uses
+    # them (BNO055 is I2C), so don't fail auto-patchelf on that missing lib.
+    adafruit-blinka = prev.adafruit-blinka.overrideAttrs (old: {
+      autoPatchelfIgnoreMissingDeps =
+        (old.autoPatchelfIgnoreMissingDeps or []) ++ [ "libgpiod.so.2" ];
     });
   };
 
