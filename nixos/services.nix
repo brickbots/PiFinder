@@ -191,9 +191,13 @@ in {
         exit 0
       fi
       echo "normalising non-root /nix/store ownership"
+      # /nix/store is a read-only bind mount of the same device as /. The
+      # remount MUST carry "bind" so it flips only this mount's per-mount
+      # ro flag; a plain "remount,ro" would flip the shared superblock and
+      # take / (and /nix/var) read-only with it.
       remounted=0
       if findmnt -no OPTIONS /nix/store | grep -qw ro; then
-        if mount -o remount,rw /nix/store; then
+        if mount -o remount,bind,rw /nix/store; then
           remounted=1
         else
           echo "WARNING: could not remount /nix/store rw; skipping repair"
@@ -203,7 +207,7 @@ in {
       find /nix/store -mindepth 1 -maxdepth 1 ! -uid 0 -exec chown -R 0:0 {} + || true
       chown 0:0 /nix/var/nix/db || true
       if [ "$remounted" = 1 ]; then
-        mount -o remount,ro /nix/store || true
+        mount -o remount,bind,ro /nix/store || true
       fi
       echo "store ownership normalised"
     '';
