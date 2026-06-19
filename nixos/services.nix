@@ -3,6 +3,7 @@ let
   cfg = config.pifinder;
   cedar-detect = import ./pkgs/cedar-detect.nix { inherit pkgs; };
   pifinder-src = import ./pkgs/pifinder-src.nix { inherit pkgs; };
+  gaia-stars = import ./pkgs/gaia-stars.nix { inherit pkgs; };
   boot-splash = import ./pkgs/boot-splash.nix { inherit pkgs; };
   pifinder-switch-camera = pkgs.writeShellScriptBin "pifinder-switch-camera" ''
     CAM="$1"
@@ -234,6 +235,14 @@ in {
 
     # Create symlink to immutable Nix store path
     ln -sfT ${pifinder-src} "$PFHOME"
+
+    # Gaia deep-chart catalog — immutable, read-only; symlink from the closure
+    # into PiFinder_data where chart_provider expects it (utils.data_dir/gaia_stars)
+    GAIA=/home/pifinder/PiFinder_data/gaia_stars
+    if [ -e "$GAIA" ] && [ ! -L "$GAIA" ]; then
+      rm -rf "$GAIA"
+    fi
+    ln -sfT ${gaia-stars} "$GAIA"
   '';
 
   # ---------------------------------------------------------------------------
