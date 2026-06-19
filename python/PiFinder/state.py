@@ -17,7 +17,6 @@ from PiFinder.types.positioning import PointingEstimate
 from typing import Optional
 from dataclasses import dataclass, asdict
 import json
-from timezonefinder import TimezoneFinder
 
 logger = logging.getLogger("SharedState")
 
@@ -306,7 +305,9 @@ class SharedStateObj:
         self.__cam_raw = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
-        self.__tz_finder = TimezoneFinder()
+        # Constructed lazily on first location set — the timezonefinder
+        # import and its dataset load are slow and not needed at boot.
+        self.__tz_finder = None
         self.__current_ui_state = None
 
     def serialize(self, output_file):
@@ -398,6 +399,10 @@ class SharedStateObj:
         # if value is not none, set the timezone
         # before saving the value
         if v:
+            if self.__tz_finder is None:
+                from timezonefinder import TimezoneFinder
+
+                self.__tz_finder = TimezoneFinder()
             v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
         self.__location = v
 
