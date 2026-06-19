@@ -92,12 +92,14 @@ jobs:
           echo "Native build not done after 15 min, falling back to emulated"
           echo "need_emulated=true" >> "$GITHUB_OUTPUT"
 
-  # Fallback to QEMU emulation if Pi5 unavailable or slow
+  # Fallback when the Pi5 is unavailable or slow: a free hosted arm64 runner
+  # (public repos). Native aarch64 — no QEMU emulation. Job id kept as
+  # `build-emulated` so downstream `needs:` references are unchanged.
   build-emulated:
     needs: native-wait
     if: needs.native-wait.outputs.need_emulated == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 360
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
     outputs:
       store_path: ${{ steps.push.outputs.store_path }}
     steps:
@@ -107,7 +109,6 @@ jobs:
         with:
           determinate: false
           extra-conf: |
-            extra-platforms = aarch64-linux
             extra-system-features = big-parallel
 
       - name: Setup Attic substituter (cache.pifinder.eu)
@@ -118,20 +119,15 @@ jobs:
           attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
           attic use pifinder:pifinder
 
-      - name: Register QEMU binfmt for aarch64
-        run: sudo apt-get update && sudo apt-get install -y qemu-user-static
-
       - name: Build NixOS system closure
         run: |
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            --system aarch64-linux \
             -L --no-link
 
       - name: Push to Attic
         id: push
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            --system aarch64-linux \
             --json | jq -r '.[].outputs.out')
           attic push pifinder:pifinder "$STORE_PATH"
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
