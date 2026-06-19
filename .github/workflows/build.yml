@@ -318,7 +318,12 @@ jobs:
           UNCOMPRESSED_MB=$(du -sm /tmp/tarball-staging | awk '{print $1}')
           echo "Uncompressed staging: ${UNCOMPRESSED_MB} MB"
 
-          tar -C /tmp/tarball-staging -cf - boot rootfs \
+          # Force root ownership: the closure was extracted as the non-root CI
+          # user (so the staging tree is uid 1000), and tar would otherwise bake
+          # that into the tarball. The device then ends up with non-root
+          # /nix/store paths, which makes NetworkManager refuse its wifi plugin.
+          tar -C /tmp/tarball-staging --owner=0 --group=0 --numeric-owner \
+            -cf - boot rootfs \
             | zstd -T0 -19 -o "/tmp/${TARBALL}"
           sudo rm -rf /tmp/tarball-staging
 
