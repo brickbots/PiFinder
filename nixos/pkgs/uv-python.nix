@@ -120,6 +120,25 @@ def load_source(name, path):
         '';
     });
 
+    # picamera2 installs from a py3-none-any wheel (no source patchPhase to
+    # hook), so patch the installed module in $out. It imports its DRM (pykms)
+    # and Qt preview backends unconditionally; the headless device has neither,
+    # so `import picamera2` dies on a missing 'pykms' and the camera process
+    # crash-loops. PiFinder only uses NullPreview, so make those optional.
+    picamera2 = prev.picamera2.overrideAttrs (old: {
+      postInstall =
+        (old.postInstall or "")
+        + ''
+          f=$(find "$out" -path '*/picamera2/previews/__init__.py' | head -1)
+          if [ -z "$f" ]; then
+            echo "picamera2: previews/__init__.py not found under $out" >&2
+            exit 1
+          fi
+          echo "picamera2: patching $f"
+          patch "$f" < ${./picamera2-optional-previews.patch}
+        '';
+    });
+
     # No aarch64 wheel, so it builds from sdist on the Pi (fine on x86 via wheel).
     timezonefinder = prev.timezonefinder.overrideAttrs (old: {
       nativeBuildInputs =
