@@ -174,29 +174,36 @@ class UIStatus(UIModule):
     def update(self, force=False):
         self.update_status_dict()
         self.clear_screen()
-        lines = []
-        # Insert IP address here...
-        for k, v in self.status_dict.items():
-            key = f"{k:<7}"
-            if isinstance(v, list):
-                key = v[0]
-                v = v[1]
-            value = str(v)
-            field = self.spacecalc.width - len(key)
-            if 0 < field < len(value):
-                # Value overflows its column; scroll it so the whole thing
-                # stays readable instead of having the tail chopped off.
-                result = key + self._scrolled_value(k, value, field)
-            else:
-                self.value_scrollers.pop(k, None)
-                _, result = self.spacecalc.calculate_spaces(
-                    key, v, empty_if_exceeds=False
-                )
-            lines.append(result)
-        outline = "\n".join(lines)
-        self.text_layout.set_text(outline, reset_pointer=False)
+        lines = [self._render_row(k, v) for k, v in self.status_dict.items()]
+        self.text_layout.set_text("\n".join(lines), reset_pointer=False)
         self.text_layout.draw(pos=self._draw_pos)
         return self.screen_update()
+
+    def _render_row(self, k, v) -> str:
+        """
+        Render one status row as ``key`` followed by its value.
+
+        The value is justified into its column with SpaceCalculatorFixed when it
+        fits, or rendered through a per-row horizontal scroller (see
+        _scrolled_value) when it overflows, so long values (a long IP address or
+        SSID) stay readable instead of being truncated. The scroller is dropped
+        again as soon as the value fits, so a row flips between static and
+        scrolling as its value changes.
+        """
+        key = f"{k:<7}"
+        if isinstance(v, list):
+            # Rows with a runtime-computed label (e.g. GPS, whose label embeds
+            # the live satellite count) carry [label, value] and supply their
+            # own label instead of the padded dict key.
+            key = v[0]
+            v = v[1]
+        value = str(v)
+        field = self.spacecalc.width - len(key)
+        if 0 < field < len(value):
+            return key + self._scrolled_value(k, value, field)
+        self.value_scrollers.pop(k, None)
+        _, result = self.spacecalc.calculate_spaces(key, v, empty_if_exceeds=False)
+        return result
 
     def _scrolled_value(self, row_key: str, value: str, field: int) -> str:
         """
