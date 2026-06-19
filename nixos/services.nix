@@ -408,8 +408,10 @@ in {
       # keeps this strictly a download path; if anything is missing from the
       # binary cache nix errors instead of building locally. Enum source: nix
       # src/libutil/logging.hh ActivityType (stable since Nix 2.4).
+      UPGRADE_LOG=/run/pifinder/upgrade-nix.log
       set +e
       nix --log-format internal-json build "$STORE_PATH" --max-jobs 0 2>&1 \
+        | tee "$UPGRADE_LOG" \
         | gawk -v status="$STATUS_FILE" '
             /^@nix / {
               line = substr($0, 6)
@@ -432,6 +434,9 @@ in {
       set -e
       if [ "$BUILD_RC" -ne 0 ]; then
         echo "failed" > "$STATUS_FILE"
+        # Surface the nix error rather than swallowing it in the progress pipe.
+        echo "pifinder-upgrade: nix build failed (rc=$BUILD_RC); tail of nix output:" >&2
+        tail -n 40 "$UPGRADE_LOG" >&2 2>/dev/null || true
         exit 1
       fi
 
