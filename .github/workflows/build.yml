@@ -110,11 +110,18 @@ jobs:
           determinate: false
           extra-conf: |
             extra-system-features = big-parallel
+            # Pull from the public Attic cache without a token (works on fork PRs).
+            extra-substituters = https://cache.pifinder.eu/pifinder
+            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
 
-      - name: Setup Attic substituter (cache.pifinder.eu)
+      - name: Attic login for push (token only — skipped on fork PRs)
         env:
           ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
         run: |
+          if [ -z "$ATTIC_TOKEN" ]; then
+            echo "No ATTIC_TOKEN (fork PR) — pull-only via the public substituter"
+            exit 0
+          fi
           nix profile install nixpkgs#attic-client
           attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
           attic use pifinder:pifinder
@@ -126,11 +133,17 @@ jobs:
 
       - name: Push to Attic
         id: push
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             --json | jq -r '.[].outputs.out')
-          attic push pifinder:pifinder "$STORE_PATH"
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+          if [ -n "$ATTIC_TOKEN" ]; then
+            attic push pifinder:pifinder "$STORE_PATH"
+          else
+            echo "No ATTIC_TOKEN (fork PR) — skipping push; build is verify-only"
+          fi
 
   # Commit pifinder-build.json with store path to the same branch.
   # Only on push events — PR-event runs (in particular on brickbots/PiFinder
@@ -139,7 +152,10 @@ jobs:
   # canonical stamper; PR runs only verify the build succeeds.
   stamp-build:
     needs: [build-native, build-emulated]
+    # always() so a skipped build-emulated (when build-native succeeds) doesn't
+    # skip the stamp — otherwise green builds never update pifinder-build.json.
     if: |
+      always() &&
       github.event_name == 'push' &&
       (needs.build-native.result == 'success' || needs.build-emulated.result == 'success')
     runs-on: ubuntu-latest
