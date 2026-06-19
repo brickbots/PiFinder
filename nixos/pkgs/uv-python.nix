@@ -46,18 +46,34 @@ def load_source(name, path):
       '';
     });
 
-    # dbus-python and PyGObject build from sdist with meson-python; meson needs
-    # the C libraries + pkg-config on the build inputs.
+    # dbus-python and PyGObject build from sdist with meson-python; that build
+    # backend (resolveBuildSystem) plus pkg-config and the C libraries must be on
+    # the build inputs, otherwise the sdist build fails with "No module named
+    # 'mesonpy'".
     dbus-python = prev.dbus-python.overrideAttrs (old: {
-      nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ pkgs.pkg-config ];
+      nativeBuildInputs =
+        (old.nativeBuildInputs or [])
+        ++ [ pkgs.pkg-config ]
+        ++ final.resolveBuildSystem { meson-python = []; };
       buildInputs = (old.buildInputs or []) ++ [ pkgs.dbus pkgs.glib ];
     });
 
     pygobject = prev.pygobject.overrideAttrs (old: {
-      nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ pkgs.pkg-config ];
+      nativeBuildInputs =
+        (old.nativeBuildInputs or [])
+        ++ [ pkgs.pkg-config ]
+        ++ final.resolveBuildSystem { meson-python = []; };
       buildInputs =
         (old.buildInputs or [])
         ++ [ pkgs.glib pkgs.gobject-introspection pkgs.cairo ];
+    });
+
+    # evdev builds a C extension from sdist and needs the setuptools build
+    # backend, otherwise the build fails with "No module named 'setuptools'".
+    evdev = prev.evdev.overrideAttrs (old: {
+      nativeBuildInputs =
+        (old.nativeBuildInputs or [])
+        ++ final.resolveBuildSystem { setuptools = []; };
     });
   };
 
