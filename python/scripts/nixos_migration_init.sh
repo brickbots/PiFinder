@@ -242,6 +242,14 @@ done
 cd /
 rmdir "${MOUNT_NEW}/rootfs"
 
+# NetworkManager (like other security-sensitive plugin loaders) refuses to load
+# any plugin file not owned by root, so a /nix/store with non-root paths baked
+# into the tarball silently kills wifi (wlan0 ends up "unmanaged"). Normalise
+# store ownership to root now, while the new root is still writable — once
+# NixOS boots /nix/store is mounted read-only. (The boot-time
+# fix-nix-store-ownership service is the runtime backstop for this.)
+chown -R 0:0 "${MOUNT_NEW}/nix/store" "${MOUNT_NEW}/nix/var/nix/db" 2>/dev/null || true
+
 show 66 "Copying boot"
 
 mkdir -p "${MOUNT_BOOT}"
