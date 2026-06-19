@@ -165,6 +165,51 @@ in {
   };
 
   # ---------------------------------------------------------------------------
+  # Repair /nix/store ownership before NetworkManager starts
+  # ---------------------------------------------------------------------------
+  # NetworkManager (like other security-sensitive plugin loaders) silently
+  # refuses to load any plugin file not owned by root. Tarball-based migration
+  # and single-user nix imports can leave /nix/store paths owned by a non-root
+  # uid; NM then drops its wifi device plugin entirely — wlan0 shows as
+  # "unmanaged", WIFI-HW as "missing", and no wifi client connection ever comes
+  # up. Normalise ownership back to root before NM reads its plugins. Idempotent
+  # and cheap on a clean store (early-exits without touching the ro mount).
+  systemd.services.fix-nix-store-ownership = {
+    description = "Normalise /nix/store ownership to root (NM rejects non-root plugins)";
+    after = [ "local-fs.target" ];
+    before = [ "NetworkManager.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = with pkgs; [ util-linux findutils coreutils ];
+    script = ''
+      set -u
+      if [ -z "$(find /nix/store -mindepth 1 -maxdepth 1 ! -uid 0 -print -quit)" ] \
+         && [ "$(stat -c %u /nix/var/nix/db)" = 0 ]; then
+        exit 0
+      fi
+      echo "normalising non-root /nix/store ownership"
+      remounted=0
+      if findmnt -no OPTIONS /nix/store | grep -qw ro; then
+        if mount -o remount,rw /nix/store; then
+          remounted=1
+        else
+          echo "WARNING: could not remount /nix/store rw; skipping repair"
+          exit 0
+        fi
+      fi
+      find /nix/store -mindepth 1 -maxdepth 1 ! -uid 0 -exec chown -R 0:0 {} + || true
+      chown 0:0 /nix/var/nix/db || true
+      if [ "$remounted" = 1 ]; then
+        mount -o remount,ro /nix/store || true
+      fi
+      echo "store ownership normalised"
+    '';
+  };
+
+  # ---------------------------------------------------------------------------
   # PiFinder source + data directory setup
   # ---------------------------------------------------------------------------
   system.activationScripts.pifinder-home = lib.stringAfter [ "users" ] ''
