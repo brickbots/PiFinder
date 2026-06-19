@@ -108,6 +108,16 @@ def load_source(name, path):
       nativeBuildInputs =
         (old.nativeBuildInputs or [])
         ++ final.resolveBuildSystem { setuptools = []; };
+      # RPi.GPIO's C module init aborts with "This module can only be run on a
+      # Raspberry Pi!" when the board revision is in neither the device tree
+      # nor /proc/cpuinfo — the case on a mainline-DT arm64 NixOS Pi 4. Without
+      # this every importer (adafruit-blinka -> board -> RPi.GPIO) crashes and
+      # the whole app crash-loops. Patch in a /proc/device-tree/model fallback.
+      postPatch =
+        (old.postPatch or "")
+        + ''
+          patch -p1 < ${./rpi-gpio-pi-detect.patch}
+        '';
     });
 
     # No aarch64 wheel, so it builds from sdist on the Pi (fine on x86 via wheel).
