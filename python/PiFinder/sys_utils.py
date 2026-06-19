@@ -147,6 +147,18 @@ class Network(NetworkBase):
         self.populate_wifi_networks()
         return self._wifi_networks
 
+    def wifi_mode(self) -> str:
+        """Report the actual current mode from NetworkManager.
+
+        AP fallback (or any out-of-band change) can flip the radio after init,
+        so detect live rather than trusting the value cached at construction —
+        otherwise the UI shows "Client" while the device is really broadcasting
+        the AP. Refreshing the cached field keeps local_ip()/set_wifi_mode()
+        consistent too.
+        """
+        self._wifi_mode = self._detect_wifi_mode()
+        return self._wifi_mode
+
     def delete_wifi_network(self, network_id):
         """Delete a saved WiFi connection by its NetworkManager UUID.
 
