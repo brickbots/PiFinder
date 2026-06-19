@@ -38,9 +38,9 @@ in {
       "https://cache.nixos.org"
     ];
     trusted-public-keys = [
-      # TODO: replace placeholder with the real pifinder-release public key
-      # (same value as nixos/services.nix).
-      "pifinder-release:REPLACE_WITH_PIFINDER_RELEASE_PUBKEY="
+      # NOTE: add pifinder-release's real key here once that cache is
+      # provisioned (same value as nixos/services.nix). Never ship a
+      # placeholder — invalid base64 aborts every nix operation.
       "pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE="
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
     ];
