@@ -124,10 +124,13 @@ class Network(NetworkBase):
             if conn.get_id() == AP_CONNECTION_NAME:
                 continue
             ssid_bytes = s_wifi.get_ssid()
-            ssid = ssid_bytes.get_data().decode("utf-8") if ssid_bytes else ""
+            ssid = (
+                ssid_bytes.get_data().decode("utf-8", "replace") if ssid_bytes else ""
+            )
             self._wifi_networks.append(
                 {
                     "id": network_id,
+                    "uuid": conn.get_uuid(),
                     "ssid": ssid,
                     "psk": None,
                     "key_mgmt": "WPA-PSK",
@@ -135,19 +138,35 @@ class Network(NetworkBase):
             )
             network_id += 1
 
+    def get_wifi_networks(self):
+        """Return the saved networks, re-queried live from NetworkManager.
+
+        The list is not cached: changes made outside this process (the AP/CLI
+        switch, another tool, a repair) are reflected on the next read.
+        """
+        self.populate_wifi_networks()
+        return self._wifi_networks
+
     def delete_wifi_network(self, network_id):
-        """Delete a saved WiFi connection."""
+        """Delete a saved WiFi connection by its NetworkManager UUID.
+
+        Matching on the UUID (not the connection id or SSID) is what makes this
+        robust: a connection's id need not equal its SSID, and corrupt entries
+        store unrelated text in the SSID field, so an id/SSID match silently
+        fails to delete them.
+        """
         if network_id < 0 or network_id >= len(self._wifi_networks):
             logger.error("Invalid network_id: %d", network_id)
             return
-        ssid = self._wifi_networks[network_id]["ssid"]
-        for conn in self._client.get_connections():
-            if conn.get_id() == ssid:
-                try:
-                    _nm_run_async(conn.delete_async, None)
-                except Exception as e:
-                    logger.error("Failed to delete connection '%s': %s", ssid, e)
-                break
+        entry = self._wifi_networks[network_id]
+        conn = self._client.get_connection_by_uuid(entry["uuid"])
+        if conn is None:
+            logger.error("Connection uuid %s not found", entry["uuid"])
+        else:
+            try:
+                _nm_run_async(conn.delete_async, None)
+            except Exception as e:
+                logger.error("Failed to delete connection '%s': %s", entry["ssid"], e)
         self.populate_wifi_networks()
 
     def add_wifi_network(self, ssid, key_mgmt, psk=None):
@@ -178,16 +197,26 @@ class Network(NetworkBase):
         s_ip4.set_property(NM.SETTING_IP_CONFIG_METHOD, "auto")
         profile.add_setting(s_ip4)
 
+        # Persist the connection first. Saving must not depend on being able to
+        # activate it right now: wlan0 is often unavailable at add time (in AP
+        # mode, or out of range of the new network), and add_and_activate would
+        # then fail and save nothing.
         try:
-            _nm_run_async(
-                self._client.add_and_activate_connection_async,
-                profile,
-                self._client.get_device_by_iface("wlan0"),
-                None,
-                None,
-            )
+            conn = _nm_run_async(self._client.add_connection_async, profile, True, None)
         except Exception as e:
             logger.error("Failed to add WiFi network '%s': %s", ssid, e)
+            self.populate_wifi_networks()
+            return
+
+        # Best effort: bring it up now if the radio is available.
+        device = self._client.get_device_by_iface("wlan0")
+        if device is not None:
+            try:
+                _nm_run_async(
+                    self._client.activate_connection_async, conn, device, None, None
+                )
+            except Exception as e:
+                logger.warning("Saved '%s' but could not activate it now: %s", ssid, e)
 
         self.populate_wifi_networks()
 
