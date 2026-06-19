@@ -76,8 +76,8 @@ Options
 --------
 
 Some menus present a list of options where you choose one or more items to control how the
-PiFinder operates.  For instance, the Filter menu items take you to a sub-menu of ways to
-filter your object lists:
+PiFinder operates.  For instance, the Set Filters menu items take you to a sub-menu of ways
+to filter your object lists:
 
 
 .. image:: images/user_guide/options_menu_01.png
@@ -269,8 +269,8 @@ Filters
 ----------
 
 Every object list aside from :ref:`user_guide:name search` and Recent shows only objects
-that meet the filter criteria you've set.  View and adjust your filters from the Filter
-menu, available on the main PiFinder menu.
+that meet the filter criteria you've set.  View and adjust your filters from the Set
+Filters menu, the last item in the Objects menu.
 
 .. image:: images/user_guide/main_filter_option.png
 
@@ -279,8 +279,8 @@ List screen.
 
 .. image:: images/user_guide/object_list_radial_docs.png
 
-The Filter menu offers several ways to limit which objects appear, plus a Reset All option
-to clear every filter.
+The Set Filters menu offers several ways to limit which objects appear, plus a Reset All
+option to clear every filter.
 
 .. image:: images/user_guide/filter_menu.png
 
