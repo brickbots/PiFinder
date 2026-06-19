@@ -115,7 +115,12 @@ in {
       SUBSYSTEM=="dma_heap", GROUP="video", MODE="0660"
     '';
 
-    users.users.root.initialPassword = "solveit";
+    # Deterministic root password (sha-512 crypt of "solveit"), enforced on
+    # every activation — unlike initialPassword, which only applies at account
+    # creation and drifts if changed at runtime. Test-device convenience; the
+    # hash lives in the world-readable store, which is fine for a known cred.
+    users.users.root.hashedPassword =
+      "$6$caME5a7TbhnPfrV2$sXHx/OuQCaRkjCG/Lba8vxL5R8.SgD72YHKWzHwDVj9CfDgz1xJ766ht0VCB18Q/igzceaoQM8fwgYNj2ygap/";
     users.users.pifinder = {
       isNormalUser = true;
       initialPassword = "solveit";
