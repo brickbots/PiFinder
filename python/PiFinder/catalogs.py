@@ -632,11 +632,7 @@ class PlanetCatalog(Catalog):
                 self.add_planet(sequence, name, planet_data)
                 sequence += 1
 
-        with self._virtual_id_manager.virtual_id_lock:
-            new_low = self._virtual_id_manager.assign_virtual_object_ids(
-                self, self._virtual_id_manager.virtual_id_low
-            )
-            self._virtual_id_manager.virtual_id_low = new_low
+        self._virtual_id_manager.mint_ids(self)
         self.initialized = True
 
     def add_planet(self, sequence: int, name: str, planet: Dict[str, Dict[str, float]]):

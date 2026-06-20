@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "name": "Example Tour",
+  "epoch": "J2000",
+  "objects": [
+    {
+      "catalog_code": "NGC",
+      "sequence": 7000,
+      "notes": "North America Nebula"
+    },
+    {
+      "name": "VY Andromedae",
+      "obj_type": "*",
+      "ra": 6.984,
+      "dec": 44.281,
+      "mag": 9.7,
+      "notes": "carbon star, deep red"
+    },
+    {
+      "name": "Barnard's Loop",
+      "obj_type": "Neb",
+      "ra": 84.5,
+      "dec": -3.0,
+      "mag": { "mags": [5.0], "filter_mag": 5.0 },
+      "extents": {
+        "shape": [[83.0, -1.0], [84.5, -3.0], [86.0, -5.0]],
+        "geometry": "polyline",
+        "position_angle": 0.0
+      }
+    },
+    {
+      "name": "Nova 2016",
+      "obj_type": "Nova",
+      "ra": 270.0,
+      "dec": -25.0,
+      "epoch": "J2016.0",
+      "notes": "RA/Dec given in J2016; precessed to J2000 on read"
+    }
+  ]
+}
