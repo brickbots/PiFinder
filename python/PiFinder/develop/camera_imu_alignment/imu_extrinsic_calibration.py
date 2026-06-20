@@ -80,7 +80,7 @@ from scipy.optimize import least_squares
 import time
 from typing import Union
 
-import sandbox.pointing_model.quaternion_transforms as qt
+import PiFinder.pointing_model.quaternion_transforms as qt
 
 list_of_quats = list[quaternion.quaternion]
 
@@ -90,6 +90,8 @@ def ensure_quat_continuity(q_list: list_of_quats) -> list_of_quats:
     Ensures that consecutive quaternions in the list have consistent signs (due
     to the double coverage property of quaternions where q and -q represent
     same rotation).
+
+    TODO: Possibly move this to quaternion_transforms?
     """
     q_list_out = [q_list[0]]
     for q in q_list[1:]:
@@ -165,14 +167,14 @@ def residual_rotation_vector(x,  # (3,) Trial solution (q as rotation vector)
     return np.array(residuals)
 
 
-N_UNKNOWN = 3
+N_UNKNOWN_PARAMS = 3  # Number of unknown parameters in the problem to solve
 
 def calibrate_camera_imu(
         q_cam: list_of_quats,  # Camera orientations
         q_imu: list_of_quats,  # IMU orientations at same moments
         step: int = 1,  # Skip successive measurements
         min_rotation=np.deg2rad(1.0),  # Reject rotations below this [radians]
-        x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN),  # Initial guess
+        x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN_PARAMS),  # Initial guess
         residual_threshold = 0.01,  # Reject samples with residual > resid_threshold in first pass
         verbose=True
         ):
