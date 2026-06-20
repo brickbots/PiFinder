@@ -116,7 +116,11 @@ in {
   # ---------------------------------------------------------------------------
   systemd.services.pifinder-first-boot = {
     description = "Download full PiFinder NixOS system from the binary cache";
-    after = [ "network-online.target" "nix-path-registration.service" "nix-daemon.service" ];
+    # time-sync.target ordering pairs with the explicit clock-wait in the
+    # script below — the Pi has no RTC, and TLS to the binary cache fails
+    # while the clock is still in the past.
+    after = [ "network-online.target" "time-sync.target" "nix-path-registration.service" "nix-daemon.service" ];
+    wants = [ "time-sync.target" ];
     requires = [ "network-online.target" ];
     wantedBy = [ "multi-user.target" ];
     unitConfig.ConditionPathExists = "/var/lib/pifinder/first-boot-target";
@@ -125,12 +129,14 @@ in {
       RemainAfterExit = true;
       TimeoutStartSec = "30min";
     };
-    path = with pkgs; [ nix coreutils systemd curl jq ];
+    path = with pkgs; [ nix coreutils systemd curl jq gnugrep ];
     script = ''
       set -euo pipefail
 
-      # Show scanner animation on OLED during download
-      ${boot-splash}/bin/boot-splash &
+      # Real-progress splash on the OLED, fed via a progress file (0-100).
+      PROGRESS_FILE=/run/pifinder-boot-progress
+      echo 0 > "$PROGRESS_FILE"
+      ${boot-splash}/bin/boot-splash --progress "$PROGRESS_FILE" &
       SPLASH_PID=$!
       trap 'kill $SPLASH_PID 2>/dev/null || true' EXIT
 
@@ -152,8 +158,37 @@ in {
         exit 1
       fi
 
-      echo "Downloading full PiFinder system: $STORE_PATH"
-      nix build "$STORE_PATH" --max-jobs 0
+      # The Pi has no RTC: at cold boot the clock starts in the past, so TLS
+      # validation against the binary cache fails ("certificate is not yet
+      # valid") and the download aborts. Wait for timesyncd to fix the clock.
+      echo "Waiting for clock synchronization..."
+      for _ in $(seq 1 120); do
+        [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = yes ] && break
+        [ -e /run/systemd/timesync/synchronized ] && break
+        sleep 1
+      done
+      echo "Clock: $(date -u)"
+
+      # Count paths to fetch so the splash can show real progress.
+      echo "Computing download size..."
+      TOTAL=$(nix-store --realise --dry-run "$STORE_PATH" 2>&1 | grep -c '^  /nix/store/' || true)
+      echo "Downloading full PiFinder system: $STORE_PATH ($TOTAL paths)"
+
+      if [ "$TOTAL" -gt 0 ]; then
+        COPIED=0
+        nix build "$STORE_PATH" --max-jobs 0 2>&1 | while IFS= read -r line; do
+          echo "$line"
+          case "$line" in
+            *"copying path "*)
+              COPIED=$((COPIED + 1))
+              echo "$((COPIED * 100 / TOTAL))" > "$PROGRESS_FILE"
+              ;;
+          esac
+        done
+      else
+        nix build "$STORE_PATH" --max-jobs 0
+      fi
+      echo 100 > "$PROGRESS_FILE"
 
       echo "Setting system profile..."
       nix-env -p /nix/var/nix/profiles/system --set "$STORE_PATH"

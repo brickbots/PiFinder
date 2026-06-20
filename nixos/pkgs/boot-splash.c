@@ -30,6 +30,9 @@
 /* RGB565 colors (display interprets as RGB despite BGR setting) */
 #define COL_BLACK   0x0000
 #define COL_RED     0xF800
+#define COL_DKRED   0x3800   /* dim red — unfilled progress track */
+
+#define PROGRESS_FILE_DEFAULT "/run/pifinder-boot-progress"
 
 /* Include generated image data */
 #include "welcome_image.h"
@@ -182,6 +185,37 @@ static void draw_scanner(int pos, int scanner_width) {
     ssd1351_flush();
 }
 
+/* Read a 0-100 percentage from a file. Returns -1 if missing/unparseable. */
+static int read_progress(const char *path) {
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    int pct = -1;
+    if (fscanf(f, "%d", &pct) != 1) pct = -1;
+    fclose(f);
+    if (pct < 0) return -1;
+    if (pct > 100) pct = 100;
+    return pct;
+}
+
+static void draw_progress(int pct) {
+    /* Copy welcome image to framebuffer */
+    memcpy(framebuf, welcome_image, sizeof(framebuf));
+
+    /* Progress bar across the bottom 4 rows, filling left-to-right.
+     * Filled portion bright red, remaining track dim red. */
+    int y_start = HEIGHT - 4;
+    int fill = pct * WIDTH / 100;
+
+    for (int x = 0; x < WIDTH; x++) {
+        uint16_t color = (x < fill) ? COL_RED : COL_DKRED;
+        for (int y = y_start; y < HEIGHT; y++) {
+            framebuf[y * WIDTH + x] = color;
+        }
+    }
+
+    ssd1351_flush();
+}
+
 static int hw_init(void) {
     spi_fd = open(SPI_DEVICE, O_RDWR);
     if (spi_fd < 0) {
@@ -225,10 +259,18 @@ static void show_static_image(void) {
 
 int main(int argc, char *argv[]) {
     int static_mode = 0;
+    int progress_mode = 0;
+    const char *progress_path = PROGRESS_FILE_DEFAULT;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--static") == 0) {
             static_mode = 1;
+        } else if (strcmp(argv[i], "--progress") == 0) {
+            progress_mode = 1;
+            /* Optional next arg overrides the progress file path */
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                progress_path = argv[++i];
+            }
         }
     }
 
@@ -247,6 +289,24 @@ int main(int argc, char *argv[]) {
     if (static_mode) {
         /* Static mode: show image once and exit */
         show_static_image();
+        hw_cleanup();
+        return 0;
+    }
+
+    if (progress_mode) {
+        /* Progress mode: render a real bar from the progress file until 100%
+         * or until signalled. Only flush when the value changes. */
+        int last = -1;
+        while (running) {
+            int pct = read_progress(progress_path);
+            if (pct < 0) pct = 0;
+            if (pct != last) {
+                draw_progress(pct);
+                last = pct;
+            }
+            if (pct >= 100) break;
+            msleep(100);
+        }
         hw_cleanup();
         return 0;
     }
