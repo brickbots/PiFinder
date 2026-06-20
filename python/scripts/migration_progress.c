@@ -221,7 +221,6 @@ static void oled_cmd_data(uint8_t cmd, uint8_t data)
     oled_data(&data, 1);
 }
 
-static int skip_reset = 0;  /* set via --update flag in main */
 static int display_on = 0;
 
 static void detect_display(void)
@@ -259,13 +258,6 @@ static void oled_reset(void)
 
 static void oled_common_init(int mux_ratio, uint8_t remap)
 {
-    if (skip_reset) {
-        /* Just ensure display is on, skip full init */
-        oled_cmd(0xAF);
-        display_on = 1;
-        return;
-    }
-
     oled_reset();
 
     /* SSD13xx 65k-color OLED setup. */
@@ -536,30 +528,39 @@ static void hw_cleanup(void)
     if (spi_fd >= 0) close(spi_fd);
 }
 
+/* Persistent mode: initialise the panel once, then redraw in place for each
+ * "<percent> <stage_num> <stage_total> <stage_name>" line read from stdin.
+ * Because the panel is never reset between frames, the display updates without
+ * blanking to black. Returns on EOF (writer closed). */
+static void serve_loop(void)
+{
+    char line[256];
+    while (fgets(line, sizeof(line), stdin)) {
+        int percent = 0, stage_num = 0, stage_total = 0, name_off = 0;
+        if (sscanf(line, "%d %d %d %n", &percent, &stage_num, &stage_total,
+                   &name_off) < 3)
+            continue;
+        char *name = line + name_off;
+        size_t len = strlen(name);
+        while (len > 0 && (name[len - 1] == '\n' || name[len - 1] == '\r'))
+            name[--len] = '\0';
+        draw_progress(percent, name, stage_num, stage_total);
+    }
+}
+
 int main(int argc, char *argv[])
 {
-    int arg_offset = 0;
+    int serve = (argc >= 2 && strcmp(argv[1], "--serve") == 0);
 
-    if (argc >= 2 && strcmp(argv[1], "--update") == 0) {
-        skip_reset = 1;
-        arg_offset = 1;
-    }
-
-    if (argc - arg_offset < 5) {
-        fprintf(stderr, "Usage: %s [--update] <percent> <stage_num> <stage_total> <stage_name>\n", argv[0]);
-        fprintf(stderr, "  --update     Skip reset, just update display\n");
-        fprintf(stderr, "  percent      0-100\n");
-        fprintf(stderr, "  stage_num    Current stage number (1-based)\n");
-        fprintf(stderr, "  stage_total  Total number of stages\n");
-        fprintf(stderr, "  stage_name   Description of current stage\n");
+    if (!serve && argc < 5) {
+        fprintf(stderr, "Usage: %s --serve\n", argv[0]);
+        fprintf(stderr, "         read '<percent> <stage_num> <stage_total> <stage_name>'\n");
+        fprintf(stderr, "         lines from stdin and redraw in place (no flicker)\n");
+        fprintf(stderr, "   or: %s <percent> <stage_num> <stage_total> <stage_name>\n", argv[0]);
+        fprintf(stderr, "         draw a single frame and exit\n");
         fprintf(stderr, "\nExample: %s 50 3 7 'Extracting system'\n", argv[0]);
         return 1;
     }
-
-    int percent = atoi(argv[1 + arg_offset]);
-    int stage_num = atoi(argv[2 + arg_offset]);
-    int stage_total = atoi(argv[3 + arg_offset]);
-    const char *stage_name = argv[4 + arg_offset];
 
     if (hw_init() < 0) {
         fprintf(stderr, "Hardware init failed\n");
@@ -567,7 +568,12 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    draw_progress(percent, stage_name, stage_num, stage_total);
+    if (serve) {
+        serve_loop();
+    } else {
+        draw_progress(atoi(argv[1]), argv[4], atoi(argv[2]), atoi(argv[3]));
+    }
+
     hw_cleanup();
     return 0;
 }

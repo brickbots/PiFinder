@@ -113,7 +113,7 @@ if [ -f "${TARBALL}" ]; then
 fi
 
 if [ "${SKIP_DOWNLOAD}" = false ]; then
-    progress 10 "Downloading... 0%"
+    progress 10 "Downloading..."
     rm -f "${TARBALL}"
 
     if ! curl -L -f -o "${TARBALL}" \
@@ -122,7 +122,7 @@ if [ "${SKIP_DOWNLOAD}" = false ]; then
             if [[ "$line" =~ ([0-9]+)\.[0-9]% ]]; then
                 dl_pct="${BASH_REMATCH[1]}"
                 mapped_pct=$(( 10 + dl_pct * 50 / 100 ))
-                progress "${mapped_pct}" "Downloading... ${dl_pct}%"
+                progress "${mapped_pct}" "Downloading..."
             fi
         done; then
         fail 2 "Download failed"

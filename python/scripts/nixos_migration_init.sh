@@ -11,6 +11,11 @@
 
 set -e
 
+# The OLED progress display is driven through a pipe (fd 3). If that process
+# ever dies, a write must not take a fatal SIGPIPE and abort the migration —
+# the display is best-effort, the migration is not.
+trap '' PIPE
+
 /bin/busybox --install -s /bin 2>/dev/null || true
 
 mount -t proc proc /proc 2>/dev/null || true
@@ -38,7 +43,21 @@ PROGRESS="/bin/migration_progress"
 
 STAGE_NUM=0
 STAGE_TOTAL=22
+PROGRESS_FIFO="/tmp/migration_progress.fifo"
 PROGRESS_READY=0
+
+# Drive the OLED with a single long-lived process. It initialises the panel
+# once and redraws in place from stdin, so the display never resets to black
+# between stages (a fresh process per stage would re-assert the panel's RST
+# line and blank it). fd 3 is the persistent writer; keeping it open stops the
+# server seeing EOF until the migration is done.
+if [ -x "${PROGRESS}" ]; then
+    rm -f "${PROGRESS_FIFO}"
+    mkfifo "${PROGRESS_FIFO}" 2>/dev/null || true
+    "${PROGRESS}" --serve < "${PROGRESS_FIFO}" >/dev/null 2>&1 &
+    exec 3>"${PROGRESS_FIFO}"
+    PROGRESS_READY=1
+fi
 
 show() {
     local pct="$1"
@@ -46,21 +65,15 @@ show() {
     STAGE_NUM=$((STAGE_NUM + 1))
     echo "[${pct}%] ${msg}" > /dev/console 2>/dev/null || true
     echo "[${pct}%] ${msg}"
-    if [ -x "${PROGRESS}" ]; then
-        # First call resets and initialises the panel; later calls reuse it
-        # with --update so the framebuffer is overwritten in place instead of
-        # the display blanking to black between every stage.
-        if [ "${PROGRESS_READY}" -eq 0 ]; then
-            "${PROGRESS}" "${pct}" "${STAGE_NUM}" "${STAGE_TOTAL}" "${msg}" 2>/dev/null || true
-            PROGRESS_READY=1
-        else
-            "${PROGRESS}" --update "${pct}" "${STAGE_NUM}" "${STAGE_TOTAL}" "${msg}" 2>/dev/null || true
-        fi
+    if [ "${PROGRESS_READY}" -eq 1 ]; then
+        echo "${pct} ${STAGE_NUM} ${STAGE_TOTAL} ${msg}" >&3 2>/dev/null || true
     fi
 }
 
 fail() {
-    [ -x "${PROGRESS}" ] && "${PROGRESS}" 0 0 0 "FAILED: $1" 2>/dev/null || true
+    if [ "${PROGRESS_READY}" -eq 1 ]; then
+        echo "0 0 0 FAILED: $1" >&3 2>/dev/null || true
+    fi
     echo "[FAILED] $1"
     echo "MIGRATION FAILED: $1" > /dev/console 2>/dev/null || true
     echo "Dropping to shell for debugging..."
@@ -191,6 +204,12 @@ if [ -d "${PIFINDER_DATA_ON_ROOT}" ]; then
     if [ -d "${PIFINDER_DATA_ON_ROOT}/obslists" ]; then
         cp -a "${PIFINDER_DATA_ON_ROOT}/obslists" "${BACKUP_STAGE}/obslists"
     fi
+fi
+
+# Preserve the pre-migration hostname: Pi OS stores it in /etc/hostname, the NixOS
+# image reads it from PiFinder_data/hostname. Bridge them; don't clobber an existing one.
+if [ ! -f "${BACKUP_STAGE}/hostname" ] && [ -s "${MOUNT_ROOT}/etc/hostname" ]; then
+    head -n1 "${MOUNT_ROOT}/etc/hostname" | tr -d '[:space:]' > "${BACKUP_STAGE}/hostname"
 fi
 
 show 38 "Backup created"
