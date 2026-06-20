@@ -403,6 +403,28 @@ static void fb_string_centered(int y, const char *s, uint16_t color, int scale)
     fb_string(x, y, s, color, scale);
 }
 
+/* Center a string, shrinking the scale (and finally truncating) so it always
+ * fits the display width. Used for the variable-length stage name. */
+static void fb_string_centered_fit(int y, const char *s, uint16_t color, int max_scale)
+{
+    int len = strlen(s);
+    for (int scale = max_scale; scale >= 1; scale--) {
+        if (len * 6 * scale - scale <= display_width) {
+            fb_string_centered(y, s, color, scale);
+            return;
+        }
+    }
+    /* Too long even at scale 1: render a head that fits. */
+    int max_chars = (display_width + 1) / 6;
+    char buf[64];
+    if (max_chars > (int)sizeof(buf) - 1)
+        max_chars = (int)sizeof(buf) - 1;
+    int n = len < max_chars ? len : max_chars;
+    memcpy(buf, s, (size_t)n);
+    buf[n] = '\0';
+    fb_string_centered(y, buf, color, 1);
+}
+
 static void draw_progress(int percent, const char *stage, int stage_num, int stage_total)
 {
     if (percent < 0) percent = 0;
@@ -421,9 +443,9 @@ static void draw_progress(int percent, const char *stage, int stage_num, int sta
     int stage_name_y = display_width >= 160 ? 145 : 105;
     int wait_y = display_height - (8 * scale);
 
-    /* Warning banner at top */
-    fb_rect(0, 0, display_width, banner_h, COL_DKRED);
-    fb_string_centered(3, "DO NOT POWER OFF", COL_RED, scale);
+    /* Warning banner at top: solid bright bar with black text for contrast */
+    fb_rect(0, 0, display_width, banner_h, COL_RED);
+    fb_string_centered(3, "DO NOT POWER OFF", COL_BLACK, scale);
 
     /* Title */
     fb_string_centered(title_y, "NixOS", COL_RED, 2);
@@ -465,7 +487,7 @@ static void draw_progress(int percent, const char *stage, int stage_num, int sta
 
     /* Current stage name */
     if (stage && *stage)
-        fb_string_centered(stage_name_y, stage, COL_RED, scale);
+        fb_string_centered_fit(stage_name_y, stage, COL_RED, scale);
 
     /* Bottom warning */
     fb_string_centered(wait_y, "Please wait...", COL_DKGRAY, scale);

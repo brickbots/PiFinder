@@ -38,6 +38,7 @@ PROGRESS="/bin/migration_progress"
 
 STAGE_NUM=0
 STAGE_TOTAL=22
+PROGRESS_READY=0
 
 show() {
     local pct="$1"
@@ -45,7 +46,17 @@ show() {
     STAGE_NUM=$((STAGE_NUM + 1))
     echo "[${pct}%] ${msg}" > /dev/console 2>/dev/null || true
     echo "[${pct}%] ${msg}"
-    [ -x "${PROGRESS}" ] && "${PROGRESS}" "${pct}" "${STAGE_NUM}" "${STAGE_TOTAL}" "${msg}" 2>/dev/null || true
+    if [ -x "${PROGRESS}" ]; then
+        # First call resets and initialises the panel; later calls reuse it
+        # with --update so the framebuffer is overwritten in place instead of
+        # the display blanking to black between every stage.
+        if [ "${PROGRESS_READY}" -eq 0 ]; then
+            "${PROGRESS}" "${pct}" "${STAGE_NUM}" "${STAGE_TOTAL}" "${msg}" 2>/dev/null || true
+            PROGRESS_READY=1
+        else
+            "${PROGRESS}" --update "${pct}" "${STAGE_NUM}" "${STAGE_TOTAL}" "${msg}" 2>/dev/null || true
+        fi
+    fi
 }
 
 fail() {
@@ -102,7 +113,7 @@ TARBALL_SIZE_MB=$((TARBALL_SIZE / 1048576))
 NEEDED_MB=$((TARBALL_SIZE_MB + 150))
 [ "${MEM_MB}" -lt "${NEEDED_MB}" ] && fail "Insufficient RAM: ${MEM_MB}MB available, need ${NEEDED_MB}MB"
 
-show 31 "Validated (${MEM_MB}MB free)"
+show 31 "Validated: ${MEM_MB}MB"
 
 # -------------------------------------------------------------------
 # Phase 2: Save WiFi credentials to RAM
@@ -188,7 +199,7 @@ show 38 "Backup created"
 # Phase 4: Copy tarball to RAM, unmount old root
 # -------------------------------------------------------------------
 
-show 40 "Loading tarball to RAM"
+show 40 "Loading tarball"
 
 TARBALL_ON_ROOT="${MOUNT_ROOT}${TARBALL_PATH}"
 [ ! -f "${TARBALL_ON_ROOT}" ] && { umount "${MOUNT_ROOT}"; fail "Tarball not found: ${TARBALL_PATH}"; }
