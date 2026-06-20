@@ -123,6 +123,11 @@ in {
       "$6$caME5a7TbhnPfrV2$sXHx/OuQCaRkjCG/Lba8vxL5R8.SgD72YHKWzHwDVj9CfDgz1xJ766ht0VCB18Q/igzceaoQM8fwgYNj2ygap/";
     users.users.pifinder = {
       isNormalUser = true;
+      # MUST stay initialPassword (not hashedPassword): the web UI changes this
+      # password at runtime via `sudo chpasswd` (sys_utils.change_password).
+      # initialPassword applies only at account creation, so that change
+      # persists; hashedPassword would re-enforce "solveit" on every activation
+      # and silently revert the user's password on the next upgrade.
       initialPassword = "solveit";
       extraGroups = [ "spi" "i2c" "gpio" "dialout" "video" "networkmanager" "systemd-journal" "input" "kmem" ];
     };
