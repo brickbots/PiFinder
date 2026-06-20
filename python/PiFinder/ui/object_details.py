@@ -35,7 +35,10 @@ import pydeepskylog as pds
 
 
 # Read-only handle to the catalog DB, opened once and shared across detail
-# views (only used when cross-catalog descriptions are enabled).
+# views. Used by _other_catalog_descriptions() to pull an object's listings in
+# its *other* catalogs (this always runs on the description view). Like the
+# per-instance ObservationsDatabase opened below, this read connection lives for
+# the life of the UI process and is closed when that process exits.
 _objects_db = None
 
 
