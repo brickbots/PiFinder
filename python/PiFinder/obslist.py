@@ -292,35 +292,79 @@ def read_list(catalogs: Catalogs, name):
 
     list_catalog: list = []
     name_index = None  # built lazily, only if an entry needs name resolution
-    for i, entry in enumerate(obs_list.entries):
-        _object = None
+    errors = 0
+    last_error: Exception | None = None
+    try:
+        for i, entry in enumerate(obs_list.entries):
+            try:
+                _object = None
 
-        # Try catalog resolution with catalog_names (skylist multi-name support)
-        if entry.catalog_names:
-            _object = resolve_object(entry.catalog_names, catalogs)
-        elif entry.catalog_code and entry.sequence:
-            _object = resolve_object(
-                [f"{entry.catalog_code} {entry.sequence}"], catalogs
-            )
+                # Try catalog resolution with catalog_names (skylist multi-name)
+                if entry.catalog_names:
+                    _object = resolve_object(entry.catalog_names, catalogs)
+                elif entry.catalog_code and entry.sequence:
+                    _object = resolve_object(
+                        [f"{entry.catalog_code} {entry.sequence}"], catalogs
+                    )
 
-        # No catalog match: try resolving by object name (handles lists that
-        # identify objects only by name, e.g. carbon stars "VY Andromedae").
-        if not _object and entry.name:
-            if name_index is None:
-                name_index = _build_name_index(catalogs)
-            _object = resolve_by_name(entry.name, name_index)
+                # No catalog match: try resolving by object name (handles lists
+                # that identify objects only by name, e.g. "VY Andromedae").
+                if not _object and entry.name:
+                    if name_index is None:
+                        name_index = _build_name_index(catalogs)
+                    _object = resolve_by_name(entry.name, name_index)
 
-        # Resolved objects are shared catalog instances: record this list's
-        # description under the list name instead of clobbering the catalog one.
-        if _object and entry.description:
-            _object.list_descriptions[obs_list.name] = entry.description
+                # Resolved objects are shared catalog instances: record this
+                # list's description under the list name rather than clobbering
+                # the catalog one.
+                if _object and entry.description:
+                    _object.list_descriptions[obs_list.name] = entry.description
 
-        # Fall back to coordinate-based object
-        if not _object and (entry.ra or entry.dec):
-            _object = _coordinate_object(entry, i)
+                # Fall back to coordinate-based object
+                if not _object and (entry.ra or entry.dec):
+                    _object = _coordinate_object(entry, i)
 
-        if _object:
-            list_catalog.append(_object)
+                if _object:
+                    list_catalog.append(_object)
+            except Exception as e:
+                # One malformed entry (bad coords, a lookup that errors) must not
+                # sink the whole list: log it, skip it, keep resolving the rest.
+                errors += 1
+                last_error = e
+                logger.warning(
+                    "Skipping observing list entry %d (%r): %s",
+                    i,
+                    getattr(entry, "name", "?"),
+                    e,
+                )
+    except Exception as e:
+        # Safety net for a failure outside the per-entry guard (e.g. the entries
+        # iterable itself raises). Mirror the file-read error-dict contract so
+        # UIObsList.key_right shows its message instead of crashing the UI. Use
+        # len(list_catalog), not len(obs_list.entries): if entries was the thing
+        # that raised, touching it again here would re-raise and defeat the net.
+        logger.critical("Failed to resolve observing list %s: %s", name, e)
+        return {
+            "result": "error",
+            "objects_parsed": len(list_catalog),
+            "message": str(e),
+            "catalog_objects": list_catalog,
+        }
+
+    # Every entry raised: this is systemic (e.g. the catalog DB is unavailable),
+    # not a few bad rows. Report it as an error rather than a silent "0 objects".
+    if obs_list.entries and errors == len(obs_list.entries):
+        logger.critical(
+            "Failed to resolve any entries in observing list %s: %s",
+            name,
+            last_error,
+        )
+        return {
+            "result": "error",
+            "objects_parsed": len(obs_list.entries),
+            "message": str(last_error),
+            "catalog_objects": list_catalog,
+        }
 
     return {
         "result": "success",
