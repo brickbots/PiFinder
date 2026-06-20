@@ -349,7 +349,8 @@ Experimental
    Polar Align
       For equatorial platforms: capture two or three solves while rotating the
       platform, then use the platform's altitude and azimuth adjusters until the
-      displayed correction reaches zero.
+      displayed correction reaches zero.  See
+      :ref:`user_guide:polar alignment`.
    Dev Tools
       Developer instrumentation.
 
