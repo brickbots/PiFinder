@@ -449,7 +449,16 @@ class UIPolarAlign(UIModule):
 
         point_az, point_alt, age = offset
         brightness = 255 if age < SOLVE_FRESH_SECS else 128
-        draw_pointing_instructions(self, point_az, point_alt, brightness)
+        # Polar correction is always ground-frame Alt/Az: you reach the pole
+        # by turning the mount's alt/az polar adjusters (the platform's knobs,
+        # or an equatorial head's altitude/azimuth bolts), never the RA/Dec
+        # drive axes. So force the Alt/Az arrow branch regardless of the
+        # configured mount_type -- otherwise an EQ-mount user would see +/-
+        # axis signs here instead of directional arrows. The pushto_az_arrows
+        # "Reverse" preference still applies (it lives in the Alt/Az branch).
+        draw_pointing_instructions(
+            self, point_az, point_alt, brightness, mount_type="Alt/Az"
+        )
 
     def _draw_stats(self):
         """Read-only detail view of the last computed result."""
