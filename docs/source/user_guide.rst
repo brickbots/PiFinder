@@ -265,9 +265,15 @@ The PiFinder can display images of every object in its catalog.  See the section
 
 .. image:: images/user_guide/object_details_03.png
 
-Depending on the catalog, the PiFinder may have detailed notes along with Type,
-constellation, magnitude, and size.  Use the **+/-** keys to scroll the notes field.  At
-the bottom of the notes is a count of how many times you've logged this object.
+Depending on the catalog, the PiFinder may have detailed notes alongside the object's type,
+constellation, magnitude, and size — the size is shown in degrees, arcminutes, or arcseconds,
+whichever best suits the object.  Use the **+/-** keys to scroll the notes.
+
+Many objects carry more than one catalog designation, and the notes can gather a description
+from each.  A bright horizontal rule labelled with the catalog and number — for example
+*NGC 6543* — sets one catalog's notes off from the next, so you can see at a glance where
+each note comes from.  The notes finish with a count of how many times you've logged the
+object, marked by its own rule (it reads *Not Logged* until your first sighting).
 
 What each part of the screen shows
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
