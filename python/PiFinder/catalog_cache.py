@@ -23,7 +23,7 @@ logger = logging.getLogger("Catalog.Cache")
 
 # Bump when CompositeObject shape, _create_full_composite_object output, or
 # the pickled payload structure changes.
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 
 CACHE_DIR = data_dir / "cache" / "catalogs"
 PICKLE_PATH = CACHE_DIR / "composite_objects.pkl"

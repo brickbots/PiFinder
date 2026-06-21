@@ -28,7 +28,7 @@ def load_bright_stars():
     catalog = "Str"
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, Path(utils.astro_data_dir, "Str.desc"))
+    insert_catalog(catalog, Path(utils.astro_data_dir, "Str.desc"), "Bright Stars")
 
     bstr = Path(utils.astro_data_dir, "bright_stars.csv")
 

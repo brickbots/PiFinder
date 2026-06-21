@@ -77,10 +77,14 @@ class CatalogBase:
         desc: str,
         max_sequence: int = 0,
         sort=catalog_base_sequence_sort,
+        name: Optional[str] = None,
     ):
         self.catalog_code = catalog_code
         self.max_sequence = max_sequence
         self.desc = desc
+        # Readable catalog name (e.g. "Collinder" for code "Col"); may be None
+        # for virtual catalogs or legacy rows, where the code is used instead.
+        self.name = name
         self.sort = sort
         self.__objects: List = []
         self.id_to_pos: Dict[int, int] = {}

@@ -549,7 +549,7 @@ def load_lynga() -> None:
     delete_catalog_from_database(catalog)
 
     # Path to file that describes the catalog
-    insert_catalog(catalog, Path(utils.astro_data_dir) / "lynga/ReadMe")
+    insert_catalog(catalog, Path(utils.astro_data_dir) / "lynga/ReadMe", "Lynga")
 
     # Read the catalog data
     data = read_lynga_catalog(data_path)

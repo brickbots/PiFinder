@@ -350,9 +350,15 @@ def load_ngc_catalog():
     delete_catalog_from_database("M")
 
     # Insert catalog descriptions
-    insert_catalog("NGC", Path(utils.astro_data_dir, "ngc_ic_m/ngc2000", "ngc.desc"))
-    insert_catalog("IC", Path(utils.astro_data_dir, "ngc_ic_m/", "ic.desc"))
-    insert_catalog("M", Path(utils.astro_data_dir, "ngc_ic_m/messier", "messier.desc"))
+    insert_catalog(
+        "NGC", Path(utils.astro_data_dir, "ngc_ic_m/ngc2000", "ngc.desc"), "NGC"
+    )
+    insert_catalog("IC", Path(utils.astro_data_dir, "ngc_ic_m/", "ic.desc"), "IC")
+    insert_catalog(
+        "M",
+        Path(utils.astro_data_dir, "ngc_ic_m/messier", "messier.desc"),
+        "Messier",
+    )
 
     conn, _db_c = objects_db.get_conn_cursor()
 

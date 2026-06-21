@@ -1,10 +1,37 @@
 import PiFinder.utils as utils
-from sqlite3 import Connection, Cursor
+from sqlite3 import Connection, Cursor, OperationalError
 from typing import Tuple, DefaultDict, List, Dict
 from PiFinder.db.db import Database
 from collections import defaultdict
 import logging
 import time
+
+# Readable display names per catalog code, used both by the import loaders
+# (fresh build) and by the startup migration that backfills the `name` column
+# on already-shipped, pre-built databases. Keep these two paths in agreement.
+CATALOG_DISPLAY_NAMES: Dict[str, str] = {
+    "NGC": "NGC",
+    "IC": "IC",
+    "M": "Messier",
+    "C": "Caldwell",
+    "H": "Herschel",
+    "Col": "Collinder",
+    "Ta2": "TAAS 200",
+    "SaA": "SAC Asterisms",
+    "SaM": "SAC Doubles",
+    "SaR": "SAC Red Stars",
+    "Str": "Bright Stars",
+    "EGC": "Extragalactic Globular Clusters",
+    "RDS": "RASC Double Stars",
+    "B": "Barnard",
+    "Sh2": "Sharpless",
+    "Abl": "Abell",
+    "Arp": "Arp",
+    "TLK": "TLK Variable Stars",
+    "WDS": "Washington Double Star",
+    "Har": "Harris",
+    "Lyn": "Lynga",
+}
 
 
 class ObjectsDatabase(Database):
@@ -25,6 +52,10 @@ class ObjectsDatabase(Database):
 
         self.conn.commit()
         self.bulk_mode = False  # Flag to disable commits during bulk operations
+
+        # One-time, idempotent backfill of the catalogs.name column for
+        # pre-built databases shipped without it.
+        self._migrate_catalog_names()
 
     def create_tables(self):
         # Create objects table
@@ -76,7 +107,8 @@ class ObjectsDatabase(Database):
             CREATE TABLE IF NOT EXISTS catalogs (
                 catalog_code TEXT PRIMARY KEY,
                 max_sequence INT,
-                desc TEXT
+                desc TEXT,
+                name TEXT
             );
         """
         )
@@ -109,6 +141,43 @@ class ObjectsDatabase(Database):
         )
 
         # Commit changes to the database
+        self.conn.commit()
+
+    def _migrate_catalog_names(self) -> None:
+        """Add and backfill the catalogs.name column on legacy databases.
+
+        The shipped pifinder_objects.db is a pre-built binary that predates the
+        name column, so a full re-import is not normally run on the device. This
+        adds the column if missing and populates it by catalog_code, leaving any
+        unmapped catalogs with a NULL name (the UI falls back to the code).
+        Safe to run on every startup: it is a no-op once the column exists.
+        """
+        # The catalogs table may not exist yet during a fresh import build.
+        self.cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='catalogs'"
+        )
+        if self.cursor.fetchone() is None:
+            return
+
+        self.cursor.execute("PRAGMA table_info(catalogs)")
+        columns = [row["name"] for row in self.cursor.fetchall()]
+        if "name" in columns:
+            return
+
+        logging.info("Migrating catalogs table: adding and backfilling 'name'")
+        try:
+            self.cursor.execute("ALTER TABLE catalogs ADD COLUMN name TEXT")
+        except OperationalError as e:
+            # Another process won the race and already added the column.
+            if "duplicate column" in str(e).lower():
+                return
+            raise
+
+        for catalog_code, display_name in CATALOG_DISPLAY_NAMES.items():
+            self.cursor.execute(
+                "UPDATE catalogs SET name = ? WHERE catalog_code = ?;",
+                (display_name, catalog_code),
+            )
         self.conn.commit()
 
     def get_pifinder_database(self) -> Tuple[Connection, Cursor]:
@@ -235,13 +304,13 @@ class ObjectsDatabase(Database):
 
     # ---- CATALOGS methods ----
 
-    def insert_catalog(self, catalog_code, max_sequence, desc):
+    def insert_catalog(self, catalog_code, max_sequence, desc, name=None):
         self.cursor.execute(
             """
-            INSERT INTO catalogs (catalog_code, max_sequence, desc)
-            VALUES (?, ?, ?);
+            INSERT INTO catalogs (catalog_code, max_sequence, desc, name)
+            VALUES (?, ?, ?, ?);
         """,
-            (catalog_code, max_sequence, desc),
+            (catalog_code, max_sequence, desc, name),
         )
         self.conn.commit()
 
