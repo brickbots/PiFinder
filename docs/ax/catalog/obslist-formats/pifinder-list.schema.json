@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pifinder.io/schemas/pifinder-list.schema.json",
+  "title": "PiFinder observing list (.pifinder)",
+  "description": "Native versioned JSON observing-list format for PiFinder. The reference reader is lenient (it ignores unknown properties); this schema pins the recognized fields. See README.md and docs/adr/0003-pifinder-native-observing-list-format.md.",
+  "type": "object",
+  "required": ["version", "name", "objects"],
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "Format version. Readers reject anything but 1 with a PiFinderFormatError."
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name of the observing list."
+    },
+    "epoch": {
+      "type": "string",
+      "pattern": "^J[0-9]+(\\.[0-9]+)?$",
+      "default": "J2000",
+      "description": "File-level default coordinate epoch (e.g. \"J2000\", \"J2016.0\"). Coordinate entries inherit this unless they carry their own 'epoch'. Non-J2000 coordinates are precessed to J2000 on read; PiFinder is J2000 throughout."
+    },
+    "objects": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "description": "An entry is either catalog-keyed or a coordinate entry. The presence of 'catalog_code' selects the kind.",
+      "oneOf": [
+        { "$ref": "#/$defs/catalogEntry" },
+        { "$ref": "#/$defs/coordinateEntry" }
+      ]
+    },
+    "catalogEntry": {
+      "type": "object",
+      "description": "Catalog-keyed entry: resolved against the receiving device's catalog DB at load time. Only as portable as that DB.",
+      "required": ["catalog_code", "sequence"],
+      "properties": {
+        "catalog_code": {
+          "type": "string",
+          "description": "Catalog code, e.g. \"NGC\", \"M\", \"IC\"."
+        },
+        "sequence": {
+          "type": "integer",
+          "description": "Sequence within the catalog, e.g. 224 for NGC 224."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional observing-list description for this target."
+        }
+      }
+    },
+    "coordinateEntry": {
+      "type": "object",
+      "description": "Self-contained entry carrying coordinates; used when an object is not catalog-keyed.",
+      "required": ["name", "obj_type", "ra", "dec"],
+      "not": { "required": ["catalog_code"] },
+      "properties": {
+        "name": { "type": "string" },
+        "obj_type": {
+          "type": "string",
+          "description": "Object type code, e.g. \"Gx\", \"Neb\", \"*\", \"?\"."
+        },
+        "ra": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360,
+          "description": "Right ascension in degrees, in the entry's effective epoch."
+        },
+        "dec": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90,
+          "description": "Declination in degrees, in the entry's effective epoch."
+        },
+        "epoch": {
+          "type": "string",
+          "pattern": "^J[0-9]+(\\.[0-9]+)?$",
+          "description": "Optional per-entry epoch override; defaults to the file-level 'epoch'."
+        },
+        "mag": { "$ref": "#/$defs/magnitude" },
+        "extents": { "$ref": "#/$defs/extents" },
+        "notes": { "type": "string" }
+      }
+    },
+    "magnitude": {
+      "description": "Either a bare number or a structured multi-band object.",
+      "oneOf": [
+        { "type": "number" },
+        {
+          "type": "object",
+          "required": ["mags"],
+          "properties": {
+            "mags": {
+              "type": "array",
+              "items": { "type": ["number", "string"] },
+              "description": "Raw magnitude values (numbers, or strings such as \"~12\")."
+            },
+            "filter_mag": {
+              "type": "number",
+              "description": "Mean of the parseable magnitudes, used for filtering."
+            }
+          }
+        }
+      ]
+    },
+    "extents": {
+      "type": "object",
+      "description": "Angular size / shape. Flat arrays are arcseconds; nested arrays are RA/Dec degrees and require 'geometry'.",
+      "required": ["shape"],
+      "properties": {
+        "shape": {
+          "type": "array",
+          "description": "[d] = circle diameter; [major, minor] = ellipse; [v1, v2, ...] = radial polygon (all arcseconds). [[ra,dec], ...] = polyline vertices; [[[ra,dec],[ra,dec]], ...] = disconnected segments (degrees)."
+        },
+        "position_angle": { "type": "number", "default": 0 },
+        "geometry": { "type": "string", "enum": ["", "polyline", "segments"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "shape": { "type": "array", "minItems": 1, "items": { "type": "array" } }
+            }
+          },
+          "then": {
+            "required": ["geometry"],
+            "properties": { "geometry": { "enum": ["polyline", "segments"] } }
+          }
+        }
+      ]
+    }
+  }
+}

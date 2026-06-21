@@ -16,6 +16,7 @@ import time
 import datetime
 import numpy as np
 import queue
+import threading
 import logging
 
 from PiFinder import state_utils, utils
@@ -23,10 +24,6 @@ import PiFinder.pointing_model.quaternion_transforms as qt
 from PiFinder.auto_exposure import (
     ExposurePIDController,
     ExposureSNRController,
-    SweepZeroStarHandler,
-    ExponentialSweepZeroStarHandler,
-    ResetZeroStarHandler,
-    HistogramZeroStarHandler,
     generate_exposure_sweep,
 )
 from PiFinder.sqm.camera_profiles import detect_camera_type
@@ -53,6 +50,11 @@ class CameraInterface:
     # Native (camera-driver) auto-exposure, distinct from the solver-driven
     # auto-exposure above. Enabled for daytime alignment via `set_exp:native`.
     _native_ae_enabled = False
+    # Handle to an in-flight capture thread (see _capture_with_timeout). A
+    # wedged V4L2 capture can outlive its timeout; tracking it lets the next
+    # frame decline to start a second, concurrent capture on a camera that is
+    # not thread-safe.
+    _capture_thread: Optional[threading.Thread] = None
 
     def set_native_ae(self, enabled: bool) -> bool:
         """Enable/disable the camera's native (driver) auto-exposure.
@@ -80,6 +82,54 @@ class CameraInterface:
         Returns a properly formated black frame
         """
         return Image.new("L", (512, 512), 0)  # Black 512x512 image
+
+    def _capture_with_timeout(self, timeout=10) -> Optional[Image.Image]:
+        """Run capture() with a timeout, never overlapping two captures.
+
+        A V4L2 capture can hang indefinitely (e.g. the sensor wedges), which
+        would otherwise freeze the whole camera process. Run the capture on a
+        daemon thread and give up after ``timeout`` seconds, returning None so
+        the caller can recover instead of blocking forever.
+
+        A timed-out capture cannot be cancelled (picamera2/V4L2 exposes no such
+        API), so the daemon thread stays stuck inside the driver until it
+        eventually returns. To avoid piling concurrent capture_request() calls
+        onto a camera that is not thread-safe -- and racing on shared camera
+        state -- we keep a handle to the in-flight thread and refuse to launch a
+        second capture while it is still alive. At most one capture is ever
+        running; the caller just gets blank frames until the stuck one clears.
+        """
+        # A previous capture is still wedged in the driver -- don't start a
+        # second one. Returning None lets the caller fall back to a blank frame
+        # while we wait for the stuck capture to clear.
+        if self._capture_thread is not None and self._capture_thread.is_alive():
+            return None
+
+        result: list = [None]
+        exc: list = [None]
+
+        def _do_capture():
+            try:
+                result[0] = self.capture()
+            except Exception as e:  # propagate to the caller's thread
+                exc[0] = e
+
+        thread = threading.Thread(target=_do_capture, daemon=True)
+        self._capture_thread = thread
+        thread.start()
+        thread.join(timeout)
+
+        if thread.is_alive():
+            # Still running: leave it tracked so the next call sees it and
+            # declines to start an overlapping capture.
+            return None
+
+        # Finished within the timeout -- clear the handle so the next frame
+        # starts a fresh capture.
+        self._capture_thread = None
+        if exc[0]:
+            raise exc[0]
+        return result[0]
 
     def capture_bias(self):
         """
@@ -171,7 +221,14 @@ class CameraInterface:
                 image_start_time = time.time()
                 if self._camera_started:
                     if not debug:
-                        base_image = self.capture()
+                        base_image = self._capture_with_timeout()
+                        if base_image is None:
+                            # Capture hung; fall back to a blank frame so the
+                            # loop keeps running and stays responsive to
+                            # commands instead of freezing. The blank frame
+                            # simply fails to solve.
+                            logger.warning("Camera capture timed out; blank frame")
+                            base_image = self._blank_capture()
                         base_image = base_image.convert("L")
 
                         rotate_amount = 0
@@ -289,9 +346,8 @@ class CameraInterface:
                                     )
                                 else:
                                     # PID mode: use star-count based controller (default)
-                                    # Pass base_image for histogram analysis in zero-star handler
                                     new_exposure = self._auto_exposure_pid.update(
-                                        matched_stars, self.exposure_time, base_image
+                                        matched_stars, self.exposure_time
                                     )
 
                                 if (
@@ -392,47 +448,6 @@ class CameraInterface:
                             )
                             console_queue.put("CAM: Gain=" + str(self.gain))
                             logger.info(f"Gain changed: {old_gain}x → {self.gain}x")
-
-                        if command.startswith("set_ae_handler"):
-                            handler_type = command.split(":")[1]
-                            if self._auto_exposure_pid is not None:
-                                new_handler = None
-                                if handler_type == "sweep":
-                                    new_handler = SweepZeroStarHandler(
-                                        min_exposure=self._auto_exposure_pid.min_exposure,
-                                        max_exposure=self._auto_exposure_pid.max_exposure,
-                                    )
-                                elif handler_type == "exponential":
-                                    new_handler = ExponentialSweepZeroStarHandler(
-                                        min_exposure=self._auto_exposure_pid.min_exposure,
-                                        max_exposure=self._auto_exposure_pid.max_exposure,
-                                    )
-                                elif handler_type == "reset":
-                                    new_handler = ResetZeroStarHandler(
-                                        reset_exposure=400000  # 0.4s
-                                    )
-                                elif handler_type == "histogram":
-                                    new_handler = HistogramZeroStarHandler(
-                                        min_exposure=self._auto_exposure_pid.min_exposure,
-                                        max_exposure=self._auto_exposure_pid.max_exposure,
-                                    )
-                                else:
-                                    logger.warning(
-                                        f"Unknown zero-star handler type: {handler_type}"
-                                    )
-
-                                if new_handler is not None:
-                                    self._auto_exposure_pid._zero_star_handler = (
-                                        new_handler
-                                    )
-                                    console_queue.put(f"CAM: AE Handler={handler_type}")
-                                    logger.info(
-                                        f"Auto-exposure zero-star handler changed to: {handler_type}"
-                                    )
-                            else:
-                                logger.warning(
-                                    "Cannot set AE handler: auto-exposure not initialized"
-                                )
 
                         if command.startswith("set_ae_mode"):
                             mode = command.split(":")[1]

@@ -236,13 +236,13 @@ preserve your dark-adapted vision.
 Start with the Start menu
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-At the start of each session, you may need to do three things:
+At the start of each session, you may need to do a few things:
 
 - Check and adjust camera focus
 - Align the PiFinder by telling it where your scope is pointing
 - Check the status of the GPS lock
 
-These three items live in the 'Start' menu at the top of the PiFinder main menu.
+These items live in the 'Start' menu at the top of the PiFinder main menu.
 
 .. image:: images/quick_start/pifinder_main_menu.png
 

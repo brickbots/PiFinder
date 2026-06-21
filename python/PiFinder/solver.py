@@ -16,7 +16,12 @@ import logging
 import sys
 from time import perf_counter as precision_timestamp
 import os
+import platform
+import shutil
+import socket
+import subprocess
 import threading
+from multiprocessing import shared_memory
 import grpc
 
 from PiFinder import state_utils
@@ -168,21 +173,102 @@ class CedarConnectionError(Exception):
     pass
 
 
+# Must match the hard-coded segment name in
+# tetra3/cedar_detect_client.py:_alloc_shmem(). The segment is unlinked on a
+# clean close(), but a solver process that is killed (or crashes) leaves it in
+# /dev/shm, so the next run's create=True fails with FileExistsError.
+_CEDAR_DETECT_SHMEM_NAME = "/cedar_detect_image"
+
+
 class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
     def __init__(self, port=50551):
-        """Set up the client without spawning the server as we
-        run this as a service on the PiFinder
+        """Connect to cedar-detect-server.
 
-        Also changing this to a different default port
+        On the PiFinder the server runs as a systemd service, so normally we
+        just connect to it. In a development checkout no service is running;
+        rather than require a manual start, if nothing is listening on the
+        port we spawn the bundled ``bin/cedar-detect-server-<arch>`` ourselves
+        and tear it down again in ``__del__``.
+
+        Also changes this to a different default port.
         """
         self._port = port
-        time.sleep(2)
+        self._subprocess = None
         # Will initialize on first use.
         self._stub = None
         self._shmem = None
         self._shmem_size = 0
         # Try shared memory, fall back if an error occurs.
         self._use_shmem = True
+        # A killed solver leaves its shmem segment behind; clear any stale one
+        # so this run can re-create it instead of dying on FileExistsError.
+        self._clear_stale_shmem()
+        if self._server_reachable():
+            # An external server (systemd service) is already running.
+            time.sleep(2)
+        else:
+            self._spawn_server()
+
+    def _server_reachable(self):
+        """True if cedar-detect-server is already listening on our port."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.2)
+            return sock.connect_ex(("127.0.0.1", self._port)) == 0
+
+    def _spawn_server(self):
+        """Spawn the bundled cedar-detect-server (development fallback)."""
+        binary = self._find_server_binary()
+        if binary is None:
+            raise FileNotFoundError(
+                f"cedar-detect-server is not listening on port {self._port} "
+                "and no bundled binary was found in bin/; start it manually."
+            )
+        env = os.environ.copy()
+        env["RUST_BACKTRACE"] = "1"
+        logger.info("Spawning cedar-detect-server: %s", binary)
+        self._subprocess = subprocess.Popen(
+            [str(binary), "--port", str(self._port)], env=env
+        )
+        time.sleep(1)
+
+    @staticmethod
+    def _find_server_binary():
+        """Locate the bin/cedar-detect-server binary matching this arch.
+
+        Falls back to a ``cedar-detect-server`` found on ``PATH``.
+        """
+        machine = platform.machine().lower()
+        if machine in ("aarch64", "arm64"):
+            prefer = ("aarch64", "arm64")
+        else:
+            prefer = ("x86_64", "amd64", "x86")
+        candidates = sorted((utils.pifinder_dir / "bin").glob("cedar-detect-server*"))
+        for suffix in prefer:
+            for candidate in candidates:
+                if candidate.name.endswith(suffix) and os.access(candidate, os.X_OK):
+                    return candidate
+        for candidate in candidates:  # any executable cedar binary
+            if os.access(candidate, os.X_OK):
+                return candidate
+        on_path = shutil.which("cedar-detect-server")
+        return on_path if on_path else None
+
+    def _clear_stale_shmem(self):
+        """Unlink a leaked cedar_detect_image segment from a prior solver.
+
+        Makes solver restarts self-healing. Safe because PiFinder runs a
+        single solver process, so any existing segment is necessarily stale.
+        """
+        try:
+            stale = shared_memory.SharedMemory(_CEDAR_DETECT_SHMEM_NAME)
+        except FileNotFoundError:
+            return
+        stale.close()
+        stale.unlink()
+        logger.warning(
+            "Cleared stale %s shared memory segment from a prior solver",
+            _CEDAR_DETECT_SHMEM_NAME,
+        )
 
     def _get_stub(self):
         if self._stub is None:
@@ -259,6 +345,11 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
         return tetra_centroids
 
     def __del__(self):
+        # __del__ can run on a partially-constructed instance (e.g. if __init__
+        # raised), so attributes may be missing -- access defensively.
+        subprocess_handle = getattr(self, "_subprocess", None)
+        if subprocess_handle is not None:
+            subprocess_handle.kill()
         self._del_shmem()
 
 

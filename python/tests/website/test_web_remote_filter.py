@@ -7,9 +7,20 @@ from web_test_utils import (
 )
 
 """
-Tests for the Filter menu in PiFinder's remote control interface.
+Tests for the Set Filters menu in PiFinder's remote control interface.
 
-Filter menu (reached from root Objects → D → Filter → R) items (0-indexed):
+For the 2.6.0 release this menu moved: it used to be a top-level "Filter" menu,
+and is now the last item *inside* the Objects menu, renamed "Set Filters".
+
+Objects submenu (entered from root Objects → R) items (0-indexed):
+  0: All Filtered
+  1: By Catalog
+  2: Recent
+  3: Custom
+  4: Name Search
+  5: Set Filters   ← this menu
+
+Set Filters submenu (0-indexed):
   0: Reset All  (confirmation submenu with Confirm / Cancel)
   1: Catalogs   (multi-select)
   2: Type       (multi-select)
@@ -18,30 +29,33 @@ Filter menu (reached from root Objects → D → Filter → R) items (0-indexed)
   5: Observed   (single-select: Any, Observed, Not Observed)
 
 Key sequence from navigate_to_root_menu() (lands on Objects in root menu):
-  D  → highlight Filter in root menu
-  R  → enter Filter submenu (now at Reset All, index 0)
+  R       → enter Objects (lands on All Filtered, index 0)
+  DDDDD   → highlight Set Filters (index 5)
+  R       → enter Set Filters submenu (now at Reset All, index 0)
+  i.e. "RDDDDDR" enters Set Filters at Reset All.
 
 All tests that change filter values use Reset All > Confirm to restore defaults
 before exiting, keeping filter state neutral for subsequent tests.
 """
 
 # ---------------------------------------------------------------------------
-# Navigation: entering the Filter menu and each sub-item
+# Navigation: entering the Set Filters menu and each sub-item
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.web
 def test_filter_menu_entry(driver):
-    """Entering the Filter menu lands on Reset All."""
+    """Entering the Set Filters menu lands on Reset All."""
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
+    # RDDDDD = enter Objects, down to Set Filters (index 5); R = enter it
     press_keys_and_validate(
         driver,
-        "DR",
+        "RDDDDDR",
         {
             "ui_type": "UITextMenu",
-            "title": "Filter",
+            "title": "Set Filters",
             "current_item": "Reset All",
         },
     )
@@ -51,14 +65,14 @@ def test_filter_menu_entry(driver):
 
 @pytest.mark.web
 def test_filter_reset_all_shows_confirm_cancel(driver):
-    """Filter > Reset All opens a Confirm/Cancel dialog at Confirm."""
+    """Set Filters > Reset All opens a Confirm/Cancel dialog at Confirm."""
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # DR = enter Filter at Reset All; R = enter the confirmation submenu
+    # RDDDDDR = enter Set Filters at Reset All; R = enter the confirmation submenu
     press_keys_and_validate(
         driver,
-        "DRR",
+        "RDDDDDRR",
         {
             "ui_type": "UITextMenu",
             "title": "Reset All",
@@ -71,17 +85,17 @@ def test_filter_reset_all_shows_confirm_cancel(driver):
 
 @pytest.mark.web
 def test_filter_reset_all_cancel_returns_to_filter(driver):
-    """Choosing Cancel in Reset All returns to the Filter menu."""
+    """Choosing Cancel in Reset All returns to the Set Filters menu."""
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # DRR = enter Reset All confirmation; D = move to Cancel; R = select Cancel
+    # RDDDDDRR = enter Reset All confirmation; D = move to Cancel; R = select Cancel
     press_keys_and_validate(
         driver,
-        "DRRDR",
+        "RDDDDDRRDR",
         {
             "ui_type": "UITextMenu",
-            "title": "Filter",
+            "title": "Set Filters",
         },
     )
 
@@ -90,17 +104,17 @@ def test_filter_reset_all_cancel_returns_to_filter(driver):
 
 @pytest.mark.web
 def test_filter_reset_all_confirm_resets_filters(driver):
-    """Choosing Confirm in Reset All resets filters and returns to Filter menu."""
+    """Choosing Confirm in Reset All resets filters and returns to Set Filters menu."""
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # DRR = enter Reset All confirmation; R = select Confirm
+    # RDDDDDRR = enter Reset All confirmation; R = select Confirm
     press_keys_and_validate(
         driver,
-        "DRRR",
+        "RDDDDDRRR",
         {
             "ui_type": "UITextMenu",
-            "title": "Filter",
+            "title": "Set Filters",
         },
     )
 
@@ -109,14 +123,14 @@ def test_filter_reset_all_confirm_resets_filters(driver):
 
 @pytest.mark.web
 def test_filter_catalogs_entry(driver):
-    """Filter > Catalogs opens the catalog multi-select menu."""
+    """Set Filters > Catalogs opens the catalog multi-select menu."""
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # DR = enter Filter at Reset All; DR = D to Catalogs (index 1), R to enter
+    # RDDDDDR = enter Set Filters at Reset All; DR = D to Catalogs (index 1), R to enter
     press_keys_and_validate(
         driver,
-        "DRDR",
+        "RDDDDDRDR",
         {
             "ui_type": "UITextMenu",
             "title": "Catalogs",
@@ -128,14 +142,14 @@ def test_filter_catalogs_entry(driver):
 
 @pytest.mark.web
 def test_filter_type_entry(driver):
-    """Filter > Type opens the object type multi-select menu."""
+    """Set Filters > Type opens the object type multi-select menu."""
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # DR = enter Filter; DDR = DD to Type (index 2), R to enter
+    # RDDDDDR = enter Set Filters; DDR = DD to Type (index 2), R to enter
     press_keys_and_validate(
         driver,
-        "DRDDR",
+        "RDDDDDRDDR",
         {
             "ui_type": "UITextMenu",
             "title": "Type",
@@ -147,14 +161,14 @@ def test_filter_type_entry(driver):
 
 @pytest.mark.web
 def test_filter_altitude_entry(driver):
-    """Filter > Altitude opens the altitude single-select menu."""
+    """Set Filters > Altitude opens the altitude single-select menu."""
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # DR = enter Filter; DDDR = DDD to Altitude (index 3), R to enter
+    # RDDDDDR = enter Set Filters; DDDR = DDD to Altitude (index 3), R to enter
     press_keys_and_validate(
         driver,
-        "DRDDDR",
+        "RDDDDDRDDDR",
         {
             "ui_type": "UITextMenu",
             "title": "Altitude",
@@ -170,26 +184,26 @@ def test_filter_altitude_select_and_reset(driver):
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # Enter Altitude: DR (Filter) + DDDR (navigate to Altitude) + R (enter)
+    # Enter Altitude: RDDDDDR (Set Filters) + DDDR (navigate to Altitude) + R (enter)
     # Altitude items: None (0), 0° (1), 10° (2), 20° (3), 30° (4), 40° (5)
-    # DD = move to 10°; R = select → returns to Filter menu
+    # DD = move to 10°; R = select → returns to Set Filters menu
     press_keys_and_validate(
         driver,
-        "DRDDDRR",  # enter Altitude (now at None, index 0)
+        "RDDDDDRDDDRR",  # enter Altitude (now at None, index 0)
         {"ui_type": "UITextMenu", "title": "Altitude"},
     )
     press_keys_and_validate(
         driver,
-        "DDR",  # select 10° → returns to Filter
-        {"ui_type": "UITextMenu", "title": "Filter"},
+        "DDR",  # select 10° → returns to Set Filters
+        {"ui_type": "UITextMenu", "title": "Set Filters"},
     )
 
-    # Reset all filters via Filter > Reset All > Confirm
-    # We are in Filter, currently at Altitude (index 3). Go to Reset All (index 0).
+    # Reset all filters via Set Filters > Reset All > Confirm
+    # We are in Set Filters, currently at Altitude (index 3). Go to Reset All (index 0).
     press_keys_and_validate(
         driver,
         "UUURR",  # UUU back to Reset All (index 0), RR enter + Confirm
-        {"ui_type": "UITextMenu", "title": "Filter"},
+        {"ui_type": "UITextMenu", "title": "Set Filters"},
     )
 
     press_keys(driver, "ZL")  # back to root
@@ -197,14 +211,14 @@ def test_filter_altitude_select_and_reset(driver):
 
 @pytest.mark.web
 def test_filter_magnitude_entry(driver):
-    """Filter > Magnitude opens the magnitude single-select menu."""
+    """Set Filters > Magnitude opens the magnitude single-select menu."""
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # DR = enter Filter; DDDDR = DDDD to Magnitude (index 4), R to enter
+    # RDDDDDR = enter Set Filters; DDDDR = DDDD to Magnitude (index 4), R to enter
     press_keys_and_validate(
         driver,
-        "DRDDDDR",
+        "RDDDDDRDDDDR",
         {
             "ui_type": "UITextMenu",
             "title": "Magnitude",
@@ -216,14 +230,14 @@ def test_filter_magnitude_entry(driver):
 
 @pytest.mark.web
 def test_filter_observed_entry(driver):
-    """Filter > Observed opens the observed single-select menu."""
+    """Set Filters > Observed opens the observed single-select menu."""
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
-    # DR = enter Filter; DDDDDR = DDDDD to Observed (index 5), R to enter
+    # RDDDDDR = enter Set Filters; DDDDDR = DDDDD to Observed (index 5), R to enter
     press_keys_and_validate(
         driver,
-        "DRDDDDDR",
+        "RDDDDDRDDDDDR",
         {
             "ui_type": "UITextMenu",
             "title": "Observed",
@@ -243,21 +257,21 @@ def test_filter_observed_select_and_reset(driver):
     # Observed items: Any (0), Observed (1), Not Observed (2)
     press_keys_and_validate(
         driver,
-        "DRDDDDDRR",  # enter Filter + navigate to Observed + enter
+        "RDDDDDRDDDDDRR",  # enter Set Filters + navigate to Observed + enter
         {"ui_type": "UITextMenu", "title": "Observed"},
     )
     press_keys_and_validate(
         driver,
-        "DR",  # D = Observed (index 1), R = select → back to Filter
-        {"ui_type": "UITextMenu", "title": "Filter"},
+        "DR",  # D = Observed (index 1), R = select → back to Set Filters
+        {"ui_type": "UITextMenu", "title": "Set Filters"},
     )
 
-    # Reset all filters: we are in Filter at Observed (index 5).
+    # Reset all filters: we are in Set Filters at Observed (index 5).
     # Navigate back to Reset All (index 0) with UUUUU, then Confirm (RR).
     press_keys_and_validate(
         driver,
         "UUUUURR",  # UUUUU → Reset All (index 0), RR → enter + Confirm
-        {"ui_type": "UITextMenu", "title": "Filter"},
+        {"ui_type": "UITextMenu", "title": "Set Filters"},
     )
 
     press_keys(driver, "ZL")  # back to root

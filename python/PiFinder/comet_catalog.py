@@ -256,11 +256,7 @@ class CometCatalog(Catalog):
         for sequence, (name, comet) in enumerate(comet_dict.items()):
             self.add_comet(sequence, name, comet)
 
-        with self._virtual_id_manager.virtual_id_lock:
-            new_low = self._virtual_id_manager.assign_virtual_object_ids(
-                self, self._virtual_id_manager.virtual_id_low
-            )
-            self._virtual_id_manager.virtual_id_low = new_low
+        self._virtual_id_manager.mint_ids(self)
 
         self.initialized = True
         self.calculation_progress = None  # Clear progress after completion

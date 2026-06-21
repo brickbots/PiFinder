@@ -31,6 +31,7 @@ from PiFinder.catalogs import CatalogState
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     name_deduplicate,
+    pointing_arrows,
 )
 from typing import Any, TYPE_CHECKING
 
@@ -307,21 +308,9 @@ class UIObjectList(UITextMenu):
             self.message(_("No Solve Yet"), 1)
 
     def format_az_alt(self, point_az, point_alt):
-        if point_az >= 0:
-            az_arrow_symbol = self._RIGHT_ARROW
-        else:
-            point_az *= -1
-            az_arrow_symbol = self._LEFT_ARROW
-
-            # Check az arrow config
-            if (
-                self.config_object.get_option("pushto_az_arrows", "Default")
-                == "Reverse"
-            ):
-                if az_arrow_symbol == self._LEFT_ARROW:
-                    az_arrow_symbol = self._RIGHT_ARROW
-                else:
-                    az_arrow_symbol = self._LEFT_ARROW
+        az_arrow_symbol, point_az, alt_arrow_symbol, point_alt = pointing_arrows(
+            self, point_az, point_alt, self.mount_type
+        )
 
         if point_az > 100:
             point_az = 99
@@ -330,12 +319,6 @@ class UIObjectList(UITextMenu):
             az_string = f"{az_arrow_symbol}{point_az:03.1f}"
         else:
             az_string = f"{az_arrow_symbol}{point_az:03.0f}"
-
-        if point_alt >= 0:
-            alt_arrow_symbol = self._UP_ARROW
-        else:
-            point_alt *= -1
-            alt_arrow_symbol = self._DOWN_ARROW
 
         if point_alt < 10:
             alt_string = f"{alt_arrow_symbol}{point_alt:03.1f}"
@@ -376,6 +359,11 @@ class UIObjectList(UITextMenu):
                 "Pluto": "PLU",
             }
             return planet_abbrevs.get(obj.names[0], obj.names[0])
+        # Observing-list coordinate objects have no catalog designation; show
+        # their name (e.g. "VY Andromedae") instead of "OBS1". Length is capped
+        # to fit the row in update() (which knows the per-row font + screen size).
+        if obj.catalog_code == "OBS" and obj.names:
+            return obj.names[0]
         return f"{obj.catalog_code}{obj.sequence}"
 
     def create_locate_text(self, obj: CompositeObject) -> str:
@@ -621,6 +609,20 @@ class UIObjectList(UITextMenu):
                 line_font, line_color, line_pos = self.get_line_font_color_pos(
                     line_number, _menu_item, is_focus=is_focus
                 )
+
+                # Cap the label so it can't overrun the second column drawn to
+                # its right (push-to / name / info). Width-aware: derives from
+                # the real display width and this row's font, so it adapts to
+                # 128/176/320. The reserve is sized in base-font units (the
+                # second column's content is the same regardless of row font).
+                reserve_px = 9 * self.fonts.base.width
+                max_name_chars = max(
+                    3,
+                    (self.display.width - layout.text_x - reserve_px)
+                    // line_font.width,
+                )
+                if len(item_name) > max_name_chars:
+                    item_name = item_name[: max_name_chars - 1] + "…"
 
                 # Type Marker
                 line_bg = 32 if is_focus else 0

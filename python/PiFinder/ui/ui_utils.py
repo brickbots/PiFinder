@@ -234,6 +234,63 @@ class TextLayouter(TextLayouterSimple):
             self._draw_pos(pos)
 
 
+class SectionedTextLayouter(TextLayouter):
+    """
+    Multi-line description where some lines are section-header *rules*: a bright,
+    edge-to-edge box-drawing line (Nerd Font U+2501 ``━``) with an optional left
+    label, drawn at a different brightness than the body text.
+
+    Rule lines are tagged with ``RULE_MARK`` so wrapping/scrolling work exactly
+    as in TextLayouter; the full-width glyph run is built at draw time, when the
+    line width is known. A label too long to fit inline is split onto its own
+    line under a label-less full rule.
+    """
+
+    RULE_MARK = "\x00"
+    RULE_GLYPH = "━"
+    LEAD = 2  # leading glyphs before the label
+
+    def set_sections(self, sections, reset_pointer=True):
+        """``sections``: list of ``(label_or_None, text)``; None = no rule."""
+        width = self.font.line_length
+        lines: List[str] = []
+        for label, text in sections:
+            if label is None:
+                pass
+            elif self.LEAD + len(label) + 2 <= width:
+                lines.append(self.RULE_MARK + label)  # inline rule
+            else:
+                lines.append(self.RULE_MARK)  # full rule, no label
+                lines.append(label)  # name wraps on its own line(s)
+            if text:
+                lines.append(text)
+        self.set_text("\n".join(lines), reset_pointer=reset_pointer)
+
+    def _rule_text(self, label: str) -> str:
+        width = self.font.line_length
+        if not label:
+            return self.RULE_GLYPH * width
+        fill = max(0, width - self.LEAD - len(label) - 2)
+        return f"{self.RULE_GLYPH * self.LEAD} {label} {self.RULE_GLYPH * fill}"
+
+    def draw(self, pos: Tuple[int, int] = (0, 0)):
+        self.layout(pos)
+        x, y = pos
+        rule_color = self.colors.get(255)
+        for line in self.object_text:
+            if line.startswith(self.RULE_MARK):
+                self.drawobj.text(
+                    (x, y),
+                    self._rule_text(line[len(self.RULE_MARK) :]),
+                    font=self.font.font,
+                    fill=rule_color,
+                )
+            else:
+                self.drawobj.text((x, y), line, font=self.font.font, fill=self.color)
+            y += self.font.height
+        self.after_draw(pos)
+
+
 def shadow_outline_text(
     ri_draw, xy, text, align, font, fill, shadow_color, shadow=None, outline=None
 ):
@@ -322,3 +379,73 @@ def format_number(num: float, width=5):
     else:
         decimal_places = max(0, width - 3)  # 'M' and at least one digit
         return f"{num/1000000:{width}.{decimal_places}f}M"
+
+
+def pointing_arrows(ui, point_az, point_alt, mount_type=None):
+    """
+    Resolve the push-to direction indicators for a (point_az, point_alt)
+    movement, honoring the mount_type and pushto_az_arrows config
+    options: directional arrows for Alt/Az mounts, +/- signs for EQ
+    mounts (where the values are RA/Dec offsets).
+
+    Returns (az_indicator, point_az, alt_indicator, point_alt) with the
+    point values made positive.
+
+    mount_type must match the one the point values were computed with
+    (e.g. the value passed to aim_degrees); when None, the current
+    config option is used.
+    """
+    if mount_type is None:
+        mount_type = ui.config_object.get_option("mount_type")
+    mount_altaz = mount_type == "Alt/Az"
+
+    if point_az < 0:
+        point_az *= -1
+        az_arrow = ui._LEFT_ARROW if mount_altaz else "-"
+    else:
+        az_arrow = ui._RIGHT_ARROW if mount_altaz else "+"
+
+    if (
+        mount_altaz
+        and ui.config_object.get_option("pushto_az_arrows", "Default") == "Reverse"
+    ):
+        if az_arrow is ui._LEFT_ARROW:
+            az_arrow = ui._RIGHT_ARROW
+        else:
+            az_arrow = ui._LEFT_ARROW
+
+    if point_alt < 0:
+        point_alt *= -1
+        alt_arrow = ui._DOWN_ARROW if mount_altaz else "-"
+    else:
+        alt_arrow = ui._UP_ARROW if mount_altaz else "+"
+
+    return az_arrow, point_az, alt_arrow, point_alt
+
+
+def draw_pointing_instructions(
+    ui, point_az, point_alt, brightness=255, mount_type=None
+):
+    """
+    Draw the standard push-to display: the az and alt movements as two
+    huge-font lines with direction indicators anchored at the bottom of
+    the screen, as on the object locate screen.
+    """
+    az_arrow, point_az, alt_arrow, point_alt = pointing_arrows(
+        ui, point_az, point_alt, mount_type
+    )
+
+    az_anchor = (0, ui.display_class.resY - (ui.fonts.huge.height * 2.2))
+    alt_anchor = (0, ui.display_class.resY - (ui.fonts.huge.height * 1.2))
+    for anchor, arrow, value in (
+        (az_anchor, az_arrow, point_az),
+        (alt_anchor, alt_arrow, point_alt),
+    ):
+        # Change decimal points when within 1 degree
+        decimals = 2 if value < 1 else 1
+        ui.draw.text(
+            anchor,
+            f"{arrow}{value : >5.{decimals}f}",
+            font=ui.fonts.huge.font,
+            fill=ui.colors.get(brightness),
+        )

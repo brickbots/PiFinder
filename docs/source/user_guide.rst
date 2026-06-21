@@ -76,8 +76,8 @@ Options
 --------
 
 Some menus present a list of options where you choose one or more items to control how the
-PiFinder operates.  For instance, the Filter menu items take you to a sub-menu of ways to
-filter your object lists:
+PiFinder operates.  For instance, the Set Filters menu items take you to a sub-menu of ways
+to filter your object lists:
 
 
 .. image:: images/user_guide/options_menu_01.png
@@ -328,8 +328,8 @@ Filters
 ----------
 
 Every object list aside from :ref:`user_guide:name search` and Recent shows only objects
-that meet the filter criteria you've set.  View and adjust your filters from the Filter
-menu, available on the main PiFinder menu.
+that meet the filter criteria you've set.  View and adjust your filters from the Set
+Filters menu, the last item in the Objects menu.
 
 .. image:: images/user_guide/main_filter_option.png
 
@@ -338,8 +338,8 @@ List screen.
 
 .. image:: images/user_guide/object_list_radial_docs.png
 
-The Filter menu offers several ways to limit which objects appear, plus a Reset All option
-to clear every filter.
+The Set Filters menu offers several ways to limit which objects appear, plus a Reset All
+option to clear every filter.
 
 .. image:: images/user_guide/filter_menu.png
 
@@ -439,6 +439,70 @@ Push-To guidance, and adds it to the Recent list so you can return to it during 
 session.  Press **LEFT** to back out without creating anything.
 
 .. image:: images/user_guide/custom_radec_result_docs.png
+
+Observing Lists
+---------------
+
+If you like to plan a session ahead of time — in SkySafari, a spreadsheet, or a list a
+fellow observer shared — you can bring that plan to the eyepiece.  Copy the list file into
+the ``obslists/`` folder of the PiFinder's :ref:`shared data
+folder <connectivity:shared data access>`, then load it from Obs Lists in the Objects
+menu.
+
+.. image:: images/user_guide/obs_lists_menu_docs.png
+
+The PiFinder reads observing lists in all of these formats, recognizing each by its file
+extension and, for ``.txt`` files, by the content itself:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Format
+     - Extension
+   * - SkySafari observing list
+     - ``.skylist``
+   * - PiFinder native
+     - ``.pifinder``
+   * - CSV
+     - ``.csv``
+   * - Stellarium observing list
+     - ``.sol``
+   * - Autostar / Meade tour
+     - ``.txt``, ``.mtf``
+   * - Argo Navis catalog
+     - ``.txt``
+   * - NexTour / Celestron tour
+     - ``.hct``
+   * - EQMOD tour
+     - ``.lst``
+   * - Plain text, one object name per line
+     - ``.txt``
+
+The Obs Lists screen shows every list it finds, along with any folders — shown in
+``[brackets]`` — so you can organize lists into subfolders by trip, season, or source.
+Scroll with the **UP/DOWN** arrows and press **RIGHT** to open a folder or load a list.
+
+.. image:: images/user_guide/obs_lists_browse_docs.png
+
+When two lists share a name — say you have both ``Messier Marathon.skylist`` and
+``Messier Marathon.csv`` — the format is appended to tell them apart, as in the image
+above.
+
+Loading a list matches each entry against the PiFinder's catalogs, briefly reports how
+many objects matched, and opens the result as a regular
+:ref:`Object List <user_guide:object list>` you can sort, browse, and push to.
+
+.. image:: images/user_guide/obs_lists_loaded_docs.png
+
+Entries that match a catalog behave exactly like objects you'd find by browsing — images,
+descriptions, and your observation logs all come along.  An entry the PiFinder can't match
+but that includes coordinates becomes a one-off target under the code OBS, so nothing on
+your list is left behind.
+
+.. note::
+   The ``.pifinder`` format is the PiFinder's own JSON list format, and the one to choose
+   when a planning tool offers it: it carries catalog references, magnitudes, object sizes,
+   and coordinate epochs that the other formats drop.
 
 Object Images
 ---------------
@@ -765,6 +829,78 @@ for information about each release and a download link.
 
 Instructions for writing release images to an SD card are on the :doc:`software setup<software>`
 page.
+
+Polar Alignment
+---------------------------
+
+An equatorial platform or equatorial mount tracks the sky by turning your telescope around a
+single axis that's meant to point at the celestial pole — the platform's pivot, or the
+mount's right ascension axis.  The closer that axis is to the true pole, the longer objects
+stay put in the eyepiece.  The Polar Alignment tool measures how far your axis sits from the
+pole and walks you through correcting it — using ordinary plate solves, with no polar scope
+or sight of Polaris needed.
+
+It lives near the bottom of the main menu: open Tools, scroll down to Experimental, and
+choose Polar Align.
+
+It works by solving the sky at two or three points while you rotate around that axis between
+them — turning the platform, or slewing the mount in right ascension only — then working out
+where the axis points from how the view shifts.  The measurement is only as good as the
+solves behind it, so before you start make sure the PiFinder has a GPS lock, is focused, and
+is solving reliably.
+
+.. image:: images/user_guide/polar_align_intro_docs.png
+
+.. note::
+   This aligns the rotation *axis*, not the PiFinder to your eyepiece.  The one rule that
+   matters: between captures, move only *around* that axis.  On a platform, keep the scope
+   clamped to the platform and rotate the platform; on an equatorial mount, lock the
+   declination axis and slew only in right ascension.  During adjustment, move the axis
+   itself with your altitude and azimuth adjusters — not by slewing the scope.
+
+To take a measurement, open Polar Align and press **SQUARE** to begin, then:
+
+1. Aim the telescope well away from the pole, where the camera gets reliable solves, and
+   wait for the screen to report a recent solve.  Press **SQUARE** to capture the first
+   point.
+2. Rotate around the axis by at least about 10° — turn the platform, or slew in right
+   ascension only — wait for a fresh solve, and press **SQUARE** for the second point.
+3. For a stronger result, rotate farther and capture a third point — three points let the
+   PiFinder check how well the captures agree.  To stop at two points instead, press **0**
+   to solve now.
+
+.. image:: images/user_guide/polar_align_aim_docs.png
+
+If the screen says 'Rotate more', the captures were too close together to pin down the axis;
+rotate farther and capture again.
+
+Once it has enough rotation, the PiFinder switches to a live target showing how far the axis
+is from the pole, as push-to offsets in altitude and azimuth.  Turn your altitude and azimuth
+adjusters — the platform's, or the mount's polar-alignment bolts — to follow the arrows until
+both readings fall to zero.  The display refreshes with each new solve; if it shows 'No
+solve', hold everything still until the PiFinder solves again.
+
+.. image:: images/user_guide/polar_align_adjust_docs.png
+
+The top line summarises the measurement: the number of points used, the total sweep, and —
+for a three-point solve — a fit rating of ``ok``, ``mid``, or ``bad``.  A poor fit usually
+means something moved between captures that shouldn't have, so it's worth redoing.
+
+Hold **SQUARE** for the marking menu, which gathers the advanced actions.  **STATS** opens a
+read-only detail view, **REDO PT** drops just the last point so you can recapture it, and
+**Roll On/Off** switches between a full three-axis fit and an RA/Dec-only fit that ignores
+camera roll — useful after a camera flop.
+
+.. image:: images/user_guide/polar_align_marking_menu_docs.png
+
+The STATS view spells out the correction in both degrees and arcminutes for each axis, the
+fitted axis position, the fit quality, and how the captures were spaced in time — handy for
+judging whether a measurement is trustworthy.
+
+.. image:: images/user_guide/polar_align_stats_docs.png
+
+To start a fresh measurement at any time, press **SQUARE**; to leave the tool, press
+**MINUS**.
 
 Shutdown
 ---------------------------
