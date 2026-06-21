@@ -393,7 +393,10 @@ def pointing_arrows(ui, point_az, point_alt, mount_type=None):
 
     mount_type must match the one the point values were computed with
     (e.g. the value passed to aim_degrees); when None, the current
-    config option is used.
+    config option is used. Callers whose values are intrinsically Alt/Az
+    regardless of the configured mount (e.g. polar alignment, where you
+    drive the mount's alt/az polar adjusters) pass mount_type="Alt/Az"
+    explicitly.
     """
     if mount_type is None:
         mount_type = ui.config_object.get_option("mount_type")
