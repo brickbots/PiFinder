@@ -56,7 +56,7 @@ If the screen is still blank, the keypad backlight tells you where the problem i
   jump.
 - **Keypad lights up, but the screen is blank or garbled**: that points to the screen's
   connection, not the software.  Confirm it through the
-  :ref:`web interface <user_guide:web interface>` — if the remote screen looks correct
+  :ref:`web interface <connectivity:web interface>` — if the remote screen looks correct
   there, the software is fine and the physical screen connection needs attention (a solder
   reflow on DIY builds).
 
@@ -97,8 +97,9 @@ Work through these in order:
   showing — roughly a pencil's width — which is close to in focus.
 - **Lens cap off, and hold still.**  The PiFinder can only solve a sharp, stationary
   image.
-- **Exposure.**  The default 0.2 s suits most skies.  For bright urban skies try 0.4 s;
-  for dark skies 0.1 s works well, or choose **AUTO** to let the PiFinder set it for you.
+- **Exposure.**  The PiFinder defaults to **AUTO**, setting the exposure itself from each
+  solve — leave it there unless you have a reason not to.  To set it by hand, 0.2 s suits
+  most skies, bright urban skies want 0.4 s, and dark skies solve well at 0.1 s.
   (Software older than 2.2 doesn't have the AUTO option — another reason to update.)
 - **High, thin cloud.**  An invisible drifting cloudbank will stop solves at an otherwise
   perfect site.  If solves come and go while the scope is dead still, suspect the sky
@@ -167,8 +168,9 @@ Frequently Asked Questions
    select it on the PiFinder's chart.
 
 **Does it work in light-polluted skies?**
-   Yes — very well.  Bright skies just need a longer exposure: raise the default 0.2 s to
-   0.4 s for heavy light pollution.  Good focus matters most of all here.
+   Yes — very well.  Leave the exposure on **AUTO** and the PiFinder adapts it to the sky;
+   setting it by hand, a longer 0.4 s helps pull stars out under heavy light pollution.
+   Good focus matters most of all here.
 
 **How do I update the software?**
    From the unit, go to Tools → Software Upd while connected to a WiFi network with
@@ -189,7 +191,7 @@ Frequently Asked Questions
 
 **Where are my saved observations and images?**
    On the PiFinder's network share, reachable at ``//pifinder.local/shared`` (connect as
-   guest, no password).  See :ref:`user_guide:shared data access`.
+   guest, no password).  See :ref:`connectivity:shared data access`.
 
 **Can I connect SkySafari?**
    Yes — the PiFinder talks to SkySafari and other planetarium apps over WiFi.  See the

@@ -10,7 +10,8 @@ import time
 from PiFinder.ui.base import UIModule
 from PiFinder import calc_utils
 from PiFinder import utils
-from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
+from PiFinder.ui.ui_utils import TextLayouter, TextLayouterScroll, SpaceCalculatorFixed
+from PiFinder.ui.layout import rows_below_titlebar
 
 sys_utils = utils.get_sys_utils()
 
@@ -22,82 +23,24 @@ class UIStatus(UIModule):
 
     __title__ = "STATUS"
 
-    _config_options = {
-        "Key Brit": {
-            "type": "enum",
-            "value": "",
-            "options": ["+3", "+2", "+1", "0", "-1", "-2", "-3", "Off"],
-            "callback": "set_key_brightness",
-        },
-        "Sleep Tim": {
-            "type": "enum",
-            "value": "",
-            "options": ["Off", "10s", "30s", "1m"],
-            "callback": "set_sleep_timeout",
-        },
-        "Screen Off": {
-            "type": "enum",
-            "value": "",
-            "options": ["Off", "30s", "1m", "10m", "30m"],
-            "callback": "set_screen_off_timeout",
-        },
-        "Hint Time": {
-            "type": "enum",
-            "value": "2s",
-            "options": ["Off", "2s", "4s", "On"],
-            "callback": "set_hint_timeout",
-        },
-        "WiFi Mode": {
-            "type": "enum",
-            "value": "UNK",
-            "options": ["AP", "Client", "CANCEL"],
-            "callback": "wifi_switch",
-        },
-        "Mnt Side": {
-            "type": "enum",
-            "value": "",
-            "options": ["right", "left", "flat", "CANCEL"],
-            "callback": "side_switch",
-        },
-        "Mnt Type": {
-            "type": "enum",
-            "value": "",
-            "options": ["Alt/Az", "EQ", "CANCEL"],
-            "callback": "mount_switch",
-        },
-        "Shutdown": {
-            "type": "enum",
-            "value": "",
-            "options": ["System", "CANCEL"],
-            "callback": "shutdown",
-        },
-        "Software": {
-            "type": "enum",
-            "value": "",
-            "options": ["Update", "CANCEL"],
-            "callback": "update_software",
-        },
-    }
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.version_txt = f"{utils.pifinder_dir}/version.txt"
-        self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
         self._draw_pos = (0, self.display_class.titlebar_height)
-        with open(self.wifi_txt, "r") as wfs:
-            self._config_options["WiFi Mode"]["value"] = wfs.read()
-        with open(self.version_txt, "r") as ver:
-            self._config_options["Software"]["value"] = ver.read()
         self.spacecalc = SpaceCalculatorFixed(self.fonts.base.line_length)
+        # Horizontal scrollers for values too long for their column (e.g. a long
+        # IP address), keyed by status_dict key. Created lazily on overflow so
+        # the value scrolls instead of being truncated off the right edge.
+        self.value_scrollers = {}
         self.status_dict = {
-            "LST SLV": "--",
+            "LAST SLV": "--",
             "RA/DEC": "--",
             "AZ/ALT": "--",
             "WIFI": "--",
             "IP": "--",
             "SSID": "--",
             "IMU": "--",
-            "IMU PS": "--",
+            "IMU qw,qx": "--",
+            "IMU qy,qz": "--",
             "GPS": "--",
             "GPS ALT": "--",
             "GPS LST": "--",
@@ -106,29 +49,9 @@ class UIStatus(UIModule):
             "CPU TMP": "--",
         }
 
-        if self._config_options["WiFi Mode"]["value"] == "Client":
-            self.status_dict["WIFI"] = "Client"
-        else:
-            self.status_dict["WIFI"] = "AP"
-
-        self._config_options["Mnt Type"]["value"] = self.config_object.get_option(
-            "mount_type"
-        )
-        self._config_options["Mnt Side"]["value"] = self.config_object.get_option(
-            "screen_direction"
-        )
-        self._config_options["Sleep Tim"]["value"] = self.config_object.get_option(
-            "sleep_timeout"
-        )
-        self._config_options["Screen Off"]["value"] = self.config_object.get_option(
-            "screen_off_timeout"
-        )
-        self._config_options["Hint Time"]["value"] = self.config_object.get_option(
-            "hint_timeout"
-        )
-        self._config_options["Key Brit"]["value"] = self.config_object.get_option(
-            "keypad_brightness"
-        )
+        with open(f"{utils.pifinder_dir}/wifi_status.txt", "r") as wfs:
+            wifi_mode = wfs.read()
+        self.status_dict["WIFI"] = "Client" if wifi_mode == "Client" else "AP"
 
         self.last_temp_time = 0
         self.last_IP_time = 0
@@ -139,133 +62,78 @@ class UIStatus(UIModule):
             color=self.colors.get(255),
             colors=self.colors,
             font=self.fonts.base,
-            available_lines=9,
+            # As many base-font rows as fit below the title bar (9 on the 128
+            # panel, more on taller displays).
+            available_lines=rows_below_titlebar(self.display_class, gap=1).max_visible,
         )
-
-    def update_software(self, option):
-        if option == "CANCEL":
-            with open(self.version_txt, "r") as ver:
-                self._config_options["Software"]["value"] = ver.read()
-            return False
-
-        self.message("Updating...", 10)
-        if sys_utils.update_software():
-            self.message("Ok! Restarting", 10)
-            sys_utils.restart_pifinder()
-        else:
-            self.message("Error on Upd", 3)
-
-    def set_key_brightness(self, option):
-        self.command_queues["ui_queue"].put("set_brightness")
-        self.config_object.set_option("keypad_brightness", option)
-        return False
-
-    def set_sleep_timeout(self, option):
-        self.config_object.set_option("sleep_timeout", option)
-        return False
-
-    def set_hint_timeout(self, option):
-        self.config_object.set_option("hint_timeout", option)
-        self.ui_state.set_hint_timeout(option)
-        return False
-
-    def set_screen_off_timeout(self, option):
-        self.config_object.set_option("screen_off_timeout", option)
-        return False
-
-    def mount_switch(self, option):
-        if option == "CANCEL":
-            self._config_options["Mnt Type"]["value"] = self.config_object.get_option(
-                "mount_type"
-            )
-            return False
-
-        self.message("Ok! Restarting", 10)
-        self.config_object.set_option("mount_type", option)
-        sys_utils.restart_pifinder()
-
-    def side_switch(self, option):
-        if option == "CANCEL":
-            self._config_options["Mnt Side"]["value"] = self.config_object.get_option(
-                "screen_direction"
-            )
-            return False
-
-        self.message("Ok! Restarting", 10)
-        self.config_object.set_option("screen_direction", option)
-        sys_utils.restart_pifinder()
-
-    def wifi_switch(self, option):
-        with open(self.wifi_txt, "r") as wfs:
-            current_state = wfs.read()
-        if option == current_state or option == "CANCEL":
-            self._config_options["WiFi Mode"]["value"] = current_state
-            return False
-
-        if option == "AP":
-            self.message("Switch to AP", 10)
-            sys_utils.go_wifi_ap()
-        else:
-            self.message("Switch to Client", 10)
-            sys_utils.go_wifi_cli()
-
-        sys_utils.restart_system()
-
-    def shutdown(self, option):
-        if option == "System":
-            self.message("Shutting down", 10)
-            sys_utils.shutdown()
-        else:
-            self._config_options["Shutdown"]["value"] = ""
-            return False
-
-    def restart(self, option):
-        if option == "PiFi":
-            self.message("Restarting", 10)
-            sys_utils.restart_pifinder()
-        else:
-            self._config_options["Restart"]["value"] = ""
-            return False
 
     def update_status_dict(self):
         """
-        Updates all the
-        status dict values
+        Updates all the status dict values
         """
         if self.shared_state.solve_state():
             solution = self.shared_state.solution()
-            # last solve time
-            if solution["solve_source"] == "CAM":
-                stars_matched = solution["Matches"]
+
+            # Time since last solve
+            if solution.last_solve_success:
+                time_since_solve = f"{time.time() - solution.last_solve_success:.1f}"
+            else:
+                time_since_solve = "--"
+            # Number of matched stars
+            if solution.is_camera_solve():
+                stars_matched = solution.diagnostics.Matches
             else:
                 stars_matched = "--"
-            self.status_dict["LST SLV"] = (
-                f"{time.time() - solution['cam_solve_time']:.1f}"
-                + " - "
-                + str(solution["solve_source"][0])
-                + f" {stars_matched: >2}"
-            )
-            hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
-            self.status_dict["RA/DEC"] = (
-                f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] :.2f}"
+            # Solve source
+            source = solution.solve_source
+            if source is None:
+                solve_source = "-"
+            elif source == "CAM":
+                solve_source = "C"
+            elif source == "CAM_FAILED":
+                solve_source = "F"
+            else:
+                solve_source = str(source.value[0])
+            # Collect togethers
+            self.status_dict["LAST SLV"] = (
+                time_since_solve + "s " + solve_source + f" {stars_matched: >2}"
             )
 
-            if solution["Az"]:
+            # RA/DEC
+            aligned = solution.pointing.aligned.estimate
+            if aligned is None:
+                self.status_dict["RA/DEC"] = "--/--"
+            else:
+                hh, mm, _ = calc_utils.ra_to_hms(aligned.RA)
+                self.status_dict["RA/DEC"] = (
+                    f"{hh:02.0f}h{mm:02.0f}m/{aligned.Dec :.2f}"
+                )
+
+            # AZ/ALT
+            if solution.Az is None or solution.Alt is None:
+                self.status_dict["AZ/ALT"] = "--/--"
+            else:
                 self.status_dict["AZ/ALT"] = (
-                    f"{solution['Az'] : >6.2f}/{solution['Alt'] : >6.2f}"
+                    f"{solution.Az : >6.2f}/{solution.Alt : >6.2f}"
                 )
 
         imu = self.shared_state.imu()
+        # IMU Status & reading
         if imu:
-            if imu["pos"] is not None:
-                if imu["moving"]:
+            if imu.quat is not None:
+                if imu.moving:
                     mtext = "Moving"
                 else:
                     mtext = "Static"
-                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
-                self.status_dict["IMU PS"] = (
-                    f"{imu['pos'][0] : >6.1f}/{imu['pos'][2] : >6.1f}"
-                )
+                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu.status)
+
+                self.status_dict["IMU qw,qx"] = f"{imu.quat.w:>.2f},{imu.quat.x : >.2f}"
+                self.status_dict["IMU qy,qz"] = f"{imu.quat.y:>.2f},{imu.quat.z : >.2f}"
+        else:
+            self.status_dict["IMU"] = "--"
+            self.status_dict["IMU qw,qx"] = "--"
+            self.status_dict["IMU qy,qz"] = "--"
+
         location = self.shared_state.location()
         sats = self.shared_state.sats()
         self.status_dict["GPS"] = [
@@ -304,33 +172,62 @@ class UIStatus(UIModule):
                 self.status_dict["SSID"] = self.net.get_connected_ssid()
 
     def update(self, force=False):
-        time.sleep(1 / 30)
         self.update_status_dict()
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
-        lines = []
-        # Insert IP address here...
-        for k, v in self.status_dict.items():
-            key = f"{k:<7}"
-            if isinstance(v, list):
-                key = v[0]
-                v = v[1]
-            _, result = self.spacecalc.calculate_spaces(key, v, empty_if_exceeds=False)
-            lines.append(result)
-        outline = "\n".join(lines)
-        self.text_layout.set_text(outline, reset_pointer=False)
+        self.clear_screen()
+        lines = [self._render_row(k, v) for k, v in self.status_dict.items()]
+        self.text_layout.set_text("\n".join(lines), reset_pointer=False)
         self.text_layout.draw(pos=self._draw_pos)
         return self.screen_update()
+
+    def _render_row(self, k, v) -> str:
+        """
+        Render one status row as ``key`` followed by its value.
+
+        The value is justified into its column with SpaceCalculatorFixed when it
+        fits, or rendered through a per-row horizontal scroller (see
+        _scrolled_value) when it overflows, so long values (a long IP address or
+        SSID) stay readable instead of being truncated. The scroller is dropped
+        again as soon as the value fits, so a row flips between static and
+        scrolling as its value changes.
+        """
+        key = f"{k:<7}"
+        if isinstance(v, list):
+            # Rows with a runtime-computed label (e.g. GPS, whose label embeds
+            # the live satellite count) carry [label, value] and supply their
+            # own label instead of the padded dict key.
+            key = v[0]
+            v = v[1]
+        value = str(v)
+        field = self.spacecalc.width - len(key)
+        if 0 < field < len(value):
+            return key + self._scrolled_value(k, value, field)
+        self.value_scrollers.pop(k, None)
+        _, result = self.spacecalc.calculate_spaces(key, v, empty_if_exceeds=False)
+        return result
+
+    def _scrolled_value(self, row_key: str, value: str, field: int) -> str:
+        """
+        Return a `field`-wide window of `value` that advances each frame so a
+        long value scrolls horizontally within its column. Reuses one
+        TextLayouterScroll per row, recreated when the value or column width
+        changes.
+        """
+        scroller = self.value_scrollers.get(row_key)
+        if scroller is None or scroller.text != value or scroller.width != field:
+            scroller = TextLayouterScroll(
+                value,
+                draw=self.draw,
+                color=self.colors.get(255),
+                font=self.fonts.base,
+                width=field,
+                scrollspeed=TextLayouterScroll.MEDIUM,
+            )
+            self.value_scrollers[row_key] = scroller
+        scroller.layout()
+        return scroller.object_text[0] if scroller.object_text else value[:field]
 
     def key_up(self):
         self.text_layout.previous()
 
     def key_down(self):
         self.text_layout.next()
-
-    def active(self):
-        """
-        Called when a module becomes active
-        i.e. foreground controlling display
-        """
-        with open(self.wifi_txt, "r") as wfs:
-            self._config_options["WiFi Mode"]["value"] = wfs.read()

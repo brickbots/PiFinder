@@ -1,11 +1,20 @@
+from typing import Any, TYPE_CHECKING
+
+from PiFinder.state import Location
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.text_menu import UITextMenu
+from PiFinder.ui.layout import rows_below_titlebar
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
 
 
 class UILocationList(UITextMenu):
     """UI for managing saved locations"""
 
-    __title__ = "Saved Locations"
+    __title__ = "Load Location"
 
     def __init__(self, *args, **kwargs):
         # Set up menu items before calling parent init
@@ -13,7 +22,13 @@ class UILocationList(UITextMenu):
         kwargs["item_definition"] = self.create_menu_definition()
         super().__init__(*args, **kwargs)
         self.action_menu_active = False
+        # English keys used for action dispatch; labels are translated at draw time
         self.actions = ["Load", "Rename", "Delete"]
+        self.action_labels = {
+            "Load": _("Load"),
+            "Rename": _("Rename"),
+            "Delete": _("Delete"),
+        }
         self.action_index = 0
 
     def create_menu_definition(self):
@@ -43,7 +58,7 @@ class UILocationList(UITextMenu):
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
-        draw_pos += 12
+        draw_pos += self.fonts.bold.height - 1
 
         # Draw coordinates in base font
         self.draw.text(
@@ -52,18 +67,18 @@ class UILocationList(UITextMenu):
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
-        draw_pos += 16
+        draw_pos += self.fonts.base.height + 5
 
         # Draw actions
         for i, action in enumerate(self.actions):
             color = 255 if i == self.action_index else 128
             self.draw.text(
                 (0, draw_pos),
-                action,
+                self.action_labels.get(action, action),
                 font=self.fonts.base.font,
                 fill=self.colors.get(color),
             )
-            draw_pos += 10
+            draw_pos += self.fonts.base.height
 
     def perform_action(self):
         """Execute the selected action on the current location"""
@@ -73,19 +88,12 @@ class UILocationList(UITextMenu):
             action = self.actions[self.action_index]
 
             if action == "Load":
-                # Set location as current
                 self.command_queues["gps"].put(
-                    (
-                        "fix",
-                        {
-                            "lat": location.latitude,
-                            "lon": location.longitude,
-                            "altitude": location.height,
-                            "source": f"CONFIG: {location.name}",
-                            "lock": True,
-                            "lock_type": 2,
-                            "error_in_m": location.error_in_m,
-                        },
+                    Location.make_fix(
+                        location.latitude,
+                        location.longitude,
+                        location.height,
+                        f"CONFIG: {location.name}",
                     )
                 )
                 # Set as default if desired
@@ -94,7 +102,7 @@ class UILocationList(UITextMenu):
                     self.config_object.save_locations()
 
                 # Show confirmation message
-                self.message(f"Loaded: {location.name}", timeout=2)
+                self.message(_("Loaded: {name}").format(name=location.name), timeout=2)
 
                 # Return True twice to pop two levels
                 self.action_menu_active = False  # Exit action menu mode
@@ -117,14 +125,14 @@ class UILocationList(UITextMenu):
                     )
 
                 self.selected_index = None
-                self.message(f"Deleted: {location.name}", timeout=2)
+                self.message(_("Deleted: {name}").format(name=location.name), timeout=2)
                 self.action_menu_active = False
                 return False
 
             elif action == "Rename":
                 # Create text entry for new name
                 item_definition = {
-                    "name": "Location Name",
+                    "name": _("Location Name"),
                     "class": UITextEntry,
                     "mode": "text_entry",
                     "initial_text": location.name,
@@ -137,7 +145,7 @@ class UILocationList(UITextMenu):
         """Handle location rename callback"""
         location.name = new_name
         self.config_object.save_locations()
-        self.message(f"Renamed to:\n{new_name}", timeout=2)
+        self.message(_("Renamed to:\n{name}").format(name=new_name), timeout=2)
         self.action_menu_active = False  # Return to location list view
         return True  # Return to location list
 
@@ -171,7 +179,16 @@ class UILocationList(UITextMenu):
         return True
 
     def update(self, force=False):
-        if self.action_menu_active:
+        if not self.locations:
+            self.clear_screen()
+            draw_pos = rows_below_titlebar(self.display_class, gap=4).rows[1]
+            self.draw.text(
+                (10, draw_pos),
+                _("No locations"),
+                font=self.fonts.bold.font,
+                fill=self.colors.get(192),
+            )
+        elif self.action_menu_active:
             self.draw_action_menu()
         else:
             super().update(force)

@@ -9,5 +9,8 @@ pygame==2.6.1
 pre-commit==3.7.1
 Babel==2.16.0
 xlrd==2.0.2
+selenium==4.15.0
+# Test-only: drift guard for the .pifinder JSON Schema (test_pifinder_schema.py)
+jsonschema==4.23.0
 # Pin to avoid pyobjc 12.0 which has macOS 15 build issues
 pyobjc-framework-Quartz==11.1; sys_platform == "darwin"

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-10-22 20:16+0200\n"
+"POT-Creation-Date: 2026-06-22 09:17-0700\n"
 "PO-Revision-Date: 2025-02-05 15:00+0800\n"
 "Last-Translator: ClawdPulse\n"
 "Language: zh_CN\n"
@@ -17,11 +17,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.16.0\n"
 
-#: PiFinder/cat_images.py:49
+#: PiFinder/cat_images.py:206
 msgid "No Image"
 msgstr "无图像"
 
-#: PiFinder/main.py:545
+#: PiFinder/main.py:648
 msgid ""
 "Degraded\n"
 "Check Status"
@@ -29,7 +29,7 @@ msgstr ""
 "性能下降\n"
 "检查状态"
 
-#: PiFinder/main.py:637
+#: PiFinder/main.py:750
 msgid ""
 "Catalogs\n"
 "Fully Loaded"
@@ -37,27 +37,27 @@ msgstr ""
 "星表\n"
 "已完全加载"
 
-#: PiFinder/obj_types.py:7 PiFinder/ui/menu_structure.py:385
+#: PiFinder/obj_types.py:7 PiFinder/ui/menu_structure.py:422
 msgid "Galaxy"
 msgstr "星系"
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:8 PiFinder/ui/menu_structure.py:389
+#: PiFinder/obj_types.py:8 PiFinder/ui/menu_structure.py:426
 msgid "Open Cluster"
 msgstr "疏散星团"
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:9 PiFinder/ui/menu_structure.py:397
+#: PiFinder/obj_types.py:9 PiFinder/ui/menu_structure.py:434
 msgid "Globular"
 msgstr "球状星团"
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:10 PiFinder/ui/menu_structure.py:401
+#: PiFinder/obj_types.py:10 PiFinder/ui/menu_structure.py:438
 msgid "Nebula"
 msgstr "星云"
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:11 PiFinder/ui/menu_structure.py:409
+#: PiFinder/obj_types.py:11 PiFinder/ui/menu_structure.py:446
 msgid "Dark Nebula"
 msgstr "暗星云"
 
@@ -72,12 +72,12 @@ msgid "Cluster + Neb"
 msgstr "星团+星云"
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:14 PiFinder/ui/menu_structure.py:429
+#: PiFinder/obj_types.py:14 PiFinder/ui/menu_structure.py:466
 msgid "Asterism"
 msgstr "星群"
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:15 PiFinder/ui/menu_structure.py:425
+#: PiFinder/obj_types.py:15 PiFinder/ui/menu_structure.py:462
 msgid "Knot"
 msgstr "节"
 
@@ -92,7 +92,7 @@ msgid "Double star"
 msgstr "双星"
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:18 PiFinder/ui/menu_structure.py:413
+#: PiFinder/obj_types.py:18 PiFinder/ui/menu_structure.py:450
 msgid "Star"
 msgstr "恒星"
 
@@ -101,611 +101,479 @@ msgstr "恒星"
 msgid "Unkn"
 msgstr "未知"
 
-#: PiFinder/obj_types.py:20 PiFinder/ui/menu_structure.py:421
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:20 PiFinder/ui/menu_structure.py:470
 msgid "Planet"
 msgstr "行星"
 
-#: PiFinder/obj_types.py:21 PiFinder/ui/menu_structure.py:282
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:21 PiFinder/ui/menu_structure.py:474
 msgid "Comet"
 msgstr "彗星"
 
-#: PiFinder/align.py:45
-msgid "Align Timeout"
-msgstr "对齐超时"
-
-#: PiFinder/align.py:58
-msgid "Alignment Set"
-msgstr "对齐已设置"
-
-#: PiFinder/ui/chart.py:115
-msgid "Can't plot"
-msgstr "无法绘制"
-
-#: PiFinder/ui/chart.py:134
-msgid "No Solve Yet"
-msgstr "尚未解析"
-
-#: PiFinder/ui/align.py:43
-msgid "Aligning..."
-msgstr "对齐中..."
-
-#: PiFinder/ui/align.py:67
-msgid "Aligned!"
-msgstr "已对齐！"
-
-#: PiFinder/ui/align.py:88
-msgid "Alignment failed"
-msgstr "对齐失败"
-
-#: PiFinder/ui/callbacks.py:54
-msgid "Filters Reset"
-msgstr "滤镜已重置"
-
-#: PiFinder/ui/callbacks.py:74
-msgid "Test Mode"
-msgstr "测试模式"
-
-#: PiFinder/ui/callbacks.py:107
-msgid "Shutting Down"
-msgstr "正在关机"
-
-#: PiFinder/ui/callbacks.py:118
-msgid "Restarting..."
-msgstr "正在重启..."
-
-#: PiFinder/ui/callbacks.py:145
-msgid "Switching cam"
-msgstr "切换相机"
-
-#: PiFinder/ui/callbacks.py:161
-msgid "WiFi to AP"
-msgstr "WiFi转AP"
-
-#: PiFinder/ui/callbacks.py:168
-msgid "WiFi to Client"
-msgstr "WiFi转客户端"
-
-#: PiFinder/ui/loc_gps.py:21
-msgid "Time: {time}"
-msgstr "时间: {time}"
-
-#: PiFinder/ui/menu_structure.py:33
-msgid "PiFinder"
-msgstr "PiFinder"
-
-#: PiFinder/ui/menu_structure.py:37
-msgid "Start"
-msgstr "开始"
-
-#: PiFinder/ui/menu_structure.py:42
-msgid "Focus"
-msgstr "对焦"
-
-#: PiFinder/ui/menu_structure.py:46
-msgid "Align"
-msgstr "对齐"
-
-#: PiFinder/ui/menu_structure.py:53
-msgid "GPS Status"
-msgstr "GPS状态"
-
-#: PiFinder/ui/menu_structure.py:58
-msgid "Chart"
-msgstr "星图"
-
-#: PiFinder/ui/menu_structure.py:63
-msgid "Objects"
-msgstr "天体"
-
-#: PiFinder/ui/menu_structure.py:68
-msgid "All Filtered"
-msgstr "全部筛选"
-
-#: PiFinder/ui/menu_structure.py:73
-msgid "By Catalog"
-msgstr "按星表"
-
-#: PiFinder/ui/menu_structure.py:79
-msgid "Planets"
-msgstr "行星"
-
-#: PiFinder/ui/menu_structure.py:89
-msgid "NGC"
-msgstr "NGC"
-
-#: PiFinder/ui/menu_structure.py:93
-msgid "Messier"
-msgstr "梅西耶"
-
-#: PiFinder/ui/menu_structure.py:97
-msgid "DSO..."
-msgstr "深空天体..."
-
-#: PiFinder/ui/menu_structure.py:102
-msgid "Abell Pn"
-msgstr "阿贝尔行星状星云"
-
-#: PiFinder/ui/menu_structure.py:107
-msgid "Arp Galaxies"
-msgstr "Arp星系"
-
-#: PiFinder/ui/menu_structure.py:112
-msgid "Barnard"
-msgstr "巴纳德"
-
-#: PiFinder/ui/menu_structure.py:117
-msgid "Caldwell"
-msgstr "考德威尔"
-
-#: PiFinder/ui/menu_structure.py:122
-msgid "Collinder"
-msgstr "科林德"
-
-#: PiFinder/ui/menu_structure.py:127
-msgid "E.G. Globs"
-msgstr "ESO球状星团"
-
-#: PiFinder/ui/menu_structure.py:132
-msgid "Herschel 400"
-msgstr "赫歇尔400"
-
-#: PiFinder/ui/menu_structure.py:137
-msgid "IC"
-msgstr "IC"
-
-#: PiFinder/ui/menu_structure.py:156
-msgid "Sharpless"
-msgstr "夏普利斯"
-
-#: PiFinder/ui/menu_structure.py:161
-msgid "TAAS 200"
-msgstr "TAAS 200"
-
-#: PiFinder/ui/menu_structure.py:166
-msgid "Stars..."
-msgstr "恒星..."
-
-#: PiFinder/ui/menu_structure.py:171
-msgid "Bright Named"
-msgstr "亮星"
-
-#: PiFinder/ui/menu_structure.py:176
-msgid "SAC Doubles"
-msgstr "SAC双星"
-
-#: PiFinder/ui/menu_structure.py:181
-msgid "SAC Asterisms"
-msgstr "SAC星群"
-
-#: PiFinder/ui/menu_structure.py:186
-msgid "SAC Red Stars"
-msgstr "SAC红巨星"
-
-#: PiFinder/ui/menu_structure.py:191
-msgid "RASC Doubles"
-msgstr "RASC双星"
-
-#: PiFinder/ui/menu_structure.py:196
-msgid "WDS Doubles"
-msgstr "WDS双星"
-
-#: PiFinder/ui/menu_structure.py:201
-msgid "TLK 90 Variables"
-msgstr "TLK 90变星"
-
-#: PiFinder/ui/menu_structure.py:207
-msgid "Recent"
-msgstr "最近"
-
-#: PiFinder/ui/menu_structure.py:212
-msgid "Custom"
-msgstr "自定义"
-
-#: PiFinder/ui/menu_structure.py:217
-msgid "Name Search"
-msgstr "名称搜索"
-
-#: PiFinder/ui/menu_structure.py:223
-msgid "Filter"
-msgstr "筛选"
-
-#: PiFinder/ui/menu_structure.py:228
-msgid "Reset All"
-msgstr "全部重置"
-
-#: PiFinder/ui/menu_structure.py:233
-msgid "Confirm"
-msgstr "确认"
-
-#: PiFinder/ui/menu_structure.py:234
-msgid "Cancel"
-msgstr "取消"
-
-#: PiFinder/ui/menu_structure.py:238
-msgid "Catalogs"
-msgstr "星表"
-
-#: PiFinder/ui/menu_structure.py:305
-msgid "Type"
-msgstr "类型"
-
-#: PiFinder/ui/menu_structure.py:373
-msgid "Cluster/Neb"
-msgstr "星团/星云"
-
-#: PiFinder/ui/menu_structure.py:377
-msgid "P. Nebula"
-msgstr "行星状星云"
-
-#: PiFinder/ui/menu_structure.py:405
-msgid "Double Str"
-msgstr "双星"
-
-#: PiFinder/ui/menu_structure.py:433
-msgid "Triple Str"
-msgstr "三合星"
-
-#: PiFinder/ui/menu_structure.py:449
-msgid "Altitude"
-msgstr "高度"
-
-#: PiFinder/ui/menu_structure.py:454
-msgid "None"
-msgstr "无"
-
-#: PiFinder/ui/menu_structure.py:492
-msgid "Magnitude"
-msgstr "星等"
-
-#: PiFinder/ui/menu_structure.py:541
-msgid "Observed"
-msgstr "已观测"
-
-#: PiFinder/ui/menu_structure.py:546
-msgid "Any"
-msgstr "任意"
-
-#: PiFinder/ui/menu_structure.py:550
-msgid "Yes"
-msgstr "是"
-
-#: PiFinder/ui/menu_structure.py:554
-msgid "No"
-msgstr "否"
-
-#: PiFinder/ui/menu_structure.py:559
-msgid "Settings"
-msgstr "设置"
-
-#: PiFinder/ui/menu_structure.py:563
-msgid "User Pref..."
-msgstr "用户偏好..."
-
-#: PiFinder/ui/menu_structure.py:568
-msgid "Key Bright"
-msgstr "按键亮度"
-
-#: PiFinder/ui/menu_structure.py:598
-msgid "Sleep Time"
-msgstr "休眠时间"
-
-#: PiFinder/ui/menu_structure.py:602
-msgid "Off"
-msgstr "关闭"
-
-#: PiFinder/ui/menu_structure.py:622
-msgid "Menu Anim"
-msgstr "菜单动画"
-
-#: PiFinder/ui/menu_structure.py:626
-msgid "Fast"
-msgstr "快"
-
-#: PiFinder/ui/menu_structure.py:630
-msgid "Medium"
-msgstr "中"
-
-#: PiFinder/ui/menu_structure.py:634
-msgid "Slow"
-msgstr "慢"
-
-#: PiFinder/ui/menu_structure.py:642
-msgid "Scroll Speed"
-msgstr "滚动速度"
-
-#: PiFinder/ui/menu_structure.py:660
-msgid "Az Arrows"
-msgstr "方位箭头"
-
-#: PiFinder/ui/menu_structure.py:664
-msgid "Default"
-msgstr "默认"
-
-#: PiFinder/ui/menu_structure.py:668
-msgid "Reverse"
-msgstr "反向"
-
-#: PiFinder/ui/menu_structure.py:673
-msgid "Language"
-msgstr "语言"
-
-#: PiFinder/ui/menu_structure.py:677
-msgid "English"
-msgstr "英语"
-
-#: PiFinder/ui/menu_structure.py:681
-msgid "German"
-msgstr "德语"
-
-#: PiFinder/ui/menu_structure.py:685
-msgid "French"
-msgstr "法语"
-
-#: PiFinder/ui/menu_structure.py:689
-msgid "Spanish"
-msgstr "西班牙语"
-
-#: PiFinder/ui/menu_structure.py:693
-msgid "Chinese"
-msgstr "中文"
-
-#: PiFinder/ui/menu_structure.py:699
-msgid "Chart..."
-msgstr "星图..."
-
-#: PiFinder/ui/menu_structure.py:703
-msgid "Reticle"
-msgstr "十字丝"
-
-#: PiFinder/ui/menu_structure.py:723
-msgid "Constellation"
-msgstr "星座"
-
-#: PiFinder/ui/menu_structure.py:743
-msgid "DSO Display"
-msgstr "深空天体显示"
-
-#: PiFinder/ui/menu_structure.py:763
-msgid "RA/DEC Disp."
-msgstr "赤经/赤纬显示"
-
-#: PiFinder/ui/menu_structure.py:767
-msgid "HH:MM"
-msgstr "时:分"
-
-#: PiFinder/ui/menu_structure.py:771
-msgid "Degrees"
-msgstr "度数"
-
-#: PiFinder/ui/menu_structure.py:775
-msgid "Camera Exp"
-msgstr "相机曝光"
-
-#: PiFinder/ui/menu_structure.py:779
-msgid "Auto"
-msgstr "自动"
-
-#: PiFinder/ui/menu_structure.py:811
-msgid "WiFi Mode"
-msgstr "WiFi模式"
-
-#: PiFinder/ui/menu_structure.py:815
-msgid "Client Mode"
-msgstr "客户端模式"
-
-#: PiFinder/ui/menu_structure.py:820
-msgid "AP Mode"
-msgstr "AP模式"
-
-#: PiFinder/ui/menu_structure.py:826
-msgid "Mount Type"
-msgstr "望远镜类型"
-
-#: PiFinder/ui/menu_structure.py:830
-msgid "Alt/Az"
-msgstr "地平式"
-
-#: PiFinder/ui/menu_structure.py:834
-msgid "Equatorial"
-msgstr "赤道式"
-
-#: PiFinder/ui/menu_structure.py:839
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:219
+msgid "Locked"
+msgstr "已锁定"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:219
+msgid "Not Locked"
+msgstr "未锁定"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:241 views/base.html:17 views/base.html:28
+msgid "Home"
+msgstr "首页"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:269 PiFinder/server.py:277 views/login.html:31
+msgid "Login"
+msgstr "登录"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:271
+msgid "Invalid Password"
+msgstr "密码错误"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:283 views/base.html:18 views/base.html:29
+msgid "Remote"
+msgstr "遥控"
+
+#: PiFinder/server.py:289 PiFinder/ui/menu_structure.py:1033
 msgid "Advanced"
 msgstr "高级"
 
-#: PiFinder/ui/menu_structure.py:848
-msgid "PiFinder Type"
-msgstr "PiFinder类型"
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:298
+msgid "Network"
+msgstr "网络"
 
-#: PiFinder/ui/menu_structure.py:852
-msgid "Left"
-msgstr "左"
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:316
+msgid "GPS"
+msgstr "GPS"
 
-#: PiFinder/ui/menu_structure.py:856
-msgid "Right"
-msgstr "右"
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:350 PiFinder/server.py:401 PiFinder/server.py:452
+#: views/base.html:21 views/base.html:32
+msgid "Locations"
+msgstr "位置列表"
 
-#: PiFinder/ui/menu_structure.py:860
-msgid "Straight"
-msgstr "直"
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:368 PiFinder/server.py:426
+msgid "Location name is required"
+msgstr "位置名称为必填项"
 
-#: PiFinder/ui/menu_structure.py:864
-msgid "Flat v3"
-msgstr "平板v3"
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:370 PiFinder/server.py:428
+msgid "Latitude must be between -90 and 90"
+msgstr "纬度须在-90到90之间"
 
-#: PiFinder/ui/menu_structure.py:868
-msgid "Flat v2"
-msgstr "平板v2"
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:372 PiFinder/server.py:430
+msgid "Longitude must be between -180 and 180"
+msgstr "经度须在-180到180之间"
 
-#: PiFinder/ui/menu_structure.py:872
-msgid "AS Bloom"
-msgstr "AS Bloom"
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:375 PiFinder/server.py:433
+msgid "Altitude must be between -1000 and 10000 meters"
+msgstr "海拔须在-1000到10000米之间"
 
-#: PiFinder/ui/menu_structure.py:877
-msgid "Camera Type"
-msgstr "相机类型"
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:378 PiFinder/server.py:436
+msgid "Error must be between 0 and 10000 meters"
+msgstr "误差须在0到10000米之间"
 
-#: PiFinder/ui/menu_structure.py:881
-msgid "v2 - imx477"
-msgstr "v2 - imx477"
-
-#: PiFinder/ui/menu_structure.py:885
-msgid "v3 - imx296"
-msgstr "v3 - imx296"
-
-#: PiFinder/ui/menu_structure.py:889
-msgid "v3 - imx462"
-msgstr "v3 - imx462"
-
-#: PiFinder/ui/menu_structure.py:893
-msgid "GPS Settings"
-msgstr "GPS设置"
-
-#: PiFinder/ui/menu_structure.py:897
-msgid "GPS Type"
-msgstr "GPS类型"
-
-#: PiFinder/ui/menu_structure.py:901
-msgid "UBlox"
-msgstr "UBlox"
-
-#: PiFinder/ui/menu_structure.py:905
-msgid "GPSD (generic)"
-msgstr "GPSD (通用)"
-
-#: PiFinder/ui/menu_structure.py:909
-msgid "GPS Baud Rate"
-msgstr "GPS波特率"
-
-#: PiFinder/ui/menu_structure.py:913
-msgid "9600 (standard)"
-msgstr "9600 (标准)"
-
-#: PiFinder/ui/menu_structure.py:917
-msgid "115200 (UBlox-10)"
-msgstr "115200 (UBlox-10)"
-
-#: PiFinder/ui/menu_structure.py:924
-msgid "IMU Sensit."
-msgstr "IMU灵敏度"
-
-#: PiFinder/ui/menu_structure.py:928
-msgid "Very Low"
-msgstr "很低"
-
-#: PiFinder/ui/menu_structure.py:932
-msgid "Low"
-msgstr "低"
-
-#: PiFinder/ui/menu_structure.py:936
-msgid "High"
-msgstr "高"
-
-#: PiFinder/ui/menu_structure.py:943
-msgid "Tools"
-msgstr "工具"
-
-#: PiFinder/ui/menu_structure.py:945
-msgid "Status"
-msgstr "状态"
-
-#: PiFinder/ui/menu_structure.py:946
-msgid "Equipment"
-msgstr "设备"
-
-#: PiFinder/ui/menu_structure.py:950
-msgid "Place & Time"
-msgstr "位置和时间"
-
-#: PiFinder/ui/menu_structure.py:955
-msgid "Set Location"
-msgstr "设置位置"
-
-#: PiFinder/ui/menu_structure.py:959
-msgid "Set Time"
-msgstr "设置时间"
-
-#: PiFinder/ui/menu_structure.py:964
-msgid "Reset"
-msgstr "重置"
-
-#: PiFinder/ui/menu_structure.py:966
-msgid "Console"
-msgstr "控制台"
-
-#: PiFinder/ui/menu_structure.py:967
-msgid "Software Upd"
-msgstr "软件更新"
-
-#: PiFinder/ui/menu_structure.py:968
-msgid "Test Mode"
-msgstr "测试模式"
-
-#: PiFinder/ui/menu_structure.py:970
-msgid "Experimental"
-msgstr "实验功能"
-
-#: PiFinder/ui/menu_structure.py:972
-msgid "SQM"
-msgstr "SQM"
-
-#: PiFinder/ui/menu_structure.py:976
-msgid "AE Algo"
-msgstr "AE算法"
-
-#: PiFinder/ui/menu_structure.py:980
-msgid "Sweep"
-msgstr "扫描"
-
-#: PiFinder/ui/menu_structure.py:984
-msgid "Exponential"
-msgstr "指数"
-
-#: PiFinder/ui/menu_structure.py:988
-msgid "Reset to 0.4s"
-msgstr "重置为0.4秒"
-
-#: PiFinder/ui/menu_structure.py:992
-msgid "Histogram"
-msgstr "直方图"
-
-#: PiFinder/ui/menu_structure.py:997
-msgid "Power"
-msgstr "电源"
-
-#: PiFinder/ui/menu_structure.py:1001
-msgid "Shutdown"
-msgstr "关机"
-
-#: PiFinder/ui/menu_structure.py:1010
+#: PiFinder/server.py:523 PiFinder/ui/menu_structure.py:1302
 msgid "Restart"
 msgstr "重启"
 
-#: PiFinder/ui/menu_structure.py:1026 PiFinder/ui/menu_structure.py:1037
-msgid "Cancel"
-msgstr "取消"
+#: PiFinder/server.py:534 PiFinder/server.py:543 PiFinder/server.py:547
+#: PiFinder/server.py:551 PiFinder/server.py:906
+#: PiFinder/ui/menu_structure.py:1173 views/base.html:23 views/base.html:34
+#: views/tools.html:6
+msgid "Tools"
+msgstr "工具"
 
-#: PiFinder/ui/menu_structure.py:22
-msgid "Language: zh"
-msgstr "语言: 中文"
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:535
+msgid "You must fill in all password fields"
+msgstr "请填写所有密码字段"
 
-#: PiFinder/ui/callbacks.py:49
-msgid "Options for\nDIY PiFinders"
-msgstr "DIY PiFinder\n选项"
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:543
+msgid "Password Changed"
+msgstr "密码已修改"
 
-#: PiFinder/ui/equipment.py:95
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:547
+msgid "Incorrect current password"
+msgstr "当前密码错误"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:551
+msgid "New passwords do not match"
+msgstr "两次输入的新密码不一致"
+
+#: PiFinder/server.py:576 PiFinder/server.py:587 PiFinder/server.py:604
+#: PiFinder/server.py:686 PiFinder/server.py:742 PiFinder/server.py:755
+#: PiFinder/server.py:828 PiFinder/server.py:841
+#: PiFinder/ui/menu_structure.py:1178 views/base.html:22 views/base.html:33
+#: views/equipment.html:6
+msgid "Equipment"
+msgstr "设备"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:593
+msgid "set as active instrument."
+msgstr "已设为当前望远镜。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:610
+msgid "set as active eyepiece."
+msgstr "已设为当前目镜。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:688
+msgid "Equipment Imported, restart your PiFinder to use this new data"
+msgstr "设备已导入，重启PiFinder后生效"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:704
+msgid "Edit Eyepiece"
+msgstr "编辑目镜"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:744
+msgid "Eyepiece added, restart your PiFinder to use"
+msgstr "目镜已添加，重启PiFinder后生效"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:757
+msgid "Eyepiece Deleted, restart your PiFinder to remove from menu"
+msgstr "目镜已删除，重启PiFinder后从菜单移除"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:782
+msgid "Edit Instrument"
+msgstr "编辑望远镜"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:830
+msgid "Instrument Added, restart your PiFinder to use"
+msgstr "望远镜已添加，重启PiFinder后生效"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:843
+msgid "Instrument Deleted, restart your PiFinder to remove from menu"
+msgstr "望远镜已删除，重启PiFinder后从菜单移除"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:871 views/base.html:20 views/base.html:31
+msgid "Observations"
+msgstr "观测记录"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:900
+msgid "Session Log"
+msgstr "观测日志"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:911 PiFinder/server.py:1010 views/base.html:24
+#: views/base.html:35
+msgid "Logs"
+msgstr "日志"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1010
+msgid "Error creating log archive"
+msgstr "创建日志压缩包失败"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1067 views/restart_pifinder.html:6
+msgid "Restarting PiFinder"
+msgstr "正在重启PiFinder"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1129
+msgid "Restart PiFinder"
+msgstr "重启PiFinder"
+
+#: PiFinder/ui/align.py:50
+msgid "Align Timeout"
+msgstr "对齐超时"
+
+#: PiFinder/ui/align.py:64
+msgid "Alignment Set"
+msgstr "对齐已设置"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; preserve leading spaces for layout
+#: PiFinder/ui/align.py:251 PiFinder/ui/align_daytime.py:209
+msgid "  {icon} START ALIGN"
+msgstr "  {icon} 开始对齐"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; {icon} is a directional-arrows glyph
+#: PiFinder/ui/align.py:254
+msgid "{icon} SELECT STAR"
+msgstr "{icon} 选择恒星"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
+#: PiFinder/ui/align.py:257
+msgid "{icon} SAVE / 0 CANCEL"
+msgstr "{icon} 保存 / 0 取消"
+
+#: PiFinder/ui/align.py:279 PiFinder/ui/chart.py:273
+msgid "Can't plot"
+msgstr "无法绘制"
+
+#: PiFinder/ui/align.py:288 PiFinder/ui/chart.py:282 PiFinder/ui/log.py:166
+#: PiFinder/ui/object_list.py:286 PiFinder/ui/object_list.py:306
+msgid "No Solve Yet"
+msgstr "尚未解析"
+
+#: PiFinder/ui/align.py:399 PiFinder/ui/object_details.py:675
+msgid "Aligning..."
+msgstr "对齐中..."
+
+#: PiFinder/ui/align.py:407 PiFinder/ui/align_daytime.py:310
+#: PiFinder/ui/object_details.py:683
+msgid "Aligned!"
+msgstr "已对齐！"
+
+#: PiFinder/ui/align.py:409
+msgid "Alignment failed"
+msgstr "对齐失败"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align_daytime.py:114
+msgid "Center"
+msgstr "居中"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align_daytime.py:119
+msgid "Exp Auto"
+msgstr "曝光自动"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align_daytime.py:199
+msgid "{icon} SAVE  0 CANCEL"
+msgstr "{icon} 保存  0 取消"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align_daytime.py:242
+msgid "AUTO"
+msgstr "自动"
+
+#: PiFinder/ui/callbacks.py:51
+msgid ""
+"Options for\n"
+"DIY PiFinders"
+msgstr ""
+"DIY PiFinder\n"
+"选项"
+
+#: PiFinder/ui/callbacks.py:66
+msgid "Filters Reset"
+msgstr "滤镜已重置"
+
+#: PiFinder/ui/callbacks.py:79 PiFinder/ui/menu_structure.py:1221
+msgid "Test Mode"
+msgstr "测试模式"
+
+#: PiFinder/ui/callbacks.py:161
+msgid "Shutting Down"
+msgstr "正在关机"
+
+#: PiFinder/ui/callbacks.py:170 PiFinder/ui/callbacks.py:178
+msgid "Restarting..."
+msgstr "正在重启..."
+
+#: PiFinder/ui/callbacks.py:183 PiFinder/ui/callbacks.py:189
+#: PiFinder/ui/callbacks.py:195
+msgid "Switching cam"
+msgstr "切换相机"
+
+#: PiFinder/ui/callbacks.py:233
+msgid "WiFi to AP"
+msgstr "WiFi转AP"
+
+#: PiFinder/ui/callbacks.py:239
+msgid "WiFi to Client"
+msgstr "WiFi转客户端"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:262
+msgid ""
+"{lat:.2f}, {lon:.2f}\n"
+"{alt}m alt"
+msgstr ""
+"{lat:.2f}, {lon:.2f}\n"
+"海拔{alt}m"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:269
+msgid "Location Reset"
+msgstr "重置位置"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:274
+msgid "Time/Date Reset"
+msgstr "重置时间/日期"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:281
+msgid "No location lock"
+msgstr "无位置锁定"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:295
+msgid ""
+"Saved\n"
+"{name}"
+msgstr ""
+"已保存\n"
+"{name}"
+
+#: PiFinder/ui/callbacks.py:299 PiFinder/ui/gpsstatus.py:79
+#: PiFinder/ui/location_list.py:137 views/location_form.html:6
+#: views/locations.html:117
+msgid "Location Name"
+msgstr "位置名称"
+
+#: PiFinder/ui/callbacks.py:302 PiFinder/ui/gpsstatus.py:82
+msgid "Loc {number}"
+msgstr "位置 {number}"
+
+#: PiFinder/ui/callbacks.py:329
+msgid "Time: {time}"
+msgstr "时间: {time}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:347
+msgid ""
+"{date}\n"
+"{time}"
+msgstr ""
+"{date}\n"
+"{time}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:367
+msgid ""
+"User object created\n"
+"{name}"
+msgstr ""
+"已创建用户目标\n"
+"{name}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:497
+msgid ""
+"Checking GPS\n"
+"config..."
+msgstr ""
+"检查GPS\n"
+"配置..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:502
+msgid ""
+"GPS config\n"
+"updated"
+msgstr ""
+"GPS配置\n"
+"已更新"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:504
+msgid ""
+"GPS config\n"
+"OK"
+msgstr ""
+"GPS配置\n"
+"正常"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:507
+msgid ""
+"GPS config\n"
+"failed"
+msgstr ""
+"GPS配置\n"
+"失败"
+
+#: PiFinder/ui/chart.py:50 PiFinder/ui/menu_structure.py:596
+msgid "Settings"
+msgstr "设置"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: chart corner label, e.g. "Zenith up" — keep short
+#: PiFinder/ui/chart.py:125
+msgid "{label} up"
+msgstr "{label}朝上"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:26
+msgid "yyyy"
+msgstr "yyyy"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:27 PiFinder/ui/timeentry.py:28
+msgid "mm"
+msgstr "mm"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:28 PiFinder/ui/locationentry.py:34
+#: PiFinder/ui/locationentry.py:41
+msgid "dd"
+msgstr "dd"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:130
+msgid "Enter Local Date"
+msgstr "输入本地日期"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:148 PiFinder/ui/timeentry.py:135
+msgid " Done"
+msgstr " 完成"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:155 PiFinder/ui/locationentry.py:222
+#: PiFinder/ui/timeentry.py:142
+msgid " Cancel"
+msgstr " 取消"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:162 PiFinder/ui/locationentry.py:232
+#: PiFinder/ui/timeentry.py:149
+msgid "󰍴 Delete/Previous"
+msgstr "󰍴 删除/上一步"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:219 PiFinder/ui/locationentry.py:346
+#: PiFinder/ui/polar_align.py:516 PiFinder/ui/timeentry.py:217
+msgid "Cancelled"
+msgstr "已取消"
+
+#: PiFinder/ui/equipment.py:39
 msgid "No telescope selected"
 msgstr "未选择望远镜"
 
-#: PiFinder/ui/equipment.py:97
+#: PiFinder/ui/equipment.py:54
 msgid "No eyepiece selected"
 msgstr "未选择目镜"
 
-#: PiFinder/ui/equipment.py:99
+#: PiFinder/ui/equipment.py:74
 msgid "Mag: {mag:.0f}x"
 msgstr "倍率: {mag:.0f}x"
 
-#: PiFinder/ui/equipment.py:101
+#: PiFinder/ui/equipment.py:86
 msgid "TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
 msgstr "视场: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
 
@@ -713,62 +581,2804 @@ msgstr "视场: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
 msgid "Telescope..."
 msgstr "望远镜..."
 
-#: PiFinder/ui/equipment.py:108
+#: PiFinder/ui/equipment.py:115 PiFinder/ui/log.py:229
 msgid "Eyepiece..."
 msgstr "目镜..."
 
-#: PiFinder/ui/base.py:319
+#: PiFinder/ui/gpsstatus.py:30
 msgid "Limited"
 msgstr "有限"
 
-#: PiFinder/ui/base.py:320
+#. TRANSLATORS: there's no GPS lock but we accept the position due to low
+#. enough error value
+#: PiFinder/ui/gpsstatus.py:33
 msgid "Basic"
 msgstr "基础"
 
-#: PiFinder/ui/base.py:321
+#. TRANSLATORS: coarse GPS fix, does this happen?
+#: PiFinder/ui/gpsstatus.py:34
 msgid "Accurate"
 msgstr "精确"
 
-#: PiFinder/ui/base.py:322
+#. TRANSLATORS: GPS 2D Fix
+#: PiFinder/ui/gpsstatus.py:35
 msgid "Precise"
 msgstr "精准"
 
-#: PiFinder/ui/location_list.py:42
+#: PiFinder/ui/gpsstatus.py:45 PiFinder/ui/sqm_correction.py:71
+#: views/gps.html:77 views/network.html:81
 msgid "Save"
 msgstr "保存"
 
-#: PiFinder/ui/location_list.py:43
+#: PiFinder/ui/gpsstatus.py:48
 msgid "Lock"
 msgstr "锁定"
 
-#: PiFinder/ui/location_list.py:55
-msgid "Location Name"
-msgstr "位置名称"
-
-#: PiFinder/ui/location_list.py:56
-msgid "Loc {number}"
-msgstr "位置 {number}"
-
-#: PiFinder/ui/location_list.py:60
+#: PiFinder/ui/gpsstatus.py:112
 msgid "Location saved"
 msgstr "位置已保存"
 
-#: PiFinder/ui/location_list.py:61
+#: PiFinder/ui/gpsstatus.py:122
 msgid "Location locked"
 msgstr "位置已锁定"
 
-#: PiFinder/ui/loc_gps.py:47
+#: PiFinder/ui/gpsstatus.py:127
 msgid "{error:.1f} km"
 msgstr "{error:.1f} 公里"
 
-#: PiFinder/ui/loc_gps.py:49
+#: PiFinder/ui/gpsstatus.py:131
 msgid "{error:.0f} m"
 msgstr "{error:.0f} 米"
 
-#: PiFinder/ui/loc_gps.py:75
+#: PiFinder/ui/gpsstatus.py:153
 msgid "GPS Locked"
 msgstr "GPS已锁定"
 
-#: PiFinder/ui/loc_gps.py:82
+#: PiFinder/ui/gpsstatus.py:160
 msgid "Lock boost on"
 msgstr "锁定增强开启"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:169
+msgid "You are ready"
+msgstr "已准备就绪"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:176
+msgid "to observe!"
+msgstr "可以开始观测！"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:184
+msgid "Stay on this screen"
+msgstr "请停留在此界面"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:193
+msgid "for quicker lock"
+msgstr "以加快锁定速度"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:204
+msgid "Lock Type:"
+msgstr "锁定类型:"
+
+#: PiFinder/ui/gpsstatus.py:211 PiFinder/ui/menu_structure.py:490
+#: PiFinder/ui/menu_structure.py:522 views/network.html:74
+msgid "None"
+msgstr "无"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:224
+msgid "Sats seen/used:"
+msgstr "可见/使用卫星:"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:240
+msgid "{square} Toggle Details"
+msgstr "{square} 切换详情"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:249
+msgid "Sats seen/used: {sats_seen}/{sats_used}"
+msgstr "可见/使用卫星: {sats_seen}/{sats_used}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:260
+msgid "Error: {error}"
+msgstr "误差: {error}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:271
+msgid "Lock:  {locktype}"
+msgstr "锁定:  {locktype}"
+
+#: PiFinder/ui/gpsstatus.py:272
+msgid "No"
+msgstr "否"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:284
+msgid "Lat:   {latitude:.5f}"
+msgstr "纬度:  {latitude:.5f}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:292
+msgid "Lon:   {longitude:.5f}"
+msgstr "经度:  {longitude:.5f}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:300
+msgid "Alt:   {altitude:.1f} m"
+msgstr "海拔:  {altitude:.1f} m"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:309
+msgid "Time:  {time}"
+msgstr "时间:  {time}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:318
+msgid "Date:  {date}"
+msgstr "日期:  {date}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:327
+msgid "From:  {location_source}"
+msgstr "来源:  {location_source}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:28 PiFinder/ui/menu_structure.py:1276
+msgid "Load"
+msgstr "加载"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:29
+msgid "Rename"
+msgstr "重命名"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:30 views/locations.html:95
+#: views/locations.html:201 views/network_item.html:14
+#: views/network_item.html:18
+msgid "Delete"
+msgstr "删除"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:105
+msgid "Loaded: {name}"
+msgstr "已加载: {name}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:129
+msgid "Deleted: {name}"
+msgstr "已删除: {name}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:150
+msgid ""
+"Renamed to:\n"
+"{name}"
+msgstr ""
+"已重命名为:\n"
+"{name}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:189
+msgid "No locations"
+msgstr "无位置记录"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:31
+msgid "Enter Latitude"
+msgstr "输入纬度"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:34
+msgid "DD"
+msgstr "DD"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:38
+msgid "Enter Longitude"
+msgstr "输入经度"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:41
+msgid "DDD"
+msgstr "DDD"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:45
+msgid "Altitude (m)"
+msgstr "海拔 (m)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:46
+msgid "meters"
+msgstr "米"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:215
+msgid " Next/Done"
+msgstr " 下一步/完成"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:228
+msgid "󰍴 Delete  󰐕 N/S"
+msgstr "󰍴 删除  󰐕 北/南"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:230
+msgid "󰍴 Delete  󰐕 E/W"
+msgstr "󰍴 删除  󰐕 东/西"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:312 PiFinder/ui/locationentry.py:324
+#: PiFinder/ui/menu_structure.py:1194
+msgid "Enter Coords"
+msgstr "输入坐标"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:49
+msgid "Conditions"
+msgstr "天气条件"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:54
+msgid "Transparency"
+msgstr "透明度"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Transparency not available
+#. TRANSLATORS: Seeing not available
+#. TRANSLATORS: eyepiece info not available
+#: PiFinder/ui/log.py:61 PiFinder/ui/log.py:94 PiFinder/ui/log.py:259
+msgid "NA"
+msgstr "N/A"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:65 PiFinder/ui/log.py:98
+msgid "Excellent"
+msgstr "极佳"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:69 PiFinder/ui/log.py:102
+msgid "Very Good"
+msgstr "很好"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:73 PiFinder/ui/log.py:106
+msgid "Good"
+msgstr "良好"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:77 PiFinder/ui/log.py:110
+msgid "Fair"
+msgstr "一般"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:81 PiFinder/ui/log.py:114
+msgid "Poor"
+msgstr "差"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:87
+msgid "Seeing"
+msgstr "视宁度"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:183
+msgid "SAVE Log"
+msgstr "保存日志"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:194
+msgid "Observability"
+msgstr "可观测性"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:207
+msgid "Appeal"
+msgstr "美观度"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:219
+msgid "Conditions..."
+msgstr "天气条件..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:303
+msgid "Logged!"
+msgstr "已记录！"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_manager.py:77
+msgid "Eyepiece"
+msgstr "目镜"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_manager.py:96
+msgid "Telescope"
+msgstr "望远镜"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:30
+msgid "Language: de"
+msgstr "语言: 德语"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:31
+msgid "Language: en"
+msgstr "语言: 英语"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:32
+msgid "Language: es"
+msgstr "语言: 西班牙语"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:33
+msgid "Language: fr"
+msgstr "语言: 法语"
+
+#: PiFinder/ui/menu_structure.py:34
+msgid "Language: zh"
+msgstr "语言: 中文"
+
+#: PiFinder/ui/menu_structure.py:45
+msgid "Start"
+msgstr "开始"
+
+#: PiFinder/ui/menu_structure.py:50
+msgid "Focus"
+msgstr "对焦"
+
+#: PiFinder/ui/menu_structure.py:54
+msgid "Align"
+msgstr "对齐"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:60
+msgid "Align (Day)"
+msgstr "对齐 (日间)"
+
+#: PiFinder/ui/menu_structure.py:66 PiFinder/ui/menu_structure.py:1185
+msgid "GPS Status"
+msgstr "GPS状态"
+
+#: PiFinder/ui/menu_structure.py:72
+msgid "Chart"
+msgstr "星图"
+
+#: PiFinder/ui/menu_structure.py:78 views/obs_session_log.html:7
+#: views/obs_sessions.html:11 views/obs_sessions.html:25
+msgid "Objects"
+msgstr "天体"
+
+#: PiFinder/ui/menu_structure.py:83
+msgid "All Filtered"
+msgstr "全部筛选"
+
+#: PiFinder/ui/menu_structure.py:88
+msgid "By Catalog"
+msgstr "按星表"
+
+#: PiFinder/ui/menu_structure.py:93 PiFinder/ui/menu_structure.py:302
+msgid "Planets"
+msgstr "行星"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:99 PiFinder/ui/menu_structure.py:306
+msgid "Comets"
+msgstr "彗星"
+
+#: PiFinder/ui/menu_structure.py:105 PiFinder/ui/menu_structure.py:188
+#: PiFinder/ui/menu_structure.py:310 PiFinder/ui/menu_structure.py:368
+msgid "NGC"
+msgstr "NGC"
+
+#: PiFinder/ui/menu_structure.py:111 PiFinder/ui/menu_structure.py:182
+#: PiFinder/ui/menu_structure.py:314 PiFinder/ui/menu_structure.py:364
+msgid "Messier"
+msgstr "梅西耶"
+
+#: PiFinder/ui/menu_structure.py:117 PiFinder/ui/menu_structure.py:318
+msgid "DSO..."
+msgstr "深空天体..."
+
+#: PiFinder/ui/menu_structure.py:122 PiFinder/ui/menu_structure.py:324
+msgid "Abell Pn"
+msgstr "阿贝尔行星状星云"
+
+#: PiFinder/ui/menu_structure.py:128 PiFinder/ui/menu_structure.py:328
+msgid "Arp Galaxies"
+msgstr "Arp星系"
+
+#: PiFinder/ui/menu_structure.py:134 PiFinder/ui/menu_structure.py:332
+msgid "Barnard"
+msgstr "巴纳德"
+
+#: PiFinder/ui/menu_structure.py:140 PiFinder/ui/menu_structure.py:336
+msgid "Caldwell"
+msgstr "考德威尔"
+
+#: PiFinder/ui/menu_structure.py:146 PiFinder/ui/menu_structure.py:340
+msgid "Collinder"
+msgstr "科林德"
+
+#: PiFinder/ui/menu_structure.py:152 PiFinder/ui/menu_structure.py:344
+msgid "E.G. Globs"
+msgstr "ESO球状星团"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:158 PiFinder/ui/menu_structure.py:348
+msgid "Harris Globs"
+msgstr "哈里斯球状星团"
+
+#: PiFinder/ui/menu_structure.py:164 PiFinder/ui/menu_structure.py:352
+msgid "Herschel 400"
+msgstr "赫歇尔400"
+
+#: PiFinder/ui/menu_structure.py:170 PiFinder/ui/menu_structure.py:356
+msgid "IC"
+msgstr "IC"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:176 PiFinder/ui/menu_structure.py:360
+msgid "Lynga Opn Cl"
+msgstr "Lynga疏散星团"
+
+#: PiFinder/ui/menu_structure.py:194 PiFinder/ui/menu_structure.py:372
+msgid "Sharpless"
+msgstr "夏普利斯"
+
+#: PiFinder/ui/menu_structure.py:200 PiFinder/ui/menu_structure.py:376
+msgid "TAAS 200"
+msgstr "TAAS 200"
+
+#: PiFinder/ui/menu_structure.py:208 PiFinder/ui/menu_structure.py:382
+msgid "Stars..."
+msgstr "恒星..."
+
+#: PiFinder/ui/menu_structure.py:213 PiFinder/ui/menu_structure.py:388
+msgid "Bright Named"
+msgstr "亮星"
+
+#: PiFinder/ui/menu_structure.py:219 PiFinder/ui/menu_structure.py:392
+msgid "SAC Doubles"
+msgstr "SAC双星"
+
+#: PiFinder/ui/menu_structure.py:225 PiFinder/ui/menu_structure.py:396
+msgid "SAC Asterisms"
+msgstr "SAC星群"
+
+#: PiFinder/ui/menu_structure.py:231 PiFinder/ui/menu_structure.py:400
+msgid "SAC Red Stars"
+msgstr "SAC红巨星"
+
+#: PiFinder/ui/menu_structure.py:237 PiFinder/ui/menu_structure.py:404
+msgid "RASC Doubles"
+msgstr "RASC双星"
+
+#: PiFinder/ui/menu_structure.py:243
+msgid "WDS Doubles"
+msgstr "WDS双星"
+
+#: PiFinder/ui/menu_structure.py:249 PiFinder/ui/menu_structure.py:408
+msgid "TLK 90 Variables"
+msgstr "TLK 90变星"
+
+#: PiFinder/ui/menu_structure.py:259
+msgid "Recent"
+msgstr "最近"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:265 PiFinder/ui/obs_list.py:70
+msgid "Obs Lists"
+msgstr "观测列表"
+
+#: PiFinder/ui/menu_structure.py:269
+msgid "Custom"
+msgstr "自定义"
+
+#: PiFinder/ui/menu_structure.py:274
+msgid "Name Search"
+msgstr "名称搜索"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:278
+msgid "Set Filters"
+msgstr "设置筛选"
+
+#: PiFinder/ui/menu_structure.py:284
+msgid "Reset All"
+msgstr "全部重置"
+
+#: PiFinder/ui/menu_structure.py:289 PiFinder/ui/menu_structure.py:1297
+#: PiFinder/ui/menu_structure.py:1308
+msgid "Confirm"
+msgstr "确认"
+
+#: PiFinder/ui/menu_structure.py:292 PiFinder/ui/menu_structure.py:1298
+#: PiFinder/ui/menu_structure.py:1311 PiFinder/ui/software.py:208
+#: PiFinder/ui/sqm_correction.py:70 views/edit_eyepiece.html:54
+#: views/edit_instrument.html:108 views/equipment.html:58
+#: views/location_form.html:77 views/locations.html:187
+#: views/locations.html:200 views/network.html:46 views/network.html:83
+#: views/network_item.html:19 views/tools.html:97
+msgid "Cancel"
+msgstr "取消"
+
+#: PiFinder/ui/menu_structure.py:296
+msgid "Catalogs"
+msgstr "星表"
+
+#: PiFinder/ui/menu_structure.py:416
+msgid "Type"
+msgstr "类型"
+
+#: PiFinder/ui/menu_structure.py:430
+msgid "Cluster/Neb"
+msgstr "星团/星云"
+
+#: PiFinder/ui/menu_structure.py:442
+msgid "P. Nebula"
+msgstr "行星状星云"
+
+#: PiFinder/ui/menu_structure.py:454
+msgid "Double Str"
+msgstr "双星"
+
+#: PiFinder/ui/menu_structure.py:458
+msgid "Triple Str"
+msgstr "三合星"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:478
+msgid "Unknown"
+msgstr "未知"
+
+#: PiFinder/ui/menu_structure.py:484 views/locations.html:65
+msgid "Altitude"
+msgstr "高度"
+
+#: PiFinder/ui/menu_structure.py:516
+msgid "Magnitude"
+msgstr "星等"
+
+#: PiFinder/ui/menu_structure.py:568 PiFinder/ui/menu_structure.py:578
+msgid "Observed"
+msgstr "已观测"
+
+#: PiFinder/ui/menu_structure.py:574
+msgid "Any"
+msgstr "任意"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:582
+msgid "Not Observed"
+msgstr "未观测"
+
+#: PiFinder/ui/menu_structure.py:601
+msgid "User Pref..."
+msgstr "用户偏好..."
+
+#: PiFinder/ui/menu_structure.py:606
+msgid "Key Bright"
+msgstr "按键亮度"
+
+#: PiFinder/ui/menu_structure.py:647
+msgid "Sleep Time"
+msgstr "休眠时间"
+
+#: PiFinder/ui/menu_structure.py:653 PiFinder/ui/menu_structure.py:685
+#: PiFinder/ui/menu_structure.py:709 PiFinder/ui/menu_structure.py:828
+#: PiFinder/ui/menu_structure.py:852 PiFinder/ui/menu_structure.py:876
+#: PiFinder/ui/menu_structure.py:900 PiFinder/ui/menu_structure.py:931
+#: PiFinder/ui/menu_structure.py:947 PiFinder/ui/menu_structure.py:1147
+#: PiFinder/ui/menu_structure.py:1250 PiFinder/ui/menu_structure.py:1266
+msgid "Off"
+msgstr "关闭"
+
+#: PiFinder/ui/menu_structure.py:679
+msgid "Menu Anim"
+msgstr "菜单动画"
+
+#: PiFinder/ui/menu_structure.py:689 PiFinder/ui/menu_structure.py:713
+msgid "Fast"
+msgstr "快"
+
+#: PiFinder/ui/menu_structure.py:693 PiFinder/ui/menu_structure.py:717
+#: PiFinder/ui/menu_structure.py:836 PiFinder/ui/menu_structure.py:860
+#: PiFinder/ui/menu_structure.py:884 PiFinder/ui/menu_structure.py:1161
+msgid "Medium"
+msgstr "中"
+
+#: PiFinder/ui/menu_structure.py:697 PiFinder/ui/menu_structure.py:721
+msgid "Slow"
+msgstr "慢"
+
+#: PiFinder/ui/menu_structure.py:703
+msgid "Scroll Speed"
+msgstr "滚动速度"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:727
+msgid "Search Input"
+msgstr "搜索输入"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:734
+msgid "Multi-Tap"
+msgstr "多击输入"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:738
+msgid "T9"
+msgstr "T9"
+
+#: PiFinder/ui/menu_structure.py:744
+msgid "Az Arrows"
+msgstr "方位箭头"
+
+#: PiFinder/ui/menu_structure.py:751
+msgid "Default"
+msgstr "默认"
+
+#: PiFinder/ui/menu_structure.py:755
+msgid "Reverse"
+msgstr "反向"
+
+#: PiFinder/ui/menu_structure.py:761
+msgid "Language"
+msgstr "语言"
+
+#: PiFinder/ui/menu_structure.py:768
+msgid "English"
+msgstr "英语"
+
+#: PiFinder/ui/menu_structure.py:772
+msgid "German"
+msgstr "德语"
+
+#: PiFinder/ui/menu_structure.py:776
+msgid "French"
+msgstr "法语"
+
+#: PiFinder/ui/menu_structure.py:780
+msgid "Spanish"
+msgstr "西班牙语"
+
+#: PiFinder/ui/menu_structure.py:784
+msgid "Chinese"
+msgstr "中文"
+
+#: PiFinder/ui/menu_structure.py:792
+msgid "Chart..."
+msgstr "星图..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:798
+msgid "Coordinate Sys."
+msgstr "坐标系"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:804
+msgid "Horizontal"
+msgstr "地平坐标"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:808
+msgid "EQ (Auto)"
+msgstr "EQ (自动)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:812
+msgid "EQ (North-up)"
+msgstr "EQ (北上)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:816
+msgid "EQ (South-up)"
+msgstr "EQ (南上)"
+
+#: PiFinder/ui/menu_structure.py:822
+msgid "Reticle"
+msgstr "十字丝"
+
+#: PiFinder/ui/menu_structure.py:832 PiFinder/ui/menu_structure.py:856
+#: PiFinder/ui/menu_structure.py:880 PiFinder/ui/menu_structure.py:1157
+msgid "Low"
+msgstr "低"
+
+#: PiFinder/ui/menu_structure.py:840 PiFinder/ui/menu_structure.py:864
+#: PiFinder/ui/menu_structure.py:888 PiFinder/ui/menu_structure.py:1165
+msgid "High"
+msgstr "高"
+
+#: PiFinder/ui/menu_structure.py:846
+msgid "Constellation"
+msgstr "星座"
+
+#: PiFinder/ui/menu_structure.py:870
+msgid "DSO Display"
+msgstr "深空天体显示"
+
+#: PiFinder/ui/menu_structure.py:894
+msgid "RA/DEC Disp."
+msgstr "RA/Dec显示"
+
+#: PiFinder/ui/menu_structure.py:904
+msgid "HH:MM"
+msgstr "时:分"
+
+#: PiFinder/ui/menu_structure.py:908
+msgid "Degrees"
+msgstr "度数"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:916
+msgid "Image..."
+msgstr "图像..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:921
+msgid "NSEW Labels"
+msgstr "东南西北标签"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:927 PiFinder/ui/menu_structure.py:943
+#: PiFinder/ui/menu_structure.py:1254 PiFinder/ui/menu_structure.py:1270
+msgid "On"
+msgstr "开启"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:937
+msgid "Object Size"
+msgstr "目标尺寸"
+
+#: PiFinder/ui/menu_structure.py:955
+msgid "Camera Exp"
+msgstr "相机曝光"
+
+#: PiFinder/ui/menu_structure.py:963
+msgid "Auto"
+msgstr "自动"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:968
+msgid "0.025s"
+msgstr "0.025s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:972
+msgid "0.05s"
+msgstr "0.05s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:976
+msgid "0.1s"
+msgstr "0.1s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:980
+msgid "0.2s"
+msgstr "0.2s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:984
+msgid "0.4s"
+msgstr "0.4s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:988
+msgid "0.8s"
+msgstr "0.8s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:992
+msgid "1s"
+msgstr "1s"
+
+#: PiFinder/ui/menu_structure.py:998
+msgid "WiFi Mode"
+msgstr "WiFi模式"
+
+#: PiFinder/ui/menu_structure.py:1004
+msgid "Client Mode"
+msgstr "客户端模式"
+
+#: PiFinder/ui/menu_structure.py:1009
+msgid "AP Mode"
+msgstr "AP模式"
+
+#: PiFinder/ui/menu_structure.py:1016 views/edit_instrument.html:61
+#: views/equipment.html:73
+msgid "Mount Type"
+msgstr "望远镜类型"
+
+#: PiFinder/ui/menu_structure.py:1023 views/edit_instrument.html:57
+msgid "Alt/Az"
+msgstr "Alt/Az"
+
+#: PiFinder/ui/menu_structure.py:1027 views/edit_instrument.html:58
+msgid "Equatorial"
+msgstr "赤道式"
+
+#: PiFinder/ui/menu_structure.py:1039
+msgid "PiFinder Type"
+msgstr "PiFinder类型"
+
+#: PiFinder/ui/menu_structure.py:1046
+msgid "Left"
+msgstr "左"
+
+#: PiFinder/ui/menu_structure.py:1050
+msgid "Right"
+msgstr "右"
+
+#: PiFinder/ui/menu_structure.py:1054
+msgid "Straight"
+msgstr "直"
+
+#: PiFinder/ui/menu_structure.py:1058
+msgid "Flat v3"
+msgstr "平板v3"
+
+#: PiFinder/ui/menu_structure.py:1062
+msgid "Flat v2"
+msgstr "平板v2"
+
+#: PiFinder/ui/menu_structure.py:1066
+msgid "AS Bloom"
+msgstr "AS Bloom"
+
+#: PiFinder/ui/menu_structure.py:1072
+msgid "Camera Type"
+msgstr "相机类型"
+
+#: PiFinder/ui/menu_structure.py:1078
+msgid "v2 - imx477"
+msgstr "v2 - imx477"
+
+#: PiFinder/ui/menu_structure.py:1083
+msgid "v3 - imx296"
+msgstr "v3 - imx296"
+
+#: PiFinder/ui/menu_structure.py:1088
+msgid "v3 - imx462"
+msgstr "v3 - imx462"
+
+#: PiFinder/ui/menu_structure.py:1095 views/gps.html:6
+msgid "GPS Settings"
+msgstr "GPS设置"
+
+#: PiFinder/ui/menu_structure.py:1100
+msgid "GPS Type"
+msgstr "GPS类型"
+
+#: PiFinder/ui/menu_structure.py:1108
+msgid "UBlox"
+msgstr "UBlox"
+
+#: PiFinder/ui/menu_structure.py:1112
+msgid "GPSD (generic)"
+msgstr "GPSD (通用)"
+
+#: PiFinder/ui/menu_structure.py:1118
+msgid "GPS Baud Rate"
+msgstr "GPS波特率"
+
+#: PiFinder/ui/menu_structure.py:1126
+msgid "9600 (standard)"
+msgstr "9600 (标准)"
+
+#: PiFinder/ui/menu_structure.py:1130
+msgid "115200 (UBlox-10)"
+msgstr "115200 (UBlox-10)"
+
+#: PiFinder/ui/menu_structure.py:1140
+msgid "IMU Sensit."
+msgstr "IMU灵敏度"
+
+#: PiFinder/ui/menu_structure.py:1151
+msgid "Very Low"
+msgstr "很低"
+
+#: PiFinder/ui/menu_structure.py:1177
+msgid "Status"
+msgstr "状态"
+
+#: PiFinder/ui/menu_structure.py:1180
+msgid "Place & Time"
+msgstr "位置和时间"
+
+#: PiFinder/ui/menu_structure.py:1189
+msgid "Set Location"
+msgstr "设置位置"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1198 views/locations.html:86
+msgid "Load Location"
+msgstr "加载位置"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1202 views/location_form.html:76
+msgid "Save Location"
+msgstr "保存位置"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1208
+msgid "Set Time/Date"
+msgstr "设置时间/日期"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1212
+msgid "Reset Location"
+msgstr "重置位置"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1214
+msgid "Reset Time/Date"
+msgstr "重置时间/日期"
+
+#: PiFinder/ui/menu_structure.py:1219
+msgid "Console"
+msgstr "控制台"
+
+#: PiFinder/ui/menu_structure.py:1220
+msgid "Software Upd"
+msgstr "软件更新"
+
+#: PiFinder/ui/menu_structure.py:1223
+msgid "Experimental"
+msgstr "实验功能"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1228
+msgid "Polar Align"
+msgstr "极轴校准"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1233
+msgid "Dev Tools"
+msgstr "开发工具"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1238
+msgid "Telemetry"
+msgstr "遥测"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1243
+msgid "Record"
+msgstr "录制"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1260
+msgid "Images"
+msgstr "图像"
+
+#: PiFinder/ui/menu_structure.py:1286
+msgid "Power"
+msgstr "电源"
+
+#: PiFinder/ui/menu_structure.py:1292
+msgid "Shutdown"
+msgstr "关机"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:85 PiFinder/ui/object_details.py:90
+msgid "ALIGN"
+msgstr "对齐"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:88
+msgid "CANCEL"
+msgstr "取消"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:120
+msgid "No Object Found"
+msgstr "未找到天体"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:231 PiFinder/ui/object_details.py:238
+msgid "Mag:{obj_mag}"
+msgstr "星等:{obj_mag}"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: object info magnitude
+#: PiFinder/ui/object_details.py:234
+msgid "Sz:{size}"
+msgstr "大小:{size}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:360
+msgid "  Not Logged"
+msgstr "  未记录"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:362
+msgid "  {logs} Logs"
+msgstr "  {logs} 条记录"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:408 PiFinder/ui/polar_align.py:444
+msgid "No solve"
+msgstr "未解析"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:414
+msgid "yet{elipsis}"
+msgstr "尚未{elipsis}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:428
+msgid "Searching"
+msgstr "搜索中"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:434
+msgid "for GPS{elipsis}"
+msgstr "等待GPS{elipsis}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:448 PiFinder/ui/object_details.py:476
+msgid "Calculating"
+msgstr "计算中"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:454
+msgid "positions"
+msgstr "个位置"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:482
+msgid "position"
+msgstr "位置"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:566
+msgid "Contrast Reserve"
+msgstr "对比度余量"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:592
+msgid "No contrast data"
+msgstr "无对比度数据"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:600
+msgid "CR measures object"
+msgstr "CR衡量天体"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Contrast reserve explanation line 1
+#: PiFinder/ui/object_details.py:603
+msgid "visibility based on"
+msgstr "基于以下条件的"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Contrast reserve explanation line 2
+#: PiFinder/ui/object_details.py:606
+msgid "sky brightness,"
+msgstr "天空亮度，"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Contrast reserve explanation line 3
+#: PiFinder/ui/object_details.py:609
+msgid "telescope, and EP."
+msgstr "望远镜和目镜。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:685
+msgid "Too Far"
+msgstr "距离过远"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:710
+msgid "LOG"
+msgstr "记录"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:134
+msgid "Refresh"
+msgstr "刷新"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:140
+msgid "Sort"
+msgstr "排序"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:144 PiFinder/ui/object_list.py:819
+msgid "Nearest"
+msgstr "最近"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:148 PiFinder/ui/object_list.py:825
+msgid "Standard"
+msgstr "标准"
+
+#: PiFinder/ui/object_list.py:153
+msgid "Filter"
+msgstr "筛选"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:244
+msgid "Downloading..."
+msgstr "下载中..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:251
+msgid "No GPS lock"
+msgstr "无GPS锁定"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:258
+msgid "Calculating..."
+msgstr "计算中..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:264 views/locations.html:66
+msgid "Error"
+msgstr "错误"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:267
+msgid "Loading..."
+msgstr "加载中..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:274
+msgid ""
+"Sorting by\n"
+"{sort_order}"
+msgstr ""
+"排序方式\n"
+"{sort_order}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:275 PiFinder/ui/object_list.py:830
+msgid "RA"
+msgstr "赤经"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:277 PiFinder/ui/object_list.py:579
+#: views/obs_session_log.html:21
+msgid "Catalog"
+msgstr "星表"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:279 PiFinder/ui/object_list.py:581
+msgid "Nearby"
+msgstr "附近"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:543
+msgid "No objects"
+msgstr "无天体"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:549
+msgid "match filter"
+msgstr "符合筛选条件"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:565
+msgid "{catalog_info_1} obj"
+msgstr "{catalog_info_1} 个天体"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: number of objects in object list
+#: PiFinder/ui/object_list.py:568
+msgid ", {catalog_info_2}d old"
+msgstr ", {catalog_info_2}天前"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:578
+msgid "Sort: {sort_order}"
+msgstr "排序: {sort_order}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:872
+msgid "Refreshing..."
+msgstr "刷新中..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/obs_list.py:151
+msgid ""
+"Error loading\n"
+"{parsed} parsed"
+msgstr ""
+"加载错误\n"
+"已解析 {parsed}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/obs_list.py:157
+msgid ""
+"{name}\n"
+"{matched}/{parsed} objects"
+msgstr ""
+"{name}\n"
+"{matched}/{parsed} 个天体"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:91
+msgid "REDO PT"
+msgstr "重做点"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:93
+msgid "STATS"
+msgstr "统计"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:228 PiFinder/ui/polar_align.py:540
+msgid "Need GPS lock"
+msgstr "需要GPS定位"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:234 PiFinder/ui/polar_align.py:542
+msgid "Rotate more"
+msgstr "再旋转一些"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:313
+msgid "PLATFORM PA"
+msgstr "平台极轴"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:321
+msgid "Solve 2-3 points,"
+msgstr "解析2-3个点,"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:322
+msgid "rotating platform"
+msgstr "其间转动"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:323
+msgid "between them."
+msgstr "平台。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:324
+msgid "Do not move scope"
+msgstr "请勿移动"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:325
+msgid "on the mount."
+msgstr "架上镜筒。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:329
+msgid "GPS: waiting..."
+msgstr "GPS: 等待中..."
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
+#: PiFinder/ui/polar_align.py:331
+msgid "{icon} START"
+msgstr "{icon} 开始"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:338
+msgid "POINT"
+msgstr "点位"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:346
+msgid "Aim away from"
+msgstr "对准远离"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:347
+msgid "the pole, wait"
+msgstr "天极的方向,等待"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:348
+msgid "for a solve."
+msgstr "解析完成。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:352
+msgid "Rotate platform"
+msgstr "旋转平台"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:353
+msgid "10° or more."
+msgstr "10°或更多。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:357
+msgid "Rotate further"
+msgstr "继续旋转"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:358
+msgid "or solve now."
+msgstr "或现在解析。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:364
+msgid "Solve"
+msgstr "解析"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:367
+msgid "No recent solve"
+msgstr "无最近解析"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; {square} is the SQUARE button glyph, {minus}
+#. is the MINUS button glyph.
+#: PiFinder/ui/polar_align.py:373
+msgid "{square} CAPTURE  {minus} CANCEL"
+msgstr "{square} 拍摄  {minus} 取消"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:377
+msgid "0 SOLVE NOW"
+msgstr "0 立即解析"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:384
+msgid "CAPTURING"
+msgstr "拍摄中"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:392
+msgid "Hold still,"
+msgstr "保持静止,"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:393
+msgid "waiting for"
+msgstr "等待相机"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:394
+msgid "camera solve."
+msgstr "解析。"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; {icon} is the MINUS button glyph
+#. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
+#: PiFinder/ui/polar_align.py:398 PiFinder/ui/polar_align.py:461
+#: PiFinder/ui/polar_align.py:491
+msgid "{icon} BACK"
+msgstr "{icon} 返回"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:406
+msgid "ok"
+msgstr "良好"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:408
+msgid "mid"
+msgstr "中等"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:409
+msgid "bad"
+msgstr "不良"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:414 PiFinder/ui/polar_align.py:472
+msgid "pt"
+msgstr "点"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; {square} is the SQUARE button glyph, {minus}
+#. is the MINUS button glyph.
+#: PiFinder/ui/polar_align.py:428
+msgid "{square} REDO  {minus} CANCEL"
+msgstr "{square} 重做  {minus} 取消"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:459
+msgid "No result yet"
+msgstr "暂无结果"
+
+#: PiFinder/ui/polar_align.py:468
+msgid "RA/Dec"
+msgstr "RA/Dec"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:468
+msgid "3-axis"
+msgstr "三轴"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:475
+msgid "Fit"
+msgstr "拟合"
+
+#: PiFinder/ui/polar_align.py:476
+msgid "Alt"
+msgstr "Alt"
+
+#: PiFinder/ui/polar_align.py:477
+msgid "Az"
+msgstr "Az"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:478
+msgid "Axis"
+msgstr "轴"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:488
+msgid "time"
+msgstr "时间"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:488
+msgid "sec"
+msgstr "秒"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:538
+msgid "Need 2 points"
+msgstr "需要2个点"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:552 PiFinder/ui/polar_align.py:559
+msgid "Roll Off"
+msgstr "忽略滚转"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:552 PiFinder/ui/polar_align.py:559
+msgid "Roll On"
+msgstr "用滚转"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:567
+msgid "No points"
+msgstr "无点"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:573
+msgid "Dropped point"
+msgstr "已删除点"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/preview.py:79
+msgid "Exposure"
+msgstr "曝光"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/preview.py:304
+msgid "keep going"
+msgstr "继续"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/preview.py:354
+#, fuzzy
+msgid "det {n}"
+msgstr "检测 {n}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/preview.py:438
+msgid "Zoom x{zoom_number}"
+msgstr "缩放 x{zoom_number}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:516
+msgid "Full"
+msgstr "完整"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:530
+msgid "H/D"
+msgstr "H/D"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:540
+msgid "D/D"
+msgstr "D/D"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:602
+msgid "RA/DEC Entry"
+msgstr "RA/Dec输入"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:839
+msgid "RA:"
+msgstr "RA:"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:845
+msgid "DEC:"
+msgstr "Dec:"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:851
+msgid "EPOCH:"
+msgstr "历元:"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:997
+msgid "RA/DEC"
+msgstr "RA/Dec"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:87
+msgid "Updating..."
+msgstr "更新中..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:89
+msgid "Ok! Restarting"
+msgstr "完成！重启中"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:92
+msgid "Error on Upd"
+msgstr "更新出错"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:99
+msgid "Wifi Mode: {mode}"
+msgstr "WiFi模式: {mode}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:107
+msgid "Current Version"
+msgstr "当前版本"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:123
+msgid "Release Version"
+msgstr "发布版本"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:145
+msgid "WiFi must be"
+msgstr "WiFi须处于"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:151
+msgid "client mode"
+msgstr "客户端模式"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:164
+msgid "Checking for"
+msgstr "正在检查"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:170
+msgid "updates{elipsis}"
+msgstr "更新{elipsis}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:186
+msgid "No Update"
+msgstr "无更新"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:192
+msgid "needed"
+msgstr "可用"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:202
+msgid "Update Now"
+msgstr "立即更新"
+
+#: PiFinder/ui/sqm.py:25
+msgid "SQM"
+msgstr "SQM"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:42
+msgid "CAL"
+msgstr "校准"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:48
+msgid "CORRECT"
+msgstr "修正"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:101
+msgid "NO SQM DATA"
+msgstr "无SQM数据"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:129 PiFinder/ui/sqm.py:216
+msgid "mag/arcsec²"
+msgstr "mag/arcsec²"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:148 PiFinder/ui/sqm.py:252
+msgid "Bortle {bc}"
+msgstr "Bortle {bc}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:157
+msgid "BACK"
+msgstr "返回"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:158
+msgid "SCROLL"
+msgstr "滚动"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:171
+msgid "{s}s ago"
+msgstr "{s}秒前"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:173
+msgid "{m}m ago"
+msgstr "{m}分钟前"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:258
+msgid "DETAILS"
+msgstr "详情"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:316
+msgid "SQM Calibration"
+msgstr "SQM校准"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:328
+msgid "SQM Sweep"
+msgstr "SQM扫描"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:350
+msgid "Excellent Dark-Sky Site"
+msgstr "极佳暗天空地点"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:354
+msgid "The zodiacal light is visible and colorful. Gegenschein readily visible."
+msgstr "黄道光清晰可见且色彩丰富。对日照轻易可见。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:357
+msgid ""
+"The Scorpius and Sagittarius regions of the Milky Way cast obvious "
+"shadows."
+msgstr "银河天蝎座和人马座区域投下明显的阴影。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:360
+msgid "M33 is a direct naked-eye object. Airglow readily visible."
+msgstr "M33可直接裸眼观测。气辉清晰可见。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:361
+msgid "Abundant stars make faint constellations hard to distinguish."
+msgstr "繁星密布，暗淡星座难以辨认。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:366
+msgid "Typical Truly Dark Site"
+msgstr "典型真正暗天空地点"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:370
+msgid ""
+"The zodiacal light is distinctly yellowish and bright enough to cast "
+"shadows at dusk and dawn."
+msgstr "黄道光呈明显黄色，晨昏时亮度足以投影。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:373
+msgid "Clouds appear as dark silhouettes against the sky."
+msgstr "云层在夜空中呈现为暗色轮廓。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:374
+msgid "The summer Milky Way is highly structured. M33 easily visible."
+msgstr "夏季银河结构丰富。M33轻易可见。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:379
+msgid "Rural Sky"
+msgstr "乡村天空"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:383
+msgid "The zodiacal light is striking in spring and autumn, color still visible."
+msgstr "春秋季黄道光醒目，仍可见色彩。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:386
+msgid ""
+"Some light pollution at horizon. Clouds illuminated near horizon, dark "
+"overhead."
+msgstr "地平线有少量光污染。近地平线云层被照亮，头顶较暗。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:389
+msgid "The summer Milky Way still appears complex."
+msgstr "夏季银河仍呈现丰富细节。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:390
+msgid "Several Messier objects remain naked-eye visible."
+msgstr "多个梅西耶天体仍可裸眼观测。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:395
+msgid "Brighter Rural"
+msgstr "较亮乡村天空"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:399
+msgid "Zodiacal light still visible but doesn't extend halfway to zenith."
+msgstr "黄道光仍可见但未延伸至天顶一半。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:402
+msgid "Light pollution domes apparent in multiple directions."
+msgstr "多个方向可见光污染穹顶。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:403
+msgid ""
+"The Milky Way well above the horizon is still impressive, but lacks "
+"detail."
+msgstr "地平线以上银河仍壮观，但缺乏细节。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:406
+msgid "M33 difficult to see."
+msgstr "M33难以观测。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:411
+msgid "Semi-Suburban/Transition Sky"
+msgstr "近郊/过渡天空"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:415
+msgid "Clouds have a grayish glow at zenith and appear bright toward city domes."
+msgstr "天顶云层呈灰色发光，朝向城市方向云层明亮。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:418
+msgid "Milky Way only vaguely visible 10-15° above horizon."
+msgstr "银河仅在地平线10-15°处隐约可见。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:419
+msgid "Great Rift observable overhead."
+msgstr "大裂谷可在头顶观测到。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:424
+msgid "Suburban Sky"
+msgstr "郊区天空"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:428
+msgid "Only hints of zodiacal light seen on best nights in autumn and spring."
+msgstr "仅在秋春最佳夜晚能隐约见到黄道光。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:431
+msgid "Light pollution visible in most, if not all, directions."
+msgstr "几乎所有方向均可见光污染。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:432
+msgid "Clouds noticeably brighter than the sky."
+msgstr "云层明显比天空更亮。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:433
+msgid "Milky Way invisible near horizon, looks washed out overhead."
+msgstr "银河在地平线附近不可见，头顶处也显得黯淡。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:438
+msgid "Bright Suburban Sky"
+msgstr "明亮郊区天空"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:442
+msgid "The zodiacal light is invisible."
+msgstr "黄道光不可见。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:443
+msgid "Light pollution makes sky within 35° of horizon glow grayish white."
+msgstr "光污染使地平线35°内的天空呈灰白色发光。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:446
+msgid "The Milky Way is only visible near the zenith. M33 undetectable."
+msgstr "银河仅在天顶附近可见。M33无法探测。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:449
+msgid "M31 modestly apparent. Surroundings easily visible."
+msgstr "M31隐约可见。周围环境清晰可辨。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:454
+msgid "Suburban/Urban Transition"
+msgstr "郊区/城区过渡"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:458
+msgid "Light pollution makes the entire sky light gray."
+msgstr "光污染使整个天空呈浅灰色。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:459
+msgid "Strong light sources evident in all directions."
+msgstr "各方向均有明显强光源。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:460
+msgid "The Milky Way is nearly or totally invisible."
+msgstr "银河几乎或完全不可见。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:461
+msgid "M31 and M44 may be glimpsed, but with no detail."
+msgstr "M31和M44或许可瞥见，但无细节。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:466
+msgid "City Sky"
+msgstr "城市天空"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:470
+msgid "The sky is light gray or orange—one can easily read."
+msgstr "天空呈浅灰或橙色，足以轻松阅读。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:471
+msgid "Stars forming recognizable patterns may vanish entirely."
+msgstr "组成可辨星座的恒星可能完全消失。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:472
+msgid "Only bright Messier objects can be detected with telescopes."
+msgstr "仅能用望远镜探测到亮梅西耶天体。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:477
+msgid "Inner-City Sky"
+msgstr "市区天空"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:481
+msgid "The sky is brilliantly lit."
+msgstr "天空灯火通明。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:482
+msgid "Many stars forming constellations invisible."
+msgstr "组成星座的众多恒星不可见。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:483
+msgid ""
+"Only the Moon, planets, bright satellites, and a few of the brightest "
+"star clusters observable."
+msgstr "仅能观测月球、行星、亮卫星及少数最亮星团。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm_correction.py:45 PiFinder/ui/sqm_correction.py:87
+msgid "SQM Correction"
+msgstr "SQM修正"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm_correction.py:72
+msgid "Del"
+msgstr "删除"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm_correction.py:106
+msgid "Original: {sqm:.2f}"
+msgstr "原始值: {sqm:.2f}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm_correction.py:115
+msgid "Corrected:"
+msgstr "修正后:"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm_correction.py:211
+msgid "Enter a value"
+msgstr "输入数值"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm_correction.py:213
+msgid "Range: 10-23"
+msgstr "范围: 10-23"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm_correction.py:218
+msgid "Saving..."
+msgstr "保存中..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm_correction.py:225
+msgid "Saved: {filename}"
+msgstr "已保存: {filename}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm_correction.py:232
+msgid "Save failed"
+msgstr "保存失败"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm_correction.py:340
+msgid "Saving {label}..."
+msgstr "保存{label}..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/telemetry_list.py:69
+msgid "Stop replay"
+msgstr "停止回放"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/text_menu.py:61
+msgid "Select None"
+msgstr "全不选"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/text_menu.py:213
+msgid "Select All"
+msgstr "全选"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/textentry.py:110
+msgid "Input"
+msgstr "输入"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/textentry.py:221
+msgid "Results"
+msgstr "结果"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/textentry.py:426
+msgid "Enter Location Name:"
+msgstr "输入位置名称:"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/textentry.py:428
+msgid "Search"
+msgstr "搜索"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/timeentry.py:27
+msgid "hh"
+msgstr "hh"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/timeentry.py:29
+msgid "ss"
+msgstr "ss"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/timeentry.py:116
+msgid "Enter Local Time"
+msgstr "输入本地时间"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/advanced.html:7
+msgid "GPS location lock"
+msgstr "GPS位置锁定"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/advanced.html:8
+msgid "GPS time lock"
+msgstr "GPS时间锁定"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/base.html:19 views/base.html:30
+msgid "Network Setup"
+msgstr "网络设置"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/base.html:50
+msgid "PiFinder User Guide"
+msgstr "PiFinder用户指南"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/base.html:51
+msgid "PiFinder Support Page"
+msgstr "PiFinder支持页面"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:7
+msgid "Add a new eyepiece"
+msgstr "添加新目镜"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:9
+msgid "Edit eyepiece"
+msgstr "编辑目镜"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:18 views/edit_instrument.html:27
+#: views/equipment.html:68 views/equipment.html:116
+msgid "Make"
+msgstr "品牌"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:24 views/equipment.html:69 views/equipment.html:117
+#: views/locations.html:62 views/network.html:69
+msgid "Name"
+msgstr "名称"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:30 views/edit_instrument.html:45
+msgid "Focal Length (in mm)"
+msgstr "焦距 (mm)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:36
+msgid "Apparent Field of View (in °)"
+msgstr "视场角 (°)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:42
+msgid "Field stop (in mm)"
+msgstr "视场光阑 (mm)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:49
+msgid "Add eyepiece!"
+msgstr "添加目镜!"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:51
+msgid "Update eyepiece!"
+msgstr "更新目镜!"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:7
+msgid "Add a new instrument"
+msgstr "添加新器材"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:9
+msgid "Edit instrument"
+msgstr "编辑器材"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:33
+msgid "Instrument Name"
+msgstr "器材名称"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:39
+msgid "Aperture (in mm)"
+msgstr "口径 (mm)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:51 views/equipment.html:72
+msgid "Obstruction %"
+msgstr "遮挡率 %"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:69
+msgid "Flip image (upside down)"
+msgstr "翻转图像 (上下颠倒)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:77
+msgid "Flop image (left right)"
+msgstr "镜像图像 (左右翻转)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:85 views/equipment.html:76
+msgid "Reverse Arrow A"
+msgstr "反转箭头A"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:93 views/equipment.html:77
+msgid "Reverse Arrow B"
+msgstr "反转箭头B"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:103
+msgid "Add instrument!"
+msgstr "添加器材!"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:105
+msgid "Update instrument!"
+msgstr "更新器材!"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:28 views/equipment.html:65
+msgid "Instruments"
+msgstr "器材"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:32 views/equipment.html:113
+msgid "Eyepieces"
+msgstr "目镜"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:36
+msgid "Import from DeepskyLog"
+msgstr "从DeepskyLog导入"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:44
+msgid "Download instruments from DeepskyLog"
+msgstr "从DeepskyLog下载器材"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:45
+msgid ""
+"This will delete all instruments and eyepieces from your PiFinder and "
+"replace them with the instruments and eyepieces from DeepskyLog. Are you "
+"really sure?"
+msgstr "这将删除PiFinder上的所有器材和目镜,并替换为DeepskyLog中的器材和目镜。确定继续吗?"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:50
+msgid "DeepskyLog User Name"
+msgstr "DeepskyLog用户名"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:57
+msgid "Import!"
+msgstr "导入!"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:62
+msgid "Add new instrument"
+msgstr "添加新器材"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:63
+msgid "Add new eyepiece"
+msgstr "添加新目镜"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:70
+msgid "Aperture"
+msgstr "口径"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:71 views/equipment.html:118
+msgid "Focal Length (mm)"
+msgstr "焦距 (mm)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:74
+msgid "Flip"
+msgstr "翻转"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:75
+msgid "Flop"
+msgstr "镜像"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:78 views/equipment.html:121
+msgid "Active"
+msgstr "启用"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:79 views/equipment.html:122 views/locations.html:68
+msgid "Actions"
+msgstr "操作"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:119
+msgid "Apparent FOV"
+msgstr "视场角"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:120
+msgid "Field Stop"
+msgstr "视场光阑"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:16 views/location_form.html:14 views/locations.html:124
+msgid "Use DMS Format"
+msgstr "使用度分秒格式"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:23 views/location_form.html:21 views/locations.html:131
+msgid "Latitude (Decimal)"
+msgstr "纬度 (十进制)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:27 views/location_form.html:26 views/locations.html:136
+msgid "Longitude (Decimal)"
+msgstr "经度 (十进制)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:33 views/location_form.html:33 views/locations.html:143
+msgid "Latitude Degrees"
+msgstr "纬度 度"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:37 views/location_form.html:37 views/locations.html:147
+msgid "Latitude Minutes"
+msgstr "纬度 分"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:41 views/location_form.html:41 views/locations.html:151
+msgid "Latitude Seconds"
+msgstr "纬度 秒"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:45 views/location_form.html:45 views/locations.html:155
+msgid "Longitude Degrees"
+msgstr "经度 度"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:49 views/location_form.html:49 views/locations.html:159
+msgid "Longitude Minutes"
+msgstr "经度 分"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:53 views/location_form.html:53 views/locations.html:163
+msgid "Longitude Seconds"
+msgstr "经度 秒"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:59
+msgid "Altitude in meter"
+msgstr "海拔 (米)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:65 views/obs_sessions.html:25
+msgid "Date"
+msgstr "日期"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:69
+msgid "UTC Time (h:m:s)"
+msgstr "UTC时间 (时:分:秒)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:72
+msgid "Set to Browser Date/Time"
+msgstr "设为浏览器日期/时间"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:6 views/remote.html:6
+msgid "PiFinder Screen"
+msgstr "PiFinder屏幕"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:14
+msgid "Mode"
+msgstr "模式"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:21
+msgid "lat"
+msgstr "纬度"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:21
+msgid "lon"
+msgstr "经度"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:29
+msgid "Sky Position"
+msgstr "天空位置"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:36
+msgid "Software Version"
+msgstr "软件版本"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:63 views/remote.html:55
+msgid "PiFinder server is currently unavailable. Please try again later."
+msgstr "PiFinder服务器当前不可用。请稍后再试。"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/location_form.html:59 views/locations.html:169
+msgid "Altitude (meters)"
+msgstr "海拔 (米)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/location_form.html:66 views/locations.html:176
+msgid "Error (meters)"
+msgstr "误差 (米)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/location_form.html:71 views/locations.html:67 views/locations.html:181
+msgid "Source"
+msgstr "来源"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:31
+msgid "Location Management"
+msgstr "位置管理"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:48
+msgid "Add New Location"
+msgstr "添加新位置"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:63
+msgid "Latitude"
+msgstr "纬度"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:64
+msgid "Longitude"
+msgstr "经度"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:89
+msgid "Set as Default"
+msgstr "设为默认"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:92
+msgid "Edit"
+msgstr "编辑"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:111
+msgid "Edit Location"
+msgstr "编辑位置"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:186
+msgid "Save Changes"
+msgstr "保存更改"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:196
+msgid "Confirm Delete"
+msgstr "确认删除"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:197
+msgid "Are you sure you want to delete the location"
+msgstr "确定要删除该位置吗"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:197
+msgid "This action cannot be undone."
+msgstr "此操作无法撤销。"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:428 views/locations.html:516 views/locations.html:565
+msgid "This field is required"
+msgstr "此项为必填"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:430
+msgid "Must be a valid number"
+msgstr "必须是有效数字"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:434
+msgid "Must be between -90 and 90"
+msgstr "必须在-90到90之间"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:437
+msgid "Must be between -180 and 180"
+msgstr "必须在-180到180之间"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:440
+msgid "Must be between -1000 and 10000 meters"
+msgstr "必须在-1000到10000米之间"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:443
+msgid "Must be between 0 and 10000 meters"
+msgstr "必须在0到10000米之间"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:533
+msgid "Please fix the validation errors before saving"
+msgstr "保存前请修正验证错误"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/login.html:6
+msgid "Login Required"
+msgstr "需要登录"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/login.html:23 views/network.html:75
+msgid "Password"
+msgstr "密码"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/login.html:25
+msgid "Note: The default password is"
+msgstr "注意: 默认密码为"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/login.html:25
+msgid "You can change this using the Tool menu option"
+msgstr "你可以通过工具菜单选项更改此项"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:103
+msgid "PiFinder Logs"
+msgstr "PiFinder日志"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:121
+msgid "Download All Logs"
+msgstr "下载全部日志"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:124 views/logs.html:262 views/logs.html:274
+msgid "Pause"
+msgstr "暂停"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:127
+msgid "Resume from Current"
+msgstr "从当前位置继续"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:130
+msgid "Restart from End"
+msgstr "从末尾重新开始"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:133
+msgid "Copy to Clipboard"
+msgstr "复制到剪贴板"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:136
+msgid "Upload Log Conf"
+msgstr "上传日志配置"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:140 views/logs.html:340
+msgid "Select Log Configuration"
+msgstr "选择日志配置"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:144
+msgid "Total lines:"
+msgstr "总行数:"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:152
+msgid "Loading log files..."
+msgstr "正在加载日志文件..."
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:262
+msgid "Resume"
+msgstr "继续"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:322 views/logs.html:330
+msgid "Failed to copy"
+msgstr "复制失败"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:327
+msgid "Copied!"
+msgstr "已复制!"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:355
+msgid "Switch log configuration to"
+msgstr "切换日志配置为"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:355
+msgid "and restart PiFinder?"
+msgstr "并重启PiFinder吗?"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:375
+msgid "File must be named logconf_<name>.json"
+msgstr "文件名必须为logconf_<name>.json"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:387
+msgid "Upload failed:"
+msgstr "上传失败:"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:6
+msgid "Network Settings"
+msgstr "网络设置"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:15
+msgid "Access Point"
+msgstr "接入点"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:16
+msgid "Client"
+msgstr "客户端"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:18
+msgid "Wifi Mode"
+msgstr "WiFi模式"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:24
+msgid "AP Network Name"
+msgstr "AP网络名称"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:30
+msgid "Host Name"
+msgstr "主机名"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:36
+msgid "Update and Restart"
+msgstr "更新并重启"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:41
+msgid "Save and Restart"
+msgstr "保存并重启"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:42
+msgid ""
+"This will update the network settings and restart the PiFinder. You may "
+"have to adjust your network settings to re-connect. Are you sure?"
+msgstr "这将更新网络设置并重启PiFinder。你可能需要调整网络设置才能重新连接。确定继续吗?"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:45 views/tools.html:96
+msgid "Do It"
+msgstr "执行"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:51
+msgid "Wifi Networks"
+msgstr "WiFi网络"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:76
+msgid "Too Short"
+msgstr "太短"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:76
+msgid "Min 8 Characters or leave None"
+msgstr "至少8个字符,或留空"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network_item.html:4
+msgid "Security"
+msgstr "安全"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network_item.html:15
+msgid "This will take effect immediately and can not be undone. Are you sure?"
+msgstr "此操作将立即生效且无法撤销。确定继续吗?"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_session_log.html:4
+msgid "Observing Session"
+msgstr "观测会话"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_session_log.html:11 views/obs_sessions.html:25
+msgid "Hours"
+msgstr "小时"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_session_log.html:21
+msgid "Time"
+msgstr "时间"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_session_log.html:21
+msgid "Sequence"
+msgstr "序号"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_session_log.html:21
+msgid "Notes"
+msgstr "备注"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_sessions.html:4
+msgid "Observing Sessions"
+msgstr "观测会话"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_sessions.html:7
+msgid "Sessions"
+msgstr "会话"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_sessions.html:15
+msgid "Total Hours"
+msgstr "总时长"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_sessions.html:25
+msgid "Location"
+msgstr "位置"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/restart.html:6
+msgid "Restarting System"
+msgstr "正在重启系统"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/restart.html:7
+msgid ""
+"This will take approximately 45 seconds and you should be redirected to "
+"the home page."
+msgstr "此过程约需45秒,完成后将自动跳转到主页。"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/restart.html:9
+msgid ""
+"You may need to change the URL above or connect to a different wifi "
+"network on your phone/tablet/computer depending on the changes you made "
+"to the PiFinder configuration."
+msgstr "根据你对PiFinder配置所做的更改,你可能需要修改上方的网址,或在手机/平板/电脑上连接到不同的WiFi网络。"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/restart.html:11 views/restart_pifinder.html:8
+msgid "If you are not automatically redirected"
+msgstr "如果未自动跳转"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/restart.html:11 views/restart_pifinder.html:8
+msgid "Click Here"
+msgstr "点击这里"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/restart_pifinder.html:7
+msgid ""
+"This will take approximately 20 seconds and you should be redirected to "
+"the home page."
+msgstr "此过程约需20秒,完成后将自动跳转到主页。"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:28 views/tools.html:49
+msgid "Change Password"
+msgstr "修改密码"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:30
+msgid ""
+"This will change the password for this web interface and the user account"
+" pifinder for ssh and other tools"
+msgstr "这将修改此网页界面的密码,以及用于ssh和其他工具的pifinder用户账户密码"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:36
+msgid "Current Password"
+msgstr "当前密码"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:40
+msgid "New Password"
+msgstr "新密码"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:44
+msgid "Re-Enter New Password"
+msgstr "再次输入新密码"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:58
+msgid "User Data and Settings"
+msgstr "用户数据与设置"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:60
+msgid ""
+"You can download a zip file of all your personal settings, observations "
+"and observing lists for safe keeping."
+msgstr "你可以下载一个zip文件,保存你所有的个人设置、观测记录和观测列表以作备份。"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:63
+msgid "Download Backup File"
+msgstr "下载备份文件"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:69
+msgid "To restore a previously downloaded backup, upload it below"
+msgstr "若要恢复之前下载的备份,请在下方上传"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:73
+msgid "Choose file"
+msgstr "选择文件"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:78
+msgid "Select backup file to restore"
+msgstr "选择要恢复的备份文件"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:85
+msgid "Upload and Restore"
+msgstr "上传并恢复"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:92
+msgid "Restore User Data"
+msgstr "恢复用户数据"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:93
+msgid ""
+"This will use the provided file to restore your user data. This will "
+"overwrite any existing preference and observations. Are you sure?"
+msgstr "这将使用所提供的文件恢复你的用户数据,并覆盖现有的偏好设置和观测记录。确定继续吗?"
+
+#~ msgid "AE Algo"
+#~ msgstr "AE算法"
+
+#~ msgid "Sweep"
+#~ msgstr "扫描"
+
+#~ msgid "Exponential"
+#~ msgstr "指数"
+
+#~ msgid "Reset to 0.4s"
+#~ msgstr "重置为0.4秒"
+
+#~ msgid "Histogram"
+#~ msgstr "直方图"
+
+#~ msgid "Classic"
+#~ msgstr "基础"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid " Cancel"
+#~ msgstr " 取消"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Age"
+#~ msgstr "时长"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "chk"
+#~ msgstr "存疑"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "No result"
+#~ msgstr "无结果"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Gap"
+#~ msgstr "间隔"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "T9 Search"
+#~ msgstr "T9搜索"
+

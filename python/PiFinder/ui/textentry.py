@@ -1,11 +1,14 @@
 from PIL import Image, ImageDraw
+from PiFinder.composite_object import CompositeObject
 from PiFinder.ui.base import UIModule
 from PiFinder.db.objects_db import ObjectsDatabase
+from PiFinder.ui.marking_menus import MarkingMenu, MarkingMenuOption
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.ui_utils import format_number
 import time
 import threading
-from typing import Any, TYPE_CHECKING
+from typing import Any, List, TYPE_CHECKING
+import logging
 
 if TYPE_CHECKING:
 
@@ -80,7 +83,7 @@ class KeyPad:
 
 
 class UITextEntry(UIModule):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         # Get mode from item_definition
@@ -88,8 +91,8 @@ class UITextEntry(UIModule):
         self.current_text = self.item_definition.get("initial_text", "")
         self.callback = self.item_definition.get("callback")
 
-        self.width = 128
-        self.height = 128
+        self.width = self.display_class.resX
+        self.height = self.display_class.resY
         self.red = self.colors.get(255)
         self.black = self.colors.get(0)
         self.half_red = self.colors.get(128)
@@ -100,19 +103,26 @@ class UITextEntry(UIModule):
         # Only initialize database if we're in search mode
         if not self.text_entry_mode:
             self.db: ObjectsDatabase = ObjectsDatabase()
+            self.marking_menu = MarkingMenu(
+                left=MarkingMenuOption(),
+                down=MarkingMenuOption(),
+                right=MarkingMenuOption(
+                    label=_("Input"), menu_jump="search_input_method"
+                ),
+            )
 
         self.last_key = None
         self.KEYPRESS_TIMEOUT = 1
         self.last_key_press_time = 0
         self.char_index = 0
-        self.search_results = []
+        self.search_results: List[CompositeObject] = []
         self.search_results_len_str = "0"
         self.show_keypad = True
         self.keys = KeyPad()
         self.cursor_width = self.fonts.bold.width
         self.cursor_height = self.fonts.bold.height
         self.text_x = 7
-        self.text_x_end = 128 - self.text_x
+        self.text_x_end = self.width - self.text_x
         self.text_y = self.display_class.titlebar_height + 2
 
         # Async search state
@@ -122,12 +132,17 @@ class UITextEntry(UIModule):
         self._results_updated = False  # Flag to trigger UI refresh
         self.SEARCH_DEBOUNCE_MS = 250  # milliseconds
 
+        # Input method the current text was typed with; if the user jumps
+        # to the Search Input setting and changes it, the pending entry is
+        # meaningless in the other system and gets cleared on return
+        self._text_input_method = self.search_input_method
+
     @property
-    def t9_search_enabled(self) -> bool:
-        return bool(self.config_object.get_option("t9_search", False))
+    def search_input_method(self) -> str:
+        return str(self.config_object.get_option("search_input_method", "multi_tap"))
 
     def draw_text_entry(self):
-        line_text_y = self.text_y + 15
+        line_text_y = self.text_y + self.bold.height + 2
         self.draw.line(
             [(self.text_x, line_text_y), (self.text_x_end, line_text_y)],
             fill=self.half_red,
@@ -173,21 +188,25 @@ class UITextEntry(UIModule):
             )
 
     def draw_keypad(self):
-        key_size = (38, 23)
-        padding = 0
-        start_x, start_y = self.text_x, 32
+        # 3-column x 4-row T9 grid filling the width below the text line; key
+        # size derives from the screen so it scales (38x23 on the 128 panel).
+        start_x = self.text_x
+        start_y = self.text_y + self.bold.height
+        key_w = (self.width - 2 * self.text_x) // 3
+        key_h = (self.height - start_y - 4) // 4
+        letter_dy = self.fonts.base.height - 3
 
         for i, (num, letters) in enumerate(self.keys):
-            x = start_x + (i % 3) * (key_size[0] + padding)
-            y = start_y + (i // 3) * (key_size[1] + padding)
+            x = start_x + (i % 3) * key_w
+            y = start_y + (i // 3) * key_h
             self.draw.rectangle(
-                [x, y, x + key_size[0], y + key_size[1]], outline=self.half_red, width=1
+                [x, y, x + key_w, y + key_h], outline=self.half_red, width=1
             )
             self.draw.text(
                 (x + 2, y), str(num), font=self.fonts.base.font, fill=self.half_red
             )
             self.draw.text(
-                (x + 2, y + 8),
+                (x + 2, y + letter_dy),
                 letters[1],
                 font=self.fonts.bold.font,
                 fill=self.colors.get(192),
@@ -213,7 +232,7 @@ class UITextEntry(UIModule):
 
         formatted_len = format_number(result_count, 4).strip()
         self.text_x_end = (
-            128 - 2 - self.text_x - self.bold.font.getbbox(formatted_len)[2]
+            self.width - 2 - self.text_x - self.bold.font.getbbox(formatted_len)[2]
         )
         self.draw.text(
             (self.text_x_end + 2, self.text_y),
@@ -231,8 +250,6 @@ class UITextEntry(UIModule):
         Debounced async search - waits 250ms after last keystroke before searching.
         Only updates search results in search mode.
         """
-        import logging
-
         logger = logging.getLogger("TextEntry")
 
         if self.text_entry_mode:
@@ -271,8 +288,6 @@ class UITextEntry(UIModule):
         Perform the actual search in background thread.
         Only updates results if this search version is still current.
         """
-        import logging
-
         logger = logging.getLogger("TextEntry")
 
         try:
@@ -284,7 +299,7 @@ class UITextEntry(UIModule):
             # Priority catalogs (NGC, IC, M) are loaded first, WDS loads in background
             # So search will work immediately with those, WDS results appear when loading completes
             logger.info(f"Starting search for '{search_text}'")
-            if self.t9_search_enabled:
+            if self.search_input_method == "t9":
                 results = self.catalogs.search_by_t9(search_text)
             else:
                 results = self.catalogs.search_by_text(search_text)
@@ -351,7 +366,7 @@ class UITextEntry(UIModule):
     def key_number(self, number):
         current_time = time.time()
         number_key = str(number)
-        if not self.text_entry_mode and self.t9_search_enabled:
+        if not self.text_entry_mode and self.search_input_method == "t9":
             # In T9 mode we simply append the pressed digit
             self.last_key_press_time = current_time
             self.last_key = number
@@ -381,6 +396,17 @@ class UITextEntry(UIModule):
         else:
             print("didn't find key", number_key)
 
+    def active(self):
+        """Clear any entry typed with a different input method"""
+        if not self.text_entry_mode:
+            if (
+                self.current_text
+                and self.search_input_method != self._text_input_method
+            ):
+                self.current_text = ""
+                self.update_search_results()
+            self._text_input_method = self.search_input_method
+
     def inactive(self):
         """Cancel/invalidate any in-flight searches when screen becomes inactive"""
         # Cancel pending timer
@@ -393,7 +419,7 @@ class UITextEntry(UIModule):
             self._search_version += 1
 
     def update(self, force=False):
-        self.draw.rectangle((0, 0, 128, 128), fill=self.colors.get(0))
+        self.draw.rectangle((0, 0, self.width, self.height), fill=self.colors.get(0))
 
         # Set title based on mode (will be drawn by screen_update())
         if self.text_entry_mode:
@@ -412,3 +438,24 @@ class UITextEntry(UIModule):
             self.draw_results()
 
         return self.screen_update()
+
+    def serialize_ui_state(self) -> dict:
+        """
+        Serialize the current state of the text entry for inter-process communication
+        """
+        try:
+            return {
+                "value": self.current_text,
+                "text_entry_mode": self.text_entry_mode,
+                "show_keypad": self.show_keypad,
+                "search_results_count": len(self.search_results)
+                if hasattr(self, "search_results")
+                else 0,
+                "last_key": self.last_key,
+                "char_index": self.char_index,
+                "within_keypress_window": self.within_keypress_window(time.time())
+                if self.last_key
+                else False,
+            }
+        except Exception as e:
+            return {"error": f"Failed to serialize text entry state: {str(e)}"}

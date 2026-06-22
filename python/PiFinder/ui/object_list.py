@@ -20,6 +20,7 @@ from itertools import cycle
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.ui.text_menu import UITextMenu
+from PiFinder.ui.layout import list_layout
 from PiFinder.ui.object_details import UIObjectDetails
 
 from PiFinder.calc_utils import aim_degrees
@@ -30,6 +31,7 @@ from PiFinder.catalogs import CatalogState
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     name_deduplicate,
+    pointing_arrows,
 )
 from typing import Any, TYPE_CHECKING
 
@@ -129,7 +131,8 @@ class UIObjectList(UITextMenu):
             and self.item_definition.get("value") == "CM"
         ):
             marking_menu_down = MarkingMenuOption(
-                label=_("Refresh"), callback=self.mm_refresh_comets
+                label=_("Refresh"),
+                callback=self.mm_refresh_comets,  # TRANSLATORS: Marking menu option to refresh comet catalog
             )
 
         self.marking_menu = MarkingMenu(
@@ -196,7 +199,13 @@ class UIObjectList(UITextMenu):
 
         if self.item_definition["objects"] == "custom":
             # item_definition must contain a list of CompositeObjects
-            self._menu_items = self.item_definition["object_list"]
+            object_list = self.item_definition["object_list"]
+            # Opt-in filtering: observing lists honour the active filter
+            # (altitude, magnitude, etc); ad-hoc lists like name-search
+            # results are shown as-is.
+            if self.item_definition.get("filtered", False):
+                object_list = self.catalogs.catalog_filter.apply(object_list)
+            self._menu_items = object_list
 
         self.catalog_info_1 = str(self.get_nr_of_menu_items())
         self._menu_items_sorted = self._menu_items
@@ -268,20 +277,18 @@ class UIObjectList(UITextMenu):
         return (None, None)
 
     def sort(self) -> None:
-        message = _(
-            _("Sorting by\n{sort_order}").format(
-                sort_order=_("RA")
-                if self.current_sort == SortOrder.RA
-                else _("Catalog")
-                if self.current_sort == SortOrder.CATALOG_SEQUENCE
-                else _("Nearby")
-            )
+        message = _("Sorting by\n{sort_order}").format(
+            sort_order=_("RA")
+            if self.current_sort == SortOrder.RA
+            else _("Catalog")
+            if self.current_sort == SortOrder.CATALOG_SEQUENCE
+            else _("Nearby")
         )
         self.message(message, 0.1)
         self.update()
 
         if self.current_sort == SortOrder.NEAREST:
-            if self.shared_state.solution() is None:
+            if not self.shared_state.solution().has_pointing():
                 self.message(_("No Solve Yet"), 1)
                 self.current_sort = SortOrder.CATALOG_SEQUENCE
             else:
@@ -305,21 +312,9 @@ class UIObjectList(UITextMenu):
             self.message(_("No Solve Yet"), 1)
 
     def format_az_alt(self, point_az, point_alt):
-        if point_az >= 0:
-            az_arrow_symbol = self._RIGHT_ARROW
-        else:
-            point_az *= -1
-            az_arrow_symbol = self._LEFT_ARROW
-
-            # Check az arrow config
-            if (
-                self.config_object.get_option("pushto_az_arrows", "Default")
-                == "Reverse"
-            ):
-                if az_arrow_symbol == self._LEFT_ARROW:
-                    az_arrow_symbol = self._RIGHT_ARROW
-                else:
-                    az_arrow_symbol = self._LEFT_ARROW
+        az_arrow_symbol, point_az, alt_arrow_symbol, point_alt = pointing_arrows(
+            self, point_az, point_alt, self.mount_type
+        )
 
         if point_az > 100:
             point_az = 99
@@ -328,12 +323,6 @@ class UIObjectList(UITextMenu):
             az_string = f"{az_arrow_symbol}{point_az:03.1f}"
         else:
             az_string = f"{az_arrow_symbol}{point_az:03.0f}"
-
-        if point_alt >= 0:
-            alt_arrow_symbol = self._UP_ARROW
-        else:
-            point_alt *= -1
-            alt_arrow_symbol = self._DOWN_ARROW
 
         if point_alt < 10:
             alt_string = f"{alt_arrow_symbol}{point_alt:03.1f}"
@@ -358,10 +347,28 @@ class UIObjectList(UITextMenu):
         result = ", ".join(dedups)
         return result
 
+    # Use 3-letter abbreviations for planets instead of PL1, PL2, etc.
+    # Falls back to full name if planet is not in the dictionary.
     def create_shortname_text(self, obj: CompositeObject) -> str:
-        name = f"{obj.catalog_code}{obj.sequence}"
-        return name
-        # return f"{name: <7}"
+        if obj.catalog_code == "PL" and obj.names:
+            planet_abbrevs = {
+                "Mercury": "MER",
+                "Venus": "VEN",
+                "Moon": "MON",
+                "Mars": "MAR",
+                "Jupiter": "JUP",
+                "Saturn": "SAT",
+                "Uranus": "URA",
+                "Neptune": "NEP",
+                "Pluto": "PLU",
+            }
+            return planet_abbrevs.get(obj.names[0], obj.names[0])
+        # Observing-list coordinate objects have no catalog designation; show
+        # their name (e.g. "VY Andromedae") instead of "OBS1". Length is capped
+        # to fit the row in update() (which knows the per-row font + screen size).
+        if obj.catalog_code == "OBS" and obj.names:
+            return obj.names[0]
+        return f"{obj.catalog_code}{obj.sequence}"
 
     def create_locate_text(self, obj: CompositeObject) -> str:
         az, alt = aim_degrees(
@@ -372,6 +379,7 @@ class UIObjectList(UITextMenu):
             distance = f"{az_txt} {alt_txt}"
         else:
             distance = "--- ---"
+            # distance = obj.names[0] if obj.names else "--- ---"
 
         return distance
 
@@ -382,7 +390,8 @@ class UIObjectList(UITextMenu):
     def create_info_text(self, obj: CompositeObject) -> str:
         obj_mag = self._safe_obj_mag(obj)
         mag = f"m{obj_mag:2.0f}" if obj_mag != MagnitudeObject.UNKNOWN_MAG else "m--"
-        size = f"{self.ruler}{obj.size.strip()}" if obj.size.strip() else ""
+        size_str = str(obj.size)
+        size = f"{self.ruler}{size_str}" if size_str else ""
         check = f" {self.checkmark}" if obj.logged else ""
         size_logged = f"{mag} {size}{check}"
         if len(size_logged) > 12:
@@ -454,16 +463,25 @@ class UIObjectList(UITextMenu):
 
     @cache
     def color_modifier(self, line_number: int, sort_order: SortOrder):
+        # Brightness falloff per row, generated for however many rows the
+        # display shows (menu_visible_items). Reproduces the legacy 7-row
+        # curves exactly and extends them for the taller 176 panel.
+        n = self.display_class.menu_visible_items
+        center = n // 2
         if sort_order == SortOrder.NEAREST:
-            line_number_modifiers = [0.38, 0.5, 0.75, 0.8, 0.75, 0.5, 0.38]
-        else:
-            line_number_modifiers = [1, 0.75, 0.75, 0.5, 0.5, 0.38, 0.38]
-        return line_number_modifiers[line_number]
+            # symmetric fisheye falloff, brightest at the focus (centre) line
+            by_distance = [0.8, 0.75, 0.5, 0.38, 0.3]
+            return by_distance[min(abs(line_number - center), len(by_distance) - 1)]
+        # CATALOG_SEQUENCE / RA: brightest at the top, descending
+        descending = [1, 0.75, 0.75, 0.5, 0.5, 0.38, 0.38, 0.3, 0.3]
+        return descending[min(line_number, len(descending) - 1)]
 
     @cache
     def line_position(self, line_number, title_offset=20):
-        line_number_positions = [0, 13, 25, 42, 60, 76, 89]
-        return line_number_positions[line_number] + title_offset
+        # Row y-positions derive from the display resolution, title-bar height
+        # and font metrics (see ui.layout.list_layout). title_offset is kept for
+        # call-site compatibility but the anchor now comes from the layout.
+        return list_layout(self.display_class).rows[line_number].y
 
     def active(self):
         # trigger refilter
@@ -479,7 +497,13 @@ class UIObjectList(UITextMenu):
 
     def update(self, force: bool = False) -> None:
         self.clear_screen()
-        begin_x = 12
+
+        # Resolution-flexible row layout: y-positions, the focus selection box
+        # and text indent all derive from the display resolution, title-bar
+        # height and font metrics.
+        layout = list_layout(self.display_class)
+        half = layout.center_index
+        begin_x = layout.text_x
 
         # Check if loading just completed and refresh if so
         is_loading = self.catalogs.is_loading()
@@ -539,9 +563,9 @@ class UIObjectList(UITextMenu):
         if self.current_sort == SortOrder.NEAREST and self.nearby.should_refresh():
             self.nearby_refresh()
 
-        # Draw sorting mode in empty space
-        if self._current_item_index < 3:
-            intensity: int = int(64 + ((2.0 - self._current_item_index) * 32.0))
+        # Draw sorting mode in the empty rows above the focus line
+        if self._current_item_index < half:
+            intensity: int = int(64 + (((half - 1) - self._current_item_index) * 32.0))
             self.draw.text(
                 (begin_x, self.line_position(0)),
                 _("{catalog_info_1} obj").format(
@@ -566,13 +590,15 @@ class UIObjectList(UITextMenu):
                 fill=self.colors.get(intensity),
             )
         # Draw current selection hint
-        self.draw.rectangle((-1, 60, 129, 80), outline=self.colors.get(128), width=1)
+        self.draw.rectangle(layout.selection_box, outline=self.colors.get(128), width=1)
         line_number, line_pos = 0, 0
         line_color = None
-        for i in range(self._current_item_index - 3, self._current_item_index + 4):
+        for i in range(
+            self._current_item_index - half, self._current_item_index + half + 1
+        ):
             if i >= 0 and i < len(self._menu_items_sorted):
                 _menu_item = self._menu_items_sorted[i]
-                is_focus = line_number == 3
+                is_focus = line_number == half
 
                 item_name = self.create_shortname_text(_menu_item)
                 item_text = ""
@@ -588,14 +614,30 @@ class UIObjectList(UITextMenu):
                     line_number, _menu_item, is_focus=is_focus
                 )
 
+                # Cap the label so it can't overrun the second column drawn to
+                # its right (push-to / name / info). Width-aware: derives from
+                # the real display width and this row's font, so it adapts to
+                # 128/176/320. The reserve is sized in base-font units (the
+                # second column's content is the same regardless of row font).
+                reserve_px = 9 * self.fonts.base.width
+                max_name_chars = max(
+                    3,
+                    (self.display.width - layout.text_x - reserve_px)
+                    // line_font.width,
+                )
+                if len(item_name) > max_name_chars:
+                    item_name = item_name[: max_name_chars - 1] + "…"
+
                 # Type Marker
                 line_bg = 32 if is_focus else 0
                 marker = self.get_marker(_menu_item.obj_type, line_color, line_bg)
                 if marker is not None:
-                    self.screen.paste(marker, (0, line_pos + 2))
+                    self.screen.paste(
+                        marker, (layout.marker_x, line_pos + layout.marker_dy)
+                    )
 
                 # calculate start of both pieces of text
-                begin_x = 12
+                begin_x = layout.text_x
                 begin_x2 = begin_x + (len(item_name) + 1) * line_font.width
 
                 # draw first text
@@ -799,11 +841,42 @@ class UIObjectList(UITextMenu):
     def mm_jump_to_filter(self, marking_menu, menu_item):
         pass
 
+    def serialize_ui_state(self) -> dict:
+        """
+        Serialize the current state of the object list for inter-process communication
+        """
+        try:
+            current_item = None
+            if 0 <= self._current_item_index < len(self._menu_items):
+                obj = self._menu_items[self._current_item_index]
+                # For CompositeObject, use display_name which is JSON serializable
+                current_item = (
+                    obj.display_name if hasattr(obj, "display_name") else str(obj)
+                )
+
+            return {
+                "current_index": self._current_item_index,
+                "current_item": current_item,
+                "total_items": len(self._menu_items),
+                "display_mode": self.current_mode.name
+                if hasattr(self.current_mode, "name")
+                else str(self.current_mode),
+                "sort_order": self.current_sort.name
+                if hasattr(self.current_sort, "name")
+                else str(self.current_sort),
+                "catalog_info_1": self.catalog_info_1,
+                "catalog_info_2": self.catalog_info_2,
+            }
+        except Exception as e:
+            return {"error": f"Failed to serialize object list state: {str(e)}"}
+
     def mm_refresh_comets(self, marking_menu, menu_item):
         """Force refresh of comet data from the internet"""
         catalog = self.catalogs.get_catalog_by_code("CM")
         if catalog and hasattr(catalog, "refresh"):
-            self.message(_("Refreshing..."), 1)
+            self.message(
+                _("Refreshing..."), 1
+            )  # TRANSLATORS: Status message when refreshing comet catalog
             catalog.refresh()
             # Clear the UI object list and refresh to show status
             self.refresh_object_list(force_update=True)

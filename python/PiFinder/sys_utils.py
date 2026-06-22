@@ -1,10 +1,12 @@
 import glob
+import json
 import re
 from typing import Dict, Any
 
+import pam
+import requests
 import sh
 from sh import wpa_cli, unzip, passwd
-import pam
 
 import socket
 from PiFinder import utils
@@ -167,6 +169,43 @@ class Network:
         if hostname == self.get_host_name():
             return
         _result = sh.sudo("hostnamectl", "set-hostname", hostname)
+        self._update_etc_hosts(hostname)
+
+    @staticmethod
+    def _rewrite_hosts(contents: str, new_hostname: str) -> str:
+        """
+        Rewrite the Debian-convention ``127.0.1.1`` line in /etc/hosts to point
+        at ``new_hostname``. Preserves indentation, the IP, and any trailing
+        aliases/comments. If no ``127.0.1.1`` line exists, appends one so that
+        ``sudo`` can still resolve the host.
+        """
+        lines = contents.splitlines(keepends=True)
+        pattern = re.compile(r"^(\s*127\.0\.1\.1\s+)\S+(.*)$")
+        replaced = False
+        for i, line in enumerate(lines):
+            match = pattern.match(line)
+            if match:
+                eol = "\n" if line.endswith("\n") else ""
+                lines[i] = f"{match.group(1)}{new_hostname}{match.group(2)}{eol}"
+                replaced = True
+                break
+        if not replaced:
+            if lines and not lines[-1].endswith("\n"):
+                lines[-1] += "\n"
+            lines.append(f"127.0.1.1\t{new_hostname}\n")
+        return "".join(lines)
+
+    def _update_etc_hosts(self, new_hostname: str) -> None:
+        try:
+            with open("/etc/hosts", "r") as hosts_f:
+                contents = hosts_f.read()
+        except IOError as e:
+            logger.error(f"Error reading /etc/hosts: {e}")
+            return
+        new_contents = Network._rewrite_hosts(contents, new_hostname)
+        with open("/tmp/hosts", "w") as new_hosts:
+            new_hosts.write(new_contents)
+        sh.sudo("cp", "/tmp/hosts", "/etc/hosts")
 
     def wifi_mode(self):
         return self._wifi_mode
@@ -408,3 +447,101 @@ def update_gpsd_config(baud_rate: int) -> None:
     except Exception as e:
         logger.error(f"SYS: Error updating GPSD config: {e}")
         raise
+
+
+# ---------------------------------------------------------------------------
+# NixOS migration
+# ---------------------------------------------------------------------------
+
+MIGRATION_PROGRESS_FILE = "/tmp/nixos_migration_progress"
+MIGRATION_SCRIPT = "/home/pifinder/PiFinder/python/scripts/nixos_migration.sh"
+
+
+def _fetch_migration_sha256(version_info: dict) -> str:
+    """Fetch SHA256 from sidecar URL, falling back to hardcoded value."""
+    sha256_url = version_info.get("migration_sha256_url", "")
+    if sha256_url:
+        try:
+            resp = requests.get(sha256_url, timeout=15)
+            if resp.status_code == 200:
+                sha256 = resp.text.strip().split()[0]
+                logger.info(f"SYS: Fetched migration SHA256: {sha256[:16]}...")
+                return sha256
+            logger.warning(f"SYS: SHA256 fetch returned {resp.status_code}")
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"SYS: Failed to fetch SHA256: {e}")
+
+    sha256 = version_info.get("migration_sha256", "")
+    if sha256:
+        logger.info("SYS: Using hardcoded migration SHA256")
+    return sha256
+
+
+def start_nixos_migration(version_info: dict) -> None:
+    """
+    Start the NixOS migration process in the background.
+
+    Raises ValueError if migration_url or a migration SHA256 cannot be
+    obtained — an in-place OS replacement must not run without checksum
+    verification.
+    """
+    url = version_info.get("migration_url", "")
+    if not url:
+        raise ValueError("Missing migration_url")
+    sha256 = _fetch_migration_sha256(version_info)
+    if not sha256:
+        raise ValueError(
+            "No migration SHA256 available (neither migration_sha256_url nor "
+            "migration_sha256 produced a value); refusing to migrate without "
+            "checksum verification"
+        )
+    display_class = str(version_info.get("display_class", ""))
+    display_resolution_value = version_info.get("display_resolution", "")
+    if isinstance(display_resolution_value, (list, tuple)):
+        display_resolution = "x".join(str(part) for part in display_resolution_value)
+    else:
+        display_resolution = str(display_resolution_value)
+
+    logger.info(f"SYS: Starting NixOS migration to {version_info.get('version', '?')}")
+
+    with open(MIGRATION_PROGRESS_FILE, "w") as f:
+        json.dump({"percent": 0, "status": "Starting..."}, f)
+
+    def _log_output(line):
+        logger.info(f"SYS: migration: {line.strip()}")
+
+    def _log_error(line):
+        logger.error(f"SYS: migration: {line.strip()}")
+
+    def _on_done(cmd, success, exit_code):
+        if not success:
+            logger.error(f"SYS: Migration script failed with exit code {exit_code}")
+
+    try:
+        sh.bash(
+            MIGRATION_SCRIPT,
+            url,
+            sha256,
+            MIGRATION_PROGRESS_FILE,
+            display_class,
+            display_resolution,
+            _bg=True,
+            _bg_exc=False,
+            _out=_log_output,
+            _err=_log_error,
+            _done=_on_done,
+        )
+    except Exception as e:
+        logger.error(f"SYS: Migration failed to start: {e}")
+        raise
+
+
+def get_migration_progress() -> Dict[str, Any]:
+    """
+    Read current migration progress from the progress file.
+    """
+    try:
+        with open(MIGRATION_PROGRESS_FILE, "r") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}

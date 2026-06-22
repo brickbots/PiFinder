@@ -15,6 +15,7 @@ noise floor estimation. The calibration process:
 The wizard guides the user through lens cap placement and displays progress.
 """
 
+import copy
 import time
 import os
 import logging
@@ -22,6 +23,7 @@ import numpy as np
 from enum import Enum
 from typing import Optional, List
 
+from PiFinder.types.positioning import PointingEstimate
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 
@@ -52,7 +54,7 @@ class UISQMCalibration(UIModule):
     __title__ = "SQM CAL"
     __help_name__ = ""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         # Wizard state machine
@@ -81,7 +83,7 @@ class UISQMCalibration(UIModule):
         self.sky_frames_raw: List[np.ndarray] = []
 
         # Store solution for each sky frame (needed for SQM calculation)
-        self.sky_solutions: List[dict] = []
+        self.sky_solutions: List[PointingEstimate] = []
 
         # Calibration results - PROCESSED (8-bit)
         self.bias_offset: Optional[float] = None
@@ -174,8 +176,9 @@ class UISQMCalibration(UIModule):
 
     def _draw_intro(self):
         """Draw introduction screen"""
+        tb = self.display_class.titlebar_height
         self.draw.text(
-            (10, 20),
+            (10, tb + 3),
             "SQM CAL",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
@@ -189,7 +192,7 @@ class UISQMCalibration(UIModule):
             "• ~3 minutes",
         ]
 
-        y = 40
+        y = tb + 23
         for line in lines:
             self.draw.text(
                 (10, y), line, font=self.fonts.base.font, fill=self.colors.get(192)
@@ -198,7 +201,7 @@ class UISQMCalibration(UIModule):
 
         # Legend
         self.draw.text(
-            (10, 110),
+            (10, self.display_class.resY - self.fonts.base.height - 7),
             f"{self._SQUARE_} START  0 CANCEL",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
@@ -206,35 +209,24 @@ class UISQMCalibration(UIModule):
 
     def _draw_cap_on_instruction(self):
         """Draw lens cap on instruction"""
+        tb = self.display_class.titlebar_height
         self.draw.text(
-            (10, 30),
+            (10, tb + 13),
             "PUT LENS CAP ON",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
 
-        self.draw.text(
-            (10, 50),
-            "Cover the camera",
-            font=self.fonts.base.font,
-            fill=self.colors.get(192),
-        )
-        self.draw.text(
-            (10, 62),
-            "lens completely to",
-            font=self.fonts.base.font,
-            fill=self.colors.get(192),
-        )
-        self.draw.text(
-            (10, 74),
-            "block all light.",
-            font=self.fonts.base.font,
-            fill=self.colors.get(192),
-        )
+        y = tb + 33
+        for line in ("Cover the camera", "lens completely to", "block all light."):
+            self.draw.text(
+                (10, y), line, font=self.fonts.base.font, fill=self.colors.get(192)
+            )
+            y += self.fonts.base.height + 1
 
         # Legend
         self.draw.text(
-            (10, 110),
+            (10, self.display_class.resY - self.fonts.base.height - 7),
             f"{self._SQUARE_} READY  0 CANCEL",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
@@ -242,44 +234,42 @@ class UISQMCalibration(UIModule):
 
     def _draw_cap_off_instruction(self):
         """Draw lens cap off instruction"""
+        tb = self.display_class.titlebar_height
         self.draw.text(
-            (10, 30),
+            (10, tb + 13),
             "REMOVE LENS CAP",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
 
-        self.draw.text(
-            (10, 50),
-            "Remove the cap and",
-            font=self.fonts.base.font,
-            fill=self.colors.get(192),
-        )
-        self.draw.text(
-            (10, 62),
-            "point at dark sky.",
-            font=self.fonts.base.font,
-            fill=self.colors.get(192),
-        )
-        self.draw.text(
-            (10, 74),
-            "Wait for solve.",
-            font=self.fonts.base.font,
-            fill=self.colors.get(192),
-        )
+        y = tb + 33
+        for line in ("Remove the cap and", "point at dark sky.", "Wait for solve."):
+            self.draw.text(
+                (10, y), line, font=self.fonts.base.font, fill=self.colors.get(192)
+            )
+            y += self.fonts.base.height + 1
 
-        # Legend
+        # Legend - show skip option for indoor calibration, anchored to bottom
+        base_h = self.fonts.base.height
+        skip_y = self.display_class.resY - base_h - 7
         self.draw.text(
-            (10, 110),
-            f"{self._SQUARE_} READY  0 CANCEL",
+            (10, skip_y - (base_h + 2)),
+            f"{self._SQUARE_} READY",
+            font=self.fonts.base.font,
+            fill=self.colors.get(192),
+        )
+        self.draw.text(
+            (10, skip_y),
+            "0 SKIP (indoor cal)",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
         )
 
     def _draw_progress(self, label: str, current: int, total: int):
         """Draw progress bar for frame capture"""
+        tb = self.display_class.titlebar_height
         self.draw.text(
-            (10, 20),
+            (10, tb + 3),
             f"{label} FRAMES",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
@@ -287,17 +277,19 @@ class UISQMCalibration(UIModule):
 
         # Progress text
         self.draw.text(
-            (10, 40),
+            (10, tb + 23),
             f"{current} / {total}",
             font=self.fonts.large.font,
             fill=self.colors.get(192),
         )
 
-        # Progress bar
-        bar_x = 10
-        bar_y = 70
-        bar_width = 108
-        bar_height = 12
+        # Progress bar spans the width with a symmetric margin
+        bar_x = round(self.display_class.resX * 10 / 128)
+        bar_y = tb + 53
+        bar_width = self.display_class.resX - 2 * bar_x
+        bar_height = round(self.display_class.resY * 12 / 128)
+        # message row sits just below the bar
+        msg_y = bar_y + bar_height + 8
 
         # Background
         self.draw.rectangle(
@@ -322,72 +314,68 @@ class UISQMCalibration(UIModule):
                 remaining = int(self.sky_capture_timeout - elapsed)
                 if remaining > 0:
                     self.draw.text(
-                        (10, 90),
+                        (10, msg_y),
                         f"Wait for solve: {remaining}s",
                         font=self.fonts.base.font,
                         fill=self.colors.get(128),
                     )
                 else:
                     self.draw.text(
-                        (10, 90),
+                        (10, msg_y),
                         "No solve detected",
                         font=self.fonts.base.font,
                         fill=self.colors.get(128),
                     )
             else:
                 self.draw.text(
-                    (10, 90),
+                    (10, msg_y),
                     "Hold steady...",
                     font=self.fonts.base.font,
                     fill=self.colors.get(64),
                 )
             # Show skip option
             self.draw.text(
-                (10, 110),
+                (10, self.display_class.resY - self.fonts.base.height - 7),
                 "0: SKIP SKY",
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
         else:
             self.draw.text(
-                (10, 90),
-                "Hold steady...",
+                (10, msg_y),
+                "Keep cap on...",
                 font=self.fonts.base.font,
                 fill=self.colors.get(64),
             )
 
     def _draw_analyzing(self):
         """Draw analyzing screen"""
+        tb = self.display_class.titlebar_height
         self.draw.text(
-            (10, 40),
+            (10, tb + 23),
             "ANALYZING...",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
 
-        self.draw.text(
-            (10, 60),
-            "Computing noise",
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
-        self.draw.text(
-            (10, 72),
-            "parameters...",
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
+        y = tb + 43
+        for line in ("Computing noise", "parameters..."):
+            self.draw.text(
+                (10, y), line, font=self.fonts.base.font, fill=self.colors.get(128)
+            )
+            y += self.fonts.base.height + 1
 
     def _draw_results(self):
         """Draw final results - both processed and raw"""
+        tb = self.display_class.titlebar_height
         self.draw.text(
-            (10, 18),
+            (10, tb + 1),
             "CAL COMPLETE",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
 
-        y = 36
+        y = tb + 19
 
         # Header row
         self.draw.text(
@@ -450,7 +438,7 @@ class UISQMCalibration(UIModule):
 
         # Legend
         self.draw.text(
-            (10, 110),
+            (10, self.display_class.resY - self.fonts.base.height - 7),
             f"{self._SQUARE_} DONE",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
@@ -458,20 +446,21 @@ class UISQMCalibration(UIModule):
 
     def _draw_error(self):
         """Draw error screen"""
+        tb = self.display_class.titlebar_height
         self.draw.text(
-            (10, 30),
+            (10, tb + 13),
             "ERROR",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
 
         # Wrap error message
-        y = 50
+        y = tb + 33
         words = self.error_message.split()
         line = ""
         for word in words:
             test_line = line + " " + word if line else word
-            if len(test_line) <= 18:  # Rough character limit
+            if len(test_line) <= self.fonts.base.line_length:
                 line = test_line
             else:
                 self.draw.text(
@@ -487,7 +476,7 @@ class UISQMCalibration(UIModule):
 
         # Legend
         self.draw.text(
-            (10, 110),
+            (10, self.display_class.resY - self.fonts.base.height - 7),
             f"{self._SQUARE_} EXIT",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
@@ -604,7 +593,7 @@ class UISQMCalibration(UIModule):
             return
 
         solution = self.shared_state.solution()
-        if solution.get("RA") is None:
+        if not solution.has_pointing():
             # Invalid solve, wait
             time.sleep(0.1)
             return
@@ -630,8 +619,8 @@ class UISQMCalibration(UIModule):
         if raw_array is not None:
             self.sky_frames_raw.append(raw_array.copy())
 
-        # Store the solution for this frame (copy it so it doesn't change)
-        self.sky_solutions.append(solution.copy())
+        # Store the solution for this frame (deep copy so it doesn't change)
+        self.sky_solutions.append(copy.deepcopy(solution))
 
         self.current_frame += 1
 
@@ -773,17 +762,12 @@ class UISQMCalibration(UIModule):
             sqm_calc = SQM(camera_type=camera_type_processed)
 
             # Manually set the calibration values we just measured
-            if (
-                sqm_calc.noise_estimator is not None
-                and self.bias_offset is not None
-                and self.read_noise is not None
-                and self.dark_current_rate is not None
-            ):
-                sqm_calc.noise_estimator.profile.bias_offset = self.bias_offset
-                sqm_calc.noise_estimator.profile.read_noise_adu = self.read_noise
-                sqm_calc.noise_estimator.profile.dark_current_rate = (
-                    self.dark_current_rate
-                )
+            if self.bias_offset is not None:
+                sqm_calc.profile.bias_offset = self.bias_offset
+            if self.read_noise is not None:
+                sqm_calc.profile.read_noise_adu = self.read_noise
+            if self.dark_current_rate is not None:
+                sqm_calc.profile.dark_current_rate = self.dark_current_rate
 
             self.sqm_values = []
 
@@ -791,31 +775,39 @@ class UISQMCalibration(UIModule):
             for i, (sky_frame, solution) in enumerate(
                 zip(self.sky_frames, self.sky_solutions)
             ):
-                if solution is None or solution.get("RA") is None:
+                if solution is None or not solution.has_pointing():
                     # No valid solve - skip SQM calculation
                     logger.warning(f"No valid solve for sky frame {i}, skipping SQM")
                     continue
 
-                altitude_deg = solution.get("Alt", 90.0)
+                altitude_deg = solution.Alt if solution.Alt is not None else 90.0
 
                 # Check if we have matched centroids (needed for SQM calculation)
-                if "matched_centroids" not in solution:
+                if solution.matched_centroids is None or solution.matched_stars is None:
                     logger.warning(
-                        f"No matched centroids for sky frame {i}, skipping SQM"
+                        f"No matched centroids/stars for sky frame {i}, skipping SQM"
                     )
                     continue
 
-                centroids = solution["matched_centroids"]
+                centroids = solution.matched_centroids
 
                 if len(centroids) == 0:
                     logger.warning(f"Empty centroids for sky frame {i}, skipping SQM")
                     continue
 
+                # Adapter dict for SQM (sqm.calculate still consumes a
+                # raw-tetra3-shaped dict so SQM stays loose of our types).
+                sqm_solution = {
+                    "FOV": solution.diagnostics.FOV,
+                    "matched_centroids": solution.matched_centroids,
+                    "matched_stars": solution.matched_stars,
+                }
+
                 # Calculate SQM for this frame (using processed 8-bit image)
                 # Returns Tuple[Optional[float], Dict]
                 sqm_value, _details = sqm_calc.calculate(
                     centroids=centroids,
-                    solution=solution,
+                    solution=sqm_solution,
                     image=sky_frame,
                     exposure_sec=exposure_sec,
                     altitude_deg=altitude_deg,
@@ -947,16 +939,20 @@ class UISQMCalibration(UIModule):
     def key_number(self, number):
         """Number key cancels calibration or skips sky frames"""
         if number == 0:
+            # Skip sky frames and proceed to analysis (indoor calibration)
+            if self.state == CalibrationState.CAP_OFF_INSTRUCTION:
+                logger.info("User skipped sky frames (indoor calibration)")
+                self.state = CalibrationState.ANALYZING
+                self.current_frame = 0
             # If capturing sky frames, skip to analysis
-            if self.state == CalibrationState.CAPTURING_SKY:
-                logger.info("User skipped sky frame capture")
+            elif self.state == CalibrationState.CAPTURING_SKY:
+                logger.info("User skipped remaining sky frame capture")
                 self.state = CalibrationState.ANALYZING
                 self.current_frame = 0
             # Otherwise cancel and exit
             elif self.state in [
                 CalibrationState.INTRO,
                 CalibrationState.CAP_ON_INSTRUCTION,
-                CalibrationState.CAP_OFF_INSTRUCTION,
             ]:
                 if self.remove_from_stack:
                     self.remove_from_stack()

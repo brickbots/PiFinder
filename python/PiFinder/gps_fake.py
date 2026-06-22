@@ -12,6 +12,7 @@ import time
 import datetime
 import logging
 
+from PiFinder import utils
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.gps_ubx_parser import UBXParser
 from PiFinder.gps_ubx import process_messages
@@ -65,8 +66,7 @@ def gps_monitor(gps_queue, console_queue, log_queue, file_name="test.ubx"):
     time.sleep(5)
 
     try:
-        dir = "../test_ubx/"
-        f_path = os.path.join(dir, file_name)
+        f_path = str(utils.pifinder_dir / "test_ubx" / file_name)
         if os.path.isfile(f_path):
             logger.error(f"Read ubx from {f_path}")
 

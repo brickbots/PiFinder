@@ -9,6 +9,9 @@ import os
 from pathlib import Path
 from PiFinder import utils, equipment, locations
 from typing import Any
+import logging
+
+logger = logging.getLogger("config")
 
 
 class Config:
@@ -26,15 +29,14 @@ class Config:
         Loads all config from disk useful if another
         process has changed config
         """
-        cwd = Path.cwd()
         self.config_file_path = Path(utils.data_dir, "config.json")
 
-        self.default_file_path = Path(cwd, "../default_config.json")
+        self.default_file_path = Path(utils.pifinder_dir, "default_config.json")
         if not os.path.exists(self.config_file_path):
             self._config_dict = {}
         else:
             with open(self.config_file_path, "r") as config_file:
-                print("Loading config from", self.config_file_path)
+                logger.info("Loading config from %s", self.config_file_path)
                 self._config_dict = json.load(config_file)
 
         # open default default_config

@@ -34,6 +34,22 @@ class KeyboardLocal(KeyboardInterface):
         except ModuleNotFoundError:
             logger.error("pyhotkey not supported on pi hardware")
             return
+        # pynput bug on macOS: KeyCode.__repr__ crashes with TypeError when vk is None.
+        # PyHotKey calls repr(key) to look up hotkeys, so patch it to be safe.
+        try:
+            from pynput.keyboard import KeyCode
+
+            _orig_repr = KeyCode.__repr__
+
+            def _safe_repr(self):
+                try:
+                    return _orig_repr(self)
+                except TypeError:
+                    return "<unknown>"
+
+            KeyCode.__repr__ = _safe_repr
+        except Exception:
+            pass
         try:
             self.q = q
             # Configure unmodified keys
@@ -88,7 +104,7 @@ class KeyboardLocal(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
+def run_keyboard(q, shared_state, log_queue):
     MultiprocLogging.configurer(log_queue)
     KeyboardLocal(q)
 

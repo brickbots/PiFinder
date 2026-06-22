@@ -8,12 +8,17 @@ from PiFinder.ui.software import UISoftware
 from PiFinder.ui.gpsstatus import UIGPSStatus
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
+from PiFinder.ui.align_daytime import UIAlignDaytime
+from PiFinder.ui.polar_align import UIPolarAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.sqm import UISQM
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
+from PiFinder.ui.obs_list import UIObsList
+from PiFinder.ui.locationentry import UILocationEntry
 from PiFinder.ui.radec_entry import UIRADecEntry
+from PiFinder.ui.telemetry_list import UITelemetryList
 import PiFinder.ui.callbacks as callbacks
 
 
@@ -52,6 +57,12 @@ pifinder_menu = {
                     "preload": True,
                 },
                 {
+                    "name": _("Align (Day)"),
+                    "class": UIAlignDaytime,
+                    "stateful": True,
+                    "preload": True,
+                },
+                {
                     "name": _("GPS Status"),
                     "class": UIGPSStatus,
                 },
@@ -85,7 +96,7 @@ pifinder_menu = {
                             "value": "PL",
                         },
                         {
-                            "name": "Comets",
+                            "name": _("Comets"),
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "CM",
@@ -160,6 +171,12 @@ pifinder_menu = {
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "IC",
+                                },
+                                {
+                                    "name": _("Lynga Opn Cl"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Lyn",
                                 },
                                 {
                                     "name": _("Messier"),
@@ -245,6 +262,10 @@ pifinder_menu = {
                     "label": "recent",
                 },
                 {
+                    "name": _("Obs Lists"),
+                    "class": UIObsList,
+                },
+                {
                     "name": _("Custom"),
                     "class": UIRADecEntry,
                     "custom_callback": callbacks.handle_radec_entry,
@@ -253,312 +274,323 @@ pifinder_menu = {
                     "name": _("Name Search"),
                     "class": UITextEntry,
                 },
-            ],
-        },
-        {
-            "name": _("Filter"),
-            "class": UITextMenu,
-            "select": "single",
-            "label": "filter_options",
-            "items": [
                 {
-                    "name": _("Reset All"),
+                    "name": _("Set Filters"),
                     "class": UITextMenu,
-                    "select": "Single",
-                    "items": [
-                        {"name": _("Confirm"), "callback": callbacks.reset_filters},
-                        {"name": _("Cancel"), "callback": callbacks.go_back},
-                    ],
-                },
-                {
-                    "name": _("Catalogs"),
-                    "class": UITextMenu,
-                    "select": "multi",
-                    "config_option": "filter.selected_catalogs",
+                    "select": "single",
+                    "label": "filter_options",
                     "items": [
                         {
-                            "name": _("Planets"),
-                            "value": "PL",
+                            "name": _("Reset All"),
+                            "class": UITextMenu,
+                            "select": "Single",
+                            "items": [
+                                {
+                                    "name": _("Confirm"),
+                                    "callback": callbacks.reset_filters,
+                                },
+                                {"name": _("Cancel"), "callback": callbacks.go_back},
+                            ],
                         },
                         {
-                            "name": _("Comets"),
-                            "value": "CM",
-                        },
-                        {
-                            "name": _("NGC"),
-                            "value": "NGC",
-                        },
-                        {
-                            "name": _("Messier"),
-                            "value": "M",
-                        },
-                        {
-                            "name": _("DSO..."),
+                            "name": _("Catalogs"),
                             "class": UITextMenu,
                             "select": "multi",
                             "config_option": "filter.selected_catalogs",
                             "items": [
                                 {
-                                    "name": _("Abell Pn"),
-                                    "value": "Abl",
+                                    "name": _("Planets"),
+                                    "value": "PL",
                                 },
                                 {
-                                    "name": _("Arp Galaxies"),
-                                    "value": "Arp",
-                                },
-                                {
-                                    "name": _("Barnard"),
-                                    "value": "B",
-                                },
-                                {
-                                    "name": _("Caldwell"),
-                                    "value": "C",
-                                },
-                                {
-                                    "name": _("Collinder"),
-                                    "value": "Col",
-                                },
-                                {
-                                    "name": _("E.G. Globs"),
-                                    "value": "EGC",
-                                },
-                                {
-                                    "name": _("Harris Globs"),
-                                    "value": "Har",
-                                },
-                                {
-                                    "name": _("Herschel 400"),
-                                    "value": "H",
-                                },
-                                {
-                                    "name": _("IC"),
-                                    "value": "IC",
-                                },
-                                {
-                                    "name": _("Messier"),
-                                    "value": "M",
+                                    "name": _("Comets"),
+                                    "value": "CM",
                                 },
                                 {
                                     "name": _("NGC"),
                                     "value": "NGC",
                                 },
                                 {
-                                    "name": _("Sharpless"),
-                                    "value": "Sh2",
+                                    "name": _("Messier"),
+                                    "value": "M",
                                 },
                                 {
-                                    "name": _("TAAS 200"),
-                                    "value": "Ta2",
+                                    "name": _("DSO..."),
+                                    "class": UITextMenu,
+                                    "select": "multi",
+                                    "config_option": "filter.selected_catalogs",
+                                    "items": [
+                                        {
+                                            "name": _("Abell Pn"),
+                                            "value": "Abl",
+                                        },
+                                        {
+                                            "name": _("Arp Galaxies"),
+                                            "value": "Arp",
+                                        },
+                                        {
+                                            "name": _("Barnard"),
+                                            "value": "B",
+                                        },
+                                        {
+                                            "name": _("Caldwell"),
+                                            "value": "C",
+                                        },
+                                        {
+                                            "name": _("Collinder"),
+                                            "value": "Col",
+                                        },
+                                        {
+                                            "name": _("E.G. Globs"),
+                                            "value": "EGC",
+                                        },
+                                        {
+                                            "name": _("Harris Globs"),
+                                            "value": "Har",
+                                        },
+                                        {
+                                            "name": _("Herschel 400"),
+                                            "value": "H",
+                                        },
+                                        {
+                                            "name": _("IC"),
+                                            "value": "IC",
+                                        },
+                                        {
+                                            "name": _("Lynga Opn Cl"),
+                                            "value": "Lyn",
+                                        },
+                                        {
+                                            "name": _("Messier"),
+                                            "value": "M",
+                                        },
+                                        {
+                                            "name": _("NGC"),
+                                            "value": "NGC",
+                                        },
+                                        {
+                                            "name": _("Sharpless"),
+                                            "value": "Sh2",
+                                        },
+                                        {
+                                            "name": _("TAAS 200"),
+                                            "value": "Ta2",
+                                        },
+                                    ],
+                                },
+                                {
+                                    "name": _("Stars..."),
+                                    "class": UITextMenu,
+                                    "select": "multi",
+                                    "config_option": "filter.selected_catalogs",
+                                    "items": [
+                                        {
+                                            "name": _("Bright Named"),
+                                            "value": "Str",
+                                        },
+                                        {
+                                            "name": _("SAC Doubles"),
+                                            "value": "SaM",
+                                        },
+                                        {
+                                            "name": _("SAC Asterisms"),
+                                            "value": "SaA",
+                                        },
+                                        {
+                                            "name": _("SAC Red Stars"),
+                                            "value": "SaR",
+                                        },
+                                        {
+                                            "name": _("RASC Doubles"),
+                                            "value": "RDS",
+                                        },
+                                        {
+                                            "name": _("TLK 90 Variables"),
+                                            "value": "TLK",
+                                        },
+                                    ],
                                 },
                             ],
                         },
                         {
-                            "name": _("Stars..."),
+                            "name": _("Type"),
                             "class": UITextMenu,
                             "select": "multi",
-                            "config_option": "filter.selected_catalogs",
+                            "config_option": "filter.object_types",
                             "items": [
                                 {
-                                    "name": _("Bright Named"),
-                                    "value": "Str",
+                                    "name": _("Galaxy"),
+                                    "value": "Gx",
                                 },
                                 {
-                                    "name": _("SAC Doubles"),
-                                    "value": "SaM",
+                                    "name": _("Open Cluster"),
+                                    "value": "OC",
                                 },
                                 {
-                                    "name": _("SAC Asterisms"),
-                                    "value": "SaA",
+                                    "name": _("Cluster/Neb"),
+                                    "value": "C+N",
                                 },
                                 {
-                                    "name": _("SAC Red Stars"),
-                                    "value": "SaR",
+                                    "name": _("Globular"),
+                                    "value": "Gb",
                                 },
                                 {
-                                    "name": _("RASC Doubles"),
-                                    "value": "RDS",
+                                    "name": _("Nebula"),
+                                    "value": "Nb",
                                 },
                                 {
-                                    "name": _("TLK 90 Variables"),
-                                    "value": "TLK",
+                                    "name": _("P. Nebula"),
+                                    "value": "PN",
+                                },
+                                {
+                                    "name": _("Dark Nebula"),
+                                    "value": "DN",
+                                },
+                                {
+                                    "name": _("Star"),
+                                    "value": "*",
+                                },
+                                {
+                                    "name": _("Double Str"),
+                                    "value": "D*",
+                                },
+                                {
+                                    "name": _("Triple Str"),
+                                    "value": "***",
+                                },
+                                {
+                                    "name": _("Knot"),
+                                    "value": "Kt",
+                                },
+                                {
+                                    "name": _("Asterism"),
+                                    "value": "Ast",
+                                },
+                                {
+                                    "name": _("Planet"),
+                                    "value": "Pla",
+                                },
+                                {
+                                    "name": _("Comet"),
+                                    "value": "CM",
+                                },
+                                {
+                                    "name": _("Unknown"),
+                                    "value": "?",
                                 },
                             ],
                         },
-                    ],
-                },
-                {
-                    "name": _("Type"),
-                    "class": UITextMenu,
-                    "select": "multi",
-                    "config_option": "filter.object_types",
-                    "items": [
                         {
-                            "name": _("Galaxy"),
-                            "value": "Gx",
+                            "name": _("Altitude"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "filter.altitude",
+                            "items": [
+                                {
+                                    "name": _("None"),
+                                    "value": -1,
+                                },
+                                {
+                                    "name": "0",
+                                    "value": 0,
+                                },
+                                {
+                                    "name": "10",
+                                    "value": 10,
+                                },
+                                {
+                                    "name": "20",
+                                    "value": 20,
+                                },
+                                {
+                                    "name": "30",
+                                    "value": 30,
+                                },
+                                {
+                                    "name": "40",
+                                    "value": 40,
+                                },
+                            ],
                         },
                         {
-                            "name": _("Open Cluster"),
-                            "value": "OC",
-                        },
-                        {
-                            "name": _("Cluster/Neb"),
-                            "value": "C+N",
-                        },
-                        {
-                            "name": _("Globular"),
-                            "value": "Gb",
-                        },
-                        {
-                            "name": _("Nebula"),
-                            "value": "Nb",
-                        },
-                        {
-                            "name": _("P. Nebula"),
-                            "value": "PN",
-                        },
-                        {
-                            "name": _("Dark Nebula"),
-                            "value": "DN",
-                        },
-                        {
-                            "name": _("Star"),
-                            "value": "*",
-                        },
-                        {
-                            "name": _("Double Str"),
-                            "value": "D*",
-                        },
-                        {
-                            "name": _("Triple Str"),
-                            "value": "***",
-                        },
-                        {
-                            "name": _("Knot"),
-                            "value": "Kt",
-                        },
-                        {
-                            "name": _("Asterism"),
-                            "value": "Ast",
-                        },
-                        {
-                            "name": _("Planet"),
-                            "value": "Pla",
-                        },
-                        {
-                            "name": _("Comet"),
-                            "value": "CM",
-                        },
-                        {
-                            "name": _("Unknown"),
-                            "value": "?",
-                        },
-                    ],
-                },
-                {
-                    "name": _("Altitude"),
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "filter.altitude",
-                    "items": [
-                        {
-                            "name": _("None"),
-                            "value": -1,
-                        },
-                        {
-                            "name": "0",
-                            "value": 0,
-                        },
-                        {
-                            "name": "10",
-                            "value": 10,
-                        },
-                        {
-                            "name": "20",
-                            "value": 20,
-                        },
-                        {
-                            "name": "30",
-                            "value": 30,
-                        },
-                        {
-                            "name": "40",
-                            "value": 40,
-                        },
-                    ],
-                },
-                {
-                    "name": _("Magnitude"),
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "filter.magnitude",
-                    "items": [
-                        {
-                            "name": _("None"),
-                            "value": -1,
-                        },
-                        {
-                            "name": "6",
-                            "value": 6,
-                        },
-                        {
-                            "name": "7",
-                            "value": 7,
-                        },
-                        {
-                            "name": "8",
-                            "value": 8,
-                        },
-                        {
-                            "name": "9",
-                            "value": 9,
-                        },
-                        {
-                            "name": "10",
-                            "value": 10,
-                        },
-                        {
-                            "name": "11",
-                            "value": 11,
-                        },
-                        {
-                            "name": "12",
-                            "value": 12,
-                        },
-                        {
-                            "name": "13",
-                            "value": 13,
-                        },
-                        {
-                            "name": "14",
-                            "value": 14,
-                        },
-                        {
-                            "name": "15",
-                            "value": 15,
-                        },
-                    ],
-                },
-                {
-                    "name": _("Observed"),
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "filter.observed",
-                    "items": [
-                        {
-                            "name": _("Any"),
-                            "value": "Any",
+                            "name": _("Magnitude"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "filter.magnitude",
+                            "items": [
+                                {
+                                    "name": _("None"),
+                                    "value": -1,
+                                },
+                                {
+                                    "name": "6",
+                                    "value": 6,
+                                },
+                                {
+                                    "name": "7",
+                                    "value": 7,
+                                },
+                                {
+                                    "name": "8",
+                                    "value": 8,
+                                },
+                                {
+                                    "name": "9",
+                                    "value": 9,
+                                },
+                                {
+                                    "name": "10",
+                                    "value": 10,
+                                },
+                                {
+                                    "name": "11",
+                                    "value": 11,
+                                },
+                                {
+                                    "name": "12",
+                                    "value": 12,
+                                },
+                                {
+                                    "name": "13",
+                                    "value": 13,
+                                },
+                                {
+                                    "name": "14",
+                                    "value": 14,
+                                },
+                                {
+                                    "name": "15",
+                                    "value": 15,
+                                },
+                            ],
                         },
                         {
                             "name": _("Observed"),
-                            "value": "Yes",
-                        },
-                        {
-                            "name": _("Not Observed"),
-                            "value": "No",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "filter.observed",
+                            "items": [
+                                {
+                                    "name": _("Any"),
+                                    "value": "Any",
+                                },
+                                {
+                                    "name": _("Observed"),
+                                    "value": "Yes",
+                                },
+                                {
+                                    "name": _("Not Observed"),
+                                    "value": "No",
+                                },
+                            ],
                         },
                     ],
                 },
             ],
+        },
+        {
+            "name": "SQM",
+            "class": UISQM,
         },
         {
             "name": _("Settings"),
@@ -575,6 +607,7 @@ pifinder_menu = {
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "keypad_brightness",
+                            "post_callback": callbacks.apply_brightness,
                             "items": [
                                 {
                                     "name": "-4",
@@ -691,18 +724,19 @@ pifinder_menu = {
                             ],
                         },
                         {
-                            "name": _("T9 Search"),
+                            "name": _("Search Input"),
                             "class": UITextMenu,
                             "select": "single",
-                            "config_option": "t9_search",
+                            "config_option": "search_input_method",
+                            "label": "search_input_method",
                             "items": [
                                 {
-                                    "name": _("Off"),
-                                    "value": False,
+                                    "name": _("Multi-Tap"),
+                                    "value": "multi_tap",
                                 },
                                 {
-                                    "name": _("On"),
-                                    "value": True,
+                                    "name": _("T9"),
+                                    "value": "t9",
                                 },
                             ],
                         },
@@ -760,6 +794,30 @@ pifinder_menu = {
                     "select": "single",
                     "label": "chart_settings",
                     "items": [
+                        {
+                            "name": _("Coordinate Sys."),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_coord_sys",
+                            "items": [
+                                {
+                                    "name": _("Horizontal"),
+                                    "value": "horiz",
+                                },
+                                {
+                                    "name": _("EQ (Auto)"),
+                                    "value": "eq_auto",
+                                },
+                                {
+                                    "name": _("EQ (North-up)"),
+                                    "value": "eq_north_up",
+                                },
+                                {
+                                    "name": _("EQ (South-up)"),
+                                    "value": "eq_south_up",
+                                },
+                            ],
+                        },
                         {
                             "name": _("Reticle"),
                             "class": UITextMenu,
@@ -849,6 +907,45 @@ pifinder_menu = {
                                 {
                                     "name": _("Degrees"),
                                     "value": "Degr",
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "name": _("Image..."),
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": _("NSEW Labels"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "image_nsew",
+                            "items": [
+                                {
+                                    "name": _("On"),
+                                    "value": True,
+                                },
+                                {
+                                    "name": _("Off"),
+                                    "value": False,
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Object Size"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "image_bbox",
+                            "items": [
+                                {
+                                    "name": _("On"),
+                                    "value": True,
+                                },
+                                {
+                                    "name": _("Off"),
+                                    "value": False,
                                 },
                             ],
                         },
@@ -1047,23 +1144,25 @@ pifinder_menu = {
                     "post_callback": callbacks.restart_pifinder,
                     "items": [
                         {
-                            "name": _("Off"),
+                            "name": _("Off"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 100,
                         },
                         {
-                            "name": _("Very Low"),
+                            "name": _(
+                                "Very Low"
+                            ),  # TRANSLATORS: IMU sensitivity setting
                             "value": 3,
                         },
                         {
-                            "name": _("Low"),
+                            "name": _("Low"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 2,
                         },
                         {
-                            "name": _("Medium"),
+                            "name": _("Medium"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 1,
                         },
                         {
-                            "name": _("High"),
+                            "name": _("High"),  # TRANSLATORS: IMU sensitivity setting
                             "value": 0.5,
                         },
                     ],
@@ -1088,14 +1187,33 @@ pifinder_menu = {
                         },
                         {
                             "name": _("Set Location"),
-                            "class": UILocationList,
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": _("Enter Coords"),
+                                    "class": UILocationEntry,
+                                },
+                                {
+                                    "name": _("Load Location"),
+                                    "class": UILocationList,
+                                },
+                                {
+                                    "name": _("Save Location"),
+                                    "callback": callbacks.save_location,
+                                },
+                            ],
                         },
                         {
-                            "name": _("Set Time"),
+                            "name": _("Set Time/Date"),
                             "class": UITimeEntry,
                             "custom_callback": callbacks.set_time,
                         },
-                        {"name": _("Reset"), "callback": callbacks.gps_reset},
+                        {"name": _("Reset Location"), "callback": callbacks.gps_reset},
+                        {
+                            "name": _("Reset Time/Date"),
+                            "callback": callbacks.datetime_reset,
+                        },
                     ],
                 },
                 {"name": _("Console"), "class": UIConsole},
@@ -1106,30 +1224,59 @@ pifinder_menu = {
                     "class": UITextMenu,
                     "select": "Single",
                     "items": [
-                        {"name": "SQM", "class": UISQM},
                         {
-                            "name": _("AE Algo"),
+                            "name": _("Polar Align"),
+                            "class": UIPolarAlign,
+                            "stateful": True,
+                        },
+                        {
+                            "name": _("Dev Tools"),
                             "class": UITextMenu,
                             "select": "single",
-                            "config_option": "auto_exposure_zero_star_handler",
-                            "label": "auto_exp_zero_star_handler",
-                            "post_callback": callbacks.set_auto_exposure_zero_star_handler,
                             "items": [
                                 {
-                                    "name": _("Sweep"),
-                                    "value": "sweep",
-                                },
-                                {
-                                    "name": _("Exponential"),
-                                    "value": "exponential",
-                                },
-                                {
-                                    "name": _("Reset to 0.4s"),
-                                    "value": "reset",
-                                },
-                                {
-                                    "name": _("Histogram"),
-                                    "value": "histogram",
+                                    "name": _("Telemetry"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "items": [
+                                        {
+                                            "name": _("Record"),
+                                            "class": UITextMenu,
+                                            "select": "single",
+                                            "config_option": "telemetry_record",
+                                            "post_callback": callbacks.telemetry_record_toggle,
+                                            "items": [
+                                                {
+                                                    "name": _("Off"),
+                                                    "value": False,
+                                                },
+                                                {
+                                                    "name": _("On"),
+                                                    "value": True,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            "name": _("Images"),
+                                            "class": UITextMenu,
+                                            "select": "single",
+                                            "config_option": "telemetry_images",
+                                            "items": [
+                                                {
+                                                    "name": _("Off"),
+                                                    "value": False,
+                                                },
+                                                {
+                                                    "name": _("On"),
+                                                    "value": True,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            "name": _("Load"),
+                                            "class": UITelemetryList,
+                                        },
+                                    ],
                                 },
                             ],
                         },
@@ -1147,8 +1294,8 @@ pifinder_menu = {
                             "select": "Single",
                             "label": "shutdown",
                             "items": [
-                                {"name": "Confirm", "callback": callbacks.shutdown},
-                                {"name": "Cancel", "callback": callbacks.go_back},
+                                {"name": _("Confirm"), "callback": callbacks.shutdown},
+                                {"name": _("Cancel"), "callback": callbacks.go_back},
                             ],
                         },
                         {

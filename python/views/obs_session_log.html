@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h5 class="grey-text">{{ _('Observing Session') }} {{ session["UID"] }}</h5>
+<div class="row">
+  <div class="col s4 center-align grey-text">
+    <h6 class="grey-text text-lighten-1">{{ _('Objects') }}</h6>
+    {{ session["observations"] }}
+  </div>
+  <div class="col s4 center-align grey-text">
+    <h6 class="grey-text text-lighten-1">{{ _('Hours') }}</h6>
+    {{ session["duration"] | round(1) }}
+  </div>
+  <div class="col s4">
+    <a href="/observations/{{ session["UID"] }}?download=1" class="grey-text"><i class="material-icons medium">download</i></a>
+  </div>
+</div>
+<center>
+<table class="grey darken-2 grey-text z-depth-1">
+<tr>
+<th>{{ _('Time') }}</th><th>{{ _('Catalog') }}</th><th>{{ _('Sequence') }}</th><th>{{ _('Notes') }}</th>
+</tr>
+{% for object in objects %}
+<tr>
+  <td>{{ object["obs_time_local"] }}</td>
+  <td>{{ object["catalog"] }}</td>
+  <td>{{ object["sequence"] }}</td>
+  <td>{{ object["notes"] | safe }}</td>
+</tr>
+{% endfor %}
+</table>
+</center>
+{% endblock %}

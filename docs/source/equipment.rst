@@ -8,7 +8,7 @@ pairing, sizes and orients the survey images on the
 :ref:`user_guide:object details` screen to match the eyepiece view, and lets
 the push-to arrows follow the way your setup moves.
 
-You manage equipment from two places: the :ref:`user_guide:web interface` is
+You manage equipment from two places: the :ref:`connectivity:web interface` is
 where you add and edit telescopes and eyepieces, and the Equipment screen on the
 PiFinder is where you pick which ones are active for tonight's session.
 
@@ -27,7 +27,7 @@ Store as many of each as you like and switch between them as the night goes on.
 Adding and editing your gear
 ----------------------------
 
-Add telescopes and eyepieces through the :ref:`user_guide:web interface`.
+Add telescopes and eyepieces through the :ref:`connectivity:web interface`.
 Connect to the PiFinder as described there, then open the Equipment page from
 the navigation menu. You'll find a list of telescopes and a list of eyepieces,
 each with buttons to add, edit, or remove an item.

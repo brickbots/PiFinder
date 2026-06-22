@@ -3,6 +3,7 @@ from PiFinder import calc_utils
 import time
 from typing import Any, TYPE_CHECKING, List, Dict
 from dataclasses import dataclass, replace
+import PiFinder.i18n  # noqa: F401 - for translation function _s
 
 if TYPE_CHECKING:
 
@@ -557,36 +558,50 @@ class CoordinateFormats:
 
 
 class LayoutConfig:
-    """Layout configuration constants for the coordinate entry UI"""
+    """Layout configuration for the coordinate entry UI.
 
-    # Field dimensions
-    FIELD_HEIGHT = 16
-    FIELD_WIDTH = 24
-    FIELD_GAP = 30
+    Geometry derives from the display resolution + font metrics so the RA / DEC
+    / Epoch form scales across panels. All values reproduce the 128 panel
+    exactly (the labels sit just below the title bar, the three coordinate rows
+    are evenly pitched, and the help bar is anchored to the bottom).
+    """
 
-    # Positioning
-    LABEL_X = 5
-    FIELD_START_X = 32
-    RA_LABEL_Y = 18
-    RA_Y = 28
-    DEC_LABEL_Y = 46
-    DEC_Y = 56
-    EPOCH_LABEL_Y = 74
-    EPOCH_Y = 84
+    def __init__(self, display_class):
+        fonts = display_class.fonts
+        base_h = fonts.base.height
+        tb = display_class.titlebar_height
+        resX = display_class.resX
 
-    # UI elements
-    BOTTOM_BAR_HEIGHT = 24
-    CURSOR_WIDTH = 2
+        # Field dimensions
+        self.FIELD_HEIGHT = base_h + 5  # 16 on the 128 panel
+        self.FIELD_WIDTH = round(resX * 24 / 128)
+        self.FIELD_GAP = round(resX * 30 / 128)
 
-    # Mixed/Decimal field width
-    MIXED_DECIMAL_FIELD_WIDTH = 50
-    FORMAT_INDICATOR_OFFSET = 52
+        # Positioning: label rows + field rows, evenly pitched below the bar
+        self.LABEL_X = round(resX * 5 / 128)
+        self.FIELD_START_X = round(resX * 32 / 128)
+        label_to_field = base_h - 1  # 10 on the 128 panel
+        block_pitch = label_to_field + self.FIELD_HEIGHT + 2  # 28 on the 128 panel
+        self.RA_LABEL_Y = tb + 1
+        self.RA_Y = self.RA_LABEL_Y + label_to_field
+        self.DEC_LABEL_Y = self.RA_LABEL_Y + block_pitch
+        self.DEC_Y = self.DEC_LABEL_Y + label_to_field
+        self.EPOCH_LABEL_Y = self.DEC_LABEL_Y + block_pitch
+        self.EPOCH_Y = self.EPOCH_LABEL_Y + label_to_field
+
+        # UI elements
+        self.BOTTOM_BAR_HEIGHT = 2 * base_h + 2  # two text rows
+        self.CURSOR_WIDTH = 2
+
+        # Mixed/Decimal field width
+        self.MIXED_DECIMAL_FIELD_WIDTH = round(resX * 50 / 128)
+        self.FORMAT_INDICATOR_OFFSET = round(resX * 52 / 128)
 
 
 class UIRADecEntry(UIModule):
     __title__ = _("RA/DEC Entry")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.callback = self.item_definition.get("callback")
@@ -616,7 +631,7 @@ class UIRADecEntry(UIModule):
         self.base = self.fonts.base
 
         # Layout configuration
-        self.layout = LayoutConfig()
+        self.layout = LayoutConfig(self.display_class)
         self.field_height = self.layout.FIELD_HEIGHT
         self.label_x = self.layout.LABEL_X
         self.field_start_x = self.layout.FIELD_START_X
@@ -903,7 +918,9 @@ class UIRADecEntry(UIModule):
             line1 = f"{square_icon}{_('Format')} {arrow_icons}{_('Nav')}"
         line2 = f"{back_icon}{_('Cancel')} {go_icon}{_('Go ')} -{_('Del')}"
         self.draw.text((2, bar_y + 2), line1, font=self.base.font, fill=self.red)
-        self.draw.text((2, bar_y + 12), line2, font=self.base.font, fill=self.red)
+        self.draw.text(
+            (2, bar_y + self.base.height + 1), line2, font=self.base.font, fill=self.red
+        )
 
     def validate_field(self, field_index, value):
         """Validate the entered value for the given field"""

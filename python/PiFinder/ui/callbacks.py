@@ -11,12 +11,18 @@ Each one takes the current ui module as an argument
 import logging
 import gettext
 import time
+from datetime import datetime
+
+import pytz
 
 from typing import Any, TYPE_CHECKING
 from PiFinder import utils, calc_utils
+from PiFinder.locations import Location as SavedLocation
+from PiFinder.state import Location
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.textentry import UITextEntry
 from PiFinder.catalogs import CatalogFilter
-from PiFinder.composite_object import CompositeObject, MagnitudeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 
 if TYPE_CHECKING:
 
@@ -86,18 +92,9 @@ def set_exposure(ui_module: UIModule) -> None:
     ui_module.command_queues["camera"].put(f"set_exp:{new_exposure}")
 
 
-def set_auto_exposure_zero_star_handler(ui_module: UIModule) -> None:
-    """
-    Sets the zero-star handler plugin for auto-exposure.
-    Supports:
-      - "sweep": Systematic doubling sweep (25ms→1s, 2× ratio)
-      - "exponential": Logarithmic sweep (25ms→1s, 1.85× ratio, 7 steps)
-      - "reset": Quick reset to 0.4s default
-      - "histogram": Histogram-based adaptive with viable exposure selection
-    """
-    handler_type = ui_module.config_object.get_option("auto_exposure_zero_star_handler")
-    logger.info("Set auto-exposure zero-star handler to: %s", handler_type)
-    ui_module.command_queues["camera"].put(f"set_ae_handler:{handler_type}")
+def apply_brightness(ui_module: UIModule) -> None:
+    """Re-apply display + keypad brightness from current config."""
+    ui_module.command_queues["ui_queue"].put("set_brightness")
 
 
 def capture_exposure_sweep(ui_module: UIModule) -> None:
@@ -113,13 +110,13 @@ def capture_exposure_sweep(ui_module: UIModule) -> None:
     logger.info("Starting exposure sweep capture")
 
     # Import the sweep UI module
-    from PiFinder.ui.exp_sweep import UIExpSweep
+    from PiFinder.ui.sqm_sweep import UISQMSweep
 
     # Push the sweep progress UI onto the stack
     # It will handle starting the sweep and showing progress
     sweep_item = {
-        "class": UIExpSweep,
-        "label": "exp_sweep_progress",
+        "class": UISQMSweep,
+        "label": "sqm_sweep_progress",
     }
     ui_module.add_to_stack(sweep_item)
 
@@ -250,18 +247,68 @@ def get_wifi_mode(ui_module: UIModule) -> list[str]:
         return [wfs.read()]
 
 
+def set_location(ui_module: UIModule) -> None:
+    """
+    Sets location from the coordinate entry UI.
+    Reads lat, lon, alt from item_definition (passed through the chain).
+    """
+    lat = ui_module.item_definition.get("lat", 0.0)
+    lon = ui_module.item_definition.get("lon", 0.0)
+    alt = ui_module.item_definition.get("alt", 0)
+    logger.info(f"Setting location to: lat={lat}, lon={lon}, alt={alt}")
+
+    ui_module.command_queues["gps"].put(Location.make_fix(lat, lon, alt, "MANUAL"))
+    ui_module.message(
+        _("{lat:.2f}, {lon:.2f}\n{alt}m alt").format(lat=lat, lon=lon, alt=alt),
+        2,
+    )
+
+
 def gps_reset(ui_module: UIModule) -> None:
     ui_module.command_queues["gps"].put(("reset", {}))
-    ui_module.message("Location Reset", 2)
+    ui_module.message(_("Location Reset"), 2)
+
+
+def datetime_reset(ui_module: UIModule) -> None:
+    ui_module.command_queues["gps"].put(("reset_datetime", {}))
+    ui_module.message(_("Time/Date Reset"), 2)
+
+
+def save_location(ui_module: UIModule) -> None:
+    """Save current location — prompts for name via text entry."""
+    location = ui_module.shared_state.location()
+    if not location.lock:
+        ui_module.message(_("No location lock"), 2)
+        return
+
+    def _save(name):
+        new_loc = SavedLocation(
+            name=name,
+            latitude=location.lat,
+            longitude=location.lon,
+            height=location.altitude,
+            error_in_m=location.error_in_m,
+            source=location.source,
+        )
+        ui_module.config_object.locations.add_location(new_loc)
+        ui_module.config_object.save_locations()
+        ui_module.message(_("Saved\n{name}").format(name=name), 2)
+
+    num = len(ui_module.config_object.locations.locations) + 1
+    item_definition = {
+        "name": _("Location Name"),
+        "class": UITextEntry,
+        "mode": "text_entry",
+        "initial_text": _("Loc {number}").format(number=num),
+        "callback": _save,
+    }
+    ui_module.add_to_stack(item_definition)
 
 
 def set_time(ui_module: UIModule, time_str: str) -> None:
     """
     Sets the time from the time entry UI
     """
-    from datetime import datetime
-    import pytz
-
     logger.info(f"Setting time to: {time_str}")
 
     timezone_str = ui_module.shared_state.location().timezone
@@ -278,8 +325,26 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     dt_with_date = datetime(now.year, now.month, now.day, dt.hour, dt.minute, dt.second)
     dt_with_timezone = timezone.localize(dt_with_date)
 
-    ui_module.command_queues["gps"].put(("time", {"time": dt_with_timezone}))
+    ui_module.command_queues["gps"].put(("time_force", {"time": dt_with_timezone}))
     ui_module.message(_("Time: {time}").format(time=time_str), 2)
+
+
+def set_datetime(ui_module: UIModule, date_str: str) -> None:
+    """
+    Sets both date and time from the date entry UI.
+    Reads the time_str from the item_definition (passed from UITimeEntry).
+    """
+    time_str = ui_module.item_definition.get("time_str", "00:00:00")
+    logger.info(f"Setting datetime to: {date_str} {time_str}")
+
+    timezone_str = ui_module.shared_state.location().timezone
+    timezone = pytz.timezone(timezone_str)
+
+    dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
+    dt_with_timezone = timezone.localize(dt)
+
+    ui_module.command_queues["gps"].put(("time_force", {"time": dt_with_timezone}))
+    ui_module.message(_("{date}\n{time}").format(date=date_str, time=time_str), 2)
 
 
 def handle_radec_entry(ui_module: UIModule, ra_deg: float, dec_deg: float) -> None:
@@ -298,7 +363,10 @@ def handle_radec_entry(ui_module: UIModule, ra_deg: float, dec_deg: float) -> No
     ui_module.shared_state.ui_state().add_recent(custom_object)
 
     # Show popup notification that user object was created
-    ui_module.message(f"User object created\n{custom_object.display_name}", timeout=2)
+    ui_module.message(
+        _("User object created\n{name}").format(name=custom_object.display_name),
+        timeout=2,
+    )
 
     # Navigate to object details for the created object
     object_item_definition = {
@@ -345,7 +413,7 @@ def create_custom_object_from_coords(
             "ra": ra_deg,
             "dec": dec_deg,
             "const": constellation,
-            "size": "",
+            "size": SizeObject([]),
             "mag": MagnitudeObject([]),
             "mag_str": "",
             "catalog_code": "USER",
@@ -403,6 +471,20 @@ def generate_custom_object_name(ui_module: UIModule) -> str:
 
     # Return next available number
     return f"CUSTOM {max_num + 1}"
+
+
+def telemetry_record_toggle(ui_module: UIModule) -> None:
+    """Toggle telemetry recording on/off via integrator command queue."""
+    enabled = ui_module.config_object.get_option("telemetry_record")
+    if "integrator" in ui_module.command_queues:
+        if enabled:
+            ui_module.command_queues["integrator"].put(("telemetry_record_on", None))
+            ui_module.message("Telemetry\nRecording", 2)
+        else:
+            ui_module.command_queues["integrator"].put(("telemetry_record_off", None))
+            ui_module.message("Telemetry\nStopped", 2)
+    else:
+        ui_module.message("No integrator\nqueue", 2)
 
 
 def update_gpsd_baud_rate(ui_module: UIModule) -> None:

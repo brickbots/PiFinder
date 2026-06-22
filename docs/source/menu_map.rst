@@ -21,14 +21,16 @@ The top level has six sections:
        PF([PiFinder]) --> Start
        PF --> Chart
        PF --> Objects
-       PF --> Filter
+       PF --> SQM
        PF --> Settings
        PF --> Tools
 
 - **Start** — Get set up for the night: focus, align, and check your GPS fix.
 - **Chart** — A live star chart of where the scope is pointing.
-- **Objects** — Choose what to look at: catalogs, recent objects, and search.
-- **Filter** — Narrow which objects appear in your lists.
+- **Objects** — Choose what to look at: catalogs, recent objects, search, and
+  the filters that narrow your lists.
+- **SQM** — A Sky Quality Meter that estimates how dark your sky is from the
+  camera.
 - **Settings** — Configure the interface, chart, camera, WiFi, and hardware.
 - **Tools** — Status, equipment, location and time, updates, and power.
 
@@ -41,6 +43,7 @@ Start
    flowchart LR
        Start --> Focus
        Start --> Align
+       Start --> AlignDay["Align (Day)"]
        Start --> GPS["GPS Status"]
 
 Focus
@@ -51,6 +54,9 @@ Align
    Align the PiFinder to your eyepiece.  Center a known star, confirm, and your
    Push-To distances then account for any offset between the camera and where
    you're actually looking.
+Align (Day)
+   Set the same eyepiece alignment in daylight by marking where a distant
+   eyepiece-centered object appears in the camera image.
 GPS Status
    The current GPS fix: satellites in view, lock state, and the location and
    time the PiFinder has acquired.  (Also reachable from Tools, under Place &
@@ -81,14 +87,22 @@ for how the lists work.
        Objects --> AF["All Filtered"]
        Objects --> BC["By Catalog"]
        Objects --> Recent
+       Objects --> OL["Obs Lists"]
        Objects --> Custom
        Objects --> NS["Name Search"]
+       Objects --> SF["Set Filters"]
        BC --> Planets
        BC --> Comets
        BC --> NGC
        BC --> Messier
        BC --> DSO["DSO... (14 catalogs)"]
        BC --> Stars["Stars... (7 catalogs)"]
+       SF --> RA["Reset All"]
+       SF --> Cat["Catalogs"]
+       SF --> Type
+       SF --> Alt["Altitude"]
+       SF --> Mag["Magnitude"]
+       SF --> Obs["Observed"]
 
 All Filtered
    Every object, across all catalogs, that meets your current filters.  With
@@ -118,49 +132,50 @@ By Catalog
 Recent
    The objects you've viewed this session, most recent first.  It starts empty
    each session.
+Obs Lists
+   Load an observing list file you've copied to the PiFinder — SkySafari,
+   CSV, and several other formats.  See :ref:`user_guide:observing lists`.
 Custom
    Enter a right ascension and declination by hand to make a one-off target you
    can push to.  See :ref:`user_guide:custom targets`.
 Name Search
-   Find objects by common name using T9-style text entry.  See
-   :ref:`user_guide:name search`.
+   Find objects by common name using the keypad — multi-tap or T9 text entry.
+   See :ref:`user_guide:name search`.
+Set Filters
+   Narrow which objects appear in your lists.  These settings feed every list
+   above except Name Search and Recent.  See :ref:`user_guide:filters` for the
+   full picture.
+
+   Reset All
+      Clear every filter back to its default.  Choose Confirm to apply, or
+      Cancel to back out.
+   Catalogs
+      Choose which catalogs feed the All Filtered list — multi-select, using the
+      same grouping (Planets, Comets, NGC, Messier, DSO..., Stars...) as By
+      Catalog.
+   Type
+      Limit by object type: galaxy, open cluster, cluster with nebulosity,
+      globular, nebula, planetary nebula, dark nebula, star, double and triple
+      stars, knot, asterism, planet, comet, and unknown.  Multi-select.
+   Altitude
+      Hide objects below a minimum altitude above your horizon — None, or 0, 10,
+      20, 30, or 40 degrees.
+   Magnitude
+      Hide objects fainter than the limit you pick — None, or 6 through 15.
+   Observed
+      Show Any object, only those you've Observed, or only those Not Observed —
+      handy for working through an observing project.
 
 
-Filter
-------
+SQM
+---
 
-The Filter menu limits which objects appear in your lists.  See
-:ref:`user_guide:filters` for the full picture.
-
-.. mermaid::
-
-   flowchart LR
-       Filter --> RA["Reset All"]
-       Filter --> Cat["Catalogs"]
-       Filter --> Type
-       Filter --> Alt["Altitude"]
-       Filter --> Mag["Magnitude"]
-       Filter --> Obs["Observed"]
-
-Reset All
-   Clear every filter back to its default.  Choose Confirm to apply, or Cancel
-   to back out.
-Catalogs
-   Choose which catalogs feed the All Filtered list — multi-select, using the
-   same grouping (Planets, Comets, NGC, Messier, DSO..., Stars...) as By
-   Catalog.
-Type
-   Limit by object type: galaxy, open cluster, cluster with nebulosity,
-   globular, nebula, planetary nebula, dark nebula, star, double and triple
-   stars, knot, asterism, planet, comet, and unknown.  Multi-select.
-Altitude
-   Hide objects below a minimum altitude above your horizon — None, or 0, 10,
-   20, 30, or 40 degrees.
-Magnitude
-   Hide objects fainter than the limit you pick — None, or 6 through 15.
-Observed
-   Show Any object, only those you've Observed, or only those Not Observed —
-   handy for working through an observing project.
+SQM
+   A Sky Quality Meter that estimates how dark your sky is, reported in
+   magnitudes per square arcsecond — higher numbers mean darker skies (roughly
+   21–22 at a dark site, 18–19 in the suburbs, 16–17 under city lights).  The
+   reading is a photometric measurement from a plate-solved camera frame, not a
+   separate hardware meter, so a recent solve gives the most reliable value.
 
 
 Settings
@@ -174,6 +189,7 @@ The Settings menu holds every user-configurable item.  See
    flowchart LR
        Settings --> UP["User Pref..."]
        Settings --> CH["Chart..."]
+       Settings --> IM["Image..."]
        Settings --> CE["Camera Exp"]
        Settings --> WM["WiFi Mode"]
        Settings --> MT["Mount Type"]
@@ -197,8 +213,9 @@ User Pref...
       Menu scrolling animation speed — Off, Fast, Medium, or Slow.
    Scroll Speed
       How fast long lines of text scroll — Off, Fast, Medium, or Slow.
-   T9 Search
-      Turn T9 predictive text in Name Search on or off.
+   Search Input
+      How Name Search reads the keypad — Multi-Tap (cycle through each key's
+      letters) or T9 (one press per letter).
    Az Arrows
       Direction of the azimuth Push-To arrows — Default or Reverse, to match how
       you read them at the scope.
@@ -218,12 +235,21 @@ Chart...
       Brightness of deep-sky object markers — Off, Low, Medium, or High.
    RA/DEC Disp.
       Show a coordinate readout — Off, HH:MM, or Degrees.
+Image...
+   Overlays on the :ref:`object image <user_guide:object images>`.
+
+   NSEW Labels
+      Mark the cardinal directions at the edge of the image — On or Off.
+   Object Size
+      Outline the object's cataloged size and orientation — On or Off.
 Camera Exp
-   Camera exposure time — Auto, or a fixed value from 0.025s to 1s.  Longer
-   exposures catch fainter stars but blur sooner as the scope moves.
+   Camera exposure time — Auto (the default), or a fixed value from 0.025s to
+   1s.  On Auto the PiFinder adjusts the exposure itself from the plate-solve
+   results.  Longer fixed exposures catch fainter stars but blur sooner as the
+   scope moves.
 WiFi Mode
    Switch between Client Mode (join an existing network) and AP Mode (the
-   PiFinder serves its own PiFinderAP network).  See :ref:`user_guide:wifi`.
+   PiFinder serves its own PiFinderAP network).  See :ref:`connectivity:wifi`.
 Mount Type
    Tell the PiFinder whether your scope is Alt/Az or Equatorial.  Changing this
    restarts the PiFinder.
@@ -276,8 +302,9 @@ information or perform actions.  See :ref:`user_guide:tools`.
        SL --> EC["Enter Coords"]
        SL --> LL["Load Location"]
        SL --> SV["Save Location"]
-       Exp --> SQM
-       Exp --> AE["AE Algo"]
+       Exp --> PA["Polar Align"]
+       Exp --> DT["Dev Tools"]
+       DT --> Tel["Telemetry"]
        Power --> Shutdown
        Power --> Restart
 
@@ -319,11 +346,18 @@ Test Mode
 Experimental
    Features still under development.
 
-   SQM
-      A Sky Quality Meter that estimates sky brightness from the camera.
-   AE Algo
-      How auto-exposure recovers when no stars are detected — Sweep,
-      Exponential, Reset to 0.4s, or Histogram.
+   Polar Align
+      For equatorial platforms: capture two or three solves while rotating the
+      platform, then use the platform's altitude and azimuth adjusters until the
+      displayed correction reaches zero.  See
+      :ref:`user_guide:polar alignment`.
+   Dev Tools
+      Developer instrumentation.
+
+      Telemetry
+         Record a session's IMU and plate-solve data — optionally including
+         camera Images — then Load a saved recording to replay it.  Intended for
+         diagnosing and developing the PiFinder.
 Power
    Shut down or restart the PiFinder.
 

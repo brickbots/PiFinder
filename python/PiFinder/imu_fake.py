@@ -24,7 +24,13 @@ class Imu:
     def __init__(self):
         self._moving = False
         self._flip = False
-        pass
+        # Attributes imu_pi.imu_monitor reads when this class is used as
+        # the hardware-fallback: never calibrated, never any readings.
+        self.calibration = 0
+        self.avg_quat = (1.0, 0.0, 0.0, 0.0)
+        self.gyro = None
+        self.accel = None
+        self.last_read_time = 0.0
 
     def moving(self):
         """

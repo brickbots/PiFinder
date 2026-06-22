@@ -7,6 +7,7 @@ This module contains all the UI Module classes
 
 from typing import Union
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.layout import carousel_layout
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 
 
@@ -73,76 +74,49 @@ class UITextMenu(UIModule):
     def update(self, force=False):
         # clear screen
         self.clear_screen()
-        # Draw current selection hint
-        self.draw.rectangle((-1, 60, 129, 80), outline=self.colors.get(128), width=1)
 
-        line_number = 0
-        line_horiz_pos = 13
+        # Resolution-flexible carousel layout: row positions, per-row font and
+        # brightness, and the focus-line selection box all derive from the
+        # display's resolution, title-bar height and font metrics.
+        layout = carousel_layout(self.display_class)
+        half = layout.center_index
 
-        for i in range(self._current_item_index - 3, self._current_item_index + 4):
-            if i >= 0 and i < self.get_nr_of_menu_items():
-                # figure out line position / color / font
-                line_font = self.fonts.base
-                if line_number == 0:
-                    line_color = 96
-                    line_pos = 0
-                if line_number == 1:
-                    line_color = 128
-                    line_pos = 13
-                if line_number == 2:
-                    line_color = 192
-                    line_font = self.fonts.bold
-                    line_pos = 25
-                if line_number == 3:
-                    line_color = 256
-                    line_font = self.fonts.large
-                    line_pos = 40
-                if line_number == 4:
-                    line_color = 192
-                    line_font = self.fonts.bold
-                    line_pos = 60
-                if line_number == 5:
-                    line_color = 128
-                    line_pos = 76
-                if line_number == 6:
-                    line_color = 96
-                    line_pos = 89
+        # Draw current selection hint around the focus (centre) line
+        self.draw.rectangle(layout.selection_box, outline=self.colors.get(128), width=1)
 
-                # Offset for title
-                line_pos += 20
+        for slot, row in enumerate(layout.rows):
+            i = self._current_item_index - half + slot
+            if i < 0 or i >= self.get_nr_of_menu_items():
+                continue
 
-                # figure out line text
-                item_text = str(self._menu_items[i])
+            # figure out line text
+            item_text = str(self._menu_items[i])
 
-                # Check if this item has a name_suffix_callback for dynamic display
-                item_def = self.get_item(item_text)
-                suffix = ""
-                if item_def and item_def.get("name_suffix_callback"):
-                    try:
-                        suffix = item_def["name_suffix_callback"](self)
-                    except Exception:
-                        suffix = ""
+            # Check if this item has a name_suffix_callback for dynamic display
+            item_def = self.get_item(item_text)
+            suffix = ""
+            if item_def and item_def.get("name_suffix_callback"):
+                try:
+                    suffix = item_def["name_suffix_callback"](self)
+                except Exception:
+                    suffix = ""
 
+            self.draw.text(
+                (layout.text_x, row.y),
+                _(item_text) + suffix,  # I18N: translate item for display, add suffix
+                font=row.font.font,
+                fill=self.colors.get(row.brightness),
+            )
+            if (
+                item_def is not None
+                and item_def.get("value", "--") in self._selected_values
+            ):
                 self.draw.text(
-                    (line_horiz_pos, line_pos),
-                    _(item_text)
-                    + suffix,  # I18N: translate item for display, add suffix
-                    font=line_font.font,
-                    fill=self.colors.get(line_color),
+                    (layout.check_x, row.y),
+                    self._CHECKMARK,
+                    font=row.font.font,
+                    fill=self.colors.get(row.brightness),
                 )
-                if (
-                    self.get_item(item_text) is not None
-                    and self.get_item(item_text).get("value", "--")
-                    in self._selected_values
-                ):
-                    self.draw.text(
-                        (3, line_pos),
-                        self._CHECKMARK,
-                        font=line_font.font,
-                        fill=self.colors.get(line_color),
-                    )
-
-            line_number += 1
 
         return self.screen_update()
 
@@ -199,6 +173,7 @@ class UITextMenu(UIModule):
         if config_option := self.item_definition.get("config_option"):
             if self._menu_type == "single":
                 config_value = selected_item_definition["value"]
+                value_changed = config_value not in self._selected_values
                 self._selected_values = [config_value]
                 self.config_object.set_option(config_option, config_value)
 
@@ -206,6 +181,10 @@ class UITextMenu(UIModule):
                 if config_option.startswith("filter."):
                     filter_attr = config_option.split(".")[-1]
                     setattr(self.catalogs.catalog_filter, filter_attr, config_value)
+                    # Navigate back to parent menu when a different value is selected
+                    if value_changed:
+                        self.remove_from_stack()
+                        return
 
             else:
                 if selected_item == "Select All":
@@ -270,3 +249,33 @@ class UITextMenu(UIModule):
 
     def key_down(self):
         self.menu_scroll(1)
+
+    def serialize_ui_state(self) -> dict:
+        """
+        Serialize the current state of the text menu for inter-process communication
+        """
+        try:
+            current_item = None
+            if 0 <= self._current_item_index < len(self._menu_items):
+                current_item = self._menu_items[self._current_item_index]
+
+            # Convert selected_values to serializable format
+            serializable_selected_values = []
+            for value in self._selected_values:
+                if hasattr(value, "display_name"):
+                    # This is likely a CompositeObject or similar
+                    serializable_selected_values.append(str(value.display_name))
+                elif hasattr(value, "__str__"):
+                    serializable_selected_values.append(str(value))
+                else:
+                    serializable_selected_values.append(repr(value))
+
+            return {
+                "current_index": self._current_item_index,
+                "current_item": current_item,
+                "total_items": len(self._menu_items),
+                "menu_type": self._menu_type,
+                "selected_values": serializable_selected_values,
+            }
+        except Exception as e:
+            return {"error": f"Failed to serialize text menu state: {str(e)}"}

@@ -58,6 +58,20 @@ class Equipment:
         except (IndexError, TypeError):
             return None
 
+    def active_telescope_image_orientation(self) -> tuple[bool, bool]:
+        """
+        Returns (flip_image, flop_image) for the active telescope.
+
+        flip = top-to-bottom (vertical) mirror, flop = left-to-right
+        (horizontal) mirror. When no telescope is active, returns
+        (False, False) so the object image is shown unmirrored
+        (the fixed baseline rotation alone). See ADR 0003.
+        """
+        telescope = self.active_telescope
+        if telescope is None:
+            return (False, False)
+        return (telescope.flip_image, telescope.flop_image)
+
     def __post_init__(self):
         self.sort_eyepieces()
 

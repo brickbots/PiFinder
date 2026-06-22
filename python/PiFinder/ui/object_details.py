@@ -6,7 +6,10 @@ This module contains all the UI code for the object details screen
 
 """
 
+from pydeepskylog.exceptions import InvalidParameterError
+
 from PiFinder import cat_images
+from PiFinder.composite_object import MagnitudeObject
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.align import align_on_radec
@@ -16,15 +19,34 @@ from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     TextLayouter,
     TextLayouterSimple,
+    SectionedTextLayouter,
     SpaceCalculatorFixed,
     name_deduplicate,
+    draw_pointing_instructions,
 )
 from PiFinder import calc_utils
 import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
+from PiFinder.db.objects_db import ObjectsDatabase
 import numpy as np
 import time
+import pydeepskylog as pds
+
+
+# Read-only handle to the catalog DB, opened once and shared across detail
+# views. Used by _other_catalog_descriptions() to pull an object's listings in
+# its *other* catalogs (this always runs on the description view). Like the
+# per-instance ObservationsDatabase opened below, this read connection lives for
+# the life of the UI process and is closed when that process exits.
+_objects_db = None
+
+
+def _catalog_db() -> ObjectsDatabase:
+    global _objects_db
+    if _objects_db is None:
+        _objects_db = ObjectsDatabase()
+    return _objects_db
 
 
 # Constants for display modes
@@ -32,6 +54,7 @@ DM_DESC = 0  # Display mode for description
 DM_LOCATE = 1  # Display mode for LOCATE
 DM_POSS = 2  # Display mode for POSS
 DM_SDSS = 3  # Display mode for SDSS
+DM_CONTRAST = 4  # Display mode for Contrast Reserve explanation
 
 
 class UIObjectDetails(UIModule):
@@ -46,6 +69,7 @@ class UIObjectDetails(UIModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.contrast = None
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
         self.object = self.item_definition["object"]
@@ -68,7 +92,7 @@ class UIObjectDetails(UIModule):
             ),
         )
 
-        # Used for displaying obsevation counts
+        # Used for displaying observation counts
         self.observations_db = ObservationsDatabase()
 
         self.simpleTextLayout = functools.partial(
@@ -77,10 +101,10 @@ class UIObjectDetails(UIModule):
             color=self.colors.get(255),
             font=self.fonts.base,
         )
-        self.descTextLayout: TextLayouter = TextLayouter(
+        self.descTextLayout: TextLayouter = SectionedTextLayouter(
             "",
             draw=self.draw,
-            color=self.colors.get(255),
+            color=self.colors.get(160),  # body text dimmer; rules drawn at 255
             colors=self.colors,
             font=self.fonts.base,
         )
@@ -99,9 +123,12 @@ class UIObjectDetails(UIModule):
             ),
         }
 
-        # cache some display stuff for locate
-        self.az_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 2.2))
-        self.alt_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 1.2))
+        # Two-line status messages ("No solve", "Searching for GPS"...) shown in
+        # place of the az/alt readout; positions derive from resolution + font.
+        msg_x = round(self.display_class.resX * 10 / 128)
+        msg_y1 = round(self.display_class.resY * 70 / 128)
+        self._pointing_msg_anchor_1 = (msg_x, msg_y1)
+        self._pointing_msg_anchor_2 = (msg_x, msg_y1 + self.fonts.large.height + 2)
         self._elipsis_count = 0
 
         self.active()  # fill in activation time
@@ -117,8 +144,15 @@ class UIObjectDetails(UIModule):
         designator_color = 255
         if not self.object.last_filtered_result:
             designator_color = 128
+
+        # layout the name - contrast reserve line
+        space_calculator = SpaceCalculatorFixed(14)
+
+        _, typeconst = space_calculator.calculate_spaces(
+            self.object.display_name, self.contrast
+        )
         return self.simpleTextLayout(
-            self.object.display_name,
+            typeconst,
             font=self.fonts.large,
             color=self.colors.get(designator_color),
         )
@@ -139,6 +173,28 @@ class UIObjectDetails(UIModule):
     def update_config(self):
         if self.texts.get("aka"):
             self.texts["aka"].set_scrollspeed(self._get_scrollspeed_config())
+
+    def _other_catalog_descriptions(self) -> dict:
+        """
+        Descriptions from the object's *other* catalog listings (an object can
+        live in NGC, M, Collinder, ...), keyed by designation and ordered as
+        stored in the DB.  Empty for virtual objects (planets, comets,
+        coordinate list entries), which have no DB row.
+        """
+        if self.object.object_id is None or self.object.object_id < 0:
+            return {}
+        rows = _catalog_db().get_catalog_objects_by_object_id(self.object.object_id)
+        out: dict = {}
+        for row in sorted(rows, key=lambda r: r["id"]):
+            if (
+                row["catalog_code"] == self.object.catalog_code
+                and row["sequence"] == self.object.sequence
+            ):
+                continue  # the home listing is shown first, unlabeled
+            desc = (row["description"] or "").strip()
+            if desc:
+                out[f"{row['catalog_code']} {row['sequence']}"] = desc
+        return out
 
     def update_object_info(self):
         """
@@ -197,27 +253,126 @@ class UIObjectDetails(UIModule):
                 scrollspeed=self._get_scrollspeed_config(),
             )
 
-        # NGC description....
-        logs = self.observations_db.get_logs_for_object(self.object)
-        desc = ""
-        if self.object.description:
-            desc = (
-                self.object.description.replace("\t", " ") + "\n"
-            )  # I18N: Descriptions are not translated
-        if len(logs) == 0:
-            desc = desc + _("  Not Logged")
-        else:
-            desc = desc + _("  {logs} Logs").format(logs=len(logs))
+        # Get the SQM from the shared state
+        sqm = self.shared_state.get_sky_brightness()
 
-        self.descTextLayout.set_text(desc)
+        # Check if a telescope and eyepiece are set
+        if (
+            self.config_object.equipment.active_eyepiece is None
+            or self.config_object.equipment.active_eyepiece is None
+        ):
+            self.contrast = ""
+        else:
+            # Calculate contrast reserve. The object diameters are given in arc seconds.
+            magnification = self.config_object.equipment.calc_magnification(
+                self.config_object.equipment.active_telescope,
+                self.config_object.equipment.active_eyepiece,
+            )
+            mag = self.object.mag
+            magnitude = (
+                mag.filter_mag
+                if mag is not None and mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
+                else None
+            )
+            if magnitude is None:
+                self.contrast = ""
+            else:
+                try:
+                    size = self.object.size
+                    if (
+                        size
+                        and size.extents
+                        and not size.is_vertices
+                        and not size.is_segments
+                    ):
+                        # SizeObject.extents are stored in arcseconds.
+                        if len(size.extents) >= 2:
+                            diameter1 = float(size.extents[0])
+                            diameter2 = float(size.extents[1])
+                        else:
+                            diameter1 = diameter2 = float(size.extents[0])
+                    else:
+                        diameter1 = diameter2 = None
+
+                    if diameter1 is None or diameter2 is None:
+                        # No usable object size: pydeepskylog can't compute a
+                        # contrast reserve without diameters — it logs an ERROR
+                        # and *returns* (doesn't raise), so the except below
+                        # can't suppress it. Skip the call and leave the
+                        # contrast line blank.
+                        self.contrast = ""
+                    else:
+                        self.contrast = pds.contrast_reserve(
+                            sqm=sqm,
+                            telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
+                            magnification=magnification,
+                            surf_brightness=None,
+                            magnitude=magnitude,
+                            object_diameter1=diameter1,
+                            object_diameter2=diameter2,
+                        )
+                except (ValueError, TypeError, InvalidParameterError) as e:
+                    # mag_str / size are not always plain numbers: double stars
+                    # carry component mags like "7.0/9.5", asterisms a size like
+                    # "3°", and some objects have no magnitude. float() then
+                    # raises ValueError/TypeError; treat it like the "-"
+                    # magnitude case above and skip the contrast calc.
+                    print(f"Error calculating contrast reserve: {e}")
+                    self.contrast = ""
+        if self.contrast is not None and self.contrast != "":
+            self.contrast = f"{self.contrast: .1f}"
+        else:
+            self.contrast = ""
+
+        # Add contrast reserve line to details with interpretation
+        if self.contrast:
+            contrast_val = float(self.contrast)
+            if contrast_val < -0.2:
+                contrast_str = "Object is not visible"
+            elif -0.2 <= contrast_val < 0.1:
+                contrast_str = "Questionable detection"
+            elif 0.1 <= contrast_val < 0.35:
+                contrast_str = "Difficult to see"
+            elif 0.35 <= contrast_val < 0.5:
+                contrast_str = "Quite difficult to see"
+            elif 0.5 <= contrast_val < 1.0:
+                contrast_str = "Easy to see"
+            elif contrast_val >= 1.0:
+                contrast_str = "Very easy to see"
+            else:
+                contrast_str = ""
+            self.texts["contrast_reserve"] = self.ScrollTextLayout(
+                contrast_str,
+                font=self.fonts.base,
+                color=self.colors.get(255),
+                scrollspeed=self._get_scrollspeed_config(),
+            )
+
+        # Home description (plus other-catalog and observing list descriptions).
+        logs = self.observations_db.get_logs_for_object(self.object)
+        sections = [
+            (label, text.replace("\t", " "))  # I18N: descriptions not translated
+            for label, text in self.object.composed_sections(
+                extra_descriptions=self._other_catalog_descriptions()
+            )
+        ]
+        if len(logs) == 0:
+            sections.append((None, _("  Not Logged")))
+        else:
+            sections.append((None, _("  {logs} Logs").format(logs=len(logs))))
+
+        self.descTextLayout.set_sections(sections)
         self.texts["desc"] = self.descTextLayout
 
         solution = self.shared_state.solution()
         roll = 0
-        if solution:
-            roll = solution["Roll"]
+        if solution and solution.has_pointing():
+            roll = solution.pointing.aligned.estimate.Roll
 
         magnification = self.config_object.equipment.calc_magnification()
+        flip_image, flop_image = (
+            self.config_object.equipment.active_telescope_image_orientation()
+        )
         self.object_image = cat_images.get_display_image(
             self.object,
             str(self.config_object.equipment.active_eyepiece),
@@ -226,6 +381,10 @@ class UIObjectDetails(UIModule):
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
             magnification=magnification,
+            show_nsew=self.config_object.get_option("image_nsew", True),
+            show_bbox=self.config_object.get_option("image_bbox", True),
+            flip_image=flip_image,
+            flop_image=flop_image,
         )
 
     def active(self):
@@ -233,23 +392,25 @@ class UIObjectDetails(UIModule):
 
     def _check_catalog_initialized(self):
         code = self.object.catalog_code
-        if code in ["PUSH", "USER"]:
-            # Special codes for objects pushed from sky-safari or created by user
+        if code in ["PUSH", "USER", "OBS"]:
+            # In-memory objects with no backing catalog: pushed from SkySafari
+            # (PUSH), user-created (USER), or observing-list coordinate objects
+            # (OBS).  They're always "ready"; there's no catalog to initialize.
             return True
         catalog = self.catalogs.get_catalog_by_code(code)
         return catalog and catalog.initialized
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
-        if self.shared_state.solution() is None:
+        if not self.shared_state.solution().has_pointing():
             self.draw.text(
-                (10, 70),
+                self._pointing_msg_anchor_1,
                 _("No solve"),  # TRANSLATORS: No solve yet... (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 90),
+                self._pointing_msg_anchor_2,
                 _("yet{elipsis}").format(
                     elipsis="." * int(self._elipsis_count / 10)
                 ),  # TRANSLATORS: No solve yet... (Part 2/2)
@@ -263,13 +424,13 @@ class UIObjectDetails(UIModule):
 
         if not self.shared_state.altaz_ready():
             self.draw.text(
-                (10, 70),
+                self._pointing_msg_anchor_1,
                 _("Searching"),  # TRANSLATORS: Searching for GPS (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 90),
+                self._pointing_msg_anchor_2,
                 _("for GPS{elipsis}").format(
                     elipsis="." * int(self._elipsis_count / 10)
                 ),  # TRANSLATORS: Searching for GPS (Part 2/2)
@@ -283,14 +444,14 @@ class UIObjectDetails(UIModule):
 
         if not self._check_catalog_initialized():
             self.draw.text(
-                (10, 70),
+                self._pointing_msg_anchor_1,
                 _("Calculating"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 90),
-                _(f"positions{'.' * int(self._elipsis_count / 10)}"),
+                self._pointing_msg_anchor_2,
+                _("positions") + "." * int(self._elipsis_count / 10),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -311,14 +472,14 @@ class UIObjectDetails(UIModule):
         if point_az is None or point_alt is None:
             # No valid pointing data available
             self.draw.text(
-                (10, 70),
+                self._pointing_msg_anchor_1,
                 _("Calculating"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (10, 90),
-                _(f"position{'.' * int(self._elipsis_count / 10)}"),
+                self._pointing_msg_anchor_2,
+                _("position") + "." * int(self._elipsis_count / 10),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -327,72 +488,9 @@ class UIObjectDetails(UIModule):
                 self._elipsis_count = 0
             return
 
-        if point_az < 0:
-            point_az *= -1
-            if self.mount_type == "Alt/Az":
-                az_arrow = self._LEFT_ARROW
-            else:
-                az_arrow = "-"
-
-        else:
-            if self.mount_type == "Alt/Az":
-                az_arrow = self._RIGHT_ARROW
-            else:
-                az_arrow = "+"
-
-        # Check az arrow config
-        if (
-            self.config_object.get_option("pushto_az_arrows", "Default") == "Reverse"
-            and self.mount_type == "Alt/Az"
-        ):
-            if az_arrow is self._LEFT_ARROW:
-                az_arrow = self._RIGHT_ARROW
-            else:
-                az_arrow = self._LEFT_ARROW
-
-        # Change decimal points when within 1 degree
-        if point_az < 1:
-            self.draw.text(
-                self.az_anchor,
-                f"{az_arrow}{point_az : >5.2f}",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(indicator_color),
-            )
-        else:
-            self.draw.text(
-                self.az_anchor,
-                f"{az_arrow}{point_az : >5.1f}",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(indicator_color),
-            )
-
-        if point_alt < 0:
-            point_alt *= -1
-            if self.mount_type == "Alt/Az":
-                alt_arrow = self._DOWN_ARROW
-            else:
-                alt_arrow = "-"
-        else:
-            if self.mount_type == "Alt/Az":
-                alt_arrow = self._UP_ARROW
-            else:
-                alt_arrow = "+"
-
-        # Change decimal points when within 1 degree
-        if point_alt < 1:
-            self.draw.text(
-                self.alt_anchor,
-                f"{alt_arrow}{point_alt : >5.2f}",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(indicator_color),
-            )
-        else:
-            self.draw.text(
-                self.alt_anchor,
-                f"{alt_arrow}{point_alt : >5.1f}",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(indicator_color),
-            )
+        draw_pointing_instructions(
+            self, point_az, point_alt, indicator_color, self.mount_type
+        )
 
     def update(self, force=True):
         # Clear Screen
@@ -406,13 +504,17 @@ class UIObjectDetails(UIModule):
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
             desc_available_lines = 4
+            # Header lines sit just below the title bar; type/const stacks one
+            # large-font line below the designator (derived so they track res).
+            desig_y = self.display_class.titlebar_height + 3
+            typeconst_y = desig_y + self.fonts.large.height
             desig = self.texts["designator"]
-            desig.draw((0, 20))
+            desig.draw((0, desig_y))
 
             # Object TYPE and Constellation i.e. 'Galaxy    PER'
             typeconst = self.texts.get("type-const")
             if typeconst:
-                typeconst.draw((0, 36))
+                typeconst.draw((0, typeconst_y))
 
         if self.object_display_mode == DM_LOCATE:
             self._render_pointing_instructions()
@@ -420,7 +522,9 @@ class UIObjectDetails(UIModule):
         elif self.object_display_mode == DM_DESC:
             # Object Magnitude and size i.e. 'Mag:4.0   Sz:7"'
             magsize = self.texts.get("magsize")
-            posy = 52
+            # Start just below the type/const header (derived; 52 on the 128
+            # panel, lower on taller panels so it doesn't crowd the header).
+            posy = typeconst_y + self.fonts.bold.height + 3
             if magsize and magsize.text.strip():
                 if self.object:
                     # check for visibility and adjust mag/size text color
@@ -452,6 +556,70 @@ class UIObjectDetails(UIModule):
                 desc.set_available_lines(desc_available_lines)
                 desc.draw((0, posy))
 
+        elif self.object_display_mode == DM_CONTRAST:
+            # Display contrast reserve explanation page
+            y_pos = 20
+
+            # Title
+            self.draw.text(
+                (0, y_pos),
+                _("Contrast Reserve"),
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),
+            )
+            y_pos += 14
+
+            # Display the contrast value
+            contrast = self.texts.get("contrast_reserve")
+
+            if self.contrast:
+                contrast_display = f"CR: {self.contrast}"
+                self.draw.text(
+                    (0, y_pos),
+                    contrast_display,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                y_pos += 17
+
+                # Display the interpretation
+                if contrast and contrast.text.strip():
+                    contrast.draw((0, y_pos))
+                    y_pos += 17
+            else:
+                self.draw.text(
+                    (0, y_pos),
+                    _("No contrast data"),
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(128),
+                )
+                y_pos += 14
+
+            # Add explanation about what CR means
+            explanation_lines = [
+                _(
+                    "CR measures object"
+                ),  # TRANSLATORS: Contrast reserve explanation line 1
+                _(
+                    "visibility based on"
+                ),  # TRANSLATORS: Contrast reserve explanation line 2
+                _(
+                    "sky brightness,"
+                ),  # TRANSLATORS: Contrast reserve explanation line 3
+                _(
+                    "telescope, and EP."
+                ),  # TRANSLATORS: Contrast reserve explanation (EP = entrance pupil) line 4
+            ]
+
+            for line in explanation_lines:
+                self.draw.text(
+                    (0, y_pos),
+                    line,
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(200),
+                )
+                y_pos += 11
+
         return self.screen_update()
 
     def cycle_display_mode(self):
@@ -460,9 +628,15 @@ class UIObjectDetails(UIModule):
         for a module.  Invoked when the square
         key is pressed
         """
-        self.object_display_mode = (
-            self.object_display_mode + 1 if self.object_display_mode < 2 else 0
-        )
+        # Cycle: LOCATE -> POSS -> DESC -> CONTRAST -> LOCATE
+        if self.object_display_mode == DM_LOCATE:
+            self.object_display_mode = DM_POSS
+        elif self.object_display_mode == DM_POSS:
+            self.object_display_mode = DM_DESC
+        elif self.object_display_mode == DM_DESC:
+            self.object_display_mode = DM_CONTRAST
+        else:  # DM_CONTRAST or any other mode
+            self.object_display_mode = DM_LOCATE
         self.update_object_info()
         self.update()
 
@@ -530,7 +704,7 @@ class UIObjectDetails(UIModule):
         logging screen
         """
         self.maybe_add_to_recents()
-        if self.shared_state.solution() is None:
+        if not self.shared_state.solution().has_pointing():
             return
         object_item_definition = {
             "name": _("LOG"),
@@ -555,9 +729,94 @@ class UIObjectDetails(UIModule):
 
     def key_minus(self):
         if self.object_display_mode == DM_DESC:
-            self.descTextLayout.next()
+            self.descTextLayout.previous()
             typeconst = self.texts.get("type-const")
             if typeconst and isinstance(typeconst, TextLayouter):
-                typeconst.next()
+                typeconst.previous()
         else:
             self.change_fov(-1)
+
+    def serialize_ui_state(self) -> dict:
+        """
+        Serialize the current state of the object details for inter-process communication
+        """
+        try:
+            # Get display mode name
+            display_modes = {
+                DM_DESC: "description",
+                DM_LOCATE: "locate",
+                DM_POSS: "poss_image",
+                DM_SDSS: "sdss_image",
+            }
+
+            # Serialize the object information safely
+            object_info = {}
+            if self.object:
+                object_info = {
+                    "display_name": getattr(
+                        self.object, "display_name", str(self.object)
+                    ),
+                    "object_type": getattr(self.object, "obj_type", "Unknown"),
+                    "catalog": getattr(self.object, "catalog", "Unknown"),
+                    "sequence": getattr(self.object, "sequence", ""),
+                    "ra": getattr(self.object, "ra", None),
+                    "dec": getattr(self.object, "dec", None),
+                    "magnitude": str(getattr(self.object, "magnitude", "Unknown")),
+                    "size": str(getattr(self.object, "size", "Unknown")),
+                    "const": getattr(self.object, "const", "Unknown"),
+                }
+
+            # Get observation count safely
+            observation_count = 0
+            try:
+                if hasattr(self, "observations_db") and self.object:
+                    observation_count = (
+                        self.observations_db.get_observation_count(
+                            self.object.catalog, self.object.sequence
+                        )
+                        if hasattr(self.object, "catalog")
+                        and hasattr(self.object, "sequence")
+                        else 0
+                    )
+            except Exception:
+                observation_count = 0
+
+            # Get pointing instructions based on mount type
+            pointing_info = {}
+            try:
+                if self.object:
+                    point_val1, point_val2 = calc_utils.aim_degrees(
+                        self.shared_state,
+                        self.mount_type,
+                        self.screen_direction,
+                        self.object,
+                    )
+
+                    if point_val1 is not None and point_val2 is not None:
+                        if self.mount_type == "Alt/Az":
+                            pointing_info = {
+                                "point_az": round(point_val1, 2),
+                                "point_alt": round(point_val2, 2),
+                                "mount_type": "Alt/Az",
+                            }
+                        else:  # EQ Mount
+                            pointing_info = {
+                                "point_ra": round(point_val1, 2),
+                                "point_dec": round(point_val2, 2),
+                                "mount_type": "EQ",
+                            }
+            except Exception:
+                pointing_info = {"error": "Could not calculate pointing instructions"}
+
+            return {
+                "object": object_info,
+                "display_mode": display_modes.get(self.object_display_mode, "unknown"),
+                "object_list_length": len(self.object_list) if self.object_list else 0,
+                "observation_count": observation_count,
+                "has_image": self.object_image is not None,
+                "screen_direction": self.screen_direction,
+                "mount_type": self.mount_type,
+                "pointing": pointing_info,
+            }
+        except Exception as e:
+            return {"error": f"Failed to serialize object details state: {str(e)}"}
