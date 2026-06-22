@@ -199,7 +199,13 @@ class UIObjectList(UITextMenu):
 
         if self.item_definition["objects"] == "custom":
             # item_definition must contain a list of CompositeObjects
-            self._menu_items = self.item_definition["object_list"]
+            object_list = self.item_definition["object_list"]
+            # Opt-in filtering: observing lists honour the active filter
+            # (altitude, magnitude, etc); ad-hoc lists like name-search
+            # results are shown as-is.
+            if self.item_definition.get("filtered", False):
+                object_list = self.catalogs.catalog_filter.apply(object_list)
+            self._menu_items = object_list
 
         self.catalog_info_1 = str(self.get_nr_of_menu_items())
         self._menu_items_sorted = self._menu_items
