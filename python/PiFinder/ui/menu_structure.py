@@ -96,7 +96,7 @@ pifinder_menu = {
                             "value": "PL",
                         },
                         {
-                            "name": "Comets",
+                            "name": _("Comets"),
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "CM",
@@ -1294,8 +1294,8 @@ pifinder_menu = {
                             "select": "Single",
                             "label": "shutdown",
                             "items": [
-                                {"name": "Confirm", "callback": callbacks.shutdown},
-                                {"name": "Cancel", "callback": callbacks.go_back},
+                                {"name": _("Confirm"), "callback": callbacks.shutdown},
+                                {"name": _("Cancel"), "callback": callbacks.go_back},
                             ],
                         },
                         {

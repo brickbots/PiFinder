@@ -271,14 +271,12 @@ class UIObjectList(UITextMenu):
         return (None, None)
 
     def sort(self) -> None:
-        message = _(
-            _("Sorting by\n{sort_order}").format(
-                sort_order=_("RA")
-                if self.current_sort == SortOrder.RA
-                else _("Catalog")
-                if self.current_sort == SortOrder.CATALOG_SEQUENCE
-                else _("Nearby")
-            )
+        message = _("Sorting by\n{sort_order}").format(
+            sort_order=_("RA")
+            if self.current_sort == SortOrder.RA
+            else _("Catalog")
+            if self.current_sort == SortOrder.CATALOG_SEQUENCE
+            else _("Nearby")
         )
         self.message(message, 0.1)
         self.update()

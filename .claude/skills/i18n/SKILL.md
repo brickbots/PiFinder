@@ -75,14 +75,14 @@ nox -s babel
 
 This runs three pybabel steps in order:
 
-1. **extract** — scans `./PiFinder` per `babel.cfg`, regenerates `locale/messages.pot`
+1. **extract** — scans `./PiFinder` (Python) and `./views` (Jinja2 templates) per `babel.cfg`, regenerates `locale/messages.pot`
 2. **update** — merges new/changed msgids from the .pot into every existing `locale/<lang>/LC_MESSAGES/messages.po`, marking unchanged strings, leaving new ones as empty `msgstr ""`, and flagging close matches as `#, fuzzy`
 3. **compile** — builds the `.mo` binaries the runtime actually reads
 
 If you only need one step (e.g., just compiling after hand-editing a .po), run the matching `pybabel` command directly from `python/`:
 
 ```bash
-pybabel extract -F babel.cfg -c TRANSLATORS -o locale/messages.pot ./PiFinder
+pybabel extract -F babel.cfg -c TRANSLATORS -o locale/messages.pot ./PiFinder ./views
 pybabel update  -i locale/messages.pot -d locale
 pybabel compile -d locale
 ```

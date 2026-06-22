@@ -451,7 +451,7 @@ class UIObjectDetails(UIModule):
             )
             self.draw.text(
                 self._pointing_msg_anchor_2,
-                _(f"positions{'.' * int(self._elipsis_count / 10)}"),
+                _("positions") + "." * int(self._elipsis_count / 10),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -479,7 +479,7 @@ class UIObjectDetails(UIModule):
             )
             self.draw.text(
                 self._pointing_msg_anchor_2,
-                _(f"position{'.' * int(self._elipsis_count / 10)}"),
+                _("position") + "." * int(self._elipsis_count / 10),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
