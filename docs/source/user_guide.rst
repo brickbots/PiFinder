@@ -32,7 +32,9 @@ which section of sky it's seeing — incredibly fast (up to 20 times per second!
 accurately.  This only works while the scope is still, so it pairs that camera with an
 accelerometer (the IMU, as the Status screen and Settings menu call it) that estimates
 how far the scope has moved since the last solve.  The
-estimate carries some error, but the moment you stop, a fresh photo corrects it.
+estimate carries some error, but the moment you stop, a fresh photo corrects it.  The
+PiFinder works out its own orientation as it solves, so it can be mounted at any angle —
+it doesn't need to sit upright — as long as the camera points the same way as your scope.
 
 Knowing where your scope points and where thousands of interesting objects sit, the
 PiFinder combines the two to show you how to move the scope to bring any of those objects
@@ -254,6 +256,12 @@ view, getting them below 0.25 (half the true field) should put the object in vie
 Closer to zero means more centered.  For a very dim object, knowing it's dead center and
 consulting the object image can make all the difference.
 
+.. note::
+   By default the Push-To arrows guide you in altitude and azimuth — the way an Alt/Az or
+   Dobsonian mount moves.  On an equatorial mount or platform, set Mount Type to Equatorial
+   in the :ref:`user_guide:settings menu` and the guidance switches to right ascension and
+   declination to match your mount's axes.
+
 The number in the upper right is the object's
 :ref:`contrast reserve <user_guide:contrast reserve>` — an estimate of how easily it
 should show in your eyepiece tonight.
@@ -329,6 +337,34 @@ brightness — the number is simply left off.
    conditions: the same object reads higher under a dark sky than from town.  Treat it as a
    guide rather than a guarantee — averted vision, transparency, and how dark-adapted you
    are all still play their part at the eyepiece.
+
+Star Chart
+-------------
+
+The Star Chart, reached from the main PiFinder menu, draws a live map of the sky around
+where your telescope is pointing, with constellation lines and markers for nearby objects.
+It redraws as you move the scope, so it's a quick way to see what's around you and confirm
+your aim.  Zoom in and out with the **+/-** keys.
+
+How the chart is turned is up to you.  Choose Coordinate Sys. under Chart... in the
+:ref:`user_guide:settings menu`:
+
+- **Horizontal** (the default) keeps the horizon level and the zenith up, matching what you
+  see with the naked eye.
+- **EQ (Auto)** lines the chart up with the celestial pole — north-up in the northern
+  hemisphere, south-up in the southern.
+- **EQ (North-up)** and **EQ (South-up)** force north-up or south-up wherever you are.
+
+The chart labels what's currently at the top — "Zenith up", "NCP up" (north celestial
+pole), or "SCP up" (south celestial pole) — so you always know how it's oriented.  The same
+orientation applies to the Align screen.
+
+.. note::
+   The chart works before the PiFinder has a GPS fix.  The Horizontal and EQ (Auto) modes
+   need to know where you are to orient themselves, so until GPS locks — or you
+   :ref:`enter your location by hand <user_guide:place & time>` — the chart falls back to
+   north-celestial-pole-up and marks the label with a leading "!" (for example "!NCP up")
+   to show it's a temporary orientation that settles once your location is known.
 
 Filters
 ----------
@@ -792,6 +828,31 @@ Some of the key information shown:
   the number of stars matched.
 - WiFi information a bit further down, including the current WiFi mode, network name, and
   IP address.
+
+Place & Time
+----------------------------------
+
+The PiFinder needs to know where and when it is to turn the sky's coordinates into the
+directions it gives you.  Its built-in GPS handles this automatically, but you don't have
+to wait for a fix — or have GPS at all — to get going.  Open Tools, then Place & Time, to
+set everything by hand.
+
+Set Location gathers the ways to manage your observing site:
+
+- **Enter Coords** lets you type your latitude, then longitude, then altitude with the
+  number keys.  The **+** key flips the sign for southern latitudes and western longitudes.
+- **Load Location** recalls one of your saved sites, and **Save Location** stores the
+  current one so you can pick it again next time.
+
+Set Time/Date sets the clock when there's no GPS: enter the time and the PiFinder moves on
+to a date-entry screen.  A time you set by hand is protected — a later GPS fix won't
+overwrite it — so your manual clock stays put.  Reset Location and Reset Time/Date discard
+what's set if you'd rather start fresh or hand control back to GPS.
+
+.. note::
+   With your location and time set by hand, the PiFinder is fully usable without a GPS
+   signal — you can focus, align, browse objects, and push to them.  The
+   :ref:`user_guide:star chart` and Align screens also work before a GPS lock.
 
 Update Software
 ------------------

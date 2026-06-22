@@ -151,15 +151,14 @@ PiFinders attach the same way.
 .. image:: images/quick_start/pifinder_mounted.jpeg
    :width: 47%
 
-Mount the PiFinder close to perpendicular to the ground, or it won't be as accurate when
-estimating position as you move. The PiFinder always knows where it's looking and assumes
-it's perpendicular to the earth, giving its instructions on that basis.
+The PiFinder works out its own orientation, so it no longer needs to sit perfectly upright
+— any mounting angle is fine, as long as the camera points where the scope points. You may
+still prefer it roughly level so the screen is easy to read.
 
-The dovetail is adjustable so the PiFinder can sit upright even if your finder shoe isn't
-right at the top of the optical tube. Loosen the two dovetail screws, set the PiFinder on
-your scope, and adjust the angle until it's roughly perpendicular to the ground. Once
-you're happy, remove the PiFinder and tighten the two screws. You're all set for a night
-of observing.
+The dovetail is adjustable, so you can set a comfortable angle even if your finder shoe
+isn't right at the top of the optical tube. Loosen the two dovetail screws, set the PiFinder
+on your scope, adjust the angle to suit, then remove it and tighten the two screws. You're
+all set for a night of observing.
 
 .. note::
    * Mount the PiFinder so the camera has an unimpeded view of the sky.
@@ -217,6 +216,11 @@ relying on the accelerometer. An 'X' means it hasn't worked out where it's point
 
    Leaving the PiFinder on the GPS Status screen speeds up the lock: this screen disables
    the camera, which reduces EM noise and helps the receiver see more satellites.
+
+.. note::
+   No GPS, or don't want to wait for a lock?  You can enter your location and time by hand
+   and start using the PiFinder right away — see :ref:`Place & Time <user_guide:place & time>`
+   in the User Guide.
 
 
 
