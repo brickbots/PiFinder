@@ -266,12 +266,12 @@ def set_location(ui_module: UIModule) -> None:
 
 def gps_reset(ui_module: UIModule) -> None:
     ui_module.command_queues["gps"].put(("reset", {}))
-    ui_module.message("Location Reset", 2)
+    ui_module.message(_("Location Reset"), 2)
 
 
 def datetime_reset(ui_module: UIModule) -> None:
     ui_module.command_queues["gps"].put(("reset_datetime", {}))
-    ui_module.message("Time/Date Reset", 2)
+    ui_module.message(_("Time/Date Reset"), 2)
 
 
 def save_location(ui_module: UIModule) -> None:
@@ -363,7 +363,10 @@ def handle_radec_entry(ui_module: UIModule, ra_deg: float, dec_deg: float) -> No
     ui_module.shared_state.ui_state().add_recent(custom_object)
 
     # Show popup notification that user object was created
-    ui_module.message(f"User object created\n{custom_object.display_name}", timeout=2)
+    ui_module.message(
+        _("User object created\n{name}").format(name=custom_object.display_name),
+        timeout=2,
+    )
 
     # Navigate to object details for the created object
     object_item_definition = {

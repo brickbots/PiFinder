@@ -132,6 +132,7 @@ def babel(session: nox.Session) -> None:
         "-o",
         "locale/messages.pot",
         "./PiFinder",
+        "./views",
     )
     session.run("pybabel", "update", "-i", "locale/messages.pot", "-d", "locale")
     session.run("pybabel", "compile", "-d", "locale")
