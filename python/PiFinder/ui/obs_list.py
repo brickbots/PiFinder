@@ -165,6 +165,7 @@ class UIObsList(UITextMenu):
             "class": UIObjectList,
             "objects": "custom",
             "object_list": catalog_objects,
+            "filtered": True,
             "label": "obs_list",
         }
         self.add_to_stack(object_list_def)
