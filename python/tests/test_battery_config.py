@@ -6,7 +6,7 @@ hardware), so the read-modify-write logic — bit preservation, field
 encoding, watchdog ordering and idempotency — is testable without a
 board. Register layout is cross-checked against ``BQ25895-datasheet.pdf``
 (TI SLUSC88C) and the live rev-4 readings noted in the battery handoff.
-See ``docs/adr/0011-battery-fast-charge-config.md``.
+See ``docs/adr/0017-battery-fast-charge-config.md``.
 """
 
 import pytest
@@ -78,7 +78,7 @@ def test_plan_from_defaults_writes_all_three():
 @pytest.mark.unit
 def test_plan_preserves_en_ilim_and_en_hiz():
     """The IINLIM write must not disturb EN_ILIM/EN_HIZ — the ILIM-pin
-    ceiling stays in force (ADR 0011)."""
+    ceiling stays in force (ADR 0017)."""
     # EN_HIZ=1, EN_ILIM=1, plus some stale IINLIM bits.
     reg00 = 0xC0 | 0x05
     writes = dict(plan_charging_writes(reg00, DEFAULT_REG04, DEFAULT_REG07))

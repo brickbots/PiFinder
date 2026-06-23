@@ -15,7 +15,7 @@ and a few diagnostics. The remaining writes are deliberate and narrow:
   registers that have drifted), so it both sets the config at power-up
   and re-asserts it after a chip reset or USB re-detection. It does NOT
   touch OTG/HIZ/charge-enable: OTG/boost stays disabled in hardware via
-  the ``/OTG`` strap. See ``docs/adr/0011-battery-fast-charge-config.md``
+  the ``/OTG`` strap. See ``docs/adr/0017-battery-fast-charge-config.md``
   (which supersedes ``0006``) and the glossary at
   ``docs/ax/battery/CONTEXT.md``.
 
@@ -70,7 +70,7 @@ CONV_START_MASK = 0x80
 # REG14 expected part-number value (PN[5:3]) for the BQ25895.
 EXPECTED_PN = 0b111
 
-# --- Fast-charge configuration (written at runtime; see ADR 0011) ---
+# --- Fast-charge configuration (written at runtime; see ADR 0017) ---
 # Targets are ~1.5 A. The chip quantises each field, so the achieved
 # value is the nearest representable step (see the _encode_* helpers).
 TARGET_INPUT_LIMIT_MA = 1500  # REG00 IINLIM (input current limit)
