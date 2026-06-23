@@ -317,15 +317,17 @@ class TestFetchGitHubReleases:
         assert beta == []
 
     @patch("PiFinder.ui.software.requests.get")
-    def test_network_error_returns_empty(self, mock_get):
+    def test_network_error_propagates(self, mock_get):
+        """A network error must propagate, not return empty: the caller
+        (_fetch_channels) relies on the RequestException to switch the UI
+        into its 'offline' phase. An empty result would read as 'online,
+        no releases' instead."""
         import requests as req
 
         mock_get.side_effect = req.exceptions.ConnectionError("no network")
 
-        stable, beta = _fetch_github_releases()
-
-        assert stable == []
-        assert beta == []
+        with pytest.raises(req.exceptions.RequestException):
+            _fetch_github_releases()
 
     @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
