@@ -11,6 +11,18 @@
     };
   };
 
+  # Robust time sync for the RTC-less Pi: NTP= servers are always tried (and
+  # combined with any per-interface/DHCP servers), so a dead DHCP-advertised
+  # NTP server can't block the clock. FallbackNTP alone is skipped whenever a
+  # per-interface server is known — too fragile to rely on for first-boot
+  # migration, which gates the binary-cache fetch on a synchronized clock.
+  services.timesyncd.servers = [
+    "0.pool.ntp.org"
+    "1.pool.ntp.org"
+    "2.pool.ntp.org"
+    "3.pool.ntp.org"
+  ];
+
   # dnsmasq for NetworkManager AP shared mode (DHCP for AP clients)
   services.dnsmasq.enable = false;  # NM manages its own dnsmasq instance
   environment.systemPackages = [ pkgs.dnsmasq ];
