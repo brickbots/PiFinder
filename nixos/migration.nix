@@ -233,11 +233,10 @@ in {
   security.sudo.extraRules = [{
     users = [ "pifinder" ];
     commands = [
-      { command = "/run/current-system/sw/bin/shutdown *"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/hostnamectl *"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/shutdown -r now"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/shutdown now"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/hostname *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/avahi-set-host-name *"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/dmesg"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl restart pifinder-first-boot.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl restart pifinder*"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl status *"; options = [ "NOPASSWD" ]; }

@@ -155,6 +155,8 @@ case/my_printer
 .direnv/
 **/.claude/*
 !**/.claude/skills/
+.agents/
+.codex/
 .serena/
 astro_data/comets.txt
 

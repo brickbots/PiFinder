@@ -274,12 +274,13 @@ in {
       { command = "/run/current-system/sw/bin/systemctl start pifinder.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl restart avahi-daemon.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/avahi-set-host-name *"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/shutdown *"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/shutdown -r now"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/shutdown now"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/chpasswd"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/dmesg"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/hostnamectl *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/hostname *"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/pifinder-switch-camera *"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/pifinder-switch-camera imx296"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/pifinder-switch-camera imx462"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/pifinder-switch-camera imx477"; options = [ "NOPASSWD" ]; }
     ];
   }];
 
