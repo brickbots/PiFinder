@@ -23,4 +23,4 @@ The clearing also contradicted the project's own glossary, whose example dialogu
 
 - A long run of failed solves while stationary keeps showing the last pointing with `solve_source=CAMERA_FAILED`. `RA`/`Dec` stay correct (the IMU is the authority on motion: deadband = not moved); `Alt`/`Az` are only recomputed on the IMU-advance / successful-solve publish, so they can lag during such a streak. Accepted as a minor, transient trade-off.
 - Genuine "I'm lost" signalling on IMU failure (lost calibration, sensor dropout) is **not** handled here — it is an IMU-health concern, deliberately out of scope.
-- Reverses the "clear the estimate cells on failure" detail documented alongside [ADR-0003](./0003-solver-integrator-message.md); the glossary and the `_apply_failed_solve` / `FailedSolve` docstrings were updated to match.
+- Reverses the "clear the estimate cells on failure" detail documented alongside [ADR-0012](./0012-solver-integrator-message.md); the glossary and the `_apply_failed_solve` / `FailedSolve` docstrings were updated to match.

@@ -9,7 +9,7 @@ lists*). This folder documents those formats well enough to **recreate** them:
 - This README — the field-by-field reference.
 
 The source of truth is the reader/writer in `python/PiFinder/obslist_formats.py`;
-the design rationale is [ADR 0003](../../../adr/0003-pifinder-native-observing-list-format.md).
+the design rationale is [ADR 0016](../../../adr/0016-pifinder-native-observing-list-format.md).
 
 ## Supported formats
 

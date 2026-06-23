@@ -1,4 +1,4 @@
-# 0003: A native `.pifinder` observing-list format
+# 0016: A native `.pifinder` observing-list format
 
 PiFinder reads eight third-party observing-list formats (SkySafari, CSV, plain text, Stellarium, Autostar Tour, Argo Navis, NexTour, EQMOD Tour), but none can carry everything a PiFinder object knows: catalog keys (catalog code + sequence), structured multi-band magnitudes, size/extent geometry, and explicit coordinate epochs. Rather than stretching one of them, we define a ninth, native format: versioned JSON with a `.pifinder` extension.
 
