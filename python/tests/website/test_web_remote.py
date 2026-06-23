@@ -497,7 +497,7 @@ def test_remote_entry(driver):
 
     press_keys_and_validate(
         driver,
-        "RDDDDR",
+        "RDDDDDR",
         expected_values={
             "ui_type": "UITextEntry",
             "title": "Search",
@@ -524,7 +524,7 @@ def test_remote_entry_digits(driver):
 
     press_keys_and_validate(
         driver,
-        "RDDDDR0123456789",
+        "RDDDDDR0123456789",
         expected_values={
             "ui_type": "UITextEntry",
             "title": "Search",
