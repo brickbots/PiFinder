@@ -1,6 +1,6 @@
 # PiFinder v2.6.0 Release Notes
 
-This is one of the largest PiFinder releases ever: a completely new IMU tracking engine with equatorial-mount support, daytime alignment, a quantitative focus aid, catalog image overlays, a rewritten web interface, and major speedups across startup, the chart, and the integrator.
+This is one of the largest PiFinder releases ever: a completely new IMU tracking engine with equatorial-mount support, daytime and polar alignment, multi-format observing-list import, a quantitative focus aid, catalog image overlays, a rewritten web interface, and major speedups across startup, the chart, and the integrator.
 
 ## ⚠️ After You Update
 
@@ -9,21 +9,28 @@ A few one-time actions are needed after installing v2.6.0:
 - **Re-run camera/telescope alignment.** The alignment storage format changed (`solve_pixel` → `target_pixel`) and existing alignments are not migrated. Use `Start → Align` under the stars, or the new `Start → Align (Day)` screen in daylight.
 - **The first boot after updating is slow** while PiFinder rebuilds its catalog cache and star-chart cache. Every boot after that is dramatically faster than before (see Performance below).
 - **If you used T9 search**, re-select it: the old "T9 Search" toggle was replaced by `Settings → User Pref → Search Input` (Multi-Tap / T9). The setting defaults back to Multi-Tap.
-- **Changing the UI language** now also translates the web interface (DE/ES/FR), but the web side only switches after a restart.
+- **The web interface is now translated** (DE/FR/ES). It follows each connecting device's browser language rather than the PiFinder's own UI Language setting.
+- **Some menus moved** (#480). Filters are now `Objects → Set Filters` (no longer a top-level menu), and **SQM is now its own top-level menu** (previously under Tools → Experimental). The root menu order is now Start, Chart, Objects, SQM, Settings, Tools.
 
 ## New Features
 
 ### Equatorial Mount Support & New IMU Tracking Engine (#338, #388, #421)
-PiFinder's IMU dead-reckoning was rewritten from the ground up using quaternions in the equatorial frame. The practical wins: **IMU tracking between plate solves now works on equatorial mounts** (set `Settings → Mount Type → Equatorial`), and the **PiFinder no longer needs to be mounted upright** — any mounting angle works as long as the camera points where the scope points. The old "classic" integrator has been removed; the new engine is now the only path. The solver also now attempts to solve every frame instead of skipping frames where the IMU detected motion, so position re-acquisition after a slew is faster.
+PiFinder's IMU dead-reckoning was rewritten from the ground up using quaternions in the equatorial frame. The practical wins: **IMU tracking between plate solves now works on equatorial mounts**, and the **PiFinder no longer needs to be mounted upright** — any mounting angle works as long as the camera points where the scope points. (On an equatorial mount, set `Settings → Mount Type → Equatorial` to get your Push-To guidance in RA/Dec instead of Alt/Az — this controls the readout, not the tracking, which now runs the same way on any mount.) The old "classic" integrator has been removed; the new engine is now the only path. The solver also now attempts to solve every frame instead of skipping frames where the IMU detected motion, so position re-acquisition after a slew is faster.
 
 ### Daytime Alignment (#456)
 A new `Start → Align (Day)` screen lets you align the camera to your telescope in daylight — no plate solve needed. Center a distant object (a treetop or chimney — far enough away to match night focus) in your eyepiece, then use the keypad corner keys (7/9/1/3) to zero in on that object in the live full-brightness camera view, with single-pixel fine tuning at the end. It writes the same alignment as the night-time solve-based flow, so the two are interchangeable.
 
+### Polar Alignment Assist (#459) — Experimental
+A new `Tools → Experimental → Polar Align` wizard polar-aligns an equatorial platform or mount using plate solving — you never have to see the pole. Capture two or three solves while rotating the platform / RA axis; PiFinder recovers the polar-axis error and shows it as a **live Alt/Az push-to display** — just drive the arrows to 0,0 with your altitude/azimuth adjusters (the arrows are always shown in ground-frame Alt/Az, whatever your configured mount type — #486). A long-press marking menu adds a **stats screen** (point count, sweep, fit quality with a plain-language verdict, dAlt/dAz, axis RA/Dec, capture timing), an **ignore-roll fit** for a camera flop between solves, and **redo last point**.
+
 ### Focus-Quality Indicator (#449)
 The Focus screen now shows a quantitative focus aid: a large **HFD readout** (Half-Flux Diameter of the brightest stars, in pixels — lower is sharper) plus a scrolling **V-curve** with a best-focus marker over a rolling 10-second window, along with exposure and star counts. It uses its own star detector tuned to handle big defocused donuts, so it works even when the image is far too defocused to plate-solve. SQUARE toggles the focus strip; the old BG Sub / Gamma display modes and the focus-screen reticle were removed. The display stretch was also reworked to stop frame-to-frame brightness pumping.
 
-### Catalog Image Overlays & Structured Object Sizes (#393, #468)
-Object sizes across all catalogs are now structured data (dimensions + position angle) instead of free-form strings, and the object-details survey images gain two overlays: **NSEW cardinal-direction labels** at the field edge, and an **object-size outline** (an ellipse drawn from the cataloged dimensions and position angle) showing the object's full extent — handy when only the bright core is visible in the eyepiece. Both are rotation- and mirror-aware and can be toggled under the new `Settings → Image...` menu.
+### Catalog Image Overlays & Structured Object Sizes (#393, #394, #468)
+Object sizes across all catalogs are now structured data (dimensions + position angle) instead of free-form strings, and the object-details survey images gain two overlays: **NSEW cardinal-direction labels** at the field edge, and an **object-size outline** (an ellipse drawn from the cataloged dimensions and position angle) showing the object's full extent — handy when only the bright core is visible in the eyepiece. Asterisms with vertex data (e.g. Kemble's Cascade) are drawn as connected outlines, on both the detail image and the live chart. The overlays are rotation- and mirror-aware and can be toggled under the new `Settings → Image...` menu.
+
+### Multi-Format Observing List Import (#394)
+A new `Objects → Obs Lists` menu loads observing lists you drop into `~/PiFinder_data/obslists/`. PiFinder reads **eight common formats** — SkySafari (`.skylist`), CSV, plain text, Stellarium, Autostar Tour (`.mtf`), Argo Navis, NexTour (`.hct`), and EQMOD Tour (`.lst`) — auto-detected by extension and content, plus a new **native `.pifinder` format** that round-trips losslessly (sizes, geometry, per-list notes, and epoch). Loaded objects appear in a list view and as chart markers, honor the active filters, and can be pushed to like any catalog object — including **coordinate-only targets** (e.g. asterism stars) that aren't in PiFinder's catalogs. Object details also now stack **every catalog's description** for an object (NGC = M = Collinder …) together, ahead of any per-list notes.
 
 ### Eyepiece-View Image Orientation (#440)
 Each telescope's "Flip image" / "Flop image" settings (web Equipment page) are now actually applied to the object-details survey image, so it can match your eyepiece view — including mirror-reversed star-diagonal views. The shipped "Generic Dobsonian" profile had an incorrect flop default; this is fixed and a config migration repairs existing user configs automatically.
@@ -61,7 +68,7 @@ The built-in web interface was rewritten from Bottle to Flask + Jinja templates,
 The entire on-device UI now renders at the display's native resolution from shared layout geometry instead of assuming 128×128. This adds support for a **176×176 SSD1333 OLED** (for upcoming hardware; selectable via `--display ssd1333`) while keeping the 128×128 SSD1351 pixel-equivalent. As part of this, SSD1351 brightness control was reworked to combine master brightness with per-channel contrast, giving a **noticeably dimmer low end** for better dark adaptation.
 
 ### Telemetry Recording & Replay (#411)
-A new diagnostic system (`Settings → Experimental → Dev Tools → Telemetry`) can record IMU samples, every plate solve, and target changes to compact session files in `~/PiFinder_data/telemetry/`, then **replay** a session through the integrator with original timing — invaluable for reproducing and debugging field issues on the bench. Your location is stored in a separate sidecar file so sessions can be shared without revealing where you observe.
+A new diagnostic system (`Tools → Experimental → Dev Tools → Telemetry`) can record IMU samples, every plate solve, and target changes to compact session files in `~/PiFinder_data/telemetry/`, then **replay** a session through the integrator with original timing — invaluable for reproducing and debugging field issues on the bench. Your location is stored in a separate sidecar file so sessions can be shared without revealing where you observe.
 
 ## Performance
 
@@ -69,6 +76,7 @@ A new diagnostic system (`Settings → Experimental → Dev Tools → Telemetry`
 - **Smoother chart and UI** (#424): a hidden 10 Hz cap on the UI loop was lifted and the chart render path de-pandas'd — chart updates measured 8.9 → 22.3 Hz; the UI now genuinely hits its ~30 FPS target.
 - **16x faster integrator math** (#423): Alt/Az conversion and constellation lookup per integrator tick went from ~1840 µs to ~113 µs using pyerfa. This also *fixed two long-standing accuracy bugs*: the fast LST formula double-counted the fractional day, and atmospheric refraction was missing entirely.
 - **Instant Chart/Align screen opening**: the Hipparcos star catalog parse (~1.4 s stall) is now cached.
+- **~500x faster comet propagation** (#470): comet positions are now computed for all ~960 comets in one vectorized pass (~65 s → 0.13 s). This also fixes a 2.6 regression where, with a comet locked as the target, comet recomputation pegged a CPU core and could hang the whole device during observing — sustained CPU dropped from ~100% to 1–2%.
 
 ## Bug Fixes
 
@@ -84,11 +92,17 @@ A new diagnostic system (`Settings → Experimental → Dev Tools → Telemetry`
 - **Hostname changes update /etc/hosts** (#443, closes #125): renaming your PiFinder no longer breaks `sudo` with "unable to resolve host".
 - **Keypad brightness applies immediately** (#430): changing `Settings → User Pref → Key Bright` takes effect the moment you select it.
 - **Object-details crash on odd magnitudes** (#438): contrast reserve no longer crashes on double stars ("7.0/9.5"), asterisms, or objects without magnitudes.
+- **IMU process memory leak & CPU spin fixed** (#472): the IMU child process leaked memory (~16 MB/min) and burned ~19% CPU — enough to push a 2 GB Pi toward swap/OOM over a long session. It now holds flat memory at ~2% CPU.
+- **Camera survives a wedged sensor** (#479): a hung V4L2 capture no longer freezes the whole camera process; it degrades to failed solves and stays responsive to commands, then recovers when the sensor clears.
+- **Self-healing solver, single-instance guard** (#465): a killed or crashed solver no longer leaves a stale Cedar shared-memory segment that broke every subsequent solve, and PiFinder now refuses to start a second instance instead of silently colliding on ports and hardware.
+- **Long status values scroll** (#483): a long IP address on the Status screen now scrolls instead of being truncated off the right edge.
+- **Contrast-reserve log spam fixed** (#473): objects with a magnitude but no catalog size no longer flood the log on the details screen.
+- **Auto-exposure on by default** (#474): solver-driven auto-exposure now runs out of the box and the zero-match exposure recovery was consolidated to a single ladder (the Experimental "AE Algo" menu was removed). Existing saved exposure settings are preserved.
 - **Marking menus future-proofed** (#398): fixed a construct Python 3.11+ rejects, ahead of future OS upgrades.
 
 ## Internationalization
 
-- Complete German, Spanish, French, and Chinese device-UI translations — all 439 strings, no gaps (#434). Translations are AI-generated and tagged for native-speaker review.
+- Complete German, Spanish, French, and Chinese device-UI translations (#434), with a follow-up pass (#488) that fixed web-template string extraction and wrapped and AI-filled the remaining strings — including the new observing-list and polar-align screens. Translations are AI-generated and tagged for native-speaker review.
 - The web interface ships with German, French, and Spanish translations (#331).
 
 ## Developer Improvements
@@ -99,6 +113,8 @@ A new diagnostic system (`Settings → Experimental → Dev Tools → Telemetry`
 - **Pygame keyboard input** (#397): intuitive keyboard bindings when running with a pygame window (Wayland-compatible).
 - **Web test suite** (#331, #413): Selenium browser tests for all web pages, runnable from a GitHub Action.
 - **Clean mypy** (#405): type annotations added across the codebase.
+- **Auto-spawn cedar-detect-server in dev mode** (#478): running PiFinder in dev mode now starts the Cedar detect server automatically, so you no longer have to launch it by hand.
+- **Modernized catalog image-fetching** (#481): the script that downloads survey images for catalog objects was reworked.
 - **Agent-experience docs**: bounded-context glossaries (`docs/ax/`), architecture decision records (`docs/adr/`), and authoring skills for docs, i18n, and remote UI driving.
 
 ## Hardware & Documentation
@@ -109,5 +125,5 @@ A new diagnostic system (`Settings → Experimental → Dev Tools → Telemetry`
 ---
 
 **Version**: 2.5.1 → 2.6.0
-**Commits**: ~81
-**Files changed**: ~302 (+171,934 / −7,831 lines, much of it catalog data, translations, and docs; Python code: 189 files, +30,239 / −6,683)
+**Commits**: ~104
+**Files changed**: ~323 (+183,092 / −9,720 lines, much of it catalog data, translations, and docs; Python code: ~164 files, +31,989 / −4,514)

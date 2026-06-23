@@ -19,6 +19,7 @@ from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     TextLayouter,
     TextLayouterSimple,
+    SectionedTextLayouter,
     SpaceCalculatorFixed,
     name_deduplicate,
     draw_pointing_instructions,
@@ -27,9 +28,25 @@ from PiFinder import calc_utils
 import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
+from PiFinder.db.objects_db import ObjectsDatabase
 import numpy as np
 import time
 import pydeepskylog as pds
+
+
+# Read-only handle to the catalog DB, opened once and shared across detail
+# views. Used by _other_catalog_descriptions() to pull an object's listings in
+# its *other* catalogs (this always runs on the description view). Like the
+# per-instance ObservationsDatabase opened below, this read connection lives for
+# the life of the UI process and is closed when that process exits.
+_objects_db = None
+
+
+def _catalog_db() -> ObjectsDatabase:
+    global _objects_db
+    if _objects_db is None:
+        _objects_db = ObjectsDatabase()
+    return _objects_db
 
 
 # Constants for display modes
@@ -84,10 +101,10 @@ class UIObjectDetails(UIModule):
             color=self.colors.get(255),
             font=self.fonts.base,
         )
-        self.descTextLayout: TextLayouter = TextLayouter(
+        self.descTextLayout: TextLayouter = SectionedTextLayouter(
             "",
             draw=self.draw,
-            color=self.colors.get(255),
+            color=self.colors.get(160),  # body text dimmer; rules drawn at 255
             colors=self.colors,
             font=self.fonts.base,
         )
@@ -156,6 +173,28 @@ class UIObjectDetails(UIModule):
     def update_config(self):
         if self.texts.get("aka"):
             self.texts["aka"].set_scrollspeed(self._get_scrollspeed_config())
+
+    def _other_catalog_descriptions(self) -> dict:
+        """
+        Descriptions from the object's *other* catalog listings (an object can
+        live in NGC, M, Collinder, ...), keyed by designation and ordered as
+        stored in the DB.  Empty for virtual objects (planets, comets,
+        coordinate list entries), which have no DB row.
+        """
+        if self.object.object_id is None or self.object.object_id < 0:
+            return {}
+        rows = _catalog_db().get_catalog_objects_by_object_id(self.object.object_id)
+        out: dict = {}
+        for row in sorted(rows, key=lambda r: r["id"]):
+            if (
+                row["catalog_code"] == self.object.catalog_code
+                and row["sequence"] == self.object.sequence
+            ):
+                continue  # the home listing is shown first, unlabeled
+            desc = (row["description"] or "").strip()
+            if desc:
+                out[f"{row['catalog_code']} {row['sequence']}"] = desc
+        return out
 
     def update_object_info(self):
         """
@@ -309,19 +348,20 @@ class UIObjectDetails(UIModule):
                 scrollspeed=self._get_scrollspeed_config(),
             )
 
-        # NGC description....
+        # Home description (plus other-catalog and observing list descriptions).
         logs = self.observations_db.get_logs_for_object(self.object)
-        desc = ""
-        if self.object.description:
-            desc = (
-                self.object.description.replace("\t", " ") + "\n"
-            )  # I18N: Descriptions are not translated
+        sections = [
+            (label, text.replace("\t", " "))  # I18N: descriptions not translated
+            for label, text in self.object.composed_sections(
+                extra_descriptions=self._other_catalog_descriptions()
+            )
+        ]
         if len(logs) == 0:
-            desc = desc + _("  Not Logged")
+            sections.append((None, _("  Not Logged")))
         else:
-            desc = desc + _("  {logs} Logs").format(logs=len(logs))
+            sections.append((None, _("  {logs} Logs").format(logs=len(logs))))
 
-        self.descTextLayout.set_text(desc)
+        self.descTextLayout.set_sections(sections)
         self.texts["desc"] = self.descTextLayout
 
         solution = self.shared_state.solution()
@@ -352,8 +392,10 @@ class UIObjectDetails(UIModule):
 
     def _check_catalog_initialized(self):
         code = self.object.catalog_code
-        if code in ["PUSH", "USER"]:
-            # Special codes for objects pushed from sky-safari or created by user
+        if code in ["PUSH", "USER", "OBS"]:
+            # In-memory objects with no backing catalog: pushed from SkySafari
+            # (PUSH), user-created (USER), or observing-list coordinate objects
+            # (OBS).  They're always "ready"; there's no catalog to initialize.
             return True
         catalog = self.catalogs.get_catalog_by_code(code)
         return catalog and catalog.initialized
@@ -409,7 +451,7 @@ class UIObjectDetails(UIModule):
             )
             self.draw.text(
                 self._pointing_msg_anchor_2,
-                _(f"positions{'.' * int(self._elipsis_count / 10)}"),
+                _("positions") + "." * int(self._elipsis_count / 10),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -437,7 +479,7 @@ class UIObjectDetails(UIModule):
             )
             self.draw.text(
                 self._pointing_msg_anchor_2,
-                _(f"position{'.' * int(self._elipsis_count / 10)}"),
+                _("position") + "." * int(self._elipsis_count / 10),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -687,10 +729,10 @@ class UIObjectDetails(UIModule):
 
     def key_minus(self):
         if self.object_display_mode == DM_DESC:
-            self.descTextLayout.next()
+            self.descTextLayout.previous()
             typeconst = self.texts.get("type-const")
             if typeconst and isinstance(typeconst, TextLayouter):
-                typeconst.next()
+                typeconst.previous()
         else:
             self.change_fov(-1)
 

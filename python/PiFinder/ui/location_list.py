@@ -22,7 +22,13 @@ class UILocationList(UITextMenu):
         kwargs["item_definition"] = self.create_menu_definition()
         super().__init__(*args, **kwargs)
         self.action_menu_active = False
+        # English keys used for action dispatch; labels are translated at draw time
         self.actions = ["Load", "Rename", "Delete"]
+        self.action_labels = {
+            "Load": _("Load"),
+            "Rename": _("Rename"),
+            "Delete": _("Delete"),
+        }
         self.action_index = 0
 
     def create_menu_definition(self):
@@ -68,7 +74,7 @@ class UILocationList(UITextMenu):
             color = 255 if i == self.action_index else 128
             self.draw.text(
                 (0, draw_pos),
-                action,
+                self.action_labels.get(action, action),
                 font=self.fonts.base.font,
                 fill=self.colors.get(color),
             )
@@ -96,7 +102,7 @@ class UILocationList(UITextMenu):
                     self.config_object.save_locations()
 
                 # Show confirmation message
-                self.message(f"Loaded: {location.name}", timeout=2)
+                self.message(_("Loaded: {name}").format(name=location.name), timeout=2)
 
                 # Return True twice to pop two levels
                 self.action_menu_active = False  # Exit action menu mode
@@ -119,14 +125,14 @@ class UILocationList(UITextMenu):
                     )
 
                 self.selected_index = None
-                self.message(f"Deleted: {location.name}", timeout=2)
+                self.message(_("Deleted: {name}").format(name=location.name), timeout=2)
                 self.action_menu_active = False
                 return False
 
             elif action == "Rename":
                 # Create text entry for new name
                 item_definition = {
-                    "name": "Location Name",
+                    "name": _("Location Name"),
                     "class": UITextEntry,
                     "mode": "text_entry",
                     "initial_text": location.name,
@@ -139,7 +145,7 @@ class UILocationList(UITextMenu):
         """Handle location rename callback"""
         location.name = new_name
         self.config_object.save_locations()
-        self.message(f"Renamed to:\n{new_name}", timeout=2)
+        self.message(_("Renamed to:\n{name}").format(name=new_name), timeout=2)
         self.action_menu_active = False  # Return to location list view
         return True  # Return to location list
 

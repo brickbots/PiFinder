@@ -15,6 +15,7 @@ from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.sqm import UISQM
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
+from PiFinder.ui.obs_list import UIObsList
 from PiFinder.ui.locationentry import UILocationEntry
 from PiFinder.ui.radec_entry import UIRADecEntry
 from PiFinder.ui.telemetry_list import UITelemetryList
@@ -95,7 +96,7 @@ pifinder_menu = {
                             "value": "PL",
                         },
                         {
-                            "name": "Comets",
+                            "name": _("Comets"),
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "CM",
@@ -259,6 +260,10 @@ pifinder_menu = {
                     "class": UIObjectList,
                     "objects": "recent",
                     "label": "recent",
+                },
+                {
+                    "name": _("Obs Lists"),
+                    "class": UIObsList,
                 },
                 {
                     "name": _("Custom"),
@@ -1289,8 +1294,8 @@ pifinder_menu = {
                             "select": "Single",
                             "label": "shutdown",
                             "items": [
-                                {"name": "Confirm", "callback": callbacks.shutdown},
-                                {"name": "Cancel", "callback": callbacks.go_back},
+                                {"name": _("Confirm"), "callback": callbacks.shutdown},
+                                {"name": _("Cancel"), "callback": callbacks.go_back},
                             ],
                         },
                         {

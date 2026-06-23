@@ -234,6 +234,63 @@ class TextLayouter(TextLayouterSimple):
             self._draw_pos(pos)
 
 
+class SectionedTextLayouter(TextLayouter):
+    """
+    Multi-line description where some lines are section-header *rules*: a bright,
+    edge-to-edge box-drawing line (Nerd Font U+2501 ``━``) with an optional left
+    label, drawn at a different brightness than the body text.
+
+    Rule lines are tagged with ``RULE_MARK`` so wrapping/scrolling work exactly
+    as in TextLayouter; the full-width glyph run is built at draw time, when the
+    line width is known. A label too long to fit inline is split onto its own
+    line under a label-less full rule.
+    """
+
+    RULE_MARK = "\x00"
+    RULE_GLYPH = "━"
+    LEAD = 2  # leading glyphs before the label
+
+    def set_sections(self, sections, reset_pointer=True):
+        """``sections``: list of ``(label_or_None, text)``; None = no rule."""
+        width = self.font.line_length
+        lines: List[str] = []
+        for label, text in sections:
+            if label is None:
+                pass
+            elif self.LEAD + len(label) + 2 <= width:
+                lines.append(self.RULE_MARK + label)  # inline rule
+            else:
+                lines.append(self.RULE_MARK)  # full rule, no label
+                lines.append(label)  # name wraps on its own line(s)
+            if text:
+                lines.append(text)
+        self.set_text("\n".join(lines), reset_pointer=reset_pointer)
+
+    def _rule_text(self, label: str) -> str:
+        width = self.font.line_length
+        if not label:
+            return self.RULE_GLYPH * width
+        fill = max(0, width - self.LEAD - len(label) - 2)
+        return f"{self.RULE_GLYPH * self.LEAD} {label} {self.RULE_GLYPH * fill}"
+
+    def draw(self, pos: Tuple[int, int] = (0, 0)):
+        self.layout(pos)
+        x, y = pos
+        rule_color = self.colors.get(255)
+        for line in self.object_text:
+            if line.startswith(self.RULE_MARK):
+                self.drawobj.text(
+                    (x, y),
+                    self._rule_text(line[len(self.RULE_MARK) :]),
+                    font=self.font.font,
+                    fill=rule_color,
+                )
+            else:
+                self.drawobj.text((x, y), line, font=self.font.font, fill=self.color)
+            y += self.font.height
+        self.after_draw(pos)
+
+
 def shadow_outline_text(
     ri_draw, xy, text, align, font, fill, shadow_color, shadow=None, outline=None
 ):
@@ -336,7 +393,10 @@ def pointing_arrows(ui, point_az, point_alt, mount_type=None):
 
     mount_type must match the one the point values were computed with
     (e.g. the value passed to aim_degrees); when None, the current
-    config option is used.
+    config option is used. Callers whose values are intrinsically Alt/Az
+    regardless of the configured mount (e.g. polar alignment, where you
+    drive the mount's alt/az polar adjusters) pass mount_type="Alt/Az"
+    explicitly.
     """
     if mount_type is None:
         mount_type = ui.config_object.get_option("mount_type")

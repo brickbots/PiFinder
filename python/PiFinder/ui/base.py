@@ -346,14 +346,17 @@ class UIModule:
             # track titlebar_height across displays (was hardcoded for 128).
             title_y = max(0, (tb_height - self.fonts.bold.height) // 2)
             icon_y = (tb_height - self.fonts.icon_bold_large.height) // 2
-            if self.ui_state.show_fps():
-                self.draw.text(
-                    (6, title_y), str(self.fps), font=self.fonts.bold.font, fill=fg
-                )
-            else:
-                self.draw.text(
-                    (6, title_y), _(self.title), font=self.fonts.bold.font, fill=fg
-                )
+            title_text = str(self.fps) if self.ui_state.show_fps() else _(self.title)
+            # Truncate so the title never runs under the right-side status icons.
+            # They start at the GPS icon (~0.8*resX); leave a small gap. Derived
+            # from the screen size + bold font, so it adapts to 128/176/320.
+            title_max_px = int(self.display_class.resX * 0.8) - 6 - 4
+            title_max_chars = max(1, title_max_px // self.fonts.bold.width)
+            if len(title_text) > title_max_chars:
+                title_text = title_text[: title_max_chars - 1] + "…"
+            self.draw.text(
+                (6, title_y), title_text, font=self.fonts.bold.font, fill=fg
+            )
             imu = self.shared_state.imu()
             moving = True if imu and imu.quat and imu.moving else False
 

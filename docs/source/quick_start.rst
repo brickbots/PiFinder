@@ -151,15 +151,14 @@ PiFinders attach the same way.
 .. image:: images/quick_start/pifinder_mounted.jpeg
    :width: 47%
 
-Mount the PiFinder close to perpendicular to the ground, or it won't be as accurate when
-estimating position as you move. The PiFinder always knows where it's looking and assumes
-it's perpendicular to the earth, giving its instructions on that basis.
+The PiFinder works out its own orientation, so it no longer needs to sit perfectly upright
+— any mounting angle is fine, as long as the camera points where the scope points. You may
+still prefer it roughly level so the screen is easy to read.
 
-The dovetail is adjustable so the PiFinder can sit upright even if your finder shoe isn't
-right at the top of the optical tube. Loosen the two dovetail screws, set the PiFinder on
-your scope, and adjust the angle until it's roughly perpendicular to the ground. Once
-you're happy, remove the PiFinder and tighten the two screws. You're all set for a night
-of observing.
+The dovetail is adjustable, so you can set a comfortable angle even if your finder shoe
+isn't right at the top of the optical tube. Loosen the two dovetail screws, set the PiFinder
+on your scope, adjust the angle to suit, then remove it and tighten the two screws. You're
+all set for a night of observing.
 
 .. note::
    * Mount the PiFinder so the camera has an unimpeded view of the sky.
@@ -218,6 +217,11 @@ relying on the accelerometer. An 'X' means it hasn't worked out where it's point
    Leaving the PiFinder on the GPS Status screen speeds up the lock: this screen disables
    the camera, which reduces EM noise and helps the receiver see more satellites.
 
+.. note::
+   No GPS, or don't want to wait for a lock?  You can enter your location and time by hand
+   and start using the PiFinder right away — see :ref:`Place & Time <user_guide:place & time>`
+   in the User Guide.
+
 
 
 Adjusting Brightness
@@ -240,7 +244,6 @@ At the start of each session, you may need to do a few things:
 
 - Check and adjust camera focus
 - Align the PiFinder by telling it where your scope is pointing
-- Optionally polar-align an equatorial platform
 - Check the status of the GPS lock
 
 These items live in the 'Start' menu at the top of the PiFinder main menu.
@@ -441,36 +444,6 @@ not something across the room.
    isn't a concern. If the view is washed out or too dark, **+** and **-** adjust the exposure
    by hand. Hold **SQUARE** for the Quick Menu, where 'Exp Auto' hands exposure back to the
    camera and 'Center' returns the marker to the middle.
-
-
-Polar alignment
-^^^^^^^^^^^^^^^^
-If your telescope sits on an equatorial platform, the 'Polar Align' item in the 'Start'
-menu measures how far the platform's rotation axis is from the celestial pole. It uses
-ordinary plate solves, so first make sure the PiFinder has a GPS lock, is focused, and is
-solving the sky reliably.
-
-The process does not align the PiFinder to your eyepiece; it aligns the platform. Do not
-use the telescope's normal altitude or azimuth motion during the measurement. Keep the
-scope fixed on the platform and only rotate the platform between captures.
-
-1. Choose 'Polar Align' from the 'Start' menu and press **SQUARE** to begin.
-2. Aim the telescope away from the pole, where the camera gets reliable solves. Wait until
-   the screen reports a recent solve, then press **SQUARE** to capture point 1.
-3. Rotate the equatorial platform by at least about 10 degrees, again without moving the
-   telescope on the mount. Wait for a fresh solve and press **SQUARE** to capture point 2.
-4. For the best check, rotate the platform farther and press **SQUARE** to capture point 3.
-   If you want to solve from two points instead, press **0** after point 2.
-5. If the screen says 'Rotate more', the captures were too close together. Rotate the
-   platform farther and capture again.
-6. In the adjustment screen, use the platform's altitude and azimuth adjusters to follow
-   the displayed push-to directions until both altitude and azimuth read zero. If the
-   screen says 'No solve', hold the telescope still until the PiFinder gets a fresh solve.
-
-The adjustment screen also shows how many points were used and the total platform sweep.
-With three points it shows a fit value; a value marked with ``!`` means the captures did
-not agree well, usually because the platform or telescope shifted between points. Press
-**SQUARE** to redo the measurement, or **MINUS** to cancel.
 
 
 GPS Status
