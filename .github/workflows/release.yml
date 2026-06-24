@@ -148,31 +148,16 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           SOURCE_SHA="$(git rev-parse "$TAG^{commit}")"
-          git fetch origin nixos-manifest || true
-          WORKTREE="$(mktemp -d)"
-          if git show-ref --verify --quiet refs/remotes/origin/nixos-manifest; then
-            git worktree add "$WORKTREE" refs/remotes/origin/nixos-manifest
-          else
-            git worktree add --detach "$WORKTREE"
-            find "$WORKTREE" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          fi
 
-          python3 .github/scripts/update_manifest.py release \
-            --manifest "$WORKTREE/update-manifest.json" \
-            --repository "${{ github.repository }}" \
-            --sha "$SOURCE_SHA" \
-            --tag "$TAG" \
-            --version "${{ inputs.version }}" \
-            --release-type "${{ inputs.type }}" \
-            --store-path "$STORE_PATH" \
-            --title "PiFinder $TAG" \
-            --notes "$RELEASE_NOTES"
-
-          git -C "$WORKTREE" checkout -B nixos-manifest
-          git -C "$WORKTREE" add update-manifest.json
-          if git -C "$WORKTREE" diff --staged --quiet; then
-            echo "Manifest unchanged"
-          else
-            git -C "$WORKTREE" commit -m "chore: update release manifest [skip ci]"
-            git -C "$WORKTREE" push origin HEAD:nixos-manifest
-          fi
+          .github/scripts/publish_manifest.sh \
+            "chore: update release manifest [skip ci]" \
+            python3 .github/scripts/update_manifest.py release \
+              --manifest @MANIFEST@ \
+              --repository "${{ github.repository }}" \
+              --sha "$SOURCE_SHA" \
+              --tag "$TAG" \
+              --version "${{ inputs.version }}" \
+              --release-type "${{ inputs.type }}" \
+              --store-path "$STORE_PATH" \
+              --title "PiFinder $TAG" \
+              --notes "$RELEASE_NOTES"
