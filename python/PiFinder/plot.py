@@ -9,7 +9,6 @@ import logging
 import os
 import datetime
 import numpy as np
-import pandas
 from pathlib import Path
 from PiFinder import utils
 from PIL import Image, ImageDraw, ImageChops
@@ -37,6 +36,8 @@ def _load_raw_stars():
     global _RAW_STARS_DF
     if _RAW_STARS_DF is not None:
         return _RAW_STARS_DF
+
+    import pandas
 
     dat_path = Path(utils.astro_data_dir, "hip_main.dat")
     cache_dir = Path(utils.data_dir, "cache")
@@ -189,6 +190,8 @@ class Starfield:
         """
         # Skyfield needs a DataFrame to build the Star; rotate/screen-space
         # math is scalar numpy/python after that point.
+        import pandas
+
         marker_df = pandas.DataFrame(
             {
                 "ra_hours": [Angle(degrees=ra)._hours],
@@ -222,6 +225,8 @@ class Starfield:
 
         if not marker_list:
             return ret_image
+
+        import pandas
 
         # Skyfield needs a DataFrame to build Star objects. Build the
         # smallest one possible and drop pandas after that point; the per-
@@ -312,6 +317,8 @@ class Starfield:
         vertices: list of [ra_deg, dec_deg] pairs.
         Returns list of (x, y) screen tuples.
         """
+        import pandas
+
         rows = [(Angle(degrees=ra)._hours, dec) for ra, dec in vertices]
         df = pandas.DataFrame(rows, columns=["ra_hours", "dec_degrees"])
         df["epoch_year"] = 1991.25
@@ -426,9 +433,9 @@ class Starfield:
             # Keep edges where at least one endpoint is on-screen.
             start_on = (sx_pos > 0) & (sx_pos < W) & (sy_pos > 0) & (sy_pos < H)
             end_on = (ex_pos > 0) & (ex_pos < W) & (ey_pos > 0) & (ey_pos < H)
-            for i in np.flatnonzero(start_on | end_on):
+            for edge_i in np.flatnonzero(start_on | end_on):
                 idraw.line(
-                    [sx_pos[i], sy_pos[i], ex_pos[i], ey_pos[i]],
+                    [sx_pos[edge_i], sy_pos[edge_i], ex_pos[edge_i], ey_pos[edge_i]],
                     fill=constellation_brightness,
                 )
 

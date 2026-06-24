@@ -969,11 +969,6 @@ def main(
 if __name__ == "__main__":
     import sys
 
-    # Ensure the active log config symlink exists, defaulting to logconf_default.json
-    _logconf_link = Path("pifinder_logconf.json")
-    if not _logconf_link.exists():
-        _logconf_link.symlink_to("logconf_default.json")
-
     debug_no_file_logs = "--debug-no-file-logs" in sys.argv
     if debug_no_file_logs:
         os.environ["PIFINDER_DEBUG_NO_FILE_LOGS"] = "1"
@@ -984,13 +979,13 @@ if __name__ == "__main__":
     rlogger.setLevel(logging.DEBUG if debug_no_file_logs else logging.INFO)
 
     if debug_no_file_logs:
-        log_helper = MultiprocLogging(Path("pifinder_logconf.json"), console_only=True)
+        log_helper = MultiprocLogging(utils.active_logconf_path(), console_only=True)
         MultiprocLogging.configurer(log_helper.get_queue())
     else:
         log_path = utils.data_dir / "pifinder.log"
         try:
             log_helper = MultiprocLogging(
-                Path("pifinder_logconf.json"),
+                utils.active_logconf_path(),
                 log_path,
             )
             MultiprocLogging.configurer(log_helper.get_queue())

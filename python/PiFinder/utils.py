@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Optional
 import importlib
 
+logger = logging.getLogger("Utils")
+
 
 home_dir = Path.home()
 # Repo root, anchored on this file (python/PiFinder/utils.py) so paths
@@ -15,12 +17,70 @@ home_dir = Path.home()
 pifinder_dir = Path(__file__).resolve().parents[2]
 assert (pifinder_dir / "astro_data").is_dir(), f"repo root not at {pifinder_dir}"
 astro_data_dir = pifinder_dir / "astro_data"
-tetra3_dir = pifinder_dir / "python/PiFinder/tetra3/tetra3"
+tetra3_dir = pifinder_dir / "python/PiFinder/tetra3"
 data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
 observations_db = data_dir / "observations.db"
+build_json = pifinder_dir / "pifinder-build.json"
+current_build_json = Path("/var/lib/pifinder/current-build.json")
+
+
+def get_version() -> str:
+    for source in (current_build_json, build_json):
+        try:
+            with open(source, "r") as f:
+                version = json.load(f).get("version")
+                if version:
+                    return version
+        except (FileNotFoundError, IOError, json.JSONDecodeError):
+            pass
+    return "Unknown"
+
+
 debug_dump_dir = data_dir / "solver_debug_dumps"
-comet_file = astro_data_dir / Path("comets.txt")
+comet_file = data_dir / "comets.txt"
+
+# Logging-config presets ship read-only in the source tree; the user's active
+# selection is persisted in the writable data dir (like config.json), stored as
+# a bare filename so it survives upgrades (no immutable store path is baked in).
+logconf_dir = pifinder_dir / "python"
+_active_logconf_file = data_dir / "log_config"
+DEFAULT_LOGCONF = "logconf_default.json"
+
+
+def _valid_logconf_name(name: str) -> bool:
+    return (
+        name.startswith("logconf_")
+        and name.endswith(".json")
+        and (logconf_dir / name).is_file()
+    )
+
+
+def active_logconf_name() -> str:
+    """Name of the active logging-config preset (defaults to logconf_default.json)."""
+    try:
+        name = _active_logconf_file.read_text().strip()
+    except OSError:
+        return DEFAULT_LOGCONF
+    return name if _valid_logconf_name(name) else DEFAULT_LOGCONF
+
+
+def active_logconf_path() -> Path:
+    """Absolute path to the active logging-config file in the source tree."""
+    return logconf_dir / active_logconf_name()
+
+
+def available_logconfs() -> list:
+    """Sorted bare filenames of the available logconf_*.json presets."""
+    return sorted(p.name for p in logconf_dir.glob("logconf_*.json"))
+
+
+def set_active_logconf(name: str) -> None:
+    """Persist the chosen logging-config preset name to the writable data dir."""
+    if not _valid_logconf_name(name):
+        raise ValueError(f"Invalid log config: {name}")
+    _active_logconf_file.parent.mkdir(parents=True, exist_ok=True)
+    _active_logconf_file.write_text(name + "\n")
 
 
 def create_dir(adir: str):
@@ -168,22 +228,15 @@ def serialize_solution(solution) -> str:
 
 
 def get_sys_utils():
-    # Check if we should use fake sys_utils for local development
-    use_fake = os.environ.get("PIFINDER_USE_FAKE_SYS_UTILS", "").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
-
-    if use_fake:
-        sys_utils = importlib.import_module("PiFinder.sys_utils_fake")
-    else:
-        try:
-            # Attempt to import the real sys_utils
-            sys_utils = importlib.import_module("PiFinder.sys_utils")
-        except ImportError:
-            sys_utils = importlib.import_module("PiFinder.sys_utils_fake")
-    return sys_utils
+    try:
+        return importlib.import_module("PiFinder.sys_utils")
+    except Exception:
+        logger.warning(
+            "PiFinder.sys_utils failed to import; falling back to the no-op "
+            "fake. WiFi/AP/hostname/reboot controls will not work.",
+            exc_info=True,
+        )
+        return importlib.import_module("PiFinder.sys_utils_fake")
 
 
 def get_os_info():

@@ -358,12 +358,12 @@ class TestIntegratorDrift:
 
         # Stationary scope with 1 arcsec noise: drift should be tiny
         # Baseline: ~0 arcsec (noise below measurement precision)
-        assert (
-            mean_error < 5
-        ), f"Stationary mean drift {mean_error:.1f} arcsec exceeds 5 arcsec threshold"
-        assert (
-            max_error < 10
-        ), f"Stationary max drift {max_error:.1f} arcsec exceeds 10 arcsec threshold"
+        assert mean_error < 5, (
+            f"Stationary mean drift {mean_error:.1f} arcsec exceeds 5 arcsec threshold"
+        )
+        assert max_error < 10, (
+            f"Stationary max drift {max_error:.1f} arcsec exceeds 10 arcsec threshold"
+        )
 
     def test_slew_tracking_accuracy(self):
         """
@@ -380,9 +380,9 @@ class TestIntegratorDrift:
 
         # With 5 arcsec/s drift and 3s solve intervals, accumulated drift
         # between solves is bounded. Baseline: mean ~6, max ~13 arcsec.
-        assert (
-            mean_error < 15
-        ), f"Slew mean drift {mean_error:.1f} arcsec exceeds 15 arcsec threshold"
+        assert mean_error < 15, (
+            f"Slew mean drift {mean_error:.1f} arcsec exceeds 15 arcsec threshold"
+        )
 
         # Verify errors don't grow without bound across the session
         if len(errors) >= 20:
