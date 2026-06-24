@@ -1,0 +1,119 @@
+name: Lint & Test
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          # tetra3/cedar-solve is a git submodule, surfaced to PiFinder through
+          # the python/tetra3 symlink. Without checking it out the symlink
+          # dangles and the type-check/test jobs fail before any real work
+          # (mypy "Cannot read file 'tetra3'", pytest "No module named tetra3").
+          submodules: recursive
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
+          # Pull from the public Attic cache without a token (works on fork PRs).
+          extra-conf: |
+            extra-substituters = https://cache.pifinder.eu/pifinder
+            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+      - name: Setup Attic substituter (cache.pifinder.eu)
+        # Self-hosted FastCDC-chunked binary cache (ADR 0004), same as build.yml.
+        # Replaces the retired DeterminateSystems magic-nix-cache (HTTP 418 /
+        # GitHub Actions cache rate limits). Falls back to cache.nixos.org when
+        # the token is unavailable (e.g. fork PRs) so the job never hard-fails.
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          if [ -z "$ATTIC_TOKEN" ]; then
+            echo "ATTIC_TOKEN unavailable — using cache.nixos.org only"
+            exit 0
+          fi
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
+      - name: Lint
+        run: nix develop --command bash -c "cd python && ruff check"
+      - name: Format check
+        run: nix develop --command bash -c "cd python && ruff format --check"
+      - name: Check for removed config keys
+        if: github.event_name == 'pull_request'
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          git show "$BASE_SHA:default_config.json" 2>/dev/null \
+            | python3 -c "import json,sys; print('\n'.join(sorted(json.load(sys.stdin).keys())))" \
+            > /tmp/base_keys.txt || exit 0
+          python3 -c "import json,sys; print('\n'.join(sorted(json.load(sys.stdin).keys())))" \
+            < default_config.json > /tmp/head_keys.txt
+          REMOVED=$(comm -23 /tmp/base_keys.txt /tmp/head_keys.txt)
+          if [ -n "$REMOVED" ]; then
+            while IFS= read -r key; do
+              echo "::warning file=default_config.json::Config key '$key' was removed — this may break user preferences across release switches"
+            done <<< "$REMOVED"
+          fi
+
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
+          # Pull from the public Attic cache without a token (works on fork PRs).
+          extra-conf: |
+            extra-substituters = https://cache.pifinder.eu/pifinder
+            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+      - name: Setup Attic substituter (cache.pifinder.eu)
+        # Self-hosted FastCDC-chunked binary cache (ADR 0004), same as build.yml.
+        # Replaces the retired DeterminateSystems magic-nix-cache (HTTP 418 /
+        # GitHub Actions cache rate limits). Falls back to cache.nixos.org when
+        # the token is unavailable (e.g. fork PRs) so the job never hard-fails.
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          if [ -z "$ATTIC_TOKEN" ]; then
+            echo "ATTIC_TOKEN unavailable — using cache.nixos.org only"
+            exit 0
+          fi
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
+      - name: Type check
+        run: nix develop --command bash -c "cd python && mypy --install-types --non-interactive ."
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
+          # Pull from the public Attic cache without a token (works on fork PRs).
+          extra-conf: |
+            extra-substituters = https://cache.pifinder.eu/pifinder
+            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+      - name: Setup Attic substituter (cache.pifinder.eu)
+        # Self-hosted FastCDC-chunked binary cache (ADR 0004), same as build.yml.
+        # Replaces the retired DeterminateSystems magic-nix-cache (HTTP 418 /
+        # GitHub Actions cache rate limits). Falls back to cache.nixos.org when
+        # the token is unavailable (e.g. fork PRs) so the job never hard-fails.
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          if [ -z "$ATTIC_TOKEN" ]; then
+            echo "ATTIC_TOKEN unavailable — using cache.nixos.org only"
+            exit 0
+          fi
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
+      - name: Smoke tests
+        run: nix develop --command bash -c "cd python && pytest -m smoke"
+      - name: Unit tests
+        run: nix develop --command bash -c "cd python && pytest -m unit"

@@ -10,6 +10,7 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - [Equipment](./docs/ax/equipment/CONTEXT.md) — models the user's telescopes and eyepieces; supplies the active optics that drive magnification, true field of view, and object-image orientation.
 - [UI](./docs/ax/ui/CONTEXT.md) — the on-device menu system: menu tree, screen modules, the navigation stack and key dispatch, marking menus.
 - [Camera](./docs/ax/camera/CONTEXT.md) — captures frames and decides exposure: the three exposure regimes, the auto-exposure controllers, and zero-match recovery.
+- [NixOS](./docs/ax/nixos/CONTEXT.md) — how a NixOS PiFinder is built, published, and updated over the air: the Attic cache, the stable/beta/unstable channels, and the on-device upgrade flow. Cross-cutting infrastructure, not a runtime slice.
 
 ## Relationships
 
@@ -28,3 +29,4 @@ Companion architecture docs live next to each `CONTEXT.md`:
 - [`docs/ax/equipment.md`](./docs/ax/equipment.md)
 - [`docs/ax/ui.md`](./docs/ax/ui.md)
 - [`docs/ax/camera.md`](./docs/ax/camera.md)
+- [`docs/ax/nixos.md`](./docs/ax/nixos.md)

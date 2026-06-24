@@ -584,6 +584,18 @@ def main(
         _new_filter = CatalogFilter(shared_state=shared_state)
         _new_filter.load_from_config(cfg)
         catalogs.set_catalog_filter(_new_filter)
+
+        # Initialize Gaia chart generator in background to avoid first-use delay
+        console.write("   Gaia Charts")
+        console.update()
+        logger.info("   Initializing Gaia chart generator...")
+        from PiFinder.object_images.gaia_chart import get_gaia_chart_generator
+
+        chart_gen = get_gaia_chart_generator(cfg, shared_state)
+        # Trigger background loading so catalog is ready when needed
+        chart_gen.ensure_catalog_loading()
+        logger.info("   Gaia chart background loading started")
+
         console.write("   Menus")
         console.update()
 
@@ -621,6 +633,7 @@ def main(
             pygame_key_map, pygame_ctrl_key_map = _build_pygame_keymaps()
 
         log_time = True
+
         # Start of main except handler / loop
         try:
             while True:
@@ -727,6 +740,9 @@ def main(
                             shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
+
+                # Gaia catalog loading removed - now lazy-loads on first chart view
+                # (object_images triggers loading when needed)
 
                 # ui queue
                 try:
@@ -969,11 +985,6 @@ def main(
 if __name__ == "__main__":
     import sys
 
-    # Ensure the active log config symlink exists, defaulting to logconf_default.json
-    _logconf_link = Path("pifinder_logconf.json")
-    if not _logconf_link.exists():
-        _logconf_link.symlink_to("logconf_default.json")
-
     debug_no_file_logs = "--debug-no-file-logs" in sys.argv
     if debug_no_file_logs:
         os.environ["PIFINDER_DEBUG_NO_FILE_LOGS"] = "1"
@@ -984,13 +995,13 @@ if __name__ == "__main__":
     rlogger.setLevel(logging.DEBUG if debug_no_file_logs else logging.INFO)
 
     if debug_no_file_logs:
-        log_helper = MultiprocLogging(Path("pifinder_logconf.json"), console_only=True)
+        log_helper = MultiprocLogging(utils.active_logconf_path(), console_only=True)
         MultiprocLogging.configurer(log_helper.get_queue())
     else:
         log_path = utils.data_dir / "pifinder.log"
         try:
             log_helper = MultiprocLogging(
-                Path("pifinder_logconf.json"),
+                utils.active_logconf_path(),
                 log_path,
             )
             MultiprocLogging.configurer(log_helper.get_queue())
@@ -1148,13 +1159,18 @@ if __name__ == "__main__":
         rlogger.warn("not using camera")
         from PiFinder import camera_none as camera  # type: ignore[no-redef]
 
-    if args.keyboard.lower() == "pi":
-        from PiFinder import keyboard_pi as keyboard
+    # When using Pygame display, use built-in event polling (no keyboard subprocess needed)
+    if display_hardware in ["pg_128", "pg_320"]:
+        from PiFinder import keyboard_none as keyboard
+
+        rlogger.info("using pygame built-in keyboard (no subprocess)")
+    elif args.keyboard.lower() == "pi":
+        from PiFinder import keyboard_pi as keyboard  # type: ignore[no-redef]
 
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
         if display_hardware.startswith("pg_"):
-            from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
+            from PiFinder import keyboard_none as keyboard
 
             rlogger.info("using pygame keyboard (main loop captures keys)")
         else:
@@ -1162,7 +1178,7 @@ if __name__ == "__main__":
 
             rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
-        from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
+        from PiFinder import keyboard_none as keyboard
 
         rlogger.warning("using no keyboard")
 

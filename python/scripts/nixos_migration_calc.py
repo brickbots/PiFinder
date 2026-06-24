@@ -219,10 +219,7 @@ def main():
     print(f"WiFi Mode:  {checks['wifi_mode']}")
     print(f"  Client:   {'OK' if checks['wifi_ok'] else 'FAIL'}")
     print(f"Display:    {checks['display_class']} {checks['display_resolution']}")
-    print(
-        f"  initramfs renderer supported: "
-        f"{'OK' if checks['display_ok'] else 'FAIL'}"
-    )
+    print(f"  initramfs renderer supported: {'OK' if checks['display_ok'] else 'FAIL'}")
     print(f"Root:       {checks['root_source'] or 'Unknown'}")
     print(f"Partitions: {checks['partition_count']} on {SD_DISK}")
     print(

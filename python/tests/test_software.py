@@ -1,56 +1,12 @@
-from unittest.mock import patch, MagicMock
-
 import pytest
-import requests
+from unittest.mock import MagicMock, patch
 
 from PiFinder.ui.software import (
-    update_needed,
+    _fetch_update_manifest,
     _strip_markdown,
-    _fetch_migration_config,
-    _UNLOCK_SEQUENCE,
+    UPDATE_MANIFEST_URL,
+    UISoftware,
 )
-
-
-_NIXOS_URL = "https://example.invalid/pifinder-nixos.tar.zst"
-
-
-@pytest.mark.unit
-class TestUpdateNeeded:
-    def test_newer_version_available(self):
-        assert update_needed("2.3.0", "2.4.0") is True
-
-    def test_same_version(self):
-        assert update_needed("2.4.0", "2.4.0") is False
-
-    def test_older_version(self):
-        assert update_needed("2.5.0", "2.4.0") is False
-
-    def test_major_version_bump(self):
-        assert update_needed("1.9.9", "2.0.0") is True
-
-    def test_patch_bump(self):
-        assert update_needed("2.4.0", "2.4.1") is True
-
-    def test_garbage_input_returns_true(self):
-        assert update_needed("garbage", "2.4.0") is True
-
-    def test_empty_string_returns_true(self):
-        assert update_needed("", "") is True
-
-    def test_partial_version_returns_true(self):
-        assert update_needed("2.4", "2.5.0") is True
-
-    def test_unknown_returns_true(self):
-        assert update_needed("2.4.0", "Unknown") is True
-
-
-@pytest.mark.unit
-class TestUnlockSequence:
-    def test_sequence_length(self):
-        assert len(_UNLOCK_SEQUENCE) == 7
-
-    def test_sequence_content(self):
-        assert _UNLOCK_SEQUENCE == ["square"] * 7
 
 
 @pytest.mark.unit
@@ -82,70 +38,183 @@ class TestStripMarkdown:
         assert "**" not in result
 
 
-def _mock_json_response(payload, status_code=200):
-    resp = MagicMock()
-    resp.status_code = status_code
-    resp.json.return_value = payload
-    return resp
+@pytest.mark.unit
+class TestFetchUpdateManifest:
+    @patch("PiFinder.ui.software.requests.get")
+    def test_parses_manifest_channels(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = {
+            "schema": 1,
+            "channels": {
+                "stable": [
+                    {
+                        "kind": "release",
+                        "label": "v3.1.0",
+                        "title": "PiFinder v3.1.0",
+                        "version": "3.1.0",
+                        "store_path": "/nix/store/aaa-nixos-system-pifinder",
+                        "available": True,
+                    }
+                ],
+                "beta": [],
+                "unstable": [
+                    {
+                        "kind": "trunk",
+                        "label": "nixos-abc1234",
+                        "title": "nixos branch",
+                        "version": "nixos-abc1234",
+                        "store_path": "/nix/store/bbb-nixos-system-pifinder",
+                        "available": True,
+                    },
+                    {
+                        "kind": "pr",
+                        "label": "PR#42-def5678",
+                        "title": "Fix star matching algorithm",
+                        "version": "PR#42-def5678",
+                        "store_path": "/nix/store/ccc-nixos-system-pifinder",
+                        "available": True,
+                    },
+                ],
+            },
+        }
+        mock_get.return_value = mock_resp
 
+        channels = _fetch_update_manifest()
 
-def _mock_invalid_json_response(status_code=200):
-    resp = MagicMock()
-    resp.status_code = status_code
-    resp.json.side_effect = ValueError("not json")
-    return resp
+        assert channels["stable"][0]["ref"] == "/nix/store/aaa-nixos-system-pifinder"
+        assert channels["stable"][0]["channel"] == "stable"
+        assert channels["unstable"][0]["is_trunk"] is True
+        assert channels["unstable"][1]["label"] == "PR#42-def5678"
+        mock_get.assert_called_once_with(UPDATE_MANIFEST_URL, timeout=10)
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_unavailable_manifest_entry_has_no_ref(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = {
+            "schema": 1,
+            "channels": {
+                "stable": [],
+                "beta": [],
+                "unstable": [
+                    {
+                        "kind": "trunk",
+                        "label": "main",
+                        "title": "main branch",
+                        "version": "main",
+                        "store_path": None,
+                        "available": False,
+                        "reason": "no build",
+                    }
+                ],
+            },
+        }
+        mock_get.return_value = mock_resp
+
+        channels = _fetch_update_manifest()
+
+        entry = channels["unstable"][0]
+        assert entry["ref"] is None
+        assert entry["unavailable"] is True
+        assert entry["subtitle"] == "main branch (no build)"
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_invalid_store_path_is_unavailable(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = {
+            "schema": 1,
+            "channels": {
+                "stable": [],
+                "beta": [],
+                "unstable": [
+                    {
+                        "kind": "pr",
+                        "label": "PR#42-abcdef0",
+                        "title": "Bad build",
+                        "version": "PR#42-abcdef0",
+                        "store_path": "not-a-store-path",
+                        "available": True,
+                    }
+                ],
+            },
+        }
+        mock_get.return_value = mock_resp
+
+        channels = _fetch_update_manifest()
+
+        entry = channels["unstable"][0]
+        assert entry["ref"] is None
+        assert entry["unavailable"] is True
+        assert entry["subtitle"] == "Bad build (invalid build)"
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_rejects_unknown_schema(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = {"schema": 99, "channels": {}}
+        mock_get.return_value = mock_resp
+
+        with pytest.raises(ValueError):
+            _fetch_update_manifest()
 
 
 @pytest.mark.unit
-class TestFetchMigrationConfig:
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_dict_when_gate_open_and_url_set(self, mock_get):
-        payload = {"nixos_for_everyone": True, "nixos_url": _NIXOS_URL}
-        mock_get.return_value = _mock_json_response(payload)
-        assert _fetch_migration_config() == payload
+def test_unstable_list_keeps_current_trunk_entry_visible():
+    ui = UISoftware.__new__(UISoftware)
+    ui._channel_names = ["unstable"]
+    ui._channel_index = 0
+    ui._software_version = "nixos-current"
+    ui._channels = {
+        "unstable": [
+            {"label": "nixos-current", "version": "nixos-current", "is_trunk": True},
+            {"label": "PR#1-abcdef0", "version": "PR#1-abcdef0"},
+        ]
+    }
 
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_dict_when_gate_closed_but_url_set(self, mock_get):
-        # Gate check is the caller's job; fetch only requires nixos_url.
-        payload = {"nixos_for_everyone": False, "nixos_url": _NIXOS_URL}
-        mock_get.return_value = _mock_json_response(payload)
-        assert _fetch_migration_config() == payload
+    ui._refresh_version_list()
 
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_when_url_missing(self, mock_get):
-        mock_get.return_value = _mock_json_response({"nixos_for_everyone": True})
-        assert _fetch_migration_config() is None
+    assert [entry["label"] for entry in ui._version_list] == [
+        "nixos-current",
+        "PR#1-abcdef0",
+    ]
 
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_when_url_empty(self, mock_get):
-        mock_get.return_value = _mock_json_response(
-            {"nixos_for_everyone": True, "nixos_url": ""}
-        )
-        assert _fetch_migration_config() is None
 
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_on_http_error(self, mock_get):
-        mock_get.return_value = _mock_json_response(
-            {"nixos_for_everyone": True, "nixos_url": _NIXOS_URL}, status_code=404
-        )
-        assert _fetch_migration_config() is None
+@pytest.mark.unit
+def test_stable_list_filters_current_version():
+    ui = UISoftware.__new__(UISoftware)
+    ui._channel_names = ["stable"]
+    ui._channel_index = 0
+    ui._software_version = "nixos-current"
+    ui._channels = {
+        "stable": [
+            {"label": "nixos-current", "version": "nixos-current"},
+            {"label": "nixos-next", "version": "nixos-next"},
+        ]
+    }
 
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_on_connection_error(self, mock_get):
-        mock_get.side_effect = requests.exceptions.ConnectionError
-        assert _fetch_migration_config() is None
+    ui._refresh_version_list()
 
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_on_timeout(self, mock_get):
-        mock_get.side_effect = requests.exceptions.Timeout
-        assert _fetch_migration_config() is None
+    assert [entry["label"] for entry in ui._version_list] == ["nixos-next"]
 
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_on_malformed_json(self, mock_get):
-        mock_get.return_value = _mock_invalid_json_response()
-        assert _fetch_migration_config() is None
 
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_when_payload_is_not_object(self, mock_get):
-        mock_get.return_value = _mock_json_response(["nixos_for_everyone"])
-        assert _fetch_migration_config() is None
+@pytest.mark.unit
+def test_unavailable_version_has_no_install_option():
+    ui = UISoftware.__new__(UISoftware)
+    ui._phase = "browse"
+    ui._focus = "list"
+    ui._list_index = 0
+    ui._version_list = [
+        {
+            "label": "main",
+            "version": "main",
+            "subtitle": "main branch (no build)",
+            "unavailable": True,
+        }
+    ]
+
+    ui.key_right()
+
+    assert ui._phase == "confirm"
+    assert ui._confirm_options == ["Cancel"]

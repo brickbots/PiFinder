@@ -126,7 +126,7 @@ class MenuManager:
         self._stack_anim_counter: float = 0
         self._stack_anim_direction: int = 0
 
-        self.stack: list[type[UIModule]] = []
+        self.stack: list[UIModule] = []
         self.add_to_stack(menu_structure.pifinder_menu)
 
         self.marking_menu_stack: list[MarkingMenu] = []
@@ -150,7 +150,7 @@ class MenuManager:
 
     def screengrab(self):
         self.ss_count += 1
-        filename = f"{self.stack[-1].__uuid__}_{self.ss_count :0>3}_{self.stack[-1].title.replace('/','-')}"
+        filename = f"{self.stack[-1].__uuid__}_{self.ss_count:0>3}_{self.stack[-1].title.replace('/', '-')}"
         ss_imagepath = self.ss_path + f"/{filename}.png"
         ss = self.shared_state.screen().copy()
         ss.save(ss_imagepath)
@@ -159,9 +159,9 @@ class MenuManager:
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
             self._stack_top_image = self.stack[-1].screen.copy()
-            self.stack[-1].inactive()  # type: ignore[call-arg]
+            self.stack[-1].inactive()
             self.stack.pop()
-            self.stack[-1].active()  # type: ignore[call-arg]
+            self.stack[-1].active()
             self._stack_anim_counter = time.time() + self.config_object.get_option(
                 "menu_anim_speed", 0
             )
@@ -195,7 +195,7 @@ class MenuManager:
         item dict
         """
         if item.get("state") is not None:
-            self.stack[-1].inactive()  # type: ignore[call-arg]
+            self.stack[-1].inactive()
             self.stack.append(item["state"])
         else:
             self.stack.append(
@@ -215,7 +215,7 @@ class MenuManager:
             if item.get("stateful", False):
                 item["state"] = self.stack[-1]
 
-        self.stack[-1].active()  # type: ignore[call-arg]
+        self.stack[-1].active()
         if len(self.stack) > 1:
             self._stack_anim_counter = time.time() + self.config_object.get_option(
                 "menu_anim_speed", 0
@@ -223,7 +223,7 @@ class MenuManager:
             self._stack_anim_direction = -1
 
     def message(self, message: str, timeout: float) -> None:
-        self.stack[-1].message(message, timeout)  # type: ignore[arg-type]
+        self.stack[-1].message(message, timeout)
 
     def jump_to_label(self, label: str) -> None:
         # to prevent many recent/object UI modules
@@ -235,7 +235,7 @@ class MenuManager:
             for stack_index, ui_module in enumerate(self.stack):
                 if ui_module.item_definition.get("label", "") == label:
                     self.stack = self.stack[: stack_index + 1]
-                    self.stack[-1].active()  # type: ignore[call-arg]
+                    self.stack[-1].active()
                     return
         # either this is not a special case, or we didn't find
         # the label already in the stack
@@ -290,7 +290,7 @@ class MenuManager:
             return
 
         # Business as usual, update the module at the top of the stack
-        self.stack[-1].update()  # type: ignore[call-arg]
+        self.stack[-1].update()
 
         # are we animating?
         if self._stack_anim_counter > time.time():
