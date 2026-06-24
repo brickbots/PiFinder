@@ -176,21 +176,27 @@ in {
       echo "Computing download size..."
       REL="https://cache.pifinder.eu/pifinder-release"
       DEV="https://cache.pifinder.eu/pifinder"
+      # Advisory only — wrapped in `set +e` with timeouts so a failing or slow
+      # cache query can never abort first-boot; on any failure TOTAL_BYTES stays
+      # 0 and the splash falls back to a path-count percentage.
       declare -A SIZE=()
       TOTAL_BYTES=0
+      set +e
       CACHE_JSON=$(
-        { nix path-info --json -r --store "$REL" "$STORE_PATH" 2>/dev/null
-          nix path-info --json -r --store "$DEV" "$STORE_PATH" 2>/dev/null
-        } | jq -s 'add // []'
-      )
+        { timeout 60 nix path-info --json -r --store "$REL" "$STORE_PATH" 2>/dev/null
+          timeout 60 nix path-info --json -r --store "$DEV" "$STORE_PATH" 2>/dev/null
+        } | jq -s 'add // []' 2>/dev/null)
+      [ -n "$CACHE_JSON" ] || CACHE_JSON='[]'
       while read -r p sz; do
         [ -z "$p" ] && continue
         [ -e "$p" ] && continue
         SIZE["$p"]=$sz
         TOTAL_BYTES=$((TOTAL_BYTES + sz))
       done < <(printf '%s' "$CACHE_JSON" \
-                 | jq -r '.[] | "\(.path) \(.downloadSize // .narSize // 0)"' | sort -u)
-      TOTAL_PATHS=$(nix-store --realise --dry-run "$STORE_PATH" 2>&1 | grep -c '^  /nix/store/' || true)
+                 | jq -r '.[] | "\(.path) \(.downloadSize // .narSize // 0)"' 2>/dev/null \
+                 | sort -u)
+      TOTAL_PATHS=$(nix-store --realise --dry-run "$STORE_PATH" 2>&1 | grep -c '^  /nix/store/')
+      set -e
       echo "Downloading full PiFinder system: $STORE_PATH ($TOTAL_BYTES bytes)"
 
       BYTES_DONE=0

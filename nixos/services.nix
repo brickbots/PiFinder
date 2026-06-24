@@ -400,53 +400,44 @@ in {
       fi
 
       echo "Upgrading to $STORE_PATH"
-      echo "downloading 0/0" > "$STATUS_FILE"
+      echo "downloading 0/0 paths" > "$STATUS_FILE"
 
-      # --- Availability + download size, up front --------------------------
-      # The device only substitutes prebuilt closures (the nix build below uses
-      # --max-jobs 0 and never compiles), so the closure must still live on a
-      # cache. One query to the caches answers both "is it still there?" and
-      # "how big is the download?".
       REL="https://cache.pifinder.eu/pifinder-release"
       DEV="https://cache.pifinder.eu/pifinder"
 
-      # If the target is on neither cache and not already local, the build has
-      # been removed — fail clearly up front instead of part-way down.
-      if [ ! -e "$STORE_PATH" ] \
-         && ! nix path-info --store "$REL" "$STORE_PATH" >/dev/null 2>&1 \
-         && ! nix path-info --store "$DEV" "$STORE_PATH" >/dev/null 2>&1; then
-        echo "unavailable" > "$STATUS_FILE"
-        echo "ERROR: $STORE_PATH not on any cache (no longer available)" >&2
-        exit 1
-      fi
-
-      # Per-path download sizes, merged from both caches (best-effort). Only
-      # paths not already local are actually fetched, so the total reflects the
-      # real download. If this comes back empty the reader falls back to counts.
+      # --- Best-effort download-size query (for a byte-accurate progress bar) -
+      # Advisory only: it must NEVER abort the upgrade. The single gate is the
+      # `nix build` below, and the system profile is changed only after it
+      # succeeds. So this runs under `set +e`, every cache call is timeout-
+      # bounded, and any failure (a cache missing the closure, jq absent, slow
+      # network) just leaves TOTAL_BYTES=0 — which makes the reader fall back to
+      # a path count. The device is unaffected either way.
       SIZES_FILE=/run/pifinder/upgrade-sizes
       : > "$SIZES_FILE"
       TOTAL_BYTES=0
+      set +e
       CACHE_JSON=$(
-        { nix path-info --json -r --store "$REL" "$STORE_PATH" 2>/dev/null
-          nix path-info --json -r --store "$DEV" "$STORE_PATH" 2>/dev/null
-        } | jq -s 'add // []'
-      )
+        { timeout 60 nix path-info --json -r --store "$REL" "$STORE_PATH" 2>/dev/null
+          timeout 60 nix path-info --json -r --store "$DEV" "$STORE_PATH" 2>/dev/null
+        } | jq -s 'add // []' 2>/dev/null)
+      [ -n "$CACHE_JSON" ] || CACHE_JSON='[]'
       while read -r p sz; do
         [ -z "$p" ] && continue
         [ -e "$p" ] && continue
         echo "$p $sz" >> "$SIZES_FILE"
         TOTAL_BYTES=$((TOTAL_BYTES + sz))
       done < <(printf '%s' "$CACHE_JSON" \
-                 | jq -r '.[] | "\(.path) \(.downloadSize // .narSize // 0)"' | sort -u)
+                 | jq -r '.[] | "\(.path) \(.downloadSize // .narSize // 0)"' 2>/dev/null \
+                 | sort -u)
+      set -e
       echo "pifinder-upgrade: $TOTAL_BYTES bytes to download"
 
-      # --- Download with progress -----------------------------------------
-      # Progress from nix's internal JSON stream (stable machine format). Each
-      # line is: @nix {"action":"start"|"stop",...,"id":N,"type":N,...}. type
-      # 100 = actCopyPath, one per store path fetched, text
-      # "copying path '/nix/store/...' from '...'". Map start id -> path, and on
-      # the matching stop add that path's size to the byte total (or, when no
-      # sizes were available, fall back to a path count, suffixed " paths").
+      # --- Download (the real gate) ---------------------------------------
+      # Progress from nix's internal JSON stream. type 100 = actCopyPath, one
+      # per store path fetched; map start id -> path and on the matching stop
+      # add that path's download size (bytes mode), or count paths when no sizes
+      # were available (" paths" suffix). A gawk hiccup can't fail the build:
+      # BUILD_RC comes from nix (PIPESTATUS[0]), not the progress reader.
       # Enum source: nix src/libutil/logging.hh ActivityType (stable since 2.4).
       UPGRADE_LOG=/run/pifinder/upgrade-nix.log
       set +e
@@ -479,10 +470,19 @@ in {
       BUILD_RC=''${PIPESTATUS[0]}
       set -e
       if [ "$BUILD_RC" -ne 0 ]; then
-        echo "failed" > "$STATUS_FILE"
-        # Surface the nix error rather than swallowing it in the progress pipe.
-        echo "pifinder-upgrade: nix build failed (rc=$BUILD_RC); tail of nix output:" >&2
-        tail -n 40 "$UPGRADE_LOG" >&2 2>/dev/null || true
+        # Distinguish "the build is gone from every cache" (e.g. a GC'd unstable
+        # build) from a generic failure, for a clearer message. Runs only after
+        # the build already failed, so it can never cause a false abort.
+        if [ ! -e "$STORE_PATH" ] \
+           && ! timeout 20 nix path-info --store "$REL" "$STORE_PATH" >/dev/null 2>&1 \
+           && ! timeout 20 nix path-info --store "$DEV" "$STORE_PATH" >/dev/null 2>&1; then
+          echo "unavailable" > "$STATUS_FILE"
+          echo "pifinder-upgrade: $STORE_PATH not on any cache (no longer available)" >&2
+        else
+          echo "failed" > "$STATUS_FILE"
+          echo "pifinder-upgrade: nix build failed (rc=$BUILD_RC); tail of nix output:" >&2
+          tail -n 40 "$UPGRADE_LOG" >&2 2>/dev/null || true
+        fi
         exit 1
       fi
 
