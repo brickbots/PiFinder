@@ -22,14 +22,19 @@ data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
 observations_db = data_dir / "observations.db"
 build_json = pifinder_dir / "pifinder-build.json"
+current_build_json = Path("/var/lib/pifinder/current-build.json")
 
 
 def get_version() -> str:
-    try:
-        with open(build_json, "r") as f:
-            return json.load(f).get("version", "Unknown")
-    except (FileNotFoundError, IOError, json.JSONDecodeError):
-        return "Unknown"
+    for source in (current_build_json, build_json):
+        try:
+            with open(source, "r") as f:
+                version = json.load(f).get("version")
+                if version:
+                    return version
+        except (FileNotFoundError, IOError, json.JSONDecodeError):
+            pass
+    return "Unknown"
 
 
 debug_dump_dir = data_dir / "solver_debug_dumps"

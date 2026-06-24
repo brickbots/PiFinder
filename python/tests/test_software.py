@@ -155,6 +155,15 @@ class TestFetchBuildJson:
         assert _fetch_build_json("v2.6.0") is None
 
     @patch("PiFinder.ui.software.requests.get")
+    def test_returns_none_on_invalid_store_path(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"store_path": "release", "version": "2.6.0"}
+        mock_get.return_value = mock_resp
+
+        assert _fetch_build_json("v2.6.0") is None
+
+    @patch("PiFinder.ui.software.requests.get")
     def test_returns_none_on_network_error(self, mock_get):
         import requests as req
 

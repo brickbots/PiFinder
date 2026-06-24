@@ -176,7 +176,7 @@ in {
       echo "Computing download size..."
       set +e
       TOTAL_PATHS=$(timeout 120 nix-store --realise --dry-run "$STORE_PATH" 2>&1 | grep -c '^  /nix/store/')
-      case "$TOTAL_PATHS" in ''|*[!0-9]*) TOTAL_PATHS=0 ;; esac
+      [ "$TOTAL_PATHS" -gt 0 ] 2>/dev/null || TOTAL_PATHS=0
       set -e
       echo "Downloading full PiFinder system: $STORE_PATH ($TOTAL_PATHS paths)"
 

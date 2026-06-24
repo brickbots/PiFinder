@@ -12,6 +12,7 @@ Uses:
 
 import os
 import re
+import json
 import subprocess
 import logging
 from pathlib import Path
@@ -466,13 +467,27 @@ UPGRADE_STATE_SUCCESS = "success"
 UPGRADE_STATE_FAILED = "failed"
 
 UPGRADE_REF_FILE = Path("/run/pifinder/upgrade-ref")
+UPGRADE_SELECTION_FILE = Path("/run/pifinder/upgrade-selection.json")
 UPGRADE_STATUS_FILE = Path("/run/pifinder/upgrade-status")
 
 
-def start_upgrade(ref: str = "release") -> bool:
+def _upgrade_service_state() -> str:
+    result = subprocess.run(
+        ["systemctl", "is-active", "pifinder-upgrade.service"],
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def start_upgrade(ref: str = "release", selection: Optional[dict] = None) -> bool:
     """Start pifinder-upgrade.service with a specific git ref."""
     try:
         UPGRADE_REF_FILE.write_text(ref)
+        if selection:
+            UPGRADE_SELECTION_FILE.write_text(json.dumps(selection, sort_keys=True))
+        else:
+            UPGRADE_SELECTION_FILE.unlink(missing_ok=True)
     except OSError as e:
         logger.error("Failed to write upgrade ref file: %s", e)
         return False
@@ -490,7 +505,10 @@ def start_upgrade(ref: str = "release") -> bool:
             "pifinder-upgrade.service",
         ]
     )
-    return result.returncode == 0
+    if result.returncode != 0:
+        UPGRADE_STATUS_FILE.write_text("failed")
+        return False
+    return True
 
 
 def get_upgrade_state() -> str:
@@ -499,8 +517,7 @@ def get_upgrade_state() -> str:
         status = UPGRADE_STATUS_FILE.read_text().strip()
     except FileNotFoundError:
         # Service hasn't written status yet — check if it's still starting
-        result = _run(["systemctl", "is-active", "pifinder-upgrade.service"])
-        svc = result.stdout.strip()
+        svc = _upgrade_service_state()
         if svc in ("activating", "active"):
             return UPGRADE_STATE_RUNNING
         if svc == "failed":
@@ -511,7 +528,11 @@ def get_upgrade_state() -> str:
         return UPGRADE_STATE_SUCCESS
     elif status in ("failed", "unavailable"):
         return UPGRADE_STATE_FAILED
-    elif status.startswith("downloading") or status in ("activating", "rebooting"):
+    elif status.startswith("downloading") or status in (
+        "starting",
+        "activating",
+        "rebooting",
+    ):
         return UPGRADE_STATE_RUNNING
     return UPGRADE_STATE_IDLE
 
@@ -520,8 +541,8 @@ def get_upgrade_progress() -> dict:
     """Return structured upgrade progress for UI display.
 
     Returns dict with keys:
-      phase: "downloading" | "activating" | "rebooting" | "success"
-             | "failed" | "unavailable" | ""
+      phase: "starting" | "downloading" | "activating" | "rebooting"
+             | "success" | "failed" | "unavailable" | ""
       done: int (downloaded so far, in `unit`)
       total: int (total to download, in `unit`)
       unit: "bytes" | "paths"
@@ -535,7 +556,17 @@ def get_upgrade_progress() -> dict:
     try:
         raw = UPGRADE_STATUS_FILE.read_text().strip()
     except FileNotFoundError:
+        svc = _upgrade_service_state()
+        if svc in ("activating", "active"):
+            return {**empty, "phase": "starting"}
+        if svc == "failed":
+            return {**empty, "phase": "failed"}
         return empty
+
+    svc = _upgrade_service_state()
+    if raw in ("starting", "activating") or raw.startswith("downloading "):
+        if svc in ("failed", "inactive"):
+            return {**empty, "phase": "failed"}
 
     if raw.startswith("downloading "):
         body = raw[len("downloading ") :].strip()
@@ -547,6 +578,7 @@ def get_upgrade_progress() -> dict:
         try:
             done, total = int(parts[0]), int(parts[1])
             pct = int(done * 100 / total) if total > 0 else 0
+            pct = max(0, min(100, pct))
             return {
                 "phase": "downloading",
                 "done": done,
@@ -556,6 +588,8 @@ def get_upgrade_progress() -> dict:
             }
         except (ValueError, IndexError):
             return {**empty, "phase": "downloading"}
+    if raw == "starting":
+        return {**empty, "phase": "starting"}
     if raw == "activating":
         return {**empty, "phase": "activating", "percent": 100}
     if raw == "rebooting":
@@ -586,13 +620,13 @@ def get_upgrade_log_tail(lines: int = 3) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
-def update_software(ref: str = "release") -> bool:
+def update_software(ref: str = "release", selection: Optional[dict] = None) -> bool:
     """Start the upgrade service (non-blocking).
 
     The service downloads, sets the boot profile, and reboots.
     UI should poll get_upgrade_progress() for status.
     """
-    return start_upgrade(ref=ref)
+    return start_upgrade(ref=ref, selection=selection)
 
 
 # ---------------------------------------------------------------------------

@@ -36,6 +36,7 @@ GITHUB_RAW_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}"
 MIN_NIXOS_VERSION = "3.0.0"
 REQUEST_TIMEOUT = 10
 _PR_VERSION_RE = re.compile(r"^PR#(\d+)-")
+_STORE_PATH_RE = re.compile(r"^/nix/store/[a-z0-9]+-[A-Za-z0-9._+=?,-]+$")
 
 
 def _parse_version(version_str: str) -> tuple:
@@ -85,7 +86,7 @@ def _fetch_build_json(ref: str) -> Optional[dict]:
         res = requests.get(url, timeout=REQUEST_TIMEOUT)
         if res.status_code == 200:
             data = res.json()
-            if data.get("store_path"):
+            if _STORE_PATH_RE.fullmatch(data.get("store_path", "")):
                 return data
     except (requests.exceptions.RequestException, ValueError):
         pass
@@ -128,6 +129,7 @@ def _fetch_github_releases() -> tuple[list[dict], list[dict]]:
                 "notes": release.get("body") or None,
                 "version": build.get("version", version),
                 "subtitle": release.get("name", tag),
+                "channel": "beta" if release.get("prerelease") else "stable",
             }
 
             if release.get("prerelease"):
@@ -181,6 +183,7 @@ def _fetch_testable_prs() -> list[dict]:
                     "notes": body,
                     "version": build.get("version"),
                     "subtitle": title,
+                    "channel": "unstable",
                 }
             )
 
@@ -204,6 +207,7 @@ def _fetch_main_entry() -> Optional[dict]:
         "notes": None,
         "version": build.get("version"),
         "subtitle": f"{TRUNK_BRANCH} branch",
+        "channel": "unstable",
         # The trunk build is rendered more prominently than the per-PR rows
         # in the unstable list (see _draw_browse).
         "is_trunk": True,
@@ -842,7 +846,13 @@ class UISoftware(UIModule):
         self.screen_update()
 
         ref = self._selected_version.get("ref") or "release"
-        if not sys_utils.update_software(ref=ref):
+        selection = {
+            "ref": ref,
+            "label": self._selected_version.get("label"),
+            "version": self._selected_version.get("version"),
+            "channel": self._selected_version.get("channel"),
+        }
+        if not sys_utils.update_software(ref=ref, selection=selection):
             self._phase = "failed"
             self._fail_option = "Retry"
 
@@ -871,6 +881,8 @@ class UISoftware(UIModule):
             label = _("Rebooting...")
         elif phase == "activating":
             label = _("Activating...")
+        elif phase == "starting":
+            label = _("Preparing...")
         else:
             label = _("Downloading...")
 

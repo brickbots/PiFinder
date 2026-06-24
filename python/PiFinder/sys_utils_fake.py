@@ -61,13 +61,13 @@ def shutdown() -> None:
     logger.info("SYS: Initiating Shutdown")
 
 
-def update_software(ref: str = "release"):
+def update_software(ref: str = "release", selection=None):
     logger.info("SYS: Running update (ref=%s)", ref)
     return True
 
 
 def get_upgrade_progress() -> dict:
-    return {"phase": "", "done": 0, "total": 0, "percent": 0}
+    return {"phase": "", "done": 0, "total": 0, "unit": "bytes", "percent": 0}
 
 
 def restart_pifinder() -> None:
