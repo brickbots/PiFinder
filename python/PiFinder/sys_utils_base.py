@@ -32,8 +32,16 @@ class NetworkBase(ABC):
     def get_host_name(self) -> str:
         return socket.gethostname()
 
+    def is_wired_connected(self) -> bool:
+        """True when a wired (ethernet) link is the active uplink. Overridden
+        on hardware; the base default assumes no wired link."""
+        return False
+
     def local_ip(self) -> str:
-        if self._wifi_mode == "AP":
+        # In AP mode the only address is the AP's own — unless an ethernet
+        # cable is plugged in, in which case the device is really reachable on
+        # the wired IP, so fall through to it.
+        if self._wifi_mode == "AP" and not self.is_wired_connected():
             return "10.10.10.1"
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
@@ -44,6 +52,19 @@ class NetworkBase(ABC):
         finally:
             s.close()
         return ip
+
+    def get_active_label(self) -> str:
+        """Label for the active uplink, for the status display: a wired link
+        wins (shown as 'Ethernet'), then the connected client SSID, then the
+        AP name; empty if nothing is up."""
+        if self.is_wired_connected():
+            return "Ethernet"
+        ssid = self.get_connected_ssid()
+        if ssid:
+            return ssid
+        if self.wifi_mode() == "AP":
+            return self.get_ap_name()
+        return ""
 
     def wifi_mode(self) -> str:
         return self._wifi_mode

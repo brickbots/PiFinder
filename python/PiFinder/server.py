@@ -238,7 +238,7 @@ class Server:
                 software_version=software_version,
                 wifi_mode=self.network.wifi_mode(),
                 ip=self.network.local_ip(),
-                network_name=self.network.get_connected_ssid(),
+                network_name=self.network.get_active_label(),
                 gps_icon=gps_icon,
                 gps_text=gps_text,
                 lat_text=lat_text,

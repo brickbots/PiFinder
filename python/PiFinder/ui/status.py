@@ -49,10 +49,6 @@ class UIStatus(UIModule):
             "CPU TMP": "--",
         }
 
-        with open(f"{utils.pifinder_dir}/wifi_status.txt", "r") as wfs:
-            wifi_mode = wfs.read()
-        self.status_dict["WIFI"] = "Client" if wifi_mode == "Client" else "AP"
-
         self.last_temp_time = 0
         self.last_IP_time = 0
         self.net = sys_utils.Network()
@@ -162,12 +158,11 @@ class UIStatus(UIModule):
 
         if time.time() - self.last_IP_time > 20:
             self.last_IP_time = time.time()
-            # IP address
+            # Live network state: WIFI radio mode, the reachable IP, and the
+            # active-uplink label (Ethernet when wired, else SSID / AP name).
+            self.status_dict["WIFI"] = self.net.wifi_mode()
             self.status_dict["IP"] = self.net.local_ip()
-            if self.net.wifi_mode() == "AP":
-                self.status_dict["SSID"] = self.net.get_ap_name()
-            else:
-                self.status_dict["SSID"] = self.net.get_connected_ssid()
+            self.status_dict["SSID"] = self.net.get_active_label()
 
     def update(self, force=False):
         self.update_status_dict()

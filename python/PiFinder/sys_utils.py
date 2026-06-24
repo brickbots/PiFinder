@@ -159,6 +159,19 @@ class Network(NetworkBase):
         self._wifi_mode = self._detect_wifi_mode()
         return self._wifi_mode
 
+    def is_wired_connected(self) -> bool:
+        """True if an ethernet device has an active connection."""
+        try:
+            for dev in self._client.get_devices():
+                if (
+                    dev.get_device_type() == NM.DeviceType.ETHERNET
+                    and dev.get_active_connection() is not None
+                ):
+                    return True
+        except Exception:
+            return False
+        return False
+
     def delete_wifi_network(self, network_id):
         """Delete a saved WiFi connection by its NetworkManager UUID.
 
