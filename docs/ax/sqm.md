@@ -31,7 +31,7 @@ operation. The UI process only reads cached results.
                                     └──► shared_state.set_noise_floor(float)
 
    shared_state.sqm()         ──► UI sqm.py
-   shared_state.noise_floor() ──► camera_interface ──► auto_exposure (SNR target)
+   shared_state.noise_floor() ──► camera_interface ──► background controller
 ```
 
 A second SQM call site lives inside the **calibration wizard**
@@ -218,9 +218,11 @@ small but not zero — see §7.
 and runs its own `sleep_for_framerate(shared_state)` (~30 Hz).
 
 `shared_state.set_noise_floor(float)` is read by the camera process
-(`camera_interface.py:252`) and forwarded to
-`auto_exposure.SNR_target_offset(noise_floor=...)` (`auto_exposure.py:728`)
-to set the minimum acceptable background for SNR-based exposure control.
+(`get_image_loop` in `camera_interface.py`) and forwarded to the
+background controller (`ExposureSNRController.update(..., noise_floor=...)`
+in `auto_exposure.py`) as the minimum acceptable background. The earlier
+name `SNR_target_offset` never existed; "SNR" survives only as the
+code/wire name — see [`camera.md`](./camera.md) §5.
 
 ---
 

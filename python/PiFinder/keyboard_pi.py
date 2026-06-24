@@ -17,7 +17,7 @@ logger = logging.getLogger("Keyboard.Pi")
 
 
 class KeyboardPi(KeyboardInterface):
-    def __init__(self, q, bloom_remap=False):
+    def __init__(self, q):
         self.q = q
 
         # GPIO pin numbers for the rows and columns of the keyboard matrix
@@ -30,55 +30,28 @@ class KeyboardPi(KeyboardInterface):
         self.power_press_time = 0
         self.power_sent = False
 
-        if bloom_remap:
-            _up = self.RIGHT
-            _down = self.LEFT
-            _left = self.UP
-            _right = self.DOWN
-            _lng_up = self.LNG_RIGHT
-            _lng_down = self.LNG_LEFT
-            _lng_left = self.LNG_UP
-            _lng_right = self.LNG_DOWN
-            _alt_up = self.ALT_RIGHT
-            _alt_down = self.ALT_LEFT
-            _alt_left = self.ALT_UP
-            _alt_right = self.ALT_DOWN
-        else:
-            _up = self.UP
-            _down = self.DOWN
-            _left = self.LEFT
-            _right = self.RIGHT
-            _lng_up = self.LNG_UP
-            _lng_down = self.LNG_DOWN
-            _lng_left = self.LNG_LEFT
-            _lng_right = self.LNG_RIGHT
-            _alt_up = self.ALT_UP
-            _alt_down = self.ALT_DOWN
-            _alt_left = self.ALT_LEFT
-            _alt_right = self.ALT_RIGHT
-
         # fmt: off
         self.keymap = [
-            7 , 8 , 9 , self.NA, _up,
-            4 , 5 , 6 , self.PLUS, _left,
-            1 , 2 , 3 , self.MINUS, _down,
-            self.NA, 0 , self.NA, self.SQUARE, _right,
-            _left, _up , _down , _right, self.SQUARE,
+            7 , 8 , 9 , self.NA, self.UP,
+            4 , 5 , 6 , self.PLUS, self.LEFT,
+            1 , 2 , 3 , self.MINUS, self.DOWN,
+            self.NA, 0 , self.NA, self.SQUARE, self.RIGHT,
+            self.LEFT, self.UP , self.DOWN , self.RIGHT, self.SQUARE,
         ]
         # If SQUARE is pressed together with key, ALT_<key> is sent
         self.alt_keymap = [
-            self.NA, self.NA, self.NA, self.NA, _alt_up,
-            self.NA, self.NA, self.NA, self.ALT_PLUS, _alt_left,
-            self.NA, self.NA, self.NA, self.ALT_MINUS, _alt_down,
-            self.NA, self.ALT_0, self.NA, self.NA, _alt_right,
-            _alt_left, _alt_up, _alt_down, _alt_right,  self.NA,
+            self.NA, self.NA, self.NA, self.NA, self.ALT_UP,
+            self.NA, self.NA, self.NA, self.ALT_PLUS, self.ALT_LEFT,
+            self.NA, self.NA, self.NA, self.ALT_MINUS, self.ALT_DOWN,
+            self.NA, self.ALT_0, self.NA, self.NA, self.ALT_RIGHT,
+            self.ALT_LEFT, self.ALT_UP, self.ALT_DOWN, self.ALT_RIGHT, self.NA,
         ]
         self.long_keymap = [
-            self.NA, self.NA, self.NA, self.NA, _lng_up,
-            self.NA, self.NA, self.NA, self.NA, _lng_left,
-            self.NA, self.NA, self.NA, self.NA, _lng_down,
-            self.NA, self.NA, self.NA, self.LNG_SQUARE, _lng_right,
-            _lng_left, _lng_up, _lng_down, _lng_right, self.LNG_SQUARE,
+            self.NA, self.NA, self.NA, self.NA, self.LNG_UP,
+            self.NA, self.NA, self.NA, self.NA, self.LNG_LEFT,
+            self.NA, self.NA, self.NA, self.NA, self.LNG_DOWN,
+            self.NA, self.NA, self.NA, self.LNG_SQUARE, self.LNG_RIGHT,
+            self.LNG_LEFT, self.LNG_UP, self.LNG_DOWN, self.LNG_RIGHT, self.LNG_SQUARE,
         ]
         # fmt: on
 
@@ -89,7 +62,7 @@ class KeyboardPi(KeyboardInterface):
             i for i, v in enumerate(self.keymap) if v == self.SQUARE
         }
         self.repeat_keycodes = {
-            i for i, v in enumerate(self.keymap) if v in (_up, _down)
+            i for i, v in enumerate(self.keymap) if v in (self.UP, self.DOWN)
         }
 
         # physical keyboard support init
@@ -205,7 +178,7 @@ class KeyboardPi(KeyboardInterface):
                 self.power_sent = False
 
 
-def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
+def run_keyboard(q, shared_state, log_queue):
     MultiprocLogging.configurer(log_queue)
-    keyboard = KeyboardPi(q, bloom_remap=bloom_remap)
+    keyboard = KeyboardPi(q)
     keyboard.run_keyboard(log_queue)

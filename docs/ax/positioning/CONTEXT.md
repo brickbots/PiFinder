@@ -98,7 +98,7 @@ The PiFinder process owning `solver.py`. It drives the plate-solve loop and is t
 _Avoid_: tetra3 (the library is one thing the solver process uses; they are not synonyms).
 
 **`SolveResult`**:
-The message the solver puts on `solver_queue` describing one plate-solve attempt. A union — `SolveResult = SuccessfulSolve | FailedSolve` — on which the integrator dispatches via `isinstance()` (mirroring `SolverCommand` / `AlignResponse`). It is a transport DTO, **not** the published record: only the integrator builds the canonical `PointingEstimate`, by applying a `SolveResult` onto its long-lived instance. Defined in `PiFinder/types/positioning.py`. See [`docs/adr/0003-solver-integrator-message.md`](../../adr/0003-solver-integrator-message.md).
+The message the solver puts on `solver_queue` describing one plate-solve attempt. A union — `SolveResult = SuccessfulSolve | FailedSolve` — on which the integrator dispatches via `isinstance()` (mirroring `SolverCommand` / `AlignResponse`). It is a transport DTO, **not** the published record: only the integrator builds the canonical `PointingEstimate`, by applying a `SolveResult` onto its long-lived instance. Defined in `PiFinder/types/positioning.py`. See [`docs/adr/0012-solver-integrator-message.md`](../../adr/0012-solver-integrator-message.md).
 _Avoid_: snapshot, solved dict, solution record.
 
 **`SuccessfulSolve`**:
@@ -106,7 +106,7 @@ The `SolveResult` variant carrying solve-truth: **flat** `camera` and `aligned` 
 _Avoid_: solved estimate, PointingEstimate (a `SuccessfulSolve` is not one).
 
 **`FailedSolve`**:
-The `SolveResult` variant for an attempt that produced no pointing: `SolveDiagnostics` (with `Matches=0`) plus `last_solve_attempt` / `last_solve_success`. Triggers the integrator to preserve its `solve` cells + anchor **and** its `estimate` cells, and set `solve_source=CAMERA_FAILED`. The estimate cells are **not** cleared: once anchored, the last (IMU-progressed) pointing stays published and `solve_state` stays true, while the IMU advance keeps progressing it. A failed solve only shows "no solve" before the first successful solve. See [ADR 0005](../../adr/0005-failed-solve-preserves-estimate.md).
+The `SolveResult` variant for an attempt that produced no pointing: `SolveDiagnostics` (with `Matches=0`) plus `last_solve_attempt` / `last_solve_success`. Triggers the integrator to preserve its `solve` cells + anchor **and** its `estimate` cells, and set `solve_source=CAMERA_FAILED`. The estimate cells are **not** cleared: once anchored, the last (IMU-progressed) pointing stays published and `solve_state` stays true, while the IMU advance keeps progressing it. A failed solve only shows "no solve" before the first successful solve. See [ADR 0014](../../adr/0014-failed-solve-preserves-estimate.md).
 _Avoid_: empty PointingEstimate, hollow estimate, clearing the estimate on failure (that caused the "reverts to no-solve while stationary" bug).
 
 ### Diagnostics
@@ -240,4 +240,4 @@ _Avoid_: align queue (singular — there are two).
 >
 > **Dev:** What if the solve fails right after alignment?
 >
-> **Domain:** The solver pushes a `FailedSolve`. The integrator preserves its `solve`-state cells (`pointing.camera.solve`, `pointing.aligned.solve`), the IMU anchor, **and** the `estimate` cells, and sets `solve_source=CAMERA_FAILED` on the published `PointingEstimate`. The last pointing stays published (so `solve_state` stays true) and the IMU advance keeps progressing it from dead-reckoning. Crucially the estimate is **not** cleared on failure: clearing it dropped to "no solve" whenever a solve failed while the IMU was in its deadband — see [ADR 0005](../../adr/0005-failed-solve-preserves-estimate.md). Auto-exposure still sees `diagnostics.Matches=0`, which is why the solver pushes on every attempt — success or failure.
+> **Domain:** The solver pushes a `FailedSolve`. The integrator preserves its `solve`-state cells (`pointing.camera.solve`, `pointing.aligned.solve`), the IMU anchor, **and** the `estimate` cells, and sets `solve_source=CAMERA_FAILED` on the published `PointingEstimate`. The last pointing stays published (so `solve_state` stays true) and the IMU advance keeps progressing it from dead-reckoning. Crucially the estimate is **not** cleared on failure: clearing it dropped to "no solve" whenever a solve failed while the IMU was in its deadband — see [ADR 0014](../../adr/0014-failed-solve-preserves-estimate.md). Auto-exposure still sees `diagnostics.Matches=0`, which is why the solver pushes on every attempt — success or failure.

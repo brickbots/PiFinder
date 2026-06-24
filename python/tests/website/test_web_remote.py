@@ -436,6 +436,52 @@ def test_remote_nav_right(driver):
 
 
 @pytest.mark.web
+def test_remote_sqm_top_level(driver):
+    """SQM is a top-level menu item, directly below Objects.
+
+    For the 2.6.0 release SQM moved out of Tools > Experimental onto the main
+    menu, one DOWN from Objects (root index 3).  Entering it opens the UISQM
+    screen.
+    """
+    login_to_remote(driver)
+
+    # Land on Objects in the root menu (double ZL: first wakes from sleep, second
+    # resets the stack to root; UUUUUU → Start, DD → Objects).
+    press_keys_and_validate(
+        driver,
+        "ZLZLUUUUUUDD",
+        expected_values={
+            "ui_type": "UITextMenu",
+            "title": "PiFinder",
+            "current_item": "Objects",
+        },
+    )
+
+    # D = SQM (root index 3, below Objects)
+    press_keys_and_validate(
+        driver,
+        "D",
+        expected_values={
+            "ui_type": "UITextMenu",
+            "title": "PiFinder",
+            "current_item": "SQM",
+        },
+    )
+
+    # R = enter the SQM screen
+    press_keys_and_validate(
+        driver,
+        "R",
+        expected_values={
+            "ui_type": "UISQM",
+            "title": "SQM",
+        },
+    )
+
+    press_keys(driver, "ZL")  # back to root
+
+
+@pytest.mark.web
 def test_remote_entry(driver):
     login_to_remote(driver)
 
@@ -451,7 +497,7 @@ def test_remote_entry(driver):
 
     press_keys_and_validate(
         driver,
-        "RDDDDR",
+        "RDDDDDR",
         expected_values={
             "ui_type": "UITextEntry",
             "title": "Search",
@@ -478,7 +524,7 @@ def test_remote_entry_digits(driver):
 
     press_keys_and_validate(
         driver,
-        "RDDDDR0123456789",
+        "RDDDDDR0123456789",
         expected_values={
             "ui_type": "UITextEntry",
             "title": "Search",

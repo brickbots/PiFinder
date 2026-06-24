@@ -3,7 +3,7 @@
 
 from pathlib import Path
 from PIL import ImageFont
-from PiFinder import config
+from PiFinder import config, utils
 
 
 class Font:
@@ -50,7 +50,7 @@ class Fonts:
         huge_size=35,
         screen_width=128,
     ):
-        font_path = str(Path(Path.cwd(), "../fonts"))
+        font_path = str(Path(utils.pifinder_dir, "fonts"))
 
         # Check for chinese language specifically
         cfg = config.Config()

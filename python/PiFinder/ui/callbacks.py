@@ -102,20 +102,6 @@ def apply_sound_volume(ui_module: UIModule) -> None:
     ui_module.command_queues["ui_queue"].put("set_volume")
 
 
-def set_auto_exposure_zero_star_handler(ui_module: UIModule) -> None:
-    """
-    Sets the zero-star handler plugin for auto-exposure.
-    Supports:
-      - "sweep": Systematic doubling sweep (25ms→1s, 2× ratio)
-      - "exponential": Logarithmic sweep (25ms→1s, 1.85× ratio, 7 steps)
-      - "reset": Quick reset to 0.4s default
-      - "histogram": Histogram-based adaptive with viable exposure selection
-    """
-    handler_type = ui_module.config_object.get_option("auto_exposure_zero_star_handler")
-    logger.info("Set auto-exposure zero-star handler to: %s", handler_type)
-    ui_module.command_queues["camera"].put(f"set_ae_handler:{handler_type}")
-
-
 def capture_exposure_sweep(ui_module: UIModule) -> None:
     """
     Captures 100 images at different exposures for PID testing/calibration.
@@ -292,12 +278,12 @@ def set_location(ui_module: UIModule) -> None:
 
 def gps_reset(ui_module: UIModule) -> None:
     ui_module.command_queues["gps"].put(("reset", {}))
-    ui_module.message("Location Reset", 2)
+    ui_module.message(_("Location Reset"), 2)
 
 
 def datetime_reset(ui_module: UIModule) -> None:
     ui_module.command_queues["gps"].put(("reset_datetime", {}))
-    ui_module.message("Time/Date Reset", 2)
+    ui_module.message(_("Time/Date Reset"), 2)
 
 
 def save_location(ui_module: UIModule) -> None:
@@ -389,7 +375,10 @@ def handle_radec_entry(ui_module: UIModule, ra_deg: float, dec_deg: float) -> No
     ui_module.shared_state.ui_state().add_recent(custom_object)
 
     # Show popup notification that user object was created
-    ui_module.message(f"User object created\n{custom_object.display_name}", timeout=2)
+    ui_module.message(
+        _("User object created\n{name}").format(name=custom_object.display_name),
+        timeout=2,
+    )
 
     # Navigate to object details for the created object
     object_item_definition = {

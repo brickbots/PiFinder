@@ -49,7 +49,7 @@ is a **`PointingEstimate`** dataclass (`PiFinder/types/positioning.py`),
 not a dict. It is built and owned by the integrator. The solver→integrator
 message is a separate **`SolveResult`** (§3); both replaced the legacy
 `solved` dict — see
-[`docs/adr/0003-solver-integrator-message.md`](../adr/0003-solver-integrator-message.md).
+[`docs/adr/0012-solver-integrator-message.md`](../adr/0012-solver-integrator-message.md).
 
 At its heart is a **2 × 2 matrix** of pointings — two **axes** crossed with
 two **states** — reached as `pointing.<axis>.<state>.<RA|Dec|Roll>`:

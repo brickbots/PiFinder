@@ -24,10 +24,11 @@ Tools menu (root → DDD → R) items (0-indexed):
   7: Power         (submenu, not tested: shutdown/restart dangerous)
 
 Place & Time submenu (0-indexed):
-  0: GPS Status    (UIGPSStatus screen)
-  1: Set Location  (UILocationList screen)
-  2: Set Time      (UITimeEntry screen)
-  3: Reset         (callback: gps_reset)
+  0: GPS Status      (UIGPSStatus screen)
+  1: Set Location    (submenu: Enter Coords, Load Location, Save Location)
+  2: Set Time/Date   (UITimeEntry screen)
+  3: Reset Location  (callback: gps_reset)
+  4: Reset Time/Date (callback: datetime_reset)
 
 Key sequences from navigate_to_root_menu() (lands on Objects in root menu):
   DDD  → highlight Tools (index 5, 3 downs from Objects=2)
@@ -127,12 +128,12 @@ def test_tools_gps_status_screen(driver):
 
 @pytest.mark.web
 def test_tools_set_time_screen(driver):
-    """Tools > Place & Time > Set Time opens the UITimeEntry screen."""
+    """Tools > Place & Time > Set Time/Date opens the UITimeEntry screen."""
     login_to_remote(driver)
     navigate_to_root_menu(driver)
 
     # DDDRDDR = enter Place & Time at GPS Status (index 0)
-    # DD = navigate to Set Time (index 2); R = enter UITimeEntry
+    # DD = navigate to Set Time/Date (index 2); R = enter UITimeEntry
     press_keys_and_validate(
         driver,
         "DDDRDDRDDR",

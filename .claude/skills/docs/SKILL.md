@@ -59,7 +59,7 @@ answer, a cross-page link) **and** it is *separable* from the guide's
 operate-and-observe storyline (a sentence + link suffices in its place).
 Otherwise it's a `user_guide` section. Standalone page URLs get linked from the
 wild — don't merge or rename pages casually. Rationale and worked examples:
-`docs/adr/0010-user-docs-page-granularity.md`.
+`docs/adr/0015-user-docs-page-granularity.md`.
 
 **Before writing a single line, read the page you're about to touch (or the
 closest sibling).** The fastest way to match the house style is to mirror the
@@ -126,6 +126,17 @@ it:
   **LEFT**, the **SQUARE** button, **+** and **-**. Menu and screen names are
   written in Title Case as they appear on the device (Settings Menu, Object
   Details, Push-To).
+- **Describe menu navigation as a prose chain, not a glyph path.** Walk the
+  reader along the route in plain verbs — "From the main menu, select Settings,
+  scroll down to Advanced, then select PiFinder Type", or "open Tools, scroll
+  down to Experimental, and choose Polar Align" — rather than `Settings →
+  Advanced → PiFinder Type`. Arrow paths belong to the Mermaid menu trees in
+  `menu_map.rst`; in running prose they read as jargon. Name each step in Title
+  Case as it shows on the device, and anchor it when that helps the reader find
+  it ("near the bottom of the main menu", "at the top of the Start menu"). For a
+  destination you point at more than once, link it with a `:ref:` cross-reference
+  to its section — the way the Tools intro links back to its own page — instead
+  of respelling the whole path each time.
 
 Voice check — prefer the left:
 

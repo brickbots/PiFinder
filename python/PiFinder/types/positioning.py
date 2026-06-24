@@ -26,7 +26,7 @@ The data structures here replace four legacy dicts:
    →  :class:`SolveResult` (``SuccessfulSolve`` | ``FailedSolve``), the
       message the solver puts on ``solver_queue`` describing one
       plate-solve attempt. See
-      ``docs/adr/0003-solver-integrator-message.md``.
+      ``docs/adr/0012-solver-integrator-message.md``.
 
 2. The tagged-list messages on the alignment queues.
    →  :class:`AlignOnRaDec`, :class:`AlignCancel`,
@@ -51,9 +51,14 @@ Design notes
   :class:`ImuDeadReckoning`. Bridge via :meth:`Pointing.as_radecroll`.
 
 * All structures must remain picklable so they can ride on
-  ``multiprocessing.Queue`` and ``SharedStateObj`` proxies.
-  ``numpy.quaternion`` already pickles and dataclasses pickle by default;
-  we avoid lambdas/closures in defaults.
+  ``multiprocessing.Queue`` and ``SharedStateObj`` proxies. Dataclasses
+  pickle by default and we avoid lambdas/closures in defaults — but a bare
+  ``numpy.quaternion`` must **not** be pickled directly: it leaks in
+  numpy-quaternion 2023.0.4 (see ``_quat_to_floats`` and
+  ``memory/imu-quaternion-pickle-leak``). The dataclasses carrying a
+  quaternion field (:class:`ImuSample`, :class:`PointingEstimate`,
+  :class:`SuccessfulSolve`) override ``__getstate__``/``__setstate__`` to
+  pickle it as 4 floats; the in-process attribute stays a quaternion.
 """
 
 from __future__ import annotations
@@ -66,6 +71,36 @@ from typing import List, Optional, Tuple, Union
 import quaternion
 
 from PiFinder.types.coordinates import RaDecRoll
+
+
+# =====================================================================
+# Pickle helpers: never serialise a bare numpy.quaternion
+# =====================================================================
+#
+# ``pickle.dumps(numpy.quaternion)`` leaks memory in numpy-quaternion
+# 2023.0.4 (~16 MB/min when a hot loop publishes one across a multiprocessing
+# Manager proxy — see ``memory/imu-quaternion-pickle-leak``). A tuple of plain
+# floats pickles cleanly. Dataclasses that carry a bare quaternion field
+# therefore override ``__getstate__``/``__setstate__`` to round-trip it through
+# these helpers: the in-process attribute stays a real ``numpy.quaternion``
+# (zero consumer changes), only the pickled form is 4 floats. The float
+# round-trip is bit-exact.
+
+
+def _quat_to_floats(q):
+    """Scalar-first ``(w, x, y, z)`` floats for pickling, or ``None``."""
+    if q is None:
+        return None
+    return (float(q.w), float(q.x), float(q.y), float(q.z))
+
+
+def _floats_to_quat(v):
+    """Inverse of :func:`_quat_to_floats`: rebuild a ``numpy.quaternion``.
+
+    Idempotent and ``None``-safe — only a 4-tuple is converted, so an
+    already-rebuilt value (or ``None``) passes through unchanged.
+    """
+    return quaternion.quaternion(*v) if isinstance(v, tuple) else v
 
 
 # =====================================================================
@@ -344,6 +379,18 @@ class PointingEstimate:
     def is_imu_solve(self) -> bool:
         return self.solve_source == SolveSource.IMU
 
+    # Pickle the ``imu_anchor`` quaternion as floats (see _quat_to_floats):
+    # the integrator publishes a deepcopy of this estimate across the proxy
+    # via ``set_solution`` on every cycle.
+    def __getstate__(self) -> dict:
+        state = self.__dict__.copy()
+        state["imu_anchor"] = _quat_to_floats(state["imu_anchor"])
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        state["imu_anchor"] = _floats_to_quat(state.get("imu_anchor"))
+        self.__dict__.update(state)
+
 
 # =====================================================================
 # SolveResult — the solver → integrator message (rides solver_queue)
@@ -357,7 +404,7 @@ class PointingEstimate:
 #
 # Two concrete types under a union, dispatched by ``isinstance()`` in the
 # integrator (mirroring :data:`SolverCommand` / :data:`AlignResponse`).
-# See ``docs/adr/0003-solver-integrator-message.md``.
+# See ``docs/adr/0012-solver-integrator-message.md``.
 
 
 @dataclass
@@ -388,6 +435,17 @@ class SuccessfulSolve:
     alignment: AlignmentResult = field(default_factory=AlignmentResult)
     matched_centroids: Optional[List[Tuple[float, float]]] = None
     matched_stars: Optional[list] = None
+
+    # Pickle the ``imu_anchor`` quaternion as floats (see _quat_to_floats):
+    # this message rides ``solver_queue``, a pickle boundary.
+    def __getstate__(self) -> dict:
+        state = self.__dict__.copy()
+        state["imu_anchor"] = _quat_to_floats(state["imu_anchor"])
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        state["imu_anchor"] = _floats_to_quat(state.get("imu_anchor"))
+        self.__dict__.update(state)
 
 
 @dataclass
@@ -427,7 +485,10 @@ class ImuSample:
     ``move_start`` / ``move_end`` keys were dropped in the migration).
 
     ``quat`` is scalar-first ``(w, x, y, z)``, as produced by
-    ``quaternion.from_float_array(imu.avg_quat)``.
+    ``quaternion.from_float_array(imu.avg_quat)``. It pickles as 4 plain
+    floats (see ``__getstate__``) to dodge the numpy-quaternion leak — the
+    IMU loop publishes this sample across the proxy every cycle; keep those
+    hooks.
 
     ``timestamp`` is the wall-clock (``time.time()``) instant the IMU
     process sampled this orientation — the IMU-side input to
@@ -462,6 +523,17 @@ class ImuSample:
             "gyro": list(self.gyro) if self.gyro is not None else None,
             "accel": list(self.accel) if self.accel is not None else None,
         }
+
+    # Pickle ``quat`` as floats (see _quat_to_floats): the IMU loop publishes
+    # this sample across the proxy via ``set_imu`` on every cycle.
+    def __getstate__(self) -> dict:
+        state = self.__dict__.copy()
+        state["quat"] = _quat_to_floats(state["quat"])
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        state["quat"] = _floats_to_quat(state.get("quat"))
+        self.__dict__.update(state)
 
 
 # =====================================================================
