@@ -2449,9 +2449,10 @@ msgstr "ss"
 msgid "Enter Local Time"
 msgstr "Ingresar Hora Local"
 
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:626
 msgid "Volume"
-msgstr ""
+msgstr "Volumen"
 
 #~ msgid "Integrator"
 #~ msgstr ""
