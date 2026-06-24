@@ -169,50 +169,24 @@ in {
       done
       echo "Clock: $(date -u)"
 
-      # Download size up front, from the caches, so the splash shows a real
-      # percentage of bytes (not of equally-weighted paths). The Pi only
-      # substitutes prebuilt closures, so the closure is on a cache; if the
-      # sizes can't be had we fall back to a path count.
+      # First-boot fetches the whole system, so per-path byte sizing would mean
+      # tens of thousands of cache lookups — too slow. Count the paths to fetch
+      # (one dry-run, timeout-bounded so it can't hang) and show a path-count
+      # percentage on the splash. set +e keeps it advisory — never aborts.
       echo "Computing download size..."
-      REL="https://cache.pifinder.eu/pifinder-release"
-      DEV="https://cache.pifinder.eu/pifinder"
-      # Advisory only — wrapped in `set +e` with timeouts so a failing or slow
-      # cache query can never abort first-boot; on any failure TOTAL_BYTES stays
-      # 0 and the splash falls back to a path-count percentage.
-      declare -A SIZE=()
-      TOTAL_BYTES=0
       set +e
-      CACHE_JSON=$(
-        { timeout 60 nix path-info --json -r --store "$REL" "$STORE_PATH" 2>/dev/null
-          timeout 60 nix path-info --json -r --store "$DEV" "$STORE_PATH" 2>/dev/null
-        } | jq -s 'add // []' 2>/dev/null)
-      [ -n "$CACHE_JSON" ] || CACHE_JSON='[]'
-      while read -r p sz; do
-        [ -z "$p" ] && continue
-        [ -e "$p" ] && continue
-        SIZE["$p"]=$sz
-        TOTAL_BYTES=$((TOTAL_BYTES + sz))
-      done < <(printf '%s' "$CACHE_JSON" \
-                 | jq -r '.[] | "\(.path) \(.downloadSize // .narSize // 0)"' 2>/dev/null \
-                 | sort -u)
-      TOTAL_PATHS=$(nix-store --realise --dry-run "$STORE_PATH" 2>&1 | grep -c '^  /nix/store/')
+      TOTAL_PATHS=$(timeout 120 nix-store --realise --dry-run "$STORE_PATH" 2>&1 | grep -c '^  /nix/store/')
+      case "$TOTAL_PATHS" in ''|*[!0-9]*) TOTAL_PATHS=0 ;; esac
       set -e
-      echo "Downloading full PiFinder system: $STORE_PATH ($TOTAL_BYTES bytes)"
+      echo "Downloading full PiFinder system: $STORE_PATH ($TOTAL_PATHS paths)"
 
-      BYTES_DONE=0
       COPIED=0
       nix build "$STORE_PATH" --max-jobs 0 2>&1 | while IFS= read -r line; do
         echo "$line"
         case "$line" in
           *"copying path "*)
-            P=$(printf '%s' "$line" | grep -oE '/nix/store/[a-z0-9]+-[a-zA-Z0-9._+=?-]+' | head -1)
             COPIED=$((COPIED + 1))
-            if [ "$TOTAL_BYTES" -gt 0 ]; then
-              BYTES_DONE=$((BYTES_DONE + ''${SIZE[$P]:-0}))
-              echo "$((BYTES_DONE * 100 / TOTAL_BYTES))" > "$PROGRESS_FILE"
-            elif [ "$TOTAL_PATHS" -gt 0 ]; then
-              echo "$((COPIED * 100 / TOTAL_PATHS))" > "$PROGRESS_FILE"
-            fi
+            [ "$TOTAL_PATHS" -gt 0 ] && echo "$((COPIED * 100 / TOTAL_PATHS))" > "$PROGRESS_FILE"
             ;;
         esac
       done

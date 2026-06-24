@@ -408,27 +408,31 @@ in {
       # --- Best-effort download-size query (for a byte-accurate progress bar) -
       # Advisory only: it must NEVER abort the upgrade. The single gate is the
       # `nix build` below, and the system profile is changed only after it
-      # succeeds. So this runs under `set +e`, every cache call is timeout-
-      # bounded, and any failure (a cache missing the closure, jq absent, slow
-      # network) just leaves TOTAL_BYTES=0 — which makes the reader fall back to
-      # a path count. The device is unaffected either way.
+      # succeeds. So this runs under `set +e` with timeouts; any failure just
+      # leaves TOTAL_BYTES=0, which makes the reader fall back to a path count.
+      # Crucially it sizes only the *delta* — the paths a dry-run says will be
+      # fetched — not the whole closure (querying every path's size is far too
+      # slow, tens of thousands of narinfo lookups, and used to hang the bar).
       SIZES_FILE=/run/pifinder/upgrade-sizes
       : > "$SIZES_FILE"
       TOTAL_BYTES=0
       set +e
-      CACHE_JSON=$(
-        { timeout 60 nix path-info --json -r --store "$REL" "$STORE_PATH" 2>/dev/null
-          timeout 60 nix path-info --json -r --store "$DEV" "$STORE_PATH" 2>/dev/null
-        } | jq -s 'add // []' 2>/dev/null)
-      [ -n "$CACHE_JSON" ] || CACHE_JSON='[]'
-      while read -r p sz; do
-        [ -z "$p" ] && continue
-        [ -e "$p" ] && continue
-        echo "$p $sz" >> "$SIZES_FILE"
-        TOTAL_BYTES=$((TOTAL_BYTES + sz))
-      done < <(printf '%s' "$CACHE_JSON" \
-                 | jq -r '.[] | "\(.path) \(.downloadSize // .narSize // 0)"' 2>/dev/null \
-                 | sort -u)
+      DRY=$(timeout 120 nix-store --realise --dry-run "$STORE_PATH" 2>&1)
+      TO_FETCH=$(printf '%s' "$DRY" | grep -oE '/nix/store/[a-z0-9]+-[a-zA-Z0-9._+=?-]+' | sort -u)
+      if [ -n "$TO_FETCH" ]; then
+        for c in "$DEV" "$REL"; do
+          timeout 60 nix path-info --json --store "$c" $TO_FETCH 2>/dev/null
+        done | jq -s 'add // []' 2>/dev/null \
+             | jq -r '.[] | "\(.path) \(.downloadSize // .narSize // 0)"' 2>/dev/null \
+             | sort -u > "$SIZES_FILE"
+        TOTAL_BYTES=$(awk '{ s += $2 } END { printf "%d", s }' "$SIZES_FILE")
+      fi
+      # Fall back to the dry-run's own download estimate if per-path sizing came
+      # up empty (then the reader still shows a moving byte bar against it).
+      if [ "''${TOTAL_BYTES:-0}" -le 0 ]; then
+        MIB=$(printf '%s' "$DRY" | grep -oE '[0-9.]+ MiB download' | head -1 | grep -oE '[0-9.]+')
+        TOTAL_BYTES=$(awk -v m="''${MIB:-0}" 'BEGIN { printf "%d", m * 1048576 }')
+      fi
       set -e
       echo "pifinder-upgrade: $TOTAL_BYTES bytes to download"
 
