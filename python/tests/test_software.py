@@ -9,6 +9,8 @@ from PiFinder.ui.software import (
     _fetch_github_releases,
     _fetch_testable_prs,
     _fetch_build_json,
+    _fetch_main_entry,
+    GITHUB_PULLS_URL,
     GITHUB_RAW_URL,
     UISoftware,
 )
@@ -422,6 +424,12 @@ class TestFetchTestablePRs:
         assert entries[0]["subtitle"] == "Fix star matching algorithm"
         assert entries[1]["label"] == "PR#99-789xyz0"
         assert entries[1]["subtitle"] == "Add dark mode support"
+        mock_get.assert_called_once_with(
+            GITHUB_PULLS_URL,
+            params=(("state", "open"), ("per_page", "100"), ("page", "1")),
+            timeout=10,
+            headers={"Accept": "application/vnd.github.v3+json"},
+        )
 
     @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
@@ -531,7 +539,7 @@ class TestFetchTestablePRs:
 
     @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_skips_prs_without_build_json(self, mock_get, mock_build):
+    def test_prs_without_build_json_are_unavailable(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = MOCK_PRS
@@ -540,7 +548,24 @@ class TestFetchTestablePRs:
 
         entries = _fetch_testable_prs()
 
-        assert entries == []
+        assert len(entries) == 2
+        assert entries[0]["label"] == "PR#42-abc123d"
+        assert entries[0]["unavailable"] is True
+        assert "ref" not in entries[0]
+
+
+@pytest.mark.unit
+class TestFetchMainEntry:
+    @patch("PiFinder.ui.software._fetch_build_json")
+    def test_main_entry_without_build_json_is_unavailable(self, mock_build):
+        mock_build.return_value = None
+
+        entry = _fetch_main_entry()
+
+        assert entry["label"] == "main"
+        assert entry["ref"] is None
+        assert entry["unavailable"] is True
+        assert entry["is_trunk"] is True
 
 
 @pytest.mark.unit
@@ -580,3 +605,24 @@ def test_stable_list_filters_current_version():
     ui._refresh_version_list()
 
     assert [entry["label"] for entry in ui._version_list] == ["nixos-next"]
+
+
+@pytest.mark.unit
+def test_unavailable_version_has_no_install_option():
+    ui = UISoftware.__new__(UISoftware)
+    ui._phase = "browse"
+    ui._focus = "list"
+    ui._list_index = 0
+    ui._version_list = [
+        {
+            "label": "main",
+            "version": "main",
+            "subtitle": "main branch (no build)",
+            "unavailable": True,
+        }
+    ]
+
+    ui.key_right()
+
+    assert ui._phase == "confirm"
+    assert ui._confirm_options == ["Cancel"]

@@ -22,13 +22,12 @@ from PiFinder.ui.ui_utils import TextLayouter, TextLayouterScroll
 sys_utils = utils.get_sys_utils()
 logger = logging.getLogger("UISoftware")
 
-# --- NixOS transition source (single switch) ----------------------------------
-# All NixOS build artifacts currently live only on the fork, so every channel
-# reads from it: stable/beta from the fork's releases, unstable from its nixos
-# trunk + testable PRs. Switch both back to ("brickbots/PiFinder", "main") once
-# the NixOS work is upstreamed.
-GITHUB_REPO = "mrosseel/PiFinder"
-TRUNK_BRANCH = "nixos"
+# --- Update channel sources ----------------------------------------------------
+# Channel metadata is owned by the public upstream repo. PR build files are read
+# from each PR's head repo/sha, so fork PRs remain installable while the build
+# pipeline is still transitioning.
+GITHUB_REPO = "brickbots/PiFinder"
+TRUNK_BRANCH = "main"
 # ------------------------------------------------------------------------------
 GITHUB_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
 GITHUB_PULLS_URL = f"https://api.github.com/repos/{GITHUB_REPO}/pulls"
@@ -148,7 +147,7 @@ def _fetch_testable_prs() -> list[dict]:
     """
     Fetch open PRs with the 'testable' label.
     Returns list of unstable entries (main branch prepended by caller).
-    Only includes PRs that have a pifinder-build.json with a store path.
+    PRs without a build file are shown as unavailable and cannot be installed.
     """
     entries: list[dict] = []
     try:
@@ -181,19 +180,22 @@ def _fetch_testable_prs() -> list[dict]:
             body = pr.get("body") or None
 
             build = _fetch_build_json(sha, repo=repo)
-            if build is None:
-                continue
-
             short_sha = sha[:7]
+            entry = {
+                "label": f"PR#{number}-{short_sha}",
+                "notes": body,
+                "version": f"PR#{number}-{short_sha}",
+                "subtitle": title,
+                "channel": "unstable",
+            }
+            if build is None:
+                entry["subtitle"] = f"{title} (no build)"
+                entry["unavailable"] = True
+            else:
+                entry["ref"] = build["store_path"]
+                entry["version"] = build.get("version") or entry["version"]
             entries.append(
-                {
-                    "label": f"PR#{number}-{short_sha}",
-                    "ref": build["store_path"],
-                    "notes": body,
-                    "version": build.get("version"),
-                    "subtitle": title,
-                    "channel": "unstable",
-                }
+                entry
             )
 
     except requests.exceptions.RequestException as e:
@@ -205,11 +207,21 @@ def _fetch_testable_prs() -> list[dict]:
 def _fetch_main_entry() -> Optional[dict]:
     """
     Fetch pifinder-build.json for the trunk branch.
-    Returns an entry dict or None if unavailable.
+    Returns an entry dict. If the trunk build file is missing, the row is shown
+    as unavailable and cannot be installed.
     """
     build = _fetch_build_json(TRUNK_BRANCH)
     if build is None:
-        return None
+        return {
+            "label": TRUNK_BRANCH,
+            "ref": None,
+            "notes": None,
+            "version": TRUNK_BRANCH,
+            "subtitle": f"{TRUNK_BRANCH} branch (no build)",
+            "channel": "unstable",
+            "is_trunk": True,
+            "unavailable": True,
+        }
     return {
         "label": build.get("version") or TRUNK_BRANCH,
         "ref": build["store_path"],
@@ -806,7 +818,9 @@ class UISoftware(UIModule):
                 self._refresh_version_list()
             elif self._focus == "list" and self._version_list:
                 self._selected_version = self._version_list[self._list_index]
-                self._confirm_options = ["Install"]
+                self._confirm_options = []
+                if not self._selected_version.get("unavailable"):
+                    self._confirm_options.append("Install")
                 if self._selected_version.get("notes"):
                     self._confirm_options.append("Notes")
                 self._confirm_options.append("Cancel")
@@ -851,6 +865,11 @@ class UISoftware(UIModule):
 
     def update_software(self):
         if not self._selected_version:
+            return
+        if self._selected_version.get("unavailable"):
+            self._phase = "failed"
+            self._fail_reason = _("Version no longer available")
+            self._fail_option = "Cancel"
             return
         self._phase = "upgrading"
         self.clear_screen()
