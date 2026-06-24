@@ -401,6 +401,11 @@ def go_wifi_cli():
     return True
 
 
+def get_wifi_mode() -> str:
+    """The live WiFi mode ("AP" or "Client") from NetworkManager."""
+    return _get_network().wifi_mode()
+
+
 # ---------------------------------------------------------------------------
 # System control (systemctl subprocess + D-Bus for reboot/shutdown)
 # ---------------------------------------------------------------------------

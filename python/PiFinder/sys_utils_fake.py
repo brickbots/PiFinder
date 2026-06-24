@@ -88,6 +88,10 @@ def go_wifi_cli():
     return True
 
 
+def get_wifi_mode() -> str:
+    return "Client"
+
+
 def verify_password(username, password):
     return True
 

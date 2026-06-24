@@ -225,9 +225,15 @@ def go_wifi_cli(ui_module: UIModule) -> None:
 
 
 def get_wifi_mode(ui_module: UIModule) -> list[str]:
-    wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
-    with open(wifi_txt, "r") as wfs:
-        return [wfs.read()]
+    # Report the live mode from NetworkManager (as the web UI does), not the
+    # static wifi_status.txt — that file is written once at setup and never
+    # tracks reality, so it showed "Client" while the device was on the AP.
+    try:
+        return [sys_utils.get_wifi_mode()]
+    except Exception:
+        wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
+        with open(wifi_txt, "r") as wfs:
+            return [wfs.read()]
 
 
 def set_location(ui_module: UIModule) -> None:

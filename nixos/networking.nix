@@ -50,8 +50,11 @@
       [connection]
       id=PiFinder-AP
       type=wifi
-      autoconnect=true
-      autoconnect-priority=-1
+      # Never self-start: NetworkManager would activate the AP instantly at
+      # boot (own radio, no scan needed) and win the race against a client
+      # network that still has to scan + associate, then stay on it. The AP is
+      # brought up only on demand by pifinder-wifi-fallback below.
+      autoconnect=false
 
       [wifi]
       mode=ap
@@ -69,12 +72,12 @@
     mode = "0600";
   };
 
-  # AP fallback / persistence. The PiFinder-AP profile has a low autoconnect
-  # priority, so NetworkManager prefers a known client network when one is
-  # reachable. This service makes the AP a reliable fallback: it brings the AP
-  # up when no client connects within a grace period (so a device with a saved
-  # but-unreachable network is still reachable), and when the user has forced AP
-  # mode in the UI (persisted to PiFinder_data/wifi_mode).
+  # AP fallback / persistence. The PiFinder-AP profile has autoconnect disabled,
+  # so NetworkManager joins a known client network when one is reachable and
+  # never self-starts the AP. This service makes the AP a reliable fallback: it
+  # brings the AP up when no client connects within a grace period (so a device
+  # with a saved but-unreachable network is still reachable), and when the user
+  # has forced AP mode in the UI (persisted to PiFinder_data/wifi_mode).
   systemd.services.pifinder-wifi-fallback = {
     description = "Bring up PiFinder AP when no WiFi client is connected";
     after = [ "NetworkManager.service" ];
