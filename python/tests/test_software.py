@@ -10,6 +10,7 @@ from PiFinder.ui.software import (
     _fetch_testable_prs,
     _fetch_build_json,
     GITHUB_RAW_URL,
+    UISoftware,
 )
 
 
@@ -234,7 +235,7 @@ BUILD_JSONS = {
 def _make_build_json_mock(build_jsons):
     """Create a _fetch_build_json mock that returns data from a dict."""
 
-    def _mock(ref):
+    def _mock(ref, **_kwargs):
         return build_jsons.get(ref)
 
     return _mock
@@ -437,6 +438,34 @@ class TestFetchTestablePRs:
 
     @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
+    def test_fetches_build_json_from_pr_head_repo(self, mock_get, mock_build):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = [
+            {
+                "number": 17,
+                "title": "Fork PR",
+                "head": {
+                    "sha": "forksha123",
+                    "repo": {"full_name": "contributor/PiFinder"},
+                },
+                "body": None,
+                "labels": [{"name": "testable"}],
+            }
+        ]
+        mock_get.return_value = mock_resp
+        mock_build.return_value = {
+            "store_path": "/nix/store/fork-pr-nixos",
+            "version": "PR#17-forksha",
+        }
+
+        entries = _fetch_testable_prs()
+
+        assert entries[0]["ref"] == "/nix/store/fork-pr-nixos"
+        mock_build.assert_called_once_with("forksha123", repo="contributor/PiFinder")
+
+    @patch("PiFinder.ui.software._fetch_build_json")
+    @patch("PiFinder.ui.software.requests.get")
     def test_pr_version_from_build_json(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -512,3 +541,42 @@ class TestFetchTestablePRs:
         entries = _fetch_testable_prs()
 
         assert entries == []
+
+
+@pytest.mark.unit
+def test_unstable_list_keeps_current_trunk_entry_visible():
+    ui = UISoftware.__new__(UISoftware)
+    ui._channel_names = ["unstable"]
+    ui._channel_index = 0
+    ui._software_version = "nixos-current"
+    ui._channels = {
+        "unstable": [
+            {"label": "nixos-current", "version": "nixos-current", "is_trunk": True},
+            {"label": "PR#1-abcdef0", "version": "PR#1-abcdef0"},
+        ]
+    }
+
+    ui._refresh_version_list()
+
+    assert [entry["label"] for entry in ui._version_list] == [
+        "nixos-current",
+        "PR#1-abcdef0",
+    ]
+
+
+@pytest.mark.unit
+def test_stable_list_filters_current_version():
+    ui = UISoftware.__new__(UISoftware)
+    ui._channel_names = ["stable"]
+    ui._channel_index = 0
+    ui._software_version = "nixos-current"
+    ui._channels = {
+        "stable": [
+            {"label": "nixos-current", "version": "nixos-current"},
+            {"label": "nixos-next", "version": "nixos-next"},
+        ]
+    }
+
+    ui._refresh_version_list()
+
+    assert [entry["label"] for entry in ui._version_list] == ["nixos-next"]

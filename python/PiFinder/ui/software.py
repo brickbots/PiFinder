@@ -76,12 +76,12 @@ def _version_from_tag(tag: str) -> str:
     return tag.lstrip("v")
 
 
-def _fetch_build_json(ref: str) -> Optional[dict]:
+def _fetch_build_json(ref: str, repo: str = GITHUB_REPO) -> Optional[dict]:
     """
     Fetch pifinder-build.json for a given git ref (sha or tag).
     Returns dict with 'store_path' and 'version', or None if unavailable.
     """
-    url = f"{GITHUB_RAW_URL}/{ref}/pifinder-build.json"
+    url = f"https://raw.githubusercontent.com/{repo}/{ref}/pifinder-build.json"
     try:
         res = requests.get(url, timeout=REQUEST_TIMEOUT)
         if res.status_code == 200:
@@ -152,26 +152,35 @@ def _fetch_testable_prs() -> list[dict]:
     """
     entries: list[dict] = []
     try:
-        res = requests.get(
-            GITHUB_PULLS_URL,
-            params={"state": "open", "labels": "testable"},
-            timeout=REQUEST_TIMEOUT,
-            headers={"Accept": "application/vnd.github.v3+json"},
-        )
-        if res.status_code != 200:
-            logger.warning("GitHub pulls API returned %d", res.status_code)
-            return entries
+        prs: list[dict] = []
+        for page in range(1, 11):
+            res = requests.get(
+                GITHUB_PULLS_URL,
+                params=(("state", "open"), ("per_page", "100"), ("page", str(page))),
+                timeout=REQUEST_TIMEOUT,
+                headers={"Accept": "application/vnd.github.v3+json"},
+            )
+            if res.status_code != 200:
+                logger.warning("GitHub pulls API returned %d", res.status_code)
+                return entries
+            page_prs = res.json()
+            if not page_prs:
+                break
+            prs.extend(page_prs)
+            if len(page_prs) < 100:
+                break
 
-        for pr in res.json():
+        for pr in prs:
             labels = [lbl.get("name", "") for lbl in pr.get("labels", [])]
             if "testable" not in labels:
                 continue
             number = pr.get("number", 0)
             title = pr.get("title", "")
             sha = pr.get("head", {}).get("sha", "")
+            repo = pr.get("head", {}).get("repo", {}).get("full_name") or GITHUB_REPO
             body = pr.get("body") or None
 
-            build = _fetch_build_json(sha)
+            build = _fetch_build_json(sha, repo=repo)
             if build is None:
                 continue
 
@@ -354,9 +363,12 @@ class UISoftware(UIModule):
             return
         channel = self._channel_names[self._channel_index]
         entries = self._channels.get(channel, [])
-        self._version_list = [
-            e for e in entries if e.get("version") != self._software_version
-        ]
+        if channel == "unstable":
+            self._version_list = entries
+        else:
+            self._version_list = [
+                e for e in entries if e.get("version") != self._software_version
+            ]
         self._list_index = 0
         self._scroll_offset = 0
         self._scrollers = {}
