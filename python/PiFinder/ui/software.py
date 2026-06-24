@@ -4,9 +4,9 @@
 UI modules for software updates, channel selection, and release notes.
 
 Channels:
-  - stable:   GitHub Releases (non-prerelease, >= MIN_NIXOS_VERSION)
-  - beta:     GitHub Pre-releases (>= MIN_NIXOS_VERSION)
-  - unstable: trunk branch (TRUNK_BRANCH) + open PRs labeled 'testable'
+  - stable:   release entries from update-manifest.json
+  - beta:     prerelease entries from update-manifest.json
+  - unstable: trunk + testable PR entries from update-manifest.json
 """
 
 import logging
@@ -22,233 +22,84 @@ from PiFinder.ui.ui_utils import TextLayouter, TextLayouterScroll
 sys_utils = utils.get_sys_utils()
 logger = logging.getLogger("UISoftware")
 
-# --- Update channel sources ----------------------------------------------------
-# Channel metadata is owned by the public upstream repo. PR build files are read
-# from each PR's head repo/sha, so fork PRs remain installable while the build
-# pipeline is still transitioning.
-GITHUB_REPO = "brickbots/PiFinder"
-TRUNK_BRANCH = "main"
+# --- Update channel source -----------------------------------------------------
+# CI publishes generated update metadata to a metadata-only branch. Devices read
+# one raw JSON file instead of calling the GitHub REST API, so they do not burn
+# unauthenticated rate limits.
+MANIFEST_REPO = "mrosseel/PiFinder"
+MANIFEST_BRANCH = "nixos-manifest"
 # ------------------------------------------------------------------------------
-GITHUB_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
-GITHUB_PULLS_URL = f"https://api.github.com/repos/{GITHUB_REPO}/pulls"
-GITHUB_RAW_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}"
-MIN_NIXOS_VERSION = "3.0.0"
+UPDATE_MANIFEST_URL = (
+    f"https://raw.githubusercontent.com/{MANIFEST_REPO}/"
+    f"{MANIFEST_BRANCH}/update-manifest.json"
+)
 REQUEST_TIMEOUT = 10
-_PR_VERSION_RE = re.compile(r"^PR#(\d+)-")
 _STORE_PATH_RE = re.compile(r"^/nix/store/[a-z0-9]+-[A-Za-z0-9._+=?,-]+$")
 
 
-def _parse_version(version_str: str) -> tuple:
-    """
-    Parse a version string like '2.4.0' or '2.5.0-beta.1'
-    into a comparable tuple.  Pre-release tags sort below
-    the same numeric version (2.5.0-beta.1 < 2.5.0).
-    """
-    version_str = version_str.strip()
-    if "-" in version_str:
-        numeric_part, pre_release = version_str.split("-", 1)
-    else:
-        numeric_part = version_str
-        pre_release = None
+def _entry_from_manifest(item: dict, channel: str) -> Optional[dict]:
+    label = item.get("label")
+    if not isinstance(label, str) or not label:
+        return None
 
-    parts = numeric_part.split(".")
-    major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
-
-    if pre_release is None:
-        return (major, minor, patch, 1, "")
-    else:
-        return (major, minor, patch, 0, pre_release)
-
-
-def _meets_min_version(version_str: str) -> bool:
-    """Check if a version string is >= MIN_NIXOS_VERSION."""
-    try:
-        ver = _parse_version(version_str)
-        minimum = _parse_version(MIN_NIXOS_VERSION)
-        return ver >= minimum
-    except Exception:
-        return False
-
-
-def _version_from_tag(tag: str) -> str:
-    """Strip leading 'v' from a tag name to get the version string."""
-    return tag.lstrip("v")
-
-
-def _fetch_build_json(ref: str, repo: str = GITHUB_REPO) -> Optional[dict]:
-    """
-    Fetch pifinder-build.json for a given git ref (sha or tag).
-    Returns dict with 'store_path' and 'version', or None if unavailable.
-    """
-    url = f"https://raw.githubusercontent.com/{repo}/{ref}/pifinder-build.json"
-    try:
-        res = requests.get(url, timeout=REQUEST_TIMEOUT)
-        if res.status_code == 200:
-            data = res.json()
-            if _STORE_PATH_RE.fullmatch(data.get("store_path", "")):
-                return data
-    except (requests.exceptions.RequestException, ValueError):
-        pass
-    return None
-
-
-def _fetch_github_releases() -> tuple[list[dict], list[dict]]:
-    """
-    Fetch releases from GitHub API.
-    Returns (stable_entries, beta_entries) sorted newest-first.
-    Only includes entries that have a pifinder-build.json with a store path.
-    """
-    stable: list[dict] = []
-    beta: list[dict] = []
-    try:
-        res = requests.get(
-            GITHUB_RELEASES_URL,
-            timeout=REQUEST_TIMEOUT,
-            headers={"Accept": "application/vnd.github.v3+json"},
-        )
-        if res.status_code != 200:
-            logger.warning("GitHub releases API returned %d", res.status_code)
-            return stable, beta
-
-        for release in res.json():
-            if release.get("draft"):
-                continue
-            tag = release.get("tag_name", "")
-            version = _version_from_tag(tag)
-            if not _meets_min_version(version):
-                continue
-
-            build = _fetch_build_json(tag)
-            if build is None:
-                continue
-
-            entry = {
-                "label": tag,
-                "ref": build["store_path"],
-                "notes": release.get("body") or None,
-                "version": build.get("version", version),
-                "subtitle": release.get("name", tag),
-                "channel": "beta" if release.get("prerelease") else "stable",
-            }
-
-            if release.get("prerelease"):
-                beta.append(entry)
-            else:
-                stable.append(entry)
-
-    except requests.exceptions.RequestException as e:
-        logger.warning("Could not fetch GitHub releases: %s", e)
-        raise
-
-    return stable, beta
-
-
-def _fetch_testable_prs() -> list[dict]:
-    """
-    Fetch open PRs with the 'testable' label.
-    Returns list of unstable entries (main branch prepended by caller).
-    PRs without a build file are shown as unavailable and cannot be installed.
-    """
-    entries: list[dict] = []
-    try:
-        prs: list[dict] = []
-        for page in range(1, 11):
-            res = requests.get(
-                GITHUB_PULLS_URL,
-                params=(("state", "open"), ("per_page", "100"), ("page", str(page))),
-                timeout=REQUEST_TIMEOUT,
-                headers={"Accept": "application/vnd.github.v3+json"},
-            )
-            if res.status_code != 200:
-                logger.warning("GitHub pulls API returned %d", res.status_code)
-                return entries
-            page_prs = res.json()
-            if not page_prs:
-                break
-            prs.extend(page_prs)
-            if len(page_prs) < 100:
-                break
-
-        for pr in prs:
-            labels = [lbl.get("name", "") for lbl in pr.get("labels", [])]
-            if "testable" not in labels:
-                continue
-            number = pr.get("number", 0)
-            title = pr.get("title", "")
-            sha = pr.get("head", {}).get("sha", "")
-            repo = pr.get("head", {}).get("repo", {}).get("full_name") or GITHUB_REPO
-            body = pr.get("body") or None
-
-            build = _fetch_build_json(sha, repo=repo)
-            short_sha = sha[:7]
-            entry = {
-                "label": f"PR#{number}-{short_sha}",
-                "notes": body,
-                "version": f"PR#{number}-{short_sha}",
-                "subtitle": title,
-                "channel": "unstable",
-            }
-            if build is None:
-                entry["subtitle"] = f"{title} (no build)"
-                entry["unavailable"] = True
-            else:
-                entry["ref"] = build["store_path"]
-                entry["version"] = build.get("version") or entry["version"]
-            entries.append(
-                entry
-            )
-
-    except requests.exceptions.RequestException as e:
-        logger.warning("Could not fetch testable PRs: %s", e)
-
-    return entries
-
-
-def _fetch_main_entry() -> Optional[dict]:
-    """
-    Fetch pifinder-build.json for the trunk branch.
-    Returns an entry dict. If the trunk build file is missing, the row is shown
-    as unavailable and cannot be installed.
-    """
-    build = _fetch_build_json(TRUNK_BRANCH)
-    if build is None:
-        return {
-            "label": TRUNK_BRANCH,
-            "ref": None,
-            "notes": None,
-            "version": TRUNK_BRANCH,
-            "subtitle": f"{TRUNK_BRANCH} branch (no build)",
-            "channel": "unstable",
-            "is_trunk": True,
-            "unavailable": True,
-        }
-    return {
-        "label": build.get("version") or TRUNK_BRANCH,
-        "ref": build["store_path"],
-        "notes": None,
-        "version": build.get("version"),
-        "subtitle": f"{TRUNK_BRANCH} branch",
-        "channel": "unstable",
-        # The trunk build is rendered more prominently than the per-PR rows
-        # in the unstable list (see _draw_browse).
-        "is_trunk": True,
+    title = item.get("title") or item.get("subtitle") or label
+    entry = {
+        "label": label,
+        "ref": item.get("store_path"),
+        "notes": item.get("notes") or None,
+        "version": item.get("version") or label,
+        "subtitle": title,
+        "channel": channel,
     }
+    if item.get("kind") == "trunk":
+        entry["is_trunk"] = True
+
+    store_path = item.get("store_path")
+    available = item.get("available", bool(store_path))
+    if not available or not isinstance(store_path, str):
+        entry["ref"] = None
+        entry["unavailable"] = True
+        reason = item.get("reason")
+        if reason:
+            entry["subtitle"] = f"{title} ({reason})"
+    elif not _STORE_PATH_RE.fullmatch(store_path):
+        entry["ref"] = None
+        entry["unavailable"] = True
+        entry["subtitle"] = f"{title} (invalid build)"
+
+    return entry
 
 
-def _fetch_pr_title(pr_number: int) -> Optional[str]:
-    """Fetch the title of a single PR by number."""
-    url = f"https://api.github.com/repos/{GITHUB_REPO}/pulls/{pr_number}"
-    try:
-        res = requests.get(
-            url,
-            timeout=REQUEST_TIMEOUT,
-            headers={"Accept": "application/vnd.github.v3+json"},
-        )
-        if res.status_code == 200:
-            return res.json().get("title")
-    except requests.exceptions.RequestException:
-        pass
-    return None
+def _fetch_update_manifest() -> dict[str, list[dict]]:
+    """
+    Fetch CI-generated update metadata.
+    Raises RequestException for network failures so the caller can show offline.
+    """
+    res = requests.get(UPDATE_MANIFEST_URL, timeout=REQUEST_TIMEOUT)
+    res.raise_for_status()
+    manifest = res.json()
+    if manifest.get("schema") != 1:
+        raise ValueError("unsupported update manifest schema")
+
+    channels: dict[str, list[dict]] = {}
+    manifest_channels = manifest.get("channels", {})
+    if not isinstance(manifest_channels, dict):
+        raise ValueError("invalid update manifest channels")
+
+    for channel in ("stable", "beta", "unstable"):
+        entries: list[dict] = []
+        raw_entries = manifest_channels.get(channel, [])
+        if not isinstance(raw_entries, list):
+            continue
+        for item in raw_entries:
+            if not isinstance(item, dict):
+                continue
+            entry = _entry_from_manifest(item, channel)
+            if entry is not None:
+                entries.append(entry)
+        channels[channel] = entries
+
+    return channels
 
 
 class UISoftware(UIModule):
@@ -275,6 +126,7 @@ class UISoftware(UIModule):
         self._software_subtitle: Optional[str] = None
 
         self._channels: Dict[str, List[dict]] = {}
+        self._manifest_channels: Dict[str, List[dict]] = {}
         self._channel_names: List[str] = []
         self._channel_index = 0
 
@@ -321,19 +173,24 @@ class UISoftware(UIModule):
 
     def _fetch_channels(self):
         try:
-            stable, beta = _fetch_github_releases()
+            manifest_channels = _fetch_update_manifest()
         except requests.exceptions.RequestException as e:
             logger.warning("Software update check failed (offline?): %s", e)
             self._phase = "offline"
             return
+        except ValueError as e:
+            logger.warning("Invalid update manifest: %s", e)
+            self._phase = "offline"
+            return
 
+        self._manifest_channels = manifest_channels
         self._channels = {
-            "stable": stable,
-            "beta": beta,
+            "stable": manifest_channels.get("stable", []),
+            "beta": manifest_channels.get("beta", []),
         }
 
         if self._unstable_unlocked:
-            self._unstable_entries = self._fetch_unstable_entries()
+            self._unstable_entries = manifest_channels.get("unstable", [])
             self._channels["unstable"] = self._unstable_entries
 
         # Try to find subtitle for current version from fetched entries
@@ -347,27 +204,14 @@ class UISoftware(UIModule):
     def _find_current_subtitle(self) -> Optional[str]:
         """Find a subtitle for the current version.
 
-        Checks fetched channel entries first, then falls back to
-        a direct PR title fetch for PR builds.
+        Checks fetched channel entries first.
         """
         for entries in self._channels.values():
             for entry in entries:
                 if entry.get("version") == self._software_version:
                     return entry.get("subtitle")
 
-        m = _PR_VERSION_RE.match(self._software_version)
-        if m:
-            return _fetch_pr_title(int(m.group(1)))
-
         return None
-
-    def _fetch_unstable_entries(self) -> list[dict]:
-        unstable: list[dict] = []
-        main_entry = _fetch_main_entry()
-        if main_entry:
-            unstable.append(main_entry)
-        unstable.extend(_fetch_testable_prs())
-        return unstable
 
     def _refresh_version_list(self):
         if not self._channel_names:
@@ -851,7 +695,7 @@ class UISoftware(UIModule):
         if self._square_count >= 7 and not self._unstable_unlocked:
             self._unstable_unlocked = True
             self.config_object.set_option("software_unstable_unlocked", True)
-            self._unstable_entries = self._fetch_unstable_entries()
+            self._unstable_entries = self._manifest_channels.get("unstable", [])
             self._channels["unstable"] = self._unstable_entries
             self._channel_names = list(self._channels.keys())
             self.message(_("Unstable\nunlocked"), 1)

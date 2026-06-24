@@ -34,7 +34,7 @@ The current state: no NixOS artifacts exist on the Upstream yet (PR #379 not mer
 The on-device UI offers three update **channels**, each mapped to one stage of the branch promotion flow (testable PRs → `main` → `release`). Choosing a channel and a version resolves to a **Build stamp** and installs that store path.
 
 **stable**:
-The production channel — official GitHub Releases (non-prerelease), cut from the `release` branch and gated at `MIN_NIXOS_VERSION`. The default for ordinary users.
+The production channel — official release entries in the generated manifest. The default for ordinary users.
 _Avoid_: "release channel" (the *branch* is `release`; the *channel* is "stable").
 
 **beta**:
@@ -71,5 +71,7 @@ _Avoid_: "cachix" (an earlier/alternative cache; the current one is Attic — se
 The self-hosted aarch64 GitHub Actions runner that builds NixOS systems natively, with a hosted `ubuntu-*-arm` QEMU fallback. Fork-side infrastructure through Phase 1.
 
 **Build stamp**:
-`pifinder-build.json` — the file CI commits to a branch (or a release tags) mapping a git ref to a signed Nix `store_path` in the Attic cache. The on-device channels resolve a chosen version to an installable path by reading this file.
+`update-manifest.json` — the generated channel manifest published on a metadata-only branch (`nixos-manifest` during the fork transition). It maps releases, trunk builds, and testable PR builds to signed Nix `store_path`s in the Attic cache. The device reads this raw JSON file instead of calling the GitHub API.
+
+`pifinder-build.json` — legacy/source-local build metadata. CI should not commit it back to source branches for dev builds; source branches stay at the real source commit, while generated install metadata goes to the manifest branch.
 _Avoid_: "manifest", "build manifest".
