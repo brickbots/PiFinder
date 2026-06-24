@@ -448,7 +448,7 @@ def draw_pointing_instructions(
         decimals = 2 if value < 1 else 1
         ui.draw.text(
             anchor,
-            f"{arrow}{value : >5.{decimals}f}",
+            f"{arrow}{value: >5.{decimals}f}",
             font=ui.fonts.huge.font,
             fill=ui.colors.get(brightness),
         )

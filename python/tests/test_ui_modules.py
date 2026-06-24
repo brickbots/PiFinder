@@ -53,7 +53,7 @@ import io
 import pkgutil
 import queue
 import shutil
-from typing import Iterator, cast
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -549,10 +549,7 @@ def _sweep_stack(menu_manager: MenuManager, seen: set) -> None:
     """
     count = 0
     while count < _MAX_SWEEP_MODULES:
-        # MenuManager.stack is annotated list[type[UIModule]] upstream
-        # but holds instances; cast so the sweep sees them
-        # as the UIModule instances they are.
-        pending = [cast(UIModule, m) for m in menu_manager.stack if id(m) not in seen]
+        pending = [m for m in menu_manager.stack if id(m) not in seen]
         if not pending:
             break
         for module in pending:

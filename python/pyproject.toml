@@ -65,6 +65,8 @@ dev = [
     "luma-emulator",
     "pyhotkey",
     "selenium",
+    # pandas reads the Steinicke .xls catalog through xlrd (test_steinicke_parsing).
+    "xlrd>=2.0.1",
 ]
 
 [build-system]
@@ -229,8 +231,6 @@ module = [
     'sh.*',
     'sklearn.*',
     'PyHotKey.*',
-    'PiFinder.tetra3.*',
-    'tetra3.*',
     'grpc',
     'ceder_detect_pb2',
     'RPi.*',
@@ -252,9 +252,23 @@ module = [
     'quaternion',
     'gi',
     'gi.*',
+    'pynput.*',
+    'waitress',
+    'google.*',
+    'cedar_detect_pb2',
+    'cedar_detect_pb2_grpc',
 ]
 ignore_missing_imports = true
 ignore_errors = true
+
+# The tetra3 / cedar-solve solver is a vendored git submodule. Treat it as an
+# opaque dependency: skip following its imports so mypy never analyses it or its
+# transitive deps (protobuf, grpc stubs, …). Without this, `mypy --install-types`
+# tries to pip-install those stubs, which fails in the pip-less Nix dev env.
+[[tool.mypy.overrides]]
+module = ['tetra3', 'tetra3.*', 'PiFinder.tetra3', 'PiFinder.tetra3.*']
+follow_imports = "skip"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

@@ -242,9 +242,9 @@ def test_change_password_functionality(driver):
 
     # Check for success message or verify we're still on tools page
     # The exact behavior depends on implementation - could show success message or redirect
-    assert (
-        "/tools" in driver.current_url
-    ), "Should remain on or return to tools page after password change"
+    assert "/tools" in driver.current_url, (
+        "Should remain on or return to tools page after password change"
+    )
 
 
 @pytest.mark.web
@@ -308,9 +308,9 @@ def test_download_user_data_functionality(driver):
             "Server error during backup download - path configuration issue in test environment"
         )
     else:
-        assert (
-            response.status_code == 200
-        ), f"Download request failed with status {response.status_code}"
+        assert response.status_code == 200, (
+            f"Download request failed with status {response.status_code}"
+        )
 
         # Check that we got some content
         assert len(response.content) > 0, "Downloaded file appears to be empty"
@@ -381,9 +381,9 @@ def test_complete_download_and_upload_workflow(driver):
             "Server error during backup download - path configuration issue in test environment"
         )
 
-    assert (
-        response.status_code == 200
-    ), f"Download request failed with status {response.status_code}"
+    assert response.status_code == 200, (
+        f"Download request failed with status {response.status_code}"
+    )
     assert len(response.content) > 0, "Downloaded file appears to be empty"
 
     # Step 2: Upload and restore the downloaded data
@@ -422,9 +422,9 @@ def test_complete_download_and_upload_workflow(driver):
         WebDriverWait(driver, 15).until(lambda d: "/tools" in d.current_url)
 
         # Verify we're still on tools page
-        assert (
-            "/tools" in driver.current_url
-        ), "Upload should complete and return to tools page"
+        assert "/tools" in driver.current_url, (
+            "Upload should complete and return to tools page"
+        )
 
     finally:
         # Clean up the temporary file

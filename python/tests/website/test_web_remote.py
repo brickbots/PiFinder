@@ -203,14 +203,14 @@ def test_remote_keyboard_elements_present(driver, window_size, viewport_name):
 
     # Check each expected button is present
     for display_text, code in expected_buttons.items():
-        assert (
-            display_text in button_texts
-        ), f"Button '{display_text}' not found on remote page"
+        assert display_text in button_texts, (
+            f"Button '{display_text}' not found on remote page"
+        )
 
     # Verify we have at least the expected number of buttons (13 main buttons + special buttons)
-    assert (
-        len(remote_buttons) >= 13
-    ), f"Expected at least 13 remote buttons, found {len(remote_buttons)}"
+    assert len(remote_buttons) >= 13, (
+        f"Expected at least 13 remote buttons, found {len(remote_buttons)}"
+    )
 
 
 @pytest.mark.parametrize(

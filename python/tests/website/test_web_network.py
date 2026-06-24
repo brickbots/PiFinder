@@ -90,26 +90,26 @@ def test_network_settings_form_elements(driver, window_size, viewport_name):
     if not option_texts:
         option_texts = [option.get_attribute("innerHTML").strip() for option in options]
 
-    assert "Access Point" in " ".join(
-        option_texts
-    ), f"Access Point option not found in: {option_texts}"
-    assert "Client" in " ".join(
-        option_texts
-    ), f"Client option not found in: {option_texts}"
+    assert "Access Point" in " ".join(option_texts), (
+        f"Access Point option not found in: {option_texts}"
+    )
+    assert "Client" in " ".join(option_texts), (
+        f"Client option not found in: {option_texts}"
+    )
 
     # Check AP Network Name input
     ap_name_input = driver.find_element(By.ID, "ap_name")
     assert ap_name_input is not None, "AP Network Name input not found"
-    assert (
-        ap_name_input.get_attribute("name") == "ap_name"
-    ), "AP name input has wrong name attribute"
+    assert ap_name_input.get_attribute("name") == "ap_name", (
+        "AP name input has wrong name attribute"
+    )
 
     # Check Host Name input
     host_name_input = driver.find_element(By.ID, "host_name")
     assert host_name_input is not None, "Host Name input not found"
-    assert (
-        host_name_input.get_attribute("name") == "host_name"
-    ), "Host name input has wrong name attribute"
+    assert host_name_input.get_attribute("name") == "host_name", (
+        "Host name input has wrong name attribute"
+    )
 
     # Check Update and Restart button
     restart_button = driver.find_element(By.CSS_SELECTOR, "a[href='#modal_restart']")
@@ -129,9 +129,9 @@ def test_network_wifi_networks_section(driver, window_size, viewport_name):
     _login_to_network(driver)
 
     # Check for WiFi networks section header
-    assert (
-        "Wifi Networks" in driver.page_source
-    ), "WiFi Networks section header not found"
+    assert "Wifi Networks" in driver.page_source, (
+        "WiFi Networks section header not found"
+    )
 
     # Check for add network button (floating action button)
     add_button = driver.find_element(By.CSS_SELECTOR, "a[href*='add_new=1']")
@@ -168,22 +168,22 @@ def test_network_add_form_elements(driver, window_size, viewport_name):
     # Check SSID input
     ssid_input = driver.find_element(By.ID, "ssid")
     assert ssid_input is not None, "SSID input not found"
-    assert (
-        ssid_input.get_attribute("name") == "ssid"
-    ), "SSID input has wrong name attribute"
-    assert (
-        ssid_input.get_attribute("placeholder") == "SSID"
-    ), "SSID input has wrong placeholder"
+    assert ssid_input.get_attribute("name") == "ssid", (
+        "SSID input has wrong name attribute"
+    )
+    assert ssid_input.get_attribute("placeholder") == "SSID", (
+        "SSID input has wrong placeholder"
+    )
 
     # Check Password input
     password_input = driver.find_element(By.ID, "password")
     assert password_input is not None, "Password input not found"
-    assert (
-        password_input.get_attribute("name") == "psk"
-    ), "Password input has wrong name attribute"
-    assert (
-        password_input.get_attribute("pattern") == ".{8,}"
-    ), "Password input missing validation pattern"
+    assert password_input.get_attribute("name") == "psk", (
+        "Password input has wrong name attribute"
+    )
+    assert password_input.get_attribute("pattern") == ".{8,}", (
+        "Password input missing validation pattern"
+    )
 
     # Check for helper text on password field
     helper_text = driver.find_element(
@@ -259,11 +259,9 @@ def test_network_form_structure_comprehensive(driver):
 
     # Check main form structure
     main_form = driver.find_element(By.ID, "network_form")
-    assert main_form.get_attribute(
-        "action"
-    ).endswith(
-        "/network/update"
-    ), f"Form action should end with '/network/update', got: {main_form.get_attribute('action')}"
+    assert main_form.get_attribute("action").endswith("/network/update"), (
+        f"Form action should end with '/network/update', got: {main_form.get_attribute('action')}"
+    )
     assert main_form.get_attribute("method") == "post"
 
     # Verify all input fields have proper labels
@@ -332,12 +330,12 @@ def test_network_add_form_submission(driver):
     )
 
     # Verify that the form submission was successful by checking we're back on the network page
-    assert (
-        "Network Settings" in driver.page_source
-    ), "Not on network settings page after form submission"
-    assert driver.current_url.rstrip("/").endswith(
-        "/network"
-    ), "URL not correct after form submission"
+    assert "Network Settings" in driver.page_source, (
+        "Not on network settings page after form submission"
+    )
+    assert driver.current_url.rstrip("/").endswith("/network"), (
+        "URL not correct after form submission"
+    )
 
     # Note: In the test environment, network persistence is not enabled,
     # so we only verify that the form submission worked correctly by
@@ -385,9 +383,9 @@ def test_network_update_and_restart_flow(driver):
 
     # Verify we're on the restart page with expected content
     assert "Restarting System" in driver.page_source, "Not redirected to restart page"
-    assert (
-        "This will take approximately 45 seconds" in driver.page_source
-    ), "Restart page doesn't show expected content"
+    assert "This will take approximately 45 seconds" in driver.page_source, (
+        "Restart page doesn't show expected content"
+    )
 
     # Verify the progress bar is present
     progress_bar = driver.find_element(By.CSS_SELECTOR, ".progress")
@@ -401,15 +399,15 @@ def test_network_update_and_restart_flow(driver):
     )
 
     # Verify we've been redirected to the home page
-    assert driver.current_url.endswith(
-        "/"
-    ), f"Not redirected to home page, current URL: {driver.current_url}"
+    assert driver.current_url.endswith("/"), (
+        f"Not redirected to home page, current URL: {driver.current_url}"
+    )
 
     # Verify we're on the home page (no login required)
     # The home page should contain navigation or typical home content, not login form
-    assert (
-        "password" not in driver.page_source.lower()
-    ), "Redirected to login page instead of home page"
+    assert "password" not in driver.page_source.lower(), (
+        "Redirected to login page instead of home page"
+    )
 
 
 def _login_to_network(driver):

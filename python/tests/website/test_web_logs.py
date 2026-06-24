@@ -285,12 +285,12 @@ def test_logs_config_select_reflects_available_files(driver):
 
         # Every config returned by the API must appear in the dropdown
         for cfg in expected_configs:
-            assert (
-                cfg["file"] in option_values
-            ), f"Missing file value in dropdown: {cfg['file']}"
-            assert (
-                cfg["name"] in option_texts
-            ), f"Missing display name in dropdown: {cfg['name']}"
+            assert cfg["file"] in option_values, (
+                f"Missing file value in dropdown: {cfg['file']}"
+            )
+            assert cfg["name"] in option_texts, (
+                f"Missing display name in dropdown: {cfg['name']}"
+            )
 
         # The active config (if any) must be the selected option
         active_configs = [cfg for cfg in expected_configs if cfg["active"]]
@@ -428,9 +428,9 @@ def test_log_level_colors(driver):
 
     # Verify that at least one expected color is present
     valid_colors_found = colors_found & expected_colors
-    assert (
-        len(valid_colors_found) > 0
-    ), f"No expected colors found. Found: {colors_found}, Expected: {expected_colors}"
+    assert len(valid_colors_found) > 0, (
+        f"No expected colors found. Found: {colors_found}, Expected: {expected_colors}"
+    )
 
 
 @pytest.mark.web

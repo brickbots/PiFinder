@@ -199,7 +199,7 @@ class Server:
         def home():
             # logger.debug("/ called")
             # Get version info
-            
+
             software_version = self._software_version
 
             # Try to update GPS state
@@ -520,7 +520,9 @@ class Server:
                 title=_("Network"),
                 net=self.network,
                 show_new_form=0,
-                status_message=_("Network settings updated. You may need to reconnect."),
+                status_message=_(
+                    "Network settings updated. You may need to reconnect."
+                ),
             )
 
         @app.route("/tools/pwchange", methods=["POST"])

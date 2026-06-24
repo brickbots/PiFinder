@@ -8,7 +8,7 @@ This module contains the base UIModule class
 import time
 import uuid
 from itertools import cycle
-from typing import Type, Union
+from typing import Union
 
 from PIL import Image, ImageDraw
 from PiFinder import utils
@@ -120,7 +120,7 @@ class UIModule:
 
     def __init__(
         self,
-        display_class: Type[DisplayBase],
+        display_class: DisplayBase,
         camera_image,
         shared_state,
         command_queues,
@@ -354,9 +354,7 @@ class UIModule:
             title_max_chars = max(1, title_max_px // self.fonts.bold.width)
             if len(title_text) > title_max_chars:
                 title_text = title_text[: title_max_chars - 1] + "…"
-            self.draw.text(
-                (6, title_y), title_text, font=self.fonts.bold.font, fill=fg
-            )
+            self.draw.text((6, title_y), title_text, font=self.fonts.bold.font, fill=fg)
             imu = self.shared_state.imu()
             moving = True if imu and imu.quat and imu.moving else False
 
