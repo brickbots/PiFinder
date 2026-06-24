@@ -1,9 +1,22 @@
 {
-  "schema": 1,
-  "generated_at": null,
   "channels": {
-    "stable": [],
     "beta": [],
-    "unstable": []
-  }
+    "stable": [],
+    "unstable": [
+      {
+        "available": true,
+        "kind": "trunk",
+        "label": "nixos-d1657e6",
+        "notes": null,
+        "source_ref": "nixos",
+        "source_repo": "mrosseel/PiFinder",
+        "source_sha": "d1657e66b6ca4e14ee2a13f6a6ccc24da250b509",
+        "store_path": "/nix/store/46pi7ajdkzgrlhyp3mpy9cyn9vqxpik3-nixos-system-pifinder-25.11.20260209.2db38e0",
+        "title": "nixos branch",
+        "version": "nixos-d1657e6"
+      }
+    ]
+  },
+  "generated_at": "2026-06-24T18:51:00+00:00",
+  "schema": 1
 }
