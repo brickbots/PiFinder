@@ -491,7 +491,7 @@ def get_upgrade_state() -> str:
 
     if status == "success":
         return UPGRADE_STATE_SUCCESS
-    elif status == "failed":
+    elif status in ("failed", "unavailable"):
         return UPGRADE_STATE_FAILED
     elif status.startswith("downloading") or status in ("activating", "rebooting"):
         return UPGRADE_STATE_RUNNING
@@ -502,19 +502,30 @@ def get_upgrade_progress() -> dict:
     """Return structured upgrade progress for UI display.
 
     Returns dict with keys:
-      phase: "downloading" | "activating" | "rebooting" | "success" | "failed" | ""
-      done: int (paths downloaded so far)
-      total: int (total paths to download)
+      phase: "downloading" | "activating" | "rebooting" | "success"
+             | "failed" | "unavailable" | ""
+      done: int (downloaded so far, in `unit`)
+      total: int (total to download, in `unit`)
+      unit: "bytes" | "paths"
       percent: int (0-100)
+
+    The download status line is "downloading <done>/<total>" in bytes;
+    a trailing " paths" marks the fallback where byte sizes were not
+    available and the figures are path counts instead.
     """
+    empty = {"phase": "", "done": 0, "total": 0, "unit": "bytes", "percent": 0}
     try:
         raw = UPGRADE_STATUS_FILE.read_text().strip()
     except FileNotFoundError:
-        return {"phase": "", "done": 0, "total": 0, "percent": 0}
+        return empty
 
-    # "downloading 5/42" format
     if raw.startswith("downloading "):
-        parts = raw.split(" ", 1)[1].split("/")
+        body = raw[len("downloading ") :].strip()
+        unit = "bytes"
+        if body.endswith(" paths"):
+            unit = "paths"
+            body = body[: -len(" paths")].strip()
+        parts = body.split("/")
         try:
             done, total = int(parts[0]), int(parts[1])
             pct = int(done * 100 / total) if total > 0 else 0
@@ -522,19 +533,22 @@ def get_upgrade_progress() -> dict:
                 "phase": "downloading",
                 "done": done,
                 "total": total,
+                "unit": unit,
                 "percent": pct,
             }
         except (ValueError, IndexError):
-            return {"phase": "downloading", "done": 0, "total": 0, "percent": 0}
+            return {**empty, "phase": "downloading"}
     if raw == "activating":
-        return {"phase": "activating", "done": 0, "total": 0, "percent": 100}
+        return {**empty, "phase": "activating", "percent": 100}
     if raw == "rebooting":
-        return {"phase": "rebooting", "done": 0, "total": 0, "percent": 100}
+        return {**empty, "phase": "rebooting", "percent": 100}
     if raw == "success":
-        return {"phase": "success", "done": 0, "total": 0, "percent": 100}
+        return {**empty, "phase": "success", "percent": 100}
+    if raw == "unavailable":
+        return {**empty, "phase": "unavailable"}
     if raw == "failed":
-        return {"phase": "failed", "done": 0, "total": 0, "percent": 0}
-    return {"phase": "", "done": 0, "total": 0, "percent": 0}
+        return {**empty, "phase": "failed"}
+    return empty
 
 
 def get_upgrade_log_tail(lines: int = 3) -> str:

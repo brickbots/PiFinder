@@ -204,6 +204,9 @@ def _fetch_main_entry() -> Optional[dict]:
         "notes": None,
         "version": build.get("version"),
         "subtitle": f"{TRUNK_BRANCH} branch",
+        # The trunk build is rendered more prominently than the per-PR rows
+        # in the unstable list (see _draw_browse).
+        "is_trunk": True,
     }
 
 
@@ -263,6 +266,7 @@ class UISoftware(UIModule):
         self._confirm_index = 0
 
         self._fail_option = "Retry"
+        self._fail_reason = ""
         self._unstable_unlocked = self.config_object.get_option(
             "software_unstable_unlocked"
         )
@@ -578,12 +582,22 @@ class UISoftware(UIModule):
             else:
                 if current_y + 12 > 128:
                     break
-                self.draw.text(
-                    (10, current_y),
-                    label[:label_width],
-                    font=self.fonts.base.font,
-                    fill=self.colors.get(192),
-                )
+                # The trunk ("main") row stands out from the PR rows: bold and
+                # brighter, with a leading dot.
+                if entry.get("is_trunk"):
+                    self.draw.text(
+                        (10, current_y),
+                        f"• {label}"[:label_width],
+                        font=self.fonts.bold.font,
+                        fill=self.colors.get(255),
+                    )
+                else:
+                    self.draw.text(
+                        (10, current_y),
+                        label[:label_width],
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(192),
+                    )
                 current_y += 12
 
     def _draw_confirm(self):
@@ -653,7 +667,7 @@ class UISoftware(UIModule):
         y = self.display_class.titlebar_height + 20
         self.draw.text(
             (10, y),
-            _("Update failed!"),
+            self._fail_reason or _("Update failed!"),
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
@@ -840,8 +854,14 @@ class UISoftware(UIModule):
         pct = progress["percent"]
         done = progress["done"]
         total = progress["total"]
+        unit = progress.get("unit", "bytes")
 
-        if phase == "failed":
+        if phase in ("failed", "unavailable"):
+            self._fail_reason = (
+                _("Version no longer available")
+                if phase == "unavailable"
+                else _("Update failed!")
+            )
             self._phase = "failed"
             self._fail_option = "Retry"
             return
@@ -892,12 +912,16 @@ class UISoftware(UIModule):
         )
         y += bar_h + 6
 
-        # Path count below bar
+        # Amount below the bar: megabytes downloaded out of the total, or a
+        # path count in the fallback case where byte sizes were unavailable.
         if phase == "downloading" and total > 0:
-            path_text = f"{done}/{total} paths"
+            if unit == "bytes":
+                amount_text = f"{done / 1048576:.0f}/{total / 1048576:.0f} MB"
+            else:
+                amount_text = f"{done}/{total} paths"
             self.draw.text(
                 (4, y),
-                path_text,
+                amount_text,
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )

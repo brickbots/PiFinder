@@ -169,25 +169,47 @@ in {
       done
       echo "Clock: $(date -u)"
 
-      # Count paths to fetch so the splash can show real progress.
+      # Download size up front, from the caches, so the splash shows a real
+      # percentage of bytes (not of equally-weighted paths). The Pi only
+      # substitutes prebuilt closures, so the closure is on a cache; if the
+      # sizes can't be had we fall back to a path count.
       echo "Computing download size..."
-      TOTAL=$(nix-store --realise --dry-run "$STORE_PATH" 2>&1 | grep -c '^  /nix/store/' || true)
-      echo "Downloading full PiFinder system: $STORE_PATH ($TOTAL paths)"
+      REL="https://cache.pifinder.eu/pifinder-release"
+      DEV="https://cache.pifinder.eu/pifinder"
+      declare -A SIZE=()
+      TOTAL_BYTES=0
+      CACHE_JSON=$(
+        { nix path-info --json -r --store "$REL" "$STORE_PATH" 2>/dev/null
+          nix path-info --json -r --store "$DEV" "$STORE_PATH" 2>/dev/null
+        } | jq -s 'add // []'
+      )
+      while read -r p sz; do
+        [ -z "$p" ] && continue
+        [ -e "$p" ] && continue
+        SIZE["$p"]=$sz
+        TOTAL_BYTES=$((TOTAL_BYTES + sz))
+      done < <(printf '%s' "$CACHE_JSON" \
+                 | jq -r '.[] | "\(.path) \(.downloadSize // .narSize // 0)"' | sort -u)
+      TOTAL_PATHS=$(nix-store --realise --dry-run "$STORE_PATH" 2>&1 | grep -c '^  /nix/store/' || true)
+      echo "Downloading full PiFinder system: $STORE_PATH ($TOTAL_BYTES bytes)"
 
-      if [ "$TOTAL" -gt 0 ]; then
-        COPIED=0
-        nix build "$STORE_PATH" --max-jobs 0 2>&1 | while IFS= read -r line; do
-          echo "$line"
-          case "$line" in
-            *"copying path "*)
-              COPIED=$((COPIED + 1))
-              echo "$((COPIED * 100 / TOTAL))" > "$PROGRESS_FILE"
-              ;;
-          esac
-        done
-      else
-        nix build "$STORE_PATH" --max-jobs 0
-      fi
+      BYTES_DONE=0
+      COPIED=0
+      nix build "$STORE_PATH" --max-jobs 0 2>&1 | while IFS= read -r line; do
+        echo "$line"
+        case "$line" in
+          *"copying path "*)
+            P=$(printf '%s' "$line" | grep -oE '/nix/store/[a-z0-9]+-[a-zA-Z0-9._+=?-]+' | head -1)
+            COPIED=$((COPIED + 1))
+            if [ "$TOTAL_BYTES" -gt 0 ]; then
+              BYTES_DONE=$((BYTES_DONE + ''${SIZE[$P]:-0}))
+              echo "$((BYTES_DONE * 100 / TOTAL_BYTES))" > "$PROGRESS_FILE"
+            elif [ "$TOTAL_PATHS" -gt 0 ]; then
+              echo "$((COPIED * 100 / TOTAL_PATHS))" > "$PROGRESS_FILE"
+            fi
+            ;;
+        esac
+      done
       echo 100 > "$PROGRESS_FILE"
 
       echo "Setting system profile..."
@@ -273,7 +295,7 @@ in {
     enable = true;
     settings = {
       PasswordAuthentication = true;
-      PermitRootLogin = "yes";
+      PermitRootLogin = "no";
     };
   };
 

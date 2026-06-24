@@ -380,7 +380,7 @@ in {
       RemainAfterExit = true;
       TimeoutStartSec = "10min";
     };
-    path = with pkgs; [ nix systemd coreutils gawk ];
+    path = with pkgs; [ nix systemd coreutils gawk gnugrep jq ];
     script = ''
       set -euo pipefail
       STORE_PATH=$(cat /run/pifinder/upgrade-ref 2>/dev/null || true)
@@ -402,37 +402,80 @@ in {
       echo "Upgrading to $STORE_PATH"
       echo "downloading 0/0" > "$STATUS_FILE"
 
-      # Progress via nix's internal JSON event stream — stable machine format,
-      # avoids scraping human-formatted --dry-run output. Each line is:
-      #   @nix {"action":"start"|"stop"|...,"id":N,"type":N,...}
-      # type 100 = actCopyPath: one event per store path being substituted from
-      # the binary cache, with text "copying path '/nix/store/...' from '...'".
-      # We track start ids and increment DONE on the matching stop. --max-jobs 0
-      # keeps this strictly a download path; if anything is missing from the
-      # binary cache nix errors instead of building locally. Enum source: nix
-      # src/libutil/logging.hh ActivityType (stable since Nix 2.4).
+      # --- Availability + download size, up front --------------------------
+      # The device only substitutes prebuilt closures (the nix build below uses
+      # --max-jobs 0 and never compiles), so the closure must still live on a
+      # cache. One query to the caches answers both "is it still there?" and
+      # "how big is the download?".
+      REL="https://cache.pifinder.eu/pifinder-release"
+      DEV="https://cache.pifinder.eu/pifinder"
+
+      # If the target is on neither cache and not already local, the build has
+      # been removed — fail clearly up front instead of part-way down.
+      if [ ! -e "$STORE_PATH" ] \
+         && ! nix path-info --store "$REL" "$STORE_PATH" >/dev/null 2>&1 \
+         && ! nix path-info --store "$DEV" "$STORE_PATH" >/dev/null 2>&1; then
+        echo "unavailable" > "$STATUS_FILE"
+        echo "ERROR: $STORE_PATH not on any cache (no longer available)" >&2
+        exit 1
+      fi
+
+      # Per-path download sizes, merged from both caches (best-effort). Only
+      # paths not already local are actually fetched, so the total reflects the
+      # real download. If this comes back empty the reader falls back to counts.
+      SIZES_FILE=/run/pifinder/upgrade-sizes
+      : > "$SIZES_FILE"
+      TOTAL_BYTES=0
+      CACHE_JSON=$(
+        { nix path-info --json -r --store "$REL" "$STORE_PATH" 2>/dev/null
+          nix path-info --json -r --store "$DEV" "$STORE_PATH" 2>/dev/null
+        } | jq -s 'add // []'
+      )
+      while read -r p sz; do
+        [ -z "$p" ] && continue
+        [ -e "$p" ] && continue
+        echo "$p $sz" >> "$SIZES_FILE"
+        TOTAL_BYTES=$((TOTAL_BYTES + sz))
+      done < <(printf '%s' "$CACHE_JSON" \
+                 | jq -r '.[] | "\(.path) \(.downloadSize // .narSize // 0)"' | sort -u)
+      echo "pifinder-upgrade: $TOTAL_BYTES bytes to download"
+
+      # --- Download with progress -----------------------------------------
+      # Progress from nix's internal JSON stream (stable machine format). Each
+      # line is: @nix {"action":"start"|"stop",...,"id":N,"type":N,...}. type
+      # 100 = actCopyPath, one per store path fetched, text
+      # "copying path '/nix/store/...' from '...'". Map start id -> path, and on
+      # the matching stop add that path's size to the byte total (or, when no
+      # sizes were available, fall back to a path count, suffixed " paths").
+      # Enum source: nix src/libutil/logging.hh ActivityType (stable since 2.4).
       UPGRADE_LOG=/run/pifinder/upgrade-nix.log
       set +e
       nix --log-format internal-json build "$STORE_PATH" --max-jobs 0 2>&1 \
         | tee "$UPGRADE_LOG" \
-        | gawk -v status="$STATUS_FILE" '
+        | gawk -v status="$STATUS_FILE" -v total="$TOTAL_BYTES" '
+            ARGIND == 1 { size[$1] = $2; next }
             /^@nix / {
               line = substr($0, 6)
               if (!match(line, /"id":[0-9]+/)) next
               id = substr(line, RSTART + 5, RLENGTH - 5)
               if (match(line, /"action":"start"/) && match(line, /"type":100/)) {
-                pending[id] = 1
-                total++
-              } else if (match(line, /"action":"stop"/) && (id in pending)) {
-                delete pending[id]
-                done++
-              } else {
+                p = ""
+                if (match(line, /\/nix\/store\/[a-z0-9]+-[a-zA-Z0-9._+=?-]+/))
+                  p = substr(line, RSTART, RLENGTH)
+                pending[id] = p
+                paths_total++
                 next
               }
-              printf "downloading %d/%d\n", done, total > status
-              close(status)
+              if (match(line, /"action":"stop"/) && (id in pending)) {
+                p = pending[id]; delete pending[id]
+                paths_done++
+                bytes_done += size[p]
+                if (total > 0) printf "downloading %d/%d\n", bytes_done, total > status
+                else printf "downloading %d/%d paths\n", paths_done, paths_total > status
+                close(status)
+              }
             }
-          '
+          ' "$SIZES_FILE" -
       BUILD_RC=''${PIPESTATUS[0]}
       set -e
       if [ "$BUILD_RC" -ne 0 ]; then
@@ -599,7 +642,7 @@ in {
     enable = true;
     settings = {
       PasswordAuthentication = true;
-      PermitRootLogin = "yes";
+      PermitRootLogin = "no";
     };
   };
 

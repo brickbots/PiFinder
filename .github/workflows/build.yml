@@ -33,6 +33,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Ensure nix is on PATH (self-hosted runner)
+        # GitHub Actions runs steps in a non-login shell that doesn't load
+        # nix's profile, so `nix` isn't found unless we add it explicitly.
+        run: echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
+
       - name: Setup Attic substituter (cache.pifinder.eu)
         # Self-hosted FastCDC-chunked binary cache — see ADR 0004. The
         # `attic use` command writes the substituter + public key into
@@ -201,6 +206,11 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Ensure nix is on PATH (self-hosted runner)
+        # GitHub Actions runs steps in a non-login shell that doesn't load
+        # nix's profile, so `nix` isn't found unless we add it explicitly.
+        run: echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
 
       - name: Setup Attic substituter (cache.pifinder.eu)
         env:
