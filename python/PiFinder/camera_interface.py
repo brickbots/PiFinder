@@ -197,6 +197,8 @@ class CameraInterface:
             sleep_delay = 60
             was_sleeping = False
             while True:
+                
+
                 sleeping = state_utils.sleep_for_framerate(
                     shared_state, limit_framerate=False
                 )
@@ -270,12 +272,15 @@ class CameraInterface:
                         pointing_diff = 0.0
 
                     # Make image available
-                    if debug and abs(pointing_diff) > 0.01:
-                        # Check if we moved and return a blank image
-                        camera_image.paste(self._blank_capture())
-                    else:
-                        camera_image.paste(base_image)
-
+                    # For debug camera: only send images when test_mode is ON
+                    # For real camera: always send images
+                    test_mode_on = shared_state.test_mode()
+                    if not debug or test_mode_on:
+                        if debug and abs(pointing_diff) > 0.01:
+                            # Check if we moved and return a blank image
+                            camera_image.paste(self._blank_capture())
+                        else:
+                            camera_image.paste(base_image)
                     image_metadata = {
                         "exposure_start": image_start_time,
                         "exposure_end": image_end_time,
@@ -694,7 +699,7 @@ class CameraInterface:
                                     dec_deg=dec_deg,
                                     altitude_deg=altitude_deg,
                                     azimuth_deg=azimuth_deg,
-                                    notes=f"Exposure sweep: {num_images} images, {min_exp/1000:.1f}-{max_exp/1000:.1f}ms",
+                                    notes=f"Exposure sweep: {num_images} images, {min_exp / 1000:.1f}-{max_exp / 1000:.1f}ms",
                                 )
                                 logger.info(
                                     f"Successfully saved sweep metadata to {sweep_dir}/sweep_metadata.json"

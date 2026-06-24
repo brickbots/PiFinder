@@ -8,7 +8,7 @@ This module contains the base UIModule class
 import time
 import uuid
 from itertools import cycle
-from typing import Type, Union
+from typing import Union
 
 from PIL import Image, ImageDraw
 from PiFinder import utils
@@ -101,6 +101,7 @@ class UIModule:
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options: dict
     _CAM_ICON = ""
+    _CAM_ICON_HOLLOW = ""
     _IMU_ICON = ""
     _GPS_ICON = "󰤉"
     _LEFT_ARROW = ""
@@ -120,7 +121,7 @@ class UIModule:
 
     def __init__(
         self,
-        display_class: Type[DisplayBase],
+        display_class: DisplayBase,
         camera_image,
         shared_state,
         command_queues,
@@ -354,9 +355,7 @@ class UIModule:
             title_max_chars = max(1, title_max_px // self.fonts.bold.width)
             if len(title_text) > title_max_chars:
                 title_text = title_text[: title_max_chars - 1] + "…"
-            self.draw.text(
-                (6, title_y), title_text, font=self.fonts.bold.font, fill=fg
-            )
+            self.draw.text((6, title_y), title_text, font=self.fonts.bold.font, fill=fg)
             imu = self.shared_state.imu()
             moving = True if imu and imu.quat and imu.moving else False
 
@@ -387,6 +386,8 @@ class UIModule:
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
+                    if solution is None:
+                        return
                     cam_active = solution.is_camera_solve()
                     # a fresh cam solve sets unmoved to True
                     self._unmoved = True if cam_active else self._unmoved
@@ -398,12 +399,27 @@ class UIModule:
                     # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
                     if self._unmoved:
-                        self.draw.text(
-                            (self.display_class.resX * 0.91, icon_y),
-                            self._CAM_ICON,
-                            font=self.fonts.icon_bold_large.font,
-                            fill=var_fg,
-                        )
+                        is_test = self.config_object.get_option("test_mode", False)
+                        icon_x = self.display_class.resX * 0.91
+                        if is_test:
+                            # Invert camera icon: white bg, dark icon
+                            self.draw.rectangle(
+                                [icon_x - 1, 0, icon_x + 13, 13],
+                                fill=self.colors.get(128),
+                            )
+                            self.draw.text(
+                                (icon_x, icon_y),
+                                self._CAM_ICON,
+                                font=self.fonts.icon_bold_large.font,
+                                fill=self.colors.get(0),
+                            )
+                        else:
+                            self.draw.text(
+                                (icon_x, icon_y),
+                                self._CAM_ICON,
+                                font=self.fonts.icon_bold_large.font,
+                                fill=var_fg,
+                            )
 
                     if len(self.title) < 9:
                         # Draw rotating constellation/SQM wheel (replaces static constellation)

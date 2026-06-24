@@ -290,9 +290,9 @@ def _advance_with_imu(
     was below the deadband.
     """
     q_x2imu = imu.quat
-    assert isinstance(
-        q_x2imu, quaternion.quaternion
-    ), "Expecting quaternion.quaternion type"
+    assert isinstance(q_x2imu, quaternion.quaternion), (
+        "Expecting quaternion.quaternion type"
+    )
 
     angle_moved = qt.get_quat_angular_diff(estimate.imu_anchor, q_x2imu)
     if angle_moved <= IMU_MOVED_ANG_THRESHOLD:

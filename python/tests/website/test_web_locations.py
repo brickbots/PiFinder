@@ -157,9 +157,9 @@ def test_locations_table_present(driver):
         "Actions",
     ]
     for expected_header in expected_headers:
-        assert any(
-            expected_header in header for header in header_texts
-        ), f"Missing header: {expected_header}"
+        assert any(expected_header in header for header in header_texts), (
+            f"Missing header: {expected_header}"
+        )
 
     # Verify table body exists
     table_body = driver.find_element(By.TAG_NAME, "tbody")
@@ -457,9 +457,9 @@ def test_locations_add_dms_location(driver):
             break
 
     # Verify the location exists
-    assert (
-        found_test_location_4 is not None
-    ), "Test location 4 was not found in the table"
+    assert found_test_location_4 is not None, (
+        "Test location 4 was not found in the table"
+    )
 
     # Verify coordinates are approximately correct (DMS 35°41'22"N 139°41'30"E should convert to ~35.689444, 139.691667)
     expected_lat = 35.689444  # 35 + 41/60 + 22/3600
@@ -469,20 +469,20 @@ def test_locations_add_dms_location(driver):
     actual_lon = float(found_test_location_4["longitude"])
 
     # Allow small tolerance for DMS conversion
-    assert (
-        abs(actual_lat - expected_lat) < 0.000001
-    ), f"Latitude mismatch: expected ~{expected_lat}, got {actual_lat}"
-    assert (
-        abs(actual_lon - expected_lon) < 0.000001
-    ), f"Longitude mismatch: expected ~{expected_lon}, got {actual_lon}"
+    assert abs(actual_lat - expected_lat) < 0.000001, (
+        f"Latitude mismatch: expected ~{expected_lat}, got {actual_lat}"
+    )
+    assert abs(actual_lon - expected_lon) < 0.000001, (
+        f"Longitude mismatch: expected ~{expected_lon}, got {actual_lon}"
+    )
 
     # Verify altitude and error
-    assert (
-        found_test_location_4["altitude"] == "40.0m"
-    ), f"Altitude mismatch: expected 40.0m, got {found_test_location_4['altitude']}"
-    assert (
-        found_test_location_4["error"] == "12.0m"
-    ), f"Error mismatch: expected 12.0m, got {found_test_location_4['error']}"
+    assert found_test_location_4["altitude"] == "40.0m", (
+        f"Altitude mismatch: expected 40.0m, got {found_test_location_4['altitude']}"
+    )
+    assert found_test_location_4["error"] == "12.0m", (
+        f"Error mismatch: expected 12.0m, got {found_test_location_4['error']}"
+    )
 
 
 @pytest.mark.web
@@ -612,15 +612,15 @@ def test_locations_add_remote(driver):
                 break
 
     # Assert that the specific location was added
-    assert (
-        specific_location_found
-    ), f"Location '{location_name}' not found in locations table after remote save"
+    assert specific_location_found, (
+        f"Location '{location_name}' not found in locations table after remote save"
+    )
 
     # Verify the location was saved with a source recorded (GPS, WEB, fakeGPS, etc.)
     assert found_location_data is not None, "Location data should not be None"
-    assert found_location_data[
-        "source"
-    ], f"Expected a non-empty source, got: {found_location_data['source']}"
+    assert found_location_data["source"], (
+        f"Expected a non-empty source, got: {found_location_data['source']}"
+    )
 
     # Log the found location for debugging/verification
     # Successfully found location: {found_location_data}
@@ -636,9 +636,9 @@ def test_locations_add_remote(driver):
                 location_row_index = i
                 break
 
-    assert (
-        location_row_index is not None
-    ), f"Could not find row index for location '{location_name}'"
+    assert location_row_index is not None, (
+        f"Could not find row index for location '{location_name}'"
+    )
 
     # Click the delete button for this location (uses loop.index0 which is the row index)
     delete_button_selector = f"a[href='#delete-modal-{location_row_index}']"
@@ -695,9 +695,9 @@ def test_locations_add_remote(driver):
                 break
 
     # Assert that the location was successfully deleted
-    assert (
-        not location_still_exists
-    ), f"Location '{location_name}' still exists in table after deletion"
+    assert not location_still_exists, (
+        f"Location '{location_name}' still exists in table after deletion"
+    )
 
 
 @pytest.mark.web
@@ -717,9 +717,9 @@ def test_locations_default_switching(driver):
     existing_locations = table_body.find_elements(By.TAG_NAME, "tr")
 
     # Check that there are at least two locations before proceeding
-    assert (
-        len(existing_locations) >= 2
-    ), f"Need at least 2 locations to test default switching, found {len(existing_locations)}"
+    assert len(existing_locations) >= 2, (
+        f"Need at least 2 locations to test default switching, found {len(existing_locations)}"
+    )
 
     current_default_index = None
     current_default_name = None
@@ -846,17 +846,17 @@ def test_locations_default_switching(driver):
             elif location_name == current_default_name and has_star:
                 old_default_lost_star = False  # Old default still has star (bad)
         else:
-            assert (
-                False
-            ), f"Table row {i, row} does not have enough cells to verify default status"
+            assert False, (
+                f"Table row {i, row} does not have enough cells to verify default status"
+            )
 
     # Assert the switch worked correctly
-    assert (
-        new_default_has_star
-    ), f"Location '{non_default_name}' should now have the star (be default)"
-    assert (
-        old_default_lost_star
-    ), f"Location '{current_default_name}' should no longer have the star"
+    assert new_default_has_star, (
+        f"Location '{non_default_name}' should now have the star (be default)"
+    )
+    assert old_default_lost_star, (
+        f"Location '{current_default_name}' should no longer have the star"
+    )
 
     # Step 3: Switch back to the original default location
     # Find the row index of the original default location in the updated table
@@ -872,9 +872,9 @@ def test_locations_default_switching(driver):
                 original_default_new_index = i
                 break
 
-    assert (
-        original_default_new_index is not None
-    ), f"Could not find original default location '{current_default_name}' in updated table"
+    assert original_default_new_index is not None, (
+        f"Could not find original default location '{current_default_name}' in updated table"
+    )
 
     # Click to make the original location default again
     restore_default_button = driver.find_element(
@@ -925,10 +925,12 @@ def test_locations_default_switching(driver):
                 new_default_lost_star = False  # Still has star (bad)
 
     # Assert we're back to original state
-    assert original_restored, f"Original default location '{current_default_name}' should have the star restored"
-    assert (
-        new_default_lost_star
-    ), f"Location '{non_default_name}' should no longer have the star"
+    assert original_restored, (
+        f"Original default location '{current_default_name}' should have the star restored"
+    )
+    assert new_default_lost_star, (
+        f"Location '{non_default_name}' should no longer have the star"
+    )
 
 
 def _login_to_interface(driver):
