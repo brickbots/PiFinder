@@ -6,7 +6,7 @@ UI modules for software updates, channel selection, and release notes.
 Channels:
   - stable:   GitHub Releases (non-prerelease, >= MIN_NIXOS_VERSION)
   - beta:     GitHub Pre-releases (>= MIN_NIXOS_VERSION)
-  - unstable: main branch + open PRs labeled 'testable'
+  - unstable: trunk branch (TRUNK_BRANCH) + open PRs labeled 'testable'
 """
 
 import logging
@@ -22,7 +22,14 @@ from PiFinder.ui.ui_utils import TextLayouter, TextLayouterScroll
 sys_utils = utils.get_sys_utils()
 logger = logging.getLogger("UISoftware")
 
-GITHUB_REPO = "brickbots/PiFinder"
+# --- NixOS transition source (single switch) ----------------------------------
+# All NixOS build artifacts currently live only on the fork, so every channel
+# reads from it: stable/beta from the fork's releases, unstable from its nixos
+# trunk + testable PRs. Switch both back to ("brickbots/PiFinder", "main") once
+# the NixOS work is upstreamed.
+GITHUB_REPO = "mrosseel/PiFinder"
+TRUNK_BRANCH = "nixos"
+# ------------------------------------------------------------------------------
 GITHUB_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
 GITHUB_PULLS_URL = f"https://api.github.com/repos/{GITHUB_REPO}/pulls"
 GITHUB_RAW_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}"
@@ -185,18 +192,18 @@ def _fetch_testable_prs() -> list[dict]:
 
 def _fetch_main_entry() -> Optional[dict]:
     """
-    Fetch pifinder-build.json for the main branch.
+    Fetch pifinder-build.json for the trunk branch.
     Returns an entry dict or None if unavailable.
     """
-    build = _fetch_build_json("main")
+    build = _fetch_build_json(TRUNK_BRANCH)
     if build is None:
         return None
     return {
-        "label": build.get("version") or "main",
+        "label": build.get("version") or TRUNK_BRANCH,
         "ref": build["store_path"],
         "notes": None,
         "version": build.get("version"),
-        "subtitle": "main branch",
+        "subtitle": f"{TRUNK_BRANCH} branch",
     }
 
 
