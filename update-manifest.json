@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "generated_at": null,
+  "channels": {
+    "stable": [],
+    "beta": [],
+    "unstable": []
+  }
+}
