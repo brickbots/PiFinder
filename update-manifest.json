@@ -31,6 +31,19 @@
       {
         "available": true,
         "kind": "pr",
+        "label": "PR#385-98d8ca1",
+        "notes": "## Summary\n- Press square 7 times anywhere to toggle dev mode (shows popup feedback)\n- Dev mode unlocks \"Screen Off\" option in Status menu and unstable software channel\n- Screen off blanks display and LEDs after configurable timeout (burn-in protection)\n- Hourly LED heartbeat pulse while screen is off\n- Test mode now shows popup \"Test Mode ON/OFF\" and uses hollow camera icon\n\n## Test plan\n- [ ] Press square 7x \u2192 see \"DEV MODE ON\" popup\n- [ ] Go to Status \u2192 \"Screen Off\" option visible\n- [ ] Set sleep_timeout=\"10s\", screen_off_timeout=\"30s\"\n- [ ] Wait 10s \u2192 screen dims (sleep)\n- [ ] Wait 30s more \u2192 screen blanks, LEDs off\n- [ ] Press any key \u2192 full wake\n- [ ] Press square 7x \u2192 \"DEV MODE OFF\", Screen Off hidden\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.ai/claude-code)",
+        "number": 385,
+        "source_ref": "screensaver",
+        "source_repo": "mrosseel/PiFinder",
+        "source_sha": "98d8ca122fa5d84d30449d772c8e61c73b078753",
+        "store_path": "/nix/store/0c74h3x0zfsxn3fdspfr1pc050jl3b4k-nixos-system-pifinder-25.11.20260209.2db38e0",
+        "title": "feat: add dev mode toggle and screen off burn-in protection",
+        "version": "PR#385-98d8ca1"
+      },
+      {
+        "available": true,
+        "kind": "pr",
         "label": "PR#379-cd6b7d7",
         "notes": "## Summary\n- Full NixOS-based system for PiFinder (replaces Raspbian)\n- Declarative system configuration via Nix flake\n- SD card image, netboot, and migration bootstrap tarball builds\n- Software update via nixos-rebuild with GitHub release/PR channels\n\n## Test plan\n- [ ] Flash SD image and verify boot\n- [ ] Test WiFi AP and client mode switching\n- [ ] Test software update UI channels\n- [ ] Test hostname rename via web UI\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)",
         "number": 379,
@@ -43,6 +56,6 @@
       }
     ]
   },
-  "generated_at": "2026-06-25T18:25:49+00:00",
+  "generated_at": "2026-06-25T18:26:54+00:00",
   "schema": 1
 }
