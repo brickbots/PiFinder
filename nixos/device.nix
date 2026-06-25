@@ -280,44 +280,6 @@ in {
     };
   };
 
-  # ---------------------------------------------------------------------------
-  # Avahi/mDNS for hostname discovery (pifinder.local)
-  # ---------------------------------------------------------------------------
-  services.avahi = {
-    enable = true;
-    nssmdns4 = true;
-    publish = {
-      enable = true;
-      addresses = true;
-      domain = true;
-      workstation = true;
-    };
-  };
-
-  systemd.services.avahi-daemon.serviceConfig.ExecStartPre =
-    "${pkgs.coreutils}/bin/rm -f /run/avahi-daemon/pid";
-
-  # Apply user-chosen hostname from PiFinder_data (survives NixOS rebuilds)
-  systemd.services.pifinder-hostname = {
-    description = "Apply PiFinder custom hostname";
-    after = [ "avahi-daemon.service" ];
-    wants = [ "avahi-daemon.service" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = pkgs.writeShellScript "apply-hostname" ''
-        f=/home/pifinder/PiFinder_data/hostname
-        [ -f "$f" ] || exit 0
-        name=$(cat "$f")
-        [ -n "$name" ] || exit 0
-        /run/current-system/sw/bin/hostname "$name"
-        /run/current-system/sw/bin/avahi-set-host-name "$name" || \
-          /run/current-system/sw/bin/systemctl restart avahi-daemon.service
-      '';
-    };
-  };
-
   # NetworkManager-wait-online adds ~10s to boot but is needed for
   # pifinder-first-boot to have internet. The first-boot script also has
   # its own connectivity retry loop as a fallback.

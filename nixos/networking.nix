@@ -113,4 +113,77 @@
       OnUnitActiveSec = "120s";
     };
   };
+
+  # ---------------------------------------------------------------------------
+  # Avahi/mDNS for hostname discovery (<host>.local). It lives in this shared
+  # networking module on purpose: BOTH the running system (commonModules) and
+  # the migration build (migrationModules) import networking.nix, whereas
+  # services.nix and device.nix are each only in one of those — so avahi must
+  # not live in either alone or one system ends up with no mDNS at all.
+  # ---------------------------------------------------------------------------
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true;
+    publish = {
+      enable = true;
+      addresses = true;
+      domain = true;
+      workstation = true;
+    };
+  };
+
+  systemd.services.avahi-daemon.serviceConfig.ExecStartPre =
+    "${pkgs.coreutils}/bin/rm -f /run/avahi-daemon/pid";
+
+  # Apply user-chosen hostname from PiFinder_data (survives NixOS rebuilds),
+  # overriding networking.hostName above.
+  systemd.services.pifinder-hostname = {
+    description = "Apply PiFinder custom hostname";
+    after = [ "avahi-daemon.service" ];
+    wants = [ "avahi-daemon.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = pkgs.writeShellScript "apply-hostname" ''
+        f=/home/pifinder/PiFinder_data/hostname
+        [ -f "$f" ] || exit 0
+        name=$(cat "$f")
+        [ -n "$name" ] || exit 0
+        /run/current-system/sw/bin/hostname "$name"
+        /run/current-system/sw/bin/avahi-set-host-name "$name" || \
+          /run/current-system/sw/bin/systemctl restart avahi-daemon.service
+      '';
+    };
+  };
+
+  # Avahi binds whatever interfaces are up when it starts. A PiFinder has both
+  # the wlan0 AP (up fast) and the DHCP'd LAN end0 (up slow); avahi frequently
+  # starts before the LAN and then never re-binds it, leaving the unit
+  # unreachable as <host>.local over ethernet. Re-scan avahi whenever
+  # NetworkManager activates a connection so it always reflects current links.
+  # NetworkManager must not manage the hostname, or it resets it to the static
+  # "pifinder" (networking.hostName) and undoes pifinder-hostname's value.
+  networking.networkmanager.settings.main."hostname-mode" = "none";
+
+  networking.networkmanager.dispatcherScripts = [{
+    source = pkgs.writeShellScript "avahi-rescan-on-net" ''
+      case "$2" in
+        up|connectivity-change)
+          # Re-scan avahi onto the now-up link (it misses the slow DHCP'd LAN at
+          # boot). NixOS bakes host-name=<static> into avahi's config, so the
+          # restart reverts the published name to "pifinder" — re-assert the
+          # user hostname (system + avahi runtime) afterwards; that sticks.
+          f=/home/pifinder/PiFinder_data/hostname
+          name=""
+          if [ -s "$f" ]; then
+            name=$(cat "$f")
+            /run/current-system/sw/bin/hostname "$name" 2>/dev/null || true
+          fi
+          ${pkgs.systemd}/bin/systemctl try-restart avahi-daemon.service || true
+          [ -n "$name" ] && /run/current-system/sw/bin/avahi-set-host-name "$name" 2>/dev/null || true
+          ;;
+      esac
+    '';
+  }];
 }

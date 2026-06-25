@@ -812,6 +812,15 @@ class UISoftware(UIModule):
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
+            # Name the package currently being copied, if known.
+            item = progress.get("item", "")
+            if item:
+                self.draw.text(
+                    (4, y + 12),
+                    item[:22],
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(96),
+                )
 
 
 class UIReleaseNotes(UIModule):

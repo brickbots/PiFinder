@@ -552,7 +552,14 @@ def get_upgrade_progress() -> dict:
     a trailing " paths" marks the fallback where byte sizes were not
     available and the figures are path counts instead.
     """
-    empty = {"phase": "", "done": 0, "total": 0, "unit": "bytes", "percent": 0}
+    empty = {
+        "phase": "",
+        "done": 0,
+        "total": 0,
+        "unit": "bytes",
+        "percent": 0,
+        "item": "",
+    }
     try:
         raw = UPGRADE_STATUS_FILE.read_text().strip()
     except FileNotFoundError:
@@ -574,7 +581,9 @@ def get_upgrade_progress() -> dict:
         if body.endswith(" paths"):
             unit = "paths"
             body = body[: -len(" paths")].strip()
-        parts = body.split("/")
+        # body is "<done>/<total>" optionally followed by " <package label>"
+        nums, _sep, item = body.partition(" ")
+        parts = nums.split("/")
         try:
             done, total = int(parts[0]), int(parts[1])
             pct = int(done * 100 / total) if total > 0 else 0
@@ -585,6 +594,7 @@ def get_upgrade_progress() -> dict:
                 "total": total,
                 "unit": unit,
                 "percent": pct,
+                "item": item.strip(),
             }
         except (ValueError, IndexError):
             return {**empty, "phase": "downloading"}

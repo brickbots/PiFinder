@@ -33,6 +33,36 @@ def test_parse_progress_event_extracts_copy_path():
 
 
 @pytest.mark.unit
+def test_parse_progress_event_extracts_byte_progress():
+    line = '@nix {"action":"result","id":3,"type":105,"fields":[1024,4096,1,0]}'
+    event = nixos_upgrade.parse_progress_event(line)
+    assert event == nixos_upgrade.ProgressEvent("result", 3, None, None, 1024, 4096)
+
+
+@pytest.mark.unit
+def test_download_progress_tracks_bytes_and_label(monkeypatch):
+    statuses: list[str] = []
+    monkeypatch.setattr(
+        nixos_upgrade, "write_status", lambda s, _f=None: statuses.append(s)
+    )
+    progress = nixos_upgrade._DownloadProgress(10_000_000, 2, None)
+    progress.feed(
+        f'@nix {{"action":"start","id":1,"type":100,'
+        f'"text":"copying path \'{STORE}\' from cache"}}'
+    )
+    progress.feed(
+        '@nix {"action":"result","id":1,"type":105,"fields":[5000000,8000000,1,0]}'
+    )
+    progress.feed('@nix {"action":"stop","id":1,"type":100}')
+
+    # within-path byte movement, the package label, and never a crash on junk
+    assert statuses and all(s.startswith("downloading ") for s in statuses)
+    assert any("nixos-system-pifinder" in s for s in statuses)
+    for bad in ["garbage", "@nix {oops", ""]:
+        progress.feed(bad)
+
+
+@pytest.mark.unit
 def test_run_build_uses_no_link(monkeypatch, tmp_path):
     started = {}
 
@@ -51,10 +81,11 @@ def test_run_build_uses_no_link(monkeypatch, tmp_path):
         return FakeProcess()
 
     monkeypatch.setattr(nixos_upgrade.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(nixos_upgrade, "fetch_cache_public_keys", lambda: [])
 
     rc = nixos_upgrade.run_build(
         STORE,
-        nixos_upgrade.DownloadEstimate({}, ()),
+        nixos_upgrade.DownloadEstimate(()),
         status_file=tmp_path / "status",
         log_file=tmp_path / "log",
     )
@@ -64,25 +95,27 @@ def test_run_build_uses_no_link(monkeypatch, tmp_path):
 
 
 @pytest.mark.unit
-def test_estimate_download_uses_per_path_sizes(monkeypatch):
-    dry = f"these paths will be fetched:\n  {STORE}\n"
+def test_estimate_download_parses_paths_and_total(monkeypatch):
+    dry = (
+        "these 1 paths will be fetched (0.0 KiB download, 12.5 MiB unpacked):\n"
+        f"  {STORE}\n"
+    )
 
     def fake_command(args, **kwargs):
         class Result:
             returncode = 0
-            stderr = dry
-            stdout = json.dumps([{"path": STORE, "downloadSize": 1024}])
+            stdout = dry
+            stderr = ""
 
         return Result()
 
     monkeypatch.setattr(nixos_upgrade, "command", fake_command)
-    monkeypatch.setattr(nixos_upgrade, "path_exists", lambda _path: False)
 
     estimate = nixos_upgrade.estimate_download(STORE)
 
     assert estimate.paths == (STORE,)
-    assert estimate.sizes == {STORE: 1024}
-    assert estimate.total_bytes == 1024
+    assert estimate.path_count == 1
+    assert estimate.total_bytes == int(12.5 * 1024 * 1024)
 
 
 def _capture_status(monkeypatch):
@@ -111,9 +144,8 @@ def test_run_upgrade_unavailable_writes_unavailable(tmp_path, monkeypatch):
     monkeypatch.setattr(
         nixos_upgrade,
         "estimate_download",
-        lambda _store: nixos_upgrade.DownloadEstimate({}, ()),
+        lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
-    monkeypatch.setattr(nixos_upgrade, "write_sizes_file", lambda _estimate: None)
     monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 1)
     monkeypatch.setattr(nixos_upgrade, "store_path_available", lambda _store: False)
 
@@ -131,9 +163,8 @@ def test_run_upgrade_build_failure_writes_failed(tmp_path, monkeypatch):
     monkeypatch.setattr(
         nixos_upgrade,
         "estimate_download",
-        lambda _store: nixos_upgrade.DownloadEstimate({}, ()),
+        lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
-    monkeypatch.setattr(nixos_upgrade, "write_sizes_file", lambda _estimate: None)
     monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 1)
     monkeypatch.setattr(nixos_upgrade, "store_path_available", lambda _store: True)
 
@@ -151,9 +182,8 @@ def test_run_upgrade_activation_failure_writes_failed(tmp_path, monkeypatch):
     monkeypatch.setattr(
         nixos_upgrade,
         "estimate_download",
-        lambda _store: nixos_upgrade.DownloadEstimate({}, ()),
+        lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
-    monkeypatch.setattr(nixos_upgrade, "write_sizes_file", lambda _estimate: None)
     monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 0)
     monkeypatch.setattr(nixos_upgrade, "load_selection", dict)
     monkeypatch.setattr(
@@ -179,9 +209,8 @@ def test_run_upgrade_success_writes_rebooting_and_persists(tmp_path, monkeypatch
     monkeypatch.setattr(
         nixos_upgrade,
         "estimate_download",
-        lambda _store: nixos_upgrade.DownloadEstimate({}, ()),
+        lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
-    monkeypatch.setattr(nixos_upgrade, "write_sizes_file", lambda _estimate: None)
     monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 0)
     monkeypatch.setattr(
         nixos_upgrade,
@@ -214,9 +243,8 @@ def test_run_upgrade_reboot_failure_writes_failed(tmp_path, monkeypatch):
     monkeypatch.setattr(
         nixos_upgrade,
         "estimate_download",
-        lambda _store: nixos_upgrade.DownloadEstimate({}, ()),
+        lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
-    monkeypatch.setattr(nixos_upgrade, "write_sizes_file", lambda _estimate: None)
     monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 0)
     monkeypatch.setattr(nixos_upgrade, "load_selection", dict)
     monkeypatch.setattr(nixos_upgrade, "activate_system", lambda _store, _camera: None)

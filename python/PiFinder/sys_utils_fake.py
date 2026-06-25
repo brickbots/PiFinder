@@ -67,7 +67,14 @@ def update_software(ref: str = "release", selection=None):
 
 
 def get_upgrade_progress() -> dict:
-    return {"phase": "", "done": 0, "total": 0, "unit": "bytes", "percent": 0}
+    return {
+        "phase": "",
+        "done": 0,
+        "total": 0,
+        "unit": "bytes",
+        "percent": 0,
+        "item": "",
+    }
 
 
 def restart_pifinder() -> None:

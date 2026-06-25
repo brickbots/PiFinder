@@ -517,44 +517,8 @@ in {
     };
   };
 
-  # ---------------------------------------------------------------------------
-  # Avahi/mDNS for hostname discovery (pifinder.local)
-  # ---------------------------------------------------------------------------
-  services.avahi = {
-    enable = true;
-    nssmdns4 = true;
-    publish = {
-      enable = true;
-      addresses = true;
-      domain = true;
-      workstation = true;
-    };
-  };
-
-  # Clean stale PID file so avahi restarts cleanly during switch-to-configuration
-  systemd.services.avahi-daemon.serviceConfig.ExecStartPre =
-    "${pkgs.coreutils}/bin/rm -f /run/avahi-daemon/pid";
-
-  # Apply user-chosen hostname from PiFinder_data (survives NixOS rebuilds)
-  systemd.services.pifinder-hostname = {
-    description = "Apply PiFinder custom hostname";
-    after = [ "avahi-daemon.service" ];
-    wants = [ "avahi-daemon.service" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = pkgs.writeShellScript "apply-hostname" ''
-        f=/home/pifinder/PiFinder_data/hostname
-        [ -f "$f" ] || exit 0
-        name=$(cat "$f")
-        [ -n "$name" ] || exit 0
-        /run/current-system/sw/bin/hostname "$name"
-        /run/current-system/sw/bin/avahi-set-host-name "$name" || \
-          /run/current-system/sw/bin/systemctl restart avahi-daemon.service
-      '';
-    };
-  };
+  # Avahi/mDNS + the PiFinder custom-hostname service live in nixos/device.nix
+  # (single owner — this block used to be duplicated here and there).
 
   # Don't block boot waiting for network — NM still works, just async
   systemd.services.NetworkManager-wait-online.enable = false;

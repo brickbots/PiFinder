@@ -12,6 +12,7 @@ import json
 import logging
 import re
 import subprocess
+import urllib.request
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,7 +25,6 @@ UPGRADE_REF_FILE = RUN_DIR / "upgrade-ref"
 UPGRADE_SELECTION_FILE = RUN_DIR / "upgrade-selection.json"
 UPGRADE_STATUS_FILE = RUN_DIR / "upgrade-status"
 UPGRADE_LOG_FILE = RUN_DIR / "upgrade-nix.log"
-UPGRADE_SIZES_FILE = RUN_DIR / "upgrade-sizes"
 CURRENT_BUILD_FILE = Path("/var/lib/pifinder/current-build.json")
 CAMERA_TYPE_FILE = Path("/var/lib/pifinder/camera-type")
 
@@ -33,6 +33,19 @@ DEV_CACHE = "https://cache.pifinder.eu/pifinder"
 CACHES = (DEV_CACHE, RELEASE_CACHE)
 
 STORE_PATH_RE = re.compile(r"/nix/store/[a-z0-9]+-[A-Za-z0-9._+=?,-]+")
+
+# nix's --dry-run prints e.g. "(0.0 KiB download, 894.9 MiB unpacked)". Attic
+# narinfos carry no compressed FileSize, so the unpacked figure is the only
+# whole-download size nix can report; we use it as the progress denominator.
+_UNPACKED_RE = re.compile(r"([\d.]+)\s+(B|KiB|MiB|GiB|TiB)\s+unpacked")
+_SIZE_UNITS = {"B": 1, "KiB": 1024, "MiB": 1024**2, "GiB": 1024**3, "TiB": 1024**4}
+
+
+def parse_unpacked_total(dry_output: str) -> int:
+    m = _UNPACKED_RE.search(dry_output)
+    if not m:
+        return 0
+    return int(float(m.group(1)) * _SIZE_UNITS[m.group(2)])
 
 
 class UpgradeError(RuntimeError):
@@ -49,16 +62,16 @@ class ProgressEvent:
     activity_id: int
     activity_type: int | None
     path: str | None
+    done: int | None = None
+    expected: int | None = None
 
 
 @dataclass(frozen=True)
 class DownloadEstimate:
-    sizes: dict[str, int]
     paths: tuple[str, ...]
-
-    @property
-    def total_bytes(self) -> int:
-        return sum(self.sizes.values())
+    # nix's dry-run "unpacked" byte total (0 if unknown). Per-path byte progress
+    # streams live from the build's internal-json, so we keep no size map here.
+    total_bytes: int = 0
 
     @property
     def path_count(self) -> int:
@@ -88,7 +101,25 @@ def parse_progress_event(line: str) -> ProgressEvent | None:
 
     action = payload.get("action")
     activity_id = payload.get("id")
-    if action not in ("start", "stop") or not isinstance(activity_id, int):
+    if not isinstance(activity_id, int):
+        return None
+
+    # resProgress (type 105): fields = [done, expected, running, failed]. Used
+    # for smooth within-path byte progress (summed over copyPath activities).
+    if action == "result" and payload.get("type") == 105:
+        fields = payload.get("fields")
+        if (
+            isinstance(fields, list)
+            and len(fields) >= 2
+            and isinstance(fields[0], int)
+            and isinstance(fields[1], int)
+        ):
+            return ProgressEvent(
+                "result", activity_id, None, None, fields[0], fields[1]
+            )
+        return None
+
+    if action not in ("start", "stop"):
         return None
 
     activity_type = payload.get("type")
@@ -143,14 +174,40 @@ def cache_has_path(store_path: str, cache: str, timeout: int = 20) -> bool:
     return result.returncode == 0
 
 
+def fetch_cache_public_keys(
+    caches: Iterable[str] = CACHES, timeout: int = 15
+) -> list[str]:
+    """Fetch each cache's current signing key from its anonymous Attic
+    cache-config endpoint, so the upgrade trusts whatever key the cache uses
+    *now*. This makes a cache signing-key rotation invisible to devices — they
+    can never be stranded by a key change — while signature verification stays
+    on (verified against the freshly-fetched key, over the same HTTPS trust
+    boundary as the cache we already pull from). Best-effort: a cache we cannot
+    reach contributes no key and we fall back to the device's configured keys.
+    """
+    keys: list[str] = []
+    for cache in caches:
+        base, _, name = cache.rstrip("/").rpartition("/")
+        url = f"{base}/_api/v1/cache-config/{name}"
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as resp:
+                key = json.load(resp).get("public_key")
+            if key:
+                keys.append(key)
+        except Exception as exc:  # network / JSON errors are non-fatal
+            logger.warning("could not fetch cache key from %s: %s", url, exc)
+    return keys
+
+
 def store_path_available(store_path: str) -> bool:
     return path_exists(store_path) or any(cache_has_path(store_path, c) for c in CACHES)
 
 
 def estimate_download(store_path: str) -> DownloadEstimate:
-    """Best-effort delta estimate.
-
-    The returned estimate may be empty. That must not block the real build.
+    """Best-effort delta estimate: which paths nix will fetch, plus nix's own
+    "unpacked" byte total from a dry-run. We deliberately do NOT query per-path
+    sizes — the real byte progress streams live from the build's internal-json.
+    An empty estimate must never block the actual build.
     """
     try:
         dry_result = command(
@@ -160,50 +217,105 @@ def estimate_download(store_path: str) -> DownloadEstimate:
         )
         dry = f"{dry_result.stdout}\n{dry_result.stderr}"
     except (subprocess.TimeoutExpired, OSError):
-        return DownloadEstimate({}, ())
-
-    paths = parse_store_paths(dry)
-    if not paths:
-        return DownloadEstimate({}, ())
-
-    sizes: dict[str, int] = {}
-    for cache in CACHES:
-        try:
-            result = command(
-                ["nix", "path-info", "--json", "--store", cache, *paths],
-                check=False,
-                timeout=60,
-            )
-        except (subprocess.TimeoutExpired, OSError):
-            continue
-        if result.returncode != 0 or not result.stdout.strip():
-            continue
-        try:
-            data = json.loads(result.stdout)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(data, dict):
-            data = list(data.values())
-        for item in data:
-            if not isinstance(item, dict):
-                continue
-            path = item.get("path")
-            if not isinstance(path, str) or path_exists(path):
-                continue
-            size = item.get("downloadSize") or item.get("narSize") or 0
-            try:
-                sizes[path] = int(size)
-            except (TypeError, ValueError):
-                sizes[path] = 0
-
-    return DownloadEstimate(sizes, paths)
+        return DownloadEstimate(())
+    return DownloadEstimate(parse_store_paths(dry), parse_unpacked_total(dry))
 
 
-def write_sizes_file(estimate: DownloadEstimate, sizes_file: Path = UPGRADE_SIZES_FILE):
-    sizes_file.parent.mkdir(parents=True, exist_ok=True)
-    with sizes_file.open("w") as f:
-        for path, size in sorted(estimate.sizes.items()):
-            f.write(f"{path} {size}\n")
+def _short_pkg(path: str | None) -> str:
+    """A screen-friendly package name from a store path: drop the
+    /nix/store/<hash>- prefix and trim, e.g.
+    '/nix/store/xxx-python3-3.13.11' -> 'python3-3.13.11'."""
+    if not path:
+        return ""
+    return path.rsplit("/", 1)[-1].split("-", 1)[-1][:22]
+
+
+class _DownloadProgress:
+    """Best-effort download progress from nix's internal-json stream.
+
+    Numerator = running sum of bytes copied across copyPath activities (their
+    resProgress events); denominator = nix's dry-run "unpacked" total. So the
+    bar moves *within* a path, not only when one finishes — and it names the
+    package being copied. Status writes are throttled (the stream emits hundreds
+    of thousands of events). Best-effort throughout: run_build wraps feed() so a
+    bug here can never abort the upgrade.
+    """
+
+    def __init__(self, total_bytes: int, total_paths: int, status_file: Path):
+        self.total_bytes = total_bytes
+        self.use_bytes = total_bytes > 0
+        self.total_paths = total_paths
+        self.status_file = status_file
+        self._active: dict[int, str] = {}  # copyPath id -> short label
+        self._done: dict[int, int] = {}  # copyPath id -> bytes copied
+        self._expected: dict[int, int] = {}  # copyPath id -> expected bytes
+        self._bytes = 0
+        self._paths_seen = 0
+        self._paths_done = 0
+        self._label = ""
+        self._last_written = -1
+        # Only rewrite the status file every ~0.5% of the total (or 1 MiB).
+        self._step = max(1 << 20, total_bytes // 200) if self.use_bytes else 0
+
+    def feed(self, line: str) -> None:
+        event = parse_progress_event(line)
+        if event is None:
+            return
+        if event.action == "result":
+            self._on_progress(event)
+        elif event.activity_type == 100:
+            if event.action == "start":
+                self._on_start(event)
+            elif event.action == "stop":
+                self._on_stop(event)
+
+    def _on_start(self, event: ProgressEvent) -> None:
+        self._active[event.activity_id] = _short_pkg(event.path)
+        self._paths_seen += 1
+        self._label = self._active[event.activity_id] or self._label
+        if not self.use_bytes:
+            self._write_paths()
+
+    def _on_progress(self, event: ProgressEvent) -> None:
+        aid = event.activity_id
+        if aid not in self._active:  # only copyPath activities we track
+            return
+        self._bytes += (event.done or 0) - self._done.get(aid, 0)
+        self._done[aid] = event.done or 0
+        if event.expected:
+            self._expected[aid] = event.expected
+        if self.use_bytes:
+            pct = min(self._bytes, self.total_bytes)
+            if pct - self._last_written >= self._step:
+                self._write_bytes()
+
+    def _on_stop(self, event: ProgressEvent) -> None:
+        aid = event.activity_id
+        if aid not in self._active:
+            return
+        label = self._active.pop(aid)
+        self._paths_done += 1
+        if self.use_bytes:
+            full = self._expected.get(aid, self._done.get(aid, 0))
+            self._bytes += full - self._done.get(aid, 0)
+            self._done[aid] = full
+            # show something still in flight, else the path that just finished
+            self._label = next(iter(self._active.values()), label) or self._label
+            self._write_bytes()
+        else:
+            self._write_paths()
+
+    def _write_bytes(self) -> None:
+        pct = min(self._bytes, self.total_bytes)
+        self._last_written = pct
+        msg = f"downloading {pct}/{self.total_bytes}"
+        if self._label:
+            msg += f" {self._label}"
+        write_status(msg, self.status_file)
+
+    def _write_paths(self) -> None:
+        denom = self.total_paths or self._paths_seen
+        write_status(f"downloading {self._paths_done}/{denom} paths", self.status_file)
 
 
 def run_build(
@@ -213,62 +325,54 @@ def run_build(
     status_file: Path = UPGRADE_STATUS_FILE,
     log_file: Path = UPGRADE_LOG_FILE,
 ) -> int:
-    total_bytes = estimate.total_bytes
-    use_bytes = total_bytes > 0 and bool(estimate.sizes)
-    total_paths = estimate.path_count
-    if use_bytes:
-        write_status(f"downloading 0/{total_bytes}", status_file)
+    if estimate.total_bytes > 0:
+        write_status(f"downloading 0/{estimate.total_bytes}", status_file)
     else:
-        write_status(f"downloading 0/{total_paths} paths", status_file)
+        write_status(f"downloading 0/{estimate.path_count} paths", status_file)
 
-    pending: dict[int, str | None] = {}
-    paths_seen = 0
-    paths_done = 0
-    bytes_done = 0
+    # Trust the cache's current signing key(s), fetched from the cache itself,
+    # so a key rotation can never strand this device mid-upgrade. This ADDS to
+    # the trusted set (verification stays on) — it is not a require-sigs bypass.
+    build_args = [
+        "nix",
+        "--log-format",
+        "internal-json",
+        "build",
+        store_path,
+        "--max-jobs",
+        "0",
+        "--no-link",
+    ]
+    cache_keys = fetch_cache_public_keys()
+    if cache_keys:
+        build_args += ["--option", "extra-trusted-public-keys", " ".join(cache_keys)]
+
+    progress = _DownloadProgress(estimate.total_bytes, estimate.path_count, status_file)
     tail: deque[str] = deque(maxlen=40)
 
-    with log_file.open("w") as log:
-        process = subprocess.Popen(
-            [
-                "nix",
-                "--log-format",
-                "internal-json",
-                "build",
-                store_path,
-                "--max-jobs",
-                "0",
-                "--no-link",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        assert process.stdout is not None
-        for line in process.stdout:
-            log.write(line)
-            log.flush()
-            tail.append(line.rstrip())
-            event = parse_progress_event(line)
-            if event is None or event.activity_type != 100:
-                continue
-            if event.action == "start":
-                pending[event.activity_id] = event.path
-                paths_seen += 1
-                if not use_bytes and total_paths == 0:
-                    write_status(
-                        f"downloading {paths_done}/{paths_seen} paths", status_file
-                    )
-            elif event.action == "stop" and event.activity_id in pending:
-                path = pending.pop(event.activity_id)
-                paths_done += 1
-                if use_bytes:
-                    bytes_done += estimate.sizes.get(path or "", 0)
-                    pct_done = min(bytes_done, total_bytes)
-                    write_status(f"downloading {pct_done}/{total_bytes}", status_file)
-                else:
-                    denom = total_paths or paths_seen
-                    write_status(f"downloading {paths_done}/{denom} paths", status_file)
-        return_code = process.wait()
+    process = subprocess.Popen(
+        build_args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    assert process.stdout is not None
+    for line in process.stdout:
+        tail.append(line.rstrip())
+        # Progress is a nice-to-have: never let an accounting bug stall the
+        # stream (which would deadlock the build) or abort the upgrade.
+        try:
+            progress.feed(line)
+        except Exception:
+            logger.debug("progress tracking error", exc_info=True)
+    return_code = process.wait()
+
+    # Persist only a short tail for diagnostics — not the ~800k-line stream.
+    try:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        log_file.write_text("\n".join(tail) + "\n")
+    except OSError:
+        logger.debug("could not write upgrade log tail", exc_info=True)
 
     if return_code != 0:
         logger.error("nix build failed rc=%s; tail=%s", return_code, list(tail))
@@ -333,8 +437,6 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
             raise UpgradeError(f"invalid store path: {store_path!r}")
 
         estimate = estimate_download(store_path)
-        write_sizes_file(estimate)
-
         build_rc = run_build(store_path, estimate)
         if build_rc != 0:
             if not store_path_available(store_path):
