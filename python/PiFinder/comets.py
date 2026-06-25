@@ -252,9 +252,13 @@ def _calc_comets_vectorized(comets_df: pd.DataFrame, dt) -> Dict[str, Any]:
     # builder), propagated in a single call -> heliocentric state, AU,
     # equatorial ICRF, relative to the Sun.
     kepler = mpc._comet_orbits(comets_df, sf_utils.ts, GM_SUN)
-    helio_pos = kepler._at(t)[0]
-    if helio_pos.ndim == 1:  # propagate() squeezes a single comet to (3,)
-        helio_pos = helio_pos[:, np.newaxis]
+    # Skyfield's propagate() lays the result out as (3, #orbits, #times) but
+    # sets output_shape = (3,) + t1.shape, so a batched orbit only reshapes
+    # cleanly when the target time is itself shaped (#orbits, 1); a scalar time
+    # raises "cannot reshape array of size 3N into shape (3,)" (skyfield >=
+    # 1.46). Give every comet the same target time as an (N, 1) column.
+    t_batched = sf_utils.ts.tt_jd(np.full((len(comets_df), 1), t.tt))
+    helio_pos = kepler._at(t_batched)[0][:, :, 0]
 
     # Sun and observer are single 3-vectors relative to the solar-system
     # barycentre; broadcast them across all comets.  topocentric = observer
