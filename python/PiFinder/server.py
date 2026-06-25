@@ -132,6 +132,7 @@ class Server:
             "LNG_DOWN": self.ki.LNG_DOWN,
             "LNG_RIGHT": self.ki.LNG_RIGHT,
             "LNG_SQUARE": self.ki.LNG_SQUARE,
+            "POWER_BTN": self.ki.POWER_BTN,
         }
 
         self.network = sys_utils.Network()

@@ -97,6 +97,11 @@ def apply_brightness(ui_module: UIModule) -> None:
     ui_module.command_queues["ui_queue"].put("set_brightness")
 
 
+def apply_sound_volume(ui_module: UIModule) -> None:
+    """Re-push master volume from current config to the buzzer."""
+    ui_module.command_queues["ui_queue"].put("set_volume")
+
+
 def capture_exposure_sweep(ui_module: UIModule) -> None:
     """
     Captures 100 images at different exposures for PID testing/calibration.
@@ -156,10 +161,17 @@ def get_camera_exposure_display(ui_module: UIModule) -> str:
 
 def shutdown(ui_module: UIModule) -> None:
     """
-    shuts down the Pi
+    Shuts down the Pi.
+
+    Routes through the main loop (``play_shutdown_sound``) instead of calling
+    ``sys_utils.shutdown()`` here. This callback runs in the main process but
+    does not hold ``sound_queue``; the SHUTDOWN earcon must play and its
+    bounded wait elapse *before* the OS cuts power (the GPIO14 latch). The
+    main-loop handler plays the cue, waits, then triggers the shutdown — with
+    or without a buzzer. See ADR 0008 and the Sound handoff §6.
     """
     ui_module.message(_("Shutting Down"), 10)
-    sys_utils.shutdown()
+    ui_module.command_queues["ui_queue"].put("play_shutdown_sound")
 
 
 def restart_pifinder(ui_module: UIModule) -> None:

@@ -119,6 +119,7 @@ extra_checks = true
 module = [
     'board',
     'adafruit_bno055',
+    'adafruit_bus_device.*',
     'scipy.*',
     'luma.*',
     'skyfield.*',

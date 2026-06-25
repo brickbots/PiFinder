@@ -644,6 +644,21 @@ pifinder_menu = {
                             ],
                         },
                         {
+                            "name": _("Volume"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "sound_volume",
+                            "post_callback": callbacks.apply_sound_volume,
+                            "items": [
+                                {"name": _("Off"), "value": "Off"},
+                                {"name": "1", "value": "1"},
+                                {"name": "2", "value": "2"},
+                                {"name": "3", "value": "3"},
+                                {"name": "4", "value": "4"},
+                                {"name": "5", "value": "5"},
+                            ],
+                        },
+                        {
                             "name": _("Sleep Time"),
                             "class": UITextMenu,
                             "select": "single",

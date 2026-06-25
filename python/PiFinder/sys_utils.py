@@ -449,6 +449,30 @@ def update_gpsd_config(baud_rate: int) -> None:
         raise
 
 
+# Raspberry Pi red power LED.  It is a plain gpio-led (on/off only, not
+# dimmable), so the brightness file is effectively a boolean.
+PWR_LED_PATH = "/sys/class/leds/PWR"
+
+
+def set_power_led(on: bool) -> None:
+    """
+    Turn the Raspberry Pi's red PWR LED on or off.
+
+    The LED is not dimmable, so this is strictly on/off.  We set the kernel
+    trigger to "none" first, otherwise the firmware's "default-on" trigger
+    keeps re-asserting the LED, then write the brightness directly.  Uses
+    passwordless sudo, like the other privileged helpers in this module.
+    """
+    value = "1" if on else "0"
+    sh.sudo(
+        "sh",
+        "-c",
+        f"echo none > {PWR_LED_PATH}/trigger; "
+        f"echo {value} > {PWR_LED_PATH}/brightness",
+    )
+    logger.info("SYS: Power LED %s", "on" if on else "off")
+
+
 # ---------------------------------------------------------------------------
 # NixOS migration
 # ---------------------------------------------------------------------------

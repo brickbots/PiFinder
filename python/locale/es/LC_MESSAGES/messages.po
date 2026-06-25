@@ -2450,6 +2450,13 @@ msgid "Enter Local Time"
 msgstr "Ingresar Hora Local"
 
 # AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:626
+msgid "Volume"
+msgstr "Volumen"
+
+#~ msgid "Integrator"
+#~ msgstr ""
+# AI-TRANSLATED (claude): needs human review
 #: views/advanced.html:7
 msgid "GPS location lock"
 msgstr "Fijación de ubicación GPS"
