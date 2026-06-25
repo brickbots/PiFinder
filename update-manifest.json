@@ -18,6 +18,19 @@
       {
         "available": true,
         "kind": "pr",
+        "label": "PR#482-95f079f",
+        "notes": "Re-implements the salvageable part of #378 (boot-speed), cleanly on top of the `nixos` branch.\n\n#378's perf work was lost during that branch's own internal merges \u2014 its HEAD no longer contains the lazy-import changes, and they were never merged upstream either. This brings back the part that still matters for startup time.\n\n## What this defers\n\n- **timezonefinder** (`state.py`): `SharedState.__init__` eagerly imported `timezonefinder` and constructed `TimezoneFinder()` (which loads its dataset) at startup. It's now constructed lazily on the first `set_location()`, i.e. after boot.\n- **pandas** (`plot.py`): imported at module level. `plot.py` sits on the startup path (`menu_structure` \u2192 `UIChart` \u2192 `plot`), so this loaded pandas during boot. Deferred into the four functions that actually use it.\n\n`comets.py` is intentionally left unchanged: its module-level `from skyfield.data import mpc` imports pandas regardless, so deferring pandas there is a no-op without also deferring skyfield (out of scope here).\n\n## Verification\n\n- Importing `state.py` no longer loads `timezonefinder` (confirmed at runtime).\n- `plot.py`'s only module-level pandas reference is removed; `skyfield.data.hipparcos` already imports pandas lazily, and nothing else in `plot.py`'s import chain pulls pandas.\n- `py_compile` clean on all touched files.\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)",
+        "number": 482,
+        "source_ref": "lazy-imports",
+        "source_repo": "mrosseel/PiFinder",
+        "source_sha": "95f079fa9485d881c9661509df831dfb35773570",
+        "store_path": "/nix/store/5c4fjfy13f7kaqqpldxqdrqp3l1vz1zl-nixos-system-pifinder-25.11.20260209.2db38e0",
+        "title": "perf: defer timezonefinder & pandas imports to cut startup time",
+        "version": "PR#482-95f079f"
+      },
+      {
+        "available": true,
+        "kind": "pr",
         "label": "PR#379-cd6b7d7",
         "notes": "## Summary\n- Full NixOS-based system for PiFinder (replaces Raspbian)\n- Declarative system configuration via Nix flake\n- SD card image, netboot, and migration bootstrap tarball builds\n- Software update via nixos-rebuild with GitHub release/PR channels\n\n## Test plan\n- [ ] Flash SD image and verify boot\n- [ ] Test WiFi AP and client mode switching\n- [ ] Test software update UI channels\n- [ ] Test hostname rename via web UI\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)",
         "number": 379,
@@ -30,6 +43,6 @@
       }
     ]
   },
-  "generated_at": "2026-06-25T18:25:16+00:00",
+  "generated_at": "2026-06-25T18:25:49+00:00",
   "schema": 1
 }
