@@ -1,9 +1,11 @@
 name: Build PiFinder NixOS
 
 on:
-  # No `push:` trigger — direct pushes (mrosseel commits) must build nothing.
-  # Builds run only on labeled PRs (brickbots contributions) and on demand;
-  # pre-releases/releases build via release.yml.
+  # `push` only acts in brickbots — the build jobs gate on github.repository.
+  # A mrosseel push builds nothing; a merge to brickbots builds + publishes
+  # (the only trusted context that can push the cache / write the manifest).
+  push:
+    branches: [main, nixos]
   pull_request:
     types: [labeled, synchronize, opened]
   workflow_dispatch:
@@ -22,6 +24,7 @@ jobs:
   # Try Pi5 native build first (fast)
   build-native:
     if: |
+      (github.event_name == 'push' && github.repository == 'brickbots/PiFinder') ||
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.labels.*.name, 'preview') ||
       contains(github.event.pull_request.labels.*.name, 'testable')
@@ -79,6 +82,7 @@ jobs:
   # Wait up to 15 min for native builder, then decide on fallback
   native-wait:
     if: |
+      (github.event_name == 'push' && github.repository == 'brickbots/PiFinder') ||
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.labels.*.name, 'preview') ||
       contains(github.event.pull_request.labels.*.name, 'testable')
@@ -206,8 +210,8 @@ jobs:
           HEAD_SHA="$(jq -r '.pull_request.head.sha // ""' "$GITHUB_EVENT_PATH")"
 
           if [ "$EVENT_NAME" = "pull_request" ] && [ "$HEAD_REPO" != "$GH_REPOSITORY" ]; then
-            echo "External fork PR: build verified, manifest update skipped (read-only token)"
-            exit 0
+            echo "::error::Fork PR cannot write the manifest (read-only token). The build is verified, but publishing only happens on a trusted build (merge to brickbots / release) — not from a fork PR. Failing loudly instead of skipping silently."
+            exit 1
           fi
 
           if [ -n "$PR_NUMBER" ]; then
