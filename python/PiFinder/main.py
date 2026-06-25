@@ -22,7 +22,9 @@ import queue
 import datetime
 import json
 import uuid
+import sys
 import logging
+import traceback
 import argparse
 import pickle
 from pathlib import Path
@@ -1171,4 +1173,11 @@ if __name__ == "__main__":
         main(log_helper, args.script, args.fps, args.verbose, args.profile_startup)
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
+        # Logging is multiprocess (QueueHandler -> listener); os._exit() below
+        # can kill this process before the queued traceback is ever written to
+        # the log file. Write it straight to stderr (captured by the journal)
+        # and flush every handler so the cause is never lost on a hard abort.
+        traceback.print_exc()
+        sys.stderr.flush()
+        logging.shutdown()
         os._exit(1)
