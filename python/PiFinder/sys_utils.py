@@ -471,6 +471,8 @@ def set_power_led(on: bool) -> None:
         f"echo {value} > {PWR_LED_PATH}/brightness",
     )
     logger.info("SYS: Power LED %s", "on" if on else "off")
+
+
 # ---------------------------------------------------------------------------
 # NixOS migration
 # ---------------------------------------------------------------------------

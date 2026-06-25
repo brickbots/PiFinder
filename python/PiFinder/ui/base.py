@@ -348,7 +348,7 @@ class UIModule:
         the brief window before the monitor's first sample, so we show nothing
         rather than a fake level.
 
-        returns True if battery indicated was drawn (has battery)
+        returns True if the battery indicator was drawn (has battery)
                 False if no battery hardware
         """
         hardware = self.shared_state.hardware()
@@ -419,9 +419,7 @@ class UIModule:
             title_max_chars = max(1, title_max_px // self.fonts.bold.width)
             if len(title_text) > title_max_chars:
                 title_text = title_text[: title_max_chars - 1] + "…"
-            self.draw.text(
-                (6, title_y), title_text, font=self.fonts.bold.font, fill=fg
-            )
+            self.draw.text((6, title_y), title_text, font=self.fonts.bold.font, fill=fg)
             imu = self.shared_state.imu()
             moving = True if imu and imu.quat and imu.moving else False
 
@@ -476,7 +474,7 @@ class UIModule:
                     if len(self.title) < 9:
                         # Draw rotating constellation/SQM wheel (replaces static constellation)
 
-                        # Adjust spacing a bit of battery indicator is present
+                        # Adjust spacing a bit if the battery indicator is present
                         titlebar_position = 0.50 if battery_drawn else 0.54
 
                         self._draw_titlebar_rotating_info(
