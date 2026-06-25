@@ -38,10 +38,10 @@ in {
       "https://cache.nixos.org"
     ];
     trusted-public-keys = [
-      # Both Attic cache signing keys (same values as nixos/services.nix),
-      # regenerated with the S3 chunk-store cutover. Real keys — never ship a
-      # placeholder; invalid base64 aborts every nix operation.
-      "pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck="
+      # Attic cache signing keys (same values as nixos/services.nix); pifinder
+      # restored to the original 8UU after the cutover rotation stranded the
+      # fleet. Real keys — never ship a placeholder; invalid base64 aborts nix.
+      "pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE="
       "pifinder-release:WG/Fw1cIX7YpwfWrbWTP5eCzn3bz6AaicW5qKxLKpoM="
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
     ];

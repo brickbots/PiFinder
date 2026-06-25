@@ -69,11 +69,13 @@ in {
       "https://cache.nixos.org"
     ];
     trusted-public-keys = [
-      # Both Attic cache signing keys, regenerated when the chunk store moved
-      # to S3. These are real keys — never swap one for a placeholder; an
-      # invalid base64 key makes nix abort every operation ("invalid character
-      # in Base64 string"), bricking upgrades.
-      "pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck="
+      # Attic cache signing keys. pifinder is the original 8UU key: the S3
+      # cutover briefly rotated it (Vkem), but nothing deployed trusted the new
+      # key so the whole fleet was stranded — the cache and this config were
+      # restored to 8UU. pifinder-release was minted fresh with the cutover (no
+      # device trusted a release key before). Real keys — never swap one for a
+      # placeholder; invalid base64 aborts every nix op and bricks upgrades.
+      "pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE="
       "pifinder-release:WG/Fw1cIX7YpwfWrbWTP5eCzn3bz6AaicW5qKxLKpoM="
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
     ];
