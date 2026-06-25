@@ -421,7 +421,7 @@ def main(
         logger.warning("Could not turn off power LED: %s", e)
 
     if cfg.get_option("screen_direction") == "as_bloom":
-        display_device.device.rotate = 3
+        display_device.device.rotate = 2
 
     # Set user interface language
     lang = cfg.get_option("language", "en")
