@@ -28,6 +28,7 @@ Reference notes from a design review of the BQ25895 battery charger for use in t
 | REG00 | 7 | EN_HIZ | Set to 1 to open RBFET (no current from VBUS). Default 0. |
 | REG00 | 5:0 | IINLIM | Input current limit (100 mA – 3.25 A). |
 | REG02 | 5 | BOOST_FREQ | 0 = 1.5 MHz, 1 = 500 kHz (default). |
+| REG02 | 0 | AUTO_DPDM_EN | Auto D+/D- (USB adapter) detection on VBUS insertion. **Default 1.** When 1, each cable insertion re-runs detection and overwrites IINLIM (~500 mA for an SDP). Set to 0 to keep the configured IINLIM across replugs. |
 | REG03 | 6 | WD_RST | Write 1 to kick the I²C watchdog. |
 | REG03 | 5 | OTG_CONFIG | Boost (OTG) mode enable. **Default 1.** Set to 0 to disable. |
 | REG03 | 4 | CHG_CONFIG | Charge enable (default 1). |
@@ -53,6 +54,27 @@ sudo i2cget -y 1 0x6A 0x07   # expect 0x8D
 Order matters: kill the watchdog first, otherwise it can re-enable OTG between writes.
 
 These are blind writes that assume otherwise-default REG03/REG07 contents. If you change SYS_MIN, charging timer, etc., do read-modify-write instead.
+
+## Making a fast charge rate survive a cable replug (powered off)
+
+Goal: charge at ~1.5 A and keep it there after the cable is unplugged/replugged while the PiFinder is off. The chip stays battery-powered when the system is off, so its registers persist; the two things that would otherwise revert the input limit are the I²C watchdog (a timeout resets the charge registers) and auto adapter detection (each insertion re-detects and drops IINLIM to ~500 mA). Disable both, then set the limits.
+
+```bash
+# 1. Disable the I²C watchdog first so the rest stick (REG07: 0x9D -> 0x8D)
+sudo i2cset -y 1 0x6A 0x07 0x8D
+
+# 2. Disable auto D+/D- detection so replugs don't re-detect (REG02 bit0)
+#    0x3D default -> 0x3C
+sudo i2cset -y 1 0x6A 0x02 0x3C
+
+# 3. Input current limit -> 1500 mA (REG00 IINLIM=0x1C, keep EN_ILIM)
+sudo i2cset -y 1 0x6A 0x00 0x5C
+
+# 4. Fast-charge current -> ~1.5 A (REG04 ICHG=0x17 = 1472 mA)
+sudo i2cset -y 1 0x6A 0x04 0x17
+```
+
+This is what `battery_bq25895.apply_charging_config()` does on every poll (read-modify-write, not blind). It is **not** truly permanent: a full power-on reset (battery fully drained or disconnected) restores `AUTO_DPDM_EN=1`, so the first insertion after that charges slowly until the unit is booted once more. The chip has no non-volatile config; the only software-independent fix is a hardware DCP signature (D+ shorted to D-) so the chip auto-detects a high-current source.
 
 ## Disabling VBUS draw (HIZ mode)
 

@@ -10,14 +10,28 @@ and a few diagnostics. The remaining writes are deliberate and narrow:
 * pulsing REG02 ``CONV_START`` to trigger a one-shot ADC conversion (a
   telemetry trigger), and
 * applying a fixed **fast-charge configuration** on each poll —
-  disabling the I2C watchdog, raising the input current limit and the
-  fast-charge current to ~1.5 A. This is idempotent (writes only the
-  registers that have drifted), so it both sets the config at power-up
-  and re-asserts it after a chip reset or USB re-detection. It does NOT
-  touch OTG/HIZ/charge-enable: OTG/boost stays disabled in hardware via
-  the ``/OTG`` strap. See ``docs/adr/0017-battery-fast-charge-config.md``
-  (which supersedes ``0006``) and the glossary at
-  ``docs/ax/battery/CONTEXT.md``.
+  disabling the I2C watchdog, disabling automatic USB adapter
+  re-detection (REG02 ``AUTO_DPDM_EN``), and raising the input current
+  limit and the fast-charge current to ~1.5 A. This is idempotent
+  (writes only the registers that have drifted), so it both sets the
+  config at power-up and re-asserts it after a chip reset or USB
+  re-detection. It does NOT touch OTG/HIZ/charge-enable: OTG/boost stays
+  disabled in hardware via the ``/OTG`` strap. See
+  ``docs/adr/0017-battery-fast-charge-config.md`` (which supersedes
+  ``0006``) and the glossary at ``docs/ax/battery/CONTEXT.md``.
+
+Durability between software runs: clearing ``AUTO_DPDM_EN`` is what lets
+the configured input limit survive a cable unplug/replug while the
+PiFinder is powered off. The charger stays powered from the battery when
+the system is off (the power-off latch only drops the SYS boost; see ADR
+0007), so its registers persist — and with the watchdog disabled nothing
+resets them. The one remaining trigger that would otherwise drop IINLIM
+back to ~500 mA is the chip re-running USB adapter detection on the next
+cable insertion; disabling ``AUTO_DPDM_EN`` removes it, so once the app
+has configured the chip once, charging stays fast across later replugs
+with no software running. (A full power-on reset — battery fully drained
+or disconnected — reverts ``AUTO_DPDM_EN`` to its default, so the first
+insertion after that charges slowly until the PiFinder is next booted.)
 
 Register scaling below was verified against ``BQ25895-datasheet.pdf``
 (TI SLUSC88C, the REGxx field-description tables) and cross-checked
@@ -52,7 +66,7 @@ BQ25895_ADDRESS = 0x6A
 
 # --- Register addresses (verified against the datasheet register map) ---
 REG00 = 0x00  # input source: EN_HIZ [7], EN_ILIM [6], IINLIM [5:0]
-REG02 = 0x02  # ADC control: CONV_START [7], CONV_RATE [6]
+REG02 = 0x02  # ADC/adapter ctrl: CONV_START [7], CONV_RATE [6], AUTO_DPDM_EN [0]
 REG04 = 0x04  # charge current: EN_PUMPX [7], ICHG [6:0]
 REG07 = 0x07  # timers/watchdog: EN_TERM [7], WATCHDOG [5:4], EN_TIMER [3]
 REG0B = 0x0B  # status: VBUS_STAT [7:5], CHRG_STAT [4:3], PG_STAT [2], VSYS_STAT [0]
@@ -87,6 +101,7 @@ ICHG_STEP_MA = 64  # ICHG has no offset
 # current (effective limit = min(IINLIM, ILIM pin)); REG04 bit7 EN_PUMPX
 # is preserved.
 WATCHDOG_MASK = 0x30  # REG07[5:4]; writing 00 disables the I2C watchdog
+AUTO_DPDM_MASK = 0x01  # REG02[0]; writing 0 disables auto USB adapter detection
 IINLIM_MASK = 0x3F  # REG00[5:0]
 ICHG_MASK = 0x7F  # REG04[6:0]
 
@@ -103,8 +118,8 @@ def _encode_ichg(ma: int) -> int:
     return max(0, min(ICHG_MASK, field))
 
 
-def plan_charging_writes(reg00: int, reg04: int, reg07: int):
-    """Given the current REG00/04/07 bytes, return the ``[(reg, value),
+def plan_charging_writes(reg00: int, reg02: int, reg04: int, reg07: int):
+    """Given the current REG00/02/04/07 bytes, return the ``[(reg, value),
     ...]`` writes needed to reach the fast-charge config, preserving the
     bits outside each field.
 
@@ -113,16 +128,23 @@ def plan_charging_writes(reg00: int, reg04: int, reg07: int):
     Returns only the registers whose value actually changes, so once the
     chip is configured it returns ``[]`` and the per-poll re-assert costs
     nothing. REG07 (watchdog) is emitted **first** so that disabling the
-    watchdog precedes the REG00/REG04 writes — otherwise a watchdog
-    timeout mid-sequence could reset them back to defaults.
+    watchdog precedes the other writes — otherwise a watchdog timeout
+    mid-sequence could reset them back to defaults. The REG02 write clears
+    only ``AUTO_DPDM_EN`` (bit 0), so it preserves ``CONV_START`` and the
+    other adapter-detection bits; this is what makes the input limit
+    survive a cable replug while powered off (see module docstring / ADR
+    0017).
     """
     desired07 = reg07 & ~WATCHDOG_MASK
+    desired02 = reg02 & ~AUTO_DPDM_MASK
     desired00 = (reg00 & ~IINLIM_MASK) | _encode_iinlim(TARGET_INPUT_LIMIT_MA)
     desired04 = (reg04 & ~ICHG_MASK) | _encode_ichg(TARGET_CHARGE_CURRENT_MA)
 
     writes = []
     if desired07 != reg07:
         writes.append((REG07, desired07))
+    if desired02 != reg02:
+        writes.append((REG02, desired02))
     if desired00 != reg00:
         writes.append((REG00, desired00))
     if desired04 != reg04:
@@ -271,20 +293,21 @@ class BQ25895:
 
     def apply_charging_config(self) -> None:
         """Apply the fast-charge configuration (~1.5 A input limit and
-        fast-charge current, I2C watchdog disabled), preserving unrelated
-        bits in each register.
+        fast-charge current, I2C watchdog disabled, automatic USB adapter
+        re-detection disabled), preserving unrelated bits in each register.
 
-        Idempotent: reads REG00/04/07, computes the needed writes via
+        Idempotent: reads REG00/02/04/07, computes the needed writes via
         :func:`plan_charging_writes`, and writes only what has drifted.
-        In steady state this is three reads and no writes; after a chip
+        In steady state this is four reads and no writes; after a chip
         reset or USB re-detection (which revert the registers to
         defaults) it re-applies the config. Called once per poll, so the
         config is set at power-up and continuously re-asserted.
         """
         reg00 = self.read_reg(REG00)
+        reg02 = self.read_reg(REG02)
         reg04 = self.read_reg(REG04)
         reg07 = self.read_reg(REG07)
-        for reg, value in plan_charging_writes(reg00, reg04, reg07):
+        for reg, value in plan_charging_writes(reg00, reg02, reg04, reg07):
             self.write_reg(reg, value)
             logger.info(
                 "BQ25895: set REG%02X = 0x%02X (fast-charge config)", reg, value
