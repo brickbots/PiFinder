@@ -15,31 +15,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - uses: DeterminateSystems/nix-installer-action@main
+      - name: Set up Python 3.9.25
+        uses: actions/setup-python@v5
         with:
-          determinate: false
-          # Pull from the public Attic cache without a token (works on fork PRs).
-          extra-conf: |
-            extra-substituters = https://cache.pifinder.eu/pifinder
-            extra-trusted-public-keys = pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck=
+          python-version: '3.9.25'
 
-      - name: Setup Attic substituter (cache.pifinder.eu)
-        env:
-          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+      - name: Create virtual environment and install dependencies
+        working-directory: python
         run: |
-          if [ -z "$ATTIC_TOKEN" ]; then
-            echo "ATTIC_TOKEN unavailable — using public substituters only"
-            exit 0
-          fi
-          nix profile install nixpkgs#attic-client
-          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
-          attic use pifinder:pifinder
-
-      - name: Install browser for Selenium
-        run: |
-          nix profile install github:NixOS/nixpkgs/nixos-25.11#chromium github:NixOS/nixpkgs/nixos-25.11#chromedriver
-          echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
-          echo "CHROME_BINARY=$HOME/.nix-profile/bin/chromium" >> "$GITHUB_ENV"
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements_dev.txt
 
       - name: Use webserver log configuration
         working-directory: python
@@ -78,7 +66,8 @@ jobs:
       - name: Start PiFinder with fake hardware
         working-directory: python
         run: |
-          nix develop path:.. --command bash -c 'exec env PYTHONPATH=tetra3 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m PiFinder.main -fh --camera debug --keyboard local' \
+          source .venv/bin/activate
+          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m PiFinder.main -fh --camera debug --keyboard local \
             > /tmp/pifinder.log 2>&1 &
           echo $! > /tmp/pifinder.pid
           echo "PiFinder started with PID $(cat /tmp/pifinder.pid)"
@@ -106,7 +95,8 @@ jobs:
         env:
           PIFINDER_HOMEPAGE: http://localhost:8080
         run: |
-          nix develop path:.. --command env PYTHONPATH=tetra3 pytest -ra -m web --local -v tests/website
+          source .venv/bin/activate
+          pytest -ra -m web --local -v
 
       - name: Rerun failed tests with --lf
         id: pytest_rerun
@@ -116,7 +106,8 @@ jobs:
         env:
           PIFINDER_HOMEPAGE: http://localhost:8080
         run: |
-          nix develop path:.. --command env PYTHONPATH=tetra3 pytest -ra -m web --local -v --lf tests/website
+          source .venv/bin/activate
+          pytest -ra -m web --local -v --lf
 
       - name: Alert maintainers via GitHub Issue
         if: steps.pytest_rerun.outcome == 'failure'
