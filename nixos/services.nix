@@ -69,12 +69,12 @@ in {
       "https://cache.nixos.org"
     ];
     trusted-public-keys = [
-      # NOTE: pifinder-release's key goes here once that cache is provisioned
-      # (`attic cache create pifinder-release`). Do NOT add a placeholder — an
+      # Both Attic cache signing keys, regenerated when the chunk store moved
+      # to S3. These are real keys — never swap one for a placeholder; an
       # invalid base64 key makes nix abort every operation ("invalid character
-      # in Base64 string"), bricking upgrades. Until then the pifinder-release
-      # substituter simply serves nothing this device trusts, which is fine.
-      "pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE="
+      # in Base64 string"), bricking upgrades.
+      "pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck="
+      "pifinder-release:WG/Fw1cIX7YpwfWrbWTP5eCzn3bz6AaicW5qKxLKpoM="
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
     ];
   };

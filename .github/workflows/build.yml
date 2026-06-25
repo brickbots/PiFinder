@@ -121,7 +121,7 @@ jobs:
             extra-system-features = big-parallel
             # Pull from the public Attic cache without a token (works on fork PRs).
             extra-substituters = https://cache.pifinder.eu/pifinder
-            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+            extra-trusted-public-keys = pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck=
 
       - name: Attic login for push (token only — skipped on fork PRs)
         env:

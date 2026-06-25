@@ -13,7 +13,7 @@ substituter directly:
 
 ```
 extra-substituters = https://cache.pifinder.eu/pifinder
-extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+extra-trusted-public-keys = pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck=
 ```
 
 So brickbots PR builds (and the hosted `ubuntu-24.04-arm` runner) download from

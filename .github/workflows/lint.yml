@@ -18,7 +18,7 @@ jobs:
           # Pull from the public Attic cache without a token (works on fork PRs).
           extra-conf: |
             extra-substituters = https://cache.pifinder.eu/pifinder
-            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+            extra-trusted-public-keys = pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck=
       - name: Setup Attic substituter (cache.pifinder.eu)
         # Self-hosted FastCDC-chunked binary cache (ADR 0004), same as build.yml.
         # Replaces the retired DeterminateSystems magic-nix-cache (HTTP 418 /
@@ -66,7 +66,7 @@ jobs:
           # Pull from the public Attic cache without a token (works on fork PRs).
           extra-conf: |
             extra-substituters = https://cache.pifinder.eu/pifinder
-            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+            extra-trusted-public-keys = pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck=
       - name: Setup Attic substituter (cache.pifinder.eu)
         # Self-hosted FastCDC-chunked binary cache (ADR 0004), same as build.yml.
         # Replaces the retired DeterminateSystems magic-nix-cache (HTTP 418 /
@@ -97,7 +97,7 @@ jobs:
           # Pull from the public Attic cache without a token (works on fork PRs).
           extra-conf: |
             extra-substituters = https://cache.pifinder.eu/pifinder
-            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+            extra-trusted-public-keys = pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck=
       - name: Setup Attic substituter (cache.pifinder.eu)
         # Self-hosted FastCDC-chunked binary cache (ADR 0004), same as build.yml.
         # Replaces the retired DeterminateSystems magic-nix-cache (HTTP 418 /
