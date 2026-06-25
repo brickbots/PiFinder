@@ -94,4 +94,5 @@ Join the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ for support 
 
    dev_guide
    dev_arch
+   nixos
    api
