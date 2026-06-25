@@ -46,6 +46,37 @@ def _png_response(img: Image.Image) -> Response:
     return Response(_pil_to_png_bytes(img), content_type="image/png")
 
 
+def _scale_image(img: Image.Image, scale: int = 1) -> Image.Image:
+    """Nearest-neighbor upscale ``img`` by integer ``scale`` (clamped 1..8).
+
+    scale=1 returns the image unchanged. Nearest-neighbor keeps the pixel grid
+    crisp, which is what docs/PR captures of the 128x128 screen want.
+    """
+    scale = max(1, min(8, int(scale)))
+    if scale == 1:
+        return img
+    w, h = img.size
+    return img.resize((w * scale, h * scale), Image.NEAREST)
+
+
+def get_screen_png(shared_state, scale: int = 1) -> bytes:
+    """Render the current PiFinder screen to PNG bytes.
+
+    Shared by ``/api/screen`` and the legacy ``/image`` route. Reads
+    ``shared_state.screen()``; if the screen is unavailable (``None``) or the
+    shared-state pipe is broken, a blank 128x128 frame is returned instead of
+    raising. ``scale`` (1..8) nearest-neighbor upscales the frame.
+    """
+    img = None
+    try:
+        img = shared_state.screen()
+    except (BrokenPipeError, EOFError):
+        img = None
+    if img is None:
+        img = Image.new("RGB", (128, 128), color=(0, 0, 0))
+    return _pil_to_png_bytes(_scale_image(img, scale))
+
+
 def _pointing_to_dict(p):
     """Serialize a :class:`Pointing` (or ``None``) to a plain
     ``{RA, Dec, Roll}`` dict of floats."""
@@ -150,30 +181,44 @@ def register_api_routes(app, server_instance, require_auth=False):
     # ───────────────────────────────────────────────
     @app.route("/api/status")
     def api_status():
-        try:
-            ss = server_instance.shared_state
-            loc = ss.location()
-            sol = ss.solution()
-            dt_utc = ss.datetime()
+        ss = server_instance.shared_state
+        errors = {}
 
-            data = {
-                "power_state": ss.power_state(),
-                "solve_state": ss.solve_state(),
-                "camera_type": ss.camera_type(),
-                "location": loc.to_dict() if loc else None,
-                "solution": _solution_to_dict(sol),
-                "datetime": {
-                    "utc": dt_utc.isoformat() if dt_utc else None,
-                    "local": ss.local_datetime().isoformat() if dt_utc else None,
-                },
-                "imu": ss.imu().to_dict() if ss.imu() else None,
-                "sqm": ss.sqm().to_dict() if ss.sqm() else None,
-                "software_version": _get_version(server_instance),
-            }
-            return _json_response(data)
-        except Exception as e:
-            logger.error("api/status error: %s", e)
-            return _json_response({"error": str(e)}, 500)
+        def _read(name, fn):
+            # Each read can hit the multiprocessing manager; if it is
+            # dead/broken (BrokenPipeError/EOFError/...) record the failure and
+            # degrade to None instead of failing the whole status response.
+            try:
+                return fn()
+            except Exception as e:
+                logger.warning("api/status: %s read failed: %s", name, e)
+                errors[name] = str(e)
+                return None
+
+        loc = _read("location", ss.location)
+        sol = _read("solution", ss.solution)
+        dt_utc = _read("datetime", ss.datetime)
+        local_dt = _read("local_datetime", ss.local_datetime) if dt_utc else None
+        imu = _read("imu", ss.imu)
+        sqm = _read("sqm", ss.sqm)
+
+        data = {
+            "power_state": _read("power_state", ss.power_state),
+            "solve_state": _read("solve_state", ss.solve_state),
+            "camera_type": _read("camera_type", ss.camera_type),
+            "location": loc.to_dict() if loc else None,
+            "solution": _solution_to_dict(sol) if sol is not None else None,
+            "datetime": {
+                "utc": dt_utc.isoformat() if dt_utc else None,
+                "local": local_dt.isoformat() if local_dt else None,
+            },
+            "imu": imu.to_dict() if imu else None,
+            "sqm": sqm.to_dict() if sqm else None,
+            "software_version": _get_version(server_instance),
+        }
+        if errors:
+            data["error"] = errors
+        return _json_response(data)
 
     # ───────────────────────────────────────────────
     # 2. Atomic endpoints (fetch individual items on demand)
@@ -686,12 +731,21 @@ def register_api_routes(app, server_instance, require_auth=False):
 
     @app.route("/api/screen")
     def api_screen():
-        """Return the current screen display as a 128x128 PNG, equivalent to /image"""
+        """Return the current screen display as a PNG, equivalent to /image.
+
+        Optional query parameter ``scale=N`` (integer, clamped to 1..8)
+        nearest-neighbor upscales the 128x128 frame so docs/PR captures stay
+        crisp. ``scale=1`` (the default) preserves the original behavior.
+        """
         try:
-            img = server_instance.shared_state.screen()
-            if img is None:
-                img = Image.new("RGB", (128, 128), color=(0, 0, 0))
-            return _png_response(img)
+            scale = int(request.args.get("scale", 1))
+        except (TypeError, ValueError):
+            scale = 1
+        try:
+            return Response(
+                get_screen_png(server_instance.shared_state, scale),
+                content_type="image/png",
+            )
         except Exception as e:
             logger.error("api/screen error: %s", e)
             empty = Image.new("RGB", (128, 128), color=(73, 109, 137))

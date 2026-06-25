@@ -1,4 +1,3 @@
-import io
 import json
 import logging
 import time
@@ -10,8 +9,8 @@ import multiprocessing
 from datetime import datetime, timezone
 
 import pydeepskylog as pds
-from PIL import Image
 from PiFinder import utils, calc_utils, config
+from PiFinder.api_extensions import get_screen_png, register_api_routes
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
@@ -19,7 +18,16 @@ from PiFinder.equipment import Telescope, Eyepiece
 from PiFinder.keyboard_interface import KeyboardInterface
 from PiFinder.multiproclogging import MultiprocLogging
 
-from flask import Flask, request, jsonify, send_file, redirect, session, make_response
+from flask import (
+    Flask,
+    request,
+    jsonify,
+    send_file,
+    redirect,
+    session,
+    make_response,
+    Response,
+)
 from urllib.parse import quote
 from flask_babel import Babel, gettext  # type: ignore[import-untyped]
 from werkzeug.routing import IntegerConverter
@@ -1158,22 +1166,10 @@ class Server:
 
         @app.route("/image")
         def serve_pil_image():
-            empty_img = Image.new(
-                "RGB", (60, 30), color=(73, 109, 137)
-            )  # create an image using PIL
-            img = None
-            try:
-                img = self.shared_state.screen()
-            except (BrokenPipeError, EOFError):
-                pass
-
-            if img is None:
-                img = empty_img
-            img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format="PNG")  # adjust for your image format
-            img_byte_arr.seek(0)
-
-            return send_file(img_byte_arr, mimetype="image/png")
+            # Serves the same screen PNG as /api/screen; delegate to the shared
+            # helper so both routes stay in sync (handles a None screen / broken
+            # shared-state pipe with a blank frame).
+            return Response(get_screen_png(self.shared_state), mimetype="image/png")
 
         # # If you want to see a log of all requests for debugging, you can uncomment this:
         # @app.after_request
@@ -1184,8 +1180,6 @@ class Server:
         #     return response
 
         try:
-            from PiFinder.api_extensions import register_api_routes
-
             register_api_routes(app, self, require_auth=False)
         except Exception:
             logger.exception("Failed to register API extension routes")
