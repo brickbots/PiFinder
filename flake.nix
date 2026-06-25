@@ -52,7 +52,7 @@
       nixos-hardware.nixosModules.raspberry-pi-4
       ./nixos/hardware.nix
       ./nixos/networking.nix
-      ./nixos/migration.nix
+      ./nixos/device.nix
       headlessModule
     ];
 

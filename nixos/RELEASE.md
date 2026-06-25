@@ -165,6 +165,6 @@ workflow builds and tags that source branch, then writes install metadata to
 | `python/PiFinder/ui/software.py`      | Manifest-driven channel update UI          |
 | `nixos/pkgs/pifinder-src.nix`         | Copies the source tree into the store path |
 | `nixos/services.nix`                  | Symlinks `/home/pifinder/PiFinder` → store path |
-| `nixos/migration.nix`                 | `BUILD_JSON_URL` for nightly channel check |
+| `nixos/device.nix`                 | `BUILD_JSON_URL` for nightly channel check |
 | `.github/workflows/build.yml`         | Dev builds + manifest update               |
 | `.github/workflows/release.yml`       | Manual release dispatcher                  |
