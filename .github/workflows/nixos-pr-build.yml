@@ -121,7 +121,7 @@ jobs:
           extra-conf: |
             extra-system-features = big-parallel
             extra-substituters = https://cache.pifinder.eu/pifinder
-            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+            extra-trusted-public-keys = pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck=
 
       - name: Attic login for push
         env:
