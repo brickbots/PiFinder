@@ -26,7 +26,7 @@ logger = logging.getLogger("UISoftware")
 # CI publishes generated update metadata to a metadata-only branch. Devices read
 # one raw JSON file instead of calling the GitHub REST API, so they do not burn
 # unauthenticated rate limits.
-MANIFEST_REPO = "mrosseel/PiFinder"
+MANIFEST_REPO = "brickbots/PiFinder"
 MANIFEST_BRANCH = "nixos-manifest"
 # ------------------------------------------------------------------------------
 UPDATE_MANIFEST_URL = (

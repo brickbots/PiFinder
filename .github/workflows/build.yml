@@ -62,11 +62,19 @@ jobs:
 
       - name: Push to Attic
         id: push
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             --json | jq -r '.[].outputs.out')
-          attic push pifinder:pifinder "$STORE_PATH"
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+          # Fork PRs get no secrets, so $ATTIC_TOKEN is empty — build is
+          # verify-only, skip the push (same guard as build-emulated).
+          if [ -n "$ATTIC_TOKEN" ]; then
+            attic push pifinder:pifinder "$STORE_PATH"
+          else
+            echo "No ATTIC_TOKEN (fork PR) — skipping push; build is verify-only"
+          fi
 
   # Wait up to 15 min for native builder, then decide on fallback
   native-wait:
@@ -173,7 +181,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
+          # No explicit ref: a fork PR's head branch (e.g. `nixos`) doesn't exist
+          # in this repo, so `ref: <head_ref>` 404s. Default resolves for both
+          # pushes (branch) and PRs (merge ref) and only needs the scripts here.
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update generated manifest branch
