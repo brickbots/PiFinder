@@ -20,6 +20,38 @@ let
     '';
   };
 
+  # tetra3/cedar-solve solver — pinned rev, changes only on a submodule bump.
+  # Built as its own derivation (examples/tests/docs trimmed, bytecode
+  # pre-compiled) and symlinked into pifinder-src, so a routine code change no
+  # longer rewrites these ~15MB of stable files. cedar_detect_pb2 ships in the
+  # cedar-solve repo, so the symlinked tree is import-complete.
+  tetra3 = pkgs.stdenv.mkDerivation {
+    pname = "pifinder-tetra3";
+    version = "cedar-solve";
+    src = tetra3-src;
+    nativeBuildInputs = [ python ];
+    phases = [ "installPhase" ];
+    installPhase = ''
+      mkdir -p $out
+      cp -r --no-preserve=mode $src/* $out/
+      rm -rf $out/examples $out/tests $out/docs
+      python3 -m compileall -q $out || true
+    '';
+  };
+
+  # UI fonts — ~31MB, effectively never change. Own derivation + symlink so they
+  # are distributed once and not rewritten on every code change.
+  fonts = pkgs.stdenv.mkDerivation {
+    pname = "pifinder-fonts";
+    version = "1.0";
+    src = ../../fonts;
+    phases = [ "installPhase" ];
+    installPhase = ''
+      mkdir -p $out
+      cp -r $src/* $out/
+    '';
+  };
+
 in
 pkgs.stdenv.mkDerivation {
   pname = "pifinder-src";
@@ -44,17 +76,24 @@ pkgs.stdenv.mkDerivation {
     # Strip doc photos from images/ but keep welcome.png (used at runtime)
     find $out/images -type f ! -name 'welcome.png' -delete
 
-    # Replace astro_data with symlink to stable derivation
+    # Bulky, stable inputs live in their own derivations and are symlinked in,
+    # so a code change rewrites only the (small) code path — not astro-data
+    # (~193MB), fonts (~31MB) or tetra3 (~15MB). See ADR 0001.
     rm -rf $out/astro_data
     ln -s ${astro-data} $out/astro_data
+    rm -rf $out/fonts
+    ln -s ${fonts} $out/fonts
 
-    # tetra3/cedar-solve is a git submodule — Nix doesn't include submodule
-    # contents, so we fetch it separately and graft it into the source tree.
+    # tetra3/cedar-solve is a git submodule (empty in the Nix source). Drop the
+    # stub before compiling so the dangling python/tetra3 symlink is skipped,
+    # then symlink the pre-built solver in afterwards — symlinking before
+    # compileall would make it try to write .pyc into the read-only store path.
     rm -rf $out/python/PiFinder/tetra3
-    cp -r ${tetra3-src} $out/python/PiFinder/tetra3
 
     # Pre-compile .pyc bytecode so Python skips compilation at runtime
     chmod -R u+w $out/python
     python3 -m compileall -q $out/python
+
+    ln -s ${tetra3} $out/python/PiFinder/tetra3
   '';
 }
