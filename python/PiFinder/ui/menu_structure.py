@@ -1245,6 +1245,23 @@ pifinder_menu = {
                             "stateful": True,
                         },
                         {
+                            "name": _("Mount Control"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "mount_control",
+                            "post_callback": callbacks.mount_control_toggle,
+                            "items": [
+                                {
+                                    "name": _("Off"),
+                                    "value": False,
+                                },
+                                {
+                                    "name": _("On"),
+                                    "value": True,
+                                },
+                            ],
+                        },
+                        {
                             "name": _("Dev Tools"),
                             "class": UITextMenu,
                             "select": "single",

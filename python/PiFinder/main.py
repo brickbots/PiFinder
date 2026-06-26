@@ -362,6 +362,7 @@ def main(
     alignment_command_queue: Queue = Queue()
     alignment_response_queue: Queue = Queue()
     ui_queue: Queue = Queue()
+    mountcontrol_queue: Queue = Queue()
 
     # init queues for logging
     keyboard_logqueue: Queue = log_helper.get_queue()
@@ -374,6 +375,7 @@ def main(
     imu_logqueue: Queue = log_helper.get_queue()
     battery_logqueue: Queue = log_helper.get_queue()
     sound_logqueue: Queue = log_helper.get_queue()
+    mountcontrol_logqueue: Queue = log_helper.get_queue()
 
     # Refuse to start if another instance is already running. A second copy
     # would otherwise boot and let its subsystems (web/pos-server ports, cedar
@@ -405,6 +407,7 @@ def main(
         "align_response": alignment_response_queue,
         "gps": gps_queue,
         "integrator": integrator_command_queue,
+        "mountcontrol": mountcontrol_queue,
     }
     cfg = config.Config()
 
@@ -616,6 +619,37 @@ def main(
             args=(shared_state, ui_queue, posserver_logqueue),
         )
         posserver_process.start()
+
+        mountcontrol_process = None
+        if cfg.get_option("mount_control", False):
+            console.write("   INDI Mount")
+            logger.info("   INDI Mount")
+            console.update()
+            try:
+                from PiFinder import mountcontrol_indi
+
+                mountcontrol_process = Process(
+                    name="MountControl",
+                    target=mountcontrol_indi.run,
+                    args=(
+                        mountcontrol_queue,
+                        console_queue,
+                        shared_state,
+                        mountcontrol_logqueue,
+                    ),
+                    kwargs={
+                        "indi_host": cfg.get_option(
+                            "mount_control_indi_host", "localhost"
+                        ),
+                        "indi_port": int(
+                            cfg.get_option("mount_control_indi_port", 7624)
+                        ),
+                    },
+                )
+                mountcontrol_process.start()
+            except Exception:
+                logger.exception("Could not start INDI mount-control process")
+                console.write("INDI mount failed")
 
         # Initialize Catalogs
         console.write("   Catalogs")
@@ -1027,6 +1061,14 @@ def main(
 
             logger.info("\tPos Server...")
             posserver_process.join()
+
+            if mountcontrol_process is not None:
+                logger.info("\tINDI Mount...")
+                mountcontrol_queue.put({"type": "shutdown"})
+                mountcontrol_process.join(timeout=3)
+                if mountcontrol_process.is_alive():
+                    mountcontrol_process.terminate()
+                    mountcontrol_process.join()
 
             logger.info("\tGPS...")
             gps_process.terminate()
