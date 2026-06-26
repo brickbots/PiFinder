@@ -172,15 +172,29 @@ class UISoftware(UIModule):
     # ------------------------------------------------------------------
 
     def _fetch_channels(self):
+        # Rollback targets come from local, immutable generation data, so they
+        # are available even when the manifest can't be fetched — which is
+        # exactly when rollback matters most.
+        try:
+            rollback = sys_utils.list_rollback_targets()
+        except Exception as e:  # never let rollback listing break the screen
+            logger.warning("Could not list rollback targets: %s", e)
+            rollback = []
+
         try:
             manifest_channels = _fetch_update_manifest()
-        except requests.exceptions.RequestException as e:
-            logger.warning("Software update check failed (offline?): %s", e)
-            self._phase = "offline"
-            return
-        except ValueError as e:
-            logger.warning("Invalid update manifest: %s", e)
-            self._phase = "offline"
+        except (requests.exceptions.RequestException, ValueError) as e:
+            logger.warning("Software update check failed (offline/invalid?): %s", e)
+            if not rollback:
+                self._phase = "offline"
+                return
+            # Network channels are unavailable, but we can still offer Rollback.
+            self._manifest_channels = {}
+            self._channels = {"rollback": rollback}
+            self._channel_names = list(self._channels.keys())
+            self._channel_index = 0
+            self._refresh_version_list()
+            self._phase = "browse"
             return
 
         self._manifest_channels = manifest_channels
@@ -192,6 +206,9 @@ class UISoftware(UIModule):
         if self._unstable_unlocked:
             self._unstable_entries = manifest_channels.get("unstable", [])
             self._channels["unstable"] = self._unstable_entries
+
+        if rollback:
+            self._channels["rollback"] = rollback
 
         # Try to find subtitle for current version from fetched entries
         self._software_subtitle = self._find_current_subtitle()
@@ -219,7 +236,7 @@ class UISoftware(UIModule):
             return
         channel = self._channel_names[self._channel_index]
         entries = self._channels.get(channel, [])
-        if channel == "unstable":
+        if channel in ("unstable", "rollback"):
             self._version_list = entries
         else:
             self._version_list = [

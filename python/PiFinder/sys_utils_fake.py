@@ -66,6 +66,10 @@ def update_software(ref: str = "release", selection=None):
     return True
 
 
+def list_rollback_targets() -> list:
+    return []
+
+
 def get_upgrade_progress() -> dict:
     return {
         "phase": "",

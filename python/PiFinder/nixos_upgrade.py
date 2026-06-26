@@ -434,8 +434,10 @@ def set_extlinux_default(camera: str) -> None:
 
 
 def cleanup_old_generations() -> None:
+    # Keep the 3 newest generations: current + 2 rollback targets (surfaced in
+    # the Software screen's Rollback channel).
     command(
-        ["nix-env", "--delete-generations", "+2", "-p", "/nix/var/nix/profiles/system"],
+        ["nix-env", "--delete-generations", "+3", "-p", "/nix/var/nix/profiles/system"],
         check=False,
     )
     command(["nix-collect-garbage"], check=False)
