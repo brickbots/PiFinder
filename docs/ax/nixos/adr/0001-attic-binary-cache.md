@@ -8,12 +8,22 @@ crates alone take hours). We will self-host the [Attic](https://github.com/zhaof
 binary cache at `cache.pifinder.eu`, backed by SQLite and local disk initially,
 with Cloudflare R2 as the eventual chunk store. Attic is a small Rust server
 that adds **content-defined chunking (FastCDC)** on top of the standard Nix
-substituter protocol: every closure is sliced into variable-size chunks based
-on byte content, identical chunks are stored exactly once, and update downloads
-ship only the genuinely-new chunks. For a NixOS system image where 90–95% of
-bytes are unchanged between releases, a 1.5 GB closure typically resolves to
-~80 MB of new chunks per device per update — savings that compound across
-releases and across the user fleet.
+substituter protocol: every NAR is sliced into variable-size chunks by byte
+content and identical chunks are stored exactly once. This dedup is
+**server-side** — it shrinks storage across releases, and because `attic push`
+chunks on the runner it makes the **CI upload** proportional to actual changes.
+It does **not** delta the device download: Attic serves whole NARs over the
+standard binary-cache protocol, so a device fetches the full (compressed) NAR of
+every store path whose hash changed — not a chunk-delta against the previous
+version of that path. The saving devices get is **path-level**: the 90–95% of a
+closure that is unchanged between releases (identical store hashes) is not
+refetched at all, so an update pulls only the changed paths' NARs — on the order
+of tens of MB for a 1.5 GB closure, but each of those in full. True client-side
+chunk-delta downloads need a casync/desync-style client that keeps a local chunk
+store; the standard Nix client — and therefore Attic, harmonia, and nix-casync
+used as substituters — does not do this. (That client-delta property is exactly
+why desync is used for the out-of-closure astro-data blobs; see the data-blob
+distribution notes.)
 
 ## Considered Options
 
