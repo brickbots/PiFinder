@@ -1243,7 +1243,6 @@ pifinder_menu = {
                                     "class": UITextMenu,
                                     "select": "single",
                                     "config_option": "screen_off_timeout",
-                                    "dev_mode_only": True,
                                     "items": [
                                         {"name": _("Off"), "value": "Off"},
                                         {"name": "30s", "value": "30s"},
