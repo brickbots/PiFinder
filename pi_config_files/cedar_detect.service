@@ -4,10 +4,10 @@ After=basic.target
 
 [Service]
 Type=idle
-User=pifinder
-WorkingDirectory=/home/pifinder/PiFinder
+User=__PIFINDER_USER__
+WorkingDirectory=__PIFINDER_REPO_DIR__
 Environment=RUST_BACKTRACE=1
-ExecStart=/home/pifinder/PiFinder/bin/cedar-detect-server-aarch64 --port 50551
+ExecStart=__PIFINDER_REPO_DIR__/bin/cedar-detect-server-aarch64 --port 50551
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 [Install]

@@ -17,6 +17,7 @@ import pytz
 
 from typing import Any, TYPE_CHECKING
 from PiFinder import utils, calc_utils
+from PiFinder.boot_config import get_boot_config_path
 from PiFinder.locations import Location as SavedLocation
 from PiFinder.state import Location
 from PiFinder.ui.base import UIModule
@@ -213,14 +214,14 @@ def get_camera_type(ui_module: UIModule) -> list[str]:
     cam_id = "000"
 
     # read config.txt into a list
-    with open("/boot/config.txt", "r") as boot_in:
+    with open(get_boot_config_path(), "r") as boot_in:
         boot_lines = list(boot_in)
 
     # Look for the line without a comment...
     for line in boot_lines:
         if line.startswith("dtoverlay=imx"):
             cam_id = line[10:16]
-            # imx462 uses imx290 driver
+            # Older installs used the imx290 overlay for imx462 cameras.
             if cam_id == "imx290":
                 cam_id = "imx462"
 

@@ -1,18 +1,18 @@
 #!/usr/bin/python
 import sys
 
+from PiFinder.boot_config import get_boot_config_path
+
 
 def switch_boot(cam_type: str) -> None:
     """
-    Edit /boot/config.txt to swap camera drive
-    must be run as roo
+    Edit the Raspberry Pi boot config to swap camera driver.
+    Must be run as root.
     """
-    if cam_type == "imx462":
-        # The 462 uses the 290 driver
-        cam_type = "imx290"
+    boot_config_path = get_boot_config_path()
 
     # read config.txt into a list
-    with open("/boot/config.txt", "r") as boot_in:
+    with open(boot_config_path, "r") as boot_in:
         boot_lines = list(boot_in)
 
     # Disable any existing cams
@@ -31,13 +31,13 @@ def switch_boot(cam_type: str) -> None:
             cam_added = True
 
     if not cam_added:
-        if cam_type == "imx290":
+        if cam_type in ("imx290", "imx462"):
             boot_lines.append(f"dtoverlay={cam_type},clock-frequency=74250000\n")
         else:
             boot_lines.append(f"dtoverlay={cam_type}\n")
         cam_added = True
 
-    with open("/boot/config.txt", "w") as boot_out:
+    with open(boot_config_path, "w") as boot_out:
         for line in boot_lines:
             boot_out.write(line)
 

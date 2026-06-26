@@ -1,5 +1,5 @@
-attach `/home/pifinder/PiFinder/astro_data/observations.db` as ad_obs;
-attach `/home/pifinder/PiFinder_data/observations.db` as pfd_obs;
+attach `__PIFINDER_REPO_DIR__/astro_data/observations.db` as ad_obs;
+attach `__PIFINDER_DATA_DIR__/observations.db` as pfd_obs;
 BEGIN;
 insert into pfd_obs.obs_sessions(start_time_local, lat, lon, timezone, UID)
 select start_time_local, lat, lon, timezone, UID from ad_obs.obs_sessions;
