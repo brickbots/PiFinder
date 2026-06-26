@@ -65,6 +65,13 @@ class CameraInterface:
         """
         return False
 
+    def get_default_gain(self) -> float:
+        """Return the backend's default startup gain."""
+        profile = getattr(self, "profile", None)
+        if profile is not None and hasattr(profile, "analog_gain"):
+            return float(profile.analog_gain)
+        return float(getattr(self, "gain", 1.0))
+
     def initialize(self) -> None:
         pass
 
@@ -441,13 +448,18 @@ class CameraInterface:
                                 )
 
                         if command.startswith("set_gain"):
-                            old_gain = self.gain
-                            self.gain = int(command.split(":")[1])
+                            old_gain = getattr(self, "gain", self.get_default_gain())
+                            gain_value = command.split(":", 1)[1]
+                            if gain_value == "profile":
+                                self.gain = self.get_default_gain()
+                            else:
+                                self.gain = float(gain_value)
                             self.exposure_time, self.gain = self.set_camera_config(
                                 self.exposure_time, self.gain
                             )
-                            console_queue.put("CAM: Gain=" + str(self.gain))
-                            logger.info(f"Gain changed: {old_gain}x → {self.gain}x")
+                            gain_text = f"{self.gain:g}"
+                            console_queue.put("CAM: Gain=" + gain_text)
+                            logger.info(f"Gain changed: {old_gain:g}x → {gain_text}x")
 
                         if command.startswith("set_ae_mode"):
                             mode = command.split(":")[1]

@@ -37,6 +37,7 @@ HFD_AXIS_MAX = 20.0  # log Y-axis top (px) -- clearly defocused
 STRETCH_EMA_ALPHA = 0.15  # display-stretch black/white smoothing (lower = calmer)
 STRETCH_MIN_SPAN = 50.0  # min ADU span so a faint frame isn't stretched hard
 STRETCH_DITHER_FRAC = 0.5  # uniform dither amplitude as a fraction of one step
+STRETCH_BRIGHT_BACKGROUND = 220.0  # show saturated/daylit focus frames directly
 
 # Native camera frame size. target_pixel and centroid coordinates live in this
 # (square) pixel space (see SharedStateObj.target_pixel, documented 512x512);
@@ -80,7 +81,10 @@ class UIPreview(UIModule):
                 menu_jump="camera_exposure",
             ),
             down=MarkingMenuOption(),
-            right=MarkingMenuOption(),
+            right=MarkingMenuOption(
+                label=_("Gain"),
+                menu_jump="camera_gain",
+            ),
         )
 
     def _reset_focus_state(self):
@@ -145,6 +149,15 @@ class UIPreview(UIModule):
         if self._stretch_black is None or self._stretch_white is None:
             return image_obj
         black = self._stretch_black
+
+        # The normal focus preview stretch assumes a dark sky: it maps the
+        # measured background to black so faint stars stand out. With daytime or
+        # saturated frames the background can already be near white; applying
+        # that same mapping turns the whole preview black. Keep the current
+        # exposure/gain intact and render those bright frames directly.
+        if black >= STRETCH_BRIGHT_BACKGROUND:
+            return image_obj
+
         span = max(self._stretch_white - black, STRETCH_MIN_SPAN)
         scale = 255.0 / span
 
@@ -156,6 +169,51 @@ class UIPreview(UIModule):
         stretched += np.random.uniform(-dither, dither, size=arr.shape)
         np.clip(stretched, 0, 255, out=stretched)
         return Image.fromarray(stretched.astype(np.uint8), mode="L")
+
+    def _orient_camera_image(self, image_obj):
+        camera_rotation = self.config_object.get_option("camera_rotation")
+        if camera_rotation is not None:
+            return image_obj.rotate(int(camera_rotation) * -1)
+
+        screen_direction = self.config_object.get_option("screen_direction")
+        if screen_direction in ["right", "straight", "flat3", "as_bloom"]:
+            return image_obj.rotate(90)
+        return image_obj.rotate(270)
+
+    def _raw_display_image(self):
+        raw = self.shared_state.cam_raw()
+        if raw is None:
+            return None
+
+        arr = np.asarray(raw)
+        if arr.ndim != 2:
+            return None
+
+        arr = arr.astype(np.float32, copy=False)
+        arr = arr[: arr.shape[0] // 2 * 2, : arr.shape[1] // 2 * 2]
+        if arr.shape[0] >= 2 and arr.shape[1] >= 2:
+            # Average the nominal Bayer quad. This also reduces the checker
+            # pattern on mono sensors reported through an RGGB driver.
+            arr = (
+                arr[0::2, 0::2]
+                + arr[0::2, 1::2]
+                + arr[1::2, 0::2]
+                + arr[1::2, 1::2]
+            ) * 0.25
+
+        low = float(np.percentile(arr, 1.0))
+        high = float(np.percentile(arr, 99.5))
+        if high <= low + 1.0:
+            # This helper is only used after the processed preview has already
+            # been classified as bright. A saturated or nearly flat bright raw
+            # frame has no percentile span; stretching it from low to low+1
+            # would map the whole image to black. Keep it bright instead.
+            scaled = np.full(arr.shape, 255, dtype=np.float32)
+        else:
+            scaled = (arr - low) * (255.0 / (high - low))
+        np.clip(scaled, 0, 255, out=scaled)
+        image_obj = Image.fromarray(scaled.astype(np.uint8), mode="L")
+        return self._orient_camera_image(image_obj)
 
     def draw_star_selectors(self):
         # Draw star selectors
@@ -409,18 +467,31 @@ class UIPreview(UIModule):
                 self._last_focus_frame_time = last_image_time
 
             resX, resY = self.display_class.resX, self.display_class.resY
+            display_image = raw_image
+            stretch_display = True
+            if (
+                self._stretch_black is not None
+                and self._stretch_black >= STRETCH_BRIGHT_BACKGROUND
+            ):
+                raw_display = self._raw_display_image()
+                if raw_display is not None:
+                    display_image = raw_display
+                    stretch_display = False
 
             # Resize / zoom. Zoom crops a centred region of the native camera
             # frame (half of it for 2x, a quarter for 4x) then scales to the
             # display, so the zoom factor stays 2x / 4x at any resolution.
             # (Shared with the daytime-align screen via ui.camera_render.)
-            image_obj = resize_for_display(raw_image, (resX, resY), self.zoom_level)
+            image_obj = resize_for_display(
+                display_image, (resX, resY), self.zoom_level
+            )
 
             # Background-anchored linear stretch (replaces autocontrast), then RED.
             # Stretch on a single luminance band (debug frames are RGB; hardware
             # frames are already mode "L").
             image_obj = image_obj.convert("L")
-            image_obj = self._apply_stretch(image_obj)
+            if stretch_display:
+                image_obj = self._apply_stretch(image_obj)
             image_obj = image_obj.convert("RGB")
             image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
 
