@@ -12,6 +12,7 @@ import json
 import logging
 import re
 import subprocess
+import urllib.error
 import urllib.request
 from collections import deque
 from dataclasses import dataclass
@@ -162,16 +163,54 @@ def path_exists(path: str) -> bool:
     return Path(path).exists()
 
 
-def cache_has_path(store_path: str, cache: str, timeout: int = 20) -> bool:
-    try:
-        result = command(
-            ["nix", "path-info", "--store", cache, store_path],
-            check=False,
-            timeout=timeout,
-        )
-    except (subprocess.TimeoutExpired, OSError):
-        return False
-    return result.returncode == 0
+# Availability of a build on the binary caches, kept distinct on purpose: a
+# cache we cannot reach must never be reported as "the build is gone".
+AVAILABLE = "available"
+ABSENT = "absent"
+UNREACHABLE = "unreachable"
+
+
+def _narinfo_url(store_path: str, cache: str) -> str:
+    digest = Path(store_path).name.split("-", 1)[0]
+    return f"{cache.rstrip('/')}/{digest}.narinfo"
+
+
+def classify_store_path(
+    store_path: str, caches: Iterable[str] = CACHES, timeout: int = 15
+) -> str:
+    """Decide whether a build is downloadable, gone, or simply unreachable.
+
+    Probes each cache's narinfo over HTTPS so a network failure is never
+    mistaken for a deleted build:
+      - AVAILABLE    already in the local store, or a cache serves the narinfo
+      - ABSENT       every cache answered and at least one returned 404 — the
+                     build really is gone
+      - UNREACHABLE  no cache could be reached (offline / DNS / cache down), so
+                     availability is unknown and the upgrade should be retried
+    """
+    if path_exists(store_path):
+        return AVAILABLE
+
+    saw_404 = False
+    unreachable = False
+    for cache in caches:
+        url = _narinfo_url(store_path, cache)
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as resp:
+                if resp.status == 200:
+                    return AVAILABLE
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                saw_404 = True
+            else:
+                # 5xx and friends mean a troubled cache, not a deleted build.
+                unreachable = True
+        except (urllib.error.URLError, OSError, TimeoutError):
+            unreachable = True
+
+    if unreachable:
+        return UNREACHABLE
+    return ABSENT if saw_404 else UNREACHABLE
 
 
 def fetch_cache_public_keys(
@@ -197,10 +236,6 @@ def fetch_cache_public_keys(
         except Exception as exc:  # network / JSON errors are non-fatal
             logger.warning("could not fetch cache key from %s: %s", url, exc)
     return keys
-
-
-def store_path_available(store_path: str) -> bool:
-    return path_exists(store_path) or any(cache_has_path(store_path, c) for c in CACHES)
 
 
 def estimate_download(store_path: str) -> DownloadEstimate:
@@ -434,8 +469,10 @@ def set_extlinux_default(camera: str) -> None:
 
 
 def cleanup_old_generations() -> None:
+    # Keep the 3 newest generations: current + 2 rollback targets (surfaced in
+    # the Software screen's Rollback channel).
     command(
-        ["nix-env", "--delete-generations", "+2", "-p", "/nix/var/nix/profiles/system"],
+        ["nix-env", "--delete-generations", "+3", "-p", "/nix/var/nix/profiles/system"],
         check=False,
     )
     command(["nix-collect-garbage"], check=False)
@@ -453,13 +490,20 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
         estimate = estimate_download(store_path)
         build_rc = run_build(store_path, estimate)
         if build_rc != 0:
-            if not store_path_available(store_path):
+            availability = classify_store_path(store_path)
+            if availability == ABSENT:
                 selected_unavailable = True
                 write_status("unavailable")
                 terminal = True
                 raise UnavailableError(
                     f"{store_path} is no longer on configured caches"
                 )
+            if availability == UNREACHABLE:
+                # Couldn't reach the caches to download — a connection problem,
+                # not a missing build. Retryable, so don't claim it's gone.
+                write_status("connfail")
+                terminal = True
+                raise UpgradeError(f"caches unreachable for {store_path}")
             raise UpgradeError(f"nix build failed rc={build_rc}")
 
         selection = load_selection()

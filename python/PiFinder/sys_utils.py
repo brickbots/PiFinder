@@ -13,6 +13,7 @@ Uses:
 import os
 import re
 import json
+import datetime
 import subprocess
 import logging
 from pathlib import Path
@@ -511,6 +512,50 @@ def start_upgrade(ref: str = "release", selection: Optional[dict] = None) -> boo
     return True
 
 
+def list_rollback_targets(profile_dir: Path = Path("/nix/var/nix/profiles")) -> list:
+    """On-disk system generations available for rollback (all but the current).
+
+    Reads only immutable generation data — the profile symlinks and the
+    store-path names — so there is NO sidecar state file to evolve or corrupt,
+    and it works even when the updater is offline. Each entry mirrors a
+    Software-screen version entry so the same list UI can render it.
+    """
+    try:
+        current = (profile_dir / "system").resolve()
+    except OSError:
+        return []
+
+    targets = []
+    for link in profile_dir.glob("system-*-link"):
+        try:
+            generation = int(link.name.split("-")[1])
+            store_path = link.resolve()
+            mtime = link.lstat().st_mtime
+        except (OSError, ValueError, IndexError):
+            continue
+        if store_path == current:
+            continue
+        marker = "nixos-system-pifinder-"
+        name = store_path.name
+        label = name.split(marker, 1)[-1] if marker in name else name
+        date = datetime.datetime.fromtimestamp(mtime).strftime("%d %b %H:%M")
+        targets.append(
+            (
+                generation,
+                {
+                    "ref": str(store_path),
+                    "label": label,
+                    "version": label,
+                    "notes": None,
+                    "subtitle": f"gen {generation} · {date}",
+                    "channel": "rollback",
+                },
+            )
+        )
+    targets.sort(key=lambda t: t[0], reverse=True)
+    return [entry for _generation, entry in targets]
+
+
 def get_upgrade_state() -> str:
     """Poll upgrade status file written by the upgrade service."""
     try:
@@ -526,7 +571,7 @@ def get_upgrade_state() -> str:
 
     if status == "success":
         return UPGRADE_STATE_SUCCESS
-    elif status in ("failed", "unavailable"):
+    elif status in ("failed", "unavailable", "connfail"):
         return UPGRADE_STATE_FAILED
     elif status.startswith("downloading") or status in (
         "starting",
@@ -542,7 +587,7 @@ def get_upgrade_progress() -> dict:
 
     Returns dict with keys:
       phase: "starting" | "downloading" | "activating" | "rebooting"
-             | "success" | "failed" | "unavailable" | ""
+             | "success" | "failed" | "unavailable" | "connfail" | ""
       done: int (downloaded so far, in `unit`)
       total: int (total to download, in `unit`)
       unit: "bytes" | "paths"
@@ -608,6 +653,8 @@ def get_upgrade_progress() -> dict:
         return {**empty, "phase": "success", "percent": 100}
     if raw == "unavailable":
         return {**empty, "phase": "unavailable"}
+    if raw == "connfail":
+        return {**empty, "phase": "connfail"}
     if raw == "failed":
         return {**empty, "phase": "failed"}
     return empty

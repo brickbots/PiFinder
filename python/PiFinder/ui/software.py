@@ -172,15 +172,29 @@ class UISoftware(UIModule):
     # ------------------------------------------------------------------
 
     def _fetch_channels(self):
+        # Rollback targets come from local, immutable generation data, so they
+        # are available even when the manifest can't be fetched — which is
+        # exactly when rollback matters most.
+        try:
+            rollback = sys_utils.list_rollback_targets()
+        except Exception as e:  # never let rollback listing break the screen
+            logger.warning("Could not list rollback targets: %s", e)
+            rollback = []
+
         try:
             manifest_channels = _fetch_update_manifest()
-        except requests.exceptions.RequestException as e:
-            logger.warning("Software update check failed (offline?): %s", e)
-            self._phase = "offline"
-            return
-        except ValueError as e:
-            logger.warning("Invalid update manifest: %s", e)
-            self._phase = "offline"
+        except (requests.exceptions.RequestException, ValueError) as e:
+            logger.warning("Software update check failed (offline/invalid?): %s", e)
+            if not rollback:
+                self._phase = "offline"
+                return
+            # Network channels are unavailable, but we can still offer Rollback.
+            self._manifest_channels = {}
+            self._channels = {"rollback": rollback}
+            self._channel_names = list(self._channels.keys())
+            self._channel_index = 0
+            self._refresh_version_list()
+            self._phase = "browse"
             return
 
         self._manifest_channels = manifest_channels
@@ -192,6 +206,9 @@ class UISoftware(UIModule):
         if self._unstable_unlocked:
             self._unstable_entries = manifest_channels.get("unstable", [])
             self._channels["unstable"] = self._unstable_entries
+
+        if rollback:
+            self._channels["rollback"] = rollback
 
         # Try to find subtitle for current version from fetched entries
         self._software_subtitle = self._find_current_subtitle()
@@ -219,7 +236,7 @@ class UISoftware(UIModule):
             return
         channel = self._channel_names[self._channel_index]
         entries = self._channels.get(channel, [])
-        if channel == "unstable":
+        if channel in ("unstable", "rollback"):
             self._version_list = entries
         else:
             self._version_list = [
@@ -537,13 +554,16 @@ class UISoftware(UIModule):
 
     def _draw_failed(self):
         y = self.display_class.titlebar_height + 20
-        self.draw.text(
-            (10, y),
-            self._fail_reason or _("Update failed!"),
-            font=self.fonts.bold.font,
-            fill=self.colors.get(255),
-        )
-        y += 20
+        reason = self._fail_reason or _("Update failed!")
+        for line in reason.split("\n"):
+            self.draw.text(
+                (10, y),
+                line,
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+            y += 14
+        y += 6
         for label in ("Retry", "Cancel"):
             if self._fail_option == label:
                 self.draw.text(
@@ -650,7 +670,8 @@ class UISoftware(UIModule):
             return
         if self._phase == "failed":
             if self._fail_option == "Retry":
-                self._phase = "confirm"
+                # Re-enters update_software() → "upgrading" phase, so Retry
+                # reuses the same progress UI as the first attempt.
                 self.update_software()
             else:
                 self.remove_from_stack()
@@ -712,7 +733,7 @@ class UISoftware(UIModule):
             return
         if self._selected_version.get("unavailable"):
             self._phase = "failed"
-            self._fail_reason = _("Version no longer available")
+            self._fail_reason = _("Version no\nlonger available")
             self._fail_option = "Cancel"
             return
         self._phase = "upgrading"
@@ -741,12 +762,13 @@ class UISoftware(UIModule):
         total = progress["total"]
         unit = progress.get("unit", "bytes")
 
-        if phase in ("failed", "unavailable"):
-            self._fail_reason = (
-                _("Version no longer available")
-                if phase == "unavailable"
-                else _("Update failed!")
-            )
+        if phase in ("failed", "unavailable", "connfail"):
+            if phase == "unavailable":
+                self._fail_reason = _("Version no\nlonger available")
+            elif phase == "connfail":
+                self._fail_reason = _("Can't reach\nupdate server")
+            else:
+                self._fail_reason = _("Update failed!")
             self._phase = "failed"
             self._fail_option = "Retry"
             return

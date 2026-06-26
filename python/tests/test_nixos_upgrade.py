@@ -1,4 +1,5 @@
 import json
+import urllib.error
 
 import pytest
 
@@ -6,6 +7,40 @@ from PiFinder import nixos_upgrade
 
 
 STORE = "/nix/store/abc123-nixos-system-pifinder"
+
+
+class _FakeResp:
+    def __init__(self, status):
+        self.status = status
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _fake_urlopen(outcomes):
+    """Build a urlopen stub that returns/raises one outcome per cache probe.
+
+    Each outcome is either an int HTTP status (-> a response) or an Exception
+    instance to raise (a 404 HTTPError, a URLError, etc.).
+    """
+    calls = iter(outcomes)
+
+    def _open(url, timeout=None):
+        outcome = next(calls)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return _FakeResp(outcome)
+
+    return _open
+
+
+def _http_error(code):
+    return urllib.error.HTTPError(
+        url="https://cache/abc.narinfo", code=code, msg="x", hdrs=None, fp=None
+    )
 
 
 @pytest.mark.unit
@@ -125,6 +160,46 @@ def _capture_status(monkeypatch):
 
 
 @pytest.mark.unit
+def test_classify_local_path_is_available(monkeypatch):
+    monkeypatch.setattr(nixos_upgrade, "path_exists", lambda _p: True)
+    assert nixos_upgrade.classify_store_path(STORE) == nixos_upgrade.AVAILABLE
+
+
+@pytest.mark.unit
+def test_classify_cache_hit_is_available(monkeypatch):
+    monkeypatch.setattr(nixos_upgrade, "path_exists", lambda _p: False)
+    monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen([200]))
+    assert nixos_upgrade.classify_store_path(STORE) == nixos_upgrade.AVAILABLE
+
+
+@pytest.mark.unit
+def test_classify_all_404_is_absent(monkeypatch):
+    monkeypatch.setattr(nixos_upgrade, "path_exists", lambda _p: False)
+    monkeypatch.setattr(
+        "urllib.request.urlopen", _fake_urlopen([_http_error(404), _http_error(404)])
+    )
+    assert nixos_upgrade.classify_store_path(STORE) == nixos_upgrade.ABSENT
+
+
+@pytest.mark.unit
+def test_classify_connection_error_is_unreachable(monkeypatch):
+    monkeypatch.setattr(nixos_upgrade, "path_exists", lambda _p: False)
+    err = urllib.error.URLError("no route to host")
+    monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen([err, err]))
+    assert nixos_upgrade.classify_store_path(STORE) == nixos_upgrade.UNREACHABLE
+
+
+@pytest.mark.unit
+def test_classify_partial_unreachable_is_not_absent(monkeypatch):
+    # One cache says 404, the other can't be reached: the build might still be
+    # on the unreachable cache, so this must be retryable, not "gone".
+    monkeypatch.setattr(nixos_upgrade, "path_exists", lambda _p: False)
+    outcomes = [_http_error(404), urllib.error.URLError("timeout")]
+    monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen(outcomes))
+    assert nixos_upgrade.classify_store_path(STORE) == nixos_upgrade.UNREACHABLE
+
+
+@pytest.mark.unit
 def test_run_upgrade_invalid_ref_writes_failed(tmp_path, monkeypatch):
     ref_file = tmp_path / "ref"
     ref_file.write_text("release")
@@ -147,12 +222,35 @@ def test_run_upgrade_unavailable_writes_unavailable(tmp_path, monkeypatch):
         lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
     monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 1)
-    monkeypatch.setattr(nixos_upgrade, "store_path_available", lambda _store: False)
+    monkeypatch.setattr(
+        nixos_upgrade, "classify_store_path", lambda _store: nixos_upgrade.ABSENT
+    )
 
     rc = nixos_upgrade.run_upgrade(ref_file, "imx462")
 
     assert rc == 1
     assert statuses == ["starting", "unavailable"]
+
+
+@pytest.mark.unit
+def test_run_upgrade_unreachable_writes_connfail(tmp_path, monkeypatch):
+    ref_file = tmp_path / "ref"
+    ref_file.write_text(STORE)
+    statuses = _capture_status(monkeypatch)
+    monkeypatch.setattr(
+        nixos_upgrade,
+        "estimate_download",
+        lambda _store: nixos_upgrade.DownloadEstimate(()),
+    )
+    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 1)
+    monkeypatch.setattr(
+        nixos_upgrade, "classify_store_path", lambda _store: nixos_upgrade.UNREACHABLE
+    )
+
+    rc = nixos_upgrade.run_upgrade(ref_file, "imx462")
+
+    assert rc == 1
+    assert statuses == ["starting", "connfail"]
 
 
 @pytest.mark.unit
@@ -166,7 +264,9 @@ def test_run_upgrade_build_failure_writes_failed(tmp_path, monkeypatch):
         lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
     monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 1)
-    monkeypatch.setattr(nixos_upgrade, "store_path_available", lambda _store: True)
+    monkeypatch.setattr(
+        nixos_upgrade, "classify_store_path", lambda _store: nixos_upgrade.AVAILABLE
+    )
 
     rc = nixos_upgrade.run_upgrade(ref_file, "imx462")
 
