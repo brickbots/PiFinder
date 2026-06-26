@@ -4,20 +4,68 @@ let
   cedar-detect = import ./pkgs/cedar-detect.nix { inherit pkgs; };
   pifinder-src = import ./pkgs/pifinder-src.nix { inherit pkgs; };
   boot-splash = import ./pkgs/boot-splash.nix { inherit pkgs; };
+  # Point the extlinux DEFAULT at a specific camera's boot entry. Device-tree
+  # overlays load only at boot and the generic-extlinux builder always writes
+  # DEFAULT=nixos-default (the base camera), so without this a switched camera
+  # never actually boots its matching DTB. Boot-critical and best-effort: on any
+  # doubt it leaves the existing (bootable) DEFAULT untouched.
+  set-extlinux-default = pkgs.writeShellScriptBin "set-extlinux-default" ''
+    set -euo pipefail
+    CAM="''${1:?usage: set-extlinux-default <camera>}"
+    CONF=/boot/extlinux/extlinux.conf
+
+    [ -f "$CONF" ] || { echo "set-extlinux-default: $CONF missing" >&2; exit 0; }
+
+    if [ "$CAM" = "${cfg.cameraType}" ]; then
+      # The base camera is the builder's own default entry.
+      TARGET=nixos-default
+    else
+      # Highest-numbered generation carrying this camera's specialisation entry.
+      TARGET=$(grep -oE "^LABEL nixos-[0-9]+-$CAM" "$CONF" \
+        | sed 's/^LABEL //' | sort -t- -k2,2n | tail -n1 || true)
+    fi
+
+    if [ -z "$TARGET" ] || ! grep -qx "LABEL $TARGET" "$CONF"; then
+      echo "set-extlinux-default: no boot entry for '$CAM'; DEFAULT left unchanged" >&2
+      exit 0
+    fi
+
+    TMP="$CONF.tmp.$$"
+    sed "s/^DEFAULT .*/DEFAULT $TARGET/" "$CONF" > "$TMP"
+    # Refuse to install anything that isn't exactly one DEFAULT pointing at a
+    # real LABEL — a malformed extlinux.conf would brick the next boot.
+    if [ "$(grep -c '^DEFAULT ' "$TMP")" = "1" ] && grep -qx "LABEL $TARGET" "$TMP"; then
+      mv "$TMP" "$CONF"
+      sync
+      echo "set-extlinux-default: DEFAULT -> $TARGET" >&2
+    else
+      rm -f "$TMP"
+      echo "set-extlinux-default: sanity check failed; DEFAULT left unchanged" >&2
+      exit 0
+    fi
+  '';
   pifinder-switch-camera = pkgs.writeShellScriptBin "pifinder-switch-camera" ''
-    CAM="$1"
+    set -euo pipefail
+    CAM="''${1:?usage: pifinder-switch-camera <camera>}"
     PERSIST="/var/lib/pifinder/camera-type"
     mkdir -p /var/lib/pifinder
 
-    SPEC="/run/current-system/specialisation/$CAM"
-    if [ "$CAM" = "${cfg.cameraType}" ]; then
-      /run/current-system/bin/switch-to-configuration boot
-    elif [ -d "$SPEC" ]; then
-      "$SPEC/bin/switch-to-configuration" boot
-    else
-      echo "Unknown camera: $CAM" >&2; exit 1
+    # Accept only the base camera or a camera with a built specialisation.
+    if [ "$CAM" != "${cfg.cameraType}" ] && [ ! -d "/run/current-system/specialisation/$CAM" ]; then
+      echo "Unknown camera: $CAM" >&2
+      exit 1
     fi
+
+    # Regenerate the bootloader (installs every specialisation entry; 'boot'
+    # mode touches no running services), make the chosen camera the boot
+    # default, and persist the choice.
+    /run/current-system/bin/switch-to-configuration boot
+    ${set-extlinux-default}/bin/set-extlinux-default "$CAM"
     echo "$CAM" > "$PERSIST"
+
+    # Device-tree overlays load only at boot, so apply the new camera by
+    # rebooting into its entry.
+    exec ${pkgs.systemd}/bin/systemctl reboot
   '';
 in {
   options.pifinder = {
@@ -34,6 +82,7 @@ in {
   # ---------------------------------------------------------------------------
   environment.systemPackages = with pkgs; [
     pifinder-switch-camera
+    set-extlinux-default
 
     # Diagnostic tools for SSH troubleshooting
     htop
@@ -383,7 +432,7 @@ in {
       WorkingDirectory = "/home/pifinder/PiFinder/python";
       ExecStart = "${pifinderPythonEnv}/bin/python -m PiFinder.nixos_upgrade --default-camera ${cfg.cameraType}";
     };
-    path = with pkgs; [ nix systemd coreutils ];
+    path = with pkgs; [ nix systemd coreutils set-extlinux-default ];
   };
 
   # ---------------------------------------------------------------------------

@@ -414,9 +414,23 @@ def activate_system(store_path: str, default_camera: str) -> None:
         specialisation = Path(store_path) / "specialisation" / camera
         if specialisation.is_dir():
             command([str(specialisation / "bin/switch-to-configuration"), "boot"])
+            set_extlinux_default(camera)
             return
 
     command([str(Path(store_path) / "bin/switch-to-configuration"), "boot"])
+    set_extlinux_default(default_camera)
+
+
+def set_extlinux_default(camera: str) -> None:
+    """Point the extlinux DEFAULT at the selected camera's boot entry.
+
+    Device-tree overlays load only at boot, and the generic-extlinux builder
+    rewrites DEFAULT to the base camera on every activation — so without this an
+    upgrade would reboot into the base camera's DTB regardless of the device's
+    chosen camera. Best-effort: the helper leaves a bootable DEFAULT in place if
+    the entry is missing, so a hiccup here never blocks the upgrade.
+    """
+    command(["set-extlinux-default", camera], check=False)
 
 
 def cleanup_old_generations() -> None:
