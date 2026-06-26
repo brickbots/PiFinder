@@ -235,6 +235,8 @@ if PyIndi is not None:
 
         def serverDisconnected(self, code):
             clientlogger.warning("Disconnected from INDI server: %s", code)
+            if self.mount_control is not None:
+                self.mount_control.mark_disconnected(f"INDI server disconnected: {code}")
 
 else:
 
@@ -290,8 +292,16 @@ class MountControlIndi:
         return False
 
     def connect(self) -> bool:
-        if self.connected and self.device is not None:
+        if (
+            self.connected
+            and self.device is not None
+            and self.client is not None
+            and self.client.isServerConnected()
+        ):
             return True
+
+        if self.connected:
+            self.mark_disconnected("INDI server connection is not active")
 
         if PyIndi is None:
             _write_status("missing_pyindi", "PyIndi is not installed")
@@ -346,6 +356,11 @@ class MountControlIndi:
         )
         self._console("INDI mount\nconnected")
         return True
+
+    def mark_disconnected(self, message: str) -> None:
+        self.connected = False
+        self.device = None
+        _write_status("disconnected", message)
 
     def disconnect(self) -> None:
         if self.client is not None:
