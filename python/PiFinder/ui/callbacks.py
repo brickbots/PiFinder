@@ -236,8 +236,8 @@ def switch_language(ui_module: UIModule) -> None:
     )
     lang.install()
     logger.info("Switch Language: %s", iso2_code)
-    if iso2_code == "zh":
-        # Chinese requires a new font, so we have to restart
+    if iso2_code in ["ko", "zh"]:
+        # CJK languages require a different font, so we have to restart.
         restart_pifinder(ui_module)
 
 

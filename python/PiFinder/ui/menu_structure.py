@@ -31,6 +31,7 @@ s = _("Language: de")  # this way ruff lint and mypy type_hints warnings are sil
 s = _("Language: en")
 s = _("Language: es")
 s = _("Language: fr")
+s = _("Language: ko")
 s = _("Language: zh")
 s = s
 del s
@@ -798,6 +799,10 @@ pifinder_menu = {
                                 {
                                     "name": _("Chinese"),
                                     "value": "zh",
+                                },
+                                {
+                                    "name": _("Korean"),
+                                    "value": "ko",
                                 },
                             ],
                         },
