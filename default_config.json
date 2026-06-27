@@ -30,9 +30,12 @@
     "gps_time_sync_max_tacc_ns": 1000000000,
     "gps_time_sync_stable_jitter_ms": 250,
     "gps_time_sync_stable_offset_ms": 1000,
+    "gps_time_sync_system_clock_min_interval_seconds": 300,
+    "gps_time_sync_system_clock_step_threshold_ms": 500,
     "software_pps": false,
     "software_pps_interval_seconds": 1.0,
     "rtc_sync": false,
+    "rtc_sync_min_interval_seconds": 3600,
     "filter.selected_catalogs": [
         "NGC",
         "M",

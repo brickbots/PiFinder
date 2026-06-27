@@ -14,6 +14,7 @@ import datetime
 import json
 import logging
 import math
+import subprocess
 import time
 from collections import deque
 from pathlib import Path
@@ -27,6 +28,45 @@ from PiFinder import utils
 logger = logging.getLogger("GPS.TimeSync")
 
 STATUS_FILE = utils.data_dir / "gps_time_status.json"
+
+
+class ClockSyncRunner:
+    """Run optional host clock/RTC commands.
+
+    These commands are only called when their config flags are explicitly
+    enabled and the GPS monitor has already reached a stable state.
+    """
+
+    command_timeout_seconds = 10
+
+    def _run(self, command: list[str]) -> dict[str, Any]:
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                check=False,
+                text=True,
+                timeout=self.command_timeout_seconds,
+            )
+        except Exception as exc:
+            return {"ok": False, "message": str(exc)}
+
+        output = (result.stdout + result.stderr).strip()
+        if result.returncode == 0:
+            return {"ok": True, "message": output or "command completed"}
+        return {
+            "ok": False,
+            "message": output or f"command exited with {result.returncode}",
+        }
+
+    def set_system_clock(self, gps_dt: datetime.datetime) -> dict[str, Any]:
+        gps_dt = _utc_datetime(gps_dt)
+        return self._run(["/usr/bin/date", "-u", "--set", f"@{gps_dt.timestamp():.6f}"])
+
+    def set_rtc(self, gps_dt: datetime.datetime) -> dict[str, Any]:
+        gps_dt = _utc_datetime(gps_dt)
+        rtc_date = gps_dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+        return self._run(["/usr/sbin/hwclock", "--utc", "--set", "--date", rtc_date])
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
@@ -76,9 +116,13 @@ class GpsTimeSyncMonitor:
         stable_offset_ms: float = 1000.0,
         status_write_interval_seconds: float = 5.0,
         software_pps_interval_seconds: float = 1.0,
+        system_clock_sync_min_interval_seconds: float = 300.0,
+        system_clock_sync_step_threshold_ms: float = 500.0,
+        rtc_sync_min_interval_seconds: float = 3600.0,
         status_file: Path = STATUS_FILE,
         time_fn: Callable[[], float] = time.time,
         monotonic_fn: Callable[[], float] = time.monotonic,
+        clock_sync_runner: Optional[ClockSyncRunner] = None,
     ):
         self.enabled = enabled
         self.software_pps_enabled = software_pps_enabled
@@ -92,9 +136,17 @@ class GpsTimeSyncMonitor:
         self.stable_offset_seconds = max(0.001, stable_offset_ms / 1000.0)
         self.status_write_interval_seconds = max(0.5, status_write_interval_seconds)
         self.software_pps_interval_seconds = max(0.1, software_pps_interval_seconds)
+        self.system_clock_sync_min_interval_seconds = max(
+            1.0, system_clock_sync_min_interval_seconds
+        )
+        self.system_clock_sync_step_threshold_seconds = max(
+            0.0, system_clock_sync_step_threshold_ms / 1000.0
+        )
+        self.rtc_sync_min_interval_seconds = max(1.0, rtc_sync_min_interval_seconds)
         self.status_file = status_file
         self.time_fn = time_fn
         self.monotonic_fn = monotonic_fn
+        self.clock_sync_runner = clock_sync_runner or ClockSyncRunner()
 
         self.samples: Deque[dict[str, Any]] = deque()
         self.state = "disabled"
@@ -106,6 +158,19 @@ class GpsTimeSyncMonitor:
         self.last_pps_tick_monotonic: Optional[float] = None
         self.last_pps_tick_estimated_utc: Optional[datetime.datetime] = None
         self.next_pps_tick_monotonic: Optional[float] = None
+
+        self.system_clock_sync_state = "disabled"
+        self.system_clock_sync_message = "System clock sync disabled"
+        self.system_clock_sync_count = 0
+        self.last_system_clock_sync_monotonic: Optional[float] = None
+        self.last_system_clock_sync_utc: Optional[str] = None
+        self.last_system_clock_offset_seconds: Optional[float] = None
+
+        self.rtc_sync_state = "disabled"
+        self.rtc_sync_message = "RTC sync disabled"
+        self.rtc_sync_count = 0
+        self.last_rtc_sync_monotonic: Optional[float] = None
+        self.last_rtc_sync_utc: Optional[str] = None
 
     @classmethod
     def from_config(cls, cfg, status_file: Path = STATUS_FILE) -> "GpsTimeSyncMonitor":
@@ -136,6 +201,17 @@ class GpsTimeSyncMonitor:
             software_pps_interval_seconds=_as_float(
                 cfg.get_option("software_pps_interval_seconds", 1.0), 1.0
             ),
+            system_clock_sync_min_interval_seconds=_as_float(
+                cfg.get_option("gps_time_sync_system_clock_min_interval_seconds", 300.0),
+                300.0,
+            ),
+            system_clock_sync_step_threshold_ms=_as_float(
+                cfg.get_option("gps_time_sync_system_clock_step_threshold_ms", 500.0),
+                500.0,
+            ),
+            rtc_sync_min_interval_seconds=_as_float(
+                cfg.get_option("rtc_sync_min_interval_seconds", 3600.0), 3600.0
+            ),
             status_file=status_file,
         )
 
@@ -153,6 +229,14 @@ class GpsTimeSyncMonitor:
         self.stable_offset_seconds = updated.stable_offset_seconds
         self.status_write_interval_seconds = updated.status_write_interval_seconds
         self.software_pps_interval_seconds = updated.software_pps_interval_seconds
+        self.system_clock_sync_min_interval_seconds = (
+            updated.system_clock_sync_min_interval_seconds
+        )
+        self.system_clock_sync_step_threshold_seconds = (
+            updated.system_clock_sync_step_threshold_seconds
+        )
+        self.rtc_sync_min_interval_seconds = updated.rtc_sync_min_interval_seconds
+        self._refresh_action_wait_states()
         self.write_status(force=True)
 
     def _active(self) -> bool:
@@ -166,6 +250,7 @@ class GpsTimeSyncMonitor:
         else:
             self._set_state("disabled", "GPS time sync monitor disabled")
 
+        self._refresh_action_wait_states()
         if self._active() or self.status_file.exists():
             self.write_status(force=True)
 
@@ -253,6 +338,7 @@ class GpsTimeSyncMonitor:
             "tAcc_ns": tacc_ns,
             "reference_time": ref_dt.isoformat() if ref_dt else None,
             "offset_seconds": offset_seconds,
+            "system_offset_seconds": gps_dt.timestamp() - self.time_fn(),
             "monotonic": now_monotonic,
             "received_unix": self.time_fn(),
         }
@@ -272,6 +358,7 @@ class GpsTimeSyncMonitor:
         self._prune_samples(now_monotonic)
 
         changed = self._evaluate_state()
+        changed = self._maybe_apply_sync_actions() or changed
         self.write_status(force=changed or len(self.samples) == 1)
 
     def _evaluate_state(self) -> bool:
@@ -319,6 +406,162 @@ class GpsTimeSyncMonitor:
             "unstable",
             "GPS time offset or jitter is outside the configured threshold",
         )
+
+    def _set_system_clock_sync_state(
+        self, state: str, message: str, offset_seconds: Optional[float] = None
+    ) -> bool:
+        changed = (
+            state != self.system_clock_sync_state
+            or message != self.system_clock_sync_message
+            or offset_seconds != self.last_system_clock_offset_seconds
+        )
+        self.system_clock_sync_state = state
+        self.system_clock_sync_message = message
+        self.last_system_clock_offset_seconds = offset_seconds
+        return changed
+
+    def _set_rtc_sync_state(self, state: str, message: str) -> bool:
+        changed = state != self.rtc_sync_state or message != self.rtc_sync_message
+        self.rtc_sync_state = state
+        self.rtc_sync_message = message
+        return changed
+
+    def _latest_gps_datetime(self) -> Optional[datetime.datetime]:
+        if self.latest_sample is None:
+            return None
+        gps_time = self.latest_sample.get("gps_time")
+        if not gps_time:
+            return None
+        try:
+            return _utc_datetime(datetime.datetime.fromisoformat(gps_time))
+        except ValueError:
+            return None
+
+    def _sync_block_reason(self) -> Optional[tuple[str, str]]:
+        if not self.enabled:
+            return "disabled", "GPS time sync disabled"
+        if self.latest_sample is None:
+            return "waiting_for_stable_gps", "Waiting for GPS time"
+        if not self.latest_sample.get("valid", True):
+            return "waiting_for_stable_gps", "Latest GPS time is not valid yet"
+        if self.state != "stable":
+            return (
+                "waiting_for_stable_gps",
+                f"Waiting for stable GPS time; current state is {self.state}",
+            )
+        if self._latest_gps_datetime() is None:
+            return "waiting_for_stable_gps", "Latest GPS time could not be parsed"
+        return None
+
+    def _cooldown_active(
+        self, last_monotonic: Optional[float], min_interval_seconds: float
+    ) -> bool:
+        if last_monotonic is None:
+            return False
+        return self.monotonic_fn() - last_monotonic < min_interval_seconds
+
+    def _apply_system_clock_sync(self, gps_dt: datetime.datetime) -> bool:
+        if not self.system_clock_sync_enabled:
+            return self._set_system_clock_sync_state(
+                "disabled", "System clock sync disabled"
+            )
+
+        offset_seconds = gps_dt.timestamp() - self.time_fn()
+        if abs(offset_seconds) <= self.system_clock_sync_step_threshold_seconds:
+            return self._set_system_clock_sync_state(
+                "in_sync",
+                "System clock offset is within the configured threshold",
+                offset_seconds,
+            )
+
+        if self._cooldown_active(
+            self.last_system_clock_sync_monotonic,
+            self.system_clock_sync_min_interval_seconds,
+        ):
+            return self._set_system_clock_sync_state(
+                "cooldown",
+                "Waiting before the next system clock sync attempt",
+                offset_seconds,
+            )
+
+        result = self.clock_sync_runner.set_system_clock(gps_dt)
+        if result.get("ok"):
+            self.system_clock_sync_count += 1
+            self.last_system_clock_sync_monotonic = self.monotonic_fn()
+            self.last_system_clock_sync_utc = gps_dt.isoformat()
+            return self._set_system_clock_sync_state(
+                "synced",
+                str(result.get("message") or "System clock synchronized"),
+                offset_seconds,
+            )
+
+        return self._set_system_clock_sync_state(
+            "error",
+            str(result.get("message") or "System clock sync failed"),
+            offset_seconds,
+        )
+
+    def _apply_rtc_sync(self, gps_dt: datetime.datetime) -> bool:
+        if not self.rtc_sync_enabled:
+            return self._set_rtc_sync_state("disabled", "RTC sync disabled")
+
+        if self._cooldown_active(
+            self.last_rtc_sync_monotonic, self.rtc_sync_min_interval_seconds
+        ):
+            return self._set_rtc_sync_state(
+                "cooldown", "Waiting before the next RTC sync attempt"
+            )
+
+        result = self.clock_sync_runner.set_rtc(gps_dt)
+        if result.get("ok"):
+            self.rtc_sync_count += 1
+            self.last_rtc_sync_monotonic = self.monotonic_fn()
+            self.last_rtc_sync_utc = gps_dt.isoformat()
+            return self._set_rtc_sync_state(
+                "synced", str(result.get("message") or "RTC synchronized")
+            )
+
+        return self._set_rtc_sync_state(
+            "error", str(result.get("message") or "RTC sync failed")
+        )
+
+    def _refresh_action_wait_states(self) -> bool:
+        changed = False
+        block_reason = self._sync_block_reason()
+        if block_reason is not None:
+            block_state, block_message = block_reason
+            if self.system_clock_sync_enabled:
+                changed = (
+                    self._set_system_clock_sync_state(block_state, block_message)
+                    or changed
+                )
+            else:
+                changed = (
+                    self._set_system_clock_sync_state(
+                        "disabled", "System clock sync disabled"
+                    )
+                    or changed
+                )
+            if self.rtc_sync_enabled:
+                changed = self._set_rtc_sync_state(block_state, block_message) or changed
+            else:
+                changed = (
+                    self._set_rtc_sync_state("disabled", "RTC sync disabled") or changed
+                )
+        return changed
+
+    def _maybe_apply_sync_actions(self) -> bool:
+        block_changed = self._refresh_action_wait_states()
+        if self._sync_block_reason() is not None:
+            return block_changed
+
+        gps_dt = self._latest_gps_datetime()
+        if gps_dt is None:
+            return block_changed
+
+        changed = self._apply_system_clock_sync(gps_dt) or block_changed
+        changed = self._apply_rtc_sync(gps_dt) or changed
+        return changed
 
     def _estimated_utc_for_monotonic(
         self, tick_monotonic: float
@@ -380,6 +623,7 @@ class GpsTimeSyncMonitor:
         elif self.software_pps_enabled:
             changed = self._set_state("software_pps_only", "Software PPS enabled")
 
+        changed = self._refresh_action_wait_states() or changed
         self.write_status(force=changed or ticked)
 
     def note_reset(self) -> None:
@@ -388,6 +632,7 @@ class GpsTimeSyncMonitor:
         self.samples.clear()
         self.latest_sample = None
         changed = self._set_state("waiting_for_gps_time", "PiFinder datetime reset")
+        changed = self._refresh_action_wait_states() or changed
         self.write_status(force=changed)
 
     def status_payload(self) -> dict[str, Any]:
@@ -403,9 +648,9 @@ class GpsTimeSyncMonitor:
             "message": self.message,
             "updated_unix": self.time_fn(),
             "system_clock_sync_enabled": self.system_clock_sync_enabled,
-            "system_clock_sync_state": "not_implemented_phase1",
+            "system_clock_sync_state": self.system_clock_sync_state,
             "rtc_sync_enabled": self.rtc_sync_enabled,
-            "rtc_sync_state": "not_implemented_phase1",
+            "rtc_sync_state": self.rtc_sync_state,
             "samples": {
                 "count": len(self.samples),
                 "min_required": self.min_samples,
@@ -426,6 +671,7 @@ class GpsTimeSyncMonitor:
                 "pdop": latest.get("pdop"),
                 "reference_time": latest.get("reference_time"),
                 "offset_seconds": latest.get("offset_seconds"),
+                "system_offset_seconds": latest.get("system_offset_seconds"),
                 "age_seconds": age,
             },
             "offset": stats,
@@ -433,6 +679,28 @@ class GpsTimeSyncMonitor:
                 "max_tAcc_ns": self.max_tacc_ns,
                 "stable_jitter_seconds": self.stable_jitter_seconds,
                 "stable_offset_seconds": self.stable_offset_seconds,
+                "system_clock_sync_step_threshold_seconds": (
+                    self.system_clock_sync_step_threshold_seconds
+                ),
+            },
+            "system_clock_sync": {
+                "enabled": self.system_clock_sync_enabled,
+                "state": self.system_clock_sync_state,
+                "message": self.system_clock_sync_message,
+                "count": self.system_clock_sync_count,
+                "min_interval_seconds": self.system_clock_sync_min_interval_seconds,
+                "last_sync_monotonic": self.last_system_clock_sync_monotonic,
+                "last_sync_utc": self.last_system_clock_sync_utc,
+                "last_offset_seconds": self.last_system_clock_offset_seconds,
+            },
+            "rtc_sync": {
+                "enabled": self.rtc_sync_enabled,
+                "state": self.rtc_sync_state,
+                "message": self.rtc_sync_message,
+                "count": self.rtc_sync_count,
+                "min_interval_seconds": self.rtc_sync_min_interval_seconds,
+                "last_sync_monotonic": self.last_rtc_sync_monotonic,
+                "last_sync_utc": self.last_rtc_sync_utc,
             },
             "software_pps": {
                 "enabled": self.software_pps_enabled,
