@@ -36,6 +36,8 @@ Important fields:
 | --- | --- |
 | `state` | `waiting_for_gps_time`, `collecting`, `stable`, `unstable`, `low_quality`, `stale`, and related states |
 | `latest.gps_time` | Last GPS time sample |
+| `latest.valid` | Whether the GPS receiver marked the time sample as valid |
+| `latest.message_class` | UBX source message such as `NAV-PVT` or `NAV-TIMEGPS` |
 | `latest.offset_seconds` | Difference between GPS time and PiFinder internal time |
 | `offset.jitter_seconds` | Recent offset variation |
 | `software_pps.tick_count` | Number of software ticks emitted |
@@ -57,7 +59,9 @@ Default thresholds:
 | `gps_time_sync_stable_jitter_ms` | `250` |
 | `gps_time_sync_stable_offset_ms` | `1000` |
 
-When UBX GPS provides `tAcc`, samples above `gps_time_sync_max_tacc_ns` are reported as `low_quality`. Inputs without a time-accuracy value, such as GPSD samples, are evaluated with offset and jitter only.
+When UBX GPS provides `tAcc`, samples above `gps_time_sync_max_tacc_ns` are reported as `low_quality`. If the GPS receiver sends a time candidate but its valid bit is not set, PiFinder does not update its internal time and records the candidate as `low_quality` in the status file only. Inputs without a time-accuracy value, such as GPSD samples, are evaluated with offset and jitter only.
+
+Indoors or with a weak antenna view, `GPSD-SKY` or `NAV-PVT` candidate times may appear with values such as `valid: false`, `uSat: 0`, or `tAcc_ns: 4294967295`. That means the receiver is producing time candidates but has not produced trustworthy time yet.
 
 ## Software PPS
 

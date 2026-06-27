@@ -36,6 +36,8 @@ GPS 시간 감시 상태는 다음 파일에 기록됩니다.
 | --- | --- |
 | `state` | `waiting_for_gps_time`, `collecting`, `stable`, `unstable`, `low_quality`, `stale` 등 |
 | `latest.gps_time` | 마지막 GPS 시간 샘플 |
+| `latest.valid` | GPS가 해당 시간 샘플을 유효하다고 표시했는지 여부 |
+| `latest.message_class` | UBX 입력의 경우 `NAV-PVT`, `NAV-TIMEGPS` 등 |
 | `latest.offset_seconds` | GPS 시간과 PiFinder 내부 시간의 차이 |
 | `offset.jitter_seconds` | 최근 샘플 offset 흔들림 |
 | `software_pps.tick_count` | 소프트웨어 tick 누적 수 |
@@ -57,7 +59,9 @@ GPS 시간 샘플이 들어오면 PiFinder 내부 시간과 비교해 offset을 
 | `gps_time_sync_stable_jitter_ms` | `250` |
 | `gps_time_sync_stable_offset_ms` | `1000` |
 
-UBX GPS에서 `tAcc`가 제공되면 `gps_time_sync_max_tacc_ns`보다 큰 샘플은 `low_quality`로 표시됩니다. GPSD처럼 시간 정확도 값이 없는 입력은 offset과 jitter 기준으로 평가합니다.
+UBX GPS에서 `tAcc`가 제공되면 `gps_time_sync_max_tacc_ns`보다 큰 샘플은 `low_quality`로 표시됩니다. GPS가 시간 후보를 보내지만 valid bit가 꺼져 있으면 PiFinder 내부 시간은 갱신하지 않고 상태 파일에만 `low_quality` 후보로 기록합니다. GPSD처럼 시간 정확도 값이 없는 입력은 offset과 jitter 기준으로 평가합니다.
+
+실내나 안테나 상태가 좋지 않은 경우 `GPSD-SKY` 또는 `NAV-PVT` 후보 시간이 보이더라도 `valid: false`, `uSat: 0`, `tAcc_ns: 4294967295`처럼 표시될 수 있습니다. 이 상태는 GPS 수신기가 아직 신뢰 가능한 시간을 만들지 못했다는 의미입니다.
 
 ## 소프트웨어 PPS
 

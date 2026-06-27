@@ -80,6 +80,36 @@ def test_gps_time_monitor_flags_low_quality_time_accuracy(tmp_path):
     assert status["latest"]["tAcc_ns"] == 5_000_000
 
 
+def test_gps_time_monitor_flags_invalid_candidate(tmp_path):
+    clock = FakeClock()
+    status_file = tmp_path / "gps_time_status.json"
+    monitor = GpsTimeSyncMonitor(
+        enabled=True,
+        status_file=status_file,
+        time_fn=clock.time,
+        monotonic_fn=clock.monotonic_time,
+    )
+
+    gps_dt = utc(11)
+    monitor.observe_time(
+        {
+            "time": gps_dt,
+            "valid": False,
+            "source": "GPSD-SKY",
+            "satellites_seen": 1,
+            "satellites_used": 0,
+        },
+        gps_dt,
+    )
+
+    status = read_status(status_file)
+    assert status["state"] == "low_quality"
+    assert status["latest"]["valid"] is False
+    assert status["latest"]["source"] == "GPSD-SKY"
+    assert status["latest"]["satellites_seen"] == 1
+    assert status["latest"]["satellites_used"] == 0
+
+
 def test_gps_time_monitor_marks_samples_stale(tmp_path):
     clock = FakeClock()
     status_file = tmp_path / "gps_time_status.json"

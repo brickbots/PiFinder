@@ -209,27 +209,32 @@ class GpsTimeSyncMonitor:
 
     def _extract_sample(
         self, gps_content: Any
-    ) -> tuple[Optional[datetime.datetime], Optional[int], str]:
+    ) -> tuple[Optional[datetime.datetime], Optional[int], str, bool]:
         if isinstance(gps_content, datetime.datetime):
-            return _utc_datetime(gps_content), None, "GPS"
+            return _utc_datetime(gps_content), None, "GPS", True
         if not isinstance(gps_content, dict):
-            return None, None, "unknown"
+            return None, None, "unknown", False
 
         gps_dt = gps_content.get("time")
         if not isinstance(gps_dt, datetime.datetime):
-            return None, None, str(gps_content.get("source", "unknown"))
+            return None, None, str(gps_content.get("source", "unknown")), False
 
         tacc = gps_content.get("tAcc")
         if tacc is not None:
             tacc = _as_int(tacc, -1)
-        return _utc_datetime(gps_dt), tacc, str(gps_content.get("source", "GPS"))
+        return (
+            _utc_datetime(gps_dt),
+            tacc,
+            str(gps_content.get("source", "GPS")),
+            _as_bool(gps_content.get("valid", True), True),
+        )
 
     def observe_time(self, gps_content: Any, reference_dt: Any = None) -> None:
         if not self._active():
             return
 
         now_monotonic = self.monotonic_fn()
-        gps_dt, tacc_ns, source = self._extract_sample(gps_content)
+        gps_dt, tacc_ns, source, valid = self._extract_sample(gps_content)
         if gps_dt is None:
             changed = self._set_state("invalid_sample", "GPS time sample missing time")
             self.write_status(force=changed)
@@ -244,12 +249,24 @@ class GpsTimeSyncMonitor:
         sample = {
             "gps_time": gps_dt.isoformat(),
             "source": source,
+            "valid": valid,
             "tAcc_ns": tacc_ns,
             "reference_time": ref_dt.isoformat() if ref_dt else None,
             "offset_seconds": offset_seconds,
             "monotonic": now_monotonic,
             "received_unix": self.time_fn(),
         }
+        for key in (
+            "message_class",
+            "lock_type",
+            "mode",
+            "satellites_seen",
+            "satellites_used",
+            "hdop",
+            "pdop",
+        ):
+            if isinstance(gps_content, dict) and key in gps_content:
+                sample[key] = gps_content[key]
         self.latest_sample = sample
         self.samples.append(sample)
         self._prune_samples(now_monotonic)
@@ -263,6 +280,12 @@ class GpsTimeSyncMonitor:
 
         if self.latest_sample is None:
             return self._set_state("waiting_for_gps_time", "Waiting for GPS time")
+
+        if not self.latest_sample.get("valid", True):
+            return self._set_state(
+                "low_quality",
+                "GPS time candidate is present but is not valid yet",
+            )
 
         tacc_ns = self.latest_sample.get("tAcc_ns")
         if tacc_ns is not None and tacc_ns >= 0 and tacc_ns > self.max_tacc_ns:
@@ -392,7 +415,15 @@ class GpsTimeSyncMonitor:
             "latest": {
                 "gps_time": latest.get("gps_time"),
                 "source": latest.get("source"),
+                "valid": latest.get("valid"),
                 "tAcc_ns": latest.get("tAcc_ns"),
+                "message_class": latest.get("message_class"),
+                "lock_type": latest.get("lock_type"),
+                "mode": latest.get("mode"),
+                "satellites_seen": latest.get("satellites_seen"),
+                "satellites_used": latest.get("satellites_used"),
+                "hdop": latest.get("hdop"),
+                "pdop": latest.get("pdop"),
                 "reference_time": latest.get("reference_time"),
                 "offset_seconds": latest.get("offset_seconds"),
                 "age_seconds": age,

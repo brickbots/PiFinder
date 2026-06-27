@@ -773,6 +773,10 @@ def main(
                             if log_time:
                                 logger.info("GPS Time (logged only once): %s", gps_dt)
                                 log_time = False
+                        if gps_msg == "time_sample":
+                            gps_time_monitor.observe_time(
+                                gps_content, shared_state.datetime()
+                            )
                         if gps_msg == "reset":
                             location.reset()
                             shared_state.set_location(location)

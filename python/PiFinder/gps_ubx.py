@@ -15,6 +15,42 @@ sats = [0, 0]
 MAX_GPS_ERROR = 50000  # 50 km
 
 
+def _time_accuracy_ns(msg):
+    if "tAcc_ns" in msg:
+        try:
+            return int(msg["tAcc_ns"])
+        except (TypeError, ValueError):
+            return -1
+
+    tacc = msg.get("tAcc", -1)
+    try:
+        tacc_value = float(tacc)
+    except (TypeError, ValueError):
+        return -1
+
+    if tacc_value < 0:
+        return -1
+    return int(round(tacc_value * 1_000_000_000))
+
+
+def _gps_time_message(msg, info=None):
+    if not msg.get("time"):
+        return None
+
+    valid = bool(msg.get("valid", True))
+    return (
+        "time" if valid else "time_sample",
+        {
+            "time": msg["time"],
+            "tAcc": _time_accuracy_ns(msg),
+            "source": "GPS" if not info else info,
+            "message_class": msg.get("class", "unknown"),
+            "lock_type": msg.get("mode"),
+            "valid": valid,
+        },
+    )
+
+
 async def process_messages(
     parser_iterator, gps_queue, console_queue, error_info, wait=0, info=None
 ):
@@ -80,21 +116,17 @@ async def process_messages(
                 logger.debug("GPS fix: %s", msg)
 
         elif msg_class == "NAV-TIMEGPS":
-            if "time" in msg and "valid" in msg and msg["valid"]:
-                gps_queue.put(
-                    (
-                        "time",
-                        {
-                            "time": msg["time"],
-                            "tAcc": msg["tAcc"] if "tAcc" in msg else -1,
-                            "source": "GPS" if not info else info,
-                        },
-                    )
-                )
+            time_msg = _gps_time_message(msg, info=info)
+            if time_msg is not None:
+                gps_queue.put(time_msg)
             else:
-                logger.debug(f"TIMEGPS message does not qualify: {msg}")
+                logger.debug("TIMEGPS message has no time: %s", msg)
 
         elif msg_class == "NAV-PVT":
+            time_msg = _gps_time_message(msg, info=info)
+            if time_msg is not None:
+                gps_queue.put(time_msg)
+
             if all(k in msg for k in ["lat", "lon", "altHAE", "hAcc", "vAcc"]):
                 if not gps_locked and msg["hAcc"] < MAX_GPS_ERROR:
                     gps_locked = True
