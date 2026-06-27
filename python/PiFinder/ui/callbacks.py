@@ -321,7 +321,9 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
 
     # Create a timezone-aware datetime by combining today's date with the time
     # and localizing it to the specified timezone
-    now = datetime.now()
+    # OS timezone may be different from target timezone so "now's date" needs
+    # to also be taken in the target timezone!!
+    now = datetime.now(timezone)
     dt_with_date = datetime(now.year, now.month, now.day, dt.hour, dt.minute, dt.second)
     dt_with_timezone = timezone.localize(dt_with_date)
 

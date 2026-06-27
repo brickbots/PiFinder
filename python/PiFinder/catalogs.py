@@ -917,7 +917,7 @@ class CatalogBuilder:
         # This will be re-initialized on activation of Catalog ui module
         # if we have GPS lock
         planet_catalog: Catalog = PlanetCatalog(
-            dt=datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC")),
+            dt=datetime.datetime.now(pytz.utc),
             shared_state=shared_state,
         )
         all_catalogs.add(planet_catalog)
@@ -926,7 +926,7 @@ class CatalogBuilder:
         from PiFinder.comet_catalog import CometCatalog
 
         comet_catalog: Catalog = CometCatalog(
-            datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC")),
+            datetime.datetime.now(pytz.utc),
             shared_state=shared_state,
         )
         all_catalogs.add(comet_catalog)

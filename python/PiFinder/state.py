@@ -445,20 +445,32 @@ class SharedStateObj:
     def local_datetime(self):
         if self.__datetime is None:
             return self.__datetime
-
         dt = self.datetime()
         if self.__location and self.__location.timezone:
             try:
                 return dt.astimezone(pytz.timezone(self.__location.timezone))
             except (pytz.exceptions.UnknownTimeZoneError, AttributeError):
                 # Fall back to UTC if timezone is invalid or None
-                return dt.astimezone(pytz.timezone("UTC"))
-        return dt.astimezone(pytz.timezone("UTC"))
+                return dt.astimezone(pytz.utc)
+        return dt.astimezone(pytz.utc)
+
+    def utc_datetime(self):
+        if self.__datetime is None:
+            return self.__datetime
+        dt = self.datetime()
+        return dt.astimezone(pytz.utc)
 
     def set_datetime(self, dt, force=False):
-        if dt.tzname() is None:
-            utc_tz = pytz.timezone("UTC")
-            dt = utc_tz.localize(dt)
+        # store UTC internal representation always to avoid breaking
+        # consumers that --wrongly-- assume datetime().time() is guaranteed
+        # to return a valid UTC time
+
+        if dt.utcoffset() is None:    # naive, assume it's UTC
+            # we could use replace() instead since UTC has
+            # no DST, but the idiom is dangerous for non-UTC
+            dt = pytz.utc.localize(dt)
+        else:                         # timezone-aware -> convert to UTC
+            dt = dt.astimezone(pytz.utc)
 
         if force:
             self.__datetime_time = time.time()

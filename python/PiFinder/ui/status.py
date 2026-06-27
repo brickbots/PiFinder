@@ -145,11 +145,14 @@ class UIStatus(UIModule):
         last_lock = location.last_gps_lock
         self.status_dict["GPS LST"] = last_lock if last_lock else "--"
 
-        dt = self.shared_state.datetime()
+        # use datetimes explictly converted to the timezone we want to print
+        # datetime() can be in any timezone and time() will just ignore TZ
+        utc_dt = self.shared_state.utc_datetime()
         local_dt = self.shared_state.local_datetime()
-        if dt:
+        if utc_dt:
+            self.status_dict["UTC TM"] = utc_dt.time().isoformat()[:8]
+        if local_dt:
             self.status_dict["LCL TM"] = local_dt.time().isoformat()[:8]
-            self.status_dict["UTC TM"] = dt.time().isoformat()[:8]
 
         # only update some things periodically....
         if time.time() - self.last_temp_time > 5:

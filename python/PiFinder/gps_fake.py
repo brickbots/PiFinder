@@ -11,6 +11,7 @@ import os
 import time
 import datetime
 import logging
+import pytz
 
 from PiFinder import utils
 from PiFinder.multiproclogging import MultiprocLogging
@@ -116,7 +117,7 @@ def gps_monitor(gps_queue, console_queue, log_queue, file_name="test.ubx"):
             if error_in_m >= error_stop:
                 error_in_m -= error_delta
 
-            tm = ("time", {"time": datetime.datetime.now()})
+            tm = ("time", {"time": datetime.datetime.now(pytz.utc)})
             gps_queue.put(tm)
 
             if (i % 20) == 0:
