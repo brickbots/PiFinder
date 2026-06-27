@@ -26,8 +26,7 @@ Main UI items:
 | `Source Mode` | `time_sync_source_mode` | `Best` | Select `Best`, `GPS`, or `NTP` |
 | `GPS Source` | `gps_time_sync` | `On` | Use GPS as a time source |
 | `NTP Source` | `ntp_time_sync` | `On` | Use NTP as a time source |
-| `NTP Server` | `ntp_server` | `pool.ntp.org` | Select a known NTP server |
-| `Custom NTP Server` | `ntp_server_custom` | empty | Enter an NTP server outside the list |
+| `NTP Server` | `ntp_server`, `ntp_server_custom` | `pool.ntp.org` | Select a known NTP server or enter a custom server |
 | `System Clock` | `time_sync_system_clock` | `On` | Request Linux system clock sync from the selected time |
 | `RTC Sync` | `rtc_sync` | `Off` | Request RTC sync from the selected time |
 | `Software PPS` | `software_pps` | `Off` | Emit software periodic ticks |
@@ -42,7 +41,7 @@ time.nist.gov
 Custom
 ```
 
-To use `Custom`, enter the server first in `Custom NTP Server`. After saving, `NTP Server` is automatically set to `Custom`.
+When `Custom` is selected, PiFinder opens the server entry screen immediately. After saving, `NTP Server` is automatically set to `Custom`, and the entered address is stored in `ntp_server_custom`.
 
 ## Default Config
 

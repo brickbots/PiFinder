@@ -76,15 +76,33 @@ def test_gps_time_sync_settings_menu_entries_exist():
     ]
 
 
-def test_custom_ntp_server_menu_entry_exists():
-    entries = [
+def test_custom_ntp_server_is_handled_from_ntp_server_menu():
+    ntp_server_entries = [
         node
         for node in _iter_menu_nodes(menu_structure.pifinder_menu)
-        if node.get("callback") is menu_structure.callbacks.edit_custom_ntp_server
+        if node.get("config_option") == "ntp_server"
     ]
 
-    assert len(entries) == 1
-    assert entries[0]["name"] == "Custom NTP Server"
+    assert len(ntp_server_entries) == 1
+    custom_items = [
+        item
+        for item in ntp_server_entries[0]["items"]
+        if item.get("value") == "custom"
+    ]
+    assert len(custom_items) == 1
+    assert custom_items[0]["name"] == "Custom"
+    assert custom_items[0]["callback"] is menu_structure.callbacks.edit_custom_ntp_server
+    assert (
+        custom_items[0]["name_suffix_callback"]
+        is menu_structure.callbacks.get_custom_ntp_server_display
+    )
+
+    standalone_entries = [
+        node
+        for node in _iter_menu_nodes(menu_structure.pifinder_menu)
+        if node.get("name") == "Custom NTP Server"
+    ]
+    assert standalone_entries == []
 
 
 def test_gps_time_sync_status_summary_lines():

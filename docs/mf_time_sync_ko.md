@@ -26,8 +26,7 @@ Tools > Place & Time > Time Sync
 | `Source Mode` | `time_sync_source_mode` | `Best` | `Best`, `GPS`, `NTP` 중 선택 |
 | `GPS Source` | `gps_time_sync` | `On` | GPS 시간 소스 사용 |
 | `NTP Source` | `ntp_time_sync` | `On` | NTP 시간 소스 사용 |
-| `NTP Server` | `ntp_server` | `pool.ntp.org` | 기본 NTP 서버 목록 선택 |
-| `Custom NTP Server` | `ntp_server_custom` | 빈 값 | 목록에 없는 NTP 서버 입력 |
+| `NTP Server` | `ntp_server`, `ntp_server_custom` | `pool.ntp.org` | 기본 NTP 서버 목록 선택 또는 커스텀 서버 입력 |
 | `System Clock` | `time_sync_system_clock` | `On` | 선택된 시간으로 Linux system clock 동기화 요청 |
 | `RTC Sync` | `rtc_sync` | `Off` | 선택된 시간으로 RTC 동기화 요청 |
 | `Software PPS` | `software_pps` | `Off` | 소프트웨어 주기 tick 생성 |
@@ -42,7 +41,7 @@ time.nist.gov
 Custom
 ```
 
-`Custom`을 사용할 때는 먼저 `Custom NTP Server`에서 서버 주소를 입력합니다. 입력 후 `NTP Server`는 자동으로 `Custom`으로 설정됩니다.
+`Custom`을 선택하면 바로 서버 주소 입력 화면이 열립니다. 입력을 저장하면 `NTP Server`는 자동으로 `Custom`으로 설정되고, 입력한 주소는 `ntp_server_custom`에 저장됩니다.
 
 ## 기본 설정 값
 
