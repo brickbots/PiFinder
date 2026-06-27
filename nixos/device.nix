@@ -26,9 +26,10 @@ in {
 
   # ---------------------------------------------------------------------------
   # Binary substituters — Pi downloads pre-built paths, never compiles.
-  # Two Attic caches on cache.pifinder.eu (ADR 0004): pifinder-release (retained
-  # release closures) and pifinder (dev/nightly). The first-boot download below
-  # pulls whichever closure pifinder-build.json points at.
+  # Two Attic caches on cache.pifinder.eu (NixOS ADR 0001): pifinder-release
+  # (retained release closures) and pifinder (dev/nightly). The first-boot
+  # download below resolves its target from the update manifest's best available
+  # channel (NixOS ADR 0003).
   # ---------------------------------------------------------------------------
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
@@ -141,17 +142,30 @@ in {
       SPLASH_PID=$!
       trap 'kill $SPLASH_PID 2>/dev/null || true' EXIT
 
-      # Try fetching latest store path from GitHub, fall back to baked-in file
-      BUILD_JSON_URL="https://raw.githubusercontent.com/mrosseel/PiFinder/nixos/pifinder-build.json"
+      # Resolve the full system from the update manifest — the same file the
+      # on-device updater reads (NixOS ADR 0003). Migration rides the newest entry
+      # in the best available channel: stable, then beta, then the unstable trunk.
+      # Stable holds only releases, whose closures live in the retained
+      # pifinder-release cache, so a resolved stable path can't be GC'd out from
+      # under a published tarball. Falls back to the baked-in target if the
+      # manifest can't be fetched.
+      MANIFEST_URL="https://raw.githubusercontent.com/brickbots/PiFinder/nixos-manifest/update-manifest.json"
       STORE_PATH=""
-      if REMOTE_JSON=$(curl -sf --max-time 15 "$BUILD_JSON_URL" 2>/dev/null); then
-        STORE_PATH=$(echo "$REMOTE_JSON" | jq -r '.store_path // empty')
-        if [ -n "$STORE_PATH" ]; then
-          echo "Using store path from GitHub: $STORE_PATH"
-        fi
+      if MANIFEST_JSON=$(curl -sf --max-time 15 "$MANIFEST_URL" 2>/dev/null); then
+        # jq comma-stream encodes the priority order; first available, valid path
+        # wins. TEMPORARY: the unstable trunk is pinned to source_ref "nixos"
+        # because the NixOS line still lives on the nixos branch, not main. Drop
+        # the source_ref guard once nixos becomes the mainline trunk (ADR 0003).
+        STORE_PATH=$(printf '%s\n' "$MANIFEST_JSON" | jq -r '
+          [ ( .channels.stable[]?,
+              .channels.beta[]?,
+              (.channels.unstable[]? | select(.kind == "trunk" and .source_ref == "nixos")) )
+            | select(.available == true and ((.store_path // "") | startswith("/nix/store/")))
+            | .store_path ] | .[0] // empty' 2>/dev/null)
+        [ -n "$STORE_PATH" ] && echo "Resolved full system from manifest: $STORE_PATH"
       fi
       if [ -z "$STORE_PATH" ] || [[ "$STORE_PATH" != /nix/store/* ]]; then
-        echo "Remote fetch failed or invalid, falling back to baked-in target"
+        echo "Manifest unavailable or empty, falling back to baked-in target"
         STORE_PATH=$(cat /var/lib/pifinder/first-boot-target)
       fi
       if [ -z "$STORE_PATH" ] || [[ "$STORE_PATH" != /nix/store/* ]]; then

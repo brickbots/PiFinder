@@ -6,3 +6,4 @@ Architecture-decision records for the **NixOS** context (NixOS build, binary cac
 
 - [0001 — Self-hosted Attic for NixOS binary distribution](./0001-attic-binary-cache.md)
 - [0002 — Update channels stay Release-based (stable/beta) over a live main+PR unstable; rollback via reinstall + passive yank](./0002-update-channels-and-rollback.md)
+- [0003 — Migration tarball resolves its full system from the update manifest at first boot (rides latest stable), instead of pinning a closure](./0003-migration-tarball-rides-latest-stable.md)
