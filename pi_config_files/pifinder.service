@@ -4,8 +4,8 @@ After=basic.target
 
 [Service]
 Type=idle
-User=pifinder
-WorkingDirectory=/home/pifinder/PiFinder/python
+User=__PIFINDER_USER__
+WorkingDirectory=__PIFINDER_REPO_DIR__/python
 ExecStart=/usr/bin/python -m PiFinder.main
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 

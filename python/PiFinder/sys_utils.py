@@ -12,7 +12,7 @@ import socket
 from PiFinder import utils
 import logging
 
-BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
+BACKUP_PATH = str(utils.data_dir / "PiFinder_backup.zip")
 
 logger = logging.getLogger("SysUtils")
 
@@ -236,13 +236,13 @@ class Network:
 
 def go_wifi_ap():
     logger.info("SYS: Switching to AP")
-    sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
+    sh.sudo(str(utils.pifinder_dir / "switch-ap.sh"))
     return True
 
 
 def go_wifi_cli():
     logger.info("SYS: Switching to Client")
-    sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
+    sh.sudo(str(utils.pifinder_dir / "switch-cli.sh"))
     return True
 
 
@@ -269,9 +269,9 @@ def backup_userdata():
     _zip = sh.Command("zip")
     _zip(
         BACKUP_PATH,
-        "/home/pifinder/PiFinder_data/config.json",
-        "/home/pifinder/PiFinder_data/observations.db",
-        glob.glob("/home/pifinder/PiFinder_data/obslists/*"),
+        str(utils.data_dir / "config.json"),
+        str(utils.data_dir / "observations.db"),
+        glob.glob(str(utils.data_dir / "obslists" / "*")),
     )
 
     return BACKUP_PATH
@@ -317,7 +317,7 @@ def update_software():
     service
     """
     logger.info("SYS: Running update")
-    sh.bash("/home/pifinder/PiFinder/pifinder_update.sh")
+    sh.bash(str(utils.pifinder_dir / "pifinder_update.sh"))
     return True
 
 
@@ -478,7 +478,7 @@ def set_power_led(on: bool) -> None:
 # ---------------------------------------------------------------------------
 
 MIGRATION_PROGRESS_FILE = "/tmp/nixos_migration_progress"
-MIGRATION_SCRIPT = "/home/pifinder/PiFinder/python/scripts/nixos_migration.sh"
+MIGRATION_SCRIPT = str(utils.pifinder_dir / "python/scripts/nixos_migration.sh")
 
 
 def _fetch_migration_sha256(version_info: dict) -> str:

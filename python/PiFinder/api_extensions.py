@@ -21,6 +21,7 @@ import logging
 
 from flask import request, session, Response
 from PIL import Image
+from PiFinder import utils
 
 logger = logging.getLogger("PiFinderAPI")
 
@@ -726,7 +727,7 @@ def register_api_routes(app, server_instance, require_auth=False):
         try:
             from pathlib import Path
 
-            debug_dir = Path("/home/pifinder/PiFinder_data/solver_debug_dumps")
+            debug_dir = utils.debug_dump_dir
             if not debug_dir.exists():
                 debug_dir = Path("solver_debug_dumps")
             if not debug_dir.exists():
