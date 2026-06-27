@@ -10,6 +10,7 @@ from multiprocessing import Queue
 import os
 import time
 import logging
+import pytz
 
 from PiFinder import utils
 from PiFinder import timez
