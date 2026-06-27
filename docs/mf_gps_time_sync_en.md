@@ -2,7 +2,7 @@
 
 This document describes GPS time-quality monitoring, software PPS, and optional Linux system clock/RTC synchronization.
 
-All features are disabled by default. When GPS reception is weak, such as during indoor testing with `valid: false`, PiFinder records diagnostics only and does not run clock-sync commands.
+All features are disabled by default. The main PiFinder service keeps its normal user permissions. When system clock or RTC writes are needed, a separate root helper processes only a constrained request file. When GPS reception is weak, such as during indoor testing with `valid: false`, PiFinder records diagnostics only and does not create a sync request.
 
 ## Settings
 
@@ -36,6 +36,13 @@ After outdoor testing confirms that GPS time reaches `stable`, enable only the s
 
 `gps_time_sync_system_clock` and `rtc_sync` do nothing unless explicitly enabled.
 
+To actually write the system clock or RTC, install and enable the optional helper service:
+
+```bash
+cd ~/PiFinder
+./scripts/install_gps_time_sync_helper.sh enable
+```
+
 ## Status File
 
 GPS time-monitor status is written here:
@@ -56,8 +63,21 @@ Important fields:
 | `latest.system_offset_seconds` | Difference between GPS time and the Linux system clock |
 | `offset.jitter_seconds` | Recent offset variation |
 | `software_pps.tick_count` | Number of software ticks emitted |
-| `system_clock_sync.state` | `disabled`, `waiting_for_stable_gps`, `in_sync`, `synced`, `cooldown`, `error`, and related states |
-| `rtc_sync.state` | `disabled`, `waiting_for_stable_gps`, `synced`, `cooldown`, `error`, and related states |
+| `system_clock_sync.state` | `disabled`, `waiting_for_stable_gps`, `in_sync`, `requested`, `cooldown`, `request_error`, and related states |
+| `rtc_sync.state` | `disabled`, `waiting_for_stable_gps`, `requested`, `cooldown`, `request_error`, and related states |
+| `helper` | Last result written by the root helper |
+
+The main PiFinder service writes helper requests here:
+
+```text
+~/PiFinder_data/gps_time_sync_request.json
+```
+
+The root helper writes its processing result here:
+
+```text
+~/PiFinder_data/gps_time_sync_helper_status.json
+```
 
 ## Quality Logic
 
@@ -80,11 +100,13 @@ Indoors or with a weak antenna view, `GPSD-SKY` or `NAV-PVT` candidate times may
 
 ## System Clock and RTC Sync
 
-When `gps_time_sync_system_clock` is enabled and GPS time is `stable`, PiFinder compares the Linux system clock against GPS time. If the offset is below `gps_time_sync_system_clock_step_threshold_ms`, it records `in_sync`. If the offset is larger, it attempts to adjust the system clock with `/usr/bin/date -u --set @<timestamp>`.
+When `gps_time_sync_system_clock` is enabled and GPS time is `stable`, PiFinder compares the Linux system clock against GPS time. If the offset is below `gps_time_sync_system_clock_step_threshold_ms`, it records `in_sync`. If the offset is larger, the main PiFinder service writes a system clock sync request to `gps_time_sync_request.json`.
 
-When `rtc_sync` is enabled and GPS time is `stable`, PiFinder attempts to write GPS time to the RTC with `/usr/sbin/hwclock --utc --set --date <utc-time>`. This is intended for the Raspberry Pi 5 hardware RTC or a Pi 4 with an added RTC module.
+When `rtc_sync` is enabled and GPS time is `stable`, the main PiFinder service writes an RTC sync request to the same request file. This is intended for the Raspberry Pi 5 hardware RTC or a Pi 4 with an added RTC module.
 
-The default `pifinder.service` runs as a normal user, so writing the system clock or RTC may fail without additional privileges. Permission failures are recorded as `error` states and do not stop normal PiFinder operation.
+The `pifinder_gps_time_sync.service` helper runs as root and validates the request before running `/usr/bin/date -u --set @<timestamp>` or `/usr/sbin/hwclock --utc --set --date <utc-time>`. It checks that the request belongs to the current boot, is fresh, came from a `stable` monitor state, and has `valid: true` on the latest GPS sample.
+
+If the helper is not installed, PiFinder can still reach `requested` and write the request file, but the Linux system clock and RTC are not changed. Normal PiFinder operation continues.
 
 chrony configuration is not changed.
 
@@ -104,8 +126,9 @@ This is not hardware PPS. It is affected by Linux userspace scheduling, so treat
 1. Indoors, enable only `gps_time_sync` and `software_pps`, then watch the status file.
 2. Outdoors, give the GPS antenna a clear sky view and wait for `latest.valid` to become `true`.
 3. Confirm that the state moves from `collecting` to `stable`.
-4. Enable `gps_time_sync_system_clock` or `rtc_sync` only when you are ready to test those actions.
-5. If permissions are missing, `system_clock_sync.state` or `rtc_sync.state` becomes `error` and the message records the failure.
+4. Enable the helper and then enable `gps_time_sync_system_clock` or `rtc_sync` only when you are ready to test those actions.
+5. Confirm that `system_clock_sync.state` or `rtc_sync.state` becomes `requested`.
+6. Check the helper status file for `state: completed` and the `results` section.
 
 ## Test
 
