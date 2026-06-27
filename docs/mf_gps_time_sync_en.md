@@ -36,7 +36,14 @@ After outdoor testing confirms that GPS time reaches `stable`, enable only the s
 
 `gps_time_sync_system_clock` and `rtc_sync` do nothing unless explicitly enabled.
 
-To actually write the system clock or RTC, install and enable the optional helper service:
+To actually write the system clock or RTC, install and enable the optional helper service. Before the final outdoor test, start with dry-run mode:
+
+```bash
+cd ~/PiFinder
+./scripts/install_gps_time_sync_helper.sh enable-dry-run
+```
+
+Switch to the real write mode only when dry-run results look correct:
 
 ```bash
 cd ~/PiFinder
@@ -104,7 +111,7 @@ When `gps_time_sync_system_clock` is enabled and GPS time is `stable`, PiFinder 
 
 When `rtc_sync` is enabled and GPS time is `stable`, the main PiFinder service writes an RTC sync request to the same request file. This is intended for the Raspberry Pi 5 hardware RTC or a Pi 4 with an added RTC module.
 
-The `pifinder_gps_time_sync.service` helper runs as root and validates the request before running `/usr/bin/date -u --set @<timestamp>` or `/usr/sbin/hwclock --utc --set --date <utc-time>`. It checks that the request belongs to the current boot, is fresh, came from a `stable` monitor state, and has `valid: true` on the latest GPS sample.
+The `pifinder_gps_time_sync.service` helper runs as root and validates the request before running `/usr/bin/date -u --set @<timestamp>` or `/usr/sbin/hwclock --utc --set --date <utc-time>`. In dry-run mode it performs the same validation but records `dry run: ...` results instead of running the real commands. It checks that the request belongs to the current boot, is fresh, came from a `stable` monitor state, and has `valid: true` on the latest GPS sample.
 
 If the helper is not installed, PiFinder can still reach `requested` and write the request file, but the Linux system clock and RTC are not changed. Normal PiFinder operation continues.
 
@@ -126,9 +133,10 @@ This is not hardware PPS. It is affected by Linux userspace scheduling, so treat
 1. Indoors, enable only `gps_time_sync` and `software_pps`, then watch the status file.
 2. Outdoors, give the GPS antenna a clear sky view and wait for `latest.valid` to become `true`.
 3. Confirm that the state moves from `collecting` to `stable`.
-4. Enable the helper and then enable `gps_time_sync_system_clock` or `rtc_sync` only when you are ready to test those actions.
+4. Enable the helper with `enable-dry-run`, then enable `gps_time_sync_system_clock` or `rtc_sync` only when you are ready to test those actions.
 5. Confirm that `system_clock_sync.state` or `rtc_sync.state` becomes `requested`.
 6. Check the helper status file for `state: completed` and the `results` section.
+7. Switch to `./scripts/install_gps_time_sync_helper.sh enable` only after dry-run results are correct.
 
 ## Test
 

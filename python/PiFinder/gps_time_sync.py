@@ -14,6 +14,7 @@ import datetime
 import json
 import logging
 import math
+import os
 import time
 from collections import deque
 from pathlib import Path
@@ -26,9 +27,10 @@ from PiFinder import utils
 
 logger = logging.getLogger("GPS.TimeSync")
 
-STATUS_FILE = utils.data_dir / "gps_time_status.json"
-REQUEST_FILE = utils.data_dir / "gps_time_sync_request.json"
-HELPER_STATUS_FILE = utils.data_dir / "gps_time_sync_helper_status.json"
+DATA_DIR = Path(os.environ.get("PIFINDER_DATA_DIR", utils.data_dir))
+STATUS_FILE = DATA_DIR / "gps_time_status.json"
+REQUEST_FILE = DATA_DIR / "gps_time_sync_request.json"
+HELPER_STATUS_FILE = DATA_DIR / "gps_time_sync_helper_status.json"
 
 
 def _read_boot_id() -> str:
