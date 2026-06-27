@@ -19,7 +19,18 @@
 "rtc_sync_min_interval_seconds": 3600
 ```
 
-실내 기능 확인처럼 관찰만 하려면 `~/PiFinder_data/config.json`에 다음 값을 추가하고 PiFinder를 재시작합니다.
+PiFinder UI에서는 `Settings > Advanced > GPS Settings > GPS Time Sync`에서 다음 항목을 켜고 끌 수 있습니다. 모든 항목의 기본값은 `Off`입니다.
+
+| UI 항목 | 설정 키 | 의미 |
+| --- | --- | --- |
+| `Monitor` | `gps_time_sync` | GPS 시간 품질 감시 |
+| `Software PPS` | `software_pps` | 소프트웨어 주기 tick |
+| `System Clock` | `gps_time_sync_system_clock` | Linux system clock 동기화 요청 |
+| `RTC Sync` | `rtc_sync` | RTC 동기화 요청 |
+
+상태 확인 화면은 `Tools > Place & Time > GPS Time Sync`에 있습니다.
+
+실내 기능 확인처럼 관찰만 하려면 UI에서 `Monitor`와 `Software PPS`만 `On`으로 바꿉니다. 직접 설정 파일을 수정할 경우에는 `~/PiFinder_data/config.json`에 다음 값을 추가하고 PiFinder를 재시작하거나 설정을 다시 읽게 합니다.
 
 ```json
 "gps_time_sync": true,

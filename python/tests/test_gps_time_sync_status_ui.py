@@ -29,6 +29,27 @@ def test_gps_time_sync_status_menu_entry_exists():
     assert entries[0]["name"] == "GPS Time Sync"
 
 
+def test_gps_time_sync_settings_menu_entries_exist():
+    expected_options = {
+        "gps_time_sync",
+        "software_pps",
+        "gps_time_sync_system_clock",
+        "rtc_sync",
+    }
+    entries = {
+        node.get("config_option"): node
+        for node in _iter_menu_nodes(menu_structure.pifinder_menu)
+        if node.get("config_option") in expected_options
+    }
+
+    assert set(entries) == expected_options
+    for node in entries.values():
+        assert [item["value"] for item in node["items"]] == [False, True]
+        assert node["items"][0]["name"] == "Off"
+        assert node["items"][1]["name"] == "On"
+        assert node["post_callback"] is menu_structure.callbacks.reload_config
+
+
 def test_gps_time_sync_status_summary_lines():
     screen = _screen()
     status = {

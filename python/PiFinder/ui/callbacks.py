@@ -102,6 +102,12 @@ def apply_sound_volume(ui_module: UIModule) -> None:
     ui_module.command_queues["ui_queue"].put("set_volume")
 
 
+def reload_config(ui_module: UIModule) -> None:
+    """Ask the main loop to reload config-backed runtime services."""
+    ui_module.command_queues["ui_queue"].put("reload_config")
+    ui_module.message(_("Config updated"), 1)
+
+
 def capture_exposure_sweep(ui_module: UIModule) -> None:
     """
     Captures 100 images at different exposures for PID testing/calibration.

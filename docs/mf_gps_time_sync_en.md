@@ -19,7 +19,18 @@ Default values:
 "rtc_sync_min_interval_seconds": 3600
 ```
 
-For indoor observation-only testing, add these values to `~/PiFinder_data/config.json` and restart PiFinder:
+In the PiFinder UI, use `Settings > Advanced > GPS Settings > GPS Time Sync` to turn these items on or off. Every item defaults to `Off`.
+
+| UI item | Config key | Meaning |
+| --- | --- | --- |
+| `Monitor` | `gps_time_sync` | GPS time-quality monitoring |
+| `Software PPS` | `software_pps` | Software periodic tick |
+| `System Clock` | `gps_time_sync_system_clock` | Linux system clock sync request |
+| `RTC Sync` | `rtc_sync` | RTC sync request |
+
+The status screen is under `Tools > Place & Time > GPS Time Sync`.
+
+For indoor observation-only testing, turn on only `Monitor` and `Software PPS` in the UI. If editing the file directly, add these values to `~/PiFinder_data/config.json` and restart PiFinder or reload the config:
 
 ```json
 "gps_time_sync": true,

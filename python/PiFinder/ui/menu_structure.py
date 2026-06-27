@@ -1148,6 +1148,81 @@ pifinder_menu = {
                                         },
                                     ],
                                 },
+                                {
+                                    "name": _("GPS Time Sync"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "items": [
+                                        {
+                                            "name": _("Monitor"),
+                                            "class": UITextMenu,
+                                            "select": "single",
+                                            "config_option": "gps_time_sync",
+                                            "post_callback": callbacks.reload_config,
+                                            "items": [
+                                                {
+                                                    "name": _("Off"),
+                                                    "value": False,
+                                                },
+                                                {
+                                                    "name": _("On"),
+                                                    "value": True,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            "name": _("Software PPS"),
+                                            "class": UITextMenu,
+                                            "select": "single",
+                                            "config_option": "software_pps",
+                                            "post_callback": callbacks.reload_config,
+                                            "items": [
+                                                {
+                                                    "name": _("Off"),
+                                                    "value": False,
+                                                },
+                                                {
+                                                    "name": _("On"),
+                                                    "value": True,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            "name": _("System Clock"),
+                                            "class": UITextMenu,
+                                            "select": "single",
+                                            "config_option": "gps_time_sync_system_clock",
+                                            "post_callback": callbacks.reload_config,
+                                            "items": [
+                                                {
+                                                    "name": _("Off"),
+                                                    "value": False,
+                                                },
+                                                {
+                                                    "name": _("On"),
+                                                    "value": True,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            "name": _("RTC Sync"),
+                                            "class": UITextMenu,
+                                            "select": "single",
+                                            "config_option": "rtc_sync",
+                                            "post_callback": callbacks.reload_config,
+                                            "items": [
+                                                {
+                                                    "name": _("Off"),
+                                                    "value": False,
+                                                },
+                                                {
+                                                    "name": _("On"),
+                                                    "value": True,
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
                             ],
                         },
                     ],
