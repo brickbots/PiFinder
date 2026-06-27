@@ -38,6 +38,19 @@ class FakeRequestWriter:
         self.clear_count += 1
 
 
+class FakeNtpClient:
+    def __init__(self, results):
+        self.results = list(results)
+        self.calls = []
+
+    def query(self, server, timeout_seconds=1.0):
+        self.calls.append((server, timeout_seconds))
+        result = self.results.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+
 def utc(second):
     return datetime.datetime(2026, 1, 1, 0, 0, second, tzinfo=pytz.UTC)
 
@@ -247,7 +260,7 @@ def test_system_clock_sync_waits_for_valid_stable_gps(tmp_path):
 
     status = read_status(status_file)
     assert status["state"] == "low_quality"
-    assert status["system_clock_sync"]["state"] == "waiting_for_stable_gps"
+    assert status["system_clock_sync"]["state"] == "waiting_for_time_source"
     assert request_writer.requests == []
     assert request_writer.clear_count == 1
 
@@ -316,3 +329,179 @@ def test_rtc_sync_writes_request_after_stable_gps(tmp_path):
     request = request_writer.requests[0]
     assert request["gps_time"] == utc(2).isoformat()
     assert request["actions"]["rtc"]["enabled"] is True
+
+
+def test_ntp_time_source_selected_when_gps_unavailable(tmp_path):
+    clock = FakeClock(unix=utc(10).timestamp(), monotonic=100.0)
+    ntp_dt = utc(11)
+    ntp_client = FakeNtpClient(
+        [
+            {
+                "time": ntp_dt,
+                "server": "pool.ntp.org",
+                "valid": True,
+                "stratum": 2,
+                "offset_seconds": 1.0,
+                "delay_seconds": 0.08,
+                "root_dispersion_seconds": 0.01,
+                "quality_seconds": 0.05,
+                "received_unix": clock.unix,
+            }
+        ]
+    )
+    status_file = tmp_path / "gps_time_status.json"
+    monitor = GpsTimeSyncMonitor(
+        time_sync_enabled=True,
+        enabled=True,
+        ntp_enabled=True,
+        ntp_async=False,
+        status_file=status_file,
+        time_fn=clock.time,
+        monotonic_fn=clock.monotonic_time,
+        ntp_client=ntp_client,
+    )
+
+    monitor.poll()
+
+    status = read_status(status_file)
+    assert status["state"] == "stable"
+    assert status["selected"]["source"] == "NTP"
+    assert status["selected"]["time"] == ntp_dt.isoformat()
+    assert status["ntp"]["state"] == "stable"
+    assert ntp_client.calls == [("pool.ntp.org", 1.0)]
+
+
+def test_best_source_prefers_lower_quality_value(tmp_path):
+    clock = FakeClock(unix=utc(1).timestamp(), monotonic=100.0)
+    ntp_dt = utc(3)
+    ntp_client = FakeNtpClient(
+        [
+            {
+                "time": ntp_dt,
+                "server": "time.google.com",
+                "valid": True,
+                "stratum": 2,
+                "offset_seconds": 0.0,
+                "delay_seconds": 0.2,
+                "root_dispersion_seconds": 0.01,
+                "quality_seconds": 0.11,
+            }
+        ]
+    )
+    status_file = tmp_path / "gps_time_status.json"
+    monitor = GpsTimeSyncMonitor(
+        time_sync_enabled=True,
+        enabled=True,
+        ntp_enabled=True,
+        ntp_server="time.google.com",
+        ntp_async=False,
+        min_samples=2,
+        stable_jitter_ms=100,
+        stable_offset_ms=500,
+        status_file=status_file,
+        time_fn=clock.time,
+        monotonic_fn=clock.monotonic_time,
+        ntp_client=ntp_client,
+    )
+
+    monitor.poll()
+    for second in [1, 2]:
+        gps_dt = utc(second)
+        monitor.observe_time(
+            {"time": gps_dt, "tAcc": 10_000_000, "source": "GPS"},
+            gps_dt - datetime.timedelta(seconds=0.05),
+        )
+        clock.advance(1)
+
+    status = read_status(status_file)
+    assert status["state"] == "stable"
+    assert status["selected"]["source"] == "GPS"
+    assert status["selected"]["quality_seconds"] == 0.01
+
+
+def test_best_source_ignores_slow_ntp_and_uses_gps(tmp_path):
+    clock = FakeClock(unix=utc(1).timestamp(), monotonic=100.0)
+    ntp_client = FakeNtpClient(
+        [
+            {
+                "time": utc(1),
+                "server": "pool.ntp.org",
+                "valid": True,
+                "stratum": 2,
+                "delay_seconds": 5.0,
+                "quality_seconds": 2.5,
+            }
+        ]
+    )
+    status_file = tmp_path / "gps_time_status.json"
+    monitor = GpsTimeSyncMonitor(
+        time_sync_enabled=True,
+        enabled=True,
+        ntp_enabled=True,
+        ntp_async=False,
+        ntp_max_delay_ms=500,
+        min_samples=2,
+        stable_jitter_ms=100,
+        stable_offset_ms=500,
+        status_file=status_file,
+        time_fn=clock.time,
+        monotonic_fn=clock.monotonic_time,
+        ntp_client=ntp_client,
+    )
+
+    monitor.poll()
+    for second in [1, 2]:
+        gps_dt = utc(second)
+        monitor.observe_time(
+            {"time": gps_dt, "tAcc": 20_000_000, "source": "GPS"},
+            gps_dt - datetime.timedelta(seconds=0.05),
+        )
+        clock.advance(1)
+
+    status = read_status(status_file)
+    assert status["ntp"]["state"] == "low_quality"
+    assert status["selected"]["source"] == "GPS"
+
+
+def test_system_clock_request_uses_selected_ntp_time(tmp_path):
+    ntp_dt = utc(30)
+    clock = FakeClock(unix=ntp_dt.timestamp() - 3.0, monotonic=100.0)
+    request_writer = FakeRequestWriter()
+    ntp_client = FakeNtpClient(
+        [
+            {
+                "time": ntp_dt,
+                "server": "pool.ntp.org",
+                "valid": True,
+                "stratum": 2,
+                "offset_seconds": 3.0,
+                "delay_seconds": 0.05,
+                "quality_seconds": 0.025,
+            }
+        ]
+    )
+    status_file = tmp_path / "gps_time_status.json"
+    monitor = GpsTimeSyncMonitor(
+        time_sync_enabled=True,
+        enabled=False,
+        ntp_enabled=True,
+        system_clock_sync_enabled=True,
+        ntp_async=False,
+        status_file=status_file,
+        time_fn=clock.time,
+        monotonic_fn=clock.monotonic_time,
+        request_writer=request_writer,
+        ntp_client=ntp_client,
+    )
+
+    monitor.poll()
+
+    status = read_status(status_file)
+    assert status["state"] == "stable"
+    assert status["selected"]["source"] == "NTP"
+    assert status["system_clock_sync"]["state"] == "requested"
+    assert len(request_writer.requests) == 1
+    request = request_writer.requests[0]
+    assert request["sync_time"] == ntp_dt.isoformat()
+    assert request["selected"]["source"] == "NTP"
+    assert request["actions"]["system_clock"]["offset_seconds"] == 3.0

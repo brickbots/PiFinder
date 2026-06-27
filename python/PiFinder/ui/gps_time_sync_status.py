@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-UI screen for GPS time-sync and helper status.
+UI screen for time-source sync and helper status.
 """
 
 import datetime
@@ -30,9 +30,9 @@ def _get(payload: dict[str, Any] | None, *keys: str, default: Any = None) -> Any
 
 
 class UIGPSTimeSyncStatus(UIModule):
-    """Read-only GPS time-sync status screen."""
+    """Read-only time-sync status screen."""
 
-    __title__ = "GPS TIME"
+    __title__ = "TIME SYNC"
     _display_mode_list = ["summary", "details"]
 
     def __init__(self, *args, **kwargs) -> None:
@@ -119,7 +119,7 @@ class UIGPSTimeSyncStatus(UIModule):
     ) -> list[str]:
         if status is None:
             return [
-                _("No GPS time status"),
+                _("No time sync status"),
                 _("Helper: {state}").format(
                     state=_get(helper, "state", default="--")
                 ),
@@ -130,6 +130,8 @@ class UIGPSTimeSyncStatus(UIModule):
             ]
 
         latest = _get(status, "latest", default={})
+        selected = _get(status, "selected", default={})
+        ntp = _get(status, "ntp", default={})
         system_clock = _get(status, "system_clock_sync", default={})
         rtc = _get(status, "rtc_sync", default={})
         software_pps = _get(status, "software_pps", default={})
@@ -145,10 +147,15 @@ class UIGPSTimeSyncStatus(UIModule):
 
         return [
             _("State: {state}").format(state=_get(status, "state", default="--")),
+            _("Selected: {source}").format(
+                source=_get(selected, "source", default="--")
+            ),
             _("GPS valid: {valid}").format(
                 valid=self._format_bool(_get(latest, "valid"))
             ),
             _("Source: {source}").format(source=source_text or "--"),
+            _("NTP: {state}").format(state=_get(ntp, "state", default="--")),
+            _("NTP srv: {server}").format(server=_get(ntp, "server", default="--")),
             _("tAcc: {tacc}").format(tacc=self._format_tacc(_get(latest, "tAcc_ns"))),
             _("Sys: {state}").format(
                 state=_get(system_clock, "state", default="--")
@@ -179,6 +186,8 @@ class UIGPSTimeSyncStatus(UIModule):
             ]
 
         latest = _get(status, "latest", default={})
+        selected = _get(status, "selected", default={})
+        ntp = _get(status, "ntp", default={})
         samples = _get(status, "samples", default={})
         system_clock = _get(status, "system_clock_sync", default={})
         rtc = _get(status, "rtc_sync", default={})
@@ -188,6 +197,12 @@ class UIGPSTimeSyncStatus(UIModule):
         lines = [
             _("State: {state}").format(state=_get(status, "state", default="--")),
             _("Msg: {message}").format(message=_get(status, "message", default="--")),
+            _("Selected: {source}").format(
+                source=_get(selected, "source", default="--")
+            ),
+            _("Sel time: {time}").format(
+                time=self._format_time(_get(selected, "time"))
+            ),
             _("GPS: {time}").format(
                 time=self._format_time(_get(latest, "gps_time"))
             ),
@@ -199,6 +214,14 @@ class UIGPSTimeSyncStatus(UIModule):
             ),
             _("Sys off: {offset}").format(
                 offset=self._format_offset(_get(latest, "system_offset_seconds"))
+            ),
+            _("NTP: {state}").format(state=_get(ntp, "state", default="--")),
+            _("NTP srv: {server}").format(server=_get(ntp, "server", default="--")),
+            _("NTP time: {time}").format(
+                time=self._format_time(_get(ntp, "time"))
+            ),
+            _("NTP delay: {delay}").format(
+                delay=self._format_offset(_get(ntp, "delay_seconds"))
             ),
             _("Samples: {count}/{min_required}").format(
                 count=_get(samples, "count", default=0),

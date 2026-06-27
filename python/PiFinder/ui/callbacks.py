@@ -108,6 +108,38 @@ def reload_config(ui_module: UIModule) -> None:
     ui_module.message(_("Config updated"), 1)
 
 
+def get_custom_ntp_server_display(ui_module: UIModule) -> str:
+    server = ui_module.config_object.get_option("ntp_server_custom", "")
+    return f" ({server})" if server else ""
+
+
+def edit_custom_ntp_server(ui_module: UIModule) -> None:
+    """Open a text-entry screen for a custom NTP server."""
+
+    def _save(server: str) -> None:
+        server = server.strip()
+        if not server:
+            ui_module.message(_("NTP server\nunchanged"), 2)
+            return
+        ui_module.config_object.set_option("ntp_server_custom", server)
+        ui_module.config_object.set_option("ntp_server", "custom")
+        ui_module.command_queues["ui_queue"].put("reload_config")
+        ui_module.message(_("NTP server\nsaved"), 2)
+
+    item_definition = {
+        "name": _("Custom NTP Server"),
+        "class": UITextEntry,
+        "mode": "text_entry",
+        "initial_text": ui_module.config_object.get_option(
+            "ntp_server_custom", "pool.ntp.org"
+        ),
+        "entry_title": _("NTP Server:"),
+        "max_length": 64,
+        "callback": _save,
+    }
+    ui_module.add_to_stack(item_definition)
+
+
 def capture_exposure_sweep(ui_module: UIModule) -> None:
     """
     Captures 100 images at different exposures for PID testing/calibration.

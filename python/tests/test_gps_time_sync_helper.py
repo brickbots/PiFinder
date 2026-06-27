@@ -183,3 +183,47 @@ def test_helper_does_not_reprocess_same_request_after_restart(tmp_path):
 
     assert status["state"] == "idle"
     assert runner.rtc_calls == []
+
+
+def test_helper_accepts_selected_ntp_time_source(tmp_path):
+    sync_dt = utc(8)
+    clock = FakeClock(unix=sync_dt.timestamp() - 2.0)
+    runner = FakeRunner()
+    request_file = tmp_path / "request.json"
+    status_file = tmp_path / "helper_status.json"
+    request = valid_request(
+        clock,
+        sync_dt,
+        {
+            "system_clock": {
+                "enabled": True,
+                "step_threshold_seconds": 0.1,
+            }
+        },
+    )
+    request["sync_time"] = sync_dt.isoformat()
+    request["selected"] = {
+        "source": "NTP",
+        "time": sync_dt.isoformat(),
+        "valid": True,
+        "quality_seconds": 0.02,
+        "server": "pool.ntp.org",
+    }
+    request["latest"] = {"valid": False, "source": "GPS"}
+    write_request(request_file, request)
+    helper = GpsTimeSyncHelper(
+        request_file=request_file,
+        status_file=status_file,
+        runner=runner,
+        time_fn=clock.time,
+        monotonic_fn=clock.monotonic_time,
+        boot_id_fn=lambda: "boot-a",
+    )
+
+    status = helper.process_once()
+
+    assert status["state"] == "completed"
+    assert runner.system_calls == [sync_dt]
+    saved_status = json.loads(status_file.read_text())
+    assert saved_status["selected"]["source"] == "NTP"
+    assert saved_status["last_sync_time"] == sync_dt.isoformat()

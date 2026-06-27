@@ -1,5 +1,5 @@
 [Unit]
-Description=PiFinder GPS Time Sync Helper
+Description=PiFinder Time Sync Helper
 After=basic.target pifinder.service
 
 [Service]

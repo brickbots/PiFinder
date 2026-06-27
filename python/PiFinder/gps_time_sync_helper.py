@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-Privileged helper for GPS-disciplined system clock and RTC updates.
+Privileged helper for time-source disciplined system clock and RTC updates.
 
 PiFinder itself runs as the normal PiFinder user and writes a constrained JSON
 request. This helper is intended to run as root under systemd and performs only
@@ -157,25 +157,28 @@ class GpsTimeSyncHelper:
         if request.get("monitor_state") != "stable":
             raise ValueError("request monitor_state is not stable")
 
-        latest = request.get("latest")
-        if not isinstance(latest, dict) or latest.get("valid") is not True:
-            raise ValueError("request latest GPS sample is not valid")
+        selected = request.get("selected")
+        if not isinstance(selected, dict):
+            selected = request.get("latest")
+        if not isinstance(selected, dict) or selected.get("valid") is not True:
+            raise ValueError("request selected time source is not valid")
 
         actions = request.get("actions")
         if not isinstance(actions, dict) or not actions:
             raise ValueError("request contains no actions")
 
-        gps_time = request.get("gps_time")
-        if not isinstance(gps_time, str):
-            raise ValueError("gps_time is missing")
+        sync_time = request.get("sync_time", request.get("gps_time"))
+        if not isinstance(sync_time, str):
+            raise ValueError("sync_time is missing")
         try:
-            gps_dt = _utc_datetime(datetime.datetime.fromisoformat(gps_time))
+            sync_dt = _utc_datetime(datetime.datetime.fromisoformat(sync_time))
         except ValueError as exc:
-            raise ValueError("gps_time is invalid") from exc
+            raise ValueError("sync_time is invalid") from exc
 
         return {
             "request_id": request_id,
-            "gps_dt": gps_dt,
+            "sync_dt": sync_dt,
+            "selected": selected,
             "actions": actions,
             "age_seconds": age,
         }, "ready"
@@ -230,16 +233,16 @@ class GpsTimeSyncHelper:
             self._write_status(status)
             return status
 
-        gps_dt = parsed["gps_dt"]
+        sync_dt = parsed["sync_dt"]
         actions = parsed["actions"]
         results = {}
 
         if actions.get("system_clock", {}).get("enabled"):
             results["system_clock"] = self._process_system_clock(
-                gps_dt, actions["system_clock"]
+                sync_dt, actions["system_clock"]
             )
         if actions.get("rtc", {}).get("enabled"):
-            results["rtc"] = self._process_rtc(gps_dt, actions["rtc"])
+            results["rtc"] = self._process_rtc(sync_dt, actions["rtc"])
 
         result_states = [result.get("state") for result in results.values()]
         if any(state == "error" for state in result_states):
@@ -252,9 +255,11 @@ class GpsTimeSyncHelper:
         self.last_processed_request_id = parsed["request_id"]
         status = {
             "state": state,
-            "message": "GPS time sync request processed",
+            "message": "Time sync request processed",
             "last_request_id": parsed["request_id"],
-            "last_gps_time": gps_dt.isoformat(),
+            "last_sync_time": sync_dt.isoformat(),
+            "last_gps_time": sync_dt.isoformat(),
+            "selected": parsed["selected"],
             "request_age_seconds": parsed["age_seconds"],
             "results": results,
         }
@@ -267,7 +272,7 @@ class GpsTimeSyncHelper:
             try:
                 self.process_once()
             except Exception:
-                logger.exception("Unexpected GPS time sync helper error")
+                logger.exception("Unexpected time sync helper error")
             time.sleep(self.poll_interval_seconds)
 
 
