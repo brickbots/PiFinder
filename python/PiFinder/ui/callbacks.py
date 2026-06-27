@@ -501,16 +501,19 @@ def telemetry_record_toggle(ui_module: UIModule) -> None:
 
 def update_gpsd_baud_rate(ui_module: UIModule) -> None:
     """
-    Updates the GPSD configuration with the current baud rate setting.
+    Updates the GPSD configuration with the current serial port and baud rate.
     Always updates GPSD config regardless of current GPS type.
     """
     baud_rate = ui_module.config_object.get_option("gps_baud_rate")
+    gps_port = ui_module.config_object.get_option(
+        "gps_port", sys_utils.DEFAULT_GPSD_DEVICE
+    )
 
     ui_module.message(_("Checking GPS\nconfig..."), 2)
-    logger.info(f"Checking GPSD baud rate {baud_rate}")
+    logger.info("Checking GPSD port %s baud rate %s", gps_port, baud_rate)
 
     try:
-        if sys_utils.check_and_sync_gpsd_config(baud_rate):
+        if sys_utils.check_and_sync_gpsd_config(baud_rate, gps_port):
             ui_module.message(_("GPS config\nupdated"), 2)
         else:
             ui_module.message(_("GPS config\nOK"), 2)
