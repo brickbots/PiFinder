@@ -19,6 +19,7 @@ from PiFinder.ui.obs_list import UIObsList
 from PiFinder.ui.locationentry import UILocationEntry
 from PiFinder.ui.radec_entry import UIRADecEntry
 from PiFinder.ui.telemetry_list import UITelemetryList
+from PiFinder.ui.bluetooth_keyboard import UIBluetoothKeyboard
 import PiFinder.ui.callbacks as callbacks
 
 
@@ -1148,6 +1149,11 @@ pifinder_menu = {
                                     ],
                                 },
                             ],
+                        },
+                        {
+                            "name": _("Keyboard"),
+                            "class": UIBluetoothKeyboard,
+                            "label": "keyboard_settings",
                         },
                     ],
                 },

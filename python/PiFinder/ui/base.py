@@ -513,6 +513,9 @@ class UIModule:
     def key_number(self, number):
         pass
 
+    def key_text(self, char: str):
+        pass
+
     def key_plus(self):
         pass
 

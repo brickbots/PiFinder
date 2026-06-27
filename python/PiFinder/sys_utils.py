@@ -1,6 +1,8 @@
 import glob
 import json
 import re
+import subprocess
+import time
 from typing import Dict, Any
 
 import pam
@@ -15,6 +17,16 @@ import logging
 BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
 
 logger = logging.getLogger("SysUtils")
+
+BLUETOOTHCTL_COMMAND = "bluetoothctl"
+BLUETOOTH_DEVICE_RE = re.compile(
+    r"(?:\[[^\]]+\]\s*)?Device\s+([0-9A-Fa-f:]{17})\s+(.+)"
+)
+BLUETOOTH_DEVICE_FIELD_RE = re.compile(
+    r"(?:\[[^\]]+\]\s*)?Device\s+([0-9A-Fa-f:]{17})\s+([^:]+):\s+(.+)"
+)
+BLUETOOTH_MAC_RE = re.compile(r"^[0-9A-Fa-f:]{17}$")
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 
 class Network:
@@ -244,6 +256,265 @@ def go_wifi_cli():
     logger.info("SYS: Switching to Client")
     sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
     return True
+
+
+def _clean_bluetoothctl_output(output: str) -> str:
+    output = ANSI_ESCAPE_RE.sub("", output)
+    return output.replace("\r", "\n")
+
+
+def _bluetoothctl(commands: list[str], timeout: int = 20) -> str:
+    script = "\n".join(commands + ["quit"]) + "\n"
+    result = subprocess.run(
+        [BLUETOOTHCTL_COMMAND],
+        input=script,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+    return _clean_bluetoothctl_output(result.stdout + result.stderr)
+
+
+def _parse_bluetooth_bool(value: str) -> bool:
+    return value.strip().lower() == "yes"
+
+
+def _new_bluetooth_device(address: str, name: str = "") -> dict[str, Any]:
+    return {
+        "address": address,
+        "name": name,
+        "paired": False,
+        "trusted": False,
+        "connected": False,
+        "blocked": False,
+        "icon": "",
+    }
+
+
+def _has_bluetooth_name(device: dict[str, Any]) -> bool:
+    name = str(device.get("name", "")).strip()
+    return bool(name) and not BLUETOOTH_MAC_RE.match(name)
+
+
+def _merge_bluetooth_device_name(device: dict[str, Any], name: str) -> None:
+    name = name.strip()
+    if not name or BLUETOOTH_MAC_RE.match(name):
+        return
+    if not _has_bluetooth_name(device):
+        device["name"] = name
+
+
+def _parse_bluetooth_devices(output: str) -> dict[str, dict[str, Any]]:
+    devices: dict[str, dict[str, Any]] = {}
+    for line in _clean_bluetoothctl_output(output).splitlines():
+        field_match = BLUETOOTH_DEVICE_FIELD_RE.search(line)
+        if field_match:
+            address = field_match.group(1).upper()
+            field = field_match.group(2).strip().lower()
+            value = field_match.group(3).strip()
+            device = devices.setdefault(address, _new_bluetooth_device(address))
+            if field in ["name", "alias"]:
+                _merge_bluetooth_device_name(device, value)
+                continue
+            elif field in ["paired", "trusted", "connected", "blocked"]:
+                device[field] = _parse_bluetooth_bool(value)
+                continue
+            elif field == "icon":
+                device["icon"] = value
+                continue
+            elif field in ["rssi", "txpower", "uuids", "servicesresolved"]:
+                continue
+
+        match = BLUETOOTH_DEVICE_RE.search(line)
+        if not match:
+            continue
+        address = match.group(1).upper()
+        name = match.group(2).strip()
+        device = devices.setdefault(address, _new_bluetooth_device(address))
+        _merge_bluetooth_device_name(device, name)
+    return devices
+
+
+def _parse_bluetooth_info(output: str) -> dict[str, Any]:
+    info: dict[str, Any] = {}
+    for raw_line in _clean_bluetoothctl_output(output).splitlines():
+        line = raw_line.strip()
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        value = value.strip()
+        if key in ["Name", "Alias", "Icon"]:
+            info[key.lower()] = value
+        elif key in ["Paired", "Trusted", "Connected", "Blocked"]:
+            info[key.lower()] = _parse_bluetooth_bool(value)
+    return info
+
+
+def is_bluetooth_keyboard(device: dict[str, Any]) -> bool:
+    """
+    Best-effort keyboard detection for reconnect filtering.
+    """
+    name = str(device.get("name", "")).lower()
+    icon = str(device.get("icon", "")).lower()
+    return "keyboard" in name or "keys" in name or icon == "input-keyboard"
+
+
+def list_bluetooth_devices(scan_output: str = "") -> list[dict[str, Any]]:
+    """
+    Return cached Bluetooth devices with paired/trusted/connected status.
+    """
+    logger.info("SYS: Listing Bluetooth devices")
+    devices = _parse_bluetooth_devices(scan_output)
+    output = _bluetoothctl(["power on", "devices", "devices Paired"], timeout=12)
+    for address, scanned_device in _parse_bluetooth_devices(output).items():
+        device = devices.setdefault(address, _new_bluetooth_device(address))
+        _merge_bluetooth_device_name(device, str(scanned_device.get("name", "")))
+
+    for address, device in devices.items():
+        info = _parse_bluetooth_info(_bluetoothctl([f"info {address}"], timeout=8))
+        for key, value in info.items():
+            if key in ["name", "alias"]:
+                _merge_bluetooth_device_name(device, str(value))
+            else:
+                device[key] = value
+        device["address"] = address
+        device["name"] = device.get("name") or device.get("alias") or address
+
+    return sorted(
+        devices.values(),
+        key=lambda item: (
+            not bool(item.get("connected")),
+            not bool(item.get("paired")),
+            str(item.get("name", "")).lower(),
+        ),
+    )
+
+
+def scan_bluetooth_devices(scan_seconds: int = 12) -> list[dict[str, Any]]:
+    """
+    Scan for nearby Bluetooth devices and return the refreshed cached device list.
+    """
+    logger.info("SYS: Scanning for Bluetooth devices for %s seconds", scan_seconds)
+    process = subprocess.Popen(
+        [BLUETOOTHCTL_COMMAND],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    assert process.stdin is not None
+    scan_output = ""
+    try:
+        for command in [
+            "power on",
+            "agent KeyboardDisplay",
+            "default-agent",
+            "pairable on",
+            "scan on",
+        ]:
+            process.stdin.write(command + "\n")
+            process.stdin.flush()
+
+        time.sleep(scan_seconds)
+
+        for command in ["scan off", "devices", "devices Paired", "quit"]:
+            process.stdin.write(command + "\n")
+            process.stdin.flush()
+        scan_output, _ = process.communicate(timeout=8)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        scan_output, _ = process.communicate()
+    finally:
+        if process.poll() is None:
+            process.terminate()
+
+    return list_bluetooth_devices(scan_output)
+
+
+def connect_bluetooth_device(address: str, timeout: int = 25) -> str:
+    logger.info("SYS: Connecting Bluetooth device %s", address)
+    return _bluetoothctl(
+        [
+            "power on",
+            "agent KeyboardDisplay",
+            "default-agent",
+            f"trust {address}",
+            f"connect {address}",
+        ],
+        timeout=timeout,
+    )
+
+
+def disconnect_bluetooth_device(address: str) -> str:
+    logger.info("SYS: Disconnecting Bluetooth device %s", address)
+    return _bluetoothctl([f"disconnect {address}"], timeout=15)
+
+
+def remove_bluetooth_device(address: str) -> str:
+    logger.info("SYS: Removing Bluetooth device %s", address)
+    return _bluetoothctl([f"remove {address}"], timeout=15)
+
+
+def reconnect_bluetooth_keyboards(connect_timeout: int = 25) -> int:
+    """
+    Connect paired keyboard-like devices. If none are identifiable as keyboards,
+    try all paired devices so generic HID names still work.
+    """
+    devices = [
+        d for d in list_bluetooth_devices() if d.get("paired") or d.get("trusted")
+    ]
+    targets = [d for d in devices if is_bluetooth_keyboard(d)] or devices
+    count = 0
+    for device in targets:
+        if device.get("connected"):
+            continue
+        connect_bluetooth_device(str(device["address"]), timeout=connect_timeout)
+        count += 1
+    return count
+
+
+def auto_reconnect_bluetooth_keyboards(
+    attempts: int = 12,
+    delay_seconds: int = 5,
+    connect_timeout: int = 10,
+) -> int:
+    """
+    Retry Bluetooth keyboard reconnection in the background during startup.
+
+    Bluetooth controllers and HID devices can appear a few seconds after the
+    PiFinder service starts, especially after a reboot. This helper is designed
+    for a daemon thread: it logs failures and keeps retrying without raising.
+    """
+    total_attempted = 0
+    for attempt in range(1, attempts + 1):
+        try:
+            logger.info(
+                "SYS: Bluetooth keyboard reconnect attempt %s/%s",
+                attempt,
+                attempts,
+            )
+            total_attempted += reconnect_bluetooth_keyboards(connect_timeout)
+            devices = [
+                d
+                for d in list_bluetooth_devices()
+                if d.get("paired") or d.get("trusted")
+            ]
+            targets = [d for d in devices if is_bluetooth_keyboard(d)] or devices
+            if targets and any(d.get("connected") for d in targets):
+                logger.info("SYS: Bluetooth keyboard reconnect complete")
+                return total_attempted
+        except Exception as e:
+            logger.warning("SYS: Bluetooth keyboard reconnect failed: %s", e)
+
+        if attempt < attempts:
+            time.sleep(delay_seconds)
+
+    logger.info(
+        "SYS: Bluetooth keyboard reconnect finished after %s attempts",
+        attempts,
+    )
+    return total_attempted
 
 
 def remove_backup():

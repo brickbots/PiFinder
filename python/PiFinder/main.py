@@ -25,6 +25,7 @@ import uuid
 import logging
 import argparse
 import pickle
+import threading
 from pathlib import Path
 from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
@@ -341,6 +342,32 @@ def _build_pygame_keymaps():
     return key_map, ctrl_key_map
 
 
+def start_bluetooth_keyboard_autoreconnect() -> None:
+    """
+    Start non-blocking Bluetooth keyboard reconnection for paired devices.
+    """
+    if hardware_platform != "Pi":
+        return
+
+    try:
+        from PiFinder import sys_utils
+
+        reconnect_thread = threading.Thread(
+            target=sys_utils.auto_reconnect_bluetooth_keyboards,
+            kwargs={
+                "attempts": 12,
+                "delay_seconds": 5,
+                "connect_timeout": 10,
+            },
+            name="BluetoothKeyboardReconnect",
+            daemon=True,
+        )
+        reconnect_thread.start()
+        logger.info("Bluetooth keyboard auto-reconnect started")
+    except Exception as e:
+        logger.warning("Could not start Bluetooth keyboard auto-reconnect: %s", e)
+
+
 def main(
     log_helper: MultiprocLogging,
     script_name=None,
@@ -617,6 +644,8 @@ def main(
         )
         posserver_process.start()
 
+        start_bluetooth_keyboard_autoreconnect()
+
         # Initialize Catalogs
         console.write("   Catalogs")
         logger.info("   Catalogs")
@@ -856,7 +885,10 @@ def main(
                     if keycode != keyboard_base.POWER_BTN:
                         sound.request(sound_queue, Earcon.KEYPRESS)
                     # ignore keystroke if we have been asleep
-                    if keycode > 99:
+                    if keyboard_base.is_text_key(keycode):
+                        menu_manager.key_text(keyboard_base.text_from_keycode(keycode))
+
+                    elif keycode > 99:
                         # Long left is return to top
                         if keycode == keyboard_base.LNG_LEFT:
                             menu_manager.key_long_left()
