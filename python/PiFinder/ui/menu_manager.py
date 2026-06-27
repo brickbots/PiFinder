@@ -113,6 +113,7 @@ class MenuManager:
         command_queues,
         config_object,
         catalogs,
+        object_image_downloader=None,
     ):
         self.display_class = display_class
         self.shared_state = shared_state
@@ -121,6 +122,10 @@ class MenuManager:
         self.command_queues = command_queues
         self.config_object = config_object
         self.catalogs = catalogs
+        # App-owned background object-image downloader (may be None in tests /
+        # headless construction); passed to every UI module so screens can drive
+        # it and the shared title bar can show a progress line.
+        self.object_image_downloader = object_image_downloader
 
         # stack switch anim stuff
         self._stack_anim_counter: float = 0
@@ -185,6 +190,7 @@ class MenuManager:
                 add_to_stack=self.add_to_stack,
                 remove_from_stack=self.remove_from_stack,
                 jump_to_label=self.jump_to_label,
+                object_image_downloader=self.object_image_downloader,
             )
 
     def add_to_stack(self, item: dict) -> None:
@@ -210,6 +216,7 @@ class MenuManager:
                     add_to_stack=self.add_to_stack,
                     remove_from_stack=self.remove_from_stack,
                     jump_to_label=self.jump_to_label,
+                    object_image_downloader=self.object_image_downloader,
                 )
             )
             if item.get("stateful", False):

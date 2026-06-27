@@ -20,7 +20,7 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - **SQM → Camera**: `shared_state.set_noise_floor()` feeds the minimum acceptable background used by the Camera context's background controller.
 - **Positioning → Camera**: `Matches` is published on every solve attempt (success or failure) as the feedback signal for solver-driven auto-exposure.
 - **Catalog ↔ Positioning**: Catalog supplies the `(RA, Dec)` target for the alignment flow that calibrates `solve_pixel` in Positioning.
-- **Equipment → Catalog**: the active telescope's flip/flop flags and the active eyepiece's true field of view orient and scale the POSS/SDSS object image in `cat_images.get_display_image`.
+- **Equipment → Catalog**: the active telescope's flip/flop flags and the active eyepiece's true field of view orient and scale the **object image** (one sourceless survey JPEG per object) in `cat_images.get_display_image`.
 - **Positioning → Equipment**: the object-image baseline rotation combines the active telescope's flip/flop with the live solve **roll** from `shared_state` (see [ADR 0003](./docs/adr/0003-object-image-orientation.md)).
 - **Battery → UI**: STATUS (and web/API) display `BatteryState` from `shared_state.battery()` — *consumption is future work; this run is plumbing + tests only*.
 - **Battery → system-wide**: `hardware_detect` probes the I²C bus at startup and publishes `HardwareCapabilities` into `shared_state`; the battery monitor process only runs when `has_bq25895` is detected (rev-4). The same capabilities record is the source of truth for other rev-dependent decisions.

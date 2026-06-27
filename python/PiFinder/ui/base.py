@@ -128,6 +128,9 @@ class UIModule:
     _unmoved = False  # has the telescope moved since the last cam solve?
     _display_mode_list: Union[list[None], list[str]] = [None]  # List of display modes
     marking_menu: Union[None, MarkingMenu] = None
+    # The dedicated download progress screen visualizes the run itself, so it
+    # suppresses the global title-bar status line to avoid drawing it twice.
+    _suppress_download_status = False
 
     def __init__(
         self,
@@ -141,6 +144,7 @@ class UIModule:
         add_to_stack=None,
         remove_from_stack=None,
         jump_to_label=None,
+        object_image_downloader=None,
     ):
         assert shared_state is not None
         self.title = self.__title__
@@ -155,6 +159,10 @@ class UIModule:
         self.add_to_stack = add_to_stack
         self.remove_from_stack = remove_from_stack
         self.jump_to_label = jump_to_label
+        # App-owned background object-image downloader (None in tests / headless
+        # construction). Drawn as a global status line under the title bar while
+        # a download is active; the download screens drive it.
+        self.object_image_downloader = object_image_downloader
 
         # mode stuff
         self._display_mode_cycle = cycle(self._display_mode_list)
@@ -376,6 +384,39 @@ class UIModule:
 
         return True
 
+    def _draw_download_status_line(self) -> None:
+        """Global status line under the title bar while a download is active.
+
+        Shows only the object-image download counts / percent (never IP/SSID).
+        Drawn as an overlay strip — it does not reflow each screen's content —
+        and is hidden when idle.  Screens that visualize the run themselves set
+        ``_suppress_download_status``.
+        """
+        downloader = self.object_image_downloader
+        if downloader is None or self._suppress_download_status:
+            return
+        progress = downloader.progress()
+        if not progress.active:
+            return
+
+        tb_height = self.display_class.titlebar_height
+        line_height = self.fonts.base.height + 2
+        self.draw.rectangle(
+            [0, tb_height, self.display_class.resX, tb_height + line_height],
+            fill=self.colors.get(32),
+        )
+        text = _("Img {done}/{total} {pct}%").format(
+            done=progress.completed,
+            total=progress.total,
+            pct=progress.percent,
+        )
+        self.draw.text(
+            (3, tb_height + 1),
+            text,
+            font=self.fonts.base.font,
+            fill=self.colors.get(192),
+        )
+
     def _draw_titlebar_rotating_info(self, x, y, fg):
         """Draw rotating constellation/SQM in title bar (dark text on gray bg)."""
         self._rotating_display.draw(
@@ -490,6 +531,10 @@ class UIModule:
                         font=self.fonts.bold.font,
                         fill=fg,
                     )
+
+            # Global download status line (overlay just under the title bar,
+            # hidden when no download is active).
+            self._draw_download_status_line()
 
         # FPS
         self.frame_count += 1

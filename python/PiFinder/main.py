@@ -47,6 +47,7 @@ from PiFinder.state_utils import sleep_for_framerate
 
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.menu_manager import MenuManager
+from PiFinder.object_image_download import ObjectImageDownloader
 
 from PiFinder.state import SharedStateObj, UIState
 
@@ -635,6 +636,11 @@ def main(
         console.write("   Menus")
         console.update()
 
+        # App-owned object-image download worker. Lives for the life of the UI
+        # process so a download survives screen navigation; the download UI
+        # screens and the global title-bar status line share this one instance.
+        object_image_downloader = ObjectImageDownloader()
+
         # Initialize menu manager
         menu_manager = MenuManager(
             display_device,
@@ -643,6 +649,7 @@ def main(
             command_queues,
             cfg,
             catalogs,
+            object_image_downloader,
         )
 
         # Initialize power manager

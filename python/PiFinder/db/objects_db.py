@@ -97,12 +97,19 @@ class ObjectsDatabase(Database):
         )
 
         # Create images_objects table
+        #
+        # ``source`` records the survey a curated object image was (re)generated
+        # from — a provenance + regeneration directive only (ADR 0018).  It is
+        # written off-device by Generate / the discriminator and shipped in
+        # pifinder_objects.db; NULL means "uncurated" (Generate defaults to
+        # POSS).  No on-device resolution or display code branches on it.
         self.cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS object_images (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 object_id INTEGER,
                 image_name TEXT,
+                source TEXT,
                 FOREIGN KEY (object_id) REFERENCES objects(id)
             );
         """

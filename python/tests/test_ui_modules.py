@@ -345,12 +345,19 @@ def _fast_sleep():
 
 @pytest.fixture(scope="session", autouse=True)
 def _no_network():
-    """Stub UISoftware's live GitHub version check
-    the one hard network call)."""
+    """Stub the UI's live network calls during the sweep.
+
+    Two callers reach the network: UISoftware's GitHub version check, and the
+    object-image download pre-flight's CDN reachability probe (UIImageDownload
+    spawns it from active() when WiFi is in client mode).
+    """
     fake = mock.Mock()
     fake.text = "1.0.0"
     fake.status_code = 200
-    with mock.patch("PiFinder.ui.software.requests.get", return_value=fake):
+    with (
+        mock.patch("PiFinder.ui.software.requests.get", return_value=fake),
+        mock.patch("PiFinder.object_image_store.cdn_reachable", return_value=True),
+    ):
         yield
 
 

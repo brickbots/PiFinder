@@ -55,6 +55,14 @@ then
     touch /home/pifinder/PiFinder_data/migrations/v2.6.0
 fi
 
+# v2.7.0
+# Rename per-source object images (_POSS/_SDSS) to one sourceless image per object
+if ! [ -f "/home/pifinder/PiFinder_data/migrations/v2.7.0" ]
+then
+    source /home/pifinder/PiFinder/migration_source/v2.7.0.sh
+    touch /home/pifinder/PiFinder_data/migrations/v2.7.0
+fi
+
 # DONE
 echo "Post Update Complete"
 

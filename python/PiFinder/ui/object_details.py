@@ -49,11 +49,13 @@ def _catalog_db() -> ObjectsDatabase:
     return _objects_db
 
 
-# Constants for display modes
+# Constants for display modes.
+# There is exactly one object image per object (ADR 0018); DM_POSS is the image
+# view.  The old DM_SDSS mode was never assigned (no SDSS display path ever
+# existed) and was removed with the move to one sourceless image per object.
 DM_DESC = 0  # Display mode for description
 DM_LOCATE = 1  # Display mode for LOCATE
-DM_POSS = 2  # Display mode for POSS
-DM_SDSS = 3  # Display mode for SDSS
+DM_POSS = 2  # Display mode for the object image
 DM_CONTRAST = 4  # Display mode for Contrast Reserve explanation
 
 
@@ -379,7 +381,7 @@ class UIObjectDetails(UIModule):
             self.config_object.equipment.calc_tfov(),
             roll,
             self.display_class,
-            burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
+            burn_in=self.object_display_mode == DM_POSS,
             magnification=magnification,
             show_nsew=self.config_object.get_option("image_nsew", True),
             show_bbox=self.config_object.get_option("image_bbox", True),
@@ -497,7 +499,7 @@ class UIObjectDetails(UIModule):
         self.clear_screen()
 
         # paste image
-        if self.object_display_mode in [DM_POSS, DM_SDSS]:
+        if self.object_display_mode == DM_POSS:
             self.screen.paste(self.object_image)
 
         if self.object_display_mode == DM_DESC or self.object_display_mode == DM_LOCATE:
@@ -746,7 +748,6 @@ class UIObjectDetails(UIModule):
                 DM_DESC: "description",
                 DM_LOCATE: "locate",
                 DM_POSS: "poss_image",
-                DM_SDSS: "sdss_image",
             }
 
             # Serialize the object information safely

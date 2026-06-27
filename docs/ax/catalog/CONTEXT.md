@@ -203,6 +203,36 @@ _Avoid_: section header / section heading (that's the visual rendering of the la
 The description text an observing list carries for one of its targets — the observing-list counterpart of a **catalog description**. So an object's description can come from a catalog *or* from an observing list, and the **composed description** shows both. Session-only, held in `CompositeObject.list_descriptions` keyed by list name (re-loading a list replaces its own entry, never duplicates). Set only on **resolved** objects; a **coordinate object** has none (its list text becomes its own catalog-side description, since it has nothing else).
 _Avoid_: list note, note, comment, annotation, user description.
 
+### Object images
+
+**Object image**:
+The single survey JPEG shown behind a sky object in object details (the POSS/DSS plate, reddened and oriented to the eyepiece view). **Exactly one per object** — there is no per-source duplication on the device. Resolved from the object's **image_name** and rendered by `cat_images.get_display_image`, scaled/oriented by the active **Equipment** (see [ADR 0003](../../adr/0003-object-image-orientation.md)).
+_Avoid_: POSS image / SDSS image (those name a **source**, not the stored image), thumbnail, finder image.
+
+**Image source** (survey):
+The sky survey a curated **object image** is (re)generated from — POSS/DSS, SDSS, or future surveys. Recorded per object in `object_images.source` and authored by a **discriminator**. The record is both **retrospective** (where this image came from) and **prescriptive** (regenerate it from here): the dev-side **Generate** step reads it to (re)produce the one canonical image, and `NULL` means "not yet curated" — Generate falls back to a default policy. The source is deliberately **not** encoded in the on-disk name, the CDN path, or any resolution/display branch — the runtime carries the value but never acts on it (see [ADR 0018](../../adr/0018-one-object-image-per-object.md)).
+_Avoid_: image type, image format; the historical `_POSS`/`_SDSS` filename suffix (a retired storage detail, not a live concept).
+
+**Discriminator**:
+The (human or AI) curation role that compares an object's candidate images across **image sources** and chooses the best one, writing that choice to `object_images.source`. The authoritative producer of the **prescriptive** source record; the **Generate** step is its consumer. Aspirational: both the `source` column and the discriminator are introduced by [ADR 0018](../../adr/0018-one-object-image-per-object.md), not yet built.
+_Avoid_: selector, picker, classifier (it discriminates *between candidate images*, not object types).
+
+**image_name**:
+The **sourceless** filename stem for an object's image (`"M31"`), stored in the `object_images` table (one row per imaged sky object). Resolves on disk to `<last-digit>/<image_name>.jpg`. Falls back to a whitespace-stripped common **Name** when the catalog-code+sequence stem has no file.
+_Avoid_: image path, image id, image key.
+
+**Generate** (object images):
+The **dev-side, off-device** step that fetches candidate cutouts from surveys, curates the single best per object, and publishes one sourceless **object image** to the CDN. The only place an **image source** is chosen. (`gen_images.py`.)
+_Avoid_: fetch, build, import.
+
+**Download** (object images):
+The **on-device** step that pulls already-curated object images for in-scope objects from the CDN to local disk. Carries no source dimension — it copies whatever the CDN holds for each **image_name**. Distinct from **Generate**: download never touches a survey.
+_Avoid_: fetch, sync, get (the verb is "download"; reserve "generate" for the survey-side step).
+
+**Display** (object images):
+The **runtime** step that loads the local object image and orients/crops/reddens it for the current eyepiece. Read-only; never fetches. (`cat_images.get_display_image`.)
+_Avoid_: render (too generic), show.
+
 ### UI helpers
 
 **CatalogDesignator**:
