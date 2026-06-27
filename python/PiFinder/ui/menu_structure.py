@@ -6,6 +6,7 @@ from PiFinder.ui.status import UIStatus
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
 from PiFinder.ui.gpsstatus import UIGPSStatus
+from PiFinder.ui.gps_time_sync_status import UIGPSTimeSyncStatus
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.align_daytime import UIAlignDaytime
@@ -1199,6 +1200,10 @@ pifinder_menu = {
                         {
                             "name": _("GPS Status"),
                             "class": UIGPSStatus,
+                        },
+                        {
+                            "name": _("GPS Time Sync"),
+                            "class": UIGPSTimeSyncStatus,
                         },
                         {
                             "name": _("Set Location"),
