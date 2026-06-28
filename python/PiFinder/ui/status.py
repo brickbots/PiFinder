@@ -43,7 +43,7 @@ class UIStatus(UIModule):
             "IMU qy,qz": "--",
             "GPS": "--",
             "GPS ALT": "--",
-            "GPS LKT": "--",
+            "GPS LCK": "--",
             "LCL TM": "--",
             "UTC TM": "--",
             "CPU TMP": "--",
@@ -143,7 +143,7 @@ class UIStatus(UIModule):
 
         self.status_dict["GPS ALT"] = f"{location.altitude:.1f}m"
         last_lock = location.last_gps_lock
-        self.status_dict["GPS LKT"] = last_lock if last_lock else "--"
+        self.status_dict["GPS LCK"] = last_lock if last_lock else "--"
 
         # use datetimes explictly converted to the timezone we want to print
         # datetime() can be in any timezone and time() will just ignore TZ
