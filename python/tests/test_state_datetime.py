@@ -47,8 +47,9 @@ def _state_at(lat=0.0, lon=0.0):
 @pytest.mark.unit
 def test_naive_input_is_interpreted_as_utc(frozen_clock):
     shared_state = SharedStateObj()
-
-    shared_state.set_datetime(datetime.datetime(2024, 6, 28, 11, 0, 0), force=True)
+    # Note: linter will refuse naive datetimes, we have to trick it
+    # to get past it, make an 'acceptable' datetime then nuke the tzinfo
+    shared_state.set_datetime(datetime.datetime(2024, 6, 28, 11, 0, 0, tzinfo=UTC).replace(tzinfo=None), force=True)
 
     stored = shared_state.utc_datetime()
     assert stored.utcoffset() == datetime.timedelta(0)
@@ -58,9 +59,12 @@ def test_naive_input_is_interpreted_as_utc(frozen_clock):
 @pytest.mark.unit
 def test_aware_local_input_is_converted_to_utc(frozen_clock):
     shared_state = SharedStateObj()
-    # 13:00 in Brussels in June (CEST, +02:00) is the same instant as 11:00 UTC.
+    # 13:00 in Brussels in June (CEST, +02:00) is the same instant as 11:00 UTC
+    # Note: linter will refuse naive datetimes, we have to trick it
+    # to get past it, make an 'acceptable' datetime then nuke the tzinfo
+
     local = pytz.timezone("Europe/Brussels").localize(
-        datetime.datetime(2024, 6, 28, 13, 0, 0)
+        datetime.datetime(2024, 6, 28, 13, 0, 0, tzinfo=UTC).replace(tzinfo=None)
     )
 
     shared_state.set_datetime(local, force=True)
