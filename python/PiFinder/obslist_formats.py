@@ -146,6 +146,40 @@ def _parse_dms_colon(s: str) -> float:
     return 0.0
 
 
+def _parse_ra_flexible(s: str, assume_hours: bool = False) -> float:
+    """Parse a CSV RA cell as decimal degrees, 'HH:MM:SS', or 'Xh Xm Xs'.
+
+    A bare decimal is degrees by default; pass assume_hours=True (signalled by an
+    hours-named header such as ra_h) to read it as hours. The colon and
+    sexagesimal forms are already hours, so the hint only affects a bare decimal.
+    """
+    s = s.strip()
+    if not s:
+        return 0.0
+    try:
+        value = float(s)
+        return value * 15.0 if assume_hours else value
+    except ValueError:
+        pass
+    if ":" in s:
+        return _parse_hms_colon(s)
+    return _parse_ra_string(s)
+
+
+def _parse_dec_flexible(s: str) -> float:
+    """Parse a CSV Dec cell as decimal degrees, '+/-DD:MM:SS', or sexagesimal DMS."""
+    s = s.strip()
+    if not s:
+        return 0.0
+    try:
+        return float(s)  # decimal degrees (-90 to +90)
+    except ValueError:
+        pass
+    if ":" in s:
+        return _parse_dms_colon(s)
+    return _parse_dec_string(s)
+
+
 def _parse_catalog_name(name: str) -> tuple[str, int]:
     """Extract catalog code and sequence from 'NGC 224' or 'NGC224' or 'Sh2 155'."""
     name = name.strip()
@@ -309,8 +343,50 @@ def read_skylist(text: str) -> ObsList:
 
 _CSV_HEADER = "Name,RA,Dec,Magnitude,Type,CatalogCode,Sequence"
 
+# CSV from other tools varies in header case, separators, and naming. Map a
+# normalized form (lowercased, alphanumerics only) onto the canonical columns.
+_CSV_HEADER_ALIASES = {
+    "name": "Name",
+    "ra": "RA",
+    "radeg": "RA",
+    "raj2000": "RA",
+    "rah": "RA",
+    "rahr": "RA",
+    "rahrs": "RA",
+    "rahours": "RA",
+    "dec": "Dec",
+    "de": "Dec",
+    "decl": "Dec",
+    "decdeg": "Dec",
+    "decj2000": "Dec",
+    "magnitude": "Magnitude",
+    "mag": "Magnitude",
+    "vmag": "Magnitude",
+    "type": "Type",
+    "objtype": "Type",
+    "catalogcode": "CatalogCode",
+    "catalog": "CatalogCode",
+    "sequence": "Sequence",
+    "seq": "Sequence",
+}
+
+# Normalized RA headers that declare the column is in hours (e.g. ra_h, ra_hours)
+# rather than the default degrees. Only affects a bare-decimal RA value.
+_CSV_RA_HOURS_HEADERS = {"rah", "rahr", "rahrs", "rahours"}
+
+
+def _csv_header_key(header: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", header.strip().lower())
+
+
+def _normalize_csv_header(header: str) -> str:
+    """Map a raw CSV header onto a canonical column name, or '' if unknown."""
+    return _CSV_HEADER_ALIASES.get(_csv_header_key(header), "")
+
 
 def write_csv(obs_list: ObsList) -> str:
+    """Serialize an ObsList to CSV. CSV is an import format, not a save format;
+    this writer exists only to drive the read/write round-trip test."""
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(
@@ -340,16 +416,28 @@ def read_csv(text: str) -> ObsList:
     entries: list[ObsListEntry] = []
     reader = csv.DictReader(io.StringIO(text))
     for row in reader:
-        name = row.get("Name", "")
-        ra_str = row.get("RA", "")
-        dec_str = row.get("Dec", "")
-        mag_str = row.get("Magnitude", "")
-        obj_type = row.get("Type", "")
-        catalog_code = row.get("CatalogCode", "")
-        seq_str = row.get("Sequence", "0")
+        fields: dict[str, str] = {}
+        ra_in_hours = False
+        for raw_key, value in row.items():
+            if raw_key is None or value is None:
+                continue
+            key = _csv_header_key(raw_key)
+            canonical = _CSV_HEADER_ALIASES.get(key, "")
+            if canonical:
+                fields[canonical] = value.strip()
+                if canonical == "RA" and key in _CSV_RA_HOURS_HEADERS:
+                    ra_in_hours = True
 
-        ra = _parse_ra_string(ra_str) if ra_str else 0.0
-        dec = _parse_dec_string(dec_str) if dec_str else 0.0
+        name = fields.get("Name", "")
+        ra_str = fields.get("RA", "")
+        dec_str = fields.get("Dec", "")
+        mag_str = fields.get("Magnitude", "")
+        obj_type = fields.get("Type", "")
+        catalog_code = fields.get("CatalogCode", "")
+        seq_str = fields.get("Sequence", "0")
+
+        ra = _parse_ra_flexible(ra_str, assume_hours=ra_in_hours)
+        dec = _parse_dec_flexible(dec_str)
         mag: Optional[float] = None
         if mag_str:
             try:
@@ -1069,9 +1157,12 @@ def detect_format(text: str, filename: str = "") -> str:
     for line in text.splitlines()[:20]:
         if line.strip().startswith("USER "):
             return "autostar"
-    # Check for CSV header
-    if stripped.startswith("Name,") or stripped.startswith('"Name"'):
-        return "csv"
+    # Check for a CSV header row: a Name column plus RA and/or Dec, any case.
+    first_line = stripped.splitlines()[0] if stripped else ""
+    if "," in first_line:
+        headers = {_normalize_csv_header(h) for h in first_line.split(",")}
+        if "Name" in headers and ("RA" in headers or "Dec" in headers):
+            return "csv"
 
     return "text"
 

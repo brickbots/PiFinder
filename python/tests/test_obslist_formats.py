@@ -140,6 +140,58 @@ def test_csv_roundtrip():
 
 
 @pytest.mark.unit
+def test_csv_import_decimal_degrees_lowercase_headers():
+    # A typical third-party export: lowercase headers, decimal-degree coords.
+    text = (
+        "name,ra,dec,mag\n"
+        "mess003,205.8583333,28.2441667,6.3\n"
+        "mess013,250.6666667,36.4111111,5.8\n"
+        "mess092,259.4916667,43.1088889,6.5\n"
+    )
+    parsed = read_csv(text)
+    assert [e.name for e in parsed.entries] == ["mess003", "mess013", "mess092"]
+    assert [round(e.ra, 2) for e in parsed.entries] == [205.86, 250.67, 259.49]
+    assert [round(e.dec, 2) for e in parsed.entries] == [28.24, 36.41, 43.11]
+    assert parsed.entries[0].mag.filter_mag == pytest.approx(6.3)
+
+
+@pytest.mark.unit
+def test_csv_import_header_aliases():
+    text = "Name,RA_deg,DEC,VMag,Obj_Type\nComet X,12.5,-3.0,9.1,Cm\n"
+    entry = read_csv(text).entries[0]
+    assert entry.name == "Comet X"
+    assert entry.ra == pytest.approx(12.5)
+    assert entry.dec == pytest.approx(-3.0)
+    assert entry.mag.filter_mag == pytest.approx(9.1)
+    assert entry.obj_type == "Cm"
+
+
+@pytest.mark.unit
+def test_csv_import_colon_coordinates():
+    text = "Name,RA,Dec\nNGC 224,00:42:44,+41:16:09\n"
+    entry = read_csv(text).entries[0]
+    assert entry.ra == pytest.approx(10.68, abs=0.05)
+    assert entry.dec == pytest.approx(41.27, abs=0.05)
+
+
+@pytest.mark.unit
+def test_csv_import_ra_hours_header():
+    # An `ra_h` header declares RA in hours; a bare decimal is scaled by 15.
+    text = "Name,RA_h,Dec\nM 3,13.7239,28.2442\n"
+    entry = read_csv(text).entries[0]
+    assert entry.ra == pytest.approx(205.86, abs=0.05)
+    assert entry.dec == pytest.approx(28.24, abs=0.05)
+
+
+@pytest.mark.unit
+def test_csv_import_ra_hours_header_ignores_sexagesimal():
+    # The hours hint only scales bare decimals, never an already-HMS value.
+    text = "Name,RA_hours,Dec\nNGC 224,00:42:44,+41:16:09\n"
+    entry = read_csv(text).entries[0]
+    assert entry.ra == pytest.approx(10.68, abs=0.05)
+
+
+@pytest.mark.unit
 def test_text_roundtrip():
     obs = _sample_list()
     text = write_text(obs)
@@ -416,6 +468,13 @@ class TestDetectFormat:
 
     def test_by_content_csv(self):
         assert detect_format("Name,RA,Dec,Magnitude\n") == "csv"
+
+    def test_by_content_csv_lowercase(self):
+        assert detect_format("name,ra,dec,mag\nM 3,205.8,28.2,6.3\n") == "csv"
+
+    def test_by_content_csv_without_extension(self):
+        # A mis-named CSV is still detected by its header row.
+        assert detect_format("Name,RA,Dec\nNGC 224,10.7,41.3\n", "list.txt") == "csv"
 
     def test_by_content_text_fallback(self):
         assert detect_format("NGC 224\nM 42\n") == "text"

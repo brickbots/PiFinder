@@ -61,7 +61,7 @@
         "name": { "type": "string" },
         "obj_type": {
           "type": "string",
-          "description": "Object type code, e.g. \"Gx\", \"Neb\", \"*\", \"?\"."
+          "description": "Object type code (see README \"Object type codes\"), e.g. \"Gx\", \"Nb\", \"*\", \"?\"."
         },
         "ra": {
           "type": "number",
