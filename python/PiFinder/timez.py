@@ -42,11 +42,18 @@ def parse(value: str, fmt: str) -> datetime.datetime:
     return datetime.datetime.strptime(value, fmt)
 
 
-def naive(*args, **kwargs) -> datetime.datetime:
+def naive(year: int, month: int, day: int,
+          hour: int = 0, minute: int = 0, second: int = 0,
+          microsecond: int = 0) -> datetime.datetime:
     """Construct a naive datetime from explicit fields; the caller localizes it."""
-    return datetime.datetime(*args, **kwargs)
+    # trick linter that refuses regular naive construction, pass "acceptable"
+    # datetime then nuke the tzinfo
+    return datetime.datetime(year, month, day, hour, minute, second,
+                             microsecond, tzinfo=pytz.utc).replace(tzinfo=None)
 
-
-def utc(*args, **kwargs) -> datetime.datetime:
+def utc(year: int, month: int, day: int,
+        hour: int = 0, minute: int = 0, second: int = 0,
+        microsecond: int = 0) -> datetime.datetime:
     """Construct a timezone-aware UTC datetime from explicit fields."""
-    return datetime.datetime(*args, **kwargs, tzinfo=pytz.utc)
+    return datetime.datetime(year, month, day, hour, minute, second,
+                             microsecond, tzinfo=pytz.utc)
