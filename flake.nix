@@ -432,5 +432,15 @@
       x86_64-linux.default = mkDevShell "x86_64-linux";
       aarch64-linux.default = mkDevShell "aarch64-linux";
     };
+
+    devShells.aarch64-darwin.default = let
+      pkgs = import nixpkgs { system = "aarch64-darwin"; };
+      pyPkgs = import ./nixos/pkgs/uv-python-darwin.nix {
+        inherit pkgs pyproject-nix uv2nix pyproject-build-systems;
+      };
+      cedar-detect = import ./nixos/pkgs/cedar-detect.nix { inherit pkgs; };
+    in pkgs.mkShell {
+      packages = [ pyPkgs.devEnv pkgs.ruff pkgs.uv cedar-detect ];
+    };
   };
 }
