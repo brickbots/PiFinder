@@ -11,6 +11,11 @@ supported-markers = [
 [manifest]
 
 [[manifest.dependency-metadata]]
+name = "cedar-solve"
+version = "0.5.1"
+requires-dist = ["numpy", "pillow", "scipy"]
+
+[[manifest.dependency-metadata]]
 name = "python-libinput"
 version = "0.3.0a0"
 requires-dist = ["cffi"]
@@ -227,6 +232,16 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/38/6b/4884b9cf03db14dc5007825d5d1bf8678a75c49d4268d8e0c1c6e9580104/cbor2-6.1.2-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:c1eedf3290d88a5f663bd8b4b8f0f0e2103d0594c293fa5f4e62e53100972309", size = 466585, upload-time = "2026-06-02T19:00:58.209Z" },
     { url = "https://files.pythonhosted.org/packages/50/f6/36a15beb3915f56a79d6e9213c6d40c0f5cb90cd3462923f555d78068847/cbor2-6.1.2-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:3049b04bddf9a5a2d0e5bb25dccdaf4552fcaf607b404e249d4f78f010fcc7d0", size = 521678, upload-time = "2026-06-02T19:00:59.524Z" },
     { url = "https://files.pythonhosted.org/packages/c6/3f/e899313371ebeb7a191d751de97ccd8242abc24bbc9d8e2c58e04475cfb0/cbor2-6.1.2-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:96eb687a62040401668f06a85de8f47361ef44574de1493899e0ec678109fc04", size = 534044, upload-time = "2026-06-02T19:01:00.875Z" },
+]
+
+[[package]]
+name = "cedar-solve"
+version = "0.5.1"
+source = { git = "https://github.com/smroid/cedar-solve?rev=d8ff1d857a363c88917fd8e126ab90e24b1cfbcc#d8ff1d857a363c88917fd8e126ab90e24b1cfbcc" }
+dependencies = [
+    { name = "numpy", marker = "sys_platform == 'linux'" },
+    { name = "pillow", marker = "sys_platform == 'linux'" },
+    { name = "scipy", marker = "sys_platform == 'linux'" },
 ]
 
 [[package]]
@@ -786,6 +801,7 @@ dependencies = [
     { name = "adafruit-circuitpython-bno055", marker = "sys_platform == 'linux'" },
     { name = "aiofiles", marker = "sys_platform == 'linux'" },
     { name = "av", marker = "sys_platform == 'linux'" },
+    { name = "cedar-solve", marker = "sys_platform == 'linux'" },
     { name = "dataclasses-json", marker = "sys_platform == 'linux'" },
     { name = "dbus-python", marker = "sys_platform == 'linux'" },
     { name = "flask", marker = "sys_platform == 'linux'" },
@@ -844,6 +860,7 @@ requires-dist = [
     { name = "adafruit-circuitpython-bno055" },
     { name = "aiofiles" },
     { name = "av" },
+    { name = "cedar-solve", git = "https://github.com/smroid/cedar-solve?rev=d8ff1d857a363c88917fd8e126ab90e24b1cfbcc" },
     { name = "dataclasses-json" },
     { name = "dbus-python" },
     { name = "flask" },

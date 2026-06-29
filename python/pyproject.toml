@@ -15,6 +15,10 @@ dependencies = [
     "skyfield",
     "timezonefinder",
     "pytz",
+    # Plate solver (the `tetra3` import package). Pinned to a cedar-solve rev via
+    # [tool.uv.sources]; its stale numpy<2/Pillow<9 caps are relaxed in
+    # [tool.uv.dependency-metadata] so it resolves against the env's numpy 2.x.
+    "cedar-solve",
     # Web / RPC
     "grpcio",
     "protobuf",
@@ -87,6 +91,11 @@ package = false
 # Deployment + dev are both Linux (aarch64 Pi, x86_64 dev); keep the lock focused.
 environments = ["sys_platform == 'linux'"]
 
+# Plate solver source: pinned cedar-solve rev (smroid upstream for now; point this
+# at our fork here when we need to carry patches).
+[tool.uv.sources]
+cedar-solve = { git = "https://github.com/smroid/cedar-solve", rev = "d8ff1d857a363c88917fd8e126ab90e24b1cfbcc" }
+
 # python-libinput's setup.py imports the removed `imp` module, so uv cannot
 # execute it to discover metadata. Declare it statically; the actual build is
 # patched in the uv2nix override.
@@ -101,6 +110,14 @@ requires-dist = ["cffi"]
 name = "python-prctl"
 version = "1.8.1"
 requires-dist = []
+
+# cedar-solve's published metadata caps numpy<2 / Pillow<9, but those bounds are
+# stale: it runs against the env's numpy 2.x / Pillow 12 (as it did when vendored
+# as a git submodule). Override so uv resolves it without dragging the env back.
+[[tool.uv.dependency-metadata]]
+name = "cedar-solve"
+version = "0.5.1"
+requires-dist = ["numpy", "pillow", "scipy"]
 
 [tool.ruff]
 builtins = ["_"]
@@ -132,7 +149,6 @@ exclude = [
     "dist",
     "node_modules",
     "site-packages",
-    "tetra3",
     "venv",
 ]
 
@@ -191,7 +207,7 @@ docstring-code-format = false
 docstring-code-line-length = "dynamic"
 
 [tool.mypy]
-exclude = "venv|tetra3|conftest"
+exclude = "venv|conftest"
 # Start off with these
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -261,12 +277,12 @@ module = [
 ignore_missing_imports = true
 ignore_errors = true
 
-# The tetra3 / cedar-solve solver is a vendored git submodule. Treat it as an
-# opaque dependency: skip following its imports so mypy never analyses it or its
-# transitive deps (protobuf, grpc stubs, …). Without this, `mypy --install-types`
-# tries to pip-install those stubs, which fails in the pip-less Nix dev env.
+# tetra3 / cedar-solve is an external (untyped) dependency. Treat it as opaque:
+# skip following its imports so mypy never analyses it or its transitive deps
+# (protobuf, grpc stubs, …). Without this, `mypy --install-types` tries to
+# pip-install those stubs, which fails in the pip-less Nix dev env.
 [[tool.mypy.overrides]]
-module = ['tetra3', 'tetra3.*', 'PiFinder.tetra3', 'PiFinder.tetra3.*']
+module = ['tetra3', 'tetra3.*']
 follow_imports = "skip"
 ignore_missing_imports = true
 

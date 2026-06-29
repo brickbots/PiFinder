@@ -17,7 +17,6 @@ home_dir = Path.home()
 pifinder_dir = Path(__file__).resolve().parents[2]
 assert (pifinder_dir / "astro_data").is_dir(), f"repo root not at {pifinder_dir}"
 astro_data_dir = pifinder_dir / "astro_data"
-tetra3_dir = pifinder_dir / "python/PiFinder/tetra3"
 data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
 observations_db = data_dir / "observations.db"
