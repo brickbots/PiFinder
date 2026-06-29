@@ -22,6 +22,7 @@ import quaternion as quaternion_module
 
 from PiFinder import calc_utils
 from PiFinder import utils
+from PiFinder import timez
 from PiFinder.types.positioning import (
     FailedSolve,
     ImuSample,
@@ -105,7 +106,7 @@ class TelemetryRecorder:
             self.stop()
 
         TELEMETRY_DIR.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = timez.local_now().strftime("%Y%m%d_%H%M%S")
         self._session_dir = TELEMETRY_DIR / timestamp
         self._session_dir.mkdir(parents=True, exist_ok=True)
         session_file = self._session_dir / "session.jsonl"
