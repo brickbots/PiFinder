@@ -191,6 +191,7 @@ Tests use pytest with custom markers for different test types. The smoke tests p
 - **Linting:** Ruff with Python 3.9 target, Black-compatible formatting
 - **Type Checking:** MyPy with gradual typing adoption
 - **Code Style:** 88-character line length, double quotes, space indentation
+- **Comments:** describe what the code does now, not how it changed. No "previously / no longer / used to / moved from" — history lives in git/jj, not in comments.
 - **I18n Support:** Babel integration for multi-language UI
 
 The codebase follows modern Python practices with type hints, comprehensive testing, and automated code quality checks integrated into the development workflow.
