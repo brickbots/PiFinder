@@ -7,8 +7,8 @@ for loading all astronomical catalogs into the PiFinder database.
 
 import argparse
 import logging
-import datetime
 
+from PiFinder import timez
 from .catalog_import_utils import print_database, resolve_object_images
 from .database import init_shared_database
 
@@ -73,7 +73,7 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     if args.log:
-        datenow = datetime.datetime.now()
+        datenow = timez.local_now()
         filehandler = f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"
         fh = logging.FileHandler(filehandler)
         fh.setLevel(logger.level)

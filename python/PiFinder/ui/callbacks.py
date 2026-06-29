@@ -17,6 +17,7 @@ import pytz
 
 from typing import Any, TYPE_CHECKING
 from PiFinder import utils, calc_utils
+from PiFinder import timez
 from PiFinder.locations import Location as SavedLocation
 from PiFinder.state import Location
 from PiFinder.ui.base import UIModule
@@ -314,7 +315,7 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     timezone_str = ui_module.shared_state.location().timezone
 
     # First create a datetime object (using today's date by default)
-    dt = datetime.strptime(time_str, "%H:%M:%S")
+    dt = timez.parse(time_str, "%H:%M:%S")
 
     # Get the timezone object
     timezone = pytz.timezone(timezone_str)
@@ -324,7 +325,9 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     # OS timezone may be different from target timezone so "now's date" needs
     # to also be taken in the target timezone!!
     now = datetime.now(timezone)
-    dt_with_date = datetime(now.year, now.month, now.day, dt.hour, dt.minute, dt.second)
+    dt_with_date = timez.naive(
+        now.year, now.month, now.day, dt.hour, dt.minute, dt.second
+    )
     dt_with_timezone = timezone.localize(dt_with_date)
 
     ui_module.command_queues["gps"].put(("time_force", {"time": dt_with_timezone}))
@@ -342,7 +345,7 @@ def set_datetime(ui_module: UIModule, date_str: str) -> None:
     timezone_str = ui_module.shared_state.location().timezone
     timezone = pytz.timezone(timezone_str)
 
-    dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
+    dt = timez.parse(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
     dt_with_timezone = timezone.localize(dt)
 
     ui_module.command_queues["gps"].put(("time_force", {"time": dt_with_timezone}))

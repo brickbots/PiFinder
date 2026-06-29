@@ -36,6 +36,7 @@ from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
 from PiFinder import server
+from PiFinder import timez
 from PiFinder import keyboard_interface
 
 from PiFinder.multiproclogging import MultiprocLogging
@@ -749,7 +750,7 @@ def main(
                     )
                     menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
-                    dt = datetime.datetime(2025, 6, 28, 11, 0, 0)
+                    dt = timez.utc(2025, 6, 28, 11, 0, 0)
                     shared_state.set_datetime(dt)
                     location.lat = 41.13
                     location.lon = -120.97
@@ -759,7 +760,7 @@ def main(
                     location.lock = True
                     location.lock_type = 3
                     location.last_gps_lock = (
-                        datetime.datetime.now().time().isoformat()[:8]
+                        timez.local_now().time().isoformat()[:8]
                     )
                     console.write(
                         f"GPS: Location {location.lat} {location.lon} {location.altitude}"

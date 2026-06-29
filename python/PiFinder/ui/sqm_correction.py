@@ -8,7 +8,6 @@ import json
 import time
 import zipfile
 import logging
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, TYPE_CHECKING
 from PIL import Image
@@ -22,6 +21,7 @@ from PiFinder.ui.numeric_entry import (
     BlinkingCursor,
 )
 from PiFinder import utils
+from PiFinder import timez
 
 if TYPE_CHECKING:
 
@@ -141,7 +141,7 @@ class UISQMCorrection(UIModule):
         # Show error or success message
         if self.error_message and self.message_time:
             # Show error for 3 seconds
-            if (datetime.now() - self.message_time).total_seconds() < 3:
+            if (timez.local_now() - self.message_time).total_seconds() < 3:
                 self.draw.text(
                     (0, message_y),
                     self.error_message,
@@ -154,7 +154,7 @@ class UISQMCorrection(UIModule):
 
         if self.success_message and self.message_time:
             # Show success for 3 seconds, then exit
-            if (datetime.now() - self.message_time).total_seconds() < 3:
+            if (timez.local_now() - self.message_time).total_seconds() < 3:
                 self.draw.text(
                     (0, message_y),
                     self.success_message,
@@ -211,12 +211,12 @@ class UISQMCorrection(UIModule):
                 self.error_message = _("Enter a value")
             else:
                 self.error_message = _("Range: 10-23")
-            self.message_time = datetime.now()
+            self.message_time = timez.local_now()
             return
 
         # Show saving message and force screen update
         self.success_message = _("Saving...")
-        self.message_time = datetime.now()
+        self.message_time = timez.local_now()
         self.update(force=True)
 
         # Create correction package
@@ -225,12 +225,12 @@ class UISQMCorrection(UIModule):
             self.success_message = _("Saved: {filename}").format(
                 filename=os.path.basename(zip_path)
             )
-            self.message_time = datetime.now()
+            self.message_time = timez.local_now()
             logger.info(f"SQM correction package saved: {zip_path}")
         except Exception as e:
             logger.error(f"Failed to create correction package: {e}")
             self.error_message = _("Save failed")
-            self.message_time = datetime.now()
+            self.message_time = timez.local_now()
 
     def _wait_for_exposure(self, target_exp_us: int, timeout: float = 5.0) -> bool:
         """Wait for camera to capture image at target exposure."""
@@ -295,7 +295,7 @@ class UISQMCorrection(UIModule):
         corrections_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate timestamp for filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = timez.local_now().strftime("%Y%m%d_%H%M%S")
         zip_filename = f"sqm_correction_{timestamp}.zip"
         zip_path = corrections_dir / zip_filename
 
@@ -379,7 +379,7 @@ class UISQMCorrection(UIModule):
     def _collect_metadata(self, corrected_sqm: float) -> Dict[str, Any]:
         """Collect all relevant metadata for the correction package"""
         metadata: Dict[str, Any] = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": timez.local_now().isoformat(),
             "sqm": {
                 "original": self.original_sqm,
                 "corrected": corrected_sqm,
