@@ -111,9 +111,13 @@ class UITimeEntry(UIModule):
     def draw_local_time_note(self):
         # Add a note about local time
         note_y = self.text_y + self.box_height + 10
+        if self.shared_state:
+            note_str = "Enter " + self.shared_state.location().timezone + " Time"
+        else:
+            note_str = "Enter Local Time"
         self.draw.text(
             (10, note_y),
-            _("Enter Local Time"),
+            _(note_str),
             font=self.fonts.base.font,
             fill=self.red,
         )
