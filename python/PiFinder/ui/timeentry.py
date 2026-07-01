@@ -108,16 +108,30 @@ class UITimeEntry(UIModule):
                 fill=self.red,
             )
 
+    def _location_locked(self) -> bool:
+        """True when a location fix exists, so manual time has a real local zone.
+
+        Manual entry is interpreted in the observer's local timezone, which we
+        only derive from a location fix; without one ``set_time`` would silently
+        fall back to UTC. This screen self-gates on it (see ADR 0019): the user
+        may open it, but the entry boxes and the ``set_time`` callback stay
+        inert -- and a "set location first" notice shows -- until a fix arrives.
+        The check is live, so the boxes appear the moment a fix locks while the
+        screen is open, without needing to back out and re-enter.
+        """
+        return bool(self.shared_state and self.shared_state.location().lock)
+
     def draw_local_time_note(self):
-        # Add a note about local time
+        # Add a note about local time. The time is entered in the observer's
+        # local zone (this screen self-gates on a location fix -- see
+        # _location_locked / update -- so a zone is always known when the boxes
+        # are shown), so a fixed label suffices and we avoid overrunning the
+        # screen with a long IANA timezone name. Mirrors UIDateEntry's
+        # "Enter Local Date".
         note_y = self.text_y + self.box_height + 10
-        if self.shared_state:
-            note_str = "Enter " + self.shared_state.location().timezone + " Time"
-        else:
-            note_str = "Enter Local Time"
         self.draw.text(
             (10, note_y),
-            _(note_str),
+            _("Enter Local Time"),
             font=self.fonts.base.font,
             fill=self.red,
         )
@@ -169,6 +183,8 @@ class UITimeEntry(UIModule):
             return False
 
     def key_number(self, number):
+        if not self._location_locked():
+            return  # gated: no location fix, so ignore digit entry
         current = self.boxes[self.current_box]
         new_value = current + str(number)
 
@@ -185,6 +201,8 @@ class UITimeEntry(UIModule):
 
     def key_minus(self):
         """Delete last digit in current box or move to previous box if empty"""
+        if not self._location_locked():
+            return  # gated: nothing to edit until a location fix exists
         if self.boxes[self.current_box]:
             # Delete the last digit
             self.boxes[self.current_box] = self.boxes[self.current_box][:-1]
@@ -194,6 +212,8 @@ class UITimeEntry(UIModule):
 
     def key_right(self):
         """Confirm time and chain to date entry, or cycle to next box."""
+        if not self._location_locked():
+            return False  # gated: don't confirm or chain to date entry
         if all(self.boxes) and self.current_box == 2:
             time_str = (
                 f"{self.boxes[0] or '00'}:{self.boxes[1] or '00'}"
@@ -223,20 +243,26 @@ class UITimeEntry(UIModule):
 
     def inactive(self):
         """Called when the module is no longer the active module"""
-        if self._skip_callback:
+        if self._skip_callback or not self._location_locked():
+            # Gated (no location fix) or an explicit cancel: never fire set_time,
+            # which would interpret the entry against a bogus (UTC) zone.
             return
         if self.custom_callback:
             time_str = f"{self.boxes[0] or '00'}:{self.boxes[1] or '00'}:{self.boxes[2] or '00'}"
             self.custom_callback(self, time_str)
 
     def update(self, force=False):
-        self.draw.rectangle((0, 0, self.width, self.height), fill=self.black)
-
-        self.draw_time_boxes()
-
-        note_y = self.draw_local_time_note()
-        separator_y = self.draw_separator(note_y + 15)
-        self.draw_legend(separator_y)
+        if not self._location_locked():
+            # Self-gate: entry is meaningless without a location's timezone, so
+            # show a "set location first" notice and let the user back out
+            # (see ADR 0019) instead of hard-blocking entry from the menu.
+            self.draw_gate_message(_("Set location\nfirst"))
+        else:
+            self.draw.rectangle((0, 0, self.width, self.height), fill=self.black)
+            self.draw_time_boxes()
+            note_y = self.draw_local_time_note()
+            separator_y = self.draw_separator(note_y + 15)
+            self.draw_legend(separator_y)
 
         if self.shared_state:
             self.shared_state.set_screen(self.screen)

@@ -1168,6 +1168,9 @@ pifinder_menu = {
                         },
                         {
                             "name": _("Set Time/Date"),
+                            # UITimeEntry self-gates on a location fix (it needs
+                            # the observer's zone); it shows a "set location
+                            # first" notice and the user backs out. See ADR 0019.
                             "class": UITimeEntry,
                             "custom_callback": callbacks.set_time,
                         },

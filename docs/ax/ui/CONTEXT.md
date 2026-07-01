@@ -58,6 +58,10 @@ _Avoid_: display, screen driver (in code-arg context).
 `active`/`inactive` fire when a module reaches / leaves the top of the stack; `update` is the per-frame redraw a module overrides; `screen_update` draws the title bar and finalises the frame.
 _Avoid_: on_show / on_hide, render (use `update`/`screen_update`).
 
+**Self-gating module**:
+A module that enforces its own runtime **precondition** rather than relying on the menu to block entry. It always opens; when the precondition is unmet it draws a "set X first" notice (via `UIModule.draw_gate_message`) instead of its normal UI, keeps its key handlers and exit callback inert, and lets the user **back out** with LEFT/Cancel. The precondition check is live (re-read each `update`). Example: `UITimeEntry`/`UIDateEntry` gate on a location fix. See [ADR 0019](../../adr/0019-ui-modules-self-gate-preconditions.md).
+_Avoid_: gated menu item, hard block, disabled screen (the menu never refuses to open a self-gating module).
+
 ### Navigation
 
 **MenuManager**:
