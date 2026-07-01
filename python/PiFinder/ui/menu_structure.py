@@ -1094,6 +1094,56 @@ pifinder_menu = {
                                         },
                                     ],
                                 },
+                                {
+                                    "name": _("GPS Port"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "gps_port",
+                                    "label": "gps_port",
+                                    "post_callback": callbacks.update_gpsd_baud_rate,
+                                    "items": [
+                                        {
+                                            "name": _("Auto"),
+                                            "value": "auto",
+                                        },
+                                        {
+                                            "name": _("ttyAMA1"),
+                                            "value": "/dev/ttyAMA1",
+                                        },
+                                        {
+                                            "name": _("ttyAMA2"),
+                                            "value": "/dev/ttyAMA2",
+                                        },
+                                        {
+                                            "name": _("ttyAMA3"),
+                                            "value": "/dev/ttyAMA3",
+                                        },
+                                        {
+                                            "name": _("serial0"),
+                                            "value": "/dev/serial0",
+                                        },
+                                        {
+                                            "name": _("ttyAMA0"),
+                                            "value": "/dev/ttyAMA0",
+                                        },
+                                        {
+                                            "name": _("ttyAMA10"),
+                                            "value": "/dev/ttyAMA10",
+                                        },
+                                        {
+                                            "name": _("ttyS0"),
+                                            "value": "/dev/ttyS0",
+                                        },
+                                        {
+                                            "name": _("ttyACM0"),
+                                            "value": "/dev/ttyACM0",
+                                        },
+                                        {
+                                            "name": _("ttyUSB0"),
+                                            "value": "/dev/ttyUSB0",
+                                        },
+                                    ],
+                                },
                             ],
                         },
                     ],
