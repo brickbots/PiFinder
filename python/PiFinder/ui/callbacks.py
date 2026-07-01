@@ -318,6 +318,30 @@ def save_location(ui_module: UIModule) -> None:
     ui_module.add_to_stack(item_definition)
 
 
+def enter_time_entry(ui_module: UIModule) -> None:
+    """
+    Gate the Set Time/Date screen on a known location.
+
+    Manual time entry is interpreted in the observer's local timezone (see
+    ``set_time`` / ``set_datetime``), which we only derive from a location fix.
+    Without a location we would silently fall back to UTC, so require a location
+    first and bounce the user with a hint instead of opening the entry screen.
+    """
+    from PiFinder.ui.timeentry import UITimeEntry
+
+    if not ui_module.shared_state.location().lock:
+        ui_module.message(_("Set location\nfirst"), 2)
+        return
+
+    ui_module.add_to_stack(
+        {
+            "name": _("Set Time/Date"),
+            "class": UITimeEntry,
+            "custom_callback": set_time,
+        }
+    )
+
+
 def set_time(ui_module: UIModule, time_str: str) -> None:
     """
     Sets the time from the time entry UI

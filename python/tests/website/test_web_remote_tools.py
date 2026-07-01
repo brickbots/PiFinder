@@ -1,10 +1,14 @@
+import requests
+
 import pytest
 from web_test_utils import (
+    get_homepage_url,
     login_to_remote,
     navigate_to_root_menu,
     press_keys,
     press_keys_and_validate,
 )
+
 
 """
 Tests for the Tools menu in PiFinder's remote control interface.
@@ -26,7 +30,7 @@ Tools menu (root → DDD → R) items (0-indexed):
 Place & Time submenu (0-indexed):
   0: GPS Status      (UIGPSStatus screen)
   1: Set Location    (submenu: Enter Coords, Load Location, Save Location)
-  2: Set Time/Date   (UITimeEntry screen)
+  2: Set Time/Date   (callback: enter_time_entry -> UITimeEntry; gated on location)
   3: Reset Location  (callback: gps_reset)
   4: Reset Time/Date (callback: datetime_reset)
 
@@ -34,6 +38,27 @@ Key sequences from navigate_to_root_menu() (lands on Objects in root menu):
   DDD  → highlight Tools (index 5, 3 downs from Objects=2)
   R    → enter Tools submenu (now at Status, index 0)
 """
+
+
+def _force_location(driver, lat=50.0, lon=3.0, altitude=10.0):
+    """Establish a location fix via the web GPS endpoint.
+
+    Set Time/Date is gated on a known location (callbacks.enter_time_entry), so
+    tests that need to reach UITimeEntry must first seed a fix. POST /gps/update
+    sleeps ~1s server-side to let the GPS thread apply the fix before returning.
+    """
+    cookies = {cookie["name"]: cookie["value"] for cookie in driver.get_cookies()}
+    resp = requests.post(
+        f"{get_homepage_url()}/gps/update",
+        data={
+            "latitudeDecimal": str(lat),
+            "longitudeDecimal": str(lon),
+            "altitude": str(altitude),
+        },
+        cookies=cookies,
+    )
+    assert resp.status_code in (200, 302)
+
 
 # ---------------------------------------------------------------------------
 # Tools menu entry
@@ -128,8 +153,14 @@ def test_tools_gps_status_screen(driver):
 
 @pytest.mark.web
 def test_tools_set_time_screen(driver):
-    """Tools > Place & Time > Set Time/Date opens the UITimeEntry screen."""
+    """Tools > Place & Time > Set Time/Date opens UITimeEntry once a location is set.
+
+    Set Time/Date is gated on a location fix (callbacks.enter_time_entry), so we
+    seed one first; otherwise the menu shows a "Set location first" hint and
+    stays put instead of opening the entry screen.
+    """
     login_to_remote(driver)
+    _force_location(driver)
     navigate_to_root_menu(driver)
 
     # DDDRDDR = enter Place & Time at GPS Status (index 0)

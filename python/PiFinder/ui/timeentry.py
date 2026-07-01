@@ -109,15 +109,15 @@ class UITimeEntry(UIModule):
             )
 
     def draw_local_time_note(self):
-        # Add a note about local time
+        # Add a note about local time. The time is entered in the observer's
+        # local zone (a location is required to reach this screen -- see the
+        # gate in callbacks.enter_time_entry), so a fixed label suffices and we
+        # avoid overrunning the screen with a long IANA timezone name. Mirrors
+        # UIDateEntry's "Enter Local Date".
         note_y = self.text_y + self.box_height + 10
-        if self.shared_state:
-            note_str = "Enter " + self.shared_state.location().timezone + " Time"
-        else:
-            note_str = "Enter Local Time"
         self.draw.text(
             (10, note_y),
-            _(note_str),
+            _("Enter Local Time"),
             font=self.fonts.base.font,
             fill=self.red,
         )

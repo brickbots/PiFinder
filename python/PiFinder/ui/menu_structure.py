@@ -1,6 +1,5 @@
 from typing import Any
 from PiFinder.obj_types import OBJ_TYPES
-from PiFinder.ui.timeentry import UITimeEntry
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.status import UIStatus
@@ -1168,8 +1167,10 @@ pifinder_menu = {
                         },
                         {
                             "name": _("Set Time/Date"),
-                            "class": UITimeEntry,
-                            "custom_callback": callbacks.set_time,
+                            # Gated on a location fix: enter_time_entry pushes
+                            # UITimeEntry only once a location is known, so the
+                            # entered time has a real local timezone.
+                            "callback": callbacks.enter_time_entry,
                         },
                         {"name": _("Reset Location"), "callback": callbacks.gps_reset},
                         {
