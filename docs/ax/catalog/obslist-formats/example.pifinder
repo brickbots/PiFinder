@@ -18,7 +18,7 @@
     },
     {
       "name": "Barnard's Loop",
-      "obj_type": "Neb",
+      "obj_type": "Nb",
       "ra": 84.5,
       "dec": -3.0,
       "mag": { "mags": [5.0], "filter_mag": 5.0 },
