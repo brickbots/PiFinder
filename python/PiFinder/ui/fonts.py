@@ -52,16 +52,15 @@ class Fonts:
     ):
         font_path = str(Path(utils.pifinder_dir, "fonts"))
 
-        # Check for chinese language specifically
+        # CJK languages need a font with the required glyph coverage.
         cfg = config.Config()
         lang = cfg.get_option("language", "en")
-        if lang == "zh":
-            # Use Chinese font for Chinese language
-            chinesettf = str(
+        if lang in ["ko", "zh"]:
+            cjk_ttf = str(
                 Path(font_path, "sarasa-mono-sc-light-nerd-font+patched.ttf")
             )
-            boldttf = chinesettf
-            regularttf = chinesettf
+            boldttf = cjk_ttf
+            regularttf = cjk_ttf
             use_layout_engine = False
         else:
             # Use default fonts for other languages
