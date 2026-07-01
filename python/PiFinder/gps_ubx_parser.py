@@ -419,6 +419,7 @@ class UBXParser:
             "leapSeconds": leapS,
             "valid": bool(valid & 0x01),
             "tAcc": tAcc * 1e-9,
+            "tAcc_ns": tAcc,
         }
         logger.debug(f"NAV-TIMEGPS result: {result}")
         return result
@@ -473,8 +474,9 @@ class UBXParser:
         hour = data[8]
         minute = data[9]
         seconds = data[10]
-        tAcc = int.from_bytes(data[24:28], "little", signed=False) / 1e9  # nano seconds
-        nano = int.from_bytes(data[24:28], "little", signed=True) / 1e9  # nano seconds
+        valid = data[11]
+        tAcc_ns = int.from_bytes(data[12:16], "little", signed=False)
+        nano_ns = int.from_bytes(data[16:20], "little", signed=True)
         gpsFix = data[20]
         numSV = data[23]
         lon = int.from_bytes(data[24:28], "little", signed=True) / 1e7
@@ -494,6 +496,20 @@ class UBXParser:
         pDOP = (
             int.from_bytes(data[76:78], "little", signed=False) / 100.0
         )  # position DOP
+        valid_time = bool((valid & 0x03) == 0x03)
+        utc_time = None
+        try:
+            utc_time = datetime.datetime(
+                year,
+                month,
+                day,
+                hour,
+                minute,
+                seconds,
+                tzinfo=datetime.timezone.utc,
+            ) + datetime.timedelta(seconds=nano_ns * 1e-9)
+        except ValueError:
+            valid_time = False
 
         result = {
             "class": "NAV-PVT",
@@ -503,8 +519,11 @@ class UBXParser:
             "UTChour": hour,
             "UTCminute": minute,
             "UTCseconds": seconds,
-            "UTCnano": nano,
-            "tAcc": tAcc,
+            "UTCnano": nano_ns,
+            "time": utc_time,
+            "valid": valid_time,
+            "tAcc": tAcc_ns * 1e-9,
+            "tAcc_ns": tAcc_ns,
             "mode": gpsFix,
             "lat": lat,
             "lon": lon,

@@ -7,6 +7,7 @@ from PiFinder.ui.status import UIStatus
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
 from PiFinder.ui.gpsstatus import UIGPSStatus
+from PiFinder.ui.gps_time_sync_status import UIGPSTimeSyncStatus
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.align_daytime import UIAlignDaytime
@@ -1096,6 +1097,169 @@ pifinder_menu = {
                                 },
                             ],
                         },
+                        {
+                            "name": _("Time Sync"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": _("Time Sync"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "time_sync_enabled",
+                                    "post_callback": callbacks.reload_config,
+                                    "items": [
+                                        {
+                                            "name": _("Off"),
+                                            "value": False,
+                                        },
+                                        {
+                                            "name": _("On"),
+                                            "value": True,
+                                        },
+                                    ],
+                                },
+                                {
+                                    "name": _("Source Mode"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "time_sync_source_mode",
+                                    "post_callback": callbacks.reload_config,
+                                    "items": [
+                                        {
+                                            "name": _("Best"),
+                                            "value": "best",
+                                        },
+                                        {
+                                            "name": _("GPS"),
+                                            "value": "gps",
+                                        },
+                                        {
+                                            "name": _("NTP"),
+                                            "value": "ntp",
+                                        },
+                                    ],
+                                },
+                                {
+                                    "name": _("GPS Source"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "gps_time_sync",
+                                    "post_callback": callbacks.reload_config,
+                                    "items": [
+                                        {
+                                            "name": _("Off"),
+                                            "value": False,
+                                        },
+                                        {
+                                            "name": _("On"),
+                                            "value": True,
+                                        },
+                                    ],
+                                },
+                                {
+                                    "name": _("NTP Source"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "ntp_time_sync",
+                                    "post_callback": callbacks.reload_config,
+                                    "items": [
+                                        {
+                                            "name": _("Off"),
+                                            "value": False,
+                                        },
+                                        {
+                                            "name": _("On"),
+                                            "value": True,
+                                        },
+                                    ],
+                                },
+                                {
+                                    "name": _("NTP Server"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "ntp_server",
+                                    "post_callback": callbacks.reload_config,
+                                    "items": [
+                                        {
+                                            "name": _("pool.ntp.org"),
+                                            "value": "pool.ntp.org",
+                                        },
+                                        {
+                                            "name": _("time.google.com"),
+                                            "value": "time.google.com",
+                                        },
+                                        {
+                                            "name": _("time.cloudflare.com"),
+                                            "value": "time.cloudflare.com",
+                                        },
+                                        {
+                                            "name": _("time.nist.gov"),
+                                            "value": "time.nist.gov",
+                                        },
+                                        {
+                                            "name": _("Custom"),
+                                            "value": "custom",
+                                            "callback": callbacks.edit_custom_ntp_server,
+                                            "name_suffix_callback": (
+                                                callbacks.get_custom_ntp_server_display
+                                            ),
+                                        },
+                                    ],
+                                },
+                                {
+                                    "name": _("Software PPS"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "software_pps",
+                                    "post_callback": callbacks.reload_config,
+                                    "items": [
+                                        {
+                                            "name": _("Off"),
+                                            "value": False,
+                                        },
+                                        {
+                                            "name": _("On"),
+                                            "value": True,
+                                        },
+                                    ],
+                                },
+                                {
+                                    "name": _("System Clock"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "time_sync_system_clock",
+                                    "post_callback": callbacks.reload_config,
+                                    "items": [
+                                        {
+                                            "name": _("Off"),
+                                            "value": False,
+                                        },
+                                        {
+                                            "name": _("On"),
+                                            "value": True,
+                                        },
+                                    ],
+                                },
+                                {
+                                    "name": _("RTC Sync"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "rtc_sync",
+                                    "post_callback": callbacks.reload_config,
+                                    "items": [
+                                        {
+                                            "name": _("Off"),
+                                            "value": False,
+                                        },
+                                        {
+                                            "name": _("On"),
+                                            "value": True,
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
@@ -1146,6 +1310,10 @@ pifinder_menu = {
                         {
                             "name": _("GPS Status"),
                             "class": UIGPSStatus,
+                        },
+                        {
+                            "name": _("Time Sync"),
+                            "class": UIGPSTimeSyncStatus,
                         },
                         {
                             "name": _("Set Location"),
