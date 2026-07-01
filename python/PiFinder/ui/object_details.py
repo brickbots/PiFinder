@@ -26,12 +26,15 @@ from PiFinder.ui.ui_utils import (
 )
 from PiFinder import calc_utils
 import functools
+import logging
 
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.db.objects_db import ObjectsDatabase
 import numpy as np
 import time
 import pydeepskylog as pds
+
+logger = logging.getLogger("UI.ObjectDetails")
 
 
 # Read-only handle to the catalog DB, opened once and shared across detail
@@ -685,6 +688,68 @@ class UIObjectDetails(UIModule):
             self.message(_("Too Far"), 2)
 
         return True
+
+    def _mount_control_queue(self):
+        if not self.config_object.get_option("mount_control", False):
+            return None
+        return self.command_queues.get("mountcontrol")
+
+    def _current_pointing_radec(self):
+        solution = self.shared_state.solution()
+        if not solution or not solution.has_pointing():
+            return None
+        aligned = solution.pointing.aligned.estimate
+        if aligned is None:
+            return None
+        return aligned.RA, aligned.Dec
+
+    def key_number(self, number):
+        """Handle Object Details numeric keys for optional INDI mount control."""
+        mountcontrol_queue = self._mount_control_queue()
+        if mountcontrol_queue is None:
+            return
+
+        if number == 0:
+            mountcontrol_queue.put({"type": "stop_movement"})
+            self.message(_("Mount Stop"), 1)
+        elif number == 1:
+            mountcontrol_queue.put({"type": "init"})
+            pointing = self._current_pointing_radec()
+            if pointing is not None:
+                mountcontrol_queue.put(
+                    {"type": "sync", "ra": pointing[0], "dec": pointing[1]}
+                )
+            self.message(_("Mount Init"), 1)
+        elif number == 2:
+            mountcontrol_queue.put({"type": "manual_movement", "direction": "south"})
+        elif number == 3:
+            mountcontrol_queue.put({"type": "reduce_step_size"})
+        elif number == 4:
+            mountcontrol_queue.put({"type": "manual_movement", "direction": "west"})
+        elif number == 5:
+            mountcontrol_queue.put(
+                {
+                    "type": "goto_target",
+                    "ra": self.object.ra,
+                    "dec": self.object.dec,
+                }
+            )
+            self.message(_("Mount GoTo"), 1)
+        elif number == 6:
+            mountcontrol_queue.put({"type": "manual_movement", "direction": "east"})
+        elif number == 7:
+            pointing = self._current_pointing_radec()
+            if pointing is None:
+                self.message(_("No solve"), 1)
+                return
+            mountcontrol_queue.put({"type": "sync", "ra": pointing[0], "dec": pointing[1]})
+            self.message(_("Mount Sync"), 1)
+        elif number == 8:
+            mountcontrol_queue.put({"type": "manual_movement", "direction": "north"})
+        elif number == 9:
+            mountcontrol_queue.put({"type": "increase_step_size"})
+        else:
+            logger.warning("Unhandled mount-control number key: %s", number)
 
     def key_down(self):
         self.maybe_add_to_recents()
