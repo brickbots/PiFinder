@@ -7,11 +7,12 @@ import os
 import argparse
 import sys
 import multiprocessing
-from datetime import datetime, timezone
+from datetime import timezone
 
 import pydeepskylog as pds
 from PIL import Image
 from PiFinder import utils, calc_utils, config
+from PiFinder import timez
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
@@ -332,7 +333,7 @@ class Server:
             gps_lock(float(lat), float(lon), float(altitude))
             if time_req and date_req:
                 datetime_str = f"{date_req} {time_req}"
-                datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+                datetime_obj = timez.parse(datetime_str, "%Y-%m-%d %H:%M:%S")
                 datetime_utc = datetime_obj.replace(tzinfo=timezone.utc)
                 time_lock(datetime_utc)
             logger.debug(
@@ -969,11 +970,10 @@ class Server:
         def download_logs():
             import zipfile
             import tempfile
-            from datetime import datetime
 
             try:
                 # Create a temporary zip file
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                timestamp = timez.local_now().strftime("%Y%m%d_%H%M%S")
 
                 with tempfile.NamedTemporaryFile(
                     delete=False, suffix=".zip"
@@ -1207,7 +1207,7 @@ class Server:
             self.gps_queue.put(msg)
             logger.debug("Putting location msg on gps_queue: {msg}")
 
-        def time_lock(time=datetime.now()):
+        def time_lock(time=timez.local_now()):
             msg = ("time", time)
             self.gps_queue.put(msg)
             logger.debug("Putting time msg on gps_queue: {msg}")

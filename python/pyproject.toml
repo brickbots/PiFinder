@@ -47,7 +47,9 @@ preview = true
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
-select = ["E4", "E7", "E9", "F"]
+# DTZ (flake8-datetimez) forbids naive datetimes; all datetime construction
+# goes through PiFinder/timez.py, the only file exempt from DTZ (see ADR-0018).
+select = ["E4", "E7", "E9", "F", "DTZ"]
 ignore = []
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
@@ -56,6 +58,9 @@ unfixable = []
 
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+"PiFinder/timez.py" = ["DTZ"]
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.

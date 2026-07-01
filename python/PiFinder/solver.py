@@ -26,6 +26,7 @@ import grpc
 
 from PiFinder import state_utils
 from PiFinder import utils
+from PiFinder import timez
 from PiFinder.sqm import SQM as SQMCalculator
 from PiFinder.state import SQM as SQMState
 from PiFinder.types.positioning import (
@@ -154,7 +155,7 @@ def update_sqm(
             new_sqm_state = SQMState(
                 value=sqm_value,
                 source="Calculated",
-                last_update=datetime.now().isoformat(),
+                last_update=timez.local_now().isoformat(),
             )
             shared_state.set_sqm(new_sqm_state)
             logger.info(f"SQM updated: {sqm_value:.2f} mag/arcsec²")

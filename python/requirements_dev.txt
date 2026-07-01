@@ -10,6 +10,14 @@ pre-commit==3.7.1
 Babel==2.16.0
 xlrd==2.0.2
 selenium==4.15.0
+types-pytz==2022.7.1
+pynput
+types-pynput
+types-requests==2.28.2
+types-aiofiles
+types-tqdm==4.65.0
+pandas-stubs
+types-waitress
 # Test-only: drift guard for the .pifinder JSON Schema (test_pifinder_schema.py)
 jsonschema==4.23.0
 # Pin to avoid pyobjc 12.0 which has macOS 15 build issues

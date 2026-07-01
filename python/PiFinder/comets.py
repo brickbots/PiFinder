@@ -4,6 +4,7 @@ from skyfield.data import mpc
 from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
 from PiFinder.utils import Timer, comet_file
 from PiFinder.calc_utils import sf_utils
+from PiFinder import timez
 import numpy as np
 import pandas as pd
 import requests
@@ -84,9 +85,7 @@ def check_if_comet_download_needed(
             last_modified, "%a, %d %b %Y %H:%M:%S GMT"
         ).replace(tzinfo=timezone.utc)
 
-        local_date = datetime.fromtimestamp(os.path.getmtime(local_filename)).replace(
-            tzinfo=timezone.utc
-        )
+        local_date = timez.utc_from_timestamp(os.path.getmtime(local_filename))
 
         if remote_date > local_date:
             age_diff = (remote_date - local_date).total_seconds() / 86400

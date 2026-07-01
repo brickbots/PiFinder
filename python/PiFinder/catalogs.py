@@ -3,7 +3,6 @@ import logging
 import re
 import time
 import datetime
-import pytz
 import threading
 from pprint import pformat
 from typing import List, Dict, DefaultDict, Optional, Union
@@ -25,6 +24,7 @@ from PiFinder.catalog_base import (
     VirtualIDManager,
 )
 from PiFinder import catalog_cache
+from PiFinder import timez
 
 logger = logging.getLogger("Catalog")
 
@@ -917,7 +917,7 @@ class CatalogBuilder:
         # This will be re-initialized on activation of Catalog ui module
         # if we have GPS lock
         planet_catalog: Catalog = PlanetCatalog(
-            dt=datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC")),
+            dt=timez.utc_now(),
             shared_state=shared_state,
         )
         all_catalogs.add(planet_catalog)
@@ -926,7 +926,7 @@ class CatalogBuilder:
         from PiFinder.comet_catalog import CometCatalog
 
         comet_catalog: Catalog = CometCatalog(
-            datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC")),
+            timez.utc_now(),
             shared_state=shared_state,
         )
         all_catalogs.add(comet_catalog)

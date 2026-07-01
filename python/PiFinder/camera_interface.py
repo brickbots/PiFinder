@@ -13,13 +13,12 @@ from typing import Tuple, Optional
 from PIL import Image
 import os
 import time
-import datetime
 import numpy as np
 import queue
 import threading
 import logging
 
-from PiFinder import state_utils, utils
+from PiFinder import state_utils, timez, utils
 import PiFinder.pointing_model.quaternion_transforms as qt
 from PiFinder.auto_exposure import (
     ExposurePIDController,
@@ -576,7 +575,7 @@ class CameraInterface:
                                 timestamp = gps_time.strftime("%Y%m%d_%H%M%S")
                             else:
                                 # Fallback to Pi time if GPS not available
-                                timestamp = datetime.datetime.now().strftime(
+                                timestamp = timez.local_now().strftime(
                                     "%Y%m%d_%H%M%S"
                                 )
                                 logger.warning(

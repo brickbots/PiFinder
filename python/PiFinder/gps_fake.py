@@ -9,10 +9,10 @@ import asyncio
 from multiprocessing import Queue
 import os
 import time
-import datetime
 import logging
 
 from PiFinder import utils
+from PiFinder import timez
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.gps_ubx_parser import UBXParser
 from PiFinder.gps_ubx import process_messages
@@ -116,7 +116,7 @@ def gps_monitor(gps_queue, console_queue, log_queue, file_name="test.ubx"):
             if error_in_m >= error_stop:
                 error_in_m -= error_delta
 
-            tm = ("time", {"time": datetime.datetime.now()})
+            tm = ("time", {"time": timez.utc_now()})
             gps_queue.put(tm)
 
             if (i % 20) == 0:

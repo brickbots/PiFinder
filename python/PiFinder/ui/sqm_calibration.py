@@ -26,6 +26,7 @@ from typing import Optional, List
 from PiFinder.types.positioning import PointingEstimate
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
+from PiFinder import timez
 
 logger = logging.getLogger("PiFinder.SQMCalibration")
 
@@ -982,10 +983,9 @@ class UISQMCalibration(UIModule):
 
         if self.save_frames_enabled:
             # Create timestamped directory for this calibration run
-            import datetime
             from PiFinder import utils
 
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = timez.local_now().strftime("%Y%m%d_%H%M%S")
             self.calibration_output_dir = os.path.join(
                 utils.data_dir, "calibration", f"sqm_cal_{timestamp}"
             )
