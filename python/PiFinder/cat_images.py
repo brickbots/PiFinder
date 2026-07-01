@@ -11,10 +11,14 @@ from typing import List, Optional, Tuple
 from PIL import Image, ImageChops, ImageDraw
 from PiFinder import image_util
 from PiFinder import utils
+from PiFinder.object_image_store import resolve_image_name
 import PiFinder.ui.ui_utils as ui_utils
 import logging
 
-BASE_IMAGE_PATH = f"{utils.data_dir}/catalog_images"
+# On-disk layout, image-dir creation and (sourceless) name resolution now live
+# in the shared object-image core (object_image_store); see ADR 0018.  This
+# module keeps only the runtime **Display** logic and imports resolve_image_name
+# for it below.
 CATALOG_PATH = f"{utils.astro_data_dir}/pifinder_objects.db"
 
 
@@ -195,7 +199,7 @@ def get_display_image(
     roll:
         degrees
     """
-    object_image_path = resolve_image_name(catalog_object, source="POSS")
+    object_image_path = resolve_image_name(catalog_object)
     logger.debug("object_image_path = %s", object_image_path)
     if not os.path.exists(object_image_path):
         return_image = Image.new("RGB", display_class.resolution)
@@ -402,46 +406,3 @@ def get_display_image(
         )
 
     return return_image
-
-
-def resolve_image_name(catalog_object, source):
-    """
-    returns the image path for this object
-    """
-
-    def create_image_path(image_name):
-        last_char = str(image_name)[-1]
-        image = f"{BASE_IMAGE_PATH}/{last_char}/{image_name}_{source}.jpg"
-        exists = os.path.exists(image)
-        return exists, image
-
-    # Try primary name
-    image_name = f"{catalog_object.catalog_code}{catalog_object.sequence}"
-    ok, image = create_image_path(image_name)
-
-    if ok:
-        catalog_object.image_name = image
-        return image
-
-    # Try alternatives
-    for name in catalog_object.names:
-        alt_image_name = f"{''.join(name.split())}"
-        ok, image = create_image_path(alt_image_name)
-        if ok:
-            catalog_object.image_name = image
-            return image
-
-    return ""
-
-
-def create_catalog_image_dirs():
-    """
-    Checks for and creates catalog_image dirs
-    """
-    if not os.path.exists(BASE_IMAGE_PATH):
-        os.makedirs(BASE_IMAGE_PATH)
-
-    for i in range(0, 10):
-        _image_dir = f"{BASE_IMAGE_PATH}/{i}"
-        if not os.path.exists(_image_dir):
-            os.makedirs(_image_dir)

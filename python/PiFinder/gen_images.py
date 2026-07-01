@@ -1,15 +1,24 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-Fetch images from sky survey sources (NASA SkyView POSS, SDSS DR18)
-and prepare them for PiFinder use.
+**Generate** object images (ADR 0018) — the dev-side, off-device step.
+
+Fetches a cutout from a sky survey (NASA SkyView POSS, SDSS DR18) and writes one
+**sourceless** image per object (``<digit>/<image_name>.jpg``) ready to publish
+to the CDN.  Which survey to (re)generate from is read per object from
+``object_images.source`` — the recorded curation directive — with ``NULL`` ("not
+yet curated") falling back to POSS.  This is the *only* place an image source is
+read or acted on; resolution, display and the on-device download never branch on
+it.
+
+Multi-source candidate staging and the discriminator (which would *write*
+``source``) are out of v1 scope: this tool produces the single canonical image
+for the recorded (or default) source.
 
 Usage:
-    python -m PiFinder.gen_images                  # Fetch missing images
-    python -m PiFinder.gen_images --force           # Re-fetch ALL images
-    python -m PiFinder.gen_images --force --poss    # Re-fetch POSS only
-    python -m PiFinder.gen_images --force --sdss    # Re-fetch SDSS only
-    python -m PiFinder.gen_images --workers 20      # More concurrency
+    python -m PiFinder.gen_images                  # fetch missing images
+    python -m PiFinder.gen_images --force          # re-fetch ALL images
+    python -m PiFinder.gen_images --workers 20     # more concurrency
 """
 
 import argparse
@@ -18,18 +27,17 @@ import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
-from typing import Dict, List, Tuple, cast
+from typing import List, Tuple, cast
 
 import requests
 from PIL import Image, ImageOps
 from tqdm import tqdm
 
+from PiFinder import object_image_store as store
 from PiFinder import utils
 
-BASE_IMAGE_PATH = f"{utils.data_dir}/catalog_images"
-
-# Catalogs that are excluded from image fetching (no meaningful survey images)
-EXCLUDED_CATALOGS = {"WDS"}
+# Default survey for an uncurated (NULL/empty) ``object_images.source``.
+DEFAULT_SOURCE = "POSS"
 
 SKYVIEW_URL = (
     "https://skyview.gsfc.nasa.gov/current/cgi/runquery.pl"
@@ -43,9 +51,14 @@ SDSS_URL = (
 )
 
 
-def resolve_image_path(image_name: str, source: str) -> str:
-    last_char = str(image_name)[-1]
-    return f"{BASE_IMAGE_PATH}/{last_char}/{image_name}_{source}.jpg"
+def survey_for(source) -> str:
+    """Survey to (re)generate this object's image from.
+
+    Reads the recorded curation directive; ``NULL``/empty/unknown falls back to
+    the default (POSS).  See ADR 0018.
+    """
+    normalized = (source or "").strip().upper()
+    return normalized if normalized in ("POSS", "SDSS") else DEFAULT_SOURCE
 
 
 def check_sdss_image(image: Image.Image) -> bool:
@@ -68,10 +81,9 @@ def check_sdss_image(image: Image.Image) -> bool:
 
 
 def fetch_poss(
-    session: requests.Session, ra: float, dec: float, image_name: str, low_cut: int = 10
+    session: requests.Session, ra: float, dec: float, path: str, low_cut: int = 10
 ) -> Tuple[bool, str]:
-    """Fetch POSS image from NASA SkyView."""
-    path = resolve_image_path(image_name, "POSS")
+    """Fetch a POSS image from NASA SkyView and save it (sourceless) to ``path``."""
     url = SKYVIEW_URL.format(ra=ra, dec=dec)
     try:
         resp = session.get(url, timeout=60)
@@ -88,10 +100,9 @@ def fetch_poss(
 
 
 def fetch_sdss(
-    session: requests.Session, ra: float, dec: float, image_name: str
+    session: requests.Session, ra: float, dec: float, path: str
 ) -> Tuple[bool, str]:
-    """Fetch SDSS DR18 image."""
-    path = resolve_image_path(image_name, "SDSS")
+    """Fetch an SDSS DR18 image and save it (sourceless) to ``path``."""
     url = SDSS_URL.format(ra=ra, dec=dec)
     try:
         resp = session.get(url, timeout=60)
@@ -114,119 +125,82 @@ def fetch_object(
     ra: float,
     dec: float,
     image_name: str,
-    do_poss: bool,
-    do_sdss: bool,
+    source,
     force: bool,
-) -> Tuple[str, Dict[str, Tuple[bool, str]]]:
-    """Fetch survey images for one object."""
-    results: Dict[str, Tuple[bool, str]] = {}
-
-    if do_poss:
-        path = resolve_image_path(image_name, "POSS")
-        if force or not os.path.exists(path):
-            results["POSS"] = fetch_poss(session, ra, dec, image_name)
-        else:
-            results["POSS"] = (True, "exists")
-
-    if do_sdss:
-        path = resolve_image_path(image_name, "SDSS")
-        if force or not os.path.exists(path):
-            results["SDSS"] = fetch_sdss(session, ra, dec, image_name)
-        else:
-            results["SDSS"] = (True, "exists")
-
-    return image_name, results
+) -> Tuple[str, str, Tuple[bool, str]]:
+    """Generate the one sourceless image for an object from its recorded source."""
+    survey = survey_for(source)
+    path = store.local_image_path(image_name)
+    if not force and os.path.exists(path):
+        return image_name, survey, (True, "exists")
+    if survey == "SDSS":
+        result = fetch_sdss(session, ra, dec, path)
+    else:
+        result = fetch_poss(session, ra, dec, path)
+    return image_name, survey, result
 
 
-def get_objects_to_fetch() -> List[Tuple[float, float, str]]:
-    """Get all non-WDS objects with their coordinates and image names."""
-    db_path = utils.pifinder_db
-    conn = sqlite3.connect(str(db_path))
+def get_objects_to_fetch() -> List[Tuple[float, float, str, object]]:
+    """All CDN-eligible objects with coordinates, image name and recorded source."""
+    conn = sqlite3.connect(str(utils.pifinder_db))
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    excluded_placeholders = ",".join("?" for _ in EXCLUDED_CATALOGS)
+    excluded = ",".join("?" for _ in store.EXCLUDED_CATALOGS)
     cursor.execute(
         f"""
-        SELECT DISTINCT o.ra, o.dec, oi.image_name
+        SELECT DISTINCT o.ra, o.dec, oi.image_name, oi.source
         FROM objects o
         JOIN object_images oi ON oi.object_id = o.id
         JOIN catalog_objects co ON co.object_id = o.id
-        WHERE co.catalog_code NOT IN ({excluded_placeholders})
+        WHERE co.catalog_code NOT IN ({excluded})
           AND oi.image_name != ''
         """,
-        list(EXCLUDED_CATALOGS),
+        list(store.EXCLUDED_CATALOGS),
     )
-    rows = [(r["ra"], r["dec"], r["image_name"]) for r in cursor.fetchall()]
+    rows = [
+        (r["ra"], r["dec"], r["image_name"], r["source"]) for r in cursor.fetchall()
+    ]
     conn.close()
     return rows
 
 
-def create_catalog_image_dirs():
-    if not os.path.exists(BASE_IMAGE_PATH):
-        os.makedirs(BASE_IMAGE_PATH)
-    for i in range(0, 10):
-        d = f"{BASE_IMAGE_PATH}/{i}"
-        if not os.path.exists(d):
-            os.makedirs(d)
-
-
 def main():
     parser = argparse.ArgumentParser(
-        description="Fetch survey images for PiFinder objects"
+        description="Generate (survey-fetch) sourceless PiFinder object images"
     )
     parser.add_argument(
         "--force", action="store_true", help="Re-fetch even if image exists"
     )
-    parser.add_argument("--poss", action="store_true", help="Fetch POSS only")
-    parser.add_argument("--sdss", action="store_true", help="Fetch SDSS only")
     parser.add_argument(
         "--workers", type=int, default=10, help="Concurrent workers (default: 10)"
     )
     args = parser.parse_args()
 
-    do_poss = True
-    do_sdss = True
-    if args.poss and not args.sdss:
-        do_sdss = False
-    elif args.sdss and not args.poss:
-        do_poss = False
-
-    create_catalog_image_dirs()
+    store.create_catalog_image_dirs()
 
     print("Querying objects from database...")
     objects = get_objects_to_fetch()
-    print(f"Found {len(objects)} objects (excluding {', '.join(EXCLUDED_CATALOGS)})")
+    print(
+        f"Found {len(objects)} objects "
+        f"(excluding {', '.join(sorted(store.EXCLUDED_CATALOGS))})"
+    )
 
     if args.force:
         to_fetch = objects
         print(f"Force mode: will re-fetch all {len(to_fetch)} objects")
     else:
-        to_fetch = []
-        for ra, dec, name in objects:
-            poss_missing = do_poss and not os.path.exists(
-                resolve_image_path(name, "POSS")
-            )
-            sdss_missing = do_sdss and not os.path.exists(
-                resolve_image_path(name, "SDSS")
-            )
-            if poss_missing or sdss_missing:
-                to_fetch.append((ra, dec, name))
+        to_fetch = [
+            obj for obj in objects if not os.path.exists(store.local_image_path(obj[2]))
+        ]
         print(f"Missing images: {len(to_fetch)} of {len(objects)}")
 
     if not to_fetch:
         print("Nothing to fetch!")
         return
 
-    sources = []
-    if do_poss:
-        sources.append("POSS")
-    if do_sdss:
-        sources.append("SDSS")
-    print(f"Fetching: {', '.join(sources)} with {args.workers} workers")
-
     session = requests.Session()
-    session.headers.update({"User-Agent": "PiFinder-ImageGenerator/2.0"})
+    session.headers.update({"User-Agent": "PiFinder-ImageGenerator/3.0"})
 
     failed: List[Tuple[str, str]] = []
     fetched = 0
@@ -236,30 +210,30 @@ def main():
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         futures = {
             executor.submit(
-                fetch_object, session, ra, dec, name, do_poss, do_sdss, args.force
+                fetch_object, session, ra, dec, name, source, args.force
             ): name
-            for ra, dec, name in to_fetch
+            for ra, dec, name, source in to_fetch
         }
 
         for future in tqdm(
-            as_completed(futures), total=len(futures), desc="Downloading"
+            as_completed(futures), total=len(futures), desc="Generating"
         ):
             name = futures[future]
             try:
-                _, results = future.result()
-                for source, (ok, err) in results.items():
-                    if err == "exists":
-                        skipped += 1
-                    elif ok:
-                        fetched += 1
-                    else:
-                        failed.append((f"{name}_{source}", err))
+                _, survey, (ok, err) = future.result()
+                if err == "exists":
+                    skipped += 1
+                elif ok:
+                    fetched += 1
+                else:
+                    failed.append((f"{name} ({survey})", err))
             except Exception as e:
                 failed.append((name, str(e)))
 
     elapsed = time.time() - t_start
     print(
-        f"\nDone in {elapsed:.0f}s: {fetched} fetched, {skipped} skipped, {len(failed)} failed"
+        f"\nDone in {elapsed:.0f}s: {fetched} fetched, {skipped} skipped, "
+        f"{len(failed)} failed"
     )
 
     if failed:

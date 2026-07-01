@@ -6,6 +6,7 @@ from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.status import UIStatus
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
+from PiFinder.ui.image_download import UIImageDownload
 from PiFinder.ui.gpsstatus import UIGPSStatus
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
@@ -1180,6 +1181,28 @@ pifinder_menu = {
                 },
                 {"name": _("Console"), "class": UIConsole},
                 {"name": _("Software Upd"), "class": UISoftware},
+                {
+                    "name": _("Download Images"),
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": _("All Objects"),
+                            "class": UIImageDownload,
+                            "scope": "all",
+                        },
+                        {
+                            "name": _("Current Filter"),
+                            "class": UIImageDownload,
+                            "scope": "filter",
+                        },
+                        {
+                            "name": _("Observing List"),
+                            "class": UIImageDownload,
+                            "scope": "list",
+                        },
+                    ],
+                },
                 {"name": _("Test Mode"), "callback": callbacks.activate_debug},
                 {
                     "name": _("Experimental"),

@@ -1,171 +1,103 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This script runs to fetch
-images from AWS
+Thin CLI to download curated object images from the CDN (ADR 0018).
+
+For most users this is replaced by the on-device flow at
+Tools ▸ Download Images.  It is kept as a headless fallback for the two
+scopes that are pure DB queries — **All** (every object minus the excluded
+catalogs) and **single catalog** — which need no running app.  The filter /
+observing-list scopes need the live app and are device-only.
+
+All the real work (layout, worklist, sourceless download) lives in the shared
+``object_image_store`` core; this module is just argument parsing and a progress
+bar.
+
+Usage:
+    python -m PiFinder.get_images                 # all objects (minus WDS)
+    python -m PiFinder.get_images --catalog NGC   # one catalog
+    python -m PiFinder.get_images --workers 8     # more concurrency
+    python -m PiFinder.get_images --overwrite     # re-fetch existing files
 """
 
-import requests
-import os
-from tqdm import tqdm
+import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Tuple
 
-from PiFinder import cat_images
+from tqdm import tqdm
+
+from PiFinder import object_image_store as store
 from PiFinder.db.objects_db import ObjectsDatabase
 
 
-def check_missing_images() -> List[str]:
-    """
-    Efficiently check which images need to be fetched by working directly
-    with image names from the database instead of creating CompositeObjects.
+def main():
+    parser = argparse.ArgumentParser(
+        description="Download PiFinder object images from the CDN"
+    )
+    parser.add_argument(
+        "--catalog",
+        help="Limit to a single catalog code (e.g. NGC, M, IC). Default: all.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=store.DEFAULT_DOWNLOAD_WORKERS,
+        help=f"Concurrent downloads (default: {store.DEFAULT_DOWNLOAD_WORKERS})",
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Re-download images that already exist",
+    )
+    args = parser.parse_args()
 
-    Returns list of missing image names.
-    """
+    store.create_catalog_image_dirs()
+
     objects_db = ObjectsDatabase()
     _, cursor = objects_db.get_conn_cursor()
-
-    # Get all image names directly from object_images table
-    cursor.execute(
-        "SELECT DISTINCT image_name FROM object_images WHERE image_name != ''"
-    )
-    image_names = [row["image_name"] for row in cursor.fetchall()]
-
-    missing_images = []
-    for image_name in tqdm(image_names, desc="Checking existing images"):
-        # Check if POSS image exists (primary check)
-        poss_path = (
-            f"{cat_images.BASE_IMAGE_PATH}/{image_name[-1]}/{image_name}_POSS.jpg"
+    if args.catalog:
+        names = store.worklist_for_scope(
+            store.SCOPE_CATALOG, cursor, catalog_code=args.catalog
         )
-        if not os.path.exists(poss_path):
-            missing_images.append(image_name)
+    else:
+        names = store.worklist_for_scope(store.SCOPE_ALL, cursor)
 
-    return missing_images
-
-
-def download_image_from_url(
-    session: requests.Session, url: str, file_path: str
-) -> Tuple[bool, str]:
-    """
-    Download a single image using provided session.
-
-    Returns (success, error_message)
-    """
-    try:
-        response = session.get(url, timeout=30)
-        if response.status_code == 200:
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            with open(file_path, "wb") as f:
-                f.write(response.content)
-            return True, ""
-        elif response.status_code == 403:
-            return False, "Not available (403)"
-        else:
-            return False, f"HTTP {response.status_code}"
-    except Exception as e:
-        return False, f"Error: {str(e)}"
-
-
-def fetch_images_for_object(
-    session: requests.Session, image_name: str
-) -> Tuple[str, bool, List[str]]:
-    """
-    Fetch both POSS and SDSS images for a given image name.
-
-    Returns (image_name, success, error_messages)
-    """
-    errors = []
-    seq_ones = image_name[-1]  # Last character for directory
-
-    # Download POSS image
-    poss_filename = f"{image_name}_POSS.jpg"
-    poss_path = f"{cat_images.BASE_IMAGE_PATH}/{seq_ones}/{poss_filename}"
-    poss_url = f"https://ddbeeedxfpnp0.cloudfront.net/catalog_images/{seq_ones}/{poss_filename}"
-
-    poss_success, poss_error = download_image_from_url(session, poss_url, poss_path)
-    if not poss_success:
-        errors.append(f"POSS: {poss_error}")
-
-    # Download SDSS image
-    sdss_filename = f"{image_name}_SDSS.jpg"
-    sdss_path = f"{cat_images.BASE_IMAGE_PATH}/{seq_ones}/{sdss_filename}"
-    sdss_url = f"https://ddbeeedxfpnp0.cloudfront.net/catalog_images/{seq_ones}/{sdss_filename}"
-
-    sdss_success, sdss_error = download_image_from_url(session, sdss_url, sdss_path)
-    if not sdss_success:
-        errors.append(f"SDSS: {sdss_error}")
-
-    # Consider successful if at least one image was downloaded
-    overall_success = poss_success or sdss_success
-
-    return image_name, overall_success, errors
-
-
-def download_images_concurrent(image_names: List[str], max_workers: int = 10) -> None:
-    """
-    Download images concurrently using ThreadPoolExecutor.
-
-    Args:
-        image_names: List of image names to download
-        max_workers: Maximum number of concurrent downloads
-    """
-    if not image_names:
+    targets = names if args.overwrite else store.missing_image_names(names)
+    print(f"{len(names)} images in scope; {len(targets)} to download")
+    if not targets:
+        print("Nothing to download.")
         return
 
-    # Create a session for connection pooling
-    session = requests.Session()
-    session.headers.update({"User-Agent": "PiFinder-ImageDownloader/1.0"})
+    session = store.new_session()
+    counts = {
+        store.RESULT_DOWNLOADED: 0,
+        store.RESULT_SKIPPED: 0,
+        store.RESULT_MISSING: 0,
+        store.RESULT_ERROR: 0,
+    }
+    try:
+        with ThreadPoolExecutor(max_workers=args.workers) as executor:
+            futures = [
+                executor.submit(
+                    store.download_object_image,
+                    session,
+                    name,
+                    overwrite=args.overwrite,
+                )
+                for name in targets
+            ]
+            for future in tqdm(
+                as_completed(futures), total=len(futures), desc="Downloading"
+            ):
+                counts[future.result()] += 1
+    finally:
+        session.close()
 
-    failed_downloads = []
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all download tasks
-        future_to_image = {
-            executor.submit(fetch_images_for_object, session, image_name): image_name
-            for image_name in image_names
-        }
-
-        # Process completed downloads with progress bar
-        for future in tqdm(
-            as_completed(future_to_image),
-            total=len(image_names),
-            desc="Downloading images",
-        ):
-            image_name = future_to_image[future]
-            try:
-                image_name, success, errors = future.result()
-                if not success and errors:
-                    failed_downloads.append((image_name, errors))
-            except Exception as exc:
-                failed_downloads.append((image_name, [f"Exception: {exc}"]))
-
-    # Report failed downloads
-    if failed_downloads:
-        print(f"\nFailed to download {len(failed_downloads)} objects:")
-        for image_name, errors in failed_downloads[:10]:  # Show first 10 failures
-            print(f"  {image_name}: {', '.join(errors)}")
-        if len(failed_downloads) > 10:
-            print(f"  ... and {len(failed_downloads) - 10} more")
-
-    session.close()
-
-
-def main():
-    """
-    Main function to check for and download missing catalog images.
-    """
-    cat_images.create_catalog_image_dirs()
-
-    print("Checking for missing images...")
-    missing_images = check_missing_images()
-
-    if len(missing_images) > 0:
-        print(f"Found {len(missing_images)} objects with missing images")
-        print("Starting concurrent download...")
-        download_images_concurrent(missing_images, max_workers=10)
-        print("Download complete!")
-    else:
-        print("All images already downloaded!")
+    print(
+        f"Done: {counts[store.RESULT_DOWNLOADED]} downloaded, "
+        f"{counts[store.RESULT_SKIPPED]} skipped, "
+        f"{counts[store.RESULT_MISSING]} missing (404), "
+        f"{counts[store.RESULT_ERROR]} errors"
+    )
 
 
 if __name__ == "__main__":

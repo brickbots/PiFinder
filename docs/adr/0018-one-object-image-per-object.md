@@ -1,0 +1,21 @@
+# One object image per object; survey source is a recorded curation directive, not a runtime branch
+
+The device stores and displays exactly one survey JPEG per object, named without a survey suffix (`<last-digit>/<image_name>.jpg`). Which survey that image comes from — POSS/DSS, SDSS, or future sources — is a **curation decision recorded once** in `object_images.source` and made **off-device**, never derived or branched on at runtime. This replaces the prior scheme, which fetched **both** POSS and SDSS into parallel `_POSS.jpg`/`_SDSS.jpg` files per object — of which the runtime only ever displayed POSS (`DM_SDSS` was defined but never assigned).
+
+The `source` record is both **retrospective** (where an image came from) and **prescriptive** (where to regenerate it from). A **discriminator** (human or AI — aspirational) compares candidate images across surveys and writes the winner; the dev-side **Generate** step reads `source` to (re)produce the single canonical image and publish it to the CDN. `NULL` means "not yet curated" — Generate falls back to a default policy (today: POSS). The on-device **Download** feature and the runtime **Display** path key purely on the sourceless `image_name`; they carry `source` but never act on it.
+
+## Considered Options
+- **Keep both sources per object (status quo).** Rejected: ~doubles on-device storage and download time for an SDSS file no reachable UI path displayed.
+- **Per-device source choice / toggle.** Rejected: premature with no working SDSS display mode, and it can't beat dev curation that picks the best image per object — while keeping the source dimension alive in storage, UI, and CDN.
+- **Record the source choice in a dev-side manifest (not shipped).** Rejected: a second artifact to keep in sync with the CDN, and provenance/attribution isn't queryable on-device. The catalog DB already assigns the (sourceless) `image_name` in `resolve_object_images()`, so the same shipped table is the natural home for the choice.
+- **Record nothing; let the CDN be the only record.** Rejected: non-reproducible (re-runs may flip the choice), non-auditable, and no path to survey attribution/credit.
+- **Encode the source in the filename / CDN path (sourceless name but `M31_SDSS.jpg`).** Rejected: that's the scheme we're leaving; it forces resolution and display to know the source and reintroduces per-source duplication.
+
+## Consequences
+- On-disk and CDN layout become `<last-digit>/<image_name>.jpg`; `resolve_image_name` drops its `source` argument; `cat_images.get_display_image` drops the source concept; `DM_SDSS` is removed from `object_details`.
+- `object_images` gains a nullable `source TEXT` column, populated by Generate/the discriminator and shipped in `pifinder_objects.db`. The column is provenance + regeneration directive only — no resolution or display code branches on it.
+- A one-time, idempotent rename migration under `migration_source/` converts existing `_POSS`/`_SDSS` installs to the sourceless name (POSS wins when both exist; the redundant file is deleted). Reversing this decision would mean re-curating the CDN and reintroducing source suffixes across storage, the importer, and the UI — hence "hard to reverse."
+- Generation (`gen_images.py`, off-device, multi-source, source-aware) and the new on-device download are cleanly separated: download copies one curated image by `image_name`; Generate is the only place a source is read or acted on.
+- **Coordinated cutover:** the CDN is re-laid-out to sourceless paths (`/<digit>/<image_name>.jpg`) in the same release that ships the rename migration and the on-device download feature. The legacy `get_images.py` is replaced by a thin CLI over the shared core; a pre-release device's old CLI requests `_POSS`/`_SDSS` URLs and will 404 against the new CDN, so it must update first. Accepted because downloading is an explicit setup action, not a runtime dependency.
+- The new `source` column ships with the (git-tracked) `pifinder_objects.db` via the normal software update — there is **no** on-device DB migration; the only on-device migration is the JPEG file rename.
+- Companion glossary: [`docs/ax/catalog/CONTEXT.md`](../ax/catalog/CONTEXT.md) — "Object image", "Image source", "Discriminator", "Generate", "Download", "Display".
