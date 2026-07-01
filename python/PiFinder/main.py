@@ -792,6 +792,11 @@ def main(
                     logger.info(
                         "All catalogs loaded - WDS and extended catalogs available"
                     )
+                    # Mark the filter dirty so downstream consumers that cache
+                    # off dirty_time (e.g. the chart's nearby-DSO spatial index)
+                    # rebuild to include the newly available objects.
+                    if catalogs.catalog_filter is not None:
+                        catalogs.catalog_filter.mark_dirty()
                     menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
                     dt = timez.utc(2025, 6, 28, 11, 0, 0)
