@@ -160,6 +160,10 @@ _Avoid_: equipment list, generated menu.
 The small mutable object (`state.py`) holding UI-process state — observing list, recent objects, target, message/hint timeouts, FPS flag. Installed on `shared_state` via `set_ui_state`; every module reads `shared_state.ui_state()`.
 _Avoid_: ui config, session state.
 
+**Target** (`ui_state.target()`):
+The most-recently **selected object**, mirrored into `UIState` by `UIObjectDetails` (`update_object_info`) so cross-screen consumers can mark it — the **chart** draws it as a full-brightness cross (+ off-screen pointer, and its designator label when on-screen), and telemetry records it. Distinct from the Catalog *selected object* (the live `UIObjectDetails` cursor, see [Catalog](../catalog/CONTEXT.md)): the target is the **persisted last selection**, surviving after you leave details. Not a push-to concept — it follows selection automatically.
+_Avoid_: push-to target, goto target.
+
 **Published UI state** (`serialize_current_ui_state`):
 The dict `MenuManager` writes to `shared_state.set_current_ui_state(...)` each redraw — `ui_type`, `title`, marking-menu options, and the active module's own `serialize_ui_state()`. This is what `/api/current-selection` reflects.
 _Avoid_: api state, ui snapshot.
