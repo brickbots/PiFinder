@@ -123,6 +123,17 @@ class UIDateEntry(UIModule):
                 fill=self.red,
             )
 
+    def _location_locked(self) -> bool:
+        """True when a location fix exists, so the date has a real local zone.
+
+        ``set_datetime`` localises the entered date+time in the observer's zone,
+        which we only derive from a location fix. This screen is reached only
+        through the (equally gated) time screen today, but it self-gates on the
+        same precondition so it stays correct if it is ever surfaced directly
+        (see ADR 0019). The check is live, mirroring UITimeEntry.
+        """
+        return bool(self.shared_state and self.shared_state.location().lock)
+
     def draw_local_date_note(self):
         note_y = self.text_y + self.box_height + 10
         self.draw.text(
@@ -183,6 +194,8 @@ class UIDateEntry(UIModule):
             return False
 
     def key_number(self, number):
+        if not self._location_locked():
+            return  # gated: no location fix, so ignore digit entry
         current = self.boxes[self.current_box]
         new_value = current + str(number)
 
@@ -197,6 +210,8 @@ class UIDateEntry(UIModule):
 
     def key_minus(self):
         """Delete last digit in current box or move to previous box if empty."""
+        if not self._location_locked():
+            return  # gated: nothing to edit until a location fix exists
         if self.boxes[self.current_box]:
             self.boxes[self.current_box] = self.boxes[self.current_box][:-1]
         else:
@@ -204,6 +219,8 @@ class UIDateEntry(UIModule):
 
     def key_right(self):
         """Confirm if all boxes filled, otherwise cycle to next box."""
+        if not self._location_locked():
+            return False  # gated: don't confirm the date
         if all(self.boxes) and self.current_box == 2:
             self._confirmed = True
             self.remove_from_stack()
@@ -221,18 +238,22 @@ class UIDateEntry(UIModule):
 
     def inactive(self):
         """Called when the module is no longer active."""
+        if not self._location_locked():
+            return  # gated: never fire set_datetime against a bogus (UTC) zone
         if self._confirmed and self.custom_callback:
             date_str = f"{self.boxes[0]}-{self.boxes[1]}-{self.boxes[2]}"
             self.custom_callback(self, date_str)
 
     def update(self, force=False):
-        self.draw.rectangle((0, 0, self.width, self.height), fill=self.black)
-
-        self.draw_date_boxes()
-
-        note_y = self.draw_local_date_note()
-        separator_y = self.draw_separator(note_y + 15)
-        self.draw_legend(separator_y)
+        if not self._location_locked():
+            # Self-gate on a location fix, mirroring UITimeEntry (see ADR 0019).
+            self.draw_gate_message(_("Set location\nfirst"))
+        else:
+            self.draw.rectangle((0, 0, self.width, self.height), fill=self.black)
+            self.draw_date_boxes()
+            note_y = self.draw_local_date_note()
+            separator_y = self.draw_separator(note_y + 15)
+            self.draw_legend(separator_y)
 
         if self.shared_state:
             self.shared_state.set_screen(self.screen)

@@ -85,7 +85,6 @@ from PiFinder.ui.menu_manager import MenuManager
 from PiFinder.ui.object_details import UIObjectDetails
 from PiFinder.ui.log import UILog
 from PiFinder.ui.dateentry import UIDateEntry
-from PiFinder.ui.timeentry import UITimeEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
 from PiFinder.ui.sqm_sweep import UISQMSweep
 from PiFinder.ui.sqm_correction import UISQMCorrection
@@ -182,7 +181,6 @@ _MENU_IDS = [_node_id(n) for n in _MENU_NODES]
 _DYNAMIC_IDS = [
     "UIObjectDetails",
     "UILog",
-    "UITimeEntry",
     "UIDateEntry",
     "UISQMCalibration",
     "UISQMSweep",
@@ -206,13 +204,6 @@ def _build_dynamic_item_definition(spec_id: str, sample_object) -> dict:
     if spec_id == "UILog":
         # object_details.py:690
         return {"name": "LOG", "class": UILog, "object": sample_object}
-    if spec_id == "UITimeEntry":
-        # callbacks.py: enter_time_entry (Set Time/Date, gated on a location fix)
-        return {
-            "name": "Set Time/Date",
-            "class": UITimeEntry,
-            "custom_callback": callbacks.set_time,
-        }
     if spec_id == "UIDateEntry":
         # timeentry.py:194
         return {

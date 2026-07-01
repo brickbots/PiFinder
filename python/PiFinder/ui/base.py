@@ -271,6 +271,35 @@ class UIModule:
             fill=self.colors.get(0),
         )
 
+    def draw_gate_message(self, message: str) -> None:
+        """Render a full-screen "precondition not met" notice into ``self.screen``.
+
+        A module that gates itself on a runtime precondition (e.g. a location
+        fix) draws this from ``update`` in place of its normal UI and returns
+        early; the user reads it and backs out with LEFT/Cancel rather than
+        being blocked from opening the screen at all (see ADR 0019). Newlines
+        in ``message`` split it into centred lines; a Cancel hint is pinned to
+        the bottom-left, mirroring the entry screens' legends.
+        """
+        self.clear_screen()
+        font = self.fonts.bold
+        lines = message.split("\n")
+        line_h = font.height + 2
+        top = self.display_class.titlebar_height
+        block_h = line_h * len(lines)
+        y = top + max(4, (self.display_class.resY - top - block_h) // 2)
+        for line in lines:
+            text_w = font.font.getbbox(line)[2]
+            x = max(0, (self.display_class.resX - text_w) // 2)
+            self.draw.text((x, y), line, font=font.font, fill=self.colors.get(255))
+            y += line_h
+        self.draw.text(
+            (10, self.display_class.resY - self.fonts.base.height - 2),
+            _(" Cancel"),
+            font=self.fonts.base.font,
+            fill=self.colors.get(255),
+        )
+
     def message(self, message, timeout: float = 2, size=None):
         """
         Creates a box with text in the center of the screen.
