@@ -1,5 +1,13 @@
 name: Release NixOS image
 
+# Builds the PiFinder NixOS SD image and migration tarball and publishes them as
+# a GitHub (pre-)release, and records the closure in the nixos-manifest branch.
+#
+# Runners are native aarch64 (no QEMU): the Pi5 self-hosted runner is tried
+# first, with the free GitHub-hosted `ubuntu-24.04-arm` runner as a fallback if
+# the Pi is offline/slow — mirroring nixos-pr-build.yml. The arch-sensitive
+# `nix build` runs there; the image is handed off as an artifact and the
+# arch-independent packaging + publishing happens on ubuntu-latest.
 on:
   workflow_dispatch:
     inputs:
@@ -26,29 +34,25 @@ on:
         default: ''
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+  # Native aarch64 build on the Pi5 self-hosted runner (preferred, fast).
+  build-native:
+    runs-on: [self-hosted, aarch64]
+    timeout-minutes: 90
+    outputs:
+      store_path: ${{ steps.push.outputs.store_path }}
     steps:
       - uses: actions/checkout@v4
         with:
           repository: ${{ inputs.source_repository || github.repository }}
           ref: ${{ inputs.source_branch }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
-      - uses: DeterminateSystems/nix-installer-action@main
-        with:
-          determinate: false
-          extra-conf: |
-            extra-platforms = aarch64-linux
-            extra-system-features = big-parallel
+      - name: Ensure nix is on PATH (self-hosted runner)
+        run: |
+          echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
 
       - name: Setup Attic caches (cache.pifinder.eu)
-        # Self-hosted FastCDC-chunked binary cache — see ADR 0004. The release
-        # closure is published to the retained `pifinder-release` cache (push
-        # step below); build-time deps are substituted from the `pifinder` dev
-        # cache, which recent CI runs keep warm.
         env:
           ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
         run: |
@@ -56,27 +60,14 @@ jobs:
           attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
           attic use pifinder:pifinder
 
-      - name: Register QEMU binfmt for aarch64
-        run: sudo apt-get update && sudo apt-get install -y qemu-user-static
-
-      - name: Compute tag and write temporary build metadata
-        run: |
-          TAG="v${{ inputs.version }}"
-          [[ "${{ inputs.type }}" == "beta" ]] && TAG="${TAG}-beta"
-          echo "TAG=$TAG" >> $GITHUB_ENV
-
-          VERSION="${{ inputs.version }}"
-          jq -n --arg sp "" --arg v "$VERSION" \
-            '{store_path: $sp, version: $v}' > pifinder-build.json
-
-      - name: Build and push release closure to Attic (pifinder-release)
+      - name: Build and push release closure to Attic
         id: push
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            --system aarch64-linux -L --json | jq -r '.[].outputs.out')
-          # Stable → retained pifinder-release (GC off; devices resolve it
-          # months later). Beta/prerelease → dev pifinder cache (finite
-          # retention), so prereleases stay transient.
+            -L --json | jq -r '.[].outputs.out')
+          # Stable → retained pifinder-release (GC off; devices resolve it months
+          # later). Beta → dev pifinder cache (finite retention), so prereleases
+          # stay transient.
           if [[ "${{ inputs.type }}" == "beta" ]]; then
             attic push pifinder:pifinder "$STORE_PATH"
           else
@@ -86,13 +77,169 @@ jobs:
 
       - name: Build SD image
         run: |
-          nix build .#images.pifinder \
-            --system aarch64-linux \
-            -L -o result-sd
-          mkdir -p release
-          for f in result-sd/sd-image/*.img.zst; do
-            cp "$f" "release/pifinder-${TAG}.img.zst"
+          nix build .#images.pifinder -L -o result-sd
+
+      - name: Upload SD image
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdimage-native
+          path: result-sd/sd-image/*.img.zst
+          retention-days: 1
+
+  # Poll the native builder for ~15 min, then decide whether to fall back.
+  native-wait:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      need_fallback: ${{ steps.wait.outputs.need_fallback }}
+    steps:
+      - name: Wait for native build
+        id: wait
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 30); do
+            sleep 30
+            RESULT=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs" \
+              --jq '.jobs[] | select(.name == "build-native") | .conclusion // "pending"' 2>/dev/null || echo "pending")
+            echo "Check $i/30: build-native=$RESULT"
+            if [ "$RESULT" = "success" ]; then
+              echo "need_fallback=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [ "$RESULT" = "failure" ] || [ "$RESULT" = "cancelled" ]; then
+              echo "need_fallback=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
           done
+          echo "Native build not done after 15 min, falling back to hosted"
+          echo "need_fallback=true" >> "$GITHUB_OUTPUT"
+
+  # Fallback on a free GitHub-hosted arm64 runner (native aarch64, no QEMU).
+  build-hosted:
+    needs: native-wait
+    if: needs.native-wait.outputs.need_fallback == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    outputs:
+      store_path: ${{ steps.push.outputs.store_path }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.source_repository || github.repository }}
+          ref: ${{ inputs.source_branch }}
+          persist-credentials: false
+
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
+          extra-conf: |
+            extra-system-features = big-parallel
+            extra-substituters = https://cache.pifinder.eu/pifinder
+            extra-trusted-public-keys = pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck=
+
+      - name: Setup Attic caches (cache.pifinder.eu)
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
+
+      - name: Build and push release closure to Attic
+        id: push
+        run: |
+          STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            -L --json | jq -r '.[].outputs.out')
+          if [[ "${{ inputs.type }}" == "beta" ]]; then
+            attic push pifinder:pifinder "$STORE_PATH"
+          else
+            attic push pifinder:pifinder-release "$STORE_PATH"
+          fi
+          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Build SD image
+        run: |
+          nix build .#images.pifinder -L -o result-sd
+
+      - name: Upload SD image
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdimage-hosted
+          path: result-sd/sd-image/*.img.zst
+          retention-days: 1
+
+  # Arch-independent: package the migration tarball + checksums and publish. Runs
+  # on whichever build succeeded (native preferred).
+  release:
+    needs: [build-native, native-wait, build-hosted]
+    if: |
+      always() &&
+      (needs.build-native.result == 'success' || needs.build-hosted.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Same-repo only: needed to tag the source commit and to run the TRUSTED
+      # manifest scripts. Skipped for fork builds (those steps are skipped too).
+      - name: Checkout source
+        if: (inputs.source_repository || github.repository) == github.repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_branch }}
+
+      - name: Download built SD image
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sdimage-*
+          merge-multiple: true
+          path: result-sd/sd-image
+
+      - name: Compute tag
+        run: |
+          TAG="v${{ inputs.version }}"
+          [[ "${{ inputs.type }}" == "beta" ]] && TAG="${TAG}-beta"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Assemble image + migration tarball + checksums
+        run: |
+          set -euo pipefail
+          IMAGE_SRC=$(find result-sd/sd-image -type f -name '*.img.zst' | head -1)
+          mkdir -p release
+          cp "$IMAGE_SRC" "release/pifinder-${TAG}.img.zst"
+
+          # Decompress to a loopback-mountable image for the migration tarball.
+          rm -f /tmp/pifinder-release.img
+          zstd -d "$IMAGE_SRC" -o /tmp/pifinder-release.img
+
+          LOOP=$(sudo losetup --find --show --partscan /tmp/pifinder-release.img)
+          sudo mkdir -p /mnt/boot /mnt/root
+          sudo mount "${LOOP}p1" /mnt/boot
+          sudo mount "${LOOP}p2" /mnt/root
+
+          mkdir -p /tmp/tarball-staging
+          sudo cp -a /mnt/boot /tmp/tarball-staging/boot
+          sudo cp -a /mnt/root /tmp/tarball-staging/rootfs
+          # Migration tarball omits catalog images to stay small; devices keep
+          # their own copy.
+          sudo rm -rf /tmp/tarball-staging/rootfs/home/pifinder/PiFinder_data/catalog_images
+
+          sudo umount /mnt/boot /mnt/root
+          sudo losetup -d "$LOOP"
+          rm -f /tmp/pifinder-release.img
+
+          sudo tar -C /tmp/tarball-staging -cf - \
+            --exclude='*/lost+found' \
+            boot rootfs | zstd -T0 -19 -o "release/pifinder-migration-${TAG}.tar.zst"
+          sudo rm -rf /tmp/tarball-staging
+
+          # Checksum sidecars. The in-app upgrade (PiFinder.sys_utils) fetches
+          # <artifact-url>.sha256 and refuses to flash without a matching digest;
+          # it reads the first whitespace-delimited token, so sha256sum output is
+          # the expected format.
+          ( cd release
+            for f in pifinder-*.img.zst pifinder-migration-*.tar.zst; do
+              sha256sum "$f" > "$f.sha256"
+            done )
 
       - name: Tag release source commit
         # Only when building this repo. A fork source_repository has a different
@@ -105,45 +252,8 @@ jobs:
           git tag "$TAG"
           git push origin "$TAG"
 
-      - name: Build migration tarball from SD image
-        run: |
-          IMAGE_FILE=$(find result-sd/sd-image -type f \( -name "*.img" -o -name "*.img.zst" \) | head -1)
-
-          rm -f /tmp/pifinder-release.img
-          if [[ "${IMAGE_FILE}" == *.zst ]]; then
-            zstd -d "${IMAGE_FILE}" -o /tmp/pifinder-release.img
-          else
-            cp "${IMAGE_FILE}" /tmp/pifinder-release.img
-          fi
-
-          LOOP=$(sudo losetup --find --show --partscan /tmp/pifinder-release.img)
-          sudo mkdir -p /mnt/boot /mnt/root
-          sudo mount "${LOOP}p1" /mnt/boot
-          sudo mount "${LOOP}p2" /mnt/root
-
-          mkdir -p /tmp/tarball-staging
-          sudo cp -a /mnt/boot /tmp/tarball-staging/boot
-          sudo cp -a /mnt/root /tmp/tarball-staging/rootfs
-          sudo rm -rf /tmp/tarball-staging/rootfs/home/pifinder/PiFinder_data/catalog_images
-
-          sudo umount /mnt/boot /mnt/root
-          sudo losetup -d "${LOOP}"
-          rm -f /tmp/pifinder-release.img
-
-          sudo tar -C /tmp/tarball-staging -cf - \
-            --exclude='*/lost+found' \
-            boot rootfs | zstd -T0 -19 -o "release/pifinder-migration-${TAG}.tar.zst"
-          sudo rm -rf /tmp/tarball-staging
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: pifinder-release-${{ env.TAG }}
-          path: release/pifinder-*.zst
-          retention-days: 90
-
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
           name: PiFinder ${{ env.TAG }}
@@ -151,6 +261,7 @@ jobs:
           prerelease: ${{ inputs.type == 'beta' }}
           files: |
             release/pifinder-*.zst
+            release/pifinder-*.sha256
 
       - name: Update generated manifest branch
         # Same-repo only: publish_manifest.sh pushes the nixos-manifest branch to
@@ -158,7 +269,7 @@ jobs:
         # fork; update the manifest once the source lands in this repo.
         if: (inputs.source_repository || github.repository) == github.repository
         env:
-          STORE_PATH: ${{ steps.push.outputs.store_path }}
+          STORE_PATH: ${{ needs.build-native.outputs.store_path || needs.build-hosted.outputs.store_path }}
           RELEASE_NOTES: ${{ inputs.notes }}
         run: |
           set -euo pipefail
