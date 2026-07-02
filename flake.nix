@@ -74,24 +74,13 @@
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
         "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
-        ({ config, pkgs, lib, ... }:
-        let
-          catalog-images = pkgs.stdenv.mkDerivation {
-            pname = "pifinder-catalog-images";
-            version = "1.0";
-            src = pkgs.fetchurl {
-              url = "https://files.miker.be/public/pifinder/catalog_images.tar.zst";
-              hash = "sha256-20YOmO2qy2W27nIFV4Aqibu0MLip4gymHrfe411+VNg=";
-            };
-            nativeBuildInputs = [ pkgs.zstd ];
-            unpackPhase = "tar xf $src";
-            installPhase = "mv catalog_images $out";
-          };
-        in {
+        ({ config, pkgs, lib, ... }: {
+          # Catalog images (~5GB compressed) are not baked into the SD image: the
+          # app fetches per-object images on demand from the CDN (get_images.py)
+          # and renders a placeholder when one is absent. Shipping only the empty
+          # data dir keeps the image slim and the build fast.
           sdImage.populateRootCommands = ''
             mkdir -p ./files/home/pifinder/PiFinder_data
-            cp -r ${catalog-images} ./files/home/pifinder/PiFinder_data/catalog_images
-            chmod -R u+w ./files/home/pifinder/PiFinder_data/catalog_images
           '';
           sdImage.populateFirmwareCommands = lib.mkForce ''
             (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)
