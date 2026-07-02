@@ -104,6 +104,15 @@ def load_source(name, path):
         ++ final.resolveBuildSystem { setuptools = []; };
     });
 
+    # cedar-solve declares the setuptools.build_meta backend but ships no
+    # setuptools in its build env, so the sdist build fails with "No module
+    # named 'setuptools'" — provide the backend like the other legacy packages.
+    cedar-solve = prev.cedar-solve.overrideAttrs (old: {
+      nativeBuildInputs =
+        (old.nativeBuildInputs or [])
+        ++ final.resolveBuildSystem { setuptools = []; };
+    });
+
     rpi-gpio = prev.rpi-gpio.overrideAttrs (old: {
       nativeBuildInputs =
         (old.nativeBuildInputs or [])
