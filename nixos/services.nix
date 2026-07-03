@@ -466,19 +466,22 @@ in {
   };
 
   # ---------------------------------------------------------------------------
-  # PiFinder Boot Health Watchdog — trial/commit
+  # PiFinder Boot Health Watchdog — self-arming trial/commit
   # ---------------------------------------------------------------------------
-  # pifinder-upgrade arms a trial marker (previous + expected generation)
-  # before rebooting into a new generation. On every boot:
-  #   - no marker                       -> committed system: never roll back,
-  #     so a transient failure in the field can't cause a surprise downgrade
-  #   - marker but not the trial gen    -> stale (already rolled back, or the
-  #     operator switched): clear it
-  #   - trial gen healthy               -> commit (delete the marker)
-  #   - trial gen unhealthy             -> capture the journal to PiFinder_data
-  #     (journald is volatile to spare the SD card; a failed upgrade is the one
-  #     moment worth a write), leave a notice the app shows after reboot, roll
-  #     back to the recorded generation, reboot
+  # A generation is on probation until it has passed a health check once
+  # (recorded in confirmed-generations). Any boot of an UNCONFIRMED generation
+  # is a trial — whether or not the (possibly older, marker-unaware) system
+  # that installed it armed the trial marker. Protection never depends on the
+  # previous build's code.
+  #   - confirmed generation  -> never roll back, so a transient failure in
+  #     the field can't cause a surprise downgrade
+  #   - trial gen healthy     -> confirm it
+  #   - trial gen unhealthy   -> capture the journal to PiFinder_data (journald
+  #     is volatile to spare the SD card; a failed boot is the one moment worth
+  #     a write), leave a notice the app shows after reboot, show the failure
+  #     splash, roll back (marker hint first, else newest other generation),
+  #     reboot. With no rollback target at all, stay up for rescue instead of
+  #     boot-looping.
   systemd.services.pifinder-watchdog = {
     description = "PiFinder Boot Health Watchdog";
     after = [ "multi-user.target" "pifinder.service" ];
@@ -487,34 +490,27 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = with pkgs; [ nix systemd coreutils jq ];
+    path = with pkgs; [ nix systemd coreutils jq gnugrep boot-splash ];
     script = ''
       set -euo pipefail
       MARKER=/var/lib/pifinder/trial-generation.json
+      CONFIRMED=/var/lib/pifinder/confirmed-generations
       DATA=/home/pifinder/PiFinder_data
-
-      if [ ! -f "$MARKER" ]; then
-        echo "No trial in progress — committed system, nothing to watch."
-        exit 0
-      fi
-
-      NEW=$(jq -r '.new // empty' "$MARKER" || true)
-      PREV=$(jq -r '.previous // empty' "$MARKER" || true)
       CURRENT=$(readlink -f /run/current-system)
 
-      if [ -z "$NEW" ] || [ -z "$PREV" ]; then
-        echo "Malformed trial marker — clearing."
+      is_confirmed() {
+        [ -f "$CONFIRMED" ] && grep -qxF "$1" "$CONFIRMED"
+      }
+
+      if is_confirmed "$CURRENT"; then
+        # Stale marker from an aborted/rolled-back upgrade attempt is harmless
+        # here but must not survive to a later boot.
         rm -f "$MARKER"
+        echo "Generation already confirmed — nothing to watch."
         exit 0
       fi
 
-      if [ "$CURRENT" != "$NEW" ]; then
-        echo "Running $CURRENT, not the trial generation $NEW — clearing marker."
-        rm -f "$MARKER"
-        exit 0
-      fi
-
-      echo "Trial boot of $NEW: waiting up to 120s for pifinder.service..."
+      echo "Trial boot of unconfirmed generation $CURRENT: waiting up to 120s for pifinder.service..."
       for i in $(seq 1 24); do
         if systemctl is-active --quiet pifinder.service; then
           # Verify it stays running (not crash-looping)
@@ -523,7 +519,9 @@ in {
           NOW_EPOCH=$(date +%s)
           RUNNING_FOR=$((NOW_EPOCH - START_EPOCH))
           if [ "$RUNNING_FOR" -ge 15 ]; then
-            echo "pifinder.service healthy (running ''${RUNNING_FOR}s) — committing generation."
+            echo "pifinder.service healthy (running ''${RUNNING_FOR}s) — confirming generation."
+            mkdir -p "$(dirname "$CONFIRMED")"
+            echo "$CURRENT" >> "$CONFIRMED"
             rm -f "$MARKER"
             exit 0
           fi
@@ -531,23 +529,69 @@ in {
         sleep 5
       done
 
-      echo "ERROR: trial generation unhealthy. Capturing evidence and rolling back to $PREV..."
+      # ----- unhealthy: pick a rollback target ------------------------------
+      # Marker hint (exact pre-upgrade system, specialisation included) first;
+      # otherwise walk the profile, newest first, skipping any generation that
+      # boots into this same failed build (directly or via a specialisation)
+      # and preferring confirmed generations.
+      TARGET=""
+      if [ -f "$MARKER" ]; then
+        HINT=$(jq -r '.previous // empty' "$MARKER" 2>/dev/null || true)
+        if [ -n "$HINT" ] && [ -e "$HINT" ] && [ "$HINT" != "$CURRENT" ]; then
+          TARGET="$HINT"
+        fi
+      fi
+      if [ -z "$TARGET" ]; then
+        FALLBACK=""
+        for GEN in $(ls -d /nix/var/nix/profiles/system-*-link 2>/dev/null | sort -t- -k2 -rn); do
+          G=$(readlink -f "$GEN")
+          [ "$G" = "$CURRENT" ] && continue
+          SKIP=0
+          for S in "$G"/specialisation/*/; do
+            [ -e "$S" ] || continue
+            [ "$(readlink -f "$S")" = "$CURRENT" ] && SKIP=1 && break
+          done
+          [ "$SKIP" = 1 ] && continue
+          if is_confirmed "$G"; then
+            TARGET="$G"
+            break
+          fi
+          [ -z "$FALLBACK" ] && FALLBACK="$G"
+        done
+        [ -z "$TARGET" ] && TARGET="$FALLBACK"
+      fi
+
+      # ----- capture evidence ------------------------------------------------
+      echo "ERROR: trial generation unhealthy. Capturing evidence..."
       TS=$(date +%Y%m%d-%H%M%S)
       mkdir -p "$DATA"
       journalctl -b > "$DATA/failed-boot-$TS.log" || true
-      jq -n --arg failed "$NEW" --arg reverted_to "$PREV" --arg at "$TS" \
+      jq -n --arg failed "$CURRENT" --arg reverted_to "''${TARGET:-none}" --arg at "$TS" \
         '{failed: $failed, reverted_to: $reverted_to, at: $at}' \
         > "$DATA/upgrade_failed.json" || true
       chown pifinder:users "$DATA/failed-boot-$TS.log" "$DATA/upgrade_failed.json" 2>/dev/null || true
 
+      # Stop the crash-looping app so the display is free for the failure
+      # message (and so the reboot is clean).
+      systemctl stop pifinder.service || true
+
+      if [ -z "$TARGET" ]; then
+        echo "FATAL: no rollback target exists — staying up for rescue (SSH) instead of boot-looping."
+        boot-splash --message "UPDATE" "FAILED" "NO ROLLBACK" "USE SSH OR REFLASH" || true
+        exit 1
+      fi
+
+      boot-splash --message "UPDATE" "FAILED" "ROLLING BACK" "PLEASE WAIT" || true
+
+      echo "Rolling back to $TARGET and rebooting..."
       rm -f "$MARKER"
       # current-build.json was written for the (now failed) generation before
       # its reboot; left in place it makes the rolled-back system misreport
       # its identity (and the update UI mis-hide entries). Remove it — version
       # display falls back to the baked build metadata.
       rm -f /var/lib/pifinder/current-build.json
-      nix-env -p /nix/var/nix/profiles/system --set "$PREV"
-      "$PREV/bin/switch-to-configuration" boot || true
+      nix-env -p /nix/var/nix/profiles/system --set "$TARGET"
+      "$TARGET/bin/switch-to-configuration" boot || true
       systemctl reboot
     '';
   };

@@ -216,6 +216,97 @@ static void draw_progress(int pct) {
     ssd1351_flush();
 }
 
+/* Classic 5x7 bitmap font, A-Z + space + '!'. Each glyph is 5 column bytes,
+ * bit 0 = top row. Enough for the watchdog's failure screen; night-vision red
+ * like everything else on this display. */
+static const uint8_t font5x7[28][5] = {
+    {0x7E, 0x11, 0x11, 0x11, 0x7E}, /* A */
+    {0x7F, 0x49, 0x49, 0x49, 0x36}, /* B */
+    {0x3E, 0x41, 0x41, 0x41, 0x22}, /* C */
+    {0x7F, 0x41, 0x41, 0x22, 0x1C}, /* D */
+    {0x7F, 0x49, 0x49, 0x49, 0x41}, /* E */
+    {0x7F, 0x09, 0x09, 0x09, 0x01}, /* F */
+    {0x3E, 0x41, 0x49, 0x49, 0x7A}, /* G */
+    {0x7F, 0x08, 0x08, 0x08, 0x7F}, /* H */
+    {0x00, 0x41, 0x7F, 0x41, 0x00}, /* I */
+    {0x20, 0x40, 0x41, 0x3F, 0x01}, /* J */
+    {0x7F, 0x08, 0x14, 0x22, 0x41}, /* K */
+    {0x7F, 0x40, 0x40, 0x40, 0x40}, /* L */
+    {0x7F, 0x02, 0x0C, 0x02, 0x7F}, /* M */
+    {0x7F, 0x04, 0x08, 0x10, 0x7F}, /* N */
+    {0x3E, 0x41, 0x41, 0x41, 0x3E}, /* O */
+    {0x7F, 0x09, 0x09, 0x09, 0x06}, /* P */
+    {0x3E, 0x41, 0x51, 0x21, 0x5E}, /* Q */
+    {0x7F, 0x09, 0x19, 0x29, 0x46}, /* R */
+    {0x46, 0x49, 0x49, 0x49, 0x31}, /* S */
+    {0x01, 0x01, 0x7F, 0x01, 0x01}, /* T */
+    {0x3F, 0x40, 0x40, 0x40, 0x3F}, /* U */
+    {0x1F, 0x20, 0x40, 0x20, 0x1F}, /* V */
+    {0x3F, 0x40, 0x38, 0x40, 0x3F}, /* W */
+    {0x63, 0x14, 0x08, 0x14, 0x63}, /* X */
+    {0x07, 0x08, 0x70, 0x08, 0x07}, /* Y */
+    {0x61, 0x51, 0x49, 0x45, 0x43}, /* Z */
+    {0x00, 0x00, 0x00, 0x00, 0x00}, /* space */
+    {0x00, 0x00, 0x5F, 0x00, 0x00}, /* ! */
+};
+
+static const uint8_t *glyph_for(char c) {
+    if (c >= 'a' && c <= 'z') c -= 32;
+    if (c >= 'A' && c <= 'Z') return font5x7[c - 'A'];
+    if (c == '!') return font5x7[27];
+    return font5x7[26]; /* everything else renders as space */
+}
+
+static void draw_text_centered(int y, const char *s, int scale, uint16_t color) {
+    int len = (int)strlen(s);
+    int char_w = 6 * scale; /* 5 columns + 1 spacing */
+    int x0 = (WIDTH - len * char_w) / 2;
+    if (x0 < 0) x0 = 0;
+
+    for (int i = 0; i < len; i++) {
+        const uint8_t *g = glyph_for(s[i]);
+        for (int col = 0; col < 5; col++) {
+            for (int row = 0; row < 7; row++) {
+                if (!(g[col] >> row & 1))
+                    continue;
+                for (int sy = 0; sy < scale; sy++) {
+                    for (int sx = 0; sx < scale; sx++) {
+                        int px = x0 + i * char_w + col * scale + sx;
+                        int py = y + row * scale + sy;
+                        if (px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT)
+                            framebuf[py * WIDTH + px] = color;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* Generic message screen: centered lines on black, night-vision red. Lines
+ * short enough for the big font are drawn at 2x, longer ones at 1x. Used by
+ * pifinder-watchdog for the update-failure screen; usable by any boot-time
+ * service that needs to talk to the operator without the app running. */
+static void draw_message(char *const lines[], int nlines) {
+    memset(framebuf, 0, sizeof(framebuf));
+
+    /* Pick a scale per line and total the height (7*scale + 5px gap each). */
+    int scales[16];
+    int total_h = 0;
+    if (nlines > 16) nlines = 16;
+    for (int i = 0; i < nlines; i++) {
+        scales[i] = ((int)strlen(lines[i]) * 12 <= WIDTH) ? 2 : 1;
+        total_h += 7 * scales[i] + 5;
+    }
+
+    int y = (HEIGHT - total_h) / 2;
+    if (y < 0) y = 0;
+    for (int i = 0; i < nlines; i++) {
+        draw_text_centered(y, lines[i], scales[i], COL_RED);
+        y += 7 * scales[i] + 5;
+    }
+    ssd1351_flush();
+}
+
 static int hw_init(void) {
     spi_fd = open(SPI_DEVICE, O_RDWR);
     if (spi_fd < 0) {
@@ -261,6 +352,8 @@ int main(int argc, char *argv[]) {
     int static_mode = 0;
     int progress_mode = 0;
     const char *progress_path = PROGRESS_FILE_DEFAULT;
+    char **message_lines = NULL;
+    int message_nlines = 0;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--static") == 0) {
@@ -271,6 +364,11 @@ int main(int argc, char *argv[]) {
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 progress_path = argv[++i];
             }
+        } else if (strcmp(argv[i], "--message") == 0) {
+            /* All remaining args are message lines */
+            message_lines = &argv[i + 1];
+            message_nlines = argc - i - 1;
+            break;
         }
     }
 
@@ -289,6 +387,13 @@ int main(int argc, char *argv[]) {
     if (static_mode) {
         /* Static mode: show image once and exit */
         show_static_image();
+        hw_cleanup();
+        return 0;
+    }
+
+    if (message_nlines > 0) {
+        /* Message mode: render the lines once and exit, leaving them shown */
+        draw_message(message_lines, message_nlines);
         hw_cleanup();
         return 0;
     }
