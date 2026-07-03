@@ -52,6 +52,7 @@
       nixos-hardware.nixosModules.raspberry-pi-4
       ./nixos/hardware.nix
       ./nixos/networking.nix
+      ./nixos/wifi-fallback-minimal.nix
       ./nixos/device.nix
       headlessModule
     ];

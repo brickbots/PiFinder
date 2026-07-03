@@ -72,47 +72,12 @@
     mode = "0600";
   };
 
-  # AP fallback / persistence. The PiFinder-AP profile has autoconnect disabled,
-  # so NetworkManager joins a known client network when one is reachable and
-  # never self-starts the AP. This service makes the AP a reliable fallback: it
-  # brings the AP up when no client connects within a grace period (so a device
-  # with a saved but-unreachable network is still reachable), and when the user
-  # has forced AP mode in the UI (persisted to PiFinder_data/wifi_mode).
-  systemd.services.pifinder-wifi-fallback = {
-    description = "Bring up PiFinder AP when no WiFi client is connected";
-    after = [ "NetworkManager.service" ];
-    wants = [ "NetworkManager.service" ];
-    wantedBy = [ "multi-user.target" ];
-    path = [ pkgs.networkmanager pkgs.coreutils pkgs.gnugrep ];
-    serviceConfig.Type = "oneshot";
-    script = ''
-      modefile=/home/pifinder/PiFinder_data/wifi_mode
-
-      if [ -r "$modefile" ] && [ "$(cat "$modefile")" = "AP" ]; then
-        nmcli connection up PiFinder-AP || true
-        exit 0
-      fi
-
-      # Give NetworkManager up to 45s to join a known client network.
-      for _ in $(seq 1 45); do
-        if nmcli -t -f TYPE,STATE device | grep -q '^wifi:connected'; then
-          exit 0
-        fi
-        sleep 1
-      done
-
-      nmcli connection up PiFinder-AP || true
-    '';
-  };
-
-  systemd.timers.pifinder-wifi-fallback = {
-    description = "Periodically ensure WiFi falls back to AP when offline";
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnBootSec = "30s";
-      OnUnitActiveSec = "120s";
-    };
-  };
+  # The PiFinder-AP profile has autoconnect disabled, so NetworkManager joins
+  # a known client network when one is reachable and never self-starts the AP.
+  # AP-as-fallback policy (wired > wifi client > AP) is enforced by
+  # pifinder-net-policy in services.nix (full system) or by
+  # wifi-fallback-minimal.nix (migration image, no Python env) — this shared
+  # module deliberately carries no fallback service so the two can differ.
 
   # ---------------------------------------------------------------------------
   # Avahi/mDNS for hostname discovery (<host>.local). It lives in this shared

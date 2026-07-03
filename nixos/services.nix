@@ -419,6 +419,36 @@ in {
   };
 
   # ---------------------------------------------------------------------------
+  # PiFinder Network Policy
+  # ---------------------------------------------------------------------------
+  # Enforces connectivity priority wired > wifi client > AP via libnm
+  # (PiFinder/net_policy.py). Event-driven on NetworkManager state changes;
+  # brings the AP up only as an offline fallback and periodically drops an
+  # idle AP so NM can rejoin a client network. The migration image, which has
+  # no Python env, uses wifi-fallback-minimal.nix instead.
+  systemd.services.pifinder-net-policy = {
+    description = "PiFinder network policy (wired > wifi client > AP)";
+    after = [ "NetworkManager.service" ];
+    wants = [ "NetworkManager.service" ];
+    wantedBy = [ "multi-user.target" ];
+    path = [ pkgs.iw ];
+    environment = {
+      PIFINDER_DATA = "/home/pifinder/PiFinder_data";
+      GI_TYPELIB_PATH = lib.makeSearchPath "lib/girepository-1.0" [
+        pkgs.networkmanager
+        pkgs.glib.out
+        pkgs.gobject-introspection
+      ];
+    };
+    serviceConfig = {
+      WorkingDirectory = "/home/pifinder/PiFinder/python";
+      ExecStart = "${pifinderPythonEnv}/bin/python -m PiFinder.net_policy";
+      Restart = "always";
+      RestartSec = 5;
+    };
+  };
+
+  # ---------------------------------------------------------------------------
   # PiFinder NixOS Upgrade
   # ---------------------------------------------------------------------------
   # Downloads from binary caches, sets profile, updates bootloader, reboots.
