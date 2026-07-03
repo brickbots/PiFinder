@@ -28,25 +28,25 @@ REQUEST_TIMEOUT = 10
 MIGRATION_GATE_URL = (
     "https://raw.githubusercontent.com/brickbots/PiFinder/release/migration_gate.json"
 )
+UPDATE_MANIFEST_URL = (
+    "https://raw.githubusercontent.com/brickbots/PiFinder/"
+    "nixos-manifest/update-manifest.json"
+)
 
 # Secret unlock: 7x square button
 _UNLOCK_SEQUENCE = ["square"] * 7
 
-_MIGRATION_VERSION_INFO = {
-    "version": "3.0.0",
-    "type": "upgrade",
-    "migration_size_mb": 292,
-    "migration_url": "https://github.com/mrosseel/PiFinder/releases/download/v3.0.0-migration/pifinder-nixos-v3.0.0.tar.zst",
-    "migration_sha256_url": "https://github.com/mrosseel/PiFinder/releases/download/v3.0.0-migration/pifinder-nixos-v3.0.0.tar.zst.sha256",
-}
+# Migration targets are read from the update manifest, consulted in descending
+# stability; the first available entry carrying a migration tarball wins.
+_MIGRATION_CHANNELS = ("stable", "beta", "unstable")
 
 
 def _fetch_migration_config() -> Optional[dict]:
-    """Fetch and parse the remote migration config JSON.
+    """Fetch and parse the remote migration gate JSON.
 
-    Returns the parsed dict if it contains a usable `nixos_url`; None on
-    network error, non-200 response, malformed JSON, or missing url.
-    The `nixos_for_everyone` gate is enforced by the caller.
+    Returns the parsed dict on success; None on network error, non-200
+    response, or malformed JSON. Only the `nixos_for_everyone` flag is used by
+    the caller — the tarball itself comes from the update manifest.
     """
     try:
         res = requests.get(MIGRATION_GATE_URL, timeout=REQUEST_TIMEOUT)
@@ -60,9 +60,85 @@ def _fetch_migration_config() -> Optional[dict]:
         return None
     if not isinstance(data, dict):
         return None
-    if not data.get("nixos_url"):
+    return data
+
+
+def _fetch_update_manifest() -> Optional[dict]:
+    """Fetch and parse the update manifest, or None on any failure."""
+    try:
+        res = requests.get(UPDATE_MANIFEST_URL, timeout=REQUEST_TIMEOUT)
+    except requests.exceptions.RequestException:
+        return None
+    if res.status_code != 200:
+        return None
+    try:
+        data = res.json()
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
         return None
     return data
+
+
+def _fetch_download_size_mb(url: str) -> Optional[int]:
+    """Return the tarball download size in MB from a HEAD request, or None.
+
+    GitHub release assets 302-redirect to a signed URL whose response carries
+    the real Content-Length, so redirects must be followed. Returns None on
+    network error, non-200 status, or a missing/unparseable Content-Length.
+    """
+    try:
+        res = requests.head(url, allow_redirects=True, timeout=REQUEST_TIMEOUT)
+    except requests.exceptions.RequestException:
+        return None
+    if res.status_code != 200:
+        return None
+    length = res.headers.get("Content-Length")
+    if length is None:
+        return None
+    try:
+        return round(int(length) / (1024 * 1024))
+    except (TypeError, ValueError):
+        return None
+
+
+def _migration_version_info_from_manifest() -> Optional[dict]:
+    """Select a migration target from the update manifest.
+
+    Walks channels stable -> beta -> unstable and returns version_info for the
+    first available entry that carries a migration tarball, or None if the
+    manifest can't be fetched or has no such entry.
+    """
+    manifest = _fetch_update_manifest()
+    if not manifest:
+        return None
+    channels = manifest.get("channels")
+    if not isinstance(channels, dict):
+        return None
+    for channel in _MIGRATION_CHANNELS:
+        entries = channels.get(channel)
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict) or not entry.get("available"):
+                continue
+            url = entry.get("migration_url")
+            sha_url = entry.get("migration_sha256_url")
+            if not url or not sha_url:
+                continue
+            version_info = {
+                "version": entry.get("version", "?"),
+                "type": "upgrade",
+                "migration_url": url,
+                "migration_sha256_url": sha_url,
+            }
+            # Size comes from a live HEAD on the tarball; omitted on failure
+            # (the confirm screen then shows "?").
+            size_mb = _fetch_download_size_mb(url)
+            if size_mb is not None:
+                version_info["migration_size_mb"] = size_mb
+            return version_info
+    return None
 
 
 def update_needed(current_version: str, repo_version: str) -> bool:
@@ -127,9 +203,14 @@ class UISoftware(UIModule):
             self._key_buffer = self._key_buffer[-len(_UNLOCK_SEQUENCE) :]
         if self._key_buffer == _UNLOCK_SEQUENCE:
             self._key_buffer = []
-            # Unlock: self-contained — uses the hardcoded URLs and does not
-            # require the remote migration_gate.json to exist.
-            self._trigger_migration(dict(_MIGRATION_VERSION_INFO))
+            # Unlock: offer the first available migration target from the
+            # manifest, ignoring the nixos_for_everyone gate (that governs only
+            # the public path).
+            version_info = _migration_version_info_from_manifest()
+            if version_info:
+                self._trigger_migration(version_info)
+            else:
+                self.message(_("No release found"), 2)
 
     def _trigger_migration(self, version_info: dict):
         """Push UIMigrationConfirm onto the UI stack with the supplied
@@ -152,12 +233,12 @@ class UISoftware(UIModule):
         """
         config = _fetch_migration_config()
         if config and config.get("nixos_for_everyone"):
-            version_info = dict(_MIGRATION_VERSION_INFO)
-            nixos_url = config["nixos_url"]
-            version_info["migration_url"] = nixos_url
-            version_info["migration_sha256_url"] = f"{nixos_url}.sha256"
-            self._trigger_migration(version_info)
-            return
+            # Gate is open for everyone; the tarball comes from the manifest
+            # (stable -> beta -> unstable).
+            version_info = _migration_version_info_from_manifest()
+            if version_info:
+                self._trigger_migration(version_info)
+                return
 
         try:
             res = requests.get(
