@@ -61,7 +61,11 @@ def set_available(entry: dict) -> dict:
 
 
 def replace_entry(entries: list[dict], predicate, entry: dict) -> list[dict]:
-    return [item for item in entries if not predicate(item)] + [entry]
+    # Newest first: consumers (release channels in the update UI, and the
+    # migration target lookup) take the head of the list as the current entry.
+    # The unstable channel is re-sorted after this, so prepending is neutral
+    # there.
+    return [entry] + [item for item in entries if not predicate(item)]
 
 
 def sort_unstable(entries: list[dict]) -> list[dict]:
@@ -140,6 +144,8 @@ def update_release(args: argparse.Namespace) -> None:
         "source_sha": args.sha,
         "version": args.version,
         "store_path": args.store_path or None,
+        "migration_url": args.migration_url or None,
+        "migration_sha256_url": args.migration_sha256_url or None,
     }
     set_available(entry)
     manifest["channels"][channel] = replace_entry(
@@ -177,6 +183,8 @@ def parser() -> argparse.ArgumentParser:
     release.add_argument("--version", required=True)
     release.add_argument("--release-type", choices=("stable", "beta"), required=True)
     release.add_argument("--store-path", required=True)
+    release.add_argument("--migration-url")
+    release.add_argument("--migration-sha256-url")
     release.add_argument("--title")
     release.add_argument("--notes")
     release.set_defaults(func=update_release)
