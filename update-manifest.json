@@ -1,6 +1,21 @@
 {
   "channels": {
-    "beta": [],
+    "beta": [
+      {
+        "available": true,
+        "kind": "release",
+        "label": "v3.0.0-beta",
+        "migration_sha256_url": "https://github.com/brickbots/PiFinder/releases/download/v3.0.0-beta/pifinder-migration-v3.0.0-beta.tar.zst.sha256",
+        "migration_url": "https://github.com/brickbots/PiFinder/releases/download/v3.0.0-beta/pifinder-migration-v3.0.0-beta.tar.zst",
+        "notes": "initial nixos release to be downloaded on first boot",
+        "source_ref": "v3.0.0-beta",
+        "source_repo": "mrosseel/PiFinder",
+        "source_sha": "4cffb61550e4756edbe6ad6ece03a892523ce245",
+        "store_path": "/nix/store/zm9wp631dc1543ppcq2dxa7cshci6z73-nixos-system-pifinder-25.11.20260209.2db38e0",
+        "title": "PiFinder v3.0.0-beta",
+        "version": "3.0.0"
+      }
+    ],
     "stable": [],
     "unstable": [
       {
@@ -69,6 +84,6 @@
       }
     ]
   },
-  "generated_at": "2026-07-03T13:27:33+00:00",
+  "generated_at": "2026-07-03T14:27:44+00:00",
   "schema": 1
 }
