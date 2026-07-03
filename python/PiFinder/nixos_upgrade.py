@@ -28,6 +28,9 @@ UPGRADE_STATUS_FILE = RUN_DIR / "upgrade-status"
 UPGRADE_LOG_FILE = RUN_DIR / "upgrade-nix.log"
 CURRENT_BUILD_FILE = Path("/var/lib/pifinder/current-build.json")
 CAMERA_TYPE_FILE = Path("/var/lib/pifinder/camera-type")
+# Arms pifinder-watchdog: present = the next boot is a trial of an unproven
+# generation (roll back on failure); absent = committed system, never touched.
+TRIAL_MARKER_FILE = Path("/var/lib/pifinder/trial-generation.json")
 
 RELEASE_CACHE = "https://cache.pifinder.eu/pifinder-release"
 DEV_CACHE = "https://cache.pifinder.eu/pifinder"
@@ -436,6 +439,30 @@ def persist_current_build(store_path: str, selection: dict) -> None:
     CURRENT_BUILD_FILE.write_text(json.dumps(data, sort_keys=True) + "\n")
 
 
+def arm_trial_marker(boot_target: Path) -> None:
+    """Arm the boot-health watchdog for the next boot.
+
+    Records the currently-running (known-good) system and the generation the
+    next boot is expected to run, so pifinder-watchdog can roll back if that
+    generation fails its first boot. The watchdog deletes the marker once the
+    new generation proves healthy (commit); no marker means a committed
+    system, which is never auto-rolled-back.
+
+    Best-effort: a marker failure must not block the upgrade — it only means
+    this upgrade proceeds without the automatic safety net.
+    """
+    try:
+        previous = Path("/run/current-system").resolve()
+        new = boot_target.resolve()
+        TRIAL_MARKER_FILE.parent.mkdir(parents=True, exist_ok=True)
+        TRIAL_MARKER_FILE.write_text(
+            json.dumps({"previous": str(previous), "new": str(new)}, sort_keys=True)
+            + "\n"
+        )
+    except OSError as exc:
+        logger.warning("could not arm trial marker: %s", exc)
+
+
 def activate_system(store_path: str, default_camera: str) -> None:
     write_status("activating")
     command(["nix-env", "-p", "/nix/var/nix/profiles/system", "--set", store_path])
@@ -448,10 +475,14 @@ def activate_system(store_path: str, default_camera: str) -> None:
     if camera and camera != default_camera:
         specialisation = Path(store_path) / "specialisation" / camera
         if specialisation.is_dir():
+            # The specialisation has its own toplevel — arm the watchdog with
+            # what will actually be running after reboot.
+            arm_trial_marker(specialisation)
             command([str(specialisation / "bin/switch-to-configuration"), "boot"])
             set_extlinux_default(camera)
             return
 
+    arm_trial_marker(Path(store_path))
     command([str(Path(store_path) / "bin/switch-to-configuration"), "boot"])
     set_extlinux_default(default_camera)
 

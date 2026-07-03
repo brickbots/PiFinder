@@ -435,6 +435,19 @@ def main(
         console.update()
         logger.info("Starting ....")
 
+        # One-shot notice from the boot watchdog: a failed upgrade was
+        # auto-rolled-back to this (previous) generation.
+        upgrade_failed_notice = utils.data_dir / "upgrade_failed.json"
+        if upgrade_failed_notice.exists():
+            console.write("!! Update failed")
+            console.write("!! Rolled back")
+            console.update()
+            logger.warning("Previous upgrade failed; watchdog rolled back")
+            try:
+                upgrade_failed_notice.unlink()
+            except OSError:
+                pass
+
         # spawn gps service....
         console.write("   GPS")
         console.update()

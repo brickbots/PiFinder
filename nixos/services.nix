@@ -466,8 +466,19 @@ in {
   };
 
   # ---------------------------------------------------------------------------
-  # PiFinder Boot Health Watchdog
+  # PiFinder Boot Health Watchdog — trial/commit
   # ---------------------------------------------------------------------------
+  # pifinder-upgrade arms a trial marker (previous + expected generation)
+  # before rebooting into a new generation. On every boot:
+  #   - no marker                       -> committed system: never roll back,
+  #     so a transient failure in the field can't cause a surprise downgrade
+  #   - marker but not the trial gen    -> stale (already rolled back, or the
+  #     operator switched): clear it
+  #   - trial gen healthy               -> commit (delete the marker)
+  #   - trial gen unhealthy             -> capture the journal to PiFinder_data
+  #     (journald is volatile to spare the SD card; a failed upgrade is the one
+  #     moment worth a write), leave a notice the app shows after reboot, roll
+  #     back to the recorded generation, reboot
   systemd.services.pifinder-watchdog = {
     description = "PiFinder Boot Health Watchdog";
     after = [ "multi-user.target" "pifinder.service" ];
@@ -476,18 +487,34 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = with pkgs; [ nix systemd coreutils ];
+    path = with pkgs; [ nix systemd coreutils jq ];
     script = ''
       set -euo pipefail
-      REBOOT_MARKER="/var/tmp/pifinder-watchdog-rebooted"
+      MARKER=/var/lib/pifinder/trial-generation.json
+      DATA=/home/pifinder/PiFinder_data
 
-      if [ -f "$REBOOT_MARKER" ]; then
-        echo "Watchdog already rebooted once. Not retrying."
-        rm -f "$REBOOT_MARKER"
+      if [ ! -f "$MARKER" ]; then
+        echo "No trial in progress — committed system, nothing to watch."
         exit 0
       fi
 
-      echo "Watchdog: waiting up to 120s for pifinder.service..."
+      NEW=$(jq -r '.new // empty' "$MARKER" || true)
+      PREV=$(jq -r '.previous // empty' "$MARKER" || true)
+      CURRENT=$(readlink -f /run/current-system)
+
+      if [ -z "$NEW" ] || [ -z "$PREV" ]; then
+        echo "Malformed trial marker — clearing."
+        rm -f "$MARKER"
+        exit 0
+      fi
+
+      if [ "$CURRENT" != "$NEW" ]; then
+        echo "Running $CURRENT, not the trial generation $NEW — clearing marker."
+        rm -f "$MARKER"
+        exit 0
+      fi
+
+      echo "Trial boot of $NEW: waiting up to 120s for pifinder.service..."
       for i in $(seq 1 24); do
         if systemctl is-active --quiet pifinder.service; then
           # Verify it stays running (not crash-looping)
@@ -496,21 +523,26 @@ in {
           NOW_EPOCH=$(date +%s)
           RUNNING_FOR=$((NOW_EPOCH - START_EPOCH))
           if [ "$RUNNING_FOR" -ge 15 ]; then
-            echo "pifinder.service healthy (running ''${RUNNING_FOR}s)"
+            echo "pifinder.service healthy (running ''${RUNNING_FOR}s) — committing generation."
+            rm -f "$MARKER"
             exit 0
           fi
         fi
         sleep 5
       done
 
-      echo "ERROR: pifinder.service failed. Rolling back..."
-      touch "$REBOOT_MARKER"
-      PREV_GEN=$(ls -d /nix/var/nix/profiles/system-*-link 2>/dev/null | sort -t- -k2 -n | tail -2 | head -1)
-      if [ -n "$PREV_GEN" ]; then
-        # Reset profile so the rolled-back generation becomes the current one
-        nix-env -p /nix/var/nix/profiles/system --set "$(readlink -f "$PREV_GEN")"
-        "$PREV_GEN/bin/switch-to-configuration" switch || true
-      fi
+      echo "ERROR: trial generation unhealthy. Capturing evidence and rolling back to $PREV..."
+      TS=$(date +%Y%m%d-%H%M%S)
+      mkdir -p "$DATA"
+      journalctl -b > "$DATA/failed-boot-$TS.log" || true
+      jq -n --arg failed "$NEW" --arg reverted_to "$PREV" --arg at "$TS" \
+        '{failed: $failed, reverted_to: $reverted_to, at: $at}' \
+        > "$DATA/upgrade_failed.json" || true
+      chown pifinder:users "$DATA/failed-boot-$TS.log" "$DATA/upgrade_failed.json" 2>/dev/null || true
+
+      rm -f "$MARKER"
+      nix-env -p /nix/var/nix/profiles/system --set "$PREV"
+      "$PREV/bin/switch-to-configuration" boot || true
       systemctl reboot
     '';
   };
