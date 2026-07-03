@@ -541,6 +541,11 @@ in {
       chown pifinder:users "$DATA/failed-boot-$TS.log" "$DATA/upgrade_failed.json" 2>/dev/null || true
 
       rm -f "$MARKER"
+      # current-build.json was written for the (now failed) generation before
+      # its reboot; left in place it makes the rolled-back system misreport
+      # its identity (and the update UI mis-hide entries). Remove it — version
+      # display falls back to the baked build metadata.
+      rm -f /var/lib/pifinder/current-build.json
       nix-env -p /nix/var/nix/profiles/system --set "$PREV"
       "$PREV/bin/switch-to-configuration" boot || true
       systemctl reboot

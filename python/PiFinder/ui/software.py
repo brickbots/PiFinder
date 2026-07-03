@@ -9,6 +9,7 @@ Channels:
   - unstable: trunk + testable PR entries from update-manifest.json
 """
 
+import json
 import logging
 import re
 from typing import Dict, List, Optional
@@ -100,6 +101,35 @@ def _fetch_update_manifest() -> dict[str, list[dict]]:
         channels[channel] = entries
 
     return channels
+
+
+def _current_store_path() -> Optional[str]:
+    """Store path of the running build, or None when unknown.
+
+    Read from current-build.json (written by the upgrade service). The store
+    path — not the version string — is a build's identity: a re-cut release
+    keeps its version/label but is a different system.
+    """
+    try:
+        with open(utils.current_build_json) as f:
+            return json.load(f).get("store_path") or None
+    except (OSError, ValueError):
+        return None
+
+
+def _hide_current_build(
+    entries: List[dict], current_ref: Optional[str]
+) -> List[dict]:
+    """Hide only the exact running build, matched by store path.
+
+    A same-version entry with a different store path (e.g. a re-cut release)
+    is a real upgrade and must stay visible. When the current build is
+    unknown, nothing is hidden — offering the running build is harmless,
+    hiding a real upgrade is not.
+    """
+    if not current_ref:
+        return list(entries)
+    return [e for e in entries if e.get("ref") != current_ref]
 
 
 class UISoftware(UIModule):
@@ -219,13 +249,17 @@ class UISoftware(UIModule):
         self._phase = "browse"
 
     def _find_current_subtitle(self) -> Optional[str]:
-        """Find a subtitle for the current version.
+        """Find a subtitle for the running build.
 
-        Checks fetched channel entries first.
+        Matches by store path (the build's identity) first, falling back to
+        the version string when the current store path is unknown.
         """
+        current_ref = _current_store_path()
         for entries in self._channels.values():
             for entry in entries:
-                if entry.get("version") == self._software_version:
+                if current_ref and entry.get("ref") == current_ref:
+                    return entry.get("subtitle")
+                if not current_ref and entry.get("version") == self._software_version:
                     return entry.get("subtitle")
 
         return None
@@ -239,9 +273,7 @@ class UISoftware(UIModule):
         if channel in ("unstable", "rollback"):
             self._version_list = entries
         else:
-            self._version_list = [
-                e for e in entries if e.get("version") != self._software_version
-            ]
+            self._version_list = _hide_current_build(entries, _current_store_path())
         self._list_index = 0
         self._scroll_offset = 0
         self._scrollers = {}

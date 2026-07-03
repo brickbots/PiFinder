@@ -182,21 +182,66 @@ def test_unstable_list_keeps_current_trunk_entry_visible():
 
 
 @pytest.mark.unit
-def test_stable_list_filters_current_version():
+def test_stable_list_filters_current_build_by_store_path():
     ui = UISoftware.__new__(UISoftware)
     ui._channel_names = ["stable"]
     ui._channel_index = 0
-    ui._software_version = "nixos-current"
+    ui._software_version = "3.0.0"
     ui._channels = {
         "stable": [
-            {"label": "nixos-current", "version": "nixos-current"},
-            {"label": "nixos-next", "version": "nixos-next"},
+            {"label": "v3.0.0", "version": "3.0.0", "ref": "/nix/store/aaa-current"},
+            {"label": "v3.1.0", "version": "3.1.0", "ref": "/nix/store/bbb-next"},
         ]
     }
 
-    ui._refresh_version_list()
+    with patch(
+        "PiFinder.ui.software._current_store_path",
+        return_value="/nix/store/aaa-current",
+    ):
+        ui._refresh_version_list()
 
-    assert [entry["label"] for entry in ui._version_list] == ["nixos-next"]
+    assert [entry["label"] for entry in ui._version_list] == ["v3.1.0"]
+
+
+@pytest.mark.unit
+def test_recut_release_with_same_version_stays_visible():
+    # A re-cut release reuses its version/label but is a different store path
+    # — it must be offered as an upgrade, not hidden by a version-string match.
+    ui = UISoftware.__new__(UISoftware)
+    ui._channel_names = ["beta"]
+    ui._channel_index = 0
+    ui._software_version = "3.0.0"
+    ui._channels = {
+        "beta": [
+            {"label": "v3.0.0-beta", "version": "3.0.0", "ref": "/nix/store/bbb-recut"},
+        ]
+    }
+
+    with patch(
+        "PiFinder.ui.software._current_store_path",
+        return_value="/nix/store/aaa-old-build",
+    ):
+        ui._refresh_version_list()
+
+    assert [entry["label"] for entry in ui._version_list] == ["v3.0.0-beta"]
+
+
+@pytest.mark.unit
+def test_unknown_current_build_hides_nothing():
+    ui = UISoftware.__new__(UISoftware)
+    ui._channel_names = ["stable"]
+    ui._channel_index = 0
+    ui._software_version = "3.0.0"
+    ui._channels = {
+        "stable": [
+            {"label": "v3.0.0", "version": "3.0.0", "ref": "/nix/store/aaa"},
+        ]
+    }
+
+    with patch("PiFinder.ui.software._current_store_path", return_value=None):
+        ui._refresh_version_list()
+
+    assert [entry["label"] for entry in ui._version_list] == ["v3.0.0"]
 
 
 @pytest.mark.unit

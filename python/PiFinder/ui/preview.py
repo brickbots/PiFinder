@@ -42,8 +42,6 @@ CAMERA_NATIVE_RES = 512
 
 
 class UIPreview(UIModule):
-    from PiFinder import tetra3
-
     __title__ = "CAMERA"
     __help_name__ = "camera"
     _STAR_ICON = "\uf005"  # NerdFont star icon (Font Awesome solid)
