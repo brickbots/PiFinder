@@ -209,6 +209,21 @@ fi
 cp "${INIT_SCRIPT}" "${INITRAMFS_DIR}/init"
 chmod +x "${INITRAMFS_DIR}/init"
 
+# Pre-stage NetworkManager keyfiles from the live wpa_supplicant.conf.
+# Generating them here (with Python, on the full Debian system) rather
+# than in the busybox initramfs lets us unit-test the conversion. The
+# init script just copies these into the new rootfs.
+WIFI_STAGED_DIR="${INITRAMFS_DIR}/wifi-staged"
+WPA_CONF="/etc/wpa_supplicant/wpa_supplicant.conf"
+if [ -f "${WPA_CONF}" ]; then
+    PIFINDER_PYTHON_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+    PYTHONPATH="${PIFINDER_PYTHON_ROOT}" python3 \
+        -m PiFinder.nixos_migration_wifi \
+        --wpa-conf "${WPA_CONF}" \
+        --out "${WIFI_STAGED_DIR}" \
+        || fail 5 "WiFi keyfile generation failed"
+fi
+
 # Metadata: paths + sizes so init script knows where to find things
 cat > "${INITRAMFS_DIR}/migration_meta" <<METAEOF
 TARBALL_PATH=${TARBALL}
