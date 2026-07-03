@@ -7,11 +7,11 @@ How a NixOS PiFinder system is built, published, and updated over the air — th
 ### Repositories and their roles
 
 **Upstream**:
-The canonical public PiFinder repo, `brickbots/PiFinder`. The to-be home of releases, update channels, and (eventually) build infrastructure. On-device update channels already read from here (`software.py` `GITHUB_REPO`).
+The canonical public PiFinder repo, `brickbots/PiFinder`. The to-be home of releases, update channels, and (eventually) build infrastructure. On-device update channels already read from here (the **update manifest** on the `nixos-manifest` branch).
 _Avoid_: "the main repo", bare "brickbots" in prose, "official".
 
 **Fork**:
-`mrosseel/PiFinder` (git remote `origin`). Where NixOS is developed (the `nixos` branch) and, through the transition, where every NixOS artifact is produced — CI builds, the Attic cache, build stamping, release tags, and the migration tarball.
+`mrosseel/PiFinder` (git remote `origin`). Where NixOS is developed (the `nixos` branch) and, through the transition, where every NixOS artifact is produced — CI builds, the Attic cache, the update manifest, release tags, and the migration tarball.
 _Avoid_: "my repo", bare "mrosseel", "the staging repo" used interchangeably with branch names.
 
 **Trunk**:
@@ -31,7 +31,7 @@ The current state: no NixOS artifacts exist on the Upstream yet (PR #379 not mer
 
 ### Channels
 
-The on-device UI offers three update **channels**, each mapped to one stage of the branch promotion flow (testable PRs → `main` → `release`). Choosing a channel and a version resolves to a **Build stamp** and installs that store path.
+The on-device UI offers three update **channels**, each mapped to one stage of the branch promotion flow (testable PRs → `main` → `release`). Choosing a channel and a version resolves through the **update manifest** to a store path and installs it.
 
 **stable**:
 The production channel — official release entries in the generated manifest. The default for ordinary users.
@@ -52,8 +52,31 @@ _Avoid_: "preview", "nightly".
 **Rollback**:
 Returning a device — or the fleet — to a known-good build after a bad one ships. Guaranteed for **stable** and **beta** — both are Releases whose closures live in the retained `pifinder-release` cache; only **unstable** (`main` head / PR) builds may be GC'd from the short-retention dev cache.
 
+**Watchdog**:
+The on-device boot guardian. It health-checks every boot of a not-yet-**confirmed** generation (a **trial**) and performs a **generation rollback** when the trial fails — capturing evidence and telling the operator on screen. It never touches a confirmed generation (see [NixOS ADR 0005](./adr/0005-self-arming-watchdog-confirmed-generations.md)).
+
+**Trial**:
+The probation boot of a generation that has not yet proven itself on this device. Every boot of an unconfirmed generation is a trial, regardless of which build installed it. A passed trial **confirms** the generation.
+_Avoid_: "first boot" as a synonym — a trial can recur (e.g. after a crash before the health check completed).
+
+**Health check**:
+What a trial must pass: the app *itself* declares that its UI is live (readiness announced from the first drawn frame), and then stays up briefly. A merely-running process is not healthy — a build that starts but never turns the screen on must fail its trial. Outside supervised boots (development runs), the readiness announcement is a harmless no-op.
+_Avoid_: equating "healthy" with "the service started".
+
+**Confirmed generation**:
+A generation that has passed a trial on this device, recorded locally. Confirmed generations are never auto-rolled-back — later failures are for the user-driven recovery ladder (Rollback channel, **recovery hold**, SSH), not the watchdog.
+_Avoid_: "committed" (overloaded with VCS meaning).
+
+**Recovery hold**:
+The user gesture that enters **recovery mode**: hold the square-equivalent input while powering on, and keep holding until RECOVERY appears. Detected only during a short boot window (so it can never fire mid-observation). Deliberately a single input: v4's joystick makes multi-key chords physically impossible, and a square-equivalent will always exist.
+_Avoid_: "recovery chord" (one input, not a chord).
+
+**Recovery mode**:
+The interactive rescue environment the **recovery hold** boots into: the update screen alone (no camera/solver/positioning), offering the local generation overview — marking the generation that was about to boot and each **confirmed generation** — plus the normal internet channels. Choosing a generation is *sticky* (it becomes the boot default); an internet pick installs through the ordinary upgrade flow and faces a **trial** like any install. If recovery mode itself fails its **health check**, the device falls back to a blind **generation rollback** to the newest confirmed generation. Never touches user data.
+_Avoid_: "safe mode" (nothing about the broken build is run "safely" — recovery either works or falls through), "factory reset" (nothing is wiped).
+
 **Generation rollback**:
-The instance-local revert to the previous NixOS generation. Triggered automatically by the **watchdog** on a boot failure (once), or manually. Bounded — local generations are pruned to two, so it reaches only one step back.
+The instance-local revert to an earlier NixOS generation. Triggered automatically by the **watchdog** when a **trial** fails, or manually. Bounded — local generations are pruned to three (the running one plus two rollback targets, surfaced in the Software screen's Rollback channel).
 
 **Reinstall an older build**:
 The durable rollback path: pick a prior version and install it — the device substitutes its prebuilt closure (it never compiles; the upgrade is `nix build … --max-jobs 0`), so the only requirement is that the closure still lives in a reachable cache. For **stable** and **beta** that is guaranteed (their closures live in the never-GC'd `pifinder-release` cache), so any past release reinstalls forever; **unstable** closures may be GC'd from the short-retention cache, at which point that exact build is un-installable until CI rebuilds and re-pushes it. Survives generation pruning and covers boots-but-misbehaves bugs the watchdog cannot catch.
@@ -68,10 +91,8 @@ The binary cache at `cache.pifinder.eu`, with two namespaces: `pifinder` (dev bu
 _Avoid_: "cachix" (an earlier/alternative cache; the current one is Attic — see [NixOS ADR 0001](./adr/0001-attic-binary-cache.md)).
 
 **pi5 runner**:
-The self-hosted aarch64 GitHub Actions runner that builds NixOS systems natively, with a hosted `ubuntu-*-arm` QEMU fallback. Fork-side infrastructure through Phase 1.
+The self-hosted aarch64 GitHub Actions runner that builds NixOS systems natively, with a hosted `ubuntu-*-arm` runner (also native aarch64 — no emulation) as fallback. Fork-side infrastructure through Phase 1.
 
-**Build stamp**:
-`update-manifest.json` — the generated channel manifest published on a metadata-only branch (`nixos-manifest` during the fork transition). It maps releases, trunk builds, and testable PR builds to signed Nix `store_path`s in the Attic cache. The device reads this raw JSON file instead of calling the GitHub API.
-
-`pifinder-build.json` — legacy/source-local build metadata. CI should not commit it back to source branches for dev builds; source branches stay at the real source commit, while generated install metadata goes to the manifest branch.
-_Avoid_: "manifest", "build manifest".
+**Update manifest**:
+`update-manifest.json` — the generated channel listing published on a metadata-only branch (`nixos-manifest` during the fork transition). It maps releases, trunk builds, and testable PR builds to signed Nix `store_path`s in the Attic cache (and, for releases, to the migration tarball). The device reads this raw JSON file instead of calling the GitHub API; it is the single mapping between versions and store paths.
+_Avoid_: bare "manifest" (say *update* manifest), "build stamp" (a retired concept: `pifinder-build.json` is gone — a device's identity lives in one file, seeded at image build and rewritten by every upgrade).
