@@ -40,12 +40,17 @@ jobs:
     timeout-minutes: 90
     outputs:
       store_path: ${{ steps.push.outputs.store_path }}
+      source_sha: ${{ steps.sha.outputs.source_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           repository: ${{ inputs.source_repository || github.repository }}
           ref: ${{ inputs.source_branch }}
           persist-credentials: false
+
+      - name: Record source SHA
+        id: sha
+        run: echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Ensure nix is on PATH (self-hosted runner)
         run: |
@@ -122,12 +127,17 @@ jobs:
     timeout-minutes: 120
     outputs:
       store_path: ${{ steps.push.outputs.store_path }}
+      source_sha: ${{ steps.sha.outputs.source_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           repository: ${{ inputs.source_repository || github.repository }}
           ref: ${{ inputs.source_branch }}
           persist-credentials: false
+
+      - name: Record source SHA
+        id: sha
+        run: echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: DeterminateSystems/nix-installer-action@main
         with:
@@ -179,20 +189,29 @@ jobs:
     permissions:
       contents: write
     steps:
-      # Same-repo only: needed to tag the source commit and to run the TRUSTED
-      # manifest scripts. Skipped for fork builds (those steps are skipped too).
-      - name: Checkout source
-        if: (inputs.source_repository || github.repository) == github.repository
+      # Base repo (this repo, not the fork source): supplies the TRUSTED manifest
+      # scripts and the `origin` the manifest branch is pushed to. Keeps default
+      # credentials for that push.
+      - name: Checkout base repo
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.source_branch }}
 
-      - name: Download built SD image
+      # Download native and hosted images to separate dirs. If both builds ran
+      # (native slow → fallback fired) their images share a filename, so merging
+      # them would corrupt the archive — never merge; the assemble step prefers
+      # native.
+      - name: Download native SD image
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          pattern: sdimage-*
-          merge-multiple: true
-          path: result-sd/sd-image
+          name: sdimage-native
+          path: img-native
+
+      - name: Download hosted SD image
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: sdimage-hosted
+          path: img-hosted
 
       - name: Compute tag
         run: |
@@ -203,7 +222,15 @@ jobs:
       - name: Assemble image + migration tarball + checksums
         run: |
           set -euo pipefail
-          IMAGE_SRC=$(find result-sd/sd-image -type f -name '*.img.zst' | head -1)
+          # Only one dir may exist (downloads are continue-on-error); create both
+          # so find can't fail under pipefail. Prefer the native image (listed
+          # first); fall back to hosted.
+          mkdir -p img-native img-hosted
+          IMAGE_SRC=$(find img-native img-hosted -type f -name '*.img.zst' -print -quit)
+          if [ -z "$IMAGE_SRC" ]; then
+            echo "No SD image artifact found from either builder" >&2
+            exit 1
+          fi
           mkdir -p release
           cp "$IMAGE_SRC" "release/pifinder-${TAG}.img.zst"
 
@@ -246,10 +273,15 @@ jobs:
         # `origin` we can't push to with GITHUB_TOKEN; the GitHub Release below
         # still publishes the artifacts to this repo.
         if: (inputs.source_repository || github.repository) == github.repository
+        env:
+          SOURCE_SHA: ${{ needs.build-native.outputs.source_sha || needs.build-hosted.outputs.source_sha }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "$TAG"
+          # The base checkout is at the workflow's ref, not the built source —
+          # fetch and tag the commit the build job actually checked out.
+          git fetch --depth=1 origin "$SOURCE_SHA"
+          git tag "$TAG" "$SOURCE_SHA"
           git push origin "$TAG"
 
       - name: Create GitHub Release
@@ -264,29 +296,33 @@ jobs:
             release/pifinder-*.sha256
 
       - name: Update generated manifest branch
-        # Same-repo only: publish_manifest.sh pushes the nixos-manifest branch to
-        # `origin`, and depends on the source tag above. Skipped when building a
-        # fork; update the manifest once the source lands in this repo.
-        if: (inputs.source_repository || github.repository) == github.repository
+        # Records this release in the metadata-only nixos-manifest branch so
+        # devices discover it (upgrade uses store_path; migration uses the tarball
+        # URL). Pushes to this repo's origin via the base checkout above, so it
+        # runs for fork-source builds too. source_sha is the built source commit;
+        # the tarball URL points at this repo's release assets.
         env:
           STORE_PATH: ${{ needs.build-native.outputs.store_path || needs.build-hosted.outputs.store_path }}
+          SOURCE_SHA: ${{ needs.build-native.outputs.source_sha || needs.build-hosted.outputs.source_sha }}
           RELEASE_NOTES: ${{ inputs.notes }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          SOURCE_SHA="$(git rev-parse "$TAG^{commit}")"
+          MIGRATION_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/pifinder-migration-${TAG}.tar.zst"
 
-          .github/scripts/publish_manifest.sh \
+          bash .github/scripts/publish_manifest.sh \
             "chore: update release manifest [skip ci]" \
             python3 .github/scripts/update_manifest.py release \
               --manifest @MANIFEST@ \
-              --repository "${{ github.repository }}" \
+              --repository "${{ inputs.source_repository || github.repository }}" \
               --sha "$SOURCE_SHA" \
               --tag "$TAG" \
               --version "${{ inputs.version }}" \
               --release-type "${{ inputs.type }}" \
               --store-path "$STORE_PATH" \
+              --migration-url "$MIGRATION_URL" \
+              --migration-sha256-url "${MIGRATION_URL}.sha256" \
               --title "PiFinder $TAG" \
               --notes "$RELEASE_NOTES"
