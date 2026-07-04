@@ -104,7 +104,7 @@ in {
 
   # ---------------------------------------------------------------------------
   # Binary substituters — Pi downloads pre-built paths, never compiles.
-  # Two Attic caches on cache.pifinder.eu (ADR 0004):
+  # Two Attic caches on cache.pifinder.eu (NixOS ADR 0001):
   #   pifinder-release — tagged release closures, never garbage-collected, so a
   #                      device upgrading long after a release still resolves it.
   #   pifinder         — dev/nightly builds, short retention.
@@ -513,7 +513,28 @@ in {
         # Stale marker from an aborted/rolled-back upgrade attempt is harmless
         # here but must not survive to a later boot.
         rm -f "$MARKER"
-        echo "Generation already confirmed — nothing to watch."
+        # Never ACT on a confirmed generation — but still REPORT (ADR 0005):
+        # if the app can't start, the frozen splash gets replaced by an
+        # advisory naming the recovery hold, so the escape hatch reveals
+        # itself exactly when it is needed.
+        echo "Generation already confirmed — report-only watch."
+        for i in $(seq 1 24); do
+          if systemctl is-active --quiet pifinder.service; then
+            exit 0
+          fi
+          sleep 5
+        done
+        echo "Confirmed generation's app is not starting — showing recovery advisory (no action taken)."
+        # The crash-looping app redraws its boot console between restarts, so
+        # re-assert the advisory periodically (bounded — 30 min, then leave
+        # the last draw standing) while bailing out if the app recovers.
+        for i in $(seq 1 60); do
+          if systemctl is-active --quiet pifinder.service; then
+            exit 0
+          fi
+          boot-splash --message "PIFINDER" "FAILED TO START" "HOLD SQUARE" "AT POWER ON" "FOR RECOVERY" || true
+          sleep 30
+        done
         exit 0
       fi
 
@@ -584,11 +605,11 @@ in {
 
       if [ -z "$TARGET" ]; then
         echo "FATAL: no rollback target exists — staying up for rescue (SSH) instead of boot-looping."
-        boot-splash --message "UPDATE" "FAILED" "NO ROLLBACK" "USE SSH OR REFLASH" || true
+        boot-splash --message "UPDATE" "FAILED" "NO ROLLBACK" "USE SSH OR REFLASH" "HOLD SQ AT POWER ON" "FOR RECOVERY" || true
         exit 1
       fi
 
-      boot-splash --message "UPDATE" "FAILED" "ROLLING BACK" "PLEASE WAIT" || true
+      boot-splash --message "UPDATE" "FAILED" "ROLLING BACK" "PLEASE WAIT" "HOLD SQ AT POWER ON" "FOR RECOVERY" || true
 
       echo "Rolling back to $TARGET and rebooting..."
       rm -f "$MARKER"
