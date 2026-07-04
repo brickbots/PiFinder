@@ -182,16 +182,21 @@ in {
       RemainAfterExit = true;
     };
     script = ''
-      # Export PWM channel 1 (GPIO 13) if not already exported
-      if [ ! -d /sys/class/pwm/pwmchip0/pwm1 ]; then
-        echo 1 > /sys/class/pwm/pwmchip0/export || true
-        sleep 0.5
-      fi
+      # Export PWM channels: 1 (GPIO 13, keypad backlight) and 0 (GPIO 12,
+      # rev-4 buzzer — harmless no-op wiring on rev-3).
+      for ch in 0 1; do
+        if [ ! -d /sys/class/pwm/pwmchip0/pwm$ch ]; then
+          echo $ch > /sys/class/pwm/pwmchip0/export || true
+          sleep 0.5
+        fi
+      done
       # sysfs doesn't support chgrp, so make files world-writable
       chmod 0666 /sys/class/pwm/pwmchip0/export /sys/class/pwm/pwmchip0/unexport
-      if [ -d /sys/class/pwm/pwmchip0/pwm1 ]; then
-        chmod 0666 /sys/class/pwm/pwmchip0/pwm1/{enable,period,duty_cycle,polarity}
-      fi
+      for ch in 0 1; do
+        if [ -d /sys/class/pwm/pwmchip0/pwm$ch ]; then
+          chmod 0666 /sys/class/pwm/pwmchip0/pwm$ch/{enable,period,duty_cycle,polarity}
+        fi
+      done
       # Red PWR LED — the app turns it off for night vision (sys_utils
       # set_power_led writes these directly, no sudo).
       if [ -d /sys/class/leds/PWR ]; then

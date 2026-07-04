@@ -42,22 +42,44 @@ let
     };
   '';
 
-  # PWM on GPIO 13 (PWM channel 1) for keypad backlight
-  # GPIO 13 = PWM0_1 when ALT0 (function 4)
+  # PWM: GPIO 13 (channel 1) keypad backlight + GPIO 12 (channel 0) rev-4
+  # buzzer earcons. Both ALT0 (function 4): GPIO12 = PWM0_0, GPIO13 = PWM0_1.
+  # Muxing GPIO12 unconditionally is safe — rev-3 boards leave it unconnected
+  # and the sound process only spawns when the rev-4 charger is detected.
   pwmDtbo = compileOverlay "pwm" ''
     /dts-v1/;
     /plugin/;
     / { compatible = "brcm,bcm2711"; };
     &gpio {
-      pwm_pin13: pwm_pin13 {
-        brcm,pins = <13>;
-        brcm,function = <4>;  /* ALT0 = PWM0_1 */
+      pwm_pins: pwm_pins {
+        brcm,pins = <12 13>;
+        brcm,function = <4 4>;  /* ALT0 = PWM0_0, PWM0_1 */
       };
     };
     &pwm {
       status = "okay";
       pinctrl-names = "default";
-      pinctrl-0 = <&pwm_pin13>;
+      pinctrl-0 = <&pwm_pins>;
+    };
+  '';
+
+  # Rev-4 power-off latch (ADR 0007 on main): driving GPIO14 low trips the
+  # LTC2954 and cuts power. The kernel's gpio-poweroff handler runs strictly
+  # after filesystems are down, and only on a real power-off (reboot takes a
+  # different path). Active-low; the board's hardware pull-up on GPIO14 holds
+  # power on until the handler fires. Deliberately unconditional across
+  # revisions: on rev-3 GPIO14-low does nothing electrically — the only effect
+  # is a cosmetic kernel WARN + ~3s wait at halt.
+  gpioPoweroffDtbo = compileOverlay "gpio-poweroff" ''
+    /dts-v1/;
+    /plugin/;
+    / { compatible = "brcm,bcm2711"; };
+    &{/} {
+      power_ctrl: power_ctrl {
+        compatible = "gpio-poweroff";
+        gpios = <&gpio 14 1>;  /* GPIO_ACTIVE_LOW */
+        timeout-ms = <3000>;
+      };
     };
   '';
 
@@ -87,6 +109,12 @@ in {
     # I2C enabled (loads i2c-dev module, creates i2c group)
     hardware.i2c.enable = true;
 
+    # GPIO14 is the rev-4 power-off kill line (gpio-poweroff overlay above) —
+    # its default function is UART0 TXD, so nothing may drive serial console
+    # bytes onto it (ADR 0007). No console= kernel param points there, and this
+    # keeps a getty from ever claiming the port.
+    systemd.services."serial-getty@ttyAMA0".enable = false;
+
     # Apply all DT overlays via fdtoverlay, bypassing NixOS apply_overlays.py
     # which rejects RPi camera overlays due to compatible string mismatch
     # (overlays declare "brcm,bcm2835" but kernel DTBs use "brcm,bcm2711")
@@ -99,7 +127,7 @@ in {
       for dtb in ${kernelDtbs}/broadcom/*rpi-4-b.dtb; do
         fdtoverlay -i "$dtb" \
           -o "$out/broadcom/$(basename $dtb)" \
-          ${i2c1Dtbo} ${spi0Dtbo} ${uart3Dtbo} ${pwmDtbo} ${cameraDtbo}
+          ${i2c1Dtbo} ${spi0Dtbo} ${uart3Dtbo} ${pwmDtbo} ${gpioPoweroffDtbo} ${cameraDtbo}
       done
     '');
 
