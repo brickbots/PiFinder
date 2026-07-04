@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pifinder.io/schemas/pifinder-list.schema.json",
   "title": "PiFinder observing list (.pifinder)",
-  "description": "Native versioned JSON observing-list format for PiFinder. The reference reader is lenient (it ignores unknown properties); this schema pins the recognized fields. See README.md and docs/adr/0003-pifinder-native-observing-list-format.md.",
+  "description": "Native versioned JSON observing-list format for PiFinder. The reference reader is lenient (it ignores unknown properties); this schema pins the recognized fields. See README.md and docs/adr/0016-pifinder-native-observing-list-format.md.",
   "type": "object",
   "required": ["version", "name", "objects"],
   "properties": {
@@ -61,7 +61,7 @@
         "name": { "type": "string" },
         "obj_type": {
           "type": "string",
-          "description": "Object type code, e.g. \"Gx\", \"Neb\", \"*\", \"?\"."
+          "description": "Object type code (see README \"Object type codes\"), e.g. \"Gx\", \"Nb\", \"*\", \"?\"."
         },
         "ra": {
           "type": "number",

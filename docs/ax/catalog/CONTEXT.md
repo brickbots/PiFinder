@@ -175,7 +175,7 @@ One of the supported on-disk representations of an observing list: SkySafari, CS
 _Avoid_: file type, flavor.
 
 **Native format** (`.pifinder`):
-PiFinder's own versioned JSON list format — the only one that losslessly carries catalog keys, structured magnitudes, and size/extent geometry. The format permits any coordinate `epoch` — a file-level default with optional per-entry overrides (J2000 unless stated); within PiFinder everything is J2000, so the reader precesses non-J2000 inputs to J2000 and the writer emits J2000. As a standalone library the format is epoch-agnostic. See [ADR 0003](../../adr/0003-pifinder-native-observing-list-format.md) and the format reference in [`obslist-formats/`](./obslist-formats/README.md).
+PiFinder's own versioned JSON list format — the only one that losslessly carries catalog keys, structured magnitudes, and size/extent geometry. The format permits any coordinate `epoch` — a file-level default with optional per-entry overrides (J2000 unless stated); within PiFinder everything is J2000, so the reader precesses non-J2000 inputs to J2000 and the writer emits J2000. As a standalone library the format is epoch-agnostic. See [ADR 0016](../../adr/0016-pifinder-native-observing-list-format.md) and the format reference in [`obslist-formats/`](./obslist-formats/README.md).
 _Avoid_: PiFinder format (ambiguous in prose), JSON format (Stellarium is JSON too).
 
 **Resolution**:

@@ -98,7 +98,7 @@ The PiFinder process owning `solver.py`. It drives the plate-solve loop and is t
 _Avoid_: tetra3 (the library is one thing the solver process uses; they are not synonyms).
 
 **`SolveResult`**:
-The message the solver puts on `solver_queue` describing one plate-solve attempt. A union — `SolveResult = SuccessfulSolve | FailedSolve` — on which the integrator dispatches via `isinstance()` (mirroring `SolverCommand` / `AlignResponse`). It is a transport DTO, **not** the published record: only the integrator builds the canonical `PointingEstimate`, by applying a `SolveResult` onto its long-lived instance. Defined in `PiFinder/types/positioning.py`. See [`docs/adr/0003-solver-integrator-message.md`](../../adr/0003-solver-integrator-message.md).
+The message the solver puts on `solver_queue` describing one plate-solve attempt. A union — `SolveResult = SuccessfulSolve | FailedSolve` — on which the integrator dispatches via `isinstance()` (mirroring `SolverCommand` / `AlignResponse`). It is a transport DTO, **not** the published record: only the integrator builds the canonical `PointingEstimate`, by applying a `SolveResult` onto its long-lived instance. Defined in `PiFinder/types/positioning.py`. See [`docs/adr/0012-solver-integrator-message.md`](../../adr/0012-solver-integrator-message.md).
 _Avoid_: snapshot, solved dict, solution record.
 
 **`SuccessfulSolve`**:
@@ -106,7 +106,7 @@ The `SolveResult` variant carrying solve-truth: **flat** `camera` and `aligned` 
 _Avoid_: solved estimate, PointingEstimate (a `SuccessfulSolve` is not one).
 
 **`FailedSolve`**:
-The `SolveResult` variant for an attempt that produced no pointing: `SolveDiagnostics` (with `Matches=0`) plus `last_solve_attempt` / `last_solve_success`. Triggers the integrator to preserve its `solve` cells + anchor **and** its `estimate` cells, and set `solve_source=CAMERA_FAILED`. The estimate cells are **not** cleared: once anchored, the last (IMU-progressed) pointing stays published and `solve_state` stays true, while the IMU advance keeps progressing it. A failed solve only shows "no solve" before the first successful solve. See [ADR 0005](../../adr/0005-failed-solve-preserves-estimate.md).
+The `SolveResult` variant for an attempt that produced no pointing: `SolveDiagnostics` (with `Matches=0`) plus `last_solve_attempt` / `last_solve_success`. Triggers the integrator to preserve its `solve` cells + anchor **and** its `estimate` cells, and set `solve_source=CAMERA_FAILED`. The estimate cells are **not** cleared: once anchored, the last (IMU-progressed) pointing stays published and `solve_state` stays true, while the IMU advance keeps progressing it. A failed solve only shows "no solve" before the first successful solve. See [ADR 0014](../../adr/0014-failed-solve-preserves-estimate.md).
 _Avoid_: empty PointingEstimate, hollow estimate, clearing the estimate on failure (that caused the "reverts to no-solve while stationary" bug).
 
 ### Diagnostics
@@ -132,6 +132,16 @@ _Avoid_: last_ok.
 **`estimate_time`**:
 The measurement **epoch** of the data behind the *current* `estimate` — i.e. *when the reading this value is based on was captured*, not when the integrator computed or published it. For a camera estimate it is the frame's `exposure_end`; for an IMU-progressed estimate it is the IMU sample's `timestamp`. Both sit on the same `time.time()` wall clock, so `time.time() - estimate_time` is a true "age of the fix" regardless of source. Updated on **every** estimate — each plate-solve and each IMU advance. Right after a solve `estimate_time == last_solve_success`; between solves the IMU advances `estimate_time` to each sample's epoch while `last_solve_success` stays anchored.
 _Avoid_: solve_time (legacy name — "solve" is reserved for plate-solve; this value is an *estimate*, often IMU-derived), cam_solve_time (removed), publish time, integration time. Whether the current estimate is the raw plate-solve or IMU-progressed is told by `solve_source` (`is_camera_solve()`), **not** by comparing timestamps.
+
+### Civil time (date & clock)
+
+**Civil datetime** (the `shared_state.datetime()` family):
+The calendar date + wall-clock time used as the **astronomical epoch** — the "when" that turns RA/Dec into Alt/Az and drives planet/comet ephemerides. Sourced from the GPS process (a real fix) or from manual time/date entry, carried on `shared_state`. **Always stored timezone-aware in UTC**, normalised at the `set_datetime()` boundary (naive input ⇒ interpreted as UTC; aware input ⇒ converted to UTC). Distinct from **measurement epoch** (`estimate_time`, `time.time()` — see above): civil datetime answers "what is the sky doing now", measurement epoch answers "how old is this fix". See [ADR-0018](../../adr/0018-civil-datetime-stored-utc-aware.md).
+_Avoid_: "the datetime" (ambiguous — say civil datetime, or name the accessor), treating `datetime().time()` as UTC without going through `utc_datetime()`, passing a naive datetime to `set_datetime()` (every caller must pass tz-aware).
+
+**`utc_datetime()`** / **`local_datetime()`**:
+The two explicit civil-datetime accessors on `shared_state`. `utc_datetime()` returns the instant in UTC; `local_datetime()` returns it in the active location's timezone (UTC fallback if none/invalid). Both derive from the same stored UTC instant, so they are one moment in two zones — never two different times. Prefer them over bare `datetime()` so the intended zone is on the page.
+_Avoid_: reading bare `datetime()` for display (it returns UTC after normalisation but states no intent), calling the `utc_datetime()` value "local time".
 
 ### Integration
 
@@ -219,7 +229,7 @@ _Avoid_: align queue (singular — there are two).
 
 - **SQM** is computed inside the solver process but is a separate context — see [SQM](../sqm/CONTEXT.md).
 - **`shared_state.solution()`** is consumed by Catalog to compute visibility — see [Catalog](../catalog/CONTEXT.md).
-- **GPS / time** are owned by the GPS process; Positioning is a consumer.
+- **GPS / time** are owned by the GPS process; Positioning is a consumer. The civil datetime they publish on `shared_state` is timezone-aware UTC — see *Civil time* above and [ADR-0018](../../adr/0018-civil-datetime-stored-utc-aware.md).
 
 ## Flagged ambiguities
 
@@ -231,6 +241,8 @@ _Avoid_: align queue (singular — there are two).
 - **Legacy `solved` dict** — historical name for the pre-dataclass position record. Code now uses `PointingEstimate`; the term may appear in old commits and PR descriptions but should not appear in current code or prose.
 - **"Solve" means plate-solve — always** — a "solve" is a camera plate-solve event or its resulting value (the `solve` state, `last_solve_attempt`, `last_solve_success`). It is **never** an IMU-derived value. The current value (which the IMU may have progressed) is the **estimate**, and its epoch is **`estimate_time`**, never "solve_time".
 - **Removed legacy timing names** — `solve_time` was renamed to `estimate_time` (it is an estimate, not a solve, and is often IMU-derived). `cam_solve_time` was removed: under epoch semantics it was value-identical to `last_solve_success`, and the "is the live value still the raw camera solve?" question is answered by `solve_source` / `is_camera_solve()` rather than a `solve_time == cam_solve_time` timestamp comparison.
+- **"Time"** — disambiguate **civil datetime** (the UTC calendar/clock epoch from GPS or manual entry, read via `utc_datetime()` / `local_datetime()`; the astronomical "now") from **measurement epoch** (`time.time()` instants like `estimate_time`; the "age of a fix" clock). Different clocks — never compare or assign across them. See [ADR-0018](../../adr/0018-civil-datetime-stored-utc-aware.md).
+- **"GPS LST"** — removed: it read as Local Sidereal Time but meant *last GPS lock time*. The status field is now **GPS LKT** (lock-time). "LST", if it ever reappears, is Local Sidereal Time only.
 
 ## Example dialogue
 
@@ -240,4 +252,4 @@ _Avoid_: align queue (singular — there are two).
 >
 > **Dev:** What if the solve fails right after alignment?
 >
-> **Domain:** The solver pushes a `FailedSolve`. The integrator preserves its `solve`-state cells (`pointing.camera.solve`, `pointing.aligned.solve`), the IMU anchor, **and** the `estimate` cells, and sets `solve_source=CAMERA_FAILED` on the published `PointingEstimate`. The last pointing stays published (so `solve_state` stays true) and the IMU advance keeps progressing it from dead-reckoning. Crucially the estimate is **not** cleared on failure: clearing it dropped to "no solve" whenever a solve failed while the IMU was in its deadband — see [ADR 0005](../../adr/0005-failed-solve-preserves-estimate.md). Auto-exposure still sees `diagnostics.Matches=0`, which is why the solver pushes on every attempt — success or failure.
+> **Domain:** The solver pushes a `FailedSolve`. The integrator preserves its `solve`-state cells (`pointing.camera.solve`, `pointing.aligned.solve`), the IMU anchor, **and** the `estimate` cells, and sets `solve_source=CAMERA_FAILED` on the published `PointingEstimate`. The last pointing stays published (so `solve_state` stays true) and the IMU advance keeps progressing it from dead-reckoning. Crucially the estimate is **not** cleared on failure: clearing it dropped to "no solve" whenever a solve failed while the IMU was in its deadband — see [ADR 0014](../../adr/0014-failed-solve-preserves-estimate.md). Auto-exposure still sees `diagnostics.Matches=0`, which is why the solver pushes on every attempt — success or failure.

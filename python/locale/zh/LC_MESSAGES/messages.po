@@ -2581,6 +2581,13 @@ msgid "Enter Local Time"
 msgstr "输入本地时间"
 
 # AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:626
+msgid "Volume"
+msgstr "音量"
+
+#~ msgid "Integrator"
+#~ msgstr ""
+# AI-TRANSLATED (claude): needs human review
 #: views/advanced.html:7
 msgid "GPS location lock"
 msgstr "GPS位置锁定"

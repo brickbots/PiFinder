@@ -192,6 +192,11 @@ in {
       if [ -d /sys/class/pwm/pwmchip0/pwm1 ]; then
         chmod 0666 /sys/class/pwm/pwmchip0/pwm1/{enable,period,duty_cycle,polarity}
       fi
+      # Red PWR LED — the app turns it off for night vision (sys_utils
+      # set_power_led writes these directly, no sudo).
+      if [ -d /sys/class/leds/PWR ]; then
+        chmod 0666 /sys/class/leds/PWR/trigger /sys/class/leds/PWR/brightness
+      fi
     '';
   };
 

@@ -268,7 +268,7 @@ class DisplaySSD1333(Layout176, DisplayBase):
     def __init__(self):
         # init display  (SPI hardware)
         serial = spi(device=0, port=0, bus_speed_hz=40000000)
-        device_serial = ssd1333(serial, width=176, height=176, rotate=0, bgr=True)
+        device_serial = ssd1333(serial, width=176, height=176, rotate=3, bgr=True)
         self.device = device_serial
         super().__init__()
 

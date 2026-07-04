@@ -58,6 +58,10 @@ _Avoid_: display, screen driver (in code-arg context).
 `active`/`inactive` fire when a module reaches / leaves the top of the stack; `update` is the per-frame redraw a module overrides; `screen_update` draws the title bar and finalises the frame.
 _Avoid_: on_show / on_hide, render (use `update`/`screen_update`).
 
+**Self-gating module**:
+A module that enforces its own runtime **precondition** rather than relying on the menu to block entry. It always opens; when the precondition is unmet it draws a "set X first" notice (via `UIModule.draw_gate_message`) instead of its normal UI, keeps its key handlers and exit callback inert, and lets the user **back out** with LEFT/Cancel. The precondition check is live (re-read each `update`). Example: `UITimeEntry`/`UIDateEntry` gate on a location fix. See [ADR 0019](../../adr/0019-ui-modules-self-gate-preconditions.md).
+_Avoid_: gated menu item, hard block, disabled screen (the menu never refuses to open a self-gating module).
+
 ### Navigation
 
 **MenuManager**:
@@ -89,6 +93,10 @@ LEFT UP DOWN RIGHT
 
 So when a module maps number keys to on-screen **2×2 screen quadrants**, the spatially-faithful corners are `7`=top-left, `9`=top-right, `1`=bottom-left, `3`=bottom-right (used by daytime alignment's quadrant picker). `SQUARE`+key sends the `ALT_*` variant; a long press sends the `LNG_*` variant (long-`SQUARE` opens the marking menu).
 _Avoid_: assuming phone-style `1 2 3` on top — it is inverted.
+
+**Power key** (`POWER_BTN` / `key_power`):
+The dedicated hardware power button, dispatched as a normal keypad event in **key dispatch**. Its meaning is "open the shutdown confirmation": from any active module it jumps (`jump_to_label`) to the `shutdown` menu item. On that confirmation screen it doubles as **select** (behaves like the right key), so one press raises the confirmation and a second press confirms.
+_Avoid_: power switch / off button (it does not cut power directly — it opens the normal shutdown menu), kill switch.
 
 **Display mode**:
 A per-module variant cycled by the square key via `cycle_display_mode()` over the class's `_display_mode_list` (default `[None]`; e.g. `UIGPSStatus` has `["large", "detailed"]`).

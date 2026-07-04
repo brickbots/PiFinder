@@ -121,7 +121,11 @@ _SWEEP_SKIP: dict[str, str] = {
 # UIModule subclasses that are intentionally *not* exercised, with the reason.
 # Keeps the completeness guard (test_all_ui_modules_covered) honest.
 _COVERAGE_SKIP: dict[str, str] = {
-    # (none currently -- UISQMCorrection is covered via the dynamic fixtures)
+    "UIReleaseNotes": (
+        "Pushed onto the stack by UISoftware's Notes action with a "
+        "notes-payload item_definition; not reachable from the menu tree "
+        "and needs live update-channel state to construct."
+    ),
 }
 
 # Bound on the auto-sweep so a handler that keeps pushing modules
@@ -238,7 +242,11 @@ def _all_uimodule_subclasses() -> set[str]:
 
     def _recurse(cls):
         for sub in cls.__subclasses__():
-            found.add(sub.__name__)
+            # Only classes that live in the UI package count — test helpers
+            # subclassing UIModule elsewhere (e.g. test_battery_titlebar_icon's
+            # _BareModule) must not trip the coverage guard.
+            if sub.__module__.startswith("PiFinder.ui"):
+                found.add(sub.__name__)
             _recurse(sub)
 
     _recurse(UIModule)

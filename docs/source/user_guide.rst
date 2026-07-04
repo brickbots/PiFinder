@@ -501,21 +501,21 @@ extension and, for ``.txt`` files, by the content itself:
 
    * - Format
      - Extension
-   * - SkySafari observing list
+   * - `SkySafari observing list <https://support.simulationcurriculum.com/hc/en-us/articles/236161107-SkySafari-5-Observing-Lists>`_
      - ``.skylist``
    * - PiFinder native
      - ``.pifinder``
    * - CSV
      - ``.csv``
-   * - Stellarium observing list
+   * - `Stellarium observing list <https://stellarium.org/guide/>`_
      - ``.sol``
-   * - Autostar / Meade tour
+   * - `Autostar / Meade tour <http://www.weasner.com/etx/autostar/as_tours.html>`_
      - ``.txt``, ``.mtf``
-   * - Argo Navis catalog
+   * - `Argo Navis catalog <http://www.wildcard-innovations.com.au/downloads/documentation/argoman10.pdf>`_
      - ``.txt``
-   * - NexTour / Celestron tour
+   * - `NexTour / Celestron tour <https://www.nexstarsite.com/PCControl/NexRemote.htm>`_
      - ``.hct``
-   * - EQMOD tour
+   * - `EQMOD tour <https://eq-mod.sourceforge.net/tour/>`_
      - ``.lst``
    * - Plain text, one object name per line
      - ``.txt``
@@ -544,7 +544,70 @@ your list is left behind.
 .. note::
    The ``.pifinder`` format is the PiFinder's own JSON list format, and the one to choose
    when a planning tool offers it: it carries catalog references, magnitudes, object sizes,
-   and coordinate epochs that the other formats drop.
+   and coordinate epochs that the other formats drop.  Its fields, JSON schema, and a worked
+   example are documented in the `observing-list formats reference
+   <https://github.com/brickbots/PiFinder/blob/main/docs/ax/catalog/obslist-formats/README.md#the-pifinder-format>`__.
+
+Importing a CSV list
+^^^^^^^^^^^^^^^^^^^^^
+
+CSV is the format to reach for when another tool — a spreadsheet, an observing planner, or
+a sky atlas — gives you a list as plain columns.  The first line is a header naming the
+columns; the PiFinder reads them by name, so their order does not matter and the case is
+ignored.  Only ``Name`` is required, plus coordinates so the PiFinder knows where to point:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Column
+     - Holds
+   * - ``Name``
+     - A label for the row, e.g. ``M 3`` or ``My comet``.
+   * - ``RA`` / ``Dec``
+     - Right ascension and declination (see the coordinate forms below).
+   * - ``Magnitude``
+     - Brightness, optional.
+   * - ``Type``
+     - Object type such as ``Gx`` or ``PN``, optional.
+
+Common spellings of those headers are accepted too — ``ra`` / ``dec`` / ``mag`` and
+``RA_deg`` / ``Dec_deg`` all work.  The RA header can also carry the unit: a decimal under
+``RA_h`` or ``RA_hours`` is read as hours, while ``RA`` or ``RA_deg`` is read as degrees.
+Coordinates may be written in any of three forms:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Form
+     - RA example
+     - Dec example
+   * - Decimal degrees
+     - ``205.8583``
+     - ``+28.244``
+   * - Colon-separated
+     - ``13:43:26``
+     - ``+28:14:39``
+   * - Sexagesimal
+     - ``13h 43m 26s``
+     - ``+28° 14' 39"``
+
+A decimal right ascension is read as **degrees** (0–360) unless its header names hours.  A
+small list might look like this::
+
+   Name,RA,Dec,Magnitude
+   My target,205.8583,28.2442,6.3
+   Comet 2024X,250.667,36.411,11.0
+
+Each row resolves the same way as any other observing list: if its name matches a catalog
+object — spacing and capitalisation are ignored, so ``M 13``, ``M13`` and ``NGC 224`` all
+work — you get that object with its images, descriptions, and your logs; otherwise the
+PiFinder uses the row's own coordinates as an OBS target.  To keep your exact coordinates
+for an object the catalog would otherwise recognize, give the row a name the catalog will
+not match; prefixing it, as in ``_M 3``, is enough.
+
+For the complete column reference — every accepted header spelling, the coordinate forms,
+and import notes — see the `observing-list formats reference
+<https://github.com/brickbots/PiFinder/blob/main/docs/ax/catalog/obslist-formats/README.md#csv-import>`__.
 
 Object Images
 ---------------

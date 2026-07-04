@@ -17,6 +17,7 @@ import pytz
 
 from typing import Any, TYPE_CHECKING
 from PiFinder import utils, calc_utils
+from PiFinder import timez
 from PiFinder.locations import Location as SavedLocation
 from PiFinder.state import Location
 from PiFinder.ui.base import UIModule
@@ -97,6 +98,11 @@ def apply_brightness(ui_module: UIModule) -> None:
     ui_module.command_queues["ui_queue"].put("set_brightness")
 
 
+def apply_sound_volume(ui_module: UIModule) -> None:
+    """Re-push master volume from current config to the buzzer."""
+    ui_module.command_queues["ui_queue"].put("set_volume")
+
+
 def capture_exposure_sweep(ui_module: UIModule) -> None:
     """
     Captures 100 images at different exposures for PID testing/calibration.
@@ -156,10 +162,17 @@ def get_camera_exposure_display(ui_module: UIModule) -> str:
 
 def shutdown(ui_module: UIModule) -> None:
     """
-    shuts down the Pi
+    Shuts down the Pi.
+
+    Routes through the main loop (``play_shutdown_sound``) instead of calling
+    ``sys_utils.shutdown()`` here. This callback runs in the main process but
+    does not hold ``sound_queue``; the SHUTDOWN earcon must play and its
+    bounded wait elapse *before* the OS cuts power (the GPIO14 latch). The
+    main-loop handler plays the cue, waits, then triggers the shutdown — with
+    or without a buzzer. See ADR 0008 and the Sound handoff §6.
     """
     ui_module.message(_("Shutting Down"), 10)
-    sys_utils.shutdown()
+    ui_module.command_queues["ui_queue"].put("play_shutdown_sound")
 
 
 def restart_pifinder(ui_module: UIModule) -> None:
@@ -303,15 +316,19 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     timezone_str = ui_module.shared_state.location().timezone
 
     # First create a datetime object (using today's date by default)
-    dt = datetime.strptime(time_str, "%H:%M:%S")
+    dt = timez.parse(time_str, "%H:%M:%S")
 
     # Get the timezone object
     timezone = pytz.timezone(timezone_str)
 
     # Create a timezone-aware datetime by combining today's date with the time
     # and localizing it to the specified timezone
-    now = datetime.now()
-    dt_with_date = datetime(now.year, now.month, now.day, dt.hour, dt.minute, dt.second)
+    # OS timezone may be different from target timezone so "now's date" needs
+    # to also be taken in the target timezone!!
+    now = datetime.now(timezone)
+    dt_with_date = timez.naive(
+        now.year, now.month, now.day, dt.hour, dt.minute, dt.second
+    )
     dt_with_timezone = timezone.localize(dt_with_date)
 
     ui_module.command_queues["gps"].put(("time_force", {"time": dt_with_timezone}))
@@ -329,7 +346,7 @@ def set_datetime(ui_module: UIModule, date_str: str) -> None:
     timezone_str = ui_module.shared_state.location().timezone
     timezone = pytz.timezone(timezone_str)
 
-    dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
+    dt = timez.parse(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
     dt_with_timezone = timezone.localize(dt)
 
     ui_module.command_queues["gps"].put(("time_force", {"time": dt_with_timezone}))

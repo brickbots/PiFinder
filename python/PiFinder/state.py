@@ -289,6 +289,8 @@ class SharedStateObj:
         self.__solution: PointingEstimate = PointingEstimate()
         self.__sats = None
         self.__imu = None
+        self.__battery = None
+        self.__hardware = None
         self.__location: Location = Location()
         self.__sqm: SQM = SQM()
         self.__noise_floor: float = (
@@ -380,6 +382,22 @@ class SharedStateObj:
     def set_imu(self, v):
         self.__imu = v
 
+    def battery(self):
+        """Latest BatteryState, or None when no charger is present
+        (rev-3 hardware / monitor not running). None is distinct from a
+        low state_of_charge_pct -- see docs/ax/battery/CONTEXT.md."""
+        return self.__battery
+
+    def set_battery(self, v):
+        self.__battery = v
+
+    def hardware(self):
+        """Detected HardwareCapabilities for this board."""
+        return self.__hardware
+
+    def set_hardware(self, v):
+        self.__hardware = v
+
     def solution(self) -> PointingEstimate:
         return self.__solution
 
@@ -436,6 +454,13 @@ class SharedStateObj:
         self.__last_image_metadata = v
 
     def datetime(self):
+        """The civil datetime (astronomical epoch), timezone-aware in UTC.
+
+        Always UTC-aware: ``set_datetime`` normalises every input to UTC, so
+        the value is safe to feed to skyfield/ephemeris math. ``None`` until a
+        time is known. Prefer ``utc_datetime()`` / ``local_datetime()`` in new
+        code so the intended zone is explicit at the call site. See ADR-0018.
+        """
         if self.__datetime is None:
             return self.__datetime
         return self.__datetime + datetime.timedelta(
@@ -443,22 +468,48 @@ class SharedStateObj:
         )
 
     def local_datetime(self):
+        """The civil datetime in the active location's timezone (UTC fallback).
+
+        Same absolute instant as ``utc_datetime()``, expressed in the
+        observer's zone; falls back to UTC if no/invalid timezone. ``None``
+        until a time is known. See ADR-0018.
+        """
         if self.__datetime is None:
             return self.__datetime
-
         dt = self.datetime()
         if self.__location and self.__location.timezone:
             try:
                 return dt.astimezone(pytz.timezone(self.__location.timezone))
             except (pytz.exceptions.UnknownTimeZoneError, AttributeError):
                 # Fall back to UTC if timezone is invalid or None
-                return dt.astimezone(pytz.timezone("UTC"))
-        return dt.astimezone(pytz.timezone("UTC"))
+                return dt.astimezone(pytz.utc)
+        return dt.astimezone(pytz.utc)
+
+    def utc_datetime(self):
+        """The civil datetime in UTC, timezone-aware. ``None`` until known.
+
+        The explicit UTC accessor. See ADR-0018.
+        """
+        if self.__datetime is None:
+            return self.__datetime
+        dt = self.datetime()
+        return dt.astimezone(pytz.utc)
 
     def set_datetime(self, dt, force=False):
-        if dt.tzname() is None:
-            utc_tz = pytz.timezone("UTC")
-            dt = utc_tz.localize(dt)
+        """Store the civil datetime, normalised to timezone-aware UTC.
+
+        The single write boundary for the stored civil datetime. Callers must
+        pass a timezone-aware datetime; a naive value is interpreted as UTC
+        (a safety net, not the contract). Aware inputs are converted to UTC.
+        This keeps ``datetime()`` / ``utc_datetime()`` always UTC-aware. See
+        ADR-0018.
+        """
+        if dt.utcoffset() is None:    # naive, assume it's UTC
+            # we could use replace() instead since UTC has
+            # no DST, but the idiom is dangerous for non-UTC
+            dt = pytz.utc.localize(dt)
+        else:                         # timezone-aware -> convert to UTC
+            dt = dt.astimezone(pytz.utc)
 
         if force:
             self.__datetime_time = time.time()
@@ -538,6 +589,7 @@ class SharedStateObj:
             f"UI_state={self.__ui_state})"
             f"Solution: {self.__solution}\n"
             f"IMU: {self.__imu}\n"
+            f"Battery: {self.__battery}\n"
             f"Location: {self.__location}\n"
             f"Date-Time: {self.datetime()}\n"
             f"Screen: {self.__screen}\n"

@@ -134,3 +134,10 @@ def check_and_sync_gpsd_config(baud_rate: int) -> bool:
 
 def update_gpsd_config(baud_rate: int) -> None:
     logger.info("SYS: Updating GPSD config with baud rate %d (fake)", baud_rate)
+
+
+def set_power_led(on: bool) -> None:
+    """
+    Turn the Raspberry Pi's red PWR LED on or off (no-op off-hardware).
+    """
+    logger.info("SYS: Power LED %s", "on" if on else "off")

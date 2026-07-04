@@ -7,14 +7,14 @@ and constelleations
 
 import logging
 import os
-import datetime
 import numpy as np
 import pandas
 from pathlib import Path
 from PiFinder import utils
+from PiFinder import timez
 from PIL import Image, ImageDraw, ImageChops
 
-from skyfield.api import Star, load, utc, Angle
+from skyfield.api import Star, load, Angle
 from skyfield.data import hipparcos, stellarium
 from skyfield.projections import build_stereographic_projection
 from PiFinder.calc_utils import sf_utils
@@ -72,7 +72,7 @@ class Starfield:
     def __init__(self, colors, resolution, mag_limit=7, fov=10.2):
         self.colors = colors
         self.resolution = resolution
-        utctime = datetime.datetime(2023, 1, 1, 2, 0, 0).replace(tzinfo=utc)
+        utctime = timez.utc(2023, 1, 1, 2, 0, 0)
         ts = sf_utils.ts
         self.t = ts.from_datetime(utctime)
         # An ephemeris from the JPL provides Sun and Earth positions.

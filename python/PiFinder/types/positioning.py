@@ -26,7 +26,7 @@ The data structures here replace four legacy dicts:
    →  :class:`SolveResult` (``SuccessfulSolve`` | ``FailedSolve``), the
       message the solver puts on ``solver_queue`` describing one
       plate-solve attempt. See
-      ``docs/adr/0003-solver-integrator-message.md``.
+      ``docs/adr/0012-solver-integrator-message.md``.
 
 2. The tagged-list messages on the alignment queues.
    →  :class:`AlignOnRaDec`, :class:`AlignCancel`,
@@ -404,7 +404,7 @@ class PointingEstimate:
 #
 # Two concrete types under a union, dispatched by ``isinstance()`` in the
 # integrator (mirroring :data:`SolverCommand` / :data:`AlignResponse`).
-# See ``docs/adr/0003-solver-integrator-message.md``.
+# See ``docs/adr/0012-solver-integrator-message.md``.
 
 
 @dataclass

@@ -13,9 +13,10 @@ Uses:
 import os
 import re
 import json
-import datetime
 import subprocess
 import logging
+
+from PiFinder import timez
 from pathlib import Path
 from typing import Optional
 
@@ -538,7 +539,8 @@ def list_rollback_targets(profile_dir: Path = Path("/nix/var/nix/profiles")) -> 
         marker = "nixos-system-pifinder-"
         name = store_path.name
         label = name.split(marker, 1)[-1] if marker in name else name
-        date = datetime.datetime.fromtimestamp(mtime).strftime("%d %b %H:%M")
+        # Local time for display, via the tz-aware timez helper (DTZ)
+        date = timez.utc_from_timestamp(mtime).astimezone().strftime("%d %b %H:%M")
         targets.append(
             (
                 generation,
@@ -770,3 +772,20 @@ def update_gpsd_config(baud_rate: int) -> None:
     logger.info(
         "SYS: GPSD config is managed declaratively on NixOS (baud=%d)", baud_rate
     )
+
+
+# Raspberry Pi red power LED — a plain gpio-led (on/off only, not dimmable).
+PWR_LED_PATH = Path("/sys/class/leds/PWR")
+
+
+def set_power_led(on: bool) -> None:
+    """Turn the Raspberry Pi's red PWR LED on or off.
+
+    The kernel trigger is set to "none" first, otherwise the firmware's
+    "default-on" trigger keeps re-asserting the LED. Direct sysfs writes —
+    pwm-permissions (services.nix) makes these files user-writable at boot,
+    so no sudo is needed. A missing LED (dev box, other SBC) raises OSError,
+    which the caller treats as non-fatal.
+    """
+    (PWR_LED_PATH / "trigger").write_text("none")
+    (PWR_LED_PATH / "brightness").write_text("1" if on else "0")

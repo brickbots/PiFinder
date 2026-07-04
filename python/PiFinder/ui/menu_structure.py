@@ -1,4 +1,5 @@
 from typing import Any
+from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.timeentry import UITimeEntry
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_list import UIObjectList
@@ -417,67 +418,13 @@ pifinder_menu = {
                             "class": UITextMenu,
                             "select": "multi",
                             "config_option": "filter.object_types",
+                            # Items are generated from the single OBJ_TYPES source
+                            # so the code set and labels can't drift. Labels are
+                            # the English msgids (extracted via obj_types.py) and
+                            # translated at render time by UITextMenu.
                             "items": [
-                                {
-                                    "name": _("Galaxy"),
-                                    "value": "Gx",
-                                },
-                                {
-                                    "name": _("Open Cluster"),
-                                    "value": "OC",
-                                },
-                                {
-                                    "name": _("Cluster/Neb"),
-                                    "value": "C+N",
-                                },
-                                {
-                                    "name": _("Globular"),
-                                    "value": "Gb",
-                                },
-                                {
-                                    "name": _("Nebula"),
-                                    "value": "Nb",
-                                },
-                                {
-                                    "name": _("P. Nebula"),
-                                    "value": "PN",
-                                },
-                                {
-                                    "name": _("Dark Nebula"),
-                                    "value": "DN",
-                                },
-                                {
-                                    "name": _("Star"),
-                                    "value": "*",
-                                },
-                                {
-                                    "name": _("Double Str"),
-                                    "value": "D*",
-                                },
-                                {
-                                    "name": _("Triple Str"),
-                                    "value": "***",
-                                },
-                                {
-                                    "name": _("Knot"),
-                                    "value": "Kt",
-                                },
-                                {
-                                    "name": _("Asterism"),
-                                    "value": "Ast",
-                                },
-                                {
-                                    "name": _("Planet"),
-                                    "value": "Pla",
-                                },
-                                {
-                                    "name": _("Comet"),
-                                    "value": "CM",
-                                },
-                                {
-                                    "name": _("Unknown"),
-                                    "value": "?",
-                                },
+                                {"name": label, "value": code}
+                                for code, label in OBJ_TYPES.items()
                             ],
                         },
                         {
@@ -641,6 +588,21 @@ pifinder_menu = {
                                     "name": "3",
                                     "value": "+3",
                                 },
+                            ],
+                        },
+                        {
+                            "name": _("Volume"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "sound_volume",
+                            "post_callback": callbacks.apply_sound_volume,
+                            "items": [
+                                {"name": _("Off"), "value": "Off"},
+                                {"name": "1", "value": "1"},
+                                {"name": "2", "value": "2"},
+                                {"name": "3", "value": "3"},
+                                {"name": "4", "value": "4"},
+                                {"name": "5", "value": "5"},
                             ],
                         },
                         {
@@ -1206,6 +1168,9 @@ pifinder_menu = {
                         },
                         {
                             "name": _("Set Time/Date"),
+                            # UITimeEntry self-gates on a location fix (it needs
+                            # the observer's zone); it shows a "set location
+                            # first" notice and the user backs out. See ADR 0019.
                             "class": UITimeEntry,
                             "custom_callback": callbacks.set_time,
                         },

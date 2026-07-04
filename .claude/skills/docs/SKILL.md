@@ -59,7 +59,7 @@ answer, a cross-page link) **and** it is *separable* from the guide's
 operate-and-observe storyline (a sentence + link suffices in its place).
 Otherwise it's a `user_guide` section. Standalone page URLs get linked from the
 wild — don't merge or rename pages casually. Rationale and worked examples:
-`docs/adr/0010-user-docs-page-granularity.md`.
+`docs/adr/0015-user-docs-page-granularity.md`.
 
 **Before writing a single line, read the page you're about to touch (or the
 closest sibling).** The fastest way to match the house style is to mirror the
