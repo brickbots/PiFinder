@@ -10,8 +10,8 @@
         "notes": "initial nixos release to be downloaded on first boot",
         "source_ref": "v3.0.0-beta",
         "source_repo": "mrosseel/PiFinder",
-        "source_sha": "1703a85a166dc4b8923e265c11aa3f46dd81a304",
-        "store_path": "/nix/store/qrj5pkabb2h4y063v5aajjlw3p5vb1ia-nixos-system-pifinder-25.11.20260209.2db38e0",
+        "source_sha": "108db934b8677e102c618d08c5df15841c772694",
+        "store_path": "/nix/store/rfndngp9bgi4zvd17adpagprd8p12glh-nixos-system-pifinder-25.11.20260209.2db38e0",
         "title": "PiFinder v3.0.0-beta",
         "version": "3.0.0"
       }
@@ -84,6 +84,6 @@
       }
     ]
   },
-  "generated_at": "2026-07-04T16:19:20+00:00",
+  "generated_at": "2026-07-04T22:49:28+00:00",
   "schema": 1
 }
