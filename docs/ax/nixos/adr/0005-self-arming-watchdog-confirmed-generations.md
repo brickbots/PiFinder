@@ -9,7 +9,9 @@ A generation is a **trial** until it passes one boot health check, which **confi
 
 ## Consequences
 
-- Persistent breakage of an already-confirmed generation does **not** self-heal — deliberate. It is covered by the explicit recovery ladder instead: the Software screen's Rollback channel, a planned power-on keypad recovery chord (rollback without any working UI), and SSH.
+- Persistent breakage of an already-confirmed generation does **not** self-heal — deliberate. It is covered by the explicit recovery ladder instead: the Software screen's Rollback channel, the power-on **recovery hold** into recovery mode (rollback without any working UI, see [0006](./0006-recovery-mode-reuses-update-screen.md)), and SSH.
 - The upgrade-written trial marker survives as a *hint* (it names the exact pre-upgrade system, camera specialisation included); the ledger is what's load-bearing. Rollback targets are chosen newest-first from the profile, preferring confirmed generations.
 - Ledger loss is benign: a healthy generation simply re-confirms on its next boot; an unhealthy one gets a rollback it genuinely needs.
 - A failing trial with no rollback target at all (first-ever install) shows an on-screen failure message and stays up for rescue instead of boot-looping.
+- "Never touches a confirmed generation" means never *acts on* — the watchdog still *reports*: a confirmed generation whose app fails gets an on-screen advisory naming the recovery hold, so the escape hatch reveals itself exactly when needed and never clutters a healthy boot.
+- Known floor: a generation that dies before userspace (kernel/initrd) boot-loops — the watchdog never runs, and neither NixOS nor extlinux offers boot counting. Chosen future fix (backlogged): **U-Boot `bootcount`/`altbootcmd`** — the trial's confirm step resets the counter; exceeding the limit boots the previous generation's entry. Preferred over Raspberry Pi firmware `tryboot`, which works at the config.txt/partition level and would force an A/B boot-chain redesign; bootcount preserves the single-extlinux generation model.

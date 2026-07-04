@@ -1,6 +1,7 @@
 import os
 import errno
 import fcntl
+import socket
 import time
 import logging
 import json
@@ -20,19 +21,54 @@ astro_data_dir = pifinder_dir / "astro_data"
 data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
 observations_db = data_dir / "observations.db"
-build_json = pifinder_dir / "pifinder-build.json"
+# The device's single identity file: seeded with the store path at image
+# build, rewritten (with version/label/channel) by every upgrade. Human
+# version labels come from the update manifest, which maps store paths to
+# versions — the retired pifinder-build.json duplicated that mapping.
 current_build_json = Path("/var/lib/pifinder/current-build.json")
 
 
+def sd_notify(state: str) -> None:
+    """Send a systemd service notification (e.g. "READY=1").
+
+    The app's readiness signal is what the boot watchdog's health check keys
+    off (pifinder.service is Type=notify). Outside systemd — development
+    runs, tests — NOTIFY_SOCKET is unset and this is a silent no-op; a
+    notification failure must never be able to break the app itself.
+    """
+    addr = os.environ.get("NOTIFY_SOCKET")
+    if not addr:
+        return
+    if addr.startswith("@"):
+        # Abstract-namespace socket (leading @ in the env var)
+        addr = "\0" + addr[1:]
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as sock:
+            sock.connect(addr)
+            sock.sendall(state.encode())
+    except OSError as e:
+        logger.warning("sd_notify failed (harmless outside systemd): %s", e)
+
+
 def get_version() -> str:
-    for source in (current_build_json, build_json):
-        try:
-            with open(source, "r") as f:
-                version = json.load(f).get("version")
-                if version:
-                    return version
-        except (FileNotFoundError, IOError, json.JSONDecodeError):
-            pass
+    """Best available version string for the running build.
+
+    The upgrade service writes an explicit version; a freshly-flashed image
+    only knows its store path, so fall back to its hash prefix (the update
+    screen upgrades that to a proper label once the manifest is fetched).
+    """
+    try:
+        with open(current_build_json, "r") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return "Unknown"
+    version = data.get("version")
+    if version:
+        return version
+    store_path = data.get("store_path") or ""
+    name = store_path.rsplit("/", 1)[-1]
+    if name:
+        return name.split("-", 1)[0][:8]
     return "Unknown"
 
 

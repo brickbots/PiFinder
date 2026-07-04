@@ -19,10 +19,12 @@ manifest branch after successful builds and releases. The device fetches the raw
 manifest JSON; it does not call the GitHub API and it does not probe branch-head
 `pifinder-build.json` files.
 
-At runtime, `python/PiFinder/utils.py::get_version()` first reads
-`/var/lib/pifinder/current-build.json`, written by the updater when a selected
-manifest entry is installed. The source-tree `pifinder-build.json` is only a
-legacy fallback and should not be used as the channel source.
+At runtime, `python/PiFinder/utils.py::get_version()` reads
+`/var/lib/pifinder/current-build.json` — the device's single identity file.
+The image builder seeds it with the system's own store path; the updater
+rewrites it (with version/label/channel) on every install. Human version
+labels come from the update manifest, which maps store paths to versions.
+(`pifinder-build.json` is retired.)
 
 ## Artifacts
 
@@ -96,11 +98,10 @@ not installable.
         ▼
   ┌─────────────────────────────────────────────────────────────┐
   │ 1. checkout source_branch                                   │
-  │ 2. write temporary pifinder-build.json in the workspace:     │
-  │      { "version": "3.0.0", "store_path": "" }               │
-  │ 3. nix build .#…toplevel              → store path A        │
-  │      (JSON inside A: version=3.0.0, store_path="")          │
-  │ 4. nix build .#images.pifinder        → SD image embedding A│
+  │ 2. nix build .#…toplevel              → store path A        │
+  │ 3. nix build .#images.pifinder        → SD image embedding A│
+  │      (image seeds /var/lib/pifinder/current-build.json      │
+  │       with store path A; labels resolve via the manifest)   │
   │ 5. extract migration tarball from SD image                  │
   │ 6. attic push A → pifinder-release (retained)              │
   │ 7. tag v3.0.0 (or v3.0.0-beta)                              │

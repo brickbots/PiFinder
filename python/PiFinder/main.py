@@ -620,6 +620,12 @@ def main(
         logger.info("   Event Loop")
         console.update()
 
+        # Everything is constructed and the display is live: declare readiness
+        # to systemd. This is the health signal the boot watchdog keys off —
+        # a build that dies before this line never reports READY and fails its
+        # trial. No-op outside systemd (development runs).
+        utils.sd_notify("READY=1")
+
         # Stop profiling (uncomment to analyze startup performance)
         # stop_profiling(profiler, startup_profile_start)
 

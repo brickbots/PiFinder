@@ -53,7 +53,7 @@ _Avoid_: "preview", "nightly".
 Returning a device — or the fleet — to a known-good build after a bad one ships. Guaranteed for **stable** and **beta** — both are Releases whose closures live in the retained `pifinder-release` cache; only **unstable** (`main` head / PR) builds may be GC'd from the short-retention dev cache.
 
 **Watchdog**:
-The on-device boot guardian. It health-checks every boot of a not-yet-**confirmed** generation (a **trial**) and performs a **generation rollback** when the trial fails — capturing evidence and telling the operator on screen. It never touches a confirmed generation (see [NixOS ADR 0005](./adr/0005-self-arming-watchdog-confirmed-generations.md)).
+The on-device boot guardian. It health-checks every boot of a not-yet-**confirmed** generation (a **trial**) and performs a **generation rollback** when the trial fails — capturing evidence and telling the operator on screen. It never rolls back a confirmed generation, but it still *reports*: a confirmed generation whose app fails gets an on-screen advisory naming the **recovery hold** (see [NixOS ADR 0005](./adr/0005-self-arming-watchdog-confirmed-generations.md)).
 
 **Trial**:
 The probation boot of a generation that has not yet proven itself on this device. Every boot of an unconfirmed generation is a trial, regardless of which build installed it. A passed trial **confirms** the generation.

@@ -80,8 +80,15 @@
           # app fetches per-object images on demand from the CDN (get_images.py)
           # and renders a placeholder when one is absent. Shipping only the empty
           # data dir keeps the image slim and the build fast.
+          #
+          # current-build.json seeds the device's identity with its own store
+          # path; human version labels come from the update manifest (which maps
+          # store paths to versions), and every upgrade rewrites this file.
           sdImage.populateRootCommands = ''
             mkdir -p ./files/home/pifinder/PiFinder_data
+            mkdir -p ./files/var/lib/pifinder
+            printf '{"store_path": "%s"}\n' "${config.system.build.toplevel}" \
+              > ./files/var/lib/pifinder/current-build.json
           '';
           sdImage.populateFirmwareCommands = lib.mkForce ''
             (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)

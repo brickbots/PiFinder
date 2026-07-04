@@ -406,7 +406,14 @@ in {
       LIBCAMERA_IPA_MODULE_PATH = "${pkgs.libcamera}/lib/libcamera";
     };
     serviceConfig = {
-      Type = "simple";
+      # The app sends READY=1 once the UI is constructed and drawing
+      # (utils.sd_notify in main.py). "active" therefore means "the screen is
+      # live", which is what the boot watchdog's health check keys off — a
+      # build that starts but never turns the screen on times out, restarts,
+      # and fails its trial.
+      Type = "notify";
+      # Cold start on a Pi is ~30-60s (imports dominate); leave ample slack.
+      TimeoutStartSec = 180;
       User = "pifinder";
       Group = "users";
       WorkingDirectory = "/home/pifinder/PiFinder/python";
