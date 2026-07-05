@@ -324,6 +324,10 @@ mkdir -p "${NM_DIR}"
 # consolidated into /tmp/wifi/nm-connections during Phase 2.
 if [ -d /tmp/wifi/nm-connections ]; then
     cp -a /tmp/wifi/nm-connections/. "${NM_DIR}/" 2>/dev/null || true
+    # The pre-stage Python runs as the app user on the old OS, and cp -a
+    # preserves that owner — NetworkManager refuses keyfiles not owned by
+    # root ("File owner (1000) is insecure"). We are root here; make them so.
+    chown -R 0:0 "${NM_DIR}" 2>/dev/null || true
     chmod 600 "${NM_DIR}"/*.nmconnection 2>/dev/null || true
 fi
 
