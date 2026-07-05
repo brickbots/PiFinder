@@ -270,7 +270,7 @@ class UISoftware(UIModule):
             return
         channel = self._channel_names[self._channel_index]
         entries = self._channels.get(channel, [])
-        if channel in ("unstable", "rollback"):
+        if channel == "rollback":
             self._version_list = entries
         else:
             self._version_list = _hide_current_build(entries, _current_store_path())

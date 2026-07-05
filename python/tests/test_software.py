@@ -161,24 +161,36 @@ class TestFetchUpdateManifest:
 
 
 @pytest.mark.unit
-def test_unstable_list_keeps_current_trunk_entry_visible():
+def test_unstable_list_hides_exact_running_build():
+    # The running build is hidden from unstable by store-path identity; a
+    # rebuilt PR (same number, new store path) is a real upgrade and stays.
     ui = UISoftware.__new__(UISoftware)
     ui._channel_names = ["unstable"]
     ui._channel_index = 0
-    ui._software_version = "nixos-current"
+    ui._software_version = "PR#1-abcdef0"
     ui._channels = {
         "unstable": [
-            {"label": "nixos-current", "version": "nixos-current", "is_trunk": True},
-            {"label": "PR#1-abcdef0", "version": "PR#1-abcdef0"},
+            {
+                "label": "nixos-trunk",
+                "version": "nixos-trunk",
+                "is_trunk": True,
+                "ref": "/nix/store/bbb-trunk",
+            },
+            {
+                "label": "PR#1-abcdef0",
+                "version": "PR#1-abcdef0",
+                "ref": "/nix/store/aaa-running",
+            },
         ]
     }
 
-    ui._refresh_version_list()
+    with patch(
+        "PiFinder.ui.software._current_store_path",
+        return_value="/nix/store/aaa-running",
+    ):
+        ui._refresh_version_list()
 
-    assert [entry["label"] for entry in ui._version_list] == [
-        "nixos-current",
-        "PR#1-abcdef0",
-    ]
+    assert [entry["label"] for entry in ui._version_list] == ["nixos-trunk"]
 
 
 @pytest.mark.unit
