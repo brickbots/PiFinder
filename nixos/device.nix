@@ -15,7 +15,9 @@ in {
   # Minimal system packages for migration troubleshooting
   # ---------------------------------------------------------------------------
   environment.systemPackages = with pkgs; [
-    vim
+    # nano over vim: 40MB smaller on a size-critical image (2GB boards must
+    # hold the whole tarball in RAM during migration)
+    nano
     htop
     e2fsprogs
     dosfstools
@@ -23,6 +25,7 @@ in {
     file
     curl
   ];
+
 
   # ---------------------------------------------------------------------------
   # Binary substituters — Pi downloads pre-built paths, never compiles.

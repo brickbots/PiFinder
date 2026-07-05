@@ -106,6 +106,14 @@ in {
     # (DTBs are in broadcom/ subdirectory, FDTDIR doesn't descend into it)
     hardware.deviceTree.name = "broadcom/bcm2711-rpi-4-b.dtb";
 
+    # Firmware: the nixos-hardware Pi 4 module enables the full redistributable
+    # set — linux-firmware alone is ~723MB uncompressed, 40% of the migration
+    # tarball, for hardware this board doesn't have. The Pi 4 needs only the
+    # Broadcom wifi/BT blobs (~10MB). Boot firmware (start.elf etc.) is
+    # separate and unaffected (populateFirmwareCommands).
+    hardware.enableRedistributableFirmware = lib.mkForce false;
+    hardware.firmware = [ pkgs.raspberrypiWirelessFirmware ];
+
     # I2C enabled (loads i2c-dev module, creates i2c group)
     hardware.i2c.enable = true;
 
