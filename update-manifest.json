@@ -33,15 +33,15 @@
       {
         "available": true,
         "kind": "pr",
-        "label": "PR#482-afc59b1",
+        "label": "PR#482-0b3ce14",
         "notes": "Re-implements the salvageable part of #378 (boot-speed), cleanly on top of the `nixos` branch.\n\n#378's perf work was lost during that branch's own internal merges \u2014 its HEAD no longer contains the lazy-import changes, and they were never merged upstream either. This brings back the part that still matters for startup time.\n\n## What this defers\n\n- **timezonefinder** (`state.py`): `SharedState.__init__` eagerly imported `timezonefinder` and constructed `TimezoneFinder()` (which loads its dataset) at startup. It's now constructed lazily on the first `set_location()`, i.e. after boot.\n- **pandas** (`plot.py`): imported at module level. `plot.py` sits on the startup path (`menu_structure` \u2192 `UIChart` \u2192 `plot`), so this loaded pandas during boot. Deferred into the four functions that actually use it.\n\n`comets.py` is intentionally left unchanged: its module-level `from skyfield.data import mpc` imports pandas regardless, so deferring pandas there is a no-op without also deferring skyfield (out of scope here).\n\n## Verification\n\n- Importing `state.py` no longer loads `timezonefinder` (confirmed at runtime).\n- `plot.py`'s only module-level pandas reference is removed; `skyfield.data.hipparcos` already imports pandas lazily, and nothing else in `plot.py`'s import chain pulls pandas.\n- `py_compile` clean on all touched files.\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)",
         "number": 482,
         "source_ref": "lazy-imports",
         "source_repo": "mrosseel/PiFinder",
-        "source_sha": "afc59b134a61cb7a3c30bb1a359b568318738aa4",
-        "store_path": "/nix/store/4wx5ld892m8qkc2y058k6vbacsh5qnpw-nixos-system-pifinder-25.11.20260209.2db38e0",
+        "source_sha": "0b3ce144c06615511955494b44ae0434fa6ddb57",
+        "store_path": "/nix/store/75wm8dvjhfyj7risd0h8d4mcgsbmrdi3-nixos-system-pifinder-25.11.20260209.2db38e0",
         "title": "perf: defer timezonefinder & pandas imports to cut startup time",
-        "version": "PR#482-afc59b1"
+        "version": "PR#482-0b3ce14"
       },
       {
         "available": true,
@@ -84,6 +84,6 @@
       }
     ]
   },
-  "generated_at": "2026-07-05T13:10:54+00:00",
+  "generated_at": "2026-07-05T13:11:54+00:00",
   "schema": 1
 }
