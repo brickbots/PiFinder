@@ -299,6 +299,17 @@ jobs:
             boot rootfs | zstd -T0 -19 -o "release/pifinder-migration-${TAG}.tar.zst"
           sudo rm -rf /tmp/tarball-staging
 
+          # Never-again guard (2026-07-05 field failure): during migration the
+          # tarball is copied into RAM, so a 2GB board can only hold ~1.4GB.
+          # Refuse to publish a release that cannot migrate 2GB boards.
+          MIG_MB=$(( $(stat -c%s "release/pifinder-migration-${TAG}.tar.zst") / 1048576 ))
+          BUDGET_MB=800
+          echo "migration tarball: ${MIG_MB}MB (budget ${BUDGET_MB}MB)"
+          if [ "${MIG_MB}" -gt "${BUDGET_MB}" ]; then
+            echo "::error::migration tarball ${MIG_MB}MB exceeds ${BUDGET_MB}MB budget — shrink the migration closure (check linux-firmware and friends)"
+            exit 1
+          fi
+
           # Checksum sidecars. The in-app upgrade (PiFinder.sys_utils) fetches
           # <artifact-url>.sha256 and refuses to flash without a matching digest;
           # it reads the first whitespace-delimited token, so sha256sum output is
