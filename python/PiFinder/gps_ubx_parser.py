@@ -358,12 +358,13 @@ class UBXParser:
                 logger.warning(f"SVINFO: Message truncated at satellite {i}")
                 break
 
-            svid = data[offset]
-            flags = data[offset + 1]
-            quality = data[offset + 2]
-            cno = data[offset + 3]
-            elev = data[offset + 4]
-            azim = int.from_bytes(data[offset + 6 : offset + 8], "little")
+            # Repeated block layout: chn, svid, flags, quality, cno, elev, azim, prRes
+            svid = data[offset + 1]
+            flags = data[offset + 2]
+            quality = data[offset + 3]
+            cno = data[offset + 4]
+            elev = int.from_bytes(data[offset + 5 : offset + 6], "little", signed=True)
+            azim = int.from_bytes(data[offset + 6 : offset + 8], "little", signed=True)
 
             is_used = bool(flags & 0x01)
             if is_used:
