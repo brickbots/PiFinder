@@ -128,7 +128,10 @@ in {
     wants = [ "time-sync.target" ];
     requires = [ "network-online.target" ];
     wantedBy = [ "multi-user.target" ];
-    unitConfig.ConditionPathExists = "/var/lib/pifinder/first-boot-target";
+    # No existence condition: the manifest is the primary source (ADR 0003) and
+    # needs no local file. The baked first-boot-target, when present, is only
+    # the offline fallback — the old ConditionPathExists on it silently skipped
+    # the whole service when the tarball pipeline stopped baking the file.
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -169,7 +172,8 @@ in {
       fi
       if [ -z "$STORE_PATH" ] || [[ "$STORE_PATH" != /nix/store/* ]]; then
         echo "Manifest unavailable or empty, falling back to baked-in target"
-        STORE_PATH=$(cat /var/lib/pifinder/first-boot-target)
+        [ -f /var/lib/pifinder/first-boot-target ] && \
+          STORE_PATH=$(cat /var/lib/pifinder/first-boot-target)
       fi
       if [ -z "$STORE_PATH" ] || [[ "$STORE_PATH" != /nix/store/* ]]; then
         echo "ERROR: No valid store path found"
@@ -217,7 +221,7 @@ in {
       "$STORE_PATH/bin/switch-to-configuration" boot
 
       echo "Removing first-boot trigger..."
-      rm /var/lib/pifinder/first-boot-target
+      rm -f /var/lib/pifinder/first-boot-target
 
       echo "Cleaning up migration closure..."
       nix-env --delete-generations +2 -p /nix/var/nix/profiles/system || true
