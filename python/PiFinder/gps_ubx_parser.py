@@ -312,28 +312,26 @@ class UBXParser:
             gnssId = data[offset]
             svId = data[offset + 1]
             cno = data[offset + 2]
-            elev = data[offset + 3]
-            azim = int.from_bytes(data[offset + 4 : offset + 6], "little")
-            flags = data[
-                offset + 8
-            ]  # Warning this is a 4 byte field of flags, we're only using the first byte
-            # lowest 3 bits are a quality indicator and according to
-            # https://portal.u-blox.com/s/question/0D52p000097B0bFCAS/interpretation-of-signal-quality-indicator-in-ubxnavsat
-            # the 0-7 values from an ordered scale. So taking 3 as the threshold below.q
-            satellites.append(
-                {
-                    "id": svId,
-                    "system": gnssId,
-                    "signal": cno,
-                    "elevation": elev,
-                    "azimuth": azim,
-                    "used": (flags & 0x07) > 3,  # lowest 3 bits are used for the status
-                    "flags": flags & 0x07,
-                }
-            )
+            elev = int.from_bytes(data[offset + 3 : offset + 4], "little", signed=True)
+            azim = int.from_bytes(data[offset + 4 : offset + 6], "little", signed=True)
+            flags = data[offset + 8]  # X4 bitfield, only the first byte is needed here:
+            # bits 0-2 are the quality indicator, bit 3 is svUsed
+            # NAV-SAT lists all known satellites; only count those with a signal
+            if cno > 0:
+                satellites.append(
+                    {
+                        "id": svId,
+                        "system": gnssId,
+                        "signal": cno,
+                        "elevation": elev,
+                        "azimuth": azim,
+                        "used": bool(flags & 0x08),
+                        "quality": flags & 0x07,
+                    }
+                )
         result = {
             "class": "NAV-SAT",
-            "nSat": sum(1 for sat in satellites),
+            "nSat": len(satellites),
             "satellites": satellites,
         }
         logger.debug(f"NAV-SAT result: {result}")

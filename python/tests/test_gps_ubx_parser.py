@@ -69,3 +69,30 @@ def test_svinfo_idle_channels_not_counted_as_seen(parser):
 @pytest.mark.unit
 def test_svinfo_too_short(parser):
     assert "error" in parser._parse_nav_svinfo(b"\x00" * 4)
+
+
+def make_nav_sat_block(gnss_id, sv_id, cno, elev, azim, flags):
+    return struct.pack("<BBBbhhI", gnss_id, sv_id, cno, elev, azim, 0, flags)
+
+
+def make_nav_sat_payload(svs):
+    header = struct.pack("<IBBH", 1000, 1, len(svs), 0)
+    return header + b"".join(make_nav_sat_block(*sv) for sv in svs)
+
+
+@pytest.mark.unit
+def test_nav_sat_used_from_svused_bit(parser):
+    # flags bits 0-2 = quality indicator, bit 3 = svUsed
+    payload = make_nav_sat_payload(
+        [
+            (0, 17, 27, 45, 180, 0x0C),  # quality 4, used
+            (0, 13, 15, -5, 300, 0x04),  # quality 4, tracked but not used
+            (6, 3, 0, 0, 0, 0x01),  # searching, no signal: not seen
+        ]
+    )
+    result = parser._parse_nav_sat(payload)
+
+    assert result["nSat"] == 2
+    sat17, sat13 = result["satellites"]
+    assert (sat17["id"], sat17["used"], sat17["quality"]) == (17, True, 4)
+    assert (sat13["id"], sat13["used"], sat13["elevation"]) == (13, False, -5)
