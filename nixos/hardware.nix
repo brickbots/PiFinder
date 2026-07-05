@@ -23,7 +23,7 @@ let
     &spi0 { status = "okay"; };
   '';
 
-  # UART3 for GPS on /dev/ttyAMA1
+  # UART3 for the on-board GPS (published as /dev/gpsuart by udev)
   uart3Dtbo = compileOverlay "uart3" ''
     /dts-v1/;
     /plugin/;
@@ -146,7 +146,10 @@ in {
       SUBSYSTEM=="pwm", GROUP="gpio", MODE="0660"
       SUBSYSTEM=="gpio", GROUP="gpio", MODE="0660"
       KERNEL=="gpiomem", GROUP="gpio", MODE="0660"
-      KERNEL=="ttyAMA1", GROUP="dialout", MODE="0660"
+      # On-board GPS UART (uart3, fe201600 on BCM2711): the kernel's ttyAMA
+      # numbering is not stable across versions, so match the DT node and
+      # publish a fixed name for gpsd to open.
+      SUBSYSTEM=="tty", KERNELS=="fe201600.serial", SYMLINK+="gpsuart", GROUP="dialout", MODE="0660", TAG+="systemd", ENV{SYSTEMD_WANTS}+="gpsd-add-uart.service"
       # DMA heap for libcamera/picamera2 (CMA memory allocation)
       SUBSYSTEM=="dma_heap", GROUP="video", MODE="0660"
     '';

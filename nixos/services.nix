@@ -652,13 +652,13 @@ in {
     wantedBy = [ "sockets.target" ];
   };
 
-  # /etc/default/gpsd — kept identical to upstream pi_config_files/gpsd.conf so
-  # the Debian and NixOS images present the same operator-visible config.
-  # DEVICES opens the on-board UART GPS at startup; USBAUTO lets udev hotplug
-  # USB GPSes via gpsdctl. GPSD_SOCKET is intentionally omitted — gpsd's
-  # default (/var/run/gpsd.sock) is already what we want.
+  # /etc/default/gpsd — same shape as upstream pi_config_files/gpsd.conf.
+  # DEVICES opens the on-board UART GPS at startup via its stable udev name
+  # (see hardware.nix — ttyAMA numbering shifts between kernels); USBAUTO lets
+  # udev hotplug USB GPSes via gpsdctl. GPSD_SOCKET is intentionally omitted —
+  # gpsd's default (/var/run/gpsd.sock) is already what we want.
   environment.etc."default/gpsd".text = ''
-    DEVICES="/dev/ttyAMA1"
+    DEVICES="/dev/gpsuart"
     GPSD_OPTIONS=""
     USBAUTO="true"
   '';
@@ -671,20 +671,22 @@ in {
   };
   users.groups.gpsd = {};
 
-  # Add UART GPS on boot (ttyAMA1 from uart3 overlay, not auto-detected by udev)
-  # This runs after gpsd.socket is ready, adding the UART device to gpsd
+  # Add the on-board UART GPS to gpsd (uart3 overlay, published as
+  # /dev/gpsuart by udev — platform UARTs are not auto-detected the way USB
+  # GPSes are). Started by udev via SYSTEMD_WANTS when the device appears
+  # (see hardware.nix), so a unit without an on-board GPS never starts it
+  # and USB-only setups still work through USBAUTO hotplug alone.
   systemd.services.gpsd-add-uart = {
     description = "Add UART GPS to gpsd";
-    after = [ "gpsd.socket" "dev-ttyAMA1.device" ];
+    after = [ "gpsd.socket" "dev-gpsuart.device" ];
     requires = [ "gpsd.socket" ];
-    wantedBy = [ "multi-user.target" ];
-    # BindsTo ensures this stops if ttyAMA1 disappears (though it shouldn't)
-    bindsTo = [ "dev-ttyAMA1.device" ];
+    # BindsTo ensures this stops if the GPS UART disappears
+    bindsTo = [ "dev-gpsuart.device" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      ExecStart = "${pkgs.gpsd}/sbin/gpsdctl add /dev/ttyAMA1";
-      ExecStop = "${pkgs.gpsd}/sbin/gpsdctl remove /dev/ttyAMA1";
+      ExecStart = "${pkgs.gpsd}/sbin/gpsdctl add /dev/gpsuart";
+      ExecStop = "${pkgs.gpsd}/sbin/gpsdctl remove /dev/gpsuart";
     };
   };
 
