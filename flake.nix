@@ -141,6 +141,14 @@
         ({ config, pkgs, lib, ... }: {
           sdImage.populateRootCommands = ''
             mkdir -p ./files/home/pifinder/PiFinder_data
+            mkdir -p ./files/var/lib/pifinder
+            # ADR 0003: last-ditch fallback for first-boot resolution when the
+            # update manifest is unreachable. The manifest is the primary
+            # source; this file is otherwise ignored and removed on success.
+            # (The old closure-based tarball builder used to write it; the
+            # image-based pipeline must bake it.)
+            echo "${(mkPifinderSystem {}).config.system.build.toplevel}" \
+              > ./files/var/lib/pifinder/first-boot-target
           '';
           sdImage.populateFirmwareCommands = lib.mkForce ''
             (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)
