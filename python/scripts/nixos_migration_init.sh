@@ -21,7 +21,10 @@ trap '' PIPE
 mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
-mount -t tmpfs tmpfs /tmp 2>/dev/null || true
+# size=90%: the default tmpfs cap (50% of RAM) is smaller than the tarball on
+# 2GB boards even when total RAM suffices — the explicit MemAvailable checks
+# below are the real guard, the cap must never trip first.
+mount -t tmpfs -o size=90% tmpfs /tmp 2>/dev/null || true
 
 # Load SPI modules for OLED progress display
 if [ -f /lib/modules/spi-bcm2835.ko ]; then
@@ -70,12 +73,40 @@ show() {
     fi
 }
 
+# Set to 1 immediately before the first destructive step (formatting). While
+# it is 0, a failure can and must send the device back to the old OS.
+DESTRUCTIVE=0
+
 fail() {
     if [ "${PROGRESS_READY}" -eq 1 ]; then
         echo "0 0 0 FAILED: $1" >&3 2>/dev/null || true
     fi
     echo "[FAILED] $1"
     echo "MIGRATION FAILED: $1" > /dev/console 2>/dev/null || true
+
+    if [ "${DESTRUCTIVE}" = "0" ]; then
+        # Nothing has been formatted yet: restore the old OS's boot config and
+        # reboot into it, instead of stranding a headless device in a debug
+        # shell. The pre-migration script keeps .premigration backups.
+        echo "No data touched yet — restoring previous OS boot config..."
+        if [ "${PROGRESS_READY}" -eq 1 ]; then
+            echo "0 0 0 FAILED: $1 - rebooting to old OS" >&3 2>/dev/null || true
+        fi
+        mkdir -p /mnt/bootfix
+        if mount -t vfat "${BOOT_DEV}" /mnt/bootfix 2>/dev/null; then
+            [ -f /mnt/bootfix/config.txt.premigration ] && \
+                cp /mnt/bootfix/config.txt.premigration /mnt/bootfix/config.txt
+            [ -f /mnt/bootfix/cmdline.txt.premigration ] && \
+                cp /mnt/bootfix/cmdline.txt.premigration /mnt/bootfix/cmdline.txt
+            rm -f /mnt/bootfix/nixos_migration
+            sync
+            umount /mnt/bootfix
+            sleep 5
+            reboot -f
+        fi
+        echo "Could not restore boot config — falling through to debug shell"
+    fi
+
     echo "Dropping to shell for debugging..."
     exec /bin/sh
 }
@@ -243,6 +274,8 @@ echo ", +" | sfdisk -N 2 "${SD_DEV}" --no-reread 2>/dev/null || true
 blockdev --rereadpt "${SD_DEV}" 2>/dev/null || true
 sleep 1
 
+# Point of no return: from here on a failure cannot go back to the old OS.
+DESTRUCTIVE=1
 show 50 "Formatting boot"
 
 mkfs.vfat -F 32 -n FIRMWARE "${BOOT_DEV}" || fail "mkfs.vfat failed"
