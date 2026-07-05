@@ -217,6 +217,18 @@ in {
       echo "Setting system profile..."
       nix-env -p /nix/var/nix/profiles/system --set "$STORE_PATH"
 
+      # Record the device identity: the update UI hides the running build by
+      # store path (current-build.json), and every later upgrade rewrites this
+      # file. Label/version/channel come from the manifest entry we resolved;
+      # a fallback-target install records just the store path.
+      IDENTITY=$(printf '%s\n' "''${MANIFEST_JSON:-}" | jq -c --arg sp "$STORE_PATH" '
+        [ .channels | to_entries[] | .key as $ch | .value[]?
+          | select(.store_path == $sp)
+          | {channel: $ch, label: .label, version: .version, store_path: .store_path} ]
+        | .[0] // empty' 2>/dev/null)
+      [ -n "$IDENTITY" ] || IDENTITY=$(jq -nc --arg sp "$STORE_PATH" '{store_path: $sp}')
+      printf '%s\n' "$IDENTITY" > /var/lib/pifinder/current-build.json
+
       echo "Configuring bootloader..."
       "$STORE_PATH/bin/switch-to-configuration" boot
 
