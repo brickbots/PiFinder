@@ -14,6 +14,11 @@ import datetime
 
 logger = logging.getLogger("GPS.parser")
 
+# u-blox quality indicator (qualityInd / flags bits 0-2) value at which the
+# signal is code locked; below this the receiver is still searching and any
+# reported C/N0 is an unconfirmed acquisition candidate.
+QUALITY_CODE_LOCKED = 4
+
 
 class UBXClass(IntEnum):
     NAV = 0x01
@@ -316,8 +321,9 @@ class UBXParser:
             azim = int.from_bytes(data[offset + 4 : offset + 6], "little", signed=True)
             flags = data[offset + 8]  # X4 bitfield, only the first byte is needed here:
             # bits 0-2 are the quality indicator, bit 3 is svUsed
-            # NAV-SAT lists all known satellites; only count those with a signal
-            if cno > 0:
+            # NAV-SAT lists every known satellite, including acquisition
+            # candidates with an estimated C/N0; only count tracked signals
+            if (flags & 0x07) >= QUALITY_CODE_LOCKED:
                 satellites.append(
                     {
                         "id": svId,
@@ -368,7 +374,11 @@ class UBXParser:
             if is_used:
                 used_sats += 1
 
-            if cno > 0:
+            # During cold-start acquisition the receiver reports estimated
+            # C/N0 for candidates it is still searching for; counting those
+            # makes the seen count start high and sink as they fail to
+            # confirm. Only quality >= 4 (code locked) is really tracked.
+            if quality >= QUALITY_CODE_LOCKED:
                 satellites.append(
                     {
                         "id": svid,
