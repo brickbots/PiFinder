@@ -541,9 +541,9 @@ class GaiaStarCatalog:
                     return np.empty((0, 3))
 
         # State is READY - metadata must be loaded by now
-        assert self.metadata is not None, (
-            "metadata should be loaded when state is READY"
-        )
+        assert (
+            self.metadata is not None
+        ), "metadata should be loaded when state is READY"
         assert self.nside is not None, "nside should be set when state is READY"
 
         mag_limit = mag_limit or self.limiting_magnitude
@@ -734,9 +734,9 @@ class GaiaStarCatalog:
         Returns:
             Numpy array of shape (N, 5) containing (ra, dec, mag, pmra, pmdec)
         """
-        assert self.metadata is not None, (
-            "metadata must be loaded before calling _load_tile_data"
-        )
+        assert (
+            self.metadata is not None
+        ), "metadata must be loaded before calling _load_tile_data"
 
         cache_key = (tile_id, mag_limit)
 
@@ -1056,7 +1056,7 @@ class GaiaStarCatalog:
             if len(header) < 8:
                 return existing_tiles
 
-            version, num_tiles = struct.unpack("<II", header)
+            version, _num_tiles = struct.unpack("<II", header)
 
             # Define dtype to read just tile IDs (we don't need offset/size)
             if version == 1:
@@ -1380,10 +1380,9 @@ class GaiaStarCatalog:
         Returns:
             Numpy array of shape (N, 3) containing (ra, dec, mag)
         """
-        assert self.metadata is not None, (
-            "metadata must be loaded before calling _load_tiles_batch"
-        )
-
+        assert (
+            self.metadata is not None
+        ), "metadata must be loaded before calling _load_tiles_batch"
 
         all_ras = []
         all_decs = []

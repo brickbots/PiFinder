@@ -80,7 +80,7 @@ class TestCompressedIndex(unittest.TestCase):
 
     def test_missing_tiles_return_none(self):
         idx = self._open(build_v3_index(self.RUNS))
-        self.assertIsNone(idx.get(5))   # before the first run
+        self.assertIsNone(idx.get(5))  # before the first run
         self.assertIsNone(idx.get(13))  # past run A length, still in run A's id span
         self.assertIsNone(idx.get(17))  # in the gap between runs
         self.assertIsNone(idx.get(22))  # past the last run's length

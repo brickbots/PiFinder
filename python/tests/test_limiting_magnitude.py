@@ -64,9 +64,9 @@ class TestFeijthComelloFormula:
 
         # Higher magnification should give better (larger number) limiting magnitude
         assert lm_100x > lm_40x, f"100x ({lm_100x:.2f}) should be > 40x ({lm_40x:.2f})"
-        assert lm_200x > lm_100x, (
-            f"200x ({lm_200x:.2f}) should be > 100x ({lm_100x:.2f})"
-        )
+        assert (
+            lm_200x > lm_100x
+        ), f"200x ({lm_200x:.2f}) should be > 100x ({lm_100x:.2f})"
 
     def test_larger_aperture_improves_lm(self):
         """Test that larger aperture improves limiting magnitude"""
@@ -84,12 +84,12 @@ class TestFeijthComelloFormula:
         )
 
         # Larger aperture should give better limiting magnitude
-        assert lm_150mm > lm_80mm, (
-            f"150mm ({lm_150mm:.2f}) should be > 80mm ({lm_80mm:.2f})"
-        )
-        assert lm_250mm > lm_150mm, (
-            f"250mm ({lm_250mm:.2f}) should be > 150mm ({lm_150mm:.2f})"
-        )
+        assert (
+            lm_150mm > lm_80mm
+        ), f"150mm ({lm_150mm:.2f}) should be > 80mm ({lm_80mm:.2f})"
+        assert (
+            lm_250mm > lm_150mm
+        ), f"250mm ({lm_250mm:.2f}) should be > 150mm ({lm_150mm:.2f})"
 
     def test_obstruction_reduces_lm(self):
         """Test that central obstruction reduces limiting magnitude"""
@@ -106,9 +106,9 @@ class TestFeijthComelloFormula:
         )
 
         # Obstruction should reduce limiting magnitude
-        assert lm_no_obstruction > lm_with_obstruction, (
-            f"Unobstructed ({lm_no_obstruction:.2f}) should be > obstructed ({lm_with_obstruction:.2f})"
-        )
+        assert (
+            lm_no_obstruction > lm_with_obstruction
+        ), f"Unobstructed ({lm_no_obstruction:.2f}) should be > obstructed ({lm_with_obstruction:.2f})"
 
     def test_better_transmission_improves_lm(self):
         """Test that better transmission improves limiting magnitude"""
@@ -125,9 +125,9 @@ class TestFeijthComelloFormula:
         )
 
         # Better transmission should give better limiting magnitude
-        assert lm_good_transmission > lm_poor_transmission, (
-            f"Good transmission ({lm_good_transmission:.2f}) should be > poor ({lm_poor_transmission:.2f})"
-        )
+        assert (
+            lm_good_transmission > lm_poor_transmission
+        ), f"Good transmission ({lm_good_transmission:.2f}) should be > poor ({lm_poor_transmission:.2f})"
 
     def test_darker_sky_improves_naked_eye_lm(self):
         """
@@ -147,9 +147,9 @@ class TestFeijthComelloFormula:
         )
 
         # Darker sky should give better limiting magnitude
-        assert lm_dark_sky > lm_bright_sky, (
-            f"Dark sky ({lm_dark_sky:.2f}) should be > bright sky ({lm_bright_sky:.2f})"
-        )
+        assert (
+            lm_dark_sky > lm_bright_sky
+        ), f"Dark sky ({lm_dark_sky:.2f}) should be > bright sky ({lm_bright_sky:.2f})"
 
 
 if __name__ == "__main__":

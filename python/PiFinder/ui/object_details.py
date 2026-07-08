@@ -31,7 +31,7 @@ import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.db.objects_db import ObjectsDatabase
-from PIL import Image, ImageDraw
+from PIL import Image
 import logging
 import numpy as np
 import time
@@ -663,10 +663,14 @@ class UIObjectDetails(UIModule):
             if 0 <= y < height and 0 <= cx < width:
                 pixels[y, cx, 0] = 255 - pixels[y, cx, 0]
 
-        # Update screen buffer with inverted pixels
-        self.screen = Image.fromarray(pixels, mode="RGB")
-        # Re-create draw object since we replaced the image
-        self.draw = ImageDraw.Draw(self.screen)
+        # Write the inverted pixels back into the *existing* screen buffer.
+        # We must not rebind self.screen/self.draw here: the text layouters
+        # (designator, type/const, mag/size, aka, description, contrast
+        # interpretation) captured this module's original ImageDraw in
+        # __init__. Replacing self.draw would orphan them onto a discarded
+        # image, so all layouter-drawn text would silently vanish on every
+        # screen that follows the chart view (e.g. the black DESC screen).
+        self.screen.paste(Image.fromarray(pixels, mode="RGB"))
 
     def _draw_crosshair_circle(self, mode="off"):
         """
@@ -849,7 +853,7 @@ class UIObjectDetails(UIModule):
         cx, cy = width / 2.0, height / 2.0
 
         if mode == "pulse":
-            pulse_factor, _, color_intensity = self._get_pulse_factor()
+            _, _, color_intensity = self._get_pulse_factor()
         elif mode == "fade":
             color_intensity = self._get_fade_factor()
         else:
