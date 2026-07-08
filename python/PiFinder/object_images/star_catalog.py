@@ -18,22 +18,17 @@ import mmap
 import struct
 import threading
 import time
-from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
+from PiFinder import timez
+
 # Import healpy at module level to avoid first-use delay
 # This ensures the slow import happens during initialization, not during first chart render
-try:
-    import healpy as hp  # type: ignore[import-not-found]
-
-    _HEALPY_AVAILABLE = True
-except ImportError:
-    hp = None
-    _HEALPY_AVAILABLE = False
+import healpy as hp  # type: ignore[import-not-found]
 
 logger = logging.getLogger("PiFinder.StarCatalog")
 
@@ -387,11 +382,6 @@ class GaiaStarCatalog:
         if mag_limit is None:
             mag_limit = self.metadata.get("mag_limit", 17.0) if self.metadata else 17.0
 
-        if not _HEALPY_AVAILABLE:
-            logger.error("healpy not available - cannot perform HEALPix queries")
-            yield (np.empty((0, 3)), True)
-            return
-
         # Calculate HEALPix tiles covering FOV
         # fov_deg is the diagonal field width, query_disc expects radius
         # For square FOV rotated arbitrarily, need circumscribed circle radius = diagonal/2
@@ -557,10 +547,6 @@ class GaiaStarCatalog:
         assert self.nside is not None, "nside should be set when state is READY"
 
         mag_limit = mag_limit or self.limiting_magnitude
-
-        if not _HEALPY_AVAILABLE:
-            logger.error("healpy not installed")
-            return np.empty((0, 3))
 
         # Calculate HEALPix tiles covering FOV
         # fov_deg is the diagonal field width, query_disc expects radius
@@ -843,14 +829,6 @@ class GaiaStarCatalog:
         Returns:
             Tuple of (ras, decs, mags, pmras, pmdecs) arrays
         """
-        if not _HEALPY_AVAILABLE:
-            return (
-                np.array([]),
-                np.array([]),
-                np.array([]),
-                np.array([]),
-                np.array([]),
-            )
 
         # Read entire file at once
         with open(tile_file, "rb") as f:
@@ -873,14 +851,6 @@ class GaiaStarCatalog:
         Returns:
             Tuple of (ras, decs, mags, pmras, pmdecs) arrays
         """
-        if not _HEALPY_AVAILABLE:
-            return (
-                np.array([]),
-                np.array([]),
-                np.array([]),
-                np.array([]),
-                np.array([]),
-            )
 
         index_file = band_dir / "index.bin"
         tiles_file = band_dir / "tiles.bin"
@@ -1133,9 +1103,8 @@ class GaiaStarCatalog:
             return np.empty((0, 3))
 
         # Calculate years from J2016.0 to current date
-        current_year = datetime.now().year + (
-            datetime.now().timetuple().tm_yday / 365.25
-        )
+        now = timez.utc_now()
+        current_year = now.year + (now.timetuple().tm_yday / 365.25)
         years_elapsed = current_year - 2016.0
 
         # Apply proper motion forward to current epoch
@@ -1221,8 +1190,6 @@ class GaiaStarCatalog:
         Returns:
             Numpy array of shape (N, 3) containing (ra, dec, mag)
         """
-        if not _HEALPY_AVAILABLE:
-            return np.empty((0, 3))
 
         mag_min = mag_band_info["min"]
         mag_max = mag_band_info["max"]
@@ -1417,8 +1384,6 @@ class GaiaStarCatalog:
             "metadata must be loaded before calling _load_tiles_batch"
         )
 
-        if not _HEALPY_AVAILABLE:
-            return np.empty((0, 3))
 
         all_ras = []
         all_decs = []

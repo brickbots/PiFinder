@@ -10,6 +10,8 @@ dependencies = [
     "pyerfa",
     "scipy",
     "scikit-learn",
+    # HEALPix tile queries for the Gaia deep-chart catalog (star_catalog.py)
+    "healpy",
     "pillow",
     "pandas",
     "skyfield",
