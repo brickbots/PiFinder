@@ -125,9 +125,7 @@ class UITimeEntry(UIModule):
         # Add a note about local time. The time is entered in the observer's
         # local zone (this screen self-gates on a location fix -- see
         # _location_locked / update -- so a zone is always known when the boxes
-        # are shown), so a fixed label suffices and we avoid overrunning the
-        # screen with a long IANA timezone name. Mirrors UIDateEntry's
-        # "Enter Local Date".
+        # are shown); enter the timezone on a second line for user sanity checking
         note_y = self.text_y + self.box_height + 5
         note_str = "Enter Local Time"
 
@@ -137,16 +135,18 @@ class UITimeEntry(UIModule):
             font=self.fonts.base.font,
             fill=self.red,
         )
+        note_y += 15
         if self.shared_state:
-            note_str = self.shared_state.location().timezone
+            note_str = self.shared_state.location().timezone[:18]
             self.draw.text(
-                (10, note_y + 15),
+                (10, note_y),
                 _(note_str), 
                 font=self.fonts.base.font,
                 fill=self.red,
             )
+            note_y += 5
 
-        return note_y + 20  # Return the Y position after this element
+        return note_y  # Return the Y position after this element
 
     def draw_separator(self, start_y):
         # Draw a separator line before the legend
