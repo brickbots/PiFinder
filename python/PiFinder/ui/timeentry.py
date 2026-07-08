@@ -128,18 +128,25 @@ class UITimeEntry(UIModule):
         # are shown), so a fixed label suffices and we avoid overrunning the
         # screen with a long IANA timezone name. Mirrors UIDateEntry's
         # "Enter Local Date".
-        note_y = self.text_y + self.box_height + 10
-        if self.shared_state:
-            note_str = "Enter " + self.shared_state.location().timezone + " Time"
-        else:
-            note_str = "Enter Local Time"
+        note_y = self.text_y + self.box_height + 5
+        note_str = "Enter Local Time"
+
         self.draw.text(
             (10, note_y),
             _(note_str),
             font=self.fonts.base.font,
             fill=self.red,
         )
-        return note_y + 15  # Return the Y position after this element
+        if self.shared_state:
+            note_str = self.shared_state.location().timezone
+            self.draw.text(
+                (10, note_y + 15),
+                _(note_str), 
+                font=self.fonts.base.font,
+                fill=self.red,
+            )
+
+        return note_y + 20  # Return the Y position after this element
 
     def draw_separator(self, start_y):
         # Draw a separator line before the legend
@@ -265,7 +272,7 @@ class UITimeEntry(UIModule):
             self.draw.rectangle((0, 0, self.width, self.height), fill=self.black)
             self.draw_time_boxes()
             note_y = self.draw_local_time_note()
-            separator_y = self.draw_separator(note_y + 15)
+            separator_y = self.draw_separator(note_y + 10)
             self.draw_legend(separator_y)
 
         if self.shared_state:
