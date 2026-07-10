@@ -291,6 +291,7 @@ information or perform actions.  See :ref:`user_guide:tools`.
        Tools --> PnT["Place & Time"]
        Tools --> Console
        Tools --> SU["Software Upd"]
+       Tools --> DI["Download Images"]
        Tools --> TM["Test Mode"]
        Tools --> Exp["Experimental"]
        Tools --> Power
@@ -340,6 +341,10 @@ Console
 Software Upd
    Download and install software updates over WiFi.  See
    :ref:`user_guide:update software`.
+Download Images
+   Fetch catalog object images on the device for a chosen scope — All Objects,
+   the Current Filter, or your Observing List.  Requires WiFi Client mode.  See
+   :ref:`software:catalog image download`.
 Test Mode
    A demo/debug mode that solves a saved image from disk.  It blocks real use at
    night but lets you explore the PiFinder's features indoors.

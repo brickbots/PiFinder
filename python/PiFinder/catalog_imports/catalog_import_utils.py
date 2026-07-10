@@ -440,7 +440,13 @@ def resolve_object_images():
         else:
             unresolved_objects.append(object_id)
 
-    # Bulk insert image objects
+    # Bulk insert image objects.
+    #
+    # ``source`` is intentionally left NULL here: at import time every image is
+    # "uncurated".  The survey provenance / regeneration directive is written
+    # off-device by Generate / the discriminator (ADR 0018); nothing on-device
+    # branches on it, so the importer only needs object_id + (sourceless)
+    # image_name.
     if image_objects_to_insert:
         # Use executemany for bulk insert into the correct table
         db_c.executemany(

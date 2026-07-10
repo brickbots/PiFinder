@@ -132,24 +132,27 @@ Booting takes up to two minutes, but you should see the startup screen before lo
 Catalog Image Download
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The PiFinder can display catalog object images when they're present on your SD card.  These images take about 5gb of space and can take several hours or more to download, but you can cancel and resume at any time.
+The PiFinder can show a survey image behind each object in Object Details when the images are present on your SD card.  They take a few GB of space and the full set can take a while to fetch, but you can cancel and pick up where you left off at any time.
 
-The :ref:`software:prebuilt release image` already includes these images and is much quicker to download as a single file from your main computer.
+The :ref:`software:prebuilt release image` already bundles every image, so flashing it is by far the fastest way to get them — one download on your main computer instead of thousands of small ones on the device.
 
-To download the catalog images, put your PiFinder in WIFI client mode so it can reach the internet, then SSH into it using the password you set up initially.
+To fetch them on the device, first put the PiFinder in WiFi Client mode so it can reach the internet (see :doc:`connectivity`).  Then open Tools, select Download Images, and choose what to fetch:
 
-Once connected, type:
+* **All Objects** — every catalog image.
+* **Current Filter** — only the objects your active filter currently shows.
+* **Observing List** — the objects on your loaded observing list.
 
-.. code-block::
+The PiFinder counts how many images are missing, estimates the download size, and checks that it can reach the image server, then offers Download or Cancel.  (If WiFi isn't in Client mode the screen reads "WiFi must be client mode" — switch modes and come back.)
 
-   cd PiFinder/python
-   python -m PiFinder.get_images
+While a download runs, a status line just under the title bar shows its progress on every screen, so you can keep observing while it works.  Pressing **LEFT** to go back leaves the download running in the background; the Cancel action on the Download Images screen stops it.  Either way, images already downloaded are kept.
 
-The PiFinder checks which images are missing and starts downloading.  You can monitor progress on the status bar.
-
+Downloading is idempotent: re-running a scope skips images you already have, so there's nothing special to resume — just trigger the same scope again.
 
 .. image:: ../../images/screenshots/Image_download_001.png
    :alt: Image Download
 
-
-There are 13,000+ images, so it takes a while, but you can do it across multiple sessions.  The PiFinder uses whichever images you have on hand each time you observe.
+.. note::
+   There's also a headless fallback for advanced users.  With the PiFinder in
+   Client mode, SSH in and run ``python -m PiFinder.get_images`` from
+   ``PiFinder/python`` to fetch every image, or add ``--catalog NGC`` to fetch a
+   single catalog.
