@@ -14,6 +14,11 @@ import datetime
 
 logger = logging.getLogger("GPS.parser")
 
+# u-blox quality indicator (qualityInd / flags bits 0-2) value at which the
+# signal is code locked; below this the receiver is still searching and any
+# reported C/N0 is an unconfirmed acquisition candidate.
+QUALITY_CODE_LOCKED = 4
+
 
 class UBXClass(IntEnum):
     NAV = 0x01
@@ -312,28 +317,27 @@ class UBXParser:
             gnssId = data[offset]
             svId = data[offset + 1]
             cno = data[offset + 2]
-            elev = data[offset + 3]
-            azim = int.from_bytes(data[offset + 4 : offset + 6], "little")
-            flags = data[
-                offset + 8
-            ]  # Warning this is a 4 byte field of flags, we're only using the first byte
-            # lowest 3 bits are a quality indicator and according to
-            # https://portal.u-blox.com/s/question/0D52p000097B0bFCAS/interpretation-of-signal-quality-indicator-in-ubxnavsat
-            # the 0-7 values from an ordered scale. So taking 3 as the threshold below.q
-            satellites.append(
-                {
-                    "id": svId,
-                    "system": gnssId,
-                    "signal": cno,
-                    "elevation": elev,
-                    "azimuth": azim,
-                    "used": (flags & 0x07) > 3,  # lowest 3 bits are used for the status
-                    "flags": flags & 0x07,
-                }
-            )
+            elev = int.from_bytes(data[offset + 3 : offset + 4], "little", signed=True)
+            azim = int.from_bytes(data[offset + 4 : offset + 6], "little", signed=True)
+            flags = data[offset + 8]  # X4 bitfield, only the first byte is needed here:
+            # bits 0-2 are the quality indicator, bit 3 is svUsed
+            # NAV-SAT lists every known satellite, including acquisition
+            # candidates with an estimated C/N0; only count tracked signals
+            if (flags & 0x07) >= QUALITY_CODE_LOCKED:
+                satellites.append(
+                    {
+                        "id": svId,
+                        "system": gnssId,
+                        "signal": cno,
+                        "elevation": elev,
+                        "azimuth": azim,
+                        "used": bool(flags & 0x08),
+                        "quality": flags & 0x07,
+                    }
+                )
         result = {
             "class": "NAV-SAT",
-            "nSat": sum(1 for sat in satellites),
+            "nSat": len(satellites),
             "satellites": satellites,
         }
         logger.debug(f"NAV-SAT result: {result}")
@@ -358,18 +362,23 @@ class UBXParser:
                 logger.warning(f"SVINFO: Message truncated at satellite {i}")
                 break
 
-            svid = data[offset]
-            flags = data[offset + 1]
-            quality = data[offset + 2]
-            cno = data[offset + 3]
-            elev = data[offset + 4]
-            azim = int.from_bytes(data[offset + 6 : offset + 8], "little")
+            # Repeated block layout: chn, svid, flags, quality, cno, elev, azim, prRes
+            svid = data[offset + 1]
+            flags = data[offset + 2]
+            quality = data[offset + 3]
+            cno = data[offset + 4]
+            elev = int.from_bytes(data[offset + 5 : offset + 6], "little", signed=True)
+            azim = int.from_bytes(data[offset + 6 : offset + 8], "little", signed=True)
 
             is_used = bool(flags & 0x01)
             if is_used:
                 used_sats += 1
 
-            if cno > 0:
+            # During cold-start acquisition the receiver reports estimated
+            # C/N0 for candidates it is still searching for; counting those
+            # makes the seen count start high and sink as they fail to
+            # confirm. Only quality >= 4 (code locked) is really tracked.
+            if quality >= QUALITY_CODE_LOCKED:
                 satellites.append(
                     {
                         "id": svid,
