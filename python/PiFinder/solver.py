@@ -498,9 +498,9 @@ def solver(
                 # which might be from the IMU
                 try:
                     last_image_metadata = shared_state.last_image_metadata()
-                except (BrokenPipeError, ConnectionResetError) as e:
-                    logger.error(f"Lost connection to shared state manager: {e}")
-                    continue
+                except state_utils.DEAD_MANAGER_EXCEPTIONS as e:
+                    logger.error("Shared-state manager gone; stopping Solver: %s", e)
+                    return
 
                 # Check if we should process this image
                 is_new_image = last_image_metadata["exposure_end"] > last_solve_attempt
@@ -656,13 +656,10 @@ def solver(
                             t_extract_ms=0.0,
                         )
                     )
-        except EOFError as eof:
-            logger.error(f"Main process no longer running for solver: {eof}")
-            logger.exception(eof)
-            logger.error(
-                f"Last solve attempt: {last_solve_attempt}, last success: {last_solve_success}"
-            )
         except Exception as e:
+            if state_utils.is_dead_manager_error(e):
+                logger.error("Shared-state manager gone; stopping Solver: %s", e)
+                return
             logger.error(f"Exception in Solver: {e.__class__.__name__}: {str(e)}")
             logger.exception(e)
             logger.error(f"Current process ID: {os.getpid()}")

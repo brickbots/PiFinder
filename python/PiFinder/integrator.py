@@ -200,8 +200,10 @@ def integrator(
 
             telemetry.flush()
 
-    except EOFError:
-        logger.error("Main no longer running for integrator")
+    except Exception as e:
+        if not state_utils.is_dead_manager_error(e):
+            raise
+        logger.error("Shared-state manager gone; stopping integrator: %s", e)
     finally:
         if telemetry is not None:
             telemetry.stop()
