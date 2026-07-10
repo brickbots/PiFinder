@@ -22,7 +22,6 @@ def utc_now() -> datetime.datetime:
     """Current instant, timezone-aware in UTC. Use for civil/astronomical time."""
     return datetime.datetime.now(pytz.utc)
 
-
 def local_now() -> datetime.datetime:
     """Current instant as a naive datetime in the host's local timezone.
 
@@ -31,16 +30,13 @@ def local_now() -> datetime.datetime:
     """
     return datetime.datetime.now()
 
-
 def utc_from_timestamp(ts: float) -> datetime.datetime:
     """A POSIX timestamp as a timezone-aware UTC datetime (e.g. a file mtime)."""
     return datetime.datetime.fromtimestamp(ts, pytz.utc)
 
-
 def parse(value: str, fmt: str) -> datetime.datetime:
     """``strptime`` producing a naive datetime; the caller attaches the zone."""
     return datetime.datetime.strptime(value, fmt)
-
 
 def naive(year: int, month: int, day: int,
           hour: int = 0, minute: int = 0, second: int = 0,

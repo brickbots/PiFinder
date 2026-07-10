@@ -12,6 +12,7 @@ Channels:
 import json
 import logging
 import re
+import time
 from typing import Dict, List, Optional
 
 import requests
@@ -51,6 +52,8 @@ def _entry_from_manifest(item: dict, channel: str) -> Optional[dict]:
         "version": item.get("version") or label,
         "subtitle": title,
         "channel": channel,
+        "migration_url": item.get("migration_url") or None,
+        "migration_sha256_url": item.get("migration_sha256_url") or None,
     }
     if item.get("kind") == "trunk":
         entry["is_trunk"] = True
@@ -132,6 +135,125 @@ def _hide_current_build(
     return [e for e in entries if e.get("ref") != current_ref]
 
 
+MIGRATION_GATE_URL = (
+    "https://raw.githubusercontent.com/brickbots/PiFinder/release/migration_gate.json"
+)
+
+# Secret unlock: 7x square button
+_UNLOCK_SEQUENCE = ["square"] * 7
+
+# Migration targets are read from the update manifest, consulted in descending
+# stability; the first available entry carrying a migration tarball wins.
+_MIGRATION_CHANNELS = ("stable", "beta", "unstable")
+
+
+def _fetch_migration_config() -> Optional[dict]:
+    """Fetch and parse the remote migration gate JSON.
+
+    Returns the parsed dict on success; None on network error, non-200
+    response, or malformed JSON. Only the `nixos_for_everyone` flag is used by
+    the caller — the tarball itself comes from the update manifest.
+    """
+    try:
+        res = requests.get(MIGRATION_GATE_URL, timeout=REQUEST_TIMEOUT)
+    except requests.exceptions.RequestException:
+        return None
+    if res.status_code != 200:
+        return None
+    try:
+        data = res.json()
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    return data
+
+
+def _fetch_download_size_mb(url: str) -> Optional[int]:
+    """Return the tarball download size in MB from a HEAD request, or None.
+
+    GitHub release assets 302-redirect to a signed URL whose response carries
+    the real Content-Length, so redirects must be followed. Returns None on
+    network error, non-200 status, or a missing/unparseable Content-Length.
+    """
+    try:
+        res = requests.head(url, allow_redirects=True, timeout=REQUEST_TIMEOUT)
+    except requests.exceptions.RequestException:
+        return None
+    if res.status_code != 200:
+        return None
+    length = res.headers.get("Content-Length")
+    if length is None:
+        return None
+    try:
+        return round(int(length) / (1024 * 1024))
+    except (TypeError, ValueError):
+        return None
+
+
+def _migration_version_info_from_manifest() -> Optional[dict]:
+    """Select a migration target from the update manifest.
+
+    Walks channels stable -> beta -> unstable and returns version_info for the
+    first available entry that carries a migration tarball, or None if the
+    manifest can't be fetched or has no such entry.
+    """
+    try:
+        manifest_channels = _fetch_update_manifest()
+    except (requests.exceptions.RequestException, ValueError):
+        return None
+    for channel in _MIGRATION_CHANNELS:
+        entries = manifest_channels.get(channel, [])
+        for entry in entries:
+            url = entry.get("migration_url")
+            sha_url = entry.get("migration_sha256_url")
+            if entry.get("unavailable") or not url or not sha_url:
+                continue
+            version_info = {
+                "version": entry.get("version", "?"),
+                "type": "upgrade",
+                "migration_url": url,
+                "migration_sha256_url": sha_url,
+            }
+            # Size comes from a live HEAD on the tarball; omitted on failure
+            # (the confirm screen then shows "?").
+            size_mb = _fetch_download_size_mb(url)
+            if size_mb is not None:
+                version_info["migration_size_mb"] = size_mb
+            return version_info
+    return None
+
+
+def update_needed(current_version: str, repo_version: str) -> bool:
+    """
+    Returns true if an update is available
+
+    Update is available if semvar of repo_version is > current_version
+    Also returns True on error to allow be biased towards allowing
+    updates if issues
+    """
+    try:
+        _tmp_split = current_version.split(".")
+        current_version_compare = (
+            int(_tmp_split[0]),
+            int(_tmp_split[1]),
+            int(_tmp_split[2]),
+        )
+
+        _tmp_split = repo_version.split(".")
+        repo_version_compare = (
+            int(_tmp_split[0]),
+            int(_tmp_split[1]),
+            int(_tmp_split[2]),
+        )
+
+        # tuples compare in significance from first to last element
+        return repo_version_compare > current_version_compare
+
+    except Exception:
+        return True
+
+
 class UISoftware(UIModule):
     """
     Software update UI.
@@ -179,6 +301,11 @@ class UISoftware(UIModule):
         )
         self._unstable_entries: List[dict] = []
         self._square_count = 0
+
+        # Unlock sequence tracking (7x square triggers a manifest-sourced
+        # in-place migration, independent of the unstable-channel unlock
+        # above which shares the same button).
+        self._key_buffer: List[str] = []
 
         self._scrollers: Dict[str, TextLayouterScroll] = {}
         self._scroller_phase: Optional[str] = None
@@ -612,6 +739,40 @@ class UISoftware(UIModule):
             )
             y += 12
 
+    def _record_key(self, key_name: str):
+        """Record a key press for the migration unlock sequence.
+
+        Independent of _square_count (unstable-channel unlock above): both
+        gestures use 7x square, tracked separately so unlocking one doesn't
+        consume progress toward the other.
+        """
+        self._key_buffer.append(key_name)
+        if len(self._key_buffer) > len(_UNLOCK_SEQUENCE):
+            self._key_buffer = self._key_buffer[-len(_UNLOCK_SEQUENCE) :]
+        if self._key_buffer == _UNLOCK_SEQUENCE:
+            self._key_buffer = []
+            # Unlock: offer the first available migration target from the
+            # manifest, ignoring the nixos_for_everyone gate (that governs only
+            # the public path).
+            version_info = _migration_version_info_from_manifest()
+            if version_info:
+                self._trigger_migration(version_info)
+            else:
+                self.message(_("No release found"), 2)
+
+    def _trigger_migration(self, version_info: dict):
+        """Push UIMigrationConfirm onto the UI stack with the supplied
+        version_info (must already contain migration_url and
+        migration_sha256_url)."""
+        self.message("System Upgrade", 1)
+        self.add_to_stack(
+            {
+                "class": UIMigrationConfirm,
+                "version_info": version_info,
+                "current_version": self._software_version.strip(),
+            }
+        )
+
     # ------------------------------------------------------------------
     # Main update loop
     # ------------------------------------------------------------------
@@ -752,9 +913,11 @@ class UISoftware(UIModule):
             self._channels["unstable"] = self._unstable_entries
             self._channel_names = list(self._channels.keys())
             self.message(_("Unstable\nunlocked"), 1)
+        self._record_key("square")
 
     def key_number(self, number):
         self._square_count = 0
+        self._key_buffer = []
 
     # ------------------------------------------------------------------
     # Update action
@@ -875,6 +1038,270 @@ class UISoftware(UIModule):
                     font=self.fonts.base.font,
                     fill=self.colors.get(96),
                 )
+
+
+class UIMigrationConfirm(UIModule):
+    """
+    Warning screen before initiating NixOS migration.
+    Shows version info, warns about irreversibility, requires confirmation.
+    """
+
+    __title__ = "UPGRADE"
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._version_info = self.item_definition.get("version_info", {})
+        self._current_version = self.item_definition.get("current_version", "?")
+        self._target_version = self._version_info.get("version", "?")
+        self._option_index = 0
+        self._options = [_("Confirm"), _("Cancel")]
+
+    def update(self, force=False):
+        time.sleep(1 / 30)
+        self.clear_screen()
+        y = self.display_class.titlebar_height + 2
+
+        self.draw.text(
+            (0, y),
+            _("Major Upgrade"),
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
+        )
+        y += 14
+
+        self.draw.text(
+            (5, y),
+            f"{self._current_version} -> {self._target_version}",
+            font=self.fonts.bold.font,
+            fill=self.colors.get(192),
+        )
+        y += 16
+
+        # Separator
+        self.draw.line([(0, y), (127, y)], fill=self.colors.get(64))
+        y += 4
+
+        self.draw.text(
+            (0, y),
+            _("IRREVERSIBLE"),
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
+        )
+        y += 12
+
+        size_mb = self._version_info.get("migration_size_mb", "?")
+        self.draw.text(
+            (0, y),
+            _("Download: {}MB").format(size_mb),
+            font=self.fonts.base.font,
+            fill=self.colors.get(128),
+        )
+        y += 11
+
+        self.draw.text(
+            (0, y),
+            _("Power + WiFi req"),
+            font=self.fonts.base.font,
+            fill=self.colors.get(128),
+        )
+        y += 11
+
+        if not self._version_info.get(
+            "migration_sha256_url"
+        ) and not self._version_info.get("migration_sha256"):
+            self.draw.text(
+                (0, y),
+                _("No checksum avail."),
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+            y += 11
+
+        y += 5
+
+        # Options
+        for i, label in enumerate(self._options):
+            oy = y + i * 12
+            self.draw.text(
+                (10, oy),
+                label,
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+            if i == self._option_index:
+                self.draw.text(
+                    (0, oy),
+                    self._RIGHT_ARROW,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+
+        return self.screen_update()
+
+    def key_up(self):
+        self._option_index = (self._option_index - 1) % len(self._options)
+
+    def key_down(self):
+        self._option_index = (self._option_index + 1) % len(self._options)
+
+    def key_left(self):
+        return True
+
+    def key_right(self):
+        if self._options[self._option_index] == _("Cancel"):
+            self.remove_from_stack()
+        elif self._options[self._option_index] == _("Confirm"):
+            self.add_to_stack(
+                {
+                    "class": UIMigrationProgress,
+                    "version_info": self._version_info,
+                }
+            )
+
+
+class UIMigrationProgress(UIModule):
+    """
+    Migration download and preparation progress screen.
+    Triggers the actual migration via sys_utils.
+    """
+
+    __title__ = "UPGRADE"
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._version_info = self.item_definition.get("version_info", {})
+        self._started = False
+        self._status = _("Starting...")
+        self._progress = 0
+        self._terminal_failure = False
+        self._status_layout = TextLayouter(
+            self._status,
+            draw=self.draw,
+            color=self.colors.get(255),
+            colors=self.colors,
+            font=self.fonts.base,
+            available_lines=4,
+        )
+
+    def active(self):
+        super().active()
+        if not self._started:
+            self._started = True
+            self._start_migration()
+
+    def _start_migration(self):
+        """Kick off the migration process in the background."""
+        self._status = _("Downloading...")
+        try:
+            version_info = dict(self._version_info)
+            version_info["display_class"] = self.display_class.__class__.__name__
+            version_info["display_resolution"] = list(self.display_class.resolution)
+            supported_displays = {
+                "DisplaySSD1351": (128, 128),
+                "DisplaySSD1333": (176, 176),
+            }
+            display_class = version_info["display_class"]
+            display_resolution = tuple(version_info["display_resolution"])
+            display_supported = (
+                supported_displays.get(display_class) == display_resolution
+            )
+            display_supported = display_supported or (
+                "SSD1333" in display_class and display_resolution == (176, 176)
+            )
+            if not display_supported:
+                logger.error(
+                    "Unsupported migration progress renderer display: "
+                    f"{display_class} {version_info['display_resolution']}"
+                )
+                self._status = _("Not supported")
+                return
+            sys_utils.start_nixos_migration(version_info)
+        except AttributeError:
+            logger.error("sys_utils.start_nixos_migration not available")
+            self._status = _("Not supported")
+            self._status_layout.set_text(self._status)
+            self._terminal_failure = True
+        except Exception as e:
+            logger.error(f"Migration failed to start: {e}")
+            self._status = _("Failed: ") + str(e)
+            self._status_layout.set_text(self._status)
+            self._terminal_failure = True
+
+    def update(self, force=False):
+        time.sleep(1 / 30)
+        self.clear_screen()
+        y = self.display_class.titlebar_height + 2
+
+        # Try to read progress from sys_utils. AttributeError happens when
+        # running against sys_utils_fake (no migration support); the helper
+        # itself swallows OS/JSON errors and returns {}.
+        try:
+            progress = sys_utils.get_migration_progress()
+        except AttributeError:
+            progress = None
+        if progress:
+            try:
+                self._progress = int(progress.get("percent", self._progress))
+            except (TypeError, ValueError):
+                pass  # bad/missing percent — keep prior value
+            new_status = progress.get("status", self._status)
+            if isinstance(new_status, str) and new_status != self._status:
+                self._status = new_status
+                self._status_layout.set_text(self._status)
+
+        self.draw.text(
+            (0, y),
+            _("System Upgrade"),
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
+        )
+        y += 20
+
+        # Progress bar
+        bar_x, bar_w, bar_h = 4, 120, 12
+        self.draw.rectangle(
+            [bar_x, y, bar_x + bar_w, y + bar_h],
+            outline=self.colors.get(64),
+        )
+        fill_w = int(bar_w * self._progress / 100)
+        if fill_w > 0:
+            self.draw.rectangle(
+                [bar_x + 1, y + 1, bar_x + fill_w, y + bar_h - 1],
+                fill=self.colors.get(255),
+            )
+        pct_text = f"{self._progress}%"
+        pct_bbox = self.fonts.base.font.getbbox(pct_text)
+        pct_w = pct_bbox[2] - pct_bbox[0]
+        pct_h = pct_bbox[3] - pct_bbox[1]
+        pct_x = bar_x + (bar_w - pct_w) // 2
+        pct_y = y + (bar_h - pct_h) // 2 - pct_bbox[1]
+        self.draw.text(
+            (pct_x, pct_y),
+            pct_text,
+            font=self.fonts.base.font,
+            fill=self.colors.get(0) if self._progress > 45 else self.colors.get(192),
+        )
+        y += bar_h + 4
+
+        # Use TextLayouter for scrollable status text
+        self._status_layout.draw((0, y))
+
+        return self.screen_update()
+
+    def key_up(self):
+        self._status_layout.previous()
+
+    def key_down(self):
+        self._status_layout.next()
+
+    def key_left(self):
+        # Allow exit only if the migration never actually started (e.g.,
+        # pre-flight refused due to missing checksum or unsupported display).
+        # Once the bash script is running, going back is unsafe.
+        if self._terminal_failure:
+            self.remove_from_stack()
+            return True
+        return False
 
 
 class UIReleaseNotes(UIModule):
