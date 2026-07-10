@@ -21,7 +21,10 @@ trap '' PIPE
 mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
-mount -t tmpfs tmpfs /tmp 2>/dev/null || true
+# size=90%: the default tmpfs cap (50% of RAM) is smaller than the tarball on
+# 2GB boards even when total RAM suffices — the explicit MemAvailable checks
+# below are the real guard, the cap must never trip first.
+mount -t tmpfs -o size=90% tmpfs /tmp 2>/dev/null || true
 
 # Load SPI modules for OLED progress display
 if [ -f /lib/modules/spi-bcm2835.ko ]; then
@@ -70,15 +73,48 @@ show() {
     fi
 }
 
+# Set to 1 immediately before the first destructive step (formatting). While
+# it is 0, a failure can and must send the device back to the old OS.
+DESTRUCTIVE=0
+
 fail() {
     if [ "${PROGRESS_READY}" -eq 1 ]; then
         echo "0 0 0 FAILED: $1" >&3 2>/dev/null || true
     fi
     echo "[FAILED] $1"
     echo "MIGRATION FAILED: $1" > /dev/console 2>/dev/null || true
+
+    if [ "${DESTRUCTIVE}" = "0" ]; then
+        # Nothing has been formatted yet: restore the old OS's boot config and
+        # reboot into it, instead of stranding a headless device in a debug
+        # shell. The pre-migration script keeps .premigration backups.
+        echo "No data touched yet — restoring previous OS boot config..."
+        if [ "${PROGRESS_READY}" -eq 1 ]; then
+            echo "0 0 0 FAILED: $1 - rebooting to old OS" >&3 2>/dev/null || true
+        fi
+        mkdir -p /mnt/bootfix
+        if mount -t vfat "${BOOT_DEV}" /mnt/bootfix 2>/dev/null; then
+            [ -f /mnt/bootfix/config.txt.premigration ] && \
+                cp /mnt/bootfix/config.txt.premigration /mnt/bootfix/config.txt
+            [ -f /mnt/bootfix/cmdline.txt.premigration ] && \
+                cp /mnt/bootfix/cmdline.txt.premigration /mnt/bootfix/cmdline.txt
+            rm -f /mnt/bootfix/nixos_migration
+            sync
+            umount /mnt/bootfix
+            sleep 5
+            reboot -f
+        fi
+        echo "Could not restore boot config — falling through to debug shell"
+    fi
+
     echo "Dropping to shell for debugging..."
     exec /bin/sh
 }
+
+# set -e turns ANY uncaught failure into init exiting -> kernel panic
+# ("Attempted to kill init"). Route it into fail() instead: fail() ends in
+# exec or reboot, so the trap never re-fires.
+trap 'fail "unexpected failure near stage ${STAGE_NUM}"' EXIT
 
 if [ -f /migration_meta ]; then
     . /migration_meta
@@ -243,6 +279,8 @@ echo ", +" | sfdisk -N 2 "${SD_DEV}" --no-reread 2>/dev/null || true
 blockdev --rereadpt "${SD_DEV}" 2>/dev/null || true
 sleep 1
 
+# Point of no return: from here on a failure cannot go back to the old OS.
+DESTRUCTIVE=1
 show 50 "Formatting boot"
 
 mkfs.vfat -F 32 -n FIRMWARE "${BOOT_DEV}" || fail "mkfs.vfat failed"
@@ -266,14 +304,19 @@ rm -f /tmp/migration.tar.zst
 
 show 60 "Moving rootfs"
 
+# The tarball's top-level boot/ is the FIRMWARE partition payload; rootfs/
+# carries its own non-empty /boot (extlinux + kernels live on ext4). Stage the
+# firmware payload aside first or the rootfs move collides on "boot".
+mv "${MOUNT_NEW}/boot" "${MOUNT_NEW}/.fw-staging" || fail "Cannot stage firmware payload"
+
 # Move rootfs/ contents up to partition root (same-fs rename, fast)
-cd "${MOUNT_NEW}/rootfs"
+cd "${MOUNT_NEW}/rootfs" || fail "rootfs missing from tarball"
 for item in * .[!.]* ..?*; do
     [ -e "$item" ] || continue
-    mv "$item" "${MOUNT_NEW}/"
+    mv "$item" "${MOUNT_NEW}/" || fail "Cannot move rootfs/${item}"
 done
 cd /
-rmdir "${MOUNT_NEW}/rootfs"
+rmdir "${MOUNT_NEW}/rootfs" || fail "rootfs dir not empty after move"
 
 # NetworkManager (like other security-sensitive plugin loaders) refuses to load
 # any plugin file not owned by root, so a /nix/store with non-root paths baked
@@ -288,28 +331,33 @@ show 66 "Copying boot"
 mkdir -p "${MOUNT_BOOT}"
 mount -t vfat "${BOOT_DEV}" "${MOUNT_BOOT}" || fail "Cannot mount boot"
 
-# Copy boot files to FAT partition
-cd "${MOUNT_NEW}/boot"
+# Copy the staged firmware payload to the FAT partition
+cd "${MOUNT_NEW}/.fw-staging" || fail "firmware staging missing"
 for item in *; do
     [ -e "$item" ] || continue
     if [ -d "$item" ]; then
-        cp -r "$item" "${MOUNT_BOOT}/$item"
+        cp -r "$item" "${MOUNT_BOOT}/$item" || fail "Cannot copy ${item} to firmware partition"
     else
-        cp "$item" "${MOUNT_BOOT}/$item"
+        cp "$item" "${MOUNT_BOOT}/$item" || fail "Cannot copy ${item} to firmware partition"
     fi
 done
 cd /
+rm -rf "${MOUNT_NEW}/.fw-staging"
 sync
 
-# Verify critical boot files landed
-if [ ! -f "${MOUNT_BOOT}/extlinux/extlinux.conf" ]; then
-    echo "Boot partition contents:" >&2
+# Verify each partition got what its boot chain needs: the firmware partition
+# feeds the RPi firmware + U-Boot; extlinux.conf and kernels live on ext4
+# (U-Boot reads them from mmc 0:2).
+if [ ! -f "${MOUNT_BOOT}/config.txt" ]; then
+    echo "Firmware partition contents:" >&2
     ls -lR "${MOUNT_BOOT}" >&2
-    fail "extlinux.conf missing from boot partition after copy"
+    fail "config.txt missing from firmware partition after copy"
 fi
-
-# Keep boot/ on ext4 — U-Boot reads extlinux.conf from mmc 0:2 (ext4 root)
-# FAT partition only needs RPi firmware files (config.txt, u-boot, DTBs)
+if [ ! -f "${MOUNT_NEW}/boot/extlinux/extlinux.conf" ]; then
+    echo "Root /boot contents:" >&2
+    ls -lR "${MOUNT_NEW}/boot" >&2
+    fail "extlinux.conf missing from root /boot after move"
+fi
 
 # -------------------------------------------------------------------
 # Phase 7: Migrate WiFi
@@ -367,19 +415,23 @@ resize2fs "${ROOT_DEV}" 2>/dev/null || true
 show 92 "Syncing"
 sync
 
-# Final verification: remount boot partition and confirm extlinux.conf survived
+# Final verification: remount the firmware partition and confirm the RPi
+# firmware config survived (extlinux.conf lives on the ext4 root, verified
+# earlier).
 show 95 "Verifying boot"
 mkdir -p /mnt/bootchk
 mount -t vfat -o ro "${BOOT_DEV}" /mnt/bootchk || fail "Cannot remount boot for verification"
-if [ ! -f /mnt/bootchk/extlinux/extlinux.conf ]; then
+if [ ! -f /mnt/bootchk/config.txt ]; then
     ls -lR /mnt/bootchk > /dev/console 2>&1 || true
     umount /mnt/bootchk 2>/dev/null || true
-    fail "extlinux.conf missing from boot partition before reboot"
+    fail "config.txt missing from firmware partition before reboot"
 fi
 umount /mnt/bootchk
 
 show 100 "Complete"
 sleep 3
 
+# Success: disarm the failure trap before the deliberate reboot.
+trap - EXIT
 echo "Rebooting into NixOS..." > /dev/console 2>/dev/null || true
 reboot -f

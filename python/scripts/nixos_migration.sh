@@ -148,7 +148,18 @@ progress 68 "Preparing"
 
 TARBALL_SIZE=$(stat -c%s "${TARBALL}")
 
-progress 75 "Tarball: $((TARBALL_SIZE / 1048576))MB"
+# Feasibility gate — fail HERE, on the running OS, never in the initramfs.
+# The initramfs copies the tarball to RAM (tmpfs) and needs headroom for the
+# user-data backup and tools, so the tarball plus 400MB must fit inside
+# total RAM. A 2GB board tops out around a ~1.4GB tarball.
+MEM_TOTAL_MB=$(awk '/MemTotal/ {print int($2 / 1024)}' /proc/meminfo)
+TARBALL_MB=$((TARBALL_SIZE / 1048576))
+NEEDED_MB=$((TARBALL_MB + 400))
+if [ "${NEEDED_MB}" -gt "${MEM_TOTAL_MB}" ]; then
+    fail 6 "Tarball too large for this board's RAM: needs ${NEEDED_MB}MB, have ${MEM_TOTAL_MB}MB"
+fi
+
+progress 75 "Tarball: ${TARBALL_MB}MB"
 
 # --- Phase 5: Build initramfs ---
 progress 78 "Building initramfs"
