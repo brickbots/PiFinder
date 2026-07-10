@@ -1,0 +1,15 @@
+[Unit]
+Description=PiFinder Time Sync Helper
+After=basic.target pifinder.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=__PIFINDER_REPO_DIR__/python
+Environment=PIFINDER_DATA_DIR=__PIFINDER_DATA_DIR__
+ExecStart=/usr/bin/python -m PiFinder.gps_time_sync_helper
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

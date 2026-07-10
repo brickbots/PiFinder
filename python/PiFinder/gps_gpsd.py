@@ -42,6 +42,43 @@ def is_tpv_accurate(tpv_dict):
         return False
 
 
+def gpsd_time_message(tpv_dict, gps_locked=False):
+    """Build a GPS time message even before the position fix is accurate."""
+    gps_time = tpv_dict.get("time")
+    if not gps_time:
+        return None
+
+    content = {
+        "time": gps_time,
+        "source": "GPSD",
+        "mode": tpv_dict.get("mode", 0),
+        "lock": gps_locked,
+    }
+    if gps_locked:
+        content["error_in_m"] = error_in_m
+    return "time", content
+
+
+def gpsd_sky_time_sample(sky_dict):
+    """Build a monitor-only GPS time candidate from SKY reports."""
+    gps_time = sky_dict.get("time")
+    if not gps_time:
+        return None
+
+    return (
+        "time_sample",
+        {
+            "time": gps_time,
+            "source": "GPSD-SKY",
+            "valid": False,
+            "satellites_seen": sky_dict.get("nSat"),
+            "satellites_used": sky_dict.get("uSat"),
+            "hdop": sky_dict.get("hdop"),
+            "pdop": sky_dict.get("pdop"),
+        },
+    )
+
+
 def gps_main(gps_queue, console_queue, log_queue):
     global error_2d, error_3d, error_in_m
     MultiprocLogging.configurer(log_queue)
@@ -54,8 +91,16 @@ def gps_main(gps_queue, console_queue, log_queue):
                 for result in client.dict_stream(
                     convert_datetime=True, filter=["TPV", "SKY"]
                 ):
-                    if result["class"] == "TPV" and is_tpv_accurate(result):
-                        logger.debug("last reading is %s", result)
+                    if result["class"] == "TPV":
+                        gps_accurate = is_tpv_accurate(result)
+
+                        time_msg = gpsd_time_message(result, gps_accurate)
+                        if time_msg is not None:
+                            logger.debug("Setting GPSD time to %s", result.get("time"))
+                            gps_queue.put(time_msg)
+
+                    if result["class"] == "TPV" and gps_accurate:
+                        logger.debug("last accurate reading is %s", result)
                         if (
                             result.get("lat")
                             and result.get("lon")
@@ -80,14 +125,12 @@ def gps_main(gps_queue, console_queue, log_queue):
                             logger.debug("GPS fix: %s", msg)
                             gps_queue.put(msg)
 
-                        if result.get("time"):
-                            msg = ("time", result.get("time"))
-                            logger.debug("Setting time to %s", result.get("time"))
-                            gps_queue.put(msg)
-
                     if result["class"] == "SKY":
                         logger.debug("GPS: SKY: %s", result)
                         print("GPS: SKY: %s", result)
+                        time_sample = gpsd_sky_time_sample(result)
+                        if time_sample is not None:
+                            gps_queue.put(time_sample)
                         if result["class"] == "SKY":
                             error_2d = result.get("hdop", 999)
                             error_3d = result.get("pdop", 999)

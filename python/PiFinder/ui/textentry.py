@@ -90,6 +90,7 @@ class UITextEntry(UIModule):
         self.text_entry_mode = self.item_definition.get("mode") == "text_entry"
         self.current_text = self.item_definition.get("initial_text", "")
         self.callback = self.item_definition.get("callback")
+        self.max_length = int(self.item_definition.get("max_length", 12))
 
         self.width = self.display_class.resX
         self.height = self.display_class.resY
@@ -319,7 +320,7 @@ class UITextEntry(UIModule):
             logger.error(f"Exception in _perform_search: {e}", exc_info=True)
 
     def add_char(self, char):
-        if len(self.current_text) >= 12:
+        if len(self.current_text) >= self.max_length:
             return
         self.current_text += char
         self.update_search_results()
@@ -423,7 +424,9 @@ class UITextEntry(UIModule):
 
         # Set title based on mode (will be drawn by screen_update())
         if self.text_entry_mode:
-            self.title = _("Enter Location Name:")
+            self.title = _(
+                self.item_definition.get("entry_title", "Enter Location Name:")
+            )
         else:
             self.title = _("Search")
             self.draw_search_result_len()
