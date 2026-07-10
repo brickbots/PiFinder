@@ -31,7 +31,7 @@ def load_herschel400():
     catalog = "H"
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, Path(utils.astro_data_dir, "herschel400.desc"))
+    insert_catalog(catalog, Path(utils.astro_data_dir, "herschel400.desc"), "Herschel")
 
     hcat = Path(utils.astro_data_dir, "herschel400.tsv")
     sequence = 0

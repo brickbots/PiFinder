@@ -56,7 +56,7 @@ def load_sac_asterisms():
     catalog = "SaA"
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, Path(utils.astro_data_dir, "sac.desc"))
+    insert_catalog(catalog, Path(utils.astro_data_dir, "sac.desc"), "SAC Asterisms")
 
     saca = Path(utils.astro_data_dir, "SAC_Asterisms_Ver32_Fence.txt")
     sequence = 0
@@ -140,7 +140,7 @@ def load_sac_multistars():
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
     sam_path = Path(utils.astro_data_dir, "SAC_Multistars_Ver40")
-    insert_catalog(catalog, sam_path / "sacm.desc")
+    insert_catalog(catalog, sam_path / "sacm.desc", "SAC Doubles")
     saca = sam_path / "SAC_DBL40_Fence.txt"
     sequence = 0
 
@@ -245,7 +245,7 @@ def load_sac_redstars():
     delete_catalog_from_database(catalog)
 
     sam_path = Path(utils.astro_data_dir, "SAC_RedStars_Ver20")
-    insert_catalog(catalog, sam_path / "sacr.desc")
+    insert_catalog(catalog, sam_path / "sacr.desc", "SAC Red Stars")
     sac = sam_path / "SAC_RedStars_ver20_FENCE.TXT"
     sequence = 0
 

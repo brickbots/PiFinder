@@ -118,7 +118,9 @@ def load_wds():
 
     data_path = Path(utils.astro_data_dir, "WDS/wds_precise.txt")
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, Path(utils.astro_data_dir) / "WDS/wds.desc")
+    insert_catalog(
+        catalog, Path(utils.astro_data_dir) / "WDS/wds.desc", "Washington Double Star"
+    )
     data = read_wds_catalog(data_path)
 
     def parse_coordinates_2000(coord):

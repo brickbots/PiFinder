@@ -43,7 +43,11 @@ def load_egc():
     conn, _db_c = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
 
-    insert_catalog(catalog, Path(utils.astro_data_dir, "EGC.desc"))
+    insert_catalog(
+        catalog,
+        Path(utils.astro_data_dir, "EGC.desc"),
+        "Extragalactic Globular Clusters",
+    )
     egc = Path(utils.astro_data_dir, "EGC.tsv")
 
     # Create shared ObjectFinder to avoid recreating for each object
@@ -102,7 +106,7 @@ def load_collinder():
     catalog = "Col"
     conn, _db_c = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, Path(utils.astro_data_dir, "collinder.desc"))
+    insert_catalog(catalog, Path(utils.astro_data_dir, "collinder.desc"), "Collinder")
     coll = Path(utils.astro_data_dir, "collinder.txt")
     Collinder = namedtuple(
         "Collinder",
@@ -229,7 +233,7 @@ def load_taas200():
     catalog = "Ta2"
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, Path(utils.astro_data_dir, "taas200.desc"))
+    insert_catalog(catalog, Path(utils.astro_data_dir, "taas200.desc"), "TAAS 200")
     data = Path(utils.astro_data_dir, "TAAS_200.csv")
     sequence = 0
 
@@ -341,7 +345,7 @@ def load_rasc_double_Stars():
     conn, _ = objects_db.get_conn_cursor()
     path = Path(utils.astro_data_dir, "RASC_DoubleStars")
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, path / "rasc_ds.desc")
+    insert_catalog(catalog, path / "rasc_ds.desc", "RASC Double Stars")
     data = path / "rasc_double_stars.csv"
 
     # Create shared ObjectFinder to avoid recreating for each object
@@ -410,7 +414,7 @@ def load_barnard():
     conn, _ = objects_db.get_conn_cursor()
     path = Path(utils.astro_data_dir, "barnard")
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, path / "barnard.desc")
+    insert_catalog(catalog, path / "barnard.desc", "Barnard")
     data = path / "barnard.dat"
     data_notes = path / "notes.dat"
     barn_dict = defaultdict(str)
@@ -487,7 +491,7 @@ def load_sharpless():
     conn, _ = objects_db.get_conn_cursor()
     path = Path(utils.astro_data_dir, "sharpless")
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, path / "sharpless.desc")
+    insert_catalog(catalog, path / "sharpless.desc", "Sharpless")
     data = path / "catalog.dat"
     akas = path / "akas.csv"
     descriptions = path / "galaxymap_descriptions.csv"
@@ -597,7 +601,7 @@ def load_arp():
     catalog = "Arp"
     path = Path(utils.astro_data_dir, "arp")
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, path / "arp.desc")
+    insert_catalog(catalog, path / "arp.desc", "Arp")
     comments = path / "arp_comments.csv"
 
     def expand(name):
@@ -704,7 +708,7 @@ def load_tlk_90_vars():
     conn, _ = objects_db.get_conn_cursor()
     path = Path(utils.astro_data_dir, "variables/TLK_90_vars")
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, path / "v90.desc")
+    insert_catalog(catalog, path / "v90.desc", "TLK Variable Stars")
     data = path / "v90.csv"
 
     # Create shared ObjectFinder to avoid recreating for each object
@@ -767,7 +771,7 @@ def load_abell():
     conn, _ = objects_db.get_conn_cursor()
     data = Path(utils.astro_data_dir, "abell.tsv")
     delete_catalog_from_database(catalog)
-    insert_catalog(catalog, Path(utils.astro_data_dir) / "abell.desc")
+    insert_catalog(catalog, Path(utils.astro_data_dir) / "abell.desc", "Abell")
 
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
