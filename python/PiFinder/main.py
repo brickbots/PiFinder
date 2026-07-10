@@ -1273,7 +1273,7 @@ if __name__ == "__main__":
         rlogger.warning("using no keyboard")
 
     if args.lang:
-        if args.lang.lower() not in ["en", "de", "fr", "es"]:
+        if args.lang.lower() not in ["en", "de", "fr", "es", "ko", "zh"]:
             raise Exception(f"Unknown language '{args.lang}' passed via command line.")
         else:
             config.Config().set_option("language", args.lang)
