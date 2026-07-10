@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 from sqlite3 import Connection, Cursor
 from PiFinder.db.db import Database
 import PiFinder.utils as utils
@@ -53,6 +53,21 @@ class ObservationsDatabase(Database):
             )
             return None
         return None if row is None else row["object_id"]
+
+    def _resolve_listings(self, object_id: int) -> List[Tuple[str, int]]:
+        """
+        Maps an objects-table id to all of its catalog listings (the
+        sibling designations of one sky object, e.g. M 31 / NGC 224).
+        """
+        try:
+            rows = self._get_objects_db().get_catalog_objects_by_object_id(object_id)
+        except Exception:
+            logger.warning(
+                "Objects DB unavailable; log entries stay per listing",
+                exc_info=True,
+            )
+            return []
+        return [(row["catalog_code"], row["sequence"]) for row in rows]
 
     def create_tables(self, force_delete: bool = False):
         """
@@ -228,15 +243,23 @@ class ObservationsDatabase(Database):
 
     def get_logs_for_object(self, obj_record: CompositeObject):
         """
-        Returns a list of observations for a particular object
+        Returns a list of log entries for the underlying sky object: for
+        a DB-backed object, entries recorded under any of its listings
+        (M 31's logs show on NGC 224's details too); virtual objects stay
+        per listing.
         """
+        listings: List[Tuple[str, int]] = []
+        object_id = obj_record.object_id
+        if object_id is not None and object_id >= 0:
+            listings = self._resolve_listings(object_id)
+        home = (obj_record.catalog_code, obj_record.sequence)
+        if home not in listings:
+            listings.append(home)
+
+        predicate = " or ".join(["(catalog = ? and sequence = ?)"] * len(listings))
+        params = [value for listing in listings for value in listing]
         logs = self.cursor.execute(
-            """
-                select * from obs_objects
-                where catalog = :catalog
-                and sequence = :sequence
-            """,
-            {"catalog": obj_record.catalog_code, "sequence": obj_record.sequence},
+            f"select * from obs_objects where {predicate}", params
         ).fetchall()
 
         return logs

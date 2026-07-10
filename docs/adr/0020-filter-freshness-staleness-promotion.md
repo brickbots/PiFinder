@@ -60,6 +60,11 @@ not mark Jupiter), so negative-id objects keep the `(catalog, sequence)`
 test. Listings that no longer resolve to an object id (removed catalogs)
 also stay listing-keyed.
 
+The details screen follows the same identity: `get_logs_for_object`
+resolves a DB-backed object's sibling listings and returns log entries
+recorded under any of them, so NGC 224's details show M 31's logs ("1
+Logs") instead of contradicting the checkmark.
+
 Durability options considered:
 
 - **In-memory-only propagation** (mark siblings in `mark_logged`, derive
@@ -117,7 +122,8 @@ Durability options considered:
   acceptable against silently wrong lists.
 - Observed identity is **retroactive**: every historical observation marks its
   sibling listings observed the moment this ships — an "Observed: No" NGC list
-  may visibly shrink after upgrade, and sibling rows gain the checkmark.
+  may visibly shrink after upgrade, sibling rows gain the checkmark, and a
+  sibling's details show the combined log count.
 - The freshness clock is wall-clock (`time.time()`), inherited from the
   existing cache timestamps. A backward clock step (PiFinder sets time from
   GPS; no RTC) can leave `last_filtered*` in the future so `mark_dirty()` never

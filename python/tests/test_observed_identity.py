@@ -84,3 +84,19 @@ def test_unresolved_listing_stays_listing_keyed(obs_db):
     # keeps marking its own listing observed.
     _log(obs_db, "GONE", 5)
     assert obs_db.check_logged(_obj("GONE", 5, -1)) is True
+
+
+@pytest.mark.unit
+def test_details_logs_combine_sibling_listings(obs_db):
+    _log(obs_db, "M", 31)
+    _log(obs_db, "NGC", 224)
+    assert len(obs_db.get_logs_for_object(_obj("NGC", 224, 42))) == 2
+    assert len(obs_db.get_logs_for_object(_obj("M", 31, 42))) == 2
+    assert len(obs_db.get_logs_for_object(_obj("NGC", 7000, 77))) == 0
+
+
+@pytest.mark.unit
+def test_details_logs_stay_per_listing_for_virtual_objects(obs_db):
+    _log(obs_db, "PL", 1)
+    assert len(obs_db.get_logs_for_object(_obj("PL", 1, -1))) == 1
+    assert len(obs_db.get_logs_for_object(_obj("PL", 2, -1))) == 0
