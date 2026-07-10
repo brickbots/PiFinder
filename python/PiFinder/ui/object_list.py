@@ -515,6 +515,14 @@ class UIObjectList(UITextMenu):
         else:
             self._was_loading = is_loading
 
+        # Altitude verdicts age out while the screen sits open (the sky
+        # rotates); refresh the list when the filter reports staleness.
+        # Before the no-objects check so an emptied-by-altitude list can
+        # repopulate as objects rise.
+        catalog_filter = self.catalogs.catalog_filter
+        if catalog_filter is not None and catalog_filter.is_stale():
+            self.refresh_object_list()
+
         # no objects to display
         if self.get_nr_of_menu_items() == 0:
             # Get catalog-specific status message if available

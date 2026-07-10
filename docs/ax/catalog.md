@@ -216,16 +216,33 @@ plus a selected-catalogs set:
 ### 4.1 Dirty tracking
 
 Filtering is the hot path — every menu redraw asks for filtered objects.
-The filter therefore caches per-object decisions:
+Caching happens in two layers, both keyed against `dirty_time`:
 
 - Every setter calls `mark_dirty()`, bumping `dirty_time = time.time()`.
-- `CompositeObject.last_filtered_time` and `.last_filtered_result` cache
-  the most recent decision for that object.
-- `apply_filter(obj)` short-circuits if `obj.last_filtered_time >
+- Per object: `CompositeObject.last_filtered_time` and
+  `.last_filtered_result` cache the most recent decision;
+  `apply_filter(obj)` short-circuits if `obj.last_filtered_time >
   self.dirty_time` — i.e. the object was filtered after the last change.
+- Per catalog: `Catalog.filter_objects()` returns its cached
+  `filtered_objects` list outright while `catalog.last_filtered >
+  dirty_time`; any object-set mutation (`add_object`, `add_objects`,
+  `clear_objects`) resets `last_filtered = 0` for that catalog.
 
-So if the filter has not changed since the last sweep, the second sweep
-is O(n) cache reads with no real predicate work.
+So if the filter has not changed since the last sweep, a list open is
+O(catalogs) cache reads with no real predicate work.
+
+Two freshness triggers advance `dirty_time` besides the setters
+([ADR 0020](../adr/0020-filter-freshness-staleness-promotion.md)):
+
+- **Logging**: `Catalogs.mark_logged(obj)` sets `obj.logged` and marks
+  dirty when an observed criterion is active, so "Observed: No" lists
+  drop the object on their next refresh.
+- **Staleness promotion**: with an altitude criterion active, verdicts
+  age out as the sky rotates. `CatalogFilter.is_stale()` reports it
+  (TTL `ALTITUDE_STALE_SECONDS = 600`, or alt/az becoming available —
+  see 4.2); `Catalogs.filter_catalogs()` promotes it to a dirty bump,
+  and `UIObjectList.update()` polls it so an open list refreshes in
+  place.
 
 ### 4.2 Altitude requires GPS
 
@@ -233,7 +250,10 @@ is O(n) cache reads with no real predicate work.
 location/datetime, *if* `shared_state.altaz_ready()`. When the alt-az
 calculator is missing, altitude is skipped (not rejected). This is why
 the altitude filter "stops working" without GPS — the predicate is
-simply not evaluated.
+simply not evaluated. The filter records whether alt/az was available
+at the last sweep (`_last_filtered_altaz_ready`); a fix arriving later
+makes `is_stale()` true, so the altitude predicate is applied on the
+next refresh instead of everything staying "passed" all session.
 
 ### 4.3 Surprising "empty list = reject" behaviour
 

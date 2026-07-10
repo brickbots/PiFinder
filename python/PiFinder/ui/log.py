@@ -280,7 +280,7 @@ class UILog(UIModule):
             solution=self.shared_state.solution(),
             notes=notes,
         )
-        self.object.logged = True
+        self.catalogs.mark_logged(self.object)
         self.reset_config()
 
     def key_number(self, number: int):
