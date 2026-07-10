@@ -120,6 +120,13 @@ Durability options considered:
   criterion — a pre-existing, cosmetically small gap left open.
 - A list screen left open takes the ~0.58 s re-scan hiccup once per TTL. Judged
   acceptable against silently wrong lists.
+- List refreshes keep the cursor on the selected object; if it was filtered
+  out (just logged, or set below the altitude criterion), the cursor falls to
+  the object that *followed it in the old order* — the natural next target —
+  instead of resetting to the top (`_next_target_index` in
+  `ui/object_list.py`; matching is by `(catalog_code, sequence)` because
+  `CompositeObject.__eq__` compares `object_id` alone and would land on a
+  sibling listing).
 - Observed identity is **retroactive**: every historical observation marks its
   sibling listings observed the moment this ships — an "Observed: No" NGC list
   may visibly shrink after upgrade, sibling rows gain the checkmark, and a

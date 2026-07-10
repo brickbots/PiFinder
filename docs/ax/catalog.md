@@ -241,7 +241,9 @@ Two freshness triggers advance `dirty_time` besides the setters
   object and its sibling composites sharing a non-negative `object_id`
   (M 31 / NGC 224) — and marks dirty when an observed criterion is
   active, so "Observed: No" lists drop the object on their next
-  refresh.
+  refresh. The refresh keeps the cursor on the selected object, or
+  moves it to the old successor when the selection itself dropped out
+  (`_next_target_index`).
 - **Staleness promotion**: with an altitude criterion active, verdicts
   age out as the sky rotates. `CatalogFilter.is_stale()` reports it
   (TTL `ALTITUDE_STALE_SECONDS = 600`, or alt/az becoming available —
