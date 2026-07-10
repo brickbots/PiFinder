@@ -9,6 +9,7 @@ import sh
 from sh import wpa_cli, unzip, passwd
 
 import socket
+from PiFinder import board_config
 from PiFinder import utils
 import logging
 
@@ -362,42 +363,71 @@ def switch_cam_imx462() -> None:
     sh.sudo("python", "-m", "PiFinder.switch_camera", "imx462")
 
 
-def check_and_sync_gpsd_config(baud_rate: int) -> bool:
+def get_default_gpsd_device() -> str:
+    return board_config.get_default_gpsd_device()
+
+
+DEFAULT_GPSD_DEVICE = get_default_gpsd_device()
+
+
+def resolve_gpsd_device(device: str | None) -> str:
+    if not device or device == "auto":
+        return get_default_gpsd_device()
+    return device
+
+
+def _gpsd_options_line(baud_rate: int) -> str:
+    if baud_rate == 115200:
+        # NOTE: the space before -s in the next line is really needed
+        return 'GPSD_OPTIONS=" -s 115200"'
+    return 'GPSD_OPTIONS=""'
+
+
+def _gpsd_devices_line(device: str) -> str:
+    return f'DEVICES="{device}"'
+
+
+def check_and_sync_gpsd_config(
+    baud_rate: int, device: str = DEFAULT_GPSD_DEVICE
+) -> bool:
     """
-    Checks if GPSD configuration matches the desired baud rate,
+    Checks if GPSD configuration matches the desired serial device and baud rate,
     and updates it only if necessary.
 
     Args:
         baud_rate: The desired baud rate (9600 or 115200)
+        device: The serial device path to configure for gpsd
 
     Returns:
         True if configuration was updated, False if already correct
     """
-    logger.info(f"SYS: Checking GPSD config for baud rate {baud_rate}")
+    device = resolve_gpsd_device(device)
+    logger.info(f"SYS: Checking GPSD config for device {device}, baud rate {baud_rate}")
 
     try:
         # Read current config
         with open("/etc/default/gpsd", "r") as f:
             content = f.read()
 
-        # Determine expected GPSD_OPTIONS
-        if baud_rate == 115200:
-            # NOTE: the space before -s in the next line is really needed
-            expected_options = 'GPSD_OPTIONS=" -s 115200"'
-        else:
-            expected_options = 'GPSD_OPTIONS=""'
+        expected_devices = _gpsd_devices_line(device)
+        expected_options = _gpsd_options_line(baud_rate)
 
         # Check if update is needed
         current_match = re.search(r"^GPSD_OPTIONS=.*$", content, re.MULTILINE)
-        if current_match:
-            current_options = current_match.group(0)
-            if current_options == expected_options:
-                logger.info("SYS: GPSD config already correct, no update needed")
-                return False
+        current_options = current_match.group(0) if current_match else ""
+        current_match = re.search(r"^DEVICES=.*$", content, re.MULTILINE)
+        current_devices = current_match.group(0) if current_match else ""
+        if current_options == expected_options and current_devices == expected_devices:
+            logger.info("SYS: GPSD config already correct, no update needed")
+            return False
 
         # Update is needed
-        logger.info(f"SYS: GPSD config mismatch, updating to {expected_options}")
-        update_gpsd_config(baud_rate)
+        logger.info(
+            "SYS: GPSD config mismatch, updating to %s, %s",
+            expected_devices,
+            expected_options,
+        )
+        update_gpsd_config(baud_rate, device)
         return True
 
     except Exception as e:
@@ -405,32 +435,43 @@ def check_and_sync_gpsd_config(baud_rate: int) -> bool:
         return False
 
 
-def update_gpsd_config(baud_rate: int) -> None:
+def update_gpsd_config(baud_rate: int, device: str = DEFAULT_GPSD_DEVICE) -> None:
     """
-    Updates the GPSD configuration file with the specified baud rate
+    Updates the GPSD configuration file with the specified device and baud rate
     and restarts the GPSD service.
 
     Args:
         baud_rate: The baud rate to configure (9600 or 115200)
+        device: The serial device path to configure for gpsd
     """
-    logger.info(f"SYS: Updating GPSD config with baud rate {baud_rate}")
+    device = resolve_gpsd_device(device)
+    logger.info(f"SYS: Updating GPSD config with device {device}, baud rate {baud_rate}")
 
     try:
         # Read the current config
         with open("/etc/default/gpsd", "r") as f:
             lines = f.readlines()
 
-        # Update GPSD_OPTIONS line
+        expected_devices = _gpsd_devices_line(device)
+        expected_options = _gpsd_options_line(baud_rate)
+
+        # Update DEVICES and GPSD_OPTIONS lines
         updated_lines = []
+        saw_devices = False
+        saw_options = False
         for line in lines:
-            if line.startswith("GPSD_OPTIONS="):
-                if baud_rate == 115200:
-                    # NOTE: the space before -s in the next line is really needed
-                    updated_lines.append('GPSD_OPTIONS=" -s 115200"\n')
-                else:
-                    updated_lines.append('GPSD_OPTIONS=""\n')
+            if line.startswith("DEVICES="):
+                updated_lines.append(f"{expected_devices}\n")
+                saw_devices = True
+            elif line.startswith("GPSD_OPTIONS="):
+                updated_lines.append(f"{expected_options}\n")
+                saw_options = True
             else:
                 updated_lines.append(line)
+        if not saw_devices:
+            updated_lines.append(f"{expected_devices}\n")
+        if not saw_options:
+            updated_lines.append(f"{expected_options}\n")
 
         # Write the updated config to a temporary file
         with open("/tmp/gpsd.conf", "w") as f:
