@@ -433,12 +433,18 @@ class Catalogs:
         next refresh.  Without an observed criterion no verdict can
         change, so the cached lists are kept.
 
-        Note: logged status is per catalog listing (check_logged keys on
-        catalog_code + sequence), so sibling listings of the same sky
-        object (M 31 / NGC 224) are intentionally not touched — matching
-        what check_logged reports after a restart.
+        Observed status is a sky-object property: sibling listings of
+        the same object (M 31 / NGC 224 share an object_id) are marked
+        too, matching what check_logged derives from the DB after a
+        restart.  Virtual objects stay per listing — their negative
+        object_ids are minted per session, so id-keyed propagation
+        would cross-mark unrelated objects.
         """
         obj.logged = True
+        if obj.object_id is not None and obj.object_id >= 0:
+            for sibling in self.get_objects(only_selected=False, filtered=False):
+                if sibling.object_id == obj.object_id:
+                    sibling.logged = True
         if self.catalog_filter is not None and self.catalog_filter.observed not in (
             None,
             "Any",

@@ -1,4 +1,4 @@
-# Filter freshness: event-driven dirty bumps plus lazy staleness promotion, no timer thread
+# Filter freshness and observed identity: event-driven dirty bumps, lazy staleness promotion, object_id-derived observed status
 
 The filter cache (per-object verdicts and, since PR #526, per-catalog filtered
 lists) is keyed on `dirty_time`, which historically advanced **only** when a
@@ -10,8 +10,10 @@ the user happened to touch a filter parameter.
 The decision: keep `mark_dirty()` as the **single invalidation concept**, and
 add two freshness triggers that feed it —
 
-1. **Logging is an event**: `Catalogs.mark_logged(obj)` sets `obj.logged` and
-   bumps `dirty_time` — but only when an observed criterion is active
+1. **Logging is an event**: `Catalogs.mark_logged(obj)` sets `obj.logged` —
+   on the object and on every sibling composite sharing its non-negative
+   `object_id` (see *Observed status is a sky-object property* below) — and
+   bumps `dirty_time`, but only when an observed criterion is active
    (`observed != "Any"`), since otherwise no verdict can change and the ~0.58 s
    full re-scan would be wasted.
 2. **Altitude staleness is a lazily-evaluated condition**:
@@ -32,6 +34,41 @@ Altitude drifts at most 15°/hour, so a 600 s cadence bounds the error to
 ~2.5° — well inside the 10°-step granularity the altitude filter is set in.
 No user-visible setting: a good fixed default beats a config knob nobody can
 reason about.
+
+## Observed status is a sky-object property
+
+*(Amended 2026-07-10 — this supersedes the first version of this ADR, which
+kept logged status per catalog listing.)*
+
+**Log entries** stay recorded per listing: `obs_objects` keys on
+`(catalog, sequence)`, exactly as the user logged it — no schema change, no
+migration. **Observed status** is derived per sky object on top of that:
+when `ObservationsDatabase` loads its observed cache, each logged listing is
+mapped to its `object_id` through the objects DB (a separate sqlite file;
+the mapping is done Python-side — obs rows are few), and
+`check_logged(obj)` tests a DB-backed object (`object_id >= 0`) by id
+membership. Logging M 31 therefore marks NGC 224 observed — in the current
+session (via `mark_logged` propagation), after a restart (re-derived at
+cache load), and **retroactively** for every historical observation.
+
+The **virtual-id fallback is load-bearing**: `CompositeObject.object_id`
+defaults to `-1`, and the `VirtualIDManager` mints session-only negative ids
+for planets, comets, and coordinate objects — ids that are *not stable
+across restarts*. Keying those by id would either cross-mark everything
+sharing the default or silently lose status on reboot (logging Mars must
+not mark Jupiter), so negative-id objects keep the `(catalog, sequence)`
+test. Listings that no longer resolve to an object id (removed catalogs)
+also stay listing-keyed.
+
+Durability options considered:
+
+- **In-memory-only propagation** (mark siblings in `mark_logged`, derive
+  nothing at load). Rejected: sky-object semantics that silently revert to
+  per-listing semantics on restart — the exact inconsistency the first
+  version of this ADR rejected propagation to avoid.
+- **Schema migration adding `object_id` to `obs_objects`.** Rejected: it
+  stores derivable data, needs a backfill for every user's observations DB,
+  and would still need the listing fallback for virtual objects.
 
 ## Considered options
 
@@ -54,14 +91,14 @@ reason about.
   spent minutes observing), so one full re-scan per log is cheap; and the
   catalog-layer lists would still need selective invalidation for every catalog
   containing the object.
-- **Propagating `logged` to sibling listings of the same sky object**
-  (M 31 ≡ NGC 224 share an `object_id`). Rejected — deliberately: logged
-  status is **per catalog listing**. `ObservationsDatabase.check_logged` keys
-  on `(catalog_code, sequence)`, so build-time flags after a restart mark only
-  the listing that was logged. In-session propagation would show sky-object
-  semantics that silently revert to per-listing semantics on reboot. If
-  sky-object-level observed status is ever wanted, it must start in the DB
-  layer (key the observed cache by `object_id`), not in the filter.
+- **Keeping logged status per catalog listing** (the first version of this
+  ADR). Superseded: the checkmark, the observed filter, and the details
+  screen all present observed-ness as a fact about the sky object, and
+  per-listing status made them contradict each other (M 31 observed,
+  NGC 224 "Not Logged"). The replacement starts in the DB layer — the
+  observed cache is keyed by `object_id` — with in-session `mark_logged`
+  propagation matching what the DB derives after a restart. See *Observed
+  status is a sky-object property* above.
 
 ## Consequences
 
@@ -78,6 +115,9 @@ reason about.
   criterion — a pre-existing, cosmetically small gap left open.
 - A list screen left open takes the ~0.58 s re-scan hiccup once per TTL. Judged
   acceptable against silently wrong lists.
+- Observed identity is **retroactive**: every historical observation marks its
+  sibling listings observed the moment this ships — an "Observed: No" NGC list
+  may visibly shrink after upgrade, and sibling rows gain the checkmark.
 - The freshness clock is wall-clock (`time.time()`), inherited from the
   existing cache timestamps. A backward clock step (PiFinder sets time from
   GPS; no RTC) can leave `last_filtered*` in the future so `mark_dirty()` never

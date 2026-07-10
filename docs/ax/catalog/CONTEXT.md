@@ -86,8 +86,11 @@ _Avoid_: matching objects, visible objects.
 The single `CompositeObject` currently being viewed in `UIObjectDetails` (info + push-to guidance). Not a property of a catalog — it's a UI cursor.
 _Avoid_: current object, active object, target object.
 
+**Log entry**:
+A row in the observations DB log table (`obs_objects`) — always recorded per catalog listing (`catalog`, `sequence`), exactly as the user logged it. Use this term for table rows / DB queries.
+
 **Logged**:
-Technical: the object has a row in the observations DB log table. The `CompositeObject.logged` bool is populated at build time from `ObservationsDatabase.check_logged(obj)`. Use this term when talking about table membership / DB queries / the field itself.
+Technical: the underlying sky object has at least one log entry under any of its listings — derived by `object_id` for DB-backed objects, per (`catalog`, `sequence`) for virtual objects (their negative ids are session-minted, not stable across restarts). `CompositeObject.logged` caches this verdict: populated at build time from `ObservationsDatabase.check_logged(obj)` and kept consistent across sibling composites in-session by `Catalogs.mark_logged`. So logging M 31 marks NGC 224 logged too. Use this term for the field and the predicate.
 _Avoid_: observed (that's the user-facing twin — see below).
 
 **Observed**:
@@ -221,7 +224,7 @@ _Avoid_: readonly list, immutable view.
 
 **`shared_state`** is referenced by Catalog but **owned by Positioning**. See [Positioning](../positioning/CONTEXT.md).
 
-**`logged`** on `CompositeObject` is set at build time from `ObservationsDatabase.check_logged(obj)`; the observations DB is read-only from the Catalog's perspective.
+**`logged`** on `CompositeObject` is set at build time from `ObservationsDatabase.check_logged(obj)`, which derives observed status per sky object (see **Logged**); the observations DB is read-only from the Catalog's perspective.
 
 **`altaz_ready` / `FastAltAz`** come from the Positioning context — Catalog uses them only to gate the altitude filter and to detect its staleness (see **Stale**).
 

@@ -58,14 +58,19 @@ class FakeAltAzSharedState:
 
 
 def _make_obj(
-    seq: int, mag: float = 10.0, logged: bool = False, dec: Optional[float] = None
+    seq: int,
+    mag: float = 10.0,
+    logged: bool = False,
+    dec: Optional[float] = None,
+    object_id: Optional[int] = None,
+    catalog_code: str = "TST",
 ):
     return CompositeObject(
         id=seq,
-        object_id=seq,
+        object_id=seq if object_id is None else object_id,
         ra=10.0 * seq,
         dec=1.0 * seq if dec is None else dec,
-        catalog_code="TST",
+        catalog_code=catalog_code,
         sequence=seq,
         description=f"obj {seq}",
         mag=MagnitudeObject([mag]),
@@ -191,6 +196,46 @@ def test_mark_logged_appears_in_observed_yes_list():
     catalogs.mark_logged(cat.get_objects()[1])
     catalogs.filter_catalogs()
     assert _sequences(cat.get_filtered_objects()) == [2]
+
+
+@pytest.mark.unit
+def test_mark_logged_propagates_to_sibling_listings():
+    # M 31 / NGC 224 pattern: one sky object listed in two catalogs.
+    # Observed status is a sky-object property, so logging either listing
+    # marks both — matching what check_logged derives after a restart.
+    cat_m = Catalog("M", "Messier")
+    cat_m.add_object(_make_obj(31, object_id=42, catalog_code="M"))
+    cat_ngc = Catalog("NGC", "New General Catalog")
+    cat_ngc.add_object(_make_obj(224, object_id=42, catalog_code="NGC"))
+    cat_ngc.add_object(_make_obj(225, object_id=43, catalog_code="NGC"))
+    catalogs = Catalogs([cat_m, cat_ngc])
+    catalogs.set_catalog_filter(
+        CatalogFilter(shared_state=FakeSharedState(), observed="No")
+    )
+    catalogs.filter_catalogs()
+    assert _sequences(cat_ngc.get_filtered_objects()) == [224, 225]
+
+    catalogs.mark_logged(cat_m.get_objects()[0])
+    assert cat_ngc.get_objects()[0].logged is True
+    catalogs.filter_catalogs()
+    assert _sequences(cat_m.get_filtered_objects()) == []
+    assert _sequences(cat_ngc.get_filtered_objects()) == [225]
+
+
+@pytest.mark.unit
+def test_mark_logged_virtual_ids_stay_per_listing():
+    # Virtual objects (planets, comets, coordinate objects) carry
+    # session-minted negative object_ids — and the CompositeObject
+    # default -1 is shared by many. Id-keyed propagation would
+    # cross-mark them: logging Mars must not mark Jupiter.
+    cat = Catalog("PL", "Planets")
+    cat.add_object(_make_obj(1, object_id=-1, catalog_code="PL"))
+    cat.add_object(_make_obj(2, object_id=-1, catalog_code="PL"))
+    catalogs = _make_catalogs(cat, FakeSharedState(), observed="No")
+
+    catalogs.mark_logged(cat.get_objects()[0])
+    assert cat.get_objects()[0].logged is True
+    assert cat.get_objects()[1].logged is False
 
 
 @pytest.mark.unit
