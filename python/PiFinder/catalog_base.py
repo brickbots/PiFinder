@@ -120,6 +120,20 @@ class CatalogBase:
         assert self.check_sequences()
         self.last_filtered = 0  # objects changed -> invalidate filter cache
 
+    def clear_objects(self):
+        """
+        Remove all objects and reset the sequence/id indexes.
+
+        Use this instead of clearing the object list directly: like
+        add_object/add_objects, it invalidates the filter cache so a
+        cleared catalog can't keep serving its stale filtered list.
+        """
+        self.__objects.clear()
+        self.max_sequence = 0
+        self.id_to_pos = {}
+        self.sequence_to_pos = {}
+        self.last_filtered = 0  # objects changed -> invalidate filter cache
+
     def _sort_objects(self):
         self.__objects.sort(key=self.sort)
 
