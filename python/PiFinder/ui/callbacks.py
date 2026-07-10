@@ -19,6 +19,7 @@ from typing import Any, TYPE_CHECKING
 from PiFinder import utils, calc_utils
 from PiFinder import timez
 from PiFinder.locations import Location as SavedLocation
+from PiFinder.sqm.camera_profiles import get_camera_profile
 from PiFinder.state import Location
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.textentry import UITextEntry
@@ -91,6 +92,79 @@ def set_exposure(ui_module: UIModule) -> None:
     else:
         logger.info("Set exposure %f", new_exposure)
     ui_module.command_queues["camera"].put(f"set_exp:{new_exposure}")
+
+
+def _format_gain(gain: float | int | None) -> str:
+    if gain is None:
+        return ""
+    gain_float = float(gain)
+    if gain_float.is_integer():
+        return f"{int(gain_float)}x"
+    return f"{gain_float:g}x"
+
+
+def _get_current_camera_gain(ui_module: UIModule) -> float | None:
+    try:
+        metadata = ui_module.shared_state.last_image_metadata()
+        if metadata and "gain" in metadata:
+            return float(metadata["gain"])
+    except Exception:
+        return None
+    return None
+
+
+def _get_profile_camera_gain(ui_module: UIModule) -> float | None:
+    try:
+        cam_type = get_camera_type(ui_module)[0]
+        return float(get_camera_profile(cam_type).analog_gain)
+    except Exception:
+        return None
+
+
+def get_camera_gain_selection(ui_module: UIModule) -> list[float | str | None]:
+    """
+    Return the current runtime camera gain for the gain menu checkmark.
+    """
+    current_gain = _get_current_camera_gain(ui_module)
+    profile_gain = _get_profile_camera_gain(ui_module)
+
+    if current_gain is None:
+        return ["profile"]
+
+    if profile_gain is not None and abs(current_gain - profile_gain) < 0.05:
+        return ["profile"]
+
+    if current_gain.is_integer():
+        return [int(current_gain)]
+    return [current_gain]
+
+
+def get_camera_profile_gain_display(ui_module: UIModule) -> str:
+    """
+    Return the profile gain suffix shown beside the Profile gain item.
+    """
+    profile_gain = _get_profile_camera_gain(ui_module)
+    if profile_gain is None:
+        return ""
+    return f" ({_format_gain(profile_gain)})"
+
+
+def set_gain(ui_module: UIModule) -> None:
+    """
+    Set runtime camera gain from the current Camera Gain menu item.
+    """
+    selected_item = ui_module._menu_items[ui_module._current_item_index]
+    selected_item_definition = ui_module.get_item(selected_item)
+    new_gain = selected_item_definition["value"]
+
+    if new_gain == "profile":
+        logger.info("Set gain to camera profile default")
+        ui_module._selected_values = ["profile"]
+    else:
+        logger.info("Set gain %s", new_gain)
+        ui_module._selected_values = [new_gain]
+
+    ui_module.command_queues["camera"].put(f"set_gain:{new_gain}")
 
 
 def apply_brightness(ui_module: UIModule) -> None:

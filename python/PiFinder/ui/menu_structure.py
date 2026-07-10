@@ -957,6 +957,65 @@ pifinder_menu = {
                     ],
                 },
                 {
+                    "name": _("Camera Gain"),
+                    "class": UITextMenu,
+                    "select": "single",
+                    "label": "camera_gain",
+                    "value_callback": callbacks.get_camera_gain_selection,
+                    "post_callback": callbacks.set_gain,
+                    "items": [
+                        {
+                            "name": _("Profile"),
+                            "value": "profile",
+                            "name_suffix_callback": callbacks.get_camera_profile_gain_display,
+                        },
+                        {
+                            "name": _("1x"),
+                            "value": 1,
+                        },
+                        {
+                            "name": _("2x"),
+                            "value": 2,
+                        },
+                        {
+                            "name": _("4x"),
+                            "value": 4,
+                        },
+                        {
+                            "name": _("8x"),
+                            "value": 8,
+                        },
+                        {
+                            "name": _("12x"),
+                            "value": 12,
+                        },
+                        {
+                            "name": _("15x"),
+                            "value": 15,
+                        },
+                        {
+                            "name": _("16x"),
+                            "value": 16,
+                        },
+                        {
+                            "name": _("20x"),
+                            "value": 20,
+                        },
+                        {
+                            "name": _("22x"),
+                            "value": 22,
+                        },
+                        {
+                            "name": _("24x"),
+                            "value": 24,
+                        },
+                        {
+                            "name": _("30x"),
+                            "value": 30,
+                        },
+                    ],
+                },
+                {
                     "name": _("WiFi Mode"),
                     "class": UITextMenu,
                     "select": "single",
