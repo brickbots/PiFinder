@@ -35,8 +35,7 @@ logger = logging.getLogger("NetPolicy")
 
 AP_CONNECTION_NAME = "PiFinder-AP"
 WIFI_MODE_FILE = (
-    Path(os.environ.get("PIFINDER_DATA", "/home/pifinder/PiFinder_data"))
-    / "wifi_mode"
+    Path(os.environ.get("PIFINDER_DATA", "/home/pifinder/PiFinder_data")) / "wifi_mode"
 )
 
 # Safety-net re-evaluation cadence; NM signals are the primary trigger.
@@ -158,8 +157,10 @@ class NetPolicyDaemon:
             logger.info("no connectivity after grace period — bringing AP up")
             self._ap_up()
         elif action == AP_DOWN:
-            reason = "wired connectivity present" if snap.eth_connected else (
-                "idle AP — retrying client network"
+            reason = (
+                "wired connectivity present"
+                if snap.eth_connected
+                else ("idle AP — retrying client network")
             )
             logger.info("%s — bringing AP down", reason)
             self._ap_down()
@@ -196,9 +197,7 @@ class NetPolicyDaemon:
 
 
 def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO, format="%(name)s: %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(name)s: %(message)s")
     NetPolicyDaemon()
     GLib.MainLoop().run()
 

@@ -39,9 +39,9 @@ def test_webpage_loads_and_displays_image(driver):
 
     # Assert that at least one visual element is present
     visual_elements_count = len(images) + len(canvas_elements) + len(video_elements)
-    assert visual_elements_count > 0, (
-        "No images, canvas, or video elements found on the page"
-    )
+    assert (
+        visual_elements_count > 0
+    ), "No images, canvas, or video elements found on the page"
 
     # If there are img elements, verify at least one has a src attribute
     if images:
@@ -107,9 +107,9 @@ def test_software_version_element_present(driver):
 
     # Look for Software Version text
     body_text = driver.find_element(By.TAG_NAME, "body").text
-    assert "Software Version" in body_text, (
-        "Software Version information not found on the page"
-    )
+    assert (
+        "Software Version" in body_text
+    ), "Software Version information not found on the page"
 
 
 @pytest.mark.web
@@ -132,6 +132,6 @@ def test_all_main_elements_present(driver):
 
     # Verify the table has the expected number of rows (4 main sections)
     rows = table.find_elements(By.TAG_NAME, "tr")
-    assert len(rows) >= 4, (
-        f"Expected at least 4 rows in status table, found {len(rows)}"
-    )
+    assert (
+        len(rows) >= 4
+    ), f"Expected at least 4 rows in status table, found {len(rows)}"

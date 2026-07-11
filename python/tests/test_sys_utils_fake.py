@@ -31,9 +31,9 @@ class TestBackupUserdata:
             # Check that files follow expected path structure
             expected_prefix = "home/pifinder/PiFinder_data/"
             for filename in file_list:
-                assert filename.startswith(expected_prefix), (
-                    f"File {filename} doesn't have expected prefix"
-                )
+                assert filename.startswith(
+                    expected_prefix
+                ), f"File {filename} doesn't have expected prefix"
 
     def test_backup_removes_existing_backup(self):
         """Test that backup_userdata removes existing backup before creating new one"""

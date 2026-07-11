@@ -53,9 +53,9 @@ class TestSQMExtinction:
 
         # Extinction should increase monotonically as altitude decreases
         for i in range(len(extinctions) - 1):
-            assert extinctions[i] < extinctions[i + 1], (
-                f"Extinction at {altitudes[i]}° should be less than at {altitudes[i + 1]}°"
-            )
+            assert (
+                extinctions[i] < extinctions[i + 1]
+            ), f"Extinction at {altitudes[i]}° should be less than at {altitudes[i + 1]}°"
 
     def test_extinction_minimum_is_at_zenith(self):
         """Test that zenith (90°) has zero extinction (ASTAP convention)"""

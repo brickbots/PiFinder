@@ -50,15 +50,15 @@ def assert_radec_close(new_pt, old_pt, abs_tol=1e-9):
     """Compare two RaDecRoll outputs; RA wrap handled via modulo 2pi."""
     assert new_pt is not None and old_pt is not None
     ra_diff = (new_pt.ra - old_pt.ra + np.pi) % (2 * np.pi) - np.pi
-    assert ra_diff == pytest.approx(0.0, abs=abs_tol), (
-        f"ra: new={new_pt.ra} old={old_pt.ra}"
-    )
-    assert new_pt.dec == pytest.approx(old_pt.dec, abs=abs_tol), (
-        f"dec: new={new_pt.dec} old={old_pt.dec}"
-    )
-    assert new_pt.roll == pytest.approx(old_pt.roll, abs=abs_tol), (
-        f"roll: new={new_pt.roll} old={old_pt.roll}"
-    )
+    assert ra_diff == pytest.approx(
+        0.0, abs=abs_tol
+    ), f"ra: new={new_pt.ra} old={old_pt.ra}"
+    assert new_pt.dec == pytest.approx(
+        old_pt.dec, abs=abs_tol
+    ), f"dec: new={new_pt.dec} old={old_pt.dec}"
+    assert new_pt.roll == pytest.approx(
+        old_pt.roll, abs=abs_tol
+    ), f"roll: new={new_pt.roll} old={old_pt.roll}"
 
 
 def derive_aligned(

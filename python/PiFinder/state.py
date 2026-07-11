@@ -504,11 +504,11 @@ class SharedStateObj:
         This keeps ``datetime()`` / ``utc_datetime()`` always UTC-aware. See
         ADR-0018.
         """
-        if dt.utcoffset() is None:    # naive, assume it's UTC
+        if dt.utcoffset() is None:  # naive, assume it's UTC
             # we could use replace() instead since UTC has
             # no DST, but the idiom is dangerous for non-UTC
             dt = pytz.utc.localize(dt)
-        else:                         # timezone-aware -> convert to UTC
+        else:  # timezone-aware -> convert to UTC
             dt = dt.astimezone(pytz.utc)
 
         if force:

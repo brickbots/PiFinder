@@ -120,9 +120,7 @@ def _current_store_path() -> Optional[str]:
         return None
 
 
-def _hide_current_build(
-    entries: List[dict], current_ref: Optional[str]
-) -> List[dict]:
+def _hide_current_build(entries: List[dict], current_ref: Optional[str]) -> List[dict]:
     """Hide only the exact running build, matched by store path.
 
     A same-version entry with a different store path (e.g. a re-cut release)

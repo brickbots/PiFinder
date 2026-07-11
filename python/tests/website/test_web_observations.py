@@ -265,9 +265,7 @@ def test_session_detail_page_content(driver):
             assert any(
                 required_header.lower() in header_text.lower()
                 for header_text in header_texts
-            ), (
-                f"Header '{required_header}' not found in detail table headers: {header_texts}"
-            )
+            ), f"Header '{required_header}' not found in detail table headers: {header_texts}"
 
     else:
         # No data rows to click - this is acceptable for empty database
@@ -302,16 +300,16 @@ def test_session_detail_table_structure(driver):
         detail_rows = detail_table.find_elements(By.TAG_NAME, "tr")
 
         # Should have at least header row
-        assert len(detail_rows) >= 1, (
-            "Detail table should have at least one row for headers"
-        )
+        assert (
+            len(detail_rows) >= 1
+        ), "Detail table should have at least one row for headers"
 
         # Check that first row contains header cells
         first_row = detail_rows[0]
         headers = first_row.find_elements(By.TAG_NAME, "th")
-        assert len(headers) == 4, (
-            f"Expected 4 header cells (Time, Catalog, Sequence, Notes), found {len(headers)}"
-        )
+        assert (
+            len(headers) == 4
+        ), f"Expected 4 header cells (Time, Catalog, Sequence, Notes), found {len(headers)}"
 
     else:
         # No data rows to click - this is acceptable for empty database
@@ -353,23 +351,23 @@ def test_observations_list_download(driver):
     )
 
     # Verify the response
-    assert response.status_code == 200, (
-        f"Download request failed with status {response.status_code}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Download request failed with status {response.status_code}"
 
     # Check content type header
-    assert "text/tsv" in response.headers.get("Content-Type", ""), (
-        "Expected TSV content type"
-    )
+    assert "text/tsv" in response.headers.get(
+        "Content-Type", ""
+    ), "Expected TSV content type"
 
     # Check content disposition header (should indicate file download)
     content_disposition = response.headers.get("Content-Disposition", "")
-    assert "attachment" in content_disposition, (
-        "Expected attachment in Content-Disposition header"
-    )
-    assert "observations.tsv" in content_disposition, (
-        "Expected observations.tsv filename"
-    )
+    assert (
+        "attachment" in content_disposition
+    ), "Expected attachment in Content-Disposition header"
+    assert (
+        "observations.tsv" in content_disposition
+    ), "Expected observations.tsv filename"
 
     # Verify file content is not empty and looks like TSV
     file_content = response.text.strip()
@@ -432,23 +430,23 @@ def test_observation_detail_download(driver):
         response = requests.get(href, cookies=cookies)
 
         # Verify the response
-        assert response.status_code == 200, (
-            f"Session download request failed with status {response.status_code}"
-        )
+        assert (
+            response.status_code == 200
+        ), f"Session download request failed with status {response.status_code}"
 
         # Check content type header
-        assert "text/tsv" in response.headers.get("Content-Type", ""), (
-            "Expected TSV content type"
-        )
+        assert "text/tsv" in response.headers.get(
+            "Content-Type", ""
+        ), "Expected TSV content type"
 
         # Check content disposition header (should indicate file download with session ID)
         content_disposition = response.headers.get("Content-Disposition", "")
-        assert "attachment" in content_disposition, (
-            "Expected attachment in Content-Disposition header"
-        )
-        assert f"observations_{session_id}.tsv" in content_disposition, (
-            f"Expected observations_{session_id}.tsv filename"
-        )
+        assert (
+            "attachment" in content_disposition
+        ), "Expected attachment in Content-Disposition header"
+        assert (
+            f"observations_{session_id}.tsv" in content_disposition
+        ), f"Expected observations_{session_id}.tsv filename"
 
         # Verify file content is not empty and looks like TSV
         file_content = response.text.strip()

@@ -297,9 +297,9 @@ class TestFastAltAz:
             sep_arcsec = _angular_sep_arcsec(f_alt, f_az, s_alt, s_az)
             # 0.5 deg = 1800 arcsec; comfortably above the observed ~0.3 deg
             # floor while still tight enough to catch a sign-flip or unit bug.
-            assert sep_arcsec < 1800.0, (
-                f"FastAltAz deviated {sep_arcsec:.0f}'' at ra={ra}, dec={dec}"
-            )
+            assert (
+                sep_arcsec < 1800.0
+            ), f"FastAltAz deviated {sep_arcsec:.0f}'' at ra={ra}, dec={dec}"
 
     def test_lst_advances_with_time(self):
         """A 1-hour datetime delta should advance LST by ~15.04 deg (sidereal
@@ -339,9 +339,9 @@ class TestSkyfieldUtilsRadecToAltaz:
             # Empirically ~14'' median, well within 60''. 120'' tolerance
             # leaves headroom for the small refraction-model difference
             # between erfa and skyfield's adopted standard atmosphere.
-            assert sep_arcsec < 120.0, (
-                f"erfa apparent deviated {sep_arcsec:.1f}'' at ra={ra}, dec={dec}"
-            )
+            assert (
+                sep_arcsec < 120.0
+            ), f"erfa apparent deviated {sep_arcsec:.1f}'' at ra={ra}, dec={dec}"
 
     def test_matches_skyfield_without_refraction(self):
         sf = self._sf_with_location()
@@ -351,9 +351,9 @@ class TestSkyfieldUtilsRadecToAltaz:
             sep_arcsec = _angular_sep_arcsec(e_alt, e_az, s_alt, s_az)
             # No refraction-model disagreement here -- the residual is pure
             # precession/nutation/aberration math, identical at sub-arcsec.
-            assert sep_arcsec < 30.0, (
-                f"erfa no-atmos deviated {sep_arcsec:.1f}'' at ra={ra}, dec={dec}"
-            )
+            assert (
+                sep_arcsec < 30.0
+            ), f"erfa no-atmos deviated {sep_arcsec:.1f}'' at ra={ra}, dec={dec}"
 
     def test_atmos_flag_lifts_altitude(self):
         """atmos=True should produce an apparent altitude >= the geometric

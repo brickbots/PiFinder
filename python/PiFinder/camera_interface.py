@@ -575,9 +575,7 @@ class CameraInterface:
                                 timestamp = gps_time.strftime("%Y%m%d_%H%M%S")
                             else:
                                 # Fallback to Pi time if GPS not available
-                                timestamp = timez.local_now().strftime(
-                                    "%Y%m%d_%H%M%S"
-                                )
+                                timestamp = timez.local_now().strftime("%Y%m%d_%H%M%S")
                                 logger.warning(
                                     "GPS time not available, using Pi system time for sweep directory name"
                                 )

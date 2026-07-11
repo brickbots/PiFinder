@@ -251,34 +251,34 @@ def recursive_dict_compare(actual, expected):
     Recursively compare expected dict values with actual response data
     """
     for key, expected_value in expected.items():
-        assert key in actual, (
-            f"Expected key '{key}' not found in response. Available keys: {list(actual.keys())}"
-        )
+        assert (
+            key in actual
+        ), f"Expected key '{key}' not found in response. Available keys: {list(actual.keys())}"
 
         actual_value = actual[key]
 
         if isinstance(expected_value, dict):
-            assert isinstance(actual_value, dict), (
-                f"Expected '{key}' to be a dict, but got {type(actual_value)}"
-            )
+            assert isinstance(
+                actual_value, dict
+            ), f"Expected '{key}' to be a dict, but got {type(actual_value)}"
             recursive_dict_compare(actual_value, expected_value)
         elif isinstance(expected_value, list):
-            assert isinstance(actual_value, list), (
-                f"Expected '{key}' to be a list, but got {type(actual_value)}"
-            )
-            assert len(actual_value) == len(expected_value), (
-                f"Expected '{key}' list length {len(expected_value)}, got {len(actual_value)}"
-            )
+            assert isinstance(
+                actual_value, list
+            ), f"Expected '{key}' to be a list, but got {type(actual_value)}"
+            assert (
+                len(actual_value) == len(expected_value)
+            ), f"Expected '{key}' list length {len(expected_value)}, got {len(actual_value)}"
             for i, (actual_item, expected_item) in enumerate(
                 zip(actual_value, expected_value)
             ):
                 if isinstance(expected_item, dict):
                     recursive_dict_compare(actual_item, expected_item)
                 else:
-                    assert actual_item == expected_item, (
-                        f"Expected '{key}[{i}]' to be {expected_item}, got {actual_item}"
-                    )
+                    assert (
+                        actual_item == expected_item
+                    ), f"Expected '{key}[{i}]' to be {expected_item}, got {actual_item}"
         else:
-            assert actual_value == expected_value, (
-                f"Expected '{key}' to be {expected_value}, got {actual_value}"
-            )
+            assert (
+                actual_value == expected_value
+            ), f"Expected '{key}' to be {expected_value}, got {actual_value}"

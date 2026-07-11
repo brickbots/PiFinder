@@ -158,9 +158,9 @@ def test_equipment_instruments_table_structure(driver):
     ]
 
     for expected_header in expected_headers:
-        assert any(expected_header in header for header in header_texts), (
-            f"Missing instruments table header: {expected_header}"
-        )
+        assert any(
+            expected_header in header for header in header_texts
+        ), f"Missing instruments table header: {expected_header}"
 
     # Verify table body exists
     table_body = instruments_table.find_element(By.TAG_NAME, "tbody")
@@ -201,9 +201,9 @@ def test_equipment_eyepieces_table_structure(driver):
     ]
 
     for expected_header in expected_headers:
-        assert any(expected_header in header for header in header_texts), (
-            f"Missing eyepieces table header: {expected_header}"
-        )
+        assert any(
+            expected_header in header for header in header_texts
+        ), f"Missing eyepieces table header: {expected_header}"
 
     # Verify table body exists
     table_body = eyepieces_table.find_element(By.TAG_NAME, "tbody")
@@ -276,9 +276,9 @@ def test_equipment_add_instrument_functionality(driver):
                 test_instrument_row_index = i
                 break
 
-    assert test_instrument_found, (
-        f"Test instrument '{test_instrument['name']}' not found in instruments table"
-    )
+    assert (
+        test_instrument_found
+    ), f"Test instrument '{test_instrument['name']}' not found in instruments table"
 
     # Now delete the test instrument to clean up.
     delete_link = rows[test_instrument_row_index].find_element(
@@ -310,9 +310,7 @@ def test_equipment_add_instrument_functionality(driver):
                 test_instrument_still_found = True
                 break
 
-    assert not test_instrument_still_found, (
-        f"Test instrument '{test_instrument['name']}' still found in table after deletion"
-    )
+    assert not test_instrument_still_found, f"Test instrument '{test_instrument['name']}' still found in table after deletion"
 
 
 @pytest.mark.web
@@ -380,9 +378,9 @@ def test_equipment_add_eyepiece_functionality(driver):
                 test_eyepiece_row_index = i
                 break
 
-    assert test_eyepiece_found, (
-        f"Test eyepiece '{test_eyepiece['name']}' not found in eyepieces table"
-    )
+    assert (
+        test_eyepiece_found
+    ), f"Test eyepiece '{test_eyepiece['name']}' not found in eyepieces table"
 
     # Now delete the test eyepiece to clean up.
     delete_link = rows[test_eyepiece_row_index].find_element(
@@ -414,9 +412,9 @@ def test_equipment_add_eyepiece_functionality(driver):
                 test_eyepiece_still_found = True
                 break
 
-    assert not test_eyepiece_still_found, (
-        f"Test eyepiece '{test_eyepiece['name']}' still found in table after deletion"
-    )
+    assert (
+        not test_eyepiece_still_found
+    ), f"Test eyepiece '{test_eyepiece['name']}' still found in table after deletion"
 
 
 @pytest.mark.web
@@ -484,9 +482,7 @@ def test_equipment_select_active_instrument(driver):
                 target_is_active = True
                 break
 
-    assert target_is_active, (
-        f"Instrument '{target_instrument_name}' should be marked as active after selection"
-    )
+    assert target_is_active, f"Instrument '{target_instrument_name}' should be marked as active after selection"
 
 
 @pytest.mark.web
@@ -554,9 +550,9 @@ def test_equipment_select_active_eyepiece(driver):
                 target_is_active = True
                 break
 
-    assert target_is_active, (
-        f"Eyepiece '{target_eyepiece_name}' should be marked as active after selection"
-    )
+    assert (
+        target_is_active
+    ), f"Eyepiece '{target_eyepiece_name}' should be marked as active after selection"
 
 
 def _login_to_equipment(driver):
