@@ -196,8 +196,6 @@ class CameraInterface:
             sleep_delay = 60
             was_sleeping = False
             while True:
-                
-
                 sleeping = state_utils.sleep_for_framerate(
                     shared_state, limit_framerate=False
                 )
