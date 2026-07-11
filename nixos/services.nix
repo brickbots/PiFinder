@@ -740,5 +740,21 @@ in {
       };
     };
   };
+
+  # Advertise the Samba share over mDNS so it appears in file-manager "Network"
+  # browse views (Finder, Nautilus). Samba itself never publishes an
+  # _smb._tcp record; Avahi (configured in networking.nix) does the DNS-SD.
+  # Lives here, tied to the samba block, so only the device build advertises it.
+  services.avahi.extraServiceFiles.smb = ''
+    <?xml version="1.0" standalone='no'?>
+    <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+    <service-group>
+      <name replace-wildcards="yes">%h</name>
+      <service>
+        <type>_smb._tcp</type>
+        <port>445</port>
+      </service>
+    </service-group>
+  '';
   }; # config
 }
