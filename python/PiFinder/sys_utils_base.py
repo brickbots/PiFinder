@@ -167,4 +167,15 @@ def restart_pifinder() -> None:
     import subprocess
 
     logger.info("SYS: Restarting PiFinder")
-    subprocess.run(["sudo", "systemctl", "restart", "pifinder"])
+    # Must be the full unit name: the NixOS sudoers rule allows exactly
+    # "systemctl restart pifinder.service", and sudo matches arguments
+    # verbatim — "restart pifinder" is refused and the restart silently
+    # never happens (the UI shows "Restarting..." but the stale process
+    # keeps running, e.g. with the old screen_direction IMU geometry).
+    result = subprocess.run(
+        ["sudo", "-n", "systemctl", "restart", "pifinder.service"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        logger.error("SYS: PiFinder restart failed: %s", result.stderr.strip())
