@@ -313,14 +313,14 @@ class _StubTimezoneFinder:
 def _fast_timezonefinder():
     """Stub TimezoneFinder so SharedStateObj construction is instant.
 
-    SharedStateObj.__init__ builds a fresh TimezoneFinder (loads a multi-MB
-    timezone binary), and the harness constructs a SharedStateObj per test
-    (cold/warm). The real init is cheap-ish on a dev box but brutally slow
+    SharedStateObj lazily builds a TimezoneFinder on the first location update
+    (loading a multi-MB timezone binary), and the harness performs one for each
+    warm-state case. The real init is cheap-ish on a dev box but brutally slow
     on a CI runner -- hundreds of inits take ~10 min and look like a hang.
     Timezone resolution is irrelevant to UI crash-smoke,
     so a constant-"UTC" stub is fine.
     """
-    with mock.patch("PiFinder.state.TimezoneFinder", _StubTimezoneFinder):
+    with mock.patch("timezonefinder.TimezoneFinder", _StubTimezoneFinder):
         yield
 
 
