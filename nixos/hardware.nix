@@ -2,10 +2,16 @@
 let
   cfg = config.pifinder;
 
-  # Camera driver name mapping
+  # Camera overlay name mapping. imx462 deliberately uses the imx290 overlay:
+  # that is the exact configuration PiFinder ships on Raspbian
+  # (switch_camera.py writes "dtoverlay=imx290,clock-frequency=74250000"), so
+  # the sony,imx290lqr driver path is field-proven on this sensor. The kernel
+  # also ships imx462.dtbo (sony,imx462lqr, dedicated init registers) — an
+  # untested-here alternative. The clock-frequency parameter is the part that
+  # actually matters; see cameraClockDtbo below.
   cameraDriver = {
     imx296 = "imx296";
-    imx462 = "imx290";  # imx462 uses imx290 driver
+    imx462 = "imx290";
     imx477 = "imx477";
   }.${cfg.cameraType};
 
@@ -85,6 +91,26 @@ let
 
   # Camera overlay from kernel's DTB overlays directory
   cameraDtbo = "${config.boot.kernelPackages.kernel}/dtbs/overlays/${cameraDriver}.dtbo";
+
+  # PiFinder's imx462 module has a 74.25 MHz oscillator, but the kernel's
+  # imx290/imx462 overlays default the xclk to 37.125 MHz. Raspbian fixes this
+  # with the overlay parameter "clock-frequency=74250000"; fdtoverlay cannot
+  # apply overlay parameters (__overrides__), so without this the default
+  # sneaks through and the driver programs INCKSEL/PLL for the wrong xclk —
+  # the sensor enumerates on I2C but never delivers frames and libcamera
+  # reports "Camera frontend has timed out" with an empty kernel log.
+  # Override both places the Raspbian parameter writes: the fixed-clock node
+  # (the driver's clk_set_rate must match its rate) and the sensor node
+  # property (the driver selects the INCKSEL register set from it). Must be
+  # applied after cameraDtbo: &cam_node is defined by the camera overlay and
+  # resolves from its merged symbols.
+  cameraClockDtbo = compileOverlay "imx462-xclk" ''
+    /dts-v1/;
+    /plugin/;
+    / { compatible = "brcm,bcm2711"; };
+    &cam1_clk { clock-frequency = <74250000>; };
+    &cam_node { clock-frequency = <74250000>; };
+  '';
 in {
   options.pifinder = {
     cameraType = lib.mkOption {
@@ -135,7 +161,8 @@ in {
       for dtb in ${kernelDtbs}/broadcom/*rpi-4-b.dtb; do
         fdtoverlay -i "$dtb" \
           -o "$out/broadcom/$(basename $dtb)" \
-          ${i2c1Dtbo} ${spi0Dtbo} ${uart3Dtbo} ${pwmDtbo} ${gpioPoweroffDtbo} ${cameraDtbo}
+          ${i2c1Dtbo} ${spi0Dtbo} ${uart3Dtbo} ${pwmDtbo} ${gpioPoweroffDtbo} ${cameraDtbo} \
+          ${lib.optionalString (cfg.cameraType == "imx462") cameraClockDtbo}
       done
     '');
 
