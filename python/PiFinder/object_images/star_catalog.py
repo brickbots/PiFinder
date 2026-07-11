@@ -28,7 +28,7 @@ from PiFinder import timez
 
 # Import healpy at module level to avoid first-use delay
 # This ensures the slow import happens during initialization, not during first chart render
-import healpy as hp  # type: ignore[import-not-found]
+import healpy as hp  # type: ignore[import-untyped]
 
 logger = logging.getLogger("PiFinder.StarCatalog")
 
