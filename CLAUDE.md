@@ -22,65 +22,46 @@ Maintainers can make `fresh` root on `main` automatically per clone (without cha
 git remote set-head origin main
 ```
 
-**Initialise the `tetra3` submodule in every new worktree.** `python/PiFinder/tetra3` is a git submodule (the `cedar-solve`/Tetra3 solver); the importable package is its inner `tetra3/tetra3/` dir, surfaced through the tracked symlink `python/tetra3`. `git worktree add` / `EnterWorktree` does **not** populate submodules, so a fresh worktree starts with an empty submodule dir and a dangling symlink. Any test that imports the solver then fails with `ModuleNotFoundError: No module named 'tetra3'` (or `cedar_detect_pb2`) — this is a missing checkout, **not** a code problem, so don't reach for `PYTHONPATH` hacks. Fix it once per worktree:
-
-```bash
-git submodule update --init python/PiFinder/tetra3
-```
-
-mypy also needs this: its config points at `python/PiFinder/tetra3/tetra3`, so `nox -s type_hints` can't run in a worktree until the submodule is initialised.
+**No tetra3 submodule on this branch.** Unlike upstream `main`, the solver
+(`cedar-solve`/Tetra3) is an ordinary uv dependency (pinned git rev in
+`python/pyproject.toml`), so worktrees need no `git submodule` step.
 
 ## Development Commands
 
-**Running Python**
-Developers may have created virtual environments in directories like ".venv" or "venv". Make sure these virtual
-environments are activated before any of the python based tools below.
+**This branch uses uv (pyproject.toml + uv.lock), not nox/requirements*.txt.**
+All Python tooling runs through uv from `python/`:
 
-**Development workflow uses Nox for task automation:**
-```bash
-nox -s lint          # Code linting with Ruff (auto-fixes issues)
-nox -s format        # Code formatting with Ruff
-nox -s type_hints    # Type checking with MyPy
-nox -s smoke_tests   # Quick functionality validation
-nox -s unit_tests    # Full unit test suite
-nox -s babel         # I18n message extraction and compilation
-nox -s web_tests     # Testing the webserver, see below
-```
-
-**Direct testing with pytest:**
-```bash
-pytest -m smoke      # Smoke tests for core functionality
-pytest -m unit       # Unit tests for isolated components
-pytest -m integration # End-to-end integration tests
-```
-
-**Development setup:**
 ```bash
 cd python/
-python3.9 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install -r requirements_dev.txt
+uv sync --frozen                                  # create/refresh .venv from uv.lock
+uvx ruff@0.4.8 check --config "builtins=['_']" .  # lint (same pin as CI / upstream noxfile)
+uvx ruff@0.4.8 format .                           # format
+uv run mypy PiFinder                              # type checking
+uv run pytest -m smoke                            # smoke tests
+uv run pytest -m unit                             # unit tests
+uv run pytest -m integration tests/test_ui_modules.py  # UI module harness
 ```
-If the .venv dir already exists, you can directly source it and run the app.
 
+CI (`.github/workflows/nox.yml` — keeps the upstream "nox" check name) runs
+exactly these commands.
 
-Watch out for .venv directories containing virtual environments, that you need to activate first. 
+NixOS dev-box note: manylinux wheels (numpy etc.) need `libstdc++`; if imports
+fail with `libstdc++.so.6: cannot open shared object file`, run tests with
+`LD_LIBRARY_PATH=$(nix build --print-out-paths nixpkgs#stdenv.cc.cc.lib)/lib`.
 
 **Running the application:**
 
 First start the `cedar-detect-server` which is in `bin` (you need to use `-p 50551`, when invoking it).
-Use the correct architecture suffix for cedar-detect-server according to the platform you're running on. 
+Use the correct architecture suffix for cedar-detect-server according to the platform you're running on.
 
-Development setup has to have run and you should be in .venv virtual environment
 ```bash
 cd python/
-python -m PiFinder.main [options]
+uv run python -m PiFinder.main [options]
 ```
 Usual startup:
 
 ```bash
-python3.9 -m PiFinder.main -fh --camera debug --keyboard local -x
+uv run python -m PiFinder.main -fh --camera debug --keyboard local -x
 ```
 
 ## Reference Documentation
