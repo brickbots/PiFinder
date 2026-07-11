@@ -7,7 +7,10 @@ import logging
 from PiFinder.multiproclogging import MultiprocLogging
 import asyncio
 import aiofiles
-from typing import Dict, Callable, Optional, Tuple
+from typing import Dict, Callable, Optional, Tuple, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aiofiles.threadpool.binary import AsyncBufferedReader
 from dataclasses import dataclass
 from enum import IntEnum
 import datetime
@@ -59,7 +62,9 @@ class UBXParser:
     def __init__(
         self,
         log_queue,
-        reader: Optional[asyncio.StreamReader] = None,
+        # StreamReader when connected to gpsd, AsyncBufferedReader when
+        # replaying a capture file (from_file); both only need .read().
+        reader: Optional[Union[asyncio.StreamReader, "AsyncBufferedReader"]] = None,
         writer: Optional[asyncio.StreamWriter] = None,
         file_path: Optional[str] = None,
     ):

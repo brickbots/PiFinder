@@ -13,9 +13,15 @@ import json
 import logging
 import re
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 import requests
+
+if TYPE_CHECKING:
+    # At runtime PiFinder.i18n gettext-installs _ into builtins; mypy only
+    # sees it inside annotated functions, so give it a signature here.
+    def _(message: str) -> str: ...
+
 
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
