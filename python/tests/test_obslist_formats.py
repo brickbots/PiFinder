@@ -5,6 +5,8 @@ Each format is tested by creating an ObsList, writing it to a string,
 reading it back, and verifying the entries match.
 """
 
+import json
+
 import pytest
 from PiFinder.calc_utils import (
     ra_to_hms_exact,
@@ -210,6 +212,71 @@ def test_stellarium_roundtrip():
     parsed = read_stellarium(text)
     assert parsed.name == "Test List"
     _assert_entries_close(obs.entries, parsed.entries, ra_tol=0.15, dec_tol=0.15)
+
+
+@pytest.mark.unit
+def test_stellarium_v2_import():
+    # Stellarium's current export: objects nested under observingLists,
+    # spaceless RA strings, and 'type' instead of 'objtype'.
+    text = json.dumps(
+        {
+            "defaultListOlud": "{uuid-2}",
+            "observingLists": {
+                "{uuid-1}": {
+                    "name": "Other List",
+                    "objects": [],
+                },
+                "{uuid-2}": {
+                    "name": "Juli 2026",
+                    "objects": [
+                        {
+                            "designation": "Dumbbell Nebula",
+                            "ra": "19h59m37.8s",
+                            "dec": "+22°43'17\"",
+                            "magnitude": "7.40",
+                            "type": "Nebula",
+                        }
+                    ],
+                },
+            },
+            "shortName": "Observing list for Stellarium",
+            "version": "2.0",
+        }
+    )
+    parsed = read_stellarium(text)
+    assert parsed.name == "Juli 2026"
+    assert len(parsed.entries) == 1
+    entry = parsed.entries[0]
+    assert entry.name == "Dumbbell Nebula"
+    # Stellarium type strings map to PiFinder type codes so imported
+    # objects pass the Type filter.
+    assert entry.obj_type == "Nb"
+    assert entry.ra == pytest.approx(299.9075, abs=0.01)
+    assert entry.dec == pytest.approx(22.7214, abs=0.01)
+    assert entry.mag.filter_mag == pytest.approx(7.4)
+
+
+@pytest.mark.unit
+def test_stellarium_type_mapping():
+    def _read_type(type_str):
+        text = json.dumps(
+            {
+                "version": "1.0",
+                "shortName": "x",
+                "objects": [
+                    {"designation": "n", "objtype": type_str, "ra": "", "dec": ""}
+                ],
+            }
+        )
+        return read_stellarium(text).entries[0].obj_type
+
+    assert _read_type("Planetary Nebula") == "PN"
+    assert _read_type("open star cluster") == "OC"
+    # PiFinder codes (from our own v1.0 exports) pass through unchanged
+    assert _read_type("Gx") == "Gx"
+    # Unknown strings become '?' so the default Type filter still shows them
+    assert _read_type("Something Exotic") == "?"
+    assert _read_type("") == ""
 
 
 @pytest.mark.unit
@@ -455,6 +522,16 @@ class TestDetectFormat:
 
     def test_by_content_stellarium(self):
         assert detect_format('{"version": "1.0"}') == "stellarium"
+
+    def test_by_content_stellarium_v1_with_objects(self):
+        # Stellarium 1.0 also has version + objects; its string version
+        # must not be mistaken for the integer-versioned .pifinder format.
+        text = '{"version": "1.0", "shortName": "x", "objects": []}'
+        assert detect_format(text) == "stellarium"
+
+    def test_by_content_stellarium_v2(self):
+        text = '{"version": "2.0", "observingLists": {}, "shortName": "x"}'
+        assert detect_format(text) == "stellarium"
 
     def test_by_content_eqmod(self):
         assert detect_format("!J2000\n1.234; 45.678; NGC 224\n") == "eqmod"

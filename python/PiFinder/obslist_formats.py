@@ -96,8 +96,8 @@ def format_dec_string(dec: float) -> str:
 
 
 def _parse_ra_string(s: str) -> float:
-    """Parse RA from 'Xh Xm X.Xs' format to degrees."""
-    match = re.match(r"(\d+)h\s+(\d+)m\s+([\d.]+)s", s.strip())
+    """Parse RA from 'Xh Xm X.Xs' or 'XhXmX.Xs' format to degrees."""
+    match = re.match(r"(\d+)h\s*(\d+)m\s*([\d.]+)s", s.strip())
     if match:
         return ra_to_deg(
             int(match.group(1)), int(match.group(2)), float(match.group(3))
@@ -491,6 +491,69 @@ def read_text(text: str) -> ObsList:
 
 # ── Stellarium (.sol) ──────────────────────────────────────────────────
 
+# Stellarium's 2.0 export writes object types as English display names
+# (NebulaMgr type strings), keyed here lowercased -> PiFinder type code.
+# Unknown types map to "?" so they still pass the default Type filter.
+STELLARIUM_TYPE_MAP: dict[str, str] = {
+    "galaxy": "Gx",
+    "active galaxy": "Gx",
+    "radio galaxy": "Gx",
+    "interacting galaxy": "Gx",
+    "galaxy pair": "Gx",
+    "galaxy triplet": "Gx",
+    "group of galaxies": "Gx",
+    "quasar": "Gx",
+    "blazar": "Gx",
+    "bll object": "Gx",
+    "open star cluster": "OC",
+    "open cluster": "OC",
+    "star cluster": "OC",
+    "stellar association": "OC",
+    "globular star cluster": "Gb",
+    "globular cluster": "Gb",
+    "nebula": "Nb",
+    "emission nebula": "Nb",
+    "reflection nebula": "Nb",
+    "bipolar nebula": "Nb",
+    "protoplanetary nebula": "Nb",
+    "hii region": "Nb",
+    "emission object": "Nb",
+    "interstellar matter": "Nb",
+    "supernova remnant": "Nb",
+    "supernova candidate": "Nb",
+    "supernova remnant candidate": "Nb",
+    "molecular cloud": "Nb",
+    "planetary nebula": "PN",
+    "possible planetary nebula": "PN",
+    "dark nebula": "DN",
+    "cluster associated with nebulosity": "C+N",
+    "star": "*",
+    "symbiotic star": "*",
+    "emission-line star": "*",
+    "double star": "D*",
+    "asterism": "Ast",
+    "planet": "Pla",
+    "moon": "Pla",
+    "minor planet": "Pla",
+    "dwarf planet": "Pla",
+    "comet": "CM",
+    "region of the sky": "?",
+}
+
+
+def _map_stellarium_type(type_str: str) -> str:
+    """Map a Stellarium type string to a PiFinder type code.
+
+    Already-valid codes pass through (v1.0 files written by PiFinder store
+    codes); anything else unrecognized becomes '?' rather than leaking a raw
+    display string that no Type filter would ever select.
+    """
+    if not type_str:
+        return ""
+    if type_str in ARGO_TYPE_MAP:  # ARGO_TYPE_MAP keys the PiFinder code set
+        return type_str
+    return STELLARIUM_TYPE_MAP.get(type_str.strip().lower(), "?")
+
 
 def write_stellarium(obs_list: ObsList) -> str:
     data = {
@@ -516,10 +579,21 @@ def write_stellarium(obs_list: ObsList) -> str:
 def read_stellarium(text: str) -> ObsList:
     data = json.loads(text)
     name = data.get("shortName", "")
+    objects = data.get("objects", [])
+    # Version 2.0 (Stellarium's current export) nests objects one level down:
+    # observingLists -> {olud} -> {name, objects}. Import the default list,
+    # falling back to the first one.
+    observing_lists = data.get("observingLists")
+    if isinstance(observing_lists, dict) and observing_lists:
+        olud = data.get("defaultListOlud", "")
+        obs_list_data = observing_lists.get(olud, next(iter(observing_lists.values())))
+        name = obs_list_data.get("name", "") or name
+        objects = obs_list_data.get("objects", [])
     entries: list[ObsListEntry] = []
-    for obj in data.get("objects", []):
+    for obj in objects:
         designation = obj.get("designation", "")
-        obj_type = obj.get("objtype", "")
+        # v1.0 wrote 'objtype'; v2.0 writes 'type'.
+        obj_type = _map_stellarium_type(obj.get("objtype", "") or obj.get("type", ""))
         ra = _parse_ra_string(obj.get("ra", ""))
         dec = _parse_dec_string(obj.get("dec", ""))
         mag: Optional[float] = None
@@ -1141,9 +1215,11 @@ def detect_format(text: str, filename: str = "") -> str:
     if stripped.startswith("{"):
         try:
             data = json.loads(text)
-            if "version" in data and "objects" in data:
+            # .pifinder writes an integer version; Stellarium writes a string
+            # ("1.0"/"2.0"), so the type disambiguates the two JSON formats.
+            if isinstance(data.get("version"), int) and "objects" in data:
                 return "pifinder"
-        except (json.JSONDecodeError, ValueError):
+        except (json.JSONDecodeError, ValueError, AttributeError):
             pass
         return "stellarium"
     if stripped.startswith("!J2000"):

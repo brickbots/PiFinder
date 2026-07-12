@@ -64,6 +64,23 @@ class TestResolveByName:
         assert resolve_by_name("", {"x": 1}) is None
 
 
+@pytest.mark.unit
+class TestCoordinateObjectType:
+    def test_unknown_type_becomes_question_mark(self):
+        # A raw source type string ("Nebula") matches no Type filter entry,
+        # which would hide the object from every filtered list.
+        entry = ObsListEntry(name="Ring Nebula", ra=283.4, dec=33.0, obj_type="Nebula")
+        assert obslist._coordinate_object(entry, 0).obj_type == "?"
+
+    def test_known_code_kept(self):
+        entry = ObsListEntry(name="M 57", ra=283.4, dec=33.0, obj_type="PN")
+        assert obslist._coordinate_object(entry, 0).obj_type == "PN"
+
+    def test_empty_type_becomes_question_mark(self):
+        entry = ObsListEntry(name="X", ra=1.0, dec=2.0)
+        assert obslist._coordinate_object(entry, 0).obj_type == "?"
+
+
 def _entry(name, code, seq, desc=""):
     """Minimal catalog-resolvable entry (read_list reads catalog_code+sequence)."""
     return ObsListEntry(
