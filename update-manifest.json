@@ -46,15 +46,15 @@
       {
         "available": true,
         "kind": "pr",
-        "label": "PR#385-75d6fa7",
+        "label": "PR#385-e458b85",
         "notes": "## Summary\n- Press square 7 times anywhere to toggle dev mode (shows popup feedback)\n- Dev mode unlocks \"Screen Off\" option in Status menu and unstable software channel\n- Screen off blanks display and LEDs after configurable timeout (burn-in protection)\n- Hourly LED heartbeat pulse while screen is off\n- Test mode now shows popup \"Test Mode ON/OFF\" and uses hollow camera icon\n\n## Test plan\n- [ ] Press square 7x \u2192 see \"DEV MODE ON\" popup\n- [ ] Go to Status \u2192 \"Screen Off\" option visible\n- [ ] Set sleep_timeout=\"10s\", screen_off_timeout=\"30s\"\n- [ ] Wait 10s \u2192 screen dims (sleep)\n- [ ] Wait 30s more \u2192 screen blanks, LEDs off\n- [ ] Press any key \u2192 full wake\n- [ ] Press square 7x \u2192 \"DEV MODE OFF\", Screen Off hidden\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.ai/claude-code)",
         "number": 385,
         "source_ref": "screensaver",
         "source_repo": "mrosseel/PiFinder",
-        "source_sha": "75d6fa7d63177a616175f61e420b0fa3773096ca",
-        "store_path": "/nix/store/10kq3m3plv2ix46gmby0j7n8cgr6sb0r-nixos-system-pifinder-25.11.20260209.2db38e0",
+        "source_sha": "e458b85bebd59a4855f01358b392cee228b4c91b",
+        "store_path": "/nix/store/q5irvm62ckpjfwv9gwhf6xlxl5ay8xmz-nixos-system-pifinder-25.11.20260209.2db38e0",
         "title": "feat: add dev mode toggle and screen off burn-in protection",
-        "version": "PR#385-75d6fa7"
+        "version": "PR#385-e458b85"
       },
       {
         "available": true,
@@ -84,6 +84,6 @@
       }
     ]
   },
-  "generated_at": "2026-07-12T00:54:41+00:00",
+  "generated_at": "2026-07-12T00:55:47+00:00",
   "schema": 1
 }
