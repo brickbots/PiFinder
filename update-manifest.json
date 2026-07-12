@@ -72,18 +72,18 @@
       {
         "available": true,
         "kind": "pr",
-        "label": "PR#362-38e0582",
+        "label": "PR#362-9ce56c5",
         "notes": "Add a gaia achart view to all objects, down to mag 17 but with an auto limiting magnitude taking into account SQM and equipment. This auto limit is overridable.\r\n\r\nTODO:\r\n\r\n- [x] further performance optimisations\r\n- [x] fix missing tile bug\r\n- [x] get the data < 1Gb\r\n- [ ] choose how to get this data to the users\r\n- [x] 90 degree rotation bug?",
         "number": 362,
         "source_ref": "deepchart",
         "source_repo": "mrosseel/PiFinder",
-        "source_sha": "38e0582ddca9d33e5eb2edbc91e7a42dfb713831",
-        "store_path": "/nix/store/99j4v0kb0yr6f5v4xkm4dpqlj5yxf2cv-nixos-system-pifinder-25.11.20260209.2db38e0",
+        "source_sha": "9ce56c5ceeb675012e518da9be8c75d47aebc56a",
+        "store_path": "/nix/store/9fqsrq0s057pjdlyha9pv6sswb7gwqi8-nixos-system-pifinder-25.11.20260209.2db38e0",
         "title": "[WIP] Gaia charts",
-        "version": "PR#362-38e0582"
+        "version": "PR#362-9ce56c5"
       }
     ]
   },
-  "generated_at": "2026-07-12T10:22:25+00:00",
+  "generated_at": "2026-07-12T20:05:01+00:00",
   "schema": 1
 }
