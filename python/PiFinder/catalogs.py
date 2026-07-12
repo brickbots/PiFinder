@@ -285,7 +285,6 @@ class Catalog(CatalogBase):
         self.catalog_filter: Union[CatalogFilter, None] = None
         self.filtered_objects: List[CompositeObject] = self.get_objects()
         self.filtered_objects_seq: List[int] = self._filtered_objects_to_seq()
-        self.last_filtered = 0
         self.initialized = True
         self._last_state: CatalogState = CatalogState.READY
 
@@ -308,7 +307,10 @@ class Catalog(CatalogBase):
         if self.catalog_filter is None:
             return self.get_objects()
 
-        # Skip filtering if catalog is empty (deferred catalogs not loaded yet)
+        # Skip filtering if catalog is empty (deferred catalogs not loaded yet).
+        # Checked before the cache guard so an emptied catalog (e.g. comet
+        # refresh clearing objects) always yields an empty list, never a stale
+        # cached one.
         if self.get_count() == 0:
             logger.debug(
                 "Skipping filter for empty catalog %s (deferred loading)",
@@ -317,6 +319,13 @@ class Catalog(CatalogBase):
             self.filtered_objects = []
             self.filtered_objects_seq = []
             self.last_filtered = time.time()
+            return self.filtered_objects
+
+        # Already filtered against the current criteria — reuse the cached
+        # result. filter_catalogs() runs this for every catalog on each list
+        # open; dirty_time only advances when a filter parameter changes, so an
+        # unchanged filter returns here in O(1) instead of rescanning objects.
+        if self.last_filtered > self.catalog_filter.dirty_time:
             return self.filtered_objects
 
         self.filtered_objects = self.catalog_filter.apply(self.get_objects())
