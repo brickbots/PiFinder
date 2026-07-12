@@ -99,6 +99,8 @@ in {
     pciutils        # lspci
     i2c-tools       # i2cdetect (sensor debugging)
     iotop
+    git             # on-device development: clone/pull a checkout to run live
+    rsync           # sync a checkout from a desktop without re-copying everything
   ];
 
 
@@ -739,15 +741,36 @@ in {
       global = {
         workgroup = "WORKGROUP";
         security = "user";
-        "map to guest" = "never";
+        # Anonymous access, as on the original Raspbian PiFinder: unauthenticated
+        # clients are mapped to the pifinder user, which owns the share, so no SMB
+        # password is ever needed. (Samba's passdb is separate from the Unix login,
+        # so "solveit" never authenticated SMB anyway.)
+        "map to guest" = "bad user";
+        "guest account" = "pifinder";
       };
       PiFinder_data = {
         path = "/home/pifinder/PiFinder_data";
         browseable = "yes";
         "read only" = "no";
-        "valid users" = "pifinder";
+        "guest ok" = "yes";
       };
     };
   };
+
+  # Advertise the Samba share over mDNS so it appears in file-manager "Network"
+  # browse views (Finder, Nautilus). Samba itself never publishes an
+  # _smb._tcp record; Avahi (configured in networking.nix) does the DNS-SD.
+  # Lives here, tied to the samba block, so only the device build advertises it.
+  services.avahi.extraServiceFiles.smb = ''
+    <?xml version="1.0" standalone='no'?>
+    <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+    <service-group>
+      <name replace-wildcards="yes">%h</name>
+      <service>
+        <type>_smb._tcp</type>
+        <port>445</port>
+      </service>
+    </service-group>
+  '';
   }; # config
 }

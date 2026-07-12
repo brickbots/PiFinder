@@ -260,9 +260,12 @@ emulated and the camera, IMU and GPS are faked with the flags described under
 `Running/Debugging from the command line`_. Those physical features can only be
 exercised on a real PiFinder.
 
-The device itself runs an immutable NixOS image. Rather than editing files on it,
-you build an image and install it over the air through the update channels (see
-`Beta Testing`_), or cut a release.
+The device itself runs an immutable NixOS image, so its software sits read-only in
+the Nix store. For a finished change you build an image and install it over the
+air through the update channels (see `Beta Testing`_), or cut a release. For quick
+iteration against the real camera, IMU and GPS, though, you can point the device
+at an editable copy of your code and skip the image build entirely — see
+`Developing on the PiFinder itself`_.
 
 To get started, fork the repo and clone your fork, then set up the environment as
 described next.
@@ -273,19 +276,27 @@ Install dependencies with Nix
 PiFinder's development environment is described by the ``flake.nix`` at the
 repository root, so you don't install Python or its libraries by hand. On NixOS
 the Nix package manager is built in; on another Linux machine, install it and
-enable flakes. Then, from the repository root, drop into the dev shell:
+enable flakes. If you use `direnv <https://direnv.net/>`_, let it manage the
+shell automatically from the repository root:
+
+.. code-block::
+
+    direnv allow
+
+The shell then loads and unloads as you enter and leave the checkout. If you do
+not use direnv, enter the identical shell explicitly instead:
 
 .. code-block::
 
     nix develop
 
-This gives you a shell with everything PiFinder needs on your ``PATH``: a Python
+Both routes give you everything PiFinder needs on your ``PATH``: a Python
 interpreter with the project's dependencies, the ``ruff`` linter, the ``uv``
-package manager, and the ``cedar-detect-server`` plate-solving helper.
-
-The repo also ships an ``.envrc`` (``use flake``). If you use
-`direnv <https://direnv.net/>`_, run ``direnv allow`` once and the shell loads —
-and unloads — automatically as you enter and leave the directory.
+package manager, and the ``cedar-detect-server`` plate-solving helper. The
+repo's ``.envrc`` uses the classic ``shell.nix`` entry point, which selects the
+same flake dev shell but filters large runtime data out of the source copied to
+the Nix store. This keeps direnv reloads quick; manual ``nix develop`` and CI
+still evaluate the flake directly.
 
 You still need to fetch the Tetra3 submodule once; see
 `Install the Tetra3/Cedar solver`_ below.
@@ -576,6 +587,117 @@ be retired because the remote server is always started.
     python3 -m PiFinder.main -fh -k server --camera debug -x
 
 
+Developing on the PiFinder itself
+---------------------------------
+
+Most development happens on your desktop, but the camera, IMU, GPS and the
+physical keypad and screen only exist on the device. When a change needs testing
+against that real hardware, you can run your own code on the PiFinder directly,
+without building and flashing an image for every edit.
+
+The shipped software sits read-only in the Nix store, and
+``/home/pifinder/PiFinder`` is a symlink pointing at it. Repoint that symlink at a
+writable copy of your code and the app runs your files instead, using the Python
+interpreter and libraries already installed on the device. The service follows
+the symlink into your checkout, so the loop is just edit, restart, look — no
+rebuild.
+
+Connect to the PiFinder over SSH, then:
+
+1. Stop the running app. It starts automatically at boot, and only one instance
+   can use the hardware at a time:
+
+   .. code-block:: bash
+
+       sudo systemctl stop pifinder
+
+2. Get a copy of your fork into the ``pifinder`` home directory, under any name
+   except ``PiFinder`` itself — that's the symlink you're about to move. The
+   device carries ``git`` and ``rsync``, so clone your fork directly:
+
+   .. code-block:: bash
+
+       git clone --depth 1 https://github.com/<your-fork>/PiFinder.git PiFinder-dev
+
+   The checkout includes the bundled catalog data, so it's a few hundred
+   megabytes; ``--depth 1`` keeps the Git history lean. If you'd rather edit on
+   your desktop, ``rsync`` the changed files over between runs:
+
+   .. code-block:: bash
+
+       rsync -a --exclude .git ./ pifinder@pifinder.local:PiFinder-dev/
+
+3. Note where the symlink currently points, so you can get back to the shipped
+   code later, then aim it at your copy:
+
+   .. code-block:: bash
+
+       readlink /home/pifinder/PiFinder                       # save this store path
+       ln -sfT /home/pifinder/PiFinder-dev /home/pifinder/PiFinder
+
+4. Start the app again. It now runs your code:
+
+   .. code-block:: bash
+
+       sudo systemctl start pifinder
+
+From here the cycle is quick. Edit a file — ``vim`` is on the device, or re-copy
+it from your desktop — then restart the app and follow its log:
+
+.. code-block:: bash
+
+    sudo systemctl restart pifinder
+    journalctl -u pifinder -f
+
+For verbose, interactive output (the ``-x`` flag and the other switches above),
+stop the service instead and run the app in the foreground from your copy's
+``python`` folder, exactly as in `Running/Debugging from the command line`_.
+
+For work that changes Python dependencies or needs development tools, enter the
+repository's complete Nix development environment first:
+
+.. code-block:: bash
+
+    cd /home/pifinder/PiFinder-dev
+    nix develop
+
+The flake provides this shell for both desktop Linux and the PiFinder's
+``aarch64-linux`` system. It uses the checked-in ``flake.lock``,
+``python/pyproject.toml`` and ``python/uv.lock`` and supplies the same native
+``libcamera`` and GObject bindings as the service. CI publishes the aarch64
+shell dependency closure for testable PRs and releases to the PiFinder binary
+caches.
+
+Why ``nix develop`` here instead of the desktop's preferred ``direnv allow``?
+The released device does not currently ship direnv. More importantly, the
+current dev-shell output still includes the PiFinder project source: editing a
+file changes that output's store hash even when none of its dependencies
+changed. ``--option max-jobs 0`` would therefore reject an ordinary edited
+checkout whose exact source-dependent output cannot already exist in a cache.
+The intended end state is to make the shell dependency-only and ship direnv on
+the device; at that point ``direnv allow`` can be the identical entry point on
+desktop and PiFinder while the editable source remains outside the cached
+environment.
+
+.. note::
+
+   This override is deliberately temporary. A reboot or an over-the-air software
+   update re-runs the device's activation step, which restores
+   ``/home/pifinder/PiFinder`` to the shipped store path. To return to the
+   released software at any time, reboot — or repoint the symlink at the path you
+   saved with ``readlink``.
+
+.. note::
+
+   Repointing the symlink runs your code against the image's existing Python
+   environment, which is the fastest path for pure-Python edits. Use ``nix
+   develop`` when changing the environment itself; do not create a separate
+   ``uv venv`` on the device, because that omits native bindings supplied by
+   Nix. A dependency you intend to keep belongs in ``python/pyproject.toml``
+   with an updated ``uv.lock`` and ultimately in a new image (see `Beta
+   Testing`_) so every device runs the same tested environment.
+
+
 Troubleshooting
 ---------------
 
@@ -649,6 +771,3 @@ Finally, you can start straight into this mode from the command line — see the
 .. image:: images/user_guide/DEMO_MODE_001_docs.png
 
 .. image:: images/user_guide/DEMO_MODE_002_docs.png
-
-
-

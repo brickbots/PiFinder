@@ -342,6 +342,50 @@
       avoid_warnings=1
     '';
 
+    # Reproducible development environment for both desktop Linux and the
+    # aarch64 PiFinder itself. Runtime-native bindings come from Nix, just as
+    # they do in the systemd service; uv supplies the locked Python workspace.
+    mkDevShell = system: let
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [(final: prev: {
+          libcamera = prev.libcamera.overrideAttrs (old: {
+            mesonFlags = (old.mesonFlags or []) ++ [ "-Dpycamera=enabled" ];
+            buildInputs = (old.buildInputs or []) ++ [
+              final.python313
+              final.python313.pkgs.pybind11
+            ];
+          });
+        })];
+      };
+      pyPkgs = import ./nixos/pkgs/uv-python.nix {
+        inherit pkgs pyproject-nix uv2nix pyproject-build-systems;
+      };
+      cedar-detect = import ./nixos/pkgs/cedar-detect.nix { inherit pkgs; };
+    in pkgs.mkShell {
+      packages = [
+        pyPkgs.devEnv
+        pkgs.ruff
+        pkgs.uv
+        pkgs.git
+        pkgs.rsync
+        pkgs.gobject-introspection
+        pkgs.networkmanager
+        pkgs.libcamera
+        pkgs.gpsd
+        cedar-detect
+      ];
+      shellHook = ''
+        export PYTHONPATH="${pkgs.libcamera}/lib/python3.13/site-packages:$PYTHONPATH"
+        export GI_TYPELIB_PATH="${pkgs.lib.makeSearchPath "lib/girepository-1.0" [
+          pkgs.networkmanager
+          pkgs.glib.out
+          pkgs.gobject-introspection
+        ]}:$GI_TYPELIB_PATH"
+        export LIBCAMERA_IPA_MODULE_PATH="${pkgs.libcamera}/lib/libcamera"
+      '';
+    };
+
   in {
     nixosConfigurations = {
       # SD card boot — camera baked into DT, switched via specialisations
@@ -384,28 +428,9 @@
       '';
     };
 
-    devShells.x86_64-linux.default = let
-      pkgs = import nixpkgs {
-        system = "x86_64-linux";
-        overlays = [(final: prev: {
-          libcamera = prev.libcamera.overrideAttrs (old: {
-            mesonFlags = (old.mesonFlags or []) ++ [ "-Dpycamera=enabled" ];
-            buildInputs = (old.buildInputs or []) ++ [
-              final.python313
-              final.python313.pkgs.pybind11
-            ];
-          });
-        })];
-      };
-      pyPkgs = import ./nixos/pkgs/uv-python.nix {
-        inherit pkgs pyproject-nix uv2nix pyproject-build-systems;
-      };
-      cedar-detect = import ./nixos/pkgs/cedar-detect.nix { inherit pkgs; };
-    in pkgs.mkShell {
-      packages = [ pyPkgs.devEnv pkgs.ruff pkgs.uv cedar-detect ];
-      shellHook = ''
-        export PYTHONPATH="${pkgs.libcamera}/lib/python3.13/site-packages:$PYTHONPATH"
-      '';
+    devShells = {
+      x86_64-linux.default = mkDevShell "x86_64-linux";
+      aarch64-linux.default = mkDevShell "aarch64-linux";
     };
   };
 }

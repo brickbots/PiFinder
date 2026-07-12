@@ -12,6 +12,7 @@ from __future__ import (
 
 import datetime
 import logging
+import math
 import time
 from dataclasses import dataclass
 from PIL import ImageChops, Image
@@ -24,6 +25,77 @@ from PiFinder import calc_utils
 
 
 logger = logging.getLogger("Chart")
+
+# Smallest on-screen span (px) worth outlining. Below this the object's marker
+# glyph carries the position and an outline would just be a blob.
+_MIN_OUTLINE_PX = 4
+
+
+def _angular_sep_deg(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
+    """Great-circle separation between two RA/Dec points, all in degrees."""
+    d1 = math.radians(dec1)
+    d2 = math.radians(dec2)
+    dra = math.radians(ra2 - ra1)
+    cos_sep = math.sin(d1) * math.sin(d2) + math.cos(d1) * math.cos(d2) * math.cos(dra)
+    return math.degrees(math.acos(max(-1.0, min(1.0, cos_sep))))
+
+
+def size_perimeter_radec(
+    ra0: float,
+    dec0: float,
+    extents: list,
+    position_angle: float,
+    steps: int = 48,
+) -> list:
+    """Build a closed RA/Dec perimeter for a numeric-extent size.
+
+    ``extents`` are angular sizes in arcseconds (as stored by ``SizeObject``):
+
+    * ``[d]``            -> circle of diameter ``d``
+    * ``[major, minor]`` -> ellipse, ``position_angle`` measured N through E
+    * ``[r1, r2, ...]``  -> polygon of radial distances at equal angular steps
+
+    Returns ``[[ra, dec], ...]`` in degrees, first point repeated at the end so
+    the caller can draw a closed outline. Empty near the poles where the RA
+    scaling blows up.
+    """
+    if not extents:
+        return []
+    cos_dec0 = math.cos(math.radians(dec0))
+    if abs(cos_dec0) < 1e-6:
+        return []
+
+    pa = math.radians(position_angle)
+    sin_pa = math.sin(pa)
+    cos_pa = math.cos(pa)
+
+    # Local tangent-plane offsets in arcsec: E(ast), N(orth).
+    offsets = []
+    if len(extents) == 1:
+        r = extents[0] / 2.0
+        for i in range(steps):
+            t = 2.0 * math.pi * i / steps
+            offsets.append((r * math.cos(t), r * math.sin(t)))
+    elif len(extents) == 2:
+        a = extents[0] / 2.0
+        b = extents[1] / 2.0
+        for i in range(steps):
+            t = 2.0 * math.pi * i / steps
+            u = a * math.cos(t)  # along major axis
+            v = b * math.sin(t)  # along minor axis
+            offsets.append((u * sin_pa + v * cos_pa, u * cos_pa - v * sin_pa))
+    else:
+        step = 2.0 * math.pi / len(extents)
+        for i, ext in enumerate(extents):
+            phi = pa + i * step  # position angle of this radial spoke, N through E
+            r = ext / 2.0
+            offsets.append((r * math.sin(phi), r * math.cos(phi)))
+
+    radec = [
+        [ra0 + (e / 3600.0) / cos_dec0, dec0 + n / 3600.0] for e, n in offsets
+    ]
+    radec.append(radec[0])
+    return radec
 
 
 class UIChart(UIModule):
@@ -62,7 +134,7 @@ class UIChart(UIModule):
             return
 
         marker_list = []
-        vertex_objects = []
+        outline_objects = []
 
         # is there a target?
         target = self.ui_state.target()
@@ -70,16 +142,14 @@ class UIChart(UIModule):
             marker_list.append(
                 (plot.Angle(degrees=target.ra)._hours, target.dec, "target")
             )
-            if target.size.is_vertices:
-                vertex_objects.append(target)
+            outline_objects.append(target)
 
         marker_brightness = self.config_object.get_option("chart_dso", 128)
         if marker_brightness == 0:
             return
 
         for obs_target in self.ui_state.observing_list():
-            if obs_target.size.is_vertices:
-                vertex_objects.append(obs_target)
+            outline_objects.append(obs_target)
             marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
             if marker:
                 marker_list.append(
@@ -105,12 +175,64 @@ class UIChart(UIModule):
             )
             self.screen.paste(ImageChops.add(self.screen, marker_image))
 
-        if vertex_objects:
-            line_color = self.colors.get(marker_brightness)
-            for obj in vertex_objects:
-                screen_pts = self.starfield.project_vertices(obj.size.extents)
-                if len(screen_pts) >= 2:
-                    self.draw.line(screen_pts, fill=line_color, width=1)
+        line_color = self.colors.get(marker_brightness)
+        center = self._chart_center()
+        for obj in outline_objects:
+            self._draw_object_outline(obj, line_color, center)
+
+    def _chart_center(self):
+        """(RA, Dec) the chart is currently centred on, or ``None``."""
+        if self.solution and self.solution.has_pointing():
+            est = self.solution.pointing.aligned.estimate
+            return est.RA, est.Dec
+        return None
+
+    def _draw_object_outline(self, obj, line_color, center):
+        """Outline an object's true angular extent on the chart.
+
+        Draws polyline/segment shapes as stored, and renders numeric
+        circle/ellipse/polygon sizes from their major/minor axes and position
+        angle. Objects well outside the field, or too small to resolve into
+        more than a glyph, are skipped so the outline never degrades to a blob.
+        """
+        size = getattr(obj, "size", None)
+        if not size or not size.extents:
+            return
+
+        # Cheap RA/Dec cull before any projection: skip anything comfortably
+        # off the current field of view.
+        if center is not None:
+            if _angular_sep_deg(obj.ra, obj.dec, center[0], center[1]) > self.fov:
+                return
+
+        if size.is_segments:
+            for seg in size.extents:
+                pts = self.starfield.project_vertices(seg)
+                if len(pts) >= 2:
+                    self.draw.line(pts, fill=line_color, width=1)
+            return
+
+        if size.is_vertices:
+            pts = self.starfield.project_vertices(size.extents)
+            if len(pts) >= 2:
+                self.draw.line(pts, fill=line_color, width=1)
+            return
+
+        radec = size_perimeter_radec(
+            obj.ra, obj.dec, size.extents, size.position_angle
+        )
+        if not radec:
+            return
+        pts = self.starfield.project_vertices(radec)
+        if len(pts) < 2:
+            return
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        if (max(xs) - min(xs)) < _MIN_OUTLINE_PX and (
+            max(ys) - min(ys)
+        ) < _MIN_OUTLINE_PX:
+            return
+        self.draw.line(pts, fill=line_color, width=1)
 
     def _draw_orientation_indicator(self, orientation: "ChartOrientation"):
         """
