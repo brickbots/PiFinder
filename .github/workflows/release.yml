@@ -70,13 +70,17 @@ jobs:
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             -L --json | jq -r '.[].outputs.out')
+          DEV_SHELL_PATH=$(nix build .#devShells.aarch64-linux.default \
+            -L --json | jq -r '.[].outputs.out')
           # Stable → retained pifinder-release (GC off; devices resolve it months
           # later). Beta → dev pifinder cache (finite retention), so prereleases
           # stay transient.
           if [[ "${{ inputs.type }}" == "beta" ]]; then
             attic push pifinder:pifinder "$STORE_PATH"
+            attic push pifinder:pifinder "$DEV_SHELL_PATH"
           else
             attic push pifinder:pifinder-release "$STORE_PATH"
+            attic push pifinder:pifinder-release "$DEV_SHELL_PATH"
           fi
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
@@ -174,10 +178,14 @@ jobs:
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             -L --json | jq -r '.[].outputs.out')
+          DEV_SHELL_PATH=$(nix build .#devShells.aarch64-linux.default \
+            -L --json | jq -r '.[].outputs.out')
           if [[ "${{ inputs.type }}" == "beta" ]]; then
             attic push pifinder:pifinder "$STORE_PATH"
+            attic push pifinder:pifinder "$DEV_SHELL_PATH"
           else
             attic push pifinder:pifinder-release "$STORE_PATH"
+            attic push pifinder:pifinder-release "$DEV_SHELL_PATH"
           fi
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 

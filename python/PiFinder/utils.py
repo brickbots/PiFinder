@@ -262,16 +262,28 @@ def serialize_solution(solution) -> str:
     return json.dumps(out_dict)
 
 
+_sys_utils_module = None
+
+
 def get_sys_utils():
+    global _sys_utils_module
+    if _sys_utils_module is not None:
+        return _sys_utils_module
+
     try:
-        return importlib.import_module("PiFinder.sys_utils")
-    except Exception:
-        logger.warning(
-            "PiFinder.sys_utils failed to import; falling back to the no-op "
-            "fake. WiFi/AP/hostname/reboot controls will not work.",
-            exc_info=True,
+        _sys_utils_module = importlib.import_module("PiFinder.sys_utils")
+    except Exception as exc:
+        logger.info(
+            "Running without on-device system controls (%s). This is normal "
+            "on a desktop/dev machine: WiFi/AP/hostname/reboot options are "
+            "stubbed out, everything else works as usual. On the PiFinder "
+            "hardware these controls are available automatically.",
+            exc,
         )
-        return importlib.import_module("PiFinder.sys_utils_fake")
+        logger.debug("PiFinder.sys_utils import failed", exc_info=True)
+        _sys_utils_module = importlib.import_module("PiFinder.sys_utils_fake")
+
+    return _sys_utils_module
 
 
 def get_os_info():
