@@ -98,6 +98,8 @@ in {
     pciutils        # lspci
     i2c-tools       # i2cdetect (sensor debugging)
     iotop
+    git             # on-device development: clone/pull a checkout to run live
+    rsync           # sync a checkout from a desktop without re-copying everything
   ];
 
 
@@ -730,13 +732,18 @@ in {
       global = {
         workgroup = "WORKGROUP";
         security = "user";
-        "map to guest" = "never";
+        # Anonymous access, as on the original Raspbian PiFinder: unauthenticated
+        # clients are mapped to the pifinder user, which owns the share, so no SMB
+        # password is ever needed. (Samba's passdb is separate from the Unix login,
+        # so "solveit" never authenticated SMB anyway.)
+        "map to guest" = "bad user";
+        "guest account" = "pifinder";
       };
       PiFinder_data = {
         path = "/home/pifinder/PiFinder_data";
         browseable = "yes";
         "read only" = "no";
-        "valid users" = "pifinder";
+        "guest ok" = "yes";
       };
     };
   };
