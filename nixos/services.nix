@@ -98,7 +98,10 @@ in {
     pciutils        # lspci
     i2c-tools       # i2cdetect (sensor debugging)
     iotop
-    git             # on-device development: clone/pull a checkout to run live
+  ] ++ lib.optionals cfg.devMode [
+    # On-device development only (excluded from the production image). Not used
+    # by the NixOS image updater, which is manifest/store-path based (ADR 0003).
+    git             # clone/pull a checkout to run live
     rsync           # sync a checkout from a desktop without re-copying everything
   ];
 
