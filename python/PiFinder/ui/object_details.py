@@ -300,13 +300,16 @@ class UIObjectDetails(UIModule):
         """
         Generates object text and loads object images
         """
-        # logger.info(f">>> update_object_info() called for {self.object.display_name if self.object else 'None'}")
-
-        # CRITICAL: Clear loading flag at START to prevent recursive update() calls
-        # during generator consumption. If we don't do this, calling self.update()
-        # while consuming yields will trigger update() -> update_object_info() recursion.
+        # Clear this before generator consumption to prevent recursive update()
+        # calls while a chart image is being loaded.
         self._is_showing_loading_chart = False
 
+        # Mirror the just-selected object into UIState as the chart/telemetry
+        # "target" (see docs/ax/ui/CONTEXT.md). This is the single chokepoint
+        # where the displayed object is (re)set -- open, scroll, eyepiece cycle
+        # and display-mode cycle all route through here -- so the chart's target
+        # cross and the telemetry poller track the last-viewed object.
+        self.ui_state.set_target(self.object)
         # Title...
         self.title = self.object.display_name
 

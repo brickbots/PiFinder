@@ -656,6 +656,54 @@ def test_dynamic_ui_module(
 
 
 @pytest.mark.integration
+def test_object_details_tracks_target(display, camera_image, catalogs):
+    """UIObjectDetails mirrors the viewed object into ui_state.target().
+
+    The chart's target cross reads ui_state.target(); UIObjectDetails is the
+    single writer, setting it in update_object_info() so it tracks the
+    last-viewed object on both open and scroll (see the "Target" term in
+    docs/ax/ui/CONTEXT.md).
+    """
+    cfg = Config()
+    shared_state = _make_shared_state("warm")
+    command_queues = _make_command_queues()
+    catalog_filter = CatalogFilter(shared_state=shared_state)
+    catalog_filter.load_from_config(cfg)
+    catalogs.set_catalog_filter(catalog_filter)
+
+    # Two catalog objects with distinct object_ids (scroll_object indexes by
+    # equality, which is object_id-based).
+    objs = catalogs.get_objects(only_selected=False, filtered=False)
+    obj_a = objs[0]
+    obj_b = next((o for o in objs if o.object_id != obj_a.object_id), None)
+    if obj_b is None:
+        pytest.skip("need two distinct catalog objects for the scroll assertion")
+
+    item_definition = {
+        "name": getattr(obj_a, "display_name", "Object"),
+        "class": UIObjectDetails,
+        "object": obj_a,
+        "object_list": [obj_a, obj_b],
+        "label": "object_details",
+    }
+    module = UIObjectDetails(
+        display,
+        camera_image,
+        shared_state,
+        command_queues,
+        cfg,
+        catalogs,
+        item_definition=item_definition,
+    )
+
+    # Set on open (update_object_info runs in __init__)...
+    assert shared_state.ui_state().target() is obj_a
+    # ...and updated on scroll.
+    module.scroll_object(1)
+    assert shared_state.ui_state().target() is obj_b
+
+
+@pytest.mark.integration
 def test_all_ui_modules_covered():
     """Fail if a UIModule subclass is reached by neither discovery path.
 
