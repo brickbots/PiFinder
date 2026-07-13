@@ -346,6 +346,19 @@ where your telescope is pointing, with constellation lines and markers for nearb
 It redraws as you move the scope, so it's a quick way to see what's around you and confirm
 your aim.  Zoom in and out with the **+/-** keys.
 
+Deep-sky objects show as small symbols, one shape per object type.  Near where you're
+pointing the chart marks the objects your :ref:`filters <user_guide:filters>` allow,
+revealing fainter ones as you zoom in and keeping only the brightest as you zoom out so the
+field never crowds.  Objects on a loaded observing list are marked too.  Dim these markers,
+or switch them off, with the DSO Display setting under Chart... in the
+:ref:`user_guide:settings menu`.
+
+The object you last opened in :ref:`user_guide:object details` is marked with a brighter
+cross wherever you steer, a quick way to see where it sits relative to your aim.  On the
+chart the cross is labelled with the object's designation — "M 57", say; once it drifts off
+the edge an arrow at the rim points the way instead.  The cross stays bright even with DSO
+Display turned off.
+
 How the chart is turned is up to you.  Choose Coordinate Sys. under Chart... in the
 :ref:`user_guide:settings menu`:
 
