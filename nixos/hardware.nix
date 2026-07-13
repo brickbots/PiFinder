@@ -37,14 +37,29 @@ let
     &uart3 { status = "okay"; };
   '';
 
-  # I2C1 (ARM bus) — nixos-hardware overlay is bypassed by our mkForce DTB package
-  i2c1Dtbo = compileOverlay "i2c1" ''
+  # Peripheral I2C (BNO055 IMU, rev-4 BQ25895 charger) as a bit-banged
+  # i2c-gpio bus on the standard SDA/SCL pins (GPIO2/GPIO3). The BCM2711
+  # hardware I2C block corrupts transfers when a slave stretches the clock
+  # (a silicon bug; the BNO055 stretches routinely) — the previous
+  # workaround, running &i2c1 at 10 kHz, only lowered the corruption odds
+  # while making every IMU transaction ~10x slower. i2c-gpio implements
+  # clock stretching per spec at ~60-100 kHz effective. &i2c1 is disabled
+  # explicitly so the hardware block never claims the pins; the Python
+  # side (PiFinder.i2c_bus.get_i2c) discovers this adapter through sysfs.
+  i2cGpioDtbo = compileOverlay "i2c-gpio" ''
     /dts-v1/;
     /plugin/;
     / { compatible = "brcm,bcm2711"; };
-    &i2c1 {
-      status = "okay";
-      clock-frequency = <${toString cfg.i2cFrequency}>;
+    &i2c1 { status = "disabled"; };
+    &{/} {
+      i2c_gpio: i2c-gpio {
+        compatible = "i2c-gpio";
+        sda-gpios = <&gpio 2 6>;  /* GPIO_OPEN_DRAIN */
+        scl-gpios = <&gpio 3 6>;  /* GPIO_OPEN_DRAIN */
+        i2c-gpio,delay-us = <2>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+      };
     };
   '';
 
@@ -118,11 +133,6 @@ in {
       default = "imx462";
       description = "Camera sensor type for PiFinder";
     };
-    i2cFrequency = lib.mkOption {
-      type = lib.types.int;
-      default = 10000;
-      description = "I2C1 bus clock frequency in Hz (10 kHz for BNO055 IMU)";
-    };
   };
 
   config = {
@@ -142,6 +152,9 @@ in {
 
     # I2C enabled (loads i2c-dev module, creates i2c group)
     hardware.i2c.enable = true;
+    # The bit-banged bus driver (DT modalias autoload also works when built
+    # as a module; listing it here makes the dependency explicit)
+    boot.kernelModules = [ "i2c-gpio" ];
 
     # GPIO14 is the rev-4 power-off kill line (gpio-poweroff overlay above) —
     # its default function is UART0 TXD, so nothing may drive serial console
@@ -161,7 +174,7 @@ in {
       for dtb in ${kernelDtbs}/broadcom/*rpi-4-b.dtb; do
         fdtoverlay -i "$dtb" \
           -o "$out/broadcom/$(basename $dtb)" \
-          ${i2c1Dtbo} ${spi0Dtbo} ${uart3Dtbo} ${pwmDtbo} ${gpioPoweroffDtbo} ${cameraDtbo} \
+          ${i2cGpioDtbo} ${spi0Dtbo} ${uart3Dtbo} ${pwmDtbo} ${gpioPoweroffDtbo} ${cameraDtbo} \
           ${lib.optionalString (cfg.cameraType == "imx462") cameraClockDtbo}
       done
     '');
