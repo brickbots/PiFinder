@@ -307,15 +307,10 @@ class UISoftware(UIModule):
 
         self._fail_option = "Retry"
         self._fail_reason = ""
-        self._unstable_unlocked = self.config_object.get_option(
-            "software_unstable_unlocked"
-        )
         self._unstable_entries: List[dict] = []
-        self._square_count = 0
 
         # Unlock sequence tracking (7x square triggers a manifest-sourced
-        # in-place migration, independent of the unstable-channel unlock
-        # above which shares the same button).
+        # in-place migration).
         self._key_buffer: List[str] = []
 
         self._scrollers: Dict[str, TextLayouterScroll] = {}
@@ -371,7 +366,7 @@ class UISoftware(UIModule):
             "beta": manifest_channels.get("beta", []),
         }
 
-        if self._unstable_unlocked:
+        if self.config_object.get_option("dev_mode", False):
             self._unstable_entries = manifest_channels.get("unstable", [])
             self._channels["unstable"] = self._unstable_entries
 
@@ -751,12 +746,7 @@ class UISoftware(UIModule):
             y += 12
 
     def _record_key(self, key_name: str):
-        """Record a key press for the migration unlock sequence.
-
-        Independent of _square_count (unstable-channel unlock above): both
-        gestures use 7x square, tracked separately so unlocking one doesn't
-        consume progress toward the other.
-        """
+        """Record a key press for the migration unlock sequence (7x square)."""
         self._key_buffer.append(key_name)
         if len(self._key_buffer) > len(_UNLOCK_SEQUENCE):
             self._key_buffer = self._key_buffer[-len(_UNLOCK_SEQUENCE) :]
@@ -826,11 +816,7 @@ class UISoftware(UIModule):
     # Key handlers
     # ------------------------------------------------------------------
 
-    def _reset_unlock(self):
-        self._square_count = 0
-
     def key_up(self):
-        self._reset_unlock()
         if self._phase == "upgrading":
             return
         if self._phase == "failed":
@@ -848,7 +834,6 @@ class UISoftware(UIModule):
                 self._confirm_index -= 1
 
     def key_down(self):
-        self._reset_unlock()
         if self._phase == "upgrading":
             return
         if self._phase == "failed":
@@ -869,7 +854,6 @@ class UISoftware(UIModule):
                 self._confirm_index += 1
 
     def key_right(self):
-        self._reset_unlock()
         if self._phase == "upgrading":
             return
         if self._phase == "failed":
@@ -907,7 +891,6 @@ class UISoftware(UIModule):
                 self._phase = "browse"
 
     def key_left(self):
-        self._reset_unlock()
         if self._phase == "upgrading":
             return False
         if self._phase == "confirm":
@@ -916,18 +899,9 @@ class UISoftware(UIModule):
         return True
 
     def key_square(self):
-        self._square_count += 1
-        if self._square_count >= 7 and not self._unstable_unlocked:
-            self._unstable_unlocked = True
-            self.config_object.set_option("software_unstable_unlocked", True)
-            self._unstable_entries = self._manifest_channels.get("unstable", [])
-            self._channels["unstable"] = self._unstable_entries
-            self._channel_names = list(self._channels.keys())
-            self.message(_("Unstable\nunlocked"), 1)
         self._record_key("square")
 
     def key_number(self, number):
-        self._square_count = 0
         self._key_buffer = []
 
     # ------------------------------------------------------------------
