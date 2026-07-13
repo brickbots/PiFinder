@@ -91,9 +91,7 @@ def size_perimeter_radec(
             r = ext / 2.0
             offsets.append((r * math.sin(phi), r * math.cos(phi)))
 
-    radec = [
-        [ra0 + (e / 3600.0) / cos_dec0, dec0 + n / 3600.0] for e, n in offsets
-    ]
+    radec = [[ra0 + (e / 3600.0) / cos_dec0, dec0 + n / 3600.0] for e, n in offsets]
     radec.append(radec[0])
     return radec
 
@@ -218,9 +216,7 @@ class UIChart(UIModule):
                 self.draw.line(pts, fill=line_color, width=1)
             return
 
-        radec = size_perimeter_radec(
-            obj.ra, obj.dec, size.extents, size.position_angle
-        )
+        radec = size_perimeter_radec(obj.ra, obj.dec, size.extents, size.position_angle)
         if not radec:
             return
         pts = self.starfield.project_vertices(radec)

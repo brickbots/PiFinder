@@ -88,6 +88,7 @@ from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
 from PiFinder.ui.sqm_sweep import UISQMSweep
 from PiFinder.ui.sqm_correction import UISQMCorrection
+from PiFinder.ui.software import UIMigrationConfirm, UIMigrationProgress
 
 
 # --------------------------------------------------------------------------- #
@@ -125,15 +126,6 @@ _COVERAGE_SKIP: dict[str, str] = {
         "Pushed onto the stack by UISoftware's Notes action with a "
         "notes-payload item_definition; not reachable from the menu tree "
         "and needs live update-channel state to construct."
-    ),
-    "UIMigrationConfirm": (
-        "Pushed by UISoftware's migration path with a version_info "
-        "item_definition; its Confirm action pushes UIMigrationProgress, "
-        "so smoke-driving its keys risks starting a real migration."
-    ),
-    "UIMigrationProgress": (
-        "active() immediately starts a real migration download/prepare "
-        "via sys_utils; never safe to smoke-drive."
     ),
 }
 
@@ -196,6 +188,8 @@ _DYNAMIC_IDS = [
     "UISQMCalibration",
     "UISQMSweep",
     "UISQMCorrection",
+    "UIMigrationConfirm",
+    "UIMigrationProgress",
 ]
 
 
@@ -238,6 +232,30 @@ def _build_dynamic_item_definition(spec_id: str, sample_object) -> dict:
             "name": "SQM Correction",
             "class": UISQMCorrection,
             "label": "sqm_correction",
+        }
+    if spec_id == "UIMigrationConfirm":
+        # software.py:_trigger_migration
+        return {
+            "name": "System Upgrade",
+            "class": UIMigrationConfirm,
+            "current_version": "1.0.0",
+            "version_info": {
+                "version": "2.0.0",
+                "migration_url": "https://example.invalid/migration.tar.zst",
+                "migration_sha256": "0" * 64,
+                "migration_size_mb": 512,
+            },
+        }
+    if spec_id == "UIMigrationProgress":
+        # UIMigrationConfirm.key_right
+        return {
+            "name": "System Upgrade",
+            "class": UIMigrationProgress,
+            "version_info": {
+                "version": "2.0.0",
+                "migration_url": "https://example.invalid/migration.tar.zst",
+                "migration_sha256": "0" * 64,
+            },
         }
     raise KeyError(spec_id)  # pragma: no cover
 
@@ -435,7 +453,7 @@ def camera_image():
 
 
 @pytest.fixture(scope="session")
-def catalogs(_sandbox_data_dir, _no_comet_download) -> Iterator[Catalogs]:
+def catalogs(_no_comet_download) -> Iterator[Catalogs]:
     """Build the real catalogs once from the bundled DB.
 
     Teardown stops the perpetual catalog timers. The planet and comet catalogs
