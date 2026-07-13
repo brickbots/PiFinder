@@ -7,7 +7,8 @@
     firewall = {
       checkReversePath = "loose";   # Allow multi-interface (WiFi + ethernet) on same subnet
       allowedUDPPorts = [ 53 67 ];  # DNS + DHCP for AP mode
-      allowedTCPPorts = [ 80 ];     # PiFinder web UI (other ports via service openFirewall)
+      # Web UI and the LX200 server used by SkySafari/planetarium clients.
+      allowedTCPPorts = [ 80 4030 ];
     };
   };
 
@@ -88,6 +89,10 @@
   # ---------------------------------------------------------------------------
   services.avahi = {
     enable = true;
+    # PiFinder's application listeners (including LX200) are IPv4-only and AP
+    # mode disables IPv6. Do not advertise an unusable link-local AAAA address
+    # ahead of the working IPv4 address to mobile clients.
+    ipv6 = false;
     nssmdns4 = true;
     publish = {
       enable = true;
@@ -122,33 +127,10 @@
     };
   };
 
-  # Avahi binds whatever interfaces are up when it starts. A PiFinder has both
-  # the wlan0 AP (up fast) and the DHCP'd LAN end0 (up slow); avahi frequently
-  # starts before the LAN and then never re-binds it, leaving the unit
-  # unreachable as <host>.local over ethernet. Re-scan avahi whenever
-  # NetworkManager activates a connection so it always reflects current links.
-  # NetworkManager must not manage the hostname, or it resets it to the static
-  # "pifinder" (networking.hostName) and undoes pifinder-hostname's value.
+  # Avahi watches interface/address changes itself, so it must remain running
+  # while NetworkManager brings links up and down. Restarting it from a
+  # dispatcher briefly withdraws the .local record and also resets a custom
+  # runtime hostname to the static value above. NetworkManager must not manage
+  # the hostname either, or it undoes pifinder-hostname's persisted value.
   networking.networkmanager.settings.main."hostname-mode" = "none";
-
-  networking.networkmanager.dispatcherScripts = [{
-    source = pkgs.writeShellScript "avahi-rescan-on-net" ''
-      case "$2" in
-        up|connectivity-change)
-          # Re-scan avahi onto the now-up link (it misses the slow DHCP'd LAN at
-          # boot). NixOS bakes host-name=<static> into avahi's config, so the
-          # restart reverts the published name to "pifinder" — re-assert the
-          # user hostname (system + avahi runtime) afterwards; that sticks.
-          f=/home/pifinder/PiFinder_data/hostname
-          name=""
-          if [ -s "$f" ]; then
-            name=$(cat "$f")
-            /run/current-system/sw/bin/hostname "$name" 2>/dev/null || true
-          fi
-          ${pkgs.systemd}/bin/systemctl try-restart avahi-daemon.service || true
-          [ -n "$name" ] && /run/current-system/sw/bin/avahi-set-host-name "$name" 2>/dev/null || true
-          ;;
-      esac
-    '';
-  }];
 }
