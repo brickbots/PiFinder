@@ -9,8 +9,8 @@ as the single source of truth for "is this board a rev-4 with the
 BQ25895 charger?". The battery monitor only spawns when the charger is
 detected.
 
-Import-safe on dev machines: ``board`` is imported under try/except so
-this module loads even without blinka / an I2C bus.
+Import-safe on dev machines: the I2C bus factory is imported under
+try/except so this module loads even without blinka / an I2C bus.
 """
 
 import logging
@@ -18,17 +18,17 @@ import logging
 from PiFinder.types.hardware import HardwareCapabilities
 
 try:
-    import board
+    from PiFinder.i2c_bus import get_i2c
 except (ImportError, NotImplementedError):
-    board = None
+    get_i2c = None  # type: ignore[assignment]
 
 logger = logging.getLogger("HardwareDetect")
 
-# BQ25895 single-cell Li-ion charger, I2C address 0x6A on bus 1.
+# BQ25895 single-cell Li-ion charger, I2C address 0x6A.
 BQ25895_ADDRESS = 0x6A
 
 
-def i2c_present(address: int, bus: int = 1) -> bool:
+def i2c_present(address: int) -> bool:
     """Non-destructive I2C presence check: does ``address`` ACK on the
     bus?
 
@@ -41,10 +41,10 @@ def i2c_present(address: int, bus: int = 1) -> bool:
     Raises if no I2C bus is available (no blinka); callers that want a
     soft answer should catch.
     """
-    if board is None:
+    if get_i2c is None:
         raise RuntimeError("blinka / board unavailable — no I2C bus")
 
-    i2c = board.I2C()
+    i2c = get_i2c()
     locked = False
     try:
         while not i2c.try_lock():

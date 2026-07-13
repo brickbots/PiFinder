@@ -124,6 +124,15 @@ wheels = [
 ]
 
 [[package]]
+name = "adafruit-extended-bus"
+version = "1.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "adafruit-blinka" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d3/1c/26ccaf2d7a3fd3d16504173df591973b9f1de5520b0b4d81af038b9e4ed3/adafruit-extended-bus-1.0.2.tar.gz", hash = "sha256:f34e3c114e274e5aa475673794019af1ab438df6e45141e16201b6a8c4bea3ea", size = 18966, upload-time = "2021-06-14T15:03:48.711Z" }
+
+[[package]]
 name = "adafruit-platformdetect"
 version = "3.88.0"
 source = { registry = "https://pypi.org/simple" }
@@ -852,6 +861,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "adafruit-blinka" },
     { name = "adafruit-circuitpython-bno055" },
+    { name = "adafruit-extended-bus" },
     { name = "aiofiles" },
     { name = "av" },
     { name = "cedar-solve" },
@@ -920,6 +930,7 @@ dev = [
 requires-dist = [
     { name = "adafruit-blinka" },
     { name = "adafruit-circuitpython-bno055" },
+    { name = "adafruit-extended-bus" },
     { name = "aiofiles" },
     { name = "av" },
     { name = "cedar-solve", git = "https://github.com/smroid/cedar-solve?rev=d8ff1d857a363c88917fd8e126ab90e24b1cfbcc" },

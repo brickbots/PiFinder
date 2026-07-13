@@ -104,6 +104,12 @@ def load_source(name, path):
         ++ final.resolveBuildSystem { setuptools = []; };
     });
 
+    adafruit-extended-bus = prev.adafruit-extended-bus.overrideAttrs (old: {
+      nativeBuildInputs =
+        (old.nativeBuildInputs or [])
+        ++ final.resolveBuildSystem { setuptools = []; };
+    });
+
     # cedar-solve declares the setuptools.build_meta backend but ships no
     # setuptools in its build env, so the sdist build fails with "No module
     # named 'setuptools'" — provide the backend like the other legacy packages.
@@ -165,6 +171,31 @@ def load_source(name, path):
       nativeBuildInputs =
         (old.nativeBuildInputs or [])
         ++ final.resolveBuildSystem { setuptools = []; };
+    });
+
+    # The manylinux pygame wheel bundles libSDL2, which dlopen()s libX11 /
+    # libwayland / libxkbcommon / libGL / libdecor at runtime instead of listing
+    # them as NEEDED, so autoPatchelf never discovers them. On a Nix host those
+    # libraries aren't on the loader path, so SDL falls back to the "offscreen"
+    # video driver and the emulator window never opens. Append them to the
+    # runpath so SDL can load its x11/wayland backends. Dev-only (pulled in via
+    # luma-emulator); pygame is not in the Pi runtime env.
+    pygame = prev.pygame.overrideAttrs (old: {
+      appendRunpaths = map (p: "${lib.getLib p}/lib") [
+        pkgs.xorg.libX11
+        pkgs.xorg.libXext
+        pkgs.xorg.libXcursor
+        pkgs.xorg.libXrandr
+        pkgs.xorg.libXi
+        pkgs.xorg.libXfixes
+        pkgs.libxrender
+        pkgs.libxscrnsaver
+        pkgs.libxinerama
+        pkgs.libxkbcommon
+        pkgs.wayland
+        pkgs.libGL
+        pkgs.libdecor
+      ];
     });
 
     # adafruit-blinka's wheel vendors prebuilt libgpiod_pulsein helpers for

@@ -16,6 +16,7 @@ import os
 import logging
 from PiFinder import utils
 from PiFinder.calc_utils import sf_utils
+from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.catalog_base import VirtualIDManager
 from PiFinder.catalogs import Catalogs
 from PiFinder.composite_object import CompositeObject
@@ -105,12 +106,16 @@ def _coordinate_object(entry: ObsListEntry, index: int) -> CompositeObject:
         except Exception:
             pass
     virtual_id = VirtualIDManager.mint_id()
+    # Only known type codes may reach the object: a raw source string like
+    # "Nebula" matches no Type filter entry, so the object would import but
+    # never display. Unknown types become '?' and stay visible.
+    obj_type = entry.obj_type if entry.obj_type in OBJ_TYPES else "?"
     return CompositeObject(
         id=virtual_id,
         object_id=virtual_id,
         ra=entry.ra,
         dec=entry.dec,
-        obj_type=entry.obj_type or "?",
+        obj_type=obj_type,
         const=const,
         size=entry.size,
         # Coordinate objects always carry catalog code OBS (see Catalog

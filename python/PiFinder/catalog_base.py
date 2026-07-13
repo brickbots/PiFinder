@@ -85,6 +85,11 @@ class CatalogBase:
         self.__objects: List = []
         self.id_to_pos: Dict[int, int] = {}
         self.sequence_to_pos: Dict[int, int] = {}
+        # Wall-clock time this catalog's objects were last filtered; compared
+        # against the filter's dirty_time to reuse the cached filtered list.
+        # Reset to 0 on any object mutation so a stale cache can't survive a
+        # deferred load, comet refresh, or batch add (see Catalog.filter_objects).
+        self.last_filtered: float = 0
 
     def get_objects(self) -> ROArrayWrapper:
         return ROArrayWrapper(self.__objects)
@@ -98,6 +103,7 @@ class CatalogBase:
         self._update_id_to_pos()
         self._update_sequence_to_pos()
         assert self.check_sequences()
+        self.last_filtered = 0  # objects changed -> invalidate filter cache
 
     def _add_object(self, obj):
         self.__objects.append(obj)
@@ -112,6 +118,21 @@ class CatalogBase:
         self._update_id_to_pos()
         self._update_sequence_to_pos()
         assert self.check_sequences()
+        self.last_filtered = 0  # objects changed -> invalidate filter cache
+
+    def clear_objects(self):
+        """
+        Remove all objects and reset the sequence/id indexes.
+
+        Use this instead of clearing the object list directly: like
+        add_object/add_objects, it invalidates the filter cache so a
+        cleared catalog can't keep serving its stale filtered list.
+        """
+        self.__objects.clear()
+        self.max_sequence = 0
+        self.id_to_pos = {}
+        self.sequence_to_pos = {}
+        self.last_filtered = 0  # objects changed -> invalidate filter cache
 
     def _sort_objects(self):
         self.__objects.sort(key=self.sort)
