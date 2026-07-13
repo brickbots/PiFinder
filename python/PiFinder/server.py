@@ -518,13 +518,17 @@ class Server:
             self.network.set_wifi_mode(wifi_mode)
             self.network.set_ap_name(ap_name)
             self.network.set_host_name(host_name)
+
+            applied_host = self.network.get_host_name()
             return app.jinja_env.get_template("network.html").render(
                 title=_("Network"),
                 net=self.network,
                 show_new_form=0,
                 status_message=_(
-                    "Network settings updated. You may need to reconnect."
-                ),
+                    "Network settings updated — no restart needed. This device is "
+                    "now reachable at http://{host}.local. If you changed the host "
+                    "name, the previous address stops working, so reconnect there."
+                ).format(host=applied_host),
             )
 
         @app.route("/tools/pwchange", methods=["POST"])

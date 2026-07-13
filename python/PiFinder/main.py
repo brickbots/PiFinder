@@ -151,6 +151,8 @@ class PowerManager:
         self.shared_state = shared_state
         self.display_device = display_device
         self.last_activity = time.time()
+        self.sleep_start_time = None
+        self.screen_off_start_time = None
 
     def register_activity(self):
         """
@@ -174,6 +176,8 @@ class PowerManager:
         Do all the wakeup things
         """
         self.last_activity = time.time()
+        self.sleep_start_time = None
+        self.screen_off_start_time = None
         self.shared_state.set_power_state(1)
         self.wake_screen()
 
@@ -182,6 +186,7 @@ class PowerManager:
         Do all the sleep things
         """
         self.shared_state.set_power_state(0)
+        self.sleep_start_time = time.time()
         self.sleep_screen()
 
     def update(self):
@@ -200,11 +205,36 @@ class PowerManager:
             if time.time() - self.last_activity > self.get_sleep_timeout():
                 self.go_to_sleep()
 
-        else:  # We are asleepd, should we wake up?
+        elif self.shared_state.power_state() == 0:
+            # We are asleep, should we wake up or go to screen off?
             _imu = self.shared_state.imu()
             if _imu:
                 if _imu.moving:
                     self.wake_up()
+                    return
+
+            # Check if we should turn screen off
+            screen_off_timeout = self.get_screen_off_timeout()
+            if (
+                screen_off_timeout > 0
+                and self.sleep_start_time is not None
+                and time.time() - self.sleep_start_time > screen_off_timeout
+            ):
+                self.screen_off()
+
+        # Screen off mode: LED heartbeat, longer sleep
+        if self.shared_state.power_state() == -1:
+            _imu = self.shared_state.imu()
+            if _imu and _imu.moving:
+                self.wake_up()
+                return
+            self.update_heartbeat()
+            time.sleep(1.0)
+            return
+
+        # should we pause execution for a bit?
+        if self.shared_state.power_state() < 1:
+            time.sleep(0.2)
 
     def get_sleep_timeout(self):
         """
@@ -244,6 +274,23 @@ class PowerManager:
         screen_brightness = self.cfg.get_option("display_brightness")
         set_brightness(int(screen_brightness / 4), self.cfg)
         self.display_device.device.show()
+
+    def screen_off(self):
+        """Completely blank screen and turn off LEDs"""
+        self.shared_state.set_power_state(-1)
+        self.screen_off_start_time = time.time()
+        self.display_device.device.hide()
+        set_keypad_brightness(0)
+
+    def update_heartbeat(self):
+        """Pulse all LEDs briefly every hour"""
+        if self.screen_off_start_time is None:
+            return
+        seconds_into_hour = (time.time() - self.screen_off_start_time) % 3600
+        if seconds_into_hour < 0.5:
+            set_keypad_brightness(2)
+        else:
+            set_keypad_brightness(0)
 
 
 def start_profiling():
@@ -442,6 +489,8 @@ def main(
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
         shared_state.set_hardware(capabilities)
+        # Initialize test_mode from config so camera process can read it at startup
+        shared_state.set_test_mode(cfg.get_option("test_mode", False))
         logger.debug("Ui state in main is" + str(shared_state.ui_state()))
         console = UIConsole(
             display_device, None, shared_state, command_queues, cfg, Catalogs([])
@@ -831,25 +880,36 @@ def main(
                     )
                     menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
-                    dt = timez.utc(2025, 6, 28, 11, 0, 0)
-                    shared_state.set_datetime(dt)
-                    location.lat = 41.13
-                    location.lon = -120.97
-                    location.altitude = 1315
-                    location.source = "test"
-                    location.error_in_m = 5
-                    location.lock = True
-                    location.lock_type = 3
-                    location.last_gps_lock = timez.local_now().time().isoformat()[:8]
-                    console.write(
-                        f"GPS: Location {location.lat} {location.lon} {location.altitude}"
-                    )
-                    shared_state.set_location(location)
-                    sf_utils.set_location(
-                        location.lat,
-                        location.lon,
-                        location.altitude,
-                    )
+                    # Toggle test mode (store in both shared_state and config)
+                    new_test_mode = not cfg.get_option("test_mode", False)
+                    shared_state.set_test_mode(new_test_mode)
+                    cfg.set_option("test_mode", new_test_mode)
+                    if new_test_mode:
+                        # Set fake GPS data when entering test mode
+                        dt = timez.utc(2025, 6, 28, 11, 0, 0)
+                        shared_state.set_datetime(dt)
+                        location.lat = 41.13
+                        location.lon = -120.97
+                        location.altitude = 1315
+                        location.source = "test"
+                        location.error_in_m = 5
+                        location.lock = True
+                        location.lock_type = 3
+                        location.last_gps_lock = (
+                            timez.local_now().time().isoformat()[:8]
+                        )
+                        console.write(
+                            f"GPS: Location {location.lat} {location.lon} {location.altitude}"
+                        )
+                        shared_state.set_location(location)
+                        sf_utils.set_location(
+                            location.lat,
+                            location.lon,
+                            location.altitude,
+                        )
+                        menu_manager.message(_("Test Mode ON\nfake cam+GPS"), 2)
+                    else:
+                        menu_manager.message(_("Test Mode\nOFF"), 2)
                 elif ui_command == "set_volume":
                     # Master volume changed in the menu: re-push the level
                     # (main owns both cfg and sound_queue). The player plays

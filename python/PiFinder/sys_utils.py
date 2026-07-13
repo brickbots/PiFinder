@@ -260,22 +260,37 @@ class Network(NetworkBase):
         return "PiFinderAP"
 
     def set_ap_name(self, ap_name: str) -> None:
-        """Change the AP SSID."""
+        """Change the AP SSID.
+
+        Commit the new SSID to the PiFinder-AP profile and, when AP is the live
+        WiFi mode, re-activate the connection so the running access point
+        rebroadcasts under the new name without a reboot. (Clients must rejoin
+        anyway once the SSID changes.)
+        """
         if ap_name == self.get_ap_name():
             return
-        for conn in self._client.get_connections():
-            if conn.get_id() == AP_CONNECTION_NAME:
-                s_wifi = conn.get_setting_wireless()
-                if s_wifi:
-                    s_wifi.set_property(
-                        NM.SETTING_WIRELESS_SSID,
-                        GLib.Bytes.new(ap_name.encode("utf-8")),
-                    )
-                    try:
-                        _nm_run_async(conn.commit_changes_async, True, None)
-                    except Exception as e:
-                        logger.error("Failed to update AP SSID: %s", e)
-                return
+        conn = None
+        for c in self._client.get_connections():
+            if c.get_id() == AP_CONNECTION_NAME:
+                conn = c
+                break
+        if conn is None:
+            logger.error("Connection '%s' not found", AP_CONNECTION_NAME)
+            return
+        s_wifi = conn.get_setting_wireless()
+        if s_wifi is None:
+            return
+        s_wifi.set_property(
+            NM.SETTING_WIRELESS_SSID,
+            GLib.Bytes.new(ap_name.encode("utf-8")),
+        )
+        try:
+            _nm_run_async(conn.commit_changes_async, True, None)
+        except Exception as e:
+            logger.error("Failed to update AP SSID: %s", e)
+            return
+        if self.wifi_mode() == "AP":
+            self._activate_connection(AP_CONNECTION_NAME)
 
     def get_connected_ssid(self) -> str:
         """Returns the SSID of the connected wifi network."""

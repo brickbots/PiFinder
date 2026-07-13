@@ -45,7 +45,7 @@ dependencies = [
     "gpsdclient",
     "dataclasses-json",
     "pydeepskylog",
-    "python-pam",
+    "python-pam; sys_platform == 'linux'",
     # 0.3.0a0 (prerelease) is the version that builds on 3.13; its setup.py
     # and .so lookups are patched in the uv2nix override (see uv-python.nix).
     "python-libinput==0.3.0a0; platform_machine == 'aarch64'",
@@ -55,14 +55,14 @@ dependencies = [
     # Hardware / camera
     "rpi-gpio; platform_machine == 'aarch64'",
     "rpi-hardware-pwm; platform_machine == 'aarch64'",
-    "adafruit-blinka",
-    "adafruit-circuitpython-bno055",
-    "adafruit-extended-bus",
+    "adafruit-blinka; sys_platform == 'linux'",
+    "adafruit-circuitpython-bno055; sys_platform == 'linux'",
+    "adafruit-extended-bus; sys_platform == 'linux'",
     "picamera2; platform_machine == 'aarch64'",
-    "pidng",
+    "pidng; sys_platform == 'linux'",
     "simplejpeg",
     "python-prctl; platform_machine == 'aarch64'",
-    "videodev2",
+    "videodev2; sys_platform == 'linux'",
 ]
 
 [dependency-groups]
@@ -106,7 +106,7 @@ packages = []
 # (pkgs/pifinder-src.nix), so uv must not try to build/install this root project.
 package = false
 # Deployment + dev are both Linux (aarch64 Pi, x86_64 dev); keep the lock focused.
-environments = ["sys_platform == 'linux'"]
+environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
 
 # Plate solver source: pinned cedar-solve rev (smroid upstream for now; point this
 # at our fork here when we need to carry patches).

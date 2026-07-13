@@ -269,12 +269,15 @@ class CameraInterface:
                         pointing_diff = 0.0
 
                     # Make image available
-                    if debug and abs(pointing_diff) > 0.01:
-                        # Check if we moved and return a blank image
-                        camera_image.paste(self._blank_capture())
-                    else:
-                        camera_image.paste(base_image)
-
+                    # For debug camera: only send images when test_mode is ON
+                    # For real camera: always send images
+                    test_mode_on = shared_state.test_mode()
+                    if not debug or test_mode_on:
+                        if debug and abs(pointing_diff) > 0.01:
+                            # Check if we moved and return a blank image
+                            camera_image.paste(self._blank_capture())
+                        else:
+                            camera_image.paste(base_image)
                     image_metadata = {
                         "exposure_start": image_start_time,
                         "exposure_end": image_end_time,
