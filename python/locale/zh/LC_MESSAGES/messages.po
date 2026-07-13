@@ -2581,6 +2581,20 @@ msgid "Enter Local Time"
 msgstr "输入本地时间"
 
 # AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:527
+msgid ""
+"Network settings updated — no restart needed. This device is now "
+"reachable at http://{host}.local. If you changed the host name, the "
+"previous address stops working, so reconnect there."
+msgstr ""
+"网络设置已更新——无需重启。现在可通过 http://{host}.local 访问本设备。如果您更改了主机名，之前的地址将失效，请在新地址重新连接。"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:39
+msgid "Update"
+msgstr "更新"
+
+# AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/menu_structure.py:626
 msgid "Volume"
 msgstr "音量"
