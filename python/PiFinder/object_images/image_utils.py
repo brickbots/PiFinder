@@ -141,6 +141,119 @@ def vertex_overlay_points(
     return points
 
 
+def project_radec_to_chart(
+    ra_deg: float,
+    dec_deg: float,
+    center_ra: float,
+    center_dec: float,
+    fov: float,
+    width: int,
+    height: int,
+    rotation: float,
+) -> Tuple[float, float]:
+    """Project one RA/Dec point to Gaia-chart pixel coordinates.
+
+    Mirrors the tangent-plane projection in ``GaiaChartGenerator.render_chart``
+    exactly (RA scaled by centre declination, East to the left, screen rotation
+    by ``rotation`` degrees) so overlays land on the same pixels as the stars.
+    Flip/flop are applied by the caller via ``Image.transpose`` after drawing.
+    """
+    ra = math.radians(ra_deg)
+    dec = math.radians(dec_deg)
+    cra = math.radians(center_ra)
+    cdec = math.radians(center_dec)
+
+    dra = ra - cra
+    if dra > math.pi:
+        dra -= 2 * math.pi
+    elif dra < -math.pi:
+        dra += 2 * math.pi
+    ddec = dec - cdec
+
+    x_proj = dra * math.cos(cdec)
+    y_proj = ddec
+    pixel_scale = width / math.radians(fov)
+
+    x = width / 2.0 - x_proj * pixel_scale
+    y = height / 2.0 - y_proj * pixel_scale
+
+    if rotation:
+        rot = math.radians(rotation)
+        cos_r = math.cos(rot)
+        sin_r = math.sin(rot)
+        x_rel = x - width / 2.0
+        y_rel = y - height / 2.0
+        x = (x_rel * cos_r - y_rel * sin_r) + width / 2.0
+        y = (x_rel * sin_r + y_rel * cos_r) + height / 2.0
+
+    return (x, y)
+
+
+def extent_perimeter_polylines(
+    center_ra: float,
+    center_dec: float,
+    size,
+    steps: int = 48,
+) -> List[List[List[float]]]:
+    """Build RA/Dec polylines outlining a ``SizeObject``'s angular extent.
+
+    Returns a list of polylines, each a list of ``[ra, dec]`` points in degrees:
+
+    * stored vertices  -> the polyline as-is
+    * stored segments  -> one 2-point polyline per segment
+    * ``[d]``          -> a closed circle of diameter ``d``
+    * ``[major, minor]`` -> a closed ellipse, position angle N through E
+    * ``[r1, r2, ...]``  -> a closed polygon of radial spokes
+
+    Numeric extents are stored in arcseconds. Empty near the poles where the RA
+    scaling blows up, or when no usable extent is present.
+    """
+    if not size or not size.extents:
+        return []
+    if size.is_segments:
+        return [list(seg) for seg in size.extents]
+    if size.is_vertices:
+        return [list(size.extents)]
+
+    cos_dec0 = math.cos(math.radians(center_dec))
+    if abs(cos_dec0) < 1e-6:
+        return []
+
+    pa = math.radians(size.position_angle)
+    sin_pa = math.sin(pa)
+    cos_pa = math.cos(pa)
+    extents = size.extents
+
+    # Local tangent-plane offsets in arcsec: East, North.
+    offsets: List[Tuple[float, float]] = []
+    if len(extents) == 1:
+        r = extents[0] / 2.0
+        for i in range(steps):
+            t = 2.0 * math.pi * i / steps
+            offsets.append((r * math.cos(t), r * math.sin(t)))
+    elif len(extents) == 2:
+        a = extents[0] / 2.0
+        b = extents[1] / 2.0
+        for i in range(steps):
+            t = 2.0 * math.pi * i / steps
+            u = a * math.cos(t)  # along major axis
+            v = b * math.sin(t)  # along minor axis
+            offsets.append((u * sin_pa + v * cos_pa, u * cos_pa - v * sin_pa))
+    else:
+        step = 2.0 * math.pi / len(extents)
+        for i, ext in enumerate(extents):
+            phi = pa + i * step  # position angle of this spoke, N through E
+            r = ext / 2.0
+            offsets.append((r * math.sin(phi), r * math.cos(phi)))
+
+    radec = [
+        [center_ra + (e / 3600.0) / cos_dec0, center_dec + n / 3600.0]
+        for e, n in offsets
+    ]
+    radec.append(radec[0])  # close the outline
+    return [radec]
+
+
 def add_orientation_overlays(
     image,
     display_class,

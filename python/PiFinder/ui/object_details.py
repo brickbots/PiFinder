@@ -10,6 +10,10 @@ from pydeepskylog.exceptions import InvalidParameterError
 
 from PiFinder.object_images import get_display_image
 from PiFinder.object_images.image_base import ImageType
+from PiFinder.object_images.image_utils import (
+    extent_perimeter_polylines,
+    project_radec_to_chart,
+)
 from PiFinder.object_images.star_catalog import CatalogState
 from PiFinder.composite_object import MagnitudeObject
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
@@ -149,6 +153,9 @@ class UIObjectDetails(UIModule):
         self._force_gaia_chart = (
             False  # Toggle: force Gaia chart even if POSS image exists
         )
+        # Geometry (center, fov, rotation, flip/flop) the current Gaia chart was
+        # rendered with; used to align the per-frame extent-mark overlay.
+        self._chart_geom = None
         self.eyepiece_input = EyepieceInput()  # Custom eyepiece input handler
         self.eyepiece_input_display = False  # Show eyepiece input popup
         self._custom_eyepiece = None  # Reference to custom eyepiece object in equipment list (None = not active)
@@ -171,8 +178,8 @@ class UIObjectDetails(UIModule):
         # Gaia Chart Marking Menu - Settings access
         self._gaia_chart_marking_menu = MarkingMenu(
             up=MarkingMenuOption(label=_("SETTINGS"), menu_jump="obj_chart_settings"),
-            right=MarkingMenuOption(label=_("CROSS"), menu_jump="obj_chart_crosshair"),
-            down=MarkingMenuOption(label=_("STYLE"), menu_jump="obj_chart_style"),
+            right=MarkingMenuOption(label=_("ANIM"), menu_jump="obj_chart_crosshair"),
+            down=MarkingMenuOption(label=_("MARK"), menu_jump="obj_chart_mark"),
             left=MarkingMenuOption(label=_("LM"), menu_jump="obj_chart_lm"),
         )
 
@@ -477,6 +484,22 @@ class UIObjectDetails(UIModule):
             self.config_object.equipment.active_telescope_image_orientation()
         )
 
+        # Capture the exact geometry the Gaia chart is rendered with, so the
+        # per-frame extent overlay projects onto the same pixels as the baked
+        # stars (which don't re-rotate as the live solution drifts). Mirrors
+        # GaiaChartGenerator.render_chart: reflector adds a 180° base rotation.
+        telescope = self.config_object.equipment.active_telescope
+        image_rotate = 180.0 if (telescope and telescope.obstruction_perc > 0) else 0.0
+        image_rotate += roll
+        self._chart_geom = {
+            "center_ra": self.object.ra,
+            "center_dec": self.object.dec,
+            "fov": tfov,
+            "image_rotate": image_rotate,
+            "flip": flip_image,
+            "flop": flop_image,
+        }
+
         if self._custom_eyepiece is not None:
             logger.info(
                 f">>> Using custom eyepiece: {eyepiece_text}, tfov={tfov}, mag={magnification}"
@@ -549,6 +572,131 @@ class UIObjectDetails(UIModule):
             and hasattr(self.object_image, "image_type")
             and self.object_image.image_type == ImageType.GAIA_CHART
         )
+
+    # Below this on-screen span (px) an extent is just a dot; the marker glyph
+    # carries the position instead of an unreadable blob.
+    _MIN_EXTENT_PX = 4
+
+    def _object_has_visible_extent(self) -> bool:
+        """True when this object has a known extent big enough to outline.
+
+        An extent is worth drawing only if it spans more than a few pixels at
+        the current FOV; otherwise the marker glyph is used instead.
+        """
+        size = getattr(self.object, "size", None)
+        if not size or not size.extents:
+            return False
+        fov = self.config_object.equipment.calc_tfov()
+        if fov <= 0:
+            return False
+        px_per_arcsec = self.display_class.fov_res / (fov * 3600.0)
+        return size.max_extent_arcsec * px_per_arcsec >= self._MIN_EXTENT_PX
+
+    def _draw_object_mark(self):
+        """Draw the object mark on the Gaia chart per the MARK / ANIM settings.
+
+        ANIM (``obj_chart_crosshair``): off / on / pulse / fade -- how the mark
+        animates. ``off`` draws nothing.
+
+        MARK (``obj_chart_mark_source``): what to draw --
+          * ``standard`` -- the object's extent outline; the ``simple`` glyph
+            when the object has no resolvable extent.
+          * ``fallback`` -- the extent outline; the configured glyph
+            (``obj_chart_crosshair_style``) when there is no extent.
+          * ``custom``   -- always the configured glyph, never the extent.
+        """
+        mode = self.config_object.get_option("obj_chart_crosshair")
+        if mode == "off":
+            return
+
+        source = self.config_object.get_option("obj_chart_mark_source", "standard")
+        use_extent = source in ("standard", "fallback") and (
+            self._object_has_visible_extent()
+        )
+
+        if use_extent:
+            if self._draw_extent_mark(mode):
+                return
+            # Extent couldn't be projected (e.g. no chart geometry yet); fall
+            # through to a glyph so the object is still marked.
+
+        if source == "standard":
+            style = "simple"
+        else:
+            style = self.config_object.get_option("obj_chart_crosshair_style")
+
+        style_methods = {
+            "simple": self._draw_crosshair_simple,
+            "circle": self._draw_crosshair_circle,
+            "bullseye": self._draw_crosshair_bullseye,
+            "brackets": self._draw_crosshair_brackets,
+            "dots": self._draw_crosshair_dots,
+            "cross": self._draw_crosshair_cross,
+        }
+        style_methods.get(style, self._draw_crosshair_simple)(mode=mode)
+
+    def _extent_mark_intensity(self, mode: str) -> int:
+        """Red intensity for the extent outline under the given ANIM mode.
+
+        The extent keeps its true angular size, so pulse/fade throb the
+        *brightness* rather than the size (shrinking it would misstate the
+        object's real extent).
+        """
+        if mode == "pulse":
+            _, _, color_intensity = self._get_pulse_factor()
+            return color_intensity
+        if mode == "fade":
+            return self._get_fade_factor()
+        return 160  # solid ("on")
+
+    def _draw_extent_mark(self, mode: str) -> bool:
+        """Outline the object's extent on the chart, aligned to the baked stars.
+
+        Returns True if it drew (or intentionally drew nothing this frame, e.g.
+        fully faded), False if the chart geometry isn't available so the caller
+        can fall back to a glyph.
+        """
+        geom = self._chart_geom
+        if not geom or geom.get("fov", 0) <= 0:
+            return False
+
+        polylines = extent_perimeter_polylines(
+            geom["center_ra"], geom["center_dec"], self.object.size
+        )
+        if not polylines:
+            return False
+
+        fov_res = self.display_class.fov_res
+        pad_x = (self.display_class.resX - fov_res) / 2.0
+        pad_y = (self.display_class.resY - fov_res) / 2.0
+        flip = geom["flip"]
+        flop = geom["flop"]
+
+        def to_screen(ra, dec):
+            x, y = project_radec_to_chart(
+                ra,
+                dec,
+                geom["center_ra"],
+                geom["center_dec"],
+                geom["fov"],
+                fov_res,
+                fov_res,
+                geom["image_rotate"],
+            )
+            # Reproduce the render's flip/flop transpose (mirror about center).
+            if flop:
+                x = (fov_res - 1) - x
+            if flip:
+                y = (fov_res - 1) - y
+            return (x + pad_x, y + pad_y)
+
+        intensity = self._extent_mark_intensity(mode)
+        color = (intensity, 0, 0)
+        for polyline in polylines:
+            pts = [to_screen(ra, dec) for ra, dec in polyline]
+            if len(pts) >= 2:
+                self.draw.line(pts, fill=color, width=1)
+        return True
 
     def active(self):
         self.activation_time = time.time()
@@ -1094,28 +1242,7 @@ class UIObjectDetails(UIModule):
                 and self.object_image.image_type == ImageType.GAIA_CHART
             )
             if is_chart:
-                crosshair_mode = self.config_object.get_option("obj_chart_crosshair")
-                crosshair_style = self.config_object.get_option(
-                    "obj_chart_crosshair_style"
-                )
-
-                if crosshair_mode != "off":
-                    style_methods = {
-                        "simple": self._draw_crosshair_simple,
-                        "circle": self._draw_crosshair_circle,
-                        "bullseye": self._draw_crosshair_bullseye,
-                        "brackets": self._draw_crosshair_brackets,
-                        "dots": self._draw_crosshair_dots,
-                        "cross": self._draw_crosshair_cross,
-                    }
-
-                    draw_method = style_methods.get(
-                        crosshair_style, self._draw_crosshair_simple
-                    )
-                    draw_method(mode=crosshair_mode)
-
-                    if crosshair_mode in ["pulse", "fade"]:
-                        pass
+                self._draw_object_mark()
 
         if self.object_display_mode == DM_DESC or self.object_display_mode == DM_LOCATE:
             # catalog and entry field i.e. NGC-311

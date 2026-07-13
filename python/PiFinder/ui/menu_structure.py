@@ -921,7 +921,28 @@ pifinder_menu = {
                     "label": "obj_chart_settings",
                     "items": [
                         {
-                            "name": _("Crosshair"),
+                            "name": _("Mark"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "obj_chart_mark",
+                            "config_option": "obj_chart_mark_source",
+                            "items": [
+                                {
+                                    "name": _("Standard"),
+                                    "value": "standard",
+                                },
+                                {
+                                    "name": _("Fallback"),
+                                    "value": "fallback",
+                                },
+                                {
+                                    "name": _("Custom"),
+                                    "value": "custom",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Anim"),
                             "class": UITextMenu,
                             "select": "single",
                             "label": "obj_chart_crosshair",
