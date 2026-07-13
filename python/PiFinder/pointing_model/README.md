@@ -216,6 +216,19 @@ rotation `q_imu2cam` that rotates the IMU frame to the camera frame.
 
 ![Image](docs/PiFinder_Flat_bare_PCB_camera_coords.jpg)
 
+#### The imu2cam tool
+
+Deriving `q_imu2cam` by hand is sign-error-prone, and it is coupled to the
+software image rotation in `camera_interface.py` (`SCREEN_ROTATE_AMOUNTS`):
+the camera frame's "image up" is defined on the image *after* that rotation.
+Use the visual derivation tool at
+[`docs/imu2cam_tool.html`](docs/imu2cam_tool.html) instead — open it directly
+in a browser (no server needed), arrange the UI board and camera module to
+match the physical device, and copy the emitted `(q_imu2cam, rotate_amount)`
+pair plus a ready-made pytest block. The tool ships with one preset per
+shipped variant; `tests/test_imu2cam_tool_presets.py` keeps those presets and
+the production tables in lockstep.
+
 The transformations will be approximate and there will be small errors in 
 `q_imu2cam` due to mechanical tolerances. These errors will contribute to the 
 tracking error between the plate solved coordinates and the IMU dead-reckoning.

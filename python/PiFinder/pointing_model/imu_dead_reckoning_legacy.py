@@ -229,12 +229,16 @@ class ImuDeadReckoningLegacy:
             q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
             q_imu2cam = (q1 * q2).normalized()
         elif screen_direction == "as_bloom":
-            # As Dream:
-            # Camera points back up from the screen
-            # NOTE: Need to check if the orientation of the camera is correct
-            # Rotate +90° around z_imu to align with the camera cooridnates
-            # (+y_cam is along -x_imu)
-            q_imu2cam = qt.axis_angle2quat([0, 0, 1], +np.pi / 2)
+            # As Bloom:
+            # Camera boresight is along +z_imu already
+            # Rotate 180° around z_imu to align with the camera coordinates
+            # (+y_cam is along -y_imu)
+            return qt.axis_angle2quat([0, 0, 1], np.pi)
+        elif screen_direction == "as_heart":
+            # As Heart:
+            # Rotate 90° around x_imu so that z_imu' points along z_camera
+            # x/y already aligned with the camera coordinates
+            return qt.axis_angle2quat([1, 0, 0], np.pi / 2)
         else:
             raise ValueError(f"Unsupported screen_direction: {screen_direction}")
 

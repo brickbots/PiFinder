@@ -1028,6 +1028,10 @@ pifinder_menu = {
                                     "name": _("AS Bloom"),
                                     "value": "as_bloom",
                                 },
+                                {
+                                    "name": _("AS Heart"),
+                                    "value": "as_heart",
+                                },
                             ],
                         },
                         {
