@@ -26,6 +26,10 @@ observations_db = data_dir / "observations.db"
 # version labels come from the update manifest, which maps store paths to
 # versions — the retired pifinder-build.json duplicated that mapping.
 current_build_json = Path("/var/lib/pifinder/current-build.json")
+# The booted system's own toplevel — ground truth for "what is actually
+# running". current_build_json is written at upgrade time, before the reboot,
+# so it can outlive a failed boot or a rollback; this symlink cannot.
+running_system_link = Path("/run/current-system")
 
 
 def sd_notify(state: str) -> None:
@@ -50,26 +54,80 @@ def sd_notify(state: str) -> None:
         logger.warning("sd_notify failed (harmless outside systemd): %s", e)
 
 
+def running_system_store_path() -> Optional[str]:
+    """Store path the system is actually running, or None when unavailable.
+
+    Reflects the booted generation, so it stays correct across a failed reboot,
+    a manual rollback, or a watchdog revert — cases where current_build_json,
+    written before the reboot, still names the build that was merely selected.
+    None off-device (no /run/current-system symlink into the Nix store).
+    """
+    try:
+        if not running_system_link.is_symlink():
+            return None
+        resolved = os.path.realpath(running_system_link)
+    except OSError:
+        return None
+    return resolved if resolved.startswith("/nix/store/") else None
+
+
+def build_is_running(store_path: Optional[str]) -> bool:
+    """Whether store_path is the running system, directly or as the base of the
+    running camera specialisation.
+
+    A camera specialisation boots <base>/specialisation/<cam> — a different
+    store path from the recorded base — so a plain equality check would flag
+    every specialised device as stale. When the running path can't be read
+    (e.g. off-device), assume a match rather than cry stale.
+    """
+    if not store_path:
+        return False
+    running = running_system_store_path()
+    if running is None:
+        return True
+    if os.path.realpath(store_path) == running:
+        return True
+    spec_dir = os.path.join(store_path, "specialisation")
+    try:
+        specs = os.listdir(spec_dir)
+    except OSError:
+        return False
+    return any(
+        os.path.realpath(os.path.join(spec_dir, name)) == running for name in specs
+    )
+
+
+def _store_path_hash(store_path: str) -> str:
+    """The 8-char store-hash prefix of a build, or "Unknown"."""
+    name = store_path.rsplit("/", 1)[-1]
+    return name.split("-", 1)[0][:8] if name else "Unknown"
+
+
 def get_version() -> str:
     """Best available version string for the running build.
 
     The upgrade service writes an explicit version; a freshly-flashed image
     only knows its store path, so fall back to its hash prefix (the update
     screen upgrades that to a proper label once the manifest is fetched).
+
+    current_build_json is written before the reboot, so its label can be stale
+    (failed boot, rollback). When it doesn't describe the running system, ignore
+    the label and report the running build's hash rather than assert an identity
+    the device isn't running.
     """
     try:
         with open(current_build_json, "r") as f:
             data = json.load(f)
     except (OSError, json.JSONDecodeError):
         return "Unknown"
+    store_path = data.get("store_path") or ""
+    if store_path and not build_is_running(store_path):
+        running = running_system_store_path()
+        return _store_path_hash(running) if running else "Unknown"
     version = data.get("version")
     if version:
         return version
-    store_path = data.get("store_path") or ""
-    name = store_path.rsplit("/", 1)[-1]
-    if name:
-        return name.split("-", 1)[0][:8]
-    return "Unknown"
+    return _store_path_hash(store_path) if store_path else "Unknown"
 
 
 debug_dump_dir = data_dir / "solver_debug_dumps"

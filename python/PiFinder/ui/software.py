@@ -115,15 +115,22 @@ def _fetch_update_manifest() -> dict[str, list[dict]]:
 def _current_store_path() -> Optional[str]:
     """Store path of the running build, or None when unknown.
 
-    Read from current-build.json (written by the upgrade service). The store
-    path — not the version string — is a build's identity: a re-cut release
-    keeps its version/label but is a different system.
+    The store path — not the version string — is a build's identity: a re-cut
+    release keeps its version/label but is a different system. Prefer
+    current-build.json (it names the base store path even on a camera-specialised
+    device), but only when it actually describes the running system: it is
+    written before the reboot, so a failed boot or rollback can leave it naming a
+    build that isn't running. When stale, fall back to the actually-running
+    system so the update list hides the real build, not a phantom one.
     """
     try:
         with open(utils.current_build_json) as f:
-            return json.load(f).get("store_path") or None
+            recorded = json.load(f).get("store_path") or None
     except (OSError, ValueError):
-        return None
+        recorded = None
+    if recorded and utils.build_is_running(recorded):
+        return recorded
+    return utils.running_system_store_path()
 
 
 def _hide_current_build(entries: List[dict], current_ref: Optional[str]) -> List[dict]:
