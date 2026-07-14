@@ -280,7 +280,8 @@ Select the 'Focus' option under the 'Start' menu.
 .. image:: images/quick_start/start_menu.png
 
 The Focus screen finds the four brightest stars anywhere in the camera frame and arranges
-their magnified, centered views into four screen quadrants.  These are raw camera pixels: the display does
+their magnified, centered views into four equal screen quadrants in the visible area below
+the title bar.  These are raw camera pixels: the display does
 not stretch the contrast, remove skyglow, sharpen, blur, or smooth the stars.  It only crops and
 enlarges them with nearest-neighbour sampling, then applies the panel's red night-vision colour.
 
