@@ -535,9 +535,13 @@ class GaiaChartGenerator:
         y_screen = height / 2.0 - y_proj * pixel_scale
 
         # Apply rotation to SCREEN coordinates (after scaling)
-        # This avoids magnifying small numerical errors
+        # This avoids magnifying small numerical errors.
+        # Negate: screen coords are y-down, so a positive image_rotate must
+        # turn the field the same visual way PIL.rotate() turns the POSS image
+        # (counter-clockwise). Without the negation the chart rotates opposite
+        # to POSS/reality for any nonzero roll.
         if rotation != 0:
-            rot_rad = np.radians(rotation)
+            rot_rad = np.radians(-rotation)
             cos_rot = np.cos(rot_rad)
             sin_rot = np.sin(rot_rad)
 
@@ -727,7 +731,7 @@ class GaiaChartGenerator:
 
         # Apply rotation
         if rotation != 0:
-            rot_rad = np.radians(rotation)
+            rot_rad = np.radians(-rotation)  # y-down: match POSS/PIL rotation direction
             cos_rot = np.cos(rot_rad)
             sin_rot = np.sin(rot_rad)
 

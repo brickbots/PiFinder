@@ -178,7 +178,9 @@ def project_radec_to_chart(
     y = height / 2.0 - y_proj * pixel_scale
 
     if rotation:
-        rot = math.radians(rotation)
+        # Negated to match render_chart's screen-space rotation (y-down, same
+        # visual direction as PIL.rotate / the POSS image).
+        rot = math.radians(-rotation)
         cos_r = math.cos(rot)
         sin_r = math.sin(rot)
         x_rel = x - width / 2.0
