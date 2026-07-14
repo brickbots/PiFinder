@@ -34,6 +34,7 @@ SCREEN_DIRECTIONS = [
     "straight",
     "as_bloom",
     "as_heart",
+    "v4_left",
     "v4_right",
     "v4_straight",
 ]

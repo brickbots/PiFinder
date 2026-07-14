@@ -320,6 +320,18 @@ def test_q_imu2cam_as_heart():
 
 
 @pytest.mark.unit
+def test_q_imu2cam_v4_left():
+    """Physical axis correspondences for the V4 Left build (rev-4 board:
+    IMU on the back side of the UI board; derived with
+    pointing_model/docs/imu2cam_tool.html under the rev-4 depiction)."""
+    R = quaternion.as_rotation_matrix(ImuDeadReckoning._q_imu2cam("v4_left"))
+    # columns = camera axes expressed in IMU coordinates
+    assert np.allclose(R[:, 0], [0, 0, -1], atol=1e-9)  # image left  = -z_imu
+    assert np.allclose(R[:, 1], [1, 0, 0], atol=1e-9)  # image up    = +x_imu
+    assert np.allclose(R[:, 2], [0, -1, 0], atol=1e-9)  # boresight   = -y_imu
+
+
+@pytest.mark.unit
 def test_q_imu2cam_v4_right():
     """Physical axis correspondences for the V4 Right build (rev-4 board:
     IMU on the back side of the UI board; derived with
