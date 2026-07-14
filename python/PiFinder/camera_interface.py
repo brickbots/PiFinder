@@ -384,12 +384,6 @@ class CameraInterface:
                         logger.error(f"CameraInterface: Command error: {e}")
 
                     try:
-                        if command == "debug":
-                            if debug:
-                                debug = False
-                            else:
-                                debug = True
-
                         if command.startswith("set_exp"):
                             exp_value = command.split(":")[1]
                             if exp_value == "auto":
