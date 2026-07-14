@@ -168,8 +168,6 @@ class CameraInterface:
                 shared_state.set_camera_type(camera_type)
                 logger.info(f"Camera type set to: {camera_type}")
 
-            debug = False
-
             # Check if auto-exposure was previously enabled in config
             config_exp = cfg.get_option("camera_exp")
             if config_exp == "auto":
@@ -219,7 +217,11 @@ class CameraInterface:
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
                 if self._camera_started:
-                    if not debug:
+                    # Test mode is owned by shared state (persisted in config
+                    # and toggled from the menu), so it stays in sync with the
+                    # UI and survives restarts.
+                    test_mode_on = shared_state.test_mode()
+                    if not test_mode_on:
                         base_image = self._capture_with_timeout()
                         if base_image is None:
                             # Capture hung; fall back to a blank frame so the
@@ -269,15 +271,12 @@ class CameraInterface:
                         pointing_diff = 0.0
 
                     # Make image available
-                    # For debug camera: only send images when test_mode is ON
-                    # For real camera: always send images
-                    test_mode_on = shared_state.test_mode()
-                    if not debug or test_mode_on:
-                        if debug and abs(pointing_diff) > 0.01:
-                            # Check if we moved and return a blank image
-                            camera_image.paste(self._blank_capture())
-                        else:
-                            camera_image.paste(base_image)
+                    if test_mode_on and abs(pointing_diff) > 0.01:
+                        # Scope moved during the fake exposure: return a blank
+                        # image so the solver doesn't report a stale solve
+                        camera_image.paste(self._blank_capture())
+                    else:
+                        camera_image.paste(base_image)
                     image_metadata = {
                         "exposure_start": image_start_time,
                         "exposure_end": image_end_time,
@@ -385,12 +384,6 @@ class CameraInterface:
                         logger.error(f"CameraInterface: Command error: {e}")
 
                     try:
-                        if command == "debug":
-                            if debug:
-                                debug = False
-                            else:
-                                debug = True
-
                         if command.startswith("set_exp"):
                             exp_value = command.split(":")[1]
                             if exp_value == "auto":

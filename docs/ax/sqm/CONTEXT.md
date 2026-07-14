@@ -1,6 +1,6 @@
 # SQM (Sky Quality Meter)
 
-The SQM context estimates sky brightness in magnitudes per square arcsecond from solved camera frames, and produces a "noise floor" ADU level that auto-exposure consumes. Lives entirely in the solver process at runtime; the UI is read-only.
+The SQM context estimates sky brightness in magnitudes per square arcsecond from solved camera frames. Lives entirely in the solver process at runtime; the UI is read-only.
 
 > Companion architecture doc: [`../sqm.md`](../sqm.md).
 
@@ -39,11 +39,11 @@ Ring around each star (default inner 6 px, outer 14 px) used to measure the *loc
 _Avoid_: background ring, sky ring.
 
 **Photometric zero point** (`mzero`):
-Per-frame conversion constant between ADU flux and apparent magnitude: `mag = mzero − 2.5 · log10(flux_ADU)`. Flux-weighted mean over the matched stars.
-_Avoid_: zero-point, calibration constant.
+Per-frame conversion constant between ADU flux and apparent magnitude: `mag = mzero − 2.5 · log10(flux_ADU)`. **Median** over the matched stars' individual zero points — deliberately not a flux-weighted mean, which hands the vote to the 1–2 brightest stars, exactly the ones prone to near-saturation nonlinearity and colour-term extrapolation (one such star dragged a night's SQM by 0.5 mag).
+_Avoid_: zero-point, calibration constant, flux-weighted mzero (it isn't anymore).
 
 **Saturation threshold**:
-Pixel value above which a star's aperture is excluded from `mzero`. Default 250 ADU for 8-bit processed frames; on the raw-green path it is set to `0.95 · (2^bit_depth − 1)` for the sensor's true bit depth.
+Pixel value above which a star's aperture is excluded from `mzero` (and from wing measurement). Default 250 ADU for 8-bit processed frames; on the raw-green path it is `0.70 · (2^bit_depth − 1)` — deliberately far below hard clip, because the CMOS response bends well before full scale and stars peaking at 75–90% already read systematically low.
 _Avoid_: clipping threshold, max pixel.
 
 **B−V**:
@@ -121,7 +121,7 @@ Thermal electrons per second per pixel. `CameraProfile.dark_current_rate` (ADU/s
 _Avoid_: thermal noise (it isn't noise — it's signal).
 
 **Noise floor**:
-The **published** ADU value (`shared_state.set_noise_floor()`) below which we treat pixel values as "empty sky + sensor noise" rather than real signal. Lower bound for sky background; the minimum acceptable background for the Camera context's background controller. When someone says "the noise floor" without qualifier, this is what they mean — never one of the intermediate quantities inside `NoiseFloorEstimator`.
+The ADU value below which pixel values are treated as "empty sky + sensor noise" rather than real signal. `shared_state.noise_floor()` holds a static default (10.0) that the Camera context's SNR background controller reads as its minimum acceptable background; **nothing publishes an adaptive value into it** — the SQM path never did (the wiring was dead and has been removed). When someone says "the noise floor" without qualifier, this shared-state value is what they mean — never one of the intermediate quantities inside `NoiseFloorEstimator`.
 _Avoid_: dark level, baseline, raw noise floor (use a qualifier — see below).
 
 **Measured noise floor**:
@@ -151,7 +151,7 @@ Persistent calibration file at `~/PiFinder_data/sqm_calibration_<camera_type>.js
 _Avoid_: cal file, sqm config.
 
 **Zero-second sample**:
-A single 0-second exposure used to measure `bias_offset` and `read_noise_adu` directly (no sky signal, no dark current). `NoiseFloorEstimator` periodically sets `request_zero_sec_sample=True` in `details` so the camera process can capture one. Runtime concept.
+A single 0-second exposure used to measure `bias_offset` and `read_noise_adu` directly (no sky signal, no dark current). `NoiseFloorEstimator` can set `request_zero_sec_sample=True` in its details, but **no camera-process handler exists** — the mechanism is aspirational. Wizard/diagnostic concept.
 _Avoid_: dark frame (astrophotography sense — see ambiguities), zero sample.
 
 **Dark sequence**:
@@ -177,7 +177,7 @@ Publishes the diagnostic dict (with per-star arrays stripped). Consumed by the U
 _Avoid_: set details.
 
 **`shared_state.set_noise_floor(float)`**:
-Publishes the latest noise floor. Read by the camera process and forwarded into the background controller (`ExposureSNRController.update(..., noise_floor=...)`) — see the [Camera context](../camera/CONTEXT.md).
+Setter for the shared noise floor. **No production caller** — the camera process reads `noise_floor()` (the 10.0 default) into `ExposureSNRController.update(..., noise_floor=...)`; see the [Camera context](../camera/CONTEXT.md). Any future adaptive floor must be produced in processed-image units (the controller measures the 8-bit display frame), not raw-green units.
 _Avoid_: set floor.
 
 ### Timing
@@ -198,7 +198,7 @@ _Avoid_: refresh calibration, reload sqm.
 
 ## Flagged ambiguities
 
-- **"Noise floor"** (bare) — the *published* ADU value (`shared_state.set_noise_floor()`). For the intermediates inside `NoiseFloorEstimator`, force a qualifier: **measured**, **smoothed**, **theoretical**, **conservative**. Bare "noise floor" never means an intermediate.
+- **"Noise floor"** (bare) — the shared-state value (`shared_state.noise_floor()`, currently always the 10.0 default). For the intermediates inside `NoiseFloorEstimator`, force a qualifier: **measured**, **smoothed**, **theoretical**, **conservative**. Bare "noise floor" never means an intermediate.
 - **"Dark frame" (astrophotography sense)** is NOT used here. In astrophotography, a "dark frame" is one lens-capped exposure (often combined into a master dark) — readers may import that mental model. PiFinder has two distinct concepts instead: **dark sequence** (multi-frame, multi-exposure, wizard-time, used to fit noise constants — never stacked into a master), and **zero-second sample** (single 0-s exposure, runtime, refreshes `bias_offset` / `read_noise_adu`). Don't say "dark frame".
 - **"SQM"** — without qualifier means the published `SQMState.value` (i.e. `sqm_final`, no extinction correction). The altitude-corrected number is `sqm_altitude_corrected` in details.
 - **"Black level" / "pedestal" / "bias offset"** — all name the same **static** ADU floor that SQM subtracts, matching standard imaging usage. Prefer **black level** for the physical quantity, **bias offset** for the `CameraProfile` constant, and **`P0`** for the per-frame joint-fit estimate. "Pedestal" in the code means this static floor, **not** `bias_offset + dark_current`. Dark current is fit as the joint-fit slope and discarded, never added to the subtracted term.
@@ -211,4 +211,4 @@ _Avoid_: refresh calibration, reload sqm.
 >
 > **Dev:** What does the camera process care about?
 >
-> **Domain:** Just the noise floor. `set_noise_floor()` is the only line of communication. The background controller uses it as the minimum acceptable background — change SQM's interval gate and that auto-exposure signal changes cadence too.
+> **Domain:** Nothing at runtime. The camera's SNR background controller reads `shared_state.noise_floor()`, but that has always held the static default — SQM never published into it (that wiring was dead code, now removed). `NoiseFloorEstimator` survives only as a sweep-wizard diagnostic.

@@ -49,6 +49,15 @@ to the raw frame.
    re-introduces the exposure dependence (measured: exposure slopes up to
    −1.2 mag/dex and 3–6× worse scatter).
 
+5. **Robust mzero.** The zero point is the **median** of the per-star zero
+   points, not a flux-weighted mean, and stars peaking above 70% of full scale
+   are excluded (CMOS response bends well before hard clip). A flux-weighted
+   mean concentrates the vote in the brightest stars — exactly the ones prone
+   to nonlinearity and to colour-term extrapolation (B−V lookups are clamped
+   to ≤1.2 for the same reason). One near-saturated red giant dragged a
+   night's SQM by 0.5 mag under flux weighting; the median is unmoved
+   (validated: night-to-night spread 0.63 → 0.06 mag on the imx462 sweeps).
+
 ## Considered and rejected
 
 - **IR-cut filter (hardware):** clobbers the NIR sensitivity plate-solving

@@ -122,6 +122,31 @@ def set_brightness(level, cfg):
         set_keypad_brightness(level * 0.05 * keypad_offsets[keypad_brightness])
 
 
+def apply_test_mode_gps(shared_state, location, console):
+    """
+    Fake GPS fix + datetime used while test mode is active.
+    Called on toggle-ON and at startup when test_mode was persisted,
+    so a reboot in test mode comes back fully in test mode.
+    """
+    dt = timez.utc(2025, 6, 28, 11, 0, 0)
+    shared_state.set_datetime(dt)
+    location.lat = 41.13
+    location.lon = -120.97
+    location.altitude = 1315
+    location.source = "test"
+    location.error_in_m = 5
+    location.lock = True
+    location.lock_type = 3
+    location.last_gps_lock = timez.local_now().time().isoformat()[:8]
+    console.write(f"GPS: Location {location.lat} {location.lon} {location.altitude}")
+    shared_state.set_location(location)
+    sf_utils.set_location(
+        location.lat,
+        location.lon,
+        location.altitude,
+    )
+
+
 def setup_dirs():
     utils.create_path(Path(utils.data_dir))
     utils.create_path(Path(utils.data_dir, "captures"))
@@ -202,8 +227,9 @@ class PowerManager:
         self.last_activity = time.time()
 
         # power states
-        # 0 = Sleep
-        # 1 = Wake
+        # -1 = Screen off
+        #  0 = Sleep
+        #  1 = Wake
         if self.shared_state.power_state() < 1:
             # wake up
             self.wake_up()
@@ -535,6 +561,8 @@ def main(
         console = UIConsole(
             display_device, None, shared_state, command_queues, cfg, Catalogs([])
         )
+        if shared_state.test_mode():
+            apply_test_mode_gps(shared_state, location, console)
         console.write("Starting....")
         console.update()
         logger.info("Starting ....")
@@ -925,33 +953,14 @@ def main(
                         catalogs.catalog_filter.mark_dirty()
                     menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
-                    # Toggle test mode (store in both shared_state and config)
+                    # Toggle test mode (store in both shared_state and config).
+                    # The camera process follows shared_state.test_mode()
+                    # directly, so this is the single point of control.
                     new_test_mode = not cfg.get_option("test_mode", False)
                     shared_state.set_test_mode(new_test_mode)
                     cfg.set_option("test_mode", new_test_mode)
                     if new_test_mode:
-                        # Set fake GPS data when entering test mode
-                        dt = timez.utc(2025, 6, 28, 11, 0, 0)
-                        shared_state.set_datetime(dt)
-                        location.lat = 41.13
-                        location.lon = -120.97
-                        location.altitude = 1315
-                        location.source = "test"
-                        location.error_in_m = 5
-                        location.lock = True
-                        location.lock_type = 3
-                        location.last_gps_lock = (
-                            timez.local_now().time().isoformat()[:8]
-                        )
-                        console.write(
-                            f"GPS: Location {location.lat} {location.lon} {location.altitude}"
-                        )
-                        shared_state.set_location(location)
-                        sf_utils.set_location(
-                            location.lat,
-                            location.lon,
-                            location.altitude,
-                        )
+                        apply_test_mode_gps(shared_state, location, console)
                         menu_manager.message(_("Test Mode ON\nfake cam+GPS"), 2)
                     else:
                         menu_manager.message(_("Test Mode\nOFF"), 2)

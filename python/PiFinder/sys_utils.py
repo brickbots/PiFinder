@@ -512,7 +512,10 @@ def start_upgrade(ref: str = "release", selection: Optional[dict] = None) -> boo
     # Clean stale status from previous run
     UPGRADE_STATUS_FILE.unlink(missing_ok=True)
 
-    _run(["sudo", "systemctl", "reset-failed", "pifinder-upgrade.service"])
+    # reset-failed errors on a unit that isn't loaded, so only clear an
+    # actual failed state
+    if _upgrade_service_state() == "failed":
+        _run(["sudo", "systemctl", "reset-failed", "pifinder-upgrade.service"])
     result = _run(
         [
             "sudo",

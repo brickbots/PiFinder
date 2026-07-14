@@ -11,6 +11,11 @@ from .camera_profiles import get_camera_profile
 
 logger = logging.getLogger("Solver")
 
+# The colour term V - T*(B-V) is linear only over the B-V range it was fitted
+# on (~0 to ~1). Clamp lookups so very red giants aren't over-corrected.
+BV_CLAMP_MIN = -0.5
+BV_CLAMP_MAX = 1.2
+
 
 class SQM:
     """
@@ -232,27 +237,30 @@ class SQM:
         self, star_fluxes: list, star_mags: list
     ) -> Tuple[Optional[float], list]:
         """
-        Calculate photometric zero point from calibrated stars using flux-weighted mean.
+        Calculate photometric zero point from calibrated stars.
 
         For point sources: mzero = catalog_mag + 2.5 × log10(total_flux_ADU)
 
         This zero point allows converting any ADU measurement to magnitudes:
             mag = mzero - 2.5 × log10(flux_ADU)
 
-        Uses flux-weighted mean: brighter stars have higher SNR so their
-        mzero estimates are more reliable.
+        Uses the median over stars, not a flux-weighted mean: a flux-weighted
+        mean hands most of the vote to the 1-2 brightest stars, which are
+        exactly the ones prone to systematic error (sensor nonlinearity near
+        saturation, colour-term extrapolation on very red giants). One such
+        star can drag a weighted mzero by half a magnitude; the median is
+        unmoved.
 
         Args:
             star_fluxes: Background-subtracted star fluxes (ADU)
             star_mags: Catalog magnitudes for matched stars
 
         Returns:
-            Tuple of (weighted_mean_mzero, list_of_individual_mzeros)
+            Tuple of (median_mzero, list_of_individual_mzeros)
             Note: The mzeros list will contain None for stars with invalid flux
         """
         mzeros: list[Optional[float]] = []
         valid_mzeros = []
-        valid_fluxes = []
 
         for flux, mag in zip(star_fluxes, star_mags):
             if flux <= 0:
@@ -264,18 +272,12 @@ class SQM:
             mzero = mag + 2.5 * np.log10(flux)
             mzeros.append(mzero)
             valid_mzeros.append(mzero)
-            valid_fluxes.append(flux)
 
         if len(valid_mzeros) == 0:
             logger.error("No valid stars for mzero calculation")
             return None, mzeros
 
-        # Flux-weighted mean: brighter stars contribute more
-        valid_mzeros_arr = np.array(valid_mzeros)
-        valid_fluxes_arr = np.array(valid_fluxes)
-        weighted_mzero = float(np.average(valid_mzeros_arr, weights=valid_fluxes_arr))
-
-        return weighted_mzero, mzeros
+        return float(np.median(valid_mzeros)), mzeros
 
     def _detect_aperture_overlaps(
         self,
@@ -377,7 +379,6 @@ class SQM:
         annulus_outer_radius: int = 14,
         correct_overlaps: bool = False,
         saturation_threshold: int = 250,
-        include_noise_floor_details: bool = False,
         pedestal_override: Optional[float] = None,
         color_coefficient: Optional[float] = None,
         image_pixels_per_side: Optional[int] = None,
@@ -399,8 +400,6 @@ class SQM:
             annulus_outer_radius: Outer radius of background annulus in pixels (default: 14)
             correct_overlaps: If True, exclude stars with overlapping apertures/annuli (default: False)
             saturation_threshold: Pixel value threshold for saturation detection (default: 250)
-            include_noise_floor_details: If True, run NoiseFloorEstimator and include full output
-                in details dict under "noise_floor_estimator" key (default: False)
             pedestal_override: If given, use this black-level pedestal instead of the
                 profile bias_offset (e.g. a per-frame joint-fit estimate).
             color_coefficient: If given (and non-zero), correct each star's catalog V
@@ -569,13 +568,16 @@ class SQM:
 
         # 4. Calculate photometric zero point.
         # Apply the colour term per star where B-V is known; stars with no B-V
-        # fall back to their raw V magnitude.
+        # fall back to their raw V magnitude. B-V is clamped to the range the
+        # linear colour term was fitted on -- extrapolating T*(B-V) to very red
+        # giants (B-V > 1.2) over-corrects them by up to a magnitude.
         n_color_corrected = 0
         if star_bv is not None and color_coef:
             effective_mags = []
             for v_mag, bv in zip(star_mags, star_bv):
                 if bv is not None and math.isfinite(bv):
-                    effective_mags.append(v_mag - color_coef * bv)
+                    bv_clamped = min(max(bv, BV_CLAMP_MIN), BV_CLAMP_MAX)
+                    effective_mags.append(v_mag - color_coef * bv_clamped)
                     n_color_corrected += 1
                 else:
                     effective_mags.append(v_mag)
@@ -610,16 +612,17 @@ class SQM:
             altitude_deg
         )  # 0.28*(airmass-1)
 
-        # No absolute zero-point constant is applied: the per-frame mzero fit
-        # self-calibrates against the catalog, and the residual absolute bias
-        # is aperture flux loss (focus-dependent), which a fixed per-sensor
-        # constant cannot represent. See docs/adr for the rejected offset and
-        # the planned per-frame aperture correction.
+        # Sky-passband offset: the colour term matches the stars to the sensor
+        # passband, so the sky is measured in that passband too. A bare sensor
+        # sees NIR sky emission a V-band meter doesn't; this per-sensor
+        # constant converts back to the meter's V-band scale. See
+        # CameraProfile.sqm_band_offset and docs/adr/0020.
+        band_offset = self.profile.sqm_band_offset
 
         # Main SQM value: no extinction correction (raw measurement)
-        sqm_final = sqm_uncorrected
+        sqm_final = sqm_uncorrected + band_offset
         # Altitude-corrected value: adds extinction for altitude comparison
-        sqm_altitude_corrected = sqm_uncorrected + extinction_for_altitude
+        sqm_altitude_corrected = sqm_uncorrected + band_offset + extinction_for_altitude
 
         # Filter out None values for statistics in diagnostics
         valid_mzeros_for_stats = [mz for mz in mzeros if mz is not None]
@@ -648,6 +651,7 @@ class SQM:
             "n_color_corrected": n_color_corrected,
             "pixels_per_side": pixels_per_side,
             "mzero_correction": mzero_correction,
+            "sqm_band_offset": band_offset,
             "read_noise_adu": read_noise,
             "dark_current_rate": self.profile.dark_current_rate,
             "dark_current_contribution": dark_current_contribution,
@@ -677,27 +681,6 @@ class SQM:
             "star_local_backgrounds": local_backgrounds,
             "star_mzeros": mzeros,
         }
-
-        # Optionally include full NoiseFloorEstimator output
-        if include_noise_floor_details:
-            try:
-                from .noise_floor import NoiseFloorEstimator
-
-                estimator = NoiseFloorEstimator(
-                    camera_type=self.camera_type,
-                    enable_zero_sec_sampling=False,
-                )
-                _, nf_details = estimator.estimate_noise_floor(
-                    image=image,
-                    exposure_sec=exposure_sec,
-                )
-                # Remove internal flags, add camera type
-                nf_details.pop("request_zero_sec_sample", None)
-                nf_details["camera_type"] = self.camera_type
-                details["noise_floor_estimator"] = nf_details
-            except Exception as e:
-                logger.warning(f"Failed to get noise floor details: {e}")
-                details["noise_floor_estimator"] = {"error": str(e)}
 
         logger.debug(
             f"SQM: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "

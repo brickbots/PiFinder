@@ -11,7 +11,6 @@ import time
 
 from PIL import Image
 from PiFinder.ui.base import GPS_ANIM_RATE, UIModule
-from PiFinder import timez
 from PiFinder.ui.layout import rows_below_titlebar
 from PiFinder.image_util import convert_image_to_mode
 
@@ -53,21 +52,13 @@ class UIConsole(UIModule):
 
         self.lines = ["---- TOP ---", "Sess UUID:" + self.__uuid__]
         self.scroll_offset = 0
-        self.debug_mode = False
 
     def set_shared_state(self, shared_state):
         self.shared_state = shared_state
 
     def key_number(self, number):
         if number == 0:
-            self.command_queues["camera"].put("debug")
-            if self.debug_mode:
-                self.debug_mode = False
-            else:
-                self.debug_mode = True
-            self.command_queues["console"].put("Debug: " + str(self.debug_mode))
-        dt = timez.utc(2022, 11, 15, 2, 0, 0)
-        self.shared_state.set_datetime(dt)
+            self.command_queues["ui_queue"].put("test_mode")
 
     def key_enter(self):
         # reset scroll offset

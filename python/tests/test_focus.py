@@ -104,6 +104,77 @@ class TestDetectStars:
         blobs = focus.detect_stars(img, n=3)
         assert len(blobs) == 3
 
+    def test_centroid_is_flux_weighted_not_bounding_box_center(self):
+        img = np.zeros((128, 128), dtype=np.float32)
+        img[63:66, 62:65] = 40.0
+        img[63:66, 65] = 220.0
+
+        blob = focus.detect_stars(img, sigma_k=3.0, n=1)[0]
+
+        # The connected component spans x=62..65, whose box center is 63.5.
+        # The brighter right edge must pull the measured stellar centroid right.
+        assert blob.x > 64.0
+        assert blob.y == pytest.approx(64.0, abs=0.1)
+
+
+@pytest.mark.unit
+class TestTrackBlobs:
+    @staticmethod
+    def _blob(x, y, peak):
+        return focus.Blob(
+            x=x,
+            y=y,
+            peak=peak,
+            background=10.0,
+            extent=8,
+            size_px=20,
+        )
+
+    def test_shared_translation_preserves_slots_when_brightness_order_changes(self):
+        previous = (
+            self._blob(80, 90, 240),
+            self._blob(400, 100, 230),
+            self._blob(100, 390, 220),
+            self._blob(410, 400, 210),
+        )
+        shift_x, shift_y = 47, -31
+        translated = [
+            self._blob(blob.x + shift_x, blob.y + shift_y, 100 + index * 30)
+            for index, blob in enumerate(previous)
+        ]
+        distractor = self._blob(250, 250, 255)
+        candidates = tuple(
+            sorted((*translated, distractor), key=lambda blob: blob.peak, reverse=True)
+        )
+
+        tracked = focus.track_blobs(previous, candidates)
+
+        assert [(blob.x, blob.y) for blob in tracked] == [
+            (blob.x + shift_x, blob.y + shift_y) for blob in previous
+        ]
+
+    def test_missing_star_is_replaced_without_reordering_survivors(self):
+        previous = (
+            self._blob(80, 90, 240),
+            self._blob(400, 100, 230),
+            self._blob(100, 390, 220),
+            self._blob(410, 400, 210),
+        )
+        replacement = self._blob(250, 250, 205)
+        candidates = (
+            self._blob(110, 70, 180),
+            self._blob(430, 80, 250),
+            self._blob(440, 380, 190),
+            replacement,
+        )
+
+        tracked = focus.track_blobs(previous, candidates)
+
+        assert (tracked[0].x, tracked[0].y) == (110, 70)
+        assert (tracked[1].x, tracked[1].y) == (430, 80)
+        assert tracked[2] is replacement
+        assert (tracked[3].x, tracked[3].y) == (440, 380)
+
 
 @pytest.mark.unit
 class TestFocusHfd:

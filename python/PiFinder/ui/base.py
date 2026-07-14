@@ -47,7 +47,9 @@ class RotatingInfoDisplay:
     def _get_text(self, use_sqm):
         if use_sqm:
             sqm = self.shared_state.sqm()
-            return f"{sqm.value:.1f}" if sqm and sqm.value else "---"
+            if sqm and sqm.last_update is not None:
+                return f"{sqm.value:.1f}"
+            return "---"
         else:
             sol = self.shared_state.solution()
             return sol.constellation if sol and sol.constellation else "---"

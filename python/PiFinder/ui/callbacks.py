@@ -81,11 +81,10 @@ def reset_filters(ui_module: UIModule) -> None:
 
 def activate_debug(ui_module: UIModule) -> None:
     """
-    Sets camera into debug
-    add fake gps info
+    Toggles test mode (fake camera image + fake GPS).
+    Main flips shared_state/config; the camera process follows
+    shared_state.test_mode() on its own.
     """
-    ui_module.command_queues["camera"].put("debug")
-    ui_module.command_queues["console"].put("Test Mode Activated")
     ui_module.command_queues["ui_queue"].put("test_mode")
 
 
