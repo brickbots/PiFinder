@@ -21,10 +21,11 @@ unit-testable against synthetic blobs of known width.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 from scipy import ndimage
+from scipy.optimize import linear_sum_assignment
 
 
 @dataclass
@@ -173,9 +174,23 @@ def _find_blobs(
         width = sl[1].stop - sl[1].start
         extent = int(max(height, width))
 
-        cy = (sl[0].start + sl[0].stop - 1) / 2.0
-        cx = (sl[1].start + sl[1].stop - 1) / 2.0
-        local_bg = _local_background(img, cy, cx, extent)
+        bbox_cy = (sl[0].start + sl[0].stop - 1) / 2.0
+        bbox_cx = (sl[1].start + sl[1].stop - 1) / 2.0
+        local_bg = _local_background(img, bbox_cy, bbox_cx, extent)
+
+        # Center the display crop on the star's flux, not on the geometric
+        # center of its thresholded bounding box. A one-pixel change at the
+        # threshold boundary otherwise becomes a conspicuous jump after the
+        # 10x focus enlargement.
+        weights = np.clip(patch - local_bg, 0.0, None) * region_mask
+        total_weight = float(weights.sum())
+        if total_weight > 0.0:
+            patch_y, patch_x = np.indices(patch.shape)
+            cy = sl[0].start + float((patch_y * weights).sum() / total_weight)
+            cx = sl[1].start + float((patch_x * weights).sum() / total_weight)
+            local_bg = _local_background(img, cy, cx, extent)
+        else:
+            cy, cx = bbox_cy, bbox_cx
         blob = Blob(
             y=cy,
             x=cx,
@@ -193,6 +208,78 @@ def _find_blobs(
     usable.sort(key=lambda b: b.peak, reverse=True)
     oversized.sort(key=lambda b: b.peak, reverse=True)
     return usable, oversized, background, brightest_peak
+
+
+def track_blobs(
+    previous: Sequence[Blob],
+    candidates: Sequence[Blob],
+    *,
+    n: int = 4,
+    max_relative_motion: float = 20.0,
+    max_candidates: int = 12,
+) -> Tuple[Blob, ...]:
+    """Keep stars in stable slots while allowing the whole image to shift.
+
+    Each previous/current star pair proposes a global translation. For every
+    proposal, Hungarian assignment measures how well the remaining stars share
+    that same motion. This uses the relative geometry of the 2--4 star pattern,
+    so a bump while focusing can move the pattern by any distance without
+    causing brightness-order swaps between quadrants. Small residual changes
+    from wind, rotation, and focus breathing are accepted.
+
+    When fewer than two stars can establish relative geometry, selection falls
+    back to current brightness order. Missing slots are filled with the
+    brightest unused candidates.
+    """
+    current = tuple(candidates[:max_candidates])
+    old = tuple(previous[:n])
+    if len(old) < 2 or len(current) < 2:
+        return current[:n]
+
+    old_xy = np.asarray([(blob.x, blob.y) for blob in old], dtype=np.float64)
+    current_xy = np.asarray([(blob.x, blob.y) for blob in current], dtype=np.float64)
+    best_score = None
+    best_matches = None
+
+    for old_anchor in old_xy:
+        for current_anchor in current_xy:
+            translation = current_anchor - old_anchor
+            predicted = old_xy + translation
+            distances = np.linalg.norm(
+                predicted[:, np.newaxis, :] - current_xy[np.newaxis, :, :], axis=2
+            )
+            rows, columns = linear_sum_assignment(distances)
+            valid = distances[rows, columns] <= max_relative_motion
+            match_count = int(valid.sum())
+            if match_count < 2:
+                continue
+            residual = float(distances[rows[valid], columns[valid]].mean())
+            score = (match_count, -residual)
+            if best_score is None or score > best_score:
+                best_score = score
+                best_matches = tuple(
+                    (int(row), int(column))
+                    for row, column, is_valid in zip(rows, columns, valid)
+                    if is_valid
+                )
+
+    if best_matches is None:
+        return current[:n]
+
+    slots: List[Optional[Blob]] = [None] * min(len(old), n)
+    used = set()
+    for old_index, current_index in best_matches:
+        slots[old_index] = current[current_index]
+        used.add(current_index)
+
+    unused = (blob for index, blob in enumerate(current) if index not in used)
+    for index, blob in enumerate(slots):
+        if blob is None:
+            slots[index] = next(unused, None)
+    while len(slots) < min(n, len(current)):
+        slots.append(next(unused, None))
+
+    return tuple(blob for blob in slots if blob is not None)
 
 
 def detect_stars(
