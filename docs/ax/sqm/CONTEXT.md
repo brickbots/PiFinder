@@ -39,11 +39,11 @@ Ring around each star (default inner 6 px, outer 14 px) used to measure the *loc
 _Avoid_: background ring, sky ring.
 
 **Photometric zero point** (`mzero`):
-Per-frame conversion constant between ADU flux and apparent magnitude: `mag = mzero − 2.5 · log10(flux_ADU)`. Flux-weighted mean over the matched stars.
-_Avoid_: zero-point, calibration constant.
+Per-frame conversion constant between ADU flux and apparent magnitude: `mag = mzero − 2.5 · log10(flux_ADU)`. **Median** over the matched stars' individual zero points — deliberately not a flux-weighted mean, which hands the vote to the 1–2 brightest stars, exactly the ones prone to near-saturation nonlinearity and colour-term extrapolation (one such star dragged a night's SQM by 0.5 mag).
+_Avoid_: zero-point, calibration constant, flux-weighted mzero (it isn't anymore).
 
 **Saturation threshold**:
-Pixel value above which a star's aperture is excluded from `mzero`. Default 250 ADU for 8-bit processed frames; on the raw-green path it is set to `0.95 · (2^bit_depth − 1)` for the sensor's true bit depth.
+Pixel value above which a star's aperture is excluded from `mzero` (and from wing measurement). Default 250 ADU for 8-bit processed frames; on the raw-green path it is `0.70 · (2^bit_depth − 1)` — deliberately far below hard clip, because the CMOS response bends well before full scale and stars peaking at 75–90% already read systematically low.
 _Avoid_: clipping threshold, max pixel.
 
 **B−V**:

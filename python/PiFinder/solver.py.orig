@@ -243,11 +243,6 @@ def update_sqm(
                 saturation_threshold,
             )
 
-        # Update noise floor in shared state (for SNR auto-exposure)
-        noise_floor_details = details.get("noise_floor_details")
-        if noise_floor_details and "noise_floor_adu" in noise_floor_details:
-            shared_state.set_noise_floor(noise_floor_details["noise_floor_adu"])
-
         # Store SQM details (filter out large per-star arrays)
         filtered_details = {
             k: v

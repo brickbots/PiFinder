@@ -200,7 +200,9 @@ def update_sqm(
         calc_image = green
         calc_solution = _scale_solution_centroids(solution, scale)
         image_pixels_per_side = int(green.shape[0])
-        saturation_threshold = int(0.95 * (2**profile.bit_depth - 1))
+        # 0.70 of full scale, not ~1.0: CMOS response bends well before hard
+        # clip, and stars peaking at 75-90% already read systematically low.
+        saturation_threshold = int(0.70 * (2**profile.bit_depth - 1))
 
     pedestal_override = None
     if pedestal_estimator is not None:
