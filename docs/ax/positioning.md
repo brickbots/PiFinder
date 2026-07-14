@@ -244,7 +244,11 @@ defined on the image *after* that software rotation, so the two constants
 must be derived together. Derive or verify entries with the visual **imu2cam
 tool** (`PiFinder/pointing_model/docs/imu2cam_tool.html`);
 `tests/test_imu2cam_tool_presets.py` pins the tool's presets to both
-production tables.
+production tables. The IMU chip placement on the UI board is per **board
+revision** (rev-4 boards mount it on the back side, flipped about the
+board's long axis), so set the tool's board-revision control to match the
+physical board — see the tool's header comment and the CONTEXT.md **Board
+revision** entry.
 
 ---
 

@@ -186,8 +186,12 @@ The solver-facing coordinate frame: +z out along the boresight, +y along image "
 _Avoid_: sensor frame (that is the raw, pre-rotation frame), image frame (ambiguous about rotation).
 
 **IMU frame**:
-The BNO055 chip's own axes, fixed to the UI board by PCB layout and therefore identical on every build variant — only the board's mounting in the chassis differs between variants. The frame that `q_x2imu` lands in.
-_Avoid_: board frame (the board is the carrier; the frame belongs to the chip).
+The BNO055 chip's own axes. Fixed to the UI board by PCB layout, but the placement is per **board revision**: rev-3 and earlier mount the chip on the keypad face (+z out of the keypad face, +y along the long axis away from the screen end); rev-4 mounts it on the back side, flipped about the board's long axis (+z out of the back face, +y unchanged). A variant's IMU frame therefore follows from its board revision plus the board's mounting in the chassis — both baked into the variant's `q_imu2cam`. The frame that `q_x2imu` lands in.
+_Avoid_: board frame (the board is the carrier; the frame belongs to the chip and moves with the chip's placement).
+
+**Board revision** (rev-3 / rev-4):
+The UI-board PCBA generation — one revision line shared with [Battery](../battery/CONTEXT.md) and [Sound](../sound/CONTEXT.md): rev-4 (the generation shipping in the Analog Sky models) adds the BQ25895 charger and piezo buzzer and moves the BNO055 to the board's back side. Positioning cares because chip placement — and with it the IMU frame — is fixed per revision. Each `screen_direction` key bakes in the revision its variant ships with, so revision never appears as a runtime config dimension.
+_Avoid_: hardware revision (ambiguous), conflating with v2/v3 product generations.
 
 **`q_imu2cam`**:
 The fixed IMU-frame→camera-frame rotation for a build variant's geometry, selected by screen direction on `ImuDeadReckoning` init. Hardware geometry only — no per-unit calibration. Always paired with that variant's `rotate_amount`; the two values are only meaningful together.

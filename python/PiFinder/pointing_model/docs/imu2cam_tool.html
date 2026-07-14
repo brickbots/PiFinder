@@ -17,9 +17,17 @@
 
   Frame conventions (see pointing_model/README.md):
     IMU frame    : BNO055 chip axes, fixed to the UI board by PCB layout.
-                   +z out of the keypad face, +y along the long axis away
-                   from the screen end, +x toward the remaining long edge
-                   (right-handed).
+                   The placement is per board revision (the "board rev"
+                   control below / per-preset board_rev field):
+                     rev-3 (classic variants): chip on the keypad face --
+                       +z out of the keypad face, +y along the long axis
+                       away from the screen end, +x = y x z (right-handed).
+                     rev-4 (Analog Sky models): chip on the back side,
+                       flipped about the board's long axis -- +z out of
+                       the back face, +y unchanged, +x negated.
+                   Toggling the control keeps the depicted board pose and
+                   moves the chip, so the same visible arrangement emits
+                   the values for the chosen board revision.
     Module frame : +z out the lens (boresight), +y = raw sensor "up"
                    (top of the un-rotated capture), +x = raw image left.
                    The ribbon is drawn exiting the -y side (raw-bottom).
@@ -83,9 +91,10 @@
 
 <h1>PiFinder imu2cam tool <small>&mdash; derive (q_imu2cam, rotate_amount) pairs visually</small></h1>
 <p class="lede">Arrange the UI board and the camera module to match the physical device
-(rotations snap to 90&deg; about the world axes), pick the software image rotation,
-and copy the emitted constants. Load a preset to see a shipped variant; green means
-the arrangement on screen reproduces the shipped table entry.</p>
+(rotations snap to 90&deg; about the world axes), pick the software image rotation and
+the board revision (rev-4 boards carry the IMU chip on the back side), and copy the
+emitted constants. Load a preset to see a shipped variant; green means the arrangement
+on screen reproduces the shipped table entry.</p>
 
 <div class="layout">
   <div>
@@ -106,6 +115,8 @@ the arrangement on screen reproduces the shipped table entry.</p>
       <div class="row"><label for="preset">Preset</label><select id="preset"></select></div>
       <div class="row"><label for="rho">rotate_amount</label>
         <select id="rho"><option>0</option><option>90</option><option>180</option><option>270</option></select></div>
+      <div class="row"><label for="rev">board rev</label>
+        <select id="rev"><option>3</option><option>4</option></select></div>
       <div class="row"><label for="key">screen_direction</label>
         <input type="text" id="key" value="flat" spellcheck="false"></div>
       <div id="presetNote" class="note" hidden></div>
@@ -148,15 +159,15 @@ the arrangement on screen reproduces the shipped table entry.</p>
 5. main.py                               - display-rotate special case, if the
                                            display mounts rotated (cf. as_bloom)
 6. tests/test_imu_dead_reckoning_equivalence.py - add key to SCREEN_DIRECTIONS
-7. this tool                             - add the preset to the embedded JSON
-   (tests/test_imu2cam_tool_presets.py enforces parity with the tables)
+7. this tool                             - add the preset (with its board_rev)
+   to the embedded JSON (tests/test_imu2cam_tool_presets.py enforces parity)
 8. tests/test_imu_dead_reckoning.py      - paste the pytest block (optional)
 9. docs/source                           - PiFinder Type user docs, if user-facing</pre></div>
 </div>
 
 <script type="application/json" id="imu2cam-presets">
 {
-  "comment": "Expected values mirror the production tables and are pinned by tests/test_imu2cam_tool_presets.py. q is scalar-first [w,x,y,z] = ImuDeadReckoning._q_imu2cam(key); rotate = SCREEN_ROTATE_AMOUNTS[key].",
+  "comment": "Expected values mirror the production tables and are pinned by tests/test_imu2cam_tool_presets.py. q is scalar-first [w,x,y,z] = ImuDeadReckoning._q_imu2cam(key); rotate = SCREEN_ROTATE_AMOUNTS[key]; board_rev (3 when absent) selects the chip placement the depiction uses -- see the header comment.",
   "presets": [
     { "key": "flat", "label": "Flat (v2)", "rotate": 270,
       "q": [0.5000000000000001, 0.4999999999999999, -0.5, -0.5],
@@ -173,12 +184,12 @@ the arrangement on screen reproduces the shipped table entry.</p>
     { "key": "flat3", "label": "Flat (v3)", "rotate": 90,
       "q": [0.35355339059327384, 0.6123724356957945, -0.6123724356957946, -0.3535533905932738],
       "note": "30-degree camera tilt: loaded exactly, but not reachable via the 90-degree buttons." },
-    { "key": "as_bloom", "label": "AS Bloom", "rotate": 90,
-      "q": [6.123233995736766e-17, 0.0, 0.0, 1.0],
-      "note": "Verified against Bloom hardware with this tool (2026-07); supersedes the prototype-era 90-degree value." },
-    { "key": "as_heart", "label": "AS Heart", "rotate": 90,
-      "q": [0.7071067811865476, 0.7071067811865475, 0.0, 0.0],
-      "note": "Verified against Heart hardware with this tool (2026-07). Same quaternion as the first derivation but rotate 90, not 270: the module mounts spun 180 degrees about the boresight from the initial model, which cancels in q_imu2cam but flips the solver/preview image." }
+    { "key": "as_bloom", "label": "AS Bloom", "rotate": 90, "board_rev": 4,
+      "q": [3.749399456654644e-33, 1.0, 6.123233995736766e-17, 6.123233995736766e-17],
+      "note": "Rev-4 board: IMU on the back side. Re-derived 2026-07 under the rev-4 depiction; supersedes the value read off a rev-3 depiction of the same arrangement. Hardware verification pending." },
+    { "key": "as_heart", "label": "AS Heart", "rotate": 90, "board_rev": 4,
+      "q": [4.329780281177467e-17, 4.329780281177466e-17, -0.7071067811865475, 0.7071067811865476],
+      "note": "Rev-4 board: IMU on the back side. Re-derived 2026-07 under the rev-4 depiction; rotate stays 90 (the image-rotation side is chip-independent and was verified on hardware). Hardware verification of the quaternion pending." }
   ]
 }
 </script>
@@ -292,8 +303,11 @@ const presetData = JSON.parse(document.getElementById("imu2cam-presets").textCon
 // World pose of the camera frame in every preset: boresight along world +Y,
 // solver image up along world +Z ("device pointed at the horizon").
 const R_W_CAM = [[-1, 0, 0], [0, 0, 1], [0, 1, 0]];   // columns: x_cam, y_cam, z_cam
+// Rev-4 chip placement: IMU axes expressed in board coords (chip on the back
+// side, flipped about the board's long axis). Self-inverse.
+const REV4_M = [[-1, 0, 0], [0, 1, 0], [0, 0, -1]];
 
-const state = { Rb: ident(), Rm: ident(), rho: 270, key: "flat" };
+const state = { Rb: ident(), Rm: ident(), rho: 270, key: "flat", rev: 3 };
 const view = { yaw: -35, pitch: -25, scale: 118 };
 
 function imu2camMatrix() {
@@ -302,10 +316,12 @@ function imu2camMatrix() {
 function loadPreset(p) {
   const R = matFromQuat(p.q);
   state.rho = p.rotate;
+  state.rev = p.board_rev || 3;
   state.Rm = snap(mul(R_W_CAM, matT(rotAxis(2, p.rotate))));
-  state.Rb = snap(mul(R_W_CAM, matT(R)));
+  state.Rb = snap(mul(R_W_CAM, matT(R)));   // IMU pose -- rev only affects the depiction
   state.key = p.key;
   document.getElementById("rho").value = String(p.rotate);
+  document.getElementById("rev").value = String(state.rev);
   document.getElementById("key").value = p.key;
   const note = document.getElementById("presetNote");
   note.hidden = !p.note;
@@ -366,7 +382,7 @@ function octaPrism(z0, z1, r, colorSide, colorCap) {
   return f;
 }
 
-function boardModel() {                 // drawn in IMU coordinates
+function boardModel() {                 // authored in board coords, returned in IMU coords
   const f = boxFaces([-0.52, -0.95, -0.06], [0.52, 0.95, 0.06], "#1d2129");
   f.push(rectOn(0.062, -0.38, -0.86, 0.38, -0.42, "#0a121c"));            // screen
   f.push(rectOn(0.074, -0.34, -0.82, 0.34, -0.46, "#13202e"));            // screen glass
@@ -375,9 +391,16 @@ function boardModel() {                 // drawn in IMU coordinates
       const x = -0.38 + r * 0.28, y = -0.18 + c * 0.28;
       f.push(rectOn(0.062, x, y, x + 0.2, y + 0.2, "#343b46"));
     }
-  f.push(rectOn(0.062, 0.30, 0.10, 0.44, 0.24, "#0c0c0c"));               // BNO055 chip
-  return f;
+  if (state.rev === 3) {                                                   // chip on the keypad face;
+    f.push(rectOn(0.062, 0.30, 0.10, 0.44, 0.24, "#0c0c0c"));             // board frame == IMU frame
+    return f;
+  }
+  f.push({ pts: [[0.30, 0.10, -0.062], [0.44, 0.10, -0.062],             // rev-4: chip on the back face
+                 [0.44, 0.24, -0.062], [0.30, 0.24, -0.062]], n: [0, 0, -1], color: "#0c0c0c" });
+  return f.map(face =>
+    ({ pts: face.pts.map(p => matVec(REV4_M, p)), n: matVec(REV4_M, face.n), color: face.color }));
 }
+const boardPt = p => state.rev === 3 ? p : matVec(REV4_M, p);   // board coords -> IMU coords
 function moduleModel() {                // drawn in module (sensor) coordinates
   const f = boxFaces([-0.42, -0.42, -0.16], [0.42, 0.42, 0.1], "#242830");
   f.push(...octaPrism(0.1, 0.56, 0.24, "#15181d", "#05070a"));            // lens barrel
@@ -428,14 +451,15 @@ function drawScene() {
     ctx.strokeStyle = "rgba(0,0,0,.45)"; ctx.lineWidth = 0.75; ctx.stroke();
   }
 
-  /* IMU triad on the board */
-  const chipW = vAdd(matVec(state.Rb, [0.37, 0.17, 0.07]), BOARD_POS);
+  /* IMU triad on the chip (keypad face on rev-3, back face on rev-4) */
+  const chipW = vAdd(
+    matVec(state.Rb, boardPt([0.37, 0.17, state.rev === 3 ? 0.07 : -0.07])), BOARD_POS);
   ["x_imu", "y_imu", "z_imu"].forEach((name, i) => {
     const dir = matVec(state.Rb, [i === 0 ? 1 : 0, i === 1 ? 1 : 0, i === 2 ? 1 : 0]);
     arrow(V, chipW, vAdd(chipW, vScale(dir, 0.85)), AXIS_COLORS[i], name, false);
   });
-  label(V, vAdd(matVec(state.Rb, [0, -0.64, 0.2]), BOARD_POS), "screen", "#7fa6c9");
-  label(V, vAdd(matVec(state.Rb, [0, 0.55, -0.35]), BOARD_POS), "UI board", "#9aa5b1");
+  label(V, vAdd(matVec(state.Rb, boardPt([0, -0.64, 0.2])), BOARD_POS), "screen", "#7fa6c9");
+  label(V, vAdd(matVec(state.Rb, boardPt([0, 0.55, -0.35])), BOARD_POS), "UI board", "#9aa5b1");
 
   /* camera frame triad (after rotate_amount) + raw-up marker */
   const Rcam = mul(state.Rm, rotAxis(2, state.rho));
@@ -572,13 +596,14 @@ function refresh() {
   const sel = presetData.find(p => p.key === document.getElementById("preset").value);
   const st = document.getElementById("presetStatus");
   if (sel) {
-    const ok = quatEq(q, sel.q) && state.rho === sel.rotate;
+    const ok = quatEq(q, sel.q) && state.rho === sel.rotate && state.rev === (sel.board_rev || 3);
     st.className = "status " + (ok ? "good" : "bad");
     st.textContent = ok
-      ? `✔ reproduces the shipped "${sel.key}" entry (quaternion + rotate_amount)`
+      ? `✔ reproduces the shipped "${sel.key}" entry (quaternion + rotate_amount + board rev)`
       : `✘ differs from the shipped "${sel.key}" entry`;
   }
-  const hits = presetData.filter(p => quatEq(q, p.q) && state.rho === p.rotate).map(p => p.key);
+  const hits = presetData.filter(p =>
+    quatEq(q, p.q) && state.rho === p.rotate && state.rev === (p.board_rev || 3)).map(p => p.key);
   document.getElementById("matchScan").textContent =
     "arrangement matches shipped variant(s): " + (hits.length ? hits.join(", ") : "none");
 
@@ -593,6 +618,13 @@ for (const p of presetData) {
 }
 presetSel.addEventListener("change", () => loadPreset(presetData.find(p => p.key === presetSel.value)));
 document.getElementById("rho").addEventListener("change", e => { state.rho = +e.target.value; refresh(); });
+document.getElementById("rev").addEventListener("change", e => {
+  // Keep the depicted board pose; move the chip. The same visible arrangement
+  // then emits the values for the newly chosen board revision.
+  state.rev = +e.target.value;
+  state.Rb = snap(mul(state.Rb, REV4_M));
+  refresh();
+});
 document.getElementById("key").addEventListener("input", refresh);
 
 function makeButtons(el, target) {
