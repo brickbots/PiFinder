@@ -5,6 +5,7 @@
 import math
 import time
 from collections import deque
+from typing import Optional
 
 import numpy as np
 from PIL import Image, ImageChops
@@ -99,7 +100,7 @@ class UIPreview(UIModule):
         self.last_focus_result = focus.focus_hfd(raw_np)
         self._record_focus_sample(self.last_focus_result.median_hfd)
 
-    def _record_focus_sample(self, hfd: float | None) -> None:
+    def _record_focus_sample(self, hfd: Optional[float]) -> None:
         """Record a numeric HFD; missing measurements leave history frozen."""
         if hfd is None:
             return
@@ -343,7 +344,7 @@ class UIPreview(UIModule):
                 fill=bright,
             )
 
-        previous: tuple[tuple[int, int], bool, float] | None = None
+        previous: Optional[tuple[tuple[int, int], bool, float]] = None
         for timestamp, hfd in self.focus_history:
             x, right_side, offset = x_of(timestamp)
             current = (
