@@ -119,13 +119,21 @@ class UIPreview(UIModule):
             if blob.extent <= FOCUS_VISUAL_MAX_BLOB_PX
         )[:FOCUS_TILE_COUNT]
 
-    @staticmethod
-    def _tile_boxes(res_x: int, res_y: int) -> tuple[tuple[int, int, int, int], ...]:
+    def _focus_center(self) -> tuple[int, int]:
+        """Return the center of the visible area below the title bar."""
+        res_x, res_y = self.display_class.resolution
+        content_top = min(self.display_class.titlebar_height + 1, res_y)
+        return res_x // 2, content_top + (res_y - content_top) // 2
+
+    def _tile_boxes(self) -> tuple[tuple[int, int, int, int], ...]:
+        """Split the visible camera area into four equally sized quadrants."""
+        res_x, res_y = self.display_class.resolution
+        content_top = min(self.display_class.titlebar_height + 1, res_y)
         mid_x = res_x // 2
-        mid_y = res_y // 2
+        mid_y = self._focus_center()[1]
         return (
-            (0, 0, mid_x, mid_y),
-            (mid_x, 0, res_x, mid_y),
+            (0, content_top, mid_x, mid_y),
+            (mid_x, content_top, res_x, mid_y),
             (0, mid_y, mid_x, res_y),
             (mid_x, mid_y, res_x, res_y),
         )
@@ -141,7 +149,7 @@ class UIPreview(UIModule):
         res_x, res_y = self.display_class.resolution
         mosaic = Image.new("L", (res_x, res_y), 0)
 
-        for blob, box in zip(self._display_blobs(), self._tile_boxes(res_x, res_y)):
+        for blob, box in zip(self._display_blobs(), self._tile_boxes()):
             left, top, right, bottom = box
             tile_size = (right - left, bottom - top)
             crop_w, crop_h = focus_crop_size(
@@ -201,10 +209,13 @@ class UIPreview(UIModule):
     def _draw_focus_overlay(self) -> None:
         """Draw quadrant separators, HFD history, and the current HFD."""
         res_x, res_y = self.display_class.resolution
-        center = (res_x // 2, res_y // 2)
+        content_top = min(self.display_class.titlebar_height + 1, res_y)
+        center = self._focus_center()
         separator = self.colors.get(64)
-        self.draw.line([(center[0], 0), (center[0], res_y)], fill=separator)
-        self.draw.line([(0, center[1]), (res_x, center[1])], fill=separator)
+        self.draw.line(
+            [(center[0], content_top), (center[0], res_y - 1)], fill=separator
+        )
+        self.draw.line([(0, center[1]), (res_x - 1, center[1])], fill=separator)
 
         result = self.last_focus_result
         if result is not None and result.median_hfd is not None:

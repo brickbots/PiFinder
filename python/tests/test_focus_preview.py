@@ -81,10 +81,28 @@ def test_display_uses_four_brightest_visual_blobs():
 
 
 @pytest.mark.unit
+def test_quadrants_are_centered_below_title_bar():
+    preview = object.__new__(UIPreview)
+    preview.display_class = DisplayBase()
+
+    content_top = preview.display_class.titlebar_height + 1
+    boxes = preview._tile_boxes()
+    top_height = boxes[0][3] - boxes[0][1]
+    bottom_height = boxes[2][3] - boxes[2][1]
+
+    assert boxes[0][1] == content_top
+    assert top_height == bottom_height
+    assert (
+        preview._focus_center()[1]
+        == content_top + (preview.display_class.resY - content_top) // 2
+    )
+
+
+@pytest.mark.unit
 def test_renderer_preserves_raw_luminance_values():
     preview = object.__new__(UIPreview)
     preview.focus_zoom = FOCUS_NOMINAL_ZOOM
-    preview.display_class = SimpleNamespace(resolution=(128, 128))
+    preview.display_class = SimpleNamespace(resolution=(128, 128), titlebar_height=17)
     preview.colors = SimpleNamespace(
         red_image=Image.new("RGB", (128, 128), (255, 0, 0))
     )
@@ -113,7 +131,7 @@ def test_renderer_preserves_raw_luminance_values():
 def test_edge_star_crop_contains_only_source_frame_pixels():
     preview = object.__new__(UIPreview)
     preview.focus_zoom = FOCUS_NOMINAL_ZOOM
-    preview.display_class = SimpleNamespace(resolution=(128, 128))
+    preview.display_class = SimpleNamespace(resolution=(128, 128), titlebar_height=17)
     preview.colors = SimpleNamespace(
         red_image=Image.new("RGB", (128, 128), (255, 0, 0))
     )
@@ -137,7 +155,9 @@ def test_edge_star_crop_contains_only_source_frame_pixels():
         )
     )
 
-    assert np.all(rendered[:, :, 0] == 73)
+    content_top = preview.display_class.titlebar_height + 1
+    assert np.all(rendered[:content_top, :, 0] == 0)
+    assert np.all(rendered[content_top:, :, 0] == 73)
     assert np.all(rendered[:, :, 1:] == 0)
 
 
@@ -282,7 +302,8 @@ def test_hfd_history_runs_on_both_sides_of_center_readout():
     preview._draw_focus_overlay()
 
     red = np.asarray(preview.screen)[:, :, 0]
-    band = slice(preview.display_class.centerY - 12, preview.display_class.centerY + 13)
+    center_y = preview._focus_center()[1]
+    band = slice(center_y - 12, center_y + 13)
     assert np.any(red[band, :45] == 255)
     assert np.any(red[band, 83:] == 255)
 
