@@ -6,7 +6,9 @@
   q_imu2cam entry in pointing_model/imu_dead_reckoning.py and its paired
   rotate_amount in camera_interface.py (SCREEN_ROTATE_AMOUNTS).
 
-  Open this file directly in any browser (no server, no dependencies).
+  Open this file directly in any browser (no server needed). The 3D view
+  loads three.js from a pinned CDN URL at runtime, so it wants an internet
+  connection; the math and emitted values are inline and work without it.
   Arrange the UI board and camera module to match the physical device,
   pick the software image rotation, and copy the emitted values.
 
@@ -308,7 +310,6 @@ const R_W_CAM = [[-1, 0, 0], [0, 0, 1], [0, 1, 0]];   // columns: x_cam, y_cam, 
 const REV4_M = [[-1, 0, 0], [0, 1, 0], [0, 0, -1]];
 
 const state = { Rb: ident(), Rm: ident(), rho: 270, key: "flat", rev: 3 };
-const view = { yaw: -35, pitch: -25, scale: 118 };
 
 function imu2camMatrix() {
   return mul(matT(state.Rb), mul(state.Rm, rotAxis(2, state.rho)));
@@ -329,185 +330,9 @@ function loadPreset(p) {
   refresh();
 }
 
-/* ============================ renderer ================================== */
-const canvas = document.getElementById("view");
-const ctx = canvas.getContext("2d");
-const DPR = window.devicePixelRatio || 1;
-const CW = 880, CH = 560;
-canvas.width = CW * DPR; canvas.height = CH * DPR;
-canvas.style.width = CW + "px"; canvas.style.height = CH + "px";
-ctx.scale(DPR, DPR);
-
-const LIGHT = (() => { const l = [0.45, -0.55, 0.75], n = Math.hypot(...l); return l.map(x => x / n); })();
-
-function viewMatrix() {
-  return mul(rotAxis(0, view.pitch), rotAxis(2, view.yaw));
-}
-function project(V, p) {
-  const v = matVec(V, p);
-  return { x: CW / 2 + view.scale * v[0], y: CH / 2 - view.scale * v[2], depth: v[1] };
-}
-
-/* --------- scene geometry: faces/lines/labels in local coords ----------- */
-function boxFaces(min, max, color) {
-  const [a, b] = [min, max], f = [];
-  const P = (x, y, z) => [x, y, z];
-  const quads = [
-    [P(a[0], a[1], b[2]), P(b[0], a[1], b[2]), P(b[0], b[1], b[2]), P(a[0], b[1], b[2]), [0, 0, 1]],
-    [P(b[0], a[1], a[2]), P(a[0], a[1], a[2]), P(a[0], b[1], a[2]), P(b[0], b[1], a[2]), [0, 0, -1]],
-    [P(b[0], a[1], a[2]), P(b[0], b[1], a[2]), P(b[0], b[1], b[2]), P(b[0], a[1], b[2]), [1, 0, 0]],
-    [P(a[0], b[1], a[2]), P(a[0], a[1], a[2]), P(a[0], a[1], b[2]), P(a[0], b[1], b[2]), [-1, 0, 0]],
-    [P(a[0], b[1], a[2]), P(a[0], b[1], b[2]), P(b[0], b[1], b[2]), P(b[0], b[1], a[2]), [0, 1, 0]],
-    [P(a[0], a[1], a[2]), P(b[0], a[1], a[2]), P(b[0], a[1], b[2]), P(a[0], a[1], b[2]), [0, -1, 0]]];
-  for (const [p0, p1, p2, p3, n] of quads) f.push({ pts: [p0, p1, p2, p3], n, color });
-  return f;
-}
-function rectOn(z, x0, y0, x1, y1, color) {   // decoration quad on a +z face
-  return { pts: [[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]], n: [0, 0, 1], color };
-}
-function octaPrism(z0, z1, r, colorSide, colorCap) {
-  const f = [], N = 8;
-  for (let i = 0; i < N; i++) {
-    const a0 = i / N * 2 * Math.PI, a1 = (i + 1) / N * 2 * Math.PI;
-    const c0 = Math.cos(a0) * r, s0 = Math.sin(a0) * r, c1 = Math.cos(a1) * r, s1 = Math.sin(a1) * r;
-    const nm = [Math.cos((a0 + a1) / 2), Math.sin((a0 + a1) / 2), 0];
-    f.push({ pts: [[c0, s0, z0], [c1, s1, z0], [c1, s1, z1], [c0, s0, z1]], n: nm, color: colorSide });
-  }
-  const cap = [];
-  for (let i = 0; i < N; i++) {
-    const a = i / N * 2 * Math.PI;
-    cap.push([Math.cos(a) * r, Math.sin(a) * r, z1]);
-  }
-  f.push({ pts: cap, n: [0, 0, 1], color: colorCap });
-  return f;
-}
-
-function boardModel() {                 // authored in board coords, returned in IMU coords
-  const f = boxFaces([-0.52, -0.95, -0.06], [0.52, 0.95, 0.06], "#1d2129");
-  f.push(rectOn(0.062, -0.38, -0.86, 0.38, -0.42, "#0a121c"));            // screen
-  f.push(rectOn(0.074, -0.34, -0.82, 0.34, -0.46, "#13202e"));            // screen glass
-  for (let r = 0; r < 3; r++)                                              // keypad 3x4
-    for (let c = 0; c < 4; c++) {
-      const x = -0.38 + r * 0.28, y = -0.18 + c * 0.28;
-      f.push(rectOn(0.062, x, y, x + 0.2, y + 0.2, "#343b46"));
-    }
-  if (state.rev === 3) {                                                   // chip on the keypad face;
-    f.push(rectOn(0.062, 0.30, 0.10, 0.44, 0.24, "#0c0c0c"));             // board frame == IMU frame
-    return f;
-  }
-  f.push({ pts: [[0.30, 0.10, -0.062], [0.44, 0.10, -0.062],             // rev-4: chip on the back face
-                 [0.44, 0.24, -0.062], [0.30, 0.24, -0.062]], n: [0, 0, -1], color: "#0c0c0c" });
-  return f.map(face =>
-    ({ pts: face.pts.map(p => matVec(REV4_M, p)), n: matVec(REV4_M, face.n), color: face.color }));
-}
-const boardPt = p => state.rev === 3 ? p : matVec(REV4_M, p);   // board coords -> IMU coords
-function moduleModel() {                // drawn in module (sensor) coordinates
-  const f = boxFaces([-0.42, -0.42, -0.16], [0.42, 0.42, 0.1], "#242830");
-  f.push(...octaPrism(0.1, 0.56, 0.24, "#15181d", "#05070a"));            // lens barrel
-  f.push({ pts: [[-0.18, -0.42, -0.03], [0.18, -0.42, -0.03],             // ribbon out -y
-                 [0.18, -0.72, -0.03], [-0.18, -0.72, -0.03]], n: [0, 0, 1], color: "#a8875a" });
-  return f;
-}
-
-const BOARD_POS = [-1.55, 0, 0], MOD_POS = [1.55, 0, 0];
-const AXIS_COLORS = ["#e06c75", "#98c379", "#61afef"];
-
+/* ============== renderer hook (three.js script at the bottom) =========== */
 function drawScene() {
-  const V = viewMatrix();
-  ctx.clearRect(0, 0, CW, CH);
-
-  /* ground grid */
-  ctx.strokeStyle = "#161a20"; ctx.lineWidth = 1;
-  for (let i = -3; i <= 3; i++) {
-    for (const seg of [[[i, -3, -1.45], [i, 3, -1.45]], [[-3, i, -1.45], [3, i, -1.45]]]) {
-      const p0 = project(V, seg[0]), p1 = project(V, seg[1]);
-      ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
-    }
-  }
-
-  /* faces of both objects, painter-sorted globally */
-  const faces = [];
-  const emit = (model, R, pos) => {
-    for (const face of model) {
-      const pts = face.pts.map(p => vAdd(matVec(R, p), pos));
-      const proj = pts.map(p => project(V, p));
-      const nW = matVec(R, face.n);
-      const vd = matVec(V, nW);
-      const depth = proj.reduce((s, p) => s + p.depth, 0) / proj.length;
-      const lum = 0.58 + 0.42 * Math.max(0, nW[0] * LIGHT[0] + nW[1] * LIGHT[1] + nW[2] * LIGHT[2]);
-      faces.push({ proj, depth, color: shade(face.color, lum), back: vd[1] > 0.02 });
-    }
-  };
-  emit(boardModel(), state.Rb, BOARD_POS);
-  emit(moduleModel(), state.Rm, MOD_POS);
-  faces.sort((a, b) => b.depth - a.depth);
-  for (const f of faces) {
-    if (f.back) continue;
-    ctx.beginPath();
-    ctx.moveTo(f.proj[0].x, f.proj[0].y);
-    for (let i = 1; i < f.proj.length; i++) ctx.lineTo(f.proj[i].x, f.proj[i].y);
-    ctx.closePath();
-    ctx.fillStyle = f.color; ctx.fill();
-    ctx.strokeStyle = "rgba(0,0,0,.45)"; ctx.lineWidth = 0.75; ctx.stroke();
-  }
-
-  /* IMU triad on the chip (keypad face on rev-3, back face on rev-4) */
-  const chipW = vAdd(
-    matVec(state.Rb, boardPt([0.37, 0.17, state.rev === 3 ? 0.07 : -0.07])), BOARD_POS);
-  ["x_imu", "y_imu", "z_imu"].forEach((name, i) => {
-    const dir = matVec(state.Rb, [i === 0 ? 1 : 0, i === 1 ? 1 : 0, i === 2 ? 1 : 0]);
-    arrow(V, chipW, vAdd(chipW, vScale(dir, 0.85)), AXIS_COLORS[i], name, false);
-  });
-  label(V, vAdd(matVec(state.Rb, boardPt([0, -0.64, 0.2])), BOARD_POS), "screen", "#7fa6c9");
-  label(V, vAdd(matVec(state.Rb, boardPt([0, 0.55, -0.35])), BOARD_POS), "UI board", "#9aa5b1");
-
-  /* camera frame triad (after rotate_amount) + raw-up marker */
-  const Rcam = mul(state.Rm, rotAxis(2, state.rho));
-  const names = ["x_cam", "y_cam (image up)", "z_cam (boresight)"];
-  for (let i = 0; i < 3; i++) {
-    const dir = [Rcam[0][i], Rcam[1][i], Rcam[2][i]];
-    arrow(V, MOD_POS, vAdd(MOD_POS, vScale(dir, i === 2 ? 1.45 : 1.0)), AXIS_COLORS[i], names[i], true);
-  }
-  const rawUp0 = vAdd(matVec(state.Rm, [0, 0.46, 0]), MOD_POS);
-  const rawUp1 = vAdd(matVec(state.Rm, [0, 0.95, 0]), MOD_POS);
-  arrow(V, rawUp0, rawUp1, "#c8b06a", "sensor top (raw up)", false);
-  label(V, vAdd(matVec(state.Rm, [0, -0.62, -0.18]), MOD_POS), "ribbon", "#a8875a");
-  label(V, vAdd(matVec(state.Rm, [0, 0.4, -0.5]), MOD_POS), "camera module", "#9aa5b1");
-
-  /* world triad, bottom-left */
-  const o = { x: 56, y: CH - 52 };
-  [["X", [1, 0, 0]], ["Y", [0, 1, 0]], ["Z (up)", [0, 0, 1]]].forEach(([nm, ax], i) => {
-    const v = matVec(V, ax);
-    const tip = { x: o.x + 34 * v[0], y: o.y - 34 * v[2] };
-    ctx.strokeStyle = ctx.fillStyle = "#5b6673";
-    ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
-    ctx.font = "11px system-ui"; ctx.fillText(nm, tip.x + 3, tip.y);
-  });
-}
-function shade(hex, lum) {
-  const n = parseInt(hex.slice(1), 16);
-  const ch = s => Math.min(255, Math.round(((n >> s) & 255) * lum));
-  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
-}
-function arrow(V, from, to, color, text, dashed) {
-  const p0 = project(V, from), p1 = project(V, to);
-  ctx.strokeStyle = ctx.fillStyle = color;
-  ctx.lineWidth = 2;
-  ctx.setLineDash(dashed ? [6, 4] : []);
-  ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
-  ctx.setLineDash([]);
-  const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-  ctx.beginPath();
-  ctx.moveTo(p1.x, p1.y);
-  ctx.lineTo(p1.x - 9 * Math.cos(ang - 0.42), p1.y - 9 * Math.sin(ang - 0.42));
-  ctx.lineTo(p1.x - 9 * Math.cos(ang + 0.42), p1.y - 9 * Math.sin(ang + 0.42));
-  ctx.closePath(); ctx.fill();
-  if (text) { ctx.font = "12px system-ui"; ctx.fillText(text, p1.x + 6, p1.y - 4); }
-}
-function label(V, at, text, color) {
-  const p = project(V, at);
-  ctx.fillStyle = color; ctx.font = "12px system-ui";
-  ctx.fillText(text, p.x + 4, p.y);
+  if (window.SceneRenderer) window.SceneRenderer.render();
 }
 
 /* ============================ outputs =================================== */
@@ -649,24 +474,270 @@ document.querySelectorAll("button.copy").forEach(b =>
     b.textContent = "copied"; setTimeout(() => (b.textContent = "copy"), 900);
   }));
 
-let drag = null;
-canvas.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener("pointermove", e => {
-  if (!drag) return;
-  view.yaw += (e.clientX - drag.x) * 0.45;
-  view.pitch = Math.max(-89, Math.min(89, view.pitch - (e.clientY - drag.y) * 0.45));
-  drag = { x: e.clientX, y: e.clientY };
-  drawScene();
-});
-canvas.addEventListener("pointerup", () => (drag = null));
-canvas.addEventListener("wheel", e => {
-  e.preventDefault();
-  view.scale = Math.max(45, Math.min(260, view.scale * (e.deltaY > 0 ? 0.9 : 1.1)));
-  drawScene();
-}, { passive: false });
-canvas.addEventListener("dblclick", () => { view.yaw = -35; view.pitch = -25; view.scale = 118; drawScene(); });
-
 loadPreset(presetData[0]);
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"
+        integrity="sha384-RRHfJ6w1mTlKUBMYT/hvnRiOzEB/vyRV3DrQOseb6oYfvaZSfdd0byS4bHps0k2R"
+        crossorigin="anonymous"></script>
+<script>
+/* three.js 3D view. Everything above (math, presets, emitted outputs) is
+   inline and self-contained; this script only draws. If the CDN is
+   unreachable the tool still works -- you just get a notice instead of the
+   3D scene. Scene graph: boardGroup pose = state.Rb (the IMU pose); its
+   boardBody child holds the physical board authored in board coords, with
+   the rev-4 chip delta (REV4_M) as its local transform, so screen/keypad/
+   chip land where the chosen board revision physically puts them. */
+(function () {
+  "use strict";
+  const canvas = document.getElementById("view");
+  const CW = 880, CH = 560;
+  function fallback(reason) {
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#8d97a5"; g.font = "14px system-ui, sans-serif";
+    g.textAlign = "center";
+    g.fillText(`3D view unavailable: ${reason}.`, CW / 2, CH / 2 - 12);
+    g.fillText("The emitted values still work — the visual is only a depiction aid.", CW / 2, CH / 2 + 12);
+  }
+  if (typeof THREE === "undefined") {
+    fallback("could not load three.js from the CDN (internet connection needed)");
+    return;
+  }
+
+  const view = { yaw: -35, pitch: -25, scale: 118 };
+  const BOARD_POS = [-1.55, 0, 0], MOD_POS = [1.55, 0, 0];
+  const AXIS_HEX = [0xe06c75, 0x98c379, 0x61afef];
+  const AXIS_CSS = ["#e06c75", "#98c379", "#61afef"];
+
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  } catch (e) {
+    fallback("this browser could not create a WebGL context");
+    return;
+  }
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.setSize(CW, CH);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.autoClear = false;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x08090b);
+  const cam = new THREE.PerspectiveCamera(30, CW / CH, 0.1, 120);
+  cam.up.set(0, 0, 1);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  keyLight.position.set(4.5, -5.5, 7.5);
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.25);
+  fillLight.position.set(-4, 6, -3);
+  scene.add(keyLight, fillLight);
+
+  const grid = new THREE.GridHelper(6, 6, 0x2b323c, 0x151a21);
+  grid.rotation.x = Math.PI / 2;
+  grid.position.z = -1.45;
+  scene.add(grid);
+
+  /* ---------- small builders ---------- */
+  const box = (w, d, h, color, extra) =>
+    new THREE.Mesh(new THREE.BoxGeometry(w, d, h),
+      new THREE.MeshLambertMaterial({ color, ...extra }));
+  const edged = (mesh, opacity = 0.5) => {
+    mesh.add(new THREE.LineSegments(
+      new THREE.EdgesGeometry(mesh.geometry),
+      new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity })));
+    return mesh;
+  };
+  function textSprite(text, cssColor, worldH = 0.2) {
+    const c = document.createElement("canvas");
+    const fs = 34, pad = 6;
+    const g = c.getContext("2d");
+    g.font = fs + "px system-ui, sans-serif";
+    c.width = Math.ceil(g.measureText(text).width) + pad * 2;
+    c.height = fs + pad * 2;
+    g.font = fs + "px system-ui, sans-serif";     // canvas resize reset the state
+    g.fillStyle = cssColor;
+    g.textBaseline = "middle";
+    g.fillText(text, pad, c.height / 2);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+    s.scale.set(worldH * c.width / c.height, worldH, 1);
+    s.renderOrder = 5;
+    return s;
+  }
+  const setPose = (obj, R, p = [0, 0, 0]) => {   // row-major 3x3 + position
+    obj.matrix.set(R[0][0], R[0][1], R[0][2], p[0],
+                   R[1][0], R[1][1], R[1][2], p[1],
+                   R[2][0], R[2][1], R[2][2], p[2],
+                   0, 0, 0, 1);
+  };
+
+  /* ---------- UI board ---------- */
+  const boardGroup = new THREE.Group();       // pose = state.Rb (IMU pose)
+  boardGroup.matrixAutoUpdate = false;
+  const boardBody = new THREE.Group();        // board coords -> IMU coords (per rev)
+  boardBody.matrixAutoUpdate = false;
+  boardGroup.add(boardBody);
+
+  boardBody.add(edged(box(1.04, 1.9, 0.12, 0x232834)));
+  const bezel = edged(box(0.76, 0.44, 0.014, 0x0a121c), 0.35);
+  bezel.position.set(0, -0.64, 0.066);
+  boardBody.add(bezel);
+  const glass = box(0.68, 0.36, 0.012, 0x16283c, { emissive: 0x0d2036 });
+  glass.position.set(0, -0.64, 0.076);
+  boardBody.add(glass);
+  for (let r = 0; r < 3; r++)                 // keypad 3x4
+    for (let c = 0; c < 4; c++) {
+      const k = edged(box(0.2, 0.2, 0.024, 0x3a4250), 0.35);
+      k.position.set(-0.28 + r * 0.28, -0.08 + c * 0.28, 0.068);
+      boardBody.add(k);
+    }
+  const chip = edged(box(0.14, 0.14, 0.032, 0x0e0e10), 0.8);   // BNO055
+  chip.position.set(0.37, 0.17, 0.068);
+  boardBody.add(chip);
+  const screenLabel = textSprite("screen", "#7fa6c9");
+  screenLabel.position.set(0, -0.64, 0.22);
+  boardBody.add(screenLabel);
+  const boardLabel = textSprite("UI board", "#9aa5b1");
+  boardLabel.position.set(0, 0.55, -0.35);
+  boardBody.add(boardLabel);
+
+  const imuTriad = new THREE.Group();         // IMU axes == boardGroup local axes
+  ["x_imu", "y_imu", "z_imu"].forEach((name, i) => {
+    const dir = new THREE.Vector3(+(i === 0), +(i === 1), +(i === 2));
+    imuTriad.add(new THREE.ArrowHelper(dir, new THREE.Vector3(), 0.85, AXIS_HEX[i], 0.16, 0.08));
+    const s = textSprite(name, AXIS_CSS[i]);
+    s.position.copy(dir).multiplyScalar(1.05);
+    imuTriad.add(s);
+  });
+  boardGroup.add(imuTriad);
+  scene.add(boardGroup);
+
+  /* ---------- camera module (module/sensor coords) ---------- */
+  const moduleGroup = new THREE.Group();      // pose = state.Rm
+  moduleGroup.matrixAutoUpdate = false;
+  const modBody = edged(box(0.84, 0.84, 0.26, 0x2a2f38));
+  modBody.position.z = -0.03;
+  moduleGroup.add(modBody);
+  const barrel = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.24, 0.24, 0.46, 8),
+    new THREE.MeshPhongMaterial({ color: 0x1a1f26, flatShading: true }));
+  barrel.rotation.x = Math.PI / 2;            // cylinder +y -> +z (boresight)
+  barrel.position.z = 0.33;
+  moduleGroup.add(barrel);
+  const lens = new THREE.Mesh(new THREE.CircleGeometry(0.24, 8),
+    new THREE.MeshBasicMaterial({ color: 0x05070a }));
+  lens.position.z = 0.561;
+  moduleGroup.add(lens);
+  const ribbon = box(0.36, 0.3, 0.012, 0xa8875a);   // ribbon out -y (raw-bottom)
+  ribbon.position.set(0, -0.57, -0.03);
+  moduleGroup.add(ribbon);
+  moduleGroup.add(new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0),
+    new THREE.Vector3(0, 0.46, 0), 0.49, 0xc8b06a, 0.14, 0.07));
+  const rawUpLabel = textSprite("sensor top (raw up)", "#c8b06a");
+  rawUpLabel.position.set(0, 1.1, 0);
+  moduleGroup.add(rawUpLabel);
+  const ribbonLabel = textSprite("ribbon", "#a8875a");
+  ribbonLabel.position.set(0, -0.66, -0.2);
+  moduleGroup.add(ribbonLabel);
+  const moduleLabel = textSprite("camera module", "#9aa5b1");
+  moduleLabel.position.set(0, 0.42, -0.52);
+  moduleGroup.add(moduleLabel);
+  scene.add(moduleGroup);
+
+  /* ---------- camera frame triad (after rotate_amount), dashed ---------- */
+  function dashedArrow(len, hex) {
+    const g = new THREE.Group();
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(
+        [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, len - 0.16)]),
+      new THREE.LineDashedMaterial({ color: hex, dashSize: 0.09, gapSize: 0.055 }));
+    line.computeLineDistances();
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.16, 12),
+      new THREE.MeshBasicMaterial({ color: hex }));
+    head.rotation.x = Math.PI / 2;
+    head.position.z = len - 0.08;
+    g.add(line, head);
+    return g;
+  }
+  const camTriad = new THREE.Group();         // pose = state.Rm · Rz(rho)
+  camTriad.matrixAutoUpdate = false;
+  [["x_cam", 1.0], ["y_cam (image up)", 1.0], ["z_cam (boresight)", 1.45]]
+    .forEach(([name, len], i) => {
+      const dir = new THREE.Vector3(+(i === 0), +(i === 1), +(i === 2));
+      const a = dashedArrow(len, AXIS_HEX[i]);
+      a.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+      const s = textSprite(name, AXIS_CSS[i]);
+      s.position.copy(dir).multiplyScalar(len + 0.18);
+      camTriad.add(a, s);
+    });
+  scene.add(camTriad);
+
+  /* ---------- world triad overlay (bottom-left corner) ---------- */
+  const axScene = new THREE.Scene();
+  const axHelper = new THREE.AxesHelper(1);
+  axHelper.setColors(new THREE.Color(AXIS_HEX[0]), new THREE.Color(AXIS_HEX[1]),
+    new THREE.Color(AXIS_HEX[2]));
+  axScene.add(axHelper);
+  [["X", [1.3, 0, 0]], ["Y", [0, 1.3, 0]], ["Z (up)", [0, 0, 1.35]]].forEach(([t, p]) => {
+    const s = textSprite(t, "#5b6673", 0.42);
+    s.position.set(p[0], p[1], p[2]);
+    axScene.add(s);
+  });
+  const axCam = new THREE.OrthographicCamera(-1.8, 1.8, 1.8, -1.8, 0.1, 10);
+
+  function renderScene() {
+    setPose(boardGroup, state.Rb, BOARD_POS);
+    setPose(boardBody, state.rev === 3 ? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] : REV4_M);
+    chip.position.z = state.rev === 3 ? 0.068 : -0.068;   // rev-4: back face
+    imuTriad.position.set(state.rev === 3 ? 0.37 : -0.37, 0.17, 0.07);
+    setPose(moduleGroup, state.Rm, MOD_POS);
+    setPose(camTriad, mul(state.Rm, rotAxis(2, state.rho)), MOD_POS);
+
+    const yaw = view.yaw * Math.PI / 180, pitch = view.pitch * Math.PI / 180;
+    const fwd = new THREE.Vector3(
+      Math.sin(yaw) * Math.cos(pitch), Math.cos(yaw) * Math.cos(pitch), -Math.sin(pitch));
+    const dist = (CH / view.scale) / (2 * Math.tan(cam.fov * Math.PI / 360));
+    cam.position.copy(fwd).multiplyScalar(-dist);
+    cam.lookAt(0, 0, 0);
+
+    renderer.setViewport(0, 0, CW, CH);
+    renderer.setScissorTest(false);
+    renderer.clear();
+    renderer.render(scene, cam);
+
+    axCam.position.copy(fwd).multiplyScalar(-3);
+    axCam.up.set(0, 0, 1);
+    axCam.lookAt(0, 0, 0);
+    renderer.setViewport(12, 12, 96, 96);
+    renderer.setScissor(12, 12, 96, 96);
+    renderer.setScissorTest(true);
+    renderer.clearDepth();
+    renderer.render(axScene, axCam);
+    renderer.setScissorTest(false);
+  }
+  window.SceneRenderer = { render: renderScene };
+
+  /* ---------- view manipulation (same feel as the old renderer) ---------- */
+  let drag = null;
+  canvas.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener("pointermove", e => {
+    if (!drag) return;
+    view.yaw += (e.clientX - drag.x) * 0.45;
+    view.pitch = Math.max(-89, Math.min(89, view.pitch - (e.clientY - drag.y) * 0.45));
+    drag = { x: e.clientX, y: e.clientY };
+    renderScene();
+  });
+  canvas.addEventListener("pointerup", () => (drag = null));
+  canvas.addEventListener("wheel", e => {
+    e.preventDefault();
+    view.scale = Math.max(45, Math.min(260, view.scale * (e.deltaY > 0 ? 0.9 : 1.1)));
+    renderScene();
+  }, { passive: false });
+  canvas.addEventListener("dblclick", () => { view.yaw = -35; view.pitch = -25; view.scale = 118; renderScene(); });
+
+  renderScene();
+})();
 </script>
 </body>
 </html>

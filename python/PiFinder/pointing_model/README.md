@@ -223,9 +223,10 @@ software image rotation in `camera_interface.py` (`SCREEN_ROTATE_AMOUNTS`):
 the camera frame's "image up" is defined on the image *after* that rotation.
 Use the visual derivation tool at
 [`docs/imu2cam_tool.html`](docs/imu2cam_tool.html) instead — open it directly
-in a browser (no server needed), arrange the UI board and camera module to
-match the physical device, and copy the emitted `(q_imu2cam, rotate_amount)`
-pair plus a ready-made pytest block. The tool ships with one preset per
+in a browser (no server needed; the 3D view fetches three.js from a CDN, so
+it wants an internet connection — the emitted values work without it),
+arrange the UI board and camera module to match the physical device, and copy
+the emitted `(q_imu2cam, rotate_amount)` pair plus a ready-made pytest block. The tool ships with one preset per
 shipped variant; `tests/test_imu2cam_tool_presets.py` keeps those presets and
 the production tables in lockstep.
 
