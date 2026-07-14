@@ -45,6 +45,14 @@ sudo systemctl unmask hostapd
 # open permissisons on wpa_supplicant file so we can adjust network config
 sudo chmod 666 /etc/wpa_supplicant/wpa_supplicant.conf
 
+# Bluetooth HID keyboards
+if [[ -f /etc/bluetooth/input.conf ]]; then
+    sudo sed -i \
+        -e 's/^#\?UserspaceHID=.*/UserspaceHID=true/' \
+        -e 's/^#\?LEAutoSecurity=.*/LEAutoSecurity=true/' \
+        /etc/bluetooth/input.conf
+fi
+
 # Samba config
 sudo cp ~/PiFinder/pi_config_files/smb.conf /etc/samba/smb.conf
 
@@ -92,4 +100,3 @@ sudo systemctl enable pifinder
 sudo systemctl enable pifinder_splash
 
 echo "PiFinder setup complete, please restart the Pi"
-
