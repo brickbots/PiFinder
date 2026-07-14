@@ -614,16 +614,17 @@ class SQM:
             altitude_deg
         )  # 0.28*(airmass-1)
 
-        # No absolute zero-point constant is applied: the per-frame mzero fit
-        # self-calibrates against the catalog, and the residual absolute bias
-        # is aperture flux loss (focus-dependent), which a fixed per-sensor
-        # constant cannot represent. See docs/adr for the rejected offset and
-        # the planned per-frame aperture correction.
+        # Sky-passband offset: the colour term matches the stars to the sensor
+        # passband, so the sky is measured in that passband too. A bare sensor
+        # sees NIR sky emission a V-band meter doesn't; this per-sensor
+        # constant converts back to the meter's V-band scale. See
+        # CameraProfile.sqm_band_offset and docs/adr/0020.
+        band_offset = self.profile.sqm_band_offset
 
         # Main SQM value: no extinction correction (raw measurement)
-        sqm_final = sqm_uncorrected
+        sqm_final = sqm_uncorrected + band_offset
         # Altitude-corrected value: adds extinction for altitude comparison
-        sqm_altitude_corrected = sqm_uncorrected + extinction_for_altitude
+        sqm_altitude_corrected = sqm_uncorrected + band_offset + extinction_for_altitude
 
         # Filter out None values for statistics in diagnostics
         valid_mzeros_for_stats = [mz for mz in mzeros if mz is not None]
@@ -652,6 +653,7 @@ class SQM:
             "n_color_corrected": n_color_corrected,
             "pixels_per_side": pixels_per_side,
             "mzero_correction": mzero_correction,
+            "sqm_band_offset": band_offset,
             "read_noise_adu": read_noise,
             "dark_current_rate": self.profile.dark_current_rate,
             "dark_current_contribution": dark_current_contribution,

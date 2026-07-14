@@ -84,6 +84,18 @@ class CameraProfile:
     # clipping/8-bit quantisation/resize break the flux linearity SQM relies on.
     sqm_use_raw_green: bool = False
 
+    # Sky-passband offset (mag), added to the final SQM. The colour term
+    # matches the *stars* to the sensor passband, but the *sky* is then also
+    # measured in that passband: a bare sensor sees NIR sky emission (airglow,
+    # LED/sodium light pollution beyond 700nm) that a V-band SQM meter does
+    # not, so its sky reads genuinely brighter. This constant converts the
+    # sensor-band sky brightness back to the meter's V-band scale. Stable per
+    # sensor model once the photometry is robust (night-to-night spread 0.06
+    # mag over focus states and star fields). Values are provisional from
+    # three sweeps per sensor; refine with a multi-night side-by-side
+    # campaign against a reference meter aimed at the camera field.
+    sqm_band_offset: float = 0.0
+
     def crop_and_rotate(self, raw_array):
         """
         Apply camera-specific cropping and rotation to raw array.
@@ -178,6 +190,9 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # photometry. See docs/adr for the SQM colour-term decision.
         color_coefficient=0.8,
         sqm_use_raw_green=True,
+        # Bare sensor sees NIR sky emission a V-band meter doesn't. Provisional
+        # (3 sweeps, night-to-night spread 0.06 mag); refine vs reference meter.
+        sqm_band_offset=0.43,
     ),
     "imx290": CameraProfile(
         # Hardware configuration (same as imx462 - driver compatibility)
@@ -199,6 +214,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # Same sensor family/optics as imx462 (driver-compatible), same NIR leak.
         color_coefficient=0.8,
         sqm_use_raw_green=True,
+        sqm_band_offset=0.43,  # mirror of imx462 (same sensor family, no sweeps yet)
     ),
     "hq": CameraProfile(
         # Hardware configuration
@@ -221,6 +237,9 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # IR-cut filter, so no NIR leak and the green passband ~ Johnson V.
         color_coefficient=0.0,
         sqm_use_raw_green=True,
+        # Small residual vs reference meter despite the IR-cut. Provisional
+        # (2 trusted sweeps); refine vs reference meter.
+        sqm_band_offset=0.07,
     ),
     # Processed image profiles (8-bit images after camera.capture() processing)
     # These have been rescaled to 0-255 but still have residual offset from:
