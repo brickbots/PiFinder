@@ -13,7 +13,6 @@ import queue
 import numpy as np
 import time
 import logging
-import sys
 from time import perf_counter as precision_timestamp
 import os
 import platform
@@ -41,7 +40,6 @@ from PiFinder.types.positioning import (
     SuccessfulSolve,
 )
 
-sys.path.append(str(utils.tetra3_dir))
 import tetra3
 from tetra3 import cedar_detect_client
 
@@ -438,7 +436,9 @@ def solver(
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
-    t3 = tetra3.Tetra3(str(utils.tetra3_dir / "data" / "default_database.npz"))
+    # Load tetra3's bundled pattern database by name; tetra3 resolves it from
+    # its own package data dir (shipped inside the cedar-solve wheel).
+    t3 = tetra3.Tetra3("default_database")
     align_ra = 0
     align_dec = 0
     last_solve_attempt: float = 0.0

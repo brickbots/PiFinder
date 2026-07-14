@@ -22,7 +22,9 @@ import queue
 import datetime
 import json
 import uuid
+import sys
 import logging
+import traceback
 import argparse
 import pickle
 from pathlib import Path
@@ -448,6 +450,19 @@ def main(
         console.update()
         logger.info("Starting ....")
 
+        # One-shot notice from the boot watchdog: a failed upgrade was
+        # auto-rolled-back to this (previous) generation.
+        upgrade_failed_notice = utils.data_dir / "upgrade_failed.json"
+        if upgrade_failed_notice.exists():
+            console.write("!! Update failed")
+            console.write("!! Rolled back")
+            console.update()
+            logger.warning("Previous upgrade failed; watchdog rolled back")
+            try:
+                upgrade_failed_notice.unlink()
+            except OSError:
+                pass
+
         # spawn gps service....
         console.write("   GPS")
         console.update()
@@ -654,6 +669,12 @@ def main(
         logger.info("   Event Loop")
         console.update()
 
+        # Everything is constructed and the display is live: declare readiness
+        # to systemd. This is the health signal the boot watchdog keys off —
+        # a build that dies before this line never reports READY and fails its
+        # trial. No-op outside systemd (development runs).
+        utils.sd_notify("READY=1")
+
         # Stop profiling (uncomment to analyze startup performance)
         # stop_profiling(profiler, startup_profile_start)
 
@@ -808,9 +829,7 @@ def main(
                     location.error_in_m = 5
                     location.lock = True
                     location.lock_type = 3
-                    location.last_gps_lock = (
-                        timez.local_now().time().isoformat()[:8]
-                    )
+                    location.last_gps_lock = timez.local_now().time().isoformat()[:8]
                     console.write(
                         f"GPS: Location {location.lat} {location.lon} {location.altitude}"
                     )
@@ -1062,11 +1081,6 @@ def main(
 if __name__ == "__main__":
     import sys
 
-    # Ensure the active log config symlink exists, defaulting to logconf_default.json
-    _logconf_link = Path("pifinder_logconf.json")
-    if not _logconf_link.exists():
-        _logconf_link.symlink_to("logconf_default.json")
-
     debug_no_file_logs = "--debug-no-file-logs" in sys.argv
     if debug_no_file_logs:
         os.environ["PIFINDER_DEBUG_NO_FILE_LOGS"] = "1"
@@ -1077,13 +1091,13 @@ if __name__ == "__main__":
     rlogger.setLevel(logging.DEBUG if debug_no_file_logs else logging.INFO)
 
     if debug_no_file_logs:
-        log_helper = MultiprocLogging(Path("pifinder_logconf.json"), console_only=True)
+        log_helper = MultiprocLogging(utils.active_logconf_path(), console_only=True)
         MultiprocLogging.configurer(log_helper.get_queue())
     else:
         log_path = utils.data_dir / "pifinder.log"
         try:
             log_helper = MultiprocLogging(
-                Path("pifinder_logconf.json"),
+                utils.active_logconf_path(),
                 log_path,
             )
             MultiprocLogging.configurer(log_helper.get_queue())
@@ -1287,4 +1301,11 @@ if __name__ == "__main__":
         main(log_helper, args.script, args.fps, args.verbose, args.profile_startup)
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
+        # Logging is multiprocess (QueueHandler -> listener); os._exit() below
+        # can kill this process before the queued traceback is ever written to
+        # the log file. Write it straight to stderr (captured by the journal)
+        # and flush every handler so the cause is never lost on a hard abort.
+        traceback.print_exc()
+        sys.stderr.flush()
+        logging.shutdown()
         os._exit(1)

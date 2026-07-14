@@ -211,21 +211,7 @@ def switch_cam_imx462(ui_module: UIModule) -> None:
 
 
 def get_camera_type(ui_module: UIModule) -> list[str]:
-    cam_id = "000"
-
-    # read config.txt into a list
-    with open("/boot/config.txt", "r") as boot_in:
-        boot_lines = list(boot_in)
-
-    # Look for the line without a comment...
-    for line in boot_lines:
-        if line.startswith("dtoverlay=imx"):
-            cam_id = line[10:16]
-            # imx462 uses imx290 driver
-            if cam_id == "imx290":
-                cam_id = "imx462"
-
-    return [cam_id]
+    return sys_utils.get_camera_type()
 
 
 def switch_language(ui_module: UIModule) -> None:
@@ -237,9 +223,6 @@ def switch_language(ui_module: UIModule) -> None:
     )
     lang.install()
     logger.info("Switch Language: %s", iso2_code)
-    if iso2_code == "zh":
-        # Chinese requires a new font, so we have to restart
-        restart_pifinder(ui_module)
 
 
 def go_wifi_ap(ui_module: UIModule) -> None:
@@ -255,9 +238,15 @@ def go_wifi_cli(ui_module: UIModule) -> None:
 
 
 def get_wifi_mode(ui_module: UIModule) -> list[str]:
-    wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
-    with open(wifi_txt, "r") as wfs:
-        return [wfs.read()]
+    # Report the live mode from NetworkManager (as the web UI does), not the
+    # static wifi_status.txt — that file is written once at setup and never
+    # tracks reality, so it showed "Client" while the device was on the AP.
+    try:
+        return [sys_utils.get_wifi_mode()]
+    except Exception:
+        wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
+        with open(wifi_txt, "r") as wfs:
+            return [wfs.read()]
 
 
 def set_location(ui_module: UIModule) -> None:

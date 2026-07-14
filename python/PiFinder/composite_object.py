@@ -298,7 +298,11 @@ class CompositeObject:
         sections: list = []
         seen: set = set()
         have_list_description = False
-        for source, desc in self.list_descriptions.items():
+        # getattr guard: objects restored from a pre-v2 pickle cache lack this
+        # field (it isn't applied on unpickle). The cache version bump rebuilds
+        # such caches, but this keeps the details screen from hard-crashing if a
+        # stale object ever reaches here.
+        for source, desc in getattr(self, "list_descriptions", {}).items():
             if desc:
                 sections.append((source, desc))
                 have_list_description = True

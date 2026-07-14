@@ -1,15 +1,17 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
 from PiFinder.ui.software import (
-    update_needed,
-    _strip_markdown,
+    UISoftware,
+    UPDATE_MANIFEST_URL,
     _fetch_migration_config,
     _fetch_update_manifest,
     _migration_version_info_from_manifest,
+    _strip_markdown,
     _UNLOCK_SEQUENCE,
+    update_needed,
 )
 
 
@@ -149,8 +151,143 @@ class TestFetchMigrationConfig:
         assert _fetch_migration_config() is None
 
 
+@pytest.mark.unit
+class TestFetchUpdateManifest:
+    @patch("PiFinder.ui.software.requests.get")
+    def test_parses_manifest_channels(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = {
+            "schema": 1,
+            "channels": {
+                "stable": [
+                    {
+                        "kind": "release",
+                        "label": "v3.1.0",
+                        "title": "PiFinder v3.1.0",
+                        "version": "3.1.0",
+                        "store_path": "/nix/store/aaa-nixos-system-pifinder",
+                        "available": True,
+                    }
+                ],
+                "beta": [],
+                "unstable": [
+                    {
+                        "kind": "trunk",
+                        "label": "nixos-abc1234",
+                        "title": "nixos branch",
+                        "version": "nixos-abc1234",
+                        "store_path": "/nix/store/bbb-nixos-system-pifinder",
+                        "available": True,
+                    },
+                    {
+                        "kind": "pr",
+                        "label": "PR#42-def5678",
+                        "title": "Fix star matching algorithm",
+                        "version": "PR#42-def5678",
+                        "store_path": "/nix/store/ccc-nixos-system-pifinder",
+                        "available": True,
+                    },
+                ],
+            },
+        }
+        mock_get.return_value = mock_resp
+
+        channels = _fetch_update_manifest()
+
+        assert channels["stable"][0]["ref"] == "/nix/store/aaa-nixos-system-pifinder"
+        assert channels["stable"][0]["channel"] == "stable"
+        assert channels["unstable"][0]["is_trunk"] is True
+        assert channels["unstable"][1]["label"] == "PR#42-def5678"
+        mock_get.assert_called_once_with(UPDATE_MANIFEST_URL, timeout=10)
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_unavailable_manifest_entry_has_no_ref(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = {
+            "schema": 1,
+            "channels": {
+                "stable": [],
+                "beta": [],
+                "unstable": [
+                    {
+                        "kind": "trunk",
+                        "label": "main",
+                        "title": "main branch",
+                        "version": "main",
+                        "store_path": None,
+                        "available": False,
+                        "reason": "no build",
+                    }
+                ],
+            },
+        }
+        mock_get.return_value = mock_resp
+
+        channels = _fetch_update_manifest()
+
+        entry = channels["unstable"][0]
+        assert entry["ref"] is None
+        assert entry["unavailable"] is True
+        assert entry["subtitle"] == "main branch (no build)"
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_invalid_store_path_is_unavailable(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = {
+            "schema": 1,
+            "channels": {
+                "stable": [],
+                "beta": [],
+                "unstable": [
+                    {
+                        "kind": "pr",
+                        "label": "PR#42-abcdef0",
+                        "title": "Bad build",
+                        "version": "PR#42-abcdef0",
+                        "store_path": "not-a-store-path",
+                        "available": True,
+                    }
+                ],
+            },
+        }
+        mock_get.return_value = mock_resp
+
+        channels = _fetch_update_manifest()
+
+        entry = channels["unstable"][0]
+        assert entry["ref"] is None
+        assert entry["unavailable"] is True
+        assert entry["subtitle"] == "Bad build (invalid build)"
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_rejects_unknown_schema(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = {"schema": 99, "channels": {}}
+        mock_get.return_value = mock_resp
+
+        with pytest.raises(ValueError):
+            _fetch_update_manifest()
+
+
 def _migration_entry(version="3.0.0", available=True, with_urls=True):
-    entry = {"version": version, "available": available}
+    # Mirror the real manifest: a migration-capable release carries both a
+    # valid store_path (so available/unavailable resolves from it) and the
+    # migration tarball URLs.
+    entry = {
+        "kind": "release",
+        "label": f"v{version}",
+        "version": version,
+        "available": available,
+        "store_path": (
+            f"/nix/store/{'a' * 32}-nixos-system-pifinder-{version}"
+            if available
+            else None
+        ),
+    }
     if with_urls:
         base = f"https://example.invalid/releases/download/v{version}"
         entry["migration_url"] = f"{base}/pifinder-migration-v{version}.tar.zst"
@@ -162,31 +299,13 @@ def _migration_entry(version="3.0.0", available=True, with_urls=True):
 
 def _manifest(stable=None, beta=None, unstable=None):
     return {
+        "schema": 1,
         "channels": {
             "stable": stable or [],
             "beta": beta or [],
             "unstable": unstable or [],
-        }
+        },
     }
-
-
-@pytest.mark.unit
-class TestFetchUpdateManifest:
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_dict(self, mock_get):
-        payload = {"channels": {}}
-        mock_get.return_value = _mock_json_response(payload)
-        assert _fetch_update_manifest() == payload
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_none_on_http_error(self, mock_get):
-        mock_get.return_value = _mock_json_response({}, status_code=500)
-        assert _fetch_update_manifest() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_none_on_malformed_json(self, mock_get):
-        mock_get.return_value = _mock_invalid_json_response()
-        assert _fetch_update_manifest() is None
 
 
 def _mock_head_response(size_bytes=None, status_code=200):
@@ -285,3 +404,120 @@ class TestMigrationVersionInfoFromManifest:
     def test_none_when_channels_missing(self, mock_get, _mock_head):
         mock_get.return_value = _mock_json_response({"schema": 1})
         assert _migration_version_info_from_manifest() is None
+
+
+@pytest.mark.unit
+def test_unstable_list_hides_exact_running_build():
+    # The running build is hidden from unstable by store-path identity; a
+    # rebuilt PR (same number, new store path) is a real upgrade and stays.
+    ui = UISoftware.__new__(UISoftware)
+    ui._channel_names = ["unstable"]
+    ui._channel_index = 0
+    ui._software_version = "PR#1-abcdef0"
+    ui._channels = {
+        "unstable": [
+            {
+                "label": "nixos-trunk",
+                "version": "nixos-trunk",
+                "is_trunk": True,
+                "ref": "/nix/store/bbb-trunk",
+            },
+            {
+                "label": "PR#1-abcdef0",
+                "version": "PR#1-abcdef0",
+                "ref": "/nix/store/aaa-running",
+            },
+        ]
+    }
+
+    with patch(
+        "PiFinder.ui.software._current_store_path",
+        return_value="/nix/store/aaa-running",
+    ):
+        ui._refresh_version_list()
+
+    assert [entry["label"] for entry in ui._version_list] == ["nixos-trunk"]
+
+
+@pytest.mark.unit
+def test_stable_list_filters_current_build_by_store_path():
+    ui = UISoftware.__new__(UISoftware)
+    ui._channel_names = ["stable"]
+    ui._channel_index = 0
+    ui._software_version = "3.0.0"
+    ui._channels = {
+        "stable": [
+            {"label": "v3.0.0", "version": "3.0.0", "ref": "/nix/store/aaa-current"},
+            {"label": "v3.1.0", "version": "3.1.0", "ref": "/nix/store/bbb-next"},
+        ]
+    }
+
+    with patch(
+        "PiFinder.ui.software._current_store_path",
+        return_value="/nix/store/aaa-current",
+    ):
+        ui._refresh_version_list()
+
+    assert [entry["label"] for entry in ui._version_list] == ["v3.1.0"]
+
+
+@pytest.mark.unit
+def test_recut_release_with_same_version_stays_visible():
+    # A re-cut release reuses its version/label but is a different store path
+    # — it must be offered as an upgrade, not hidden by a version-string match.
+    ui = UISoftware.__new__(UISoftware)
+    ui._channel_names = ["beta"]
+    ui._channel_index = 0
+    ui._software_version = "3.0.0"
+    ui._channels = {
+        "beta": [
+            {"label": "v3.0.0-beta", "version": "3.0.0", "ref": "/nix/store/bbb-recut"},
+        ]
+    }
+
+    with patch(
+        "PiFinder.ui.software._current_store_path",
+        return_value="/nix/store/aaa-old-build",
+    ):
+        ui._refresh_version_list()
+
+    assert [entry["label"] for entry in ui._version_list] == ["v3.0.0-beta"]
+
+
+@pytest.mark.unit
+def test_unknown_current_build_hides_nothing():
+    ui = UISoftware.__new__(UISoftware)
+    ui._channel_names = ["stable"]
+    ui._channel_index = 0
+    ui._software_version = "3.0.0"
+    ui._channels = {
+        "stable": [
+            {"label": "v3.0.0", "version": "3.0.0", "ref": "/nix/store/aaa"},
+        ]
+    }
+
+    with patch("PiFinder.ui.software._current_store_path", return_value=None):
+        ui._refresh_version_list()
+
+    assert [entry["label"] for entry in ui._version_list] == ["v3.0.0"]
+
+
+@pytest.mark.unit
+def test_unavailable_version_has_no_install_option():
+    ui = UISoftware.__new__(UISoftware)
+    ui._phase = "browse"
+    ui._focus = "list"
+    ui._list_index = 0
+    ui._version_list = [
+        {
+            "label": "main",
+            "version": "main",
+            "subtitle": "main branch (no build)",
+            "unavailable": True,
+        }
+    ]
+
+    ui.key_right()
+
+    assert ui._phase == "confirm"
+    assert ui._confirm_options == ["Cancel"]

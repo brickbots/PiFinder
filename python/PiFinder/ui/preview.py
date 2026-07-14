@@ -8,20 +8,17 @@ functionality. It also manages a marking menu for adjusting camera settings and 
 strip and star selectors on the images.
 """
 
-import sys
 import time
 from collections import deque
 
 import numpy as np
 from PIL import Image, ImageChops
 
-from PiFinder import focus, utils
+from PiFinder import focus
 from PiFinder.ui.camera_render import resize_for_display
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.ui_utils import outline_text
-
-sys.path.append(str(utils.tetra3_dir))
 
 # Focus indicator tuning (see docs/ax/ui/CONTEXT.md "Focus indicator" and
 # docs/adr/0005-focus-hfd-self-contained-in-ui.md). Starting values -- adjust
@@ -45,8 +42,6 @@ CAMERA_NATIVE_RES = 512
 
 
 class UIPreview(UIModule):
-    from PiFinder import tetra3
-
     __title__ = "CAMERA"
     __help_name__ = "camera"
     _STAR_ICON = "\uf005"  # NerdFont star icon (Font Awesome solid)

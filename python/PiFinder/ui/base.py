@@ -8,7 +8,7 @@ This module contains the base UIModule class
 import time
 import uuid
 from itertools import cycle
-from typing import Type, Union
+from typing import Union
 
 from PIL import Image, ImageDraw
 from PiFinder import utils
@@ -131,7 +131,7 @@ class UIModule:
 
     def __init__(
         self,
-        display_class: Type[DisplayBase],
+        display_class: DisplayBase,
         camera_image,
         shared_state,
         command_queues,
@@ -482,6 +482,8 @@ class UIModule:
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
+                    if solution is None:
+                        return
                     cam_active = solution.is_camera_solve()
                     # a fresh cam solve sets unmoved to True
                     self._unmoved = True if cam_active else self._unmoved

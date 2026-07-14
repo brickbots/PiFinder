@@ -100,7 +100,7 @@ class Server:
         shared_state=None,
         is_debug=False,
     ):
-        self.version_txt = f"{utils.pifinder_dir}/version.txt"
+        self._software_version = utils.get_version()
         self.keyboard_queue = keyboard_queue or multiprocessing.Queue()
         self.ui_queue = ui_queue or multiprocessing.Queue()
         self.gps_queue = gps_queue or multiprocessing.Queue()
@@ -201,12 +201,8 @@ class Server:
         def home():
             # logger.debug("/ called")
             # Get version info
-            software_version = "Unknown"
-            try:
-                with open(self.version_txt, "r") as ver_f:
-                    software_version = ver_f.read()
-            except (FileNotFoundError, IOError) as e:
-                logger.warning(f"Could not read version file: {str(e)}")
+
+            software_version = self._software_version
 
             # Try to update GPS state
             try:
@@ -244,7 +240,7 @@ class Server:
                 software_version=software_version,
                 wifi_mode=self.network.wifi_mode(),
                 ip=self.network.local_ip(),
-                network_name=self.network.get_connected_ssid(),
+                network_name=self.network.get_active_label(),
                 gps_icon=gps_icon,
                 gps_text=gps_text,
                 lat_text=lat_text,
@@ -522,7 +518,14 @@ class Server:
             self.network.set_wifi_mode(wifi_mode)
             self.network.set_ap_name(ap_name)
             self.network.set_host_name(host_name)
-            return app.jinja_env.get_template("restart.html").render(title=_("Restart"))
+            return app.jinja_env.get_template("network.html").render(
+                title=_("Network"),
+                net=self.network,
+                show_new_form=0,
+                status_message=_(
+                    "Network settings updated. You may need to reconnect."
+                ),
+            )
 
         @app.route("/tools/pwchange", methods=["POST"])
         @auth_required
@@ -680,7 +683,7 @@ class Server:
                     try:
                         cfg.equipment.eyepieces.index(new_eyepiece)
                     except ValueError:
-                        cfg.equipment.eyepieces.add_eyepiece(new_eyepiece)
+                        cfg.equipment.eyepieces.append(new_eyepiece)
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
@@ -727,13 +730,13 @@ class Server:
                 )
 
                 if eyepiece_id >= 0:
-                    cfg.equipment.update_eyepiece(eyepiece_id, eyepiece)
+                    cfg.equipment.eyepieces[eyepiece_id] = eyepiece
                 else:
                     try:
                         index = cfg.equipment.telescopes.index(eyepiece)
-                        cfg.equipment.update_eyepiece(index, eyepiece)
+                        cfg.equipment.eyepieces[index] = eyepiece
                     except ValueError:
-                        cfg.equipment.add_eyepiece(eyepiece)
+                        cfg.equipment.eyepieces.append(eyepiece)
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
@@ -1014,23 +1017,16 @@ class Server:
         @app.route("/logs/configs")
         @auth_required
         def list_log_configs():
-            """Return all available logconf_*.json files with display names."""
-            import glob
-
+            """Return all available logconf_*.json presets with display names."""
+            active = utils.active_logconf_name()
             configs = []
-            active = (
-                os.path.realpath("pifinder_logconf.json")
-                if os.path.exists("pifinder_logconf.json")
-                else None
-            )
-            for path in sorted(glob.glob("logconf_*.json")):
-                stem = path[len("logconf_") : -len(".json")]
-                display = stem.replace("_", " ").title()
+            for name in utils.available_logconfs():
+                stem = name[len("logconf_") : -len(".json")]
                 configs.append(
                     {
-                        "file": path,
-                        "name": display,
-                        "active": os.path.realpath(path) == active,
+                        "file": name,
+                        "name": stem.replace("_", " ").title(),
+                        "active": name == active,
                     }
                 )
             return jsonify({"configs": configs})
@@ -1038,29 +1034,15 @@ class Server:
         @app.route("/logs/switch_config", methods=["POST"])
         @auth_required
         def switch_log_config():
-            """Atomically repoint pifinder_logconf.json to the chosen config, then restart."""
+            """Persist the chosen log config to the data dir, then restart."""
             logconf_file = request.form.get("logconf_file", "").strip()
-            if (
-                not logconf_file
-                or not logconf_file.startswith("logconf_")
-                or not logconf_file.endswith(".json")
-            ):
+            try:
+                utils.set_active_logconf(logconf_file)
+                logger.info("Switched log config to %s", logconf_file)
+            except (ValueError, FileNotFoundError):
                 return jsonify(
                     {"status": "error", "message": "Invalid log config file name"}
                 )
-            if not os.path.exists(logconf_file):
-                return jsonify(
-                    {
-                        "status": "error",
-                        "message": f"Log config file not found: {logconf_file}",
-                    }
-                )
-            try:
-                link = "pifinder_logconf.json"
-                tmp = link + ".tmp"
-                os.symlink(logconf_file, tmp)
-                os.replace(tmp, link)
-                logger.info("Switched log config to %s", logconf_file)
             except Exception as e:
                 logger.error("Failed to switch log config: %s", e)
                 return jsonify({"status": "error", "message": str(e)})

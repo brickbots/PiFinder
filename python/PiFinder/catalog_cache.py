@@ -23,7 +23,10 @@ logger = logging.getLogger("Catalog.Cache")
 
 # Bump when CompositeObject shape, _create_full_composite_object output, or
 # the pickled payload structure changes.
-CACHE_VERSION = 1
+# v2: CompositeObject gained `list_descriptions` (external observing lists).
+#     Caches pickled at v1 restore objects without that attribute, crashing
+#     composed_sections() on the object details screen.
+CACHE_VERSION = 2
 
 CACHE_DIR = data_dir / "cache" / "catalogs"
 PICKLE_PATH = CACHE_DIR / "composite_objects.pkl"

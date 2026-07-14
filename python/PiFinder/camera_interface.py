@@ -575,9 +575,7 @@ class CameraInterface:
                                 timestamp = gps_time.strftime("%Y%m%d_%H%M%S")
                             else:
                                 # Fallback to Pi time if GPS not available
-                                timestamp = timez.local_now().strftime(
-                                    "%Y%m%d_%H%M%S"
-                                )
+                                timestamp = timez.local_now().strftime("%Y%m%d_%H%M%S")
                                 logger.warning(
                                     "GPS time not available, using Pi system time for sweep directory name"
                                 )
@@ -693,7 +691,7 @@ class CameraInterface:
                                     dec_deg=dec_deg,
                                     altitude_deg=altitude_deg,
                                     azimuth_deg=azimuth_deg,
-                                    notes=f"Exposure sweep: {num_images} images, {min_exp/1000:.1f}-{max_exp/1000:.1f}ms",
+                                    notes=f"Exposure sweep: {num_images} images, {min_exp / 1000:.1f}-{max_exp / 1000:.1f}ms",
                                 )
                                 logger.info(
                                     f"Successfully saved sweep metadata to {sweep_dir}/sweep_metadata.json"

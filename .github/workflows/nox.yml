@@ -1,4 +1,9 @@
 name: nox
+# The nixos branch manages the Python environment with uv (pyproject.toml +
+# uv.lock) instead of nox + requirements*.txt, so this runs the same checks
+# (ruff, mypy, pytest) through uv. The workflow keeps upstream's "nox" name so
+# PR check wiring stays identical across branches.
+#
 # Run on pushes to the long-lived branches and on pull requests. Restricting
 # `push` to main/release means a push to a feature branch with an open PR only
 # triggers the `pull_request` run (not also a `push` run), so a PR gets a single
@@ -18,9 +23,21 @@ jobs:
         working-directory: ./python
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
         with:
-          submodules: true
-      - uses: wntrblm/nox@2024.04.15
-        with:
-          python-versions: "3.9"
-      - run: nox -s lint format type_hints smoke_tests unit_tests ui_tests
+          enable-cache: true
+      # Same ruff pin as upstream main's noxfile, so shared files keep one style.
+      - name: Lint
+        run: uvx ruff@0.4.8 check --config "builtins=['_']" .
+      - name: Format check
+        run: uvx ruff@0.4.8 format --check .
+      - name: Sync environment
+        run: uv sync --frozen
+      - name: Type check
+        run: uv run mypy PiFinder
+      - name: Smoke tests
+        run: uv run pytest -m smoke
+      - name: Unit tests
+        run: uv run pytest -m unit
+      - name: UI module tests
+        run: uv run pytest -m integration tests/test_ui_modules.py
