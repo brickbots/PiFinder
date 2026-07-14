@@ -176,9 +176,9 @@ the arrangement on screen reproduces the shipped table entry.</p>
     { "key": "as_bloom", "label": "AS Bloom", "rotate": 90,
       "q": [6.123233995736766e-17, 0.0, 0.0, 1.0],
       "note": "Verified against Bloom hardware with this tool (2026-07); supersedes the prototype-era 90-degree value." },
-    { "key": "as_heart", "label": "AS Heart", "rotate": 270,
+    { "key": "as_heart", "label": "AS Heart", "rotate": 90,
       "q": [0.7071067811865476, 0.7071067811865475, 0.0, 0.0],
-      "note": "Derived with this tool (2026-07) from the Heart build geometry: a Left-family arrangement with the UI board rotated 90 degrees about the boresight." }
+      "note": "Verified against Heart hardware with this tool (2026-07). Same quaternion as the first derivation but rotate 90, not 270: the module mounts spun 180 degrees about the boresight from the initial model, which cancels in q_imu2cam but flips the solver/preview image." }
   ]
 }
 </script>

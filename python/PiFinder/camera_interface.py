@@ -48,7 +48,7 @@ SCREEN_ROTATE_AMOUNTS = {
     "straight": 90,
     "flat3": 90,
     "as_bloom": 90,
-    "as_heart": 270,
+    "as_heart": 90,
 }
 
 
