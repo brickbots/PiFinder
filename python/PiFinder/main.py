@@ -153,17 +153,24 @@ class DevModeToggle:
     """
 
     REQUIRED_PRESSES = 7
+    WINDOW_SECONDS = 10.0
 
     def __init__(self, cfg, square_keycode):
         self._cfg = cfg
         self._square_keycode = square_keycode
         self._count = 0
+        self._first_press = 0.0
 
     def process_keycode(self, keycode) -> bool:
-        """Track consecutive square presses.
+        """Track square presses within a rolling time window.
         Returns True if dev mode was toggled (keycode consumed)."""
         if keycode == self._square_keycode:
-            self._count += 1
+            now = time.monotonic()
+            if self._count == 0 or now - self._first_press > self.WINDOW_SECONDS:
+                self._count = 1
+                self._first_press = now
+            else:
+                self._count += 1
             if self._count >= self.REQUIRED_PRESSES:
                 self._count = 0
                 dev_mode = not self._cfg.get_option("dev_mode", False)
