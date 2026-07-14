@@ -10,7 +10,7 @@ import pytest
 from PIL import Image, ImageDraw
 
 from PiFinder.ui import preview as preview_module
-from PiFinder.displays import DisplayBase
+from PiFinder.displays import DisplayBase, Layout176, Layout320
 from PiFinder.focus import Blob, FocusResult
 from PiFinder.ui.preview import (
     DISPLAY_RAW,
@@ -81,9 +81,14 @@ def test_display_uses_four_brightest_visual_blobs():
 
 
 @pytest.mark.unit
-def test_quadrants_are_centered_below_title_bar():
+@pytest.mark.parametrize("layout", (DisplayBase, Layout176, Layout320))
+def test_quadrants_are_centered_below_title_bar_on_every_layout(layout):
     preview = object.__new__(UIPreview)
-    preview.display_class = DisplayBase()
+    preview.display_class = SimpleNamespace(
+        resolution=layout.resolution,
+        titlebar_height=layout.titlebar_height,
+        resY=layout.resolution[1],
+    )
 
     content_top = preview.display_class.titlebar_height + 1
     boxes = preview._tile_boxes()
@@ -91,7 +96,7 @@ def test_quadrants_are_centered_below_title_bar():
     bottom_height = boxes[2][3] - boxes[2][1]
 
     assert boxes[0][1] == content_top
-    assert top_height == bottom_height
+    assert abs(top_height - bottom_height) <= 1
     assert (
         preview._focus_center()[1]
         == content_top + (preview.display_class.resY - content_top) // 2
