@@ -53,6 +53,16 @@ def show_advanced_message(ui_module: UIModule) -> None:
     return
 
 
+def set_obj_chart_mark_fallback(ui_module: UIModule) -> None:
+    """Select the 'fallback' obj-chart mark source (entering its shape picker)."""
+    ui_module.config_object.set_option("obj_chart_mark_source", "fallback")
+
+
+def set_obj_chart_mark_custom(ui_module: UIModule) -> None:
+    """Select the 'custom' obj-chart mark source (entering its shape picker)."""
+    ui_module.config_object.set_option("obj_chart_mark_source", "custom")
+
+
 def reset_filters(ui_module: UIModule) -> None:
     """
     Reset all filters to default

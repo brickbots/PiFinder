@@ -37,6 +37,18 @@ s = _("Language: zh")
 s = s
 del s
 
+
+# Glyph-shape options for the obj-chart mark (sets obj_chart_crosshair_style).
+# Copy per use site (dict(d)) so each submenu gets its own item objects.
+_OBJ_CHART_SHAPE_ITEMS = [
+    {"name": _("Simple"), "value": "simple"},
+    {"name": _("Circle"), "value": "circle"},
+    {"name": _("Bullseye"), "value": "bullseye"},
+    {"name": _("Brackets"), "value": "brackets"},
+    {"name": _("Dots"), "value": "dots"},
+    {"name": _("Cross"), "value": "cross"},
+]
+
 pifinder_menu = {
     "name": "PiFinder",
     "class": UITextMenu,
@@ -934,10 +946,22 @@ pifinder_menu = {
                                 {
                                     "name": _("Fallback"),
                                     "value": "fallback",
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "label": "obj_chart_mark_fallback",
+                                    "config_option": "obj_chart_crosshair_style",
+                                    "pre_callback": callbacks.set_obj_chart_mark_fallback,
+                                    "items": [dict(d) for d in _OBJ_CHART_SHAPE_ITEMS],
                                 },
                                 {
                                     "name": _("Custom"),
                                     "value": "custom",
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "label": "obj_chart_mark_custom",
+                                    "config_option": "obj_chart_crosshair_style",
+                                    "pre_callback": callbacks.set_obj_chart_mark_custom,
+                                    "items": [dict(d) for d in _OBJ_CHART_SHAPE_ITEMS],
                                 },
                             ],
                         },
