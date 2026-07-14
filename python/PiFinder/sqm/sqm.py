@@ -1,10 +1,12 @@
 import json
 import logging
+import math
 from pathlib import Path
-from typing import Tuple, Dict, Optional
+from typing import Tuple, Dict, List, Optional
 
 import numpy as np
 
+from . import color_index
 from .camera_profiles import get_camera_profile
 
 logger = logging.getLogger("Solver")
@@ -92,11 +94,18 @@ class SQM:
             logger.warning(f"Failed to load calibration: {e}, using defaults")
             return False
 
-    def _calc_field_parameters(self, fov_degrees: float) -> None:
-        """Calculate field of view parameters."""
+    def _calc_field_parameters(
+        self, fov_degrees: float, pixels_per_side: int = 512
+    ) -> None:
+        """Calculate field of view parameters.
+
+        pixels_per_side is the side length of the image the photometry runs on
+        (512 for the processed image, but e.g. 490/760 for a Bayer green channel).
+        The per-pixel solid angle depends on it, so it must match the image.
+        """
         self.fov_degrees = fov_degrees
         self.field_arcsec_squared = (fov_degrees * 3600) ** 2
-        self.pixels_total = 512**2
+        self.pixels_total = pixels_per_side**2
         self.arcsec_squared_per_pixel = self.field_arcsec_squared / self.pixels_total
 
     def _pickering_airmass(self, altitude_deg: float) -> float:
@@ -371,6 +380,10 @@ class SQM:
         correct_overlaps: bool = False,
         saturation_threshold: int = 250,
         include_noise_floor_details: bool = False,
+        pedestal_override: Optional[float] = None,
+        color_coefficient: Optional[float] = None,
+        image_pixels_per_side: Optional[int] = None,
+        mzero_correction: float = 0.0,
     ) -> Tuple[Optional[float], Dict]:
         """
         Calculate SQM (Sky Quality Meter) value using local background annuli.
@@ -390,6 +403,16 @@ class SQM:
             saturation_threshold: Pixel value threshold for saturation detection (default: 250)
             include_noise_floor_details: If True, run NoiseFloorEstimator and include full output
                 in details dict under "noise_floor_estimator" key (default: False)
+            pedestal_override: If given, use this black-level pedestal instead of the
+                profile bias_offset (e.g. a per-frame joint-fit estimate).
+            color_coefficient: If given (and non-zero), correct each star's catalog V
+                magnitude to the sensor passband via mag_eff = V - T*(B-V), with B-V
+                looked up by HIP from solution['matched_catID']. Defaults to the
+                camera profile's color_coefficient when None; pass 0.0 to disable.
+            image_pixels_per_side: Side length of `image` (defaults to image.shape).
+                Controls the per-pixel solid angle; must match the photometry image.
+            mzero_correction: Additive aperture (wing-loss) correction to mzero,
+                ``-2.5*log10(enclosed_fraction)`` from a WingEstimator (default 0).
 
         Returns:
             Tuple of (sqm_value, details_dict) where:
@@ -414,7 +437,12 @@ class SQM:
             return None, {}
 
         fov_estimate = solution["FOV"]
-        self._calc_field_parameters(fov_estimate)
+        pixels_per_side = (
+            image_pixels_per_side
+            if image_pixels_per_side is not None
+            else int(image.shape[0])
+        )
+        self._calc_field_parameters(fov_estimate, pixels_per_side)
 
         # Validate solution has matched stars
         if "matched_centroids" not in solution or "matched_stars" not in solution:
@@ -430,7 +458,18 @@ class SQM:
 
         # Don't swap - centroids are already in (row, col) = (y, x) format
         matched_centroids_arr = matched_centroids
-        star_mags = [s[2] for s in matched_stars]
+        star_mags = [s[2] for s in matched_stars]  # Johnson V catalog magnitudes
+
+        # Colour term: catalog is Johnson V but flux is in the sensor passband.
+        # Correct to mag_eff = V - T*(B-V) per star (B-V looked up by HIP).
+        color_coef = (
+            color_coefficient
+            if color_coefficient is not None
+            else self.profile.color_coefficient
+        )
+        star_bv: Optional[List[float]] = None
+        if color_coef and "matched_catID" in solution:
+            star_bv = list(color_index.get_bv(solution["matched_catID"]))
 
         # 0a. Detect and filter overlapping stars if requested
         n_stars_original = len(matched_centroids_arr)
@@ -454,6 +493,8 @@ class SQM:
                 ]
                 matched_centroids_arr = matched_centroids_arr[valid_indices]
                 star_mags = [star_mags[i] for i in valid_indices]
+                if star_bv is not None:
+                    star_bv = [star_bv[i] for i in valid_indices]
 
                 logger.info(
                     f"Overlap correction: excluded {n_stars_excluded}/{n_stars_original} stars "
@@ -471,7 +512,14 @@ class SQM:
         # - Dark current: contributes to noise variance, not a DC offset - do NOT subtract
         # - Read noise: random fluctuation around 0 - do NOT subtract
         # Validated against SQM-L reference meter: bias_offset only gives ±0.07 mag accuracy
-        pedestal = self.profile.bias_offset
+        # A per-frame estimate (joint-fit over the auto-exposure stream) supersedes
+        # the static bias_offset when provided, since the true black level differs
+        # from the profile constant on some sensors.
+        pedestal = (
+            pedestal_override
+            if pedestal_override is not None
+            else self.profile.bias_offset
+        )
 
         # Calculate temporal noise for diagnostics (not used in pedestal)
         read_noise = self.profile.read_noise_adu
@@ -521,11 +569,30 @@ class SQM:
             )
             background_corrected = 1.0
 
-        # 4. Calculate photometric zero point
-        mzero, mzeros = self._calculate_mzero(star_fluxes, star_mags)
+        # 4. Calculate photometric zero point.
+        # Apply the colour term per star where B-V is known; stars with no B-V
+        # fall back to their raw V magnitude.
+        n_color_corrected = 0
+        if star_bv is not None and color_coef:
+            effective_mags = []
+            for v_mag, bv in zip(star_mags, star_bv):
+                if bv is not None and math.isfinite(bv):
+                    effective_mags.append(v_mag - color_coef * bv)
+                    n_color_corrected += 1
+                else:
+                    effective_mags.append(v_mag)
+        else:
+            effective_mags = star_mags
+
+        mzero, mzeros = self._calculate_mzero(star_fluxes, effective_mags)
 
         if mzero is None:
             return None, {}
+
+        # Aperture (wing-loss) correction: the finite aperture misses PSF-wing
+        # flux, biasing mzero low. The caller supplies -2.5*log10(f) from a
+        # rolling WingEstimator; f is the aperture's enclosed-flux fraction.
+        mzero += mzero_correction
 
         # 5. Convert background to flux density (ADU per arcsec²)
         background_flux_density = background_corrected / self.arcsec_squared_per_pixel
@@ -544,6 +611,12 @@ class SQM:
         extinction_for_altitude = self._atmospheric_extinction(
             altitude_deg
         )  # 0.28*(airmass-1)
+
+        # No absolute zero-point constant is applied: the per-frame mzero fit
+        # self-calibrates against the catalog, and the residual absolute bias
+        # is aperture flux loss (focus-dependent), which a fixed per-sensor
+        # constant cannot represent. See docs/adr for the rejected offset and
+        # the planned per-frame aperture correction.
 
         # Main SQM value: no extinction correction (raw measurement)
         sqm_final = sqm_uncorrected
@@ -568,7 +641,15 @@ class SQM:
             "background_per_pixel": background_per_pixel,
             "background_method": "local_annulus",
             "pedestal": pedestal,
-            "pedestal_source": self._determine_pedestal_source(),
+            "pedestal_source": (
+                "per_frame_estimate"
+                if pedestal_override is not None
+                else self._determine_pedestal_source()
+            ),
+            "color_coefficient": color_coef or 0.0,
+            "n_color_corrected": n_color_corrected,
+            "pixels_per_side": pixels_per_side,
+            "mzero_correction": mzero_correction,
             "read_noise_adu": read_noise,
             "dark_current_rate": self.profile.dark_current_rate,
             "dark_current_contribution": dark_current_contribution,

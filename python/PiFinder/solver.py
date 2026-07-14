@@ -27,6 +27,9 @@ from PiFinder import state_utils
 from PiFinder import utils
 from PiFinder import timez
 from PiFinder.sqm import SQM as SQMCalculator
+from PiFinder.sqm.camera_profiles import get_camera_profile
+from PiFinder.sqm.pedestal import PedestalEstimator
+from PiFinder.sqm.wings import WingEstimator
 from PiFinder.state import SQM as SQMState
 from PiFinder.types.positioning import (
     AlignCancel,
@@ -50,13 +53,59 @@ SQM_CALCULATION_INTERVAL_SECONDS = 5.0
 
 
 def create_sqm_calculator(shared_state):
-    """Create a new SQM calculator instance with current calibration."""
+    """Create a new SQM calculator instance with current calibration.
+
+    Returns (calculator, use_raw_green). When the sensor profile enables raw-green
+    SQM, the calculator uses the raw profile and photometry runs on the raw linear
+    frame; otherwise it uses the 8-bit "_processed" profile on the display image.
+    """
     camera_type = shared_state.camera_type()
+    raw_profile = get_camera_profile(camera_type)
+
+    if raw_profile.sqm_use_raw_green:
+        logger.info(f"Creating raw-green SQM calculator for camera: {camera_type}")
+        return SQMCalculator(camera_type=camera_type), True
+
     camera_type_processed = f"{camera_type}_processed"
-
     logger.info(f"Creating SQM calculator for camera: {camera_type_processed}")
+    return SQMCalculator(camera_type=camera_type_processed), False
 
-    return SQMCalculator(camera_type=camera_type_processed)
+
+def _extract_raw_photometry_image(raw, profile):
+    """Build the linear photometry image from the stored raw frame.
+
+    For Bayer sensors (SRGGB*) returns the averaged green channel (half-res);
+    for mono sensors returns the raw frame as-is. Returns None on any shape/
+    dtype problem so the caller can fall back to the processed image.
+    """
+    if raw is None:
+        return None
+    arr = np.asarray(raw)
+    if arr.ndim != 2:
+        return None
+    if str(profile.format).upper().startswith("SRGGB"):
+        # RGGB green sites: (0,1) and (1,0). Even crops / no odd rotation keep phase.
+        h, w = arr.shape
+        if h < 2 or w < 2:
+            return None
+        g = (
+            arr[0 : h - h % 2 : 2, 1:w:2].astype(np.float32)
+            + arr[1:h:2, 0 : w - w % 2 : 2].astype(np.float32)
+        ) / 2.0
+        return g
+    return arr.astype(np.float32)
+
+
+def _scale_solution_centroids(solution, scale):
+    """Return a shallow copy of solution with matched_centroids scaled.
+
+    The solve runs on the 512x512 processed image; the raw photometry image has a
+    different pixel pitch, so the matched star positions must be rescaled to it.
+    """
+    scaled = dict(solution)
+    mc = np.asarray(solution["matched_centroids"], dtype=np.float64) * scale
+    scaled["matched_centroids"] = mc
+    return scaled
 
 
 def update_sqm(
@@ -71,6 +120,9 @@ def update_sqm(
     aperture_radius=5,
     annulus_inner_radius=6,
     annulus_outer_radius=14,
+    use_raw_green=False,
+    pedestal_estimator=None,
+    wing_estimator=None,
 ):
     """
     Calculate SQM from image.
@@ -87,6 +139,13 @@ def update_sqm(
         aperture_radius: Aperture radius for photometry (default: 5)
         annulus_inner_radius: Inner annulus radius (default: 6)
         annulus_outer_radius: Outer annulus radius (default: 14)
+        use_raw_green: If True, run photometry on the raw linear frame (green
+            channel for Bayer sensors) instead of the 8-bit processed image.
+        pedestal_estimator: PedestalEstimator that supplies the per-frame black
+            level and is updated with each frame's measured background.
+        wing_estimator: WingEstimator that supplies the rolling aperture
+            (wing-loss) mzero correction and is fed each frame's photometry
+            image + matched centroids. Only used on the raw-green path.
 
     Returns:
         bool: True if SQM was calculated and updated, False otherwise
@@ -115,18 +174,74 @@ def update_sqm(
     if not should_calculate:
         return False
 
+    profile = sqm_calculator.profile
+
+    # Default to the processed-image path; switch to raw-green when enabled and
+    # the raw frame is available and well-formed (otherwise fall back).
+    calc_image = image_processed
+    calc_solution = solution
+    saturation_threshold = 250
+    image_pixels_per_side = None
+
+    if use_raw_green:
+        try:
+            raw = shared_state.cam_raw()
+        except (BrokenPipeError, ConnectionResetError):
+            raw = None
+        green = _extract_raw_photometry_image(raw, profile)
+        if green is None or green.shape[0] < 512:
+            # The calculator is configured for the raw profile; running it on the
+            # 8-bit processed image would use the wrong pedestal/units. SQM is
+            # periodic and non-critical, so skip this cycle rather than emit a
+            # wrong value.
+            logger.debug("Raw frame unavailable/invalid for SQM; skipping this cycle")
+            return False
+        scale = green.shape[0] / 512.0
+        calc_image = green
+        calc_solution = _scale_solution_centroids(solution, scale)
+        image_pixels_per_side = int(green.shape[0])
+        saturation_threshold = int(0.95 * (2**profile.bit_depth - 1))
+
+    pedestal_override = None
+    if pedestal_estimator is not None:
+        pedestal_override = pedestal_estimator.pedestal(fallback=profile.bias_offset)
+
+    mzero_correction = 0.0
+    if wing_estimator is not None and use_raw_green:
+        mzero_correction = wing_estimator.correction()
+
     try:
         # Calculate SQM from image
         sqm_value, details = sqm_calculator.calculate(
             centroids=centroids,
-            solution=solution,
-            image=image_processed,
+            solution=calc_solution,
+            image=calc_image,
             exposure_sec=exposure_sec,
             altitude_deg=altitude_deg,
             aperture_radius=aperture_radius,
             annulus_inner_radius=annulus_inner_radius,
             annulus_outer_radius=annulus_outer_radius,
+            saturation_threshold=saturation_threshold,
+            pedestal_override=pedestal_override,
+            image_pixels_per_side=image_pixels_per_side,
+            mzero_correction=mzero_correction,
         )
+
+        # Feed the measured background into the pedestal joint-fit for next time.
+        if pedestal_estimator is not None and details.get("background_per_pixel"):
+            pedestal_estimator.add(exposure_sec, details["background_per_pixel"])
+
+        # Feed this frame's stars into the rolling wing (aperture-loss) fit.
+        if (
+            wing_estimator is not None
+            and use_raw_green
+            and calc_solution.get("matched_centroids") is not None
+        ):
+            wing_estimator.add_frame(
+                calc_image,
+                calc_solution["matched_centroids"],
+                saturation_threshold,
+            )
 
         # Update noise floor in shared state (for SNR auto-exposure)
         noise_floor_details = details.get("noise_floor_details")
@@ -463,7 +578,11 @@ def solver(
     log_no_stars_found = True
 
     # Create SQM calculator - can be reloaded via command queue
-    sqm_calculator = create_sqm_calculator(shared_state)
+    sqm_calculator, sqm_use_raw_green = create_sqm_calculator(shared_state)
+    # Per-frame black-level estimator, fed by the auto-exposure background stream
+    sqm_pedestal_estimator = PedestalEstimator()
+    # Rolling aperture (wing-loss) correction, fed by bright matched stars
+    sqm_wing_estimator = WingEstimator()
 
     while True:
         logger.info("Starting Solver Loop")
@@ -497,7 +616,11 @@ def solver(
                         align_dec = 0
                     elif isinstance(command, ReloadSqmCalibration):
                         logger.info("Reloading SQM calibration...")
-                        sqm_calculator = create_sqm_calculator(shared_state)
+                        sqm_calculator, sqm_use_raw_green = create_sqm_calculator(
+                            shared_state
+                        )
+                        sqm_pedestal_estimator.reset()
+                        sqm_wing_estimator.reset()
                         logger.info("SQM calibration reloaded")
                     else:
                         logger.warning(
@@ -595,6 +718,9 @@ def solver(
                             exposure_sec=exposure_sec,
                             altitude_deg=altitude_for_sqm,
                             calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
+                            use_raw_green=sqm_use_raw_green,
+                            pedestal_estimator=sqm_pedestal_estimator,
+                            wing_estimator=sqm_wing_estimator,
                         )
 
                         # Don't clutter printed solution with these fields (use pop to safely remove)
