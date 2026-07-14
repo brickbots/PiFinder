@@ -379,7 +379,6 @@ class SQM:
         annulus_outer_radius: int = 14,
         correct_overlaps: bool = False,
         saturation_threshold: int = 250,
-        include_noise_floor_details: bool = False,
         pedestal_override: Optional[float] = None,
         color_coefficient: Optional[float] = None,
         image_pixels_per_side: Optional[int] = None,
@@ -401,8 +400,6 @@ class SQM:
             annulus_outer_radius: Outer radius of background annulus in pixels (default: 14)
             correct_overlaps: If True, exclude stars with overlapping apertures/annuli (default: False)
             saturation_threshold: Pixel value threshold for saturation detection (default: 250)
-            include_noise_floor_details: If True, run NoiseFloorEstimator and include full output
-                in details dict under "noise_floor_estimator" key (default: False)
             pedestal_override: If given, use this black-level pedestal instead of the
                 profile bias_offset (e.g. a per-frame joint-fit estimate).
             color_coefficient: If given (and non-zero), correct each star's catalog V
@@ -679,27 +676,6 @@ class SQM:
             "star_local_backgrounds": local_backgrounds,
             "star_mzeros": mzeros,
         }
-
-        # Optionally include full NoiseFloorEstimator output
-        if include_noise_floor_details:
-            try:
-                from .noise_floor import NoiseFloorEstimator
-
-                estimator = NoiseFloorEstimator(
-                    camera_type=self.camera_type,
-                    enable_zero_sec_sampling=False,
-                )
-                _, nf_details = estimator.estimate_noise_floor(
-                    image=image,
-                    exposure_sec=exposure_sec,
-                )
-                # Remove internal flags, add camera type
-                nf_details.pop("request_zero_sec_sample", None)
-                nf_details["camera_type"] = self.camera_type
-                details["noise_floor_estimator"] = nf_details
-            except Exception as e:
-                logger.warning(f"Failed to get noise floor details: {e}")
-                details["noise_floor_estimator"] = {"error": str(e)}
 
         logger.debug(
             f"SQM: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "
