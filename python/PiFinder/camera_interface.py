@@ -50,6 +50,7 @@ SCREEN_ROTATE_AMOUNTS = {
     "as_bloom": 90,
     "as_heart": 90,
     "v4_right": 270,
+    "v4_straight": 270,
 }
 
 

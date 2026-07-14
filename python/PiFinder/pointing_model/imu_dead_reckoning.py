@@ -178,4 +178,12 @@ class ImuDeadReckoning:
             # Rotate -90° around z_imu' to align with the camera coordinates
             q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
             return (q1 * q2).normalized()
+        if screen_direction == "v4_straight":
+            # V4 Straight (rev-4 board: IMU on the back side of the UI board;
+            # 45° mount -- no camera axis coincides with an IMU axis):
+            # Rotate 45° around y_imu so that z_imu' points along z_camera
+            q1 = qt.axis_angle2quat([0, 1, 0], np.pi / 4)
+            # Rotate -135° around z_imu' to align with the camera coordinates
+            q2 = qt.axis_angle2quat([0, 0, 1], -np.pi * 3 / 4)
+            return (q1 * q2).normalized()
         raise ValueError(f"Unsupported screen_direction: {screen_direction}")

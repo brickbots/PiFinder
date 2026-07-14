@@ -1036,6 +1036,10 @@ pifinder_menu = {
                                     "name": _("V4 Right"),
                                     "value": "v4_right",
                                 },
+                                {
+                                    "name": _("V4 Straight"),
+                                    "value": "v4_straight",
+                                },
                             ],
                         },
                         {

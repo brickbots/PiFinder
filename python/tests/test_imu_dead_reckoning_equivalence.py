@@ -35,6 +35,7 @@ SCREEN_DIRECTIONS = [
     "as_bloom",
     "as_heart",
     "v4_right",
+    "v4_straight",
 ]
 
 # Alignment offset for the "real_offset" parametrize value: derives a fixed
