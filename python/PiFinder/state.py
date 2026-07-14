@@ -337,10 +337,11 @@ class SharedStateObj:
 
     def set_power_state(self, v):
         """
-        Sets the power_state. Allowed states are 0 (sleep) or 1 (awake). If
-        the input v is any other value, power_state will be unchanged.
+        Sets the power_state. Allowed states are -1 (screen off), 0 (sleep)
+        or 1 (awake). If the input v is any other value, power_state will be
+        unchanged.
         """
-        if v in (0, 1):
+        if v in (-1, 0, 1):
             self.__power_state = v
         else:
             logger.error(

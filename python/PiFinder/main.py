@@ -202,8 +202,9 @@ class PowerManager:
         self.last_activity = time.time()
 
         # power states
-        # 0 = Sleep
-        # 1 = Wake
+        # -1 = Screen off
+        #  0 = Sleep
+        #  1 = Wake
         if self.shared_state.power_state() < 1:
             # wake up
             self.wake_up()
