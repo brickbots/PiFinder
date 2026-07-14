@@ -1032,6 +1032,10 @@ pifinder_menu = {
                                     "name": _("AS Heart"),
                                     "value": "as_heart",
                                 },
+                                {
+                                    "name": _("V4 Right"),
+                                    "value": "v4_right",
+                                },
                             ],
                         },
                         {
