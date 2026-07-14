@@ -72,6 +72,18 @@ class CameraProfile:
     # Used to sanity-check SQM estimates
     typical_sky_background: float = 21.0
 
+    # SQM colour transformation coefficient T for mag_eff = V - T*(B-V).
+    # The catalog magnitude is Johnson V, but the flux is measured in the
+    # sensor's own passband. On a sensor run without an IR-cut filter the near-IR
+    # leak over-fluxes red stars, so T is positive. Measured per sensor model:
+    # imx462/imx290 bare color ~0.8; hq (factory IR-cut) ~0.0. 0.0 = no correction.
+    color_coefficient: float = 0.0
+
+    # Compute SQM on the raw linear frame (green channel for Bayer sensors)
+    # rather than the 8-bit processed display image. The processed image's
+    # clipping/8-bit quantisation/resize break the flux linearity SQM relies on.
+    sqm_use_raw_green: bool = False
+
     def crop_and_rotate(self, raw_array):
         """
         Apply camera-specific cropping and rotation to raw array.
@@ -139,6 +151,10 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=8.0,  # Datasheet: 3.2 e⁻/p/s @ 25°C → ~8 ADU/s @ 10-bit
         thermal_coeff=0.08,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
+        # UNMEASURED: mono sensor with no IR-cut, expected positive. Needs one
+        # calibration sweep from a stock imx296 device. 0.0 until then.
+        color_coefficient=0.0,
+        sqm_use_raw_green=True,
     ),
     "imx462": CameraProfile(
         # Hardware configuration
@@ -157,6 +173,11 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=0.05,  # Estimated - needs measurement
         thermal_coeff=0.10,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
+        # Measured on-sky: +0.79 ± 0.04 (bare color sensor, NIR leak over-fluxes
+        # red stars). Cross-checked against HQ w/ IR-cut (~0.0) and synthetic
+        # photometry. See docs/adr for the SQM colour-term decision.
+        color_coefficient=0.8,
+        sqm_use_raw_green=True,
     ),
     "imx290": CameraProfile(
         # Hardware configuration (same as imx462 - driver compatibility)
@@ -175,6 +196,9 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=0.04,  # Estimated - needs measurement
         thermal_coeff=0.10,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
+        # Same sensor family/optics as imx462 (driver-compatible), same NIR leak.
+        color_coefficient=0.8,
+        sqm_use_raw_green=True,
     ),
     "hq": CameraProfile(
         # Hardware configuration
@@ -193,6 +217,10 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=0.02,  # Estimated - needs measurement
         thermal_coeff=0.09,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
+        # Measured on-sky: -0.05 ± 0.01 -> effectively 0. HQ ships with a factory
+        # IR-cut filter, so no NIR leak and the green passband ~ Johnson V.
+        color_coefficient=0.0,
+        sqm_use_raw_green=True,
     ),
     # Processed image profiles (8-bit images after camera.capture() processing)
     # These have been rescaled to 0-255 but still have residual offset from:
@@ -202,6 +230,9 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
     # Measured from actual processed images: darkest pixels ~9-12 ADU
     # Use conservative offset to avoid over-subtraction
     # Note: Hardware fields not used for processed images (already 8-bit)
+    # Processed profiles are the fallback path (used when sqm_use_raw_green is
+    # off or the raw frame is unavailable). color_coefficient mirrors the raw
+    # profile since it's the same physical sensor.
     "imx296_processed": CameraProfile(
         format="L",  # 8-bit grayscale (not used)
         raw_size=(512, 512),  # Already processed size (not used)
@@ -213,6 +244,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=0.0,  # Negligible after processing
         thermal_coeff=0.0,
         typical_sky_background=21.0,
+        color_coefficient=0.0,  # UNMEASURED (see raw imx296)
     ),
     "imx462_processed": CameraProfile(
         format="L",
@@ -220,11 +252,12 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         analog_gain=1.0,
         digital_gain=1.0,
         bit_depth=8,
-        bias_offset=8.0,
+        bias_offset=12.0,  # Measured processed-image black level (raw ~237 -> ~12 after capture stretch)
         read_noise_adu=1.5,
         dark_current_rate=0.0,
         thermal_coeff=0.0,
         typical_sky_background=21.0,
+        color_coefficient=0.8,
     ),
     "imx290_processed": CameraProfile(
         format="L",
@@ -232,11 +265,12 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         analog_gain=1.0,
         digital_gain=1.0,
         bit_depth=8,
-        bias_offset=8.0,
+        bias_offset=12.0,
         read_noise_adu=1.5,
         dark_current_rate=0.0,
         thermal_coeff=0.0,
         typical_sky_background=21.0,
+        color_coefficient=0.8,
     ),
     "hq_processed": CameraProfile(
         format="L",
@@ -249,6 +283,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=0.0,
         thermal_coeff=0.0,
         typical_sky_background=21.0,
+        color_coefficient=0.0,
     ),
 }
 
@@ -275,6 +310,7 @@ def detect_camera_type(hardware_id: str) -> str:
     # Mapping of hardware ID substrings to profile names
     hardware_mappings = {
         "imx296": "imx296",
+        "imx462": "imx462",  # Sensor self-reports as imx462
         "imx290": "imx462",  # IMX290 uses IMX462 profile (driver compatibility)
         "imx477": "hq",
     }

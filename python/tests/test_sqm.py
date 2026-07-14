@@ -10,7 +10,9 @@ from PiFinder.sqm.camera_profiles import (
     get_camera_profile,
     detect_camera_type,
 )
+from PiFinder.sqm.pedestal import PedestalEstimator
 from PiFinder.sqm.save_sweep_metadata import save_sweep_metadata
+from PiFinder.sqm.wings import WingEstimator
 
 
 @pytest.mark.unit
@@ -1254,3 +1256,278 @@ class TestSaveSweepMetadata:
                 observer_lat=50.85,
                 observer_lon=4.35,
             )
+
+
+def _mock_solution(mags, catids=None, fov=10.0):
+    n = len(mags)
+    centroids = np.array([[80 + 60 * i, 80 + 60 * i] for i in range(n)])
+    stars = [[45.0 + 0.1 * i, 30.0 + 0.1 * i, m] for i, m in enumerate(mags)]
+    sol = {"FOV": fov, "matched_centroids": centroids, "matched_stars": stars}
+    if catids is not None:
+        sol["matched_catID"] = list(catids)
+    return sol, centroids
+
+
+def _image_with_stars(centroids, base=1000, star=5000, size=512):
+    np.random.seed(0)
+    image = np.random.randint(base - 50, base + 50, (size, size), dtype=np.uint16)
+    for row, col in centroids:
+        image[row - 2 : row + 3, col - 2 : col + 3] += star
+    return image
+
+
+@pytest.mark.unit
+class TestPedestalOverride:
+    def test_pedestal_override_used(self):
+        sqm = SQM()
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags)
+        image = _image_with_stars(centroids)
+        _, details = sqm.calculate(
+            centroids=[],
+            solution=sol,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=90.0,
+            saturation_threshold=65000,
+            pedestal_override=123.0,
+        )
+        assert details["pedestal"] == 123.0
+        assert details["pedestal_source"] == "per_frame_estimate"
+
+    def test_pedestal_defaults_to_profile(self):
+        sqm = SQM("imx462")
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags)
+        image = _image_with_stars(centroids)
+        _, details = sqm.calculate(
+            centroids=[],
+            solution=sol,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=90.0,
+            saturation_threshold=65000,
+        )
+        assert details["pedestal"] == sqm.profile.bias_offset
+
+
+@pytest.mark.unit
+class TestPixelsPerSide:
+    def test_explicit_pixels_scales_solid_angle(self):
+        sqm = SQM()
+        sqm._calc_field_parameters(10.0, pixels_per_side=490)
+        assert sqm.pixels_total == 490**2
+
+    def test_calculate_infers_pixels_from_image(self):
+        sqm = SQM()
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags)
+        image = _image_with_stars(centroids, size=490)
+        _, details = sqm.calculate(
+            centroids=[],
+            solution=sol,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=90.0,
+            saturation_threshold=65000,
+        )
+        assert details["pixels_per_side"] == 490
+
+
+@pytest.mark.unit
+class TestColorCorrection:
+    def test_color_term_brightens_red_stars(self):
+        """mag_eff = V - T*(B-V): a red star's effective mag drops by T*(B-V)."""
+        from PiFinder.sqm import color_index
+
+        # Monkeypatch the B-V lookup so the test is catalog-independent.
+        orig = color_index.get_bv
+        color_index.get_bv = lambda ids: np.array([0.0, 1.0, 0.5], dtype=np.float32)
+        try:
+            sqm = SQM()
+            mags = [5.0, 5.0, 5.0]
+            sol, centroids = _mock_solution(mags, catids=[1, 2, 3])
+            image = _image_with_stars(centroids)
+            # Without colour correction
+            _, d0 = sqm.calculate(
+                centroids=[],
+                solution=sol,
+                image=image,
+                exposure_sec=0.5,
+                altitude_deg=90.0,
+                saturation_threshold=65000,
+                color_coefficient=0.0,
+            )
+            # With T=0.8
+            _, d1 = sqm.calculate(
+                centroids=[],
+                solution=sol,
+                image=image,
+                exposure_sec=0.5,
+                altitude_deg=90.0,
+                saturation_threshold=65000,
+                color_coefficient=0.8,
+            )
+            assert d0["n_color_corrected"] == 0
+            assert d1["n_color_corrected"] == 3
+            # star_mags stays V; the effective mag change lowers mzero for red stars
+            assert d1["mzero"] < d0["mzero"]
+        finally:
+            color_index.get_bv = orig
+
+    def test_missing_bv_falls_back_to_v(self):
+        from PiFinder.sqm import color_index
+
+        orig = color_index.get_bv
+        color_index.get_bv = lambda ids: np.array([np.nan, 1.0], dtype=np.float32)
+        try:
+            sqm = SQM()
+            sol, centroids = _mock_solution([5.0, 6.0], catids=[1, 2])
+            image = _image_with_stars(centroids)
+            _, d = sqm.calculate(
+                centroids=[],
+                solution=sol,
+                image=image,
+                exposure_sec=0.5,
+                altitude_deg=90.0,
+                saturation_threshold=65000,
+                color_coefficient=0.8,
+            )
+            assert d["n_color_corrected"] == 1  # only the star with finite B-V
+        finally:
+            color_index.get_bv = orig
+
+
+@pytest.mark.unit
+class TestPedestalEstimator:
+    def test_recovers_black_level(self):
+        est = PedestalEstimator()
+        true_p0, rate = 237.0, 300.0
+        for t_ms in [25, 30, 44, 66, 97, 143, 212, 311, 460, 678, 1000]:
+            t = t_ms / 1000
+            est.add(t, true_p0 + rate * t)
+        assert est.is_conditioned
+        assert est.pedestal(fallback=50.0) == pytest.approx(237.0, abs=1.0)
+
+    def test_falls_back_before_conditioned(self):
+        est = PedestalEstimator()
+        assert est.pedestal(fallback=50.0) == 50.0
+
+    def test_refuses_narrow_exposure_range(self):
+        est = PedestalEstimator()
+        for _ in range(10):
+            est.add(0.5, 237.3)
+        assert not est.is_conditioned
+
+    def test_rejects_bad_samples(self):
+        est = PedestalEstimator()
+        est.add(-1.0, 200.0)  # bad exposure
+        est.add(0.5, float("nan"))  # bad background
+        assert not est.is_conditioned
+
+
+@pytest.mark.unit
+class TestColorCoefficientProfiles:
+    def test_bare_color_sensors_have_positive_coefficient(self):
+        assert get_camera_profile("imx462").color_coefficient == pytest.approx(0.8)
+        assert get_camera_profile("imx290").color_coefficient == pytest.approx(0.8)
+
+    def test_ir_cut_sensor_has_zero_coefficient(self):
+        assert get_camera_profile("hq").color_coefficient == 0.0
+
+    def test_raw_green_enabled_on_sensors(self):
+        for cam in ("imx296", "imx462", "imx290", "hq"):
+            assert get_camera_profile(cam).sqm_use_raw_green is True
+
+    def test_detect_imx462_key(self):
+        assert detect_camera_type("imx462") == "imx462"
+        assert detect_camera_type("imx290") == "imx462"
+
+
+def _wing_star_frame(scale=1.0, size=220, bg=500.0, noise=2.0, seed=1):
+    """Frame with 4 well-separated synthetic stars: Gaussian core (70% of
+    flux, sigma 1.5) + wide halo (30%, sigma 5). Returns (image, centroids,
+    true enclosed fraction within r=5)."""
+    rng = np.random.default_rng(seed)
+    image = bg + rng.normal(0, noise, (size, size))
+    centroids = [(55.0, 55.0), (55.0, 165.0), (165.0, 55.0), (165.0, 165.0)]
+    total = 50000.0 * scale
+    core_flux, halo_flux = 0.7 * total, 0.3 * total
+    sig_c, sig_h = 1.5, 5.0
+    amp_c = core_flux / (2 * np.pi * sig_c**2)
+    amp_h = halo_flux / (2 * np.pi * sig_h**2)
+    yy, xx = np.mgrid[0:size, 0:size]
+    for cy, cx in centroids:
+        r2 = (yy - cy) ** 2 + (xx - cx) ** 2
+        image += amp_c * np.exp(-r2 / (2 * sig_c**2))
+        image += amp_h * np.exp(-r2 / (2 * sig_h**2))
+    # analytic enclosed fraction within r=5
+    enc = lambda r, s: 1 - np.exp(-(r**2) / (2 * s**2))  # noqa: E731
+    f_true = (core_flux * enc(5, sig_c) + halo_flux * enc(5, sig_h)) / total
+    return image, centroids, f_true
+
+
+@pytest.mark.unit
+class TestWingEstimator:
+    def test_measures_enclosed_fraction(self):
+        image, centroids, f_true = _wing_star_frame()
+        est = WingEstimator()
+        f = est.add_frame(image, centroids, saturation_threshold=1e9)
+        assert f is not None
+        assert abs(f - f_true) < 0.10
+
+    def test_correction_after_conditioning(self):
+        image, centroids, f_true = _wing_star_frame()
+        est = WingEstimator(min_samples=3)
+        assert est.correction() == 0.0
+        assert not est.is_conditioned
+        for _ in range(3):
+            est.add_frame(image, centroids, saturation_threshold=1e9)
+        assert est.is_conditioned
+        expected = -2.5 * np.log10(f_true)
+        assert abs(est.correction() - expected) < 0.15
+        assert est.correction() > 0  # missing flux -> positive mzero correction
+
+    def test_faint_stars_rejected(self):
+        image, centroids, _ = _wing_star_frame(scale=0.002)
+        est = WingEstimator()
+        assert est.add_frame(image, centroids, saturation_threshold=1e9) is None
+        assert est.correction() == 0.0
+
+    def test_saturated_cores_skipped(self):
+        image, centroids, _ = _wing_star_frame()
+        est = WingEstimator()
+        # threshold below the star peaks -> every core is "saturated"
+        assert est.add_frame(image, centroids, saturation_threshold=600.0) is None
+
+    def test_reset(self):
+        image, centroids, _ = _wing_star_frame()
+        est = WingEstimator(min_samples=1)
+        est.add_frame(image, centroids, saturation_threshold=1e9)
+        assert est.is_conditioned
+        est.reset()
+        assert not est.is_conditioned
+        assert est.correction() == 0.0
+
+
+@pytest.mark.unit
+class TestMzeroCorrection:
+    def test_correction_shifts_sqm(self):
+        sqm = SQM()
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags)
+        image = _image_with_stars(centroids)
+        kwargs = dict(
+            centroids=[],
+            solution=sol,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=90.0,
+            saturation_threshold=65000,
+        )
+        v0, d0 = sqm.calculate(**kwargs)
+        v1, d1 = sqm.calculate(mzero_correction=0.5, **kwargs)
+        assert v0 is not None and v1 is not None
+        assert abs((v1 - v0) - 0.5) < 1e-9
+        assert d0["mzero_correction"] == 0.0
+        assert d1["mzero_correction"] == 0.5
