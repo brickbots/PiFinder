@@ -1559,3 +1559,35 @@ class TestBVClamp:
         assert run(3.0) == pytest.approx(run(BV_CLAMP_MAX), abs=1e-6)
         # ...and differently from an unclamped mid-range value
         assert abs(run(3.0) - run(0.5)) > 0.1
+
+
+@pytest.mark.unit
+class TestBandOffset:
+    def test_band_offset_applied(self, monkeypatch):
+        sqm = SQM("imx462")  # sqm_band_offset = 0.43
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags)
+        image = _image_with_stars(centroids)
+        kwargs = dict(
+            centroids=[],
+            solution=sol,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=90.0,
+            saturation_threshold=65000,
+            color_coefficient=0.0,
+        )
+        v1, d1 = sqm.calculate(**kwargs)
+        assert d1["sqm_band_offset"] == pytest.approx(0.43)
+        # zeroing the profile offset must shift the result by exactly 0.43.
+        # get_camera_profile returns the shared profile object, so use
+        # monkeypatch to restore it after the test.
+        monkeypatch.setattr(sqm.profile, "sqm_band_offset", 0.0)
+        v0, _ = sqm.calculate(**kwargs)
+        assert (v1 - v0) == pytest.approx(0.43, abs=1e-9)
+
+    def test_band_offset_values(self):
+        assert get_camera_profile("imx462").sqm_band_offset == pytest.approx(0.43)
+        assert get_camera_profile("imx290").sqm_band_offset == pytest.approx(0.43)
+        assert get_camera_profile("hq").sqm_band_offset == pytest.approx(0.07)
+        assert get_camera_profile("imx296").sqm_band_offset == 0.0

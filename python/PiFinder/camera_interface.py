@@ -168,8 +168,6 @@ class CameraInterface:
                 shared_state.set_camera_type(camera_type)
                 logger.info(f"Camera type set to: {camera_type}")
 
-            debug = False
-
             # Check if auto-exposure was previously enabled in config
             config_exp = cfg.get_option("camera_exp")
             if config_exp == "auto":
@@ -219,7 +217,11 @@ class CameraInterface:
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
                 if self._camera_started:
-                    if not debug:
+                    # Test mode is owned by shared state (persisted in config
+                    # and toggled from the menu), so it stays in sync with the
+                    # UI and survives restarts.
+                    test_mode_on = shared_state.test_mode()
+                    if not test_mode_on:
                         base_image = self._capture_with_timeout()
                         if base_image is None:
                             # Capture hung; fall back to a blank frame so the
