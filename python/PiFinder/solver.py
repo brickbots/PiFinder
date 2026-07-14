@@ -189,11 +189,14 @@ def update_sqm(
         except (BrokenPipeError, ConnectionResetError):
             raw = None
         green = _extract_raw_photometry_image(raw, profile)
-        if green is None or green.shape[0] < 512:
-            # The calculator is configured for the raw profile; running it on the
-            # 8-bit processed image would use the wrong pedestal/units. SQM is
-            # periodic and non-critical, so skip this cycle rather than emit a
-            # wrong value.
+        if green is None or green.shape[0] < 256:
+            # cam_raw() is None until the first real capture (test mode never
+            # fills it), and a malformed frame comes through far smaller than a
+            # real one. A genuine green frame is several hundred px per side —
+            # e.g. ~490 for the imx462/imx290 crop, larger for the imx296 — so
+            # the floor only rejects missing/garbage frames, not valid sensors.
+            # Photometry runs at the green frame's own scale, so a side shorter
+            # than the 512px solve image is fine.
             logger.debug("Raw frame unavailable/invalid for SQM; skipping this cycle")
             return False
         scale = green.shape[0] / 512.0
