@@ -200,6 +200,13 @@ class UIObjectDetails(UIModule):
         """
         Generates object text and loads object images
         """
+        # Mirror the just-selected object into UIState as the chart/telemetry
+        # "target" (see docs/ax/ui/CONTEXT.md). This is the single chokepoint
+        # where the displayed object is (re)set -- open, scroll, eyepiece cycle
+        # and display-mode cycle all route through here -- so the chart's target
+        # cross and the telemetry poller track the last-viewed object.
+        self.ui_state.set_target(self.object)
+
         # Title...
         self.title = self.object.display_name
 
