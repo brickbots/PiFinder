@@ -93,10 +93,11 @@
 
 <h1>PiFinder imu2cam tool <small>&mdash; derive (q_imu2cam, rotate_amount) pairs visually</small></h1>
 <p class="lede">Arrange the UI board and the camera module to match the physical device
-(rotations snap to 90&deg; about the world axes), pick the software image rotation and
-the board revision (rev-4 boards carry the IMU chip on the back side), and copy the
-emitted constants. Load a preset to see a shipped variant; green means the arrangement
-on screen reproduces the shipped table entry.</p>
+(rotations snap to 45&deg; about the world axes &mdash; several upcoming variants mount
+parts 45&deg; off-orthogonal), pick the software image rotation and the board revision
+(rev-4 boards carry the IMU chip on the back side), and copy the emitted constants.
+Load a preset to see a shipped variant; green means the arrangement on screen
+reproduces the shipped table entry.</p>
 
 <div class="layout">
   <div>
@@ -125,12 +126,12 @@ on screen reproduces the shipped table entry.</p>
     </div>
 
     <div class="card">
-      <h2>Rotate UI board (world axes, 90&deg;)</h2>
+      <h2>Rotate UI board (world axes, 45&deg;)</h2>
       <div class="btns" id="boardBtns"></div>
     </div>
 
     <div class="card">
-      <h2>Rotate camera module (world axes, 90&deg;)</h2>
+      <h2>Rotate camera module (world axes, 45&deg;)</h2>
       <div class="btns" id="modBtns"></div>
     </div>
 
@@ -185,7 +186,7 @@ on screen reproduces the shipped table entry.</p>
       "note": "" },
     { "key": "flat3", "label": "Flat (v3)", "rotate": 90,
       "q": [0.35355339059327384, 0.6123724356957945, -0.6123724356957946, -0.3535533905932738],
-      "note": "30-degree camera tilt: loaded exactly, but not reachable via the 90-degree buttons." },
+      "note": "30-degree camera tilt: loaded exactly, but not reachable via the 45-degree buttons." },
     { "key": "as_bloom", "label": "AS Bloom", "rotate": 90, "board_rev": 4,
       "q": [3.749399456654644e-33, 1.0, 6.123233995736766e-17, 6.123233995736766e-17],
       "note": "Rev-4 board: IMU on the back side. Re-derived 2026-07 under the rev-4 depiction; supersedes the value read off a rev-3 depiction of the same arrangement. Hardware verification pending." },
@@ -270,11 +271,12 @@ const axisAngleQuat = (a, t) =>
 
 /* ------------------------- symbolic formatting -------------------------- */
 function piFraction(angle) {            // exact np.pi expression, or null
-  const n = Math.round(angle / (Math.PI / 6));
-  if (Math.abs(angle - n * Math.PI / 6) > 1e-9) return null;
-  const table = { 0: "0", 1: "np.pi / 6", 2: "np.pi / 3", 3: "np.pi / 2",
-                  4: "np.pi * 2 / 3", 5: "np.pi * 5 / 6", 6: "np.pi" };
-  const a = Math.abs(n) === 12 ? 0 : Math.abs(n);   // 2*pi == 0
+  const n = Math.round(angle / (Math.PI / 12));
+  if (Math.abs(angle - n * Math.PI / 12) > 1e-9) return null;
+  const table = { 0: "0", 2: "np.pi / 6", 3: "np.pi / 4", 4: "np.pi / 3",
+                  6: "np.pi / 2", 8: "np.pi * 2 / 3", 9: "np.pi * 3 / 4",
+                  10: "np.pi * 5 / 6", 12: "np.pi" };
+  const a = Math.abs(n) === 24 ? 0 : Math.abs(n);   // 2*pi == 0
   if (!(a in table)) return null;
   return (n < 0 && a !== 0 ? "-" : "") + table[a];
 }
@@ -283,7 +285,9 @@ const SYMBOLIC = [
   [Math.SQRT2 / 2, "√2/2"], [Math.sqrt(3) / 2, "√3/2"],
   [Math.SQRT2 / 4, "√2/4"], [Math.sqrt(6) / 4, "√6/4"],
   [(Math.sqrt(6) + Math.SQRT2) / 4, "(√6+√2)/4"],
-  [(Math.sqrt(6) - Math.SQRT2) / 4, "(√6−√2)/4"]];
+  [(Math.sqrt(6) - Math.SQRT2) / 4, "(√6−√2)/4"],
+  [Math.sqrt(2 - Math.SQRT2) / 2, "√(2−√2)/2"],   // sin(22.5°) -- 45° half-angles
+  [Math.sqrt(2 + Math.SQRT2) / 2, "√(2+√2)/2"]];  // cos(22.5°)
 function symbolic(v) {
   for (const [val, s] of SYMBOLIC)
     if (Math.abs(Math.abs(v) - val) < 1e-9) return (v < -EPS ? "-" : "") + s;
@@ -457,9 +461,9 @@ function makeButtons(el, target) {
   for (let a = 0; a < 3; a++)
     for (const s of [1, -1]) {
       const b = document.createElement("button");
-      b.textContent = (s > 0 ? "+" : "−") + "90° " + names[a];
+      b.textContent = (s > 0 ? "+" : "−") + "45° " + names[a];
       b.addEventListener("click", () => {
-        state[target] = snap(mul(rotAxis(a, s * 90), state[target]));
+        state[target] = snap(mul(rotAxis(a, s * 45), state[target]));
         refresh();
       });
       el.appendChild(b);
