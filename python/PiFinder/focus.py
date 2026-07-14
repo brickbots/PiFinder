@@ -56,11 +56,16 @@ class FocusResult:
             when there is no usable star to measure.
         n_used: number of detected stars HFD was measured on.
         background: global background level (ADU) of the frame.
-        peak: brightest detected-star peak (ADU), or None when nothing detected.
-            Used as the white point for the display stretch.
+        peak: brightest detected-star peak (ADU), or None when nothing detected;
+            retained for frame diagnostics.
         too_defocused: True when there is clear signal but every blob is larger
             than the size cap -- i.e. measurable stars exist but are too broad to
             quantify. Drives the "keep adjusting" hint.
+        median_fwhm: Median area-equivalent FWHM estimate (px) over the same
+            stars, for the statistics display. HFD remains the focus metric.
+        blobs: Brightest detected blobs, including blobs too broad for an HFD
+            measurement. The Focus screen uses their positions for raw star
+            cutouts.
     """
 
     median_hfd: Optional[float]
@@ -68,6 +73,8 @@ class FocusResult:
     background: float
     peak: Optional[float]
     too_defocused: bool
+    median_fwhm: Optional[float] = None
+    blobs: Tuple[Blob, ...] = ()
 
 
 def _estimate_background_noise(np_image: np.ndarray) -> Tuple[float, float]:
@@ -116,14 +123,14 @@ def _find_blobs(
     *,
     max_blob_px: int,
     sigma_k: float,
-) -> Tuple[List[Blob], int, float, Optional[float]]:
+) -> Tuple[List[Blob], List[Blob], float, Optional[float]]:
     """Label connected regions above the detection threshold.
 
-    Returns (usable_blobs, n_oversized, background, brightest_peak) where
+    Returns (usable_blobs, oversized_blobs, background, brightest_peak) where
     usable_blobs are blobs at least 2 px in size and no larger than the size cap,
-    sorted brightest-first. ``n_oversized`` counts blobs that exceed the size cap
-    (signal present but too defocused to measure). ``brightest_peak`` is the peak
-    of the brightest blob of any size, or None when nothing was detected.
+    sorted brightest-first. ``oversized_blobs`` contains signal too defocused to
+    measure but still useful for the visual focus tiles. ``brightest_peak`` is
+    the peak of the brightest blob of any size, or None when nothing was detected.
     """
     img = np.asarray(np_image, dtype=np.float32)
     background, sigma = _estimate_background_noise(img)
@@ -137,12 +144,12 @@ def _find_blobs(
     mask = smoothed > threshold
     labeled, n_labels = ndimage.label(mask)
     if n_labels == 0:
-        return [], 0, background, None
+        return [], [], background, None
 
     slices = ndimage.find_objects(labeled)
 
     usable: List[Blob] = []
-    n_oversized = 0
+    oversized: List[Blob] = []
     brightest_peak: Optional[float] = None
 
     for label_idx, sl in enumerate(slices, start=1):
@@ -166,28 +173,26 @@ def _find_blobs(
         width = sl[1].stop - sl[1].start
         extent = int(max(height, width))
 
-        # Too broad to measure usefully -- treat as "too defocused".
-        if extent > max_blob_px:
-            n_oversized += 1
-            continue
-
         cy = (sl[0].start + sl[0].stop - 1) / 2.0
         cx = (sl[1].start + sl[1].stop - 1) / 2.0
         local_bg = _local_background(img, cy, cx, extent)
-
-        usable.append(
-            Blob(
-                y=cy,
-                x=cx,
-                peak=peak,
-                background=local_bg,
-                extent=extent,
-                size_px=size_px,
-            )
+        blob = Blob(
+            y=cy,
+            x=cx,
+            peak=peak,
+            background=local_bg,
+            extent=extent,
+            size_px=size_px,
         )
 
+        if extent > max_blob_px:
+            oversized.append(blob)
+        else:
+            usable.append(blob)
+
     usable.sort(key=lambda b: b.peak, reverse=True)
-    return usable, n_oversized, background, brightest_peak
+    oversized.sort(key=lambda b: b.peak, reverse=True)
+    return usable, oversized, background, brightest_peak
 
 
 def detect_stars(
@@ -244,10 +249,36 @@ def half_flux_diameter(
     return 2.0 * weighted_r / total_flux
 
 
+def full_width_half_maximum(np_image: np.ndarray, blob: Blob) -> float:
+    """Area-equivalent FWHM diameter for one detected star, in raw pixels.
+
+    Pixels above half the local peak-minus-background are counted inside a
+    circular aperture around the blob. The diameter of a circle with that area
+    equals the analytic FWHM for a circular Gaussian. This is a supplementary
+    statistic; HFD remains preferable for saturated and defocused stars.
+    """
+    cy, cx = blob.y, blob.x
+    height, width = np_image.shape
+    aperture_radius = max(blob.extent, 4)
+    y_min = max(0, int(cy) - aperture_radius)
+    y_max = min(height, int(cy) + aperture_radius + 1)
+    x_min = max(0, int(cx) - aperture_radius)
+    x_max = min(width, int(cx) + aperture_radius + 1)
+
+    patch = np.asarray(np_image[y_min:y_max, x_min:x_max], dtype=np.float32)
+    y_grid, x_grid = np.ogrid[y_min:y_max, x_min:x_max]
+    aperture = (x_grid - cx) ** 2 + (y_grid - cy) ** 2 <= aperture_radius**2
+    half_max = blob.background + (blob.peak - blob.background) / 2.0
+    area = int(np.count_nonzero((patch >= half_max) & aperture))
+    if area == 0:
+        return 0.0
+    return 2.0 * float(np.sqrt(area / np.pi))
+
+
 def focus_hfd(
     np_image: np.ndarray,
     *,
-    n: int = 5,
+    n: int = 4,
     max_blob_px: int = 50,
     sigma_k: float = 5.0,
 ) -> FocusResult:
@@ -257,8 +288,11 @@ def focus_hfd(
     found; ``too_defocused`` is True when signal is present but every blob is
     larger than ``max_blob_px``.
     """
-    usable, n_oversized, background, brightest_peak = _find_blobs(
+    usable, oversized, background, brightest_peak = _find_blobs(
         np_image, max_blob_px=max_blob_px, sigma_k=sigma_k
+    )
+    display_blobs = tuple(
+        sorted((*usable, *oversized), key=lambda blob: blob.peak, reverse=True)
     )
 
     if not usable:
@@ -269,11 +303,13 @@ def focus_hfd(
             n_used=0,
             background=background,
             peak=brightest_peak,
-            too_defocused=n_oversized > 0,
+            too_defocused=bool(oversized),
+            blobs=display_blobs,
         )
 
     img = np.asarray(np_image, dtype=np.float32)
     hfds = []
+    fwhms = []
     for blob in usable[:n]:
         aperture_radius = int(np.clip(blob.extent, 10, max_blob_px))
         hfd = half_flux_diameter(
@@ -284,6 +320,9 @@ def focus_hfd(
         )
         if hfd > 0.0:
             hfds.append(hfd)
+        fwhm = full_width_half_maximum(img, blob)
+        if fwhm > 0.0:
+            fwhms.append(fwhm)
 
     if not hfds:
         return FocusResult(
@@ -291,7 +330,8 @@ def focus_hfd(
             n_used=0,
             background=background,
             peak=brightest_peak,
-            too_defocused=n_oversized > 0,
+            too_defocused=bool(oversized),
+            blobs=display_blobs,
         )
 
     return FocusResult(
@@ -300,4 +340,6 @@ def focus_hfd(
         background=background,
         peak=usable[0].peak,
         too_defocused=False,
+        median_fwhm=float(np.median(fwhms)) if fwhms else None,
+        blobs=display_blobs,
     )
