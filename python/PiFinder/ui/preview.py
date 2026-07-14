@@ -82,6 +82,7 @@ class UIPreview(UIModule):
         self.last_update = time.time()
         self.focus_zoom = FOCUS_NOMINAL_ZOOM
         self.last_focus_result = None
+        self._tracked_focus_blobs: tuple[focus.Blob, ...] = ()
         self._last_focus_frame_time = 0.0
         self.focus_history: deque[tuple[float, float]] = deque()
 
@@ -97,13 +98,25 @@ class UIPreview(UIModule):
     def active(self):
         """Discard stale measurements when the Focus screen is entered."""
         self.last_focus_result = None
+        self._tracked_focus_blobs = ()
         self._last_focus_frame_time = 0.0
         self.focus_history.clear()
 
-    def _measure_focus(self, raw_np: np.ndarray) -> None:
+    def _measure_focus(
+        self, raw_np: np.ndarray, *, record_history: bool = True
+    ) -> None:
         """Measure HFD and locate display blobs from one raw frame."""
         self.last_focus_result = focus.focus_hfd(raw_np)
-        self._record_focus_sample(self.last_focus_result.median_hfd)
+        candidates = tuple(
+            blob
+            for blob in self.last_focus_result.blobs
+            if blob.extent <= FOCUS_VISUAL_MAX_BLOB_PX
+        )
+        self._tracked_focus_blobs = focus.track_blobs(
+            self._tracked_focus_blobs, candidates, n=FOCUS_TILE_COUNT
+        )
+        if record_history:
+            self._record_focus_sample(self.last_focus_result.median_hfd)
 
     def _record_focus_sample(self, hfd: Optional[float]) -> None:
         """Record a numeric HFD; missing measurements leave history frozen."""
@@ -117,13 +130,12 @@ class UIPreview(UIModule):
 
     def _display_blobs(self) -> tuple[focus.Blob, ...]:
         """Return the four brightest visual blobs from anywhere in the frame."""
+        tracked = getattr(self, "_tracked_focus_blobs", None)
+        if tracked is not None:
+            return tracked
         if self.last_focus_result is None:
             return ()
-        return tuple(
-            blob
-            for blob in self.last_focus_result.blobs
-            if blob.extent <= FOCUS_VISUAL_MAX_BLOB_PX
-        )[:FOCUS_TILE_COUNT]
+        return tuple(self.last_focus_result.blobs[:FOCUS_TILE_COUNT])
 
     def _focus_center(self) -> tuple[int, int]:
         """Return the center of the visible area below the title bar."""
@@ -468,12 +480,15 @@ class UIPreview(UIModule):
             image_updated = True
             raw_image = self.camera_image.copy()
 
+            raw_np = np.asarray(raw_image.convert("L"))
             if last_image_time != self._last_focus_frame_time:
-                raw_np = np.asarray(raw_image.convert("L"))
                 self._measure_focus(raw_np)
                 self._last_focus_frame_time = last_image_time
-            else:
-                raw_np = np.asarray(raw_image.convert("L"))
+            elif force:
+                # A forced redraw can race the separately published camera
+                # metadata. Re-measure this exact display copy, but do not add
+                # a duplicate point to the time history.
+                self._measure_focus(raw_np, record_history=False)
 
             if self.display_mode == DISPLAY_STARS:
                 self.screen.paste(self._render_focus_tiles(raw_image))
