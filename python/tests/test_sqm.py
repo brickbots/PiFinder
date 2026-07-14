@@ -444,26 +444,20 @@ class TestMzeroCalculation:
         assert len(mzeros) == 1
         assert mzeros[0] == pytest.approx(expected, abs=0.001)
 
-    def test_mzero_flux_weighted_mean(self):
-        """Test that mzero uses flux-weighted mean (brighter stars weighted more)."""
+    def test_mzero_median(self):
+        """mzero is the median over stars: one aberrant bright star can't drag it."""
         sqm = SQM()
-        # Two stars: one bright (high flux), one dim (low flux)
-        # The bright star's mzero should dominate
-        fluxes = [10000.0, 100.0]  # 100x difference
-        mags = [4.0, 8.0]
+        # Three consistent stars plus one bright outlier (e.g. near-saturated):
+        # a flux-weighted mean would be pulled toward the outlier, the median isn't.
+        fluxes = [1000.0, 1000.0, 1000.0, 50000.0]
+        mags = [6.5, 6.5, 6.5, 1.0]  # outlier's personal mzero = 1.0 + 2.5*log10(50000)
 
         mzero, mzeros = sqm._calculate_mzero(fluxes, mags)
 
-        # Individual mzeros
-        mzero_bright = 4.0 + 2.5 * np.log10(10000)  # = 14.0
-        mzero_dim = 8.0 + 2.5 * np.log10(100)  # = 13.0
-
-        # Flux-weighted: (14.0*10000 + 13.0*100) / (10000+100) ≈ 13.99
-        expected_weighted = (mzero_bright * 10000 + mzero_dim * 100) / (10000 + 100)
-
-        assert mzero == pytest.approx(expected_weighted, abs=0.001)
-        assert mzeros[0] == pytest.approx(mzero_bright, abs=0.001)
-        assert mzeros[1] == pytest.approx(mzero_dim, abs=0.001)
+        mzero_typical = 6.5 + 2.5 * np.log10(1000)  # = 14.0
+        assert mzero == pytest.approx(mzero_typical, abs=0.001)
+        assert mzeros[0] == pytest.approx(mzero_typical, abs=0.001)
+        assert mzeros[3] == pytest.approx(1.0 + 2.5 * np.log10(50000), abs=0.001)
 
     def test_mzero_skips_negative_flux(self):
         """Test that stars with negative/zero flux are skipped."""
@@ -1531,3 +1525,37 @@ class TestMzeroCorrection:
         assert abs((v1 - v0) - 0.5) < 1e-9
         assert d0["mzero_correction"] == 0.0
         assert d1["mzero_correction"] == 0.5
+
+
+@pytest.mark.unit
+class TestBVClamp:
+    def test_very_red_star_clamped(self, monkeypatch):
+        """B-V beyond the fitted range is clamped before the color term."""
+        from PiFinder.sqm import color_index
+        from PiFinder.sqm.sqm import BV_CLAMP_MAX
+
+        sqm = SQM("imx462")  # color_coefficient = 0.8
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags, catids=[1, 2, 3])
+        image = _image_with_stars(centroids)
+
+        def run(bv_value):
+            monkeypatch.setattr(
+                color_index,
+                "get_bv",
+                lambda ids: np.full(len(list(ids)), bv_value, dtype=np.float32),
+            )
+            v, _ = sqm.calculate(
+                centroids=[],
+                solution=sol,
+                image=image,
+                exposure_sec=0.5,
+                altitude_deg=90.0,
+                saturation_threshold=65000,
+            )
+            return v
+
+        # B-V = 3.0 must act exactly like B-V = BV_CLAMP_MAX
+        assert run(3.0) == pytest.approx(run(BV_CLAMP_MAX), abs=1e-6)
+        # ...and differently from an unclamped mid-range value
+        assert abs(run(3.0) - run(0.5)) > 0.1

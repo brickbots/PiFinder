@@ -11,6 +11,11 @@ from .camera_profiles import get_camera_profile
 
 logger = logging.getLogger("Solver")
 
+# The colour term V - T*(B-V) is linear only over the B-V range it was fitted
+# on (~0 to ~1). Clamp lookups so very red giants aren't over-corrected.
+BV_CLAMP_MIN = -0.5
+BV_CLAMP_MAX = 1.2
+
 
 class SQM:
     """
@@ -232,27 +237,30 @@ class SQM:
         self, star_fluxes: list, star_mags: list
     ) -> Tuple[Optional[float], list]:
         """
-        Calculate photometric zero point from calibrated stars using flux-weighted mean.
+        Calculate photometric zero point from calibrated stars.
 
         For point sources: mzero = catalog_mag + 2.5 × log10(total_flux_ADU)
 
         This zero point allows converting any ADU measurement to magnitudes:
             mag = mzero - 2.5 × log10(flux_ADU)
 
-        Uses flux-weighted mean: brighter stars have higher SNR so their
-        mzero estimates are more reliable.
+        Uses the median over stars, not a flux-weighted mean: a flux-weighted
+        mean hands most of the vote to the 1-2 brightest stars, which are
+        exactly the ones prone to systematic error (sensor nonlinearity near
+        saturation, colour-term extrapolation on very red giants). One such
+        star can drag a weighted mzero by half a magnitude; the median is
+        unmoved.
 
         Args:
             star_fluxes: Background-subtracted star fluxes (ADU)
             star_mags: Catalog magnitudes for matched stars
 
         Returns:
-            Tuple of (weighted_mean_mzero, list_of_individual_mzeros)
+            Tuple of (median_mzero, list_of_individual_mzeros)
             Note: The mzeros list will contain None for stars with invalid flux
         """
         mzeros: list[Optional[float]] = []
         valid_mzeros = []
-        valid_fluxes = []
 
         for flux, mag in zip(star_fluxes, star_mags):
             if flux <= 0:
@@ -266,18 +274,12 @@ class SQM:
             mzero = mag + 2.5 * np.log10(flux)
             mzeros.append(mzero)
             valid_mzeros.append(mzero)
-            valid_fluxes.append(flux)
 
         if len(valid_mzeros) == 0:
             logger.error("No valid stars for mzero calculation")
             return None, mzeros
 
-        # Flux-weighted mean: brighter stars contribute more
-        valid_mzeros_arr = np.array(valid_mzeros)
-        valid_fluxes_arr = np.array(valid_fluxes)
-        weighted_mzero = float(np.average(valid_mzeros_arr, weights=valid_fluxes_arr))
-
-        return weighted_mzero, mzeros
+        return float(np.median(valid_mzeros)), mzeros
 
     def _detect_aperture_overlaps(
         self,
@@ -568,13 +570,16 @@ class SQM:
 
         # 4. Calculate photometric zero point.
         # Apply the colour term per star where B-V is known; stars with no B-V
-        # fall back to their raw V magnitude.
+        # fall back to their raw V magnitude. B-V is clamped to the range the
+        # linear colour term was fitted on -- extrapolating T*(B-V) to very red
+        # giants (B-V > 1.2) over-corrects them by up to a magnitude.
         n_color_corrected = 0
         if star_bv is not None and color_coef:
             effective_mags = []
             for v_mag, bv in zip(star_mags, star_bv):
                 if bv is not None and math.isfinite(bv):
-                    effective_mags.append(v_mag - color_coef * bv)
+                    bv_clamped = min(max(bv, BV_CLAMP_MIN), BV_CLAMP_MAX)
+                    effective_mags.append(v_mag - color_coef * bv_clamped)
                     n_color_corrected += 1
                 else:
                     effective_mags.append(v_mag)
