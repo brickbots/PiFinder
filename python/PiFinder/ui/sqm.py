@@ -36,21 +36,21 @@ class UISQM(UIModule):
             font=self.fonts.base,
         )
 
-        # Marking menu definition. ANCHOR is the everyday action (set tonight's
-        # scale from a hand-held reference meter); CAL (noise constants) and
+        # Marking menu definition. CORRECT is the everyday action (set tonight's
+        # scale from a hand-held reference meter); CALIB (noise constants) and
         # SWEEP (diagnostic exposure sweep) are occasional/expert tools.
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
                 label=_(
-                    "ANCHOR"
-                ),  # TRANSLATORS: Marking menu option to anchor SQM to a reference meter
-                callback=self._launch_anchor,
+                    "CALIB"
+                ),  # TRANSLATORS: Marking menu option to launch SQM calibration wizard
+                callback=self._launch_calibration,
             ),
             down=MarkingMenuOption(
                 label=_(
-                    "CAL"
-                ),  # TRANSLATORS: Marking menu option to launch SQM calibration wizard
-                callback=self._launch_calibration,
+                    "CORRECT"
+                ),  # TRANSLATORS: Marking menu option to anchor SQM to a reference meter
+                callback=self._launch_anchor,
             ),
             right=MarkingMenuOption(
                 label=_(
@@ -299,11 +299,8 @@ class UISQM(UIModule):
     def _is_calibrated(self) -> bool:
         """Check if SQM calibration file exists for current camera."""
         camera_type = self.shared_state.camera_type()
-        camera_type_processed = f"{camera_type}_processed"
         calibration_file = (
-            Path.home()
-            / "PiFinder_data"
-            / f"sqm_calibration_{camera_type_processed}.json"
+            Path.home() / "PiFinder_data" / f"sqm_calibration_{camera_type}.json"
         )
         return calibration_file.exists()
 
