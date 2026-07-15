@@ -44,9 +44,9 @@ def test_readme_table_matches_obj_types():
         # On a checkout that doesn't carry it yet there is nothing to guard; the
         # check activates once both land on main.
         pytest.skip("Object type codes table not present in this checkout")
-    assert codes == set(OBJ_TYPES), (
-        "The README 'Object type codes' table is out of sync with OBJ_TYPES."
-    )
+    assert codes == set(
+        OBJ_TYPES
+    ), "The README 'Object type codes' table is out of sync with OBJ_TYPES."
 
 
 @pytest.mark.unit
@@ -55,6 +55,6 @@ def test_default_config_object_types_match_obj_types():
     # type = "show everything"). It must list exactly the OBJ_TYPES codes, so a
     # type added to OBJ_TYPES can't silently be off by default.
     config = json.loads(_DEFAULT_CONFIG.read_text())
-    assert set(config["filter.object_types"]) == set(OBJ_TYPES), (
-        "default_config.json 'filter.object_types' is out of sync with OBJ_TYPES."
-    )
+    assert set(config["filter.object_types"]) == set(
+        OBJ_TYPES
+    ), "default_config.json 'filter.object_types' is out of sync with OBJ_TYPES."

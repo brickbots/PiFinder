@@ -299,11 +299,8 @@ class UISQM(UIModule):
     def _is_calibrated(self) -> bool:
         """Check if SQM calibration file exists for current camera."""
         camera_type = self.shared_state.camera_type()
-        camera_type_processed = f"{camera_type}_processed"
         calibration_file = (
-            Path.home()
-            / "PiFinder_data"
-            / f"sqm_calibration_{camera_type_processed}.json"
+            Path.home() / "PiFinder_data" / f"sqm_calibration_{camera_type}.json"
         )
         return calibration_file.exists()
 

@@ -808,9 +808,7 @@ def main(
                     location.error_in_m = 5
                     location.lock = True
                     location.lock_type = 3
-                    location.last_gps_lock = (
-                        timez.local_now().time().isoformat()[:8]
-                    )
+                    location.last_gps_lock = timez.local_now().time().isoformat()[:8]
                     console.write(
                         f"GPS: Location {location.lat} {location.lon} {location.altitude}"
                     )
