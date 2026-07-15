@@ -175,7 +175,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         analog_gain=30.0,
         digital_gain=1.0,  # TODO: find optimum value
         bit_depth=12,
-        bias_offset=50.0,  # TODO: measure with dark frames
+        bias_offset=238.0,  # Measured: dark-frame CAL 238.0 + on-sky sweep intercept 238.6 (raw green, gain 30)
         # Image cropping and orientation
         crop_y=(50, 50),  # Crop vertical edges
         crop_x=(470, 470),  # Crop horizontal edges to square
@@ -201,7 +201,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         analog_gain=30.0,
         digital_gain=1.0,  # TODO: find optimum value
         bit_depth=12,
-        bias_offset=50.0,  # TODO: measure with dark frames
+        bias_offset=238.0,  # Measured: dark-frame CAL 238.0 + on-sky sweep intercept 238.6 (raw green, gain 30)
         # Image cropping and orientation (same as imx462)
         crop_y=(50, 50),  # Crop vertical edges
         crop_x=(470, 470),  # Crop horizontal edges to square
