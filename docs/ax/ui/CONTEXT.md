@@ -193,7 +193,7 @@ The 2×2 view made by repacking the four brightest detected stars from anywhere 
 _Avoid_: processed preview, enhanced stars, focus strip.
 
 **Focus display mode**:
-One of the four Focus-screen views cycled with short `square`, following the normal **display mode** convention: **Stars** (the four focus tiles and HFD history), **Single** (the brightest tracked star filling the panel, with HFD and history on a translucent lower-third overlay), **Raw** (the complete raw frame fitted to the panel with nearest-neighbour sampling), and **Stats** (HFD, supplementary area-equivalent FWHM, detected-star count, exposure mode/value, gain, and a log-scaled raw histogram).
+One of the four Focus-screen views cycled with short `square`, following the normal **display mode** convention: **Stars** (the four focus tiles and HFD history), **Single** (the brightest tracked star filling the panel, with HFD and history on a translucent lower-third overlay), **Image** (the complete frame with upstream's EMA-smoothed background/peak stretch applied for display only), and **Stats** (HFD, supplementary area-equivalent FWHM, detected-star count, exposure mode/value, gain, and a log-scaled raw histogram). HFD, centroids, and the Stats histogram always use the unstretched raw frame.
 _Avoid_: tab, page, focus-strip mode.
 
 **Focus FWHM estimate**:
