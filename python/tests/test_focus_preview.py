@@ -212,9 +212,9 @@ def test_single_star_renderer_preserves_brightest_raw_crop():
 def test_focus_modes_follow_standard_square_cycle_order():
     assert UIPreview._display_mode_list == [
         DISPLAY_STARS,
+        DISPLAY_SINGLE,
         DISPLAY_RAW,
         DISPLAY_STATS,
-        DISPLAY_SINGLE,
     ]
 
     preview = object.__new__(UIPreview)
@@ -224,11 +224,11 @@ def test_focus_modes_follow_standard_square_cycle_order():
     preview.update = lambda force=False: redraws.append(force)
 
     preview.key_square()
+    assert preview.display_mode == DISPLAY_SINGLE
+    preview.key_square()
     assert preview.display_mode == DISPLAY_RAW
     preview.key_square()
     assert preview.display_mode == DISPLAY_STATS
-    preview.key_square()
-    assert preview.display_mode == DISPLAY_SINGLE
     preview.key_square()
     assert preview.display_mode == DISPLAY_STARS
     assert redraws == [True, True, True, True]
