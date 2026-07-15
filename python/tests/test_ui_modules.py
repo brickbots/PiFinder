@@ -86,6 +86,7 @@ from PiFinder.ui.object_details import UIObjectDetails
 from PiFinder.ui.log import UILog
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
+from PiFinder.ui.sqm_anchor import UISQMAnchor
 from PiFinder.ui.sqm_sweep import UISQMSweep
 from PiFinder.ui.sqm_correction import UISQMCorrection
 from PiFinder.ui.software import UIMigrationConfirm, UIMigrationProgress
@@ -183,6 +184,7 @@ _DYNAMIC_IDS = [
     "UILog",
     "UIDateEntry",
     "UISQMCalibration",
+    "UISQMAnchor",
     "UISQMSweep",
     "UISQMCorrection",
     "UIMigrationConfirm",
@@ -218,6 +220,13 @@ def _build_dynamic_item_definition(spec_id: str, sample_object) -> dict:
             "name": "SQM Calibration",
             "class": UISQMCalibration,
             "label": "sqm_calibration",
+        }
+    if spec_id == "UISQMAnchor":
+        # sqm.py:_launch_anchor
+        return {
+            "name": "SQM Anchor",
+            "class": UISQMAnchor,
+            "label": "sqm_anchor",
         }
     if spec_id == "UISQMSweep":
         # sqm.py:302
