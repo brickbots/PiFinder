@@ -8,7 +8,7 @@ from collections import deque
 from typing import Optional
 
 import numpy as np
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageDraw, ImageOps
 
 from PiFinder import focus
 from PiFinder.ui.base import UIModule
@@ -28,7 +28,7 @@ FOCUS_WINDOW_S = 10.0
 HFD_MIN_DISPLAY_SPAN = 1.0
 HFD_RANGE_PADDING = 1.15
 DISPLAY_STARS = "stars"
-DISPLAY_RAW = "raw"
+DISPLAY_IMAGE = "image"
 DISPLAY_STATS = "stats"
 DISPLAY_SINGLE = "single"
 
@@ -70,7 +70,7 @@ def focus_crop_size(
 class UIPreview(UIModule):
     __title__ = "CAMERA"
     __help_name__ = "camera"
-    _display_mode_list = [DISPLAY_STARS, DISPLAY_RAW, DISPLAY_STATS, DISPLAY_SINGLE]
+    _display_mode_list = [DISPLAY_STARS, DISPLAY_SINGLE, DISPLAY_IMAGE, DISPLAY_STATS]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -193,14 +193,13 @@ class UIPreview(UIModule):
         blobs = self._display_blobs()
         if blobs:
             blob = blobs[0]
-            # The target is twice a quadrant's width and height, so its native
-            # crop must also be twice as large to retain the same apparent
-            # magnification selected by +/-.
+            # Reuse a tile's native crop across the full panel, giving Single
+            # twice the apparent magnification selected by +/- in Stars.
             crop_w, crop_h = focus_crop_size(
                 raw_l.size,
                 target_size,
                 blob.extent,
-                max(self.focus_zoom // 2, 1),
+                self.focus_zoom,
             )
             crop_left = min(max(round(blob.x - crop_w / 2), 0), raw_l.width - crop_w)
             crop_top = min(max(round(blob.y - crop_h / 2), 0), raw_l.height - crop_h)
@@ -211,13 +210,42 @@ class UIPreview(UIModule):
 
         return ImageChops.multiply(rendered.convert("RGB"), self.colors.red_image)
 
-    def _render_raw_frame(self, raw_image: Image.Image) -> Image.Image:
-        """Fit the unprocessed full camera frame to the display."""
-        raw_l = raw_image.convert("L")
-        resized = raw_l.resize(
+    def _render_image_frame(self, raw_image: Image.Image) -> Image.Image:
+        """Fit and autocontrast the full camera image for display only."""
+        resized = raw_image.convert("L").resize(
             self.display_class.resolution, resample=Image.Resampling.NEAREST
         )
-        return ImageChops.multiply(resized.convert("RGB"), self.colors.red_image)
+        red = ImageChops.multiply(resized.convert("RGB"), self.colors.red_image)
+        return ImageOps.autocontrast(red)
+
+    def _focus_readout_text(self) -> str:
+        """Format current HFD, using one unmistakable unavailable value."""
+        result = self.last_focus_result
+        if result is not None and result.median_hfd is not None:
+            return f"{result.median_hfd:.1f}"
+        return "?.?"
+
+    def _focus_history_gap(self, center, text, font) -> tuple[int, int]:
+        """Return signal endpoints with equal padding from rendered outline."""
+        mask = Image.new("1", self.display_class.resolution)
+        mask_draw = ImageDraw.Draw(mask)
+        mask_draw.text(
+            center,
+            text,
+            font=font,
+            fill=1,
+            anchor="mm",
+            stroke_width=1,
+            stroke_fill=1,
+        )
+        ink_box = mask.getbbox()
+        if ink_box is None:
+            return center[0], center[0]
+
+        # Endpoints are inclusive. Leave exactly three blank pixels between
+        # each endpoint and the first/last rendered outline pixel.
+        padding = 3
+        return ink_box[0] - padding - 1, ink_box[2] + padding
 
     def _draw_focus_overlay(self) -> None:
         """Draw quadrant separators, HFD history, and the current HFD."""
@@ -230,24 +258,11 @@ class UIPreview(UIModule):
         )
         self.draw.line([(0, center[1]), (res_x - 1, center[1])], fill=separator)
 
-        result = self.last_focus_result
-        if result is not None and result.median_hfd is not None:
-            text = f"{result.median_hfd:.1f}"
-        elif result is not None and result.too_defocused:
-            text = ">50"
-        else:
-            text = "—"
+        text = self._focus_readout_text()
 
         font = self.fonts.large.font
-        text_box = self.draw.textbbox(
-            center, text, font=font, anchor="mm", stroke_width=1
-        )
-        text_half_width = math.ceil(
-            max(center[0] - text_box[0], text_box[2] - center[0])
-        )
-        self._draw_focus_history(
-            center[1], center[0] - text_half_width - 3, center[0] + text_half_width + 3
-        )
+        gap_left, gap_right = self._focus_history_gap(center, text, font)
+        self._draw_focus_history(center[1], gap_left, gap_right)
         self.draw.text(
             center,
             text,
@@ -265,24 +280,11 @@ class UIPreview(UIModule):
         center = (res_x // 2, overlay_top + (res_y - overlay_top) // 2)
         self.draw.rectangle((0, overlay_top, res_x, res_y), fill=(0, 0, 0, 128))
 
-        result = self.last_focus_result
-        if result is not None and result.median_hfd is not None:
-            text = f"{result.median_hfd:.1f}"
-        elif result is not None and result.too_defocused:
-            text = ">50"
-        else:
-            text = "—"
+        text = self._focus_readout_text()
 
         font = self.fonts.large.font
-        text_box = self.draw.textbbox(
-            center, text, font=font, anchor="mm", stroke_width=1
-        )
-        text_half_width = math.ceil(
-            max(center[0] - text_box[0], text_box[2] - center[0])
-        )
-        self._draw_focus_history(
-            center[1], center[0] - text_half_width - 3, center[0] + text_half_width + 3
-        )
+        gap_left, gap_right = self._focus_history_gap(center, text, font)
+        self._draw_focus_history(center[1], gap_left, gap_right)
         self.draw.text(
             center,
             text,
@@ -319,6 +321,8 @@ class UIPreview(UIModule):
         # expired history and starts drawing immediately at the right edge.
         now = time.time()
         window_start = now - FOCUS_WINDOW_S
+        while self.focus_history and self.focus_history[0][0] < window_start:
+            self.focus_history.popleft()
         samples = [hfd for _timestamp, hfd in self.focus_history]
         if samples:
             range_center = (min(samples) + max(samples)) / 2
@@ -402,11 +406,7 @@ class UIPreview(UIModule):
         dim = self.colors.get(64)
         result = self.last_focus_result
 
-        hfd = (
-            f"{result.median_hfd:.1f}"
-            if result is not None and result.median_hfd is not None
-            else "—"
-        )
+        hfd = self._focus_readout_text()
         fwhm = (
             f"{result.median_fwhm:.1f} px"
             if result is not None and result.median_fwhm is not None
@@ -443,10 +443,12 @@ class UIPreview(UIModule):
 
         label_h = self.fonts.small.height
         plots_top = min(stats_y + 1, res_y - label_h - 4)
-        self.draw.text((2, plots_top), "RAW HIST", font=self.fonts.small.font, fill=dim)
+        label_xy = (2, plots_top)
+        self.draw.text(label_xy, "RAW HIST", font=self.fonts.small.font, fill=dim)
+        label_box = self.draw.textbbox(label_xy, "RAW HIST", font=self.fonts.small.font)
         plot_left, plot_top, plot_right, plot_bottom = (
             2,
-            plots_top + label_h,
+            min(label_box[3] + 2, res_y - 2),
             res_x - 2,
             res_y - 1,
         )
@@ -487,8 +489,8 @@ class UIPreview(UIModule):
 
             if self.display_mode == DISPLAY_STARS:
                 self.screen.paste(self._render_focus_tiles(raw_image))
-            elif self.display_mode == DISPLAY_RAW:
-                self.screen.paste(self._render_raw_frame(raw_image))
+            elif self.display_mode == DISPLAY_IMAGE:
+                self.screen.paste(self._render_image_frame(raw_image))
             elif self.display_mode == DISPLAY_STATS:
                 self._draw_stats(raw_np, metadata)
             else:
@@ -517,6 +519,6 @@ class UIPreview(UIModule):
         self.update(force=True)
 
     def key_square(self):
-        """Cycle Stars -> Raw -> Stats -> Single using the display-mode key."""
+        """Cycle Stars -> Single -> Image -> Stats using the display-mode key."""
         self.cycle_display_mode()
         self.update(force=True)

@@ -79,21 +79,21 @@ class CameraProfile:
     # imx462/imx290 bare color ~0.8; hq (factory IR-cut) ~0.0. 0.0 = no correction.
     color_coefficient: float = 0.0
 
-    # Compute SQM on the raw linear frame (green channel for Bayer sensors)
-    # rather than the 8-bit processed display image. The processed image's
-    # clipping/8-bit quantisation/resize break the flux linearity SQM relies on.
-    sqm_use_raw_green: bool = False
-
     # Sky-passband offset (mag), added to the final SQM. The colour term
     # matches the *stars* to the sensor passband, but the *sky* is then also
     # measured in that passband: a bare sensor sees NIR sky emission (airglow,
     # LED/sodium light pollution beyond 700nm) that a V-band SQM meter does
     # not, so its sky reads genuinely brighter. This constant converts the
-    # sensor-band sky brightness back to the meter's V-band scale. Stable per
-    # sensor model once the photometry is robust (night-to-night spread 0.06
-    # mag over focus states and star fields). Values are provisional from
-    # three sweeps per sensor; refine with a multi-night side-by-side
-    # campaign against a reference meter aimed at the camera field.
+    # sensor-band sky brightness back to the meter's V-band scale.
+    #
+    # NOT a pure sensor constant: it is (sensor passband, fixed) x (sky
+    # spectrum, environmental). The values below are calibrated under an
+    # LP-dominated suburban sky (Ghent), where the city's stable spectrum
+    # makes the offset constant to ~0.05 mag across nights. Under an
+    # airglow-dominated dark sky the NIR fraction is different and variable,
+    # so expect a different (likely larger) value there and real night-to-
+    # night wander. Refine per sky regime with side-by-side reference-meter
+    # or paired IR-cut-camera sessions.
     sqm_band_offset: float = 0.0
 
     def crop_and_rotate(self, raw_array):
@@ -153,7 +153,10 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         analog_gain=15.0,  # Maximum analog gain for this sensor
         digital_gain=1.0,  # TODO: find optimum value
         bit_depth=10,
-        bias_offset=32.0,  # Measured from actual dark frames
+        # Sony-standard black level (240 @ 12-bit -> 60 @ 10-bit); confirmed by
+        # the 2025-10-31 on-sky sweep intercept (60.3). The old 32.0 was a
+        # mis-measurement.
+        bias_offset=60.0,
         # Image cropping and orientation
         crop_y=(0, 0),  # No vertical crop
         crop_x=(184, 184),  # Crop to square from horizontal rectangle
@@ -163,10 +166,15 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=8.0,  # Datasheet: 3.2 e⁻/p/s @ 25°C → ~8 ADU/s @ 10-bit
         thermal_coeff=0.08,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
-        # UNMEASURED: mono sensor with no IR-cut, expected positive. Needs one
-        # calibration sweep from a stock imx296 device. 0.0 until then.
-        color_coefficient=0.0,
-        sqm_use_raw_green=True,
+        # Measured on-sky (2025-10-31 sweep, 460 stars): +0.21. Small because
+        # the Pregius mono QE falls through the NIR, unlike the STARVIS colour
+        # sensors' NIR-heavy green channel.
+        color_coefficient=0.21,
+        # PROVISIONAL: single moonlit sweep vs one hand-held reference
+        # (17.8-17.9); negative = mono band reads darker than the meter.
+        # Re-measure over more nights; the session anchor absorbs the
+        # uncertainty meanwhile.
+        sqm_band_offset=-0.46,
     ),
     "imx462": CameraProfile(
         # Hardware configuration
@@ -189,7 +197,6 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # red stars). Cross-checked against HQ w/ IR-cut (~0.0) and synthetic
         # photometry. See docs/adr for the SQM colour-term decision.
         color_coefficient=0.8,
-        sqm_use_raw_green=True,
         # Bare sensor sees NIR sky emission a V-band meter doesn't. Provisional
         # (3 sweeps, night-to-night spread 0.06 mag); refine vs reference meter.
         sqm_band_offset=0.43,
@@ -213,7 +220,6 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         typical_sky_background=21.0,
         # Same sensor family/optics as imx462 (driver-compatible), same NIR leak.
         color_coefficient=0.8,
-        sqm_use_raw_green=True,
         sqm_band_offset=0.43,  # mirror of imx462 (same sensor family, no sweeps yet)
     ),
     "hq": CameraProfile(
@@ -236,73 +242,9 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # Measured on-sky: -0.05 ± 0.01 -> effectively 0. HQ ships with a factory
         # IR-cut filter, so no NIR leak and the green passband ~ Johnson V.
         color_coefficient=0.0,
-        sqm_use_raw_green=True,
         # Small residual vs reference meter despite the IR-cut. Provisional
         # (2 trusted sweeps); refine vs reference meter.
         sqm_band_offset=0.07,
-    ),
-    # Processed image profiles (8-bit images after camera.capture() processing)
-    # These have been rescaled to 0-255 but still have residual offset from:
-    # - Imperfect bias subtraction in camera.capture()
-    # - Quantization floor after 8-bit conversion
-    # - Read noise floor
-    # Measured from actual processed images: darkest pixels ~9-12 ADU
-    # Use conservative offset to avoid over-subtraction
-    # Note: Hardware fields not used for processed images (already 8-bit)
-    # Processed profiles are the fallback path (used when sqm_use_raw_green is
-    # off or the raw frame is unavailable). color_coefficient mirrors the raw
-    # profile since it's the same physical sensor.
-    "imx296_processed": CameraProfile(
-        format="L",  # 8-bit grayscale (not used)
-        raw_size=(512, 512),  # Already processed size (not used)
-        analog_gain=1.0,  # Not applicable to processed images
-        digital_gain=1.0,  # Already applied during processing
-        bit_depth=8,
-        bias_offset=6.0,  # Calibrated against reference SQM meter
-        read_noise_adu=1.5,  # Quantization + residual noise in 8-bit
-        dark_current_rate=0.0,  # Negligible after processing
-        thermal_coeff=0.0,
-        typical_sky_background=21.0,
-        color_coefficient=0.0,  # UNMEASURED (see raw imx296)
-    ),
-    "imx462_processed": CameraProfile(
-        format="L",
-        raw_size=(512, 512),
-        analog_gain=1.0,
-        digital_gain=1.0,
-        bit_depth=8,
-        bias_offset=12.0,  # Measured processed-image black level (raw ~237 -> ~12 after capture stretch)
-        read_noise_adu=1.5,
-        dark_current_rate=0.0,
-        thermal_coeff=0.0,
-        typical_sky_background=21.0,
-        color_coefficient=0.8,
-    ),
-    "imx290_processed": CameraProfile(
-        format="L",
-        raw_size=(512, 512),
-        analog_gain=1.0,
-        digital_gain=1.0,
-        bit_depth=8,
-        bias_offset=12.0,
-        read_noise_adu=1.5,
-        dark_current_rate=0.0,
-        thermal_coeff=0.0,
-        typical_sky_background=21.0,
-        color_coefficient=0.8,
-    ),
-    "hq_processed": CameraProfile(
-        format="L",
-        raw_size=(512, 512),
-        analog_gain=1.0,
-        digital_gain=1.0,
-        bit_depth=8,
-        bias_offset=8.0,
-        read_noise_adu=1.5,
-        dark_current_rate=0.0,
-        thermal_coeff=0.0,
-        typical_sky_background=21.0,
-        color_coefficient=0.0,
     ),
 }
 
@@ -351,20 +293,13 @@ def get_camera_profile(camera_type: str) -> CameraProfile:
     Get the noise profile for a camera type.
 
     Args:
-        camera_type: Camera model identifier
-            Raw sensors: imx296, imx462, imx290, hq
-            Processed (8-bit): imx296_processed, imx462_processed, imx290_processed, hq_processed
+        camera_type: Camera model identifier (imx296, imx462, imx290, hq)
 
     Returns:
         CameraNoiseProfile for the camera
 
     Raises:
         ValueError: If camera type is not recognized
-
-    Note:
-        Use "_processed" variants when working with 8-bit images that have already
-        had bias offset subtracted and been scaled (e.g., from camera.capture()).
-        Use raw variants only when working with unprocessed sensor data.
     """
     if camera_type not in CAMERA_PROFILES:
         raise ValueError(

@@ -164,3 +164,7 @@ astro_data/comets.txt
 test_ubx
 test_ubx/*
 python/telemetry_analysis/
+
+# nix build result symlinks
+result
+result-*

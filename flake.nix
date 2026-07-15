@@ -365,6 +365,7 @@
     in pkgs.mkShell {
       packages = [
         pyPkgs.devEnv
+        pkgs.bashInteractive
         pkgs.ruff
         pkgs.uv
         pkgs.git

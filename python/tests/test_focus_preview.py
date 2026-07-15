@@ -13,7 +13,7 @@ from PiFinder.ui import preview as preview_module
 from PiFinder.displays import DisplayBase, Layout176, Layout320
 from PiFinder.focus import Blob, FocusResult
 from PiFinder.ui.preview import (
-    DISPLAY_RAW,
+    DISPLAY_IMAGE,
     DISPLAY_SINGLE,
     DISPLAY_STARS,
     DISPLAY_STATS,
@@ -167,20 +167,22 @@ def test_edge_star_crop_contains_only_source_frame_pixels():
 
 
 @pytest.mark.unit
-def test_raw_renderer_preserves_raw_luminance_values():
+def test_image_renderer_uses_original_display_autocontrast():
     preview = object.__new__(UIPreview)
     preview.display_class = SimpleNamespace(resolution=(128, 128))
     preview.colors = SimpleNamespace(
         red_image=Image.new("RGB", (128, 128), (255, 0, 0))
     )
-    raw = np.tile(np.array([0, 40, 120, 255], dtype=np.uint8), (512, 128))
-    rendered = np.asarray(preview._render_raw_frame(Image.fromarray(raw)))
-    assert set(np.unique(rendered[:, :, 0])) <= {0, 40, 120, 255}
+    raw = np.tile(
+        np.repeat(np.array([20, 70, 120, 200], dtype=np.uint8), 128), (512, 1)
+    )
+    rendered = np.asarray(preview._render_image_frame(Image.fromarray(raw)))
+    assert set(np.unique(rendered[:, :, 0])) == {0, 70, 141, 255}
     assert np.all(rendered[:, :, 1:] == 0)
 
 
 @pytest.mark.unit
-def test_single_star_renderer_preserves_brightest_raw_crop():
+def test_single_star_renderer_preserves_brightest_raw_crop(monkeypatch):
     preview = object.__new__(UIPreview)
     preview.focus_zoom = FOCUS_NOMINAL_ZOOM
     preview.display_class = SimpleNamespace(resolution=(128, 128))
@@ -202,19 +204,28 @@ def test_single_star_renderer_preserves_brightest_raw_crop():
     raw[102:154, 102:154] = 73
     raw[358:410, 358:410] = 149
 
+    nominal_zooms = []
+    original_focus_crop_size = preview_module.focus_crop_size
+
+    def recording_focus_crop_size(*args, **kwargs):
+        nominal_zooms.append(args[3])
+        return original_focus_crop_size(*args, **kwargs)
+
+    monkeypatch.setattr(preview_module, "focus_crop_size", recording_focus_crop_size)
     rendered = np.asarray(preview._render_brightest_star(Image.fromarray(raw)))
 
     assert set(np.unique(rendered[:, :, 0])) <= {73}
     assert np.all(rendered[:, :, 1:] == 0)
+    assert nominal_zooms == [FOCUS_NOMINAL_ZOOM]
 
 
 @pytest.mark.unit
 def test_focus_modes_follow_standard_square_cycle_order():
     assert UIPreview._display_mode_list == [
         DISPLAY_STARS,
-        DISPLAY_RAW,
-        DISPLAY_STATS,
         DISPLAY_SINGLE,
+        DISPLAY_IMAGE,
+        DISPLAY_STATS,
     ]
 
     preview = object.__new__(UIPreview)
@@ -224,11 +235,11 @@ def test_focus_modes_follow_standard_square_cycle_order():
     preview.update = lambda force=False: redraws.append(force)
 
     preview.key_square()
-    assert preview.display_mode == DISPLAY_RAW
+    assert preview.display_mode == DISPLAY_SINGLE
+    preview.key_square()
+    assert preview.display_mode == DISPLAY_IMAGE
     preview.key_square()
     assert preview.display_mode == DISPLAY_STATS
-    preview.key_square()
-    assert preview.display_mode == DISPLAY_SINGLE
     preview.key_square()
     assert preview.display_mode == DISPLAY_STARS
     assert redraws == [True, True, True, True]
@@ -245,7 +256,7 @@ def test_zoom_controls_apply_to_magnified_star_views_only():
     preview.key_plus()
     assert preview.focus_zoom == FOCUS_NOMINAL_ZOOM + 2
 
-    preview.display_mode = DISPLAY_RAW
+    preview.display_mode = DISPLAY_IMAGE
     preview.key_minus()
     assert preview.focus_zoom == FOCUS_NOMINAL_ZOOM + 2
     preview.display_mode = DISPLAY_SINGLE
@@ -277,6 +288,96 @@ def test_single_star_readout_stays_in_translucent_lower_third():
     overlay_top = int(np.ceil(preview.display_class.resY * 2 / 3))
     assert np.all(pixels[:overlay_top, :, 0] == 100)
     assert np.any((pixels[overlay_top:, :, 0] > 0) & (pixels[overlay_top:, :, 0] < 100))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("result", "expected"),
+    [
+        (None, "?.?"),
+        (
+            FocusResult(
+                median_hfd=None,
+                n_used=0,
+                background=20.0,
+                peak=None,
+                too_defocused=False,
+            ),
+            "?.?",
+        ),
+        (
+            FocusResult(
+                median_hfd=None,
+                n_used=0,
+                background=20.0,
+                peak=255.0,
+                too_defocused=True,
+            ),
+            "?.?",
+        ),
+        (
+            FocusResult(
+                median_hfd=5.25,
+                n_used=1,
+                background=20.0,
+                peak=220.0,
+                too_defocused=False,
+            ),
+            "5.2",
+        ),
+    ],
+)
+def test_focus_readout_uses_question_marks_when_hfd_is_unavailable(result, expected):
+    preview = object.__new__(UIPreview)
+    preview.last_focus_result = result
+
+    assert preview._focus_readout_text() == expected
+    assert ">50" not in preview._focus_readout_text()
+
+
+@pytest.mark.unit
+def test_history_gap_has_equal_blank_pixels_from_rendered_outline(monkeypatch):
+    preview = object.__new__(UIPreview)
+    preview.display_class = DisplayBase()
+    preview.colors = preview.display_class.colors
+    preview.fonts = preview.display_class.fonts
+    preview.screen = Image.new("RGB", preview.display_class.resolution)
+    preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
+    preview.last_focus_result = FocusResult(
+        median_hfd=6.1,
+        n_used=4,
+        background=20.0,
+        peak=220.0,
+        too_defocused=False,
+    )
+    captured_gap = []
+    monkeypatch.setattr(
+        preview,
+        "_draw_focus_history",
+        lambda center_y, gap_left, gap_right: captured_gap.append(
+            (center_y, gap_left, gap_right)
+        ),
+    )
+
+    preview._draw_focus_overlay()
+
+    center = preview._focus_center()
+    mask = Image.new("1", preview.display_class.resolution)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.text(
+        center,
+        "6.1",
+        font=preview.fonts.large.font,
+        fill=1,
+        anchor="mm",
+        stroke_width=1,
+        stroke_fill=1,
+    )
+    ink_box = mask.getbbox()
+    _, gap_left, gap_right = captured_gap[0]
+    left_blank_pixels = ink_box[0] - gap_left - 1
+    right_blank_pixels = gap_right - ink_box[2]
+    assert left_blank_pixels == right_blank_pixels == 3
 
 
 @pytest.mark.unit
@@ -352,7 +453,26 @@ def test_hfd_signal_recedes_when_no_new_measurements_arrive(monkeypatch):
         _y, x = np.where(np.asarray(preview.screen)[:, :, 0] == 255)
         return int(x.max())
 
-    assert rightmost_signal(105.0) < rightmost_signal(100.0)
+    at_last_measurement = rightmost_signal(100.0)
+    assert rightmost_signal(105.0) < at_last_measurement
+
+
+@pytest.mark.unit
+def test_hfd_signal_disappears_after_history_window(monkeypatch):
+    preview = object.__new__(UIPreview)
+    preview.display_class = DisplayBase()
+    preview.colors = preview.display_class.colors
+    preview.screen = Image.new("RGB", preview.display_class.resolution)
+    preview.draw = ImageDraw.Draw(preview.screen)
+    preview.focus_history = deque(
+        [(92.0, 5.0), (94.0, 5.0), (96.0, 5.0), (98.0, 5.0), (100.0, 5.0)]
+    )
+    monkeypatch.setattr(preview_module.time, "time", lambda: 111.0)
+
+    preview._draw_focus_history(preview.display_class.centerY, 52, 76)
+
+    assert not preview.focus_history
+    assert np.asarray(preview.screen).max() == 0
 
 
 @pytest.mark.unit
@@ -382,3 +502,38 @@ def test_stats_renderer_draws_metrics_and_histogram():
     # place the large HFD glyph underneath it.
     pixels = np.asarray(preview.screen)
     assert pixels[: preview.display_class.titlebar_height].max() == 0
+
+    top = preview.display_class.titlebar_height + 4
+    stats_y = top + preview.fonts.huge.height
+    plots_top = stats_y + 2 * (preview.fonts.small.height + 1) + 1
+    label_box = preview.draw.textbbox(
+        (2, plots_top), "RAW HIST", font=preview.fonts.small.font
+    )
+    assert pixels[label_box[3] : label_box[3] + 2].max() == 0
+
+
+@pytest.mark.unit
+def test_stats_hfd_uses_question_marks_when_measurement_is_unavailable(monkeypatch):
+    preview = object.__new__(UIPreview)
+    preview.display_class = DisplayBase()
+    preview.colors = preview.display_class.colors
+    preview.fonts = preview.display_class.fonts
+    preview.screen = Image.new("RGB", preview.display_class.resolution)
+    preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
+    preview.config_object = SimpleNamespace(get_option=lambda name: "auto")
+    preview.last_focus_result = None
+    drawn_text = []
+    original_text = preview.draw.text
+
+    def recording_text(xy, text, *args, **kwargs):
+        drawn_text.append(text)
+        return original_text(xy, text, *args, **kwargs)
+
+    monkeypatch.setattr(preview.draw, "text", recording_text)
+    preview._draw_stats(
+        np.zeros((512, 512), dtype=np.uint8),
+        {"exposure_time": None, "gain": None},
+    )
+
+    assert "?.?" in drawn_text
+    assert ">50" not in drawn_text

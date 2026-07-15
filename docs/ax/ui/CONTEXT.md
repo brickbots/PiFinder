@@ -193,7 +193,7 @@ The 2×2 view made by repacking the four brightest detected stars from anywhere 
 _Avoid_: processed preview, enhanced stars, focus strip.
 
 **Focus display mode**:
-One of the four Focus-screen views cycled with short `square`, following the normal **display mode** convention: **Stars** (the four focus tiles and HFD history), **Raw** (the complete raw frame fitted to the panel with nearest-neighbour sampling), **Stats** (HFD, supplementary area-equivalent FWHM, detected-star count, exposure mode/value, gain, and a log-scaled raw histogram), and **Single** (the brightest star filling the panel, with HFD and history on a translucent lower-third overlay).
+One of the four Focus-screen views cycled with short `square`, following the normal **display mode** convention: **Stars** (the four focus tiles and HFD history), **Single** (the brightest tracked star at twice the Stars magnification, with HFD and history on a translucent lower-third overlay), **Image** (the complete frame with the original per-frame autocontrast applied for display only), and **Stats** (HFD, supplementary area-equivalent FWHM, detected-star count, exposure mode/value, gain, and a log-scaled raw histogram). HFD, centroids, and the Stats histogram always use the unstretched raw frame. Every unavailable HFD readout is shown as `?.?`; no upper-limit sentinel is displayed.
 _Avoid_: tab, page, focus-strip mode.
 
 **Focus FWHM estimate**:
@@ -201,7 +201,7 @@ The median area-equivalent diameter of the pixels above half local maximum for t
 _Avoid_: focus FWHM (when used as a replacement for HFD), fitted FWHM (there is no Gaussian fit).
 
 **Adaptive focus zoom**:
-The magnification used by the Stars and Single views. A compact star defaults to 10× relative to the former full-frame preview (a 26×26 native crop on square displays). For a broad star the crop grows to include its detected extent plus margin, lowering effective magnification instead of clipping it. In the Stars and Single display modes, `+` and `-` adjust the nominal zoom from 4× to 16×. Short `square` cycles display modes.
+The magnification used by the Stars and Single views. A compact star defaults to 10× relative to the former full-frame preview in Stars (a 26×26 native crop on square displays); Single maps that crop across the full panel, giving twice the apparent magnification. For a broad star the crop grows to include its detected extent plus margin, lowering effective magnification instead of clipping it. In the Stars and Single display modes, `+` and `-` adjust the nominal zoom from 4× to 16×. Short `square` cycles display modes.
 _Avoid_: optical zoom, solver zoom.
 
 ## Boundary terms

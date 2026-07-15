@@ -27,7 +27,7 @@ from PiFinder import state_utils
 from PiFinder import utils
 from PiFinder import timez
 from PiFinder.sqm import SQM as SQMCalculator
-from PiFinder.sqm.camera_profiles import get_camera_profile
+
 from PiFinder.sqm.wings import WingEstimator
 from PiFinder.state import SQM as SQMState
 from PiFinder.types.positioning import (
@@ -54,20 +54,12 @@ SQM_CALCULATION_INTERVAL_SECONDS = 5.0
 def create_sqm_calculator(shared_state):
     """Create a new SQM calculator instance with current calibration.
 
-    Returns (calculator, use_raw_green). When the sensor profile enables raw-green
-    SQM, the calculator uses the raw profile and photometry runs on the raw linear
-    frame; otherwise it uses the 8-bit "_processed" profile on the display image.
+    Photometry always runs on the raw linear frame (green channel for Bayer
+    sensors); the 8-bit processed image is for solving/display only.
     """
     camera_type = shared_state.camera_type()
-    raw_profile = get_camera_profile(camera_type)
-
-    if raw_profile.sqm_use_raw_green:
-        logger.info(f"Creating raw-green SQM calculator for camera: {camera_type}")
-        return SQMCalculator(camera_type=camera_type), True
-
-    camera_type_processed = f"{camera_type}_processed"
-    logger.info(f"Creating SQM calculator for camera: {camera_type_processed}")
-    return SQMCalculator(camera_type=camera_type_processed), False
+    logger.info(f"Creating raw-green SQM calculator for camera: {camera_type}")
+    return SQMCalculator(camera_type=camera_type)
 
 
 def _extract_raw_photometry_image(raw, profile):
@@ -75,7 +67,7 @@ def _extract_raw_photometry_image(raw, profile):
 
     For Bayer sensors (SRGGB*) returns the averaged green channel (half-res);
     for mono sensors returns the raw frame as-is. Returns None on any shape/
-    dtype problem so the caller can fall back to the processed image.
+    dtype problem so the caller can skip the SQM cycle.
     """
     if raw is None:
         return None
@@ -107,19 +99,31 @@ def _scale_solution_centroids(solution, scale):
     return scaled
 
 
+def _apply_sqm_correct(sqm_value, details, correct_delta):
+    """Apply the session correction delta (reference-meter offset) to the
+    calculated SQM and its altitude-corrected companion. The delta is recorded
+    in the details either way so the UI can show correction status."""
+    details["sqm_correct_delta"] = correct_delta
+    if not correct_delta:
+        return sqm_value, details
+    if sqm_value is not None:
+        sqm_value += correct_delta
+    if details.get("sqm_altitude_corrected") is not None:
+        details["sqm_altitude_corrected"] += correct_delta
+    return sqm_value, details
+
+
 def update_sqm(
     shared_state,
     sqm_calculator,
     centroids,
     solution,
-    image_processed,
     exposure_sec,
     altitude_deg,
     calculation_interval_seconds=5.0,
     aperture_radius=5,
     annulus_inner_radius=6,
     annulus_outer_radius=14,
-    use_raw_green=False,
     wing_estimator=None,
 ):
     """
@@ -130,18 +134,15 @@ def update_sqm(
         sqm_calculator: SQM calculator instance
         centroids: List of detected star centroids
         solution: Tetra3 solve solution with matched stars
-        image_processed: Processed image array (numpy)
         exposure_sec: Exposure time in seconds
         altitude_deg: Altitude in degrees for extinction correction
         calculation_interval_seconds: Minimum time between calculations (default: 5.0)
         aperture_radius: Aperture radius for photometry (default: 5)
         annulus_inner_radius: Inner annulus radius (default: 6)
         annulus_outer_radius: Outer annulus radius (default: 14)
-        use_raw_green: If True, run photometry on the raw linear frame (green
-            channel for Bayer sensors) instead of the 8-bit processed image.
         wing_estimator: WingEstimator that supplies the rolling aperture
             (wing-loss) mzero correction and is fed each frame's photometry
-            image + matched centroids. Only used on the raw-green path.
+            image + matched centroids.
 
     Returns:
         bool: True if SQM was calculated and updated, False otherwise
@@ -172,39 +173,31 @@ def update_sqm(
 
     profile = sqm_calculator.profile
 
-    # Default to the processed-image path; switch to raw-green when enabled and
-    # the raw frame is available and well-formed (otherwise fall back).
-    calc_image = image_processed
-    calc_solution = solution
-    saturation_threshold = 250
-    image_pixels_per_side = None
-
-    if use_raw_green:
-        try:
-            raw = shared_state.cam_raw()
-        except (BrokenPipeError, ConnectionResetError):
-            raw = None
-        green = _extract_raw_photometry_image(raw, profile)
-        if green is None or green.shape[0] < 256:
-            # cam_raw() is None until the first real capture (test mode never
-            # fills it), and a malformed frame comes through far smaller than a
-            # real one. A genuine green frame is several hundred px per side —
-            # e.g. ~490 for the imx462/imx290 crop, larger for the imx296 — so
-            # the floor only rejects missing/garbage frames, not valid sensors.
-            # Photometry runs at the green frame's own scale, so a side shorter
-            # than the 512px solve image is fine.
-            logger.debug("Raw frame unavailable/invalid for SQM; skipping this cycle")
-            return False
-        scale = green.shape[0] / 512.0
-        calc_image = green
-        calc_solution = _scale_solution_centroids(solution, scale)
-        image_pixels_per_side = int(green.shape[0])
-        # 0.70 of full scale, not ~1.0: CMOS response bends well before hard
-        # clip, and stars peaking at 75-90% already read systematically low.
-        saturation_threshold = int(0.70 * (2**profile.bit_depth - 1))
+    try:
+        raw = shared_state.cam_raw()
+    except (BrokenPipeError, ConnectionResetError):
+        raw = None
+    green = _extract_raw_photometry_image(raw, profile)
+    if green is None or green.shape[0] < 256:
+        # cam_raw() is None until the first real capture (test mode never
+        # fills it), and a malformed frame comes through far smaller than a
+        # real one. A genuine green frame is several hundred px per side —
+        # e.g. ~490 for the imx462/imx290 crop, larger for the imx296 — so
+        # the floor only rejects missing/garbage frames, not valid sensors.
+        # Photometry runs at the green frame's own scale, so a side shorter
+        # than the 512px solve image is fine.
+        logger.debug("Raw frame unavailable/invalid for SQM; skipping this cycle")
+        return False
+    scale = green.shape[0] / 512.0
+    calc_image = green
+    calc_solution = _scale_solution_centroids(solution, scale)
+    image_pixels_per_side = int(green.shape[0])
+    # 0.70 of full scale, not ~1.0: CMOS response bends well before hard
+    # clip, and stars peaking at 75-90% already read systematically low.
+    saturation_threshold = int(0.70 * (2**profile.bit_depth - 1))
 
     mzero_correction = 0.0
-    if wing_estimator is not None and use_raw_green:
+    if wing_estimator is not None:
         mzero_correction = wing_estimator.correction()
 
     try:
@@ -226,7 +219,6 @@ def update_sqm(
         # Feed this frame's stars into the rolling wing (aperture-loss) fit.
         if (
             wing_estimator is not None
-            and use_raw_green
             and calc_solution.get("matched_centroids") is not None
         ):
             wing_estimator.add_frame(
@@ -234,6 +226,13 @@ def update_sqm(
                 calc_solution["matched_centroids"],
                 saturation_threshold,
             )
+
+        # Session correction: additive offset from a reference-meter reading
+        try:
+            correct_delta = shared_state.sqm_correct_delta()
+        except (BrokenPipeError, ConnectionResetError, AttributeError):
+            correct_delta = 0.0
+        sqm_value, details = _apply_sqm_correct(sqm_value, details, correct_delta)
 
         # Store SQM details (filter out large per-star arrays)
         filtered_details = {
@@ -565,7 +564,7 @@ def solver(
     log_no_stars_found = True
 
     # Create SQM calculator - can be reloaded via command queue
-    sqm_calculator, sqm_use_raw_green = create_sqm_calculator(shared_state)
+    sqm_calculator = create_sqm_calculator(shared_state)
     # Rolling aperture (wing-loss) correction, fed by bright matched stars
     sqm_wing_estimator = WingEstimator()
 
@@ -601,9 +600,7 @@ def solver(
                         align_dec = 0
                     elif isinstance(command, ReloadSqmCalibration):
                         logger.info("Reloading SQM calibration...")
-                        sqm_calculator, sqm_use_raw_green = create_sqm_calculator(
-                            shared_state
-                        )
+                        sqm_calculator = create_sqm_calculator(shared_state)
                         sqm_wing_estimator.reset()
                         logger.info("SQM calibration reloaded")
                     else:
@@ -698,11 +695,9 @@ def solver(
                             sqm_calculator=sqm_calculator,
                             centroids=centroids,
                             solution=solution,
-                            image_processed=np_image,
                             exposure_sec=exposure_sec,
                             altitude_deg=altitude_for_sqm,
                             calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
-                            use_raw_green=sqm_use_raw_green,
                             wing_estimator=sqm_wing_estimator,
                         )
 

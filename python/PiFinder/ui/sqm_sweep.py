@@ -300,7 +300,7 @@ class UISQMSweep(UIModule):
             with open(metadata_file, "r") as f:
                 metadata = json.load(f)
 
-            # Add current SQM state (like sqm_correction does)
+            # Add current SQM state for the calibration record
             sqm_state = self.shared_state.sqm()
             if sqm_state:
                 metadata["sqm"] = {
@@ -344,7 +344,6 @@ class UISQMSweep(UIModule):
 
             # Add NoiseFloorEstimator output
             camera_type = self.shared_state.camera_type()
-            camera_type_processed = f"{camera_type}_processed"
             exposure_sec = (
                 image_metadata.get("exposure_time", 500000) / 1_000_000.0
                 if image_metadata
@@ -355,7 +354,7 @@ class UISQMSweep(UIModule):
                 image_array = np.array(self.camera_image.convert("L"))
 
                 estimator = NoiseFloorEstimator(
-                    camera_type=camera_type_processed,
+                    camera_type=camera_type,
                     enable_zero_sec_sampling=False,
                 )
                 _, nf_details = estimator.estimate_noise_floor(
@@ -364,7 +363,7 @@ class UISQMSweep(UIModule):
                 )
 
                 nf_details.pop("request_zero_sec_sample", None)
-                nf_details["camera_type"] = camera_type_processed
+                nf_details["camera_type"] = camera_type
                 metadata["noise_floor_estimator"] = nf_details
 
             # Save updated metadata

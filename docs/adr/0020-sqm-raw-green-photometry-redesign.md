@@ -73,6 +73,13 @@ to the raw frame.
   sky sit below truth by a noise-dependent amount, and noise varies with
   exposure — measured slopes to −0.6 mag/dex. Median (or a mode estimator on
   large samples) is the only safe annulus statistic.
+- **Faint-star cut in the mzero fit:** pooled per-star statistics show the
+  faintest flux quartile reading −0.11 mag (identically on imx462 and hq —
+  a fixed-ADU annulus error eats a bigger fraction of a small flux). Cutting
+  those stars was scanned across the 8-sweep ensemble and made every metric
+  worse: the median mzero already absorbs the tail, and shrinking a 10–20
+  star sample toward 3–5 costs more in median noise than the bias removal
+  gains. Don't re-invent this.
 
 ## Consequences
 
