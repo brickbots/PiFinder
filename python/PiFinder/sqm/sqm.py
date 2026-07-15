@@ -48,7 +48,6 @@ class SQM:
 
         Args:
             camera_type: Camera model (imx296, imx462, imx290, hq).
-                Use "_processed" suffix for 8-bit ISP-processed images.
         """
         self.camera_type = camera_type
         self.profile = get_camera_profile(camera_type)

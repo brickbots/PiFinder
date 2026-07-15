@@ -556,12 +556,34 @@ class TestApertureOverlapDetection:
 
 @pytest.mark.unit
 class TestNoiseFloorEstimation:
-    """Unit tests for adaptive noise floor estimation."""
+    """Unit tests for adaptive noise floor estimation.
+
+    Uses a synthetic registered profile (bias 6, read 1.5, dark 0) so the
+    numeric expectations are self-contained rather than tied to a real sensor.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _test_profile(self, monkeypatch):
+        from PiFinder.sqm.camera_profiles import CAMERA_PROFILES
+
+        monkeypatch.setitem(
+            CAMERA_PROFILES,
+            "testcam",
+            CameraProfile(
+                format="L",
+                raw_size=(512, 512),
+                analog_gain=1.0,
+                bit_depth=8,
+                bias_offset=6.0,
+                read_noise_adu=1.5,
+                dark_current_rate=0.0,
+            ),
+        )
 
     def test_temporal_noise_calculation(self):
         """Test temporal noise = read_noise + dark_current * exposure."""
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
-        # imx296_processed has read_noise=1.5, dark_current=0.0
+        estimator = NoiseFloorEstimator(camera_type="testcam")
+        # testcam has read_noise=1.5, dark_current=0.0
 
         noise = estimator._estimate_temporal_noise(exposure_sec=1.0)
 
@@ -570,8 +592,8 @@ class TestNoiseFloorEstimation:
 
     def test_noise_floor_uses_theory_when_dark_pixels_below_bias(self):
         """Test that theory is used when dark pixels are impossibly low."""
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
-        # bias_offset for imx296_processed is 6.0
+        estimator = NoiseFloorEstimator(camera_type="testcam")
+        # bias_offset for testcam is 6.0
 
         # Create image with all pixels below bias offset (impossible in reality)
         image = np.full((100, 100), 3.0, dtype=np.float32)
@@ -584,7 +606,7 @@ class TestNoiseFloorEstimation:
     def test_noise_floor_uses_measured_when_valid(self):
         """Test that measured dark pixels are used when valid."""
         np.random.seed(42)
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
         # bias_offset=6.0, read_noise=1.5, dark_current=0.0
         # theoretical_floor = 6.0 + 1.5 = 7.5
 
@@ -602,7 +624,7 @@ class TestNoiseFloorEstimation:
 
     def test_noise_floor_clamped_to_bias_offset(self):
         """Test that noise floor is never below bias offset."""
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
 
         # Even with weird inputs, should never go below bias
         image = np.full((100, 100), 100.0, dtype=np.float32)
@@ -613,7 +635,7 @@ class TestNoiseFloorEstimation:
 
     def test_history_smoothing_after_multiple_estimates(self):
         """Test that history smoothing kicks in after 5+ estimates."""
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
 
         # First 4 estimates - no smoothing yet
         for i in range(4):
@@ -632,7 +654,7 @@ class TestNoiseFloorEstimation:
     def test_update_with_zero_sec_sample(self):
         """Test zero-second sample updates profile gradually."""
         np.random.seed(42)
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
         original_bias = estimator.profile.bias_offset
 
         # Need 3 samples before profile updates
@@ -648,7 +670,7 @@ class TestNoiseFloorEstimation:
 
     def test_validate_estimate_too_close_to_median(self):
         """Test validation fails when noise floor is too close to image median."""
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
 
         # Image where darkest pixels are close to median (uniform image)
         # This simulates a situation with no stars/sky gradient
@@ -661,7 +683,7 @@ class TestNoiseFloorEstimation:
         # Need noise floor > median * 0.8 to trigger this
         # Create image where dark pixels are above theoretical floor
         image2 = np.full((100, 100), 8.0, dtype=np.float32)
-        estimator2 = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator2 = NoiseFloorEstimator(camera_type="testcam")
 
         _, details2 = estimator2.estimate_noise_floor(image2, exposure_sec=0.5)
 
@@ -674,7 +696,7 @@ class TestNoiseFloorEstimation:
     def test_get_statistics(self):
         """Test get_statistics returns expected data."""
         np.random.seed(42)
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
 
         # Do a few estimates
         for _ in range(3):
@@ -683,7 +705,7 @@ class TestNoiseFloorEstimation:
 
         stats = estimator.get_statistics()
 
-        assert stats["camera_type"] == "imx296_processed"
+        assert stats["camera_type"] == "testcam"
         assert stats["n_estimates"] == 3
         assert stats["n_history_samples"] == 3
         assert "dark_pixel_mean" in stats
@@ -693,7 +715,7 @@ class TestNoiseFloorEstimation:
     def test_reset_clears_state(self):
         """Test reset clears all history and statistics."""
         np.random.seed(42)
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
 
         # Build up some state
         for _ in range(5):
@@ -718,7 +740,7 @@ class TestNoiseFloorEstimation:
         # Create PiFinder_data directory
         (tmp_path / "PiFinder_data").mkdir()
 
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
 
         # Save calibration with new values
         result = estimator.save_calibration(
@@ -732,7 +754,7 @@ class TestNoiseFloorEstimation:
         assert estimator.profile.dark_current_rate == 0.5
 
         # Create new estimator - should load the saved calibration
-        estimator2 = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator2 = NoiseFloorEstimator(camera_type="testcam")
 
         # Should have loaded the saved values (not the defaults)
         assert estimator2.profile.bias_offset == 25.0
@@ -915,14 +937,6 @@ class TestGetCameraProfile:
         assert profile.bit_depth == 10
         assert profile.analog_gain == 15.0
 
-    def test_get_processed_camera_profile(self):
-        """Test getting processed (8-bit) camera profiles."""
-        profile = get_camera_profile("imx296_processed")
-
-        assert isinstance(profile, CameraProfile)
-        assert profile.bit_depth == 8
-        assert profile.format == "L"
-
     def test_get_all_known_profiles(self):
         """Test that all documented camera types are accessible."""
         camera_types = [
@@ -930,10 +944,6 @@ class TestGetCameraProfile:
             "imx462",
             "imx290",
             "hq",
-            "imx296_processed",
-            "imx462_processed",
-            "imx290_processed",
-            "hq_processed",
         ]
 
         for camera_type in camera_types:
@@ -1399,10 +1409,6 @@ class TestColorCoefficientProfiles:
 
     def test_ir_cut_sensor_has_zero_coefficient(self):
         assert get_camera_profile("hq").color_coefficient == 0.0
-
-    def test_raw_green_enabled_on_sensors(self):
-        for cam in ("imx296", "imx462", "imx290", "hq"):
-            assert get_camera_profile(cam).sqm_use_raw_green is True
 
     def test_detect_imx462_key(self):
         assert detect_camera_type("imx462") == "imx462"
