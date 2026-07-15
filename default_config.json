@@ -29,6 +29,7 @@
         "Str",
         "PL",
         "CM",
+        "MP",
         "RDS"
     ],
     "filter.object_types": [
@@ -46,7 +47,8 @@
         "*",
         "?",
         "Pla",
-        "CM"
+        "CM",
+        "AS"
     ],
     "filter.constellations": [
         "And",

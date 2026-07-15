@@ -366,8 +366,31 @@ def _no_comet_download():
     """
     import PiFinder.comets as comets
 
-    with mock.patch.object(
-        comets, "comet_data_download", return_value=(False, None, None)
+    with (
+        mock.patch.object(
+            comets,
+            "check_if_comet_download_needed",
+            return_value=(False, "test environment"),
+        ),
+        mock.patch.object(
+            comets, "comet_data_download", return_value=(False, None, None)
+        ),
+    ):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_asteroid_download():
+    """Keep the UI harness hermetic while building AsteroidCatalog."""
+    import PiFinder.asteroids as asteroids
+
+    with (
+        mock.patch.object(
+            asteroids,
+            "check_asteroid_download_needed",
+            return_value=(False, "test environment"),
+        ),
+        mock.patch.object(asteroids, "download_asteroid_year"),
     ):
         yield
 

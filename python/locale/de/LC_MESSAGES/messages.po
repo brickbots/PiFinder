@@ -112,6 +112,11 @@ msgstr "Planet"
 msgid "Comet"
 msgstr "Komet"
 
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:24
+msgid "Asteroid"
+msgstr "Asteroid"
+
 #: PiFinder/server.py:219
 msgid "Locked"
 msgstr "Gesperrt"
@@ -879,6 +884,10 @@ msgstr "Planeten"
 msgid "Comets"
 msgstr "Kometen"
 
+#: PiFinder/ui/menu_structure.py:106 PiFinder/ui/menu_structure.py:317
+msgid "Asteroids"
+msgstr "Asteroiden"
+
 #: PiFinder/ui/menu_structure.py:105 PiFinder/ui/menu_structure.py:188
 #: PiFinder/ui/menu_structure.py:310 PiFinder/ui/menu_structure.py:368
 msgid "NGC"
@@ -1562,6 +1571,34 @@ msgstr "Sortieren"
 #: PiFinder/ui/object_list.py:144 PiFinder/ui/object_list.py:819
 msgid "Nearest"
 msgstr "Nächste"
+
+#: PiFinder/ui/object_list.py:205 PiFinder/ui/object_list.py:334
+msgid "Brightest"
+msgstr "Hellste"
+
+#: PiFinder/ui/object_list.py:208 PiFinder/ui/object_list.py:336
+msgid "Distance"
+msgstr "Entfernung"
+
+#: PiFinder/ui/object_list.py:212 PiFinder/ui/object_list.py:337
+msgid "Opposition"
+msgstr "Opposition"
+
+#: PiFinder/ui/object_list.py:206
+msgid "MAG"
+msgstr "MAG"
+
+#: PiFinder/ui/object_list.py:220
+msgid "NEAR"
+msgstr "NAH"
+
+#: PiFinder/ui/object_list.py:224
+msgid "OPP"
+msgstr "OPP"
+
+#: PiFinder/ui/object_list.py:232
+msgid "STD"
+msgstr "STD"
 
 #: PiFinder/ui/object_list.py:148 PiFinder/ui/object_list.py:825
 msgid "Standard"
@@ -3178,4 +3215,3 @@ msgstr ""
 
 #~ msgid "T9 Search"
 #~ msgstr "T9 Suche"
-

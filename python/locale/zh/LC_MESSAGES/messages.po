@@ -111,6 +111,11 @@ msgstr "行星"
 msgid "Comet"
 msgstr "彗星"
 
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:24
+msgid "Asteroid"
+msgstr "小行星"
+
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/server.py:219
 msgid "Locked"
@@ -973,6 +978,10 @@ msgstr "行星"
 msgid "Comets"
 msgstr "彗星"
 
+#: PiFinder/ui/menu_structure.py:106 PiFinder/ui/menu_structure.py:317
+msgid "Asteroids"
+msgstr "小行星"
+
 #: PiFinder/ui/menu_structure.py:105 PiFinder/ui/menu_structure.py:188
 #: PiFinder/ui/menu_structure.py:310 PiFinder/ui/menu_structure.py:368
 msgid "NGC"
@@ -1696,6 +1705,34 @@ msgstr "排序"
 #: PiFinder/ui/object_list.py:144 PiFinder/ui/object_list.py:819
 msgid "Nearest"
 msgstr "最近"
+
+#: PiFinder/ui/object_list.py:205 PiFinder/ui/object_list.py:334
+msgid "Brightest"
+msgstr "最亮"
+
+#: PiFinder/ui/object_list.py:208 PiFinder/ui/object_list.py:336
+msgid "Distance"
+msgstr "距离"
+
+#: PiFinder/ui/object_list.py:212 PiFinder/ui/object_list.py:337
+msgid "Opposition"
+msgstr "冲日"
+
+#: PiFinder/ui/object_list.py:206
+msgid "MAG"
+msgstr "亮度"
+
+#: PiFinder/ui/object_list.py:220
+msgid "NEAR"
+msgstr "附近"
+
+#: PiFinder/ui/object_list.py:224
+msgid "OPP"
+msgstr "冲日"
+
+#: PiFinder/ui/object_list.py:232
+msgid "STD"
+msgstr "标准"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/object_list.py:148 PiFinder/ui/object_list.py:825
@@ -3388,4 +3425,3 @@ msgstr "这将使用所提供的文件恢复你的用户数据,并覆盖现有�
 # AI-TRANSLATED (claude): needs human review
 #~ msgid "T9 Search"
 #~ msgstr "T9搜索"
-
