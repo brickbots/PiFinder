@@ -175,6 +175,46 @@ class TestTrackBlobs:
         assert tracked[2] is replacement
         assert (tracked[3].x, tracked[3].y) == (440, 380)
 
+    def test_slot_tracking_distinguishes_survivors_from_replacements(self):
+        previous = (
+            self._blob(80, 90, 240),
+            self._blob(400, 100, 230),
+            self._blob(100, 390, 220),
+            self._blob(410, 400, 210),
+        )
+        replacement = self._blob(250, 250, 205)
+        tracked = focus.track_blob_slots(
+            previous,
+            (
+                self._blob(110, 70, 180),
+                self._blob(430, 80, 250),
+                self._blob(440, 380, 190),
+                replacement,
+            ),
+        )
+
+        assert [previous_index for _blob, previous_index in tracked] == [
+            0,
+            1,
+            None,
+            3,
+        ]
+
+    def test_catalog_ids_match_focus_centroids_one_to_one(self):
+        blobs = (
+            self._blob(100.5, 80.5, 240),
+            self._blob(399.0, 301.0, 230),
+            self._blob(250.0, 250.0, 220),
+        )
+        # Solver centroids use (y, x), while focus blobs expose x/y fields.
+        identities = focus.match_catalog_ids(
+            blobs,
+            [(300.0, 400.0), (80.0, 100.0), (20.0, 20.0)],
+            [71683, 32349, 99999],
+        )
+
+        assert identities == (32349, 71683, None)
+
 
 @pytest.mark.unit
 class TestFocusHfd:

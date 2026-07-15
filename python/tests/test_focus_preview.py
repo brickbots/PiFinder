@@ -81,6 +81,60 @@ def test_display_uses_four_brightest_visual_blobs():
 
 
 @pytest.mark.unit
+def test_solved_hip_ids_restore_stars_to_their_existing_slots():
+    preview = object.__new__(UIPreview)
+    # Geometry temporarily swapped these two known stars.
+    hip_b_blob = _blob(x=400, y=300, peak=230)
+    hip_a_blob = _blob(x=100, y=80, peak=240)
+    preview._tracked_focus_blobs = (hip_b_blob, hip_a_blob)
+    preview._focus_slot_catalog_ids = (32349, 71683)
+    preview._last_focus_catalog_time = 0.0
+    solution = SimpleNamespace(
+        last_solve_success=42.0,
+        matched_centroids=[(300.0, 400.0), (80.0, 100.0)],
+        matched_catalog_ids=[71683, 32349],
+    )
+    preview.shared_state = SimpleNamespace(solution=lambda: solution)
+
+    preview._adopt_solved_catalog_ids(42.0)
+
+    assert preview._tracked_focus_blobs == (hip_a_blob, hip_b_blob)
+    assert preview._focus_slot_catalog_ids == (32349, 71683)
+
+
+@pytest.mark.unit
+def test_replacement_star_does_not_inherit_departed_hip_id(monkeypatch):
+    preview = object.__new__(UIPreview)
+    preview._tracked_focus_blobs = (
+        _blob(x=80, y=90),
+        _blob(x=400, y=100),
+        _blob(x=100, y=390),
+        _blob(x=410, y=400),
+    )
+    preview._focus_slot_catalog_ids = (1, 2, 3, 4)
+    preview.focus_history = deque()
+    replacement = _blob(x=250, y=250)
+    result = FocusResult(
+        median_hfd=5.0,
+        n_used=4,
+        background=10.0,
+        peak=240.0,
+        too_defocused=False,
+        blobs=(
+            _blob(x=110, y=70),
+            _blob(x=430, y=80),
+            _blob(x=440, y=380),
+            replacement,
+        ),
+    )
+    monkeypatch.setattr(preview_module.focus, "focus_hfd", lambda _image: result)
+
+    preview._measure_focus(np.zeros((512, 512), dtype=np.uint8), record_history=False)
+
+    assert preview._focus_slot_catalog_ids == (1, 2, None, 4)
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize("layout", (DisplayBase, Layout176, Layout320))
 def test_quadrants_are_centered_below_title_bar_on_every_layout(layout):
     preview = object.__new__(UIPreview)

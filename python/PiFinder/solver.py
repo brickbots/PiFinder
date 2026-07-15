@@ -403,6 +403,7 @@ def _build_successful_solve(
         ),
         matched_centroids=solution.get("matched_centroids"),
         matched_stars=solution.get("matched_stars"),
+        matched_catalog_ids=solution.get("matched_catID"),
     )
 
 
@@ -583,7 +584,6 @@ def solver(
                         )
 
                         # Don't clutter printed solution with these fields (use pop to safely remove)
-                        solution.pop("matched_catID", None)
                         solution.pop("pattern_centroids", None)
                         solution.pop("epoch_equinox", None)
                         solution.pop("epoch_proper_motion", None)

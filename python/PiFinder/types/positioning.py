@@ -363,6 +363,7 @@ class PointingEstimate:
     # Both cleared on failed solves.
     matched_centroids: Optional[List[Tuple[float, float]]] = None
     matched_stars: Optional[list] = None
+    matched_catalog_ids: Optional[list] = None
 
     # ----------------------------------------------------------------
     # Convenience predicates
@@ -435,6 +436,7 @@ class SuccessfulSolve:
     alignment: AlignmentResult = field(default_factory=AlignmentResult)
     matched_centroids: Optional[List[Tuple[float, float]]] = None
     matched_stars: Optional[list] = None
+    matched_catalog_ids: Optional[list] = None
 
     # Pickle the ``imu_anchor`` quaternion as floats (see _quat_to_floats):
     # this message rides ``solver_queue``, a pickle boundary.

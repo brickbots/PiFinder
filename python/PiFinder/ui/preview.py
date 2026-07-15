@@ -83,6 +83,8 @@ class UIPreview(UIModule):
         self.focus_zoom = FOCUS_NOMINAL_ZOOM
         self.last_focus_result = None
         self._tracked_focus_blobs: tuple[focus.Blob, ...] = ()
+        self._focus_slot_catalog_ids: tuple[Optional[object], ...] = ()
+        self._last_focus_catalog_time = 0.0
         self._last_focus_frame_time = 0.0
         self.focus_history: deque[tuple[float, float]] = deque()
 
@@ -99,6 +101,8 @@ class UIPreview(UIModule):
         """Discard stale measurements when the Focus screen is entered."""
         self.last_focus_result = None
         self._tracked_focus_blobs = ()
+        self._focus_slot_catalog_ids = ()
+        self._last_focus_catalog_time = 0.0
         self._last_focus_frame_time = 0.0
         self.focus_history.clear()
 
@@ -112,11 +116,82 @@ class UIPreview(UIModule):
             for blob in self.last_focus_result.blobs
             if blob.extent <= FOCUS_VISUAL_MAX_BLOB_PX
         )
-        self._tracked_focus_blobs = focus.track_blobs(
-            self._tracked_focus_blobs, candidates, n=FOCUS_TILE_COUNT
+        previous_ids = self._focus_slot_catalog_ids
+        tracked_slots = focus.track_blob_slots(
+            self._tracked_focus_blobs,
+            candidates,
+            n=FOCUS_TILE_COUNT,
+            max_candidates=FOCUS_TILE_COUNT,
+        )
+        self._tracked_focus_blobs = tuple(blob for blob, _index in tracked_slots)
+        self._focus_slot_catalog_ids = tuple(
+            previous_ids[previous_index]
+            if previous_index is not None and previous_index < len(previous_ids)
+            else None
+            for _blob, previous_index in tracked_slots
         )
         if record_history:
             self._record_focus_sample(self.last_focus_result.median_hfd)
+
+    def _adopt_solved_catalog_ids(self, frame_time: float) -> None:
+        """Attach HIP identities only to blobs from the solved exposure."""
+        if frame_time <= 0 or frame_time == self._last_focus_catalog_time:
+            return
+        solution = self.shared_state.solution()
+        if solution.last_solve_success != frame_time:
+            return
+        centroids = solution.matched_centroids
+        catalog_ids = solution.matched_catalog_ids
+        if not centroids or not catalog_ids:
+            return
+
+        matched = focus.match_catalog_ids(
+            self._tracked_focus_blobs, centroids, catalog_ids
+        )
+
+        # Correct a geometric slot swap whenever the solved identities prove
+        # that a known HIP star has landed in another slot. Unmatched blobs keep
+        # their geometric identity because focus must also work when tetra3 did
+        # not use every visible star in its solution.
+        previous_ids = self._focus_slot_catalog_ids
+        source_for_slot: list[Optional[int]] = [None] * len(matched)
+        used_sources = set()
+        for slot, expected_id in enumerate(previous_ids):
+            if expected_id is None:
+                continue
+            source = next(
+                (
+                    index
+                    for index, solved_id in enumerate(matched)
+                    if index not in used_sources and solved_id == expected_id
+                ),
+                None,
+            )
+            if source is not None:
+                source_for_slot[slot] = source
+                used_sources.add(source)
+
+        remaining_sources = (
+            index for index in range(len(matched)) if index not in used_sources
+        )
+        for slot, source in enumerate(source_for_slot):
+            if source is None:
+                source_for_slot[slot] = next(remaining_sources)
+
+        old_blobs = self._tracked_focus_blobs
+        self._tracked_focus_blobs = tuple(
+            old_blobs[source] for source in source_for_slot if source is not None
+        )
+        self._focus_slot_catalog_ids = tuple(
+            matched[source]
+            if matched[source] is not None
+            else previous_ids[source]
+            if source < len(previous_ids)
+            else None
+            for source in source_for_slot
+            if source is not None
+        )
+        self._last_focus_catalog_time = frame_time
 
     def _record_focus_sample(self, hfd: Optional[float]) -> None:
         """Record a numeric HFD; missing measurements leave history frozen."""
@@ -484,8 +559,15 @@ class UIPreview(UIModule):
 
             raw_np = np.asarray(raw_image.convert("L"))
             if last_image_time != self._last_focus_frame_time:
+                # A solve normally arrives after its image was first rendered.
+                # Identify those retained previous-frame blobs before tracking
+                # their slots onto the newly arrived frame.
+                self._adopt_solved_catalog_ids(self._last_focus_frame_time)
                 self._measure_focus(raw_np)
                 self._last_focus_frame_time = last_image_time
+                # Also handle the less common case where the solver won the
+                # race and published this exposure before the UI copied it.
+                self._adopt_solved_catalog_ids(last_image_time)
             elif force:
                 # A forced redraw can race the separately published camera
                 # metadata. Re-measure this exact display copy, but do not add
