@@ -326,6 +326,8 @@ class UIPreview(UIModule):
         # expired history and starts drawing immediately at the right edge.
         now = time.time()
         window_start = now - FOCUS_WINDOW_S
+        while self.focus_history and self.focus_history[0][0] < window_start:
+            self.focus_history.popleft()
         samples = [hfd for _timestamp, hfd in self.focus_history]
         if samples:
             range_center = (min(samples) + max(samples)) / 2

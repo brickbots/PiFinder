@@ -453,7 +453,26 @@ def test_hfd_signal_recedes_when_no_new_measurements_arrive(monkeypatch):
         _y, x = np.where(np.asarray(preview.screen)[:, :, 0] == 255)
         return int(x.max())
 
-    assert rightmost_signal(105.0) < rightmost_signal(100.0)
+    at_last_measurement = rightmost_signal(100.0)
+    assert rightmost_signal(105.0) < at_last_measurement
+
+
+@pytest.mark.unit
+def test_hfd_signal_disappears_after_history_window(monkeypatch):
+    preview = object.__new__(UIPreview)
+    preview.display_class = DisplayBase()
+    preview.colors = preview.display_class.colors
+    preview.screen = Image.new("RGB", preview.display_class.resolution)
+    preview.draw = ImageDraw.Draw(preview.screen)
+    preview.focus_history = deque(
+        [(92.0, 5.0), (94.0, 5.0), (96.0, 5.0), (98.0, 5.0), (100.0, 5.0)]
+    )
+    monkeypatch.setattr(preview_module.time, "time", lambda: 111.0)
+
+    preview._draw_focus_history(preview.display_class.centerY, 52, 76)
+
+    assert not preview.focus_history
+    assert np.asarray(preview.screen).max() == 0
 
 
 @pytest.mark.unit
