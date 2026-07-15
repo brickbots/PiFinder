@@ -158,7 +158,10 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         analog_gain=15.0,  # Maximum analog gain for this sensor
         digital_gain=1.0,  # TODO: find optimum value
         bit_depth=10,
-        bias_offset=32.0,  # Measured from actual dark frames
+        # Sony-standard black level (240 @ 12-bit -> 60 @ 10-bit); confirmed by
+        # the 2025-10-31 on-sky sweep intercept (60.3). The old 32.0 was a
+        # mis-measurement.
+        bias_offset=60.0,
         # Image cropping and orientation
         crop_y=(0, 0),  # No vertical crop
         crop_x=(184, 184),  # Crop to square from horizontal rectangle
@@ -168,10 +171,16 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=8.0,  # Datasheet: 3.2 e⁻/p/s @ 25°C → ~8 ADU/s @ 10-bit
         thermal_coeff=0.08,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
-        # UNMEASURED: mono sensor with no IR-cut, expected positive. Needs one
-        # calibration sweep from a stock imx296 device. 0.0 until then.
-        color_coefficient=0.0,
+        # Measured on-sky (2025-10-31 sweep, 460 stars): +0.21. Small because
+        # the Pregius mono QE falls through the NIR, unlike the STARVIS colour
+        # sensors' NIR-heavy green channel.
+        color_coefficient=0.21,
         sqm_use_raw_green=True,
+        # PROVISIONAL: single moonlit sweep vs one hand-held reference
+        # (17.8-17.9); negative = mono band reads darker than the meter.
+        # Re-measure over more nights; the session anchor absorbs the
+        # uncertainty meanwhile.
+        sqm_band_offset=-0.46,
     ),
     "imx462": CameraProfile(
         # Hardware configuration
