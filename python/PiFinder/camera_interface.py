@@ -698,6 +698,7 @@ class CameraInterface:
                                     dec_deg=dec_deg,
                                     altitude_deg=altitude_deg,
                                     azimuth_deg=azimuth_deg,
+                                    camera_type=shared_state.camera_type(),
                                     notes=f"Exposure sweep: {num_images} images, {min_exp/1000:.1f}-{max_exp/1000:.1f}ms",
                                 )
                                 logger.info(
