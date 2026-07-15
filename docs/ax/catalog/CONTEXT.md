@@ -9,7 +9,7 @@ The Catalog context owns runtime loading, filtering, searching and display of as
 ### Identity
 
 **Catalog code**:
-Short string identifier for a catalog as a whole — `"M"`, `"NGC"`, `"IC"`, `"WDS"`, `"PL"` (planets). Drives DB queries and the UI designator. Its readable sibling is the **catalog display name** ("Collinder" for code `"Cr"`).
+Short string identifier for a catalog as a whole — `"M"`, `"NGC"`, `"IC"`, `"WDS"`, `"PL"` (planets), `"MP"` (asteroids). Drives DB queries and the UI designator. Its readable sibling is the **catalog display name** ("Collinder" for code `"Cr"`).
 _Avoid_: catalog id, prefix; for the readable form say **catalog display name**, not "catalog name".
 
 **Catalog display name**:
@@ -98,6 +98,10 @@ _Avoid_: logged (when speaking to users or in UI copy), seen.
 Pair of epoch timestamps that drive the per-object filter cache. An object is re-evaluated only when `obj.last_filtered_time < filter.dirty_time`.
 _Avoid_: invalidation, cache key.
 
+**Catalog content dirty**:
+A wake-up flag for runtime object changes under unchanged filter criteria. The changed catalog resets its own cached verdicts, then `mark_catalog_content_dirty()` makes open lists rebuild without advancing **Dirty time**.
+_Avoid_: filter dirty (the criteria did not change), stale (time did not expire the verdict).
+
 **Empty-list rejection**:
 For `object_types` and `constellations`, an empty list rejects every object; only `None` (or `"Any"` for `observed`) means "don't filter on this dimension." Flagged here because it surprises callers.
 _Avoid_: empty filter, no filter.
@@ -131,7 +135,7 @@ _Avoid_: load-done event, ready signal.
 ### Dynamic catalogs
 
 **Dynamic catalog**:
-A `Catalog` whose objects are computed at runtime rather than loaded from `objects.db`. Currently `PlanetCatalog` and `CometCatalog`.
+A `Catalog` whose objects are computed at runtime rather than loaded from `objects.db`. Currently `PlanetCatalog`, `CometCatalog`, and `AsteroidCatalog`.
 _Avoid_: live catalog, computed catalog.
 
 **PlanetCatalog**:
@@ -141,6 +145,18 @@ _Avoid_: planets, ephemeris (those are more general).
 **CometCatalog**:
 Comet equivalent of `PlanetCatalog`. Imported locally inside `CatalogBuilder.build()` to break a circular import.
 _Avoid_: comets.
+
+**AsteroidCatalog**:
+The `"MP"` dynamic catalog. Loads the MPC annual bright-minor-planet subset, uses the numbered minor planet as its stable **Sequence**, computes current position and H-G apparent magnitude, and enriches visible objects with distance, opposition/greatest-elongation, and apparition-peak data. Source replacement is atomic; populated objects remain available during download.
+_Avoid_: minor planets (when the concrete catalog class is meant), `Ast` (that code means asterism).
+
+**Catalog data age**:
+Whole days since the active downloaded elements file's server timestamp. Used for frequently refreshed sources such as comets. During refresh this continues to describe the objects actually on screen; it changes only after a validated file replaces the active source. Annual asteroid data instead shows its compact MPC edition label, because a large day count is normal rather than a stale-data warning.
+_Avoid_: catalog age (ambiguous with the runtime `Catalog` object).
+
+**Download progress**:
+The `CatalogStatus.data["progress"]` percentage for a downloaded dynamic catalog. `None` means the response has no known Content-Length and the UI draws an indeterminate bar. Progress does not imply the old objects have been removed; they stay usable until recalculation succeeds.
+_Avoid_: loading progress (deferred database catalog loading is a different lifecycle).
 
 **TimerMixin**:
 Composition helper providing self-rescheduling periodic timers. `time_delay_seconds` may be a callable for adaptive delays. Updates run in their own thread, not on the timer thread.

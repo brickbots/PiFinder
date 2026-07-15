@@ -3,7 +3,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import json
 import math
-from typing import List, Union, cast
+from datetime import date
+from typing import List, Optional, Union, cast
 from PiFinder.utils import is_number
 
 
@@ -262,6 +263,15 @@ class CompositeObject:
     _details_loaded: bool = field(default=False)
     image_name: str = field(default="")
     surface_brightness: float = field(default=0.0)
+    # Runtime solar-system metadata. Kept structured so lists can sort it;
+    # descriptions are presentation, never a data source.
+    earth_distance_au: Optional[float] = field(default=None)
+    sun_distance_au: Optional[float] = field(default=None)
+    angular_motion_arcsec_per_hour: Optional[float] = field(default=None)
+    opposition_date: Optional[date] = field(default=None)
+    opposition_kind: str = field(default="")
+    peak_magnitude: Optional[float] = field(default=None)
+    peak_date: Optional[date] = field(default=None)
     logged: bool = field(default=False)
     last_filtered_time: float = 0
     last_filtered_result: bool = True
