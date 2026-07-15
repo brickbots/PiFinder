@@ -336,7 +336,7 @@ def test_focus_readout_uses_question_marks_when_hfd_is_unavailable(result, expec
 
 
 @pytest.mark.unit
-def test_history_gap_is_pixel_symmetric_around_readout_center(monkeypatch):
+def test_history_gap_has_equal_blank_pixels_from_rendered_outline(monkeypatch):
     preview = object.__new__(UIPreview)
     preview.display_class = DisplayBase()
     preview.colors = preview.display_class.colors
@@ -344,7 +344,7 @@ def test_history_gap_is_pixel_symmetric_around_readout_center(monkeypatch):
     preview.screen = Image.new("RGB", preview.display_class.resolution)
     preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
     preview.last_focus_result = FocusResult(
-        median_hfd=4.5,
+        median_hfd=6.1,
         n_used=4,
         background=20.0,
         peak=220.0,
@@ -362,18 +362,22 @@ def test_history_gap_is_pixel_symmetric_around_readout_center(monkeypatch):
     preview._draw_focus_overlay()
 
     center = preview._focus_center()
-    text_box = preview.draw.textbbox(
+    mask = Image.new("1", preview.display_class.resolution)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.text(
         center,
-        "4.5",
+        "6.1",
         font=preview.fonts.large.font,
+        fill=1,
         anchor="mm",
         stroke_width=1,
+        stroke_fill=1,
     )
-    half_width = max(center[0] - text_box[0], text_box[2] - center[0])
-    expected_left = center[0] - half_width - 3
-    expected_right = center[0] + half_width + 3
-    assert captured_gap == [(center[1], expected_left, expected_right)]
-    assert center[0] - expected_left == expected_right - center[0]
+    ink_box = mask.getbbox()
+    _, gap_left, gap_right = captured_gap[0]
+    left_blank_pixels = ink_box[0] - gap_left - 1
+    right_blank_pixels = gap_right - ink_box[2]
+    assert left_blank_pixels == right_blank_pixels == 3
 
 
 @pytest.mark.unit
