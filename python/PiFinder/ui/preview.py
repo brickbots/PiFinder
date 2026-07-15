@@ -8,7 +8,7 @@ from collections import deque
 from typing import Optional
 
 import numpy as np
-from PIL import Image, ImageChops, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageOps
 
 from PiFinder import focus
 from PiFinder.ui.base import UIModule
@@ -225,6 +225,28 @@ class UIPreview(UIModule):
             return f"{result.median_hfd:.1f}"
         return "?.?"
 
+    def _focus_history_gap(self, center, text, font) -> tuple[int, int]:
+        """Return signal endpoints with equal padding from rendered outline."""
+        mask = Image.new("1", self.display_class.resolution)
+        mask_draw = ImageDraw.Draw(mask)
+        mask_draw.text(
+            center,
+            text,
+            font=font,
+            fill=1,
+            anchor="mm",
+            stroke_width=1,
+            stroke_fill=1,
+        )
+        ink_box = mask.getbbox()
+        if ink_box is None:
+            return center[0], center[0]
+
+        # Endpoints are inclusive. Leave exactly three blank pixels between
+        # each endpoint and the first/last rendered outline pixel.
+        padding = 3
+        return ink_box[0] - padding - 1, ink_box[2] + padding
+
     def _draw_focus_overlay(self) -> None:
         """Draw quadrant separators, HFD history, and the current HFD."""
         res_x, res_y = self.display_class.resolution
@@ -239,13 +261,8 @@ class UIPreview(UIModule):
         text = self._focus_readout_text()
 
         font = self.fonts.large.font
-        text_box = self.draw.textbbox(
-            center, text, font=font, anchor="mm", stroke_width=1
-        )
-        half_width = max(center[0] - text_box[0], text_box[2] - center[0])
-        self._draw_focus_history(
-            center[1], center[0] - half_width - 3, center[0] + half_width + 3
-        )
+        gap_left, gap_right = self._focus_history_gap(center, text, font)
+        self._draw_focus_history(center[1], gap_left, gap_right)
         self.draw.text(
             center,
             text,
@@ -266,13 +283,8 @@ class UIPreview(UIModule):
         text = self._focus_readout_text()
 
         font = self.fonts.large.font
-        text_box = self.draw.textbbox(
-            center, text, font=font, anchor="mm", stroke_width=1
-        )
-        half_width = max(center[0] - text_box[0], text_box[2] - center[0])
-        self._draw_focus_history(
-            center[1], center[0] - half_width - 3, center[0] + half_width + 3
-        )
+        gap_left, gap_right = self._focus_history_gap(center, text, font)
+        self._draw_focus_history(center[1], gap_left, gap_right)
         self.draw.text(
             center,
             text,
