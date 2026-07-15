@@ -36,21 +36,28 @@ class UISQM(UIModule):
             font=self.fonts.base,
         )
 
-        # Marking menu definition
+        # Marking menu definition. ANCHOR is the everyday action (set tonight's
+        # scale from a hand-held reference meter); CAL (noise constants) and
+        # SWEEP (diagnostic exposure sweep) are occasional/expert tools.
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
+                label=_(
+                    "ANCHOR"
+                ),  # TRANSLATORS: Marking menu option to anchor SQM to a reference meter
+                callback=self._launch_anchor,
+            ),
+            down=MarkingMenuOption(
                 label=_(
                     "CAL"
                 ),  # TRANSLATORS: Marking menu option to launch SQM calibration wizard
                 callback=self._launch_calibration,
             ),
-            down=MarkingMenuOption(
+            right=MarkingMenuOption(
                 label=_(
-                    "CORRECT"
-                ),  # TRANSLATORS: Marking menu option to launch SQM correction sweep tool
+                    "SWEEP"
+                ),  # TRANSLATORS: Marking menu option to launch SQM diagnostic exposure sweep
                 callback=self._launch_sqm_sweep,
             ),
-            right=MarkingMenuOption(),
         )
 
     def update(self, force=False):
@@ -244,6 +251,14 @@ class UISQM(UIModule):
                             font=self.fonts.base.font,
                             fill=self.colors.get(64),
                         )
+                    anchor_delta = sqm_details.get("sqm_anchor_delta", 0.0)
+                    if anchor_delta:
+                        self.draw.text(
+                            (stars_x, detail_y),
+                            _("anch {d:+.2f}").format(d=anchor_delta),
+                            font=self.fonts.base.font,
+                            fill=self.colors.get(128),
+                        )
 
                 # Bortle class
                 if details:
@@ -307,6 +322,18 @@ class UISQM(UIModule):
         """
         # Switch back to PID auto-exposure mode
         self.command_queues["camera"].put("set_ae_mode:pid")
+
+    def _launch_anchor(self, marking_menu, selected_item):
+        """Launch the SQM anchor entry (reference-meter correction)"""
+        from PiFinder.ui.sqm_anchor import UISQMAnchor
+
+        anchor_def = {
+            "name": _("SQM Anchor"),
+            "class": UISQMAnchor,
+            "label": "sqm_anchor",
+        }
+        self.add_to_stack(anchor_def)
+        return True  # Exit marking menu
 
     def _launch_calibration(self, marking_menu, selected_item):
         """Launch the SQM calibration wizard"""

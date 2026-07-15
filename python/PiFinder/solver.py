@@ -107,6 +107,20 @@ def _scale_solution_centroids(solution, scale):
     return scaled
 
 
+def _apply_sqm_anchor(sqm_value, details, anchor_delta):
+    """Apply the session anchor delta (reference-meter correction) to the
+    calculated SQM and its altitude-corrected companion. The delta is recorded
+    in the details either way so the UI can show anchor status."""
+    details["sqm_anchor_delta"] = anchor_delta
+    if not anchor_delta:
+        return sqm_value, details
+    if sqm_value is not None:
+        sqm_value += anchor_delta
+    if details.get("sqm_altitude_corrected") is not None:
+        details["sqm_altitude_corrected"] += anchor_delta
+    return sqm_value, details
+
+
 def update_sqm(
     shared_state,
     sqm_calculator,
@@ -234,6 +248,13 @@ def update_sqm(
                 calc_solution["matched_centroids"],
                 saturation_threshold,
             )
+
+        # Session anchor: additive correction from a reference-meter reading
+        try:
+            anchor_delta = shared_state.sqm_anchor_delta()
+        except (BrokenPipeError, ConnectionResetError, AttributeError):
+            anchor_delta = 0.0
+        sqm_value, details = _apply_sqm_anchor(sqm_value, details, anchor_delta)
 
         # Store SQM details (filter out large per-star arrays)
         filtered_details = {

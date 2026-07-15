@@ -297,6 +297,7 @@ class SharedStateObj:
             10.0  # Adaptive noise floor in ADU (default fallback)
         )
         self.__sqm_details: dict = {}  # Full SQM calculation details for calibration
+        self.__sqm_anchor_delta: float = 0.0  # Session anchor vs reference meter
         self.__datetime = None
         self.__datetime_time = None
         self.__datetime_manual = False  # True when manually set, blocks GPS overrides
@@ -444,6 +445,15 @@ class SharedStateObj:
     def set_sqm_details(self, v: dict):
         """Update the SQM calculation details"""
         self.__sqm_details = v
+
+    def sqm_anchor_delta(self) -> float:
+        """Session SQM anchor: additive correction from a reference-meter
+        reading (see UISQMAnchor). 0.0 = no anchor set."""
+        return self.__sqm_anchor_delta
+
+    def set_sqm_anchor_delta(self, v: float):
+        """Set the session SQM anchor delta (from the anchor UI)"""
+        self.__sqm_anchor_delta = v
 
     def get_sky_brightness(self):
         """Return just the numeric SQM value for convenience"""

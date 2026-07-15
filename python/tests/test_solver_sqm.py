@@ -50,3 +50,29 @@ class TestScaleSolutionCentroids:
         assert sol["matched_centroids"] == [[100.0, 200.0], [50.0, 60.0]]
         assert scaled["matched_catID"] == [42]
         assert scaled["FOV"] == 10.0
+
+
+@pytest.mark.unit
+class TestApplySqmAnchor:
+    def test_zero_delta_is_recorded_but_not_applied(self):
+        details = {"sqm_altitude_corrected": 18.5}
+        v, d = solver._apply_sqm_anchor(18.3, details, 0.0)
+        assert v == 18.3
+        assert d["sqm_altitude_corrected"] == 18.5
+        assert d["sqm_anchor_delta"] == 0.0
+
+    def test_delta_shifts_value_and_altitude_corrected(self):
+        details = {"sqm_altitude_corrected": 18.5}
+        v, d = solver._apply_sqm_anchor(18.3, details, 0.25)
+        assert v == pytest.approx(18.55)
+        assert d["sqm_altitude_corrected"] == pytest.approx(18.75)
+        assert d["sqm_anchor_delta"] == 0.25
+
+    def test_none_value_survives(self):
+        v, d = solver._apply_sqm_anchor(None, {}, 0.25)
+        assert v is None
+        assert d["sqm_anchor_delta"] == 0.25
+
+    def test_negative_delta(self):
+        v, _d = solver._apply_sqm_anchor(18.3, {}, -0.4)
+        assert v == pytest.approx(17.9)
