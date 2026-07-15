@@ -89,11 +89,16 @@ class CameraProfile:
     # measured in that passband: a bare sensor sees NIR sky emission (airglow,
     # LED/sodium light pollution beyond 700nm) that a V-band SQM meter does
     # not, so its sky reads genuinely brighter. This constant converts the
-    # sensor-band sky brightness back to the meter's V-band scale. Stable per
-    # sensor model once the photometry is robust (night-to-night spread 0.06
-    # mag over focus states and star fields). Values are provisional from
-    # three sweeps per sensor; refine with a multi-night side-by-side
-    # campaign against a reference meter aimed at the camera field.
+    # sensor-band sky brightness back to the meter's V-band scale.
+    #
+    # NOT a pure sensor constant: it is (sensor passband, fixed) x (sky
+    # spectrum, environmental). The values below are calibrated under an
+    # LP-dominated suburban sky (Ghent), where the city's stable spectrum
+    # makes the offset constant to ~0.05 mag across nights. Under an
+    # airglow-dominated dark sky the NIR fraction is different and variable,
+    # so expect a different (likely larger) value there and real night-to-
+    # night wander. Refine per sky regime with side-by-side reference-meter
+    # or paired IR-cut-camera sessions.
     sqm_band_offset: float = 0.0
 
     def crop_and_rotate(self, raw_array):
