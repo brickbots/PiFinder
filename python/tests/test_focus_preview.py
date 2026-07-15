@@ -167,25 +167,22 @@ def test_edge_star_crop_contains_only_source_frame_pixels():
 
 
 @pytest.mark.unit
-def test_image_renderer_applies_stable_display_only_stretch(monkeypatch):
+def test_image_renderer_uses_original_display_autocontrast():
     preview = object.__new__(UIPreview)
     preview.display_class = SimpleNamespace(resolution=(128, 128))
     preview.colors = SimpleNamespace(
         red_image=Image.new("RGB", (128, 128), (255, 0, 0))
     )
-    preview._stretch_black = 20.0
-    preview._stretch_white = 120.0
-    monkeypatch.setattr(
-        np.random, "uniform", lambda low, high, size: np.zeros(size, dtype=np.float32)
+    raw = np.tile(
+        np.repeat(np.array([20, 70, 120, 200], dtype=np.uint8), 128), (512, 1)
     )
-    raw = np.tile(np.array([20, 70, 120, 200], dtype=np.uint8), (512, 128))
     rendered = np.asarray(preview._render_image_frame(Image.fromarray(raw)))
-    assert set(np.unique(rendered[:, :, 0])) <= {0, 127, 255}
+    assert set(np.unique(rendered[:, :, 0])) == {0, 70, 141, 255}
     assert np.all(rendered[:, :, 1:] == 0)
 
 
 @pytest.mark.unit
-def test_single_star_renderer_preserves_brightest_raw_crop():
+def test_single_star_renderer_preserves_brightest_raw_crop(monkeypatch):
     preview = object.__new__(UIPreview)
     preview.focus_zoom = FOCUS_NOMINAL_ZOOM
     preview.display_class = SimpleNamespace(resolution=(128, 128))
@@ -207,10 +204,19 @@ def test_single_star_renderer_preserves_brightest_raw_crop():
     raw[102:154, 102:154] = 73
     raw[358:410, 358:410] = 149
 
+    nominal_zooms = []
+    original_focus_crop_size = preview_module.focus_crop_size
+
+    def recording_focus_crop_size(*args, **kwargs):
+        nominal_zooms.append(args[3])
+        return original_focus_crop_size(*args, **kwargs)
+
+    monkeypatch.setattr(preview_module, "focus_crop_size", recording_focus_crop_size)
     rendered = np.asarray(preview._render_brightest_star(Image.fromarray(raw)))
 
     assert set(np.unique(rendered[:, :, 0])) <= {73}
     assert np.all(rendered[:, :, 1:] == 0)
+    assert nominal_zooms == [FOCUS_NOMINAL_ZOOM]
 
 
 @pytest.mark.unit
@@ -282,6 +288,88 @@ def test_single_star_readout_stays_in_translucent_lower_third():
     overlay_top = int(np.ceil(preview.display_class.resY * 2 / 3))
     assert np.all(pixels[:overlay_top, :, 0] == 100)
     assert np.any((pixels[overlay_top:, :, 0] > 0) & (pixels[overlay_top:, :, 0] < 100))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("result", "expected"),
+    [
+        (None, "?.?"),
+        (
+            FocusResult(
+                median_hfd=None,
+                n_used=0,
+                background=20.0,
+                peak=None,
+                too_defocused=False,
+            ),
+            "?.?",
+        ),
+        (
+            FocusResult(
+                median_hfd=None,
+                n_used=0,
+                background=20.0,
+                peak=255.0,
+                too_defocused=True,
+            ),
+            "?.?",
+        ),
+        (
+            FocusResult(
+                median_hfd=5.25,
+                n_used=1,
+                background=20.0,
+                peak=220.0,
+                too_defocused=False,
+            ),
+            "5.2",
+        ),
+    ],
+)
+def test_focus_readout_uses_question_marks_when_hfd_is_unavailable(result, expected):
+    preview = object.__new__(UIPreview)
+    preview.last_focus_result = result
+
+    assert preview._focus_readout_text() == expected
+    assert ">50" not in preview._focus_readout_text()
+
+
+@pytest.mark.unit
+def test_history_gap_has_equal_padding_from_visible_number(monkeypatch):
+    preview = object.__new__(UIPreview)
+    preview.display_class = DisplayBase()
+    preview.colors = preview.display_class.colors
+    preview.fonts = preview.display_class.fonts
+    preview.screen = Image.new("RGB", preview.display_class.resolution)
+    preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
+    preview.last_focus_result = FocusResult(
+        median_hfd=4.5,
+        n_used=4,
+        background=20.0,
+        peak=220.0,
+        too_defocused=False,
+    )
+    captured_gap = []
+    monkeypatch.setattr(
+        preview,
+        "_draw_focus_history",
+        lambda center_y, gap_left, gap_right: captured_gap.append(
+            (center_y, gap_left, gap_right)
+        ),
+    )
+
+    preview._draw_focus_overlay()
+
+    center = preview._focus_center()
+    text_box = preview.draw.textbbox(
+        center,
+        "4.5",
+        font=preview.fonts.large.font,
+        anchor="mm",
+        stroke_width=1,
+    )
+    assert captured_gap == [(center[1], text_box[0] - 3, text_box[2] + 3)]
 
 
 @pytest.mark.unit
@@ -387,3 +475,38 @@ def test_stats_renderer_draws_metrics_and_histogram():
     # place the large HFD glyph underneath it.
     pixels = np.asarray(preview.screen)
     assert pixels[: preview.display_class.titlebar_height].max() == 0
+
+    top = preview.display_class.titlebar_height + 4
+    stats_y = top + preview.fonts.huge.height
+    plots_top = stats_y + 2 * (preview.fonts.small.height + 1) + 1
+    label_box = preview.draw.textbbox(
+        (2, plots_top), "RAW HIST", font=preview.fonts.small.font
+    )
+    assert pixels[label_box[3] : label_box[3] + 2].max() == 0
+
+
+@pytest.mark.unit
+def test_stats_hfd_uses_question_marks_when_measurement_is_unavailable(monkeypatch):
+    preview = object.__new__(UIPreview)
+    preview.display_class = DisplayBase()
+    preview.colors = preview.display_class.colors
+    preview.fonts = preview.display_class.fonts
+    preview.screen = Image.new("RGB", preview.display_class.resolution)
+    preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
+    preview.config_object = SimpleNamespace(get_option=lambda name: "auto")
+    preview.last_focus_result = None
+    drawn_text = []
+    original_text = preview.draw.text
+
+    def recording_text(xy, text, *args, **kwargs):
+        drawn_text.append(text)
+        return original_text(xy, text, *args, **kwargs)
+
+    monkeypatch.setattr(preview.draw, "text", recording_text)
+    preview._draw_stats(
+        np.zeros((512, 512), dtype=np.uint8),
+        {"exposure_time": None, "gain": None},
+    )
+
+    assert "?.?" in drawn_text
+    assert ">50" not in drawn_text
