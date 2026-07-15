@@ -30,8 +30,11 @@ FOCUS_TILE_COUNT = 4
 FOCUS_WINDOW_S = 10.0
 HFD_MIN_DISPLAY_SPAN = 1.0
 HFD_RANGE_PADDING = 1.15
+STRETCH_EMA_ALPHA = 0.15
+STRETCH_MIN_SPAN = 50.0
+STRETCH_DITHER_FRAC = 0.5
 DISPLAY_STARS = "stars"
-DISPLAY_RAW = "raw"
+DISPLAY_IMAGE = "image"
 DISPLAY_STATS = "stats"
 DISPLAY_SINGLE = "single"
 
@@ -75,7 +78,7 @@ class UIPreview(UIModule):
 
     __title__ = "CAMERA"
     __help_name__ = "camera"
-    _display_mode_list = [DISPLAY_STARS, DISPLAY_SINGLE, DISPLAY_RAW, DISPLAY_STATS]
+    _display_mode_list = [DISPLAY_STARS, DISPLAY_SINGLE, DISPLAY_IMAGE, DISPLAY_STATS]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -85,6 +88,8 @@ class UIPreview(UIModule):
         self._tracked_focus_blobs: tuple[focus.Blob, ...] = ()
         self._last_focus_frame_time = 0.0
         self.focus_history: deque[tuple[float, float]] = deque()
+        self._stretch_black: Optional[float] = None
+        self._stretch_white: Optional[float] = None
 
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
@@ -101,6 +106,8 @@ class UIPreview(UIModule):
         self._tracked_focus_blobs = ()
         self._last_focus_frame_time = 0.0
         self.focus_history.clear()
+        self._stretch_black = None
+        self._stretch_white = None
 
     def _measure_focus(
         self, raw_np: np.ndarray, *, record_history: bool = True
@@ -117,6 +124,22 @@ class UIPreview(UIModule):
         )
         if record_history:
             self._record_focus_sample(self.last_focus_result.median_hfd)
+            self._update_stretch_points()
+
+    def _update_stretch_points(self) -> None:
+        """Update upstream's stable display stretch from raw-frame statistics."""
+        result = self.last_focus_result
+        if result is None:
+            return
+        black = result.background
+        white = result.peak if result.peak is not None else black + STRETCH_MIN_SPAN
+        white = max(white, black + STRETCH_MIN_SPAN)
+        if self._stretch_black is None or self._stretch_white is None:
+            self._stretch_black, self._stretch_white = black, white
+        else:
+            alpha = STRETCH_EMA_ALPHA
+            self._stretch_black = alpha * black + (1 - alpha) * self._stretch_black
+            self._stretch_white = alpha * white + (1 - alpha) * self._stretch_white
 
     def _record_focus_sample(self, hfd: Optional[float]) -> None:
         """Record a numeric HFD; missing measurements leave history frozen."""
@@ -216,13 +239,26 @@ class UIPreview(UIModule):
 
         return ImageChops.multiply(rendered.convert("RGB"), self.colors.red_image)
 
-    def _render_raw_frame(self, raw_image: Image.Image) -> Image.Image:
-        """Fit the unprocessed full camera frame to the display."""
+    def _apply_stretch(self, image: Image.Image) -> Image.Image:
+        """Apply upstream's background/peak stretch for display only."""
+        if self._stretch_black is None or self._stretch_white is None:
+            return image
+        span = max(self._stretch_white - self._stretch_black, STRETCH_MIN_SPAN)
+        scale = 255.0 / span
+        stretched = (np.asarray(image, dtype=np.float32) - self._stretch_black) * scale
+        dither = scale * STRETCH_DITHER_FRAC
+        stretched += np.random.uniform(-dither, dither, size=stretched.shape)
+        np.clip(stretched, 0, 255, out=stretched)
+        return Image.fromarray(stretched.astype(np.uint8), mode="L")
+
+    def _render_image_frame(self, raw_image: Image.Image) -> Image.Image:
+        """Fit and cosmetically stretch the full camera image for display."""
         raw_l = raw_image.convert("L")
         resized = raw_l.resize(
             self.display_class.resolution, resample=Image.Resampling.NEAREST
         )
-        return ImageChops.multiply(resized.convert("RGB"), self.colors.red_image)
+        stretched = self._apply_stretch(resized)
+        return ImageChops.multiply(stretched.convert("RGB"), self.colors.red_image)
 
     def _draw_focus_overlay(self) -> None:
         """Draw quadrant separators, HFD history, and the current HFD."""
@@ -492,8 +528,8 @@ class UIPreview(UIModule):
 
             if self.display_mode == DISPLAY_STARS:
                 self.screen.paste(self._render_focus_tiles(raw_image))
-            elif self.display_mode == DISPLAY_RAW:
-                self.screen.paste(self._render_raw_frame(raw_image))
+            elif self.display_mode == DISPLAY_IMAGE:
+                self.screen.paste(self._render_image_frame(raw_image))
             elif self.display_mode == DISPLAY_STATS:
                 self._draw_stats(raw_np, metadata)
             else:
@@ -522,6 +558,6 @@ class UIPreview(UIModule):
         self.update(force=True)
 
     def key_square(self):
-        """Cycle Stars -> Single -> Raw -> Stats using the display-mode key."""
+        """Cycle Stars -> Single -> Image -> Stats using the display-mode key."""
         self.cycle_display_mode()
         self.update(force=True)

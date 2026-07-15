@@ -312,7 +312,8 @@ Press **SQUARE** to cycle through four Focus views:
 * **Stars** — the four magnified raw star tiles described above.
 * **Single** — the brightest detected star enlarged to fill the screen, with the HFD number
   and rolling trace on a translucent overlay in the lower third.
-* **Raw** — the complete, unprocessed camera frame fitted to the screen.
+* **Image** — the complete camera frame with a stable display-only stretch based on the
+  measured sky background and stellar peak.  Focus measurements still use raw pixels.
 * **Stats** — HFD, an additional FWHM estimate, total detected stars, exposure mode and
   actual exposure, gain, and a histogram of the raw pixel values.  HFD is still the number
   to minimize; FWHM is supplementary because it is less reliable on saturated or heavily

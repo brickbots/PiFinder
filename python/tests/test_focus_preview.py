@@ -13,7 +13,7 @@ from PiFinder.ui import preview as preview_module
 from PiFinder.displays import DisplayBase, Layout176, Layout320
 from PiFinder.focus import Blob, FocusResult
 from PiFinder.ui.preview import (
-    DISPLAY_RAW,
+    DISPLAY_IMAGE,
     DISPLAY_SINGLE,
     DISPLAY_STARS,
     DISPLAY_STATS,
@@ -167,15 +167,20 @@ def test_edge_star_crop_contains_only_source_frame_pixels():
 
 
 @pytest.mark.unit
-def test_raw_renderer_preserves_raw_luminance_values():
+def test_image_renderer_applies_stable_display_only_stretch(monkeypatch):
     preview = object.__new__(UIPreview)
     preview.display_class = SimpleNamespace(resolution=(128, 128))
     preview.colors = SimpleNamespace(
         red_image=Image.new("RGB", (128, 128), (255, 0, 0))
     )
-    raw = np.tile(np.array([0, 40, 120, 255], dtype=np.uint8), (512, 128))
-    rendered = np.asarray(preview._render_raw_frame(Image.fromarray(raw)))
-    assert set(np.unique(rendered[:, :, 0])) <= {0, 40, 120, 255}
+    preview._stretch_black = 20.0
+    preview._stretch_white = 120.0
+    monkeypatch.setattr(
+        np.random, "uniform", lambda low, high, size: np.zeros(size, dtype=np.float32)
+    )
+    raw = np.tile(np.array([20, 70, 120, 200], dtype=np.uint8), (512, 128))
+    rendered = np.asarray(preview._render_image_frame(Image.fromarray(raw)))
+    assert set(np.unique(rendered[:, :, 0])) <= {0, 127, 255}
     assert np.all(rendered[:, :, 1:] == 0)
 
 
@@ -213,7 +218,7 @@ def test_focus_modes_follow_standard_square_cycle_order():
     assert UIPreview._display_mode_list == [
         DISPLAY_STARS,
         DISPLAY_SINGLE,
-        DISPLAY_RAW,
+        DISPLAY_IMAGE,
         DISPLAY_STATS,
     ]
 
@@ -226,7 +231,7 @@ def test_focus_modes_follow_standard_square_cycle_order():
     preview.key_square()
     assert preview.display_mode == DISPLAY_SINGLE
     preview.key_square()
-    assert preview.display_mode == DISPLAY_RAW
+    assert preview.display_mode == DISPLAY_IMAGE
     preview.key_square()
     assert preview.display_mode == DISPLAY_STATS
     preview.key_square()
@@ -245,7 +250,7 @@ def test_zoom_controls_apply_to_magnified_star_views_only():
     preview.key_plus()
     assert preview.focus_zoom == FOCUS_NOMINAL_ZOOM + 2
 
-    preview.display_mode = DISPLAY_RAW
+    preview.display_mode = DISPLAY_IMAGE
     preview.key_minus()
     assert preview.focus_zoom == FOCUS_NOMINAL_ZOOM + 2
     preview.display_mode = DISPLAY_SINGLE
