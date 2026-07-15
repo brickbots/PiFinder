@@ -49,8 +49,8 @@ class UISQM(UIModule):
             down=MarkingMenuOption(
                 label=_(
                     "CORRECT"
-                ),  # TRANSLATORS: Marking menu option to anchor SQM to a reference meter
-                callback=self._launch_anchor,
+                ),  # TRANSLATORS: Marking menu option to correct SQM against a reference meter
+                callback=self._launch_correct,
             ),
             right=MarkingMenuOption(
                 label=_(
@@ -251,11 +251,11 @@ class UISQM(UIModule):
                             font=self.fonts.base.font,
                             fill=self.colors.get(64),
                         )
-                    anchor_delta = sqm_details.get("sqm_anchor_delta", 0.0)
-                    if anchor_delta:
+                    correct_delta = sqm_details.get("sqm_correct_delta", 0.0)
+                    if correct_delta:
                         self.draw.text(
                             (stars_x, detail_y),
-                            _("anch {d:+.2f}").format(d=anchor_delta),
+                            _("corr {d:+.2f}").format(d=correct_delta),
                             font=self.fonts.base.font,
                             fill=self.colors.get(128),
                         )
@@ -320,16 +320,16 @@ class UISQM(UIModule):
         # Switch back to PID auto-exposure mode
         self.command_queues["camera"].put("set_ae_mode:pid")
 
-    def _launch_anchor(self, marking_menu, selected_item):
-        """Launch the SQM anchor entry (reference-meter correction)"""
-        from PiFinder.ui.sqm_anchor import UISQMAnchor
+    def _launch_correct(self, marking_menu, selected_item):
+        """Launch the SQM correction entry (reference-meter offset)"""
+        from PiFinder.ui.sqm_correct import UISQMCorrect
 
-        anchor_def = {
-            "name": _("SQM Anchor"),
-            "class": UISQMAnchor,
-            "label": "sqm_anchor",
+        correct_def = {
+            "name": _("SQM Correct"),
+            "class": UISQMCorrect,
+            "label": "sqm_correct",
         }
-        self.add_to_stack(anchor_def)
+        self.add_to_stack(correct_def)
         return True  # Exit marking menu
 
     def _launch_calibration(self, marking_menu, selected_item):
