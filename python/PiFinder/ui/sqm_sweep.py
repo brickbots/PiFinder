@@ -300,7 +300,7 @@ class UISQMSweep(UIModule):
             with open(metadata_file, "r") as f:
                 metadata = json.load(f)
 
-            # Add current SQM state (like sqm_correction does)
+            # Add current SQM state for the calibration record
             sqm_state = self.shared_state.sqm()
             if sqm_state:
                 metadata["sqm"] = {

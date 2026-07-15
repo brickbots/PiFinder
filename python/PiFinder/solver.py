@@ -99,17 +99,17 @@ def _scale_solution_centroids(solution, scale):
     return scaled
 
 
-def _apply_sqm_anchor(sqm_value, details, anchor_delta):
-    """Apply the session anchor delta (reference-meter correction) to the
+def _apply_sqm_correct(sqm_value, details, correct_delta):
+    """Apply the session correction delta (reference-meter offset) to the
     calculated SQM and its altitude-corrected companion. The delta is recorded
-    in the details either way so the UI can show anchor status."""
-    details["sqm_anchor_delta"] = anchor_delta
-    if not anchor_delta:
+    in the details either way so the UI can show correction status."""
+    details["sqm_correct_delta"] = correct_delta
+    if not correct_delta:
         return sqm_value, details
     if sqm_value is not None:
-        sqm_value += anchor_delta
+        sqm_value += correct_delta
     if details.get("sqm_altitude_corrected") is not None:
-        details["sqm_altitude_corrected"] += anchor_delta
+        details["sqm_altitude_corrected"] += correct_delta
     return sqm_value, details
 
 
@@ -227,12 +227,12 @@ def update_sqm(
                 saturation_threshold,
             )
 
-        # Session anchor: additive correction from a reference-meter reading
+        # Session correction: additive offset from a reference-meter reading
         try:
-            anchor_delta = shared_state.sqm_anchor_delta()
+            correct_delta = shared_state.sqm_correct_delta()
         except (BrokenPipeError, ConnectionResetError, AttributeError):
-            anchor_delta = 0.0
-        sqm_value, details = _apply_sqm_anchor(sqm_value, details, anchor_delta)
+            correct_delta = 0.0
+        sqm_value, details = _apply_sqm_correct(sqm_value, details, correct_delta)
 
         # Store SQM details (filter out large per-star arrays)
         filtered_details = {
