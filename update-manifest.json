@@ -33,15 +33,15 @@
       {
         "available": true,
         "kind": "pr",
-        "label": "PR#534-0cae884",
+        "label": "PR#534-e7ce693",
         "notes": "Adds an **observable asteroids** dynamic catalog, mirroring the existing comet/planet catalogs.\n\n- Source: MPC `Soft00Bright.txt` (bright numbered asteroids), fetched via `download_utils`.\n- Propagation via Skyfield; filtered to currently visible objects, sortable by magnitude/distance.\n- Opposition-date info surfaced in object descriptions.\n- Menu + marking-menu entry, marker glyph, config migration, and test coverage.\n\n**Note on scope/diff size:** this branch is stacked on `deepchart` \u2192 `nixos` \u2192 `sqm`, so the diff against `main` includes that underlying work (same as the deepchart/nixos PRs). The asteroid-specific change is ~35 files (`asteroids.py`, `asteroid_catalog.py`, catalog wiring, tests).\n\nOpened to build a testable NixOS image and land the build in the `unstable` update channel.\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01VaxurSrCzxrsfJrSjfA5bo",
         "number": 534,
         "source_ref": "feature/observable-asteroids",
         "source_repo": "mrosseel/PiFinder",
-        "source_sha": "0cae884e6ea5f0e0e130bf763a84a35ec0b9792c",
-        "store_path": "/nix/store/xg9434xjnccgnidyih02svzafnrih187-nixos-system-pifinder-25.11.20260209.2db38e0",
+        "source_sha": "e7ce6938552fe56b829ea4378247471d33ba73df",
+        "store_path": "/nix/store/0j8dsqrhjazdmzmc6ngax60zwjxsg2bz-nixos-system-pifinder-25.11.20260209.2db38e0",
         "title": "feat(catalog): add observable asteroids",
-        "version": "PR#534-0cae884"
+        "version": "PR#534-e7ce693"
       },
       {
         "available": true,
@@ -97,6 +97,6 @@
       }
     ]
   },
-  "generated_at": "2026-07-15T20:00:46+00:00",
+  "generated_at": "2026-07-15T20:15:10+00:00",
   "schema": 1
 }
