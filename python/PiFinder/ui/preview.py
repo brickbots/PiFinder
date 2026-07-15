@@ -75,7 +75,7 @@ class UIPreview(UIModule):
 
     __title__ = "CAMERA"
     __help_name__ = "camera"
-    _display_mode_list = [DISPLAY_STARS, DISPLAY_RAW, DISPLAY_STATS, DISPLAY_SINGLE]
+    _display_mode_list = [DISPLAY_STARS, DISPLAY_SINGLE, DISPLAY_RAW, DISPLAY_STATS]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -522,6 +522,6 @@ class UIPreview(UIModule):
         self.update(force=True)
 
     def key_square(self):
-        """Cycle Stars -> Raw -> Stats -> Single using the display-mode key."""
+        """Cycle Stars -> Single -> Raw -> Stats using the display-mode key."""
         self.cycle_display_mode()
         self.update(force=True)

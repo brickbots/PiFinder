@@ -310,13 +310,13 @@ together rather than relying on a single unusually bright or saturated star.
 Press **SQUARE** to cycle through four Focus views:
 
 * **Stars** — the four magnified raw star tiles described above.
+* **Single** — the brightest detected star enlarged to fill the screen, with the HFD number
+  and rolling trace on a translucent overlay in the lower third.
 * **Raw** — the complete, unprocessed camera frame fitted to the screen.
 * **Stats** — HFD, an additional FWHM estimate, total detected stars, exposure mode and
   actual exposure, gain, and a histogram of the raw pixel values.  HFD is still the number
   to minimize; FWHM is supplementary because it is less reliable on saturated or heavily
   defocused stars.
-* **Single** — the brightest detected star enlarged to fill the screen, with the HFD number
-  and rolling trace on a translucent overlay in the lower third.
 
 The **+/-** magnification keys apply in the Stars and Single views.  Hold **SQUARE** from any view to
 open the normal Quick Menu.
