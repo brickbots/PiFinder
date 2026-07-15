@@ -23,7 +23,7 @@ import numpy as np
 from enum import Enum
 from typing import Optional, List
 
-from PiFinder.types.positioning import PointingEstimate
+from PiFinder.types.positioning import PointingEstimate, ReloadSqmCalibration
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import timez
@@ -893,7 +893,7 @@ class UISQMCalibration(UIModule):
         try:
             # Use align_command queue to send reload command to solver
             if "align_command" in self.command_queues:
-                self.command_queues["align_command"].put(["reload_sqm_calibration"])
+                self.command_queues["align_command"].put(ReloadSqmCalibration())
             else:
                 import logging
 
