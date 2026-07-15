@@ -336,7 +336,7 @@ def test_focus_readout_uses_question_marks_when_hfd_is_unavailable(result, expec
 
 
 @pytest.mark.unit
-def test_history_gap_has_equal_padding_from_visible_number(monkeypatch):
+def test_history_gap_is_pixel_symmetric_around_readout_center(monkeypatch):
     preview = object.__new__(UIPreview)
     preview.display_class = DisplayBase()
     preview.colors = preview.display_class.colors
@@ -369,7 +369,11 @@ def test_history_gap_has_equal_padding_from_visible_number(monkeypatch):
         anchor="mm",
         stroke_width=1,
     )
-    assert captured_gap == [(center[1], text_box[0] - 3, text_box[2] + 3)]
+    half_width = max(center[0] - text_box[0], text_box[2] - center[0])
+    expected_left = center[0] - half_width - 3
+    expected_right = center[0] + half_width + 3
+    assert captured_gap == [(center[1], expected_left, expected_right)]
+    assert center[0] - expected_left == expected_right - center[0]
 
 
 @pytest.mark.unit

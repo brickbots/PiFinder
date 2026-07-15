@@ -242,7 +242,10 @@ class UIPreview(UIModule):
         text_box = self.draw.textbbox(
             center, text, font=font, anchor="mm", stroke_width=1
         )
-        self._draw_focus_history(center[1], text_box[0] - 3, text_box[2] + 3)
+        half_width = max(center[0] - text_box[0], text_box[2] - center[0])
+        self._draw_focus_history(
+            center[1], center[0] - half_width - 3, center[0] + half_width + 3
+        )
         self.draw.text(
             center,
             text,
@@ -266,7 +269,10 @@ class UIPreview(UIModule):
         text_box = self.draw.textbbox(
             center, text, font=font, anchor="mm", stroke_width=1
         )
-        self._draw_focus_history(center[1], text_box[0] - 3, text_box[2] + 3)
+        half_width = max(center[0] - text_box[0], text_box[2] - center[0])
+        self._draw_focus_history(
+            center[1], center[0] - half_width - 3, center[0] + half_width + 3
+        )
         self.draw.text(
             center,
             text,
