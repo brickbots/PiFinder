@@ -28,7 +28,6 @@ from PiFinder import utils
 from PiFinder import timez
 from PiFinder.sqm import SQM as SQMCalculator
 from PiFinder.sqm.camera_profiles import get_camera_profile
-from PiFinder.sqm.pedestal import PedestalEstimator
 from PiFinder.sqm.wings import WingEstimator
 from PiFinder.state import SQM as SQMState
 from PiFinder.types.positioning import (
@@ -121,7 +120,6 @@ def update_sqm(
     annulus_inner_radius=6,
     annulus_outer_radius=14,
     use_raw_green=False,
-    pedestal_estimator=None,
     wing_estimator=None,
 ):
     """
@@ -141,8 +139,6 @@ def update_sqm(
         annulus_outer_radius: Outer annulus radius (default: 14)
         use_raw_green: If True, run photometry on the raw linear frame (green
             channel for Bayer sensors) instead of the 8-bit processed image.
-        pedestal_estimator: PedestalEstimator that supplies the per-frame black
-            level and is updated with each frame's measured background.
         wing_estimator: WingEstimator that supplies the rolling aperture
             (wing-loss) mzero correction and is fed each frame's photometry
             image + matched centroids. Only used on the raw-green path.
@@ -207,10 +203,6 @@ def update_sqm(
         # clip, and stars peaking at 75-90% already read systematically low.
         saturation_threshold = int(0.70 * (2**profile.bit_depth - 1))
 
-    pedestal_override = None
-    if pedestal_estimator is not None:
-        pedestal_override = pedestal_estimator.pedestal(fallback=profile.bias_offset)
-
     mzero_correction = 0.0
     if wing_estimator is not None and use_raw_green:
         mzero_correction = wing_estimator.correction()
@@ -227,14 +219,9 @@ def update_sqm(
             annulus_inner_radius=annulus_inner_radius,
             annulus_outer_radius=annulus_outer_radius,
             saturation_threshold=saturation_threshold,
-            pedestal_override=pedestal_override,
             image_pixels_per_side=image_pixels_per_side,
             mzero_correction=mzero_correction,
         )
-
-        # Feed the measured background into the pedestal joint-fit for next time.
-        if pedestal_estimator is not None and details.get("background_per_pixel"):
-            pedestal_estimator.add(exposure_sec, details["background_per_pixel"])
 
         # Feed this frame's stars into the rolling wing (aperture-loss) fit.
         if (
@@ -579,8 +566,6 @@ def solver(
 
     # Create SQM calculator - can be reloaded via command queue
     sqm_calculator, sqm_use_raw_green = create_sqm_calculator(shared_state)
-    # Per-frame black-level estimator, fed by the auto-exposure background stream
-    sqm_pedestal_estimator = PedestalEstimator()
     # Rolling aperture (wing-loss) correction, fed by bright matched stars
     sqm_wing_estimator = WingEstimator()
 
@@ -619,7 +604,6 @@ def solver(
                         sqm_calculator, sqm_use_raw_green = create_sqm_calculator(
                             shared_state
                         )
-                        sqm_pedestal_estimator.reset()
                         sqm_wing_estimator.reset()
                         logger.info("SQM calibration reloaded")
                     else:
@@ -719,7 +703,6 @@ def solver(
                             altitude_deg=altitude_for_sqm,
                             calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
                             use_raw_green=sqm_use_raw_green,
-                            pedestal_estimator=sqm_pedestal_estimator,
                             wing_estimator=sqm_wing_estimator,
                         )
 
