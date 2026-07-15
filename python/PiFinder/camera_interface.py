@@ -12,6 +12,7 @@ This module is the camera
 from typing import Tuple, Optional
 from PIL import Image
 import os
+import random
 import time
 import numpy as np
 import queue
@@ -568,6 +569,12 @@ class CameraInterface:
                             sweep_exposures = generate_exposure_sweep(
                                 min_exp, max_exp, num_images
                             )
+                            # Capture in random order: a monotonic ramp lets any
+                            # temporal sky drift (twilight, passing haze) alias
+                            # into an apparent exposure dependence in analysis.
+                            # Each file name carries its exposure, so order is
+                            # irrelevant downstream.
+                            random.shuffle(sweep_exposures)
 
                             # Generate timestamp for this sweep session using GPS time
                             gps_time = shared_state.datetime()
@@ -575,9 +582,7 @@ class CameraInterface:
                                 timestamp = gps_time.strftime("%Y%m%d_%H%M%S")
                             else:
                                 # Fallback to Pi time if GPS not available
-                                timestamp = timez.local_now().strftime(
-                                    "%Y%m%d_%H%M%S"
-                                )
+                                timestamp = timez.local_now().strftime("%Y%m%d_%H%M%S")
                                 logger.warning(
                                     "GPS time not available, using Pi system time for sweep directory name"
                                 )
