@@ -281,7 +281,11 @@ Select the 'Focus' option under the 'Start' menu.
 
 The Focus screen finds the four brightest stars anywhere in the camera frame and arranges
 their magnified, centered views into four equal screen quadrants in the visible area below
-the title bar.  These are raw camera pixels: the display does
+the title bar.  Once selected, the same stars stay in the same quadrants while they remain
+detectable; tracking their relative pattern keeps them stable even if the whole camera image
+shifts while you adjust the lens.  A star that disappears is replaced by another bright star.
+This does not depend on a plate solve or catalog identity, so it also works while badly out of
+focus.  These are raw camera pixels: the display does
 not stretch the contrast, remove skyglow, sharpen, blur, or smooth the stars.  It only crops and
 enlarges them with nearest-neighbour sampling, then applies the panel's red night-vision colour.
 
@@ -292,9 +296,9 @@ magnification between 4× and 16×.
 
 At the intersection of the four quadrants is the **HFD** readout — the Half-Flux Diameter of
 the measurable stars, in camera pixels.  This is how spread-out the stars are, so lower is
-sharper.  Slowly screw the lens in or out and chase the smallest stable number.  ``>50`` means
-the stars are still too broad for a trustworthy measurement, though their enlarged tiles remain
-visible; ``—`` means no usable star was found.
+sharper.  Slowly screw the lens in or out and chase the smallest stable number.  ``?.?`` means
+there is no usable focus measurement for the current frame; broad stars may still remain visible
+in their enlarged tiles while you adjust toward focus.
 
 A rolling 10-second HFD trace runs along the middle divider on either side of the number.  It
 centres its recent value range on the divider, with lower HFD values below the line.  This makes
@@ -310,10 +314,10 @@ together rather than relying on a single unusually bright or saturated star.
 Press **SQUARE** to cycle through four Focus views:
 
 * **Stars** — the four magnified raw star tiles described above.
-* **Single** — the brightest detected star enlarged to fill the screen, with the HFD number
-  and rolling trace on a translucent overlay in the lower third.
-* **Image** — the complete camera frame with a stable display-only stretch based on the
-  measured sky background and stellar peak.  Focus measurements still use raw pixels.
+* **Single** — the brightest detected star at twice the apparent magnification of Stars,
+  with the HFD number and rolling trace on a translucent overlay in the lower third.
+* **Image** — the complete camera frame using the original display-only autocontrast.
+  Focus measurements still use raw pixels.
 * **Stats** — HFD, an additional FWHM estimate, total detected stars, exposure mode and
   actual exposure, gain, and a histogram of the raw pixel values.  HFD is still the number
   to minimize; FWHM is supplementary because it is less reliable on saturated or heavily

@@ -9,7 +9,7 @@ from collections import deque
 from typing import Optional
 
 import numpy as np
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageOps
 
 from PiFinder import focus, utils
 from PiFinder.ui.base import UIModule
@@ -30,9 +30,6 @@ FOCUS_TILE_COUNT = 4
 FOCUS_WINDOW_S = 10.0
 HFD_MIN_DISPLAY_SPAN = 1.0
 HFD_RANGE_PADDING = 1.15
-STRETCH_EMA_ALPHA = 0.15
-STRETCH_MIN_SPAN = 50.0
-STRETCH_DITHER_FRAC = 0.5
 DISPLAY_STARS = "stars"
 DISPLAY_IMAGE = "image"
 DISPLAY_STATS = "stats"
@@ -88,8 +85,6 @@ class UIPreview(UIModule):
         self._tracked_focus_blobs: tuple[focus.Blob, ...] = ()
         self._last_focus_frame_time = 0.0
         self.focus_history: deque[tuple[float, float]] = deque()
-        self._stretch_black: Optional[float] = None
-        self._stretch_white: Optional[float] = None
 
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
@@ -106,8 +101,6 @@ class UIPreview(UIModule):
         self._tracked_focus_blobs = ()
         self._last_focus_frame_time = 0.0
         self.focus_history.clear()
-        self._stretch_black = None
-        self._stretch_white = None
 
     def _measure_focus(
         self, raw_np: np.ndarray, *, record_history: bool = True
@@ -124,22 +117,6 @@ class UIPreview(UIModule):
         )
         if record_history:
             self._record_focus_sample(self.last_focus_result.median_hfd)
-            self._update_stretch_points()
-
-    def _update_stretch_points(self) -> None:
-        """Update upstream's stable display stretch from raw-frame statistics."""
-        result = self.last_focus_result
-        if result is None:
-            return
-        black = result.background
-        white = result.peak if result.peak is not None else black + STRETCH_MIN_SPAN
-        white = max(white, black + STRETCH_MIN_SPAN)
-        if self._stretch_black is None or self._stretch_white is None:
-            self._stretch_black, self._stretch_white = black, white
-        else:
-            alpha = STRETCH_EMA_ALPHA
-            self._stretch_black = alpha * black + (1 - alpha) * self._stretch_black
-            self._stretch_white = alpha * white + (1 - alpha) * self._stretch_white
 
     def _record_focus_sample(self, hfd: Optional[float]) -> None:
         """Record a numeric HFD; missing measurements leave history frozen."""
@@ -221,14 +198,13 @@ class UIPreview(UIModule):
         blobs = self._display_blobs()
         if blobs:
             blob = blobs[0]
-            # The target is twice a quadrant's width and height, so its native
-            # crop must also be twice as large to retain the same apparent
-            # magnification selected by +/-.
+            # Reuse a tile's native crop across the full panel, giving Single
+            # twice the apparent magnification selected by +/- in Stars.
             crop_w, crop_h = focus_crop_size(
                 raw_l.size,
                 target_size,
                 blob.extent,
-                max(self.focus_zoom // 2, 1),
+                self.focus_zoom,
             )
             crop_left = min(max(round(blob.x - crop_w / 2), 0), raw_l.width - crop_w)
             crop_top = min(max(round(blob.y - crop_h / 2), 0), raw_l.height - crop_h)
@@ -239,26 +215,20 @@ class UIPreview(UIModule):
 
         return ImageChops.multiply(rendered.convert("RGB"), self.colors.red_image)
 
-    def _apply_stretch(self, image: Image.Image) -> Image.Image:
-        """Apply upstream's background/peak stretch for display only."""
-        if self._stretch_black is None or self._stretch_white is None:
-            return image
-        span = max(self._stretch_white - self._stretch_black, STRETCH_MIN_SPAN)
-        scale = 255.0 / span
-        stretched = (np.asarray(image, dtype=np.float32) - self._stretch_black) * scale
-        dither = scale * STRETCH_DITHER_FRAC
-        stretched += np.random.uniform(-dither, dither, size=stretched.shape)
-        np.clip(stretched, 0, 255, out=stretched)
-        return Image.fromarray(stretched.astype(np.uint8), mode="L")
-
     def _render_image_frame(self, raw_image: Image.Image) -> Image.Image:
-        """Fit and cosmetically stretch the full camera image for display."""
-        raw_l = raw_image.convert("L")
-        resized = raw_l.resize(
+        """Fit and autocontrast the full camera image for display only."""
+        resized = raw_image.convert("L").resize(
             self.display_class.resolution, resample=Image.Resampling.NEAREST
         )
-        stretched = self._apply_stretch(resized)
-        return ImageChops.multiply(stretched.convert("RGB"), self.colors.red_image)
+        red = ImageChops.multiply(resized.convert("RGB"), self.colors.red_image)
+        return ImageOps.autocontrast(red)
+
+    def _focus_readout_text(self) -> str:
+        """Format current HFD, using one unmistakable unavailable value."""
+        result = self.last_focus_result
+        if result is not None and result.median_hfd is not None:
+            return f"{result.median_hfd:.1f}"
+        return "?.?"
 
     def _draw_focus_overlay(self) -> None:
         """Draw quadrant separators, HFD history, and the current HFD."""
@@ -271,24 +241,13 @@ class UIPreview(UIModule):
         )
         self.draw.line([(0, center[1]), (res_x - 1, center[1])], fill=separator)
 
-        result = self.last_focus_result
-        if result is not None and result.median_hfd is not None:
-            text = f"{result.median_hfd:.1f}"
-        elif result is not None and result.too_defocused:
-            text = ">50"
-        else:
-            text = "—"
+        text = self._focus_readout_text()
 
         font = self.fonts.large.font
         text_box = self.draw.textbbox(
             center, text, font=font, anchor="mm", stroke_width=1
         )
-        text_half_width = math.ceil(
-            max(center[0] - text_box[0], text_box[2] - center[0])
-        )
-        self._draw_focus_history(
-            center[1], center[0] - text_half_width - 3, center[0] + text_half_width + 3
-        )
+        self._draw_focus_history(center[1], text_box[0] - 3, text_box[2] + 3)
         self.draw.text(
             center,
             text,
@@ -306,24 +265,13 @@ class UIPreview(UIModule):
         center = (res_x // 2, overlay_top + (res_y - overlay_top) // 2)
         self.draw.rectangle((0, overlay_top, res_x, res_y), fill=(0, 0, 0, 128))
 
-        result = self.last_focus_result
-        if result is not None and result.median_hfd is not None:
-            text = f"{result.median_hfd:.1f}"
-        elif result is not None and result.too_defocused:
-            text = ">50"
-        else:
-            text = "—"
+        text = self._focus_readout_text()
 
         font = self.fonts.large.font
         text_box = self.draw.textbbox(
             center, text, font=font, anchor="mm", stroke_width=1
         )
-        text_half_width = math.ceil(
-            max(center[0] - text_box[0], text_box[2] - center[0])
-        )
-        self._draw_focus_history(
-            center[1], center[0] - text_half_width - 3, center[0] + text_half_width + 3
-        )
+        self._draw_focus_history(center[1], text_box[0] - 3, text_box[2] + 3)
         self.draw.text(
             center,
             text,
@@ -443,11 +391,7 @@ class UIPreview(UIModule):
         dim = self.colors.get(64)
         result = self.last_focus_result
 
-        hfd = (
-            f"{result.median_hfd:.1f}"
-            if result is not None and result.median_hfd is not None
-            else "—"
-        )
+        hfd = self._focus_readout_text()
         fwhm = (
             f"{result.median_fwhm:.1f} px"
             if result is not None and result.median_fwhm is not None
@@ -484,10 +428,12 @@ class UIPreview(UIModule):
 
         label_h = self.fonts.small.height
         plots_top = min(stats_y + 1, res_y - label_h - 4)
-        self.draw.text((2, plots_top), "RAW HIST", font=self.fonts.small.font, fill=dim)
+        label_xy = (2, plots_top)
+        self.draw.text(label_xy, "RAW HIST", font=self.fonts.small.font, fill=dim)
+        label_box = self.draw.textbbox(label_xy, "RAW HIST", font=self.fonts.small.font)
         plot_left, plot_top, plot_right, plot_bottom = (
             2,
-            plots_top + label_h,
+            min(label_box[3] + 2, res_y - 2),
             res_x - 2,
             res_y - 1,
         )
