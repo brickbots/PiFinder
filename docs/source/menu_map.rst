@@ -47,9 +47,11 @@ Start
        Start --> GPS["GPS Status"]
 
 Focus
-   A live camera view for focusing the lens.  Adjust focus until stars are as
-   small and sharp as possible — sharp stars are what let the PiFinder solve.
-   The Quick Menu here adjusts the camera Exposure.
+   Magnified views of the four brightest stars the camera sees, with an **HFD**
+   readout of how spread-out they are.  Adjust focus until the number is as low
+   as it will go — sharp stars are what let the PiFinder solve.  **SQUARE**
+   cycles the Stars, Single, Image, and Stats views.  The Quick Menu here
+   adjusts the camera Exposure.
 Align
    Align the PiFinder to your eyepiece.  Center a known star, confirm, and your
    Push-To distances then account for any offset between the camera and where
