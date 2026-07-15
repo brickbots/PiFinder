@@ -10,7 +10,6 @@ from PiFinder.sqm.camera_profiles import (
     get_camera_profile,
     detect_camera_type,
 )
-from PiFinder.sqm.pedestal import PedestalEstimator
 from PiFinder.sqm.save_sweep_metadata import save_sweep_metadata
 from PiFinder.sqm.wings import WingEstimator
 
@@ -1390,34 +1389,6 @@ class TestColorCorrection:
             assert d["n_color_corrected"] == 1  # only the star with finite B-V
         finally:
             color_index.get_bv = orig
-
-
-@pytest.mark.unit
-class TestPedestalEstimator:
-    def test_recovers_black_level(self):
-        est = PedestalEstimator()
-        true_p0, rate = 237.0, 300.0
-        for t_ms in [25, 30, 44, 66, 97, 143, 212, 311, 460, 678, 1000]:
-            t = t_ms / 1000
-            est.add(t, true_p0 + rate * t)
-        assert est.is_conditioned
-        assert est.pedestal(fallback=50.0) == pytest.approx(237.0, abs=1.0)
-
-    def test_falls_back_before_conditioned(self):
-        est = PedestalEstimator()
-        assert est.pedestal(fallback=50.0) == 50.0
-
-    def test_refuses_narrow_exposure_range(self):
-        est = PedestalEstimator()
-        for _ in range(10):
-            est.add(0.5, 237.3)
-        assert not est.is_conditioned
-
-    def test_rejects_bad_samples(self):
-        est = PedestalEstimator()
-        est.add(-1.0, 200.0)  # bad exposure
-        est.add(0.5, float("nan"))  # bad background
-        assert not est.is_conditioned
 
 
 @pytest.mark.unit

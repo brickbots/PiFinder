@@ -8,7 +8,7 @@ property of the optics (focus, lens halo) and drifts slowly -- it is NOT a
 per-frame quantity. Measuring it per frame injects noise and, worse, an
 exposure dependence (wings sink below the noise on short exposures).
 
-So this estimator splits measure from apply, like ``PedestalEstimator``:
+So this estimator splits measure from apply:
 
 - **Measure** only on frames that can support it: bright, unsaturated,
   uncrowded matched stars whose radial profile flattens within the search
