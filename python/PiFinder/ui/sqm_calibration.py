@@ -23,6 +23,7 @@ import numpy as np
 from enum import Enum
 from typing import Optional, List
 
+from PiFinder.solver import _extract_raw_photometry_image, _scale_solution_centroids
 from PiFinder.types.positioning import PointingEstimate, ReloadSqmCalibration
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
@@ -73,24 +74,13 @@ class UISQMCalibration(UIModule):
         # Marking menu for debug toggle
         self.marking_menu = self._create_marking_menu()
 
-        # Separate storage for each frame type - PROCESSED (8-bit)
-        self.bias_frames: List[np.ndarray] = []
-        self.dark_frames: List[np.ndarray] = []
-        self.sky_frames: List[np.ndarray] = []
-
-        # Separate storage for each frame type - RAW (16-bit)
+        # Frame storage - RAW (16-bit); SQM photometry is raw-only
         self.bias_frames_raw: List[np.ndarray] = []
         self.dark_frames_raw: List[np.ndarray] = []
         self.sky_frames_raw: List[np.ndarray] = []
 
         # Store solution for each sky frame (needed for SQM calculation)
         self.sky_solutions: List[PointingEstimate] = []
-
-        # Calibration results - PROCESSED (8-bit)
-        self.bias_offset: Optional[float] = None
-        self.read_noise: Optional[float] = None
-        self.dark_current_rate: Optional[float] = None
-        self.sky_brightness: Optional[float] = None
 
         # Calibration results - RAW (16-bit)
         self.bias_offset_raw: Optional[float] = None
@@ -367,7 +357,7 @@ class UISQMCalibration(UIModule):
             y += self.fonts.base.height + 1
 
     def _draw_results(self):
-        """Draw final results - both processed and raw"""
+        """Draw final results (raw calibration)"""
         tb = self.display_class.titlebar_height
         self.draw.text(
             (10, tb + 1),
@@ -378,43 +368,31 @@ class UISQMCalibration(UIModule):
 
         y = tb + 19
 
-        # Header row
-        self.draw.text(
-            (10, y),
-            "       8-bit   16-bit",
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
-        y += self.fonts.base.height + 2
-
         # Bias offset
-        if self.bias_offset is not None and self.bias_offset_raw is not None:
+        if self.bias_offset_raw is not None:
             self.draw.text(
                 (10, y),
-                f"Bias: {self.bias_offset:4.1f}  {self.bias_offset_raw:6.1f}",
+                f"Bias: {self.bias_offset_raw:6.1f}",
                 font=self.fonts.base.font,
                 fill=self.colors.get(192),
             )
             y += self.fonts.base.height + 2
 
         # Read noise
-        if self.read_noise is not None and self.read_noise_raw is not None:
+        if self.read_noise_raw is not None:
             self.draw.text(
                 (10, y),
-                f"Read: {self.read_noise:4.2f}  {self.read_noise_raw:6.2f}",
+                f"Read: {self.read_noise_raw:6.2f}",
                 font=self.fonts.base.font,
                 fill=self.colors.get(192),
             )
             y += self.fonts.base.height + 2
 
         # Dark current
-        if (
-            self.dark_current_rate is not None
-            and self.dark_current_rate_raw is not None
-        ):
+        if self.dark_current_rate_raw is not None:
             self.draw.text(
                 (10, y),
-                f"Dark: {self.dark_current_rate:4.2f}  {self.dark_current_rate_raw:6.2f}",
+                f"Dark: {self.dark_current_rate_raw:6.2f}",
                 font=self.fonts.base.font,
                 fill=self.colors.get(192),
             )
@@ -493,7 +471,6 @@ class UISQMCalibration(UIModule):
             # First frame: set exposure to minimum (closest to 0)
             self.command_queues["camera"].put("set_exp:1")  # Minimum exposure
             time.sleep(0.2)  # Wait for camera to apply setting
-            self.bias_frames = []
             self.bias_frames_raw = []
 
         # Set save flag if debug enabled, then capture
@@ -505,12 +482,6 @@ class UISQMCalibration(UIModule):
         self.command_queues["camera"].put("capture")
 
         time.sleep(0.3)  # Wait for capture
-
-        # Get PROCESSED image (8-bit) from shared memory
-        img = self.camera_image.copy()
-        img = img.convert(mode="L")
-        np_image = np.asarray(img, dtype=np.uint8)
-        self.bias_frames.append(np_image)
 
         # Get RAW image (16-bit) from shared state
         raw_array = self.shared_state.cam_raw()
@@ -532,7 +503,6 @@ class UISQMCalibration(UIModule):
     def _capture_dark_frame(self):
         """Capture a dark frame (actual exposure with cap on) - both processed and raw"""
         if self.current_frame == 0:
-            self.dark_frames = []
             self.dark_frames_raw = []
 
         # Set save flag if debug enabled, then capture
@@ -544,12 +514,6 @@ class UISQMCalibration(UIModule):
         self.command_queues["camera"].put("capture")
 
         time.sleep(0.3)  # Wait for capture
-
-        # Get PROCESSED image (8-bit) from shared memory
-        img = self.camera_image.copy()
-        img = img.convert(mode="L")
-        np_image = np.asarray(img, dtype=np.uint8)
-        self.dark_frames.append(np_image)
 
         # Get RAW image (16-bit) from shared state
         raw_array = self.shared_state.cam_raw()
@@ -568,7 +532,6 @@ class UISQMCalibration(UIModule):
     def _capture_sky_frame(self):
         """Capture a sky frame (actual exposure, needs plate solve) - both processed and raw"""
         if self.current_frame == 0:
-            self.sky_frames = []
             self.sky_frames_raw = []
             self.sky_solutions = []
             # Start timeout timer
@@ -609,19 +572,12 @@ class UISQMCalibration(UIModule):
 
         time.sleep(0.3)  # Wait for capture
 
-        # Get PROCESSED image (8-bit) from shared memory
-        img = self.camera_image.copy()
-        img = img.convert(mode="L")
-        np_image = np.asarray(img, dtype=np.uint8)
-        self.sky_frames.append(np_image)
-
-        # Get RAW image (16-bit) from shared state
+        # Get RAW image (16-bit) from shared state; solution is stored
+        # alongside so the two lists stay index-aligned.
         raw_array = self.shared_state.cam_raw()
         if raw_array is not None:
             self.sky_frames_raw.append(raw_array.copy())
-
-        # Store the solution for this frame (deep copy so it doesn't change)
-        self.sky_solutions.append(copy.deepcopy(solution))
+            self.sky_solutions.append(copy.deepcopy(solution))
 
         self.current_frame += 1
 
@@ -637,23 +593,12 @@ class UISQMCalibration(UIModule):
     # ============================================
 
     def _analyze_calibration(self):
-        """Analyze captured frames and compute calibration parameters for BOTH processed and raw"""
+        """Analyze captured raw frames and compute calibration parameters"""
         try:
             # This runs once, then moves to results
-            if self.bias_offset is not None:
+            if self.bias_offset_raw is not None:
                 # Already analyzed, show results
                 self.state = CalibrationState.RESULTS
-                return
-
-            # Check that we have enough frames for BOTH processed and raw
-            if len(self.bias_frames) < self.num_frames:
-                self.error_message = f"Not enough bias frames ({len(self.bias_frames)})"
-                self.state = CalibrationState.ERROR
-                return
-
-            if len(self.dark_frames) < self.num_frames:
-                self.error_message = f"Not enough dark frames ({len(self.dark_frames)})"
-                self.state = CalibrationState.ERROR
                 return
 
             if len(self.bias_frames_raw) < self.num_frames:
@@ -675,29 +620,6 @@ class UISQMCalibration(UIModule):
                 return
 
             exposure_sec = self.exposure_time_us / 1_000_000.0
-
-            # ========== PROCESSED (8-bit) CALIBRATION ==========
-
-            # 1. Compute bias offset (median of all pixels in all bias frames)
-            bias_stack = np.array(self.bias_frames, dtype=np.float32)
-            self.bias_offset = float(np.median(bias_stack))
-
-            # 2. Compute read noise using temporal variance (not spatial)
-            # Spatial std includes fixed pattern noise (PRNU), which is wrong.
-            # Temporal variance at each pixel measures true read noise.
-            temporal_variance = np.var(
-                bias_stack, axis=0
-            )  # variance across frames per pixel
-            self.read_noise = float(np.sqrt(np.mean(temporal_variance)))
-
-            # 3. Compute dark current rate
-            dark_stack = np.array(self.dark_frames, dtype=np.float32)
-            dark_median = float(np.median(dark_stack))
-            self.dark_current_rate = (dark_median - self.bias_offset) / exposure_sec
-
-            # Ensure dark current is not negative
-            if self.dark_current_rate < 0:
-                self.dark_current_rate = 0.0
 
             # ========== RAW (16-bit) CALIBRATION ==========
 
@@ -745,36 +667,36 @@ class UISQMCalibration(UIModule):
         try:
             from PiFinder.sqm import SQM
 
-            if len(self.sky_frames) == 0:
+            if len(self.sky_frames_raw) == 0:
                 logger.warning("No sky frames to calculate SQM")
                 self.sqm_median = None
                 return
 
-            if len(self.sky_solutions) != len(self.sky_frames):
+            if len(self.sky_solutions) != len(self.sky_frames_raw):
                 logger.error(
-                    f"Mismatch: {len(self.sky_frames)} frames but {len(self.sky_solutions)} solutions"
+                    f"Mismatch: {len(self.sky_frames_raw)} frames but "
+                    f"{len(self.sky_solutions)} solutions"
                 )
                 self.sqm_median = None
                 return
 
-            # Create SQM calculator with the newly measured calibration
-            # Use PROCESSED (8-bit) pipeline
-            camera_type_processed = f"{self.shared_state.camera_type()}_processed"
-            sqm_calc = SQM(camera_type=camera_type_processed)
+            # Create SQM calculator with the newly measured raw calibration
+            sqm_calc = SQM(camera_type=self.shared_state.camera_type())
 
             # Manually set the calibration values we just measured
-            if self.bias_offset is not None:
-                sqm_calc.profile.bias_offset = self.bias_offset
-            if self.read_noise is not None:
-                sqm_calc.profile.read_noise_adu = self.read_noise
-            if self.dark_current_rate is not None:
-                sqm_calc.profile.dark_current_rate = self.dark_current_rate
+            if self.bias_offset_raw is not None:
+                sqm_calc.profile.bias_offset = self.bias_offset_raw
+            if self.read_noise_raw is not None:
+                sqm_calc.profile.read_noise_adu = self.read_noise_raw
+            if self.dark_current_rate_raw is not None:
+                sqm_calc.profile.dark_current_rate = self.dark_current_rate_raw
 
             self.sqm_values = []
+            saturation_threshold = int(0.70 * (2**sqm_calc.profile.bit_depth - 1))
 
-            # Calculate SQM for each sky frame using its stored solution
+            # Calculate SQM for each raw sky frame using its stored solution
             for i, (sky_frame, solution) in enumerate(
-                zip(self.sky_frames, self.sky_solutions)
+                zip(self.sky_frames_raw, self.sky_solutions)
             ):
                 if solution is None or not solution.has_pointing():
                     # No valid solve - skip SQM calculation
@@ -796,22 +718,33 @@ class UISQMCalibration(UIModule):
                     logger.warning(f"Empty centroids for sky frame {i}, skipping SQM")
                     continue
 
+                # Raw photometry image (green channel for Bayer sensors);
+                # centroids come from the 512px solve image and are rescaled.
+                green = _extract_raw_photometry_image(sky_frame, sqm_calc.profile)
+                if green is None:
+                    logger.warning(f"Bad raw frame {i}, skipping SQM")
+                    continue
+
                 # Adapter dict for SQM (sqm.calculate still consumes a
                 # raw-tetra3-shaped dict so SQM stays loose of our types).
-                sqm_solution = {
-                    "FOV": solution.diagnostics.FOV,
-                    "matched_centroids": solution.matched_centroids,
-                    "matched_stars": solution.matched_stars,
-                }
+                sqm_solution = _scale_solution_centroids(
+                    {
+                        "FOV": solution.diagnostics.FOV,
+                        "matched_centroids": solution.matched_centroids,
+                        "matched_stars": solution.matched_stars,
+                    },
+                    green.shape[0] / 512.0,
+                )
 
-                # Calculate SQM for this frame (using processed 8-bit image)
                 # Returns Tuple[Optional[float], Dict]
                 sqm_value, _details = sqm_calc.calculate(
                     centroids=centroids,
                     solution=sqm_solution,
-                    image=sky_frame,
+                    image=green,
                     exposure_sec=exposure_sec,
                     altitude_deg=altitude_deg,
+                    saturation_threshold=saturation_threshold,
+                    image_pixels_per_side=green.shape[0],
                 )
 
                 if sqm_value is not None:
@@ -836,33 +769,12 @@ class UISQMCalibration(UIModule):
             self.sqm_median = None
 
     def _save_calibration(self):
-        """Save calibration data for BOTH raw and processed profiles with measured values"""
+        """Save the measured raw calibration for the camera profile"""
         try:
             # Import here to avoid circular dependencies
             from PiFinder.sqm import NoiseFloorEstimator
 
-            # Get camera type from shared state
-            camera_type_raw_sensor = self.shared_state.camera_type()
-
-            # ========== Save PROCESSED (8-bit) calibration ==========
-            camera_type_processed = f"{camera_type_raw_sensor}_processed"
-            estimator_processed = NoiseFloorEstimator(
-                camera_type=camera_type_processed, enable_zero_sec_sampling=False
-            )
-
-            success_processed = estimator_processed.save_calibration(
-                bias_offset=self.bias_offset,
-                read_noise=self.read_noise,
-                dark_current_rate=self.dark_current_rate,
-            )
-
-            if not success_processed:
-                raise RuntimeError(
-                    f"Failed to save processed calibration for {camera_type_processed}"
-                )
-
-            # ========== Save RAW (16-bit) calibration ==========
-            camera_type_raw = camera_type_raw_sensor  # e.g., "imx296", "hq"
+            camera_type_raw = self.shared_state.camera_type()  # e.g., "imx296", "hq"
             estimator_raw = NoiseFloorEstimator(
                 camera_type=camera_type_raw, enable_zero_sec_sampling=False
             )
@@ -878,7 +790,7 @@ class UISQMCalibration(UIModule):
                     f"Failed to save raw calibration for {camera_type_raw}"
                 )
 
-            # Tell solver to reload the calibration immediately (for processed profile)
+            # Tell solver to reload the calibration immediately
             self._notify_solver_to_reload()
 
         except Exception as e:

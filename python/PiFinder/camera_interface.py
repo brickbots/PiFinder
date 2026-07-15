@@ -26,7 +26,6 @@ from PiFinder.auto_exposure import (
     ExposureSNRController,
     generate_exposure_sweep,
 )
-from PiFinder.sqm.camera_profiles import detect_camera_type
 
 logger = logging.getLogger("Camera.Interface")
 
@@ -320,23 +319,12 @@ class CameraInterface:
                                 if self._auto_exposure_mode == "snr":
                                     # SNR mode: use background-based controller (for SQM measurements)
                                     if self._auto_exposure_snr is None:
-                                        # Use camera profile to derive thresholds
-                                        try:
-                                            cam_type = detect_camera_type(
-                                                self.get_cam_type()
-                                            )
-                                            cam_type = f"{cam_type}_processed"
-                                            self._auto_exposure_snr = ExposureSNRController.from_camera_profile(
-                                                cam_type
-                                            )
-                                        except ValueError as e:
-                                            # Unknown camera, use defaults
-                                            logger.warning(
-                                                f"Camera detection failed: {e}, using default SNR thresholds"
-                                            )
-                                            self._auto_exposure_snr = (
-                                                ExposureSNRController()
-                                            )
+                                        # Default 8-bit thresholds; the
+                                        # controller measures the processed
+                                        # display image.
+                                        self._auto_exposure_snr = (
+                                            ExposureSNRController()
+                                        )
                                     # Get adaptive noise floor from shared state
                                     adaptive_noise_floor = (
                                         self.shared_state.noise_floor()
