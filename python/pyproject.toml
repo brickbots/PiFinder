@@ -12,10 +12,7 @@ dependencies = [
     "scikit-learn",
     "pillow",
     "pandas",
-    # 1.51+ regressed batched Kepler propagation by reshaping from only the
-    # time dimension. 1.50 retains the required (3, N) result and, unlike
-    # upstream's older 1.45 pin, supports this Python 3.13 / NumPy 2 environment.
-    "skyfield==1.50",
+    "skyfield",
     "timezonefinder",
     "pytz",
     # Plate solver (the `tetra3` import package). Pinned to a cedar-solve rev via

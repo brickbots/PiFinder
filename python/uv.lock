@@ -962,7 +962,7 @@ requires-dist = [
     { name = "scipy" },
     { name = "sh", specifier = ">=1.14,<2" },
     { name = "simplejpeg" },
-    { name = "skyfield", specifier = "==1.50" },
+    { name = "skyfield" },
     { name = "smbus2" },
     { name = "spidev", marker = "platform_machine == 'aarch64'" },
     { name = "timezonefinder" },
@@ -1511,7 +1511,7 @@ wheels = [
 
 [[package]]
 name = "skyfield"
-version = "1.50"
+version = "1.54"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -1519,9 +1519,9 @@ dependencies = [
     { name = "numpy", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "sgp4", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/71/a0/dc0c2aaef7632bd3c047e62fd0ae870d5560b546a2e1c3308907525007e7/skyfield-1.50.tar.gz", hash = "sha256:3dd287fbed42ddcf32bdbf7d12b90cbeaf5f44fcefce700cd49514f5776c66ba", size = 309555, upload-time = "2025-02-15T16:46:29.404Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c9/8c/98bf5d9042218580fc10c4ba0c51b9af26bc73b614ce64341c0dfad39074/skyfield-1.54.tar.gz", hash = "sha256:bf8b79d6dbbe1add0327aca485d6388bb6a13cab70528d015913a9b07a1d6903", size = 346829, upload-time = "2026-01-18T19:16:15.114Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/16/44/1d10c522f1a32115f6a303bb4d99afa71905e924d40f51a03726b174c32f/skyfield-1.50-py3-none-any.whl", hash = "sha256:73c7d89568525f743652b6e202418d8cd8fc99eb9b5134ba9b543abf4202f80d", size = 338071, upload-time = "2025-02-15T16:46:27.334Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/8a/f196038b2bea40c372d900803dac0d5e4eab578cb05b92ff7172ced4c1cf/skyfield-1.54-py3-none-any.whl", hash = "sha256:c9b313185448963ea7fa4cf8e4298ba028b179b80ebd4c5675497519f21c04a2", size = 370380, upload-time = "2026-01-18T19:16:13.806Z" },
 ]
 
 [[package]]
