@@ -251,15 +251,8 @@ def _calc_comets_vectorized(comets_df: pd.DataFrame, dt) -> Dict[str, Any]:
     # builder), propagated in a single call -> heliocentric state, AU,
     # equatorial ICRF, relative to the Sun.
     kepler = mpc._comet_orbits(comets_df, sf_utils.ts, GM_SUN)
-    # Skyfield 1.51+ derives the output shape from the target-time array and
-    # cannot reshape a batch of orbits propagated to a scalar time. Give each
-    # orbit the same target as an (N, 1) column. Older releases squeeze the
-    # singleton time dimension; newer releases retain it, so accept both.
-    t_batched = sf_utils.ts.tt_jd(np.full((len(comets_df), 1), t.tt))
-    helio_pos = kepler._at(t_batched)[0]
-    if helio_pos.ndim == 3:
-        helio_pos = helio_pos[:, :, 0]
-    elif helio_pos.ndim == 1:
+    helio_pos = kepler._at(t)[0]
+    if helio_pos.ndim == 1:  # propagate() squeezes a single comet to (3,)
         helio_pos = helio_pos[:, np.newaxis]
 
     # Sun and observer are single 3-vectors relative to the solar-system

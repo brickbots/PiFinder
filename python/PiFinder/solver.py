@@ -438,9 +438,7 @@ def solver(
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
-    # Let the imported tetra3 package resolve its bundled database. This works
-    # for both the legacy checkout submodule and packaged/Nix environments.
-    t3 = tetra3.Tetra3("default_database")
+    t3 = tetra3.Tetra3(str(utils.tetra3_dir / "data" / "default_database.npz"))
     align_ra = 0
     align_dec = 0
     last_solve_attempt: float = 0.0
