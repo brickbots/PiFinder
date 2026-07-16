@@ -126,15 +126,6 @@ _COVERAGE_SKIP: dict[str, str] = {
         "notes-payload item_definition; not reachable from the menu tree "
         "and needs live update-channel state to construct."
     ),
-    "UIMigrationConfirm": (
-        "Pushed by UISoftware's migration path with a version_info "
-        "item_definition; its Confirm action pushes UIMigrationProgress, "
-        "so smoke-driving its keys risks starting a real migration."
-    ),
-    "UIMigrationProgress": (
-        "active() immediately starts a real migration download/prepare "
-        "via sys_utils; never safe to smoke-drive."
-    ),
 }
 
 # Bound on the auto-sweep so a handler that keeps pushing modules
