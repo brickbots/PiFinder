@@ -704,6 +704,42 @@ class TestManifestCache:
 
 
 @pytest.mark.unit
+class TestMigrationUnlock:
+    def _ui(self):
+        ui = UISoftware.__new__(UISoftware)
+        ui._phase = "confirm"  # phase without square-refresh side effects
+        ui._key_buffer = []
+        return ui
+
+    @patch("PiFinder.ui.software.utils.running_system_store_path")
+    def test_unlock_inert_on_nixos(self, mock_running):
+        mock_running.return_value = "/nix/store/aaa-nixos-system-pifinder"
+        ui = self._ui()
+        with patch.object(UISoftware, "_trigger_migration") as mock_trigger:
+            with patch(
+                "PiFinder.ui.software._migration_version_info_from_manifest"
+            ) as mock_info:
+                for _press in range(7):
+                    ui.key_square()
+        mock_info.assert_not_called()
+        mock_trigger.assert_not_called()
+        assert ui._key_buffer == []
+
+    @patch("PiFinder.ui.software.utils.running_system_store_path")
+    def test_unlock_triggers_migration_off_nixos(self, mock_running):
+        mock_running.return_value = None
+        ui = self._ui()
+        with patch.object(UISoftware, "_trigger_migration") as mock_trigger:
+            with patch(
+                "PiFinder.ui.software._migration_version_info_from_manifest",
+                return_value={"version": "3.0.0"},
+            ):
+                for _press in range(7):
+                    ui.key_square()
+        mock_trigger.assert_called_once_with({"version": "3.0.0"})
+
+
+@pytest.mark.unit
 class TestManualRefresh:
     def _ui(self, phase):
         ui = UISoftware.__new__(UISoftware)
