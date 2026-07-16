@@ -62,6 +62,7 @@ _Avoid_: AE algo, zero-star handler, handler, plugin.
 
 - **`Matches`** — defined in [Positioning](../positioning/CONTEXT.md): count of stars tetra3 matched in the most recent solve attempt, published on every attempt (success or failure) because auto-exposure depends on it. The feedback signal for solver-driven auto-exposure.
 - **Noise floor** — defined in [SQM](../sqm/CONTEXT.md): the published ADU value below which pixels are treated as empty sky plus sensor noise. Consumed here as the minimum acceptable background.
+- **`SCREEN_ROTATE_AMOUNTS`** — owned here (`camera_interface.py`): the per-variant software rotation applied to each capture before it reaches the solver and preview, keyed by screen direction. The post-rotation image defines Positioning's **camera frame**, so each entry is only valid paired with that variant's `q_imu2cam` (defined in [Positioning](../positioning/CONTEXT.md)); pairs are derived with the imu2cam tool and pinned together by `tests/test_imu2cam_tool_presets.py`.
 
 ## Flagged ambiguities
 

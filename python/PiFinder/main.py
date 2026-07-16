@@ -421,7 +421,7 @@ def main(
     except Exception as e:
         logger.warning("Could not turn off power LED: %s", e)
 
-    if cfg.get_option("screen_direction") == "as_bloom":
+    if cfg.get_option("screen_direction") in ["as_bloom", "as_heart"]:
         display_device.device.rotate = 2
 
     # Set user interface language
@@ -808,9 +808,7 @@ def main(
                     location.error_in_m = 5
                     location.lock = True
                     location.lock_type = 3
-                    location.last_gps_lock = (
-                        timez.local_now().time().isoformat()[:8]
-                    )
+                    location.last_gps_lock = timez.local_now().time().isoformat()[:8]
                     console.write(
                         f"GPS: Location {location.lat} {location.lon} {location.altitude}"
                     )

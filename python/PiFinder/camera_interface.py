@@ -35,6 +35,25 @@ logger = logging.getLogger("Camera.Interface")
 # daylight while still usable for framing a distant object.
 DAYTIME_AE_FALLBACK_EXPOSURE = 1000  # microseconds
 
+# Software rotation applied to each raw capture before it reaches the solver
+# and the preview, keyed by screen_direction. Each entry is paired with that
+# variant's q_imu2cam in pointing_model/imu_dead_reckoning.py -- the camera
+# frame ("image up") is only defined after this rotation, so the two values
+# must be derived together (see pointing_model/docs/imu2cam_tool.html).
+# Variants absent here fall back to 270.
+SCREEN_ROTATE_AMOUNTS = {
+    "flat": 270,
+    "left": 270,
+    "right": 90,
+    "straight": 90,
+    "flat3": 90,
+    "as_bloom": 90,
+    "as_heart": 90,
+    "v4_left": 0,
+    "v4_right": 270,
+    "v4_straight": 270,
+}
+
 
 class CameraInterface:
     """The CameraInterface interface."""
@@ -232,16 +251,9 @@ class CameraInterface:
 
                         rotate_amount = 0
                         if camera_rotation is None:
-                            if screen_direction in [
-                                "right",
-                                "straight",
-                                "flat3",
-                            ]:
-                                rotate_amount = 90
-                            elif screen_direction == "as_bloom":
-                                rotate_amount = 90  # Specific rotation for AS Bloom
-                            else:
-                                rotate_amount = 270
+                            rotate_amount = SCREEN_ROTATE_AMOUNTS.get(
+                                screen_direction, 270
+                            )
                         else:
                             base_image = base_image.rotate(int(camera_rotation) * -1)
 
@@ -575,9 +587,7 @@ class CameraInterface:
                                 timestamp = gps_time.strftime("%Y%m%d_%H%M%S")
                             else:
                                 # Fallback to Pi time if GPS not available
-                                timestamp = timez.local_now().strftime(
-                                    "%Y%m%d_%H%M%S"
-                                )
+                                timestamp = timez.local_now().strftime("%Y%m%d_%H%M%S")
                                 logger.warning(
                                     "GPS time not available, using Pi system time for sweep directory name"
                                 )
