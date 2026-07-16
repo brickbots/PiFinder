@@ -835,7 +835,7 @@ class UISoftware(UIModule):
             return
 
         label_width = self.fonts.base.line_length - 2
-        list_bottom = 116 if (self._checking or self._check_failed) else 128
+        list_bottom = 114 if (self._checking or self._check_failed) else 128
         current_y = y
         for i in range(len(self._version_list)):
             idx = self._scroll_offset + i
@@ -924,7 +924,7 @@ class UISoftware(UIModule):
         else:
             return
         self.draw.text(
-            (4, 117),
+            (4, 115),
             text,
             font=self.fonts.base.font,
             fill=self.colors.get(96),
