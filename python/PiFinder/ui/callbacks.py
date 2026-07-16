@@ -24,6 +24,7 @@ from PiFinder.ui.base import UIModule
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.catalogs import CatalogFilter
 from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
+from PiFinder.ui import software
 
 if TYPE_CHECKING:
 
@@ -516,3 +517,27 @@ def update_gpsd_baud_rate(ui_module: UIModule) -> None:
     except Exception as e:
         logger.error(f"Failed to update GPSD config: {e}")
         ui_module.message(_("GPS config\nfailed"), 3)
+
+
+def start_nixos_migration(ui_module: UIModule) -> None:
+    """Offer the manifest's migration target (Raspbian install -> NixOS).
+
+    A system already running NixOS has nothing to migrate, so this only
+    reports that; otherwise it pushes the migration confirm screen with the
+    first available manifest entry that carries a migration tarball.
+    """
+    if utils.running_system_store_path() is not None:
+        ui_module.message(_("Already NixOS"), 2)
+        return
+    version_info = software._migration_version_info_from_manifest()
+    if not version_info:
+        ui_module.message(_("No release found"), 2)
+        return
+    ui_module.message(_("System Upgrade"), 1)
+    ui_module.add_to_stack(
+        {
+            "class": software.UIMigrationConfirm,
+            "version_info": version_info,
+            "current_version": utils.get_version().strip(),
+        }
+    )

@@ -1204,6 +1204,20 @@ pifinder_menu = {
                             "select": "single",
                             "items": [
                                 {
+                                    "name": _("Dev Mode"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "dev_mode",
+                                    "items": [
+                                        {"name": _("Off"), "value": False},
+                                        {"name": _("On"), "value": True},
+                                    ],
+                                },
+                                {
+                                    "name": _("NixOS Migration"),
+                                    "callback": callbacks.start_nixos_migration,
+                                },
+                                {
                                     "name": _("Screen Off"),
                                     "class": UITextMenu,
                                     "select": "single",
