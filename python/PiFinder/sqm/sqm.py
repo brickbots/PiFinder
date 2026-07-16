@@ -518,14 +518,17 @@ class SQM:
         )
 
         # Calculate temporal noise for diagnostics (not used in pedestal)
-        read_noise = self.profile.read_noise_adu
-        dark_current_contribution = self.profile.dark_current_rate * exposure_sec
+        # Default to 0.0: these feed a diagnostic noise term only, so a None
+        # left by an incomplete calibration file must not crash the whole SQM.
+        read_noise = self.profile.read_noise_adu or 0.0
+        dark_current_rate = self.profile.dark_current_rate or 0.0
+        dark_current_contribution = dark_current_rate * exposure_sec
         temporal_noise = read_noise + dark_current_contribution
 
         logger.debug(
             f"Calibration: pedestal={pedestal:.1f} ADU (bias_offset), "
             f"read_noise={read_noise:.2f}, dark_current={dark_current_contribution:.2f} "
-            f"(rate={self.profile.dark_current_rate:.3f} ADU/s × {exposure_sec:.2f}s), "
+            f"(rate={dark_current_rate:.3f} ADU/s × {exposure_sec:.2f}s), "
             f"temporal_noise={temporal_noise:.2f}"
         )
 
