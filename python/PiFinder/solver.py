@@ -548,8 +548,13 @@ def solver(
     centroids = []
     log_no_stars_found = True
 
-    # Create SQM calculator - can be reloaded via command queue
-    sqm_calculator = create_sqm_calculator(shared_state)
+    # SQM calculator is created lazily on the first solve, not here: at solver
+    # startup shared_state.camera_type() still holds the pre-camera default,
+    # and a calculator built from it would photometer with the wrong sensor
+    # profile (pedestal etc.). The camera process records the real type before
+    # it captures its first frame, and a solve requires a captured frame, so
+    # first use is guaranteed to see the real camera type.
+    sqm_calculator = None
     # Rolling aperture (wing-loss) correction, fed by bright matched stars
     sqm_wing_estimator = WingEstimator()
 
@@ -584,10 +589,11 @@ def solver(
                         align_ra = 0
                         align_dec = 0
                     elif isinstance(command, ReloadSqmCalibration):
+                        # Invalidate; the next solve recreates the calculator
+                        # with fresh calibration (single creation site).
                         logger.info("Reloading SQM calibration...")
-                        sqm_calculator = create_sqm_calculator(shared_state)
+                        sqm_calculator = None
                         sqm_wing_estimator.reset()
-                        logger.info("SQM calibration reloaded")
                     else:
                         logger.warning(
                             "Unknown solver command (type=%s): %r",
@@ -669,6 +675,9 @@ def solver(
                         )
 
                     if "matched_centroids" in solution:
+                        if sqm_calculator is None:
+                            sqm_calculator = create_sqm_calculator(shared_state)
+
                         # Update SQM (auto-exposure consumes the noise floor)
                         exposure_sec = (
                             last_image_metadata["exposure_time"] / 1_000_000.0
