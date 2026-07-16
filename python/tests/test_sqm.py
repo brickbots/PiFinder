@@ -1566,5 +1566,5 @@ class TestBandOffset:
     def test_band_offset_values(self):
         assert get_camera_profile("imx462").sqm_band_offset == pytest.approx(0.43)
         assert get_camera_profile("imx290").sqm_band_offset == pytest.approx(0.43)
-        assert get_camera_profile("hq").sqm_band_offset == pytest.approx(0.07)
+        assert get_camera_profile("hq").sqm_band_offset == pytest.approx(0.39)
         assert get_camera_profile("imx296").sqm_band_offset == pytest.approx(-0.46)

@@ -242,9 +242,12 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # Measured on-sky: -0.05 ± 0.01 -> effectively 0. HQ ships with a factory
         # IR-cut filter, so no NIR leak and the green passband ~ Johnson V.
         color_coefficient=0.0,
-        # Small residual vs reference meter despite the IR-cut. Provisional
-        # (2 trusted sweeps); refine vs reference meter.
-        sqm_band_offset=0.07,
+        # Calibrated from 4 referenced sweeps (2025-11-16 x2, 2025-11-18,
+        # 2026-07-16): -0.32 median residual vs reference meter with the full
+        # pipeline (incl. wing correction), spread 0.14 mag. Non-zero despite
+        # the IR-cut: the residual absorbs passband + optics differences vs
+        # the meter, same LP-dominated sky caveat as the other sensors.
+        sqm_band_offset=0.39,
     ),
 }
 
