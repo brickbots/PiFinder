@@ -305,38 +305,9 @@ def _hide_current_build(entries: List[dict], current_ref: Optional[str]) -> List
     return [e for e in entries if e.get("ref") != current_ref]
 
 
-MIGRATION_GATE_URL = (
-    "https://raw.githubusercontent.com/brickbots/PiFinder/release/migration_gate.json"
-)
-
-# Secret unlock: 7x square button
-_UNLOCK_SEQUENCE = ["square"] * 7
-
 # Migration targets are read from the update manifest, consulted in descending
 # stability; the first available entry carrying a migration tarball wins.
 _MIGRATION_CHANNELS = ("stable", "beta", "unstable")
-
-
-def _fetch_migration_config() -> Optional[dict]:
-    """Fetch and parse the remote migration gate JSON.
-
-    Returns the parsed dict on success; None on network error, non-200
-    response, or malformed JSON. Only the `nixos_for_everyone` flag is used by
-    the caller — the tarball itself comes from the update manifest.
-    """
-    try:
-        res = requests.get(MIGRATION_GATE_URL, timeout=REQUEST_TIMEOUT)
-    except requests.exceptions.RequestException:
-        return None
-    if res.status_code != 200:
-        return None
-    try:
-        data = res.json()
-    except ValueError:
-        return None
-    if not isinstance(data, dict):
-        return None
-    return data
 
 
 def _fetch_download_size_mb(url: str) -> Optional[int]:
@@ -476,10 +447,6 @@ class UISoftware(UIModule):
         )
         self._checking = False
         self._check_failed = False
-
-        # Unlock sequence tracking (7x square triggers a manifest-sourced
-        # in-place migration).
-        self._key_buffer: List[str] = []
 
         self._scrollers: Dict[str, TextLayouterScroll] = {}
         self._scroller_phase: Optional[str] = None
@@ -1031,42 +998,6 @@ class UISoftware(UIModule):
             )
             y += 12
 
-    def _record_key(self, key_name: str):
-        """Record a key press for the migration unlock sequence (7x square).
-
-        The migration path exists to move a Raspbian install onto NixOS; on a
-        system already running NixOS there is nothing to migrate, so the
-        unlock is inert there.
-        """
-        if utils.running_system_store_path() is not None:
-            return
-        self._key_buffer.append(key_name)
-        if len(self._key_buffer) > len(_UNLOCK_SEQUENCE):
-            self._key_buffer = self._key_buffer[-len(_UNLOCK_SEQUENCE) :]
-        if self._key_buffer == _UNLOCK_SEQUENCE:
-            self._key_buffer = []
-            # Unlock: offer the first available migration target from the
-            # manifest, ignoring the nixos_for_everyone gate (that governs only
-            # the public path).
-            version_info = _migration_version_info_from_manifest()
-            if version_info:
-                self._trigger_migration(version_info)
-            else:
-                self.message(_("No release found"), 2)
-
-    def _trigger_migration(self, version_info: dict):
-        """Push UIMigrationConfirm onto the UI stack with the supplied
-        version_info (must already contain migration_url and
-        migration_sha256_url)."""
-        self.message("System Upgrade", 1)
-        self.add_to_stack(
-            {
-                "class": UIMigrationConfirm,
-                "version_info": version_info,
-                "current_version": self._software_version.strip(),
-            }
-        )
-
     # ------------------------------------------------------------------
     # Main update loop
     # ------------------------------------------------------------------
@@ -1190,7 +1121,6 @@ class UISoftware(UIModule):
         return True
 
     def key_square(self):
-        self._record_key("square")
         # Manual refresh: re-fetch the manifest with the same feedback as the
         # automatic check on entry — the bottom status line in browse, the
         # full "Checking for updates" screen when currently offline.
@@ -1200,9 +1130,6 @@ class UISoftware(UIModule):
             self._phase = "loading"
             self._elipsis_count = 0
             self._start_refresh()
-
-    def key_number(self, number):
-        self._key_buffer = []
 
     # ------------------------------------------------------------------
     # Update action

@@ -6,13 +6,14 @@ import requests
 
 # Installs the _() gettext builtin the UI modules rely on; must precede ui imports.
 import PiFinder.i18n  # noqa: F401
+from PiFinder.ui import callbacks
 from PiFinder.ui.software import (
+    UIMigrationConfirm,
     UISoftware,
     UPDATE_MANIFEST_URL,
     _annotate_trunk_entries,
     _entry_detail,
     _entry_row_parts,
-    _fetch_migration_config,
     _fetch_update_manifest,
     _format_age,
     _load_cached_manifest,
@@ -20,7 +21,6 @@ from PiFinder.ui.software import (
     _parse_manifest,
     _save_cached_manifest,
     _strip_markdown,
-    _UNLOCK_SEQUENCE,
     update_needed,
 )
 
@@ -56,15 +56,6 @@ class TestUpdateNeeded:
 
     def test_unknown_returns_true(self):
         assert update_needed("2.4.0", "Unknown") is True
-
-
-@pytest.mark.unit
-class TestUnlockSequence:
-    def test_sequence_length(self):
-        assert len(_UNLOCK_SEQUENCE) == 7
-
-    def test_sequence_content(self):
-        assert _UNLOCK_SEQUENCE == ["square"] * 7
 
 
 @pytest.mark.unit
@@ -108,57 +99,6 @@ def _mock_invalid_json_response(status_code=200):
     resp.status_code = status_code
     resp.json.side_effect = ValueError("not json")
     return resp
-
-
-@pytest.mark.unit
-class TestFetchMigrationConfig:
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_dict_when_gate_open_and_url_set(self, mock_get):
-        payload = {"nixos_for_everyone": True, "nixos_url": _NIXOS_URL}
-        mock_get.return_value = _mock_json_response(payload)
-        assert _fetch_migration_config() == payload
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_dict_when_gate_closed(self, mock_get):
-        # Gate check is the caller's job; fetch just parses the JSON.
-        payload = {"nixos_for_everyone": False}
-        mock_get.return_value = _mock_json_response(payload)
-        assert _fetch_migration_config() == payload
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_dict_without_url(self, mock_get):
-        # The tarball comes from the manifest now, so the gate no longer needs a
-        # nixos_url — only the nixos_for_everyone flag matters to the caller.
-        payload = {"nixos_for_everyone": True}
-        mock_get.return_value = _mock_json_response(payload)
-        assert _fetch_migration_config() == payload
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_on_http_error(self, mock_get):
-        mock_get.return_value = _mock_json_response(
-            {"nixos_for_everyone": True, "nixos_url": _NIXOS_URL}, status_code=404
-        )
-        assert _fetch_migration_config() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_on_connection_error(self, mock_get):
-        mock_get.side_effect = requests.exceptions.ConnectionError
-        assert _fetch_migration_config() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_on_timeout(self, mock_get):
-        mock_get.side_effect = requests.exceptions.Timeout
-        assert _fetch_migration_config() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_on_malformed_json(self, mock_get):
-        mock_get.return_value = _mock_invalid_json_response()
-        assert _fetch_migration_config() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_when_payload_is_not_object(self, mock_get):
-        mock_get.return_value = _mock_json_response(["nixos_for_everyone"])
-        assert _fetch_migration_config() is None
 
 
 @pytest.mark.unit
@@ -704,42 +644,6 @@ class TestManifestCache:
 
 
 @pytest.mark.unit
-class TestMigrationUnlock:
-    def _ui(self):
-        ui = UISoftware.__new__(UISoftware)
-        ui._phase = "confirm"  # phase without square-refresh side effects
-        ui._key_buffer = []
-        return ui
-
-    @patch("PiFinder.ui.software.utils.running_system_store_path")
-    def test_unlock_inert_on_nixos(self, mock_running):
-        mock_running.return_value = "/nix/store/aaa-nixos-system-pifinder"
-        ui = self._ui()
-        with patch.object(UISoftware, "_trigger_migration") as mock_trigger:
-            with patch(
-                "PiFinder.ui.software._migration_version_info_from_manifest"
-            ) as mock_info:
-                for _press in range(7):
-                    ui.key_square()
-        mock_info.assert_not_called()
-        mock_trigger.assert_not_called()
-        assert ui._key_buffer == []
-
-    @patch("PiFinder.ui.software.utils.running_system_store_path")
-    def test_unlock_triggers_migration_off_nixos(self, mock_running):
-        mock_running.return_value = None
-        ui = self._ui()
-        with patch.object(UISoftware, "_trigger_migration") as mock_trigger:
-            with patch(
-                "PiFinder.ui.software._migration_version_info_from_manifest",
-                return_value={"version": "3.0.0"},
-            ):
-                for _press in range(7):
-                    ui.key_square()
-        mock_trigger.assert_called_once_with({"version": "3.0.0"})
-
-
-@pytest.mark.unit
 class TestManualRefresh:
     def _ui(self, phase):
         ui = UISoftware.__new__(UISoftware)
@@ -833,3 +737,52 @@ class TestConsumeRefreshResult:
         ui = self._ui("browse")
         ui._consume_refresh_result()
         assert ui._checking is True
+
+
+@pytest.mark.unit
+class TestStartNixosMigrationCallback:
+    def _ui_module(self):
+        ui = MagicMock()
+        ui.message = MagicMock()
+        ui.add_to_stack = MagicMock()
+        return ui
+
+    @patch("PiFinder.ui.callbacks.utils.running_system_store_path")
+    def test_noop_on_nixos(self, mock_running):
+        mock_running.return_value = "/nix/store/aaa-nixos-system-pifinder"
+        ui = self._ui_module()
+        with patch(
+            "PiFinder.ui.software._migration_version_info_from_manifest"
+        ) as mock_info:
+            callbacks.start_nixos_migration(ui)
+        mock_info.assert_not_called()
+        ui.add_to_stack.assert_not_called()
+        ui.message.assert_called_once()
+
+    @patch("PiFinder.ui.callbacks.utils.running_system_store_path")
+    def test_pushes_confirm_screen_off_nixos(self, mock_running):
+        mock_running.return_value = None
+        ui = self._ui_module()
+        info = {"version": "3.0.0", "migration_url": "u", "migration_sha256_url": "s"}
+        with patch(
+            "PiFinder.ui.software._migration_version_info_from_manifest",
+            return_value=info,
+        ):
+            with patch("PiFinder.ui.callbacks.utils.get_version", return_value="2.2.0"):
+                callbacks.start_nixos_migration(ui)
+        pushed = ui.add_to_stack.call_args[0][0]
+        assert pushed["class"] is UIMigrationConfirm
+        assert pushed["version_info"] == info
+        assert pushed["current_version"] == "2.2.0"
+
+    @patch("PiFinder.ui.callbacks.utils.running_system_store_path")
+    def test_reports_when_no_target(self, mock_running):
+        mock_running.return_value = None
+        ui = self._ui_module()
+        with patch(
+            "PiFinder.ui.software._migration_version_info_from_manifest",
+            return_value=None,
+        ):
+            callbacks.start_nixos_migration(ui)
+        ui.add_to_stack.assert_not_called()
+        ui.message.assert_called_once()
