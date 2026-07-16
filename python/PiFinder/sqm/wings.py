@@ -41,6 +41,7 @@ class WingEstimator:
         min_samples: int = 3,
         min_stars: int = 3,
         min_core_snr: float = 50.0,
+        min_wing_radius: int = 0,
     ):
         """
         Args:
@@ -52,6 +53,14 @@ class WingEstimator:
             min_stars: per-frame minimum of usable stars for one ``f`` sample.
             min_core_snr: core flux must exceed this multiple of the per-pixel
                 sky noise for a star's wings to be measurable.
+            min_wing_radius: reject stars whose wing boundary lands closer in
+                than this radius (px). A boundary collapsing toward the
+                aperture means the wings sank below the ring noise — at the
+                degenerate limit (boundary == aperture) total==core and f is
+                exactly 1.0 regardless of the optics — so such samples say
+                nothing about the PSF and must not enter the window. Sensor
+                plate scales differ, so the caller supplies this in the
+                photometry image's own pixels (CameraProfile.wing_min_radius_px).
         """
         self.aperture_radius = aperture_radius
         self.max_radius = max_radius
@@ -60,6 +69,7 @@ class WingEstimator:
         self.min_samples = min_samples
         self.min_stars = min_stars
         self.min_core_snr = min_core_snr
+        self.min_wing_radius = min_wing_radius
         self._samples: deque = deque(maxlen=max_samples)
 
     def _measure_star(self, patch: np.ndarray, r: np.ndarray) -> Optional[float]:
@@ -88,6 +98,10 @@ class WingEstimator:
             return None
 
         wing_radius = self.ring_edges[cut_idx]
+        if wing_radius < self.min_wing_radius:
+            # Boundary collapsed toward the aperture: wings unresolved for
+            # this star (too faint for this sky), not evidence of a tight PSF.
+            return None
         sky_pixels = patch[(r > wing_radius) & (r <= self.max_radius)]
         if len(sky_pixels) == 0:
             return None
