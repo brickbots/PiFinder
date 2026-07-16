@@ -98,6 +98,7 @@ def update_build(args: argparse.Namespace) -> None:
             "source_sha": args.head_sha,
             "version": args.version or f"PR#{number}-{short_sha}",
             "store_path": store_path,
+            "built_at": now_iso(),
         }
         set_available(entry)
         channels["unstable"] = replace_entry(
@@ -117,6 +118,7 @@ def update_build(args: argparse.Namespace) -> None:
             "source_sha": args.sha,
             "version": args.version or f"{args.ref_name}-{short_sha}",
             "store_path": store_path,
+            "built_at": now_iso(),
         }
         set_available(entry)
         channels["unstable"] = replace_entry(
@@ -146,6 +148,7 @@ def update_release(args: argparse.Namespace) -> None:
         "store_path": args.store_path or None,
         "migration_url": args.migration_url or None,
         "migration_sha256_url": args.migration_sha256_url or None,
+        "built_at": now_iso(),
     }
     set_available(entry)
     manifest["channels"][channel] = replace_entry(
