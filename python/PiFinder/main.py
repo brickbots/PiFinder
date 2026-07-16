@@ -170,46 +170,6 @@ StateManager.register("UIState", UIState)
 StateManager.register("NewImage", Image.new)
 
 
-class DevModeToggle:
-    """Global 7x-SQUARE gesture that toggles the dev_mode config option.
-
-    dev_mode gates developer-only surfaces; today its only effect is exposing
-    the unstable software-update channel (see PiFinder.ui.software).
-    """
-
-    REQUIRED_PRESSES = 7
-    WINDOW_SECONDS = 10.0
-
-    def __init__(self, cfg, square_keycode):
-        self._cfg = cfg
-        self._square_keycode = square_keycode
-        self._count = 0
-        self._first_press = 0.0
-
-    def process_keycode(self, keycode) -> bool:
-        """Track square presses within a rolling time window.
-        Returns True if dev mode was toggled (keycode consumed)."""
-        if keycode == self._square_keycode:
-            now = time.monotonic()
-            if self._count == 0 or now - self._first_press > self.WINDOW_SECONDS:
-                self._count = 1
-                self._first_press = now
-            else:
-                self._count += 1
-            if self._count >= self.REQUIRED_PRESSES:
-                self._count = 0
-                dev_mode = not self._cfg.get_option("dev_mode", False)
-                self._cfg.set_option("dev_mode", dev_mode)
-                return True
-        else:
-            self._count = 0
-        return False
-
-    @property
-    def dev_mode(self) -> bool:
-        return self._cfg.get_option("dev_mode", False)
-
-
 class PowerManager:
     def __init__(self, cfg, shared_state, display_device):
         self.cfg = cfg
@@ -820,7 +780,6 @@ def main(
             pygame_key_map, pygame_ctrl_key_map = _build_pygame_keymaps()
 
         log_time = True
-        dev_mode_toggle = DevModeToggle(cfg, keyboard_base.SQUARE)
         # Start of main except handler / loop
         try:
             while True:
@@ -992,12 +951,6 @@ def main(
                         keycode = keyboard_queue.get(block=False)
                 except queue.Empty:
                     pass
-
-                # Dev mode toggle: 7x SQUARE, consumed before menu handling
-                if keycode is not None and dev_mode_toggle.process_keycode(keycode):
-                    msg = "DEV MODE ON" if dev_mode_toggle.dev_mode else "DEV MODE OFF"
-                    menu_manager.message(msg, timeout=2)
-                    keycode = None
 
                 # Register activity here will return True if the power
                 # state changes.  If so, we DO NOT process this keystroke

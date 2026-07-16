@@ -1371,6 +1371,16 @@ pifinder_menu = {
                             "select": "single",
                             "items": [
                                 {
+                                    "name": _("Dev Mode"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "dev_mode",
+                                    "items": [
+                                        {"name": _("Off"), "value": False},
+                                        {"name": _("On"), "value": True},
+                                    ],
+                                },
+                                {
                                     "name": _("Screen Off"),
                                     "class": UITextMenu,
                                     "select": "single",

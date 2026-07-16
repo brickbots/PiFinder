@@ -1,16 +1,23 @@
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
+# Installs the _() gettext builtin the UI modules rely on; must precede ui imports.
+import PiFinder.i18n  # noqa: F401
 from PiFinder.ui.software import (
     UISoftware,
     UPDATE_MANIFEST_URL,
-    _fetch_migration_config,
+    _annotate_trunk_entries,
+    _entry_detail,
+    _entry_row_parts,
     _fetch_update_manifest,
-    _migration_version_info_from_manifest,
+    _format_age,
+    _load_cached_manifest,
+    _parse_manifest,
+    _save_cached_manifest,
     _strip_markdown,
-    _UNLOCK_SEQUENCE,
     update_needed,
 )
 
@@ -46,15 +53,6 @@ class TestUpdateNeeded:
 
     def test_unknown_returns_true(self):
         assert update_needed("2.4.0", "Unknown") is True
-
-
-@pytest.mark.unit
-class TestUnlockSequence:
-    def test_sequence_length(self):
-        assert len(_UNLOCK_SEQUENCE) == 7
-
-    def test_sequence_content(self):
-        assert _UNLOCK_SEQUENCE == ["square"] * 7
 
 
 @pytest.mark.unit
@@ -98,57 +96,6 @@ def _mock_invalid_json_response(status_code=200):
     resp.status_code = status_code
     resp.json.side_effect = ValueError("not json")
     return resp
-
-
-@pytest.mark.unit
-class TestFetchMigrationConfig:
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_dict_when_gate_open_and_url_set(self, mock_get):
-        payload = {"nixos_for_everyone": True, "nixos_url": _NIXOS_URL}
-        mock_get.return_value = _mock_json_response(payload)
-        assert _fetch_migration_config() == payload
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_dict_when_gate_closed(self, mock_get):
-        # Gate check is the caller's job; fetch just parses the JSON.
-        payload = {"nixos_for_everyone": False}
-        mock_get.return_value = _mock_json_response(payload)
-        assert _fetch_migration_config() == payload
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_dict_without_url(self, mock_get):
-        # The tarball comes from the manifest now, so the gate no longer needs a
-        # nixos_url — only the nixos_for_everyone flag matters to the caller.
-        payload = {"nixos_for_everyone": True}
-        mock_get.return_value = _mock_json_response(payload)
-        assert _fetch_migration_config() == payload
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_on_http_error(self, mock_get):
-        mock_get.return_value = _mock_json_response(
-            {"nixos_for_everyone": True, "nixos_url": _NIXOS_URL}, status_code=404
-        )
-        assert _fetch_migration_config() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_on_connection_error(self, mock_get):
-        mock_get.side_effect = requests.exceptions.ConnectionError
-        assert _fetch_migration_config() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_on_timeout(self, mock_get):
-        mock_get.side_effect = requests.exceptions.Timeout
-        assert _fetch_migration_config() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_on_malformed_json(self, mock_get):
-        mock_get.return_value = _mock_invalid_json_response()
-        assert _fetch_migration_config() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_returns_none_when_payload_is_not_object(self, mock_get):
-        mock_get.return_value = _mock_json_response(["nixos_for_everyone"])
-        assert _fetch_migration_config() is None
 
 
 @pytest.mark.unit
@@ -273,139 +220,6 @@ class TestFetchUpdateManifest:
             _fetch_update_manifest()
 
 
-def _migration_entry(version="3.0.0", available=True, with_urls=True):
-    # Mirror the real manifest: a migration-capable release carries both a
-    # valid store_path (so available/unavailable resolves from it) and the
-    # migration tarball URLs.
-    entry = {
-        "kind": "release",
-        "label": f"v{version}",
-        "version": version,
-        "available": available,
-        "store_path": (
-            f"/nix/store/{'a' * 32}-nixos-system-pifinder-{version}"
-            if available
-            else None
-        ),
-    }
-    if with_urls:
-        base = f"https://example.invalid/releases/download/v{version}"
-        entry["migration_url"] = f"{base}/pifinder-migration-v{version}.tar.zst"
-        entry["migration_sha256_url"] = (
-            f"{base}/pifinder-migration-v{version}.tar.zst.sha256"
-        )
-    return entry
-
-
-def _manifest(stable=None, beta=None, unstable=None):
-    return {
-        "schema": 1,
-        "channels": {
-            "stable": stable or [],
-            "beta": beta or [],
-            "unstable": unstable or [],
-        },
-    }
-
-
-def _mock_head_response(size_bytes=None, status_code=200):
-    resp = MagicMock()
-    resp.status_code = status_code
-    resp.headers = {} if size_bytes is None else {"Content-Length": str(size_bytes)}
-    return resp
-
-
-# Selection also HEADs the chosen tarball for its size, so requests.head is
-# stubbed throughout (never hit the network from tests).
-@pytest.mark.unit
-@patch(
-    "PiFinder.ui.software.requests.head",
-    side_effect=requests.exceptions.ConnectionError,
-)
-class TestMigrationVersionInfoFromManifest:
-    @patch("PiFinder.ui.software.requests.get")
-    def test_prefers_stable(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(
-                stable=[_migration_entry("3.0.0")],
-                beta=[_migration_entry("3.1.0-beta")],
-                unstable=[_migration_entry("nixos-abc")],
-            )
-        )
-        info = _migration_version_info_from_manifest()
-        assert info["version"] == "3.0.0"
-        assert info["type"] == "upgrade"
-        assert info["migration_url"].endswith("pifinder-migration-v3.0.0.tar.zst")
-        assert info["migration_sha256_url"].endswith(".sha256")
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_includes_size_when_head_succeeds(self, mock_get, mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(stable=[_migration_entry("3.0.0")])
-        )
-        mock_head.side_effect = None
-        mock_head.return_value = _mock_head_response(size_bytes=300 * 1024 * 1024)
-        info = _migration_version_info_from_manifest()
-        assert info["migration_size_mb"] == 300
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_omits_size_when_head_fails(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(stable=[_migration_entry("3.0.0")])
-        )
-        info = _migration_version_info_from_manifest()
-        assert "migration_size_mb" not in info
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_falls_back_to_beta_when_stable_empty(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(beta=[_migration_entry("3.1.0-beta")])
-        )
-        assert _migration_version_info_from_manifest()["version"] == "3.1.0-beta"
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_falls_back_to_unstable_last(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(unstable=[_migration_entry("nixos-abc")])
-        )
-        assert _migration_version_info_from_manifest()["version"] == "nixos-abc"
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_skips_unavailable_entries(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(
-                stable=[_migration_entry("3.0.0", available=False)],
-                beta=[_migration_entry("3.1.0-beta")],
-            )
-        )
-        assert _migration_version_info_from_manifest()["version"] == "3.1.0-beta"
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_skips_entries_without_migration_tarball(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(
-                stable=[_migration_entry("3.0.0", with_urls=False)],
-                beta=[_migration_entry("3.1.0-beta")],
-            )
-        )
-        assert _migration_version_info_from_manifest()["version"] == "3.1.0-beta"
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_none_when_no_migration_entries(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(_manifest())
-        assert _migration_version_info_from_manifest() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_none_on_network_error(self, mock_get, _mock_head):
-        mock_get.side_effect = requests.exceptions.ConnectionError
-        assert _migration_version_info_from_manifest() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_none_when_channels_missing(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response({"schema": 1})
-        assert _migration_version_info_from_manifest() is None
-
-
 @pytest.mark.unit
 def test_unstable_list_hides_exact_running_build():
     # The running build is hidden from unstable by store-path identity; a
@@ -521,3 +335,269 @@ def test_unavailable_version_has_no_install_option():
 
     assert ui._phase == "confirm"
     assert ui._confirm_options == ["Cancel"]
+
+
+def _iso_ago(**delta) -> str:
+    return (datetime.now(timezone.utc) - timedelta(**delta)).isoformat()
+
+
+@pytest.mark.unit
+class TestFormatAge:
+    def test_minutes(self):
+        assert _format_age(_iso_ago(minutes=5)) == "5m ago"
+
+    def test_hours(self):
+        assert _format_age(_iso_ago(hours=3, minutes=10)) == "3h ago"
+
+    def test_days(self):
+        assert _format_age(_iso_ago(days=2, hours=1)) == "2d ago"
+
+    def test_future_timestamp_clamps_to_zero(self):
+        assert _format_age(_iso_ago(minutes=-5)) == "0m ago"
+
+    def test_none(self):
+        assert _format_age(None) is None
+
+    def test_garbage(self):
+        assert _format_age("not-a-date") is None
+
+
+@pytest.mark.unit
+class TestEntryRowParts:
+    def test_pr_row_leads_with_bare_number(self):
+        prefix, text = _entry_row_parts(
+            {
+                "kind": "pr",
+                "number": 534,
+                "label": "PR#534-2692406",
+                "title": "feat(catalog): add observable asteroids",
+            }
+        )
+        assert prefix == "534 "
+        assert text == "feat(catalog): add observable asteroids"
+
+    def test_trunk_row_shows_branch_name(self):
+        prefix, text = _entry_row_parts(
+            {
+                "kind": "trunk",
+                "is_trunk": True,
+                "label": "nixos-d1657e6",
+                "source_ref": "nixos",
+            }
+        )
+        assert prefix == "• "
+        assert text == "nixos"
+
+    def test_release_row_shows_label(self):
+        prefix, text = _entry_row_parts(
+            {"kind": "release", "label": "v3.0.0-beta", "title": "PiFinder v3.0.0-beta"}
+        )
+        assert prefix == ""
+        assert text == "v3.0.0-beta"
+
+
+@pytest.mark.unit
+class TestEntryDetail:
+    def test_unavailable_reason_wins_over_age(self):
+        entry = {
+            "unavailable": True,
+            "subtitle": "Broken build (not in cache)",
+            "built_at": _iso_ago(minutes=5),
+        }
+        assert _entry_detail(entry) == "Broken build (not in cache)"
+
+    def test_build_age_and_short_hash_when_available(self):
+        entry = {
+            "subtitle": "Some title",
+            "built_at": _iso_ago(minutes=12),
+            "source_sha": "2692406bff684a56a2acce1febffb015aad72038",
+        }
+        assert _entry_detail(entry) == "built 12m ago · 2692406"
+
+    def test_build_age_without_hash(self):
+        entry = {"subtitle": "Some title", "built_at": _iso_ago(minutes=12)}
+        assert _entry_detail(entry) == "built 12m ago"
+
+    def test_hash_without_build_age(self):
+        entry = {"subtitle": "Some title", "source_sha": "d1657e66b6ca4e14"}
+        assert _entry_detail(entry) == "d1657e6"
+
+    def test_falls_back_to_subtitle_without_build_info(self):
+        assert _entry_detail({"subtitle": "Some title"}) == "Some title"
+
+
+@pytest.mark.unit
+class TestTrunkNixosMarker:
+    def _manifest_with_trunk(self, **extra):
+        trunk = {
+            "kind": "trunk",
+            "label": "main-abc1234",
+            "title": "main branch",
+            "version": "main-abc1234",
+            "source_repo": "brickbots/PiFinder",
+            "source_ref": "main",
+            "store_path": "/nix/store/aaa-nixos-system-pifinder",
+            "available": True,
+        }
+        trunk.update(extra)
+        return {"schema": 1, "channels": {"unstable": [trunk]}}
+
+    def test_parse_drops_trunk_marked_non_nixos(self):
+        channels = _parse_manifest(self._manifest_with_trunk(nixos_branch=False))
+        assert channels["unstable"] == []
+
+    def test_parse_keeps_trunk_marked_nixos(self):
+        channels = _parse_manifest(self._manifest_with_trunk(nixos_branch=True))
+        assert channels["unstable"][0]["is_trunk"] is True
+
+    def test_parse_keeps_unannotated_trunk(self):
+        channels = _parse_manifest(self._manifest_with_trunk())
+        assert len(channels["unstable"]) == 1
+
+    @patch("PiFinder.ui.software.requests.head")
+    def test_annotate_marks_nixos_branch(self, mock_head):
+        mock_head.return_value = MagicMock(status_code=200)
+        manifest = self._manifest_with_trunk()
+        _annotate_trunk_entries(manifest)
+        assert manifest["channels"]["unstable"][0]["nixos_branch"] is True
+        url = mock_head.call_args[0][0]
+        assert url == (
+            "https://raw.githubusercontent.com/brickbots/PiFinder/main/flake.nix"
+        )
+
+    @patch("PiFinder.ui.software.requests.head")
+    def test_annotate_marks_non_nixos_branch(self, mock_head):
+        mock_head.return_value = MagicMock(status_code=404)
+        manifest = self._manifest_with_trunk()
+        _annotate_trunk_entries(manifest)
+        assert manifest["channels"]["unstable"][0]["nixos_branch"] is False
+
+    @patch("PiFinder.ui.software.requests.head")
+    def test_annotate_leaves_entry_alone_on_network_error(self, mock_head):
+        mock_head.side_effect = requests.exceptions.ConnectionError
+        manifest = self._manifest_with_trunk()
+        _annotate_trunk_entries(manifest)
+        assert "nixos_branch" not in manifest["channels"]["unstable"][0]
+
+
+@pytest.mark.unit
+class TestManifestCache:
+    def test_round_trip(self, tmp_path):
+        manifest = {"schema": 1, "channels": {"stable": [], "beta": [], "unstable": []}}
+        cache = tmp_path / "update_manifest.json"
+        with patch("PiFinder.ui.software.MANIFEST_CACHE_PATH", cache):
+            _save_cached_manifest(manifest)
+            assert _load_cached_manifest() == manifest
+
+    def test_missing_cache_returns_none(self, tmp_path):
+        cache = tmp_path / "update_manifest.json"
+        with patch("PiFinder.ui.software.MANIFEST_CACHE_PATH", cache):
+            assert _load_cached_manifest() is None
+
+    def test_wrong_schema_returns_none(self, tmp_path):
+        cache = tmp_path / "update_manifest.json"
+        cache.write_text('{"schema": 99}')
+        with patch("PiFinder.ui.software.MANIFEST_CACHE_PATH", cache):
+            assert _load_cached_manifest() is None
+
+    def test_corrupt_cache_returns_none(self, tmp_path):
+        cache = tmp_path / "update_manifest.json"
+        cache.write_text("{nope")
+        with patch("PiFinder.ui.software.MANIFEST_CACHE_PATH", cache):
+            assert _load_cached_manifest() is None
+
+
+@pytest.mark.unit
+class TestManualRefresh:
+    def _ui(self, phase):
+        ui = UISoftware.__new__(UISoftware)
+        ui._phase = phase
+        ui._key_buffer = []
+        ui._elipsis_count = 30
+        return ui
+
+    def test_square_refetches_in_browse(self):
+        ui = self._ui("browse")
+        with patch.object(UISoftware, "_start_refresh") as mock_start:
+            ui.key_square()
+        mock_start.assert_called_once()
+        assert ui._phase == "browse"
+
+    def test_square_retries_from_offline_via_loading(self):
+        ui = self._ui("offline")
+        with patch.object(UISoftware, "_start_refresh") as mock_start:
+            ui.key_square()
+        mock_start.assert_called_once()
+        assert ui._phase == "loading"
+
+    def test_square_does_not_refetch_in_confirm(self):
+        ui = self._ui("confirm")
+        with patch.object(UISoftware, "_start_refresh") as mock_start:
+            ui.key_square()
+        mock_start.assert_not_called()
+
+
+@pytest.mark.unit
+class TestListRollbackTargets:
+    def _targets(self, value):
+        ui = UISoftware.__new__(UISoftware)
+        with patch("PiFinder.ui.software.sys_utils") as mock_sys:
+            mock_sys.list_rollback_targets.return_value = value
+            return ui._list_rollback_targets()
+
+    def test_valid_entries_pass_through(self):
+        entries = [{"label": "gen 42", "ref": "/nix/store/aaa"}]
+        assert self._targets(entries) == entries
+
+    def test_non_dict_and_unlabeled_entries_dropped(self):
+        entries = [
+            "garbage",
+            {"ref": "/nix/store/aaa"},
+            {"label": 7},
+            {"label": "gen 42"},
+        ]
+        assert self._targets(entries) == [{"label": "gen 42"}]
+
+    def test_non_iterable_result_yields_empty(self):
+        assert self._targets(None) == []
+
+
+@pytest.mark.unit
+class TestConsumeRefreshResult:
+    def _ui(self, phase):
+        ui = UISoftware.__new__(UISoftware)
+        ui._phase = phase
+        ui._checking = True
+        ui._check_failed = False
+        ui._refresh_result = None
+        return ui
+
+    def test_success_moves_loading_to_browse(self):
+        ui = self._ui("loading")
+        ui._refresh_result = ("ok", {"stable": [], "beta": [], "unstable": []})
+        with patch.object(UISoftware, "_apply_manifest") as mock_apply:
+            ui._consume_refresh_result()
+        assert ui._phase == "browse"
+        assert ui._checking is False
+        assert ui._check_failed is False
+        mock_apply.assert_called_once()
+
+    def test_failure_without_cache_or_rollback_goes_offline(self):
+        ui = self._ui("loading")
+        ui._refresh_result = ("error", None)
+        with patch.object(UISoftware, "_list_rollback_targets", return_value=[]):
+            ui._consume_refresh_result()
+        assert ui._phase == "offline"
+        assert ui._checking is False
+
+    def test_failure_with_cached_list_only_flags(self):
+        ui = self._ui("browse")
+        ui._refresh_result = ("error", None)
+        ui._consume_refresh_result()
+        assert ui._phase == "browse"
+        assert ui._check_failed is True
+
+    def test_no_result_is_a_noop(self):
+        ui = self._ui("browse")
+        ui._consume_refresh_result()
+        assert ui._checking is True
