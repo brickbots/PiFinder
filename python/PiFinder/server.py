@@ -48,6 +48,16 @@ logs_logger = logging.getLogger("Server.Logs")
 SESSION_SECRET = str(uuid.uuid4())
 
 
+def parse_coordinate(value, field_name):
+    """Parse a coordinate/measurement field, accepting comma or period decimals."""
+    if value is None:
+        raise ValueError(_("%s is required") % field_name)
+    try:
+        return float(str(value).strip().replace(",", "."))
+    except ValueError:
+        raise ValueError(_("%s must be a number") % field_name)
+
+
 def auth_required(func):
     def auth_wrapper(*args, **kwargs):
         # check for and validate session
@@ -358,11 +368,13 @@ class Server:
         @auth_required
         def location_add():
             try:
-                name = request.form.get("name").strip()
-                lat = float(request.form.get("latitude"))
-                lon = float(request.form.get("longitude"))
-                altitude = float(request.form.get("altitude"))
-                error_in_m = float(request.form.get("error_in_m", "0"))
+                name = (request.form.get("name") or "").strip()
+                lat = parse_coordinate(request.form.get("latitude"), _("Latitude"))
+                lon = parse_coordinate(request.form.get("longitude"), _("Longitude"))
+                altitude = parse_coordinate(request.form.get("altitude"), _("Altitude"))
+                error_in_m = parse_coordinate(
+                    request.form.get("error_in_m", "0"), _("Error")
+                )
                 source = request.form.get("source", "Manual Entry")
 
                 # Server-side validation
@@ -416,11 +428,13 @@ class Server:
                 if not (0 <= location_id < len(cfg.locations.locations)):
                     raise ValueError("Invalid location ID")
 
-                name = request.form.get("name").strip()
-                lat = float(request.form.get("latitude"))
-                lon = float(request.form.get("longitude"))
-                altitude = float(request.form.get("altitude"))
-                error_in_m = float(request.form.get("error_in_m", "0"))
+                name = (request.form.get("name") or "").strip()
+                lat = parse_coordinate(request.form.get("latitude"), _("Latitude"))
+                lon = parse_coordinate(request.form.get("longitude"), _("Longitude"))
+                altitude = parse_coordinate(request.form.get("altitude"), _("Altitude"))
+                error_in_m = parse_coordinate(
+                    request.form.get("error_in_m", "0"), _("Error")
+                )
                 source = request.form.get("source", "Manual Entry")
 
                 # Server-side validation
