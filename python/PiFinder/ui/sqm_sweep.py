@@ -300,17 +300,18 @@ class UISQMSweep(UIModule):
             with open(metadata_file, "r") as f:
                 metadata = json.load(f)
 
-            # Add current SQM state for the calibration record
+            # Always record the SQM/reference comparison, even when the live
+            # SQM is unavailable, so every sweep carries a calibration record.
             sqm_state = self.shared_state.sqm()
-            if sqm_state:
-                metadata["sqm"] = {
-                    "pifinder_value": sqm_state.value,
-                    "reference_value": self.reference_sqm,
-                    "difference": (self.reference_sqm - sqm_state.value)
-                    if self.reference_sqm and sqm_state.value
-                    else None,
-                    "source": sqm_state.source,
-                }
+            pifinder_value = sqm_state.value if sqm_state else None
+            metadata["sqm"] = {
+                "pifinder_value": pifinder_value,
+                "reference_value": self.reference_sqm,
+                "difference": (self.reference_sqm - pifinder_value)
+                if self.reference_sqm and pifinder_value
+                else None,
+                "source": sqm_state.source if sqm_state else None,
+            }
 
             # Add full SQM calculation details
             sqm_details = self.shared_state.sqm_details()
@@ -328,43 +329,48 @@ class UISQMSweep(UIModule):
                     "imu_delta": image_metadata.get("imu_delta"),
                 }
 
-            # Add solve data
-            solution = self.shared_state.solution()
-            if solution and solution.has_pointing():
-                aligned = solution.pointing.aligned.estimate
-                metadata["solve"] = {
-                    "ra_deg": aligned.RA,
-                    "dec_deg": aligned.Dec,
-                    "altitude_deg": solution.Alt,
-                    "azimuth_deg": solution.Az,
-                    "fov_deg": solution.diagnostics.FOV,
-                    "matches": solution.diagnostics.Matches,
-                    "rmse": solution.diagnostics.RMSE,
-                }
+            # Each optional enrichment below is guarded on its own: a failure in
+            # one section must not discard the metadata already collected.
+            try:
+                solution = self.shared_state.solution()
+                if solution and solution.has_pointing():
+                    aligned = solution.pointing.aligned.estimate
+                    metadata["solve"] = {
+                        "ra_deg": aligned.RA,
+                        "dec_deg": aligned.Dec,
+                        "altitude_deg": solution.Alt,
+                        "azimuth_deg": solution.Az,
+                        "fov_deg": solution.diagnostics.FOV,
+                        "matches": solution.diagnostics.Matches,
+                        "rmse": solution.diagnostics.RMSE,
+                    }
+            except Exception as e:
+                logger.warning(f"Could not record solve metadata: {e}")
 
-            # Add NoiseFloorEstimator output
-            camera_type = self.shared_state.camera_type()
-            exposure_sec = (
-                image_metadata.get("exposure_time", 500000) / 1_000_000.0
-                if image_metadata
-                else 0.5
-            )
-
-            if self.camera_image is not None:
-                image_array = np.array(self.camera_image.convert("L"))
-
-                estimator = NoiseFloorEstimator(
-                    camera_type=camera_type,
-                    enable_zero_sec_sampling=False,
+            try:
+                camera_type = self.shared_state.camera_type()
+                exposure_sec = (
+                    image_metadata.get("exposure_time", 500000) / 1_000_000.0
+                    if image_metadata
+                    else 0.5
                 )
-                _, nf_details = estimator.estimate_noise_floor(
-                    image=image_array,
-                    exposure_sec=exposure_sec,
-                )
+                if self.camera_image is not None:
+                    image_array = np.array(self.camera_image.convert("L"))
 
-                nf_details.pop("request_zero_sec_sample", None)
-                nf_details["camera_type"] = camera_type
-                metadata["noise_floor_estimator"] = nf_details
+                    estimator = NoiseFloorEstimator(
+                        camera_type=camera_type,
+                        enable_zero_sec_sampling=False,
+                    )
+                    _, nf_details = estimator.estimate_noise_floor(
+                        image=image_array,
+                        exposure_sec=exposure_sec,
+                    )
+
+                    nf_details.pop("request_zero_sec_sample", None)
+                    nf_details["camera_type"] = camera_type
+                    metadata["noise_floor_estimator"] = nf_details
+            except Exception as e:
+                logger.warning(f"Could not record noise-floor metadata: {e}")
 
             # Save updated metadata
             with open(metadata_file, "w") as f:
