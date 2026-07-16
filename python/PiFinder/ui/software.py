@@ -12,8 +12,10 @@ Channels:
 import json
 import logging
 import re
+import threading
 import time
-from typing import Dict, List, Optional, TYPE_CHECKING
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import requests
 
@@ -44,6 +46,16 @@ UPDATE_MANIFEST_URL = (
 REQUEST_TIMEOUT = 10
 _STORE_PATH_RE = re.compile(r"^/nix/store/[a-z0-9]+-[A-Za-z0-9._+=?,-]+$")
 
+# Last successfully fetched manifest, kept on disk so the screen can render a
+# version list immediately on entry while a fresh copy is fetched in the
+# background.
+MANIFEST_CACHE_PATH = utils.data_dir / "update_manifest.json"
+
+# A trunk entry is only offered when the branch it tracks is actually a NixOS
+# branch — detected by this file existing in the branch's tree. Keeps a
+# non-NixOS upstream main from showing up as an installable build.
+NIXOS_MARKER_FILE = "flake.nix"
+
 
 def _entry_from_manifest(item: dict, channel: str) -> Optional[dict]:
     label = item.get("label")
@@ -57,7 +69,13 @@ def _entry_from_manifest(item: dict, channel: str) -> Optional[dict]:
         "notes": item.get("notes") or None,
         "version": item.get("version") or label,
         "subtitle": title,
+        "title": title,
         "channel": channel,
+        "kind": item.get("kind"),
+        "number": item.get("number"),
+        "built_at": item.get("built_at"),
+        "source_ref": item.get("source_ref"),
+        "source_sha": item.get("source_sha"),
         "migration_url": item.get("migration_url") or None,
         "migration_sha256_url": item.get("migration_sha256_url") or None,
     }
@@ -80,9 +98,9 @@ def _entry_from_manifest(item: dict, channel: str) -> Optional[dict]:
     return entry
 
 
-def _fetch_update_manifest() -> dict[str, list[dict]]:
+def _fetch_raw_manifest() -> dict:
     """
-    Fetch CI-generated update metadata.
+    Fetch CI-generated update metadata as the raw manifest document.
     Raises RequestException for network failures so the caller can show offline.
     """
     res = requests.get(UPDATE_MANIFEST_URL, timeout=REQUEST_TIMEOUT)
@@ -90,11 +108,21 @@ def _fetch_update_manifest() -> dict[str, list[dict]]:
     manifest = res.json()
     if manifest.get("schema") != 1:
         raise ValueError("unsupported update manifest schema")
+    if not isinstance(manifest.get("channels", {}), dict):
+        raise ValueError("invalid update manifest channels")
+    return manifest
 
+
+def _parse_manifest(manifest: dict) -> dict[str, list[dict]]:
+    """Convert a raw manifest document into per-channel UI entries.
+
+    Trunk entries whose branch is known to lack the NixOS marker file are
+    dropped (annotation left by _annotate_trunk_entries; unknown means keep).
+    """
     channels: dict[str, list[dict]] = {}
     manifest_channels = manifest.get("channels", {})
     if not isinstance(manifest_channels, dict):
-        raise ValueError("invalid update manifest channels")
+        manifest_channels = {}
 
     for channel in ("stable", "beta", "unstable"):
         entries: list[dict] = []
@@ -104,12 +132,143 @@ def _fetch_update_manifest() -> dict[str, list[dict]]:
         for item in raw_entries:
             if not isinstance(item, dict):
                 continue
+            if item.get("kind") == "trunk" and item.get("nixos_branch") is False:
+                continue
             entry = _entry_from_manifest(item, channel)
             if entry is not None:
                 entries.append(entry)
         channels[channel] = entries
 
     return channels
+
+
+def _fetch_update_manifest() -> dict[str, list[dict]]:
+    """Fetch and parse update metadata in one step (no cache involvement)."""
+    return _parse_manifest(_fetch_raw_manifest())
+
+
+def _load_cached_manifest() -> Optional[dict]:
+    """Return the last cached raw manifest, or None when absent/invalid."""
+    try:
+        with open(MANIFEST_CACHE_PATH) as f:
+            manifest = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(manifest, dict) or manifest.get("schema") != 1:
+        return None
+    return manifest
+
+
+def _save_cached_manifest(manifest: dict) -> None:
+    """Best-effort atomic write of the manifest cache."""
+    try:
+        MANIFEST_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = MANIFEST_CACHE_PATH.with_suffix(".json.tmp")
+        with open(tmp_path, "w") as f:
+            json.dump(manifest, f)
+        tmp_path.replace(MANIFEST_CACHE_PATH)
+    except OSError as e:
+        logger.warning("Could not cache update manifest: %s", e)
+
+
+def _branch_has_nixos_marker(source_repo: str, source_ref: str) -> Optional[bool]:
+    """Whether the branch's tree contains the NixOS marker file.
+
+    Returns None when the check is inconclusive (network trouble, unexpected
+    status) so callers can keep the entry rather than hide a real build.
+    """
+    url = (
+        f"https://raw.githubusercontent.com/{source_repo}/"
+        f"{source_ref}/{NIXOS_MARKER_FILE}"
+    )
+    try:
+        res = requests.head(url, timeout=REQUEST_TIMEOUT)
+    except requests.exceptions.RequestException:
+        return None
+    if res.status_code == 200:
+        return True
+    if res.status_code == 404:
+        return False
+    return None
+
+
+def _annotate_trunk_entries(manifest: dict) -> None:
+    """Stamp nixos_branch on trunk entries in a raw manifest (in place).
+
+    An inconclusive check leaves the entry unannotated, and unannotated trunk
+    entries stay visible — a flaky network must not hide a real build. The
+    annotation is persisted with the cache, so the cached list applies the
+    same verdict without re-checking.
+    """
+    channels = manifest.get("channels", {})
+    if not isinstance(channels, dict):
+        return
+    unstable = channels.get("unstable", [])
+    if not isinstance(unstable, list):
+        return
+    for item in unstable:
+        if not isinstance(item, dict) or item.get("kind") != "trunk":
+            continue
+        repo = item.get("source_repo")
+        ref = item.get("source_ref")
+        if not repo or not ref:
+            continue
+        marker = _branch_has_nixos_marker(repo, ref)
+        if marker is not None:
+            item["nixos_branch"] = marker
+
+
+def _format_age(built_at: Optional[str]) -> Optional[str]:
+    """Human-readable age of a build timestamp ("5m ago", "3h ago", "2d ago")."""
+    if not built_at:
+        return None
+    try:
+        built = datetime.fromisoformat(built_at)
+    except ValueError:
+        return None
+    if built.tzinfo is None:
+        built = built.replace(tzinfo=timezone.utc)
+    minutes = max(0, int((datetime.now(timezone.utc) - built).total_seconds() // 60))
+    if minutes < 60:
+        return _("{minutes}m ago").format(minutes=minutes)
+    hours = minutes // 60
+    if hours < 24:
+        return _("{hours}h ago").format(hours=hours)
+    return _("{days}d ago").format(days=hours // 24)
+
+
+def _entry_row_parts(entry: dict) -> Tuple[str, str]:
+    """Split a version row into a fixed prefix and the scrollable text.
+
+    PR rows lead with the bare PR number, trunk rows with a dot; the store
+    hash never appears in the list — titles/branch names are what a human
+    scans for.
+    """
+    if entry.get("kind") == "pr" and entry.get("number"):
+        return f"{entry['number']} ", entry.get("title") or entry["label"]
+    if entry.get("is_trunk"):
+        return "• ", entry.get("source_ref") or entry["label"]
+    return "", entry["label"]
+
+
+def _entry_detail(entry: dict) -> str:
+    """Second line of a focused version row: unavailability beats build info.
+
+    Build info is age plus the short commit hash ("built 5h ago · 2692406") —
+    the hash stays out of the list rows but remains one focus away.
+    """
+    if entry.get("unavailable"):
+        return entry.get("subtitle", "")
+    parts = []
+    age = _format_age(entry.get("built_at"))
+    if age:
+        parts.append(_("built {age}").format(age=age))
+    sha = entry.get("source_sha")
+    if isinstance(sha, str) and sha:
+        parts.append(sha[:7])
+    if parts:
+        return " · ".join(parts)
+    return entry.get("subtitle", "")
 
 
 def _current_store_path() -> Optional[str]:
@@ -309,6 +468,15 @@ class UISoftware(UIModule):
         self._fail_reason = ""
         self._unstable_entries: List[dict] = []
 
+        # Background manifest refresh: the worker thread writes a single
+        # ("ok", channels) / ("error", None) tuple; update() consumes it.
+        self._refresh_thread: Optional[threading.Thread] = None
+        self._refresh_result: Optional[Tuple[str, Optional[Dict[str, List[dict]]]]] = (
+            None
+        )
+        self._checking = False
+        self._check_failed = False
+
         # Unlock sequence tracking (7x square triggers a manifest-sourced
         # in-place migration).
         self._key_buffer: List[str] = []
@@ -319,7 +487,6 @@ class UISoftware(UIModule):
 
     def active(self):
         super().active()
-        self._phase = "loading"
         self._elipsis_count = 0
         self._focus = "channel"
         self._channel_index = 0
@@ -329,37 +496,97 @@ class UISoftware(UIModule):
         self._scrollers = {}
         self._scroller_phase = None
         self._scroller_index = None
+        self._check_failed = False
+
+        # Render the last cached manifest immediately; a fresh copy is fetched
+        # in the background and swapped in when it lands.
+        cached = _load_cached_manifest()
+        if cached is not None:
+            self._apply_manifest(_parse_manifest(cached))
+            self._phase = "browse"
+        else:
+            self._phase = "loading"
+        self._start_refresh()
 
     # ------------------------------------------------------------------
     # Data
     # ------------------------------------------------------------------
 
-    def _fetch_channels(self):
+    def _list_rollback_targets(self) -> List[dict]:
         # Rollback targets come from local, immutable generation data, so they
         # are available even when the manifest can't be fetched — which is
-        # exactly when rollback matters most.
+        # exactly when rollback matters most. Entries are validated like
+        # manifest entries: anything without a string label can't be rendered
+        # or installed, so it is dropped rather than crash the screen.
         try:
-            rollback = sys_utils.list_rollback_targets()
+            targets = sys_utils.list_rollback_targets()
+            return [
+                t
+                for t in targets
+                if isinstance(t, dict) and isinstance(t.get("label"), str)
+            ]
         except Exception as e:  # never let rollback listing break the screen
             logger.warning("Could not list rollback targets: %s", e)
-            rollback = []
+            return []
 
+    def _start_refresh(self):
+        if self._refresh_thread is not None and self._refresh_thread.is_alive():
+            return
+        self._checking = True
+        self._refresh_result = None
+        self._refresh_thread = threading.Thread(
+            target=self._refresh_worker, daemon=True
+        )
+        self._refresh_thread.start()
+
+    def _refresh_worker(self):
+        """Background thread: fetch the manifest, annotate, cache, parse."""
         try:
-            manifest_channels = _fetch_update_manifest()
+            manifest = _fetch_raw_manifest()
         except (requests.exceptions.RequestException, ValueError) as e:
             logger.warning("Software update check failed (offline/invalid?): %s", e)
-            if not rollback:
-                self._phase = "offline"
-                return
-            # Network channels are unavailable, but we can still offer Rollback.
+            self._refresh_result = ("error", None)
+            return
+        _annotate_trunk_entries(manifest)
+        _save_cached_manifest(manifest)
+        self._refresh_result = ("ok", _parse_manifest(manifest))
+
+    def _consume_refresh_result(self):
+        """Apply a finished background refresh, if any (main thread only)."""
+        result = self._refresh_result
+        if result is None:
+            return
+        self._refresh_result = None
+        self._checking = False
+        status, manifest_channels = result
+
+        if status == "ok" and manifest_channels is not None:
+            self._check_failed = False
+            self._apply_manifest(manifest_channels, keep_position=True)
+            if self._phase in ("loading", "offline"):
+                self._phase = "browse"
+            return
+
+        # Refresh failed. With a cached list on screen just flag it; without
+        # one fall back to rollback-only browse, or the offline notice.
+        if self._phase != "loading":
+            self._check_failed = True
+            return
+        rollback = self._list_rollback_targets()
+        if rollback:
+            self._check_failed = True
             self._manifest_channels = {}
             self._channels = {"rollback": rollback}
             self._channel_names = list(self._channels.keys())
             self._channel_index = 0
             self._refresh_version_list()
             self._phase = "browse"
-            return
+        else:
+            self._phase = "offline"
 
+    def _apply_manifest(
+        self, manifest_channels: Dict[str, List[dict]], keep_position: bool = False
+    ):
         self._manifest_channels = manifest_channels
         self._channels = {
             "stable": manifest_channels.get("stable", []),
@@ -370,16 +597,23 @@ class UISoftware(UIModule):
             self._unstable_entries = manifest_channels.get("unstable", [])
             self._channels["unstable"] = self._unstable_entries
 
+        rollback = self._list_rollback_targets()
         if rollback:
             self._channels["rollback"] = rollback
 
         # Try to find subtitle for current version from fetched entries
         self._software_subtitle = self._find_current_subtitle()
 
+        # A background refresh should not yank the user's channel selection.
+        prev_channel = (
+            self._channel_names[self._channel_index] if self._channel_names else None
+        )
         self._channel_names = list(self._channels.keys())
-        self._channel_index = 0
-        self._refresh_version_list()
-        self._phase = "browse"
+        if keep_position and prev_channel in self._channel_names:
+            self._channel_index = self._channel_names.index(prev_channel)
+        else:
+            self._channel_index = 0
+        self._refresh_version_list(keep_position=keep_position)
 
     def _find_current_subtitle(self) -> Optional[str]:
         """Find a subtitle for the running build.
@@ -397,7 +631,7 @@ class UISoftware(UIModule):
 
         return None
 
-    def _refresh_version_list(self):
+    def _refresh_version_list(self, keep_position: bool = False):
         if not self._channel_names:
             self._version_list = []
             return
@@ -407,8 +641,12 @@ class UISoftware(UIModule):
             self._version_list = entries
         else:
             self._version_list = _hide_current_build(entries, _current_store_path())
-        self._list_index = 0
-        self._scroll_offset = 0
+        if keep_position and self._version_list:
+            self._list_index = min(self._list_index, len(self._version_list) - 1)
+            self._scroll_offset = min(self._scroll_offset, self._list_index)
+        else:
+            self._list_index = 0
+            self._scroll_offset = 0
         self._scrollers = {}
         self._scroller_phase = None
         self._scroller_index = None
@@ -593,20 +831,21 @@ class UISoftware(UIModule):
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
+            self._draw_refresh_status()
             return
 
         label_width = self.fonts.base.line_length - 2
+        list_bottom = 116 if (self._checking or self._check_failed) else 128
         current_y = y
         for i in range(len(self._version_list)):
             idx = self._scroll_offset + i
             if idx >= len(self._version_list):
                 break
             entry = self._version_list[idx]
-            label = entry["label"]
-            subtitle = entry.get("subtitle", "")
+            prefix, text = _entry_row_parts(entry)
 
             if self._focus == "list" and idx == self._list_index:
-                if current_y + 24 > 128:
+                if current_y + 24 > list_bottom:
                     break
                 self.draw.text(
                     (0, current_y),
@@ -614,45 +853,82 @@ class UISoftware(UIModule):
                     font=self.fonts.bold.font,
                     fill=self.colors.get(255),
                 )
+                # The prefix (PR number / trunk dot) stays fixed; only the
+                # title scrolls after it.
+                text_x = 10
+                scroll_width = label_width
+                if prefix:
+                    self.draw.text(
+                        (text_x, current_y),
+                        prefix,
+                        font=self.fonts.bold.font,
+                        fill=self.colors.get(255),
+                    )
+                    text_x += int(self.fonts.bold.width * len(prefix))
+                    scroll_width = max(1, label_width - len(prefix))
                 scroller = self._get_scroller(
                     "browse_label",
-                    label,
+                    text,
                     self.fonts.bold,
                     self.colors.get(255),
-                    label_width,
+                    scroll_width,
                 )
-                scroller.draw((10, current_y))
+                scroller.draw((text_x, current_y))
                 current_y += 12
-                if subtitle:
+                detail = _entry_detail(entry)
+                if detail:
                     sub_scroller = self._get_scroller(
                         "browse_sub",
-                        subtitle,
+                        detail,
                         self.fonts.base,
-                        self.colors.get(128),
+                        self.colors.get(255),
                         label_width,
                     )
                     sub_scroller.draw((10, current_y))
                 current_y += 12
             else:
-                if current_y + 12 > 128:
+                # Unfocused rows stay dim so the selected row and its detail
+                # line carry the visual weight.
+                if current_y + 12 > list_bottom:
                     break
                 # The trunk ("main") row stands out from the PR rows: bold and
                 # brighter, with a leading dot.
                 if entry.get("is_trunk"):
                     self.draw.text(
                         (10, current_y),
-                        f"• {label}"[:label_width],
+                        f"{prefix}{text}"[:label_width],
                         font=self.fonts.bold.font,
-                        fill=self.colors.get(255),
+                        fill=self.colors.get(192),
                     )
                 else:
                     self.draw.text(
                         (10, current_y),
-                        label[:label_width],
+                        f"{prefix}{text}"[:label_width],
                         font=self.fonts.base.font,
-                        fill=self.colors.get(192),
+                        fill=self.colors.get(128),
                     )
                 current_y += 12
+
+        self._draw_refresh_status()
+
+    def _draw_refresh_status(self):
+        """Bottom-line indicator for the background manifest refresh."""
+        if self._checking:
+            dots = "." * ((self._elipsis_count // 10) % 4)
+            text = _("checking for updates") + dots
+            self._elipsis_count += 1
+            if self._elipsis_count > 39:
+                self._elipsis_count = 0
+        elif self._check_failed:
+            text = _("update check failed")
+        else:
+            return
+        self.draw.text(
+            (4, 117),
+            text,
+            font=self.fonts.base.font,
+            fill=self.colors.get(96),
+        )
 
     def _draw_confirm(self):
         y = self.display_class.titlebar_height + 2
@@ -690,6 +966,16 @@ class UISoftware(UIModule):
             )
             sub_scroller.draw((0, y))
         y += 14
+
+        age = _format_age(self._selected_version.get("built_at"))
+        if age:
+            self.draw.text(
+                (0, y),
+                _("built {age}").format(age=age),
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+            y += 11
 
         self._draw_separator(y)
         y += 4
@@ -793,13 +1079,11 @@ class UISoftware(UIModule):
             self._draw_wifi_warning()
             return self.screen_update()
 
+        self._consume_refresh_result()
+
         if self._phase == "loading":
-            if self._elipsis_count > 30:
-                self._fetch_channels()
-                # phase is now "browse" or "offline", fall through
-            else:
-                self._draw_loading()
-                return self.screen_update()
+            self._draw_loading()
+            return self.screen_update()
 
         if self._phase == "offline":
             self._draw_offline()
@@ -900,6 +1184,15 @@ class UISoftware(UIModule):
 
     def key_square(self):
         self._record_key("square")
+        # Manual refresh: re-fetch the manifest with the same feedback as the
+        # automatic check on entry — the bottom status line in browse, the
+        # full "Checking for updates" screen when currently offline.
+        if self._phase == "browse":
+            self._start_refresh()
+        elif self._phase == "offline":
+            self._phase = "loading"
+            self._elipsis_count = 0
+            self._start_refresh()
 
     def key_number(self, number):
         self._key_buffer = []
