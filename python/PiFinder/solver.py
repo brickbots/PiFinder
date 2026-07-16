@@ -692,6 +692,12 @@ def solver(
                     if "matched_centroids" in solution:
                         if sqm_calculator is None:
                             sqm_calculator = create_sqm_calculator(shared_state)
+                            # The wing-boundary floor is sensor plate-scale
+                            # specific, so the estimator is rebuilt alongside
+                            # the calculator.
+                            sqm_wing_estimator = WingEstimator(
+                                min_wing_radius=sqm_calculator.profile.wing_min_radius_px
+                            )
 
                         # Update SQM (auto-exposure consumes the noise floor)
                         exposure_sec = (
