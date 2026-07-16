@@ -17,52 +17,52 @@
     </div>
     <div class="row" id="decimalFormat-location_form">
       <div class="input-field col s6">
-        <input id="latitude-location_form" type="number" step="any" name="latitude" value="" required/>
+        <input id="latitude-location_form" type="text" inputmode="decimal" name="latitude" value="" required/>
         <label for="latitude-location_form">{{ _('Latitude (Decimal)') }}</label>
         <span class="helper-text"></span>
       </div>
       <div class="input-field col s6">
-        <input id="longitude-location_form" type="number" step="any" name="longitude" value="" required/>
+        <input id="longitude-location_form" type="text" inputmode="decimal" name="longitude" value="" required/>
         <label for="longitude-location_form">{{ _('Longitude (Decimal)') }}</label>
         <span class="helper-text"></span>
       </div>
     </div>
     <div class="row" id="dmsFormat-location_form" style="display:none;">
       <div class="input-field col s4">
-        <input id="latitudeD-location_form" type="number" name="latitudeD"/>
+        <input id="latitudeD-location_form" type="text" inputmode="decimal" name="latitudeD"/>
         <label for="latitudeD-location_form">{{ _('Latitude Degrees') }}</label>
       </div>
       <div class="input-field col s4">
-        <input id="latitudeM-location_form" type="number" name="latitudeM"/>
+        <input id="latitudeM-location_form" type="text" inputmode="decimal" name="latitudeM"/>
         <label for="latitudeM-location_form">{{ _('Latitude Minutes') }}</label>
       </div>
       <div class="input-field col s4">
-        <input id="latitudeS-location_form" type="number" name="latitudeS"/>
+        <input id="latitudeS-location_form" type="text" inputmode="decimal" name="latitudeS"/>
         <label for="latitudeS-location_form">{{ _('Latitude Seconds') }}</label>
       </div>
       <div class="input-field col s4">
-        <input id="longitudeD-location_form" type="number" name="longitudeD"/>
+        <input id="longitudeD-location_form" type="text" inputmode="decimal" name="longitudeD"/>
         <label for="longitudeD-location_form">{{ _('Longitude Degrees') }}</label>
       </div>
       <div class="input-field col s4">
-        <input id="longitudeM-location_form" type="number" name="longitudeM"/>
+        <input id="longitudeM-location_form" type="text" inputmode="decimal" name="longitudeM"/>
         <label for="longitudeM-location_form">{{ _('Longitude Minutes') }}</label>
       </div>
       <div class="input-field col s4">
-        <input id="longitudeS-location_form" type="number" name="longitudeS"/>
+        <input id="longitudeS-location_form" type="text" inputmode="decimal" name="longitudeS"/>
         <label for="longitudeS-location_form">{{ _('Longitude Seconds') }}</label>
       </div>
     </div>
     <div class="row">
       <div class="input-field col s12">
-        <input id="altitude-location_form" type="number" step="any" name="altitude" value="" required/>
+        <input id="altitude-location_form" type="text" inputmode="decimal" name="altitude" value="" required/>
         <label for="altitude-location_form">{{ _('Altitude (meters)') }}</label>
         <span class="helper-text"></span>
       </div>
     </div>
     <div class="row">
       <div class="input-field col s6">
-        <input id="error_in_m-location_form" type="number" step="any" name="error_in_m" value="10"/>
+        <input id="error_in_m-location_form" type="text" inputmode="decimal" name="error_in_m" value="10"/>
         <label for="error_in_m-location_form">{{ _('Error (meters)') }}</label>
         <span class="helper-text"></span>
       </div>
