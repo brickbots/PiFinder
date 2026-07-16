@@ -6,9 +6,7 @@ import requests
 
 # Installs the _() gettext builtin the UI modules rely on; must precede ui imports.
 import PiFinder.i18n  # noqa: F401
-from PiFinder.ui import callbacks
 from PiFinder.ui.software import (
-    UIMigrationConfirm,
     UISoftware,
     UPDATE_MANIFEST_URL,
     _annotate_trunk_entries,
@@ -17,7 +15,6 @@ from PiFinder.ui.software import (
     _fetch_update_manifest,
     _format_age,
     _load_cached_manifest,
-    _migration_version_info_from_manifest,
     _parse_manifest,
     _save_cached_manifest,
     _strip_markdown,
@@ -221,139 +218,6 @@ class TestFetchUpdateManifest:
 
         with pytest.raises(ValueError):
             _fetch_update_manifest()
-
-
-def _migration_entry(version="3.0.0", available=True, with_urls=True):
-    # Mirror the real manifest: a migration-capable release carries both a
-    # valid store_path (so available/unavailable resolves from it) and the
-    # migration tarball URLs.
-    entry = {
-        "kind": "release",
-        "label": f"v{version}",
-        "version": version,
-        "available": available,
-        "store_path": (
-            f"/nix/store/{'a' * 32}-nixos-system-pifinder-{version}"
-            if available
-            else None
-        ),
-    }
-    if with_urls:
-        base = f"https://example.invalid/releases/download/v{version}"
-        entry["migration_url"] = f"{base}/pifinder-migration-v{version}.tar.zst"
-        entry["migration_sha256_url"] = (
-            f"{base}/pifinder-migration-v{version}.tar.zst.sha256"
-        )
-    return entry
-
-
-def _manifest(stable=None, beta=None, unstable=None):
-    return {
-        "schema": 1,
-        "channels": {
-            "stable": stable or [],
-            "beta": beta or [],
-            "unstable": unstable or [],
-        },
-    }
-
-
-def _mock_head_response(size_bytes=None, status_code=200):
-    resp = MagicMock()
-    resp.status_code = status_code
-    resp.headers = {} if size_bytes is None else {"Content-Length": str(size_bytes)}
-    return resp
-
-
-# Selection also HEADs the chosen tarball for its size, so requests.head is
-# stubbed throughout (never hit the network from tests).
-@pytest.mark.unit
-@patch(
-    "PiFinder.ui.software.requests.head",
-    side_effect=requests.exceptions.ConnectionError,
-)
-class TestMigrationVersionInfoFromManifest:
-    @patch("PiFinder.ui.software.requests.get")
-    def test_prefers_stable(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(
-                stable=[_migration_entry("3.0.0")],
-                beta=[_migration_entry("3.1.0-beta")],
-                unstable=[_migration_entry("nixos-abc")],
-            )
-        )
-        info = _migration_version_info_from_manifest()
-        assert info["version"] == "3.0.0"
-        assert info["type"] == "upgrade"
-        assert info["migration_url"].endswith("pifinder-migration-v3.0.0.tar.zst")
-        assert info["migration_sha256_url"].endswith(".sha256")
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_includes_size_when_head_succeeds(self, mock_get, mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(stable=[_migration_entry("3.0.0")])
-        )
-        mock_head.side_effect = None
-        mock_head.return_value = _mock_head_response(size_bytes=300 * 1024 * 1024)
-        info = _migration_version_info_from_manifest()
-        assert info["migration_size_mb"] == 300
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_omits_size_when_head_fails(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(stable=[_migration_entry("3.0.0")])
-        )
-        info = _migration_version_info_from_manifest()
-        assert "migration_size_mb" not in info
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_falls_back_to_beta_when_stable_empty(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(beta=[_migration_entry("3.1.0-beta")])
-        )
-        assert _migration_version_info_from_manifest()["version"] == "3.1.0-beta"
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_falls_back_to_unstable_last(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(unstable=[_migration_entry("nixos-abc")])
-        )
-        assert _migration_version_info_from_manifest()["version"] == "nixos-abc"
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_skips_unavailable_entries(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(
-                stable=[_migration_entry("3.0.0", available=False)],
-                beta=[_migration_entry("3.1.0-beta")],
-            )
-        )
-        assert _migration_version_info_from_manifest()["version"] == "3.1.0-beta"
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_skips_entries_without_migration_tarball(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(
-            _manifest(
-                stable=[_migration_entry("3.0.0", with_urls=False)],
-                beta=[_migration_entry("3.1.0-beta")],
-            )
-        )
-        assert _migration_version_info_from_manifest()["version"] == "3.1.0-beta"
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_none_when_no_migration_entries(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response(_manifest())
-        assert _migration_version_info_from_manifest() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_none_on_network_error(self, mock_get, _mock_head):
-        mock_get.side_effect = requests.exceptions.ConnectionError
-        assert _migration_version_info_from_manifest() is None
-
-    @patch("PiFinder.ui.software.requests.get")
-    def test_none_when_channels_missing(self, mock_get, _mock_head):
-        mock_get.return_value = _mock_json_response({"schema": 1})
-        assert _migration_version_info_from_manifest() is None
 
 
 @pytest.mark.unit
@@ -737,52 +601,3 @@ class TestConsumeRefreshResult:
         ui = self._ui("browse")
         ui._consume_refresh_result()
         assert ui._checking is True
-
-
-@pytest.mark.unit
-class TestStartNixosMigrationCallback:
-    def _ui_module(self):
-        ui = MagicMock()
-        ui.message = MagicMock()
-        ui.add_to_stack = MagicMock()
-        return ui
-
-    @patch("PiFinder.ui.callbacks.utils.running_system_store_path")
-    def test_noop_on_nixos(self, mock_running):
-        mock_running.return_value = "/nix/store/aaa-nixos-system-pifinder"
-        ui = self._ui_module()
-        with patch(
-            "PiFinder.ui.software._migration_version_info_from_manifest"
-        ) as mock_info:
-            callbacks.start_nixos_migration(ui)
-        mock_info.assert_not_called()
-        ui.add_to_stack.assert_not_called()
-        ui.message.assert_called_once()
-
-    @patch("PiFinder.ui.callbacks.utils.running_system_store_path")
-    def test_pushes_confirm_screen_off_nixos(self, mock_running):
-        mock_running.return_value = None
-        ui = self._ui_module()
-        info = {"version": "3.0.0", "migration_url": "u", "migration_sha256_url": "s"}
-        with patch(
-            "PiFinder.ui.software._migration_version_info_from_manifest",
-            return_value=info,
-        ):
-            with patch("PiFinder.ui.callbacks.utils.get_version", return_value="2.2.0"):
-                callbacks.start_nixos_migration(ui)
-        pushed = ui.add_to_stack.call_args[0][0]
-        assert pushed["class"] is UIMigrationConfirm
-        assert pushed["version_info"] == info
-        assert pushed["current_version"] == "2.2.0"
-
-    @patch("PiFinder.ui.callbacks.utils.running_system_store_path")
-    def test_reports_when_no_target(self, mock_running):
-        mock_running.return_value = None
-        ui = self._ui_module()
-        with patch(
-            "PiFinder.ui.software._migration_version_info_from_manifest",
-            return_value=None,
-        ):
-            callbacks.start_nixos_migration(ui)
-        ui.add_to_stack.assert_not_called()
-        ui.message.assert_called_once()

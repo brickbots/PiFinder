@@ -1371,10 +1371,6 @@ pifinder_menu = {
                                     ],
                                 },
                                 {
-                                    "name": _("NixOS Migration"),
-                                    "callback": callbacks.start_nixos_migration,
-                                },
-                                {
                                     "name": _("Screen Off"),
                                     "class": UITextMenu,
                                     "select": "single",
