@@ -1032,7 +1032,14 @@ class UISoftware(UIModule):
             y += 12
 
     def _record_key(self, key_name: str):
-        """Record a key press for the migration unlock sequence (7x square)."""
+        """Record a key press for the migration unlock sequence (7x square).
+
+        The migration path exists to move a Raspbian install onto NixOS; on a
+        system already running NixOS there is nothing to migrate, so the
+        unlock is inert there.
+        """
+        if utils.running_system_store_path() is not None:
+            return
         self._key_buffer.append(key_name)
         if len(self._key_buffer) > len(_UNLOCK_SEQUENCE):
             self._key_buffer = self._key_buffer[-len(_UNLOCK_SEQUENCE) :]
