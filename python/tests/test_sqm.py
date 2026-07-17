@@ -1416,12 +1416,19 @@ class TestColorCoefficientProfiles:
 
 
 def _wing_star_frame(scale=1.0, size=220, bg=500.0, noise=2.0, seed=1):
-    """Frame with 4 well-separated synthetic stars: Gaussian core (70% of
+    """Frame with 6 well-separated synthetic stars: Gaussian core (70% of
     flux, sigma 1.5) + wide halo (30%, sigma 5). Returns (image, centroids,
     true enclosed fraction within r=5)."""
     rng = np.random.default_rng(seed)
     image = bg + rng.normal(0, noise, (size, size))
-    centroids = [(55.0, 55.0), (55.0, 165.0), (165.0, 55.0), (165.0, 165.0)]
+    centroids = [
+        (55.0, 55.0),
+        (55.0, 165.0),
+        (165.0, 55.0),
+        (165.0, 165.0),
+        (110.0, 55.0),
+        (110.0, 165.0),
+    ]
     total = 50000.0 * scale
     core_flux, halo_flux = 0.7 * total, 0.3 * total
     sig_c, sig_h = 1.5, 5.0
@@ -1436,6 +1443,35 @@ def _wing_star_frame(scale=1.0, size=220, bg=500.0, noise=2.0, seed=1):
     enc = lambda r, s: 1 - np.exp(-(r**2) / (2 * s**2))  # noqa: E731
     f_true = (core_flux * enc(5, sig_c) + halo_flux * enc(5, sig_h)) / total
     return image, centroids, f_true
+
+
+@pytest.mark.unit
+class TestDerotateCentroids:
+    """The camera process rotates the solve image for the display; SQM must
+    counter-rotate star positions onto the raw frame. Validate against PIL's
+    actual rotation for every quarter turn and an arbitrary angle."""
+
+    def _frame_with_star(self, size=200, pos=(60.0, 140.0)):
+        from PIL import Image as PILImage
+
+        img = np.zeros((size, size), dtype=np.float64)
+        iy, ix = int(pos[0]), int(pos[1])
+        img[iy - 1 : iy + 2, ix - 1 : ix + 2] = 100.0
+        img[iy, ix] = 255.0
+        return PILImage.fromarray(img)
+
+    @pytest.mark.parametrize("angle", [0, 90, 180, 270, 30])
+    def test_round_trip_matches_pil(self, angle):
+        from PiFinder.solver import _derotate_centroids
+
+        size = 200
+        raw_pos = (60.0, 140.0)
+        rotated = np.asarray(self._frame_with_star(size, raw_pos).rotate(angle))
+        # find the star in the rotated (solve) image
+        ry, rx = np.unravel_index(np.argmax(rotated), rotated.shape)
+        back = _derotate_centroids(np.array([[float(ry), float(rx)]]), angle, size)[0]
+        assert abs(back[0] - raw_pos[0]) <= 1.5
+        assert abs(back[1] - raw_pos[1]) <= 1.5
 
 
 @pytest.mark.unit
@@ -1555,16 +1591,16 @@ class TestBandOffset:
             color_coefficient=0.0,
         )
         v1, d1 = sqm.calculate(**kwargs)
-        assert d1["sqm_band_offset"] == pytest.approx(0.31)
-        # zeroing the profile offset must shift the result by exactly 0.31.
+        assert d1["sqm_band_offset"] == pytest.approx(0.64)
+        # zeroing the profile offset must shift the result by exactly 0.64.
         # get_camera_profile returns the shared profile object, so use
         # monkeypatch to restore it after the test.
         monkeypatch.setattr(sqm.profile, "sqm_band_offset", 0.0)
         v0, _ = sqm.calculate(**kwargs)
-        assert (v1 - v0) == pytest.approx(0.31, abs=1e-9)
+        assert (v1 - v0) == pytest.approx(0.64, abs=1e-9)
 
     def test_band_offset_values(self):
-        assert get_camera_profile("imx462").sqm_band_offset == pytest.approx(0.31)
-        assert get_camera_profile("imx290").sqm_band_offset == pytest.approx(0.31)
-        assert get_camera_profile("hq").sqm_band_offset == pytest.approx(0.32)
+        assert get_camera_profile("imx462").sqm_band_offset == pytest.approx(0.64)
+        assert get_camera_profile("imx290").sqm_band_offset == pytest.approx(0.64)
+        assert get_camera_profile("hq").sqm_band_offset == pytest.approx(0.63)
         assert get_camera_profile("imx296").sqm_band_offset == pytest.approx(-0.46)

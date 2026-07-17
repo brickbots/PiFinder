@@ -1,23 +1,29 @@
 """
-Rolling aperture (wing-loss) correction for SQM photometry.
+Rolling aperture-correction estimate for SQM photometry.
 
-The lens PSF has heavy wings: a substantial fraction of each star's flux falls
-outside the small photometry aperture, so the fitted photometric zero point
-(``mzero``) comes out too low and SQM reads too bright. The wing fraction is a
-property of the optics (focus, lens halo) and drifts slowly -- it is NOT a
-per-frame quantity. Measuring it per frame injects noise and, worse, an
-exposure dependence (wings sink below the noise on short exposures).
+If the lens PSF spills flux beyond the photometry aperture, the fitted
+photometric zero point (``mzero``) comes out too low and SQM reads too
+bright. Whether and how much flux spills is a property of the optics (focus,
+lens halo) and drifts slowly — it is NOT a per-frame quantity, and it is not
+measurable per star: a single star's wings sit at or below the sky noise, so
+any per-star boundary search integrates noise and reports missing flux even
+for a wingless PSF.
 
-So this estimator splits measure from apply:
+So this estimator uses the standard aperture-correction method:
 
-- **Measure** only on frames that can support it: bright, unsaturated,
-  uncrowded matched stars whose radial profile flattens within the search
-  range. Growing rings around each star, the ring level keeps declining while
-  inside the star's wings; the first radius where the decline stops is the
-  wing boundary. Sky comes from beyond it, total flux from inside it, and the
-  enclosed fraction is ``f = flux(aperture) / flux(total)``.
-- **Smooth** the per-frame samples in a rolling window (median).
-- **Apply** the smoothed ``-2.5*log10(f)`` to ``mzero`` on every frame.
+- **Stack**: per frame, median-stack the sky-subtracted, aperture-normalized
+  patches of the bright unsaturated matched stars. The stack's SNR grows with
+  the number of stars, putting the faint outer profile above the noise.
+- **Measure once**: the stack's enclosed-flux curve of growth is normalized
+  to the aperture, so its plateau value equals ``total/aperture = 1/f``. The
+  plateau is read well outside the aperture (radii 10-16) where any real
+  wing flux has been integrated.
+- **Smooth** the per-frame samples in a rolling window (median) and apply
+  ``-2.5*log10(f)`` to ``mzero`` on every frame.
+
+For optics whose PSF is fully enclosed by the aperture the plateau is 1.0
+within noise and the correction is 0 — the estimator degenerates gracefully
+instead of inventing wings.
 """
 
 import logging
@@ -35,93 +41,32 @@ class WingEstimator:
     def __init__(
         self,
         aperture_radius: int = 5,
-        max_radius: int = 29,
-        ring_step: int = 2,
+        max_radius: int = 20,
         max_samples: int = 20,
         min_samples: int = 3,
-        min_stars: int = 3,
-        min_core_snr: float = 50.0,
-        min_wing_radius: int = 0,
+        min_stars: int = 5,
+        min_peak_snr: float = 8.0,
     ):
         """
         Args:
             aperture_radius: production photometry aperture the correction is for.
-            max_radius: outermost search radius for the wing boundary.
-            ring_step: radial width of each profile ring.
+            max_radius: patch half-size; sky comes from beyond ``max_radius - 4``.
             max_samples: rolling window of per-frame ``f`` samples.
             min_samples: samples needed before the correction is applied.
-            min_stars: per-frame minimum of usable stars for one ``f`` sample.
-            min_core_snr: core flux must exceed this multiple of the per-pixel
-                sky noise for a star's wings to be measurable.
-            min_wing_radius: reject stars whose wing boundary lands closer in
-                than this radius (px). A boundary collapsing toward the
-                aperture means the wings sank below the ring noise — at the
-                degenerate limit (boundary == aperture) total==core and f is
-                exactly 1.0 regardless of the optics — so such samples say
-                nothing about the PSF and must not enter the window. Sensor
-                plate scales differ, so the caller supplies this in the
-                photometry image's own pixels (CameraProfile.wing_min_radius_px).
+            min_stars: per-frame minimum of stacked stars for one ``f`` sample.
+            min_peak_snr: star peak must exceed this multiple of the per-pixel
+                sky noise to enter the stack (keeps noise out of the median).
         """
         self.aperture_radius = aperture_radius
         self.max_radius = max_radius
-        self.ring_edges = list(range(aperture_radius, max_radius + 1, ring_step))
         self.max_samples = max_samples
         self.min_samples = min_samples
         self.min_stars = min_stars
-        self.min_core_snr = min_core_snr
-        self.min_wing_radius = min_wing_radius
+        self.min_peak_snr = min_peak_snr
+        # Radii at which the growth curve is read as its plateau: far enough
+        # out that real wing flux is integrated, well inside the sky region.
+        self.plateau_radii = (10, 12, 14, 16)
         self._samples: deque = deque(maxlen=max_samples)
-
-    def _measure_star(self, patch: np.ndarray, r: np.ndarray) -> Optional[float]:
-        """Enclosed fraction for one star patch, or None if unmeasurable."""
-        levels = []
-        for r0, r1 in zip(self.ring_edges[:-1], self.ring_edges[1:]):
-            ring = patch[(r > r0) & (r <= r1)]
-            if len(ring) == 0:
-                return None
-            levels.append(float(np.median(ring)))
-        levels_arr = np.asarray(levels)
-
-        # Ring-level noise scale from the outermost rings (assumed sky).
-        noise = max(float(np.std(levels_arr[-4:])), 1e-3)
-
-        # Wing boundary: first ring from which no significant decline remains.
-        cut_idx = len(levels_arr) - 1
-        for i in range(len(levels_arr)):
-            if levels_arr[i] - levels_arr[i:].min() <= noise:
-                cut_idx = i
-                break
-
-        # Crowding guard: a profile rising again beyond the boundary means a
-        # neighbouring star sits inside the search range.
-        if np.any(levels_arr[cut_idx:] > levels_arr[cut_idx] + 4 * noise):
-            return None
-
-        wing_radius = self.ring_edges[cut_idx]
-        if wing_radius < self.min_wing_radius:
-            # Boundary collapsed toward the aperture: wings unresolved for
-            # this star (too faint for this sky), not evidence of a tight PSF.
-            return None
-        sky_pixels = patch[(r > wing_radius) & (r <= self.max_radius)]
-        if len(sky_pixels) == 0:
-            return None
-        sky = float(np.median(sky_pixels))
-
-        signal = patch - sky
-        core_flux = float(signal[r <= self.aperture_radius].sum())
-        total_flux = float(signal[r <= wing_radius].sum())
-
-        # SNR gate: wings must stand above the sky noise to be measurable.
-        pixel_noise = float(np.std(sky_pixels))
-        if core_flux < self.min_core_snr * pixel_noise:
-            return None
-        if total_flux <= 0 or core_flux <= 0:
-            return None
-
-        f = core_flux / total_flux
-        if not (0.2 < f <= 1.0):
-            return None  # unphysical; likely crowding or a bad profile
-        return f
 
     def add_frame(
         self,
@@ -130,7 +75,7 @@ class WingEstimator:
         saturation_threshold: float,
     ) -> Optional[float]:
         """
-        Measure one frame's enclosed fraction from its matched star centroids.
+        Measure one frame's enclosed fraction from a bright-star stack.
 
         Args:
             image: linear photometry image (raw green channel).
@@ -138,13 +83,18 @@ class WingEstimator:
             saturation_threshold: pixel level above which a star core is skipped.
 
         Returns:
-            The frame's median enclosed fraction if measurable, else None.
+            The frame's enclosed fraction if measurable, else None.
         """
         if image is None or centroids is None or len(centroids) == 0:
             return None
         height, width = image.shape
-        box = self.max_radius + 1
-        fractions = []
+        box = self.max_radius
+        yy, xx = np.mgrid[-box : box + 1, -box : box + 1]
+        r = np.hypot(yy, xx)
+        sky_ring = r > (self.max_radius - 4)
+        core_zone = r <= 2
+
+        patches = []
         for cy, cx in centroids:
             iy, ix = int(round(cy)), int(round(cx))
             if iy - box < 0 or ix - box < 0 or iy + box >= height or ix + box >= width:
@@ -152,25 +102,41 @@ class WingEstimator:
             patch = image[iy - box : iy + box + 1, ix - box : ix + box + 1].astype(
                 np.float64
             )
-            yy, xx = np.mgrid[-box : box + 1, -box : box + 1]
-            r = np.sqrt((yy + (cy - iy)) ** 2 + (xx + (cx - ix)) ** 2)
             if patch[r <= self.aperture_radius].max() >= saturation_threshold:
                 continue
-            f = self._measure_star(patch, r)
-            if f is not None:
-                fractions.append(f)
+            sky = float(np.median(patch[sky_ring]))
+            noise = float(np.std(patch[sky_ring]))
+            signal = patch - sky
+            if signal[core_zone].max() < self.min_peak_snr * max(noise, 1e-3):
+                continue
+            aperture_flux = float(signal[r <= self.aperture_radius].sum())
+            if aperture_flux <= 0:
+                continue
+            patches.append(signal / aperture_flux)
 
-        if len(fractions) < self.min_stars:
+        if len(patches) < self.min_stars:
             return None
-        sample = float(np.median(fractions))
-        self._samples.append(sample)
+
+        stack = np.median(np.stack(patches), axis=0)
+        plateau = float(np.median([stack[r <= q].sum() for q in self.plateau_radii]))
+        if plateau <= 0:
+            return None
+        f = 1.0 / plateau
+        if f >= 1.0 or not np.isfinite(f):
+            # Plateau at/below the aperture flux: no measurable spill. Record
+            # a clean 1.0 so the window converges to "no correction".
+            f = 1.0
+        elif f <= 0.2:
+            return None  # unphysical; crowding or a corrupted stack
+
+        self._samples.append(f)
         logger.debug(
             "Wing sample f=%.3f from %d stars (window %d)",
-            sample,
-            len(fractions),
+            f,
+            len(patches),
             len(self._samples),
         )
-        return sample
+        return f
 
     def enclosed_fraction(self) -> Optional[float]:
         """Smoothed enclosed fraction, or None until conditioned."""
