@@ -1343,9 +1343,14 @@ class TestColorCorrection:
         """mag_eff = V - T*(B-V): a red star's effective mag drops by T*(B-V)."""
         from PiFinder.sqm import color_index
 
-        # Monkeypatch the B-V lookup so the test is catalog-independent.
+        from PiFinder.sqm import gaia_ref
+
+        # Monkeypatch the lookups so the test is catalog-independent; blank
+        # the Gaia table so the Hipparcos V + B-V fallback path is exercised.
         orig = color_index.get_bv
+        orig_gaia = gaia_ref.get_g_bprp
         color_index.get_bv = lambda ids: np.array([0.0, 1.0, 0.5], dtype=np.float32)
+        gaia_ref.get_g_bprp = lambda ids: np.full((len(list(ids)), 2), np.nan)
         try:
             sqm = SQM()
             mags = [5.0, 5.0, 5.0]
@@ -1377,6 +1382,7 @@ class TestColorCorrection:
             assert d1["mzero"] < d0["mzero"]
         finally:
             color_index.get_bv = orig
+            gaia_ref.get_g_bprp = orig_gaia
 
     def test_missing_bv_falls_back_to_v(self):
         from PiFinder.sqm import color_index
@@ -1403,11 +1409,15 @@ class TestColorCorrection:
 
 @pytest.mark.unit
 class TestColorCoefficientProfiles:
-    def test_bare_color_sensors_have_positive_coefficient(self):
-        assert get_camera_profile("imx462").color_coefficient == pytest.approx(0.8)
-        assert get_camera_profile("imx290").color_coefficient == pytest.approx(0.8)
+    def test_bare_sensors_reference_gaia_g(self):
+        for cam in ("imx462", "imx290", "imx296"):
+            assert get_camera_profile(cam).reference_band == "gaia_g"
+        assert get_camera_profile("imx462").color_coefficient == pytest.approx(0.15)
+        assert get_camera_profile("imx290").color_coefficient == pytest.approx(0.15)
+        assert get_camera_profile("imx296").color_coefficient == pytest.approx(-0.20)
 
-    def test_ir_cut_sensor_has_zero_coefficient(self):
+    def test_ir_cut_sensor_stays_on_johnson_v(self):
+        assert get_camera_profile("hq").reference_band == "hip_v"
         assert get_camera_profile("hq").color_coefficient == 0.0
 
     def test_detect_imx462_key(self):
@@ -1547,7 +1557,14 @@ class TestBVClamp:
         from PiFinder.sqm import color_index
         from PiFinder.sqm.sqm import BV_CLAMP_MAX
 
-        sqm = SQM("imx462")  # color_coefficient = 0.8
+        from PiFinder.sqm import gaia_ref
+
+        monkeypatch.setattr(
+            gaia_ref,
+            "get_g_bprp",
+            lambda ids: np.full((len(list(ids)), 2), np.nan),
+        )
+        sqm = SQM("imx462")  # gaia blanked -> B-V fallback path
         mags = [5.0, 6.0, 7.0]
         sol, centroids = _mock_solution(mags, catids=[1, 2, 3])
         image = _image_with_stars(centroids)
@@ -1591,16 +1608,16 @@ class TestBandOffset:
             color_coefficient=0.0,
         )
         v1, d1 = sqm.calculate(**kwargs)
-        assert d1["sqm_band_offset"] == pytest.approx(0.64)
-        # zeroing the profile offset must shift the result by exactly 0.64.
+        assert d1["sqm_band_offset"] == pytest.approx(0.53)
+        # zeroing the profile offset must shift the result by exactly 0.53.
         # get_camera_profile returns the shared profile object, so use
         # monkeypatch to restore it after the test.
         monkeypatch.setattr(sqm.profile, "sqm_band_offset", 0.0)
         v0, _ = sqm.calculate(**kwargs)
-        assert (v1 - v0) == pytest.approx(0.64, abs=1e-9)
+        assert (v1 - v0) == pytest.approx(0.53, abs=1e-9)
 
     def test_band_offset_values(self):
-        assert get_camera_profile("imx462").sqm_band_offset == pytest.approx(0.64)
-        assert get_camera_profile("imx290").sqm_band_offset == pytest.approx(0.64)
-        assert get_camera_profile("hq").sqm_band_offset == pytest.approx(0.63)
-        assert get_camera_profile("imx296").sqm_band_offset == pytest.approx(-0.06)
+        assert get_camera_profile("imx462").sqm_band_offset == pytest.approx(0.53)
+        assert get_camera_profile("imx290").sqm_band_offset == pytest.approx(0.53)
+        assert get_camera_profile("hq").sqm_band_offset == pytest.approx(0.60)
+        assert get_camera_profile("imx296").sqm_band_offset == pytest.approx(-0.22)

@@ -72,6 +72,13 @@ class CameraProfile:
     # Used to sanity-check SQM estimates
     typical_sky_background: float = 21.0
 
+    # Catalog reference band for the photometric zero point:
+    # "gaia_g"  -- Gaia G with a BP-RP trim (bare sensors: G's passband is
+    #              nearly the sensor's own; measured 24-29% less star scatter)
+    # "hip_v"   -- Hipparcos/Johnson V with the linear B-V term (IR-cut
+    #              sensors, whose passband ~ V)
+    reference_band: str = "hip_v"
+
     # SQM colour transformation coefficient T for mag_eff = V - T*(B-V).
     # The catalog magnitude is Johnson V, but the flux is measured in the
     # sensor's own passband. On a sensor run without an IR-cut filter the near-IR
@@ -166,15 +173,15 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=8.0,  # Datasheet: 3.2 e⁻/p/s @ 25°C → ~8 ADU/s @ 10-bit
         thermal_coeff=0.08,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
-        # Measured on-sky (2025-10-31 sweep, 460 stars): +0.21. Small because
-        # the Pregius mono QE falls through the NIR, unlike the STARVIS colour
-        # sensors' NIR-heavy green channel.
-        color_coefficient=0.21,
+        reference_band="gaia_g",
+        # BP-RP trim on the Gaia G reference, fit on the 2025-10-31 sweep
+        # (54 frames): scatter 0.108 -> 0.077, mag-slope +0.13 -> +0.01.
+        color_coefficient=-0.20,
         # Refit for the growth-curve pipeline from the same single moonlit
         # 2025-10-31 sweep vs its 17.8-17.9 hand-held reference (+/-0.2).
         # Near zero is physically consistent: the Pregius mono passband is
         # the closest of the three sensors to the meter's.
-        sqm_band_offset=-0.06,
+        sqm_band_offset=-0.22,
     ),
     "imx462": CameraProfile(
         # Hardware configuration
@@ -193,16 +200,16 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=0.05,  # Estimated - needs measurement
         thermal_coeff=0.10,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
-        # Measured on-sky: +0.79 ± 0.04 (bare color sensor, NIR leak over-fluxes
-        # red stars). Cross-checked against HQ w/ IR-cut (~0.0) and synthetic
-        # photometry. See docs/adr for the SQM colour-term decision.
-        color_coefficient=0.8,
+        reference_band="gaia_g",
+        # BP-RP trim on the Gaia G reference, fit on 6 clear sweeps
+        # (92 frames): scatter 0.224 -> 0.171, mag-slope +0.10 -> +0.06.
+        color_coefficient=0.15,
         # Bare sensor sees NIR sky emission a V-band meter doesn't. Calibrated
         # from 6 referenced clear-night sweeps (2026-07-11..16) with the
         # growth-curve aperture correction (which measures f=1.0 on this
         # optics): residuals +/-0.06. Coupled to the estimator and the
         # centroid-excluded annulus background -- recalibrate together.
-        sqm_band_offset=0.64,
+        sqm_band_offset=0.53,
     ),
     "imx290": CameraProfile(
         # Hardware configuration (same as imx462 - driver compatibility)
@@ -222,8 +229,9 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         thermal_coeff=0.10,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
         # Same sensor family/optics as imx462 (driver-compatible), same NIR leak.
-        color_coefficient=0.8,
-        sqm_band_offset=0.64,  # mirror of imx462 (same sensor family, no sweeps yet)
+        reference_band="gaia_g",
+        color_coefficient=0.15,  # mirror of imx462 (same sensor family)
+        sqm_band_offset=0.53,  # mirror of imx462 (same sensor family, no sweeps yet)
     ),
     "hq": CameraProfile(
         # Hardware configuration
@@ -252,7 +260,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # shared 2025-11-16 reading remains the outlier. Non-zero despite the
         # IR-cut: the residual absorbs passband + optics differences vs the
         # meter. Coupled to the estimator -- recalibrate together.
-        sqm_band_offset=0.63,
+        sqm_band_offset=0.60,
     ),
 }
 

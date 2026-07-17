@@ -8,6 +8,7 @@ import numpy as np
 
 from . import color_index
 from .camera_profiles import get_camera_profile
+from . import gaia_ref
 
 logger = logging.getLogger("Solver")
 
@@ -38,6 +39,12 @@ class SQM:
     This correctly compares star total flux (point sources) to background flux density
     (extended source), giving SQM in mag/arcsec².
     """
+
+    # Zero-point stars are taken from this catalog-magnitude band (see
+    # _calculate_mzero); outside-band stars still get per-star mzeros for
+    # diagnostics but don't vote on the frame zero point.
+    MZERO_MAG_BAND = (3.5, 6.5)
+    MZERO_MAG_BAND_MIN_STARS = 5
 
     def __init__(
         self,
@@ -287,6 +294,15 @@ class SQM:
         star can drag a weighted mzero by half a magnitude; the median is
         unmoved.
 
+        The median is taken over stars inside a fixed catalog-magnitude band
+        (MZERO_MAG_BAND) when enough are present: per-star mzero has a mild
+        magnitude dependence, and the set of matched stars shifts several
+        magnitudes across the auto-exposure range, so an all-star median
+        drifts ~0.1-0.2 mag/decade of exposure. A fixed band samples the same
+        physical stars at every exposure (measured: drift -0.10 -> -0.01
+        mag/decade on the imx462 sweep ramps). Falls back to all stars when
+        the field is too poor for the band.
+
         Args:
             star_fluxes: Background-subtracted star fluxes (ADU)
             star_mags: Catalog magnitudes for matched stars
@@ -296,7 +312,7 @@ class SQM:
             Note: The mzeros list will contain None for stars with invalid flux
         """
         mzeros: list[Optional[float]] = []
-        valid_mzeros = []
+        valid = []  # (mzero, mag)
 
         for flux, mag in zip(star_fluxes, star_mags):
             if flux <= 0:
@@ -307,13 +323,20 @@ class SQM:
             # Calculate zero point: ZP = m + 2.5*log10(F)
             mzero = mag + 2.5 * np.log10(flux)
             mzeros.append(mzero)
-            valid_mzeros.append(mzero)
+            valid.append((mzero, mag))
 
-        if len(valid_mzeros) == 0:
+        if len(valid) == 0:
             logger.error("No valid stars for mzero calculation")
             return None, mzeros
 
-        return float(np.median(valid_mzeros)), mzeros
+        lo, hi = self.MZERO_MAG_BAND
+        in_band = [mz for mz, mag in valid if lo <= mag <= hi]
+        pool = (
+            in_band
+            if len(in_band) >= self.MZERO_MAG_BAND_MIN_STARS
+            else [mz for mz, _ in valid]
+        )
+        return float(np.median(pool)), mzeros
 
     def _detect_aperture_overlaps(
         self,
@@ -411,8 +434,8 @@ class SQM:
         exposure_sec: float,
         altitude_deg: float = 90.0,
         aperture_radius: int = 5,
-        annulus_inner_radius: int = 6,
-        annulus_outer_radius: int = 14,
+        annulus_inner_radius: int = 10,
+        annulus_outer_radius: int = 18,
         correct_overlaps: bool = False,
         saturation_threshold: int = 250,
         pedestal_override: Optional[float] = None,
@@ -435,8 +458,8 @@ class SQM:
             exposure_sec: Exposure time in seconds (required for noise floor estimation)
             altitude_deg: Altitude of field center for extinction correction (default: 90 = zenith)
             aperture_radius: Radius for star photometry in pixels (default: 5)
-            annulus_inner_radius: Inner radius of background annulus in pixels (default: 6)
-            annulus_outer_radius: Outer radius of background annulus in pixels (default: 14)
+            annulus_inner_radius: Inner radius of background annulus in pixels (default: 10)
+            annulus_outer_radius: Outer radius of background annulus in pixels (default: 18)
             correct_overlaps: If True, exclude stars with overlapping apertures/annuli (default: False)
             saturation_threshold: Pixel value threshold for saturation detection (default: 250)
             pedestal_override: If given, use this black-level pedestal instead of the
@@ -504,6 +527,9 @@ class SQM:
             else self.profile.color_coefficient
         )
         star_bv: Optional[List[float]] = None
+        star_gaia = None
+        if self.profile.reference_band == "gaia_g" and "matched_catID" in solution:
+            star_gaia = gaia_ref.get_g_bprp(solution["matched_catID"])
         if color_coef and "matched_catID" in solution:
             star_bv = list(color_index.get_bv(solution["matched_catID"]))
 
@@ -610,15 +636,27 @@ class SQM:
             background_corrected = 1.0
 
         # 4. Calculate photometric zero point.
-        # Apply the colour term per star where B-V is known; stars with no B-V
-        # fall back to their raw V magnitude. B-V is clamped to the range the
-        # linear colour term was fitted on -- extrapolating T*(B-V) to very red
-        # giants (B-V > 1.2) over-corrects them by up to a magnitude.
+        # Reference band per sensor: bare sensors (reference_band "gaia_g")
+        # use Gaia G with a small BP-RP trim -- G's 330-1050 nm passband is
+        # nearly the sensor's own, so star scatter drops ~25% vs Johnson V
+        # (see gaia_ref). IR-cut sensors stay on Hipparcos V with the linear
+        # B-V term, which is their native band. Stars missing from the Gaia
+        # table fall back per star to the V path. B-V is clamped to the range
+        # the linear colour term was fitted on -- extrapolating T*(B-V) to
+        # very red giants (B-V > 1.2) over-corrects them by up to a magnitude.
         n_color_corrected = 0
-        if star_bv is not None and color_coef:
+        use_gaia = star_gaia is not None
+        if use_gaia or (star_bv is not None and color_coef):
             effective_mags = []
-            for v_mag, bv in zip(star_mags, star_bv):
-                if bv is not None and math.isfinite(bv):
+            for i, v_mag in enumerate(star_mags):
+                if use_gaia and math.isfinite(star_gaia[i][0]):
+                    g_mag, bprp = star_gaia[i]
+                    trim = color_coef * bprp if math.isfinite(bprp) else 0.0
+                    effective_mags.append(g_mag - trim)
+                    n_color_corrected += 1
+                    continue
+                bv = star_bv[i] if star_bv is not None else None
+                if color_coef and bv is not None and math.isfinite(bv):
                     bv_clamped = min(max(bv, BV_CLAMP_MIN), BV_CLAMP_MAX)
                     effective_mags.append(v_mag - color_coef * bv_clamped)
                     n_color_corrected += 1

@@ -295,6 +295,7 @@ class CameraInterface:
                         "imu_delta": np.rad2deg(pointing_diff),
                         "exposure_time": self.exposure_time,
                         "gain": self.gain,
+                        "sensor_temp_c": getattr(self, "last_sensor_temp", None),
                     }
                     shared_state.set_last_image_metadata(image_metadata)
 

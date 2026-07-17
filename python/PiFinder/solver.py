@@ -29,6 +29,7 @@ from PiFinder import timez
 from PiFinder.sqm import SQM as SQMCalculator
 
 from PiFinder.sqm.wings import WingEstimator
+from PiFinder.sqm.clouds import CloudEstimator
 from PiFinder.state import SQM as SQMState
 from PiFinder.types.positioning import (
     AlignCancel,
@@ -160,9 +161,10 @@ def update_sqm(
     altitude_deg,
     calculation_interval_seconds=5.0,
     aperture_radius=5,
-    annulus_inner_radius=6,
-    annulus_outer_radius=14,
+    annulus_inner_radius=10,
+    annulus_outer_radius=18,
     wing_estimator=None,
+    cloud_estimator=None,
 ):
     """
     Calculate SQM from image.
@@ -176,8 +178,8 @@ def update_sqm(
         altitude_deg: Altitude in degrees for extinction correction
         calculation_interval_seconds: Minimum time between calculations (default: 5.0)
         aperture_radius: Aperture radius for photometry (default: 5)
-        annulus_inner_radius: Inner annulus radius (default: 6)
-        annulus_outer_radius: Outer annulus radius (default: 14)
+        annulus_inner_radius: Inner annulus radius (default: 10)
+        annulus_outer_radius: Outer annulus radius (default: 18)
         wing_estimator: WingEstimator that supplies the rolling aperture
             (wing-loss) mzero correction and is fed each frame's photometry
             image + matched centroids.
@@ -285,6 +287,28 @@ def update_sqm(
                 calc_solution["matched_centroids"],
                 saturation_threshold,
             )
+
+        # Cloud detection: the exposure-normalized zero point is a live
+        # transmission monitor (clouds dim the calibration stars, glow does
+        # not). Feed the estimator and report the deficit; the deficit is
+        # also the approximate correction a star-calibrated SQM needs under
+        # cloud, exposed as sqm_cloud_corrected but NOT applied to the value.
+        if cloud_estimator is not None and details.get("mzero") is not None:
+            try:
+                pointing = shared_state.solution()
+                pointing_alt = getattr(pointing, "Alt", None)
+            except (BrokenPipeError, ConnectionResetError, AttributeError):
+                pointing_alt = None
+            cloud_deficit = cloud_estimator.add_sample(
+                details["mzero"],
+                exposure_sec,
+                wing_correction=mzero_correction,
+                altitude_deg=pointing_alt,
+            )
+            details["cloud_extinction"] = cloud_deficit
+            details["cloud_flag"] = cloud_estimator.is_cloudy()
+            if cloud_deficit is not None and sqm_value is not None:
+                details["sqm_cloud_corrected"] = sqm_value + cloud_deficit
 
         # Session correction: additive offset from a reference-meter reading
         try:
@@ -631,6 +655,8 @@ def solver(
     sqm_calculator = None
     # Rolling aperture (wing-loss) correction, fed by bright matched stars
     sqm_wing_estimator = WingEstimator()
+    # Cloud detection: rolling clear-sky zero-point baseline (see sqm.clouds).
+    sqm_cloud_estimator = CloudEstimator()
 
     while True:
         logger.info("Starting Solver Loop")
@@ -668,6 +694,7 @@ def solver(
                         logger.info("Reloading SQM calibration...")
                         sqm_calculator = None
                         sqm_wing_estimator.reset()
+                        sqm_cloud_estimator.reset()
                     else:
                         logger.warning(
                             "Unknown solver command (type=%s): %r",
@@ -768,6 +795,7 @@ def solver(
                             altitude_deg=altitude_for_sqm,
                             calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
                             wing_estimator=sqm_wing_estimator,
+                            cloud_estimator=sqm_cloud_estimator,
                         )
 
                         # Don't clutter printed solution with these fields (use pop to safely remove)

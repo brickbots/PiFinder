@@ -89,6 +89,9 @@ class CameraPI(CameraInterface):
             f"Captured frame - Requested: {self.exposure_time}µs/{self.gain}x gain, "
             f"Actual: {actual_exposure}µs/{actual_gain:.2f}x gain"
         )
+        # Sensor die temperature (diagnostic only): the black level wanders
+        # ±2 ADU night-to-night and temperature is the prime suspect.
+        self.last_sensor_temp = metadata.get("SensorTemperature")
 
         _request.release()
 
