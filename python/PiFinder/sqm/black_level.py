@@ -146,6 +146,24 @@ class BlackLevelTracker:
         """(pedestal, stderr, n_samples) for diagnostics."""
         return self._pedestal, self._stderr, len(self._samples)
 
+    def dump(self) -> dict:
+        """Full JSON-serializable window state for diagnostics/sweeps."""
+        return {
+            "pedestal": self._pedestal,
+            "stderr": self._stderr,
+            "n_samples": len(self._samples),
+            "config": {
+                "bias_offset": self.bias_offset,
+                "min_samples": self.min_samples,
+                "max_samples": self._samples.maxlen,
+                "min_exposure_ratio": self.min_exposure_ratio,
+                "max_intercept_stderr": self.max_intercept_stderr,
+                "max_offset_deviation": self.max_offset_deviation,
+            },
+            "samples_exposure_sec": [s[0] for s in self._samples],
+            "samples_background_per_pixel": [s[1] for s in self._samples],
+        }
+
     def reset(self) -> None:
         self._samples.clear()
         self._pedestal = None

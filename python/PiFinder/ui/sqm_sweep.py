@@ -399,9 +399,10 @@ class UISQMSweep(UIModule):
             except Exception as e:
                 logger.warning(f"Could not record noise-floor metadata: {e}")
 
-            # Save updated metadata
+            # Save updated metadata (default=str: sqm_details can carry the
+            # odd non-JSON scalar and must never abort the whole enrichment)
             with open(metadata_file, "w") as f:
-                json.dump(metadata, f, indent=2)
+                json.dump(metadata, f, indent=2, default=str)
 
             logger.info(f"Added detailed metadata to {metadata_file}")
 
