@@ -62,6 +62,7 @@ _Avoid_: AE algo, zero-star handler, handler, plugin.
 
 - **`Matches`** — defined in [Positioning](../positioning/CONTEXT.md): count of stars tetra3 matched in the most recent solve attempt, published on every attempt (success or failure) because auto-exposure depends on it. The feedback signal for solver-driven auto-exposure.
 - **Processed-image floor** — the 8-bit ADU threshold stored in shared state and consumed here as the minimum acceptable background. It is distinct from the raw-sensor pedestal and read-noise diagnostics in [SQM](../sqm/CONTEXT.md).
+- **`SCREEN_ROTATE_AMOUNTS`** — owned here (`camera_interface.py`): the per-variant software rotation applied to each capture before it reaches the solver and preview, keyed by screen direction. The post-rotation image defines Positioning's **camera frame**, so each entry is only valid paired with that variant's `q_imu2cam` (defined in [Positioning](../positioning/CONTEXT.md)); pairs are derived with the imu2cam tool and pinned together by `tests/test_imu2cam_tool_presets.py`. It is also the source of the published **solve-image rotation** that SQM inverts to map solve-image centroids back onto the raw frame.
 
 ## Flagged ambiguities
 

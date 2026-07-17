@@ -93,8 +93,14 @@ class CameraPI(CameraInterface):
             f"Actual: {actual_exposure}µs/{actual_gain:.2f}x gain"
         )
         # Sensor die temperature (diagnostic only): the black level wanders
-        # ±2 ADU night-to-night and temperature is the prime suspect.
-        self.last_sensor_temp = metadata.get("SensorTemperature")
+        # ±2 ADU night-to-night and temperature is the prime suspect. Not all
+        # sensors report it (imx296/HQ drivers may omit or mistype the key);
+        # temperature must never be able to break a capture.
+        try:
+            temp = metadata.get("SensorTemperature")
+            self.last_sensor_temp = float(temp) if temp is not None else None
+        except (TypeError, ValueError):
+            self.last_sensor_temp = None
 
         _request.release()
 

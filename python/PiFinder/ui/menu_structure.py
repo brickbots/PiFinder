@@ -1195,6 +1195,22 @@ pifinder_menu = {
                                     "name": _("AS Bloom"),
                                     "value": "as_bloom",
                                 },
+                                {
+                                    "name": _("AS Heart"),
+                                    "value": "as_heart",
+                                },
+                                {
+                                    "name": _("V4 Left"),
+                                    "value": "v4_left",
+                                },
+                                {
+                                    "name": _("V4 Right"),
+                                    "value": "v4_right",
+                                },
+                                {
+                                    "name": _("V4 Straight"),
+                                    "value": "v4_straight",
+                                },
                             ],
                         },
                         {

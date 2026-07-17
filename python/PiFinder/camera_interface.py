@@ -12,6 +12,7 @@ This module is the camera
 from typing import Tuple, Optional
 from pathlib import Path
 from PIL import Image
+import json
 import os
 import random
 import time
@@ -35,6 +36,25 @@ logger = logging.getLogger("Camera.Interface")
 # falls back to this fixed short exposure -- short enough not to saturate in
 # daylight while still usable for framing a distant object.
 DAYTIME_AE_FALLBACK_EXPOSURE = 1000  # microseconds
+
+# Software rotation applied to each raw capture before it reaches the solver
+# and the preview, keyed by screen_direction. Each entry is paired with that
+# variant's q_imu2cam in pointing_model/imu_dead_reckoning.py -- the camera
+# frame ("image up") is only defined after this rotation, so the two values
+# must be derived together (see pointing_model/docs/imu2cam_tool.html).
+# Variants absent here fall back to 270.
+SCREEN_ROTATE_AMOUNTS = {
+    "flat": 270,
+    "left": 270,
+    "right": 90,
+    "straight": 90,
+    "flat3": 90,
+    "as_bloom": 90,
+    "as_heart": 90,
+    "v4_left": 0,
+    "v4_right": 270,
+    "v4_straight": 270,
+}
 
 
 class CameraInterface:
@@ -188,10 +208,8 @@ class CameraInterface:
             # solve-image centroids back onto the raw for photometry.
             if camera_rotation is not None:
                 solve_rotation = (-int(camera_rotation)) % 360
-            elif screen_direction in ["right", "straight", "flat3", "as_bloom"]:
-                solve_rotation = 90
             else:
-                solve_rotation = 270
+                solve_rotation = SCREEN_ROTATE_AMOUNTS.get(screen_direction, 270)
             shared_state.set_solve_image_rotation(solve_rotation)
 
             # Set path for test mode image
@@ -624,6 +642,7 @@ class CameraInterface:
                             logger.info(f"Saving sweep to: {sweep_dir}")
                             console_queue.put("CAM: Starting sweep...")
 
+                            sweep_frames: list = []
                             for i, exp_us in enumerate(sweep_exposures, 1):
                                 # Update progress at start of each capture
                                 console_queue.put(f"CAM: Sweep {i}/{num_images}")
@@ -660,6 +679,21 @@ class CameraInterface:
                                 )
                                 self.capture_raw_file(str(raw_filename))
 
+                                # Per-pair sensor die temperature: the black
+                                # level's suspected thermal driver, recorded so
+                                # a sweep resolves the pedestal-vs-temperature
+                                # relation frame by frame.
+                                sweep_frames.append(
+                                    {
+                                        "index": i,
+                                        "exp_ms": exp_ms,
+                                        "sensor_temp_c": getattr(
+                                            self, "last_sensor_temp", None
+                                        ),
+                                        "captured_at": timez.local_now().isoformat(),
+                                    }
+                                )
+
                                 logger.debug(
                                     f"Captured sweep images {i}/{num_images}: {exp_ms:.2f}ms (PNG+TIFF)"
                                 )
@@ -669,6 +703,12 @@ class CameraInterface:
                             self.gain = original_gain
                             self._auto_exposure_enabled = original_ae_enabled
                             self.set_camera_config(self.exposure_time, self.gain)
+
+                            try:
+                                with open(sweep_dir / "frame_metadata.json", "w") as f:
+                                    json.dump({"frames": sweep_frames}, f, indent=2)
+                            except OSError:
+                                logger.exception("Failed to save sweep frame metadata")
 
                             # Save sweep metadata (GPS time, location, altitude)
                             logger.info("Starting sweep metadata save...")
