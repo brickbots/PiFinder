@@ -170,11 +170,11 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # the Pregius mono QE falls through the NIR, unlike the STARVIS colour
         # sensors' NIR-heavy green channel.
         color_coefficient=0.21,
-        # PROVISIONAL: single moonlit sweep vs one hand-held reference
-        # (17.8-17.9); negative = mono band reads darker than the meter.
-        # Re-measure over more nights; the session anchor absorbs the
-        # uncertainty meanwhile.
-        sqm_band_offset=-0.46,
+        # Refit for the growth-curve pipeline from the same single moonlit
+        # 2025-10-31 sweep vs its 17.8-17.9 hand-held reference (+/-0.2).
+        # Near zero is physically consistent: the Pregius mono passband is
+        # the closest of the three sensors to the meter's.
+        sqm_band_offset=-0.06,
     ),
     "imx462": CameraProfile(
         # Hardware configuration
