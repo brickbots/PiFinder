@@ -1,7 +1,8 @@
 # Sky Quality Meter (SQM) in PiFinder
 
-PiFinder estimates sky surface brightness from the same solved camera frames
-used for pointing. The normal product path is deliberately zero-touch: after
+PiFinder estimates sky surface brightness directly from the linear raw camera
+background. A plate solve is not required. The normal product path is
+deliberately zero-touch: after
 the camera identifies itself, the built-in sensor profile supplies the
 calibrated black level, passband transform, and SQM-L offset. A user does not
 need flats, dark frames, or a calibration wizard to get a useful reading.
@@ -12,29 +13,52 @@ run implicitly against an ordinary sky image.
 
 ## Accuracy demonstrated so far
 
-The archive campaign validates the complete estimator, not just individual
-formulae:
+The archive campaign validates the complete zero-touch estimator, not just
+individual formulae. A radiometer-first replay using sparse,
+solve-independent raw backgrounds produced:
 
-| Sensor | Evidence | Out-of-box result |
+| Sensor | Evidence | Out-of-box production result |
 |---|---|---|
-| imx462 | six clear SQM-L reference sweeps over multiple nights | cross-sweep residual σ ≈ 0.05 mag; typical error within ±0.1 mag |
-| HQ/imx477 | three independent clear reference readings over eight months | residuals within about ±0.2 mag |
-| imx296 | one moonlit reference sweep (SQM-L 17.8–17.9) | approximately ±0.2 mag; evidence is data-poor |
+| imx462 | six clear plus two cloudy SQM-L reference sweeps | clear sweep errors −0.053 to +0.061 mag; MAE 0.052 mag |
+| HQ/imx477 | two reviewed clear reference sweeps plus cloud/attenuation cases | clear sweep errors −0.144 and −0.034 mag; MAE 0.089 mag |
+| imx296 | one moonlit reference sweep with strong vertical readout bands | error +0.061 mag after factory fit; frame precision and evidence are poor |
 
-The final no-calibration regression replayed 540 archive frames from 11 clear
-reference sweeps. Relative to the unmodified deepchart base, sweep-median MAE
-improved from 0.084 to 0.081 mag and RMSE from 0.119 to 0.117 mag. By sensor,
-imx462's six sweep medians have 0.050 mag residual scatter and 0.038 mag MAE
-(range −0.018 to +0.131); HQ has 0.161 mag MAE, with the known sparse/suspect
-references reaching −0.207 and +0.241; the single imx296 sweep is −0.021 mag.
-No offset was fit during this replay and user calibration files were disabled.
+Across the nine factory-eligible sweeps, the production 12-frame rolling
+radiometer has bias −0.008 mag, residual σ 0.068 mag, MAE 0.061 mag, and RMSE
+0.068 mag. It published on all 800 archived raw frames in the replay, including
+318 frames without usable stellar photometry. The reproducible report and
+per-frame output are in
+`support/dumps/analysis/20260717/latest_production_pipeline/`.
+
+One visually cloud-free but dim HQ session with about one magnitude of
+instrument throughput loss reads 0.88 mag too dark before stellar attenuation
+compensation. It remains the stress case for the session-conditioned dew/optics
+guard. `sweep_20251118_001616_183sqm` has confirmed thin passing cloud and is a
+scene-continuity test, not a factory anchor. The elevated scatter in
+`sweep_20260716_000844` and `sweep_20260714_232132` accompanies visible vertical
+pointing shake rather than cloud.
+
+`sweep_20251027_201439` is visibly cloud-affected and includes frames with no
+visible stars (automated extraction finds one zero-centroid frame and 37/100
+frames with fewer than six centroids). It is a useful failed-solve continuity
+case, not a clear-sky calibration sweep. The archive contains only processed
+PNGs for it, so it cannot quantitatively replay the raw radiometer path.
+Reviewed conditions and factory-fit eligibility are recorded in
+`support/dumps/sweeps/sqm_archive_quality.json`, beside the archived sweeps.
+The archive evaluator loads that manifest from the supplied sweeps directory
+and never fits an unlisted or disallowed sweep.
+
+With one archived frame modeled per second, the 10-second stellar diagnostic
+flagged cloud samples but produced no automatic optics-compensated publication:
+the short sweeps did not establish the 12-sample clear-session baseline needed
+to distinguish instrument attenuation safely. The black-level tracker also
+currently refines only stellar photometry; it does not alter the published
+radiometer pedestal. Neither feature improves the headline archive accuracy in
+the current production wiring.
 
 These are in-sample results under a light-pollution-dominated Ghent sky. The
-sensor offsets include the local sky spectrum, so dark airglow-dominated sites
-may need a different offset. Bright cloud is a known physical limitation:
-stars are attenuated above much of the city glow, so star-calibrated SQM reads
-roughly 0.4–0.7 mag too bright. `CloudEstimator` detects the zero-point deficit
-and reports it, but does not silently alter the published value.
+factory constants include the local sky spectrum, so independent units and dark
+airglow-dominated sites remain required validation.
 
 ## Runtime ownership and data flow
 
@@ -43,20 +67,18 @@ latest state.
 
 ```text
 camera capture
-  ├─ 512×512 processed image ─► Cedar centroids + tetra3 solution
-  └─ cropped raw sensor frame ─► raw mono / averaged Bayer-green photometry
-                                      │
-solution centroids ─► scale + undo display rotation
+  ├─ 512×512 processed image ─► Cedar/tetra3 ─► pointing
+  └─ raw matrix ─► sparse central background sample (every frame)
                                       │
                                       ▼
-                                 SQM.calculate
+                       rolling radiometric median (new frame, ≤ once / 1 s)
                                       │
-             ┌────────────────────────┼──────────────────────┐
-             ▼                        ▼                      ▼
-       SQMState.value           sqm_details          Wing/Cloud history
-             │
-             ▼
-           SQM UI
+             ┌────────────────────────┴──────────────────────┐
+             ▼                                               ▼
+   SQMState.value/source=Radiometer                    sqm_details
+
+successful solve ─► raw stellar aperture photometry (≤ once / 10 s)
+                 ─► transmission/cloud/dew diagnostics only
 ```
 
 The calculator is created lazily on the first solved frame. This matters: at
@@ -64,8 +86,10 @@ solver-process startup the camera process may not yet have published the real
 sensor type. Lazy creation prevents the old race that applied imx296 constants
 to imx462 or HQ frames.
 
-SQM runs at most once every five seconds. A failed solve or failed photometric
-measurement leaves the previous reading in place and retries on a later solve.
+The cheap camera-side reduction runs for every captured frame. The radiometric
+value publishes after a new frame at most once per second;
+expensive stellar photometry runs at most once every ten seconds. A failed solve
+does not stop radiometric SQM updates.
 
 ## Coordinate and image alignment
 
@@ -81,7 +105,7 @@ Skipping step 3 places star apertures on empty sky and causes errors of several
 magnitudes. This mapping is covered by rotation tests for 0°, 90°, 180°, 270°,
 and arbitrary rotations.
 
-## Photometric reduction
+## Stellar diagnostic reduction
 
 For each matched star:
 
@@ -96,13 +120,47 @@ with aperture-sized masks. A 3σ clip is a backstop for sources Cedar missed.
 The inner radius is 10 px because archive growth curves demonstrated that the
 old 6–14 px annulus contained HQ PSF-wing flux.
 
-The sky term is the median of the cleaned per-star annulus backgrounds. A
+The stellar diagnostic's sky term is the median of cleaned per-star annulus
+backgrounds. A
 six-sweep A/B against a full-frame, source-masked median was a wash:
 cross-sweep residual σ changed from 0.046 to 0.042 mag and median frame scatter
 from 0.137 to 0.135 mag. The global median read 0.01–0.05 mag darker because it
 included vignetted corners. Local annuli stay in production because they
 sample the field near the same stars that determine the zero point, cost less,
-and are the estimator against which the offsets were calibrated.
+and remain the estimator used for stellar throughput.
+
+## Solve-independent radiometer reduction
+
+While the raw matrix is still local to the camera process, PiFinder averages
+the two Bayer-green sites (or keeps mono), excludes the outer ten percent, and
+takes a median on a stride-four grid. Stars occupy far less than half of this
+grid and therefore cannot move its median. Four quadrant medians record a cheap
+gradient diagnostic. Only the small sample dictionary crosses process state.
+
+Samples are converted to brightness individually and their recent median is
+published. This preserves exposure changes rather than averaging raw ADU from
+different exposures. Samples older than 15 seconds are discarded. In sleep
+mode each periodic capture therefore starts a fresh estimate; no calibration
+warm-up is required. Publication still needs a new frame, so this creates no
+extra sleep wakeups.
+
+### Performance and solver resolution
+
+The reproducible archive benchmark is
+`python/scripts/benchmark_sqm_pipeline.py`. On the development machine, the
+camera-side collector costs 0.43 ms per IMX462 frame and 0.99 ms per HQ frame.
+The equivalent green extraction plus full-frame median costs 1.83 and 4.38 ms.
+Solved stellar diagnostics remain about 4.5 and 10 ms and run no more often
+than every ten seconds. These are relative CPU checks; Pi hardware is
+required for absolute power measurements.
+
+The production solver remains on the processed 512×512 image. Across two
+20-frame reference sweeps it solved 19/20 IMX462 and 18/20 HQ frames. Native
+green solved fewer frames, while full Bayer centroid extraction cost roughly
+3× (IMX462) to 7× (HQ) more and did not improve total success. Full-resolution
+operation would also expand the shared image, UI/alignment coordinate space,
+and Cedar workload. Radiometer availability therefore does not depend on
+changing solver resolution.
 
 ## Exposure-stable zero point
 
@@ -166,28 +224,30 @@ processed-image background controller keeps its validated 8-bit threshold.
 
 ## Published value, altitude, passband, and cloud
 
-After converting background ADU per pixel to ADU per square arcsecond:
+After converting solve-independent background ADU per pixel to ADU per square
+arcsecond using the factory field width:
 
 ```text
-sqm_sensor = mzero − 2.5 log10((sky − pedestal) / arcsec²_per_pixel)
-sqm_final  = sqm_sensor + camera_profile.sqm_band_offset
+sqm = radiometric_zero_point
+      + 2.5 log10(exposure_seconds)
+      − 2.5 log10((sky − pedestal) / arcsec²_per_pixel)
 ```
 
-The sensor offset maps the camera passband to the SQM-L scale under the
-calibration sky regime. Current defaults are imx462/imx290 `+0.53`, HQ `+0.60`,
-and imx296 `−0.22` mag; they are coupled to the current Gaia/colour, wing, and
-local-annulus estimator.
+The fixed zero point includes the passband mapping to the SQM-L scale. Current
+defaults are imx462/imx290 `15.25`, HQ `14.79`, and imx296 `14.07`. Factory field
+widths are 10.38°, 10.34°, and 13.71° respectively.
 
-`sqm_final` is the published reading. It intentionally has no atmospheric
-altitude correction. When a real altitude is available, details also contain
-`sqm_altitude_corrected = sqm_final + 0.28 × (airmass − 1)`. When altitude is
-unavailable, PiFinder passes `None`; it no longer labels the field as a fake
-90° zenith measurement.
+The radiometric value is the published reading and intentionally has no
+atmospheric altitude correction. It measures the sky actually in the camera's
+field rather than normalizing it to zenith.
 
-`CloudEstimator` tracks the exposure-normalized stellar zero point. A deficit
-from its recent clear-transmission baseline produces `cloud_extinction`,
-`cloud_flag`, and an informational `sqm_cloud_corrected`. The main reading is
-not silently changed.
+`CloudEstimator` tracks the exposure-normalized stellar zero point independently
+of the radiometer. Cloud is a property of the measured scene and is not
+corrected away. After at least twelve clear session samples, a recent stellar
+deficit classified as instrument-side attenuation can compensate dew or dirty
+optics by subtracting that deficit from radiometric SQM. Factory priors alone
+cannot enable this correction, and candidate frames do not erode the clear
+baseline.
 
 ## Optional user refinement
 
@@ -221,10 +281,12 @@ No flat or master dark is produced or required.
   spectrum; changing annuli, catalog band, wing model, or passband requires
   archive revalidation.
 - HQ and especially imx296 need more independent reference nights.
-- Bright clouds violate the simple “same attenuation for stars and sky” model.
+- Cloud versus instrument attenuation at startup is not always identifiable;
+  automatic optics compensation waits for a session clear baseline.
 - Flats can characterize vignetting for research, but normal operation must
   remain accurate without asking the user to take one.
 
-See [`sqm/CONTEXT.md`](./sqm/CONTEXT.md) for canonical terminology and
-[`docs/adr/0002-sqm-published-value-uncorrected.md`](../adr/0002-sqm-published-value-uncorrected.md)
-for the published-value decision.
+See [`sqm/CONTEXT.md`](./sqm/CONTEXT.md) for canonical terminology,
+[`ADR-0022`](../adr/0022-sqm-radiometer-first.md) for radiometer-first ownership,
+and [`ADR-0002`](../adr/0002-sqm-published-value-uncorrected.md) for the
+no-altitude-correction decision.

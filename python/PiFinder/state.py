@@ -162,7 +162,7 @@ class SQM:
     """
 
     value: float = 20.15  # mag/arcsec² - default typical dark sky value
-    source: str = "None"  # "None", "Calculated", "Manual", etc.
+    source: str = "None"  # "None", "Radiometer", "Manual", legacy "Calculated"
     last_update: Optional[str] = None  # ISO timestamp of last update
 
     def __str__(self):
@@ -310,6 +310,7 @@ class SharedStateObj:
         # to the stored raw frame (PIL CCW). None until the camera reports.
         self.__solve_image_rotation = None
         self.__cam_raw = None
+        self.__sqm_radiometer_sample = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
         self.__tz_finder = TimezoneFinder()
@@ -573,6 +574,12 @@ class SharedStateObj:
 
     def set_cam_raw(self, v):
         self.__cam_raw = v
+
+    def sqm_radiometer_sample(self):
+        return self.__sqm_radiometer_sample
+
+    def set_sqm_radiometer_sample(self, v):
+        self.__sqm_radiometer_sample = v
 
     def ui_state(self):
         return self.__ui_state

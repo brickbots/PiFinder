@@ -1,6 +1,6 @@
 # SQM (Sky Quality Meter)
 
-Canonical language for PiFinder's solved-frame sky-brightness measurement.
+Canonical language for PiFinder's solve-independent sky-brightness measurement.
 The architecture and validation evidence live in [`../sqm.md`](../sqm.md).
 
 ## Product intent
@@ -20,9 +20,13 @@ to have an identical spectral or angular response.
 Latest published `value`, `source`, and `last_update` in shared state. The UI
 reads this state and does not calculate photometry.
 
-**`sqm_final`**:
-Sensor-band photometry plus the configured sensor/SQM-L passband offset, with
-no altitude correction. This is the value returned and published.
+**Radiometric SQM**:
+The published fixed-calibration measurement from diffuse raw background,
+exposure, pedestal, factory field width, and `radiometric_zero_point`.
+
+**Stellar SQM (`sqm_star_calibrated`)**:
+The former per-frame stellar-zero-point result. Retained as a transmission and
+regression diagnostic; never the production primary or no-solve fallback.
 
 **`sqm_altitude_corrected`**:
 Optional comparison value `sqm_final + 0.28 × (airmass − 1)`. It is present
@@ -96,10 +100,13 @@ noise and invented missing flux.
 **Local sky**:
 Median cleaned annulus value for one matched star.
 
-**Sky background**:
-Median of local skies. A full-frame source-masked median was tested and was
-statistically equivalent, but read vignetted corners slightly darker and was
-not adopted.
+**Radiometer sample**:
+Sparse central median reduced in the camera process on every raw frame. It
+excludes the outer ten percent and records MAD, quadrant gradient, exposure,
+timestamp, sequence, and native green/mono pixel scale.
+
+**Stellar sky background**:
+Median of local annulus skies, used only by stellar diagnostics.
 
 **Bias offset**:
 Static mean detector signal at minimum exposure, in raw ADU. Comes from the
@@ -139,6 +146,14 @@ Per-sensor hardware, detector, catalog-band, colour, and SQM offset constants.
 `get_camera_profile()` returns a copy so optional calibration never mutates
 global defaults or another calculator.
 
+**Radiometric zero point**:
+Exposure-normalized diffuse-sky conversion already mapped to the SQM-L scale.
+It is fixed per shipped sensor/optics profile and does not change with current
+stellar transmission.
+
+**Radiometric field width**:
+Factory angular width used for square-arcsecond conversion when no solve exists.
+
 ## Passband and atmosphere
 
 **Colour coefficient**:
@@ -153,10 +168,14 @@ model, and local-annulus background estimator.
 Pickering (2002) airmass and `0.28 mag/airmass`. Comparison-only; unknown
 altitude is `None`, never a fabricated 90°.
 
-**Cloud extinction / cloud flag**:
-Deficit of exposure-normalized stellar zero point relative to recent best
-transmission. Informational because clouds can attenuate stars and sky glow by
-different amounts.
+**Transmission deficit / cloud flag**:
+Deficit of exposure-normalized stellar zero point relative to clear
+transmission. Cloud is diagnostic and does not alter scene brightness.
+
+**Optics attenuation correction**:
+Recent stellar deficit classified as dew/dirty optics and subtracted from the
+radiometric magnitude. It requires a session-conditioned clear baseline;
+factory priors alone cannot activate it.
 
 ## Optional refinement
 
@@ -181,7 +200,13 @@ SQM because no runtime camera path services the request.
 ## Timing and distribution
 
 **`SQM_CALCULATION_INTERVAL_SECONDS`**:
-Five-second minimum interval between successful measurements.
+One-second minimum interval between new-frame-driven radiometric publications.
+Camera-side radiometer collection runs on every captured frame. Sleep mode does
+not publish without its normal periodic capture.
+
+**`SQM_STELLAR_DIAGNOSTIC_INTERVAL_SECONDS`**:
+Ten-second minimum interval between expensive solved stellar transmission
+diagnostics.
 
 **`ReloadSqmCalibration`**:
 Typed solver command that discards the calculator and resets wing/cloud

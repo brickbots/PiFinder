@@ -247,6 +247,9 @@ class CameraInterface:
                         base_image = base_image.rotate(solve_rotation)
                     else:
                         # Test Mode: load image from disc and wait
+                        # No real raw matrix backs this frame; prevent a recent
+                        # hardware radiometer sample from being paired with it.
+                        shared_state.set_sqm_radiometer_sample(None)
                         base_image = Image.open(test_image_path)
                         base_image = base_image.convert(
                             "L"

@@ -18,7 +18,7 @@ BV_CLAMP_MAX = 1.2
 
 class SQM:
     """
-    SQM (Sky Quality Meter) class to calculate sky background brightness.
+    Solved-frame stellar photometry and legacy SQM diagnostic calculator.
 
     Implementation uses local annulus background measurement:
     - Proper photometric zero point calibration from catalog stars
@@ -34,8 +34,9 @@ class SQM:
         Sky background = median(all local_bg measurements)
         SQM = mzero - 2.5 × log10((sky_bg - pedestal) / pixel_area_arcsec²) + extinction
 
-    This correctly compares star total flux (point sources) to background flux density
-    (extended source), giving SQM in mag/arcsec².
+    The result is retained as ``sqm_star_calibrated`` for transmission and
+    regression diagnostics. Production ``SQMState.value`` is owned by the
+    solve-independent radiometer in :mod:`PiFinder.sqm.radiometer`.
     """
 
     # Zero-point stars are taken from this catalog-magnitude band (see
@@ -664,7 +665,7 @@ class SQM:
         if use_gaia or (star_bv is not None and color_coef):
             effective_mags = []
             for i, v_mag in enumerate(star_mags):
-                if use_gaia and math.isfinite(star_gaia[i][0]):
+                if star_gaia is not None and math.isfinite(star_gaia[i][0]):
                     g_mag, bprp = star_gaia[i]
                     trim = color_coef * bprp if math.isfinite(bprp) else 0.0
                     effective_mags.append(g_mag - trim)

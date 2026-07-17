@@ -2,7 +2,8 @@
 SQM (Sky Quality Meter) module for calculating sky background brightness.
 
 This module provides:
-- SQM: Main calculator for sky quality measurements using aperture photometry
+- SQM: Solved-frame stellar photometry/diagnostic calculator
+- radiometer: Solve-independent production sky-brightness measurement
 - NoiseFloorEstimator: Calibrated raw-sensor pedestal and noise diagnostics
 - CameraProfile: Dataclass containing camera hardware and noise characteristics
 - get_camera_profile: Lookup camera profile by type (e.g., "imx296", "hq")
