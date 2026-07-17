@@ -3,11 +3,12 @@
 """
 SQM Calibration Wizard
 
-This module provides a step-by-step wizard for calibrating the SQM (Sky Quality Meter)
-noise floor estimation. The calibration process:
+This optional wizard refines the factory SQM (Sky Quality Meter) sensor-noise
+defaults. Normal SQM operation requires no user calibration. The process:
 
-1. Captures bias frames (0s exposure with lens cap on) to measure read noise
-2. Captures dark frames (actual exposure with lens cap on) to measure dark current
+1. Captures minimum-exposure bias frames with the lens cap on to measure bias
+   and temporal read noise
+2. Captures a multi-exposure dark sequence to fit mean dark current
 3. Captures sky frames (actual exposure without cap) to measure actual sky brightness
 4. Calculates noise parameters and updates the camera profile
 5. Saves calibration data for future use
@@ -23,7 +24,11 @@ import numpy as np
 from enum import Enum
 from typing import Optional, List
 
-from PiFinder.solver import _extract_raw_photometry_image, _scale_solution_centroids
+from PiFinder.solver import (
+    _derotate_centroids,
+    _extract_raw_photometry_image,
+    _scale_solution_centroids,
+)
 from PiFinder.types.positioning import PointingEstimate, ReloadSqmCalibration
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
@@ -37,7 +42,7 @@ class CalibrationState(Enum):
 
     INTRO = "intro"  # Introduction screen
     CAP_ON_INSTRUCTION = "cap_on"  # Instruction to put lens cap on
-    CAPTURING_BIAS = "bias"  # Capturing bias frames (0s exposure)
+    CAPTURING_BIAS = "bias"  # Capturing minimum-exposure bias frames
     CAPTURING_DARK = "dark"  # Capturing dark frames (actual exposure)
     CAP_OFF_INSTRUCTION = "cap_off"  # Instruction to remove lens cap
     CAPTURING_SKY = "sky"  # Capturing sky frames with plate solving
@@ -77,6 +82,7 @@ class UISQMCalibration(UIModule):
         # Frame storage - RAW (16-bit); SQM photometry is raw-only
         self.bias_frames_raw: List[np.ndarray] = []
         self.dark_frames_raw: List[np.ndarray] = []
+        self.dark_frame_exposures_sec: List[float] = []
         self.sky_frames_raw: List[np.ndarray] = []
 
         # Store solution for each sky frame (needed for SQM calculation)
@@ -94,12 +100,13 @@ class UISQMCalibration(UIModule):
 
         # Store original camera settings to restore later
         self.original_exposure = None
+        self.original_exposure_setting = None
         self.original_gain = None
         self.original_ae_state = None
 
         # Exposure time will be set in active() based on current exposure
         # with minimum of 400ms to ensure good SNR
-        self.exposure_time_us = None
+        self.exposure_time_us: int = 400000
 
         # Timeout tracking for sky frame capture
         self.sky_capture_start_time = None
@@ -107,16 +114,33 @@ class UISQMCalibration(UIModule):
 
     def active(self):
         """Called when module becomes active"""
+        # A module instance can be reopened. Never reuse frames, results, or a
+        # timeout from an earlier calibration run.
+        self.current_frame = 0
+        self.bias_frames_raw = []
+        self.dark_frames_raw = []
+        self.dark_frame_exposures_sec = []
+        self.sky_frames_raw = []
+        self.sky_solutions = []
+        self.bias_offset_raw = None
+        self.read_noise_raw = None
+        self.dark_current_rate_raw = None
+        self.sky_brightness_raw = None
+        self.sqm_median = None
+        self.sqm_values = []
+        self.sky_capture_start_time = None
+
         # Store original camera settings
-        metadata = self.shared_state.last_image_metadata()
+        metadata = self.shared_state.last_image_metadata() or {}
         self.original_exposure = metadata.get("exposure_time", 500000)
+        self.original_exposure_setting = self.config_object.get_option("camera_exp")
 
         # Use max(current_exposure, 400ms) to ensure good SNR
         # but preserve higher exposure if already set
         self.exposure_time_us = max(self.original_exposure, 400000)
 
         # Set exposure for calibration
-        self.command_queues["camera"].put(f"set_exp:{self.exposure_time_us}")
+        self._set_calibration_exposure(self.exposure_time_us)
         time.sleep(0.2)  # Wait for camera to apply setting
 
         # Start with intro screen
@@ -125,9 +149,17 @@ class UISQMCalibration(UIModule):
 
     def inactive(self):
         """Called when module becomes inactive"""
-        # Restore original camera settings
-        if self.original_exposure is not None:
-            self.command_queues["camera"].put(f"set_exp:{self.original_exposure}")
+        # Restore the exposure mode, not merely the most recent numeric value.
+        if self.original_exposure_setting == "auto":
+            self.command_queues["camera"].put("set_exp:auto")
+        elif self.original_exposure_setting is not None:
+            self.command_queues["camera"].put(
+                f"set_exp_transient:{self.original_exposure_setting}"
+            )
+        elif self.original_exposure is not None:
+            self.command_queues["camera"].put(
+                f"set_exp_transient:{self.original_exposure}"
+            )
         else:
             # Fallback: re-enable auto-exposure
             self.command_queues["camera"].put("set_exp:auto")
@@ -176,7 +208,7 @@ class UISQMCalibration(UIModule):
         )
 
         lines = [
-            "Measure noise floor",
+            "Optional refinement",
             "",
             "Need:",
             "• Lens cap",
@@ -465,11 +497,52 @@ class UISQMCalibration(UIModule):
     # Frame capture methods
     # ============================================
 
+    def _set_calibration_exposure(self, exposure_us: int) -> None:
+        """Set a temporary exposure without changing the saved user setting."""
+        self.command_queues["camera"].put(f"set_exp_transient:{exposure_us}")
+
+    def _capture_and_wait(self, exposure_us: int) -> float:
+        """Request one frame and return its identifying exposure-end time."""
+        previous_metadata = self.shared_state.last_image_metadata() or {}
+        previous_end = float(previous_metadata.get("exposure_end", 0.0))
+        self.command_queues["camera"].put("capture")
+
+        timeout = max(5.0, 3 * exposure_us / 1_000_000.0 + 1.0)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            metadata = self.shared_state.last_image_metadata() or {}
+            exposure_end = float(metadata.get("exposure_end", 0.0))
+            metadata_exposure = int(metadata.get("exposure_time", 0))
+            if (
+                exposure_end > previous_end
+                and abs(metadata_exposure - exposure_us) <= 1000
+            ):
+                return exposure_end
+            time.sleep(0.05)
+        raise TimeoutError(f"Timed out waiting for {exposure_us}µs calibration frame")
+
+    def _wait_for_solution_at(self, exposure_end: float) -> PointingEstimate:
+        """Return the successful plate solution for an identified frame."""
+        deadline = time.time() + self.sky_capture_timeout
+        while time.time() < deadline:
+            solution = self.shared_state.solution()
+            if (
+                solution is not None
+                and solution.has_pointing()
+                and solution.last_solve_attempt == exposure_end
+                and solution.last_solve_success == exposure_end
+                and solution.matched_centroids is not None
+                and solution.matched_stars is not None
+            ):
+                return copy.deepcopy(solution)
+            time.sleep(0.05)
+        raise TimeoutError("Timed out waiting for matching sky-frame solution")
+
     def _capture_bias_frame(self):
-        """Capture a bias frame (0s exposure) - both processed and raw"""
+        """Capture a minimum-exposure raw bias frame."""
         if self.current_frame == 0:
             # First frame: set exposure to minimum (closest to 0)
-            self.command_queues["camera"].put("set_exp:1")  # Minimum exposure
+            self._set_calibration_exposure(1)  # Minimum exposure
             time.sleep(0.2)  # Wait for camera to apply setting
             self.bias_frames_raw = []
 
@@ -479,9 +552,11 @@ class UISQMCalibration(UIModule):
                 self.calibration_output_dir, f"bias_{self.current_frame:03d}.png"
             )
             self.command_queues["camera"].put(f"save:{filename}")
-        self.command_queues["camera"].put("capture")
-
-        time.sleep(0.3)  # Wait for capture
+        try:
+            self._capture_and_wait(1)
+        except TimeoutError as exc:
+            logger.warning("%s", exc)
+            return
 
         # Get RAW image (16-bit) from shared state
         raw_array = self.shared_state.cam_raw()
@@ -495,15 +570,28 @@ class UISQMCalibration(UIModule):
             self.state = CalibrationState.CAPTURING_DARK
             self.current_frame = 0
             # Restore original exposure for dark frames
-            self.command_queues["camera"].put(f"set_exp:{self.exposure_time_us}")
+            self._set_calibration_exposure(self.exposure_time_us)
             time.sleep(0.2)
         else:
             time.sleep(0.1)  # Small delay between frames
 
     def _capture_dark_frame(self):
-        """Capture a dark frame (actual exposure with cap on) - both processed and raw"""
+        """Capture one point in a multi-exposure raw dark sequence."""
         if self.current_frame == 0:
             self.dark_frames_raw = []
+            self.dark_frame_exposures_sec = []
+
+        # A single nonzero exposure cannot separate slope from an offset
+        # error. Span one decade up to the normal calibration exposure.
+        minimum_exposure_us = max(1000, int(self.exposure_time_us / 10))
+        exposure_schedule_us = np.geomspace(
+            minimum_exposure_us,
+            self.exposure_time_us,
+            self.num_frames,
+        ).astype(int)
+        exposure_us = int(exposure_schedule_us[self.current_frame])
+        self._set_calibration_exposure(exposure_us)
+        time.sleep(0.2)
 
         # Set save flag if debug enabled, then capture
         if self.save_frames_enabled:
@@ -511,14 +599,17 @@ class UISQMCalibration(UIModule):
                 self.calibration_output_dir, f"dark_{self.current_frame:03d}.png"
             )
             self.command_queues["camera"].put(f"save:{filename}")
-        self.command_queues["camera"].put("capture")
-
-        time.sleep(0.3)  # Wait for capture
+        try:
+            self._capture_and_wait(exposure_us)
+        except TimeoutError as exc:
+            logger.warning("%s", exc)
+            return
 
         # Get RAW image (16-bit) from shared state
         raw_array = self.shared_state.cam_raw()
         if raw_array is not None:
             self.dark_frames_raw.append(raw_array.copy())
+            self.dark_frame_exposures_sec.append(exposure_us / 1_000_000.0)
 
         self.current_frame += 1
 
@@ -526,6 +617,8 @@ class UISQMCalibration(UIModule):
             # Done capturing dark frames
             self.state = CalibrationState.CAP_OFF_INSTRUCTION
             self.current_frame = 0
+            self._set_calibration_exposure(self.exposure_time_us)
+            time.sleep(0.2)
         else:
             time.sleep(0.5)  # Wait for full exposure between frames
 
@@ -550,34 +643,34 @@ class UISQMCalibration(UIModule):
                 self.current_frame = 0
                 return
 
-        # Check if we have a recent solve
-        if not self.shared_state.solve_state():
-            # No solve yet, wait
-            time.sleep(0.1)
-            return
-
-        solution = self.shared_state.solution()
-        if not solution.has_pointing():
-            # Invalid solve, wait
-            time.sleep(0.1)
-            return
-
-        # Valid solve, set save flag if debug enabled, then capture
+        # Capture first, then accept only the solve carrying this exact frame's
+        # exposure timestamp. A previous solve has the wrong centroids as soon
+        # as the telescope moves.
         if self.save_frames_enabled:
             filename = os.path.join(
                 self.calibration_output_dir, f"sky_{self.current_frame:03d}.png"
             )
             self.command_queues["camera"].put(f"save:{filename}")
-        self.command_queues["camera"].put("capture")
-
-        time.sleep(0.3)  # Wait for capture
+        try:
+            exposure_end = self._capture_and_wait(self.exposure_time_us)
+        except TimeoutError as exc:
+            logger.warning("%s", exc)
+            return
 
         # Get RAW image (16-bit) from shared state; solution is stored
         # alongside so the two lists stay index-aligned.
         raw_array = self.shared_state.cam_raw()
+        try:
+            solution = self._wait_for_solution_at(exposure_end)
+        except TimeoutError as exc:
+            logger.warning("%s", exc)
+            if self.current_frame == 0:
+                self.state = CalibrationState.ANALYZING
+            return
+
         if raw_array is not None:
             self.sky_frames_raw.append(raw_array.copy())
-            self.sky_solutions.append(copy.deepcopy(solution))
+            self.sky_solutions.append(solution)
 
         self.current_frame += 1
 
@@ -628,24 +721,20 @@ class UISQMCalibration(UIModule):
             self.bias_offset_raw = float(np.median(bias_stack_raw))
 
             # 2. Compute read noise using temporal variance (not spatial)
-            temporal_variance_raw = np.var(bias_stack_raw, axis=0)
+            temporal_variance_raw = np.var(bias_stack_raw, axis=0, ddof=1)
             self.read_noise_raw = float(np.sqrt(np.mean(temporal_variance_raw)))
 
-            # 3. Compute dark current rate from raw frames
-            dark_stack_raw = np.array(self.dark_frames_raw, dtype=np.float32)
-            dark_median_raw = float(np.median(dark_stack_raw))
-            self.dark_current_rate_raw = (
-                dark_median_raw - self.bias_offset_raw
-            ) / exposure_sec
-
-            # Ensure dark current is not negative
-            if self.dark_current_rate_raw < 0:
-                self.dark_current_rate_raw = 0.0
+            # 3. Fit mean dark signal across the exposure sequence.
+            self.dark_current_rate_raw = self._fit_dark_current_rate(
+                self.dark_frames_raw,
+                self.dark_frame_exposures_sec,
+                self.bias_offset_raw,
+            )
 
             # 4. Calculate SQM for sky frames using the new calibration
             self._calculate_sky_sqm(exposure_sec)
 
-            # 5. Save BOTH calibrations
+            # 5. Save the raw-sensor calibration.
             self._save_calibration()
 
             # Move to results
@@ -658,14 +747,42 @@ class UISQMCalibration(UIModule):
             traceback.print_exc()
             self.state = CalibrationState.ERROR
 
+    @staticmethod
+    def _fit_dark_current_rate(
+        frames: List[np.ndarray],
+        exposures_sec: List[float],
+        bias_offset: float,
+    ) -> float:
+        """Fit ``median_dark - bias = rate * exposure`` through the origin."""
+        if len(frames) != len(exposures_sec) or len(frames) < 2:
+            raise ValueError("Dark-current fit requires matching multi-exposure frames")
+
+        times = np.asarray(exposures_sec, dtype=np.float64)
+        signals = np.asarray(
+            [float(np.median(frame)) - bias_offset for frame in frames],
+            dtype=np.float64,
+        )
+        valid = np.isfinite(times) & np.isfinite(signals) & (times > 0)
+        if np.count_nonzero(valid) < 2:
+            raise ValueError("Dark-current fit has too few valid exposure points")
+
+        denominator = float(np.dot(times[valid], times[valid]))
+        if denominator <= 0:
+            raise ValueError("Dark-current fit has zero exposure leverage")
+        rate = float(np.dot(times[valid], signals[valid]) / denominator)
+        return max(0.0, rate)
+
     def _calculate_sky_sqm(self, exposure_sec: float):
         """
         Calculate SQM for each sky frame using the newly measured calibration.
         Takes the median SQM across all frames.
-        Uses 8-bit processed pipeline.
+        Uses the same raw-photometry, Gaia-band, annulus, and rolling-wing
+        pipeline as normal operation. This is an optional calibration sanity
+        check; normal SQM does not require the wizard.
         """
         try:
             from PiFinder.sqm import SQM
+            from PiFinder.sqm.wings import WingEstimator
 
             if len(self.sky_frames_raw) == 0:
                 logger.warning("No sky frames to calculate SQM")
@@ -690,9 +807,15 @@ class UISQMCalibration(UIModule):
                 sqm_calc.profile.read_noise_adu = self.read_noise_raw
             if self.dark_current_rate_raw is not None:
                 sqm_calc.profile.dark_current_rate = self.dark_current_rate_raw
+                # This value came from the multi-exposure fit above, so the
+                # calibration preview must apply it even before the JSON is
+                # written and reloaded by the solver.
+                sqm_calc.noise_floor_estimator.dark_current_calibrated = True
+                sqm_calc.noise_floor_estimator.calibration_loaded = True
 
             self.sqm_values = []
             saturation_threshold = int(0.70 * (2**sqm_calc.profile.bit_depth - 1))
+            wing_estimator = WingEstimator()
 
             # Calculate SQM for each raw sky frame using its stored solution
             for i, (sky_frame, solution) in enumerate(
@@ -703,7 +826,7 @@ class UISQMCalibration(UIModule):
                     logger.warning(f"No valid solve for sky frame {i}, skipping SQM")
                     continue
 
-                altitude_deg = solution.Alt if solution.Alt is not None else 90.0
+                altitude_deg = solution.Alt
 
                 # Check if we have matched centroids (needed for SQM calculation)
                 if solution.matched_centroids is None or solution.matched_stars is None:
@@ -727,24 +850,50 @@ class UISQMCalibration(UIModule):
 
                 # Adapter dict for SQM (sqm.calculate still consumes a
                 # raw-tetra3-shaped dict so SQM stays loose of our types).
-                sqm_solution = _scale_solution_centroids(
-                    {
-                        "FOV": solution.diagnostics.FOV,
-                        "matched_centroids": solution.matched_centroids,
-                        "matched_stars": solution.matched_stars,
-                    },
-                    green.shape[0] / 512.0,
-                )
+                scale = green.shape[0] / 512.0
+                raw_solution = {
+                    "FOV": solution.diagnostics.FOV,
+                    "matched_centroids": solution.matched_centroids,
+                    "matched_stars": solution.matched_stars,
+                }
+                if solution.matched_catID is not None:
+                    raw_solution["matched_catID"] = solution.matched_catID
+                sqm_solution = _scale_solution_centroids(raw_solution, scale)
+                calc_centroids = np.asarray(centroids, dtype=np.float64) * scale
+
+                # Solve/display images are rotated relative to the stored raw
+                # frame. Apply the same counter-rotation as production SQM.
+                try:
+                    solve_rotation = self.shared_state.solve_image_rotation()
+                except (BrokenPipeError, ConnectionResetError, AttributeError):
+                    solve_rotation = None
+                if solve_rotation:
+                    side = green.shape[0]
+                    sqm_solution["matched_centroids"] = _derotate_centroids(
+                        sqm_solution["matched_centroids"], solve_rotation, side
+                    )
+                    calc_centroids = _derotate_centroids(
+                        calc_centroids, solve_rotation, side
+                    )
+
+                wing_correction = wing_estimator.correction()
 
                 # Returns Tuple[Optional[float], Dict]
                 sqm_value, _details = sqm_calc.calculate(
-                    centroids=centroids,
+                    centroids=calc_centroids,
                     solution=sqm_solution,
                     image=green,
                     exposure_sec=exposure_sec,
                     altitude_deg=altitude_deg,
                     saturation_threshold=saturation_threshold,
                     image_pixels_per_side=green.shape[0],
+                    mzero_correction=wing_correction,
+                )
+
+                wing_estimator.add_frame(
+                    green,
+                    sqm_solution["matched_centroids"],
+                    saturation_threshold,
                 )
 
                 if sqm_value is not None:

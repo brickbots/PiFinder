@@ -228,13 +228,14 @@ class ExposureSNRController:
         Args:
             current_exposure: Current exposure in microseconds
             image: Current image for analysis
-            noise_floor: Adaptive noise floor from SQM calculator (if available)
+            noise_floor: Processed-image floor in 8-bit ADU (if available)
             **kwargs: Ignored (for compatibility with PID interface)
 
         Returns:
             New exposure in microseconds, or None if no change needed
         """
-        # Use adaptive noise floor if available, otherwise fall back to static config
+        # This controller measures the processed 8-bit image. Do not pass it a
+        # raw-sensor SQM pedestal: those values are in different units.
         # Need margin above noise floor so background_corrected isn't near zero
         if noise_floor is not None:
             min_bg = noise_floor + 2

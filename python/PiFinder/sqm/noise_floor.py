@@ -1,11 +1,11 @@
-"""
-Adaptive noise floor estimation for SQM calculations.
+"""Detector baseline and operational noise-threshold estimation.
 
-This module estimates the camera noise floor without requiring lens caps or dark frames.
-It uses a combination of:
-1. Pre-characterized camera profiles (physics-based model)
-2. Adaptive measurement from actual images (darkest pixels)
-3. Optional zero-second exposures (periodic calibration)
+The bias and, when measured, mean dark signal define the applied detector
+pedestal. Read noise is a random RMS quantity, not another pedestal component.
+The published ``noise_floor_adu`` is therefore a one-read-noise-sigma threshold
+above the pedestal. Image percentiles remain useful diagnostics, but cannot
+separate detector signal from real sky signal and are never used as dark
+calibration.
 """
 
 import numpy as np
@@ -23,23 +23,21 @@ logger = logging.getLogger("PiFinder.NoiseFloorEstimator")
 
 class NoiseFloorEstimator:
     """
-    Estimates noise floor for SQM calculations using adaptive heuristics.
+    Estimate the detector pedestal and an operational background threshold.
 
-    This class combines:
-    - Camera-specific physics models (read noise, dark current)
-    - Empirical measurements from actual images (dark pixel percentiles)
-    - Historical smoothing for stability
-    - Optional zero-second calibration samples
-
-    The goal is to estimate the "true zero" background level that should be
-    subtracted before converting pixel values to sky brightness.
+    ``bias_offset + calibrated_dark_current_rate * exposure_sec`` is the mean
+    signal to subtract from a science image. Factory dark-current values are
+    unverified engineering estimates, so the exposure-dependent term is
+    enabled only after a per-device calibration has measured it.
+    ``read_noise_adu`` is an RMS uncertainty. These quantities remain separate
+    in diagnostics.
     """
 
     def __init__(
         self,
         camera_type: str,
         history_size: int = 20,
-        enable_zero_sec_sampling: bool = True,
+        enable_zero_sec_sampling: bool = False,
         zero_sec_interval: int = 300,  # 5 minutes
     ):
         """
@@ -48,11 +46,15 @@ class NoiseFloorEstimator:
         Args:
             camera_type: Camera model (imx296, imx462, imx290, hq)
             history_size: Number of recent measurements to track for smoothing
-            enable_zero_sec_sampling: Whether to request periodic 0-sec exposures
+            enable_zero_sec_sampling: Whether to emit periodic 0-sec requests.
+                No runtime camera path services them; use only when the caller
+                explicitly consumes ``request_zero_sec_sample``.
             zero_sec_interval: Seconds between zero-second calibration samples
         """
         self.camera_type = camera_type
         self.profile = get_camera_profile(camera_type)
+        self.calibration_loaded = False
+        self.dark_current_calibrated = False
 
         # Rolling history for adaptive estimation
         self.dark_pixel_history: deque = deque(maxlen=history_size)
@@ -75,7 +77,7 @@ class NoiseFloorEstimator:
         )
 
         # Try to load saved calibration
-        self.load_calibration()
+        self.calibration_loaded = self.load_calibration()
 
     def estimate_noise_floor(
         self,
@@ -86,11 +88,10 @@ class NoiseFloorEstimator:
         """
         Estimate noise floor from an actual sky image.
 
-        Strategy:
-        1. Measure darkest pixels as proxy for noise floor + dark sky background
-        2. Estimate theoretical noise from camera physics (read noise + dark current)
-        3. Take the minimum of the two (prevents overestimation when sky is bright)
-        4. Smooth with historical measurements for stability
+        The calibrated detector model supplies the result. The image's low
+        percentile is tracked only to diagnose calibration or exposure
+        problems; even the darkest sky pixels still contain sky signal and
+        cannot directly measure the detector pedestal.
 
         Args:
             image: Image array (8-bit or 16-bit)
@@ -108,14 +109,21 @@ class NoiseFloorEstimator:
         """
         self.n_estimates += 1
 
-        # 1. Measure darkest pixels as proxy
-        # These should represent "empty sky" + noise floor
+        # Track the darkest image pixels as an exposure/calibration diagnostic.
+        # They still contain real sky signal.
         dark_pixel_value = float(np.percentile(image, percentile))
         self.dark_pixel_history.append(dark_pixel_value)
 
-        # 2. Estimate theoretical noise from physics
+        # The calibrated pedestal is mean bias + mean accumulated dark signal.
+        # Dark shot noise needs a conversion gain in electrons/ADU, which the
+        # profiles do not yet provide, so only read noise is in the RMS term.
+        dark_current_model_contribution = self.profile.dark_current_rate * exposure_sec
+        dark_current_contribution = (
+            dark_current_model_contribution if self.dark_current_calibrated else 0.0
+        )
+        pedestal = self.profile.bias_offset + dark_current_contribution
         temporal_noise = self._estimate_temporal_noise(exposure_sec)
-        theoretical_noise_floor = self.profile.bias_offset + temporal_noise
+        theoretical_noise_floor = pedestal + temporal_noise
 
         # 3. Smoothed measurement from history
         if len(self.dark_pixel_history) >= 5:
@@ -125,26 +133,9 @@ class NoiseFloorEstimator:
             # Not enough history yet, use current measurement
             dark_pixel_smoothed = dark_pixel_value
 
-        # 4. Choose the conservative estimate
-        # IMPORTANT: Dark pixels below bias offset are physically impossible
-        # (sensor always has electronic pedestal). If we see this, ignore the
-        # measurement and use theory instead.
-        if dark_pixel_smoothed < self.profile.bias_offset:
-            # Measurement is invalid (image too dark or wrong camera settings)
-            # Use theoretical estimate instead
-            noise_floor = theoretical_noise_floor
-            logger.debug(
-                f"Dark pixels ({dark_pixel_smoothed:.1f}) below bias offset "
-                f"({self.profile.bias_offset:.1f}) - using theoretical estimate"
-            )
-        else:
-            # Valid measurement - take min of measured vs theoretical
-            # - If sky is dark, dark pixels ≈ noise floor (good)
-            # - If sky is bright, dark pixels > noise floor, use physics model
-            noise_floor = min(dark_pixel_smoothed, theoretical_noise_floor)
-
-        # 5. Enforce absolute minimum at bias offset (can't be lower than pedestal)
-        noise_floor = max(noise_floor, self.profile.bias_offset)
+        # Publish the calibrated one-sigma threshold. Samples below a bias
+        # level are normal for zero-mean read noise, not physically impossible.
+        noise_floor = theoretical_noise_floor
 
         # 6. Validate the estimate
         is_valid, reason = self._validate_estimate(noise_floor, image)
@@ -155,14 +146,17 @@ class NoiseFloorEstimator:
             "dark_pixel_raw": dark_pixel_value,
             "dark_pixel_smoothed": dark_pixel_smoothed,
             "theoretical_floor": theoretical_noise_floor,
+            "pedestal": pedestal,
             "temporal_noise": temporal_noise,
             "read_noise": self.profile.read_noise_adu,
-            "dark_current_contribution": temporal_noise - self.profile.read_noise_adu,
+            "dark_current_contribution": dark_current_contribution,
+            "dark_current_model_contribution": dark_current_model_contribution,
+            "dark_current_calibrated": self.dark_current_calibrated,
             "bias_offset": self.profile.bias_offset,
             "exposure_sec": exposure_sec,
             "percentile": percentile,
             "n_history_samples": len(self.dark_pixel_history),
-            "method": "adaptive_percentile",
+            "method": "calibrated_detector_model",
             "is_valid": is_valid,
             "validation_reason": reason,
         }
@@ -185,34 +179,16 @@ class NoiseFloorEstimator:
         exposure_sec: float,
     ) -> float:
         """
-        Estimate temporal noise from camera physics.
+        Return the calibrated RMS read noise in ADU.
 
-        Components:
-        - Read noise (constant, independent of exposure)
-        - Dark current (scales with exposure time, assumes ~20°C ambient)
-
-        Formula:
-            σ_temporal = σ_read + (I_dark * t)
-
-        Where:
-            σ_read = read noise [ADU]
-            I_dark = dark current rate [ADU/s] at ~20°C
-            t = exposure time [s]
-
-        NOTE: No temperature correction applied (only CPU temp available,
-              not sensor temp). This assumes typical ambient temperature.
-              In reality, dark current may vary ±50% with ambient temperature.
+        Mean dark signal belongs to the pedestal, not the RMS noise term. Dark
+        shot noise can be added in quadrature after conversion gain is known.
 
         Returns:
             Estimated temporal noise in ADU
         """
-        # Read noise (constant)
-        read_noise = self.profile.read_noise_adu
-
-        # Dark current (linear with exposure, assumes ~20°C)
-        dark_current = self.profile.dark_current_rate * exposure_sec
-
-        return read_noise + dark_current
+        del exposure_sec
+        return self.profile.read_noise_adu
 
     def _should_sample_zero_sec(self) -> bool:
         """
@@ -278,6 +254,7 @@ class NoiseFloorEstimator:
             self.profile.read_noise_adu = (
                 alpha * avg_read_noise + (1 - alpha) * self.profile.read_noise_adu
             )
+            self.calibration_loaded = True
 
             logger.debug(
                 f"Updated camera profile: "
@@ -292,32 +269,26 @@ class NoiseFloorEstimator:
         Validate that the noise floor estimate is reasonable.
 
         Checks:
-        1. At or above bias offset (enforced by min constraint, this is just a sanity check)
-        2. Below image median (shouldn't be pure noise if we see stars)
-        3. Not impossibly high (sanity check)
+        1. At or above the calibrated pedestal.
+        2. Below the image median, so the current frame resolves signal above
+           the operational threshold.
 
         Returns:
             (is_valid, reason)
         """
-        # Check 1: Should be at or above bias offset (sanity check - already enforced)
-        if noise_floor < self.profile.bias_offset:
+        expected_pedestal = self.profile.bias_offset
+        if noise_floor < expected_pedestal:
             return (
                 False,
-                f"Below bias offset ({self.profile.bias_offset:.1f}) - logic error",
+                f"Below bias offset ({expected_pedestal:.1f}) - logic error",
             )
 
-        # Check 2: Should be well below image median
         image_median = float(np.median(image))
-        if noise_floor > image_median * 0.8:
+        if noise_floor >= image_median:
             return (
                 False,
-                f"Too close to median ({image_median:.1f}), likely no stars detected",
+                f"At or above image median ({image_median:.1f}); background unresolved",
             )
-
-        # Check 3: Shouldn't be impossibly high
-        max_reasonable = self.profile.bias_offset + self.profile.read_noise_adu * 20
-        if noise_floor > max_reasonable:
-            return False, f"Exceeds reasonable maximum ({max_reasonable:.1f})"
 
         return True, "OK"
 
@@ -336,6 +307,8 @@ class NoiseFloorEstimator:
             "current_bias_offset": self.profile.bias_offset,
             "current_read_noise": self.profile.read_noise_adu,
             "current_dark_current": self.profile.dark_current_rate,
+            "calibration_loaded": self.calibration_loaded,
+            "dark_current_calibrated": self.dark_current_calibrated,
         }
 
         if self.dark_pixel_history:
@@ -367,15 +340,34 @@ class NoiseFloorEstimator:
             with open(calibration_file, "r") as f:
                 calibration_data = json.load(f)
 
-            # Update profile with calibration data
-            if "bias_offset" in calibration_data:
-                self.profile.bias_offset = calibration_data["bias_offset"]
+            known_fields = {"bias_offset", "read_noise", "dark_current_rate"}
+            if not known_fields.intersection(calibration_data):
+                raise ValueError("calibration contains no detector values")
 
-            if "read_noise" in calibration_data:
-                self.profile.read_noise_adu = calibration_data["read_noise"]
+            # Parse and validate everything before mutation. A bad dark field
+            # must not leave a valid-looking bias override partially applied.
+            bias_offset = float(
+                calibration_data.get("bias_offset", self.profile.bias_offset)
+            )
+            read_noise = float(
+                calibration_data.get("read_noise", self.profile.read_noise_adu)
+            )
+            dark_current_rate = float(
+                calibration_data.get(
+                    "dark_current_rate", self.profile.dark_current_rate
+                )
+            )
+            if not np.isfinite(bias_offset):
+                raise ValueError("bias_offset must be finite")
+            if not np.isfinite(read_noise) or read_noise < 0:
+                raise ValueError("read_noise must be finite and non-negative")
+            if not np.isfinite(dark_current_rate) or dark_current_rate < 0:
+                raise ValueError("dark_current_rate must be finite and non-negative")
 
-            if "dark_current_rate" in calibration_data:
-                self.profile.dark_current_rate = calibration_data["dark_current_rate"]
+            self.profile.bias_offset = bias_offset
+            self.profile.read_noise_adu = read_noise
+            self.profile.dark_current_rate = dark_current_rate
+            self.dark_current_calibrated = "dark_current_rate" in calibration_data
 
             logger.info(
                 f"Loaded calibration: bias={self.profile.bias_offset:.1f}, "
@@ -404,10 +396,20 @@ class NoiseFloorEstimator:
             True if calibration was saved successfully, False otherwise
         """
         try:
+            bias_offset = float(bias_offset)
+            read_noise = float(read_noise)
+            dark_current_rate = float(dark_current_rate)
+            if not np.isfinite(bias_offset):
+                raise ValueError("bias_offset must be finite")
+            if not np.isfinite(read_noise) or read_noise < 0:
+                raise ValueError("read_noise must be finite and non-negative")
+            if not np.isfinite(dark_current_rate) or dark_current_rate < 0:
+                raise ValueError("dark_current_rate must be finite and non-negative")
+
             calibration_data = {
-                "bias_offset": float(bias_offset),
-                "read_noise": float(read_noise),
-                "dark_current_rate": float(dark_current_rate),
+                "bias_offset": bias_offset,
+                "read_noise": read_noise,
+                "dark_current_rate": dark_current_rate,
                 "camera_type": self.camera_type,
                 "timestamp": time.time(),
             }
@@ -424,6 +426,8 @@ class NoiseFloorEstimator:
             self.profile.bias_offset = bias_offset
             self.profile.read_noise_adu = read_noise
             self.profile.dark_current_rate = dark_current_rate
+            self.calibration_loaded = True
+            self.dark_current_calibrated = True
 
             logger.info(
                 f"Saved calibration: bias={bias_offset:.1f}, "
