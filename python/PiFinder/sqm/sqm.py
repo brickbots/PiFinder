@@ -139,6 +139,7 @@ class SQM:
         annulus_inner_radius: int,
         annulus_outer_radius: int,
         saturation_threshold: int = 250,
+        exclusion_centroids=None,
     ) -> Tuple[list, list, int]:
         """
         Measure star flux with local background from annulus around each star.
@@ -171,6 +172,16 @@ class SQM:
         annulus_inner_r2 = annulus_inner_radius**2
         annulus_outer_r2 = annulus_outer_radius**2
 
+        # Exclusion disks: every *detected* star in the frame (matched or not)
+        # is masked out of background annuli so neighbours cannot inflate the
+        # local sky in dense fields. Radius: the photometry aperture.
+        excl = (
+            np.asarray(exclusion_centroids, dtype=np.float64)
+            if exclusion_centroids is not None and len(exclusion_centroids) > 0
+            else None
+        )
+        excl_r2 = float(aperture_radius**2)
+
         for cy, cx in centroids:  # centroids are in (y, x) format after swap
             # Use bounding box instead of full-frame masks for huge speedup
             # Box needs to contain outer annulus radius
@@ -195,15 +206,41 @@ class SQM:
                 dist_squared <= annulus_outer_r2
             )
 
-            # Measure local background from annulus (median for robustness)
+            # Mask out every known star (except this one) from the annulus.
+            if excl is not None:
+                near = excl[
+                    (np.abs(excl[:, 0] - cy) <= annulus_outer_radius + aperture_radius)
+                    & (
+                        np.abs(excl[:, 1] - cx)
+                        <= annulus_outer_radius + aperture_radius
+                    )
+                ]
+                for ey, ex in near:
+                    if (ey - cy) ** 2 + (ex - cx) ** 2 <= 4.0:
+                        continue  # this star itself
+                    annulus_mask &= ((x_grid - ex) ** 2 + (y_grid - ey) ** 2) > excl_r2
+
+            # Measure local background from the cleaned annulus: median after
+            # one sigma-clip pass (backstop for stars the detector missed).
             annulus_pixels = image_patch[annulus_mask]
-            if len(annulus_pixels) > 0:
+            if len(annulus_pixels) >= 8:
+                med = np.median(annulus_pixels)
+                sig = np.std(annulus_pixels)
+                kept = annulus_pixels[np.abs(annulus_pixels - med) <= 3.0 * sig]
+                local_bg_per_pixel = float(np.median(kept) if len(kept) >= 8 else med)
+            elif len(annulus_pixels) > 0:
                 local_bg_per_pixel = float(np.median(annulus_pixels))
             else:
-                # this is impossible
-                local_bg_per_pixel = float(np.median(image))
-                logger.warning(
-                    f"Star at ({cx:.0f},{cy:.0f}) has no annulus pixels, using global median"
+                # Exclusion emptied the annulus (extremely dense field):
+                # fall back to the uncleaned annulus median.
+                raw_annulus = image_patch[
+                    (dist_squared > annulus_inner_r2)
+                    & (dist_squared <= annulus_outer_r2)
+                ]
+                local_bg_per_pixel = (
+                    float(np.median(raw_annulus))
+                    if len(raw_annulus) > 0
+                    else float(np.median(image))
                 )
 
             # Check for saturation in aperture
@@ -387,7 +424,10 @@ class SQM:
         Calculate SQM (Sky Quality Meter) value using local background annuli.
 
         Args:
-            centroids: All detected centroids (unused, kept for compatibility)
+            centroids: All detected centroids in the frame, (y, x) rows in
+                the SAME pixel space as `image`; masked out of background
+                annuli so neighbouring stars cannot inflate the local sky.
+                Pass None/[] to skip exclusion.
             solution: Tetra3 solution dict with 'FOV', 'matched_centroids', 'matched_stars'.
                       Note: matched_centroids uses (row, col) = (y, x) convention to match
                       numpy array indexing (image[row, col]).
@@ -541,6 +581,7 @@ class SQM:
                 annulus_inner_radius,
                 annulus_outer_radius,
                 saturation_threshold,
+                exclusion_centroids=centroids,
             )
         )
 

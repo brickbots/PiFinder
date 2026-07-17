@@ -306,6 +306,9 @@ class SharedStateObj:
         self.__arch = None
         self.__camera_align = False
         self.__camera_type = "imx296"  # Default, will be set by camera process
+        # Degrees the camera process rotates the solve/display image relative
+        # to the stored raw frame (PIL CCW). None until the camera reports.
+        self.__solve_image_rotation = None
         self.__cam_raw = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
@@ -369,6 +372,12 @@ class SharedStateObj:
 
     def camera_type(self):
         return self.__camera_type
+
+    def solve_image_rotation(self):
+        return self.__solve_image_rotation
+
+    def set_solve_image_rotation(self, v):
+        self.__solve_image_rotation = v
 
     def set_camera_type(self, v: str):
         self.__camera_type = v
