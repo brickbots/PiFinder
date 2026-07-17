@@ -101,6 +101,44 @@ def _scale_solution_centroids(solution, scale):
     return scaled
 
 
+def _derotate_centroids(points, rotation_deg, size):
+    """Map (y, x) centroids from the display-rotated solve image back onto
+    the unrotated raw frame's pixel grid.
+
+    The camera process rotates the solve/display image by ``rotation_deg``
+    (PIL CCW) relative to the raw it stores in shared state; photometry runs
+    on the raw, so star positions must be counter-rotated or every aperture
+    lands on the wrong sky (SQM then reads magnitudes too bright).
+
+    Args:
+        points: (N, 2) array of (y, x) positions in the rotated image.
+        rotation_deg: degrees the solve image was rotated (PIL CCW).
+        size: side length of the (square) pixel grid the points live on.
+    """
+    pts = np.asarray(points, dtype=np.float64)
+    k = int(rotation_deg) % 360
+    y, x = pts[:, 0], pts[:, 1]
+    m = size - 1
+    if k == 0:
+        return pts
+    if k == 90:
+        # solve = raw rotated 90 CCW: raw_y = x, raw_x = m - y
+        return np.stack([x, m - y], axis=1)
+    if k == 180:
+        return np.stack([m - y, m - x], axis=1)
+    if k == 270:
+        # solve = raw rotated 270 CCW: raw_y = m - x, raw_x = y
+        return np.stack([m - x, y], axis=1)
+    # Arbitrary angle: rotate about the image centre. PIL's rotate(a) fills
+    # dest(x2, y2) from src at c + R(a)·(p2 − c) in (x, y) with y down.
+    c = m / 2.0
+    a = np.radians(k)
+    dx, dy = x - c, y - c
+    rx = c + np.cos(a) * dx - np.sin(a) * dy
+    ry = c + np.sin(a) * dx + np.cos(a) * dy
+    return np.stack([ry, rx], axis=1)
+
+
 def _apply_sqm_correct(sqm_value, details, correct_delta):
     """Apply the session correction delta (reference-meter offset) to the
     calculated SQM and its altitude-corrected companion. The delta is recorded
@@ -193,6 +231,27 @@ def update_sqm(
     scale = green.shape[0] / 512.0
     calc_image = green
     calc_solution = _scale_solution_centroids(solution, scale)
+    # All detected centroids, scaled to the photometry image: sqm masks them
+    # out of background annuli (neighbour-star contamination in dense fields).
+    calc_centroids = (
+        np.asarray(centroids, dtype=np.float64) * scale
+        if centroids is not None and len(centroids) > 0
+        else None
+    )
+
+    # The solve image is display-rotated relative to the raw; counter-rotate
+    # all star positions onto the raw's grid before photometry.
+    try:
+        solve_rotation = shared_state.solve_image_rotation()
+    except (BrokenPipeError, ConnectionResetError, AttributeError):
+        solve_rotation = None
+    if solve_rotation:
+        side = green.shape[0]
+        calc_solution["matched_centroids"] = _derotate_centroids(
+            calc_solution["matched_centroids"], solve_rotation, side
+        )
+        if calc_centroids is not None:
+            calc_centroids = _derotate_centroids(calc_centroids, solve_rotation, side)
     image_pixels_per_side = int(green.shape[0])
     # 0.70 of full scale, not ~1.0: CMOS response bends well before hard
     # clip, and stars peaking at 75-90% already read systematically low.
@@ -205,7 +264,7 @@ def update_sqm(
     try:
         # Calculate SQM from image
         sqm_value, details = sqm_calculator.calculate(
-            centroids=centroids,
+            centroids=calc_centroids,
             solution=calc_solution,
             image=calc_image,
             exposure_sec=exposure_sec,
@@ -677,12 +736,7 @@ def solver(
                     if "matched_centroids" in solution:
                         if sqm_calculator is None:
                             sqm_calculator = create_sqm_calculator(shared_state)
-                            # The wing-boundary floor is sensor plate-scale
-                            # specific, so the estimator is rebuilt alongside
-                            # the calculator.
-                            sqm_wing_estimator = WingEstimator(
-                                min_wing_radius=sqm_calculator.profile.wing_min_radius_px
-                            )
+                            sqm_wing_estimator.reset()
 
                         # Update SQM (auto-exposure consumes the noise floor)
                         exposure_sec = (

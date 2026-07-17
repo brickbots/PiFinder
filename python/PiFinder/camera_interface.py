@@ -184,6 +184,17 @@ class CameraInterface:
             screen_direction = cfg.get_option("screen_direction")
             camera_rotation = cfg.get_option("camera_rotation")
 
+            # Publish the display rotation applied to the solve image (PIL
+            # CCW degrees, relative to the stored raw frame) so SQM can map
+            # solve-image centroids back onto the raw for photometry.
+            if camera_rotation is not None:
+                solve_rotation = (-int(camera_rotation)) % 360
+            elif screen_direction in ["right", "straight", "flat3", "as_bloom"]:
+                solve_rotation = 90
+            else:
+                solve_rotation = 270
+            shared_state.set_solve_image_rotation(solve_rotation)
+
             # Set path for test mode image
             root_dir = os.path.realpath(
                 os.path.join(os.path.dirname(__file__), "..", "..")
