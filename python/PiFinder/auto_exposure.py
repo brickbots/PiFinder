@@ -211,7 +211,7 @@ class ExposureSNRController:
         logger.info(
             f"AutoExposure SNR: target_bg={target_background}, "
             f"range=[{min_background}, {max_background}] ADU, "
-            f"exp_range=[{min_exposure/1000:.0f}, {max_exposure/1000:.0f}]ms, "
+            f"exp_range=[{min_exposure / 1000:.0f}, {max_exposure / 1000:.0f}]ms, "
             f"adjustment={adjustment_factor}x"
         )
 
@@ -228,13 +228,14 @@ class ExposureSNRController:
         Args:
             current_exposure: Current exposure in microseconds
             image: Current image for analysis
-            noise_floor: Adaptive noise floor from SQM calculator (if available)
+            noise_floor: Processed-image floor in 8-bit ADU (if available)
             **kwargs: Ignored (for compatibility with PID interface)
 
         Returns:
             New exposure in microseconds, or None if no change needed
         """
-        # Use adaptive noise floor if available, otherwise fall back to static config
+        # This controller measures the processed 8-bit image. Do not pass it a
+        # raw-sensor SQM pedestal: those values are in different units.
         # Need margin above noise floor so background_corrected isn't near zero
         if noise_floor is not None:
             min_bg = noise_floor + 2
@@ -250,7 +251,7 @@ class ExposureSNRController:
         background = float(np.percentile(img_array, 10))
 
         logger.debug(
-            f"SNR AE: bg={background:.1f}, min={min_bg:.1f} ADU, exp={current_exposure/1000:.0f}ms"
+            f"SNR AE: bg={background:.1f}, min={min_bg:.1f} ADU, exp={current_exposure / 1000:.0f}ms"
         )
 
         # Determine adjustment
@@ -261,14 +262,14 @@ class ExposureSNRController:
             new_exposure = int(current_exposure * self.adjustment_factor)
             logger.info(
                 f"SNR AE: Background too low ({background:.1f} < {min_bg:.1f}), "
-                f"increasing exposure {current_exposure/1000:.0f}ms → {new_exposure/1000:.0f}ms"
+                f"increasing exposure {current_exposure / 1000:.0f}ms → {new_exposure / 1000:.0f}ms"
             )
         elif background > self.max_background:
             # Too bright - decrease exposure
             new_exposure = int(current_exposure / self.adjustment_factor)
             logger.info(
                 f"SNR AE: Background too high ({background:.1f} > {self.max_background}), "
-                f"decreasing exposure {current_exposure/1000:.0f}ms → {new_exposure/1000:.0f}ms"
+                f"decreasing exposure {current_exposure / 1000:.0f}ms → {new_exposure / 1000:.0f}ms"
             )
         else:
             # Background is in acceptable range

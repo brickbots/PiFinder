@@ -34,7 +34,7 @@ Drives exposure toward a target `Matches` count, adjusting gently downward and a
 _Avoid_: PID controller, PID mode (the code/wire name — it names the algorithm, not the job).
 
 **Background controller**:
-Drives the frame's dark-pixel background to sit just above the noise floor, producing the longer, steadier exposures SQM measurement needs. Active only while the SQM screen is; ignores `Matches` entirely and has no zero-match recovery.
+Drives the processed 8-bit frame's dark-pixel background above a processed-image floor (10 ADU by default), producing the longer, steadier exposures SQM measurement needs. Active only while the SQM screen is; ignores `Matches` entirely and has no zero-match recovery. The raw SQM pedestal is in different units and is not used here.
 _Avoid_: SNR controller, SNR mode (the code/wire name — no signal-to-noise ratio is computed anywhere in it).
 
 **Target match count**:
@@ -61,7 +61,7 @@ _Avoid_: AE algo, zero-star handler, handler, plugin.
 ### Cross-context terms
 
 - **`Matches`** — defined in [Positioning](../positioning/CONTEXT.md): count of stars tetra3 matched in the most recent solve attempt, published on every attempt (success or failure) because auto-exposure depends on it. The feedback signal for solver-driven auto-exposure.
-- **Noise floor** — defined in [SQM](../sqm/CONTEXT.md): the published ADU value below which pixels are treated as empty sky plus sensor noise. Consumed here as the minimum acceptable background.
+- **Processed-image floor** — the 8-bit ADU threshold stored in shared state and consumed here as the minimum acceptable background. It is distinct from the raw-sensor pedestal and read-noise diagnostics in [SQM](../sqm/CONTEXT.md).
 
 ## Flagged ambiguities
 
