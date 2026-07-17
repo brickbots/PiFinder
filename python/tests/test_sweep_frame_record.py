@@ -45,3 +45,48 @@ def test_record_without_metadata_or_frame():
     assert record["camera_metadata"]["SensorTemperature"] is None
     assert "raw_stats" not in record
     json.dumps(record)
+
+
+@pytest.mark.unit
+def test_tracker_window_dumps_are_json_serializable():
+    from PiFinder.sqm.black_level import BlackLevelTracker
+    from PiFinder.sqm.clouds import CloudEstimator
+    from PiFinder.sqm.radiometer import RadiometerAccumulator
+    from PiFinder.sqm.wings import WingEstimator
+
+    black = BlackLevelTracker(bias_offset=256.0)
+    for i in range(15):
+        black.add_sample(0.1 + i * 0.06, 256.0 + (0.1 + i * 0.06) * 40.0)
+    dump = black.dump()
+    assert dump["n_samples"] == 15
+    assert len(dump["samples_exposure_sec"]) == 15
+    assert dump["pedestal"] == pytest.approx(256.0, abs=0.5)
+    json.dumps(dump)
+
+    clouds = CloudEstimator(clear_zero_point=14.5, clear_sky_brightness=18.5)
+    for _ in range(4):
+        clouds.add_sample(mzero=14.0, exposure_sec=0.5, sky_brightness=18.4)
+    dump = clouds.dump()
+    assert len(dump["recent_normalized_zp"]) == clouds.smooth_samples
+    assert dump["baseline"] is not None
+    json.dumps(dump)
+
+    wings = WingEstimator()
+    dump = wings.dump()
+    assert dump["is_conditioned"] is False
+    assert dump["samples_enclosed_fraction"] == []
+    json.dumps(dump)
+
+    radiometer = RadiometerAccumulator()
+    radiometer.add(
+        {
+            "sequence": 7,
+            "captured_at": 1000.0,
+            "exposure_sec": 0.4,
+            "background_per_pixel": 300.5,
+        }
+    )
+    dump = radiometer.dump()
+    assert dump["n_samples"] == 1
+    assert dump["last_sequence"] == 7
+    json.dumps(dump)

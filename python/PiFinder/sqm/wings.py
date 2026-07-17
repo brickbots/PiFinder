@@ -155,5 +155,24 @@ class WingEstimator:
     def is_conditioned(self) -> bool:
         return len(self._samples) >= self.min_samples
 
+    def dump(self) -> dict:
+        """Full JSON-serializable window state for diagnostics/sweeps."""
+        return {
+            "enclosed_fraction": self.enclosed_fraction(),
+            "correction_mag": self.correction(),
+            "is_conditioned": self.is_conditioned,
+            "n_samples": len(self._samples),
+            "config": {
+                "aperture_radius": self.aperture_radius,
+                "max_radius": self.max_radius,
+                "max_samples": self.max_samples,
+                "min_samples": self.min_samples,
+                "min_stars": self.min_stars,
+                "min_peak_snr": self.min_peak_snr,
+                "plateau_radii": list(self.plateau_radii),
+            },
+            "samples_enclosed_fraction": list(self._samples),
+        }
+
     def reset(self) -> None:
         self._samples.clear()

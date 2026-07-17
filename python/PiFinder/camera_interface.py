@@ -55,6 +55,8 @@ SWEEP_FRAME_METADATA_KEYS = (
 
 def _json_safe(value):
     """Coerce picamera2 metadata values (numpy scalars, tuples) to JSON types."""
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
     if isinstance(value, (tuple, list)):
         return [_json_safe(v) for v in value]
     if isinstance(value, np.integer):
@@ -766,6 +768,17 @@ class CameraInterface:
                                         None,
                                     ),
                                 )
+                                # Live SQM pipeline state at this frame:
+                                # sqm_details carries the full rolling-window
+                                # dumps (black level, wings, clouds,
+                                # radiometer) published by the solver.
+                                try:
+                                    frame_record["sqm_details"] = _json_safe(
+                                        shared_state.sqm_details()
+                                    )
+                                except Exception:
+                                    frame_record["sqm_details"] = None
+
                                 sweep_frames.append(frame_record)
                                 frame_meta_filename = (
                                     sweep_dir

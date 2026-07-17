@@ -237,6 +237,8 @@ def update_radiometric_sqm(
         )
         details["black_level_pedestal"] = tracked
         details["black_level_stderr"] = tracked_stderr
+        details["window_black_level"] = black_level_tracker.dump()
+    details["window_radiometer"] = accumulator.dump()
     details["measurement_role"] = "primary_radiometer"
     shared_state.set_sqm_details({**previous, **details})
     shared_state.set_sqm(
@@ -456,6 +458,16 @@ def update_sqm(
 
         details["sqm_star_calibrated"] = sqm_value
         details["measurement_role"] = "stellar_transmission_diagnostic"
+
+        # Full rolling-window state of every tracker, so diagnostics dumps
+        # (exposure sweeps in particular) carry the samples behind each
+        # published number, not just the summary.
+        if wing_estimator is not None:
+            details["window_wings"] = wing_estimator.dump()
+        if cloud_estimator is not None:
+            details["window_clouds"] = cloud_estimator.dump()
+        if black_level_tracker is not None:
+            details["window_black_level"] = black_level_tracker.dump()
 
         # Store SQM details (filter out large per-star arrays)
         filtered_details = {
