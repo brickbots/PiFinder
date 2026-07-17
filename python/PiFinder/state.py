@@ -293,9 +293,9 @@ class SharedStateObj:
         self.__hardware = None
         self.__location: Location = Location()
         self.__sqm: SQM = SQM()
-        self.__noise_floor: float = (
-            10.0  # Adaptive noise floor in ADU (default fallback)
-        )
+        # Processed 8-bit background floor used by the camera controller.
+        # Raw SQM thresholds use different units and must not be stored here.
+        self.__noise_floor: float = 10.0
         self.__sqm_details: dict = {}  # Full SQM calculation details for calibration
         self.__sqm_correct_delta: float = 0.0  # Session correction vs reference meter
         self.__datetime = None
@@ -440,11 +440,11 @@ class SharedStateObj:
         self.__sqm = sqm
 
     def noise_floor(self) -> float:
-        """Return the adaptive noise floor in ADU"""
+        """Return the processed-image background floor in 8-bit ADU."""
         return self.__noise_floor
 
     def set_noise_floor(self, v: float):
-        """Update the adaptive noise floor (from SQM calculator)"""
+        """Update the processed-image background floor in 8-bit ADU."""
         self.__noise_floor = v
 
     def sqm_details(self) -> dict:

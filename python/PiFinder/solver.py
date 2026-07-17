@@ -600,6 +600,7 @@ def _build_successful_solve(
         ),
         matched_centroids=solution.get("matched_centroids"),
         matched_stars=solution.get("matched_stars"),
+        matched_catID=solution.get("matched_catID"),
     )
 
 
@@ -784,7 +785,11 @@ def solver(
                         exposure_sec = (
                             last_image_metadata["exposure_time"] / 1_000_000.0
                         )
-                        altitude_for_sqm = 90.0  # Topocentric Alt is computed in the integrator; SQM uses zenith fallback here
+                        # Topocentric altitude is computed later by the
+                        # integrator. Do not mislabel an unavailable value as
+                        # zenith; the published SQM remains uncorrected and the
+                        # optional comparison diagnostic stays absent.
+                        altitude_for_sqm = None
 
                         update_sqm(
                             shared_state=shared_state,
@@ -799,7 +804,6 @@ def solver(
                         )
 
                         # Don't clutter printed solution with these fields (use pop to safely remove)
-                        solution.pop("matched_catID", None)
                         solution.pop("pattern_centroids", None)
                         solution.pop("epoch_equinox", None)
                         solution.pop("epoch_proper_motion", None)
@@ -813,6 +817,7 @@ def solver(
                             last_solve_attempt=last_solve_attempt,
                             last_solve_success=last_solve_success,
                         )
+                        solution.pop("matched_catID", None)
 
                         total_tetra_time = t_extract + (solution.get("T_solve") or 0)
                         if total_tetra_time > 1000:

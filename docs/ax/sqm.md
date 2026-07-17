@@ -1,321 +1,230 @@
 # Sky Quality Meter (SQM) in PiFinder
 
-This document describes how PiFinder estimates sky brightness in
-magnitudes per square arcsecond, and how the same machinery produces a
-secondary "noise floor" value that auto-exposure consumes.
+PiFinder estimates sky surface brightness from the same solved camera frames
+used for pointing. The normal product path is deliberately zero-touch: after
+the camera identifies itself, the built-in sensor profile supplies the
+calibrated black level, passband transform, and SQM-L offset. A user does not
+need flats, dark frames, or a calibration wizard to get a useful reading.
 
-It focuses on the runtime path that executes during normal solving:
+`SQM Correct` and the calibration wizard are optional refinements for a
+particular session or device. They are not startup requirements and are never
+run implicitly against an ordinary sky image.
 
-- `PiFinder/sqm/sqm.py` — the `SQM` calculator (photometry + extinction).
-- `PiFinder/sqm/noise_floor.py` — the `NoiseFloorEstimator` (camera physics + adaptive measurement).
-- `PiFinder/sqm/camera_profiles.py` — per-sensor noise constants.
-- `PiFinder/solver.py` — the only runtime caller of `SQM.calculate()`.
+## Accuracy demonstrated so far
 
-The UI side (`ui/sqm.py`, `ui/sqm_calibration.py`, `ui/sqm_correction.py`)
-is summarized at the end. For the canonical glossary of terms and data
-structures, see [`sqm/CONTEXT.md`](./sqm/CONTEXT.md).
+The archive campaign validates the complete estimator, not just individual
+formulae:
 
----
+| Sensor | Evidence | Out-of-box result |
+|---|---|---|
+| imx462 | six clear SQM-L reference sweeps over multiple nights | cross-sweep residual σ ≈ 0.05 mag; typical error within ±0.1 mag |
+| HQ/imx477 | three independent clear reference readings over eight months | residuals within about ±0.2 mag |
+| imx296 | one moonlit reference sweep (SQM-L 17.8–17.9) | approximately ±0.2 mag; evidence is data-poor |
 
-## 1. Process layout
+The final no-calibration regression replayed 540 archive frames from 11 clear
+reference sweeps. Relative to the unmodified deepchart base, sweep-median MAE
+improved from 0.084 to 0.081 mag and RMSE from 0.119 to 0.117 mag. By sensor,
+imx462's six sweep medians have 0.050 mag residual scatter and 0.038 mag MAE
+(range −0.018 to +0.131); HQ has 0.161 mag MAE, with the known sparse/suspect
+references reaching −0.207 and +0.241; the single imx296 sweep is −0.021 mag.
+No offset was fit during this replay and user calibration files were disabled.
 
-SQM is computed inside the **solver process** as a side effect of every
-successful plate solve. It does not run anywhere else during normal
-operation. The UI process only reads cached results.
+These are in-sample results under a light-pollution-dominated Ghent sky. The
+sensor offsets include the local sky spectrum, so dark airglow-dominated sites
+may need a different offset. Bright cloud is a known physical limitation:
+stars are attenuated above much of the city glow, so star-calibrated SQM reads
+roughly 0.4–0.7 mag too bright. `CloudEstimator` detects the zero-point deficit
+and reports it, but does not silently alter the published value.
 
+## Runtime ownership and data flow
+
+The solver process owns the steady-state measurement. The UI only reads the
+latest state.
+
+```text
+camera capture
+  ├─ 512×512 processed image ─► Cedar centroids + tetra3 solution
+  └─ cropped raw sensor frame ─► raw mono / averaged Bayer-green photometry
+                                      │
+solution centroids ─► scale + undo display rotation
+                                      │
+                                      ▼
+                                 SQM.calculate
+                                      │
+             ┌────────────────────────┼──────────────────────┐
+             ▼                        ▼                      ▼
+       SQMState.value           sqm_details          Wing/Cloud history
+             │
+             ▼
+           SQM UI
 ```
-   Camera ──► camera_image ──► Solver ──► SQM.calculate() (≤ once / 5 s)
-                                    │
-                                    ├──► shared_state.set_sqm(SQMState)
-                                    ├──► shared_state.set_sqm_details(dict)
-                                    └──► shared_state.set_noise_floor(float)
 
-   shared_state.sqm()         ──► UI sqm.py
-   shared_state.noise_floor() ──► camera_interface ──► background controller
-```
+The calculator is created lazily on the first solved frame. This matters: at
+solver-process startup the camera process may not yet have published the real
+sensor type. Lazy creation prevents the old race that applied imx296 constants
+to imx462 or HQ frames.
 
-A second SQM call site lives inside the **calibration wizard**
-(`ui/sqm_calibration.py`), which captures dedicated sky/dark frames and
-runs `SQM.calculate()` against each. That code path is only active while
-the user is on the calibration screen.
+SQM runs at most once every five seconds. A failed solve or failed photometric
+measurement leaves the previous reading in place and retries on a later solve.
 
----
+## Coordinate and image alignment
 
-## 2. Data shapes
+The processed solve image is display-rotated, while `cam_raw` is stored before
+that display rotation. Production SQM therefore:
 
-### 2.1 `SQMState` (`state.py:144`)
+1. extracts mono raw data or averages the two Bayer-green sites;
+2. scales 512 px solve centroids into the raw-photometry pixel grid; and
+3. counter-rotates every matched and detected centroid using
+   `solve_image_rotation`.
 
-The published per-solve result. Lives in `SharedStateObj`:
+Skipping step 3 places star apertures on empty sky and causes errors of several
+magnitudes. This mapping is covered by rotation tests for 0°, 90°, 180°, 270°,
+and arbitrary rotations.
 
-| Field | Meaning |
-| --- | --- |
-| `value` | Sky brightness in mag/arcsec². Default `20.15` (typical dark sky). |
-| `source` | `"None"`, `"Calculated"`, `"Manual"`, etc. |
-| `last_update` | ISO-8601 timestamp of last calculation, or `None`. |
+## Photometric reduction
 
-`shared_state.sqm()` returns this dataclass; `shared_state.set_sqm(...)`
-replaces it. Two related setters live alongside:
-
-- `set_sqm_details(dict)` — the diagnostic dict from `SQM.calculate()`
-  (with the bulky per-star arrays stripped — see `solver.py:121`).
-- `set_noise_floor(float)` — the latest ADU floor; consumed by
-  auto-exposure (see §6).
-
-### 2.2 `SQM.calculate()` return value
-
-`(sqm_value, details)`:
-
-- `sqm_value: Optional[float]` — magnitudes per arcsec² after photometric
-  reduction. `None` if the solve had no matched stars, the FOV field was
-  missing, or the background was unphysical.
-- `details: dict` — diagnostics. The solver filters out
-  `star_centroids`, `star_mags`, `star_fluxes`, `star_local_backgrounds`,
-  and `star_mzeros` (the large per-star arrays) before publishing the
-  rest via `set_sqm_details`. Keys retained include `mzero`, `mzero_std`,
-  `background_per_pixel`, `pedestal`, `noise_floor_details`,
-  `sqm_uncorrected`, `extinction_for_altitude`, `sqm_altitude_corrected`,
-  and the aperture/annulus parameters used.
-
-### 2.3 `CameraProfile` (`sqm/camera_profiles.py`)
-
-Per-sensor noise constants used by `NoiseFloorEstimator`:
-
-| Field | Meaning |
-| --- | --- |
-| `read_noise_adu` | Sensor read noise [ADU], constant w.r.t. exposure. |
-| `dark_current_rate` | Thermal dark current rate [ADU/s] at ~20 °C. |
-| `bias_offset` | Electronic pedestal [ADU]. Subtracted as part of pedestal. |
-| `format`, `raw_size`, `analog_gain`, `bit_depth`, `crop_*`, `rotation_90` | Hardware config used by the camera process. |
-| `typical_sky_background` | mag/arcsec² used as a sanity bound. |
-
-Profiles are looked up by camera type (e.g. `imx296_processed`). Saved
-calibration in `~/PiFinder_data/sqm_calibration_<camera_type>.json`
-overrides `bias_offset`, `read_noise_adu`, and `dark_current_rate` when
-loaded by `NoiseFloorEstimator.load_calibration()`.
-
----
-
-## 3. The acquisition path: `solver.py`
-
-The solver process owns the only steady-state caller. Two functions
-matter:
-
-### 3.1 `create_sqm_calculator(shared_state)`
-
-Constructs an `SQM(camera_type=<camera>_processed)` once at process
-startup, and again when an `align_command_queue` command of
-`["reload_sqm_calibration"]` arrives — used by the calibration wizard
-after it writes a new calibration JSON.
-
-### 3.2 `update_sqm(...)`
-
-Called from the solver loop on every successful tetra3 solve that
-produced `matched_centroids` (see `solver.py:446`). The function:
-
-1. **Reads `shared_state.sqm()`** and compares `last_update` to wall clock.
-2. **Gates on `SQM_CALCULATION_INTERVAL_SECONDS` (5.0 s)** — if the last
-   update is younger than 5 s, returns immediately. This is the single
-   knob that bounds SQM cost from the solver's per-frame loop. (The
-   solver loop itself is `~30 Hz` via `sleep_for_framerate`, so SQM
-   fires at most once every ~150 solver iterations.)
-3. **Calls `sqm_calculator.calculate(...)`** with:
-   - `centroids` — all detected centroids (kept for compatibility; unused).
-   - `solution` — the tetra3 solve dict (`FOV`, `matched_centroids`,
-     `matched_stars` required).
-   - `image_processed` — the 8-bit ISP-processed frame as a numpy array.
-   - `exposure_sec`, `altitude_deg` — for noise scaling and extinction.
-4. **Publishes results to `shared_state`** — `set_noise_floor`,
-   `set_sqm_details` (filtered), and `set_sqm(SQMState(...))`.
-
-Errors from `calculate()` are caught and logged; the solver loop is not
-interrupted.
-
----
-
-## 4. The math: `SQM.calculate()`
-
-`SQM.calculate()` is a single pass over the matched stars. The full
-formula it implements (from the class docstring) is:
-
-```
 For each matched star:
-    local_bg = median(annulus pixels around star)
-    star_flux = aperture_sum - local_bg × aperture_area
-mzero = flux-weighted mean over stars of (catalog_mag + 2.5 · log10(star_flux))
-sky_bg = median(all local_bg measurements)
-SQM = mzero - 2.5 · log10((sky_bg - pedestal) / arcsec²/pixel) + extinction
+
+```text
+local sky = median(clean pixels in the 10–18 px annulus)
+star flux = sum(5 px aperture) − local sky × aperture area
+star zero point = reference magnitude + 2.5 log10(star flux)
 ```
 
-Per-frame steps in order (see code paths in `sqm/sqm.py:315`):
+All Cedar detections—not only catalog matches—are excluded from each annulus
+with aperture-sized masks. A 3σ clip is a backstop for sources Cedar missed.
+The inner radius is 10 px because archive growth curves demonstrated that the
+old 6–14 px annulus contained HQ PSF-wing flux.
 
-1. **Field parameters** — `_calc_field_parameters(fov_degrees)` precomputes
-   `arcsec_squared_per_pixel` from FOV and the fixed 512 × 512 frame size.
-2. **Optional overlap exclusion** — `_detect_aperture_overlaps` is
-   `O(N²)` in matched stars. **Disabled by default** (`correct_overlaps=False`).
-3. **Noise floor estimation** — `NoiseFloorEstimator.estimate_noise_floor`
-   runs a 5th-percentile measurement on the whole image, smoothed over
-   the last 20 calls (see §5).
-4. **Per-star photometry** — `_measure_star_flux_with_local_background`
-   iterates over matched centroids. For each: extract a 2*outer_radius+1
-   patch, build aperture and annulus masks via `np.ogrid`, take
-   `np.median` of annulus pixels for local background, sum aperture
-   pixels above background, exclude saturated stars (pixel ≥ 250 ADU
-   anywhere in aperture). Returns `(star_fluxes, local_backgrounds,
-   n_saturated)`. **This is the dominant per-call cost** — see §7.
-5. **Sky background** — `np.median(local_backgrounds)` minus pedestal,
-   clamped to ≥ 1.0 ADU.
-6. **Photometric zero point** — `_calculate_mzero` does flux-weighted
-   mean of per-star zero points; stars with non-positive flux are dropped.
-7. **Magnitude conversion** — `sqm_uncorrected = mzero - 2.5 ·
-   log10(background_flux_density)`.
-8. **Extinction correction** — `_atmospheric_extinction(altitude_deg)`
-   adds `0.28 · (airmass − 1)` using the Pickering (2002) airmass
-   formula. The "main" `sqm_final` returned is **without** this
-   correction; `sqm_altitude_corrected` is included in `details`.
-9. **Diagnostics dict** — large; the solver filters out per-star arrays
-   before publishing.
+The sky term is the median of the cleaned per-star annulus backgrounds. A
+six-sweep A/B against a full-frame, source-masked median was a wash:
+cross-sweep residual σ changed from 0.046 to 0.042 mag and median frame scatter
+from 0.137 to 0.135 mag. The global median read 0.01–0.05 mag darker because it
+included vignetted corners. Local annuli stay in production because they
+sample the field near the same stars that determine the zero point, cost less,
+and are the estimator against which the offsets were calibrated.
 
-Default aperture parameters from the solver call site:
-`aperture_radius=5`, `annulus_inner_radius=6`, `annulus_outer_radius=14`,
-`saturation_threshold=250`, `correct_overlaps=False`.
+## Exposure-stable zero point
 
----
+Bare sensors use Gaia G with a small BP−RP trim; HQ, with its factory IR-cut
+filter, uses Hipparcos/Johnson V. Stars without Gaia data fall back to V.
 
-## 5. Noise floor estimation: `NoiseFloorEstimator`
+Only stars in a fixed catalog-magnitude band, currently 3.5–6.5, vote on the
+frame zero point when at least five are available. This keeps the same stellar
+population across the auto-exposure range. It removed the population-selection
+drift measured when progressively fainter stars entered longer exposures.
 
-Lives in `sqm/noise_floor.py` and is owned by the `SQM` instance.
+The selected zero points are combined with a median. A 3-MAD rejection now
+removes a remaining catalog, blend, or colour outlier before the median; it
+does not replace or widen the fixed magnitude band.
 
-`estimate_noise_floor(image, exposure_sec, percentile=5.0)` per call:
+## Aperture-wing correction
 
-1. **Measure** — `np.percentile(image, 5.0)` of the full frame.
-   Appended to a 20-deep `deque` (`dark_pixel_history`).
-2. **Theoretical floor** — `bias_offset + read_noise + dark_current_rate · exposure_sec`.
-3. **Smooth** — once history ≥ 5, use `np.median` of the deque as the
-   measurement; otherwise the raw current measurement.
-4. **Choose conservative** — `min(measured, theoretical)`, but if the
-   measurement is below `bias_offset` (physically impossible) fall back
-   to theoretical. Floor is clamped to ≥ `bias_offset`.
-5. **Validate** — `_validate_estimate` checks the floor isn't above 80 %
-   of image median (would imply no stars detected) and isn't above
-   `bias_offset + 20 · read_noise_adu`.
-6. **Optional zero-second sample request** — every
-   `zero_sec_interval` (300 s default) a flag is set in the details
-   dict so the camera process can capture a 0-second exposure for
-   recalibration. The hook is `update_with_zero_sec_sample()`. (Whether
-   the camera process honors the flag is outside the SQM module.)
+`WingEstimator` median-stacks sky-subtracted, aperture-normalized patches from
+bright unsaturated matched stars. Its curve of growth measures the fraction
+of stellar light enclosed by the 5 px aperture. The rolling correction
+`−2.5 log10(f)` is added to the zero point.
 
-Per-frame cost is one full-frame percentile + one full-frame median for
-the validity check + small deque ops. On a 512×512 8-bit frame this is
-small but not zero — see §7.
+The estimator returns zero until it has enough frames. On imx462 the measured
+PSF is effectively enclosed (`f ≈ 1`); HQ can show focus-dependent wings
+(`f ≈ 0.87–1`). This stacked method replaced a per-star boundary search that
+integrated noise and invented 0.3–0.5 mag of missing flux.
 
----
+## Detector baseline and failure policy
 
-## 6. Distribution
+The physical calibrated mean detector pedestal is:
 
-`shared_state.set_sqm(SQMState)` is read by `UISQM.update()`
-(`ui/sqm.py:77`), which renders the latest value on the SQM screen.
-`UISQM` does **not** call `SQM.calculate()` — it only reads cached state
-and runs its own `sleep_for_framerate(shared_state)` (~30 Hz).
+```text
+pedestal = bias_offset + dark_current_rate × exposure_seconds
+```
 
-`shared_state.set_noise_floor(float)` is read by the camera process
-(`get_image_loop` in `camera_interface.py`) and forwarded to the
-background controller (`ExposureSNRController.update(..., noise_floor=...)`
-in `auto_exposure.py`) as the minimum acceptable background. The earlier
-name `SNR_target_offset` never existed; "SNR" survives only as the
-code/wire name — see [`camera.md`](./camera.md) §5.
+Out of the box, only `bias_offset` is subtracted. The built-in dark-current
+rates are unverified engineering estimates, and applying the imx296 estimate
+to the historical archive moved its median by +0.138 mag in the wrong
+direction. Once the optional wizard measures a device's dark-current rate, its
+mean exposure-dependent signal is included. This keeps factory behavior tied
+to the validated sensor offsets while allowing a measured calibration to
+refine it.
 
----
+Read noise is zero-mean RMS uncertainty and is never subtracted as signal.
+`NoiseFloorEstimator` retains a low image percentile only as a diagnostic;
+ordinary sky pixels cannot provide an automatic dark calibration because they
+contain real sky light. Periodic zero-exposure requests are disabled because
+no runtime camera command path services them.
 
-## 7. Cost characterization (where the time goes)
+The default sensor profiles make this work without a calibration file. Profile
+objects are copied per calculator, so an optional device calibration cannot
+mutate process-global defaults or another calculator.
 
-Driven entirely by the per-star loop in
-`_measure_star_flux_with_local_background`. For each matched star
-(typically 10–60 from tetra3):
+If the annulus background is no more than 1 ADU above the pedestal, SQM returns
+no value with `failure_reason=background_not_resolved_above_pedestal`. It does
+not clamp the background to 1 ADU and manufacture a plausible-looking number.
 
-- A `(2·14+1)² = 841`-pixel patch is sliced from the image.
-- `np.ogrid` builds y/x grids on the patch coords (not pixel-indexed).
-- Two boolean masks (aperture, annulus) at ~841 pixels each.
-- `np.median(annulus_pixels)`, `np.max(aperture_pixels)`, `np.sum(...)`.
+The raw detector threshold in `noise_floor_details` is not sent to the camera's
+8-bit exposure controller: those values are in different units. The existing
+processed-image background controller keeps its validated 8-bit threshold.
 
-The work is Python-loop-bound (one `for cy, cx in centroids` iteration
-per star, with several small numpy calls inside). Numpy call overhead
-on tiny arrays dominates the wall-clock cost. With 30 matched stars and
-the default 5/6/14 radii, a single `calculate()` typically lands in the
-**tens of milliseconds** on Pi-class hardware. Multiplying through the
-5-second interval gate gives a steady-state average load of well under
-1 % of one core in the solver process.
+## Published value, altitude, passband, and cloud
 
-This call **does not** block the UI process (a separate process), but
-the underlying single-core Pi will schedule them on the same CPU, so a
-heavy `calculate()` can transiently steal cycles from the UI loop. See
-the profiling harness for empirical numbers on a given host.
+After converting background ADU per pixel to ADU per square arcsecond:
 
----
+```text
+sqm_sensor = mzero − 2.5 log10((sky − pedestal) / arcsec²_per_pixel)
+sqm_final  = sqm_sensor + camera_profile.sqm_band_offset
+```
 
-## 8. Calibration flows
+The sensor offset maps the camera passband to the SQM-L scale under the
+calibration sky regime. Current defaults are imx462/imx290 `+0.53`, HQ `+0.60`,
+and imx296 `−0.22` mag; they are coupled to the current Gaia/colour, wing, and
+local-annulus estimator.
 
-### 8.1 Persistent file
+`sqm_final` is the published reading. It intentionally has no atmospheric
+altitude correction. When a real altitude is available, details also contain
+`sqm_altitude_corrected = sqm_final + 0.28 × (airmass − 1)`. When altitude is
+unavailable, PiFinder passes `None`; it no longer labels the field as a fake
+90° zenith measurement.
 
-`~/PiFinder_data/sqm_calibration_<camera_type>.json` — JSON dict with
-`bias_offset`, `read_noise`, `dark_current_rate`, `camera_type`,
-`timestamp`. Loaded by `NoiseFloorEstimator.__init__` via
-`load_calibration()`; written by `save_calibration()` and by the
-calibration wizard.
+`CloudEstimator` tracks the exposure-normalized stellar zero point. A deficit
+from its recent clear-transmission baseline produces `cloud_extinction`,
+`cloud_flag`, and an informational `sqm_cloud_corrected`. The main reading is
+not silently changed.
 
-### 8.2 The calibration UI (`ui/sqm_calibration.py`)
+## Optional user refinement
 
-A multi-step wizard (`CalibrationState`) that:
+### SQM Correct
 
-1. Captures a series of **dark frames** at increasing exposures to
-   measure `bias_offset`, `read_noise_adu`, and `dark_current_rate`.
-2. Captures **sky frames** and runs `SQM.calculate()` on each
-   (`sqm_calibration.py:816`) to validate the result.
-3. Writes the calibration JSON.
-4. Sends `["reload_sqm_calibration"]` on `align_command_queue` so the
-   solver process picks up the new constants without restart.
+The everyday refinement is a hand-held reference reading. PiFinder stores an
+additive session correction and applies it to subsequent results. Removing it
+returns immediately to the built-in profile.
 
-The wizard uses several `time.sleep()` calls (e.g. `sqm_calibration.py:127`)
-to wait for camera state changes; those affect the wizard screen only.
+### Calibration wizard
 
-### 8.3 Correction UI (`ui/sqm_correction.py`)
+The service/diagnostic wizard is optional. It:
 
-Allows a user-supplied offset to apply to the measured SQM. Stores the
-offset; does not trigger recalculation.
+1. captures minimum-exposure, lens-capped bias frames;
+2. estimates read noise from temporal pixel variance, not spatial fixed-pattern
+   structure;
+3. fits mean dark signal across multiple exposure times;
+4. pairs each optional sky frame with the solve carrying that exact capture
+   timestamp and runs the same raw/derotated/Gaia/wing path as production;
+5. writes `~/PiFinder_data/sqm_calibration_<sensor>.json`; and
+6. sends a typed `ReloadSqmCalibration` command.
 
----
+Leaving the wizard restores the previous automatic or manual exposure mode.
+No flat or master dark is produced or required.
 
-## 9. Timing and gating rules
+## Important limits
 
-A few invariants worth knowing when modifying the SQM path:
+- The instrument is empirically tied to an SQM-L scale, but its angular and
+  spectral response is not identical to an SQM-L.
+- Factory offsets are coupled to this estimator and the calibration sky
+  spectrum; changing annuli, catalog band, wing model, or passband requires
+  archive revalidation.
+- HQ and especially imx296 need more independent reference nights.
+- Bright clouds violate the simple “same attenuation for stars and sky” model.
+- Flats can characterize vignetting for research, but normal operation must
+  remain accurate without asking the user to take one.
 
-- **One calculation per ~5 s.** Driven by
-  `SQM_CALCULATION_INTERVAL_SECONDS` and the `last_update` check in
-  `update_sqm`. Lowering this constant proportionally increases solver
-  CPU.
-- **No SQM on a failed solve.** The solver only enters the SQM block if
-  `"matched_centroids" in solution` (`solver.py:439`). Failed solves do
-  not advance the SQM clock.
-- **Centroid format.** `matched_centroids` are already in `(y, x)`
-  order; `SQM.calculate()` does not swap them. Don't re-swap upstream.
-- **Image format.** `image_processed` must be 8-bit (uint8). The
-  saturation threshold of 250 assumes 8-bit dynamic range.
-- **FOV must be present** in `solution` or `calculate()` returns
-  `(None, {})` and the solver clock is *not* advanced (next solve will
-  retry).
-- **Noise floor smoothing** needs ≥ 5 calls (~25 s wall clock at the
-  default interval) before the rolling median takes over from the raw
-  per-call percentile. Until then, the floor estimate is jumpy.
-
----
-
-## 10. Glossary
-
-The canonical glossary lives at [`sqm/CONTEXT.md`](./sqm/CONTEXT.md).
-Use those terms when reading, writing, and discussing code in this area.
-
-In particular: bare "SQM" means the published `sqm_final` (no altitude
-correction) — see [`docs/adr/0002-sqm-published-value-uncorrected.md`](../adr/0002-sqm-published-value-uncorrected.md)
-for the rationale. The wizard-time **dark sequence** (multi-frame
-multi-exposure, fits noise constants) is distinct from the runtime
-**zero-second sample** (single 0-s exposure, refreshes
-`bias_offset`/`read_noise_adu`).
+See [`sqm/CONTEXT.md`](./sqm/CONTEXT.md) for canonical terminology and
+[`docs/adr/0002-sqm-published-value-uncorrected.md`](../adr/0002-sqm-published-value-uncorrected.md)
+for the published-value decision.

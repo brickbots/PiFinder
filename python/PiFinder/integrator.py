@@ -239,6 +239,7 @@ def _apply_successful_solve(
     estimate.alignment = result.alignment
     estimate.matched_centroids = result.matched_centroids
     estimate.matched_stars = result.matched_stars
+    estimate.matched_catID = result.matched_catID
 
     # Reseed the dead-reckoner from the new anchor. camera/aligned are
     # always present on a SuccessfulSolve, so no None-guard is needed.

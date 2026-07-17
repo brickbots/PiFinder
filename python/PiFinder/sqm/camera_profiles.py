@@ -7,7 +7,7 @@ and initial estimates. Noise parameters should be refined through real-world
 dark frame measurements for improved accuracy.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Dict, Tuple
 
 import numpy as np
@@ -144,7 +144,9 @@ class CameraProfile:
         )
 
 
-# Initial camera profiles based on datasheets and estimates
+# Initial camera-profile templates based on datasheets and estimates. Callers
+# receive copies so loading or refining one calibration cannot mutate every
+# other calculator in the process.
 # Hardware settings are camera-specific constants
 # Noise parameters should be refined with real-world dark frame measurements
 # Dark current values assume ~20-25°C ambient temperature
@@ -322,4 +324,4 @@ def get_camera_profile(camera_type: str) -> CameraProfile:
             f"Unknown camera type: {camera_type}. "
             f"Available: {list(CAMERA_PROFILES.keys())}"
         )
-    return CAMERA_PROFILES[camera_type]
+    return replace(CAMERA_PROFILES[camera_type])

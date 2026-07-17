@@ -1,14 +1,12 @@
-import json
 import logging
 import math
-from pathlib import Path
 from typing import Tuple, Dict, List, Optional
 
 import numpy as np
 
 from . import color_index
-from .camera_profiles import get_camera_profile
 from . import gaia_ref
+from .noise_floor import NoiseFloorEstimator
 
 logger = logging.getLogger("Solver")
 
@@ -57,53 +55,18 @@ class SQM:
             camera_type: Camera model (imx296, imx462, imx290, hq).
         """
         self.camera_type = camera_type
-        self.profile = get_camera_profile(camera_type)
-        self._load_calibration()
+        # Keep one estimator for the calculator's lifetime so diagnostics and
+        # its per-instance calibrated profile cannot drift apart. Periodic
+        # zero-exposure requests are disabled: no runtime camera path services
+        # that request; the explicit calibration wizard owns dark captures.
+        self.noise_floor_estimator = NoiseFloorEstimator(
+            camera_type=camera_type,
+            enable_zero_sec_sampling=False,
+        )
+        self.profile = self.noise_floor_estimator.profile
         logger.info(
             f"SQM initialized (camera: {camera_type}, bias_offset: {self.profile.bias_offset})"
         )
-
-    def _load_calibration(self) -> bool:
-        """
-        Load calibration from JSON file if it exists.
-
-        Calibration file is saved by the SQM calibration wizard to:
-        ~/PiFinder_data/sqm_calibration_{camera_type}.json
-
-        Returns:
-            True if calibration was loaded, False if using defaults
-        """
-        calibration_file = (
-            Path.home() / "PiFinder_data" / f"sqm_calibration_{self.camera_type}.json"
-        )
-
-        if not calibration_file.exists():
-            logger.debug(
-                f"No calibration file found at {calibration_file}, using defaults"
-            )
-            return False
-
-        try:
-            with open(calibration_file, "r") as f:
-                calibration = json.load(f)
-
-            # Update profile with calibrated values
-            if "bias_offset" in calibration:
-                self.profile.bias_offset = float(calibration["bias_offset"])
-            if "read_noise" in calibration:
-                self.profile.read_noise_adu = float(calibration["read_noise"])
-            if "dark_current_rate" in calibration:
-                self.profile.dark_current_rate = float(calibration["dark_current_rate"])
-
-            logger.info(
-                f"Loaded calibration from {calibration_file.name}: "
-                f"bias_offset={self.profile.bias_offset:.1f}"
-            )
-            return True
-
-        except Exception as e:
-            logger.warning(f"Failed to load calibration: {e}, using defaults")
-            return False
 
     def _calc_field_parameters(
         self, fov_degrees: float, pixels_per_side: int = 512
@@ -280,7 +243,7 @@ class SQM:
         self, star_fluxes: list, star_mags: list
     ) -> Tuple[Optional[float], list]:
         """
-        Calculate photometric zero point from calibrated stars.
+        Calculate a robust photometric zero point from calibrated stars.
 
         For point sources: mzero = catalog_mag + 2.5 × log10(total_flux_ADU)
 
@@ -301,7 +264,9 @@ class SQM:
         drifts ~0.1-0.2 mag/decade of exposure. A fixed band samples the same
         physical stars at every exposure (measured: drift -0.10 -> -0.01
         mag/decade on the imx462 sweep ramps). Falls back to all stars when
-        the field is too poor for the band.
+        the field is too poor for the band. A 3-MAD rejection inside that
+        selected population removes catalog, blend, and residual colour
+        outliers without changing the exposure-invariant selection rule.
 
         Args:
             star_fluxes: Background-subtracted star fluxes (ADU)
@@ -312,10 +277,10 @@ class SQM:
             Note: The mzeros list will contain None for stars with invalid flux
         """
         mzeros: list[Optional[float]] = []
-        valid = []  # (mzero, mag)
+        valid: list[tuple[int, float, float]] = []  # index, mzero, magnitude
 
-        for flux, mag in zip(star_fluxes, star_mags):
-            if flux <= 0:
+        for index, (flux, mag) in enumerate(zip(star_fluxes, star_mags)):
+            if flux <= 0 or not np.isfinite(flux) or not np.isfinite(mag):
                 logger.debug(f"Skipping star with flux={flux:.1f} ADU (mag={mag:.2f})")
                 mzeros.append(None)  # Keep array aligned
                 continue
@@ -323,20 +288,33 @@ class SQM:
             # Calculate zero point: ZP = m + 2.5*log10(F)
             mzero = mag + 2.5 * np.log10(flux)
             mzeros.append(mzero)
-            valid.append((mzero, mag))
+            valid.append((index, mzero, mag))
 
         if len(valid) == 0:
             logger.error("No valid stars for mzero calculation")
             return None, mzeros
 
         lo, hi = self.MZERO_MAG_BAND
-        in_band = [mz for mz, mag in valid if lo <= mag <= hi]
-        pool = (
-            in_band
-            if len(in_band) >= self.MZERO_MAG_BAND_MIN_STARS
-            else [mz for mz, _ in valid]
-        )
-        return float(np.median(pool)), mzeros
+        in_band = [entry for entry in valid if lo <= entry[2] <= hi]
+        pool = in_band if len(in_band) >= self.MZERO_MAG_BAND_MIN_STARS else valid
+        values = np.asarray([entry[1] for entry in pool], dtype=np.float64)
+        median = float(np.median(values))
+        deviations = np.abs(values - median)
+        mad = float(np.median(deviations))
+        if len(values) >= 3:
+            if mad > 0:
+                robust_sigma = 1.4826 * mad
+                inliers = deviations <= 3.0 * robust_sigma
+            else:
+                # A majority of identical values gives MAD=0. Retain that
+                # consensus and reject any isolated nonzero deviation.
+                inliers = deviations == 0
+            for entry, is_inlier in zip(pool, inliers):
+                if not is_inlier:
+                    mzeros[entry[0]] = None
+            values = values[inliers]
+
+        return float(np.median(values)), mzeros
 
     def _detect_aperture_overlaps(
         self,
@@ -424,7 +402,9 @@ class SQM:
 
     def _determine_pedestal_source(self) -> str:
         """Determine the source of the pedestal value for diagnostics."""
-        return "bias_offset"
+        if self.noise_floor_estimator.dark_current_calibrated:
+            return "calibrated_bias_plus_mean_dark_current"
+        return "factory_bias_offset"
 
     def calculate(
         self,
@@ -432,7 +412,7 @@ class SQM:
         solution: dict,
         image: np.ndarray,
         exposure_sec: float,
-        altitude_deg: float = 90.0,
+        altitude_deg: Optional[float] = None,
         aperture_radius: int = 5,
         annulus_inner_radius: int = 10,
         annulus_outer_radius: int = 18,
@@ -456,14 +436,15 @@ class SQM:
                       numpy array indexing (image[row, col]).
             image: Image array (uint8 or float)
             exposure_sec: Exposure time in seconds (required for noise floor estimation)
-            altitude_deg: Altitude of field center for extinction correction (default: 90 = zenith)
+            altitude_deg: Altitude of field center for optional comparison-only
+                extinction correction. ``None`` means altitude is unavailable.
             aperture_radius: Radius for star photometry in pixels (default: 5)
             annulus_inner_radius: Inner radius of background annulus in pixels (default: 10)
             annulus_outer_radius: Outer radius of background annulus in pixels (default: 18)
             correct_overlaps: If True, exclude stars with overlapping apertures/annuli (default: False)
             saturation_threshold: Pixel value threshold for saturation detection (default: 250)
-            pedestal_override: If given, use this black-level pedestal instead of the
-                profile bias_offset (e.g. a per-frame joint-fit estimate).
+            pedestal_override: If given, use this total black-level pedestal instead
+                of ``bias + mean dark current`` (e.g. a per-frame estimate).
             color_coefficient: If given (and non-zero), correct each star's catalog V
                 magnitude to the sensor passband via mag_eff = V - T*(B-V), with B-V
                 looked up by HIP from solution['matched_catID']. Defaults to the
@@ -490,6 +471,10 @@ class SQM:
             if sqm_value:
                 print(f"SQM: {sqm_value:.2f} mag/arcsec²")
         """
+        if image.ndim != 2 or image.size == 0:
+            logger.error("SQM requires a non-empty two-dimensional image")
+            return None, {}
+
         # Extract FOV from solution
         if "FOV" not in solution:
             logger.error("Solution missing 'FOV' field")
@@ -514,6 +499,20 @@ class SQM:
         if len(matched_centroids) == 0 or len(matched_stars) == 0:
             logger.error("No matched stars in solution")
             return None, {}
+        if len(matched_centroids) != len(matched_stars):
+            logger.error(
+                "Matched centroid/star length mismatch: %d != %d",
+                len(matched_centroids),
+                len(matched_stars),
+            )
+            return None, {}
+
+        _noise_floor, noise_floor_details = (
+            self.noise_floor_estimator.estimate_noise_floor(
+                image=image,
+                exposure_sec=exposure_sec,
+            )
+        )
 
         # Don't swap - centroids are already in (row, col) = (y, x) format
         matched_centroids_arr = matched_centroids
@@ -569,32 +568,34 @@ class SQM:
                     )
                     return None, {}
 
-        # Pedestal = bias_offset only (from camera profile)
-        # - Bias offset: electronic pedestal, systematic DC offset - SUBTRACT
-        # - Dark current: contributes to noise variance, not a DC offset - do NOT subtract
-        # - Read noise: random fluctuation around 0 - do NOT subtract
-        # Validated against SQM-L reference meter: bias_offset only gives ±0.07 mag accuracy
-        # A per-frame estimate (joint-fit over the auto-exposure stream) supersedes
-        # the static bias_offset when provided, since the true black level differs
-        # from the profile constant on some sensors.
+        # Pedestal = static bias plus *measured* mean dark signal. Factory
+        # dark-current values are unverified engineering estimates and the
+        # shipped sensor offsets were validated without subtracting them, so
+        # preserve the bias-only zero-touch path until a device calibration has
+        # measured the rate. Read noise is zero-mean and is never subtracted.
+        dark_current_rate = self.profile.dark_current_rate or 0.0
+        dark_current_model_contribution = dark_current_rate * exposure_sec
+        dark_current_contribution = (
+            dark_current_model_contribution
+            if self.noise_floor_estimator.dark_current_calibrated
+            else 0.0
+        )
         pedestal = (
             pedestal_override
             if pedestal_override is not None
-            else self.profile.bias_offset
+            else self.profile.bias_offset + dark_current_contribution
         )
 
-        # Calculate temporal noise for diagnostics (not used in pedestal)
-        # Default to 0.0: these feed a diagnostic noise term only, so a None
-        # left by an incomplete calibration file must not crash the whole SQM.
+        # Default to 0.0 so an incomplete calibration cannot crash SQM.
         read_noise = self.profile.read_noise_adu or 0.0
-        dark_current_rate = self.profile.dark_current_rate or 0.0
-        dark_current_contribution = dark_current_rate * exposure_sec
-        temporal_noise = read_noise + dark_current_contribution
+        temporal_noise = read_noise
 
         logger.debug(
-            f"Calibration: pedestal={pedestal:.1f} ADU (bias_offset), "
+            f"Calibration: pedestal={pedestal:.1f} ADU "
+            f"({self._determine_pedestal_source()}), "
             f"read_noise={read_noise:.2f}, dark_current={dark_current_contribution:.2f} "
-            f"(rate={dark_current_rate:.3f} ADU/s × {exposure_sec:.2f}s), "
+            f"(model={dark_current_model_contribution:.2f}, "
+            f"rate={dark_current_rate:.3f} ADU/s × {exposure_sec:.2f}s), "
             f"temporal_noise={temporal_noise:.2f}"
         )
 
@@ -627,13 +628,27 @@ class SQM:
         # 3. Apply pedestal correction (like ASTAP)
         background_corrected = background_per_pixel - pedestal
 
-        # Clamp background to minimum of 1 ADU to prevent negative/zero values
-        if background_corrected <= 0:
+        # A sub-ADU result is unresolved at the detector's quantization/noise
+        # scale. Reject it rather than manufacturing a plausible value by
+        # clamping the background to 1 ADU.
+        if background_corrected <= 1.0:
             logger.warning(
-                f"Background clamped to 1.0 ADU after pedestal correction "
+                f"Background unresolved after pedestal correction "
                 f"({background_per_pixel:.2f} - {pedestal:.2f} = {background_corrected:.2f})"
             )
-            background_corrected = 1.0
+            return None, {
+                "background_per_pixel": background_per_pixel,
+                "background_corrected": background_corrected,
+                "pedestal": pedestal,
+                "pedestal_source": (
+                    "per_frame_estimate"
+                    if pedestal_override is not None
+                    else self._determine_pedestal_source()
+                ),
+                "failure_reason": "background_not_resolved_above_pedestal",
+                "noise_floor_details": noise_floor_details,
+                "exposure_sec": exposure_sec,
+            }
 
         # 4. Calculate photometric zero point.
         # Reference band per sensor: bare sensors (reference_band "gaia_g")
@@ -689,9 +704,11 @@ class SQM:
         # Following ASTAP: zenith is reference point where extinction = 0
         # Only ADDITIONAL extinction below zenith is added: 0.28 * (airmass - 1)
         # This allows comparing measurements at different altitudes
-        extinction_for_altitude = self._atmospheric_extinction(
-            altitude_deg
-        )  # 0.28*(airmass-1)
+        extinction_for_altitude = (
+            self._atmospheric_extinction(altitude_deg)
+            if altitude_deg is not None
+            else None
+        )
 
         # Sky-passband offset: the colour term matches the stars to the sensor
         # passband, so the sky is measured in that passband too. A bare sensor
@@ -703,7 +720,11 @@ class SQM:
         # Main SQM value: no extinction correction (raw measurement)
         sqm_final = sqm_uncorrected + band_offset
         # Altitude-corrected value: adds extinction for altitude comparison
-        sqm_altitude_corrected = sqm_uncorrected + band_offset + extinction_for_altitude
+        sqm_altitude_corrected = (
+            sqm_uncorrected + band_offset + extinction_for_altitude
+            if extinction_for_altitude is not None
+            else None
+        )
 
         # Filter out None values for statistics in diagnostics
         valid_mzeros_for_stats = [mz for mz in mzeros if mz is not None]
@@ -736,6 +757,10 @@ class SQM:
             "read_noise_adu": read_noise,
             "dark_current_rate": self.profile.dark_current_rate,
             "dark_current_contribution": dark_current_contribution,
+            "dark_current_model_contribution": dark_current_model_contribution,
+            "dark_current_calibrated": (
+                self.noise_floor_estimator.dark_current_calibrated
+            ),
             "temporal_noise": temporal_noise,
             "exposure_sec": exposure_sec,
             "background_corrected": background_corrected,
@@ -761,13 +786,14 @@ class SQM:
             "star_fluxes": star_fluxes,
             "star_local_backgrounds": local_backgrounds,
             "star_mzeros": mzeros,
+            "noise_floor_details": noise_floor_details,
         }
 
         logger.debug(
             f"SQM: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "
             f"bg={background_flux_density:.6f} ADU/arcsec², pedestal={pedestal:.2f}, "
-            f"raw={sqm_uncorrected:.2f}, ext_alt={extinction_for_altitude:.2f}, "
-            f"final={sqm_final:.2f}, alt_corr={sqm_altitude_corrected:.2f}"
+            f"raw={sqm_uncorrected:.2f}, ext_alt={extinction_for_altitude}, "
+            f"final={sqm_final:.2f}, alt_corr={sqm_altitude_corrected}"
         )
 
         return sqm_final, details

@@ -10,6 +10,7 @@ This module is the camera
 """
 
 from typing import Tuple, Optional
+from pathlib import Path
 from PIL import Image
 import os
 import random
@@ -243,22 +244,7 @@ class CameraInterface:
                             base_image = self._blank_capture()
                         base_image = base_image.convert("L")
 
-                        rotate_amount = 0
-                        if camera_rotation is None:
-                            if screen_direction in [
-                                "right",
-                                "straight",
-                                "flat3",
-                            ]:
-                                rotate_amount = 90
-                            elif screen_direction == "as_bloom":
-                                rotate_amount = 90  # Specific rotation for AS Bloom
-                            else:
-                                rotate_amount = 270
-                        else:
-                            base_image = base_image.rotate(int(camera_rotation) * -1)
-
-                        base_image = base_image.rotate(rotate_amount)
+                        base_image = base_image.rotate(solve_rotation)
                     else:
                         # Test Mode: load image from disc and wait
                         base_image = Image.open(test_image_path)
@@ -337,14 +323,15 @@ class CameraInterface:
                                         self._auto_exposure_snr = (
                                             ExposureSNRController()
                                         )
-                                    # Get adaptive noise floor from shared state
-                                    adaptive_noise_floor = (
+                                    # The controller sees the processed 8-bit
+                                    # image, so this must remain in 8-bit ADU.
+                                    processed_noise_floor = (
                                         self.shared_state.noise_floor()
                                     )
                                     new_exposure = self._auto_exposure_snr.update(
                                         self.exposure_time,
                                         base_image,
-                                        noise_floor=adaptive_noise_floor,
+                                        noise_floor=processed_noise_floor,
                                     )
                                 else:
                                     # PID mode: use star-count based controller (default)
@@ -386,6 +373,9 @@ class CameraInterface:
 
                     try:
                         if command.startswith("set_exp"):
+                            transient_exposure = command.startswith(
+                                "set_exp_transient:"
+                            )
                             exp_value = command.split(":")[1]
                             if exp_value == "auto":
                                 # Enable auto-exposure mode
@@ -429,8 +419,11 @@ class CameraInterface:
                                 self._native_ae_enabled = False
                                 self.exposure_time = int(exp_value)
                                 self.set_camera_config(self.exposure_time, self.gain)
-                                # Update config to reflect manual exposure value
-                                cfg.set_option("camera_exp", self.exposure_time)
+                                # Calibration uses transient manual exposures;
+                                # never persist those over the user's saved
+                                # auto/manual choice.
+                                if not transient_exposure:
+                                    cfg.set_option("camera_exp", self.exposure_time)
                                 console_queue.put("CAM: Exp=" + str(self.exposure_time))
                                 logger.info(
                                     f"Manual exposure set: {self.exposure_time}µs"
@@ -494,33 +487,69 @@ class CameraInterface:
 
                         if command.startswith("save:"):
                             # Set flag to save next capture to this file
-                            self._save_next_to = command.split(":")[1]
+                            self._save_next_to = command.split(":", 1)[1]
                             console_queue.put("CAM: Save flag set")
 
                         if (
                             command.startswith("capture")
                             and command != "capture_exp_sweep"
                         ):
-                            # Capture single frame and update shared state
-                            # This is used by SQM calibration for precise exposure control
-                            captured_image = self.capture()
+                            # Capture one identified frame. Calibration waits on
+                            # this timestamp, preventing it from analysing the
+                            # preceding continuously captured frame.
+                            capture_imu_start = shared_state.imu()
+                            capture_start = time.time()
+                            captured_image = self.capture().convert("L")
+                            captured_image = captured_image.rotate(solve_rotation)
+                            captured_raw = None
+                            if self._save_next_to:
+                                captured_raw = shared_state.cam_raw()
+                                if captured_raw is not None:
+                                    captured_raw = captured_raw.copy()
                             camera_image.paste(captured_image)
+                            capture_end = time.time()
+                            capture_imu_end = shared_state.imu()
+                            if capture_imu_start and capture_imu_end:
+                                capture_pointing_diff = qt.get_quat_angular_diff(
+                                    capture_imu_start.quat,
+                                    capture_imu_end.quat,
+                                )
+                            else:
+                                capture_pointing_diff = 0.0
+                            shared_state.set_last_image_metadata(
+                                {
+                                    "exposure_start": capture_start,
+                                    "exposure_end": capture_end,
+                                    "imu": capture_imu_end,
+                                    "imu_delta": np.rad2deg(capture_pointing_diff),
+                                    "exposure_time": self.exposure_time,
+                                    "gain": self.gain,
+                                    "sensor_temp_c": getattr(
+                                        self, "last_sensor_temp", None
+                                    ),
+                                }
+                            )
 
                             # If save flag is set, save to disk
                             if self._save_next_to:
-                                # Build full path
-                                filename = (
-                                    f"{utils.data_dir}/captures/{self._save_next_to}"
-                                )
-                                if not filename.endswith(".png"):
-                                    filename += ".png"
-                                self.capture_file(filename)
+                                requested_path = Path(self._save_next_to)
+                                if not requested_path.is_absolute():
+                                    requested_path = (
+                                        Path(utils.data_dir)
+                                        / "captures"
+                                        / requested_path
+                                    )
+                                filename = requested_path.with_suffix(".png")
+                                filename.parent.mkdir(parents=True, exist_ok=True)
 
-                                # Also save raw as TIFF
-                                raw_filename = filename.replace(".png", ".tiff")
-                                if not raw_filename.endswith(".tiff"):
-                                    raw_filename += ".tiff"
-                                self.capture_raw_file(raw_filename)
+                                # Save the identified capture itself. Calling
+                                # capture_file()/capture_raw_file() here would
+                                # acquire different frames and break pairing.
+                                captured_image.save(filename)
+                                if captured_raw is not None:
+                                    Image.fromarray(captured_raw).save(
+                                        filename.with_suffix(".tiff")
+                                    )
 
                                 console_queue.put("CAM: Captured + Saved")
                                 self._save_next_to = None  # Clear flag
@@ -584,8 +613,6 @@ class CameraInterface:
                                 )
 
                             # Create sweep directory
-                            from pathlib import Path
-
                             sweep_dir = Path(
                                 f"{utils.data_dir}/captures/sweep_{timestamp}"
                             )
