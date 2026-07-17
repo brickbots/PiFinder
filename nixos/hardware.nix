@@ -136,11 +136,16 @@ in {
   };
 
   config = {
-    # Only include RPi 4B device tree (not CM4 variants)
-    hardware.deviceTree.filter = "*rpi-4-b.dtb";
-    # Explicit DTB name so extlinux uses FDT instead of FDTDIR
-    # (DTBs are in broadcom/ subdirectory, FDTDIR doesn't descend into it)
-    hardware.deviceTree.name = "broadcom/bcm2711-rpi-4-b.dtb";
+    # BCM2711 device trees: Pi 4B (PiFinder rev 3) and CM4 (PiFinder v4).
+    # The deviceTree.package override below processes exactly these two.
+    hardware.deviceTree.filter = "bcm2711-rpi-*.dtb";
+    # No explicit deviceTree.name: extlinux then emits FDTDIR instead of FDT,
+    # and u-boot appends its board-detected ${fdtfile} to it — which on 64-bit
+    # u-boot already carries the broadcom/ subdirectory prefix (DTB_DIR in
+    # board/raspberrypi/rpi/rpi.c). One image thus boots the matching DTB on
+    # both the 4B and the CM4. Rollback if a board fails to pick its DTB:
+    # set hardware.deviceTree.name = "broadcom/<board>.dtb" to force FDT.
+    hardware.deviceTree.name = null;
 
     # Firmware: the nixos-hardware Pi 4 module enables the full redistributable
     # set — linux-firmware alone is ~723MB uncompressed, 40% of the migration
@@ -171,7 +176,8 @@ in {
       nativeBuildInputs = [ pkgs.dtc ];
     } ''
       mkdir -p $out/broadcom
-      for dtb in ${kernelDtbs}/broadcom/*rpi-4-b.dtb; do
+      for dtb in ${kernelDtbs}/broadcom/bcm2711-rpi-4-b.dtb \
+                 ${kernelDtbs}/broadcom/bcm2711-rpi-cm4.dtb; do
         fdtoverlay -i "$dtb" \
           -o "$out/broadcom/$(basename $dtb)" \
           ${i2cGpioDtbo} ${spi0Dtbo} ${uart3Dtbo} ${pwmDtbo} ${gpioPoweroffDtbo} ${cameraDtbo} \

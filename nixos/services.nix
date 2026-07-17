@@ -74,6 +74,16 @@ in {
       default = false;
       description = "Enable development mode (NFS netboot support, etc.)";
     };
+    gpsBaud = lib.mkOption {
+      type = lib.types.nullOr lib.types.int;
+      default = null;
+      example = 115200;
+      description = ''
+        Fixed serial speed for gpsd (-s). null keeps gpsd's autobaud hunt,
+        which handles both the rev-3 GPS and the v4 u-blox Gen10 (UBX at
+        115200). Set it only to pin a known receiver and skip the hunt.
+      '';
+    };
   };
 
   config = {
@@ -664,7 +674,7 @@ in {
   # gpsd's default (/var/run/gpsd.sock) is already what we want.
   environment.etc."default/gpsd".text = ''
     DEVICES="/dev/gpsuart"
-    GPSD_OPTIONS=""
+    GPSD_OPTIONS="${lib.optionalString (cfg.gpsBaud != null) "-s ${toString cfg.gpsBaud}"}"
     USBAUTO="true"
   '';
 

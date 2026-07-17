@@ -66,6 +66,10 @@ def detect_capabilities() -> HardwareCapabilities:
     a bare GPIO piezo (PWM ch0) that can't be probed directly, so the BQ25895
     ACK is the rev-4 marker that implies both (see CONTEXT-MAP "Sound →
     system-wide").
+
+    The BQ25895 ACK is a valid whole-board rev-4 marker because a rev-4
+    always has a battery installed (mandatory by design); an unpowered
+    charger that fails to ACK only occurs on bare prototype boards.
     """
     try:
         present = i2c_present(BQ25895_ADDRESS)
