@@ -79,15 +79,6 @@ class CameraProfile:
     # imx462/imx290 bare color ~0.8; hq (factory IR-cut) ~0.0. 0.0 = no correction.
     color_coefficient: float = 0.0
 
-    # Minimum wing-boundary radius (px in the raw photometry image) for the
-    # WingEstimator. A star whose wing boundary lands closer in than this had
-    # its wings sink below the ring noise (a brightness statement, not an
-    # optics one) and is rejected instead of entering the rolling window as a
-    # near-f=1 sample. One angular threshold (~530 arcsec) expressed in each
-    # sensor's photometry-image pixels, so the cut is consistent across
-    # plate scales.
-    wing_min_radius_px: int = 7
-
     # Sky-passband offset (mag), added to the final SQM. The colour term
     # matches the *stars* to the sensor passband, but the *sky* is then also
     # measured in that passband: a bare sensor sees NIR sky emission (airglow,
@@ -184,7 +175,6 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # Re-measure over more nights; the session anchor absorbs the
         # uncertainty meanwhile.
         sqm_band_offset=-0.46,
-        wing_min_radius_px=15,  # ~530 arcsec at the 1088px mono frame
     ),
     "imx462": CameraProfile(
         # Hardware configuration
@@ -208,11 +198,11 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # photometry. See docs/adr for the SQM colour-term decision.
         color_coefficient=0.8,
         # Bare sensor sees NIR sky emission a V-band meter doesn't. Calibrated
-        # from 6 referenced sweeps (2026-07-11..16) with the wing-boundary
-        # floor active: residuals +/-0.10. The offset is coupled to the wing
-        # estimator's behaviour -- recalibrate whenever that changes.
-        sqm_band_offset=0.31,
-        wing_min_radius_px=7,  # ~530 arcsec at the 490px green frame
+        # from 6 referenced clear-night sweeps (2026-07-11..16) with the
+        # growth-curve aperture correction (which measures f=1.0 on this
+        # optics): residuals +/-0.06. Coupled to the estimator and the
+        # centroid-excluded annulus background -- recalibrate together.
+        sqm_band_offset=0.64,
     ),
     "imx290": CameraProfile(
         # Hardware configuration (same as imx462 - driver compatibility)
@@ -233,8 +223,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         typical_sky_background=21.0,
         # Same sensor family/optics as imx462 (driver-compatible), same NIR leak.
         color_coefficient=0.8,
-        sqm_band_offset=0.31,  # mirror of imx462 (same sensor family, no sweeps yet)
-        wing_min_radius_px=7,  # ~530 arcsec at the 490px green frame
+        sqm_band_offset=0.64,  # mirror of imx462 (same sensor family, no sweeps yet)
     ),
     "hq": CameraProfile(
         # Hardware configuration
@@ -256,14 +245,14 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # Measured on-sky: -0.05 ± 0.01 -> effectively 0. HQ ships with a factory
         # IR-cut filter, so no NIR leak and the green passband ~ Johnson V.
         color_coefficient=0.0,
-        # Calibrated from 3 independent reference readings (2025-11-16,
-        # 2025-11-18, 2026-07-16) with the wing-boundary floor active. The
-        # shared 2025-11-16 reference sits +0.3 off on both its sweeps
-        # (suspect reading); the other two land within 0.08. Non-zero despite
-        # the IR-cut: the residual absorbs passband + optics differences vs
-        # the meter. Coupled to the wing estimator -- recalibrate together.
-        sqm_band_offset=0.32,
-        wing_min_radius_px=11,  # ~530 arcsec at the 760px green frame
+        # Calibrated from 3 independent clear-night reference readings
+        # (2025-11-16, 2025-11-18, 2026-07-16) with the growth-curve aperture
+        # correction (this optics shows mild, focus-dependent wings,
+        # f 0.87-1.0, measured per session). Residuals within +/-0.2; the
+        # shared 2025-11-16 reading remains the outlier. Non-zero despite the
+        # IR-cut: the residual absorbs passband + optics differences vs the
+        # meter. Coupled to the estimator -- recalibrate together.
+        sqm_band_offset=0.63,
     ),
 }
 
