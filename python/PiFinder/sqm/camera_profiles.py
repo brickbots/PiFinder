@@ -7,7 +7,7 @@ and initial estimates. Noise parameters should be refined through real-world
 dark frame measurements for improved accuracy.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Dict, Tuple
 
 import numpy as np
@@ -71,6 +71,34 @@ class CameraProfile:
     # Typical dark sky background for validation (mag/arcsec²)
     # Used to sanity-check SQM estimates
     typical_sky_background: float = 21.0
+
+    # Clear-sky exposure-normalized zero point (mzero - 2.5*log10(exposure),
+    # airmass- and aperture-normalized) measured for this sensor. Seeds the
+    # cloud estimator's baseline so the transmission monitor works from the
+    # first frame, before a session has conditioned its own baseline (the
+    # boot-under-cloud case). 0.0 = unknown (estimator waits for conditioning).
+    clear_zero_point: float = 0.0
+
+    # Typical clear-sky SQM (mag/arcsec²) at this device's usual site. Seeds
+    # the sky-excess guard: cloud brightens the sky (SQM drops below this),
+    # dew/optics do not. 0.0 = unknown (guard waits for a learned level).
+    clear_sky_brightness: float = 0.0
+
+    # Fixed conversion from exposure-normalized diffuse-sky ADU/arcsec² to the
+    # SQM-L-equivalent scale. Unlike the live stellar zero point, this remains
+    # available through cloud or a failed solve. It includes the passband offset.
+    radiometric_zero_point: float = 0.0
+
+    # Factory angular field width used to convert native green/mono pixels to
+    # square arcseconds when no current plate solve is available.
+    radiometric_fov_degrees: float = 0.0
+
+    # Catalog reference band for the photometric zero point:
+    # "gaia_g"  -- Gaia G with a BP-RP trim (bare sensors: G's passband is
+    #              nearly the sensor's own; measured 24-29% less star scatter)
+    # "hip_v"   -- Hipparcos/Johnson V with the linear B-V term (IR-cut
+    #              sensors, whose passband ~ V)
+    reference_band: str = "hip_v"
 
     # SQM colour transformation coefficient T for mag_eff = V - T*(B-V).
     # The catalog magnitude is Johnson V, but the flux is measured in the
@@ -137,7 +165,9 @@ class CameraProfile:
         )
 
 
-# Initial camera profiles based on datasheets and estimates
+# Initial camera-profile templates based on datasheets and estimates. Callers
+# receive copies so loading or refining one calibration cannot mutate every
+# other calculator in the process.
 # Hardware settings are camera-specific constants
 # Noise parameters should be refined with real-world dark frame measurements
 # Dark current values assume ~20-25°C ambient temperature
@@ -166,15 +196,21 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=8.0,  # Datasheet: 3.2 e⁻/p/s @ 25°C → ~8 ADU/s @ 10-bit
         thermal_coeff=0.08,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
-        # Measured on-sky (2025-10-31 sweep, 460 stars): +0.21. Small because
-        # the Pregius mono QE falls through the NIR, unlike the STARVIS colour
-        # sensors' NIR-heavy green channel.
-        color_coefficient=0.21,
+        # From the 2025-10-31 sweep (normalized zero point 14.23); clear-sky
+        # SQM at the moonlit reference sky ~17.9.
+        clear_zero_point=14.23,
+        clear_sky_brightness=17.9,
+        radiometric_zero_point=14.07,
+        radiometric_fov_degrees=13.71,
+        reference_band="gaia_g",
+        # BP-RP trim on the Gaia G reference, fit on the 2025-10-31 sweep
+        # (54 frames): scatter 0.108 -> 0.077, mag-slope +0.13 -> +0.01.
+        color_coefficient=-0.20,
         # Refit for the growth-curve pipeline from the same single moonlit
         # 2025-10-31 sweep vs its 17.8-17.9 hand-held reference (+/-0.2).
         # Near zero is physically consistent: the Pregius mono passband is
         # the closest of the three sensors to the meter's.
-        sqm_band_offset=-0.10,
+        sqm_band_offset=-0.22,
     ),
     "imx462": CameraProfile(
         # Hardware configuration
@@ -193,16 +229,22 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=0.05,  # Estimated - needs measurement
         thermal_coeff=0.10,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
-        # Measured on-sky: +0.79 ± 0.04 (bare color sensor, NIR leak over-fluxes
-        # red stars). Cross-checked against HQ w/ IR-cut (~0.0) and synthetic
-        # photometry. See docs/adr for the SQM colour-term decision.
-        color_coefficient=0.8,
+        # Six clear 2026-07 sweeps: normalized zero point 14.81 (stable +/-0.05
+        # night to night); clear-sky SQM ~18.5 at the Ghent test site.
+        clear_zero_point=14.81,
+        clear_sky_brightness=18.5,
+        radiometric_zero_point=15.25,
+        radiometric_fov_degrees=10.38,
+        reference_band="gaia_g",
+        # BP-RP trim on the Gaia G reference, fit on 6 clear sweeps
+        # (92 frames): scatter 0.224 -> 0.171, mag-slope +0.10 -> +0.06.
+        color_coefficient=0.15,
         # Bare sensor sees NIR sky emission a V-band meter doesn't. Calibrated
         # from 6 referenced clear-night sweeps (2026-07-11..16) with the
         # growth-curve aperture correction (which measures f=1.0 on this
         # optics): residuals +/-0.06. Coupled to the estimator and the
         # centroid-excluded annulus background -- recalibrate together.
-        sqm_band_offset=0.61,
+        sqm_band_offset=0.53,
     ),
     "imx290": CameraProfile(
         # Hardware configuration (same as imx462 - driver compatibility)
@@ -221,9 +263,15 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=0.04,  # Estimated - needs measurement
         thermal_coeff=0.10,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
+        # Same sensor family/optics as imx462 (driver-compatible): mirror seeds.
+        clear_zero_point=14.81,
+        clear_sky_brightness=18.5,
+        radiometric_zero_point=15.25,
+        radiometric_fov_degrees=10.38,
         # Same sensor family/optics as imx462 (driver-compatible), same NIR leak.
-        color_coefficient=0.8,
-        sqm_band_offset=0.61,  # mirror of imx462 (same sensor family, no sweeps yet)
+        reference_band="gaia_g",
+        color_coefficient=0.15,  # mirror of imx462 (same sensor family)
+        sqm_band_offset=0.53,  # mirror of imx462 (same sensor family, no sweeps yet)
     ),
     "hq": CameraProfile(
         # Hardware configuration
@@ -242,6 +290,13 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         dark_current_rate=0.02,  # Estimated - needs measurement
         thermal_coeff=0.09,  # Typical for CMOS sensors (no sensor temp available)
         typical_sky_background=21.0,
+        # Archive HQ sweeps: normalized zero point ~14.19 (wanders +/-0.5 with
+        # focus/dew, so the session baseline leads and this only seeds boot);
+        # clear-sky SQM ~18.5 at the reference sites.
+        clear_zero_point=14.19,
+        clear_sky_brightness=18.5,
+        radiometric_zero_point=14.79,
+        radiometric_fov_degrees=10.34,
         # Measured on-sky: -0.05 ± 0.01 -> effectively 0. HQ ships with a factory
         # IR-cut filter, so no NIR leak and the green passband ~ Johnson V.
         color_coefficient=0.0,
@@ -314,4 +369,4 @@ def get_camera_profile(camera_type: str) -> CameraProfile:
             f"Unknown camera type: {camera_type}. "
             f"Available: {list(CAMERA_PROFILES.keys())}"
         )
-    return CAMERA_PROFILES[camera_type]
+    return replace(CAMERA_PROFILES[camera_type])

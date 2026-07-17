@@ -13,10 +13,12 @@ from PIL import Image
 from PiFinder import config
 from PiFinder.camera_interface import CameraInterface
 from PiFinder.sqm import get_camera_profile, detect_camera_type
+from PiFinder.sqm.radiometer import collect_radiometer_sample
 from typing import Tuple
 import logging
 from PiFinder.multiproclogging import MultiprocLogging
 import numpy as np
+import time
 
 logger = logging.getLogger("Camera.Pi")
 
@@ -42,6 +44,7 @@ class CameraPI(CameraInterface):
 
         # Initialize runtime gain from profile (can be changed via commands)
         self.gain = self.profile.analog_gain
+        self._radiometer_sequence = 0
 
         self.camType = f"PI {self.camera_type}"
         self.initialize()
@@ -90,13 +93,38 @@ class CameraPI(CameraInterface):
             f"Actual: {actual_exposure}µs/{actual_gain:.2f}x gain"
         )
         # Sensor die temperature (diagnostic only): the black level wanders
-        # ±2 ADU night-to-night and temperature is the prime suspect.
-        self.last_sensor_temp = metadata.get("SensorTemperature")
+        # ±2 ADU night-to-night and temperature is the prime suspect. Not all
+        # sensors report it (imx296/HQ drivers may omit or mistype the key);
+        # temperature must never be able to break a capture.
+        try:
+            temp = metadata.get("SensorTemperature")
+            self.last_sensor_temp = float(temp) if temp is not None else None
+        except (TypeError, ValueError):
+            self.last_sensor_temp = None
 
         _request.release()
 
         # Apply camera-specific crop and rotation
         raw_capture = self.profile.crop_and_rotate(raw_capture)
+
+        # Reduce the matrix while it is local to the camera process. The solver
+        # can publish radiometric SQM from this small sample without a solve and
+        # without copying/scanning the raw frame on every capture.
+        if hasattr(self, "shared_state"):
+            self._radiometer_sequence += 1
+            try:
+                radiometer_exposure = float(actual_exposure) / 1_000_000.0
+            except (TypeError, ValueError):
+                radiometer_exposure = float(self.exposure_time) / 1_000_000.0
+            sample = collect_radiometer_sample(
+                raw_capture,
+                self.profile,
+                radiometer_exposure,
+                sequence=self._radiometer_sequence,
+                captured_at=time.time(),
+            )
+            if sample is not None:
+                self.shared_state.set_sqm_radiometer_sample(sample)
 
         # Store raw in shared state (before processing) for calibration and analysis
         if hasattr(self, "shared_state"):

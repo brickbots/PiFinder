@@ -29,6 +29,12 @@ from PiFinder import timez
 from PiFinder.sqm import SQM as SQMCalculator
 
 from PiFinder.sqm.wings import WingEstimator
+from PiFinder.sqm.clouds import CloudEstimator
+from PiFinder.sqm.black_level import BlackLevelTracker
+from PiFinder.sqm.radiometer import (
+    RadiometerAccumulator,
+    extract_photometry_image,
+)
 from PiFinder.state import SQM as SQMState
 from PiFinder.types.positioning import (
     AlignCancel,
@@ -47,8 +53,11 @@ from tetra3 import cedar_detect_client
 
 logger = logging.getLogger("Solver")
 
-# SQM calculation interval - calculate SQM every N seconds
-SQM_CALCULATION_INTERVAL_SECONDS = 5.0
+# The primary radiometer publishes only after a new frame, capped at 1 Hz.
+SQM_CALCULATION_INTERVAL_SECONDS = 1.0
+# Solved stellar photometry is a slower transmission/cloud/dew diagnostic. It
+# need not track the five-second primary radiometer publication cadence.
+SQM_STELLAR_DIAGNOSTIC_INTERVAL_SECONDS = 10.0
 
 
 def create_sqm_calculator(shared_state):
@@ -69,22 +78,7 @@ def _extract_raw_photometry_image(raw, profile):
     for mono sensors returns the raw frame as-is. Returns None on any shape/
     dtype problem so the caller can skip the SQM cycle.
     """
-    if raw is None:
-        return None
-    arr = np.asarray(raw)
-    if arr.ndim != 2:
-        return None
-    if str(profile.format).upper().startswith("SRGGB"):
-        # RGGB green sites: (0,1) and (1,0). Even crops / no odd rotation keep phase.
-        h, w = arr.shape
-        if h < 2 or w < 2:
-            return None
-        g = (
-            arr[0 : h - h % 2 : 2, 1:w:2].astype(np.float32)
-            + arr[1:h:2, 0 : w - w % 2 : 2].astype(np.float32)
-        ) / 2.0
-        return g
-    return arr.astype(np.float32)
+    return extract_photometry_image(raw, profile)
 
 
 def _scale_solution_centroids(solution, scale):
@@ -151,6 +145,111 @@ def _apply_sqm_correct(sqm_value, details, correct_delta):
     return sqm_value, details
 
 
+def update_radiometric_sqm(
+    shared_state,
+    sqm_calculator,
+    accumulator,
+    sample,
+    calculation_interval_seconds=1.0,
+    now=None,
+    black_level_tracker=None,
+):
+    """Collect every frame and publish a solve-independent value at cadence."""
+    from datetime import datetime
+
+    fresh_sample = accumulator.add(sample)
+    current_time = time.time() if now is None else float(now)
+
+    # Every fresh radiometer sample carries (exposure, background) — feed the
+    # black-level tracker here rather than only from the 10-second stellar
+    # diagnostics: this cadence conditions its fit in minutes and keeps working
+    # through failed solves. Withheld while the last transmission diagnostic
+    # said cloud (a moving sky breaks the intercept's single-line model; the
+    # tracker's own stderr gate catches drift the flag misses).
+    if black_level_tracker is not None and fresh_sample:
+        cloudy_now = shared_state.sqm_details().get("cloud_flag") is True
+        black_level_tracker.add_sample(
+            float(sample["exposure_sec"]),
+            float(sample["background_per_pixel"]),
+            stable=not cloudy_now,
+        )
+
+    current_sqm = shared_state.sqm()
+    if current_sqm.last_update is not None:
+        try:
+            last_update = datetime.fromisoformat(current_sqm.last_update).timestamp()
+            if current_time - last_update < calculation_interval_seconds:
+                return False
+        except (ValueError, AttributeError):
+            logger.warning("Failed to parse SQM timestamp, recalculating")
+
+    noise = sqm_calculator.noise_floor_estimator
+
+    def pedestal_for_exposure(exposure_sec):
+        if not noise.dark_current_calibrated:
+            # Zero-touch path: the tracked black level supersedes the static
+            # profile constant (the real pedestal wanders ±2 ADU night to
+            # night — negligible over a city background, 0.2–0.4 mag at a
+            # dark site). A wizard calibration remains authoritative.
+            if black_level_tracker is not None:
+                tracked = black_level_tracker.pedestal()
+                if tracked is not None:
+                    return tracked
+            return sqm_calculator.profile.bias_offset
+        return (
+            sqm_calculator.profile.bias_offset
+            + sqm_calculator.profile.dark_current_rate * exposure_sec
+        )
+
+    sqm_value, details = accumulator.estimate(
+        sqm_calculator.profile,
+        current_time,
+        pedestal_for_exposure=pedestal_for_exposure,
+    )
+    if sqm_value is None:
+        previous = shared_state.sqm_details()
+        shared_state.set_sqm_details({**previous, **details})
+        return False
+
+    previous = shared_state.sqm_details()
+    diagnostic_at = previous.get("transmission_diagnostic_at")
+    diagnostic_age = current_time - diagnostic_at if diagnostic_at is not None else None
+    if (
+        previous.get("optics_attenuation_candidate")
+        and diagnostic_age is not None
+        and 0 <= diagnostic_age <= 15.0
+    ):
+        deficit = previous.get("transmission_deficit")
+        if deficit is not None and 0.0 < deficit <= 2.0:
+            details["sqm_radiometric_uncorrected"] = sqm_value
+            details["optics_attenuation_correction"] = -float(deficit)
+            sqm_value -= float(deficit)
+
+    try:
+        correct_delta = shared_state.sqm_correct_delta()
+    except (BrokenPipeError, ConnectionResetError, AttributeError):
+        correct_delta = 0.0
+    sqm_value, details = _apply_sqm_correct(sqm_value, details, correct_delta)
+    if black_level_tracker is not None:
+        tracked, tracked_stderr, _ = black_level_tracker.state()
+        details["black_level_tracked"] = (
+            tracked is not None and not noise.dark_current_calibrated
+        )
+        details["black_level_pedestal"] = tracked
+        details["black_level_stderr"] = tracked_stderr
+    details["measurement_role"] = "primary_radiometer"
+    shared_state.set_sqm_details({**previous, **details})
+    shared_state.set_sqm(
+        SQMState(
+            value=sqm_value,
+            source="Radiometer",
+            last_update=timez.local_now().isoformat(),
+        )
+    )
+    logger.info("Radiometric SQM updated: %.2f mag/arcsec²", sqm_value)
+    return True
+
+
 def update_sqm(
     shared_state,
     sqm_calculator,
@@ -163,6 +262,9 @@ def update_sqm(
     annulus_inner_radius=10,
     annulus_outer_radius=18,
     wing_estimator=None,
+    cloud_estimator=None,
+    black_level_tracker=None,
+    publish=True,
 ):
     """
     Calculate SQM from image.
@@ -192,9 +294,9 @@ def update_sqm(
     current_time = time.time()
 
     # Check if we should calculate SQM
-    should_calculate = current_sqm.last_update is None
+    should_calculate = not publish or current_sqm.last_update is None
 
-    if current_sqm.last_update is not None:
+    if publish and current_sqm.last_update is not None:
         try:
             last_update_time = datetime.fromisoformat(
                 current_sqm.last_update
@@ -259,6 +361,17 @@ def update_sqm(
     if wing_estimator is not None:
         mzero_correction = wing_estimator.correction()
 
+    # Track the wandering sensor pedestal from the sky-vs-exposure intercept
+    # (see sqm.black_level). Only in the zero-touch path: when the user has run
+    # the calibration wizard, its measured bias + dark-current constants are
+    # authoritative and the tracker (which fits bias only) must not override.
+    pedestal_override = None
+    if (
+        black_level_tracker is not None
+        and not sqm_calculator.noise_floor_estimator.dark_current_calibrated
+    ):
+        pedestal_override = black_level_tracker.pedestal()
+
     try:
         # Calculate SQM from image
         sqm_value, details = sqm_calculator.calculate(
@@ -273,6 +386,7 @@ def update_sqm(
             saturation_threshold=saturation_threshold,
             image_pixels_per_side=image_pixels_per_side,
             mzero_correction=mzero_correction,
+            pedestal_override=pedestal_override,
         )
 
         # Feed this frame's stars into the rolling wing (aperture-loss) fit.
@@ -286,12 +400,62 @@ def update_sqm(
                 saturation_threshold,
             )
 
-        # Session correction: additive offset from a reference-meter reading
-        try:
-            correct_delta = shared_state.sqm_correct_delta()
-        except (BrokenPipeError, ConnectionResetError, AttributeError):
-            correct_delta = 0.0
-        sqm_value, details = _apply_sqm_correct(sqm_value, details, correct_delta)
+        # Stellar photometry is now a live transmission diagnostic. The primary
+        # sky value is the fixed-calibration radiometer and remains meaningful
+        # through cloud; stars classify cloud versus instrument attenuation.
+        # Feed the estimator and report the deficit. Only a recent non-cloud
+        # deficit against a conditioned session baseline may compensate the
+        # next radiometric publication for instrument-side attenuation.
+        cloud_flag = None
+        if cloud_estimator is not None and details.get("mzero") is not None:
+            try:
+                pointing = shared_state.solution()
+                pointing_alt = getattr(pointing, "Alt", None)
+            except (BrokenPipeError, ConnectionResetError, AttributeError):
+                pointing_alt = None
+            # sky_brightness is the independent radiometric measurement,
+            # UNCORRECTED: the guard asks whether the raw sky is anomalously
+            # bright vs the device's learned clear-sky level (cloud brightens
+            # the sky; dew/optics dim stars and sky together). Feeding the
+            # optics-compensated published value back would let a transient
+            # correction overshoot masquerade as sky excess and mislabel dew
+            # onset as cloud.
+            previous_details = shared_state.sqm_details()
+            radiometric_sky = previous_details.get("sqm_radiometric")
+            if radiometric_sky is None:
+                radiometric_sky = shared_state.sqm().value
+            cloud_deficit = cloud_estimator.add_sample(
+                details["mzero"],
+                exposure_sec,
+                sky_brightness=radiometric_sky,
+                # details['mzero'] already includes the wing correction.
+                wing_correction=0.0,
+                altitude_deg=pointing_alt,
+            )
+            cloud_flag = cloud_estimator.is_cloudy()
+            details["cloud_extinction"] = cloud_deficit
+            details["cloud_flag"] = cloud_flag
+            details["transmission_deficit"] = cloud_deficit
+            details["optics_attenuation_candidate"] = bool(
+                cloud_deficit is not None
+                and cloud_deficit > cloud_estimator.cloud_threshold
+                and cloud_flag is False
+                and cloud_estimator.conditioned()
+            )
+            details["transmission_diagnostic_at"] = time.time()
+            primary_value = shared_state.sqm().value
+            if details["optics_attenuation_candidate"]:
+                details["sqm_optics_compensated"] = primary_value - cloud_deficit
+
+        # The tracker is fed from the radiometer samples (denser cadence, and
+        # the same background estimator its pedestal is applied to); here it is
+        # only consumed, so stellar diagnostics report the pedestal actually
+        # used for their photometry.
+        if black_level_tracker is not None:
+            details["black_level_tracked"] = pedestal_override is not None
+
+        details["sqm_star_calibrated"] = sqm_value
+        details["measurement_role"] = "stellar_transmission_diagnostic"
 
         # Store SQM details (filter out large per-star arrays)
         filtered_details = {
@@ -306,10 +470,16 @@ def update_sqm(
                 "star_mzeros",
             )
         }
-        shared_state.set_sqm_details(filtered_details)
+        previous = shared_state.sqm_details()
+        shared_state.set_sqm_details({**previous, **filtered_details})
 
         # Update shared state
-        if sqm_value is not None:
+        if publish and sqm_value is not None:
+            try:
+                correct_delta = shared_state.sqm_correct_delta()
+            except (BrokenPipeError, ConnectionResetError, AttributeError):
+                correct_delta = 0.0
+            sqm_value, _ = _apply_sqm_correct(sqm_value, details, correct_delta)
             new_sqm_state = SQMState(
                 value=sqm_value,
                 source="Calculated",
@@ -317,6 +487,8 @@ def update_sqm(
             )
             shared_state.set_sqm(new_sqm_state)
             logger.info(f"SQM updated: {sqm_value:.2f} mag/arcsec²")
+            return True
+        if sqm_value is not None:
             return True
 
     except Exception as e:
@@ -576,6 +748,7 @@ def _build_successful_solve(
         ),
         matched_centroids=solution.get("matched_centroids"),
         matched_stars=solution.get("matched_stars"),
+        matched_catID=solution.get("matched_catID"),
     )
 
 
@@ -622,15 +795,23 @@ def solver(
     centroids = []
     log_no_stars_found = True
 
-    # SQM calculator is created lazily on the first solve, not here: at solver
+    # SQM calculator is created lazily on the first radiometer sample (or solve
+    # in test mode), not here: at solver
     # startup shared_state.camera_type() still holds the pre-camera default,
     # and a calculator built from it would photometer with the wrong sensor
     # profile (pedestal etc.). The camera process records the real type before
     # it captures its first frame, and a solve requires a captured frame, so
-    # first use is guaranteed to see the real camera type.
+    # first real-frame use is guaranteed to see the real camera type.
     sqm_calculator = None
     # Rolling aperture (wing-loss) correction, fed by bright matched stars
     sqm_wing_estimator = WingEstimator()
+    # Cloud/dew estimator and black-level tracker are created with the
+    # calculator (below) so they get the real sensor's profile seeds; the
+    # camera type is not yet known here.
+    sqm_cloud_estimator = None
+    sqm_black_level = None
+    sqm_radiometer = RadiometerAccumulator()
+    last_stellar_diagnostic = 0.0
 
     while True:
         logger.info("Starting Solver Loop")
@@ -668,6 +849,13 @@ def solver(
                         logger.info("Reloading SQM calibration...")
                         sqm_calculator = None
                         sqm_wing_estimator.reset()
+                        # Cloud estimator and black-level tracker are recreated
+                        # from the fresh profile on the next solve; drop them
+                        # here so stale seeds/history cannot carry over.
+                        sqm_cloud_estimator = None
+                        sqm_black_level = None
+                        sqm_radiometer.reset()
+                        last_stellar_diagnostic = 0.0
                     else:
                         logger.warning(
                             "Unknown solver command (type=%s): %r",
@@ -691,6 +879,32 @@ def solver(
 
                 if not is_new_image:
                     continue
+
+                # Every camera frame already carries a tiny radiometer sample
+                # reduced in the camera process. Collect all of them and publish
+                # at most once per second for CPU/battery stability.
+                try:
+                    radiometer_sample = shared_state.sqm_radiometer_sample()
+                except (BrokenPipeError, ConnectionResetError, AttributeError):
+                    radiometer_sample = None
+                if radiometer_sample is not None and sqm_calculator is None:
+                    sqm_calculator = create_sqm_calculator(shared_state)
+                    sqm_wing_estimator.reset()
+                    profile = sqm_calculator.profile
+                    sqm_cloud_estimator = CloudEstimator(
+                        clear_zero_point=profile.clear_zero_point,
+                        clear_sky_brightness=profile.clear_sky_brightness,
+                    )
+                    sqm_black_level = BlackLevelTracker(profile.bias_offset)
+                if sqm_calculator is not None:
+                    update_radiometric_sqm(
+                        shared_state,
+                        sqm_calculator,
+                        sqm_radiometer,
+                        radiometer_sample,
+                        calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
+                        black_level_tracker=sqm_black_level,
+                    )
 
                 try:
                     img = camera_image.copy()
@@ -752,26 +966,45 @@ def solver(
                         if sqm_calculator is None:
                             sqm_calculator = create_sqm_calculator(shared_state)
                             sqm_wing_estimator.reset()
+                            profile = sqm_calculator.profile
+                            sqm_cloud_estimator = CloudEstimator(
+                                clear_zero_point=profile.clear_zero_point,
+                                clear_sky_brightness=profile.clear_sky_brightness,
+                            )
+                            sqm_black_level = BlackLevelTracker(profile.bias_offset)
 
-                        # Update SQM (auto-exposure consumes the noise floor)
+                        # Expensive stellar photometry is diagnostic-only in the
+                        # radiometer-first path and remains limited to 10 seconds.
                         exposure_sec = (
                             last_image_metadata["exposure_time"] / 1_000_000.0
                         )
-                        altitude_for_sqm = 90.0  # Topocentric Alt is computed in the integrator; SQM uses zenith fallback here
+                        # Topocentric altitude is computed later by the
+                        # integrator. Do not mislabel an unavailable value as
+                        # zenith; the published SQM remains uncorrected and the
+                        # optional comparison diagnostic stays absent.
+                        altitude_for_sqm = None
 
-                        update_sqm(
-                            shared_state=shared_state,
-                            sqm_calculator=sqm_calculator,
-                            centroids=centroids,
-                            solution=solution,
-                            exposure_sec=exposure_sec,
-                            altitude_deg=altitude_for_sqm,
-                            calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
-                            wing_estimator=sqm_wing_estimator,
-                        )
+                        diagnostic_now = time.time()
+                        if (
+                            diagnostic_now - last_stellar_diagnostic
+                            >= SQM_STELLAR_DIAGNOSTIC_INTERVAL_SECONDS
+                        ):
+                            update_sqm(
+                                shared_state=shared_state,
+                                sqm_calculator=sqm_calculator,
+                                centroids=centroids,
+                                solution=solution,
+                                exposure_sec=exposure_sec,
+                                altitude_deg=altitude_for_sqm,
+                                calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
+                                wing_estimator=sqm_wing_estimator,
+                                cloud_estimator=sqm_cloud_estimator,
+                                black_level_tracker=sqm_black_level,
+                                publish=False,
+                            )
+                            last_stellar_diagnostic = diagnostic_now
 
                         # Don't clutter printed solution with these fields (use pop to safely remove)
-                        solution.pop("matched_catID", None)
                         solution.pop("pattern_centroids", None)
                         solution.pop("epoch_equinox", None)
                         solution.pop("epoch_proper_motion", None)
@@ -785,6 +1018,7 @@ def solver(
                             last_solve_attempt=last_solve_attempt,
                             last_solve_success=last_solve_success,
                         )
+                        solution.pop("matched_catID", None)
 
                         total_tetra_time = t_extract + (solution.get("T_solve") or 0)
                         if total_tetra_time > 1000:

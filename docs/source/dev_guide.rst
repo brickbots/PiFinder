@@ -568,11 +568,23 @@ for testing purposes. Else specify which camera to use: pi, asi, debug or none.
 -fh, --fakehardware | imu, gps only
 ...................................
 
-This uses fake hardware for the imu and gps.
+This uses fake hardware for the imu and gps. On its own this emulates
+rev-3 hardware, with no battery indicator; add ``--fakebattery`` to
+emulate rev-4.
 
 .. code-block::
 
     python3 -m PiFinder.main -fh -k local --camera debug -x
+
+-fb, --fakebattery
+..................
+
+With ``--fakehardware``, runs the fake battery monitor and enables the
+rev-4 battery indicator.
+
+.. code-block::
+
+    python3 -m PiFinder.main -fh -fb -k local --camera debug -x
 
 
 -k KEYBOARD, --keyboard KEYBOARD

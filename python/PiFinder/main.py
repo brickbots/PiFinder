@@ -496,7 +496,7 @@ def main(
     except Exception as e:
         logger.warning("Could not turn off power LED: %s", e)
 
-    if cfg.get_option("screen_direction") == "as_bloom":
+    if cfg.get_option("screen_direction") in ["as_bloom", "as_heart"]:
         display_device.device.rotate = 2
 
     # Set user interface language
@@ -1190,6 +1190,15 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
+        "-fb",
+        "--fakebattery",
+        help="With --fakehardware, run the fake battery monitor "
+        "(rev-4 has_bq25895 capability, shows the battery indicator)",
+        default=False,
+        action="store_true",
+        required=False,
+    )
+    parser.add_argument(
         "-c",
         "--camera",
         help="Specify which camera to use: pi, asi, debug or none",
@@ -1276,14 +1285,19 @@ if __name__ == "__main__":
         imu = importlib.import_module("PiFinder.imu_fake")
         integrator = importlib.import_module("PiFinder.integrator")
         gps_monitor = importlib.import_module("PiFinder.gps_fake")
-        # Force the rev-4 capabilities under -fh so the fake battery monitor
-        # runs. has_buzzer is set for consistency, but the sound process is
-        # gated on real hardware (hardware_platform == "Pi") and so stays
-        # unspawned here — dev has no PWM/buzzer (handoff watch-out #4).
+        # -fh alone emulates rev-3 hardware (no battery indicator, keeps
+        # docs screenshots consistent); add -fb to emulate the rev-4 BQ25895
+        # and run the fake battery monitor. has_buzzer is set for
+        # consistency, but the sound process is gated on real hardware
+        # (hardware_platform == "Pi") and so stays unspawned here — dev has
+        # no PWM/buzzer (handoff watch-out #4).
         from PiFinder.types.hardware import HardwareCapabilities
 
-        capabilities = HardwareCapabilities(has_bq25895=True, has_buzzer=True)
-        battery = importlib.import_module("PiFinder.battery_fake")
+        capabilities = HardwareCapabilities(
+            has_bq25895=args.fakebattery, has_buzzer=True
+        )
+        if args.fakebattery:
+            battery = importlib.import_module("PiFinder.battery_fake")
     else:
         hardware_platform = "Pi"
         # Probe the real board; the battery monitor only spawns if a
