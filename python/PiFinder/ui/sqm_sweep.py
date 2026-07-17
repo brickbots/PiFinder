@@ -327,6 +327,7 @@ class UISQMSweep(UIModule):
                     / 1_000_000.0,
                     "gain": image_metadata.get("gain"),
                     "imu_delta": image_metadata.get("imu_delta"),
+                    "sensor_temp_c": image_metadata.get("sensor_temp_c"),
                 }
 
             # Each optional enrichment below is guarded on its own: a failure in

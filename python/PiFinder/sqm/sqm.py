@@ -39,6 +39,12 @@ class SQM:
     (extended source), giving SQM in mag/arcsec².
     """
 
+    # Zero-point stars are taken from this catalog-magnitude band (see
+    # _calculate_mzero); outside-band stars still get per-star mzeros for
+    # diagnostics but don't vote on the frame zero point.
+    MZERO_MAG_BAND = (3.5, 6.5)
+    MZERO_MAG_BAND_MIN_STARS = 5
+
     def __init__(
         self,
         camera_type: str = "imx296",
@@ -287,6 +293,15 @@ class SQM:
         star can drag a weighted mzero by half a magnitude; the median is
         unmoved.
 
+        The median is taken over stars inside a fixed catalog-magnitude band
+        (MZERO_MAG_BAND) when enough are present: per-star mzero has a mild
+        magnitude dependence, and the set of matched stars shifts several
+        magnitudes across the auto-exposure range, so an all-star median
+        drifts ~0.1-0.2 mag/decade of exposure. A fixed band samples the same
+        physical stars at every exposure (measured: drift -0.10 -> -0.01
+        mag/decade on the imx462 sweep ramps). Falls back to all stars when
+        the field is too poor for the band.
+
         Args:
             star_fluxes: Background-subtracted star fluxes (ADU)
             star_mags: Catalog magnitudes for matched stars
@@ -296,7 +311,7 @@ class SQM:
             Note: The mzeros list will contain None for stars with invalid flux
         """
         mzeros: list[Optional[float]] = []
-        valid_mzeros = []
+        valid = []  # (mzero, mag)
 
         for flux, mag in zip(star_fluxes, star_mags):
             if flux <= 0:
@@ -309,13 +324,20 @@ class SQM:
             # Calculate zero point: ZP = m + 2.5*log10(F)
             mzero = mag + 2.5 * np.log10(flux)
             mzeros.append(mzero)
-            valid_mzeros.append(mzero)
+            valid.append((mzero, mag))
 
-        if len(valid_mzeros) == 0:
+        if len(valid) == 0:
             logger.error("No valid stars for mzero calculation")
             return None, mzeros
 
-        return float(np.median(valid_mzeros)), mzeros
+        lo, hi = self.MZERO_MAG_BAND
+        in_band = [mz for mz, mag in valid if lo <= mag <= hi]
+        pool = (
+            in_band
+            if len(in_band) >= self.MZERO_MAG_BAND_MIN_STARS
+            else [mz for mz, _ in valid]
+        )
+        return float(np.median(pool)), mzeros
 
     def _detect_aperture_overlaps(
         self,
@@ -413,8 +435,8 @@ class SQM:
         exposure_sec: float,
         altitude_deg: float = 90.0,
         aperture_radius: int = 5,
-        annulus_inner_radius: int = 6,
-        annulus_outer_radius: int = 14,
+        annulus_inner_radius: int = 10,
+        annulus_outer_radius: int = 18,
         correct_overlaps: bool = False,
         saturation_threshold: int = 250,
         pedestal_override: Optional[float] = None,
@@ -437,8 +459,8 @@ class SQM:
             exposure_sec: Exposure time in seconds (required for noise floor estimation)
             altitude_deg: Altitude of field center for extinction correction (default: 90 = zenith)
             aperture_radius: Radius for star photometry in pixels (default: 5)
-            annulus_inner_radius: Inner radius of background annulus in pixels (default: 6)
-            annulus_outer_radius: Outer radius of background annulus in pixels (default: 14)
+            annulus_inner_radius: Inner radius of background annulus in pixels (default: 10)
+            annulus_outer_radius: Outer radius of background annulus in pixels (default: 18)
             correct_overlaps: If True, exclude stars with overlapping apertures/annuli (default: False)
             saturation_threshold: Pixel value threshold for saturation detection (default: 250)
             pedestal_override: If given, use this black-level pedestal instead of the

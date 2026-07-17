@@ -1591,16 +1591,16 @@ class TestBandOffset:
             color_coefficient=0.0,
         )
         v1, d1 = sqm.calculate(**kwargs)
-        assert d1["sqm_band_offset"] == pytest.approx(0.64)
-        # zeroing the profile offset must shift the result by exactly 0.64.
+        assert d1["sqm_band_offset"] == pytest.approx(0.61)
+        # zeroing the profile offset must shift the result by exactly 0.61.
         # get_camera_profile returns the shared profile object, so use
         # monkeypatch to restore it after the test.
         monkeypatch.setattr(sqm.profile, "sqm_band_offset", 0.0)
         v0, _ = sqm.calculate(**kwargs)
-        assert (v1 - v0) == pytest.approx(0.64, abs=1e-9)
+        assert (v1 - v0) == pytest.approx(0.61, abs=1e-9)
 
     def test_band_offset_values(self):
-        assert get_camera_profile("imx462").sqm_band_offset == pytest.approx(0.64)
-        assert get_camera_profile("imx290").sqm_band_offset == pytest.approx(0.64)
-        assert get_camera_profile("hq").sqm_band_offset == pytest.approx(0.63)
-        assert get_camera_profile("imx296").sqm_band_offset == pytest.approx(-0.06)
+        assert get_camera_profile("imx462").sqm_band_offset == pytest.approx(0.61)
+        assert get_camera_profile("imx290").sqm_band_offset == pytest.approx(0.61)
+        assert get_camera_profile("hq").sqm_band_offset == pytest.approx(0.60)
+        assert get_camera_profile("imx296").sqm_band_offset == pytest.approx(-0.10)

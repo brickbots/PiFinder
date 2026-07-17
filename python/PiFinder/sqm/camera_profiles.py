@@ -174,7 +174,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # 2025-10-31 sweep vs its 17.8-17.9 hand-held reference (+/-0.2).
         # Near zero is physically consistent: the Pregius mono passband is
         # the closest of the three sensors to the meter's.
-        sqm_band_offset=-0.06,
+        sqm_band_offset=-0.10,
     ),
     "imx462": CameraProfile(
         # Hardware configuration
@@ -202,7 +202,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # growth-curve aperture correction (which measures f=1.0 on this
         # optics): residuals +/-0.06. Coupled to the estimator and the
         # centroid-excluded annulus background -- recalibrate together.
-        sqm_band_offset=0.64,
+        sqm_band_offset=0.61,
     ),
     "imx290": CameraProfile(
         # Hardware configuration (same as imx462 - driver compatibility)
@@ -223,7 +223,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         typical_sky_background=21.0,
         # Same sensor family/optics as imx462 (driver-compatible), same NIR leak.
         color_coefficient=0.8,
-        sqm_band_offset=0.64,  # mirror of imx462 (same sensor family, no sweeps yet)
+        sqm_band_offset=0.61,  # mirror of imx462 (same sensor family, no sweeps yet)
     ),
     "hq": CameraProfile(
         # Hardware configuration
@@ -252,7 +252,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # shared 2025-11-16 reading remains the outlier. Non-zero despite the
         # IR-cut: the residual absorbs passband + optics differences vs the
         # meter. Coupled to the estimator -- recalibrate together.
-        sqm_band_offset=0.63,
+        sqm_band_offset=0.60,
     ),
 }
 

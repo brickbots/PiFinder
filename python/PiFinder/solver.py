@@ -162,8 +162,8 @@ def update_sqm(
     altitude_deg,
     calculation_interval_seconds=5.0,
     aperture_radius=5,
-    annulus_inner_radius=6,
-    annulus_outer_radius=14,
+    annulus_inner_radius=10,
+    annulus_outer_radius=18,
     wing_estimator=None,
 ):
     """
@@ -178,8 +178,8 @@ def update_sqm(
         altitude_deg: Altitude in degrees for extinction correction
         calculation_interval_seconds: Minimum time between calculations (default: 5.0)
         aperture_radius: Aperture radius for photometry (default: 5)
-        annulus_inner_radius: Inner annulus radius (default: 6)
-        annulus_outer_radius: Outer annulus radius (default: 14)
+        annulus_inner_radius: Inner annulus radius (default: 10)
+        annulus_outer_radius: Outer annulus radius (default: 18)
         wing_estimator: WingEstimator that supplies the rolling aperture
             (wing-loss) mzero correction and is fed each frame's photometry
             image + matched centroids.
