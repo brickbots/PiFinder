@@ -32,6 +32,20 @@
       },
       {
         "available": true,
+        "built_at": "2026-07-17T21:28:37+00:00",
+        "kind": "pr",
+        "label": "PR#540-7487cee",
+        "notes": "Adds boot and display support for the CM4-based PiFinder v4 prototype on top of the NixOS branch (#379).\n\n## What's in here (the v4-specific delta)\n\n- **CM4 boot**: both `bcm2711-rpi-4-b.dtb` and `bcm2711-rpi-cm4.dtb` are now processed with the PiFinder overlays, and the forced 4B `hardware.deviceTree.name` is replaced by extlinux `FDTDIR` + u-boot's board-detected `${fdtfile}` (64-bit u-boot prefixes it with `broadcom/`), so one image boots the matching DTB on both boards.\n- **Boot splash**: `boot-splash.c` gains an SSD1333 176x176 mode (init sequence ported from `ssd1333_device.py`, welcome image centered, flush rotated 270\u00b0 to match the app's luma `rotate=3`). Panel selection reads the device-tree model string (CM4 = v4), which is available in early boot/initrd where the I2C charger probe isn't. Splash service, watchdog failure screens and migration progress bar all get this for free.\n- **gpsd**: new `pifinder.gpsBaud` option emitting `GPSD_OPTIONS=\"-s <baud>\"`. Default stays autobaud, which serves both the rev-3 GPS and the v4 u-blox Gen10 (UBX at 115200).\n- **hardware_detect**: documents that the BQ25895 ACK is a valid whole-board rev-4 marker \u2014 a battery is mandatory on v4, so the charger always ACKs on working hardware. (Runtime SSD1333/battery-monitor/buzzer selection off that probe already exists on the NixOS branch.)\n\n## Verified so far\n\n- All overlays (spi0, uart3, i2c-gpio, pwm, gpio-poweroff, imx290 + 74.25 MHz xclk) apply cleanly to the CM4 DTB via `fdtoverlay`; `uart3`/`spi0` end up `okay` in the merged tree.\n- Flake evaluates; boot-splash compiles clean under `-Wall -Wextra`; ruff + `test_hardware_detect` pass.\n\n## Needs on-device validation\n\n- CM4 selects its own DTB at boot (and 4B regression: FDT \u2192 FDTDIR switch affects existing devices; the confirmed-generation watchdog covers a failed boot).\n- SSD1333 splash orientation on the physical panel.\n- Controls matrix, charger/buzzer with battery installed, GPIO14 power-off behaviour, full acceptance pass.\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01QzvW78i2LxKpgQnXAvzSe3",
+        "number": 540,
+        "source_ref": "nixos-cm4",
+        "source_repo": "mrosseel/PiFinder",
+        "source_sha": "7487cee1614afe6bff0e816a08bd2ff543137170",
+        "store_path": "/nix/store/rl2lpvdd31mmhzyjvddjfqia5q9da3ab-nixos-system-pifinder-25.11.20260209.2db38e0",
+        "title": "NixOS: CM4-based PiFinder v4 boot and display support",
+        "version": "PR#540-7487cee"
+      },
+      {
+        "available": true,
         "built_at": "2026-07-17T08:18:43+00:00",
         "kind": "pr",
         "label": "PR#534-145a559",
@@ -100,6 +114,6 @@
       }
     ]
   },
-  "generated_at": "2026-07-17T08:19:46+00:00",
+  "generated_at": "2026-07-17T21:28:37+00:00",
   "schema": 1
 }
