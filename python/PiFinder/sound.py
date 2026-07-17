@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-Audio-feedback subsystem for the rev-4 PiFinder's passive piezo buzzer
+Audio-feedback subsystem for the rev4 PiFinder's passive piezo buzzer
 (hardware **PWM channel 0, GPIO12**, resonant ~4 kHz). Named events become
 short **earcons** played on the buzzer.
 
@@ -30,7 +30,7 @@ resonance and convey identity by pitch contour / rhythm, never melody. We
 only ever emit **0-50 %** duty (50 % is loudest; above it loudness falls off
 and is never used).
 
-Dev / rev-3 boards have no buzzer: no process is spawned, ``sound_queue`` is
+Dev / rev3 boards have no buzzer: no process is spawned, ``sound_queue`` is
 ``None``, and :func:`request` no-ops after a debug log. There is deliberately
 **no fake-playback path** — duty-as-volume on a 4 kHz piezo does not
 translate to a PC speaker and would mislead earcon tuning.
@@ -213,7 +213,7 @@ class BuzzerPWM:
 
 
 def request(sound_queue, earcon: Earcon) -> None:
-    """Request an earcon, fire-and-forget. None-safe: on dev / rev-3 boards
+    """Request an earcon, fire-and-forget. None-safe: on dev / rev3 boards
     ``sound_queue`` is ``None`` and this no-ops (after a debug log, so dev
     boxes still show intent). Stamps ``time.monotonic()`` for staleness."""
     logger.debug("sound: %s", earcon.value)
@@ -385,7 +385,7 @@ def _run_cli(argv: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(
         prog="python -m PiFinder.sound",
         description=(
-            "Standalone earcon player for tuning the rev-4 buzzer by ear. "
+            "Standalone earcon player for tuning the rev4 buzzer by ear. "
             "Requires real hardware (PWM ch0); only --list works without it."
         ),
     )

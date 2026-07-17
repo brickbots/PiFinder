@@ -1,6 +1,6 @@
 # Battery (Power & Charging)
 
-The Battery context reads battery voltage and charge state from the rev-4 on-board **BQ25895** charger over I²C and publishes a `BatteryState` into shared state. It is **mostly telemetry**: the only writes are a one-shot ADC conversion trigger and a fixed **fast-charge configuration** (disable the I²C watchdog, disable automatic USB adapter detection, set the input and fast-charge current limits to ~1.5 A) re-asserted on each poll — see [ADR 0017](../../adr/0017-battery-fast-charge-config.md). Disabling adapter detection is what lets the input limit survive a cable replug while the unit is powered off. It never touches OTG/HIZ/charge-enable; OTG/boost is disabled in hardware. The user-facing docs call this domain "Power & Charging"; the *code* uses the `battery_` prefix to stay clear of the unrelated sleep/wake `power_state`.
+The Battery context reads battery voltage and charge state from the rev4 on-board **BQ25895** charger over I²C and publishes a `BatteryState` into shared state. It is **mostly telemetry**: the only writes are a one-shot ADC conversion trigger and a fixed **fast-charge configuration** (disable the I²C watchdog, disable automatic USB adapter detection, set the input and fast-charge current limits to ~1.5 A) re-asserted on each poll — see [ADR 0017](../../adr/0017-battery-fast-charge-config.md). Disabling adapter detection is what lets the input limit survive a cable replug while the unit is powered off. It never touches OTG/HIZ/charge-enable; OTG/boost is disabled in hardware. The user-facing docs call this domain "Power & Charging"; the *code* uses the `battery_` prefix to stay clear of the unrelated sleep/wake `power_state`.
 
 > Companion design notes: [`../../bq25895_design_notes.md`](../../bq25895_design_notes.md) (chip behaviour, power path, register map).
 
@@ -25,7 +25,7 @@ Whether the unit is currently running from USB/adapter input (input present and 
 _Avoid_: "plugged in" (says nothing about power-good), implying it from charge status.
 
 **`BatteryState`**:
-The published dataclass carried in `SharedStateObj` (`shared_state.battery()` / `set_battery()`). Holds **battery voltage**, **charge status**, **power source**, the estimated **state of charge**, the cheap adjacent diagnostics (charge current, VBUS voltage, SYS voltage) and a timestamp. Read-only for consumers. `None` when no charger is present (rev-3 hardware).
+The published dataclass carried in `SharedStateObj` (`shared_state.battery()` / `set_battery()`). Holds **battery voltage**, **charge status**, **power source**, the estimated **state of charge**, the cheap adjacent diagnostics (charge current, VBUS voltage, SYS voltage) and a timestamp. Read-only for consumers. `None` when no charger is present (rev3 hardware).
 _Avoid_: "battery info", "power state" (collides with the sleep/wake `power_state`).
 
 ### Hardware presence
@@ -41,11 +41,11 @@ _Avoid_: "scan", "autodetect" (reserve for the camera-type detection).
 ### Power path (hardware, not software)
 
 **OTG / boost**:
-The charger's reverse-boost mode (battery → 5 V out). On rev-4 it is disabled **in hardware** (the `/OTG` pin is strapped low), so software never manages it — software's only power-path writes are the fast-charge config (watchdog + current limits, see [ADR 0017](../../adr/0017-battery-fast-charge-config.md)), never `OTG_CONFIG`. Not to be confused with the external **SYS → 5.1 V boost** (a separate TPS61088 part).
+The charger's reverse-boost mode (battery → 5 V out). On rev4 it is disabled **in hardware** (the `/OTG` pin is strapped low), so software never manages it — software's only power-path writes are the fast-charge config (watchdog + current limits, see [ADR 0017](../../adr/0017-battery-fast-charge-config.md)), never `OTG_CONFIG`. Not to be confused with the external **SYS → 5.1 V boost** (a separate TPS61088 part).
 _Avoid_: implying software enables/disables OTG.
 
 **Power-off latch** (GPIO14):
-The rev-4 hardware power-down path. At kernel power-off the `gpio-poweroff` device-tree overlay drives **GPIO14 low**, tripping the **LTC2954** power-button controller's KILL input; the LTC2954 drops **EN** on the **TPS61088** SYS boost and the system loses power. It is **active-low and fail-safe**: GPIO14 carries a hardware pull-up, so the pin sits high (power on) through early boot and reboot, and only the kernel power-off handler ever pulls it low. This is a *firmware / device-tree* mechanism provisioned in `pifinder_setup.sh` (see ADR 0007) — **not** application code: no Python drives the kill line; the kernel drives it once, at shutdown. (The Battery monitor does write the charger's watchdog and current-limit registers per [ADR 0017](../../adr/0017-battery-fast-charge-config.md), but never this latch.) Added for every board; a no-op on rev-3, which has no latch.
+The rev4 hardware power-down path. At kernel power-off the `gpio-poweroff` device-tree overlay drives **GPIO14 low**, tripping the **LTC2954** power-button controller's KILL input; the LTC2954 drops **EN** on the **TPS61088** SYS boost and the system loses power. It is **active-low and fail-safe**: GPIO14 carries a hardware pull-up, so the pin sits high (power on) through early boot and reboot, and only the kernel power-off handler ever pulls it low. This is a *firmware / device-tree* mechanism provisioned in `pifinder_setup.sh` (see ADR 0007) — **not** application code: no Python drives the kill line; the kernel drives it once, at shutdown. (The Battery monitor does write the charger's watchdog and current-limit registers per [ADR 0017](../../adr/0017-battery-fast-charge-config.md), but never this latch.) Added for every board; a no-op on rev3, which has no latch.
 _Avoid_: calling it a "shutdown command" (it's a hardware kill line, not a syscall); implying the Battery monitor or any Python code drives it.
 
 ## Flagged ambiguities
@@ -53,7 +53,7 @@ _Avoid_: calling it a "shutdown command" (it's a hardware kill line, not a sysca
 - **"battery level"** (bare) — do not use. It conflates the *measured* **battery voltage** with the *estimated* **state of charge**. Name one: voltage (measured, canonical) or state-of-charge % (estimated, UI-only, `None` while charging).
 - **`power_state` / `PowerManager`** — these are the **display sleep/wake** concept (`0`=sleep, `1`=awake) and have **nothing** to do with the battery or charger. The Battery context deliberately uses the `battery_` prefix to avoid this collision. Never reach for `power_*` names in charger code.
 - **"charging" vs "on external power"** — separate facts. Charge status reports the charger's phase; power source reports whether input power is present. A unit on external power with a full cell is "on external power, not charging".
-- **`BatteryState` is `None` vs 0%** — `None` means *no charger detected* (rev-3 board, monitor not running); a real `BatteryState` with a low `state_of_charge_pct` means *detected and nearly empty*. Consumers must distinguish "no battery hardware" from "empty battery".
+- **`BatteryState` is `None` vs 0%** — `None` means *no charger detected* (rev3 board, monitor not running); a real `BatteryState` with a low `state_of_charge_pct` means *detected and nearly empty*. Consumers must distinguish "no battery hardware" from "empty battery".
 
 ## Example dialogue
 
