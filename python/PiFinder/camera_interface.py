@@ -37,6 +37,25 @@ logger = logging.getLogger("Camera.Interface")
 # daylight while still usable for framing a distant object.
 DAYTIME_AE_FALLBACK_EXPOSURE = 1000  # microseconds
 
+# Software rotation applied to each raw capture before it reaches the solver
+# and the preview, keyed by screen_direction. Each entry is paired with that
+# variant's q_imu2cam in pointing_model/imu_dead_reckoning.py -- the camera
+# frame ("image up") is only defined after this rotation, so the two values
+# must be derived together (see pointing_model/docs/imu2cam_tool.html).
+# Variants absent here fall back to 270.
+SCREEN_ROTATE_AMOUNTS = {
+    "flat": 270,
+    "left": 270,
+    "right": 90,
+    "straight": 90,
+    "flat3": 90,
+    "as_bloom": 90,
+    "as_heart": 90,
+    "v4_left": 0,
+    "v4_right": 270,
+    "v4_straight": 270,
+}
+
 
 class CameraInterface:
     """The CameraInterface interface."""
@@ -189,10 +208,8 @@ class CameraInterface:
             # solve-image centroids back onto the raw for photometry.
             if camera_rotation is not None:
                 solve_rotation = (-int(camera_rotation)) % 360
-            elif screen_direction in ["right", "straight", "flat3", "as_bloom"]:
-                solve_rotation = 90
             else:
-                solve_rotation = 270
+                solve_rotation = SCREEN_ROTATE_AMOUNTS.get(screen_direction, 270)
             shared_state.set_solve_image_rotation(solve_rotation)
 
             # Set path for test mode image

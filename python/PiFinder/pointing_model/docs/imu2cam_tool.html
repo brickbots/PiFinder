@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<!--
+  imu2cam tool
+
+  Visual derivation tool for PiFinder build-variant frame constants: the
+  q_imu2cam entry in pointing_model/imu_dead_reckoning.py and its paired
+  rotate_amount in camera_interface.py (SCREEN_ROTATE_AMOUNTS).
+
+  Open this file directly in any browser (no server needed). The 3D view
+  loads three.js from a pinned CDN URL at runtime, so it wants an internet
+  connection; the math and emitted values are inline and work without it.
+  Arrange the UI board and camera module to match the physical device,
+  pick the software image rotation, and copy the emitted values.
+
+  The presets embedded in the JSON block below encode each shipped
+  variant's physical arrangement and expected values. They are pinned to
+  the production tables by python/tests/test_imu2cam_tool_presets.py --
+  if you edit either side, keep them in sync or CI goes red.
+
+  Frame conventions (see pointing_model/README.md):
+    IMU frame    : BNO055 chip axes, fixed to the UI board by PCB layout.
+                   The placement is per board revision (the "board rev"
+                   control below / per-preset board_rev field):
+                     rev-3 (classic variants): chip on the keypad face --
+                       +z out of the keypad face, +y along the long axis
+                       away from the screen end, +x = y x z (right-handed).
+                     rev-4 (Analog Sky models): chip on the back side,
+                       flipped about the board's long axis -- +z out of
+                       the back face, +y unchanged, +x negated.
+                   Toggling the control keeps the depicted board pose and
+                   moves the chip, so the same visible arrangement emits
+                   the values for the chosen board revision.
+    Module frame : +z out the lens (boresight), +y = raw sensor "up"
+                   (top of the un-rotated capture), +x = raw image left.
+                   The ribbon is drawn exiting the -y side (raw-bottom).
+    Camera frame : the solver-facing frame -- module frame spun about the
+                   boresight by rotate_amount (PIL rotates the image CCW,
+                   so the camera basis is the module basis rotated by
+                   +rotate_amount about +z).
+    q_imu2cam    : rotation whose matrix columns are the camera axes
+                   expressed in IMU coordinates.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PiFinder imu2cam tool</title>
+<style>
+  :root {
+    --bg: #0b0d10; --panel: #14171c; --edge: #262b33; --text: #d8dee9;
+    --dim: #8d97a5; --good: #a3be8c; --bad: #bf616a; --warn: #ebcb8b;
+    --accent: #d08770;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif;
+         margin: 0; padding: 18px 22px 40px; }
+  h1 { font-size: 19px; margin: 0 0 2px; }
+  h1 small { color: var(--dim); font-weight: normal; font-size: 13px; }
+  .lede { color: var(--dim); margin: 0 0 14px; max-width: 900px; }
+  .layout { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  canvas { background: #08090b; border: 1px solid var(--edge); border-radius: 6px;
+           cursor: grab; touch-action: none; }
+  canvas:active { cursor: grabbing; }
+  .controls { width: 340px; display: flex; flex-direction: column; gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--edge); border-radius: 6px;
+          padding: 10px 12px; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+             color: var(--dim); margin: 0 0 8px; }
+  select, input[type=text] { background: #0e1114; color: var(--text); border: 1px solid var(--edge);
+           border-radius: 4px; padding: 5px 7px; font: inherit; width: 100%; }
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .row label { flex: 0 0 108px; color: var(--dim); }
+  .btns { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+  button { background: #1b2027; color: var(--text); border: 1px solid var(--edge);
+           border-radius: 4px; padding: 5px 4px; font: 12px system-ui; cursor: pointer; }
+  button:hover { background: #242b35; }
+  button.copy { float: right; font-size: 11px; padding: 2px 8px; }
+  .status { font-weight: 600; }
+  .status.good { color: var(--good); } .status.bad { color: var(--bad); }
+  .note { color: var(--warn); font-size: 12.5px; margin-top: 6px; }
+  .muted { color: var(--dim); font-size: 12.5px; }
+  .outputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+             gap: 14px; margin-top: 18px; max-width: 1420px; }
+  pre { background: #0e1114; border: 1px solid var(--edge); border-radius: 5px;
+        padding: 10px 12px; overflow-x: auto; margin: 6px 0 0;
+        font: 12.5px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre; }
+  details { margin-top: 4px; } summary { cursor: pointer; color: var(--dim); }
+  .legend { color: var(--dim); font-size: 12.5px; margin-top: 6px; max-width: 880px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+            margin: 0 3px -1px 8px; }
+</style>
+</head>
+<body>
+
+<h1>PiFinder imu2cam tool <small>&mdash; derive (q_imu2cam, rotate_amount) pairs visually</small></h1>
+<p class="lede">Arrange the UI board and the camera module to match the physical device
+(rotations snap to 45&deg; about the world axes &mdash; several upcoming variants mount
+parts 45&deg; off-orthogonal), pick the software image rotation and the board revision
+(rev-4 boards carry the IMU chip on the back side), and copy the emitted constants.
+Load a preset to see a shipped variant; green means the arrangement on screen
+reproduces the shipped table entry.</p>
+
+<div class="layout">
+  <div>
+    <canvas id="view" width="880" height="560"></canvas>
+    <div class="legend">
+      Drag to orbit, scroll to zoom, double-click to reset the view.
+      <span class="swatch" style="background:#e06c75"></span>x_imu
+      <span class="swatch" style="background:#98c379"></span>y_imu
+      <span class="swatch" style="background:#61afef"></span>z_imu
+      &nbsp;&middot;&nbsp; dashed arrows: camera frame (after rotate_amount) &mdash;
+      z_cam = boresight, y_cam = solver image up.
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="card">
+      <h2>Variant</h2>
+      <div class="row"><label for="preset">Preset</label><select id="preset"></select></div>
+      <div class="row"><label for="rho">rotate_amount</label>
+        <select id="rho"><option>0</option><option>90</option><option>180</option><option>270</option></select></div>
+      <div class="row"><label for="rev">board rev</label>
+        <select id="rev"><option>3</option><option>4</option></select></div>
+      <div class="row"><label for="key">screen_direction</label>
+        <input type="text" id="key" value="flat" spellcheck="false"></div>
+      <div id="presetNote" class="note" hidden></div>
+    </div>
+
+    <div class="card">
+      <h2>Rotate UI board (world axes, 45&deg;)</h2>
+      <div class="btns" id="boardBtns"></div>
+    </div>
+
+    <div class="card">
+      <h2>Rotate camera module (world axes, 45&deg;)</h2>
+      <div class="btns" id="modBtns"></div>
+    </div>
+
+    <div class="card">
+      <h2>Validation</h2>
+      <div id="presetStatus" class="status"></div>
+      <div id="matchScan" class="muted"></div>
+    </div>
+  </div>
+</div>
+
+<div class="outputs">
+  <div class="card"><h2>_q_imu2cam branch (imu_dead_reckoning.py)
+    <button class="copy" data-for="outPy">copy</button></h2><pre id="outPy"></pre></div>
+  <div class="card"><h2>Axis correspondences (check these on the hardware)
+    <button class="copy" data-for="outAxes">copy</button></h2><pre id="outAxes"></pre></div>
+  <div class="card"><h2>Quaternion
+    <button class="copy" data-for="outQuat">copy</button></h2><pre id="outQuat"></pre></div>
+  <div class="card"><h2>SCREEN_ROTATE_AMOUNTS entry (camera_interface.py)
+    <button class="copy" data-for="outRot">copy</button></h2><pre id="outRot"></pre></div>
+  <div class="card"><h2>Pytest block (tests/test_imu_dead_reckoning.py)
+    <button class="copy" data-for="outTest">copy</button></h2><pre id="outTest"></pre></div>
+  <div class="card"><h2>Fan-out checklist for a new variant</h2>
+    <pre id="outChecklist">1. pointing_model/imu_dead_reckoning.py  - _q_imu2cam branch (from this tool)
+2. pointing_model/imu_dead_reckoning_legacy.py - same branch in the legacy table
+3. camera_interface.py                   - SCREEN_ROTATE_AMOUNTS entry
+4. ui/menu_structure.py                  - PiFinder Type option list
+5. main.py                               - display-rotate special case, if the
+                                           display mounts rotated (cf. as_bloom)
+6. tests/test_imu_dead_reckoning_equivalence.py - add key to SCREEN_DIRECTIONS
+7. this tool                             - add the preset (with its board_rev)
+   to the embedded JSON (tests/test_imu2cam_tool_presets.py enforces parity)
+8. tests/test_imu_dead_reckoning.py      - paste the pytest block (optional)
+9. docs/source                           - PiFinder Type user docs, if user-facing</pre></div>
+</div>
+
+<script type="application/json" id="imu2cam-presets">
+{
+  "comment": "Expected values mirror the production tables and are pinned by tests/test_imu2cam_tool_presets.py. q is scalar-first [w,x,y,z] = ImuDeadReckoning._q_imu2cam(key); rotate = SCREEN_ROTATE_AMOUNTS[key]; board_rev (3 when absent) selects the chip placement the depiction uses -- see the header comment.",
+  "presets": [
+    { "key": "flat", "label": "Flat (v2)", "rotate": 270,
+      "q": [0.5000000000000001, 0.4999999999999999, -0.5, -0.5],
+      "note": "" },
+    { "key": "left", "label": "Left", "rotate": 270,
+      "q": [0.5000000000000001, 0.5, -0.4999999999999999, 0.5],
+      "note": "" },
+    { "key": "right", "label": "Right", "rotate": 90,
+      "q": [0.5000000000000001, -0.5, 0.4999999999999999, 0.5],
+      "note": "" },
+    { "key": "straight", "label": "Straight (v3)", "rotate": 90,
+      "q": [4.329780281177467e-17, -0.7071067811865475, 0.7071067811865476, -4.329780281177466e-17],
+      "note": "" },
+    { "key": "flat3", "label": "Flat (v3)", "rotate": 90,
+      "q": [0.35355339059327384, 0.6123724356957945, -0.6123724356957946, -0.3535533905932738],
+      "note": "30-degree camera tilt: loaded exactly, but not reachable via the 45-degree buttons." },
+    { "key": "as_bloom", "label": "AS Bloom", "rotate": 90, "board_rev": 4,
+      "q": [3.749399456654644e-33, 1.0, 6.123233995736766e-17, 6.123233995736766e-17],
+      "note": "Rev-4 board: IMU on the back side. Re-derived 2026-07 under the rev-4 depiction; supersedes the value read off a rev-3 depiction of the same arrangement. Hardware verification pending." },
+    { "key": "as_heart", "label": "AS Heart", "rotate": 90, "board_rev": 4,
+      "q": [4.329780281177467e-17, 4.329780281177466e-17, -0.7071067811865475, 0.7071067811865476],
+      "note": "Rev-4 board: IMU on the back side. Re-derived 2026-07 under the rev-4 depiction; rotate stays 90 (the image-rotation side is chip-independent and was verified on hardware). Hardware verification of the quaternion pending." },
+    { "key": "v4_left", "label": "V4 Left", "rotate": 0, "board_rev": 4,
+      "q": [0.5000000000000001, 0.5, 0.4999999999999999, -0.5],
+      "note": "Rev-4 board: IMU on the back side. Derived 2026-07 under the rev-4 depiction; hardware verification pending." },
+    { "key": "v4_right", "label": "V4 Right", "rotate": 270, "board_rev": 4,
+      "q": [0.5000000000000001, -0.5, -0.4999999999999999, -0.5],
+      "note": "Rev-4 board: IMU on the back side. Derived 2026-07 under the rev-4 depiction; hardware verification pending." },
+    { "key": "v4_straight", "label": "V4 Straight", "rotate": 270, "board_rev": 4,
+      "q": [0.35355339059327384, -0.3535533905932738, 0.14644660940672627, -0.8535533905932737],
+      "note": "Rev-4 board: IMU on the back side. 45-degree mount: no camera axis coincides with an IMU axis. Derived 2026-07 under the rev-4 depiction; hardware verification pending." }
+  ]
+}
+</script>
+
+<script>
+"use strict";
+/* ============================== math ==================================== */
+const EPS = 1e-9;
+const mul = (A, B) => A.map((r, i) => r.map((_, j) =>
+  A[i][0] * B[0][j] + A[i][1] * B[1][j] + A[i][2] * B[2][j]));
+const matT = A => A[0].map((_, j) => A.map(r => r[j]));
+const matVec = (A, v) => A.map(r => r[0] * v[0] + r[1] * v[1] + r[2] * v[2]);
+const vAdd = (a, b) => a.map((x, i) => x + b[i]);
+const vScale = (a, s) => a.map(x => x * s);
+const ident = () => [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+function rotAxis(axis, deg) {           // rotation matrix about a world axis
+  const t = deg * Math.PI / 180, c = Math.cos(t), s = Math.sin(t);
+  if (axis === 0) return [[1, 0, 0], [0, c, -s], [0, s, c]];
+  if (axis === 1) return [[c, 0, s], [0, 1, 0], [-s, 0, c]];
+  return [[c, -s, 0], [s, c, 0], [0, 0, 1]];
+}
+const snap = A => A.map(r => r.map(x => Math.round(x * 1e12) / 1e12));
+
+function quatFromMat(m) {               // scalar-first [w,x,y,z]
+  const tr = m[0][0] + m[1][1] + m[2][2];
+  let w, x, y, z, S;
+  if (tr > 0) {
+    S = Math.sqrt(tr + 1) * 2;
+    w = S / 4; x = (m[2][1] - m[1][2]) / S; y = (m[0][2] - m[2][0]) / S; z = (m[1][0] - m[0][1]) / S;
+  } else if (m[0][0] > m[1][1] && m[0][0] > m[2][2]) {
+    S = Math.sqrt(1 + m[0][0] - m[1][1] - m[2][2]) * 2;
+    w = (m[2][1] - m[1][2]) / S; x = S / 4; y = (m[0][1] + m[1][0]) / S; z = (m[0][2] + m[2][0]) / S;
+  } else if (m[1][1] > m[2][2]) {
+    S = Math.sqrt(1 + m[1][1] - m[0][0] - m[2][2]) * 2;
+    w = (m[0][2] - m[2][0]) / S; x = (m[0][1] + m[1][0]) / S; y = S / 4; z = (m[1][2] + m[2][1]) / S;
+  } else {
+    S = Math.sqrt(1 + m[2][2] - m[0][0] - m[1][1]) * 2;
+    w = (m[1][0] - m[0][1]) / S; x = (m[0][2] + m[2][0]) / S; y = (m[1][2] + m[2][1]) / S; z = S / 4;
+  }
+  return [w, x, y, z];
+}
+function matFromQuat(q) {
+  const [w, x, y, z] = q;
+  return [
+    [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+    [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+    [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]];
+}
+function canonicalQuat(q) {             // fix the double-cover sign for display
+  for (const c of q) {
+    if (c > EPS) return q;
+    if (c < -EPS) return q.map(x => -x);
+  }
+  return q;
+}
+const quatEq = (a, b) => Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]) > 1 - 1e-6;
+const matClose = (A, B) => A.every((r, i) => r.every((x, j) => Math.abs(x - B[i][j]) < 1e-6));
+
+/* ------- house-style decomposition: q1 (align z to boresight), q2 (spin) -- */
+function decompose(R) {                 // R columns = camera axes in IMU coords
+  const b = [R[0][2], R[1][2], R[2][2]];
+  let axis1, theta;
+  if (Math.abs(b[1]) < EPS) { axis1 = [0, 1, 0]; theta = Math.atan2(b[0], b[2]); }
+  else if (Math.abs(b[0]) < EPS) { axis1 = [1, 0, 0]; theta = Math.atan2(-b[1], b[2]); }
+  else return null;                     // boresight off both coordinate planes
+  if (Math.abs(Math.abs(theta) - Math.PI) < EPS) { axis1 = [0, 1, 0]; theta = Math.PI; }
+  const R1 = matFromQuat(axisAngleQuat(axis1, theta));
+  const R2 = mul(matT(R1), R);
+  const psi = Math.atan2(R2[1][0], R2[0][0]);
+  if (!matClose(R2, matFromQuat(axisAngleQuat([0, 0, 1], psi)))) return null;
+  if (!matClose(mul(R1, matFromQuat(axisAngleQuat([0, 0, 1], psi))), R)) return null;
+  return { axis1, theta, psi };
+}
+const axisAngleQuat = (a, t) =>
+  [Math.cos(t / 2), a[0] * Math.sin(t / 2), a[1] * Math.sin(t / 2), a[2] * Math.sin(t / 2)];
+
+/* ------------------------- symbolic formatting -------------------------- */
+function piFraction(angle) {            // exact np.pi expression, or null
+  const n = Math.round(angle / (Math.PI / 12));
+  if (Math.abs(angle - n * Math.PI / 12) > 1e-9) return null;
+  const table = { 0: "0", 2: "np.pi / 6", 3: "np.pi / 4", 4: "np.pi / 3",
+                  6: "np.pi / 2", 8: "np.pi * 2 / 3", 9: "np.pi * 3 / 4",
+                  10: "np.pi * 5 / 6", 12: "np.pi" };
+  const a = Math.abs(n) === 24 ? 0 : Math.abs(n);   // 2*pi == 0
+  if (!(a in table)) return null;
+  return (n < 0 && a !== 0 ? "-" : "") + table[a];
+}
+const SYMBOLIC = [
+  [0, "0"], [1, "1"], [0.5, "1/2"], [0.25, "1/4"],
+  [Math.SQRT2 / 2, "√2/2"], [Math.sqrt(3) / 2, "√3/2"],
+  [Math.SQRT2 / 4, "√2/4"], [Math.sqrt(6) / 4, "√6/4"],
+  [(Math.sqrt(6) + Math.SQRT2) / 4, "(√6+√2)/4"],
+  [(Math.sqrt(6) - Math.SQRT2) / 4, "(√6−√2)/4"],
+  [Math.sqrt(2 - Math.SQRT2) / 2, "√(2−√2)/2"],   // sin(22.5°) -- 45° half-angles
+  [Math.sqrt(2 + Math.SQRT2) / 2, "√(2+√2)/2"]];  // cos(22.5°)
+function symbolic(v) {
+  for (const [val, s] of SYMBOLIC)
+    if (Math.abs(Math.abs(v) - val) < 1e-9) return (v < -EPS ? "-" : "") + s;
+  return null;
+}
+const fmt = v => {
+  const r = Math.round(v * 1e10) / 1e10;
+  return Object.is(r, -0) ? "0" : String(r);
+};
+function axisWord(v) {                  // unit vector -> "+y_imu", or null
+  const names = ["x", "y", "z"];
+  for (let i = 0; i < 3; i++)
+    if (Math.abs(Math.abs(v[i]) - 1) < 1e-9) return (v[i] > 0 ? "+" : "-") + names[i] + "_imu";
+  return null;
+}
+
+/* ============================ state ===================================== */
+const presetData = JSON.parse(document.getElementById("imu2cam-presets").textContent).presets;
+// World pose of the camera frame in every preset: boresight along world +Y,
+// solver image up along world +Z ("device pointed at the horizon").
+const R_W_CAM = [[-1, 0, 0], [0, 0, 1], [0, 1, 0]];   // columns: x_cam, y_cam, z_cam
+// Rev-4 chip placement: IMU axes expressed in board coords (chip on the back
+// side, flipped about the board's long axis). Self-inverse.
+const REV4_M = [[-1, 0, 0], [0, 1, 0], [0, 0, -1]];
+
+const state = { Rb: ident(), Rm: ident(), rho: 270, key: "flat", rev: 3 };
+
+function imu2camMatrix() {
+  return mul(matT(state.Rb), mul(state.Rm, rotAxis(2, state.rho)));
+}
+function loadPreset(p) {
+  const R = matFromQuat(p.q);
+  state.rho = p.rotate;
+  state.rev = p.board_rev || 3;
+  state.Rm = snap(mul(R_W_CAM, matT(rotAxis(2, p.rotate))));
+  state.Rb = snap(mul(R_W_CAM, matT(R)));   // IMU pose -- rev only affects the depiction
+  state.key = p.key;
+  document.getElementById("rho").value = String(p.rotate);
+  document.getElementById("rev").value = String(state.rev);
+  document.getElementById("key").value = p.key;
+  const note = document.getElementById("presetNote");
+  note.hidden = !p.note;
+  note.textContent = p.note;
+  refresh();
+}
+
+/* ============== renderer hook (three.js script at the bottom) =========== */
+function drawScene() {
+  if (window.SceneRenderer) window.SceneRenderer.render();
+}
+
+/* ============================ outputs =================================== */
+function titleCase(key) {
+  return key.split("_").map(w => w[0].toUpperCase() + w.slice(1)).join(" ");
+}
+function axisStatements(R) {
+  const cams = ["+x_cam (image left)", "+y_cam (image up)  ", "+z_cam (boresight) "];
+  return cams.map((nm, i) => {
+    const col = [R[0][i], R[1][i], R[2][i]];
+    const w = axisWord(col);
+    return `${nm} = ${w ?? `[${col.map(fmt).join(", ")}]  (tilted)`}`;
+  }).join("\n");
+}
+function pythonBranch(key, R) {
+  const q = canonicalQuat(quatFromMat(R));
+  const d = decompose(R);
+  const head = `        if screen_direction == "${key}":\n            # ${titleCase(key)}:\n`;
+  if (d === null)
+    return head +
+      `            # No clean two-step decomposition -- exact quaternion:\n` +
+      `            return quaternion.quaternion(\n` +
+      `                ${q.map(fmt).join(", ")}\n            ).normalized()`;
+  const { axis1, theta, psi } = d;
+  const aName = axis1[0] ? "x" : "y";
+  const degT = Math.round(theta * 180 / Math.PI), degP = Math.round(psi * 180 / Math.PI);
+  const piT = piFraction(theta) ?? fmt(theta), piP = piFraction(psi) ?? fmt(psi);
+  const upWord = axisWord([R[0][1], R[1][1], R[2][1]]);
+  if (Math.abs(theta) < EPS && Math.abs(psi) < EPS)
+    return head + `            # IMU and camera frames coincide\n` +
+      `            return quaternion.quaternion(1, 0, 0, 0)`;
+  if (Math.abs(theta) < EPS)
+    return head +
+      `            # Camera boresight is along +z_imu already\n` +
+      `            # Rotate ${degP}° around z_imu to align with the camera coordinates\n` +
+      (upWord ? `            # (+y_cam is along ${upWord})\n` : "") +
+      `            return qt.axis_angle2quat([0, 0, 1], ${piP})`;
+  if (Math.abs(psi) < EPS)
+    return head +
+      `            # Rotate ${degT}° around ${aName}_imu so that z_imu' points along z_camera\n` +
+      `            # x/y already aligned with the camera coordinates\n` +
+      `            return qt.axis_angle2quat([${axis1.join(", ")}], ${piT})`;
+  return head +
+    `            # Rotate ${degT}° around ${aName}_imu so that z_imu' points along z_camera\n` +
+    `            q1 = qt.axis_angle2quat([${axis1.join(", ")}], ${piT})\n` +
+    `            # Rotate ${degP}° around z_imu' to align with the camera coordinates\n` +
+    `            q2 = qt.axis_angle2quat([0, 0, 1], ${piP})\n` +
+    `            return (q1 * q2).normalized()`;
+}
+function pytestBlock(key, R) {
+  const vec = i => {
+    const col = [R[0][i], R[1][i], R[2][i]];
+    return "[" + col.map(v => Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v)) : fmt(Math.round(v * 1e6) / 1e6)).join(", ") + "]";
+  };
+  const w = i => axisWord([R[0][i], R[1][i], R[2][i]]) ?? "(tilted)";
+  return `@pytest.mark.unit
+def test_q_imu2cam_${key}():
+    """Physical axis correspondences for the ${titleCase(key)} build
+    (derived with pointing_model/docs/imu2cam_tool.html)."""
+    R = quaternion.as_rotation_matrix(ImuDeadReckoning._q_imu2cam("${key}"))
+    # columns = camera axes expressed in IMU coordinates
+    assert np.allclose(R[:, 0], ${vec(0)}, atol=1e-6)  # image left  = ${w(0)}
+    assert np.allclose(R[:, 1], ${vec(1)}, atol=1e-6)  # image up    = ${w(1)}
+    assert np.allclose(R[:, 2], ${vec(2)}, atol=1e-6)  # boresight   = ${w(2)}`;
+}
+function quatBlock(R) {
+  const q = canonicalQuat(quatFromMat(R));
+  const syms = q.map(symbolic);
+  let s = `quaternion(${q.map(fmt).join(", ")})   # scalar-first (w, x, y, z)`;
+  if (syms.every(x => x !== null)) s += `\n= (${syms.join(", ")})`;
+  return s;
+}
+
+/* ============================ UI wiring ================================= */
+function refresh() {
+  const R = snap(imu2camMatrix());
+  const q = quatFromMat(R);
+  const key = document.getElementById("key").value.trim() || "new_variant";
+
+  document.getElementById("outPy").textContent = pythonBranch(key, R);
+  document.getElementById("outAxes").textContent = axisStatements(R);
+  document.getElementById("outQuat").textContent = quatBlock(R);
+  document.getElementById("outRot").textContent = `"${key}": ${state.rho},`;
+  document.getElementById("outTest").textContent = pytestBlock(key, R);
+
+  const sel = presetData.find(p => p.key === document.getElementById("preset").value);
+  const st = document.getElementById("presetStatus");
+  if (sel) {
+    const ok = quatEq(q, sel.q) && state.rho === sel.rotate && state.rev === (sel.board_rev || 3);
+    st.className = "status " + (ok ? "good" : "bad");
+    st.textContent = ok
+      ? `✔ reproduces the shipped "${sel.key}" entry (quaternion + rotate_amount + board rev)`
+      : `✘ differs from the shipped "${sel.key}" entry`;
+  }
+  const hits = presetData.filter(p =>
+    quatEq(q, p.q) && state.rho === p.rotate && state.rev === (p.board_rev || 3)).map(p => p.key);
+  document.getElementById("matchScan").textContent =
+    "arrangement matches shipped variant(s): " + (hits.length ? hits.join(", ") : "none");
+
+  drawScene();
+}
+
+const presetSel = document.getElementById("preset");
+for (const p of presetData) {
+  const o = document.createElement("option");
+  o.value = p.key; o.textContent = `${p.label}  [${p.key}]`;
+  presetSel.appendChild(o);
+}
+presetSel.addEventListener("change", () => loadPreset(presetData.find(p => p.key === presetSel.value)));
+document.getElementById("rho").addEventListener("change", e => { state.rho = +e.target.value; refresh(); });
+document.getElementById("rev").addEventListener("change", e => {
+  // Keep the depicted board pose; move the chip. The same visible arrangement
+  // then emits the values for the newly chosen board revision.
+  state.rev = +e.target.value;
+  state.Rb = snap(mul(state.Rb, REV4_M));
+  refresh();
+});
+document.getElementById("key").addEventListener("input", refresh);
+
+function makeButtons(el, target) {
+  const names = ["X", "Y", "Z"];
+  for (let a = 0; a < 3; a++)
+    for (const s of [1, -1]) {
+      const b = document.createElement("button");
+      b.textContent = (s > 0 ? "+" : "−") + "45° " + names[a];
+      b.addEventListener("click", () => {
+        state[target] = snap(mul(rotAxis(a, s * 45), state[target]));
+        refresh();
+      });
+      el.appendChild(b);
+    }
+}
+makeButtons(document.getElementById("boardBtns"), "Rb");
+makeButtons(document.getElementById("modBtns"), "Rm");
+
+document.querySelectorAll("button.copy").forEach(b =>
+  b.addEventListener("click", () => {
+    navigator.clipboard.writeText(document.getElementById(b.dataset.for).textContent);
+    b.textContent = "copied"; setTimeout(() => (b.textContent = "copy"), 900);
+  }));
+
+loadPreset(presetData[0]);
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"
+        integrity="sha384-RRHfJ6w1mTlKUBMYT/hvnRiOzEB/vyRV3DrQOseb6oYfvaZSfdd0byS4bHps0k2R"
+        crossorigin="anonymous"></script>
+<script>
+/* three.js 3D view. Everything above (math, presets, emitted outputs) is
+   inline and self-contained; this script only draws. If the CDN is
+   unreachable the tool still works -- you just get a notice instead of the
+   3D scene. Scene graph: boardGroup pose = state.Rb (the IMU pose); its
+   boardBody child holds the physical board authored in board coords, with
+   the rev-4 chip delta (REV4_M) as its local transform, so screen/keypad/
+   chip land where the chosen board revision physically puts them. */
+(function () {
+  "use strict";
+  const canvas = document.getElementById("view");
+  const CW = 880, CH = 560;
+  function fallback(reason) {
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#8d97a5"; g.font = "14px system-ui, sans-serif";
+    g.textAlign = "center";
+    g.fillText(`3D view unavailable: ${reason}.`, CW / 2, CH / 2 - 12);
+    g.fillText("The emitted values still work — the visual is only a depiction aid.", CW / 2, CH / 2 + 12);
+  }
+  if (typeof THREE === "undefined") {
+    fallback("could not load three.js from the CDN (internet connection needed)");
+    return;
+  }
+
+  const view = { yaw: -35, pitch: -25, scale: 118 };
+  const BOARD_POS = [-1.55, 0, 0], MOD_POS = [1.55, 0, 0];
+  const AXIS_HEX = [0xe06c75, 0x98c379, 0x61afef];
+  const AXIS_CSS = ["#e06c75", "#98c379", "#61afef"];
+
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  } catch (e) {
+    fallback("this browser could not create a WebGL context");
+    return;
+  }
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.setSize(CW, CH);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.autoClear = false;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x08090b);
+  const cam = new THREE.PerspectiveCamera(30, CW / CH, 0.1, 120);
+  cam.up.set(0, 0, 1);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  keyLight.position.set(4.5, -5.5, 7.5);
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.25);
+  fillLight.position.set(-4, 6, -3);
+  scene.add(keyLight, fillLight);
+
+  const grid = new THREE.GridHelper(6, 6, 0x2b323c, 0x151a21);
+  grid.rotation.x = Math.PI / 2;
+  grid.position.z = -1.45;
+  scene.add(grid);
+
+  /* ---------- small builders ---------- */
+  const box = (w, d, h, color, extra) =>
+    new THREE.Mesh(new THREE.BoxGeometry(w, d, h),
+      new THREE.MeshLambertMaterial({ color, ...extra }));
+  const edged = (mesh, opacity = 0.5) => {
+    mesh.add(new THREE.LineSegments(
+      new THREE.EdgesGeometry(mesh.geometry),
+      new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity })));
+    return mesh;
+  };
+  function textSprite(text, cssColor, worldH = 0.2) {
+    const c = document.createElement("canvas");
+    const fs = 34, pad = 6;
+    const g = c.getContext("2d");
+    g.font = fs + "px system-ui, sans-serif";
+    c.width = Math.ceil(g.measureText(text).width) + pad * 2;
+    c.height = fs + pad * 2;
+    g.font = fs + "px system-ui, sans-serif";     // canvas resize reset the state
+    g.fillStyle = cssColor;
+    g.textBaseline = "middle";
+    g.fillText(text, pad, c.height / 2);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+    s.scale.set(worldH * c.width / c.height, worldH, 1);
+    s.renderOrder = 5;
+    return s;
+  }
+  const setPose = (obj, R, p = [0, 0, 0]) => {   // row-major 3x3 + position
+    obj.matrix.set(R[0][0], R[0][1], R[0][2], p[0],
+                   R[1][0], R[1][1], R[1][2], p[1],
+                   R[2][0], R[2][1], R[2][2], p[2],
+                   0, 0, 0, 1);
+  };
+
+  /* ---------- UI board ---------- */
+  const boardGroup = new THREE.Group();       // pose = state.Rb (IMU pose)
+  boardGroup.matrixAutoUpdate = false;
+  const boardBody = new THREE.Group();        // board coords -> IMU coords (per rev)
+  boardBody.matrixAutoUpdate = false;
+  boardGroup.add(boardBody);
+
+  boardBody.add(edged(box(1.04, 1.9, 0.12, 0x232834)));
+  const bezel = edged(box(0.76, 0.44, 0.014, 0x0a121c), 0.35);
+  bezel.position.set(0, -0.64, 0.066);
+  boardBody.add(bezel);
+  const glass = box(0.68, 0.36, 0.012, 0x16283c, { emissive: 0x0d2036 });
+  glass.position.set(0, -0.64, 0.076);
+  boardBody.add(glass);
+  for (let r = 0; r < 3; r++)                 // keypad 3x4
+    for (let c = 0; c < 4; c++) {
+      const k = edged(box(0.2, 0.2, 0.024, 0x3a4250), 0.35);
+      k.position.set(-0.28 + r * 0.28, -0.08 + c * 0.28, 0.068);
+      boardBody.add(k);
+    }
+  const chip = edged(box(0.14, 0.14, 0.032, 0x0e0e10), 0.8);   // BNO055
+  chip.position.set(0.37, 0.17, 0.068);
+  boardBody.add(chip);
+  const screenLabel = textSprite("screen", "#7fa6c9");
+  screenLabel.position.set(0, -0.64, 0.22);
+  boardBody.add(screenLabel);
+  const boardLabel = textSprite("UI board", "#9aa5b1");
+  boardLabel.position.set(0, 0.55, -0.35);
+  boardBody.add(boardLabel);
+
+  const imuTriad = new THREE.Group();         // IMU axes == boardGroup local axes
+  ["x_imu", "y_imu", "z_imu"].forEach((name, i) => {
+    const dir = new THREE.Vector3(+(i === 0), +(i === 1), +(i === 2));
+    imuTriad.add(new THREE.ArrowHelper(dir, new THREE.Vector3(), 0.85, AXIS_HEX[i], 0.16, 0.08));
+    const s = textSprite(name, AXIS_CSS[i]);
+    s.position.copy(dir).multiplyScalar(1.05);
+    imuTriad.add(s);
+  });
+  boardGroup.add(imuTriad);
+  scene.add(boardGroup);
+
+  /* ---------- camera module (module/sensor coords) ---------- */
+  const moduleGroup = new THREE.Group();      // pose = state.Rm
+  moduleGroup.matrixAutoUpdate = false;
+  const modBody = edged(box(0.84, 0.84, 0.26, 0x2a2f38));
+  modBody.position.z = -0.03;
+  moduleGroup.add(modBody);
+  const barrel = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.24, 0.24, 0.46, 8),
+    new THREE.MeshPhongMaterial({ color: 0x1a1f26, flatShading: true }));
+  barrel.rotation.x = Math.PI / 2;            // cylinder +y -> +z (boresight)
+  barrel.position.z = 0.33;
+  moduleGroup.add(barrel);
+  const lens = new THREE.Mesh(new THREE.CircleGeometry(0.24, 8),
+    new THREE.MeshBasicMaterial({ color: 0x05070a }));
+  lens.position.z = 0.561;
+  moduleGroup.add(lens);
+  const ribbon = box(0.36, 0.3, 0.012, 0xa8875a);   // ribbon out -y (raw-bottom)
+  ribbon.position.set(0, -0.57, -0.03);
+  moduleGroup.add(ribbon);
+  moduleGroup.add(new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0),
+    new THREE.Vector3(0, 0.46, 0), 0.49, 0xc8b06a, 0.14, 0.07));
+  const rawUpLabel = textSprite("sensor top (raw up)", "#c8b06a");
+  rawUpLabel.position.set(0, 1.1, 0);
+  moduleGroup.add(rawUpLabel);
+  const ribbonLabel = textSprite("ribbon", "#a8875a");
+  ribbonLabel.position.set(0, -0.66, -0.2);
+  moduleGroup.add(ribbonLabel);
+  const moduleLabel = textSprite("camera module", "#9aa5b1");
+  moduleLabel.position.set(0, 0.42, -0.52);
+  moduleGroup.add(moduleLabel);
+  scene.add(moduleGroup);
+
+  /* ---------- camera frame triad (after rotate_amount), dashed ---------- */
+  function dashedArrow(len, hex) {
+    const g = new THREE.Group();
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(
+        [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, len - 0.16)]),
+      new THREE.LineDashedMaterial({ color: hex, dashSize: 0.09, gapSize: 0.055 }));
+    line.computeLineDistances();
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.16, 12),
+      new THREE.MeshBasicMaterial({ color: hex }));
+    head.rotation.x = Math.PI / 2;
+    head.position.z = len - 0.08;
+    g.add(line, head);
+    return g;
+  }
+  const camTriad = new THREE.Group();         // pose = state.Rm · Rz(rho)
+  camTriad.matrixAutoUpdate = false;
+  [["x_cam", 1.0], ["y_cam (image up)", 1.0], ["z_cam (boresight)", 1.45]]
+    .forEach(([name, len], i) => {
+      const dir = new THREE.Vector3(+(i === 0), +(i === 1), +(i === 2));
+      const a = dashedArrow(len, AXIS_HEX[i]);
+      a.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+      const s = textSprite(name, AXIS_CSS[i]);
+      s.position.copy(dir).multiplyScalar(len + 0.18);
+      camTriad.add(a, s);
+    });
+  scene.add(camTriad);
+
+  /* ---------- world triad overlay (bottom-left corner) ---------- */
+  const axScene = new THREE.Scene();
+  const axHelper = new THREE.AxesHelper(1);
+  axHelper.setColors(new THREE.Color(AXIS_HEX[0]), new THREE.Color(AXIS_HEX[1]),
+    new THREE.Color(AXIS_HEX[2]));
+  axScene.add(axHelper);
+  [["X", [1.3, 0, 0]], ["Y", [0, 1.3, 0]], ["Z (up)", [0, 0, 1.35]]].forEach(([t, p]) => {
+    const s = textSprite(t, "#5b6673", 0.42);
+    s.position.set(p[0], p[1], p[2]);
+    axScene.add(s);
+  });
+  const axCam = new THREE.OrthographicCamera(-1.8, 1.8, 1.8, -1.8, 0.1, 10);
+
+  function renderScene() {
+    setPose(boardGroup, state.Rb, BOARD_POS);
+    setPose(boardBody, state.rev === 3 ? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] : REV4_M);
+    chip.position.z = state.rev === 3 ? 0.068 : -0.068;   // rev-4: back face
+    imuTriad.position.set(state.rev === 3 ? 0.37 : -0.37, 0.17, 0.07);
+    setPose(moduleGroup, state.Rm, MOD_POS);
+    setPose(camTriad, mul(state.Rm, rotAxis(2, state.rho)), MOD_POS);
+
+    const yaw = view.yaw * Math.PI / 180, pitch = view.pitch * Math.PI / 180;
+    const fwd = new THREE.Vector3(
+      Math.sin(yaw) * Math.cos(pitch), Math.cos(yaw) * Math.cos(pitch), -Math.sin(pitch));
+    const dist = (CH / view.scale) / (2 * Math.tan(cam.fov * Math.PI / 360));
+    cam.position.copy(fwd).multiplyScalar(-dist);
+    cam.lookAt(0, 0, 0);
+
+    renderer.setViewport(0, 0, CW, CH);
+    renderer.setScissorTest(false);
+    renderer.clear();
+    renderer.render(scene, cam);
+
+    axCam.position.copy(fwd).multiplyScalar(-3);
+    axCam.up.set(0, 0, 1);
+    axCam.lookAt(0, 0, 0);
+    renderer.setViewport(12, 12, 96, 96);
+    renderer.setScissor(12, 12, 96, 96);
+    renderer.setScissorTest(true);
+    renderer.clearDepth();
+    renderer.render(axScene, axCam);
+    renderer.setScissorTest(false);
+  }
+  window.SceneRenderer = { render: renderScene };
+
+  /* ---------- view manipulation (same feel as the old renderer) ---------- */
+  let drag = null;
+  canvas.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener("pointermove", e => {
+    if (!drag) return;
+    view.yaw += (e.clientX - drag.x) * 0.45;
+    view.pitch = Math.max(-89, Math.min(89, view.pitch - (e.clientY - drag.y) * 0.45));
+    drag = { x: e.clientX, y: e.clientY };
+    renderScene();
+  });
+  canvas.addEventListener("pointerup", () => (drag = null));
+  canvas.addEventListener("wheel", e => {
+    e.preventDefault();
+    view.scale = Math.max(45, Math.min(260, view.scale * (e.deltaY > 0 ? 0.9 : 1.1)));
+    renderScene();
+  }, { passive: false });
+  canvas.addEventListener("dblclick", () => { view.yaw = -35; view.pitch = -25; view.scale = 118; renderScene(); });
+
+  renderScene();
+})();
+</script>
+</body>
+</html>
