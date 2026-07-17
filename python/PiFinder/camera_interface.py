@@ -37,6 +37,76 @@ logger = logging.getLogger("Camera.Interface")
 # daylight while still usable for framing a distant object.
 DAYTIME_AE_FALLBACK_EXPOSURE = 1000  # microseconds
 
+# Driver metadata keys copied into each sweep frame's per-image JSON: the
+# exposure/gain actually applied plus every thermal and black-level signal
+# the sensor reports. Missing keys are recorded as null so files stay
+# comparable across camera types.
+SWEEP_FRAME_METADATA_KEYS = (
+    "ExposureTime",
+    "AnalogueGain",
+    "DigitalGain",
+    "SensorTemperature",
+    "SensorBlackLevels",
+    "ColourGains",
+    "Lux",
+    "FrameDuration",
+)
+
+
+def _json_safe(value):
+    """Coerce picamera2 metadata values (numpy scalars, tuples) to JSON types."""
+    if isinstance(value, (tuple, list)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)
+
+
+def sweep_frame_record(index, exp_us, driver_metadata, raw_frame, bit_depth):
+    """Build one sweep image's metadata record: the camera settings actually
+    applied (from driver metadata) plus ADU statistics of the raw frame as
+    saved in the TIFF (pre-bias-subtraction)."""
+    camera_metadata = {
+        key: _json_safe(driver_metadata.get(key)) if driver_metadata else None
+        for key in SWEEP_FRAME_METADATA_KEYS
+    }
+    record = {
+        "index": index,
+        "requested_exposure_us": exp_us,
+        "exp_ms": exp_us / 1000,
+        "sensor_temp_c": camera_metadata["SensorTemperature"],
+        "captured_at": timez.local_now().isoformat(),
+        "camera_metadata": camera_metadata,
+    }
+    if raw_frame is not None:
+        frame = raw_frame.astype(np.float64)
+        p = np.percentile(frame, [1, 5, 25, 50, 75, 95, 99])
+        record["raw_stats"] = {
+            "mean_adu": float(frame.mean()),
+            "median_adu": float(p[3]),
+            "std_adu": float(frame.std()),
+            "min_adu": float(frame.min()),
+            "max_adu": float(frame.max()),
+            "percentiles_adu": {
+                "p01": float(p[0]),
+                "p05": float(p[1]),
+                "p25": float(p[2]),
+                "p75": float(p[4]),
+                "p95": float(p[5]),
+                "p99": float(p[6]),
+            },
+        }
+        if bit_depth:
+            record["raw_stats"]["saturated_fraction"] = float(
+                np.mean(raw_frame >= 2**bit_depth - 1)
+            )
+    return record
+
+
 # Software rotation applied to each raw capture before it reaches the solver
 # and the preview, keyed by screen_direction. Each entry is paired with that
 # variant's q_imu2cam in pointing_model/imu_dead_reckoning.py -- the camera
@@ -593,7 +663,7 @@ class CameraInterface:
                                     logger.warning("Invalid reference SQM in command")
 
                             logger.info(
-                                "Starting exposure sweep capture (100 image pairs)"
+                                "Starting exposure sweep capture (20 image pairs)"
                             )
                             console_queue.put("CAM: Starting sweep...")
 
@@ -679,20 +749,35 @@ class CameraInterface:
                                 )
                                 self.capture_raw_file(str(raw_filename))
 
-                                # Per-pair sensor die temperature: the black
-                                # level's suspected thermal driver, recorded so
-                                # a sweep resolves the pedestal-vs-temperature
-                                # relation frame by frame.
-                                sweep_frames.append(
-                                    {
-                                        "index": i,
-                                        "exp_ms": exp_ms,
-                                        "sensor_temp_c": getattr(
-                                            self, "last_sensor_temp", None
-                                        ),
-                                        "captured_at": timez.local_now().isoformat(),
-                                    }
+                                # Per-image metadata JSON alongside each
+                                # PNG/TIFF pair: applied exposure/gain, sensor
+                                # die temperature and black levels, and raw
+                                # ADU statistics, so a sweep resolves the
+                                # pedestal-vs-temperature relation frame by
+                                # frame.
+                                frame_record = sweep_frame_record(
+                                    i,
+                                    exp_us,
+                                    getattr(self, "last_raw_frame_metadata", None),
+                                    getattr(self, "last_raw_frame", None),
+                                    getattr(
+                                        getattr(self, "profile", None),
+                                        "bit_depth",
+                                        None,
+                                    ),
                                 )
+                                sweep_frames.append(frame_record)
+                                frame_meta_filename = (
+                                    sweep_dir
+                                    / f"img_{i:03d}_{exp_ms:.2f}ms_metadata.json"
+                                )
+                                try:
+                                    with open(frame_meta_filename, "w") as f:
+                                        json.dump(frame_record, f, indent=2)
+                                except OSError:
+                                    logger.exception(
+                                        "Failed to save per-image sweep metadata"
+                                    )
 
                                 logger.debug(
                                     f"Captured sweep images {i}/{num_images}: {exp_ms:.2f}ms (PNG+TIFF)"

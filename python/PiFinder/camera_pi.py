@@ -218,6 +218,12 @@ class CameraPI(CameraInterface):
         # Apply camera-specific crop and rotation (preserves Bayer pattern alignment)
         raw_capture = self.profile.crop_and_rotate(raw_capture)
 
+        # Expose this frame's driver metadata and cropped raw pixels so the
+        # sweep capture can record per-image radiometry (exposure sweeps are
+        # the only caller; both are overwritten on every raw capture).
+        self.last_raw_frame_metadata = metadata
+        self.last_raw_frame = raw_capture
+
         # Determine if we need to flag for debayering
         needs_debayer = False
 
