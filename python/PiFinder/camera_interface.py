@@ -83,6 +83,12 @@ def sweep_frame_record(index, exp_us, driver_metadata, raw_frame, bit_depth):
         "sensor_temp_c": camera_metadata["SensorTemperature"],
         "captured_at": timez.local_now().isoformat(),
         "camera_metadata": camera_metadata,
+        # Entire driver dict, uncurated: sensors differ in which keys they
+        # report (and under what names/types); archived sweeps must not be
+        # limited to today's whitelist when characterizing a new camera.
+        "camera_metadata_full": (
+            _json_safe(driver_metadata) if driver_metadata else None
+        ),
     }
     if raw_frame is not None:
         frame = raw_frame.astype(np.float64)
@@ -373,6 +379,9 @@ class CameraInterface:
                         "imu": imu_end,
                         "imu_delta": np.rad2deg(pointing_diff),
                         "exposure_time": self.exposure_time,
+                        "actual_exposure_us": (
+                            getattr(self, "last_frame_metadata", None) or {}
+                        ).get("ExposureTime"),
                         "gain": self.gain,
                         "sensor_temp_c": getattr(self, "last_sensor_temp", None),
                     }
@@ -616,6 +625,9 @@ class CameraInterface:
                                     "imu": capture_imu_end,
                                     "imu_delta": np.rad2deg(capture_pointing_diff),
                                     "exposure_time": self.exposure_time,
+                                    "actual_exposure_us": (
+                                        getattr(self, "last_frame_metadata", None) or {}
+                                    ).get("ExposureTime"),
                                     "gain": self.gain,
                                     "sensor_temp_c": getattr(
                                         self, "last_sensor_temp", None
@@ -771,13 +783,24 @@ class CameraInterface:
                                 # Live SQM pipeline state at this frame:
                                 # sqm_details carries the full rolling-window
                                 # dumps (black level, wings, clouds,
-                                # radiometer) published by the solver.
+                                # radiometer) published by the solver. The
+                                # solver starves during a sweep, so that
+                                # snapshot freezes — the camera-side radiometer
+                                # sample below does NOT: it is recomputed on
+                                # every capture and gives live per-frame
+                                # background/MAD/gradient through the sweep.
                                 try:
                                     frame_record["sqm_details"] = _json_safe(
                                         shared_state.sqm_details()
                                     )
                                 except Exception:
                                     frame_record["sqm_details"] = None
+                                try:
+                                    frame_record["radiometer_sample"] = _json_safe(
+                                        shared_state.sqm_radiometer_sample()
+                                    )
+                                except Exception:
+                                    frame_record["radiometer_sample"] = None
 
                                 sweep_frames.append(frame_record)
                                 frame_meta_filename = (
