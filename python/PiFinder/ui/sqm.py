@@ -36,9 +36,10 @@ class UISQM(UIModule):
             font=self.fonts.base,
         )
 
-        # Marking menu definition. CORRECT is the everyday action (set tonight's
-        # scale from a hand-held reference meter); CALIB (noise constants) and
-        # SWEEP (diagnostic exposure sweep) are occasional/expert tools.
+        # Marking menu definition. SWEEP holds the down slot — the position
+        # readable at the eyepiece without moving your head — because a sweep
+        # against a reference meter is the everyday measurement; CALIB (noise
+        # constants) is the occasional/expert tool.
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
                 label=_(
@@ -48,16 +49,11 @@ class UISQM(UIModule):
             ),
             down=MarkingMenuOption(
                 label=_(
-                    "CORRECT"
-                ),  # TRANSLATORS: Marking menu option to correct SQM against a reference meter
-                callback=self._launch_correct,
-            ),
-            right=MarkingMenuOption(
-                label=_(
                     "SWEEP"
                 ),  # TRANSLATORS: Marking menu option to launch SQM diagnostic exposure sweep
                 callback=self._launch_sqm_sweep,
             ),
+            right=MarkingMenuOption(),
         )
 
     def update(self, force=False):
@@ -251,15 +247,6 @@ class UISQM(UIModule):
                             font=self.fonts.base.font,
                             fill=self.colors.get(64),
                         )
-                    correct_delta = sqm_details.get("sqm_correct_delta", 0.0)
-                    if correct_delta:
-                        self.draw.text(
-                            (stars_x, detail_y),
-                            _("corr {d:+.2f}").format(d=correct_delta),
-                            font=self.fonts.base.font,
-                            fill=self.colors.get(128),
-                        )
-
                 # Bortle class
                 if details:
                     self.draw.text(
@@ -319,18 +306,6 @@ class UISQM(UIModule):
         """
         # Switch back to PID auto-exposure mode
         self.command_queues["camera"].put("set_ae_mode:pid")
-
-    def _launch_correct(self, marking_menu, selected_item):
-        """Launch the SQM correction entry (reference-meter offset)"""
-        from PiFinder.ui.sqm_correct import UISQMCorrect
-
-        correct_def = {
-            "name": _("SQM Correct"),
-            "class": UISQMCorrect,
-            "label": "sqm_correct",
-        }
-        self.add_to_stack(correct_def)
-        return True  # Exit marking menu
 
     def _launch_calibration(self, marking_menu, selected_item):
         """Launch the SQM calibration wizard"""
