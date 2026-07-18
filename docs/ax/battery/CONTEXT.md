@@ -25,8 +25,12 @@ The pinned reference workload under which runtime and the discharge curve are de
 _Avoid_: "average use" (unpinned, unmeasurable).
 
 **Cutoff voltage**:
-The battery voltage at which the hardware actually dies — the SYS boost loses regulation and the unit hard-powers-off, with no graceful shutdown. An observed property of the board + cell, not a chosen threshold. Anchors the discharge curve's 0%. In practice it is **not directly measurable**: it lies below the **ADC blind floor**, so no run ever records it.
-_Avoid_: "shutdown voltage" (implies software decides; nothing does).
+The battery voltage at which the hardware actually dies — the SYS boost loses regulation and the unit hard-powers-off, with no graceful shutdown. An observed property of the board + cell, not a chosen threshold. In practice it is **not directly measurable**: it lies below the **ADC blind floor**, so no run ever records it — which is why the **low-battery shutdown** preempts it and the discharge curve's 0% anchors to the blind floor instead (see [ADR 0021](../../adr/0021-blind-floor-shutdown.md)).
+_Avoid_: conflating with the **low-battery shutdown** (software, warned, at the blind floor — the cutoff is the hardware death it preempts).
+
+**Low-battery shutdown**:
+The software-initiated clean shutdown triggered by **sustained raw-0 battery-voltage reads while on battery** (the debounced signature of crossing the **ADC blind floor**) — see [ADR 0021](../../adr/0021-blind-floor-shutdown.md). The operational end of a discharge and the discharge curve's 0%. Triggered by the ADC-validity signal, never by the estimated **state of charge**; flows through the same chokepoint as a user shutdown (warning, SHUTDOWN earcon, GPIO14 latch). Never fires on external power.
+_Avoid_: "auto power-off" (vague), triggering language framed in SoC percentages (the trigger is a hardware-validity fact, not an estimate).
 
 **ADC blind floor** (~3.5 V):
 The battery voltage below which the BQ25895's one-shot ADC conversions stop completing: the ADC result registers read raw 0, which decodes to each field's *offset* (battery voltage 2.304 V, VBUS 2.6 V) — an artifact, not a measurement. Conversions fail intermittently just below the floor, then permanently. Observed at the same reading (3.504 V) on both rev-4 units in the first runtime-test campaign; the unit keeps running well past it (46–72 min under the typical load), so the final stretch of every discharge is **instrument-blind** — the field UI included. The charger's *status* bits (charge status, power source) are plain register reads, not conversions, and stay live below the floor. Everything below the floor — including the discharge curve's bottom knots — is extrapolation.
