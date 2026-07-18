@@ -394,7 +394,7 @@ class SharedStateObj:
 
     def battery(self):
         """Latest BatteryState, or None when no charger is present
-        (rev-3 hardware / monitor not running). None is distinct from a
+        (rev3 hardware / monitor not running). None is distinct from a
         low state_of_charge_pct -- see docs/ax/battery/CONTEXT.md."""
         return self.__battery
 

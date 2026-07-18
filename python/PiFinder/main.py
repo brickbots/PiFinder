@@ -531,7 +531,7 @@ def main(
         )
         imu_process.start()
 
-        # Battery monitor (rev-4 BQ25895 only; read-only telemetry)
+        # Battery monitor (rev4 BQ25895 only; read-only telemetry)
         if capabilities.has_bq25895:
             console.write("   Battery")
             logger.info("   Battery")
@@ -543,7 +543,7 @@ def main(
             )
             battery_process.start()
 
-        # Sound / earcons (rev-4 buzzer only; real hardware only — there is no
+        # Sound / earcons (rev4 buzzer only; real hardware only — there is no
         # PWM to drive under -fh, so dev stays silent and sound_queue is None).
         # request() no-ops on the None queue (see PiFinder.sound).
         sound_queue: Optional[Queue] = None
@@ -1108,7 +1108,7 @@ if __name__ == "__main__":
         "-fb",
         "--fakebattery",
         help="With --fakehardware, run the fake battery monitor "
-        "(rev-4 has_bq25895 capability, shows the battery indicator)",
+        "(rev4 has_bq25895 capability, shows the battery indicator)",
         default=False,
         action="store_true",
         required=False,
@@ -1200,8 +1200,8 @@ if __name__ == "__main__":
         imu = importlib.import_module("PiFinder.imu_fake")
         integrator = importlib.import_module("PiFinder.integrator")
         gps_monitor = importlib.import_module("PiFinder.gps_fake")
-        # -fh alone emulates rev-3 hardware (no battery indicator, keeps
-        # docs screenshots consistent); add -fb to emulate the rev-4 BQ25895
+        # -fh alone emulates rev3 hardware (no battery indicator, keeps
+        # docs screenshots consistent); add -fb to emulate the rev4 BQ25895
         # and run the fake battery monitor. has_buzzer is set for
         # consistency, but the sound process is gated on real hardware
         # (hardware_platform == "Pi") and so stays unspawned here — dev has
@@ -1221,7 +1221,7 @@ if __name__ == "__main__":
         capabilities = hardware_detect.detect_capabilities()
 
         if capabilities.has_bq25895:
-            # BQ25895 is actually present (rev-4 hardware).
+            # BQ25895 is actually present (rev4 hardware).
             battery = importlib.import_module("PiFinder.battery_bq25895")
             display_hardware = "ssd1333"
         else:

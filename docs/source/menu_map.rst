@@ -260,7 +260,7 @@ Advanced
 
    PiFinder Type
       Which physical configuration you have — Left, Right, Straight, Flat v3,
-      Flat v2, AS Bloom, AS Heart, V4 Left, V4 Right, or V4 Straight.
+      Flat v2, AS Bloom, AS Heart, Rev4 Left, Rev4 Right, or Rev4 Straight.
       Restarts the PiFinder.
    Camera Type
       Which camera sensor is fitted — v2 (imx477), v3 (imx296), or v3 (imx462).
