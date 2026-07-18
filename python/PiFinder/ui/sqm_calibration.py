@@ -17,6 +17,7 @@ The wizard guides the user through lens cap placement and displays progress.
 """
 
 import copy
+import json
 import time
 import os
 import logging
@@ -32,7 +33,7 @@ from PiFinder.solver import (
 from PiFinder.types.positioning import PointingEstimate, ReloadSqmCalibration
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
-from PiFinder import timez
+from PiFinder import timez, utils
 
 logger = logging.getLogger("PiFinder.SQMCalibration")
 
@@ -83,6 +84,11 @@ class UISQMCalibration(UIModule):
         self.bias_frames_raw: List[np.ndarray] = []
         self.dark_frames_raw: List[np.ndarray] = []
         self.dark_frame_exposures_sec: List[float] = []
+        # Per-frame capture records persisted in the calibration report JSON:
+        # the fitted scalars alone cannot reveal ramp curvature (short-exposure
+        # pedestal elevation) or wrong-exposure frames after the fact.
+        self.report_bias_frames: List[dict] = []
+        self.report_dark_frames: List[dict] = []
         self.sky_frames_raw: List[np.ndarray] = []
 
         # Store solution for each sky frame (needed for SQM calculation)
@@ -120,6 +126,8 @@ class UISQMCalibration(UIModule):
         self.bias_frames_raw = []
         self.dark_frames_raw = []
         self.dark_frame_exposures_sec = []
+        self.report_bias_frames = []
+        self.report_dark_frames = []
         self.sky_frames_raw = []
         self.sky_solutions = []
         self.bias_offset_raw = None
@@ -562,6 +570,7 @@ class UISQMCalibration(UIModule):
         raw_array = self.shared_state.cam_raw()
         if raw_array is not None:
             self.bias_frames_raw.append(raw_array.copy())
+            self.report_bias_frames.append(self._frame_report(raw_array, 1))
 
         self.current_frame += 1
 
@@ -582,8 +591,12 @@ class UISQMCalibration(UIModule):
             self.dark_frame_exposures_sec = []
 
         # A single nonzero exposure cannot separate slope from an offset
-        # error. Span one decade up to the normal calibration exposure.
-        minimum_exposure_us = max(1000, int(self.exposure_time_us / 10))
+        # error. Span down to (near) the sensor minimum: the short-exposure
+        # region is where clamp-driven pedestal elevation lives (measured on
+        # the imx462: +2.9 ADU at 25 ms decaying to 0 at ~300 ms), and a
+        # one-decade ramp cannot see it. The driver clamps too-short requests;
+        # the report records the ACTUAL delivered exposure either way.
+        minimum_exposure_us = max(100, int(self.exposure_time_us / 5000))
         exposure_schedule_us = np.geomspace(
             minimum_exposure_us,
             self.exposure_time_us,
@@ -609,7 +622,16 @@ class UISQMCalibration(UIModule):
         raw_array = self.shared_state.cam_raw()
         if raw_array is not None:
             self.dark_frames_raw.append(raw_array.copy())
-            self.dark_frame_exposures_sec.append(exposure_us / 1_000_000.0)
+            report = self._frame_report(raw_array, exposure_us)
+            self.report_dark_frames.append(report)
+            # Fit against the exposure the driver says it delivered, not the
+            # request: the imx477 intermittently delivers frames at half the
+            # requested exposure (insufficient settle after an exposure
+            # change), which silently corrupts a requested-exposure fit.
+            actual_us = report.get("actual_exposure_us")
+            self.dark_frame_exposures_sec.append(
+                (actual_us if actual_us else exposure_us) / 1_000_000.0
+            )
 
         self.current_frame += 1
 
@@ -734,8 +756,9 @@ class UISQMCalibration(UIModule):
             # 4. Calculate SQM for sky frames using the new calibration
             self._calculate_sky_sqm(exposure_sec)
 
-            # 5. Save the raw-sensor calibration.
+            # 5. Save the raw-sensor calibration and the per-frame report.
             self._save_calibration()
+            self._save_calibration_report()
 
             # Move to results
             self.state = CalibrationState.RESULTS
@@ -916,6 +939,54 @@ class UISQMCalibration(UIModule):
 
             traceback.print_exc()
             self.sqm_median = None
+
+    def _frame_report(self, raw_array, requested_exposure_us: int) -> dict:
+        """Per-frame record for the calibration report JSON (units in names)."""
+        metadata = self.shared_state.last_image_metadata() or {}
+        arr = np.asarray(raw_array)
+        return {
+            "requested_exposure_us": int(requested_exposure_us),
+            "actual_exposure_us": metadata.get("actual_exposure_us"),
+            "sensor_temp_c": metadata.get("sensor_temp_c"),
+            "median_adu": float(np.median(arr)),
+            "mad_adu": float(np.median(np.abs(arr - np.median(arr)))),
+            "p01_adu": float(np.percentile(arr, 1)),
+            "p99_adu": float(np.percentile(arr, 99)),
+        }
+
+    def _save_calibration_report(self):
+        """Persist the per-frame evidence beside the fitted scalars.
+
+        The calibration JSON keeps only three fitted numbers; this report
+        keeps the ramp itself, so short-exposure curvature, wrong-exposure
+        frames, and temperature context stay analyzable after the fact.
+        Best-effort: a report failure must never fail the wizard.
+        """
+        try:
+            camera_type = self.shared_state.camera_type()
+            stamp = timez.local_now().strftime("%Y%m%d_%H%M%S")
+            path = os.path.join(
+                str(utils.data_dir),
+                f"sqm_calibration_report_{camera_type}_{stamp}.json",
+            )
+            payload = {
+                "camera_type": camera_type,
+                "timestamp": timez.local_now().isoformat(),
+                "fitted": {
+                    "bias_offset_adu": self.bias_offset_raw,
+                    "read_noise_adu": self.read_noise_raw,
+                    "dark_current_rate_adu_per_sec": self.dark_current_rate_raw,
+                },
+                "bias_frames": self.report_bias_frames,
+                "dark_frames": self.report_dark_frames,
+                "dark_fit_exposures_sec": list(self.dark_frame_exposures_sec),
+                "num_frames_per_stage": self.num_frames,
+            }
+            with open(path, "w") as handle:
+                json.dump(payload, handle, indent=2, default=str)
+            logger.info("Saved calibration report to %s", path)
+        except Exception as exc:
+            logger.warning("Could not save calibration report: %s", exc)
 
     def _save_calibration(self):
         """Save the measured raw calibration for the camera profile"""

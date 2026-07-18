@@ -190,6 +190,28 @@ class CloudEstimator:
         """Whether this session has established its own clear baseline."""
         return len(self._clear_zp) >= self.min_samples
 
+    def dump(self) -> dict:
+        """Full JSON-serializable window state for diagnostics/sweeps."""
+        return {
+            "baseline": self.baseline(),
+            "clear_sky_level": self.clear_sky_level(),
+            "deficit": self._deficit,
+            "is_cloudy": self.is_cloudy(),
+            "conditioned": self.conditioned(),
+            "config": {
+                "clear_zero_point_seed": self.clear_zero_point,
+                "clear_sky_brightness_seed": self.clear_sky_brightness,
+                "max_samples": self.max_samples,
+                "min_samples": self.min_samples,
+                "smooth_samples": self.smooth_samples,
+                "cloud_threshold": self.cloud_threshold,
+                "sky_excess_gate": self.sky_excess_gate,
+            },
+            "recent_normalized_zp": list(self._recent),
+            "clear_zp_window": list(self._clear_zp),
+            "clear_sky_window": list(self._clear_sky),
+        }
+
     def reset(self) -> None:
         self._recent.clear()
         self._clear_zp.clear()

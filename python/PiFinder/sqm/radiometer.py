@@ -185,6 +185,18 @@ class RadiometerAccumulator:
         )
         return value, latest
 
+    def dump(self) -> dict:
+        """Full JSON-serializable window state for diagnostics/sweeps."""
+        return {
+            "n_samples": len(self._samples),
+            "last_sequence": self._last_sequence,
+            "config": {
+                "max_samples": self.max_samples,
+                "max_age_seconds": self.max_age_seconds,
+            },
+            "samples": [dict(s) for s in self._samples],
+        }
+
     def reset(self) -> None:
         self._samples.clear()
         self._last_sequence = None

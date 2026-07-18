@@ -168,6 +168,15 @@ def integrator(
             if imu:
                 telemetry.record_imu(imu)
 
+            # 2b. Record the camera-side radiometer sample (exposure, sky
+            #     background, MAD, quadrant gradient). record_radio dedupes
+            #     on frame sequence, rate-limits to ~1 Hz, and is a no-op
+            #     while replaying or when recording is off.
+            try:
+                telemetry.record_radio(shared_state.sqm_radiometer_sample())
+            except (BrokenPipeError, ConnectionResetError, AttributeError):
+                pass
+
             # If we have an anchor and didn't just do a fresh plate-solve,
             # try to advance the estimate via IMU dead-reckoning.
             if (

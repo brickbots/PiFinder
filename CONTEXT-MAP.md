@@ -12,7 +12,6 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - [Camera](./docs/ax/camera/CONTEXT.md) — captures frames and decides exposure: the three exposure regimes, the auto-exposure controllers, and zero-match recovery.
 - [Battery](./docs/ax/battery/CONTEXT.md) — reads battery voltage and charge state from the rev-4 BQ25895 charger and publishes `BatteryState`; read-only telemetry, gated on hardware presence.
 - [Sound](./docs/ax/sound/CONTEXT.md) — turns named events into short **earcons** on the rev-4 passive buzzer (hardware PWM ch0, GPIO12); best-effort, fire-and-forget feedback, gated on hardware presence.
-- [NixOS](./docs/ax/nixos/CONTEXT.md) — how a NixOS PiFinder is built, published, and updated over the air: the Attic cache, the stable/beta/unstable channels, and the on-device upgrade flow. Cross-cutting infrastructure, not a runtime slice.
 
 ## Relationships
 
@@ -31,7 +30,6 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - **Sound → shutdown**: the shutdown chokepoint (`callbacks.shutdown`) plays `SHUTDOWN` and waits its catalog duration + margin **before** triggering the GPIO14 power latch (see [ADR 0007](./docs/adr/0007-gpio-poweroff-latch.md)), so the cue isn't cut off by power-down.
 
 Companion architecture docs live next to each `CONTEXT.md`:
-- [`docs/ax/nixos.md`](./docs/ax/nixos.md)
 - [`docs/ax/catalog.md`](./docs/ax/catalog.md)
 - [`docs/ax/positioning.md`](./docs/ax/positioning.md)
 - [`docs/ax/sqm.md`](./docs/ax/sqm.md)

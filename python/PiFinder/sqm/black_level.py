@@ -27,6 +27,7 @@ gate rejects. The caller additionally withholds samples taken through cloud
 """
 
 import logging
+import time
 from collections import deque
 from typing import Optional, Tuple
 
@@ -44,8 +45,9 @@ class BlackLevelTracker:
         min_samples: int = 12,
         max_samples: int = 60,
         min_exposure_ratio: float = 1.5,
-        max_intercept_stderr: float = 1.0,
+        max_intercept_stderr: float = 0.6,
         max_offset_deviation: float = 12.0,
+        max_age_seconds: float = 900.0,
     ):
         """
         Args:
@@ -62,15 +64,22 @@ class BlackLevelTracker:
             max_offset_deviation: reject a fitted pedestal further than this
                 (ADU) from the profile constant — a guard against a
                 pathological fit driving the pedestal to nonsense.
+            max_age_seconds: an accepted pedestal expires after this long
+                without a fresh accepting refit. Prevents one plausible-but-
+                wrong fit (e.g. accepted through smooth cloud drift, observed
+                2026-07-17) from ruling a whole session; expiry falls back to
+                the profile constant.
         """
         self.bias_offset = bias_offset
         self.min_samples = min_samples
         self.min_exposure_ratio = min_exposure_ratio
         self.max_intercept_stderr = max_intercept_stderr
         self.max_offset_deviation = max_offset_deviation
+        self.max_age_seconds = max_age_seconds
         self._samples: deque = deque(maxlen=max_samples)
         self._pedestal: Optional[float] = None
         self._stderr: Optional[float] = None
+        self._accepted_at: Optional[float] = None
 
     def add_sample(
         self,
@@ -133,9 +142,20 @@ class BlackLevelTracker:
             return
         self._pedestal = float(intercept)
         self._stderr = stderr
+        self._accepted_at = time.monotonic()
 
     def pedestal(self) -> Optional[float]:
-        """Current fitted black level (ADU), or None until a confident fit."""
+        """Current fitted black level (ADU), or None until a confident fit.
+
+        An accepted fit is a lease, not a latch: unless a fresh fit passes
+        within ``max_age_seconds`` its evidence has aged out of the window
+        unreplaced, and callers fall back to the profile constant — the same
+        state every session starts in.
+        """
+        if self._pedestal is None or self._accepted_at is None:
+            return None
+        if time.monotonic() - self._accepted_at > self.max_age_seconds:
+            return None
         return self._pedestal
 
     def stderr(self) -> Optional[float]:
@@ -146,7 +166,32 @@ class BlackLevelTracker:
         """(pedestal, stderr, n_samples) for diagnostics."""
         return self._pedestal, self._stderr, len(self._samples)
 
+    def dump(self) -> dict:
+        """Full JSON-serializable window state for diagnostics/sweeps."""
+        return {
+            "pedestal": self.pedestal(),
+            "stderr": self._stderr,
+            "n_samples": len(self._samples),
+            "age_seconds": (
+                time.monotonic() - self._accepted_at
+                if self._accepted_at is not None
+                else None
+            ),
+            "config": {
+                "bias_offset": self.bias_offset,
+                "min_samples": self.min_samples,
+                "max_samples": self._samples.maxlen,
+                "min_exposure_ratio": self.min_exposure_ratio,
+                "max_intercept_stderr": self.max_intercept_stderr,
+                "max_offset_deviation": self.max_offset_deviation,
+                "max_age_seconds": self.max_age_seconds,
+            },
+            "samples_exposure_sec": [s[0] for s in self._samples],
+            "samples_background_per_pixel": [s[1] for s in self._samples],
+        }
+
     def reset(self) -> None:
         self._samples.clear()
         self._pedestal = None
         self._stderr = None
+        self._accepted_at = None

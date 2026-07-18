@@ -96,7 +96,6 @@ def test_solver_publishes_radiometer_without_solution(monkeypatch):
     shared = MagicMock()
     shared.sqm.return_value = SimpleNamespace(last_update=None)
     shared.sqm_details.return_value = {}
-    shared.sqm_correct_delta.return_value = 0.0
     calc = MagicMock()
     calc.profile = get_camera_profile("imx462")
     calc.noise_floor_estimator.dark_current_calibrated = False
@@ -130,7 +129,6 @@ def test_recent_conditioned_optics_deficit_corrects_radiometer(monkeypatch):
         "transmission_deficit": 0.7,
         "transmission_diagnostic_at": 99.0,
     }
-    shared.sqm_correct_delta.return_value = 0.0
     calc = MagicMock()
     calc.profile = get_camera_profile("imx462")
     calc.noise_floor_estimator.dark_current_calibrated = False

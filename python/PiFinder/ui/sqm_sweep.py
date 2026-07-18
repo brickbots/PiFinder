@@ -241,10 +241,36 @@ class UISQMSweep(UIModule):
             fill=self.colors.get(128),
         )
 
-        # Auto-complete when all files captured
+        # Auto-complete when all images are captured AND the camera process
+        # has written sweep_metadata.json -- it lands a few seconds after the
+        # last image (settings restore, GPS/solve gathering), and enriching
+        # before it exists silently updates nothing. The timeout covers a
+        # camera process that dies mid-sweep and never writes the file.
         if file_count >= self.total_images:
-            self._add_detailed_metadata()
-            self.state = SweepState.COMPLETE
+            metadata_ready = self._sweep_metadata_file() is not None
+            timed_out = time.time() - self.start_time > self.estimated_duration * 3
+            if metadata_ready or timed_out:
+                self._add_detailed_metadata()
+                self.state = SweepState.COMPLETE
+
+    def _sweep_metadata_file(self):
+        """Path of this sweep's sweep_metadata.json once the camera process
+        has written it, else None."""
+        try:
+            captures_dir = Path(utils.data_dir) / "captures"
+            sweep_dirs = [
+                d
+                for d in captures_dir.glob("sweep_*")
+                if d.stat().st_ctime >= (self.start_time - 1)
+            ]
+            if not sweep_dirs:
+                return None
+            metadata_file = (
+                max(sweep_dirs, key=lambda p: p.stat().st_ctime) / "sweep_metadata.json"
+            )
+            return metadata_file if metadata_file.exists() else None
+        except OSError:
+            return None
 
     def _get_sweep_files_since_start(self):
         """Count PNG files in sweep directory created after we started"""
@@ -373,9 +399,10 @@ class UISQMSweep(UIModule):
             except Exception as e:
                 logger.warning(f"Could not record noise-floor metadata: {e}")
 
-            # Save updated metadata
+            # Save updated metadata (default=str: sqm_details can carry the
+            # odd non-JSON scalar and must never abort the whole enrichment)
             with open(metadata_file, "w") as f:
-                json.dump(metadata, f, indent=2)
+                json.dump(metadata, f, indent=2, default=str)
 
             logger.info(f"Added detailed metadata to {metadata_file}")
 
