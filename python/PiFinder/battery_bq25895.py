@@ -170,7 +170,9 @@ CONV_TIMEOUT = 2.0
 CONV_POLL_INTERVAL = 0.01
 
 # Piecewise-linear state-of-charge curve: (battery_voltage_V, percent).
-# A coarse Li-ion estimate, tunable later with real PiFinder-load data.
+# Percent means "fraction of typical-load runtime remaining", not capacity
+# (see docs/adr/0020-soc-as-runtime-fraction.md). These knots are still the
+# generic Li-ion placeholder; measured knots from bench discharge runs pend.
 SOC_LUT = [
     (3.00, 0),
     (3.30, 5),

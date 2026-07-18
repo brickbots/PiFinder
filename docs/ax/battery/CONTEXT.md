@@ -13,8 +13,20 @@ The measured single-cell Li-ion terminal voltage, in volts. The **canonical** ba
 _Avoid_: "battery level" (ambiguous — see Flagged ambiguities), "charge level".
 
 **State of charge** (a.k.a. battery percent):
-A coarse 0–100% **estimate** derived from battery voltage through a fixed Li-ion discharge curve. UI-only, never a control input, and **undefined while charging** (the charger pulls the terminal voltage up, so a percentage would lie) — represented as `None` in that case.
-_Avoid_: treating it as a measured quantity, "fuel gauge" (there isn't one), "battery level".
+A coarse 0–100% **estimate of the fraction of typical-load runtime remaining**, derived from battery voltage through the **discharge curve** — see [ADR 0020](../../adr/0020-soc-as-runtime-fraction.md). It answers "how much longer will it run?", *not* "what fraction of the cell's capacity is left" (capacity fraction is unmeasurable on this hardware). UI-only, never a control input, and **undefined while charging** (the charger pulls the terminal voltage up, so a percentage would lie) — represented as `None` in that case.
+_Avoid_: treating it as a measured quantity, "capacity fraction", "fuel gauge" (there isn't one), "battery level".
+
+**Discharge curve**:
+The measured relationship between battery voltage and remaining-runtime fraction under the **typical load**, captured by bench **runtime tests** (full charge → hard cutoff). The source of the state-of-charge lookup knots. Anchored at both ends by real events: 100% is the under-load voltage right after unplugging a fully charged unit; 0% is the **cutoff voltage**.
+_Avoid_: textbook Li-ion capacity curves (different x-axis), "battery curve" (vague).
+
+**Typical load**:
+The pinned reference workload under which runtime and the discharge curve are defined: continuous capture-and-solve with the screen on and display sleep off. Runtime claims and state-of-charge percentages are statements *about this load*; lighter real-world use (e.g. display asleep between looks) runs longer than the estimate says.
+_Avoid_: "average use" (unpinned, unmeasurable).
+
+**Cutoff voltage**:
+The battery voltage at which the hardware actually dies — the SYS boost loses regulation and the unit hard-powers-off, with no graceful shutdown. An observed property of the board + cell, not a chosen threshold. Anchors the discharge curve's 0%.
+_Avoid_: "shutdown voltage" (implies software decides; nothing does).
 
 **Charge status**:
 Which charge phase the charger reports: **Not charging / Pre-charge / Charging (fast) / Charged (done)**. A property of the charger's state machine, distinct from whether external power is present.
@@ -51,6 +63,7 @@ _Avoid_: calling it a "shutdown command" (it's a hardware kill line, not a sysca
 ## Flagged ambiguities
 
 - **"battery level"** (bare) — do not use. It conflates the *measured* **battery voltage** with the *estimated* **state of charge**. Name one: voltage (measured, canonical) or state-of-charge % (estimated, UI-only, `None` while charging).
+- **State of charge is a runtime fraction, not a capacity fraction** — the BQ25895 measures charge current only (no discharge current, no coulomb counter), so "% of capacity left" cannot be measured; "% of typical-load runtime left" can (see ADR 0020). Don't describe the percentage in capacity terms.
 - **`power_state` / `PowerManager`** — these are the **display sleep/wake** concept (`0`=sleep, `1`=awake) and have **nothing** to do with the battery or charger. The Battery context deliberately uses the `battery_` prefix to avoid this collision. Never reach for `power_*` names in charger code.
 - **"charging" vs "on external power"** — separate facts. Charge status reports the charger's phase; power source reports whether input power is present. A unit on external power with a full cell is "on external power, not charging".
 - **`BatteryState` is `None` vs 0%** — `None` means *no charger detected* (rev-3 board, monitor not running); a real `BatteryState` with a low `state_of_charge_pct` means *detected and nearly empty*. Consumers must distinguish "no battery hardware" from "empty battery".
