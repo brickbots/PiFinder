@@ -2,7 +2,7 @@
 
 The state-of-charge percentage shown in the UI is defined as the **expected fraction of typical-load runtime remaining**, and its voltage→percent lookup (`SOC_LUT` in `battery_bq25895.py`) is to be derived from **measured bench discharge runs** of real PiFinder rev-4 units — not from a textbook Li-ion capacity curve.
 
-Status: methodology decided and the CONTEXT.md terms sharpened now; the measured knots land in a later change once the first runtime-test campaign completes. Until then the shipped LUT is unchanged (generic Li-ion folklore, annotated as such in the code).
+Status: methodology decided and the CONTEXT.md terms sharpened now; the measured knots land in a later change once the first runtime-test campaign completes. Until then the shipped LUT is unchanged (generic Li-ion folklore, annotated as such in the code). **Amended by [ADR 0021](0021-blind-floor-shutdown.md):** the 0% anchor is the ADC blind floor / software-shutdown point, not the hardware cutoff voltage (which turned out to be unmeasurable — it lies below the floor).
 
 ## Context
 
