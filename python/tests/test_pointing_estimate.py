@@ -162,6 +162,7 @@ class TestPicklability:
             alignment=AlignmentResult(x_target=128.0, y_target=256.0),
             matched_centroids=[(100.0, 200.0), (110.0, 210.0)],
             matched_stars=[[1.0, 2.0, 5.5], [3.0, 4.0, 6.5]],
+            matched_catID=[32349, 71683],
         )
         roundtripped = pickle.loads(pickle.dumps(original))
         assert roundtripped == original
@@ -192,6 +193,7 @@ class TestPicklability:
             alignment=AlignmentResult(x_target=128.0, y_target=256.0),
             matched_centroids=[(1.0, 2.0)],
             matched_stars=[[1.0, 2.0, 5.5]],
+            matched_catID=[32349],
         )
         failure = FailedSolve(
             diagnostics=SolveDiagnostics(Matches=0, T_extract=40.0),

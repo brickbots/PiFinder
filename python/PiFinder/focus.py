@@ -21,10 +21,11 @@ unit-testable against synthetic blobs of known width.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 from scipy import ndimage
+from scipy.optimize import linear_sum_assignment
 
 
 @dataclass
@@ -56,11 +57,16 @@ class FocusResult:
             when there is no usable star to measure.
         n_used: number of detected stars HFD was measured on.
         background: global background level (ADU) of the frame.
-        peak: brightest detected-star peak (ADU), or None when nothing detected.
-            Used as the white point for the display stretch.
+        peak: brightest detected-star peak (ADU), or None when nothing detected;
+            retained for frame diagnostics.
         too_defocused: True when there is clear signal but every blob is larger
             than the size cap -- i.e. measurable stars exist but are too broad to
             quantify. Drives the "keep adjusting" hint.
+        median_fwhm: Median area-equivalent FWHM estimate (px) over the same
+            stars, for the statistics display. HFD remains the focus metric.
+        blobs: Brightest detected blobs, including blobs too broad for an HFD
+            measurement. The Focus screen uses their positions for raw star
+            cutouts.
     """
 
     median_hfd: Optional[float]
@@ -68,6 +74,8 @@ class FocusResult:
     background: float
     peak: Optional[float]
     too_defocused: bool
+    median_fwhm: Optional[float] = None
+    blobs: Tuple[Blob, ...] = ()
 
 
 def _estimate_background_noise(np_image: np.ndarray) -> Tuple[float, float]:
@@ -116,14 +124,14 @@ def _find_blobs(
     *,
     max_blob_px: int,
     sigma_k: float,
-) -> Tuple[List[Blob], int, float, Optional[float]]:
+) -> Tuple[List[Blob], List[Blob], float, Optional[float]]:
     """Label connected regions above the detection threshold.
 
-    Returns (usable_blobs, n_oversized, background, brightest_peak) where
+    Returns (usable_blobs, oversized_blobs, background, brightest_peak) where
     usable_blobs are blobs at least 2 px in size and no larger than the size cap,
-    sorted brightest-first. ``n_oversized`` counts blobs that exceed the size cap
-    (signal present but too defocused to measure). ``brightest_peak`` is the peak
-    of the brightest blob of any size, or None when nothing was detected.
+    sorted brightest-first. ``oversized_blobs`` contains signal too defocused to
+    measure but still useful for the visual focus tiles. ``brightest_peak`` is
+    the peak of the brightest blob of any size, or None when nothing was detected.
     """
     img = np.asarray(np_image, dtype=np.float32)
     background, sigma = _estimate_background_noise(img)
@@ -137,12 +145,12 @@ def _find_blobs(
     mask = smoothed > threshold
     labeled, n_labels = ndimage.label(mask)
     if n_labels == 0:
-        return [], 0, background, None
+        return [], [], background, None
 
     slices = ndimage.find_objects(labeled)
 
     usable: List[Blob] = []
-    n_oversized = 0
+    oversized: List[Blob] = []
     brightest_peak: Optional[float] = None
 
     for label_idx, sl in enumerate(slices, start=1):
@@ -166,28 +174,179 @@ def _find_blobs(
         width = sl[1].stop - sl[1].start
         extent = int(max(height, width))
 
-        # Too broad to measure usefully -- treat as "too defocused".
-        if extent > max_blob_px:
-            n_oversized += 1
-            continue
+        bbox_cy = (sl[0].start + sl[0].stop - 1) / 2.0
+        bbox_cx = (sl[1].start + sl[1].stop - 1) / 2.0
+        local_bg = _local_background(img, bbox_cy, bbox_cx, extent)
 
-        cy = (sl[0].start + sl[0].stop - 1) / 2.0
-        cx = (sl[1].start + sl[1].stop - 1) / 2.0
-        local_bg = _local_background(img, cy, cx, extent)
-
-        usable.append(
-            Blob(
-                y=cy,
-                x=cx,
-                peak=peak,
-                background=local_bg,
-                extent=extent,
-                size_px=size_px,
-            )
+        # Center the display crop on the star's flux, not on the geometric
+        # center of its thresholded bounding box. A one-pixel change at the
+        # threshold boundary otherwise becomes a conspicuous jump after the
+        # 10x focus enlargement.
+        weights = np.clip(patch - local_bg, 0.0, None) * region_mask
+        total_weight = float(weights.sum())
+        if total_weight > 0.0:
+            patch_y, patch_x = np.indices(patch.shape)
+            cy = sl[0].start + float((patch_y * weights).sum() / total_weight)
+            cx = sl[1].start + float((patch_x * weights).sum() / total_weight)
+            local_bg = _local_background(img, cy, cx, extent)
+        else:
+            cy, cx = bbox_cy, bbox_cx
+        blob = Blob(
+            y=cy,
+            x=cx,
+            peak=peak,
+            background=local_bg,
+            extent=extent,
+            size_px=size_px,
         )
 
+        if extent > max_blob_px:
+            oversized.append(blob)
+        else:
+            usable.append(blob)
+
     usable.sort(key=lambda b: b.peak, reverse=True)
-    return usable, n_oversized, background, brightest_peak
+    oversized.sort(key=lambda b: b.peak, reverse=True)
+    return usable, oversized, background, brightest_peak
+
+
+def track_blobs(
+    previous: Sequence[Blob],
+    candidates: Sequence[Blob],
+    *,
+    n: int = 4,
+    max_relative_motion: float = 20.0,
+    max_candidates: int = 12,
+) -> Tuple[Blob, ...]:
+    """Keep stars in stable slots while allowing the whole image to shift.
+
+    Each previous/current star pair proposes a global translation. For every
+    proposal, Hungarian assignment measures how well the remaining stars share
+    that same motion. This uses the relative geometry of the 2--4 star pattern,
+    so a bump while focusing can move the pattern by any distance without
+    causing brightness-order swaps between quadrants. Small residual changes
+    from wind, rotation, and focus breathing are accepted.
+
+    When fewer than two stars can establish relative geometry, selection falls
+    back to current brightness order. Missing slots are filled with the
+    brightest unused candidates.
+    """
+    return tuple(
+        blob
+        for blob, _previous_index in track_blob_slots(
+            previous,
+            candidates,
+            n=n,
+            max_relative_motion=max_relative_motion,
+            max_candidates=max_candidates,
+        )
+    )
+
+
+def track_blob_slots(
+    previous: Sequence[Blob],
+    candidates: Sequence[Blob],
+    *,
+    n: int = 4,
+    max_relative_motion: float = 20.0,
+    max_candidates: int = 12,
+) -> Tuple[Tuple[Blob, Optional[int]], ...]:
+    """Track blobs and report which previous slot each result continues.
+
+    The optional index is ``None`` for a newly selected replacement.  Keeping
+    that distinction lets callers carry durable metadata such as a Hipparcos
+    ID across geometrically tracked frames without accidentally giving a
+    replacement star the departed star's identity.
+    """
+    current = tuple(candidates[:max_candidates])
+    old = tuple(previous[:n])
+    if len(old) < 2 or len(current) < 2:
+        return tuple((blob, None) for blob in current[:n])
+
+    old_xy = np.asarray([(blob.x, blob.y) for blob in old], dtype=np.float64)
+    current_xy = np.asarray([(blob.x, blob.y) for blob in current], dtype=np.float64)
+    best_score = None
+    best_matches = None
+
+    for old_anchor in old_xy:
+        for current_anchor in current_xy:
+            translation = current_anchor - old_anchor
+            predicted = old_xy + translation
+            distances = np.linalg.norm(
+                predicted[:, np.newaxis, :] - current_xy[np.newaxis, :, :], axis=2
+            )
+            rows, columns = linear_sum_assignment(distances)
+            valid = distances[rows, columns] <= max_relative_motion
+            match_count = int(valid.sum())
+            if match_count < 2:
+                continue
+            residual = float(distances[rows[valid], columns[valid]].mean())
+            score = (match_count, -residual)
+            if best_score is None or score > best_score:
+                best_score = score
+                best_matches = tuple(
+                    (int(row), int(column))
+                    for row, column, is_valid in zip(rows, columns, valid)
+                    if is_valid
+                )
+
+    if best_matches is None:
+        return tuple((blob, None) for blob in current[:n])
+
+    slots: List[Optional[Tuple[Blob, Optional[int]]]] = [None] * min(len(old), n)
+    used = set()
+    for old_index, current_index in best_matches:
+        slots[old_index] = (current[current_index], old_index)
+        used.add(current_index)
+
+    unused = (blob for index, blob in enumerate(current) if index not in used)
+    for index, slot in enumerate(slots):
+        if slot is None:
+            replacement = next(unused, None)
+            if replacement is not None:
+                slots[index] = (replacement, None)
+    while len(slots) < min(n, len(current)):
+        replacement = next(unused, None)
+        slots.append((replacement, None) if replacement is not None else None)
+
+    return tuple(slot for slot in slots if slot is not None)
+
+
+def match_catalog_ids(
+    blobs: Sequence[Blob],
+    matched_centroids: Sequence[Sequence[float]],
+    matched_catalog_ids: Sequence[object],
+    *,
+    max_distance: float = 12.0,
+) -> Tuple[Optional[object], ...]:
+    """Associate solved catalogue IDs with focus blobs from the same frame.
+
+    Tetra3 centroids and focus centroids are produced by different detectors,
+    so they are close rather than necessarily pixel-identical.  A global
+    one-to-one assignment prevents two focus blobs from claiming one HIP star;
+    associations beyond ``max_distance`` are rejected.
+    """
+    identities: List[Optional[object]] = [None] * len(blobs)
+    count = min(len(matched_centroids), len(matched_catalog_ids))
+    if not blobs or count == 0:
+        return tuple(identities)
+
+    blob_xy = np.asarray([(blob.x, blob.y) for blob in blobs], dtype=np.float64)
+    catalog_xy = np.asarray(
+        [
+            (matched_centroids[index][1], matched_centroids[index][0])
+            for index in range(count)
+        ],
+        dtype=np.float64,
+    )
+    distances = np.linalg.norm(
+        blob_xy[:, np.newaxis, :] - catalog_xy[np.newaxis, :, :], axis=2
+    )
+    rows, columns = linear_sum_assignment(distances)
+    for row, column in zip(rows, columns):
+        if distances[row, column] <= max_distance:
+            identities[int(row)] = matched_catalog_ids[int(column)]
+    return tuple(identities)
 
 
 def detect_stars(
@@ -244,10 +403,36 @@ def half_flux_diameter(
     return 2.0 * weighted_r / total_flux
 
 
+def full_width_half_maximum(np_image: np.ndarray, blob: Blob) -> float:
+    """Area-equivalent FWHM diameter for one detected star, in raw pixels.
+
+    Pixels above half the local peak-minus-background are counted inside a
+    circular aperture around the blob. The diameter of a circle with that area
+    equals the analytic FWHM for a circular Gaussian. This is a supplementary
+    statistic; HFD remains preferable for saturated and defocused stars.
+    """
+    cy, cx = blob.y, blob.x
+    height, width = np_image.shape
+    aperture_radius = max(blob.extent, 4)
+    y_min = max(0, int(cy) - aperture_radius)
+    y_max = min(height, int(cy) + aperture_radius + 1)
+    x_min = max(0, int(cx) - aperture_radius)
+    x_max = min(width, int(cx) + aperture_radius + 1)
+
+    patch = np.asarray(np_image[y_min:y_max, x_min:x_max], dtype=np.float32)
+    y_grid, x_grid = np.ogrid[y_min:y_max, x_min:x_max]
+    aperture = (x_grid - cx) ** 2 + (y_grid - cy) ** 2 <= aperture_radius**2
+    half_max = blob.background + (blob.peak - blob.background) / 2.0
+    area = int(np.count_nonzero((patch >= half_max) & aperture))
+    if area == 0:
+        return 0.0
+    return 2.0 * float(np.sqrt(area / np.pi))
+
+
 def focus_hfd(
     np_image: np.ndarray,
     *,
-    n: int = 5,
+    n: int = 4,
     max_blob_px: int = 50,
     sigma_k: float = 5.0,
 ) -> FocusResult:
@@ -257,8 +442,11 @@ def focus_hfd(
     found; ``too_defocused`` is True when signal is present but every blob is
     larger than ``max_blob_px``.
     """
-    usable, n_oversized, background, brightest_peak = _find_blobs(
+    usable, oversized, background, brightest_peak = _find_blobs(
         np_image, max_blob_px=max_blob_px, sigma_k=sigma_k
+    )
+    display_blobs = tuple(
+        sorted((*usable, *oversized), key=lambda blob: blob.peak, reverse=True)
     )
 
     if not usable:
@@ -269,11 +457,13 @@ def focus_hfd(
             n_used=0,
             background=background,
             peak=brightest_peak,
-            too_defocused=n_oversized > 0,
+            too_defocused=bool(oversized),
+            blobs=display_blobs,
         )
 
     img = np.asarray(np_image, dtype=np.float32)
     hfds = []
+    fwhms = []
     for blob in usable[:n]:
         aperture_radius = int(np.clip(blob.extent, 10, max_blob_px))
         hfd = half_flux_diameter(
@@ -284,6 +474,9 @@ def focus_hfd(
         )
         if hfd > 0.0:
             hfds.append(hfd)
+        fwhm = full_width_half_maximum(img, blob)
+        if fwhm > 0.0:
+            fwhms.append(fwhm)
 
     if not hfds:
         return FocusResult(
@@ -291,7 +484,8 @@ def focus_hfd(
             n_used=0,
             background=background,
             peak=brightest_peak,
-            too_defocused=n_oversized > 0,
+            too_defocused=bool(oversized),
+            blobs=display_blobs,
         )
 
     return FocusResult(
@@ -300,4 +494,6 @@ def focus_hfd(
         background=background,
         peak=usable[0].peak,
         too_defocused=False,
+        median_fwhm=float(np.median(fwhms)) if fwhms else None,
+        blobs=display_blobs,
     )

@@ -67,8 +67,11 @@ For re-imaging instructions, see :ref:`user_guide:update software` and the
 The camera view is blank or black
 ---------------------------------
 
-If the Focus screen shows nothing at all — not even faint noise with the lens cap on —
-the **Camera Type** setting probably doesn't match the camera in your unit.
+The Focus screen opens on its magnified star tiles, which stay black whenever no stars are
+detected — so a healthy camera can look dead there.  Press **SQUARE** until the **Image**
+view shows the full camera frame before judging.  If the Image view shows nothing at all —
+not even faint noise with the lens cap on — the **Camera Type** setting probably doesn't
+match the camera in your unit.
 
 - Open Settings → Advanced and try a different Camera Type.  The v3 sensors are ``imx462`` and
   ``imx296``; older v2 cameras are ``imx477``.  It won't hurt to try each.
@@ -76,8 +79,9 @@ the **Camera Type** setting probably doesn't match the camera in your unit.
   restart alone won't apply it.
 - A software update can quietly reset this setting, so re-check it after you update.
 
-A healthy camera shows at least faint noise with the lens cap on, and a brighter image in
-daylight — use that to confirm the camera is alive before chasing focus or exposure.
+A healthy camera shows at least faint noise in the Image view with the lens cap on, and a
+brighter image in daylight — use that to confirm the camera is alive before chasing focus
+or exposure.
 
 
 It won't plate solve ("can't find stars")
@@ -90,8 +94,8 @@ often not tight enough.
 
 Work through these in order:
 
-- **Focus, properly.**  On the Focus screen, use **+/-** to zoom to 2x and 4x and rotate
-  the lens until the stars are as small as you can make them.  Tight focus matters *even
+- **Focus, properly.**  On the Focus screen, rotate the lens until the four magnified stars
+  are as small as possible and the central HFD reaches its lowest value.  Tight focus matters *even
   more* under bright, light-polluted skies, where slightly soft dim stars vanish into the
   background.  If you're starting from way off, set the lens so about 6 mm of thread is
   showing — roughly a pencil's width — which is close to in focus.
