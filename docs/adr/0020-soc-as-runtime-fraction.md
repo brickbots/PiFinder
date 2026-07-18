@@ -14,7 +14,7 @@ The workload is pinned (the **typical load**: continuous capture-and-solve, scre
 
 - **Semantics:** SoC(v) = expected fraction of remaining runtime under the typical load. 100% is the under-load voltage immediately after unplugging a full unit (not the 4.2 V charge-termination voltage, which a loaded cell never reads); 0% is the observed **cutoff voltage** where the SYS boost loses regulation and the unit hard-powers-off.
 - **Derivation:** for each bench run, assign each telemetry sample SoC(t) = (T_cutoff − t) / (T_cutoff − T_unplug), pair it with the sampled voltage, pool the samples across runs and devices, and fit piecewise-linear knots on that scatter → new `SOC_LUT`.
-- **Reproducibility:** the analysis tool and the derived knots merge together (the imu2cam-tool precedent), so the curve can be re-derived when hardware or workload changes. The raw telemetry logs are retained outside the repo.
+- **Reproducibility:** the analysis tool and the derived knots merge together (the imu2cam-tool precedent), so the curve can be re-derived when hardware or workload changes. The raw telemetry logs are retained outside the repo. The bench harness lives on the never-merged `battery-runtime-test` branch on origin, whose root `BATTERY_RUNTIME_TEST.md` is the operational runbook (deploy, run, collect, analyze).
 
 ## Considered options
 
