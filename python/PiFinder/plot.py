@@ -426,9 +426,9 @@ class Starfield:
             # Keep edges where at least one endpoint is on-screen.
             start_on = (sx_pos > 0) & (sx_pos < W) & (sy_pos > 0) & (sy_pos < H)
             end_on = (ex_pos > 0) & (ex_pos < W) & (ey_pos > 0) & (ey_pos < H)
-            for i in np.flatnonzero(start_on | end_on):
+            for edge_i in np.flatnonzero(start_on | end_on):
                 idraw.line(
-                    [sx_pos[i], sy_pos[i], ex_pos[i], ey_pos[i]],
+                    [sx_pos[edge_i], sy_pos[edge_i], ex_pos[edge_i], ey_pos[edge_i]],
                     fill=constellation_brightness,
                 )
 

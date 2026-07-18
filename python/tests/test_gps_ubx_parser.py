@@ -49,22 +49,24 @@ def test_svinfo_field_alignment(parser):
 
 
 @pytest.mark.unit
-def test_svinfo_only_code_locked_counted_as_seen(parser):
-    # Idle channels (e.g. SBAS) and cold-start acquisition candidates
-    # (quality < 4 with an estimated cno) must not inflate the seen count.
+def test_svinfo_seen_needs_acquired_signal(parser):
+    # Search candidates (quality 1, estimated cno) and idle channels must
+    # not inflate the seen count, but satellites being acquired (quality
+    # 2-3) must count so the display climbs instead of flapping to zero
+    # during marginal re-acquisition.
     payload = make_svinfo_payload(
         [
-            (0, 14, 0x0D, 4, 26, 30, 90),
-            (7, 25, 0x00, 2, 9, 0, 0),
-            (11, 120, 0x10, 1, 0, 0, 0),
-            (5, 193, 0x10, 1, 0, 0, 0),
+            (0, 14, 0x0D, 4, 26, 30, 90),  # code locked, used
+            (7, 25, 0x00, 2, 9, 0, 0),  # signal acquired: seen
+            (3, 30, 0x00, 1, 12, 0, 0),  # search candidate: not seen
+            (11, 120, 0x10, 1, 0, 0, 0),  # idle SBAS channel: not seen
         ]
     )
     result = parser._parse_nav_svinfo(payload)
 
-    assert result["nSat"] == 1
+    assert result["nSat"] == 2
     assert result["uSat"] == 1
-    assert result["satellites"][0]["id"] == 14
+    assert [s["id"] for s in result["satellites"]] == [14, 25]
 
 
 @pytest.mark.unit
@@ -88,7 +90,7 @@ def test_nav_sat_used_from_svused_bit(parser):
         [
             (0, 17, 27, 45, 180, 0x0C),  # quality 4, used
             (0, 13, 15, -5, 300, 0x04),  # quality 4, tracked but not used
-            (0, 25, 9, 0, 0, 0x02),  # acquisition candidate: not seen
+            (0, 25, 9, 0, 0, 0x01),  # search candidate: not seen
             (6, 3, 0, 0, 0, 0x01),  # searching, no signal: not seen
         ]
     )

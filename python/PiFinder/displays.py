@@ -1,4 +1,5 @@
 import functools
+import logging
 from collections import namedtuple
 
 import numpy as np
@@ -13,6 +14,7 @@ from PiFinder.ssd1333_device import ssd1333
 
 from PiFinder.ui.fonts import Fonts
 
+logger = logging.getLogger("Display")
 
 ColorMask = namedtuple("ColorMask", ["mask", "mode"])
 RED_RGB: ColorMask = ColorMask(np.array([1, 0, 0]), "RGB")
@@ -75,8 +77,15 @@ class DisplayPygame_128(DisplayBase):
 
     def __init__(self):
         from luma.emulator.device import pygame
+        import pygame as pg
+        from pathlib import Path
 
-        # init display  (SPI hardware)
+        # Set window icon to welcome splash screen before creating display
+        icon_path = Path(__file__).parent.parent.parent / "images" / "welcome.png"
+        if icon_path.exists():
+            icon = pg.image.load(str(icon_path))
+            pg.display.set_icon(icon)
+
         pygame = pygame(
             width=128,
             height=128,
@@ -117,6 +126,14 @@ class DisplayPygame_320(Layout320, DisplayBase):
 
     def __init__(self):
         from luma.emulator.device import pygame
+        import pygame as pg
+        from pathlib import Path
+
+        # Set window icon to welcome splash screen before creating display
+        icon_path = Path(__file__).parent.parent.parent / "images" / "welcome.png"
+        if icon_path.exists():
+            icon = pg.image.load(str(icon_path))
+            pg.display.set_icon(icon)
 
         pygame = pygame(
             width=self.resolution[0],

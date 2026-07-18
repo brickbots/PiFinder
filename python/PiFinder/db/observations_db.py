@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 from sqlite3 import Connection, Cursor
 from PiFinder.db.db import Database
 import PiFinder.utils as utils
@@ -8,7 +8,12 @@ from PiFinder.composite_object import CompositeObject
 
 
 class ObservationsDatabase(Database):
-    def __init__(self, db_path: Path = utils.observations_db):
+    def __init__(self, db_path: Optional[Path] = None):
+        # Resolved at call time, not as a default argument: an import-time
+        # default captures utils.observations_db before the test sandbox
+        # patches it, sending writes to the real ~/PiFinder_data.
+        if db_path is None:
+            db_path = utils.observations_db
         new_db = False
         if not db_path.exists():
             new_db = True

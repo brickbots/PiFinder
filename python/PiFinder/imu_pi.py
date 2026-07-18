@@ -9,7 +9,7 @@ import time
 from PiFinder import config
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.types.positioning import ImuSample
-import board
+from PiFinder.i2c_bus import get_i2c
 import adafruit_bno055
 import logging
 import quaternion  # Numpy quaternion
@@ -27,7 +27,7 @@ class Imu:
     """
 
     def __init__(self):
-        i2c = board.I2C()
+        i2c = get_i2c()
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
         # IMPLUS mode: Accelerometer + Gyro + Fusion data
         self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
@@ -197,9 +197,33 @@ def imu_monitor(shared_state, console_queue, log_queue):
     # fake-IMU fallback has no such attr (and self-throttles), hence the default.
     sample_period = getattr(imu, "imu_sample_frequency", 1 / 30)
 
+    # A transient bus error (e.g. the BCM2711 clock-stretching bug NACKing
+    # a transfer) must not kill the IMU process: skip the sample and retry.
+    # Only a persistent failure warrants re-creating Imu() — construction
+    # re-opens the bus and restores IMUPLUS mode, which matters because a
+    # power-glitched BNO055 wakes up in CONFIG mode.
+    reinit_after_errors = 60  # consecutive errors (~2 s at 30 Hz)
+    consecutive_errors = 0
+
     while True:
         loop_start = time.monotonic()
-        imu.update()
+        try:
+            imu.update()
+            consecutive_errors = 0
+        except (OSError, RuntimeError) as e:
+            consecutive_errors += 1
+            if consecutive_errors == 1:
+                logger.warning("IMU: bus error, retrying: %s", e)
+            if consecutive_errors >= reinit_after_errors:
+                logger.error("IMU: persistent bus errors, re-initialising sensor")
+                console_queue.put("IMU: bus errors, re-initialising")
+                try:
+                    imu = Imu()
+                except (OSError, RuntimeError) as reinit_error:
+                    logger.error("IMU: re-init failed: %s", reinit_error)
+                consecutive_errors = 0
+            time.sleep(sample_period)
+            continue
         imu_sample.status = imu.calibration
 
         # Raw data + read epoch are captured by imu.update() in the same

@@ -3127,6 +3127,20 @@ msgid "Restore User Data"
 msgstr "Benutzerdaten wiederherstellen"
 
 # AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:527
+msgid ""
+"Network settings updated — no restart needed. This device is now "
+"reachable at http://{host}.local. If you changed the host name, the "
+"previous address stops working, so reconnect there."
+msgstr ""
+"Netzwerkeinstellungen aktualisiert – kein Neustart nötig. Dieses Gerät ist jetzt unter http://{host}.local erreichbar. Wenn Sie den Hostnamen geändert haben, funktioniert die vorherige Adresse nicht mehr – verbinden Sie sich dort neu."
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:39
+msgid "Update"
+msgstr "Aktualisieren"
+
+# AI-TRANSLATED (claude): needs human review
 #: views/tools.html:93
 msgid ""
 "This will use the provided file to restore your user data. This will "

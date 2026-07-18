@@ -61,6 +61,14 @@ class TestHalfFluxDiameter:
         assert np.isfinite(hfd)
         assert hfd > 0.0
 
+    def test_gaussian_fwhm_matches_theory(self):
+        sigma = 4.0
+        img = _gaussian_frame(sigma, amplitude=200.0, background=10.0, noise=0.0)
+        blob = focus.detect_stars(img, n=1)[0]
+        fwhm = focus.full_width_half_maximum(img, blob)
+        expected = 2.0 * np.sqrt(2.0 * np.log(2.0)) * sigma
+        assert fwhm == pytest.approx(expected, rel=0.15)
+
     def test_no_flux_returns_zero(self):
         img = np.full((128, 128), 30.0, dtype=np.float32)
         hfd = focus.half_flux_diameter(img, (64, 64), 30.0, aperture_radius=20)
@@ -96,6 +104,77 @@ class TestDetectStars:
         blobs = focus.detect_stars(img, n=3)
         assert len(blobs) == 3
 
+    def test_centroid_is_flux_weighted_not_bounding_box_center(self):
+        img = np.zeros((128, 128), dtype=np.float32)
+        img[63:66, 62:65] = 40.0
+        img[63:66, 65] = 220.0
+
+        blob = focus.detect_stars(img, sigma_k=3.0, n=1)[0]
+
+        # The connected component spans x=62..65, whose box center is 63.5.
+        # The brighter right edge must pull the measured stellar centroid right.
+        assert blob.x > 64.0
+        assert blob.y == pytest.approx(64.0, abs=0.1)
+
+
+@pytest.mark.unit
+class TestTrackBlobs:
+    @staticmethod
+    def _blob(x, y, peak):
+        return focus.Blob(
+            x=x,
+            y=y,
+            peak=peak,
+            background=10.0,
+            extent=8,
+            size_px=20,
+        )
+
+    def test_shared_translation_preserves_slots_when_brightness_order_changes(self):
+        previous = (
+            self._blob(80, 90, 240),
+            self._blob(400, 100, 230),
+            self._blob(100, 390, 220),
+            self._blob(410, 400, 210),
+        )
+        shift_x, shift_y = 47, -31
+        translated = [
+            self._blob(blob.x + shift_x, blob.y + shift_y, 100 + index * 30)
+            for index, blob in enumerate(previous)
+        ]
+        distractor = self._blob(250, 250, 255)
+        candidates = tuple(
+            sorted((*translated, distractor), key=lambda blob: blob.peak, reverse=True)
+        )
+
+        tracked = focus.track_blobs(previous, candidates)
+
+        assert [(blob.x, blob.y) for blob in tracked] == [
+            (blob.x + shift_x, blob.y + shift_y) for blob in previous
+        ]
+
+    def test_missing_star_is_replaced_without_reordering_survivors(self):
+        previous = (
+            self._blob(80, 90, 240),
+            self._blob(400, 100, 230),
+            self._blob(100, 390, 220),
+            self._blob(410, 400, 210),
+        )
+        replacement = self._blob(250, 250, 205)
+        candidates = (
+            self._blob(110, 70, 180),
+            self._blob(430, 80, 250),
+            self._blob(440, 380, 190),
+            replacement,
+        )
+
+        tracked = focus.track_blobs(previous, candidates)
+
+        assert (tracked[0].x, tracked[0].y) == (110, 70)
+        assert (tracked[1].x, tracked[1].y) == (430, 80)
+        assert tracked[2] is replacement
+        assert (tracked[3].x, tracked[3].y) == (440, 380)
+
 
 @pytest.mark.unit
 class TestFocusHfd:
@@ -113,11 +192,14 @@ class TestFocusHfd:
         assert result.median_hfd is None
         assert result.n_used == 0
         assert result.too_defocused is True
+        assert len(result.blobs) == 1
+        assert result.blobs[0].extent > 50
 
     def test_measures_clear_star(self):
         img = _gaussian_frame(4.0, amplitude=200.0, background=20.0)
         result = focus.focus_hfd(img)
         assert result.median_hfd is not None
+        assert result.median_fwhm is not None
         assert result.n_used >= 1
         assert result.too_defocused is False
         expected = 2.0 * 4.0 * np.sqrt(np.pi / 2.0)
@@ -137,3 +219,17 @@ class TestFocusHfd:
         result = focus.focus_hfd(img, n=5)
         tight_hfd = 2.0 * 3.0 * np.sqrt(np.pi / 2.0)
         assert result.median_hfd == pytest.approx(tight_hfd, rel=0.4)
+
+    def test_display_blobs_are_brightest_first(self):
+        rng = np.random.default_rng(9)
+        img = rng.normal(20.0, 1.0, (512, 512)).astype(np.float32)
+        y, x = np.ogrid[:512, :512]
+        for amplitude, (cy, cx) in zip(
+            (80.0, 180.0, 120.0, 220.0),
+            ((100, 100), (100, 400), (400, 100), (400, 400)),
+        ):
+            img += amplitude * np.exp(-((x - cx) ** 2 + (y - cy) ** 2) / (2 * 4.0**2))
+        result = focus.focus_hfd(np.clip(img, 0, 255))
+        peaks = [blob.peak for blob in result.blobs]
+        assert len(peaks) == 4
+        assert peaks == sorted(peaks, reverse=True)

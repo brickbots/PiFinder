@@ -317,10 +317,12 @@ class PointingEstimate:
     camera frame's ``exposure_end`` (so the solver can dedupe stale
     frames precisely); "solve" there means plate-solve, never IMU.
 
-    :attr:`matched_centroids` and :attr:`matched_stars` carry raw
+    :attr:`matched_centroids`, :attr:`matched_stars`, and
+    :attr:`matched_catID` carry raw
     tetra3 matched-star outputs needed by the SQM calibration UI for
-    offline replay of SQM calculations against cached frames.
-    ``None`` on failures.
+    offline replay of SQM calculations against cached frames. A failed solve
+    preserves the last successful set, so consumers must also match
+    ``last_solve_success`` to the frame timestamp.
     """
 
     # --- The 2 × 2 pointing matrix ---
@@ -360,9 +362,11 @@ class PointingEstimate:
     # matched to known references.
     # ``matched_stars``: parallel list of catalog star records, where
     # index [2] is the catalog magnitude (consumed by SQM).
-    # Both cleared on failed solves.
+    # Retained from the last successful solve across failed attempts; pair
+    # with ``last_solve_success`` before consuming.
     matched_centroids: Optional[List[Tuple[float, float]]] = None
     matched_stars: Optional[list] = None
+    matched_catID: Optional[list] = None
 
     # ----------------------------------------------------------------
     # Convenience predicates
@@ -435,6 +439,7 @@ class SuccessfulSolve:
     alignment: AlignmentResult = field(default_factory=AlignmentResult)
     matched_centroids: Optional[List[Tuple[float, float]]] = None
     matched_stars: Optional[list] = None
+    matched_catID: Optional[list] = None
 
     # Pickle the ``imu_anchor`` quaternion as floats (see _quat_to_floats):
     # this message rides ``solver_queue``, a pickle boundary.

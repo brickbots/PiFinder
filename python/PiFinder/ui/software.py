@@ -1,144 +1,305 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module contains the UI Module classes for
-software updates and NixOS migration.
+UI modules for software updates, channel selection, and release notes.
+
+Channels:
+  - stable:   release entries from update-manifest.json
+  - beta:     prerelease entries from update-manifest.json
+  - unstable: trunk + testable PR entries from update-manifest.json
 """
 
+import json
 import logging
-import time
-from typing import Any, Optional, TYPE_CHECKING
+import re
+import threading
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import requests
 
+if TYPE_CHECKING:
+    # At runtime PiFinder.i18n gettext-installs _ into builtins; mypy only
+    # sees it inside annotated functions, so give it a signature here.
+    def _(message: str) -> str: ...
+
+
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
-from PiFinder.ui.ui_utils import TextLayouter
-
-if TYPE_CHECKING:
-
-    def _(a) -> Any:
-        return a
-
+from PiFinder.ui.ui_utils import TextLayouter, TextLayouterScroll
 
 sys_utils = utils.get_sys_utils()
 logger = logging.getLogger("UISoftware")
 
-REQUEST_TIMEOUT = 10
-MIGRATION_GATE_URL = (
-    "https://raw.githubusercontent.com/brickbots/PiFinder/release/migration_gate.json"
-)
+# --- Update channel source -----------------------------------------------------
+# CI publishes generated update metadata to a metadata-only branch. Devices read
+# one raw JSON file instead of calling the GitHub REST API, so they do not burn
+# unauthenticated rate limits.
+MANIFEST_REPO = "brickbots/PiFinder"
+MANIFEST_BRANCH = "nixos-manifest"
+# ------------------------------------------------------------------------------
 UPDATE_MANIFEST_URL = (
-    "https://raw.githubusercontent.com/brickbots/PiFinder/"
-    "nixos-manifest/update-manifest.json"
+    f"https://raw.githubusercontent.com/{MANIFEST_REPO}/"
+    f"{MANIFEST_BRANCH}/update-manifest.json"
 )
+REQUEST_TIMEOUT = 10
+_STORE_PATH_RE = re.compile(r"^/nix/store/[a-z0-9]+-[A-Za-z0-9._+=?,-]+$")
 
-# Secret unlock: 7x square button
-_UNLOCK_SEQUENCE = ["square"] * 7
+# Last successfully fetched manifest, kept on disk so the screen can render a
+# version list immediately on entry while a fresh copy is fetched in the
+# background.
+MANIFEST_CACHE_PATH = utils.data_dir / "update_manifest.json"
 
-# Migration targets are read from the update manifest, consulted in descending
-# stability; the first available entry carrying a migration tarball wins.
-_MIGRATION_CHANNELS = ("stable", "beta", "unstable")
+# A trunk entry is only offered when the branch it tracks is actually a NixOS
+# branch — detected by this file existing in the branch's tree. Keeps a
+# non-NixOS upstream main from showing up as an installable build.
+NIXOS_MARKER_FILE = "flake.nix"
 
 
-def _fetch_migration_config() -> Optional[dict]:
-    """Fetch and parse the remote migration gate JSON.
+def _entry_from_manifest(item: dict, channel: str) -> Optional[dict]:
+    label = item.get("label")
+    if not isinstance(label, str) or not label:
+        return None
 
-    Returns the parsed dict on success; None on network error, non-200
-    response, or malformed JSON. Only the `nixos_for_everyone` flag is used by
-    the caller — the tarball itself comes from the update manifest.
+    title = item.get("title") or item.get("subtitle") or label
+    entry = {
+        "label": label,
+        "ref": item.get("store_path"),
+        "notes": item.get("notes") or None,
+        "version": item.get("version") or label,
+        "subtitle": title,
+        "title": title,
+        "channel": channel,
+        "kind": item.get("kind"),
+        "number": item.get("number"),
+        "built_at": item.get("built_at"),
+        "source_ref": item.get("source_ref"),
+        "source_sha": item.get("source_sha"),
+    }
+    if item.get("kind") == "trunk":
+        entry["is_trunk"] = True
+
+    store_path = item.get("store_path")
+    available = item.get("available", bool(store_path))
+    if not available or not isinstance(store_path, str):
+        entry["ref"] = None
+        entry["unavailable"] = True
+        reason = item.get("reason")
+        if reason:
+            entry["subtitle"] = f"{title} ({reason})"
+    elif not _STORE_PATH_RE.fullmatch(store_path):
+        entry["ref"] = None
+        entry["unavailable"] = True
+        entry["subtitle"] = f"{title} (invalid build)"
+
+    return entry
+
+
+def _fetch_raw_manifest() -> dict:
     """
-    try:
-        res = requests.get(MIGRATION_GATE_URL, timeout=REQUEST_TIMEOUT)
-    except requests.exceptions.RequestException:
-        return None
-    if res.status_code != 200:
-        return None
-    try:
-        data = res.json()
-    except ValueError:
-        return None
-    if not isinstance(data, dict):
-        return None
-    return data
-
-
-def _fetch_update_manifest() -> Optional[dict]:
-    """Fetch and parse the update manifest, or None on any failure."""
-    try:
-        res = requests.get(UPDATE_MANIFEST_URL, timeout=REQUEST_TIMEOUT)
-    except requests.exceptions.RequestException:
-        return None
-    if res.status_code != 200:
-        return None
-    try:
-        data = res.json()
-    except ValueError:
-        return None
-    if not isinstance(data, dict):
-        return None
-    return data
-
-
-def _fetch_download_size_mb(url: str) -> Optional[int]:
-    """Return the tarball download size in MB from a HEAD request, or None.
-
-    GitHub release assets 302-redirect to a signed URL whose response carries
-    the real Content-Length, so redirects must be followed. Returns None on
-    network error, non-200 status, or a missing/unparseable Content-Length.
+    Fetch CI-generated update metadata as the raw manifest document.
+    Raises RequestException for network failures so the caller can show offline.
     """
-    try:
-        res = requests.head(url, allow_redirects=True, timeout=REQUEST_TIMEOUT)
-    except requests.exceptions.RequestException:
-        return None
-    if res.status_code != 200:
-        return None
-    length = res.headers.get("Content-Length")
-    if length is None:
-        return None
-    try:
-        return round(int(length) / (1024 * 1024))
-    except (TypeError, ValueError):
-        return None
+    res = requests.get(UPDATE_MANIFEST_URL, timeout=REQUEST_TIMEOUT)
+    res.raise_for_status()
+    manifest = res.json()
+    if manifest.get("schema") != 1:
+        raise ValueError("unsupported update manifest schema")
+    if not isinstance(manifest.get("channels", {}), dict):
+        raise ValueError("invalid update manifest channels")
+    return manifest
 
 
-def _migration_version_info_from_manifest() -> Optional[dict]:
-    """Select a migration target from the update manifest.
+def _parse_manifest(manifest: dict) -> dict[str, list[dict]]:
+    """Convert a raw manifest document into per-channel UI entries.
 
-    Walks channels stable -> beta -> unstable and returns version_info for the
-    first available entry that carries a migration tarball, or None if the
-    manifest can't be fetched or has no such entry.
+    Trunk entries whose branch is known to lack the NixOS marker file are
+    dropped (annotation left by _annotate_trunk_entries; unknown means keep).
     """
-    manifest = _fetch_update_manifest()
-    if not manifest:
-        return None
-    channels = manifest.get("channels")
-    if not isinstance(channels, dict):
-        return None
-    for channel in _MIGRATION_CHANNELS:
-        entries = channels.get(channel)
-        if not isinstance(entries, list):
+    channels: dict[str, list[dict]] = {}
+    manifest_channels = manifest.get("channels", {})
+    if not isinstance(manifest_channels, dict):
+        manifest_channels = {}
+
+    for channel in ("stable", "beta", "unstable"):
+        entries: list[dict] = []
+        raw_entries = manifest_channels.get(channel, [])
+        if not isinstance(raw_entries, list):
             continue
-        for entry in entries:
-            if not isinstance(entry, dict) or not entry.get("available"):
+        for item in raw_entries:
+            if not isinstance(item, dict):
                 continue
-            url = entry.get("migration_url")
-            sha_url = entry.get("migration_sha256_url")
-            if not url or not sha_url:
+            if item.get("kind") == "trunk" and item.get("nixos_branch") is False:
                 continue
-            version_info = {
-                "version": entry.get("version", "?"),
-                "type": "upgrade",
-                "migration_url": url,
-                "migration_sha256_url": sha_url,
-            }
-            # Size comes from a live HEAD on the tarball; omitted on failure
-            # (the confirm screen then shows "?").
-            size_mb = _fetch_download_size_mb(url)
-            if size_mb is not None:
-                version_info["migration_size_mb"] = size_mb
-            return version_info
+            entry = _entry_from_manifest(item, channel)
+            if entry is not None:
+                entries.append(entry)
+        channels[channel] = entries
+
+    return channels
+
+
+def _fetch_update_manifest() -> dict[str, list[dict]]:
+    """Fetch and parse update metadata in one step (no cache involvement)."""
+    return _parse_manifest(_fetch_raw_manifest())
+
+
+def _load_cached_manifest() -> Optional[dict]:
+    """Return the last cached raw manifest, or None when absent/invalid."""
+    try:
+        with open(MANIFEST_CACHE_PATH) as f:
+            manifest = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(manifest, dict) or manifest.get("schema") != 1:
+        return None
+    return manifest
+
+
+def _save_cached_manifest(manifest: dict) -> None:
+    """Best-effort atomic write of the manifest cache."""
+    try:
+        MANIFEST_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = MANIFEST_CACHE_PATH.with_suffix(".json.tmp")
+        with open(tmp_path, "w") as f:
+            json.dump(manifest, f)
+        tmp_path.replace(MANIFEST_CACHE_PATH)
+    except OSError as e:
+        logger.warning("Could not cache update manifest: %s", e)
+
+
+def _branch_has_nixos_marker(source_repo: str, source_ref: str) -> Optional[bool]:
+    """Whether the branch's tree contains the NixOS marker file.
+
+    Returns None when the check is inconclusive (network trouble, unexpected
+    status) so callers can keep the entry rather than hide a real build.
+    """
+    url = (
+        f"https://raw.githubusercontent.com/{source_repo}/"
+        f"{source_ref}/{NIXOS_MARKER_FILE}"
+    )
+    try:
+        res = requests.head(url, timeout=REQUEST_TIMEOUT)
+    except requests.exceptions.RequestException:
+        return None
+    if res.status_code == 200:
+        return True
+    if res.status_code == 404:
+        return False
     return None
+
+
+def _annotate_trunk_entries(manifest: dict) -> None:
+    """Stamp nixos_branch on trunk entries in a raw manifest (in place).
+
+    An inconclusive check leaves the entry unannotated, and unannotated trunk
+    entries stay visible — a flaky network must not hide a real build. The
+    annotation is persisted with the cache, so the cached list applies the
+    same verdict without re-checking.
+    """
+    channels = manifest.get("channels", {})
+    if not isinstance(channels, dict):
+        return
+    unstable = channels.get("unstable", [])
+    if not isinstance(unstable, list):
+        return
+    for item in unstable:
+        if not isinstance(item, dict) or item.get("kind") != "trunk":
+            continue
+        repo = item.get("source_repo")
+        ref = item.get("source_ref")
+        if not repo or not ref:
+            continue
+        marker = _branch_has_nixos_marker(repo, ref)
+        if marker is not None:
+            item["nixos_branch"] = marker
+
+
+def _format_age(built_at: Optional[str]) -> Optional[str]:
+    """Human-readable age of a build timestamp ("5m ago", "3h ago", "2d ago")."""
+    if not built_at:
+        return None
+    try:
+        built = datetime.fromisoformat(built_at)
+    except ValueError:
+        return None
+    if built.tzinfo is None:
+        built = built.replace(tzinfo=timezone.utc)
+    minutes = max(0, int((datetime.now(timezone.utc) - built).total_seconds() // 60))
+    if minutes < 60:
+        return _("{minutes}m ago").format(minutes=minutes)
+    hours = minutes // 60
+    if hours < 24:
+        return _("{hours}h ago").format(hours=hours)
+    return _("{days}d ago").format(days=hours // 24)
+
+
+def _entry_row_parts(entry: dict) -> Tuple[str, str]:
+    """Split a version row into a fixed prefix and the scrollable text.
+
+    PR rows lead with the bare PR number, trunk rows with a dot; the store
+    hash never appears in the list — titles/branch names are what a human
+    scans for.
+    """
+    if entry.get("kind") == "pr" and entry.get("number"):
+        return f"{entry['number']} ", entry.get("title") or entry["label"]
+    if entry.get("is_trunk"):
+        return "• ", entry.get("source_ref") or entry["label"]
+    return "", entry["label"]
+
+
+def _entry_detail(entry: dict) -> str:
+    """Second line of a focused version row: unavailability beats build info.
+
+    Build info is age plus the short commit hash ("built 5h ago · 2692406") —
+    the hash stays out of the list rows but remains one focus away.
+    """
+    if entry.get("unavailable"):
+        return entry.get("subtitle", "")
+    parts = []
+    age = _format_age(entry.get("built_at"))
+    if age:
+        parts.append(_("built {age}").format(age=age))
+    sha = entry.get("source_sha")
+    if isinstance(sha, str) and sha:
+        parts.append(sha[:7])
+    if parts:
+        return " · ".join(parts)
+    return entry.get("subtitle", "")
+
+
+def _current_store_path() -> Optional[str]:
+    """Store path of the running build, or None when unknown.
+
+    The store path — not the version string — is a build's identity: a re-cut
+    release keeps its version/label but is a different system. Prefer
+    current-build.json (it names the base store path even on a camera-specialised
+    device), but only when it actually describes the running system: it is
+    written before the reboot, so a failed boot or rollback can leave it naming a
+    build that isn't running. When stale, fall back to the actually-running
+    system so the update list hides the real build, not a phantom one.
+    """
+    try:
+        with open(utils.current_build_json) as f:
+            recorded = json.load(f).get("store_path") or None
+    except (OSError, ValueError):
+        recorded = None
+    if recorded and utils.build_is_running(recorded):
+        return recorded
+    return utils.running_system_store_path()
+
+
+def _hide_current_build(entries: List[dict], current_ref: Optional[str]) -> List[dict]:
+    """Hide only the exact running build, matched by store path.
+
+    A same-version entry with a different store path (e.g. a re-cut release)
+    is a real upgrade and must stay visible. When the current build is
+    unknown, nothing is hidden — offering the running build is harmless,
+    hiding a real upgrade is not.
+    """
+    if not current_ref:
+        return list(entries)
+    return [e for e in entries if e.get("ref") != current_ref]
 
 
 def update_needed(current_version: str, repo_version: str) -> bool:
@@ -173,463 +334,802 @@ def update_needed(current_version: str, repo_version: str) -> bool:
 
 class UISoftware(UIModule):
     """
-    UI for updating software versions.
-    Includes secret 7x square unlock to trigger NixOS migration.
+    Software update UI.
+
+    Phases:
+      loading   - animated "Checking for updates..."
+      browse    - header (version + channel selector) + scrollable version list
+      confirm   - selected version details + Install / Notes / Cancel
+      upgrading - progress bar with download progress, then reboot
+      failed    - update failed + Retry / Cancel
     """
 
     __title__ = "SOFTWARE"
+    MAX_VISIBLE = 4
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
-        with open(self.wifi_txt, "r") as wfs:
-            self._wifi_mode = wfs.read()
-        with open(self.version_txt, "r") as ver:
-            self._software_version = ver.read()
+        with open(self.wifi_txt, "r") as f:
+            self._wifi_mode = f.read().strip()
+        self._software_version = utils.get_version()
+        self._software_subtitle: Optional[str] = None
 
-        self._release_version = "-.-.-"
+        self._channels: Dict[str, List[dict]] = {}
+        self._manifest_channels: Dict[str, List[dict]] = {}
+        self._channel_names: List[str] = []
+        self._channel_index = 0
+
+        self._version_list: List[dict] = []
+        self._list_index = 0
+        self._scroll_offset = 0
+
+        self._phase = "loading"
+        self._focus = "channel"  # "channel" or "list" (browse phase)
         self._elipsis_count = 0
-        self._go_for_update = False
-        self._option_select = "Update"
 
-        # Unlock sequence tracking (7x square triggers migration)
-        self._key_buffer: list = []
+        self._selected_version: Optional[dict] = None
+        self._confirm_options: List[str] = []
+        self._confirm_index = 0
 
-    def _record_key(self, key_name: str):
-        """Record a key press for unlock sequence detection."""
-        self._key_buffer.append(key_name)
-        if len(self._key_buffer) > len(_UNLOCK_SEQUENCE):
-            self._key_buffer = self._key_buffer[-len(_UNLOCK_SEQUENCE) :]
-        if self._key_buffer == _UNLOCK_SEQUENCE:
-            self._key_buffer = []
-            # Unlock: offer the first available migration target from the
-            # manifest, ignoring the nixos_for_everyone gate (that governs only
-            # the public path).
-            version_info = _migration_version_info_from_manifest()
-            if version_info:
-                self._trigger_migration(version_info)
-            else:
-                self.message(_("No release found"), 2)
+        self._fail_option = "Retry"
+        self._fail_reason = ""
+        self._unstable_entries: List[dict] = []
 
-    def _trigger_migration(self, version_info: dict):
-        """Push UIMigrationConfirm onto the UI stack with the supplied
-        version_info (must already contain migration_url and
-        migration_sha256_url)."""
-        self.message("System Upgrade", 1)
-        self.add_to_stack(
-            {
-                "class": UIMigrationConfirm,
-                "version_info": version_info,
-                "current_version": self._software_version.strip(),
-            }
+        # Background manifest refresh: the worker thread writes a single
+        # ("ok", channels) / ("error", None) tuple; update() consumes it.
+        self._refresh_thread: Optional[threading.Thread] = None
+        self._refresh_result: Optional[Tuple[str, Optional[Dict[str, List[dict]]]]] = (
+            None
         )
+        self._checking = False
+        self._check_failed = False
 
-    def get_release_version(self):
-        """
-        Fetches current release version from
-        github, sets class variable if found.
-        Also checks the remote migration config.
-        """
-        config = _fetch_migration_config()
-        if config and config.get("nixos_for_everyone"):
-            # Gate is open for everyone; the tarball comes from the manifest
-            # (stable -> beta -> unstable).
-            version_info = _migration_version_info_from_manifest()
-            if version_info:
-                self._trigger_migration(version_info)
-                return
+        self._scrollers: Dict[str, TextLayouterScroll] = {}
+        self._scroller_phase: Optional[str] = None
+        self._scroller_index: Optional[int] = None
 
+    def active(self):
+        super().active()
+        self._elipsis_count = 0
+        self._focus = "channel"
+        self._channel_index = 0
+        self._list_index = 0
+        self._scroll_offset = 0
+        self._selected_version = None
+        self._scrollers = {}
+        self._scroller_phase = None
+        self._scroller_index = None
+        self._check_failed = False
+
+        # Render the last cached manifest immediately; a fresh copy is fetched
+        # in the background and swapped in when it lands.
+        cached = _load_cached_manifest()
+        if cached is not None:
+            self._apply_manifest(_parse_manifest(cached))
+            self._phase = "browse"
+        else:
+            self._phase = "loading"
+        self._start_refresh()
+
+    # ------------------------------------------------------------------
+    # Data
+    # ------------------------------------------------------------------
+
+    def _list_rollback_targets(self) -> List[dict]:
+        # Rollback targets come from local, immutable generation data, so they
+        # are available even when the manifest can't be fetched — which is
+        # exactly when rollback matters most. Entries are validated like
+        # manifest entries: anything without a string label can't be rendered
+        # or installed, so it is dropped rather than crash the screen.
         try:
-            res = requests.get(
-                "https://raw.githubusercontent.com/brickbots/PiFinder/release/version.txt",
-                timeout=REQUEST_TIMEOUT,
-            )
-        except requests.exceptions.RequestException:
-            logger.warning("Could not fetch release version from github")
-            self._release_version = "Unknown"
+            targets = sys_utils.list_rollback_targets()
+            return [
+                t
+                for t in targets
+                if isinstance(t, dict) and isinstance(t.get("label"), str)
+            ]
+        except Exception as e:  # never let rollback listing break the screen
+            logger.warning("Could not list rollback targets: %s", e)
+            return []
+
+    def _start_refresh(self):
+        if self._refresh_thread is not None and self._refresh_thread.is_alive():
+            return
+        self._checking = True
+        self._refresh_result = None
+        self._refresh_thread = threading.Thread(
+            target=self._refresh_worker, daemon=True
+        )
+        self._refresh_thread.start()
+
+    def _refresh_worker(self):
+        """Background thread: fetch the manifest, annotate, cache, parse."""
+        try:
+            manifest = _fetch_raw_manifest()
+        except (requests.exceptions.RequestException, ValueError) as e:
+            logger.warning("Software update check failed (offline/invalid?): %s", e)
+            self._refresh_result = ("error", None)
+            return
+        _annotate_trunk_entries(manifest)
+        _save_cached_manifest(manifest)
+        self._refresh_result = ("ok", _parse_manifest(manifest))
+
+    def _consume_refresh_result(self):
+        """Apply a finished background refresh, if any (main thread only)."""
+        result = self._refresh_result
+        if result is None:
+            return
+        self._refresh_result = None
+        self._checking = False
+        status, manifest_channels = result
+
+        if status == "ok" and manifest_channels is not None:
+            self._check_failed = False
+            self._apply_manifest(manifest_channels, keep_position=True)
+            if self._phase in ("loading", "offline"):
+                self._phase = "browse"
             return
 
-        if res.status_code == 200:
-            self._release_version = res.text[:-1]
+        # Refresh failed. With a cached list on screen just flag it; without
+        # one fall back to rollback-only browse, or the offline notice.
+        if self._phase != "loading":
+            self._check_failed = True
+            return
+        rollback = self._list_rollback_targets()
+        if rollback:
+            self._check_failed = True
+            self._manifest_channels = {}
+            self._channels = {"rollback": rollback}
+            self._channel_names = list(self._channels.keys())
+            self._channel_index = 0
+            self._refresh_version_list()
+            self._phase = "browse"
         else:
-            self._release_version = "Unknown"
+            self._phase = "offline"
 
-    def update_software(self):
-        self.message(_("Updating..."), 10)
-        if sys_utils.update_software():
-            self.message(_("Ok! Restarting"), 10)
-            sys_utils.restart_system()
+    def _apply_manifest(
+        self, manifest_channels: Dict[str, List[dict]], keep_position: bool = False
+    ):
+        self._manifest_channels = manifest_channels
+        self._channels = {
+            "stable": manifest_channels.get("stable", []),
+            "beta": manifest_channels.get("beta", []),
+        }
+
+        if self.config_object.get_option("dev_mode", False):
+            self._unstable_entries = manifest_channels.get("unstable", [])
+            self._channels["unstable"] = self._unstable_entries
+
+        rollback = self._list_rollback_targets()
+        if rollback:
+            self._channels["rollback"] = rollback
+
+        # Try to find subtitle for current version from fetched entries
+        self._software_subtitle = self._find_current_subtitle()
+
+        # A background refresh should not yank the user's channel selection.
+        prev_channel = (
+            self._channel_names[self._channel_index] if self._channel_names else None
+        )
+        self._channel_names = list(self._channels.keys())
+        if keep_position and prev_channel in self._channel_names:
+            self._channel_index = self._channel_names.index(prev_channel)
         else:
-            self.message(_("Error on Upd"), 3)
+            self._channel_index = 0
+        self._refresh_version_list(keep_position=keep_position)
 
-    def update(self, force=False):
-        self.clear_screen()
-        draw_pos = self.display_class.titlebar_height + 2
-        self.draw.text(
-            (0, draw_pos),
-            _("Wifi Mode: {mode}").format(mode=self._wifi_mode),
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
+    def _find_current_subtitle(self) -> Optional[str]:
+        """Find a subtitle for the running build.
+
+        Matches by store path (the build's identity) first, falling back to
+        the version string when the current store path is unknown.
+        """
+        current_ref = _current_store_path()
+        for entries in self._channels.values():
+            for entry in entries:
+                if current_ref and entry.get("ref") == current_ref:
+                    return entry.get("subtitle")
+                if not current_ref and entry.get("version") == self._software_version:
+                    return entry.get("subtitle")
+
+        return None
+
+    def _refresh_version_list(self, keep_position: bool = False):
+        if not self._channel_names:
+            self._version_list = []
+            return
+        channel = self._channel_names[self._channel_index]
+        entries = self._channels.get(channel, [])
+        if channel == "rollback":
+            self._version_list = entries
+        else:
+            self._version_list = _hide_current_build(entries, _current_store_path())
+        if keep_position and self._version_list:
+            self._list_index = min(self._list_index, len(self._version_list) - 1)
+            self._scroll_offset = min(self._scroll_offset, self._list_index)
+        else:
+            self._list_index = 0
+            self._scroll_offset = 0
+        self._scrollers = {}
+        self._scroller_phase = None
+        self._scroller_index = None
+
+    def _get_scrollspeed_config(self):
+        scroll_dict = {
+            "Off": 0,
+            "Fast": TextLayouterScroll.FAST,
+            "Med": TextLayouterScroll.MEDIUM,
+            "Slow": TextLayouterScroll.SLOW,
+        }
+        scrollspeed = self.config_object.get_option("text_scroll_speed", "Med")
+        return scroll_dict[scrollspeed]
+
+    def _get_scroller(self, key: str, text: str, font, color, width: int):
+        """Get or create a cached scroller, reset cache on phase/index change."""
+        phase_index = (self._phase, self._list_index)
+        if (self._scroller_phase, self._scroller_index) != phase_index:
+            self._scrollers = {}
+            self._scroller_phase = self._phase
+            self._scroller_index = self._list_index
+
+        if key not in self._scrollers:
+            self._scrollers[key] = TextLayouterScroll(
+                text,
+                draw=self.draw,
+                color=color,
+                font=font,
+                width=width,
+                scrollspeed=self._get_scrollspeed_config(),
+            )
+        return self._scrollers[key]
+
+    # ------------------------------------------------------------------
+    # Drawing helpers
+    # ------------------------------------------------------------------
+
+    def _draw_separator(self, y):
+        self.draw.line([(0, y), (127, y)], fill=self.colors.get(64))
+
+    def _draw_loading(self):
+        y = self.display_class.titlebar_height + 2
+        ver_scroller = self._get_scroller(
+            "loading_ver",
+            self._software_version,
+            self.fonts.bold,
+            self.colors.get(255),
+            self.fonts.bold.line_length,
         )
-        draw_pos += self.fonts.base.height + 4
-
-        self.draw.text(
-            (0, draw_pos),
-            _("Current Version"),
-            font=self.fonts.bold.font,
-            fill=self.colors.get(128),
-        )
-        draw_pos += self.fonts.bold.height - 3
-
-        self.draw.text(
-            (10, draw_pos),
-            f"{self._software_version}",
-            font=self.fonts.bold.font,
-            fill=self.colors.get(192),
-        )
-        draw_pos += self.fonts.bold.height + 3
-
-        self.draw.text(
-            (0, draw_pos),
-            _("Release Version"),
-            font=self.fonts.bold.font,
-            fill=self.colors.get(128),
-        )
-        draw_pos += self.fonts.bold.height - 3
-
-        self.draw.text(
-            (10, draw_pos),
-            f"{self._release_version}",
-            font=self.fonts.bold.font,
-            fill=self.colors.get(192),
-        )
-
-        # The two-line status / action message is anchored up from the bottom
-        # so it clears the (taller-font) info block on larger displays.
-        msg_pitch = self.fonts.large.height
-        msg_top = self.display_class.resY - 2 * msg_pitch - 6
-        msg_bottom = msg_top + msg_pitch
-
-        if self._wifi_mode != "Client":
-            self.draw.text(
-                (10, msg_top),
-                _("WiFi must be"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (10, msg_bottom),
-                _("client mode"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            return self.screen_update()
-
-        if self._release_version == "-.-.-":
-            # check elipsis count here... if we are at >30 check for
-            # release versions
-            if self._elipsis_count > 30:
-                self.get_release_version()
-            self.draw.text(
-                (10, msg_top),
-                _("Checking for"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (10, msg_bottom),
-                _("updates{elipsis}").format(
-                    elipsis="." * int(self._elipsis_count / 10)
-                ),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            self._elipsis_count += 1
-            if self._elipsis_count > 39:
-                self._elipsis_count = 0
-            return self.screen_update()
-
-        if not update_needed(
-            self._software_version.strip(), self._release_version.strip()
-        ):
-            self.draw.text(
-                (10, msg_top),
-                _("No Update"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (10, msg_bottom),
-                _("needed"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            return self.screen_update()
-
-        # If we are here, go for update!
-        self._go_for_update = True
+        ver_scroller.draw((0, y))
+        dots = "." * (self._elipsis_count // 10)
         self.draw.text(
             (10, 90),
-            _("Update Now"),
+            _("Checking for"),
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
         self.draw.text(
             (10, 105),
-            _("Cancel"),
+            _("updates{elipsis}").format(elipsis=dots),
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
-        if self._option_select == "Update":
-            ind_pos = msg_top
-        else:
-            ind_pos = msg_bottom
+        self._elipsis_count += 1
+        if self._elipsis_count > 39:
+            self._elipsis_count = 0
+
+    def _draw_wifi_warning(self):
+        y = self.display_class.titlebar_height + 2
+        ver_scroller = self._get_scroller(
+            "wifi_ver",
+            self._software_version,
+            self.fonts.bold,
+            self.colors.get(255),
+            self.fonts.bold.line_length,
+        )
+        ver_scroller.draw((0, y))
         self.draw.text(
-            (0, ind_pos),
-            self._RIGHT_ARROW,
+            (10, 90),
+            _("WiFi must be"),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
+        self.draw.text(
+            (10, 105),
+            _("client mode"),
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
 
-        return self.screen_update()
+    def _draw_offline(self):
+        y = self.display_class.titlebar_height + 2
+        ver_scroller = self._get_scroller(
+            "offline_ver",
+            self._software_version,
+            self.fonts.bold,
+            self.colors.get(255),
+            self.fonts.bold.line_length,
+        )
+        ver_scroller.draw((0, y))
+        self.draw.text(
+            (10, 90),
+            _("No internet -"),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
+        self.draw.text(
+            (10, 105),
+            _("check WiFi"),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
 
-    def toggle_option(self):
-        if not self._go_for_update:
+    def _draw_browse(self):
+        y = self.display_class.titlebar_height + 2
+
+        # Current version
+        ver_scroller = self._get_scroller(
+            "browse_cur_ver",
+            self._software_version,
+            self.fonts.bold,
+            self.colors.get(255),
+            self.fonts.bold.line_length,
+        )
+        ver_scroller.draw((0, y))
+        y += 12
+        if self._software_subtitle:
+            sub_scroller = self._get_scroller(
+                "browse_cur_sub",
+                self._software_subtitle,
+                self.fonts.base,
+                self.colors.get(128),
+                self.fonts.base.line_length,
+            )
+            sub_scroller.draw((0, y))
+            y += 12
+        else:
+            y += 2
+
+        # Channel selector
+        channel_name = (
+            self._channel_names[self._channel_index].capitalize()
+            if self._channel_names
+            else "---"
+        )
+        if self._focus == "channel":
+            self.draw.text(
+                (0, y),
+                self._RIGHT_ARROW,
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+            self.draw.text(
+                (10, y),
+                channel_name,
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+        else:
+            self.draw.text(
+                (10, y),
+                channel_name,
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+        y += 14
+
+        self._draw_separator(y)
+        y += 4
+
+        # Version list
+        if not self._version_list:
+            self.draw.text(
+                (10, y + 10),
+                _("No versions"),
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+            self.draw.text(
+                (10, y + 22),
+                _("available"),
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+            self._draw_refresh_status()
             return
-        if self._option_select == "Update":
-            self._option_select = "Cancel"
+
+        label_width = self.fonts.base.line_length - 2
+        list_bottom = 114 if (self._checking or self._check_failed) else 128
+        current_y = y
+        for i in range(len(self._version_list)):
+            idx = self._scroll_offset + i
+            if idx >= len(self._version_list):
+                break
+            entry = self._version_list[idx]
+            prefix, text = _entry_row_parts(entry)
+
+            if self._focus == "list" and idx == self._list_index:
+                if current_y + 24 > list_bottom:
+                    break
+                self.draw.text(
+                    (0, current_y),
+                    self._RIGHT_ARROW,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                # The prefix (PR number / trunk dot) stays fixed; only the
+                # title scrolls after it.
+                text_x = 10
+                scroll_width = label_width
+                if prefix:
+                    self.draw.text(
+                        (text_x, current_y),
+                        prefix,
+                        font=self.fonts.bold.font,
+                        fill=self.colors.get(255),
+                    )
+                    text_x += int(self.fonts.bold.width * len(prefix))
+                    scroll_width = max(1, label_width - len(prefix))
+                scroller = self._get_scroller(
+                    "browse_label",
+                    text,
+                    self.fonts.bold,
+                    self.colors.get(255),
+                    scroll_width,
+                )
+                scroller.draw((text_x, current_y))
+                current_y += 12
+                detail = _entry_detail(entry)
+                if detail:
+                    sub_scroller = self._get_scroller(
+                        "browse_sub",
+                        detail,
+                        self.fonts.base,
+                        self.colors.get(255),
+                        label_width,
+                    )
+                    sub_scroller.draw((10, current_y))
+                current_y += 12
+            else:
+                # Unfocused rows stay dim so the selected row and its detail
+                # line carry the visual weight.
+                if current_y + 12 > list_bottom:
+                    break
+                # The trunk ("main") row stands out from the PR rows: bold and
+                # brighter, with a leading dot.
+                if entry.get("is_trunk"):
+                    self.draw.text(
+                        (10, current_y),
+                        f"{prefix}{text}"[:label_width],
+                        font=self.fonts.bold.font,
+                        fill=self.colors.get(192),
+                    )
+                else:
+                    self.draw.text(
+                        (10, current_y),
+                        f"{prefix}{text}"[:label_width],
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(128),
+                    )
+                current_y += 12
+
+        self._draw_refresh_status()
+
+    def _draw_refresh_status(self):
+        """Bottom-line indicator for the background manifest refresh."""
+        if self._checking:
+            dots = "." * ((self._elipsis_count // 10) % 4)
+            text = _("checking for updates") + dots
+            self._elipsis_count += 1
+            if self._elipsis_count > 39:
+                self._elipsis_count = 0
+        elif self._check_failed:
+            text = _("update check failed")
         else:
-            self._option_select = "Update"
+            return
+        self.draw.text(
+            (4, 115),
+            text,
+            font=self.fonts.base.font,
+            fill=self.colors.get(96),
+        )
 
-    def key_square(self):
-        self._record_key("square")
-
-    def key_up(self):
-        self.toggle_option()
-
-    def key_down(self):
-        self.toggle_option()
-
-    def key_right(self):
-        if self._option_select == "Cancel":
-            self.remove_from_stack()
-        else:
-            self.update_software()
-
-
-class UIMigrationConfirm(UIModule):
-    """
-    Warning screen before initiating NixOS migration.
-    Shows version info, warns about irreversibility, requires confirmation.
-    """
-
-    __title__ = "UPGRADE"
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self._version_info = self.item_definition.get("version_info", {})
-        self._current_version = self.item_definition.get("current_version", "?")
-        self._target_version = self._version_info.get("version", "?")
-        self._option_index = 0
-        self._options = [_("Confirm"), _("Cancel")]
-
-    def update(self, force=False):
-        time.sleep(1 / 30)
-        self.clear_screen()
+    def _draw_confirm(self):
         y = self.display_class.titlebar_height + 2
 
         self.draw.text(
             (0, y),
-            _("Major Upgrade"),
-            font=self.fonts.bold.font,
-            fill=self.colors.get(255),
+            _("Update to:"),
+            font=self.fonts.base.font,
+            fill=self.colors.get(128),
         )
         y += 14
 
-        self.draw.text(
-            (5, y),
-            f"{self._current_version} -> {self._target_version}",
-            font=self.fonts.bold.font,
-            fill=self.colors.get(192),
+        label_width = self.fonts.base.line_length
+        version_label = (
+            self._selected_version.get("version") or self._selected_version["label"]
         )
-        y += 16
-
-        # Separator
-        self.draw.line([(0, y), (127, y)], fill=self.colors.get(64))
-        y += 4
-
-        self.draw.text(
-            (0, y),
-            _("IRREVERSIBLE"),
-            font=self.fonts.bold.font,
-            fill=self.colors.get(255),
+        scroller = self._get_scroller(
+            "confirm_label",
+            version_label,
+            self.fonts.bold,
+            self.colors.get(255),
+            label_width,
         )
+        scroller.draw((0, y))
         y += 12
 
-        size_mb = self._version_info.get("migration_size_mb", "?")
-        self.draw.text(
-            (0, y),
-            _("Download: {}MB").format(size_mb),
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
-        y += 11
+        subtitle = self._selected_version.get("subtitle", "")
+        if subtitle:
+            sub_scroller = self._get_scroller(
+                "confirm_sub",
+                subtitle,
+                self.fonts.base,
+                self.colors.get(128),
+                label_width,
+            )
+            sub_scroller.draw((0, y))
+        y += 14
 
-        self.draw.text(
-            (0, y),
-            _("Power + WiFi req"),
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
-        y += 11
-
-        if not self._version_info.get(
-            "migration_sha256_url"
-        ) and not self._version_info.get("migration_sha256"):
+        age = _format_age(self._selected_version.get("built_at"))
+        if age:
             self.draw.text(
                 (0, y),
-                _("No checksum avail."),
+                _("built {age}").format(age=age),
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
             y += 11
 
-        y += 5
+        self._draw_separator(y)
+        y += 4
 
-        # Options
-        for i, label in enumerate(self._options):
-            oy = y + i * 12
-            self.draw.text(
-                (10, oy),
-                label,
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
-            if i == self._option_index:
+        for i, opt in enumerate(self._confirm_options):
+            item_y = y + i * 12
+            if i == self._confirm_index:
                 self.draw.text(
-                    (0, oy),
+                    (0, item_y),
                     self._RIGHT_ARROW,
                     font=self.fonts.bold.font,
                     fill=self.colors.get(255),
                 )
+                self.draw.text(
+                    (10, item_y),
+                    _(opt),
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+            else:
+                self.draw.text(
+                    (10, item_y),
+                    _(opt),
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(192),
+                )
+
+    def _draw_failed(self):
+        y = self.display_class.titlebar_height + 20
+        reason = self._fail_reason or _("Update failed!")
+        for line in reason.split("\n"):
+            self.draw.text(
+                (10, y),
+                line,
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+            y += 14
+        y += 6
+        for label in ("Retry", "Cancel"):
+            if self._fail_option == label:
+                self.draw.text(
+                    (0, y),
+                    self._RIGHT_ARROW,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+            self.draw.text(
+                (10, y),
+                _(label),
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+            y += 12
+
+    # ------------------------------------------------------------------
+    # Main update loop
+    # ------------------------------------------------------------------
+
+    def update(self, force=False):
+        self.clear_screen()
+
+        if self._phase == "upgrading":
+            self._draw_upgrading()
+            return self.screen_update()
+
+        if self._phase == "failed":
+            self._draw_failed()
+            return self.screen_update()
+
+        if self._wifi_mode != "Client":
+            self._draw_wifi_warning()
+            return self.screen_update()
+
+        self._consume_refresh_result()
+
+        if self._phase == "loading":
+            self._draw_loading()
+            return self.screen_update()
+
+        if self._phase == "offline":
+            self._draw_offline()
+            return self.screen_update()
+
+        if self._phase == "browse":
+            self._draw_browse()
+        elif self._phase == "confirm":
+            self._draw_confirm()
 
         return self.screen_update()
 
+    # ------------------------------------------------------------------
+    # Key handlers
+    # ------------------------------------------------------------------
+
     def key_up(self):
-        self._option_index = (self._option_index - 1) % len(self._options)
+        if self._phase == "upgrading":
+            return
+        if self._phase == "failed":
+            self._fail_option = "Cancel" if self._fail_option == "Retry" else "Retry"
+        elif self._phase == "browse":
+            if self._focus == "list":
+                if self._list_index == 0:
+                    self._focus = "channel"
+                else:
+                    self._list_index -= 1
+                    if self._list_index < self._scroll_offset:
+                        self._scroll_offset = self._list_index
+        elif self._phase == "confirm":
+            if self._confirm_index > 0:
+                self._confirm_index -= 1
 
     def key_down(self):
-        self._option_index = (self._option_index + 1) % len(self._options)
-
-    def key_left(self):
-        return True
+        if self._phase == "upgrading":
+            return
+        if self._phase == "failed":
+            self._fail_option = "Cancel" if self._fail_option == "Retry" else "Retry"
+        elif self._phase == "browse":
+            if self._focus == "channel":
+                if self._version_list:
+                    self._focus = "list"
+                    self._list_index = 0
+                    self._scroll_offset = 0
+            elif self._focus == "list":
+                if self._list_index < len(self._version_list) - 1:
+                    self._list_index += 1
+                    if self._list_index >= self._scroll_offset + self.MAX_VISIBLE:
+                        self._scroll_offset = self._list_index - self.MAX_VISIBLE + 1
+        elif self._phase == "confirm":
+            if self._confirm_index < len(self._confirm_options) - 1:
+                self._confirm_index += 1
 
     def key_right(self):
-        if self._options[self._option_index] == _("Cancel"):
-            self.remove_from_stack()
-        elif self._options[self._option_index] == _("Confirm"):
-            self.add_to_stack(
-                {
-                    "class": UIMigrationProgress,
-                    "version_info": self._version_info,
-                }
-            )
-
-
-class UIMigrationProgress(UIModule):
-    """
-    Migration download and preparation progress screen.
-    Triggers the actual migration via sys_utils.
-    """
-
-    __title__ = "UPGRADE"
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self._version_info = self.item_definition.get("version_info", {})
-        self._started = False
-        self._status = _("Starting...")
-        self._progress = 0
-        self._terminal_failure = False
-        self._status_layout = TextLayouter(
-            self._status,
-            draw=self.draw,
-            color=self.colors.get(255),
-            colors=self.colors,
-            font=self.fonts.base,
-            available_lines=4,
-        )
-
-    def active(self):
-        super().active()
-        if not self._started:
-            self._started = True
-            self._start_migration()
-
-    def _start_migration(self):
-        """Kick off the migration process in the background."""
-        self._status = _("Downloading...")
-        try:
-            version_info = dict(self._version_info)
-            version_info["display_class"] = self.display_class.__class__.__name__
-            version_info["display_resolution"] = list(self.display_class.resolution)
-            supported_displays = {
-                "DisplaySSD1351": (128, 128),
-                "DisplaySSD1333": (176, 176),
-            }
-            display_class = version_info["display_class"]
-            display_resolution = tuple(version_info["display_resolution"])
-            display_supported = (
-                supported_displays.get(display_class) == display_resolution
-            )
-            display_supported = display_supported or (
-                "SSD1333" in display_class and display_resolution == (176, 176)
-            )
-            if not display_supported:
-                logger.error(
-                    "Unsupported migration progress renderer display: "
-                    f"{display_class} {version_info['display_resolution']}"
+        if self._phase == "upgrading":
+            return
+        if self._phase == "failed":
+            if self._fail_option == "Retry":
+                # Re-enters update_software() → "upgrading" phase, so Retry
+                # reuses the same progress UI as the first attempt.
+                self.update_software()
+            else:
+                self.remove_from_stack()
+        elif self._phase == "browse":
+            if self._focus == "channel" and self._channel_names:
+                self._channel_index = (self._channel_index + 1) % len(
+                    self._channel_names
                 )
-                self._status = _("Not supported")
-                return
-            sys_utils.start_nixos_migration(version_info)
-        except AttributeError:
-            logger.error("sys_utils.start_nixos_migration not available")
-            self._status = _("Not supported")
-            self._status_layout.set_text(self._status)
-            self._terminal_failure = True
-        except Exception as e:
-            logger.error(f"Migration failed to start: {e}")
-            self._status = _("Failed: ") + str(e)
-            self._status_layout.set_text(self._status)
-            self._terminal_failure = True
+                self._refresh_version_list()
+            elif self._focus == "list" and self._version_list:
+                self._selected_version = self._version_list[self._list_index]
+                self._confirm_options = []
+                if not self._selected_version.get("unavailable"):
+                    self._confirm_options.append("Install")
+                if self._selected_version.get("notes"):
+                    self._confirm_options.append("Notes")
+                self._confirm_options.append("Cancel")
+                self._confirm_index = 0
+                self._phase = "confirm"
+        elif self._phase == "confirm":
+            opt = self._confirm_options[self._confirm_index]
+            if opt == "Install":
+                self.update_software()
+            elif opt == "Notes":
+                notes = self._selected_version.get("notes")
+                if notes:
+                    self.add_to_stack({"class": UIReleaseNotes, "notes_text": notes})
+            elif opt == "Cancel":
+                self._phase = "browse"
 
-    def update(self, force=False):
-        time.sleep(1 / 30)
+    def key_left(self):
+        if self._phase == "upgrading":
+            return False
+        if self._phase == "confirm":
+            self._phase = "browse"
+            return False
+        return True
+
+    def key_square(self):
+        # Manual refresh: re-fetch the manifest with the same feedback as the
+        # automatic check on entry — the bottom status line in browse, the
+        # full "Checking for updates" screen when currently offline.
+        if self._phase == "browse":
+            self._start_refresh()
+        elif self._phase == "offline":
+            self._phase = "loading"
+            self._elipsis_count = 0
+            self._start_refresh()
+
+    # ------------------------------------------------------------------
+    # Update action
+    # ------------------------------------------------------------------
+
+    def update_software(self):
+        if not self._selected_version:
+            return
+        if self._selected_version.get("unavailable"):
+            self._phase = "failed"
+            self._fail_reason = _("Version no\nlonger available")
+            self._fail_option = "Cancel"
+            return
+        self._phase = "upgrading"
         self.clear_screen()
+        self._draw_upgrading()
+        self.screen_update()
+
+        ref = self._selected_version.get("ref") or "release"
+        selection = {
+            "ref": ref,
+            "label": self._selected_version.get("label"),
+            "version": self._selected_version.get("version"),
+            "channel": self._selected_version.get("channel"),
+        }
+        if not sys_utils.update_software(ref=ref, selection=selection):
+            self._phase = "failed"
+            self._fail_option = "Retry"
+
+    def _draw_upgrading(self):
         y = self.display_class.titlebar_height + 2
 
-        # Try to read progress from sys_utils. AttributeError happens when
-        # running against sys_utils_fake (no migration support); the helper
-        # itself swallows OS/JSON errors and returns {}.
-        try:
-            progress = sys_utils.get_migration_progress()
-        except AttributeError:
-            progress = None
-        if progress:
-            try:
-                self._progress = int(progress.get("percent", self._progress))
-            except (TypeError, ValueError):
-                pass  # bad/missing percent — keep prior value
-            new_status = progress.get("status", self._status)
-            if isinstance(new_status, str) and new_status != self._status:
-                self._status = new_status
-                self._status_layout.set_text(self._status)
+        progress = sys_utils.get_upgrade_progress()
+        phase = progress["phase"]
+        pct = progress["percent"]
+        done = progress["done"]
+        total = progress["total"]
+        unit = progress.get("unit", "bytes")
+
+        if phase in ("failed", "unavailable", "connfail"):
+            if phase == "unavailable":
+                self._fail_reason = _("Version no\nlonger available")
+            elif phase == "connfail":
+                self._fail_reason = _("Can't reach\nupdate server")
+            else:
+                self._fail_reason = _("Update failed!")
+            self._phase = "failed"
+            self._fail_option = "Retry"
+            return
+
+        # Title
+        if phase == "rebooting":
+            label = _("Rebooting...")
+        elif phase == "activating":
+            label = _("Activating...")
+        elif phase == "starting":
+            label = _("Preparing...")
+        else:
+            label = _("Downloading...")
 
         self.draw.text(
             (0, y),
-            _("System Upgrade"),
+            label,
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
@@ -637,17 +1137,21 @@ class UIMigrationProgress(UIModule):
 
         # Progress bar
         bar_x, bar_w, bar_h = 4, 120, 12
+        # Background fill so bar is always visible
         self.draw.rectangle(
             [bar_x, y, bar_x + bar_w, y + bar_h],
-            outline=self.colors.get(64),
+            fill=self.colors.get(48),
+            outline=self.colors.get(128),
         )
-        fill_w = int(bar_w * self._progress / 100)
+        fill_w = int(bar_w * pct / 100)
         if fill_w > 0:
             self.draw.rectangle(
                 [bar_x + 1, y + 1, bar_x + fill_w, y + bar_h - 1],
                 fill=self.colors.get(255),
             )
-        pct_text = f"{self._progress}%"
+
+        # Percentage centered on bar
+        pct_text = f"{pct}%"
         pct_bbox = self.fonts.base.font.getbbox(pct_text)
         pct_w = pct_bbox[2] - pct_bbox[0]
         pct_h = pct_bbox[3] - pct_bbox[1]
@@ -657,44 +1161,46 @@ class UIMigrationProgress(UIModule):
             (pct_x, pct_y),
             pct_text,
             font=self.fonts.base.font,
-            fill=self.colors.get(0) if self._progress > 45 else self.colors.get(192),
+            fill=self.colors.get(0) if pct > 45 else self.colors.get(192),
         )
-        y += bar_h + 4
+        y += bar_h + 6
 
-        # Use TextLayouter for scrollable status text
-        self._status_layout.draw((0, y))
-
-        return self.screen_update()
-
-    def key_up(self):
-        self._status_layout.previous()
-
-    def key_down(self):
-        self._status_layout.next()
-
-    def key_left(self):
-        # Allow exit only if the migration never actually started (e.g.,
-        # pre-flight refused due to missing checksum or unsupported display).
-        # Once the bash script is running, going back is unsafe.
-        if self._terminal_failure:
-            self.remove_from_stack()
-            return True
-        return False
+        # Amount below the bar: megabytes downloaded out of the total, or a
+        # path count in the fallback case where byte sizes were unavailable.
+        if phase == "downloading" and total > 0:
+            if unit == "bytes":
+                amount_text = f"{done / 1048576:.0f}/{total / 1048576:.0f} MB"
+            else:
+                amount_text = f"{done}/{total} paths"
+            self.draw.text(
+                (4, y),
+                amount_text,
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+            # Name the package currently being copied, if known.
+            item = progress.get("item", "")
+            if item:
+                self.draw.text(
+                    (4, y + 12),
+                    item[:22],
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(96),
+                )
 
 
 class UIReleaseNotes(UIModule):
     """
     Scrollable release notes viewer.
-    Fetches markdown from a URL and displays as plain text.
+    Accepts markdown text directly via notes_text in item_definition.
     """
 
     __title__ = "NOTES"
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._notes_url = self.item_definition.get("notes_url", "")
+        self._notes_text = self.item_definition.get("notes_text", "")
         self._loaded = False
-        self._error = False
         self._text_layout = TextLayouter(
             "",
             draw=self.draw,
@@ -707,38 +1213,31 @@ class UIReleaseNotes(UIModule):
     def active(self):
         super().active()
         if not self._loaded:
-            self._fetch_notes()
+            self._load_notes()
 
-    def _fetch_notes(self):
-        """Fetch release notes from the configured URL."""
-        try:
-            res = requests.get(self._notes_url, timeout=REQUEST_TIMEOUT)
-            if res.status_code == 200:
-                text = _strip_markdown(res.text)
-                self._text_layout.set_text(text)
-                self._loaded = True
-            else:
-                self._error = True
-                logger.warning(f"Failed to fetch release notes: HTTP {res.status_code}")
-        except requests.exceptions.RequestException as e:
-            self._error = True
-            logger.warning(f"Failed to fetch release notes: {e}")
+    def _load_notes(self):
+        """Process notes text for display."""
+        if self._notes_text:
+            text = _strip_markdown(self._notes_text)
+            self._text_layout.set_text(text)
+            self._loaded = True
+        else:
+            self._loaded = True
 
     def update(self, force=False):
-        time.sleep(1 / 30)
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 2
 
-        if self._error:
+        if not self._notes_text:
             self.draw.text(
                 (10, draw_pos + 20),
-                _("Could not load"),
+                _("No release notes"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, draw_pos + 35),
-                _("release notes"),
+                _("available"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
