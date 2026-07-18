@@ -599,13 +599,6 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             )
         return self._stub
 
-    def _alloc_shmem(self, size):
-        # Report a freshly created segment (not just a resized one) so the
-        # request sets reopen_shmem and the server drops its stale cached fd.
-        fresh = self._shmem is None
-        resized = super()._alloc_shmem(size)
-        return resized or fresh
-
     def extract_centroids(
         self, image, sigma, max_size, use_binned, detect_hot_pixels=True
     ):
@@ -619,17 +612,14 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
 
         # Use shared memory path (same machine)
         if self._use_shmem:
-            reopen = self._alloc_shmem(size=width * height)
+            self._alloc_shmem(size=width * height)
             shimg = np.ndarray(
                 np_image.shape, dtype=np_image.dtype, buffer=self._shmem.buf
             )
             shimg[:] = np_image[:]
 
             im = cedar_detect_pb2.Image(
-                width=width,
-                height=height,
-                shmem_name=self._shmem.name,
-                reopen_shmem=reopen,
+                width=width, height=height, shmem_name=self._shmem.name
             )
             req = cedar_detect_pb2.CentroidsRequest(
                 input_image=im,
@@ -644,11 +634,6 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             except grpc.RpcError as err:
                 if err.code() == grpc.StatusCode.INTERNAL:
                     # Shared memory issue, fall back to non-shmem
-                    logger.warning(
-                        "Cedar shmem transfer failed (%s); "
-                        "falling back to inline image passing",
-                        err.details(),
-                    )
                     self._del_shmem()
                     self._use_shmem = False
                 else:
@@ -774,9 +759,7 @@ def solver(
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
-    # Load tetra3's bundled pattern database by name; tetra3 resolves it from
-    # its own package data dir (shipped inside the cedar-solve wheel).
-    t3 = tetra3.Tetra3("default_database")
+    t3 = tetra3.Tetra3(str(utils.tetra3_dir / "data" / "default_database.npz"))
     align_ra = 0
     align_dec = 0
     last_solve_attempt: float = 0.0
