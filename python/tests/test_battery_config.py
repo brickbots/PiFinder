@@ -5,7 +5,7 @@ Unit tests for the pure BQ25895 fast-charge config planning.
 hardware), so the read-modify-write logic — bit preservation, field
 encoding, watchdog ordering and idempotency — is testable without a
 board. Register layout is cross-checked against ``BQ25895-datasheet.pdf``
-(TI SLUSC88C) and the live rev-4 readings noted in the battery handoff.
+(TI SLUSC88C) and the live rev4 readings noted in the battery handoff.
 See ``docs/adr/0017-battery-fast-charge-config.md``.
 """
 
@@ -27,7 +27,7 @@ from PiFinder.battery_bq25895 import (
     plan_charging_writes,
 )
 
-# Live rev-4 defaults read off a unit before configuration (see handoff):
+# Live rev4 defaults read off a unit before configuration (see handoff):
 # REG00 0x48 (EN_ILIM=1, IINLIM=500 mA), REG04 0x20 (2048 mA), REG07 0x9D
 # (40 s watchdog). REG02 0x3D is the datasheet power-on value (ICO/HVDCP/
 # MaxCharge enabled, BOOST_FREQ=500 kHz, AUTO_DPDM_EN=1).

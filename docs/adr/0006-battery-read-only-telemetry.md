@@ -2,7 +2,7 @@
 
 > **Superseded by [`0017-battery-fast-charge-config.md`](0017-battery-fast-charge-config.md).** The "Monitor + boot-time safety init" option rejected below was later adopted (for charge-rate tuning, not OTG safety): the battery monitor now disables the I²C watchdog and raises the input/charge current limits on every poll. The OTG analysis here still holds — OTG/boost remains disabled in hardware by the `/OTG` strap, and software still never touches `OTG_CONFIG`/HIZ/charge-enable.
 
-The rev-4 board uses a TI BQ25895 I²C charger. We treat it as a **read-only telemetry source**: the `battery_` code reads battery voltage, charge status, power source and a few diagnostics, and never configures the power path (no OTG/HIZ/input-current-limit/charge-enable writes). This is safe because OTG/boost is disabled **in hardware** — the `/OTG` pin is strapped low, so `OTG_CONFIG` is irrelevant and there is nothing for software to keep in check. The one write the code does make is pulsing REG02 to start a one-shot ADC conversion, which is a telemetry trigger, not power-path control.
+The rev4 board uses a TI BQ25895 I²C charger. We treat it as a **read-only telemetry source**: the `battery_` code reads battery voltage, charge status, power source and a few diagnostics, and never configures the power path (no OTG/HIZ/input-current-limit/charge-enable writes). This is safe because OTG/boost is disabled **in hardware** — the `/OTG` pin is strapped low, so `OTG_CONFIG` is irrelevant and there is nothing for software to keep in check. The one write the code does make is pulsing REG02 to start a one-shot ADC conversion, which is a telemetry trigger, not power-path control.
 
 ## Considered options
 

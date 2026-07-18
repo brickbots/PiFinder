@@ -168,6 +168,15 @@ def integrator(
             if imu:
                 telemetry.record_imu(imu)
 
+            # 2b. Record the camera-side radiometer sample (exposure, sky
+            #     background, MAD, quadrant gradient). record_radio dedupes
+            #     on frame sequence, rate-limits to ~1 Hz, and is a no-op
+            #     while replaying or when recording is off.
+            try:
+                telemetry.record_radio(shared_state.sqm_radiometer_sample())
+            except (BrokenPipeError, ConnectionResetError, AttributeError):
+                pass
+
             # If we have an anchor and didn't just do a fresh plate-solve,
             # try to advance the estimate via IMU dead-reckoning.
             if (
@@ -239,7 +248,7 @@ def _apply_successful_solve(
     estimate.alignment = result.alignment
     estimate.matched_centroids = result.matched_centroids
     estimate.matched_stars = result.matched_stars
-    estimate.matched_catalog_ids = result.matched_catalog_ids
+    estimate.matched_catID = result.matched_catID
 
     # Reseed the dead-reckoner from the new anchor. camera/aligned are
     # always present on a SuccessfulSolve, so no None-guard is needed.

@@ -92,7 +92,7 @@ def test_solved_hip_ids_restore_stars_to_their_existing_slots():
     solution = SimpleNamespace(
         last_solve_success=42.0,
         matched_centroids=[(300.0, 400.0), (80.0, 100.0)],
-        matched_catalog_ids=[71683, 32349],
+        matched_catID=[71683, 32349],
     )
     preview.shared_state = SimpleNamespace(solution=lambda: solution)
 

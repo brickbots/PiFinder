@@ -141,7 +141,7 @@ class UIPreview(UIModule):
         if solution.last_solve_success != frame_time:
             return
         centroids = solution.matched_centroids
-        catalog_ids = solution.matched_catalog_ids
+        catalog_ids = solution.matched_catID
         if not centroids or not catalog_ids:
             return
 

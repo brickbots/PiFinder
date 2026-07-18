@@ -1028,6 +1028,22 @@ pifinder_menu = {
                                     "name": _("AS Bloom"),
                                     "value": "as_bloom",
                                 },
+                                {
+                                    "name": _("AS Heart"),
+                                    "value": "as_heart",
+                                },
+                                {
+                                    "name": _("Rev4 Left"),
+                                    "value": "rev4_left",
+                                },
+                                {
+                                    "name": _("Rev4 Right"),
+                                    "value": "rev4_right",
+                                },
+                                {
+                                    "name": _("Rev4 Straight"),
+                                    "value": "rev4_straight",
+                                },
                             ],
                         },
                         {

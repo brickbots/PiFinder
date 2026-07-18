@@ -162,7 +162,7 @@ class SQM:
     """
 
     value: float = 20.15  # mag/arcsec² - default typical dark sky value
-    source: str = "None"  # "None", "Calculated", "Manual", etc.
+    source: str = "None"  # "None", "Radiometer", "Manual", legacy "Calculated"
     last_update: Optional[str] = None  # ISO timestamp of last update
 
     def __str__(self):
@@ -293,9 +293,9 @@ class SharedStateObj:
         self.__hardware = None
         self.__location: Location = Location()
         self.__sqm: SQM = SQM()
-        self.__noise_floor: float = (
-            10.0  # Adaptive noise floor in ADU (default fallback)
-        )
+        # Processed 8-bit background floor used by the camera controller.
+        # Raw SQM thresholds use different units and must not be stored here.
+        self.__noise_floor: float = 10.0
         self.__sqm_details: dict = {}  # Full SQM calculation details for calibration
         self.__datetime = None
         self.__datetime_time = None
@@ -305,7 +305,11 @@ class SharedStateObj:
         self.__arch = None
         self.__camera_align = False
         self.__camera_type = "imx296"  # Default, will be set by camera process
+        # Degrees the camera process rotates the solve/display image relative
+        # to the stored raw frame (PIL CCW). None until the camera reports.
+        self.__solve_image_rotation = None
         self.__cam_raw = None
+        self.__sqm_radiometer_sample = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
         self.__tz_finder = TimezoneFinder()
@@ -367,6 +371,12 @@ class SharedStateObj:
     def camera_type(self):
         return self.__camera_type
 
+    def solve_image_rotation(self):
+        return self.__solve_image_rotation
+
+    def set_solve_image_rotation(self, v):
+        self.__solve_image_rotation = v
+
     def set_camera_type(self, v: str):
         self.__camera_type = v
 
@@ -384,7 +394,7 @@ class SharedStateObj:
 
     def battery(self):
         """Latest BatteryState, or None when no charger is present
-        (rev-3 hardware / monitor not running). None is distinct from a
+        (rev3 hardware / monitor not running). None is distinct from a
         low state_of_charge_pct -- see docs/ax/battery/CONTEXT.md."""
         return self.__battery
 
@@ -428,11 +438,11 @@ class SharedStateObj:
         self.__sqm = sqm
 
     def noise_floor(self) -> float:
-        """Return the adaptive noise floor in ADU"""
+        """Return the processed-image background floor in 8-bit ADU."""
         return self.__noise_floor
 
     def set_noise_floor(self, v: float):
-        """Update the adaptive noise floor (from SQM calculator)"""
+        """Update the processed-image background floor in 8-bit ADU."""
         self.__noise_floor = v
 
     def sqm_details(self) -> dict:
@@ -504,11 +514,11 @@ class SharedStateObj:
         This keeps ``datetime()`` / ``utc_datetime()`` always UTC-aware. See
         ADR-0018.
         """
-        if dt.utcoffset() is None:    # naive, assume it's UTC
+        if dt.utcoffset() is None:  # naive, assume it's UTC
             # we could use replace() instead since UTC has
             # no DST, but the idiom is dangerous for non-UTC
             dt = pytz.utc.localize(dt)
-        else:                         # timezone-aware -> convert to UTC
+        else:  # timezone-aware -> convert to UTC
             dt = dt.astimezone(pytz.utc)
 
         if force:
@@ -552,6 +562,12 @@ class SharedStateObj:
 
     def set_cam_raw(self, v):
         self.__cam_raw = v
+
+    def sqm_radiometer_sample(self):
+        return self.__sqm_radiometer_sample
+
+    def set_sqm_radiometer_sample(self, v):
+        self.__sqm_radiometer_sample = v
 
     def ui_state(self):
         return self.__ui_state

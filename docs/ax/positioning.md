@@ -237,6 +237,19 @@ bridging.
 All angles inside the IDR are radians; degrees↔radians conversion lives at
 `Pointing.as_radecroll()` and `RaDecRoll.get(deg=True)`.
 
+`q_imu2cam` is a per-build-variant hardware constant, selected by **screen
+direction** at construction. It is only valid paired with that variant's
+`SCREEN_ROTATE_AMOUNTS` entry in `camera_interface.py`: the camera frame is
+defined on the image *after* that software rotation, so the two constants
+must be derived together. Derive or verify entries with the visual **imu2cam
+tool** (`PiFinder/pointing_model/docs/imu2cam_tool.html`);
+`tests/test_imu2cam_tool_presets.py` pins the tool's presets to both
+production tables. The IMU chip placement on the UI board is per **board
+revision** (rev4 boards mount it on the back side, flipped about the
+board's long axis), so set the tool's board-revision control to match the
+physical board — see the tool's header comment and the CONTEXT.md **Board
+revision** entry.
+
 ---
 
 ## 5. Camera-to-telescope alignment

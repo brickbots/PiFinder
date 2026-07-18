@@ -42,7 +42,7 @@ class BatteryState:
     (``shared_state.battery()`` / ``set_battery()``).
 
     Read-only for consumers. ``shared_state.battery()`` is ``None`` when
-    no charger is present (rev-3 hardware / monitor not running) — that
+    no charger is present (rev3 hardware / monitor not running) — that
     is distinct from a real ``BatteryState`` with a low
     ``state_of_charge_pct`` (detected, nearly empty).
     """
@@ -68,5 +68,5 @@ class HardwareCapabilities:
     """
 
     has_bq25895: bool = False
-    has_buzzer: bool = False  # rev-4 passive piezo on PWM ch0 (see Sound context)
+    has_buzzer: bool = False  # rev4 passive piezo on PWM ch0 (see Sound context)
     # room to grow: other rev-dependent hardware facts go here
