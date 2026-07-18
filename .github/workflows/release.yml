@@ -1,0 +1,387 @@
+name: Release NixOS image
+
+# Builds the PiFinder NixOS SD image and migration tarball and publishes them as
+# a GitHub (pre-)release, and records the closure in the nixos-manifest branch.
+#
+# Runners are native aarch64 (no QEMU): the Pi5 self-hosted runner is tried
+# first, with the free GitHub-hosted `ubuntu-24.04-arm` runner as a fallback if
+# the Pi is offline/slow — mirroring nixos-pr-build.yml. The arch-sensitive
+# `nix build` runs there; the image is handed off as an artifact and the
+# arch-independent packaging + publishing happens on ubuntu-latest.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g., 2.5.0)'
+        required: true
+      notes:
+        description: 'Release notes'
+        required: true
+      type:
+        description: 'Release type'
+        type: choice
+        options:
+          - stable
+          - beta
+        default: stable
+      source_branch:
+        description: 'Source branch (default: main, use release/X.Y for hotfixes)'
+        required: false
+        default: 'main'
+      source_repository:
+        description: 'Source repo to build (blank = this repo; e.g. mrosseel/PiFinder to build a fork)'
+        required: false
+        default: ''
+
+jobs:
+  # Native aarch64 build on the Pi5 self-hosted runner (preferred, fast).
+  build-native:
+    runs-on: [self-hosted, aarch64]
+    timeout-minutes: 90
+    outputs:
+      store_path: ${{ steps.push.outputs.store_path }}
+      source_sha: ${{ steps.sha.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.source_repository || github.repository }}
+          ref: ${{ inputs.source_branch }}
+          persist-credentials: false
+
+      - name: Record source SHA
+        id: sha
+        run: echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure nix is on PATH (self-hosted runner)
+        run: |
+          echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
+
+      - name: Setup Attic caches (cache.pifinder.eu)
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
+
+      - name: Build and push release closure to Attic
+        id: push
+        run: |
+          STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            -L --json | jq -r '.[].outputs.out')
+          DEV_SHELL_PATH=$(nix build .#devShells.aarch64-linux.default \
+            -L --json | jq -r '.[].outputs.out')
+          # Stable → retained pifinder-release (GC off; devices resolve it months
+          # later). Beta → dev pifinder cache (finite retention), so prereleases
+          # stay transient.
+          if [[ "${{ inputs.type }}" == "beta" ]]; then
+            attic push pifinder:pifinder "$STORE_PATH"
+            attic push pifinder:pifinder "$DEV_SHELL_PATH"
+          else
+            attic push pifinder:pifinder-release "$STORE_PATH"
+            attic push pifinder:pifinder-release "$DEV_SHELL_PATH"
+          fi
+          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Build SD image
+        run: |
+          nix build .#images.pifinder -L -o result-sd
+
+      - name: Upload SD image
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdimage-native
+          path: result-sd/sd-image/*.img.zst
+          retention-days: 1
+
+      # The migration tarball is cut from the MINIMAL migration system, not the
+      # full image — it resolves the full system from the update manifest at
+      # first boot (ADR 0004 / 0003).
+      - name: Build migration image
+        run: |
+          nix build .#images.pifinder-migration -L -o result-mig
+
+      - name: Upload migration image
+        uses: actions/upload-artifact@v4
+        with:
+          name: migimage-native
+          path: result-mig/sd-image/*.img.zst
+          retention-days: 1
+
+  # Poll the native builder for ~15 min, then decide whether to fall back.
+  native-wait:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      need_fallback: ${{ steps.wait.outputs.need_fallback }}
+    steps:
+      - name: Wait for native build
+        id: wait
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 30); do
+            sleep 30
+            RESULT=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs" \
+              --jq '.jobs[] | select(.name == "build-native") | .conclusion // "pending"' 2>/dev/null || echo "pending")
+            echo "Check $i/30: build-native=$RESULT"
+            if [ "$RESULT" = "success" ]; then
+              echo "need_fallback=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [ "$RESULT" = "failure" ] || [ "$RESULT" = "cancelled" ]; then
+              echo "need_fallback=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "Native build not done after 15 min, falling back to hosted"
+          echo "need_fallback=true" >> "$GITHUB_OUTPUT"
+
+  # Fallback on a free GitHub-hosted arm64 runner (native aarch64, no QEMU).
+  build-hosted:
+    needs: native-wait
+    if: needs.native-wait.outputs.need_fallback == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    outputs:
+      store_path: ${{ steps.push.outputs.store_path }}
+      source_sha: ${{ steps.sha.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.source_repository || github.repository }}
+          ref: ${{ inputs.source_branch }}
+          persist-credentials: false
+
+      - name: Record source SHA
+        id: sha
+        run: echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
+          extra-conf: |
+            extra-system-features = big-parallel
+            extra-substituters = https://cache.pifinder.eu/pifinder
+            extra-trusted-public-keys = pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck=
+
+      - name: Setup Attic caches (cache.pifinder.eu)
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
+
+      - name: Build and push release closure to Attic
+        id: push
+        run: |
+          STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            -L --json | jq -r '.[].outputs.out')
+          DEV_SHELL_PATH=$(nix build .#devShells.aarch64-linux.default \
+            -L --json | jq -r '.[].outputs.out')
+          if [[ "${{ inputs.type }}" == "beta" ]]; then
+            attic push pifinder:pifinder "$STORE_PATH"
+            attic push pifinder:pifinder "$DEV_SHELL_PATH"
+          else
+            attic push pifinder:pifinder-release "$STORE_PATH"
+            attic push pifinder:pifinder-release "$DEV_SHELL_PATH"
+          fi
+          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Build SD image
+        run: |
+          nix build .#images.pifinder -L -o result-sd
+
+      - name: Upload SD image
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdimage-hosted
+          path: result-sd/sd-image/*.img.zst
+          retention-days: 1
+
+      # Minimal migration system — see the native job's comment (ADR 0004).
+      - name: Build migration image
+        run: |
+          nix build .#images.pifinder-migration -L -o result-mig
+
+      - name: Upload migration image
+        uses: actions/upload-artifact@v4
+        with:
+          name: migimage-hosted
+          path: result-mig/sd-image/*.img.zst
+          retention-days: 1
+
+  # Arch-independent: package the migration tarball + checksums and publish. Runs
+  # on whichever build succeeded (native preferred).
+  release:
+    needs: [build-native, native-wait, build-hosted]
+    if: |
+      always() &&
+      (needs.build-native.result == 'success' || needs.build-hosted.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Base repo (this repo, not the fork source): supplies the TRUSTED manifest
+      # scripts and the `origin` the manifest branch is pushed to. Keeps default
+      # credentials for that push.
+      - name: Checkout base repo
+        uses: actions/checkout@v4
+
+      # Download native and hosted images to separate dirs. If both builds ran
+      # (native slow → fallback fired) their images share a filename, so merging
+      # them would corrupt the archive — never merge; the assemble step prefers
+      # native.
+      - name: Download native SD image
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: sdimage-native
+          path: img-native
+
+      - name: Download hosted SD image
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: sdimage-hosted
+          path: img-hosted
+
+      - name: Download native migration image
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: migimage-native
+          path: mig-native
+
+      - name: Download hosted migration image
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: migimage-hosted
+          path: mig-hosted
+
+      - name: Compute tag
+        run: |
+          TAG="v${{ inputs.version }}"
+          [[ "${{ inputs.type }}" == "beta" ]] && TAG="${TAG}-beta"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Assemble image + migration tarball + checksums
+        run: |
+          set -euo pipefail
+          # Only some dirs may exist (downloads are continue-on-error); create
+          # all so find can't fail under pipefail. Prefer the native builder's
+          # artifacts (listed first); fall back to hosted.
+          mkdir -p img-native img-hosted mig-native mig-hosted
+          IMAGE_SRC=$(find img-native img-hosted -type f -name '*.img.zst' -print -quit)
+          MIG_SRC=$(find mig-native mig-hosted -type f -name '*.img.zst' -print -quit)
+          if [ -z "$IMAGE_SRC" ] || [ -z "$MIG_SRC" ]; then
+            echo "Missing artifact: sd=[$IMAGE_SRC] migration=[$MIG_SRC]" >&2
+            exit 1
+          fi
+          mkdir -p release
+          cp "$IMAGE_SRC" "release/pifinder-${TAG}.img.zst"
+
+          # The migration tarball is cut from the MINIMAL migration image — it
+          # resolves the full system from the update manifest at first boot, so
+          # its content never goes stale (ADR 0004 / 0003).
+          rm -f /tmp/pifinder-mig.img
+          zstd -d "$MIG_SRC" -o /tmp/pifinder-mig.img
+
+          LOOP=$(sudo losetup --find --show --partscan /tmp/pifinder-mig.img)
+          sudo mkdir -p /mnt/boot /mnt/root
+          sudo mount "${LOOP}p1" /mnt/boot
+          sudo mount "${LOOP}p2" /mnt/root
+
+          mkdir -p /tmp/tarball-staging
+          sudo cp -a /mnt/boot /tmp/tarball-staging/boot
+          sudo cp -a /mnt/root /tmp/tarball-staging/rootfs
+
+          sudo umount /mnt/boot /mnt/root
+          sudo losetup -d "$LOOP"
+          rm -f /tmp/pifinder-mig.img
+
+          sudo tar -C /tmp/tarball-staging -cf - \
+            --exclude='*/lost+found' \
+            boot rootfs | zstd -T0 -19 -o "release/pifinder-migration-${TAG}.tar.zst"
+          sudo rm -rf /tmp/tarball-staging
+
+          # Never-again guard (2026-07-05 field failure): during migration the
+          # tarball is copied into RAM, so a 2GB board can only hold ~1.4GB.
+          # Refuse to publish a release that cannot migrate 2GB boards.
+          MIG_MB=$(( $(stat -c%s "release/pifinder-migration-${TAG}.tar.zst") / 1048576 ))
+          BUDGET_MB=800
+          echo "migration tarball: ${MIG_MB}MB (budget ${BUDGET_MB}MB)"
+          if [ "${MIG_MB}" -gt "${BUDGET_MB}" ]; then
+            echo "::error::migration tarball ${MIG_MB}MB exceeds ${BUDGET_MB}MB budget — shrink the migration closure (check linux-firmware and friends)"
+            exit 1
+          fi
+
+          # Checksum sidecars. The in-app upgrade (PiFinder.sys_utils) fetches
+          # <artifact-url>.sha256 and refuses to flash without a matching digest;
+          # it reads the first whitespace-delimited token, so sha256sum output is
+          # the expected format.
+          ( cd release
+            for f in pifinder-*.img.zst pifinder-migration-*.tar.zst; do
+              sha256sum "$f" > "$f.sha256"
+            done )
+
+      - name: Tag release source commit
+        # Only when building this repo. A fork source_repository has a different
+        # `origin` we can't push to with GITHUB_TOKEN; the GitHub Release below
+        # still publishes the artifacts to this repo.
+        if: (inputs.source_repository || github.repository) == github.repository
+        env:
+          SOURCE_SHA: ${{ needs.build-native.outputs.source_sha || needs.build-hosted.outputs.source_sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # The base checkout is at the workflow's ref, not the built source —
+          # fetch and tag the commit the build job actually checked out.
+          git fetch --depth=1 origin "$SOURCE_SHA"
+          git tag "$TAG" "$SOURCE_SHA"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: PiFinder ${{ env.TAG }}
+          body: ${{ inputs.notes }}
+          prerelease: ${{ inputs.type == 'beta' }}
+          files: |
+            release/pifinder-*.zst
+            release/pifinder-*.sha256
+
+      - name: Update generated manifest branch
+        # Records this release in the metadata-only nixos-manifest branch so
+        # devices discover it (upgrade uses store_path; migration uses the tarball
+        # URL). Pushes to this repo's origin via the base checkout above, so it
+        # runs for fork-source builds too. source_sha is the built source commit;
+        # the tarball URL points at this repo's release assets.
+        env:
+          STORE_PATH: ${{ needs.build-native.outputs.store_path || needs.build-hosted.outputs.store_path }}
+          SOURCE_SHA: ${{ needs.build-native.outputs.source_sha || needs.build-hosted.outputs.source_sha }}
+          RELEASE_NOTES: ${{ inputs.notes }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          MIGRATION_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/pifinder-migration-${TAG}.tar.zst"
+
+          bash .github/scripts/publish_manifest.sh \
+            "chore: update release manifest [skip ci]" \
+            python3 .github/scripts/update_manifest.py release \
+              --manifest @MANIFEST@ \
+              --repository "${{ inputs.source_repository || github.repository }}" \
+              --sha "$SOURCE_SHA" \
+              --tag "$TAG" \
+              --version "${{ inputs.version }}" \
+              --release-type "${{ inputs.type }}" \
+              --store-path "$STORE_PATH" \
+              --migration-url "$MIGRATION_URL" \
+              --migration-sha256-url "${MIGRATION_URL}.sha256" \
+              --title "PiFinder $TAG" \
+              --notes "$RELEASE_NOTES"

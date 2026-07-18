@@ -140,7 +140,7 @@ class UITimeEntry(UIModule):
             note_str = self.shared_state.location().timezone[:18]
             self.draw.text(
                 (10, note_y),
-                _(note_str), 
+                _(note_str),
                 font=self.fonts.base.font,
                 fill=self.red,
             )

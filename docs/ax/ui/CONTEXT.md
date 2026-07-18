@@ -181,24 +181,28 @@ The focus-quality metric — the diameter (in pixels) of the circle enclosing ha
 _Avoid_: FWHM (a different, fit-based metric — not what we compute), star size, spot size, sharpness.
 
 **Detected star**:
-A blob the focus screen's own lightweight detector finds in the raw 512×512 frame, deliberately tuned to accept broad/defocused blobs (up to a ~50 px size cap). The few brightest detected stars are what HFD is measured on. Distinct from a **matched star** (the solver's tetra3 catalog match), which goes to zero when defocused.
+A blob the focus screen's own lightweight detector finds in the raw 512×512 frame, deliberately tuned to accept broad/defocused blobs. HFD is measured on blobs up to a ~50 px size cap; broader blobs remain available for visual magnification. The few brightest measurable stars are what HFD is measured on. Distinct from a **matched star** (the solver's tetra3 catalog match), which goes to zero when defocused.
 _Avoid_: centroid (reserve for the solver/SQM sense), matched star, blob (in prose; fine informally).
 
 **Focus HFD** (the reported value):
-The **median** HFD over the few brightest detected stars in the current frame — steadier frame-to-frame than any single star. When someone says "the HFD" on the focus screen, this is it.
+The **median** HFD over the four brightest measurable stars — steadier frame-to-frame than any single star and representative of the four focus tiles. When someone says "the HFD" on the focus screen, this is it.
 _Avoid_: best HFD (that's the marker), single-star HFD.
 
-**Focus strip**:
-The bottom-of-screen overlay (a fixed fraction of the screen height — ~38 px on the 128 panel, proportionally taller on a larger panel; see ADR 0009) that renders the focus indicator over the live image: a large right-justified **focus HFD** readout (filling the strip height), and in the freed left region the V-curve, best-focus marker, exposure, detected-star count, and the (kept) matched-star count. On by default; `square` hides the whole strip. Persists across all zoom levels (HFD is zoom-independent).
-_Avoid_: HUD (loosely the same overlay; "focus strip" is the canonical name), info overlay (the prior exposure+matched-count overlay this replaces).
+**Focus tiles**:
+The 2×2 view made by repacking the four brightest detected stars from anywhere in the camera frame. Each tile is centered on the star's background-subtracted flux centroid and enlarged with nearest-neighbour sampling; no display stretch or filtering changes the star pixels. After initial selection, stars retain their quadrant through brightness changes. Tracking matches the relative 2--4-star pattern under one shared image translation, so moving the image while adjusting focus does not reshuffle the tiles; a missing star is replaced by the brightest unused candidate. Missing stars leave black tiles. The current **focus HFD** is shown at the intersection, with the rolling 10-second HFD signal split around it along the middle divider. The recent signal range is centered on the divider and lower HFD appears below it; a minimum 1.0-HFD display span avoids magnifying tiny measurement noise. Missing measurements add no points, so existing samples recede with wall time; the next numeric measurement starts a fresh signal. No absolute good-focus threshold, guide, marker, or under-stroke is drawn.
+_Avoid_: processed preview, enhanced stars, focus strip.
 
-**V-curve** (focus trend graph):
-The scrolling sparkline of focus HFD over the **rolling 10-second window**, plotted in the focus strip. Cleared on screen entry. Named for the V shape traced as the user sweeps a focuser through best focus.
-_Avoid_: focus graph, history graph, trend line.
+**Focus display mode**:
+One of the four Focus-screen views cycled with short `square`, following the normal **display mode** convention: **Stars** (the four focus tiles and HFD history), **Single** (the brightest tracked star at twice the Stars magnification, with HFD and history on a translucent lower-third overlay), **Image** (the complete frame with the original per-frame autocontrast applied for display only), and **Stats** (HFD, supplementary area-equivalent FWHM, detected-star count, exposure mode/value, gain, and a log-scaled raw histogram). HFD, centroids, and the Stats histogram always use the unstretched raw frame. Every unavailable HFD readout is shown as `?.?`; no upper-limit sentinel is displayed.
+_Avoid_: tab, page, focus-strip mode.
 
-**Best-focus marker**:
-The minimum focus HFD within the rolling 10-second window — the bottom of the current V. Auto-rearms as old samples scroll out of the window; there is no manual reset.
-_Avoid_: best focus (the state), minimum line, target HFD.
+**Focus FWHM estimate**:
+The median area-equivalent diameter of the pixels above half local maximum for the same four brightest measurable stars. It is supplementary diagnostics on the Stats display mode, not the focus-quality metric; HFD remains primary because it behaves better on saturated, broad, and donut-shaped stars.
+_Avoid_: focus FWHM (when used as a replacement for HFD), fitted FWHM (there is no Gaussian fit).
+
+**Adaptive focus zoom**:
+The magnification used by the Stars and Single views. A compact star defaults to 10× relative to the former full-frame preview in Stars (a 26×26 native crop on square displays); Single maps that crop across the full panel, giving twice the apparent magnification. For a broad star the crop grows to include its detected extent plus margin, lowering effective magnification instead of clipping it. In the Stars and Single display modes, `+` and `-` adjust the nominal zoom from 4× to 16×. Short `square` cycles display modes.
+_Avoid_: optical zoom, solver zoom.
 
 ## Boundary terms
 

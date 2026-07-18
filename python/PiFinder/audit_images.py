@@ -44,8 +44,8 @@ def check_object_image(catalog_object):
         aka_rec = conn.execute(
             f"""
             SELECT common_name from names
-            where catalog = "{catalog_object['catalog']}"
-            and sequence = "{catalog_object['sequence']}"
+            where catalog = "{catalog_object["catalog"]}"
+            and sequence = "{catalog_object["sequence"]}"
             and common_name like "NGC%"
         """
         ).fetchone()

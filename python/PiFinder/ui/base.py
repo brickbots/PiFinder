@@ -8,7 +8,7 @@ This module contains the base UIModule class
 import time
 import uuid
 from itertools import cycle
-from typing import Type, Union
+from typing import Union
 
 from PIL import Image, ImageDraw
 from PiFinder import utils
@@ -47,7 +47,9 @@ class RotatingInfoDisplay:
     def _get_text(self, use_sqm):
         if use_sqm:
             sqm = self.shared_state.sqm()
-            return f"{sqm.value:.1f}" if sqm and sqm.value else "---"
+            if sqm and sqm.last_update is not None:
+                return f"{sqm.value:.1f}"
+            return "---"
         else:
             sol = self.shared_state.solution()
             return sol.constellation if sol and sol.constellation else "---"
@@ -102,6 +104,7 @@ class UIModule:
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options: dict
     _CAM_ICON = ""
+    _CAM_ICON_HOLLOW = ""
     _IMU_ICON = ""
     _GPS_ICON = "󰤉"
     _LEFT_ARROW = ""
@@ -131,7 +134,7 @@ class UIModule:
 
     def __init__(
         self,
-        display_class: Type[DisplayBase],
+        display_class: DisplayBase,
         camera_image,
         shared_state,
         command_queues,
@@ -482,6 +485,8 @@ class UIModule:
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
+                    if solution is None:
+                        return
                     cam_active = solution.is_camera_solve()
                     # a fresh cam solve sets unmoved to True
                     self._unmoved = True if cam_active else self._unmoved
@@ -493,9 +498,14 @@ class UIModule:
                     # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
                     if self._unmoved:
+                        is_test = self.config_object.get_option("test_mode", False)
+                        icon_x = self.display_class.resX * 0.91
+                        # In test mode the camera feed is faked, so show the
+                        # hollow (outline) camera icon as a subtle indicator
+                        # rather than a bright inverted box.
                         self.draw.text(
-                            (self.display_class.resX * 0.91, icon_y),
-                            self._CAM_ICON,
+                            (icon_x, icon_y),
+                            self._CAM_ICON_HOLLOW if is_test else self._CAM_ICON,
                             font=self.fonts.icon_bold_large.font,
                             fill=var_fg,
                         )

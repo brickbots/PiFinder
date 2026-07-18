@@ -152,8 +152,11 @@ case/my_printer
 *.db-shm
 *.db-wal
 .devenv/
+.direnv/
 **/.claude/*
 !**/.claude/skills/
+.agents/
+.codex/
 .serena/
 astro_data/comets.txt
 
@@ -161,3 +164,7 @@ astro_data/comets.txt
 test_ubx
 test_ubx/*
 python/telemetry_analysis/
+
+# nix build result symlinks
+result
+result-*

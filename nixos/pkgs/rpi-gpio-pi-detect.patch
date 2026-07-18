@@ -1,0 +1,29 @@
+Make RPi.GPIO board detection fall back to /proc/device-tree/model.
+
+get_rpi_info() reads the board revision from
+/proc/device-tree/system/linux,revision or the /proc/cpuinfo "Revision"
+line. On a NixOS Pi 4 (mainline device tree, arm64) neither is present, so
+the C module init aborts with "This module can only be run on a Raspberry
+Pi!" and any importer (adafruit-blinka -> board -> RPi.GPIO) crashes. Fall
+back to the model string, which is always present, and synthesise a Pi 4
+Model B revision code so detection succeeds.
+
+--- a/source/cpuinfo.c
++++ b/source/cpuinfo.c
+@@ -66,6 +66,16 @@
+    else
+       return -1;
+    fclose(fp);
++   if (!found) {
++      FILE *mp;
++      if ((mp = fopen("/proc/device-tree/model", "r"))) {
++         if (fgets(buffer, sizeof(buffer), mp) && strstr(buffer, "Raspberry Pi")) {
++            found = 1;
++            strcpy(revision, "c03111");
++         }
++         fclose(mp);
++      }
++   }
+
+    if (!found)
+       return -1;

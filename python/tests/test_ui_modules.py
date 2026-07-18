@@ -53,7 +53,7 @@ import io
 import pkgutil
 import queue
 import shutil
-from typing import Iterator, cast
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -87,8 +87,6 @@ from PiFinder.ui.log import UILog
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
 from PiFinder.ui.sqm_sweep import UISQMSweep
-from PiFinder.ui.sqm_correction import UISQMCorrection
-from PiFinder.ui.software import UIMigrationConfirm, UIMigrationProgress
 
 
 # --------------------------------------------------------------------------- #
@@ -122,8 +120,11 @@ _SWEEP_SKIP: dict[str, str] = {
 # UIModule subclasses that are intentionally *not* exercised, with the reason.
 # Keeps the completeness guard (test_all_ui_modules_covered) honest.
 _COVERAGE_SKIP: dict[str, str] = {
-    # (UISQMCorrection is covered via the dynamic fixtures)
-    "UIReleaseNotes": "fetches markdown via HTTP in active(); needs a network mock",
+    "UIReleaseNotes": (
+        "Pushed onto the stack by UISoftware's Notes action with a "
+        "notes-payload item_definition; not reachable from the menu tree "
+        "and needs live update-channel state to construct."
+    ),
 }
 
 # Bound on the auto-sweep so a handler that keeps pushing modules
@@ -184,9 +185,6 @@ _DYNAMIC_IDS = [
     "UIDateEntry",
     "UISQMCalibration",
     "UISQMSweep",
-    "UISQMCorrection",
-    "UIMigrationConfirm",
-    "UIMigrationProgress",
 ]
 
 
@@ -222,31 +220,6 @@ def _build_dynamic_item_definition(spec_id: str, sample_object) -> dict:
     if spec_id == "UISQMSweep":
         # sqm.py:302
         return {"name": "SQM Sweep", "class": UISQMSweep, "label": "sqm_sweep"}
-    if spec_id == "UISQMCorrection":
-        # No launch site in the tree; best-effort fixture
-        # (constructs from sqm()).
-        return {
-            "name": "SQM Correction",
-            "class": UISQMCorrection,
-            "label": "sqm_correction",
-        }
-    if spec_id == "UIMigrationConfirm":
-        # Pushed by UISoftware.key_square() after a 7x-square unlock.
-        return {
-            "name": "Confirm Migration",
-            "class": UIMigrationConfirm,
-            "version_info": {"version": "2.5.0"},
-            "current_version": "2.4.0",
-            "label": "migration_confirm",
-        }
-    if spec_id == "UIMigrationProgress":
-        # Pushed by UIMigrationConfirm after the user confirms.
-        return {
-            "name": "Migration Progress",
-            "class": UIMigrationProgress,
-            "version_info": {"version": "2.5.0"},
-            "label": "migration_progress",
-        }
     raise KeyError(spec_id)  # pragma: no cover
 
 
@@ -259,7 +232,11 @@ def _all_uimodule_subclasses() -> set[str]:
 
     def _recurse(cls):
         for sub in cls.__subclasses__():
-            found.add(sub.__name__)
+            # Only classes that live in the UI package count — test helpers
+            # subclassing UIModule elsewhere (e.g. test_battery_titlebar_icon's
+            # _BareModule) must not trip the coverage guard.
+            if sub.__module__.startswith("PiFinder.ui"):
+                found.add(sub.__name__)
             _recurse(sub)
 
     _recurse(UIModule)
@@ -439,7 +416,7 @@ def camera_image():
 
 
 @pytest.fixture(scope="session")
-def catalogs(_no_comet_download) -> Iterator[Catalogs]:
+def catalogs(_sandbox_data_dir, _no_comet_download) -> Iterator[Catalogs]:
     """Build the real catalogs once from the bundled DB.
 
     Teardown stops the perpetual catalog timers. The planet and comet catalogs
@@ -570,10 +547,7 @@ def _sweep_stack(menu_manager: MenuManager, seen: set) -> None:
     """
     count = 0
     while count < _MAX_SWEEP_MODULES:
-        # MenuManager.stack is annotated list[type[UIModule]] upstream
-        # but holds instances; cast so the sweep sees them
-        # as the UIModule instances they are.
-        pending = [cast(UIModule, m) for m in menu_manager.stack if id(m) not in seen]
+        pending = [m for m in menu_manager.stack if id(m) not in seen]
         if not pending:
             break
         for module in pending:

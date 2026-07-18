@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 """
 Battery telemetry and fast-charge configuration for the rev-4 PiFinder
-board's TI BQ25895 single-cell Li-ion charger (I2C address 0x6A on bus 1).
+board's TI BQ25895 single-cell Li-ion charger (I2C address 0x6A).
 
 Mostly telemetry: it reads battery voltage, charge status, power source
 and a few diagnostics. The remaining writes are deliberate and narrow:
@@ -40,8 +40,8 @@ voltage is the only measured quantity; state of charge is an estimate.
 
 Structure note: ``decode_registers`` and ``estimate_soc`` are PURE (no
 hardware) so the bulk of the logic is unit-testable without a board.
-``board`` is imported lazily-guarded so this module — and the pure
-pieces ``battery_fake`` reuses — imports cleanly on dev machines.
+The I2C bus factory is imported lazily-guarded so this module — and the
+pure pieces ``battery_fake`` reuses — imports cleanly on dev machines.
 """
 
 import logging
@@ -51,17 +51,18 @@ from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.types.hardware import BatteryState, ChargeStatus
 
 try:
-    import board
     from adafruit_bus_device.i2c_device import I2CDevice
+
+    from PiFinder.i2c_bus import get_i2c
 except (ImportError, NotImplementedError):
     # No blinka / not on real hardware: the pure decode helpers and module
     # constants still import. The BQ25895 class raises on construction.
-    board = None
+    get_i2c = None  # type: ignore[assignment]
     I2CDevice = None
 
 logger = logging.getLogger("Battery.bq25895")
 
-# I2C address of the BQ25895 (bus 1 on the rev-4 board).
+# I2C address of the BQ25895 on the rev-4 board.
 BQ25895_ADDRESS = 0x6A
 
 # --- Register addresses (verified against the datasheet register map) ---
@@ -254,10 +255,10 @@ class BQ25895:
     """
 
     def __init__(self, address: int = BQ25895_ADDRESS, i2c=None):
-        if board is None or I2CDevice is None:
+        if get_i2c is None or I2CDevice is None:
             raise RuntimeError("blinka / board unavailable — no I2C bus")
         if i2c is None:
-            i2c = board.I2C()
+            i2c = get_i2c()
         self._device = I2CDevice(i2c, address)
 
     def read_reg(self, reg: int) -> int:

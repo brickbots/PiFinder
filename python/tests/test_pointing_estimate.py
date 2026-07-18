@@ -276,6 +276,7 @@ class TestSolverBuilders:
             "y_target": 256.0,
             "matched_centroids": [(1.0, 2.0)],
             "matched_stars": [[1.0, 2.0, 5.5]],
+            "matched_catID": [123],
         }
         result = _build_successful_solve(
             solution=solution,
@@ -296,6 +297,7 @@ class TestSolverBuilders:
         assert result.alignment.is_set()
         assert result.matched_centroids == [(1.0, 2.0)]
         assert result.matched_stars == [[1.0, 2.0, 5.5]]
+        assert result.matched_catID == [123]
         # The solved frame's epoch is last_solve_success (no separate
         # solve_time); the integrator promotes it to estimate_time.
         assert result.last_solve_success == pytest.approx(999.0)
@@ -373,6 +375,7 @@ class TestIntegratorApplySuccess:
             alignment=AlignmentResult(),
             matched_centroids=[(0.0, 1.0)],
             matched_stars=[[1.0, 2.0, 5.5]],
+            matched_catID=[123],
         )
 
     def test_successful_solve_fans_into_both_cells_and_reseeds_idr(self):
@@ -392,6 +395,7 @@ class TestIntegratorApplySuccess:
         assert merged.imu_anchor == result.imu_anchor
         assert merged.matched_centroids == result.matched_centroids
         assert merged.matched_stars == result.matched_stars
+        assert merged.matched_catID == result.matched_catID
         assert merged.solve_source == SolveSource.CAMERA
         # The solved frame's epoch (last_solve_success) becomes estimate_time.
         assert merged.estimate_time == pytest.approx(499.5)
