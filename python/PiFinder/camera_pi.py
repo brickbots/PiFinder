@@ -101,6 +101,11 @@ class CameraPI(CameraInterface):
             self.last_sensor_temp = float(temp) if temp is not None else None
         except (TypeError, ValueError):
             self.last_sensor_temp = None
+        # Full driver metadata for the latest frame: calibration and sweeps
+        # need the ACTUAL ExposureTime (drivers deliver transitional frames at
+        # other-than-requested exposures) and whatever else this sensor's
+        # driver chooses to report.
+        self.last_frame_metadata = metadata
 
         _request.release()
 
