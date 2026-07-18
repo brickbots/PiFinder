@@ -87,7 +87,7 @@ from PiFinder.ui.log import UILog
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
 from PiFinder.ui.sqm_sweep import UISQMSweep
-from PiFinder.ui.sqm_correct import UISQMCorrect
+from PiFinder.ui.software import UIMigrationConfirm, UIMigrationProgress
 
 
 # --------------------------------------------------------------------------- #
@@ -186,7 +186,8 @@ _DYNAMIC_IDS = [
     "UIDateEntry",
     "UISQMCalibration",
     "UISQMSweep",
-    "UISQMCorrect",
+    "UIMigrationConfirm",
+    "UIMigrationProgress",
 ]
 
 
@@ -222,12 +223,22 @@ def _build_dynamic_item_definition(spec_id: str, sample_object) -> dict:
     if spec_id == "UISQMSweep":
         # sqm.py:302
         return {"name": "SQM Sweep", "class": UISQMSweep, "label": "sqm_sweep"}
-    if spec_id == "UISQMCorrect":
-        # sqm.py:_launch_correct
+    if spec_id == "UIMigrationConfirm":
+        # Pushed by UISoftware.key_square() after a 7x-square unlock.
         return {
-            "name": "SQM Correct",
-            "class": UISQMCorrect,
-            "label": "sqm_correct",
+            "name": "Confirm Migration",
+            "class": UIMigrationConfirm,
+            "version_info": {"version": "2.5.0"},
+            "current_version": "2.4.0",
+            "label": "migration_confirm",
+        }
+    if spec_id == "UIMigrationProgress":
+        # Pushed by UIMigrationConfirm after the user confirms.
+        return {
+            "name": "Migration Progress",
+            "class": UIMigrationProgress,
+            "version_info": {"version": "2.5.0"},
+            "label": "migration_progress",
         }
     raise KeyError(spec_id)  # pragma: no cover
 

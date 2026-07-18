@@ -131,20 +131,6 @@ def _derotate_centroids(points, rotation_deg, size):
     return np.stack([ry, rx], axis=1)
 
 
-def _apply_sqm_correct(sqm_value, details, correct_delta):
-    """Apply the session correction delta (reference-meter offset) to the
-    calculated SQM and its altitude-corrected companion. The delta is recorded
-    in the details either way so the UI can show correction status."""
-    details["sqm_correct_delta"] = correct_delta
-    if not correct_delta:
-        return sqm_value, details
-    if sqm_value is not None:
-        sqm_value += correct_delta
-    if details.get("sqm_altitude_corrected") is not None:
-        details["sqm_altitude_corrected"] += correct_delta
-    return sqm_value, details
-
-
 def update_radiometric_sqm(
     shared_state,
     sqm_calculator,
@@ -225,11 +211,6 @@ def update_radiometric_sqm(
             details["optics_attenuation_correction"] = -float(deficit)
             sqm_value -= float(deficit)
 
-    try:
-        correct_delta = shared_state.sqm_correct_delta()
-    except (BrokenPipeError, ConnectionResetError, AttributeError):
-        correct_delta = 0.0
-    sqm_value, details = _apply_sqm_correct(sqm_value, details, correct_delta)
     if black_level_tracker is not None:
         tracked, tracked_stderr, _ = black_level_tracker.state()
         details["black_level_tracked"] = (
@@ -487,11 +468,6 @@ def update_sqm(
 
         # Update shared state
         if publish and sqm_value is not None:
-            try:
-                correct_delta = shared_state.sqm_correct_delta()
-            except (BrokenPipeError, ConnectionResetError, AttributeError):
-                correct_delta = 0.0
-            sqm_value, _ = _apply_sqm_correct(sqm_value, details, correct_delta)
             new_sqm_state = SQMState(
                 value=sqm_value,
                 source="Calculated",
