@@ -215,60 +215,6 @@ class ExposureSNRController:
             f"adjustment={adjustment_factor}x"
         )
 
-    @classmethod
-    def from_camera_profile(
-        cls,
-        camera_type: str,
-        min_exposure: int = 10000,
-        max_exposure: int = 1000000,
-        adjustment_factor: float = 1.3,
-    ) -> "ExposureSNRController":
-        """
-        Create controller with thresholds derived from camera profile.
-
-        Calculates min/target/max background based on bit depth and bias offset.
-
-        Args:
-            camera_type: Camera type (e.g., "imx296_processed", "imx462_processed")
-            min_exposure: Minimum exposure in microseconds
-            max_exposure: Maximum exposure in microseconds
-            adjustment_factor: Multiplicative adjustment step
-
-        Returns:
-            ExposureSNRController configured for the camera
-        """
-        from PiFinder.sqm.camera_profiles import get_camera_profile
-
-        profile = get_camera_profile(camera_type)
-
-        # Derive thresholds from camera specs
-        max_adu = (2**profile.bit_depth) - 1
-        bias = profile.bias_offset
-
-        # min_background: bias + margin (2x bias or bias + 8, whichever larger)
-        min_background = int(max(bias * 2, bias + 8))
-
-        # max_background: ~40% of full range (avoid saturation/nonlinearity)
-        max_background = int(max_adu * 0.4)
-
-        # target_background: just above min (lower = shorter exposure = more linear response)
-        target_background = min_background + 2
-
-        logger.info(
-            f"SNR controller from {camera_type}: "
-            f"bit_depth={profile.bit_depth}, bias={bias:.0f}, "
-            f"thresholds=[{min_background}, {target_background}, {max_background}]"
-        )
-
-        return cls(
-            min_exposure=min_exposure,
-            max_exposure=max_exposure,
-            target_background=target_background,
-            min_background=min_background,
-            max_background=max_background,
-            adjustment_factor=adjustment_factor,
-        )
-
     def update(
         self,
         current_exposure: int,
@@ -282,13 +228,14 @@ class ExposureSNRController:
         Args:
             current_exposure: Current exposure in microseconds
             image: Current image for analysis
-            noise_floor: Adaptive noise floor from SQM calculator (if available)
+            noise_floor: Processed-image floor in 8-bit ADU (if available)
             **kwargs: Ignored (for compatibility with PID interface)
 
         Returns:
             New exposure in microseconds, or None if no change needed
         """
-        # Use adaptive noise floor if available, otherwise fall back to static config
+        # This controller measures the processed 8-bit image. Do not pass it a
+        # raw-sensor SQM pedestal: those values are in different units.
         # Need margin above noise floor so background_corrected isn't near zero
         if noise_floor is not None:
             min_bg = noise_floor + 2

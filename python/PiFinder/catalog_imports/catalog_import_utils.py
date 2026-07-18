@@ -261,7 +261,8 @@ def insert_catalog_max_sequence(catalog_name):
     if result:
         query = f"""
             update catalogs set max_sequence = {
-            dict(result)['MAX(sequence)']} where catalog_code = '{catalog_name}'
+            dict(result)["MAX(sequence)"]
+        } where catalog_code = '{catalog_name}'
             """
         db_c.execute(query)
         conn.commit()
@@ -411,7 +412,7 @@ def resolve_object_images():
                     ORDER BY {priority_case_sql}
                 ) as priority_rank
             FROM catalog_objects co
-            WHERE co.catalog_code IN ({','.join(['?'] * len(catalog_priority))})
+            WHERE co.catalog_code IN ({",".join(["?"] * len(catalog_priority))})
         )
         SELECT 
             o.id as object_id,

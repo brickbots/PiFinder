@@ -47,6 +47,7 @@ def test_important_catalog_entries_exist():
 
     assert "Planets" in catalog_names
     assert "Comets" in catalog_names
+    assert "Asteroids" in catalog_names
     assert "NGC" in catalog_names
     assert "Messier" in catalog_names
 

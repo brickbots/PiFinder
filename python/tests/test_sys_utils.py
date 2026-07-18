@@ -106,6 +106,29 @@ try:
         assert "# 127.0.1.1 oldname\n" in result
         assert result.endswith("127.0.1.1\tpf-rich\n")
 
+    @pytest.mark.unit
+    def test_upgrade_progress_missing_status_failed_service(tmp_path, monkeypatch):
+        monkeypatch.setattr(sys_utils, "UPGRADE_STATUS_FILE", tmp_path / "missing")
+        monkeypatch.setattr(sys_utils, "_upgrade_service_state", lambda: "failed")
 
-except ImportError:
+        assert sys_utils.get_upgrade_progress()["phase"] == "failed"
+
+    @pytest.mark.unit
+    def test_upgrade_progress_stale_downloading_failed_service(tmp_path, monkeypatch):
+        status = tmp_path / "upgrade-status"
+        status.write_text("downloading 1/10 paths")
+        monkeypatch.setattr(sys_utils, "UPGRADE_STATUS_FILE", status)
+        monkeypatch.setattr(sys_utils, "_upgrade_service_state", lambda: "failed")
+
+        assert sys_utils.get_upgrade_progress()["phase"] == "failed"
+
+    @pytest.mark.unit
+    def test_upgrade_progress_missing_status_active_service(tmp_path, monkeypatch):
+        monkeypatch.setattr(sys_utils, "UPGRADE_STATUS_FILE", tmp_path / "missing")
+        monkeypatch.setattr(sys_utils, "_upgrade_service_state", lambda: "active")
+
+        assert sys_utils.get_upgrade_progress()["phase"] == "starting"
+
+
+except (ImportError, ValueError):
     pass

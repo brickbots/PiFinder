@@ -13,6 +13,8 @@ import os
 import functools
 from functools import cache
 import math as math
+import datetime
+import time
 
 from PIL import Image, ImageChops
 from itertools import cycle
@@ -58,7 +60,34 @@ class SortOrder(Enum):
 
     CATALOG_SEQUENCE = 0  # By catalog/sequence
     NEAREST = 1  # By Distance to target
+    BRIGHTEST = 2  # By apparent magnitude
     RA = 3  # By RA
+    EARTH_DISTANCE = 4  # By physical distance from Earth
+    OPPOSITION = 5  # By next opposition / greatest elongation
+
+
+def _sort_objects(
+    objects: list[CompositeObject], order: SortOrder
+) -> list[CompositeObject]:
+    if order == SortOrder.CATALOG_SEQUENCE:
+        return list(objects)
+    if order == SortOrder.RA:
+        return sorted(objects, key=lambda obj: obj.ra)
+    if order == SortOrder.BRIGHTEST:
+        return sorted(objects, key=lambda obj: obj.mag.filter_mag)
+    if order == SortOrder.EARTH_DISTANCE:
+        return sorted(
+            objects,
+            key=lambda obj: obj.earth_distance_au
+            if obj.earth_distance_au is not None
+            else math.inf,
+        )
+    if order == SortOrder.OPPOSITION:
+        return sorted(
+            objects,
+            key=lambda obj: obj.opposition_date or datetime.date.max,
+        )
+    return list(objects)
 
 
 class UIObjectList(UITextMenu):
@@ -89,6 +118,7 @@ class UIObjectList(UITextMenu):
         self._menu_items: list[CompositeObject] = []
         self.catalog_info_1: str = ""
         self.catalog_info_2: str = ""
+        self.catalog_data_label: str = ""
         self._was_loading: bool = False  # Track loading state to detect completion
 
         # Init display mode defaults
@@ -125,27 +155,41 @@ class UIObjectList(UITextMenu):
         # Base marking menu
         marking_menu_down = MarkingMenuOption()
 
-        # Add refresh option for comet catalog only
-        if (
-            self.item_definition.get("objects") == "catalog"
-            and self.item_definition.get("value") == "CM"
-        ):
+        # Downloaded dynamic catalogs can refresh without discarding their
+        # currently displayed objects.
+        if self.item_definition.get(
+            "objects"
+        ) == "catalog" and self.item_definition.get("value") in ("CM", "MP"):
             marking_menu_down = MarkingMenuOption(
                 label=_("Refresh"),
-                callback=self.mm_refresh_comets,  # TRANSLATORS: Marking menu option to refresh comet catalog
+                callback=self.mm_refresh_dynamic_catalog,
             )
+
+        asteroid_list = self.item_definition.get("value") == "MP"
 
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
                 label=_("Sort"),
                 callback=MarkingMenu(
-                    up=MarkingMenuOption(),
-                    left=MarkingMenuOption(
-                        label=_("Nearest"), callback=self.mm_change_sort
+                    up=MarkingMenuOption(
+                        label=_("MAG"),
+                        callback=self.mm_change_sort,
+                        value=SortOrder.BRIGHTEST,
                     ),
-                    down=MarkingMenuOption(),
+                    left=MarkingMenuOption(
+                        label=_("NEAR"),
+                        callback=self.mm_change_sort,
+                        value=SortOrder.NEAREST,
+                    ),
+                    down=MarkingMenuOption(
+                        label=_("OPP") if asteroid_list else _("RA"),
+                        callback=self.mm_change_sort,
+                        value=(SortOrder.OPPOSITION if asteroid_list else SortOrder.RA),
+                    ),
                     right=MarkingMenuOption(
-                        label=_("Standard"), callback=self.mm_change_sort
+                        label=_("STD"),
+                        callback=self.mm_change_sort,
+                        value=SortOrder.CATALOG_SEQUENCE,
                     ),
                 ),
             ),
@@ -191,8 +235,12 @@ class UIObjectList(UITextMenu):
             for catalog in self.catalogs.get_catalogs(only_selected=False):
                 if catalog.catalog_code == self.item_definition["value"]:
                     self._menu_items = catalog.get_filtered_objects()
-                    age = catalog.get_age()
-                    self.catalog_info_2 = "" if age is None else str(round(age, 0))
+                    self.catalog_data_label = catalog.get_data_label() or ""
+                    if self.catalog_data_label:
+                        self.catalog_info_2 = ""
+                    else:
+                        age = catalog.get_age()
+                        self.catalog_info_2 = "" if age is None else str(round(age, 0))
 
         if self.item_definition["objects"] == "recent":
             self._menu_items = self.ui_state.recent_list()
@@ -209,9 +257,25 @@ class UIObjectList(UITextMenu):
 
         self.catalog_info_1 = str(self.get_nr_of_menu_items())
         self._menu_items_sorted = self._menu_items
-        self.sort()
+        self.sort(show_message=False)
 
-    def _get_catalog_status_message(self) -> Tuple[Optional[str], Optional[int]]:
+    def _get_catalog_status(self):
+        if self.item_definition.get("objects") != "catalog":
+            return None
+        catalog = self.catalogs.get_catalog_by_code(self.item_definition.get("value"))
+        if catalog is None:
+            return None
+        status = catalog.get_status()
+        if (
+            status.previous != CatalogState.READY
+            and status.current == CatalogState.READY
+        ):
+            self.refresh_object_list(force_update=True)
+        return status
+
+    def _get_catalog_status_message(
+        self, status=None
+    ) -> Tuple[Optional[str], Optional[int]]:
         """
         Generate status message explaining why catalog might be empty.
         Returns tuple of (message, progress_percentage).
@@ -219,72 +283,36 @@ class UIObjectList(UITextMenu):
 
         Also handles refreshing object list when catalog transitions to READY.
         """
-        if self.item_definition.get("objects") != "catalog":
+        status = status or self._get_catalog_status()
+        if status is None:
             return (None, None)
-
-        catalog_code = self.item_definition.get("value")
-        if not catalog_code:
+        progress = status.data.get("progress") if status.data else None
+        if status.current == CatalogState.READY:
             return (None, None)
+        if status.current == CatalogState.DOWNLOADING:
+            return (_("Downloading..."), progress)
+        if status.current == CatalogState.NO_GPS:
+            return (_("No GPS lock"), None)
+        if status.current == CatalogState.CALCULATING:
+            return (_("Calculating..."), progress)
+        if status.current == CatalogState.ERROR:
+            return (_("Error"), None)
+        return (_("Loading..."), None)
 
-        for catalog in self.catalogs.get_catalogs(only_selected=False):
-            if catalog.catalog_code == catalog_code:
-                status = catalog.get_status()
-
-                # Handle state transitions - refresh immediately when transitioning to READY
-                if (
-                    status.previous != CatalogState.READY
-                    and status.current == CatalogState.READY
-                ):
-                    self.refresh_object_list(force_update=True)
-
-                # Extract progress if available
-                progress = None
-                if status.data and "progress" in status.data:
-                    progress = status.data["progress"]
-
-                # Map state to user-facing messages
-                if status.current == CatalogState.READY:
-                    return (None, None)
-                elif status.current == CatalogState.DOWNLOADING:
-                    return (
-                        _(
-                            "Downloading..."
-                        ),  # TRANSLATORS: Status when catalog data is downloading
-                        progress,
-                    )
-                elif status.current == CatalogState.NO_GPS:
-                    return (
-                        _(
-                            "No GPS lock"
-                        ),  # TRANSLATORS: Status when waiting for GPS position
-                        None,
-                    )
-                elif status.current == CatalogState.CALCULATING:
-                    return (
-                        _(
-                            "Calculating..."
-                        ),  # TRANSLATORS: Status when computing object positions
-                        progress,
-                    )
-                elif status.current == CatalogState.ERROR:
-                    return (_("Error"), None)  # TRANSLATORS: Generic error status
-                else:
-                    return (
-                        _("Loading..."),
-                        None,
-                    )  # TRANSLATORS: Generic loading status
-
-        return (None, None)
-
-    def sort(self) -> None:
+    def sort(self, show_message: bool = True) -> None:
+        sort_labels = {
+            SortOrder.CATALOG_SEQUENCE: _("Catalog"),
+            SortOrder.NEAREST: _("Nearby"),
+            SortOrder.BRIGHTEST: _("Brightest"),
+            SortOrder.RA: _("RA"),
+            SortOrder.EARTH_DISTANCE: _("Distance"),
+            SortOrder.OPPOSITION: _("Opposition"),
+        }
         message = _("Sorting by\n{sort_order}").format(
-            sort_order=_("RA")
-            if self.current_sort == SortOrder.RA
-            else _("Catalog")
-            if self.current_sort == SortOrder.CATALOG_SEQUENCE
-            else _("Nearby")
+            sort_order=sort_labels[self.current_sort]
         )
-        self.message(message, 0.1)
+        if show_message:
+            self.message(message, 0.1)
         self.update()
 
         if self.current_sort == SortOrder.NEAREST:
@@ -300,8 +328,8 @@ class UIObjectList(UITextMenu):
                 self.nearby_refresh()
                 self._current_item_index = 0
 
-        if self.current_sort == SortOrder.CATALOG_SEQUENCE:
-            self._menu_items_sorted = self._menu_items
+        if self.current_sort != SortOrder.NEAREST:
+            self._menu_items_sorted = _sort_objects(self._menu_items, self.current_sort)
             self._current_item_index = 0
         self.update()
 
@@ -495,6 +523,29 @@ class UIObjectList(UITextMenu):
         else:
             self.refresh_object_list()
 
+    def _draw_download_progress(self, progress: Optional[int], intensity: int) -> None:
+        """Draw a compact determinate/indeterminate bar beside catalog age."""
+        width = max(18, min(36, self.display.width // 4))
+        height = 4
+        x = self.display.width - width - 2
+        y = self.line_position(0) + self.fonts.bold.height - height
+        color = self.colors.get(intensity)
+        self.draw.rectangle((x, y, x + width, y + height), outline=color)
+        inner_width = width - 2
+        if progress is None:
+            segment = max(3, inner_width // 4)
+            offset = int(time.monotonic() * 8) % max(1, inner_width - segment + 1)
+            self.draw.rectangle(
+                (x + 1 + offset, y + 1, x + offset + segment, y + height - 1),
+                fill=color,
+            )
+        else:
+            filled = round(inner_width * max(0, min(100, progress)) / 100)
+            if filled:
+                self.draw.rectangle(
+                    (x + 1, y + 1, x + filled, y + height - 1), fill=color
+                )
+
     def update(self, force: bool = False) -> None:
         self.clear_screen()
 
@@ -515,10 +566,17 @@ class UIObjectList(UITextMenu):
         else:
             self._was_loading = is_loading
 
+        catalog_filter = self.catalogs.catalog_filter
+        if catalog_filter is not None and catalog_filter.is_dirty():
+            self.refresh_object_list()
+
+        # Poll dynamic-catalog state even while objects remain populated: an
+        # update keeps serving the old catalog and reports download progress.
+        catalog_status = self._get_catalog_status()
         # no objects to display
         if self.get_nr_of_menu_items() == 0:
             # Get catalog-specific status message if available
-            status_msg, progress = self._get_catalog_status_message()
+            status_msg, progress = self._get_catalog_status_message(catalog_status)
 
             # Re-check menu items in case refresh happened during status check
             if self.get_nr_of_menu_items() > 0:
@@ -566,29 +624,44 @@ class UIObjectList(UITextMenu):
         # Draw sorting mode in the empty rows above the focus line
         if self._current_item_index < half:
             intensity: int = int(64 + (((half - 1) - self._current_item_index) * 32.0))
-            self.draw.text(
-                (begin_x, self.line_position(0)),
-                _("{catalog_info_1} obj").format(
-                    catalog_info_1=self.catalog_info_1
-                )  # TRANSLATORS: number of objects in object list
-                + _(", {catalog_info_2}d old").format(
+            catalog_header = _("{catalog_info_1} obj").format(
+                catalog_info_1=self.catalog_info_1
+            )
+            if self.catalog_data_label:
+                catalog_header += f", {self.catalog_data_label}"
+            elif self.catalog_info_2:
+                catalog_header += _(", {catalog_info_2}d old").format(
                     catalog_info_2=self.catalog_info_2
                 )
-                if self.catalog_info_2
-                else "",  # TRANSLATORS: suffix to number of objects in object list (indicating age of catalog data)
+            self.draw.text(
+                (begin_x, self.line_position(0)),
+                catalog_header,
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
             )
             self.draw.text(
                 (begin_x, self.line_position(1)),
                 _("Sort: {sort_order}").format(
-                    sort_order=_("Catalog")
-                    if self.current_sort == SortOrder.CATALOG_SEQUENCE
-                    else _("Nearby")
+                    sort_order={
+                        SortOrder.CATALOG_SEQUENCE: _("Catalog"),
+                        SortOrder.NEAREST: _("Nearby"),
+                        SortOrder.BRIGHTEST: _("Brightest"),
+                        SortOrder.RA: _("RA"),
+                        SortOrder.EARTH_DISTANCE: _("Distance"),
+                        SortOrder.OPPOSITION: _("Opposition"),
+                    }[self.current_sort]
                 ),
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
             )
+            if (
+                catalog_status is not None
+                and catalog_status.current == CatalogState.DOWNLOADING
+            ):
+                progress = (
+                    catalog_status.data.get("progress") if catalog_status.data else None
+                )
+                self._draw_download_progress(progress, intensity)
         # Draw current selection hint
         self.draw.rectangle(layout.selection_box, outline=self.colors.get(128), width=1)
         line_number, line_pos = 0, 0
@@ -822,21 +895,15 @@ class UIObjectList(UITextMenu):
         marking_menu.select_none()
         menu_item.selected = True
 
-        if menu_item.label == _("Nearest"):
-            self.current_sort = SortOrder.NEAREST
+        sort_order = getattr(menu_item, "value", None)
+        if not isinstance(sort_order, SortOrder):
+            return False
+
+        self.current_sort = sort_order
+        if sort_order == SortOrder.NEAREST:
             self.nearby_refresh()
-            self.sort()
-            return True
-
-        if menu_item.label == _("Standard"):
-            self.current_sort = SortOrder.CATALOG_SEQUENCE
-            self.sort()
-            return True
-
-        if menu_item.label == _("RA"):
-            self.current_sort = SortOrder.RA
-            self.sort()
-            return True
+        self.sort()
+        return True
 
     def mm_jump_to_filter(self, marking_menu, menu_item):
         pass
@@ -866,19 +933,20 @@ class UIObjectList(UITextMenu):
                 else str(self.current_sort),
                 "catalog_info_1": self.catalog_info_1,
                 "catalog_info_2": self.catalog_info_2,
+                "catalog_data_label": self.catalog_data_label,
             }
         except Exception as e:
             return {"error": f"Failed to serialize object list state: {str(e)}"}
 
-    def mm_refresh_comets(self, marking_menu, menu_item):
-        """Force refresh of comet data from the internet"""
-        catalog = self.catalogs.get_catalog_by_code("CM")
+    def mm_refresh_dynamic_catalog(self, marking_menu, menu_item):
+        """Refresh downloaded elements while retaining the active objects."""
+        catalog = self.catalogs.get_catalog_by_code(self.item_definition.get("value"))
         if catalog and hasattr(catalog, "refresh"):
             self.message(
                 _("Refreshing..."), 1
             )  # TRANSLATORS: Status message when refreshing comet catalog
             catalog.refresh()
-            # Clear the UI object list and refresh to show status
+            # Keep the current objects visible and refresh the status header.
             self.refresh_object_list(force_update=True)
         return True
 

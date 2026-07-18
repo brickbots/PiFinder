@@ -19,6 +19,12 @@
     "image_nsew": true,
     "image_bbox": true,
     "chart_coord_sys": "horiz",
+    "obj_chart_crosshair": "pulse",
+    "obj_chart_crosshair_style": "simple",
+    "obj_chart_mark_source": "standard",
+    "obj_chart_crosshair_speed": "2.0",
+    "obj_chart_lm_mode": "auto",
+    "obj_chart_lm_fixed": 14.0,
     "target_pixel": [256, 256],
     "gps_type": "ublox",
     "gps_baud_rate": 9600,
@@ -29,6 +35,7 @@
         "Str",
         "PL",
         "CM",
+        "MP",
         "RDS"
     ],
     "filter.object_types": [
@@ -46,7 +53,8 @@
         "*",
         "?",
         "Pla",
-        "CM"
+        "CM",
+        "AS"
     ],
     "filter.constellations": [
         "And",
@@ -180,6 +188,7 @@
         "active_eyepiece_index": 0
     },
     "imu_threshold_scale": 1,
+    "dev_mode": false,
     "telemetry_record": false,
     "telemetry_images": false,
     "telemetry_raw_imu": false

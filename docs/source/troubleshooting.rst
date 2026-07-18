@@ -90,8 +90,8 @@ often not tight enough.
 
 Work through these in order:
 
-- **Focus, properly.**  On the Focus screen, use **+/-** to zoom to 2x and 4x and rotate
-  the lens until the stars are as small as you can make them.  Tight focus matters *even
+- **Focus, properly.**  On the Focus screen, rotate the lens until the four magnified stars
+  are as small as possible and the central HFD reaches its lowest value.  Tight focus matters *even
   more* under bright, light-polluted skies, where slightly soft dim stars vanish into the
   background.  If you're starting from way off, set the lens so about 6 mm of thread is
   showing — roughly a pencil's width — which is close to in focus.

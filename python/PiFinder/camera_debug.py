@@ -49,7 +49,7 @@ class CameraDebug(CameraInterface):
         self.images = list(zip(range(1, len(images) + 1), images))
         self.image_cycle = cycle(self.images)
         self.last_image_time: float = time.time()
-        self.current_image_num, self.last_image = self.images[0]
+        self.current_image_num, self.last_image = self.images[1]  # Use darker sky image
 
     def initialize(self) -> None:
         self._camera_started = True
@@ -64,7 +64,6 @@ class CameraDebug(CameraInterface):
         # Sleep for exposure time
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
-
         elapsed = time.time() - self.last_image_time
         # Swap every x seconds
         if elapsed > 10:

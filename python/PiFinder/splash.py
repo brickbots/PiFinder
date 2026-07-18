@@ -13,7 +13,7 @@ This module is the main entry point for PiFinder it:
 import os
 from PIL import Image, ImageDraw
 from PiFinder import displays
-from PiFinder import hardware_detect
+from PiFinder import hardware_detect, utils
 import numpy as np
 
 
@@ -46,8 +46,7 @@ def show_splash():
     screen_draw = ImageDraw.Draw(welcome_image)
 
     # Display version and Wifi mode in a top banner spanning the panel width
-    with open(os.path.join(root_dir, "version.txt"), "r") as ver_f:
-        version = "v" + ver_f.read()
+    version = utils.get_version()
 
     with open(os.path.join(root_dir, "wifi_status.txt"), "r") as wifi_f:
         wifi_mode = wifi_f.read()

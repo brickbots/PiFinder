@@ -11,6 +11,7 @@ from PiFinder.sqm.camera_profiles import (
     detect_camera_type,
 )
 from PiFinder.sqm.save_sweep_metadata import save_sweep_metadata
+from PiFinder.sqm.wings import WingEstimator
 
 
 @pytest.mark.unit
@@ -280,6 +281,25 @@ class TestSQMCalculation:
             details_30deg["sqm_final"] + expected_ext_30, abs=0.001
         )
 
+    def test_calculate_unknown_altitude_has_no_fake_zenith_diagnostic(self):
+        sqm = SQM()
+        solution, centroids = _mock_solution([5.0, 6.0, 7.0])
+        image = _image_with_stars(centroids)
+
+        value, details = sqm.calculate(
+            centroids=centroids,
+            solution=solution,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=None,
+            saturation_threshold=65000,
+        )
+
+        assert value is not None
+        assert details["altitude_deg"] is None
+        assert details["extinction_for_altitude"] is None
+        assert details["sqm_altitude_corrected"] is None
+
     def test_calculate_missing_fov(self):
         """Test that calculate() returns None when FOV is missing"""
         np.random.seed(42)
@@ -442,26 +462,20 @@ class TestMzeroCalculation:
         assert len(mzeros) == 1
         assert mzeros[0] == pytest.approx(expected, abs=0.001)
 
-    def test_mzero_flux_weighted_mean(self):
-        """Test that mzero uses flux-weighted mean (brighter stars weighted more)."""
+    def test_mzero_median(self):
+        """mzero is the median over stars: one aberrant bright star can't drag it."""
         sqm = SQM()
-        # Two stars: one bright (high flux), one dim (low flux)
-        # The bright star's mzero should dominate
-        fluxes = [10000.0, 100.0]  # 100x difference
-        mags = [4.0, 8.0]
+        # Three consistent stars plus one bright outlier (e.g. near-saturated):
+        # a flux-weighted mean would be pulled toward the outlier, the median isn't.
+        fluxes = [1000.0, 1000.0, 1000.0, 50000.0]
+        mags = [6.5, 6.5, 6.5, 1.0]  # outlier's personal mzero = 1.0 + 2.5*log10(50000)
 
         mzero, mzeros = sqm._calculate_mzero(fluxes, mags)
 
-        # Individual mzeros
-        mzero_bright = 4.0 + 2.5 * np.log10(10000)  # = 14.0
-        mzero_dim = 8.0 + 2.5 * np.log10(100)  # = 13.0
-
-        # Flux-weighted: (14.0*10000 + 13.0*100) / (10000+100) ≈ 13.99
-        expected_weighted = (mzero_bright * 10000 + mzero_dim * 100) / (10000 + 100)
-
-        assert mzero == pytest.approx(expected_weighted, abs=0.001)
-        assert mzeros[0] == pytest.approx(mzero_bright, abs=0.001)
-        assert mzeros[1] == pytest.approx(mzero_dim, abs=0.001)
+        mzero_typical = 6.5 + 2.5 * np.log10(1000)  # = 14.0
+        assert mzero == pytest.approx(mzero_typical, abs=0.001)
+        assert mzeros[0] == pytest.approx(mzero_typical, abs=0.001)
+        assert mzeros[3] is None
 
     def test_mzero_skips_negative_flux(self):
         """Test that stars with negative/zero flux are skipped."""
@@ -487,6 +501,29 @@ class TestMzeroCalculation:
 
         assert mzero is None
         assert all(m is None for m in mzeros)
+
+    def test_mzero_mad_rejects_outlier_inside_fixed_mag_band(self):
+        sqm = SQM()
+        target_mzeros = [12.0, 12.1, 11.9, 12.05, 18.0]
+        mags = [5.0] * len(target_mzeros)
+        fluxes = [10 ** ((mzero - 5.0) / 2.5) for mzero in target_mzeros]
+
+        mzero, mzeros = sqm._calculate_mzero(fluxes, mags)
+
+        assert mzero == pytest.approx(12.025, abs=0.03)
+        assert mzeros[-1] is None
+
+    def test_mzero_mad_rejects_outlier_when_consensus_has_zero_mad(self):
+        mags = [5.0, 5.0, 5.0, 5.0]
+        target_mzeros = [12.0, 12.0, 12.0, 18.0]
+        fluxes = [
+            10 ** ((mzero - mag) / 2.5) for mzero, mag in zip(target_mzeros, mags)
+        ]
+
+        mzero, mzeros = SQM()._calculate_mzero(fluxes, mags)
+
+        assert mzero == pytest.approx(12.0)
+        assert mzeros[-1] is None
 
 
 @pytest.mark.unit
@@ -561,12 +598,34 @@ class TestApertureOverlapDetection:
 
 @pytest.mark.unit
 class TestNoiseFloorEstimation:
-    """Unit tests for adaptive noise floor estimation."""
+    """Unit tests for adaptive noise floor estimation.
+
+    Uses a synthetic registered profile (bias 6, read 1.5, dark 0) so the
+    numeric expectations are self-contained rather than tied to a real sensor.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _test_profile(self, monkeypatch):
+        from PiFinder.sqm.camera_profiles import CAMERA_PROFILES
+
+        monkeypatch.setitem(
+            CAMERA_PROFILES,
+            "testcam",
+            CameraProfile(
+                format="L",
+                raw_size=(512, 512),
+                analog_gain=1.0,
+                bit_depth=8,
+                bias_offset=6.0,
+                read_noise_adu=1.5,
+                dark_current_rate=0.0,
+            ),
+        )
 
     def test_temporal_noise_calculation(self):
         """Test temporal noise = read_noise + dark_current * exposure."""
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
-        # imx296_processed has read_noise=1.5, dark_current=0.0
+        estimator = NoiseFloorEstimator(camera_type="testcam")
+        # testcam has read_noise=1.5, dark_current=0.0
 
         noise = estimator._estimate_temporal_noise(exposure_sec=1.0)
 
@@ -575,8 +634,8 @@ class TestNoiseFloorEstimation:
 
     def test_noise_floor_uses_theory_when_dark_pixels_below_bias(self):
         """Test that theory is used when dark pixels are impossibly low."""
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
-        # bias_offset for imx296_processed is 6.0
+        estimator = NoiseFloorEstimator(camera_type="testcam")
+        # bias_offset for testcam is 6.0
 
         # Create image with all pixels below bias offset (impossible in reality)
         image = np.full((100, 100), 3.0, dtype=np.float32)
@@ -589,7 +648,7 @@ class TestNoiseFloorEstimation:
     def test_noise_floor_uses_measured_when_valid(self):
         """Test that measured dark pixels are used when valid."""
         np.random.seed(42)
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
         # bias_offset=6.0, read_noise=1.5, dark_current=0.0
         # theoretical_floor = 6.0 + 1.5 = 7.5
 
@@ -607,7 +666,7 @@ class TestNoiseFloorEstimation:
 
     def test_noise_floor_clamped_to_bias_offset(self):
         """Test that noise floor is never below bias offset."""
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
 
         # Even with weird inputs, should never go below bias
         image = np.full((100, 100), 100.0, dtype=np.float32)
@@ -618,7 +677,7 @@ class TestNoiseFloorEstimation:
 
     def test_history_smoothing_after_multiple_estimates(self):
         """Test that history smoothing kicks in after 5+ estimates."""
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
 
         # First 4 estimates - no smoothing yet
         for i in range(4):
@@ -637,7 +696,7 @@ class TestNoiseFloorEstimation:
     def test_update_with_zero_sec_sample(self):
         """Test zero-second sample updates profile gradually."""
         np.random.seed(42)
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
         original_bias = estimator.profile.bias_offset
 
         # Need 3 samples before profile updates
@@ -653,7 +712,7 @@ class TestNoiseFloorEstimation:
 
     def test_validate_estimate_too_close_to_median(self):
         """Test validation fails when noise floor is too close to image median."""
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
 
         # Image where darkest pixels are close to median (uniform image)
         # This simulates a situation with no stars/sky gradient
@@ -661,25 +720,20 @@ class TestNoiseFloorEstimation:
 
         estimator.estimate_noise_floor(image, exposure_sec=0.5)
 
-        # Should be invalid because noise floor (theoretical ~7.5) is close to median (10)
-        # Actually 7.5 is not > 10 * 0.8 = 8, so let's use a different test
-        # Need noise floor > median * 0.8 to trigger this
-        # Create image where dark pixels are above theoretical floor
-        image2 = np.full((100, 100), 8.0, dtype=np.float32)
-        estimator2 = NoiseFloorEstimator(camera_type="imx296_processed")
+        # Create an image whose median does not resolve the calibrated 7.5 ADU
+        # one-sigma detector threshold.
+        image2 = np.full((100, 100), 7.0, dtype=np.float32)
+        estimator2 = NoiseFloorEstimator(camera_type="testcam")
 
         _, details2 = estimator2.estimate_noise_floor(image2, exposure_sec=0.5)
 
-        # noise_floor will be min(8.0, 7.5) = 7.5
-        # median = 8.0, threshold = 8.0 * 0.8 = 6.4
-        # 7.5 > 6.4, so should be invalid
         assert details2["is_valid"] is False
         assert "median" in details2["validation_reason"].lower()
 
     def test_get_statistics(self):
         """Test get_statistics returns expected data."""
         np.random.seed(42)
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
 
         # Do a few estimates
         for _ in range(3):
@@ -688,7 +742,7 @@ class TestNoiseFloorEstimation:
 
         stats = estimator.get_statistics()
 
-        assert stats["camera_type"] == "imx296_processed"
+        assert stats["camera_type"] == "testcam"
         assert stats["n_estimates"] == 3
         assert stats["n_history_samples"] == 3
         assert "dark_pixel_mean" in stats
@@ -698,7 +752,7 @@ class TestNoiseFloorEstimation:
     def test_reset_clears_state(self):
         """Test reset clears all history and statistics."""
         np.random.seed(42)
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
 
         # Build up some state
         for _ in range(5):
@@ -723,7 +777,7 @@ class TestNoiseFloorEstimation:
         # Create PiFinder_data directory
         (tmp_path / "PiFinder_data").mkdir()
 
-        estimator = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator = NoiseFloorEstimator(camera_type="testcam")
 
         # Save calibration with new values
         result = estimator.save_calibration(
@@ -737,7 +791,7 @@ class TestNoiseFloorEstimation:
         assert estimator.profile.dark_current_rate == 0.5
 
         # Create new estimator - should load the saved calibration
-        estimator2 = NoiseFloorEstimator(camera_type="imx296_processed")
+        estimator2 = NoiseFloorEstimator(camera_type="testcam")
 
         # Should have loaded the saved values (not the defaults)
         assert estimator2.profile.bias_offset == 25.0
@@ -920,14 +974,6 @@ class TestGetCameraProfile:
         assert profile.bit_depth == 10
         assert profile.analog_gain == 15.0
 
-    def test_get_processed_camera_profile(self):
-        """Test getting processed (8-bit) camera profiles."""
-        profile = get_camera_profile("imx296_processed")
-
-        assert isinstance(profile, CameraProfile)
-        assert profile.bit_depth == 8
-        assert profile.format == "L"
-
     def test_get_all_known_profiles(self):
         """Test that all documented camera types are accessible."""
         camera_types = [
@@ -935,10 +981,6 @@ class TestGetCameraProfile:
             "imx462",
             "imx290",
             "hq",
-            "imx296_processed",
-            "imx462_processed",
-            "imx290_processed",
-            "hq_processed",
         ]
 
         for camera_type in camera_types:
@@ -953,6 +995,47 @@ class TestGetCameraProfile:
 
         assert "unknown_camera" in str(exc_info.value).lower()
         assert "available" in str(exc_info.value).lower()
+
+    def test_profiles_are_independent_instances(self):
+        first = get_camera_profile("imx462")
+        second = get_camera_profile("imx462")
+
+        first.bias_offset = -1
+
+        assert second.bias_offset == pytest.approx(238.0)
+
+    def test_sqm_starts_from_factory_profile_without_calibration_file(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+        sqm = SQM("imx462")
+
+        assert sqm.profile.bias_offset == pytest.approx(238.0)
+        assert sqm.profile.color_coefficient == pytest.approx(0.15)
+        assert sqm.profile.sqm_band_offset == pytest.approx(0.53)
+
+    def test_invalid_calibration_cannot_partially_override_factory_profile(
+        self, tmp_path, monkeypatch
+    ):
+        calibration_dir = tmp_path / "PiFinder_data"
+        calibration_dir.mkdir()
+        (calibration_dir / "sqm_calibration_imx462.json").write_text(
+            json.dumps(
+                {
+                    "bias_offset": 999,
+                    "read_noise": 3,
+                    "dark_current_rate": -1,
+                }
+            )
+        )
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+        sqm = SQM("imx462")
+
+        assert sqm.profile.bias_offset == pytest.approx(238.0)
+        assert sqm.noise_floor_estimator.calibration_loaded is False
+        assert sqm.noise_floor_estimator.dark_current_calibrated is False
 
 
 @pytest.mark.unit
@@ -1254,3 +1337,424 @@ class TestSaveSweepMetadata:
                 observer_lat=50.85,
                 observer_lon=4.35,
             )
+
+
+def _mock_solution(mags, catids=None, fov=10.0):
+    n = len(mags)
+    centroids = np.array([[80 + 60 * i, 80 + 60 * i] for i in range(n)])
+    stars = [[45.0 + 0.1 * i, 30.0 + 0.1 * i, m] for i, m in enumerate(mags)]
+    sol = {"FOV": fov, "matched_centroids": centroids, "matched_stars": stars}
+    if catids is not None:
+        sol["matched_catID"] = list(catids)
+    return sol, centroids
+
+
+def _image_with_stars(centroids, base=1000, star=5000, size=512):
+    np.random.seed(0)
+    image = np.random.randint(base - 50, base + 50, (size, size), dtype=np.uint16)
+    for row, col in centroids:
+        image[row - 2 : row + 3, col - 2 : col + 3] += star
+    return image
+
+
+@pytest.mark.unit
+class TestPedestalOverride:
+    def test_pedestal_override_used(self):
+        sqm = SQM()
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags)
+        image = _image_with_stars(centroids)
+        _, details = sqm.calculate(
+            centroids=[],
+            solution=sol,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=90.0,
+            saturation_threshold=65000,
+            pedestal_override=123.0,
+        )
+        assert details["pedestal"] == 123.0
+        assert details["pedestal_source"] == "per_frame_estimate"
+
+    def test_factory_pedestal_does_not_apply_unmeasured_dark_estimate(self):
+        sqm = SQM("imx462")
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags)
+        image = _image_with_stars(centroids)
+        _, details = sqm.calculate(
+            centroids=[],
+            solution=sol,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=90.0,
+            saturation_threshold=65000,
+        )
+        assert details["pedestal"] == pytest.approx(sqm.profile.bias_offset)
+        assert details["dark_current_contribution"] == 0.0
+        assert details["dark_current_model_contribution"] == pytest.approx(
+            sqm.profile.dark_current_rate * 0.5
+        )
+        assert details["dark_current_calibrated"] is False
+        assert details["temporal_noise"] == pytest.approx(sqm.profile.read_noise_adu)
+
+    def test_optional_calibration_applies_measured_dark_signal(
+        self, tmp_path, monkeypatch
+    ):
+        calibration_dir = tmp_path / "PiFinder_data"
+        calibration_dir.mkdir()
+        (calibration_dir / "sqm_calibration_imx462.json").write_text(
+            json.dumps(
+                {
+                    "bias_offset": 240,
+                    "read_noise": 3,
+                    "dark_current_rate": 2,
+                }
+            )
+        )
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+        sqm = SQM("imx462")
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags)
+        image = _image_with_stars(centroids, base=280, star=200)
+
+        value, details = sqm.calculate(
+            centroids=centroids,
+            solution=sol,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=None,
+            saturation_threshold=65000,
+        )
+
+        assert value is not None
+        assert details["pedestal"] == pytest.approx(241.0)
+        assert details["dark_current_contribution"] == pytest.approx(1.0)
+        assert details["dark_current_calibrated"] is True
+
+    def test_unresolved_background_is_rejected_not_clamped(self):
+        sqm = SQM("imx462")
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags)
+        image = _image_with_stars(centroids, base=238, star=100)
+
+        value, details = sqm.calculate(
+            centroids=[],
+            solution=sol,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=None,
+            saturation_threshold=65000,
+        )
+
+        assert value is None
+        assert details["failure_reason"] == ("background_not_resolved_above_pedestal")
+        assert details["background_corrected"] <= 1.0
+
+
+@pytest.mark.unit
+class TestPixelsPerSide:
+    def test_explicit_pixels_scales_solid_angle(self):
+        sqm = SQM()
+        sqm._calc_field_parameters(10.0, pixels_per_side=490)
+        assert sqm.pixels_total == 490**2
+
+    def test_calculate_infers_pixels_from_image(self):
+        sqm = SQM()
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags)
+        image = _image_with_stars(centroids, size=490)
+        _, details = sqm.calculate(
+            centroids=[],
+            solution=sol,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=90.0,
+            saturation_threshold=65000,
+        )
+        assert details["pixels_per_side"] == 490
+
+
+@pytest.mark.unit
+class TestColorCorrection:
+    def test_color_term_brightens_red_stars(self):
+        """mag_eff = V - T*(B-V): a red star's effective mag drops by T*(B-V)."""
+        from PiFinder.sqm import color_index
+
+        from PiFinder.sqm import gaia_ref
+
+        # Monkeypatch the lookups so the test is catalog-independent; blank
+        # the Gaia table so the Hipparcos V + B-V fallback path is exercised.
+        orig = color_index.get_bv
+        orig_gaia = gaia_ref.get_g_bprp
+        color_index.get_bv = lambda ids: np.array([0.0, 1.0, 0.5], dtype=np.float32)
+        gaia_ref.get_g_bprp = lambda ids: np.full((len(list(ids)), 2), np.nan)
+        try:
+            sqm = SQM()
+            mags = [5.0, 5.0, 5.0]
+            sol, centroids = _mock_solution(mags, catids=[1, 2, 3])
+            image = _image_with_stars(centroids)
+            # Without colour correction
+            _, d0 = sqm.calculate(
+                centroids=[],
+                solution=sol,
+                image=image,
+                exposure_sec=0.5,
+                altitude_deg=90.0,
+                saturation_threshold=65000,
+                color_coefficient=0.0,
+            )
+            # With T=0.8
+            _, d1 = sqm.calculate(
+                centroids=[],
+                solution=sol,
+                image=image,
+                exposure_sec=0.5,
+                altitude_deg=90.0,
+                saturation_threshold=65000,
+                color_coefficient=0.8,
+            )
+            assert d0["n_color_corrected"] == 0
+            assert d1["n_color_corrected"] == 3
+            # star_mags stays V; the effective mag change lowers mzero for red stars
+            assert d1["mzero"] < d0["mzero"]
+        finally:
+            color_index.get_bv = orig
+            gaia_ref.get_g_bprp = orig_gaia
+
+    def test_missing_bv_falls_back_to_v(self):
+        from PiFinder.sqm import color_index
+
+        orig = color_index.get_bv
+        color_index.get_bv = lambda ids: np.array([np.nan, 1.0], dtype=np.float32)
+        try:
+            sqm = SQM()
+            sol, centroids = _mock_solution([5.0, 6.0], catids=[1, 2])
+            image = _image_with_stars(centroids)
+            _, d = sqm.calculate(
+                centroids=[],
+                solution=sol,
+                image=image,
+                exposure_sec=0.5,
+                altitude_deg=90.0,
+                saturation_threshold=65000,
+                color_coefficient=0.8,
+            )
+            assert d["n_color_corrected"] == 1  # only the star with finite B-V
+        finally:
+            color_index.get_bv = orig
+
+
+@pytest.mark.unit
+class TestColorCoefficientProfiles:
+    def test_bare_sensors_reference_gaia_g(self):
+        for cam in ("imx462", "imx290", "imx296"):
+            assert get_camera_profile(cam).reference_band == "gaia_g"
+        assert get_camera_profile("imx462").color_coefficient == pytest.approx(0.15)
+        assert get_camera_profile("imx290").color_coefficient == pytest.approx(0.15)
+        assert get_camera_profile("imx296").color_coefficient == pytest.approx(-0.20)
+
+    def test_ir_cut_sensor_stays_on_johnson_v(self):
+        assert get_camera_profile("hq").reference_band == "hip_v"
+        assert get_camera_profile("hq").color_coefficient == 0.0
+
+    def test_detect_imx462_key(self):
+        assert detect_camera_type("imx462") == "imx462"
+        assert detect_camera_type("imx290") == "imx462"
+
+
+def _wing_star_frame(scale=1.0, size=220, bg=500.0, noise=2.0, seed=1):
+    """Frame with 6 well-separated synthetic stars: Gaussian core (70% of
+    flux, sigma 1.5) + wide halo (30%, sigma 5). Returns (image, centroids,
+    true enclosed fraction within r=5)."""
+    rng = np.random.default_rng(seed)
+    image = bg + rng.normal(0, noise, (size, size))
+    centroids = [
+        (55.0, 55.0),
+        (55.0, 165.0),
+        (165.0, 55.0),
+        (165.0, 165.0),
+        (110.0, 55.0),
+        (110.0, 165.0),
+    ]
+    total = 50000.0 * scale
+    core_flux, halo_flux = 0.7 * total, 0.3 * total
+    sig_c, sig_h = 1.5, 5.0
+    amp_c = core_flux / (2 * np.pi * sig_c**2)
+    amp_h = halo_flux / (2 * np.pi * sig_h**2)
+    yy, xx = np.mgrid[0:size, 0:size]
+    for cy, cx in centroids:
+        r2 = (yy - cy) ** 2 + (xx - cx) ** 2
+        image += amp_c * np.exp(-r2 / (2 * sig_c**2))
+        image += amp_h * np.exp(-r2 / (2 * sig_h**2))
+    # analytic enclosed fraction within r=5
+    enc = lambda r, s: 1 - np.exp(-(r**2) / (2 * s**2))  # noqa: E731
+    f_true = (core_flux * enc(5, sig_c) + halo_flux * enc(5, sig_h)) / total
+    return image, centroids, f_true
+
+
+@pytest.mark.unit
+class TestDerotateCentroids:
+    """The camera process rotates the solve image for the display; SQM must
+    counter-rotate star positions onto the raw frame. Validate against PIL's
+    actual rotation for every quarter turn and an arbitrary angle."""
+
+    def _frame_with_star(self, size=200, pos=(60.0, 140.0)):
+        from PIL import Image as PILImage
+
+        img = np.zeros((size, size), dtype=np.float64)
+        iy, ix = int(pos[0]), int(pos[1])
+        img[iy - 1 : iy + 2, ix - 1 : ix + 2] = 100.0
+        img[iy, ix] = 255.0
+        return PILImage.fromarray(img)
+
+    @pytest.mark.parametrize("angle", [0, 90, 180, 270, 30])
+    def test_round_trip_matches_pil(self, angle):
+        from PiFinder.solver import _derotate_centroids
+
+        size = 200
+        raw_pos = (60.0, 140.0)
+        rotated = np.asarray(self._frame_with_star(size, raw_pos).rotate(angle))
+        # find the star in the rotated (solve) image
+        ry, rx = np.unravel_index(np.argmax(rotated), rotated.shape)
+        back = _derotate_centroids(np.array([[float(ry), float(rx)]]), angle, size)[0]
+        assert abs(back[0] - raw_pos[0]) <= 1.5
+        assert abs(back[1] - raw_pos[1]) <= 1.5
+
+
+@pytest.mark.unit
+class TestWingEstimator:
+    def test_measures_enclosed_fraction(self):
+        image, centroids, f_true = _wing_star_frame()
+        est = WingEstimator()
+        f = est.add_frame(image, centroids, saturation_threshold=1e9)
+        assert f is not None
+        assert abs(f - f_true) < 0.10
+
+    def test_correction_after_conditioning(self):
+        image, centroids, f_true = _wing_star_frame()
+        est = WingEstimator(min_samples=3)
+        assert est.correction() == 0.0
+        assert not est.is_conditioned
+        for _ in range(3):
+            est.add_frame(image, centroids, saturation_threshold=1e9)
+        assert est.is_conditioned
+        expected = -2.5 * np.log10(f_true)
+        assert abs(est.correction() - expected) < 0.15
+        assert est.correction() > 0  # missing flux -> positive mzero correction
+
+    def test_faint_stars_rejected(self):
+        image, centroids, _ = _wing_star_frame(scale=0.002)
+        est = WingEstimator()
+        assert est.add_frame(image, centroids, saturation_threshold=1e9) is None
+        assert est.correction() == 0.0
+
+    def test_saturated_cores_skipped(self):
+        image, centroids, _ = _wing_star_frame()
+        est = WingEstimator()
+        # threshold below the star peaks -> every core is "saturated"
+        assert est.add_frame(image, centroids, saturation_threshold=600.0) is None
+
+    def test_reset(self):
+        image, centroids, _ = _wing_star_frame()
+        est = WingEstimator(min_samples=1)
+        est.add_frame(image, centroids, saturation_threshold=1e9)
+        assert est.is_conditioned
+        est.reset()
+        assert not est.is_conditioned
+        assert est.correction() == 0.0
+
+
+@pytest.mark.unit
+class TestMzeroCorrection:
+    def test_correction_shifts_sqm(self):
+        sqm = SQM()
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags)
+        image = _image_with_stars(centroids)
+        kwargs = dict(
+            centroids=[],
+            solution=sol,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=90.0,
+            saturation_threshold=65000,
+        )
+        v0, d0 = sqm.calculate(**kwargs)
+        v1, d1 = sqm.calculate(mzero_correction=0.5, **kwargs)
+        assert v0 is not None and v1 is not None
+        assert abs((v1 - v0) - 0.5) < 1e-9
+        assert d0["mzero_correction"] == 0.0
+        assert d1["mzero_correction"] == 0.5
+
+
+@pytest.mark.unit
+class TestBVClamp:
+    def test_very_red_star_clamped(self, monkeypatch):
+        """B-V beyond the fitted range is clamped before the color term."""
+        from PiFinder.sqm import color_index
+        from PiFinder.sqm.sqm import BV_CLAMP_MAX
+
+        from PiFinder.sqm import gaia_ref
+
+        monkeypatch.setattr(
+            gaia_ref,
+            "get_g_bprp",
+            lambda ids: np.full((len(list(ids)), 2), np.nan),
+        )
+        sqm = SQM("imx462")  # gaia blanked -> B-V fallback path
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags, catids=[1, 2, 3])
+        image = _image_with_stars(centroids)
+
+        def run(bv_value):
+            monkeypatch.setattr(
+                color_index,
+                "get_bv",
+                lambda ids: np.full(len(list(ids)), bv_value, dtype=np.float32),
+            )
+            v, _ = sqm.calculate(
+                centroids=[],
+                solution=sol,
+                image=image,
+                exposure_sec=0.5,
+                altitude_deg=90.0,
+                saturation_threshold=65000,
+            )
+            return v
+
+        # B-V = 3.0 must act exactly like B-V = BV_CLAMP_MAX
+        assert run(3.0) == pytest.approx(run(BV_CLAMP_MAX), abs=1e-6)
+        # ...and differently from an unclamped mid-range value
+        assert abs(run(3.0) - run(0.5)) > 0.1
+
+
+@pytest.mark.unit
+class TestBandOffset:
+    def test_band_offset_applied(self, monkeypatch):
+        sqm = SQM("imx462")  # sqm_band_offset = 0.43
+        mags = [5.0, 6.0, 7.0]
+        sol, centroids = _mock_solution(mags)
+        image = _image_with_stars(centroids)
+        kwargs = dict(
+            centroids=[],
+            solution=sol,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=90.0,
+            saturation_threshold=65000,
+            color_coefficient=0.0,
+        )
+        v1, d1 = sqm.calculate(**kwargs)
+        assert d1["sqm_band_offset"] == pytest.approx(0.53)
+        # zeroing the profile offset must shift the result by exactly 0.53.
+        # get_camera_profile returns the shared profile object, so use
+        # monkeypatch to restore it after the test.
+        monkeypatch.setattr(sqm.profile, "sqm_band_offset", 0.0)
+        v0, _ = sqm.calculate(**kwargs)
+        assert (v1 - v0) == pytest.approx(0.53, abs=1e-9)
+
+    def test_band_offset_values(self):
+        assert get_camera_profile("imx462").sqm_band_offset == pytest.approx(0.53)
+        assert get_camera_profile("imx290").sqm_band_offset == pytest.approx(0.53)
+        assert get_camera_profile("hq").sqm_band_offset == pytest.approx(0.60)
+        assert get_camera_profile("imx296").sqm_band_offset == pytest.approx(-0.22)

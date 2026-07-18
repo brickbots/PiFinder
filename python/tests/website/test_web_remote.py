@@ -406,7 +406,7 @@ def test_remote_nav_right(driver):
 
     press_keys_and_validate(
         driver,
-        "RDDD",
+        "RDDDD",
         expected_values={
             "ui_type": "UITextMenu",
             "title": "By Catalog",
@@ -542,7 +542,7 @@ def test_remote_backtotop(driver):
 
     press_keys_and_validate(
         driver,
-        "RDRDDDR31RW",  # W = 1s wait to let async key callback and UI state update settle
+        "RDRDDDDR31RW",  # W = 1s wait to let async key callback and UI state update settle
         expected_values={
             "ui_type": "UIObjectDetails",
             "object": {"display_name": "M 31"},
@@ -567,7 +567,7 @@ def test_remote_markingmenu(driver):
 
     press_keys_and_validate(
         driver,
-        "RDRDDDR31RL",
+        "RDRDDDDR31RL",
         expected_values={
             "current_item": "M 31",
             "display_mode": "LOCATE",
@@ -644,7 +644,7 @@ def test_remote_recent(driver):
     # Navigate to M31 object details
     press_keys_and_validate(
         driver,
-        "RDRDDDR31RW",  # W = 1s wait to let async key callback and UI state update settle
+        "RDRDDDDR31RW",  # W = 1s wait to let async key callback and UI state update settle
         expected_values={
             "ui_type": "UIObjectDetails",
             "object": {"display_name": "M 31"},

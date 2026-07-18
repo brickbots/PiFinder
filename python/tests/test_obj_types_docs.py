@@ -14,8 +14,9 @@ import re
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
-from PiFinder.obj_types import OBJ_TYPES
+from PiFinder.obj_types import OBJ_TYPE_MARKERS, OBJ_TYPES
 
 _ROOT = Path(__file__).resolve().parents[2]
 _README = _ROOT / "docs/ax/catalog/obslist-formats/README.md"
@@ -44,9 +45,9 @@ def test_readme_table_matches_obj_types():
         # On a checkout that doesn't carry it yet there is nothing to guard; the
         # check activates once both land on main.
         pytest.skip("Object type codes table not present in this checkout")
-    assert codes == set(OBJ_TYPES), (
-        "The README 'Object type codes' table is out of sync with OBJ_TYPES."
-    )
+    assert codes == set(
+        OBJ_TYPES
+    ), "The README 'Object type codes' table is out of sync with OBJ_TYPES."
 
 
 @pytest.mark.unit
@@ -55,6 +56,16 @@ def test_default_config_object_types_match_obj_types():
     # type = "show everything"). It must list exactly the OBJ_TYPES codes, so a
     # type added to OBJ_TYPES can't silently be off by default.
     config = json.loads(_DEFAULT_CONFIG.read_text())
-    assert set(config["filter.object_types"]) == set(OBJ_TYPES), (
-        "default_config.json 'filter.object_types' is out of sync with OBJ_TYPES."
-    )
+    assert set(config["filter.object_types"]) == set(
+        OBJ_TYPES
+    ), "default_config.json 'filter.object_types' is out of sync with OBJ_TYPES."
+
+
+@pytest.mark.unit
+def test_marker_mappings_have_11px_assets_and_asteroid_is_distinct():
+    assert OBJ_TYPE_MARKERS["AS"] != OBJ_TYPE_MARKERS["Ast"]
+    for marker_name in set(OBJ_TYPE_MARKERS.values()):
+        marker_path = _ROOT / "markers" / f"mrk_{marker_name}.png"
+        assert marker_path.exists(), f"missing marker asset: {marker_path.name}"
+        with Image.open(marker_path) as marker:
+            assert marker.size == (11, 11)

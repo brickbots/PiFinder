@@ -22,7 +22,9 @@ import queue
 import datetime
 import json
 import uuid
+import sys
 import logging
+import traceback
 import argparse
 import pickle
 from pathlib import Path
@@ -120,6 +122,31 @@ def set_brightness(level, cfg):
         set_keypad_brightness(level * 0.05 * keypad_offsets[keypad_brightness])
 
 
+def apply_test_mode_gps(shared_state, location, console):
+    """
+    Fake GPS fix + datetime used while test mode is active.
+    Called on toggle-ON and at startup when test_mode was persisted,
+    so a reboot in test mode comes back fully in test mode.
+    """
+    dt = timez.utc(2025, 6, 28, 11, 0, 0)
+    shared_state.set_datetime(dt)
+    location.lat = 41.13
+    location.lon = -120.97
+    location.altitude = 1315
+    location.source = "test"
+    location.error_in_m = 5
+    location.lock = True
+    location.lock_type = 3
+    location.last_gps_lock = timez.local_now().time().isoformat()[:8]
+    console.write(f"GPS: Location {location.lat} {location.lon} {location.altitude}")
+    shared_state.set_location(location)
+    sf_utils.set_location(
+        location.lat,
+        location.lon,
+        location.altitude,
+    )
+
+
 def setup_dirs():
     utils.create_path(Path(utils.data_dir))
     utils.create_path(Path(utils.data_dir, "captures"))
@@ -149,6 +176,8 @@ class PowerManager:
         self.shared_state = shared_state
         self.display_device = display_device
         self.last_activity = time.time()
+        self.sleep_start_time = None
+        self.screen_off_start_time = None
 
     def register_activity(self):
         """
@@ -158,8 +187,9 @@ class PowerManager:
         self.last_activity = time.time()
 
         # power states
-        # 0 = Sleep
-        # 1 = Wake
+        # -1 = Screen off
+        #  0 = Sleep
+        #  1 = Wake
         if self.shared_state.power_state() < 1:
             # wake up
             self.wake_up()
@@ -172,6 +202,8 @@ class PowerManager:
         Do all the wakeup things
         """
         self.last_activity = time.time()
+        self.sleep_start_time = None
+        self.screen_off_start_time = None
         self.shared_state.set_power_state(1)
         self.wake_screen()
 
@@ -180,6 +212,7 @@ class PowerManager:
         Do all the sleep things
         """
         self.shared_state.set_power_state(0)
+        self.sleep_start_time = time.time()
         self.sleep_screen()
 
     def update(self):
@@ -198,11 +231,36 @@ class PowerManager:
             if time.time() - self.last_activity > self.get_sleep_timeout():
                 self.go_to_sleep()
 
-        else:  # We are asleepd, should we wake up?
+        elif self.shared_state.power_state() == 0:
+            # We are asleep, should we wake up or go to screen off?
             _imu = self.shared_state.imu()
             if _imu:
                 if _imu.moving:
                     self.wake_up()
+                    return
+
+            # Check if we should turn screen off
+            screen_off_timeout = self.get_screen_off_timeout()
+            if (
+                screen_off_timeout > 0
+                and self.sleep_start_time is not None
+                and time.time() - self.sleep_start_time > screen_off_timeout
+            ):
+                self.screen_off()
+
+        # Screen off mode: LED heartbeat, longer sleep
+        if self.shared_state.power_state() == -1:
+            _imu = self.shared_state.imu()
+            if _imu and _imu.moving:
+                self.wake_up()
+                return
+            self.update_heartbeat()
+            time.sleep(1.0)
+            return
+
+        # should we pause execution for a bit?
+        if self.shared_state.power_state() < 1:
+            time.sleep(0.2)
 
     def get_sleep_timeout(self):
         """
@@ -242,6 +300,23 @@ class PowerManager:
         screen_brightness = self.cfg.get_option("display_brightness")
         set_brightness(int(screen_brightness / 4), self.cfg)
         self.display_device.device.show()
+
+    def screen_off(self):
+        """Completely blank screen and turn off LEDs"""
+        self.shared_state.set_power_state(-1)
+        self.screen_off_start_time = time.time()
+        self.display_device.device.hide()
+        set_keypad_brightness(0)
+
+    def update_heartbeat(self):
+        """Pulse all LEDs briefly every hour"""
+        if self.screen_off_start_time is None:
+            return
+        seconds_into_hour = (time.time() - self.screen_off_start_time) % 3600
+        if seconds_into_hour < 0.5:
+            set_keypad_brightness(2)
+        else:
+            set_keypad_brightness(0)
 
 
 def start_profiling():
@@ -440,13 +515,30 @@ def main(
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
         shared_state.set_hardware(capabilities)
+        # Initialize test_mode from config so camera process can read it at startup
+        shared_state.set_test_mode(cfg.get_option("test_mode", False))
         logger.debug("Ui state in main is" + str(shared_state.ui_state()))
         console = UIConsole(
             display_device, None, shared_state, command_queues, cfg, Catalogs([])
         )
+        if shared_state.test_mode():
+            apply_test_mode_gps(shared_state, location, console)
         console.write("Starting....")
         console.update()
         logger.info("Starting ....")
+
+        # One-shot notice from the boot watchdog: a failed upgrade was
+        # auto-rolled-back to this (previous) generation.
+        upgrade_failed_notice = utils.data_dir / "upgrade_failed.json"
+        if upgrade_failed_notice.exists():
+            console.write("!! Update failed")
+            console.write("!! Rolled back")
+            console.update()
+            logger.warning("Previous upgrade failed; watchdog rolled back")
+            try:
+                upgrade_failed_notice.unlink()
+            except OSError:
+                pass
 
         # spawn gps service....
         console.write("   GPS")
@@ -633,6 +725,18 @@ def main(
         _new_filter = CatalogFilter(shared_state=shared_state)
         _new_filter.load_from_config(cfg)
         catalogs.set_catalog_filter(_new_filter)
+
+        # Initialize Gaia chart generator in background to avoid first-use delay
+        console.write("   Gaia Charts")
+        console.update()
+        logger.info("   Initializing Gaia chart generator...")
+        from PiFinder.object_images.gaia_chart import get_gaia_chart_generator
+
+        chart_gen = get_gaia_chart_generator(cfg, shared_state)
+        # Trigger background loading so catalog is ready when needed
+        chart_gen.ensure_catalog_loading()
+        logger.info("   Gaia chart background loading started")
+
         console.write("   Menus")
         console.update()
 
@@ -653,6 +757,12 @@ def main(
         console.write("   Event Loop")
         logger.info("   Event Loop")
         console.update()
+
+        # Everything is constructed and the display is live: declare readiness
+        # to systemd. This is the health signal the boot watchdog keys off —
+        # a build that dies before this line never reports READY and fails its
+        # trial. No-op outside systemd (development runs).
+        utils.sd_notify("READY=1")
 
         # Stop profiling (uncomment to analyze startup performance)
         # stop_profiling(profiler, startup_profile_start)
@@ -777,6 +887,9 @@ def main(
                 except queue.Empty:
                     pass
 
+                # Gaia catalog loading removed - now lazy-loads on first chart view
+                # (object_images triggers loading when needed)
+
                 # ui queue
                 try:
                     ui_command = ui_queue.get(block=False)
@@ -799,25 +912,17 @@ def main(
                         catalogs.catalog_filter.mark_dirty()
                     menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
-                    dt = timez.utc(2025, 6, 28, 11, 0, 0)
-                    shared_state.set_datetime(dt)
-                    location.lat = 41.13
-                    location.lon = -120.97
-                    location.altitude = 1315
-                    location.source = "test"
-                    location.error_in_m = 5
-                    location.lock = True
-                    location.lock_type = 3
-                    location.last_gps_lock = timez.local_now().time().isoformat()[:8]
-                    console.write(
-                        f"GPS: Location {location.lat} {location.lon} {location.altitude}"
-                    )
-                    shared_state.set_location(location)
-                    sf_utils.set_location(
-                        location.lat,
-                        location.lon,
-                        location.altitude,
-                    )
+                    # Toggle test mode (store in both shared_state and config).
+                    # The camera process follows shared_state.test_mode()
+                    # directly, so this is the single point of control.
+                    new_test_mode = not cfg.get_option("test_mode", False)
+                    shared_state.set_test_mode(new_test_mode)
+                    cfg.set_option("test_mode", new_test_mode)
+                    if new_test_mode:
+                        apply_test_mode_gps(shared_state, location, console)
+                        menu_manager.message(_("Test Mode ON\nfake cam+GPS"), 2)
+                    else:
+                        menu_manager.message(_("Test Mode\nOFF"), 2)
                 elif ui_command == "set_volume":
                     # Master volume changed in the menu: re-push the level
                     # (main owns both cfg and sound_queue). The player plays
@@ -1060,11 +1165,6 @@ def main(
 if __name__ == "__main__":
     import sys
 
-    # Ensure the active log config symlink exists, defaulting to logconf_default.json
-    _logconf_link = Path("pifinder_logconf.json")
-    if not _logconf_link.exists():
-        _logconf_link.symlink_to("logconf_default.json")
-
     debug_no_file_logs = "--debug-no-file-logs" in sys.argv
     if debug_no_file_logs:
         os.environ["PIFINDER_DEBUG_NO_FILE_LOGS"] = "1"
@@ -1075,13 +1175,13 @@ if __name__ == "__main__":
     rlogger.setLevel(logging.DEBUG if debug_no_file_logs else logging.INFO)
 
     if debug_no_file_logs:
-        log_helper = MultiprocLogging(Path("pifinder_logconf.json"), console_only=True)
+        log_helper = MultiprocLogging(utils.active_logconf_path(), console_only=True)
         MultiprocLogging.configurer(log_helper.get_queue())
     else:
         log_path = utils.data_dir / "pifinder.log"
         try:
             log_helper = MultiprocLogging(
-                Path("pifinder_logconf.json"),
+                utils.active_logconf_path(),
                 log_path,
             )
             MultiprocLogging.configurer(log_helper.get_queue())
@@ -1271,13 +1371,18 @@ if __name__ == "__main__":
         rlogger.warn("not using camera")
         from PiFinder import camera_none as camera  # type: ignore[no-redef]
 
-    if args.keyboard.lower() == "pi":
-        from PiFinder import keyboard_pi as keyboard
+    # When using Pygame display, use built-in event polling (no keyboard subprocess needed)
+    if display_hardware in ["pg_128", "pg_320"]:
+        from PiFinder import keyboard_none as keyboard
+
+        rlogger.info("using pygame built-in keyboard (no subprocess)")
+    elif args.keyboard.lower() == "pi":
+        from PiFinder import keyboard_pi as keyboard  # type: ignore[no-redef]
 
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
         if display_hardware.startswith("pg_"):
-            from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
+            from PiFinder import keyboard_none as keyboard
 
             rlogger.info("using pygame keyboard (main loop captures keys)")
         else:
@@ -1285,7 +1390,7 @@ if __name__ == "__main__":
 
             rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
-        from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
+        from PiFinder import keyboard_none as keyboard
 
         rlogger.warning("using no keyboard")
 
@@ -1299,4 +1404,11 @@ if __name__ == "__main__":
         main(log_helper, args.script, args.fps, args.verbose, args.profile_startup)
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
+        # Logging is multiprocess (QueueHandler -> listener); os._exit() below
+        # can kill this process before the queued traceback is ever written to
+        # the log file. Write it straight to stderr (captured by the journal)
+        # and flush every handler so the cause is never lost on a hard abort.
+        traceback.print_exc()
+        sys.stderr.flush()
+        logging.shutdown()
         os._exit(1)

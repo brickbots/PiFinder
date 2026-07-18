@@ -32,7 +32,8 @@ class Config:
         self.config_file_path = Path(utils.data_dir, "config.json")
 
         self.default_file_path = Path(utils.pifinder_dir, "default_config.json")
-        if not os.path.exists(self.config_file_path):
+        had_saved_config = os.path.exists(self.config_file_path)
+        if not had_saved_config:
             self._config_dict = {}
         else:
             with open(self.config_file_path, "r") as config_file:
@@ -42,6 +43,8 @@ class Config:
         # open default default_config
         with open(self.default_file_path, "r") as config_file:
             self._default_config_dict = json.load(config_file)
+
+        self._migrate_asteroid_filters(had_saved_config)
 
         # Load the equipment config
         eq_config = self.get_option("equipment")
@@ -83,6 +86,27 @@ class Config:
             self.locations = locations.Locations(locations=[])
         else:
             self.locations = locations.Locations.from_dict(loc_config)
+
+    def _migrate_asteroid_filters(self, had_saved_config: bool) -> None:
+        """Enable the new asteroid catalog once in persisted filter lists.
+
+        Defaults already cover fresh installs. The marker prevents a later
+        user choice to disable asteroids from being undone on every startup.
+        """
+        marker = "migration.asteroid_filter_v1"
+        if not had_saved_config or self._config_dict.get(marker):
+            return
+
+        additions = (
+            ("filter.selected_catalogs", "MP"),
+            ("filter.object_types", "AS"),
+        )
+        for option, value in additions:
+            saved_values = self._config_dict.get(option)
+            if isinstance(saved_values, list) and value not in saved_values:
+                saved_values.append(value)
+        self._config_dict[marker] = True
+        self.dump_config()
 
     def save_equipment(self):
         """

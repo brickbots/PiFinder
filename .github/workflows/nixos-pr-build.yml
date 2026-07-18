@@ -55,18 +55,22 @@ jobs:
           attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
           attic use pifinder:pifinder
 
-      - name: Build NixOS system closure
+      - name: Build NixOS system and on-device dev shell closures
         id: build
         run: |
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             -L --no-link
+          nix build .#devShells.aarch64-linux.default -L --no-link
 
       - name: Push to Attic
         id: push
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             --json | jq -r '.[].outputs.out')
+          DEV_SHELL_PATH=$(nix build .#devShells.aarch64-linux.default \
+            --json | jq -r '.[].outputs.out')
           attic push pifinder:pifinder "$STORE_PATH"
+          attic push pifinder:pifinder "$DEV_SHELL_PATH"
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
   # Wait up to ~15 min for the native builder, then decide on the hosted fallback.
@@ -135,10 +139,11 @@ jobs:
           attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
           attic use pifinder:pifinder
 
-      - name: Build NixOS system closure
+      - name: Build NixOS system and on-device dev shell closures
         run: |
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             -L --no-link
+          nix build .#devShells.aarch64-linux.default -L --no-link
 
       - name: Push to Attic
         id: push
@@ -147,9 +152,12 @@ jobs:
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             --json | jq -r '.[].outputs.out')
+          DEV_SHELL_PATH=$(nix build .#devShells.aarch64-linux.default \
+            --json | jq -r '.[].outputs.out')
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
           if [ -n "$ATTIC_TOKEN" ]; then
             attic push pifinder:pifinder "$STORE_PATH"
+            attic push pifinder:pifinder "$DEV_SHELL_PATH"
           else
             echo "No ATTIC_TOKEN — skipping push; build is verify-only"
           fi

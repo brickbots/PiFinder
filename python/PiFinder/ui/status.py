@@ -49,10 +49,6 @@ class UIStatus(UIModule):
             "CPU TMP": "--",
         }
 
-        with open(f"{utils.pifinder_dir}/wifi_status.txt", "r") as wfs:
-            wifi_mode = wfs.read()
-        self.status_dict["WIFI"] = "Client" if wifi_mode == "Client" else "AP"
-
         self.last_temp_time = 0
         self.last_IP_time = 0
         self.net = sys_utils.Network()
@@ -105,16 +101,14 @@ class UIStatus(UIModule):
                 self.status_dict["RA/DEC"] = "--/--"
             else:
                 hh, mm, _ = calc_utils.ra_to_hms(aligned.RA)
-                self.status_dict["RA/DEC"] = (
-                    f"{hh:02.0f}h{mm:02.0f}m/{aligned.Dec :.2f}"
-                )
+                self.status_dict["RA/DEC"] = f"{hh:02.0f}h{mm:02.0f}m/{aligned.Dec:.2f}"
 
             # AZ/ALT
             if solution.Az is None or solution.Alt is None:
                 self.status_dict["AZ/ALT"] = "--/--"
             else:
                 self.status_dict["AZ/ALT"] = (
-                    f"{solution.Az : >6.2f}/{solution.Alt : >6.2f}"
+                    f"{solution.Az: >6.2f}/{solution.Alt: >6.2f}"
                 )
 
         imu = self.shared_state.imu()
@@ -125,10 +119,10 @@ class UIStatus(UIModule):
                     mtext = "Moving"
                 else:
                     mtext = "Static"
-                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu.status)
+                self.status_dict["IMU"] = f"{mtext: >11}" + " " + str(imu.status)
 
-                self.status_dict["IMU qw,qx"] = f"{imu.quat.w:>.2f},{imu.quat.x : >.2f}"
-                self.status_dict["IMU qy,qz"] = f"{imu.quat.y:>.2f},{imu.quat.z : >.2f}"
+                self.status_dict["IMU qw,qx"] = f"{imu.quat.w:>.2f},{imu.quat.x: >.2f}"
+                self.status_dict["IMU qy,qz"] = f"{imu.quat.y:>.2f},{imu.quat.z: >.2f}"
         else:
             self.status_dict["IMU"] = "--"
             self.status_dict["IMU qw,qx"] = "--"
@@ -161,18 +155,17 @@ class UIStatus(UIModule):
             try:
                 with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
                     raw_temp = int(f.read().strip())
-                self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
+                self.status_dict["CPU TMP"] = f"{raw_temp / 1000: >13.1f}"
             except FileNotFoundError:
                 self.status_dict["CPU TMP"] = "Error"
 
         if time.time() - self.last_IP_time > 20:
             self.last_IP_time = time.time()
-            # IP address
+            # Live network state: WIFI radio mode, the reachable IP, and the
+            # active-uplink label (Ethernet when wired, else SSID / AP name).
+            self.status_dict["WIFI"] = self.net.wifi_mode()
             self.status_dict["IP"] = self.net.local_ip()
-            if self.net.wifi_mode() == "AP":
-                self.status_dict["SSID"] = self.net.get_ap_name()
-            else:
-                self.status_dict["SSID"] = self.net.get_connected_ssid()
+            self.status_dict["SSID"] = self.net.get_active_label()
 
     def update(self, force=False):
         self.update_status_dict()

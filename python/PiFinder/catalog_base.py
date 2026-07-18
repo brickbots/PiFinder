@@ -120,6 +120,17 @@ class CatalogBase:
         assert self.check_sequences()
         self.last_filtered = 0  # objects changed -> invalidate filter cache
 
+    def replace_objects(self, objects: List) -> None:
+        """Replace a dynamic catalog in one assignment, then rebuild indices."""
+        replacement = list(objects)
+        replacement.sort(key=self.sort)
+        assert len({obj.sequence for obj in replacement}) == len(replacement)
+        self.__objects = replacement
+        self.max_sequence = max((obj.sequence for obj in replacement), default=0)
+        self._update_id_to_pos()
+        self._update_sequence_to_pos()
+        self.last_filtered = 0
+
     def clear_objects(self):
         """
         Remove all objects and reset the sequence/id indexes.

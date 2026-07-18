@@ -1,4 +1,144 @@
+[project]
+name = "pifinder"
+version = "0.0.0"
+description = "PiFinder runtime dependencies (resolved by uv, realized into the Nix store via uv2nix)"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    # Scientific / astronomy core
+    "numpy",
+    "numpy-quaternion",
+    "pyerfa",
+    "scipy",
+    "scikit-learn",
+    # HEALPix tile queries for the Gaia deep-chart catalog (star_catalog.py)
+    "healpy",
+    "pillow",
+    "pandas",
+    "skyfield",
+    "timezonefinder",
+    "pytz",
+    # Plate solver (the `tetra3` import package). Pinned to a cedar-solve rev via
+    # [tool.uv.sources]; its stale numpy<2/Pillow<9 caps are relaxed in
+    # [tool.uv.dependency-metadata] so it resolves against the env's numpy 2.x.
+    "cedar-solve",
+    # Web / RPC
+    "grpcio",
+    "protobuf",
+    "flask",
+    "flask-babel",
+    "waitress",
+    "requests",
+    "pyjwt",
+    "aiofiles",
+    "json5",
+    "jsonschema",
+    "libarchive-c",
+    "tqdm",
+    # System / IPC bindings
+    "pygobject; platform_machine == 'aarch64'",  # libnm bindings — device-only (dev uses sys_utils_fake)
+    "dbus-python; platform_machine == 'aarch64'",
+    "av",
+    "smbus2",
+    "spidev; platform_machine == 'aarch64'",
+    # sh 2.x changed the API; PiFinder targets the 1.x interface.
+    "sh>=1.14,<2",
+    "gpsdclient",
+    "dataclasses-json",
+    "pydeepskylog",
+    "python-pam; sys_platform == 'linux'",
+    # 0.3.0a0 (prerelease) is the version that builds on 3.13; its setup.py
+    # and .so lookups are patched in the uv2nix override (see uv-python.nix).
+    "python-libinput==0.3.0a0; platform_machine == 'aarch64'",
+    # Display
+    "luma-oled",
+    "luma-lcd",
+    # Hardware / camera
+    "rpi-gpio; platform_machine == 'aarch64'",
+    "rpi-hardware-pwm; platform_machine == 'aarch64'",
+    "adafruit-blinka; sys_platform == 'linux'",
+    "adafruit-circuitpython-bno055; sys_platform == 'linux'",
+    "adafruit-extended-bus; sys_platform == 'linux'",
+    "picamera2; platform_machine == 'aarch64'",
+    "pidng; sys_platform == 'linux'",
+    "simplejpeg",
+    "python-prctl; platform_machine == 'aarch64'",
+    "videodev2; sys_platform == 'linux'",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "mypy",
+    "luma-emulator",
+    # pyhotkey -> pynput -> evdev (sdist, kernel headers): only buildable where
+    # the uv2nix override supplies headers (the device). Dev keyboard input on
+    # x86 uses the pygame path instead (docs/adr/0004-pygame-keyboard...).
+    "pyhotkey; platform_machine == 'aarch64'",
+    "selenium",
+    # pandas reads the Steinicke .xls catalog through xlrd (test_steinicke_parsing).
+    "xlrd>=2.0.1",
+    # mypy type stubs (main tracks these in requirements_dev.txt; here they
+    # ride the uv dev group)
+    "types-pytz",
+    # pynput drags evdev (sdist, kernel headers) — keep it off x86 dev boxes
+    "pynput; platform_machine == 'aarch64'",
+    "types-pynput",
+    "types-requests",
+    "types-aiofiles",
+    "types-tqdm",
+    "pandas-stubs",
+    "types-waitress",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+# Dependency-only (virtual) workspace — nothing here is installed into the env
+# (the PiFinder source is deployed separately via pkgs/pifinder-src.nix). Declare
+# an empty package set so uv2nix's build of the root produces an empty wheel
+# instead of tripping setuptools flat-layout discovery on views/locale/PiFinder.
+[tool.setuptools]
+packages = []
+
+[tool.uv]
+# Dependency-only workspace: the PiFinder source itself is deployed separately
+# (pkgs/pifinder-src.nix), so uv must not try to build/install this root project.
+package = false
+# Deployment + dev are both Linux (aarch64 Pi, x86_64 dev); keep the lock focused.
+environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
+
+# Plate solver source: pinned cedar-solve rev (smroid upstream for now; point this
+# at our fork here when we need to carry patches).
+[tool.uv.sources]
+cedar-solve = { git = "https://github.com/smroid/cedar-solve", rev = "d8ff1d857a363c88917fd8e126ab90e24b1cfbcc" }
+
+# python-libinput's setup.py imports the removed `imp` module, so uv cannot
+# execute it to discover metadata. Declare it statically; the actual build is
+# patched in the uv2nix override.
+[[tool.uv.dependency-metadata]]
+name = "python-libinput"
+version = "0.3.0a0"
+requires-dist = ["cffi"]
+
+# python-prctl's setup.py aborts without libcap headers present; it has no
+# runtime Python deps. libcap is supplied by the uv2nix build override.
+[[tool.uv.dependency-metadata]]
+name = "python-prctl"
+version = "1.8.1"
+requires-dist = []
+
+# cedar-solve's published metadata caps numpy<2 / Pillow<9, but those bounds are
+# stale: it runs against the env's numpy 2.x / Pillow 12 (as it did when vendored
+# as a git submodule). Override so uv resolves it without dragging the env back.
+[[tool.uv.dependency-metadata]]
+name = "cedar-solve"
+version = "0.5.1"
+requires-dist = ["numpy", "pillow", "scipy"]
+
 [tool.ruff]
+builtins = ["_"]
+
 # Exclude a variety of commonly ignored directories.
 exclude = [
     ".bzr",
@@ -27,18 +167,14 @@ exclude = [
     "node_modules",
     "site-packages",
     "venv",
-    "tetra3",
 ]
 
 # Same as Black.
 line-length = 88
 indent-width = 4
 
-# Assume Python 3.9
-target-version = "py39"
-
-# _ is the i18n/gettext builtin injected at runtime
-builtins = ["_"]
+# Assume Python 3.13
+target-version = "py313"
 
 [tool.ruff.lint]
 # Enable preview mode, allow os.env changes before imports
@@ -60,6 +196,7 @@ unfixable = []
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.lint.per-file-ignores]
+"*.ipynb" = ["E402", "F841"]
 "PiFinder/timez.py" = ["DTZ"]
 
 [tool.ruff.format]
@@ -90,7 +227,7 @@ docstring-code-format = false
 docstring-code-line-length = "dynamic"
 
 [tool.mypy]
-exclude = "venv|tetra3|conftest"
+exclude = "venv|conftest"
 # Start off with these
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -123,27 +260,53 @@ extra_checks = true
 [[tool.mypy.overrides]]
 module = [
     'board',
-    'adafruit_bno055',
     'adafruit_bus_device.*',
+    'adafruit_bno055',
+    'adafruit_extended_bus',
     'scipy.*',
     'luma.*',
     'skyfield.*',
     'sh.*',
     'sklearn.*',
-    'pam.*',
     'PyHotKey.*',
-    'PiFinder.tetra3.*',
-    'quaternion',
-    'tetra3.*',
     'grpc',
     'ceder_detect_pb2',
     'RPi.*',
     'picamera2',
     'bottle',
     'libinput',
+    'pytz',
+    'aiofiles',
+    'requests',
+    'tqdm',
+    'pandas',
+    'rpi_hardware_pwm',
+    'gpsdclient',
+    'timezonefinder',
+    'pydeepskylog.*',
+    'dbus',
+    'pam',
+    'pam.*',
+    'quaternion',
+    'gi',
+    'gi.*',
+    'pynput.*',
+    'waitress',
+    'google.*',
+    'cedar_detect_pb2',
+    'cedar_detect_pb2_grpc',
 ]
 ignore_missing_imports = true
 ignore_errors = true
+
+# tetra3 / cedar-solve is an external (untyped) dependency. Treat it as opaque:
+# skip following its imports so mypy never analyses it or its transitive deps
+# (protobuf, grpc stubs, …). Without this, `mypy --install-types` tries to
+# pip-install those stubs, which fails in the pip-less Nix dev env.
+[[tool.mypy.overrides]]
+module = ['tetra3', 'tetra3.*']
+follow_imports = "skip"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

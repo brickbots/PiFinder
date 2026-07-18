@@ -268,7 +268,7 @@ dimmest stars.
 .. note::
    **Focus is the single most common reason a PiFinder won't solve.**  Stars that look
    sharp by eye are often still too soft to solve, so rather than judging focus by sight,
-   use the **HFD** readout and its graph on the Focus screen (described below) to find the
+   use the **HFD** readout on the Focus screen (described below) to find the
    sharpest point precisely.
 
 Screw the lens in and out in the holder to adjust focus. Starting from scratch — a new
@@ -279,53 +279,52 @@ Select the 'Focus' option under the 'Start' menu.
 
 .. image:: images/quick_start/start_menu.png
 
-The Focus screen shows a live preview of what the camera is seeing, with special image
-processing that highlights stars and removes background skyglow to make focusing easier.
+The Focus screen finds the four brightest stars anywhere in the camera frame and arranges
+their magnified, centered views into four equal screen quadrants in the visible area below
+the title bar.  Once selected, the same stars stay in the same quadrants while they remain
+detectable; tracking their relative pattern keeps them stable even if the whole camera image
+shifts while you adjust the lens.  A star that disappears is replaced by another bright star.
+This does not depend on a plate solve or catalog identity, so it also works while badly out of
+focus.  These are raw camera pixels: the display does
+not stretch the contrast, remove skyglow, sharpen, blur, or smooth the stars.  It only crops and
+enlarges them with nearest-neighbour sampling, then applies the panel's red night-vision colour.
 
-With no stars visible or the image well out of focus, the screen may look too bright, too
-dark, or noisy — normal until the camera is near focus. Some examples:
+The default magnification is about 10× compared with a full-frame view.  When a star is
+well out of focus, its tile automatically shows a wider crop so the broad disc or donut is not
+clipped.  As focus improves the view tightens toward 10×.  Use **+/-** to change the nominal
+magnification between 4× and 16×.
 
-.. list-table::
+At the intersection of the four quadrants is the **HFD** readout — the Half-Flux Diameter of
+the measurable stars, in camera pixels.  This is how spread-out the stars are, so lower is
+sharper.  Slowly screw the lens in or out and chase the smallest stable number.  ``?.?`` means
+there is no usable focus measurement for the current frame; broad stars may still remain visible
+in their enlarged tiles while you adjust toward focus.
 
-   * - .. figure:: images/quick_start/CAMERA_unfocused_hud.png
+A rolling 10-second HFD trace runs along the middle divider on either side of the number.  It
+centres its recent value range on the divider, with lower HFD values below the line.  This makes
+it easier to see when you have passed through the focus minimum and should turn back, without
+pretending that one absolute HFD value is equally good on every PiFinder.
+When no star can be measured no new point is added, so the existing trace visibly recedes as it
+becomes stale.  A fresh signal starts on the first numeric measurement that follows.
 
-          Unfocused: bright, noisy background and a high HFD
+Good focus means the quickest solves.  Close will work, but it is worth adjusting through the
+minimum and then returning to the lowest HFD you saw.  Judge the number and all four stars
+together rather than relying on a single unusually bright or saturated star.
 
-     - .. figure:: images/quick_start/CAMERA_focused_hud.png
+Press **SQUARE** to cycle through four Focus views:
 
-          At best focus: dark background, a tight star and a low HFD
+* **Stars** — the four magnified raw star tiles described above.
+* **Single** — the brightest detected star at twice the apparent magnification of Stars,
+  with the HFD number and rolling trace on a translucent overlay in the lower third.
+* **Image** — the complete camera frame using the original display-only autocontrast.
+  Focus measurements still use raw pixels.
+* **Stats** — HFD, an additional FWHM estimate, total detected stars, exposure mode and
+  actual exposure, gain, and a histogram of the raw pixel values.  HFD is still the number
+  to minimize; FWHM is supplementary because it is less reliable on saturated or heavily
+  defocused stars.
 
-
-Pan your scope until a bright object appears in the camera view.  Screw the lens in and out
-to focus; once something star-like is in the FOV and near focus, the preview's image
-processing will work properly and start dimming the background and highlighting the stars.
-
-Along the bottom of the Focus screen is the **focus strip**, which turns focusing from a judgement
-call into a number you can chase.  A large **HFD** readout — the Half-Flux Diameter of the stars it
-finds, in pixels — fills the right of the strip.  This is simply how spread-out the stars are, so a
-smaller number means tighter, sharper stars: as you adjust the lens, your goal is to make the HFD as
-small as you can.
-
-.. image:: images/quick_start/focus_strip_docs.png
-
-To the left of the readout a graph plots the HFD over the last several seconds.  As you slowly turn
-the focuser the line traces a "V" — dropping as the stars sharpen, reaching a low point at best focus,
-then climbing again as you go past it.  Stop at the bottom of the V.  The graph is scaled to the range
-a real lens reaches — about 4 px at sharp focus up to 20 px when clearly soft — and a marker line shows
-the best (lowest) HFD seen recently.  Small labels show the current exposure time, **det** (the number
-of stars the focus screen detected) and, once a solve succeeds, the matched-star count next to the star
-icon — watch that jump from zero the moment your stars are sharp enough for the PiFinder to recognise
-them.
-
-If the image is too far out of focus to measure, the readout shows ``keep going`` until a star comes
-into range.  The strip works at every zoom level, since the HFD doesn't depend on zoom, and you can
-press the **SQUARE** button to hide or show it if you'd rather see the bare image.
-
-Good focus means the quickest solves.  Close will work, but it's worth driving the HFD down to its
-lowest point — use the **+/-** keys to zoom the view to 2x and 4x and get the stars as tight as you
-reasonably can.  With dark enough skies and good focus, the camera icon appears in the top right and
-the current constellation shows in the title bar.  Congratulations — the PiFinder knows where it's
-pointing!
+The **+/-** magnification keys apply in the Stars and Single views.  Hold **SQUARE** from any view to
+open the normal Quick Menu.
 
 
 .. note::

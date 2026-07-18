@@ -211,6 +211,7 @@ ARGO_TYPE_MAP: dict[str, str] = {
     "Ast": "ASTERISM",
     "Pla": "STAR",
     "CM": "COMET",
+    "AS": "ASTEROID",
     "?": "USER",
 }
 ARGO_TYPE_MAP_INV: dict[str, str] = {}
@@ -233,6 +234,7 @@ CELESTRON_TYPE_MAP: dict[str, str] = {
     "Ast": "Asterism",
     "Pla": "Star",
     "CM": "Star",
+    "AS": "Star",
     "?": "Star",
 }
 CELESTRON_TYPE_MAP_INV: dict[str, str] = {}
@@ -252,7 +254,7 @@ SKYSAFARI_CATALOG_NAMES_INV: dict[str, str] = {
 def _skylist_object_id(obj_type: str) -> str:
     if obj_type in ("*", "D*", "***"):
         return "2,-1,-1"
-    if obj_type == "Pla":
+    if obj_type in ("Pla", "AS"):
         return "1,-1,-1"
     return "4,-1,-1"
 
@@ -534,7 +536,8 @@ STELLARIUM_TYPE_MAP: dict[str, str] = {
     "asterism": "Ast",
     "planet": "Pla",
     "moon": "Pla",
-    "minor planet": "Pla",
+    "minor planet": "AS",
+    "asteroid": "AS",
     "dwarf planet": "Pla",
     "comet": "CM",
     "region of the sky": "?",
