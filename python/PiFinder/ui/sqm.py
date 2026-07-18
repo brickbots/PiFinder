@@ -36,10 +36,6 @@ class UISQM(UIModule):
             font=self.fonts.base,
         )
 
-        # Marking menu definition. SWEEP holds the down slot — the position
-        # readable at the eyepiece without moving your head — because a sweep
-        # against a reference meter is the everyday measurement; CALIB (noise
-        # constants) is the occasional/expert tool.
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
                 label=_(
