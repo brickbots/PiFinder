@@ -13,7 +13,7 @@ The measured single-cell Li-ion terminal voltage, in volts. The **canonical** ba
 _Avoid_: "battery level" (ambiguous — see Flagged ambiguities), "charge level".
 
 **State of charge** (a.k.a. battery percent):
-A coarse 0–100% **estimate of the fraction of typical-load runtime remaining**, derived from battery voltage through the **discharge curve** — see [ADR 0020](../../adr/0020-soc-as-runtime-fraction.md). It answers "how much longer will it run?", *not* "what fraction of the cell's capacity is left" (capacity fraction is unmeasurable on this hardware). UI-only, never a control input, and **undefined while charging** (the charger pulls the terminal voltage up, so a percentage would lie) — represented as `None` in that case.
+A coarse 0–100% **estimate of the fraction of typical-load runtime remaining**, derived from battery voltage through the **discharge curve** — see [ADR 0020](../../adr/0020-soc-as-runtime-fraction.md). It answers "how much longer will it run?", *not* "what fraction of the cell's capacity is left" (capacity fraction is unmeasurable on this hardware). UI-only, never a control input, and **undefined while charging** (the charger pulls the terminal voltage up, so a percentage would lie) and while **ADC-blind** (no measured voltage to derive from) — represented as `None` in both cases.
 _Avoid_: treating it as a measured quantity, "capacity fraction", "fuel gauge" (there isn't one), "battery level".
 
 **Discharge curve**:
@@ -45,7 +45,7 @@ Whether the unit is currently running from USB/adapter input (input present and 
 _Avoid_: "plugged in" (says nothing about power-good), implying it from charge status.
 
 **`BatteryState`**:
-The published dataclass carried in `SharedStateObj` (`shared_state.battery()` / `set_battery()`). Holds **battery voltage**, **charge status**, **power source**, the estimated **state of charge**, the cheap adjacent diagnostics (charge current, VBUS voltage, SYS voltage) and a timestamp. Read-only for consumers. `None` when no charger is present (rev-3 hardware).
+The published dataclass carried in `SharedStateObj` (`shared_state.battery()` / `set_battery()`). Holds **battery voltage**, **charge status**, **power source**, the estimated **state of charge**, the cheap adjacent diagnostics (charge current, VBUS voltage, SYS voltage) and a timestamp. Read-only for consumers. `None` when no charger is present (rev-3 hardware). Below the **ADC blind floor** every ADC-derived field is `None` (the `adc_blind` property names that state) — the raw-0 decode artifact is never published, so nothing can feed it into the discharge curve (ADR 0021); the status-derived fields stay valid.
 _Avoid_: "battery info", "power state" (collides with the sleep/wake `power_state`).
 
 ### Hardware presence

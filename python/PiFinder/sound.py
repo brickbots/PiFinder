@@ -105,15 +105,17 @@ CATALOG: Dict[Earcon, EarconDef] = {
     ),
     Earcon.KEYPRESS: EarconDef(notes=(Note(480, 10, 0.2),)),
     Earcon.VOLUME_SAMPLE: EarconDef(notes=(Note(4000, 120, 1.0),)),
+    # Advisory low-battery warning at the 10%/5% state-of-charge thresholds
+    # (ADR 0021). Important: must not be lost to staleness or the drain.
+    Earcon.LOW_BATTERY: EarconDef(
+        important=True,
+        notes=(Note(4000, 100, 1.0), Note(0, 60), Note(3000, 200, 0.9)),
+    ),
     # Defined-but-unwired in v1 (no producer requests these yet). They have
     # catalog entries so the data model is complete and they are tunable now.
     Earcon.ERROR: EarconDef(
         important=True,
         notes=(Note(2000, 120, 1.0), Note(0, 40), Note(2000, 120, 1.0)),
-    ),
-    Earcon.LOW_BATTERY: EarconDef(
-        important=True,
-        notes=(Note(4000, 100, 1.0), Note(0, 60), Note(3000, 200, 0.9)),
     ),
     Earcon.SOLVE_LOCK: EarconDef(notes=(Note(3500, 40, 0.7), Note(4500, 60, 0.9))),
 }

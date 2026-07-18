@@ -52,6 +52,20 @@ def _state(soc, charge_status=ChargeStatus.NOT_CHARGING) -> BatteryState:
     )
 
 
+def _blind_state(charge_status=ChargeStatus.NOT_CHARGING) -> BatteryState:
+    """An ADC-blind BatteryState: every ADC-derived field is None."""
+    return BatteryState(
+        battery_voltage=None,
+        charge_status=charge_status,
+        on_external_power=False,
+        state_of_charge_pct=None,
+        charge_current_ma=None,
+        vbus_voltage=None,
+        sys_voltage=None,
+        timestamp=0.0,
+    )
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     "soc, expected_attr",
@@ -104,3 +118,21 @@ def test_charge_done_full_cell_shows_full_not_charging(module):
 def test_not_charging_without_estimate_fails_safe_to_full(module):
     """Defensive: SOC None while *not* charging should never crash."""
     assert module._battery_icon(_state(None)) == module._BATT_FULL
+
+
+@pytest.mark.unit
+def test_adc_blind_on_battery_shows_empty(module):
+    """Below the ADC blind floor on battery the cell is effectively empty
+    and the low-battery shutdown is imminent (ADR 0021) — the blind state
+    must read as empty, never fall through to the fail-safe full glyph."""
+    assert module._battery_icon(_blind_state()) == module._BATT_EMPTY
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "charge_status", [ChargeStatus.PRE_CHARGE, ChargeStatus.FAST_CHARGING]
+)
+def test_adc_blind_while_charging_shows_charging_glyph(module, charge_status):
+    """Deeply discharged cell on a charger: still ADC-blind, but the unit
+    is recovering, not dying — the charging glyph wins."""
+    assert module._battery_icon(_blind_state(charge_status)) == module._BATT_CHARGING

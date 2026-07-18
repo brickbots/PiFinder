@@ -33,6 +33,12 @@ with no software running. (A full power-on reset — battery fully drained
 or disconnected — reverts ``AUTO_DPDM_EN`` to its default, so the first
 insertion after that charges slowly until the PiFinder is next booted.)
 
+One battery-driven control action is sanctioned (ADR 0021): sustained
+ADC-blind polls while on battery — the debounced signature of crossing
+the **ADC blind floor** (~3.5 V) — request a clean **low-battery
+shutdown** through the ordinary shutdown chokepoint. The trigger is the
+raw ADC-validity signal, never the estimated state of charge.
+
 Register scaling below was verified against ``BQ25895-datasheet.pdf``
 (TI SLUSC88C, the REGxx field-description tables) and cross-checked
 against a live rev-4 unit. The chip has **no fuel gauge**: battery
@@ -171,16 +177,111 @@ CONV_POLL_INTERVAL = 0.01
 
 # Piecewise-linear state-of-charge curve: (battery_voltage_V, percent).
 # Percent means "fraction of typical-load runtime remaining", not capacity
-# (see docs/adr/0020-soc-as-runtime-fraction.md). These knots are still the
-# generic Li-ion placeholder; measured knots from bench discharge runs pend.
+# (see docs/adr/0020-soc-as-runtime-fraction.md). Measured end to end by the
+# 2026-07-17 bench discharge campaign (tools/battery_runtime_analysis.py,
+# blind-floor anchor): 0% is the low-battery shutdown at the ADC blind floor
+# per ADR 0021, so no knot is extrapolated. PROVISIONAL — fitted from two
+# degraded-load runs; pinned-load confirmation runs will refresh these knots.
 SOC_LUT = [
-    (3.00, 0),
-    (3.30, 5),
-    (3.55, 25),
-    (3.70, 50),
-    (3.85, 75),
-    (4.20, 100),
+    (3.541, 0),
+    (3.594, 5),
+    (3.643, 10),
+    (3.681, 15),
+    (3.736, 25),
+    (3.834, 50),
+    (3.947, 75),
+    (3.983, 90),
+    (4.060, 100),
 ]
+
+# --- Low-battery shutdown (ADR 0021) ---
+# Debounce for the shutdown trigger: this many consecutive ADC-blind polls
+# while on battery request a clean shutdown (~20 s at POLL_INTERVAL).
+# Middle of the ADR's 3-5 poll range; tools/battery_runtime_analysis.py
+# anchors the discharge curve's 0% with the same count so the live shutdown
+# and the fitted curve agree on where a discharge ends.
+LOW_BATTERY_SHUTDOWN_POLLS = 4
+
+# Advisory warning thresholds (state-of-charge %). Per the measured curve
+# these sit roughly 60 and 30 minutes before the blind-floor shutdown at
+# the typical load.
+LOW_BATTERY_WARNING_PCTS = (10, 5)
+
+# A warning threshold re-arms once the state of charge climbs this many
+# points clear of it. One BATV LSB (20 mV) is ~2% near the bottom knots,
+# so without hysteresis quantisation jitter around a threshold would
+# re-fire the warning on every poll.
+LOW_BATTERY_WARNING_REARM_PCT = 2
+
+
+class LowBatteryShutdownTrigger:
+    """Debounced trigger for the low-battery shutdown (ADR 0021).
+
+    Counts consecutive ADC-blind polls while on battery and fires when the
+    streak reaches ``polls``. Conversions fail *intermittently* in the
+    3.50-3.55 V twilight before failing permanently, so a single blind
+    read means nothing — any sane read resets the streak. External power
+    also resets it: a deeply discharged unit on a charger must charge,
+    never shut down. Fires exactly once per sustained blind episode (the
+    streak keeps growing past ``polls`` without re-firing).
+
+    PURE — no hardware, no clock; unit-tests without a board (same
+    pattern as :func:`plan_charging_writes`). The estimated state of
+    charge never feeds this: the trigger is a hardware-validity fact.
+    """
+
+    def __init__(self, polls: int = LOW_BATTERY_SHUTDOWN_POLLS):
+        self._polls = polls
+        self._blind_streak = 0
+
+    def update(self, adc_blind: bool, on_external_power: bool) -> bool:
+        """Feed one decoded poll; True when shutdown should be requested."""
+        if on_external_power or not adc_blind:
+            self._blind_streak = 0
+            return False
+        self._blind_streak += 1
+        return self._blind_streak == self._polls
+
+
+class LowBatteryWarner:
+    """Once-per-crossing advisory warnings at the low state-of-charge
+    thresholds (ADR 0021: 10% and 5% precede the blind-floor shutdown).
+
+    Feed it each published battery sample; it returns the threshold to
+    warn for — the lowest newly-crossed one, so a fast drop through both
+    yields a single (most severe) warning — or ``None``. The state of
+    charge is ``None`` while charging or ADC-blind, which suppresses
+    warnings there. Every threshold re-arms on external power (so the
+    next discharge warns afresh) or once the estimate climbs
+    ``LOW_BATTERY_WARNING_REARM_PCT`` points clear of it
+    (quantisation-jitter hysteresis). A ``None`` estimate alone never
+    re-arms: conversions fail *intermittently* in the twilight just
+    above the blind floor, and re-arming on each blind poll would
+    re-fire the 5% warning on every interleaved sane poll.
+
+    PURE, and strictly advisory UI — SoC is never a control input; the
+    shutdown itself is :class:`LowBatteryShutdownTrigger`'s job.
+    """
+
+    def __init__(self, thresholds=LOW_BATTERY_WARNING_PCTS):
+        self._thresholds = tuple(sorted(thresholds, reverse=True))
+        self._armed = set(self._thresholds)
+
+    def update(self, state_of_charge_pct, on_external_power: bool):
+        """Feed one sample; return the threshold (%) to warn for, or None."""
+        if on_external_power:
+            self._armed = set(self._thresholds)
+            return None
+        if state_of_charge_pct is None:
+            return None
+        for t in self._thresholds:
+            if state_of_charge_pct > t + LOW_BATTERY_WARNING_REARM_PCT:
+                self._armed.add(t)
+        crossed = [t for t in self._armed if state_of_charge_pct <= t]
+        if not crossed:
+            return None
+        self._armed -= set(crossed)
+        return min(crossed)
 
 
 def estimate_soc(voltage: float) -> int:
@@ -218,19 +319,40 @@ def decode_registers(
     State of charge is ``None`` while charging (Pre-charge / Fast
     Charging): the charger pulls the terminal voltage up, so a
     percentage would lie. Otherwise it is estimated from battery voltage.
+
+    A raw-0 BATV field means the one-shot conversion did not complete —
+    the battery is below the **ADC blind floor** (~3.5 V), and the whole
+    conversion round is an artifact (each result register holds its
+    offset, 2.304 V for BATV). Every ADC-derived field decodes to
+    ``None`` then, never the offset, so no consumer can feed the
+    artifact into the discharge curve (ADR 0021). The status fields from
+    REG0B are plain register reads and stay valid below the floor.
     """
     charge_status = ChargeStatus((reg0b >> 3) & 0x03)
     on_external_power = bool((reg0b >> 2) & 0x01)
 
-    battery_voltage = BATV_OFFSET_V + (reg0e & 0x7F) * BATV_STEP_V
-    sys_voltage = SYSV_OFFSET_V + (reg0f & 0x7F) * SYSV_STEP_V
-    vbus_voltage = VBUSV_OFFSET_V + (reg11 & 0x7F) * VBUSV_STEP_V
-    charge_current_ma = (reg12 & 0x7F) * ICHGR_STEP_MA
-
-    if charge_status in (ChargeStatus.PRE_CHARGE, ChargeStatus.FAST_CHARGING):
+    if (reg0e & 0x7F) == 0:
+        # ADC-blind: publish honesty, not the 2.304 V decode artifact.
+        # (On a charger a raw-0 BATV can instead mean a completed read of
+        # a cell at/below the 2.304 V field offset, where SYS/VBUS reads
+        # may be real — indistinguishable from here, and nothing consumes
+        # those diagnostics, so blind-consistent None wins over
+        # republishing possible artifacts.)
+        battery_voltage = None
+        sys_voltage = None
+        vbus_voltage = None
+        charge_current_ma = None
         state_of_charge_pct = None
     else:
-        state_of_charge_pct = estimate_soc(battery_voltage)
+        battery_voltage = BATV_OFFSET_V + (reg0e & 0x7F) * BATV_STEP_V
+        sys_voltage = SYSV_OFFSET_V + (reg0f & 0x7F) * SYSV_STEP_V
+        vbus_voltage = VBUSV_OFFSET_V + (reg11 & 0x7F) * VBUSV_STEP_V
+        charge_current_ma = (reg12 & 0x7F) * ICHGR_STEP_MA
+
+        if charge_status in (ChargeStatus.PRE_CHARGE, ChargeStatus.FAST_CHARGING):
+            state_of_charge_pct = None
+        else:
+            state_of_charge_pct = estimate_soc(battery_voltage)
 
     return BatteryState(
         battery_voltage=battery_voltage,
@@ -327,13 +449,19 @@ class BQ25895:
         return decode_registers(reg0b, reg0e, reg0f, reg11, reg12, time.time())
 
 
-def battery_monitor(shared_state, console_queue, log_queue):
+def battery_monitor(shared_state, console_queue, ui_queue, log_queue):
     """Process entry: poll the BQ25895 and publish into shared state.
 
     Mirrors ``imu_monitor``. On construction failure, log and exit — do
     NOT fall back to a fake reading. A fabricated battery value on real
     hardware would mislead; ``shared_state.battery()`` simply stays
     ``None`` (see CONTEXT.md "BatteryState is None vs 0%").
+
+    The monitor also owns the low-battery shutdown trigger (ADR 0021):
+    sustained ADC-blind polls on battery put ``"low_battery_shutdown"``
+    on ``ui_queue``, and the main loop shows the final warning and routes
+    it through the same chokepoint as a user shutdown. Failed reads feed
+    nothing to the debounce — only decoded polls count.
     """
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting battery monitor")
@@ -345,6 +473,7 @@ def battery_monitor(shared_state, console_queue, log_queue):
         console_queue.put("Battery: BQ25895 init failed, monitor disabled")
         return
 
+    shutdown_trigger = LowBatteryShutdownTrigger()
     while True:
         try:
             # Re-assert the fast-charge config every poll: applies it at
@@ -358,6 +487,12 @@ def battery_monitor(shared_state, console_queue, log_queue):
             state = chip.read_state()
             if shared_state is not None:
                 shared_state.set_battery(state)
+            if shutdown_trigger.update(state.adc_blind, state.on_external_power):
+                logger.warning(
+                    "Battery: sustained ADC-blind reads on battery — "
+                    "requesting low-battery shutdown (ADR 0021)"
+                )
+                ui_queue.put("low_battery_shutdown")
         except Exception as e:
             # Transient I2C errors: log and keep polling.
             logger.warning("Battery: read failed: %s", e)

@@ -45,16 +45,33 @@ class BatteryState:
     no charger is present (rev-3 hardware / monitor not running) — that
     is distinct from a real ``BatteryState`` with a low
     ``state_of_charge_pct`` (detected, nearly empty).
+
+    Below the **ADC blind floor** (~3.5 V) the BQ25895's one-shot ADC
+    conversions stop completing and the result registers read raw 0 —
+    each field's *offset* (2.304 V for battery voltage), an artifact, not
+    a measurement. Every ADC-derived field is ``None`` then, so no
+    consumer can feed the decode artifact into the discharge curve (see
+    ADR 0021 and CONTEXT.md "blind vs measured-low"). The status-derived
+    fields (``charge_status``, ``on_external_power``) are plain register
+    reads and stay trustworthy below the floor.
     """
 
-    battery_voltage: float  # V, canonical measured value (REG0E)
+    battery_voltage: Optional[float]  # V, canonical measured value (REG0E)
     charge_status: ChargeStatus  # from REG0B CHRG_STAT
     on_external_power: bool  # from REG0B PG_STAT (power-good)
-    state_of_charge_pct: Optional[int]  # derived; None while charging
-    charge_current_ma: float  # REG12
-    vbus_voltage: float  # REG11
-    sys_voltage: float  # REG0F
+    state_of_charge_pct: Optional[int]  # derived; None while charging or blind
+    charge_current_ma: Optional[float]  # REG12
+    vbus_voltage: Optional[float]  # REG11
+    sys_voltage: Optional[float]  # REG0F
     timestamp: float
+
+    @property
+    def adc_blind(self) -> bool:
+        """True when this poll's ADC conversion returned raw 0 for battery
+        voltage — the battery is below the ADC blind floor and every
+        ADC-derived field is ``None``. Distinct from *measured low*
+        (~3.5 V, still a real reading)."""
+        return self.battery_voltage is None
 
 
 @dataclass
