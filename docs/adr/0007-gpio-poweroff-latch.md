@@ -2,7 +2,7 @@
 
 ## Context
 
-Rev-4 PiFinder hardware can cut its own power: driving **GPIO14 low** trips the
+Rev4 PiFinder hardware can cut its own power: driving **GPIO14 low** trips the
 **LTC2954** power-button controller, which drops **EN** on the **TPS61088** SYS
 boost and removes power. We want the OS to assert this only as the *last* step of
 shutdown, after filesystems are safely down.
@@ -34,8 +34,8 @@ on real hardware before this is trusted.
 
 ## Ungated across hardware revisions
 
-The overlay is added unconditionally rather than gated on the rev-4 BQ25895 probe.
-On rev-3 (no latch) GPIO14-low does nothing electrically; the only effect is that
+The overlay is added unconditionally rather than gated on the rev4 BQ25895 probe.
+On rev3 (no latch) GPIO14-low does nothing electrically; the only effect is that
 `gpio-poweroff` changes the halt path, so `poweroff` logs a kernel WARN and waits
 ~3 s before halting — cosmetic on a board you power off by unplugging. Gating
 would have required an I²C probe at provisioning time, which is unreliable because
@@ -45,7 +45,7 @@ the same script enables I²C only on the next boot.
 
 - Loading `gpio-poweroff` disables waking the SoC by pulling GPIO3 low, and
   prevents the kernel's normal SoC reset on power-off — both expected.
-- The serial console is no longer available for kernel diagnostics on rev-4 units.
+- The serial console is no longer available for kernel diagnostics on rev4 units.
 - This is the project's **first power-path *write***. It lives in
   firmware/device-tree, not application code, so the Battery context's "the
   Battery code never writes the power path" invariant is preserved — see

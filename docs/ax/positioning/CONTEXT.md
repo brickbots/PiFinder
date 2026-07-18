@@ -186,12 +186,12 @@ The solver-facing coordinate frame: +z out along the boresight, +y along image "
 _Avoid_: sensor frame (that is the raw, pre-rotation frame), image frame (ambiguous about rotation).
 
 **IMU frame**:
-The BNO055 chip's own axes. Fixed to the UI board by PCB layout, but the placement is per **board revision**: rev-3 and earlier mount the chip on the keypad face (+z out of the keypad face, +y along the long axis away from the screen end); rev-4 mounts it on the back side, flipped about the board's long axis (+z out of the back face, +y unchanged). A variant's IMU frame therefore follows from its board revision plus the board's mounting in the chassis — both baked into the variant's `q_imu2cam`. The frame that `q_x2imu` lands in.
+The BNO055 chip's own axes. Fixed to the UI board by PCB layout, but the placement is per **board revision**: rev3 and earlier mount the chip on the keypad face (+z out of the keypad face, +y along the long axis away from the screen end); rev4 mounts it on the back side, flipped about the board's long axis (+z out of the back face, +y unchanged). A variant's IMU frame therefore follows from its board revision plus the board's mounting in the chassis — both baked into the variant's `q_imu2cam`. The frame that `q_x2imu` lands in.
 _Avoid_: board frame (the board is the carrier; the frame belongs to the chip and moves with the chip's placement).
 
-**Board revision** (rev-3 / rev-4):
-The UI-board PCBA generation — one revision line shared with [Battery](../battery/CONTEXT.md) and [Sound](../sound/CONTEXT.md): rev-4 (the generation shipping in the Analog Sky models) adds the BQ25895 charger and piezo buzzer and moves the BNO055 to the board's back side. Positioning cares because chip placement — and with it the IMU frame — is fixed per revision. Each `screen_direction` key bakes in the revision its variant ships with, so revision never appears as a runtime config dimension.
-_Avoid_: hardware revision (ambiguous), conflating with v2/v3 product generations.
+**Board revision** (rev3 / rev4):
+The UI-board PCBA generation — one revision line shared with [Battery](../battery/CONTEXT.md) and [Sound](../sound/CONTEXT.md): rev4 (the generation shipping in the Analog Sky models) adds the BQ25895 charger and piezo buzzer and moves the BNO055 to the board's back side. Positioning cares because chip placement — and with it the IMU frame — is fixed per revision. Each `screen_direction` key bakes in the revision its variant ships with, so revision never appears as a runtime config dimension.
+_Avoid_: hardware revision (ambiguous), V4/v4 (the fourth hardware version is canonically **revision 4**, written rev4), conflating with v2/v3 product generations.
 
 **`q_imu2cam`**:
 The fixed IMU-frame→camera-frame rotation for a build variant's geometry, selected by screen direction on `ImuDeadReckoning` init. Hardware geometry only — no per-unit calibration. Always paired with that variant's `rotate_amount`; the two values are only meaningful together.
@@ -202,7 +202,7 @@ The checked-in visual derivation tool (`pointing_model/docs/imu2cam_tool.html`) 
 _Avoid_: orientation tool.
 
 **Screen direction** (`screen_direction`):
-Configuration field that tells `ImuDeadReckoning` how the display/IMU is physically mounted relative to the optical axis. Used to bake in axis conventions on initialisation. Surfaced to users as the **PiFinder Type** setting (Settings → Advanced); the user docs call the physical build variants *configurations* (Left/Right/Straight/Flat). The setting's value list is wider than any one product generation — it includes legacy variants (Flat v2) and Analog Sky device builds (AS Bloom, AS Heart) — so user docs must scope claims like "there are N configurations" to a generation (DIY v2.5 builds: Left/Right/Flat; assembled v3 units: Left/Right/Straight/Flat).
+Configuration field that tells `ImuDeadReckoning` how the display/IMU is physically mounted relative to the optical axis. Used to bake in axis conventions on initialisation. Surfaced to users as the **PiFinder Type** setting (Settings → Advanced); the user docs call the physical build variants *configurations* (Left/Right/Straight/Flat). The setting's value list is wider than any one product generation — it includes legacy variants (Flat v2), Analog Sky device builds (AS Bloom, AS Heart), and rev4 PiFinder builds (Rev4 Left/Right/Straight) — so user docs must scope claims like "there are N configurations" to a generation (DIY v2.5 builds: Left/Right/Flat; assembled v3 units: Left/Right/Straight/Flat).
 _Avoid_: orientation, mount direction.
 
 ### Alignment
