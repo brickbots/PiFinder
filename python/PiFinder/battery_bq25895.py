@@ -345,6 +345,19 @@ def battery_monitor(shared_state, console_queue, log_queue):
         console_queue.put("Battery: BQ25895 init failed, monitor disabled")
         return
 
+    # BRANCH-ONLY (battery-runtime-test): log every poll to disk for the
+    # discharge campaign (ADR 0020). Telemetry failure must not stop the
+    # monitor.
+    telemetry = None
+    try:
+        from PiFinder.battery_telemetry import TelemetryLogger
+
+        telemetry = TelemetryLogger(shared_state, "bq25895")
+        console_queue.put("BATTERY RUNTIME TEST: logging")
+    except Exception as e:
+        logger.error("Battery telemetry init failed: %s", e)
+        console_queue.put("Battery telemetry FAILED")
+
     while True:
         try:
             # Re-assert the fast-charge config every poll: applies it at
@@ -358,6 +371,8 @@ def battery_monitor(shared_state, console_queue, log_queue):
             state = chip.read_state()
             if shared_state is not None:
                 shared_state.set_battery(state)
+            if telemetry is not None:
+                telemetry.log(state, estimate_soc(state.battery_voltage))
         except Exception as e:
             # Transient I2C errors: log and keep polling.
             logger.warning("Battery: read failed: %s", e)

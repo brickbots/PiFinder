@@ -208,6 +208,10 @@ class PowerManager:
         """
         returns the sleep timeout amount
         """
+        # BRANCH-ONLY (battery-runtime-test): a bench unit never moves, so
+        # the IMU would let it doze and gut the pinned load. Sleep stays off
+        # regardless of device config.
+        return -1
         sleep_timeout_option = self.cfg.get_option("sleep_timeout")
         sleep_timeout = {
             "Off": -1,
@@ -223,6 +227,9 @@ class PowerManager:
         """
         returns the screen off timeout amount
         """
+        # BRANCH-ONLY (battery-runtime-test): keep the screen on for the
+        # whole discharge — see get_sleep_timeout.
+        return -1
         screen_off_option = self.cfg.get_option("screen_off_timeout")
         screen_off = {
             "Off": -1,
@@ -410,7 +417,9 @@ def main(
     cfg = config.Config()
 
     # init screen
-    screen_brightness = cfg.get_option("display_brightness")
+    # BRANCH-ONLY (battery-runtime-test): pin to the shipped default (full)
+    # regardless of device config so runs are comparable across devices.
+    screen_brightness = 255
     set_brightness(screen_brightness, cfg)
 
     # Now that the keypad backlights are up, turn off the Raspberry Pi's red

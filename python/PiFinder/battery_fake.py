@@ -37,6 +37,17 @@ def battery_monitor(shared_state, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting fake battery monitor")
 
+    # BRANCH-ONLY (battery-runtime-test): same telemetry path as the real
+    # monitor so the whole pipeline is dev-testable with -fh -fb.
+    telemetry = None
+    try:
+        from PiFinder.battery_telemetry import TelemetryLogger
+
+        telemetry = TelemetryLogger(shared_state, "fake")
+        console_queue.put("BATTERY RUNTIME TEST: logging (fake)")
+    except Exception as e:
+        logger.error("Battery telemetry init failed: %s", e)
+
     voltage = FAKE_VOLTAGE_FULL
     while True:
         state = BatteryState(
@@ -51,6 +62,8 @@ def battery_monitor(shared_state, console_queue, log_queue):
         )
         if shared_state is not None:
             shared_state.set_battery(state)
+        if telemetry is not None:
+            telemetry.log(state, estimate_soc(voltage))
 
         voltage -= FAKE_VOLTAGE_STEP
         if voltage < FAKE_VOLTAGE_EMPTY:

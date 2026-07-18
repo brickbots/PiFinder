@@ -187,18 +187,21 @@ class CameraInterface:
                 shared_state.set_camera_type(camera_type)
                 logger.info(f"Camera type set to: {camera_type}")
 
-            debug = False
-
-            # Check if auto-exposure was previously enabled in config
-            config_exp = cfg.get_option("camera_exp")
-            if config_exp == "auto":
-                self._auto_exposure_enabled = True
-                self._last_solve_time = None
-                if self._auto_exposure_pid is None:
-                    self._auto_exposure_pid = ExposurePIDController()
-                else:
-                    self._auto_exposure_pid.reset()
-                logger.info("Auto-exposure mode enabled from config")
+            # BRANCH-ONLY (battery-runtime-test): start in test mode (real
+            # capture discarded, solver fed the saved test image) with the
+            # pinned typical-load profile — fixed exposure, AE off. AE
+            # feedback would come from the *fake* image's star count, so it
+            # must stay off; the config check below is bypassed.
+            debug = True
+            self._auto_exposure_enabled = False
+            self.exposure_time = 400000
+            self.gain = 20
+            self.set_camera_config(self.exposure_time, self.gain)
+            console_queue.put("BATTERY RUNTIME TEST: camera pinned")
+            logger.warning(
+                "BATTERY RUNTIME TEST: test-mode capture, exposure pinned "
+                f"{self.exposure_time}µs gain {self.gain}"
+            )
 
             screen_direction = cfg.get_option("screen_direction")
             camera_rotation = cfg.get_option("camera_rotation")
@@ -210,6 +213,9 @@ class CameraInterface:
             test_image_path = os.path.join(
                 root_dir, "test_images", "pifinder_debug_02.png"
             )
+            # BRANCH-ONLY: cache the substituted image — the production path
+            # doesn't hit the SD card per frame, so test mode shouldn't either.
+            test_image_cached = Image.open(test_image_path).convert("L")
 
             # 60 half-second cycles (30 seconds between captures in sleep mode)
             sleep_delay = 60
@@ -259,12 +265,14 @@ class CameraInterface:
 
                         base_image = base_image.rotate(rotate_amount)
                     else:
-                        # Test Mode: load image from disc and wait
-                        base_image = Image.open(test_image_path)
-                        base_image = base_image.convert(
-                            "L"
-                        )  # Convert to grayscale to match camera output
-                        time.sleep(0.2)
+                        # Test Mode — BRANCH-ONLY change: fire a real capture
+                        # so the sensor draws its normal power (that's the
+                        # point of the runtime test), then discard it and
+                        # substitute the saved test image for the solver. The
+                        # real exposure provides the frame pacing, so no
+                        # artificial sleep.
+                        _ = self._capture_with_timeout()
+                        base_image = test_image_cached
                     image_end_time = time.time()
                     # check imu to make sure we're still static
                     imu_end = shared_state.imu()
