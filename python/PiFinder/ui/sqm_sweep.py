@@ -241,10 +241,36 @@ class UISQMSweep(UIModule):
             fill=self.colors.get(128),
         )
 
-        # Auto-complete when all files captured
+        # Auto-complete when all images are captured AND the camera process
+        # has written sweep_metadata.json -- it lands a few seconds after the
+        # last image (settings restore, GPS/solve gathering), and enriching
+        # before it exists silently updates nothing. The timeout covers a
+        # camera process that dies mid-sweep and never writes the file.
         if file_count >= self.total_images:
-            self._add_detailed_metadata()
-            self.state = SweepState.COMPLETE
+            metadata_ready = self._sweep_metadata_file() is not None
+            timed_out = time.time() - self.start_time > self.estimated_duration * 3
+            if metadata_ready or timed_out:
+                self._add_detailed_metadata()
+                self.state = SweepState.COMPLETE
+
+    def _sweep_metadata_file(self):
+        """Path of this sweep's sweep_metadata.json once the camera process
+        has written it, else None."""
+        try:
+            captures_dir = Path(utils.data_dir) / "captures"
+            sweep_dirs = [
+                d
+                for d in captures_dir.glob("sweep_*")
+                if d.stat().st_ctime >= (self.start_time - 1)
+            ]
+            if not sweep_dirs:
+                return None
+            metadata_file = (
+                max(sweep_dirs, key=lambda p: p.stat().st_ctime) / "sweep_metadata.json"
+            )
+            return metadata_file if metadata_file.exists() else None
+        except OSError:
+            return None
 
     def _get_sweep_files_since_start(self):
         """Count PNG files in sweep directory created after we started"""
@@ -300,17 +326,18 @@ class UISQMSweep(UIModule):
             with open(metadata_file, "r") as f:
                 metadata = json.load(f)
 
-            # Add current SQM state (like sqm_correction does)
+            # Always record the SQM/reference comparison, even when the live
+            # SQM is unavailable, so every sweep carries a calibration record.
             sqm_state = self.shared_state.sqm()
-            if sqm_state:
-                metadata["sqm"] = {
-                    "pifinder_value": sqm_state.value,
-                    "reference_value": self.reference_sqm,
-                    "difference": (self.reference_sqm - sqm_state.value)
-                    if self.reference_sqm and sqm_state.value
-                    else None,
-                    "source": sqm_state.source,
-                }
+            pifinder_value = sqm_state.value if sqm_state else None
+            metadata["sqm"] = {
+                "pifinder_value": pifinder_value,
+                "reference_value": self.reference_sqm,
+                "difference": (self.reference_sqm - pifinder_value)
+                if self.reference_sqm and pifinder_value
+                else None,
+                "source": sqm_state.source if sqm_state else None,
+            }
 
             # Add full SQM calculation details
             sqm_details = self.shared_state.sqm_details()
@@ -326,50 +353,56 @@ class UISQMSweep(UIModule):
                     / 1_000_000.0,
                     "gain": image_metadata.get("gain"),
                     "imu_delta": image_metadata.get("imu_delta"),
+                    "sensor_temp_c": image_metadata.get("sensor_temp_c"),
                 }
 
-            # Add solve data
-            solution = self.shared_state.solution()
-            if solution and solution.has_pointing():
-                aligned = solution.pointing.aligned.estimate
-                metadata["solve"] = {
-                    "ra_deg": aligned.RA,
-                    "dec_deg": aligned.Dec,
-                    "altitude_deg": solution.Alt,
-                    "azimuth_deg": solution.Az,
-                    "fov_deg": solution.diagnostics.FOV,
-                    "matches": solution.diagnostics.Matches,
-                    "rmse": solution.diagnostics.RMSE,
-                }
+            # Each optional enrichment below is guarded on its own: a failure in
+            # one section must not discard the metadata already collected.
+            try:
+                solution = self.shared_state.solution()
+                if solution and solution.has_pointing():
+                    aligned = solution.pointing.aligned.estimate
+                    metadata["solve"] = {
+                        "ra_deg": aligned.RA,
+                        "dec_deg": aligned.Dec,
+                        "altitude_deg": solution.Alt,
+                        "azimuth_deg": solution.Az,
+                        "fov_deg": solution.diagnostics.FOV,
+                        "matches": solution.diagnostics.Matches,
+                        "rmse": solution.diagnostics.RMSE,
+                    }
+            except Exception as e:
+                logger.warning(f"Could not record solve metadata: {e}")
 
-            # Add NoiseFloorEstimator output
-            camera_type = self.shared_state.camera_type()
-            camera_type_processed = f"{camera_type}_processed"
-            exposure_sec = (
-                image_metadata.get("exposure_time", 500000) / 1_000_000.0
-                if image_metadata
-                else 0.5
-            )
-
-            if self.camera_image is not None:
-                image_array = np.array(self.camera_image.convert("L"))
-
-                estimator = NoiseFloorEstimator(
-                    camera_type=camera_type_processed,
-                    enable_zero_sec_sampling=False,
+            try:
+                camera_type = self.shared_state.camera_type()
+                exposure_sec = (
+                    image_metadata.get("exposure_time", 500000) / 1_000_000.0
+                    if image_metadata
+                    else 0.5
                 )
-                _, nf_details = estimator.estimate_noise_floor(
-                    image=image_array,
-                    exposure_sec=exposure_sec,
-                )
+                if self.camera_image is not None:
+                    image_array = np.array(self.camera_image.convert("L"))
 
-                nf_details.pop("request_zero_sec_sample", None)
-                nf_details["camera_type"] = camera_type_processed
-                metadata["noise_floor_estimator"] = nf_details
+                    estimator = NoiseFloorEstimator(
+                        camera_type=camera_type,
+                        enable_zero_sec_sampling=False,
+                    )
+                    _, nf_details = estimator.estimate_noise_floor(
+                        image=image_array,
+                        exposure_sec=exposure_sec,
+                    )
 
-            # Save updated metadata
+                    nf_details.pop("request_zero_sec_sample", None)
+                    nf_details["camera_type"] = camera_type
+                    metadata["noise_floor_estimator"] = nf_details
+            except Exception as e:
+                logger.warning(f"Could not record noise-floor metadata: {e}")
+
+            # Save updated metadata (default=str: sqm_details can carry the
+            # odd non-JSON scalar and must never abort the whole enrichment)
             with open(metadata_file, "w") as f:
-                json.dump(metadata, f, indent=2)
+                json.dump(metadata, f, indent=2, default=str)
 
             logger.info(f"Added detailed metadata to {metadata_file}")
 

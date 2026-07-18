@@ -28,6 +28,14 @@ from PiFinder import state_utils
 from PiFinder import utils
 from PiFinder import timez
 from PiFinder.sqm import SQM as SQMCalculator
+
+from PiFinder.sqm.wings import WingEstimator
+from PiFinder.sqm.clouds import CloudEstimator
+from PiFinder.sqm.black_level import BlackLevelTracker
+from PiFinder.sqm.radiometer import (
+    RadiometerAccumulator,
+    extract_photometry_image,
+)
 from PiFinder.state import SQM as SQMState
 from PiFinder.types.positioning import (
     AlignCancel,
@@ -47,18 +55,184 @@ from tetra3 import cedar_detect_client
 
 logger = logging.getLogger("Solver")
 
-# SQM calculation interval - calculate SQM every N seconds
-SQM_CALCULATION_INTERVAL_SECONDS = 5.0
+# The primary radiometer publishes only after a new frame, capped at 1 Hz.
+SQM_CALCULATION_INTERVAL_SECONDS = 1.0
+# Solved stellar photometry is a slower transmission/cloud/dew diagnostic. It
+# need not track the five-second primary radiometer publication cadence.
+SQM_STELLAR_DIAGNOSTIC_INTERVAL_SECONDS = 10.0
 
 
 def create_sqm_calculator(shared_state):
-    """Create a new SQM calculator instance with current calibration."""
+    """Create a new SQM calculator instance with current calibration.
+
+    Photometry always runs on the raw linear frame (green channel for Bayer
+    sensors); the 8-bit processed image is for solving/display only.
+    """
     camera_type = shared_state.camera_type()
-    camera_type_processed = f"{camera_type}_processed"
+    logger.info(f"Creating raw-green SQM calculator for camera: {camera_type}")
+    return SQMCalculator(camera_type=camera_type)
 
-    logger.info(f"Creating SQM calculator for camera: {camera_type_processed}")
 
-    return SQMCalculator(camera_type=camera_type_processed)
+def _extract_raw_photometry_image(raw, profile):
+    """Build the linear photometry image from the stored raw frame.
+
+    For Bayer sensors (SRGGB*) returns the averaged green channel (half-res);
+    for mono sensors returns the raw frame as-is. Returns None on any shape/
+    dtype problem so the caller can skip the SQM cycle.
+    """
+    return extract_photometry_image(raw, profile)
+
+
+def _scale_solution_centroids(solution, scale):
+    """Return a shallow copy of solution with matched_centroids scaled.
+
+    The solve runs on the 512x512 processed image; the raw photometry image has a
+    different pixel pitch, so the matched star positions must be rescaled to it.
+    """
+    scaled = dict(solution)
+    mc = np.asarray(solution["matched_centroids"], dtype=np.float64) * scale
+    scaled["matched_centroids"] = mc
+    return scaled
+
+
+def _derotate_centroids(points, rotation_deg, size):
+    """Map (y, x) centroids from the display-rotated solve image back onto
+    the unrotated raw frame's pixel grid.
+
+    The camera process rotates the solve/display image by ``rotation_deg``
+    (PIL CCW) relative to the raw it stores in shared state; photometry runs
+    on the raw, so star positions must be counter-rotated or every aperture
+    lands on the wrong sky (SQM then reads magnitudes too bright).
+
+    Args:
+        points: (N, 2) array of (y, x) positions in the rotated image.
+        rotation_deg: degrees the solve image was rotated (PIL CCW).
+        size: side length of the (square) pixel grid the points live on.
+    """
+    pts = np.asarray(points, dtype=np.float64)
+    k = int(rotation_deg) % 360
+    y, x = pts[:, 0], pts[:, 1]
+    m = size - 1
+    if k == 0:
+        return pts
+    if k == 90:
+        # solve = raw rotated 90 CCW: raw_y = x, raw_x = m - y
+        return np.stack([x, m - y], axis=1)
+    if k == 180:
+        return np.stack([m - y, m - x], axis=1)
+    if k == 270:
+        # solve = raw rotated 270 CCW: raw_y = m - x, raw_x = y
+        return np.stack([m - x, y], axis=1)
+    # Arbitrary angle: rotate about the image centre. PIL's rotate(a) fills
+    # dest(x2, y2) from src at c + R(a)·(p2 − c) in (x, y) with y down.
+    c = m / 2.0
+    a = np.radians(k)
+    dx, dy = x - c, y - c
+    rx = c + np.cos(a) * dx - np.sin(a) * dy
+    ry = c + np.sin(a) * dx + np.cos(a) * dy
+    return np.stack([ry, rx], axis=1)
+
+
+def update_radiometric_sqm(
+    shared_state,
+    sqm_calculator,
+    accumulator,
+    sample,
+    calculation_interval_seconds=1.0,
+    now=None,
+    black_level_tracker=None,
+):
+    """Collect every frame and publish a solve-independent value at cadence."""
+    from datetime import datetime
+
+    fresh_sample = accumulator.add(sample)
+    current_time = time.time() if now is None else float(now)
+
+    # Every fresh radiometer sample carries (exposure, background) — feed the
+    # black-level tracker here rather than only from the 10-second stellar
+    # diagnostics: this cadence conditions its fit in minutes and keeps working
+    # through failed solves. Withheld while the last transmission diagnostic
+    # said cloud (a moving sky breaks the intercept's single-line model; the
+    # tracker's own stderr gate catches drift the flag misses).
+    if black_level_tracker is not None and fresh_sample:
+        cloudy_now = shared_state.sqm_details().get("cloud_flag") is True
+        black_level_tracker.add_sample(
+            float(sample["exposure_sec"]),
+            float(sample["background_per_pixel"]),
+            stable=not cloudy_now,
+        )
+
+    current_sqm = shared_state.sqm()
+    if current_sqm.last_update is not None:
+        try:
+            last_update = datetime.fromisoformat(current_sqm.last_update).timestamp()
+            if current_time - last_update < calculation_interval_seconds:
+                return False
+        except (ValueError, AttributeError):
+            logger.warning("Failed to parse SQM timestamp, recalculating")
+
+    noise = sqm_calculator.noise_floor_estimator
+
+    def pedestal_for_exposure(exposure_sec):
+        if not noise.dark_current_calibrated:
+            # Zero-touch path: the tracked black level supersedes the static
+            # profile constant (the real pedestal wanders ±2 ADU night to
+            # night — negligible over a city background, 0.2–0.4 mag at a
+            # dark site). A wizard calibration remains authoritative.
+            if black_level_tracker is not None:
+                tracked = black_level_tracker.pedestal()
+                if tracked is not None:
+                    return tracked
+            return sqm_calculator.profile.bias_offset
+        return (
+            sqm_calculator.profile.bias_offset
+            + sqm_calculator.profile.dark_current_rate * exposure_sec
+        )
+
+    sqm_value, details = accumulator.estimate(
+        sqm_calculator.profile,
+        current_time,
+        pedestal_for_exposure=pedestal_for_exposure,
+    )
+    if sqm_value is None:
+        previous = shared_state.sqm_details()
+        shared_state.set_sqm_details({**previous, **details})
+        return False
+
+    previous = shared_state.sqm_details()
+    diagnostic_at = previous.get("transmission_diagnostic_at")
+    diagnostic_age = current_time - diagnostic_at if diagnostic_at is not None else None
+    if (
+        previous.get("optics_attenuation_candidate")
+        and diagnostic_age is not None
+        and 0 <= diagnostic_age <= 15.0
+    ):
+        deficit = previous.get("transmission_deficit")
+        if deficit is not None and 0.0 < deficit <= 2.0:
+            details["sqm_radiometric_uncorrected"] = sqm_value
+            details["optics_attenuation_correction"] = -float(deficit)
+            sqm_value -= float(deficit)
+
+    if black_level_tracker is not None:
+        tracked, tracked_stderr, _ = black_level_tracker.state()
+        details["black_level_tracked"] = (
+            tracked is not None and not noise.dark_current_calibrated
+        )
+        details["black_level_pedestal"] = tracked
+        details["black_level_stderr"] = tracked_stderr
+        details["window_black_level"] = black_level_tracker.dump()
+    details["window_radiometer"] = accumulator.dump()
+    details["measurement_role"] = "primary_radiometer"
+    shared_state.set_sqm_details({**previous, **details})
+    shared_state.set_sqm(
+        SQMState(
+            value=sqm_value,
+            source="Radiometer",
+            last_update=timez.local_now().isoformat(),
+        )
+    )
+    logger.info("Radiometric SQM updated: %.2f mag/arcsec²", sqm_value)
+    return True
 
 
 def update_sqm(
@@ -66,13 +240,16 @@ def update_sqm(
     sqm_calculator,
     centroids,
     solution,
-    image_processed,
     exposure_sec,
     altitude_deg,
     calculation_interval_seconds=5.0,
     aperture_radius=5,
-    annulus_inner_radius=6,
-    annulus_outer_radius=14,
+    annulus_inner_radius=10,
+    annulus_outer_radius=18,
+    wing_estimator=None,
+    cloud_estimator=None,
+    black_level_tracker=None,
+    publish=True,
 ):
     """
     Calculate SQM from image.
@@ -82,13 +259,15 @@ def update_sqm(
         sqm_calculator: SQM calculator instance
         centroids: List of detected star centroids
         solution: Tetra3 solve solution with matched stars
-        image_processed: Processed image array (numpy)
         exposure_sec: Exposure time in seconds
         altitude_deg: Altitude in degrees for extinction correction
         calculation_interval_seconds: Minimum time between calculations (default: 5.0)
         aperture_radius: Aperture radius for photometry (default: 5)
-        annulus_inner_radius: Inner annulus radius (default: 6)
-        annulus_outer_radius: Outer annulus radius (default: 14)
+        annulus_inner_radius: Inner annulus radius (default: 10)
+        annulus_outer_radius: Outer annulus radius (default: 18)
+        wing_estimator: WingEstimator that supplies the rolling aperture
+            (wing-loss) mzero correction and is fed each frame's photometry
+            image + matched centroids.
 
     Returns:
         bool: True if SQM was calculated and updated, False otherwise
@@ -100,9 +279,9 @@ def update_sqm(
     current_time = time.time()
 
     # Check if we should calculate SQM
-    should_calculate = current_sqm.last_update is None
+    should_calculate = not publish or current_sqm.last_update is None
 
-    if current_sqm.last_update is not None:
+    if publish and current_sqm.last_update is not None:
         try:
             last_update_time = datetime.fromisoformat(
                 current_sqm.last_update
@@ -117,23 +296,161 @@ def update_sqm(
     if not should_calculate:
         return False
 
+    profile = sqm_calculator.profile
+
+    try:
+        raw = shared_state.cam_raw()
+    except (BrokenPipeError, ConnectionResetError):
+        raw = None
+    green = _extract_raw_photometry_image(raw, profile)
+    if green is None or green.shape[0] < 256:
+        # cam_raw() is None until the first real capture (test mode never
+        # fills it), and a malformed frame comes through far smaller than a
+        # real one. A genuine green frame is several hundred px per side —
+        # e.g. ~490 for the imx462/imx290 crop, larger for the imx296 — so
+        # the floor only rejects missing/garbage frames, not valid sensors.
+        # Photometry runs at the green frame's own scale, so a side shorter
+        # than the 512px solve image is fine.
+        logger.debug("Raw frame unavailable/invalid for SQM; skipping this cycle")
+        return False
+    scale = green.shape[0] / 512.0
+    calc_image = green
+    calc_solution = _scale_solution_centroids(solution, scale)
+    # All detected centroids, scaled to the photometry image: sqm masks them
+    # out of background annuli (neighbour-star contamination in dense fields).
+    calc_centroids = (
+        np.asarray(centroids, dtype=np.float64) * scale
+        if centroids is not None and len(centroids) > 0
+        else None
+    )
+
+    # The solve image is display-rotated relative to the raw; counter-rotate
+    # all star positions onto the raw's grid before photometry.
+    try:
+        solve_rotation = shared_state.solve_image_rotation()
+    except (BrokenPipeError, ConnectionResetError, AttributeError):
+        solve_rotation = None
+    if solve_rotation:
+        side = green.shape[0]
+        calc_solution["matched_centroids"] = _derotate_centroids(
+            calc_solution["matched_centroids"], solve_rotation, side
+        )
+        if calc_centroids is not None:
+            calc_centroids = _derotate_centroids(calc_centroids, solve_rotation, side)
+    image_pixels_per_side = int(green.shape[0])
+    # 0.70 of full scale, not ~1.0: CMOS response bends well before hard
+    # clip, and stars peaking at 75-90% already read systematically low.
+    saturation_threshold = int(0.70 * (2**profile.bit_depth - 1))
+
+    mzero_correction = 0.0
+    if wing_estimator is not None:
+        mzero_correction = wing_estimator.correction()
+
+    # Track the wandering sensor pedestal from the sky-vs-exposure intercept
+    # (see sqm.black_level). Only in the zero-touch path: when the user has run
+    # the calibration wizard, its measured bias + dark-current constants are
+    # authoritative and the tracker (which fits bias only) must not override.
+    pedestal_override = None
+    if (
+        black_level_tracker is not None
+        and not sqm_calculator.noise_floor_estimator.dark_current_calibrated
+    ):
+        pedestal_override = black_level_tracker.pedestal()
+
     try:
         # Calculate SQM from image
         sqm_value, details = sqm_calculator.calculate(
-            centroids=centroids,
-            solution=solution,
-            image=image_processed,
+            centroids=calc_centroids,
+            solution=calc_solution,
+            image=calc_image,
             exposure_sec=exposure_sec,
             altitude_deg=altitude_deg,
             aperture_radius=aperture_radius,
             annulus_inner_radius=annulus_inner_radius,
             annulus_outer_radius=annulus_outer_radius,
+            saturation_threshold=saturation_threshold,
+            image_pixels_per_side=image_pixels_per_side,
+            mzero_correction=mzero_correction,
+            pedestal_override=pedestal_override,
         )
 
-        # Update noise floor in shared state (for SNR auto-exposure)
-        noise_floor_details = details.get("noise_floor_details")
-        if noise_floor_details and "noise_floor_adu" in noise_floor_details:
-            shared_state.set_noise_floor(noise_floor_details["noise_floor_adu"])
+        # Feed this frame's stars into the rolling wing (aperture-loss) fit.
+        if (
+            wing_estimator is not None
+            and calc_solution.get("matched_centroids") is not None
+        ):
+            wing_estimator.add_frame(
+                calc_image,
+                calc_solution["matched_centroids"],
+                saturation_threshold,
+            )
+
+        # Stellar photometry is now a live transmission diagnostic. The primary
+        # sky value is the fixed-calibration radiometer and remains meaningful
+        # through cloud; stars classify cloud versus instrument attenuation.
+        # Feed the estimator and report the deficit. Only a recent non-cloud
+        # deficit against a conditioned session baseline may compensate the
+        # next radiometric publication for instrument-side attenuation.
+        cloud_flag = None
+        if cloud_estimator is not None and details.get("mzero") is not None:
+            try:
+                pointing = shared_state.solution()
+                pointing_alt = getattr(pointing, "Alt", None)
+            except (BrokenPipeError, ConnectionResetError, AttributeError):
+                pointing_alt = None
+            # sky_brightness is the independent radiometric measurement,
+            # UNCORRECTED: the guard asks whether the raw sky is anomalously
+            # bright vs the device's learned clear-sky level (cloud brightens
+            # the sky; dew/optics dim stars and sky together). Feeding the
+            # optics-compensated published value back would let a transient
+            # correction overshoot masquerade as sky excess and mislabel dew
+            # onset as cloud.
+            previous_details = shared_state.sqm_details()
+            radiometric_sky = previous_details.get("sqm_radiometric")
+            if radiometric_sky is None:
+                radiometric_sky = shared_state.sqm().value
+            cloud_deficit = cloud_estimator.add_sample(
+                details["mzero"],
+                exposure_sec,
+                sky_brightness=radiometric_sky,
+                # details['mzero'] already includes the wing correction.
+                wing_correction=0.0,
+                altitude_deg=pointing_alt,
+            )
+            cloud_flag = cloud_estimator.is_cloudy()
+            details["cloud_extinction"] = cloud_deficit
+            details["cloud_flag"] = cloud_flag
+            details["transmission_deficit"] = cloud_deficit
+            details["optics_attenuation_candidate"] = bool(
+                cloud_deficit is not None
+                and cloud_deficit > cloud_estimator.cloud_threshold
+                and cloud_flag is False
+                and cloud_estimator.conditioned()
+            )
+            details["transmission_diagnostic_at"] = time.time()
+            primary_value = shared_state.sqm().value
+            if details["optics_attenuation_candidate"]:
+                details["sqm_optics_compensated"] = primary_value - cloud_deficit
+
+        # The tracker is fed from the radiometer samples (denser cadence, and
+        # the same background estimator its pedestal is applied to); here it is
+        # only consumed, so stellar diagnostics report the pedestal actually
+        # used for their photometry.
+        if black_level_tracker is not None:
+            details["black_level_tracked"] = pedestal_override is not None
+
+        details["sqm_star_calibrated"] = sqm_value
+        details["measurement_role"] = "stellar_transmission_diagnostic"
+
+        # Full rolling-window state of every tracker, so diagnostics dumps
+        # (exposure sweeps in particular) carry the samples behind each
+        # published number, not just the summary.
+        if wing_estimator is not None:
+            details["window_wings"] = wing_estimator.dump()
+        if cloud_estimator is not None:
+            details["window_clouds"] = cloud_estimator.dump()
+        if black_level_tracker is not None:
+            details["window_black_level"] = black_level_tracker.dump()
 
         # Store SQM details (filter out large per-star arrays)
         filtered_details = {
@@ -148,10 +465,11 @@ def update_sqm(
                 "star_mzeros",
             )
         }
-        shared_state.set_sqm_details(filtered_details)
+        previous = shared_state.sqm_details()
+        shared_state.set_sqm_details({**previous, **filtered_details})
 
         # Update shared state
-        if sqm_value is not None:
+        if publish and sqm_value is not None:
             new_sqm_state = SQMState(
                 value=sqm_value,
                 source="Calculated",
@@ -159,6 +477,8 @@ def update_sqm(
             )
             shared_state.set_sqm(new_sqm_state)
             logger.info(f"SQM updated: {sqm_value:.2f} mag/arcsec²")
+            return True
+        if sqm_value is not None:
             return True
 
     except Exception as e:
@@ -279,6 +599,13 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             )
         return self._stub
 
+    def _alloc_shmem(self, size):
+        # Report a freshly created segment (not just a resized one) so the
+        # request sets reopen_shmem and the server drops its stale cached fd.
+        fresh = self._shmem is None
+        resized = super()._alloc_shmem(size)
+        return resized or fresh
+
     def extract_centroids(
         self, image, sigma, max_size, use_binned, detect_hot_pixels=True
     ):
@@ -292,14 +619,17 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
 
         # Use shared memory path (same machine)
         if self._use_shmem:
-            self._alloc_shmem(size=width * height)
+            reopen = self._alloc_shmem(size=width * height)
             shimg = np.ndarray(
                 np_image.shape, dtype=np_image.dtype, buffer=self._shmem.buf
             )
             shimg[:] = np_image[:]
 
             im = cedar_detect_pb2.Image(
-                width=width, height=height, shmem_name=self._shmem.name
+                width=width,
+                height=height,
+                shmem_name=self._shmem.name,
+                reopen_shmem=reopen,
             )
             req = cedar_detect_pb2.CentroidsRequest(
                 input_image=im,
@@ -314,6 +644,11 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             except grpc.RpcError as err:
                 if err.code() == grpc.StatusCode.INTERNAL:
                     # Shared memory issue, fall back to non-shmem
+                    logger.warning(
+                        "Cedar shmem transfer failed (%s); "
+                        "falling back to inline image passing",
+                        err.details(),
+                    )
                     self._del_shmem()
                     self._use_shmem = False
                 else:
@@ -403,6 +738,7 @@ def _build_successful_solve(
         ),
         matched_centroids=solution.get("matched_centroids"),
         matched_stars=solution.get("matched_stars"),
+        matched_catID=solution.get("matched_catID"),
     )
 
 
@@ -438,7 +774,9 @@ def solver(
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
-    t3 = tetra3.Tetra3(str(utils.tetra3_dir / "data" / "default_database.npz"))
+    # Load tetra3's bundled pattern database by name; tetra3 resolves it from
+    # its own package data dir (shipped inside the cedar-solve wheel).
+    t3 = tetra3.Tetra3("default_database")
     align_ra = 0
     align_dec = 0
     last_solve_attempt: float = 0.0
@@ -447,8 +785,23 @@ def solver(
     centroids = []
     log_no_stars_found = True
 
-    # Create SQM calculator - can be reloaded via command queue
-    sqm_calculator = create_sqm_calculator(shared_state)
+    # SQM calculator is created lazily on the first radiometer sample (or solve
+    # in test mode), not here: at solver
+    # startup shared_state.camera_type() still holds the pre-camera default,
+    # and a calculator built from it would photometer with the wrong sensor
+    # profile (pedestal etc.). The camera process records the real type before
+    # it captures its first frame, and a solve requires a captured frame, so
+    # first real-frame use is guaranteed to see the real camera type.
+    sqm_calculator = None
+    # Rolling aperture (wing-loss) correction, fed by bright matched stars
+    sqm_wing_estimator = WingEstimator()
+    # Cloud/dew estimator and black-level tracker are created with the
+    # calculator (below) so they get the real sensor's profile seeds; the
+    # camera type is not yet known here.
+    sqm_cloud_estimator = None
+    sqm_black_level = None
+    sqm_radiometer = RadiometerAccumulator()
+    last_stellar_diagnostic = 0.0
 
     while True:
         logger.info("Starting Solver Loop")
@@ -481,9 +834,18 @@ def solver(
                         align_ra = 0
                         align_dec = 0
                     elif isinstance(command, ReloadSqmCalibration):
+                        # Invalidate; the next solve recreates the calculator
+                        # with fresh calibration (single creation site).
                         logger.info("Reloading SQM calibration...")
-                        sqm_calculator = create_sqm_calculator(shared_state)
-                        logger.info("SQM calibration reloaded")
+                        sqm_calculator = None
+                        sqm_wing_estimator.reset()
+                        # Cloud estimator and black-level tracker are recreated
+                        # from the fresh profile on the next solve; drop them
+                        # here so stale seeds/history cannot carry over.
+                        sqm_cloud_estimator = None
+                        sqm_black_level = None
+                        sqm_radiometer.reset()
+                        last_stellar_diagnostic = 0.0
                     else:
                         logger.warning(
                             "Unknown solver command (type=%s): %r",
@@ -507,6 +869,32 @@ def solver(
 
                 if not is_new_image:
                     continue
+
+                # Every camera frame already carries a tiny radiometer sample
+                # reduced in the camera process. Collect all of them and publish
+                # at most once per second for CPU/battery stability.
+                try:
+                    radiometer_sample = shared_state.sqm_radiometer_sample()
+                except (BrokenPipeError, ConnectionResetError, AttributeError):
+                    radiometer_sample = None
+                if radiometer_sample is not None and sqm_calculator is None:
+                    sqm_calculator = create_sqm_calculator(shared_state)
+                    sqm_wing_estimator.reset()
+                    profile = sqm_calculator.profile
+                    sqm_cloud_estimator = CloudEstimator(
+                        clear_zero_point=profile.clear_zero_point,
+                        clear_sky_brightness=profile.clear_sky_brightness,
+                    )
+                    sqm_black_level = BlackLevelTracker(profile.bias_offset)
+                if sqm_calculator is not None:
+                    update_radiometric_sqm(
+                        shared_state,
+                        sqm_calculator,
+                        sqm_radiometer,
+                        radiometer_sample,
+                        calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
+                        black_level_tracker=sqm_black_level,
+                    )
 
                 try:
                     img = camera_image.copy()
@@ -565,25 +953,48 @@ def solver(
                         )
 
                     if "matched_centroids" in solution:
-                        # Update SQM (auto-exposure consumes the noise floor)
+                        if sqm_calculator is None:
+                            sqm_calculator = create_sqm_calculator(shared_state)
+                            sqm_wing_estimator.reset()
+                            profile = sqm_calculator.profile
+                            sqm_cloud_estimator = CloudEstimator(
+                                clear_zero_point=profile.clear_zero_point,
+                                clear_sky_brightness=profile.clear_sky_brightness,
+                            )
+                            sqm_black_level = BlackLevelTracker(profile.bias_offset)
+
+                        # Expensive stellar photometry is diagnostic-only in the
+                        # radiometer-first path and remains limited to 10 seconds.
                         exposure_sec = (
                             last_image_metadata["exposure_time"] / 1_000_000.0
                         )
-                        altitude_for_sqm = 90.0  # Topocentric Alt is computed in the integrator; SQM uses zenith fallback here
+                        # Topocentric altitude is computed later by the
+                        # integrator. Do not mislabel an unavailable value as
+                        # zenith; the published SQM remains uncorrected and the
+                        # optional comparison diagnostic stays absent.
+                        altitude_for_sqm = None
 
-                        update_sqm(
-                            shared_state=shared_state,
-                            sqm_calculator=sqm_calculator,
-                            centroids=centroids,
-                            solution=solution,
-                            image_processed=np_image,
-                            exposure_sec=exposure_sec,
-                            altitude_deg=altitude_for_sqm,
-                            calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
-                        )
+                        diagnostic_now = time.time()
+                        if (
+                            diagnostic_now - last_stellar_diagnostic
+                            >= SQM_STELLAR_DIAGNOSTIC_INTERVAL_SECONDS
+                        ):
+                            update_sqm(
+                                shared_state=shared_state,
+                                sqm_calculator=sqm_calculator,
+                                centroids=centroids,
+                                solution=solution,
+                                exposure_sec=exposure_sec,
+                                altitude_deg=altitude_for_sqm,
+                                calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
+                                wing_estimator=sqm_wing_estimator,
+                                cloud_estimator=sqm_cloud_estimator,
+                                black_level_tracker=sqm_black_level,
+                                publish=False,
+                            )
+                            last_stellar_diagnostic = diagnostic_now
 
                         # Don't clutter printed solution with these fields (use pop to safely remove)
-                        solution.pop("matched_catID", None)
                         solution.pop("pattern_centroids", None)
                         solution.pop("epoch_equinox", None)
                         solution.pop("epoch_proper_motion", None)
@@ -597,6 +1008,7 @@ def solver(
                             last_solve_attempt=last_solve_attempt,
                             last_solve_success=last_solve_success,
                         )
+                        solution.pop("matched_catID", None)
 
                         total_tetra_time = t_extract + (solution.get("T_solve") or 0)
                         if total_tetra_time > 1000:

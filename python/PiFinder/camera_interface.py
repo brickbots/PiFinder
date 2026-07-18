@@ -10,8 +10,11 @@ This module is the camera
 """
 
 from typing import Tuple, Optional
+from pathlib import Path
 from PIL import Image
+import json
 import os
+import random
 import time
 import numpy as np
 import queue
@@ -25,7 +28,6 @@ from PiFinder.auto_exposure import (
     ExposureSNRController,
     generate_exposure_sweep,
 )
-from PiFinder.sqm.camera_profiles import detect_camera_type
 
 logger = logging.getLogger("Camera.Interface")
 
@@ -34,6 +36,84 @@ logger = logging.getLogger("Camera.Interface")
 # falls back to this fixed short exposure -- short enough not to saturate in
 # daylight while still usable for framing a distant object.
 DAYTIME_AE_FALLBACK_EXPOSURE = 1000  # microseconds
+
+# Driver metadata keys copied into each sweep frame's per-image JSON: the
+# exposure/gain actually applied plus every thermal and black-level signal
+# the sensor reports. Missing keys are recorded as null so files stay
+# comparable across camera types.
+SWEEP_FRAME_METADATA_KEYS = (
+    "ExposureTime",
+    "AnalogueGain",
+    "DigitalGain",
+    "SensorTemperature",
+    "SensorBlackLevels",
+    "ColourGains",
+    "Lux",
+    "FrameDuration",
+)
+
+
+def _json_safe(value):
+    """Coerce picamera2 metadata values (numpy scalars, tuples) to JSON types."""
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)
+
+
+def sweep_frame_record(index, exp_us, driver_metadata, raw_frame, bit_depth):
+    """Build one sweep image's metadata record: the camera settings actually
+    applied (from driver metadata) plus ADU statistics of the raw frame as
+    saved in the TIFF (pre-bias-subtraction)."""
+    camera_metadata = {
+        key: _json_safe(driver_metadata.get(key)) if driver_metadata else None
+        for key in SWEEP_FRAME_METADATA_KEYS
+    }
+    record = {
+        "index": index,
+        "requested_exposure_us": exp_us,
+        "exp_ms": exp_us / 1000,
+        "sensor_temp_c": camera_metadata["SensorTemperature"],
+        "captured_at": timez.local_now().isoformat(),
+        "camera_metadata": camera_metadata,
+        # Entire driver dict, uncurated: sensors differ in which keys they
+        # report (and under what names/types); archived sweeps must not be
+        # limited to today's whitelist when characterizing a new camera.
+        "camera_metadata_full": (
+            _json_safe(driver_metadata) if driver_metadata else None
+        ),
+    }
+    if raw_frame is not None:
+        frame = raw_frame.astype(np.float64)
+        p = np.percentile(frame, [1, 5, 25, 50, 75, 95, 99])
+        record["raw_stats"] = {
+            "mean_adu": float(frame.mean()),
+            "median_adu": float(p[3]),
+            "std_adu": float(frame.std()),
+            "min_adu": float(frame.min()),
+            "max_adu": float(frame.max()),
+            "percentiles_adu": {
+                "p01": float(p[0]),
+                "p05": float(p[1]),
+                "p25": float(p[2]),
+                "p75": float(p[4]),
+                "p95": float(p[5]),
+                "p99": float(p[6]),
+            },
+        }
+        if bit_depth:
+            record["raw_stats"]["saturated_fraction"] = float(
+                np.mean(raw_frame >= 2**bit_depth - 1)
+            )
+    return record
+
 
 # Software rotation applied to each raw capture before it reaches the solver
 # and the preview, keyed by screen_direction. Each entry is paired with that
@@ -187,8 +267,6 @@ class CameraInterface:
                 shared_state.set_camera_type(camera_type)
                 logger.info(f"Camera type set to: {camera_type}")
 
-            debug = False
-
             # Check if auto-exposure was previously enabled in config
             config_exp = cfg.get_option("camera_exp")
             if config_exp == "auto":
@@ -202,6 +280,15 @@ class CameraInterface:
 
             screen_direction = cfg.get_option("screen_direction")
             camera_rotation = cfg.get_option("camera_rotation")
+
+            # Publish the display rotation applied to the solve image (PIL
+            # CCW degrees, relative to the stored raw frame) so SQM can map
+            # solve-image centroids back onto the raw for photometry.
+            if camera_rotation is not None:
+                solve_rotation = (-int(camera_rotation)) % 360
+            else:
+                solve_rotation = SCREEN_ROTATE_AMOUNTS.get(screen_direction, 270)
+            shared_state.set_solve_image_rotation(solve_rotation)
 
             # Set path for test mode image
             root_dir = os.path.realpath(
@@ -238,7 +325,8 @@ class CameraInterface:
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
                 if self._camera_started:
-                    if not debug:
+                    test_mode_on = False
+                    if not test_mode_on:
                         base_image = self._capture_with_timeout()
                         if base_image is None:
                             # Capture hung; fall back to a blank frame so the
@@ -249,17 +337,12 @@ class CameraInterface:
                             base_image = self._blank_capture()
                         base_image = base_image.convert("L")
 
-                        rotate_amount = 0
-                        if camera_rotation is None:
-                            rotate_amount = SCREEN_ROTATE_AMOUNTS.get(
-                                screen_direction, 270
-                            )
-                        else:
-                            base_image = base_image.rotate(int(camera_rotation) * -1)
-
-                        base_image = base_image.rotate(rotate_amount)
+                        base_image = base_image.rotate(solve_rotation)
                     else:
                         # Test Mode: load image from disc and wait
+                        # No real raw matrix backs this frame; prevent a recent
+                        # hardware radiometer sample from being paired with it.
+                        shared_state.set_sqm_radiometer_sample(None)
                         base_image = Image.open(test_image_path)
                         base_image = base_image.convert(
                             "L"
@@ -281,19 +364,23 @@ class CameraInterface:
                         pointing_diff = 0.0
 
                     # Make image available
-                    if debug and abs(pointing_diff) > 0.01:
-                        # Check if we moved and return a blank image
+                    if test_mode_on and abs(pointing_diff) > 0.01:
+                        # Scope moved during the fake exposure: return a blank
+                        # image so the solver doesn't report a stale solve
                         camera_image.paste(self._blank_capture())
                     else:
                         camera_image.paste(base_image)
-
                     image_metadata = {
                         "exposure_start": image_start_time,
                         "exposure_end": image_end_time,
                         "imu": imu_end,
                         "imu_delta": np.rad2deg(pointing_diff),
                         "exposure_time": self.exposure_time,
+                        "actual_exposure_us": (
+                            getattr(self, "last_frame_metadata", None) or {}
+                        ).get("ExposureTime"),
                         "gain": self.gain,
+                        "sensor_temp_c": getattr(self, "last_sensor_temp", None),
                     }
                     shared_state.set_last_image_metadata(image_metadata)
 
@@ -329,31 +416,21 @@ class CameraInterface:
                                 if self._auto_exposure_mode == "snr":
                                     # SNR mode: use background-based controller (for SQM measurements)
                                     if self._auto_exposure_snr is None:
-                                        # Use camera profile to derive thresholds
-                                        try:
-                                            cam_type = detect_camera_type(
-                                                self.get_cam_type()
-                                            )
-                                            cam_type = f"{cam_type}_processed"
-                                            self._auto_exposure_snr = ExposureSNRController.from_camera_profile(
-                                                cam_type
-                                            )
-                                        except ValueError as e:
-                                            # Unknown camera, use defaults
-                                            logger.warning(
-                                                f"Camera detection failed: {e}, using default SNR thresholds"
-                                            )
-                                            self._auto_exposure_snr = (
-                                                ExposureSNRController()
-                                            )
-                                    # Get adaptive noise floor from shared state
-                                    adaptive_noise_floor = (
+                                        # Default 8-bit thresholds; the
+                                        # controller measures the processed
+                                        # display image.
+                                        self._auto_exposure_snr = (
+                                            ExposureSNRController()
+                                        )
+                                    # The controller sees the processed 8-bit
+                                    # image, so this must remain in 8-bit ADU.
+                                    processed_noise_floor = (
                                         self.shared_state.noise_floor()
                                     )
                                     new_exposure = self._auto_exposure_snr.update(
                                         self.exposure_time,
                                         base_image,
-                                        noise_floor=adaptive_noise_floor,
+                                        noise_floor=processed_noise_floor,
                                     )
                                 else:
                                     # PID mode: use star-count based controller (default)
@@ -394,13 +471,10 @@ class CameraInterface:
                         logger.error(f"CameraInterface: Command error: {e}")
 
                     try:
-                        if command == "debug":
-                            if debug:
-                                debug = False
-                            else:
-                                debug = True
-
                         if command.startswith("set_exp"):
+                            transient_exposure = command.startswith(
+                                "set_exp_transient:"
+                            )
                             exp_value = command.split(":")[1]
                             if exp_value == "auto":
                                 # Enable auto-exposure mode
@@ -444,8 +518,11 @@ class CameraInterface:
                                 self._native_ae_enabled = False
                                 self.exposure_time = int(exp_value)
                                 self.set_camera_config(self.exposure_time, self.gain)
-                                # Update config to reflect manual exposure value
-                                cfg.set_option("camera_exp", self.exposure_time)
+                                # Calibration uses transient manual exposures;
+                                # never persist those over the user's saved
+                                # auto/manual choice.
+                                if not transient_exposure:
+                                    cfg.set_option("camera_exp", self.exposure_time)
                                 console_queue.put("CAM: Exp=" + str(self.exposure_time))
                                 logger.info(
                                     f"Manual exposure set: {self.exposure_time}µs"
@@ -509,33 +586,72 @@ class CameraInterface:
 
                         if command.startswith("save:"):
                             # Set flag to save next capture to this file
-                            self._save_next_to = command.split(":")[1]
+                            self._save_next_to = command.split(":", 1)[1]
                             console_queue.put("CAM: Save flag set")
 
                         if (
                             command.startswith("capture")
                             and command != "capture_exp_sweep"
                         ):
-                            # Capture single frame and update shared state
-                            # This is used by SQM calibration for precise exposure control
-                            captured_image = self.capture()
+                            # Capture one identified frame. Calibration waits on
+                            # this timestamp, preventing it from analysing the
+                            # preceding continuously captured frame.
+                            capture_imu_start = shared_state.imu()
+                            capture_start = time.time()
+                            captured_image = self.capture().convert("L")
+                            captured_image = captured_image.rotate(solve_rotation)
+                            captured_raw = None
+                            if self._save_next_to:
+                                captured_raw = shared_state.cam_raw()
+                                if captured_raw is not None:
+                                    captured_raw = captured_raw.copy()
                             camera_image.paste(captured_image)
+                            capture_end = time.time()
+                            capture_imu_end = shared_state.imu()
+                            if capture_imu_start and capture_imu_end:
+                                capture_pointing_diff = qt.get_quat_angular_diff(
+                                    capture_imu_start.quat,
+                                    capture_imu_end.quat,
+                                )
+                            else:
+                                capture_pointing_diff = 0.0
+                            shared_state.set_last_image_metadata(
+                                {
+                                    "exposure_start": capture_start,
+                                    "exposure_end": capture_end,
+                                    "imu": capture_imu_end,
+                                    "imu_delta": np.rad2deg(capture_pointing_diff),
+                                    "exposure_time": self.exposure_time,
+                                    "actual_exposure_us": (
+                                        getattr(self, "last_frame_metadata", None) or {}
+                                    ).get("ExposureTime"),
+                                    "gain": self.gain,
+                                    "sensor_temp_c": getattr(
+                                        self, "last_sensor_temp", None
+                                    ),
+                                }
+                            )
 
                             # If save flag is set, save to disk
                             if self._save_next_to:
-                                # Build full path
-                                filename = (
-                                    f"{utils.data_dir}/captures/{self._save_next_to}"
-                                )
-                                if not filename.endswith(".png"):
-                                    filename += ".png"
-                                self.capture_file(filename)
+                                requested_path = Path(self._save_next_to)
+                                if not requested_path.is_absolute():
+                                    requested_path = (
+                                        Path(utils.data_dir)
+                                        / "captures"
+                                        / requested_path
+                                    )
+                                filename = requested_path.with_suffix(".png")
+                                filename.parent.mkdir(parents=True, exist_ok=True)
 
-                                # Also save raw as TIFF
-                                raw_filename = filename.replace(".png", ".tiff")
-                                if not raw_filename.endswith(".tiff"):
-                                    raw_filename += ".tiff"
-                                self.capture_raw_file(raw_filename)
+                                # Save the identified capture itself. Calling
+                                # capture_file()/capture_raw_file() here would
+                                # acquire different frames and break pairing.
+                                captured_image.save(filename)
+                                if captured_raw is not None:
+                                    Image.fromarray(captured_raw).save(
+                                        filename.with_suffix(".tiff")
+                                    )
 
                                 console_queue.put("CAM: Captured + Saved")
                                 self._save_next_to = None  # Clear flag
@@ -558,7 +674,7 @@ class CameraInterface:
                                     logger.warning("Invalid reference SQM in command")
 
                             logger.info(
-                                "Starting exposure sweep capture (100 image pairs)"
+                                "Starting exposure sweep capture (20 image pairs)"
                             )
                             console_queue.put("CAM: Starting sweep...")
 
@@ -580,6 +696,12 @@ class CameraInterface:
                             sweep_exposures = generate_exposure_sweep(
                                 min_exp, max_exp, num_images
                             )
+                            # Capture in random order: a monotonic ramp lets any
+                            # temporal sky drift (twilight, passing haze) alias
+                            # into an apparent exposure dependence in analysis.
+                            # Each file name carries its exposure, so order is
+                            # irrelevant downstream.
+                            random.shuffle(sweep_exposures)
 
                             # Generate timestamp for this sweep session using GPS time
                             gps_time = shared_state.datetime()
@@ -593,8 +715,6 @@ class CameraInterface:
                                 )
 
                             # Create sweep directory
-                            from pathlib import Path
-
                             sweep_dir = Path(
                                 f"{utils.data_dir}/captures/sweep_{timestamp}"
                             )
@@ -603,6 +723,7 @@ class CameraInterface:
                             logger.info(f"Saving sweep to: {sweep_dir}")
                             console_queue.put("CAM: Starting sweep...")
 
+                            sweep_frames: list = []
                             for i, exp_us in enumerate(sweep_exposures, 1):
                                 # Update progress at start of each capture
                                 console_queue.put(f"CAM: Sweep {i}/{num_images}")
@@ -639,6 +760,58 @@ class CameraInterface:
                                 )
                                 self.capture_raw_file(str(raw_filename))
 
+                                # Per-image metadata JSON alongside each
+                                # PNG/TIFF pair: applied exposure/gain, sensor
+                                # die temperature and black levels, and raw
+                                # ADU statistics, so a sweep resolves the
+                                # pedestal-vs-temperature relation frame by
+                                # frame.
+                                frame_record = sweep_frame_record(
+                                    i,
+                                    exp_us,
+                                    getattr(self, "last_raw_frame_metadata", None),
+                                    getattr(self, "last_raw_frame", None),
+                                    getattr(
+                                        getattr(self, "profile", None),
+                                        "bit_depth",
+                                        None,
+                                    ),
+                                )
+                                # Live SQM pipeline state at this frame:
+                                # sqm_details carries the full rolling-window
+                                # dumps (black level, wings, clouds,
+                                # radiometer) published by the solver. The
+                                # solver starves during a sweep, so that
+                                # snapshot freezes — the camera-side radiometer
+                                # sample below does NOT: it is recomputed on
+                                # every capture and gives live per-frame
+                                # background/MAD/gradient through the sweep.
+                                try:
+                                    frame_record["sqm_details"] = _json_safe(
+                                        shared_state.sqm_details()
+                                    )
+                                except Exception:
+                                    frame_record["sqm_details"] = None
+                                try:
+                                    frame_record["radiometer_sample"] = _json_safe(
+                                        shared_state.sqm_radiometer_sample()
+                                    )
+                                except Exception:
+                                    frame_record["radiometer_sample"] = None
+
+                                sweep_frames.append(frame_record)
+                                frame_meta_filename = (
+                                    sweep_dir
+                                    / f"img_{i:03d}_{exp_ms:.2f}ms_metadata.json"
+                                )
+                                try:
+                                    with open(frame_meta_filename, "w") as f:
+                                        json.dump(frame_record, f, indent=2)
+                                except OSError:
+                                    logger.exception(
+                                        "Failed to save per-image sweep metadata"
+                                    )
+
                                 logger.debug(
                                     f"Captured sweep images {i}/{num_images}: {exp_ms:.2f}ms (PNG+TIFF)"
                                 )
@@ -648,6 +821,12 @@ class CameraInterface:
                             self.gain = original_gain
                             self._auto_exposure_enabled = original_ae_enabled
                             self.set_camera_config(self.exposure_time, self.gain)
+
+                            try:
+                                with open(sweep_dir / "frame_metadata.json", "w") as f:
+                                    json.dump({"frames": sweep_frames}, f, indent=2)
+                            except OSError:
+                                logger.exception("Failed to save sweep frame metadata")
 
                             # Save sweep metadata (GPS time, location, altitude)
                             logger.info("Starting sweep metadata save...")
@@ -703,7 +882,8 @@ class CameraInterface:
                                     dec_deg=dec_deg,
                                     altitude_deg=altitude_deg,
                                     azimuth_deg=azimuth_deg,
-                                    notes=f"Exposure sweep: {num_images} images, {min_exp/1000:.1f}-{max_exp/1000:.1f}ms",
+                                    camera_type=shared_state.camera_type(),
+                                    notes=f"Exposure sweep: {num_images} images, {min_exp / 1000:.1f}-{max_exp / 1000:.1f}ms",
                                 )
                                 logger.info(
                                     f"Successfully saved sweep metadata to {sweep_dir}/sweep_metadata.json"

@@ -152,6 +152,7 @@ case/my_printer
 *.db-shm
 *.db-wal
 .devenv/
+.direnv/
 **/.claude/*
 !**/.claude/skills/
 .serena/
