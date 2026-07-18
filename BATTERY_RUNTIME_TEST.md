@@ -55,11 +55,32 @@ cd python
 python tools/battery_runtime_analysis.py --scan /path/to/collected/runs [--plot]
 ```
 
-Per run it reports runtime, unplug/cutoff voltages, and a solver-liveness
-verdict — a run where `solve_attempt_age_s` ever exceeded ~2 min had its load
-die mid-discharge and is excluded from the fit automatically. Across clean
-runs it prints a paste-ready `SOC_LUT` snippet for
+Per run it reports runtime, unplug/last-sane voltages, and a load verdict:
+**pinned** (camera solving ran ≥90% of the discharge), **degraded** (solve
+attempts churned but frames didn't solve — included in the fit with a
+warning), or **dead** (attempts stopped — excluded). Across usable runs it
+prints a paste-ready `SOC_LUT` snippet for
 `python/PiFinder/battery_bq25895.py`.
+
+## Findings from the first campaign (2026-07-17, two devices)
+
+- **ADC goes blind below ~3.50 V.** On both devices the BQ25895's one-shot
+  BATV conversion stopped completing below ~3.5 V — reads return raw 0
+  (decoded 2.304 V) — while the unit ran on for another 46–72 min to actual
+  power death. Expected in every run's tail; the analysis handles it. It also
+  means the curve below ~10% runtime remaining is extrapolation, and the
+  field UI is equally blind there (a follow-up for the curve PR: treat raw-0
+  BATV as "very low", not as a 2.304 V measurement).
+- **IMU pseudo-motion blanked the substituted image** (fixed on this branch).
+  The stock test mode blanks frames when the IMU reports >0.01 rad motion
+  during the exposure; on the bench both devices' BNO055s reported persistent
+  pseudo-motion (magnetic disturbance — one device started at IMU fusion
+  start-up, the other right after the charge cable was handled), so both
+  first-campaign runs discharged under a degraded load (capture + failed
+  solve attempts, no full solves). The blank is now removed in test mode and
+  telemetry logs `imu_delta_deg` so a re-run can quantify the pseudo-motion.
+  Watch the title bar on deploy: it should show a constellation ("Lyr")
+  continuously, not just for the first minutes.
 
 ## Landing the results
 

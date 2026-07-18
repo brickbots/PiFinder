@@ -289,11 +289,16 @@ class CameraInterface:
                         pointing_diff = 0.0
 
                     # Make image available
-                    if debug and abs(pointing_diff) > 0.01:
-                        # Check if we moved and return a blank image
-                        camera_image.paste(self._blank_capture())
-                    else:
-                        camera_image.paste(base_image)
+                    # BRANCH-ONLY: the stock test mode blanks the frame when
+                    # the IMU reports >0.01 rad of motion during the exposure.
+                    # On the bench a real BNO055 can report persistent
+                    # pseudo-motion (magnetic disturbance / fusion jitter),
+                    # which blanked the substituted image for ~10 h in the
+                    # first campaign runs — and a *substituted static* image
+                    # cannot motion-smear anyway. Always publish the frame;
+                    # imu_delta still lands in the metadata (and telemetry)
+                    # so the next run can quantify the pseudo-motion.
+                    camera_image.paste(base_image)
 
                     image_metadata = {
                         "exposure_start": image_start_time,

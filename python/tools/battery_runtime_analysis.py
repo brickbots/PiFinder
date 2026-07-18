@@ -13,9 +13,24 @@ Usage:
     python tools/battery_runtime_analysis.py RUN_DIR [RUN_DIR ...]
     python tools/battery_runtime_analysis.py --scan PARENT_DIR [--plot]
 
-Per run it reports runtime, unplug/cutoff voltages and load-liveness
-checks; across runs it pools the (SoC, voltage) samples and prints a
-proposed ``SOC_LUT`` snippet for battery_bq25895.py.
+Lessons from the first (2026-07-17) campaign baked in here:
+
+* **ADC-blind tail.** Below ~3.50 V the BQ25895 one-shot ADC stops
+  completing and BATV reads raw 0 (decoded as the 2.304 V offset) while
+  the system keeps running — on both first-campaign devices for the
+  final ~8-11% of runtime. Rows with battery_voltage <= SANE_VOLTAGE_MIN
+  are excluded from the curve, but the run's cutoff time is still the
+  last row of the file (power really died then). The curve therefore
+  bottoms out at the last sane sample; knot percents below that are
+  extrapolated and flagged.
+* **Load verdicts.** ``solve_attempt_age_s`` alone cannot prove the
+  pinned load: the first campaign attempted solves all night but the
+  frames were blanked (IMU pseudo-motion), so attempts churned at full
+  rate with zero matches. A run is *pinned* only if camera solving
+  (matches > 0) ran for >=90% of the discharge; *degraded* (attempts
+  churning, no solves — capture/display/CPU load close to pinned but
+  not identical) if attempts stayed live; *dead* (excluded) if attempts
+  stopped. Degraded runs are included in the fit with a warning.
 
 Stdlib-only; ``--plot`` uses matplotlib if installed.
 """
@@ -29,12 +44,23 @@ from pathlib import Path
 
 # SoC grid for the proposed knots. Denser near the ends, where the
 # Li-ion curve bends and the UI most needs accuracy.
-KNOT_PERCENTS = [0, 5, 10, 25, 50, 75, 90, 100]
+KNOT_PERCENTS = [0, 5, 10, 15, 25, 50, 75, 90, 100]
 
-# A healthy pinned load solves continuously; if the newest solve attempt
-# is ever older than this within the discharge, the capture/solve chain
-# died and the run's load (and thus its curve) is suspect.
+# Rows at or below this are ADC-blind reads (BATV raw 0 decodes to
+# 2.304 V), not real cell voltages.
+SANE_VOLTAGE_MIN = 2.35
+
+# Solve attempts older than this mean the capture/solve chain died.
 SOLVE_LIVENESS_LIMIT_S = 120.0
+
+# Fraction of discharge rows that must show actual camera solves
+# (matches > 0) for the run to count as the pinned load.
+PINNED_SOLVE_FRACTION = 0.90
+
+# Voltage averaging half-window (in SoC %) for the knot fit — smooths
+# the 20 mV ADC quantisation instead of interpolating between two
+# arbitrary samples.
+SMOOTH_HALF_WINDOW_PCT = 1.5
 
 
 def load_run(run_dir: Path):
@@ -64,66 +90,114 @@ def load_run(run_dir: Path):
 def run_report(run) -> dict:
     rows = run["rows"]
     t = [float(r["monotonic_s"]) for r in rows]
-    v = [float(r["battery_voltage_v"]) for r in rows]
     duration_s = t[-1] - t[0]
 
-    solve_ages = [float(r["solve_attempt_age_s"]) for r in rows if r["solve_attempt_age_s"]]
-    max_solve_age = max(solve_ages) if solve_ages else None
-    load_ok = max_solve_age is not None and max_solve_age <= SOLVE_LIVENESS_LIMIT_S
-    charging_rows = sum(1 for r in rows if r["charge_status"] not in ("NOT_CHARGING",))
+    sane = [(ti, float(r["battery_voltage_v"])) for ti, r in zip(t, rows)
+            if float(r["battery_voltage_v"]) > SANE_VOLTAGE_MIN]
+    blind_tail_s = t[-1] - sane[-1][0] if sane else duration_s
+
+    ages = [float(r["solve_attempt_age_s"]) for r in rows if r["solve_attempt_age_s"]]
+    attempts_live = bool(ages) and max(ages) <= SOLVE_LIVENESS_LIMIT_S
+    solving_rows = sum(
+        1 for r in rows if r["solve_matches"] not in ("", "None", "0")
+    )
+    solve_fraction = solving_rows / len(rows)
+    if not attempts_live:
+        load_verdict = "dead"
+    elif solve_fraction >= PINNED_SOLVE_FRACTION:
+        load_verdict = "pinned"
+    else:
+        load_verdict = "degraded"
 
     temps = [float(r["cpu_temp_c"]) for r in rows if r["cpu_temp_c"]]
+    throttled = {r["throttled_hex"] for r in rows if r["throttled_hex"]} - {"0"}
 
     return {
         "serial": run["metadata"].get("serial", "?"),
         "dir": run["dir"].name,
         "duration_s": duration_s,
-        "unplug_voltage": v[0],
-        "cutoff_voltage": v[-1],
+        "unplug_voltage": sane[0][1] if sane else None,
+        "last_sane_voltage": sane[-1][1] if sane else None,
+        "blind_tail_s": blind_tail_s,
         "samples": len(rows),
-        "max_solve_age_s": max_solve_age,
-        "load_ok": load_ok,
-        "charging_rows": charging_rows,
+        "sane_samples": len(sane),
+        "load_verdict": load_verdict,
+        "solve_fraction": solve_fraction,
         "max_cpu_temp_c": max(temps) if temps else None,
+        "throttled": sorted(throttled),
     }
 
 
 def run_soc_series(run):
-    """[(soc_pct, voltage), ...] for one run's discharge segment."""
+    """[(soc_pct, voltage), ...] for one run's sane discharge samples.
+
+    The SoC denominator uses the FULL discharge (through the ADC-blind
+    tail to actual power death); only the voltage pairing is limited to
+    sane samples.
+    """
     rows = run["rows"]
     t = [float(r["monotonic_s"]) for r in rows]
-    v = [float(r["battery_voltage_v"]) for r in rows]
     t0, t_end = t[0], t[-1]
     span = t_end - t0
-    return [((t_end - ti) / span * 100.0, vi) for ti, vi in zip(t, v)]
+    return [
+        ((t_end - ti) / span * 100.0, float(r["battery_voltage_v"]))
+        for ti, r in zip(t, rows)
+        if float(r["battery_voltage_v"]) > SANE_VOLTAGE_MIN
+    ]
 
 
-def voltage_at_percent(series, pct: float) -> float:
-    """Interpolate one run's voltage at a given SoC percent. The series is
-    ordered by time (SoC descending)."""
+def voltage_at_percent(series, pct: float):
+    """Windowed-mean voltage of one run at a given SoC percent; None when
+    the percent is below the run's measured (sane) range."""
+    lo = min(s for s, _ in series)
+    if pct < lo - SMOOTH_HALF_WINDOW_PCT:
+        return None
+    window = [v for s, v in series if abs(s - pct) <= SMOOTH_HALF_WINDOW_PCT]
+    if window:
+        return statistics.mean(window)
+    # Sparse region: linear interpolation between neighbours.
     below = [(s, v) for s, v in series if s <= pct]
     above = [(s, v) for s, v in series if s >= pct]
-    if not below:
-        return series[-1][1]
-    if not above:
-        return series[0][1]
-    s_lo, v_lo = max(below, key=lambda p: p[0])
+    if not below or not above:
+        return None
+    s_lo, v_lo = max(below)
     s_hi, v_hi = min(above, key=lambda p: p[0])
     if s_hi == s_lo:
         return (v_lo + v_hi) / 2
-    frac = (pct - s_lo) / (s_hi - s_lo)
-    return v_lo + frac * (v_hi - v_lo)
+    return v_lo + (pct - s_lo) / (s_hi - s_lo) * (v_hi - v_lo)
 
 
 def propose_lut(runs):
-    """Median-across-runs voltage at each knot percent -> [(V, pct), ...]."""
+    """Mean-across-runs voltage at each knot percent.
+
+    Returns (knots, extrapolated_percents). Knot percents below every
+    run's measured range are extrapolated by extending the slope of the
+    two lowest measured knots, and flagged.
+    """
     all_series = [run_soc_series(r) for r in runs]
-    knots = []
+    measured = []
+    extrapolated = []
     for pct in KNOT_PERCENTS:
-        voltages = [voltage_at_percent(s, pct) for s in all_series]
-        knots.append((round(statistics.median(voltages), 3), pct))
-    knots.sort()
-    return knots
+        voltages = []
+        for s in all_series:
+            v = voltage_at_percent(s, pct)
+            if v is not None:
+                voltages.append(v)
+        if voltages:
+            measured.append((pct, statistics.mean(voltages)))
+        else:
+            extrapolated.append(pct)
+
+    measured.sort()
+    knots = {pct: v for pct, v in measured}
+    if extrapolated and len(measured) >= 2:
+        (p0, v0), (p1, v1) = measured[0], measured[1]
+        slope = (v1 - v0) / (p1 - p0)
+        for pct in extrapolated:
+            knots[pct] = v0 + slope * (pct - p0)
+
+    lut = sorted((round(v, 3), pct) for pct, v in knots.items())
+    return lut, set(extrapolated)
 
 
 def main():
@@ -139,41 +213,50 @@ def main():
     if not dirs:
         parser.error("no run dirs given (positional or --scan)")
 
-    runs, poisoned = [], []
+    runs = []
+    degraded_used = False
     for d in dirs:
         try:
             run = load_run(d)
         except (OSError, ValueError, json.JSONDecodeError) as e:
             print(f"SKIP {d}: {e}", file=sys.stderr)
             continue
-        report = run_report(run)
-        h, m = divmod(int(report["duration_s"] // 60), 60)
-        flags = []
-        if not report["load_ok"]:
-            flags.append("LOAD DIED / no solver liveness — excluded from fit")
-        if report["charging_rows"]:
-            flags.append(f"{report['charging_rows']} charging rows inside discharge")
+        rep = run_report(run)
+        h, m = divmod(int(rep["duration_s"] // 60), 60)
         print(
-            f"{report['dir']} (serial {report['serial']}): {h}h{m:02d}m, "
-            f"{report['unplug_voltage']:.3f} V → {report['cutoff_voltage']:.3f} V, "
-            f"{report['samples']} samples, max solve age "
-            f"{report['max_solve_age_s']}, max CPU {report['max_cpu_temp_c']} °C"
-            + ("".join(f"  [{f}]" for f in flags))
+            f"{rep['dir']} (serial {rep['serial']}): {h}h{m:02d}m, "
+            f"{rep['unplug_voltage']:.3f} V -> {rep['last_sane_voltage']:.3f} V sane "
+            f"(+{rep['blind_tail_s']/60:.0f} min ADC-blind tail to power death), "
+            f"{rep['sane_samples']}/{rep['samples']} sane samples, "
+            f"load: {rep['load_verdict'].upper()} "
+            f"(solving {rep['solve_fraction']*100:.0f}% of rows), "
+            f"max CPU {rep['max_cpu_temp_c']} C"
+            + (f", THROTTLED {rep['throttled']}" if rep["throttled"] else "")
         )
-        (runs if report["load_ok"] else poisoned).append(run)
+        if rep["load_verdict"] == "dead":
+            print("  -> excluded: solve attempts stopped mid-run", file=sys.stderr)
+            continue
+        if rep["load_verdict"] == "degraded":
+            degraded_used = True
+        runs.append(run)
 
     if not runs:
-        print("\nNo clean runs — nothing to fit.", file=sys.stderr)
+        print("\nNo usable runs — nothing to fit.", file=sys.stderr)
         sys.exit(1)
 
-    knots = propose_lut(runs)
-    print(f"\nProposed SOC_LUT from {len(runs)} clean run(s)")
+    lut, extrapolated = propose_lut(runs)
+    print(f"\nProposed SOC_LUT from {len(runs)} run(s)")
+    if degraded_used:
+        print("# WARNING: includes DEGRADED-load run(s) — camera solving was not")
+        print("# active for the whole discharge; treat as provisional and confirm")
+        print("# with a pinned-load run before shipping.")
     print("# Piecewise-linear state-of-charge curve: (battery_voltage_V, percent).")
     print("# Measured: remaining-runtime fraction under the pinned typical load")
     print("# (docs/adr/0020-soc-as-runtime-fraction.md).")
     print("SOC_LUT = [")
-    for v, pct in knots:
-        print(f"    ({v:.3f}, {pct}),")
+    for v, pct in lut:
+        tag = "  # extrapolated (below ADC-blind floor)" if pct in extrapolated else ""
+        print(f"    ({v:.3f}, {pct}),{tag}")
     print("]")
 
     if args.plot:
@@ -184,7 +267,7 @@ def main():
             plt.plot([v for _, v in series], [s for s, _ in series],
                      ".", markersize=2, alpha=0.4,
                      label=run["metadata"].get("serial", "?"))
-        plt.plot([v for v, _ in knots], [p for _, p in knots], "k.-", label="knots")
+        plt.plot([v for v, _ in lut], [p for _, p in lut], "k.-", label="knots")
         plt.xlabel("battery voltage (V)")
         plt.ylabel("SoC = remaining-runtime fraction (%)")
         plt.legend()

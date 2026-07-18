@@ -61,6 +61,10 @@ CSV_COLUMNS = [
     "solve_attempt_age_s",
     "solve_matches",
     "solve_source",
+    # Appended after the first campaign (older CSVs lack it): per-frame IMU
+    # pointing delta from the camera metadata, to quantify the bench
+    # pseudo-motion that blanked the substituted image in the first runs.
+    "imu_delta_deg",
 ]
 
 
@@ -160,6 +164,13 @@ class TelemetryLogger:
         source = getattr(solution, "solve_source", "")
         return age, matches, str(source)
 
+    def _imu_delta_deg(self):
+        try:
+            metadata = self._shared_state.last_image_metadata()
+            return round(float(metadata["imu_delta"]), 3)
+        except Exception:
+            return ""
+
     def log(self, state: BatteryState, soc_raw_pct: int):
         solve_age, matches, solve_source = self._solver_fields()
         row = [
@@ -180,6 +191,7 @@ class TelemetryLogger:
             solve_age,
             matches,
             solve_source,
+            self._imu_delta_deg(),
         ]
         try:
             self._csv.write(",".join(str(v) for v in row) + "\n")
