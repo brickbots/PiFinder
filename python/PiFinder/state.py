@@ -297,7 +297,6 @@ class SharedStateObj:
         # Raw SQM thresholds use different units and must not be stored here.
         self.__noise_floor: float = 10.0
         self.__sqm_details: dict = {}  # Full SQM calculation details for calibration
-        self.__sqm_correct_delta: float = 0.0  # Session correction vs reference meter
         self.__datetime = None
         self.__datetime_time = None
         self.__datetime_manual = False  # True when manually set, blocks GPS overrides
@@ -455,15 +454,6 @@ class SharedStateObj:
     def set_sqm_details(self, v: dict):
         """Update the SQM calculation details"""
         self.__sqm_details = v
-
-    def sqm_correct_delta(self) -> float:
-        """Session SQM correction: additive offset from a reference-meter
-        reading (see UISQMCorrect). 0.0 = no correction set."""
-        return self.__sqm_correct_delta
-
-    def set_sqm_correct_delta(self, v: float):
-        """Set the session SQM correction delta (from the SQM Correct UI)"""
-        self.__sqm_correct_delta = v
 
     def get_sky_brightness(self):
         """Return just the numeric SQM value for convenience"""

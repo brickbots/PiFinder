@@ -359,3 +359,75 @@ def test_run_upgrade_reboot_failure_writes_failed(tmp_path, monkeypatch):
 
     assert rc == 1
     assert statuses == ["starting", "rebooting", "failed"]
+
+
+def _setup_activation(tmp_path, monkeypatch, camera_type, specialisations):
+    """Fixture for activate_system: fake store path, persisted camera, and
+    captured command()/arm_trial_marker() calls."""
+    store = tmp_path / "store" / "new-system"
+    store.mkdir(parents=True)
+    (store / "bin").mkdir()
+    for cam in specialisations:
+        (store / "specialisation" / cam / "bin").mkdir(parents=True)
+
+    camera_file = tmp_path / "camera-type"
+    if camera_type is not None:
+        camera_file.write_text(camera_type + "\n")
+    monkeypatch.setattr(nixos_upgrade, "CAMERA_TYPE_FILE", camera_file)
+
+    calls = []
+    monkeypatch.setattr(
+        nixos_upgrade, "command", lambda args, **kw: calls.append(list(args))
+    )
+    armed = []
+    monkeypatch.setattr(nixos_upgrade, "arm_trial_marker", armed.append)
+    monkeypatch.setattr(nixos_upgrade, "write_status", lambda *_a, **_k: None)
+    return store, calls, armed
+
+
+@pytest.mark.unit
+def test_activate_boots_specialisation_even_when_old_base_matches(
+    tmp_path, monkeypatch
+):
+    """Regression: device persisted imx477 while upgrading from an imx477-BASE
+    build onto an imx462-base build. Comparing against the old build's base
+    (--default-camera imx477) concluded 'camera is the base' and booted the
+    new imx462 base, killing the camera. The decision must instead ask the
+    NEW store path whether it carries a specialisation for the camera."""
+    store, calls, armed = _setup_activation(tmp_path, monkeypatch, "imx477", ["imx477"])
+
+    nixos_upgrade.activate_system(str(store), "imx477")
+
+    spec = store / "specialisation" / "imx477"
+    assert armed == [spec]
+    assert [str(spec / "bin/switch-to-configuration"), "boot"] in calls
+    assert calls[-1][-1] == "imx477"
+
+
+@pytest.mark.unit
+def test_activate_base_branch_when_no_specialisation(tmp_path, monkeypatch):
+    store, calls, armed = _setup_activation(tmp_path, monkeypatch, "imx462", ["imx477"])
+
+    nixos_upgrade.activate_system(str(store), "imx477")
+
+    assert armed == [nixos_upgrade.Path(str(store))]
+    assert [str(store / "bin/switch-to-configuration"), "boot"] in calls
+    assert calls[-1][-1] == "imx462"
+
+
+@pytest.mark.unit
+def test_set_extlinux_default_prefers_new_builds_helper(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        nixos_upgrade, "command", lambda args, **kw: calls.append(list(args))
+    )
+    store = tmp_path / "sys"
+    helper = store / "sw" / "bin" / "set-extlinux-default"
+    helper.parent.mkdir(parents=True)
+    helper.write_text("#!/bin/sh\n")
+
+    nixos_upgrade.set_extlinux_default("imx477", str(store))
+    assert calls[-1] == [str(helper), "imx477"]
+
+    nixos_upgrade.set_extlinux_default("imx477", str(tmp_path / "missing"))
+    assert calls[-1] == ["set-extlinux-default", "imx477"]

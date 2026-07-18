@@ -472,22 +472,27 @@ def activate_system(store_path: str, default_camera: str) -> None:
     except OSError:
         camera = default_camera
 
-    if camera and camera != default_camera:
-        specialisation = Path(store_path) / "specialisation" / camera
-        if specialisation.is_dir():
-            # The specialisation has its own toplevel — arm the watchdog with
-            # what will actually be running after reboot.
-            arm_trial_marker(specialisation)
-            command([str(specialisation / "bin/switch-to-configuration"), "boot"])
-            set_extlinux_default(camera)
-            return
+    # Whether the chosen camera boots via a specialisation entry is a property
+    # of the NEW build, so ask the new store path — never compare against
+    # --default-camera, which is the RUNNING generation's base camera. When the
+    # two builds disagree about the base (e.g. an imx477-base device upgrading
+    # onto an imx462-base build), that comparison concludes "camera is the
+    # base, nothing to do" and reboots into the wrong DTB, killing the camera.
+    specialisation = Path(store_path) / "specialisation" / camera if camera else None
+    if specialisation is not None and specialisation.is_dir():
+        # The specialisation has its own toplevel — arm the watchdog with
+        # what will actually be running after reboot.
+        arm_trial_marker(specialisation)
+        command([str(specialisation / "bin/switch-to-configuration"), "boot"])
+        set_extlinux_default(camera, store_path)
+        return
 
     arm_trial_marker(Path(store_path))
     command([str(Path(store_path) / "bin/switch-to-configuration"), "boot"])
-    set_extlinux_default(default_camera)
+    set_extlinux_default(camera or default_camera, store_path)
 
 
-def set_extlinux_default(camera: str) -> None:
+def set_extlinux_default(camera: str, store_path: str | None = None) -> None:
     """Point the extlinux DEFAULT at the selected camera's boot entry.
 
     Device-tree overlays load only at boot, and the generic-extlinux builder
@@ -495,8 +500,18 @@ def set_extlinux_default(camera: str) -> None:
     upgrade would reboot into the base camera's DTB regardless of the device's
     chosen camera. Best-effort: the helper leaves a bootable DEFAULT in place if
     the entry is missing, so a hiccup here never blocks the upgrade.
+
+    The helper maps camera name -> boot entry using its build's own base-camera
+    constant, so it must come from the NEW store path when available: the
+    running generation's copy applies the OLD base mapping to the NEW entries
+    and picks the wrong one whenever the two builds' base cameras differ.
     """
-    command(["set-extlinux-default", camera], check=False)
+    helper = "set-extlinux-default"
+    if store_path:
+        candidate = Path(store_path) / "sw/bin/set-extlinux-default"
+        if candidate.exists():
+            helper = str(candidate)
+    command([helper, camera], check=False)
 
 
 def cleanup_old_generations() -> None:

@@ -179,9 +179,12 @@ factory priors alone cannot activate it.
 
 ## Optional refinement
 
-**SQM Correct**:
-User-entered reference-meter adjustment for the session. The ordinary way to
-tighten an already useful factory-profile result.
+**SQM Correct** (removed 2026-07-18):
+The former user-entered session offset against a reference meter. Removed: a
+magnitude-additive knob silently absorbs ADU-space (brightness-dependent)
+errors such as pedestal bias, masking the fault instead of fixing it. The
+reference comparison lives on as data: a SWEEP run with a reference reading
+records the difference in its metadata.
 
 **Calibration JSON**:
 Optional `~/PiFinder_data/sqm_calibration_<sensor>.json` override containing

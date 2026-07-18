@@ -96,12 +96,15 @@ def _load() -> None:
         return
 
     logger.info("Parsing B-V from %s", dat_path)
-    _HIP_SORTED, _BV_SORTED = _parse_dat(dat_path)
+    # Locals first: the module globals are Optional, so mypy cannot narrow
+    # them across statements; the fresh arrays here never are.
+    hip_sorted, bv_sorted = _parse_dat(dat_path)
+    _HIP_SORTED, _BV_SORTED = hip_sorted, bv_sorted
 
     utils.create_path(cache_path.parent)
     try:
-        np.savez(cache_path, hip=_HIP_SORTED, bv=_BV_SORTED)
-        logger.info("Wrote B-V cache: %s (%d stars)", cache_path, len(_HIP_SORTED))
+        np.savez(cache_path, hip=hip_sorted, bv=bv_sorted)
+        logger.info("Wrote B-V cache: %s (%d stars)", cache_path, len(hip_sorted))
     except OSError as e:
         logger.warning("Failed to write B-V cache %s: %s", cache_path, e)
 
