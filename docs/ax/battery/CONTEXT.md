@@ -25,8 +25,12 @@ The pinned reference workload under which runtime and the discharge curve are de
 _Avoid_: "average use" (unpinned, unmeasurable).
 
 **Cutoff voltage**:
-The battery voltage at which the hardware actually dies — the SYS boost loses regulation and the unit hard-powers-off, with no graceful shutdown. An observed property of the board + cell, not a chosen threshold. Anchors the discharge curve's 0%.
+The battery voltage at which the hardware actually dies — the SYS boost loses regulation and the unit hard-powers-off, with no graceful shutdown. An observed property of the board + cell, not a chosen threshold. Anchors the discharge curve's 0%. In practice it is **not directly measurable**: it lies below the **ADC blind floor**, so no run ever records it.
 _Avoid_: "shutdown voltage" (implies software decides; nothing does).
+
+**ADC blind floor** (~3.5 V):
+The battery voltage below which the BQ25895's one-shot ADC conversions stop completing: the ADC result registers read raw 0, which decodes to each field's *offset* (battery voltage 2.304 V, VBUS 2.6 V) — an artifact, not a measurement. Conversions fail intermittently just below the floor, then permanently. Observed at the same reading (3.504 V) on both rev-4 units in the first runtime-test campaign; the unit keeps running well past it (46–72 min under the typical load), so the final stretch of every discharge is **instrument-blind** — the field UI included. The charger's *status* bits (charge status, power source) are plain register reads, not conversions, and stay live below the floor. Everything below the floor — including the discharge curve's bottom knots — is extrapolation.
+_Avoid_: treating a raw-0 decode (2.304 V) as a measured battery voltage; "ADC failure/fault" (it is repeatable low-battery chip behavior, not a defect).
 
 **Charge status**:
 Which charge phase the charger reports: **Not charging / Pre-charge / Charging (fast) / Charged (done)**. A property of the charger's state machine, distinct from whether external power is present.
@@ -64,6 +68,7 @@ _Avoid_: calling it a "shutdown command" (it's a hardware kill line, not a sysca
 
 - **"battery level"** (bare) — do not use. It conflates the *measured* **battery voltage** with the *estimated* **state of charge**. Name one: voltage (measured, canonical) or state-of-charge % (estimated, UI-only, `None` while charging).
 - **State of charge is a runtime fraction, not a capacity fraction** — the BQ25895 measures charge current only (no discharge current, no coulomb counter), so "% of capacity left" cannot be measured; "% of typical-load runtime left" can (see ADR 0020). Don't describe the percentage in capacity terms.
+- **Blind vs measured-low** — a decoded battery voltage of exactly 2.304 V is never a real reading; it is the raw-0 decode below the **ADC blind floor**. Consumers must distinguish "measured low (~3.5 V)" from "blind (raw 0 — below the floor, unknown how far)". Feeding the decode into the discharge curve yields a fake 0%.
 - **`power_state` / `PowerManager`** — these are the **display sleep/wake** concept (`0`=sleep, `1`=awake) and have **nothing** to do with the battery or charger. The Battery context deliberately uses the `battery_` prefix to avoid this collision. Never reach for `power_*` names in charger code.
 - **"charging" vs "on external power"** — separate facts. Charge status reports the charger's phase; power source reports whether input power is present. A unit on external power with a full cell is "on external power, not charging".
 - **`BatteryState` is `None` vs 0%** — `None` means *no charger detected* (rev-3 board, monitor not running); a real `BatteryState` with a low `state_of_charge_pct` means *detected and nearly empty*. Consumers must distinguish "no battery hardware" from "empty battery".
