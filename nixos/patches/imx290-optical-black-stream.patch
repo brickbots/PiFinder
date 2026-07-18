@@ -1,0 +1,136 @@
+--- a/drivers/media/i2c/imx290.c
++++ b/drivers/media/i2c/imx290.c
+@@ -163,6 +163,13 @@
+ 
+ /* Equivalent value for 16bpp */
+ #define IMX290_BLACK_LEVEL_DEFAULT			3840
++#define IMX290_NUM_OPB_LINES				10
++
++enum imx290_pad {
++	IMX290_IMAGE_PAD,
++	IMX290_METADATA_PAD,
++	IMX290_NUM_PADS,
++};
+ 
+ #define IMX290_NUM_SUPPLIES				3
+ 
+@@ -245,7 +252,7 @@
+ 	const struct imx290_model_info *model;
+ 
+ 	struct v4l2_subdev sd;
+-	struct media_pad pad;
++	struct media_pad pads[IMX290_NUM_PADS];
+ 
+ 	const struct imx290_mode *current_mode;
+ 
+@@ -1132,6 +1139,16 @@
+ {
+ 	const struct imx290 *imx290 = to_imx290(sd);
+ 
++	if (code->pad >= IMX290_NUM_PADS)
++		return -EINVAL;
++
++	if (code->pad == IMX290_METADATA_PAD) {
++		if (code->index)
++			return -EINVAL;
++		code->code = MEDIA_BUS_FMT_SENSOR_DATA;
++		return 0;
++	}
++
+ 	if (code->index >= ARRAY_SIZE(imx290_formats))
+ 		return -EINVAL;
+ 
+@@ -1147,6 +1164,25 @@
+ 	const struct imx290 *imx290 = to_imx290(sd);
+ 	const struct imx290_mode *imx290_modes = imx290_modes_ptr(imx290);
+ 
++	if (fse->pad >= IMX290_NUM_PADS)
++		return -EINVAL;
++
++	if (fse->pad == IMX290_METADATA_PAD) {
++		const struct v4l2_mbus_framefmt *format;
++		const struct imx290_format_info *info;
++
++		if (fse->code != MEDIA_BUS_FMT_SENSOR_DATA || fse->index)
++			return -EINVAL;
++
++		format = v4l2_subdev_state_get_format(sd_state, IMX290_IMAGE_PAD);
++		info = imx290_format_info(imx290, format->code);
++		fse->min_width = format->width * (info ? info->bpp : 12) / 8;
++		fse->max_width = fse->min_width;
++		fse->min_height = IMX290_NUM_OPB_LINES;
++		fse->max_height = fse->min_height;
++		return 0;
++	}
++
+ 	if (!imx290_format_info(imx290, fse->code))
+ 		return -EINVAL;
+ 
+@@ -1168,6 +1198,22 @@
+ 	struct imx290 *imx290 = to_imx290(sd);
+ 	const struct imx290_mode *mode;
+ 	struct v4l2_mbus_framefmt *format;
++	const struct imx290_format_info *info;
++
++	if (fmt->pad >= IMX290_NUM_PADS)
++		return -EINVAL;
++
++	if (fmt->pad == IMX290_METADATA_PAD) {
++		format = v4l2_subdev_state_get_format(sd_state, IMX290_IMAGE_PAD);
++		info = imx290_format_info(imx290, format->code);
++		fmt->format.width = format->width * (info ? info->bpp : 12) / 8;
++		fmt->format.height = IMX290_NUM_OPB_LINES;
++		fmt->format.code = MEDIA_BUS_FMT_SENSOR_DATA;
++		fmt->format.field = V4L2_FIELD_NONE;
++		*v4l2_subdev_state_get_format(sd_state, IMX290_METADATA_PAD) =
++			fmt->format;
++		return 0;
++	}
+ 
+ 	mode = v4l2_find_nearest_size(imx290_modes_ptr(imx290),
+ 				      imx290_modes_num(imx290), width, height,
+@@ -1185,7 +1231,7 @@
+ 	fmt->format.quantization = V4L2_QUANTIZATION_FULL_RANGE;
+ 	fmt->format.xfer_func = V4L2_XFER_FUNC_NONE;
+ 
+-	format = v4l2_subdev_state_get_format(sd_state, 0);
++	format = v4l2_subdev_state_get_format(sd_state, IMX290_IMAGE_PAD);
+ 
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
+ 		imx290->current_mode = mode;
+@@ -1196,6 +1242,13 @@
+ 
+ 	*format = fmt->format;
+ 
++	format = v4l2_subdev_state_get_format(sd_state, IMX290_METADATA_PAD);
++	info = imx290_format_info(imx290, fmt->format.code);
++	format->width = fmt->format.width * info->bpp / 8;
++	format->height = IMX290_NUM_OPB_LINES;
++	format->code = MEDIA_BUS_FMT_SENSOR_DATA;
++	format->field = V4L2_FIELD_NONE;
++
+ 	return 0;
+ }
+ 
+@@ -1260,6 +1313,8 @@
+ 	};
+ 
+ 	imx290_set_fmt(subdev, sd_state, &fmt);
++	fmt.pad = IMX290_METADATA_PAD;
++	imx290_set_fmt(subdev, sd_state, &fmt);
+ 
+ 	return 0;
+ }
+@@ -1311,8 +1366,10 @@
+ 	imx290->sd.entity.ops = &imx290_subdev_entity_ops;
+ 	imx290->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
+ 
+-	imx290->pad.flags = MEDIA_PAD_FL_SOURCE;
+-	ret = media_entity_pads_init(&imx290->sd.entity, 1, &imx290->pad);
++	imx290->pads[IMX290_IMAGE_PAD].flags = MEDIA_PAD_FL_SOURCE;
++	imx290->pads[IMX290_METADATA_PAD].flags = MEDIA_PAD_FL_SOURCE;
++	ret = media_entity_pads_init(&imx290->sd.entity, IMX290_NUM_PADS,
++				     imx290->pads);
+ 	if (ret < 0) {
+ 		dev_err(imx290->dev, "Could not register media entity\n");
+ 		return ret;

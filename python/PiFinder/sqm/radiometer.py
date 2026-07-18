@@ -42,6 +42,7 @@ def collect_radiometer_sample(
     captured_at: float,
     border_fraction: float = 0.10,
     stride: int = 4,
+    optical_black_pedestal: Optional[float] = None,
 ) -> Optional[dict]:
     """Reduce a raw frame to a robust sky-background sample.
 
@@ -75,7 +76,7 @@ def collect_radiometer_sample(
     )
     quadrant_medians = [float(np.median(part)) for part in quadrants if part.size]
 
-    return {
+    sample = {
         "sequence": int(sequence),
         "captured_at": float(captured_at),
         "exposure_sec": float(exposure_sec),
@@ -87,6 +88,9 @@ def collect_radiometer_sample(
         "pixels_per_side": int(image.shape[0]),
         "method": "sparse_central_median",
     }
+    if optical_black_pedestal is not None and np.isfinite(optical_black_pedestal):
+        sample["optical_black_pedestal"] = float(optical_black_pedestal)
+    return sample
 
 
 def radiometric_sqm(
@@ -98,12 +102,23 @@ def radiometric_sqm(
     """Convert one camera sample directly to SQM-L-equivalent brightness."""
     exposure_sec = float(sample["exposure_sec"])
     background = float(sample["background_per_pixel"])
-    if pedestal is None:
+    optical_black = sample.get("optical_black_pedestal")
+    if optical_black is not None and np.isfinite(optical_black):
+        # Shielded pixels from the same frame already contain bias plus the
+        # frame's accumulated dark signal, so a valid OB value is the complete
+        # pedestal.  Calibrated or tracked pedestals only apply without OB.
+        pedestal = float(optical_black)
+        pedestal_source = "optical_black"
+    elif pedestal is not None:
+        pedestal_source = "calibrated"
+    else:
         pedestal = float(profile.bias_offset)
+        pedestal_source = "profile"
     signal = background - pedestal
     details = {
         **sample,
         "pedestal": pedestal,
+        "pedestal_source": pedestal_source,
         "background_corrected": signal,
         "radiometric_zero_point": profile.radiometric_zero_point,
         "radiometric_fov_degrees": profile.radiometric_fov_degrees,

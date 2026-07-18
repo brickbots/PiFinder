@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, nixos-hardware, pifinderKernel ? null, ... }:
 let
   cfg = config.pifinder;
 
@@ -136,6 +136,13 @@ in {
   };
 
   config = {
+    # The nixos-hardware Raspberry Pi kernel expression fixes its patch list
+    # after normal package overrides, so boot.kernelPatches cannot extend it.
+    boot.kernelPackages = lib.mkForce (pkgs.linuxPackagesFor (
+      if pifinderKernel != null then pifinderKernel else
+      import ./pkgs/pifinder-kernel.nix { inherit pkgs nixos-hardware; }
+    ));
+
     # Only include RPi 4B device tree (not CM4 variants)
     hardware.deviceTree.filter = "*rpi-4-b.dtb";
     # Explicit DTB name so extlinux uses FDT instead of FDTDIR
