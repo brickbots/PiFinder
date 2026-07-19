@@ -173,7 +173,7 @@ class TestUpdateSqmWiring:
         )
         assert wing.aperture_radius == max(1, round(5 * 300 / 512))
 
-    def test_no_override_when_calibrated(self, monkeypatch):
+    def test_calibrated_override_is_tracked_bias_plus_wizard_dark(self, monkeypatch):
         shared_state, calc, black_level, cloud, solution = self._harness(
             monkeypatch, calibrated=True
         )
@@ -187,7 +187,29 @@ class TestUpdateSqmWiring:
             cloud_estimator=cloud,
             black_level_tracker=black_level,
         )
-        # Wizard-measured constants are authoritative: no tracker override.
+        # Tracked in-session bias wins over the wizard's stored bias; the
+        # wizard's dark-current term is added on top.
+        expected = 237.5 + calc.profile.dark_current_rate * 0.5
+        assert calc.calculate.call_args.kwargs["pedestal_override"] == pytest.approx(
+            expected
+        )
+
+    def test_no_override_when_tracker_unconditioned(self, monkeypatch):
+        shared_state, calc, black_level, cloud, solution = self._harness(
+            monkeypatch, calibrated=True
+        )
+        black_level.pedestal.return_value = None
+        solver.update_sqm(
+            shared_state=shared_state,
+            sqm_calculator=calc,
+            centroids=[[10.0, 10.0]],
+            solution=solution,
+            exposure_sec=0.5,
+            altitude_deg=None,
+            cloud_estimator=cloud,
+            black_level_tracker=black_level,
+        )
+        # No confident fit: the calculator's own static composition applies.
         assert calc.calculate.call_args.kwargs["pedestal_override"] is None
 
     def _radiometer_harness(self, calibrated=False, pedestal=237.5, cloudy=False):
@@ -249,7 +271,7 @@ class TestUpdateSqmWiring:
         )
         assert black_level.add_sample.call_args.kwargs["stable"] is False
 
-    def test_radiometer_ignores_tracker_when_calibrated(self):
+    def test_radiometer_calibrated_uses_tracked_bias_plus_wizard_dark(self):
         shared_state, calc, black_level, sample = self._radiometer_harness(
             calibrated=True
         )
@@ -262,10 +284,32 @@ class TestUpdateSqmWiring:
             now=1001.0,
             black_level_tracker=black_level,
         )
-        # Wizard bias + dark current is authoritative over the tracker.
+        # Tracked in-session bias wins for the bias part; the wizard's
+        # dark-current rate is added on top.
         details = shared_state.set_sqm_details.call_args[0][0]
-        assert details["pedestal"] == calc.profile.bias_offset + (
-            calc.profile.dark_current_rate * 0.5
+        assert details["pedestal"] == pytest.approx(
+            237.5 + calc.profile.dark_current_rate * 0.5
+        )
+        assert details["black_level_tracked"] is True
+
+    def test_radiometer_calibrated_falls_back_when_unconditioned(self):
+        shared_state, calc, black_level, sample = self._radiometer_harness(
+            calibrated=True
+        )
+        black_level.pedestal.return_value = None
+        accumulator = solver.RadiometerAccumulator()
+        solver.update_radiometric_sqm(
+            shared_state,
+            calc,
+            accumulator,
+            sample,
+            now=1001.0,
+            black_level_tracker=black_level,
+        )
+        # No confident fit: static wizard/profile bias + dark current.
+        details = shared_state.set_sqm_details.call_args[0][0]
+        assert details["pedestal"] == pytest.approx(
+            calc.profile.bias_offset + calc.profile.dark_current_rate * 0.5
         )
         assert details["black_level_tracked"] is False
 
