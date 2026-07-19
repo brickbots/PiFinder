@@ -83,6 +83,24 @@ def _extract_raw_photometry_image(raw, profile):
     return extract_photometry_image(raw, profile)
 
 
+def _scaled_photometry_radii(
+    scale, aperture_radius=5, inner_radius=10, outer_radius=18
+):
+    """Convert photometry radii from solve-image (512px) pixels to the
+    photometry image's own pitch.
+
+    The radii were tuned on the ~1.0-scale Bayer-green images (imx462: 490px).
+    On the full-res mono imx296 (scale 2.125) the unscaled r=5 aperture holds
+    only ~85% of a star's flux and the annuli land on the PSF itself, biasing
+    every local sky estimate. The floors keep the geometry ordered
+    (aperture < inner < outer) at any scale.
+    """
+    aperture = max(1, round(aperture_radius * scale))
+    inner = max(aperture + 1, round(inner_radius * scale))
+    outer = max(inner + 2, round(outer_radius * scale))
+    return aperture, inner, outer
+
+
 def _scale_solution_centroids(solution, scale):
     """Return a shallow copy of solution with matched_centroids scaled.
 
@@ -173,21 +191,26 @@ def update_radiometric_sqm(
 
     noise = sqm_calculator.noise_floor_estimator
 
+    def tracked_or_static_bias():
+        # The in-session intercept supersedes any static bias, wizard-measured
+        # or profile: the OB clamp level moves with sensor state, so a stored
+        # constant goes stale while the tracker measures the running session's
+        # own frames — bounded by its stderr, deviation-band, and lease gates.
+        # The wander is negligible over a city background but worth
+        # 0.2–0.4 mag (and dead short-exposure frames) at a dark site.
+        if black_level_tracker is not None:
+            tracked = black_level_tracker.pedestal()
+            if tracked is not None:
+                return tracked
+        return sqm_calculator.profile.bias_offset
+
     def pedestal_for_exposure(exposure_sec):
+        bias = tracked_or_static_bias()
         if not noise.dark_current_calibrated:
-            # Zero-touch path: the tracked black level supersedes the static
-            # profile constant (the real pedestal wanders ±2 ADU night to
-            # night — negligible over a city background, 0.2–0.4 mag at a
-            # dark site). A wizard calibration remains authoritative.
-            if black_level_tracker is not None:
-                tracked = black_level_tracker.pedestal()
-                if tracked is not None:
-                    return tracked
-            return sqm_calculator.profile.bias_offset
-        return (
-            sqm_calculator.profile.bias_offset
-            + sqm_calculator.profile.dark_current_rate * exposure_sec
-        )
+            return bias
+        # Dark current stays the wizard's: the intercept fit cannot separate
+        # dark from sky (both are linear in exposure).
+        return bias + sqm_calculator.profile.dark_current_rate * exposure_sec
 
     sqm_value, details = accumulator.estimate(
         sqm_calculator.profile,
@@ -215,9 +238,9 @@ def update_radiometric_sqm(
 
     if black_level_tracker is not None:
         tracked, tracked_stderr, _ = black_level_tracker.state()
-        details["black_level_tracked"] = (
-            tracked is not None and not noise.dark_current_calibrated
-        )
+        # pedestal() applies the lease; the flag must reflect what the
+        # publication actually used, not the raw last fit.
+        details["black_level_tracked"] = black_level_tracker.pedestal() is not None
         details["black_level_pedestal"] = tracked
         details["black_level_stderr"] = tracked_stderr
         details["window_black_level"] = black_level_tracker.dump()
@@ -262,9 +285,10 @@ def update_sqm(
         exposure_sec: Exposure time in seconds
         altitude_deg: Altitude in degrees for extinction correction
         calculation_interval_seconds: Minimum time between calculations (default: 5.0)
-        aperture_radius: Aperture radius for photometry (default: 5)
-        annulus_inner_radius: Inner annulus radius (default: 10)
-        annulus_outer_radius: Outer annulus radius (default: 18)
+        aperture_radius: Aperture radius for photometry, in solve-image
+            (512px) pixels; rescaled to the photometry image (default: 5)
+        annulus_inner_radius: Inner annulus radius, solve-image pixels (default: 10)
+        annulus_outer_radius: Outer annulus radius, solve-image pixels (default: 18)
         wing_estimator: WingEstimator that supplies the rolling aperture
             (wing-loss) mzero correction and is fed each frame's photometry
             image + matched centroids.
@@ -314,6 +338,11 @@ def update_sqm(
         logger.debug("Raw frame unavailable/invalid for SQM; skipping this cycle")
         return False
     scale = green.shape[0] / 512.0
+    aperture_radius, annulus_inner_radius, annulus_outer_radius = (
+        _scaled_photometry_radii(
+            scale, aperture_radius, annulus_inner_radius, annulus_outer_radius
+        )
+    )
     calc_image = green
     calc_solution = _scale_solution_centroids(solution, scale)
     # All detected centroids, scaled to the photometry image: sqm masks them
@@ -344,18 +373,26 @@ def update_sqm(
 
     mzero_correction = 0.0
     if wing_estimator is not None:
+        # Match the estimator's patch geometry to this photometry image
+        # (no-op after the first frame; the scale is a per-camera constant).
+        wing_estimator.set_scale(scale)
         mzero_correction = wing_estimator.correction()
 
-    # Track the wandering sensor pedestal from the sky-vs-exposure intercept
-    # (see sqm.black_level). Only in the zero-touch path: when the user has run
-    # the calibration wizard, its measured bias + dark-current constants are
-    # authoritative and the tracker (which fits bias only) must not override.
+    # Pedestal from the sky-vs-exposure intercept (see sqm.black_level): the
+    # in-session tracked bias supersedes any static constant, wizard-measured
+    # or profile — the OB clamp level moves with sensor state, so a stored
+    # value goes stale. The wizard's dark-current rate remains authoritative
+    # (the intercept fit cannot separate dark from sky) and is added on top,
+    # matching the calculator's own bias + dark composition.
     pedestal_override = None
-    if (
-        black_level_tracker is not None
-        and not sqm_calculator.noise_floor_estimator.dark_current_calibrated
-    ):
-        pedestal_override = black_level_tracker.pedestal()
+    if black_level_tracker is not None:
+        tracked = black_level_tracker.pedestal()
+        if tracked is not None:
+            pedestal_override = tracked
+            if sqm_calculator.noise_floor_estimator.dark_current_calibrated:
+                pedestal_override += (
+                    sqm_calculator.profile.dark_current_rate * exposure_sec
+                )
 
     try:
         # Calculate SQM from image
