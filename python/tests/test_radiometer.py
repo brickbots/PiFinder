@@ -11,6 +11,7 @@ from PiFinder.sqm.radiometer import (
     extract_photometry_image,
     radiometric_sqm,
 )
+from PiFinder.sqm.airglow import AirglowTracker, floor_from_sample, sample_diagnostics
 from PiFinder.camera_pi import optical_black_pedestal
 
 
@@ -32,6 +33,50 @@ def test_sparse_median_ignores_small_bright_sources():
     assert sample["background_per_pixel"] == 80.0
     assert sample["sequence"] == 3
     assert sample["pixels_per_side"] == 256
+
+
+@pytest.mark.unit
+def test_bayer_colour_and_airglow_intermediates_are_replayable():
+    profile = get_camera_profile("imx462")
+    raw = np.empty((256, 256), dtype=np.uint16)
+    raw[0::2, 0::2] = 300
+    raw[0::2, 1::2] = 280
+    raw[1::2, 0::2] = 280
+    raw[1::2, 1::2] = 270
+    sample = collect_radiometer_sample(raw, profile, 0.5, sequence=9, captured_at=10.0)
+    diagnostic = sample_diagnostics(sample, "imx462", pedestal=240.0)
+    assert sample["background_red"] == 300.0
+    assert sample["background_blue"] == 270.0
+    assert diagnostic["green_rate"] == 80.0
+    assert diagnostic["red_rate"] == 120.0
+    assert diagnostic["blue_rate"] == 60.0
+    assert diagnostic["red_over_green"] == 1.5
+    assert diagnostic["blue_over_green"] == 0.75
+    assert diagnostic["red_excess_unclipped"] == 52.0
+    assert diagnostic["correction_adu_per_sec"] == pytest.approx(4.07 * 52.0)
+    assert floor_from_sample(sample, "imx462", 240.0) == pytest.approx(
+        diagnostic["correction_adu_per_sec"]
+    )
+
+
+@pytest.mark.unit
+def test_airglow_is_imx462_only_and_tracker_dump_keeps_full_window():
+    sample = {
+        "sequence": 3,
+        "captured_at": 10.0,
+        "exposure_sec": 1.0,
+        "background_per_pixel": 260.0,
+        "background_red": 265.0,
+        "background_blue": 250.0,
+    }
+    assert not sample_diagnostics(sample, "imx290", 240.0)["valid"]
+    tracker = AirglowTracker("imx462", max_samples=2)
+    assert tracker.add_sample(sample, 240.0) is not None
+    dump = tracker.dump()
+    assert dump["n_samples"] == 1
+    assert dump["samples"][0]["sequence"] == 3
+    assert dump["samples"][0]["red_excess_unclipped"] is not None
+    assert dump["floor"] == dump["samples"][0]["correction_adu_per_sec"]
 
 
 @pytest.mark.unit
