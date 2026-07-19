@@ -195,21 +195,26 @@ def update_radiometric_sqm(
 
     noise = sqm_calculator.noise_floor_estimator
 
+    def tracked_or_static_bias():
+        # The in-session intercept supersedes any static bias, wizard-measured
+        # or profile: the OB clamp level moves with sensor state, so a stored
+        # constant goes stale while the tracker measures the running session's
+        # own frames — bounded by its stderr, deviation-band, and lease gates.
+        # The wander is negligible over a city background but worth
+        # 0.2–0.4 mag (and dead short-exposure frames) at a dark site.
+        if black_level_tracker is not None:
+            tracked = black_level_tracker.pedestal()
+            if tracked is not None:
+                return tracked
+        return sqm_calculator.profile.bias_offset
+
     def pedestal_for_exposure(exposure_sec):
+        bias = tracked_or_static_bias()
         if not noise.dark_current_calibrated:
-            # Zero-touch path: the tracked black level supersedes the static
-            # profile constant (the real pedestal wanders ±2 ADU night to
-            # night — negligible over a city background, 0.2–0.4 mag at a
-            # dark site). A wizard calibration remains authoritative.
-            if black_level_tracker is not None:
-                tracked = black_level_tracker.pedestal()
-                if tracked is not None:
-                    return tracked
-            return sqm_calculator.profile.bias_offset
-        return (
-            sqm_calculator.profile.bias_offset
-            + sqm_calculator.profile.dark_current_rate * exposure_sec
-        )
+            return bias
+        # Dark current stays the wizard's: the intercept fit cannot separate
+        # dark from sky (both are linear in exposure).
+        return bias + sqm_calculator.profile.dark_current_rate * exposure_sec
 
     sqm_value, details = accumulator.estimate(
         sqm_calculator.profile,
@@ -237,9 +242,9 @@ def update_radiometric_sqm(
 
     if black_level_tracker is not None:
         tracked, tracked_stderr, _ = black_level_tracker.state()
-        details["black_level_tracked"] = (
-            tracked is not None and not noise.dark_current_calibrated
-        )
+        # pedestal() applies the lease; the flag must reflect what the
+        # publication actually used, not the raw last fit.
+        details["black_level_tracked"] = black_level_tracker.pedestal() is not None
         details["black_level_pedestal"] = tracked
         details["black_level_stderr"] = tracked_stderr
         details["window_black_level"] = black_level_tracker.dump()
@@ -377,16 +382,21 @@ def update_sqm(
         wing_estimator.set_scale(scale)
         mzero_correction = wing_estimator.correction()
 
-    # Track the wandering sensor pedestal from the sky-vs-exposure intercept
-    # (see sqm.black_level). Only in the zero-touch path: when the user has run
-    # the calibration wizard, its measured bias + dark-current constants are
-    # authoritative and the tracker (which fits bias only) must not override.
+    # Pedestal from the sky-vs-exposure intercept (see sqm.black_level): the
+    # in-session tracked bias supersedes any static constant, wizard-measured
+    # or profile — the OB clamp level moves with sensor state, so a stored
+    # value goes stale. The wizard's dark-current rate remains authoritative
+    # (the intercept fit cannot separate dark from sky) and is added on top,
+    # matching the calculator's own bias + dark composition.
     pedestal_override = None
-    if (
-        black_level_tracker is not None
-        and not sqm_calculator.noise_floor_estimator.dark_current_calibrated
-    ):
-        pedestal_override = black_level_tracker.pedestal()
+    if black_level_tracker is not None:
+        tracked = black_level_tracker.pedestal()
+        if tracked is not None:
+            pedestal_override = tracked
+            if sqm_calculator.noise_floor_estimator.dark_current_calibrated:
+                pedestal_override += (
+                    sqm_calculator.profile.dark_current_rate * exposure_sec
+                )
 
     try:
         # Calculate SQM from image
