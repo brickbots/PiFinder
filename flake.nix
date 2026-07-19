@@ -22,7 +22,15 @@
 
   outputs = { self, nixpkgs, nixos-hardware, pyproject-nix, uv2nix, pyproject-build-systems, ... }: let
     # Flake inputs the python-env module needs, passed via specialArgs.
-    pythonInputs = { inherit pyproject-nix uv2nix pyproject-build-systems; };
+    pythonInputs = { inherit nixos-hardware pyproject-nix uv2nix pyproject-build-systems; };
+    crossPkgsAarch64 = import nixpkgs {
+      localSystem = "x86_64-linux";
+      crossSystem = "aarch64-linux";
+    };
+    pifinderCrossKernel = import ./nixos/pkgs/pifinder-kernel.nix {
+      pkgs = crossPkgsAarch64;
+      inherit nixos-hardware;
+    };
     # Headless config shared by all profiles
     headlessModule = { lib, ... }: {
       services.xserver.enable = false;
@@ -57,9 +65,14 @@
       headlessModule
     ];
 
-    mkPifinderSystem = { includeSDImage ? false }: nixpkgs.lib.nixosSystem {
+    mkPifinderSystem = { includeSDImage ? false, kernel ? null }:
+    nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
-      specialArgs = pythonInputs;
+      # pifinderKernel must always be present in specialArgs: a NixOS module's
+      # `arg ? default` formal is not honoured by the module system, so an
+      # absent arg fails evaluation. null selects the natively-built patched
+      # kernel; a non-null value injects a prebuilt (e.g. cross-built) one.
+      specialArgs = pythonInputs // { pifinderKernel = kernel; };
       modules = commonModules ++ [
         { pifinder.devMode = false; }
         # Camera specialisations — base is imx462 (default), specialisations for others
@@ -130,6 +143,7 @@
 
     mkPifinderMigration = { includeSDImage ? false }: nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
+      specialArgs = pythonInputs // { pifinderKernel = null; };
       modules = migrationModules ++ [
         { pifinder.devMode = false; }
         ({ lib, ... }: {
@@ -190,7 +204,7 @@
     # Netboot configuration — NFS root, DHCP network in initrd
     mkPifinderNetboot = nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
-      specialArgs = pythonInputs;
+      specialArgs = pythonInputs // { pifinderKernel = null; };
       modules = commonModules ++ [
         { pifinder.devMode = true; }
         { pifinder.cameraType = nixpkgs.lib.mkDefault "imx477"; }  # HQ camera for netboot dev
@@ -391,6 +405,8 @@
     nixosConfigurations = {
       # SD card boot — camera baked into DT, switched via specialisations
       pifinder = mkPifinderSystem {};
+      # Cache-compatible aarch64 userspace with a kernel cross-built on x86_64.
+      pifinder-fast = mkPifinderSystem { kernel = pifinderCrossKernel; };
       # Migration — minimal bootable system, defers full system to first boot
       pifinder-migration = mkPifinderMigration {};
       # NFS netboot — for development on proxnix
@@ -428,6 +444,8 @@
         cp ${pkgsAarch64.raspberrypi-armstubs}/armstub8-gic.bin $out/armstub8-gic.bin
       '';
     };
+
+    packages.x86_64-linux.pifinder-kernel-cross = pifinderCrossKernel;
 
     devShells = {
       x86_64-linux.default = mkDevShell "x86_64-linux";

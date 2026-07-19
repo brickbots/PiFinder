@@ -43,6 +43,12 @@ pkgs.stdenv.mkDerivation {
 
     # Remove directories not needed at runtime
     rm -rf $out/.git $out/.github $out/nixos $out/result* $out/.venv
+    # Development environments and caches can also live below python/.  In
+    # particular, python/.venv is hundreds of MiB and must never become part
+    # of the runtime source closure.
+    rm -rf $out/python/.venv $out/python/.mypy_cache
+    rm -rf $out/python/.pytest_cache $out/python/.ruff_cache
+    find $out/python -type d -name __pycache__ -prune -exec rm -rf {} +
     rm -rf $out/case $out/docs $out/gerbers $out/kicad
     rm -rf $out/pi_config_files $out/scripts
     rm -rf $out/bin

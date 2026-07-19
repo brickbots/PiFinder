@@ -23,6 +23,29 @@ import time
 logger = logging.getLogger("Camera.Pi")
 
 
+def optical_black_pedestal(metadata, bit_depth):
+    """Return the per-frame optical-black level in native raw ADU.
+
+    libcamera reports SensorBlackLevels on a 16-bit scale.  The patched
+    IMX290/462 helper marks a measured value with a one-count sentinel in the
+    fourth channel; an unpatched stack's static tuning value is therefore not
+    mistaken for a measurement.
+    """
+    levels = metadata.get("SensorBlackLevels")
+    if not isinstance(levels, (tuple, list)) or len(levels) != 4:
+        return None
+    values = np.asarray(levels, dtype=np.float64)
+    if not np.all(np.isfinite(values)) or np.any(values <= 0):
+        return None
+    if not (values[0] == values[1] == values[2] and values[3] == values[0] + 1):
+        return None
+    scale = float(1 << (16 - int(bit_depth)))
+    pedestal = float(values[0] / scale)
+    if pedestal <= 0 or pedestal >= 2 ** int(bit_depth):
+        return None
+    return pedestal
+
+
 class CameraPI(CameraInterface):
     """The camera class for PI cameras.  Implements the CameraInterface interface."""
 
@@ -107,6 +130,12 @@ class CameraPI(CameraInterface):
         # driver chooses to report.
         self.last_frame_metadata = metadata
 
+        frame_optical_black = None
+        if self.camera_type in ("imx290", "imx462"):
+            frame_optical_black = optical_black_pedestal(
+                metadata, self.profile.bit_depth
+            )
+
         _request.release()
 
         # Apply camera-specific crop and rotation
@@ -127,6 +156,7 @@ class CameraPI(CameraInterface):
                 radiometer_exposure,
                 sequence=self._radiometer_sequence,
                 captured_at=time.time(),
+                optical_black_pedestal=frame_optical_black,
             )
             if sample is not None:
                 self.shared_state.set_sqm_radiometer_sample(sample)
