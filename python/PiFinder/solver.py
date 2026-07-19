@@ -59,6 +59,12 @@ SQM_CALCULATION_INTERVAL_SECONDS = 1.0
 # need not track the five-second primary radiometer publication cadence.
 SQM_STELLAR_DIAGNOSTIC_INTERVAL_SECONDS = 10.0
 
+# Disabled to isolate the per-frame optical-black pedestal during OB
+# rollout/validation. When False, the radiometer pedestal is the same-frame OB
+# value when present, otherwise the static profile bias_offset — no tracker in
+# between. Re-enable (or remove) once OB is field-proven.
+SQM_BLACK_LEVEL_TRACKER_ENABLED = False
+
 
 def create_sqm_calculator(shared_state):
     """Create a new SQM calculator instance with current calibration.
@@ -883,7 +889,11 @@ def solver(
                         clear_zero_point=profile.clear_zero_point,
                         clear_sky_brightness=profile.clear_sky_brightness,
                     )
-                    sqm_black_level = BlackLevelTracker(profile.bias_offset)
+                    sqm_black_level = (
+                        BlackLevelTracker(profile.bias_offset)
+                        if SQM_BLACK_LEVEL_TRACKER_ENABLED
+                        else None
+                    )
                 if sqm_calculator is not None:
                     update_radiometric_sqm(
                         shared_state,
@@ -959,7 +969,11 @@ def solver(
                                 clear_zero_point=profile.clear_zero_point,
                                 clear_sky_brightness=profile.clear_sky_brightness,
                             )
-                            sqm_black_level = BlackLevelTracker(profile.bias_offset)
+                            sqm_black_level = (
+                                BlackLevelTracker(profile.bias_offset)
+                                if SQM_BLACK_LEVEL_TRACKER_ENABLED
+                                else None
+                            )
 
                         # Expensive stellar photometry is diagnostic-only in the
                         # radiometer-first path and remains limited to 10 seconds.
