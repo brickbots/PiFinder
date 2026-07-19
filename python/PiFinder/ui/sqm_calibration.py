@@ -29,6 +29,7 @@ from PiFinder.solver import (
     _derotate_centroids,
     _extract_raw_photometry_image,
     _scale_solution_centroids,
+    _scaled_photometry_radii,
 )
 from PiFinder.types.positioning import PointingEstimate, ReloadSqmCalibration
 from PiFinder.ui.base import UIModule
@@ -899,7 +900,14 @@ class UISQMCalibration(UIModule):
                         calc_centroids, solve_rotation, side
                     )
 
+                # Same scale-aware geometry as production SQM: radii are
+                # defined in solve-image (512px) pixels and converted to the
+                # photometry image's pitch.
+                wing_estimator.set_scale(scale)
                 wing_correction = wing_estimator.correction()
+                aperture_radius, annulus_inner_radius, annulus_outer_radius = (
+                    _scaled_photometry_radii(scale)
+                )
 
                 # Returns Tuple[Optional[float], Dict]
                 sqm_value, _details = sqm_calc.calculate(
@@ -908,6 +916,9 @@ class UISQMCalibration(UIModule):
                     image=green,
                     exposure_sec=exposure_sec,
                     altitude_deg=altitude_deg,
+                    aperture_radius=aperture_radius,
+                    annulus_inner_radius=annulus_inner_radius,
+                    annulus_outer_radius=annulus_outer_radius,
                     saturation_threshold=saturation_threshold,
                     image_pixels_per_side=green.shape[0],
                     mzero_correction=wing_correction,

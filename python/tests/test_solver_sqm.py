@@ -56,6 +56,22 @@ class TestScaleSolutionCentroids:
 
 
 @pytest.mark.unit
+class TestScaledPhotometryRadii:
+    def test_imx462_green_scale_near_identity(self):
+        # 490px green vs 512 solve image: the tuned radii survive rounding
+        # (outer annulus shrinks by 1px, statistically negligible).
+        assert solver._scaled_photometry_radii(490 / 512) == (5, 10, 17)
+
+    def test_imx296_mono_full_res(self):
+        # 1088px mono photometry: every radius follows the 2.125x pixel pitch.
+        assert solver._scaled_photometry_radii(1088 / 512) == (11, 21, 38)
+
+    def test_geometry_stays_ordered_at_tiny_scale(self):
+        aperture, inner, outer = solver._scaled_photometry_radii(0.1)
+        assert 1 <= aperture < inner < outer
+
+
+@pytest.mark.unit
 class TestUpdateSqmWiring:
     """update_sqm threads the pedestal override and cloud/dew guard inputs."""
 
@@ -117,6 +133,45 @@ class TestUpdateSqmWiring:
         assert cloud.add_sample.call_args.kwargs["sky_brightness"] == 18.6
         # Feeding lives in the radiometric path; the diagnostic only consumes.
         black_level.add_sample.assert_not_called()
+
+    def test_passes_scaled_photometry_radii(self, monkeypatch):
+        shared_state, calc, black_level, cloud, solution = self._harness(monkeypatch)
+        solver.update_sqm(
+            shared_state=shared_state,
+            sqm_calculator=calc,
+            centroids=[[10.0, 10.0]],
+            solution=solution,
+            exposure_sec=0.5,
+            altitude_deg=None,
+            cloud_estimator=cloud,
+            black_level_tracker=black_level,
+        )
+        # Harness photometry image is 300px -> scale 300/512.
+        kwargs = calc.calculate.call_args.kwargs
+        expected = solver._scaled_photometry_radii(300 / 512)
+        assert (
+            kwargs["aperture_radius"],
+            kwargs["annulus_inner_radius"],
+            kwargs["annulus_outer_radius"],
+        ) == expected
+
+    def test_wing_estimator_gets_photometry_scale(self, monkeypatch):
+        from PiFinder.sqm.wings import WingEstimator
+
+        shared_state, calc, black_level, cloud, solution = self._harness(monkeypatch)
+        wing = WingEstimator()
+        solver.update_sqm(
+            shared_state=shared_state,
+            sqm_calculator=calc,
+            centroids=[[10.0, 10.0]],
+            solution=solution,
+            exposure_sec=0.5,
+            altitude_deg=None,
+            wing_estimator=wing,
+            cloud_estimator=cloud,
+            black_level_tracker=black_level,
+        )
+        assert wing.aperture_radius == max(1, round(5 * 300 / 512))
 
     def test_no_override_when_calibrated(self, monkeypatch):
         shared_state, calc, black_level, cloud, solution = self._harness(

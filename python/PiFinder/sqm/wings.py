@@ -28,7 +28,7 @@ instead of inventing wings.
 
 import logging
 from collections import deque
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -37,6 +37,10 @@ logger = logging.getLogger("SQM.Wings")
 
 class WingEstimator:
     """Rolling estimate of the aperture enclosed-flux fraction ``f``."""
+
+    # Radii at which the growth curve is read as its plateau: far enough
+    # out that real wing flux is integrated, well inside the sky region.
+    BASE_PLATEAU_RADII: Tuple[int, ...] = (10, 12, 14, 16)
 
     def __init__(
         self,
@@ -49,7 +53,8 @@ class WingEstimator:
     ):
         """
         Args:
-            aperture_radius: production photometry aperture the correction is for.
+            aperture_radius: production photometry aperture the correction is
+                for, in solve-image (512px) pixels; see :meth:`set_scale`.
             max_radius: patch half-size; sky comes from beyond ``max_radius - 4``.
             max_samples: rolling window of per-frame ``f`` samples.
             min_samples: samples needed before the correction is applied.
@@ -57,16 +62,59 @@ class WingEstimator:
             min_peak_snr: star peak must exceed this multiple of the per-pixel
                 sky noise to enter the stack (keeps noise out of the median).
         """
+        self._base_aperture_radius = aperture_radius
+        self._base_max_radius = max_radius
+        self._scale = 1.0
         self.aperture_radius = aperture_radius
         self.max_radius = max_radius
         self.max_samples = max_samples
         self.min_samples = min_samples
         self.min_stars = min_stars
         self.min_peak_snr = min_peak_snr
-        # Radii at which the growth curve is read as its plateau: far enough
-        # out that real wing flux is integrated, well inside the sky region.
-        self.plateau_radii = (10, 12, 14, 16)
+        self.plateau_radii: Tuple[int, ...] = self.BASE_PLATEAU_RADII
         self._samples: deque = deque(maxlen=max_samples)
+
+    def set_scale(self, scale: float) -> None:
+        """Adapt the patch geometry to the photometry image's pixel pitch.
+
+        All radii are defined in solve-image (512px) pixels; the photometry
+        image is ``scale`` times that pitch (imx462 green: ~0.96, full-res
+        mono imx296: 2.125). Without scaling, a high-scale sensor's PSF
+        spills past the aperture while the sky ring lands on the star's own
+        wings — the estimator then measures f~1 and never corrects.
+
+        The scale is a per-camera constant, so this is a cheap no-op after
+        the first frame. If the effective radii do change, the rolling window
+        is cleared: samples measured with a different geometry are not
+        comparable.
+        """
+        if scale == self._scale:
+            return
+        self._scale = scale
+        aperture = max(1, round(self._base_aperture_radius * scale))
+        max_r = max(aperture + 8, round(self._base_max_radius * scale))
+        plateau = tuple(
+            min(max_r - 4, max(aperture + 1, round(q * scale)))
+            for q in self.BASE_PLATEAU_RADII
+        )
+        if (aperture, max_r, plateau) == (
+            self.aperture_radius,
+            self.max_radius,
+            self.plateau_radii,
+        ):
+            return
+        self.aperture_radius = aperture
+        self.max_radius = max_r
+        self.plateau_radii = plateau
+        self._samples.clear()
+        logger.info(
+            "Wing geometry rescaled (scale %.3f): aperture=%d max_radius=%d "
+            "plateau=%s",
+            scale,
+            aperture,
+            max_r,
+            plateau,
+        )
 
     def add_frame(
         self,
@@ -163,6 +211,7 @@ class WingEstimator:
             "is_conditioned": self.is_conditioned,
             "n_samples": len(self._samples),
             "config": {
+                "scale": self._scale,
                 "aperture_radius": self.aperture_radius,
                 "max_radius": self.max_radius,
                 "max_samples": self.max_samples,

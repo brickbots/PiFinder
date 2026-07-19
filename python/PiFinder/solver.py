@@ -83,6 +83,24 @@ def _extract_raw_photometry_image(raw, profile):
     return extract_photometry_image(raw, profile)
 
 
+def _scaled_photometry_radii(
+    scale, aperture_radius=5, inner_radius=10, outer_radius=18
+):
+    """Convert photometry radii from solve-image (512px) pixels to the
+    photometry image's own pitch.
+
+    The radii were tuned on the ~1.0-scale Bayer-green images (imx462: 490px).
+    On the full-res mono imx296 (scale 2.125) the unscaled r=5 aperture holds
+    only ~85% of a star's flux and the annuli land on the PSF itself, biasing
+    every local sky estimate. The floors keep the geometry ordered
+    (aperture < inner < outer) at any scale.
+    """
+    aperture = max(1, round(aperture_radius * scale))
+    inner = max(aperture + 1, round(inner_radius * scale))
+    outer = max(inner + 2, round(outer_radius * scale))
+    return aperture, inner, outer
+
+
 def _scale_solution_centroids(solution, scale):
     """Return a shallow copy of solution with matched_centroids scaled.
 
@@ -262,9 +280,10 @@ def update_sqm(
         exposure_sec: Exposure time in seconds
         altitude_deg: Altitude in degrees for extinction correction
         calculation_interval_seconds: Minimum time between calculations (default: 5.0)
-        aperture_radius: Aperture radius for photometry (default: 5)
-        annulus_inner_radius: Inner annulus radius (default: 10)
-        annulus_outer_radius: Outer annulus radius (default: 18)
+        aperture_radius: Aperture radius for photometry, in solve-image
+            (512px) pixels; rescaled to the photometry image (default: 5)
+        annulus_inner_radius: Inner annulus radius, solve-image pixels (default: 10)
+        annulus_outer_radius: Outer annulus radius, solve-image pixels (default: 18)
         wing_estimator: WingEstimator that supplies the rolling aperture
             (wing-loss) mzero correction and is fed each frame's photometry
             image + matched centroids.
@@ -314,6 +333,11 @@ def update_sqm(
         logger.debug("Raw frame unavailable/invalid for SQM; skipping this cycle")
         return False
     scale = green.shape[0] / 512.0
+    aperture_radius, annulus_inner_radius, annulus_outer_radius = (
+        _scaled_photometry_radii(
+            scale, aperture_radius, annulus_inner_radius, annulus_outer_radius
+        )
+    )
     calc_image = green
     calc_solution = _scale_solution_centroids(solution, scale)
     # All detected centroids, scaled to the photometry image: sqm masks them
@@ -344,6 +368,9 @@ def update_sqm(
 
     mzero_correction = 0.0
     if wing_estimator is not None:
+        # Match the estimator's patch geometry to this photometry image
+        # (no-op after the first frame; the scale is a per-camera constant).
+        wing_estimator.set_scale(scale)
         mzero_correction = wing_estimator.correction()
 
     # Track the wandering sensor pedestal from the sky-vs-exposure intercept
