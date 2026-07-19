@@ -7,6 +7,9 @@ in {
   # libcamera overlay — enable Python bindings for picamera2
   nixpkgs.overlays = [(final: prev: {
     libcamera = prev.libcamera.overrideAttrs (old: {
+      patches = (old.patches or []) ++ [
+        ./patches/libcamera-imx290-optical-black.patch
+      ];
       mesonFlags = (old.mesonFlags or []) ++ [
         "-Dpycamera=enabled"
       ];
