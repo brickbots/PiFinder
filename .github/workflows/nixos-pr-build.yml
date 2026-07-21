@@ -7,9 +7,17 @@ name: Build PiFinder NixOS (testable PRs)
 # the real ATTIC_TOKEN and a read-write GITHUB_TOKEN even for fork PRs. The
 # contributor's code is checked out explicitly (head SHA) and built. This is
 # only reached after a maintainer applies the `testable` (or `preview`) label —
-# that label is the security boundary: it runs contributor code on the
-# self-hosted aarch64 runner with the cache push token, so review the diff
-# before labeling, and re-review on each new push to a labeled PR.
+# that label is the security boundary: it runs contributor code with the cache
+# push token, so review the diff before labeling, and re-review on each new push
+# to a labeled PR.
+#
+# Build strategy: the free GitHub-hosted ubuntu-24.04-arm runner builds first.
+# Its cores are faster than the Pi5, and the Attic cache (cache.pifinder.eu) is
+# a substituter, so anything already built — including the patched kernel once
+# it has been built once — is downloaded, not recompiled. Each successful build
+# is pushed back to Attic, so the first build after a kernel/source change is
+# the only slow one; every build after it is fast. The self-hosted Pi5 is a
+# last-resort fallback that only runs if the hosted build fails.
 on:
   pull_request_target:
     types: [labeled, synchronize, opened]
@@ -23,15 +31,16 @@ permissions:
   actions: read
 
 jobs:
-  # Try the Pi5 native aarch64 runner first (fast).
-  build-native:
+  # Primary: free GitHub-hosted arm64 runner (native aarch64, no QEMU).
+  build-hosted:
     if: |
       contains(github.event.pull_request.labels.*.name, 'preview') ||
       contains(github.event.pull_request.labels.*.name, 'testable')
-    runs-on: [self-hosted, aarch64]
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04-arm
+    # Generous: only a kernel/source change compiles from scratch (~1 h on this
+    # 4-core runner); everything else substitutes from Attic in minutes.
+    timeout-minutes: 150
     outputs:
-      success: ${{ steps.build.outcome == 'success' }}
       store_path: ${{ steps.push.outputs.store_path }}
     steps:
       # Build the contributor's code. persist-credentials:false so the
@@ -41,6 +50,80 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           persist-credentials: false
+          # Fork PRs: pull_request_target checkout of the head requires opt-in
+          # since actions/checkout began refusing it. The head SHA is pinned
+          # explicitly and only reached after the `testable`/`preview` label,
+          # which is the review gate for running contributor code.
+          allow-unsafe-pr-checkout: true
+
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
+          extra-conf: |
+            extra-system-features = big-parallel
+            extra-substituters = https://cache.pifinder.eu/pifinder
+            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+
+      - name: Attic login for push
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          if [ -z "$ATTIC_TOKEN" ]; then
+            echo "No ATTIC_TOKEN — pull-only via the public substituter"
+            exit 0
+          fi
+          nix profile install nixpkgs#attic-client
+          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic use pifinder:pifinder
+
+      - name: Build NixOS system and on-device dev shell closures
+        run: |
+          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            -L --no-link
+          nix build .#devShells.aarch64-linux.default -L --no-link
+
+      - name: Push to Attic
+        id: push
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --json | jq -r '.[].outputs.out')
+          DEV_SHELL_PATH=$(nix build .#devShells.aarch64-linux.default \
+            --json | jq -r '.[].outputs.out')
+          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+          if [ -n "$ATTIC_TOKEN" ]; then
+            attic push pifinder:pifinder "$STORE_PATH"
+            attic push pifinder:pifinder "$DEV_SHELL_PATH"
+          else
+            echo "No ATTIC_TOKEN — skipping push; build is verify-only"
+          fi
+
+  # Last-resort fallback: self-hosted Pi5. Only runs if the hosted build failed
+  # (e.g. hosted-runner outage or capacity). The Pi5 is slow for a from-scratch
+  # kernel, hence the longer timeout.
+  build-pi5:
+    needs: build-hosted
+    if: |
+      always() &&
+      (contains(github.event.pull_request.labels.*.name, 'preview') ||
+       contains(github.event.pull_request.labels.*.name, 'testable')) &&
+      needs.build-hosted.result == 'failure'
+    runs-on: [self-hosted, aarch64]
+    timeout-minutes: 240
+    outputs:
+      store_path: ${{ steps.push.outputs.store_path }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          persist-credentials: false
+          # Fork PRs: pull_request_target checkout of the head requires opt-in
+          # since actions/checkout began refusing it. The head SHA is pinned
+          # explicitly and only reached after the `testable`/`preview` label,
+          # which is the review gate for running contributor code.
+          allow-unsafe-pr-checkout: true
 
       - name: Ensure nix is on PATH (self-hosted runner)
         run: |
@@ -55,113 +138,31 @@ jobs:
           attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
           attic use pifinder:pifinder
 
-      - name: Build NixOS system closure
-        id: build
+      - name: Build NixOS system and on-device dev shell closures
         run: |
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             -L --no-link
+          nix build .#devShells.aarch64-linux.default -L --no-link
 
       - name: Push to Attic
         id: push
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --json | jq -r '.[].outputs.out')
+          DEV_SHELL_PATH=$(nix build .#devShells.aarch64-linux.default \
             --json | jq -r '.[].outputs.out')
           attic push pifinder:pifinder "$STORE_PATH"
+          attic push pifinder:pifinder "$DEV_SHELL_PATH"
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
-
-  # Wait up to ~15 min for the native builder, then decide on the hosted fallback.
-  native-wait:
-    if: |
-      contains(github.event.pull_request.labels.*.name, 'preview') ||
-      contains(github.event.pull_request.labels.*.name, 'testable')
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    outputs:
-      need_emulated: ${{ steps.wait.outputs.need_emulated }}
-    steps:
-      - name: Wait for native build
-        id: wait
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for i in $(seq 1 30); do
-            sleep 30
-            RESULT=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs" \
-              --jq '.jobs[] | select(.name == "build-native") | .conclusion // "pending"' 2>/dev/null || echo "pending")
-            echo "Check $i/30: build-native=$RESULT"
-            if [ "$RESULT" = "success" ]; then
-              echo "need_emulated=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            elif [ "$RESULT" = "failure" ] || [ "$RESULT" = "cancelled" ]; then
-              echo "need_emulated=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          done
-          echo "Native build not done after 15 min, falling back to emulated"
-          echo "need_emulated=true" >> "$GITHUB_OUTPUT"
-
-  # Fallback on a free hosted arm64 runner (native aarch64, no QEMU).
-  build-emulated:
-    needs: native-wait
-    if: needs.native-wait.outputs.need_emulated == 'true'
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 60
-    outputs:
-      store_path: ${{ steps.push.outputs.store_path }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          persist-credentials: false
-
-      - uses: DeterminateSystems/nix-installer-action@main
-        with:
-          determinate: false
-          extra-conf: |
-            extra-system-features = big-parallel
-            extra-substituters = https://cache.pifinder.eu/pifinder
-            extra-trusted-public-keys = pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck=
-
-      - name: Attic login for push
-        env:
-          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
-        run: |
-          if [ -z "$ATTIC_TOKEN" ]; then
-            echo "No ATTIC_TOKEN — pull-only via the public substituter"
-            exit 0
-          fi
-          nix profile install nixpkgs#attic-client
-          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
-          attic use pifinder:pifinder
-
-      - name: Build NixOS system closure
-        run: |
-          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            -L --no-link
-
-      - name: Push to Attic
-        id: push
-        env:
-          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
-        run: |
-          STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            --json | jq -r '.[].outputs.out')
-          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
-          if [ -n "$ATTIC_TOKEN" ]; then
-            attic push pifinder:pifinder "$STORE_PATH"
-          else
-            echo "No ATTIC_TOKEN — skipping push; build is verify-only"
-          fi
 
   # Stamp the PR's build into the metadata-only nixos-manifest branch. Runs the
   # TRUSTED scripts from the base branch (default checkout), never the fork's,
   # since this step holds the write token.
   update-manifest:
-    needs: [build-native, build-emulated]
+    needs: [build-hosted, build-pi5]
     if: |
       always() &&
-      (needs.build-native.result == 'success' || needs.build-emulated.result == 'success')
+      (needs.build-hosted.result == 'success' || needs.build-pi5.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -173,7 +174,7 @@ jobs:
 
       - name: Update generated manifest branch
         env:
-          STORE_PATH: ${{ needs.build-native.outputs.store_path || needs.build-emulated.outputs.store_path }}
+          STORE_PATH: ${{ needs.build-hosted.outputs.store_path || needs.build-pi5.outputs.store_path }}
           GH_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
