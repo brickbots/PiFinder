@@ -1663,6 +1663,44 @@ class TestWingEstimator:
         assert not est.is_conditioned
         assert est.correction() == 0.0
 
+    def test_set_scale_rescales_geometry(self):
+        est = WingEstimator()
+        # imx296 full-res mono: photometry at 1088px vs the 512 solve image.
+        est.set_scale(1088 / 512)
+        assert est.aperture_radius == round(5 * 1088 / 512)
+        assert est.max_radius == round(20 * 1088 / 512)
+        assert est.plateau_radii == tuple(
+            round(q * 1088 / 512) for q in WingEstimator.BASE_PLATEAU_RADII
+        )
+        # Every plateau radius stays outside the aperture, inside the sky ring.
+        for q in est.plateau_radii:
+            assert est.aperture_radius < q <= est.max_radius - 4
+
+    def test_set_scale_clears_window(self):
+        image, centroids, _ = _wing_star_frame()
+        est = WingEstimator(min_samples=1)
+        est.add_frame(image, centroids, saturation_threshold=1e9)
+        assert est.is_conditioned
+        est.set_scale(2.125)
+        # Samples from another geometry are not comparable.
+        assert not est.is_conditioned
+
+    def test_set_scale_same_scale_is_noop(self):
+        image, centroids, _ = _wing_star_frame()
+        est = WingEstimator(min_samples=1)
+        est.set_scale(1.0)
+        est.add_frame(image, centroids, saturation_threshold=1e9)
+        est.set_scale(1.0)
+        assert est.is_conditioned
+
+    def test_set_scale_near_unity_keeps_imx462_geometry(self):
+        # imx462 green: 490px. Rounding keeps aperture/plateau essentially
+        # unchanged, so the calibrated behavior is preserved.
+        est = WingEstimator()
+        est.set_scale(490 / 512)
+        assert est.aperture_radius == 5
+        assert est.plateau_radii[0] == 10
+
 
 @pytest.mark.unit
 class TestMzeroCorrection:
