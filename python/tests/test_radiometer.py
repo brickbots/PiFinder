@@ -11,6 +11,8 @@ from PiFinder.sqm.radiometer import (
     extract_photometry_image,
     radiometric_sqm,
 )
+from PiFinder.sqm.airglow import AirglowTracker, floor_from_sample, sample_diagnostics
+from PiFinder.camera_pi import optical_black_pedestal
 
 
 @pytest.mark.unit
@@ -31,6 +33,50 @@ def test_sparse_median_ignores_small_bright_sources():
     assert sample["background_per_pixel"] == 80.0
     assert sample["sequence"] == 3
     assert sample["pixels_per_side"] == 256
+
+
+@pytest.mark.unit
+def test_bayer_colour_and_airglow_intermediates_are_replayable():
+    profile = get_camera_profile("imx462")
+    raw = np.empty((256, 256), dtype=np.uint16)
+    raw[0::2, 0::2] = 300
+    raw[0::2, 1::2] = 280
+    raw[1::2, 0::2] = 280
+    raw[1::2, 1::2] = 270
+    sample = collect_radiometer_sample(raw, profile, 0.5, sequence=9, captured_at=10.0)
+    diagnostic = sample_diagnostics(sample, "imx462", pedestal=240.0)
+    assert sample["background_red"] == 300.0
+    assert sample["background_blue"] == 270.0
+    assert diagnostic["green_rate"] == 80.0
+    assert diagnostic["red_rate"] == 120.0
+    assert diagnostic["blue_rate"] == 60.0
+    assert diagnostic["red_over_green"] == 1.5
+    assert diagnostic["blue_over_green"] == 0.75
+    assert diagnostic["red_excess_unclipped"] == 52.0
+    assert diagnostic["correction_adu_per_sec"] == pytest.approx(4.07 * 52.0)
+    assert floor_from_sample(sample, "imx462", 240.0) == pytest.approx(
+        diagnostic["correction_adu_per_sec"]
+    )
+
+
+@pytest.mark.unit
+def test_airglow_is_imx462_only_and_tracker_dump_keeps_full_window():
+    sample = {
+        "sequence": 3,
+        "captured_at": 10.0,
+        "exposure_sec": 1.0,
+        "background_per_pixel": 260.0,
+        "background_red": 265.0,
+        "background_blue": 250.0,
+    }
+    assert not sample_diagnostics(sample, "imx290", 240.0)["valid"]
+    tracker = AirglowTracker("imx462", max_samples=2)
+    assert tracker.add_sample(sample, 240.0) is not None
+    dump = tracker.dump()
+    assert dump["n_samples"] == 1
+    assert dump["samples"][0]["sequence"] == 3
+    assert dump["samples"][0]["red_excess_unclipped"] is not None
+    assert dump["floor"] == dump["samples"][0]["correction_adu_per_sec"]
 
 
 @pytest.mark.unit
@@ -149,3 +195,132 @@ def test_recent_conditioned_optics_deficit_corrects_radiometer(monkeypatch):
     assert solver.update_radiometric_sqm(shared, calc, acc, sample, now=100.0)
     published = shared.set_sqm.call_args.args[0]
     assert published.value == pytest.approx(uncorrected - 0.7)
+
+
+@pytest.mark.unit
+def test_converts_marked_libcamera_optical_black_to_native_adu():
+    metadata = {"SensorBlackLevels": [3808, 3808, 3808, 3809]}
+    assert optical_black_pedestal(metadata, 12) == 238.0
+    # an ordinary static four-channel tuning value carries no marker
+    assert (
+        optical_black_pedestal({"SensorBlackLevels": [3840, 3840, 3840, 3840]}, 12)
+        is None
+    )
+    assert optical_black_pedestal({}, 12) is None
+    assert optical_black_pedestal({"SensorBlackLevels": [3808, 3808, 3808]}, 12) is None
+    assert (
+        optical_black_pedestal(
+            {"SensorBlackLevels": [float("nan")] * 3 + [float("nan")]}, 12
+        )
+        is None
+    )
+    assert optical_black_pedestal({"SensorBlackLevels": [0, 0, 0, 1]}, 12) is None
+
+
+@pytest.mark.unit
+def test_optical_black_travels_through_sample_collection():
+    profile = get_camera_profile("imx462")
+    raw = np.full((256, 256), 300, dtype=np.uint16)
+    sample = collect_radiometer_sample(
+        raw, profile, 0.5, sequence=1, captured_at=1.0, optical_black_pedestal=241.5
+    )
+    assert sample["optical_black_pedestal"] == 241.5
+    without = collect_radiometer_sample(raw, profile, 0.5, sequence=2, captured_at=1.0)
+    assert "optical_black_pedestal" not in without
+    nan_ob = collect_radiometer_sample(
+        raw,
+        profile,
+        0.5,
+        sequence=3,
+        captured_at=1.0,
+        optical_black_pedestal=float("nan"),
+    )
+    assert "optical_black_pedestal" not in nan_ob
+
+
+@pytest.mark.unit
+def test_per_frame_optical_black_is_complete_pedestal():
+    profile = get_camera_profile("imx462")
+    base = {
+        "captured_at": 1.0,
+        "pixels_per_side": 490,
+        "method": "test",
+    }
+    short, short_details = radiometric_sqm(
+        {
+            **base,
+            "sequence": 1,
+            "exposure_sec": 0.25,
+            "background_per_pixel": 250.0,
+            "optical_black_pedestal": 240.0,
+        },
+        profile,
+    )
+    long, long_details = radiometric_sqm(
+        {
+            **base,
+            "sequence": 2,
+            "exposure_sec": 0.50,
+            "background_per_pixel": 262.0,
+            "optical_black_pedestal": 242.0,
+        },
+        profile,
+    )
+    assert short == pytest.approx(long)
+    assert short_details["pedestal"] == 240.0
+    assert long_details["pedestal"] == 242.0
+    assert short_details["pedestal_source"] == "optical_black"
+
+
+@pytest.mark.unit
+def test_optical_black_wins_over_calibrated_pedestal():
+    profile = get_camera_profile("imx462")
+    sample = {
+        "sequence": 1,
+        "captured_at": 1.0,
+        "exposure_sec": 0.5,
+        "background_per_pixel": 260.0,
+        "pixels_per_side": 490,
+        "method": "test",
+        "optical_black_pedestal": 241.0,
+    }
+    value, details = radiometric_sqm(sample, profile, pedestal=235.0)
+    assert details["pedestal"] == 241.0
+    assert details["pedestal_source"] == "optical_black"
+    assert value is not None
+
+
+@pytest.mark.unit
+def test_missing_optical_black_keeps_calibrated_then_profile_pedestal():
+    profile = get_camera_profile("imx462")
+    sample = {
+        "sequence": 1,
+        "captured_at": 1.0,
+        "exposure_sec": 0.5,
+        "background_per_pixel": 260.0,
+        "pixels_per_side": 490,
+        "method": "test",
+    }
+    _, calibrated = radiometric_sqm(sample, profile, pedestal=239.0)
+    assert calibrated["pedestal"] == 239.0
+    assert calibrated["pedestal_source"] == "calibrated"
+    _, fallback = radiometric_sqm(sample, profile)
+    assert fallback["pedestal"] == profile.bias_offset
+    assert fallback["pedestal_source"] == "profile"
+
+
+@pytest.mark.unit
+def test_unresolved_background_with_optical_black_returns_no_value():
+    profile = get_camera_profile("imx462")
+    sample = {
+        "sequence": 1,
+        "captured_at": 1.0,
+        "exposure_sec": 0.5,
+        "background_per_pixel": 241.5,
+        "pixels_per_side": 490,
+        "method": "test",
+        "optical_black_pedestal": 241.0,
+    }
+    value, details = radiometric_sqm(sample, profile)
+    assert value is None
+    assert details["failure_reason"] == "background_not_resolved_above_pedestal"

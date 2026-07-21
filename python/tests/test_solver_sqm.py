@@ -56,6 +56,22 @@ class TestScaleSolutionCentroids:
 
 
 @pytest.mark.unit
+class TestScaledPhotometryRadii:
+    def test_imx462_green_scale_near_identity(self):
+        # 490px green vs 512 solve image: the tuned radii survive rounding
+        # (outer annulus shrinks by 1px, statistically negligible).
+        assert solver._scaled_photometry_radii(490 / 512) == (5, 10, 17)
+
+    def test_imx296_mono_full_res(self):
+        # 1088px mono photometry: every radius follows the 2.125x pixel pitch.
+        assert solver._scaled_photometry_radii(1088 / 512) == (11, 21, 38)
+
+    def test_geometry_stays_ordered_at_tiny_scale(self):
+        aperture, inner, outer = solver._scaled_photometry_radii(0.1)
+        assert 1 <= aperture < inner < outer
+
+
+@pytest.mark.unit
 class TestUpdateSqmWiring:
     """update_sqm threads the pedestal override and cloud/dew guard inputs."""
 
@@ -118,7 +134,46 @@ class TestUpdateSqmWiring:
         # Feeding lives in the radiometric path; the diagnostic only consumes.
         black_level.add_sample.assert_not_called()
 
-    def test_no_override_when_calibrated(self, monkeypatch):
+    def test_passes_scaled_photometry_radii(self, monkeypatch):
+        shared_state, calc, black_level, cloud, solution = self._harness(monkeypatch)
+        solver.update_sqm(
+            shared_state=shared_state,
+            sqm_calculator=calc,
+            centroids=[[10.0, 10.0]],
+            solution=solution,
+            exposure_sec=0.5,
+            altitude_deg=None,
+            cloud_estimator=cloud,
+            black_level_tracker=black_level,
+        )
+        # Harness photometry image is 300px -> scale 300/512.
+        kwargs = calc.calculate.call_args.kwargs
+        expected = solver._scaled_photometry_radii(300 / 512)
+        assert (
+            kwargs["aperture_radius"],
+            kwargs["annulus_inner_radius"],
+            kwargs["annulus_outer_radius"],
+        ) == expected
+
+    def test_wing_estimator_gets_photometry_scale(self, monkeypatch):
+        from PiFinder.sqm.wings import WingEstimator
+
+        shared_state, calc, black_level, cloud, solution = self._harness(monkeypatch)
+        wing = WingEstimator()
+        solver.update_sqm(
+            shared_state=shared_state,
+            sqm_calculator=calc,
+            centroids=[[10.0, 10.0]],
+            solution=solution,
+            exposure_sec=0.5,
+            altitude_deg=None,
+            wing_estimator=wing,
+            cloud_estimator=cloud,
+            black_level_tracker=black_level,
+        )
+        assert wing.aperture_radius == max(1, round(5 * 300 / 512))
+
+    def test_calibrated_override_is_tracked_bias_plus_wizard_dark(self, monkeypatch):
         shared_state, calc, black_level, cloud, solution = self._harness(
             monkeypatch, calibrated=True
         )
@@ -132,7 +187,29 @@ class TestUpdateSqmWiring:
             cloud_estimator=cloud,
             black_level_tracker=black_level,
         )
-        # Wizard-measured constants are authoritative: no tracker override.
+        # Tracked in-session bias wins over the wizard's stored bias; the
+        # wizard's dark-current term is added on top.
+        expected = 237.5 + calc.profile.dark_current_rate * 0.5
+        assert calc.calculate.call_args.kwargs["pedestal_override"] == pytest.approx(
+            expected
+        )
+
+    def test_no_override_when_tracker_unconditioned(self, monkeypatch):
+        shared_state, calc, black_level, cloud, solution = self._harness(
+            monkeypatch, calibrated=True
+        )
+        black_level.pedestal.return_value = None
+        solver.update_sqm(
+            shared_state=shared_state,
+            sqm_calculator=calc,
+            centroids=[[10.0, 10.0]],
+            solution=solution,
+            exposure_sec=0.5,
+            altitude_deg=None,
+            cloud_estimator=cloud,
+            black_level_tracker=black_level,
+        )
+        # No confident fit: the calculator's own static composition applies.
         assert calc.calculate.call_args.kwargs["pedestal_override"] is None
 
     def _radiometer_harness(self, calibrated=False, pedestal=237.5, cloudy=False):
@@ -194,7 +271,7 @@ class TestUpdateSqmWiring:
         )
         assert black_level.add_sample.call_args.kwargs["stable"] is False
 
-    def test_radiometer_ignores_tracker_when_calibrated(self):
+    def test_radiometer_calibrated_uses_tracked_bias_plus_wizard_dark(self):
         shared_state, calc, black_level, sample = self._radiometer_harness(
             calibrated=True
         )
@@ -207,10 +284,32 @@ class TestUpdateSqmWiring:
             now=1001.0,
             black_level_tracker=black_level,
         )
-        # Wizard bias + dark current is authoritative over the tracker.
+        # Tracked in-session bias wins for the bias part; the wizard's
+        # dark-current rate is added on top.
         details = shared_state.set_sqm_details.call_args[0][0]
-        assert details["pedestal"] == calc.profile.bias_offset + (
-            calc.profile.dark_current_rate * 0.5
+        assert details["pedestal"] == pytest.approx(
+            237.5 + calc.profile.dark_current_rate * 0.5
+        )
+        assert details["black_level_tracked"] is True
+
+    def test_radiometer_calibrated_falls_back_when_unconditioned(self):
+        shared_state, calc, black_level, sample = self._radiometer_harness(
+            calibrated=True
+        )
+        black_level.pedestal.return_value = None
+        accumulator = solver.RadiometerAccumulator()
+        solver.update_radiometric_sqm(
+            shared_state,
+            calc,
+            accumulator,
+            sample,
+            now=1001.0,
+            black_level_tracker=black_level,
+        )
+        # No confident fit: static wizard/profile bias + dark current.
+        details = shared_state.set_sqm_details.call_args[0][0]
+        assert details["pedestal"] == pytest.approx(
+            calc.profile.bias_offset + calc.profile.dark_current_rate * 0.5
         )
         assert details["black_level_tracked"] is False
 
@@ -235,3 +334,36 @@ class TestUpdateSqmWiring:
         )
         # Same camera frame seen twice by the loop: fed exactly once.
         assert black_level.add_sample.call_count == 1
+
+    def test_imx462_publishes_frame_paired_colour_and_tracker_diagnostics(self):
+        shared_state, calc, black_level, sample = self._radiometer_harness()
+        sample.update(
+            {
+                "background_per_pixel": 280.0,
+                "background_red": 275.0,
+                "background_blue": 265.0,
+            }
+        )
+        accumulator = solver.RadiometerAccumulator()
+        airglow = solver.AirglowTracker("imx462")
+        assert solver.update_radiometric_sqm(
+            shared_state,
+            calc,
+            accumulator,
+            sample,
+            now=1001.0,
+            black_level_tracker=black_level,
+            airglow_tracker=airglow,
+        )
+        details = shared_state.set_sqm_details.call_args[0][0]
+        diagnostic = details["airglow_diagnostic"]
+        assert diagnostic["valid"] is True
+        assert diagnostic["pedestal"] == 237.5
+        assert diagnostic["pedestal_source"] == "tracked_or_calibrated"
+        assert details["pedestal"] == 237.5
+        assert details["skyglow_floor"] == diagnostic["correction_adu_per_sec"]
+        assert details["radiometric_zero_point"] == 15.19
+        assert details["window_airglow"]["samples"][0] == diagnostic
+        stored = details["window_radiometer"]["samples"][0]
+        assert stored["paired_pedestal"] == 237.5
+        assert stored["paired_radiometric_zero_point"] == 15.19

@@ -118,10 +118,21 @@ signal, not an RMS noise term. Factory profile rates are unverified engineering
 estimates and remain diagnostic until optional per-device calibration measures
 the rate.
 
+**Optical black** (OB):
+Shielded sensor rows carrying no sky light — the sensor's own signal reference.
+On IMX290/IMX462 the ten transmitted OB rows are surfaced per frame and their
+central-90% trimmed mean is published as `optical_black_pedestal` in native
+ADU. A valid OB value is the *complete* per-frame pedestal (bias plus that
+frame's accumulated dark signal); it is measured, not modelled, so no
+dark-current rate is applied on top of it. Do not call it "black level" (an
+overloaded libcamera/tuning term).
+
 **Pedestal**:
-The mean detector signal subtracted from sky background. The validated
-zero-touch path uses `bias_offset`; an optional measured calibration uses
-`bias_offset + mean_dark_signal`. An explicit total `pedestal_override` wins.
+The mean detector signal subtracted from sky background. Precedence: a valid
+same-frame `optical_black_pedestal` (IMX290/462) wins; else a user-calibrated
+`bias_offset + mean_dark_signal`; else the zero-touch profile `bias_offset`. An
+explicit total `pedestal_override` wins over all. `pedestal_source` in the
+details records which applied.
 
 **Read noise**:
 Zero-mean RMS variation in raw ADU. Diagnostic uncertainty; never subtracted
