@@ -495,8 +495,9 @@ def generate_custom_object_name(ui_module: UIModule) -> str:
 
 
 def telemetry_record_toggle(ui_module: UIModule) -> None:
-    """Toggle telemetry recording on/off via integrator command queue."""
-    enabled = ui_module.config_object.get_option("telemetry_record")
+    """Flip telemetry recording on/off in place (inline menu toggle)."""
+    enabled = not ui_module.config_object.get_option("telemetry_record")
+    ui_module.config_object.set_option("telemetry_record", enabled)
     if "integrator" in ui_module.command_queues:
         if enabled:
             ui_module.command_queues["integrator"].put(("telemetry_record_on", None))
@@ -506,6 +507,21 @@ def telemetry_record_toggle(ui_module: UIModule) -> None:
             ui_module.message("Telemetry\nStopped", 2)
     else:
         ui_module.message("No integrator\nqueue", 2)
+
+
+def telemetry_record_suffix(ui_module: UIModule) -> str:
+    """Return ' On'/' Off' for the inline Record toggle's current state."""
+    return " On" if ui_module.config_object.get_option("telemetry_record") else " Off"
+
+
+def telemetry_section_toggle(ui_module: UIModule) -> None:
+    """Apply a telemetry section on/off change to any live recording.
+
+    The section flag is already persisted to config by the menu; nudge the
+    integrator's recorder to re-read it so the change takes effect mid-session.
+    """
+    if "integrator" in ui_module.command_queues:
+        ui_module.command_queues["integrator"].put(("telemetry_update_sections", None))
 
 
 def update_gpsd_baud_rate(ui_module: UIModule) -> None:
