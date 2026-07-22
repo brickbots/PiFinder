@@ -59,6 +59,16 @@ def paired_zero_point(camera_type: str) -> Optional[float]:
     return cam["paired_zero_point"] if cam else None
 
 
+def calibration(camera_type: str) -> Optional[dict]:
+    """Stored airglow calibration constants for a camera (a copy), or None.
+
+    Snapshotting these into a telemetry header keeps a session recomputable if
+    the constants change in code later.
+    """
+    cam = _CAMERA.get(camera_type)
+    return dict(cam) if cam is not None else None
+
+
 def floor_from_sample(
     sample: dict,
     camera_type: str,

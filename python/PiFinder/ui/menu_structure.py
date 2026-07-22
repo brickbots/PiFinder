@@ -1249,35 +1249,40 @@ pifinder_menu = {
                                     "items": [
                                         {
                                             "name": _("Record"),
+                                            "callback": callbacks.telemetry_record_toggle,
+                                            "name_suffix_callback": callbacks.telemetry_record_suffix,
+                                        },
+                                        {
+                                            "name": _("Sections"),
                                             "class": UITextMenu,
-                                            "select": "single",
-                                            "config_option": "telemetry_record",
-                                            "post_callback": callbacks.telemetry_record_toggle,
+                                            "select": "multi",
+                                            "config_option": "telemetry_sections",
+                                            "post_callback": callbacks.telemetry_section_toggle,
                                             "items": [
+                                                {"name": _("IMU"), "value": "imu"},
+                                                {"name": _("SQM"), "value": "sqm"},
+                                                {"name": _("Solves"), "value": "solve"},
                                                 {
-                                                    "name": _("Off"),
-                                                    "value": False,
+                                                    "name": _("Targets"),
+                                                    "value": "target",
                                                 },
                                                 {
-                                                    "name": _("On"),
-                                                    "value": True,
+                                                    "name": _("Images"),
+                                                    "value": "images",
                                                 },
                                             ],
                                         },
                                         {
-                                            "name": _("Images"),
+                                            "name": _("Max Size"),
                                             "class": UITextMenu,
                                             "select": "single",
-                                            "config_option": "telemetry_images",
+                                            "config_option": "telemetry_max_session_mb",
                                             "items": [
-                                                {
-                                                    "name": _("Off"),
-                                                    "value": False,
-                                                },
-                                                {
-                                                    "name": _("On"),
-                                                    "value": True,
-                                                },
+                                                {"name": _("250 MB"), "value": 250},
+                                                {"name": _("500 MB"), "value": 500},
+                                                {"name": _("1 GB"), "value": 1024},
+                                                {"name": _("2 GB"), "value": 2048},
+                                                {"name": _("Unlimited"), "value": 0},
                                             ],
                                         },
                                         {

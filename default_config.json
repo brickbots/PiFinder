@@ -182,6 +182,7 @@
     "imu_threshold_scale": 1,
     "dev_mode": false,
     "telemetry_record": false,
-    "telemetry_images": false,
-    "telemetry_raw_imu": false
+    "telemetry_raw_imu": false,
+    "telemetry_sections": ["imu", "sqm", "solve", "target"],
+    "telemetry_max_session_mb": 1024
 }
