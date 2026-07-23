@@ -86,17 +86,24 @@ _Avoid_: matching objects, visible objects.
 The single `CompositeObject` currently being viewed in `UIObjectDetails` (info + push-to guidance). Not a property of a catalog — it's a UI cursor.
 _Avoid_: current object, active object, target object.
 
+**Log entry**:
+A row in the observations DB log table (`obs_objects`) — always recorded per catalog listing (`catalog`, `sequence`), exactly as the user logged it. Use this term for table rows / DB queries.
+
 **Logged**:
-Technical: the object has a row in the observations DB log table. The `CompositeObject.logged` bool is populated at build time from `ObservationsDatabase.check_logged(obj)`. Use this term when talking about table membership / DB queries / the field itself.
+Technical: the underlying sky object has at least one log entry under any of its listings — derived by `object_id` for DB-backed objects, per (`catalog`, `sequence`) for virtual objects (their negative ids are session-minted, not stable across restarts). `CompositeObject.logged` caches this verdict: populated at build time from `ObservationsDatabase.check_logged(obj)` and kept consistent across sibling composites in-session by `Catalogs.mark_logged`. So logging M 31 marks NGC 224 logged too. Use this term for the field and the predicate.
 _Avoid_: observed (that's the user-facing twin — see below).
 
 **Observed**:
 User-facing: "I've seen this object." Surfaces as the `CatalogFilter.observed` parameter (`"Yes" | "No" | "Any"`) and in UI copy. The predicate test reads `obj.logged`, so the two terms refer to the same underlying state — they're deliberately split into a technical term (`logged`) and a colloquial one (`observed`).
 _Avoid_: logged (when speaking to users or in UI copy), seen.
 
-**Dirty time** (`dirty_time` / `last_filtered_time`):
-Pair of epoch timestamps that drive the per-object filter cache. An object is re-evaluated only when `obj.last_filtered_time < filter.dirty_time`.
+**Dirty time** (`dirty_time` / `last_filtered_time` / `last_filtered`):
+Epoch timestamps driving the two filter cache layers. `mark_dirty()` advances `filter.dirty_time`; an object's verdict is re-evaluated only when `obj.last_filtered_time < filter.dirty_time` (per-object layer), and a whole catalog skips its scan while `catalog.last_filtered > filter.dirty_time` (per-catalog layer). Beyond the parameter setters, dirty time also advances when an object is logged with an observed criterion active (`Catalogs.mark_logged`) and when staleness is promoted (see **Stale**).
 _Avoid_: invalidation, cache key.
+
+**Stale** (filter staleness):
+Verdicts outdated by time passing rather than by a parameter change — only possible for time-sensitive criteria, today just altitude (the sky rotates ≤ 15°/hour). `CatalogFilter.is_stale()` reports it: altitude criterion active, alt/az available, and either verdicts older than `ALTITUDE_STALE_SECONDS` (600 s ≈ 2.5° of drift) or an alt/az fix arrived after verdicts were computed without one. Staleness never invalidates by itself; `Catalogs.filter_catalogs()` promotes it to a dirty bump. See [ADR 0020](../../adr/0020-filter-freshness-staleness-promotion.md).
+_Avoid_: dirty (that's a parameter change), expired.
 
 **Empty-list rejection**:
 For `object_types` and `constellations`, an empty list rejects every object; only `None` (or `"Any"` for `observed`) means "don't filter on this dimension." Flagged here because it surprises callers.
@@ -217,9 +224,9 @@ _Avoid_: readonly list, immutable view.
 
 **`shared_state`** is referenced by Catalog but **owned by Positioning**. See [Positioning](../positioning/CONTEXT.md).
 
-**`logged`** on `CompositeObject` is set at build time from `ObservationsDatabase.check_logged(obj)`; the observations DB is read-only from the Catalog's perspective.
+**`logged`** on `CompositeObject` is set at build time from `ObservationsDatabase.check_logged(obj)`, which derives observed status per sky object (see **Logged**); the observations DB is read-only from the Catalog's perspective.
 
-**`altaz_ready` / `FastAltAz`** come from the Positioning context — Catalog uses them only to gate the altitude filter.
+**`altaz_ready` / `FastAltAz`** come from the Positioning context — Catalog uses them only to gate the altitude filter and to detect its staleness (see **Stale**).
 
 ## Flagged ambiguities
 

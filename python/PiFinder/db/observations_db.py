@@ -1,14 +1,18 @@
 import json
+import logging
 from pathlib import Path
-from typing import Tuple
+from typing import List, Optional, Tuple
 from sqlite3 import Connection, Cursor
 from PiFinder.db.db import Database
 import PiFinder.utils as utils
 from PiFinder.composite_object import CompositeObject
 
+logger = logging.getLogger("Observations_DB")
+
 
 class ObservationsDatabase(Database):
     def __init__(self, db_path: Path = utils.observations_db):
+        self._objects_db = None
         new_db = False
         if not db_path.exists():
             new_db = True
@@ -18,6 +22,52 @@ class ObservationsDatabase(Database):
             self.create_tables()
 
         self.load_observed_objects_cache()
+
+    def _get_objects_db(self):
+        """
+        The catalog objects DB — a separate sqlite file from this one.
+        Observed status is a property of the underlying sky object, so
+        listing keys (catalog, sequence) are mapped to object ids through
+        it. Opened lazily and kept for the life of this instance.
+        """
+        if self._objects_db is None:
+            from PiFinder.db.objects_db import ObjectsDatabase
+
+            self._objects_db = ObjectsDatabase()
+        return self._objects_db
+
+    def _resolve_object_id(self, catalog: str, sequence: int) -> Optional[int]:
+        """
+        Maps a listing to its objects-table id; None when the listing
+        doesn't resolve (virtual objects like planets, or log entries from
+        catalogs no longer installed).
+        """
+        try:
+            row = self._get_objects_db().get_catalog_object_by_sequence(
+                catalog, sequence
+            )
+        except Exception:
+            logger.warning(
+                "Objects DB unavailable; observed status stays per listing",
+                exc_info=True,
+            )
+            return None
+        return None if row is None else row["object_id"]
+
+    def _resolve_listings(self, object_id: int) -> List[Tuple[str, int]]:
+        """
+        Maps an objects-table id to all of its catalog listings (the
+        sibling designations of one sky object, e.g. M 31 / NGC 224).
+        """
+        try:
+            rows = self._get_objects_db().get_catalog_objects_by_object_id(object_id)
+        except Exception:
+            logger.warning(
+                "Objects DB unavailable; log entries stay per listing",
+                exc_info=True,
+            )
+            return []
+        return [(row["catalog_code"], row["sequence"]) for row in rows]
 
     def create_tables(self, force_delete: bool = False):
         """
@@ -121,8 +171,11 @@ class ObservationsDatabase(Database):
         )
         self.conn.commit()
 
-        # Update cache so filters reflect the new observation immediately
+        # Update caches so filters reflect the new observation immediately
         self.observed_objects_cache.add((catalog, sequence))
+        object_id = self._resolve_object_id(catalog, sequence)
+        if object_id is not None and object_id >= 0:
+            self.observed_object_ids.add(object_id)
 
         observation_id = self.cursor.execute(
             "select last_insert_rowid() as id"
@@ -143,15 +196,33 @@ class ObservationsDatabase(Database):
 
     def load_observed_objects_cache(self) -> None:
         """
-        (re)Loads the logged object cache
+        (re)Loads the logged object cache.
+
+        Log entries are stored per listing (catalog, sequence), but
+        observed status is a property of the underlying sky object, so
+        each logged listing is also mapped to its object id — logging
+        M 31 marks NGC 224 observed too, retroactively for existing log
+        entries. Listings that don't resolve to an object id (virtual
+        objects, removed catalogs) stay listing-keyed only.
         """
         self.observed_objects_cache: set[tuple[str, int]] = {
             (x["catalog"], x["sequence"]) for x in self.get_observed_objects()
         }
+        self.observed_object_ids: set[int] = set()
+        for catalog, sequence in self.observed_objects_cache:
+            object_id = self._resolve_object_id(catalog, sequence)
+            if object_id is not None and object_id >= 0:
+                self.observed_object_ids.add(object_id)
 
     def check_logged(self, obj_record: CompositeObject):
         """
-        Returns true/false if this object has been observed
+        Returns true/false if this object has been observed.
+
+        A DB-backed object (object_id >= 0) tests as logged when any of
+        its listings has a log entry. Virtual objects key on their own
+        (catalog, sequence) listing only: their negative object_ids are
+        minted per session, so id-keyed status would cross-mark
+        unrelated objects or vanish on restart.
         """
         # safety check
         if self.observed_objects_cache is None:
@@ -163,19 +234,32 @@ class ObservationsDatabase(Database):
         ) in self.observed_objects_cache:
             return True
 
-        return False
+        object_id = obj_record.object_id
+        return (
+            object_id is not None
+            and object_id >= 0
+            and object_id in self.observed_object_ids
+        )
 
     def get_logs_for_object(self, obj_record: CompositeObject):
         """
-        Returns a list of observations for a particular object
+        Returns a list of log entries for the underlying sky object: for
+        a DB-backed object, entries recorded under any of its listings
+        (M 31's logs show on NGC 224's details too); virtual objects stay
+        per listing.
         """
+        listings: List[Tuple[str, int]] = []
+        object_id = obj_record.object_id
+        if object_id is not None and object_id >= 0:
+            listings = self._resolve_listings(object_id)
+        home = (obj_record.catalog_code, obj_record.sequence)
+        if home not in listings:
+            listings.append(home)
+
+        predicate = " or ".join(["(catalog = ? and sequence = ?)"] * len(listings))
+        params = [value for listing in listings for value in listing]
         logs = self.cursor.execute(
-            """
-                select * from obs_objects
-                where catalog = :catalog
-                and sequence = :sequence
-            """,
-            {"catalog": obj_record.catalog_code, "sequence": obj_record.sequence},
+            f"select * from obs_objects where {predicate}", params
         ).fetchall()
 
         return logs
