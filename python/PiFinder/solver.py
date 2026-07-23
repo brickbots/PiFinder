@@ -31,6 +31,7 @@ from PiFinder.sqm import SQM as SQMCalculator
 from PiFinder.sqm.wings import WingEstimator
 from PiFinder.sqm.clouds import CloudEstimator
 from PiFinder.sqm.black_level import BlackLevelTracker
+from PiFinder.sqm.airglow import AirglowTracker, sample_diagnostics
 from PiFinder.sqm.radiometer import (
     RadiometerAccumulator,
     extract_photometry_image,
@@ -59,6 +60,12 @@ SQM_CALCULATION_INTERVAL_SECONDS = 1.0
 # need not track the five-second primary radiometer publication cadence.
 SQM_STELLAR_DIAGNOSTIC_INTERVAL_SECONDS = 10.0
 
+# Disabled to isolate the per-frame optical-black pedestal during OB
+# rollout/validation. When False, the radiometer pedestal is the same-frame OB
+# value when present, otherwise the static profile bias_offset — no tracker in
+# between. Re-enable (or remove) once OB is field-proven.
+SQM_BLACK_LEVEL_TRACKER_ENABLED = False
+
 
 def create_sqm_calculator(shared_state):
     """Create a new SQM calculator instance with current calibration.
@@ -79,6 +86,24 @@ def _extract_raw_photometry_image(raw, profile):
     dtype problem so the caller can skip the SQM cycle.
     """
     return extract_photometry_image(raw, profile)
+
+
+def _scaled_photometry_radii(
+    scale, aperture_radius=5, inner_radius=10, outer_radius=18
+):
+    """Convert photometry radii from solve-image (512px) pixels to the
+    photometry image's own pitch.
+
+    The radii were tuned on the ~1.0-scale Bayer-green images (imx462: 490px).
+    On the full-res mono imx296 (scale 2.125) the unscaled r=5 aperture holds
+    only ~85% of a star's flux and the annuli land on the PSF itself, biasing
+    every local sky estimate. The floors keep the geometry ordered
+    (aperture < inner < outer) at any scale.
+    """
+    aperture = max(1, round(aperture_radius * scale))
+    inner = max(aperture + 1, round(inner_radius * scale))
+    outer = max(inner + 2, round(outer_radius * scale))
+    return aperture, inner, outer
 
 
 def _scale_solution_centroids(solution, scale):
@@ -139,12 +164,49 @@ def update_radiometric_sqm(
     calculation_interval_seconds=1.0,
     now=None,
     black_level_tracker=None,
+    airglow_tracker=None,
 ):
     """Collect every frame and publish a solve-independent value at cadence."""
     from datetime import datetime
 
-    fresh_sample = accumulator.add(sample)
     current_time = time.time() if now is None else float(now)
+
+    noise = sqm_calculator.noise_floor_estimator
+
+    def tracked_or_static_bias():
+        if black_level_tracker is not None:
+            tracked = black_level_tracker.pedestal()
+            if tracked is not None:
+                return tracked
+        return sqm_calculator.profile.bias_offset
+
+    def pedestal_for_exposure(exposure_sec):
+        bias = tracked_or_static_bias()
+        if not noise.dark_current_calibrated:
+            return bias
+        return bias + sqm_calculator.profile.dark_current_rate * exposure_sec
+
+    if sample is not None:
+        sample = dict(sample)
+    if airglow_tracker is not None and sample is not None:
+        optical_black = sample.get("optical_black_pedestal")
+        if optical_black is not None and np.isfinite(optical_black):
+            colour_pedestal = float(optical_black)
+            colour_pedestal_source = "optical_black"
+        else:
+            colour_pedestal = pedestal_for_exposure(float(sample["exposure_sec"]))
+            colour_pedestal_source = "tracked_or_calibrated"
+        diagnostic = sample_diagnostics(
+            sample, airglow_tracker.camera_type, colour_pedestal
+        )
+        diagnostic["pedestal_source"] = colour_pedestal_source
+        sample["airglow_diagnostic"] = diagnostic
+        if diagnostic["valid"]:
+            sample["paired_pedestal"] = colour_pedestal
+            sample["spectral_floor"] = diagnostic["correction_adu_per_sec"]
+            sample["paired_radiometric_zero_point"] = diagnostic["paired_zero_point"]
+
+    fresh_sample = accumulator.add(sample)
 
     # Every fresh radiometer sample carries (exposure, background) — feed the
     # black-level tracker here rather than only from the 10-second stellar
@@ -159,6 +221,10 @@ def update_radiometric_sqm(
             float(sample["background_per_pixel"]),
             stable=not cloudy_now,
         )
+    if airglow_tracker is not None and fresh_sample:
+        airglow_tracker.add_sample(
+            sample, float(sample["airglow_diagnostic"]["pedestal"])
+        )
 
     current_sqm = shared_state.sqm()
     if current_sqm.last_update is not None:
@@ -169,24 +235,6 @@ def update_radiometric_sqm(
         except (ValueError, AttributeError):
             logger.warning("Failed to parse SQM timestamp, recalculating")
 
-    noise = sqm_calculator.noise_floor_estimator
-
-    def pedestal_for_exposure(exposure_sec):
-        if not noise.dark_current_calibrated:
-            # Zero-touch path: the tracked black level supersedes the static
-            # profile constant (the real pedestal wanders ±2 ADU night to
-            # night — negligible over a city background, 0.2–0.4 mag at a
-            # dark site). A wizard calibration remains authoritative.
-            if black_level_tracker is not None:
-                tracked = black_level_tracker.pedestal()
-                if tracked is not None:
-                    return tracked
-            return sqm_calculator.profile.bias_offset
-        return (
-            sqm_calculator.profile.bias_offset
-            + sqm_calculator.profile.dark_current_rate * exposure_sec
-        )
-
     sqm_value, details = accumulator.estimate(
         sqm_calculator.profile,
         current_time,
@@ -194,6 +242,11 @@ def update_radiometric_sqm(
     )
     if sqm_value is None:
         previous = shared_state.sqm_details()
+        details["window_radiometer"] = accumulator.dump()
+        if black_level_tracker is not None:
+            details["window_black_level"] = black_level_tracker.dump()
+        if airglow_tracker is not None:
+            details["window_airglow"] = airglow_tracker.dump()
         shared_state.set_sqm_details({**previous, **details})
         return False
 
@@ -213,12 +266,14 @@ def update_radiometric_sqm(
 
     if black_level_tracker is not None:
         tracked, tracked_stderr, _ = black_level_tracker.state()
-        details["black_level_tracked"] = (
-            tracked is not None and not noise.dark_current_calibrated
-        )
+        # pedestal() applies the lease; the flag must reflect what the
+        # publication actually used, not the raw last fit.
+        details["black_level_tracked"] = black_level_tracker.pedestal() is not None
         details["black_level_pedestal"] = tracked
         details["black_level_stderr"] = tracked_stderr
         details["window_black_level"] = black_level_tracker.dump()
+    if airglow_tracker is not None:
+        details["window_airglow"] = airglow_tracker.dump()
     details["window_radiometer"] = accumulator.dump()
     details["measurement_role"] = "primary_radiometer"
     shared_state.set_sqm_details({**previous, **details})
@@ -260,9 +315,10 @@ def update_sqm(
         exposure_sec: Exposure time in seconds
         altitude_deg: Altitude in degrees for extinction correction
         calculation_interval_seconds: Minimum time between calculations (default: 5.0)
-        aperture_radius: Aperture radius for photometry (default: 5)
-        annulus_inner_radius: Inner annulus radius (default: 10)
-        annulus_outer_radius: Outer annulus radius (default: 18)
+        aperture_radius: Aperture radius for photometry, in solve-image
+            (512px) pixels; rescaled to the photometry image (default: 5)
+        annulus_inner_radius: Inner annulus radius, solve-image pixels (default: 10)
+        annulus_outer_radius: Outer annulus radius, solve-image pixels (default: 18)
         wing_estimator: WingEstimator that supplies the rolling aperture
             (wing-loss) mzero correction and is fed each frame's photometry
             image + matched centroids.
@@ -312,6 +368,11 @@ def update_sqm(
         logger.debug("Raw frame unavailable/invalid for SQM; skipping this cycle")
         return False
     scale = green.shape[0] / 512.0
+    aperture_radius, annulus_inner_radius, annulus_outer_radius = (
+        _scaled_photometry_radii(
+            scale, aperture_radius, annulus_inner_radius, annulus_outer_radius
+        )
+    )
     calc_image = green
     calc_solution = _scale_solution_centroids(solution, scale)
     # All detected centroids, scaled to the photometry image: sqm masks them
@@ -342,18 +403,26 @@ def update_sqm(
 
     mzero_correction = 0.0
     if wing_estimator is not None:
+        # Match the estimator's patch geometry to this photometry image
+        # (no-op after the first frame; the scale is a per-camera constant).
+        wing_estimator.set_scale(scale)
         mzero_correction = wing_estimator.correction()
 
-    # Track the wandering sensor pedestal from the sky-vs-exposure intercept
-    # (see sqm.black_level). Only in the zero-touch path: when the user has run
-    # the calibration wizard, its measured bias + dark-current constants are
-    # authoritative and the tracker (which fits bias only) must not override.
+    # Pedestal from the sky-vs-exposure intercept (see sqm.black_level): the
+    # in-session tracked bias supersedes any static constant, wizard-measured
+    # or profile — the OB clamp level moves with sensor state, so a stored
+    # value goes stale. The wizard's dark-current rate remains authoritative
+    # (the intercept fit cannot separate dark from sky) and is added on top,
+    # matching the calculator's own bias + dark composition.
     pedestal_override = None
-    if (
-        black_level_tracker is not None
-        and not sqm_calculator.noise_floor_estimator.dark_current_calibrated
-    ):
-        pedestal_override = black_level_tracker.pedestal()
+    if black_level_tracker is not None:
+        tracked = black_level_tracker.pedestal()
+        if tracked is not None:
+            pedestal_override = tracked
+            if sqm_calculator.noise_floor_estimator.dark_current_calibrated:
+                pedestal_override += (
+                    sqm_calculator.profile.dark_current_rate * exposure_sec
+                )
 
     try:
         # Calculate SQM from image
@@ -798,6 +867,7 @@ def solver(
     # camera type is not yet known here.
     sqm_cloud_estimator = None
     sqm_black_level = None
+    sqm_airglow = None
     sqm_radiometer = RadiometerAccumulator()
     last_stellar_diagnostic = 0.0
 
@@ -842,6 +912,7 @@ def solver(
                         # here so stale seeds/history cannot carry over.
                         sqm_cloud_estimator = None
                         sqm_black_level = None
+                        sqm_airglow = None
                         sqm_radiometer.reset()
                         last_stellar_diagnostic = 0.0
                     else:
@@ -883,7 +954,15 @@ def solver(
                         clear_zero_point=profile.clear_zero_point,
                         clear_sky_brightness=profile.clear_sky_brightness,
                     )
-                    sqm_black_level = BlackLevelTracker(profile.bias_offset)
+                    sqm_black_level = (
+                        BlackLevelTracker(profile.bias_offset)
+                        if SQM_BLACK_LEVEL_TRACKER_ENABLED
+                        else None
+                    )
+                    camera_type = shared_state.camera_type()
+                    sqm_airglow = (
+                        AirglowTracker(camera_type) if camera_type == "imx462" else None
+                    )
                 if sqm_calculator is not None:
                     update_radiometric_sqm(
                         shared_state,
@@ -892,6 +971,7 @@ def solver(
                         radiometer_sample,
                         calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
                         black_level_tracker=sqm_black_level,
+                        airglow_tracker=sqm_airglow,
                     )
 
                 try:
@@ -959,7 +1039,11 @@ def solver(
                                 clear_zero_point=profile.clear_zero_point,
                                 clear_sky_brightness=profile.clear_sky_brightness,
                             )
-                            sqm_black_level = BlackLevelTracker(profile.bias_offset)
+                            sqm_black_level = (
+                                BlackLevelTracker(profile.bias_offset)
+                                if SQM_BLACK_LEVEL_TRACKER_ENABLED
+                                else None
+                            )
 
                         # Expensive stellar photometry is diagnostic-only in the
                         # radiometer-first path and remains limited to 10 seconds.

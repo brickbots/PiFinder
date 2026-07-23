@@ -29,6 +29,7 @@ from PiFinder.solver import (
     _derotate_centroids,
     _extract_raw_photometry_image,
     _scale_solution_centroids,
+    _scaled_photometry_radii,
 )
 from PiFinder.types.positioning import PointingEstimate, ReloadSqmCalibration
 from PiFinder.ui.base import UIModule
@@ -510,24 +511,54 @@ class UISQMCalibration(UIModule):
         self.command_queues["camera"].put(f"set_exp_transient:{exposure_us}")
 
     def _capture_and_wait(self, exposure_us: int) -> float:
-        """Request one frame and return its identifying exposure-end time."""
+        """Request one frame at ``exposure_us`` and return its exposure-end time.
+
+        Gates on the driver-reported ``actual_exposure_us``: the
+        ``exposure_time`` field echoes the committed setting, so the first
+        frames after an exposure change pass it while still carrying the
+        previous exposure (measured: ``req=1µs actual=999999µs`` for the
+        first three frames of every wizard stage). A delivered frame at the
+        wrong exposure triggers a fresh capture request rather than being
+        accepted into a calibration stack.
+        """
         previous_metadata = self.shared_state.last_image_metadata() or {}
         previous_end = float(previous_metadata.get("exposure_end", 0.0))
         self.command_queues["camera"].put("capture")
 
-        timeout = max(5.0, 3 * exposure_us / 1_000_000.0 + 1.0)
+        # Loose floor: a min-exposure request comes back at the sensor's true
+        # minimum (imx296: 29µs, imx462: 14µs), which must pass.
+        tolerance_us = max(1000, int(exposure_us * 0.05))
+        # Room for a few stale full-length frames before the change lands.
+        timeout = max(8.0, 4 * exposure_us / 1_000_000.0 + 2.0)
         deadline = time.time() + timeout
         while time.time() < deadline:
             metadata = self.shared_state.last_image_metadata() or {}
             exposure_end = float(metadata.get("exposure_end", 0.0))
-            metadata_exposure = int(metadata.get("exposure_time", 0))
-            if (
-                exposure_end > previous_end
-                and abs(metadata_exposure - exposure_us) <= 1000
-            ):
-                return exposure_end
+            if exposure_end > previous_end:
+                actual = metadata.get("actual_exposure_us")
+                delivered = int(actual if actual else metadata.get("exposure_time", 0))
+                if abs(delivered - exposure_us) <= tolerance_us:
+                    return exposure_end
+                # Stale frame from before the exposure change: ask again.
+                previous_end = exposure_end
+                self.command_queues["camera"].put("capture")
             time.sleep(0.05)
         raise TimeoutError(f"Timed out waiting for {exposure_us}µs calibration frame")
+
+    # The optical-black clamp re-settles over the first frames after an
+    # exposure change (measured on the imx296: 56 -> 59 ADU across ~3 frames
+    # at the new exposure); frames in that window measure neither the old nor
+    # the new black level.
+    CLAMP_SETTLE_DISCARD_FRAMES = 3
+
+    def _discard_clamp_settle_frames(self, exposure_us: int) -> None:
+        """Burn frames at a freshly changed exposure until the clamp settles."""
+        for _ in range(self.CLAMP_SETTLE_DISCARD_FRAMES):
+            try:
+                self._capture_and_wait(exposure_us)
+            except TimeoutError as exc:
+                logger.warning("%s", exc)
+                return
 
     def _wait_for_solution_at(self, exposure_end: float) -> PointingEstimate:
         """Return the successful plate solution for an identified frame."""
@@ -552,6 +583,7 @@ class UISQMCalibration(UIModule):
             # First frame: set exposure to minimum (closest to 0)
             self._set_calibration_exposure(1)  # Minimum exposure
             time.sleep(0.2)  # Wait for camera to apply setting
+            self._discard_clamp_settle_frames(1)
             self.bias_frames_raw = []
 
         # Set save flag if debug enabled, then capture
@@ -605,6 +637,9 @@ class UISQMCalibration(UIModule):
         exposure_us = int(exposure_schedule_us[self.current_frame])
         self._set_calibration_exposure(exposure_us)
         time.sleep(0.2)
+        # Every dark step changes the exposure, so the clamp must re-settle
+        # before the step's measurement frame.
+        self._discard_clamp_settle_frames(exposure_us)
 
         # Set save flag if debug enabled, then capture
         if self.save_frames_enabled:
@@ -899,7 +934,14 @@ class UISQMCalibration(UIModule):
                         calc_centroids, solve_rotation, side
                     )
 
+                # Same scale-aware geometry as production SQM: radii are
+                # defined in solve-image (512px) pixels and converted to the
+                # photometry image's pitch.
+                wing_estimator.set_scale(scale)
                 wing_correction = wing_estimator.correction()
+                aperture_radius, annulus_inner_radius, annulus_outer_radius = (
+                    _scaled_photometry_radii(scale)
+                )
 
                 # Returns Tuple[Optional[float], Dict]
                 sqm_value, _details = sqm_calc.calculate(
@@ -908,6 +950,9 @@ class UISQMCalibration(UIModule):
                     image=green,
                     exposure_sec=exposure_sec,
                     altitude_deg=altitude_deg,
+                    aperture_radius=aperture_radius,
+                    annulus_inner_radius=annulus_inner_radius,
+                    annulus_outer_radius=annulus_outer_radius,
                     saturation_threshold=saturation_threshold,
                     image_pixels_per_side=green.shape[0],
                     mzero_correction=wing_correction,

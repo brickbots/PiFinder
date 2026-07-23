@@ -8,7 +8,14 @@ pkgs.callPackage "${nixos-hardware}/raspberry-pi/common/kernel.nix" {
   ]) ++ [
     {
       name = "imx290-optical-black-stream";
-      patch = ../patches/imx290-optical-black-stream.patch;
+      # builtins.path gives the patch its own content-addressed store path.
+      # A bare ../patches/… reference resolves inside the flake source tree,
+      # making the kernel derivation depend on the whole repo hash — every
+      # commit (even Python-only) would rebuild the kernel.
+      patch = builtins.path {
+        path = ../patches/imx290-optical-black-stream.patch;
+        name = "imx290-optical-black-stream.patch";
+      };
     }
   ];
 }
