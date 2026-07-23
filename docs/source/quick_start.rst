@@ -299,6 +299,12 @@ number means tighter, sharper stars: slowly screw the lens in or out and chase t
 stable number.  A readout of ``?.?`` means no star could be measured on the current frame —
 keep adjusting, and it returns as the stars tighten.
 
+Work in small steps.  The whole journey from stars too soft to see on screen to good focus
+is only a few turns of the lens, and the difference between fair and good focus is less
+than half a turn.  Turn the lens an eighth to a quarter of a turn at a time, then take your
+hand away for a moment so any vibration settles and the readout catches up.  Bigger or
+continuous turns make it easy to sweep straight through best focus without ever seeing it.
+
 A trace of the last 10 seconds of HFD runs along the divider on either side of the number,
 with lower (sharper) values below the line.  As you sweep the focuser slowly through best
 focus the trace falls and rises again — go back to the low point.  Good focus means the
@@ -323,6 +329,11 @@ Hold **SQUARE** in any view to open the :ref:`user_guide:quick menu`, which offe
 camera exposure setting.  With dark enough skies and good focus, the camera icon appears in
 the top right and the current constellation shows in the title bar.  Congratulations — the
 PiFinder knows where it's pointing!
+
+If you touch up focus on a later night, judge it here on the Focus screen rather than by
+the camera icon — a solve takes a second or so to catch up with each change of the lens, so
+the icon always lags a little behind.  The HFD readout responds much faster, and the
+technique is the same: a small turn, then a pause to let things settle.
 
 
 .. note::
