@@ -95,7 +95,10 @@ often not tight enough.
 Work through these in order:
 
 - **Focus, properly.**  On the Focus screen, rotate the lens until the four magnified stars
-  are as small as possible and the central HFD reaches its lowest value.  Tight focus matters *even
+  are as small as possible and the central HFD reaches its lowest value.  The difference
+  between fair and good focus is less than half a turn, so work in steps of an eighth to a
+  quarter of a turn with a pause for vibration to settle, and judge by the HFD rather than
+  the camera icon, which lags a second or so behind each change of the lens.  Tight focus matters *even
   more* under bright, light-polluted skies, where slightly soft dim stars vanish into the
   background.  If you're starting from way off, set the lens so about 6 mm of thread is
   showing — roughly a pencil's width — which is close to in focus.
