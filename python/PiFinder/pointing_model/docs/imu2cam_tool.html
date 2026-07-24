@@ -21,10 +21,10 @@
     IMU frame    : BNO055 chip axes, fixed to the UI board by PCB layout.
                    The placement is per board revision (the "board rev"
                    control below / per-preset board_rev field):
-                     rev-3 (classic variants): chip on the keypad face --
+                     rev3 (classic variants): chip on the keypad face --
                        +z out of the keypad face, +y along the long axis
                        away from the screen end, +x = y x z (right-handed).
-                     rev-4 (Analog Sky models): chip on the back side,
+                     rev4 (Analog Sky models): chip on the back side,
                        flipped about the board's long axis -- +z out of
                        the back face, +y unchanged, +x negated.
                    Toggling the control keeps the depicted board pose and
@@ -95,7 +95,7 @@
 <p class="lede">Arrange the UI board and the camera module to match the physical device
 (rotations snap to 45&deg; about the world axes &mdash; several upcoming variants mount
 parts 45&deg; off-orthogonal), pick the software image rotation and the board revision
-(rev-4 boards carry the IMU chip on the back side), and copy the emitted constants.
+(rev4 boards carry the IMU chip on the back side), and copy the emitted constants.
 Load a preset to see a shipped variant; green means the arrangement on screen
 reproduces the shipped table entry.</p>
 
@@ -189,19 +189,19 @@ reproduces the shipped table entry.</p>
       "note": "30-degree camera tilt: loaded exactly, but not reachable via the 45-degree buttons." },
     { "key": "as_bloom", "label": "AS Bloom", "rotate": 90, "board_rev": 4,
       "q": [3.749399456654644e-33, 1.0, 6.123233995736766e-17, 6.123233995736766e-17],
-      "note": "Rev-4 board: IMU on the back side. Re-derived 2026-07 under the rev-4 depiction; supersedes the value read off a rev-3 depiction of the same arrangement. Hardware verification pending." },
+      "note": "Rev4 board: IMU on the back side. Re-derived 2026-07 under the rev4 depiction; supersedes the value read off a rev3 depiction of the same arrangement. Hardware verification pending." },
     { "key": "as_heart", "label": "AS Heart", "rotate": 90, "board_rev": 4,
       "q": [4.329780281177467e-17, 4.329780281177466e-17, -0.7071067811865475, 0.7071067811865476],
-      "note": "Rev-4 board: IMU on the back side. Re-derived 2026-07 under the rev-4 depiction; rotate stays 90 (the image-rotation side is chip-independent and was verified on hardware). Hardware verification of the quaternion pending." },
-    { "key": "v4_left", "label": "V4 Left", "rotate": 0, "board_rev": 4,
+      "note": "Rev4 board: IMU on the back side. Re-derived 2026-07 under the rev4 depiction; rotate stays 90 (the image-rotation side is chip-independent and was verified on hardware). Hardware verification of the quaternion pending." },
+    { "key": "rev4_left", "label": "Rev4 Left", "rotate": 0, "board_rev": 4,
       "q": [0.5000000000000001, 0.5, 0.4999999999999999, -0.5],
-      "note": "Rev-4 board: IMU on the back side. Derived 2026-07 under the rev-4 depiction; hardware verification pending." },
-    { "key": "v4_right", "label": "V4 Right", "rotate": 270, "board_rev": 4,
+      "note": "Rev4 board: IMU on the back side. Derived 2026-07 under the rev4 depiction; hardware verification pending." },
+    { "key": "rev4_right", "label": "Rev4 Right", "rotate": 270, "board_rev": 4,
       "q": [0.5000000000000001, -0.5, -0.4999999999999999, -0.5],
-      "note": "Rev-4 board: IMU on the back side. Derived 2026-07 under the rev-4 depiction; hardware verification pending." },
-    { "key": "v4_straight", "label": "V4 Straight", "rotate": 270, "board_rev": 4,
+      "note": "Rev4 board: IMU on the back side. Derived 2026-07 under the rev4 depiction; hardware verification pending." },
+    { "key": "rev4_straight", "label": "Rev4 Straight", "rotate": 270, "board_rev": 4,
       "q": [0.35355339059327384, -0.3535533905932738, 0.14644660940672627, -0.8535533905932737],
-      "note": "Rev-4 board: IMU on the back side. 45-degree mount: no camera axis coincides with an IMU axis. Derived 2026-07 under the rev-4 depiction; hardware verification pending." }
+      "note": "Rev4 board: IMU on the back side. 45-degree mount: no camera axis coincides with an IMU axis. Derived 2026-07 under the rev4 depiction; hardware verification pending." }
   ]
 }
 </script>
@@ -318,7 +318,7 @@ const presetData = JSON.parse(document.getElementById("imu2cam-presets").textCon
 // World pose of the camera frame in every preset: boresight along world +Y,
 // solver image up along world +Z ("device pointed at the horizon").
 const R_W_CAM = [[-1, 0, 0], [0, 0, 1], [0, 1, 0]];   // columns: x_cam, y_cam, z_cam
-// Rev-4 chip placement: IMU axes expressed in board coords (chip on the back
+// Rev4 chip placement: IMU axes expressed in board coords (chip on the back
 // side, flipped about the board's long axis). Self-inverse.
 const REV4_M = [[-1, 0, 0], [0, 1, 0], [0, 0, -1]];
 
@@ -499,7 +499,7 @@ loadPreset(presetData[0]);
    unreachable the tool still works -- you just get a notice instead of the
    3D scene. Scene graph: boardGroup pose = state.Rb (the IMU pose); its
    boardBody child holds the physical board authored in board coords, with
-   the rev-4 chip delta (REV4_M) as its local transform, so screen/keypad/
+   the rev4 chip delta (REV4_M) as its local transform, so screen/keypad/
    chip land where the chosen board revision physically puts them. */
 (function () {
   "use strict";
@@ -702,7 +702,7 @@ loadPreset(presetData[0]);
   function renderScene() {
     setPose(boardGroup, state.Rb, BOARD_POS);
     setPose(boardBody, state.rev === 3 ? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] : REV4_M);
-    chip.position.z = state.rev === 3 ? 0.068 : -0.068;   // rev-4: back face
+    chip.position.z = state.rev === 3 ? 0.068 : -0.068;   // rev4: back face
     imuTriad.position.set(state.rev === 3 ? 0.37 : -0.37, 0.17, 0.07);
     setPose(moduleGroup, state.Rm, MOD_POS);
     setPose(camTriad, mul(state.Rm, rotAxis(2, state.rho)), MOD_POS);

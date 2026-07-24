@@ -158,35 +158,35 @@ class ImuDeadReckoning:
             q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
             return (q1 * q2).normalized()
         if screen_direction == "as_bloom":
-            # As Bloom (rev-4 board: IMU on the back side of the UI board):
+            # As Bloom (rev4 board: IMU on the back side of the UI board):
             # Rotate 180° around y_imu so that z_imu' points along z_camera
             q1 = qt.axis_angle2quat([0, 1, 0], np.pi)
             # Rotate 180° around z_imu' to align with the camera coordinates
             q2 = qt.axis_angle2quat([0, 0, 1], np.pi)
             return (q1 * q2).normalized()
         if screen_direction == "as_heart":
-            # As Heart (rev-4 board: IMU on the back side of the UI board):
+            # As Heart (rev4 board: IMU on the back side of the UI board):
             # Rotate 90° around x_imu so that z_imu' points along z_camera
             q1 = qt.axis_angle2quat([1, 0, 0], np.pi / 2)
             # Rotate 180° around z_imu' to align with the camera coordinates
             q2 = qt.axis_angle2quat([0, 0, 1], np.pi)
             return (q1 * q2).normalized()
-        if screen_direction == "v4_left":
-            # V4 Left (rev-4 board: IMU on the back side of the UI board):
+        if screen_direction == "rev4_left":
+            # Rev4 Left (rev4 board: IMU on the back side of the UI board):
             # Rotate 90° around x_imu so that z_imu' points along z_camera
             q1 = qt.axis_angle2quat([1, 0, 0], np.pi / 2)
             # Rotate -90° around z_imu' to align with the camera coordinates
             q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
             return (q1 * q2).normalized()
-        if screen_direction == "v4_right":
-            # V4 Right (rev-4 board: IMU on the back side of the UI board):
+        if screen_direction == "rev4_right":
+            # Rev4 Right (rev4 board: IMU on the back side of the UI board):
             # Rotate -90° around x_imu so that z_imu' points along z_camera
             q1 = qt.axis_angle2quat([1, 0, 0], -np.pi / 2)
             # Rotate -90° around z_imu' to align with the camera coordinates
             q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
             return (q1 * q2).normalized()
-        if screen_direction == "v4_straight":
-            # V4 Straight (rev-4 board: IMU on the back side of the UI board;
+        if screen_direction == "rev4_straight":
+            # Rev4 Straight (rev4 board: IMU on the back side of the UI board;
             # 45° mount -- no camera axis coincides with an IMU axis):
             # Rotate 45° around y_imu so that z_imu' points along z_camera
             q1 = qt.axis_angle2quat([0, 1, 0], np.pi / 4)

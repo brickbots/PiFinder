@@ -320,7 +320,8 @@ class PointingEstimate:
     :attr:`matched_centroids`, :attr:`matched_stars`, and
     :attr:`matched_catID` carry raw
     tetra3 matched-star outputs needed by the SQM calibration UI for
-    offline replay of SQM calculations against cached frames. A failed solve
+    offline replay of SQM calculations against cached frames, and by the
+    Focus screen's stable star-identity slots. A failed solve
     preserves the last successful set, so consumers must also match
     ``last_solve_success`` to the frame timestamp.
     """
