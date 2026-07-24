@@ -42,6 +42,10 @@ from PiFinder import timez
 from PiFinder import keyboard_interface
 import PiFinder.sound as sound
 from PiFinder.types.sound import Earcon, SetVolume
+from PiFinder.battery_bq25895 import (
+    POLL_INTERVAL as BATTERY_POLL_INTERVAL,
+    LowBatteryWarner,
+)
 
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
@@ -623,7 +627,7 @@ def main(
         )
         imu_process.start()
 
-        # Battery monitor (rev-4 BQ25895 only; read-only telemetry)
+        # Battery monitor (rev4 BQ25895 only; read-only telemetry)
         if capabilities.has_bq25895:
             console.write("   Battery")
             logger.info("   Battery")
@@ -631,11 +635,11 @@ def main(
             battery_process = Process(
                 name="Battery",
                 target=battery.battery_monitor,
-                args=(shared_state, console_queue, battery_logqueue),
+                args=(shared_state, console_queue, ui_queue, battery_logqueue),
             )
             battery_process.start()
 
-        # Sound / earcons (rev-4 buzzer only; real hardware only — there is no
+        # Sound / earcons (rev4 buzzer only; real hardware only — there is no
         # PWM to drive under -fh, so dev stays silent and sound_queue is None).
         # request() no-ops on the None queue (see PiFinder.sound).
         sound_queue: Optional[Queue] = None
@@ -778,6 +782,12 @@ def main(
 
             logger.info("Pygame event polling enabled for keyboard input")
             pygame_key_map, pygame_ctrl_key_map = _build_pygame_keymaps()
+
+        # Advisory low-battery warnings (ADR 0021). UI-only: the shutdown
+        # trigger lives in the battery monitor and keys on ADC validity,
+        # never on this estimate.
+        low_battery_warner = LowBatteryWarner()
+        last_battery_watch = 0.0
 
         log_time = True
         # Start of main except handler / loop
@@ -943,6 +953,51 @@ def main(
                             sound.total_duration_ms(Earcon.SHUTDOWN) / 1000.0 + 0.5
                         )
                     utils.get_sys_utils().shutdown()
+                elif ui_command == "low_battery_shutdown":
+                    # ADR 0021: the battery monitor saw sustained ADC-blind
+                    # reads on battery — the cell is below the blind floor and
+                    # the unwarned hard power cut is due within the hour. Show
+                    # the final warning, then route through the user-shutdown
+                    # chokepoint above (next loop pass picks it up) so the
+                    # SHUTDOWN earcon wait and GPIO14 latch ordering hold.
+                    logger.warning("Low battery: shutting down (ADC blind floor)")
+                    console.write("Low battery: shutting down")
+                    menu_manager.message(_("Low battery\nShutting down"), 10)
+                    if hardware_platform == "Pi":
+                        ui_queue.put("play_shutdown_sound")
+                    else:
+                        # -fh: the request came from battery_fake's scripted
+                        # blind tail. Show the UX but never power off the
+                        # host — it may be a real Pi (docs screenshots over
+                        # SSH) or a dev box with a working sys_utils.
+                        logger.warning("Fake hardware platform: skipping OS shutdown")
+
+                # Low-battery warnings (ADR 0021): watch the estimated state
+                # of charge fall through the advisory thresholds. Sampled at
+                # the battery monitor's own cadence — it can't change faster.
+                # Monotonic clock: a backwards GPS/NTP time step must not
+                # silence the watcher (same reason PlayEarcon stamps
+                # monotonic, see ADR 0008).
+                if time.monotonic() - last_battery_watch >= BATTERY_POLL_INTERVAL:
+                    last_battery_watch = time.monotonic()
+                    battery_state = shared_state.battery()
+                    if battery_state is not None:
+                        warn_pct = low_battery_warner.update(
+                            battery_state.state_of_charge_pct,
+                            battery_state.on_external_power,
+                        )
+                        if warn_pct is not None:
+                            logger.warning(
+                                "Low battery: %d%% runtime remaining", warn_pct
+                            )
+                            console.write(f"Low battery: {warn_pct}%")
+                            # NB: keep "%" at the end of the msgid — babel
+                            # parses "% l"-like sequences as python-format
+                            # placeholders and then rejects the catalogs.
+                            menu_manager.message(
+                                _("Low battery\nat {pct}%").format(pct=warn_pct), 3
+                            )
+                            sound.request(sound_queue, Earcon.LOW_BATTERY)
 
                 # Keyboard
                 keycode = None
@@ -1208,7 +1263,7 @@ if __name__ == "__main__":
         "-fb",
         "--fakebattery",
         help="With --fakehardware, run the fake battery monitor "
-        "(rev-4 has_bq25895 capability, shows the battery indicator)",
+        "(rev4 has_bq25895 capability, shows the battery indicator)",
         default=False,
         action="store_true",
         required=False,
@@ -1300,8 +1355,8 @@ if __name__ == "__main__":
         imu = importlib.import_module("PiFinder.imu_fake")
         integrator = importlib.import_module("PiFinder.integrator")
         gps_monitor = importlib.import_module("PiFinder.gps_fake")
-        # -fh alone emulates rev-3 hardware (no battery indicator, keeps
-        # docs screenshots consistent); add -fb to emulate the rev-4 BQ25895
+        # -fh alone emulates rev3 hardware (no battery indicator, keeps
+        # docs screenshots consistent); add -fb to emulate the rev4 BQ25895
         # and run the fake battery monitor. has_buzzer is set for
         # consistency, but the sound process is gated on real hardware
         # (hardware_platform == "Pi") and so stays unspawned here — dev has
@@ -1321,7 +1376,7 @@ if __name__ == "__main__":
         capabilities = hardware_detect.detect_capabilities()
 
         if capabilities.has_bq25895:
-            # BQ25895 is actually present (rev-4 hardware).
+            # BQ25895 is actually present (rev4 hardware).
             battery = importlib.import_module("PiFinder.battery_bq25895")
             display_hardware = "ssd1333"
         else:

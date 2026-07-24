@@ -569,8 +569,8 @@ for testing purposes. Else specify which camera to use: pi, asi, debug or none.
 ...................................
 
 This uses fake hardware for the imu and gps. On its own this emulates
-rev-3 hardware, with no battery indicator; add ``--fakebattery`` to
-emulate rev-4.
+rev3 hardware, with no battery indicator; add ``--fakebattery`` to
+emulate rev4.
 
 .. code-block::
 
@@ -580,7 +580,7 @@ emulate rev-4.
 ..................
 
 With ``--fakehardware``, runs the fake battery monitor and enables the
-rev-4 battery indicator.
+rev4 battery indicator.
 
 .. code-block::
 

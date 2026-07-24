@@ -2599,6 +2599,14 @@ msgstr "更新"
 msgid "Volume"
 msgstr "音量"
 
+# AI-TRANSLATED (claude): needs human review
+msgid "Low battery\nat {pct}%"
+msgstr "电量不足\n剩余 {pct}%"
+
+# AI-TRANSLATED (claude): needs human review
+msgid "Low battery\nShutting down"
+msgstr "电量不足\n正在关机"
+
 #~ msgid "Integrator"
 #~ msgstr ""
 # AI-TRANSLATED (claude): needs human review
