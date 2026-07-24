@@ -2454,6 +2454,14 @@ msgstr "Ingresar Hora Local"
 msgid "Volume"
 msgstr "Volumen"
 
+# AI-TRANSLATED (claude): needs human review
+msgid "Low battery\nat {pct}%"
+msgstr "Batería baja\nal {pct}%"
+
+# AI-TRANSLATED (claude): needs human review
+msgid "Low battery\nShutting down"
+msgstr "Batería baja\nApagando"
+
 #~ msgid "Integrator"
 #~ msgstr ""
 # AI-TRANSLATED (claude): needs human review

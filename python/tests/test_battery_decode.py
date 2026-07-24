@@ -39,8 +39,9 @@ def test_decode_not_charging_on_external_power():
     assert state.charge_current_ma == pytest.approx(0.0)
     assert state.charge_status is ChargeStatus.NOT_CHARGING
     assert state.on_external_power is True
-    # 3.764 V interpolates between (3.70, 50) and (3.85, 75) -> ~60.67 -> 61
-    assert state.state_of_charge_pct == 61
+    assert state.adc_blind is False
+    # 3.764 V interpolates between (3.736, 25) and (3.834, 50) -> ~32.1 -> 32
+    assert state.state_of_charge_pct == 32
     assert state.timestamp == 123.0
 
 
@@ -87,14 +88,44 @@ def test_decode_masks_high_bits():
 
 
 @pytest.mark.unit
-def test_decode_zero_registers():
-    """All-zero registers decode to the offset voltages and an empty
-    cell (0%), not charging, off external power."""
+def test_decode_raw_zero_batv_is_blind_not_a_measurement():
+    """A raw-0 BATV read is an ADC-blind poll (battery below the ~3.5 V
+    blind floor), NOT a 2.304 V measurement: every ADC-derived field is
+    ``None`` so the decode artifact can never reach the discharge curve
+    or any consumer (ADR 0021)."""
     state = decode_registers(0x00, 0x00, 0x00, 0x00, 0x00, 0.0)
-    assert state.battery_voltage == pytest.approx(2.304)
-    assert state.sys_voltage == pytest.approx(2.304)
-    assert state.vbus_voltage == pytest.approx(2.6)
-    assert state.charge_current_ma == pytest.approx(0.0)
+    assert state.adc_blind is True
+    assert state.battery_voltage is None
+    assert state.sys_voltage is None
+    assert state.vbus_voltage is None
+    assert state.charge_current_ma is None
+    assert state.state_of_charge_pct is None
+    # Status bits are plain register reads, not conversions — still decoded.
     assert state.charge_status is ChargeStatus.NOT_CHARGING
     assert state.on_external_power is False
-    assert state.state_of_charge_pct == 0
+
+
+@pytest.mark.unit
+def test_decode_blind_with_therm_stat_set():
+    """THERM_STAT (REG0E bit7) does not count as battery-voltage bits:
+    0x80 is still a raw-0 BATV field, hence blind."""
+    state = decode_registers(0x00, 0x80, 0x00, 0x00, 0x00, 0.0)
+    assert state.adc_blind is True
+    assert state.battery_voltage is None
+
+
+@pytest.mark.unit
+def test_decode_blind_on_charger_keeps_status():
+    """Deeply discharged cell on a charger: BATV raw 0 (blind) while the
+    status bits keep working below the floor. Power source and charge
+    phase must stay trustworthy — they gate the shutdown trigger, which
+    must never fire on external power.
+
+    REG0B 0x0C -> CHRG_STAT=01 (pre-charge), PG_STAT=1 (power good).
+    """
+    state = decode_registers(0x0C, 0x00, 0x00, 0x9A, 0x00, 0.0)
+    assert state.adc_blind is True
+    assert state.battery_voltage is None
+    assert state.state_of_charge_pct is None
+    assert state.charge_status is ChargeStatus.PRE_CHARGE
+    assert state.on_external_power is True
