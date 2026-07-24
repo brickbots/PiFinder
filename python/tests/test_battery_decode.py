@@ -2,7 +2,7 @@
 Unit tests for the pure BQ25895 register decode.
 
 Register byte values and the expected scaling are cross-checked against
-``BQ25895-datasheet.pdf`` (TI SLUSC88C) and the live rev-4 readings noted
+``BQ25895-datasheet.pdf`` (TI SLUSC88C) and the live rev4 readings noted
 in the battery handoff. No hardware is touched — ``decode_registers`` is
 a pure function.
 """

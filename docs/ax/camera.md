@@ -27,7 +27,7 @@ solver process                          camera process (get_image_loop)
                               ┌─ match-count controller (default)
                               │    └─ Matches == 0 → zero-match recovery
                               └─ background controller (SQM screen only)
-                                   └─ reads shared_state.noise_floor()  ◄── SQM
+                                   └─ reads processed 8-bit floor (10 ADU)
                                             │
                                             ▼
                                    set_camera_config(exposure, gain)
@@ -123,12 +123,11 @@ exposures than match-count control produces.
 - Activated screen-scoped: `ui/sqm.py` sends `set_ae_mode:snr` in
   `active()` and `set_ae_mode:pid` in `inactive()`. The controller choice
   is never persisted.
-- Feedback signal: the frame's 10th-percentile ADU value ("dark pixel"
-  background). Target: sit just above the **noise floor** published by
-  SQM (`shared_state.noise_floor()`, consumed at
-  `ExposureSNRController.update(..., noise_floor=...)` with a +2 ADU
-  margin). Falls back to thresholds derived from the camera profile (bias
-  offset, bit depth) when no noise floor is available.
+- Feedback signal: the processed frame's 10th-percentile 8-bit ADU value
+  ("dark pixel" background). The controller keeps it above the processed
+  floor in `shared_state.noise_floor()` (10 ADU by default), with a +2 ADU
+  margin. SQM photometry runs on raw sensor values, whose pedestal is in a
+  different unit and is deliberately not published to this controller.
 - Adjustments are multiplicative (×1.3 / ÷1.3) for stability; it ignores
   `Matches` entirely and has no zero-match recovery.
 

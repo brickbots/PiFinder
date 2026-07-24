@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-Battery telemetry and fast-charge configuration for the rev-4 PiFinder
+Battery telemetry and fast-charge configuration for the rev4 PiFinder
 board's TI BQ25895 single-cell Li-ion charger (I2C address 0x6A on bus 1).
 
 Mostly telemetry: it reads battery voltage, charge status, power source
@@ -41,7 +41,7 @@ raw ADC-validity signal, never the estimated state of charge.
 
 Register scaling below was verified against ``BQ25895-datasheet.pdf``
 (TI SLUSC88C, the REGxx field-description tables) and cross-checked
-against a live rev-4 unit. The chip has **no fuel gauge**: battery
+against a live rev4 unit. The chip has **no fuel gauge**: battery
 voltage is the only measured quantity; state of charge is an estimate.
 
 Structure note: ``decode_registers`` and ``estimate_soc`` are PURE (no
@@ -67,7 +67,7 @@ except (ImportError, NotImplementedError):
 
 logger = logging.getLogger("Battery.bq25895")
 
-# I2C address of the BQ25895 (bus 1 on the rev-4 board).
+# I2C address of the BQ25895 (bus 1 on the rev4 board).
 BQ25895_ADDRESS = 0x6A
 
 # --- Register addresses (verified against the datasheet register map) ---

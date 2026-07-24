@@ -127,52 +127,52 @@
         </div>
         <div class="row" id="decimalFormat-edit_form_{{ loop.index0 }}">
           <div class="input-field col s6">
-            <input id="latitude-edit_form_{{ loop.index0 }}" type="number" step="any" name="latitude" value="{{ location.latitude }}" required/>
+            <input id="latitude-edit_form_{{ loop.index0 }}" type="text" inputmode="decimal" name="latitude" value="{{ location.latitude }}" required/>
             <label for="latitude-edit_form_{{ loop.index0 }}">{{ _('Latitude (Decimal)') }}</label>
             <span class="helper-text"></span>
           </div>
           <div class="input-field col s6">
-            <input id="longitude-edit_form_{{ loop.index0 }}" type="number" step="any" name="longitude" value="{{ location.longitude }}" required/>
+            <input id="longitude-edit_form_{{ loop.index0 }}" type="text" inputmode="decimal" name="longitude" value="{{ location.longitude }}" required/>
             <label for="longitude-edit_form_{{ loop.index0 }}">{{ _('Longitude (Decimal)') }}</label>
             <span class="helper-text"></span>
           </div>
         </div>
         <div class="row" id="dmsFormat-edit_form_{{ loop.index0 }}" style="display:none;">
           <div class="input-field col s4">
-            <input id="latitudeD-edit_form_{{ loop.index0 }}" type="number" name="latitudeD"/>
+            <input id="latitudeD-edit_form_{{ loop.index0 }}" type="text" inputmode="decimal" name="latitudeD"/>
             <label for="latitudeD-edit_form_{{ loop.index0 }}">{{ _('Latitude Degrees') }}</label>
           </div>
           <div class="input-field col s4">
-            <input id="latitudeM-edit_form_{{ loop.index0 }}" type="number" name="latitudeM"/>
+            <input id="latitudeM-edit_form_{{ loop.index0 }}" type="text" inputmode="decimal" name="latitudeM"/>
             <label for="latitudeM-edit_form_{{ loop.index0 }}">{{ _('Latitude Minutes') }}</label>
           </div>
           <div class="input-field col s4">
-            <input id="latitudeS-edit_form_{{ loop.index0 }}" type="number" name="latitudeS"/>
+            <input id="latitudeS-edit_form_{{ loop.index0 }}" type="text" inputmode="decimal" name="latitudeS"/>
             <label for="latitudeS-edit_form_{{ loop.index0 }}">{{ _('Latitude Seconds') }}</label>
           </div>
           <div class="input-field col s4">
-            <input id="longitudeD-edit_form_{{ loop.index0 }}" type="number" name="longitudeD"/>
+            <input id="longitudeD-edit_form_{{ loop.index0 }}" type="text" inputmode="decimal" name="longitudeD"/>
             <label for="longitudeD-edit_form_{{ loop.index0 }}">{{ _('Longitude Degrees') }}</label>
           </div>
           <div class="input-field col s4">
-            <input id="longitudeM-edit_form_{{ loop.index0 }}" type="number" name="longitudeM"/>
+            <input id="longitudeM-edit_form_{{ loop.index0 }}" type="text" inputmode="decimal" name="longitudeM"/>
             <label for="longitudeM-edit_form_{{ loop.index0 }}">{{ _('Longitude Minutes') }}</label>
           </div>
           <div class="input-field col s4">
-            <input id="longitudeS-edit_form_{{ loop.index0 }}" type="number" name="longitudeS"/>
+            <input id="longitudeS-edit_form_{{ loop.index0 }}" type="text" inputmode="decimal" name="longitudeS"/>
             <label for="longitudeS-edit_form_{{ loop.index0 }}">{{ _('Longitude Seconds') }}</label>
           </div>
         </div>
         <div class="row">
           <div class="input-field col s12">
-            <input id="altitude-edit_form_{{ loop.index0 }}" type="number" step="any" name="altitude" value="{{ location.height }}" required/>
+            <input id="altitude-edit_form_{{ loop.index0 }}" type="text" inputmode="decimal" name="altitude" value="{{ location.height }}" required/>
             <label for="altitude-edit_form_{{ loop.index0 }}">{{ _('Altitude (meters)') }}</label>
             <span class="helper-text"></span>
           </div>
         </div>
         <div class="row">
           <div class="input-field col s6">
-            <input id="error_in_m-edit_form_{{ loop.index0 }}" type="number" step="any" name="error_in_m" value="{{ location.error_in_m }}"/>
+            <input id="error_in_m-edit_form_{{ loop.index0 }}" type="text" inputmode="decimal" name="error_in_m" value="{{ location.error_in_m }}"/>
             <label for="error_in_m-edit_form_{{ loop.index0 }}">{{ _('Error (meters)') }}</label>
             <span class="helper-text"></span>
           </div>
@@ -206,6 +206,12 @@
 
 {% block scripts %}
 <script>
+// Accept both period and comma as the decimal separator, normalising to period
+function normalizeDecimal(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).trim().replace(',', '.');
+}
+
 // Conversion from Decimal to DMS
 function decimalToDMS(decimal) {
     var degrees = Math.floor(decimal);
@@ -226,9 +232,9 @@ function decimalToDMS(decimal) {
 // Conversion from DMS to Decimal
 function DMSToDecimal(degrees, minutes, seconds) {
     // Ensure all inputs are numbers and default missing values to 0
-    degrees = parseFloat(degrees) || 0;
-    minutes = parseFloat(minutes) || 0;
-    seconds = parseFloat(seconds) || 0;
+    degrees = parseFloat(normalizeDecimal(degrees)) || 0;
+    minutes = parseFloat(normalizeDecimal(minutes)) || 0;
+    seconds = parseFloat(normalizeDecimal(seconds)) || 0;
     
     // Validate minutes and seconds are in valid ranges
     if (minutes < 0 || minutes >= 60) {
@@ -393,7 +399,8 @@ function focusFirstDMSField(id = '') {
 }
 
 function validateField(value, fieldName) {
-    if (value === '' || value === null) return false;
+    value = normalizeDecimal(value);
+    if (value === '') return false;
     const numValue = parseFloat(value);
     if (isNaN(numValue)) return false;
     
@@ -526,8 +533,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         form.addEventListener('submit', function(e) {
+            // Rewrite entered values to period-form so the server receives valid floats
+            ["latitude", "longitude", "altitude", "error_in_m",
+             "latitudeD", "latitudeM", "latitudeS",
+             "longitudeD", "longitudeM", "longitudeS"].forEach(function(fieldName) {
+                const el = document.getElementById(fieldName + "-" + id);
+                if (el && el.value) el.value = normalizeDecimal(el.value);
+            });
+
             const allValid = checkFields(id);
-            
+
             if (!allValid) {
                 e.preventDefault();
                 M.toast({html: "{{ _('Please fix the validation errors before saving') }}", classes: 'red'});

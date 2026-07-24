@@ -36,18 +36,17 @@ class UISQM(UIModule):
             font=self.fonts.base,
         )
 
-        # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
                 label=_(
-                    "CAL"
+                    "CALIB"
                 ),  # TRANSLATORS: Marking menu option to launch SQM calibration wizard
                 callback=self._launch_calibration,
             ),
             down=MarkingMenuOption(
                 label=_(
-                    "CORRECT"
-                ),  # TRANSLATORS: Marking menu option to launch SQM correction sweep tool
+                    "SWEEP"
+                ),  # TRANSLATORS: Marking menu option to launch SQM diagnostic exposure sweep
                 callback=self._launch_sqm_sweep,
             ),
             right=MarkingMenuOption(),
@@ -193,7 +192,7 @@ class UISQM(UIModule):
                 if image_metadata and "exposure_time" in image_metadata:
                     exp_ms = image_metadata["exposure_time"] / 1000  # Convert µs to ms
                     if exp_ms >= 1000:
-                        exp_str = f"{exp_ms/1000:.2f}s"
+                        exp_str = f"{exp_ms / 1000:.2f}s"
                     else:
                         exp_str = f"{exp_ms:.0f}ms"
                     self.draw.text(
@@ -244,7 +243,6 @@ class UISQM(UIModule):
                             font=self.fonts.base.font,
                             fill=self.colors.get(64),
                         )
-
                 # Bortle class
                 if details:
                     self.draw.text(
@@ -284,11 +282,8 @@ class UISQM(UIModule):
     def _is_calibrated(self) -> bool:
         """Check if SQM calibration file exists for current camera."""
         camera_type = self.shared_state.camera_type()
-        camera_type_processed = f"{camera_type}_processed"
         calibration_file = (
-            Path.home()
-            / "PiFinder_data"
-            / f"sqm_calibration_{camera_type_processed}.json"
+            Path.home() / "PiFinder_data" / f"sqm_calibration_{camera_type}.json"
         )
         return calibration_file.exists()
 

@@ -1,47 +1,73 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
-"""
-This module contains the UIPreview class, a UI module for displaying and interacting with camera images.
+"""Raw, magnified multi-star Focus screen."""
 
-It handles image processing and provides zoom
-functionality. It also manages a marking menu for adjusting camera settings and draws the focus
-strip and star selectors on the images.
-"""
-
+import math
 import sys
 import time
 from collections import deque
+from typing import Optional
 
 import numpy as np
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageDraw, ImageOps
 
 from PiFinder import focus, utils
-from PiFinder.ui.camera_render import resize_for_display
-from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.base import UIModule
-from PiFinder.ui.ui_utils import outline_text
+from PiFinder.ui.marking_menus import MarkingMenu, MarkingMenuOption
 
 sys.path.append(str(utils.tetra3_dir))
 
-# Focus indicator tuning (see docs/ax/ui/CONTEXT.md "Focus indicator" and
-# docs/adr/0005-focus-hfd-self-contained-in-ui.md). Starting values -- adjust
-# on real hardware.
-FOCUS_WINDOW_S = 10.0  # rolling V-curve window
-# V-curve axis: 4 px is about the best a real camera/lens can hit, so it anchors
-# the bottom; 20 px is "clearly defocused". Readings outside [4, 20] clamp to the
-# axis ends (the big numeric readout still shows the true value).
-HFD_AXIS_MIN = 4.0  # log Y-axis bottom (px) -- best achievable focus
-HFD_AXIS_MAX = 20.0  # log Y-axis top (px) -- clearly defocused
-# Display-stretch: smaller alpha + larger min span keep the preview calm (the
-# stretch was over-reacting frame to frame); the dither breaks 8-bit banding.
-STRETCH_EMA_ALPHA = 0.15  # display-stretch black/white smoothing (lower = calmer)
-STRETCH_MIN_SPAN = 50.0  # min ADU span so a faint frame isn't stretched hard
-STRETCH_DITHER_FRAC = 0.5  # uniform dither amplitude as a fraction of one step
+# Ten times the apparent size of the old full-frame preview. On a square panel
+# this maps a 26x26 patch from the 512x512 camera frame into each half-screen
+# tile. The crop expands for a broad blob so a defocused star remains visible.
+FOCUS_NOMINAL_ZOOM = 10
+FOCUS_MIN_ZOOM = 4
+FOCUS_MAX_ZOOM = 16
+FOCUS_ZOOM_STEP = 2
+FOCUS_BLOB_MARGIN = 1.35
+FOCUS_VISUAL_MAX_BLOB_PX = 128
+FOCUS_TILE_COUNT = 4
+FOCUS_WINDOW_S = 10.0
+HFD_MIN_DISPLAY_SPAN = 1.0
+HFD_RANGE_PADDING = 1.15
+DISPLAY_STARS = "stars"
+DISPLAY_IMAGE = "image"
+DISPLAY_STATS = "stats"
+DISPLAY_SINGLE = "single"
 
-# Native camera frame size. target_pixel and centroid coordinates live in this
-# (square) pixel space (see SharedStateObj.target_pixel, documented 512x512);
-# the preview scales them down to the display resolution.
-CAMERA_NATIVE_RES = 512
+
+def focus_crop_size(
+    frame_size: tuple[int, int],
+    tile_size: tuple[int, int],
+    blob_extent: int,
+    nominal_zoom: int = FOCUS_NOMINAL_ZOOM,
+) -> tuple[int, int]:
+    """Return an aspect-correct native crop size for one magnified star tile.
+
+    ``nominal_zoom`` is relative to the old full-frame preview. The nominal
+    crop is used for compact, focused stars. Broad stars get a larger crop with
+    a small margin, reducing the effective zoom instead of clipping the blob.
+    """
+    frame_w, frame_h = frame_size
+    tile_w, tile_h = tile_size
+    if frame_w <= 0 or frame_h <= 0 or tile_w <= 0 or tile_h <= 0:
+        raise ValueError("frame and tile dimensions must be positive")
+    if nominal_zoom <= 0:
+        raise ValueError("nominal_zoom must be positive")
+
+    crop_h = max(
+        math.ceil(frame_h / (2 * nominal_zoom)),
+        math.ceil(blob_extent * FOCUS_BLOB_MARGIN),
+    )
+    crop_w = math.ceil(crop_h * tile_w / tile_h)
+
+    if crop_w > frame_w:
+        crop_w = frame_w
+        crop_h = max(1, round(crop_w * tile_h / tile_w))
+    if crop_h > frame_h:
+        crop_h = frame_h
+        crop_w = max(1, round(crop_h * tile_w / tile_h))
+    return crop_w, crop_h
 
 
 class UIPreview(UIModule):
@@ -49,31 +75,19 @@ class UIPreview(UIModule):
 
     __title__ = "CAMERA"
     __help_name__ = "camera"
-    _STAR_ICON = "\uf005"  # NerdFont star icon (Font Awesome solid)
+    _display_mode_list = [DISPLAY_STARS, DISPLAY_SINGLE, DISPLAY_IMAGE, DISPLAY_STATS]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
         self.last_update = time.time()
-        self.solution = None
+        self.focus_zoom = FOCUS_NOMINAL_ZOOM
+        self.last_focus_result = None
+        self._tracked_focus_blobs: tuple[focus.Blob, ...] = ()
+        self._focus_slot_catalog_ids: tuple[Optional[object], ...] = ()
+        self._last_focus_catalog_time = 0.0
+        self._last_focus_frame_time = 0.0
+        self.focus_history: deque[tuple[float, float]] = deque()
 
-        self.zoom_level = 0
-
-        self.capture_prefix = f"{self.__uuid__}_diag"
-        self.capture_count = 0
-
-        # the centroiding returns an ndarray
-        # so we're initialiazing one here
-        self.star_list = np.empty((0, 2))
-        self.highlight_count = 0
-
-        # Focus indicator: strip on by default (square toggles it). Rolling
-        # state is (re)initialised in _reset_focus_state(), also called on
-        # active() so the V-curve clears each time the screen is entered.
-        self.show_focus_strip = True
-        self._reset_focus_state()
-
-        # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
                 label=_("Exposure"),
@@ -83,378 +97,515 @@ class UIPreview(UIModule):
             right=MarkingMenuOption(),
         )
 
-    def _reset_focus_state(self):
-        """Clear rolling focus-indicator state (history, stretch EMA points)."""
-        # (timestamp, hfd) samples over the rolling window; hfd is None for a
-        # frame with no usable star (a gap -- never carried forward).
-        self.focus_history: deque = deque()
-        self.last_focus_result = None
-        self._last_focus_frame_time = 0.0
-        # Display-stretch black/white points (raw ADU), EMA-smoothed.
-        self._stretch_black = None
-        self._stretch_white = None
-
     def active(self):
-        """Reset the rolling focus history when the screen is entered."""
-        self._reset_focus_state()
+        """Discard stale measurements when the Focus screen is entered."""
+        self.last_focus_result = None
+        self._tracked_focus_blobs = ()
+        self._focus_slot_catalog_ids = ()
+        self._last_focus_catalog_time = 0.0
+        self._last_focus_frame_time = 0.0
+        self.focus_history.clear()
 
-    def _measure_focus(self, raw_np):
-        """Run the self-contained HFD detector on a raw frame and update state.
+    def _measure_focus(
+        self, raw_np: np.ndarray, *, record_history: bool = True
+    ) -> None:
+        """Measure HFD and locate display blobs from one raw frame."""
+        self.last_focus_result = focus.focus_hfd(raw_np)
+        candidates = tuple(
+            blob
+            for blob in self.last_focus_result.blobs
+            if blob.extent <= FOCUS_VISUAL_MAX_BLOB_PX
+        )
+        previous_ids = self._focus_slot_catalog_ids
+        tracked_slots = focus.track_blob_slots(
+            self._tracked_focus_blobs,
+            candidates,
+            n=FOCUS_TILE_COUNT,
+            max_candidates=FOCUS_TILE_COUNT,
+        )
+        self._tracked_focus_blobs = tuple(blob for blob, _index in tracked_slots)
+        self._focus_slot_catalog_ids = tuple(
+            previous_ids[previous_index]
+            if previous_index is not None and previous_index < len(previous_ids)
+            else None
+            for _blob, previous_index in tracked_slots
+        )
+        if record_history:
+            self._record_focus_sample(self.last_focus_result.median_hfd)
 
-        Appends a timestamped sample (HFD or None for a gap), prunes the rolling
-        window, and updates the EMA display-stretch points. All measurement is on
-        the raw frame.
-        """
-        result = focus.focus_hfd(raw_np)
-        self.last_focus_result = result
+    def _adopt_solved_catalog_ids(self, frame_time: float) -> None:
+        """Attach HIP identities only to blobs from the solved exposure."""
+        if frame_time <= 0 or frame_time == self._last_focus_catalog_time:
+            return
+        solution = self.shared_state.solution()
+        if solution.last_solve_success != frame_time:
+            return
+        centroids = solution.matched_centroids
+        catalog_ids = solution.matched_catID
+        if not centroids or not catalog_ids:
+            return
+
+        matched = focus.match_catalog_ids(
+            self._tracked_focus_blobs, centroids, catalog_ids
+        )
+
+        # Correct a geometric slot swap whenever the solved identities prove
+        # that a known HIP star has landed in another slot. Unmatched blobs keep
+        # their geometric identity because focus must also work when tetra3 did
+        # not use every visible star in its solution.
+        previous_ids = self._focus_slot_catalog_ids
+        source_for_slot: list[Optional[int]] = [None] * len(matched)
+        used_sources = set()
+        for slot, expected_id in enumerate(previous_ids):
+            if expected_id is None:
+                continue
+            source = next(
+                (
+                    index
+                    for index, solved_id in enumerate(matched)
+                    if index not in used_sources and solved_id == expected_id
+                ),
+                None,
+            )
+            if source is not None:
+                source_for_slot[slot] = source
+                used_sources.add(source)
+
+        remaining_sources = (
+            index for index in range(len(matched)) if index not in used_sources
+        )
+        for slot, source in enumerate(source_for_slot):
+            if source is None:
+                source_for_slot[slot] = next(remaining_sources)
+
+        old_blobs = self._tracked_focus_blobs
+        self._tracked_focus_blobs = tuple(
+            old_blobs[source] for source in source_for_slot if source is not None
+        )
+        self._focus_slot_catalog_ids = tuple(
+            matched[source]
+            if matched[source] is not None
+            else previous_ids[source]
+            if source < len(previous_ids)
+            else None
+            for source in source_for_slot
+            if source is not None
+        )
+        self._last_focus_catalog_time = frame_time
+
+    def _record_focus_sample(self, hfd: Optional[float]) -> None:
+        """Record a numeric HFD; missing measurements leave history frozen."""
+        if hfd is None:
+            return
         now = time.time()
-
-        self.focus_history.append((now, result.median_hfd))
+        self.focus_history.append((now, hfd))
         cutoff = now - FOCUS_WINDOW_S
         while self.focus_history and self.focus_history[0][0] < cutoff:
             self.focus_history.popleft()
 
-        # Display stretch: black = background, white = brightest detected peak,
-        # with a minimum span so a starless frame stays near-black.
-        black = result.background
-        white = result.peak if result.peak is not None else black + STRETCH_MIN_SPAN
-        white = max(white, black + STRETCH_MIN_SPAN)
-        if self._stretch_black is None:
-            self._stretch_black, self._stretch_white = black, white
+    def _display_blobs(self) -> tuple[focus.Blob, ...]:
+        """Return the four brightest visual blobs from anywhere in the frame."""
+        tracked = getattr(self, "_tracked_focus_blobs", None)
+        if tracked is not None:
+            return tracked
+        if self.last_focus_result is None:
+            return ()
+        return tuple(self.last_focus_result.blobs[:FOCUS_TILE_COUNT])
+
+    def _focus_center(self) -> tuple[int, int]:
+        """Return the center of the visible area below the title bar."""
+        res_x, res_y = self.display_class.resolution
+        content_top = min(self.display_class.titlebar_height + 1, res_y)
+        return res_x // 2, content_top + (res_y - content_top) // 2
+
+    def _tile_boxes(self) -> tuple[tuple[int, int, int, int], ...]:
+        """Split the visible camera area into four equally sized quadrants."""
+        res_x, res_y = self.display_class.resolution
+        content_top = min(self.display_class.titlebar_height + 1, res_y)
+        mid_x = res_x // 2
+        mid_y = self._focus_center()[1]
+        return (
+            (0, content_top, mid_x, mid_y),
+            (mid_x, content_top, res_x, mid_y),
+            (0, mid_y, mid_x, res_y),
+            (mid_x, mid_y, res_x, res_y),
+        )
+
+    def _render_focus_tiles(self, raw_image: Image.Image) -> Image.Image:
+        """Render four raw star crops with nearest-neighbour enlargement.
+
+        The camera data receives no contrast stretch, filtering, sharpening,
+        or interpolating resample. Conversion to luminance only normalizes RGB
+        debug frames to the hardware camera's native single-channel shape.
+        """
+        raw_l = raw_image.convert("L")
+        res_x, res_y = self.display_class.resolution
+        mosaic = Image.new("L", (res_x, res_y), 0)
+
+        for blob, box in zip(self._display_blobs(), self._tile_boxes()):
+            left, top, right, bottom = box
+            tile_size = (right - left, bottom - top)
+            crop_w, crop_h = focus_crop_size(
+                raw_l.size,
+                tile_size,
+                blob.extent,
+                self.focus_zoom,
+            )
+            # Keep the crop wholly inside the sensor frame. PIL pads an
+            # out-of-bounds crop with black, which otherwise appears as a bar
+            # when a selected star is close to an edge.
+            crop_left = min(max(round(blob.x - crop_w / 2), 0), raw_l.width - crop_w)
+            crop_top = min(max(round(blob.y - crop_h / 2), 0), raw_l.height - crop_h)
+            crop = raw_l.crop(
+                (crop_left, crop_top, crop_left + crop_w, crop_top + crop_h)
+            )
+            enlarged = crop.resize(tile_size, resample=Image.Resampling.NEAREST)
+            mosaic.paste(enlarged, (left, top))
+
+        # Apply the display's red/grey channel mask without changing luminance.
+        return ImageChops.multiply(mosaic.convert("RGB"), self.colors.red_image)
+
+    def _render_brightest_star(self, raw_image: Image.Image) -> Image.Image:
+        """Fill the panel with the brightest detected star's raw crop."""
+        raw_l = raw_image.convert("L")
+        target_size = self.display_class.resolution
+        rendered = Image.new("L", target_size, 0)
+        blobs = self._display_blobs()
+        if blobs:
+            blob = blobs[0]
+            # Reuse a tile's native crop across the full panel, giving Single
+            # twice the apparent magnification selected by +/- in Stars.
+            crop_w, crop_h = focus_crop_size(
+                raw_l.size,
+                target_size,
+                blob.extent,
+                self.focus_zoom,
+            )
+            crop_left = min(max(round(blob.x - crop_w / 2), 0), raw_l.width - crop_w)
+            crop_top = min(max(round(blob.y - crop_h / 2), 0), raw_l.height - crop_h)
+            crop = raw_l.crop(
+                (crop_left, crop_top, crop_left + crop_w, crop_top + crop_h)
+            )
+            rendered = crop.resize(target_size, resample=Image.Resampling.NEAREST)
+
+        return ImageChops.multiply(rendered.convert("RGB"), self.colors.red_image)
+
+    def _render_image_frame(self, raw_image: Image.Image) -> Image.Image:
+        """Fit and autocontrast the full camera image for display only."""
+        resized = raw_image.convert("L").resize(
+            self.display_class.resolution, resample=Image.Resampling.NEAREST
+        )
+        red = ImageChops.multiply(resized.convert("RGB"), self.colors.red_image)
+        return ImageOps.autocontrast(red)
+
+    def _focus_readout_text(self) -> str:
+        """Format current HFD, using one unmistakable unavailable value."""
+        result = self.last_focus_result
+        if result is not None and result.median_hfd is not None:
+            return f"{result.median_hfd:.1f}"
+        return "?.?"
+
+    def _focus_history_gap(self, center, text, font) -> tuple[int, int]:
+        """Return signal endpoints with equal padding from rendered outline."""
+        mask = Image.new("1", self.display_class.resolution)
+        mask_draw = ImageDraw.Draw(mask)
+        mask_draw.text(
+            center,
+            text,
+            font=font,
+            fill=1,
+            anchor="mm",
+            stroke_width=1,
+            stroke_fill=1,
+        )
+        ink_box = mask.getbbox()
+        if ink_box is None:
+            return center[0], center[0]
+
+        # Endpoints are inclusive. Leave exactly three blank pixels between
+        # each endpoint and the first/last rendered outline pixel.
+        padding = 3
+        return ink_box[0] - padding - 1, ink_box[2] + padding
+
+    def _draw_focus_overlay(self) -> None:
+        """Draw quadrant separators, HFD history, and the current HFD."""
+        res_x, res_y = self.display_class.resolution
+        content_top = min(self.display_class.titlebar_height + 1, res_y)
+        center = self._focus_center()
+        separator = self.colors.get(64)
+        self.draw.line(
+            [(center[0], content_top), (center[0], res_y - 1)], fill=separator
+        )
+        self.draw.line([(0, center[1]), (res_x - 1, center[1])], fill=separator)
+
+        text = self._focus_readout_text()
+
+        font = self.fonts.large.font
+        gap_left, gap_right = self._focus_history_gap(center, text, font)
+        self._draw_focus_history(center[1], gap_left, gap_right)
+        self.draw.text(
+            center,
+            text,
+            font=font,
+            fill=self.colors.get(255),
+            anchor="mm",
+            stroke_width=1,
+            stroke_fill=self.colors.get(0),
+        )
+
+    def _draw_single_focus_overlay(self) -> None:
+        """Draw HFD and history over a translucent lower-third panel."""
+        res_x, res_y = self.display_class.resolution
+        overlay_top = math.ceil(res_y * 2 / 3)
+        center = (res_x // 2, overlay_top + (res_y - overlay_top) // 2)
+        self.draw.rectangle((0, overlay_top, res_x, res_y), fill=(0, 0, 0, 128))
+
+        text = self._focus_readout_text()
+
+        font = self.fonts.large.font
+        gap_left, gap_right = self._focus_history_gap(center, text, font)
+        self._draw_focus_history(center[1], gap_left, gap_right)
+        self.draw.text(
+            center,
+            text,
+            font=font,
+            fill=self.colors.get(255),
+            anchor="mm",
+            stroke_width=1,
+            stroke_fill=self.colors.get(0),
+        )
+
+    def _draw_focus_history(self, center_y: int, gap_left: int, gap_right: int) -> None:
+        """Draw the centered rolling HFD signal across the middle divider.
+
+        The time axis passes through an omitted center interval, leaving the
+        outlined numeric readout unobstructed while older and newer samples
+        appear to its left and right. The recent value range is centered on the
+        divider; lower HFD is below it. A minimum span prevents measurement
+        noise from filling the plot height.
+        """
+        res_x, res_y = self.display_class.resolution
+        plot_half_height = max(8, round(res_y * 10 / 128))
+        left_edge = 2
+        right_edge = res_x - 3
+        gap_left = max(left_edge, gap_left)
+        gap_right = min(right_edge, gap_right)
+        left_width = max(gap_left - left_edge, 0)
+        right_width = max(right_edge - gap_right, 0)
+        drawable_width = left_width + right_width
+        if drawable_width <= 0:
+            return
+
+        # Wall time makes stale measurements visibly recede during missing
+        # frames. Missing frames add no samples; the next numeric sample prunes
+        # expired history and starts drawing immediately at the right edge.
+        now = time.time()
+        window_start = now - FOCUS_WINDOW_S
+        while self.focus_history and self.focus_history[0][0] < window_start:
+            self.focus_history.popleft()
+        samples = [hfd for _timestamp, hfd in self.focus_history]
+        if samples:
+            range_center = (min(samples) + max(samples)) / 2
+            half_span = max(
+                (max(samples) - min(samples)) * HFD_RANGE_PADDING / 2,
+                HFD_MIN_DISPLAY_SPAN / 2,
+            )
         else:
-            a = STRETCH_EMA_ALPHA
-            self._stretch_black = a * black + (1 - a) * self._stretch_black
-            self._stretch_white = a * white + (1 - a) * self._stretch_white
+            range_center = 0.0
+            half_span = HFD_MIN_DISPLAY_SPAN / 2
 
-    def _focus_marker(self):
-        """Return the best (min) HFD over the window, or None if no samples."""
-        samples = [h for (_t, h) in self.focus_history if h is not None]
-        return min(samples) if samples else None
+        def y_of(hfd: float) -> int:
+            relative = min(max((hfd - range_center) / half_span, -1.0), 1.0)
+            return round(center_y - relative * plot_half_height)
 
-    def _apply_stretch(self, image_obj):
-        """Background-anchored linear stretch of a mode-'L' image (cosmetic).
+        def x_of(timestamp: float) -> tuple[int, bool, float]:
+            fraction = min(max((timestamp - window_start) / FOCUS_WINDOW_S, 0), 1)
+            offset = fraction * drawable_width
+            if offset <= left_width:
+                return round(left_edge + offset), False, offset
+            return round(gap_right + offset - left_width), True, offset
 
-        Replaces per-frame autocontrast: black/white points come from the
-        detector's EMA-smoothed background/peak, so the stretch is stable and a
-        starless frame does not get its noise amplified. The minimum span keeps
-        a faint frame from being stretched hard, and a little uniform dither is
-        added before quantising back to 8-bit so a narrow stretch doesn't band
-        into visible contour steps. Cosmetic only -- HFD is measured on the raw
-        frame, never on this.
-        """
-        if self._stretch_black is None or self._stretch_white is None:
-            return image_obj
-        black = self._stretch_black
-        span = max(self._stretch_white - black, STRETCH_MIN_SPAN)
-        scale = 255.0 / span
+        bright = self.colors.get(255)
 
-        arr = np.asarray(image_obj, dtype=np.float32)
-        stretched = (arr - black) * scale
-        # Uniform dither, peak-to-peak ~ one output step, so a narrow stretch
-        # blends across band boundaries instead of posterising into contours.
-        dither = scale * STRETCH_DITHER_FRAC
-        stretched += np.random.uniform(-dither, dither, size=arr.shape)
-        np.clip(stretched, 0, 255, out=stretched)
-        return Image.fromarray(stretched.astype(np.uint8), mode="L")
+        def draw_segment(start: tuple[int, int], end: tuple[int, int]) -> None:
+            self.draw.line((start, end), fill=bright)
 
-    def draw_star_selectors(self):
-        # Draw star selectors
-        if self.star_list.shape[0] > 0:
-            self.highlight_count = 3
-            if self.star_list.shape[0] < self.highlight_count:
-                self.highlight_count = self.star_list.shape[0]
+        def draw_isolated_sample(point: tuple[int, int], right_side: bool) -> None:
+            """Make the first sample after a gap visible without bridging it."""
+            x, y = point
+            side_left = gap_right if right_side else left_edge
+            side_right = right_edge if right_side else gap_left
+            self.draw.line(
+                (max(side_left, x - 1), y, min(side_right, x + 1), y),
+                fill=bright,
+            )
 
-            for _i in range(self.highlight_count):
-                raw_y, raw_x = self.star_list[_i]
-                # centroids are in native camera space; scale to the display
-                star_x = int(raw_x * self.display_class.resX / CAMERA_NATIVE_RES)
-                star_y = int(raw_y * self.display_class.resY / CAMERA_NATIVE_RES)
-
-                x_direction = 1
-                x_text_offset = 6
-                y_direction = 1
-                y_text_offset = -12
-
-                # flip the marker/label when too close to the right edge or top
-                if star_x > self.display_class.resX - 20:
-                    x_direction = -1
-                    x_text_offset = -10
-                if star_y < self.display_class.titlebar_height + 21:
-                    y_direction = -1
-                    y_text_offset = 1
-
-                self.draw.line(
-                    [
-                        (star_x, star_y - (4 * y_direction)),
-                        (star_x, star_y - (12 * y_direction)),
-                    ],
-                    fill=self.colors.get(128),
+        previous: Optional[tuple[tuple[int, int], bool, float]] = None
+        for timestamp, hfd in self.focus_history:
+            x, right_side, offset = x_of(timestamp)
+            current = (
+                (x, y_of(hfd)),
+                right_side,
+                offset,
+            )
+            if previous is not None and previous[1] == right_side:
+                draw_segment(previous[0], current[0])
+            elif previous is not None:
+                # Clip a segment crossing the number at equal left/right gap
+                # boundaries. Dropping the whole segment makes the apparent
+                # spacing depend on the camera sample interval.
+                span = current[2] - previous[2]
+                fraction = (left_width - previous[2]) / span
+                crossing_y = round(
+                    previous[0][1] + fraction * (current[0][1] - previous[0][1])
                 )
+                draw_segment(previous[0], (gap_left, crossing_y))
+                draw_segment((gap_right, crossing_y), current[0])
+            else:
+                draw_isolated_sample(current[0], right_side)
+            previous = current
 
-                self.draw.line(
-                    [
-                        (star_x + (4 * x_direction), star_y),
-                        (star_x + (12 * x_direction), star_y),
-                    ],
-                    fill=self.colors.get(128),
-                )
-
-                self.draw.text(
-                    (star_x + x_text_offset, star_y + y_text_offset),
-                    str(_i + 1),
-                    font=self.fonts.small.font,
-                    fill=self.colors.get(128),
-                )
-
-    def format_exposure_display(self) -> str:
-        """Format exposure time for overlay display, just the number like 0.4s."""
+    @staticmethod
+    def _format_exposure(exposure_us) -> str:
         try:
-            metadata = self.shared_state.last_image_metadata()
+            exposure_us = float(exposure_us)
+        except (TypeError, ValueError):
+            return "—"
+        if exposure_us < 1000:
+            return f"{exposure_us:.0f}us"
+        if exposure_us < 100_000:
+            return f"{exposure_us / 1000:g}ms"
+        return f"{exposure_us / 1_000_000:g}s"
 
-            # Get actual exposure from metadata
-            if metadata and "exposure_time" in metadata:
-                actual_exp = metadata["exposure_time"]
-                exp_sec = actual_exp / 1_000_000
-                if exp_sec < 0.1:
-                    return f"{int(exp_sec * 1000)}ms"
-                else:
-                    # Truncate to 2 decimal places
-                    exp_truncated = int(exp_sec * 100) / 100
-                    return f"{exp_truncated:g}s"
-        except Exception:
-            pass
-        return "N/A"
-
-    def _matched_star_text(self):
-        """Recent matched-star count (the solver's catalog matches), or '-'.
-
-        Its 0 -> N jump signals "sharp enough to solve"; kept alongside the
-        self-contained detected-star count.
-        """
-        try:
-            solution = self.shared_state.solution()
-            solve_source = solution.solve_source if solution else None
-            estimate_time = solution.estimate_time if solution else None
-            if solve_source in ("CAM", "CAM_FAILED") and estimate_time:
-                if time.time() - estimate_time < 10:
-                    return str(solution.diagnostics.Matches)
-        except Exception:
-            pass
-        return "-"
-
-    def _hfd_to_y(self, hfd, plot_top, plot_bottom):
-        """Map an HFD value to a screen y on the fixed log axis (low = bottom)."""
-        clamped = min(max(hfd, HFD_AXIS_MIN), HFD_AXIS_MAX)
-        norm = np.log(clamped / HFD_AXIS_MIN) / np.log(HFD_AXIS_MAX / HFD_AXIS_MIN)
-        return int(plot_bottom - norm * (plot_bottom - plot_top))
-
-    def draw_focus_strip(self):
-        """Render the focus strip: big HFD readout, V-curve, marker, and HUD.
-
-        Bottom band, on by default; square hides it. Persists across all zoom
-        levels (HFD is zoom-independent). Layout: a large right-justified HFD
-        number (the hero readout) fills the strip height; the V-curve and small
-        labels sit in the freed left region.
-
-        Geometry is resolution-flexible (ADR 0009): the band is a fixed fraction
-        of the screen height (~38 px on the 128 panel, proportionally taller on
-        a larger panel) and the label clearances derive from the small-font
-        height, so the rows never collide with the V-curve as the font grows.
-        """
-        res_x = self.display_class.resX
-        res_y = self.display_class.resY
-        # Bottom band height scales with the screen (38 px / 128 px on the
-        # 128 panel); strip_top was a 128-only literal (90) before #453.
-        strip_top = res_y - round(res_y * 38 / 128)
-        # Small-font height drives the label-row clearances (9 px on the 128
-        # panel); deriving them keeps the rows clear of the V-curve at 176.
-        small_h = self.fonts.small.height
-
-        # Dim band so the overlay stays legible over a bright image.
-        self.draw.rectangle([0, strip_top, res_x, res_y], fill=(0, 0, 0, 150))
-
+    def _draw_stats(self, raw_np: np.ndarray, metadata: dict) -> None:
+        """Draw focus/exposure statistics and a raw histogram."""
+        res_x, res_y = self.display_class.resolution
+        self.draw.rectangle((0, 0, res_x, res_y), fill=self.colors.get(0))
         bright = self.colors.get(255)
         medium = self.colors.get(128)
         dim = self.colors.get(64)
-
         result = self.last_focus_result
-        detected = str(result.n_used) if result is not None else "0"
 
-        # --- HFD readout: right-justified in a fixed-width slot so the V-curve's
-        # right edge never shifts as the value changes. A real reading is the big
-        # hero number (filling the strip height); the no-reading states fall back
-        # to a small dim hint rather than a giant placeholder glyph. ---
-        big_font = self.fonts.huge
-        slot_w = int(self.draw.textlength("00.0", font=big_font.font))
-        num_right = res_x - 2
-        num_left = num_right - slot_w
-        num_mid_y = (strip_top + res_y) // 2 - 1
-
-        if result is not None and result.median_hfd is not None:
-            self.draw.text(
-                (num_right, num_mid_y),
-                f"{result.median_hfd:.1f}",
-                font=big_font.font,
-                fill=bright,
-                anchor="rm",
-            )
-        else:
-            # too_defocused = a star is there but too broad to measure (keep
-            # adjusting toward focus); otherwise nothing usable was found.
-            hint = _("keep going") if (result and result.too_defocused) else "—"
-            outline_text(
-                self.draw,
-                (num_right, num_mid_y),
-                hint,
-                align="right",
-                font=self.fonts.base,
-                fill=dim,
-                shadow_color=(0, 0, 0),
-                stroke=1,
-                anchor="rm",
-            )
-
-        # --- Left region: V-curve framed by small labels ---
-        # plot_top clears the top label row; plot_bottom sits just above the
-        # bottom label row -- both derived from the small-font height so they
-        # track the font across resolutions (9 / 10 px on the 128 panel).
-        plot_left = 2
-        plot_right = num_left - 3
-        plot_top = strip_top + small_h
-        plot_bottom = res_y - small_h - 1
-
-        # Top labels: exposure (left), matched-star count (right of the graph).
-        # The matched 0 -> N jump still signals "sharp enough to solve".
-        outline_text(
-            self.draw,
-            (plot_left, strip_top),
-            self.format_exposure_display(),
-            align="left",
-            font=self.fonts.small,
-            fill=medium,
-            shadow_color=(0, 0, 0),
-            stroke=1,
+        hfd = self._focus_readout_text()
+        fwhm = (
+            f"{result.median_fwhm:.1f} px"
+            if result is not None and result.median_fwhm is not None
+            else "—"
         )
-        outline_text(
-            self.draw,
-            (plot_right, strip_top),
-            f"{self._STAR_ICON}{self._matched_star_text()}",
-            align="left",
-            font=self.fonts.small,
-            fill=medium,
-            shadow_color=(0, 0, 0),
-            stroke=1,
-            anchor="ra",
+        detected = len(result.blobs) if result is not None else 0
+        exposure_setting = self.config_object.get_option("camera_exp")
+        exposure_mode = "AUTO" if str(exposure_setting).lower() == "auto" else "MANUAL"
+        exposure = self._format_exposure(metadata.get("exposure_time"))
+        gain = metadata.get("gain")
+        gain_text = f"{gain:g}" if isinstance(gain, (int, float)) else "—"
+
+        # screen_update() draws the standard title bar after this method. Keep
+        # the hero value below it so the bar never masks the HFD number.
+        top = self.display_class.titlebar_height + 4
+        self.draw.text((2, top), "HFD", font=self.fonts.base.font, fill=medium)
+        self.draw.text(
+            (res_x - 2, top),
+            hfd,
+            font=self.fonts.huge.font,
+            fill=bright,
+            anchor="rt",
         )
 
-        # Bottom label: detected-star count (the self-contained detector).
-        outline_text(
-            self.draw,
-            (plot_left, res_y - small_h),
-            _("det {n}").format(n=detected),
-            align="left",
-            font=self.fonts.small,
-            fill=medium,
-            shadow_color=(0, 0, 0),
-            stroke=1,
+        line_h = self.fonts.small.height + 1
+        stats_y = top + self.fonts.huge.height
+        lines = (
+            f"FWHM {fwhm}  Stars {detected}",
+            f"{exposure_mode} {exposure}  Gain {gain_text}",
         )
+        for line in lines:
+            self.draw.text((2, stats_y), line, font=self.fonts.small.font, fill=medium)
+            stats_y += line_h
 
-        # --- V-curve + best-focus marker over the rolling window ---
-        now = time.time()
-        window_start = now - FOCUS_WINDOW_S
-        span = max(plot_right - plot_left, 1)
+        label_h = self.fonts.small.height
+        plots_top = min(stats_y + 1, res_y - label_h - 4)
+        label_xy = (2, plots_top)
+        self.draw.text(label_xy, "RAW HIST", font=self.fonts.small.font, fill=dim)
+        label_box = self.draw.textbbox(label_xy, "RAW HIST", font=self.fonts.small.font)
+        plot_left, plot_top, plot_right, plot_bottom = (
+            2,
+            min(label_box[3] + 2, res_y - 2),
+            res_x - 2,
+            res_y - 1,
+        )
+        plot_height = max(plot_bottom - plot_top, 1)
+        plot_width = max(plot_right - plot_left + 1, 1)
+        bins = min(32, plot_width)
+        counts, _bin_edges = np.histogram(raw_np, bins=bins, range=(0, 256))
+        heights = np.log1p(counts.astype(np.float64))
+        peak = float(heights.max())
+        if peak > 0:
+            heights *= plot_height / peak
+        for index, height in enumerate(heights):
+            x0 = plot_left + round(index * plot_width / bins)
+            x1 = max(x0, plot_left + round((index + 1) * plot_width / bins) - 1)
+            y = plot_bottom - round(float(height))
+            self.draw.rectangle((x0, y, x1, plot_bottom), fill=medium)
 
-        def x_of(ts):
-            frac = (ts - window_start) / FOCUS_WINDOW_S
-            return int(plot_left + min(max(frac, 0.0), 1.0) * span)
-
-        marker = self._focus_marker()
-        if marker is not None:
-            marker_y = self._hfd_to_y(marker, plot_top, plot_bottom)
-            self.draw.line([(plot_left, marker_y), (plot_right, marker_y)], fill=dim)
-
-        prev = None
-        for ts, hfd in self.focus_history:
-            if hfd is None:
-                prev = None  # gap -- break the line
-                continue
-            point = (x_of(ts), self._hfd_to_y(hfd, plot_top, plot_bottom))
-            if prev is not None:
-                self.draw.line([prev, point], fill=bright)
-            else:
-                self.draw.point(point, fill=bright)
-            prev = point
-
-    def update(self, force=False):
+    def update(self, force: bool = False):
         if force:
             self.last_update = 0
-        # display an image
+
         metadata = self.shared_state.last_image_metadata()
         last_image_time = metadata["exposure_end"]
         image_updated = False
         if last_image_time > self.last_update:
             image_updated = True
-            # camera_image is a multiprocessing-manager proxy; .copy() returns a
-            # real PIL Image. Copy once, measure on the raw 512x512 frame, then
-            # reuse the same copy for the (zoomed) display transform.
             raw_image = self.camera_image.copy()
 
-            # Measure focus on the RAW frame before any display transform, and
-            # only for a genuinely new frame (not a forced redraw).
-            new_frame = last_image_time != self._last_focus_frame_time
-            if new_frame:
-                # focus_hfd needs a 2D array; convert to luminance so it works
-                # for both mode-"L" hardware frames and RGB debug frames.
-                self._measure_focus(np.asarray(raw_image.convert("L")))
+            raw_np = np.asarray(raw_image.convert("L"))
+            if last_image_time != self._last_focus_frame_time:
+                # A solve normally arrives after its image was first rendered.
+                # Identify those retained previous-frame blobs before tracking
+                # their slots onto the newly arrived frame.
+                self._adopt_solved_catalog_ids(self._last_focus_frame_time)
+                self._measure_focus(raw_np)
                 self._last_focus_frame_time = last_image_time
+                # Also handle the less common case where the solver won the
+                # race and published this exposure before the UI copied it.
+                self._adopt_solved_catalog_ids(last_image_time)
+            elif force:
+                # A forced redraw can race the separately published camera
+                # metadata. Re-measure this exact display copy, but do not add
+                # a duplicate point to the time history.
+                self._measure_focus(raw_np, record_history=False)
 
-            resX, resY = self.display_class.resX, self.display_class.resY
-
-            # Resize / zoom. Zoom crops a centred region of the native camera
-            # frame (half of it for 2x, a quarter for 4x) then scales to the
-            # display, so the zoom factor stays 2x / 4x at any resolution.
-            # (Shared with the daytime-align screen via ui.camera_render.)
-            image_obj = resize_for_display(raw_image, (resX, resY), self.zoom_level)
-
-            # Background-anchored linear stretch (replaces autocontrast), then RED.
-            # Stretch on a single luminance band (debug frames are RGB; hardware
-            # frames are already mode "L").
-            image_obj = image_obj.convert("L")
-            image_obj = self._apply_stretch(image_obj)
-            image_obj = image_obj.convert("RGB")
-            image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
-
-            self.screen.paste(image_obj)
+            if self.display_mode == DISPLAY_STARS:
+                self.screen.paste(self._render_focus_tiles(raw_image))
+            elif self.display_mode == DISPLAY_IMAGE:
+                self.screen.paste(self._render_image_frame(raw_image))
+            elif self.display_mode == DISPLAY_STATS:
+                self._draw_stats(raw_np, metadata)
+            else:
+                self.screen.paste(self._render_brightest_star(raw_image))
             self.last_update = last_image_time
 
-        # Image paste cleared the screen, so redraw overlays after a paste.
-        if image_updated or force:
-            if self.zoom_level > 0:
-                # Zoom label relocated out of the focus-strip area (top-left,
-                # just under the titlebar).
-                zoom_number = self.zoom_level * 2
-                self.draw.text(
-                    (2, self.display_class.titlebar_height + 1),
-                    _("Zoom x{zoom_number}").format(zoom_number=zoom_number),
-                    font=self.fonts.bold.font,
-                    fill=self.colors.get(128),
-                )
-            if self.show_focus_strip:
-                self.draw_focus_strip()
+        if (image_updated or force) and self.display_mode == DISPLAY_STARS:
+            self._draw_focus_overlay()
+        elif (image_updated or force) and self.display_mode == DISPLAY_SINGLE:
+            self._draw_single_focus_overlay()
 
         return self.screen_update()
 
     def key_plus(self):
-        self.zoom_level += 1
-        if self.zoom_level > 2:
-            self.zoom_level = 2
+        """Increase the nominal focused-star magnification."""
+        if self.display_mode not in (DISPLAY_STARS, DISPLAY_SINGLE):
+            return
+        self.focus_zoom = min(FOCUS_MAX_ZOOM, self.focus_zoom + FOCUS_ZOOM_STEP)
+        self.update(force=True)
 
     def key_minus(self):
-        self.zoom_level -= 1
-        if self.zoom_level < 0:
-            self.zoom_level = 0
+        """Decrease the nominal focused-star magnification."""
+        if self.display_mode not in (DISPLAY_STARS, DISPLAY_SINGLE):
+            return
+        self.focus_zoom = max(FOCUS_MIN_ZOOM, self.focus_zoom - FOCUS_ZOOM_STEP)
+        self.update(force=True)
 
     def key_square(self):
-        """Toggle the focus strip (V-curve + HUD) on/off with the square button."""
-        self.show_focus_strip = not self.show_focus_strip
+        """Cycle Stars -> Single -> Image -> Stats using the display-mode key."""
+        self.cycle_display_mode()
         self.update(force=True)

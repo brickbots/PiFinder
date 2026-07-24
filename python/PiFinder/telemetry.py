@@ -87,6 +87,8 @@ class TelemetryRecorder:
         self._last_flush = 0.0
         self._imu_skip_count = 0
         self._last_imu_timestamp = None
+        self._last_radio_sequence = None
+        self._last_radio_time = 0.0
         self._last_target_id = None
         self._dropped_events = 0
         self._header_cfg = None
@@ -118,6 +120,8 @@ class TelemetryRecorder:
         # Reset per-session state
         self._imu_skip_count = 0
         self._last_imu_timestamp = None
+        self._last_radio_sequence = None
+        self._last_radio_time = 0.0
         self._last_target_id = None
         self._dropped_events = 0
 
@@ -233,6 +237,38 @@ class TelemetryRecorder:
             "accel": _serialize_vec(imu.accel),
         }
         self._append(record)
+
+    def record_radio(self, sample):
+        """Record one radiometer sample event (camera-side sky background).
+
+        Fields: t = capture epoch [s], exp = driver-reported exposure [s],
+        bg = background median [ADU], mad = median absolute deviation [ADU],
+        grad = quadrant gradient [ADU], seq = camera frame sequence.
+        Dedupes on sequence and rate-limits to ~1 Hz: the integrator loop
+        polls far faster than frames arrive at night, and daytime short
+        exposures produce many frames per second.
+        """
+        if not self.enabled or not sample:
+            return
+        seq = sample.get("sequence")
+        t = sample.get("captured_at")
+        if seq is None or t is None or seq == self._last_radio_sequence:
+            return
+        if t - self._last_radio_time < 1.0:
+            return
+        self._last_radio_sequence = seq
+        self._last_radio_time = t
+        self._append(
+            {
+                "t": _rf(t),
+                "e": "radio",
+                "seq": int(seq),
+                "exp": sample.get("exposure_sec"),
+                "bg": _rf(sample.get("background_per_pixel")),
+                "mad": _rf(sample.get("background_mad")),
+                "grad": _rf(sample.get("background_gradient")),
+            }
+        )
 
     def record_solve(self, solve_result, predicted=None):
         """Record a :class:`SolveResult`. No-op if disabled.
@@ -614,6 +650,12 @@ class TelemetryManager:
             # A malformed event must not kill the integrator mid-replay.
             logger.warning("Skipping malformed replay event: %s", e)
         return None
+
+    def record_radio(self, sample):
+        """Record a radiometer sample event (no-op while replaying)."""
+        if self.replaying:
+            return
+        self._recorder.record_radio(sample)
 
     def record_solve(self, solve_result, predicted=None):
         """Record a solve event and send save_image command if enabled."""

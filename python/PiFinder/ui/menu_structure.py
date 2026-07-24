@@ -1033,16 +1033,16 @@ pifinder_menu = {
                                     "value": "as_heart",
                                 },
                                 {
-                                    "name": _("V4 Left"),
-                                    "value": "v4_left",
+                                    "name": _("Rev4 Left"),
+                                    "value": "rev4_left",
                                 },
                                 {
-                                    "name": _("V4 Right"),
-                                    "value": "v4_right",
+                                    "name": _("Rev4 Right"),
+                                    "value": "rev4_right",
                                 },
                                 {
-                                    "name": _("V4 Straight"),
-                                    "value": "v4_straight",
+                                    "name": _("Rev4 Straight"),
+                                    "value": "rev4_straight",
                                 },
                             ],
                         },
