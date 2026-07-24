@@ -321,11 +321,22 @@ If the image is too far out of focus to measure, the readout shows ``keep going`
 into range.  The strip works at every zoom level, since the HFD doesn't depend on zoom, and you can
 press the **SQUARE** button to hide or show it if you'd rather see the bare image.
 
+Work in small steps.  The whole journey from stars too soft to see on screen to good focus is only a
+few turns of the lens, and the difference between fair and good focus is less than half a turn.  Turn
+the lens an eighth to a quarter of a turn at a time, then take your hand away for a moment so any
+vibration settles and the readout catches up.  Bigger or continuous turns make it easy to sweep
+straight through best focus without ever seeing it.
+
 Good focus means the quickest solves.  Close will work, but it's worth driving the HFD down to its
 lowest point — use the **+/-** keys to zoom the view to 2x and 4x and get the stars as tight as you
 reasonably can.  With dark enough skies and good focus, the camera icon appears in the top right and
 the current constellation shows in the title bar.  Congratulations — the PiFinder knows where it's
 pointing!
+
+If you touch up focus on a later night, judge it here on the Focus screen rather than by the camera
+icon — a solve takes a second or so to catch up with each change of the lens, so the icon always
+lags a little behind.  The HFD readout responds much faster, and the technique is the same: a small
+turn, then a pause to let things settle.
 
 
 .. note::
