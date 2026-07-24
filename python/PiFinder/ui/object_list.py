@@ -90,6 +90,36 @@ def _sort_objects(
     return list(objects)
 
 
+def _next_target_index(
+    new_order: list,
+    old_order: list,
+    old_index: int,
+) -> int:
+    """
+    Where the cursor lands after a list rebuild: on the previously
+    selected object if it survived, else on the first of its old
+    successors that did (the natural next target once the selection was
+    logged or dropped below the altitude filter), clamped as a last
+    resort.
+
+    Matches listings by (catalog_code, sequence) — CompositeObject.__eq__
+    compares object_id alone, which would land on a *sibling* listing
+    (M 31 == NGC 224).
+    """
+    if not len(new_order) or not len(old_order):
+        return 0
+    index_by_listing = {}
+    for index, obj in enumerate(new_order):
+        key = (obj.catalog_code, obj.sequence)
+        if key not in index_by_listing:
+            index_by_listing[key] = index
+    for candidate in old_order[old_index:]:
+        new_index = index_by_listing.get((candidate.catalog_code, candidate.sequence))
+        if new_index is not None:
+            return new_index
+    return min(max(old_index, 0), len(new_order) - 1)
+
+
 class UIObjectList(UITextMenu):
     """
     Displayes a list of objects
@@ -116,6 +146,7 @@ class UIObjectList(UITextMenu):
         self.mount_type = self.config_object.get_option("mount_type")
 
         self._menu_items: list[CompositeObject] = []
+        self._menu_items_sorted: list[CompositeObject] = []
         self.catalog_info_1: str = ""
         self.catalog_info_2: str = ""
         self.catalog_data_label: str = ""
@@ -221,6 +252,11 @@ class UIObjectList(UITextMenu):
         if not self.catalogs.catalog_filter.is_dirty() and not force_update:
             return
 
+        # sort() resets the cursor to the top; keep it on the selected
+        # object (or its old successor) across the rebuild instead.
+        old_order = self._menu_items_sorted
+        old_index = self._current_item_index
+
         self.catalogs.filter_catalogs()
 
         # The object list can display objects from various sources
@@ -258,6 +294,9 @@ class UIObjectList(UITextMenu):
         self.catalog_info_1 = str(self.get_nr_of_menu_items())
         self._menu_items_sorted = self._menu_items
         self.sort(show_message=False)
+        self._current_item_index = _next_target_index(
+            self._menu_items_sorted, old_order, old_index
+        )
 
     def _get_catalog_status(self):
         if self.item_definition.get("objects") != "catalog":
@@ -566,13 +605,20 @@ class UIObjectList(UITextMenu):
         else:
             self._was_loading = is_loading
 
+        # Altitude verdicts age out while the screen sits open (the sky
+        # rotates); refresh the list when the filter reports staleness or a
+        # dynamic catalog replaced its objects. Before the no-objects check so
+        # an emptied-by-altitude list can repopulate as objects rise.
         catalog_filter = self.catalogs.catalog_filter
-        if catalog_filter is not None and catalog_filter.is_dirty():
+        if catalog_filter is not None and (
+            catalog_filter.is_dirty() or catalog_filter.is_stale()
+        ):
             self.refresh_object_list()
 
         # Poll dynamic-catalog state even while objects remain populated: an
         # update keeps serving the old catalog and reports download progress.
         catalog_status = self._get_catalog_status()
+
         # no objects to display
         if self.get_nr_of_menu_items() == 0:
             # Get catalog-specific status message if available
@@ -619,7 +665,14 @@ class UIObjectList(UITextMenu):
 
         # should we refresh the nearby list?
         if self.current_sort == SortOrder.NEAREST and self.nearby.should_refresh():
+            # keep the cursor on the selected object as it migrates
+            # through the distance ranking
+            old_order = self._menu_items_sorted
+            old_index = self._current_item_index
             self.nearby_refresh()
+            self._current_item_index = _next_target_index(
+                self._menu_items_sorted, old_order, old_index
+            )
 
         # Draw sorting mode in the empty rows above the focus line
         if self._current_item_index < half:

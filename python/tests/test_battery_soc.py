@@ -22,9 +22,10 @@ def test_estimate_soc_at_knots(voltage, pct):
 @pytest.mark.parametrize(
     "voltage,expected",
     [
-        (3.18, 3),  # between (3.00, 0) and (3.30, 5): frac 0.6 -> 3%
-        (3.61, 35),  # between (3.55, 25) and (3.70, 50): frac 0.4 -> 35%
-        (3.76, 60),  # between (3.70, 50) and (3.85, 75): frac 0.4 -> 60%
+        (3.62, 8),  # between (3.594, 5) and (3.643, 10): frac ~0.53 -> 8%
+        (3.70, 18),  # between (3.681, 15) and (3.736, 25): frac ~0.35 -> 18%
+        (3.90, 65),  # between (3.834, 50) and (3.947, 75): frac ~0.58 -> 65%
+        (4.00, 92),  # between (3.983, 90) and (4.060, 100): frac ~0.22 -> 92%
     ],
 )
 def test_estimate_soc_interpolates(voltage, expected):
@@ -32,16 +33,20 @@ def test_estimate_soc_interpolates(voltage, expected):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("voltage", [2.5, 2.99, 0.0, -1.0])
+@pytest.mark.parametrize("voltage", [3.54, 3.0, 0.0, -1.0])
 def test_estimate_soc_clamps_low(voltage):
-    """Below the lowest knot clamps to 0."""
+    """At or below the lowest knot clamps to 0. The 0% knot is the
+    low-battery shutdown at the ADC blind floor (ADR 0021), so a sane
+    read below it can only be the last gasp before the debounce fires."""
     assert estimate_soc(voltage) == 0
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("voltage", [4.20, 4.5, 5.0, 100.0])
+@pytest.mark.parametrize("voltage", [4.060, 4.20, 4.5, 5.0, 100.0])
 def test_estimate_soc_clamps_high(voltage):
-    """At or above the highest knot clamps to 100."""
+    """At or above the highest knot clamps to 100. The old 4.20 V top
+    knot was unreachable under load; 100% is now the measured under-load
+    voltage right after unplugging a charged unit."""
     assert estimate_soc(voltage) == 100
 
 

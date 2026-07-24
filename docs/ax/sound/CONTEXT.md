@@ -1,6 +1,6 @@
 # Sound (Audio Feedback)
 
-The Sound context turns named user-/system-events into short audible cues on the rev-4 PiFinder's **passive piezo buzzer**, driven by hardware PWM (channel 0, GPIO12). It is **best-effort, fire-and-forget** feedback — never a data channel and never something another subsystem blocks on. Gated on rev-4 hardware presence, like [Battery](../battery/CONTEXT.md).
+The Sound context turns named user-/system-events into short audible cues on the rev4 PiFinder's **passive piezo buzzer**, driven by hardware PWM (channel 0, GPIO12). It is **best-effort, fire-and-forget** feedback — never a data channel and never something another subsystem blocks on. Gated on rev4 hardware presence, like [Battery](../battery/CONTEXT.md).
 
 ## Language
 

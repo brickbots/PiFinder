@@ -701,7 +701,7 @@ class Server:
                     try:
                         cfg.equipment.eyepieces.index(new_eyepiece)
                     except ValueError:
-                        cfg.equipment.eyepieces.append(new_eyepiece)
+                        cfg.equipment.add_eyepiece(new_eyepiece)
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")

@@ -293,10 +293,10 @@ def test_invalid_screen_direction_raises():
 
 @pytest.mark.unit
 def test_q_imu2cam_as_bloom():
-    """Physical axis correspondences for the AS Bloom build (rev-4 board:
+    """Physical axis correspondences for the AS Bloom build (rev4 board:
     IMU on the back side of the UI board; derived with
-    pointing_model/docs/imu2cam_tool.html under the rev-4 depiction --
-    supersedes the value read off a rev-3 depiction of the same
+    pointing_model/docs/imu2cam_tool.html under the rev4 depiction --
+    supersedes the value read off a rev3 depiction of the same
     arrangement)."""
     R = quaternion.as_rotation_matrix(ImuDeadReckoning._q_imu2cam("as_bloom"))
     # columns = camera axes expressed in IMU coordinates
@@ -307,10 +307,10 @@ def test_q_imu2cam_as_bloom():
 
 @pytest.mark.unit
 def test_q_imu2cam_as_heart():
-    """Physical axis correspondences for the AS Heart build (rev-4 board:
+    """Physical axis correspondences for the AS Heart build (rev4 board:
     IMU on the back side of the UI board; derived with
-    pointing_model/docs/imu2cam_tool.html under the rev-4 depiction --
-    supersedes the value read off a rev-3 depiction of the same
+    pointing_model/docs/imu2cam_tool.html under the rev4 depiction --
+    supersedes the value read off a rev3 depiction of the same
     arrangement)."""
     R = quaternion.as_rotation_matrix(ImuDeadReckoning._q_imu2cam("as_heart"))
     # columns = camera axes expressed in IMU coordinates
@@ -320,11 +320,11 @@ def test_q_imu2cam_as_heart():
 
 
 @pytest.mark.unit
-def test_q_imu2cam_v4_left():
-    """Physical axis correspondences for the V4 Left build (rev-4 board:
+def test_q_imu2cam_rev4_left():
+    """Physical axis correspondences for the Rev4 Left build (rev4 board:
     IMU on the back side of the UI board; derived with
-    pointing_model/docs/imu2cam_tool.html under the rev-4 depiction)."""
-    R = quaternion.as_rotation_matrix(ImuDeadReckoning._q_imu2cam("v4_left"))
+    pointing_model/docs/imu2cam_tool.html under the rev4 depiction)."""
+    R = quaternion.as_rotation_matrix(ImuDeadReckoning._q_imu2cam("rev4_left"))
     # columns = camera axes expressed in IMU coordinates
     assert np.allclose(R[:, 0], [0, 0, -1], atol=1e-9)  # image left  = -z_imu
     assert np.allclose(R[:, 1], [1, 0, 0], atol=1e-9)  # image up    = +x_imu
@@ -332,11 +332,11 @@ def test_q_imu2cam_v4_left():
 
 
 @pytest.mark.unit
-def test_q_imu2cam_v4_right():
-    """Physical axis correspondences for the V4 Right build (rev-4 board:
+def test_q_imu2cam_rev4_right():
+    """Physical axis correspondences for the Rev4 Right build (rev4 board:
     IMU on the back side of the UI board; derived with
-    pointing_model/docs/imu2cam_tool.html under the rev-4 depiction)."""
-    R = quaternion.as_rotation_matrix(ImuDeadReckoning._q_imu2cam("v4_right"))
+    pointing_model/docs/imu2cam_tool.html under the rev4 depiction)."""
+    R = quaternion.as_rotation_matrix(ImuDeadReckoning._q_imu2cam("rev4_right"))
     # columns = camera axes expressed in IMU coordinates
     assert np.allclose(R[:, 0], [0, 0, 1], atol=1e-9)  # image left  = +z_imu
     assert np.allclose(R[:, 1], [1, 0, 0], atol=1e-9)  # image up    = +x_imu
@@ -344,13 +344,13 @@ def test_q_imu2cam_v4_right():
 
 
 @pytest.mark.unit
-def test_q_imu2cam_v4_straight():
-    """Physical axis correspondences for the V4 Straight build (rev-4 board:
+def test_q_imu2cam_rev4_straight():
+    """Physical axis correspondences for the Rev4 Straight build (rev4 board:
     IMU on the back side of the UI board; derived with
-    pointing_model/docs/imu2cam_tool.html under the rev-4 depiction).
+    pointing_model/docs/imu2cam_tool.html under the rev4 depiction).
     45-degree mount: no camera axis coincides with an IMU axis; the
     boresight sits halfway between +x_imu and +z_imu."""
-    R = quaternion.as_rotation_matrix(ImuDeadReckoning._q_imu2cam("v4_straight"))
+    R = quaternion.as_rotation_matrix(ImuDeadReckoning._q_imu2cam("rev4_straight"))
     s = np.sqrt(2) / 2
     # columns = camera axes expressed in IMU coordinates (tilted)
     assert np.allclose(R[:, 0], [-0.5, -s, 0.5], atol=1e-9)  # image left

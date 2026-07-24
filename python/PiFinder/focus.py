@@ -231,10 +231,37 @@ def track_blobs(
     back to current brightness order. Missing slots are filled with the
     brightest unused candidates.
     """
+    return tuple(
+        blob
+        for blob, _previous_index in track_blob_slots(
+            previous,
+            candidates,
+            n=n,
+            max_relative_motion=max_relative_motion,
+            max_candidates=max_candidates,
+        )
+    )
+
+
+def track_blob_slots(
+    previous: Sequence[Blob],
+    candidates: Sequence[Blob],
+    *,
+    n: int = 4,
+    max_relative_motion: float = 20.0,
+    max_candidates: int = 12,
+) -> Tuple[Tuple[Blob, Optional[int]], ...]:
+    """Track blobs and report which previous slot each result continues.
+
+    The optional index is ``None`` for a newly selected replacement.  Keeping
+    that distinction lets callers carry durable metadata such as a Hipparcos
+    ID across geometrically tracked frames without accidentally giving a
+    replacement star the departed star's identity.
+    """
     current = tuple(candidates[:max_candidates])
     old = tuple(previous[:n])
     if len(old) < 2 or len(current) < 2:
-        return current[:n]
+        return tuple((blob, None) for blob in current[:n])
 
     old_xy = np.asarray([(blob.x, blob.y) for blob in old], dtype=np.float64)
     current_xy = np.asarray([(blob.x, blob.y) for blob in current], dtype=np.float64)
@@ -264,22 +291,62 @@ def track_blobs(
                 )
 
     if best_matches is None:
-        return current[:n]
+        return tuple((blob, None) for blob in current[:n])
 
-    slots: List[Optional[Blob]] = [None] * min(len(old), n)
+    slots: List[Optional[Tuple[Blob, Optional[int]]]] = [None] * min(len(old), n)
     used = set()
     for old_index, current_index in best_matches:
-        slots[old_index] = current[current_index]
+        slots[old_index] = (current[current_index], old_index)
         used.add(current_index)
 
     unused = (blob for index, blob in enumerate(current) if index not in used)
-    for index, blob in enumerate(slots):
-        if blob is None:
-            slots[index] = next(unused, None)
+    for index, slot in enumerate(slots):
+        if slot is None:
+            replacement = next(unused, None)
+            if replacement is not None:
+                slots[index] = (replacement, None)
     while len(slots) < min(n, len(current)):
-        slots.append(next(unused, None))
+        replacement = next(unused, None)
+        slots.append((replacement, None) if replacement is not None else None)
 
-    return tuple(blob for blob in slots if blob is not None)
+    return tuple(slot for slot in slots if slot is not None)
+
+
+def match_catalog_ids(
+    blobs: Sequence[Blob],
+    matched_centroids: Sequence[Sequence[float]],
+    matched_catalog_ids: Sequence[object],
+    *,
+    max_distance: float = 12.0,
+) -> Tuple[Optional[object], ...]:
+    """Associate solved catalogue IDs with focus blobs from the same frame.
+
+    Tetra3 centroids and focus centroids are produced by different detectors,
+    so they are close rather than necessarily pixel-identical.  A global
+    one-to-one assignment prevents two focus blobs from claiming one HIP star;
+    associations beyond ``max_distance`` are rejected.
+    """
+    identities: List[Optional[object]] = [None] * len(blobs)
+    count = min(len(matched_centroids), len(matched_catalog_ids))
+    if not blobs or count == 0:
+        return tuple(identities)
+
+    blob_xy = np.asarray([(blob.x, blob.y) for blob in blobs], dtype=np.float64)
+    catalog_xy = np.asarray(
+        [
+            (matched_centroids[index][1], matched_centroids[index][0])
+            for index in range(count)
+        ],
+        dtype=np.float64,
+    )
+    distances = np.linalg.norm(
+        blob_xy[:, np.newaxis, :] - catalog_xy[np.newaxis, :, :], axis=2
+    )
+    rows, columns = linear_sum_assignment(distances)
+    for row, column in zip(rows, columns):
+        if distances[row, column] <= max_distance:
+            identities[int(row)] = matched_catalog_ids[int(column)]
+    return tuple(identities)
 
 
 def detect_stars(

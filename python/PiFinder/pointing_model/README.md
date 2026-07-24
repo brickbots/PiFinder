@@ -231,7 +231,7 @@ shipped variant; `tests/test_imu2cam_tool_presets.py` keeps those presets and
 the production tables in lockstep.
 
 Note that the IMU chip placement on the UI board is per **board revision**:
-rev-3 and earlier boards mount the BNO055 on the keypad face; rev-4 boards
+rev3 and earlier boards mount the BNO055 on the keypad face; rev4 boards
 (the Analog Sky models) mount it on the back side, flipped about the board's
 long axis. The tool models this with a board-revision control and a
 per-preset `board_rev` field — set it to match the physical board, or the
