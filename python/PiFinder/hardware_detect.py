@@ -5,7 +5,7 @@ Startup hardware detection for rev-dependent optional hardware.
 
 Builds a :class:`HardwareCapabilities` record once at startup (published
 into ``SharedStateObj`` via ``set_hardware()``) that downstream code uses
-as the single source of truth for "is this board a rev-4 with the
+as the single source of truth for "is this board a rev4 with the
 BQ25895 charger?". The battery monitor only spawns when the charger is
 detected.
 
@@ -60,11 +60,11 @@ def detect_capabilities() -> HardwareCapabilities:
     """Probe the board and return its :class:`HardwareCapabilities`.
 
     On any failure (no blinka, no I2C bus, probe error) returns all-False
-    capabilities — a dev machine or a rev-3 board simply has no charger.
+    capabilities — a dev machine or a rev3 board simply has no charger.
 
-    ``has_buzzer`` is set from the **same** rev-4 charger probe: the buzzer is
+    ``has_buzzer`` is set from the **same** rev4 charger probe: the buzzer is
     a bare GPIO piezo (PWM ch0) that can't be probed directly, so the BQ25895
-    ACK is the rev-4 marker that implies both (see CONTEXT-MAP "Sound →
+    ACK is the rev4 marker that implies both (see CONTEXT-MAP "Sound →
     system-wide").
     """
     try:

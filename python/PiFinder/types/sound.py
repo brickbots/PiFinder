@@ -35,10 +35,10 @@ class Earcon(Enum):
     SHUTDOWN = "shutdown"
     KEYPRESS = "keypress"
     VOLUME_SAMPLE = "volume_sample"
+    LOW_BATTERY = "low_battery"  # advisory 10%/5% warnings (ADR 0021)
     # Defined-but-unwired in v1: catalog entries exist (so the data model is
     # complete) but no producer requests them yet.
     ERROR = "error"
-    LOW_BATTERY = "low_battery"
     SOLVE_LOCK = "solve_lock"
 
 

@@ -3136,6 +3136,14 @@ msgstr ""
 "wiederherzustellen. Dabei werden vorhandene Einstellungen und "
 "Beobachtungen überschrieben. Bist du sicher?"
 
+# AI-TRANSLATED (claude): needs human review
+msgid "Low battery\nat {pct}%"
+msgstr "Akku schwach\nbei {pct}%"
+
+# AI-TRANSLATED (claude): needs human review
+msgid "Low battery\nShutting down"
+msgstr "Akku leer\nAusschalten"
+
 #~ msgid "AE Algo"
 #~ msgstr "Autom. BLZ"
 

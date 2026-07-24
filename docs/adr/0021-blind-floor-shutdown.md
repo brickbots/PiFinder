@@ -2,7 +2,7 @@
 
 When the battery monitor sees **sustained raw-0 battery-voltage reads while running on battery**, PiFinder performs a clean software shutdown through the existing shutdown chokepoint (warning + SHUTDOWN earcon, then the GPIO14 power-off latch per [ADR 0007](0007-gpio-poweroff-latch.md)). The **ADC blind floor** (~3.5 V, see the [Battery CONTEXT](../ax/battery/CONTEXT.md)) thereby becomes the **operational zero** of the discharge curve: 0% means "shutting down now", not "the unknowable voltage at which the boost would eventually die". UI warnings at 10% and 5% state of charge precede it.
 
-Status: accepted; implementation pending. This ADR **narrows [ADR 0006](0006-battery-read-only-telemetry.md) a second time** (as [ADR 0017](0017-battery-fast-charge-config.md) did for register writes): battery telemetry now drives one control action. It also **amends the 0% anchor in [ADR 0020](0020-soc-as-runtime-fraction.md)** — the discharge curve's zero is the blind floor / shutdown point, not the hardware cutoff voltage.
+Status: accepted; implemented (battery monitor debounce + main-loop warnings, 2026-07). This ADR **narrows [ADR 0006](0006-battery-read-only-telemetry.md) a second time** (as [ADR 0017](0017-battery-fast-charge-config.md) did for register writes): battery telemetry now drives one control action. It also **amends the 0% anchor in [ADR 0020](0020-soc-as-runtime-fraction.md)** — the discharge curve's zero is the blind floor / shutdown point, not the hardware cutoff voltage.
 
 ## Context
 

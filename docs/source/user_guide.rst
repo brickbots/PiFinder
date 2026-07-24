@@ -990,7 +990,8 @@ It works by solving the sky at two or three points while you rotate around that 
 them — turning the platform, or slewing the mount in right ascension only — then working out
 where the axis points from how the view shifts.  The measurement is only as good as the
 solves behind it, so before you start make sure the PiFinder has a GPS lock, is focused, and
-is solving reliably.
+is solving reliably.  Turn off your mount's or platform's sidereal tracking as well — the
+measurement assumes the scope holds still except when you rotate it yourself.
 
 .. image:: images/user_guide/polar_align_intro_docs.png
 
@@ -1003,9 +1004,9 @@ is solving reliably.
 
 To take a measurement, open Polar Align and press **SQUARE** to begin, then:
 
-1. Aim the telescope well away from the pole, where the camera gets reliable solves, and
-   wait for the screen to report a recent solve.  Press **SQUARE** to capture the first
-   point.
+1. Aim the telescope near the pole — :ref:`user_guide:getting a good measurement` below
+   gives the best aim and sweep for each mount — and wait for the screen to report a recent
+   solve.  Press **SQUARE** to capture the first point.
 2. Rotate around the axis by at least about 10° — turn the platform, or slew in right
    ascension only — wait for a fresh solve, and press **SQUARE** for the second point.
 3. For a stronger result, rotate farther and capture a third point — three points let the
@@ -1023,6 +1024,12 @@ adjusters — the platform's, or the mount's polar-alignment bolts — to follow
 both readings fall to zero.  The display refreshes with each new solve; if it shows 'No
 solve', hold everything still until the PiFinder solves again.
 
+.. note::
+   Before touching the adjusters, lock *both* of the mount's axes.  Right ascension is the
+   one everyone forgets — you unlocked it to rotate between captures — and a clutch that
+   slips while you work the adjusters quietly ruins the correction.  On a platform, leave
+   the scope alone entirely and adjust only the platform.
+
 .. image:: images/user_guide/polar_align_adjust_docs.png
 
 The top line summarises the measurement: the number of points used, the total sweep, and —
@@ -1032,7 +1039,8 @@ means something moved between captures that shouldn't have, so it's worth redoin
 Hold **SQUARE** for the marking menu, which gathers the advanced actions.  **STATS** opens a
 read-only detail view, **REDO PT** drops just the last point so you can recapture it, and
 **Roll On/Off** switches between a full three-axis fit and an RA/Dec-only fit that ignores
-camera roll — useful after a camera flop.
+camera roll — useful after a camera flop, and :ref:`user_guide:getting a good measurement`
+covers which fit suits each mount.
 
 .. image:: images/user_guide/polar_align_marking_menu_docs.png
 
@@ -1044,6 +1052,38 @@ judging whether a measurement is trustworthy.
 
 To start a fresh measurement at any time, press **SQUARE**; to leave the tool, press
 **MINUS**.
+
+Getting a good measurement
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The PiFinder-to-scope connection is never perfectly rigid, and small flexures — felt most
+strongly in camera roll — grow with how much the PiFinder's attitude changes between
+captures.  Wider sweeps are better in theory, but in practice the sweet spot is a moderate
+sweep taken close to the pole, keeping the PiFinder's attitude nearly constant.
+
+On an equatorial mount:
+
+- Point the declination axis so the scope sits roughly 7–10° off the mount's polar axis —
+  wherever that axis points now, not where the true pole is.
+- Sweep roughly 30–45° in right ascension: take the middle capture with the PiFinder's
+  screen roughly vertical, and the first and last captures 15–22° either side of it.
+- Set Roll Off in the marking menu — flexure shows up most strongly in roll, so the fit is
+  better off without it.
+
+On an equatorial platform:
+
+- Aim the scope close to Polaris, ideally within 5°.
+- Keep Roll On — aimed this close to the axis the pointing barely shifts between captures,
+  so the roll change carries most of the rotation information.
+- Position the PiFinder so its screen is vertical at the middle of the platform's travel;
+  that also keeps the altitude and azimuth arrows matching the real directions while you
+  adjust.
+
+Expect the result to land within 20–30 arcminutes of the pole; a very rigid PiFinder-to-scope
+connection and a wider sweep can bring that down to around 10.  That won't match a polar
+scope, or a routine that images through a rigidly mounted scope with a much smaller field of
+view — but it's a solid alignment when the pole is hidden from your site or you have no
+polar scope, and close enough to put Polaris into a polar scope's reticle.
 
 Shutdown
 ---------------------------

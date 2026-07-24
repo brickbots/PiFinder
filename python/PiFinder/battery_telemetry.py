@@ -9,10 +9,13 @@ describing the device and the pinned typical-load profile. Used by the
 bench discharge campaign that calibrates the state-of-charge curve —
 see docs/adr/0020-soc-as-runtime-fraction.md.
 
-The run ends with a hard power cut (the SYS boost drops out), and the
-last rows are the most valuable — they record the cutoff voltage that
-anchors 0% — so every row is flushed AND fsync'd. At the 5 s poll
-cadence the write load is trivial.
+The run ends at the low-battery software shutdown (ADR 0021: sustained
+ADC-blind polls on battery), and the last rows are the most valuable —
+the run of blank ``battery_voltage_v`` cells is what anchors 0% — so
+every row is flushed AND fsync'd. At the 5 s poll cadence the write
+load is trivial. ADC-blind polls publish ``None`` for every ADC-derived
+field; they are written as blank cells, which the analysis tool reads
+as blind.
 
 Analysis notes (consumed by tools/battery_runtime_analysis.py):
 * the discharge clock starts where ``on_external_power`` flips
@@ -171,20 +174,25 @@ class TelemetryLogger:
         except Exception:
             return ""
 
-    def log(self, state: BatteryState, soc_raw_pct: int):
+    def log(self, state: BatteryState, soc_raw_pct):
+        # ADC-blind polls (ADR 0021) publish None for every ADC-derived
+        # field — write blank cells, never a fabricated number.
+        def cell(value, ndigits):
+            return "" if value is None else round(value, ndigits)
+
         solve_age, matches, solve_source = self._solver_fields()
         row = [
             time.strftime("%Y-%m-%dT%H:%M:%S"),
             round(time.time(), 1),
             round(time.monotonic() - self._start_monotonic, 1),
-            round(state.battery_voltage, 3),
+            cell(state.battery_voltage, 3),
             state.charge_status.name,
             int(state.on_external_power),
             "" if state.state_of_charge_pct is None else state.state_of_charge_pct,
-            soc_raw_pct,
-            round(state.charge_current_ma, 1),
-            round(state.vbus_voltage, 2),
-            round(state.sys_voltage, 3),
+            "" if soc_raw_pct is None else soc_raw_pct,
+            cell(state.charge_current_ma, 1),
+            cell(state.vbus_voltage, 2),
+            cell(state.sys_voltage, 3),
             _cpu_temp_c(),
             _load_1min(),
             _throttled_hex(),

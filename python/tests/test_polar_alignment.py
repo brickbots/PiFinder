@@ -318,6 +318,7 @@ class TestPrecession:
         # axis RA near the pole is in the gimbal zone — relaxed tolerance
         assert abs((ax_ra - exp_ax_ra + 180) % 360 - 180) < 10 / 3600
 
+
 @pytest.mark.unit
 class TestCorrectionTarget:
     def test_scope_at_axis_lands_on_pole(self):
@@ -348,10 +349,9 @@ class TestCorrectionTarget:
         ra_t, dec_t, roll_t = correction_target(
             ax_ra, ax_dec, (ra2, dec2, roll2), LAT_NH, LST
         )
-        assert ra_t   == pytest.approx(100.338436, abs=1e-3)
-        assert dec_t  == pytest.approx(  1.537097, abs=1e-3)
-        assert roll_t == pytest.approx( -1.818094, abs=1e-3)
-
+        assert ra_t == pytest.approx(100.338436, abs=1e-3)
+        assert dec_t == pytest.approx(1.537097, abs=1e-3)
+        assert roll_t == pytest.approx(-1.818094, abs=1e-3)
 
     def test_aligned_axis_is_identity(self):
         ra_t, dec_t, roll_t = correction_target(

@@ -49,7 +49,10 @@ def test_naive_input_is_interpreted_as_utc(frozen_clock):
     shared_state = SharedStateObj()
     # Note: linter will refuse naive datetimes, we have to trick it
     # to get past it, make an 'acceptable' datetime then nuke the tzinfo
-    shared_state.set_datetime(datetime.datetime(2024, 6, 28, 11, 0, 0, tzinfo=UTC).replace(tzinfo=None), force=True)
+    shared_state.set_datetime(
+        datetime.datetime(2024, 6, 28, 11, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+        force=True,
+    )
 
     stored = shared_state.utc_datetime()
     assert stored.utcoffset() == datetime.timedelta(0)

@@ -22,11 +22,11 @@ def do_nothing():
 
 
 def show_splash():
-    # Drive whichever panel the main app will: rev-4 boards use the 176x176
+    # Drive whichever panel the main app will: rev4 boards use the 176x176
     # SSD1333, everything else the 128x128 SSD1351. This mirrors main.py's
     # hardware_detect-based selection so the boot splash matches the running UI
     # (and doesn't init the wrong controller). detect_capabilities() is
-    # import-safe and never raises -- a dev box / rev-3 board falls back to the
+    # import-safe and never raises -- a dev box / rev3 board falls back to the
     # SSD1351.
     capabilities = hardware_detect.detect_capabilities()
     display_hardware = "ssd1333" if capabilities.has_bq25895 else "ssd1351"

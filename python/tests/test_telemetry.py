@@ -206,6 +206,43 @@ class TestTelemetryRecorder:
             loc_data = json.loads(loc_file.read_text())
             assert loc_data["lat"] == 40.0
 
+    def test_record_radio_noop_when_disabled(self):
+        rec = TelemetryRecorder()
+        rec.record_radio({"sequence": 1, "captured_at": 100.0})
+        assert len(rec._buffer) == 0
+
+    def test_record_radio_dedupes_and_rate_limits(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                base = len(rec._buffer)
+
+                def sample(seq, t):
+                    return {
+                        "sequence": seq,
+                        "captured_at": t,
+                        "exposure_sec": 1.0,
+                        "background_per_pixel": 515.0,
+                        "background_mad": 28.0,
+                        "background_gradient": 12.0,
+                    }
+
+                rec.record_radio(sample(1, 100.0))
+                rec.record_radio(sample(1, 100.0))  # duplicate sequence: dropped
+                rec.record_radio(sample(2, 100.5))  # <1 s later: dropped
+                rec.record_radio(sample(3, 101.5))  # recorded
+                rec.record_radio(None)  # no sample: dropped
+                assert len(rec._buffer) - base == 2
+                event = json.loads(rec._buffer[-1])
+                assert event["e"] == "radio"
+                assert event["seq"] == 3
+                assert event["exp"] == 1.0
+                assert event["bg"] == 515.0
+                assert event["grad"] == 12.0
+            finally:
+                rec.stop()
+
     def test_record_imu_when_enabled(self, tmp_path):
         with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
             rec = TelemetryRecorder()

@@ -47,7 +47,9 @@ class RotatingInfoDisplay:
     def _get_text(self, use_sqm):
         if use_sqm:
             sqm = self.shared_state.sqm()
-            return f"{sqm.value:.1f}" if sqm and sqm.value else "---"
+            if sqm and sqm.last_update is not None:
+                return f"{sqm.value:.1f}"
+            return "---"
         else:
             sol = self.shared_state.solution()
             return sol.constellation if sol and sol.constellation else "---"
@@ -344,8 +346,10 @@ class UIModule:
         """Pick the title-bar battery glyph for a ``BatteryState``.
 
         Charging (the charger pulls voltage up, so ``state_of_charge_pct`` is
-        ``None``) shows a bolt; otherwise the state of charge is quantized into
-        ~20% buckets, with the empty glyph at <=10% remaining.
+        ``None``) shows a bolt; ADC-blind on battery (below the blind floor —
+        shutdown imminent, ADR 0021) shows empty; otherwise the state of
+        charge is quantized into ~20% buckets, with the empty glyph at <=10%
+        remaining.
         """
         if battery.charge_status in (
             ChargeStatus.PRE_CHARGE,
@@ -353,9 +357,13 @@ class UIModule:
         ):
             return self._BATT_CHARGING
 
+        if battery.adc_blind:
+            return self._BATT_EMPTY
+
         soc = battery.state_of_charge_pct
         if soc is None:
-            # Not charging but no estimate (shouldn't happen) — fail safe to full.
+            # Not charging, not blind, yet no estimate (shouldn't happen) —
+            # fail safe to full.
             return self._BATT_FULL
         if soc <= 10:
             return self._BATT_EMPTY

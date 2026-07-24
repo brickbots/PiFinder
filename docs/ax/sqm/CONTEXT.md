@@ -1,174 +1,234 @@
 # SQM (Sky Quality Meter)
 
-The SQM context estimates sky brightness in magnitudes per square arcsecond from solved camera frames, and produces a "noise floor" ADU level that auto-exposure consumes. Lives entirely in the solver process at runtime; the UI is read-only.
+Canonical language for PiFinder's solve-independent sky-brightness measurement.
+The architecture and validation evidence live in [`../sqm.md`](../sqm.md).
 
-> Companion architecture doc: [`../sqm.md`](../sqm.md).
+## Product intent
 
-## Language
-
-### Measurements
+**Zero-touch SQM**:
+Normal operation selects the built-in profile from the detected sensor and
+starts measuring without flats, darks, or a calibration file. Optional Correct
+and Calibration flows refine a unit or session; they do not establish basic
+functionality.
 
 **SQM**:
-The PiFinder sky-brightness measurement, in magnitudes per square arcsecond. A photometric reduction from a single plate-solved frame, not a hardware-meter reading. Higher values mean darker skies.
-_Avoid_: sky brightness number, mag-arcsec (qualify with the dataclass when relevant).
+The published PiFinder sky surface brightness in mag/arcsec². Higher means a
+darker sky. It is empirically calibrated to an SQM-L scale but is not claimed
+to have an identical spectral or angular response.
 
 **`SQMState`**:
-The published dataclass carrying the latest measurement (`value`, `source`, `last_update`). Lives in `SharedStateObj`; read by the SQM UI.
-_Avoid_: SQM value (that's the float inside), sqm reading.
+Latest published `value`, `source`, and `last_update` in shared state. The UI
+reads this state and does not calculate photometry.
 
-**`sqm_final`** (a.k.a. raw SQM):
-The SQM number returned from `SQM.calculate()` **without** the altitude extinction correction. **Intentionally** the published value (`SQMState.value`) — the 0.28 mag/airmass coefficient is an idealised V-band number, so a `sqm_altitude_corrected` that's wrong in the wrong direction is worse than an honest raw reading. Bare "SQM" means this.
-_Avoid_: corrected SQM (it's the uncorrected one).
+**Radiometric SQM**:
+The published fixed-calibration measurement from diffuse raw background,
+exposure, pedestal, factory field width, and `radiometric_zero_point`.
+
+**Stellar SQM (`sqm_star_calibrated`)**:
+The former per-frame stellar-zero-point result. Retained as a transmission and
+regression diagnostic; never the production primary or no-solve fallback.
 
 **`sqm_altitude_corrected`**:
-The SQM number after adding `0.28 · (airmass − 1)`. Carried in `details`, never in `SQMState.value`. Useful for comparing measurements taken at different pointing altitudes, but only as accurate as the idealised extinction coefficient — see `sqm_final` for the rationale that this is not the primary value.
-_Avoid_: extinction-corrected (be explicit about altitude), corrected SQM (ambiguous).
+Optional comparison value `sqm_final + 0.28 × (airmass − 1)`. It is present
+only when a real field altitude is known. It is never the primary reading.
 
-**`mag/arcsec²`**:
-The astronomical surface-brightness unit. Reference scale: 21–22 dark, 18–19 suburban, 16–17 bright city.
-_Avoid_: mpsas (in code).
+## Images and coordinates
 
-### Photometry
+**Solve image**:
+The processed 512×512 image used by Cedar and tetra3. It can be display-rotated.
+
+**Raw photometry image**:
+The linear cropped raw mono frame, or the mean of both Bayer-green sites. Star
+flux and sky background are measured here, not on the processed solve image.
+
+**Derotation**:
+Mapping solve-image `(y, x)` centroids back to the orientation of the stored
+raw frame using `solve_image_rotation`. Required before raw photometry.
+
+**Centroid scale**:
+Raw-photometry side length divided by 512. Both matched and all-detected
+centroids must be scaled by it before use on the raw image.
+
+## Stellar photometry
 
 **Aperture**:
-Circular pixel region around a star centroid where flux is summed. Default radius 5 px.
-_Avoid_: star window, ROI.
+Circular radius-5-pixel region whose sky-subtracted sum is stellar flux.
 
 **Annulus**:
-Ring around each star (default inner 6 px, outer 14 px) used to measure the *local* sky background. Per-star local annuli — not a single global sky measurement.
-_Avoid_: background ring, sky ring.
+The local sky ring from radius 10 through 18 pixels. Radius 10 is wing-safe on
+the archive; the former 6–14 ring was contaminated by HQ PSF wings.
 
-**Photometric zero point** (`mzero`):
-Per-frame conversion constant between ADU flux and apparent magnitude: `mag = mzero − 2.5 · log10(flux_ADU)`. Flux-weighted mean over the matched stars.
-_Avoid_: zero-point, calibration constant.
+**Detected-source exclusion**:
+Every Cedar centroid is masked out of every relevant annulus with an
+aperture-radius disk. A 3σ clip catches unreported sources.
 
 **Saturation threshold**:
-Pixel value above which a star's aperture is excluded from `mzero`. Default 250 ADU (assumes 8-bit processed frames).
-_Avoid_: clipping threshold, max pixel.
+`0.70 × (2^bit_depth − 1)` on raw photometry. The conservative limit rejects
+stars in the sensor's nonlinear shoulder before hard clipping.
 
-**Per-star arrays**:
-The bulky diagnostic arrays `star_centroids`, `star_mags`, `star_fluxes`, `star_local_backgrounds`, `star_mzeros` returned in `details` by `SQM.calculate()`. **Stripped** before `shared_state.set_sqm_details()` to keep proxy traffic small.
-_Avoid_: star data, debug arrays.
+**Reference magnitude**:
+Bare sensors use Gaia G with a BP−RP trim. HQ uses Hipparcos/Johnson V because
+its factory IR-cut passband is closer to V. Missing Gaia data falls back to V.
 
-### Atmospheric correction
+**Fixed magnitude band**:
+Catalog magnitudes 3.5–6.5. When at least five stars are available, only this
+population votes on the frame zero point, preventing exposure-dependent
+population drift.
 
-**Airmass**:
-Atmospheric path length relative to zenith, via Pickering (2002): `airmass(h) = 1 / sin(h + 244 / (165 + 47·h^1.1))` with `h` in degrees. More accurate near the horizon than `1/sin(h)`.
-_Avoid_: secant z, optical depth.
+**Photometric zero point (`mzero`)**:
+Median of `reference_mag + 2.5 log10(star_flux)` over the selected population,
+after a 3-MAD outlier rejection. Readings outside the fixed magnitude band do
+not vote merely because a longer exposure detects them.
 
-**Extinction**:
-Atmospheric attenuation per unit airmass. PiFinder uses 0.28 mag/airmass (V-band). Reported via `extinction_for_altitude` and folded into `sqm_altitude_corrected`.
-_Avoid_: atmospheric loss.
+**MAD rejection**:
+Three robust standard deviations (`1.4826 × MAD`) around the selected
+population's median. Removes isolated catalog, colour, blend, or residual
+nonlinearity failures; it does not replace the magnitude band.
 
-### Noise model
+**Wing correction (`mzero_correction`)**:
+Rolling additive `−2.5 log10(f)`, where `f` is the aperture's enclosed stellar
+flux fraction measured from a median-stacked curve of growth.
+
+**`WingEstimator`**:
+Conditions on several frames of bright unsaturated stars. Returns zero before
+conditioning and naturally converges to zero for wingless optics. Do not
+replace it with a per-star wing-boundary search; that approach integrated sky
+noise and invented missing flux.
+
+## Sky and detector model
+
+**Local sky**:
+Median cleaned annulus value for one matched star.
+
+**Radiometer sample**:
+Sparse central median reduced in the camera process on every raw frame. It
+excludes the outer ten percent and records MAD, quadrant gradient, exposure,
+timestamp, sequence, and native green/mono pixel scale.
+
+**Stellar sky background**:
+Median of local annulus skies, used only by stellar diagnostics.
 
 **Bias offset**:
-The **static** component of the pedestal: sensor quiescent ADU value at zero exposure, no signal. Constant per sensor; doesn't scale with exposure time. From `CameraProfile.bias_offset`; refinable via calibration JSON or zero-second samples.
-_Avoid_: bias, pedestal (pedestal includes more than just the bias — see below).
+Static mean detector signal at minimum exposure, in raw ADU. Comes from the
+built-in sensor profile unless an optional per-device calibration overrides it.
+
+**Mean dark signal**:
+`calibrated_dark_current_rate × exposure_seconds`. A mean exposure-dependent
+signal, not an RMS noise term. Factory profile rates are unverified engineering
+estimates and remain diagnostic until optional per-device calibration measures
+the rate.
 
 **Pedestal**:
-The **exposure-dependent total** subtracted from the measured sky background: `bias_offset + dark_current_contribution`. Grows with exposure because dark current does. Use this when you want "the floor under sky signal at this exposure"; use `bias_offset` when you want "the DC offset before any signal."
-_Avoid_: offset (overloaded), bias offset (it's a *component* of pedestal, not a synonym).
-
-> Worked example: at `bias_offset = 20 ADU`, `dark_current_rate = 0.5 ADU/s`, `exposure_sec = 1`: pedestal = `20 + 0.5 · 1 = 20.5 ADU`. At `exposure_sec = 10`: pedestal = `20 + 0.5 · 10 = 25 ADU`. Bias offset stays 20 in both cases.
+The mean detector signal subtracted from sky background. The validated
+zero-touch path uses `bias_offset`; an optional measured calibration uses
+`bias_offset + mean_dark_signal`. An explicit total `pedestal_override` wins.
 
 **Read noise**:
-Random per-pixel noise from the ADC. Constant w.r.t. exposure. `CameraProfile.read_noise_adu`.
-_Avoid_: ADC noise.
+Zero-mean RMS variation in raw ADU. Diagnostic uncertainty; never subtracted
+from sky signal.
 
-**Dark current**:
-Thermal electrons per second per pixel. `CameraProfile.dark_current_rate` (ADU/s at ~20 °C). Scaled by `exposure_sec` to a per-frame contribution.
-_Avoid_: thermal noise (it isn't noise — it's signal).
-
-**Noise floor**:
-The **published** ADU value (`shared_state.set_noise_floor()`) below which we treat pixel values as "empty sky + sensor noise" rather than real signal. Lower bound for sky background; the minimum acceptable background for the Camera context's background controller. When someone says "the noise floor" without qualifier, this is what they mean — never one of the intermediate quantities inside `NoiseFloorEstimator`.
-_Avoid_: dark level, baseline, raw noise floor (use a qualifier — see below).
-
-**Measured noise floor**:
-Intermediate inside `NoiseFloorEstimator`: `np.percentile(image, 5.0)` of the current frame. Use the qualifier when this is what you mean — the bare "noise floor" refers to the published value.
-
-**Smoothed noise floor**:
-Intermediate: `np.median(dark_pixel_history)` once history ≥ 5 samples. Replaces the raw measurement once enough history has accumulated.
-
-**Theoretical noise floor**:
-Intermediate: `bias_offset + read_noise + dark_current_rate · exposure_sec`. Physics-based prediction, no image involved.
-
-**Conservative noise floor**:
-Intermediate: `min(smoothed_measurement, theoretical)` clamped to `≥ bias_offset`. The pre-validation candidate that becomes the published noise floor once `_validate_estimate` passes.
+**Unresolved background**:
+Sky background no more than 1 ADU above the pedestal. SQM returns no new value
+with `background_not_resolved_above_pedestal`; it does not clamp.
 
 **`NoiseFloorEstimator`**:
-The class that fuses a per-frame 5th-percentile measurement with a physics-based theoretical floor (`bias_offset + read_noise + dark_current_rate · exposure_sec`), choosing the more conservative value and smoothing with a 20-deep history.
-_Avoid_: floor estimator, noise estimator.
+Owner of one copied, optionally calibrated camera profile. Reports
+the applied `pedestal + read_noise` as a raw-ADU operational threshold and
+retains low image percentiles and the unapplied factory dark-current model only
+for diagnostics. It cannot infer a dark calibration from ordinary sky images.
+
+**Shared camera noise floor**:
+The camera's exposure controller operates on processed 8-bit pixels. A raw-ADU
+SQM threshold must not be published into it; the units differ.
 
 **`CameraProfile`**:
-Per-sensor record holding noise constants (`read_noise_adu`, `dark_current_rate`, `bias_offset`) plus hardware config (`format`, `raw_size`, `analog_gain`, …). Looked up by camera type (e.g. `imx296_processed`).
-_Avoid_: sensor profile, camera config.
+Per-sensor hardware, detector, catalog-band, colour, and SQM offset constants.
+`get_camera_profile()` returns a copy so optional calibration never mutates
+global defaults or another calculator.
 
-### Calibration
+**Radiometric zero point**:
+Exposure-normalized diffuse-sky conversion already mapped to the SQM-L scale.
+It is fixed per shipped sensor/optics profile and does not change with current
+stellar transmission.
+
+**Radiometric field width**:
+Factory angular width used for square-arcsecond conversion when no solve exists.
+
+## Passband and atmosphere
+
+**Colour coefficient**:
+Per-sensor trim mapping catalog colour into the camera's stellar passband.
+
+**SQM band offset (`sqm_band_offset`)**:
+Additive mapping from sensor-band sky brightness to the reference SQM-L scale
+for the calibrated sky regime. It is coupled to the catalog transform, wing
+model, and local-annulus background estimator.
+
+**Airmass / altitude correction**:
+Pickering (2002) airmass and `0.28 mag/airmass`. Comparison-only; unknown
+altitude is `None`, never a fabricated 90°.
+
+**Transmission deficit / cloud flag**:
+Deficit of exposure-normalized stellar zero point relative to clear
+transmission. Cloud is diagnostic and does not alter scene brightness.
+
+**Optics attenuation correction**:
+Recent stellar deficit classified as dew/dirty optics and subtracted from the
+radiometric magnitude. It requires a session-conditioned clear baseline;
+factory priors alone cannot activate it.
+
+## Optional refinement
+
+**SQM Correct** (removed 2026-07-18):
+The former user-entered session offset against a reference meter. Removed: a
+magnitude-additive knob silently absorbs ADU-space (brightness-dependent)
+errors such as pedestal bias, masking the fault instead of fixing it. The
+reference comparison lives on as data: a SWEEP run with a reference reading
+records the difference in its metadata.
 
 **Calibration JSON**:
-Persistent calibration file at `~/PiFinder_data/sqm_calibration_<camera_type>.json` holding `bias_offset`, `read_noise`, `dark_current_rate`, `camera_type`, `timestamp`. Overrides the matching `CameraProfile` fields.
-_Avoid_: cal file, sqm config.
-
-**Zero-second sample**:
-A single 0-second exposure used to measure `bias_offset` and `read_noise_adu` directly (no sky signal, no dark current). `NoiseFloorEstimator` periodically sets `request_zero_sec_sample=True` in `details` so the camera process can capture one. Runtime concept.
-_Avoid_: dark frame (astrophotography sense — see ambiguities), zero sample.
-
-**Dark sequence**:
-A *series* of frames captured by the calibration wizard at increasing exposures. Used to fit `dark_signal = bias_offset + read_noise + dark_current_rate · exposure_sec` and extract those three constants. Wizard concept, multi-frame, multi-exposure. The frames are **not** stacked into a master dark — only the fitted constants are kept.
-_Avoid_: dark frames (the astrophotography sense expects a master output; that's not what this produces), dark stack (stacking implies combining into one master, which doesn't happen here), darks.
-
-**Sky frame**:
-Capture-time term in the calibration wizard for the on-sky frames used to validate the resulting SQM number.
-_Avoid_: light frame.
+Optional `~/PiFinder_data/sqm_calibration_<sensor>.json` override containing
+bias, read noise, and dark-current rate. Absence is the normal zero-touch case.
 
 **Calibration wizard**:
-The UI flow in `ui/sqm_calibration.py` that captures the dark sequence and sky frames, fits the three noise constants, writes the calibration JSON, and sends `["reload_sqm_calibration"]` on `align_command_queue` so the solver rebuilds its `SQMCalculator`.
-_Avoid_: setup wizard.
+Optional service flow. Captures minimum-exposure bias frames, fits temporal
+read noise and multi-exposure dark signal, optionally validates against exact
+timestamp-paired sky solves, saves JSON, and sends typed
+`ReloadSqmCalibration`. It does not produce or require flats or master darks.
 
-### Distribution
+**Zero-second request**:
+An estimator capability for an explicitly managed caller. Disabled in normal
+SQM because no runtime camera path services the request.
 
-**`shared_state.set_sqm(SQMState)`**:
-The publication call. Read by `UISQM.update()` on the SQM screen. UI does not call `SQM.calculate()`.
-_Avoid_: publish SQM, push SQM.
-
-**`shared_state.set_sqm_details(dict)`**:
-Publishes the diagnostic dict (with per-star arrays stripped). Consumed by the UI for advanced views and by the calibration wizard.
-_Avoid_: set details.
-
-**`shared_state.set_noise_floor(float)`**:
-Publishes the latest noise floor. Read by the camera process and forwarded into the background controller (`ExposureSNRController.update(..., noise_floor=...)`) — see the [Camera context](../camera/CONTEXT.md).
-_Avoid_: set floor.
-
-### Timing
+## Timing and distribution
 
 **`SQM_CALCULATION_INTERVAL_SECONDS`**:
-Minimum wall-clock interval between SQM calculations in the solver loop. Default 5.0 s — the single knob bounding SQM cost.
-_Avoid_: SQM interval, cadence.
+One-second minimum interval between new-frame-driven radiometric publications.
+Camera-side radiometer collection runs on every captured frame. Sleep mode does
+not publish without its normal periodic capture.
 
-**`reload_sqm_calibration`**:
-The literal command string posted on `align_command_queue` by the calibration wizard. Causes the solver to rebuild its `SQMCalculator` from the freshest calibration JSON.
-_Avoid_: refresh calibration, reload sqm.
+**`SQM_STELLAR_DIAGNOSTIC_INTERVAL_SECONDS`**:
+Ten-second minimum interval between expensive solved stellar transmission
+diagnostics.
 
-### Boundary terms
+**`ReloadSqmCalibration`**:
+Typed solver command that discards the calculator and resets wing/cloud
+history; the next solve reconstructs it from detected sensor plus optional
+calibration JSON.
 
-- **`align_command_queue`** is owned by [Positioning](../positioning/CONTEXT.md); SQM uses it only to receive `reload_sqm_calibration`.
-- **Matched centroids / FOV** come from tetra3 via the solver (Positioning); SQM is a downstream consumer of every successful solve.
-- **`shared_state`** is part of the system-wide shared state — defined in Positioning.
+**Per-star arrays**:
+Large diagnostic fields (`star_centroids`, `star_mags`, `star_fluxes`, local
+backgrounds, individual mzeros). Removed before publishing shared details.
 
-## Flagged ambiguities
+## Avoid these ambiguous phrases
 
-- **"Noise floor"** (bare) — the *published* ADU value (`shared_state.set_noise_floor()`). For the intermediates inside `NoiseFloorEstimator`, force a qualifier: **measured**, **smoothed**, **theoretical**, **conservative**. Bare "noise floor" never means an intermediate.
-- **"Dark frame" (astrophotography sense)** is NOT used here. In astrophotography, a "dark frame" is one lens-capped exposure (often combined into a master dark) — readers may import that mental model. PiFinder has two distinct concepts instead: **dark sequence** (multi-frame, multi-exposure, wizard-time, used to fit noise constants — never stacked into a master), and **zero-second sample** (single 0-s exposure, runtime, refreshes `bias_offset` / `read_noise_adu`). Don't say "dark frame".
-- **"SQM"** — without qualifier means the published `SQMState.value` (i.e. `sqm_final`, no extinction correction). The altitude-corrected number is `sqm_altitude_corrected` in details.
-- **"Pedestal"** vs **"bias offset"** — pedestal is the exposure-dependent total (`bias_offset + dark_current_contribution`); bias offset is the static zero-exposure component. **Bias offset ⊆ pedestal**. They are not synonyms.
-
-## Example dialogue
-
-> **Dev:** Why is SQM not updating right after a solve?
->
-> **Domain:** Solver only enters the SQM block on solves that produced `matched_centroids`, and even then only once per `SQM_CALCULATION_INTERVAL_SECONDS` (5 s default). If `FOV` is missing or background is unphysical, `calculate()` returns `(None, {})` and the clock isn't advanced — next solve retries.
->
-> **Dev:** What does the camera process care about?
->
-> **Domain:** Just the noise floor. `set_noise_floor()` is the only line of communication. The background controller uses it as the minimum acceptable background — change SQM's interval gate and that auto-exposure signal changes cadence too.
+- “Processed SQM pipeline” — production photometry is raw; only solving uses
+  the processed image.
+- “Needs calibration” — factory profiles are the normal path; qualify an
+  optional per-device or session refinement.
+- “Dark frame required” or “flat required” — neither is required in normal
+  operation.
+- “Corrected SQM” — say session-corrected, altitude-comparison, cloud estimate,
+  or passband-mapped.
+- “Adaptive dark calibration” — ordinary sky percentiles contain sky signal
+  and are diagnostic only.

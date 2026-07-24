@@ -2529,6 +2529,14 @@ msgstr "Entrez heure locale"
 msgid "Volume"
 msgstr "Volume"
 
+# AI-TRANSLATED (claude): needs human review
+msgid "Low battery\nat {pct}%"
+msgstr "Batterie faible\nà {pct}%"
+
+# AI-TRANSLATED (claude): needs human review
+msgid "Low battery\nShutting down"
+msgstr "Batterie faible\nArrêt"
+
 #~ msgid "Integrator"
 #~ msgstr ""
 # AI-TRANSLATED (claude): needs human review
