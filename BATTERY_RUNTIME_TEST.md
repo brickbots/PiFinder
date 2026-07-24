@@ -24,9 +24,12 @@ python/` lists all of them. In short:
 - **Telemetry to disk.** Both battery monitors (real BQ25895 and `-fb` fake)
   write one CSV row per 5 s poll to
   `~/PiFinder_data/battery_runtime/run_<pi-serial>_<stamp>/telemetry.csv`,
-  flushed **and fsync'd** per row — the run ends in a hard power cut and the
-  last row records the cutoff voltage that anchors 0%. `run_metadata.json`
-  records the device and the pinned profile.
+  flushed **and fsync'd** per row. Since the ADR 0021 merge the run ends in a
+  clean **low-battery software shutdown** (4 consecutive ADC-blind polls on
+  battery), not a hard power cut: the tail rows log blank
+  `battery_voltage_v` cells, and that sustained blind run is the 0% anchor
+  (`--anchor blind-floor`, the analysis default). `run_metadata.json` records
+  the device and the pinned profile.
 
 ## Running a discharge test
 
@@ -41,7 +44,11 @@ python/` lists all of them. In short:
 4. Walk away. Don't press keys, don't move it (the IMU stays quiet; the pinned
    load does the work). Leave WiFi in its normal state and note anything
    unusual for the run.
-5. The unit will hard-power-off when the cell hits cutoff. Plug it back in,
+5. The unit shuts itself down when the ADC goes blind (ADR 0021): expect the
+   10% and 5% warnings on the way down, then the "Low battery / Shutting
+   down" message and a clean power-off — this doubles as a live acceptance
+   test of the low-battery UX. (If the shutdown never fires, the hard power
+   cut still ends the run; note it as an anomaly.) Plug the unit back in,
    boot, and copy the newest `~/PiFinder_data/battery_runtime/run_*` directory
    off the device (each boot starts a fresh run dir, so the discharge run is
    the one *before* the current boot's).
@@ -67,10 +74,10 @@ prints a paste-ready `SOC_LUT` snippet for
 - **ADC goes blind below ~3.50 V.** On both devices the BQ25895's one-shot
   BATV conversion stopped completing below ~3.5 V — reads return raw 0
   (decoded 2.304 V) — while the unit ran on for another 46–72 min to actual
-  power death. Expected in every run's tail; the analysis handles it. It also
-  means the curve below ~10% runtime remaining is extrapolation, and the
-  field UI is equally blind there (a follow-up for the curve PR: treat raw-0
-  BATV as "very low", not as a 2.304 V measurement).
+  power death. Expected in every run's tail; the analysis handles it.
+  (Shipped since as ADR 0021 / PR #541: blind reads publish `None` — never a
+  fake 2.304 V — and sustained blind reads on battery trigger the software
+  shutdown that now ends each run, re-anchoring 0% at the blind floor.)
 - **IMU pseudo-motion blanked the substituted image** (fixed on this branch).
   The stock test mode blanks frames when the IMU reports >0.01 rad motion
   during the exposure; on the bench both devices' BNO055s reported persistent
