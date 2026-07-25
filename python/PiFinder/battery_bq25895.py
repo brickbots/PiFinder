@@ -207,12 +207,6 @@ LOW_BATTERY_SHUTDOWN_POLLS = 4
 # the typical load.
 LOW_BATTERY_WARNING_PCTS = (10, 5)
 
-# A warning threshold re-arms once the state of charge climbs this many
-# points clear of it. One BATV LSB (20 mV) is ~2% near the bottom knots,
-# so without hysteresis quantisation jitter around a threshold would
-# re-fire the warning on every poll.
-LOW_BATTERY_WARNING_REARM_PCT = 2
-
 
 class LowBatteryShutdownTrigger:
     """Debounced trigger for the low-battery shutdown (ADR 0021).
@@ -244,20 +238,28 @@ class LowBatteryShutdownTrigger:
 
 
 class LowBatteryWarner:
-    """Once-per-crossing advisory warnings at the low state-of-charge
+    """Once-per-discharge advisory warnings at the low state-of-charge
     thresholds (ADR 0021: 10% and 5% precede the blind-floor shutdown).
 
     Feed it each published battery sample; it returns the threshold to
     warn for — the lowest newly-crossed one, so a fast drop through both
     yields a single (most severe) warning — or ``None``. The state of
     charge is ``None`` while charging or ADC-blind, which suppresses
-    warnings there. Every threshold re-arms on external power (so the
-    next discharge warns afresh) or once the estimate climbs
-    ``LOW_BATTERY_WARNING_REARM_PCT`` points clear of it
-    (quantisation-jitter hysteresis). A ``None`` estimate alone never
-    re-arms: conversions fail *intermittently* in the twilight just
-    above the blind floor, and re-arming on each blind poll would
-    re-fire the 5% warning on every interleaved sane poll.
+    warnings there.
+
+    Each threshold fires at most once per discharge: crossings *latch*,
+    and thresholds re-arm only on external power (so the next discharge
+    warns afresh). Nothing within a discharge re-arms them — not a
+    climbing estimate, not a ``None`` sample. The first cut shipped a
+    2-point climb-clear hysteresis instead, and the bench campaign
+    refuted it: near the discharge curve's flat knee one BATV LSB
+    (20 mV) is ~3 SoC points, and under a varying load the published
+    estimate bounced across 4-23% for the final ~90 minutes of every
+    run, re-firing the warning earcon ~90 times per discharge
+    (2026-07-24, both units). No percent-based hysteresis clears
+    quantisation noise that large while still re-arming on any genuine
+    recovery a single-cell battery can produce, so the crossing latches
+    until a charger appears.
 
     PURE, and strictly advisory UI — SoC is never a control input; the
     shutdown itself is :class:`LowBatteryShutdownTrigger`'s job.
@@ -274,9 +276,6 @@ class LowBatteryWarner:
             return None
         if state_of_charge_pct is None:
             return None
-        for t in self._thresholds:
-            if state_of_charge_pct > t + LOW_BATTERY_WARNING_REARM_PCT:
-                self._armed.add(t)
         crossed = [t for t in self._armed if state_of_charge_pct <= t]
         if not crossed:
             return None
