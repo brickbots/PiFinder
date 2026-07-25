@@ -43,7 +43,12 @@ python/` lists all of them. In short:
    column flipping 1→0 is the discharge clock's t=0.
 4. Walk away. Don't press keys, don't move it (the IMU stays quiet; the pinned
    load does the work). Leave WiFi in its normal state and note anything
-   unusual for the run.
+   unusual for the run. After disconnecting SSH, glance at the title bar: it
+   must still show **Lyr** a minute later. (Both prior campaigns were degraded
+   by systemd-logind's `RemoveIPC=yes` deleting the cedar-detect shared-memory
+   segment on SSH logout, killing solving for the rest of the run. The solver
+   now recovers, and `RemoveIPC=no` via `pifinder_setup.sh` prevents it — but
+   the glance is a cheap guard until both fixes are deployed on the unit.)
 5. The unit shuts itself down when the ADC goes blind (ADR 0021): expect the
    10% and 5% warnings on the way down, then the "Low battery / Shutting
    down" message and a clean power-off — this doubles as a live acceptance
