@@ -5,17 +5,19 @@ Fake battery monitor — the ``-fh`` (fake-hardware) twin of
 ``battery_bq25895``.
 
 Emits a deterministic, slowly-discharging :class:`BatteryState` so the
-rest of the system can be exercised without a real BQ25895. It always
-reports running from the battery (``on_external_power=False``,
-``charge_status=NOT_CHARGING``), so state of charge is always estimated
-via the same LUT as the real driver.
+rest of the system can be exercised without a real BQ25895. While
+discharging it reports running from the battery
+(``on_external_power=False``, ``charge_status=NOT_CHARGING``), so state
+of charge is estimated via the same LUT as the real driver.
 
 Each sweep ends the way a real discharge does (ADR 0021): after the
 voltage reaches the bottom of the sweep the fake goes **ADC-blind**
 (``battery_voltage=None``) for a few polls — enough to trip the
-low-battery shutdown debounce — then wraps back to full for the next
-lap. A dev run with ``-fh -fb`` therefore crosses the 10%/5% warnings
-and the blind-floor shutdown warning within a few minutes, end to end.
+low-battery shutdown debounce — then shows a brief **charging** phase
+(which re-arms the warner's once-per-discharge warning latches) and
+wraps back to full for the next lap. A dev run with ``-fh -fb``
+therefore crosses the 10%/5% warnings and the blind-floor shutdown
+warning within a few minutes, end to end — on every lap.
 The main loop shows the shutdown warning but skips the actual OS
 power-off on the Fake hardware platform, so a lap never powers off the
 host (which may be a real Pi running ``-fh`` for docs screenshots).
@@ -52,6 +54,12 @@ FAKE_VOLTAGE_STEP = 0.02
 # shutdown debounce, plus margin so the blind state is visible in the UI.
 FAKE_BLIND_POLLS = LOW_BATTERY_SHUTDOWN_POLLS + 2
 
+# Charging polls between laps: the warner's thresholds latch for a whole
+# discharge and re-arm only on external power, so each lap ends with a
+# brief fake "recharge" — otherwise the 10%/5% warnings would fire on the
+# first lap only and every later lap would run silent.
+FAKE_CHARGING_POLLS = 2
+
 
 def battery_monitor(shared_state, console_queue, ui_queue, log_queue):
     """Process entry mirroring ``battery_bq25895.battery_monitor``."""
@@ -72,6 +80,7 @@ def battery_monitor(shared_state, console_queue, ui_queue, log_queue):
     shutdown_trigger = LowBatteryShutdownTrigger()
     voltage = FAKE_VOLTAGE_FULL
     blind_polls_left = 0
+    charging_polls_left = 0
     while True:
         if blind_polls_left > 0:
             # ADC-blind tail: what the real decoder publishes below the
@@ -88,7 +97,23 @@ def battery_monitor(shared_state, console_queue, ui_queue, log_queue):
             )
             blind_polls_left -= 1
             if blind_polls_left == 0:
+                charging_polls_left = FAKE_CHARGING_POLLS
                 voltage = FAKE_VOLTAGE_FULL
+        elif charging_polls_left > 0:
+            # Between-laps "recharge": on external power with SoC None
+            # (never estimated while charging), which re-arms the
+            # warner's latched thresholds for the next lap.
+            state = BatteryState(
+                battery_voltage=FAKE_VOLTAGE_FULL,
+                charge_status=ChargeStatus.FAST_CHARGING,
+                on_external_power=True,
+                state_of_charge_pct=None,
+                charge_current_ma=1500.0,
+                vbus_voltage=5.1,
+                sys_voltage=FAKE_VOLTAGE_FULL,
+                timestamp=time.time(),
+            )
+            charging_polls_left -= 1
         else:
             state = BatteryState(
                 battery_voltage=voltage,
