@@ -591,6 +591,28 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             _CEDAR_DETECT_SHMEM_NAME,
         )
 
+    def _del_shmem(self):
+        """Release the shared-memory segment, tolerating one that has
+        already vanished from /dev/shm.
+
+        systemd-logind's ``RemoveIPC=yes`` (the default) deletes every
+        POSIX shared-memory segment a user owns the moment that user's
+        last login session ends — an SSH logout is enough, because the
+        PiFinder service runs as the same user but holds no login
+        session of its own. The upstream cleanup then raises
+        ``FileNotFoundError`` from ``unlink()``, which escaped before
+        ``extract_centroids`` could flip ``_use_shmem`` off — so instead
+        of falling back to passing the image over gRPC, every subsequent
+        solve repeated the crash until restart (bench finding: "solves
+        die at the cable pull", which was really the SSH logout beside
+        it). A segment that is already gone is this method's goal state:
+        treat it as released.
+        """
+        try:
+            super()._del_shmem()
+        except FileNotFoundError:
+            self._shmem = None
+
     def _get_stub(self):
         if self._stub is None:
             channel = grpc.insecure_channel("127.0.0.1:%d" % self._port)
