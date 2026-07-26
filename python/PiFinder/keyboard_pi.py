@@ -126,7 +126,7 @@ class KeyboardPi(KeyboardInterface):
             for i in range(len(self.rows)):
                 GPIO.setup(self.rows[i], GPIO.OUT, initial=GPIO.LOW)
                 for j in range(len(self.cols)):
-                    keycode = i * len(self.cols) + j
+                    keycode = keypad.keymap_index(i, j)
                     newval = GPIO.input(self.cols[j]) == GPIO.LOW
                     if newval and keycode not in pressed:
                         # initial press

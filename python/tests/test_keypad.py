@@ -60,20 +60,31 @@ def test_rev4_has_two_square_switches():
 @pytest.mark.unit
 @pytest.mark.parametrize("revision", ["rev3", "rev4"])
 def test_every_populated_position_has_a_real_key(revision):
-    """A populated position must map to a non-NA keymap entry.
-
-    Catches the population maps and the keymap drifting apart -- a switch the
+    """A populated position must map to a non-NA keymap entry -- a switch the
     builder is asked to close that the running UI would ignore.
+
+    Honest about its own strength: the maps are *derived* from the keymap
+    through the same NA filter, so this restates the derivation rather than
+    checking it independently. What makes the pair meaningful is
+    ``test_population_map_sizes``, which states 17 and 18 independently of how
+    they are computed -- change either table and one of the two fails.
+
+    The reason the maps are derived rather than hand-listed is that the likelier
+    error is a keymap edit silently changing which positions count as switches;
+    deriving makes that impossible to do quietly. The cost is that a revision
+    fitting a switch the UI ignores could not be expressed without also editing
+    KEYMAP -- no such revision exists, and if one appears these become explicit
+    position sets.
     """
     for row, col in keypad.POPULATION_MAPS[revision]:
         assert keypad.key_at(row, col) != K.NA, f"({row},{col}) is NA in the keymap"
 
 
 @pytest.mark.unit
-def test_position_indexes_the_keymap_row_major():
-    assert keypad.position(0, 0) == 0
-    assert keypad.position(1, 0) == len(keypad.MATRIX_COLS)
-    assert keypad.position(4, 4) == len(keypad.KEYMAP) - 1
+def test_keymap_index_is_row_major():
+    assert keypad.keymap_index(0, 0) == 0
+    assert keypad.keymap_index(1, 0) == len(keypad.MATRIX_COLS)
+    assert keypad.keymap_index(4, 4) == len(keypad.KEYMAP) - 1
 
 
 @pytest.mark.unit
@@ -145,12 +156,12 @@ def test_keyboard_pi_derived_keycodes_survive_the_extraction(keyboard_pi_module)
     kb = keyboard_pi_module.KeyboardPi(q=None)
 
     assert kb.square_keycodes == {
-        keypad.position(3, 3),
-        keypad.position(4, 4),
+        keypad.keymap_index(3, 3),
+        keypad.keymap_index(4, 4),
     }
     assert kb.repeat_keycodes == {
-        keypad.position(0, 4),  # UP, rev4 cluster
-        keypad.position(2, 4),  # DOWN, rev4 cluster
-        keypad.position(4, 1),  # UP, rev3 bottom row
-        keypad.position(4, 2),  # DOWN, rev3 bottom row
+        keypad.keymap_index(0, 4),  # UP, rev4 cluster
+        keypad.keymap_index(2, 4),  # DOWN, rev4 cluster
+        keypad.keymap_index(4, 1),  # UP, rev3 bottom row
+        keypad.keymap_index(4, 2),  # DOWN, rev3 bottom row
     }

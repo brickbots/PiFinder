@@ -61,14 +61,19 @@ LONG_KEYMAP: List[int] = [
 # fmt: on
 
 
-def position(row: int, col: int) -> int:
-    """Matrix position -> index into :data:`KEYMAP` and friends."""
+def keymap_index(row: int, col: int) -> int:
+    """Matrix position ``(row, col)`` -> index into :data:`KEYMAP` and friends.
+
+    Named for what it returns. A **matrix position** is the ``(row, col)``
+    pair itself (see the glossary, which lists "index" as a word to avoid for
+    it); this is the flat offset the tables happen to be stored at.
+    """
     return row * len(MATRIX_COLS) + col
 
 
 def key_at(row: int, col: int) -> int:
     """The logical key a switch at this matrix position sends."""
-    return KEYMAP[position(row, col)]
+    return KEYMAP[keymap_index(row, col)]
 
 
 def _populated(rows: range, cols: range) -> FrozenSet[Tuple[int, int]]:
@@ -101,9 +106,12 @@ REV3_POPULATED: FrozenSet[Tuple[int, int]] = _populated(range(5), range(4))
 # gained a centre SQUARE, so ALL FIVE rows of col 4 are populated while only
 # rows 0-3 of cols 0-3 are. 13 + 5 = 18 switches, and two positions send
 # SQUARE -- (3,3) on the calculator pad and (4,4) in the cluster.
-REV4_POPULATED: FrozenSet[Tuple[int, int]] = _populated(range(4), range(4)) | frozenset(
-    (row, 4) for row in range(5)
-)
+# Both halves go through the same NA filter: col 4 has no holes today, but
+# deriving one half differently from the other is how the two tables start to
+# disagree.
+REV4_POPULATED: FrozenSet[Tuple[int, int]] = _populated(
+    range(4), range(4)
+) | _populated(range(5), range(4, 5))
 
 POPULATION_MAPS = {
     "rev3": REV3_POPULATED,
