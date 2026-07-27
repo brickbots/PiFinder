@@ -9,7 +9,8 @@ Both are PURE (no hardware, no clock, no queues), following the module's
   on battery and fires once per sustained blind episode. It keys on the
   ADC-validity signal only — the estimated state of charge never feeds it.
 * ``LowBatteryWarner`` watches the estimated state of charge fall through
-  the 10%/5% thresholds, once per crossing, on battery only.
+  the 10%/5% thresholds, once per discharge, on battery only; the
+  crossings latch and only external power re-arms them.
 """
 
 import pytest
@@ -17,7 +18,6 @@ import pytest
 from PiFinder.battery_bq25895 import (
     LOW_BATTERY_SHUTDOWN_POLLS,
     LOW_BATTERY_WARNING_PCTS,
-    LOW_BATTERY_WARNING_REARM_PCT,
     LowBatteryShutdownTrigger,
     LowBatteryWarner,
 )
@@ -127,23 +127,68 @@ def test_fast_drop_through_both_thresholds_warns_most_severe_once():
 
 @pytest.mark.unit
 def test_quantisation_jitter_does_not_refire():
-    """One BATV LSB (20 mV) is ~2% near the bottom knots; bouncing inside
-    the re-arm hysteresis around a fired threshold must stay quiet."""
+    """One BATV LSB (20 mV) is ~3 SoC points near the flat knee of the
+    discharge curve, and load transients swing several LSBs. However far
+    the estimate bounces back up mid-discharge, a fired threshold stays
+    quiet."""
     warner = LowBatteryWarner()
     assert warner.update(10, on_external_power=False) == 10
-    for soc in (11, 12, 10, 11, 10, 9):
+    for soc in (13, 9, 16, 8, 23, 10, 9):
         assert warner.update(soc, on_external_power=False) is None
 
 
 @pytest.mark.unit
-def test_rearm_after_climbing_clear_of_threshold():
-    """Climbing past the hysteresis band genuinely re-arms the threshold
-    (e.g. the load dropped and the estimate recovered)."""
+def test_climb_never_rearms_within_a_discharge():
+    """Crossings latch for the whole discharge: even a large recovery of
+    the estimate does not re-arm a fired threshold — only external power
+    does. (The first cut re-armed on a 2-point climb; field data showed
+    quantisation noise re-firing the earcon ~90 times per discharge.)"""
     warner = LowBatteryWarner()
     assert warner.update(10, on_external_power=False) == 10
-    rearm_soc = 10 + LOW_BATTERY_WARNING_REARM_PCT + 1
-    assert warner.update(rearm_soc, on_external_power=False) is None
-    assert warner.update(10, on_external_power=False) == 10
+    assert warner.update(50, on_external_power=False) is None
+    assert warner.update(10, on_external_power=False) is None
+    assert warner.update(9, on_external_power=False) is None
+
+
+# Published state-of-charge samples from the 2026-07-24 bench discharge
+# (unit pf4-dev, 20:00-21:15, every 12th telemetry row ≈ one per minute):
+# the final 75 minutes before the blind-floor shutdown, showing the real
+# quantisation bounce across the 10% and 5% thresholds. The shipped
+# 2-point hysteresis re-fired 93 warnings on this discharge.
+# fmt: off
+FIELD_SOC_TAIL_2026_07_24 = (
+    19, 16, 23, 19, 16, 23, 13, 19, 19, 16, 13, 13, 16, 13, 16, 16, 10,
+    16, 16, 16, 13, 13, 13, 13, 16, 10, 13, 13, 13, 16, 13, 10, 13, 13,
+    13, 8, 10, 10, 8, 10, 10, 10, 10, 10, 10, 13, 8, 10, 4, 10, 6,
+    8, 8, 8, 6, 8, 6, 4, 6, 10, 8, 4, 6, 6, 4, 6, 4, 4,
+    6, 8, 4, 4, 0,
+)
+# fmt: on
+
+
+@pytest.mark.unit
+def test_field_discharge_tail_warns_exactly_twice():
+    """Regression on the real 2026-07-24 discharge tail: exactly one 10%
+    and one 5% warning across the whole noisy descent."""
+    warner = LowBatteryWarner()
+    fires = [
+        warner.update(soc, on_external_power=False) for soc in FIELD_SOC_TAIL_2026_07_24
+    ]
+    assert [f for f in fires if f is not None] == [10, 5]
+
+
+@pytest.mark.unit
+def test_field_discharge_repeats_after_a_charge():
+    """The same field tail warns afresh after a charge — the latch is
+    per-discharge, not forever."""
+    warner = LowBatteryWarner()
+    for soc in FIELD_SOC_TAIL_2026_07_24:
+        warner.update(soc, on_external_power=False)
+    assert warner.update(None, on_external_power=True) is None
+    fires = [
+        warner.update(soc, on_external_power=False) for soc in FIELD_SOC_TAIL_2026_07_24
+    ]
+    assert [f for f in fires if f is not None] == [10, 5]
 
 
 @pytest.mark.unit
