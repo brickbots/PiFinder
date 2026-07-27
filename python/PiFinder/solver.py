@@ -591,6 +591,28 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             _CEDAR_DETECT_SHMEM_NAME,
         )
 
+    def _del_shmem(self):
+        """Release the shared-memory segment, tolerating one that has
+        already vanished from /dev/shm.
+
+        systemd-logind's ``RemoveIPC=yes`` (the default) deletes every
+        POSIX shared-memory segment a user owns the moment that user's
+        last login session ends — an SSH logout is enough, because the
+        PiFinder service runs as the same user but holds no login
+        session of its own. The upstream cleanup then raises
+        ``FileNotFoundError`` from ``unlink()``, which escaped before
+        ``extract_centroids`` could flip ``_use_shmem`` off — so instead
+        of falling back to passing the image over gRPC, every subsequent
+        solve repeated the crash until restart (bench finding: "solves
+        die at the cable pull", which was really the SSH logout beside
+        it). A segment that is already gone is this method's goal state:
+        treat it as released.
+        """
+        try:
+            super()._del_shmem()
+        except FileNotFoundError:
+            self._shmem = None
+
     def _get_stub(self):
         if self._stub is None:
             channel = grpc.insecure_channel("127.0.0.1:%d" % self._port)
@@ -633,7 +655,18 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                 centroids_result = self._get_stub().ExtractCentroids(req)
             except grpc.RpcError as err:
                 if err.code() == grpc.StatusCode.INTERNAL:
-                    # Shared memory issue, fall back to non-shmem
+                    # Shared memory issue, fall back to non-shmem. The flag
+                    # latches for the life of the process, so this logs once --
+                    # but without it the downgrade is silent and the only
+                    # symptom is a slower extract time.
+                    logger.warning(
+                        "Cedar shared-memory handoff failed (%s); passing the "
+                        "image inline over gRPC from now on. If %s was removed "
+                        "out from under us, check for the RemoveIPC=no drop-in "
+                        "in /etc/systemd/logind.conf.d/.",
+                        err.details(),
+                        _CEDAR_DETECT_SHMEM_NAME,
+                    )
                     self._del_shmem()
                     self._use_shmem = False
                 else:
@@ -651,6 +684,11 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                 max_size=max_size,
                 return_binned=False,
                 use_binned_for_star_candidates=use_binned,
+                # Must be passed here too: detect_hot_pixels is a proto3 bool,
+                # so leaving it out sends false and hot pixels start being
+                # detected as stars. Losing the shared-memory handoff should
+                # cost throughput, not detection quality.
+                detect_hot_pixels=detect_hot_pixels,
             )
             try:
                 centroids_result = self._get_stub().ExtractCentroids(req)

@@ -79,6 +79,16 @@ sudo systemctl mask serial-getty@ttyAMA0.service
 
 # Note: camera types are added lateron by python/PiFinder/switch_camera.py
 
+# Keep POSIX shared memory alive across SSH logouts: logind's default
+# RemoveIPC=yes deletes all IPC owned by the pifinder user (including the
+# solver's cedar-detect /dev/shm segment) the moment that user's last login
+# session ends — the PiFinder services run as pifinder but hold no login
+# session of their own, so a plain SSH logout used to degrade solving.
+# The solver also survives this in software (PFCedarDetectClient._del_shmem),
+# but this keeps the fast shared-memory handoff in place.
+sudo mkdir -p /etc/systemd/logind.conf.d
+printf '[Login]\nRemoveIPC=no\n' | sudo tee /etc/systemd/logind.conf.d/pifinder-removeipc.conf
+
 # Disable unwanted services
 sudo systemctl disable ModemManager
 
