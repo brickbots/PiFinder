@@ -120,6 +120,11 @@ def test_extract_centroids_falls_back_when_segment_vanishes(caplog):
     # First call went over shmem and failed; the retry carried the pixels.
     assert len(calls) == 2
     assert calls[1].input_image.image_data == image.tobytes()
+    # ...and the retry keeps hot-pixel rejection on. The proto3 default is
+    # false, so an omitted field would silently let hot pixels be detected as
+    # stars for the rest of the run.
+    assert calls[0].detect_hot_pixels is True
+    assert calls[1].detect_hot_pixels is True
     # The downgrade is permanent for this process, so it has to be visible in
     # the logs -- otherwise the only symptom is a slower extract time.
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]

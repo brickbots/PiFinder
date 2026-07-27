@@ -684,6 +684,11 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                 max_size=max_size,
                 return_binned=False,
                 use_binned_for_star_candidates=use_binned,
+                # Must be passed here too: detect_hot_pixels is a proto3 bool,
+                # so leaving it out sends false and hot pixels start being
+                # detected as stars. Losing the shared-memory handoff should
+                # cost throughput, not detection quality.
+                detect_hot_pixels=detect_hot_pixels,
             )
             try:
                 centroids_result = self._get_stub().ExtractCentroids(req)
