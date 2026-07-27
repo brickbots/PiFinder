@@ -655,7 +655,18 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                 centroids_result = self._get_stub().ExtractCentroids(req)
             except grpc.RpcError as err:
                 if err.code() == grpc.StatusCode.INTERNAL:
-                    # Shared memory issue, fall back to non-shmem
+                    # Shared memory issue, fall back to non-shmem. The flag
+                    # latches for the life of the process, so this logs once --
+                    # but without it the downgrade is silent and the only
+                    # symptom is a slower extract time.
+                    logger.warning(
+                        "Cedar shared-memory handoff failed (%s); passing the "
+                        "image inline over gRPC from now on. If %s was removed "
+                        "out from under us, check for the RemoveIPC=no drop-in "
+                        "in /etc/systemd/logind.conf.d/.",
+                        err.details(),
+                        _CEDAR_DETECT_SHMEM_NAME,
+                    )
                     self._del_shmem()
                     self._use_shmem = False
                 else:

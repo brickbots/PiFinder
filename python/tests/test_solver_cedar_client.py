@@ -16,6 +16,7 @@ No cedar-detect server is needed: the gRPC stub is faked, but the
 shared-memory segment and the protobuf requests are real.
 """
 
+import logging
 import types
 
 import grpc
@@ -24,7 +25,7 @@ import pytest
 
 from multiprocessing import shared_memory
 
-from PiFinder.solver import PFCedarDetectClient
+from PiFinder.solver import _CEDAR_DETECT_SHMEM_NAME, PFCedarDetectClient
 
 
 def _bare_client():
@@ -76,7 +77,7 @@ def test_del_shmem_without_segment_is_a_noop():
 
 
 @pytest.mark.unit
-def test_extract_centroids_falls_back_when_segment_vanishes():
+def test_extract_centroids_falls_back_when_segment_vanishes(caplog):
     """The RemoveIPC scenario end to end: the shmem RPC fails INTERNAL,
     the (externally unlinked) segment is released without an exception,
     and the same call retries with the image inlined in the request —
@@ -102,9 +103,10 @@ def test_extract_centroids_falls_back_when_segment_vanishes():
         vanish.close()
         vanish.unlink()
 
-        centroids = client.extract_centroids(
-            image, sigma=8, max_size=10, use_binned=True
-        )
+        with caplog.at_level(logging.WARNING, logger="Solver"):
+            centroids = client.extract_centroids(
+                image, sigma=8, max_size=10, use_binned=True
+            )
     finally:
         # The segment name is gone; make teardown tolerant either way.
         try:
@@ -118,3 +120,9 @@ def test_extract_centroids_falls_back_when_segment_vanishes():
     # First call went over shmem and failed; the retry carried the pixels.
     assert len(calls) == 2
     assert calls[1].input_image.image_data == image.tobytes()
+    # The downgrade is permanent for this process, so it has to be visible in
+    # the logs -- otherwise the only symptom is a slower extract time.
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "shared-memory handoff failed" in warnings[0].getMessage()
+    assert _CEDAR_DETECT_SHMEM_NAME in warnings[0].getMessage()
