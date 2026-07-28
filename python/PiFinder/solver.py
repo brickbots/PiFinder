@@ -22,9 +22,16 @@ import socket
 import subprocess
 import threading
 from multiprocessing import shared_memory
+from typing import Optional
 import grpc
 
 from PiFinder import state_utils
+from PiFinder.solve_geometry import (
+    DISPLAY_FRAME_SIZE,
+    OpticalCalibration,
+    SolveGeometry,
+    identity_geometry,
+)
 from PiFinder import utils
 from PiFinder import timez
 from PiFinder.optics import OpticalTrainResolver
@@ -102,6 +109,95 @@ def _scaled_photometry_radii(
     return aperture, inner, outer
 
 
+def project_solution_to_display(solution: dict, geometry: SolveGeometry) -> dict:
+    """Re-express a full-frame solve in display-frame (512x512) coordinates.
+
+    Everything downstream of the solver -- SQM photometry, the preview overlay,
+    the alignment marker -- is written against the 512x512 display frame. SQM in
+    particular then scales those centroids onto the raw photometry image and
+    derotates them, a chain that only works if it starts from display-frame
+    pixels. So a full-frame solve is mapped back here, once, and the projected
+    copy is what the rest of the system sees.
+
+    Matched stars outside the square crop are dropped along with their catalogue
+    counterparts: they contributed to the solve, which is the point, but they
+    have no pixels in the crop for photometry to measure.
+
+    The pointing itself (RA/Dec/Roll and target sky coordinates) is
+    frame-independent: both frames are concentric and share the same "up".
+    """
+    if not geometry.full_frame:
+        return solution
+
+    # A failed solve comes back with every value None. There is nothing to
+    # project; the caller forwards it unchanged and builds a FailedSolve from
+    # it. Without this the solver raises on every starless frame -- which is
+    # most of them indoors, at dusk, or under cloud.
+    if solution.get("FOV") is None:
+        return solution
+
+    projected = dict(solution)
+    projected["FOV"] = geometry.display_fov(solution["FOV"])
+
+    centroids = np.asarray(solution.get("matched_centroids") or [], dtype=float)
+    stars = np.asarray(solution.get("matched_stars") or [], dtype=float)
+    if len(centroids):
+        mapped = geometry.solve_to_display_array(centroids)
+        inside = (
+            (mapped[:, 0] >= 0)
+            & (mapped[:, 0] < DISPLAY_FRAME_SIZE)
+            & (mapped[:, 1] >= 0)
+            & (mapped[:, 1] < DISPLAY_FRAME_SIZE)
+        )
+        projected["matched_centroids"] = mapped[inside].tolist()
+        projected["matched_stars"] = stars[inside].tolist()
+
+    # Alignment returns the image position of a requested sky coordinate; the
+    # UI stores it straight back as target_pixel, so it has to come back in
+    # display-frame pixels.
+    y_target = solution.get("y_target")
+    x_target = solution.get("x_target")
+    if y_target is not None and x_target is not None:
+        y_display, x_display = geometry.solve_to_display((y_target, x_target))
+        if 0 <= y_display < DISPLAY_FRAME_SIZE and 0 <= x_display < DISPLAY_FRAME_SIZE:
+            projected["y_target"] = y_display
+            projected["x_target"] = x_display
+        else:
+            # On the sensor but outside the crop: no display pixel to align on.
+            projected["y_target"] = None
+            projected["x_target"] = None
+
+    return projected
+
+
+def _resolve_geometry(published, train):
+    """Pair the camera's published solve geometry with a fresh calibration.
+
+    The camera process publishes the geometry once it has detected the sensor,
+    which may be after the solver's first pass; until then (``published`` is
+    None) solve the display frame.
+
+    The FOV gate comes from ``train`` either way, projected onto whichever
+    frame we end up solving. Re-derived rather than carried over because the
+    lens can change mid-session, and a stale gate is the one failure that
+    looks exactly like a defocus.
+
+    ``train`` is None when the frames did not come through this device's
+    optics; the calibration then gates nothing. See docs/adr/0029.
+    """
+    geometry = (
+        identity_geometry() if published is None else SolveGeometry.from_dict(published)
+    )
+    calibration = OpticalCalibration.for_train(geometry, train)
+    logger.info(
+        "Solving %dx%d frames, %s",
+        geometry.solve_width,
+        geometry.solve_height,
+        calibration.describe(),
+    )
+    return geometry, calibration
+
+
 def _scale_solution_centroids(solution, scale):
     """Return a shallow copy of solution with matched_centroids scaled.
 
@@ -152,26 +248,38 @@ def _derotate_centroids(points, rotation_deg, size):
     return np.stack([ry, rx], axis=1)
 
 
-def _fov_gate_bounds(train):
-    """``(low, high)`` degrees of a train's FOV gate, for logging."""
+def _fov_gate_bounds(train, geometry=None):
+    """``(low, high)`` degrees of a train's FOV gate, for logging.
+
+    The train states the display frame's field. Pass ``geometry`` to state the
+    gate on the frame the solver is actually given, which on full frame is the
+    wider one -- that is the number tetra3 gates against.
+    """
     estimate, max_error = train.solver_fov_params()
-    return estimate - max_error, estimate + max_error
+    low, high = estimate - max_error, estimate + max_error
+    if geometry is not None:
+        low, high = geometry.solve_fov(low), geometry.solve_fov(high)
+    return low, high
 
 
-def _warn_if_outside_solver_database(t3, train) -> None:
+def _warn_if_outside_solver_database(t3, train, geometry=None) -> None:
     """Log when the pattern database cannot cover this train's field of view.
 
     The database is built over a fixed field-of-view range. A train outside it
     produces no solves at all -- not a degraded solve rate -- and the symptom
     at the UI is indistinguishable from an exposure problem, so say it plainly
     in the log once rather than leaving it to be inferred.
+
+    Full frame widens the field, so the gate is checked on the solve frame:
+    a train comfortably inside the database on the square crop can sit above
+    its upper bound once the crop comes off.
     """
     try:
         props = t3.database_properties
         db_min, db_max = float(props["min_fov"]), float(props["max_fov"])
     except (AttributeError, KeyError, TypeError, ValueError):
         return
-    low, high = _fov_gate_bounds(train)
+    low, high = _fov_gate_bounds(train, geometry)
     if high < db_min or low > db_max:
         logger.error(
             "FOV gate [%.2f, %.2f] deg lies outside the solver database's "
@@ -860,6 +968,7 @@ def solver(
     shared_state,
     solver_queue,
     camera_image,
+    solve_image,
     console_queue,
     log_queue,
     align_command_queue,
@@ -878,6 +987,17 @@ def solver(
 
     centroids = []
     log_no_stars_found = True
+
+    # Solve-frame geometry is published by the camera process once it has
+    # detected the sensor, so it is picked up lazily on the first frame.
+    geometry: Optional[SolveGeometry] = None
+    calibration: Optional[OpticalCalibration] = None
+    geometry_published = False
+    # The (train, train_known) pair the current calibration was seeded from.
+    # A lens change has to reopen the FOV gate -- the cached one describes the
+    # lens that came off -- and so does a change in whether the frames came
+    # through this device's optics at all.
+    calibrated_train = None
 
     # SQM calculator is created lazily on the first radiometer sample (or solve
     # in test mode), not here: at solver
@@ -1017,11 +1137,11 @@ def solver(
                             train.lens.menu_label,
                             shared_state.camera_type(),
                             train.fov_degrees,
-                            *_fov_gate_bounds(train),
+                            *_fov_gate_bounds(train, geometry),
                         )
                         # Only meaningful against a gate we are actually
                         # going to hand over.
-                        _warn_if_outside_solver_database(t3, train)
+                        _warn_if_outside_solver_database(t3, train, geometry)
 
                 # Every camera frame already carries a tiny radiometer sample
                 # reduced in the camera process. Collect all of them and publish
@@ -1051,7 +1171,28 @@ def solver(
                     )
 
                 try:
-                    img = camera_image.copy()
+                    if (
+                        not geometry_published
+                        or (train, train_known) != calibrated_train
+                    ):
+                        published = (
+                            shared_state.solve_geometry()
+                            if not geometry_published
+                            else geometry.as_dict()
+                        )
+                        if published is not None or geometry is None:
+                            geometry, calibration = _resolve_geometry(
+                                published, train if train_known else None
+                            )
+                            geometry_published = published is not None
+                            calibrated_train = (train, train_known)
+
+                    # The shared solve buffer is sized for the largest sensor we
+                    # support, so trim it back to the frame the camera actually
+                    # published before pulling it across the manager.
+                    img = solve_image.crop(
+                        (0, 0, geometry.solve_width, geometry.solve_height)
+                    )
                     img = img.convert(mode="L")
                     np_image = np.asarray(img, dtype=np.uint8)
 
@@ -1100,27 +1241,39 @@ def solver(
                         # fitting, so this window has to describe the actual
                         # hardware or nothing solves. See docs/adr/0027.
                         #
+                        # The train states the *display* frame's field; the
+                        # solve frame is wider, so `calibration` holds the
+                        # gate already projected onto it, and tightens it once
+                        # a solve has measured the field for real.
+                        #
                         # Under an **unknown optical train** there is nothing
                         # to derive it from -- the frames came through some
-                        # other optics -- so no gate is passed at all rather
-                        # than a wrong one. Omitting costs the upper bound
-                        # that rejects confident mis-solves, which is a trade
-                        # only defensible because nothing is being pointed at
-                        # the sky. See the third-rung amendment to 0029.
-                        if train_known:
-                            (
-                                _solver_args["fov_estimate"],
-                                _solver_args["fov_max_error"],
-                            ) = train.solver_fov_params()
+                        # other optics -- so `calibration` gates nothing at
+                        # all rather than gating wrongly. Omitting costs the
+                        # upper bound that rejects confident mis-solves, which
+                        # is a trade only defensible because nothing is being
+                        # pointed at the sky. See the third-rung amendment to
+                        # 0029.
                         solution = t3.solve_from_centroids(
                             centroids,
-                            (512, 512),
+                            geometry.solve_size,
                             match_max_error=0.005,
                             return_matches=True,  # Required for SQM calculation
-                            target_pixel=shared_state.target_pixel(),
+                            target_pixel=geometry.display_to_solve(
+                                shared_state.target_pixel()
+                            ),
                             solve_timeout=1000,
+                            **calibration.solver_args(),
                             **_solver_args,
                         )
+                        if solution.get("RA") is not None:
+                            calibration.record_success(solution)
+                        else:
+                            calibration.record_failure()
+                        # Everything below works in display-frame pixels: SQM
+                        # scales these centroids onto the raw photometry image
+                        # and derotates them, which only works from there.
+                        solution = project_solution_to_display(solution, geometry)
 
                     if "matched_centroids" in solution:
                         if sqm_calculator is None:
@@ -1226,12 +1379,11 @@ def solver(
                             # line above.
                             logger.warning(
                                 "Solve FAILED - %d centroids detected but "
-                                "pattern match failed (%s %s lens, FOV gate "
-                                "[%.2f, %.2f] deg)",
+                                "pattern match failed (%s %s lens, %s)",
                                 len(centroids),
                                 "stated" if train.lens_stated else "assumed",
                                 train.lens.menu_label,
-                                *_fov_gate_bounds(train),
+                                calibration.describe(),
                             )
                         solver_queue.put(
                             _build_failed_solve(

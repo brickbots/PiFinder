@@ -73,16 +73,11 @@ class CameraPI(CameraInterface):
         self.camera.stop()
         self._camera_started = False
 
-    def capture(self) -> Image.Image:
-        """
-        Captures a raw 10/12bit sensor output and converts
-        it to an 8 bit mono image stretched to use the maximum
-        amount of the 255 level space.
-        """
+    def _read_raw(self) -> np.ndarray:
+        """Read one raw 10/12bit sensor frame, uncropped."""
         _request = self.camera.capture_request()
         # raw is actually 16 bit
         raw_capture = _request.make_array("raw").copy().view(np.uint16)
-        # tmp_image = _request.make_image("main")
 
         # Log actual camera metadata for exposure verification (debug level only)
         metadata = _request.get_metadata()
@@ -108,33 +103,10 @@ class CameraPI(CameraInterface):
         self.last_frame_metadata = metadata
 
         _request.release()
+        return raw_capture
 
-        # Apply camera-specific crop and rotation
-        raw_capture = self.profile.crop_and_rotate(raw_capture)
-
-        # Reduce the matrix while it is local to the camera process. The solver
-        # can publish radiometric SQM from this small sample without a solve and
-        # without copying/scanning the raw frame on every capture.
-        if hasattr(self, "shared_state"):
-            self._radiometer_sequence += 1
-            try:
-                radiometer_exposure = float(actual_exposure) / 1_000_000.0
-            except (TypeError, ValueError):
-                radiometer_exposure = float(self.exposure_time) / 1_000_000.0
-            sample = collect_radiometer_sample(
-                raw_capture,
-                self.profile,
-                radiometer_exposure,
-                sequence=self._radiometer_sequence,
-                captured_at=time.time(),
-            )
-            if sample is not None:
-                self.shared_state.set_sqm_radiometer_sample(sample)
-
-        # Store raw in shared state (before processing) for calibration and analysis
-        if hasattr(self, "shared_state"):
-            self.shared_state.set_cam_raw(raw_capture.copy())
-
+    def _to_8bit(self, raw_capture: np.ndarray) -> np.ndarray:
+        """Subtract the bias pedestal and stretch to the full 0-255 range."""
         # covert to 32 bit int to avoid overflow
         raw_capture = raw_capture.astype(np.float32)
 
@@ -152,12 +124,60 @@ class CameraPI(CameraInterface):
         )
 
         # clip to avoid <0 or >255 values
-        raw_capture = np.clip(raw_capture.astype(np.int32), 0, 255).astype(np.uint8)
+        return np.clip(raw_capture.astype(np.int32), 0, 255).astype(np.uint8)
 
-        # convert to PIL image and resize to 512x512
-        raw_image = Image.fromarray(raw_capture).resize((512, 512))
+    def _display_frame(self, raw_capture: np.ndarray) -> Image.Image:
+        """Square-crop the sensor frame down to the 512x512 display frame.
 
-        return raw_image
+        SQM photometry and the radiometer both measure the crop, so both are
+        fed from here rather than from the full-sensor solve frame.
+        """
+        cropped = self.profile.crop_and_rotate(raw_capture)
+
+        # Reduce the matrix while it is local to the camera process. The solver
+        # can publish radiometric SQM from this small sample without a solve and
+        # without copying/scanning the raw frame on every capture.
+        if hasattr(self, "shared_state"):
+            self._radiometer_sequence += 1
+            actual_exposure = getattr(self, "last_frame_metadata", {}).get(
+                "ExposureTime"
+            )
+            try:
+                radiometer_exposure = float(actual_exposure) / 1_000_000.0
+            except (TypeError, ValueError):
+                radiometer_exposure = float(self.exposure_time) / 1_000_000.0
+            sample = collect_radiometer_sample(
+                cropped,
+                self.profile,
+                radiometer_exposure,
+                sequence=self._radiometer_sequence,
+                captured_at=time.time(),
+            )
+            if sample is not None:
+                self.shared_state.set_sqm_radiometer_sample(sample)
+
+        # Store raw in shared state (before processing) for calibration and analysis
+        if hasattr(self, "shared_state"):
+            self.shared_state.set_cam_raw(cropped.copy())
+
+        return Image.fromarray(self._to_8bit(cropped)).resize((512, 512))
+
+    def _solve_frame(self, raw_capture: np.ndarray) -> Image.Image:
+        """Full sensor area at native scale, for the plate solver."""
+        return Image.fromarray(self._to_8bit(self.profile.full_frame(raw_capture)))
+
+    def capture(self) -> Image.Image:
+        """
+        Captures a raw 10/12bit sensor output and converts
+        it to an 8 bit mono image stretched to use the maximum
+        amount of the 255 level space.
+        """
+        return self._display_frame(self._read_raw())
+
+    def capture_pair(self) -> Tuple[Image.Image, Image.Image]:
+        """Produce the display and solve frames from a single sensor read."""
+        raw_capture = self._read_raw()
+        return self._display_frame(raw_capture), self._solve_frame(raw_capture)
 
     def capture_bias(self) -> np.ndarray:
         """Capture a bias frame for measuring black level offset.
@@ -310,7 +330,9 @@ class CameraPI(CameraInterface):
         return self.camType
 
 
-def get_images(shared_state, camera_image, command_queue, console_queue, log_queue):
+def get_images(
+    shared_state, camera_image, solve_image, command_queue, console_queue, log_queue
+):
     """
     Instantiates the camera hardware
     then calls the universal image loop
@@ -326,5 +348,5 @@ def get_images(shared_state, camera_image, command_queue, console_queue, log_que
 
     camera_hardware = CameraPI(exposure_time)
     camera_hardware.get_image_loop(
-        shared_state, camera_image, command_queue, console_queue, cfg
+        shared_state, camera_image, solve_image, command_queue, console_queue, cfg
     )
