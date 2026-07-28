@@ -38,6 +38,36 @@ def test_record_with_full_metadata_and_frame():
 
 
 @pytest.mark.unit
+def test_statistics_cover_the_crop_not_the_full_sensor():
+    """Sweeps archive the whole sensor, but raw_stats must stay on the crop.
+
+    The margins are vignetted, so measuring them would shift every mean and
+    percentile and end comparability with the pre-full-sensor archive -- the
+    black-level-versus-temperature series these records exist for.
+    """
+    from PiFinder.sqm import get_camera_profile
+
+    profile = get_camera_profile("imx462")
+    full = np.full(profile.raw_size[::-1], 1000, dtype=np.uint16)
+    # Darken only what the crop discards, so a statistic computed over the
+    # full sensor cannot possibly match one computed over the crop.
+    kept = np.zeros_like(full, dtype=bool)
+    top, bottom = profile.crop_y
+    left, right = profile.crop_x
+    kept[top : full.shape[0] - bottom, left : full.shape[1] - right] = True
+    full[~kept] = 200
+
+    record = sweep_frame_record(
+        1, 100000, None, profile.crop_and_rotate(full), bit_depth=12
+    )
+
+    assert record["raw_stats"]["mean_adu"] == pytest.approx(1000.0)
+    assert record["raw_stats"]["min_adu"] == 1000.0
+    # The sibling TIFF is full-sensor, so the record must say what it covers.
+    assert record["raw_stats"]["extent"] == "crop"
+
+
+@pytest.mark.unit
 def test_record_without_metadata_or_frame():
     record = sweep_frame_record(1, 25000, None, None, bit_depth=None)
 

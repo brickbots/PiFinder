@@ -103,6 +103,12 @@ def save_sweep_metadata(
                 "bias_offset": profile.bias_offset,
                 "sqm_band_offset": profile.sqm_band_offset,
                 "color_coefficient": profile.color_coefficient,
+                # Extent of the archived raw frames. Sweeps from the
+                # cropped era carry no such field; these hold the whole
+                # sensor, which a reader reduces to the crop with
+                # CameraProfile.ensure_cropped() before photometry.
+                "raw_frame_extent": "full_sensor",
+                "raw_frame_size": list(profile.raw_size),
             }
         except Exception as e:
             logger.warning(f"Could not record camera constants: {e}")

@@ -204,6 +204,12 @@ class CameraPI(CameraInterface):
         For RGB sensors:
         - Converts to grayscale
         - Saves without Bayer pattern suffix
+
+        The square crop is never applied here, and there is deliberately no
+        option to apply it. The crop is a plain slice, so the full frame is a
+        superset and ``profile.ensure_cropped()`` reproduces the cropped frame
+        from it exactly -- while margins not written now are gone for good.
+        Live photometry is unaffected: it reads ``cam_raw()``, still the crop.
         """
         _request = self.camera.capture_request()
         # raw is actually 16 bit
@@ -220,14 +226,18 @@ class CameraPI(CameraInterface):
 
         _request.release()
 
-        # Apply camera-specific crop and rotation (preserves Bayer pattern alignment)
-        raw_capture = self.profile.crop_and_rotate(raw_capture)
-
-        # Expose this frame's driver metadata and cropped raw pixels so the
+        # Expose this frame's driver metadata and its CROPPED pixels so the
         # sweep capture can record per-image radiometry (exposure sweeps are
         # the only caller; both are overwritten on every raw capture).
-        self.last_raw_frame_metadata = metadata
-        self.last_raw_frame = raw_capture
+        #
+        # Note the asymmetry, and that it is deliberate: the TIFF written below
+        # is full-sensor, while these statistics cover the crop. They are the
+        # black-level-versus-temperature series, and the vignetted margins
+        # would shift every mean and percentile, silently ending comparability
+        # with the archive taken before sweeps went full-sensor. Full-sensor
+        # statistics stay computable from the TIFF.
+        self.last_frame_driver_metadata = metadata
+        self.last_cropped_frame = self.profile.crop_and_rotate(raw_capture)
 
         # Determine if we need to flag for debayering
         needs_debayer = False
