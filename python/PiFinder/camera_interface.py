@@ -68,10 +68,14 @@ def _json_safe(value):
     return str(value)
 
 
-def sweep_frame_record(index, exp_us, driver_metadata, raw_frame, bit_depth):
+def sweep_frame_record(index, exp_us, driver_metadata, cropped_frame, bit_depth):
     """Build one sweep image's metadata record: the camera settings actually
-    applied (from driver metadata) plus ADU statistics of the raw frame as
-    saved in the TIFF (pre-bias-subtraction)."""
+    applied (from driver metadata) plus ADU statistics of the raw frame
+    (pre-bias-subtraction).
+
+    The statistics cover the square crop, while the TIFF alongside holds the
+    whole sensor. Keeping them on the crop is what makes the black-level
+    series comparable with sweeps taken before the archive went full-sensor."""
     camera_metadata = {
         key: _json_safe(driver_metadata.get(key)) if driver_metadata else None
         for key in SWEEP_FRAME_METADATA_KEYS
@@ -90,10 +94,16 @@ def sweep_frame_record(index, exp_us, driver_metadata, raw_frame, bit_depth):
             _json_safe(driver_metadata) if driver_metadata else None
         ),
     }
-    if raw_frame is not None:
-        frame = raw_frame.astype(np.float64)
+    if cropped_frame is not None:
+        frame = cropped_frame.astype(np.float64)
         p = np.percentile(frame, [1, 5, 25, 50, 75, 95, 99])
         record["raw_stats"] = {
+            # Which pixels these numbers cover. The sibling TIFF is
+            # full-sensor, so without this the two would silently be
+            # assumed to describe the same pixels. Sweeps from before the
+            # archive went full-sensor have no such key; there the TIFF
+            # was the crop too, so it meant the same thing either way.
+            "extent": "crop",
             "mean_adu": float(frame.mean()),
             "median_adu": float(p[3]),
             "std_adu": float(frame.std()),
@@ -110,7 +120,7 @@ def sweep_frame_record(index, exp_us, driver_metadata, raw_frame, bit_depth):
         }
         if bit_depth:
             record["raw_stats"]["saturated_fraction"] = float(
-                np.mean(raw_frame >= 2**bit_depth - 1)
+                np.mean(cropped_frame >= 2**bit_depth - 1)
             )
     return record
 
@@ -757,9 +767,16 @@ class CameraInterface:
                                 )  # Returns 8-bit PIL Image
                                 processed_img.save(str(processed_filename))
 
-                                # Save RAW TIFF (16-bit, from camera.capture_raw_file())
+                                # Save RAW TIFF (16-bit, from
+                                # camera.capture_raw_file()), always the full
+                                # sensor. The "rawfull" name keeps these out of
+                                # readers globbing the cropped era's
+                                # "*_raw_RGGB.tiff", so an un-updated tool finds
+                                # nothing rather than silently scaling centroids
+                                # against the wrong frame size.
                                 raw_filename = (
-                                    sweep_dir / f"img_{i:03d}_{exp_ms:.2f}ms_raw.tiff"
+                                    sweep_dir
+                                    / f"img_{i:03d}_{exp_ms:.2f}ms_rawfull.tiff"
                                 )
                                 self.capture_raw_file(str(raw_filename))
 
@@ -772,8 +789,8 @@ class CameraInterface:
                                 frame_record = sweep_frame_record(
                                     i,
                                     exp_us,
-                                    getattr(self, "last_raw_frame_metadata", None),
-                                    getattr(self, "last_raw_frame", None),
+                                    getattr(self, "last_frame_driver_metadata", None),
+                                    getattr(self, "last_cropped_frame", None),
                                     getattr(
                                         getattr(self, "profile", None),
                                         "bit_depth",

@@ -58,6 +58,36 @@ The number of consecutive zero-match solve attempts required before recovery act
 Zero-match recovery was briefly a plugin point with four selectable strategies (Sweep, Exponential, Reset, Histogram) behind the Experimental "AE Algo" menu. [ADR 0010](../../adr/0010-zero-match-recovery-single-ladder.md) kept the Sweep ladder as the only behavior and removed the rest, the plugin seam, the menu, and the `auto_exposure_zero_star_handler` config key. Recovery is now the single concrete `ZeroMatchRecovery` class.
 _Avoid_: AE algo, zero-star handler, handler, plugin.
 
+### Frame extents
+
+Two regions of the sensor are in play at once, and confusing them is the
+standing hazard in this area. Always say which one you mean.
+
+**Full-sensor frame**:
+Every pixel the sensor delivers, uncropped. Written by `capture_raw_file()` —
+always, with no option to write anything narrower — and archived by the
+exposure sweep capture as `*_rawfull_*.tiff`. Nothing measures it: it exists so
+the margins are on disk for later analysis, because a margin not captured is
+gone for good.
+_Avoid_: raw frame (unqualified — the crop is equally raw).
+
+**Crop**:
+The centred square region of the sensor. This is what `cam_raw()` holds, what
+SQM photometry measures, and what each sweep frame's `raw_stats` covers. The
+crop is a plain slice of the full-sensor frame, so
+`CameraProfile.ensure_cropped()` recovers it exactly from an archived
+full-sensor frame — that equivalence is what lets full-sensor sweeps reproduce
+every number the cropped-era archive produced.
+
+The asymmetry inside a single sweep frame is deliberate and worth stating
+plainly: **the TIFF is full-sensor, its `raw_stats` are crop-only.** Those
+statistics are the black-level-versus-temperature series, and the vignetted
+margins would shift every mean and percentile, ending comparability with sweeps
+taken before the archive went full-sensor. New records carry
+`raw_stats.extent: "crop"` and `sweep_metadata.json` carries
+`camera.raw_frame_extent: "full_sensor"`, so an archive states which is which
+instead of relying on anyone remembering.
+
 ### Cross-context terms
 
 - **`Matches`** — defined in [Positioning](../positioning/CONTEXT.md): count of stars tetra3 matched in the most recent solve attempt, published on every attempt (success or failure) because auto-exposure depends on it. The feedback signal for solver-driven auto-exposure.

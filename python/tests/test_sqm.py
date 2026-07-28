@@ -1214,6 +1214,66 @@ class TestCropAndRotate:
 
 
 @pytest.mark.unit
+class TestArchivedFrameExtent:
+    """Sweeps archive the full sensor; photometry works on the crop.
+
+    Both eras of sweep exist on disk, so a reader has to tell them apart and
+    reduce the full-sensor era to the crop before measuring. These tests pin
+    that reduction to be exactly what the live pipeline produces -- the
+    guarantee that lets full-sensor sweeps reproduce every cropped-era number.
+    """
+
+    SENSORS = ["imx296", "imx462", "imx290", "hq"]
+
+    @pytest.mark.parametrize("name", SENSORS)
+    def test_full_sensor_frame_is_recognised(self, name):
+        profile = get_camera_profile(name)
+        full = np.zeros(profile.raw_size[::-1], dtype=np.uint16)
+
+        assert profile.is_full_sensor(full) is True
+
+    @pytest.mark.parametrize("name", SENSORS)
+    def test_cropped_frame_is_not_mistaken_for_full(self, name):
+        profile = get_camera_profile(name)
+        full = np.zeros(profile.raw_size[::-1], dtype=np.uint16)
+
+        assert profile.is_full_sensor(profile.crop_and_rotate(full)) is False
+
+    @pytest.mark.parametrize("name", SENSORS)
+    def test_cropping_a_full_sweep_frame_reproduces_the_live_crop(self, name):
+        """The reproducibility guarantee, asserted element for element."""
+        profile = get_camera_profile(name)
+        rng = np.random.default_rng(seed=1)
+        full = rng.integers(
+            0, 2**profile.bit_depth, size=profile.raw_size[::-1], dtype=np.uint16
+        )
+
+        np.testing.assert_array_equal(
+            profile.ensure_cropped(full), profile.crop_and_rotate(full)
+        )
+
+    @pytest.mark.parametrize("name", SENSORS)
+    def test_already_cropped_frames_pass_through_untouched(self, name):
+        """Cropped-era archives must not be cropped a second time."""
+        profile = get_camera_profile(name)
+        rng = np.random.default_rng(seed=2)
+        full = rng.integers(
+            0, 2**profile.bit_depth, size=profile.raw_size[::-1], dtype=np.uint16
+        )
+        cropped = profile.crop_and_rotate(full)
+
+        np.testing.assert_array_equal(profile.ensure_cropped(cropped), cropped)
+
+    @pytest.mark.parametrize("name", SENSORS)
+    def test_full_frame_holds_strictly_more_pixels(self, name):
+        """Nothing is lost by archiving the full sensor -- that is the point."""
+        profile = get_camera_profile(name)
+        full = np.zeros(profile.raw_size[::-1], dtype=np.uint16)
+
+        assert profile.crop_and_rotate(full).size < full.size
+
+
+@pytest.mark.unit
 class TestSaveSweepMetadata:
     """Unit tests for save_sweep_metadata.save_sweep_metadata()."""
 
