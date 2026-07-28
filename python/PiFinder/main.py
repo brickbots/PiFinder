@@ -53,6 +53,7 @@ from PiFinder.state_utils import sleep_for_framerate
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.menu_manager import MenuManager
 
+from PiFinder.optics import max_solve_frame_size
 from PiFinder.state import SharedStateObj, UIState
 
 from PiFinder.image_util import subtract_background
@@ -510,12 +511,16 @@ def main(
         logger.info("   Camera")
         console.update()
         camera_image = manager.NewImage("RGB", (512, 512))  # type: ignore[attr-defined]
+        # Sized for the largest sensor we support; the camera publishes its
+        # actual solve frame into the top-left corner.
+        solve_image = manager.NewImage("L", max_solve_frame_size())  # type: ignore[attr-defined]
         image_process = Process(
             name="Camera",
             target=camera.get_images,
             args=(
                 shared_state,
                 camera_image,
+                solve_image,
                 camera_command_queue,
                 console_queue,
                 camera_logqueue,
@@ -580,6 +585,7 @@ def main(
                 shared_state,
                 solver_queue,
                 camera_image,
+                solve_image,
                 console_queue,
                 solver_logqueue,
                 alignment_command_queue,

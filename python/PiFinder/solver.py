@@ -22,9 +22,16 @@ import socket
 import subprocess
 import threading
 from multiprocessing import shared_memory
+from typing import Optional
 import grpc
 
 from PiFinder import state_utils
+from PiFinder.optics import (
+    DISPLAY_FRAME_SIZE,
+    OpticalCalibration,
+    SolveGeometry,
+    identity_geometry,
+)
 from PiFinder import utils
 from PiFinder import timez
 from PiFinder.sqm import SQM as SQMCalculator
@@ -99,6 +106,87 @@ def _scaled_photometry_radii(
     inner = max(aperture + 1, round(inner_radius * scale))
     outer = max(inner + 2, round(outer_radius * scale))
     return aperture, inner, outer
+
+
+def project_solution_to_display(solution: dict, geometry: SolveGeometry) -> dict:
+    """Re-express a full-frame solve in display-frame (512x512) coordinates.
+
+    Everything downstream of the solver -- SQM photometry, the preview overlay,
+    the alignment marker -- is written against the 512x512 display frame. SQM in
+    particular then scales those centroids onto the raw photometry image and
+    derotates them, a chain that only works if it starts from display-frame
+    pixels. So a full-frame solve is mapped back here, once, and the projected
+    copy is what the rest of the system sees.
+
+    Matched stars outside the square crop are dropped along with their catalogue
+    counterparts: they contributed to the solve, which is the point, but they
+    have no pixels in the crop for photometry to measure.
+
+    The pointing itself (RA/Dec/Roll and target sky coordinates) is
+    frame-independent: both frames are concentric and share the same "up".
+    """
+    if not geometry.full_frame:
+        return solution
+
+    # A failed solve comes back with every value None. There is nothing to
+    # project; the caller forwards it unchanged and builds a FailedSolve from
+    # it. Without this the solver raises on every starless frame -- which is
+    # most of them indoors, at dusk, or under cloud.
+    if solution.get("FOV") is None:
+        return solution
+
+    projected = dict(solution)
+    projected["FOV"] = geometry.display_fov(solution["FOV"])
+
+    centroids = np.asarray(solution.get("matched_centroids") or [], dtype=float)
+    stars = np.asarray(solution.get("matched_stars") or [], dtype=float)
+    if len(centroids):
+        mapped = geometry.solve_to_display_array(centroids)
+        inside = (
+            (mapped[:, 0] >= 0)
+            & (mapped[:, 0] < DISPLAY_FRAME_SIZE)
+            & (mapped[:, 1] >= 0)
+            & (mapped[:, 1] < DISPLAY_FRAME_SIZE)
+        )
+        projected["matched_centroids"] = mapped[inside].tolist()
+        projected["matched_stars"] = stars[inside].tolist()
+
+    # Alignment returns the image position of a requested sky coordinate; the
+    # UI stores it straight back as target_pixel, so it has to come back in
+    # display-frame pixels.
+    y_target = solution.get("y_target")
+    x_target = solution.get("x_target")
+    if y_target is not None and x_target is not None:
+        y_display, x_display = geometry.solve_to_display((y_target, x_target))
+        if 0 <= y_display < DISPLAY_FRAME_SIZE and 0 <= x_display < DISPLAY_FRAME_SIZE:
+            projected["y_target"] = y_display
+            projected["x_target"] = x_display
+        else:
+            # On the sensor but outside the crop: no display pixel to align on.
+            projected["y_target"] = None
+            projected["x_target"] = None
+
+    return projected
+
+
+def _resolve_geometry(published):
+    """Pair the camera's published solve geometry with a fresh calibration.
+
+    The camera process publishes the geometry once it has detected the sensor,
+    which may be after the solver's first pass; until then (``published`` is
+    None) solve the display frame with the square-crop FOV window.
+    """
+    geometry = (
+        identity_geometry() if published is None else SolveGeometry.from_dict(published)
+    )
+    calibration = OpticalCalibration.for_geometry(geometry)
+    logger.info(
+        "Solving %dx%d frames, %s",
+        geometry.solve_width,
+        geometry.solve_height,
+        calibration.describe(),
+    )
+    return geometry, calibration
 
 
 def _scale_solution_centroids(solution, scale):
@@ -824,6 +912,7 @@ def solver(
     shared_state,
     solver_queue,
     camera_image,
+    solve_image,
     console_queue,
     log_queue,
     align_command_queue,
@@ -842,6 +931,12 @@ def solver(
 
     centroids = []
     log_no_stars_found = True
+
+    # Solve-frame geometry is published by the camera process once it has
+    # detected the sensor, so it is picked up lazily on the first frame.
+    geometry: Optional[SolveGeometry] = None
+    calibration: Optional[OpticalCalibration] = None
+    geometry_published = False
 
     # SQM calculator is created lazily on the first radiometer sample (or solve
     # in test mode), not here: at solver
@@ -955,7 +1050,18 @@ def solver(
                     )
 
                 try:
-                    img = camera_image.copy()
+                    if not geometry_published:
+                        published = shared_state.solve_geometry()
+                        if published is not None or geometry is None:
+                            geometry, calibration = _resolve_geometry(published)
+                            geometry_published = published is not None
+
+                    # The shared solve buffer is sized for the largest sensor we
+                    # support, so trim it back to the frame the camera actually
+                    # published before pulling it across the manager.
+                    img = solve_image.crop(
+                        (0, 0, geometry.solve_width, geometry.solve_height)
+                    )
                     img = img.convert(mode="L")
                     np_image = np.asarray(img, dtype=np.uint8)
 
@@ -1000,15 +1106,24 @@ def solver(
 
                         solution = t3.solve_from_centroids(
                             centroids,
-                            (512, 512),
-                            fov_estimate=12.0,
-                            fov_max_error=4.0,
+                            geometry.solve_size,
                             match_max_error=0.005,
                             return_matches=True,  # Required for SQM calculation
-                            target_pixel=shared_state.target_pixel(),
+                            target_pixel=geometry.display_to_solve(
+                                shared_state.target_pixel()
+                            ),
                             solve_timeout=1000,
+                            **calibration.solver_args(),
                             **_solver_args,
                         )
+                        if solution.get("RA") is not None:
+                            calibration.record_success(solution)
+                        else:
+                            calibration.record_failure()
+                        # Everything below works in display-frame pixels: SQM
+                        # scales these centroids onto the raw photometry image
+                        # and derotates them, which only works from there.
+                        solution = project_solution_to_display(solution, geometry)
 
                     if "matched_centroids" in solution:
                         if sqm_calculator is None:
@@ -1103,8 +1218,9 @@ def solver(
                     else:
                         if solution:
                             logger.warning(
-                                f"Solve FAILED - {len(centroids)} centroids detected but "
-                                f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
+                                "Solve FAILED - %d centroids detected but pattern "
+                                "match failed (%s)"
+                                % (len(centroids), calibration.describe())
                             )
                         solver_queue.put(
                             _build_failed_solve(

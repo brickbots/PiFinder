@@ -310,6 +310,10 @@ class SharedStateObj:
         self.__solve_image_rotation = None
         self.__cam_raw = None
         self.__sqm_radiometer_sample = None
+        # Mapping between the 512x512 display frame and the solve frame, set by
+        # the camera process once it knows which sensor is fitted. None until
+        # then, which the solver reads as "solve on the display frame".
+        self.__solve_geometry = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
         self.__tz_finder = TimezoneFinder()
@@ -379,6 +383,12 @@ class SharedStateObj:
 
     def set_camera_type(self, v: str):
         self.__camera_type = v
+
+    def solve_geometry(self):
+        return self.__solve_geometry
+
+    def set_solve_geometry(self, v):
+        self.__solve_geometry = v
 
     def sats(self):
         return self.__sats
