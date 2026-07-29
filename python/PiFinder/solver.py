@@ -174,6 +174,12 @@ def update_radiometric_sqm(
     noise = sqm_calculator.noise_floor_estimator
 
     def tracked_or_static_bias():
+        # The in-session intercept supersedes any static bias, wizard-measured
+        # or profile: the OB clamp level moves with sensor state, so a stored
+        # constant goes stale while the tracker measures the running session's
+        # own frames — bounded by its stderr, deviation-band, and lease gates.
+        # The wander is negligible over a city background but worth
+        # 0.2–0.4 mag (and dead short-exposure frames) at a dark site.
         if black_level_tracker is not None:
             tracked = black_level_tracker.pedestal()
             if tracked is not None:
@@ -184,6 +190,8 @@ def update_radiometric_sqm(
         bias = tracked_or_static_bias()
         if not noise.dark_current_calibrated:
             return bias
+        # Dark current stays the wizard's: the intercept fit cannot separate
+        # dark from sky (both are linear in exposure).
         return bias + sqm_calculator.profile.dark_current_rate * exposure_sec
 
     if sample is not None:
@@ -658,6 +666,28 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             _CEDAR_DETECT_SHMEM_NAME,
         )
 
+    def _del_shmem(self):
+        """Release the shared-memory segment, tolerating one that has
+        already vanished from /dev/shm.
+
+        systemd-logind's ``RemoveIPC=yes`` (the default) deletes every
+        POSIX shared-memory segment a user owns the moment that user's
+        last login session ends — an SSH logout is enough, because the
+        PiFinder service runs as the same user but holds no login
+        session of its own. The upstream cleanup then raises
+        ``FileNotFoundError`` from ``unlink()``, which escaped before
+        ``extract_centroids`` could flip ``_use_shmem`` off — so instead
+        of falling back to passing the image over gRPC, every subsequent
+        solve repeated the crash until restart (bench finding: "solves
+        die at the cable pull", which was really the SSH logout beside
+        it). A segment that is already gone is this method's goal state:
+        treat it as released.
+        """
+        try:
+            super()._del_shmem()
+        except FileNotFoundError:
+            self._shmem = None
+
     def _get_stub(self):
         if self._stub is None:
             channel = grpc.insecure_channel("127.0.0.1:%d" % self._port)
@@ -710,11 +740,17 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                 centroids_result = self._get_stub().ExtractCentroids(req)
             except grpc.RpcError as err:
                 if err.code() == grpc.StatusCode.INTERNAL:
-                    # Shared memory issue, fall back to non-shmem
+                    # Shared memory issue, fall back to non-shmem. The flag
+                    # latches for the life of the process, so this logs once --
+                    # but without it the downgrade is silent and the only
+                    # symptom is a slower extract time.
                     logger.warning(
-                        "Cedar shmem transfer failed (%s); "
-                        "falling back to inline image passing",
+                        "Cedar shared-memory handoff failed (%s); passing the "
+                        "image inline over gRPC from now on. If %s was removed "
+                        "out from under us, check for the RemoveIPC=no drop-in "
+                        "in /etc/systemd/logind.conf.d/.",
                         err.details(),
+                        _CEDAR_DETECT_SHMEM_NAME,
                     )
                     self._del_shmem()
                     self._use_shmem = False
@@ -733,6 +769,11 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                 max_size=max_size,
                 return_binned=False,
                 use_binned_for_star_candidates=use_binned,
+                # Must be passed here too: detect_hot_pixels is a proto3 bool,
+                # so leaving it out sends false and hot pixels start being
+                # detected as stars. Losing the shared-memory handoff should
+                # cost throughput, not detection quality.
+                detect_hot_pixels=detect_hot_pixels,
             )
             try:
                 centroids_result = self._get_stub().ExtractCentroids(req)

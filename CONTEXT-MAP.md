@@ -13,6 +13,7 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - [Battery](./docs/ax/battery/CONTEXT.md) — reads battery voltage and charge state from the rev-4 BQ25895 charger and publishes `BatteryState`; read-only telemetry, gated on hardware presence.
 - [Sound](./docs/ax/sound/CONTEXT.md) — turns named events into short **earcons** on the rev-4 passive buzzer (hardware PWM ch0, GPIO12); best-effort, fire-and-forget feedback, gated on hardware presence.
 - [NixOS](./docs/ax/nixos/CONTEXT.md) — how a NixOS PiFinder is built, published, and updated over the air: the Attic cache, the stable/beta/unstable channels, and the on-device upgrade flow. Cross-cutting infrastructure, not a runtime slice.
+- [Bring-up](./docs/ax/bringup/CONTEXT.md) — first power-on validation of a freshly assembled board: the checks a builder runs at the bench and which of them can be machine-verified. Bench tooling, not a runtime slice.
 
 ## Relationships
 
@@ -29,6 +30,10 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - **Sound → system-wide**: `hardware_detect` sets `has_buzzer` from the *same* rev4 marker (the charger probe — a bare GPIO buzzer can't be probed directly); the sound process only spawns when `has_buzzer`. On rev3/dev `sound_queue` is `None` and the producer helper no-ops.
 - **UI → Sound**: keypresses and the volume menu in the main loop request earcons (`KEYPRESS`, `VOLUME_SAMPLE`); master volume is a `Config` setting (`sound_volume`) pushed to the player as `SetVolume`.
 - **Sound → shutdown**: the shutdown chokepoint (`callbacks.shutdown`) plays `SHUTDOWN` and waits its catalog duration + margin **before** triggering the GPIO14 power latch (see [ADR 0007](./docs/adr/0007-gpio-poweroff-latch.md)), so the cue isn't cut off by power-down.
+
+- **Bring-up → Battery / Sound / Positioning**: bring-up constructs those contexts' hardware seams *directly* (`BQ25895`, `BuzzerPWM`, `imu_pi.Imu`) instead of spawning their monitor processes — it is a single process with no `SharedStateObj`. It stays inside each context's rules: charger access is reads plus the sanctioned one-shot ADC trigger, never the fast-charge config write (ADR 0017), and earcons come from the Sound catalog rather than raw tones.
+- **Bring-up → UI**: bring-up reuses the display drivers, fonts and layout helpers, but **not** `UIModule`, `MenuManager` or the menu tree — it draws its own frames and never joins the navigation stack. It reads the keypad as **switches** at their **matrix positions**, below the layer where UI's logical **keys**, `ALT_*` chords and `LNG_*` long presses are formed.
+- **Bring-up ↛ `hardware_detect`**: unlike `main.py` and `splash.py`, bring-up does **not** derive its panel from the BQ25895 probe. Doing so would make a dead charger indistinguishable from a dead screen on exactly the boards it exists to diagnose.
 
 Companion architecture docs live next to each `CONTEXT.md`:
 - [`docs/ax/nixos.md`](./docs/ax/nixos.md)

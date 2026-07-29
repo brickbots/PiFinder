@@ -8,6 +8,7 @@ and adds keys to the provided queue
 
 from time import sleep, time
 import libinput
+from PiFinder import keypad
 from PiFinder.keyboard_interface import KeyboardInterface
 import RPi.GPIO as GPIO
 import logging
@@ -20,40 +21,22 @@ class KeyboardPi(KeyboardInterface):
     def __init__(self, q):
         self.q = q
 
-        # GPIO pin numbers for the rows and columns of the keyboard matrix
-        self.cols = [16, 23, 26, 27, 21]
-        self.rows = [19, 17, 18, 22, 20]
-        self.power_gpio = 15
+        # Matrix wiring and keymaps live in PiFinder.keypad, which is
+        # import-safe (no RPi.GPIO / libinput) so bring-up and the unit tests
+        # can read the same tables this scanner runs on.
+        self.cols = keypad.MATRIX_COLS
+        self.rows = keypad.MATRIX_ROWS
+        self.power_gpio = keypad.POWER_GPIO
 
         # Timer for power-off debounce, and latch so we only emit
         # one POWER_BTN per physical press
         self.power_press_time = 0
         self.power_sent = False
 
-        # fmt: off
-        self.keymap = [
-            7 , 8 , 9 , self.NA, self.UP,
-            4 , 5 , 6 , self.PLUS, self.LEFT,
-            1 , 2 , 3 , self.MINUS, self.DOWN,
-            self.NA, 0 , self.NA, self.SQUARE, self.RIGHT,
-            self.LEFT, self.UP , self.DOWN , self.RIGHT, self.SQUARE,
-        ]
+        self.keymap = keypad.KEYMAP
         # If SQUARE is pressed together with key, ALT_<key> is sent
-        self.alt_keymap = [
-            self.NA, self.NA, self.NA, self.NA, self.ALT_UP,
-            self.NA, self.NA, self.NA, self.ALT_PLUS, self.ALT_LEFT,
-            self.NA, self.NA, self.NA, self.ALT_MINUS, self.ALT_DOWN,
-            self.NA, self.ALT_0, self.NA, self.NA, self.ALT_RIGHT,
-            self.ALT_LEFT, self.ALT_UP, self.ALT_DOWN, self.ALT_RIGHT, self.NA,
-        ]
-        self.long_keymap = [
-            self.NA, self.NA, self.NA, self.NA, self.LNG_UP,
-            self.NA, self.NA, self.NA, self.NA, self.LNG_LEFT,
-            self.NA, self.NA, self.NA, self.NA, self.LNG_DOWN,
-            self.NA, self.NA, self.NA, self.LNG_SQUARE, self.LNG_RIGHT,
-            self.LNG_LEFT, self.LNG_UP, self.LNG_DOWN, self.LNG_RIGHT, self.LNG_SQUARE,
-        ]
-        # fmt: on
+        self.alt_keymap = keypad.ALT_KEYMAP
+        self.long_keymap = keypad.LONG_KEYMAP
 
         # Derive keycodes from the keymap so they track the matrix layout
         # (cols/rows) rather than being hard-coded. SQUARE is the brightness/
@@ -143,7 +126,7 @@ class KeyboardPi(KeyboardInterface):
             for i in range(len(self.rows)):
                 GPIO.setup(self.rows[i], GPIO.OUT, initial=GPIO.LOW)
                 for j in range(len(self.cols)):
-                    keycode = i * len(self.cols) + j
+                    keycode = keypad.keymap_index(i, j)
                     newval = GPIO.input(self.cols[j]) == GPIO.LOW
                     if newval and keycode not in pressed:
                         # initial press

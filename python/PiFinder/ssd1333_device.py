@@ -18,6 +18,14 @@ Command set reference (key differences from SSD1351):
 
 from luma.oled.device.color import color_device
 
+#: Number of gray scale levels on the 5-bit color A and C channels. luma packs
+#: red as ``r & 0xF8``, so a red byte of 8*n selects gray level n.
+GRAY_SCALE_LEVELS = 31
+
+#: Dimmest gray level that still emits. Level 1 has only a pre-charge stage and
+#: no current drive at all (datasheet section 6.8), and measures as fully dark.
+MIN_GRAY_SCALE_LEVEL = 2
+
 
 class ssd1333(color_device):
     """
@@ -50,6 +58,11 @@ class ssd1333(color_device):
         (default: 0).
     :type v_offset: int
     """
+
+    #: Point table capping rendered pixels, or None to pass them through. Set
+    #: on the class so that display() is safe during the base constructor,
+    #: which clears and shows the screen before __init__ regains control.
+    _gray_scale_lut = None
 
     def __init__(
         self,
@@ -135,6 +148,51 @@ class ssd1333(color_device):
         """
         assert 0 <= level <= 15
         self.command(0xC7, level)
+
+    def gray_scale_ceiling(self, level):
+        """
+        Caps rendered pixels at gray scale ``level``, dimming by duty cycle
+        instead of by drive current.
+
+        This is a third brightness axis, independent of :func:`contrast` and
+        :func:`master_brightness`: those two set how much current a lit pixel
+        draws, while gray scale level sets how long it draws it for. In the
+        controller's built-in linear LUT level n is (n-1)*4 DCLKs wide, so
+        capping at level 2 is a 30x reduction. Because the pixel still turns
+        fully on for that time, this dims far below the point where current
+        control alone stops lighting the panel at all.
+
+        Rescaling pixel values is what makes this reach so low. The gray scale
+        tables can be rewritten to shorten the pulses directly, but their
+        entries must increase strictly, which both floors the top level at 30
+        DCLKs and -- measured on this panel -- produces visible artifacts well
+        before that. Capping the values fed to the built-in table is clean at
+        every level.
+
+        Dimming this way costs the UI tonal range, since its shades land on
+        the levels below the cap, so callers should hold the ceiling as high
+        as the target brightness allows.
+
+        :param level: Gray scale level full intensity maps to, 2-31. At 31,
+            the default, pixels reach the display unaltered.
+        :type level: int
+        """
+        assert MIN_GRAY_SCALE_LEVEL <= level <= GRAY_SCALE_LEVELS
+        if level == GRAY_SCALE_LEVELS:
+            self._gray_scale_lut = None
+            return
+        # luma keeps the top 5 bits of the red byte, so 8*level selects the
+        # level itself. One table per band, since point() wants all of them.
+        ceiling = level * 8
+        self._gray_scale_lut = [round(v * ceiling / 255) for v in range(256)] * 3
+
+    def display(self, image):
+        """
+        Renders an image, capped at the gray scale ceiling if one is set.
+        """
+        if self._gray_scale_lut is not None:
+            image = image.point(self._gray_scale_lut)
+        super().display(image)
 
     def command(self, cmd, *args):
         """
