@@ -11,7 +11,12 @@ logger = logging.getLogger("Observations_DB")
 
 
 class ObservationsDatabase(Database):
-    def __init__(self, db_path: Path = utils.observations_db):
+    def __init__(self, db_path: Optional[Path] = None):
+        # Resolved at call time, not as a default argument: an import-time
+        # default captures utils.observations_db before the test sandbox
+        # patches it, sending writes to the real ~/PiFinder_data.
+        if db_path is None:
+            db_path = utils.observations_db
         self._objects_db = None
         new_db = False
         if not db_path.exists():

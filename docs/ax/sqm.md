@@ -204,6 +204,33 @@ mean exposure-dependent signal is included. This keeps factory behavior tied
 to the validated sensor offsets while allowing a measured calibration to
 refine it.
 
+### Per-frame optical black (IMX290/IMX462)
+
+Sony defines the shielded optical-black (OB) rows as the sensor's own signal
+reference. The IMX290/462 already transmits ten front vertical OB rows on every
+frame; a kernel patch routes them to the receiver as a separate metadata
+stream, and a libcamera helper publishes their central-90% trimmed mean through
+`SensorBlackLevels` at 1/16 native ADU resolution. `camera_pi` reads that value
+for these sensors and attaches it to the radiometer sample as
+`optical_black_pedestal`.
+
+When a valid marked OB value is present it is the complete per-frame pedestal —
+it already contains the bias and that frame's accumulated dark signal, so no
+separate dark-current model is applied and no nightly rate is fitted or stored.
+The precedence is: valid same-frame OB, then a user-calibrated pedestal, then
+the profile `bias_offset`. Manual calibration therefore never overrides a valid
+same-frame measurement; it remains the fallback for sensors without usable OB.
+
+This was validated on mr2 (IMX462, production gain, requested 30 / reported
+29.512) with a same-frame cupboard test: comparing the normal Bayer pixels and
+the shielded OB rows from identical frames, the active-green and OB dark-
+accumulation slopes agreed to well under 1 ADU/s (active green sat ~0.8-1.0 ADU
+below OB as a small fixed offset, ~0.01 mag — too small to persist as a per-unit
+constant from one camera). The added camera-process cost was about +0.23
+percentage points of one core. This is strong evidence for the shipped IMX462
+path, not proof for every Sony sensor: IMX296 and IMX477 OB plumbing remains
+open, and independent-unit and temperature-range validation is still useful.
+
 Read noise is zero-mean RMS uncertainty and is never subtracted as signal.
 `NoiseFloorEstimator` retains a low image percentile only as a diagnostic;
 ordinary sky pixels cannot provide an automatic dark calibration because they

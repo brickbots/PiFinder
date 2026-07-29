@@ -3,7 +3,6 @@
 """Raw, magnified multi-star Focus screen."""
 
 import math
-import sys
 import time
 from collections import deque
 from typing import Optional
@@ -11,11 +10,9 @@ from typing import Optional
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageOps
 
-from PiFinder import focus, utils
+from PiFinder import focus
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenu, MarkingMenuOption
-
-sys.path.append(str(utils.tetra3_dir))
 
 # Ten times the apparent size of the old full-frame preview. On a square panel
 # this maps a 26x26 patch from the 512x512 camera frame into each half-screen
@@ -71,8 +68,6 @@ def focus_crop_size(
 
 
 class UIPreview(UIModule):
-    from PiFinder import tetra3
-
     __title__ = "CAMERA"
     __help_name__ = "camera"
     _display_mode_list = [DISPLAY_STARS, DISPLAY_SINGLE, DISPLAY_IMAGE, DISPLAY_STATS]
