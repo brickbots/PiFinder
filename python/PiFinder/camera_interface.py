@@ -311,7 +311,6 @@ class CameraInterface:
             # 60 half-second cycles (30 seconds between captures in sleep mode)
             sleep_delay = 60
             was_sleeping = False
-            test_mode_on = False
             while True:
                 sleeping = state_utils.sleep_for_framerate(
                     shared_state, limit_framerate=False
@@ -336,6 +335,10 @@ class CameraInterface:
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
                 if self._camera_started:
+                    # Test mode is owned by shared state (persisted in config
+                    # and toggled from the menu), so it stays in sync with the
+                    # UI and survives restarts.
+                    test_mode_on = shared_state.test_mode()
                     if not test_mode_on:
                         base_image = self._capture_with_timeout()
                         if base_image is None:
@@ -481,9 +484,6 @@ class CameraInterface:
                         logger.error(f"CameraInterface: Command error: {e}")
 
                     try:
-                        if command == "debug":
-                            test_mode_on = not test_mode_on
-
                         if command.startswith("set_exp"):
                             transient_exposure = command.startswith(
                                 "set_exp_transient:"

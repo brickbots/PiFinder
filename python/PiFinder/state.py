@@ -314,6 +314,7 @@ class SharedStateObj:
         # We need gps lock and datetime
         self.__tz_finder = TimezoneFinder()
         self.__current_ui_state = None
+        self.__test_mode = False
 
     def serialize(self, output_file):
         with open(output_file, "wb") as f:
@@ -340,10 +341,11 @@ class SharedStateObj:
 
     def set_power_state(self, v):
         """
-        Sets the power_state. Allowed states are 0 (sleep) or 1 (awake). If
-        the input v is any other value, power_state will be unchanged.
+        Sets the power_state. Allowed states are -1 (screen off), 0 (sleep)
+        or 1 (awake). If the input v is any other value, power_state will be
+        unchanged.
         """
-        if v in (0, 1):
+        if v in (-1, 0, 1):
             self.__power_state = v
         else:
             logger.error(
@@ -611,3 +613,9 @@ class SharedStateObj:
             f"Screen: {self.__screen}\n"
             f"Target Pixel: {self.__target_pixel}"
         )
+
+    def test_mode(self):
+        return self.__test_mode
+
+    def set_test_mode(self, v: bool):
+        self.__test_mode = v

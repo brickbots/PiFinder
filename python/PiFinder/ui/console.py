@@ -11,7 +11,6 @@ import time
 
 from PIL import Image
 from PiFinder.ui.base import GPS_ANIM_RATE, UIModule
-from PiFinder import timez
 from PiFinder.ui.layout import rows_below_titlebar
 from PiFinder.image_util import convert_image_to_mode
 
@@ -36,7 +35,7 @@ class UIConsole(UIModule):
         self.dirty = True
         self.welcome = True
 
-        # load welcome image to screen
+        # Load welcome image as startup backdrop
         root_dir = os.path.realpath(
             os.path.join(os.path.dirname(__file__), "..", "..", "..")
         )
@@ -53,21 +52,13 @@ class UIConsole(UIModule):
 
         self.lines = ["---- TOP ---", "Sess UUID:" + self.__uuid__]
         self.scroll_offset = 0
-        self.debug_mode = False
 
     def set_shared_state(self, shared_state):
         self.shared_state = shared_state
 
     def key_number(self, number):
         if number == 0:
-            self.command_queues["camera"].put("debug")
-            if self.debug_mode:
-                self.debug_mode = False
-            else:
-                self.debug_mode = True
-            self.command_queues["console"].put("Debug: " + str(self.debug_mode))
-        dt = timez.utc(2022, 11, 15, 2, 0, 0)
-        self.shared_state.set_datetime(dt)
+            self.command_queues["ui_queue"].put("test_mode")
 
     def key_enter(self):
         # reset scroll offset
@@ -93,6 +84,13 @@ class UIConsole(UIModule):
         # reset scroll offset
         self.scroll_offset = 0
         self.dirty = True
+
+    def finish_startup(self):
+        """End the startup splash phase and clear the welcome backdrop."""
+        self.welcome = False
+        self.clear_screen()
+        self.dirty = True
+        self.update()
 
     def active(self):
         self.welcome = False
@@ -188,12 +186,28 @@ class UIConsole(UIModule):
                     # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
                     if self._unmoved:
-                        self.draw.text(
-                            (self.display_class.resX * 0.91, -2),
-                            self._CAM_ICON,
-                            font=self.fonts.icon_bold_large.font,
-                            fill=var_fg,
-                        )
+                        is_test = self.config_object.get_option("test_mode", False)
+                        icon_x = self.display_class.resX * 0.91
+                        icon_y = -2
+                        if is_test:
+                            # Invert camera icon: white bg, dark icon
+                            self.draw.rectangle(
+                                [icon_x - 1, 0, icon_x + 13, 13],
+                                fill=self.colors.get(128),
+                            )
+                            self.draw.text(
+                                (icon_x, icon_y),
+                                self._CAM_ICON,
+                                font=self.fonts.icon_bold_large.font,
+                                fill=self.colors.get(0),
+                            )
+                        else:
+                            self.draw.text(
+                                (icon_x, icon_y),
+                                self._CAM_ICON,
+                                font=self.fonts.icon_bold_large.font,
+                                fill=var_fg,
+                            )
 
                     if len(self.title) < 9:
                         # draw the constellation

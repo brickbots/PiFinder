@@ -334,3 +334,36 @@ class TestUpdateSqmWiring:
         )
         # Same camera frame seen twice by the loop: fed exactly once.
         assert black_level.add_sample.call_count == 1
+
+    def test_imx462_publishes_frame_paired_colour_and_tracker_diagnostics(self):
+        shared_state, calc, black_level, sample = self._radiometer_harness()
+        sample.update(
+            {
+                "background_per_pixel": 280.0,
+                "background_red": 275.0,
+                "background_blue": 265.0,
+            }
+        )
+        accumulator = solver.RadiometerAccumulator()
+        airglow = solver.AirglowTracker("imx462")
+        assert solver.update_radiometric_sqm(
+            shared_state,
+            calc,
+            accumulator,
+            sample,
+            now=1001.0,
+            black_level_tracker=black_level,
+            airglow_tracker=airglow,
+        )
+        details = shared_state.set_sqm_details.call_args[0][0]
+        diagnostic = details["airglow_diagnostic"]
+        assert diagnostic["valid"] is True
+        assert diagnostic["pedestal"] == 237.5
+        assert diagnostic["pedestal_source"] == "tracked_or_calibrated"
+        assert details["pedestal"] == 237.5
+        assert details["skyglow_floor"] == diagnostic["correction_adu_per_sec"]
+        assert details["radiometric_zero_point"] == 15.19
+        assert details["window_airglow"]["samples"][0] == diagnostic
+        stored = details["window_radiometer"]["samples"][0]
+        assert stored["paired_pedestal"] == 237.5
+        assert stored["paired_radiometric_zero_point"] == 15.19
