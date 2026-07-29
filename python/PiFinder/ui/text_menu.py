@@ -61,15 +61,26 @@ class UITextMenu(UIModule):
                     _("Select None")
                 ] + self._menu_items  # TRANSLATORS: catalog filter deselect all
             else:
-                self._selected_values = [self.config_object.get_option(config_option)]
-                if self._selected_values == [None]:
-                    # default to the first option... just in case
-                    self._selected_values = [self.item_definition["items"][0]["value"]]
+                self._sync_single_selection(config_option)
 
-                # Set current item index based on selection
-                for i, _item in enumerate(self.item_definition["items"]):
-                    if _item["value"] == self._selected_values[0]:
-                        self._current_item_index = i
+    def _sync_single_selection(self, config_option):
+        """Match the highlight/checkmark to the stored config value."""
+        self._selected_values = [self.config_object.get_option(config_option)]
+        if self._selected_values == [None]:
+            # default to the first option... just in case
+            self._selected_values = [self.item_definition["items"][0]["value"]]
+
+        # Set current item index based on selection
+        for i, _item in enumerate(self.item_definition["items"]):
+            if _item["value"] == self._selected_values[0]:
+                self._current_item_index = i
+
+    def active(self):
+        # Re-read config so the highlight tracks values changed while a
+        # submenu was open (e.g. returning from Fallback/Custom shape pickers).
+        config_option = self.item_definition.get("config_option")
+        if config_option and self._menu_type != "multi":
+            self._sync_single_selection(config_option)
 
     def update(self, force=False):
         # clear screen
