@@ -132,6 +132,7 @@ def get_version() -> str:
 
 debug_dump_dir = data_dir / "solver_debug_dumps"
 comet_file = data_dir / "comets.txt"
+asteroid_data_dir = data_dir / "asteroids"
 
 # Logging-config presets ship read-only in the source tree; the user's active
 # selection is persisted in the writable data dir (like config.json), stored as

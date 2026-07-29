@@ -22,6 +22,7 @@ class MarkingMenuOption:
     selected: bool = False  # shade bg?
     callback: Any = None
     menu_jump: Union[None, str] = None
+    value: Any = None
 
     def __str__(self):
         return self.label

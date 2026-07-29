@@ -277,6 +277,8 @@ class CameraInterface:
                 shared_state.set_camera_type(camera_type)
                 logger.info(f"Camera type set to: {camera_type}")
 
+            debug = False
+
             # Check if auto-exposure was previously enabled in config
             config_exp = cfg.get_option("camera_exp")
             if config_exp == "auto":
@@ -377,12 +379,12 @@ class CameraInterface:
                         pointing_diff = 0.0
 
                     # Make image available
-                    if test_mode_on and abs(pointing_diff) > 0.01:
-                        # Scope moved during the fake exposure: return a blank
-                        # image so the solver doesn't report a stale solve
+                    if debug and abs(pointing_diff) > 0.01:
+                        # Check if we moved and return a blank image
                         camera_image.paste(self._blank_capture())
                     else:
                         camera_image.paste(base_image)
+
                     image_metadata = {
                         "exposure_start": image_start_time,
                         "exposure_end": image_end_time,
@@ -484,6 +486,12 @@ class CameraInterface:
                         logger.error(f"CameraInterface: Command error: {e}")
 
                     try:
+                        if command == "debug":
+                            if debug:
+                                debug = False
+                            else:
+                                debug = True
+
                         if command.startswith("set_exp"):
                             transient_exposure = command.startswith(
                                 "set_exp_transient:"
@@ -903,7 +911,7 @@ class CameraInterface:
                                     altitude_deg=altitude_deg,
                                     azimuth_deg=azimuth_deg,
                                     camera_type=shared_state.camera_type(),
-                                    notes=f"Exposure sweep: {num_images} images, {min_exp / 1000:.1f}-{max_exp / 1000:.1f}ms",
+                                    notes=f"Exposure sweep: {num_images} images, {min_exp/1000:.1f}-{max_exp/1000:.1f}ms",
                                 )
                                 logger.info(
                                     f"Successfully saved sweep metadata to {sweep_dir}/sweep_metadata.json"

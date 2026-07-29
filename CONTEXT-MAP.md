@@ -36,7 +36,6 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - **Bring-up ↛ `hardware_detect`**: unlike `main.py` and `splash.py`, bring-up does **not** derive its panel from the BQ25895 probe. Doing so would make a dead charger indistinguishable from a dead screen on exactly the boards it exists to diagnose.
 
 Companion architecture docs live next to each `CONTEXT.md`:
-- [`docs/ax/nixos.md`](./docs/ax/nixos.md)
 - [`docs/ax/catalog.md`](./docs/ax/catalog.md)
 - [`docs/ax/positioning.md`](./docs/ax/positioning.md)
 - [`docs/ax/sqm.md`](./docs/ax/sqm.md)
