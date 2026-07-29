@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import quaternion as quaternion_module
 
+from PiFinder import telemetry as telemetry_module
 from PiFinder.telemetry import (
     TelemetryManager,
     TelemetryPlayer,
@@ -95,20 +96,26 @@ def _make_shared_state(location=None, dt=None):
     return ss
 
 
+_ALL_SECTIONS = ["imu", "sqm", "solve", "target", "images"]
+
+
 def _make_cfg(
     telemetry_record=False,
-    telemetry_images=False,
     screen_direction="flat",
     mount_type="Alt/Az",
+    telemetry_sections=None,
+    telemetry_max_session_mb=0,
 ):
     cfg = MagicMock()
+    sections = list(_ALL_SECTIONS if telemetry_sections is None else telemetry_sections)
 
     def get_option(key):
         return {
             "telemetry_record": telemetry_record,
-            "telemetry_images": telemetry_images,
             "screen_direction": screen_direction,
             "mount_type": mount_type,
+            "telemetry_sections": sections,
+            "telemetry_max_session_mb": telemetry_max_session_mb,
         }.get(key)
 
     cfg.get_option = get_option
@@ -240,6 +247,250 @@ class TestTelemetryRecorder:
                 assert event["exp"] == 1.0
                 assert event["bg"] == 515.0
                 assert event["grad"] == 12.0
+            finally:
+                rec.stop()
+
+    def test_record_radio_logs_ingredients_and_derived(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                rec.record_radio(
+                    {
+                        "sequence": 7,
+                        "captured_at": 200.0,
+                        "exposure_sec": 1.0,
+                        "background_per_pixel": 515.0,
+                        "background_mad": 28.0,
+                        "background_gradient": 12.0,
+                        "background_red": 540.0,
+                        "background_blue": 470.0,
+                        "optical_black_pedestal": 238.0,
+                        "pixels_per_side": 512,
+                    },
+                    sqm=20.9,
+                    floor=51.5,
+                )
+                event = json.loads(rec._buffer[-1])
+                # raw ingredients — recompute-able under a future calculation
+                assert event["bg"] == 515.0
+                assert event["red"] == 540.0
+                assert event["blue"] == 470.0
+                assert event["ped"] == 238.0
+                assert event["px"] == 512
+                # derived audit values — what the device published
+                assert event["sqm"] == 20.9
+                assert event["floor"] == 51.5
+            finally:
+                rec.stop()
+
+    def test_record_radio_optional_fields_default_none(self, tmp_path):
+        """Mono sensor / no published SQM: optional fields serialize as None."""
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                rec.record_radio(
+                    {
+                        "sequence": 1,
+                        "captured_at": 100.0,
+                        "exposure_sec": 1.0,
+                        "background_per_pixel": 515.0,
+                        "background_mad": 28.0,
+                        "background_gradient": 12.0,
+                    }
+                )
+                event = json.loads(rec._buffer[-1])
+                for key in ("red", "blue", "ped", "px", "sqm", "floor"):
+                    assert event[key] is None
+            finally:
+                rec.stop()
+
+    def test_no_cap_by_default(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                assert rec.max_session_bytes == 0
+                assert rec.images_capped is False
+            finally:
+                rec.stop()
+
+    def test_session_cap_suspends_images(self, tmp_path):
+        """Once the session dir exceeds the cap, frame capture is suspended."""
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(telemetry_max_session_mb=1), _make_shared_state())
+            try:
+                assert rec.max_session_bytes == 1024 * 1024
+                rec._refresh_session_bytes()
+                assert rec.images_capped is False  # header only, well under 1 MB
+
+                # Simulate saved frames pushing the session past the cap.
+                (rec.get_session_dir() / "img_1.png").write_bytes(b"x" * 1_200_000)
+                rec._refresh_session_bytes()
+                assert rec.session_bytes >= 1024 * 1024
+                assert rec.images_capped is True
+            finally:
+                rec.stop()
+
+    def test_header_snapshots_sqm_calibration(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            ss = _make_shared_state()
+            ss.camera_type.return_value = "imx462"
+            rec.start(_make_cfg(), ss)
+            try:
+                cfg_hdr = json.loads(rec._buffer[0])["cfg"]
+                assert cfg_hdr["camera_type"] == "imx462"
+                cal = cfg_hdr["sqm_calibration"]
+                # full profile is captured, not a hand-picked subset
+                assert "radiometric_zero_point" in cal["profile"]
+                assert "radiometric_fov_degrees" in cal["profile"]
+                assert "bias_offset" in cal["profile"]
+                # Airglow constants only exist on branches carrying the model.
+                if telemetry_module.airglow is not None:
+                    assert cal["airglow"]["red_response"] == 4.07
+            finally:
+                rec.stop()
+
+    def test_header_calibration_mono_has_no_airglow(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            ss = _make_shared_state()
+            ss.camera_type.return_value = "imx296"  # mono: no airglow entry
+            rec.start(_make_cfg(), ss)
+            try:
+                cal = json.loads(rec._buffer[0])["cfg"]["sqm_calibration"]
+                assert "profile" in cal
+                assert "airglow" not in cal
+            finally:
+                rec.stop()
+
+    def test_header_calibration_none_for_unknown_camera(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            ss = _make_shared_state()
+            ss.camera_type.return_value = "no_such_cam"
+            rec.start(_make_cfg(), ss)
+            try:
+                cfg_hdr = json.loads(rec._buffer[0])["cfg"]
+                assert cfg_hdr["camera_type"] == "no_such_cam"
+                assert cfg_hdr["sqm_calibration"] is None
+            finally:
+                rec.stop()
+
+    def test_sections_default_all_on(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                assert rec.sections == {
+                    "imu": True,
+                    "sqm": True,
+                    "solve": True,
+                    "target": True,
+                    "images": True,
+                }
+            finally:
+                rec.stop()
+
+    def test_imu_section_off_skips_imu_only(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(
+                _make_cfg(telemetry_sections=["sqm", "solve", "target"]),
+                _make_shared_state(),
+            )
+            try:
+                base = len(rec._buffer)
+                rec.record_imu(_make_imu_sample(moving=True))
+                assert len(rec._buffer) == base  # IMU gated off
+                rec.record_radio(
+                    {
+                        "sequence": 1,
+                        "captured_at": 100.0,
+                        "exposure_sec": 1.0,
+                        "background_per_pixel": 515.0,
+                        "background_mad": 28.0,
+                        "background_gradient": 12.0,
+                    }
+                )
+                assert len(rec._buffer) == base + 1  # SQM still records
+            finally:
+                rec.stop()
+
+    def test_sqm_section_off_skips_radio(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(
+                _make_cfg(telemetry_sections=["imu", "solve", "target"]),
+                _make_shared_state(),
+            )
+            try:
+                base = len(rec._buffer)
+                rec.record_radio(
+                    {
+                        "sequence": 1,
+                        "captured_at": 100.0,
+                        "exposure_sec": 1.0,
+                        "background_per_pixel": 515.0,
+                    }
+                )
+                assert len(rec._buffer) == base
+            finally:
+                rec.stop()
+
+    def test_solve_section_off_skips_solve(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(
+                _make_cfg(telemetry_sections=["imu", "sqm", "target"]),
+                _make_shared_state(),
+            )
+            try:
+                base = len(rec._buffer)
+                result = rec.record_solve(_make_successful_solve())
+                assert result is None
+                assert len(rec._buffer) == base
+            finally:
+                rec.stop()
+
+    def test_target_section_off_skips_target(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(
+                _make_cfg(telemetry_sections=["imu", "sqm", "solve"]),
+                _make_shared_state(),
+            )
+            try:
+                base = len(rec._buffer)
+                target = MagicMock()
+                target.object_id = 42
+                target.display_name = "M31"
+                target.ra = 10.68
+                target.dec = 41.27
+                rec.record_target(target, alt=45.0, az=90.0)
+                assert len(rec._buffer) == base
+            finally:
+                rec.stop()
+
+    def test_apply_sections_updates_live_recording(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            rec = TelemetryRecorder()
+            rec.start(_make_cfg(), _make_shared_state())
+            try:
+                base = len(rec._buffer)
+                rec.record_imu(_make_imu_sample(moving=True, timestamp=1000.0))
+                assert len(rec._buffer) == base + 1  # recorded while on
+
+                rec.apply_sections(
+                    _make_cfg(telemetry_sections=["sqm", "solve", "target"])
+                )
+                assert rec.sections["imu"] is False
+                # Distinct timestamp so IMU dedup can't mask the section gate.
+                rec.record_imu(_make_imu_sample(moving=True, timestamp=1001.0))
+                assert len(rec._buffer) == base + 1  # now gated off
             finally:
                 rec.stop()
 
@@ -774,6 +1025,59 @@ class TestTelemetryManager:
             finally:
                 mgr.stop()
 
+    def test_record_radio_stamps_published_sqm_and_floor(self, tmp_path):
+        """The manager pulls the last published SQM/floor from shared state."""
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            ss = _make_shared_state()
+            ss.sqm.return_value = MagicMock(value=20.9)
+            ss.sqm_details.return_value = {"skyglow_floor": 51.5}
+            cq = queue.Queue()
+            mgr = TelemetryManager(_make_cfg(telemetry_record=True), ss, cq)
+            try:
+                mgr.record_radio(
+                    {
+                        "sequence": 1,
+                        "captured_at": 100.0,
+                        "exposure_sec": 1.0,
+                        "background_per_pixel": 515.0,
+                        "background_mad": 28.0,
+                        "background_gradient": 12.0,
+                        "background_red": 540.0,
+                    }
+                )
+                event = json.loads(mgr._recorder._buffer[-1])
+                assert event["e"] == "radio"
+                assert event["red"] == 540.0
+                assert event["sqm"] == 20.9
+                assert event["floor"] == 51.5
+            finally:
+                mgr.stop()
+
+    def test_record_radio_survives_missing_sqm_state(self, tmp_path):
+        """No SQM published yet: sqm/floor log as None, recording continues."""
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            ss = _make_shared_state()
+            ss.sqm.return_value = None
+            ss.sqm_details.return_value = None
+            cq = queue.Queue()
+            mgr = TelemetryManager(_make_cfg(telemetry_record=True), ss, cq)
+            try:
+                mgr.record_radio(
+                    {
+                        "sequence": 1,
+                        "captured_at": 100.0,
+                        "exposure_sec": 1.0,
+                        "background_per_pixel": 515.0,
+                        "background_mad": 28.0,
+                        "background_gradient": 12.0,
+                    }
+                )
+                event = json.loads(mgr._recorder._buffer[-1])
+                assert event["sqm"] is None
+                assert event["floor"] is None
+            finally:
+                mgr.stop()
+
     def test_handle_command_record_off(self, tmp_path):
         with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
             cq = queue.Queue()
@@ -982,14 +1286,53 @@ class TestTelemetryManager:
     def test_record_solve_sends_image_command(self, tmp_path):
         with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
             cam_q = queue.Queue()
-            cfg = _make_cfg(telemetry_images=True)
-            mgr = TelemetryManager(cfg, _make_shared_state(), queue.Queue(), cam_q)
-            mgr._recorder.start(_make_cfg(), _make_shared_state())
-            mgr._recorder.images_enabled = True
+            mgr = TelemetryManager(
+                _make_cfg(), _make_shared_state(), queue.Queue(), cam_q
+            )
+            mgr._recorder.start(_make_cfg(), _make_shared_state())  # images section on
             try:
                 mgr.record_solve(_make_successful_solve())
                 msg = cam_q.get_nowait()
                 assert msg.startswith("save_image:")
+            finally:
+                mgr.stop()
+
+    def test_record_solve_no_image_once_cap_reached(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            cam_q = queue.Queue()
+            console_q = queue.Queue()
+            mgr = TelemetryManager(_make_cfg(), _make_shared_state(), console_q, cam_q)
+            mgr._recorder.start(
+                _make_cfg(telemetry_max_session_mb=1), _make_shared_state()
+            )
+            try:
+                # Push the session past the cap, then re-measure.
+                (mgr._recorder.get_session_dir() / "img_1.png").write_bytes(
+                    b"x" * 1_200_000
+                )
+                mgr._recorder._refresh_session_bytes()
+                assert mgr._recorder.images_capped
+
+                mgr.record_solve(_make_successful_solve())
+                assert cam_q.empty()  # no further frames requested
+                assert console_q.get_nowait() == "Telemetry: Size cap, frames off"
+            finally:
+                mgr.stop()
+
+    def test_record_solve_no_image_when_images_section_off(self, tmp_path):
+        with patch("PiFinder.telemetry.TELEMETRY_DIR", tmp_path / "telemetry"):
+            cam_q = queue.Queue()
+            mgr = TelemetryManager(
+                _make_cfg(), _make_shared_state(), queue.Queue(), cam_q
+            )
+            # Solves on, Images off: solve recorded but no frame saved.
+            mgr._recorder.start(
+                _make_cfg(telemetry_sections=["imu", "sqm", "solve", "target"]),
+                _make_shared_state(),
+            )
+            try:
+                mgr.record_solve(_make_successful_solve())
+                assert cam_q.empty()
             finally:
                 mgr.stop()
 
