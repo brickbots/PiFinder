@@ -81,18 +81,22 @@ The flow where `MenuManager.key_*` forwards a keypad event to `stack[-1].key_*`,
 _Avoid_: event routing, input handling.
 
 **Keypad layout**:
-The physical pad is **TKL / calculator style — `7 8 9` is the TOP row**, not phone style. The full grid (from `keyboard_pi.py`'s `keymap`) is:
+The physical pad is **TKL / calculator style — `7 8 9` is the TOP row**, not phone style. `keyboard_pi.py`'s `keymap` covers a 5×5 matrix that spans both hardware revisions; each revision populates a different subset, and the directional cluster is what moved:
 
 ```
-7  8  9   (na)
-4  5  6   PLUS
-1  2  3   MINUS
-   0      SQUARE
-LEFT UP DOWN RIGHT
+       col0  col1  col2  col3    col4
+row0    7     8     9    (na)    UP     ┐
+row1    4     5     6    PLUS    LEFT   │ rev4 adds col4: a
+row2    1     2     3    MINUS   DOWN   │ directional cluster
+row3   (na)   0    (na)  SQUARE  RIGHT  │ with a centre SQUARE
+row4    LEFT  UP    DOWN  RIGHT  SQUARE ┘
+        └─ rev3 directional row ─┘
 ```
 
-So when a module maps number keys to on-screen **2×2 screen quadrants**, the spatially-faithful corners are `7`=top-left, `9`=top-right, `1`=bottom-left, `3`=bottom-right (used by daytime alignment's quadrant picker). `SQUARE`+key sends the `ALT_*` variant; a long press sends the `LNG_*` variant (long-`SQUARE` opens the marking menu).
-_Avoid_: assuming phone-style `1 2 3` on top — it is inverted.
+**rev3** populates cols 0–3 of every row (the calculator pad plus the bottom directional row). **rev4** populates rows 0–3 of cols 0–3 plus *all* of col 4 — the directional cluster moved off the bottom row and gained a second `SQUARE`. Both clusters send the same logical keys, so **UI code never needs to know which revision it is on** — but it also means a logical key does not identify a physical switch. (Which positions carry a switch on a given board is the [Bring-up](../bringup/CONTEXT.md) context's *population map*; only bring-up cares.)
+
+So when a module maps number keys to on-screen **2×2 screen quadrants**, the spatially-faithful corners are `7`=top-left, `9`=top-right, `1`=bottom-left, `3`=bottom-right (used by daytime alignment's quadrant picker). `SQUARE`+key sends the `ALT_*` variant; a long press sends the `LNG_*` variant (long-`SQUARE` opens the marking menu). Note there are two `SQUARE` positions in the matrix (one per cluster) and the chord works from either.
+_Avoid_: assuming phone-style `1 2 3` on top — it is inverted; assuming the pad is 4 columns (it grew to 5 in rev4).
 
 **Power key** (`POWER_BTN` / `key_power`):
 The dedicated hardware power button, dispatched as a normal keypad event in **key dispatch**. Its meaning is "open the shutdown confirmation": from any active module it jumps (`jump_to_label`) to the `shutdown` menu item. On that confirmation screen it doubles as **select** (behaves like the right key), so one press raises the confirmation and a second press confirms.
