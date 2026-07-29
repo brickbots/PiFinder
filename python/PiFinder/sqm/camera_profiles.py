@@ -156,6 +156,29 @@ class CameraProfile:
 
         return cropped
 
+    def is_full_sensor(self, raw_array) -> bool:
+        """True when an array covers the whole sensor rather than the crop.
+
+        Sweeps archive the full sensor; photometry works on the crop. Both
+        eras of archive exist on disk, so anything replaying them has to tell
+        them apart. The sizes can never collide: the crop is strictly smaller
+        on at least one axis for every profile.
+        """
+        height, width = raw_array.shape[:2]
+        return (width, height) == self.raw_size
+
+    def ensure_cropped(self, raw_array):
+        """Reduce an archived frame to what production photometry would see.
+
+        A full-sensor frame goes through the ordinary :meth:`crop_and_rotate`,
+        so the result matches the live pipeline by construction rather than by
+        a parallel reimplementation. An already-cropped frame is returned
+        untouched.
+        """
+        if self.is_full_sensor(raw_array):
+            return self.crop_and_rotate(raw_array)
+        return raw_array
+
     def __repr__(self) -> str:
         return (
             f"CameraProfile("

@@ -140,6 +140,17 @@ class BlackLevelTracker:
                 self.bias_offset,
             )
             return
+        if abs(intercept - self.bias_offset) > 2.0 and (
+            self._pedestal is None or abs(intercept - self._pedestal) > 0.25
+        ):
+            # A tracked level this far from the static bias is exactly the
+            # case the tracker exists for — worth a visible trace.
+            logger.info(
+                "Tracked black level %.2f ADU (static bias %.1f, stderr %.2f)",
+                intercept,
+                self.bias_offset,
+                stderr,
+            )
         self._pedestal = float(intercept)
         self._stderr = stderr
         self._accepted_at = time.monotonic()

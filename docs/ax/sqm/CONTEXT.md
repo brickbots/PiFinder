@@ -40,6 +40,10 @@ The processed 512×512 image used by Cedar and tetra3. It can be display-rotated
 **Raw photometry image**:
 The linear cropped raw mono frame, or the mean of both Bayer-green sites. Star
 flux and sky background are measured here, not on the processed solve image.
+Always the **crop**, never the full-sensor frame that exposure sweeps archive —
+see [Camera](../camera/CONTEXT.md) for the two extents. The margins are
+vignetted with no optical black, so measuring them would bias the sky
+background and break continuity with every calibrated sweep.
 
 **Derotation**:
 Mapping solve-image `(y, x)` centroids back to the orientation of the stored

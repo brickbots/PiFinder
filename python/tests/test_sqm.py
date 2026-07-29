@@ -1214,6 +1214,66 @@ class TestCropAndRotate:
 
 
 @pytest.mark.unit
+class TestArchivedFrameExtent:
+    """Sweeps archive the full sensor; photometry works on the crop.
+
+    Both eras of sweep exist on disk, so a reader has to tell them apart and
+    reduce the full-sensor era to the crop before measuring. These tests pin
+    that reduction to be exactly what the live pipeline produces -- the
+    guarantee that lets full-sensor sweeps reproduce every cropped-era number.
+    """
+
+    SENSORS = ["imx296", "imx462", "imx290", "hq"]
+
+    @pytest.mark.parametrize("name", SENSORS)
+    def test_full_sensor_frame_is_recognised(self, name):
+        profile = get_camera_profile(name)
+        full = np.zeros(profile.raw_size[::-1], dtype=np.uint16)
+
+        assert profile.is_full_sensor(full) is True
+
+    @pytest.mark.parametrize("name", SENSORS)
+    def test_cropped_frame_is_not_mistaken_for_full(self, name):
+        profile = get_camera_profile(name)
+        full = np.zeros(profile.raw_size[::-1], dtype=np.uint16)
+
+        assert profile.is_full_sensor(profile.crop_and_rotate(full)) is False
+
+    @pytest.mark.parametrize("name", SENSORS)
+    def test_cropping_a_full_sweep_frame_reproduces_the_live_crop(self, name):
+        """The reproducibility guarantee, asserted element for element."""
+        profile = get_camera_profile(name)
+        rng = np.random.default_rng(seed=1)
+        full = rng.integers(
+            0, 2**profile.bit_depth, size=profile.raw_size[::-1], dtype=np.uint16
+        )
+
+        np.testing.assert_array_equal(
+            profile.ensure_cropped(full), profile.crop_and_rotate(full)
+        )
+
+    @pytest.mark.parametrize("name", SENSORS)
+    def test_already_cropped_frames_pass_through_untouched(self, name):
+        """Cropped-era archives must not be cropped a second time."""
+        profile = get_camera_profile(name)
+        rng = np.random.default_rng(seed=2)
+        full = rng.integers(
+            0, 2**profile.bit_depth, size=profile.raw_size[::-1], dtype=np.uint16
+        )
+        cropped = profile.crop_and_rotate(full)
+
+        np.testing.assert_array_equal(profile.ensure_cropped(cropped), cropped)
+
+    @pytest.mark.parametrize("name", SENSORS)
+    def test_full_frame_holds_strictly_more_pixels(self, name):
+        """Nothing is lost by archiving the full sensor -- that is the point."""
+        profile = get_camera_profile(name)
+        full = np.zeros(profile.raw_size[::-1], dtype=np.uint16)
+
+        assert profile.crop_and_rotate(full).size < full.size
+
+
+@pytest.mark.unit
 class TestSaveSweepMetadata:
     """Unit tests for save_sweep_metadata.save_sweep_metadata()."""
 
@@ -1662,6 +1722,44 @@ class TestWingEstimator:
         est.reset()
         assert not est.is_conditioned
         assert est.correction() == 0.0
+
+    def test_set_scale_rescales_geometry(self):
+        est = WingEstimator()
+        # imx296 full-res mono: photometry at 1088px vs the 512 solve image.
+        est.set_scale(1088 / 512)
+        assert est.aperture_radius == round(5 * 1088 / 512)
+        assert est.max_radius == round(20 * 1088 / 512)
+        assert est.plateau_radii == tuple(
+            round(q * 1088 / 512) for q in WingEstimator.BASE_PLATEAU_RADII
+        )
+        # Every plateau radius stays outside the aperture, inside the sky ring.
+        for q in est.plateau_radii:
+            assert est.aperture_radius < q <= est.max_radius - 4
+
+    def test_set_scale_clears_window(self):
+        image, centroids, _ = _wing_star_frame()
+        est = WingEstimator(min_samples=1)
+        est.add_frame(image, centroids, saturation_threshold=1e9)
+        assert est.is_conditioned
+        est.set_scale(2.125)
+        # Samples from another geometry are not comparable.
+        assert not est.is_conditioned
+
+    def test_set_scale_same_scale_is_noop(self):
+        image, centroids, _ = _wing_star_frame()
+        est = WingEstimator(min_samples=1)
+        est.set_scale(1.0)
+        est.add_frame(image, centroids, saturation_threshold=1e9)
+        est.set_scale(1.0)
+        assert est.is_conditioned
+
+    def test_set_scale_near_unity_keeps_imx462_geometry(self):
+        # imx462 green: 490px. Rounding keeps aperture/plateau essentially
+        # unchanged, so the calibrated behavior is preserved.
+        est = WingEstimator()
+        est.set_scale(490 / 512)
+        assert est.aperture_radius == 5
+        assert est.plateau_radii[0] == 10
 
 
 @pytest.mark.unit
