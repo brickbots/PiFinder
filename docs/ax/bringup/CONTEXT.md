@@ -11,8 +11,12 @@ The first power-on validation of a newly assembled board, done at the bench befo
 _Avoid_: "smoke test" (that names a pytest marker in this repo), "QA", "burn-in" (that's a soak, which this is not).
 
 **Bring-up run**:
-One execution of `python -m PiFinder.bringup` against one board. A run is interactive and open-ended: it keeps reporting until the builder ends it.
+One execution of `python -m PiFinder.bringup` against one board. A run is interactive and open-ended: it keeps reporting until the builder ends it — with Ctrl-C, with `--timeout`, or with the **power hold**.
 _Avoid_: "test run", "session".
+
+**Power hold**:
+The power switch held closed for one second, which ends the run and asks the OS for a clean shutdown. It exists because bring-up happens at a bench with no keyboard and often no terminal in sight, and pulling power on a mounted filesystem is how a builder corrupts an image between the first board and the tenth. The threshold matches the one `keyboard_pi` uses for the same switch in the running application, so the gesture is learned once. Distinct from a **tap**, which is all the `SWITCHES` check needs: bring-up is the one place where how *long* the power switch is closed changes what happens. Removed by `--no-power-shutdown`; a tap still counts either way.
+_Avoid_: "power off" / "kill" (the run asks the OS to shut down and never drives the **power-off latch** itself — that stays the kernel's, see [Battery](../battery/CONTEXT.md)), "long press" (that names the UI context's `LNG_*` keys, which the power switch does not produce).
 
 **Builder**:
 The person assembling and validating the board — the audience for a bring-up run. Distinct from the **observer**, the person using a finished PiFinder at the eyepiece, who is the audience for everything in the [UI](../ui/CONTEXT.md) context.
@@ -51,7 +55,7 @@ One physical pushbutton on the board, identified by where it sits in the wiring 
 _Avoid_: "button" (fine in prose to a builder, too loose in code), "key" (that's the logical event).
 
 **Matrix position**:
-A switch's `(row, column)` coordinate in the scanned keypad matrix — a switch's identity for bring-up purposes. The **power switch** is the exception: it is wired to its own line rather than into the matrix, and so has no matrix position.
+A switch's `(row, column)` coordinate in the scanned keypad matrix — a switch's identity for bring-up purposes. The **power switch** is the exception: it is wired to its own line rather than into the matrix, and so has no matrix position. It is also the only switch whose *duration* means anything (see **power hold**); every matrix position is judged purely on whether it was observed closing.
 _Avoid_: "keycode" (that's the logical key), "index".
 
 **Population map**:
@@ -84,3 +88,11 @@ _Avoid_: "keymap" (that maps positions to logical **keys**, a different table), 
 > **Dev:** The charger didn't answer on this board. Should the run bail out?
 >
 > **Domain:** No. It reports `CHARGER` as failed and carries on with everything else — you still want to know whether the switches and the IMU are good before you desolder anything. And it must never let that probe decide which panel to open, or a dead charger would look like a dead screen.
+>
+> **Dev:** I pressed power to tick off the last switch and the thing shut down on me.
+>
+> **Domain:** You held it. A tap is what the `SWITCHES` check wants — the closure registers on the first scan that sees it — and a second's hold is the **power hold**, which ends the run and shuts the card down cleanly. The power cell fills a bar for that whole second so you can let go; if you'd rather not have the gesture at all, `--no-power-shutdown` takes it away and the tap still counts.
+>
+> **Dev:** Why does bring-up get to shut the machine down when nothing else in it touches power?
+>
+> **Domain:** It asks the OS to shut down — the same `shutdown now` the app's menu ends up running. It still doesn't touch the **power-off latch**; GPIO14 is the kernel's to drive at power-off and no Python here or anywhere else goes near it. What bring-up avoids is a builder at a bench with no terminal open reaching for the barrel jack on a mounted filesystem.
