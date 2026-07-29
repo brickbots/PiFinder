@@ -169,7 +169,18 @@ jobs:
       group: manifest-write
       cancel-in-progress: false
     steps:
+      # Check out the PR's BASE branch explicitly. A bare checkout under
+      # pull_request_target lands on the repository's default branch, which
+      # may carry this workflow (so the event fires) without carrying the
+      # scripts below -- the job then dies after a successful build, leaving
+      # an image in Attic that no device can reach because the manifest was
+      # never written. The base branch is the branch this workflow file itself
+      # came from, so the scripts are always beside it, and it stays
+      # maintainer-controlled: never check out the PR head here, which would
+      # run contributor code with contents:write and the Attic token.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
 
       - name: Update generated manifest branch
         env:
