@@ -109,6 +109,16 @@ class CameraPI(CameraInterface):
 
         _request.release()
 
+        # Serve a pending request for the uncropped sensor frame before the
+        # crop discards the margins. On demand only: the full frame is ~4 MB
+        # and would cost that across the state manager on every capture.
+        if hasattr(self, "shared_state"):
+            try:
+                if self.shared_state.cam_raw_full_requested():
+                    self.shared_state.set_cam_raw_full(raw_capture.copy())
+            except (BrokenPipeError, ConnectionResetError, AttributeError):
+                pass
+
         # Apply camera-specific crop and rotation
         raw_capture = self.profile.crop_and_rotate(raw_capture)
 
