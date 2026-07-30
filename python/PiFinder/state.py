@@ -309,6 +309,8 @@ class SharedStateObj:
         # to the stored raw frame (PIL CCW). None until the camera reports.
         self.__solve_image_rotation = None
         self.__cam_raw = None
+        self.__cam_raw_full = None
+        self.__cam_raw_full_requested = False
         self.__sqm_radiometer_sample = None
         # Mapping between the 512x512 display frame and the solve frame, set by
         # the camera process once it knows which sensor is fitted. None until
@@ -572,6 +574,27 @@ class SharedStateObj:
 
     def set_cam_raw(self, v):
         self.__cam_raw = v
+
+    def cam_raw_full(self):
+        return self.__cam_raw_full
+
+    def set_cam_raw_full(self, v):
+        # Fulfilling the request clears it, so one request yields one frame
+        # rather than leaving the camera publishing 4 MB every capture.
+        self.__cam_raw_full = v
+        self.__cam_raw_full_requested = False
+
+    def cam_raw_full_requested(self) -> bool:
+        return self.__cam_raw_full_requested
+
+    def request_cam_raw_full(self) -> None:
+        """Ask the camera to publish the next frame uncropped.
+
+        The full sensor frame is ~4 MB and would cost that on every capture if
+        published unconditionally, so it is served on demand: a caller sets
+        this flag, the camera fulfils it once and clears it.
+        """
+        self.__cam_raw_full_requested = True
 
     def sqm_radiometer_sample(self):
         return self.__sqm_radiometer_sample

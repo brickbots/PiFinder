@@ -17,7 +17,10 @@ from PiFinder import utils
 from PiFinder.optics import DISPLAY_FRAME_SIZE, SolveGeometry
 from PiFinder.solver import project_solution_to_display
 
-sys.path.append(str(utils.tetra3_dir))
+# tetra3 is a submodule on some branches and an ordinary dependency on
+# others; only the former needs a path entry.
+if hasattr(utils, "tetra3_dir"):
+    sys.path.append(str(utils.tetra3_dir))
 
 tetra3 = pytest.importorskip("tetra3")
 

@@ -103,6 +103,18 @@ class CameraPI(CameraInterface):
         self.last_frame_metadata = metadata
 
         _request.release()
+        # Serve a pending request for the uncropped sensor frame. Done here,
+        # in the shared read path, because this is where the frame still has
+        # its margins -- both capture() and capture_pair() go through it. On
+        # demand only: the full frame is ~4 MB and would cost that across the
+        # state manager on every capture.
+        if hasattr(self, "shared_state"):
+            try:
+                if self.shared_state.cam_raw_full_requested():
+                    self.shared_state.set_cam_raw_full(raw_capture.copy())
+            except (BrokenPipeError, ConnectionResetError, AttributeError):
+                pass
+
         return raw_capture
 
     def _to_8bit(self, raw_capture: np.ndarray) -> np.ndarray:
