@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from collections import deque
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -33,16 +33,47 @@ def extract_photometry_image(raw, profile) -> Optional[np.ndarray]:
     return arr.astype(np.float32)
 
 
-def _sky_red_green(raw, profile, border_fraction, stride):
+def _mosaic_phase_is_rggb(profile) -> bool:
+    """True when pixel (0, 0) of a ``crop_and_rotate`` frame is still red.
+
+    Red is far more phase-fragile than green, which is why this guard is new
+    with the colour term and ``extract_photometry_image`` never needed it. A
+    180-degree rotation maps the block ``R G / G B`` to ``B G / G R``: the two
+    green sites are invariant, but red and blue swap. An odd crop origin
+    shifts the mosaic by one site with the same effect. Either would make the
+    sampler read blue as red, and a wrong R/G does not fail loudly -- it just
+    moves the published zero point by up to the width of the clamp.
+
+    So require the three invariants the sampler assumes rather than trusting
+    them to stay true: RGGB order (not merely "some Bayer format"), no
+    rotation, and an even crop origin on both axes.
+    """
+    if not str(getattr(profile, "format", "")).upper().startswith("SRGGB"):
+        return False  # mono, or a CFA order this sampler cannot read
+    if int(getattr(profile, "rotation_90", 0) or 0) % 4 != 0:
+        return False  # 90/270 transpose the CFA; 180 swaps red and blue
+    crop_y = getattr(profile, "crop_y", (0, 0))
+    crop_x = getattr(profile, "crop_x", (0, 0))
+    return crop_y[0] % 2 == 0 and crop_x[0] % 2 == 0
+
+
+def _sky_red_green(
+    raw, profile, border_fraction: float, stride: int
+) -> Tuple[Optional[float], Optional[float]]:
     """Median red and green sky level from an RGGB mosaic, or (None, None).
 
     Sky colour is what converts the sensor's passband to the meter's V band:
     light pollution is sodium/LED and green-weighted, airglow is grey and
-    NIR-rich. Mono sensors carry no colour, and IR-cut sensors barely respond
-    to it, so both simply return None and fall back to a constant zero point.
+    NIR-rich. Mono sensors carry no colour and return (None, None), which
+    falls back to a constant zero point.
+
+    Colour sensors that do not *use* the correction still report here: the HQ
+    is RGGB and gets real values, which its zero point then ignores because
+    its colour slope is 0. That costs nothing and accumulates the colour data
+    a future refit would need.
     """
-    if not str(getattr(profile, "format", "")).upper().startswith("S"):
-        return None, None  # not a colour filter array
+    if not _mosaic_phase_is_rggb(profile):
+        return None, None
     a = np.asarray(raw)
     if a.ndim != 2 or min(a.shape) < 64:
         return None, None

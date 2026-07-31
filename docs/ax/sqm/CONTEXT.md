@@ -21,8 +21,12 @@ Latest published `value`, `source`, and `last_update` in shared state. The UI
 reads this state and does not calculate photometry.
 
 **Radiometric SQM**:
-The published fixed-calibration measurement from diffuse raw background,
-exposure, pedestal, factory field width, and `radiometric_zero_point`.
+The published factory-calibration measurement from diffuse raw background,
+exposure, pedestal, factory field width, and the effective radiometric zero
+point. On bare sensors that zero point is not a constant — it moves with
+measured **sky colour** (see *Radiometric colour term*). Avoid calling it the
+"fixed-calibration" value; the calibration is fixed per sensor, the zero point
+applied to a given frame is not.
 
 **Stellar SQM (`sqm_star_calibrated`)**:
 The former per-frame stellar-zero-point result. Retained as a transmission and
@@ -165,8 +169,32 @@ Per-sensor trim mapping catalog colour into the camera's stellar passband.
 
 **SQM band offset (`sqm_band_offset`)**:
 Additive mapping from sensor-band sky brightness to the reference SQM-L scale
-for the calibrated sky regime. It is coupled to the catalog transform, wing
-model, and local-annulus background estimator.
+for the calibrated sky regime, on the **stellar** path only. It is coupled to
+the catalog transform, wing model, and local-annulus background estimator.
+Diagnostic: the published value comes from the radiometer, not from here.
+
+**Sky colour (`R/G`)**:
+Ratio of median red to median green sky background, measured off the raw
+mosaic. A *measurement of the scene*, not a sensor property — it is the
+project's proxy for sky spectrum, and the thing that distinguishes a
+sodium/LED-dominated light-polluted sky (green-weighted, R/G ≈ 0.83–0.89) from
+a dark airglow sky (grey and NIR-rich, R/G ≈ 1.00–1.04). Say "sky colour" or
+"R/G", not "colour temperature" or "white balance" — neither is what this is.
+
+**Radiometric colour term (`radiometric_colour_slope` / `_pivot` / `_range`)**:
+Sky-colour dependence of the radiometric zero point, in mag per unit R/G. It
+exists because the sensor-band to V-band conversion depends on the sky's
+spectrum, which a single constant cannot represent across regimes. Slope `0`
+means a plain constant, which is correct for mono sensors and for IR-cut
+sensors with no NIR leak. R/G is clamped to `_range` rather than extrapolated.
+Distinct from **colour coefficient**, which trims *catalog star* colour on the
+stellar path; this one trims *sky* colour on the radiometric path. See ADR 0026.
+
+**Mosaic phase**:
+The property that pixel `(0, 0)` of the frame reaching photometry is still a
+red CFA site. Rotation by 180° and odd crop origins both break it while leaving
+the green sites unchanged, so the colour term checks it and reports no colour
+rather than blue-as-red.
 
 **Airmass / altitude correction**:
 Pickering (2002) airmass and `0.28 mag/airmass`. Comparison-only; unknown

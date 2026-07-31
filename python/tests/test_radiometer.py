@@ -249,3 +249,148 @@ def test_ir_cut_sensor_keeps_a_plain_constant():
 
     assert get_camera_profile("hq").radiometric_colour_slope == 0.0
     assert get_camera_profile("imx296").radiometric_colour_slope == 0.0
+
+
+def _rggb(height, width, red, green, blue):
+    """Synthetic RGGB mosaic with a known, distinct value per CFA site."""
+    a = np.zeros((height, width), dtype=np.uint16)
+    a[0::2, 0::2] = red
+    a[0::2, 1::2] = green
+    a[1::2, 0::2] = green
+    a[1::2, 1::2] = blue
+    return a
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("height,width", [(1080, 1920), (1085, 1925), (215, 215)])
+def test_sky_colour_is_sampled_on_the_right_mosaic_sites(height, width):
+    """Red must come off the red sites, at any frame size.
+
+    Blue is deliberately far from red here: a half-site phase slip reads blue
+    as red and would otherwise pass silently, since the result stays a
+    plausible number. The odd sizes exercise the border-evening -- a 215-px
+    frame gives a 21-px border, and an odd border is exactly what shifts the
+    crop onto the wrong CFA phase.
+    """
+    profile = get_camera_profile("imx462")
+    sample = collect_radiometer_sample(
+        _rggb(height, width, red=850, green=1000, blue=500),
+        profile,
+        1.0,
+        sequence=1,
+        captured_at=0.0,
+    )
+    assert sample["background_red"] == pytest.approx(850.0)
+    assert sample["background_green"] == pytest.approx(1000.0)
+
+
+@pytest.mark.unit
+def test_rotated_or_odd_cropped_profiles_refuse_to_report_colour():
+    """The invariants the sampler assumes are checked, not assumed.
+
+    A 180-degree rotation leaves the green sites alone but swaps red and blue,
+    so the pre-existing green extraction never had to care and this one does.
+    Reporting no colour costs a fallback to the constant zero point; reporting
+    blue as red would shift the published SQM by up to the clamp width.
+    """
+    from dataclasses import replace
+
+    from PiFinder.sqm.radiometer import _mosaic_phase_is_rggb
+
+    profile = get_camera_profile("imx462")
+    assert _mosaic_phase_is_rggb(profile)
+
+    for broken in (
+        replace(profile, rotation_90=2),  # 180 deg: red <-> blue
+        replace(profile, rotation_90=1),  # 90 deg: transposes the CFA
+        replace(profile, crop_x=(471, 471)),  # odd origin: half-site slip
+        replace(profile, crop_y=(51, 51)),
+        replace(profile, format="SBGGR12"),  # Bayer, but not RGGB
+    ):
+        assert not _mosaic_phase_is_rggb(broken)
+        sample = collect_radiometer_sample(
+            _rggb(256, 256, red=850, green=1000, blue=500),
+            broken,
+            1.0,
+            sequence=1,
+            captured_at=0.0,
+        )
+        assert "background_red" not in sample
+
+
+@pytest.mark.unit
+def test_shipped_colour_profiles_hold_the_phase_invariants():
+    """Guard the profiles themselves, not just the sampler.
+
+    These three are RGGB, unrotated and even-cropped today, which is why the
+    colour term is correct as shipped. If a future orientation change breaks
+    that, this fails here rather than quietly biasing everyone's SQM.
+    """
+    from PiFinder.sqm.radiometer import _mosaic_phase_is_rggb
+
+    for name in ("imx462", "imx290", "hq"):
+        profile = get_camera_profile(name)
+        assert _mosaic_phase_is_rggb(profile), name
+        assert profile.rotation_90 == 0
+        assert profile.crop_x[0] % 2 == 0 and profile.crop_y[0] % 2 == 0
+
+
+@pytest.mark.unit
+def test_mono_profile_reports_no_colour():
+    profile = get_camera_profile("imx296")
+    sample = collect_radiometer_sample(
+        np.full((256, 256), 300, dtype=np.uint16),
+        profile,
+        1.0,
+        sequence=1,
+        captured_at=0.0,
+    )
+    assert "background_red" not in sample
+    assert "background_green" not in sample
+
+
+@pytest.mark.unit
+def test_colour_sample_survives_the_round_trip_to_a_corrected_value():
+    """End to end: mosaic in, colour-corrected zero point out.
+
+    The other colour tests hand-build background_red/green; this one is the
+    only path that proves the sampler and the estimator agree on units.
+    """
+    profile = get_camera_profile("imx462")
+    pedestal = profile.bias_offset
+    sample = collect_radiometer_sample(
+        _rggb(512, 512, red=int(pedestal + 100), green=int(pedestal + 100), blue=200),
+        profile,
+        1.0,
+        sequence=1,
+        captured_at=0.0,
+    )
+    _, details = radiometric_sqm(sample, profile, pedestal=pedestal)
+    assert details["sky_red_over_green"] == pytest.approx(1.0)
+    assert details["radiometric_zero_point_effective"] == pytest.approx(
+        profile.radiometric_zero_point
+        + profile.radiometric_colour_slope * (1.0 - profile.radiometric_colour_pivot)
+    )
+
+
+@pytest.mark.unit
+def test_a_phase_slip_really_would_read_blue_as_red():
+    """Pin the failure the guard prevents, so its rationale stays checkable.
+
+    ``crop_and_rotate`` runs before the sampler, so a rotated profile hands it
+    an already-rotated frame. Feed the sampler that frame directly and red
+    comes back as blue -- silently, still a plausible sky level. This is the
+    whole reason _mosaic_phase_is_rggb refuses those profiles.
+    """
+    from PiFinder.sqm.radiometer import _sky_red_green
+
+    profile = get_camera_profile("imx462")
+    frame = _rggb(256, 256, red=850, green=1000, blue=500)
+
+    red, green = _sky_red_green(frame, profile, 0.10, 4)
+    assert (red, green) == (850.0, 1000.0)
+
+    # What the sampler would have seen had the profile been rotated 180.
+    slipped_red, slipped_green = _sky_red_green(np.rot90(frame, 2), profile, 0.10, 4)
+    assert slipped_red == 500.0  # blue, not red
+    assert slipped_green == 1000.0  # green sites are rotation-invariant
