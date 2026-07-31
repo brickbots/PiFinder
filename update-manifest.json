@@ -32,17 +32,17 @@
       },
       {
         "available": true,
-        "built_at": "2026-07-31T00:08:03+00:00",
+        "built_at": "2026-07-31T00:24:06+00:00",
         "kind": "pr",
-        "label": "PR#557-34ca0c9",
+        "label": "PR#557-7ae8def",
         "notes": "**Device-test build only \u2014 not for merge.** The reviewable change is #554; this branch is that work merged onto the NixOS deployment branch so it can actually be built and installed.\n\n## What it changes\n\n**Full-sensor solving.** The camera cropped every exposure to a centred square before solving \u2014 on the imx462, 1920\u00d71080 down to 980\u00d7980, discarding roughly half the sensor. It now publishes two frames per exposure: the 512\u00d7512 display frame (unchanged \u2014 UI, focus, preview, align, SQM) and a full-sensor solve frame at native scale used only by the plate solver. Bayer sensors bin 2\u00d72 for it.\n\n**Cached optical calibration.** The solver passed a fixed `fov_estimate=12.0, fov_max_error=4.0` and never passed a distortion estimate at all. The first successful solve of a run now captures the measured FOV and lens distortion; later solves get a \u00b10.5\u00b0 window and that distortion as a starting point.\n\n## What to check on the device\n\n| Check | Expected |\n|---|---|\n| **SQM value** | **unchanged** \u2014 the main regression risk, since solve centroids now route through a projection before reaching photometry |\n| Solved FOV | ~11.2\u00b0 on imx462 (was ~10.2\u00b0) \u2014 confirms full frame actually engaged |\n| `Matches` at the same exposure | should go **up** |\n| Alignment | put a star on the reticle; confirm it still lands correctly |\n| Preview overlay | centroids still sit on stars |\n| Startup log | `Full-frame solving enabled: solve frame 540x960`, then `Optical calibration: FOV \u2026 distortion \u2026` |\n\n**Escape hatch:** `solver_full_frame: false` in config reverts to the old crop path without reflashing, so it can be A/B'd in place.\n\nNote the horizontal FOV grows only modestly: after the camera's quarter turn the solve frame's horizontal axis is the sensor's *short* side, which the square crop already spanned. Total area still roughly doubles; the extra sky arrives vertically.\n\n## Status\n\n**Never run on real camera hardware** \u2014 `capture_pair`, the 2\u00d72 Bayer bin and the geometry mapping all get their first real exercise here. That is the point of this build.\n\nruff, mypy and 1202 unit+smoke tests pass. Benchmarked over 220 archived sweep frames (imx462 + HQ): doubling the solve frame's pixel count costs **\u22120.02 ms** in cedar-detect \u2014 nothing measurable; total extract+solve stays 0.6\u20138% of one exposure cycle.\n\nTarget device: **imx462**, which gets the largest area gain and exercises the new Bayer bin path.",
         "number": 557,
         "source_ref": "test/fullframe-solve",
         "source_repo": "mrosseel/PiFinder",
-        "source_sha": "34ca0c92c1ccd539086fcae8488fea57a0a768d0",
-        "store_path": "/nix/store/nzfb6sck68ak76x4qg7bqh386vszwvjy-nixos-system-pifinder-25.11.20260209.2db38e0",
+        "source_sha": "7ae8def0886c930032342aefdc08b9e00e9b1325",
+        "store_path": "/nix/store/m67cm45dbfcybdlf1faibl25syk5il34-nixos-system-pifinder-25.11.20260209.2db38e0",
         "title": "[testable] Full-sensor plate solving + cached optical calibration",
-        "version": "PR#557-34ca0c9"
+        "version": "PR#557-7ae8def"
       },
       {
         "available": true,
@@ -128,6 +128,6 @@
       }
     ]
   },
-  "generated_at": "2026-07-31T00:08:03+00:00",
+  "generated_at": "2026-07-31T00:24:06+00:00",
   "schema": 1
 }
