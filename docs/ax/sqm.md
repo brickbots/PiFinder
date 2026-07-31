@@ -228,14 +228,43 @@ After converting solve-independent background ADU per pixel to ADU per square
 arcsecond using the factory field width:
 
 ```text
-sqm = radiometric_zero_point
+sqm = effective_zero_point
       + 2.5 log10(exposure_seconds)
       − 2.5 log10((sky − pedestal) / arcsec²_per_pixel)
+
+effective_zero_point = radiometric_zero_point
+                       + radiometric_colour_slope
+                         × (clamp(R/G) − radiometric_colour_pivot)
 ```
 
-The fixed zero point includes the passband mapping to the SQM-L scale. Current
-defaults are imx462/imx290 `15.25`, HQ `14.79`, and imx296 `14.07`. Factory field
-widths are 10.38°, 10.34°, and 13.71° respectively.
+The zero point includes the passband mapping to the SQM-L scale. On bare
+sensors that mapping is not a constant: the radiometer measures sky in the
+sensor's passband while the reference meter measures V, and converting between
+them depends on the sky's spectrum. Sky colour measures that directly and is
+already in the frame, so the zero point is keyed to the measured red/green
+ratio of the sky background. See ADR 0026 for the derivation and the evidence.
+
+`radiometric_colour_slope = 0` makes this a plain constant, which is the case
+for mono sensors (no colour to measure) and for the IR-cut HQ (no NIR leak to
+correct). Current defaults:
+
+| profile | `radiometric_zero_point` | colour slope | pivot / range | field width |
+|---|---|---|---|---|
+| imx462, imx290 | `15.159` | `5.544` | `0.85`, clamped to `0.83–1.04` | 10.38° |
+| hq | `14.971` | `0.0` (constant) | — | 10.34° |
+| imx296 (mono) | `14.07` | `0.0` (constant) | — | 13.71° |
+
+`radiometric_zero_point` in the sample details keeps meaning the profile
+constant across this change so archives stay comparable; the value actually
+applied is reported alongside it as `radiometric_zero_point_effective`, and is
+always present whether or not a colour correction was made.
+
+Sampling the red plane assumes the frame reaching the radiometer is still in
+RGGB phase. Red is more fragile here than green: a 180° rotation maps `R G /
+G B` to `B G / G R`, leaving the green sites alone but swapping red and blue,
+and an odd crop origin does the same. `_mosaic_phase_is_rggb` checks CFA order,
+rotation and crop parity, and reports no colour rather than a wrong colour —
+a wrong R/G would not fail loudly, it would just move the published value.
 
 The radiometric value is the published reading and intentionally has no
 atmospheric altitude correction. It measures the sky actually in the camera's

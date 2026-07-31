@@ -103,6 +103,15 @@ def save_sweep_metadata(
                 "bias_offset": profile.bias_offset,
                 "sqm_band_offset": profile.sqm_band_offset,
                 "color_coefficient": profile.color_coefficient,
+                # The radiometric zero point is no longer a constant you can
+                # look up by camera type: on bare sensors it moves with the
+                # measured sky colour. Record the whole model, or a later
+                # refit cannot tell which one produced these frames.
+                "radiometric_zero_point": profile.radiometric_zero_point,
+                "radiometric_colour_slope": profile.radiometric_colour_slope,
+                "radiometric_colour_pivot": profile.radiometric_colour_pivot,
+                "radiometric_colour_range": list(profile.radiometric_colour_range),
+                "radiometric_fov_degrees": profile.radiometric_fov_degrees,
                 # Extent of the archived raw frames. Sweeps from the
                 # cropped era carry no such field; these hold the whole
                 # sensor, which a reader reduces to the crop with
