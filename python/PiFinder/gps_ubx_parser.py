@@ -371,14 +371,16 @@ class UBXParser:
             azim = int.from_bytes(data[offset + 6 : offset + 8], "little", signed=True)
 
             is_used = bool(flags & 0x01)
-            if is_used:
-                used_sats += 1
 
             # During cold-start acquisition the receiver reports estimated
             # C/N0 for candidates it is still searching for; counting those
             # makes the seen count start high and sink as they fail to
             # confirm. Only quality >= 4 (code locked) is really tracked.
+            # uSat is counted over this same set so it can never exceed nSat:
+            # svUsed implies code lock, so restricting it drops nothing real.
             if quality >= QUALITY_CODE_LOCKED:
+                if is_used:
+                    used_sats += 1
                 satellites.append(
                     {
                         "id": svid,

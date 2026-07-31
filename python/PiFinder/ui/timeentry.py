@@ -124,23 +124,30 @@ class UITimeEntry(UIModule):
     def draw_local_time_note(self):
         # Add a note about local time. The time is entered in the observer's
         # local zone (this screen self-gates on a location fix -- see
-        # _location_locked / update -- so a zone is always known when the boxes
-        # are shown); enter the timezone on a second line for user sanity checking
+        # _location_locked / update -- so a fix is always present when the boxes
+        # are shown); show the timezone on a second line for user sanity checking
         note_y = self.text_y + self.box_height + 5
-        note_str = "Enter Local Time"
 
         self.draw.text(
             (10, note_y),
-            _(note_str),
+            _("Enter Local Time"),
             font=self.fonts.base.font,
             fill=self.red,
         )
         note_y += 15
+        # The zone name is data, not UI copy -- it comes from the timezone
+        # database and has no catalog entry, so it is drawn untranslated.
+        #
+        # timezone_at() cannot resolve a zone for every coordinate, so the
+        # field is Optional and slicing it raw would raise. Show UTC in that
+        # case rather than nothing: UTC is what the entry is actually read
+        # against (see set_location / local_datetime, ADR-0018), and the whole
+        # point of this line is to tell the user which zone that is.
         if self.shared_state:
-            note_str = self.shared_state.location().timezone[:18]
+            timezone = self.shared_state.location().timezone or "UTC"
             self.draw.text(
                 (10, note_y),
-                _(note_str),
+                timezone[:18],
                 font=self.fonts.base.font,
                 fill=self.red,
             )

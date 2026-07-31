@@ -324,7 +324,10 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     """
     logger.info(f"Setting time to: {time_str}")
 
-    timezone_str = ui_module.shared_state.location().timezone
+    # Location.timezone is Optional and pytz.timezone(None) raises, so fall
+    # back rather than crash on commit. set_location already settles the zone
+    # to UTC when it cannot resolve one; this covers a Location built directly.
+    timezone_str = ui_module.shared_state.location().timezone or "UTC"
 
     # First create a datetime object (using today's date by default)
     dt = timez.parse(time_str, "%H:%M:%S")
@@ -354,7 +357,8 @@ def set_datetime(ui_module: UIModule, date_str: str) -> None:
     time_str = ui_module.item_definition.get("time_str", "00:00:00")
     logger.info(f"Setting datetime to: {date_str} {time_str}")
 
-    timezone_str = ui_module.shared_state.location().timezone
+    # See set_time: fall back rather than raise on an unresolved zone.
+    timezone_str = ui_module.shared_state.location().timezone or "UTC"
     timezone = pytz.timezone(timezone_str)
 
     dt = timez.parse(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
