@@ -11,6 +11,8 @@ suppression, live predicate). Full-screen rendering in both states is covered by
 the cold/warm crash-smoke in test_ui_modules.py.
 """
 
+import inspect
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -95,6 +97,32 @@ def test_time_entry_gate_message_renders():
     """The base gate helper draws without error on a real headless display."""
     module = _build(UITimeEntry, _UNLOCKED)
     module.draw_gate_message("Set location\nfirst")  # must not raise
+
+
+def test_time_entry_renders_with_a_locked_fix_that_has_no_timezone():
+    """A lock without a resolvable zone must not crash the screen.
+
+    Location.timezone is Optional -- shared_state.set_location fills it from
+    TimezoneFinder.timezone_at(), which is typed to return None. The zone line
+    is skipped rather than sliced.
+    """
+    module = _build(UITimeEntry, Location(lock=True, timezone=None))
+
+    module.draw_local_time_note()  # must not raise
+
+    # and the normal case still draws the zone line
+    _build(UITimeEntry, _LOCKED).draw_local_time_note()
+
+
+def test_enter_local_time_is_an_extractable_literal():
+    """The note must stay a literal so Babel keeps it in the catalogs.
+
+    Passing a variable to _() extracts nothing, which silently obsoletes the
+    msgid on the next extract run and drops every existing translation.
+    """
+    source = Path(inspect.getfile(UITimeEntry)).read_text()
+
+    assert '_("Enter Local Time")' in source
 
 
 # --------------------------------------------------------------------------- #

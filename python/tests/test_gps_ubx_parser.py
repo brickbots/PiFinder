@@ -68,6 +68,22 @@ def test_svinfo_only_code_locked_counted_as_seen(parser):
 
 
 @pytest.mark.unit
+def test_svinfo_used_count_never_exceeds_seen_count(parser):
+    # svUsed set on a channel below code lock is not physically meaningful,
+    # but it must not be able to push uSat above nSat if a receiver reports it.
+    payload = make_svinfo_payload(
+        [
+            (0, 14, 0x0D, 4, 26, 30, 90),
+            (7, 25, 0x01, 2, 9, 0, 0),
+        ]
+    )
+    result = parser._parse_nav_svinfo(payload)
+
+    assert result["nSat"] == 1
+    assert result["uSat"] == 1
+
+
+@pytest.mark.unit
 def test_svinfo_too_short(parser):
     assert "error" in parser._parse_nav_svinfo(b"\x00" * 4)
 
