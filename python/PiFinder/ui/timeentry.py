@@ -137,10 +137,14 @@ class UITimeEntry(UIModule):
         note_y += 15
         # The zone name is data, not UI copy -- it comes from the timezone
         # database and has no catalog entry, so it is drawn untranslated.
-        # timezone_at() is typed Optional and Location defaults it to "UTC",
-        # so fall back rather than slicing None.
-        timezone = self.shared_state.location().timezone if self.shared_state else None
-        if timezone:
+        #
+        # timezone_at() cannot resolve a zone for every coordinate, so the
+        # field is Optional and slicing it raw would raise. Show UTC in that
+        # case rather than nothing: UTC is what the entry is actually read
+        # against (see set_location / local_datetime, ADR-0018), and the whole
+        # point of this line is to tell the user which zone that is.
+        if self.shared_state:
+            timezone = self.shared_state.location().timezone or "UTC"
             self.draw.text(
                 (10, note_y),
                 timezone[:18],

@@ -424,9 +424,17 @@ class SharedStateObj:
 
     def set_location(self, v):
         # if value is not none, set the timezone
-        # before saving the value
+        # before saving the value.
+        #
+        # timezone_at() returns None for coordinates it cannot resolve, and
+        # assigning that raw would overwrite Location's "UTC" default with a
+        # value every reader has to guard: pytz.timezone(None) raises
+        # UnknownTimeZoneError, so an unresolved zone would crash the manual
+        # time-entry callbacks rather than degrade. UTC is already the
+        # documented fallback for an unknown zone (see local_datetime /
+        # ADR-0018), so settle it here and keep the field a usable zone name.
         if v:
-            v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
+            v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon) or "UTC"
         self.__location = v
 
     def sqm(self):
