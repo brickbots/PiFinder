@@ -98,7 +98,7 @@ class MockSharedState:
 def server_locale():
     # Try to get from user preferences, session, or accept languages
     # For now, default to English
-    return request.accept_languages.best_match(["en", "fr", "de", "es"]) or "en"
+    return request.accept_languages.best_match(["en", "fr", "de", "es", "zh"]) or "en"
 
 
 class Server:

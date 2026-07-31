@@ -90,18 +90,18 @@ class UITelemetryList(UITextMenu):
             return False
 
         if "integrator" not in self.command_queues:
-            self.message("No integrator\nqueue", 2)
+            self.message(_("No integrator\nqueue"), 2)
             logger.warning("Integrator command queue not available")
             return True
 
         if value == self._STOP_SENTINEL:
             self.command_queues["integrator"].put(("replay_stop", None))
-            self.message("Replay\nstopped", 2)
+            self.message(_("Replay\nstopped"), 2)
             logger.info("Stopping telemetry replay")
             return True
 
         self.command_queues["camera"].put("stop")
         self.command_queues["integrator"].put(("replay", value))
-        self.message("Replay\nstarted", 2)
+        self.message(_("Replay\nstarted"), 2)
         logger.info("Starting telemetry replay: %s", value)
         return True

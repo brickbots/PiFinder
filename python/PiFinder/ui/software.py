@@ -216,7 +216,7 @@ class UISoftware(UIModule):
         """Push UIMigrationConfirm onto the UI stack with the supplied
         version_info (must already contain migration_url and
         migration_sha256_url)."""
-        self.message("System Upgrade", 1)
+        self.message(_("System Upgrade"), 1)
         self.add_to_stack(
             {
                 "class": UIMigrationConfirm,
@@ -470,7 +470,7 @@ class UIMigrationConfirm(UIModule):
         size_mb = self._version_info.get("migration_size_mb", "?")
         self.draw.text(
             (0, y),
-            _("Download: {}MB").format(size_mb),
+            _("Download: {size}MB").format(size=size_mb),
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
