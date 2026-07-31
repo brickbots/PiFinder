@@ -715,7 +715,7 @@ class SQM:
         # passband, so the sky is measured in that passband too. A bare sensor
         # sees NIR sky emission a V-band meter doesn't; this per-sensor
         # constant converts back to the meter's V-band scale. See
-        # CameraProfile.sqm_band_offset and docs/adr/0020.
+        # CameraProfile.sqm_band_offset and docs/adr/0024.
         band_offset = self.profile.sqm_band_offset
 
         # Main SQM value: no extinction correction (raw measurement)

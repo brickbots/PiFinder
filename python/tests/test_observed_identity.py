@@ -1,4 +1,4 @@
-"""Tests for object_id-derived observed status (ADR 0020, amended).
+"""Tests for object_id-derived observed status (ADR 0025, amended).
 
 Log entries are recorded per catalog listing (catalog, sequence), but
 observed status is a property of the underlying sky object: logging M 31
