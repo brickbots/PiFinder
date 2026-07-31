@@ -28,6 +28,7 @@ from PiFinder.auto_exposure import (
     ExposureSNRController,
     generate_exposure_sweep,
 )
+from PiFinder.optics import DISPLAY_FRAME_SIZE, SolveGeometry, build_geometry
 
 logger = logging.getLogger("Camera.Interface")
 
@@ -179,6 +180,15 @@ class CameraInterface:
     def capture(self) -> Image.Image:
         return Image.Image()
 
+    def capture_pair(self) -> Tuple[Image.Image, Image.Image]:
+        """Return ``(display_frame, solve_frame)`` from a single exposure.
+
+        Backends with no separate full-sensor readout solve the display frame,
+        so both halves are the same image.
+        """
+        image = self.capture()
+        return image, image
+
     def capture_file(self, filename) -> None:
         pass
 
@@ -190,6 +200,12 @@ class CameraInterface:
         Returns a properly formated black frame
         """
         return Image.new("L", (512, 512), 0)  # Black 512x512 image
+
+    def _capture_pair_with_timeout(
+        self, timeout=10
+    ) -> Optional[Tuple[Image.Image, Image.Image]]:
+        """:meth:`capture_pair` under the same guard as :meth:`_capture_with_timeout`."""
+        return self._run_capture_with_timeout(self.capture_pair, timeout)
 
     def _capture_with_timeout(self, timeout=10) -> Optional[Image.Image]:
         """Run capture() with a timeout, never overlapping two captures.
@@ -207,6 +223,10 @@ class CameraInterface:
         second capture while it is still alive. At most one capture is ever
         running; the caller just gets blank frames until the stuck one clears.
         """
+        return self._run_capture_with_timeout(self.capture, timeout)
+
+    def _run_capture_with_timeout(self, capture_fn, timeout=10):
+        """Shared timeout/overlap guard behind the capture wrappers."""
         # A previous capture is still wedged in the driver -- don't start a
         # second one. Returning None lets the caller fall back to a blank frame
         # while we wait for the stuck capture to clear.
@@ -218,7 +238,7 @@ class CameraInterface:
 
         def _do_capture():
             try:
-                result[0] = self.capture()
+                result[0] = capture_fn()
             except Exception as e:  # propagate to the caller's thread
                 exc[0] = e
 
@@ -262,8 +282,45 @@ class CameraInterface:
     def stop_camera(self) -> None:
         pass
 
+    def _configure_solve_geometry(
+        self, shared_state, cfg, solve_rotation
+    ) -> SolveGeometry:
+        """Decide whether to solve on the full sensor, and publish the mapping.
+
+        Full frame needs a camera profile describing the sensor, and needs the
+        frame's orientation to be a multiple of 90 degrees -- an arbitrary
+        rotation would clip the corners off a non-square frame, which is
+        exactly the sky area full frame exists to recover.
+        """
+        profile = getattr(self, "profile", None)
+        full_frame = bool(cfg.get_option("solver_full_frame", True))
+
+        if full_frame and profile is None:
+            logger.info("Camera has no sensor profile; solving on the display frame")
+            full_frame = False
+        if full_frame and solve_rotation % 90:
+            logger.warning(
+                "Solve rotation %s is not a quarter turn; solving on the display frame",
+                solve_rotation,
+            )
+            full_frame = False
+
+        geometry = build_geometry(profile, solve_rotation, full_frame)
+        shared_state.set_solve_geometry(geometry.as_dict())
+        if geometry.full_frame:
+            logger.info(
+                "Full-frame solving enabled: solve frame %dx%d (display frame %dx%d)",
+                geometry.solve_width,
+                geometry.solve_height,
+                DISPLAY_FRAME_SIZE,
+                DISPLAY_FRAME_SIZE,
+            )
+        else:
+            logger.info("Solving on the %dx%d display frame", *geometry.solve_size)
+        return geometry
+
     def get_image_loop(
-        self, shared_state, camera_image, command_queue, console_queue, cfg
+        self, shared_state, camera_image, solve_image, command_queue, console_queue, cfg
     ):
         try:
             # Store shared_state for access by capture() methods
@@ -299,6 +356,8 @@ class CameraInterface:
             else:
                 solve_rotation = SCREEN_ROTATE_AMOUNTS.get(screen_direction, 270)
             shared_state.set_solve_image_rotation(solve_rotation)
+
+            geometry = self._configure_solve_geometry(shared_state, cfg, solve_rotation)
 
             # Set path for test mode image
             root_dir = os.path.realpath(
@@ -339,18 +398,41 @@ class CameraInterface:
                     # and toggled from the menu), so it stays in sync with the
                     # UI and survives restarts.
                     test_mode_on = shared_state.test_mode()
+                    solve_frame = None
                     if not test_mode_on:
-                        base_image = self._capture_with_timeout()
-                        if base_image is None:
+                        if geometry.full_frame:
+                            captured = self._capture_pair_with_timeout()
+                        else:
+                            image = self._capture_with_timeout()
+                            captured = None if image is None else (image, None)
+                        if captured is None:
                             # Capture hung; fall back to a blank frame so the
                             # loop keeps running and stays responsive to
                             # commands instead of freezing. The blank frame
                             # simply fails to solve.
                             logger.warning("Camera capture timed out; blank frame")
-                            base_image = self._blank_capture()
+                            captured = (self._blank_capture(), None)
+                        base_image, solve_frame = captured
                         base_image = base_image.convert("L")
 
                         base_image = base_image.rotate(solve_rotation)
+
+                        if solve_frame is not None:
+                            solve_frame = solve_frame.convert("L")
+                            # The solve frame is not square, so rotate it by
+                            # transposition: Image.rotate() clips the corners.
+                            if solve_rotation % 360 == 90:
+                                solve_frame = solve_frame.transpose(
+                                    Image.Transpose.ROTATE_90
+                                )
+                            elif solve_rotation % 360 == 180:
+                                solve_frame = solve_frame.transpose(
+                                    Image.Transpose.ROTATE_180
+                                )
+                            elif solve_rotation % 360 == 270:
+                                solve_frame = solve_frame.transpose(
+                                    Image.Transpose.ROTATE_270
+                                )
                     else:
                         # Test Mode: load image from disc and wait
                         # No real raw matrix backs this frame; prevent a recent
@@ -380,9 +462,23 @@ class CameraInterface:
                     if test_mode_on and abs(pointing_diff) > 0.01:
                         # Scope moved during the fake exposure: return a blank
                         # image so the solver doesn't report a stale solve
-                        camera_image.paste(self._blank_capture())
-                    else:
-                        camera_image.paste(base_image)
+                        base_image = self._blank_capture()
+                        solve_frame = None
+                    camera_image.paste(base_image)
+                    if solve_frame is None:
+                        if geometry.full_frame:
+                            # No full-sensor frame this cycle (timed-out
+                            # capture, or test mode). Publish a blank at the
+                            # full solve size rather than a 512x512 frame,
+                            # which would leave the previous exposure's stars
+                            # sitting in the region outside it for the solver
+                            # to find again.
+                            solve_frame = Image.new("L", geometry.solve_size[::-1], 0)
+                        else:
+                            # Backends with no separate full-sensor readout
+                            # solve the display frame.
+                            solve_frame = base_image
+                    solve_image.paste(solve_frame, (0, 0))
                     image_metadata = {
                         "exposure_start": image_start_time,
                         "exposure_end": image_end_time,
