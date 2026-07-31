@@ -120,3 +120,80 @@ def test_tracker_window_dumps_are_json_serializable():
     assert dump["n_samples"] == 1
     assert dump["last_sequence"] == 7
     json.dumps(dump)
+
+
+@pytest.mark.unit
+class TestExposureSettling:
+    """The sweep must not label a frame with an exposure the sensor wasn't at.
+
+    The IMX290/462 serves exactly three frames at the old exposure after a
+    change. Flushing a fixed two left the next capture stale, so the sweep's
+    processed PNG was one step behind the raw TIFF beside it and the radiometer
+    sample described the PNG rather than the labelled exposure.
+    """
+
+    class _FakeCamera:
+        """Applies a new exposure only after `lag` frames, like the real sensor."""
+
+        def __init__(self, lag=3):
+            self.lag = lag
+            self.requested = None
+            self.applied = None
+            self._since_change = 0
+            self.captures = 0
+            self.last_frame_metadata = {}
+
+        def set_exposure(self, us):
+            self.requested = us
+            self._since_change = 0
+
+        def capture(self):
+            self.captures += 1
+            self._since_change += 1
+            if self._since_change > self.lag:
+                self.applied = self.requested
+            self.last_frame_metadata = {"ExposureTime": self.applied}
+            return None
+
+    def _settler(self, cam):
+        from PiFinder.camera_interface import CameraInterface
+
+        cam._settle_exposure = CameraInterface._settle_exposure.__get__(cam)
+        return cam
+
+    def test_settles_on_the_actual_exposure(self):
+        cam = self._settler(self._FakeCamera(lag=3))
+        cam.applied = 25_000
+        cam.set_exposure(400_000)
+
+        cam._settle_exposure(400_000)
+
+        assert cam.last_frame_metadata["ExposureTime"] == 400_000
+
+    def test_two_flushes_would_have_been_stale(self):
+        """Pin the original bug: the old fixed count leaves the wrong exposure."""
+        cam = self._FakeCamera(lag=3)
+        cam.applied = 25_000
+        cam.set_exposure(400_000)
+        cam.capture()
+        cam.capture()  # the old code stopped here
+
+        assert cam.last_frame_metadata["ExposureTime"] == 25_000
+
+    def test_gives_up_rather_than_spinning(self):
+        cam = self._settler(self._FakeCamera(lag=99))
+        cam.applied = 25_000
+        cam.set_exposure(400_000)
+
+        n = cam._settle_exposure(400_000, max_frames=4)
+
+        assert n == 4
+
+    def test_backend_without_exposure_metadata_does_not_burn_frames(self):
+        cam = self._settler(self._FakeCamera(lag=0))
+        cam.applied = None
+        cam.set_exposure(400_000)
+
+        n = cam._settle_exposure(400_000, max_frames=8)
+
+        assert n == 1
