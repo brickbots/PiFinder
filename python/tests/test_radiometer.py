@@ -149,3 +149,103 @@ def test_recent_conditioned_optics_deficit_corrects_radiometer(monkeypatch):
     assert solver.update_radiometric_sqm(shared, calc, acc, sample, now=100.0)
     published = shared.set_sqm.call_args.args[0]
     assert published.value == pytest.approx(uncorrected - 0.7)
+
+
+@pytest.mark.unit
+def test_colour_term_moves_the_zero_point_with_sky_colour():
+    """A bare sensor's zero point must track sky colour.
+
+    LP sky is green-weighted (low R/G), airglow is grey and NIR-rich (R/G ~1).
+    The sensor sees that difference and a V-band meter does not, so a single
+    constant is wrong at one end. Same sky signal, different colour, must give
+    a different answer.
+    """
+    from PiFinder.sqm import get_camera_profile
+    from PiFinder.sqm.radiometer import radiometric_sqm
+
+    prof = get_camera_profile("imx462")
+    base = dict(
+        sequence=1,
+        captured_at=0.0,
+        exposure_sec=1.0,
+        background_per_pixel=400.0,
+        pixels_per_side=980,
+    )
+    ped = prof.bias_offset
+
+    lp = dict(base, background_red=ped + 0.85 * 100, background_green=ped + 100)
+    dark = dict(base, background_red=ped + 1.00 * 100, background_green=ped + 100)
+
+    v_lp, d_lp = radiometric_sqm(lp, prof, pedestal=ped)
+    v_dark, _ = radiometric_sqm(dark, prof, pedestal=ped)
+
+    assert v_lp is not None and v_dark is not None
+    # 0.15 of R/G at the fitted slope
+    assert (v_dark - v_lp) == pytest.approx(
+        0.15 * prof.radiometric_colour_slope, abs=1e-6
+    )
+    assert d_lp["sky_red_over_green"] == pytest.approx(0.85, abs=1e-6)
+    # The reported constant must stay the profile value, not the applied one,
+    # so archives remain comparable across this change.
+    assert d_lp["radiometric_zero_point"] == pytest.approx(prof.radiometric_zero_point)
+    # At the pivot the correction is exactly zero -- that is what makes the
+    # no-colour fallback land on a sensible value rather than the fit intercept.
+    assert d_lp["radiometric_zero_point_effective"] == pytest.approx(
+        prof.radiometric_zero_point, abs=1e-9
+    )
+
+
+@pytest.mark.unit
+def test_missing_colour_falls_back_to_the_constant():
+    """No colour (mono sensor, or a malformed sample) must not break or drift."""
+    from PiFinder.sqm import get_camera_profile
+    from PiFinder.sqm.radiometer import radiometric_sqm
+
+    prof = get_camera_profile("imx462")
+    sample = dict(
+        sequence=1,
+        captured_at=0.0,
+        exposure_sec=1.0,
+        background_per_pixel=400.0,
+        pixels_per_side=980,
+    )
+    v, d = radiometric_sqm(sample, prof, pedestal=prof.bias_offset)
+    assert v is not None
+    assert d["radiometric_zero_point"] == pytest.approx(prof.radiometric_zero_point)
+    assert d["radiometric_zero_point_effective"] == pytest.approx(
+        prof.radiometric_zero_point
+    )
+    assert "sky_red_over_green" not in d
+
+
+@pytest.mark.unit
+def test_colour_ratio_is_clamped_to_the_calibrated_range():
+    """Never extrapolate off the end of the fit."""
+    from PiFinder.sqm import get_camera_profile
+    from PiFinder.sqm.radiometer import radiometric_sqm
+
+    prof = get_camera_profile("imx462")
+    ped = prof.bias_offset
+    wild = dict(
+        sequence=1,
+        captured_at=0.0,
+        exposure_sec=1.0,
+        background_per_pixel=400.0,
+        pixels_per_side=980,
+        background_red=ped + 500.0,
+        background_green=ped + 100.0,  # R/G = 5
+    )
+    _, d = radiometric_sqm(wild, prof, pedestal=ped)
+    assert d["sky_red_over_green"] == pytest.approx(5.0)
+    assert d["sky_red_over_green_clamped"] == pytest.approx(
+        prof.radiometric_colour_range[1]
+    )
+
+
+@pytest.mark.unit
+def test_ir_cut_sensor_keeps_a_plain_constant():
+    """HQ has a factory IR-cut, so there is no NIR leak to correct."""
+    from PiFinder.sqm import get_camera_profile
+
+    assert get_camera_profile("hq").radiometric_colour_slope == 0.0
+    assert get_camera_profile("imx296").radiometric_colour_slope == 0.0

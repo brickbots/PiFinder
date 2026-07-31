@@ -93,6 +93,26 @@ class CameraProfile:
     # square arcseconds when no current plate solve is available.
     radiometric_fov_degrees: float = 0.0
 
+    # Sky-colour dependence of the radiometric zero point, in mag per unit of
+    # sky R/G. The radiometer measures sky in the sensor's passband while the
+    # reference meter measures V, and the conversion between them depends on
+    # the sky's spectrum: light pollution is sodium/LED and green-weighted,
+    # airglow is grey and NIR-rich. On a bare sensor that difference is worth
+    # ~0.8 mag between an LP site and a dark one, so a single constant is
+    # wrong at one end or the other. Measured per sensor; 0.0 disables the
+    # correction and keeps a plain constant (mono sensors have no colour, and
+    # an IR-cut sensor has almost no NIR leak to correct).
+    radiometric_colour_slope: float = 0.0
+
+    # R/G at which radiometric_zero_point is exactly right, so a frame with no
+    # colour information falls back to a sensible constant rather than to the
+    # fit's intercept.
+    radiometric_colour_pivot: float = 0.0
+
+    # R/G range the slope was calibrated over. Values outside are clamped
+    # rather than extrapolated.
+    radiometric_colour_range: Tuple[float, float] = (0.0, 10.0)
+
     # Catalog reference band for the photometric zero point:
     # "gaia_g"  -- Gaia G with a BP-RP trim (bare sensors: G's passband is
     #              nearly the sensor's own; measured 24-29% less star scatter)
@@ -233,7 +253,12 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # 2025-10-31 sweep vs its 17.8-17.9 hand-held reference (+/-0.2).
         # Near zero is physically consistent: the Pregius mono passband is
         # the closest of the three sensors to the meter's.
-        sqm_band_offset=-0.22,
+        # Re-derived 2026-07-31 from Rich's four referenced imx296 sweeps
+        # (34 frames): per-sweep median stellar SQM against reference_sqm gives
+        # a median residual of +0.199 mag, tight across all four (+0.13..+0.22).
+        # The method reproduces imx462's shipped 0.53 to within 0.02, so it is
+        # not a systematic of the replay. See the PR for the full derivation.
+        sqm_band_offset=-0.02,
     ),
     "imx462": CameraProfile(
         # Hardware configuration
@@ -256,7 +281,20 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # night to night); clear-sky SQM ~18.5 at the Ghent test site.
         clear_zero_point=14.81,
         clear_sky_brightness=18.5,
-        radiometric_zero_point=15.25,
+        radiometric_zero_point=15.159,
+        # Re-derived 2026-07-31 over 23 referenced sweeps spanning 17.5-20.9
+        # mag skies. A single constant left the published value ~0.10 mag dark
+        # at the LP site and ~0.85 mag bright at a dark one; keying the zero
+        # point to measured sky colour collapses both regimes into one model
+        # (residual sd 0.337 -> 0.079). Leave-one-night-out CV: MAE 0.247 ->
+        # 0.108, and holding out the only dark night -- so the model never saw
+        # that regime -- 0.944 -> 0.312, i.e. it extrapolates rather than
+        # interpolates. The same fit on the IR-cut HQ is rejected by CV, which
+        # is the expected result for a NIR-leak term and the reason to believe
+        # this one.
+        radiometric_colour_slope=5.544,
+        radiometric_colour_pivot=0.85,
+        radiometric_colour_range=(0.83, 1.04),
         radiometric_fov_degrees=10.38,
         reference_band="gaia_g",
         # BP-RP trim on the Gaia G reference, fit on 6 clear sweeps
@@ -289,7 +327,20 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # Same sensor family/optics as imx462 (driver-compatible): mirror seeds.
         clear_zero_point=14.81,
         clear_sky_brightness=18.5,
-        radiometric_zero_point=15.25,
+        radiometric_zero_point=15.159,
+        # Re-derived 2026-07-31 over 23 referenced sweeps spanning 17.5-20.9
+        # mag skies. A single constant left the published value ~0.10 mag dark
+        # at the LP site and ~0.85 mag bright at a dark one; keying the zero
+        # point to measured sky colour collapses both regimes into one model
+        # (residual sd 0.337 -> 0.079). Leave-one-night-out CV: MAE 0.247 ->
+        # 0.108, and holding out the only dark night -- so the model never saw
+        # that regime -- 0.944 -> 0.312, i.e. it extrapolates rather than
+        # interpolates. The same fit on the IR-cut HQ is rejected by CV, which
+        # is the expected result for a NIR-leak term and the reason to believe
+        # this one.
+        radiometric_colour_slope=5.544,
+        radiometric_colour_pivot=0.85,
+        radiometric_colour_range=(0.83, 1.04),
         radiometric_fov_degrees=10.38,
         # Same sensor family/optics as imx462 (driver-compatible), same NIR leak.
         reference_band="gaia_g",
@@ -318,7 +369,12 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # clear-sky SQM ~18.5 at the reference sites.
         clear_zero_point=14.19,
         clear_sky_brightness=18.5,
-        radiometric_zero_point=14.79,
+        # Re-derived 2026-07-31 over 11 referenced sweeps: the shipped 14.79
+        # read bright on 10 of 11 (median +0.181). Stays a constant -- the
+        # factory IR-cut leaves almost no NIR leak, its colour slope measures
+        # 20x smaller than the imx462's, and leave-one-night-out CV rejects
+        # the colour term outright (MAE 0.182 constant vs 0.234 with colour).
+        radiometric_zero_point=14.971,
         radiometric_fov_degrees=10.34,
         # Measured on-sky: -0.05 ± 0.01 -> effectively 0. HQ ships with a factory
         # IR-cut filter, so no NIR leak and the green passband ~ Johnson V.
@@ -330,7 +386,20 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # shared 2025-11-16 reading remains the outlier. Non-zero despite the
         # IR-cut: the residual absorbs passband + optics differences vs the
         # meter. Coupled to the estimator -- recalibrate together.
-        sqm_band_offset=0.60,
+        # Re-derived 2026-07-31 over 9 referenced hq sweeps: the shipped 0.60
+        # left every sweep reading brighter than the meter (residuals +0.01 to
+        # +0.68, median +0.386); 0.99 zeroes that median.
+        #
+        # Note this fights the physics. The offset is meant to be a passband
+        # term, and the HQ's factory IR-cut means it should be near zero -- but
+        # zero puts the stellar SQM ~1 mag bright. So roughly a magnitude of
+        # the HQ stellar chain is unaccounted for and this constant is
+        # absorbing it. The value is fitted, not physical; if the real error is
+        # found, refit rather than assuming this number transfers.
+        #
+        # Sweep-to-sweep scatter is 0.67 mag (dew/throughput), so treat this as
+        # 0.99 +/- 0.2 rather than a precise figure.
+        sqm_band_offset=0.99,
     ),
 }
 

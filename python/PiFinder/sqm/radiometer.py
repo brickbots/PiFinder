@@ -33,6 +33,40 @@ def extract_photometry_image(raw, profile) -> Optional[np.ndarray]:
     return arr.astype(np.float32)
 
 
+def _sky_red_green(raw, profile, border_fraction, stride):
+    """Median red and green sky level from an RGGB mosaic, or (None, None).
+
+    Sky colour is what converts the sensor's passband to the meter's V band:
+    light pollution is sodium/LED and green-weighted, airglow is grey and
+    NIR-rich. Mono sensors carry no colour, and IR-cut sensors barely respond
+    to it, so both simply return None and fall back to a constant zero point.
+    """
+    if not str(getattr(profile, "format", "")).upper().startswith("S"):
+        return None, None  # not a colour filter array
+    a = np.asarray(raw)
+    if a.ndim != 2 or min(a.shape) < 64:
+        return None, None
+    by = int(a.shape[0] * border_fraction)
+    bx = int(a.shape[1] * border_fraction)
+    by += by % 2  # keep mosaic phase: (0, 0) must stay red
+    bx += bx % 2
+    c = a[by : a.shape[0] - by, bx : a.shape[1] - bx]
+    if min(c.shape) < 32:
+        return None, None
+    red = float(np.median(c[0::2, 0::2][::stride, ::stride]))
+    green = float(
+        np.median(
+            np.concatenate(
+                [
+                    c[0::2, 1::2][::stride, ::stride].ravel(),
+                    c[1::2, 0::2][::stride, ::stride].ravel(),
+                ]
+            )
+        )
+    )
+    return red, green
+
+
 def collect_radiometer_sample(
     raw,
     profile,
@@ -75,7 +109,7 @@ def collect_radiometer_sample(
     )
     quadrant_medians = [float(np.median(part)) for part in quadrants if part.size]
 
-    return {
+    sample = {
         "sequence": int(sequence),
         "captured_at": float(captured_at),
         "exposure_sec": float(exposure_sec),
@@ -87,6 +121,11 @@ def collect_radiometer_sample(
         "pixels_per_side": int(image.shape[0]),
         "method": "sparse_central_median",
     }
+    red, green = _sky_red_green(raw, profile, border_fraction, stride)
+    if red is not None:
+        sample["background_red"] = red
+        sample["background_green"] = green
+    return sample
 
 
 def radiometric_sqm(
@@ -115,16 +154,32 @@ def radiometric_sqm(
         details["failure_reason"] = "radiometric_factory_calibration_unavailable"
         return None, details
 
+    # Sky colour sets the sensor-band to V-band conversion, so the effective
+    # zero point moves with it. Slope 0 (mono, or an IR-cut sensor with no NIR
+    # leak to correct) leaves this a plain constant. R/G is clamped to the
+    # calibrated range rather than extrapolated off the end of the fit.
+    zero_point = float(profile.radiometric_zero_point)
+    slope = float(getattr(profile, "radiometric_colour_slope", 0.0) or 0.0)
+    red = sample.get("background_red")
+    green = sample.get("background_green")
+    if slope and red is not None and green is not None and (green - pedestal) > 1.0:
+        ratio = (red - pedestal) / (green - pedestal)
+        lo, hi = profile.radiometric_colour_range
+        clamped = min(max(ratio, lo), hi)
+        zero_point += slope * (clamped - profile.radiometric_colour_pivot)
+        details["sky_red_over_green"] = ratio
+        details["sky_red_over_green_clamped"] = clamped
+    # radiometric_zero_point keeps meaning the profile constant, so archives
+    # stay comparable across this change; the applied value is reported
+    # alongside it and is always present, corrected or not.
+    details["radiometric_zero_point_effective"] = zero_point
+
     pixels_per_side = int(sample["pixels_per_side"])
     arcsec_squared_per_pixel = (
         profile.radiometric_fov_degrees * 3600.0
     ) ** 2 / pixels_per_side**2
     flux_density = signal / arcsec_squared_per_pixel
-    value = (
-        profile.radiometric_zero_point
-        + 2.5 * math.log10(exposure_sec)
-        - 2.5 * math.log10(flux_density)
-    )
+    value = zero_point + 2.5 * math.log10(exposure_sec) - 2.5 * math.log10(flux_density)
     details.update(
         {
             "background_flux_density": flux_density,
