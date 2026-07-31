@@ -13,7 +13,6 @@ import queue
 import numpy as np
 import time
 import logging
-import sys
 from time import perf_counter as precision_timestamp
 import os
 import platform
@@ -22,9 +21,16 @@ import socket
 import subprocess
 import threading
 from multiprocessing import shared_memory
+from typing import Optional
 import grpc
 
 from PiFinder import state_utils
+from PiFinder.optics import (
+    DISPLAY_FRAME_SIZE,
+    OpticalCalibration,
+    SolveGeometry,
+    identity_geometry,
+)
 from PiFinder import utils
 from PiFinder import timez
 from PiFinder.sqm import SQM as SQMCalculator
@@ -32,6 +38,7 @@ from PiFinder.sqm import SQM as SQMCalculator
 from PiFinder.sqm.wings import WingEstimator
 from PiFinder.sqm.clouds import CloudEstimator
 from PiFinder.sqm.black_level import BlackLevelTracker
+from PiFinder.sqm.airglow import AirglowTracker, sample_diagnostics
 from PiFinder.sqm.radiometer import (
     RadiometerAccumulator,
     extract_photometry_image,
@@ -49,7 +56,6 @@ from PiFinder.types.positioning import (
     SuccessfulSolve,
 )
 
-sys.path.append(str(utils.tetra3_dir))
 import tetra3
 from tetra3 import cedar_detect_client
 
@@ -60,6 +66,12 @@ SQM_CALCULATION_INTERVAL_SECONDS = 1.0
 # Solved stellar photometry is a slower transmission/cloud/dew diagnostic. It
 # need not track the five-second primary radiometer publication cadence.
 SQM_STELLAR_DIAGNOSTIC_INTERVAL_SECONDS = 10.0
+
+# Disabled to isolate the per-frame optical-black pedestal during OB
+# rollout/validation. When False, the radiometer pedestal is the same-frame OB
+# value when present, otherwise the static profile bias_offset — no tracker in
+# between. Re-enable (or remove) once OB is field-proven.
+SQM_BLACK_LEVEL_TRACKER_ENABLED = False
 
 
 def create_sqm_calculator(shared_state):
@@ -99,6 +111,87 @@ def _scaled_photometry_radii(
     inner = max(aperture + 1, round(inner_radius * scale))
     outer = max(inner + 2, round(outer_radius * scale))
     return aperture, inner, outer
+
+
+def project_solution_to_display(solution: dict, geometry: SolveGeometry) -> dict:
+    """Re-express a full-frame solve in display-frame (512x512) coordinates.
+
+    Everything downstream of the solver -- SQM photometry, the preview overlay,
+    the alignment marker -- is written against the 512x512 display frame. SQM in
+    particular then scales those centroids onto the raw photometry image and
+    derotates them, a chain that only works if it starts from display-frame
+    pixels. So a full-frame solve is mapped back here, once, and the projected
+    copy is what the rest of the system sees.
+
+    Matched stars outside the square crop are dropped along with their catalogue
+    counterparts: they contributed to the solve, which is the point, but they
+    have no pixels in the crop for photometry to measure.
+
+    The pointing itself (RA/Dec/Roll and target sky coordinates) is
+    frame-independent: both frames are concentric and share the same "up".
+    """
+    if not geometry.full_frame:
+        return solution
+
+    # A failed solve comes back with every value None. There is nothing to
+    # project; the caller forwards it unchanged and builds a FailedSolve from
+    # it. Without this the solver raises on every starless frame -- which is
+    # most of them indoors, at dusk, or under cloud.
+    if solution.get("FOV") is None:
+        return solution
+
+    projected = dict(solution)
+    projected["FOV"] = geometry.display_fov(solution["FOV"])
+
+    centroids = np.asarray(solution.get("matched_centroids") or [], dtype=float)
+    stars = np.asarray(solution.get("matched_stars") or [], dtype=float)
+    if len(centroids):
+        mapped = geometry.solve_to_display_array(centroids)
+        inside = (
+            (mapped[:, 0] >= 0)
+            & (mapped[:, 0] < DISPLAY_FRAME_SIZE)
+            & (mapped[:, 1] >= 0)
+            & (mapped[:, 1] < DISPLAY_FRAME_SIZE)
+        )
+        projected["matched_centroids"] = mapped[inside].tolist()
+        projected["matched_stars"] = stars[inside].tolist()
+
+    # Alignment returns the image position of a requested sky coordinate; the
+    # UI stores it straight back as target_pixel, so it has to come back in
+    # display-frame pixels.
+    y_target = solution.get("y_target")
+    x_target = solution.get("x_target")
+    if y_target is not None and x_target is not None:
+        y_display, x_display = geometry.solve_to_display((y_target, x_target))
+        if 0 <= y_display < DISPLAY_FRAME_SIZE and 0 <= x_display < DISPLAY_FRAME_SIZE:
+            projected["y_target"] = y_display
+            projected["x_target"] = x_display
+        else:
+            # On the sensor but outside the crop: no display pixel to align on.
+            projected["y_target"] = None
+            projected["x_target"] = None
+
+    return projected
+
+
+def _resolve_geometry(published):
+    """Pair the camera's published solve geometry with a fresh calibration.
+
+    The camera process publishes the geometry once it has detected the sensor,
+    which may be after the solver's first pass; until then (``published`` is
+    None) solve the display frame with the square-crop FOV window.
+    """
+    geometry = (
+        identity_geometry() if published is None else SolveGeometry.from_dict(published)
+    )
+    calibration = OpticalCalibration.for_geometry(geometry)
+    logger.info(
+        "Solving %dx%d frames, %s",
+        geometry.solve_width,
+        geometry.solve_height,
+        calibration.describe(),
+    )
+    return geometry, calibration
 
 
 def _scale_solution_centroids(solution, scale):
@@ -159,35 +252,12 @@ def update_radiometric_sqm(
     calculation_interval_seconds=1.0,
     now=None,
     black_level_tracker=None,
+    airglow_tracker=None,
 ):
     """Collect every frame and publish a solve-independent value at cadence."""
     from datetime import datetime
 
-    fresh_sample = accumulator.add(sample)
     current_time = time.time() if now is None else float(now)
-
-    # Every fresh radiometer sample carries (exposure, background) — feed the
-    # black-level tracker here rather than only from the 10-second stellar
-    # diagnostics: this cadence conditions its fit in minutes and keeps working
-    # through failed solves. Withheld while the last transmission diagnostic
-    # said cloud (a moving sky breaks the intercept's single-line model; the
-    # tracker's own stderr gate catches drift the flag misses).
-    if black_level_tracker is not None and fresh_sample:
-        cloudy_now = shared_state.sqm_details().get("cloud_flag") is True
-        black_level_tracker.add_sample(
-            float(sample["exposure_sec"]),
-            float(sample["background_per_pixel"]),
-            stable=not cloudy_now,
-        )
-
-    current_sqm = shared_state.sqm()
-    if current_sqm.last_update is not None:
-        try:
-            last_update = datetime.fromisoformat(current_sqm.last_update).timestamp()
-            if current_time - last_update < calculation_interval_seconds:
-                return False
-        except (ValueError, AttributeError):
-            logger.warning("Failed to parse SQM timestamp, recalculating")
 
     noise = sqm_calculator.noise_floor_estimator
 
@@ -212,6 +282,55 @@ def update_radiometric_sqm(
         # dark from sky (both are linear in exposure).
         return bias + sqm_calculator.profile.dark_current_rate * exposure_sec
 
+    if sample is not None:
+        sample = dict(sample)
+    if airglow_tracker is not None and sample is not None:
+        optical_black = sample.get("optical_black_pedestal")
+        if optical_black is not None and np.isfinite(optical_black):
+            colour_pedestal = float(optical_black)
+            colour_pedestal_source = "optical_black"
+        else:
+            colour_pedestal = pedestal_for_exposure(float(sample["exposure_sec"]))
+            colour_pedestal_source = "tracked_or_calibrated"
+        diagnostic = sample_diagnostics(
+            sample, airglow_tracker.camera_type, colour_pedestal
+        )
+        diagnostic["pedestal_source"] = colour_pedestal_source
+        sample["airglow_diagnostic"] = diagnostic
+        if diagnostic["valid"]:
+            sample["paired_pedestal"] = colour_pedestal
+            sample["spectral_floor"] = diagnostic["correction_adu_per_sec"]
+            sample["paired_radiometric_zero_point"] = diagnostic["paired_zero_point"]
+
+    fresh_sample = accumulator.add(sample)
+
+    # Every fresh radiometer sample carries (exposure, background) — feed the
+    # black-level tracker here rather than only from the 10-second stellar
+    # diagnostics: this cadence conditions its fit in minutes and keeps working
+    # through failed solves. Withheld while the last transmission diagnostic
+    # said cloud (a moving sky breaks the intercept's single-line model; the
+    # tracker's own stderr gate catches drift the flag misses).
+    if black_level_tracker is not None and fresh_sample:
+        cloudy_now = shared_state.sqm_details().get("cloud_flag") is True
+        black_level_tracker.add_sample(
+            float(sample["exposure_sec"]),
+            float(sample["background_per_pixel"]),
+            stable=not cloudy_now,
+        )
+    if airglow_tracker is not None and fresh_sample:
+        airglow_tracker.add_sample(
+            sample, float(sample["airglow_diagnostic"]["pedestal"])
+        )
+
+    current_sqm = shared_state.sqm()
+    if current_sqm.last_update is not None:
+        try:
+            last_update = datetime.fromisoformat(current_sqm.last_update).timestamp()
+            if current_time - last_update < calculation_interval_seconds:
+                return False
+        except (ValueError, AttributeError):
+            logger.warning("Failed to parse SQM timestamp, recalculating")
+
     sqm_value, details = accumulator.estimate(
         sqm_calculator.profile,
         current_time,
@@ -219,6 +338,11 @@ def update_radiometric_sqm(
     )
     if sqm_value is None:
         previous = shared_state.sqm_details()
+        details["window_radiometer"] = accumulator.dump()
+        if black_level_tracker is not None:
+            details["window_black_level"] = black_level_tracker.dump()
+        if airglow_tracker is not None:
+            details["window_airglow"] = airglow_tracker.dump()
         shared_state.set_sqm_details({**previous, **details})
         return False
 
@@ -244,6 +368,8 @@ def update_radiometric_sqm(
         details["black_level_pedestal"] = tracked
         details["black_level_stderr"] = tracked_stderr
         details["window_black_level"] = black_level_tracker.dump()
+    if airglow_tracker is not None:
+        details["window_airglow"] = airglow_tracker.dump()
     details["window_radiometer"] = accumulator.dump()
     details["measurement_role"] = "primary_radiometer"
     shared_state.set_sqm_details({**previous, **details})
@@ -658,6 +784,13 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             )
         return self._stub
 
+    def _alloc_shmem(self, size):
+        # Report a freshly created segment (not just a resized one) so the
+        # request sets reopen_shmem and the server drops its stale cached fd.
+        fresh = self._shmem is None
+        resized = super()._alloc_shmem(size)
+        return resized or fresh
+
     def extract_centroids(
         self, image, sigma, max_size, use_binned, detect_hot_pixels=True
     ):
@@ -671,14 +804,17 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
 
         # Use shared memory path (same machine)
         if self._use_shmem:
-            self._alloc_shmem(size=width * height)
+            reopen = self._alloc_shmem(size=width * height)
             shimg = np.ndarray(
                 np_image.shape, dtype=np_image.dtype, buffer=self._shmem.buf
             )
             shimg[:] = np_image[:]
 
             im = cedar_detect_pb2.Image(
-                width=width, height=height, shmem_name=self._shmem.name
+                width=width,
+                height=height,
+                shmem_name=self._shmem.name,
+                reopen_shmem=reopen,
             )
             req = cedar_detect_pb2.CentroidsRequest(
                 input_image=im,
@@ -824,6 +960,7 @@ def solver(
     shared_state,
     solver_queue,
     camera_image,
+    solve_image,
     console_queue,
     log_queue,
     align_command_queue,
@@ -834,7 +971,9 @@ def solver(
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
-    t3 = tetra3.Tetra3(str(utils.tetra3_dir / "data" / "default_database.npz"))
+    # Load tetra3's bundled pattern database by name; tetra3 resolves it from
+    # its own package data dir (shipped inside the cedar-solve wheel).
+    t3 = tetra3.Tetra3("default_database")
     align_ra = 0
     align_dec = 0
     last_solve_attempt: float = 0.0
@@ -842,6 +981,12 @@ def solver(
 
     centroids = []
     log_no_stars_found = True
+
+    # Solve-frame geometry is published by the camera process once it has
+    # detected the sensor, so it is picked up lazily on the first frame.
+    geometry: Optional[SolveGeometry] = None
+    calibration: Optional[OpticalCalibration] = None
+    geometry_published = False
 
     # SQM calculator is created lazily on the first radiometer sample (or solve
     # in test mode), not here: at solver
@@ -858,6 +1003,7 @@ def solver(
     # camera type is not yet known here.
     sqm_cloud_estimator = None
     sqm_black_level = None
+    sqm_airglow = None
     sqm_radiometer = RadiometerAccumulator()
     last_stellar_diagnostic = 0.0
 
@@ -902,6 +1048,7 @@ def solver(
                         # here so stale seeds/history cannot carry over.
                         sqm_cloud_estimator = None
                         sqm_black_level = None
+                        sqm_airglow = None
                         sqm_radiometer.reset()
                         last_stellar_diagnostic = 0.0
                     else:
@@ -943,7 +1090,15 @@ def solver(
                         clear_zero_point=profile.clear_zero_point,
                         clear_sky_brightness=profile.clear_sky_brightness,
                     )
-                    sqm_black_level = BlackLevelTracker(profile.bias_offset)
+                    sqm_black_level = (
+                        BlackLevelTracker(profile.bias_offset)
+                        if SQM_BLACK_LEVEL_TRACKER_ENABLED
+                        else None
+                    )
+                    camera_type = shared_state.camera_type()
+                    sqm_airglow = (
+                        AirglowTracker(camera_type) if camera_type == "imx462" else None
+                    )
                 if sqm_calculator is not None:
                     update_radiometric_sqm(
                         shared_state,
@@ -952,10 +1107,22 @@ def solver(
                         radiometer_sample,
                         calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
                         black_level_tracker=sqm_black_level,
+                        airglow_tracker=sqm_airglow,
                     )
 
                 try:
-                    img = camera_image.copy()
+                    if not geometry_published:
+                        published = shared_state.solve_geometry()
+                        if published is not None or geometry is None:
+                            geometry, calibration = _resolve_geometry(published)
+                            geometry_published = published is not None
+
+                    # The shared solve buffer is sized for the largest sensor we
+                    # support, so trim it back to the frame the camera actually
+                    # published before pulling it across the manager.
+                    img = solve_image.crop(
+                        (0, 0, geometry.solve_width, geometry.solve_height)
+                    )
                     img = img.convert(mode="L")
                     np_image = np.asarray(img, dtype=np.uint8)
 
@@ -1000,15 +1167,24 @@ def solver(
 
                         solution = t3.solve_from_centroids(
                             centroids,
-                            (512, 512),
-                            fov_estimate=12.0,
-                            fov_max_error=4.0,
+                            geometry.solve_size,
                             match_max_error=0.005,
                             return_matches=True,  # Required for SQM calculation
-                            target_pixel=shared_state.target_pixel(),
+                            target_pixel=geometry.display_to_solve(
+                                shared_state.target_pixel()
+                            ),
                             solve_timeout=1000,
+                            **calibration.solver_args(),
                             **_solver_args,
                         )
+                        if solution.get("RA") is not None:
+                            calibration.record_success(solution)
+                        else:
+                            calibration.record_failure()
+                        # Everything below works in display-frame pixels: SQM
+                        # scales these centroids onto the raw photometry image
+                        # and derotates them, which only works from there.
+                        solution = project_solution_to_display(solution, geometry)
 
                     if "matched_centroids" in solution:
                         if sqm_calculator is None:
@@ -1019,7 +1195,11 @@ def solver(
                                 clear_zero_point=profile.clear_zero_point,
                                 clear_sky_brightness=profile.clear_sky_brightness,
                             )
-                            sqm_black_level = BlackLevelTracker(profile.bias_offset)
+                            sqm_black_level = (
+                                BlackLevelTracker(profile.bias_offset)
+                                if SQM_BLACK_LEVEL_TRACKER_ENABLED
+                                else None
+                            )
 
                         # Expensive stellar photometry is diagnostic-only in the
                         # radiometer-first path and remains limited to 10 seconds.
@@ -1103,8 +1283,9 @@ def solver(
                     else:
                         if solution:
                             logger.warning(
-                                f"Solve FAILED - {len(centroids)} centroids detected but "
-                                f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
+                                "Solve FAILED - %d centroids detected but pattern "
+                                "match failed (%s)"
+                                % (len(centroids), calibration.describe())
                             )
                         solver_queue.put(
                             _build_failed_solve(

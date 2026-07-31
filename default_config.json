@@ -10,6 +10,7 @@
     "screen_direction": "right",
     "mount_type": "Alt/Az",
     "solver_debug": 0,
+    "solver_full_frame": true,
     "sleep_timeout": "30s",
     "screen_off_timeout": "Off",
     "chart_radec": "Off",
@@ -180,7 +181,9 @@
         "active_eyepiece_index": 0
     },
     "imu_threshold_scale": 1,
+    "dev_mode": false,
     "telemetry_record": false,
-    "telemetry_images": false,
-    "telemetry_raw_imu": false
+    "telemetry_raw_imu": false,
+    "telemetry_sections": ["imu", "sqm", "solve", "target"],
+    "telemetry_max_session_mb": 1024
 }

@@ -46,6 +46,28 @@ def _png_response(img: Image.Image) -> Response:
     return Response(_pil_to_png_bytes(img), content_type="image/png")
 
 
+def _raw_to_png(raw):
+    """Render a raw sensor frame as a PNG without destroying its values.
+
+    Sensor frames are 10/12-bit held in uint16. Handing that buffer to
+    Image.fromarray(..., mode="L") reinterprets it as 8-bit and produces
+    interleaved-byte noise rather than an image -- which looked plausible
+    enough to waste a night's captures on. 16-bit frames therefore become
+    mode "I;16" PNGs, preserving every ADU for offline analysis.
+    """
+    if hasattr(raw, "save"):  # already a PIL image
+        return raw
+
+    import numpy as np
+
+    arr = np.asarray(raw)
+    if arr.ndim == 3:
+        return Image.fromarray(arr)
+    if arr.dtype == np.uint16:
+        return Image.fromarray(arr, mode="I;16")
+    return Image.fromarray(arr.astype(np.uint8), mode="L")
+
+
 def _pointing_to_dict(p):
     """Serialize a :class:`Pointing` (or ``None``) to a plain
     ``{RA, Dec, Roll}`` dict of floats."""
@@ -699,25 +721,44 @@ def register_api_routes(app, server_instance, require_auth=False):
 
     @app.route("/api/camera/raw")
     def api_camera_raw():
-        """Return the raw CMOS image, if available"""
+        """The cropped raw sensor frame -- what photometry measures."""
         try:
             raw = server_instance.shared_state.cam_raw()
             if raw is None:
                 return _json_response({"note": "No raw image available"}, 503)
-            # raw may be a PIL Image or a NumPy array
-            if hasattr(raw, "save"):
-                img = raw.convert("RGB") if raw.mode != "RGB" else raw
-            else:
-                import numpy as np
-
-                arr = np.asarray(raw)
-                if arr.ndim == 2:
-                    img = Image.fromarray(arr, mode="L").convert("RGB")
-                else:
-                    img = Image.fromarray(arr)
-            return _png_response(img)
+            return _png_response(_raw_to_png(raw))
         except Exception as e:
             logger.error("api/camera/raw error: %s", e)
+            return _json_response({"error": str(e)}, 500)
+
+    @app.route("/api/camera/rawfull")
+    def api_camera_rawfull():
+        """The whole sensor, uncropped -- margins included.
+
+        Published on demand (the full frame is ~4 MB), so this asks the camera
+        for one and waits for the next capture to deliver it. Naming matches
+        the exposure sweep's "rawfull" TIFFs: raw is the crop, rawfull is
+        everything.
+        """
+        import time as _time
+
+        try:
+            state = server_instance.shared_state
+            state.set_cam_raw_full(None)
+            state.request_cam_raw_full()
+            # Long exposures make a capture cycle seconds long, so wait
+            # generously rather than reporting an absence that is just latency.
+            deadline = _time.time() + 15.0
+            while _time.time() < deadline:
+                raw = state.cam_raw_full()
+                if raw is not None:
+                    return _png_response(_raw_to_png(raw))
+                _time.sleep(0.25)
+            return _json_response(
+                {"note": "Timed out waiting for a full-sensor frame"}, 504
+            )
+        except Exception as e:
+            logger.error("api/camera/rawfull error: %s", e)
             return _json_response({"error": str(e)}, 500)
 
     @app.route("/api/camera/debug")

@@ -1,4 +1,5 @@
 import functools
+import logging
 import math
 from collections import namedtuple
 
@@ -15,6 +16,7 @@ from PiFinder.ssd1333_device import ssd1333
 
 from PiFinder.ui.fonts import Fonts
 
+logger = logging.getLogger("Display")
 
 ColorMask = namedtuple("ColorMask", ["mask", "mode"])
 RED_RGB: ColorMask = ColorMask(np.array([1, 0, 0]), "RGB")
@@ -78,7 +80,6 @@ class DisplayPygame_128(DisplayBase):
     def __init__(self):
         from luma.emulator.device import pygame
 
-        # init display  (SPI hardware)
         pygame = pygame(
             width=128,
             height=128,
