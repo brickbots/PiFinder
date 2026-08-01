@@ -13,9 +13,10 @@ single field session:
 * **Fallback** (opt-in on top of shadow data): when the production
   solve fails and SEP found enough stars, attempt a real solve from the
   SEP centroids in the rotated full frame -- the solution feeds the
-  normal pointing chain, so tracking works from it. Guarded so an
-  in-progress alignment never runs through this path (its y/x_target
-  would be in full-frame space).
+  normal pointing chain, so tracking works from it. An in-progress
+  alignment is served too: the SEP solve resolves the alignment
+  coordinate and its y/x_target is mapped back into rotated-512 space,
+  so the normal alignment chain consumes it unchanged.
 
 All entry points are defensive: any exception is logged and swallowed,
 so the experiment can never take down the production solver.
@@ -235,13 +236,22 @@ class SepShadowRunner:
             logger.exception("SEP shadow detect failed")
             return None
 
-    def solve(self, t3, run: SepRun, shared_state) -> Optional[dict]:
+    def solve(
+        self, t3, run: SepRun, shared_state, target_sky_coord=None
+    ) -> Optional[dict]:
         """Solve from SEP centroids in the rotated full frame.
 
         Rotation, canvas size, fov and target_pixel are all mapped so the
         resulting RA/Dec/Roll -- and the aligned pointing at target_pixel
         -- carry the exact semantics of the production 512-frame solve
         (see solver_frame_map).
+
+        ``target_sky_coord`` supports the hybrid alignment: when an
+        alignment is in progress and the production (cedar) solve cannot
+        complete under the target sky, the SEP solve resolves the
+        alignment coordinate and its y/x_target is mapped BACK into
+        rotated-512 space, so the normal alignment chain (AlignedResult,
+        persisted target_pixel) consumes it unchanged.
         """
         try:
             cents, canvas = sfm.rotate_centroids(
@@ -251,7 +261,7 @@ class SepShadowRunner:
                 shared_state.target_pixel(), canvas, self.crop_width_px
             )
             fov = sfm.fov_estimate_deg(canvas[1], self.crop_width_px)
-            return t3.solve_from_centroids(
+            solution = t3.solve_from_centroids(
                 cents,
                 canvas,
                 fov_estimate=fov,
@@ -259,8 +269,22 @@ class SepShadowRunner:
                 match_max_error=0.005,
                 return_matches=True,
                 target_pixel=target_pixel,
+                target_sky_coord=target_sky_coord,
                 solve_timeout=1000,
             )
+            if (
+                solution
+                and solution.get("RA") is not None
+                and solution.get("y_target") is not None
+                and solution.get("x_target") is not None
+            ):
+                ty, tx = sfm.map_frame_pixel_to_target(
+                    (float(solution["y_target"]), float(solution["x_target"])),
+                    canvas,
+                    self.crop_width_px,
+                )
+                solution["y_target"], solution["x_target"] = ty, tx
+            return solution
         except Exception:
             logger.exception("SEP fallback solve failed")
             return None

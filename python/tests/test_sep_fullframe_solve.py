@@ -12,7 +12,7 @@ full-sensor frame, then solves the same sky twice:
 
 and asserts both return the same Roll and the same aligned pointing at
 the (off-centre) target pixel. This is the proof that swapping the
-detection frame cannot disturb tracking or push-to.
+detection frame cannot disturb tracking, alignment, or push-to.
 """
 
 import numpy as np
@@ -111,6 +111,39 @@ def test_sep_fullframe_solve_matches_production_pointing():
     # Aligned pointing at the target pixel agrees to within a fit residual
     assert abs(sol_prod["RA_target"] - sol_sep["RA_target"]) * 3600 < 60
     assert abs(sol_prod["Dec_target"] - sol_sep["Dec_target"]) * 3600 < 60
+
+    # --- hybrid alignment: solving the ALIGNMENT DIRECTION through both
+    # paths must land on the same 512-space target pixel. Ask each solve
+    # where a fixed sky coordinate falls, and map the SEP answer back with
+    # map_frame_pixel_to_target (what sep_shadow.solve does during align).
+    sky = [[sol_prod["RA_target"], sol_prod["Dec_target"]]]
+    sol_prod_a = t3.solve_from_centroids(
+        c512r,
+        canvas512,
+        fov_estimate=12.0,
+        fov_max_error=4.0,
+        match_max_error=0.005,
+        target_sky_coord=sky,
+        solve_timeout=1000,
+    )
+    sol_sep_a = t3.solve_from_centroids(
+        cfull_r,
+        canvas_full,
+        fov_estimate=fov,
+        fov_max_error=fov / 3,
+        match_max_error=0.005,
+        target_sky_coord=sky,
+        solve_timeout=1000,
+    )
+    assert sol_prod_a.get("y_target") is not None
+    assert sol_sep_a.get("y_target") is not None
+    sep_tp512 = sfm.map_frame_pixel_to_target(
+        (sol_sep_a["y_target"], sol_sep_a["x_target"]), canvas_full, CROP_W
+    )
+    dy = abs(sep_tp512[0] - sol_prod_a["y_target"])
+    dx = abs(sep_tp512[1] - sol_prod_a["x_target"])
+    # within one 512-space pixel (~84 arcsec of plate scale)
+    assert dy < 1.0 and dx < 1.0
 
 
 @pytest.mark.unit
