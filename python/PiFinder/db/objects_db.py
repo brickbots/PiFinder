@@ -32,11 +32,16 @@ class ObjectsDatabase(Database):
         """
         Backfills the catalog_objects indexes on an already-built database.
 
-        create_tables() only runs during catalog import, so the objects.db
-        shipped with an install (and every one built before those indexes
-        existed) has none. Building them takes ~100ms once; thereafter the
-        sqlite_master check below costs a fraction of a millisecond, so this is
-        safe to run on every open.
+        The shipped objects.db carries these indexes, so this is normally a
+        no-op. It exists for the databases that don't come from the shipped
+        file: ones built by a catalog import predating the indexes, or carried
+        across an update that replaces code without replacing the DB.
+        create_tables() only runs at import time, so nothing else would ever
+        add them.
+
+        Building them takes ~100ms once; thereafter the sqlite_master check
+        below costs a fraction of a millisecond, so this is safe to run on
+        every open.
 
         Failure is not fatal: several processes open this DB and may race for
         the write lock, and the DB may sit on read-only media. Either way the
