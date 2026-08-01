@@ -309,6 +309,10 @@ class SharedStateObj:
         # to the stored raw frame (PIL CCW). None until the camera reports.
         self.__solve_image_rotation = None
         self.__cam_raw = None
+        # Uncropped raw sensor frame for the SEP full-frame detection path
+        # (dict with "frame" uint16 ndarray + capture metadata). Only
+        # published while solver_shadow_detect / solver_sep_fallback is on.
+        self.__solver_raw = None
         self.__sqm_radiometer_sample = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
@@ -570,6 +574,13 @@ class SharedStateObj:
 
     def set_cam_raw(self, v):
         self.__cam_raw = v
+
+    def solver_raw(self):
+        """Uncropped raw frame entry for the SEP full-frame path, or None."""
+        return self.__solver_raw
+
+    def set_solver_raw(self, v):
+        self.__solver_raw = v
 
     def sqm_radiometer_sample(self):
         return self.__sqm_radiometer_sample
