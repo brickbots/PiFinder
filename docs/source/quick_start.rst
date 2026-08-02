@@ -151,15 +151,14 @@ PiFinders attach the same way.
 .. image:: images/quick_start/pifinder_mounted.jpeg
    :width: 47%
 
-Mount the PiFinder close to perpendicular to the ground, or it won't be as accurate when
-estimating position as you move. The PiFinder always knows where it's looking and assumes
-it's perpendicular to the earth, giving its instructions on that basis.
+The PiFinder works out its own orientation, so it no longer needs to sit perfectly upright
+— any mounting angle is fine, as long as the camera points where the scope points. You may
+still prefer it roughly level so the screen is easy to read.
 
-The dovetail is adjustable so the PiFinder can sit upright even if your finder shoe isn't
-right at the top of the optical tube. Loosen the two dovetail screws, set the PiFinder on
-your scope, and adjust the angle until it's roughly perpendicular to the ground. Once
-you're happy, remove the PiFinder and tighten the two screws. You're all set for a night
-of observing.
+The dovetail is adjustable, so you can set a comfortable angle even if your finder shoe
+isn't right at the top of the optical tube. Loosen the two dovetail screws, set the PiFinder
+on your scope, adjust the angle to suit, then remove it and tighten the two screws. You're
+all set for a night of observing.
 
 .. note::
    * Mount the PiFinder so the camera has an unimpeded view of the sky.
@@ -218,6 +217,11 @@ relying on the accelerometer. An 'X' means it hasn't worked out where it's point
    Leaving the PiFinder on the GPS Status screen speeds up the lock: this screen disables
    the camera, which reduces EM noise and helps the receiver see more satellites.
 
+.. note::
+   No GPS, or don't want to wait for a lock?  You can enter your location and time by hand
+   and start using the PiFinder right away — see :ref:`Place & Time <user_guide:place & time>`
+   in the User Guide.
+
 
 
 Adjusting Brightness
@@ -240,7 +244,6 @@ At the start of each session, you may need to do a few things:
 
 - Check and adjust camera focus
 - Align the PiFinder by telling it where your scope is pointing
-- Optionally polar-align an equatorial platform
 - Check the status of the GPS lock
 
 These items live in the 'Start' menu at the top of the PiFinder main menu.
@@ -265,7 +268,7 @@ dimmest stars.
 .. note::
    **Focus is the single most common reason a PiFinder won't solve.**  Stars that look
    sharp by eye are often still too soft to solve, so rather than judging focus by sight,
-   use the **HFD** readout and its graph on the Focus screen (described below) to find the
+   use the **HFD** readout on the Focus screen (described below) to find the
    sharpest point precisely.
 
 Screw the lens in and out in the holder to adjust focus. Starting from scratch — a new
@@ -276,53 +279,61 @@ Select the 'Focus' option under the 'Start' menu.
 
 .. image:: images/quick_start/start_menu.png
 
-The Focus screen shows a live preview of what the camera is seeing, with special image
-processing that highlights stars and removes background skyglow to make focusing easier.
+The Focus screen finds the four brightest stars in the camera's view and shows each one
+magnified in its own quadrant of the screen.  The same stars keep their quadrants while you
+work — even if the image shifts as you handle the lens — and a star that drops out is
+replaced by the next brightest.  None of this needs a plate solve, so the screen keeps
+working however far out of focus you start.
 
-With no stars visible or the image well out of focus, the screen may look too bright, too
-dark, or noisy — normal until the camera is near focus. Some examples:
+.. image:: images/quick_start/focus_stars_docs.png
 
-.. list-table::
+The tiles show raw camera pixels, simply cropped and enlarged — no sharpening, smoothing,
+or contrast tricks — so what you see is honestly how tight your stars are.  Each star is
+magnified about 10x; a badly defocused star automatically gets a wider view so its broad
+disc or donut isn't clipped, tightening back up as focus improves.  The **+** and **-**
+keys adjust the magnification between 4x and 16x.
 
-   * - .. figure:: images/quick_start/CAMERA_unfocused_hud.png
+At the center of the screen is the **HFD** readout — the Half-Flux Diameter of the detected
+stars, in camera pixels.  This is simply how spread-out the starlight is, so a smaller
+number means tighter, sharper stars: slowly screw the lens in or out and chase the lowest
+stable number.  A readout of ``?.?`` means no star could be measured on the current frame —
+keep adjusting, and it returns as the stars tighten.
 
-          Unfocused: bright, noisy background and a high HFD
+Work in small steps.  The whole journey from stars too soft to see on screen to good focus
+is only a few turns of the lens, and the difference between fair and good focus is less
+than half a turn.  Turn the lens an eighth to a quarter of a turn at a time, then take your
+hand away for a moment so any vibration settles and the readout catches up.  Bigger or
+continuous turns make it easy to sweep straight through best focus without ever seeing it.
 
-     - .. figure:: images/quick_start/CAMERA_focused_hud.png
+A trace of the last 10 seconds of HFD runs along the divider on either side of the number,
+with lower (sharper) values below the line.  As you sweep the focuser slowly through best
+focus the trace falls and rises again — go back to the low point.  Good focus means the
+quickest solves, so it's worth taking the time to find the true minimum, judging by the
+number and all four stars together rather than a single unusually bright star.
 
-          At best focus: dark background, a tight star and a low HFD
+Press **SQUARE** to cycle through four views:
 
+* **Stars** — the four magnified star tiles described above.
+* **Single** — the brightest star alone at twice the magnification, with the HFD readout
+  and trace along the bottom.
+* **Image** — the full camera frame, brightened for display.
+* **Stats** — the HFD alongside an FWHM estimate, the detected-star count, exposure, gain,
+  and a histogram of the raw image.
 
-Pan your scope until a bright object appears in the camera view.  Screw the lens in and out
-to focus; once something star-like is in the FOV and near focus, the preview's image
-processing will work properly and start dimming the background and highlighting the stars.
+.. image:: images/quick_start/focus_single_docs.png
+   :width: 45%
+.. image:: images/quick_start/focus_stats_docs.png
+   :width: 45%
 
-Along the bottom of the Focus screen is the **focus strip**, which turns focusing from a judgement
-call into a number you can chase.  A large **HFD** readout — the Half-Flux Diameter of the stars it
-finds, in pixels — fills the right of the strip.  This is simply how spread-out the stars are, so a
-smaller number means tighter, sharper stars: as you adjust the lens, your goal is to make the HFD as
-small as you can.
+Hold **SQUARE** in any view to open the :ref:`user_guide:quick menu`, which offers the
+camera exposure setting.  With dark enough skies and good focus, the camera icon appears in
+the top right and the current constellation shows in the title bar.  Congratulations — the
+PiFinder knows where it's pointing!
 
-.. image:: images/quick_start/focus_strip_docs.png
-
-To the left of the readout a graph plots the HFD over the last several seconds.  As you slowly turn
-the focuser the line traces a "V" — dropping as the stars sharpen, reaching a low point at best focus,
-then climbing again as you go past it.  Stop at the bottom of the V.  The graph is scaled to the range
-a real lens reaches — about 4 px at sharp focus up to 20 px when clearly soft — and a marker line shows
-the best (lowest) HFD seen recently.  Small labels show the current exposure time, **det** (the number
-of stars the focus screen detected) and, once a solve succeeds, the matched-star count next to the star
-icon — watch that jump from zero the moment your stars are sharp enough for the PiFinder to recognise
-them.
-
-If the image is too far out of focus to measure, the readout shows ``keep going`` until a star comes
-into range.  The strip works at every zoom level, since the HFD doesn't depend on zoom, and you can
-press the **SQUARE** button to hide or show it if you'd rather see the bare image.
-
-Good focus means the quickest solves.  Close will work, but it's worth driving the HFD down to its
-lowest point — use the **+/-** keys to zoom the view to 2x and 4x and get the stars as tight as you
-reasonably can.  With dark enough skies and good focus, the camera icon appears in the top right and
-the current constellation shows in the title bar.  Congratulations — the PiFinder knows where it's
-pointing!
+If you touch up focus on a later night, judge it here on the Focus screen rather than by
+the camera icon — a solve takes a second or so to catch up with each change of the lens, so
+the icon always lags a little behind.  The HFD readout responds much faster, and the
+technique is the same: a small turn, then a pause to let things settle.
 
 
 .. note::
@@ -441,36 +452,6 @@ not something across the room.
    isn't a concern. If the view is washed out or too dark, **+** and **-** adjust the exposure
    by hand. Hold **SQUARE** for the Quick Menu, where 'Exp Auto' hands exposure back to the
    camera and 'Center' returns the marker to the middle.
-
-
-Polar alignment
-^^^^^^^^^^^^^^^^
-If your telescope sits on an equatorial platform, the 'Polar Align' item in the 'Start'
-menu measures how far the platform's rotation axis is from the celestial pole. It uses
-ordinary plate solves, so first make sure the PiFinder has a GPS lock, is focused, and is
-solving the sky reliably.
-
-The process does not align the PiFinder to your eyepiece; it aligns the platform. Do not
-use the telescope's normal altitude or azimuth motion during the measurement. Keep the
-scope fixed on the platform and only rotate the platform between captures.
-
-1. Choose 'Polar Align' from the 'Start' menu and press **SQUARE** to begin.
-2. Aim the telescope away from the pole, where the camera gets reliable solves. Wait until
-   the screen reports a recent solve, then press **SQUARE** to capture point 1.
-3. Rotate the equatorial platform by at least about 10 degrees, again without moving the
-   telescope on the mount. Wait for a fresh solve and press **SQUARE** to capture point 2.
-4. For the best check, rotate the platform farther and press **SQUARE** to capture point 3.
-   If you want to solve from two points instead, press **0** after point 2.
-5. If the screen says 'Rotate more', the captures were too close together. Rotate the
-   platform farther and capture again.
-6. In the adjustment screen, use the platform's altitude and azimuth adjusters to follow
-   the displayed push-to directions until both altitude and azimuth read zero. If the
-   screen says 'No solve', hold the telescope still until the PiFinder gets a fresh solve.
-
-The adjustment screen also shows how many points were used and the total platform sweep.
-With three points it shows a fit value; a value marked with ``!`` means the captures did
-not agree well, usually because the platform or telescope shifted between points. Press
-**SQUARE** to redo the measurement, or **MINUS** to cancel.
 
 
 GPS Status

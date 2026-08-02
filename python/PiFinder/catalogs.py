@@ -3,7 +3,6 @@ import logging
 import re
 import time
 import datetime
-import pytz
 import threading
 from pprint import pformat
 from typing import List, Dict, DefaultDict, Optional, Union
@@ -25,6 +24,7 @@ from PiFinder.catalog_base import (
     VirtualIDManager,
 )
 from PiFinder import catalog_cache
+from PiFinder import timez
 
 logger = logging.getLogger("Catalog")
 
@@ -94,6 +94,11 @@ class CatalogFilter:
     """can be set on catalog to filter"""
 
     fast_aa = None
+    # With an altitude criterion active, object altitudes drift as the sky
+    # rotates (<= 15 deg/hour), so cached verdicts age out even though no
+    # filter parameter changed. 600s bounds the drift to ~2.5 deg — well
+    # inside the 10-degree steps the altitude filter is set in.
+    ALTITUDE_STALE_SECONDS = 600
 
     def __init__(
         self,
@@ -116,6 +121,10 @@ class CatalogFilter:
         self._constellations = constellations
         self._selected_catalogs = set(selected_catalogs)
         self.last_filtered_time = 0
+        # Whether alt/az was available when verdicts were last computed.
+        # Verdicts computed without it skip the altitude test entirely, so
+        # they go stale the moment a fix arrives (see is_stale).
+        self._last_filtered_altaz_ready = False
 
     def load_from_config(self, config_object: Config):
         """
@@ -190,7 +199,8 @@ class CatalogFilter:
     def calc_fast_aa(self, shared_state):
         location = shared_state.location()
         dt = shared_state.datetime()
-        if shared_state.altaz_ready():
+        self._last_filtered_altaz_ready = shared_state.altaz_ready()
+        if self._last_filtered_altaz_ready:
             self.fast_aa = calc_utils.FastAltAz(
                 location.lat,
                 location.lon,
@@ -203,13 +213,37 @@ class CatalogFilter:
 
     def is_dirty(self) -> bool:
         """
-        Returns true if the filter parameters have changed since
-        the last filter.  False if not
+        Returns true if the filtered verdicts need recomputing: a filter
+        parameter changed since the last filter (dirty), or time-sensitive
+        criteria have aged out (stale — see is_stale).  False if not
         """
         if self.last_filtered_time > self.dirty_time:
-            return False
+            return self.is_stale()
         else:
             return True
+
+    def is_stale(self) -> bool:
+        """
+        Returns true when altitude verdicts are outdated even though no
+        filter parameter changed: enough time has passed that the sky has
+        rotated appreciably, or an alt/az fix arrived (GPS lock) after
+        verdicts were computed without one.
+
+        Always false without an altitude criterion, so the
+        no-altitude-filter case keeps its O(catalogs) cached fast path.
+        Staleness does not invalidate anything by itself — see
+        Catalogs.filter_catalogs, which promotes it to a dirty bump.
+        """
+        if self._altitude == -1:
+            return False
+        if self.last_filtered_time == 0:
+            # never filtered yet — is_dirty already reports True
+            return False
+        if not self._last_filtered_altaz_ready:
+            return self.shared_state.altaz_ready()
+        if time.time() - self.dirty_time > self.ALTITUDE_STALE_SECONDS:
+            return self.shared_state.altaz_ready()
+        return False
 
     def apply_filter(self, obj: CompositeObject):
         if obj.last_filtered_time > self.dirty_time:
@@ -285,7 +319,6 @@ class Catalog(CatalogBase):
         self.catalog_filter: Union[CatalogFilter, None] = None
         self.filtered_objects: List[CompositeObject] = self.get_objects()
         self.filtered_objects_seq: List[int] = self._filtered_objects_to_seq()
-        self.last_filtered = 0
         self.initialized = True
         self._last_state: CatalogState = CatalogState.READY
 
@@ -308,7 +341,10 @@ class Catalog(CatalogBase):
         if self.catalog_filter is None:
             return self.get_objects()
 
-        # Skip filtering if catalog is empty (deferred catalogs not loaded yet)
+        # Skip filtering if catalog is empty (deferred catalogs not loaded yet).
+        # Checked before the cache guard so an emptied catalog (e.g. comet
+        # refresh clearing objects) always yields an empty list, never a stale
+        # cached one.
         if self.get_count() == 0:
             logger.debug(
                 "Skipping filter for empty catalog %s (deferred loading)",
@@ -317,6 +353,13 @@ class Catalog(CatalogBase):
             self.filtered_objects = []
             self.filtered_objects_seq = []
             self.last_filtered = time.time()
+            return self.filtered_objects
+
+        # Already filtered against the current criteria — reuse the cached
+        # result. filter_catalogs() runs this for every catalog on each list
+        # open; dirty_time only advances when a filter parameter changes, so an
+        # unchanged filter returns here in O(1) instead of rescanning objects.
+        if self.last_filtered > self.catalog_filter.dirty_time:
             return self.filtered_objects
 
         self.filtered_objects = self.catalog_filter.apply(self.get_objects())
@@ -372,9 +415,41 @@ class Catalogs:
     def filter_catalogs(self):
         """
         Applies filter to all catalogs
+
+        Staleness (time-sensitive criteria outdated, see
+        CatalogFilter.is_stale) is promoted to a dirty bump here so both
+        cache layers — per-object verdicts and per-catalog filtered lists —
+        re-evaluate, not just the catalog that noticed.
         """
+        if self.catalog_filter is not None and self.catalog_filter.is_stale():
+            self.catalog_filter.mark_dirty()
         for catalog in self.__catalogs:
             catalog.filter_objects()
+
+    def mark_logged(self, obj: CompositeObject) -> None:
+        """
+        Record that obj was just logged (observed) and invalidate the
+        filter, so lists with an observed criterion reflect it on their
+        next refresh.  Without an observed criterion no verdict can
+        change, so the cached lists are kept.
+
+        Observed status is a sky-object property: sibling listings of
+        the same object (M 31 / NGC 224 share an object_id) are marked
+        too, matching what check_logged derives from the DB after a
+        restart.  Virtual objects stay per listing — their negative
+        object_ids are minted per session, so id-keyed propagation
+        would cross-mark unrelated objects.
+        """
+        obj.logged = True
+        if obj.object_id is not None and obj.object_id >= 0:
+            for sibling in self.get_objects(only_selected=False, filtered=False):
+                if sibling.object_id == obj.object_id:
+                    sibling.logged = True
+        if self.catalog_filter is not None and self.catalog_filter.observed not in (
+            None,
+            "Any",
+        ):
+            self.catalog_filter.mark_dirty()
 
     def set_catalog_filter(self, catalog_filter: CatalogFilter) -> None:
         """
@@ -632,11 +707,7 @@ class PlanetCatalog(Catalog):
                 self.add_planet(sequence, name, planet_data)
                 sequence += 1
 
-        with self._virtual_id_manager.virtual_id_lock:
-            new_low = self._virtual_id_manager.assign_virtual_object_ids(
-                self, self._virtual_id_manager.virtual_id_low
-            )
-            self._virtual_id_manager.virtual_id_low = new_low
+        self._virtual_id_manager.mint_ids(self)
         self.initialized = True
 
     def add_planet(self, sequence: int, name: str, planet: Dict[str, Dict[str, float]]):
@@ -921,7 +992,7 @@ class CatalogBuilder:
         # This will be re-initialized on activation of Catalog ui module
         # if we have GPS lock
         planet_catalog: Catalog = PlanetCatalog(
-            dt=datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC")),
+            dt=timez.utc_now(),
             shared_state=shared_state,
         )
         all_catalogs.add(planet_catalog)
@@ -930,7 +1001,7 @@ class CatalogBuilder:
         from PiFinder.comet_catalog import CometCatalog
 
         comet_catalog: Catalog = CometCatalog(
-            datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC")),
+            timez.utc_now(),
             shared_state=shared_state,
         )
         all_catalogs.add(comet_catalog)

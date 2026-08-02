@@ -174,10 +174,7 @@ class CometCatalog(Catalog):
 
         # Clear existing objects immediately
         if self.get_objects():
-            self._get_objects().clear()
-            self.max_sequence = 0
-            self.id_to_pos = {}
-            self.sequence_to_pos = {}
+            self.clear_objects()
         self.initialized = False
 
         # Do the check and download in background thread to return immediately
@@ -236,10 +233,7 @@ class CometCatalog(Catalog):
         logger.info("Starting comet calculation")
         # Clear any existing objects to make this idempotent
         if self.get_objects():
-            self._get_objects().clear()
-            self.max_sequence = 0
-            self.id_to_pos = {}
-            self.sequence_to_pos = {}
+            self.clear_objects()
 
         def progress_callback(progress: int):
             self.calculation_progress = progress
@@ -256,11 +250,7 @@ class CometCatalog(Catalog):
         for sequence, (name, comet) in enumerate(comet_dict.items()):
             self.add_comet(sequence, name, comet)
 
-        with self._virtual_id_manager.virtual_id_lock:
-            new_low = self._virtual_id_manager.assign_virtual_object_ids(
-                self, self._virtual_id_manager.virtual_id_low
-            )
-            self._virtual_id_manager.virtual_id_low = new_low
+        self._virtual_id_manager.mint_ids(self)
 
         self.initialized = True
         self.calculation_progress = None  # Clear progress after completion

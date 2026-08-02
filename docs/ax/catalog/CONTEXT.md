@@ -9,8 +9,12 @@ The Catalog context owns runtime loading, filtering, searching and display of as
 ### Identity
 
 **Catalog code**:
-Short string identifier for a catalog as a whole — `"M"`, `"NGC"`, `"IC"`, `"WDS"`, `"PL"` (planets). Drives DB queries and the UI designator.
-_Avoid_: catalog name, catalog id, prefix.
+Short string identifier for a catalog as a whole — `"M"`, `"NGC"`, `"IC"`, `"WDS"`, `"PL"` (planets). Drives DB queries and the UI designator. Its readable sibling is the **catalog display name** ("Collinder" for code `"Cr"`).
+_Avoid_: catalog id, prefix; for the readable form say **catalog display name**, not "catalog name".
+
+**Catalog display name**:
+The readable, human-facing label for a catalog as a whole — `"Collinder"`, `"Caldwell"`, `"SAC Doubles"` — the prose twin of the terse **catalog code** (`"Cr"`, `"C"`). Stored as `Catalog.name` (DB column `name`); `None` for virtual/legacy catalogs, where the UI falls back to the code. Distinct from object-level **Names** ("Andromeda"): a display name names the *catalog*, not a sky object.
+_Avoid_: catalog name (prefer the full term), catalog title, long name.
 
 **Sequence**:
 Integer position of an object inside one catalog (e.g. `13` for M 13). Must be unique within a catalog (enforced by `CatalogBase.check_sequences()`).
@@ -33,7 +37,7 @@ A row in the `catalog_objects` SQLite table — how a sky object appears in one 
 _Avoid_: catalog object (sounds like `CompositeObject`), entry, catalog row.
 
 **Virtual ID**:
-Negative `object_id` minted by `VirtualIDManager` for in-memory-only catalog objects (planets, comets) so they still hash uniquely.
+Negative `object_id` minted by `VirtualIDManager` for in-memory-only catalog objects (planets, comets, coordinate objects from observing lists) so they still hash uniquely. All virtual IDs come from the manager — never hand-pick a negative number, or two in-memory objects can collide and compare equal.
 _Avoid_: synthetic id, fake id.
 
 **Designator**:
@@ -82,17 +86,24 @@ _Avoid_: matching objects, visible objects.
 The single `CompositeObject` currently being viewed in `UIObjectDetails` (info + push-to guidance). Not a property of a catalog — it's a UI cursor.
 _Avoid_: current object, active object, target object.
 
+**Log entry**:
+A row in the observations DB log table (`obs_objects`) — always recorded per catalog listing (`catalog`, `sequence`), exactly as the user logged it. Use this term for table rows / DB queries.
+
 **Logged**:
-Technical: the object has a row in the observations DB log table. The `CompositeObject.logged` bool is populated at build time from `ObservationsDatabase.check_logged(obj)`. Use this term when talking about table membership / DB queries / the field itself.
+Technical: the underlying sky object has at least one log entry under any of its listings — derived by `object_id` for DB-backed objects, per (`catalog`, `sequence`) for virtual objects (their negative ids are session-minted, not stable across restarts). `CompositeObject.logged` caches this verdict: populated at build time from `ObservationsDatabase.check_logged(obj)` and kept consistent across sibling composites in-session by `Catalogs.mark_logged`. So logging M 31 marks NGC 224 logged too. Use this term for the field and the predicate.
 _Avoid_: observed (that's the user-facing twin — see below).
 
 **Observed**:
 User-facing: "I've seen this object." Surfaces as the `CatalogFilter.observed` parameter (`"Yes" | "No" | "Any"`) and in UI copy. The predicate test reads `obj.logged`, so the two terms refer to the same underlying state — they're deliberately split into a technical term (`logged`) and a colloquial one (`observed`).
 _Avoid_: logged (when speaking to users or in UI copy), seen.
 
-**Dirty time** (`dirty_time` / `last_filtered_time`):
-Pair of epoch timestamps that drive the per-object filter cache. An object is re-evaluated only when `obj.last_filtered_time < filter.dirty_time`.
+**Dirty time** (`dirty_time` / `last_filtered_time` / `last_filtered`):
+Epoch timestamps driving the two filter cache layers. `mark_dirty()` advances `filter.dirty_time`; an object's verdict is re-evaluated only when `obj.last_filtered_time < filter.dirty_time` (per-object layer), and a whole catalog skips its scan while `catalog.last_filtered > filter.dirty_time` (per-catalog layer). Beyond the parameter setters, dirty time also advances when an object is logged with an observed criterion active (`Catalogs.mark_logged`) and when staleness is promoted (see **Stale**).
 _Avoid_: invalidation, cache key.
+
+**Stale** (filter staleness):
+Verdicts outdated by time passing rather than by a parameter change — only possible for time-sensitive criteria, today just altitude (the sky rotates ≤ 15°/hour). `CatalogFilter.is_stale()` reports it: altitude criterion active, alt/az available, and either verdicts older than `ALTITUDE_STALE_SECONDS` (600 s ≈ 2.5° of drift) or an alt/az fix arrived after verdicts were computed without one. Staleness never invalidates by itself; `Catalogs.filter_catalogs()` promotes it to a dirty bump. See [ADR 0025](../../adr/0025-filter-freshness-staleness-promotion.md).
+_Avoid_: dirty (that's a parameter change), expired.
 
 **Empty-list rejection**:
 For `object_types` and `constellations`, an empty list rejects every object; only `None` (or `"Any"` for `observed`) means "don't filter on this dimension." Flagged here because it surprises callers.
@@ -156,6 +167,49 @@ _Avoid_: name search, full-text search.
 Substring search after translating names to PiFinder's non-standard keypad-digit form (`KEYPAD_DIGIT_TO_CHARS` — `7→abc`, `1→tuv`, …). Backed by `_t9_cache` keyed on `(catalog_code, sequence)`. Backs the UI context's **T9** search input method; reserve "T9 search" for this algorithm — the user-facing setting is the **search input method**.
 _Avoid_: keypad search, digit search.
 
+### Observing lists
+
+**Observing list**:
+An ordered set of targets stored as one file under `PiFinder_data/obslists/`. A list's **origin** is just how that file got there — exported from another app (any of the third-party **list formats**), hand-authored, the **native format**, or saved by PiFinder itself (SkySafari `.skylist`); PiFinder reads the file regardless. There is no built-in online/download source for lists today (the DeepSkyLog integration is for **equipment**, not lists).
+_Avoid_: target list, tour (a tour is a device-specific format family, not the concept), skylist (that's one format).
+
+**Observing list entry** (`ObsListEntry`):
+One target as parsed from a list file — the format-neutral interchange item every reader produces and every writer consumes. Either **catalog-keyed** (carries a catalog code + sequence) or a **coordinate entry** (carries RA/Dec plus name and type). It is not a `CompositeObject`; it becomes one through resolution.
+_Avoid_: entry (unqualified — too close to "catalog listing"), row, line, custom object.
+
+**List format**:
+One of the supported on-disk representations of an observing list: SkySafari, CSV, plain text, Stellarium, Autostar Tour, Argo Navis, NexTour, EQMOD Tour, and the native format. Detected by file extension first, content sniffing second; unrecognized content degrades to plain text (names only).
+_Avoid_: file type, flavor.
+
+**Native format** (`.pifinder`):
+PiFinder's own versioned JSON list format — the only one that losslessly carries catalog keys, structured magnitudes, and size/extent geometry. The format permits any coordinate `epoch` — a file-level default with optional per-entry overrides (J2000 unless stated); within PiFinder everything is J2000, so the reader precesses non-J2000 inputs to J2000 and the writer emits J2000. As a standalone library the format is epoch-agnostic. See [ADR 0016](../../adr/0016-pifinder-native-observing-list-format.md) and the format reference in [`obslist-formats/`](./obslist-formats/README.md).
+_Avoid_: PiFinder format (ambiguous in prose), JSON format (Stellarium is JSON too).
+
+**Resolution**:
+The umbrella term for matching an observing list entry to a `CompositeObject` in the catalog collection. Two strategies are tried in a fixed order, then a coordinate fallback:
+1. **Catalog-keyed resolution** — match by catalog code + sequence, with alias mapping (Messier→M, Caldwell→C, Collinder→Cr). Tried whenever the entry carries a catalog key.
+2. **Name resolution** — exact, case-insensitive match of the entry's name against catalog object names, also trying a constellation-genitive–normalized variant ("VY Andromedae" → "VY And"). **Strictly a fallback**: attempted only when catalog-keyed resolution finds nothing. Names collide more readily than catalog keys, so a name never overrides a key match.
+3. If both fail, an entry carrying coordinates becomes a **coordinate object**; an entry with no key, no name match, and no coordinates is dropped.
+_Avoid_: lookup, import (import is the whole read-then-resolve flow).
+
+**Coordinate object**:
+A `CompositeObject` minted at list-load time from a coordinate entry when resolution fails. In-memory only, carries a virtual ID, catalog code `OBS`.
+_Avoid_: custom object, user object, unresolved object (it *is* resolved — to coordinates).
+
+### Composed descriptions
+
+**Composed description**:
+The merged, multi-source description shown for the selected object in object details. Sections appear in a fixed order: **observing list descriptions first** (this session's), then the **home** catalog description, then the object's **other catalog listings'** descriptions (deduped). Built by `CompositeObject.composed_sections()`; `composed_description()` is the flat-string form for non-UI consumers.
+_Avoid_: aggregated description, full description, merged text.
+
+**Section source**:
+The provenance label on one section of a composed description. Three kinds: *observing-list source* — a per-list **observing list description**, labeled with the **observing list** name, shown **first**; *home* — the selected object's own catalog description, **unlabeled when it leads** (you already know what you're looking at), but labeled with the object's own **Designator** once an observing list description precedes it, so it doesn't read as part of it; *catalog-listing source* — the same sky object's description in another catalog listing, labeled with that listing's **Designator** (`"Cr 24"`, kept code-based — not the catalog display name — to stay short on a 128-px screen). The label is drawn as a rule (`─── Cr 24 ───`) above its text.
+_Avoid_: section header / section heading (that's the visual rendering of the label), provenance, origin.
+
+**Observing list description**:
+The description text an observing list carries for one of its targets — the observing-list counterpart of a **catalog description**. So an object's description can come from a catalog *or* from an observing list, and the **composed description** shows both. Session-only, held in `CompositeObject.list_descriptions` keyed by list name (re-loading a list replaces its own entry, never duplicates). Set only on **resolved** objects; a **coordinate object** has none (its list text becomes its own catalog-side description, since it has nothing else).
+_Avoid_: list note, note, comment, annotation, user description.
+
 ### UI helpers
 
 **CatalogDesignator**:
@@ -170,9 +224,9 @@ _Avoid_: readonly list, immutable view.
 
 **`shared_state`** is referenced by Catalog but **owned by Positioning**. See [Positioning](../positioning/CONTEXT.md).
 
-**`logged`** on `CompositeObject` is set at build time from `ObservationsDatabase.check_logged(obj)`; the observations DB is read-only from the Catalog's perspective.
+**`logged`** on `CompositeObject` is set at build time from `ObservationsDatabase.check_logged(obj)`, which derives observed status per sky object (see **Logged**); the observations DB is read-only from the Catalog's perspective.
 
-**`altaz_ready` / `FastAltAz`** come from the Positioning context — Catalog uses them only to gate the altitude filter.
+**`altaz_ready` / `FastAltAz`** come from the Positioning context — Catalog uses them only to gate the altitude filter and to detect its staleness (see **Stale**).
 
 ## Flagged ambiguities
 
@@ -182,6 +236,7 @@ _Avoid_: readonly list, immutable view.
   - **Selected object** = the single object currently displayed in `UIObjectDetails`. UI-cursor concept.
   - The catalog-level concept used to be called "selected catalogs" in code and is still named that way (`CatalogFilter.selected_catalogs`, `Catalog.is_selected()`). In **prose** we now say "enabled catalog" to avoid confusion with the selected object. Don't rename the code identifiers — just the words you use to talk about them.
 - **"Filtered"** vs **"enabled"** — filtered is per-object inside a catalog; enabled is whole-catalog in/out. They compose: a filtered-out object can live in an enabled catalog.
+- **"Entry"** — never bare. An **observing list entry** is the parsed interchange item from a list file; a **catalog listing** is a `catalog_objects` DB row. They are unrelated despite both sounding like "entry".
 
 ## Example dialogue
 
@@ -196,3 +251,7 @@ _Avoid_: readonly list, immutable view.
 > **Dev:** What if no galaxies are logged yet?
 >
 > **Domain:** Then `filtered_objects` is empty — which is fine. Watch out though: if you bound the type list to a UI list and the user unchecks everything, you'll send `object_types=[]`, which **rejects everything**. Only `None` means "don't filter on type."
+>
+> **Dev:** The user loads an observing list with "M 31" and a nameless target at some RA/Dec. What comes out?
+>
+> **Domain:** Two **observing list entries**. "M 31" is **catalog-keyed**, so **resolution** finds the existing `CompositeObject` — same `object_id`, same logged state. The RA/Dec one is a **coordinate entry**; it can't resolve, so it's minted as a **coordinate object** with a fresh **virtual ID** under catalog code `OBS`. Don't call either one a "catalog listing" — that's a DB row.

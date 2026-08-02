@@ -6,8 +6,9 @@ and adds keys to the provided queue
 
 """
 
-from time import sleep
+from time import sleep, time
 import libinput
+from PiFinder import keypad
 from PiFinder.keyboard_interface import KeyboardInterface
 import RPi.GPIO as GPIO
 import logging
@@ -17,64 +18,35 @@ logger = logging.getLogger("Keyboard.Pi")
 
 
 class KeyboardPi(KeyboardInterface):
-    def __init__(self, q, bloom_remap=False):
+    def __init__(self, q):
         self.q = q
 
-        # GPIO pin numbers for the rows and columns of the keyboard matrix
-        self.cols = [16, 23, 26, 27]
-        self.rows = [19, 17, 18, 22, 20]
+        # Matrix wiring and keymaps live in PiFinder.keypad, which is
+        # import-safe (no RPi.GPIO / libinput) so bring-up and the unit tests
+        # can read the same tables this scanner runs on.
+        self.cols = keypad.MATRIX_COLS
+        self.rows = keypad.MATRIX_ROWS
+        self.power_gpio = keypad.POWER_GPIO
 
-        if bloom_remap:
-            _up = self.RIGHT
-            _down = self.LEFT
-            _left = self.UP
-            _right = self.DOWN
-            _lng_up = self.LNG_RIGHT
-            _lng_down = self.LNG_LEFT
-            _lng_left = self.LNG_UP
-            _lng_right = self.LNG_DOWN
-            _alt_up = self.ALT_RIGHT
-            _alt_down = self.ALT_LEFT
-            _alt_left = self.ALT_UP
-            _alt_right = self.ALT_DOWN
-        else:
-            _up = self.UP
-            _down = self.DOWN
-            _left = self.LEFT
-            _right = self.RIGHT
-            _lng_up = self.LNG_UP
-            _lng_down = self.LNG_DOWN
-            _lng_left = self.LNG_LEFT
-            _lng_right = self.LNG_RIGHT
-            _alt_up = self.ALT_UP
-            _alt_down = self.ALT_DOWN
-            _alt_left = self.ALT_LEFT
-            _alt_right = self.ALT_RIGHT
+        # Timer for power-off debounce, and latch so we only emit
+        # one POWER_BTN per physical press
+        self.power_press_time = 0
+        self.power_sent = False
 
-        # fmt: off
-        self.keymap = [
-            7 , 8 , 9 , self.NA,
-            4 , 5 , 6 , self.PLUS,
-            1 , 2 , 3 , self.MINUS,
-            self.NA, 0 , self.NA, self.SQUARE,
-            _left, _up , _down , _right,
-        ]
+        self.keymap = keypad.KEYMAP
         # If SQUARE is pressed together with key, ALT_<key> is sent
-        self.alt_keymap = [
-            self.NA, self.NA, self.NA, self.NA,
-            self.NA, self.NA, self.NA, self.ALT_PLUS,
-            self.NA, self.NA, self.NA, self.ALT_MINUS,
-            self.NA, self.ALT_0, self.NA, self.NA,
-            _alt_left, _alt_up, _alt_down, _alt_right,
-        ]
-        self.long_keymap = [
-            self.NA, self.NA, self.NA, self.NA,
-            self.NA, self.NA, self.NA, self.NA,
-            self.NA, self.NA, self.NA, self.NA,
-            self.NA, self.NA, self.NA, self.LNG_SQUARE,
-            _lng_left, _lng_up, _lng_down, _lng_right,
-        ]
-        # fmt: on
+        self.alt_keymap = keypad.ALT_KEYMAP
+        self.long_keymap = keypad.LONG_KEYMAP
+
+        # Derive keycodes from the keymap so they track the matrix layout
+        # (cols/rows) rather than being hard-coded. SQUARE is the brightness/
+        # alt-chord modifier; the d-pad up/down buttons auto-repeat when held.
+        self.square_keycodes = {
+            i for i, v in enumerate(self.keymap) if v == self.SQUARE
+        }
+        self.repeat_keycodes = {
+            i for i, v in enumerate(self.keymap) if v in (self.UP, self.DOWN)
+        }
 
         # physical keyboard support init
         self.li_kb = libinput.LibInput(context_type=libinput.ContextType.UDEV)
@@ -119,6 +91,10 @@ class KeyboardPi(KeyboardInterface):
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.rows, GPIO.IN)
         GPIO.setup(self.cols, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+        # Setup power GPIO, no pullup needed, has it's own
+        GPIO.setup(self.power_gpio, GPIO.IN)
+
         pressed = set()
         alt_sent = False
         hold_counter = 0
@@ -134,7 +110,7 @@ class KeyboardPi(KeyboardInterface):
                 hold_counter += 1
                 if hold_counter > scan_freq:
                     # Held for more than 1 second
-                    if list(pressed)[-1] in [17, 18]:
+                    if list(pressed)[-1] in self.repeat_keycodes:
                         # Up/Down arrows repeat
                         self.q.put(self.keymap[list(pressed)[-1]])
                         hold_counter = int(scan_freq / 1.05)
@@ -150,7 +126,7 @@ class KeyboardPi(KeyboardInterface):
             for i in range(len(self.rows)):
                 GPIO.setup(self.rows[i], GPIO.OUT, initial=GPIO.LOW)
                 for j in range(len(self.cols)):
-                    keycode = i * len(self.cols) + j
+                    keycode = keypad.keymap_index(i, j)
                     newval = GPIO.input(self.cols[j]) == GPIO.LOW
                     if newval and keycode not in pressed:
                         # initial press
@@ -158,12 +134,12 @@ class KeyboardPi(KeyboardInterface):
                     elif not newval and keycode in pressed:
                         # release
                         pressed.discard(keycode)
-                        if 15 in pressed:
-                            # Released while ENT is pressed
+                        if pressed & self.square_keycodes:
+                            # Released while SQUARE is pressed
                             alt_sent = True
                             self.q.put(self.alt_keymap[keycode])
                         else:
-                            if keycode == 15 and alt_sent:
+                            if keycode in self.square_keycodes and alt_sent:
                                 alt_sent = False
                             elif hold_sent:
                                 hold_sent = False
@@ -171,8 +147,21 @@ class KeyboardPi(KeyboardInterface):
                                 self.q.put(self.keymap[keycode])
                 GPIO.setup(self.rows[i], GPIO.IN)
 
+            # Check power button explicitly it is wired directly to a GPIO
+            # and goes LOW when pressed
+            if not GPIO.input(self.power_gpio):
+                if self.power_press_time == 0:
+                    self.power_press_time = time()
+                else:
+                    if time() - self.power_press_time > 1 and not self.power_sent:
+                        self.q.put(self.POWER_BTN)
+                        self.power_sent = True
+            else:
+                self.power_press_time = 0
+                self.power_sent = False
 
-def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
+
+def run_keyboard(q, shared_state, log_queue):
     MultiprocLogging.configurer(log_queue)
-    keyboard = KeyboardPi(q, bloom_remap=bloom_remap)
+    keyboard = KeyboardPi(q)
     keyboard.run_keyboard(log_queue)

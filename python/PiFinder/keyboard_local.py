@@ -104,7 +104,7 @@ class KeyboardLocal(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
+def run_keyboard(q, shared_state, log_queue):
     MultiprocLogging.configurer(log_queue)
     KeyboardLocal(q)
 

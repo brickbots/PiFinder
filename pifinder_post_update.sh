@@ -55,6 +55,14 @@ then
     touch /home/pifinder/PiFinder_data/migrations/v2.6.0
 fi
 
+# v2.6.1
+# RemoveIPC=no so SSH logouts can't reap the solver's shared memory
+if ! [ -f "/home/pifinder/PiFinder_data/migrations/v2.6.1" ]
+then
+    source /home/pifinder/PiFinder/migration_source/v2.6.1.sh
+    touch /home/pifinder/PiFinder_data/migrations/v2.6.1
+fi
+
 # DONE
 echo "Post Update Complete"
 

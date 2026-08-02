@@ -13,10 +13,12 @@ from PIL import Image
 from PiFinder import config
 from PiFinder.camera_interface import CameraInterface
 from PiFinder.sqm import get_camera_profile, detect_camera_type
+from PiFinder.sqm.radiometer import collect_radiometer_sample
 from typing import Tuple
 import logging
 from PiFinder.multiproclogging import MultiprocLogging
 import numpy as np
+import time
 
 logger = logging.getLogger("Camera.Pi")
 
@@ -42,6 +44,7 @@ class CameraPI(CameraInterface):
 
         # Initialize runtime gain from profile (can be changed via commands)
         self.gain = self.profile.analog_gain
+        self._radiometer_sequence = 0
 
         self.camType = f"PI {self.camera_type}"
         self.initialize()
@@ -89,11 +92,44 @@ class CameraPI(CameraInterface):
             f"Captured frame - Requested: {self.exposure_time}µs/{self.gain}x gain, "
             f"Actual: {actual_exposure}µs/{actual_gain:.2f}x gain"
         )
+        # Sensor die temperature (diagnostic only): the black level wanders
+        # ±2 ADU night-to-night and temperature is the prime suspect. Not all
+        # sensors report it (imx296/HQ drivers may omit or mistype the key);
+        # temperature must never be able to break a capture.
+        try:
+            temp = metadata.get("SensorTemperature")
+            self.last_sensor_temp = float(temp) if temp is not None else None
+        except (TypeError, ValueError):
+            self.last_sensor_temp = None
+        # Full driver metadata for the latest frame: calibration and sweeps
+        # need the ACTUAL ExposureTime (drivers deliver transitional frames at
+        # other-than-requested exposures) and whatever else this sensor's
+        # driver chooses to report.
+        self.last_frame_metadata = metadata
 
         _request.release()
 
         # Apply camera-specific crop and rotation
         raw_capture = self.profile.crop_and_rotate(raw_capture)
+
+        # Reduce the matrix while it is local to the camera process. The solver
+        # can publish radiometric SQM from this small sample without a solve and
+        # without copying/scanning the raw frame on every capture.
+        if hasattr(self, "shared_state"):
+            self._radiometer_sequence += 1
+            try:
+                radiometer_exposure = float(actual_exposure) / 1_000_000.0
+            except (TypeError, ValueError):
+                radiometer_exposure = float(self.exposure_time) / 1_000_000.0
+            sample = collect_radiometer_sample(
+                raw_capture,
+                self.profile,
+                radiometer_exposure,
+                sequence=self._radiometer_sequence,
+                captured_at=time.time(),
+            )
+            if sample is not None:
+                self.shared_state.set_sqm_radiometer_sample(sample)
 
         # Store raw in shared state (before processing) for calibration and analysis
         if hasattr(self, "shared_state"):
@@ -168,6 +204,12 @@ class CameraPI(CameraInterface):
         For RGB sensors:
         - Converts to grayscale
         - Saves without Bayer pattern suffix
+
+        The square crop is never applied here, and there is deliberately no
+        option to apply it. The crop is a plain slice, so the full frame is a
+        superset and ``profile.ensure_cropped()`` reproduces the cropped frame
+        from it exactly -- while margins not written now are gone for good.
+        Live photometry is unaffected: it reads ``cam_raw()``, still the crop.
         """
         _request = self.camera.capture_request()
         # raw is actually 16 bit
@@ -184,8 +226,18 @@ class CameraPI(CameraInterface):
 
         _request.release()
 
-        # Apply camera-specific crop and rotation (preserves Bayer pattern alignment)
-        raw_capture = self.profile.crop_and_rotate(raw_capture)
+        # Expose this frame's driver metadata and its CROPPED pixels so the
+        # sweep capture can record per-image radiometry (exposure sweeps are
+        # the only caller; both are overwritten on every raw capture).
+        #
+        # Note the asymmetry, and that it is deliberate: the TIFF written below
+        # is full-sensor, while these statistics cover the crop. They are the
+        # black-level-versus-temperature series, and the vignetted margins
+        # would shift every mean and percentile, silently ending comparability
+        # with the archive taken before sweeps went full-sensor. Full-sensor
+        # statistics stay computable from the TIFF.
+        self.last_frame_driver_metadata = metadata
+        self.last_cropped_frame = self.profile.crop_and_rotate(raw_capture)
 
         # Determine if we need to flag for debayering
         needs_debayer = False

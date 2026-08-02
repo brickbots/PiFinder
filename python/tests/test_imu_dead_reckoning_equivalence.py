@@ -26,7 +26,18 @@ from PiFinder.pointing_model.imu_dead_reckoning_legacy import (
 from PiFinder.types.coordinates import RaDecRoll
 
 
-SCREEN_DIRECTIONS = ["flat", "flat3", "left", "right", "straight", "as_bloom"]
+SCREEN_DIRECTIONS = [
+    "flat",
+    "flat3",
+    "left",
+    "right",
+    "straight",
+    "as_bloom",
+    "as_heart",
+    "rev4_left",
+    "rev4_right",
+    "rev4_straight",
+]
 
 # Alignment offset for the "real_offset" parametrize value: derives a fixed
 # q_cam2aligned from a (cam, aligned) pair that the legacy class uses for

@@ -36,7 +36,14 @@ from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
 from PiFinder import server
+from PiFinder import timez
 from PiFinder import keyboard_interface
+import PiFinder.sound as sound
+from PiFinder.types.sound import Earcon, SetVolume
+from PiFinder.battery_bq25895 import (
+    POLL_INTERVAL as BATTERY_POLL_INTERVAL,
+    LowBatteryWarner,
+)
 
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
@@ -54,7 +61,7 @@ from PiFinder.displays import DisplayBase, get_display
 
 import PiFinder.manager_patch as patch
 
-from typing import Any, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 # Mypy i8n fix
 if TYPE_CHECKING:
@@ -370,6 +377,8 @@ def main(
     posserver_logqueue: Queue = log_helper.get_queue()
     integrator_logqueque: Queue = log_helper.get_queue()
     imu_logqueue: Queue = log_helper.get_queue()
+    battery_logqueue: Queue = log_helper.get_queue()
+    sound_logqueue: Queue = log_helper.get_queue()
 
     # Refuse to start if another instance is already running. A second copy
     # would otherwise boot and let its subsystems (web/pos-server ports, cedar
@@ -407,8 +416,17 @@ def main(
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
-    if cfg.get_option("screen_direction") == "as_bloom":
-        display_device.device.rotate = 3
+
+    # Now that the keypad backlights are up, turn off the Raspberry Pi's red
+    # power LED — it's a bright, fixed-on light that hurts night vision.  The
+    # LED is on/off only (not dimmable).  Best-effort; never block startup.
+    try:
+        utils.get_sys_utils().set_power_led(False)
+    except Exception as e:
+        logger.warning("Could not turn off power LED: %s", e)
+
+    if cfg.get_option("screen_direction") in ["as_bloom", "as_heart"]:
+        display_device.device.rotate = 2
 
     # Set user interface language
     lang = cfg.get_option("language", "en")
@@ -425,6 +443,7 @@ def main(
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
+        shared_state.set_hardware(capabilities)
         logger.debug("Ui state in main is" + str(shared_state.ui_state()))
         console = UIConsole(
             display_device, None, shared_state, command_queues, cfg, Catalogs([])
@@ -453,14 +472,10 @@ def main(
         console.write("   Keyboard")
         logger.info("   Keyboard")
         console.update()
-        if cfg.get_option("screen_direction") == "as_bloom":
-            bloom_key_remap = True
-        else:
-            bloom_key_remap = False
         keyboard_process = Process(
             name="Keyboard",
             target=keyboard.run_keyboard,
-            args=(keyboard_queue, shared_state, keyboard_logqueue, bloom_key_remap),
+            args=(keyboard_queue, shared_state, keyboard_logqueue),
         )
         keyboard_process.start()
         if script_name:
@@ -519,6 +534,40 @@ def main(
             args=(shared_state, console_queue, imu_logqueue),
         )
         imu_process.start()
+
+        # Battery monitor (rev4 BQ25895 only; read-only telemetry)
+        if capabilities.has_bq25895:
+            console.write("   Battery")
+            logger.info("   Battery")
+            console.update()
+            battery_process = Process(
+                name="Battery",
+                target=battery.battery_monitor,
+                args=(shared_state, console_queue, ui_queue, battery_logqueue),
+            )
+            battery_process.start()
+
+        # Sound / earcons (rev4 buzzer only; real hardware only — there is no
+        # PWM to drive under -fh, so dev stays silent and sound_queue is None).
+        # request() no-ops on the None queue (see PiFinder.sound).
+        sound_queue: Optional[Queue] = None
+        sound_process = None
+        if capabilities.has_buzzer and hardware_platform == "Pi":
+            console.write("   Sound")
+            logger.info("   Sound")
+            console.update()
+            sound_queue = Queue()
+            sound_process = Process(
+                name="Sound",
+                target=sound.sound_monitor,
+                args=(sound_queue, shared_state, sound_logqueue),
+            )
+            sound_process.start()
+            # Push the configured level (applied silently), then the startup
+            # cue. Restarts are intentionally not distinguished — every boot
+            # plays STARTUP.
+            sound_queue.put(SetVolume(cfg.get_option("sound_volume")))
+            sound.request(sound_queue, Earcon.STARTUP)
 
         # Solver
         console.write("   Solver")
@@ -623,6 +672,12 @@ def main(
 
             logger.info("Pygame event polling enabled for keyboard input")
             pygame_key_map, pygame_ctrl_key_map = _build_pygame_keymaps()
+
+        # Advisory low-battery warnings (ADR 0021). UI-only: the shutdown
+        # trigger lives in the battery monitor and keys on ADC validity,
+        # never on this estimate.
+        low_battery_warner = LowBatteryWarner()
+        last_battery_watch = 0.0
 
         log_time = True
         # Start of main except handler / loop
@@ -747,9 +802,14 @@ def main(
                     logger.info(
                         "All catalogs loaded - WDS and extended catalogs available"
                     )
+                    # Mark the filter dirty so downstream consumers that cache
+                    # off dirty_time (e.g. the chart's nearby-DSO spatial index)
+                    # rebuild to include the newly available objects.
+                    if catalogs.catalog_filter is not None:
+                        catalogs.catalog_filter.mark_dirty()
                     menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
-                    dt = datetime.datetime(2025, 6, 28, 11, 0, 0)
+                    dt = timez.utc(2025, 6, 28, 11, 0, 0)
                     shared_state.set_datetime(dt)
                     location.lat = 41.13
                     location.lon = -120.97
@@ -758,9 +818,7 @@ def main(
                     location.error_in_m = 5
                     location.lock = True
                     location.lock_type = 3
-                    location.last_gps_lock = (
-                        datetime.datetime.now().time().isoformat()[:8]
-                    )
+                    location.last_gps_lock = timez.local_now().time().isoformat()[:8]
                     console.write(
                         f"GPS: Location {location.lat} {location.lon} {location.altitude}"
                     )
@@ -770,6 +828,71 @@ def main(
                         location.lon,
                         location.altitude,
                     )
+                elif ui_command == "set_volume":
+                    # Master volume changed in the menu: re-push the level
+                    # (main owns both cfg and sound_queue). The player plays
+                    # VOLUME_SAMPLE at the new level as feedback.
+                    if sound_queue is not None:
+                        sound_queue.put(SetVolume(cfg.get_option("sound_volume")))
+                elif ui_command == "play_shutdown_sound":
+                    # Shutdown chokepoint. Best-effort delivery can't promise
+                    # the cue beats the GPIO14 power latch, so play SHUTDOWN and
+                    # wait its catalog duration + margin *before* the OS
+                    # shutdown takes the buzzer process down (ADR 0008 / 0007).
+                    # callbacks.shutdown routes here because it does not hold
+                    # sound_queue; doing the wait + shutdown here guarantees the
+                    # ordering. Shutdown still happens with no buzzer.
+                    if sound_queue is not None:
+                        sound.request(sound_queue, Earcon.SHUTDOWN)
+                        time.sleep(
+                            sound.total_duration_ms(Earcon.SHUTDOWN) / 1000.0 + 0.5
+                        )
+                    utils.get_sys_utils().shutdown()
+                elif ui_command == "low_battery_shutdown":
+                    # ADR 0021: the battery monitor saw sustained ADC-blind
+                    # reads on battery — the cell is below the blind floor and
+                    # the unwarned hard power cut is due within the hour. Show
+                    # the final warning, then route through the user-shutdown
+                    # chokepoint above (next loop pass picks it up) so the
+                    # SHUTDOWN earcon wait and GPIO14 latch ordering hold.
+                    logger.warning("Low battery: shutting down (ADC blind floor)")
+                    console.write("Low battery: shutting down")
+                    menu_manager.message(_("Low battery\nShutting down"), 10)
+                    if hardware_platform == "Pi":
+                        ui_queue.put("play_shutdown_sound")
+                    else:
+                        # -fh: the request came from battery_fake's scripted
+                        # blind tail. Show the UX but never power off the
+                        # host — it may be a real Pi (docs screenshots over
+                        # SSH) or a dev box with a working sys_utils.
+                        logger.warning("Fake hardware platform: skipping OS shutdown")
+
+                # Low-battery warnings (ADR 0021): watch the estimated state
+                # of charge fall through the advisory thresholds. Sampled at
+                # the battery monitor's own cadence — it can't change faster.
+                # Monotonic clock: a backwards GPS/NTP time step must not
+                # silence the watcher (same reason PlayEarcon stamps
+                # monotonic, see ADR 0008).
+                if time.monotonic() - last_battery_watch >= BATTERY_POLL_INTERVAL:
+                    last_battery_watch = time.monotonic()
+                    battery_state = shared_state.battery()
+                    if battery_state is not None:
+                        warn_pct = low_battery_warner.update(
+                            battery_state.state_of_charge_pct,
+                            battery_state.on_external_power,
+                        )
+                        if warn_pct is not None:
+                            logger.warning(
+                                "Low battery: %d%% runtime remaining", warn_pct
+                            )
+                            console.write(f"Low battery: {warn_pct}%")
+                            # NB: keep "%" at the end of the msgid — babel
+                            # parses "% l"-like sequences as python-format
+                            # placeholders and then rejects the catalogs.
+                            menu_manager.message(
+                                _("Low battery\nat {pct}%").format(pct=warn_pct), 3
+                            )
+                            sound.request(sound_queue, Earcon.LOW_BATTERY)
 
                 # Keyboard
                 keycode = None
@@ -781,7 +904,16 @@ def main(
 
                 # Register activity here will return True if the power
                 # state changes.  If so, we DO NOT process this keystroke
-                if keycode is not None and power_manager.register_activity() is False:
+                woke_up = False
+                if keycode is not None:
+                    woke_up = power_manager.register_activity()
+
+                if keycode is not None and not woke_up:
+                    # Beep on accepted keys, except the wake-up press (handled
+                    # above) and POWER_BTN (which opens shutdown — that path has
+                    # its own SHUTDOWN cue).
+                    if keycode != keyboard_base.POWER_BTN:
+                        sound.request(sound_queue, Earcon.KEYPRESS)
                     # ignore keystroke if we have been asleep
                     if keycode > 99:
                         # Long left is return to top
@@ -795,6 +927,10 @@ def main(
                         # Long square is marking menu
                         if keycode == keyboard_base.LNG_SQUARE:
                             menu_manager.key_long_square()
+
+                        # Power button: jump to / confirm shutdown
+                        if keycode == keyboard_base.POWER_BTN:
+                            menu_manager.key_power()
 
                         # Special codes....
                         if (
@@ -966,6 +1102,12 @@ def main(
             logger.info("\tSolver...")
             solver_process.join()
 
+            if sound_process is not None:
+                logger.info("\tSound...")
+                # SIGTERM -> the player's finally silences/releases the buzzer.
+                sound_process.terminate()
+                sound_process.join()
+
             log_helper.join()
             exit()
 
@@ -1013,6 +1155,15 @@ if __name__ == "__main__":
         "-fh",
         "--fakehardware",
         help="Use fake hardware for imu, gps",
+        default=False,
+        action="store_true",
+        required=False,
+    )
+    parser.add_argument(
+        "-fb",
+        "--fakebattery",
+        help="With --fakehardware, run the fake battery monitor "
+        "(rev4 has_bq25895 capability, shows the battery indicator)",
         default=False,
         action="store_true",
         required=False,
@@ -1104,9 +1255,32 @@ if __name__ == "__main__":
         imu = importlib.import_module("PiFinder.imu_fake")
         integrator = importlib.import_module("PiFinder.integrator")
         gps_monitor = importlib.import_module("PiFinder.gps_fake")
+        # -fh alone emulates rev3 hardware (no battery indicator, keeps
+        # docs screenshots consistent); add -fb to emulate the rev4 BQ25895
+        # and run the fake battery monitor. has_buzzer is set for
+        # consistency, but the sound process is gated on real hardware
+        # (hardware_platform == "Pi") and so stays unspawned here — dev has
+        # no PWM/buzzer (handoff watch-out #4).
+        from PiFinder.types.hardware import HardwareCapabilities
+
+        capabilities = HardwareCapabilities(
+            has_bq25895=args.fakebattery, has_buzzer=True
+        )
+        if args.fakebattery:
+            battery = importlib.import_module("PiFinder.battery_fake")
     else:
         hardware_platform = "Pi"
-        display_hardware = "ssd1351"
+        # Probe the real board; the battery monitor only spawns if a
+        from PiFinder import hardware_detect
+
+        capabilities = hardware_detect.detect_capabilities()
+
+        if capabilities.has_bq25895:
+            # BQ25895 is actually present (rev4 hardware).
+            battery = importlib.import_module("PiFinder.battery_bq25895")
+            display_hardware = "ssd1333"
+        else:
+            display_hardware = "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
 
         cfg = config.Config()
@@ -1171,7 +1345,7 @@ if __name__ == "__main__":
         rlogger.warning("using no keyboard")
 
     if args.lang:
-        if args.lang.lower() not in ["en", "de", "fr", "es"]:
+        if args.lang.lower() not in ["en", "de", "fr", "es", "zh"]:
             raise Exception(f"Unknown language '{args.lang}' passed via command line.")
         else:
             config.Config().set_option("language", args.lang)

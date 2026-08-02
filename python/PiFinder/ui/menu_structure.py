@@ -1,4 +1,5 @@
 from typing import Any
+from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.timeentry import UITimeEntry
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_list import UIObjectList
@@ -15,6 +16,7 @@ from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.sqm import UISQM
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
+from PiFinder.ui.obs_list import UIObsList
 from PiFinder.ui.locationentry import UILocationEntry
 from PiFinder.ui.radec_entry import UIRADecEntry
 from PiFinder.ui.telemetry_list import UITelemetryList
@@ -95,7 +97,7 @@ pifinder_menu = {
                             "value": "PL",
                         },
                         {
-                            "name": "Comets",
+                            "name": _("Comets"),
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "CM",
@@ -261,6 +263,10 @@ pifinder_menu = {
                     "label": "recent",
                 },
                 {
+                    "name": _("Obs Lists"),
+                    "class": UIObsList,
+                },
+                {
                     "name": _("Custom"),
                     "class": UIRADecEntry,
                     "custom_callback": callbacks.handle_radec_entry,
@@ -412,67 +418,13 @@ pifinder_menu = {
                             "class": UITextMenu,
                             "select": "multi",
                             "config_option": "filter.object_types",
+                            # Items are generated from the single OBJ_TYPES source
+                            # so the code set and labels can't drift. Labels are
+                            # the English msgids (extracted via obj_types.py) and
+                            # translated at render time by UITextMenu.
                             "items": [
-                                {
-                                    "name": _("Galaxy"),
-                                    "value": "Gx",
-                                },
-                                {
-                                    "name": _("Open Cluster"),
-                                    "value": "OC",
-                                },
-                                {
-                                    "name": _("Cluster/Neb"),
-                                    "value": "C+N",
-                                },
-                                {
-                                    "name": _("Globular"),
-                                    "value": "Gb",
-                                },
-                                {
-                                    "name": _("Nebula"),
-                                    "value": "Nb",
-                                },
-                                {
-                                    "name": _("P. Nebula"),
-                                    "value": "PN",
-                                },
-                                {
-                                    "name": _("Dark Nebula"),
-                                    "value": "DN",
-                                },
-                                {
-                                    "name": _("Star"),
-                                    "value": "*",
-                                },
-                                {
-                                    "name": _("Double Str"),
-                                    "value": "D*",
-                                },
-                                {
-                                    "name": _("Triple Str"),
-                                    "value": "***",
-                                },
-                                {
-                                    "name": _("Knot"),
-                                    "value": "Kt",
-                                },
-                                {
-                                    "name": _("Asterism"),
-                                    "value": "Ast",
-                                },
-                                {
-                                    "name": _("Planet"),
-                                    "value": "Pla",
-                                },
-                                {
-                                    "name": _("Comet"),
-                                    "value": "CM",
-                                },
-                                {
-                                    "name": _("Unknown"),
-                                    "value": "?",
-                                },
+                                {"name": label, "value": code}
+                                for code, label in OBJ_TYPES.items()
                             ],
                         },
                         {
@@ -636,6 +588,21 @@ pifinder_menu = {
                                     "name": "3",
                                     "value": "+3",
                                 },
+                            ],
+                        },
+                        {
+                            "name": _("Volume"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "sound_volume",
+                            "post_callback": callbacks.apply_sound_volume,
+                            "items": [
+                                {"name": _("Off"), "value": "Off"},
+                                {"name": "1", "value": "1"},
+                                {"name": "2", "value": "2"},
+                                {"name": "3", "value": "3"},
+                                {"name": "4", "value": "4"},
+                                {"name": "5", "value": "5"},
                             ],
                         },
                         {
@@ -1061,6 +1028,22 @@ pifinder_menu = {
                                     "name": _("AS Bloom"),
                                     "value": "as_bloom",
                                 },
+                                {
+                                    "name": _("AS Heart"),
+                                    "value": "as_heart",
+                                },
+                                {
+                                    "name": _("Rev4 Left"),
+                                    "value": "rev4_left",
+                                },
+                                {
+                                    "name": _("Rev4 Right"),
+                                    "value": "rev4_right",
+                                },
+                                {
+                                    "name": _("Rev4 Straight"),
+                                    "value": "rev4_straight",
+                                },
                             ],
                         },
                         {
@@ -1201,6 +1184,9 @@ pifinder_menu = {
                         },
                         {
                             "name": _("Set Time/Date"),
+                            # UITimeEntry self-gates on a location fix (it needs
+                            # the observer's zone); it shows a "set location
+                            # first" notice and the user backs out. See ADR 0019.
                             "class": UITimeEntry,
                             "custom_callback": callbacks.set_time,
                         },
@@ -1289,8 +1275,8 @@ pifinder_menu = {
                             "select": "Single",
                             "label": "shutdown",
                             "items": [
-                                {"name": "Confirm", "callback": callbacks.shutdown},
-                                {"name": "Cancel", "callback": callbacks.go_back},
+                                {"name": _("Confirm"), "callback": callbacks.shutdown},
+                                {"name": _("Cancel"), "callback": callbacks.go_back},
                             ],
                         },
                         {

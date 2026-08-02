@@ -68,7 +68,7 @@ def _solution_to_dict(sol) -> dict:
       camera-axis pointing).
     * ``camera_solve`` ← ``pointing.camera.solve`` (the IMU-untouched
       plate-solve at the camera centre).
-    * ``solve_time`` ← ``estimate_time`` (renamed in ADR-0004; the old key
+    * ``solve_time`` ← ``estimate_time`` (renamed in ADR-0013; the old key
       is kept here for wire compatibility).
 
     ``imu_quat`` from the old dict is intentionally dropped — it was a raw

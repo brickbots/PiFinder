@@ -65,7 +65,29 @@ grep -q "dtoverlay=pwm,pin=13,func=4" /boot/config.txt || \
    echo "dtoverlay=pwm,pin=13,func=4" | sudo tee -a /boot/config.txt
 grep -q "dtoverlay=uart3" /boot/config.txt || \
    echo "dtoverlay=uart3" | sudo tee -a /boot/config.txt
+
+# Power-off latch (rev4): at kernel poweroff drive GPIO14 low -> LTC2954 KILL ->
+# TPS61088 boost EN off -> power cut. active_low + the hardware pull-up on GPIO14
+# keep the pin high (power on) through boot/reboot. No-op on rev3. See ADR 0007.
+grep -q "dtoverlay=gpio-poweroff" /boot/config.txt || \
+   echo "dtoverlay=gpio-poweroff,gpiopin=14,active_low" | sudo tee -a /boot/config.txt
+
+# Free GPIO14 (UART0 TXD) for the power-off latch: drop the serial console so the
+# kernel doesn't drive console bytes onto the kill line. Leaves enable_uart/BT alone.
+sudo sed -i 's/console=serial0,[0-9]\+ //' /boot/cmdline.txt
+sudo systemctl mask serial-getty@ttyAMA0.service
+
 # Note: camera types are added lateron by python/PiFinder/switch_camera.py
+
+# Keep POSIX shared memory alive across SSH logouts: logind's default
+# RemoveIPC=yes deletes all IPC owned by the pifinder user (including the
+# solver's cedar-detect /dev/shm segment) the moment that user's last login
+# session ends — the PiFinder services run as pifinder but hold no login
+# session of their own, so a plain SSH logout used to degrade solving.
+# The solver also survives this in software (PFCedarDetectClient._del_shmem),
+# but this keeps the fast shared-memory handoff in place.
+sudo mkdir -p /etc/systemd/logind.conf.d
+printf '[Login]\nRemoveIPC=no\n' | sudo tee /etc/systemd/logind.conf.d/pifinder-removeipc.conf
 
 # Disable unwanted services
 sudo systemctl disable ModemManager

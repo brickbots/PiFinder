@@ -1,4 +1,5 @@
 import functools
+import math
 from collections import namedtuple
 
 import numpy as np
@@ -9,6 +10,7 @@ from luma.core.interface.serial import spi
 from luma.oled.device import ssd1351
 from luma.lcd.device import st7789
 
+from PiFinder import ssd1333_device
 from PiFinder.ssd1333_device import ssd1333
 
 from PiFinder.ui.fonts import Fonts
@@ -184,29 +186,118 @@ class Layout176:
 
 
 class DisplaySSD1333(Layout176, DisplayBase):
+    """1.91" 176x176 OLED.
+
+    Brightness comes from three settings that multiply together. Two are
+    registers fixing the current a lit pixel draws -- per-channel contrast
+    (0xC1) and master current control (0xC7, scaling by (master + 1) / 16) --
+    and the gray scale ceiling fixes how long it draws it for. Brightness is
+    expressed internally in units of contrast-at-full-master-and-full-ceiling,
+    so the registers span 0 to MAX_CONTRAST and the UI uses 0 to
+    MAX_BRIGHTNESS of that.
+
+    The two current registers alone are coarse at the dim end: their product is
+    always a whole number, so current-only brightness quantises to n/16 and
+    cannot go below MIN_DRIVE without the panel ceasing to emit. The gray scale
+    ceiling is what reaches below that, and see ADR 0023 for why it dims by
+    capping rendered pixel values rather than by rewriting the gray scale LUT.
+    """
+
+    # Highest per-channel contrast this panel drives cleanly; above it the
+    # display shows unwanted artifacts, so the UI's 0-255 brightness scale is
+    # remapped onto 0-MAX_CONTRAST rather than passed through.
+    MAX_CONTRAST = 160
+
+    # Measured: at master 0 the panel first emits at contrast 4, and nothing
+    # below it lights at all however the two current registers are arranged.
+    MIN_CONTRAST = 4
+
+    # Dimmest drive current the panel will light at, in the same units as
+    # MAX_CONTRAST. Below this the contrast register simply stops emitting.
+    MIN_DRIVE = MIN_CONTRAST / 16
+
+    # Drive current to aim for once the gray scale ceiling is doing the
+    # dimming. Sitting above the floor rather than on it leaves the contrast
+    # register room to interpolate between ceiling steps, which are coarse down
+    # there -- worth about a third off the largest jump between adjacent
+    # brightness settings, for a little tonal range at the very dim end.
+    DIM_DRIVE = 2 * MIN_DRIVE
+
+    # Brightest the UI will drive the panel, as a fraction of what the
+    # registers can reach. Measured: the top of the range blooms, bright pixels
+    # smearing into their neighbours, so full level is held to 70% of the
+    # available current.
+    MAX_BRIGHTNESS = 0.70 * MAX_CONTRAST
+
+    # Dimmest visible output: the current floor, duty-cycled down to the
+    # dimmest gray scale level that still emits.
+    MIN_BRIGHTNESS = (
+        MIN_CONTRAST
+        / 16
+        * (ssd1333_device.MIN_GRAY_SCALE_LEVEL - 1)
+        / (ssd1333_device.GRAY_SCALE_LEVELS - 1)
+    )
+
+    # Brightness rises as this power of the UI level. The UI adjusts level by a
+    # percentage rather than a fixed step, so a power law makes each keypress a
+    # roughly constant change all the way along -- here about 23%, against the
+    # 19% floor for covering a 13400:1 range in the ~45 presses the UI takes to
+    # cross it. Anything shallower cannot reach MIN_BRIGHTNESS at level 1 and
+    # strands the dim settings this display is usually run at; anything steeper
+    # starts repeating brightnesses on adjacent levels.
+    GAMMA = 2.5
+
     def __init__(self):
         # init display  (SPI hardware)
         serial = spi(device=0, port=0, bus_speed_hz=40000000)
-        device_serial = ssd1333(serial, width=176, height=176, rotate=0, bgr=True)
+        device_serial = ssd1333(serial, width=176, height=176, rotate=3, bgr=True)
         self.device = device_serial
         super().__init__()
 
+    def _drive_for(self, target):
+        """Register pair whose current drive lands closest to ``target``.
+
+        Master brightness is kept as low as it will go so the contrast
+        register stays high, which both keeps its DAC clear of the floor and
+        leaves the drive steps as fine as possible.
+        """
+        master = max(0, min(15, math.ceil(target * 16 / self.MAX_CONTRAST) - 1))
+        contrast = round(target * 16 / (master + 1))
+        return max(self.MIN_CONTRAST, min(self.MAX_CONTRAST, contrast)), master
+
     def set_brightness(self, level):
         """
-        Sets oled brightness 0-255, combining master brightness (0xC7)
-        and per-channel contrast (0xC1) for maximum dimming range.
+        Sets oled brightness 0-255 across all three brightness registers.
 
-        Levels 0-15:  both master and contrast scale together, giving
-                      very dim output below what contrast alone can achieve.
-        Levels 16-255: master at full, contrast varies linearly.
+        The level maps onto a target brightness over MIN_BRIGHTNESS to
+        MAX_BRIGHTNESS, which is then reached with drive current wherever
+        drive current can reach it. Only near MIN_DRIVE, where the contrast
+        register bottoms out, does the gray scale ceiling come down -- pulled
+        no further than the target needs, since lowering it costs the UI tonal
+        range. So every normal brightness renders at full tonal range, and the
+        ceiling takes over for the dim settings below.
         """
         level = max(0, min(255, level))
-        if level <= 15:
-            self.device.master_brightness(level)
-            self.device.contrast(level)
-        else:
-            self.device.master_brightness(15)
-            self.device.contrast(level)
+        if level == 0:
+            self.device.master_brightness(0)
+            self.device.contrast(0)
+            return
+
+        span = self.MAX_BRIGHTNESS - self.MIN_BRIGHTNESS
+        target = self.MIN_BRIGHTNESS + span * (level / 255) ** self.GAMMA
+
+        # Highest ceiling whose duty cycle still leaves the drive around
+        # DIM_DRIVE; full ceiling for anything at DIM_DRIVE or brighter.
+        steps = ssd1333_device.GRAY_SCALE_LEVELS - 1
+        gray = 1 + min(steps, math.floor(target * steps / self.DIM_DRIVE))
+        gray = max(ssd1333_device.MIN_GRAY_SCALE_LEVEL, gray)
+
+        duty = (gray - 1) / steps
+        contrast, master = self._drive_for(target / duty)
+
+        self.device.master_brightness(master)
+        self.device.contrast(contrast)
+        self.device.gray_scale_ceiling(gray)
 
 
 class DisplayPygame_176(Layout176, DisplayBase):

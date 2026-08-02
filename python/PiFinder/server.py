@@ -7,11 +7,12 @@ import os
 import argparse
 import sys
 import multiprocessing
-from datetime import datetime, timezone
+from datetime import timezone
 
 import pydeepskylog as pds
 from PIL import Image
 from PiFinder import utils, calc_utils, config
+from PiFinder import timez
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
@@ -45,6 +46,16 @@ logs_logger = logging.getLogger("Server.Logs")
 
 # Generate a secret to validate the auth cookie
 SESSION_SECRET = str(uuid.uuid4())
+
+
+def parse_coordinate(value, field_name):
+    """Parse a coordinate/measurement field, accepting comma or period decimals."""
+    if value is None:
+        raise ValueError(_("%s is required") % field_name)
+    try:
+        return float(str(value).strip().replace(",", "."))
+    except ValueError:
+        raise ValueError(_("%s must be a number") % field_name)
 
 
 def auth_required(func):
@@ -87,7 +98,7 @@ class MockSharedState:
 def server_locale():
     # Try to get from user preferences, session, or accept languages
     # For now, default to English
-    return request.accept_languages.best_match(["en", "fr", "de", "es"]) or "en"
+    return request.accept_languages.best_match(["en", "fr", "de", "es", "zh"]) or "en"
 
 
 class Server:
@@ -132,6 +143,7 @@ class Server:
             "LNG_DOWN": self.ki.LNG_DOWN,
             "LNG_RIGHT": self.ki.LNG_RIGHT,
             "LNG_SQUARE": self.ki.LNG_SQUARE,
+            "POWER_BTN": self.ki.POWER_BTN,
         }
 
         self.network = sys_utils.Network()
@@ -331,7 +343,7 @@ class Server:
             gps_lock(float(lat), float(lon), float(altitude))
             if time_req and date_req:
                 datetime_str = f"{date_req} {time_req}"
-                datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+                datetime_obj = timez.parse(datetime_str, "%Y-%m-%d %H:%M:%S")
                 datetime_utc = datetime_obj.replace(tzinfo=timezone.utc)
                 time_lock(datetime_utc)
             logger.debug(
@@ -356,11 +368,13 @@ class Server:
         @auth_required
         def location_add():
             try:
-                name = request.form.get("name").strip()
-                lat = float(request.form.get("latitude"))
-                lon = float(request.form.get("longitude"))
-                altitude = float(request.form.get("altitude"))
-                error_in_m = float(request.form.get("error_in_m", "0"))
+                name = (request.form.get("name") or "").strip()
+                lat = parse_coordinate(request.form.get("latitude"), _("Latitude"))
+                lon = parse_coordinate(request.form.get("longitude"), _("Longitude"))
+                altitude = parse_coordinate(request.form.get("altitude"), _("Altitude"))
+                error_in_m = parse_coordinate(
+                    request.form.get("error_in_m", "0"), _("Error")
+                )
                 source = request.form.get("source", "Manual Entry")
 
                 # Server-side validation
@@ -414,11 +428,13 @@ class Server:
                 if not (0 <= location_id < len(cfg.locations.locations)):
                     raise ValueError("Invalid location ID")
 
-                name = request.form.get("name").strip()
-                lat = float(request.form.get("latitude"))
-                lon = float(request.form.get("longitude"))
-                altitude = float(request.form.get("altitude"))
-                error_in_m = float(request.form.get("error_in_m", "0"))
+                name = (request.form.get("name") or "").strip()
+                lat = parse_coordinate(request.form.get("latitude"), _("Latitude"))
+                lon = parse_coordinate(request.form.get("longitude"), _("Longitude"))
+                altitude = parse_coordinate(request.form.get("altitude"), _("Altitude"))
+                error_in_m = parse_coordinate(
+                    request.form.get("error_in_m", "0"), _("Error")
+                )
                 source = request.form.get("source", "Manual Entry")
 
                 # Server-side validation
@@ -678,7 +694,7 @@ class Server:
                     try:
                         cfg.equipment.eyepieces.index(new_eyepiece)
                     except ValueError:
-                        cfg.equipment.eyepieces.add_eyepiece(new_eyepiece)
+                        cfg.equipment.add_eyepiece(new_eyepiece)
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
@@ -968,11 +984,10 @@ class Server:
         def download_logs():
             import zipfile
             import tempfile
-            from datetime import datetime
 
             try:
                 # Create a temporary zip file
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                timestamp = timez.local_now().strftime("%Y%m%d_%H%M%S")
 
                 with tempfile.NamedTemporaryFile(
                     delete=False, suffix=".zip"
@@ -1206,7 +1221,7 @@ class Server:
             self.gps_queue.put(msg)
             logger.debug("Putting location msg on gps_queue: {msg}")
 
-        def time_lock(time=datetime.now()):
+        def time_lock(time=timez.local_now()):
             msg = ("time", time)
             self.gps_queue.put(msg)
             logger.debug("Putting time msg on gps_queue: {msg}")

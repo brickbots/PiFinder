@@ -500,7 +500,7 @@ def test_locations_add_remote(driver):
     # before the API validation call (needed especially in Firefox).
     press_keys_and_validate(
         driver,
-        "ZLZLWUUUUUUURDDW",
+        "ZLZLWUUUUUUURDDDW",
         expected_values={
             "ui_type": "UITextMenu",
             "title": "Start",

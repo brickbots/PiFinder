@@ -17,6 +17,7 @@ from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
 from PiFinder.ui.marking_menus import MarkingMenu
 from PiFinder.catalogs import Catalogs
+from PiFinder.types.hardware import ChargeStatus
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -46,7 +47,9 @@ class RotatingInfoDisplay:
     def _get_text(self, use_sqm):
         if use_sqm:
             sqm = self.shared_state.sqm()
-            return f"{sqm.value:.1f}" if sqm and sqm.value else "---"
+            if sqm and sqm.last_update is not None:
+                return f"{sqm.value:.1f}"
+            return "---"
         else:
             sol = self.shared_state.solution()
             return sol.constellation if sol and sol.constellation else "---"
@@ -113,6 +116,16 @@ class UIModule:
     _PLUS_ = "󰐕"
     _MINUS_ = "󰍴"
     _PLUSMINUS_ = "󰐕/󰍴"
+    # Battery title-bar icons (Material Design glyphs in the bundled Nerd Font).
+    # Charging shows a single bolt glyph; otherwise the level is quantized into
+    # ~20% buckets with an "empty" glyph at <=10%.  See _battery_icon().
+    _BATT_CHARGING = "󰂄"  # F0084 battery + bolt
+    _BATT_EMPTY = "󰂎"  # F008E empty outline (<=10%)
+    _BATT_20 = "󰁻"  # F007B
+    _BATT_40 = "󰁽"  # F007D
+    _BATT_60 = "󰁿"  # F007F
+    _BATT_80 = "󰂁"  # F0081
+    _BATT_FULL = "󰁹"  # F0079
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
     _display_mode_list: Union[list[None], list[str]] = [None]  # List of display modes
@@ -260,6 +273,35 @@ class UIModule:
             fill=self.colors.get(0),
         )
 
+    def draw_gate_message(self, message: str) -> None:
+        """Render a full-screen "precondition not met" notice into ``self.screen``.
+
+        A module that gates itself on a runtime precondition (e.g. a location
+        fix) draws this from ``update`` in place of its normal UI and returns
+        early; the user reads it and backs out with LEFT/Cancel rather than
+        being blocked from opening the screen at all (see ADR 0019). Newlines
+        in ``message`` split it into centred lines; a Cancel hint is pinned to
+        the bottom-left, mirroring the entry screens' legends.
+        """
+        self.clear_screen()
+        font = self.fonts.bold
+        lines = message.split("\n")
+        line_h = font.height + 2
+        top = self.display_class.titlebar_height
+        block_h = line_h * len(lines)
+        y = top + max(4, (self.display_class.resY - top - block_h) // 2)
+        for line in lines:
+            text_w = font.font.getbbox(line)[2]
+            x = max(0, (self.display_class.resX - text_w) // 2)
+            self.draw.text((x, y), line, font=font.font, fill=self.colors.get(255))
+            y += line_h
+        self.draw.text(
+            (10, self.display_class.resY - self.fonts.base.height - 2),
+            _(" Cancel"),
+            font=self.fonts.base.font,
+            fill=self.colors.get(255),
+        )
+
     def message(self, message, timeout: float = 2, size=None):
         """
         Creates a box with text in the center of the screen.
@@ -300,6 +342,77 @@ class UIModule:
 
         self.ui_state.set_message_timeout(timeout + time.time())
 
+    def _battery_icon(self, battery) -> str:
+        """Pick the title-bar battery glyph for a ``BatteryState``.
+
+        Charging (the charger pulls voltage up, so ``state_of_charge_pct`` is
+        ``None``) shows a bolt; ADC-blind on battery (below the blind floor —
+        shutdown imminent, ADR 0021) shows empty; otherwise the state of
+        charge is quantized into ~20% buckets, with the empty glyph at <=10%
+        remaining.
+        """
+        if battery.charge_status in (
+            ChargeStatus.PRE_CHARGE,
+            ChargeStatus.FAST_CHARGING,
+        ):
+            return self._BATT_CHARGING
+
+        if battery.adc_blind:
+            return self._BATT_EMPTY
+
+        soc = battery.state_of_charge_pct
+        if soc is None:
+            # Not charging, not blind, yet no estimate (shouldn't happen) —
+            # fail safe to full.
+            return self._BATT_FULL
+        if soc <= 10:
+            return self._BATT_EMPTY
+        if soc <= 30:
+            return self._BATT_20
+        if soc <= 50:
+            return self._BATT_40
+        if soc <= 70:
+            return self._BATT_60
+        if soc <= 90:
+            return self._BATT_80
+        return self._BATT_FULL
+
+    def _draw_battery_icon(self, fg) -> bool:
+        """Draw the battery indicator to the left of the GPS/solver icons.
+
+        Only rendered on battery-enabled hardware once a real reading exists;
+        ``shared_state.battery()`` is ``None`` both on non-battery boards and in
+        the brief window before the monitor's first sample, so we show nothing
+        rather than a fake level.
+
+        returns True if the battery indicator was drawn (has battery)
+                False if no battery hardware
+        """
+        hardware = self.shared_state.hardware()
+        if not (hardware and hardware.has_bq25895):
+            return False
+        battery = self.shared_state.battery()
+        if battery is None:
+            return False
+
+        icon = self._battery_icon(battery)
+        font = self.fonts.icon_bold_large.font
+        # Sit just left of the GPS icon (resX * 0.8) with a small, proportional
+        # gap so the battery reads as its own group.  Battery hardware is always
+        # paired with a 176px+ display, so this clears the rotating
+        # constellation/SQM without needing to reflow it.
+        gps_x = self.display_class.resX * 0.8
+        icon_w = font.getlength(icon)
+        gap = self.display_class.resX * 0.035
+        self.draw.text(
+            (gps_x - icon_w - gap, -2),
+            icon,
+            font=font,
+            fill=fg,
+        )
+
+        return True
+
     def _draw_titlebar_rotating_info(self, x, y, fg):
         """Draw rotating constellation/SQM in title bar (dark text on gray bg)."""
         self._rotating_display.draw(
@@ -310,17 +423,6 @@ class UIModule:
             self.colors,
             max_brightness=64,
             inverted=True,
-        )
-
-    def draw_rotating_info(self, x=10, y=92, font=None):
-        """Draw rotating constellation/SQM display with cross-fade."""
-        self._rotating_display.draw(
-            self.draw,
-            x,
-            y,
-            font or self.fonts.bold.font,
-            self.colors,
-            max_brightness=255,
         )
 
     def screen_update(self, title_bar=True, button_hints=True) -> None:
@@ -346,14 +448,15 @@ class UIModule:
             # track titlebar_height across displays (was hardcoded for 128).
             title_y = max(0, (tb_height - self.fonts.bold.height) // 2)
             icon_y = (tb_height - self.fonts.icon_bold_large.height) // 2
-            if self.ui_state.show_fps():
-                self.draw.text(
-                    (6, title_y), str(self.fps), font=self.fonts.bold.font, fill=fg
-                )
-            else:
-                self.draw.text(
-                    (6, title_y), _(self.title), font=self.fonts.bold.font, fill=fg
-                )
+            title_text = str(self.fps) if self.ui_state.show_fps() else _(self.title)
+            # Truncate so the title never runs under the right-side status icons.
+            # They start at the GPS icon (~0.8*resX); leave a small gap. Derived
+            # from the screen size + bold font, so it adapts to 128/176/320.
+            title_max_px = int(self.display_class.resX * 0.8) - 6 - 4
+            title_max_chars = max(1, title_max_px // self.fonts.bold.width)
+            if len(title_text) > title_max_chars:
+                title_text = title_text[: title_max_chars - 1] + "…"
+            self.draw.text((6, title_y), title_text, font=self.fonts.bold.font, fill=fg)
             imu = self.shared_state.imu()
             moving = True if imu and imu.quat and imu.moving else False
 
@@ -377,6 +480,9 @@ class UIModule:
                 font=self.fonts.icon_bold_large.font,
                 fill=_gps_color,
             )
+
+            # Battery indicator (battery-enabled hardware only), just left of GPS
+            battery_drawn = self._draw_battery_icon(fg)
 
             if moving:
                 self._unmoved = False
@@ -404,8 +510,12 @@ class UIModule:
 
                     if len(self.title) < 9:
                         # Draw rotating constellation/SQM wheel (replaces static constellation)
+
+                        # Adjust spacing a bit if the battery indicator is present
+                        titlebar_position = 0.50 if battery_drawn else 0.54
+
                         self._draw_titlebar_rotating_info(
-                            x=int(self.display_class.resX * 0.54),
+                            x=int(self.display_class.resX * titlebar_position),
                             y=title_y,
                             fg=fg if self._unmoved else self.colors.get(32),
                         )
@@ -476,3 +586,12 @@ class UIModule:
         override the remove from stack behavior
         """
         return True
+
+    def key_power(self):
+        """
+        Power button.  Default behaviour for every module is to jump
+        straight to the shutdown confirmation menu.  The shutdown screen
+        itself (a UITextMenu) overrides this to act as a select, so a
+        first press raises the confirmation and a second press confirms.
+        """
+        self.jump_to_label("shutdown")

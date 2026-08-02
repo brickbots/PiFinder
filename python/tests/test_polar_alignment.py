@@ -335,6 +335,24 @@ class TestCorrectionTarget:
         )
         assert dec_t == pytest.approx(90.0, abs=1e-4)
 
+    def test_far_from_axis_target_dec0(self):
+        # Last solve at Dec=0 near the meridian: the alt bolt is a seesaw
+        # (north down = south up), so the correct target's ALTITUDE RISES
+        # when the axis must come DOWN. Coordinate addition gets the sign
+        # wrong and fails this by ~3 deg; the minimal rotation fails by
+        # the eps^2 residual.
+        ra1, dec1, roll1 = LST, 0.0, 0.0
+        ra2, dec2, roll2 = make_solve_2(ra1, dec1, roll1, LAT_NH, 1.5, 3.0, 14.0, LST)
+        _, _, _, ax_ra, ax_dec, _ = get_platform_adjustments(
+            [(ra1, dec1, roll1, 0), (ra2, dec2, roll2, 0)], LAT_NH, LST
+        )
+        ra_t, dec_t, roll_t = correction_target(
+            ax_ra, ax_dec, (ra2, dec2, roll2), LAT_NH, LST
+        )
+        assert ra_t == pytest.approx(100.338436, abs=1e-3)
+        assert dec_t == pytest.approx(1.537097, abs=1e-3)
+        assert roll_t == pytest.approx(-1.818094, abs=1e-3)
+
     def test_aligned_axis_is_identity(self):
         ra_t, dec_t, roll_t = correction_target(
             0.0, 90.0, (180.0, 30.0, 5.0), LAT_NH, LST

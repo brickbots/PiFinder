@@ -275,3 +275,10 @@ def switch_cam_imx477() -> None:
 def switch_cam_imx296() -> None:
     logger.info("SYS: Switching cam to imx296")
     logger.info('sh.sudo("python", "-m", "PiFinder.switch_camera", "imx296")')
+
+
+def set_power_led(on: bool) -> None:
+    """
+    Turn the Raspberry Pi's red PWR LED on or off (no-op off-hardware).
+    """
+    logger.info("SYS: Power LED %s", "on" if on else "off")

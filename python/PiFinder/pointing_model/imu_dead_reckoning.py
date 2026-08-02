@@ -129,6 +129,13 @@ class ImuDeadReckoning:
         """Fixed IMU-to-camera rotation for the given PiFinder geometry.
 
         Hardware geometry only; no per-unit calibration is applied.
+
+        Each entry is paired with the variant's SCREEN_ROTATE_AMOUNTS value
+        in camera_interface.py -- the camera frame is defined on the image
+        *after* that software rotation, so the two constants are only valid
+        together. Derive new entries (and verify these) with the visual
+        imu2cam tool at docs/imu2cam_tool.html; its presets are pinned to
+        this table by tests/test_imu2cam_tool_presets.py.
         """
         if screen_direction == "left":
             q1 = qt.axis_angle2quat([1, 0, 0], np.pi / 2)
@@ -151,5 +158,39 @@ class ImuDeadReckoning:
             q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
             return (q1 * q2).normalized()
         if screen_direction == "as_bloom":
-            return qt.axis_angle2quat([0, 0, 1], np.pi / 2)
+            # As Bloom (rev4 board: IMU on the back side of the UI board):
+            # Rotate 180° around y_imu so that z_imu' points along z_camera
+            q1 = qt.axis_angle2quat([0, 1, 0], np.pi)
+            # Rotate 180° around z_imu' to align with the camera coordinates
+            q2 = qt.axis_angle2quat([0, 0, 1], np.pi)
+            return (q1 * q2).normalized()
+        if screen_direction == "as_heart":
+            # As Heart (rev4 board: IMU on the back side of the UI board):
+            # Rotate 90° around x_imu so that z_imu' points along z_camera
+            q1 = qt.axis_angle2quat([1, 0, 0], np.pi / 2)
+            # Rotate 180° around z_imu' to align with the camera coordinates
+            q2 = qt.axis_angle2quat([0, 0, 1], np.pi)
+            return (q1 * q2).normalized()
+        if screen_direction == "rev4_left":
+            # Rev4 Left (rev4 board: IMU on the back side of the UI board):
+            # Rotate 90° around x_imu so that z_imu' points along z_camera
+            q1 = qt.axis_angle2quat([1, 0, 0], np.pi / 2)
+            # Rotate -90° around z_imu' to align with the camera coordinates
+            q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
+            return (q1 * q2).normalized()
+        if screen_direction == "rev4_right":
+            # Rev4 Right (rev4 board: IMU on the back side of the UI board):
+            # Rotate -90° around x_imu so that z_imu' points along z_camera
+            q1 = qt.axis_angle2quat([1, 0, 0], -np.pi / 2)
+            # Rotate -90° around z_imu' to align with the camera coordinates
+            q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
+            return (q1 * q2).normalized()
+        if screen_direction == "rev4_straight":
+            # Rev4 Straight (rev4 board: IMU on the back side of the UI board;
+            # 45° mount -- no camera axis coincides with an IMU axis):
+            # Rotate 45° around y_imu so that z_imu' points along z_camera
+            q1 = qt.axis_angle2quat([0, 1, 0], np.pi / 4)
+            # Rotate -135° around z_imu' to align with the camera coordinates
+            q2 = qt.axis_angle2quat([0, 0, 1], -np.pi * 3 / 4)
+            return (q1 * q2).normalized()
         raise ValueError(f"Unsupported screen_direction: {screen_direction}")

@@ -32,7 +32,9 @@ which section of sky it's seeing — incredibly fast (up to 20 times per second!
 accurately.  This only works while the scope is still, so it pairs that camera with an
 accelerometer (the IMU, as the Status screen and Settings menu call it) that estimates
 how far the scope has moved since the last solve.  The
-estimate carries some error, but the moment you stop, a fresh photo corrects it.
+estimate carries some error, but the moment you stop, a fresh photo corrects it.  The
+PiFinder works out its own orientation as it solves, so it can be mounted at any angle —
+it doesn't need to sit upright — as long as the camera points the same way as your scope.
 
 Knowing where your scope points and where thousands of interesting objects sit, the
 PiFinder combines the two to show you how to move the scope to bring any of those objects
@@ -254,6 +256,16 @@ view, getting them below 0.25 (half the true field) should put the object in vie
 Closer to zero means more centered.  For a very dim object, knowing it's dead center and
 consulting the object image can make all the difference.
 
+.. note::
+   By default the Push-To arrows guide you in altitude and azimuth — the way an Alt/Az or
+   Dobsonian mount moves.  On an equatorial mount or platform, set Mount Type to Equatorial
+   in the :ref:`user_guide:settings menu` and the guidance switches to right ascension and
+   declination to match your mount's axes.
+
+The number in the upper right is the object's
+:ref:`contrast reserve <user_guide:contrast reserve>` — an estimate of how easily it
+should show in your eyepiece tonight.
+
 .. image:: images/user_guide/object_details_02.png
 
 The PiFinder can display images of every object in its catalog.  See the section on
@@ -261,9 +273,111 @@ The PiFinder can display images of every object in its catalog.  See the section
 
 .. image:: images/user_guide/object_details_03.png
 
-Depending on the catalog, the PiFinder may have detailed notes along with Type,
-constellation, magnitude, and size.  Use the **+/-** keys to scroll the notes field.  At
-the bottom of the notes is a count of how many times you've logged this object.
+Depending on the catalog, the PiFinder may have detailed notes alongside the object's type,
+constellation, magnitude, and size — the size is shown in degrees, arcminutes, or arcseconds,
+whichever best suits the object.  Use the **+/-** keys to scroll the notes.
+
+Many objects carry more than one catalog designation, and the notes can gather a description
+from each.  A bright horizontal rule labelled with the catalog and number — for example
+*NGC 6543* — sets one catalog's notes off from the next, so you can see at a glance where
+each note comes from.  The notes finish with a count of how many times you've logged the
+object, marked by its own rule (it reads *Not Logged* until your first sighting).
+
+What each part of the screen shows
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Object Details screen packs a lot in.  These two views label every part — the Push-To
+screen, and the catalog details you reach by pressing **SQUARE**:
+
+.. image:: images/user_guide/object_details_pushto_annotated.png
+
+.. image:: images/user_guide/object_details_notes_annotated.png
+
+Contrast Reserve
+^^^^^^^^^^^^^^^^^
+
+The number in the upper right of the Object Details screen is the **contrast reserve** — an
+estimate of how easily an object should stand out in your eyepiece.  It weighs the object's
+brightness and size against your sky brightness, your telescope's aperture, and the
+magnification of your active eyepiece, then compares the result to what the eye can detect.
+A higher number means the object should be easier to see.
+
+.. image:: images/user_guide/object_details_contrast.png
+
+Keep pressing **SQUARE** to reach the Contrast Reserve page, which shows the value on its
+own with a plain-language reading of what to expect:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Contrast reserve
+     - What to expect
+   * - Below −0.2
+     - Object is not visible
+   * - −0.2 to 0.1
+     - Questionable detection
+   * - 0.1 to 0.35
+     - Difficult to see
+   * - 0.35 to 0.5
+     - Quite difficult to see
+   * - 0.5 to 1.0
+     - Easy to see
+   * - 1.0 and above
+     - Very easy to see
+
+The contrast reserve appears only when the PiFinder has everything it needs to work it out:
+an active :ref:`telescope and eyepiece <equipment:choosing your active telescope and eyepiece>`,
+a sky-brightness reading, and an object with a known magnitude and size.  If any of these is
+missing — a double star with no single magnitude, or before the camera has estimated the sky
+brightness — the number is simply left off.
+
+.. note::
+   The sky-brightness figure comes from the PiFinder's Sky Quality Meter (SQM), its
+   camera-based estimate of how dark your sky is, so the contrast reserve tracks your real
+   conditions: the same object reads higher under a dark sky than from town.  Treat it as a
+   guide rather than a guarantee — averted vision, transparency, and how dark-adapted you
+   are all still play their part at the eyepiece.
+
+Star Chart
+-------------
+
+The Star Chart, reached from the main PiFinder menu, draws a live map of the sky around
+where your telescope is pointing, with constellation lines and markers for nearby objects.
+It redraws as you move the scope, so it's a quick way to see what's around you and confirm
+your aim.  Zoom in and out with the **+/-** keys.
+
+Deep-sky objects show as small symbols, one shape per object type.  Near where you're
+pointing the chart marks the objects your :ref:`filters <user_guide:filters>` allow,
+revealing fainter ones as you zoom in and keeping only the brightest as you zoom out so the
+field never crowds.  Objects on a loaded observing list are marked too.  Dim these markers,
+or switch them off, with the DSO Display setting under Chart... in the
+:ref:`user_guide:settings menu`.
+
+The object you last opened in :ref:`user_guide:object details` is marked with a brighter
+cross wherever you steer, a quick way to see where it sits relative to your aim.  On the
+chart the cross is labelled with the object's designation — "M 57", say; once it drifts off
+the edge an arrow at the rim points the way instead.  The cross stays bright even with DSO
+Display turned off.
+
+How the chart is turned is up to you.  Choose Coordinate Sys. under Chart... in the
+:ref:`user_guide:settings menu`:
+
+- **Horizontal** (the default) keeps the horizon level and the zenith up, matching what you
+  see with the naked eye.
+- **EQ (Auto)** lines the chart up with the celestial pole — north-up in the northern
+  hemisphere, south-up in the southern.
+- **EQ (North-up)** and **EQ (South-up)** force north-up or south-up wherever you are.
+
+The chart labels what's currently at the top — "Zenith up", "NCP up" (north celestial
+pole), or "SCP up" (south celestial pole) — so you always know how it's oriented.  The same
+orientation applies to the Align screen.
+
+.. note::
+   The chart works before the PiFinder has a GPS fix.  The Horizontal and EQ (Auto) modes
+   need to know where you are to orient themselves, so until GPS locks — or you
+   :ref:`enter your location by hand <user_guide:place & time>` — the chart falls back to
+   north-celestial-pole-up and marks the label with a leading "!" (for example "!NCP up")
+   to show it's a temporary orientation that settles once your location is known.
 
 Filters
 ----------
@@ -380,6 +494,133 @@ Push-To guidance, and adds it to the Recent list so you can return to it during 
 session.  Press **LEFT** to back out without creating anything.
 
 .. image:: images/user_guide/custom_radec_result_docs.png
+
+Observing Lists
+---------------
+
+If you like to plan a session ahead of time — in SkySafari, a spreadsheet, or a list a
+fellow observer shared — you can bring that plan to the eyepiece.  Copy the list file into
+the ``obslists/`` folder of the PiFinder's :ref:`shared data
+folder <connectivity:shared data access>`, then load it from Obs Lists in the Objects
+menu.
+
+.. image:: images/user_guide/obs_lists_menu_docs.png
+
+The PiFinder reads observing lists in all of these formats, recognizing each by its file
+extension and, for ``.txt`` files, by the content itself:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Format
+     - Extension
+   * - `SkySafari observing list <https://support.simulationcurriculum.com/hc/en-us/articles/236161107-SkySafari-5-Observing-Lists>`_
+     - ``.skylist``
+   * - PiFinder native
+     - ``.pifinder``
+   * - CSV
+     - ``.csv``
+   * - `Stellarium observing list <https://stellarium.org/guide/>`_
+     - ``.sol``
+   * - `Autostar / Meade tour <http://www.weasner.com/etx/autostar/as_tours.html>`_
+     - ``.txt``, ``.mtf``
+   * - `Argo Navis catalog <http://www.wildcard-innovations.com.au/downloads/documentation/argoman10.pdf>`_
+     - ``.txt``
+   * - `NexTour / Celestron tour <https://www.nexstarsite.com/PCControl/NexRemote.htm>`_
+     - ``.hct``
+   * - `EQMOD tour <https://eq-mod.sourceforge.net/tour/>`_
+     - ``.lst``
+   * - Plain text, one object name per line
+     - ``.txt``
+
+The Obs Lists screen shows every list it finds, along with any folders — shown in
+``[brackets]`` — so you can organize lists into subfolders by trip, season, or source.
+Scroll with the **UP/DOWN** arrows and press **RIGHT** to open a folder or load a list.
+
+.. image:: images/user_guide/obs_lists_browse_docs.png
+
+When two lists share a name — say you have both ``Messier Marathon.skylist`` and
+``Messier Marathon.csv`` — the format is appended to tell them apart, as in the image
+above.
+
+Loading a list matches each entry against the PiFinder's catalogs, briefly reports how
+many objects matched, and opens the result as a regular
+:ref:`Object List <user_guide:object list>` you can sort, browse, and push to.
+
+.. image:: images/user_guide/obs_lists_loaded_docs.png
+
+Entries that match a catalog behave exactly like objects you'd find by browsing — images,
+descriptions, and your observation logs all come along.  An entry the PiFinder can't match
+but that includes coordinates becomes a one-off target under the code OBS, so nothing on
+your list is left behind.
+
+.. note::
+   The ``.pifinder`` format is the PiFinder's own JSON list format, and the one to choose
+   when a planning tool offers it: it carries catalog references, magnitudes, object sizes,
+   and coordinate epochs that the other formats drop.  Its fields, JSON schema, and a worked
+   example are documented in the `observing-list formats reference
+   <https://github.com/brickbots/PiFinder/blob/main/docs/ax/catalog/obslist-formats/README.md#the-pifinder-format>`__.
+
+Importing a CSV list
+^^^^^^^^^^^^^^^^^^^^^
+
+CSV is the format to reach for when another tool — a spreadsheet, an observing planner, or
+a sky atlas — gives you a list as plain columns.  The first line is a header naming the
+columns; the PiFinder reads them by name, so their order does not matter and the case is
+ignored.  Only ``Name`` is required, plus coordinates so the PiFinder knows where to point:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Column
+     - Holds
+   * - ``Name``
+     - A label for the row, e.g. ``M 3`` or ``My comet``.
+   * - ``RA`` / ``Dec``
+     - Right ascension and declination (see the coordinate forms below).
+   * - ``Magnitude``
+     - Brightness, optional.
+   * - ``Type``
+     - Object type such as ``Gx`` or ``PN``, optional.
+
+Common spellings of those headers are accepted too — ``ra`` / ``dec`` / ``mag`` and
+``RA_deg`` / ``Dec_deg`` all work.  The RA header can also carry the unit: a decimal under
+``RA_h`` or ``RA_hours`` is read as hours, while ``RA`` or ``RA_deg`` is read as degrees.
+Coordinates may be written in any of three forms:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Form
+     - RA example
+     - Dec example
+   * - Decimal degrees
+     - ``205.8583``
+     - ``+28.244``
+   * - Colon-separated
+     - ``13:43:26``
+     - ``+28:14:39``
+   * - Sexagesimal
+     - ``13h 43m 26s``
+     - ``+28° 14' 39"``
+
+A decimal right ascension is read as **degrees** (0–360) unless its header names hours.  A
+small list might look like this::
+
+   Name,RA,Dec,Magnitude
+   My target,205.8583,28.2442,6.3
+   Comet 2024X,250.667,36.411,11.0
+
+Each row resolves the same way as any other observing list: if its name matches a catalog
+object — spacing and capitalisation are ignored, so ``M 13``, ``M13`` and ``NGC 224`` all
+work — you get that object with its images, descriptions, and your logs; otherwise the
+PiFinder uses the row's own coordinates as an OBS target.  To keep your exact coordinates
+for an object the catalog would otherwise recognize, give the row a name the catalog will
+not match; prefixing it, as in ``_M 3``, is enough.
+
+For the complete column reference — every accepted header spelling, the coordinate forms,
+and import notes — see the `observing-list formats reference
+<https://github.com/brickbots/PiFinder/blob/main/docs/ax/catalog/obslist-formats/README.md#csv-import>`__.
 
 Object Images
 ---------------
@@ -664,6 +905,31 @@ Some of the key information shown:
 - WiFi information a bit further down, including the current WiFi mode, network name, and
   IP address.
 
+Place & Time
+----------------------------------
+
+The PiFinder needs to know where and when it is to turn the sky's coordinates into the
+directions it gives you.  Its built-in GPS handles this automatically, but you don't have
+to wait for a fix — or have GPS at all — to get going.  Open Tools, then Place & Time, to
+set everything by hand.
+
+Set Location gathers the ways to manage your observing site:
+
+- **Enter Coords** lets you type your latitude, then longitude, then altitude with the
+  number keys.  The **+** key flips the sign for southern latitudes and western longitudes.
+- **Load Location** recalls one of your saved sites, and **Save Location** stores the
+  current one so you can pick it again next time.
+
+Set Time/Date sets the clock when there's no GPS: enter the time and the PiFinder moves on
+to a date-entry screen.  A time you set by hand is protected — a later GPS fix won't
+overwrite it — so your manual clock stays put.  Reset Location and Reset Time/Date discard
+what's set if you'd rather start fresh or hand control back to GPS.
+
+.. note::
+   With your location and time set by hand, the PiFinder is fully usable without a GPS
+   signal — you can focus, align, browse objects, and push to them.  The
+   :ref:`user_guide:star chart` and Align screens also work before a GPS lock.
+
 Update Software
 ------------------
 
@@ -706,6 +972,118 @@ for information about each release and a download link.
 
 Instructions for writing release images to an SD card are on the :doc:`software setup<software>`
 page.
+
+Polar Alignment
+---------------------------
+
+An equatorial platform or equatorial mount tracks the sky by turning your telescope around a
+single axis that's meant to point at the celestial pole — the platform's pivot, or the
+mount's right ascension axis.  The closer that axis is to the true pole, the longer objects
+stay put in the eyepiece.  The Polar Alignment tool measures how far your axis sits from the
+pole and walks you through correcting it — using ordinary plate solves, with no polar scope
+or sight of Polaris needed.
+
+It lives near the bottom of the main menu: open Tools, scroll down to Experimental, and
+choose Polar Align.
+
+It works by solving the sky at two or three points while you rotate around that axis between
+them — turning the platform, or slewing the mount in right ascension only — then working out
+where the axis points from how the view shifts.  The measurement is only as good as the
+solves behind it, so before you start make sure the PiFinder has a GPS lock, is focused, and
+is solving reliably.  Turn off your mount's or platform's sidereal tracking as well — the
+measurement assumes the scope holds still except when you rotate it yourself.
+
+.. image:: images/user_guide/polar_align_intro_docs.png
+
+.. note::
+   This aligns the rotation *axis*, not the PiFinder to your eyepiece.  The one rule that
+   matters: between captures, move only *around* that axis.  On a platform, keep the scope
+   clamped to the platform and rotate the platform; on an equatorial mount, lock the
+   declination axis and slew only in right ascension.  During adjustment, move the axis
+   itself with your altitude and azimuth adjusters — not by slewing the scope.
+
+To take a measurement, open Polar Align and press **SQUARE** to begin, then:
+
+1. Aim the telescope near the pole — :ref:`user_guide:getting a good measurement` below
+   gives the best aim and sweep for each mount — and wait for the screen to report a recent
+   solve.  Press **SQUARE** to capture the first point.
+2. Rotate around the axis by at least about 10° — turn the platform, or slew in right
+   ascension only — wait for a fresh solve, and press **SQUARE** for the second point.
+3. For a stronger result, rotate farther and capture a third point — three points let the
+   PiFinder check how well the captures agree.  To stop at two points instead, press **0**
+   to solve now.
+
+.. image:: images/user_guide/polar_align_aim_docs.png
+
+If the screen says 'Rotate more', the captures were too close together to pin down the axis;
+rotate farther and capture again.
+
+Once it has enough rotation, the PiFinder switches to a live target showing how far the axis
+is from the pole, as push-to offsets in altitude and azimuth.  Turn your altitude and azimuth
+adjusters — the platform's, or the mount's polar-alignment bolts — to follow the arrows until
+both readings fall to zero.  The display refreshes with each new solve; if it shows 'No
+solve', hold everything still until the PiFinder solves again.
+
+.. note::
+   Before touching the adjusters, lock *both* of the mount's axes.  Right ascension is the
+   one everyone forgets — you unlocked it to rotate between captures — and a clutch that
+   slips while you work the adjusters quietly ruins the correction.  On a platform, leave
+   the scope alone entirely and adjust only the platform.
+
+.. image:: images/user_guide/polar_align_adjust_docs.png
+
+The top line summarises the measurement: the number of points used, the total sweep, and —
+for a three-point solve — a fit rating of ``ok``, ``mid``, or ``bad``.  A poor fit usually
+means something moved between captures that shouldn't have, so it's worth redoing.
+
+Hold **SQUARE** for the marking menu, which gathers the advanced actions.  **STATS** opens a
+read-only detail view, **REDO PT** drops just the last point so you can recapture it, and
+**Roll On/Off** switches between a full three-axis fit and an RA/Dec-only fit that ignores
+camera roll — useful after a camera flop, and :ref:`user_guide:getting a good measurement`
+covers which fit suits each mount.
+
+.. image:: images/user_guide/polar_align_marking_menu_docs.png
+
+The STATS view spells out the correction in both degrees and arcminutes for each axis, the
+fitted axis position, the fit quality, and how the captures were spaced in time — handy for
+judging whether a measurement is trustworthy.
+
+.. image:: images/user_guide/polar_align_stats_docs.png
+
+To start a fresh measurement at any time, press **SQUARE**; to leave the tool, press
+**MINUS**.
+
+Getting a good measurement
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The PiFinder-to-scope connection is never perfectly rigid, and small flexures — felt most
+strongly in camera roll — grow with how much the PiFinder's attitude changes between
+captures.  Wider sweeps are better in theory, but in practice the sweet spot is a moderate
+sweep taken close to the pole, keeping the PiFinder's attitude nearly constant.
+
+On an equatorial mount:
+
+- Point the declination axis so the scope sits roughly 7–10° off the mount's polar axis —
+  wherever that axis points now, not where the true pole is.
+- Sweep roughly 30–45° in right ascension: take the middle capture with the PiFinder's
+  screen roughly vertical, and the first and last captures 15–22° either side of it.
+- Set Roll Off in the marking menu — flexure shows up most strongly in roll, so the fit is
+  better off without it.
+
+On an equatorial platform:
+
+- Aim the scope close to Polaris, ideally within 5°.
+- Keep Roll On — aimed this close to the axis the pointing barely shifts between captures,
+  so the roll change carries most of the rotation information.
+- Position the PiFinder so its screen is vertical at the middle of the platform's travel;
+  that also keeps the altitude and azimuth arrows matching the real directions while you
+  adjust.
+
+Expect the result to land within 20–30 arcminutes of the pole; a very rigid PiFinder-to-scope
+connection and a wider sweep can bring that down to around 10.  That won't match a polar
+scope, or a routine that images through a rigidly mounted scope with a much smaller field of
+view — but it's a solid alignment when the pole is hidden from your site or you have no
+polar scope, and close enough to put Polaris into a polar scope's reticle.
 
 Shutdown
 ---------------------------

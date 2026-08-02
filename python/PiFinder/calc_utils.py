@@ -117,16 +117,50 @@ def dec_to_deg(dec, dec_m, dec_s):
     return dec_deg
 
 
+def dms_to_dec(sign: str, d: int, m: int, s: float) -> float:
+    """
+    Convert (sign, degrees, arcminutes, arcseconds) to signed Dec degrees.
+    The separate sign argument keeps declinations between -1° and 0°
+    negative ("-00:30:00"), which a signed degree value cannot represent.
+    """
+    dec = dec_to_deg(abs(d), m, s)
+    return -dec if sign == "-" else dec
+
+
+def dec_to_dms_exact(dec: float) -> Tuple[str, int, int, float]:
+    """
+    Convert Dec degrees to (sign, degrees, arcminutes, float arcseconds).
+    No rounding; the explicit sign survives declinations between -1° and 0°.
+    """
+    sign = "+" if dec >= 0 else "-"
+    dec = abs(dec)
+    d = int(dec)
+    fractional_degree = dec - d
+    m = int(fractional_degree * 60)
+    s = (fractional_degree * 60 - m) * 60
+    return sign, d, m, s
+
+
 def dec_to_dms(dec):
     try:
         dec = float(dec)
     except TypeError:
         return 0, 0, 0
-    degree = int(dec)
-    fractional_degree = abs(dec - degree)
-    minute = int(fractional_degree * 60)
-    second = (fractional_degree * 60 - minute) * 60
-    return int(degree), int(minute), int(second)
+    sign, d, m, s = dec_to_dms_exact(dec)
+    if sign == "-":
+        d = -d
+    return d, m, int(s)
+
+
+def ra_to_hms_exact(ra: float) -> Tuple[int, int, float]:
+    """
+    Convert RA degrees to (hours, minutes, float seconds), no rounding.
+    """
+    if ra < 0.0:
+        ra = ra + 360
+    mm, hh = math.modf(ra / 15.0)
+    ss, mm = math.modf(mm * 60.0)
+    return int(hh), int(mm), ss * 60.0
 
 
 def ra_to_hms(ra):
@@ -134,13 +168,8 @@ def ra_to_hms(ra):
         ra = float(ra)
     except TypeError:
         return 0, 0, 0
-
-    if ra < 0.0:
-        ra = ra + 360
-    mm, hh = math.modf(ra / 15.0)
-    _, mm = math.modf(mm * 60.0)
-    ss = round(_ * 60.0)
-    return int(hh), int(mm), int(ss)
+    hh, mm, ss = ra_to_hms_exact(ra)
+    return hh, mm, round(ss)
 
 
 def epoch_to_epoch(ep_from, ep_to, ra_hours, dec_deg):

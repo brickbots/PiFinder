@@ -108,6 +108,26 @@ class ClosestObjectsFinder:
         # logger.debug("Found %i objects, from %i objects, n=%i", len(results), nr_objects, n)
         return results
 
+    def get_objects_within_radius(
+        self, ra, dec, radius_deg: float
+    ) -> List[CompositeObject]:
+        """
+        Returns every object within ``radius_deg`` great-circle degrees of
+        ra/dec (unordered). Uses the haversine BallTree's ``query_radius``,
+        so the radius is converted to radians. Returns ``[]`` when the tree
+        is empty. Unlike ``get_closest_objects`` (k-NN), this bounds the
+        result by angular distance rather than count -- what the chart needs
+        to plot the objects that actually fall inside the current field.
+        """
+        if self._objects_balltree is None or self._objects is None:
+            return []
+        if len(self._objects) == 0:
+            return []
+
+        query = [[np.deg2rad(ra), np.deg2rad(dec)]]
+        obj_ind = self._objects_balltree.query_radius(query, r=np.deg2rad(radius_deg))
+        return list(self._objects[obj_ind[0]])
+
 
 def deduplicate_objects(
     unfiltered_objects: list[CompositeObject],

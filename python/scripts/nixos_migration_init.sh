@@ -1,0 +1,437 @@
+#!/bin/busybox sh
+# nixos_migration_init.sh - Initramfs init for NixOS migration
+#
+# Runs entirely from RAM. Strategy:
+#   1. Save WiFi credentials and user backup to RAM
+#   2. Copy tarball to RAM, unmount old root
+#   3. Format both partitions
+#   4. Extract tarball (boot → p1, rootfs → p2)
+#   5. Restore WiFi + user data, expand partition
+#   6. Reboot into NixOS
+
+set -e
+
+# The OLED progress display is driven through a pipe (fd 3). If that process
+# ever dies, a write must not take a fatal SIGPIPE and abort the migration —
+# the display is best-effort, the migration is not.
+trap '' PIPE
+
+/bin/busybox --install -s /bin 2>/dev/null || true
+
+mount -t proc proc /proc 2>/dev/null || true
+mount -t sysfs sysfs /sys 2>/dev/null || true
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+# size=90%: the default tmpfs cap (50% of RAM) is smaller than the tarball on
+# 2GB boards even when total RAM suffices — the explicit MemAvailable checks
+# below are the real guard, the cap must never trip first.
+mount -t tmpfs -o size=90% tmpfs /tmp 2>/dev/null || true
+
+# Load SPI modules for OLED progress display
+if [ -f /lib/modules/spi-bcm2835.ko ]; then
+    insmod /lib/modules/spi-bcm2835.ko 2>/dev/null || true
+    insmod /lib/modules/spidev.ko 2>/dev/null || true
+    sleep 0.5
+fi
+
+# Shared lib path for dynamically linked tools (e2fsck, mkfs, etc.)
+export LD_LIBRARY_PATH=/lib:/usr/lib:/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu
+
+BOOT_DEV="/dev/mmcblk0p1"
+ROOT_DEV="/dev/mmcblk0p2"
+SD_DEV="/dev/mmcblk0"
+MOUNT_ROOT="/mnt/root"
+MOUNT_NEW="/mnt/new"
+MOUNT_BOOT="/mnt/boot"
+PROGRESS="/bin/migration_progress"
+
+STAGE_NUM=0
+STAGE_TOTAL=22
+PROGRESS_FIFO="/tmp/migration_progress.fifo"
+PROGRESS_READY=0
+
+# Drive the OLED with a single long-lived process. It initialises the panel
+# once and redraws in place from stdin, so the display never resets to black
+# between stages (a fresh process per stage would re-assert the panel's RST
+# line and blank it). fd 3 is the persistent writer; keeping it open stops the
+# server seeing EOF until the migration is done.
+if [ -x "${PROGRESS}" ]; then
+    rm -f "${PROGRESS_FIFO}"
+    mkfifo "${PROGRESS_FIFO}" 2>/dev/null || true
+    "${PROGRESS}" --serve < "${PROGRESS_FIFO}" >/dev/null 2>&1 &
+    exec 3>"${PROGRESS_FIFO}"
+    PROGRESS_READY=1
+fi
+
+show() {
+    local pct="$1"
+    local msg="$2"
+    STAGE_NUM=$((STAGE_NUM + 1))
+    echo "[${pct}%] ${msg}" > /dev/console 2>/dev/null || true
+    echo "[${pct}%] ${msg}"
+    if [ "${PROGRESS_READY}" -eq 1 ]; then
+        echo "${pct} ${STAGE_NUM} ${STAGE_TOTAL} ${msg}" >&3 2>/dev/null || true
+    fi
+}
+
+# Set to 1 immediately before the first destructive step (formatting). While
+# it is 0, a failure can and must send the device back to the old OS.
+DESTRUCTIVE=0
+
+fail() {
+    if [ "${PROGRESS_READY}" -eq 1 ]; then
+        echo "0 0 0 FAILED: $1" >&3 2>/dev/null || true
+    fi
+    echo "[FAILED] $1"
+    echo "MIGRATION FAILED: $1" > /dev/console 2>/dev/null || true
+
+    if [ "${DESTRUCTIVE}" = "0" ]; then
+        # Nothing has been formatted yet: restore the old OS's boot config and
+        # reboot into it, instead of stranding a headless device in a debug
+        # shell. The pre-migration script keeps .premigration backups.
+        echo "No data touched yet — restoring previous OS boot config..."
+        if [ "${PROGRESS_READY}" -eq 1 ]; then
+            echo "0 0 0 FAILED: $1 - rebooting to old OS" >&3 2>/dev/null || true
+        fi
+        mkdir -p /mnt/bootfix
+        if mount -t vfat "${BOOT_DEV}" /mnt/bootfix 2>/dev/null; then
+            [ -f /mnt/bootfix/config.txt.premigration ] && \
+                cp /mnt/bootfix/config.txt.premigration /mnt/bootfix/config.txt
+            [ -f /mnt/bootfix/cmdline.txt.premigration ] && \
+                cp /mnt/bootfix/cmdline.txt.premigration /mnt/bootfix/cmdline.txt
+            rm -f /mnt/bootfix/nixos_migration
+            sync
+            umount /mnt/bootfix
+            sleep 5
+            reboot -f
+        fi
+        echo "Could not restore boot config — falling through to debug shell"
+    fi
+
+    echo "Dropping to shell for debugging..."
+    exec /bin/sh
+}
+
+# set -e turns ANY uncaught failure into init exiting -> kernel panic
+# ("Attempted to kill init"). Route it into fail() instead: fail() ends in
+# exec or reboot, so the trap never re-fires.
+trap 'fail "unexpected failure near stage ${STAGE_NUM}"' EXIT
+
+if [ -f /migration_meta ]; then
+    . /migration_meta
+    export MIGRATION_DISPLAY_CLASS="${DISPLAY_CLASS:-}"
+    export MIGRATION_DISPLAY_RESOLUTION="${DISPLAY_RESOLUTION:-}"
+fi
+
+show 28 "Migrating..."
+
+# Wait for SD card device to appear
+n=0
+while [ ! -b "${BOOT_DEV}" ] && [ "${n}" -lt 30 ]; do
+    sleep 1
+    n=$((n + 1))
+done
+[ ! -b "${BOOT_DEV}" ] && fail "SD card not found after 30s: ${BOOT_DEV}"
+
+show 30 "Initramfs started"
+
+# -------------------------------------------------------------------
+# Phase 1: Validate
+# -------------------------------------------------------------------
+
+# Check migration flag on boot partition
+mkdir -p /mnt/bootchk
+mount -t vfat -o ro "${BOOT_DEV}" /mnt/bootchk || fail "Cannot mount boot"
+if [ ! -f /mnt/bootchk/nixos_migration ]; then
+    umount /mnt/bootchk
+    fail "No migration flag — aborting"
+fi
+umount /mnt/bootchk
+
+# Read metadata written by pre-migration script
+if [ ! -f /migration_meta ]; then
+    fail "migration_meta not found in initramfs"
+fi
+. /migration_meta
+# Now we have: TARBALL_PATH, TARBALL_SIZE, PIFINDER_DATA_PATH
+
+# Initial RAM check: tarball + fixed overhead must fit. The exact user-data
+# backup size is checked after the old root is mounted, before formatting.
+MEM_KB=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
+MEM_MB=$((MEM_KB / 1024))
+TARBALL_SIZE_MB=$((TARBALL_SIZE / 1048576))
+NEEDED_MB=$((TARBALL_SIZE_MB + 150))
+[ "${MEM_MB}" -lt "${NEEDED_MB}" ] && fail "Insufficient RAM: ${MEM_MB}MB available, need ${NEEDED_MB}MB"
+
+show 31 "Validated: ${MEM_MB}MB"
+
+# -------------------------------------------------------------------
+# Phase 2: Save WiFi credentials to RAM
+# -------------------------------------------------------------------
+
+show 33 "Saving WiFi to RAM"
+
+mkdir -p "${MOUNT_ROOT}"
+mount -t ext4 -o ro "${ROOT_DEV}" "${MOUNT_ROOT}" || fail "Cannot mount root"
+
+mkdir -p /tmp/wifi/nm-connections
+
+# Keyfiles generated by the pre-migration Python step (parses
+# wpa_supplicant.conf on Debian, unit-tested). Bundled into the
+# initramfs at /wifi-staged.
+if [ -d /wifi-staged ]; then
+    cp -a /wifi-staged/. /tmp/wifi/nm-connections/ 2>/dev/null || true
+fi
+
+# Any NM keyfiles the user already had on Debian — preserved as-is.
+NM_SRC="${MOUNT_ROOT}/etc/NetworkManager/system-connections"
+if [ -d "${NM_SRC}" ]; then
+    cp -a "${NM_SRC}/." /tmp/wifi/nm-connections/ 2>/dev/null || true
+fi
+
+# -------------------------------------------------------------------
+# Phase 3: Create user backup in RAM
+# -------------------------------------------------------------------
+
+show 35 "Creating backup"
+
+PIFINDER_DATA_ON_ROOT="${MOUNT_ROOT}${PIFINDER_DATA_PATH}"
+BACKUP_STAGE="/tmp/backup_stage/PiFinder_data"
+rm -rf /tmp/backup_stage
+mkdir -p "${BACKUP_STAGE}"
+
+if [ -d "${PIFINDER_DATA_ON_ROOT}" ]; then
+    BACKUP_NEED_KB=0
+
+    # Root-level files are preserved, except pifinder.log which is truncated
+    # while copying so a large log cannot exhaust initramfs RAM.
+    for f in "${PIFINDER_DATA_ON_ROOT}"/*; do
+        if [ -f "$f" ]; then
+            case "$(basename "$f")" in
+                pifinder.log)
+                    BACKUP_NEED_KB=$((BACKUP_NEED_KB + 256))
+                    ;;
+                *)
+                    FILE_KB=$(du -sk "$f" 2>/dev/null | awk '{print $1}')
+                    BACKUP_NEED_KB=$((BACKUP_NEED_KB + ${FILE_KB:-0}))
+                    ;;
+            esac
+        fi
+    done
+    if [ -d "${PIFINDER_DATA_ON_ROOT}/obslists" ]; then
+        OBSLISTS_KB=$(du -sk "${PIFINDER_DATA_ON_ROOT}/obslists" 2>/dev/null | awk '{print $1}')
+        BACKUP_NEED_KB=$((BACKUP_NEED_KB + ${OBSLISTS_KB:-0}))
+    fi
+
+    MEM_KB=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
+    TARBALL_KB=$((TARBALL_SIZE / 1024))
+    # Keep a conservative 150 MiB for tools, page cache, and shell overhead.
+    NEEDED_KB=$((TARBALL_KB + BACKUP_NEED_KB + 153600))
+    [ "${MEM_KB}" -lt "${NEEDED_KB}" ] && fail "Insufficient RAM for backup: $((MEM_KB / 1024))MB available, need $((NEEDED_KB / 1024))MB"
+
+    # Copy root-level files (observations.db, configs, etc.)
+    for f in "${PIFINDER_DATA_ON_ROOT}"/*; do
+        if [ -f "$f" ]; then
+            if [ "$(basename "$f")" = "pifinder.log" ]; then
+                tail -n 1000 "$f" > "${BACKUP_STAGE}/pifinder.log" 2>/dev/null || true
+            else
+                cp "$f" "${BACKUP_STAGE}/" 2>/dev/null || true
+            fi
+        fi
+    done
+
+    # Copy obslists directory
+    if [ -d "${PIFINDER_DATA_ON_ROOT}/obslists" ]; then
+        cp -a "${PIFINDER_DATA_ON_ROOT}/obslists" "${BACKUP_STAGE}/obslists"
+    fi
+fi
+
+# Preserve the pre-migration hostname: Pi OS stores it in /etc/hostname, the NixOS
+# image reads it from PiFinder_data/hostname. Bridge them; don't clobber an existing one.
+if [ ! -f "${BACKUP_STAGE}/hostname" ] && [ -s "${MOUNT_ROOT}/etc/hostname" ]; then
+    head -n1 "${MOUNT_ROOT}/etc/hostname" | tr -d '[:space:]' > "${BACKUP_STAGE}/hostname"
+fi
+
+show 38 "Backup created"
+
+# -------------------------------------------------------------------
+# Phase 4: Copy tarball to RAM, unmount old root
+# -------------------------------------------------------------------
+
+show 40 "Loading tarball"
+
+TARBALL_ON_ROOT="${MOUNT_ROOT}${TARBALL_PATH}"
+[ ! -f "${TARBALL_ON_ROOT}" ] && { umount "${MOUNT_ROOT}"; fail "Tarball not found: ${TARBALL_PATH}"; }
+
+cp "${TARBALL_ON_ROOT}" /tmp/migration.tar.zst || fail "Failed to copy tarball to RAM"
+umount "${MOUNT_ROOT}"
+
+show 48 "Tarball loaded to RAM"
+
+# -------------------------------------------------------------------
+# Phase 5: Expand + format partitions
+# -------------------------------------------------------------------
+
+show 49 "Expanding partition"
+
+# Expand partition 2 BEFORE formatting — sfdisk rewrites the MBR and
+# blockdev --rereadpt can corrupt a written FAT partition if done after.
+echo ", +" | sfdisk -N 2 "${SD_DEV}" --no-reread 2>/dev/null || true
+blockdev --rereadpt "${SD_DEV}" 2>/dev/null || true
+sleep 1
+
+# Point of no return: from here on a failure cannot go back to the old OS.
+DESTRUCTIVE=1
+show 50 "Formatting boot"
+
+mkfs.vfat -F 32 -n FIRMWARE "${BOOT_DEV}" || fail "mkfs.vfat failed"
+
+show 52 "Formatting root"
+
+mkfs.ext4 -F -L NIXOS_SD "${ROOT_DEV}" || fail "mkfs.ext4 failed"
+
+# -------------------------------------------------------------------
+# Phase 6: Extract tarball
+# -------------------------------------------------------------------
+
+show 55 "Extracting NixOS"
+
+mkdir -p "${MOUNT_NEW}"
+mount -t ext4 "${ROOT_DEV}" "${MOUNT_NEW}" || fail "Cannot mount new root"
+
+# Extract tarball directly to SD card (ext4 has plenty of space, tmpfs does not)
+zstd -d < /tmp/migration.tar.zst | tar xf - -C "${MOUNT_NEW}" || fail "Tarball extraction failed"
+rm -f /tmp/migration.tar.zst
+
+show 60 "Moving rootfs"
+
+# The tarball's top-level boot/ is the FIRMWARE partition payload; rootfs/
+# carries its own non-empty /boot (extlinux + kernels live on ext4). Stage the
+# firmware payload aside first or the rootfs move collides on "boot".
+mv "${MOUNT_NEW}/boot" "${MOUNT_NEW}/.fw-staging" || fail "Cannot stage firmware payload"
+
+# Move rootfs/ contents up to partition root (same-fs rename, fast)
+cd "${MOUNT_NEW}/rootfs" || fail "rootfs missing from tarball"
+for item in * .[!.]* ..?*; do
+    [ -e "$item" ] || continue
+    mv "$item" "${MOUNT_NEW}/" || fail "Cannot move rootfs/${item}"
+done
+cd /
+rmdir "${MOUNT_NEW}/rootfs" || fail "rootfs dir not empty after move"
+
+# NetworkManager (like other security-sensitive plugin loaders) refuses to load
+# any plugin file not owned by root, so a /nix/store with non-root paths baked
+# into the tarball silently kills wifi (wlan0 ends up "unmanaged"). Normalise
+# store ownership to root now, while the new root is still writable — once
+# NixOS boots /nix/store is mounted read-only. (The boot-time
+# fix-nix-store-ownership service is the runtime backstop for this.)
+chown -R 0:0 "${MOUNT_NEW}/nix/store" "${MOUNT_NEW}/nix/var/nix/db" 2>/dev/null || true
+
+show 66 "Copying boot"
+
+mkdir -p "${MOUNT_BOOT}"
+mount -t vfat "${BOOT_DEV}" "${MOUNT_BOOT}" || fail "Cannot mount boot"
+
+# Copy the staged firmware payload to the FAT partition
+cd "${MOUNT_NEW}/.fw-staging" || fail "firmware staging missing"
+for item in *; do
+    [ -e "$item" ] || continue
+    if [ -d "$item" ]; then
+        cp -r "$item" "${MOUNT_BOOT}/$item" || fail "Cannot copy ${item} to firmware partition"
+    else
+        cp "$item" "${MOUNT_BOOT}/$item" || fail "Cannot copy ${item} to firmware partition"
+    fi
+done
+cd /
+rm -rf "${MOUNT_NEW}/.fw-staging"
+sync
+
+# Verify each partition got what its boot chain needs: the firmware partition
+# feeds the RPi firmware + U-Boot; extlinux.conf and kernels live on ext4
+# (U-Boot reads them from mmc 0:2).
+if [ ! -f "${MOUNT_BOOT}/config.txt" ]; then
+    echo "Firmware partition contents:" >&2
+    ls -lR "${MOUNT_BOOT}" >&2
+    fail "config.txt missing from firmware partition after copy"
+fi
+if [ ! -f "${MOUNT_NEW}/boot/extlinux/extlinux.conf" ]; then
+    echo "Root /boot contents:" >&2
+    ls -lR "${MOUNT_NEW}/boot" >&2
+    fail "extlinux.conf missing from root /boot after move"
+fi
+
+# -------------------------------------------------------------------
+# Phase 7: Migrate WiFi
+# -------------------------------------------------------------------
+
+show 70 "Migrating WiFi"
+
+NM_DIR="${MOUNT_NEW}/etc/NetworkManager/system-connections"
+mkdir -p "${NM_DIR}"
+
+# All keyfiles (pre-staged + user's pre-existing NM ones) were
+# consolidated into /tmp/wifi/nm-connections during Phase 2.
+if [ -d /tmp/wifi/nm-connections ]; then
+    cp -a /tmp/wifi/nm-connections/. "${NM_DIR}/" 2>/dev/null || true
+    # The pre-stage Python runs as the app user on the old OS, and cp -a
+    # preserves that owner — NetworkManager refuses keyfiles not owned by
+    # root ("File owner (1000) is insecure"). We are root here; make them so.
+    chown -R 0:0 "${NM_DIR}" 2>/dev/null || true
+    chmod 600 "${NM_DIR}"/*.nmconnection 2>/dev/null || true
+fi
+
+sync
+
+show 74 "WiFi migrated"
+
+# -------------------------------------------------------------------
+# Phase 8: Restore user data
+# -------------------------------------------------------------------
+
+show 76 "Restoring user data"
+
+mkdir -p "${MOUNT_NEW}/home/pifinder"
+
+if [ -d /tmp/backup_stage/PiFinder_data ]; then
+    cp -a /tmp/backup_stage/PiFinder_data "${MOUNT_NEW}/home/pifinder/"
+fi
+
+# pifinder user: UID 1000, GID 100 (users) on NixOS
+chown -R 1000:100 "${MOUNT_NEW}/home/pifinder" 2>/dev/null || true
+
+show 80 "User data restored"
+
+# -------------------------------------------------------------------
+# Phase 9: Expand partition and finalize
+# -------------------------------------------------------------------
+
+umount "${MOUNT_BOOT}" 2>/dev/null || true
+umount "${MOUNT_NEW}" 2>/dev/null || true
+
+show 82 "Resizing filesystem"
+
+e2fsck -f -y "${ROOT_DEV}" 2>/dev/null || true
+resize2fs "${ROOT_DEV}" 2>/dev/null || true
+
+show 92 "Syncing"
+sync
+
+# Final verification: remount the firmware partition and confirm the RPi
+# firmware config survived (extlinux.conf lives on the ext4 root, verified
+# earlier).
+show 95 "Verifying boot"
+mkdir -p /mnt/bootchk
+mount -t vfat -o ro "${BOOT_DEV}" /mnt/bootchk || fail "Cannot remount boot for verification"
+if [ ! -f /mnt/bootchk/config.txt ]; then
+    ls -lR /mnt/bootchk > /dev/console 2>&1 || true
+    umount /mnt/bootchk 2>/dev/null || true
+    fail "config.txt missing from firmware partition before reboot"
+fi
+umount /mnt/bootchk
+
+show 100 "Complete"
+sleep 3
+
+# Success: disarm the failure trap before the deliberate reboot.
+trap - EXIT
+echo "Rebooting into NixOS..." > /dev/console 2>/dev/null || true
+reboot -f

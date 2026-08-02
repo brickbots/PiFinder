@@ -224,6 +224,16 @@ class MagnitudeObject:
         return cls(data["mags"])
 
 
+# Source label for a stacked description section, set off by a continuous
+# box-drawing rule (U+2500) rather than ASCII dashes -- reads as one line
+# broken only by the label: "─── M 31 ───".
+_RULE = "─" * 3
+
+
+def _section_header(source: str) -> str:
+    return f"{_RULE} {source} {_RULE}"
+
+
 @dataclass
 class CompositeObject:
     """A catalog object, augmented with related DB data"""
@@ -255,6 +265,9 @@ class CompositeObject:
     logged: bool = field(default=False)
     last_filtered_time: float = 0
     last_filtered_result: bool = True
+    # session-only: observing-list name -> that list's description for this
+    # object. Not persisted; populated when an observing list is loaded.
+    list_descriptions: dict = field(default_factory=dict)
 
     def __eq__(self, other):
         if not isinstance(other, CompositeObject):
@@ -268,12 +281,58 @@ class CompositeObject:
     def from_dict(cls, d):
         return cls(**d)
 
-    # Planets use their common name; all other catalogs use the standard format.
+    def composed_sections(self, extra_descriptions=None, dedup=True) -> list:
+        """
+        Merge this object's description sources into ordered ``(label, text)``
+        sections. Observing list descriptions collected this session come first
+        (the list's own text for the object you're viewing is the most relevant);
+        then the home catalog's description -- unlabeled when it leads (you
+        already know what you're looking at), but labeled with this object's
+        designator once an observing list description precedes it, so it isn't
+        read as part of it; then any ``extra_descriptions`` (the same object's
+        other catalog listings).
+
+        With ``dedup``, a source whose text is identical to one already shown is
+        skipped -- common because a Messier listing often copies its NGC text.
+        """
+        sections: list = []
+        seen: set = set()
+        have_list_description = False
+        for source, desc in self.list_descriptions.items():
+            if desc:
+                sections.append((source, desc))
+                have_list_description = True
+        if self.description:
+            home_label = self.display_name if have_list_description else None
+            sections.append((home_label, self.description))
+            seen.add(self.description.strip())
+        for source, desc in (extra_descriptions or {}).items():
+            if not desc:
+                continue
+            if dedup and desc.strip() in seen:
+                continue
+            seen.add(desc.strip())
+            sections.append((source, desc))
+        return sections
+
+    def composed_description(self, extra_descriptions=None, dedup=True) -> str:
+        """
+        Plain-string form of :meth:`composed_sections`, with labelled sections
+        set off by a ``──── <source> ────`` text rule. The UI renders sections
+        directly (drawn rules); this string form is used for non-UI consumers.
+        """
+        parts: list = []
+        for label, text in self.composed_sections(extra_descriptions, dedup):
+            parts.append(text if label is None else f"{_section_header(label)}\n{text}")
+        return "\n".join(parts)
+
+    # Planets and observing-list coordinate objects show their own name; all
+    # other catalogs use the standard "<code> <sequence>" designator.
     @property
     def display_name(self):
         """
         Returns the display name for this object
         """
-        if self.catalog_code == "PL" and self.names:
+        if self.catalog_code in ("PL", "OBS") and self.names:
             return self.names[0]
         return f"{self.catalog_code} {self.sequence}"

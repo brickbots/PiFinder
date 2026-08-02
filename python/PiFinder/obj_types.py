@@ -3,22 +3,25 @@ def _(key: str) -> str:
     return key
 
 
+# The single source of truth for the object-type code set and its labels.
+# Iteration order is the order shown in the Type filter menu (which is generated
+# from this dict); lookups (e.g. the object-detail screen) are order-independent.
 OBJ_TYPES = {
     "Gx": _("Galaxy"),  # TRANSLATORS: Object type
     "OC": _("Open Cluster"),  # TRANSLATORS: Object type
+    "C+N": _("Cluster + Neb"),  # TRANSLATORS: Object type
     "Gb": _("Globular"),  # TRANSLATORS: Object type
     "Nb": _("Nebula"),  # TRANSLATORS: Object type
-    "DN": _("Dark Nebula"),  # TRANSLATORS: Object type
     "PN": _("Planetary"),  # TRANSLATORS: Object type
-    "C+N": _("Cluster + Neb"),  # TRANSLATORS: Object type
-    "Ast": _("Asterism"),  # TRANSLATORS: Object type
-    "Kt": _("Knot"),  # TRANSLATORS: Object type
-    "***": _("Triple star"),  # TRANSLATORS: Object type
-    "D*": _("Double star"),  # TRANSLATORS: Object type
+    "DN": _("Dark Nebula"),  # TRANSLATORS: Object type
     "*": _("Star"),  # TRANSLATORS: Object type
-    "?": _("Unkn"),  # TRANSLATORS: Object type
+    "D*": _("Double star"),  # TRANSLATORS: Object type
+    "***": _("Triple star"),  # TRANSLATORS: Object type
+    "Kt": _("Knot"),  # TRANSLATORS: Object type
+    "Ast": _("Asterism"),  # TRANSLATORS: Object type
     "Pla": _("Planet"),  # TRANSLATORS: Object type
     "CM": _("Comet"),  # TRANSLATORS: Object type
+    "?": _("Unkn"),  # TRANSLATORS: Object type
 }
 
 OBJ_TYPE_MARKERS = {
@@ -35,7 +38,7 @@ OBJ_TYPE_MARKERS = {
 
 # abbreviations and symbols as used in the NGC/IC catalogues
 # and in the original Dreyer's book "New General Catalogue of Nebulae and Clusters of Stars"
-# see https://ngcicproject.observers.org/abbrev.htm
+# see https://ngcicproject.observers.org/abbrev.htm (not working anymore)
 #
 # This German web page gives a German description of the notation used in the NGC/IC catalogues and
 # does not translate the abbreviations:

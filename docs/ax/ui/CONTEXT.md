@@ -58,6 +58,10 @@ _Avoid_: display, screen driver (in code-arg context).
 `active`/`inactive` fire when a module reaches / leaves the top of the stack; `update` is the per-frame redraw a module overrides; `screen_update` draws the title bar and finalises the frame.
 _Avoid_: on_show / on_hide, render (use `update`/`screen_update`).
 
+**Self-gating module**:
+A module that enforces its own runtime **precondition** rather than relying on the menu to block entry. It always opens; when the precondition is unmet it draws a "set X first" notice (via `UIModule.draw_gate_message`) instead of its normal UI, keeps its key handlers and exit callback inert, and lets the user **back out** with LEFT/Cancel. The precondition check is live (re-read each `update`). Example: `UITimeEntry`/`UIDateEntry` gate on a location fix. See [ADR 0019](../../adr/0019-ui-modules-self-gate-preconditions.md).
+_Avoid_: gated menu item, hard block, disabled screen (the menu never refuses to open a self-gating module).
+
 ### Navigation
 
 **MenuManager**:
@@ -77,18 +81,26 @@ The flow where `MenuManager.key_*` forwards a keypad event to `stack[-1].key_*`,
 _Avoid_: event routing, input handling.
 
 **Keypad layout**:
-The physical pad is **TKL / calculator style — `7 8 9` is the TOP row**, not phone style. The full grid (from `keyboard_pi.py`'s `keymap`) is:
+The physical pad is **TKL / calculator style — `7 8 9` is the TOP row**, not phone style. `keyboard_pi.py`'s `keymap` covers a 5×5 matrix that spans both hardware revisions; each revision populates a different subset, and the directional cluster is what moved:
 
 ```
-7  8  9   (na)
-4  5  6   PLUS
-1  2  3   MINUS
-   0      SQUARE
-LEFT UP DOWN RIGHT
+       col0  col1  col2  col3    col4
+row0    7     8     9    (na)    UP     ┐
+row1    4     5     6    PLUS    LEFT   │ rev4 adds col4: a
+row2    1     2     3    MINUS   DOWN   │ directional cluster
+row3   (na)   0    (na)  SQUARE  RIGHT  │ with a centre SQUARE
+row4    LEFT  UP    DOWN  RIGHT  SQUARE ┘
+        └─ rev3 directional row ─┘
 ```
 
-So when a module maps number keys to on-screen **2×2 screen quadrants**, the spatially-faithful corners are `7`=top-left, `9`=top-right, `1`=bottom-left, `3`=bottom-right (used by daytime alignment's quadrant picker). `SQUARE`+key sends the `ALT_*` variant; a long press sends the `LNG_*` variant (long-`SQUARE` opens the marking menu).
-_Avoid_: assuming phone-style `1 2 3` on top — it is inverted.
+**rev3** populates cols 0–3 of every row (the calculator pad plus the bottom directional row). **rev4** populates rows 0–3 of cols 0–3 plus *all* of col 4 — the directional cluster moved off the bottom row and gained a second `SQUARE`. Both clusters send the same logical keys, so **UI code never needs to know which revision it is on** — but it also means a logical key does not identify a physical switch. (Which positions carry a switch on a given board is the [Bring-up](../bringup/CONTEXT.md) context's *population map*; only bring-up cares.)
+
+So when a module maps number keys to on-screen **2×2 screen quadrants**, the spatially-faithful corners are `7`=top-left, `9`=top-right, `1`=bottom-left, `3`=bottom-right (used by daytime alignment's quadrant picker). `SQUARE`+key sends the `ALT_*` variant; a long press sends the `LNG_*` variant (long-`SQUARE` opens the marking menu). Note there are two `SQUARE` positions in the matrix (one per cluster) and the chord works from either.
+_Avoid_: assuming phone-style `1 2 3` on top — it is inverted; assuming the pad is 4 columns (it grew to 5 in rev4).
+
+**Power key** (`POWER_BTN` / `key_power`):
+The dedicated hardware power button, dispatched as a normal keypad event in **key dispatch**. Its meaning is "open the shutdown confirmation": from any active module it jumps (`jump_to_label`) to the `shutdown` menu item. On that confirmation screen it doubles as **select** (behaves like the right key), so one press raises the confirmation and a second press confirms.
+_Avoid_: power switch / off button (it does not cut power directly — it opens the normal shutdown menu), kill switch.
 
 **Display mode**:
 A per-module variant cycled by the square key via `cycle_display_mode()` over the class's `_display_mode_list` (default `[None]`; e.g. `UIGPSStatus` has `["large", "detailed"]`).
@@ -156,6 +168,10 @@ _Avoid_: equipment list, generated menu.
 The small mutable object (`state.py`) holding UI-process state — observing list, recent objects, target, message/hint timeouts, FPS flag. Installed on `shared_state` via `set_ui_state`; every module reads `shared_state.ui_state()`.
 _Avoid_: ui config, session state.
 
+**Target** (`ui_state.target()`):
+The most-recently **selected object**, mirrored into `UIState` by `UIObjectDetails` (`update_object_info`) so cross-screen consumers can mark it — the **chart** draws it as a full-brightness cross (+ off-screen pointer, and its designator label when on-screen), and telemetry records it. Distinct from the Catalog *selected object* (the live `UIObjectDetails` cursor, see [Catalog](../catalog/CONTEXT.md)): the target is the **persisted last selection**, surviving after you leave details. Not a push-to concept — it follows selection automatically.
+_Avoid_: push-to target, goto target.
+
 **Published UI state** (`serialize_current_ui_state`):
 The dict `MenuManager` writes to `shared_state.set_current_ui_state(...)` each redraw — `ui_type`, `title`, marking-menu options, and the active module's own `serialize_ui_state()`. This is what `/api/current-selection` reflects.
 _Avoid_: api state, ui snapshot.
@@ -169,24 +185,28 @@ The focus-quality metric — the diameter (in pixels) of the circle enclosing ha
 _Avoid_: FWHM (a different, fit-based metric — not what we compute), star size, spot size, sharpness.
 
 **Detected star**:
-A blob the focus screen's own lightweight detector finds in the raw 512×512 frame, deliberately tuned to accept broad/defocused blobs (up to a ~50 px size cap). The few brightest detected stars are what HFD is measured on. Distinct from a **matched star** (the solver's tetra3 catalog match), which goes to zero when defocused.
+A blob the focus screen's own lightweight detector finds in the raw 512×512 frame, deliberately tuned to accept broad/defocused blobs. HFD is measured on blobs up to a ~50 px size cap; broader blobs remain available for visual magnification. The few brightest measurable stars are what HFD is measured on. Distinct from a **matched star** (the solver's tetra3 catalog match), which goes to zero when defocused.
 _Avoid_: centroid (reserve for the solver/SQM sense), matched star, blob (in prose; fine informally).
 
 **Focus HFD** (the reported value):
-The **median** HFD over the few brightest detected stars in the current frame — steadier frame-to-frame than any single star. When someone says "the HFD" on the focus screen, this is it.
+The **median** HFD over the four brightest measurable stars — steadier frame-to-frame than any single star and representative of the four focus tiles. When someone says "the HFD" on the focus screen, this is it.
 _Avoid_: best HFD (that's the marker), single-star HFD.
 
-**Focus strip**:
-The bottom-of-screen overlay (a fixed fraction of the screen height — ~38 px on the 128 panel, proportionally taller on a larger panel; see ADR 0009) that renders the focus indicator over the live image: a large right-justified **focus HFD** readout (filling the strip height), and in the freed left region the V-curve, best-focus marker, exposure, detected-star count, and the (kept) matched-star count. On by default; `square` hides the whole strip. Persists across all zoom levels (HFD is zoom-independent).
-_Avoid_: HUD (loosely the same overlay; "focus strip" is the canonical name), info overlay (the prior exposure+matched-count overlay this replaces).
+**Focus tiles**:
+The 2×2 view made by repacking the four brightest detected stars from anywhere in the camera frame. Each tile is centered on the star's background-subtracted flux centroid and enlarged with nearest-neighbour sampling; no display stretch or filtering changes the star pixels. After initial selection, stars retain their quadrant through brightness changes. Tracking matches the relative 2--4-star pattern under one shared image translation, so moving the image while adjusting focus does not reshuffle the tiles; a missing star is replaced by the brightest unused candidate. Missing stars leave black tiles. The current **focus HFD** is shown at the intersection, with the rolling 10-second HFD signal split around it along the middle divider. The recent signal range is centered on the divider and lower HFD appears below it; a minimum 1.0-HFD display span avoids magnifying tiny measurement noise. Missing measurements add no points, so existing samples recede with wall time; the next numeric measurement starts a fresh signal. No absolute good-focus threshold, guide, marker, or under-stroke is drawn.
+_Avoid_: processed preview, enhanced stars, focus strip.
 
-**V-curve** (focus trend graph):
-The scrolling sparkline of focus HFD over the **rolling 10-second window**, plotted in the focus strip. Cleared on screen entry. Named for the V shape traced as the user sweeps a focuser through best focus.
-_Avoid_: focus graph, history graph, trend line.
+**Focus display mode**:
+One of the four Focus-screen views cycled with short `square`, following the normal **display mode** convention: **Stars** (the four focus tiles and HFD history), **Single** (the brightest tracked star at twice the Stars magnification, with HFD and history on a translucent lower-third overlay), **Image** (the complete frame with the original per-frame autocontrast applied for display only), and **Stats** (HFD, supplementary area-equivalent FWHM, detected-star count, exposure mode/value, gain, and a log-scaled raw histogram). HFD, centroids, and the Stats histogram always use the unstretched raw frame. Every unavailable HFD readout is shown as `?.?`; no upper-limit sentinel is displayed.
+_Avoid_: tab, page, focus-strip mode.
 
-**Best-focus marker**:
-The minimum focus HFD within the rolling 10-second window — the bottom of the current V. Auto-rearms as old samples scroll out of the window; there is no manual reset.
-_Avoid_: best focus (the state), minimum line, target HFD.
+**Focus FWHM estimate**:
+The median area-equivalent diameter of the pixels above half local maximum for the same four brightest measurable stars. It is supplementary diagnostics on the Stats display mode, not the focus-quality metric; HFD remains primary because it behaves better on saturated, broad, and donut-shaped stars.
+_Avoid_: focus FWHM (when used as a replacement for HFD), fitted FWHM (there is no Gaussian fit).
+
+**Adaptive focus zoom**:
+The magnification used by the Stars and Single views. A compact star defaults to 10× relative to the former full-frame preview in Stars (a 26×26 native crop on square displays); Single maps that crop across the full panel, giving twice the apparent magnification. For a broad star the crop grows to include its detected extent plus margin, lowering effective magnification instead of clipping it. In the Stars and Single display modes, `+` and `-` adjust the nominal zoom from 4× to 16×. Short `square` cycles display modes.
+_Avoid_: optical zoom, solver zoom.
 
 ## Boundary terms
 

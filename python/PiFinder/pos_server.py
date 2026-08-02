@@ -10,12 +10,11 @@ This is used by SkySafari (iOS, iPadOS)
 """
 
 import socket
-from math import modf
 import logging
 import re
 from multiprocessing import Queue
 from typing import Tuple, Union
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
+from PiFinder.calc_utils import ra_to_deg, dec_to_deg, dec_to_dms_exact, sf_utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 from PiFinder.multiproclogging import MultiprocLogging
 from skyfield.positionlib import position_of_radec
@@ -96,18 +95,8 @@ def get_telescope_dec(shared_state, _):
 
     _RA_h, Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
 
-    dec = Dec.degrees
-    if dec < 0:
-        dec = abs(dec)
-        sign = "-"
-    else:
-        sign = "+"
-
-    mm, hh = modf(dec)
-    fractional_mm, mm = modf(mm * 60.0)
-    ss = round(fractional_mm * 60.0)
-
-    dec_result = f"{sign}{hh:02.0f}*{mm:02.0f}'{ss:02.0f}"
+    sign, d, m, s = dec_to_dms_exact(Dec.degrees)
+    dec_result = f"{sign}{d:02d}*{m:02d}'{round(s):02d}"
     logger.debug("get_telescope_dec: Dec result: %s", dec_result)
     return dec_result
 

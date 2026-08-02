@@ -47,9 +47,11 @@ Start
        Start --> GPS["GPS Status"]
 
 Focus
-   A live camera view for focusing the lens.  Adjust focus until stars are as
-   small and sharp as possible — sharp stars are what let the PiFinder solve.
-   The Quick Menu here adjusts the camera Exposure.
+   Magnified views of the four brightest stars the camera sees, with an **HFD**
+   readout of how spread-out they are.  Adjust focus until the number is as low
+   as it will go — sharp stars are what let the PiFinder solve.  **SQUARE**
+   cycles the Stars, Single, Image, and Stats views.  The Quick Menu here
+   adjusts the camera Exposure.
 Align
    Align the PiFinder to your eyepiece.  Center a known star, confirm, and your
    Push-To distances then account for any offset between the camera and where
@@ -87,6 +89,7 @@ for how the lists work.
        Objects --> AF["All Filtered"]
        Objects --> BC["By Catalog"]
        Objects --> Recent
+       Objects --> OL["Obs Lists"]
        Objects --> Custom
        Objects --> NS["Name Search"]
        Objects --> SF["Set Filters"]
@@ -131,6 +134,9 @@ By Catalog
 Recent
    The objects you've viewed this session, most recent first.  It starts empty
    each session.
+Obs Lists
+   Load an observing list file you've copied to the PiFinder — SkySafari,
+   CSV, and several other formats.  See :ref:`user_guide:observing lists`.
 Custom
    Enter a right ascension and declination by hand to make a one-off target you
    can push to.  See :ref:`user_guide:custom targets`.
@@ -255,8 +261,9 @@ Advanced
    already match your hardware.
 
    PiFinder Type
-      Screen orientation / build variant — Left, Right, Straight, Flat v3, Flat
-      v2, or AS Bloom.  Restarts the PiFinder.
+      Which physical configuration you have — Left, Right, Straight, Flat v3,
+      Flat v2, AS Bloom, AS Heart, Rev4 Left, Rev4 Right, or Rev4 Straight.
+      Restarts the PiFinder.
    Camera Type
       Which camera sensor is fitted — v2 (imx477), v3 (imx296), or v3 (imx462).
    GPS Settings
@@ -345,7 +352,8 @@ Experimental
    Polar Align
       For equatorial platforms: capture two or three solves while rotating the
       platform, then use the platform's altitude and azimuth adjusters until the
-      displayed correction reaches zero.
+      displayed correction reaches zero.  See
+      :ref:`user_guide:polar alignment`.
    Dev Tools
       Developer instrumentation.
 

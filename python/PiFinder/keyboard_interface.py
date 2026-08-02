@@ -28,6 +28,7 @@ class KeyboardInterface:
     LNG_DOWN = 202
     LNG_RIGHT = 203
     LNG_SQUARE = 204
+    POWER_BTN = 300
 
     def __init__(self, q=None):
         self.q = q

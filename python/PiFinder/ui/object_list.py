@@ -61,6 +61,36 @@ class SortOrder(Enum):
     RA = 3  # By RA
 
 
+def _next_target_index(
+    new_order: list,
+    old_order: list,
+    old_index: int,
+) -> int:
+    """
+    Where the cursor lands after a list rebuild: on the previously
+    selected object if it survived, else on the first of its old
+    successors that did (the natural next target once the selection was
+    logged or dropped below the altitude filter), clamped as a last
+    resort.
+
+    Matches listings by (catalog_code, sequence) — CompositeObject.__eq__
+    compares object_id alone, which would land on a *sibling* listing
+    (M 31 == NGC 224).
+    """
+    if not len(new_order) or not len(old_order):
+        return 0
+    index_by_listing = {}
+    for index, obj in enumerate(new_order):
+        key = (obj.catalog_code, obj.sequence)
+        if key not in index_by_listing:
+            index_by_listing[key] = index
+    for candidate in old_order[old_index:]:
+        new_index = index_by_listing.get((candidate.catalog_code, candidate.sequence))
+        if new_index is not None:
+            return new_index
+    return min(max(old_index, 0), len(new_order) - 1)
+
+
 class UIObjectList(UITextMenu):
     """
     Displayes a list of objects
@@ -87,6 +117,7 @@ class UIObjectList(UITextMenu):
         self.mount_type = self.config_object.get_option("mount_type")
 
         self._menu_items: list[CompositeObject] = []
+        self._menu_items_sorted: list[CompositeObject] = []
         self.catalog_info_1: str = ""
         self.catalog_info_2: str = ""
         self._was_loading: bool = False  # Track loading state to detect completion
@@ -177,6 +208,11 @@ class UIObjectList(UITextMenu):
         if not self.catalogs.catalog_filter.is_dirty() and not force_update:
             return
 
+        # sort() resets the cursor to the top; keep it on the selected
+        # object (or its old successor) across the rebuild instead.
+        old_order = self._menu_items_sorted
+        old_index = self._current_item_index
+
         self.catalogs.filter_catalogs()
 
         # The object list can display objects from various sources
@@ -199,11 +235,20 @@ class UIObjectList(UITextMenu):
 
         if self.item_definition["objects"] == "custom":
             # item_definition must contain a list of CompositeObjects
-            self._menu_items = self.item_definition["object_list"]
+            object_list = self.item_definition["object_list"]
+            # Opt-in filtering: observing lists honour the active filter
+            # (altitude, magnitude, etc); ad-hoc lists like name-search
+            # results are shown as-is.
+            if self.item_definition.get("filtered", False):
+                object_list = self.catalogs.catalog_filter.apply(object_list)
+            self._menu_items = object_list
 
         self.catalog_info_1 = str(self.get_nr_of_menu_items())
         self._menu_items_sorted = self._menu_items
         self.sort()
+        self._current_item_index = _next_target_index(
+            self._menu_items_sorted, old_order, old_index
+        )
 
     def _get_catalog_status_message(self) -> Tuple[Optional[str], Optional[int]]:
         """
@@ -271,14 +316,12 @@ class UIObjectList(UITextMenu):
         return (None, None)
 
     def sort(self) -> None:
-        message = _(
-            _("Sorting by\n{sort_order}").format(
-                sort_order=_("RA")
-                if self.current_sort == SortOrder.RA
-                else _("Catalog")
-                if self.current_sort == SortOrder.CATALOG_SEQUENCE
-                else _("Nearby")
-            )
+        message = _("Sorting by\n{sort_order}").format(
+            sort_order=_("RA")
+            if self.current_sort == SortOrder.RA
+            else _("Catalog")
+            if self.current_sort == SortOrder.CATALOG_SEQUENCE
+            else _("Nearby")
         )
         self.message(message, 0.1)
         self.update()
@@ -359,6 +402,11 @@ class UIObjectList(UITextMenu):
                 "Pluto": "PLU",
             }
             return planet_abbrevs.get(obj.names[0], obj.names[0])
+        # Observing-list coordinate objects have no catalog designation; show
+        # their name (e.g. "VY Andromedae") instead of "OBS1". Length is capped
+        # to fit the row in update() (which knows the per-row font + screen size).
+        if obj.catalog_code == "OBS" and obj.names:
+            return obj.names[0]
         return f"{obj.catalog_code}{obj.sequence}"
 
     def create_locate_text(self, obj: CompositeObject) -> str:
@@ -506,6 +554,14 @@ class UIObjectList(UITextMenu):
         else:
             self._was_loading = is_loading
 
+        # Altitude verdicts age out while the screen sits open (the sky
+        # rotates); refresh the list when the filter reports staleness.
+        # Before the no-objects check so an emptied-by-altitude list can
+        # repopulate as objects rise.
+        catalog_filter = self.catalogs.catalog_filter
+        if catalog_filter is not None and catalog_filter.is_stale():
+            self.refresh_object_list()
+
         # no objects to display
         if self.get_nr_of_menu_items() == 0:
             # Get catalog-specific status message if available
@@ -552,7 +608,14 @@ class UIObjectList(UITextMenu):
 
         # should we refresh the nearby list?
         if self.current_sort == SortOrder.NEAREST and self.nearby.should_refresh():
+            # keep the cursor on the selected object as it migrates
+            # through the distance ranking
+            old_order = self._menu_items_sorted
+            old_index = self._current_item_index
             self.nearby_refresh()
+            self._current_item_index = _next_target_index(
+                self._menu_items_sorted, old_order, old_index
+            )
 
         # Draw sorting mode in the empty rows above the focus line
         if self._current_item_index < half:
@@ -604,6 +667,20 @@ class UIObjectList(UITextMenu):
                 line_font, line_color, line_pos = self.get_line_font_color_pos(
                     line_number, _menu_item, is_focus=is_focus
                 )
+
+                # Cap the label so it can't overrun the second column drawn to
+                # its right (push-to / name / info). Width-aware: derives from
+                # the real display width and this row's font, so it adapts to
+                # 128/176/320. The reserve is sized in base-font units (the
+                # second column's content is the same regardless of row font).
+                reserve_px = 9 * self.fonts.base.width
+                max_name_chars = max(
+                    3,
+                    (self.display.width - layout.text_x - reserve_px)
+                    // line_font.width,
+                )
+                if len(item_name) > max_name_chars:
+                    item_name = item_name[: max_name_chars - 1] + "…"
 
                 # Type Marker
                 line_bg = 32 if is_focus else 0

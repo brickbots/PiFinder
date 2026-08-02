@@ -48,6 +48,7 @@ The PiFinder's web interface lets you:
 * Add and edit your telescopes and eyepieces (see :doc:`equipment`)
 * Back up and restore your observing logs, settings, and other data
 * View and download your logged observations
+* Choose or upload a logging configuration to capture detailed logs for a bug report
 
 To reach the web interface for the first time, make sure the PiFinder is in Access Point mode (see :ref:`user_guide:settings menu`) — the default for new PiFinders, to ease first-time setup.  From a phone, tablet, or computer, connect to the PiFinder's open wireless network, PiFinderAP (no password), then open your browser and visit:
 ``http://pifinder.local``
@@ -74,6 +75,10 @@ is the same as the ``pifinder`` user's; changing one changes the other.  The def
 images and PiFinders is ``solveit``, and you can change it from the Tools option in the web
 interface.
 
+The web interface is available in English, German, French, and Spanish.  It follows your
+browser's preferred language, so set the language on your phone or computer and the pages
+follow suit.
+
 Connecting to a new WiFi network
 ---------------------------------
 
@@ -97,6 +102,15 @@ WiFi network with Internet access, follow these steps:
 
 To add more WiFi networks, navigate to the Network Setup page of the :ref:`connectivity:web interface`, click the + button near the WiFi networks list, and repeat the steps above.
 
+Logging configuration
+---------------------
+
+When you're tracking down a problem, the Logs page of the web interface can turn up the
+detail the PiFinder records.  Pick one of the built-in configurations — default, debug, or
+webserver — or upload your own, and the PiFinder restarts with it in place.  The richer logs
+make it much easier to capture what happened for a bug report; switch back to default when
+you're done.
+
 SkySafari and Planetarium Apps
 ==============================
 
@@ -116,7 +130,8 @@ Once connected, you'll see:
 
 
 * ``captures/``\ : Images saved when logging objects, named with the observation ID from the database.
-* ``obslists/``\ : Observing lists saved during a session or kept for future sessions.
+* ``obslists/``\ : Observing lists.  Copy list files here (subfolders welcome) to load
+  them at the scope — see :ref:`user_guide:observing lists`.
 * ``screenshots/``\ : Screenshots taken while using the PiFinder (hold **SQUARE** and
   press **0**) are stored here.
 * ``solver_debug_dumps/``\ : If enabled, solver performance information is stored here as a collection of images and json files.
