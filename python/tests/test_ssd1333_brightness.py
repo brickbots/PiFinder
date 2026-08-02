@@ -1,14 +1,15 @@
 """
-Unit tests for SSD1333 brightness: the three-axis register policy in
+Unit tests for SSD1333 brightness: the measured-table register policy in
 ``DisplaySSD1333.set_brightness`` and the gray scale ceiling LUT in
-``ssd1333_device`` (see ADR 0023).
+``ssd1333_device`` (see ADR 0023, revised 2026-08).
 
-The panel itself can't be asserted on, but the register maths can: the tests
-model emitted light as ``duty * contrast * (master + 1) / 16`` with duty
-``(gray - 1) / 30`` -- the same model the driver uses, taken from the
-datasheet's built-in linear LUT -- and check the invariants the dimming
-design promises. No hardware: the display object is built with ``__new__``
-and handed a recording stub device.
+The panel itself can't be asserted on, but the register maths can: emitted
+light is modelled with the same measured response tables the policy inverts
+(panel flux in ADU/s from the stage-3 calibration session), and the tests
+check the invariants the dimming design promises -- regime structure, the
+tonal-range canary, monotonicity per level, and no dead keypresses under the
+UI's actual +20%/-10% stepping. No hardware: the display object is built
+with ``__new__`` and handed a recording stub device.
 """
 
 import math
@@ -19,8 +20,6 @@ from PiFinder import ssd1333_device
 from PiFinder.displays import DisplaySSD1333
 
 pytestmark = pytest.mark.unit
-
-STEPS = ssd1333_device.GRAY_SCALE_LEVELS - 1
 
 # The title bar background renders at pixel value 64 (ui/base.py
 # screen_update), the dimmest large surface in the UI and the first thing to
@@ -62,11 +61,49 @@ def registers_for(level):
     return display.device
 
 
-def emitted_light(device):
-    """Relative light of a full-intensity pixel for a register state."""
-    duty = (device.gray - 1) / STEPS
-    dimming = device.precharge / DisplaySSD1333.PRECHARGE_FULL
-    return duty * dimming * device.contrast_level * (device.master + 1) / 16
+def modelled_flux(device):
+    """Panel flux (ADU/s) of a register state, from the measured tables.
+
+    Every state the policy programs lies on one of the three measured
+    response slices, so the model needs no separability assumption -- the
+    very thing the measured surface ruled out.
+    """
+    product = device.contrast_level * (device.master + 1)
+    if device.gray == ssd1333_device.GRAY_SCALE_LEVELS:
+        assert device.precharge == DisplaySSD1333.PRECHARGE_FULL
+        table = DisplaySSD1333._DRIVE_RESPONSE
+        if product <= table[0][0]:
+            return float(table[0][1])
+        for (p_lo, f_lo), (p_hi, f_hi) in zip(table, table[1:]):
+            if product <= p_hi:
+                fraction = math.log(product / p_lo) / math.log(p_hi / p_lo)
+                return f_lo * (f_hi / f_lo) ** fraction
+        raise AssertionError(f"drive product {product} above measured range")
+    if device.gray > DisplaySSD1333.MIN_TONAL_CEILING:
+        assert product == DisplaySSD1333.MIN_DRIVE_PRODUCT
+        assert device.precharge == DisplaySSD1333.PRECHARGE_FULL
+        return DisplaySSD1333._CEILING_RESPONSE[
+            device.gray - DisplaySSD1333.MIN_TONAL_CEILING - 1
+        ]
+    assert device.gray == DisplaySSD1333.MIN_TONAL_CEILING
+    assert product == DisplaySSD1333.MIN_DRIVE_PRODUCT
+    return DisplaySSD1333._PRECHARGE_RESPONSE[
+        device.precharge - DisplaySSD1333.PRECHARGE_FLOOR
+    ]
+
+
+def flux_for(level):
+    return modelled_flux(registers_for(level))
+
+
+def press_up(level):
+    """The UI's brightness-up keypress (main.py ALT_PLUS handling)."""
+    return min(255, level + max(2, int(level * 0.2)))
+
+
+def press_down(level):
+    """The UI's brightness-down keypress (main.py ALT_MINUS handling)."""
+    return max(0, level - max(1, int(level * 0.1)))
 
 
 def lut_gray_level(value, ceiling):
@@ -89,61 +126,142 @@ def test_level_zero_turns_display_off():
     assert device.contrast_level == 0
 
 
-def test_brightness_is_monotonic_with_no_dead_steps():
-    # Every UI level must be dimmer than the next. In the bottom octave the
-    # register grid is coarser (~11%) than the curve's 6% per level, so a
-    # few adjacent levels there are allowed to collide; above level 6 a
-    # repeat is a dead keypress.
-    outputs = [emitted_light(registers_for(level)) for level in range(1, 256)]
+def test_precharge_regime_walks_the_measured_ladder():
+    # Levels 1..KNEE_LEVEL are the panel's dimmest tonal-rule-compliant
+    # states: ceiling at its tonal floor, drive at its cut-out, one
+    # pre-charge code per level from the measured floor code up to the
+    # calibrated init value. Every dim level is a distinct panel state.
+    for level in range(1, DisplaySSD1333.KNEE_LEVEL + 1):
+        device = registers_for(level)
+        assert device.contrast_level == DisplaySSD1333.MIN_CONTRAST
+        assert device.master == 0
+        assert device.gray == DisplaySSD1333.MIN_TONAL_CEILING
+        assert device.precharge == DisplaySSD1333.PRECHARGE_FLOOR + level - 1
+    assert registers_for(DisplaySSD1333.KNEE_LEVEL).precharge == (
+        DisplaySSD1333.PRECHARGE_FULL
+    )
+
+
+def test_ceiling_regime_walks_one_step_per_level():
+    # Levels KNEE_LEVEL+1..CEILING_TOP_LEVEL hold the drive at its cut-out
+    # and raise the ceiling one step per level to full, restoring tonal
+    # range as the panel brightens.
+    for level in range(
+        DisplaySSD1333.KNEE_LEVEL + 1, DisplaySSD1333.CEILING_TOP_LEVEL + 1
+    ):
+        device = registers_for(level)
+        assert device.contrast_level == DisplaySSD1333.MIN_CONTRAST
+        assert device.master == 0
+        assert device.precharge == DisplaySSD1333.PRECHARGE_FULL
+        assert device.gray == (
+            DisplaySSD1333.MIN_TONAL_CEILING + level - DisplaySSD1333.KNEE_LEVEL
+        )
+    assert registers_for(DisplaySSD1333.CEILING_TOP_LEVEL).gray == (
+        ssd1333_device.GRAY_SCALE_LEVELS
+    )
+
+
+def test_drive_regime_keeps_full_tonal_range():
+    # Above the ceiling regime every setting renders at the full ceiling
+    # and calibrated pre-charge: brightness comes from drive current alone,
+    # so no tonal range is ever sacrificed at normal brightness.
+    for level in range(DisplaySSD1333.CEILING_TOP_LEVEL + 1, 256):
+        device = registers_for(level)
+        assert device.gray == ssd1333_device.GRAY_SCALE_LEVELS
+        assert device.precharge == DisplaySSD1333.PRECHARGE_FULL
+        assert DisplaySSD1333.MIN_CONTRAST <= device.contrast_level
+        assert device.contrast_level <= DisplaySSD1333.MAX_CONTRAST
+        assert 0 <= device.master <= 15
+
+
+def test_flux_is_monotonic_per_level():
+    # Every UI level must be at least as bright as the one below it.
+    # Adjacent levels may collide where the register grid is coarser than
+    # the curve (the drive response is flat near its cut-out); dead
+    # *keypresses* are ruled out separately below.
+    outputs = [flux_for(level) for level in range(1, 256)]
     for i, (a, b) in enumerate(zip(outputs, outputs[1:]), start=1):
         assert b >= a, f"brightness decreases from level {i} to {i + 1}"
-        if i > 6:
-            assert b > a, f"levels {i} and {i + 1} produce identical output"
 
 
-def test_curve_hits_its_anchors():
-    # The knee curve is pinned at three points: MIN_BRIGHTNESS at level 1,
-    # the top of the pre-charge regime at KNEE_LEVEL (both segments pass
-    # through it, so the blend is exact there), and MAX_BRIGHTNESS at 255.
-    display = make_display()
-    assert display._target_for(1) == pytest.approx(
-        DisplaySSD1333.MIN_BRIGHTNESS, rel=0.005
+def test_no_dead_keypresses():
+    # What the user actually steps through: the UI moves the level by +20%
+    # (min 2) or -10% (min 1) per press. Every press must visibly change
+    # the light. Sole exemption: an up-press landing exactly on 255, where
+    # the drive register grid (~7 product units at the top) is coarser than
+    # the last fraction of a level step.
+    for level in range(1, 255):
+        up = press_up(level)
+        if up == 255:
+            assert flux_for(up) >= flux_for(level)
+        else:
+            assert flux_for(up) > flux_for(level), f"dead up-press at {level}"
+    for level in range(2, 256):
+        down = press_down(level)
+        assert flux_for(down) < flux_for(level), f"dead down-press at {level}"
+
+
+def test_bottom_is_the_measured_emission_floor():
+    # Level 1 is the panel's dimmest tonal-rule-compliant state -- the
+    # measured 151 ADU/s emission floor -- not a modelled value 40x above
+    # it, which is what the old separable model shipped.
+    assert flux_for(1) == DisplaySSD1333._PRECHARGE_RESPONSE[0]
+    assert flux_for(1) < 200
+
+
+def test_top_is_the_soft_maximum():
+    # Level 255 lands on MAX_TARGET_FLUX (75% of the measured clean
+    # maximum) within the drive register quantisation, and stays under the
+    # blooming cap.
+    device = registers_for(255)
+    assert modelled_flux(device) == pytest.approx(
+        DisplaySSD1333.MAX_TARGET_FLUX, rel=0.02
     )
-    assert display._target_for(DisplaySSD1333.KNEE_LEVEL) == pytest.approx(
-        DisplaySSD1333._KNEE_TARGET, rel=1e-6
-    )
-    assert display._target_for(255) == pytest.approx(
-        DisplaySSD1333.MAX_BRIGHTNESS, rel=0.005
-    )
+    product = device.contrast_level * (device.master + 1)
+    assert product <= DisplaySSD1333.MAX_DRIVE_PRODUCT
 
 
-def test_registers_land_on_target():
-    # The quantised registers must track the brightness curve within 6% --
-    # under half the smallest per-press step -- at every level.
-    display = make_display()
-    for level in range(1, 256):
-        target = display._target_for(level)
-        actual = emitted_light(registers_for(level))
-        assert abs(math.log(actual / target)) <= math.log(1.06), f"level {level}"
+def test_curve_spans_the_measured_decades():
+    # The whole point of the refit: ~3.8 decades within the tonal rule,
+    # against the 233:1 the old policy delivered.
+    span = flux_for(255) / flux_for(1)
+    assert span > 6000
+
+
+def test_drive_regime_is_continuous_at_its_anchor():
+    # The drive regime's power law anchors at the ceiling regime's top: the
+    # first drive-regime level must sit within a few percent of it, not
+    # jump.
+    top = DisplaySSD1333.CEILING_TOP_LEVEL
+    assert flux_for(top + 1) == pytest.approx(flux_for(top), rel=0.05)
 
 
 def test_ceiling_holds_tonal_floor():
     # The ceiling never drops below MIN_TONAL_CEILING at any lit setting --
-    # that ceiling is what keeps the title bar's shade emitting. Below what
-    # it can reach at the drive floor, pre-charge dimming takes over instead.
+    # that ceiling is what keeps the title bar's shade emitting.
     for level in range(1, 256):
         assert registers_for(level).gray >= DisplaySSD1333.MIN_TONAL_CEILING
 
 
+def test_drive_never_below_panel_cutout():
+    # Lit iff drive product >= 4, at every lit setting.
+    for level in range(1, 256):
+        device = registers_for(level)
+        assert device.contrast_level >= DisplaySSD1333.MIN_CONTRAST
+        assert (
+            device.contrast_level * (device.master + 1)
+            >= DisplaySSD1333.MIN_DRIVE_PRODUCT
+        )
+
+
 def test_precharge_only_dims_the_bottom_settings():
-    # Pre-charge stays at the init value (where all other panel constants
-    # were measured) everywhere the ceiling can do the job, and only comes
-    # down inside the pre-charge regime below the knee -- never under
-    # PRECHARGE_FLOOR, the safety margin above the 0x00-0x05 region where
-    # the panel cuts out.
+    # Pre-charge stays at the calibrated init value everywhere above the
+    # knee -- it is nearly inert at strong drive anyway (1.3x authority) --
+    # and walks the measured code range only inside the pre-charge regime,
+    # never below the measured cut-out edge.
     for level in range(1, 256):
         precharge = registers_for(level).precharge
-        if level >= 23:
+        if level > DisplaySSD1333.KNEE_LEVEL:
             assert precharge == DisplaySSD1333.PRECHARGE_FULL
         else:
             assert (
@@ -151,20 +269,6 @@ def test_precharge_only_dims_the_bottom_settings():
                 <= precharge
                 <= DisplaySSD1333.PRECHARGE_FULL
             )
-
-
-def test_ceiling_stays_full_at_normal_brightness():
-    # Tonal range is only sacrificed once drive current alone cannot reach
-    # the target: at level 39 and above the ceiling must not drop more than
-    # the few steps the fit search is allowed to trade away.
-    for level in range(39, 256):
-        assert registers_for(level).gray >= 28
-
-
-def test_drive_never_below_panel_floor():
-    for level in range(1, 256):
-        device = registers_for(level)
-        assert device.contrast_level >= DisplaySSD1333.MIN_CONTRAST
 
 
 # --------------------------------------------------------------------------- #
@@ -182,9 +286,10 @@ def test_lut_preserves_relative_light():
     # Under any ceiling, a pixel's light relative to full white must stay
     # within half a gray level step of what the panel shows at full ceiling.
     # (This is the fix for the title bar dimming faster than bright text.)
+    steps = ssd1333_device.GRAY_SCALE_LEVELS - 1
     for ceiling in range(4, ssd1333_device.GRAY_SCALE_LEVELS):
         for value in range(0, 256, 8):
-            native_light = max(0, value // 8 - 1) / STEPS
+            native_light = max(0, value // 8 - 1) / steps
             mapped = lut_gray_level(value, ceiling)
             mapped_light = max(0, mapped - 1) / (ceiling - 1)
             half_step = 0.5 / (ceiling - 1)
@@ -201,9 +306,9 @@ def test_lut_keeps_black_black():
 
 def test_titlebar_survives_at_every_setting():
     # Regression for the title bar (pixel value 64) going black between UI
-    # levels 16 and 15 while bright text stayed visible: with pre-charge
-    # dimming holding the ceiling at MIN_TONAL_CEILING, it must render on an
-    # emitting gray level (>= 2) at every lit brightness setting.
+    # levels 16 and 15 while bright text stayed visible: with the ceiling
+    # held at MIN_TONAL_CEILING through the whole pre-charge regime, it must
+    # render on an emitting gray level (>= 2) at every lit setting.
     for level in range(1, 256):
         device = registers_for(level)
         assert (
