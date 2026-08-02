@@ -188,19 +188,24 @@ class Layout176:
 class DisplaySSD1333(Layout176, DisplayBase):
     """1.91" 176x176 OLED.
 
-    Brightness comes from three settings that multiply together. Two are
+    Brightness comes from four settings that multiply together. Two are
     registers fixing the current a lit pixel draws -- per-channel contrast
     (0xC1) and master current control (0xC7, scaling by (master + 1) / 16) --
-    and the gray scale ceiling fixes how long it draws it for. Brightness is
-    expressed internally in units of contrast-at-full-master-and-full-ceiling,
-    so the registers span 0 to MAX_CONTRAST and the UI uses 0 to
-    MAX_BRIGHTNESS of that.
+    the gray scale ceiling fixes how long it draws it for, and the pre-charge
+    voltage (0xBB) scales the light a given current and duty produce.
+    Brightness is expressed internally in units of
+    contrast-at-full-master-and-full-ceiling, so the registers span 0 to
+    MAX_CONTRAST and the UI uses 0 to MAX_BRIGHTNESS of that.
 
     The two current registers alone are coarse at the dim end: their product is
     always a whole number, so current-only brightness quantises to n/16 and
     cannot go below MIN_DRIVE without the panel ceasing to emit. The gray scale
     ceiling is what reaches below that, and see ADR 0023 for why it dims by
     capping rendered pixel values rather than by rewriting the gray scale LUT.
+    The ceiling costs tonal range as it falls, so once it reaches
+    MIN_TONAL_CEILING -- the last ceiling that keeps the UI's dimmest shade
+    emitting -- the pre-charge voltage takes over the remaining dimming and
+    the ceiling falls no further.
     """
 
     # Highest per-channel contrast this panel drives cleanly; above it the
@@ -216,12 +221,43 @@ class DisplaySSD1333(Layout176, DisplayBase):
     # MAX_CONTRAST. Below this the contrast register simply stops emitting.
     MIN_DRIVE = MIN_CONTRAST / 16
 
-    # Drive current to aim for once the gray scale ceiling is doing the
-    # dimming. Sitting above the floor rather than on it leaves the contrast
-    # register room to interpolate between ceiling steps, which are coarse down
-    # there -- worth about a third off the largest jump between adjacent
-    # brightness settings, for a little tonal range at the very dim end.
-    DIM_DRIVE = 2 * MIN_DRIVE
+    # How far the registers may land from the target brightness (as a log
+    # ratio) before set_brightness trades a gray scale ceiling step for a
+    # better fit. Tighter costs tonal range for accuracy; looser lets
+    # adjacent UI levels collide into the same output. 2% is the loosest
+    # setting that keeps every UI level distinct and monotonic under the
+    # knee curve, whose per-level steps run down to ~4% above the knee.
+    DRIVE_FIT_TOL = math.log(1.02)
+
+    # Most ceiling steps the fit search may trade away. Bounded because the
+    # search would otherwise prefer very low ceilings outright -- the
+    # contrast values they pair with are large and therefore finer-grained
+    # -- surrendering the tonal range the high ceiling exists to protect.
+    # With MIN_TONAL_CEILING clamping the floor, three steps is safe and
+    # de-quantises the drive registers near ceiling boundaries.
+    DRIVE_FIT_STEPS = 3
+
+    # Lowest ceiling the fit search may trade down to while the target can
+    # reach a higher one. Four is the lowest ceiling where the UI's dimmest
+    # large surface -- the title bar background, pixel value 64, native gray
+    # level 8 -- still rounds onto an emitting level. Holding it there spends
+    # drive-current headroom on tone instead of fit: the affected settings
+    # land up to ~11% off the brightness curve, half a keypress step.
+    MIN_TONAL_CEILING = 4
+
+    # Pre-charge voltage code (0xBB) at which every other measured constant
+    # holds; the init sequence programs it and the policy never exceeds it.
+    # Sweep-measured (PiFinder.precharge_sweep, 2026-07, by eye): light
+    # scales linearly with the code and multiplicatively with the other
+    # axes, reaching dark at code 0, so the dimming multiplier is modelled
+    # as code / PRECHARGE_FULL.
+    PRECHARGE_FULL = 0x17
+
+    # Dimmest pre-charge code the policy will program: a safety margin above
+    # the 0x00-0x05 region where the panel cuts out, and as low as
+    # MIN_BRIGHTNESS ever needs (a 3x reduction below the drive floor at
+    # MIN_TONAL_CEILING).
+    PRECHARGE_FLOOR = 8
 
     # Brightest the UI will drive the panel, as a fraction of what the
     # registers can reach. Measured: the top of the range blooms, bright pixels
@@ -229,8 +265,12 @@ class DisplaySSD1333(Layout176, DisplayBase):
     # available current.
     MAX_BRIGHTNESS = 0.70 * MAX_CONTRAST
 
-    # Dimmest visible output: the current floor, duty-cycled down to the
-    # dimmest gray scale level that still emits.
+    # Dimmest output the policy targets: the current floor, duty-cycled down
+    # to the dimmest gray scale level that still emits. Kept at this value
+    # when pre-charge dimming was added, so the brightness curve is
+    # unchanged; the floor is now reached as ceiling MIN_TONAL_CEILING at
+    # the drive floor with a ~3x pre-charge reduction, which lands within a
+    # register step of the same light.
     MIN_BRIGHTNESS = (
         MIN_CONTRAST
         / 16
@@ -238,14 +278,34 @@ class DisplaySSD1333(Layout176, DisplayBase):
         / (ssd1333_device.GRAY_SCALE_LEVELS - 1)
     )
 
-    # Brightness rises as this power of the UI level. The UI adjusts level by a
-    # percentage rather than a fixed step, so a power law makes each keypress a
-    # roughly constant change all the way along -- here about 23%, against the
-    # 19% floor for covering a 13400:1 range in the ~45 presses the UI takes to
-    # cross it. Anything shallower cannot reach MIN_BRIGHTNESS at level 1 and
-    # strands the dim settings this display is usually run at; anything steeper
-    # starts repeating brightnesses on adjacent levels.
-    GAMMA = 2.5
+    # --- The level -> brightness curve --------------------------------------
+    # Two regimes with a soft knee, reshaped (2026-07, field request) to
+    # spend far more of the 0-255 range on the dim settings this display is
+    # actually run at. The knee sits exactly where the pre-charge dimming
+    # regime begins, so settings 1..KNEE_LEVEL walk the pre-charge range and
+    # everything above climbs to MAX_BRIGHTNESS.
+    KNEE_LEVEL = 20
+
+    # Levels over which the two regimes blend (logistic width). About two
+    # levels: enough that the per-press step doesn't jump abruptly crossing
+    # the knee, narrow enough that neither regime's shape is disturbed.
+    KNEE_BLEND = 2.0
+
+    # Brightness at the knee: the top of the pre-charge regime, i.e. what
+    # MIN_TONAL_CEILING produces at the drive floor.
+    _KNEE_TARGET = (
+        MIN_DRIVE * (MIN_TONAL_CEILING - 1) / (ssd1333_device.GRAY_SCALE_LEVELS - 1)
+    )
+
+    # Below the knee brightness rises by a constant ratio per level (~6%) --
+    # matched to the pre-charge/contrast register grid, whose spacing runs
+    # ~4-12% down there, so nearly every level is a distinct visible step.
+    # Above the knee it rises by a constant ratio per *keypress*: the UI
+    # steps the level by a percentage of itself, so that regime is a power
+    # law in the level (~35% per press). Both rates follow from pinning the
+    # curve at MIN_BRIGHTNESS, the knee, and MAX_BRIGHTNESS.
+    _DIM_RATE = math.log(_KNEE_TARGET / MIN_BRIGHTNESS) / (KNEE_LEVEL - 1)
+    _BRIGHT_SLOPE = math.log(MAX_BRIGHTNESS / _KNEE_TARGET) / math.log(255 / KNEE_LEVEL)
 
     def __init__(self):
         # init display  (SPI hardware)
@@ -253,6 +313,21 @@ class DisplaySSD1333(Layout176, DisplayBase):
         device_serial = ssd1333(serial, width=176, height=176, rotate=3, bgr=True)
         self.device = device_serial
         super().__init__()
+
+    def _target_for(self, level):
+        """Brightness the curve aims at for a UI level (1-255).
+
+        Log-domain blend of the two regimes: geometric-per-level below the
+        knee, power-law-in-level above, crossing at exactly _KNEE_TARGET
+        (both segments pass through the knee point, so the blend is exact
+        there).
+        """
+        blend = 1 / (1 + math.exp(-(level - self.KNEE_LEVEL) / self.KNEE_BLEND))
+        dim = self._DIM_RATE * (level - 1)
+        bright = math.log(self._KNEE_TARGET / self.MIN_BRIGHTNESS) + (
+            self._BRIGHT_SLOPE * math.log(level / self.KNEE_LEVEL)
+        )
+        return self.MIN_BRIGHTNESS * math.exp((1 - blend) * dim + blend * bright)
 
     def _drive_for(self, target):
         """Register pair whose current drive lands closest to ``target``.
@@ -267,15 +342,20 @@ class DisplaySSD1333(Layout176, DisplayBase):
 
     def set_brightness(self, level):
         """
-        Sets oled brightness 0-255 across all three brightness registers.
+        Sets oled brightness 0-255 across all four brightness registers.
 
-        The level maps onto a target brightness over MIN_BRIGHTNESS to
-        MAX_BRIGHTNESS, which is then reached with drive current wherever
+        The level maps onto a target brightness via the knee curve (see
+        _target_for), which is then reached with drive current wherever
         drive current can reach it. Only near MIN_DRIVE, where the contrast
-        register bottoms out, does the gray scale ceiling come down -- pulled
-        no further than the target needs, since lowering it costs the UI tonal
-        range. So every normal brightness renders at full tonal range, and the
-        ceiling takes over for the dim settings below.
+        register bottoms out, does the gray scale ceiling come down -- and no
+        further than the target needs, since lowering it costs the UI tonal
+        range. Starting from the highest ceiling whose duty cycle keeps the
+        drive at or above its floor, the ceiling steps down only while the
+        registers' quantised output misses the target by more than
+        DRIVE_FIT_TOL, and never below MIN_TONAL_CEILING. Once that ceiling
+        reaches the drive floor, the pre-charge voltage does the remaining
+        dimming. So every normal brightness renders at full tonal range, and
+        every dim setting keeps the UI's dimmest shade emitting.
         """
         level = max(0, min(255, level))
         if level == 0:
@@ -283,21 +363,55 @@ class DisplaySSD1333(Layout176, DisplayBase):
             self.device.contrast(0)
             return
 
-        span = self.MAX_BRIGHTNESS - self.MIN_BRIGHTNESS
-        target = self.MIN_BRIGHTNESS + span * (level / 255) ** self.GAMMA
+        target = self._target_for(level)
 
-        # Highest ceiling whose duty cycle still leaves the drive around
-        # DIM_DRIVE; full ceiling for anything at DIM_DRIVE or brighter.
         steps = ssd1333_device.GRAY_SCALE_LEVELS - 1
-        gray = 1 + min(steps, math.floor(target * steps / self.DIM_DRIVE))
-        gray = max(ssd1333_device.MIN_GRAY_SCALE_LEVEL, gray)
+        gray_hi = 1 + min(steps, math.floor(target * steps / self.MIN_DRIVE))
 
-        duty = (gray - 1) / steps
-        contrast, master = self._drive_for(target / duty)
+        if gray_hi <= self.MIN_TONAL_CEILING:
+            # Pre-charge regime: the ceiling is already at its tonal floor,
+            # so hold it there and search the pre-charge codes for the rest
+            # of the dimming, with the contrast register trimming each
+            # candidate's residual. The full code range is searched because
+            # the combined pre-charge x contrast grid is much denser than
+            # either register alone -- that density is what keeps adjacent
+            # dim settings visibly distinct.
+            gray = self.MIN_TONAL_CEILING
+            duty = (gray - 1) / steps
+            best = None
+            for precharge in range(self.PRECHARGE_FULL, self.PRECHARGE_FLOOR - 1, -1):
+                dimming = precharge / self.PRECHARGE_FULL
+                contrast, master = self._drive_for(target / (duty * dimming))
+                actual = duty * dimming * contrast * (master + 1) / 16
+                error = abs(math.log(actual / target))
+                # Strict improvement, descending: near-ties keep the higher,
+                # better-calibrated code.
+                if best is None or error < best[0] - 1e-9:
+                    best = (error, precharge, contrast, master)
+            _, precharge, contrast, master = best
+        else:
+            precharge = self.PRECHARGE_FULL
+            gray_lo = max(
+                min(self.MIN_TONAL_CEILING, gray_hi),
+                gray_hi - self.DRIVE_FIT_STEPS,
+            )
+            best = None
+            for gray in range(gray_hi, gray_lo - 1, -1):
+                duty = (gray - 1) / steps
+                contrast, master = self._drive_for(target / duty)
+                actual = duty * contrast * (master + 1) / 16
+                error = abs(math.log(actual / target))
+                # Strict improvement only: equal fits keep the higher ceiling.
+                if best is None or error < best[0] - 1e-9:
+                    best = (error, gray, contrast, master)
+                if error <= self.DRIVE_FIT_TOL:
+                    break
+            _, gray, contrast, master = best
 
         self.device.master_brightness(master)
         self.device.contrast(contrast)
         self.device.gray_scale_ceiling(gray)
+        self.device.precharge_voltage(precharge)
 
 
 class DisplayPygame_176(Layout176, DisplayBase):
