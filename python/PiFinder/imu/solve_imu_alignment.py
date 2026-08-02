@@ -73,7 +73,7 @@ Assumptions & limitations
    mount, the rotation will likely be around two axes. This may result in a 
    larger uncertainty for the rotation/alignment about some axes.
 """
-
+import logging
 import numpy as np
 import quaternion  # Note: numpy-quaternion convention: quaternion(w, x, y, z)
 from scipy.optimize import least_squares
@@ -83,6 +83,8 @@ from typing import Union
 import PiFinder.pointing_model.quaternion_transforms as qt
 
 list_of_quats = list[quaternion.quaternion]
+
+logger = logging.getLogger("IMU.Integrator")
 
 
 def ensure_quat_list_continuity(q_list: list_of_quats) -> list_of_quats:
@@ -249,7 +251,7 @@ def calibrate_camera_imu(
 
 def _solution_diagnostics(result):
     """ 
-    Calculate the diagnostics of the least-squares solution. The input, 
+    Returns the diagnostics of the least-squares solution. The input, 
     `result` is the output from scipy.optimize.least_squares.
     
     Condition number: < 10 excellent, < 100 acceptable, <1E4 weak observability
