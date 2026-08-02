@@ -73,8 +73,8 @@ like the 2026-07 reshape did.
 
 ## Repo state you inherit
 
-Stage-2's PR carries the journals, `ssd1333-response.md`, CONTEXT.md
-vocabulary, and this file. Stage-1's harness (`panel_photometry.py`,
-driver changes in `displays.py`/`ssd1333_device.py`, ADR 0023 edits) was
-still uncommitted in the working copy at stage-2 handoff time — confirm
-it landed before relying on file paths here.
+PR #568 carries everything: stage-1's harness (`panel_photometry.py`,
+driver changes in `displays.py`/`ssd1333_device.py`, `precharge_sweep.py`,
+ADR 0023 revision, `test_ssd1333_brightness.py`) and stage-2's journals,
+`ssd1333-response.md`, CONTEXT.md vocabulary, and this file. Confirm it
+merged before relying on file paths here.
