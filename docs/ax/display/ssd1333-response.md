@@ -172,7 +172,7 @@ designed at the very bottom.
    at reference — finding 3. **Ceiling `(n−1)/30` duty law**: holds at
    reference drive; per-level shape bends with drive — findings 2 and 4.
 
-## 7. Contradictions with ADR 0023 (flagged, not fixed)
+## 7. Contradictions with ADR 0023 (flagged, not fixed — resolved by the stage-3 ADR revision, 2026-08)
 
 The ADR's *decisions* (cap pixel values, leave the LUT alone, four axes,
 knee shape) are untouched. These *measured claims* in it are wrong and

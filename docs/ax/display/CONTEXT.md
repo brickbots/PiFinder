@@ -47,8 +47,20 @@ as it falls.
 _Avoid_: LUT rewrite (a rejected, different mechanism — see ADR 0023)
 
 **Pre-charge regime**:
-The dim span of the level range where the ceiling has hit its tonal floor and
-the pre-charge voltage axis carries the remaining dimming.
+The dim span of the level range where the ceiling sits at its tonal floor and
+the pre-charge voltage axis carries the dimming, one measured code per level
+down to the panel's emission floor. The bottom of the policy's three regimes
+(pre-charge → ceiling → drive).
+
+**Ceiling regime**:
+The mid span of the level range where the drive stays at its cut-out and the
+ceiling walks one step per level along its measured duty response, restoring
+tonal range as the panel brightens.
+
+**Drive regime**:
+The bright span of the level range: full ceiling and pre-charge, the level
+mapped to a target by the knee curve's power law and the measured drive
+response inverted for the drive product. Full tonal range everywhere here.
 
 **Emission floor**:
 The dimmest programmable state at which a panel still emits at all; below it
@@ -72,9 +84,12 @@ policy maps level → target light via the knee curve, then target → axis valu
 _Avoid_: brightness (ambiguous between level, target, and measured light)
 
 **Knee curve**:
-The dim-weighted two-regime level→light mapping: fine geometric steps per
-level below the knee (the pre-charge regime), a coarser power law per keypress
-above it. Field-validated shape; its constants are panel measurements.
+The dim-weighted level→light mapping: below the knee the level walks the
+panel's measured dim states one per level (the pre-charge regime — steps as
+coarse as the panel's grid there), above it the ceiling regime's measured
+ladder and then a power law per keypress through the drive regime.
+Dim-weighted shape is a field-validated user decision; every constant is a
+panel measurement (refit 2026-08 from the rig's response surface).
 
 ### Bench photometry
 

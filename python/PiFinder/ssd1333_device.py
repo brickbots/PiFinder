@@ -206,11 +206,13 @@ class ssd1333(color_device):
         """
         Sets the pre-charge voltage (0xBB, A[4:0]), as a fraction of VCC.
 
-        A fourth brightness axis the panel responds to: light output falls as
-        the pre-charge voltage drops, reaching fully dark between 0x05 and
-        0x00 (measured; see ADR 0023). Not currently used by the brightness
-        policy -- its response curve is uncharacterised. The init sequence
-        sets 0x17 (0.40 x VCC), which all other measured constants assume.
+        A brightness axis whose authority depends on the drive: it scales a
+        weakly driven pixel's light by up to 32x and a strongly driven one's
+        by ~1.3x (rig-measured; see docs/ax/display/ssd1333-response.md).
+        The cut-out edge moves with drive -- at the dimming policy's floor
+        state the panel is dark at code 3 and below. The brightness policy
+        walks codes 4..0x17 as its dimmest regime; the init sequence sets
+        0x17 (0.40 x VCC), which all bright-regime constants assume.
 
         :param level: Pre-charge voltage code in the range 0-31.
         :type level: int

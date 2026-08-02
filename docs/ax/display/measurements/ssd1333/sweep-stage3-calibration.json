@@ -1,0 +1,598 @@
+{
+ "description": "stage-3 policy calibration: dim pre-charge ladder (c4 m0 L4), mid ceiling ladder (c4 m0 pc23), bright drive-product ladder (L31 pc23)",
+ "sentinel_every": 25,
+ "points": [
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 3
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 4
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 5
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 6
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 7
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 8
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 9
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 10
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 11
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 12
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 13
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 14
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 15
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 16
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 17
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 18
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 19
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 20
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 21
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 22
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 4,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 5,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 6,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 7,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 8,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 9,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 10,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 11,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 12,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 13,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 14,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 15,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 16,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 17,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 18,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 19,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 20,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 21,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 22,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 23,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 24,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 25,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 26,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 27,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 28,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 29,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 30,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 4,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 6,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 8,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 12,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 16,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 24,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 32,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 48,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 64,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 96,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 128,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 160,
+    "master": 0,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 96,
+    "master": 1,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 128,
+    "master": 1,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 160,
+    "master": 1,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 128,
+    "master": 2,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 112,
+    "master": 3,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 128,
+    "master": 3,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 160,
+    "master": 3,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 128,
+    "master": 5,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 128,
+    "master": 6,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 128,
+    "master": 7,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 144,
+    "master": 7,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 160,
+    "master": 7,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  },
+  {
+   "axes": {
+    "contrast": 64,
+    "master": 7,
+    "ceiling": 31,
+    "precharge": 23
+   }
+  }
+ ]
+}
