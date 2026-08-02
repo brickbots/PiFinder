@@ -85,21 +85,15 @@ import PiFinder.pointing_model.quaternion_transforms as qt
 list_of_quats = list[quaternion.quaternion]
 
 
-def ensure_quat_continuity(q_list: list_of_quats) -> list_of_quats:
+def ensure_quat_list_continuity(q_list: list_of_quats) -> list_of_quats:
     """
     Ensures that consecutive quaternions in the list have consistent signs (due
     to the double coverage property of quaternions where q and -q represent
     same rotation).
-
-    TODO: Possibly move this to quaternion_transforms?
     """
     q_list_out = [q_list[0]]
     for q in q_list[1:]:
-        q_prev = quaternion.as_float_array(q_list_out[-1])
-        q_curr = quaternion.as_float_array(q)
-
-        if np.dot(q_prev, q_curr) < 0:
-            q = -q
+        q = qt.ensure_quat_continuity(q_list_out[-1], q)
         q_list_out.append(q)
 
     return q_list_out
@@ -194,8 +188,8 @@ def calibrate_camera_imu(
     t_start = time.time()
 
     # Enforce quaternion continuity
-    q_cam = ensure_quat_continuity(q_cam)
-    q_imu = ensure_quat_continuity(q_imu)
+    q_cam = ensure_quat_list_continuity(q_cam)
+    q_imu = ensure_quat_list_continuity(q_imu)
 
     # Calculate relative rotations between successive quaternions
     dq_cam = build_relative_rotations(q_cam, step)
