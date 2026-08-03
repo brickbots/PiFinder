@@ -38,108 +38,59 @@ def calculate_relative_rotations(q1_list: list_of_quats, q2_list: list_of_quats)
     return [q1.conjugate() * q2 for q1, q2 in zip(q1_list, q2_list)]
 
 
-def reject_small_rotations(dq_cam: list_of_quats, 
-                           dq_imu: list_of_quats,
+def reject_small_rotations(dq_list: list_of_quats,
                            min_rotation=np.deg2rad(1.0),  # Reject rotations below this [radians]
-                           ) -> tuple[list_of_quats, list_of_quats]:
+                           ):
     """
     Reject small rotations
     """
-    keep_dq_cam = []
-    keep_dq_imu = []
-    for qc, qi in zip(dq_cam, dq_imu):
-        angle_cam = np.linalg.norm(quaternion.as_rotation_vector(qc))
-        angle_imu = np.linalg.norm(quaternion.as_rotation_vector(qi))
+    pass
 
-        if angle_cam >= min_rotation or angle_imu >= min_rotation:
-            keep_dq_cam.append(qc)
-            keep_dq_imu.append(qi)
 
-    return keep_dq_cam, keep_dq_imu
-
+N_UNKNOWN_PARAMS = 3  # Number of unknown parameters in the problem to solve
 
 def residual_rotation_vector(x,  # (3,) Trial solution (q as rotation vector) 
-                             dq_cam: list_of_quats,  # List of relative camera rotation quaternions
-                             dq_imu: list_of_quats  # List of relative IMU rotation quaternions
+                             q1_list: list_of_quats,  # List of rotation quaternions
+                             q2_list: list_of_quats 
                              ) -> np.ndarray:
     """
+    For solving q_cam2imu in the quaternion form of the hand-eye problem: 
+    q1 * q_12 = q_12 * q2
+
     Calculate the esiduals at the trial solution x for least squares
     optimization.
-
-    For solving q_cam2imu in the quaternion form of the hand-eye problem: 
-    dq_cam * q_cam2imu = q_cam2imu * dq_imu
     """
     # Convert trial solution (rotation vector) to quaternion
-    q_cam2imu = quaternion.from_rotation_vector(x)
+    q_12 = quaternion.from_rotation_vector(x)
 
-    n_meas = len(dq_cam)
+    n_meas = len(q1_list)
     residuals = np.zeros(3 * n_meas)
-    for ii, (qc, qi) in enumerate(zip(dq_cam, dq_imu)):
-        q_left = qc * q_cam2imu
-        q_right = q_cam2imu * qi
-
-        # Error quaternion
-        q_err = q_left * q_right.conjugate()
-
+    for ii, (q1, q2) in enumerate(zip(q1_list, q2_list)):
+        q_err = (q1 * q_12) * (q_12 * q2).conjugate()  # Error quaternion
         # Convert to rotation vector (Lie algebra logarithm map)
         residuals[(3 * ii):(3 * ii + 3)] = quaternion.as_rotation_vector(q_err)
 
     return np.array(residuals)
 
 
-N_UNKNOWN_PARAMS = 3  # Number of unknown parameters in the problem to solve
-
-def calibrate_camera_imu(
-        q_cam: list_of_quats,  # Camera orientations
-        q_imu: list_of_quats,  # IMU orientations at same moments
-        step: int = 1,  # Skip successive measurements
-        min_rotation=np.deg2rad(1.0),  # Reject rotations below this [radians]
+def solve_rotation(
+        q1_list: list_of_quats,  # List of rotation quaternions
+        q2_list: list_of_quats,
         x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN_PARAMS),  # Initial guess
         residual_threshold = 0.01,  # Reject samples with residual > resid_threshold in first pass
         verbose=True
         ):
     """
-    Estimate q_cam2imu from pairs of simultaneous camera and IMU measurements
-    q_cam and q_imu (as quaternions).
+    Solve the quaternion form of the hand-eye problem
+    dq1 * q_12 = q_12 * dq2
 
-    RETURNS:
-    q_cam2imu: [quaternion.quaternion] Camera-to-IMU rotation estimate
-    sigma_total: [rad] Total rotaion uncertainty
-    condition_number: < 10 excellent, < 100 acceptable, <1E4 weak observability
-
-    TODO: 
-    - Add checks to fail gracefully if there aren't enough data points.
-    - Remove outliers
+    Where q_12 is the unknown rotation that rotates q1 to q2
     """
-    t_start = time.time()
-
-    # Enforce quaternion continuity
-    q_cam = ensure_quat_list_continuity(q_cam)
-    q_imu = ensure_quat_list_continuity(q_imu)
-
-    # Calculate relative rotations between successive quaternions
-    dq_cam = build_relative_rotations(q_cam, step)
-    dq_imu = build_relative_rotations(q_imu, step)
-
-    # Reject rotation angle < min_rotation
-    reject_small_rotations(dq_cam, dq_imu, min_rotation=min_rotation)
-    # TODO: Convert print() to logging
-    print(f"{len(q_cam)} measurements. Using {len(dq_cam)} pairs for camera-IMU calibration.")
-    # Calculate angular differences for logging
-    d_thetas = []
-    for ii, dq in enumerate(dq_cam):
-        if ii > 0:
-            d_thetas.append(qt.get_quat_angular_diff(prev_dq, dq))
-        prev_dq = dq
-    print(f"Angular rotations: {np.rad2deg(np.min(np.abs(d_thetas))):.2f} to " 
-          f"{np.rad2deg(np.max(np.abs(d_thetas))):.2f} deg. "
-          f"Median: {np.rad2deg(np.median(np.abs(d_thetas))):.2f} deg.")
-
     # Solve for x by non-linear least squares (Levenberg-Marquardt)
     # TODO: Tune LM params
     # TODO: Calculate the Jacobians analytically? Current numerical Jacobians is probably fast enough?
     result = least_squares(residual_rotation_vector, x0, method='lm', 
-                           args=(dq_cam, dq_imu))
+                           args=(q1_list, q2_list))
     # TODO: Investigate using robust loss functions?
     #result = least_squares(residual_rotation_vector, x0, loss='cauchy', 
     #                       args=(dq_cam, dq_imu))
@@ -149,28 +100,26 @@ def calibrate_camera_imu(
         # NOTE: Each quaternion measurement is converted to rotation vectors with 3 values
         resid_reshaped = result.fun.reshape(-1, 3)  # Each row is a sample
         msk_accept = np.all(np.abs(resid_reshaped) < residual_threshold, axis=1)
-        dq_cam_accept = np.array(dq_cam)[msk_accept]
-        dq_imu_accept = np.array(dq_imu)[msk_accept]
+        q1_accept = np.array(q1_list)[msk_accept]
+        q2_accept = np.array(q2_list)[msk_accept]
         if verbose:
             print(f"Accepted {np.sum(msk_accept)}/{resid_reshaped.shape[0]} samples.")
         # Run least-squares again (using previous solution as the initial guess)
-        result = least_squares(residual_rotation_vector, result.x, 
-                               args=(dq_cam_accept, dq_imu_accept))
+        result = least_squares(residual_rotation_vector, result.x, args=(q1_accept, q2_accept))
 
-    # Convert estimate from rotatino vector to quaternion
-    q_cam2imu = quaternion.from_rotation_vector(result.x)
-    t_compute = time.time() - t_start
+    # Convert estimate from rotation vector to quaternion
+    q_12 = quaternion.from_rotation_vector(result.x)
     
     if verbose:
-        print(f"Estimated q_cam2imu: q_cam2imu={q_cam2imu}, compute time = {t_compute:.3f}s ",
+        print(f"Estimated q_cam2imu: q_cam2imu={q_12}, ",
             f"Func evaluations: {result.nfev}, Cost = {result.cost:.4g}, ", 
             f"Success: {result.success}, {result.message}")
 
-    # Diagnostics
+    # Diagnostics  TODO: Return these
     sigma_total, condition_number = _solution_diagnostics(result)
     residuals = result.fun
 
-    return q_cam2imu, sigma_total, residuals, condition_number
+    return q_12
 
 
 def _solution_diagnostics(result):
