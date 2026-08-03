@@ -1,9 +1,77 @@
 """
-Pre-processing steps for IMU/camera alignment (extrinsic alignment)
+Alignment of the IMU-camera axes (extrinsic calibration)
 
-Prepares the IMU/camera samples that can be used to solve for the alignment. 
+For dead-reckoning with the IMU, we need the rotation between the IMU and
+camera axes. This is done by the quaternion q_cam2imu and its inverse
+q_imu2cam.
+
+The goal of this module is to estimate q_cam2imu. We can do this using pairs of
+camera and IMU orientation quaternions measured simultaneously.
+
+Required measurements
+---------------------
+
+The measurements we have are:
+
+* q_eq2cam: Quaternion rotation of the camera center relative to the equatorial
+  frame. 
+* q_x2imu: The rotation of the IMU relative to some arbibtrary reference frame
+  X.
+
+The camera and IMU measurements are paired and assumed to be simultaneous.
+  
+Algorithm:
+----------
+
+We can express the rotation between successive timesteps for the camera and
+IMU:
+
+dq_cam = q_eq2cam[k-1].conjugate() * q_eq2cam[k] dq_imu =
+q_x2imu[k-1].conjugate() * q_x2imu[k]
+
+where * is the quaternion multiplication and .conjugate() is the quaternion
+conjugate, which is equivalent to the inverse for a unit quaternion. We can
+relate the changes in orientation of the camera and IMU by
+
+dq_cam * q_cam2imu = q_cam2imu * dq_imu
+
+This is the quaternion version of the hand-eye calibration problem (better
+known  in the matrix form: AX = XB).
+
+We will solve for q_cam2imu by defining the error quaternion:
+
+q_err = (dq_cam * q_cam2imu) * (q_cam2imu * dq_imu).conjugate()
+
+In the ideal case, q_err will converge to the identity quaternion (1, 0, 0, 0)
+at the solution. Quaternions are defined by 4 parameters with one constraint.
+We will map the quaternion to a 3-parameter rotation vector, which can be
+solved more efficiently and simply. The rotation vector is the product of the
+unit vector around the axis of rotation (u) and the rotation (theta):
+
+e = theta * u = log(q_err)
+
+The optimization algorith will minimize the two-norm of the error rotation
+vector for k = 1..N measurements:
+
+sum(||e[k]||^2)
 
 
+Assumptions & limitations
+-------------------------
+
+1. Small rotation angles for dq_cam and dq_imu could cause numerical problems
+   so successive samples should be selected so that the angles are sufficiently
+   large.
+2. The IMU will drift over time so the time between the samples used to
+   calculate dq_imu should be short enough for drift to be negligible.
+3. The camera and IMU samples should be taken simultaneously. If the camera
+   moves during exposure, this will introduce an error. Error could be reduced
+   by used samples when the camera movement is reasonably stationary.
+4. In practice, the plate solver will have worse error in roll than RA and Dec.
+   This is not accounted for.
+5. Ideally, the camera/IMU should be rotated around all three axes but on a
+   mount, the rotation will likely be around two axes. This may result in a 
+   larger uncertainty for the rotation/alignment about some axes.
 """
 import logging
 import numpy as np
@@ -12,6 +80,8 @@ from dataclasses import dataclass
 
 from PiFinder.types.coordinates import RaDecRoll
 from PiFinder.pointing_model import quaternion_transforms as qt
+
+list_of_quats = list[quaternion.quaternion]
 
 logger = logging.getLogger("IMU.Align")
 
