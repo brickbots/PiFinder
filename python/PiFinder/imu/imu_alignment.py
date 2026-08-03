@@ -5,12 +5,16 @@ Prepares the IMU/camera samples that can be used to solve for the alignment.
 
 
 """
+import logging
 import numpy as np
 import quaternion
 from dataclasses import dataclass
 
 from PiFinder.types.coordinates import RaDecRoll
 from PiFinder.pointing_model import quaternion_transforms as qt
+
+logger = logging.getLogger("IMU.Align")
+
 
 @dataclass
 class CameraImuSample:

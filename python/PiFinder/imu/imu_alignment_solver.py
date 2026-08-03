@@ -84,7 +84,7 @@ import PiFinder.pointing_model.quaternion_transforms as qt
 
 list_of_quats = list[quaternion.quaternion]
 
-logger = logging.getLogger("IMU.Integrator")
+logger = logging.getLogger("IMU.Align")
 
 
 def ensure_quat_list_continuity(q_list: list_of_quats) -> list_of_quats:
