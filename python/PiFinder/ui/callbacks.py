@@ -184,6 +184,14 @@ def restart_pifinder(ui_module: UIModule) -> None:
     sys_utils.restart_pifinder()
 
 
+def mount_control_toggle(ui_module: UIModule) -> None:
+    """Restart PiFinder after changing the optional INDI mount-control process."""
+    enabled = ui_module.config_object.get_option("mount_control", False)
+    message = _("Mount Control\nOn") if enabled else _("Mount Control\nOff")
+    ui_module.message(message, 1)
+    restart_pifinder(ui_module)
+
+
 def restart_system(ui_module: UIModule) -> None:
     """
     Restarts the system
