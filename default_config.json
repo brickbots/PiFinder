@@ -21,6 +21,7 @@
     "chart_coord_sys": "horiz",
     "target_pixel": [256, 256],
     "gps_type": "ublox",
+    "gps_port": "auto",
     "gps_baud_rate": 9600,
     "filter.selected_catalogs": [
         "NGC",
