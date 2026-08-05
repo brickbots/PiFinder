@@ -201,6 +201,36 @@ class CameraProfile:
             return self.crop_and_rotate(raw_array)
         return raw_array
 
+    @property
+    def solve_frame_size(self) -> Tuple[int, int]:
+        """``(width, height)`` of the solve frame, before any rotation."""
+        return self.raw_size
+
+    def full_frame(self, raw_array):
+        """Apply rotation to the whole sensor area, with no crop.
+
+        The Bayer mosaic is handed to star detection as-is. An earlier version
+        binned 2x2 first, on the assumption that the crop pipeline's downscale
+        had been usefully smoothing the RGGB checkerboard away and that
+        centroids would otherwise be pulled toward the green sites. Measured on
+        real sky (12 imx462 frames, 2026-07-31) that assumption was wrong: the
+        bin costs matches without buying accuracy. Un-binned found a median 26
+        matches against the bin's 20, solved 11 of 12 frames against 10, and
+        solved down to 97ms exposure where the bin needed 174ms -- at
+        statistically identical angular residuals (41.1" vs 40.5"). The finer
+        sampling is what lets marginal stars clear the detection threshold.
+
+        Args:
+            raw_array: Raw sensor data (numpy array)
+
+        Returns:
+            Rotated array covering the whole sensor
+        """
+        if self.rotation_90 != 0:
+            raw_array = np.rot90(raw_array, self.rotation_90)
+
+        return raw_array
+
     def __repr__(self) -> str:
         return (
             f"CameraProfile("
