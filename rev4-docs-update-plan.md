@@ -25,13 +25,23 @@ Distilled from `release_notes/2.6.1.md`, `docs/ax/{battery,sound,bringup}/CONTEX
 | **Low battery** | Unit simply dies | Advisory popup + sound **once at 10%** and **once at 5%**; below the **ADC blind floor** (~3.5 V, four consecutive polls on battery) a final warning then an **orderly software shutdown** (ADR 0021). Warnings latch for the whole discharge; only plugging in re-arms them |
 | **Sound** | None | Passive piezo buzzer, hardware PWM ch0 / GPIO12. Cues for startup, shutdown, keypress, error, low battery. New setting **Settings → User Pref → Volume** (Off, 1–5) |
 | **Display** | 1.5" **SSD1351**, 128×128 | 1.91" **SSD1333**, **176×176**. Fonts run ~15–20% larger (`Layout176`, `displays.py:166`). Dimming range widened to 13,400:1 — dimmest step from 0.106% → **0.005%** of full (ADR 0023) |
-| **Keypad** | 17 switches: calculator pad + a **directional row along the bottom** | 18 switches: the **directional cluster moved to the right-hand column (col 4)** and gained its **own centre SQUARE**. Two positions now send SQUARE (`keypad.py:96-112`) |
+| **Keypad** | Calculator pad + **four separate directional buttons** in a row along the bottom | The four arrow buttons are replaced by a **single 5-way joystick** — four directions plus a centre press that duplicates **SQUARE**. It takes five matrix positions (`keypad.py:96-112`), but it is **one physical component**, so SQUARE is now reachable in two places: the pad's own SQUARE and the joystick centre |
 | **Build variants** | Left / Right / Straight / Flat v2 / Flat v3 | adds **AS Bloom, AS Heart, Rev4 Left, Rev4 Right, Rev4 Straight** — each carries its own IMU-to-camera constants |
 | **Bring-up** | — | `python -m PiFinder.bringup` validates a fresh board: SCREEN, BACKLIGHT, BUZZER, IMU, CHARGER, SWITCHES, plus a card-provisioning **pre-flight**. Power-hold (1 s) ends the run with a clean shutdown |
 
 **Naming canon** (`docs/ax/*`, product KB, and prior project decisions): the fourth hardware version
 is **"revision 4" / "rev4"** — never "V4" or "v4". Legacy config values `v4_left/right/straight` are
 aliased to `rev4_*` in `config.py:17-19`; do not surface the legacy spelling in docs.
+
+**Terminology gap worth closing (candidate for `/grill-with-docs`):** the code and the bring-up
+glossary describe the rev4 directional input in switch language — `keypad.py` calls it "the
+directional cluster… with a centre SQUARE of its own", and `docs/ax/bringup/CONTEXT.md` says rev4
+"carries a right-hand column instead, with its own centre `SQUARE` (18 switches)", against a glossary
+that defines **switch** as "one physical pushbutton on the board… a solder joint that can be cold,
+bridged or missing". Physically it is **one 5-way joystick** presenting five contacts. That
+distinction matters in exactly the place bring-up exists to serve: a builder chasing a dead direction
+is reflowing **one component**, not hunting five independent switches. User-facing docs should say
+**joystick**; whether the domain glossary grows a term for a multi-contact part is a separate call.
 
 ---
 
@@ -100,7 +110,9 @@ the hardware artifacts land in the repo.
 - Sound & the **Volume** setting — absent from **both** `user_guide.rst` and `menu_map.rst`
   (`menu_map.rst:206-224` lists User Pref without it). This is a shipped 2.6.1 setting with zero docs.
 - The power button as an interaction (press → confirm → second press).
-- The rev4 keypad geography — every key instruction still *works*, but the photos show a rev3 pad.
+- The rev4 **5-way joystick** — every key instruction still *works* (the logical keys are unchanged),
+  but the physical action is now a push rather than four separate button presses, the centre press is
+  a second route to SQUARE, and every keypad photo in the manual shows a rev3 pad.
 - The 176×176 screen: bigger panel, wider dimming range.
 - Bring-up tool — builder-facing, no user-facing doc at all.
 - What AS Bloom / AS Heart / Rev4 Left / Right / Straight actually *are*, and how an owner picks.
@@ -203,9 +215,10 @@ clearly-marked `TODO(rich)` where a number is needed.
 
 **Tasks**
 1. Write the **"Which PiFinder do I have?"** section (D1/D2). Identify by the two things an owner can
-   see without opening anything: **screen size** (1.5" 128×128 vs 1.91" 176×176) and **keypad
-   layout** (directional keys along the bottom vs a directional cluster down the right-hand side).
-   Put it in `quick_start.rst` near Unboxing and `:ref:` to it from the version notes.
+   see without opening anything: the **directional control** (four separate arrow buttons in a row
+   along the bottom on rev3, a single **5-way joystick** on rev4 — the fastest tell, and unmissable)
+   and **screen size** (1.5" 128×128 vs 1.91" 176×176). Put it in `quick_start.rst` near Unboxing and
+   `:ref:` to it from the version notes.
 2. Update the version notes on `index.rst:11`, `quick_start.rst:5`, `troubleshooting.rst:4-7` to name
    rev4.
 3. Extend **Configuration Setup** (`quick_start.rst:123-137`) to cover all the PiFinder Type options
@@ -219,8 +232,15 @@ clearly-marked `TODO(rich)` where a number is needed.
 5. The key-name list at `quick_start.rst:83-95` is duplicated in `user_guide.rst` (there is a comment
    marking it) — if you touch one, touch both.
 
-**Do not** rewrite every key instruction. The logical keys are unchanged; only the photos and the
-"where is it on the pad" framing need attention.
+6. Introduce the **joystick** once, early (Unboxing / Using the PiFinder): you push it up, down, left
+   and right, and pressing straight in acts as **SQUARE**. After that the existing key names carry
+   the prose unchanged.
+
+**Do not** rewrite every key instruction. The logical keys are identical on both revisions, so
+"press **RIGHT**" and "hold **SQUARE** and press **+**" remain correct everywhere. What needs
+attention is narrower: the photos, the one-time explanation of how the joystick is operated, and the
+fact that rev4 owners have a second way to hit SQUARE. Resist the urge to write "press **RIGHT** (or
+push the joystick right)" throughout — say it once and trust the reader.
 
 ---
 
@@ -244,12 +264,16 @@ and `python/PiFinder/bringup.py`.
    - **Witnessed** (screen, backlight, buzzer): the program can only *emit*; you are the sensor.
      Never say a witnessed check "passed" — the verdict is silent about them.
 3. Say clearly that an unpopulated matrix position is **not** a fault: rev3 populates the bottom row,
-   rev4 populates the right-hand column. This is the single most likely misread.
-4. Say clearly that a **pre-flight** failure means the *card*, not the board — a builder who reaches
+   rev4 populates the right-hand column instead. This is the single most likely misread.
+4. Say clearly that on rev4 those five right-hand positions are the five contacts of **one 5-way
+   joystick**, not five switches. A builder who sees one direction fail to register is reflowing or
+   replacing **a single component** — the grid tells them *which contact*, not which part. Getting
+   this wrong sends someone hunting for a switch that does not exist.
+5. Say clearly that a **pre-flight** failure means the *card*, not the board — a builder who reaches
    for the soldering iron on a provisioning fault will desolder a good part.
-5. Voice: the audience here is a **builder** at a bench, not the observer at the eyepiece. Stay in
+6. Voice: the audience here is a **builder** at a bench, not the observer at the eyepiece. Stay in
    the manual's voice but assume a soldering iron is nearby.
-6. Avoid the word "test" for a bring-up run — it collides with pytest throughout this project.
+7. Avoid the word "test" for a bring-up run — it collides with pytest throughout this project.
 
 ---
 
@@ -315,10 +339,10 @@ so the replacement can be dropped in and the `.. image::` directive updated.
 ### Blocking — WP3
 | # | Photo | Target | Replaces / joins |
 |---|---|---|---|
-| 4 | **rev4 front, straight on** — 1.91" panel + right-hand directional cluster clearly visible | `quick_start.rst:38` | joins `images/quick_start/pf_front.jpeg` |
+| 4 | **rev4 front, straight on** — 1.91" panel + the **joystick** clearly visible | `quick_start.rst:38` | joins `images/quick_start/pf_front.jpeg` |
 | 5 | **rev4 rear** | `quick_start.rst:40` | joins `images/quick_start/pf_rear.jpeg` |
-| 6 | **rev4 keypad close-up, annotated** — directional cluster, its centre SQUARE, number pad, +/-, SQUARE on the pad | new "Using the PiFinder" / keypad passage | new — the key geography moved |
-| 7 | **rev3 next to rev4, screens lit, same frame** — the size difference is the fastest way to answer "which do I have?" | "Which PiFinder do I have?" | new |
+| 6 | **rev4 keypad close-up, annotated** — the **5-way joystick** (four directions + centre press = SQUARE), the number pad, **+**/**-**, and the pad's own SQUARE | new "Using the PiFinder" / keypad passage | new — the directional control changed from four buttons to one joystick |
+| 7 | **rev3 next to rev4, screens lit, same frame** — four arrow buttons vs one joystick, and the screen-size step, in a single image | "Which PiFinder do I have?" | new — this one image answers the whole section |
 
 ### Blocking — Configuration Setup (WP3)
 | # | Photo | Target | Notes |
