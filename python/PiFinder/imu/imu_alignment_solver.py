@@ -1,5 +1,11 @@
 """
-Solver for IMU alignment
+Core solver functionalities for solving the quaternion form of the hand-eye
+problem: 
+
+q1 * q_12 = q_12 * q2
+
+Where the goal is to solve for the rotation q_12. Given enough measurements of 
+q1 and q2, we can solve for q_12.
 """
 import logging
 import numpy as np

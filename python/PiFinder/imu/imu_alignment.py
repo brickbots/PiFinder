@@ -134,22 +134,31 @@ class SampleBuffer:
 
 class ImuCameraAlignment:
     """
+    Note that max_time_diff should be kept to a few seconds at most to avoid
+    gyro drift over the time between samples.
     """
     candidate_buffer: SampleBuffer  # Buffer of camera/IMU samples
     diff_buffer: SampleBuffer  # Buffer of paired differences in camera/IMU samples
 
+    min_n_solve: int  # Minimum number of samples for solve
     max_time_diff: float  # [s] Maximum time difference between pairs of samples
     min_angle_diff: float  # [rad] Pair samples with large enough angle difference
     max_age: float  # [s] Maximum age of sample compared to current time
 
-    def __init__(self, candidate_buffer_length=10, diff_buffer_length=10,
-                 max_time_diff=10, min_angle_diff=np.deg2rad(5), max_age=1200):
+    def __init__(self, candidate_buffer_length=60, min_n_solve=10, 
+                 max_time_diff=2.0, min_angle_diff=np.deg2rad(5), max_age=1200):
+        """
+        candidate_buffer_length: Should be around sample_freq * max_time_diff
+        """
         self.candidate_buffer = SampleBuffer(max_buffer_length=candidate_buffer_length)
-        self.diff_buffer = SampleBuffer(max_buffer_length=diff_buffer_length)
+        self.diff_buffer = SampleBuffer(max_buffer_length=min_n_solve)
 
+        self.min_n_solve = min_n_solve
         self.max_time_diff = max_time_diff
         self.min_angle_diff = min_angle_diff
         self.max_age = max_age
+
+        self._samples_since_last_pair_attempt = 0
 
     def reset_buffers(self):
         self.candidate_buffer.reset_buffer()
@@ -189,13 +198,36 @@ class ImuCameraAlignment:
         if remove_idx_list:
             self.diff_buffer.remove_samples(remove_idx_list)
 
-    def pair_samples(self):
+    def purge_old_candidates(self):
+        """
+        Remove samples from candidate_buffer that are older than
+        self.max_time_diff from other samples in buffer because these will be
+        never paired.
+        """
+        if self.candidate_buffer.len <= 1:
+            return
+
+        remove_idx_list = []
+        timestamps = np.array([samp.timestamp for samp in self.candidate_buffer])
+        for isamp in range(timestamps.shape[0]):
+            dt = np.abs(timestamps - timestamps[isamp])
+            if np.sum(dt < self.max_time_diff) <= 1:
+                remove_idx_list.append(isamp)
+
+        if remove_idx_list:
+            self.candidate_buffer.remove_samples(remove_idx_list)
+
+    def pair_samples(self) -> int:
         """
         Go through the candidate_buffer from the first sample in the buffer.
         Pair two sets of camera/IMU samples from the candidate buffer that meet
         the criteria and remove them from the buffer. Repeat all pairable
         samples have been removed from the candidate_buffer.
         """
+        n_pairs = 0
+        if self.candidate_buffer.len == 0:
+            return n_pairs
+
         remove_idx_list = []
         for isamp1, samp1 in enumerate(self.candidate_buffer[:-1]):
             if isamp1 in remove_idx_list:
@@ -224,17 +256,49 @@ class ImuCameraAlignment:
                 self.diff_buffer.add_sample((samp1, samp2))
                 remove_idx_list.append(isamp1)
                 remove_idx_list.append(isamp2)
+                n_pairs += 1
 
         if remove_idx_list:
             self.candidate_buffer.remove_samples(remove_idx_list)
-        self.trim_buffers()  # Clean up
+        return n_pairs  # Number of successful pairings
 
     def solve(self, n_pairs=None):
         """
-        Solve for the alignment between the camera and IMU using the last
-        n_pairs or all available pairs (if None).
+        Solve for the alignment between the camera and IMU using at least the
+        last n_pairs or all available pairs (if None).
         """
         if n_pairs is None:
-            n_pairs = self.diff_buffer.len
-        
+            n_pairs = self.diff_buffer.len  # Use all available data
+        #TODO
+        return None
 
+    def add_sample_attempt_solve(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
+        """
+        Add a new sample to the buffer. When the buffer fills up, pair samples 
+        and solve.
+        """
+        self.add_sample(timestamp, cam_eq, q_x2imu)
+
+        # Pair samples and solve
+        if ((self._samples_since_last_pair_attempt >= self.min_n_solve) or
+            (self.candidate_buffer.len >= self.candidate_buffer.max_buffer_length)):
+            self.purge_old_samples(timestamp)
+            self.purge_old_candidates()
+            self.pair_samples()
+            self.trim_buffers()
+
+            # If the candidate buffer is still full after pairing, remove a 
+            # batch of the older samples from the buffer
+            if self.candidate_buffer.len >= self.candidate_buffer.max_buffer_length:
+                remove_list = list(range(self.min_n_solve))
+                self.candidate_buffer.remove_samples(remove_list)
+            
+            self._samples_since_last_pair_attempt = 0
+        else:
+            self._samples_since_last_pair_attempt += 1
+
+        # Solve if there are enough samples
+        if self.diff_buffer.len >= self.min_n_solve:
+            solution = self.solve()
+            self.diff_buffer.reset_buffer()  # Flush the values used for solve
+    
