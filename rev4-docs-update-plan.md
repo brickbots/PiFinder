@@ -205,9 +205,14 @@ operating the device and must survive the "printable user guide" test). Do not s
 7. Fix `troubleshooting.rst` "The PiFinder won't turn on": power button not slide switch; the
    battery indicator now exists; PiSugar advice scoped to v3 builds.
 
-**Facts you may NOT state** (see Open questions): rev4 battery capacity, rev4 runtime in hours,
-charge time, how many USB-C ports rev4 has, or whether rev4 has a charge-indicator LED. Leave a
-clearly-marked `TODO(rich)` where a number is needed.
+**Runtime you *may* state:** about **10 hours**, now measured (see Open question 1). Frame it as a
+worst case — it was measured with the camera solving continuously, the screen at full brightness and
+sleep disabled — and say ordinary observing runs longer, since the reader's session is lighter than
+the bench profile.
+
+**Facts you may NOT state** (see Open questions): rev4 battery capacity, charge time, how many USB-C
+ports rev4 has, or whether rev4 has a charge-indicator LED. Leave a clearly-marked `TODO(rich)`
+where a number is needed.
 
 ---
 
@@ -415,9 +420,13 @@ The remaining 118 − (whatever you convert) shots stay at 256×256, indefinitel
 
 Agents must **not** guess these. Leave `TODO(rich)` markers and flag them in the summary.
 
-1. **Battery capacity and runtime.** ADR 0020 says the `SOC_LUT` is still generic Li-ion folklore
-   pending the measured bench campaign, so **no rev4 runtime figure is publishable yet**. The
-   existing "four to five hours" is a v3/PiSugar number and must not be carried over.
+1. ~~**Battery capacity and runtime.**~~ **RESOLVED 2026-08-06.** The bench campaign closed on
+   2026-07-26 (six discharges, two rev4 units; ADR 0020 updated in PR #573). **Runtime is about 10
+   hours** — 9h55m and 10h03m on the two units under the *pinned* load: continuously solving, screen
+   at full brightness, display sleep off. That is a deliberate worst case, so quote it as a floor
+   and say real observing runs longer, rather than presenting ~10 h as typical. The existing "four
+   to five hours" is a v3/PiSugar number and must not be carried over. Cell capacity is still
+   unstated — the charger has no fuel gauge, and the docs don't need it.
 2. **Charge time** from empty on rev4.
 3. **How many USB-C ports** rev4 has, and whether the "one charges, one is wired ahead of the switch"
    split still holds.
