@@ -178,20 +178,27 @@ CONV_POLL_INTERVAL = 0.01
 # Piecewise-linear state-of-charge curve: (battery_voltage_V, percent).
 # Percent means "fraction of typical-load runtime remaining", not capacity
 # (see docs/adr/0020-soc-as-runtime-fraction.md). Measured end to end by the
-# 2026-07-17 bench discharge campaign (tools/battery_runtime_analysis.py,
-# blind-floor anchor): 0% is the low-battery shutdown at the ADC blind floor
-# per ADR 0021, so no knot is extrapolated. PROVISIONAL — fitted from two
-# degraded-load runs; pinned-load confirmation runs will refresh these knots.
+# bench discharge campaign (tools/battery_runtime_analysis.py, blind-floor
+# anchor): 0% is the low-battery shutdown at the ADC blind floor per ADR 0021,
+# so no knot is extrapolated.
+#
+# FINAL — fitted from the two pinned-load confirmation runs (2026-07-25 and
+# 2026-07-26, one per rev4 unit, camera solving 100% of the discharge, 9h55m
+# and 10h03m). The four earlier runs are excluded: IMU pseudo-motion and the
+# logind RemoveIPC shmem loss (#548) suppressed solving, so they discharged
+# under a lighter load than this curve is defined against. This supersedes the
+# provisional curve shipped in #541, which was fitted from those degraded runs
+# and read a few points high near empty.
 SOC_LUT = [
-    (3.541, 0),
-    (3.594, 5),
-    (3.643, 10),
-    (3.681, 15),
-    (3.736, 25),
-    (3.834, 50),
-    (3.947, 75),
-    (3.983, 90),
-    (4.060, 100),
+    (3.545, 0),
+    (3.611, 5),
+    (3.664, 10),
+    (3.700, 15),
+    (3.755, 25),
+    (3.841, 50),
+    (3.945, 75),
+    (3.973, 90),
+    (4.045, 100),
 ]
 
 # --- Low-battery shutdown (ADR 0021) ---

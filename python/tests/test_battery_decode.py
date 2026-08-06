@@ -40,8 +40,8 @@ def test_decode_not_charging_on_external_power():
     assert state.charge_status is ChargeStatus.NOT_CHARGING
     assert state.on_external_power is True
     assert state.adc_blind is False
-    # 3.764 V interpolates between (3.736, 25) and (3.834, 50) -> ~32.1 -> 32
-    assert state.state_of_charge_pct == 32
+    # 3.764 V interpolates between (3.755, 25) and (3.841, 50) -> ~27.6 -> 28
+    assert state.state_of_charge_pct == 28
     assert state.timestamp == 123.0
 
 
