@@ -21,6 +21,7 @@ Distilled from `release_notes/2.6.1.md`, `docs/ax/{battery,sound,bringup}/CONTEX
 |---|---|---|
 | **Power switch** | White **slide** switch on top | Momentary **power button** (LTC2954). Press → shutdown confirmation; second press confirms. Shutdown sound plays, then the kernel drives **GPIO14** low to trip the power latch (ADR 0007) |
 | **Charging** | Optional **PiSugar S Plus** 5000 mAh add-on board, blue/green LED | **On-board BQ25895** charger, I²C `0x6A`. Software re-asserts a fast-charge config (~1.5 A in/fast, watchdog off, auto-adapter-detect off) every poll (ADR 0017) |
+| **Runtime** | "four to five hours" (a v3/PiSugar figure — do not carry it over) | **About 10 hours**, measured. 9h55m and 10h03m on two units under a deliberate worst case: camera solving continuously, screen at full brightness, display sleep off. Quote it as a floor — ordinary observing is lighter and runs longer (ADR 0020, campaign closed 2026-07-26) |
 | **Battery UI** | *None* — docs explicitly say there is no indicator and no warning | Title-bar battery glyph in ~20% buckets plus a charging bolt (`ui/base.py:121-128`, `_battery_icon()` at `:345`). State of charge is **hidden while charging** and while ADC-blind |
 | **Low battery** | Unit simply dies | Advisory popup + sound **once at 10%** and **once at 5%**; below the **ADC blind floor** (~3.5 V, four consecutive polls on battery) a final warning then an **orderly software shutdown** (ADR 0021). Warnings latch for the whole discharge; only plugging in re-arms them |
 | **Sound** | None | Passive piezo buzzer, hardware PWM ch0 / GPIO12. Cues for startup, shutdown, keypress, error, low battery. New setting **Settings → User Pref → Volume** (Off, 1–5) |
@@ -311,7 +312,41 @@ the package IDs stay stable against the branch history and the PR discussion.
 
 ---
 
-## 5. Ordering
+## 5. Branching and ordering
+
+### Where to branch from — read this before starting
+
+**Not `main`.** WP1–WP4 depend on three things that exist only on this branch
+(`worktree-rev4-docs-plan`, PR #572):
+
+- `pf_remote.py --display headless_176` and `-fb` — without them you **cannot capture a rev4
+  screenshot at all**, and `launch` silently gives you the 128 px panel instead;
+- the `docs` skill's rev4 rules and the corrected `product-knowledge-base.md` — without them you
+  will write rev3-as-default prose and may trust a reference that still calls rev4 an unbuilt
+  future design;
+- this plan file.
+
+A WP branch cut from `main` will look perfectly healthy and produce quietly wrong work.
+
+**Preferred: merge PR #572 first, then branch from `main` as normal.** It carries a plan document, a
+skill/tooling change and no product code, and the docs build clean, so it is cheap to land. After it
+merges every WP agent uses the ordinary flow and each WP PR stays small and independently reviewable.
+
+**If #572 is still open,** branch from it. The harness bases new worktrees on `origin/HEAD`, which in
+this clone can resolve to `release`, so set the base explicitly straight after `EnterWorktree`:
+
+```bash
+git fetch origin worktree-rev4-docs-plan
+git reset --hard origin/worktree-rev4-docs-plan
+```
+
+Then open the WP pull request with `--base worktree-rev4-docs-plan` so its diff shows only that
+package's work; GitHub retargets it to `main` automatically when #572 merges.
+
+**Do not wait on PR #573** (the battery ADR). Nothing in WP1–WP4 depends on it. The one fact agents
+need from it — the ~10 hour runtime — is already recorded in §1 and §8 here.
+
+### Ordering
 
 ```
                     ┌──> WP1 (power)         ─┐
@@ -322,7 +357,8 @@ WP0 ✅ (tooling) ───┼──> WP2 (sound)          ├──> final Sphi
 
 WP1–WP4 touch mostly disjoint sections, but **WP1 and WP3 both edit `quick_start.rst`** and **WP1,
 WP2, WP3 all edit `user_guide.rst`**. Either run them sequentially, or give each agent its own
-worktree and merge — do not run them concurrently in a shared checkout.
+worktree and merge — do not run them concurrently in a shared checkout. WP4 is the safe one to
+parallelise against anything, since it only adds a new page and one `index.rst` toctree line.
 
 **Every agent finishes with:**
 ```bash
