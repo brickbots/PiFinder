@@ -53,6 +53,42 @@ The page set (registered in `docs/source/index.rst`):
 | `api.rst` | HTTP API reference |
 | `BOM.rst` | Bill of materials |
 
+## Two hardware revisions are live
+
+The manual covers **rev4**, **v3** and **v2.5** PiFinders. rev4 is the current hardware, fully
+enabled in software from v2.6.1, and it differs from v3 in ways a reader will hit immediately:
+
+| | v3 / v2.5 | rev4 |
+|---|---|---|
+| Power | white **slide switch** | **power button** — press, confirm, second press shuts down |
+| Charging | optional **PiSugar S Plus** add-on | on-board charger; **battery icon in the title bar**, warnings at 10% and 5%, automatic clean shutdown when flat |
+| Directional keys | four separate arrow buttons along the bottom | a single **5-way joystick**; pressing it in acts as **SQUARE** |
+| Screen | 1.5", 128×128 | 1.91", **176×176**, larger glyphs, much wider dimming range |
+| Sound | none | buzzer with a **Volume** setting (Off, 1–5) under User Pref |
+
+Three rules for writing across both:
+
+1. **Write rev4 as the default case.** Plain prose describes rev4; v3/v2.5 differences go in a
+   `.. note::` under the passage they affect — not the other way round, and not balanced
+   "on rev4… on v3…" pairs in every paragraph.
+2. **Call it "rev4"** — never "v4" or "V4". Leave **v3** and **v2.5** named as they are; those names
+   are on the website, on invoices and throughout Discord. Do not retro-rename them to rev3/rev2.5.
+3. **Logical key names are identical on both.** "Press **RIGHT**", "hold **SQUARE** and press **+**"
+   are correct everywhere. Explain the joystick once, early, and then trust the reader — don't append
+   "(or push the joystick right)" throughout.
+
+```rst
+Press the power button on top to start the PiFinder.  To shut down, press it again — the
+screen asks you to confirm, and a second press powers the unit off.
+
+.. note::
+   On v3 and v2.5 PiFinders, power is a white slide switch rather than a button, and you
+   shut down from the Quick Menu instead.
+```
+
+`build_guide.rst` and `BOM.rst` describe the v3/v2.5 through-hole build only. rev4 build files are
+not published, so **do not add rev4 content or scoping notes to those two pages.**
+
 **Section in `user_guide` vs standalone page** — a topic earns its own page only
 when readers *arrive at it directly* with a task in hand (search, a Discord
 answer, a cross-page link) **and** it is *separable* from the guide's
@@ -229,22 +265,49 @@ trailing underscore.
 Getting a doc-ready screenshot is two steps: **capture** the raw screen from a
 running PiFinder, then **convert** it to the larger, brighter house style.
 
+### Which panel to shoot
+
+**Capture at 176×176 (rev4) by default** — that is what `pf_remote launch` now
+does without being asked. New and re-taken screenshots are rev4 shots.
+
+The manual still contains ~118 older 256×256 images captured from the 128×128
+panel. **There is no mass-replacement job and you must not start one.** The rule
+is opportunistic conversion:
+
+- Any screenshot you take fresh → 176 px.
+- Any existing screenshot **in a section you are already editing** → re-take it
+  at 176 px as part of the same change.
+- Everything else → leave it alone. Mixed image sizes across the manual are
+  expected and accepted while it converts.
+
+Shoot the 128 px panel (`--display headless`) only when the shot is specifically
+illustrating v3/v2.5 hardware — for example a side-by-side in
+"Which PiFinder do I have?".
+
 ### Step 1 — capture the raw screen (`pifinder-remote` skill)
 
 You don't need real hardware. The **`pifinder-remote`** skill runs PiFinder
 headlessly and lets you drive it like a user over its HTTP API — launch it,
 press keys to navigate to the screen you're documenting, and save the live
-128×128 display as a PNG. Read that skill's `SKILL.md` for the full command set;
+display as a PNG. Read that skill's `SKILL.md` for the full command set;
 the shape of it is:
 
 ```
 S=.claude/skills/pifinder-remote/scripts/pf_remote.py
 
-python3 $S launch                       # start headless PiFinder (first run ~90s)
+python3 $S launch                       # headless PiFinder at 176x176 (first run ~90s)
+python3 $S launch -fb                   # ...plus the rev4 battery icon and a full
+                                        #    simulated discharge (low-battery warnings)
+python3 $S launch --display headless    # the 128x128 v3/v2.5 panel, when you need it
 python3 $S key DOWN DOWN RIGHT          # navigate to the screen you want
-python3 $S screen -o /tmp/raw_shot.png  # capture the current 128x128 screen
+python3 $S screen -o /tmp/raw_shot.png  # capture the current screen
 python3 $S stop                         # clean shutdown when done
 ```
+
+Use `-fb` for anything showing the title bar on rev4 — without it the battery
+icon is absent, because plain `-fh` emulates rev3. It also runs a full discharge
+lap, which is how you reach the low-battery popups and each battery bucket
+without hardware.
 
 After each key press, capture a fresh `screen` and **Read** the PNG to confirm
 you're on the right screen before you keep it — menu order shifts between
@@ -252,12 +315,12 @@ versions, so the screen is the ground truth.
 
 ### Step 2 — convert to a doc-ready image (`screenshot_to_doc.py`)
 
-Raw captures are 128×128 and red-only (the OLED is driven red to protect night
-vision), so they're tiny and dim. The docs use larger, brighter images: the red
-intensity is recolored onto a warm amber tint and scaled to 256×256. The amber
-recolor is what makes them look "brighter" — don't fiddle with brightness
-yourself; the bundled tool bakes in the house tint (`245,76,10`), the 2× scale,
-and crisp pixel upscaling:
+Raw captures are red-only (the OLED is driven red to protect night vision), so
+they're small and dim. The docs use larger, brighter images: the red intensity is
+recolored onto a warm amber tint and scaled 2×. The amber recolor is what makes
+them look "brighter" — don't fiddle with brightness yourself; the bundled tool
+bakes in the house tint (`245,76,10`), the 2× scale, and crisp pixel upscaling.
+At 2× a rev4 capture lands at **352×352**; the older 128 px shots are 256×256:
 
 ```
 # one screenshot, named for where it lands in the manual:
@@ -268,6 +331,9 @@ python scripts/screenshot_to_doc.py /tmp/raw_shot.png \
 python scripts/screenshot_to_doc.py /tmp/shot1.png /tmp/shot2.png \
     --out-dir docs/source/images/quick_start/
 ```
+
+Keep the existing filename when you re-take a shot — the `.. image::` directive
+then needs no edit and the diff shows exactly what changed.
 
 Name outputs for their role in the docs, not after the raw capture — a reader
 (and the `.. image::` directive) should see `status_screen_docs.png`, not
