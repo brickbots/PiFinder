@@ -22,10 +22,10 @@ def test_estimate_soc_at_knots(voltage, pct):
 @pytest.mark.parametrize(
     "voltage,expected",
     [
-        (3.62, 6),  # between (3.611, 5) and (3.664, 10): frac ~0.17 -> 6%
-        (3.72, 19),  # between (3.700, 15) and (3.755, 25): frac ~0.36 -> 19%
-        (3.90, 64),  # between (3.841, 50) and (3.945, 75): frac ~0.57 -> 64%
-        (4.00, 94),  # between (3.973, 90) and (4.045, 100): frac ~0.38 -> 94%
+        (3.62, 8),  # between (3.594, 5) and (3.643, 10): frac ~0.53 -> 8%
+        (3.70, 18),  # between (3.681, 15) and (3.736, 25): frac ~0.35 -> 18%
+        (3.90, 65),  # between (3.834, 50) and (3.947, 75): frac ~0.58 -> 65%
+        (4.00, 92),  # between (3.983, 90) and (4.060, 100): frac ~0.22 -> 92%
     ],
 )
 def test_estimate_soc_interpolates(voltage, expected):
@@ -42,7 +42,7 @@ def test_estimate_soc_clamps_low(voltage):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("voltage", [4.045, 4.20, 4.5, 5.0, 100.0])
+@pytest.mark.parametrize("voltage", [4.060, 4.20, 4.5, 5.0, 100.0])
 def test_estimate_soc_clamps_high(voltage):
     """At or above the highest knot clamps to 100. The old 4.20 V top
     knot was unreachable under load; 100% is now the measured under-load

@@ -2,7 +2,7 @@
 
 The state-of-charge percentage shown in the UI is defined as the **expected fraction of typical-load runtime remaining**, and its voltage→percent lookup (`SOC_LUT` in `battery_bq25895.py`) is to be derived from **measured bench discharge runs** of real PiFinder rev-4 units — not from a textbook Li-ion capacity curve.
 
-Status: **complete.** The bench campaign ran to conclusion over 2026-07-17 → 07-26 and the shipped `SOC_LUT` is now fitted entirely from the two pinned-load confirmation runs — every knot measured, none extrapolated, no folklore left. See *Measured outcome* below. **Amended by [ADR 0021](0021-blind-floor-shutdown.md):** the 0% anchor is the ADC blind floor / software-shutdown point, not the hardware cutoff voltage (which turned out to be unmeasurable — it lies below the floor).
+Status: **complete.** The bench campaign ran to conclusion over 2026-07-17 → 07-26: six discharges on two rev4 units, two of them under the pinned load. The shipped `SOC_LUT` is measured with no knot extrapolated and no folklore left. The campaign's own pinned-load refit was derived and then **deliberately not adopted**, because it fires the low-battery advisories roughly twice as early as intended — see *Measured outcome* below, which is the part of this ADR worth reading. **Amended by [ADR 0021](0021-blind-floor-shutdown.md):** the 0% anchor is the ADC blind floor / software-shutdown point, not the hardware cutoff voltage (which turned out to be unmeasurable — it lies below the floor).
 
 ## Context
 
@@ -31,17 +31,27 @@ Six discharge runs on **two rev4 units** (`10000000e63d1a2e` / `pifinder-dev`, `
 
 **The first four runs never carried the load this ADR pins.** Two independent faults suppressed plate solving while leaving solve *attempts* churning at full rate, so attempt-rate alone could not detect it: BNO055 pseudo-motion blanked the substituted frame (magnetic disturbance on the bench), and systemd-logind's `RemoveIPC=yes` deleted the cedar-detect shared-memory segment at SSH logout, killing solving for the remainder of the run (fixed in #548). Both are fixed; the load verdict in `battery_runtime_analysis.py` now requires `matches > 0` for ≥90% of the discharge precisely so this failure cannot pass silently again.
 
-**The shipped curve is fitted from the two pinned runs only.** Pooling the degraded runs in would violate this ADR's own premise — a curve measured at a different load systematically mis-maps voltage to runtime — and the tool emits an explicit warning when asked to do it. The degraded runs are retained as corroboration of the *shape*, not as inputs.
+**Headline runtime: about 10 hours** on a full charge under a continuously solving load with the screen at full brightness and sleep disabled. Real observing use is lighter than the pinned profile, so this is a conservative floor rather than a typical figure.
 
-Result, `--anchor blind-floor`, every knot measured:
+### The refit was derived, and deliberately not adopted
+
+Fitting the two pinned runs alone (the methodologically clean input — pooling the degraded runs would violate this ADR's own premise, and the tool warns when asked) yields:
 
 | SoC % | 0 | 5 | 10 | 15 | 25 | 50 | 75 | 90 | 100 |
 |---|---|---|---|---|---|---|---|---|---|
-| Volts | 3.545 | 3.611 | 3.664 | 3.700 | 3.755 | 3.841 | 3.945 | 3.973 | 4.045 |
+| refit V | 3.545 | 3.611 | 3.664 | 3.700 | 3.755 | 3.841 | 3.945 | 3.973 | 4.045 |
+| shipped V | 3.541 | 3.594 | 3.643 | 3.681 | 3.736 | 3.834 | 3.947 | 3.983 | 4.060 |
 
-Against the provisional curve shipped in #541 (fitted from two degraded runs) this sits up to **21 mV higher** through the 5–25% band and ~15 mV lower at the top — so at a given voltage the measured curve reads a few points *lower* near empty, and the 10% / 5% warnings fire slightly earlier. The two units agree closely enough that a pooled fit needed no widening of the knot spacing.
+**The shipped curve stays.** The refit is the better fit to the voltage/runtime scatter and the *worse* setting for the only thing these knots drive in the field — when the low-battery advisories fire. The warner triggers on the first noise **dip** past a threshold, and near the flat knee one ADC LSB (20 mV) spans roughly three SoC points, so lifting the low knots ~20 mV moves the crossing much earlier in wall-clock time. Replaying both pinned runs through `LowBatteryWarner`:
 
-**Headline runtime: about 10 hours** on a full charge under a continuously solving load with the screen at full brightness and sleep disabled. Real observing use is lighter than the pinned profile, so this is a conservative floor rather than a typical figure.
+| Curve | 5% warning fires before shutdown | 10% warning |
+|---|---|---|
+| shipped | **31 min / 38 min** | 79 min / 105 min |
+| pinned-only refit | 50 min / 69 min | 86 min / 105 min |
+
+The design intent is ~30 minutes at 5%. The shipped curve's lower knee accidentally compensates for BATV quantisation noise and hits it; the refit overshoots by a factor of two. Choosing the worse-fitting curve is the right call because the percentage is **UI advisory output, not a measurement** — it exists to time a warning, and a curve is only better if the warning lands better.
+
+**Consequence for future work:** do not "correct" `SOC_LUT` toward a raw fit on curve-distance grounds. A candidate curve must be judged by replaying real discharge telemetry through the warner and comparing lead times. Knot distance alone is not evidence.
 
 ## Considered options
 
