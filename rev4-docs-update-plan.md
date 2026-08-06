@@ -45,42 +45,60 @@ is reflowing **one component**, not hunting five independent switches. User-faci
 
 ---
 
-## 2. Decisions to confirm before agents start
+## 2. Decisions — settled 2026-08-06
 
-These fork the work. My recommendation is given first; all four are cheap to answer and expensive to
-get wrong halfway through.
+All four were decided by Rich. They are recorded here because they shaped the work packages below.
+**Follow them; do not re-litigate them.**
 
-**D1 — How does the manual address two live revisions?**
-*Recommend:* keep one doc set. Write rev4 as the **default** voice for shipping units and call out
-rev3/v2.5 differences in `.. note::` blocks only where behaviour actually diverges (power, charging,
-keypad geography, screen size). Add one short **"Which PiFinder do I have?"** section — identify by
-screen size and keypad layout — and link to it from the version note on each page.
-*Rejected:* a parallel rev4 doc set (doubles maintenance, splits Discord links); revision tabs
-(`sphinx-tabs` is not a current dependency, see `docs/source/requirements.txt`).
+**D1 — How does the manual address two live revisions? → rev4 becomes the default voice.**
+One doc set. Prose describes **rev4 as the normal case**, with `.. note::` callouts wherever v3/v2.5
+diverges — power, charging, the joystick, screen size. Add one short **"Which PiFinder do I have?"**
+section and link to it from the version note on each page. The shape to match:
 
-**D2 — What do the docs *call* the revisions?**
-The manual currently says "v3 and v2.5"; the code and domain docs say "rev3"/"rev4".
-*Recommend:* introduce **"rev4"** in user-facing prose (matching canon and the board silkscreen) and
-**do not retro-rename** v3/v2.5 — those names are on the website, on invoices and in years of
-Discord history. The "Which PiFinder do I have?" table is where the two naming systems get
-reconciled. Worth a `/grill-with-docs` pass if you want the terminology hardened before agents run.
+```rst
+Powering the PiFinder
+----------------------
 
-**D3 — Do we reshoot the screenshots at 176 px?**
-There are **118 screenshots at 256×256**, all derived from 128×128 captures. A rev4 owner's screen
-looks noticeably different (bigger glyphs, more room).
-*Recommend:* **staged.** Phase 1 reshoots only the screens that are *new or changed* on rev4
-(battery icon, low-battery popups, power-button shutdown confirm, Volume menu, PiFinder Type). Phase
-2 — a full 176 px reshoot of the whole manual — is a separate, mechanical, later job. Do not block
-the rev4 content on it.
+Press the power button on top to start the PiFinder.  To shut down, press it again — the
+screen asks you to confirm, and a second press powers the unit off.
 
-**D4 — Is the rev4 DIY build path in scope?**
-The repo has **no rev4 case STLs** (`case/` holds v1, v2, v2.5, v3 only), **no tracked rev4
-gerbers** (`gerbers/PiFinder_smt*.zip` are untracked at the repo root) and **no rev4 KiCad project**
-(`kicad/` holds v2 and v3). `build_guide.rst` and `BOM.rst` describe a through-hole rev3 build in
-868 + 137 lines and 133 images.
-*Recommend:* **out of scope for this pass.** Add a single honest note to both pages saying they
-cover the v3/v2.5 through-hole build and that rev4 build files are not yet published. Revisit when
-the hardware artifacts land in the repo.
+.. note::
+   On v3 and v2.5 PiFinders, power is a white slide switch rather than a button, and you
+   shut down from the Quick Menu instead.
+```
+
+*Not chosen:* a parallel rev4 doc set (doubles maintenance, splits Discord links); revision tabs
+(`sphinx-tabs` is not a current dependency, see `docs/source/requirements.txt`); splitting the
+diverged topics into per-revision pages.
+
+**D2 — What do the docs call the revisions? → "rev4" alongside "v3" and "v2.5", no retro-rename.**
+Introduce **rev4** in user-facing prose, matching the code canon and the board. Leave v3 and v2.5
+named exactly as they are — those names are on the website, on invoices, and in years of Discord
+history. The "Which PiFinder do I have?" section is where the two naming systems get reconciled:
+
+```rst
+This documentation covers rev4, v3 and v2.5 PiFinders running software |min_software| or above.
+
+Not sure which you have?  See "Which PiFinder do I have?" below.
+```
+
+*Not chosen:* retro-renaming v2.5/v3 to rev2.5/rev3; giving rev4 a marketing name in the docs.
+
+**D3 — Screenshots. → 176 px is the default for new captures; convert opportunistically.**
+Three rules, in force for every package:
+1. **Every new or re-taken screenshot is 176 px** (→ 352×352 after `screenshot_to_doc.py --scale 2`).
+2. **No mass replacement.** The 118 existing 256×256 shots are not a work item of their own and no
+   batch reshoot job is scheduled.
+3. **If you edit a page, reshoot that page's affected screenshots at 176 px** as part of the same
+   change. The manual converts gradually as it gets touched; mixed sizes in the interim are
+   accepted and expected.
+
+**D4 — Is the rev4 DIY build path in scope? → No, and add no note.**
+`build_guide.rst` and `BOM.rst` are **not touched in this pass at all** — no rev4 content, and no
+scoping note either. The repo has no rev4 case STLs (`case/` holds v1, v2, v2.5, v3), no tracked rev4
+gerbers (`gerbers/PiFinder_smt*.zip` are untracked at the repo root) and no rev4 KiCad project
+(`kicad/` holds v2 and v3), so there is nothing to write from. **This deletes WP5** from the original
+plan; the package numbering below keeps its gap rather than renumbering.
 
 ---
 
@@ -102,7 +120,7 @@ the hardware artifacts land in the repo.
 | `quick_start.rst` | 123-137 | Configuration Setup offers "Right/Left/Straight/Flat" — omits all five rev4 variants |
 | `troubleshooting.rst` | 16-33 | "Power is a small white **slide switch**", "There's no battery-level indicator on screen", "double-check the PiSugar battery board connections" |
 | `index.rst` / `quick_start.rst` / `troubleshooting.rst` | 11 / 5 / 4-7 | Version notes say "for v3 and v2.5 PiFinders" — rev4 is not named anywhere |
-| `BOM.rst` | all | Waveshare 1.5" OLED, 17 switches, GT-U7, PiSugar — rev3 through-hole only |
+| `BOM.rst` | all | Waveshare 1.5" OLED, 17 switches, GT-U7, PiSugar — rev3 through-hole only. **Out of scope per D4**; listed for the record, not for action |
 
 ### Missing entirely
 - Battery indicator: what each glyph means; why no percentage appears while charging.
@@ -121,35 +139,39 @@ the hardware artifacts land in the repo.
 
 ## 4. Work packages
 
-Six packages. WP0 first (it unblocks screenshots); WP1–WP4 then run in parallel; WP5 last.
-Each is sized for one agent. Every agent should invoke the **`docs` skill** first — it carries the
-house voice, the rST conventions, the page charters and the screenshot pipeline.
+Five packages. **WP0 is already done on this branch**; WP1–WP4 remain and can run in parallel. Each
+is sized for one agent. Every agent should invoke the **`docs` skill** first — it now carries the
+rev4 revision rules and the 176 px screenshot policy alongside the house voice, rST conventions and
+page charters.
 
 ---
 
-### WP0 — Unblock 176 px screenshot capture *(do first; small, code-only)*
+### WP0 — Unblock 176 px screenshot capture — ✅ **DONE** (on this branch)
 
-**Problem:** `.claude/skills/pifinder-remote/scripts/pf_remote.py:279` hardcodes
-`--display headless`, which is 128×128. `displays.py` already has `DisplayHeadless176`
-(selector `headless_176`, `displays.py:535-557`), so the panel is one flag away.
+Completed 2026-08-06; no agent needs to pick this up. Recorded here because WP1–WP4 depend on it.
 
-**Tasks**
-1. Add a `--display` passthrough to `pf_remote.py launch` (default unchanged at `headless`), so an
-   agent can run `python3 $S launch --display headless_176`.
-2. Confirm `GET /api/screen` returns the 176×176 frame under that driver.
-3. `screenshot_to_doc.py` needs no change — `--scale 2` turns 176 → 352. Note in the skill that rev4
-   doc images are 352×352 where rev3's are 256×256.
-4. Update `.claude/skills/pifinder-remote/SKILL.md` (lines 5-6, 37, 52-53, 167), which currently
-   states 128×128 as a flat fact.
-5. Update `.claude/skills/docs/SKILL.md` "Preparing screenshots" (lines 227-270) with the rev4 path.
+- `pf_remote.py launch` takes **`--display {headless_176,headless,headless_320}`**, defaulting to
+  **`headless_176`** — rev4's panel is now what you get without asking. `--display headless` gives
+  the 128×128 v3/v2.5 panel.
+- `pf_remote.py launch` takes **`-fb`/`--fakebattery`**, which adds the rev4 battery monitor: the
+  title-bar battery icon plus a full simulated discharge (low-battery warnings, blind-floor
+  shutdown). Without it, plain `-fh` emulates rev3 and there is no battery icon at all.
+- `screenshot_to_doc.py` needed no change — `--scale 2` turns 176 → **352×352**.
+- `.claude/skills/pifinder-remote/SKILL.md` and `.claude/skills/docs/SKILL.md` updated: 176 px is
+  documented as the default, together with the D3 opportunistic-conversion rule.
+- `.claude/skills/docs/references/product-knowledge-base.md` rewritten — it described rev4 as a
+  *"planned future revision… still in early design… no working prototype on a scope yet"*, which
+  would have poisoned anything an agent wrote from it. It now carries the real rev4 feature list and
+  an explicit list of facts not to state without checking.
 
-**Also fix here:** `.claude/skills/docs/references/product-knowledge-base.md:24` still describes rev4
-as *"Planned future revision… still in early design: engineering samples of potential screens exist
-but no working prototype on a scope yet."* Any agent trusting that reference will write nonsense.
-Rewrite that entry from `release_notes/2.6.1.md` and the table in §1 above.
+**Verified end to end**, not just by inspection: launched headless with `-fb`, captured
+`GET /api/screen` at **176×176** with the battery icon present in the title bar, and converted it
+through `screenshot_to_doc.py` to a **352×352** amber PNG.
 
-**Acceptance:** an agent can capture a rev4 screen end-to-end and land a 352×352 amber PNG in
-`docs/source/images/`.
+**Note for whoever runs WP1–WP4:** a fresh worktree has no venv, so `find_python` falls back to the
+system interpreter and PiFinder dies on `ModuleNotFoundError: json5`. Either build a venv in the
+worktree or symlink the main checkout's (`ln -s <main>/python/.venv python/.venv` — it is gitignored).
+You will also need `git submodule update --init python/PiFinder/tetra3`.
 
 ---
 
@@ -277,25 +299,20 @@ and `python/PiFinder/bringup.py`.
 
 ---
 
-### WP5 — Build Guide & BOM: honest scoping *(small, do after D4 is confirmed)*
+### WP5 — *removed by D4*
 
-**Files:** `build_guide.rst` (7-16), `BOM.rst` (1-8)
-
-Assuming D4 lands as recommended: add a short note at the top of each page stating that it covers the
-v3 / v2.5 through-hole build, and that rev4 build files are not yet published. Do not attempt a rev4
-BOM — the parts are not in the repo.
-
-If D4 flips to "in scope", this becomes the largest package in the plan and needs its own handoff.
+`build_guide.rst` and `BOM.rst` are out of scope and get no scoping note. Left in the numbering so
+the package IDs stay stable against the branch history and the PR discussion.
 
 ---
 
 ## 5. Ordering
 
 ```
-WP0 (tooling)  ──┬──> WP1 (power)        ─┐
-                 ├──> WP2 (sound)         ├──> WP5 (build/BOM notes) ──> final Sphinx build check
-                 ├──> WP3 (screen/keypad) ┤
-                 └──> WP4 (bring-up)      ─┘
+                    ┌──> WP1 (power)         ─┐
+WP0 ✅ (tooling) ───┼──> WP2 (sound)          ├──> final Sphinx build check
+                    ├──> WP3 (screen/joystick)┤
+                    └──> WP4 (bring-up)       ─┘
 ```
 
 WP1–WP4 touch mostly disjoint sections, but **WP1 and WP3 both edit `quick_start.rst`** and **WP1,
@@ -364,7 +381,7 @@ so the replacement can be dropped in and the `.. image::` directive updated.
 |---|---|---|
 | 15 | rev4 panel mid-bring-up: switch grid with some positions lit | `bringup.py` accepts `--display headless_176`, so a *rendered* frame may be capturable on a dev box — but the checks need real hardware to show a realistic state. **Try headless first; fall back to photographing the bench.** |
 | 16 | rev4 panel showing the power-hold progress bar | as above |
-| 17 | rev4 board bare, top side, buzzer and charger locatable | only if D4 puts the DIY build in scope |
+| 17 | ~~rev4 board bare, top side~~ | **dropped** — D4 puts the DIY build out of scope |
 
 **Shooting notes:** match the existing manual's style — plain background, even light, unit filling
 the frame, callouts drawn as the current `power.jpeg` does. Landscape where the existing image is
@@ -387,7 +404,10 @@ so every battery state below is reachable without hardware.
 - Status screen at 176 px.
 - Main menu at 176 px (for "Which PiFinder do I have?" alongside the 128 px original).
 
-Deferred to the D3 phase-2 job: the remaining ~111 of the 118 existing 256×256 screenshots.
+**Plus, per D3 rule 3:** any *existing* screenshot on a page you edit, in the section you edit, gets
+re-taken at 176 px in the same change. Do not wander into sections you aren't otherwise touching —
+the point is gradual conversion as a side effect of real work, not a reshoot campaign in disguise.
+The remaining 118 − (whatever you convert) shots stay at 256×256, indefinitely and by decision.
 
 ---
 
@@ -403,7 +423,8 @@ Agents must **not** guess these. Leave `TODO(rich)` markers and flag them in the
    split still holds.
 4. **Charge-indicator LED** — does rev4 have one? The BQ25895 has a `/STAT` pin but nothing in the
    repo says whether it drives a visible LED.
-5. **Is rev4 sold assembled only?** Drives D4 and whether a rev4 BOM is ever written.
+5. **Is rev4 sold assembled only?** No longer blocks this pass (D4 put the build path out of scope),
+   but it decides whether a rev4 build guide and BOM are ever written at all.
 6. **Does the rev4 case differ** enough to need new SD-card-swap photos and printed-parts coverage?
 7. **What "AS" means** in AS Bloom / AS Heart, and whether those names are customer-facing.
 8. **GPS receiver on rev4** — `BOM.rst:58` lists the GT-U7. `menu_map.rst:276` mentions a UBlox-10
@@ -420,7 +441,11 @@ Agents must **not** guess these. Leave `TODO(rich)` markers and flag them in the
   territory).
 - **Read the section you are about to change, and its neighbours, before writing.** The manual has a
   settled voice; your edits should disappear into it.
-- Say **"rev4"**, never "v4" or "V4".
+- Say **"rev4"**, never "v4" or "V4". Leave **v3** and **v2.5** named as they are (D2).
+- Write **rev4 as the default case**, with v3/v2.5 differences in `.. note::` blocks (D1) — not the
+  other way round, and not "on rev4… on v3…" balanced pairs in every paragraph.
+- **Capture new screenshots at 176 px**, and re-take the existing shots in any section you edit (D3).
+- **Do not touch `build_guide.rst` or `BOM.rst`** (D4) — not even to add a scoping note.
 - Never write bare **"battery level"** — say battery voltage (measured) or state of charge
   (estimated). Never describe the percentage as capacity remaining.
 - Never claim a **witnessed** bring-up check "passed".
