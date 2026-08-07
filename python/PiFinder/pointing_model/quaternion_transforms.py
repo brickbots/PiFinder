@@ -62,6 +62,21 @@ def get_quat_angular_diff(
     return d_theta  # In radians
 
 
+def ensure_quat_continuity(q_prev: quaternion.quaternion, 
+                           q_new: quaternion.quaternion) -> quaternion.quaternion:
+    """
+    Ensures that consecutive quaternions to have consistent signs (due
+    to the double coverage property of quaternions where q and -q represent
+    same rotation).
+    """
+    q0 = quaternion.as_float_array(q_prev)
+    q1 = quaternion.as_float_array(q_new)
+
+    if np.dot(q0, q1) < 0:
+        return quaternion.quaternion(-q1)
+    else:
+        return q_new
+
 # ========== Equatorial frame functions ============================
 
 

@@ -146,6 +146,18 @@ def integrator(
                 )
                 estimate = _apply_successful_solve(estimate, solve_result, idr)
                 pointing_updated = True
+
+                # Append plate-solve and IMU states to IMU/camera alignment buffer
+                # TODO: Append the following:
+                # solve_result.last_solve_success (timestamp)
+                # solve_result.camera.as_radecroll() (RaDecRoll type)
+                # solve_result.imu_anchor
+                #
+                # Update idr.q_imu2cam with the new estimate from IMU/camera alignment
+                #
+                # TODO: SuccessfulSolve.last_solve_success is the exposure end time. It's ambiguous...
+                # TODO: Move ImuDeadReckoning._q_imu2cam() to a stand-alone func in imu_dead_reckoning.py with a view to deprecating it 
+
             elif isinstance(solve_result, FailedSolve):
                 telemetry.record_solve(
                     solve_result, predicted=estimate.pointing.aligned.estimate
@@ -250,11 +262,12 @@ def _apply_successful_solve(
     estimate.matched_stars = result.matched_stars
     estimate.matched_catID = result.matched_catID
 
-    # Reseed the dead-reckoner from the new anchor. camera/aligned are
-    # always present on a SuccessfulSolve, so no None-guard is needed.
+    # Reset the dead-reckoning from the plate-solved pointing. camera/aligned
+    # are always present on a SuccessfulSolve, so no None-guard is needed.
     q_anchor = result.imu_anchor
     if q_anchor is None:
         q_anchor = quaternion.quaternion(np.nan)
+
     idr.solve(
         result.camera.as_radecroll(),
         result.aligned.as_radecroll(),
