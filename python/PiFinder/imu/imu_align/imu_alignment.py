@@ -80,6 +80,7 @@ from dataclasses import dataclass
 
 from PiFinder.types.coordinates import RaDecRoll
 from PiFinder.pointing_model import quaternion_transforms as qt
+from PiFinder.imu.imu_align.hand_eye_solver import solve_rotation
 
 list_of_quats = list[quaternion.quaternion]
 
@@ -237,12 +238,9 @@ class ImuCameraAlignment:
             for isamp2, samp2 in enumerate(self.candidate_buffer.buffer[isamp1+1:]):
                 # Check time difference between samples:
                 dt = samp2.timestamp - samp1.timestamp
-                if dt > self.max_time_diff:
-                    # Samples too far apart in time (subsequent samp2 will be even newer)
-                    remove_ids.add(isamp1)
-                    break
-                if dt <= 0:
-                    # Duplicate samples or out-of-order (sample1 is newer). Remove sample1
+                if dt > self.max_time_diff or dt <= 0:
+                    # 1) Samples too far apart in time (subsequent samp2 will be even newer), or
+                    # 2) Duplicate samples or out-of-order (sample1 is newer). Remove sample1
                     remove_ids.add(isamp1)
                     break
 
@@ -269,8 +267,15 @@ class ImuCameraAlignment:
         """
         if n_pairs is None:
             n_pairs = self.diff_buffer.len  # Use all available data
-        #TODO
-        return None
+
+        q_cam_list = []
+        q_imu_list = []
+        for samp_cam, samp_imu in self.diff_buffer.buffer:
+            q_cam_list.append(samp_imu.q_cam)
+            q_imu_list.append(samp_imu.q_imu)
+
+        q_cam2imu = solve_rotation(q_cam_list, q_imu_list, residual_threshold = 0.01, verbose=False)
+        return q_cam2imu
 
     def add_sample_attempt_solve(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
         """
@@ -282,10 +287,10 @@ class ImuCameraAlignment:
         # Pair samples and solve
         if ((self._samples_since_last_pair_attempt >= self.min_n_solve) or
             (self.candidate_buffer.len >= self.candidate_buffer.max_buffer_length)):
-            self.purge_old_samples(timestamp)  # TODO: Run less frequently
-            self.purge_old_candidates()  # TODO: Run less frequently
+            #self.purge_old_samples(timestamp)  # TODO: Run less frequently
+            #self.purge_old_candidates()  # TODO: Run less frequently
             self.pair_samples()
-            self.trim_buffers()
+            #self.trim_buffers()
 
             # If the candidate buffer is still full after pairing, remove a 
             # batch of the older samples from the buffer
