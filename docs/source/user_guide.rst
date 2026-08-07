@@ -3,8 +3,12 @@ PiFinder™ User Manual
 ======================
 
 .. note::
-   This documentation is for v3 and v2.5 PiFinders running software |min_software| or above.
-   You can see which version you're running in the upper right of the welcome screen.
+   This documentation covers rev4, v3 and v2.5 PiFinders running software |min_software| or
+   above.  You can see which version you're running in the upper right of the welcome screen.
+
+   Not sure which you have?  See
+   :ref:`Which PiFinder do I have? <quick_start:which pifinder do i have?>` in the Quick
+   Start.
 
    If you need docs for a previous version please choose `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
    , `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_
@@ -62,6 +66,13 @@ through a menu and make selections with these keys:
 - The **RIGHT** arrow activates the current option, selecting it or moving to another menu
 - The **LEFT** arrow takes you back to the previous menu or screen
 - Holding **LEFT** for more than a second always returns to the TOP of the menus
+
+The arrows are the four directions of the joystick, and pressing the joystick straight in
+does the same as the **SQUARE** key.
+
+.. note::
+   On v3 and v2.5 PiFinders the arrows are four separate buttons in a row along the bottom
+   of the keypad rather than a joystick.  The key names are the same on both.
 
 The status bar at the top of the screen shows the name of the menu you're viewing.
 

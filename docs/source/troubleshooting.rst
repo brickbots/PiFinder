@@ -2,9 +2,12 @@ Troubleshooting & FAQ
 =====================
 
 .. note::
-   This page applies to v3 and v2.5 PiFinders running software |min_software| or above.  If you're on
-   older software, updating is often the fix in itself — see
+   This page applies to rev4, v3 and v2.5 PiFinders running software |min_software| or above.  If
+   you're on older software, updating is often the fix in itself — see
    :ref:`user_guide:update software`.
+
+   Not sure which you have?  See
+   :ref:`Which PiFinder do I have? <quick_start:which pifinder do i have?>` in the Quick Start.
 
 Most PiFinder hiccups have a quick fix, and the cause is usually something simple —
 focus, or a settings mismatch — rather than a fault.  This page is organised by
