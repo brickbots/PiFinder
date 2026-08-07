@@ -141,6 +141,7 @@ module = [
     'picamera2',
     'bottle',
     'libinput',
+    'sep',
 ]
 ignore_missing_imports = true
 ignore_errors = true
