@@ -52,6 +52,7 @@ whichever falls under your thumb. From here on this guide simply names the keys 
    On v3 and v2.5 PiFinders the four arrows are separate buttons in a row along the bottom
    of the keypad rather than a joystick. Every key name in this guide means the same thing
    on both.
+   |v3_docs|
 
 Depending on your configuration, the camera may face a different direction or sit in a
 different spot, so it can see the sky while the keypad and screen stay within easy reach
@@ -126,6 +127,7 @@ normal.
    the screen, slide it right for on and left for off. Charging is through the port nearest
    the back of the case, whose indicator glows blue while charging and green when full;
    the port nearest the keypad runs the unit without charging the battery.
+   |v3_docs|
 
 
 
@@ -226,6 +228,7 @@ into the scope, so if you're observing with one of those, choose the entry that 
    mean the same as they do on rev4, but on those units the configuration is set by how the
    unit is built rather than by rotating it; Flat v3 and Flat v2 sit with the lens on top
    and the screen angled back toward you.
+   |v3_docs|
 
 
 Mounting
@@ -656,6 +659,7 @@ keypad route.
    to jump to the main menu, hold **SQUARE** to open the Quick Menu, then press **DOWN** for
    SHUTDOWN and confirm with **RIGHT**.  Once the screen and keypad turn off, it's safe to
    slide the power switch off.
+   |v3_docs|
 
 That's the basics of using your PiFinder sorted. To learn more, continue to the full
 :doc:`user_guide`.

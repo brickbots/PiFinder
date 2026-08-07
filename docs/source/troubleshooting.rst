@@ -48,6 +48,7 @@ it for when the PiFinder is genuinely unresponsive.
    the unit *immediately, regardless of switch position*, which is a quick way to tell a
    flat battery or a failed switch from a dead computer.  If you built your own unit and it
    won't power up at all, double-check the PiSugar battery board connections.
+   |v3_docs|
 
 
 The screen is blank, or it won't finish booting
@@ -229,6 +230,7 @@ Frequently Asked Questions
    .. note::
       A v3 or v2.5 PiFinder with the PiSugar battery runs for four to five hours, has no
       battery indicator, and shuts off abruptly when the cell is empty.
+      |v3_docs|
 
 **Where are my saved observations and images?**
    On the PiFinder's network share, reachable at ``//pifinder.local/shared`` (connect as

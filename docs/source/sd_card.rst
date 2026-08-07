@@ -16,6 +16,7 @@ To put software on the new card first, see :doc:`Software Setup <software>`.
    On v3 and v2.5 PiFinders the card is inside the case, in the slot between the
    Raspberry Pi and the power board, and you have to open the case to reach it.
    See :ref:`sd_card:reaching the card on v3 and v2.5 units` below.
+   |v3_docs|
 
 When you'd swap the card
 ------------------------
@@ -38,6 +39,7 @@ card from a running unit can corrupt it.
 .. note::
    On v3 and v2.5 PiFinders, switch the power off at the slide switch once the
    screen and keypad have gone dark, before you open the case.
+   |v3_docs|
 
 Swapping the card
 -----------------

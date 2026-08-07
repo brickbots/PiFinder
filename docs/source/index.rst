@@ -13,6 +13,8 @@ For an overview of what the PiFinder is and how it came to be visit the official
    :ref:`Which PiFinder do I have? <quick_start:which pifinder do i have?>` in the Quick
    Start.
 
+   Pages describe rev4 and note the v3 and v2.5 differences underneath.  |v3_docs|
+
    If you need docs for a previous version please choose `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
    , `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_
    or `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_
