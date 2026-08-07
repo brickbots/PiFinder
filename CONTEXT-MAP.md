@@ -47,3 +47,4 @@ Companion architecture docs live next to each `CONTEXT.md`:
 - [`docs/ax/equipment.md`](./docs/ax/equipment.md)
 - [`docs/ax/ui.md`](./docs/ax/ui.md)
 - [`docs/ax/camera.md`](./docs/ax/camera.md)
+- [`docs/ax/bringup.md`](./docs/ax/bringup.md)
