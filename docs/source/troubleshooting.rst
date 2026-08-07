@@ -34,6 +34,12 @@ Things to check:
   the PiFinder draws.  If it runs on external power but not on battery, the trouble is the
   battery, not the computer.
 
+If none of that helps, hold the **PWR** button down for more than **14 seconds**.  That
+resets the power system itself rather than the software: it cuts power to a unit whose
+software has hung and won't shut down, and it will let one power on again when something is
+stopping it from starting normally.  It's a hard cut rather than a clean shutdown, so keep
+it for when the PiFinder is genuinely unresponsive.
+
 .. note::
    On v3 and v2.5 PiFinders, power is a small white **slide switch** — it slides side to
    side, not a push button.  Facing the screen, slide right for on, left for off.  There's
@@ -79,20 +85,24 @@ The camera view is blank or black
 ---------------------------------
 
 The Focus screen opens on its magnified star tiles, which stay black whenever no stars are
-detected — so a healthy camera can look dead there.  Press **SQUARE** until the **Image**
-view shows the full camera frame before judging.  If the Image view shows nothing at all —
-not even faint noise with the lens cap on — the **Camera Type** setting probably doesn't
-match the camera in your unit.
+detected — so a perfectly healthy camera looks dead there in daylight or under cloud.  Don't
+judge the camera by that screen.
 
-- Open Settings → Advanced and try a different Camera Type.  The v3 sensors are ``imx462`` and
-  ``imx296``; older v2 cameras are ``imx477``.  It won't hurt to try each.
+To see what the camera actually sees, open the Start menu and choose Align (Day).  It
+switches the camera to a short daytime exposure and shows a full live image, which is the
+quickest way to tell whether the camera is alive at all.  Point the PiFinder at something
+bright and you should get a recognisable picture; even with the lens cap on you should see
+faint noise rather than pure black.
+
+If Align (Day) shows nothing whatsoever, the **Camera Type** setting probably doesn't match
+the camera in your unit.
+
+- From the main menu, select Settings, scroll down to Advanced, then select Camera Type and
+  try a different one.  The v3 sensors are ``imx462`` and ``imx296``; older v2 cameras are
+  ``imx477``.  It won't hurt to try each.
 - **After changing Camera Type you must fully power the PiFinder off and on** — a software
   restart alone won't apply it.
 - A software update can quietly reset this setting, so re-check it after you update.
-
-A healthy camera shows at least faint noise in the Image view with the lens cap on, and a
-brighter image in daylight — use that to confirm the camera is alive before chasing focus
-or exposure.
 
 
 It won't plate solve ("can't find stars")

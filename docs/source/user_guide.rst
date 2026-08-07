@@ -742,8 +742,10 @@ the screen and keypad come up.
 
 To shut down, press the button again and hold it for about a second.  The screen goes
 straight to the shutdown confirmation; a second press confirms, a tone plays, and the
-PiFinder switches itself off once it has closed everything down safely.  You never need to
-cut the power by hand.
+PiFinder switches itself off once it has closed everything down safely.  In normal use you
+never need to cut the power by hand; if the software ever hangs and won't shut down, holding
+**PWR** for more than 14 seconds resets the power system — see
+:ref:`troubleshooting:the pifinder won't turn on`.
 
 The menus get you to the same place if your hands are already on the keypad — see
 :ref:`user_guide:shutdown`.
