@@ -106,8 +106,8 @@ Press the button marked **PWR**, on the front below the keypad, to switch the Pi
 
 .. image:: images/quick_start/rev4_power.jpeg
 
-A full charge runs the PiFinder for about ten hours, so a night's observing sits well
-inside one. You can also use the PiFinder while it charges, so a USB power bank on the
+A full charge runs the PiFinder for about ten hours, enough for all but the longest
+observing sessions. You can also use the PiFinder while it charges, so a USB power bank on the
 **POWER** port will keep you going all night. Any 5V USB-C supply rated for at least 2A
 will do.
 
@@ -115,9 +115,10 @@ The first power-on takes a minute, and the welcome screen may come and go as the
 restarts; later start-ups are much quicker. Once it's powered on, you'll see a welcome
 image, then some loading information, and finally the Main Menu.
 
-The **PWR** label lights as soon as you press the button, so you can see the PiFinder is
-starting before there's any other sign of life, and goes out once the screen and keypad are
-up. It isn't dimmable like the rest of the interface, and it going dark is normal.
+The **PWR** label lights as soon as you press the button for about 2 seconds to turn on the PiFinder.
+This let's you know the PiFinder is on and
+starting before there's any other sign of life. It goes out once the screen and keypad are
+illuminated. It isn't dimmable like the rest of the interface, and it going dark is normal.
 
 .. note::
    On v3 and v2.5 PiFinders, power is a small white slide switch above the screen — facing
@@ -194,7 +195,7 @@ and stays there.
 
 The software needs to know which position you've chosen so its star charts and pointing
 directions come out the right way round. Your PiFinder arrives set to match the position it
-shipped in; check the setting if you rotate it, or if the star chart comes out mirrored.
+shipped in; check the setting if you rotate it, or if push-to directions mis-behave.
 
 From the main menu, select Settings, scroll down to Advanced, then select PiFinder Type.
 
