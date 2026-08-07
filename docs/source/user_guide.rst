@@ -713,67 +713,138 @@ sorted by NEAREST lets you work through a collection easily.
 Power & Charging
 =====================================
 
-PiFinders ordered with the optional internal battery run for an evening on a single
-charge, and you can keep one going indefinitely from any USB-C power source.  This section
-covers how the two USB-C ports differ, how charging behaves, how long a charge lasts, and
-how to look after the battery.  For the very first power-on, the
+PiFinders ordered with the internal battery run for a full night on a single charge, and
+you can keep one going indefinitely from any USB-C power source.  This section covers the
+power button, how charging behaves, what the battery indicator is telling you, how long a
+charge lasts, and how to look after the cell.  For the very first power-on, the
 :ref:`quick_start:powering the pifinder` section of the Quick Start walks through it step
 by step.
 
-The two USB-C ports
--------------------
+Power button and shutdown
+-------------------------
 
-A battery-equipped PiFinder has two USB-C ports on top, and they do different things:
+Press the power button on top of the case, above the screen, to start the PiFinder.
 
+.. TODO(rich): replace with a rev4 top-down shot showing the power button and the POWER /
+   DATA ports — this image shows the v3 slide switch and is wrong for rev4.
 .. image:: images/quick_start/power.jpeg
 
-- The port nearest the **back** of the case (marked with the arrow above) both powers the
-  PiFinder **and** charges the battery.  Use this one for charging.
-- The port nearest the **keypad** powers the unit only — it does not charge the battery.
-  It is also wired ahead of the power switch, so plugging into it turns the PiFinder on
-  immediately *regardless of the switch position*.
+To shut down, press the button again and hold it for about a second.  The screen goes
+straight to the shutdown confirmation; a second press confirms, a tone plays, and the
+PiFinder switches itself off once it has closed everything down safely.  You never need to
+cut the power by hand.
 
-During a session the keypad-side (power-only) port is the nicer one to run from, because
-the charging port's indicator LED is quite bright in the dark.  A unit without the battery
-has only the single power-only port.
+The menus get you to the same place if your hands are already on the keypad — see
+:ref:`user_guide:shutdown`.
 
-The power switch is the small white **slide** switch on top, above the screen (boxed in
-the image above).  Facing the screen, slide it right for on and left for off.  It is a
-switch, not a button.
+.. note::
+   On v3 and v2.5 PiFinders power is a small white **slide** switch above the screen:
+   facing the screen, slide it right for on and left for off.  Shut down from the menus
+   first, then slide the switch off.
 
 Charging
 --------
 
-Plug a USB-C cable into the charging port (nearest the back).  The indicator LED glows
-**blue** while charging and turns **green** when full.  From empty, a full charge takes
-roughly three hours, though this varies with the power source — a Power Delivery (PD)
-charger negotiates more power and fills faster, while a basic 5V supply charges more
-slowly but works fine.
+Two USB-C ports sit on top of the case, labelled on the faceplate:
 
-Charge with the power switch **off**.  If the PiFinder runs while plugged in, it can draw
-about as much current as the charger supplies, so the battery may barely fill.  A long
-charge that leaves the battery still flat almost always means the unit was switched on the
-whole time.
+- **POWER** runs the PiFinder and charges the battery.  This is the one to plug a charger
+  or a power bank into.
+- **DATA** is for connecting accessories, such as the PiFinder remote or other USB
+  devices.
+
+From empty, a full charge takes about six hours with the PiFinder switched off.  Charging
+draws up to **1.5A**, so use a supply that can deliver it — a source that can't will charge
+proportionally slower.
+
+You can carry on observing while the battery charges; there's no need to switch the
+PiFinder off first.  Expect the charge to take considerably longer that way, since the unit
+consumes much of what the charger supplies.  A long charge that leaves the battery still low
+almost always means the PiFinder was running the whole time.
+
+A charge indicator labelled **CHG** lights while the battery is charging and goes out once
+it's full.  It is red, but bright enough to be distracting once your eyes are dark adapted,
+so it's worth knowing what it is before it appears beside you at the eyepiece.
 
 .. note::
-   The last stretch of charging is slow.  As the battery approaches full the charging
-   current tapers off, so the change from blue to green can take a while even though the
-   battery is nearly there.  This is normal and not a fault.
+   The last stretch of charging is slow.  As the cell approaches full the charging current
+   tapers off, so the **CHG** light can stay on for a while after the battery is nearly
+   there.  That's normal, not a fault.
+
+.. note::
+   v3 PiFinders charge through the optional **PiSugar S Plus** board rather than an
+   on-board charger, and should be charged with the slide switch **off** — a v3 left
+   running barely fills at all.  Charge through the port nearest the back of the case; its
+   indicator glows blue while charging and green when full, and a full charge takes roughly
+   three hours.  The port nearest the keypad runs the unit without charging, and is wired
+   ahead of the slide switch, so plugging into it turns a v3 on regardless of the switch
+   position.
+
+The battery indicator
+---------------------
+
+The title bar carries a battery glyph, just left of the GPS and solver icons.
+
+.. image:: images/user_guide/battery_full_docs.png
+   :width: 30%
+.. image:: images/user_guide/battery_mid_docs.png
+   :width: 30%
+.. image:: images/user_guide/battery_empty_docs.png
+   :width: 30%
+
+It estimates **how much longer the PiFinder will run**, not how much charge is left in the
+cell.  There's no fuel gauge in the hardware: the PiFinder measures the battery voltage and
+reads the remaining runtime off a curve measured from real units on the bench.  Take it as a
+guide to the rest of the evening rather than a precise figure, and expect it to be on the
+cautious side — the curve was measured under a heavier load than most observing.
+
+The glyph empties in coarse steps rather than counting down smoothly, and shows a hollow
+outline for the last stretch.
+
+While the battery is charging, a bolt appears in place of the usual glyph.
+
+.. image:: images/user_guide/battery_charging_docs.png
+
+Charging pulls the battery voltage up, so a runtime estimate made then would be wrong — the
+PiFinder shows that it's charging instead of inventing a number.  Right at the end of a
+discharge the charger stops being able to measure the cell at all, and the indicator shows
+empty from that point on; that's also where the automatic shutdown below takes over.
+
+.. note::
+   v3 and v2.5 PiFinders have no battery indicator.  The PiSugar board's charge state isn't
+   visible to the PiFinder software, so nothing appears in the title bar.
+
+Low-battery warnings and automatic shutdown
+-------------------------------------------
+
+The PiFinder warns you twice as the battery runs down: once when the estimate reaches
+**10%**, and again at **5%**.  Each is a brief message on screen with a sound to match.
+
+.. image:: images/user_guide/low_battery_warning_docs.png
+
+Measured on the bench under a continuously solving load, the 10% warning arrives about an
+hour and a half before the end and the 5% warning about half an hour before it; lighter use
+stretches both.  Each warning appears once per discharge rather than repeating, so it won't
+nag you for the rest of the night.  Plugging in re-arms them for next time.
+
+When the battery falls below the point where the charger can still measure it, the PiFinder
+shows a final warning, plays the shutdown tone and shuts itself down cleanly.
+
+.. image:: images/user_guide/low_battery_shutdown_docs.png
+
+That is deliberate: left to itself the unit would run on for another unpredictable half hour
+or so and then lose power mid-write, which is the classic way to corrupt an SD card.  A
+warned, orderly stop is worth the last few minutes.
 
 Battery life
 ------------
 
-The battery runs the PiFinder for about **four to five hours**, but real runtime depends
-heavily on how hard you work it.  Sitting at the eyepiece on one object, or stepping away
-from the scope, lets the PiFinder drop into power-save mode and stretches the time
-considerably.  A fast tour through many objects — camera, motion sensor, and screen all
-busy — draws more power and shortens it.  Turning the brightness down helps too: hold
-**SQUARE** and press **+** or **-** to adjust the screen and keypad at any time.
-
-There is **no battery-level indicator** on the screen and no low-battery warning: when the
-charge is depleted the PiFinder simply shuts off.  For a long night, top up beforehand and
-keep a USB-C power bank handy.  You can add external power at any time without restarting
-(see below).
+A full charge of the 8,000mAh cell runs the PiFinder for about **ten hours**.  Treat that as
+a floor rather than an average — it was measured with the camera solving continuously, the
+screen at full brightness and the display sleep turned off, which is harder work than a real
+night at the eyepiece.  Sitting on one object, or stepping away from the scope, lets the
+PiFinder drop into power-save mode and stretches the time considerably.  Turning the
+brightness down helps too: hold **SQUARE** and press **+** or **-** to adjust the screen and
+keypad at any time.
 
 .. note::
    The PiFinder drops into power-save mode after it has been idle for a while, dimming the
@@ -785,17 +856,20 @@ Running on external power
 -------------------------
 
 Any USB-C source rated for at least **2A** will run the PiFinder — a wall charger, a USB
-power bank, or a portable power station's USB output.  As a rough guide, about 1,000mAh of
-power-bank capacity runs the PiFinder for an hour, so a 10,000mAh bank is good for the
-better part of a night.
-
-External power can be added mid-session without a restart.  A useful trick for stretching
-a long night: plug a power bank into the power-only port, then switch the battery **off**.
-The PiFinder keeps running on the external power while the battery is held in reserve for
-after the bank is unplugged.
+power bank, or a portable power station's USB output.  Plug it into the **POWER** port and
+the PiFinder runs from it and tops the battery up at the same time; you can add external
+power mid-session without restarting.  As a rough guide, about 1,000mAh of power-bank
+capacity runs the PiFinder for an hour, so a 10,000mAh bank is good for the better part of
+a night.
 
 If you hit power dropouts, suspect the cable first — some USB-C cables are unreliable at
 the ~2A the PiFinder draws, especially on long runs.
+
+.. note::
+   On a v3, the port nearest the keypad runs the unit without charging.  That makes a useful
+   trick for stretching a long night: plug a power bank into that port and switch the
+   battery **off**, and the PiFinder runs on external power with the cell held in reserve
+   for after the bank is unplugged.
 
 .. warning::
    Feed the PiFinder **5V USB-C power only**.  To run it from a telescope's 12V supply, you
@@ -815,13 +889,12 @@ years, but like any lithium battery it deserves a little respect.
    a replacement.
 
 .. warning::
-   Do not **puncture, crush, drop, or open** the battery, and do not attempt to disassemble
-   the PiSugar power board it sits on.  Keep the unit dry; the battery and electronics are
-   not waterproof.
+   Do not **puncture, crush, drop, or open** the battery, and don't open the case to get at
+   it.  Keep the unit dry; the battery and electronics are not waterproof.
 
 A few habits keep the cell healthy:
 
-- **Charge from the built-in port only.**  The PiSugar power board manages charging for you;
+- **Charge through the POWER port only.**  The PiFinder's own charger looks after the cell;
   just supply 5V USB-C as described above.  There is no need for an external LiPo charger,
   and you should not connect one.
 - **Charge where you can keep an eye on it,** and not on or near anything flammable.  Avoid
@@ -836,9 +909,10 @@ A few habits keep the cell healthy:
   drop-off, not the household rubbish.
 
 .. note::
-   If you ever need to replace the battery, the only compatible part is the **PiSugar S Plus
-   5000mAh**.  Other PiSugar models share the I2C bus with the PiFinder's motion sensor and
-   will cause problems, so make sure you fit the S Plus.
+   On a v3, the battery and its charger are the optional **PiSugar S Plus 5000mAh** board,
+   which is also the only compatible replacement part — other PiSugar models share the I2C
+   bus with the PiFinder's motion sensor and will cause problems, so make sure you fit the
+   S Plus.  Don't attempt to disassemble the board itself.
 
 Settings Menu
 ==============
@@ -1092,10 +1166,17 @@ Shutting down isn't strictly required before power-off, but the PiFinder is a co
 there's a chance of file corruption if you skip it.  Some MicroSD cards are more sensitive
 than others.
 
-The Tools menu offers a Shutdown option under Power, and there's a quick way to reach it
-too.
+The quickest route is the power button: press it and hold for about a second, and the
+confirmation below appears from wherever you are.
 
-To shut down the PiFinder quickly:
+.. image:: images/quick_start/shutdown_confirm.png
+
+Press the power button again — or the **RIGHT** arrow — to confirm, or the **LEFT** arrow
+to go back.  The screen and keypad turn off within a few seconds and the PiFinder switches
+itself off.
+
+The keypad gets you to the same screen.  The Tools menu offers a Shutdown option under
+Power, and the Quick Menu is faster:
 
 - Hold the **LEFT** arrow button for more than a second to jump to the main menu
 - Hold the **SQUARE** button to access the Quick Menu
@@ -1104,9 +1185,8 @@ To shut down the PiFinder quickly:
 .. image:: images/quick_start/main_menu_marking.png
 
 - Press **DOWN** to select the SHUTDOWN option
-- Use the **RIGHT** arrow to confirm, or the **LEFT** arrow to go back
 
-.. image:: images/quick_start/shutdown_confirm.png
-
-After you confirm, the screen and keypad turn off within a few seconds; it's then safe to
-turn off the unit with the power switch or by unplugging the battery.
+.. note::
+   On v3 and v2.5 PiFinders there is no power button, so use the keypad route above.  Once
+   the screen and keypad turn off it's safe to slide the power switch off or unplug the
+   battery.
