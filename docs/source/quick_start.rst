@@ -96,22 +96,28 @@ this guide describes rev4 and notes the v3 and v2.5 behaviour underneath.
 Powering the PiFinder
 ----------------------
 
-If your PiFinder has the internal battery, charge it before first use. Two USB-C ports sit
-on top of the case, each named on the faceplate just below it: plug the cable into
-**POWER**. The **CHG** light on the faceplate stays on while the battery charges and goes
-out when it's full; from empty that takes about six hours. The other port, **DATA**, is for
-connecting accessories such as the PiFinder remote.
+Plug in and charge your PiFinder before first use. Two USB-C ports sit on top of the case,
+each named on the faceplate just below it: plug the cable into **POWER**. The **CHG** light
+on the faceplate stays on while the battery charges and goes out when it's full; from empty
+that takes about six hours. The other port, **DATA**, is for connecting accessories such as
+the PiFinder remote.
 
 Press the button marked **PWR**, on the front below the keypad, to switch the PiFinder on.
 
 .. image:: images/quick_start/rev4_power.jpeg
 
-You can use the PiFinder while it charges, so a USB power bank on the **POWER** port will
-keep you going all night. Any 5V USB-C supply rated for at least 2A will do.
+A full charge runs the PiFinder for about ten hours, so a night's observing sits well
+inside one. You can also use the PiFinder while it charges, so a USB power bank on the
+**POWER** port will keep you going all night. Any 5V USB-C supply rated for at least 2A
+will do.
 
 The first power-on takes a minute, and the welcome screen may come and go as the PiFinder
 restarts; later start-ups are much quicker. Once it's powered on, you'll see a welcome
 image, then some loading information, and finally the Main Menu.
+
+The **PWR** label lights as soon as you press the button, so you can see the PiFinder is
+starting before there's any other sign of life, and goes out once the screen and keypad are
+up. It isn't dimmable like the rest of the interface, and it going dark is normal.
 
 .. note::
    On v3 and v2.5 PiFinders, power is a small white slide switch above the screen — facing

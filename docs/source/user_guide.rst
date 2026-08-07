@@ -724,7 +724,7 @@ sorted by NEAREST lets you work through a collection easily.
 Power & Charging
 =====================================
 
-PiFinders ordered with the internal battery run for a full night on a single charge, and
+Every rev4 PiFinder has an internal battery, good for a full night on a single charge, and
 you can keep one going indefinitely from any USB-C power source.  This section covers the
 power button, how charging behaves, what the battery indicator is telling you, how long a
 charge lasts, and how to look after the cell.  For the very first power-on, the
