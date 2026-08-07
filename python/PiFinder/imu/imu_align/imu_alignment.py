@@ -115,8 +115,8 @@ class SampleBuffer:
         return len(self.buffer)
 
     def add_sample(self, sample: CameraImuSample):
-        if len(self.samples) >= self.max_buffer_length:
-            self.samples.pop(0)  # Remove oldest sample from buffer
+        if len(self.buffer) >= self.max_buffer_length:
+            self.buffer.pop(0)  # Remove oldest sample from buffer
         self.buffer.append(sample)
 
     def pop_sample(self, idx: int):
@@ -186,13 +186,13 @@ class ImuCameraAlignment:
         allowed_timestamp = current_time - self.max_age  # Purge anything older than this
         
         # Purge candidate_buffer:
-        remove_idx_list = [i for i, samp in enumerate(self.candidate_buffer) 
+        remove_idx_list = [i for i, samp in enumerate(self.candidate_buffer.buffer) 
                            if samp.timestamp < allowed_timestamp]
         if remove_idx_list:
             self.candidate_buffer.remove_samples(remove_idx_list)
 
         # Purge diff_buffer:
-        remove_idx_list = [i for i, (samp1, samp2) in enumerate(self.diff_buffer) 
+        remove_idx_list = [i for i, (samp1, samp2) in enumerate(self.diff_buffer.buffer) 
                            if samp1.timestamp < allowed_timestamp 
                            or samp2.timestamp < allowed_timestamp]
         if remove_idx_list:
@@ -208,7 +208,7 @@ class ImuCameraAlignment:
             return
 
         remove_idx_list = []
-        timestamps = np.array([samp.timestamp for samp in self.candidate_buffer])
+        timestamps = np.array([samp.timestamp for samp in self.candidate_buffer.buffer])
         for isamp in range(timestamps.shape[0]):
             dt = np.abs(timestamps - timestamps[isamp])
             if np.sum(dt < self.max_time_diff) <= 1:
@@ -229,14 +229,14 @@ class ImuCameraAlignment:
             return n_pairs
 
         remove_idx_list = []
-        for isamp1, samp1 in enumerate(self.candidate_buffer[:-1]):
+        for isamp1, samp1 in enumerate(self.candidate_buffer.buffer[:-1]):
             if isamp1 in remove_idx_list:
                 continue
 
             for isamp2 in range(isamp1 + 1, self.candidate_buffer.len):
                 if isamp2 in remove_idx_list:
                     continue
-                samp2 = self.candidate_buffer[isamp2]
+                samp2 = self.candidate_buffer.buffer[isamp2]
 
                 # Check time difference between samples:
                 dt = samp2.timestamp - samp1.timestamp
@@ -274,8 +274,8 @@ class ImuCameraAlignment:
 
     def add_sample_attempt_solve(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
         """
-        Add a new sample to the buffer. When the buffer fills up, pair samples 
-        and solve.
+        For general use, call this method. Add a new sample to the buffer. When
+        the buffer fills up, pair samples and solve.
         """
         self.add_sample(timestamp, cam_eq, q_x2imu)
 
@@ -301,4 +301,6 @@ class ImuCameraAlignment:
         if self.diff_buffer.len >= self.min_n_solve:
             solution = self.solve()
             self.diff_buffer.reset_buffer()  # Flush the values used for solve
-    
+            return solution
+        else:
+            return None
