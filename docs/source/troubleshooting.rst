@@ -19,21 +19,28 @@ the `Discord server <https://discord.gg/Nk5fHcAtWD>`_ is quick to help.
 The PiFinder won't turn on
 --------------------------
 
-Power is a small white **slide switch** on top of the unit, above the screen — it slides
-side to side, not a push button.  Facing the screen, slide right for on, left for off.
+Power is the button on top of the unit, above the screen.  Press it to switch the PiFinder
+on; press and hold it while the unit is running to bring up the shutdown confirmation.
 (The **SQUARE** key never controls power.)
 
 Things to check:
 
-- **Is the battery charged?**  There's no battery-level indicator on screen, so plug in
-  to charge if you're unsure.  The charging light glows blue while charging, green when
-  full.
-- **Try external power.**  Plug a USB-C cable into the port closest to the keypad.  That
-  port powers the unit *immediately, regardless of switch position* — so if the PiFinder
-  runs this way but not on battery, the trouble is the battery or the switch, not the
-  computer.
-- If you built your own unit and it won't power up at all, double-check the PiSugar
-  battery board connections.
+- **Is the battery charged?**  Plug a USB-C cable into the **POWER** port — the **CHG**
+  light comes on while the battery charges.  Once the PiFinder is running, the title bar
+  shows roughly how much longer it will run; see
+  :ref:`user_guide:the battery indicator`.
+- **Try a different cable and supply.**  Some USB-C cables are unreliable at the current
+  the PiFinder draws.  If it runs on external power but not on battery, the trouble is the
+  battery, not the computer.
+
+.. note::
+   On v3 and v2.5 PiFinders, power is a small white **slide switch** — it slides side to
+   side, not a push button.  Facing the screen, slide right for on, left for off.  There's
+   no battery indicator on a v3, so plug in to charge if you're unsure; the charging light
+   glows blue while charging and green when full.  The port closest to the keypad powers
+   the unit *immediately, regardless of switch position*, which is a quick way to tell a
+   flat battery or a failed switch from a dead computer.  If you built your own unit and it
+   won't power up at all, double-check the PiSugar battery board connections.
 
 
 The screen is blank, or it won't finish booting
@@ -193,11 +200,20 @@ Frequently Asked Questions
    pages require it.  You can change it under the web interface's Tools page.
 
 **How long does the battery last?**
-   Four to five hours, but it's highly activity-dependent: sitting on a single object lets
-   the PiFinder drop into a lower-power mode and stretches runtime, while a fast tour
-   through many objects shortens it.  There's no battery gauge, and the unit shuts off
-   abruptly when empty, so for long sessions keep a USB-C power bank handy — you can
+   About ten hours, and that's a floor: it was measured with the camera solving
+   continuously, the screen at full brightness and sleep off, so ordinary observing runs
+   longer.  Runtime is highly activity-dependent — sitting on a single object lets the
+   PiFinder drop into a lower-power mode and stretches it, while a fast tour through many
+   objects shortens it.  You don't have to guess, though: the title bar's
+   :ref:`battery indicator <user_guide:the battery indicator>` shows how much longer it
+   will run, and the PiFinder warns at 10% and 5% before performing
+   :ref:`an orderly shutdown <user_guide:low-battery warnings and automatic shutdown>`
+   rather than cutting out.  For long sessions keep a USB-C power bank handy — you can
    hot-plug it while the PiFinder is running.
+
+   .. note::
+      A v3 or v2.5 PiFinder with the PiSugar battery runs for four to five hours, has no
+      battery indicator, and shuts off abruptly when the cell is empty.
 
 **Where are my saved observations and images?**
    On the PiFinder's network share, reachable at ``//pifinder.local/shared`` (connect as

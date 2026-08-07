@@ -99,23 +99,30 @@ this guide describes rev4 and notes the v3 and v2.5 behaviour underneath.
 Powering the PiFinder
 ----------------------
 
-If your PiFinder has the optional internal battery, charge it before first use. Plug a
-USB-C cable into the port on top, closest to the back of the case, arrowed below. The
-charging indicator glows blue while charging and turns green when complete.
+If your PiFinder has the internal battery, charge it before first use. Two USB-C ports sit
+on top of the case, labelled on the faceplate: plug the cable into **POWER**. The **CHG**
+light stays on while the battery charges and goes out when it's full; from empty that takes
+about six hours. The other port, **DATA**, is for connecting accessories such as the
+PiFinder remote.
 
-The power switch is the small white switch on top, above the screen, boxed below. Facing
-the screen, slide it right for on, left for off.
+Press the power button on top, above the screen, to switch the PiFinder on.
 
+.. TODO(rich): replace with a rev4 top-down shot showing the power button and the POWER /
+   DATA ports — this image shows the v3 slide switch and is wrong for rev4.
 .. image:: images/quick_start/power.jpeg
 
-For external power, either USB-C port will run the unit. The port on the Raspberry Pi
-nearest the keypad (the only one if you don't have the internal battery) powers the
-PiFinder but won't charge the battery. To both power the unit and charge the battery from
-external power, use the charging connector with the white switch set to On.
+You can use the PiFinder while it charges, so a USB power bank on the **POWER** port will
+keep you going all night. Any 5V USB-C supply rated for at least 2A will do.
 
 The first power-on takes a minute, and the welcome screen may come and go as the PiFinder
 restarts; later start-ups are much quicker. Once it's powered on, you'll see a welcome
 image, then some loading information, and finally the Main Menu.
+
+.. note::
+   On v3 and v2.5 PiFinders, power is a small white slide switch above the screen — facing
+   the screen, slide it right for on and left for off. Charging is through the port nearest
+   the back of the case, whose indicator glows blue while charging and green when full;
+   the port nearest the keypad runs the unit without charging the battery.
 
 
 
@@ -636,10 +643,16 @@ Shutting down the PiFinder
 ---------------------------
 
 Shutting down isn't strictly required before power-off, but the PiFinder is a computer and
-skipping it risks file corruption.  Hold **LEFT** for more than a second to jump to the
-main menu, hold **SQUARE** to open the Quick Menu, then press **DOWN** for SHUTDOWN and
-confirm with **RIGHT**.  Once the screen and keypad turn off, it's safe to cut power.
-The :ref:`user_guide:shutdown` section walks through it with pictures.
+skipping it risks file corruption.  Press the power button and hold it for about a second:
+the screen asks you to confirm, and a second press shuts the PiFinder down and switches it
+off.  The :ref:`user_guide:shutdown` section walks through it with pictures, including the
+keypad route.
+
+.. note::
+   On v3 and v2.5 PiFinders, shut down from the keypad: hold **LEFT** for more than a second
+   to jump to the main menu, hold **SQUARE** to open the Quick Menu, then press **DOWN** for
+   SHUTDOWN and confirm with **RIGHT**.  Once the screen and keypad turn off, it's safe to
+   slide the power switch off.
 
 That's the basics of using your PiFinder sorted. To learn more, continue to the full
 :doc:`user_guide`.
