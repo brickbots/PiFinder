@@ -199,13 +199,14 @@ def _random_quaternions(N: int, max_rot=None) -> list_of_quats:
     return qs
 
 
-def simulate_measurements(q_cam2imu: quaternion.quaternion,  # True q_cam2imu (camera-to-IMU alignment)
-                          N: int = 100,  # Number of samples to simulate
-                          max_rot = None,  # Max rotation from previous orientation
-                          camera_noise_amp: float = np.deg2rad(0.1),  # Camera noise amp in radians
-                          imu_noise_amp: float = np.deg2rad(0.1),  # IMU noise amp in radians
-                          seed=0  # Random seed. None to disable
-                          ):
+def simulate_quaternion_measurements(
+        q_12: quaternion.quaternion,  # True rel. orientations (q1 ro q2 alignment)
+        N: int = 100,  # Number of samples to simulate
+        max_rot = None,  # Max rotation from previous orientation
+        q1_noise_amp: float = np.deg2rad(0.1),  # Noise amp in radians
+        q2_noise_amp: float = np.deg2rad(0.1),  # Noise amp in radians
+        seed=0  # Random seed. None to disable
+        ):
     """
     Simulate camera and IMU measurements
     """
@@ -213,49 +214,51 @@ def simulate_measurements(q_cam2imu: quaternion.quaternion,  # True q_cam2imu (c
         np.random.seed(seed)
         
     # Generate random IMU orientations
-    q_imu_true = _random_quaternions(N, max_rot=max_rot)
+    q2_true = _random_quaternions(N, max_rot=max_rot)
 
     # Generate corresponding camera orientations
-    q_imu2cam = q_cam2imu.conjugate()
-    q_cam_true = []
-    for q in q_imu_true:
-        q_cam_true.append(q * q_imu2cam)
+    q_21 = q_12.conjugate()
+    q1_true = []
+    for q in q2_true:
+        q1_true.append(q * q_21)
 
     # Add noise
-    q_cam = _add_noise_to_quaternion_list(q_cam_true, camera_noise_amp)
-    q_imu = _add_noise_to_quaternion_list(q_imu_true, imu_noise_amp)
+    q1 = _add_noise_to_quaternion_list(q1_true, q1_noise_amp)
+    q2 = _add_noise_to_quaternion_list(q2_true, q2_noise_amp)
 
-    return q_cam, q_imu
+    return q1, q2
 
 
 if __name__ == "__main__":
     """ 
-    The main block simulates pairs of random IMU/camera measurements and solves
-    for the camera-to-IMU alignment (q_cam2imu).
+    The main block simulates pairs of q1 and q2 measurements and solves
+    for the camera-to-IMU alignment (q_12).
     """
 
     # Set the true camera-from-body rotation
     true_rotvec = np.radians([10, -5, 20])
-    q_cam2imu_true = quaternion.from_rotation_vector(true_rotvec)
+    q_12_true = quaternion.from_rotation_vector(true_rotvec)
 
     # Simulate measurements:
-    q_cam, q_imu = simulate_measurements(
-        q_cam2imu_true, N=100, camera_noise_amp=np.deg2rad(0.1), 
+    q1, q2 = simulate_quaternion_measurements(
+        q_12_true, N=100, camera_noise_amp=np.deg2rad(0.1), 
         imu_noise_amp=np.deg2rad(0.1), seed=0)
 
-    # Calibrate
-    q_est, sigma_total, condition_number = calibrate_camera_imu(
-        q_cam, q_imu, step=2, min_rotation=np.deg2rad(1.0))
+    # Optional steps: Reject small rotations
+
+    # solve
+    q_12_est, sigma_total, condition_number = solve_rotation(
+        q1, q2, residual_threshold = 0.01, verbose=True)
 
     # Results
-    print("\nTrue q_cam2imu:")
-    print(quaternion.as_float_array(q_cam2imu_true))
+    print("\nTrue q_12:")
+    print(quaternion.as_float_array(q_12_true))
 
-    print("\nEstimated q_cam2imu:")
-    print(quaternion.as_float_array(q_est))
+    print("\nEstimated q_12_est:")
+    print(quaternion.as_float_array(q_12_est))
 
     # Error
-    q_error = q_est.conjugate() * q_cam2imu_true
+    q_error = q_12_est.conjugate() * q_12_true
     error_deg = np.rad2deg(
         np.linalg.norm(
             quaternion.as_rotation_vector(q_error)
