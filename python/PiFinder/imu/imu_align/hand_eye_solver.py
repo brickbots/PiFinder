@@ -20,39 +20,6 @@ list_of_quats = list[quaternion.quaternion]
 
 logger = logging.getLogger("IMU.Align")
 
-
-def ensure_quat_list_continuity(q_list: list_of_quats) -> list_of_quats:
-    """
-    Ensures that consecutive quaternions in the list have consistent signs (due
-    to the double coverage property of quaternions where q and -q represent
-    same rotation).
-    TODO: Possibly not needed. If so, remove.
-    """
-    q_list_out = [q_list[0]]
-    for q in q_list[1:]:
-        q = qt.ensure_quat_continuity(q_list_out[-1], q)
-        q_list_out.append(q)
-
-    return q_list_out
-
-
-def calculate_relative_rotations(q1_list: list_of_quats, q2_list: list_of_quats) -> list_of_quats:
-    """
-    Calculate the relative rotation between q1_list and the corresponding q2_list:
-    dq[k] = q1[k].conjugate() * q2[k]
-    """
-    return [q1.conjugate() * q2 for q1, q2 in zip(q1_list, q2_list)]
-
-
-def reject_small_rotations(dq_list: list_of_quats,
-                           min_rotation=np.deg2rad(1.0),  # Reject rotations below this [radians]
-                           ):
-    """
-    Reject small rotations
-    """
-    pass
-
-
 N_UNKNOWN_PARAMS = 3  # Number of unknown parameters in the problem to solve
 
 def residual_rotation_vector(x,  # (3,) Trial solution (q as rotation vector) 
@@ -159,6 +126,42 @@ def _solution_diagnostics(result):
 
     return sigma_total, condition_number
 
+
+# ------- Helper functions -------
+
+
+def ensure_quat_list_continuity(q_list: list_of_quats) -> list_of_quats:
+    """
+    Ensures that consecutive quaternions in the list have consistent signs (due
+    to the double coverage property of quaternions where q and -q represent
+    same rotation).
+    TODO: Possibly not needed. If so, remove.
+    """
+    q_list_out = [q_list[0]]
+    for q in q_list[1:]:
+        q = qt.ensure_quat_continuity(q_list_out[-1], q)
+        q_list_out.append(q)
+
+    return q_list_out
+
+
+def calculate_relative_rotations(q1_list: list_of_quats, q2_list: list_of_quats) -> list_of_quats:
+    """
+    Calculate the relative rotation between q1_list and the corresponding q2_list:
+    dq[k] = q1[k].conjugate() * q2[k]
+    """
+    return [q1.conjugate() * q2 for q1, q2 in zip(q1_list, q2_list)]
+
+
+def reject_small_rotations(dq_list: list_of_quats,
+                           min_rotation=np.deg2rad(1.0),  # Reject rotations below this [radians]
+                           ):
+    """
+    Reject small rotations
+    """
+    pass
+
+
 # ------ Simulation functions for testing & analysis --------------------------
 
 def _q_noise(noise_amp: float):
@@ -232,7 +235,9 @@ def simulate_quaternion_measurements(
 if __name__ == "__main__":
     """ 
     The main block simulates pairs of q1 and q2 measurements and solves
-    for the camera-to-IMU alignment (q_12).
+    for the q_12 for the quaternion form of the hand-eye problem:
+    
+    q1 * q_12 = q_12 * q2
     """
 
     # Set the true camera-from-body rotation
@@ -244,7 +249,9 @@ if __name__ == "__main__":
         q_12_true, N=100, camera_noise_amp=np.deg2rad(0.1), 
         imu_noise_amp=np.deg2rad(0.1), seed=0)
 
-    # Optional steps: Reject small rotations
+    # Optional steps: 
+    # Pair up and calculate relative rotations
+    # Reject small rotations
 
     # solve
     q_12_est, sigma_total, condition_number = solve_rotation(
