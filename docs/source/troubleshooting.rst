@@ -197,11 +197,20 @@ Frequently Asked Questions
    pages require it.  You can change it under the web interface's Tools page.
 
 **How long does the battery last?**
-   Four to five hours, but it's highly activity-dependent: sitting on a single object lets
-   the PiFinder drop into a lower-power mode and stretches runtime, while a fast tour
-   through many objects shortens it.  There's no battery gauge, and the unit shuts off
-   abruptly when empty, so for long sessions keep a USB-C power bank handy — you can
+   About ten hours, and that's a floor: it was measured with the camera solving
+   continuously, the screen at full brightness and sleep off, so ordinary observing runs
+   longer.  Runtime is highly activity-dependent — sitting on a single object lets the
+   PiFinder drop into a lower-power mode and stretches it, while a fast tour through many
+   objects shortens it.  You don't have to guess, though: the title bar's
+   :ref:`battery indicator <user_guide:the battery indicator>` shows how much longer it
+   will run, and the PiFinder warns at 10% and 5% before performing
+   :ref:`an orderly shutdown <user_guide:low-battery warnings and automatic shutdown>`
+   rather than cutting out.  For long sessions keep a USB-C power bank handy — you can
    hot-plug it while the PiFinder is running.
+
+   .. note::
+      A v3 or v2.5 PiFinder with the PiSugar battery runs for four to five hours, has no
+      battery indicator, and shuts off abruptly when the cell is empty.
 
 **Where are my saved observations and images?**
    On the PiFinder's network share, reachable at ``//pifinder.local/shared`` (connect as
