@@ -82,6 +82,7 @@ Join the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ for support 
    :caption: Building & upgrading
 
    build_guide
+   bringup
    BOM
    software
    sd_card
