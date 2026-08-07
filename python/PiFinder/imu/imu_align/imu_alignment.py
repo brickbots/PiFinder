@@ -123,7 +123,7 @@ class SampleBuffer:
         """Remove and return the sample at the given index"""
         return self.buffer.pop(idx)
     
-    def remove_samples(self, idx_list: list[int]):
+    def remove_samples(self, idx_list: set[int]):
         """Remove multiple samples by indices"""
         self.buffer = [self.buffer[i] for i in range(len(self.buffer)) if i not in idx_list]
 
@@ -182,6 +182,8 @@ class ImuCameraAlignment:
         """
         Remove samples from the candidate_buffer that are older than the current
         time.
+
+        This should be run on a schedule every self.max_age [s].
         """
         allowed_timestamp = current_time - self.max_age  # Purge anything older than this
         
@@ -189,33 +191,35 @@ class ImuCameraAlignment:
         remove_idx_list = [i for i, samp in enumerate(self.candidate_buffer.buffer) 
                            if samp.timestamp < allowed_timestamp]
         if remove_idx_list:
-            self.candidate_buffer.remove_samples(remove_idx_list)
+            self.candidate_buffer.remove_samples(set(remove_idx_list))
 
         # Purge diff_buffer:
         remove_idx_list = [i for i, (samp1, samp2) in enumerate(self.diff_buffer.buffer) 
                            if samp1.timestamp < allowed_timestamp 
                            or samp2.timestamp < allowed_timestamp]
         if remove_idx_list:
-            self.diff_buffer.remove_samples(remove_idx_list)
+            self.diff_buffer.remove_samples(set(remove_idx_list))
 
     def purge_old_candidates(self):
         """
         Remove samples from candidate_buffer that are older than
         self.max_time_diff from other samples in buffer because these will be
         never paired.
+        
+        This should be run on a schedule every self.max_time_diff [s].
         """
         if self.candidate_buffer.len <= 1:
             return
 
-        remove_idx_list = []
+        remove_ids = set()
         timestamps = np.array([samp.timestamp for samp in self.candidate_buffer.buffer])
         for isamp in range(timestamps.shape[0]):
             dt = np.abs(timestamps - timestamps[isamp])
             if np.sum(dt < self.max_time_diff) <= 1:
-                remove_idx_list.append(isamp)
+                remove_ids.add(isamp)
 
-        if remove_idx_list:
-            self.candidate_buffer.remove_samples(remove_idx_list)
+        if remove_ids:
+            self.candidate_buffer.remove_samples(remove_ids)
 
     def pair_samples(self) -> int:
         """
@@ -228,38 +232,34 @@ class ImuCameraAlignment:
         if self.candidate_buffer.len == 0:
             return n_pairs
 
-        remove_idx_list = []
+        remove_ids = set()
         for isamp1, samp1 in enumerate(self.candidate_buffer.buffer[:-1]):
-            if isamp1 in remove_idx_list:
-                continue
-
-            for isamp2 in range(isamp1 + 1, self.candidate_buffer.len):
-                if isamp2 in remove_idx_list:
-                    continue
-                samp2 = self.candidate_buffer.buffer[isamp2]
-
+            for isamp2, samp2 in enumerate(self.candidate_buffer.buffer[isamp1+1:]):
                 # Check time difference between samples:
                 dt = samp2.timestamp - samp1.timestamp
                 if dt > self.max_time_diff:
-                    continue  # Samples too far apart in time
+                    # Samples too far apart in time (subsequent samp2 will be even newer)
+                    remove_ids.add(isamp1)
+                    break
                 if dt <= 0:
-                    # Duplicate samples or sample1 is newer. Remove sample1
-                    remove_idx_list.append(isamp1)
-                    continue
-                
+                    # Duplicate samples or out-of-order (sample1 is newer). Remove sample1
+                    remove_ids.add(isamp1)
+                    break
+
                 # Check angle difference (from camera solve) between samples:
                 dtheta = qt.get_quat_angular_diff(samp1.q_cam, samp2.q_cam)
                 if np.abs(dtheta) < self.min_angle_diff:
                     continue  # Samples too close in angle
 
-                # Pair samples and remove from candidate buffer:
+                # Pair samples and remove samp1 from candidate buffer (later).
+                # This prevents the same pair being used again if this method is
+                # re-run. Note that this loop will continue matching samp1.
                 self.diff_buffer.add_sample((samp1, samp2))
-                remove_idx_list.append(isamp1)
-                remove_idx_list.append(isamp2)
+                remove_ids.add(isamp1)
                 n_pairs += 1
 
-        if remove_idx_list:
-            self.candidate_buffer.remove_samples(remove_idx_list)
+        if remove_ids:
+            self.candidate_buffer.remove_samples(remove_ids)
         return n_pairs  # Number of successful pairings
 
     def solve(self, n_pairs=None):
@@ -282,16 +282,16 @@ class ImuCameraAlignment:
         # Pair samples and solve
         if ((self._samples_since_last_pair_attempt >= self.min_n_solve) or
             (self.candidate_buffer.len >= self.candidate_buffer.max_buffer_length)):
-            self.purge_old_samples(timestamp)
-            self.purge_old_candidates()
+            self.purge_old_samples(timestamp)  # TODO: Run less frequently
+            self.purge_old_candidates()  # TODO: Run less frequently
             self.pair_samples()
             self.trim_buffers()
 
             # If the candidate buffer is still full after pairing, remove a 
             # batch of the older samples from the buffer
             if self.candidate_buffer.len >= self.candidate_buffer.max_buffer_length:
-                remove_list = list(range(self.min_n_solve))
-                self.candidate_buffer.remove_samples(remove_list)
+                remove_set = set(range(self.min_n_solve))
+                self.candidate_buffer.remove_samples(remove_set)
             
             self._samples_since_last_pair_attempt = 0
         else:
