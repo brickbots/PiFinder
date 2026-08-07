@@ -19,9 +19,9 @@ the `Discord server <https://discord.gg/Nk5fHcAtWD>`_ is quick to help.
 The PiFinder won't turn on
 --------------------------
 
-Power is the button on top of the unit, above the screen.  Press it to switch the PiFinder
-on; press and hold it while the unit is running to bring up the shutdown confirmation.
-(The **SQUARE** key never controls power.)
+Power is the button marked **PWR**, on the front below the keypad.  Press it to switch the
+PiFinder on; press and hold it while the unit is running to bring up the shutdown
+confirmation.  (The **SQUARE** key never controls power.)
 
 Things to check:
 

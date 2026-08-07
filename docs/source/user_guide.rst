@@ -734,11 +734,9 @@ by step.
 Power button and shutdown
 -------------------------
 
-Press the power button on top of the case, above the screen, to start the PiFinder.
+Press the button marked **PWR**, on the front below the keypad, to start the PiFinder.
 
-.. TODO(rich): replace with a rev4 top-down shot showing the power button and the POWER /
-   DATA ports — this image shows the v3 slide switch and is wrong for rev4.
-.. image:: images/quick_start/power.jpeg
+.. image:: images/quick_start/rev4_power.jpeg
 
 To shut down, press the button again and hold it for about a second.  The screen goes
 straight to the shutdown confirmation; a second press confirms, a tone plays, and the
@@ -756,7 +754,7 @@ The menus get you to the same place if your hands are already on the keypad — 
 Charging
 --------
 
-Two USB-C ports sit on top of the case, labelled on the faceplate:
+Two USB-C ports sit on top of the case, each named on the faceplate just below it:
 
 - **POWER** runs the PiFinder and charges the battery.  This is the one to plug a charger
   or a power bank into.
