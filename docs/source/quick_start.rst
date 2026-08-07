@@ -70,14 +70,25 @@ apart without opening anything.
 v3 and v2.5 have four separate arrow buttons in a row along the bottom of the keypad. It's
 the quickest tell, and you can't miss it.
 
-**The screen.** rev4's is 1.91" across, 176 pixels square, and shows nine menu rows at a
-time. The v3 and v2.5 screen is 1.5", 128 pixels square, and shows seven.
+**The screen.** rev4's is 1.91" across and 176 pixels square; the v3 and v2.5 screen is
+1.5" and 128 pixels square. The extra room shows: below is the same main menu on each, with
+rev4 on the left.
+
+.. list-table::
+
+   * - .. figure:: images/quick_start/main_menu_rev4_docs.png
+
+          rev4 — 1.91", 176 px
+
+     - .. figure:: images/quick_start/main_menu_v3_docs.png
+
+          v3 / v2.5 — 1.5", 128 px
 
 **The SD card slot.** rev4 has a spring-loaded card slot in the side of the case, reachable
 from the outside. On v3 and v2.5 the card sits inside, behind three screws.
 
 .. TODO(rich): one photo of a v3 and a rev4 side by side, screens lit, would answer this
-   whole section at a glance — see plan §6 #7.
+   whole section at a glance even better than the screen captures — see plan §6 #7.
 
 Everything else follows from those. rev4 starts and stops with a power button rather
 than a slide switch, charges from an on-board charger and shows a battery indicator in the
