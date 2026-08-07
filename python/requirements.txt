@@ -11,6 +11,7 @@ json5==0.9.25
 luma.oled==3.12.0
 luma.lcd==2.11.0
 numpy==1.26.4
+sep==1.4.1
 numpy-quaternion==2023.0.4
 pam==0.2.0
 pandas==2.0.3

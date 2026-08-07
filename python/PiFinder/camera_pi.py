@@ -109,6 +109,16 @@ class CameraPI(CameraInterface):
 
         _request.release()
 
+        # Uncropped frame for the SEP full-frame detection path (shadow /
+        # fallback). Same orientation convention as the cropped frame:
+        # profile rotation applied, crop skipped. The reference is free --
+        # the manager proxy pickles (copies) on set_solver_raw below.
+        solver_full = None
+        if getattr(self, "_publish_solver_raw", False):
+            solver_full = raw_capture
+            if self.profile.rotation_90 != 0:
+                solver_full = np.rot90(solver_full, self.profile.rotation_90)
+
         # Apply camera-specific crop and rotation
         raw_capture = self.profile.crop_and_rotate(raw_capture)
 
@@ -134,6 +144,15 @@ class CameraPI(CameraInterface):
         # Store raw in shared state (before processing) for calibration and analysis
         if hasattr(self, "shared_state"):
             self.shared_state.set_cam_raw(raw_capture.copy())
+            if solver_full is not None:
+                self.shared_state.set_solver_raw(
+                    {
+                        "frame": solver_full,
+                        "timestamp": time.time(),
+                        "exposure_us": metadata.get("ExposureTime"),
+                        "gain": metadata.get("AnalogueGain"),
+                    }
+                )
 
         # covert to 32 bit int to avoid overflow
         raw_capture = raw_capture.astype(np.float32)
