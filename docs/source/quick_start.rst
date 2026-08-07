@@ -63,8 +63,8 @@ on any type of scope.
 Which PiFinder do I have?
 --------------------------
 
-This guide covers three generations of hardware — rev4, v3 and v2.5 — and two things tell
-them apart without opening anything.
+This guide covers three generations of hardware — rev4, v3 and v2.5 — and you can tell them
+apart without opening anything.
 
 **The directional control.** rev4 has a single joystick you push up, down, left and right.
 v3 and v2.5 have four separate arrow buttons in a row along the bottom of the keypad. It's
@@ -73,10 +73,13 @@ the quickest tell, and you can't miss it.
 **The screen.** rev4's is 1.91" across, 176 pixels square, and shows nine menu rows at a
 time. The v3 and v2.5 screen is 1.5", 128 pixels square, and shows seven.
 
+**The SD card slot.** rev4 has a spring-loaded card slot in the side of the case, reachable
+from the outside. On v3 and v2.5 the card sits inside, behind three screws.
+
 .. TODO(rich): one photo of a v3 and a rev4 side by side, screens lit, would answer this
    whole section at a glance — see plan §6 #7.
 
-Everything else follows from those two. rev4 starts and stops with a power button rather
+Everything else follows from those. rev4 starts and stops with a power button rather
 than a slide switch, charges from an on-board charger and shows a battery indicator in the
 title bar, and has a small buzzer with its own Volume setting. Where the revisions differ,
 this guide describes rev4 and notes the v3 and v2.5 behaviour underneath.
