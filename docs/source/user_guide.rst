@@ -875,6 +875,24 @@ Settings (type and baud rate) — lives under the Advanced submenu near the bott
 Settings Menu.  Opening it shows a brief "Options for DIY PiFinders" reminder, since on a
 fully built unit these are already set to match your hardware.
 
+Sounds
+------
+
+A rev4 PiFinder has a small buzzer that plays a short tone on each key press, at startup
+and shutdown, and with every low-battery warning.  Volume, in User Preferences, sets how
+loud they are — Off, or 1 through 5.  Choosing a level plays a sample tone at that level,
+so you can set it by ear.
+
+.. image:: images/user_guide/volume_setting_docs.png
+
+The tones vary in loudness by design: the buzzer is far louder at some pitches than
+others, so a cue pitched away from its loudest note sounds softer.  Set Volume to Off if
+you'd rather observe in silence.
+
+.. note::
+   v3 and v2.5 PiFinders have no buzzer.  The Volume setting appears on those units too,
+   but nothing sounds.
+
 Connectivity
 ==============
 

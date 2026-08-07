@@ -208,6 +208,10 @@ User Pref...
 
    Key Bright
       Keypad backlight level, from -4 (dimmest) to +3.
+   Volume
+      How loud the PiFinder's sounds are — Off, or 1 (quietest) to 5.  Picking
+      a level plays a sample tone at that level.  Only rev4 PiFinders have the
+      buzzer; see :ref:`user_guide:sounds`.
    Sleep Time
       How long the PiFinder waits before power-save dims the screen — Off, or
       10s up to 2m.
@@ -273,7 +277,9 @@ Advanced
          UBlox (the built-in receiver) or GPSD for a generic receiver.  Restarts
          the PiFinder.
       GPS Baud Rate
-         Serial speed for the receiver — 9600 (standard) or 115200 (UBlox-10).
+         Serial speed for the receiver.  rev4 units carry a 10th-generation
+         UBlox receiver and run at 115200; the older receiver in v3 and v2.5
+         units runs at 9600.
 IMU Sensit.
    How readily scope motion switches pointing from a camera solve to the
    motion-sensor estimate — Off (ignore the sensor), Very Low, Low, Medium, or
