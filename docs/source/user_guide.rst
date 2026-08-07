@@ -832,14 +832,11 @@ hour and a half before the end and the 5% warning about half an hour before it; 
 stretches both.  Each warning appears once per discharge rather than repeating, so it won't
 nag you for the rest of the night.  Plugging in re-arms them for next time.
 
-When the battery falls below the point where the charger can still measure it, the PiFinder
-shows a final warning, plays the shutdown tone and shuts itself down cleanly.
+When the battery is nearly flat, the PiFinder shows a final warning, plays the shutdown tone
+and shuts itself down cleanly — stopping deliberately rather than letting the power cut out
+on its own.
 
 .. image:: images/user_guide/low_battery_shutdown_docs.png
-
-That is deliberate: left to itself the unit would run on for another unpredictable half hour
-or so and then lose power mid-write, which is the classic way to corrupt an SD card.  A
-warned, orderly stop is worth the last few minutes.
 
 Battery life
 ------------
