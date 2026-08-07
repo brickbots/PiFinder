@@ -182,6 +182,10 @@ changes between configurations is the position you rotate it into, not the hardw
 
 .. image:: images/quick_start/rev4_convert.gif
 
+The mount is spring-loaded, with detents marking the three positions, so nothing needs
+loosening first. Take hold of the body and turn it firmly; it drops into the next position
+and stays there.
+
 The software needs to know which position you've chosen so its star charts and pointing
 directions come out the right way round. Your PiFinder arrives set to match the position it
 shipped in; check the setting if you rotate it, or if the star chart comes out mirrored.
