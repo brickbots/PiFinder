@@ -2,9 +2,12 @@ Quick Start
 ================
 
 .. note::
-   This documentation is for v3 and v2.5 PiFinders running software |min_software| or above.
-   You can see what version of software is running by looking in the upper right of
+   This documentation covers rev4, v3 and v2.5 PiFinders running software |min_software| or
+   above. You can see what version of software is running by looking in the upper right of
    the welcome screen.
+
+   Not sure which you have? See
+   :ref:`Which PiFinder do I have? <quick_start:which pifinder do i have?>` below.
 
    If you need docs for a previous version please choose `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
    , `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_
@@ -35,14 +38,62 @@ The PiFinder arrives fully assembled and ready to use. The keypad and screen are
 you'll interact with it — choosing what to look for, getting Push-To guidance, and logging
 objects.
 
+.. TODO(rich): both of these show a v3 unit; add rev4 front and rear shots alongside them.
+   The joystick is the fastest revision tell and neither image has one.
+
 .. image:: images/quick_start/pf_front.jpeg
    :width: 45%
 .. image:: images/quick_start/pf_rear.jpeg
    :width: 45%
 
+You get around with the joystick: push it up, down, left or right for the four arrow keys,
+and press it straight in for **SQUARE** — the same as the **SQUARE** key on the pad,
+whichever falls under your thumb. From here on this guide simply names the keys — **UP**,
+**RIGHT**, **SQUARE** and so on — without repeating how each one is reached.
+
+.. note::
+   On v3 and v2.5 PiFinders the four arrows are separate buttons in a row along the bottom
+   of the keypad rather than a joystick. Every key name in this guide means the same thing
+   on both.
+
 Depending on your configuration, the camera may face a different direction or sit in a
 different spot, so it can see the sky while the keypad and screen stay within easy reach
 on any type of scope.
+
+Which PiFinder do I have?
+--------------------------
+
+This guide covers three generations of hardware — rev4, v3 and v2.5 — and you can tell them
+apart without opening anything.
+
+**The directional control.** rev4 has a single joystick you push up, down, left and right.
+v3 and v2.5 have four separate arrow buttons in a row along the bottom of the keypad. It's
+the quickest tell, and you can't miss it.
+
+**The screen.** rev4's is 1.91" across and 176 pixels square; the v3 and v2.5 screen is
+1.5" and 128 pixels square. The extra room shows: below is the same main menu on each, with
+rev4 on the left.
+
+.. list-table::
+
+   * - .. figure:: images/quick_start/main_menu_rev4_docs.png
+
+          rev4 — 1.91", 176 px
+
+     - .. figure:: images/quick_start/main_menu_v3_docs.png
+
+          v3 / v2.5 — 1.5", 128 px
+
+**The SD card slot.** rev4 has a spring-loaded card slot in the side of the case, reachable
+from the outside. On v3 and v2.5 the card sits inside, behind three screws.
+
+.. TODO(rich): one photo of a v3 and a rev4 side by side, screens lit, would answer this
+   whole section at a glance even better than the screen captures — see plan §6 #7.
+
+Everything else follows from those. rev4 starts and stops with a power button rather
+than a slide switch, charges from an on-board charger and shows a battery indicator in the
+title bar, and has a small buzzer with its own Volume setting. Where the revisions differ,
+this guide describes rev4 and notes the v3 and v2.5 behaviour underneath.
 
 
 Powering the PiFinder
@@ -123,8 +174,11 @@ the same basic set of buttons to get around.
 Configuration Setup
 --------------------
 
-The PiFinder comes in several configurations (Right/Left/Straight/Flat). Set yours in the
-software so the PiFinder can give pointing directions that match your setup.
+The PiFinder comes in several configurations, differing in which way the screen and keypad
+face relative to the camera. The software needs to know which one you have so its star
+charts and pointing directions come out the right way round. A fully built unit is already
+set to match its hardware; check the setting if you convert your PiFinder to a different
+configuration, or if the star chart comes out mirrored.
 
 From the main menu, select Settings, scroll down to Advanced, then select PiFinder Type.
 
@@ -135,6 +189,26 @@ Highlight the type of PiFinder you're using and press **RIGHT** to select it. Th
 the PiFinder software.
 
 .. image:: images/quick_start/pifinder_type_select.png
+
+The rev4 entries sit at the bottom of the list. Three of them describe where your screen
+faces:
+
+- **Rev4 Left** — the screen faces left, for a Dobsonian or Newtonian with the focuser on
+  the left of the tube.
+- **Rev4 Right** — the screen faces right, for a focuser on the right.
+- **Rev4 Straight** — the screen faces back, directly away from the camera.
+
+**AS Bloom** and **AS Heart** are the exceptions: they name a telescope rather than an
+orientation. Analog Sky's Bloom and Heart can be ordered with a PiFinder fully integrated
+into the scope, so if you're observing with one of those, choose the entry that matches it.
+
+.. TODO(rich): pictures of Rev4 Left / Right / Straight, and of the AS Bloom and AS Heart
+   units, would make this much easier to answer — see plan §6 #8-#10.
+
+.. note::
+   The entries above these are the v3 and v2.5 configurations. Left, Right and Straight
+   mean the same as they do on rev4; Flat v3 and Flat v2 sit with the lens on top and the
+   screen angled back toward you.
 
 
 Mounting
@@ -229,7 +303,13 @@ Adjusting Brightness
 
 You can adjust the brightness of the screen and keypad at any time: hold **SQUARE** and
 press **+** for brighter, or **-** for dimmer. At a dark sky site, turn it right down to
-preserve your dark-adapted vision.
+preserve your dark-adapted vision. The rev4 screen dims a long way further than you might
+expect, so under a genuinely dark sky the lowest few steps are worth exploring — they leave
+your eyes almost untouched.
+
+.. note::
+   The 1.5" screen on v3 and v2.5 PiFinders doesn't reach as low, so its dimmest setting is
+   still noticeably lit.
 
 .. note::
    After it's been idle for a while, the PiFinder dims the screen and slows its exposures,

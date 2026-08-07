@@ -8,7 +8,11 @@ For an overview of what the PiFinder is and how it came to be visit the official
 
 
 .. note::
-   This documentation is for v3 and v2.5 PiFinders running software |min_software| or above.
+   This documentation covers rev4, v3 and v2.5 PiFinders running software |min_software| or
+   above.  Not sure which you have?  See
+   :ref:`Which PiFinder do I have? <quick_start:which pifinder do i have?>` in the Quick
+   Start.
+
    If you need docs for a previous version please choose `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
    , `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_
    or `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_
