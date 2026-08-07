@@ -805,10 +805,8 @@ The title bar carries a battery glyph, just left of the GPS and solver icons.
    :width: 30%
 
 It estimates **how much longer the PiFinder will run**, not how much charge is left in the
-cell.  There's no fuel gauge in the hardware: the PiFinder measures the battery voltage and
-reads the remaining runtime off a curve measured from real units on the bench.  Take it as a
-guide to the rest of the evening rather than a precise figure, and expect it to be on the
-cautious side — the curve was measured under a heavier load than most observing.
+cell.  Take it as a guide to the rest of the evening rather than a precise figure, and
+expect it to err on the cautious side.
 
 The glyph empties in coarse steps rather than counting down smoothly, and shows a hollow
 outline for the last stretch.
@@ -816,11 +814,6 @@ outline for the last stretch.
 While the battery is charging, a bolt appears in place of the usual glyph.
 
 .. image:: images/user_guide/battery_charging_docs.png
-
-Charging pulls the battery voltage up, so a runtime estimate made then would be wrong — the
-PiFinder shows that it's charging instead of inventing a number.  Right at the end of a
-discharge the charger stops being able to measure the cell at all, and the indicator shows
-empty from that point on; that's also where the automatic shutdown below takes over.
 
 .. note::
    v3 and v2.5 PiFinders have no battery indicator.  The PiSugar board's charge state isn't
