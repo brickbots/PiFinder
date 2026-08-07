@@ -102,23 +102,24 @@ on the faceplate stays on while the battery charges and goes out when it's full;
 that takes about six hours. The other port, **DATA**, is for connecting accessories such as
 the PiFinder remote.
 
-Press the button marked **PWR**, on the front below the keypad, to switch the PiFinder on.
+Press the button marked **PWR**, on the front below the keypad, and hold it for about two
+seconds to switch the PiFinder on.
 
 .. image:: images/quick_start/rev4_power.jpeg
 
 A full charge runs the PiFinder for about ten hours, enough for all but the longest
-observing sessions. You can also use the PiFinder while it charges, so a USB power bank on the
-**POWER** port will keep you going all night. Any 5V USB-C supply rated for at least 2A
+observing sessions. You can also use the PiFinder while it charges, so a USB power bank on
+the **POWER** port will keep you going all night. Any 5V USB-C supply rated for at least 2A
 will do.
 
 The first power-on takes a minute, and the welcome screen may come and go as the PiFinder
 restarts; later start-ups are much quicker. Once it's powered on, you'll see a welcome
 image, then some loading information, and finally the Main Menu.
 
-The **PWR** label lights as soon as you press the button for about 2 seconds to turn on the PiFinder.
-This let's you know the PiFinder is on and
-starting before there's any other sign of life. It goes out once the screen and keypad are
-illuminated. It isn't dimmable like the rest of the interface, and it going dark is normal.
+The **PWR** label lights as soon as you press the button, so you know the PiFinder is on
+and starting before there's any other sign of life. It goes out once the screen and keypad
+are illuminated. It isn't dimmable like the rest of the interface, and it going dark is
+normal.
 
 .. note::
    On v3 and v2.5 PiFinders, power is a small white slide switch above the screen — facing
@@ -195,7 +196,8 @@ and stays there.
 
 The software needs to know which position you've chosen so its star charts and pointing
 directions come out the right way round. Your PiFinder arrives set to match the position it
-shipped in; check the setting if you rotate it, or if push-to directions mis-behave.
+shipped in; check the setting if you rotate it, or if the Push-To directions send you the
+wrong way — reversed Push-To is the usual sign that the setting and the hardware disagree.
 
 From the main menu, select Settings, scroll down to Advanced, then select PiFinder Type.
 
@@ -315,13 +317,9 @@ Adjusting Brightness
 
 You can adjust the brightness of the screen and keypad at any time: hold **SQUARE** and
 press **+** for brighter, or **-** for dimmer. At a dark sky site, turn it right down to
-preserve your dark-adapted vision. The rev4 screen dims a long way further than you might
-expect, so under a genuinely dark sky the lowest few steps are worth exploring — they leave
-your eyes almost untouched.
-
-.. note::
-   The 1.5" screen on v3 and v2.5 PiFinders doesn't reach as low, so its dimmest setting is
-   still noticeably lit.
+preserve your dark-adapted vision. The keypad backlight tracks the screen; if you'd rather
+the keys sat brighter or dimmer than the display, **Key Bright** in the
+:ref:`user_guide:settings menu` shifts the balance between the two.
 
 .. note::
    After it's been idle for a while, the PiFinder dims the screen and slows its exposures,

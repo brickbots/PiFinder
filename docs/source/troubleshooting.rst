@@ -19,9 +19,10 @@ the `Discord server <https://discord.gg/Nk5fHcAtWD>`_ is quick to help.
 The PiFinder won't turn on
 --------------------------
 
-Power is the button marked **PWR**, on the front below the keypad.  Press it to switch the
-PiFinder on; press and hold it while the unit is running to bring up the shutdown
-confirmation.  (The **SQUARE** key never controls power.)
+Power is the button marked **PWR**, on the front below the keypad.  Press and hold it for
+about two seconds to switch the PiFinder on — the **PWR** label lights while it boots.
+Press and hold it while the unit is running to bring up the shutdown confirmation.  (The
+**SQUARE** key never controls power.)
 
 Things to check:
 
@@ -139,11 +140,15 @@ selected.  To bring everything back, open the Filter menu and choose **Reset All
 The chart or Push-To directions look backwards
 ----------------------------------------------
 
-If the star chart appears mirrored, or the Push-To arrows consistently send you the wrong
-way, the likely cause is the **PiFinder Type** setting not matching how your unit is
-mounted — for example, set to Right when it should be Left.  This setting tells the
-PiFinder its orientation, driving both the chart and the Push-To directions.  Set it to
-match your hardware under Settings, as described in
+**Reversed Push-To directions are the classic sign that the PiFinder Type setting doesn't
+match your hardware.**  You push the scope the way the arrows point and the target moves
+further away instead of closer.  A mirrored star chart is the same fault showing itself
+somewhere else — one setting drives both.
+
+On rev4, suspect this first.  The body rotates between the Left, Right and Straight
+positions without tools, so it's easy to reposition the unit for a different scope and
+leave the setting describing where the screen used to face.  Set it to match under
+Settings, as described in
 :ref:`Configuration Setup <quick_start:configuration setup>`.
 
 .. note::
@@ -227,6 +232,13 @@ Frequently Asked Questions
    Yes.  You can type an arbitrary RA/Dec for objects that aren't in the built-in catalogs
    — handy for asteroids, comets, or newly discovered objects — and you can also send
    targets from SkySafari.  See :ref:`user_guide:custom targets` for how.
+
+**I rotated my PiFinder to fit a different scope — do I need to change anything?**
+   Yes.  rev4 is one unit whose body rotates between the Left, Right and Straight
+   positions, and the software has to be told which one you've moved it to.  Skip that and
+   the **Push-To directions come out reversed**: you push the scope the way the arrows
+   point and the target moves further away.  Set **PiFinder Type** under Settings to match,
+   as described in :ref:`Configuration Setup <quick_start:configuration setup>`.
 
 **Can I use the PiFinder on an EQ mount?**
    Yes — the PiFinder works with any mount, and plate solving behaves the same whatever the

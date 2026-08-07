@@ -734,7 +734,9 @@ by step.
 Power button and shutdown
 -------------------------
 
-Press the button marked **PWR**, on the front below the keypad, to start the PiFinder.
+Press the button marked **PWR**, on the front below the keypad, and hold it for about two
+seconds to start the PiFinder.  The **PWR** label lights while it boots and goes out once
+the screen and keypad come up.
 
 .. image:: images/quick_start/rev4_power.jpeg
 
