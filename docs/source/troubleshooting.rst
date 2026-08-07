@@ -60,10 +60,10 @@ If the screen is still blank, the keypad backlight tells you where the problem i
 
 - **No keypad light and no screen** (a faint red LED inside the case means the Pi has
   power but isn't booting): this is almost always **SD card corruption**, the most common
-  hardware issue.  Re-image the card with the latest release, or request a fresh one.  SD
-  card faults are all-or-nothing — they stop the PiFinder booting rather than causing
-  subtle misbehaviour, so don't re-image to explain slow solves or the occasional position
-  jump.
+  hardware issue.  Re-image the card with the latest release, or request a fresh one
+  (:doc:`sd_card` covers getting at the card on each revision).  SD card faults are
+  all-or-nothing — they stop the PiFinder booting rather than causing subtle misbehaviour,
+  so don't re-image to explain slow solves or the occasional position jump.
 - **Keypad lights up, but the screen is blank or garbled**: that points to the screen's
   connection, not the software.  Confirm it through the
   :ref:`web interface <connectivity:web interface>` — if the remote screen looks correct
