@@ -38,12 +38,9 @@ The PiFinder arrives fully assembled and ready to use. The keypad and screen are
 you'll interact with it — choosing what to look for, getting Push-To guidance, and logging
 objects.
 
-.. TODO(rich): both of these show a v3 unit; add rev4 front and rear shots alongside them.
-   The joystick is the fastest revision tell and neither image has one.
-
-.. image:: images/quick_start/pf_front.jpeg
+.. image:: images/quick_start/rev4_front.jpeg
    :width: 45%
-.. image:: images/quick_start/pf_rear.jpeg
+.. image:: images/quick_start/rev4_rear.jpeg
    :width: 45%
 
 You get around with the joystick: push it up, down, left or right for the four arrow keys,
@@ -64,31 +61,31 @@ Which PiFinder do I have?
 --------------------------
 
 This guide covers three generations of hardware — rev4, v3 and v2.5 — and you can tell them
-apart without opening anything.
+apart without opening anything. Here's a v3 on the left beside a rev4 on the right:
+
+.. image:: images/quick_start/v3_vs_rev4_front.jpeg
 
 **The directional control.** rev4 has a single joystick you push up, down, left and right.
 v3 and v2.5 have four separate arrow buttons in a row along the bottom of the keypad. It's
 the quickest tell, and you can't miss it.
 
 **The screen.** rev4's is 1.91" across and 176 pixels square; the v3 and v2.5 screen is
-1.5" and 128 pixels square. The extra room shows: below is the same main menu on each, with
-rev4 on the left.
+1.5" and 128 pixels square. The extra room shows: below is the same main menu on each, in
+the same order as the photo above.
 
 .. list-table::
 
-   * - .. figure:: images/quick_start/main_menu_rev4_docs.png
-
-          rev4 — 1.91", 176 px
-
-     - .. figure:: images/quick_start/main_menu_v3_docs.png
+   * - .. figure:: images/quick_start/main_menu_v3_docs.png
 
           v3 / v2.5 — 1.5", 128 px
 
-**The SD card slot.** rev4 has a spring-loaded card slot in the side of the case, reachable
-from the outside. On v3 and v2.5 the card sits inside, behind three screws.
+     - .. figure:: images/quick_start/main_menu_rev4_docs.png
 
-.. TODO(rich): one photo of a v3 and a rev4 side by side, screens lit, would answer this
-   whole section at a glance even better than the screen captures — see plan §6 #7.
+          rev4 — 1.91", 176 px
+
+**The SD card slot.** rev4 has a spring-loaded card slot in the left side of the case as you
+face the screen, reachable from the outside. On v3 and v2.5 the card sits inside, behind
+three screws.
 
 Everything else follows from those. rev4 starts and stops with a power button rather
 than a slide switch, charges from an on-board charger and shows a battery indicator in the
@@ -99,24 +96,30 @@ this guide describes rev4 and notes the v3 and v2.5 behaviour underneath.
 Powering the PiFinder
 ----------------------
 
-If your PiFinder has the internal battery, charge it before first use. Two USB-C ports sit
-on top of the case, labelled on the faceplate: plug the cable into **POWER**. The **CHG**
-light stays on while the battery charges and goes out when it's full; from empty that takes
-about six hours. The other port, **DATA**, is for connecting accessories such as the
-PiFinder remote.
+Plug in and charge your PiFinder before first use. Two USB-C ports sit on top of the case,
+each named on the faceplate just below it: plug the cable into **POWER**. The **CHG** light
+on the faceplate stays on while the battery charges and goes out when it's full; from empty
+that takes about six hours. The other port, **DATA**, is for connecting accessories such as
+the PiFinder remote.
 
-Press the power button on top, above the screen, to switch the PiFinder on.
+Press the button marked **PWR**, on the front below the keypad, and hold it for about two
+seconds to switch the PiFinder on.
 
-.. TODO(rich): replace with a rev4 top-down shot showing the power button and the POWER /
-   DATA ports — this image shows the v3 slide switch and is wrong for rev4.
-.. image:: images/quick_start/power.jpeg
+.. image:: images/quick_start/rev4_power.jpeg
 
-You can use the PiFinder while it charges, so a USB power bank on the **POWER** port will
-keep you going all night. Any 5V USB-C supply rated for at least 2A will do.
+A full charge runs the PiFinder for about ten hours, enough for all but the longest
+observing sessions. You can also use the PiFinder while it charges, so a USB power bank on
+the **POWER** port will keep you going all night. Any 5V USB-C supply rated for at least 2A
+will do.
 
 The first power-on takes a minute, and the welcome screen may come and go as the PiFinder
 restarts; later start-ups are much quicker. Once it's powered on, you'll see a welcome
 image, then some loading information, and finally the Main Menu.
+
+The **PWR** label lights as soon as you press the button, so you know the PiFinder is on
+and starting before there's any other sign of life. It goes out once the screen and keypad
+are illuminated. It isn't dimmable like the rest of the interface, and it going dark is
+normal.
 
 .. note::
    On v3 and v2.5 PiFinders, power is a small white slide switch above the screen — facing
@@ -181,11 +184,20 @@ the same basic set of buttons to get around.
 Configuration Setup
 --------------------
 
-The PiFinder comes in several configurations, differing in which way the screen and keypad
-face relative to the camera. The software needs to know which one you have so its star
-charts and pointing directions come out the right way round. A fully built unit is already
-set to match its hardware; check the setting if you convert your PiFinder to a different
-configuration, or if the star chart comes out mirrored.
+There is only one physical rev4 PiFinder. The body rotates on its mount, so the same unit
+sits with the screen facing left, right or straight back — whichever suits your scope. What
+changes between configurations is the position you rotate it into, not the hardware.
+
+.. image:: images/quick_start/rev4_convert.gif
+
+The mount is spring-loaded, with detents marking the three positions, so nothing needs
+loosening first. Take hold of the body and turn it firmly; it drops into the next position
+and stays there.
+
+The software needs to know which position you've chosen so its star charts and pointing
+directions come out the right way round. Your PiFinder arrives set to match the position it
+shipped in; check the setting if you rotate it, or if the Push-To directions send you the
+wrong way — reversed Push-To is the usual sign that the setting and the hardware disagree.
 
 From the main menu, select Settings, scroll down to Advanced, then select PiFinder Type.
 
@@ -197,8 +209,8 @@ the PiFinder software.
 
 .. image:: images/quick_start/pifinder_type_select.png
 
-The rev4 entries sit at the bottom of the list. Three of them describe where your screen
-faces:
+The rev4 entries sit at the bottom of the list. Three of them name the position you've
+rotated the body into:
 
 - **Rev4 Left** — the screen faces left, for a Dobsonian or Newtonian with the focuser on
   the left of the tube.
@@ -209,27 +221,22 @@ faces:
 orientation. Analog Sky's Bloom and Heart can be ordered with a PiFinder fully integrated
 into the scope, so if you're observing with one of those, choose the entry that matches it.
 
-.. TODO(rich): pictures of Rev4 Left / Right / Straight, and of the AS Bloom and AS Heart
-   units, would make this much easier to answer — see plan §6 #8-#10.
-
 .. note::
    The entries above these are the v3 and v2.5 configurations. Left, Right and Straight
-   mean the same as they do on rev4; Flat v3 and Flat v2 sit with the lens on top and the
-   screen angled back toward you.
+   mean the same as they do on rev4, but on those units the configuration is set by how the
+   unit is built rather than by rotating it; Flat v3 and Flat v2 sit with the lens on top
+   and the screen angled back toward you.
 
 
 Mounting
 ---------
 
 The PiFinder comes set up with a 32 mm dovetail that fits the standard finder shoe found on
-most scopes. Below is the finder shoe with a version 1 PiFinder mounted in it; current
-PiFinders attach the same way.
+most scopes. It slides into the shoe the same way a finder does.
 
-
-.. image:: images/quick_start/mount_shoe.jpeg
+.. image:: images/quick_start/rev4_mounting.jpeg
    :width: 47%
-
-.. image:: images/quick_start/pifinder_mounted.jpeg
+.. image:: images/quick_start/rev4_on_scope.jpeg
    :width: 47%
 
 The PiFinder works out its own orientation, so it no longer needs to sit perfectly upright
@@ -243,8 +250,8 @@ all set for a night of observing.
 
 .. note::
    * Mount the PiFinder so the camera has an unimpeded view of the sky.
-   * Left, right, straight and flat versions each need the software configured to match —
-     see the 'Configuration Setup' section above.
+   * Whichever position or configuration you're using, the software needs to be set to
+     match — see :ref:`quick_start:configuration setup`.
 
 
 First Time Out
@@ -310,13 +317,9 @@ Adjusting Brightness
 
 You can adjust the brightness of the screen and keypad at any time: hold **SQUARE** and
 press **+** for brighter, or **-** for dimmer. At a dark sky site, turn it right down to
-preserve your dark-adapted vision. The rev4 screen dims a long way further than you might
-expect, so under a genuinely dark sky the lowest few steps are worth exploring — they leave
-your eyes almost untouched.
-
-.. note::
-   The 1.5" screen on v3 and v2.5 PiFinders doesn't reach as low, so its dimmest setting is
-   still noticeably lit.
+preserve your dark-adapted vision. The keypad backlight tracks the screen; if you'd rather
+the keys sat brighter or dimmer than the display, **Key Bright** in the
+:ref:`user_guide:settings menu` shifts the balance between the two.
 
 .. note::
    After it's been idle for a while, the PiFinder dims the screen and slows its exposures,

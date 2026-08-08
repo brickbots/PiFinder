@@ -724,7 +724,7 @@ sorted by NEAREST lets you work through a collection easily.
 Power & Charging
 =====================================
 
-PiFinders ordered with the internal battery run for a full night on a single charge, and
+Every rev4 PiFinder has an internal battery, good for a full night on a single charge, and
 you can keep one going indefinitely from any USB-C power source.  This section covers the
 power button, how charging behaves, what the battery indicator is telling you, how long a
 charge lasts, and how to look after the cell.  For the very first power-on, the
@@ -734,16 +734,18 @@ by step.
 Power button and shutdown
 -------------------------
 
-Press the power button on top of the case, above the screen, to start the PiFinder.
+Press the button marked **PWR**, on the front below the keypad, and hold it for about two
+seconds to start the PiFinder.  The **PWR** label lights while it boots and goes out once
+the screen and keypad come up.
 
-.. TODO(rich): replace with a rev4 top-down shot showing the power button and the POWER /
-   DATA ports — this image shows the v3 slide switch and is wrong for rev4.
-.. image:: images/quick_start/power.jpeg
+.. image:: images/quick_start/rev4_power.jpeg
 
 To shut down, press the button again and hold it for about a second.  The screen goes
 straight to the shutdown confirmation; a second press confirms, a tone plays, and the
-PiFinder switches itself off once it has closed everything down safely.  You never need to
-cut the power by hand.
+PiFinder switches itself off once it has closed everything down safely.  In normal use you
+never need to cut the power by hand; if the software ever hangs and won't shut down, holding
+**PWR** for more than 14 seconds resets the power system — see
+:ref:`troubleshooting:the pifinder won't turn on`.
 
 The menus get you to the same place if your hands are already on the keypad — see
 :ref:`user_guide:shutdown`.
@@ -756,7 +758,7 @@ The menus get you to the same place if your hands are already on the keypad — 
 Charging
 --------
 
-Two USB-C ports sit on top of the case, labelled on the faceplate:
+Two USB-C ports sit on top of the case, each named on the faceplate just below it:
 
 - **POWER** runs the PiFinder and charges the battery.  This is the one to plug a charger
   or a power bank into.
@@ -803,10 +805,8 @@ The title bar carries a battery glyph, just left of the GPS and solver icons.
    :width: 30%
 
 It estimates **how much longer the PiFinder will run**, not how much charge is left in the
-cell.  There's no fuel gauge in the hardware: the PiFinder measures the battery voltage and
-reads the remaining runtime off a curve measured from real units on the bench.  Take it as a
-guide to the rest of the evening rather than a precise figure, and expect it to be on the
-cautious side — the curve was measured under a heavier load than most observing.
+cell.  Take it as a guide to the rest of the evening rather than a precise figure, and
+expect it to err on the cautious side.
 
 The glyph empties in coarse steps rather than counting down smoothly, and shows a hollow
 outline for the last stretch.
@@ -814,11 +814,6 @@ outline for the last stretch.
 While the battery is charging, a bolt appears in place of the usual glyph.
 
 .. image:: images/user_guide/battery_charging_docs.png
-
-Charging pulls the battery voltage up, so a runtime estimate made then would be wrong — the
-PiFinder shows that it's charging instead of inventing a number.  Right at the end of a
-discharge the charger stops being able to measure the cell at all, and the indicator shows
-empty from that point on; that's also where the automatic shutdown below takes over.
 
 .. note::
    v3 and v2.5 PiFinders have no battery indicator.  The PiSugar board's charge state isn't
@@ -837,14 +832,11 @@ hour and a half before the end and the 5% warning about half an hour before it; 
 stretches both.  Each warning appears once per discharge rather than repeating, so it won't
 nag you for the rest of the night.  Plugging in re-arms them for next time.
 
-When the battery falls below the point where the charger can still measure it, the PiFinder
-shows a final warning, plays the shutdown tone and shuts itself down cleanly.
+When the battery is nearly flat, the PiFinder shows a final warning, plays the shutdown tone
+and shuts itself down cleanly — stopping deliberately rather than letting the power cut out
+on its own.
 
 .. image:: images/user_guide/low_battery_shutdown_docs.png
-
-That is deliberate: left to itself the unit would run on for another unpredictable half hour
-or so and then lose power mid-write, which is the classic way to corrupt an SD card.  A
-warned, orderly stop is worth the last few minutes.
 
 Battery life
 ------------

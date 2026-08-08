@@ -4,7 +4,7 @@ A plate solving telescope finder based around a Raspberry PI, Camera, and custom
 
 For an overview of what the PiFinder is and how it came to be visit the official project website at `PiFinder.io <https://www.pifinder.io/>`_
 
-.. image:: images/PiFinder_v3_banner.png
+.. image:: images/PiFinder_rev4_banner.jpg
 
 
 .. note::

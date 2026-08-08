@@ -42,14 +42,18 @@ card from a running unit can corrupt it.
 Swapping the card
 -----------------
 
-The card slot is on the side of the case, and it's spring-loaded.  Press the card
-in and let go — the spring pushes it part-way out — then slide it clear.  Push
-the replacement in until it clicks and stays put.
+Face the screen and look at the left-hand side of the case.  The card slot is a thin
+opening in that side panel with the edge of the microSD card sitting in it — no tools,
+and nothing to take apart.
+
+The slot is spring-loaded, so the card comes out with a push rather than a pull:
+
+1. Press the card in until it clicks, then let go.  The spring pushes it part-way out.
+2. Slide the card clear of the slot.
+3. Push the replacement in until it clicks and stays put.
 
 The card is easy to crack once it's part-way out, so support it as you work and
 don't flex it against the case.
-
-.. TODO(rich): add a rev4 photo of the side SD slot with the card part-ejected.
 
 Reaching the card on v3 and v2.5 units
 --------------------------------------
