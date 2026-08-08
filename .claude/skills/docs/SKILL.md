@@ -177,7 +177,8 @@ that drift most in the current manual:
 | The physical screen | **the screen** | the display, the panel |
 | The product | **the PiFinder** | the unit, the device, your device |
 | Move within a menu | **scroll** | navigate, browse, go to |
-| Power on / off | **turn on** / **turn off** | boot, power up, switch on/off |
+| Power on / off (reader's action) | **turn on** / **turn off** | power up, switch on/off |
+| The machine's startup sequence | **boot** | start up, startup |
 | A catalog object | **object** | target, DSO |
 | The user's telescope | **telescope** | scope, OTA, tube |
 | Go up one menu level | **go back** | return, exit, back out |
