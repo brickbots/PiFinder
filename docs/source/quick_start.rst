@@ -141,10 +141,10 @@ the screen.
 You reach every feature through this menu, by scrolling, selecting menu items and moving
 between screens:
 
-.. This key list is duplicated in user_guide.rst (The Menu System) — keep the two in sync.
+.. This key list is duplicated in user_guide.rst (The Menu System).  Keep the two in sync.
 
 - The **UP** and **DOWN** arrows scroll the current menu
-- The **RIGHT** arrow selects the current menu item, which either sets it or opens another menu
+- The **RIGHT** arrow selects the current menu item, which either sets an option or opens another menu
 - The **LEFT** arrow takes you back to the previous menu or screen
 - Press and hold **LEFT** for more than a second to jump back to the TOP of the menus
 
