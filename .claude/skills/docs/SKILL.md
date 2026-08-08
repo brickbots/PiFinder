@@ -179,6 +179,7 @@ that drift most in the current manual:
 | Move within a menu | **scroll** | navigate, browse, go to |
 | Power on / off | **turn on** / **turn off** | boot, power up, switch on/off |
 | A catalog object | **object** | target, DSO |
+| The user's telescope | **telescope** | scope, OTA, tube |
 | Go up one menu level | **go back** | return, exit, back out |
 
 The full table, the reasoning behind each choice, worked before/after examples,

@@ -160,6 +160,7 @@ winner was chosen.
 | The act of shutting down | **shutdown** (noun) | shut-down | shutdown 22 |
 | Shut the PiFinder down | **shut down** (verb) | shutdown as a verb | shut down 6 |
 | A catalog object | **object** | target, DSO | object 208, target 22, DSO 11 |
+| The user's telescope | **telescope** | scope, OTA, tube | scope 72, telescope 67 — see below |
 | The category of object | **deep-sky object** | deep sky object, DSO | hyphenate; DSO only for the on-screen label |
 | Solving a camera frame | **plate solve** (verb and noun) | plate-solve, plate-solving as a verb | open form, 10 vs 4 |
 | Describing a thing that solves | **plate-solving** (adjective) | plate solving before a noun | hyphenate before a noun |
@@ -168,6 +169,20 @@ winner was chosen.
 
 Once a page has said "plate solve" and explained it, plain **solve** is fine for
 the rest of that page. The manual already does this 67 times and it reads well.
+
+### "telescope", not "scope"
+
+This is the one entry in the table with no evidence winner. The manual uses
+"scope" 72 times and "telescope" 67, near enough a coin flip, and often both in
+one paragraph.
+
+Use **telescope**. It is unambiguous for a second-language reader, which is much
+of the reason this style exists. "Scope" is shorter, but it is jargon, and it
+carries other meanings in ordinary English.
+
+Keep "scope" where it is part of a name or a fixed compound the reader will meet
+elsewhere: **OTA** in a parts context, **finder shoe**, **Dobsonian**. Do not
+rename existing headings just to apply this.
 
 ### The article on "PiFinder"
 
