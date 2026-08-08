@@ -76,8 +76,8 @@ A few things are worth knowing about the connection:
 
 * SkySafari does **not** command the PiFinder to slew or auto-center a GoTo mount.  The
   connection reads out position and sends objects.  GoTo control is in development.
-* Only **one** phone or tablet can connect to the PiFinder at a time.  To connect a different
-  one, disconnect the first.
+* Only **one** app can connect to the PiFinder at a time.  To connect from a different
+  phone, tablet or computer, disconnect the first.
 * The PiFinder cannot connect to SkySafari and a GoTo mount at the same time.  Use one or the
   other.
 * SkySafari 5 Plus, 6, and 7 all work.  Version 7 is the most reliable.
