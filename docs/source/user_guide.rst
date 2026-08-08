@@ -906,7 +906,7 @@ A few habits keep the cell healthy:
 - **Charge where you can keep an eye on it,** and not on or near anything flammable.  Do not
   charge or leave the PiFinder in extreme heat.  A closed car on a sunny day is the classic
   way to cook a battery.
-- **Mind the temperature.**  Owners have used the PiFinder from about -15°C (5°F) to 40°C
+- **Mind the temperature.**  The PiFinder has been used from about -15°C (5°F) to 40°C
   (100°F).  Capacity drops in the cold, though the computer's own heat keeps the cell warm
   enough to work in most conditions.  Do not charge a battery that is below freezing.
 - **For long-term storage,** leave the cell partly charged rather than full or empty and keep
