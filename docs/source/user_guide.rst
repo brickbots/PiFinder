@@ -73,6 +73,7 @@ does the same as the **SQUARE** key.
 .. note::
    On v3 and v2.5 PiFinders the arrows are four separate buttons in a row along the bottom
    of the keypad rather than a joystick.  The key names are the same on both.
+   |v3_docs|
 
 The status bar at the top of the screen shows the name of the menu you're viewing.
 
@@ -754,6 +755,7 @@ The menus get you to the same place if your hands are already on the keypad — 
    On v3 and v2.5 PiFinders power is a small white **slide** switch above the screen:
    facing the screen, slide it right for on and left for off.  Shut down from the menus
    first, then slide the switch off.
+   |v3_docs|
 
 Charging
 --------
@@ -791,6 +793,7 @@ so it's worth knowing what it is before it appears beside you at the eyepiece.
    three hours.  The port nearest the keypad runs the unit without charging, and is wired
    ahead of the slide switch, so plugging into it turns a v3 on regardless of the switch
    position.
+   |v3_docs|
 
 The battery indicator
 ---------------------
@@ -818,6 +821,7 @@ While the battery is charging, a bolt appears in place of the usual glyph.
 .. note::
    v3 and v2.5 PiFinders have no battery indicator.  The PiSugar board's charge state isn't
    visible to the PiFinder software, so nothing appears in the title bar.
+   |v3_docs|
 
 Low-battery warnings and automatic shutdown
 -------------------------------------------
@@ -873,6 +877,7 @@ the ~2A the PiFinder draws, especially on long runs.
    trick for stretching a long night: plug a power bank into that port and switch the
    battery **off**, and the PiFinder runs on external power with the cell held in reserve
    for after the bank is unplugged.
+   |v3_docs|
 
 .. warning::
    Feed the PiFinder **5V USB-C power only**.  To run it from a telescope's 12V supply, you
@@ -916,6 +921,7 @@ A few habits keep the cell healthy:
    which is also the only compatible replacement part — other PiSugar models share the I2C
    bus with the PiFinder's motion sensor and will cause problems, so make sure you fit the
    S Plus.  Don't attempt to disassemble the board itself.
+   |v3_docs|
 
 Settings Menu
 ==============
@@ -958,6 +964,7 @@ you'd rather observe in silence.
 .. note::
    v3 and v2.5 PiFinders have no buzzer.  The Volume setting appears on those units too,
    but nothing sounds.
+   |v3_docs|
 
 Connectivity
 ==============
@@ -1211,3 +1218,4 @@ Power, and the Quick Menu is faster:
    On v3 and v2.5 PiFinders there is no power button, so use the keypad route above.  Once
    the screen and keypad turn off it's safe to slide the power switch off or unplug the
    battery.
+   |v3_docs|
