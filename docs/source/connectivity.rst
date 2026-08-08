@@ -92,7 +92,7 @@ Internet access, follow these steps:
 1) Make sure the PiFinder is in Access Point mode
 2) Connect your phone, tablet, or computer to the PiFinder's WiFi network called PiFinderAP
 3) Open http://pifinder.local in your web browser
-4) Click the 'Network' link in the top bar.  On a smaller screen, click the three stacked horizontal lines in the upper-right corner and select 'Network'.
+4) Click the 'Network' link in the top bar.  On a smaller screen, click the three stacked horizontal lines in the upper-left corner and select 'Network'.
     .. image:: images/user_guide/pf_web_net0.png
 5) When prompted, enter the password for your PiFinder.  The default is ``solveit``.
 6) Scroll down to the 'Wifi Networks' section and click the + button to add a network
