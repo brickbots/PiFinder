@@ -236,8 +236,8 @@ Chart...
    How the Chart screen draws the sky.
 
    Coordinate Sys.
-      Chart orientation.  Values: Horizontal, equatorial with automatic
-      rotation, equatorial north-up, equatorial south-up.
+      Chart orientation.  Values: Horizontal, EQ (Auto), EQ (North-up),
+      EQ (South-up).
    Reticle
       Brightness of the center reticle.  Values: Off, Low, Medium, High.
    Constellation
