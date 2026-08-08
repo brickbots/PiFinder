@@ -5,7 +5,7 @@ Open the connector all the way by sliding the dark-grey clip away from the PCB. 
 Too much force can break this clip.
 
 With the connector open, slide the cable in gently and keep it aligned. Take your time and
-watch the dark-grey clip. It must stay open while you slide the cable in. If it closes,
+watch the dark-grey clip. It should stay open while you slide the cable in. If it closes,
 open it again so the cable goes all the way in.
 
 When the cable is seated, slide the dark-grey clip shut. This can take a little force.

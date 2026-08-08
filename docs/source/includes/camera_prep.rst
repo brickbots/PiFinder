@@ -3,8 +3,8 @@
 
 .. image:: images/v25_upgrade/v25_upgrade_11.jpeg
 
-If your camera has pin headers, clip them as close to the PCB as you can. To get closer to
-the PCB, pull the black plastic part off with pliers, or cut through it. Take care not to
+If your camera has pin headers, clip them as close to the PCB as you reasonably can. To get closer to
+the PCB, you can pull the black plastic part off with pliers, or cut through it. Take care not to
 clip any surrounding components.
 
 .. image:: images/v25_upgrade/v25_upgrade_12.jpeg
@@ -20,7 +20,7 @@ connector on the PCB.
 Remove the two screws near the center of the green PCB (yours might be black). Lift the
 PCB gently onto the new lens holder.
 
-Take care with the sensor surface on the underside of the PCB. It must sit neatly in the
+Take care with the sensor surface on the underside of the PCB. It should sit neatly in the
 square recess of the lens holder. Refit the same two screws to fasten the PCB to the lens
 holder. The screws cut their own threads, but the holes help you start them. Tighten them
 until nothing moves.
