@@ -155,8 +155,9 @@ winner was chosen.
 | A row in a menu | **menu item** | entry, option (see §4) | currently interchangeable |
 | One of several values | **option** | setting, choice, item (see §4) | option 45 |
 | Move within a menu | **scroll** | navigate, browse, go to, move to | scroll 20, browse 6, navigate 5 |
-| Turn the power on | **turn on** | boot, power up, switch on, start up | turn on 9, boot 14, power on 3 |
-| Turn the power off | **turn off** | power down, switch off | turn off 9, switch off 5 |
+| Turn the power on (what the reader does) | **turn on** | power up, switch on, start up | turn on 9, power on 3 |
+| Turn the power off (what the reader does) | **turn off** | power down, switch off | turn off 9, switch off 5 |
+| The machine's own startup sequence | **boot** | start, start up, startup, power-up | boot 14 — see §4 |
 | The act of shutting down | **shutdown** (noun) | shut-down | shutdown 22 |
 | Shut the PiFinder down | **shut down** (verb) | shutdown as a verb | shut down 6 |
 | A catalog object | **object** | target, DSO | object 208, target 22, DSO 11 |
@@ -219,7 +220,23 @@ hold **SQUARE** and press **+**" makes it worse, not more consistent.
 
 **object vs Custom Targets.** *Object* is the general term. *Custom Targets* is a
 feature name and keeps its capitals and its noun. Do not use "target" as a plain
-synonym for object.
+synonym for object. A one-off coordinate the reader enters by hand is a **Custom
+Target**. An entry that arrives from an observing list is an **object**.
+
+**turn on vs boot.** These are not synonyms, and collapsing them causes real
+damage. **Turn on** is what the reader does to the power button or switch.
+**Boot** is the machine's own startup sequence, which continues long after the
+reader has let go.
+
+The distinction is load-bearing here. "The PiFinder won't boot" and "The PiFinder
+won't turn on" are different faults with different fixes: a bad SD card lets the
+unit power on and then fail to boot. Two headings depend on the word, and
+headings are frozen cross-reference targets:
+
+- `sd_card.rst` — "First boot"
+- `troubleshooting.rst` — "The screen is blank, or it won't finish booting"
+
+So write "turn the PiFinder on", and "the first boot takes longer than usual".
 
 **go back vs exit.** **LEFT** goes back one menu level, so write "press **LEFT**
 to go back." Leaving a mode or tool entirely is "exit", as in "press **SQUARE**
