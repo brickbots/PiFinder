@@ -2,7 +2,9 @@ Swapping the SD Card
 ====================
 
 .. note::
-   This page covers rev4, v3 and v2.5 PiFinders.  The microSD card holds everything the
+   This page covers rev4, v3 and v2.5 PiFinders, and the procedure differs on each.  If
+   you're not sure which one you have, the :ref:`quick_start:which pifinder do i have?`
+   section of the Quick Start tells them apart.  The microSD card holds everything the
    PiFinder runs — the operating system, the PiFinder software, your settings,
    and the deep sky catalog images — so swapping it is how you recover from a
    corrupt card or move to a fresh or larger one.
