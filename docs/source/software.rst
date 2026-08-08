@@ -48,7 +48,7 @@ The image files on our release pages bundle the correct Raspberry Pi OS version,
    refuses to write it), the download was incomplete or corrupted.  Download the release
    image again and retry.
 
-Once the imager finishes writing, insert the SD card into your PiFinder and turn it on.  The first start takes longer than usual, because the PiFinder expands the filesystem to fill the card.  Be patient.
+Once the imager finishes writing, insert the SD card into your PiFinder and turn it on.  The first boot takes longer than usual, because the PiFinder expands the filesystem to fill the card.  Be patient.
 
 The software is now installed.  Continue to the :doc:`Quick Start Guide<quick_start>` for a night of observing.
 
@@ -89,7 +89,7 @@ General Pi Setup
 
 
 
-* Once you've written the image to an SD card, insert it into the PiFinder and turn it on.  The first start takes a few minutes.
+* Once you've written the image to an SD card, insert it into the PiFinder and turn it on.  The first boot takes a few minutes.
 * SSH into the PiFinder using ``pifinder@pifinder.local`` and the password you set up.
 * Update all packages.  This isn't strictly required, but it's good practice.
 
@@ -122,7 +122,7 @@ The script will:
 Once the script finishes, restart the PiFinder:
 ``sudo shutdown -r now``
 
-Startup takes up to two minutes, but the startup screen appears before long:
+Booting takes up to two minutes, but the startup screen appears before long:
 
 .. image:: ../../images/screenshots/WELCOME_001_docs.png
    :alt: Startup log
