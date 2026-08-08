@@ -20,7 +20,7 @@ ease at the eyepiece.
 This Quick Start gets you out and observing with most of what you need. For the rest, such
 as settings and non-observing functions, see the full :doc:`User Guide <user_guide>`.
 
-This guide gets your PiFinder running for the first time, walks you through your first
+We'll get your PiFinder running for the first time, walk you through your first
 night out, shows you how to change your settings, and leaves you confident in how it works.
 
 The PiFinder takes continuous pictures of the stars, compares them to its database, and
@@ -583,8 +583,8 @@ again, and you're ready to find your first object.
 
 Find Your First Object
 ^^^^^^^^^^^^^^^^^^^^^^^^
-Now that you're aligned, it's time to explore. You select an object, read some information
-about it, and move your telescope until the object is in the eyepiece.
+Now that you're aligned, it's time to explore. Select an object, read about it, then move
+your telescope until the object is in the eyepiece.
 
 - Press and hold the **LEFT** arrow for more than a second to jump to the main menu, if
   you're not already there
