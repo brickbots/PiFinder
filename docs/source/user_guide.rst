@@ -63,9 +63,9 @@ options.  Scroll through a menu and select items with these keys:
 .. This key list is duplicated in quick_start.rst (Using the PiFinder).  Keep the two in sync.
 
 - The **UP** and **DOWN** arrows scroll the current menu
-- The **RIGHT** arrow selects the current menu item, or moves you to another menu
+- The **RIGHT** arrow selects the current menu item, which either sets an option or opens another menu
 - The **LEFT** arrow takes you back to the previous menu or screen
-- Press and hold **LEFT** for more than a second to return to the TOP of the menus
+- Press and hold **LEFT** for more than a second to jump back to the TOP of the menus
 
 The arrows are the four directions of the joystick.  Pressing the joystick straight in does
 the same as the **SQUARE** key.
@@ -196,7 +196,7 @@ items:
   for observing projects and finding the nearest objects in a particular catalog.
 - **Recent**: Starts empty and builds a history of the objects you've looked at during
   the current session.
-- **Custom**: Enter a right ascension and declination by hand to make a one-off target.
+- **Custom**: Enter a right ascension and declination by hand to make a one-off Custom Target.
   See :ref:`user_guide:custom targets`.
 - **Name Search**: Search for objects by name with the number keypad.  This is how you find
   the Snowball planetary or the Cat's Eye.
@@ -561,7 +561,7 @@ many objects matched, and opens the result as a regular
 
 Entries that match a catalog behave exactly like objects you find by browsing.  Images,
 descriptions, and your observation logs all come along.  An entry the PiFinder cannot
-match, but that includes coordinates, becomes a one-off target under the code OBS, so
+match, but that includes coordinates, becomes a one-off object under the code OBS, so
 nothing on your list is left behind.
 
 .. note::
