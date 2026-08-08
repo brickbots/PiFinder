@@ -93,10 +93,9 @@ slack.
 Flat configuration
 ^^^^^^^^^^^^^^^^^^
 
-The three screws hold one side of the flat cradle.  Remove them.  The cradle then
-flexes enough for you to pull the flat holder gently down and expose the card.  The
-image below shows this.  It was taken during assembly, before the camera was
-installed.  You don't need to remove the camera to reach the card.
+Remove the three screws that hold one side of the flat cradle.  The cradle then
+flexes enough to pull the flat holder gently down and expose the card.  The image
+below shows this, taken during assembly before the camera was installed.  You don't need to remove the camera to reach the card.
 
 .. image:: images/sd_card/flat_open.jpeg
    :width: 70%
