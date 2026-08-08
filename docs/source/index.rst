@@ -42,11 +42,11 @@ Features
 --------
 
 * Zero setup: Just turn it on and point it at the sky!  
-* Accurate pointing: Onboard GPS determines location and time while the camera determines where the scope is pointing.  Inertial Measurement Unit tracks scope motion and updates sky position between camera solves
+* Accurate pointing: Onboard GPS determines location and time while the camera determines where the telescope is pointing.  Inertial Measurement Unit tracks telescope motion and updates sky position between camera solves
 * Self-contained:  Includes catalog search/filtering, sky/object charting, push-to guidance and logging all via the screen and keypad on the unit.
 * Dark site friendly:  Red OLED screen and soft backlit keys have wide brightness adjustment, right down to 'off'. No need for bright cell phones or tablets
 * Easy access: Can be mounted by the eyepiece just like a finder.
-* Wifi Access Point / SkySafari Integration:  The PiFinder can act as a WIFI access point to connect your tablet or phone to sync SkySafari or other planetarium software with your scope.
+* Wifi Access Point / SkySafari Integration:  The PiFinder can act as a WIFI access point to connect your tablet or phone to sync SkySafari or other planetarium software with your telescope.
 
 Build Your Own
 --------------
