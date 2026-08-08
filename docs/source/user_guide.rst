@@ -174,8 +174,7 @@ Out under the stars, you do four basic things in various combinations:
 * Pushing the telescope to bring them into your eyepiece
 * Logging your observations
 
-Everyone observes their own way, so the PiFinder lets you use these features, or skip them,
-as your night out demands.
+Everyone observes their own way, so use the features you want and skip the rest.
 
 Object List
 --------------------
@@ -198,8 +197,8 @@ items:
   the current session.
 - **Custom**: Enter a right ascension and declination by hand to make a one-off Custom Target.
   See :ref:`user_guide:custom targets`.
-- **Name Search**: Search for objects by name with the number keypad.  This is how you find
-  the Snowball planetary or the Cat's Eye.
+- **Name Search**: Search for objects by name with the number keypad.  The Snowball planetary?
+  Cat's Eye?  This is the way to find them.
 
 However you build the list, it always displays the same information and offers the same
 sorting and selection.
