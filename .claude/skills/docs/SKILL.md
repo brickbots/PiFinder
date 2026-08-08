@@ -180,7 +180,7 @@ that drift most in the current manual:
 | Power on / off (reader's action) | **turn on** / **turn off** | power up, switch on/off |
 | The machine's startup sequence | **boot** | start up, startup |
 | A catalog object | **object** | target, DSO |
-| The user's telescope | **telescope** | scope, OTA, tube |
+| The user's telescope | **telescope** | scope, tube — but keep *polar scope*, *finder scope*, *OTA* |
 | Go up one menu level | **go back** | return, exit, back out |
 
 The full table, the reasoning behind each choice, worked before/after examples,

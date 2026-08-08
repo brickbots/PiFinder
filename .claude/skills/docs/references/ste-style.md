@@ -173,17 +173,29 @@ the rest of that page. The manual already does this 67 times and it reads well.
 
 ### "telescope", not "scope"
 
-This is the one entry in the table with no evidence winner. The manual uses
+This is the one entry in the table that had no evidence winner. The manual used
 "scope" 72 times and "telescope" 67, near enough a coin flip, and often both in
-one paragraph.
+one paragraph. **The maintainer settled it: use telescope.** It is unambiguous
+for a second-language reader, which is much of the reason this style exists.
+"Scope" is shorter, but it is jargon, and it carries other meanings in ordinary
+English.
 
-Use **telescope**. It is unambiguous for a second-language reader, which is much
-of the reason this style exists. "Scope" is shorter, but it is jargon, and it
-carries other meanings in ordinary English.
+The manual has been converted, so there is nothing left to sweep. What matters
+now is not undoing it, and not over-applying it.
 
-Keep "scope" where it is part of a name or a fixed compound the reader will meet
-elsewhere: **OTA** in a parts context, **finder shoe**, **Dobsonian**. Do not
-rename existing headings just to apply this.
+**Keep "scope" in these four cases.** Each names something that is *not* the
+reader's telescope, so renaming it would be a factual error, not a style fix:
+
+| Keep | Why |
+|---|---|
+| **polar scope** | The sighting device inside an equatorial mount. "Polar telescope" is not a term anyone uses, and the Polar Alignment section is largely about aligning *without* one. |
+| **finder scope** | A separate optical finder. The manual mentions it to contrast it with the PiFinder. |
+| **scope type** (SkySafari) | A third-party field label, confirmed against `images/SkySafari/IMG_4796.jpeg`. Quote other products' interfaces exactly. |
+| **OTA**, **finder shoe**, **Dobsonian** | Fixed compounds and product names the reader will meet elsewhere. |
+
+The general rule behind the table: quote any interface exactly as it is labelled,
+whether it is PiFinder's or someone else's, and do not rename existing headings
+just to apply a term.
 
 ### The article on "PiFinder"
 
