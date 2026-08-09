@@ -17,8 +17,9 @@ Telescopes and eyepieces
 
 A **telescope** records the optical details of one instrument. It stores the
 make and name, aperture, focal length, central obstruction, and mount type,
-plus a few display options covered below. The PiFinder uses the aperture and
-focal length for the magnification and field-of-view calculations.
+plus a few display options covered below. The PiFinder uses the focal length for
+the magnification and field-of-view calculations, and the aperture for the
+:ref:`contrast reserve <user_guide:contrast reserve>`.
 
 An **eyepiece** records its focal length and apparent field of view. Add the
 field stop as well if you know it, because it gives a more precise
