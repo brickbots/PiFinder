@@ -118,7 +118,7 @@ The script will:
 * Download some required astronomy data files
 * Set up WiFi access point capabilities
 * Create a samba share for pulling images and observation logs and adding observing lists
-* Set up the PiFinder service to start on reboot
+* Set up the PiFinder service to start on boot
 
 Once the script finishes, restart the PiFinder:
 ``sudo shutdown -r now``
