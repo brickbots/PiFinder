@@ -29,9 +29,9 @@ until nothing moves.
 
 .. image:: images/v25_upgrade/v25_upgrade_15.jpeg
 
-Flip the camera assembly over. Thread the lens in slowly and carefully. Use gentle force.
-The lens slides in a few mm, aligns, then stops. When it stops, check that it sits
-straight, then screw it into place.
+Flip the camera assembly over and thread the lens in slowly. With gentle force it slides
+in a few mm, aligns, then stops. When it stops, check that it sits straight, then screw it
+into place.
 
 For a rough focus, leave a 6mm gap (pictured below) between the top of the lens holder and
 the bottom of the lip on the lens. It does not need to be exact. You set the final focus
