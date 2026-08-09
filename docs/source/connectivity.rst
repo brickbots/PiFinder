@@ -78,7 +78,7 @@ is the same as the ``pifinder`` user's password.  If you change one, you change 
 The default for new images and PiFinders is ``solveit``.  You can change it from the Tools
 page of the web interface.
 
-The web interface is available in English, German, French, and Spanish.  It follows your
+The web interface is available in English, German, French, Spanish, and Chinese.  It follows your
 browser's preferred language.  Set the language on your phone or computer, and the web
 interface matches it.
 
