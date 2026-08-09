@@ -498,7 +498,7 @@ Orient the battery pack so the connector sits in the notch, as shown below.
    :target: _images/common_1b.jpeg
 
 
-Snip the zip ties off, then move on.
+Snip off the loose ends of the zip ties, then move on.
 
 
 .. image:: images/build_guide/common_1c.jpeg
