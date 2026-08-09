@@ -110,7 +110,7 @@ IMU
 Fit the Inertial Measurement Unit next. It has an annoyingly bright green LED. Paint over it with a few layers of black nail polish, or destroy it with your soldering iron. You can deal with it after soldering if you forget, but it is much easier beforehand. The image below shows the offending component.
 
 .. image:: ../../images/build_guide/adafruit_IMU.png
-   :target: ../../images/build_guide/adafruit_IMU.png
+   :target: _images/adafruit_IMU.png
    :alt: Green led on IMU
 
 
@@ -128,13 +128,13 @@ Unscrew the stand-offs from the front and remove them.
 
 
 .. image:: ../../images/build_guide/IMG_4648.jpeg
-   :target: ../../images/build_guide/IMG_4648.jpeg
+   :target: _images/IMG_4648.jpeg
    :alt: Display as shipped
 
 
 
 .. image:: ../../images/build_guide/IMG_4649.jpeg
-   :target: ../../images/build_guide/IMG_4649.jpeg
+   :target: _images/IMG_4649.jpeg
    :alt: Display with standoffs removed
 
 
@@ -142,7 +142,7 @@ Next, remove the plug from the underside of the board. This step isn't strictly 
 
 
 .. image:: ../../images/build_guide/IMG_4650.jpeg
-   :target: ../../images/build_guide/IMG_4650.jpeg
+   :target: _images/IMG_4650.jpeg
    :alt: Connector cut free
 
 
@@ -150,7 +150,7 @@ Sand back or cut the bottom tabs on the screen PCB. This makes the top plate fit
 
 
 .. image:: ../../images/build_guide/IMG_4652.jpeg
-   :target: ../../images/build_guide/IMG_4652.jpeg
+   :target: _images/IMG_4652.jpeg
    :alt: Cut/Sand tabs on display
 
 
@@ -158,7 +158,7 @@ Test-fit the screen with the header installed and the top plate in place. Everyt
 
 
 .. image:: ../../images/build_guide/IMG_4653.jpeg
-   :target: ../../images/build_guide/IMG_4653.jpeg
+   :target: _images/IMG_4653.jpeg
    :alt: Screen test fit
 
 
@@ -269,7 +269,7 @@ Right and Left configurations
 The photo below shows all the parts for a left- or right-hand PiFinder. The edge inserts let these pieces assemble into either configuration, so you need just one set of parts whichever side your focuser faces. The assembly guide covers how to orient the pieces as you put them together.
 
 .. image:: images/build_guide/parts_1.jpeg
-   :target: images/build_guide/parts_1.jpeg
+   :target: _images/parts_1.jpeg
 
 
 
@@ -279,7 +279,7 @@ Flat Configuration
 The photo below shows the pieces for the flat version. The parts are the same with or without a PiSugar battery.
 
 .. image:: images/build_guide/parts_2.jpeg
-   :target: images/build_guide/parts_2.jpeg
+   :target: _images/parts_2.jpeg
 
 
 Printing
@@ -300,10 +300,10 @@ Pi Mount
 The Pi Mount takes eight inserts total: four in the printed stand-offs and four in the edges.
 
 .. image:: images/build_guide/parts_3.jpeg
-   :target: images/build_guide/parts_3.jpeg
+   :target: _images/parts_3.jpeg
 
 .. image:: images/build_guide/parts_4.jpeg
-   :target: images/build_guide/parts_4.jpeg
+   :target: _images/parts_4.jpeg
 
 Bottom
 ^^^^^^^
@@ -311,7 +311,7 @@ Bottom
 For left/right builds this is the bottom piece. It needs four inserts to attach the dovetail mount.
 
 .. image:: images/build_guide/parts_5.jpeg
-   :target: images/build_guide/parts_5.jpeg
+   :target: _images/parts_5.jpeg
 
 
 Flat Adaptor
@@ -323,7 +323,7 @@ Flat Adaptor
 This piece replaces the bottom and back pieces from the left/right build. It needs eight inserts: four to attach the dovetail mount and four to attach the camera.
 
 .. image:: images/build_guide/parts_6.jpeg
-   :target: images/build_guide/parts_6.jpeg
+   :target: _images/parts_6.jpeg
 
 
 Back
@@ -332,7 +332,7 @@ Back
 The back piece holds the camera for left/right builds. It also reinforces the Pi Mount and the Bottom piece to keep everything square and sturdy. It needs six inserts: four to mount the camera and two in the bottom edge to connect with the bottom piece.
 
 .. image:: images/build_guide/parts_7.jpeg
-   :target: images/build_guide/parts_7.jpeg
+   :target: _images/parts_7.jpeg
 
 Dovetail Bottom
 ^^^^^^^^^^^^^^^^
@@ -340,7 +340,7 @@ Dovetail Bottom
 The dovetail bottom has two inserts for the longer 12mm screws that allow angle adjustment. These inserts go in the side opposite where the top piece connects. The screws pass through the top piece and part of the bottom before they engage the inserts. This makes the assembly strong enough to hold the angle you set once the screws are tight enough.
 
 .. image:: images/build_guide/parts_8.jpeg
-   :target: images/build_guide/parts_8.jpeg
+   :target: _images/parts_8.jpeg
 
 
 Installation
@@ -350,7 +350,7 @@ I use a lot of these inserts, so I use a tool to seat them plumb into the parts.
 
 
 .. image:: ../../images/build_guide/v1.4/build_guide_02.jpg
-   :target: ../../images/build_guide/v1.4/build_guide_02.jpg
+   :target: _images/build_guide_02.jpg
    :alt: Insert Inserting
 
 
@@ -362,7 +362,7 @@ Most people print the dovetail mount. It fits the finder shoe included on most t
 
 
 .. image:: ../../images/finder_shoe_angle.png
-   :target: ../../images/finder_shoe_angle.png
+   :target: _images/finder_shoe_angle.png
    :alt: Finder shoe angle
 
 
@@ -483,7 +483,7 @@ First, mount the Pi and the PiSugar battery to the Pi Mount piece. The photo bel
 
 
 .. image:: images/build_guide/common_1.jpeg
-   :target: images/build_guide/common_1.jpeg
+   :target: _images/common_1.jpeg
    :alt: Build Guide Step
 
 
@@ -502,7 +502,7 @@ Snip off the loose ends of the zip ties, then move on.
 
 
 .. image:: images/build_guide/common_1c.jpeg
-   :target: images/build_guide/common_1c.jpeg
+   :target: _images/common_1c.jpeg
 
 
 
@@ -524,12 +524,12 @@ Return to the Raspberry Pi assembly and thread the camera cable through as shown
 .. list-table::
 
    * - .. image:: images/build_guide/left_1.jpeg
-          :target: images/build_guide/left_1.jpeg
+          :target: _images/left_1.jpeg
 
        Left hand cable routing
 
      - .. image:: images/build_guide/right_1.jpeg
-          :target: images/build_guide/right_1.jpeg
+          :target: _images/right_1.jpeg
 
        Right hand cable routing
 
@@ -542,7 +542,7 @@ Return to the Raspberry Pi assembly and thread the camera cable through as shown
 
 
 .. image:: ../../images/build_guide/pisugar_setup.jpg
-   :target: ../../images/build_guide/pisugar_setup.jpg
+   :target: _images/pisugar_setup.jpg
    :alt: Build Guide Step
 
 
@@ -550,7 +550,7 @@ The PiSugar ships with a protective film on the screw posts, as shown below. Rem
 
 
 .. image:: ../../images/build_guide/v1.6/build_guide_01.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_01.jpeg
+   :target: _images/build_guide_01.jpeg
    :alt: Build Guide Step
 
 
@@ -689,7 +689,7 @@ Now plug the UI Hat carefully into the Raspberry Pi. Make sure both rows of pins
 The screw holes on the UI Hat should line up with three of the four stand-offs. The fourth provides support but does not secure the outer case. Collect the Shroud, the Bezel, and the cover plate, along with three of the 12mm screws, for the next steps.
 
 .. image:: images/build_guide/common_5.jpeg
-   :target: images/build_guide/common_5.jpeg
+   :target: _images/common_5.jpeg
 
 
 The shroud has three optional openings: one on top for the PiSugar power switch, one for the USB ports, and one on the side for easier access to the SD card. Remove these with a little force or a sharp knife. If you use a PiSugar battery, you must remove the power switch tab. See the photo below:
@@ -732,7 +732,7 @@ If you haven't already prepared an SD card, continue to the :doc:`software setup
 
 
 .. image:: images/build_guide/common_11.jpeg
-   :target: images/build_guide/common_11.jpeg
+   :target: _images/common_11.jpeg
 
 
 Flat Assembly
@@ -742,7 +742,7 @@ This section covers a Flat build. This configuration is great for refractors, SC
 
 
 .. image:: ../../images/flat_mount.png
-   :target: ../../images/flat_mount.png
+   :target: _images/flat_mount.png
    :alt: Flat example
 
 
@@ -750,7 +750,7 @@ Follow the :ref:`general assembly guide <build_guide:assembly>` through to the p
 
 
 .. image:: ../../images/build_guide/v1.6/build_guide_11.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_11.jpeg
+   :target: _images/build_guide_11.jpeg
    :alt: Pi Module Assembled
 
 
@@ -759,27 +759,27 @@ If you routed the cable as above, pull the camera cable out of the RPI assembly.
 Collect the flat adapter and the dovetail. The dovetail secures to the underside of the flat adapter with screws through the adapter. The Pi Mount assembly slots into the flat adapter, and screws into the edge inserts hold it there. See the photos below for details.
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_01.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_01.jpeg
+   :target: _images/flat_build_guide_01.jpeg
    :alt: Assembly Steps
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_02.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_02.jpeg
+   :target: _images/flat_build_guide_02.jpeg
    :alt: Assembly Steps
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_03.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_03.jpeg
+   :target: _images/flat_build_guide_03.jpeg
    :alt: Assembly Steps
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_04.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_04.jpeg
+   :target: _images/flat_build_guide_04.jpeg
    :alt: Assembly Steps
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_05.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_05.jpeg
+   :target: _images/flat_build_guide_05.jpeg
    :alt: Assembly Steps
 
 
@@ -787,7 +787,7 @@ Note the one additional screw on the other side, visible in the next photo. Once
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_06.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_06.jpeg
+   :target: _images/flat_build_guide_06.jpeg
    :alt: Assembly Steps
 
 
@@ -795,7 +795,7 @@ Turn the PiFinder around and screw in the three thumbscrews as shown. Check the 
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_07.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_07.jpeg
+   :target: _images/flat_build_guide_07.jpeg
    :alt: Assembly Steps
 
 
@@ -803,7 +803,7 @@ Next, position the camera module and secure it with the longer M2.5 screw. Inser
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_09.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_09.jpeg
+   :target: _images/flat_build_guide_09.jpeg
    :alt: Assembly Steps
 
 
@@ -811,17 +811,17 @@ Gently plug in the UI Hat and tuck the cable underneath it. Take your time and m
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_10.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_10.jpeg
+   :target: _images/flat_build_guide_10.jpeg
    :alt: Assembly Steps
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_11.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_11.jpeg
+   :target: _images/flat_build_guide_11.jpeg
    :alt: Assembly Steps
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_12.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_12.jpeg
+   :target: _images/flat_build_guide_12.jpeg
    :alt: Assembly Steps
 
 
@@ -834,28 +834,28 @@ Once the UI Hat is plugged in all the way and the cable is tidy, gather the rema
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_13.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_13.jpeg
+   :target: _images/flat_build_guide_13.jpeg
    :alt: Assembly Steps
 
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_14.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_14.jpeg
+   :target: _images/flat_build_guide_14.jpeg
    :alt: Assembly Steps
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_15.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_15.jpeg
+   :target: _images/flat_build_guide_15.jpeg
    :alt: Assembly Steps
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_16.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_16.jpeg
+   :target: _images/flat_build_guide_16.jpeg
    :alt: Assembly Steps
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_17.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_17.jpeg
+   :target: _images/flat_build_guide_17.jpeg
    :alt: Assembly Steps
 
 
@@ -863,7 +863,7 @@ One task remains: fit the camera lens. Unscrew the cap from the camera module, b
 
 
 .. image:: ../../images/build_guide/v1.6/flat/flat_build_guide_19.jpeg
-   :target: ../../images/build_guide/v1.6/flat/flat_build_guide_19.jpeg
+   :target: _images/flat_build_guide_19.jpeg
    :alt: Assembly Steps
 
 
