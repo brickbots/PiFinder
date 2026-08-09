@@ -279,7 +279,7 @@ should show in your eyepiece tonight.
 
 .. image:: images/user_guide/object_details_02.png
 
-The PiFinder can show images of every object in its catalog.  See the section on
+The PiFinder can show images of all the extended objects in its catalogs.  See the section on
 :ref:`object images<user_guide:object images>` below for more.
 
 .. image:: images/user_guide/object_details_03.png
