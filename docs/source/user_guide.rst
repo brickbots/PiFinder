@@ -959,7 +959,7 @@ others, so a cue pitched away from its loudest note sounds softer.  Set Volume t
 you'd rather observe in silence.
 
 .. note::
-   v3 and v2.5 PiFinders have no buzzer.  The Volume setting appears on those units too,
+   v3 and v2.5 PiFinders have no buzzer.  The Volume setting appears on those PiFinders too,
    but nothing sounds.
    |v3_docs|
 
@@ -1035,7 +1035,7 @@ Update Software
 The PiFinder can download and install software updates directly from its screen and keypad.
 To start, select Software Upd from the :ref:`user_guide:tools` menu.
 
-Updates happen on the PiFinder itself, so there is no need to send it anywhere.  New units
+Updates happen on the PiFinder itself, so there is no need to send it anywhere.  New PiFinders
 often ship a version or two behind the latest release, so running an update is a normal part
 of your first night out.
 
