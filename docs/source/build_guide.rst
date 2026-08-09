@@ -387,10 +387,10 @@ If you need more flexibility, a go-pro compatible plate also bolts into the bott
 
 Once all the parts are printed and the inserts are seated, you're ready to :ref:`assemble <build_guide:assembly>`.
 
-Rigel Quickfinder Assembly
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Rigel Quikfinder Assembly
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You need the following for a Rigel Quickfinder adapter:
+You need the following for a Rigel Quikfinder adapter:
 
 .. list-table::
    :header-rows: 1
@@ -400,11 +400,11 @@ You need the following for a Rigel Quickfinder adapter:
      - URL
      - Notes
    * - 1
-     - PiToQuickfinder v2 - Part 1.stl
+     - PiToQuikfinder v2 - Part 1.stl
      - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapter/quikfinder>`_
      - You need both this and the next item
    * - 1
-     - PiToQuickfinder v2 - Part 2.stl
+     - PiToQuikfinder v2 - Part 2.stl
      - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapter/quikfinder>`_
      - You need both this and the previous item
    * - 2
@@ -418,7 +418,7 @@ Print "Part 2" to maximize the strength of the "hook". Print it with supports, a
 
 If you print your own parts, add heat-set inserts as pictured below. Space is limited, so fix it to the PiFinder first and then insert the second part. Tighten the screws just a little to hold the second part so it can't fall off.
 
-After you put it on a Rigel Quickfinder base, tighten the screws fully. The double-sided foam adhesive supplied with the Rigel Quikfinder may compress under the weight of the PiFinder, which is about 6 times the weight of a Quikfinder. You may need to fix the base plate to your telescope another way.
+After you put it on a Rigel Quikfinder base, tighten the screws fully. The double-sided foam adhesive supplied with the Rigel Quikfinder may compress under the weight of the PiFinder, which is about 6 times the weight of a Quikfinder. You may need to fix the base plate to your telescope another way.
 
 
 .. image:: images/build_guide/quickfinder_base_1.jpeg
