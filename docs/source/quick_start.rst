@@ -400,7 +400,7 @@ hand away for a moment so any vibration settles and the readout catches up.  Big
 continuous turns make it easy to sweep straight through best focus without ever seeing it.
 
 A trace of the last 10 seconds of HFD runs along the divider on either side of the number,
-with lower (sharper) values below the line.  As you sweep slowly through best focus, the
+with lower (sharper) values below the line.  As you turn the lens slowly through best focus, the
 trace falls and rises again.  Go back to the low point.  Good focus means the quickest
 solves, so it's worth taking the time to find the true minimum.  Judge it by the number and
 all four stars together rather than by a single unusually bright star.
