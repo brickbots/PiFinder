@@ -3,7 +3,7 @@ PiFinder™ Menu Map
 ==================
 
 .. note::
-   This map reflects v3 and v2.5 PiFinders running software |min_software| or above.  The
+   This map reflects rev4, v3 and v2.5 PiFinders running software |min_software| or above.  The
    exact items you see can vary slightly with your configuration and software
    version.
 
