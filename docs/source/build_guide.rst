@@ -644,7 +644,7 @@ Connect the cable to the new camera module first.
 .. include:: includes/camera_cable_connect.rst
 
 .. note::
-   The photos in the rest of this guide do not yet show the v2.5 camera.
+   The photos in the rest of this guide do not yet show the v3 camera.
    The build proceeds just the same, and we will update the photos soon.
 
 
