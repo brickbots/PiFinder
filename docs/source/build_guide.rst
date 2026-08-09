@@ -401,11 +401,11 @@ You need the following for a Rigel Quikfinder adapter:
      - Notes
    * - 1
      - PiToQuikfinder v2 - Part 1.stl
-     - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapter/quikfinder>`_
+     - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapters/quikfinder>`_
      - You need both this and the next item
    * - 1
      - PiToQuikfinder v2 - Part 2.stl
-     - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapter/quikfinder>`_
+     - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapters/quikfinder>`_
      - You need both this and the previous item
    * - 2
      - heat-set insert M2.5 x 4 mm
@@ -439,7 +439,7 @@ To adjust the orientation of your PiFinder so it stands vertical on your telesco
      - Notes
    * - 1
      - Pi2Q2Dovetail.stl
-     - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapter/quikfinder>`_
+     - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapters/quikfinder>`_
      - You need at least this and the next item
    * - 1
      - dovetail_top.stl
