@@ -265,8 +265,8 @@ out to your observing site. Set up your telescope, mount your PiFinder, and read
 
 You can start using the PiFinder as soon as several stars are visible in the part of the
 sky it faces. It uses those stars, along with its internal GPS receiver, to learn where it
-is and what it's looking at. That might be soon after sunset, or, under light pollution,
-not until full darkness.
+is and what it's looking at. It needs a few stars to get going. That might be soon after
+sunset, or, under light pollution, not until full darkness.
 
 Two icons in the upper right tell you whether the PiFinder knows where it is. The satellite
 dish flashes while the PiFinder searches for its location and time, and turns solid once it
