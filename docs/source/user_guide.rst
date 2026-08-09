@@ -650,12 +650,12 @@ As an example, here are the images available for M57
 
 
 .. image:: ../../images/screenshots/CATALOG_images_002_docs.png
-   :target: ../../images/screenshots/CATALOG_images_002_docs.png
+   :target: _images/CATALOG_images_002_docs.png
    :alt: Catalog Image
 
 
 .. image:: ../../images/screenshots/CATALOG_images_003_docs.png
-   :target: ../../images/screenshots/CATALOG_images_003_docs.png
+   :target: _images/CATALOG_images_003_docs.png
    :alt: Catalog Image
 
 
