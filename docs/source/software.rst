@@ -96,11 +96,12 @@ General Pi Setup
   * ``sudo apt update``
   * ``sudo apt upgrade``
 
-    * Enable SPI / I2C, which the screen and IMU use to communicate.
-    * Run ``sudo raspi-config``
-    * Select 3 - Interface Options
-    * Select I4 - SPI, then select Enable
-    * Select I5 - I2C, then select Enable
+* Enable SPI / I2C, which the screen and IMU use to communicate.
+
+  * Run ``sudo raspi-config``
+  * Select 3 - Interface Options
+  * Select I4 - SPI, then select Enable
+  * Select I5 - I2C, then select Enable
 
 PiFinder Software Install
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
