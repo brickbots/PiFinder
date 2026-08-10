@@ -688,7 +688,7 @@ Finally, you can start straight into this mode from the command line — see the
 
 .. note::
 
-  If you are using the demo-mode and move the PiFinder and scope around, you will notice, that the picture alway starts at the same "standard demo picture". And it always switch back to the same picture, once you stopped. Do not expect to move through the sky, like you normally would do and get a solve to the newly reached location. You will always be brought back to the same position in the sky.
+  If you are using the demo-mode and move the PiFinder and telescope around, you will notice, that the picture alway starts at the same "standard demo picture". And it always switch back to the same picture, once you stopped. Do not expect to move through the sky, like you normally would do and get a solve to the newly reached location. You will always be brought back to the same position in the sky.
 
 
 .. image:: images/user_guide/DEMO_MODE_001_docs.png
