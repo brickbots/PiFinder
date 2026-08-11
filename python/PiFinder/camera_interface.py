@@ -150,6 +150,9 @@ class CameraInterface:
 
     _camera_started = False
     _save_next_to = None  # Filename to save next capture to (None = don't save)
+    # Publish the uncropped raw frame for the SEP full-frame detection path.
+    # Set from config at loop start; False keeps captures copy-free.
+    _publish_solver_raw = False
     _auto_exposure_enabled = False
     _auto_exposure_mode = "pid"  # "pid" or "snr"
     _auto_exposure_pid: Optional[ExposurePIDController] = None
@@ -299,6 +302,17 @@ class CameraInterface:
         try:
             # Store shared_state for access by capture() methods
             self.shared_state = shared_state
+
+            # SEP full-frame detection path (shadow logging / fallback solve)
+            # needs the uncropped raw published per frame. Read once at start;
+            # changing these keys requires an app restart. Off by default:
+            # no per-frame copy is made unless the path is enabled.
+            self._publish_solver_raw = bool(
+                cfg.get_option("solver_shadow_detect")
+                or cfg.get_option("solver_sep_fallback")
+            )
+            if self._publish_solver_raw:
+                logger.info("Publishing full-frame solver_raw (SEP path enabled)")
 
             # Store camera type in shared state for SQM calibration
             camera_type_str = self.get_cam_type()  # e.g., "PI imx296", "PI hq"
