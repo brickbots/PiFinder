@@ -26,6 +26,12 @@ field stop as well if you know it, because it gives a more precise
 field-of-view figure. Store as many of each as you like and switch between them
 as the night goes on.
 
+.. important::
+   Enter the apparent field of view as a whole number of degrees. Type 82, not
+   82.5. A decimal here discards the eyepiece even though the page still reports
+   "Eyepiece added", so the eyepiece never appears in your list. Focal length and
+   field stop both accept decimals as normal.
+
 Adding and editing your gear
 ----------------------------
 

@@ -219,7 +219,8 @@ User Pref...
       have the buzzer.  See :ref:`user_guide:sounds`.
    Sleep Time
       How long the PiFinder waits before power-save dims the screen.  Values:
-      Off, 10s to 2m.
+      Off, 10s to 2m.  Only key presses reset the timer.  Moving the PiFinder
+      wakes it from sleep but does not keep it awake.
    Menu Anim
       Menu scrolling animation speed.  Values: Off, Fast, Medium, Slow.
    Scroll Speed
@@ -275,7 +276,8 @@ Advanced
       Rev4 Straight.  Changing this restarts the PiFinder.
    Camera Type
       Which camera sensor your PiFinder has.
-      Values: v2 (imx477), v3 (imx296), v3 (imx462).
+      Values: v2 - imx477, v3 - imx296, v3 - imx462.  A rev4 PiFinder takes
+      v3 - imx462.  There is no separate rev4 entry, and that one is correct.
    GPS Settings
       Configure the GPS receiver.
 

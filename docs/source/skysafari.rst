@@ -11,7 +11,7 @@ First, check that your phone or tablet is on the same network as the PiFinder.  
 App Setup
 ---------
 
-You need SkySafari Plus or Pro to connect.  Set up a telescope profile in the Telescope section of the settings page:
+You need a paid version of SkySafari to connect: Plus or Pro, version 6 or later.  The free version has no telescope control.  Set up a telescope profile in the Telescope section of the settings page:
 
 
 .. image:: images/SkySafari/IMG_4792.jpeg
@@ -80,7 +80,6 @@ A few things are worth knowing about the connection:
   phone, tablet or computer, disconnect the first.
 * The PiFinder cannot connect to SkySafari and a GoTo mount at the same time.  Use one or the
   other.
-* SkySafari 5 Plus, 6, and 7 all work.  Version 7 is the most reliable.
 
 .. note::
    If the PiFinder enters power-save mode, it stops sending position updates.  SkySafari then

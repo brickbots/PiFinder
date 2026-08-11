@@ -269,9 +269,13 @@ consulting the object image can make all the difference.
 
 .. note::
    By default the Push-To arrows guide you in altitude and azimuth, the way an Alt/Az or
-   Dobsonian mount moves.  On an equatorial mount or platform, set Mount Type to Equatorial
-   in the :ref:`user_guide:settings menu`.  The guidance then switches to right ascension
-   and declination to match your mount's axes.
+   Dobsonian mount moves.  On an equatorial mount, set Mount Type to Equatorial in the
+   :ref:`user_guide:settings menu`.  The guidance then switches to right ascension and
+   declination to match your mount's axes.
+
+   Leave Mount Type on Alt/Az if you use an alt-az telescope on an equatorial tracking
+   platform.  You still move the telescope in altitude and azimuth, and the PiFinder
+   corrects for the platform's rotation on its own.
 
 The number in the upper right is the object's
 :ref:`contrast reserve <user_guide:contrast reserve>`.  It estimates how easily the object
@@ -905,9 +909,10 @@ A few habits keep the cell healthy:
 - **Charge where you can keep an eye on it,** and not on or near anything flammable.  Do not
   charge or leave the PiFinder in extreme heat.  A closed car on a sunny day is the classic
   way to cook a battery.
-- **Mind the temperature.**  The PiFinder has been used from about -15°C (5°F) to 40°C
-  (100°F).  Capacity drops in the cold, though the computer's own heat keeps the cell warm
-  enough to work in most conditions.  Do not charge a battery that is below freezing.
+- **Mind the temperature.**  Observers report using the PiFinder from about -15°C (5°F) to
+  45°C (110°F).  That range describes the whole PiFinder in the field, not a separate
+  battery rating.  Capacity drops in the cold, though the computer's own heat keeps the cell
+  warm enough to work in most conditions.  Do not charge a battery that is below freezing.
 - **For long-term storage,** leave the cell partly charged rather than full or empty and keep
   it somewhere cool and dry.  Top it up every few months so it does not discharge completely.
 - **Dispose of it responsibly.**  Take a worn-out lithium battery to a battery-recycling
@@ -1029,6 +1034,51 @@ discard what's set, if you'd rather start fresh or hand control back to GPS.
    signal.  You can focus, align, browse objects, and push to them.  The
    :ref:`user_guide:star chart` and Align screens also work before a GPS lock.
 
+Getting a GPS lock
+----------------------------------
+
+The PiFinder's GPS receiver takes a few minutes to work out where it is.  This is normal,
+and it is the part of the first night that surprises people most.  Knowing what the
+receiver is doing saves you from chasing a fault that isn't there.
+
+Before it can fix a position, the receiver has to download orbit data from the satellites
+themselves.  That download runs at a slow, fixed rate, so it takes several minutes however
+good your sky is.  Expect longer after the PiFinder has been off for a while, or when you
+have travelled a distance since the last session.  Later nights at the same site are
+quicker, because the PiFinder still holds usable data.
+
+Open the Start menu and select GPS Status to watch progress.  That screen turns the camera
+off, which cuts electrical noise and helps the receiver hear more satellites.  It shows
+**Lock boost on** while it does this.  Leave the PiFinder on that screen and let it work.
+
+Four things are worth knowing while you wait:
+
+- **"Sats seen/used: 0/0" is not a progress bar.**  It reads 0/0 for most of the wait and
+  then climbs quickly near the end.  A long run of zeros does not mean the receiver has
+  failed or that the sky is blocked.
+- **Leave the PiFinder on.**  Turning it off and on again restarts the download from the
+  beginning.  Rebooting every few minutes to check on it is the one reliable way to never
+  get a lock.
+- **Your phone is not a fair comparison.**  Phones use assisted GPS.  They download the same
+  orbit data over the mobile network in seconds and already know roughly where they are.  A
+  phone showing dozens of satellites next to your PiFinder tells you nothing about
+  conditions.
+- **Give the receiver a clear view.**  It needs open sky.  Indoors, under a roof, or hard up
+  against a wall all slow it down or stop it.
+
+Once the fix arrives, the Lock Type on the GPS Status screen tells you how good it is:
+
+- **Accurate** is a 2D fix.  It gives latitude and longitude without altitude.
+- **Precise** is a 3D fix, which adds altitude.
+
+Both are plenty.  The PiFinder only needs a rough position on Earth to point your telescope,
+so a night that reads Accurate works exactly as well as one that reads Precise.  **Limited**
+and **Basic** appear before a full fix, while the receiver is still settling.
+
+.. note::
+   You do not have to wait.  If the sky is good and you would rather start observing, enter
+   your location and time by hand as described above.  Everything works from there.
+
 Update Software
 ------------------
 
@@ -1130,6 +1180,16 @@ the PiFinder solves again.
    one everyone forgets, because you unlocked it to rotate between captures.  A clutch that
    slips while you work the adjusters quietly ruins the correction.  On a platform, leave
    the telescope alone entirely and adjust only the platform.
+
+.. note::
+   Turn Sleep Time off before you start.  Adjuster knobs move the telescope too slowly for
+   the motion sensor to notice, so the screen dims part way through an adjustment even
+   though you are working.  Only key presses hold the PiFinder awake, and the longest sleep
+   delay is 2 minutes, so **Off** is the setting that suits this job.  Sleep Time sits under
+   User Pref in the :ref:`user_guide:settings menu`.
+
+   The same applies to a motorized mount at guide speed.  A slow slew may not register as
+   motion, so the Push-To numbers appear to freeze and then jump when the PiFinder wakes.
 
 .. image:: images/user_guide/polar_align_adjust_docs.png
 
