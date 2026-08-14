@@ -1137,10 +1137,10 @@ The top line summarises the measurement: the number of points used, the total sw
 for a three-point solve, a fit rating of ``ok``, ``mid``, or ``bad``.  A poor fit usually
 means something moved between captures that shouldn't have, so it's worth redoing.
 
-Press and hold **SQUARE** for the marking menu, which gathers the advanced actions.
-**STATS** opens a read-only detail view.  **REDO PT** drops just the last point so you can
-recapture it.  **Roll On/Off** switches between a full three-axis fit and an RA/Dec-only fit
-that ignores camera roll, which is useful after a camera flop.
+Press and hold **SQUARE** to open the :ref:`user_guide:quick menu`, which gathers the
+advanced actions.  **STATS** opens a read-only detail view.  **REDO PT** drops just the
+last point so you can recapture it.  **Roll On/Off** switches between a full three-axis
+fit and an RA/Dec-only fit that ignores camera roll, which is useful after a camera flop.
 :ref:`user_guide:getting a good measurement` covers which fit suits each mount.
 
 .. image:: images/user_guide/polar_align_marking_menu_docs.png
@@ -1169,7 +1169,7 @@ On an equatorial mount:
   Measure from wherever that axis points now, not from where the true pole is.
 - Sweep roughly 30–45° in right ascension: take the middle capture with the PiFinder's
   screen roughly vertical, and the first and last captures 15–22° either side of it.
-- Set Roll Off in the marking menu.  Flexure shows up most strongly in roll, so the fit is
+- Set Roll Off in the Quick Menu.  Flexure shows up most strongly in roll, so the fit is
   better without it.
 
 On an equatorial platform:
