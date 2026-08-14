@@ -93,6 +93,25 @@ _Avoid_: detector, star detector.
 The plate-solving library bundled under `python/PiFinder/tetra3/`. Uses `tetra3/data/default_database.npz`.
 _Avoid_: solver (that name is overloaded — see below).
 
+**FOV gate**:
+The `fov_estimate` / `fov_max_error` pair passed to tetra3 on every solve, and
+the window it defines. Tetra3 enforces it twice — candidate patterns whose
+implied field of view falls outside are discarded before verification, and any
+survivor is rejected after fitting — so a frame whose true field of view lies
+outside the window does not solve at all, however many centroids it has. Both
+values are derived from the **optical train** (see
+[Camera](../camera/CONTEXT.md)); neither is a tuning constant. See
+[ADR 0027](../../adr/0027-fov-gate-derived-from-optical-train.md).
+_Avoid_: FOV estimate (naming only half the pair), FOV tolerance, solver
+window.
+
+**Fitted FOV** (`SolveDiagnostics.FOV`):
+The field of view tetra3 measured from the frame on a successful solve. An
+independent observation, not an echo of the FOV gate: comparing it against the
+derived field of view is how a mis-stated lens is diagnosed.
+_Avoid_: FOV (unqualified — see the flagged ambiguity in
+[Camera](../camera/CONTEXT.md)), solved FOV.
+
 **Solver** (the process):
 The PiFinder process owning `solver.py`. It drives the plate-solve loop and is the sole runtime caller of `SQM.calculate()`.
 _Avoid_: tetra3 (the library is one thing the solver process uses; they are not synonyms).
