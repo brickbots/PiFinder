@@ -129,7 +129,7 @@ moves with sensor state, so this measurement supersedes both the profile
 constant and any wizard-measured bias offset once its fit is **leased**. It
 needs no lens cap and no dark frame. Say "tracked black level", not "auto
 bias" or "dynamic calibration" — it measures one specific quantity and does
-not calibrate anything else.
+not calibrate anything else. See ADR 0027.
 
 **Lease**:
 The gate that decides whether a tracked black level is trusted enough to

@@ -223,7 +223,10 @@ and kills short exposures outright as `background_not_resolved_above_pedestal`.
 The dark-current rate stays the wizard's. The intercept fit cannot separate
 dark current from sky, because both are linear in exposure. Until a confident
 fit exists, `pedestal()` returns `None` and the caller falls back to the
-profile constant.
+profile constant. Trust is a lease rather than a latch: an accepted fit expires
+after `max_age_seconds` and must be re-earned. See
+[ADR 0027](../adr/0027-tracked-black-level-supersedes-stored-bias.md) for the
+decision and its gates.
 
 Read noise is zero-mean RMS uncertainty and is never subtracted as signal.
 `NoiseFloorEstimator` retains a low image percentile only as a diagnostic;
@@ -354,5 +357,7 @@ was measured with no calibration file present.
 
 See [`sqm/CONTEXT.md`](./sqm/CONTEXT.md) for canonical terminology,
 [`ADR-0022`](../adr/0022-sqm-radiometer-first.md) for radiometer-first ownership,
-and [`ADR-0002`](../adr/0002-sqm-published-value-uncorrected.md) for the
-no-altitude-correction decision.
+[`ADR-0002`](../adr/0002-sqm-published-value-uncorrected.md) for the
+no-altitude-correction decision, and
+[`ADR-0027`](../adr/0027-tracked-black-level-supersedes-stored-bias.md) for why a
+tracked black level outranks any stored bias.
