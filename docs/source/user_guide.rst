@@ -349,6 +349,25 @@ example, and the sky brightness is unknown until the camera has estimated it.
    Treat it as a guide rather than a guarantee.  Averted vision, transparency, and how
    dark-adapted you are all play their part at the eyepiece.
 
+Sky Quality Meter
+------------------
+
+The PiFinder measures how dark your sky is from its own camera.  It reports the result in
+magnitudes per square arcsecond, where higher numbers mean darker skies.  To see the
+reading, select SQM from the main menu.
+
+The screen shows the current figure in large digits, along with the Bortle class that
+describes the same sky in words.  Press **SQUARE** for a plain-language description of what
+you can expect to see under a sky of that class.
+
+There is nothing to set up.  The PiFinder recognises its own camera and starts measuring
+when you turn it on.  The reading needs no plate solve, so it keeps updating through thin
+cloud and through frames with too few stars to solve.
+
+The :doc:`Sky Quality Meter page <sqm>` covers the screen in full, explains what the number
+means, and describes the optional calibration wizard: when you need it, how to run it, and
+what it changes.
+
 Star Chart
 -------------
 

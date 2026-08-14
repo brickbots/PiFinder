@@ -180,9 +180,10 @@ SQM
    A Sky Quality Meter that estimates how dark your sky is.  The PiFinder
    reports the estimate in magnitudes per square arcsecond.  Higher numbers
    mean darker skies: roughly 21–22 at a dark site, 18–19 in the suburbs, and
-   16–17 under city lights.  The reading is a photometric measurement from a
-   plate-solved camera frame, not a separate hardware meter.  A recent solve
-   therefore gives the most reliable value.
+   16–17 under city lights.  The PiFinder measures the sky from its own camera,
+   not from a separate hardware meter.  It does not need a plate solve to do
+   this, so the reading keeps updating through cloud and star-poor frames.  See
+   :doc:`sqm` for how to read the screen and when to calibrate.
 
 
 Settings
