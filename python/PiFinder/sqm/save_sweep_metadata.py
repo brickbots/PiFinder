@@ -10,6 +10,8 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 import pytz
 
+from PiFinder.optics import optical_train_for_profile
+
 from .sqm import SQM
 
 logger = logging.getLogger("SweepMetadata")
@@ -28,6 +30,7 @@ def save_sweep_metadata(
     azimuth_deg: Optional[float] = None,
     noise_floor_details: Optional[Dict[str, Any]] = None,
     camera_type: Optional[str] = None,
+    lens_key: Optional[str] = None,
     notes: str = "",
 ):
     """
@@ -50,6 +53,8 @@ def save_sweep_metadata(
             Contains: noise_floor_adu, dark_pixel_raw, dark_pixel_smoothed, theoretical_floor,
             temporal_noise, read_noise, dark_current_contribution, bias_offset, etc.
         camera_type: Camera type string (optional)
+        lens_key: Configured lens (optional). Omitted means the sensor's
+            shipped lens, which is what the device itself assumes.
         notes: Any additional notes
     """
     metadata: Dict[str, Any] = {
@@ -98,6 +103,7 @@ def save_sweep_metadata(
     if camera_type is not None:
         try:
             profile = SQM(camera_type).profile
+            train = optical_train_for_profile(profile, lens_key)
             metadata["camera"] = {
                 "type": camera_type,
                 "bias_offset": profile.bias_offset,
@@ -111,7 +117,15 @@ def save_sweep_metadata(
                 "radiometric_colour_slope": profile.radiometric_colour_slope,
                 "radiometric_colour_pivot": profile.radiometric_colour_pivot,
                 "radiometric_colour_range": list(profile.radiometric_colour_range),
-                "radiometric_fov_degrees": profile.radiometric_fov_degrees,
+                # Derived from the optical train, not looked up per sensor:
+                # the same sensor images a different field on a different
+                # lens. Record the lens alongside it or a later reader cannot
+                # tell which train produced these frames.
+                "radiometric_fov_degrees": train.fov_degrees,
+                "lens": train.lens.key,
+                "lens_effective_focal_length_mm": (
+                    train.lens.effective_focal_length_mm
+                ),
                 # Extent of the archived raw frames. Sweeps from the
                 # cropped era carry no such field; these hold the whole
                 # sensor, which a reader reduces to the crop with

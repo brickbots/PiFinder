@@ -18,9 +18,15 @@ from skyfield.api import Star, load, Angle
 from skyfield.data import hipparcos, stellarium
 from skyfield.projections import build_stereographic_projection
 from PiFinder.calc_utils import sf_utils
+from PiFinder.optics import build_optical_train
 
 
 logger = logging.getLogger("Plot")
+
+# Frustum shading needs a camera field of view before anyone has told it which
+# optical train is fitted. Derive the stand-in rather than writing a number
+# down, so it stays consistent with the trains callers will actually pass.
+DEFAULT_CAMERA_FOV_DEGREES = build_optical_train("imx296").fov_degrees
 
 _RAW_STARS_DF = None
 
@@ -69,9 +75,17 @@ class Starfield:
     specified RA/DEC + roll
     """
 
-    def __init__(self, colors, resolution, mag_limit=7, fov=10.2):
+    def __init__(self, colors, resolution, mag_limit=7, fov=10.2, camera_fov=None):
         self.colors = colors
         self.resolution = resolution
+        # Angular width the camera actually images, used to shade the part of
+        # the chart the camera cannot see. Distinct from self.fov, which is
+        # the chart's own zoom level. Every caller that shades a frustum
+        # resolves the live optical train and calls set_camera_fov(); this
+        # default only covers a caller that has not.
+        self.camera_fov = (
+            camera_fov if camera_fov is not None else DEFAULT_CAMERA_FOV_DEGREES
+        )
         utctime = timez.utc(2023, 1, 1, 2, 0, 0)
         ts = sf_utils.ts
         self.t = ts.from_datetime(utctime)
@@ -159,6 +173,10 @@ class Starfield:
 
     def set_mag_limit(self, mag_limit):
         self.mag_limit = mag_limit
+
+    def set_camera_fov(self, camera_fov: float):
+        """Set the angular width the camera images, for frustum shading."""
+        self.camera_fov = camera_fov
 
     def set_fov(self, fov):
         self.fov = fov
@@ -384,7 +402,7 @@ class Starfield:
         W, H = self.render_size
         cx, cy = self.render_center
 
-        frustrum_perc = 9.5 / self.fov
+        frustrum_perc = self.camera_fov / self.fov
         if shade_frustrum and frustrum_perc < 0.99:
             idraw.rectangle([0, 0, W, H], fill=32)
 

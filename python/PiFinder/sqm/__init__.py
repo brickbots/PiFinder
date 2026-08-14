@@ -8,11 +8,18 @@ This module provides:
 - CameraProfile: Dataclass containing camera hardware and noise characteristics
 - get_camera_profile: Lookup camera profile by type (e.g., "imx296", "hq")
 - detect_camera_type: Map hardware IDs to profile names
+
+The last three now live in PiFinder.camera_profiles and are re-exported here
+for the callers that predate the move.
 """
 
 from .sqm import SQM
 from .noise_floor import NoiseFloorEstimator
-from .camera_profiles import get_camera_profile, detect_camera_type, CameraProfile
+from PiFinder.camera_profiles import (
+    get_camera_profile,
+    detect_camera_type,
+    CameraProfile,
+)
 
 __all__ = [
     "SQM",

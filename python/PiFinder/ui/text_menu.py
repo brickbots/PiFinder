@@ -61,7 +61,16 @@ class UITextMenu(UIModule):
                     _("Select None")
                 ] + self._menu_items  # TRANSLATORS: catalog filter deselect all
             else:
-                self._selected_values = [self.config_object.get_option(config_option)]
+                stored_value = self.config_object.get_option(config_option)
+                if stored_value is None and self.item_definition.get("value_callback"):
+                    # The option is unset and this menu knows how to work out
+                    # its own default (typically from detected hardware, where
+                    # a single written-down default would be wrong on some
+                    # devices). Keep what value_callback already resolved.
+                    stored_value = (
+                        self._selected_values[0] if self._selected_values else None
+                    )
+                self._selected_values = [stored_value]
                 if self._selected_values == [None]:
                     # default to the first option... just in case
                     self._selected_values = [self.item_definition["items"][0]["value"]]

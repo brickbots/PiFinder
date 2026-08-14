@@ -18,7 +18,9 @@ import pytz
 from typing import Any, TYPE_CHECKING
 from PiFinder import utils, calc_utils
 from PiFinder import timez
+from PiFinder.camera_profiles import get_camera_profile
 from PiFinder.locations import Location as SavedLocation
+from PiFinder.optics import resolve_lens
 from PiFinder.state import Location
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.textentry import UITextEntry
@@ -208,6 +210,33 @@ def switch_cam_imx462(ui_module: UIModule) -> None:
     ui_module.message(_("Switching cam"), 2)
     sys_utils.switch_cam_imx462()
     restart_system(ui_module)
+
+
+def get_camera_lens(ui_module: UIModule) -> list[str]:
+    """Lens the device is currently working from.
+
+    Not simply the config value: an install that predates the setting has none
+    stored, and which lens that means depends on the detected sensor. Resolve
+    it the same way the solver does so the menu shows what is actually in
+    force rather than an arbitrary first entry.
+    """
+    profile = get_camera_profile(ui_module.shared_state.camera_type())
+    return [
+        resolve_lens(profile, ui_module.config_object.get_option("camera_lens")).key
+    ]
+
+
+def set_camera_lens(ui_module: UIModule) -> None:
+    """Publish a lens change to the processes that derive angles from it.
+
+    No restart: the solver re-reads the lens per frame, so the new FOV gate,
+    radiometric field width and frustum shading all take effect on the next
+    frame. If the lens named here is not the one fitted, solving stops
+    outright -- deliberately, see docs/adr/0027.
+    """
+    lens_key = ui_module.config_object.get_option("camera_lens")
+    ui_module.shared_state.set_camera_lens(lens_key)
+    logger.info("Camera lens set to %s", lens_key)
 
 
 def get_camera_type(ui_module: UIModule) -> list[str]:

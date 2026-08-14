@@ -22,7 +22,13 @@ import logging
 from flask import request, session, Response
 from PIL import Image
 
+from PiFinder.optics import OpticalTrainResolver
+
 logger = logging.getLogger("PiFinderAPI")
+
+# One resolver for the chart endpoint: the server is single-instance and the
+# resolver only rebuilds when the sensor or lens actually changes.
+_API_OPTICAL_TRAIN = OpticalTrainResolver()
 
 
 def _json_response(data, status=200):
@@ -454,6 +460,16 @@ def register_api_routes(app, server_instance, require_auth=False):
                 resolution=(render_size, render_size),
                 mag_limit=7,
                 fov=fov,
+            )
+
+            # The frustum marks what the camera images, so it follows the
+            # fitted optical train. Set per request rather than baked into the
+            # cache key: the Starfield is expensive to build and is reused
+            # across requests, while the lens can change under it.
+            starfield.set_camera_fov(
+                _API_OPTICAL_TRAIN.resolve(
+                    ss.camera_type(), ss.camera_lens()
+                ).fov_degrees
             )
 
             # --------------------------------------------------
