@@ -98,8 +98,9 @@ If Align (Day) shows nothing whatsoever, the **Camera Type** setting probably do
 the camera in your PiFinder.
 
 - From the main menu, select Settings, scroll down to Advanced, then select Camera Type and
-  try a different option.  The v3 sensors are ``imx462`` and ``imx296``.  Older v2 cameras are
-  ``imx477``.  Trying each one does no harm.
+  try a different option.  A rev4 PiFinder takes ``v3 - imx462``.  There is no separate rev4
+  entry, and that one is correct.  The v3 sensors are ``v3 - imx462`` and ``v3 - imx296``,
+  and older v2 cameras are ``v2 - imx477``.  Trying each one does no harm.
 - **After changing Camera Type, turn the PiFinder fully off and on again.**  A software
   restart alone does not apply it.
 - A software update can quietly reset this setting, so re-check it after you update.
@@ -137,6 +138,34 @@ Work through these in order:
 .. note::
    On older v2 cameras the lens has two rings, a focus ring and an aperture ring.  The
    **aperture must be fully open** for the PiFinder to see enough stars to solve.
+
+
+The GPS never locks
+-------------------
+
+A first lock takes several minutes, and often longer.  The receiver has to download orbit
+data from the satellites before it can fix a position, and that download runs at a fixed
+slow rate whatever the sky is like.  Most reports of a dead GPS turn out to be a wait that
+was cut short.
+
+- **Open the Start menu and select GPS Status, then leave the PiFinder there.**  The screen
+  turns the camera off to help the receiver, and shows **Lock boost on** while it does.
+- **"Sats seen/used: 0/0" is not a progress bar.**  It sits at 0/0 for most of the wait and
+  then climbs quickly near the end.
+- **Don't turn the PiFinder off and on again to check.**  A restart throws away the partial
+  download and starts over.  Repeated restarts can stop a lock arriving at all.
+- **Get the receiver under open sky.**  It does not work indoors or under a roof.
+- **Don't compare it with your phone.**  Phones use assisted GPS over the mobile network, so
+  they lock in seconds.  That comparison says nothing about your PiFinder or your sky.
+
+If you would rather not wait, enter your location and time by hand and start observing.  See
+:ref:`user_guide:place & time`.  For what the lock types mean, see
+:ref:`user_guide:getting a gps lock`.
+
+.. note::
+   A GPS lock is not needed to focus, align, or push to objects once your location and time
+   are set.  It is needed before the Planets and Comets catalogs fill in, because those
+   depend on your time and place.
 
 
 An object has "disappeared" from a list (for example, M45)
@@ -190,6 +219,13 @@ all expected:
 
 Frequently Asked Questions
 --------------------------
+
+**It's cloudy.  Can I still learn my way around?**
+   Yes.  Test Mode solves a saved star image from disk and supplies a stand-in location, so
+   the PiFinder behaves as though it is pointed at the sky.  You can explore the menus,
+   catalogs, filters and Push-To indoors.  From the main menu, select Tools, then select Test
+   Mode.  It stays on until you restart the PiFinder, and it blocks real observing while it
+   runs, so restart before you go out.
 
 **Do I still need a finder scope or Telrad?**
    Not for finding objects.  Once aligned to your telescope, the PiFinder replaces a
@@ -252,11 +288,17 @@ Frequently Asked Questions
 **Can I use the PiFinder on an EQ mount?**
    Yes.  The PiFinder works with any mount, and plate solving behaves the same whatever the
    mount type.  Switch it to EQ mode in the :ref:`user_guide:settings menu` by setting
-   "Mount Type" to EQ, which presents Push-To distances in RA/Dec instead of Alt/Az.  On
-   software 2.5.0 and earlier the accelerometer tracking doesn't work correctly in EQ mode, so
-   the Push-To numbers are unreliable while you move the telescope.  Once you stop and the
-   camera solves, the correct distances appear.  Version 2.6.0 and later support EQ mode
-   fully, with accelerometer tracking.
+   "Mount Type" to EQ, which presents Push-To distances in RA/Dec instead of Alt/Az.
+
+   An equatorial *platform* is the exception.  Leave "Mount Type" on Alt/Az when you put an
+   alt-az telescope, such as a Dobsonian, on a tracking platform.  You still move the
+   telescope in altitude and azimuth, and the PiFinder corrects for the platform's rotation
+   on its own.  Setting EQ mode there is what makes the Push-To corrections jump around.
+
+   On software 2.5.0 and earlier the accelerometer tracking doesn't work correctly in EQ
+   mode, so the Push-To numbers are unreliable while you move the telescope.  Once you stop
+   and the camera solves, the correct distances appear.  Version 2.6.0 and later support EQ
+   mode fully, with accelerometer tracking.
 
 **Can I control my motorized (GoTo) mount with the PiFinder?**
    Not yet.  This is in active development.  It will rely on INDI support for your mount, so

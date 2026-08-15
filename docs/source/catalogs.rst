@@ -11,6 +11,10 @@ entries to scroll. For those, use **Name Search** to jump to an object by its
 designation, or sort by **Nearest** to show the objects closest to where your
 telescope points.
 
+To observe objects the PiFinder doesn't carry, build your own list rather than
+adding a catalog. See :ref:`user_guide:observing lists` for importing a list as a
+CSV file, and :ref:`user_guide:custom targets` for entering coordinates by hand.
+
 Abl
 ----
 The Abell Catalog of Planetary Nebulae (George O. Abell, 1966): 79 confirmed planetary nebulae.
@@ -26,6 +30,20 @@ Barnard's Catalogue of 349 Dark Objects
 C
 ----------
 Caldwell catalog
+
+CM
+----
+Comets. The PiFinder computes each comet's position from orbital elements
+published by the Minor Planet Center.
+
+The catalog fills in once the PiFinder has a GPS lock, because a comet's position
+depends on your time and place. Until then it appears empty.
+
+The PiFinder refreshes the orbital elements by itself. Whenever it starts up with
+internet access in Client mode, it checks the Minor Planet Center for a newer set
+and downloads it. There is no manual update to run. If you plan a night of comet
+observing, turn the PiFinder on at home on WiFi for 15 to 20 minutes beforehand
+so it can collect fresh elements.
 
 Col
 ----------
@@ -58,6 +76,15 @@ Messier catalog
 NGC
 ----------
 NGC 2000.0, The Complete New General Catalogue and Index Catalogue of Nebulae and Star Clusters by J.L.E. Dreyer (edited by R.W. Sinnott).
+
+PL
+----
+Mercury, Venus, Mars, Jupiter, Saturn, Uranus and Neptune, along with the Moon and
+Pluto. The Sun is not included. The PiFinder computes their positions for the
+moment you look, and updates them as the night goes on.
+
+The catalog fills in once the PiFinder has a GPS lock, because a planet's position
+depends on your time and place. Until then it appears empty.
 
 RDS
 ----
