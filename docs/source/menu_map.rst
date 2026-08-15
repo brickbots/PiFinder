@@ -50,8 +50,11 @@ Focus
    Magnified views of the four brightest stars the camera sees, with an **HFD**
    readout of how spread-out they are.  Adjust focus until the number is as low
    as it will go.  Sharp stars let the PiFinder solve.  Press **SQUARE** to
-   cycle the Stars, Single, Image, and Stats views.  The Quick Menu here
-   adjusts the camera Exposure.
+   cycle the Stars, Single, Image, and Stats views.  The screen holds the camera
+   exposure steady while it is open, so only the lens changes what you see.
+   Press **UP** and **DOWN** to step the exposure.  Your previous exposure
+   setting returns when you leave.  The Quick Menu here adjusts the camera
+   Exposure, and a value selected there is saved.
 Align
    Align the PiFinder to your eyepiece.  Center a known star and confirm.  Your
    Push-To distances then account for any offset between the camera and where
@@ -180,9 +183,10 @@ SQM
    A Sky Quality Meter that estimates how dark your sky is.  The PiFinder
    reports the estimate in magnitudes per square arcsecond.  Higher numbers
    mean darker skies: roughly 21–22 at a dark site, 18–19 in the suburbs, and
-   16–17 under city lights.  The reading is a photometric measurement from a
-   plate-solved camera frame, not a separate hardware meter.  A recent solve
-   therefore gives the most reliable value.
+   16–17 under city lights.  The PiFinder measures the sky from its own camera,
+   not from a separate hardware meter.  It does not need a plate solve to do
+   this, so the reading keeps updating through cloud and star-poor frames.  See
+   :doc:`sqm` for how to read the screen and when to calibrate.
 
 
 Settings
@@ -219,7 +223,8 @@ User Pref...
       have the buzzer.  See :ref:`user_guide:sounds`.
    Sleep Time
       How long the PiFinder waits before power-save dims the screen.  Values:
-      Off, 10s to 2m.
+      Off, 10s to 2m.  Only key presses reset the timer.  Moving the PiFinder
+      wakes it from sleep but does not keep it awake.
    Menu Anim
       Menu scrolling animation speed.  Values: Off, Fast, Medium, Slow.
    Scroll Speed
@@ -275,7 +280,8 @@ Advanced
       Rev4 Straight.  Changing this restarts the PiFinder.
    Camera Type
       Which camera sensor your PiFinder has.
-      Values: v2 (imx477), v3 (imx296), v3 (imx462).
+      Values: v2 - imx477, v3 - imx296, v3 - imx462.  A rev4 PiFinder takes
+      v3 - imx462.  There is no separate rev4 entry, and that one is correct.
    GPS Settings
       Configure the GPS receiver.
 

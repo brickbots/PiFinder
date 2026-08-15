@@ -217,7 +217,13 @@ rotated the body into:
 - **Rev4 Left**: the screen faces left, for a Dobsonian or Newtonian with the focuser on
   the left of the tube.
 - **Rev4 Right**: the screen faces right, for a focuser on the right.
-- **Rev4 Straight**: the screen faces back, directly away from the camera.
+- **Rev4 Straight**: the screen faces back, set at 45°.
+
+Straight suits a telescope you focus from the rear, such as a refractor or a
+Schmidt-Cassegrain. The screen is angled rather than flat, so you read it from behind the
+telescope, where you already stand to observe. This is why rev4 has no separate Flat
+configuration. If the telescope sits above head height, or you point it very high, rotate
+the body left or right instead. The screen is easier to read from the side.
 
 **AS Bloom** and **AS Heart** are the exceptions: they name a telescope rather than an
 orientation. You can order Analog Sky's Bloom and Heart with a PiFinder fully integrated
@@ -247,9 +253,9 @@ Any mounting angle works, as long as the camera points where the telescope point
 still prefer it roughly level so the screen is easy to read.
 
 The dovetail is adjustable, so you can set a comfortable angle even if your finder shoe
-isn't right at the top of the optical tube. Loosen the two dovetail screws, set the PiFinder
-on your telescope, adjust the angle to suit, then remove it and tighten the two screws.
-You're all set for a night of observing.
+isn't right at the top of the optical tube. Loosen the single M5 bolt that holds the foot,
+tilt the PiFinder to the angle that suits you, then tighten the bolt again. You're all set
+for a night of observing.
 
 .. note::
    * Mount the PiFinder so the camera has an unimpeded view of the sky.
@@ -307,7 +313,10 @@ relies on the accelerometer. An 'X' means it hasn't worked out where it's pointi
 
    Leave the PiFinder on the GPS Status screen to speed up the lock. That screen turns the
    camera off, which reduces electromagnetic noise and helps the receiver see more
-   satellites.
+   satellites. "Sats seen/used" reads 0/0 for most of the wait, so don't read it as a
+   progress bar, and don't turn the PiFinder off and on again while you wait. That restarts
+   the process from the beginning. See :ref:`user_guide:getting a gps lock` for the full
+   picture.
 
 .. note::
    No GPS, or don't want to wait for a lock?  Enter your location and time by hand and
@@ -328,8 +337,12 @@ brighter or dimmer than the screen, use **Key Bright** in the
 .. note::
    After a while with no activity, the PiFinder dims the screen and slows its exposures,
    solving, and other processes to save battery and prevent glare at the eyepiece. The
-   default is 30 seconds. You can change it, or turn it off, in the
+   default is 30 seconds. You can change it, or turn it off, with Sleep Time in the
    :ref:`user_guide:settings menu`. Any key press, or moving the PiFinder, wakes it.
+
+   Only key presses keep it awake. Motion wakes the PiFinder, but it does not reset the
+   timer, so slow work at the telescope can dim the screen while you watch it. Set Sleep
+   Time to Off when that gets in the way.
 
 Start with the Start menu
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -387,6 +400,17 @@ star is magnified about 10x.  A badly defocused star automatically gets a wider 
 broad disc or donut isn't clipped, and it tightens back up as focus improves.  The **+**
 and **-** keys adjust the magnification between 4x and 16x.
 
+The Focus screen holds the camera exposure steady while you work.  Everywhere else the
+PiFinder sets the exposure itself from the results of each plate solve, but soft stars are
+exactly what stops it solving.  The exposure would drift while you turn the lens, moving the
+HFD readout and changing which stars you see.  Holding it steady means every change on screen
+comes from the lens.
+
+Press **UP** for a longer exposure and **DOWN** for a shorter one.  These step through the
+same values as the Camera Exp setting, from 0.025s to 1s.  The exposure appears briefly in
+the top left when you open the screen and each time you change it.  Nothing you set here is
+saved.  The PiFinder restores your previous exposure setting when you leave.
+
 At the center of the screen is the **HFD** readout.  This is the Half-Flux Diameter of the
 detected stars, in camera pixels, and it measures how spread out the starlight is.  A
 smaller number means tighter, sharper stars, so screw the lens slowly in or out and chase
@@ -411,8 +435,8 @@ Press **SQUARE** to cycle through four views:
 * **Single**: the brightest star alone at twice the magnification, with the HFD readout
   and trace along the bottom.
 * **Image**: the full camera frame, brightened for the screen.
-* **Stats**: the HFD alongside an FWHM estimate, the detected-star count, exposure, gain,
-  and a histogram of the raw image.
+* **Stats**: the HFD alongside an FWHM estimate, the detected-star count, the held exposure
+  marked ``HOLD``, gain, and a histogram of the raw image.
 
 .. image:: images/quick_start/focus_single_docs.png
    :width: 45%
@@ -420,7 +444,8 @@ Press **SQUARE** to cycle through four views:
    :width: 45%
 
 Press and hold **SQUARE** in any view to open the :ref:`user_guide:quick menu`, which offers
-the camera exposure setting.  With dark enough skies and good focus, the camera icon appears
+the camera exposure setting.  A value you select there is saved, unlike the **UP** and
+**DOWN** steps on this screen.  With dark enough skies and good focus, the camera icon appears
 in the top right and the current constellation shows in the title bar.  Congratulations, the
 PiFinder knows where it's pointing!
 
@@ -428,6 +453,16 @@ If you touch up focus on a later night, judge it here on the Focus screen rather
 the camera icon.  A solve takes a second or so to catch up with each change of the lens, so
 the icon always lags a little behind.  The HFD readout responds much faster, and the
 technique is the same: a small turn, then a pause to let things settle.
+
+A rev4 PiFinder has a lock ring on the lens.  Once you are happy with focus, tighten the
+ring against the lens holder by hand.  The focus then holds through transport, so you do
+not set it again every time you move the telescope.  To change focus later, loosen the
+ring, adjust, then tighten it again.
+
+Focus first, lock second.  Your PiFinder is focused on the bench before it ships, which is
+close but not the best it can do.  Refine it here under real stars, chasing the lowest HFD,
+and only then tighten the ring.  Lock it straight out of the box and you lock in "pretty
+good" rather than sharp.
 
 
 .. note::
@@ -574,7 +609,11 @@ switch between them.
 Under partially obstructed skies, or when a lock is just taking longer than you'd like,
 leave this screen active to boost the GPS signal by temporarily stopping the camera. Like
 most electronics, the camera generates electromagnetic noise that can drown out the faint
-GPS satellite signals.
+GPS satellite signals. The screen shows "Lock boost on" while it does this.
+
+A first lock takes several minutes, and the satellite counts stay at 0/0 for most of that
+time. For what the counts and the lock types mean, and why a restart sets the wait back to
+the start, see :ref:`user_guide:getting a gps lock`.
 
 Once a lock shows, press the **LEFT** arrow to go back to the menu. This turns the camera on
 again, and you're ready to find your first object.

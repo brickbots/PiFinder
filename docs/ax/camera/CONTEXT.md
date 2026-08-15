@@ -23,6 +23,16 @@ _Avoid_: driver AE, daytime AE (it's the *use*, not the mechanism).
 **Manual exposure**:
 The regime where the user fixes the exposure time. Any manual adjustment (including nudging exposure up/down) drops the camera out of both auto-exposure regimes.
 
+**Saved exposure**:
+The exposure regime the user last chose and the camera boots into: either a fixed exposure time or auto. Distinct from the exposure actually in effect, which under solver-driven auto-exposure is wherever the controller has currently settled.
+_Avoid_: `camera_exp` (the config key — a storage location, not the concept).
+
+**Exposure hold**:
+A screen taking the exposure for the duration of a visit: it enters manual exposure at the exposure already in effect, leaves the saved exposure untouched, and hands the previous regime back on exit. A hold is **transient** — it is never persisted, so it survives only as long as the screen is open, and it is not a fourth regime (the camera is in manual exposure throughout).
+
+Screens hold the exposure when a moving exposure would corrupt what the user is there to judge or measure: the Focus screen (defocus starves the solver of matches, so auto-exposure would walk the exposure — and with it the focus indicator and which stars appear — while the user is reading a change in focus out of those same frames), and SQM calibration (its frames are photometric measurements).
+_Avoid_: freezing/locking exposure (the exposure still changes when the user asks), temporary manual exposure.
+
 ### Controllers
 
 **Controller**:
@@ -191,3 +201,11 @@ survives only in the `shade_frustrum` argument name); "visible stars" meaning
 > **Dev:** Does the SQM screen change any of this?
 >
 > **Domain:** While it's active, the controller flips to the background controller — exposure tracks the noise floor instead of `Matches`, and there is no zero-match recovery at all. Leaving the screen flips back. None of that is persisted.
+>
+> **Dev:** And the Focus screen — the exposure it shows doesn't move at all.
+>
+> **Domain:** That's an exposure hold. It takes the exposure in effect on entry and stays there. Otherwise the very thing the user is on that screen to fix — defocus — starves the solver of matches, so the controller would keep adjusting, and eventually hand over to recovery, moving the focus indicator and the visible stars for reasons that have nothing to do with the lens the user just turned.
+>
+> **Dev:** So a badly wrong exposure just stays wrong there?
+>
+> **Domain:** Until the user steps it themselves, yes — that's the trade the hold makes. It's why the screen offers exposure steps at all, and why it reports the held exposure rather than the saved one.
