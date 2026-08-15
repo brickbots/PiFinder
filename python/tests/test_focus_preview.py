@@ -17,9 +17,12 @@ from PiFinder.ui.preview import (
     DISPLAY_SINGLE,
     DISPLAY_STARS,
     DISPLAY_STATS,
+    FOCUS_DEFAULT_EXPOSURE,
+    FOCUS_EXPOSURE_LADDER,
     FOCUS_NOMINAL_ZOOM,
     UIPreview,
     focus_crop_size,
+    step_exposure,
 )
 
 
@@ -538,6 +541,7 @@ def test_stats_renderer_draws_metrics_and_histogram():
     preview.screen = Image.new("RGB", preview.display_class.resolution)
     preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
     preview.config_object = SimpleNamespace(get_option=lambda name: "auto")
+    preview._exposure_hold_active = False
     preview.last_focus_result = FocusResult(
         median_hfd=8.2,
         median_fwhm=6.4,
@@ -575,6 +579,7 @@ def test_stats_hfd_uses_question_marks_when_measurement_is_unavailable(monkeypat
     preview.screen = Image.new("RGB", preview.display_class.resolution)
     preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
     preview.config_object = SimpleNamespace(get_option=lambda name: "auto")
+    preview._exposure_hold_active = False
     preview.last_focus_result = None
     drawn_text = []
     original_text = preview.draw.text
@@ -591,3 +596,243 @@ def test_stats_hfd_uses_question_marks_when_measurement_is_unavailable(monkeypat
 
     assert "?.?" in drawn_text
     assert ">50" not in drawn_text
+
+
+def _hold_preview(*, camera_exp="auto", exposure_time=437_000):
+    """A UIPreview with just enough wired up to exercise the exposure hold."""
+    preview = object.__new__(UIPreview)
+    preview._exposure_hold_active = False
+    preview._saved_camera_exp = None
+    preview._held_exposure_us = None
+    preview._exposure_label_until = 0.0
+    preview.config_object = SimpleNamespace(get_option=lambda _name: camera_exp)
+    preview.shared_state = SimpleNamespace(
+        last_image_metadata=lambda: {"exposure_time": exposure_time}
+    )
+    preview.camera_commands = []
+    preview.command_queues = {
+        "camera": SimpleNamespace(put=preview.camera_commands.append)
+    }
+    return preview
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("current", "direction", "expected"),
+    [
+        # An auto-settled exposure sits between rungs; one nudge lands on one.
+        (437_000, -1, 400_000),
+        (437_000, 1, 800_000),
+        # From a rung, step to its neighbour rather than standing still.
+        (400_000, 1, 800_000),
+        (400_000, -1, 200_000),
+        # The ladder ends hold instead of wrapping or clamping the other way.
+        (1_000_000, 1, 1_000_000),
+        (25_000, -1, 25_000),
+        # An exposure left outside the ladder is walked back into it.
+        (1_500_000, -1, 1_000_000),
+        (10_000, 1, 25_000),
+    ],
+)
+def test_exposure_steps_land_on_camera_exposure_menu_rungs(
+    current, direction, expected
+):
+    assert step_exposure(current, direction) == expected
+
+
+@pytest.mark.unit
+def test_focus_exposure_ladder_matches_the_camera_exposure_menu():
+    """The Focus screen must only offer exposures the menu can also set."""
+    import PiFinder.i18n  # noqa: F401
+    from PiFinder.ui import menu_structure
+
+    def find_camera_exposure(node):
+        if isinstance(node, dict):
+            if node.get("label") == "camera_exposure":
+                return node
+            for child in node.get("items", []):
+                found = find_camera_exposure(child)
+                if found is not None:
+                    return found
+        return None
+
+    menu = find_camera_exposure(menu_structure.pifinder_menu)
+    assert menu is not None, "Camera Exp menu not found"
+    menu_exposures = tuple(
+        item["value"] for item in menu["items"] if item["value"] != "auto"
+    )
+    assert menu_exposures == FOCUS_EXPOSURE_LADDER
+
+
+@pytest.mark.unit
+def test_entering_focus_holds_the_exposure_auto_exposure_settled_on():
+    preview = _hold_preview(camera_exp="auto", exposure_time=437_000)
+
+    preview._begin_exposure_hold()
+
+    # Transient, so the saved "auto" setting survives to be restored on exit.
+    assert preview.camera_commands == ["set_exp_transient:437000"]
+    assert preview._exposure_hold_active
+    assert preview._held_exposure_us == 437_000
+    assert preview._saved_camera_exp == "auto"
+
+
+@pytest.mark.unit
+def test_entering_focus_prefers_a_chosen_exposure_over_stale_frame_metadata():
+    """The camera process may not have applied a just-selected exposure yet."""
+    preview = _hold_preview(camera_exp=200_000, exposure_time=437_000)
+
+    preview._begin_exposure_hold()
+
+    assert preview.camera_commands == ["set_exp_transient:200000"]
+    assert preview._held_exposure_us == 200_000
+
+
+@pytest.mark.unit
+def test_entering_focus_without_a_known_exposure_falls_back_to_the_default():
+    preview = _hold_preview(camera_exp="auto", exposure_time=None)
+
+    preview._begin_exposure_hold()
+
+    assert preview.camera_commands == [f"set_exp_transient:{FOCUS_DEFAULT_EXPOSURE}"]
+
+
+@pytest.mark.unit
+def test_leaving_focus_hands_auto_exposure_back_exactly_once():
+    """MenuManager calls inactive() twice on a LEFT back-out."""
+    preview = _hold_preview(camera_exp="auto")
+    preview._begin_exposure_hold()
+    preview.camera_commands.clear()
+
+    preview.inactive()
+    preview.inactive()
+
+    assert preview.camera_commands == ["set_exp:auto"]
+    assert not preview._exposure_hold_active
+
+
+@pytest.mark.unit
+def test_leaving_focus_restores_a_manual_exposure_without_rewriting_it():
+    preview = _hold_preview(camera_exp=200_000)
+    preview._begin_exposure_hold()
+    preview._nudge_exposure = lambda direction: None
+    preview.update = lambda force=False: None
+    preview.camera_commands.clear()
+
+    preview.inactive()
+
+    # set_exp_transient, not set_exp: restoring must not persist camera_exp.
+    assert preview.camera_commands == ["set_exp_transient:200000"]
+
+
+@pytest.mark.unit
+def test_leaving_focus_before_a_hold_started_touches_nothing():
+    preview = _hold_preview()
+
+    preview.inactive()
+
+    assert preview.camera_commands == []
+
+
+@pytest.mark.unit
+def test_arrow_keys_nudge_the_held_exposure_along_the_ladder():
+    preview = _hold_preview(camera_exp="auto", exposure_time=437_000)
+    preview._begin_exposure_hold()
+    redraws = []
+    preview.update = lambda force=False: redraws.append(force)
+    preview.camera_commands.clear()
+
+    preview.key_down()
+    assert preview._held_exposure_us == 400_000
+    preview.key_down()
+    assert preview._held_exposure_us == 200_000
+    preview.key_up()
+    assert preview._held_exposure_us == 400_000
+
+    assert preview.camera_commands == [
+        "set_exp_transient:400000",
+        "set_exp_transient:200000",
+        "set_exp_transient:400000",
+    ]
+    assert redraws == [True, True, True]
+
+
+@pytest.mark.unit
+def test_nudging_past_the_end_of_the_ladder_holds_and_sends_nothing():
+    preview = _hold_preview(camera_exp=1_000_000)
+    preview._begin_exposure_hold()
+    preview.update = lambda force=False: None
+    preview.camera_commands.clear()
+
+    preview.key_up()
+
+    assert preview._held_exposure_us == 1_000_000
+    assert preview.camera_commands == []
+
+
+@pytest.mark.unit
+def test_stats_reports_a_held_exposure_as_hold_not_the_saved_setting(monkeypatch):
+    preview = object.__new__(UIPreview)
+    preview.display_class = DisplayBase()
+    preview.colors = preview.display_class.colors
+    preview.fonts = preview.display_class.fonts
+    preview.screen = Image.new("RGB", preview.display_class.resolution)
+    preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
+    # The saved setting still reads "auto" throughout the hold.
+    preview.config_object = SimpleNamespace(get_option=lambda _name: "auto")
+    preview._exposure_hold_active = True
+    preview.last_focus_result = None
+    drawn_text = []
+    original_text = preview.draw.text
+
+    def recording_text(xy, text, *args, **kwargs):
+        drawn_text.append(text)
+        return original_text(xy, text, *args, **kwargs)
+
+    monkeypatch.setattr(preview.draw, "text", recording_text)
+    preview._draw_stats(
+        np.zeros((512, 512), dtype=np.uint8),
+        {"exposure_time": 400_000, "gain": 1.0},
+    )
+
+    assert any("HOLD 0.4s" in text for text in drawn_text)
+    assert not any("AUTO" in text for text in drawn_text)
+
+
+@pytest.mark.unit
+def test_exposure_label_flashes_on_the_star_views_then_clears(monkeypatch):
+    preview = _hold_preview(camera_exp=400_000)
+    preview.display_class = DisplayBase()
+    preview.colors = preview.display_class.colors
+    preview.fonts = preview.display_class.fonts
+    preview.display_mode = DISPLAY_STARS
+
+    def rendered_label(now: float) -> int:
+        monkeypatch.setattr(preview_module.time, "time", lambda: now)
+        preview.screen = Image.new("RGB", preview.display_class.resolution)
+        preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
+        preview._draw_exposure_label()
+        return int(np.count_nonzero(np.asarray(preview.screen)))
+
+    monkeypatch.setattr(preview_module.time, "time", lambda: 100.0)
+    preview._begin_exposure_hold()
+
+    assert rendered_label(100.5) > 0
+    assert rendered_label(100.0 + preview_module.FOCUS_EXPOSURE_LABEL_S + 0.1) == 0
+
+
+@pytest.mark.unit
+def test_exposure_label_stays_off_the_stats_view_which_already_shows_it(monkeypatch):
+    preview = _hold_preview(camera_exp=400_000)
+    preview.display_class = DisplayBase()
+    preview.colors = preview.display_class.colors
+    preview.fonts = preview.display_class.fonts
+    preview.display_mode = DISPLAY_STATS
+    preview.screen = Image.new("RGB", preview.display_class.resolution)
+    preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
+    monkeypatch.setattr(preview_module.time, "time", lambda: 100.0)
+    preview._begin_exposure_hold()
+
+    preview._draw_exposure_label()
+
+    assert preview.screen.getbbox() is None

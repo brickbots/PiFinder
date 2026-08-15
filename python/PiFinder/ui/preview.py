@@ -35,6 +35,42 @@ DISPLAY_IMAGE = "image"
 DISPLAY_STATS = "stats"
 DISPLAY_SINGLE = "single"
 
+# Exposures the screen steps between while it holds the exposure, in
+# microseconds. These are exactly the values the Camera Exp menu offers, so a
+# nudge here always lands on one the user can also select -- and persist --
+# from that menu. tests/test_focus_preview.py pins the two lists together.
+FOCUS_EXPOSURE_LADDER = (
+    25_000,
+    50_000,
+    100_000,
+    200_000,
+    400_000,
+    800_000,
+    1_000_000,
+)
+# Exposure to hold when no exposure is known yet. Matches the starting point
+# the camera processes use for auto-exposure.
+FOCUS_DEFAULT_EXPOSURE = 400_000
+# How long the exposure readout stays up after entering the screen or nudging.
+FOCUS_EXPOSURE_LABEL_S = 2.5
+
+
+def step_exposure(
+    current_us: int,
+    direction: int,
+    ladder: tuple[int, ...] = FOCUS_EXPOSURE_LADDER,
+) -> int:
+    """Return the adjacent ladder rung above (+1) or below (-1) ``current_us``.
+
+    Stepping to a neighbouring rung rather than by a fixed multiple means the
+    first nudge away from an auto-settled exposure -- which sits wherever the
+    controller left it -- lands on a value the Camera Exp menu also offers. At
+    either end of the ladder the exposure holds where it is.
+    """
+    if direction > 0:
+        return next((rung for rung in ladder if rung > current_us), current_us)
+    return next((rung for rung in reversed(ladder) if rung < current_us), current_us)
+
 
 def focus_crop_size(
     frame_size: tuple[int, int],
@@ -88,6 +124,13 @@ class UIPreview(UIModule):
         self._last_focus_frame_time = 0.0
         self.focus_history: deque[tuple[float, float]] = deque()
 
+        # Exposure hold state. See _begin_exposure_hold for why the screen
+        # takes the exposure away from auto-exposure while it is open.
+        self._exposure_hold_active = False
+        self._saved_camera_exp: Optional[object] = None
+        self._held_exposure_us: Optional[int] = None
+        self._exposure_label_until = 0.0
+
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
                 label=_("Exposure"),
@@ -105,6 +148,87 @@ class UIPreview(UIModule):
         self._last_focus_catalog_time = 0.0
         self._last_focus_frame_time = 0.0
         self.focus_history.clear()
+        self._begin_exposure_hold()
+
+    def inactive(self):
+        """Hand the exposure regime back to whatever was in effect on entry.
+
+        MenuManager calls this twice when the screen is left with LEFT (once
+        directly, once again from remove_from_stack), so releasing the hold
+        has to be idempotent.
+        """
+        if not self._exposure_hold_active:
+            return
+        self._exposure_hold_active = False
+        saved = self._saved_camera_exp
+        if saved is None or saved == "auto":
+            # No saved value means no exposure was ever chosen; solver-driven
+            # auto-exposure is the safe regime to land back in either way.
+            self.command_queues["camera"].put("set_exp:auto")
+        else:
+            # Transient: this is a restore, not a fresh choice, so it must not
+            # rewrite the camera_exp the user already had.
+            self.command_queues["camera"].put(f"set_exp_transient:{saved}")
+
+    # ------------------------------------------------------------------ #
+    # Exposure hold
+    # ------------------------------------------------------------------ #
+
+    def _begin_exposure_hold(self) -> None:
+        """Take the exposure away from auto-exposure for this visit.
+
+        Solver-driven auto-exposure steers on the solver's match count, and
+        defocus -- the reason to be on this screen at all -- is exactly what
+        starves the solver of matches. Left running, the controller walks the
+        exposure (and eventually hands over to zero-match recovery, which
+        walks it much further) while the user is trying to read a change in
+        HFD out of those same frames. Both the readout and which stars are
+        bright enough to appear would move for reasons that have nothing to do
+        with the lens they just turned.
+
+        The hold is transient throughout: ``camera_exp`` is read but never
+        written, so ``inactive`` can put the previous regime back.
+        """
+        self._saved_camera_exp = self.config_object.get_option("camera_exp")
+        self._apply_hold_exposure(self._entry_exposure())
+
+    def _entry_exposure(self) -> int:
+        """Pick the exposure to hold when the screen opens.
+
+        A numeric ``camera_exp`` is the exposure the user chose, so hold that
+        -- and prefer it over the last frame's metadata, which still reports
+        the previous exposure until the camera process works through its
+        command queue. Under auto-exposure there is no chosen value, so hold
+        wherever the controller has settled.
+        """
+        saved = self._saved_camera_exp
+        if isinstance(saved, (int, float)) and saved > 0:
+            return int(saved)
+        metadata = self.shared_state.last_image_metadata() or {}
+        exposure = metadata.get("exposure_time")
+        if isinstance(exposure, (int, float)) and exposure > 0:
+            return int(exposure)
+        return FOCUS_DEFAULT_EXPOSURE
+
+    def _apply_hold_exposure(self, exposure_us: int) -> None:
+        """Hold the camera at one exposure and flash the value on screen."""
+        self._held_exposure_us = int(exposure_us)
+        self._exposure_hold_active = True
+        self._exposure_label_until = time.time() + FOCUS_EXPOSURE_LABEL_S
+        self.command_queues["camera"].put(f"set_exp_transient:{self._held_exposure_us}")
+
+    def _nudge_exposure(self, direction: int) -> None:
+        """Step the held exposure one rung along the Camera Exp ladder."""
+        if not self._exposure_hold_active or self._held_exposure_us is None:
+            return
+        new_exposure = step_exposure(self._held_exposure_us, direction)
+        if new_exposure == self._held_exposure_us:
+            # Already at the end of the ladder; still flash the value so the
+            # key press doesn't read as the screen having missed it.
+            self._exposure_label_until = time.time() + FOCUS_EXPOSURE_LABEL_S
+        else:
+            self._apply_hold_exposure(new_exposure)
+        self.update(force=True)
 
     def _measure_focus(
         self, raw_np: np.ndarray, *, record_history: bool = True
@@ -465,6 +589,31 @@ class UIPreview(UIModule):
                 draw_isolated_sample(current[0], right_side)
             previous = current
 
+    def _draw_exposure_label(self) -> None:
+        """Flash the held exposure after entering the screen or nudging it.
+
+        Stats carries a standing exposure readout, so the flash is only for
+        the views with no room for one. It clears itself: every new camera
+        frame repaints the view underneath, and past the deadline the label
+        simply isn't drawn again.
+        """
+        if self.display_mode == DISPLAY_STATS:
+            return
+        if self._held_exposure_us is None:
+            return
+        if time.time() >= self._exposure_label_until:
+            return
+        res_y = self.display_class.resolution[1]
+        top = min(self.display_class.titlebar_height + 2, res_y)
+        self.draw.text(
+            (2, top),
+            self._format_exposure(self._held_exposure_us),
+            font=self.fonts.small.font,
+            fill=self.colors.get(255),
+            stroke_width=1,
+            stroke_fill=self.colors.get(0),
+        )
+
     @staticmethod
     def _format_exposure(exposure_us) -> str:
         try:
@@ -493,8 +642,15 @@ class UIPreview(UIModule):
             else "—"
         )
         detected = len(result.blobs) if result is not None else 0
-        exposure_setting = self.config_object.get_option("camera_exp")
-        exposure_mode = "AUTO" if str(exposure_setting).lower() == "auto" else "MANUAL"
+        if self._exposure_hold_active:
+            # The saved setting still reads "auto" during the hold; reporting
+            # it would contradict the exposure sitting next to it.
+            exposure_mode = "HOLD"
+        else:
+            exposure_setting = self.config_object.get_option("camera_exp")
+            exposure_mode = (
+                "AUTO" if str(exposure_setting).lower() == "auto" else "MANUAL"
+            )
         exposure = self._format_exposure(metadata.get("exposure_time"))
         gain = metadata.get("gain")
         gain_text = f"{gain:g}" if isinstance(gain, (int, float)) else "—"
@@ -589,6 +745,9 @@ class UIPreview(UIModule):
         elif (image_updated or force) and self.display_mode == DISPLAY_SINGLE:
             self._draw_single_focus_overlay()
 
+        if image_updated or force:
+            self._draw_exposure_label()
+
         return self.screen_update()
 
     def key_plus(self):
@@ -604,6 +763,14 @@ class UIPreview(UIModule):
             return
         self.focus_zoom = max(FOCUS_MIN_ZOOM, self.focus_zoom - FOCUS_ZOOM_STEP)
         self.update(force=True)
+
+    def key_up(self):
+        """Hold a longer exposure, one rung up the Camera Exp ladder."""
+        self._nudge_exposure(1)
+
+    def key_down(self):
+        """Hold a shorter exposure, one rung down the Camera Exp ladder."""
+        self._nudge_exposure(-1)
 
     def key_square(self):
         """Cycle Stars -> Single -> Image -> Stats using the display-mode key."""
