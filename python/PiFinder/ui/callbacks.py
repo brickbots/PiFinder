@@ -18,9 +18,8 @@ import pytz
 from typing import Any, TYPE_CHECKING
 from PiFinder import utils, calc_utils
 from PiFinder import timez
-from PiFinder.camera_profiles import get_camera_profile
 from PiFinder.locations import Location as SavedLocation
-from PiFinder.optics import resolve_lens
+from PiFinder.optics import resolve_camera_profile, resolve_lens
 from PiFinder.state import Location
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.textentry import UITextEntry
@@ -217,10 +216,12 @@ def get_camera_lens(ui_module: UIModule) -> list[str]:
 
     Not simply the config value: an install that predates the setting has none
     stored, and which lens that means depends on the detected sensor. Resolve
-    it the same way the solver does so the menu shows what is actually in
-    force rather than an arbitrary first entry.
+    it the same way the solver does -- both halves through the tolerant
+    resolvers -- so the menu shows what is actually in force rather than an
+    arbitrary first entry, and so an unrecognised sensor leaves the lens menu
+    openable instead of raising while it is built.
     """
-    profile = get_camera_profile(ui_module.shared_state.camera_type())
+    profile = resolve_camera_profile(ui_module.shared_state.camera_type())
     return [
         resolve_lens(profile, ui_module.config_object.get_option("camera_lens")).key
     ]

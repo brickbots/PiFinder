@@ -7,12 +7,14 @@ if it does not, this change silently moved everyone's SQM and everyone's FOV
 gate. See docs/adr/0027-fov-gate-derived-from-optical-train.md.
 """
 
+import logging
 import math
 
 import pytest
 
 from PiFinder.camera_profiles import CAMERA_PROFILES, get_camera_profile
 from PiFinder.optics import (
+    FALLBACK_CAMERA_TYPE,
     FOV_GATE_MARGIN,
     LENSES,
     SOLVER_IMAGE_PIXELS,
@@ -22,6 +24,7 @@ from PiFinder.optics import (
     build_optical_train,
     get_lens,
     optical_train_for_profile,
+    resolve_camera_profile,
     resolve_lens,
 )
 
@@ -287,6 +290,64 @@ class TestOpticalTrainResolver:
         # resolver must not treat None as already-resolved.
         assert stated is not unset
         assert stated.fov_degrees == pytest.approx(unset.fov_degrees)
+
+    def test_unknown_sensor_falls_back_rather_than_raising(self):
+        # The solver resolves inside a per-frame loop whose outer handler
+        # restarts the solver, tetra3 database load included. A ValueError
+        # here is a crash-reload loop once per frame, not a diagnosis.
+        resolver = OpticalTrainResolver()
+        train = resolver.resolve("none", None)
+        assert train.fov_degrees == pytest.approx(
+            build_optical_train(FALLBACK_CAMERA_TYPE).fov_degrees
+        )
+
+    def test_the_fallback_is_cached_so_it_logs_once(self, caplog):
+        # Cached under the *stated* key: that is what turns once-per-frame
+        # logging into once-per-change, and it keeps the returned train
+        # identical so callers comparing with `is` see no spurious change.
+        resolver = OpticalTrainResolver()
+        with caplog.at_level(logging.WARNING, logger="Optics"):
+            first = resolver.resolve("none", None)
+            again = resolver.resolve("none", None)
+        assert again is first
+        assert len(caplog.records) == 1
+
+    def test_a_real_sensor_still_rebuilds_after_a_fallback(self):
+        # The actual startup sequence: whatever the camera process publishes
+        # first must not be latched in place of the sensor it later reports.
+        resolver = OpticalTrainResolver()
+        fallback = resolver.resolve("none", None)
+        detected = resolver.resolve("hq", None)
+        assert detected is not fallback
+        assert detected.lens.key == "25mm"
+        assert detected.fov_degrees == pytest.approx(
+            build_optical_train("hq").fov_degrees
+        )
+
+
+@pytest.mark.unit
+class TestCameraProfileFallback:
+    """The sensor half of "resolve, don't raise", shared by every consumer."""
+
+    def test_known_sensors_resolve_to_themselves(self):
+        for camera_type in CAMERA_PROFILES:
+            assert resolve_camera_profile(camera_type) == get_camera_profile(
+                camera_type
+            )
+
+    def test_unknown_sensor_resolves_to_the_shared_state_default(self):
+        # Matching SharedStateObj's pre-camera default is the point: an
+        # unrecognised sensor then behaves like the window every boot already
+        # passes through, rather than like a new state nothing has handled.
+        assert resolve_camera_profile("none") == get_camera_profile(
+            FALLBACK_CAMERA_TYPE
+        )
+
+    def test_the_strict_lookup_stays_strict(self):
+        # Scripts and tests naming a sensor should still hear about a typo;
+        # only the live consumers want the fallback.
+        with pytest.raises(ValueError):
+            get_camera_profile("none")
 
 
 @pytest.mark.unit

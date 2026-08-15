@@ -20,11 +20,14 @@ is what the lens behaves as; only the second is correct to compute with.
 
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
 from PiFinder.camera_profiles import CameraProfile, get_camera_profile
+
+logger = logging.getLogger("Optics")
 
 # Half-width of the solver's FOV gate, as a fraction of the derived field of
 # view. Proportional rather than absolute: a fixed number of degrees is four
@@ -38,6 +41,13 @@ FOV_GATE_MARGIN = 0.15
 # Pixels per side of the image handed to tetra3. Centroids are reported in
 # this grid, so it is the grid the solver's plate scale is stated against.
 SOLVER_IMAGE_PIXELS = 512
+
+# Sensor to derive angles from when the camera type is one we have no profile
+# for. It matches SharedStateObj's pre-camera default, so an unrecognised
+# sensor behaves exactly like the window before the camera process reports in
+# -- which every consumer here already survives, because it happens on every
+# boot.
+FALLBACK_CAMERA_TYPE = "imx296"
 
 
 @dataclass(frozen=True)
@@ -128,6 +138,33 @@ def get_lens(lens_key: str) -> Lens:
     if lens_key not in LENSES:
         raise ValueError(f"Unknown lens: {lens_key}. Available: {list(LENSES.keys())}")
     return LENSES[lens_key]
+
+
+def resolve_camera_profile(camera_type: str) -> CameraProfile:
+    """The profile to derive angles from, tolerating an unrecognised sensor.
+
+    The sensor half of the train has the same problem the lens half has: the
+    live consumers read it from state that a wrong value can reach --
+    ``camera_type`` is whatever the camera process published, and it is a
+    plain string. Raising there is worse than being approximately right: the
+    solver resolves per frame inside a loop whose outer handler restarts the
+    whole solver, tetra3 database load included, and the lens menu resolves
+    while it is being built. An unknown sensor would be a crash-reload loop
+    and an unopenable menu rather than a diagnosis.
+
+    So this is the one place the fallback policy lives -- the counterpart of
+    ``resolve_lens`` for the other half. ``get_camera_profile`` stays strict:
+    offline scripts and tests naming a sensor should still hear about a typo.
+    """
+    try:
+        return get_camera_profile(camera_type)
+    except ValueError:
+        logger.warning(
+            "Unknown camera type %r; deriving optics from %s instead",
+            camera_type,
+            FALLBACK_CAMERA_TYPE,
+        )
+        return get_camera_profile(FALLBACK_CAMERA_TYPE)
 
 
 def resolve_lens(profile: CameraProfile, lens_key: Optional[str] = None) -> Lens:
@@ -232,6 +269,12 @@ class OpticalTrainResolver:
     rebuilding a train per frame would re-copy a profile for no reason. Keyed
     on both halves because the camera type is also not final at startup: it
     still holds the pre-camera default until the camera process reports.
+
+    Neither half raises on an unrecognised value: both resolve through the
+    fallbacks above. Caching under the *stated* key rather than the resolved
+    one is what keeps an unknown sensor from logging once per frame, and it
+    keeps the identity of the returned train stable so callers can compare
+    trains with ``is`` to detect a real change.
     """
 
     def __init__(self) -> None:
@@ -241,6 +284,8 @@ class OpticalTrainResolver:
     def resolve(self, camera_type: str, lens_key: Optional[str] = None) -> OpticalTrain:
         key = (camera_type, lens_key)
         if key != self._key or self._train is None:
-            self._train = build_optical_train(camera_type, lens_key)
+            self._train = optical_train_for_profile(
+                resolve_camera_profile(camera_type), lens_key
+            )
             self._key = key
         return self._train
