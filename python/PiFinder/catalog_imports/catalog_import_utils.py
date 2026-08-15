@@ -6,12 +6,11 @@ This module contains common classes and functions used by all catalog loaders.
 
 import logging
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 from dataclasses import dataclass, field
 from tqdm import tqdm
 
 from PiFinder.composite_object import MagnitudeObject, SizeObject
-from PiFinder.ui.ui_utils import normalize
 from PiFinder import calc_utils
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
@@ -150,7 +149,10 @@ class ObjectFinder:
         logging.debug(f"Looking up object id for {object_name}")
         result = self.mappings.get(object_name.lower())
         if not result:
-            result = self.mappings.get(normalize(object_name))
+            parsed = parse_designation(object_name)
+            if parsed is not None:
+                catalog_code, sequence = parsed
+                result = self.mappings.get(f"{catalog_code.lower()}{sequence}")
         if result:
             logging.debug(f"Found object id {result} for {object_name}")
         else:
@@ -228,6 +230,64 @@ def add_space_after_prefix(s):
 def trim_string(s):
     """Remove extra whitespace from string"""
     return " ".join(s.split())
+
+
+# Designation prefixes that name a PiFinder catalog, keyed on the lowercase,
+# whitespace-free prefix as source catalogs write it. A prefix must be listed
+# here for an alias to link one object to another; every other designation is
+# kept as a plain name. The same catalog is spelled several ways across
+# sources, and SIMBAD writes Abell planetaries as "PN A66 nn".
+#
+# Deliberately absent: a bare "h". Herschel 400 uses catalog code "H", but
+# "H 1-1" and friends are Haro planetary nebulae, and a bare "H 12" is just as
+# likely to be Hubble or Haro as Herschel.
+CATALOG_CODE_ALIASES: Dict[str, str] = {
+    "a": "Abl",
+    "abell": "Abl",
+    "abl": "Abl",
+    "pna66": "Abl",
+    "b": "B",
+    "barnard": "B",
+    "c": "C",
+    "caldwell": "C",
+    "col": "Col",
+    "collinder": "Col",
+    "cr": "Col",
+    "herschel": "H",
+    "ic": "IC",
+    "m": "M",
+    "messier": "M",
+    "ngc": "NGC",
+    "sh2": "Sh2",
+    "sharpless": "Sh2",
+}
+
+# A designation reads "<prefix><sequence>": the sequence is the trailing run of
+# digits, the prefix is everything before it.
+_DESIGNATION_RE = re.compile(r"(.*?)\s*(\d+)")
+
+
+def parse_designation(raw: str) -> Optional[Tuple[str, int]]:
+    """Split a source designation into a PiFinder catalog code and sequence.
+
+    "NGC 7008" -> ("NGC", 7008), "Sh 2-176" -> ("Sh2", 176),
+    "PN A66 80" -> ("Abl", 80).
+
+    Returns None when the designation names no PiFinder catalog. That covers
+    the planetary-nebula families whose numeric part is compound — "M 1-92"
+    (Minkowski), "H 3-29" (Haro), "K 2-1" (Kohoutek), "NGC 650-1" (the two
+    halves of M76). Those leave a prefix of "m1", "h3", "k2" or "ngc650",
+    none of which is a catalog, so they are rejected instead of being read as
+    Messier 92, Herschel 29, "K 21" or NGC 6501.
+    """
+    match = _DESIGNATION_RE.fullmatch(trim_string(raw).lower())
+    if match is None:
+        return None
+    prefix, sequence = match.groups()
+    catalog_code = CATALOG_CODE_ALIASES.get(prefix.rstrip("-.").replace(" ", ""))
+    if catalog_code is None:
+        return None
+    return catalog_code, int(sequence)
 
 
 def delete_catalog_from_database(catalog_code: str):

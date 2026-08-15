@@ -1,0 +1,404 @@
+V/84       Strasbourg-ESO Catalogue of Galactic Planetary Nebulae (Acker+, 1992)
+================================================================================
+Strasbourg-ESO Catalogue of Galactic Planetary Nebulae
+     Acker A., Ochsenbein F., Stenholm B., Tylenda R., Marcout J., Schohn C.
+    <European Southern Observatory -- ISBN 3-923524-41-2 (1992)>
+    =1992ESOPN...1....1A                (SIMBAD/NED Reference)
+================================================================================
+ADC_Keywords: Planetary nebulae ; Spectroscopy
+
+Description:
+    The electronic version of the catalogue referenced above includes
+    1143 true and probable planetary nebulae (Table 1 of publication);
+    347 objects which status is still unclear were classified among the
+    "possible" planetary nebulae (file pospn, Table 2 of publication);
+    and 330 objects have been rejected (file notpn, Table 3 of publication).
+
+    The designation system of the planetary nebulae of this catalogue
+    follows the recommendations of IAU Commission 5 (Astronomical
+    Nomenclature) with the structure:
+                  PN Glll.l+bb.b
+    where PN means "Planetary Nebula", G stands for "Galactic Coordinates",
+    and lll.l+bb.b stand for the galactic longitude and latitude
+    respectively, truncated to one  decimal place.
+    The designations following this system appear in the columns
+    labelled "PNG" in the tables described below, where the "PN G"
+    prefix has been stripped.
+
+    Data concerning the 1143 true and probable planetary nebulae
+    (part II of the publication) have been grouped in a set of related
+    tables described below, all sorted by the "PNG" column.
+    Note that, unlike the printed volume, only the bibliographic
+    references corresponding to data listed in the tables are
+    provided here, in the "refs.dat" file.
+
+    Copies of the complete catalogue, including the Finding Charts
+    (Part I) can still be ordered at the ESO Information Service,
+    Karl-Schwarzschildstr. 2, D-85748 Garching bei Muenchen, Germany,
+    at a price of DM 135.
+
+File Summary:
+--------------------------------------------------------------------------------
+ FileName    Lrecl    Records    Explanations
+--------------------------------------------------------------------------------
+ReadMe          80          .    This file
+main.dat       224       1143    Discoverers, Designations, and Positions of
+                                    True and Possible Planetary Nebulae (1)
+diam.dat        66       1143    Diameters of PN (optical and radio) (1)
+dist.dat        38        296    Distance estimations (2)
+dista.dat       38       3017    Statistical distances (2)
+hbeta.dat       62        991    H-beta fluxes (1)
+intens.dat     117       1046    Line intensities results (1)
+iue.dat         77       1715    IUE observations log (2)
+iras.dat        88        774    IRAS Point Source Catalogue fluxes (1)
+nir.dat        106        365    Near infra-red observations (1)
+radio.dat       46        689    Radio observations (1)
+vel.dat         73        614    Radial and Expansion Velocities (1)
+cstar.dat      285        692    Data concerning Central Stars of PN (1)
+notes.dat      115        703    Notes and remarks about some nebulae (2)
+refs.dat        80        872    References
+pospn.dat      111        347    Possible PN (table 2)
+notpn.dat      121        330    Objects rejected as PN (table 3)
+--------------------------------------------------------------------------------
+Note (1): one entry or less per planetary nebula
+Note (2): several entries may exist for a planetary nebula
+--------------------------------------------------------------------------------
+
+See also:
+    J/A+A/307/215 : Spectrophotometry of PNe (Cuisinier+, 1996)
+
+Byte-by-byte Description of file: main.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 10  A10    ---     PNG      Designation of the Galactic Planetary Nebula
+  13- 14  I2     h       RAh      Right Ascension B1950 (hours)
+  16- 17  I2     min     RAm      Right Ascension B1950 (minutes)
+  19- 23  F5.2   s       RAs      [0/60[? Right Ascension B1950 (seconds)
+      24  A1     ---     DE-      Declination B1950 (sign)
+  25- 26  I2     deg     DEd      Declination B1950 (degrees)
+  28- 29  I2     arcmin  DEm      Declination B1950 (minutes)
+  31- 34  F4.1   arcsec  DEs      [0/60[? Declination 1950 (seconds)
+      35  A1     ---     fp       [ad*] Flag for inaccurate B1950 Position:
+                                     a if RA originally only given to 0.1min
+                                     d if DE originally only given to 0.1arcmin
+                                       or worse
+                                     * if both 'a' and 'd'
+  37- 44  A8     ---   r_Pos      Reference of position
+  46- 58  A13    ---     Name     Main designation
+  60- 68  A9     ---     PK       Designation in PK67
+  70- 80  A11    ---     IRAS     Designation in IRAS catalogue
+  82-112  A31    ---     Disc     Discoverer name and publication year
+ 115-224  A110   ---     Idents   Other names separated by commas
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: diam.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 10  A10    ---     PNG      Designation of the Galactic Planetary Nebula
+      13  A1     ---   l_oDiam    Limit flag on oDiam
+  14- 19  F6.1   arcsec  oDiam    ? Optical diameter
+      20  A1     ---   u_oDiam    Uncertainty flag (:) on oDiam
+  22- 49  A28    ---   r_oDiam    References for oDiam
+      51  A1     ---   l_rDiam    Limit flag on Radio diameter
+  52- 57  F6.2   arcsec  rDiam    ? Radio diameter
+      58  A1     ---   u_rDiam    Uncertainty flag (:) on oDiam
+  59- 66  A8     ---   r_rDiam    Reference on Radio diameter
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: dist.dat dista.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 10  A10    ---     PNG      Designation of the Galactic Planetary Nebula
+      14  A1     ---     Method   [EKSWXDCM] Method used for distance
+                                    determination (1)
+  16- 21  F6.3   kpc     Dist1    ? Lower distance if l_Dist is '-'
+      22  A1     ---   l_Dist     [-<>] '-' if Dist1 is a lower limit;
+                                        '<' or '>' apply to Dist.
+  23- 28  F6.3   kpc     Dist     Distance in kiloparsecs.
+      29  A1     ---   u_Dist     [?:] Uncertainty flag on Dist
+  31- 38  A8     ---   r_Dist     Reference of Dist determination.
+--------------------------------------------------------------------------------
+Note (1): This field is blank for file "dista" (statistical distances);
+  for file "dist", the following symbols are used to describe the method:
+     C = from cluster membership
+     D = from dust
+     E = from local extinction study
+     K = from kinematical studies
+     M = mean value from a compilation of individual distances
+     S = from spectroscopic parallax of binary companions
+     W = from wind
+     X = from a comparison of tangential and radial expansions
+  (blank) = statistical distance
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: hbeta.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label      Explanations
+--------------------------------------------------------------------------------
+   1- 10  A10    ---     PNG        Designation of the Galactic Planetary Nebula
+  13- 18  F6.2 [mW/m2]  log(Fbeta) [-15/-9] log of flux in H-beta
+  21- 24  F4.2 [mW/m2] e_log(Fbeta) ? Mean error on log(Fbeta)
+  28- 64  A37    ---   r_log(Fbeta) References
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: intens.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 10  A10    ---     PNG      Designation of the Galactic Planetary Nebula
+  13- 34  A22    ---     ObsLabel Observation name (includes the date)
+      36  A1     ---     LineRef  [ab] Line taken as reference (value=100):
+                                       'a'=H-alpha (6563), 'b'=H-beta (4861)
+  40- 46  F7.1   ---     I4686    ]0/15000]? Line intensity of HeII at 468.6nm
+      47  A1     ---   u_I4686    Uncertainty flag on I4686
+  50- 56  F7.1   ---     I4363    ]0/15000]? Line intensity of [OIII] at 436.3nm
+      57  A1     ---   u_I4363    Uncertainty flag on I4363
+      59  A1     ---   n_I5007    [*] '*' if the measurement refers to 495.9nm
+                                        because 500.7nm line is saturated
+  60- 66  F7.1   ---     I5007    ]0/15000]? Line intensity of [OIII] at 500.7nm
+      67  A1     ---   u_I5007    Uncertainty flag on I5007
+  70- 76  F7.1   ---     I5876    ]0/15000]? Line intensity of HeI
+      77  A1     ---   u_I5876    Uncertainty flag on I5876 at 587.6nm
+  80- 86  F7.1   ---     I6563    ]0/15000]? Line intensity of H-alpha
+                                    at 656.3nm
+      87  A1     ---   u_I6563    Uncertainty flag on I6563
+  90- 96  F7.1   ---     I6584    [0/15000]? Line intensity of [NII] at 658.4nm
+      97  A1     ---   u_I6584    Uncertainty flag on I6584
+      99  A1     ---   n_I6717    [B] 'B' if line is blended
+ 100-106  F7.1   ---     I6717    ]0/15000]? Line intensity of [SII] at 671.7nm
+     107  A1     ---   u_I6717    Uncertainty flag on I6717
+     109  A1     ---   n_I6731    [B] 'B' if line is blended
+ 110-116  F7.1   ---     I6731    ]0/15000]? Line intensity of [SII] at 673.1nm
+     117  A1     ---   u_I6731    Uncertainty flag on I6731
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: iue.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 10  A10    ---     PNG      Designation of the Galactic Planetary Nebula
+  13- 24  A12    ---     IUEname  Name as found in the IUE Merged Log
+  26- 45  A20    ---     1950Pos  Position as found in the IUE Merged Log
+  47- 57  A11  "date"    Obs.date Date of the Observation
+  59- 63  A5   "h:m"     Obs.time Time (hours, minutes) of the Observation
+  65- 66  I2     ---     OType    Object class as found in the IUE Merged Log
+  68- 70  A3     ---     Camera   designation, LW=Long Wavelength, SW=Short
+                                    Wavelength
+  72- 76  A5     ---     Image    identification of the Observation
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: iras.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 10  A10    ---     PNG      Designation of the Galactic Planetary Nebula
+  13- 23  A11    ---     IRAS     IRAS source name
+  24- 25  I2     h       RAIR.h   Right Ascension, equinox 1950.0, epoch 1983.5
+  26- 27  I2     min     RAIR.m   Right Ascension, equinox 1950.0, epoch 1983.5
+  28- 30  I3     ds      RAIR.ds  Right Ascension, equinox 1950.0, epoch 1983.5
+      31  A1     ---     DEIR.-   Declination, equinox 1950.0, epoch 1983.5
+  32- 33  I2     deg     DEIR.d   Declination, equinox 1950.0, epoch 1983.5
+  34- 35  I2     arcmin  DEIR.m   Declination, equinox 1950.0, epoch 1983.5
+  36- 37  I2     arcsec  DEIR.s   Declination, equinox 1950.0, epoch 1983.5
+  38- 40  I3     arcsec  Major    Uncertainty ellipse major axis
+  41- 43  I3     arcsec  Minor    Uncertainty ellipse minor axis
+  44- 46  I3     deg     PosAng   Uncertainty ellipse position angle (1)
+  47- 48  I2     ---     NHcon    Number of times observed
+  49- 57  E9.3   Jy      Fnu12    Average non-color corrected flux density,
+                                    IRAS/12{mu}m
+  58- 66  E9.3   Jy      Fnu25    Average non-color corrected flux density,
+                                    IRAS/25{mu}m
+  67- 75  E9.3   Jy      Fnu60    Average non-color corrected flux density,
+                                    IRAS/60{mu}m
+  76- 84  E9.3   Jy      Fnu100   Average non-color corrected flux density,
+                                    IRAS/100{mu}m
+      85  I1     ---     q_Fnu12  [1/3] Flux density quality (3=ok), 12um (1)
+      86  I1     ---     q_Fnu25  [1/3] Flux density quality (3=ok), 25um (1)
+      87  I1     ---     q_Fnu60  [1/3] Flux density quality (3=ok), 60um (1)
+      88  I1     ---     q_Fnu100 [1/3] Flux density quality (3=ok), 100um (1)
+--------------------------------------------------------------------------------
+Note (1): the IRAS flux qualities are
+      1 = upper limit
+      2 = moderate quality
+      3 = high quality
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: nir.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 10  A10    ---     PNG      Designation of the Galactic Planetary Nebula
+  13- 17  F5.2   mag     Jmag     ? Magnitude in J filter (1.25um)
+      19  A1     ---   l_Hmag     Limit flag on Hmag
+  20- 24  F5.2   mag     Hmag     ? Magnitude in H filter (1.65um)
+      26  A1     ---   l_Kmag     Limit flag on Kmag
+  27- 31  F5.2   mag     Kmag     ? Magnitude in K filter (2.22um)
+      33  A1     ---   l_Lmag     Limit flag on Lmag
+  34- 38  F5.2   mag     Lmag     ? Magnitude in L/L' filter (3.5/3.8um)
+      39  A1     ---   n_Lmag     ['] the apostrophe indicates the L' filter
+  41- 45  A5     ---     Class    [NDSP,?+ ] Class based on the near-IR (1)
+  48- 76  A29    ---   r_Phot     References for JHKL photometry
+  78-105  A28    ---   r_Class    References describing the Spectrum
+--------------------------------------------------------------------------------
+Note (1): The classes indicate the major source of near-IR emission:
+    N: from the nebular gas
+    D: from the dust
+    S: from a star, either the exciting star or a companion
+    P: Possibly proto-planetary nebula
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: radio.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 10  A10    ---     PNG      Designation of the Galactic Planetary Nebula
+      13  A1     ---   l_Rad2cm   Limit flag on Rad2cm
+  14- 19  F6.1   mJy     Rad2cm   ? Radio flux density at 2cm (14.7GHz)
+  21- 28  A8     ---   r_Rad2cm   Reference of Rad2cm
+      30  A1     ---   l_Rad6cm   Limit flag on Rad6cm
+  31- 36  F6.1   mJy     Rad6cm   ? Radio flux density at 6cm (5GHz)
+      37  A1     ---   u_Rad6cm   Uncertainty flag on Rad6cm
+  39- 46  A8     ---   r_Rad6cm   Reference of Rad6cm
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: vel.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 10  A10    ---     PNG      Designation of the Galactic Planetary Nebula
+  13- 18  F6.1   km/s    RVel     ? Radial Velocity
+  21- 24  F4.1   km/s  e_RVel     ? Mean error on RVel
+  26- 33  A8     --- r_RVel       Source of the Radial Velocity
+      36  A1     ---   l_ExpVel   Limit flag on ExpVel
+  37- 40  F4.1   km/s    ExpVel   ? Expansion velocity [OIII]
+      41  A1     ---   u_ExpVel   [*] Note on ExpVel (1)
+  43- 50  A8     ---   r_ExpVel   Source of ExpVel
+      53  A1     ---   n_ExpVel   [+-] Note on the elements (2)
+      56  A1     ---   l_ExpVel2  Limit flag on ExpVel2
+  57- 60  F4.1   km/s    ExpVel2  ? Expansion velocity [NII]
+      61  A1     ---   u_ExpVel2  [*] Note on ExpVel2 (1)
+  63- 70  A8     ---   r_ExpVel2  Reference of ExpVel2
+      73  A1     ---   n_ExpVel2  [+-] Note on the elements (2)
+--------------------------------------------------------------------------------
+Note (1): The '*' indicates that the value is derived from another ion
+          (neither [OIII] nor [NII])
+Note (2): This flag has the following meaning:
+     '+'  when expansion velocity from other ions are given in the reference
+     '-'  when no value was given in the source
+
+Byte-by-byte Description of file: cstar.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 10  A10    ---     PNG      Designation of the Galactic Planetary Nebula
+  13- 18  A6     ---     AG82     Name in ref. AG82 (Acker et al.,
+                                    Publ. Speciale CDS 3, 1982)
+  22- 26  F5.2   mag     Umag     ? Johnson's U filter mag. of central star
+      28  A1     ---   l_Bmag     Limit flag on Bmag
+  29- 33  F5.2   mag     Bmag     ? Johnson's B filter mag. of central star
+      36  A1     ---   l_Vmag     Limit flag on Vmag
+  37- 41  F5.2   mag     Vmag     ? Johnson's V filter mag. of central star
+      44  A1     ---     Quality  [ABCDP] Accuracy of the photometry (1)
+  47- 72  A26    ---   r_UBV      References of Photometry
+  75-101  A27    ---     Remarks  Remarks on Photometry
+ 103-116  A14    ---     Sp       Spectral type of central star
+ 117-124  A8     ---   r_Sp       Reference of Spectral type
+ 126-135  A10    ---     Sp2      Other spectral classification
+ 138-145  A8     ---   r_Sp2      Reference of Sp2
+ 147-156  A10    ---     Sp3      Other spectral classification
+ 161-168  A8     ---   r_Sp3      Reference of Sp3
+ 170-285  A116   ---     Names    Various designations of the Central Star
+                                    separated by a semi-colon (;)
+--------------------------------------------------------------------------------
+Note (1): The Quality are defined as follows:
+     A =        mean error < 0.10
+     B = 0.10 < mean error < 0.25
+     C = 0.25 < mean error < 0.5
+     D = 0.5  < mean error
+     P = derived from photographs; mean error about 1mag.
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: notes.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 10  A10    ---     PNG      Designation of the Galactic Planetary Nebula
+  13-115  A103   ---     Text     Text of the note
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: pospn.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 15  A15    ---     Name     Usual name
+      17  A1     ---     n_PK     [*] The '*' indicates that PK was not
+                                      published in the PK67 reference
+  18- 26  A9     ---     PK       Designation in PK67 (or later, see n_PK)
+  29- 30  I2     h       RAh      Right Ascension J2000 (hours)
+  32- 35  F4.1   min     RAm      Right Ascension J2000 (minutes)
+      37  A1     ---     DE-      Declination J2000 (sign)
+  38- 39  I2     deg     DEd      Declination J2000 (degrees)
+  41- 42  I2     arcmin  DEm      Declination J2000 (minutes)
+  45- 50  F6.2   deg     GLON     Galactic longitude
+  52- 57  F6.2   deg     GLAT     Galactic latitude
+  60- 62  A3     ---     Class    [UHPLNE?*2 ] Class of the object (1)
+  65-111  A47    ---   OtherNames separated by a comma (,)
+--------------------------------------------------------------------------------
+Note (1): the class has the following meaning:
+      U =  no spectrum could be detected
+      H = faint object highly reddened showing a weak H-alpha emission
+      H2? = faint object showing IRAS colours typical of a HII region
+      *? = object with a faint continuum
+      ** = object of unclear status with a well known emission line spectrum
+      PN = possibly high or normal excitation planetary nebula
+     PPN = proto-planetary nebula
+      LE = low-excitation nebula
+
+Byte-by-byte Description of file: notpn.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   1- 15  A15    ---     Name     Usual name
+      17  A1     ---     n_PK     [*] The '*' indicates that PK was not
+                                      published in the PK67 reference
+  18- 26  A9     ---     PK       Designation in PK67 (or later, see n_PK)
+  29- 30  I2     h       RAh      [0/24[? Right Ascension J2000 (hours) (1)
+  32- 35  F4.1   min     RAm      [0/60[? Right Ascension J2000 (minutes)
+      37  A1     ---     DE-      Declination J2000 (sign)
+  38- 39  I2     deg     DEd      [0/90[? Declination J2000 (degrees)
+  41- 42  I2     arcmin  DEm      [0/60[? Declination J2000 (minutes)
+  45- 50  F6.2   deg     GLON     [0/360[? Galactic longitude
+  52- 57  F6.2   deg     GLAT     [-90/90]? Galactic latitude
+  60-121  A62    ---     Notes    *Notes concerning the object
+--------------------------------------------------------------------------------
+Note (1): coordinates are blank when several PK designations have
+        been assigned to the same PN, as e.g. PK 358-1 1 and PK 358-1 3
+Note on Notes:
+  *  (a) see Acker et al., =1987A&AS...71..163A
+  *  (b) see Acker & Stenholm, =1990A&AS...86..219A
+  *  (c) see Acker et al., 1991, =1991A&AS...87..499A
+  * Note 1 on Al 2-E: this PK number (359+ 3 4) was first given to the
+    object Wray 11-88 by Allen in 1979 (Obs. 93, 83) and then used by
+    MacConnel in 1983 (Vatican Obs. Publ. 2, n.5, 63). The object Wray
+    17-88 was not detected as having any emission line and is this not 
+    a PN. Kohoutek in 1983 gives the designation 359+3 4 to the object
+    Al 2-E found by Allen and this should be used,  although Allen 
+    himself gives 359+3 5.
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: refs.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units   Label     Explanations
+--------------------------------------------------------------------------------
+   1-  8  A8    ---     Ref       Reference code (repeated on each line)
+   9- 80  A72   ---     Text      Text if reference (authors and titles)
+--------------------------------------------------------------------------------
+
+History:
+ * 18-Nov-1997: Two errors corrected about DHW PNe in main and pospn.
+ * 03-Nov-2000: file refs.dat reformatted.
+================================================================================
+(End)                                    Francois Ochsenbein [CDS]   21-Dec-1994

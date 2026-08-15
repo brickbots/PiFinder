@@ -192,6 +192,12 @@ pifinder_menu = {
                                     "value": "NGC",
                                 },
                                 {
+                                    "name": _("PK Planetary"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "PK",
+                                },
+                                {
                                     "name": _("Sharpless"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
@@ -368,6 +374,10 @@ pifinder_menu = {
                                         {
                                             "name": _("NGC"),
                                             "value": "NGC",
+                                        },
+                                        {
+                                            "name": _("PK Planetary"),
+                                            "value": "PK",
                                         },
                                         {
                                             "name": _("Sharpless"),

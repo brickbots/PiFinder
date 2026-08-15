@@ -1,0 +1,14 @@
+The Perek-Kohoutek catalog is the standard reference list of galactic planetary nebulae.
+Lubos Perek and Lubos Kohoutek published the first edition in 1967 (CGPN).
+This import uses Kohoutek's 2001 revision, which holds 1510 confirmed galactic planetary nebulae.
+
+A PK designation encodes galactic position, not brightness: PK 036+17.1 sits at galactic longitude 36 degrees and latitude +17 degrees, and is the first nebula listed in that one-degree cell.
+The full designation is stored as a name, so search finds it.
+PiFinder numbers the entries 1 to 1510 in order of right ascension, the same numbering the printed catalog uses.
+So "PK 743" is a position in the list, not a real designation.
+
+Most entries carry no magnitude, because the source catalog holds only positions and identifications.
+Entries that are also NGC, IC, Abell or Sharpless objects take their magnitude from that catalog.
+Around 200 to 300 of these nebulae are within reach of a small telescope; many of the rest are faint or heavily reddened in the galactic plane.
+
+Sizes come from the Strasbourg-ESO Catalogue of Galactic Planetary Nebulae (Acker et al. 1992), which covers 1112 of the entries.

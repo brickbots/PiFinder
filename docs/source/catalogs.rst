@@ -59,6 +59,26 @@ NGC
 ----------
 NGC 2000.0, The Complete New General Catalogue and Index Catalogue of Nebulae and Star Clusters by J.L.E. Dreyer (edited by R.W. Sinnott).
 
+PK
+----
+The Perek-Kohoutek catalog of galactic planetary nebulae — 1,510 objects, from
+Kohoutek's 2001 revision of the 1967 original.
+
+A PK designation encodes galactic position rather than brightness:
+PK 036+17.1 lies at galactic longitude 36°, latitude +17°, and is the first
+nebula listed in that cell. Use **Name Search** to jump straight to one. The
+list itself is numbered 1 to 1,510 in order of right ascension, matching the
+printed catalog, so ``PK 743`` is a position in the list rather than a
+designation.
+
+The source catalog records positions and identifications only, so most entries
+carry no magnitude. Entries that are also NGC, IC, Abell or Sharpless objects
+take their magnitude from that catalog. Roughly 200 to 300 of these nebulae are
+within reach of a small telescope; many of the rest are faint or heavily
+reddened by dust in the galactic plane. Sizes come from the Strasbourg-ESO
+Catalogue of Galactic Planetary Nebulae (Acker et al. 1992), which covers about
+two thirds of the entries.
+
 RDS
 ----
 The RASC Double Stars Observing Program: 110 double-star targets visible from the northern hemisphere across many constellations.

@@ -34,11 +34,12 @@ def test_object_counts():
         "TLK": 93,
         "Har": 147,
         "Lyn": 1151,
+        "PK": 1510,
     }
 
     # catalog count
     num_catalogs = len(list(db.get_catalogs()))
-    assert num_catalogs == 21
+    assert num_catalogs == 22
     actual_catalogs = [row["catalog_code"] for row in db.get_catalogs()]
     expected_catalogs = list(catalog_counts.keys())
     missing_catalogs = set(expected_catalogs) - set(actual_catalogs)
@@ -103,13 +104,22 @@ def check_messier_objects():
     assert m45_obj is not None, "M45 object should exist in objects table"
 
     # Validate M45 coordinates (Pleiades)
-    # Expected: RA=56.85°, Dec=+24.117°
+    # M45 is one sky object with two catalog listings, M 45 and Col 42, so the
+    # position is Collinder's: RA=56.75°, Dec=+24.117°.
     assert coords_are_close(
-        m45_obj["ra"], 56.85
-    ), f"M45 RA should be ~56.85°, got {m45_obj['ra']}"
+        m45_obj["ra"], 56.75
+    ), f"M45 RA should be ~56.75°, got {m45_obj['ra']}"
     assert coords_are_close(
         m45_obj["dec"], 24.117
     ), f"M45 Dec should be ~24.117°, got {m45_obj['dec']}"
+
+    # The Pleiades must not be duplicated: post-processing lists "Cr 42" among
+    # M45's aka names precisely so the two listings resolve to one object.
+    col42_catalog_obj = db.get_catalog_object_by_sequence("Col", 42)
+    assert col42_catalog_obj is not None, "Col 42 should exist in catalog_objects"
+    assert (
+        col42_catalog_obj["object_id"] == m45_catalog_obj["object_id"]
+    ), "M45 and Col 42 are the Pleiades and must share one sky object"
 
     # Validate M45 object type and constellation
     assert (
@@ -351,6 +361,51 @@ def test_catalog_data_validation():
     check_messier_objects()
     check_ngc_objects()
     check_ic_objects()
+
+
+@pytest.mark.unit
+def test_pk_cross_identification():
+    """
+    Perek-Kohoutek entries that name an existing object must share it.
+
+    The sequence is the catalogue's own 1-1510 running number, so the pairs
+    below are fixed by the published list.
+    """
+    db = objects_db.ObjectsDatabase()
+
+    # (PK sequence, catalog code, sequence of the same sky object)
+    same_object = [
+        (2, "NGC", 40),  # PK 120+09.1
+        (1, "Abl", 1),  # PK 119+06.1
+        (1227, "NGC", 6742),  # PK 078+18.1, also Abell 50
+        (6, "Sh2", 176),  # PK 120-05.1
+    ]
+    for pk_sequence, catalog_code, sequence in same_object:
+        pk_obj = db.get_catalog_object_by_sequence("PK", pk_sequence)
+        other = db.get_catalog_object_by_sequence(catalog_code, sequence)
+        assert pk_obj is not None, f"PK {pk_sequence} should exist"
+        assert other is not None, f"{catalog_code} {sequence} should exist"
+        assert pk_obj["object_id"] == other["object_id"], (
+            f"PK {pk_sequence} and {catalog_code} {sequence} are the same "
+            f"nebula and must share one sky object"
+        )
+
+    # Minkowski planetary nebulae are named "M n-m" in the source. Collapsing
+    # the hyphen turns "M 3-1" into "M 31", so these must never be bound onto
+    # the Messier object of the same digits.
+    minkowski = [
+        (18, 11),  # M 1-1
+        (41, 14),  # M 1-4
+        (127, 31),  # M 3-1
+        (150, 42),  # M 4-2
+        (552, 29),  # M 2-9
+    ]
+    for pk_sequence, messier in minkowski:
+        pk_obj = db.get_catalog_object_by_sequence("PK", pk_sequence)
+        messier_obj = db.get_catalog_object_by_sequence("M", messier)
+        assert (
+            pk_obj["object_id"] != messier_obj["object_id"]
+        ), f"PK {pk_sequence} is a Minkowski nebula, not M {messier}"
 
 
 @pytest.mark.unit

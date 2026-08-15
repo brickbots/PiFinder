@@ -35,6 +35,7 @@ CATALOG_LOADERS = [
     ("wds_loader", "load_wds"),
     ("harris_loader", "load_harris"),
     ("lynga_loader", "load_lynga"),
+    ("pk_loader", "load_pk"),
 ]
 
 POST_PROCESSING_FUNCTIONS = [
