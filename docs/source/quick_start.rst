@@ -387,6 +387,17 @@ star is magnified about 10x.  A badly defocused star automatically gets a wider 
 broad disc or donut isn't clipped, and it tightens back up as focus improves.  The **+**
 and **-** keys adjust the magnification between 4x and 16x.
 
+The Focus screen holds the camera exposure steady while you work.  Everywhere else the
+PiFinder sets the exposure itself from the results of each plate solve, but soft stars are
+exactly what stops it solving.  The exposure would drift while you turn the lens, moving the
+HFD readout and changing which stars you see.  Holding it steady means every change on screen
+comes from the lens.
+
+Press **UP** for a longer exposure and **DOWN** for a shorter one.  These step through the
+same values as the Camera Exp setting, from 0.025s to 1s.  The exposure appears briefly in
+the top left when you open the screen and each time you change it.  Nothing you set here is
+saved.  The PiFinder restores your previous exposure setting when you leave.
+
 At the center of the screen is the **HFD** readout.  This is the Half-Flux Diameter of the
 detected stars, in camera pixels, and it measures how spread out the starlight is.  A
 smaller number means tighter, sharper stars, so screw the lens slowly in or out and chase
@@ -411,8 +422,8 @@ Press **SQUARE** to cycle through four views:
 * **Single**: the brightest star alone at twice the magnification, with the HFD readout
   and trace along the bottom.
 * **Image**: the full camera frame, brightened for the screen.
-* **Stats**: the HFD alongside an FWHM estimate, the detected-star count, exposure, gain,
-  and a histogram of the raw image.
+* **Stats**: the HFD alongside an FWHM estimate, the detected-star count, the held exposure
+  marked ``HOLD``, gain, and a histogram of the raw image.
 
 .. image:: images/quick_start/focus_single_docs.png
    :width: 45%
@@ -420,7 +431,8 @@ Press **SQUARE** to cycle through four views:
    :width: 45%
 
 Press and hold **SQUARE** in any view to open the :ref:`user_guide:quick menu`, which offers
-the camera exposure setting.  With dark enough skies and good focus, the camera icon appears
+the camera exposure setting.  A value you select there is saved, unlike the **UP** and
+**DOWN** steps on this screen.  With dark enough skies and good focus, the camera icon appears
 in the top right and the current constellation shows in the title bar.  Congratulations, the
 PiFinder knows where it's pointing!
 
