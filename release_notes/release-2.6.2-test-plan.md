@@ -10,7 +10,15 @@ pass criterion, and a note on what a failure blocks. Gates 1–3 must pass befor
 **Status as of 2026-08-15** (`main` @ `6aad0645`): `release` is an ancestor of `main`,
 so the cut is a **fast-forward** with no conflicts to resolve. `.github/` is
 byte-identical between the two branches, so the release workflow that runs post-cut is
-the one already exercised on `release`.
+the one already exercised on `release`. Gate 1 is green.
+
+> **Two items must be resolved before the cut, both from the pre-release review (§9):**
+> **(1)** `version.txt` is still `2.6.1` on `main` — cutting as-is means no device is
+> ever offered the update (**P1.1**). **(2)** The Focus screen's exposure hold leaks by
+> ordinary exit routes and takes auto-exposure down with it for the rest of the session
+> (**G2.12**). Two further cheap fixes are strongly recommended: clearing `camera_lens`
+> on a Camera Type switch (**G2.26**), and pulling in the docs-only #613 so that ADR
+> 0027's accepted risk is actually mitigated (**§8.1**).
 
 **Shape of this release, and what that means for testing.** Eighteen of the 23 commits
 are documentation. The code surface is small — two features — but one of them sits
@@ -191,15 +199,30 @@ The organising question: *does a device nobody has touched behave identically?*
 - [ ] **G2.11** Open Focus under Auto exposure. Stats must read `HOLD` with the exposure
   the controller had settled on — including an off-ladder value, not snapped to a menu
   rung. Confirm the value flashes top-left on entry.
-- [ ] **G2.12** **The leak test.** Enter Focus, then leave by the exotic route:
-  long-RIGHT to recent objects, then long-LEFT to the top menu. Then watch the exposure
-  for 60 s. **A known lifecycle gap means the hold is expected to remain engaged by this
-  route** (`add_to_stack` skips `inactive()` for non-stateful modules; the SQM screen and
-  daytime align have the same gap today). Confirm the scope of the leak: does auto
-  exposure resume, and does solving continue? Then re-enter and leave Focus normally and
-  confirm the hold is released. **Decide before the cut whether this ships as documented
-  behaviour or blocks.** It is pre-existing in character but newly reachable on the
-  screen users visit most on their first night.
+- [ ] **G2.12** **The leak test — see review finding 2; this is a candidate release
+  blocker, not a curiosity.** The pre-release review confirmed by driving the real
+  `MenuManager` that the hold leaks by **ordinary** routes, not just exotic ones, and
+  that the consequence is larger than #614 documented: `set_exp_transient` clears
+  `_auto_exposure_enabled` in the camera process, and only `set_exp:auto` ever sets it
+  back. A leaked hold therefore pins the camera at a manual exposure **and stops
+  zero-match recovery for the rest of the session**, while Settings → Camera Exp still
+  shows "Auto".
+  Test each route. Enter Focus, leave by the route, then watch the exposure for 60 s:
+  - [ ] **a.** Focus → **Quick Menu → Exposure** → long-LEFT. *(This is the ordinary
+        one — the jump lives on the Focus screen's own Quick Menu, and adjusting exposure
+        while focusing is a natural thing to do.)*
+  - [ ] **b.** Focus → long-RIGHT to object details → long-LEFT.
+  - [ ] **c.** Focus → POWER button → long-LEFT.
+  - [ ] **d.** Focus open, push an object from SkySafari, then long-LEFT.
+  - [ ] **e.** Control: Focus → LEFT. This route is correct and must release the hold.
+  For each leaking route, confirm the observable consequence: does auto exposure resume,
+  does solving recover, and does Camera Exp still read "Auto"? Then confirm re-entering
+  and leaving Focus with LEFT releases it, and that re-selecting Auto in Settings →
+  Camera Exp recovers a leaked session.
+  **Decide before the cut:** fix via a self-expiring lease (the black-level lease is the
+  in-repo precedent), or ship the exposure hold disabled. Making Focus `stateful` does
+  **not** fix it — the `state` check in `add_to_stack` is on the pushed item, not the
+  buried one.
 - [ ] **G2.13** UP/DOWN step along the ladder 0.025 s … 1 s. Confirm both ends **hold
   rather than wrap** — five UPs from 0.1 s must stop at 1 s. The underlying `exp_up` /
   `exp_dn` commands apply no clamp at all, so this bound exists only in the new code.
@@ -235,6 +258,23 @@ The organising question: *does a device nobody has touched behave identically?*
   in `Settings → Advanced` still open correctly. A new entry shifts every index below it.
 - [ ] **G2.25** Full boot → GPS lock → solve → object details → push-to, with nothing
   configured, to confirm no regression in the ordinary path.
+- [ ] **G2.26** **Camera Type switch with a lens explicitly stored (review finding 3).**
+  Select a lens explicitly, then change `Settings → Advanced → Camera Type` and let the
+  device reboot. Confirm what `camera_lens` reads afterwards. Nothing clears it today, so
+  the old declaration is expected to carry onto the new sensor — and for a v3 → HQ swap
+  the resulting gate `[14.55, 19.69]` **overlaps** the database range, so
+  `_warn_if_outside_solver_database` does *not* fire and the log says nothing beyond a
+  cheerful `Optical train: 16mm lens on hq`. Confirm whether solving stops, and whether
+  anything at all surfaces why. The one-line fix is to clear `camera_lens` in the
+  `switch_cam_*` callbacks.
+- [ ] **G2.27** **Frustum on a 320×240 display, if one is in test (review finding 6).**
+  On an `st7789` / `pg_320` display, open Align and step the chart FOV up to 60°.
+  `frustum_box` derives its vertical extent from the width, so at ratios below 0.25 the
+  box inverts and `ImageDraw.rectangle` raises `ValueError: y1 must be greater than or
+  equal to y0`. **Pre-existing — `release` has the identical formula, and for shipped
+  sensors 2.6.2 actually raises the threshold from 38° to ~55°** — so this is a
+  confirm-and-file item, not a blocker. Square panels (128 / 176), which is the
+  mainstream shipped hardware, are unaffected.
 
 ---
 
@@ -317,20 +357,32 @@ Carried into the release deliberately. Each needs a decision recorded, not just 
 
 1. **A mis-stated lens produces no solves and no recovery.** Deliberate (ADR 0027), and
    the failure presents as an exposure problem because auto-exposure steers on match
-   count. The mitigation is entirely diagnostic: a log line. **#613 (the troubleshooting
-   docs) is filed but not in this release**, which means the release ships a new way to
-   stop solving with no user-facing explanation of it. Consider whether #613 should be
-   pulled in before the cut — it is a docs-only change.
+   count. The mitigation is entirely diagnostic: a log line. **ADR 0027 accepts this risk
+   on the explicit grounds that "the troubleshooting path documents cleanly" — and that
+   documentation is not in this release.** `menu_map.rst` has no Lens entry,
+   `user_guide.rst:967` still lists the once-configured settings as "PiFinder Type,
+   Camera Type, and GPS Settings", and `troubleshooting.rst` has no lens/no-solve
+   symptom. **#613 is filed, is docs-only, and would convert an unmitigated risk into the
+   mitigated one the ADR assumed. Strongly consider pulling it into the cut** — it is
+   incongruous for a release that rewrites the entire manual to ship its one new user
+   setting undocumented.
+   - **Additionally, the lens is not invalidated by a Camera Type switch** (G2.26), so a
+     user can end up with a wrong lens without ever having mis-stated one.
 2. **25 mm on imx296 / imx462 is offered but cannot solve.** Derived 8.26° and 6.26°
    against a pattern database built for `[10°, 30°]`. Verified directly against the
    shipped `default_database.npz` (`min_fov=10.0`, `max_fov=30.0`). The solver logs an
    explicit error. Not a shipped configuration, but the menu does not say so.
 3. **The 12 mm lens is uncalibrated** (#612): nominal focal length standing in for a
    measurement, unmeasured SQM zero point, conservative f/2.0.
-4. **The Focus screen's exposure hold leaks on an exotic exit route** (G2.12), inherited
-   from a pre-existing lifecycle gap that also affects SQM and daytime align. Fixing it
-   centrally is unsafe because `dateentry`, `timeentry` and `locationentry` fire commit
-   callbacks from `inactive()`.
+4. **The Focus screen's exposure hold leaks by ordinary routes, killing auto-exposure and
+   zero-match recovery for the session** (G2.12, review finding 2). Inherited from a
+   pre-existing lifecycle gap that also affects SQM and daytime align — but the hold is
+   what converts that dormant gap into a camera-state bug, and one of the leaking routes
+   is the Focus screen's own Quick Menu. **This is the one item in this list that is a
+   candidate blocker rather than accepted risk.** Fixing the lifecycle centrally is
+   unsafe because `dateentry`, `timeentry` and `locationentry` fire commit callbacks from
+   `inactive()`; a self-expiring lease on the transient exposure closes every route
+   without touching that asymmetry.
 5. **`Lens` is machine-translated in all four catalogs** and tagged as needing human
    review. The three numeral labels are language-independent. Low risk, but the standing
    unreviewed totals in these catalogs are large and predate this release.
@@ -341,10 +393,39 @@ Carried into the release deliberately. Each needs a decision recorded, not just 
 
 ---
 
-## 9. Automated review findings
+## 9. Pre-release code review — summary
 
-See `release_notes/release-2.6.2-code-review.md` for the full report from the review
-pass, including the recorded test counts and docs-build result referenced by Gate 1.
+Full report: **`release_notes/release-2.6.2-code-review.md`**. Three independent review
+agents with non-overlapping briefs, every finding re-verified against source, several
+re-derived numerically or executed.
+
+| # | Severity | Summary | Gate |
+|---|---|---|---|
+| 1 | **Blocker** | `version.txt` still `2.6.1` — the update is never offered to any device | P1.1 |
+| 2 | **High** | Focus exposure hold leaks by ordinary routes; kills auto-exposure + zero-match recovery for the session | G2.12 |
+| 3 | Medium | Stale `camera_lens` after a Camera Type switch stops solving; the warning does not fire | G2.26 |
+| 4 | Medium | The Lens setting has no user documentation — ADR 0027's accepted risk is unmitigated | §8.1 |
+| 5 | Medium | Menu offers 25 mm on imx296/imx462, which the shipped database cannot solve | G2.9 |
+| 6 | Medium | `frustum_box` vertical extent derived from width; inverts and raises on 320×240 (**pre-existing**) | G2.27 |
+| 7 | Low | SQM archive re-analysis scripts ignore the lens the archive now records | — |
+| 8 | Low | `--camera debug` breaks for any developer who has opened the Lens menu | — |
+| 9 | Low | `CameraProfile` field defaults let a new profile produce a silently broken gate | — |
+| 10 | Low | An unrecognised lens key falls back with nothing in the log | — |
+| 11 | Low | Unsynchronised optical-train cache across waitress threads | G6.2 |
+| 12 | Low | `"HOLD"` unwrapped for i18n; `AI-TRANSLATED` marker displaced in es/fr | P1.5 |
+| 13 | Info | ADR 0027's "within 0.02°" is really 0.0226°; `state.py` loads `Config()` twice | — |
+
+**The review's positive result matters as much as the findings.** The optics math is
+correct against tetra3's own FOV definition and the real capture pipeline; the
+zero-migration path has no `KeyError` and reproduces the retired constants to under
+0.005 mag; the relocated camera profiles carry **zero numeric change** to any radiometric
+constant; all four shipped trains sit inside the pattern database; and the debug-camera
+relabel is genuinely end-to-end tested against real frames. Findings 7–13 can all ship.
+
+**Fix before the cut:** 1 and 2 (must), 3 and 4 (cheap, high value — 3 is a one-line
+change in the `switch_cam_*` callbacks, 4 is pulling in the already-filed docs-only
+#613). **Fix finding 7 before anyone runs the 12 mm sweep #612 asks for**, or the
+refitted constants will carry a ≈ 0.56 mag systematic.
 
 ---
 
