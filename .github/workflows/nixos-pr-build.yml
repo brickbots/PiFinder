@@ -6,10 +6,10 @@ name: Build PiFinder NixOS (testable PRs)
 # `pull_request_target` runs in the BASE repo's trusted context, so the job has
 # the real ATTIC_TOKEN and a read-write GITHUB_TOKEN even for fork PRs. The
 # contributor's code is checked out explicitly (head SHA) and built. This is
-# only reached after a maintainer applies the `testable` (or `preview`) label —
-# that label is the security boundary: it runs contributor code with the cache
-# push token, so review the diff before labeling, and re-review on each new push
-# to a labeled PR.
+# only reached after a maintainer applies the `testable` label — that label is
+# the security boundary: it runs contributor code with the cache push token, so
+# review the diff before labeling, and re-review on each new push to a labeled
+# PR.
 #
 # Build strategy: the free GitHub-hosted ubuntu-24.04-arm runner builds first.
 # Its cores are faster than the Pi5, and the Attic cache (cache.pifinder.eu) is
@@ -33,9 +33,7 @@ permissions:
 jobs:
   # Primary: free GitHub-hosted arm64 runner (native aarch64, no QEMU).
   build-hosted:
-    if: |
-      contains(github.event.pull_request.labels.*.name, 'preview') ||
-      contains(github.event.pull_request.labels.*.name, 'testable')
+    if: contains(github.event.pull_request.labels.*.name, 'testable')
     runs-on: ubuntu-24.04-arm
     # Generous: only a kernel/source change compiles from scratch (~1 h on this
     # 4-core runner); everything else substitutes from Attic in minutes.
@@ -101,8 +99,7 @@ jobs:
     needs: build-hosted
     if: |
       always() &&
-      (contains(github.event.pull_request.labels.*.name, 'preview') ||
-       contains(github.event.pull_request.labels.*.name, 'testable')) &&
+      contains(github.event.pull_request.labels.*.name, 'testable') &&
       needs.build-hosted.result == 'failure'
     runs-on: [self-hosted, aarch64]
     timeout-minutes: 240
