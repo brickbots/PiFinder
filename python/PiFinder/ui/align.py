@@ -229,12 +229,14 @@ class UIAlign(UIModule):
                     dt=self.shared_state.datetime(),
                 )
                 chart_rot_angle = orientation.rot_deg if orientation else None
-                self.starfield.set_camera_fov(
-                    self._optical_train.resolve(
-                        self.shared_state.camera_type(),
-                        self.shared_state.camera_lens(),
-                    ).fov_degrees
-                )
+                # The frustum marks what the camera images, so it follows the
+                # fitted optical train. It also decides which stars come back
+                # as visible_stars, and an alignment star the camera cannot
+                # see is no use.
+                camera_fov = self._optical_train.resolve(
+                    self.shared_state.camera_type(),
+                    self.shared_state.camera_lens(),
+                ).fov_degrees
                 # This needs to be called first to set RA/DEC/chart_rot_angle
                 image_obj, self.visible_stars = self.starfield.plot_starfield(
                     chart_center.RA,
@@ -242,6 +244,7 @@ class UIAlign(UIModule):
                     chart_rot_angle,
                     constellation_brightness,
                     shade_frustrum=True,
+                    camera_fov=camera_fov,
                 )
 
                 image_obj = ImageChops.multiply(

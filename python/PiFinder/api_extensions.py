@@ -463,14 +463,14 @@ def register_api_routes(app, server_instance, require_auth=False):
             )
 
             # The frustum marks what the camera images, so it follows the
-            # fitted optical train. Set per request rather than baked into the
-            # cache key: the Starfield is expensive to build and is reused
-            # across requests, while the lens can change under it.
-            starfield.set_camera_fov(
-                _API_OPTICAL_TRAIN.resolve(
-                    ss.camera_type(), ss.camera_lens()
-                ).fov_degrees
-            )
+            # fitted optical train. Passed per render rather than held on the
+            # Starfield: that object is cached and shared across requests, and
+            # waitress serves them on several threads, so anything set on it
+            # between one request's resolve and its render belongs to whoever
+            # got there last.
+            camera_fov = _API_OPTICAL_TRAIN.resolve(
+                ss.camera_type(), ss.camera_lens()
+            ).fov_degrees
 
             # --------------------------------------------------
             # 5. Call PiFinder's native star chart rendering logic
@@ -481,6 +481,7 @@ def register_api_routes(app, server_instance, require_auth=False):
                 roll,
                 constellation_brightness,
                 shade_frustrum=shade_frustrum,
+                camera_fov=camera_fov,
             )
 
             # --------------------------------------------------

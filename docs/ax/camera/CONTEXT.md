@@ -148,6 +148,20 @@ downscale factor and confusing them silently rescales any angle computed
 from it.
 _Avoid_: arcsec per pixel (unqualified — say which grid), resolution.
 
+**Frustum**:
+The box drawn on a chart marking the part of it the camera images — the
+**field of view** of the current optical train, inside the chart's own zoom
+level. It does two jobs at once: the chart outside it can be dimmed, and it
+selects the stars the chart reports back, which is why the align screen only
+offers alignment stars the camera can actually see. A chart is rendered with
+a frustum only when the caller states a camera field of view; **no frustum**
+is a real state (`plot.frustum_box` returns None), not a default box, because
+there is no stand-in for a number that is a property of the hardware fitted
+to that particular device.
+_Avoid_: camera box, FOV box, "the frustrum" in prose (the misspelling
+survives only in the `shade_frustrum` argument name); "visible stars" meaning
+*stars on the chart* — with a frustum they are the stars inside it.
+
 ### Cross-context terms
 
 - **`Matches`** — defined in [Positioning](../positioning/CONTEXT.md): count of stars tetra3 matched in the most recent solve attempt, published on every attempt (success or failure) because auto-exposure depends on it. The feedback signal for solver-driven auto-exposure.
