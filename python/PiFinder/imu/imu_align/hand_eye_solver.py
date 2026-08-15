@@ -79,8 +79,8 @@ def solve_rotation(
     logger.debug(f"Solving for relative rotation from {len(q1_list)} sample pairs.")
 
     # TODO: This is inefficient if re-run by outlier removal. Also not sure if necessary?
-    q1_list = ensure_quat_list_continuity(q1_list)
-    q2_list = ensure_quat_list_continuity(q2_list)
+    #q1_list = ensure_quat_list_continuity(q1_list)
+    #q2_list = ensure_quat_list_continuity(q2_list)
 
     # TODO: Tune LM params
     # TODO: Calculate the Jacobians analytically? Current numerical Jacobians is probably fast enough?

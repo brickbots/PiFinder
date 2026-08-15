@@ -170,15 +170,23 @@ class ImuCameraAlignment:
         self.candidate_buffer.trim_to_max_length()
         self.diff_buffer.trim_to_max_length()
 
-    def add_sample(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
+    def add_candidate(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
         """
         Add to the candidate_buffer the camera solve & corresponding IMU sample
         from integrator.
         """
         if timestamp is None or cam_eq is None or cam_eq.valid is False or q_x2imu is None:
             return
-        self.candidate_buffer.add_sample(
-            CameraImuSample(timestamp, cam_eq.as_quaternion(), q_x2imu))
+
+        # Ensure quaternion continuity from previous candidate sample
+        q_cam = cam_eq.as_quaternion()
+        if self.candidate_buffer.len > 0:
+            last_candidate = self.candidate_buffer.buffer[-1]
+            q_cam = qt.ensure_quat_continuity(last_candidate.q_cam, q_cam)
+            q_imu = qt.ensure_quat_continuity(last_candidate.q_imu, q_x2imu)
+            self.candidate_buffer.add_sample(CameraImuSample(timestamp, q_cam, q_imu))
+        else:
+            self.candidate_buffer.add_sample(CameraImuSample(timestamp, q_cam, q_x2imu))
 
     def purge_old_samples(self, current_time: float):
         """
@@ -287,12 +295,12 @@ class ImuCameraAlignment:
         q_cam2imu, diagnostics = solve_rotation(q_cam_list, q_imu_list)
         return q_cam2imu
 
-    def add_sample_attempt_solve(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
+    def add_candidate_attempt_solve(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
         """
-        For general use, call this method. Add a new sample to the buffer. When
-        the buffer fills up, pair samples and solve.
+        For general use, call this method. Add a new candidate to the buffer.
+        When the buffer fills up, pair samples and solve.
         """
-        self.add_sample(timestamp, cam_eq, q_x2imu)
+        self.add_candidate(timestamp, cam_eq, q_x2imu)
 
         # Pair samples and solve
         if ((self._samples_since_last_pair_attempt >= self.min_n_solve) or
