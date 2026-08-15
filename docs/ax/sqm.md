@@ -249,7 +249,7 @@ processed-image background controller keeps its validated 8-bit threshold.
 ## Published value, altitude, passband, and cloud
 
 After converting solve-independent background ADU per pixel to ADU per square
-arcsecond using the factory field width:
+arcsecond using the **radiometric field width**:
 
 ```text
 sqm = effective_zero_point
@@ -272,11 +272,20 @@ ratio of the sky background. See ADR 0026 for the derivation and the evidence.
 for mono sensors (no colour to measure) and for the IR-cut HQ (no NIR leak to
 correct). Current defaults:
 
-| profile | `radiometric_zero_point` | colour slope | pivot / range | field width |
+| profile | `radiometric_zero_point` | colour slope | pivot / range | field width (shipped lens) |
 |---|---|---|---|---|
-| imx462, imx290 | `15.159` | `5.544` | `0.85`, clamped to `0.83–1.04` | 10.38° |
-| hq | `14.971` | `0.0` (constant) | — | 10.34° |
-| imx296 (mono) | `14.07` | `0.0` (constant) | — | 13.71° |
+| imx462, imx290 | `15.159` | `5.544` | `0.85`, clamped to `0.83–1.04` | 10.40° (16 mm) |
+| hq | `14.971` | `0.0` (constant) | — | 10.33° (25 mm) |
+| imx296 (mono) | `14.07` | `0.0` (constant) | — | 13.71° (16 mm) |
+
+The field width is no longer a per-sensor constant: it is derived from the
+**optical train** (see [Camera](camera/CONTEXT.md)), because the same sensor
+images a different field on a different lens — a one-step lens change is worth
+~0.6 mag. The values above are what the shipped lens gives, and they reproduce
+the previously stored constants (10.38, 10.34, 13.71) to within 0.03°, so no
+existing user's SQM moves. `PiFinder.optics` owns the derivation and
+`tests/test_optics.py` pins it against those calibrations. See
+[ADR 0027](../adr/0027-fov-gate-derived-from-optical-train.md).
 
 `radiometric_zero_point` in the sample details keeps meaning the profile
 constant across this change so archives stay comparable; the value actually

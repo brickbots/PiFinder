@@ -27,6 +27,7 @@ import grpc
 from PiFinder import state_utils
 from PiFinder import utils
 from PiFinder import timez
+from PiFinder.optics import OpticalTrainResolver
 from PiFinder.sqm import SQM as SQMCalculator
 
 from PiFinder.sqm.wings import WingEstimator
@@ -151,6 +152,39 @@ def _derotate_centroids(points, rotation_deg, size):
     return np.stack([ry, rx], axis=1)
 
 
+def _fov_gate_bounds(train):
+    """``(low, high)`` degrees of a train's FOV gate, for logging."""
+    estimate, max_error = train.solver_fov_params()
+    return estimate - max_error, estimate + max_error
+
+
+def _warn_if_outside_solver_database(t3, train) -> None:
+    """Log when the pattern database cannot cover this train's field of view.
+
+    The database is built over a fixed field-of-view range. A train outside it
+    produces no solves at all -- not a degraded solve rate -- and the symptom
+    at the UI is indistinguishable from an exposure problem, so say it plainly
+    in the log once rather than leaving it to be inferred.
+    """
+    try:
+        props = t3.database_properties
+        db_min, db_max = float(props["min_fov"]), float(props["max_fov"])
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return
+    low, high = _fov_gate_bounds(train)
+    if high < db_min or low > db_max:
+        logger.error(
+            "FOV gate [%.2f, %.2f] deg lies outside the solver database's "
+            "[%.2f, %.2f] deg: no frame can solve. Check the configured lens "
+            "(%s) matches the one fitted.",
+            low,
+            high,
+            db_min,
+            db_max,
+            train.lens.menu_label,
+        )
+
+
 def update_radiometric_sqm(
     shared_state,
     sqm_calculator,
@@ -159,6 +193,7 @@ def update_radiometric_sqm(
     calculation_interval_seconds=1.0,
     now=None,
     black_level_tracker=None,
+    field_width_degrees=None,
 ):
     """Collect every frame and publish a solve-independent value at cadence."""
     from datetime import datetime
@@ -216,6 +251,7 @@ def update_radiometric_sqm(
         sqm_calculator.profile,
         current_time,
         pedestal_for_exposure=pedestal_for_exposure,
+        field_width_degrees=field_width_degrees,
     )
     if sqm_value is None:
         previous = shared_state.sqm_details()
@@ -861,6 +897,14 @@ def solver(
     sqm_radiometer = RadiometerAccumulator()
     last_stellar_diagnostic = 0.0
 
+    # The optical train is resolved per frame rather than here, for the same
+    # reason the SQM calculator is: at solver startup shared_state.camera_type()
+    # still holds the pre-camera default. Resolving it lazily also means a lens
+    # change takes effect on the next frame instead of the next boot. The
+    # resolver only rebuilds when one of the two halves actually changes.
+    optical_train = OpticalTrainResolver()
+    logged_train = None
+
     while True:
         logger.info("Starting Solver Loop")
         # Try to start cedar detect server, fall back to tetra3 centroider if unavailable
@@ -928,6 +972,28 @@ def solver(
                 if not is_new_image:
                     continue
 
+                # Both halves are read live: the camera type becomes real once
+                # the camera process reports, and the lens can change from the
+                # menu mid-session.
+                try:
+                    train = optical_train.resolve(
+                        shared_state.camera_type(), shared_state.camera_lens()
+                    )
+                except (BrokenPipeError, ConnectionResetError) as e:
+                    logger.error(f"Lost connection to shared state manager: {e}")
+                    continue
+                if train is not logged_train:
+                    logged_train = train
+                    logger.info(
+                        "Optical train: %s lens on %s, field of view %.2f deg, "
+                        "FOV gate [%.2f, %.2f]",
+                        train.lens.menu_label,
+                        shared_state.camera_type(),
+                        train.fov_degrees,
+                        *_fov_gate_bounds(train),
+                    )
+                    _warn_if_outside_solver_database(t3, train)
+
                 # Every camera frame already carries a tiny radiometer sample
                 # reduced in the camera process. Collect all of them and publish
                 # at most once per second for CPU/battery stability.
@@ -952,6 +1018,7 @@ def solver(
                         radiometer_sample,
                         calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
                         black_level_tracker=sqm_black_level,
+                        field_width_degrees=train.fov_degrees,
                     )
 
                 try:
@@ -998,11 +1065,17 @@ def solver(
                         if align_ra != 0 and align_dec != 0:
                             _solver_args["target_sky_coord"] = [[align_ra, align_dec]]
 
+                        # The FOV gate is derived from the optical train, not
+                        # tuned: tetra3 prunes candidates by implied field of
+                        # view before verification and rejects survivors after
+                        # fitting, so this window has to describe the actual
+                        # hardware or nothing solves. See docs/adr/0027.
+                        fov_estimate, fov_max_error = train.solver_fov_params()
                         solution = t3.solve_from_centroids(
                             centroids,
                             (512, 512),
-                            fov_estimate=12.0,
-                            fov_max_error=4.0,
+                            fov_estimate=fov_estimate,
+                            fov_max_error=fov_max_error,
                             match_max_error=0.005,
                             return_matches=True,  # Required for SQM calculation
                             target_pixel=shared_state.target_pixel(),
