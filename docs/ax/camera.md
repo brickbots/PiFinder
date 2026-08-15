@@ -71,6 +71,19 @@ Transitions worth knowing:
   than wrap. SQM calibration (`ui/sqm_calibration.py`) holds the same way.
   `inactive()` is idempotent: `MenuManager` calls it twice on a LEFT
   back-out.
+- **A hold survives only a clean exit.** The hand-back lives in
+  `inactive()`, and `add_to_stack` skips `inactive()` for non-stateful
+  modules, so *burying* the Focus screen strands the hold: the camera stays
+  pinned at the held manual exposure with `_auto_exposure_enabled` cleared
+  (only `set_exp:auto` sets it back, so zero-match recovery is dead too),
+  while Camera Exp still reads Auto. The Focus screen's marking menu used to
+  carry a `menu_jump` to `camera_exposure`, which was the likeliest route
+  into this, so it was removed — UP / DOWN already did the same job faster.
+  Its marking menu is now HELP only (`up` defaults to it, and the screen has
+  help pages), and a standing status bar along the bottom of the panel
+  advertises the UP / DOWN keys in its place. Long-RIGHT, the power button
+  and an object push from SkySafari can still bury the screen, so removing
+  the jump narrows this failure rather than closing it.
 - **Any manual nudge wins**: `exp_up` / `exp_dn` silently drop both
   auto-exposure regimes. The new value is *not* persisted until
   `exp_save`, which also writes `camera_gain`.

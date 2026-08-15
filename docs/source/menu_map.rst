@@ -52,9 +52,10 @@ Focus
    as it will go.  Sharp stars let the PiFinder solve.  Press **SQUARE** to
    cycle the Stars, Single, Image, and Stats views.  The screen holds the camera
    exposure steady while it is open, so only the lens changes what you see.
-   Press **UP** and **DOWN** to step the exposure.  Your previous exposure
-   setting returns when you leave.  The Quick Menu here adjusts the camera
-   Exposure, and a value selected there is saved.
+   Press **UP** and **DOWN** to step the exposure.  A bar along the bottom
+   shows the held exposure and the keys that change it.  Nothing you set here
+   is saved.  Your previous exposure setting returns when you leave.  To set an
+   exposure the PiFinder keeps, select Camera Exp in the Settings menu.
 Align
    Align the PiFinder to your eyepiece.  Center a known star and confirm.  Your
    Push-To distances then account for any offset between the camera and where
