@@ -77,6 +77,7 @@ Join the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ for support 
    user_guide
    menu_map
    equipment
+   sqm
    catalogs
    connectivity
    skysafari
