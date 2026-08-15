@@ -51,8 +51,15 @@ FOCUS_EXPOSURE_LADDER = (
 # Exposure to hold when no exposure is known yet. Matches the starting point
 # the camera processes use for auto-exposure.
 FOCUS_DEFAULT_EXPOSURE = 400_000
-# How long the exposure readout stays up after entering the screen or nudging.
-FOCUS_EXPOSURE_LABEL_S = 2.5
+# Height of the bottom status bar at 128px, scaled with the panel. Derived from
+# the resolution rather than the small font so that tile geometry stays
+# independent of font metrics; tests/test_focus_preview.py pins that this is
+# still tall enough for the small font on every shipped layout.
+#
+# The bar is reserved out of the camera area rather than drawn over it, so no
+# raw pixel is ever hidden by it -- the whole point of the star tiles is that
+# what you see is the sensor.
+FOCUS_STATUS_BAR_H_128 = 13
 
 
 def step_exposure(
@@ -129,13 +136,26 @@ class UIPreview(UIModule):
         self._exposure_hold_active = False
         self._saved_camera_exp: Optional[object] = None
         self._held_exposure_us: Optional[int] = None
-        self._exposure_label_until = 0.0
 
-        self.marking_menu = MarkingMenu(
-            left=MarkingMenuOption(
-                label=_("Exposure"),
-                menu_jump="camera_exposure",
-            ),
+        self.marking_menu = self._build_marking_menu()
+
+    @staticmethod
+    def _build_marking_menu() -> MarkingMenu:
+        """The Quick Menu for this screen: help only, no Exposure jump.
+
+        UP/DOWN adjust the exposure directly here, so the jump was a second,
+        slower route to the same thing -- and taking it buried this screen
+        without ``inactive()``, stranding the exposure hold and with it
+        auto-exposure for the rest of the session. The status bar advertises
+        the keys that replaced it.
+
+        The menu itself stays rather than becoming None: ``MarkingMenu.up``
+        defaults to HELP and this screen has help pages
+        (``__help_name__ = "camera"``), so dropping the menu would take the
+        help with it.
+        """
+        return MarkingMenu(
+            left=MarkingMenuOption(),
             down=MarkingMenuOption(),
             right=MarkingMenuOption(),
         )
@@ -211,10 +231,9 @@ class UIPreview(UIModule):
         return FOCUS_DEFAULT_EXPOSURE
 
     def _apply_hold_exposure(self, exposure_us: int) -> None:
-        """Hold the camera at one exposure and flash the value on screen."""
+        """Hold the camera at one exposure and show the value on screen."""
         self._held_exposure_us = int(exposure_us)
         self._exposure_hold_active = True
-        self._exposure_label_until = time.time() + FOCUS_EXPOSURE_LABEL_S
         self.command_queues["camera"].put(f"set_exp_transient:{self._held_exposure_us}")
 
     def _nudge_exposure(self, direction: int) -> None:
@@ -222,12 +241,11 @@ class UIPreview(UIModule):
         if not self._exposure_hold_active or self._held_exposure_us is None:
             return
         new_exposure = step_exposure(self._held_exposure_us, direction)
-        if new_exposure == self._held_exposure_us:
-            # Already at the end of the ladder; still flash the value so the
-            # key press doesn't read as the screen having missed it.
-            self._exposure_label_until = time.time() + FOCUS_EXPOSURE_LABEL_S
-        else:
+        if new_exposure != self._held_exposure_us:
             self._apply_hold_exposure(new_exposure)
+        # Redraw either way. At the end of the ladder the value is unchanged,
+        # but the status bar is standing so there is nothing to re-flash --
+        # the repaint just keeps the screen current with the key press.
         self.update(force=True)
 
     def _measure_focus(
@@ -336,23 +354,41 @@ class UIPreview(UIModule):
             return ()
         return tuple(self.last_focus_result.blobs[:FOCUS_TILE_COUNT])
 
+    def _status_bar_height(self) -> int:
+        """Rows reserved at the bottom for the exposure and key readout."""
+        res_y = self.display_class.resolution[1]
+        return max(FOCUS_STATUS_BAR_H_128, round(res_y * FOCUS_STATUS_BAR_H_128 / 128))
+
+    def _content_bottom(self) -> int:
+        """First row belonging to the status bar rather than the camera.
+
+        Every camera-area layout measures down to this instead of the panel
+        height, so the bar takes its space from the render rather than
+        covering it.
+        """
+        res_y = self.display_class.resolution[1]
+        content_top = min(self.display_class.titlebar_height + 1, res_y)
+        return max(content_top + 1, res_y - self._status_bar_height())
+
     def _focus_center(self) -> tuple[int, int]:
         """Return the center of the visible area below the title bar."""
         res_x, res_y = self.display_class.resolution
         content_top = min(self.display_class.titlebar_height + 1, res_y)
-        return res_x // 2, content_top + (res_y - content_top) // 2
+        content_bottom = self._content_bottom()
+        return res_x // 2, content_top + (content_bottom - content_top) // 2
 
     def _tile_boxes(self) -> tuple[tuple[int, int, int, int], ...]:
         """Split the visible camera area into four equally sized quadrants."""
         res_x, res_y = self.display_class.resolution
         content_top = min(self.display_class.titlebar_height + 1, res_y)
+        content_bottom = self._content_bottom()
         mid_x = res_x // 2
         mid_y = self._focus_center()[1]
         return (
             (0, content_top, mid_x, mid_y),
             (mid_x, content_top, res_x, mid_y),
-            (0, mid_y, mid_x, res_y),
-            (mid_x, mid_y, res_x, res_y),
+            (0, mid_y, mid_x, content_bottom),
+            (mid_x, mid_y, res_x, content_bottom),
         )
 
     def _render_focus_tiles(self, raw_image: Image.Image) -> Image.Image:
@@ -392,7 +428,9 @@ class UIPreview(UIModule):
     def _render_brightest_star(self, raw_image: Image.Image) -> Image.Image:
         """Fill the panel with the brightest detected star's raw crop."""
         raw_l = raw_image.convert("L")
-        target_size = self.display_class.resolution
+        # Stops above the status bar for the same reason the tiles do: these
+        # are raw sensor pixels and the bar must not sit on any of them.
+        target_size = (self.display_class.resolution[0], self._content_bottom())
         rendered = Image.new("L", target_size, 0)
         blobs = self._display_blobs()
         if blobs:
@@ -417,7 +455,8 @@ class UIPreview(UIModule):
     def _render_image_frame(self, raw_image: Image.Image) -> Image.Image:
         """Fit and autocontrast the full camera image for display only."""
         resized = raw_image.convert("L").resize(
-            self.display_class.resolution, resample=Image.Resampling.NEAREST
+            (self.display_class.resolution[0], self._content_bottom()),
+            resample=Image.Resampling.NEAREST,
         )
         red = ImageChops.multiply(resized.convert("RGB"), self.colors.red_image)
         return ImageOps.autocontrast(red)
@@ -455,10 +494,11 @@ class UIPreview(UIModule):
         """Draw quadrant separators, HFD history, and the current HFD."""
         res_x, res_y = self.display_class.resolution
         content_top = min(self.display_class.titlebar_height + 1, res_y)
+        content_bottom = self._content_bottom()
         center = self._focus_center()
         separator = self.colors.get(64)
         self.draw.line(
-            [(center[0], content_top), (center[0], res_y - 1)], fill=separator
+            [(center[0], content_top), (center[0], content_bottom - 1)], fill=separator
         )
         self.draw.line([(0, center[1]), (res_x - 1, center[1])], fill=separator)
 
@@ -479,10 +519,16 @@ class UIPreview(UIModule):
 
     def _draw_single_focus_overlay(self) -> None:
         """Draw HFD and history over a translucent lower-third panel."""
-        res_x, res_y = self.display_class.resolution
-        overlay_top = math.ceil(res_y * 2 / 3)
-        center = (res_x // 2, overlay_top + (res_y - overlay_top) // 2)
-        self.draw.rectangle((0, overlay_top, res_x, res_y), fill=(0, 0, 0, 128))
+        res_x = self.display_class.resolution[0]
+        content_bottom = self._content_bottom()
+        overlay_top = math.ceil(content_bottom * 2 / 3)
+        center = (res_x // 2, overlay_top + (content_bottom - overlay_top) // 2)
+        self.draw.rectangle(
+            # rectangle() includes its far corner, so stop one row short of the
+            # reserved status bar rather than shading its first row.
+            (0, overlay_top, res_x, content_bottom - 1),
+            fill=(0, 0, 0, 128),
+        )
 
         text = self._focus_readout_text()
 
@@ -589,30 +635,66 @@ class UIPreview(UIModule):
                 draw_isolated_sample(current[0], right_side)
             previous = current
 
-    def _draw_exposure_label(self) -> None:
-        """Flash the held exposure after entering the screen or nudging it.
+    def _status_bar_hint(self) -> str:
+        """Keys worth advertising in the view currently showing.
 
-        Stats carries a standing exposure readout, so the flash is only for
-        the views with no room for one. It clears itself: every new camera
-        frame repaints the view underneath, and past the deadline the label
-        simply isn't drawn again.
+        Only keys that do something here. ``+``/``-`` return early outside the
+        magnified views, so offering zoom on the full-frame Image view would
+        teach a key that does nothing.
+        """
+        hint = f"{self._UP_ARROW}{self._DOWN_ARROW}EXP"
+        if self.display_mode in (DISPLAY_STARS, DISPLAY_SINGLE):
+            hint = f"{hint} +/-ZOOM"
+        return hint
+
+    def _draw_status_bar(self) -> None:
+        """Draw the standing exposure and key readout along the bottom.
+
+        Persistent rather than a flash, and one bar rather than a value in one
+        corner and a legend in another: the exposure is worth watching for as
+        long as the screen is open, and the keys that change it are not
+        discoverable any other way now that the Quick Menu jump is gone.
+
+        Stats is excluded because it already reports the exposure and its
+        regime in full, and its histogram owns the bottom of the panel.
         """
         if self.display_mode == DISPLAY_STATS:
             return
-        if self._held_exposure_us is None:
-            return
-        if time.time() >= self._exposure_label_until:
-            return
-        res_y = self.display_class.resolution[1]
-        top = min(self.display_class.titlebar_height + 2, res_y)
-        self.draw.text(
-            (2, top),
-            self._format_exposure(self._held_exposure_us),
-            font=self.fonts.small.font,
-            fill=self.colors.get(255),
-            stroke_width=1,
-            stroke_fill=self.colors.get(0),
+        res_x, res_y = self.display_class.resolution
+        bar_top = self._content_bottom()
+        font = self.fonts.small.font
+        # Opaque, so the bar stays legible whatever the view under it renders.
+        self.draw.rectangle((0, bar_top, res_x, res_y), fill=self.colors.get(0))
+
+        text_y = bar_top + max(
+            0, (self._status_bar_height() - self.fonts.small.height) // 2
         )
+        exposure = (
+            self._format_exposure(self._held_exposure_us)
+            if self._held_exposure_us is not None
+            else ""
+        )
+        hint = self._status_bar_hint()
+
+        # The exposure changes width as it changes value, so it is pinned left
+        # and the hint pinned right rather than laid out as one string. If a
+        # long off-ladder exposure would collide with the hint on a narrow
+        # panel, the hint gives way -- the measurement outranks the legend.
+        exposure_w = self.draw.textlength(exposure, font=font) if exposure else 0
+        hint_w = self.draw.textlength(hint, font=font)
+        if exposure_w + hint_w + 6 > res_x:
+            hint = f"{self._UP_ARROW}{self._DOWN_ARROW}EXP"
+            hint_w = self.draw.textlength(hint, font=font)
+        if exposure:
+            self.draw.text((2, text_y), exposure, font=font, fill=self.colors.get(255))
+        if exposure_w + hint_w + 6 <= res_x:
+            self.draw.text(
+                (res_x - 2, text_y),
+                hint,
+                font=font,
+                fill=self.colors.get(128),
+                anchor="ra",
+            )
 
     @staticmethod
     def _format_exposure(exposure_us) -> str:
@@ -746,7 +828,7 @@ class UIPreview(UIModule):
             self._draw_single_focus_overlay()
 
         if image_updated or force:
-            self._draw_exposure_label()
+            self._draw_status_bar()
 
         return self.screen_update()
 
