@@ -10,7 +10,14 @@ import pytest
 from PIL import Image, ImageDraw
 
 from PiFinder.ui import preview as preview_module
-from PiFinder.displays import DisplayBase, Layout176, Layout320
+from PiFinder.displays import (
+    DisplayBase,
+    DisplayHeadless,
+    DisplayHeadless176,
+    DisplayHeadless320,
+    Layout176,
+    Layout320,
+)
 from PiFinder.focus import Blob, FocusResult
 from PiFinder.ui.preview import (
     DISPLAY_IMAGE,
@@ -154,9 +161,11 @@ def test_quadrants_are_centered_below_title_bar_on_every_layout(layout):
 
     assert boxes[0][1] == content_top
     assert abs(top_height - bottom_height) <= 1
+    # The status bar is reserved out of the camera area, so the quadrants
+    # centre on what is left rather than on the full panel height.
     assert (
         preview._focus_center()[1]
-        == content_top + (preview.display_class.resY - content_top) // 2
+        == content_top + (preview._content_bottom() - content_top) // 2
     )
 
 
@@ -218,15 +227,18 @@ def test_edge_star_crop_contains_only_source_frame_pixels():
     )
 
     content_top = preview.display_class.titlebar_height + 1
+    content_bottom = preview._content_bottom()
     assert np.all(rendered[:content_top, :, 0] == 0)
-    assert np.all(rendered[content_top:, :, 0] == 73)
+    assert np.all(rendered[content_top:content_bottom, :, 0] == 73)
+    # Reserved for the status bar, so no camera pixel lands here.
+    assert np.all(rendered[content_bottom:, :, 0] == 0)
     assert np.all(rendered[:, :, 1:] == 0)
 
 
 @pytest.mark.unit
 def test_image_renderer_uses_original_display_autocontrast():
     preview = object.__new__(UIPreview)
-    preview.display_class = SimpleNamespace(resolution=(128, 128))
+    preview.display_class = SimpleNamespace(resolution=(128, 128), titlebar_height=17)
     preview.colors = SimpleNamespace(
         red_image=Image.new("RGB", (128, 128), (255, 0, 0))
     )
@@ -242,7 +254,7 @@ def test_image_renderer_uses_original_display_autocontrast():
 def test_single_star_renderer_preserves_brightest_raw_crop(monkeypatch):
     preview = object.__new__(UIPreview)
     preview.focus_zoom = FOCUS_NOMINAL_ZOOM
-    preview.display_class = SimpleNamespace(resolution=(128, 128))
+    preview.display_class = SimpleNamespace(resolution=(128, 128), titlebar_height=17)
     preview.colors = SimpleNamespace(
         red_image=Image.new("RGB", (128, 128), (255, 0, 0))
     )
@@ -342,9 +354,14 @@ def test_single_star_readout_stays_in_translucent_lower_third():
     preview._draw_single_focus_overlay()
 
     pixels = np.asarray(preview.screen)
-    overlay_top = int(np.ceil(preview.display_class.resY * 2 / 3))
+    # Lower third of the camera area, which now stops above the status bar.
+    content_bottom = preview._content_bottom()
+    overlay_top = int(np.ceil(content_bottom * 2 / 3))
     assert np.all(pixels[:overlay_top, :, 0] == 100)
-    assert np.any((pixels[overlay_top:, :, 0] > 0) & (pixels[overlay_top:, :, 0] < 100))
+    band = pixels[overlay_top:content_bottom, :, 0]
+    assert np.any((band > 0) & (band < 100))
+    # The overlay must not reach into the reserved status bar.
+    assert np.all(pixels[content_bottom:, :, 0] == 100)
 
 
 @pytest.mark.unit
@@ -604,7 +621,6 @@ def _hold_preview(*, camera_exp="auto", exposure_time=437_000):
     preview._exposure_hold_active = False
     preview._saved_camera_exp = None
     preview._held_exposure_us = None
-    preview._exposure_label_until = 0.0
     preview.config_object = SimpleNamespace(get_option=lambda _name: camera_exp)
     preview.shared_state = SimpleNamespace(
         last_image_metadata=lambda: {"exposure_time": exposure_time}
@@ -799,40 +815,118 @@ def test_stats_reports_a_held_exposure_as_hold_not_the_saved_setting(monkeypatch
     assert not any("AUTO" in text for text in drawn_text)
 
 
-@pytest.mark.unit
-def test_exposure_label_flashes_on_the_star_views_then_clears(monkeypatch):
-    preview = _hold_preview(camera_exp=400_000)
-    preview.display_class = DisplayBase()
-    preview.colors = preview.display_class.colors
-    preview.fonts = preview.display_class.fonts
-    preview.display_mode = DISPLAY_STARS
+def _bar_preview(display_class, display_mode, camera_exp=400_000):
+    preview = _hold_preview(camera_exp=camera_exp)
+    preview.display_class = display_class
+    preview.colors = display_class.colors
+    preview.fonts = display_class.fonts
+    preview.display_mode = display_mode
+    preview.screen = Image.new("RGB", display_class.resolution)
+    preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
+    return preview
 
-    def rendered_label(now: float) -> int:
+
+@pytest.mark.unit
+def test_status_bar_persists_on_the_star_views(monkeypatch):
+    """The bar is standing, not a flash: it must not time out."""
+    preview = _bar_preview(DisplayBase(), DISPLAY_STARS)
+    monkeypatch.setattr(preview_module.time, "time", lambda: 100.0)
+    preview._begin_exposure_hold()
+
+    def rendered(now: float) -> int:
         monkeypatch.setattr(preview_module.time, "time", lambda: now)
         preview.screen = Image.new("RGB", preview.display_class.resolution)
         preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
-        preview._draw_exposure_label()
+        preview._draw_status_bar()
         return int(np.count_nonzero(np.asarray(preview.screen)))
 
-    monkeypatch.setattr(preview_module.time, "time", lambda: 100.0)
-    preview._begin_exposure_hold()
-
-    assert rendered_label(100.5) > 0
-    assert rendered_label(100.0 + preview_module.FOCUS_EXPOSURE_LABEL_S + 0.1) == 0
+    assert rendered(100.5) > 0
+    # Far past any old flash deadline, and still drawn.
+    assert rendered(100.0 + 3600.0) > 0
 
 
 @pytest.mark.unit
-def test_exposure_label_stays_off_the_stats_view_which_already_shows_it(monkeypatch):
-    preview = _hold_preview(camera_exp=400_000)
-    preview.display_class = DisplayBase()
-    preview.colors = preview.display_class.colors
-    preview.fonts = preview.display_class.fonts
-    preview.display_mode = DISPLAY_STATS
-    preview.screen = Image.new("RGB", preview.display_class.resolution)
-    preview.draw = ImageDraw.Draw(preview.screen, mode="RGBA")
+def test_status_bar_carries_the_held_exposure_and_the_keys(monkeypatch):
+    preview = _bar_preview(DisplayBase(), DISPLAY_STARS)
     monkeypatch.setattr(preview_module.time, "time", lambda: 100.0)
     preview._begin_exposure_hold()
 
-    preview._draw_exposure_label()
+    drawn = []
+    original = preview.draw.text
+    preview.draw.text = lambda xy, text, **kw: (
+        drawn.append(text),
+        original(xy, text, **kw),
+    )[1]
+    preview._draw_status_bar()
+
+    assert any("0.4s" in text for text in drawn)
+    assert any(preview._UP_ARROW in text and "EXP" in text for text in drawn)
+    assert any("ZOOM" in text for text in drawn)
+
+
+@pytest.mark.unit
+def test_status_bar_drops_zoom_on_the_image_view_where_it_does_nothing():
+    """+/- return early outside the magnified views, so do not advertise them."""
+    preview = _bar_preview(DisplayBase(), DISPLAY_IMAGE)
+
+    assert "ZOOM" not in preview._status_bar_hint()
+    assert "EXP" in preview._status_bar_hint()
+
+
+@pytest.mark.unit
+def test_status_bar_stays_off_the_stats_view_which_already_shows_it(monkeypatch):
+    preview = _bar_preview(DisplayBase(), DISPLAY_STATS)
+    monkeypatch.setattr(preview_module.time, "time", lambda: 100.0)
+    preview._begin_exposure_hold()
+
+    preview._draw_status_bar()
 
     assert preview.screen.getbbox() is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "display_cls",
+    (DisplayHeadless, DisplayHeadless176, DisplayHeadless320),
+    ids=lambda cls: cls.__name__,
+)
+def test_status_bar_is_tall_enough_for_the_small_font(display_cls):
+    """The bar height is derived from resolution, not font metrics.
+
+    That keeps tile geometry independent of fonts, but it is only safe while
+    the derived height still clears the small font on every shipped panel.
+    """
+    display_class = display_cls()
+    preview = _bar_preview(display_class, DISPLAY_STARS)
+
+    assert preview._status_bar_height() >= display_class.fonts.small.height
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("layout", (DisplayBase, Layout176, Layout320))
+def test_status_bar_never_covers_camera_pixels(layout):
+    """The bar is reserved out of the camera area, not drawn over it."""
+    preview = object.__new__(UIPreview)
+    preview.display_class = SimpleNamespace(
+        resolution=layout.resolution,
+        titlebar_height=layout.titlebar_height,
+        resY=layout.resolution[1],
+    )
+    bar_top = preview._content_bottom()
+
+    # No tile, and no part of the focus overlay, may reach into the bar.
+    assert bar_top < layout.resolution[1]
+    assert all(box[3] <= bar_top for box in preview._tile_boxes())
+    assert preview._focus_center()[1] < bar_top
+
+
+@pytest.mark.unit
+def test_focus_screen_offers_no_exposure_jump_but_keeps_its_help():
+    """Leaving via the jump stranded the hold; HELP rides the same menu."""
+    menu = UIPreview._build_marking_menu()
+
+    jumps = [option.menu_jump for option in (menu.left, menu.down, menu.right, menu.up)]
+    assert jumps == [None, None, None, None]
+    # up defaults to HELP, and this screen has help pages to show.
+    assert menu.up.label == "HELP"
+    assert UIPreview.__help_name__ == "camera"

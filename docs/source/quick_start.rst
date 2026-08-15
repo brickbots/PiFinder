@@ -407,9 +407,11 @@ HFD readout and changing which stars you see.  Holding it steady means every cha
 comes from the lens.
 
 Press **UP** for a longer exposure and **DOWN** for a shorter one.  These step through the
-same values as the Camera Exp setting, from 0.025s to 1s.  The exposure appears briefly in
-the top left when you open the screen and each time you change it.  Nothing you set here is
-saved.  The PiFinder restores your previous exposure setting when you leave.
+same values as the Camera Exp setting, from 0.025s to 1s.  A bar along the bottom of the
+screen shows the held exposure on the left and the keys that change it on the right.  The bar
+stays on screen while you work.  Nothing you set here is saved.  The PiFinder restores your
+previous exposure setting when you leave.  To set an exposure the PiFinder keeps, select
+Settings from the main menu, then select Camera Exp.
 
 At the center of the screen is the **HFD** readout.  This is the Half-Flux Diameter of the
 detected stars, in camera pixels, and it measures how spread out the starlight is.  A
@@ -436,16 +438,16 @@ Press **SQUARE** to cycle through four views:
   and trace along the bottom.
 * **Image**: the full camera frame, brightened for the screen.
 * **Stats**: the HFD alongside an FWHM estimate, the detected-star count, the held exposure
-  marked ``HOLD``, gain, and a histogram of the raw image.
+  marked ``HOLD``, gain, and a histogram of the raw image.  This view reports the exposure
+  itself, so it has no bar along the bottom.
 
 .. image:: images/quick_start/focus_single_docs.png
    :width: 45%
 .. image:: images/quick_start/focus_stats_docs.png
    :width: 45%
 
-Press and hold **SQUARE** in any view to open the :ref:`user_guide:quick menu`, which offers
-the camera exposure setting.  A value you select there is saved, unlike the **UP** and
-**DOWN** steps on this screen.  With dark enough skies and good focus, the camera icon appears
+Press and hold **SQUARE** in any view to open the :ref:`user_guide:quick menu`.  It offers
+HELP for this screen.  With dark enough skies and good focus, the camera icon appears
 in the top right and the current constellation shows in the title bar.  Congratulations, the
 PiFinder knows where it's pointing!
 

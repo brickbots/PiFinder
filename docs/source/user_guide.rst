@@ -132,8 +132,7 @@ Press and hold **SQUARE** to open the Quick Menu.
 
 This menu presents up to four options, one per arrow button.  Press an arrow to select its
 item.  The menu changes with the screen you're on, but it often has
-:ref:`HELP<user_guide:help system>` at the UP option.  The Focus screen above offers HELP
-and Exposure.
+:ref:`HELP<user_guide:help system>` at the UP option.
 
 Some Quick Menus have a second layer.  The Object List's Quick Menu, for example, offers
 Sort and Filter.  Press **LEFT** for Sort to open a ring of sort orders, with subtle

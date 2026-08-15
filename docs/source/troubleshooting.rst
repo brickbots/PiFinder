@@ -127,9 +127,11 @@ Work through these in order:
 - **Lens cap off, and hold still.**  The PiFinder can only solve a sharp, stationary
   image.
 - **Exposure.**  The PiFinder defaults to **AUTO** and sets the exposure itself from each
-  solve.  Leave it there unless you have a reason not to.  To set it by hand, 0.2 s suits most
-  skies, bright urban skies want 0.4 s, and dark skies solve well at 0.1 s.  The Focus screen
-  holds the exposure steady while it is open, so it reads ``HOLD`` there even on **AUTO**.
+  solve.  Leave it there unless you have a reason not to.  To set it by hand, select Settings
+  from the main menu, then select Camera Exp.  0.2 s suits most skies, bright urban skies want
+  0.4 s, and dark skies solve well at 0.1 s.  The Focus screen holds the exposure steady while
+  it is open, so it reads ``HOLD`` there even on **AUTO**.  The **UP** and **DOWN** steps on
+  that screen change the exposure for the visit only, and the PiFinder does not save them.
   Software older than 2.2 has no AUTO option, which is another reason to update.
 - **High, thin cloud.**  An invisible drifting cloudbank stops solves at an otherwise perfect
   site.  If solves come and go while the telescope is dead still, suspect the sky before the
