@@ -178,7 +178,14 @@ It is fixed per shipped sensor/optics profile and does not change with current
 stellar transmission.
 
 **Radiometric field width**:
-Factory angular width used for square-arcsecond conversion when no solve exists.
+Angular width used for square-arcsecond conversion when no solve exists.
+Derived from the **optical train** (see [Camera](../camera/CONTEXT.md)) rather
+than stored per sensor: it is a property of the sensor *and* the fitted lens,
+so a sensor-only constant is silently wrong the moment the lens changes. An
+error here scales the assumed solid angle, and so biases every published
+radiometric SQM — a lens change of one step is worth ~0.6 mag.
+_Avoid_: factory field width (it is no longer a factory constant), FOV
+(unqualified — see [Camera](../camera/CONTEXT.md)).
 
 ## Passband and atmosphere
 
