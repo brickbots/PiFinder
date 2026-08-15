@@ -225,7 +225,7 @@ dark current from sky, because both are linear in exposure. Until a confident
 fit exists, `pedestal()` returns `None` and the caller falls back to the
 profile constant. Trust is a lease rather than a latch: an accepted fit expires
 after `max_age_seconds` and must be re-earned. See
-[ADR 0027](../adr/0027-tracked-black-level-supersedes-stored-bias.md) for the
+[ADR 0028](../adr/0028-tracked-black-level-supersedes-stored-bias.md) for the
 decision and its gates.
 
 Read noise is zero-mean RMS uncertainty and is never subtracted as signal.
@@ -359,5 +359,5 @@ See [`sqm/CONTEXT.md`](./sqm/CONTEXT.md) for canonical terminology,
 [`ADR-0022`](../adr/0022-sqm-radiometer-first.md) for radiometer-first ownership,
 [`ADR-0002`](../adr/0002-sqm-published-value-uncorrected.md) for the
 no-altitude-correction decision, and
-[`ADR-0027`](../adr/0027-tracked-black-level-supersedes-stored-bias.md) for why a
+[`ADR-0028`](../adr/0028-tracked-black-level-supersedes-stored-bias.md) for why a
 tracked black level outranks any stored bias.
