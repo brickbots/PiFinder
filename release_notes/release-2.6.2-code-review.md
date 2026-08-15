@@ -1,7 +1,14 @@
 # PiFinder v2.6.2 — Pre-Release Code Review
 
 Scope: `origin/release..origin/main` @ `6aad0645` — 23 commits, 68 files,
-+5,088 / −1,976. Eighteen commits are documentation; the reviewed code surface is
++5,088 / −1,976.
+
+> **Status update, 2026-08-15.** Findings **1** and **2** have since been addressed:
+> `version.txt` was bumped to 2.6.2 at `db065b60`, and **#620** removed the Focus
+> screen's Quick Menu Exposure jump and replaced the transient exposure readout with a
+> standing status bar. #620 **narrows finding 2 rather than closing it** — three routes
+> still bury the Focus screen and strand the hold. The per-finding entries below are
+> annotated; everything else stands as written and was reviewed against `6aad0645`. Eighteen commits are documentation; the reviewed code surface is
 `PiFinder.optics` (new), `PiFinder.camera_profiles` (relocated), `solver.py`, `plot.py`,
 `ui/preview.py`, `ui/callbacks.py`, `ui/menu_structure.py`, `ui/text_menu.py`,
 `ui/align.py`, `state.py`, `api_extensions.py`, and the `sqm/` refactor.
@@ -28,8 +35,8 @@ not been written.
 
 | # | Severity | Area | Summary |
 |---|---|---|---|
-| 1 | **Blocker** | Release mechanics | `version.txt` still reads `2.6.1`; cutting as-is makes the release un-installable and invisible |
-| 2 | **High** | Focus screen | The exposure hold leaks by ordinary routes, killing auto-exposure and zero-match recovery for the rest of the session |
+| 1 | ~~Blocker~~ **fixed** | Release mechanics | `version.txt` still reads `2.6.1`; cutting as-is makes the release un-installable and invisible — **bumped at `db065b60`** |
+| 2 | ~~High~~ **Medium** | Focus screen | The exposure hold leaks by ordinary routes, killing auto-exposure and zero-match recovery for the rest of the session — **#620 removed the ordinary route; three remain** |
 | 3 | Medium | Optics | A stale `camera_lens` after an in-device Camera Type switch silently stops all solving, and the safety net does not fire |
 | 4 | Medium | Docs | The Lens setting has no user documentation — the risk ADR 0027 accepted is unmitigated |
 | 5 | Medium | Optics | The menu offers 25 mm on imx296 / imx462, which the shipped pattern database cannot solve |
@@ -44,7 +51,11 @@ not been written.
 
 ---
 
-### 1. BLOCKER — `version.txt` is still `2.6.1`; the release would be invisible in the field
+### 1. ~~BLOCKER~~ FIXED — `version.txt` was still `2.6.1`; the release would have been invisible in the field
+
+> **Resolved at `db065b60`:** `version.txt` on `main` now reads `2.6.2`. Verify
+> end-to-end at **G4.1** that a real 2.6.1 device is actually *offered* the update —
+> that is the behaviour this finding was about, not the file contents.
 
 **`version.txt`** — `git diff origin/release..origin/main -- version.txt` is empty. Both
 branches read `2.6.1`. The bump to `2.6.2` exists **only as an uncommitted edit in the
@@ -66,7 +77,20 @@ field bug report for the life of the release.
 
 ---
 
-### 2. HIGH — The Focus screen's exposure hold leaks, and takes auto-exposure down with it
+### 2. ~~HIGH~~ MEDIUM — The Focus screen's exposure hold leaks, and takes auto-exposure down with it
+
+> **Narrowed by #620, not closed.** The Quick Menu Exposure jump — the one route an
+> ordinary user was likely to take — is gone, and the transient top-left readout became a
+> standing bottom status bar carrying the exposure and the UP/DOWN keys that replaced the
+> jump. The marking menu was kept (blanking `left` rather than nulling the menu) because
+> `MarkingMenu.up` defaults to HELP and this screen has help pages.
+>
+> **Routes b, c and d in the table below still leak**, and **d is involuntary**. The
+> lease fix remains the real cure and is still outstanding — see the fix options at the
+> end of this finding. Do not treat #620 as closing this.
+>
+> One deliberate consequence: the Focus screen can no longer persist an exposure at all.
+> Saving now means `Settings → Camera Exp`, and the docs were updated to say so.
 
 **`ui/preview.py:153-171`** (`inactive()`), enabled by
 **`ui/menu_manager.py:190-218`** (`add_to_stack`) and **`:414-428`** (`key_long_left`).
@@ -453,7 +477,7 @@ drift broke three remote tests during the 2.6.1 cycle.)
 `camera_fov` (`ui/chart.py`), which the old unconditional `9.5 / self.fov` would have hit.
 
 **Build health.** `pytest -m "smoke or unit"` → **1,229 passed, 0 failures**, 472
-deselected — reproduced identically in the maintainer's checkout and in a clean worktree
+deselected (**1,238 on `main` after #620**) — reproduced identically in the maintainer's checkout and in a clean worktree
 rooted on `origin/main` with a freshly initialised `tetra3` submodule. Ruff and mypy
 clean. Sphinx `-nW` build succeeds with **0 warnings** over 18 sources, with no
 `suppress_warnings` or `nitpick_ignore` in `conf.py` to mute it. `sqm.rst` is wired into
@@ -466,12 +490,13 @@ compile. ADR numbering is collision-free after #616, and all 16 cross-references
 
 ## Recommendation for the cut
 
-**Must fix before the cut:**
-1. Commit the `version.txt` bump (finding 1). Without it the release does not reach
-   anyone.
-2. Decide on the Focus exposure-hold leak (finding 2) — fix via a self-expiring lease,
-   or ship the hold disabled. Do not ship it as-is on the strength of the PR's
-   "exotic exit" framing; the Quick Menu route is ordinary.
+**Must fix before the cut — both now done:**
+1. ~~Commit the `version.txt` bump (finding 1).~~ **Done at `db065b60`.**
+2. ~~Decide on the Focus exposure-hold leak (finding 2).~~ **#620 removed the ordinary
+   route in and replaced it with a discoverable status bar.** This lowers the likelihood
+   substantially and leaves the impact unchanged, so the leak moves from blocker to
+   accepted risk. The lease fix is still the right long-term answer and should keep its
+   own ticket.
 
 **Should fix before the cut — cheap and high value:**
 3. Clear `camera_lens` in the `switch_cam_*` callbacks (findings 3 and 8, one change).

@@ -1,27 +1,32 @@
 # PiFinder v2.6.2 — Release Test Plan
 
-Scope: everything on `main` that is not yet on `release` — 23 commits, 68 files,
-+5,088 / −1,976 (Python: 32 files, +2,303 / −514; of which ~900 lines are new tests).
+Scope: everything on `main` that is not yet on `release` — 25 commits, 70 files,
++5,310 / −2,001 (Python: 32 files, +2,501 / −536; of which ~1,100 lines are new tests).
 
 This plan is risk-ordered, not feature-ordered. Each gate has an owner, an explicit
 pass criterion, and a note on what a failure blocks. Gates 1–3 must pass before the
 `main` → `release` merge; gates 4–6 must pass before the update manifest is published.
 
-**Status as of 2026-08-15** (`main` @ `6aad0645`): `release` is an ancestor of `main`,
+**Status as of 2026-08-15** (`main` @ `db065b60`): `release` is an ancestor of `main`,
 so the cut is a **fast-forward** with no conflicts to resolve. `.github/` is
 byte-identical between the two branches, so the release workflow that runs post-cut is
 the one already exercised on `release`. Gate 1 is green.
 
-> **Two items must be resolved before the cut, both from the pre-release review (§9):**
-> **(1)** `version.txt` is still `2.6.1` on `main` — cutting as-is means no device is
-> ever offered the update (**P1.1**). **(2)** The Focus screen's exposure hold leaks by
-> ordinary exit routes and takes auto-exposure down with it for the rest of the session
-> (**G2.12**). Two further cheap fixes are strongly recommended: clearing `camera_lens`
-> on a Camera Type switch (**G2.26**), and pulling in the docs-only #613 so that ADR
-> 0027's accepted risk is actually mitigated (**§8.1**).
+> **Both pre-cut blockers from the pre-release review (§9) are now resolved.**
+> **(1)** `version.txt` reads **2.6.2** on `main` as of `db065b60` (**P1.1**).
+> **(2)** #620 removed the Focus screen's Quick Menu Exposure jump, which was the
+> ordinary route into the exposure-hold leak, and replaced the transient exposure
+> readout with a standing status bar (**G2.12**). **This narrows the leak, it does not
+> close it** — three routes still bury the screen, so G2.12 remains a real test item and
+> the lease fix is still outstanding.
+>
+> Two cheap fixes remain recommended but unblocking: clearing `camera_lens` on a Camera
+> Type switch (**G2.26**), and pulling in the docs-only #613 so that ADR 0027's accepted
+> risk is actually mitigated (**§8.1**).
 
-**Shape of this release, and what that means for testing.** Eighteen of the 23 commits
-are documentation. The code surface is small — two features — but one of them sits
+**Shape of this release, and what that means for testing.** Eighteen of the 25 commits
+are documentation. The code surface is small — two features plus one fix — but one of
+them sits
 directly in the solver's hot path and changes the search window used for *every solve
 by every user*. The testing effort should be weighted accordingly: this is not a
 "docs release, ship it" cut. The single question that matters most is **does a
@@ -40,7 +45,7 @@ What actually changed, ranked by blast radius × likelihood of an undetected def
 | R1 | Solver FOV gate now derived | #608, #609 | **All users, silent** | Every solve goes through a window that is now computed at runtime from the sensor the camera process reports, rather than a constant. A wrong derivation for any sensor means that sensor never solves — and tetra3 enforces the window twice, so the failure is total, not degraded. It also presents as an exposure problem, so it will be misdiagnosed. |
 | R2 | Zero-migration lens default | #609 | **All upgrading users** | An install with no `camera_lens` key must resolve to the sensor's shipped lens. If that path raises, or picks the wrong lens, the device stops solving on update with no user action to explain it. |
 | R3 | `CameraProfile` relocated out of `sqm/` | #609 | All users, silent | ~500 lines moved between modules, including the radiometric constants. A changed constant shifts everyone's SQM without failing; a missed importer breaks a process at startup. |
-| R4 | Focus exposure hold lifecycle | #614 | All users, next-session | A hold that is not released leaves the camera at a fixed manual exposure for the rest of the session, degrading or killing solving. There is a **known** exit route that leaks it (see G2.12). |
+| R4 | Focus exposure hold lifecycle | #614, #620 | All users, next-session | A hold that is not released leaves the camera at a fixed manual exposure for the rest of the session **and stops zero-match recovery**, while Settings still reads "Auto". #620 removed the likeliest route in and reworked the on-screen readout into a standing status bar; three burying routes remain (see G2.12). New surface of its own: the bar changed tile geometry on every Focus view (G2.12b). |
 | R5 | Debug camera relabelled `imx296` → `hq` | #609 | Developers, CI | If wrong, `-fh --camera debug` stops solving for every developer and every automated test that solves a frame. |
 | R6 | Live lens re-read in the solver loop | #609 | All users | The train is resolved per frame from shared state. New shared-state reads inside the hot loop; a manager disconnect or a bad value must not wedge the loop. |
 | R7 | Chart frustum + web chart API | #609 | Visual / web | Frustum shading now follows the derived value in two places. Cosmetic on the device, but the web chart API is a separate consumer that can fail independently. |
@@ -52,17 +57,16 @@ What actually changed, ranked by blast radius × likelihood of an undetected def
 
 ## 1. Pre-flight — repo housekeeping (before any testing)
 
-- [ ] **P1.1 — Bump `version.txt` to `2.6.2` and commit it. This is a release blocker,
-  not housekeeping.** `main` currently reads **`2.6.1`**, identical to `release`; the
-  bump exists only as an uncommitted edit in the maintainer's working copy
-  (`git diff origin/release..origin/main -- version.txt` is empty).
-  `ui/software.py:245` fetches `release/version.txt` from GitHub and line 353 gates the
-  update on `update_needed(self._software_version, self._release_version)`. If `release`
-  ships 2.6.2 code with `2.6.1` in the file, **every existing device compares 2.6.1
-  against 2.6.1, renders "No Update needed", and is never offered the update at all** —
-  the release would be invisible in the field. Separately, the Software screen,
-  `splash.py:49`, `server.py:216` and `api_extensions.py:851` would all report `2.6.1`
-  for 2.6.2 code, misattributing every field bug report.
+- [x] **P1.1 — `version.txt` bumped to `2.6.2`** on `main` at `db065b60`. This was a
+  release blocker, not housekeeping: `ui/software.py:245` fetches `release/version.txt`
+  from GitHub and line 353 gates the update on `update_needed(self._software_version,
+  self._release_version)`. Had `release` shipped 2.6.2 code with `2.6.1` in the file,
+  **every existing device would have compared 2.6.1 against 2.6.1, rendered "No Update
+  needed", and never been offered the update at all** — the release would have been
+  invisible in the field. The Software screen, `splash.py:49`, `server.py:216` and
+  `api_extensions.py:851` would also have misreported the version on every bug report.
+  - **Re-run Gate 1 after this and any later commit**, and confirm on hardware at
+    **G4.1** that the Status screen actually reads 2.6.2.
 - [x] **P1.2 — Cut is a fast-forward.** `git merge-base --is-ancestor origin/release
   origin/main` succeeds. No merge commit, no conflict resolution, and no separate merge
   result to test — testing `main` *is* testing the cut.
@@ -120,19 +124,21 @@ nox -s smoke_tests
 nox -s unit_tests
 ```
 
-**Gate 1 is green on `main` @ `6aad0645`** (macOS dev venv, Python 3.9, 2026-08-15).
-Run twice — once in the maintainer's checkout and once in a clean worktree rooted on
-`origin/main` with the `tetra3` submodule freshly initialised — with identical results.
+**Gate 1 is green on `main` @ `db065b60`** (macOS dev venv, Python 3.9, 2026-08-15),
+re-run after #620 and the version bump. Run in clean worktrees rooted on `origin/main`
+with the `tetra3` submodule freshly initialised, with reproducible results.
 
 - [x] **G1.1** Ruff lint + format clean.
 - [x] **G1.2** MyPy clean. Needs the `tetra3` submodule initialised; a stale
   `.mypy_cache` reports a phantom error, so clear it if the count disagrees.
-- [x] **G1.3** `pytest -m "smoke or unit"` — **1,229 passed, 0 failures**, 472
-  deselected (the non-smoke/unit markers). Reproduced exactly on a clean tree. A
-  materially lower count means test collection broke somewhere.
+- [x] **G1.3** `pytest -m "smoke or unit"` — **1,238 passed, 0 failures**, 472
+  deselected (the non-smoke/unit markers). Reproduced exactly on a clean tree. (Was
+  1,229 before #620, which added the Focus status-bar tests.) A materially lower count
+  means test collection broke somewhere.
 - [x] **G1.4** New suites confirmed **running, not skipping** — `test_optics.py`,
   `test_optics_solving.py`, `test_plot_frustum.py`, `test_lens_menu_callback.py`, plus
-  the additions to `test_focus_preview.py` and `test_sqm.py`. `test_optics_solving.py`
+  the additions to `test_focus_preview.py` (now including the #620 status-bar and
+  marking-menu tests) and `test_sqm.py`. `test_optics_solving.py`
   is the one that pushes real `test_images/` frames through tetra3, so **verify it did
   not skip** — if the submodule is missing it silently disappears and the debug-camera
   relabel (R5) goes untested.
@@ -199,30 +205,51 @@ The organising question: *does a device nobody has touched behave identically?*
 - [ ] **G2.11** Open Focus under Auto exposure. Stats must read `HOLD` with the exposure
   the controller had settled on — including an off-ladder value, not snapped to a menu
   rung. Confirm the value flashes top-left on entry.
-- [ ] **G2.12** **The leak test — see review finding 2; this is a candidate release
-  blocker, not a curiosity.** The pre-release review confirmed by driving the real
-  `MenuManager` that the hold leaks by **ordinary** routes, not just exotic ones, and
-  that the consequence is larger than #614 documented: `set_exp_transient` clears
+- [ ] **G2.12** **The leak test — see review finding 2. Narrowed by #620, not closed.**
+  The pre-release review confirmed, by driving the real `MenuManager`, that the exposure
+  hold leaks whenever the Focus screen is *buried* rather than left with LEFT, and that
+  the consequence is larger than #614 documented: `set_exp_transient` clears
   `_auto_exposure_enabled` in the camera process, and only `set_exp:auto` ever sets it
   back. A leaked hold therefore pins the camera at a manual exposure **and stops
   zero-match recovery for the rest of the session**, while Settings → Camera Exp still
   shows "Auto".
-  Test each route. Enter Focus, leave by the route, then watch the exposure for 60 s:
-  - [ ] **a.** Focus → **Quick Menu → Exposure** → long-LEFT. *(This is the ordinary
-        one — the jump lives on the Focus screen's own Quick Menu, and adjusting exposure
-        while focusing is a natural thing to do.)*
-  - [ ] **b.** Focus → long-RIGHT to object details → long-LEFT.
-  - [ ] **c.** Focus → POWER button → long-LEFT.
-  - [ ] **d.** Focus open, push an object from SkySafari, then long-LEFT.
+  #620 removed the Focus screen's Quick Menu Exposure jump, which was the one route an
+  ordinary user was likely to take. The remaining routes are less likely but not
+  hypothetical — and route **d** is *involuntary*, the user does nothing.
+  Enter Focus, leave by each route, then watch the exposure for 60 s:
+  - [x] **a.** Focus → Quick Menu → Exposure → long-LEFT. **Route removed by #620.**
+        Instead confirm the Quick Menu on the Focus screen now offers **HELP only**, and
+        that HELP still opens (nulling the menu would have taken the help with it).
+  - [ ] **b.** Focus → long-RIGHT to object details → long-LEFT. *(Needs a non-empty
+        recent list, so view an object first.)*
+  - [ ] **c.** Focus → POWER button → long-LEFT (back out instead of confirming).
+  - [ ] **d.** Focus open, push an object from SkySafari, then long-LEFT. **The user
+        initiates nothing here** — `pos_server` calls `jump_to_label("recent")`.
   - [ ] **e.** Control: Focus → LEFT. This route is correct and must release the hold.
   For each leaking route, confirm the observable consequence: does auto exposure resume,
   does solving recover, and does Camera Exp still read "Auto"? Then confirm re-entering
   and leaving Focus with LEFT releases it, and that re-selecting Auto in Settings →
   Camera Exp recovers a leaked session.
-  **Decide before the cut:** fix via a self-expiring lease (the black-level lease is the
-  in-repo precedent), or ship the exposure hold disabled. Making Focus `stateful` does
-  **not** fix it — the `state` check in `add_to_stack` is on the pushed item, not the
-  buried one.
+  **Still outstanding:** the real fix is a self-expiring lease on the transient exposure,
+  renewed per frame by the screen and dropped by the camera process on expiry (the
+  black-level lease is the in-repo precedent). Making Focus `stateful` does **not** work
+  — the `state` check in `add_to_stack` is on the pushed item, not the buried one.
+  **Do not let #620 close this ticket.**
+
+- [ ] **G2.12b** **The new Focus status bar (#620).** In **Stars**, **Single** and
+  **Image**, a standing bar along the bottom shows the held exposure on the left and the
+  keys on the right. Confirm:
+  - [ ] The bar is present and readable, and the **arrows actually render** — Unicode
+        arrows draw nothing in this font, so this is worth looking at rather than
+        assuming.
+  - [ ] The exposure in the bar tracks UP/DOWN immediately.
+  - [ ] **Image** shows the exposure keys only, with no zoom hint (`+`/`-` do nothing
+        there).
+  - [ ] **Stats** has *no* bar, and still reports `HOLD` and the exposure itself.
+  - [ ] No star tile is clipped or overdrawn by the bar — the rows are reserved out of
+        the camera area, so the tiles should be slightly shorter, not covered.
+  - [ ] Check on a 176px panel as well as 128px if one is available; the bar height is
+        derived from panel resolution.
 - [ ] **G2.13** UP/DOWN step along the ladder 0.025 s … 1 s. Confirm both ends **hold
   rather than wrap** — five UPs from 0.1 s must stop at 1 s. The underlying `exp_up` /
   `exp_dn` commands apply no clamp at all, so this bound exists only in the new code.
@@ -304,8 +331,10 @@ validated on hardware.
 
 ## 5. Gate 4 — Upgrade path and fresh install
 
-- [ ] **G4.1** Update a real 2.6.1 device in place. Confirm it boots, solves, and reports
-  `2.6.2` on the Status screen (**gated on P1.1**).
+- [ ] **G4.1** Update a real 2.6.1 device in place. Confirm the update **is offered at
+  all**, then that it boots, solves, and reports `2.6.2` on the Status screen. This is
+  the end-to-end proof of P1.1: that the version gate opened, not just that the code
+  shipped.
 - [ ] **G4.2** Confirm `config.json` is not rewritten and gains no new keys on update.
 - [ ] **G4.3** Fresh install from the published image: boot, configure, solve.
 - [ ] **G4.4** Update a device that has a **non-default** `camera_type` stored (HQ).
@@ -374,15 +403,22 @@ Carried into the release deliberately. Each needs a decision recorded, not just 
    explicit error. Not a shipped configuration, but the menu does not say so.
 3. **The 12 mm lens is uncalibrated** (#612): nominal focal length standing in for a
    measurement, unmeasured SQM zero point, conservative f/2.0.
-4. **The Focus screen's exposure hold leaks by ordinary routes, killing auto-exposure and
-   zero-match recovery for the session** (G2.12, review finding 2). Inherited from a
-   pre-existing lifecycle gap that also affects SQM and daytime align — but the hold is
-   what converts that dormant gap into a camera-state bug, and one of the leaking routes
-   is the Focus screen's own Quick Menu. **This is the one item in this list that is a
-   candidate blocker rather than accepted risk.** Fixing the lifecycle centrally is
-   unsafe because `dateentry`, `timeentry` and `locationentry` fire commit callbacks from
-   `inactive()`; a self-expiring lease on the transient exposure closes every route
-   without touching that asymmetry.
+4. **The Focus screen's exposure hold still leaks when the screen is buried**, killing
+   auto-exposure and zero-match recovery for the session (G2.12, review finding 2).
+   Inherited from a pre-existing lifecycle gap that also affects SQM and daytime align —
+   but the hold is what converts that dormant gap into a camera-state bug.
+   **#620 removed the Quick Menu Exposure jump**, which was the one route an ordinary
+   user was likely to take, so this is no longer a candidate blocker. It is now accepted
+   risk with three routes left: long-RIGHT to object details, the power button, and an
+   object push from SkySafari — **the last of which the user does not initiate**. Fixing
+   the lifecycle centrally is unsafe because `dateentry`, `timeentry` and
+   `locationentry` fire commit callbacks from `inactive()`; a self-expiring lease on the
+   transient exposure closes every route without touching that asymmetry, and remains the
+   outstanding fix.
+   - Side effect of #620 worth stating plainly: **the Focus screen can no longer persist
+     an exposure at all.** #614 designed the Quick Menu jump as "the one deliberate way
+     to save a value" from that screen; saving now means `Settings → Camera Exp`. The
+     docs were updated to redirect readers there.
 5. **`Lens` is machine-translated in all four catalogs** and tagged as needing human
    review. The three numeral labels are language-independent. Low risk, but the standing
    unreviewed totals in these catalogs are large and predate this release.
@@ -401,8 +437,8 @@ re-derived numerically or executed.
 
 | # | Severity | Summary | Gate |
 |---|---|---|---|
-| 1 | **Blocker** | `version.txt` still `2.6.1` — the update is never offered to any device | P1.1 |
-| 2 | **High** | Focus exposure hold leaks by ordinary routes; kills auto-exposure + zero-match recovery for the session | G2.12 |
+| 1 | ~~**Blocker**~~ **FIXED** | `version.txt` still `2.6.1` — the update is never offered to any device. **Bumped at `db065b60`.** | P1.1 |
+| 2 | ~~**High**~~ **Medium** | Focus exposure hold leaks; kills auto-exposure + zero-match recovery for the session. **#620 removed the ordinary route in; three burying routes remain.** | G2.12 |
 | 3 | Medium | Stale `camera_lens` after a Camera Type switch stops solving; the warning does not fire | G2.26 |
 | 4 | Medium | The Lens setting has no user documentation — ADR 0027's accepted risk is unmitigated | §8.1 |
 | 5 | Medium | Menu offers 25 mm on imx296/imx462, which the shipped database cannot solve | G2.9 |
@@ -422,10 +458,11 @@ zero-migration path has no `KeyError` and reproduces the retired constants to un
 constant; all four shipped trains sit inside the pattern database; and the debug-camera
 relabel is genuinely end-to-end tested against real frames. Findings 7–13 can all ship.
 
-**Fix before the cut:** 1 and 2 (must), 3 and 4 (cheap, high value — 3 is a one-line
-change in the `switch_cam_*` callbacks, 4 is pulling in the already-filed docs-only
-#613). **Fix finding 7 before anyone runs the 12 mm sweep #612 asks for**, or the
-refitted constants will carry a ≈ 0.56 mag systematic.
+**Findings 1 and 2 are addressed** — 1 by the version bump at `db065b60`, 2 by #620,
+which narrows rather than closes it. Findings 3 and 4 remain cheap and high value: 3 is a
+one-line change in the `switch_cam_*` callbacks, 4 is pulling in the already-filed
+docs-only #613. **Fix finding 7 before anyone runs the 12 mm sweep #612 asks for**, or
+the refitted constants will carry a ≈ 0.56 mag systematic.
 
 ---
 
