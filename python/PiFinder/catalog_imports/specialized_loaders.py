@@ -578,7 +578,7 @@ def load_sharpless():
                 catalog_code=catalog,
                 sequence=record["Sh2"],
                 ra=j_ra_deg,
-                dec=dec_deg,
+                dec=j_dec_deg,
                 size=SizeObject.from_arcmin(float(record["Diam"])),
                 mag=MagnitudeObject([]),
                 description=desc,
