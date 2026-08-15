@@ -7,6 +7,7 @@ q1 * q_12 = q_12 * q2
 Where the goal is to solve for the rotation q_12. Given enough measurements of 
 q1 and q2, we can solve for q_12.
 """
+from dataclasses import dataclass
 import logging
 import numpy as np
 import quaternion  # Note: numpy-quaternion convention: quaternion(w, x, y, z)
@@ -18,9 +19,14 @@ import PiFinder.pointing_model.quaternion_transforms as qt
 
 list_of_quats = list[quaternion.quaternion]
 
-logger = logging.getLogger("IMU.Align")
+logger = logging.getLogger("IMU.AlignSolver")
 
 N_UNKNOWN_PARAMS = 3  # Number of unknown parameters in the problem to solve
+
+@dataclass
+class HandEyeSolverDiagnostics:
+    residuals: np.ndarray
+    
 
 def residual_rotation_vector(x,  # (3,) Trial solution (q as rotation vector) 
                              q1_list: list_of_quats,  # List of rotation quaternions
@@ -50,16 +56,27 @@ def solve_rotation(
         q1_list: list_of_quats,  # List of rotation quaternions
         q2_list: list_of_quats,
         x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN_PARAMS),  # Initial guess
-        residual_threshold = 0.01,  # Reject samples with residual > resid_threshold in first pass
-        verbose=True
-        ):
+        ) -> tuple[quaternion.quaternion, HandEyeSolverDiagnostics]:
     """
-    Solve the quaternion form of the hand-eye problem
+    Solve the quaternion form of the hand-eye problem using least-squares
+    optimization of the rotation q_12 parameterized as a rotation vector:
+
     dq1 * q_12 = q_12 * dq2
 
     Where q_12 is the unknown rotation that rotates q1 to q2
+
+    x0 is the initial guess for q_12 as a rotation vector. The default (zeros)
+    is the identity rotation.
     """
-    # Solve for x by non-linear least squares (Levenberg-Marquardt)
+    if len(q1_list) != len(q2_list):
+        raise ValueError("q1_list and q2_list must be the same length")
+    if len(q1_list) < N_UNKNOWN_PARAMS:
+        raise ValueError(f"q1_list and q2_list must have at least "
+                        f"{N_UNKNOWN_PARAMS} elements. Got {len(q1_list)}")
+    if len(x0) != N_UNKNOWN_PARAMS:
+        raise ValueError("x0 must be a length-3 vector")
+
+    logger.debug(f"Solving for relative rotation from {len(q1_list)} sample pairs.")
     # TODO: Tune LM params
     # TODO: Calculate the Jacobians analytically? Current numerical Jacobians is probably fast enough?
     result = least_squares(residual_rotation_vector, x0, method='lm', 
@@ -68,31 +85,54 @@ def solve_rotation(
     #result = least_squares(residual_rotation_vector, x0, loss='cauchy', 
     #                       args=(dq_cam, dq_imu))
 
-    # Re-run least-squares with outliers removed
-    if residual_threshold is not None:
-        # NOTE: Each quaternion measurement is converted to rotation vectors with 3 values
-        resid_reshaped = result.fun.reshape(-1, 3)  # Each row is a sample
-        msk_accept = np.all(np.abs(resid_reshaped) < residual_threshold, axis=1)
-        q1_accept = np.array(q1_list)[msk_accept]
-        q2_accept = np.array(q2_list)[msk_accept]
-        if verbose:
-            print(f"Accepted {np.sum(msk_accept)}/{resid_reshaped.shape[0]} samples.")
-        # Run least-squares again (using previous solution as the initial guess)
-        result = least_squares(residual_rotation_vector, result.x, args=(q1_accept, q2_accept))
-
     # Convert estimate from rotation vector to quaternion
     q_12 = quaternion.from_rotation_vector(result.x)
-    
-    if verbose:
-        print(f"Estimated q_cam2imu: q_cam2imu={q_12}, ",
-            f"Func evaluations: {result.nfev}, Cost = {result.cost:.4g}, ", 
+
+    logger.debug(f"Solved for relative rotation q_12={q_12}, "
+            f"Func evaluations: {result.nfev}, Cost = {result.cost:.4g}, "
             f"Success: {result.success}, {result.message}")
 
     # Diagnostics  TODO: Return these
-    sigma_total, condition_number = _solution_diagnostics(result)
-    residuals = result.fun
+    #sigma_total, condition_number = _solution_diagnostics(result)
+    diagnostics = HandEyeSolverDiagnostics(residuals=result.fun)
 
-    return q_12
+    return q_12, diagnostics
+
+
+def solve_rotation_with_outlier_removal(
+        q1_list: list_of_quats,  # List of rotation quaternions
+        q2_list: list_of_quats,
+        x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN_PARAMS),  # Initial guess
+        residual_threshold = 0.8,  # Reject samples with residual > resid_threshold in first pass
+        n_min_samples = N_UNKNOWN_PARAMS,  # Minimum number of sample pairs for a solution
+        ):
+    """
+    Solve the hand-eye problem with a single pass of outlier rejection (see 
+    solve_rotation() for details).
+    """
+    # First pass:
+    q12_solution, diagnostics = solve_rotation(q1_list, q2_list, x0)
+    if residual_threshold is None:
+        return q12_solution, diagnostics
+
+    # Second pass: Re-run least-squares with outliers removed
+    resid_reshaped = diagnostics.residuals.reshape(-1, 3)  # Each row is a sample
+    msk_accept = np.all(np.abs(resid_reshaped) < residual_threshold, axis=1)
+    if not np.all(msk_accept):
+        logger.debug("Re-solving for imu/camera alignment using "
+            f"{np.sum(msk_accept)}/{resid_reshaped.shape[0]} samples.")
+
+        if np.sum(msk_accept) < n_min_samples:
+            np.info(f"Less than {n_min_samples} samples remain. Exiting outlier removal.")
+            return q12_solution, diagnostics
+
+        # Re-run using previous solution as the initial guess
+        q1_accept = np.array(q1_list)[msk_accept]
+        q2_accept = np.array(q2_list)[msk_accept]
+        x0 = quaternion.as_rotation_vector(q12_solution)
+        q12_solution, diagnostics = solve_rotation(q1_list, q2_list, x0)
+
+    return q12_solution, diagnostics
 
 
 def _solution_diagnostics(result):
@@ -254,7 +294,7 @@ if __name__ == "__main__":
     # Reject small rotations
 
     # solve
-    q_12_est, sigma_total, condition_number = solve_rotation(
+    q_12_est, diagnostics = solve_rotation(
         q1, q2, residual_threshold = 0.01, verbose=True)
 
     # Results

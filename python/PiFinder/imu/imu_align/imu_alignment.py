@@ -80,7 +80,7 @@ from dataclasses import dataclass
 
 from PiFinder.types.coordinates import RaDecRoll
 from PiFinder.pointing_model import quaternion_transforms as qt
-from PiFinder.imu.imu_align.hand_eye_solver import solve_rotation
+from PiFinder.imu.imu_align.hand_eye_solver import solve_rotation, solve_rotation_with_outlier_removal
 
 list_of_quats = list[quaternion.quaternion]
 
@@ -274,7 +274,7 @@ class ImuCameraAlignment:
             q_cam_list.append(samp_imu.q_cam)
             q_imu_list.append(samp_imu.q_imu)
 
-        q_cam2imu = solve_rotation(q_cam_list, q_imu_list, residual_threshold = 0.01, verbose=False)
+        q_cam2imu, diagnostics = solve_rotation(q_cam_list, q_imu_list)
         return q_cam2imu
 
     def add_sample_attempt_solve(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
