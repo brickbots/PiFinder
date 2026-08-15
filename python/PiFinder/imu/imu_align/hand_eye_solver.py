@@ -77,6 +77,11 @@ def solve_rotation(
         raise ValueError("x0 must be a length-3 vector")
 
     logger.debug(f"Solving for relative rotation from {len(q1_list)} sample pairs.")
+
+    # TODO: This is inefficient if re-run by outlier removal. Also not sure if necessary?
+    q1_list = ensure_quat_list_continuity(q1_list)
+    q2_list = ensure_quat_list_continuity(q2_list)
+
     # TODO: Tune LM params
     # TODO: Calculate the Jacobians analytically? Current numerical Jacobians is probably fast enough?
     result = least_squares(residual_rotation_vector, x0, method='lm', 
@@ -168,7 +173,6 @@ def _solution_diagnostics(result):
 
 
 # ------- Helper functions -------
-
 
 def ensure_quat_list_continuity(q_list: list_of_quats) -> list_of_quats:
     """

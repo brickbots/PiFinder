@@ -73,7 +73,7 @@ def ensure_quat_continuity(q_prev: quaternion.quaternion,
     q1 = quaternion.as_float_array(q_new)
 
     if np.dot(q0, q1) < 0:
-        return quaternion.quaternion(-q1)
+        return -q_new
     else:
         return q_new
 

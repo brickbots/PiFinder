@@ -152,7 +152,8 @@ class ImuCameraAlignment:
         candidate_buffer_length: Should be around sample_freq * max_time_diff
         """
         self.candidate_buffer = SampleBuffer(max_buffer_length=candidate_buffer_length)
-        self.diff_buffer = SampleBuffer(max_buffer_length=min_n_solve)
+        diff_buffer_length = candidate_buffer_length  # TODO: Come up with a better value
+        self.diff_buffer = SampleBuffer(max_buffer_length=diff_buffer_length)
 
         self.min_n_solve = min_n_solve
         self.max_time_diff = max_time_diff
@@ -231,11 +232,13 @@ class ImuCameraAlignment:
         """
         n_pairs = 0
         if self.candidate_buffer.len == 0:
+            logger.debug("No samples in candidate buffer for pairing.")
             return n_pairs
 
         remove_ids = set()
         for isamp1, samp1 in enumerate(self.candidate_buffer.buffer[:-1]):
-            for isamp2, samp2 in enumerate(self.candidate_buffer.buffer[isamp1+1:]):
+            for isamp2 in range(isamp1+1, self.candidate_buffer.len):
+                samp2 =self.candidate_buffer.buffer[isamp2]
                 # Check time difference between samples:
                 dt = samp2.timestamp - samp1.timestamp
                 if dt > self.max_time_diff or dt <= 0:
@@ -253,11 +256,18 @@ class ImuCameraAlignment:
                 # This prevents the same pair being used again if this method is
                 # re-run. Note that this loop will continue matching samp1.
                 self.diff_buffer.add_sample((samp1, samp2))
-                remove_ids.add(isamp1)
                 n_pairs += 1
+                remove_ids.add(isamp1)
+                if self.diff_buffer.len >= self.diff_buffer.max_buffer_length:
+                    break
+            if self.diff_buffer.len >= self.diff_buffer.max_buffer_length:
+                break
+
+        logger.debug(f"paired {n_pairs} from {self.candidate_buffer.len} samples.")
 
         if remove_ids:
             self.candidate_buffer.remove_samples(remove_ids)
+
         return n_pairs  # Number of successful pairings
 
     def solve(self, n_pairs=None):
