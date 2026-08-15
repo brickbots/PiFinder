@@ -53,8 +53,14 @@ def save_sweep_metadata(
             Contains: noise_floor_adu, dark_pixel_raw, dark_pixel_smoothed, theoretical_floor,
             temporal_noise, read_noise, dark_current_contribution, bias_offset, etc.
         camera_type: Camera type string (optional)
-        lens_key: Configured lens (optional). Omitted means the sensor's
-            shipped lens, which is what the device itself assumes.
+        lens_key: The lens the device is configured for. Pass what
+            ``shared_state.camera_lens()`` holds, even when that is None.
+            Omitting it falls back to the sensor's shipped lens, which is a
+            *different* field width from the one the sweep was taken through
+            unless the two happen to agree -- so an omission from a caller
+            that has the config in hand is a bug, not a default. The archive
+            is what the SQM constants are re-derived from, so a mislabelled
+            lens silently poisons the next calibration.
         notes: Any additional notes
     """
     metadata: Dict[str, Any] = {
