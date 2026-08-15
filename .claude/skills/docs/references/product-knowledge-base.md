@@ -20,8 +20,23 @@ The PiFinder is an open-source, Raspberry Pi–based telescope finder/push-to gu
 ### Hardware Versions
 - **v1**: Early/rare hardware. Uses a GPS dongle (external USB GPS). Has some unique characteristics around screw assembly.
 - **v2 / v2.5**: Mid-generation. A v2 to v2.5 upgrade kit is available. The v2.5 introduced improved hardware.
-- **v3**: Current production version (as of early 2026). Uses internal GPS (UBLOX module) and internal battery. Ships with either imx462 or imx296 camera sensor depending on availability at time of assembly. Dimensions: ~110mm wide × 100mm tall × 90mm deep (Left/Right); ~110mm × 120mm × 120mm (Flat). Weight: ~370g with battery, ~290g without (lighter than a Telrad with batteries at 315g). **Note**: v3 does not have a DIY version, so there is no detailed build guide on readthedocs. A separate [assembly document](https://docs.google.com/document/d/1qPrIb4E8s5cmlWeev730kk9axFQ7yM9QXBx4Yvpj7oE/edit?tab=t.0) with photos and general assembly info is available.
-- **rev4** (revision 4 — avoid "v4"): Planned future revision — goals include improved manufacturability, better battery/power integration, slightly larger screen (1.92" vs current 1.5", ~30% taller/wider text). As of early 2026, still in early design: engineering samples of potential screens exist but no working prototype on a scope yet. Same software, camera, and computer — will provide the same experience, not a breaking change. All existing PiFinders will continue to receive software updates.
+- **v3**: Production version through early 2026, superseded by rev4 (below). Uses internal GPS (UBLOX module) and internal battery. Ships with either imx462 or imx296 camera sensor depending on availability at time of assembly. Dimensions: ~110mm wide × 100mm tall × 90mm deep (Left/Right); ~110mm × 120mm × 120mm (Flat). Weight: ~370g with battery, ~290g without (lighter than a Telrad with batteries at 315g). **Note**: v3 does not have a DIY version, so there is no detailed build guide on readthedocs. A separate [assembly document](https://docs.google.com/document/d/1qPrIb4E8s5cmlWeev730kk9axFQ7yM9QXBx4Yvpj7oE/edit?tab=t.0) with photos and general assembly info is available.
+- **rev4** (revision 4 — avoid "v4"): The fourth revision, **fully enabled in software from v2.6.1** (August 2026). Same camera, computer and core experience as v3 — not a breaking change, and all existing PiFinders continue to receive software updates. What differs:
+  - **Power button** (momentary) instead of v3's slide switch. **Press and hold it about a second** to open the shutdown confirmation; a second press confirms, a tone plays, and the unit powers itself off. The hold is required — `keyboard_pi.py:150-161` only emits `POWER_BTN` once the button has been closed for more than a second.
+  - **On-board battery charger** (BQ25895) with an **8,000 mAh** cell, instead of the optional PiSugar S Plus add-on. Brings a **title-bar battery indicator**, advisory warnings at 10% and 5%, and an automatic clean shutdown when the battery is nearly flat — v3 has none of these and simply dies when depleted.
+  - **Two USB-C ports, labelled on the faceplate: POWER and DATA.** POWER runs the unit and charges the battery; **the PiFinder can be on and in use while charging**. DATA is for external devices — the PiFinder remote and other USB items. A red **`CHG`** LED is lit while charging and goes out when the cell is full. v3's "one port is wired ahead of the switch" split does **not** carry over.
+  - **5-way joystick** replacing v3's four separate arrow buttons. Four directions plus a centre press that acts as **SQUARE**. It is one physical component, not five switches.
+  - **1.91" 176×176 screen** (SSD1333) vs v3's 1.5" 128×128 (SSD1351) — larger text and a much wider dimming range at the dim end, which is what matters at a dark site.
+  - **Buzzer** with a **Volume** setting (Off, 1–5) under Settings → User Pref. v3 has no sound. Five cues actually play: startup, shutdown, keypress, low battery, and the sample you hear while setting the volume. **There is no error tone** — do not list one (issue #581).
+  - **10th-generation UBlox GPS at 115,200 baud** (v3/v2.5 use an older receiver at 9600).
+  - **SD card is externally accessible on the side of the case — push to eject.** No disassembly.
+  - **Same cameras as v3** — imx296 / imx462, unchanged.
+  - **Build variants**: Rev4 Left, Rev4 Right, Rev4 Straight, plus **AS Bloom** and **AS Heart** (under Settings → Advanced → PiFinder Type), alongside the v3 options. **AS = Analog Sky** — two of their telescopes can be ordered with a fully integrated PiFinder.
+  - **Bring-up tool** (`python -m PiFinder.bringup`) for validating a freshly assembled board at the bench.
+
+  **Runtime and charging** (detail in Power & Charging Details below): runtime is **about 10 hours**, measured, and should be quoted as a *floor*; a charge takes **roughly 6 hours** from empty with the unit off, a figure **calculated from 8,000 mAh at 1.5 A rather than measured**.
+
+  Still not established, so **don't state these without checking**: whether the rev4 case differs from v3 in any other respect, and whether a rev4 DIY build path exists. `build_guide.rst` and `BOM.rst` describe the **v3/v2.5 through-hole build only** and are deliberately out of scope for rev4.
 
 ### Form Factors (Configurations)
 There are four main form factors, and the choice depends on the telescope type and mounting:
@@ -97,22 +112,29 @@ Known Left/Right mappings for specific Dobsonian models. "Left" or "Right" refer
 ## Setup & First Use
 
 ### Initial Power On
-- The PiFinder has a small **slide switch** (not a push button) for power. It slides (right=on, left=off), not depresses. This is a common point of confusion.
-- **Switch ergonomics tip**: The slide switch is small and hard to find by feel in the dark. A dab of hot glue or Sugru (moldable silicone) on top gives it a bigger surface area. Requires a bit of care to apply but isn't too hard.
+- Power is a **momentary push button** on top of the case, above the screen. Press it to switch the PiFinder on. To shut down, **press and hold it about a second** while the unit is running — that opens the shutdown confirmation, and a second press confirms.
 - The SQUARE key does NOT control power — it is used for various software functions.
 - After powering on, a startup screen with the PiFinder logo appears, followed by the main menu.
 - First boot after re-imaging takes extra time as the system expands the filesystem — typically a minute or two, **and the unit will reboot multiple times** during this initial setup. "It boots and then restarts" on a first boot is expected.
+- **v3 / v2.5**: power is a small **slide switch** (not a push button). It slides (right=on, left=off), not depresses. This is a common point of confusion. **Switch ergonomics tip**: the slide switch is small and hard to find by feel in the dark — a dab of hot glue or Sugru (moldable silicone) on top gives it a bigger surface area. Requires a bit of care to apply but isn't too hard.
 
 ### Power & Charging Details
-- **Two USB-C ports**: The port closest to the keypad (closest to the screen) powers the unit only; the port at the top rear (furthest from the screen) both powers and charges the internal battery. The **power-only port** is preferred during observing because the charging port's blue/green LED is distractingly bright at night. **Important**: The power-only port (closest to screen) powers the unit immediately regardless of the power switch position — it bypasses the switch entirely.
-- **Charging indicator**: Glows blue while charging, turns green when complete.
-- **Charging time**: ~3 hours from empty when the power switch is OFF, but charge time **depends a lot on the power source** and is variable. Runtime is the more consistent measure. If the PiFinder is running (switch on or switch broken), it may draw about as much current as the charger provides and the battery may not fill up appreciably. A long charge session that results in a still-empty battery is a strong indicator the unit was running during charging — check the power switch.
+- **Two USB-C ports, labelled on the faceplate**: **POWER** runs the unit and charges the battery — this is the one for a charger or a power bank. **DATA** is for connecting external devices (the PiFinder remote, other USB items). The unit **can be on and in use while charging**.
+- **Charge indicator**: a red LED labelled **`CHG`**, lit while charging and off once the cell is full. It is bright enough to be distracting to a dark-adapted observer — worth warning people about before they charge at the eyepiece.
+- **Battery**: **8,000 mAh** internal cell, charged at up to **1.5 A**.
+- **Charging time**: **roughly 6 hours** from empty with the unit switched off. This is **calculated from capacity and charge current, not measured on the bench** — say "about" and don't give it the confidence of the runtime figure. Charging while observing takes considerably longer, since the unit consumes much of what the charger supplies. A long charge that leaves the battery still low almost always means the PiFinder was running the whole time.
+- **Runtime: about 10 hours**, measured (ADR 0020; six bench discharges, two rev4 units, campaign closed 2026-07-26 — 9h55m and 10h03m on the two pinned runs). **Quote it as a floor, not a typical figure**: it was measured under a deliberate worst case — camera solving continuously, screen at full brightness, display sleep off. Ordinary observing is lighter and runs longer. Runtime is still highly activity-dependent: sitting at the eyepiece on a single object, or walking away from the scope, drops the PiFinder into a lower-power mode and extends it; a fast tour through many objects (camera + IMU + screen all busy) shortens it. Battery life degrades below freezing, though the PiFinder's internal heat keeps the cell warm in most conditions.
+- **Battery indicator**: the title bar carries a battery glyph in ~20% buckets, plus a bolt while charging. **It is a state-of-charge estimate expressed as remaining runtime under typical load — "how much longer will it run" — not "what fraction of the cell's capacity is left"** (ADR 0020). There is no fuel gauge and no coulomb counter on this hardware; the percentage is derived from measured battery voltage through a discharge curve. **Do not let the 8,000 mAh capacity figure bleed into how the percentage is described** — capacity is a spec of the cell, the percentage is a runtime fraction, and conflating them is the classic error here. Also **never write bare "battery level"**: say *battery voltage* (measured) or *state of charge* (estimated). No percentage is shown while charging — the charger pulls terminal voltage up, so a number would lie, and the bolt appears instead. Near the very end of a discharge the charger's ADC goes blind and the icon reads empty.
+- **Low battery**: advisory popup plus a sound at **10%** and again at **5%**, each **once per discharge** (plugging in re-arms them). Under the pinned bench load those land roughly 1½ hours and ½ hour before the end. Below the ADC blind floor the PiFinder shows a final warning and performs an **orderly software shutdown** (ADR 0021) — this exists specifically to avoid an SD-corrupting hard power cut, and it is why the unit does *not* simply die.
 - **Power consumption**: ~950mA at 5V under full load, ~60% draw during idle/power-save mode. Minimum 2A rated supply recommended (startup peaks at ~1.5A).
-- **Battery**: Internal PiSugar S Plus 5000mAh. **Runtime: 4-5 hours, but highly activity-dependent.** Sitting at the eyepiece on a single object for minutes at a time, or walking away from the scope frequently, puts the PiFinder into a lower-power mode and extends runtime. Active UI use and pushing the scope between objects (camera + IMU + screen all active) draws more power — a fast run through lots of objects yields a shorter runtime. Battery life degrades below freezing but the PiFinder's internal heat keeps it warm in most conditions. **Important**: Only the PiSugar S Plus model is compatible — other PiSugar models interact with the I2C bus and cause IMU communication issues. The Amazon listing may say "PiSugar S Pro" but it's the correct S Plus model (check photos). Reference: https://github.com/PiSugar/PiSugar/wiki/PiSugarS-Plus
-- **No on-screen battery level indicator**: There is no battery percentage or level indicator on the PiFinder screen, and no auto-shutdown when the battery runs low. The battery is good for 4-5 hours and will **abruptly shut off** when charge is depleted. The only external power indicator is the LED on the charging USB-C port (blue charging / green full), which only tells you about charging state, not the battery's level when running standalone. A future hardware revision will address this; the current design keeps the PiFinder DIY-friendly using the off-the-shelf PiSugar board for the power system. **Practical workaround**: a USB-C power bank can be hot-plugged while the PiFinder is running to extend a session.
-- **Hot-swap power**: USB-C power can be plugged in mid-session without restart. Behavior depends on which USB-C port is used: the power-only port (near keypad) powers the unit only; the charging port (top rear) powers the unit and/or charges the battery.
-- **Runtime extension trick**: Plug external USB-C power into the **power-only port** while the unit is running on battery, **then switch off the battery system**. The unit keeps running on external power and the battery is preserved for after the external power is unplugged — useful for stretching a session beyond the internal battery's runtime.
-- **External power without battery**: Units sold without battery have no power switch — if USB is plugged in, it's on. This also means even if the power switch fails on a battery unit, it can still run on external USB.
+- **Hot-swap power**: USB-C power can be plugged into the POWER port mid-session without restart; the unit runs from it and tops up the battery at the same time.
+- **v3 / v2.5 power and charging** — still true for those units, but do not present it as the PiFinder's behaviour:
+  - **Battery**: optional PiSugar S Plus 5000mAh add-on board. **Runtime 4-5 hours**, same activity-dependence as above. **Only the S Plus model is compatible** — other PiSugar models interact with the I2C bus and cause IMU communication issues. The Amazon listing may say "PiSugar S Pro" but it's the correct S Plus model (check photos). Reference: https://github.com/PiSugar/PiSugar/wiki/PiSugarS-Plus
+  - **No on-screen battery indicator and no low-battery warning.** A v3 **abruptly shuts off** when charge is depleted. The only power indication is the charging port's LED (blue charging / green full), which reports charging state only. **Practical workaround**: hot-plug a USB-C power bank while the unit runs.
+  - **Two USB-C ports with a different split**: the port closest to the keypad powers the unit only; the port at the top rear both powers and charges. The power-only port is preferred during observing because the charging port's blue/green LED is distractingly bright at night. The power-only port powers the unit **immediately regardless of the power switch position** — it bypasses the switch entirely.
+  - **Charging time ~3 hours** from empty with the power switch OFF, and it varies a lot with the power source. If a v3 is running while plugged in it may draw about as much current as the charger provides and barely fill — a long charge that ends still empty is a strong sign the unit was running; check the power switch.
+  - **Runtime extension trick**: plug external USB-C power into the **power-only port** while running on battery, **then switch the battery system off**. The unit keeps running on external power with the cell preserved for after the bank is unplugged.
+  - **Units sold without battery have no power switch** — if USB is plugged in, it's on. This also means a v3 whose power switch has failed can still run on external USB.
 - **12V telescope power**: **Do NOT run 12V directly into the PiFinder** — it expects 5V USB-C power. Use a 12V-to-5V USB-C DC-DC step-down converter. Richard uses this on his own scope. Example product: https://www.amazon.com/gp/aw/d/B09DGDQ48H — for international customers, note they may need to source a similar adapter locally. Ensure good quality cables — cheap cables with long runs can cause voltage drop issues.
 - **USB power banks / portable power stations**: When using a device like a Jackery, the direct USB output should work if rated ≥2A. However, plugging a USB wall charger into the unit's AC inverter may not deliver clean enough power. Also watch for flaky USB cables — some cables are unreliable at the ~2A current draw the PiFinder needs. If experiencing power dropouts, try swapping the USB cable first.
 - **External power bank capacity rule of thumb**: ~1,000mAh runs the PiFinder for about an hour, so a 10,000mAh bank gives roughly 8-10 hours of use. (Slightly more conservative than the internal-battery rule of thumb because power banks lose some efficiency through voltage conversion.)
@@ -123,8 +145,17 @@ Known Left/Right mappings for specific Dobsonian models. "Left" or "Right" refer
 - **Keypad brightness** can be adjusted independently via **Settings → Keypad Brt** (ratio relative to screen).
   - **UX gotcha**: Changing the ratio does NOT take effect immediately — the keypad brightness only refreshes the next time the overall PiFinder brightness is changed. Workflow: set the new ratio, then use SQUARE + / SQUARE - to bump overall brightness up/down to see the new keypad level take effect.
 - **Caution**: A very dim setting from a previous nighttime session can make the screen appear completely blank in daylight. Always try brightening before assuming a hardware failure.
+- **rev4 dims much further** than v3's 128 px panel — the dimmest step is far lower, which is what matters at a genuinely dark site. In user-facing prose say "much dimmer" and leave the engineering figures (0.005% of full, 13,400:1 range) to ADR 0023. The flip side is that the "screen looks blank in daylight" caution above bites harder on rev4.
+
+### Sound & Volume (rev4 only)
+- rev4 has a piezo buzzer; v3 and v2.5 have no sound hardware and no Volume setting.
+- **Settings → User Pref → Volume**, values **Off, 1–5**.
+- **Five cues actually play**: startup, shutdown, keypress, low battery, and the sample you hear while setting the volume. **There is no error tone** — don't list one (issue #581).
+- The piezo is loudest near its resonant peak, so the cues differ in loudness by design. That's not a fault.
+- In user-facing prose write "sounds" or "tones". The Sound glossary's term **earcon** is a domain word and stays out of the manual.
 
 ### GPS Lock
+- **Receiver differs by revision**: rev4 carries a **10th-generation UBlox module running at 115,200 baud**; v3 and v2.5 use an older receiver at **9600**. The baud rate is settable under Settings → Advanced → GPS Settings, and a mismatch there looks exactly like a dead GPS. Everything else in this section applies to both.
 - The PiFinder requires a GPS lock to determine location and time. This is necessary for initializing catalogs (including planets).
 - GPS lock can take time, especially in buildings. Metal structures, balconies, and indoor locations can block or reflect GPS signals.
 - Check GPS status under **Tools → Status** or the dedicated GPS screen under the **Start** menu.
@@ -144,11 +175,12 @@ Known Left/Right mappings for specific Dobsonian models. "Left" or "Right" refer
 - **Satellite dish icon** (upper right): Solid = GPS locked; flashing = searching for satellites.
 - **Camera icon** (upper right): Turns fully opaque each time a plate solve succeeds, then fades out over ~1 second. When solving is working well with good focus/exposure, the icon should be **basically always opaque while the scope is stationary**. Seeing the icon fade while the scope is still indicates a focus/exposure issue (or occasionally high-thin clouds).
 - **X symbol**: No pointing determination achieved yet.
+- **Battery glyph** (upper right, just left of the GPS icon) — **rev4 only**. Steps down in ~20% buckets, shows a bolt while charging and a hollow outline for the last stretch. See the battery-indicator bullet under Power & Charging Details for what the estimate does and does not mean. Nothing is drawn on v3/v2.5, which have no charger to read.
 - **Status screen details**: Shows solver state (LST SLV) — seconds since last solve, current mode (I=IMU, C=Camera), matched stars count. Also shows WiFi mode, network name, and IP address.
 - **"Degraded, check status" message with blank IMU data**: Indicates a dead/non-functional IMU. Once a replacement IMU is soldered in, the status page should populate with IMU data and the degraded message will go away on the next boot.
 
 ### Title Bar Display
-- The title bar area alternates every few seconds between showing the **constellation** the scope is currently pointed at and the **Sky Quality Meter (SQM)** reading.
+- The title bar area alternates every few seconds between showing the **constellation** the scope is currently pointed at and the **Sky Quality Meter (SQM)** reading. On rev4 the **battery glyph** sits to the right of that, just left of the GPS and solver icons; v3/v2.5 have nothing there.
 - **SQM (Sky Quality Meter)**: An experimental feature that uses the PiFinder's camera to measure sky darkness/brightness. The value is displayed in **magnitudes per square arcsecond** — higher numbers mean darker (better) skies:
   - ~17: Suburban skies
   - ~18–19: Rural/good skies
@@ -187,6 +219,7 @@ Known Left/Right mappings for specific Dobsonian models. "Left" or "Right" refer
 - **observations.db**: SQLite database containing all logged observations.
 
 ### Camera Configuration & Focus
+- **rev4 uses the same cameras as v3 — imx296 / imx462, unchanged.** Everything in this section applies to both revisions.
 - V3 PiFinders ship with either **imx462** or **imx296** camera sensor — either performs similarly. Default is imx462.
 - Camera type options in Settings → Camera Type: **imx462**, **imx296**, or **imx477** (v2 cameras with larger lens that has aperture + focus rings). It won't hurt to try all options if unsure.
 - **After changing camera type, a full power-off/on cycle is required** — a software restart alone is NOT sufficient.
@@ -203,6 +236,9 @@ Known Left/Right mappings for specific Dobsonian models. "Left" or "Right" refer
 - **Lens cap replacement**: The stock lens cap is small and easily lost. **Bolt end caps (15-16mm diameter)** work well as replacements — they slide over the entire lens.
 
 ### Button Mapping (Post-Software Update)
+- **The logical keys are identical across revisions.** "Press RIGHT", "hold SQUARE and press +" are correct everywhere — what changed on rev4 is the physical control, not the key names. Don't rewrite key instructions per revision.
+- **rev4 directional control is a single 5-way joystick**, not four separate arrow buttons: push it up/down/left/right, and **pressing it straight in acts as SQUARE**. So rev4 has two ways to hit SQUARE — the joystick centre and the pad's own SQUARE key. It occupies five matrix positions but is **one physical component**; a builder chasing a dead direction is reflowing one part, not hunting five switches.
+- **v3 / v2.5** have four separate arrow buttons in a row along the bottom.
 - In current software, the right-hand side buttons (formerly up/down) are now **+/-**
 - The **ABCD buttons** are now arrow keys for menu control: B=Up, C=Down, D=Select/Right, A=Back/Left
 - Updated faceplates are available to reflect the new button mapping.
@@ -302,8 +338,12 @@ From Object Details, press RIGHT to open the logging interface:
 - **SD card symptoms are binary, not subtle**: SD card errors/corruption generally prevent any operation (no boot, crashes, blank screen), not introduce small changes to behavior. Functional-but-degraded behavior (e.g., slow plate solves, occasional jumps) is unlikely to be caused by the SD card — diagnose the actual symptom instead rather than reflashing as a first step.
 - **Self-reimage option**: GitHub releases link (https://github.com/brickbots/PiFinder/releases) and docs link to the prebuilt-release-image instructions (https://pifinder.readthedocs.io/en/release/software.html#prebuilt-release-image). The most common stumbling block for self-reimagers: "Use the Raspberry Pi Imager with 'Use Custom' to load the .img and configure your WiFi in the imager settings (but do not set a hostname or username/password)."
 - **Variable-stage boot hang (different stop points across attempts — catalogs one time, menus the next)**: textbook SD card corruption signature. The Pi is clearly past filesystem repair (it's reaching named UI stages), so the standard "wait 5 minutes" advice doesn't apply here. The fix is a fresh card or self-reimage.
-- **SD card access (v2 hardware)**: Two options: (1) On revision 2 hardware, there is a small snap-out access door on the right-hand side of the unit — snap it out to expose the SD card directly. (2) Alternatively, remove the 3 screws in the faceplate and the whole shroud slides off easily, giving full access. The SD card sits between the green Raspberry Pi board and the black battery control board. The white camera ribbon cable may need to be gently moved aside. Be careful not to crack the SD card during reassembly.
-- **Battery access** (different from SD card access): Remove 3 screws on *each* side of the PiFinder, disconnect the camera, and remove the back panel to expose the battery, which is connected via a plug. More involved than SD card access but manageable. Battery should last years of normal use.
+- **SD card access, by revision**:
+  - **rev4**: the card is **externally accessible on the side of the case — push to eject**. No disassembly, no screws.
+  - **v3**: **three screws on the right-hand side** of the unit.
+  - **v2.5**: a small **snap-out access door** on the right-hand side, or remove the **3 faceplate screws** and the whole shroud slides off for full access.
+  - On the older units the card sits between the green Raspberry Pi board and the black battery control board, and the white camera ribbon cable may need to be gently moved aside. Be careful not to crack the card during reassembly.
+- **Battery access on v3 / v2.5** (different from SD card access): Remove 3 screws on *each* side of the PiFinder, disconnect the camera, and remove the back panel to expose the battery, which is connected via a plug. More involved than SD card access but manageable. Battery should last years of normal use. Whether the rev4 case opens the same way is **not established** — don't state it.
 
 ### Software Updates
 - Updates are performed directly from the **PiFinder menu** (**Tools → Software Upd**). Also accessible via the web interface, or by re-imaging the SD card.
@@ -325,14 +365,18 @@ From Object Details, press RIGHT to open the logging interface:
 - The PiFinder's internal computer dissipates ~5 watts, making it an effective dew heater.
 - PiFinder has proven resilient to extreme temperatures: tested from 40°C/100°F down to -15°C/5°F.
 - Battery data is being collected; users have contributed cold-weather runtime data.
-- **Can't turn on with internal battery**: Verify the power switch operation (slide, not push). Check if the PiSugar battery board (for DIY builds) needs attention.
-- **Charging**: Use USB-C (the charging port at top rear, not the power-only port near the keypad). Charging indicator: blue = charging, green = complete. If using a non-PD (Power Delivery) source, charging will be slower but still works at 5V. PD-compliant sources negotiate higher power delivery.
+- **Can't turn on**: power is a **button**, not a switch — press it. Then charge: plug USB-C into the **POWER** port and check the **`CHG`** LED comes on. Once the unit is running, the title-bar battery glyph tells you where the cell actually is.
+- **Charging**: use the **POWER** port. The unit can run while charging, which stretches the charge a lot — a long charge that ends with the battery still low usually means it was in use the whole time.
 - **Smoking/dead PiFinder**: Very rare. Usually indicates a defective Raspberry Pi power component.
-- **Rebooting issues**: Can indicate battery or power control board problems. **Diagnostic**: Test on external USB power — if it reboot-cycles on both battery and USB, it's likely an SD card issue (re-image). If only on battery, it's a battery/power control board issue.
-- **PiSugar ribbon cable**: During reassembly, the battery ribbon cable must lie flat and be fully inserted. A dislodged cable causes the battery to not charge or power the unit.
-- **PiSugar replacement part**: PiSugar S Plus 5000mAh. **Only use the S Plus model** — other PiSugar models interfere with the I2C bus and cause IMU communication issues. The PiSugar board attaches to the Raspberry Pi via hexagonal standoffs (not separate screws).
-- **PiSugar switch failures**: The switches can physically break off from handling; they are well recessed inside the case and rarely break in shipping. If the switch is behaving erratically (e.g., only powers when held between positions), reflowing the switch solder joints is a quick check; if that doesn't resolve it, the PiSugar S Plus is replaced.
-- **Switch broken in "On" position — common symptom pattern**: Unit runs fine while plugged into the power-only USB-C port (closest to screen) but won't run on battery alone. Mechanism: the power-only port bypasses the battery system entirely (which is why it runs while plugged in), but a switch stuck "On" continuously drains the battery and prevents it from properly charging back up — so when the power supply is removed, there's nothing left to run on.
+- **Rebooting issues**: Can indicate battery or power-path problems. **Diagnostic**: Test on external USB power — if it reboot-cycles on both battery and USB, it's likely an SD card issue (re-image). If only on battery, it's a battery/charger issue.
+- **"It shut itself down"** is not necessarily a fault on rev4 — a clean automatic shutdown after a low-battery warning is the designed behaviour (ADR 0021). Ask whether a "Low battery" message appeared first.
+- **v3 / v2.5 power problems** — PiSugar-specific, do not apply to rev4:
+  - **Can't turn on with internal battery**: verify the power switch operation (slide, not push). Check if the PiSugar battery board (for DIY builds) needs attention.
+  - **Charging**: use the charging port at top rear, not the power-only port near the keypad. Indicator: blue = charging, green = complete. A non-PD source charges more slowly but still works at 5V; PD-compliant sources negotiate higher power.
+  - **PiSugar ribbon cable**: during reassembly the battery ribbon cable must lie flat and be fully inserted. A dislodged cable causes the battery to not charge or power the unit.
+  - **PiSugar replacement part**: PiSugar S Plus 5000mAh. **Only use the S Plus model** — other PiSugar models interfere with the I2C bus and cause IMU communication issues. The board attaches to the Raspberry Pi via hexagonal standoffs (not separate screws).
+  - **PiSugar switch failures**: the switches can physically break off from handling; they are well recessed inside the case and rarely break in shipping. If the switch behaves erratically (e.g., only powers when held between positions), reflowing the switch solder joints is a quick check; if that doesn't resolve it, the PiSugar S Plus is replaced.
+  - **Switch broken in "On" position — common symptom pattern**: unit runs fine while plugged into the power-only USB-C port (closest to screen) but won't run on battery alone. Mechanism: the power-only port bypasses the battery system entirely (which is why it runs while plugged in), but a switch stuck "On" continuously drains the battery and prevents it charging back up — so when the supply is removed, there's nothing left to run on.
 
 ### Blank Screen on Startup
 **Diagnostic approach** — check what the keypad does:
@@ -348,12 +392,13 @@ From Object Details, press RIGHT to open the logging interface:
 ### Device Freezing
 - If the screen/device freezes (becomes unresponsive), clarify whether the screen content is static or blank.
 - Often related to SD card corruption or software crash.
-- Try a power cycle (full off and on via the slide switch).
+- Try a power cycle (a full off and on — power button on rev4, slide switch on v3/v2.5).
 - If persistent, re-image the SD card.
 
 ### Shutdown
-- **Recommended procedure**: Tools Menu → Shutdown, or quick shutdown: hold LEFT (1+ sec) → hold SQUARE → press DOWN for SHUTDOWN → press RIGHT to confirm.
-- Screen and keypad turn off after several seconds; then safe to toggle power switch.
+- **rev4, quickest route**: **press and hold the power button about a second** to raise the shutdown confirmation, then press again (or RIGHT) to confirm. A tone plays and the unit powers itself off — nothing to toggle afterwards.
+- **Keypad route, works on every revision**: Tools Menu → Power → Shutdown, or the quick route: hold LEFT (1+ sec) → hold SQUARE → press DOWN for SHUTDOWN → press RIGHT to confirm.
+- Screen and keypad turn off after several seconds. On v3/v2.5 it is then safe to slide the power switch off or unplug the battery.
 - Although shutdown is not strictly required before power-off, the PiFinder is a computer and there is a chance of SD card file corruption if you skip it.
 - Some users report issues with clean shutdown; fixes that preserve the authentication system are in progress.
 
@@ -449,6 +494,8 @@ The PiFinder supports multiple connection methods:
 
 ## DIY Build Support
 
+> **Scope: this whole section is the v2.5 through-hole DIY build.** v3 has no DIY version, and whether a rev4 DIY build path exists is **not established** — don't extrapolate any of the parts, quantities or assembly steps below to rev4. `build_guide.rst` and `BOM.rst` cover the v3/v2.5 through-hole build only and are deliberately out of scope for rev4.
+
 ### Recommended Hardware
 - **Raspberry Pi 4B 2GB** (higher memory acceptable but unnecessary). The Raspberry Pi Foundation has committed to manufacturing Pi 4 variants through 2033. Pi 5 compatibility is targeted for end of 2026 for DIY users, but the project will remain based around the Pi 4 for the foreseeable future.
   - **Pi 3B+ will NOT work** — PiFinder uses one of the **additional serial ports introduced in the Pi 4** for GPS communication. A Pi 3B+ does not have these extra UARTs, so the GPS won't communicate even if everything else looks fine. When "GPS not working" appears on a board that's working otherwise, **confirm which Pi model is in use** before going deeper.
@@ -494,7 +541,7 @@ The PiFinder supports multiple connection methods:
 - **Dovetail mount**: Standard 32mm Synta/Vixen-style dovetail compatible with typical finder shoes. Allows up to 40° adjustment from horizontal. The tilt-adjustment piece (the 3D-printed part between the dovetail foot and the PiFinder body) has been redesigned to be more adjustable and more robust than earlier versions.
 - **Updated adjustable foot (released mid-2025)**: Distinguished by a **larger M5 bolt** through it.
 - **Adjustable foot screw hardware (v2.5 vs new foot)**: The **old adjustable foot used 2× M2.5×12 screws**; the **new (mid-2025) adjustable foot uses the included M5 hardware**. STL files for the new foot live in `case/v3/common`, but were not back-ported into the `v2.5` directory of the repo — so v2.5 DIY kit builders looking only at the v2.5 STLs will see the old foot. The new foot in `case/v3/common` is more adjustable and robust.
-- Device must mount **close to perpendicular to the ground** for accurate IMU positioning estimates. Mount on the telescope tube (OTA), not the mount itself.
+- Mount on the telescope tube (OTA), not the mount itself. **Any mounting angle is fine** — plate solving works out the PiFinder's own orientation from each frame. (The old "close to perpendicular to the ground" guidance applied only to the between-solve IMU estimate, and it is obsolete: see the EQ mount update above. The published manual already says any angle works, so do not reintroduce a perpendicular requirement.) Inverted is the one orientation still worth avoiding.
 - **GoPro-compatible plate** and **Rigel Quickfinder adapter** are available as alternative mounts.
 - **Obsession UC telescopes**: Custom 3D-printed tube clamps are designed for tubes **parallel to the light path**, not angled truss poles. For UC series scopes with a single UTA ring, the standard mounting locations are the **handle tube** or **counterweight tube** that protrude from the ring (where a Telrad is normally mounted). For the handle, remove a bit of foam from the end closest to the ring to make room for the clamp while preserving usable handle. Handle and counterweight tubes have **different outer diameters** — measure whichever location is chosen. For scopes with **two UTA rings**, clamps can go between the two rings on the parallel tubes. **Drilling/tapping holes in the ring** to add a mount point is an option but is much more in the DIY part of the spectrum. For angled truss poles, the parallel-tube requirement applies — use the handle/counterweight/inter-ring options rather than an angled clamp. Pole diameters vary by model — 30mm, 38mm, etc. STL files available in the GitHub repo. Note: The UC18 upper ring can be mounted either way (reversible orientation), which can help position the finder shoe on the desired side. **However, flipping the UC18 upper ring has in at least one case made the secondary impossible to collimate (off by a few millimeters); restoring the original ring orientation restored collimation.** The handle/counterweight tube clamp is the safer default.
 - **Truss tube Dobs**: Custom 3D-printed tube clamps designed for tubes **parallel to the light path** — typically handles, counterweight tubes, or inter-ring tubes rather than angled truss poles.
@@ -583,7 +630,7 @@ A: Yes. Works well in Bortle 6/7 with longer exposure times. Very tolerant of li
 A: Tested from -15°C/5°F to 40°C/100°F. Like all electronics, battery life decreases in cold.
 
 **Q: Does it need a cable?**
-A: The PiFinder has two USB-C ports. It does not come with a cable. Use any standard USB-C cable for charging (top rear port) or power-only (port near keypad).
+A: The PiFinder has two USB-C ports and does not come with a cable — any standard USB-C cable works. On **rev4** the ports are labelled on the faceplate: **POWER** for charging and running the unit, **DATA** for external devices. On **v3/v2.5** it's the top rear port for charging and the port near the keypad for power only.
 
 **Q: Can it work with GoTo mounts?**
 A: GoTo integration is in active development (as of April 2026). It targets INDI, so any mount with INDI drivers will be supported (AM5, OnStep, and many others). OnStep is a primary focus for Dobsonian mechanization. Expected to release as a software-only update within a few months. Testers with Linux/command-line experience are welcome. GoTo tracking will use plate solved position + object position, which also enables tracking non-sidereal objects like comets. Note: ServoCat integration was previously part of this effort but ended when the ServoCat company closed down; a path forward for ServoFi owners would require a community-built INDI driver. In the meantime, PiFinder works great for push-to use on GoTo mounts — users can use the hand controller or push the OTA by hand to find objects.
@@ -615,7 +662,7 @@ A: 16mm F2 CCTV Lens, M12 mount. Provides ~10° field of view. Both v3 assembled
 A: Hold SQUARE and press + for brighter or - for dimmer. Works for both screen and keypad.
 
 **Q: How long does the battery last?**
-A: The PiSugar S Plus (5000mAh) is good for 4-5 hours, but runtime is highly activity-dependent — sitting at the eyepiece on one object or walking away from the scope puts the PiFinder into a lower-power mode and extends runtime; a fast tour through many objects (active UI + IMU + camera + screen) draws more power and shortens it. The unit will abruptly shut off when charge is depleted (no on-screen battery indicator, no graceful low-battery shutdown). Battery life decreases in cold weather. For longer sessions, a USB-C power bank can be hot-plugged while running.
+A: **rev4: about 10 hours** on its 8,000 mAh cell — and that's a measured *floor*, taken with the camera solving continuously, the screen at full brightness and sleep off, so ordinary observing runs longer. Runtime is highly activity-dependent either way: sitting at the eyepiece on one object or walking away from the scope drops the PiFinder into a lower-power mode and extends it; a fast tour through many objects (active UI + IMU + camera + screen) shortens it. rev4 shows a battery indicator, warns at 10% and 5%, and shuts down cleanly rather than cutting out. Battery life decreases in cold weather. For longer sessions a USB-C power bank can be hot-plugged while running. **v3/v2.5 with the PiSugar S Plus (5000mAh): 4-5 hours**, no on-screen indicator, no low-battery warning, and it **abruptly shuts off** when depleted.
 
 **Q: How do I access my observation logs and images?**
 A: Via SMB network share at //pifinder.local/shared (connect as guest, no password). Contains captures/, obslists/, screenshots/, and observations.db.
@@ -627,10 +674,10 @@ A: Avoid PLA (UV degradation). Use PETG or co-polymers like NGen. Prusament Gala
 A: Yes. Add as Other → Alt-Az GoTo → Meade LX200 Classic. Address: pifinder.local, Port: 4030. Works with SkySafari 5 Plus, 6, and 7 (7 is most reliable). Also works with Stellarium.
 
 **Q: How much does it weigh?**
-A: ~370g with battery, ~290g without. Similar to a Telrad with batteries (315g) and lighter than many 50mm RACI finders.
+A: ~370g with battery, ~290g without. Similar to a Telrad with batteries (315g) and lighter than many 50mm RACI finders. (These are **v3 figures**; whether rev4's case and cell change them is not established — see Hardware Versions.)
 
 **Q: What are the dimensions?**
-A: Left/Right: ~110×100×90mm. Flat: ~110×120×120mm. Plus mounting foot.
+A: Left/Right: ~110×100×90mm. Flat: ~110×120×120mm. Plus mounting foot. (**v3 figures**, as above.)
 
 **Q: Can I use 12V telescope power?**
 A: Yes, but do NOT run 12V directly into the PiFinder — it expects 5V USB-C. Use a 12V-to-5V USB-C DC-DC step-down converter (e.g., https://www.amazon.com/gp/aw/d/B09DGDQ48H). Use a good quality cable for longer runs.
@@ -650,10 +697,11 @@ A: Yes, with caveats. Plate solving is fully accurate when stationary. Switch th
 
 ```
 Issue: Device won't turn on
-├─ Check slide switch position (slides, not pushes)
-├─ Try USB-C external power
+├─ rev4: press the power button (momentary). v3/v2.5: check slide switch position (slides, not pushes)
+├─ Try USB-C external power (rev4: the POWER port)
 ├─ Check if battery is charged
-└─ If DIY build: verify PiSugar board connections
+│  └─ rev4: CHG LED lights while charging; battery glyph in the title bar once running
+└─ v3/v2.5 DIY build: verify PiSugar board connections
 
 Issue: Blank screen
 ├─ Try SQUARE + several presses of + (brightness may be very low from nighttime)
@@ -710,17 +758,18 @@ Issue: Can't connect to web interface
 └─ Re-image SD card to reset password
 
 Issue: Device rebooting/crashing
+├─ First rule out a normal rev4 low-battery shutdown (was there a "Low battery" message?)
 ├─ Test on BOTH battery and external USB power:
 │  ├─ Reboots on both: likely SD card issue → re-image
-│  └─ Reboots on battery only: battery/power control board issue
-├─ Check PiSugar ribbon cable is fully seated
-├─ If persistent: send unit back for diagnosis
-└─ May be power control board issue
+│  └─ Reboots on battery only: battery/charger issue
+├─ v3/v2.5: check PiSugar ribbon cable is fully seated
+└─ If persistent: send unit back for diagnosis
 
 Issue: Buttons not working as expected
 ├─ Button mapping changed in recent software
 ├─ ABCD = Arrow keys (B=Up, C=Down, D=Select, A=Back)
 ├─ Right side = +/- (not up/down)
+├─ rev4: directions are one 5-way joystick; pressing it in = SQUARE
 └─ Request updated faceplate if needed
 ```
 

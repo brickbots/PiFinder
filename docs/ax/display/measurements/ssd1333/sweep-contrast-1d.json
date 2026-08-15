@@ -1,0 +1,179 @@
+{
+  "description": "contrast 1-D fine sweep at reference (dense below 32 for the nonlinearity)",
+  "pinned": {
+    "master": 7,
+    "ceiling": 31,
+    "precharge": 23
+  },
+  "sentinel_every": 10,
+  "points": [
+    {
+      "axes": {
+        "contrast": 0
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 1
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 2
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 3
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 4
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 5
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 6
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 7
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 8
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 10
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 12
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 14
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 16
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 20
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 24
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 28
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 32
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 40
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 48
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 56
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 64
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 80
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 96
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 112
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 128
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 144
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 160
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "contrast": 176
+      },
+      "value": 255
+    }
+  ]
+}

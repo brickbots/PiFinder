@@ -21,6 +21,7 @@ import numpy as np
 import tetra3
 from PIL import Image
 
+from PiFinder.optics import optical_train_for_profile
 from PiFinder.solver import _extract_raw_photometry_image, _scale_solution_centroids
 from PiFinder.sqm import SQM
 from PiFinder.sqm.radiometer import collect_radiometer_sample
@@ -81,6 +82,13 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("sweep", type=Path)
     parser.add_argument("--sensor", required=True)
+    parser.add_argument(
+        "--lens",
+        default=None,
+        help="Lens fitted when the sweep was captured (default: the sensor's "
+        "shipped lens). Sets the solver's FOV gate, so a wrong value here "
+        "means the benchmark times failed solves.",
+    )
     parser.add_argument("--frames", type=int, default=8)
     parser.add_argument("--repeats", type=int, default=7)
     parser.add_argument("--output", type=Path)
@@ -172,9 +180,12 @@ def main() -> None:
         )
         timings["centroid_green"].extend(samples)
 
+        fov_estimate, fov_max_error = optical_train_for_profile(
+            profile, args.lens
+        ).solver_fov_params()
         solve_args = {
-            "fov_estimate": 12.0,
-            "fov_max_error": 4.0,
+            "fov_estimate": fov_estimate,
+            "fov_max_error": fov_max_error,
             "match_max_error": 0.005,
             "return_matches": True,
             "solve_timeout": 1000,

@@ -20,6 +20,13 @@ same software and performs the same, but the v2.5
 has electronics that can be assembled by hand and the case design is easier to print/assemble.
 Build instructions on the site are for the v2.5.
 
+### Assembled rev4
+
+Case parts and PCB designs for the rev3 are available here for reference, but there is no build 
+guide and we can't support DIY rev4 builds as the electronics MUST be assembled
+via reflow soldering and are not able to be built by hand.  If you've
+ordered a kit or otherwise hand-assembled your electronics, you'll want to follow the v2.5 build
+guide and print the v2.5 parts.
 
 ### Assembled v3
 

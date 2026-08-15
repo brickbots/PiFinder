@@ -178,10 +178,19 @@ CONV_POLL_INTERVAL = 0.01
 # Piecewise-linear state-of-charge curve: (battery_voltage_V, percent).
 # Percent means "fraction of typical-load runtime remaining", not capacity
 # (see docs/adr/0020-soc-as-runtime-fraction.md). Measured end to end by the
-# 2026-07-17 bench discharge campaign (tools/battery_runtime_analysis.py,
-# blind-floor anchor): 0% is the low-battery shutdown at the ADC blind floor
-# per ADR 0021, so no knot is extrapolated. PROVISIONAL — fitted from two
-# degraded-load runs; pinned-load confirmation runs will refresh these knots.
+# bench discharge campaign (tools/battery_runtime_analysis.py, blind-floor
+# anchor): 0% is the low-battery shutdown at the ADC blind floor per ADR 0021,
+# so no knot is extrapolated.
+#
+# FINAL. The campaign completed 2026-07-26 and its pinned-load refit was
+# deliberately NOT adopted — these knots stay. The refit sits ~20 mV (≈1 ADC
+# LSB) higher through the 5-25% band, and because the warner fires on the
+# first noise *dip* past a threshold, that lands the 5% advisory 50-69 min
+# before shutdown instead of the intended ~30. These knots give 31/38 min on
+# the same two runs. The lower knee compensates for BATV quantisation noise,
+# so it is better calibrated for the thing this table actually drives.
+# Don't "correct" it toward the raw fit on curve-distance grounds; re-check
+# warning lead time by replaying real telemetry first (ADR 0020).
 SOC_LUT = [
     (3.541, 0),
     (3.594, 5),

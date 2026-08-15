@@ -23,6 +23,16 @@ _Avoid_: driver AE, daytime AE (it's the *use*, not the mechanism).
 **Manual exposure**:
 The regime where the user fixes the exposure time. Any manual adjustment (including nudging exposure up/down) drops the camera out of both auto-exposure regimes.
 
+**Saved exposure**:
+The exposure regime the user last chose and the camera boots into: either a fixed exposure time or auto. Distinct from the exposure actually in effect, which under solver-driven auto-exposure is wherever the controller has currently settled.
+_Avoid_: `camera_exp` (the config key — a storage location, not the concept).
+
+**Exposure hold**:
+A screen taking the exposure for the duration of a visit: it enters manual exposure at the exposure already in effect, leaves the saved exposure untouched, and hands the previous regime back on exit. A hold is **transient** — it is never persisted, so it survives only as long as the screen is open, and it is not a fourth regime (the camera is in manual exposure throughout).
+
+Screens hold the exposure when a moving exposure would corrupt what the user is there to judge or measure: the Focus screen (defocus starves the solver of matches, so auto-exposure would walk the exposure — and with it the focus indicator and which stars appear — while the user is reading a change in focus out of those same frames), and SQM calibration (its frames are photometric measurements).
+_Avoid_: freezing/locking exposure (the exposure still changes when the user asks), temporary manual exposure.
+
 ### Controllers
 
 **Controller**:
@@ -88,6 +98,80 @@ taken before the archive went full-sensor. New records carry
 `camera.raw_frame_extent: "full_sensor"`, so an archive states which is which
 instead of relying on anyone remembering.
 
+### Optics
+
+What the camera *sees* is set by two independent things: the sensor it detects
+at startup, and the lens screwed onto it, which nothing can detect. Keeping
+them separate — and naming their combination — is what lets field of view be
+derived instead of hard-coded.
+
+**Lens**:
+The finder's camera lens (M12 mount). Always the *finder* lens — never the
+user's telescope or eyepiece, which are [Equipment](../equipment/CONTEXT.md)
+vocabulary and have their own focal lengths. Not detectable at runtime: the
+user states which lens is fitted, and a wrong statement is a configuration
+error the device cannot discover for itself.
+_Avoid_: "the lens" unqualified in any prose that also discusses telescope
+optics; objective (that is the telescope's).
+
+**Nominal focal length**:
+The focal length printed on the lens barrel — what the user reads and picks
+from a menu. The label, not the measurement.
+_Avoid_: focal length (unqualified — always say which of the two you mean).
+
+**Effective focal length**:
+The focal length the lens actually behaves as, measured on-sky. It is what
+every derived value is computed from. The shipped "16 mm" lens measures
+~15.6 mm, consistently across two independently calibrated sensors — so
+nominal and effective are routinely different, and only one of them is
+correct to compute with.
+_Avoid_: true focal length, actual focal length (say effective).
+
+**Pixel pitch**:
+The sensor's physical pixel spacing in µm. With the **crop** width it gives
+the imaged extent in mm, which with the effective focal length gives field of
+view. A property of the sensor, so it belongs on the camera profile.
+_Avoid_: pixel size (ambiguous with the pixel's active area).
+
+**Optical train**:
+The (camera profile, lens) pair. The unit that determines field of view, plate
+scale and the solver's FOV gate — none of which are properties of the sensor
+or the lens alone. The sensor half is detected, the lens half is configured,
+and the pair is resolved wherever a derived value is needed.
+_Avoid_: optical configuration ("configuration" already names the physical
+build variants — see [Positioning](../positioning/CONTEXT.md) *screen
+direction*), camera setup, imaging train.
+
+**Field of view**:
+The angular width of the **crop**, in degrees — the edge-to-edge extent, not
+the diagonal. Derived from the optical train. Every consumer that needs to
+know how much sky a frame covers (the solver's FOV gate, SQM's solid angle,
+the chart's frustum shading) derives it from the same place rather than
+carrying its own constant.
+_Avoid_: FOV of the sensor (a sensor has no field of view without a lens),
+diagonal FOV (state it explicitly if you ever mean the diagonal).
+
+**Plate scale**:
+Angular size of one pixel, in arcsec. Stated against a named pixel grid —
+the 512×512 solver image or the native crop — because the two differ by the
+downscale factor and confusing them silently rescales any angle computed
+from it.
+_Avoid_: arcsec per pixel (unqualified — say which grid), resolution.
+
+**Frustum**:
+The box drawn on a chart marking the part of it the camera images — the
+**field of view** of the current optical train, inside the chart's own zoom
+level. It does two jobs at once: the chart outside it can be dimmed, and it
+selects the stars the chart reports back, which is why the align screen only
+offers alignment stars the camera can actually see. A chart is rendered with
+a frustum only when the caller states a camera field of view; **no frustum**
+is a real state (`plot.frustum_box` returns None), not a default box, because
+there is no stand-in for a number that is a property of the hardware fitted
+to that particular device.
+_Avoid_: camera box, FOV box, "the frustrum" in prose (the misspelling
+survives only in the `shade_frustrum` argument name); "visible stars" meaning
+*stars on the chart* — with a frustum they are the stars inside it.
+
 ### Cross-context terms
 
 - **`Matches`** — defined in [Positioning](../positioning/CONTEXT.md): count of stars tetra3 matched in the most recent solve attempt, published on every attempt (success or failure) because auto-exposure depends on it. The feedback signal for solver-driven auto-exposure.
@@ -96,6 +180,8 @@ instead of relying on anyone remembering.
 
 ## Flagged ambiguities
 
+- **"Focal length"** is owned by two contexts and means different hardware in each. [Equipment](../equipment/CONTEXT.md) uses it for the user's **telescope** and **eyepiece** (`Telescope.focal_length_mm`, `Eyepiece.focal_length_mm`, driving magnification and true field). Camera uses it for the **finder lens**. Never write it bare in prose that touches both — say *lens focal length* or *telescope focal length*. Within Camera, further qualify as **nominal** or **effective**: they differ by ~2.5% on the shipped lens, and only the effective one is correct to compute with.
+- **"FOV"** appears as three different quantities. The **field of view** defined here is a property of the optical train. Tetra3's `fov_estimate` / `fov_max_error` are the solver's **FOV gate** (see [Positioning](../positioning/CONTEXT.md)) — inputs derived *from* the field of view, not synonyms for it. `SolveDiagnostics.FOV` is the value tetra3 **fitted** from the frame — an independent measurement that can be compared against the derived one. Say which you mean.
 - **"Mode"** is overloaded in code: `_auto_exposure_mode` is the pid/snr controller split, while "auto-exposure mode enabled" in logs means the solver-driven regime is on, and the menu's "Auto" is a regime choice. In discussion, use **regime** for the three-way state and **controller** for the pid/snr split; avoid bare "mode".
 - **"SNR"** appears throughout code and the SQM docs for the background controller (`set_ae_mode:snr`, `ExposureSNRController`, "SNR target"). No signal-to-noise ratio is computed — the mechanism is "background above noise floor". Say **background controller**; treat "SNR" as a wire-protocol/code artifact.
 - **"Sweep"** still names the 100-frame diagnostic **exposure sweep capture** (saved to `captures/sweep_*` for offline analysis, via `generate_exposure_sweep`). Now that the sweeping recovery strategies are gone (ADR 0010), this is recovery-independent — qualify as "exposure sweep capture", and use "recovery ladder" for the recovery exposures.
@@ -115,3 +201,11 @@ instead of relying on anyone remembering.
 > **Dev:** Does the SQM screen change any of this?
 >
 > **Domain:** While it's active, the controller flips to the background controller — exposure tracks the noise floor instead of `Matches`, and there is no zero-match recovery at all. Leaving the screen flips back. None of that is persisted.
+>
+> **Dev:** And the Focus screen — the exposure it shows doesn't move at all.
+>
+> **Domain:** That's an exposure hold. It takes the exposure in effect on entry and stays there. Otherwise the very thing the user is on that screen to fix — defocus — starves the solver of matches, so the controller would keep adjusting, and eventually hand over to recovery, moving the focus indicator and the visible stars for reasons that have nothing to do with the lens the user just turned.
+>
+> **Dev:** So a badly wrong exposure just stays wrong there?
+>
+> **Domain:** Until the user steps it themselves, yes — that's the trade the hold makes. It's why the screen offers exposure steps at all, and why it reports the held exposure rather than the saved one.
