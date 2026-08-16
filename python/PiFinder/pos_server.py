@@ -20,6 +20,7 @@ from PiFinder.multiproclogging import MultiprocLogging
 from skyfield.positionlib import position_of_radec
 import sys
 import time
+from datetime import timedelta #JMM 20260814
 
 logger = logging.getLogger("PosServer")
 
@@ -27,6 +28,8 @@ sr_result = None
 sequence = 0
 ui_queue: Queue
 is_stellarium = False
+stellariumLatitude = ""  #JMM 20260814 to fool Stellarium if it doesn't agree with GPS reported latitude
+stellariumLongitude = "" #JMM 20260814 to fool Stellarium if it doesn't agree with GPS reported longitude
 
 # shortcut for skyfield timescale
 ts = sf_utils.ts
@@ -102,7 +105,10 @@ def get_telescope_dec(shared_state, _):
 
 
 def get_distance_bars(_shared_state, _input_str):
-    return "\x7f"
+    if is_stellarium: #JMM 20260814 any value makes Stellarium think scope is slewing and it won't send goto data'
+        return "#"
+    else:
+        return "\x7f"
 
 
 def get_firmware_date(_shared_state, _input_str):
@@ -124,6 +130,7 @@ def get_firmware_time(_shared_state, _input_str):
 def get_status(_shared_state, _input_str):
     # Indicates alt-az mode, tracking, and 1-star aligned
     return "AT1"
+    #return "PT1"
 
 
 def respond_none(shared_state, input_str):
@@ -142,7 +149,6 @@ def not_implemented(shared_state, input_str):
     # return "not implemented"
     return respond_none(shared_state, input_str)
 
-
 def _match_to_hms(pattern: str, input_str: str) -> Union[Tuple[int, int, int], None]:
     match = re.match(pattern, input_str)
     if match:
@@ -157,6 +163,8 @@ def _match_to_hms(pattern: str, input_str: str) -> Union[Tuple[int, int, int], N
 def parse_sr_command(_, input_str: str):
     global sr_result
     pattern = r":Sr([-+]?\d{2}):(\d{2}):(\d{2})#"
+    if is_stellarium: #JMM 20260814 Stellarium sends a # at beginning of Sr command
+        pattern = r"#:Sr([-+]?\d{2}):(\d{2}):(\d{2})#"
     match = _match_to_hms(pattern, input_str)
     logger.debug("Parsing sr command, match: %s", match)
     if match:
@@ -169,6 +177,8 @@ def parse_sr_command(_, input_str: str):
 def parse_sd_command(shared_state, input_str: str):
     global sr_result
     pattern = r":Sd([-+]?\d{2})\*(\d{2}):(\d{2})#"
+    if is_stellarium: #JMM 20260814 Stellarium sends a # at beginning of Sd command
+        pattern = r"#:Sd([-+]?\d{2}):(\d{2}):(\d{2})#"
     match = _match_to_hms(pattern, input_str)
     logger.debug("Parsing sd command, match: %s, sr_result: %s", match, sr_result)
     if match and sr_result:
@@ -213,6 +223,73 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     ui_queue.put("push_object")
     return "1"
 
+#JMM 20260730 BEGIN added commands needed for Stellarium to push targets to PiFinder
+def set_current_date(shared_state, input_str):
+    return "1Updating Planetary Data#                         #"
+
+def get_current_date(shared_state, input_str):
+    dt = shared_state.datetime().strftime("%x")
+    return dt
+
+def get_current_time(shared_state, input_str):
+    utcoffset = shared_state.datetime().strftime("%z")
+    dt = (shared_state.datetime()-timedelta(hours=int(utcoffset))).strftime("%X")
+    return dt
+
+def get_UTC_offset(shared_state, input_str):
+    dt = shared_state.datetime().strftime("%z")
+    return dt 
+
+#JMM 20260814 If Stellarium tries to "set" scope longitude, store it so we can return it to fool Stellarium
+def set_longitude(shared_state, input_str):
+    global stellariumLongitude 
+    stellariumLongitude = input_str[4:10]
+    return "1"
+
+#JMM 20260814 If Stellarium tries to "set" scope latitude, store it so we can return it to fool Stellarium
+def set_latitude(shared_state, input_str):
+    global stellariumLatitude
+    stellariumLatitude = input_str[4:10]
+    return "1"
+
+def get_longitude(shared_state, input_str):
+    global stellariumLongitude
+    location = shared_state.location().lon
+    if stellariumLongitude != "":
+        return stellariumLongitude
+    else:
+        longitude = GPSdegreesToDegreesMinSec(str(round(location,2)),3)
+        return longitude
+
+def get_latitude(shared_state, input_str):
+    global stellariumLatitude
+    location = shared_state.location().lat
+    if stellariumLatitude != "":
+        return stellariumLatitude
+    else:
+        latitude = GPSdegreesToDegreesMinSec(str(round(location,2)),2)
+        if latitude[:1] != "-":
+            latitude = "+" + latitude
+        return latitude
+
+def GPSdegreesToDegreesMinSec(GPSdegrees,degreeLen):
+    GPSParts = GPSdegrees.split(".")
+    degrees = GPSParts[0]
+    sign = degrees[:1]
+    if sign in ["+","-"]:
+        degrees = degrees[1:]
+    else:
+        sign = ""
+    if degreeLen == 3:
+        sign = ""
+    if len(degrees) < degreeLen:
+        degrees = "0" * (degreeLen - len(degrees)) + degrees
+    degrees = sign + degrees
+    minutes = GPSParts[1]
+    minutes = str(int(minutes) * 60)
+    minutes = minutes[:2]
+    return degrees + "*" + minutes
+#20260730 BEGIN added commands needed for Stellarium to push targets to PiFinder
 
 # Function to extract command
 def extract_command(s):
@@ -231,10 +308,23 @@ lx_command_dict = {
     "GW": get_status,
     "RS": respond_none,  # Set slew rate to max
     "MS": respond_zero,  # Slew to object
-    "Q": respond_none,  # Abort
+    #"Q": respond_none,  # Abort
+    "Q": respond_one,    # JMM 20260814 Stellarium requires a reply of 1 to send a target even though Meade says no return from this command
     "U": respond_none,  # Precision toggle
     "Sd": parse_sd_command,  # Set declination
     "Sr": parse_sr_command,  # Set RA
+    #20260726 BEGIN added commands needed by Stellarium to push targets to PiFinder
+    "SG": respond_one,
+    "SL": respond_one,
+    "SC": set_current_date,
+    "St": set_latitude,
+    "GC": get_current_date,
+    "GL": get_current_time,
+    "GG": get_UTC_offset,
+    "Gg": get_longitude,
+    "Gt": get_latitude,
+    "Sg": set_longitude,
+    #20260726 END added commands needed by Stellarium to push targets to PiFinder
 }
 
 
@@ -273,7 +363,8 @@ def handle_client(client_socket, shared_state):
             elif in_data.endswith("\x06"):
                 is_stellarium = True
                 # A indicates alt-az mode
-                client_socket.send("A".encode())
+                #client_socket.send("A".encode())
+                client_socket.send("P".encode())
         except socket.timeout:
             logging.warning("Connection timed out.")
             break
