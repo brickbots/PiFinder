@@ -6,7 +6,7 @@ server to accept socket connections
 and report telescope position
 Protocol based on Meade LX200
 
-This is used by SkySafari (iOS, iPadOS)
+This is used by SkySafari (iOS, iPadOS) and now Stellarium
 """
 
 import socket
