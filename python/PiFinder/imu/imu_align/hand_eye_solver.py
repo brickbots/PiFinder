@@ -23,10 +23,25 @@ logger = logging.getLogger("IMU.AlignSolver")
 
 N_UNKNOWN_PARAMS = 3  # Number of unknown parameters in the problem to solve
 
-@dataclass
 class HandEyeSolverDiagnostics:
     residuals: np.ndarray
-    
+    residual_norms: np.ndarray  # Residual norms of each sample [rad]
+    rotation_angles: np.ndarray  # Rotation angles of each sample [rad]
+
+    # Optional
+    meta_data: dict = {}
+
+    def __init__(self, lsq_result, q1_list: list_of_quats, q2_list: list_of_quats):
+        self.residuals = lsq_result.fun
+
+        rs = self.residuals.reshape((-1, N_UNKNOWN_PARAMS))  # Each row corresponds to a sample 
+        self.residual_norms = np.linalg.norm(rs, axis=1)  # Residual per sample in radians
+
+        # Calculate rotations of each sample [rad]
+        self.rotation_angles = [qt.get_quat_angular_diff(q1, q2) for q1, q2 in zip(q1_list, q2_list)]
+
+        self.results = lsq_result
+
 
 def residual_rotation_vector(x,  # (3,) Trial solution (q as rotation vector) 
                              q1_list: list_of_quats,  # List of rotation quaternions
@@ -63,7 +78,7 @@ def solve_rotation(
 
     dq1 * q_12 = q_12 * dq2
 
-    Where q_12 is the unknown rotation that rotates q1 to q2
+    Where q_12 is the unknown rotation that rotates q1 to q2.
 
     x0 is the initial guess for q_12 as a rotation vector. The default (zeros)
     is the identity rotation.
@@ -77,10 +92,6 @@ def solve_rotation(
         raise ValueError("x0 must be a length-3 vector")
 
     logger.debug(f"Solving for relative rotation from {len(q1_list)} sample pairs.")
-
-    # TODO: This is inefficient if re-run by outlier removal. Also not sure if necessary?
-    #q1_list = ensure_quat_list_continuity(q1_list)
-    #q2_list = ensure_quat_list_continuity(q2_list)
 
     # TODO: Tune LM params
     # TODO: Calculate the Jacobians analytically? Current numerical Jacobians is probably fast enough?
@@ -99,7 +110,8 @@ def solve_rotation(
 
     # Diagnostics  TODO: Return these
     #sigma_total, condition_number = _solution_diagnostics(result)
-    diagnostics = HandEyeSolverDiagnostics(residuals=result.fun)
+    diagnostics = HandEyeSolverDiagnostics(result, q1_list, q2_list)
+    diagnostics.meta_data["lsq_result"] = result
 
     return q_12, diagnostics
 

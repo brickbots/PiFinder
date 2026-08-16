@@ -139,7 +139,7 @@ class ImuCameraAlignment:
     gyro drift over the time between samples.
     """
     candidate_buffer: SampleBuffer  # Buffer of camera/IMU samples
-    diff_buffer: SampleBuffer  # Buffer of paired differences in camera/IMU samples
+    pair_buffer: SampleBuffer  # Buffer of paired samples ofcamera/IMU samples
 
     min_n_solve: int  # Minimum number of samples for solve
     max_time_diff: float  # [s] Maximum time difference between pairs of samples
@@ -150,10 +150,16 @@ class ImuCameraAlignment:
                  max_time_diff=2.0, min_angle_diff=np.deg2rad(5), max_age=1200):
         """
         candidate_buffer_length: Should be around sample_freq * max_time_diff
+
+        :param candidate_buffer_length: [int] Number of candidate samples to buffer
+        :param min_n_solve: [int] Minimum number of samples required for solve
+        :param max_time_diff: [s] Maximum allowed time difference between pairs of samples
+        :param min_angle_diff: [rad] Minimum allowed angle difference between pairs of samples
+        :param max_age: [s] Remove samples older than this. None to ignore
         """
         self.candidate_buffer = SampleBuffer(max_buffer_length=candidate_buffer_length)
         diff_buffer_length = candidate_buffer_length  # TODO: Come up with a better value
-        self.diff_buffer = SampleBuffer(max_buffer_length=diff_buffer_length)
+        self.pair_buffer = SampleBuffer(max_buffer_length=diff_buffer_length)
 
         self.min_n_solve = min_n_solve
         self.max_time_diff = max_time_diff
@@ -164,11 +170,11 @@ class ImuCameraAlignment:
 
     def reset_buffers(self):
         self.candidate_buffer.reset_buffer()
-        self.diff_buffer.reset_buffer()
+        self.pair_buffer.reset_buffer()
 
     def trim_buffers(self):
         self.candidate_buffer.trim_to_max_length()
-        self.diff_buffer.trim_to_max_length()
+        self.pair_buffer.trim_to_max_length()
 
     def add_candidate(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
         """
@@ -195,6 +201,9 @@ class ImuCameraAlignment:
 
         This should be run on a schedule every self.max_age [s].
         """
+        if self.max_age is None:
+            return
+
         allowed_timestamp = current_time - self.max_age  # Purge anything older than this
         
         # Purge candidate_buffer:
@@ -204,11 +213,11 @@ class ImuCameraAlignment:
             self.candidate_buffer.remove_samples(set(remove_idx_list))
 
         # Purge diff_buffer:
-        remove_idx_list = [i for i, (samp1, samp2) in enumerate(self.diff_buffer.buffer) 
+        remove_idx_list = [i for i, (samp1, samp2) in enumerate(self.pair_buffer.buffer) 
                            if samp1.timestamp < allowed_timestamp 
                            or samp2.timestamp < allowed_timestamp]
         if remove_idx_list:
-            self.diff_buffer.remove_samples(set(remove_idx_list))
+            self.pair_buffer.remove_samples(set(remove_idx_list))
 
     def purge_old_candidates(self):
         """
@@ -260,15 +269,16 @@ class ImuCameraAlignment:
                 if np.abs(dtheta) < self.min_angle_diff:
                     continue  # Samples too close in angle
 
-                # Pair samples and remove samp1 from candidate buffer (later).
-                # This prevents the same pair being used again if this method is
-                # re-run. Note that this loop will continue matching samp1.
-                self.diff_buffer.add_sample((samp1, samp2))
+                # Pair samples and remove samp1 from candidate buffer after FOR
+                # loops. This prevents the same pair being used again if this
+                # method is re-run. Note that this loop will continue pairing
+                # with samp1.
+                self.pair_buffer.add_sample((samp1, samp2))
                 n_pairs += 1
                 remove_ids.add(isamp1)
-                if self.diff_buffer.len >= self.diff_buffer.max_buffer_length:
+                if self.pair_buffer.len >= self.pair_buffer.max_buffer_length:
                     break
-            if self.diff_buffer.len >= self.diff_buffer.max_buffer_length:
+            if self.pair_buffer.len >= self.pair_buffer.max_buffer_length:
                 break
 
         logger.debug(f"paired {n_pairs} from {self.candidate_buffer.len} samples.")
@@ -284,17 +294,25 @@ class ImuCameraAlignment:
         last n_pairs or all available pairs (if None) in diff_buffer.
         """
         if n_pairs is None:
-            n_pairs = self.diff_buffer.len  # Use all available data
+            n_pairs = self.pair_buffer.len  # Use all available data
+        if n_pairs <= self.min_n_solve:
+            raise ValueError(f"Oly {n_pairs} samples available for solve. Need {self.min_n_solve}.")
 
         # Generate relative rotation quaternions between paired samp1 and samp2
+        # The amount of relative rotation for camera and IMU should be the same
+        # and this will solve the relative rotation between them. 
         dq_cam_list = []
         dq_imu_list = []
-        for samp1, samp2 in self.diff_buffer.buffer:
+        dt_list = []
+        for samp1, samp2 in self.pair_buffer.buffer:
             dq_cam_list.append(samp1.q_cam.conj() * samp2.q_cam)
             dq_imu_list.append(samp1.q_imu.conj() * samp2.q_imu)
+            dt_list.append(samp2.timestamp - samp1.timestamp)
 
+        # Solve
         q_cam2imu, diagnostics = solve_rotation(dq_cam_list, dq_imu_list)
-        return q_cam2imu
+        diagnostics.meta_data["time_differences"] = dt_list
+        return q_cam2imu, diagnostics
 
     def add_candidate_attempt_solve(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
         """
@@ -303,7 +321,7 @@ class ImuCameraAlignment:
         """
         self.add_candidate(timestamp, cam_eq, q_x2imu)
 
-        # Pair samples and solve
+        # Pair samples: Runs periodically
         if ((self._samples_since_last_pair_attempt >= self.min_n_solve) or
             (self.candidate_buffer.len >= self.candidate_buffer.max_buffer_length)):
             #self.purge_old_samples(timestamp)  # TODO: Run less frequently
@@ -322,9 +340,9 @@ class ImuCameraAlignment:
             self._samples_since_last_pair_attempt += 1
 
         # Solve if there are enough samples
-        if self.diff_buffer.len >= self.min_n_solve:
-            solution = self.solve()
-            self.diff_buffer.reset_buffer()  # Flush the values used for solve
-            return solution
+        if self.pair_buffer.len >= self.min_n_solve:
+            q_cam2imu, diagnostics = self.solve()
+            self.pair_buffer.reset_buffer()  # Flush the values used for solve
+            return q_cam2imu, diagnostics
         else:
-            return None
+            return None, None
