@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import logging
 import numpy as np
 import quaternion  # Note: numpy-quaternion convention: quaternion(w, x, y, z)
-from scipy.optimize import least_squares
+from scipy.optimize import least_squares, OptimizeResult
 import time
 from typing import Union
 
@@ -24,23 +24,52 @@ logger = logging.getLogger("IMU.AlignSolver")
 N_UNKNOWN_PARAMS = 3  # Number of unknown parameters in the problem to solve
 
 class HandEyeSolverDiagnostics:
-    residuals: np.ndarray
+    lsq_result: OptimizeResult  # Result from scipy.optimize.least_squares
+
     residual_norms: np.ndarray  # Residual norms of each sample [rad]
     rotation_angles: np.ndarray  # Rotation angles of each sample [rad]
+    sol_cov_matrix: np.ndarray  # Solution covariance matrix
+    sol_angle_error: np.ndarray  # Solution angle error
 
     # Optional
-    meta_data: dict = {}
+    meta_data: dict
 
     def __init__(self, lsq_result, q1_list: list_of_quats, q2_list: list_of_quats):
-        self.residuals = lsq_result.fun
+        self.lsq_result = lsq_result
 
-        rs = self.residuals.reshape((-1, N_UNKNOWN_PARAMS))  # Each row corresponds to a sample 
-        self.residual_norms = np.linalg.norm(rs, axis=1)  # Residual per sample in radians
+        # Residual norm per sample (collapse the 3 measurements per sample into one)
+        resid = lsq_result.fun.reshape((-1, N_UNKNOWN_PARAMS))  # Each row corresponds to a sample 
+        self.residual_norms = np.linalg.norm(resid, axis=1)  # Residual per sample in radians
 
         # Calculate rotations of each sample [rad]
         self.rotation_angles = [qt.get_quat_angular_diff(q1, q2) for q1, q2 in zip(q1_list, q2_list)]
 
-        self.results = lsq_result
+        self.sol_cov_matrix, self.sol_angle_error =self.calculate_solution_uncertainty()
+        self.meta_data = {}
+
+    def calculate_solution_uncertainty(self):
+        """
+        Calculate the standard error of the solution:
+        Cov = sigma ** 2 * inv(J.T @ J)
+        """
+        # Extract Jacobian from least_squares result
+        J = self.lsq_result.jac  # Jacobian matrix (m_meas, n_sol)
+        m_meas, n_sol = J.shape
+
+        # Calculate the inverse using "backslash": Solve: (J.T @ J) @ X = I
+        # NOTE: Could be speeded up using QR decomposition but this is good enough
+        inv_JTJ, _, _, _ = np.linalg.lstsq(J.T @ J, np.eye(n_sol), rcond=None)
+
+        # Calculate reduced Chi-square
+        dof = m_meas - n_sol  # Degrees of freedom
+        rss = 2 * self.lsq_result.cost  # res.cost is 0.5 * sum(residuals**2)
+        chi_square = rss / dof
+
+        # Extract uncertainty 
+        sol_cov_matrix = chi_square * inv_JTJ
+        sol_angle_error = np.sqrt(np.trace(sol_cov_matrix))  # [rad]
+
+        return sol_cov_matrix, sol_angle_error
 
 
 def residual_rotation_vector(x,  # (3,) Trial solution (q as rotation vector) 
@@ -97,9 +126,6 @@ def solve_rotation(
     # TODO: Calculate the Jacobians analytically? Current numerical Jacobians is probably fast enough?
     result = least_squares(residual_rotation_vector, x0, method='lm', 
                            args=(q1_list, q2_list))
-    # TODO: Investigate using robust loss functions?
-    #result = least_squares(residual_rotation_vector, x0, loss='cauchy', 
-    #                       args=(dq_cam, dq_imu))
 
     # Convert estimate from rotation vector to quaternion
     q_12 = quaternion.from_rotation_vector(result.x)
@@ -108,10 +134,7 @@ def solve_rotation(
             f"Func evaluations: {result.nfev}, Cost = {result.cost:.4g}, "
             f"Success: {result.success}, {result.message}")
 
-    # Diagnostics  TODO: Return these
-    #sigma_total, condition_number = _solution_diagnostics(result)
     diagnostics = HandEyeSolverDiagnostics(result, q1_list, q2_list)
-    diagnostics.meta_data["lsq_result"] = result
 
     return q_12, diagnostics
 
@@ -120,7 +143,7 @@ def solve_rotation_with_outlier_removal(
         q1_list: list_of_quats,  # List of rotation quaternions
         q2_list: list_of_quats,
         x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN_PARAMS),  # Initial guess
-        residual_threshold = 0.8,  # Reject samples with residual > resid_threshold in first pass
+        mad_threshold = 4.45,
         n_min_samples = N_UNKNOWN_PARAMS,  # Minimum number of sample pairs for a solution
         ):
     """
@@ -129,25 +152,30 @@ def solve_rotation_with_outlier_removal(
     """
     # First pass:
     q12_solution, diagnostics = solve_rotation(q1_list, q2_list, x0)
-    if residual_threshold is None:
+    if mad_threshold is None:
         return q12_solution, diagnostics
 
     # Second pass: Re-run least-squares with outliers removed
-    resid_reshaped = diagnostics.residuals.reshape(-1, 3)  # Each row is a sample
-    msk_accept = np.all(np.abs(resid_reshaped) < residual_threshold, axis=1)
+    median = np.median(diagnostics.residual_norms)
+    mad = np.median(np.abs(diagnostics.residual_norms - median))
+    msk_accept = diagnostics.residual_norms < (median + mad * mad_threshold)
     if not np.all(msk_accept):
         logger.debug("Re-solving for imu/camera alignment using "
-            f"{np.sum(msk_accept)}/{resid_reshaped.shape[0]} samples.")
+            f"{np.sum(msk_accept)}/{diagnostics.residual_norms.shape[0]} samples.")
 
         if np.sum(msk_accept) < n_min_samples:
             np.info(f"Less than {n_min_samples} samples remain. Exiting outlier removal.")
             return q12_solution, diagnostics
 
         # Re-run using previous solution as the initial guess
-        q1_accept = np.array(q1_list)[msk_accept]
-        q2_accept = np.array(q2_list)[msk_accept]
+        # TODO: NOT A LIST!
+        #q1_accept = np.array(q1_list)[msk_accept]
+        #q2_accept = np.array(q2_list)[msk_accept]
+        q1_accept = [q for ii, q in enumerate(q1_list) if msk_accept[ii]]
+        q2_accept = [q for ii, q in enumerate(q2_list) if msk_accept[ii]]
+
         x0 = quaternion.as_rotation_vector(q12_solution)
-        q12_solution, diagnostics = solve_rotation(q1_list, q2_list, x0)
+        q12_solution, diagnostics = solve_rotation(q1_accept, q2_accept, x0)
 
     return q12_solution, diagnostics
 

@@ -295,7 +295,7 @@ class ImuCameraAlignment:
         """
         if n_pairs is None:
             n_pairs = self.pair_buffer.len  # Use all available data
-        if n_pairs <= self.min_n_solve:
+        if n_pairs < self.min_n_solve:
             raise ValueError(f"Oly {n_pairs} samples available for solve. Need {self.min_n_solve}.")
 
         # Generate relative rotation quaternions between paired samp1 and samp2
@@ -311,6 +311,7 @@ class ImuCameraAlignment:
 
         # Solve
         q_cam2imu, diagnostics = solve_rotation(dq_cam_list, dq_imu_list)
+        #q_cam2imu, diagnostics = solve_rotation_with_outlier_removal(dq_cam_list, dq_imu_list)
         diagnostics.meta_data["time_differences"] = dt_list
         return q_cam2imu, diagnostics
 
