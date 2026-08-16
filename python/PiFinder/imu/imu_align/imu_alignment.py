@@ -180,13 +180,13 @@ class ImuCameraAlignment:
 
         # Ensure quaternion continuity from previous candidate sample
         q_cam = cam_eq.as_quaternion()
-        if self.candidate_buffer.len > 0:
+        if self.candidate_buffer.len == 0:
+            self.candidate_buffer.add_sample(CameraImuSample(timestamp, q_cam, q_x2imu))
+        else:
             last_candidate = self.candidate_buffer.buffer[-1]
             q_cam = qt.ensure_quat_continuity(last_candidate.q_cam, q_cam)
             q_imu = qt.ensure_quat_continuity(last_candidate.q_imu, q_x2imu)
             self.candidate_buffer.add_sample(CameraImuSample(timestamp, q_cam, q_imu))
-        else:
-            self.candidate_buffer.add_sample(CameraImuSample(timestamp, q_cam, q_x2imu))
 
     def purge_old_samples(self, current_time: float):
         """
@@ -281,18 +281,19 @@ class ImuCameraAlignment:
     def solve(self, n_pairs=None):
         """
         Solve for the alignment between the camera and IMU using at least the
-        last n_pairs or all available pairs (if None).
+        last n_pairs or all available pairs (if None) in diff_buffer.
         """
         if n_pairs is None:
             n_pairs = self.diff_buffer.len  # Use all available data
 
-        q_cam_list = []
-        q_imu_list = []
-        for samp_cam, samp_imu in self.diff_buffer.buffer:
-            q_cam_list.append(samp_imu.q_cam)
-            q_imu_list.append(samp_imu.q_imu)
+        # Generate relative rotation quaternions between paired samp1 and samp2
+        dq_cam_list = []
+        dq_imu_list = []
+        for samp1, samp2 in self.diff_buffer.buffer:
+            dq_cam_list.append(samp1.q_cam.conj() * samp2.q_cam)
+            dq_imu_list.append(samp1.q_imu.conj() * samp2.q_imu)
 
-        q_cam2imu, diagnostics = solve_rotation(q_cam_list, q_imu_list)
+        q_cam2imu, diagnostics = solve_rotation(dq_cam_list, dq_imu_list)
         return q_cam2imu
 
     def add_candidate_attempt_solve(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
