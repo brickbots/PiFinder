@@ -128,15 +128,16 @@ window. Nothing is wrongly accepted.
 
 The unsafe direction is tight → different-tight, i.e. **a user changing the
 lens in the Lens menu**. Cached entries pruned for the old window can exclude
-patterns the new one needs, so the change may not fully take effect until LRU
-eviction or a solver restart. `callbacks.set_camera_lens` only publishes to
-shared state — unlike `screen_direction`, it does not restart. **This is a
-pre-existing 2.6.2 bug, not one this change introduces**, but it is adjacent
-enough to trip you up while testing: after switching lens in the menu, restart
-the solver before concluding anything. File it separately (the deeper problem
-is that the cached value also depends on the per-frame
-`image_pattern_largest_edge`, so the cache is approximate across frames even
-under a fixed gate).
+patterns the new one needs, so the change may not fully take effect. This was
+a pre-existing 2.6.2 bug rather than one this change introduces, and it is
+**already fixed on its own branch — PR #625**, which makes
+`callbacks.set_camera_lens` restart the service the way the neighbouring
+PiFinder Type and Camera Type settings do. Nothing further is needed here;
+just do not be surprised to find `set_camera_lens` already restarting.
+
+The upstream cache bug itself remains and is out of scope for both PRs: the
+cached value also depends on the per-frame `image_pattern_largest_edge`, so
+the cache is approximate across frames even under a fixed gate.
 
 ### 4. `python/PiFinder/api_extensions.py:465` — comment fix
 
