@@ -83,9 +83,10 @@ distribution notes.)
   decision; the substituter list can carry both indefinitely with no penalty
   beyond the cachix subscription cost.
 - **Two caches, split by retention.** The server hosts two Attic caches:
-  `pifinder` (dev/nightly builds from `build.yml`, short retention — these churn
-  on every push) and `pifinder-release` (tagged release closures from
-  `release.yml`, garbage collection disabled). The split exists because Attic
+  `pifinder` (dev/nightly builds from `build.yml`, plus `release.yml`'s beta
+  prereleases — short retention, these churn on every push) and
+  `pifinder-release` (stable release closures from `release.yml`, garbage
+  collection disabled). The split exists because Attic
   retention is per-cache, not per-path: a device may upgrade to a release months
   after it was cut, so its closure must never be GC'd, while dev builds should
   not accumulate forever. Chunk dedup is global across caches on the same
