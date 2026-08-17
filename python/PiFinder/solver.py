@@ -985,8 +985,14 @@ def solver(
                 if train is not logged_train:
                     logged_train = train
                     logger.info(
-                        "Optical train: %s lens on %s, field of view %.2f deg, "
-                        "FOV gate [%.2f, %.2f]",
+                        # Say which of the two it is: under an assumed lens
+                        # the gate is wider than the stated field of view
+                        # implies, and a reader diagnosing "why did it solve
+                        # / not solve" needs to know the lens is a fallback
+                        # rather than something the device was told.
+                        "Optical train: %s %s lens on %s, field of view "
+                        "%.2f deg, FOV gate [%.2f, %.2f]",
+                        "stated" if train.lens_stated else "assumed",
                         train.lens.menu_label,
                         shared_state.camera_type(),
                         train.fov_degrees,

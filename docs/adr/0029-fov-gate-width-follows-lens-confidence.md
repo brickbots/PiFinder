@@ -36,7 +36,7 @@ re-centred (tetra3's window is symmetric — `fov_estimate ± fov_max_error`):
 | sensor | shipped lenses | assumed gate | stated-16mm gate |
 |---|---|---|---|
 | imx462 / imx290 | 12 mm (13.51°), 16 mm (10.40°) | `12.19 ± 3.35` = [8.84, 15.53] | [8.84, 11.96] |
-| imx296 | 12 mm (17.78°), 16 mm (13.71°) | `16.05 ± 4.40` = [11.66, 20.45] | [11.66, 15.77] |
+| imx296 | 12 mm (17.78°), 16 mm (13.71°) | `16.05 ± 4.39` = [11.65, 20.44] | [11.65, 15.77] |
 | hq | 25 mm (10.33°) | [8.78, 11.88] — unchanged | n/a |
 
 The imx462 assumed gate lands within a whisker of the pre-0027 constants it
