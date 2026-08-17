@@ -25,6 +25,13 @@ class MappedObservationsDatabase(ObservationsDatabase):
     def _resolve_object_id(self, catalog, sequence):
         return LISTING_TO_OBJECT_ID.get((catalog, sequence))
 
+    def _resolve_object_ids(self, listings):
+        return {
+            listing: LISTING_TO_OBJECT_ID[listing]
+            for listing in listings
+            if listing in LISTING_TO_OBJECT_ID
+        }
+
     def _resolve_listings(self, object_id):
         return [
             listing for listing, oid in LISTING_TO_OBJECT_ID.items() if oid == object_id
@@ -100,3 +107,24 @@ def test_details_logs_stay_per_listing_for_virtual_objects(obs_db):
     _log(obs_db, "PL", 1)
     assert len(obs_db.get_logs_for_object(_obj("PL", 1, -1))) == 1
     assert len(obs_db.get_logs_for_object(_obj("PL", 2, -1))) == 0
+
+
+@pytest.mark.unit
+def test_cache_resolves_all_listings_in_one_query(tmp_path):
+    # One query for the whole cache, not one per logged listing: the cost
+    # of building this cache then stays flat as a log grows.
+    class CountingObservationsDatabase(MappedObservationsDatabase):
+        resolve_calls = 0
+
+        def _resolve_object_ids(self, listings):
+            CountingObservationsDatabase.resolve_calls += 1
+            return super()._resolve_object_ids(listings)
+
+    db = CountingObservationsDatabase(tmp_path / "observations.db")
+    for catalog, sequence in (("M", 31), ("NGC", 224), ("NGC", 7000)):
+        _log(db, catalog, sequence)
+    CountingObservationsDatabase.resolve_calls = 0
+    db.load_observed_objects_cache()
+    assert CountingObservationsDatabase.resolve_calls == 1
+    assert db.observed_object_ids == {42, 77}
+    db.close()

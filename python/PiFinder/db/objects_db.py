@@ -373,6 +373,36 @@ class ObjectsDatabase(Database):
         )
         return self.cursor.fetchone()
 
+    def get_object_ids_by_listings(
+        self, listings: List[Tuple[str, int]]
+    ) -> Dict[Tuple[str, int], int]:
+        """
+        Maps many listings to their object ids in one pass.
+
+        Each listing is a (catalog_code, sequence) pair. Listings with no row
+        are absent from the result. Queried in chunks so the statement stays
+        inside SQLite's variable limit, and as row values so the
+        (catalog_code, sequence) index resolves the whole chunk; a caller with
+        N logged listings pays one query per chunk instead of N lookups.
+        """
+        result: Dict[Tuple[str, int], int] = {}
+        listings = list(listings)
+        chunk_size = 400
+        for start in range(0, len(listings), chunk_size):
+            chunk = listings[start : start + chunk_size]
+            placeholders = ",".join(["(?, ?)"] * len(chunk))
+            params: List = []
+            for catalog_code, sequence in chunk:
+                params.extend((catalog_code, sequence))
+            self.cursor.execute(
+                "SELECT catalog_code, sequence, object_id FROM catalog_objects "
+                f"WHERE (catalog_code, sequence) IN (VALUES {placeholders});",
+                params,
+            )
+            for row in self.cursor.fetchall():
+                result[(row["catalog_code"], row["sequence"])] = row["object_id"]
+        return result
+
     def get_catalog_objects_by_catalog_code(self, catalog_code):
         self.cursor.execute(
             "SELECT * FROM catalog_objects WHERE catalog_code = ?;", (catalog_code,)
