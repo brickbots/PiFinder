@@ -1,10 +1,16 @@
-"""The Lens menu's value callback, which resolves both halves of the train.
+"""The Lens menu's callbacks, which resolve and apply both halves of the train.
 
 ``get_camera_lens`` is the one consumer that reaches the camera profile
 without going through ``OpticalTrainResolver``, so it needs the same tolerance
 the resolver has: it runs while the menu is being built, and raising there
 leaves the user with a menu that cannot be opened -- on exactly the screen
 they would go to in order to fix a camera problem.
+
+``set_camera_lens`` must restart. Everything that reads the lens live picks a
+change up on the next frame, but tetra3's ``_pattern_cache`` stores
+FOV-*pruned* results under a key that does not mention the FOV gate and is
+never invalidated, so entries pruned for the old lens survive the change and
+can withhold the patterns the new one needs.
 """
 
 from types import SimpleNamespace
@@ -39,3 +45,54 @@ class TestGetCameraLens:
 
     def test_an_unknown_sensor_still_honours_a_configured_lens(self):
         assert callbacks.get_camera_lens(_ui_module("none", "12mm")) == ["12mm"]
+
+
+def _applying_ui_module(lens_key):
+    """A UI module that records what the callback did to it."""
+    published: list = []
+    messages: list = []
+    return SimpleNamespace(
+        config_object=SimpleNamespace(get_option=lambda _key: lens_key),
+        shared_state=SimpleNamespace(set_camera_lens=published.append),
+        message=lambda text, _timeout=None: messages.append(text),
+        published=published,
+        messages=messages,
+    )
+
+
+@pytest.mark.unit
+class TestSetCameraLens:
+    @pytest.fixture
+    def restarts(self, monkeypatch):
+        calls: list = []
+        monkeypatch.setattr(
+            callbacks.sys_utils, "restart_pifinder", lambda: calls.append("restart")
+        )
+        return calls
+
+    def test_restarts_so_the_solver_drops_its_pattern_cache(self, restarts):
+        # The regression guard. tetra3 prunes the pattern catalog by FOV gate
+        # inside a cache keyed only on the pattern hash, and never invalidates
+        # it -- so without a restart a lens change can silently fail to take.
+        callbacks.set_camera_lens(_applying_ui_module("12mm"))
+
+        assert restarts == ["restart"]
+
+    def test_publishes_the_new_lens_before_restarting(self, restarts):
+        # Kept ahead of the restart so the change still lands when the restart
+        # is a no-op, as it is under sys_utils_fake on a dev machine.
+        ui_module = _applying_ui_module("12mm")
+
+        callbacks.set_camera_lens(ui_module)
+
+        assert ui_module.published == ["12mm"]
+
+    def test_publishes_none_when_no_lens_is_configured(self, restarts):
+        # Reachable only by a hand-edited config; None means "assumed", which
+        # the solver's resolvers handle, so it must not be coerced to a key.
+        ui_module = _applying_ui_module(None)
+
+        callbacks.set_camera_lens(ui_module)
+
+        assert ui_module.published == [None]
+        assert restarts == ["restart"]

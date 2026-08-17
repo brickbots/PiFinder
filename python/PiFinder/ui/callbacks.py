@@ -228,16 +228,38 @@ def get_camera_lens(ui_module: UIModule) -> list[str]:
 
 
 def set_camera_lens(ui_module: UIModule) -> None:
-    """Publish a lens change to the processes that derive angles from it.
+    """Publish a lens change, then restart so the solver rebuilds its state.
 
-    No restart: the solver re-reads the lens per frame, so the new FOV gate,
-    radiometric field width and frustum shading all take effect on the next
-    frame. If the lens named here is not the one fitted, solving stops
-    outright -- deliberately, see docs/adr/0027.
+    The live values do follow the lens on the next frame -- the solver
+    re-resolves the optical train per frame, so the FOV gate, radiometric
+    field width and frustum shading all update without a restart. Tetra3's
+    pattern cache does not. ``Tetra3._pattern_cache`` is keyed on the pattern
+    hash alone, but the value it stores was already pruned against whichever
+    FOV gate was in force when it was computed, and nothing invalidates it --
+    it is built once per ``Tetra3`` and only ever turns over by LRU eviction.
+    A lens change therefore leaves entries pruned for the *old* window in
+    place, and those can withhold the very patterns the new window needs, so
+    the change looks like it did not take until something restarts the solver.
+
+    Restarting is the honest fix at this layer. The cache is tetra3's and the
+    bug is upstream, but this is a once-per-device setting whose immediate
+    neighbours in the menu (PiFinder Type, Camera Type) already restart, so
+    the cost is one the user is not going to notice for a change they make
+    about this often.
+
+    The config is already persisted by the time this runs -- ``text_menu``
+    calls ``set_option`` before any ``post_callback`` -- so the restart cannot
+    lose the setting. The shared-state publish is kept ahead of it so the
+    change still lands when the restart is a no-op, as it is under
+    ``sys_utils_fake`` on a development machine.
+
+    If the lens named here is not the one fitted, solving stops outright --
+    deliberately, see docs/adr/0027.
     """
     lens_key = ui_module.config_object.get_option("camera_lens")
     ui_module.shared_state.set_camera_lens(lens_key)
-    logger.info("Camera lens set to %s", lens_key)
+    logger.info("Camera lens set to %s; restarting to rebuild solver state", lens_key)
+    restart_pifinder(ui_module)
 
 
 def get_camera_type(ui_module: UIModule) -> list[str]:
