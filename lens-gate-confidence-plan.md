@@ -105,9 +105,38 @@ On each successful solve:
    `cfg.set_option("camera_lens", key)`, then `shared_state.set_camera_lens(key)`.
    Log at INFO with both the fitted and derived figures.
 
-No false-solve guard is needed beyond tetra3's own: `match_threshold`
-defaults to `1e-4` and PiFinder does not override it, and tetra3 further
-divides it by the pattern count (`tetra3.py:1699`).
+tetra3's `match_threshold` is *not* a sufficient guard on its own — with
+injected noise it accepted confident false solves at 20–23°. What rejects
+those is the FOV gate's upper bound, which the assumed gate keeps (see ADR
+0029). This is an argument for the union gate over no hint at all; it does not
+change self-heal, whose input is an already-successful solve.
+
+#### Interaction with tetra3's pattern cache — check this, don't assume it
+
+`Tetra3._pattern_cache` (`tetra3.py:2255`) is keyed on `hash_index` alone but
+stores the **FOV-pruned** result (pruning happens at `tetra3.py:2271`, inside
+the cached function). It is created once at `Tetra3.__init__` (`tetra3.py:407`)
+and **never cleared** — there is no invalidation path in tetra3 or in
+PiFinder, only LRU eviction. PiFinder holds one long-lived `Tetra3` across
+lens changes.
+
+For self-heal this is the **safe direction**: promotion goes assumed (wide) →
+stated (tight), so cached entries were pruned under the *wider* window and are
+a superset of what the tighter one wants. Over-permissive costs a little
+speed, and the post-fit rejection at `tetra3.py:1953` still enforces the tight
+window. Nothing is wrongly accepted.
+
+The unsafe direction is tight → different-tight, i.e. **a user changing the
+lens in the Lens menu**. Cached entries pruned for the old window can exclude
+patterns the new one needs, so the change may not fully take effect until LRU
+eviction or a solver restart. `callbacks.set_camera_lens` only publishes to
+shared state — unlike `screen_direction`, it does not restart. **This is a
+pre-existing 2.6.2 bug, not one this change introduces**, but it is adjacent
+enough to trip you up while testing: after switching lens in the menu, restart
+the solver before concluding anything. File it separately (the deeper problem
+is that the cached value also depends on the per-frame
+`image_pattern_largest_edge`, so the cache is approximate across frames even
+under a fixed gate).
 
 ### 4. `python/PiFinder/api_extensions.py:465` — comment fix
 

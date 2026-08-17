@@ -51,6 +51,47 @@ It also means the imx462 at 16 mm sits just 0.40° above that floor, which is a
 narrower margin than anything else we ship and worth remembering before any
 future change to either the crop or the database range.
 
+## What the narrow gate was actually buying
+
+Measured before committing to the widening, against the real solver and real
+frames (`test_images/pifinder_debug_0{1,2}.png`, 512×512, median of 5, fresh
+`Tetra3` per run):
+
+| gate | debug_01 | debug_02 |
+|---|---|---|
+| ±15% (today) | 1.2 ms | 1.4 ms |
+| `12.0 ± 4.0` (pre-0027) | 1.1 ms | 1.4 ms |
+| ±30% | 1.1 ms | 1.4 ms |
+| ±50% | 1.1 ms | 1.4 ms |
+| no hint at all | 1.5 ms | 1.7 ms |
+
+**On speed, essentially nothing.** RA/Dec/FOV/Matches were identical and
+`Prob` bit-identical across every width. This is despite the gate being a real
+prune rather than a post-hoc filter — it culls the pattern catalog inside the
+hash lookup, before verification (`tetra3.py:2271`), and rejects again after
+fitting (`tetra3.py:1953`). The catalog-eval term it grows is simply not where
+the time goes. Note `fov_max_error` is an **absolute** angle, not a fraction —
+`np.deg2rad(float(fov_max_error))` at `tetra3.py:1697`; `solver_fov_params`
+manufactures the absolute value as `fov * FOV_GATE_MARGIN`.
+
+**On mis-solve rejection, something real** — and this is the reason not to go
+further than we are going. With spurious centroids injected to displace the
+real stars past the `verification_stars_per_fov` trim, wide gates returned
+*confident* false solves that `match_threshold` did not reject: a `20.0 ± 10.0`
+gate "solved" at 23.2°, and no-hint at 20.4°, both with ~26 matches. The FOV
+gate is what would have caught those. The assumed gate proposed here still
+excludes everything above 15.53°, so it keeps that protection; **omitting the
+hint entirely would give it up, which is why we do not.** (Single-shot noise
+trials, not a false-positive *rate* measurement — treat the direction as
+established and the magnitude as not.)
+
+**And the cost is wildly asymmetric.** A good frame *outside* the gate burns
+the entire `solve_timeout` (`solve_timeout=1000` at `solver.py:1082`) and
+returns nothing — every frame, forever. Against a wide gate's ~0.3 ms, an
+over-tight gate is the expensive failure by three orders of magnitude. That
+asymmetry is the whole argument: widening risks a little precision, while
+over-tightening costs the device its function.
+
 ## Considered options
 
 **A migration writing `camera_lens=12mm` on rev4 boards** was the first
