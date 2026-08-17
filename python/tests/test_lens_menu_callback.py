@@ -4,7 +4,9 @@
 without going through ``OpticalTrainResolver``, so it needs the same tolerance
 the resolver has: it runs while the menu is being built, and raising there
 leaves the user with a menu that cannot be opened -- on exactly the screen
-they would go to in order to fix a camera problem.
+they would go to in order to fix a camera problem. It reads both halves from
+``shared_state`` rather than config, because self-heal writes the lens from
+another process and this one's ``Config`` is loaded at boot.
 
 ``set_camera_lens`` must restart. Everything that reads the lens live picks a
 change up on the next frame, but tetra3's ``_pattern_cache`` stores
@@ -23,10 +25,24 @@ import PiFinder.i18n  # noqa: F401
 from PiFinder.ui import callbacks
 
 
-def _ui_module(camera_type, lens_key):
+_UNSET = object()
+
+
+def _ui_module(camera_type, lens_key, config_lens=_UNSET):
+    """A UI module whose two views of the lens can be made to disagree.
+
+    ``config_lens`` defaults to matching shared state, which is the ordinary
+    case. Passing it separately models the window after self-heal has written
+    a lens from the integrator and this process's ``Config`` has not been
+    reloaded.
+    """
+    stale = lens_key if config_lens is _UNSET else config_lens
     return SimpleNamespace(
-        shared_state=SimpleNamespace(camera_type=lambda: camera_type),
-        config_object=SimpleNamespace(get_option=lambda _key: lens_key),
+        shared_state=SimpleNamespace(
+            camera_type=lambda: camera_type,
+            camera_lens=lambda: lens_key,
+        ),
+        config_object=SimpleNamespace(get_option=lambda _key: stale),
     )
 
 
@@ -45,6 +61,22 @@ class TestGetCameraLens:
 
     def test_an_unknown_sensor_still_honours_a_configured_lens(self):
         assert callbacks.get_camera_lens(_ui_module("none", "12mm")) == ["12mm"]
+
+    def test_shows_the_self_healed_lens_not_this_process_stale_config(self):
+        """The regression guard, and the reason this reads shared state.
+
+        Self-heal writes ``camera_lens`` from the integrator. The UI process
+        loaded its ``Config`` at boot and reloads it only on an explicit
+        ``reload_config``, so ``config_object`` still reports the *assumed*
+        16mm on a rev4 that has just measured itself as a 12mm. Showing that
+        would put the wrong lens on the one screen that says which lens is
+        fitted -- and ``text_menu`` writes the highlighted entry on select, so
+        confirming it would state a lens the device measured itself out of and
+        stop solving for good.
+        """
+        healed = _ui_module("imx462", "12mm", config_lens=None)
+
+        assert callbacks.get_camera_lens(healed) == ["12mm"]
 
 
 def _applying_ui_module(lens_key):
