@@ -7,24 +7,16 @@ import logging
 from PiFinder.multiproclogging import MultiprocLogging
 import asyncio
 import aiofiles
-from typing import Dict, Callable, Optional, Tuple, Union, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from aiofiles.threadpool.binary import AsyncBufferedReader
+from typing import Dict, Callable, Optional, Tuple
 from dataclasses import dataclass
 from enum import IntEnum
 import datetime
 
 logger = logging.getLogger("GPS.parser")
 
-# u-blox quality indicator (qualityInd / flags bits 0-2) scale: 0 no signal,
-# 1 searching, 2 signal acquired, 3 signal detected but unusable, 4 code
-# locked, 5-7 code and carrier locked. At 1 the receiver is still searching
-# and any reported C/N0 is only an estimate for a candidate — counting those
-# makes the seen count start near the channel count and sink; counting only
-# code-locked (>= 4) makes it flap to zero during marginal re-acquisition.
-# "Signal acquired" is the honest definition of a satellite being seen.
+# u-blox quality indicator (qualityInd / flags bits 0-2) thresholds.
 QUALITY_SIGNAL_ACQUIRED = 2
+QUALITY_CODE_LOCKED = 4
 
 
 class UBXClass(IntEnum):
@@ -62,9 +54,7 @@ class UBXParser:
     def __init__(
         self,
         log_queue,
-        # StreamReader when connected to gpsd, AsyncBufferedReader when
-        # replaying a capture file (from_file); both only need .read().
-        reader: Optional[Union[asyncio.StreamReader, "AsyncBufferedReader"]] = None,
+        reader: Optional[asyncio.StreamReader] = None,
         writer: Optional[asyncio.StreamWriter] = None,
         file_path: Optional[str] = None,
     ):
@@ -173,7 +163,7 @@ class UBXParser:
     async def from_file(cls, file_path: str):
         """Create a UBXParser instance from a file."""
         f = await aiofiles.open(file_path, "rb")
-        return cls(log_queue=None, reader=f, file_path=file_path)
+        return cls(log_queue=None, reader=f, file_path=file_path)  # type:ignore[arg-type]
 
     async def close(self):
         """Clean up resources and close the connection."""
@@ -330,7 +320,9 @@ class UBXParser:
             azim = int.from_bytes(data[offset + 4 : offset + 6], "little", signed=True)
             flags = data[offset + 8]  # X4 bitfield, only the first byte is needed here:
             # bits 0-2 are the quality indicator, bit 3 is svUsed
-            if cno > 0 and (flags & 0x07) >= QUALITY_SIGNAL_ACQUIRED:
+            # NAV-SAT lists every known satellite, including acquisition
+            # candidates with an estimated C/N0; only count tracked signals
+            if (flags & 0x07) >= QUALITY_CODE_LOCKED:
                 satellites.append(
                     {
                         "id": svId,
@@ -378,10 +370,16 @@ class UBXParser:
             azim = int.from_bytes(data[offset + 6 : offset + 8], "little", signed=True)
 
             is_used = bool(flags & 0x01)
-            if is_used:
-                used_sats += 1
 
-            if cno > 0 and quality >= QUALITY_SIGNAL_ACQUIRED:
+            # Include signals the receiver has acquired, but not idle channels
+            # or candidates which are still only being searched. A used flag
+            # below code lock is internally inconsistent and is ignored.
+            if cno > 0 and (
+                quality >= QUALITY_CODE_LOCKED
+                or (quality >= QUALITY_SIGNAL_ACQUIRED and not is_used)
+            ):
+                if is_used:
+                    used_sats += 1
                 satellites.append(
                     {
                         "id": svid,

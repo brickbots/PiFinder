@@ -90,6 +90,22 @@ def _sort_objects(
     return list(objects)
 
 
+# Sentinel for "the Nearby spatial index has never been built". A plain None
+# can't serve: it is a legitimate dirty_time when no filter is configured.
+_NEARBY_INDEX_UNBUILT = object()
+
+
+def _sort_order_label(sort_order: "SortOrder") -> str:
+    return {
+        SortOrder.CATALOG_SEQUENCE: _("Catalog"),
+        SortOrder.NEAREST: _("Nearby"),
+        SortOrder.BRIGHTEST: _("Brightest"),
+        SortOrder.RA: _("RA"),
+        SortOrder.EARTH_DISTANCE: _("Distance"),
+        SortOrder.OPPOSITION: _("Opposition"),
+    }[sort_order]
+
+
 def _next_target_index(
     new_order: list,
     old_order: list,
@@ -151,6 +167,8 @@ class UIObjectList(UITextMenu):
         self.catalog_info_2: str = ""
         self.catalog_data_label: str = ""
         self._was_loading: bool = False  # Track loading state to detect completion
+        # Filter dirty_time the Nearby spatial index was last built against
+        self._nearby_index_key: Any = _NEARBY_INDEX_UNBUILT
 
         # Init display mode defaults
         self.mode_cycle = cycle(DisplayModes)
@@ -291,12 +309,22 @@ class UIObjectList(UITextMenu):
                 object_list = self.catalogs.catalog_filter.apply(object_list)
             self._menu_items = object_list
 
-        self.catalog_info_1 = str(self.get_nr_of_menu_items())
+        # The header count describes the catalog behind the screen, so it is
+        # deliberately the whole filtered set -- not the possibly-shorter list
+        # the carousel is currently navigating (see get_nr_of_menu_items).
+        self.catalog_info_1 = str(len(self._menu_items))
         self._menu_items_sorted = self._menu_items
+        # _menu_items was rebuilt from source, so the spatial index no longer
+        # describes it whatever the filter's dirty_time says.
+        self._nearby_index_key = _NEARBY_INDEX_UNBUILT
         self.sort(show_message=False)
         self._current_item_index = _next_target_index(
             self._menu_items_sorted, old_order, old_index
         )
+
+    def get_nr_of_menu_items(self):
+        """Count the sorted rows that this screen actually navigates."""
+        return len(self._menu_items_sorted)
 
     def _get_catalog_status(self):
         if self.item_definition.get("objects") != "catalog":
@@ -339,16 +367,8 @@ class UIObjectList(UITextMenu):
         return (_("Loading..."), None)
 
     def sort(self, show_message: bool = True) -> None:
-        sort_labels = {
-            SortOrder.CATALOG_SEQUENCE: _("Catalog"),
-            SortOrder.NEAREST: _("Nearby"),
-            SortOrder.BRIGHTEST: _("Brightest"),
-            SortOrder.RA: _("RA"),
-            SortOrder.EARTH_DISTANCE: _("Distance"),
-            SortOrder.OPPOSITION: _("Opposition"),
-        }
         message = _("Sorting by\n{sort_order}").format(
-            sort_order=sort_labels[self.current_sort]
+            sort_order=_sort_order_label(self.current_sort)
         )
         if show_message:
             self.message(message, 0.1)
@@ -363,7 +383,7 @@ class UIObjectList(UITextMenu):
                     self._menu_items = self.catalogs.catalog_filter.apply(
                         self._menu_items
                     )
-                self.nearby.set_items(self._menu_items)
+                self._build_nearby_index()
                 self.nearby_refresh()
                 self._current_item_index = 0
 
@@ -372,11 +392,28 @@ class UIObjectList(UITextMenu):
             self._current_item_index = 0
         self.update()
 
+    def _build_nearby_index(self) -> None:
+        """
+        (Re)build the Nearby spatial index, skipping the rebuild while both the
+        item list and the filter are unchanged -- the same dirty_time guard
+        UIChart uses for its nearby-marker index.
+        """
+        catalog_filter = getattr(self.catalogs, "catalog_filter", None)
+        dirty_time = getattr(catalog_filter, "dirty_time", None)
+        if (
+            self._nearby_index_key is not _NEARBY_INDEX_UNBUILT
+            and self._nearby_index_key == dirty_time
+        ):
+            return
+        self.nearby.set_items(self._menu_items)
+        self._nearby_index_key = dirty_time
+
     def nearby_refresh(self):
-        self._menu_items_sorted = self.nearby.refresh()
-        if self._menu_items_sorted is None:
+        if not self.nearby.has_pointing():
             self._menu_items_sorted = self._menu_items
             self.message(_("No Solve Yet"), 1)
+            return
+        self._menu_items_sorted = self.nearby.refresh()
 
     def format_az_alt(self, point_az, point_alt):
         az_arrow_symbol, point_az, alt_arrow_symbol, point_alt = pointing_arrows(
@@ -493,6 +530,9 @@ class UIObjectList(UITextMenu):
         sbr_y_start = self.display_class.titlebar_height + 1
         sbr_y = self.display.height
         total = self.get_nr_of_menu_items()
+        if total <= 0:
+            # Nothing to scroll through; a bar would divide by zero anyway.
+            return
         one_item_height = max(1, int((sbr_y - sbr_y_start) / total))
         box_pos = (sbr_y - sbr_y_start) * (self._current_item_index) / (total)
         # print(f"{sbr_x=} {sbr_y=} {total=} {box_pos=} {one_item_height=}, {sbr_y_start=}, {self._current_item_index=}, {self.get_nr_of_menu_items()=}")
@@ -665,13 +705,19 @@ class UIObjectList(UITextMenu):
 
         # should we refresh the nearby list?
         if self.current_sort == SortOrder.NEAREST and self.nearby.should_refresh():
-            # keep the cursor on the selected object as it migrates
-            # through the distance ranking
+            # A pointing-driven re-rank, not a list rebuild: the user slewed in
+            # order to change what is nearest, so while the cursor sits on the
+            # top row it keeps following the pointing. Once they have scrolled
+            # off the top they are browsing, and the cursor pins to the
+            # selected object as it migrates through the ranking.
+            parked_at_top = self._current_item_index == 0
             old_order = self._menu_items_sorted
             old_index = self._current_item_index
             self.nearby_refresh()
-            self._current_item_index = _next_target_index(
-                self._menu_items_sorted, old_order, old_index
+            self._current_item_index = (
+                0
+                if parked_at_top
+                else _next_target_index(self._menu_items_sorted, old_order, old_index)
             )
 
         # Draw sorting mode in the empty rows above the focus line
@@ -695,14 +741,7 @@ class UIObjectList(UITextMenu):
             self.draw.text(
                 (begin_x, self.line_position(1)),
                 _("Sort: {sort_order}").format(
-                    sort_order={
-                        SortOrder.CATALOG_SEQUENCE: _("Catalog"),
-                        SortOrder.NEAREST: _("Nearby"),
-                        SortOrder.BRIGHTEST: _("Brightest"),
-                        SortOrder.RA: _("RA"),
-                        SortOrder.EARTH_DISTANCE: _("Distance"),
-                        SortOrder.OPPOSITION: _("Opposition"),
-                    }[self.current_sort]
+                    sort_order=_sort_order_label(self.current_sort)
                 ),
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
@@ -912,7 +951,7 @@ class UIObjectList(UITextMenu):
         object info screen
         """
         nr_menu_items = self.get_nr_of_menu_items()
-        if nr_menu_items < self._current_item_index or nr_menu_items == 0:
+        if nr_menu_items == 0 or self._current_item_index >= nr_menu_items:
             return
 
         # turn off input box if it's there
@@ -953,8 +992,6 @@ class UIObjectList(UITextMenu):
             return False
 
         self.current_sort = sort_order
-        if sort_order == SortOrder.NEAREST:
-            self.nearby_refresh()
         self.sort()
         return True
 
@@ -966,9 +1003,12 @@ class UIObjectList(UITextMenu):
         Serialize the current state of the object list for inter-process communication
         """
         try:
+            # _current_item_index addresses the sorted list, which is what the
+            # screen draws -- indexing _menu_items reports a different object
+            # under any sort that reorders or shortens the source.
             current_item = None
-            if 0 <= self._current_item_index < len(self._menu_items):
-                obj = self._menu_items[self._current_item_index]
+            if 0 <= self._current_item_index < len(self._menu_items_sorted):
+                obj = self._menu_items_sorted[self._current_item_index]
                 # For CompositeObject, use display_name which is JSON serializable
                 current_item = (
                     obj.display_name if hasattr(obj, "display_name") else str(obj)
@@ -977,7 +1017,7 @@ class UIObjectList(UITextMenu):
             return {
                 "current_index": self._current_item_index,
                 "current_item": current_item,
-                "total_items": len(self._menu_items),
+                "total_items": len(self._menu_items_sorted),
                 "display_mode": self.current_mode.name
                 if hasattr(self.current_mode, "name")
                 else str(self.current_mode),

@@ -7,9 +7,10 @@ the camera identifies itself, the built-in sensor profile supplies the
 calibrated black level, passband transform, and SQM-L offset. A user does not
 need flats, dark frames, or a calibration wizard to get a useful reading.
 
-`SQM Correct` and the calibration wizard are optional refinements for a
-particular session or device. They are not startup requirements and are never
-run implicitly against an ordinary sky image.
+The calibration wizard is an optional refinement for a particular device. It is
+not a startup requirement and is never run implicitly against an ordinary sky
+image. (`SQM Correct`, the former user-entered session offset, was removed on
+2026-07-18; see the note in [`sqm/CONTEXT.md`](./sqm/CONTEXT.md).)
 
 ## Accuracy demonstrated so far
 
@@ -51,10 +52,15 @@ and never fits an unlisted or disallowed sweep.
 With one archived frame modeled per second, the 10-second stellar diagnostic
 flagged cloud samples but produced no automatic optics-compensated publication:
 the short sweeps did not establish the 12-sample clear-session baseline needed
-to distinguish instrument attenuation safely. The black-level tracker also
-currently refines only stellar photometry; it does not alter the published
-radiometer pedestal. Neither feature improves the headline archive accuracy in
-the current production wiring.
+to distinguish instrument attenuation safely. Optics compensation therefore
+does not improve the headline archive accuracy in the current production
+wiring.
+
+The black-level tracker does now supply the published radiometer pedestal
+whenever its fit is leased (see *Detector baseline and failure policy*). It
+does not move these archive numbers, because a bright Ghent city background
+swamps the few-ADU pedestal wander it corrects. Its value is at dark sites and
+short exposures, where that same wander is worth 0.2–0.4 mag.
 
 These are in-sample results under a light-pollution-dominated Ghent sky. The
 factory constants include the local sky spectrum, so independent units and dark
@@ -204,32 +210,23 @@ mean exposure-dependent signal is included. This keeps factory behavior tied
 to the validated sensor offsets while allowing a measured calibration to
 refine it.
 
-### Per-frame optical black (IMX290/IMX462)
+The `bias_offset` term is not necessarily the stored constant. The sensor's
+optical-black clamp pins raw black to a target that moves with sensor state, so
+`BlackLevelTracker` fits the in-session intercept of background against
+exposure and, once that fit is leased, it supersedes **both** the profile
+constant and any wizard-measured bias. On the 2026-07-18 imx296 reference
+sweeps the delivered level was 55.9–56.3 ADU while the wizard calibration (58)
+and the profile constant (60) both over-subtracted; at dark-site signal levels
+that 2–4 ADU error produces a −0.9 to −1.5 mag/decade SQM-versus-exposure slope
+and kills short exposures outright as `background_not_resolved_above_pedestal`.
 
-Sony defines the shielded optical-black (OB) rows as the sensor's own signal
-reference. The IMX290/462 already transmits ten front vertical OB rows on every
-frame; a kernel patch routes them to the receiver as a separate metadata
-stream, and a libcamera helper publishes their central-90% trimmed mean through
-`SensorBlackLevels` at 1/16 native ADU resolution. `camera_pi` reads that value
-for these sensors and attaches it to the radiometer sample as
-`optical_black_pedestal`.
-
-When a valid marked OB value is present it is the complete per-frame pedestal —
-it already contains the bias and that frame's accumulated dark signal, so no
-separate dark-current model is applied and no nightly rate is fitted or stored.
-The precedence is: valid same-frame OB, then a user-calibrated pedestal, then
-the profile `bias_offset`. Manual calibration therefore never overrides a valid
-same-frame measurement; it remains the fallback for sensors without usable OB.
-
-This was validated on mr2 (IMX462, production gain, requested 30 / reported
-29.512) with a same-frame cupboard test: comparing the normal Bayer pixels and
-the shielded OB rows from identical frames, the active-green and OB dark-
-accumulation slopes agreed to well under 1 ADU/s (active green sat ~0.8-1.0 ADU
-below OB as a small fixed offset, ~0.01 mag — too small to persist as a per-unit
-constant from one camera). The added camera-process cost was about +0.23
-percentage points of one core. This is strong evidence for the shipped IMX462
-path, not proof for every Sony sensor: IMX296 and IMX477 OB plumbing remains
-open, and independent-unit and temperature-range validation is still useful.
+The dark-current rate stays the wizard's. The intercept fit cannot separate
+dark current from sky, because both are linear in exposure. Until a confident
+fit exists, `pedestal()` returns `None` and the caller falls back to the
+profile constant. Trust is a lease rather than a latch: an accepted fit expires
+after `max_age_seconds` and must be re-earned. See
+[ADR 0028](../adr/0028-tracked-black-level-supersedes-stored-bias.md) for the
+decision and its gates.
 
 Read noise is zero-mean RMS uncertainty and is never subtracted as signal.
 `NoiseFloorEstimator` retains a low image percentile only as a diagnostic;
@@ -252,17 +249,55 @@ processed-image background controller keeps its validated 8-bit threshold.
 ## Published value, altitude, passband, and cloud
 
 After converting solve-independent background ADU per pixel to ADU per square
-arcsecond using the factory field width:
+arcsecond using the **radiometric field width**:
 
 ```text
-sqm = radiometric_zero_point
+sqm = effective_zero_point
       + 2.5 log10(exposure_seconds)
       − 2.5 log10((sky − pedestal) / arcsec²_per_pixel)
+
+effective_zero_point = radiometric_zero_point
+                       + radiometric_colour_slope
+                         × (clamp(R/G) − radiometric_colour_pivot)
 ```
 
-The fixed zero point includes the passband mapping to the SQM-L scale. Current
-defaults are imx462/imx290 `15.25`, HQ `14.79`, and imx296 `14.07`. Factory field
-widths are 10.38°, 10.34°, and 13.71° respectively.
+The zero point includes the passband mapping to the SQM-L scale. On bare
+sensors that mapping is not a constant: the radiometer measures sky in the
+sensor's passband while the reference meter measures V, and converting between
+them depends on the sky's spectrum. Sky colour measures that directly and is
+already in the frame, so the zero point is keyed to the measured red/green
+ratio of the sky background. See ADR 0026 for the derivation and the evidence.
+
+`radiometric_colour_slope = 0` makes this a plain constant, which is the case
+for mono sensors (no colour to measure) and for the IR-cut HQ (no NIR leak to
+correct). Current defaults:
+
+| profile | `radiometric_zero_point` | colour slope | pivot / range | field width (shipped lens) |
+|---|---|---|---|---|
+| imx462, imx290 | `15.159` | `5.544` | `0.85`, clamped to `0.83–1.04` | 10.40° (16 mm) |
+| hq | `14.971` | `0.0` (constant) | — | 10.33° (25 mm) |
+| imx296 (mono) | `14.07` | `0.0` (constant) | — | 13.71° (16 mm) |
+
+The field width is no longer a per-sensor constant: it is derived from the
+**optical train** (see [Camera](camera/CONTEXT.md)), because the same sensor
+images a different field on a different lens — a one-step lens change is worth
+~0.6 mag. The values above are what the shipped lens gives, and they reproduce
+the previously stored constants (10.38, 10.34, 13.71) to within 0.03°, so no
+existing user's SQM moves. `PiFinder.optics` owns the derivation and
+`tests/test_optics.py` pins it against those calibrations. See
+[ADR 0027](../adr/0027-fov-gate-derived-from-optical-train.md).
+
+`radiometric_zero_point` in the sample details keeps meaning the profile
+constant across this change so archives stay comparable; the value actually
+applied is reported alongside it as `radiometric_zero_point_effective`, and is
+always present whether or not a colour correction was made.
+
+Sampling the red plane assumes the frame reaching the radiometer is still in
+RGGB phase. Red is more fragile here than green: a 180° rotation maps `R G /
+G B` to `B G / G R`, leaving the green sites alone but swapping red and blue,
+and an odd crop origin does the same. `_mosaic_phase_is_rggb` checks CFA order,
+rotation and crop parity, and reports no colour rather than a wrong colour —
+a wrong R/G would not fail loudly, it would just move the published value.
 
 The radiometric value is the published reading and intentionally has no
 atmospheric altitude correction. It measures the sky actually in the camera's
@@ -278,11 +313,15 @@ baseline.
 
 ## Optional user refinement
 
-### SQM Correct
+### SQM Correct (removed)
 
-The everyday refinement is a hand-held reference reading. PiFinder stores an
-additive session correction and applies it to subsequent results. Removing it
-returns immediately to the built-in profile.
+`SQM Correct` was a user-entered session offset against a hand-held reference
+meter, applied additively to subsequent results. It was removed on 2026-07-18:
+a magnitude-additive knob silently absorbs ADU-space, brightness-dependent
+errors such as pedestal bias, masking the fault instead of fixing it. The
+pedestal errors it used to paper over are now measured directly by
+`BlackLevelTracker`. The reference comparison survives as data — a SWEEP run
+with a reference reading records the difference in its metadata.
 
 ### Calibration wizard
 
@@ -300,6 +339,18 @@ The service/diagnostic wizard is optional. It:
 Leaving the wizard restores the previous automatic or manual exposure mode.
 No flat or master dark is produced or required.
 
+What each measurement is worth in the current wiring differs, and the wizard's
+headline output is no longer its most valuable one:
+
+| Wizard output | Effect on the published value |
+|---|---|
+| dark-current rate | The lasting contribution. Factory rates are unverified estimates and are not applied until the wizard measures the device. |
+| bias offset | Superseded by `BlackLevelTracker` whenever its in-session fit is leased. It serves as the fallback before that fit converges. |
+| read noise | Diagnostic only. Never subtracted as signal. |
+
+The zero-touch path is the validated one: the headline archive accuracy above
+was measured with no calibration file present.
+
 ## Important limits
 
 - The instrument is empirically tied to an SQM-L scale, but its angular and
@@ -315,5 +366,7 @@ No flat or master dark is produced or required.
 
 See [`sqm/CONTEXT.md`](./sqm/CONTEXT.md) for canonical terminology,
 [`ADR-0022`](../adr/0022-sqm-radiometer-first.md) for radiometer-first ownership,
-and [`ADR-0002`](../adr/0002-sqm-published-value-uncorrected.md) for the
-no-altitude-correction decision.
+[`ADR-0002`](../adr/0002-sqm-published-value-uncorrected.md) for the
+no-altitude-correction decision, and
+[`ADR-0028`](../adr/0028-tracked-black-level-supersedes-stored-bias.md) for why a
+tracked black level outranks any stored bias.

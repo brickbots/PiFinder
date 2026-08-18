@@ -50,6 +50,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           persist-credentials: false
+          # Fork PRs: pull_request_target checkout of the head requires opt-in
+          # since actions/checkout began refusing it. The head SHA is pinned
+          # explicitly and only reached after the `testable`/`preview` label,
+          # which is the review gate for running contributor code.
+          allow-unsafe-pr-checkout: true
 
       - uses: DeterminateSystems/nix-installer-action@main
         with:
@@ -114,6 +119,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           persist-credentials: false
+          # Fork PRs: pull_request_target checkout of the head requires opt-in
+          # since actions/checkout began refusing it. The head SHA is pinned
+          # explicitly and only reached after the `testable`/`preview` label,
+          # which is the review gate for running contributor code.
+          allow-unsafe-pr-checkout: true
 
       - name: Ensure nix is on PATH (self-hosted runner)
         run: |
@@ -160,17 +170,7 @@ jobs:
       group: manifest-write
       cancel-in-progress: false
     steps:
-      # Check out the PR's BASE branch explicitly. The default checkout under
-      # pull_request_target lands on the repository's default branch, which
-      # carries this workflow (so the event fires) but not necessarily the
-      # scripts below -- the job then dies with "No such file or directory"
-      # after a successful 19-minute build. The base branch is the branch this
-      # workflow file itself came from, so it always has them, and it is
-      # maintainer-controlled: never check out the PR head here, which would
-      # run contributor code with contents:write and the Attic token.
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
 
       - name: Update generated manifest branch
         env:

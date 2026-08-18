@@ -83,6 +83,8 @@ from PiFinder.ui.menu_manager import MenuManager
 
 # Dynamic-only module classes (pushed at runtime, never as static tree nodes).
 from PiFinder.ui.object_details import UIObjectDetails
+from PiFinder.ui.object_list import SortOrder, UIObjectList
+from PiFinder.nearby import NEAREST_LIST_CAP
 from PiFinder.ui.log import UILog
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
@@ -687,6 +689,68 @@ def test_object_details_tracks_target(display, camera_image, catalogs):
     # ...and updated on scroll.
     module.scroll_object(1)
     assert shared_state.ui_state().target() is obj_b
+
+
+@pytest.mark.integration
+def test_nearby_sort_navigation_bounded_by_ranked_window(
+    display, camera_image, catalogs
+):
+    """Navigation stays inside the Nearby window, which is shorter than the catalog.
+
+    The Nearby sort ranks at most ``NEAREST_LIST_CAP`` objects, so the list the
+    carousel draws is far shorter than the filtered catalog behind it. Long-DOWN
+    scrolls to the last row and RIGHT opens it, so both must be bounded by the
+    ranked window rather than by the source list -- otherwise the cursor lands
+    on rows that do not exist and opening one raises IndexError.
+    """
+    cfg = Config()
+    shared_state = _make_shared_state("warm")
+    command_queues = _make_command_queues()
+    catalog_filter = CatalogFilter(shared_state=shared_state)
+    catalog_filter.load_from_config(cfg)
+    catalogs.set_catalog_filter(catalog_filter)
+
+    module = UIObjectList(
+        display,
+        camera_image,
+        shared_state,
+        command_queues,
+        cfg,
+        catalogs,
+        item_definition={
+            "name": "All Filtered",
+            "class": UIObjectList,
+            "objects": "catalogs.filtered",
+        },
+        add_to_stack=lambda item_definition: None,
+    )
+
+    module.current_sort = SortOrder.NEAREST
+    module.sort()
+    assert module.current_sort == SortOrder.NEAREST, "warm state should have a solve"
+
+    ranked = len(module._menu_items_sorted)
+    assert ranked <= NEAREST_LIST_CAP
+    # The point of the test: the source list is longer than the ranked window.
+    assert len(module._menu_items) > ranked
+
+    # The header still advertises the catalog behind the screen, not the window.
+    assert module.catalog_info_1 == str(len(module._menu_items))
+
+    module.key_long_down()
+    assert module._current_item_index == ranked - 1
+
+    # Opening the last row must not index past the ranked window.
+    module.key_right()
+    module.update()
+
+    state = module.serialize_ui_state()
+    assert "error" not in state
+    assert state["total_items"] == ranked
+    assert (
+        state["current_item"]
+        == module._menu_items_sorted[module._current_item_index].display_name
+    )
 
 
 @pytest.mark.integration

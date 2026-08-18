@@ -21,8 +21,12 @@ Latest published `value`, `source`, and `last_update` in shared state. The UI
 reads this state and does not calculate photometry.
 
 **Radiometric SQM**:
-The published fixed-calibration measurement from diffuse raw background,
-exposure, pedestal, factory field width, and `radiometric_zero_point`.
+The published factory-calibration measurement from diffuse raw background,
+exposure, pedestal, factory field width, and the effective radiometric zero
+point. On bare sensors that zero point is not a constant — it moves with
+measured **sky colour** (see *Radiometric colour term*). Avoid calling it the
+"fixed-calibration" value; the calibration is fixed per sensor, the zero point
+applied to a given frame is not.
 
 **Stellar SQM (`sqm_star_calibrated`)**:
 The former per-frame stellar-zero-point result. Retained as a transmission and
@@ -115,6 +119,24 @@ Median of local annulus skies, used only by stellar diagnostics.
 **Bias offset**:
 Static mean detector signal at minimum exposure, in raw ADU. Comes from the
 built-in sensor profile unless an optional per-device calibration overrides it.
+Static is the operative word: it is a stored constant, and a **tracked black
+level** supersedes it when one is available.
+
+**Tracked black level (`BlackLevelTracker`)**:
+The sensor's actual pedestal right now, fitted as the intercept of sky
+background against exposure over the running session. The optical-black clamp
+moves with sensor state, so this measurement supersedes both the profile
+constant and any wizard-measured bias offset once its fit is **leased**. It
+needs no lens cap and no dark frame. Say "tracked black level", not "auto
+bias" or "dynamic calibration" — it measures one specific quantity and does
+not calibrate anything else. See
+[ADR 0028](../../adr/0028-tracked-black-level-supersedes-stored-bias.md).
+
+**Lease**:
+The gate that decides whether a tracked black level is trusted enough to
+publish, based on the fit's standard error and deviation band. Unleased, the
+pedestal falls back to the stored constant. A tracker holding samples is not
+the same as a tracker whose fit is leased.
 
 **Mean dark signal**:
 `calibrated_dark_current_rate × exposure_seconds`. A mean exposure-dependent
@@ -122,21 +144,11 @@ signal, not an RMS noise term. Factory profile rates are unverified engineering
 estimates and remain diagnostic until optional per-device calibration measures
 the rate.
 
-**Optical black** (OB):
-Shielded sensor rows carrying no sky light — the sensor's own signal reference.
-On IMX290/IMX462 the ten transmitted OB rows are surfaced per frame and their
-central-90% trimmed mean is published as `optical_black_pedestal` in native
-ADU. A valid OB value is the *complete* per-frame pedestal (bias plus that
-frame's accumulated dark signal); it is measured, not modelled, so no
-dark-current rate is applied on top of it. Do not call it "black level" (an
-overloaded libcamera/tuning term).
-
 **Pedestal**:
-The mean detector signal subtracted from sky background. Precedence: a valid
-same-frame `optical_black_pedestal` (IMX290/462) wins; else a user-calibrated
-`bias_offset + mean_dark_signal`; else the zero-touch profile `bias_offset`. An
-explicit total `pedestal_override` wins over all. `pedestal_source` in the
-details records which applied.
+The mean detector signal subtracted from sky background. Its bias term is the
+**tracked black level** when one is leased, otherwise `bias_offset`. An
+optional measured calibration adds `mean_dark_signal` on top of that bias term.
+An explicit total `pedestal_override` wins over all of it.
 
 **Read noise**:
 Zero-mean RMS variation in raw ADU. Diagnostic uncertainty; never subtracted
@@ -167,7 +179,14 @@ It is fixed per shipped sensor/optics profile and does not change with current
 stellar transmission.
 
 **Radiometric field width**:
-Factory angular width used for square-arcsecond conversion when no solve exists.
+Angular width used for square-arcsecond conversion when no solve exists.
+Derived from the **optical train** (see [Camera](../camera/CONTEXT.md)) rather
+than stored per sensor: it is a property of the sensor *and* the fitted lens,
+so a sensor-only constant is silently wrong the moment the lens changes. An
+error here scales the assumed solid angle, and so biases every published
+radiometric SQM — a lens change of one step is worth ~0.6 mag.
+_Avoid_: factory field width (it is no longer a factory constant), FOV
+(unqualified — see [Camera](../camera/CONTEXT.md)).
 
 ## Passband and atmosphere
 
@@ -176,8 +195,32 @@ Per-sensor trim mapping catalog colour into the camera's stellar passband.
 
 **SQM band offset (`sqm_band_offset`)**:
 Additive mapping from sensor-band sky brightness to the reference SQM-L scale
-for the calibrated sky regime. It is coupled to the catalog transform, wing
-model, and local-annulus background estimator.
+for the calibrated sky regime, on the **stellar** path only. It is coupled to
+the catalog transform, wing model, and local-annulus background estimator.
+Diagnostic: the published value comes from the radiometer, not from here.
+
+**Sky colour (`R/G`)**:
+Ratio of median red to median green sky background, measured off the raw
+mosaic. A *measurement of the scene*, not a sensor property — it is the
+project's proxy for sky spectrum, and the thing that distinguishes a
+sodium/LED-dominated light-polluted sky (green-weighted, R/G ≈ 0.83–0.89) from
+a dark airglow sky (grey and NIR-rich, R/G ≈ 1.00–1.04). Say "sky colour" or
+"R/G", not "colour temperature" or "white balance" — neither is what this is.
+
+**Radiometric colour term (`radiometric_colour_slope` / `_pivot` / `_range`)**:
+Sky-colour dependence of the radiometric zero point, in mag per unit R/G. It
+exists because the sensor-band to V-band conversion depends on the sky's
+spectrum, which a single constant cannot represent across regimes. Slope `0`
+means a plain constant, which is correct for mono sensors and for IR-cut
+sensors with no NIR leak. R/G is clamped to `_range` rather than extrapolated.
+Distinct from **colour coefficient**, which trims *catalog star* colour on the
+stellar path; this one trims *sky* colour on the radiometric path. See ADR 0026.
+
+**Mosaic phase**:
+The property that pixel `(0, 0)` of the frame reaching photometry is still a
+red CFA site. Rotation by 180° and odd crop origins both break it while leaving
+the green sites unchanged, so the colour term checks it and reports no colour
+rather than blue-as-red.
 
 **Airmass / altitude correction**:
 Pickering (2002) airmass and `0.28 mag/airmass`. Comparison-only; unknown
@@ -204,6 +247,9 @@ records the difference in its metadata.
 **Calibration JSON**:
 Optional `~/PiFinder_data/sqm_calibration_<sensor>.json` override containing
 bias, read noise, and dark-current rate. Absence is the normal zero-touch case.
+Of the three fields the dark-current rate is the one that still changes the
+published value: bias yields to a leased **tracked black level**, and read
+noise is diagnostic.
 
 **Calibration wizard**:
 Optional service flow. Captures minimum-exposure bias frames, fits temporal

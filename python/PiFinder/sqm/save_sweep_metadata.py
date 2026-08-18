@@ -10,6 +10,8 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 import pytz
 
+from PiFinder.optics import optical_train_for_profile
+
 from .sqm import SQM
 
 logger = logging.getLogger("SweepMetadata")
@@ -28,6 +30,7 @@ def save_sweep_metadata(
     azimuth_deg: Optional[float] = None,
     noise_floor_details: Optional[Dict[str, Any]] = None,
     camera_type: Optional[str] = None,
+    lens_key: Optional[str] = None,
     notes: str = "",
 ):
     """
@@ -50,6 +53,14 @@ def save_sweep_metadata(
             Contains: noise_floor_adu, dark_pixel_raw, dark_pixel_smoothed, theoretical_floor,
             temporal_noise, read_noise, dark_current_contribution, bias_offset, etc.
         camera_type: Camera type string (optional)
+        lens_key: The lens the device is configured for. Pass what
+            ``shared_state.camera_lens()`` holds, even when that is None.
+            Omitting it falls back to the sensor's shipped lens, which is a
+            *different* field width from the one the sweep was taken through
+            unless the two happen to agree -- so an omission from a caller
+            that has the config in hand is a bug, not a default. The archive
+            is what the SQM constants are re-derived from, so a mislabelled
+            lens silently poisons the next calibration.
         notes: Any additional notes
     """
     metadata: Dict[str, Any] = {
@@ -98,11 +109,29 @@ def save_sweep_metadata(
     if camera_type is not None:
         try:
             profile = SQM(camera_type).profile
+            train = optical_train_for_profile(profile, lens_key)
             metadata["camera"] = {
                 "type": camera_type,
                 "bias_offset": profile.bias_offset,
                 "sqm_band_offset": profile.sqm_band_offset,
                 "color_coefficient": profile.color_coefficient,
+                # The radiometric zero point is no longer a constant you can
+                # look up by camera type: on bare sensors it moves with the
+                # measured sky colour. Record the whole model, or a later
+                # refit cannot tell which one produced these frames.
+                "radiometric_zero_point": profile.radiometric_zero_point,
+                "radiometric_colour_slope": profile.radiometric_colour_slope,
+                "radiometric_colour_pivot": profile.radiometric_colour_pivot,
+                "radiometric_colour_range": list(profile.radiometric_colour_range),
+                # Derived from the optical train, not looked up per sensor:
+                # the same sensor images a different field on a different
+                # lens. Record the lens alongside it or a later reader cannot
+                # tell which train produced these frames.
+                "radiometric_fov_degrees": train.fov_degrees,
+                "lens": train.lens.key,
+                "lens_effective_focal_length_mm": (
+                    train.lens.effective_focal_length_mm
+                ),
                 # Extent of the archived raw frames. Sweeps from the
                 # cropped era carry no such field; these hold the whole
                 # sensor, which a reader reduces to the crop with

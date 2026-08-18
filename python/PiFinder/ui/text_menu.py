@@ -65,7 +65,12 @@ class UITextMenu(UIModule):
 
     def _sync_single_selection(self, config_option):
         """Match the highlight/checkmark to the stored config value."""
-        self._selected_values = [self.config_object.get_option(config_option)]
+        stored_value = self.config_object.get_option(config_option)
+        if stored_value is None and self.item_definition.get("value_callback"):
+            # Hardware-dependent menus calculate their default through the
+            # callback; preserve that value until the option is explicitly set.
+            stored_value = self._selected_values[0] if self._selected_values else None
+        self._selected_values = [stored_value]
         if self._selected_values == [None]:
             # default to the first option... just in case
             self._selected_values = [self.item_definition["items"][0]["value"]]

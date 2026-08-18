@@ -6,7 +6,7 @@ parameter change advances dirty_time, and any object-set mutation
 (add_object/add_objects/clear_objects) resets last_filtered — either one
 must trigger a real re-filter on the next call.
 
-Freshness triggers layered on top of that contract (ADR 0020):
+Freshness triggers layered on top of that contract (ADR 0025):
 logging an object (Catalogs.mark_logged) invalidates when an observed
 criterion is active, and altitude verdicts go stale as the sky rotates
 or when an alt/az fix first arrives (CatalogFilter.is_stale, promoted

@@ -276,8 +276,13 @@ def cmd_launch(args):
     )
     pf_cmd = [
         py, "-m", "PiFinder.main",
-        "-fh", "--camera", "debug", "--keyboard", "none", "--display", "headless", "-x",
+        "-fh", "--camera", "debug", "--keyboard", "none",
+        "--display", args.display, "-x",
     ]
+    if args.fakebattery:
+        # rev4 battery monitor: title-bar icon plus a full simulated discharge
+        # lap (low-battery warnings, blind-floor shutdown).
+        pf_cmd.insert(3, "-fb")
     pf_proc = subprocess.Popen(
         pf_cmd,
         cwd=str(repo / "python"),
@@ -472,6 +477,19 @@ def build_parser():
     sp = sub.add_parser("launch", help="start cedar + headless PiFinder and wait for the API")
     sp.add_argument("--repo", help="PiFinder repo root (auto-detected by default)")
     sp.add_argument("--timeout", type=float, default=90.0, help="seconds to wait for the API")
+    sp.add_argument(
+        "--display",
+        default="headless_176",
+        choices=["headless_176", "headless", "headless_320"],
+        help="panel to emulate: headless_176 = rev4's 176x176 SSD1333 (default), "
+             "headless = the 128x128 SSD1351 on v3/v2.5",
+    )
+    sp.add_argument(
+        "-fb", "--fakebattery",
+        action="store_true",
+        help="run the fake rev4 battery monitor: title-bar battery icon plus a "
+             "full simulated discharge (low-battery warnings, blind-floor shutdown)",
+    )
     sp.set_defaults(func=cmd_launch)
 
     sp = sub.add_parser("ready", help="poll until the API answers")

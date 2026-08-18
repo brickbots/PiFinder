@@ -6,6 +6,14 @@
 > excellent raw material for troubleshooting and setup docs once rewritten in the
 > manual's voice. If a fact here conflicts with the code or existing docs, trust
 > the code/docs and flag the discrepancy.
+>
+> **This file predates rev4.** Every power, battery, charging and switch fact
+> below describes **v3 / v2.5** with the optional PiSugar add-on, unless it says
+> otherwise. rev4 has a power button instead of a slide switch, an on-board
+> charger instead of the PiSugar, a title-bar battery indicator, low-battery
+> warnings at 10% and 5%, and an automatic clean shutdown when flat. Do not
+> carry a power fact from this file into rev4 prose without checking it against
+> `product-knowledge-base.md`, which is scoped per hardware revision.
 
 Read this for technical facts about diagnosis, troubleshooting, plate solving, alignment, PiSugar/power, mount/config (Flat/Left/Right), conversion, and replacement parts.
 
@@ -51,7 +59,7 @@ Read this for technical facts about diagnosis, troubleshooting, plate solving, a
 - **Multi-night observing power bank options**: (1) run the PiFinder directly from the bank during sessions, (2) charge the internal battery from the bank during the day if observing 4-5 hours/night. For longer sessions, hot-plug mid-night. The "preserve internal battery via switch-off while powered externally" trick exists but is rarely needed for the typical multi-night case.
 - **Roadmap features**: when a concrete roadmap solution exists for a pain point, the roadmap details (what it does, how it's used, timeline) are what matter. ServoCat-style closed-loop GoTo for ServoFi owners is a capability gap that would need a community-built INDI driver.
 - **Migrating from another system** (Argo Navis, Nexus DSC): relevant upcoming PiFinder features include user-supplied catalogs.
-- **Known hardware limitations and their design rationale**: e.g., no on-screen battery indicator and no graceful low-battery shutdown — a future hardware revision will address these; the current design uses the off-the-shelf PiSugar to keep PiFinder DIY-friendly. Workaround: a USB-C power bank can be hot-plugged for a longer observing session.
+- **Known hardware limitations and their design rationale** (**v3 / v2.5 only — rev4 fixed all of this**): v3 has no on-screen battery indicator and no graceful low-battery shutdown, because it uses the off-the-shelf PiSugar to keep PiFinder DIY-friendly. Workaround on v3: hot-plug a USB-C power bank for a longer observing session. **rev4 is the "future hardware revision" this referred to** — it has the title-bar battery indicator, warnings at 10% and 5%, and an automatic clean shutdown. Never write "the PiFinder has no battery indicator" in the manual.
 - **First-use tips** for new owners: Focus and Alignment steps, exposure adjustments.
 - On non-primary scopes where orientation isn't ideal, the physical workaround is to peek around the side to see the screen and use the keypad; the web interface is the other option.
 - **SCT/fork mounts**: Flat works below head height; Left/Right when the tube top is too high to see Flat comfortably.

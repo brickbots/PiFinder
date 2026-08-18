@@ -1,0 +1,203 @@
+{
+  "description": "pre-charge 1-D sweep at reference, codes 0-31 incl. cut-out edge",
+  "pinned": {
+    "contrast": 64,
+    "master": 7,
+    "ceiling": 31
+  },
+  "sentinel_every": 10,
+  "points": [
+    {
+      "axes": {
+        "precharge": 0
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 1
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 2
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 3
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 4
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 5
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 6
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 7
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 8
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 9
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 10
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 11
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 12
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 13
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 14
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 15
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 16
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 17
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 18
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 19
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 20
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 21
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 22
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 23
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 24
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 25
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 26
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 27
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 28
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 29
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 30
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "precharge": 31
+      },
+      "value": 255
+    }
+  ]
+}

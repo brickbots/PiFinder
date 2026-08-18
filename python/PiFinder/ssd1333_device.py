@@ -169,6 +169,14 @@ class ssd1333(color_device):
         before that. Capping the values fed to the built-in table is clean at
         every level.
 
+        The rescale maps in emitted-light space, not level space: level n
+        emits in proportion to (n - 1), not n, so a pixel's fraction of full
+        light is (n - 1) / 30 and the level under ceiling L that preserves it
+        is 1 + (n - 1) * (L - 1) / 30. Scaling the level number directly
+        instead compounds the -1 offset as the ceiling falls -- mid-gray
+        pixels dim faster than bright ones and then land on the dark levels 0
+        and 1, which is exactly a contrast shift with brightness.
+
         Dimming this way costs the UI tonal range, since its shades land on
         the levels below the cap, so callers should hold the ceiling as high
         as the target brightness allows.
@@ -181,10 +189,36 @@ class ssd1333(color_device):
         if level == GRAY_SCALE_LEVELS:
             self._gray_scale_lut = None
             return
-        # luma keeps the top 5 bits of the red byte, so 8*level selects the
-        # level itself. One table per band, since point() wants all of them.
-        ceiling = level * 8
-        self._gray_scale_lut = [round(v * ceiling / 255) for v in range(256)] * 3
+        # luma keeps the top 5 bits of the red byte, so a pixel's native level
+        # is v // 8 and 8*n selects level n. Rounding to the nearest level (a
+        # multiple of 8) rather than letting luma truncate keeps shades from
+        # collapsing a level early. Pixel value 0 stays level 0; other dark
+        # levels map to 1, which never emits. One table per band, since
+        # point() wants all of them.
+        steps = GRAY_SCALE_LEVELS - 1
+        lut = [0]
+        for v in range(1, 256):
+            light = max(0, v // 8 - 1) / steps
+            lut.append(min(level, round(1 + light * (level - 1))) * 8)
+        self._gray_scale_lut = lut * 3
+
+    def precharge_voltage(self, level):
+        """
+        Sets the pre-charge voltage (0xBB, A[4:0]), as a fraction of VCC.
+
+        A brightness axis whose authority depends on the drive: it scales a
+        weakly driven pixel's light by up to 32x and a strongly driven one's
+        by ~1.3x (rig-measured; see docs/ax/display/ssd1333-response.md).
+        The cut-out edge moves with drive -- at the dimming policy's floor
+        state the panel is dark at code 3 and below. The brightness policy
+        walks codes 4..0x17 as its dimmest regime; the init sequence sets
+        0x17 (0.40 x VCC), which all bright-regime constants assume.
+
+        :param level: Pre-charge voltage code in the range 0-31.
+        :type level: int
+        """
+        assert 0 <= level <= 31
+        self.command(0xBB, level)
 
     def display(self, image):
         """

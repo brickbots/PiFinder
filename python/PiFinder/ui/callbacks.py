@@ -19,6 +19,7 @@ from typing import Any, TYPE_CHECKING
 from PiFinder import utils, calc_utils
 from PiFinder import timez
 from PiFinder.locations import Location as SavedLocation
+from PiFinder.optics import resolve_camera_profile, resolve_lens
 from PiFinder.state import Location
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.textentry import UITextEntry
@@ -225,6 +226,35 @@ def switch_cam_imx462(ui_module: UIModule) -> None:
     restart_system(ui_module)
 
 
+def get_camera_lens(ui_module: UIModule) -> list[str]:
+    """Lens the device is currently working from.
+
+    Not simply the config value: an install that predates the setting has none
+    stored, and which lens that means depends on the detected sensor. Resolve
+    it the same way the solver does -- both halves through the tolerant
+    resolvers -- so the menu shows what is actually in force rather than an
+    arbitrary first entry, and so an unrecognised sensor leaves the lens menu
+    openable instead of raising while it is built.
+    """
+    profile = resolve_camera_profile(ui_module.shared_state.camera_type())
+    return [
+        resolve_lens(profile, ui_module.config_object.get_option("camera_lens")).key
+    ]
+
+
+def set_camera_lens(ui_module: UIModule) -> None:
+    """Publish a lens change to the processes that derive angles from it.
+
+    No restart: the solver re-reads the lens per frame, so the new FOV gate,
+    radiometric field width and frustum shading all take effect on the next
+    frame. If the lens named here is not the one fitted, solving stops
+    outright -- deliberately, see docs/adr/0027.
+    """
+    lens_key = ui_module.config_object.get_option("camera_lens")
+    ui_module.shared_state.set_camera_lens(lens_key)
+    logger.info("Camera lens set to %s", lens_key)
+
+
 def get_camera_type(ui_module: UIModule) -> list[str]:
     return sys_utils.get_camera_type()
 
@@ -328,7 +358,10 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     """
     logger.info(f"Setting time to: {time_str}")
 
-    timezone_str = ui_module.shared_state.location().timezone
+    # Location.timezone is Optional and pytz.timezone(None) raises, so fall
+    # back rather than crash on commit. set_location already settles the zone
+    # to UTC when it cannot resolve one; this covers a Location built directly.
+    timezone_str = ui_module.shared_state.location().timezone or "UTC"
 
     # First create a datetime object (using today's date by default)
     dt = timez.parse(time_str, "%H:%M:%S")
@@ -358,7 +391,8 @@ def set_datetime(ui_module: UIModule, date_str: str) -> None:
     time_str = ui_module.item_definition.get("time_str", "00:00:00")
     logger.info(f"Setting datetime to: {date_str} {time_str}")
 
-    timezone_str = ui_module.shared_state.location().timezone
+    # See set_time: fall back rather than raise on an unresolved zone.
+    timezone_str = ui_module.shared_state.location().timezone or "UTC"
     timezone = pytz.timezone(timezone_str)
 
     dt = timez.parse(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")

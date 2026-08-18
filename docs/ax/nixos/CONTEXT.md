@@ -38,19 +38,19 @@ The production channel — official release entries in the generated manifest. T
 _Avoid_: "release channel" (the *branch* is `release`; the *channel* is "stable").
 
 **beta**:
-The integration channel — GitHub **prereleases** (the `prerelease` flag), cut deliberately from `main`. Curated like stable (notes, explicit semver `vX.Y.Z-beta`, the version gate) and pushed to the *retained* cache, so beta builds reinstall durably too. Ceremonial, not continuous.
+The integration channel — GitHub **prereleases** (the `prerelease` flag), cut deliberately from `main`. Curated like stable (notes, explicit semver `vX.Y.Z-beta`, the version gate), but pushed to the short-retention `pifinder` cache rather than the retained one, so a beta reinstalls only while its closure survives GC. Ceremonial, not continuous.
 _Avoid_: naming the channel "prerelease" — it is "beta"; prerelease is its mechanism.
 
 **unstable**:
 The bleeding-edge channel — the live `main`/**trunk** head plus open PRs carrying the `testable` label, each installable at its own head. The `main` entry is rendered more prominently to set it apart from the per-PR rows. Hidden until unlocked (7× square).
 _Avoid_: "preview", "nightly".
 
-**As-is vs to-be:** channel *sourcing* matches the current code (stable/beta = Releases split on the prerelease flag; unstable = `main` head + testable PRs). The only deltas are cosmetic and transitional: render the unstable `main` entry more prominently than PR rows, and — until upstreaming — read from the Fork's `nixos` trunk (see In-between phase).
+**As-is vs to-be:** channel *sourcing* matches the current code (stable/beta = Releases split on the prerelease flag; unstable = `main` head + testable PRs). The prominence delta is done — the trunk row renders bold and set apart from the PR rows. One transitional delta remains: until upstreaming, the unstable trunk is read from the Fork's `nixos` branch (see In-between phase).
 
 ### Rollback
 
 **Rollback**:
-Returning a device — or the fleet — to a known-good build after a bad one ships. Guaranteed for **stable** and **beta** — both are Releases whose closures live in the retained `pifinder-release` cache; only **unstable** (`main` head / PR) builds may be GC'd from the short-retention dev cache.
+Returning a device — or the fleet — to a known-good build after a bad one ships. Guaranteed for **stable**, whose closures live in the retained `pifinder-release` cache; **beta** and **unstable** (`main` head / PR) builds share the short-retention dev cache and may be GC'd.
 
 **Watchdog**:
 The on-device boot guardian. It health-checks every boot of a not-yet-**confirmed** generation (a **trial**) and performs a **generation rollback** when the trial fails — capturing evidence and telling the operator on screen. It never rolls back a confirmed generation, but it still *reports*: a confirmed generation whose app fails gets an on-screen advisory naming the **recovery hold** (see [NixOS ADR 0005](./adr/0005-self-arming-watchdog-confirmed-generations.md)).
@@ -79,7 +79,7 @@ _Avoid_: "safe mode" (nothing about the broken build is run "safely" — recover
 The instance-local revert to an earlier NixOS generation. Triggered automatically by the **watchdog** when a **trial** fails, or manually. Bounded — local generations are pruned to three (the running one plus two rollback targets, surfaced in the Software screen's Rollback channel).
 
 **Reinstall an older build**:
-The durable rollback path: pick a prior version and install it — the device substitutes its prebuilt closure (it never compiles; the upgrade is `nix build … --max-jobs 0`), so the only requirement is that the closure still lives in a reachable cache. For **stable** and **beta** that is guaranteed (their closures live in the never-GC'd `pifinder-release` cache), so any past release reinstalls forever; **unstable** closures may be GC'd from the short-retention cache, at which point that exact build is un-installable until CI rebuilds and re-pushes it. Survives generation pruning and covers boots-but-misbehaves bugs the watchdog cannot catch.
+The durable rollback path: pick a prior version and install it — the device substitutes its prebuilt closure (it never compiles; the upgrade is `nix build … --max-jobs 0`), so the only requirement is that the closure still lives in a reachable cache. For **stable** that is guaranteed (its closures live in the never-GC'd `pifinder-release` cache), so any past stable release reinstalls forever; **beta** and **unstable** closures may be GC'd from the short-retention cache, at which point that exact build is un-installable until CI rebuilds and re-pushes it. Survives generation pruning and covers boots-but-misbehaves bugs the watchdog cannot catch.
 
 **Yank**:
 A release-level rollback — demoting a buggy official Release (to draft/prerelease, or superseding it) so it leaves the **stable** channel for *new* installs. There is no fleet-wide auto-revert: a device already on a yanked build surfaces an **advisory** (a status/notification that its version is withdrawn) prompting the user to choose the latest, who then recovers by **reinstalling an older build**. User-initiated, never automatic.

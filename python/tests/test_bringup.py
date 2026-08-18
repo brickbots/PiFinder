@@ -28,6 +28,7 @@ from PiFinder.bringup import (
     CheckResult,
     GridState,
     Kind,
+    PowerHold,
     Status,
     backlight_duty,
     compute_verdict,
@@ -35,6 +36,8 @@ from PiFinder.bringup import (
     format_summary,
     grid_layout,
     parse_pwm_overlay,
+    power_cell_label,
+    request_shutdown,
 )
 
 PYTHON_DIR = Path(__file__).resolve().parents[1]
@@ -290,6 +293,164 @@ def test_describe_positions_names_the_key_each_switch_sends():
     assert describe_positions(many).endswith("+1 more")
 
 
+# --- The power hold --------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_power_hold_arms_only_after_the_threshold():
+    hold = PowerHold(threshold=1.0)
+
+    assert not hold.update(True, 100.0)  # closes
+    assert not hold.update(True, 100.5)  # halfway
+    assert not hold.update(True, 100.99)
+    assert hold.update(True, 101.0)  # threshold reached
+
+
+@pytest.mark.unit
+def test_power_hold_arms_exactly_once_while_held():
+    """A power line that reads closed forever -- a stuck switch or a short --
+    must not re-request a shutdown on every frame of the loop."""
+    hold = PowerHold(threshold=1.0)
+    hold.update(True, 0.0)
+    assert hold.update(True, 1.0)
+    for step in range(2, 20):
+        assert not hold.update(True, float(step))
+
+
+@pytest.mark.unit
+def test_a_released_hold_rearms_and_does_not_fire():
+    """Releasing before the threshold is how an accidental hold is aborted;
+    the next press then starts a fresh second rather than resuming."""
+    hold = PowerHold(threshold=1.0)
+    hold.update(True, 0.0)
+    hold.update(True, 0.9)
+    assert not hold.update(False, 0.95)
+    assert hold.progress == 0.0
+
+    # A new press does not inherit the 0.9 s already served.
+    assert not hold.update(True, 1.0)
+    assert not hold.update(True, 1.5)
+    assert hold.update(True, 2.0)
+
+
+@pytest.mark.unit
+def test_a_tap_never_arms_the_hold():
+    """The SWITCHES check needs the power switch closed; a tap has to satisfy
+    it without shutting the card down mid-run."""
+    hold = PowerHold(threshold=1.0)
+    for press in range(10):
+        now = press * 0.5
+        assert not hold.update(True, now)
+        assert not hold.update(False, now + 0.05)
+
+
+@pytest.mark.unit
+def test_power_hold_progress_tracks_the_hold():
+    hold = PowerHold(threshold=1.0)
+    assert hold.progress == 0.0
+    hold.update(True, 10.0)
+    assert hold.progress == pytest.approx(0.0)
+    hold.update(True, 10.25)
+    assert hold.progress == pytest.approx(0.25)
+    hold.update(True, 10.75)
+    assert hold.progress == pytest.approx(0.75)
+    # Never overshoots, even on a hold that outlives the threshold.
+    hold.update(True, 20.0)
+    assert hold.progress == 1.0
+
+
+@pytest.mark.unit
+def test_disabled_hold_never_arms_and_shows_no_bar():
+    """``--no-power-shutdown``: the switch still reads closed for the SWITCHES
+    check, but nothing arms and the cell must not draw a filling bar that
+    promises a shutdown which will never come."""
+    hold = PowerHold(threshold=1.0, enabled=False)
+    for step in range(20):
+        assert not hold.update(True, float(step))
+        assert hold.progress == 0.0
+
+
+@pytest.mark.unit
+def test_the_hold_threshold_matches_the_running_application():
+    """Bring-up and ``keyboard_pi`` answer the same gesture, so a builder
+    learns "hold power" once. ``keyboard_pi`` spells its threshold inline."""
+    source = (PYTHON_DIR / "PiFinder" / "keyboard_pi.py").read_text()
+    assert (
+        "time() - self.power_press_time > 1" in source
+    ), "keyboard_pi's power threshold moved -- retune SHUTDOWN_HOLD_SECONDS"
+    assert bringup.SHUTDOWN_HOLD_SECONDS == 1.0
+
+
+@pytest.mark.unit
+def test_power_cell_label_is_a_bar_only_while_held():
+    assert power_cell_label(0.0) == "PWR"
+    # One segment on the very first frame: the bar has to say "something is
+    # happening" while there is still time to let go.
+    assert power_cell_label(0.01) == "[#---]"
+    assert power_cell_label(0.5) == "[##--]"
+    assert power_cell_label(0.9) == "[###-]"
+    # ...and full only at the threshold, never a moment before it.
+    assert power_cell_label(0.99) != "[####]"
+    assert power_cell_label(1.0) == "[####]"
+
+
+@pytest.mark.unit
+def test_power_cell_label_fits_the_cell_on_every_panel():
+    """The label is drawn by the ordinary centred-cell path, so it has to fit
+    the power cell at its narrowest -- the 128 px panel's 34 px cell."""
+    labels = [power_cell_label(step / 20.0) for step in range(21)]
+    # Every bar state is the same width, so the label never reflows mid-hold.
+    assert {len(label) for label in labels if label != "PWR"} == {
+        bringup.HOLD_BAR_SEGMENTS + 2
+    }
+
+    for display_cls in HEADLESS_DISPLAYS:
+        display = display_cls()
+        layout = grid_layout(display)
+        for label in labels:
+            assert label.isascii()  # the UI fonts carry no box-drawing glyphs
+            width = display.fonts.small.width * len(label)
+            assert width <= layout.power.widths[0], (
+                f"{label!r} is {width}px in a {layout.power.widths[0]}px cell "
+                f"on {display_cls.__name__}"
+            )
+
+
+@pytest.mark.unit
+def test_shutdown_command_matches_sys_utils():
+    """``bringup`` spells the shutdown command out instead of importing
+    ``sys_utils`` (which needs ``pam`` / ``requests`` / ``sh`` and resolves
+    ``wpa_cli`` at import time -- none guaranteed on a freshly imaged card).
+    This is what keeps the two spellings in step.
+    """
+    source = (PYTHON_DIR / "PiFinder" / "sys_utils.py").read_text()
+    assert (
+        'sh.sudo("shutdown", "now")' in source
+        or '_run(["sudo", "shutdown", "now"])' in source
+    ), "sys_utils.shutdown changed -- update SHUTDOWN_COMMAND"
+    assert bringup.SHUTDOWN_COMMAND == ("sudo", "shutdown", "now")
+
+
+@pytest.mark.unit
+def test_request_shutdown_runs_the_command():
+    calls = []
+
+    def runner(command):
+        calls.append(command)
+        return 0
+
+    assert request_shutdown(runner=runner) == 0
+    assert calls == [["sudo", "shutdown", "now"]]
+
+
+@pytest.mark.unit
+def test_request_shutdown_reports_a_refusal():
+    """A card without passwordless ``shutdown`` in sudoers leaves the builder
+    reading SHUTTING DOWN on a board that is still up -- and reaching for the
+    power, which is the one thing the gesture exists to prevent."""
+    assert request_shutdown(runner=lambda command: 1) == 1
+
+
 # --- The report ------------------------------------------------------------
 
 
@@ -399,6 +560,51 @@ def test_dashboard_renders_on_every_panel(display_cls):
         )
         image = bringup.draw_dashboard(display, dashboard, layout)
         assert image.size == (display.resX, display.resY)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("display_cls", HEADLESS_DISPLAYS, ids=lambda cls: cls.__name__)
+def test_the_hold_bar_lights_the_power_cell_progressively(display_cls):
+    """The bar has to be visibly different frame to frame -- it is the only
+    warning a builder gets before the card shuts down."""
+    display = display_cls()
+    layout = grid_layout(display)
+    grid = GridState(keypad.REV4_POPULATED)
+    grid.update(set(), power_closed=True)
+
+    def power_cell(progress):
+        dashboard = bringup.Dashboard(
+            revision="rev4",
+            status_lines=["IMU  --", "CHG  --", "SW 0/18"],
+            grid=grid,
+            passed=False,
+            power_progress=progress,
+        )
+        image = bringup.draw_dashboard(display, dashboard, layout)
+        assert image.size == (display.resX, display.resY)
+        return image.crop(
+            (
+                layout.power.xs[0],
+                layout.power.y,
+                layout.power.xs[0] + layout.power.widths[0],
+                layout.power.y + layout.cell,
+            )
+        ).tobytes()
+
+    # Resting, then each of the four bar states in turn.
+    frames = [power_cell(progress) for progress in (0.0, 0.01, 0.4, 0.7, 1.0)]
+    assert len(set(frames)) == len(frames), "the bar does not change as it fills"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("display_cls", HEADLESS_DISPLAYS, ids=lambda cls: cls.__name__)
+def test_shutdown_notice_fills_the_panel(display_cls):
+    """What the glass says while the card unmounts -- over SSH the session is
+    about to drop, and at the bench there may be no terminal at all."""
+    display = display_cls()
+    image = bringup.notice_image(display, ["SHUTTING", "DOWN"])
+    assert image.size == (display.resX, display.resY)
+    assert image.getextrema()[0][1] > 0, "the notice rendered nothing"
 
 
 @pytest.mark.unit

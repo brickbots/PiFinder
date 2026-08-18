@@ -1,0 +1,191 @@
+{
+  "description": "gray-scale ceiling 1-D sweep at reference, levels 2-31",
+  "pinned": {
+    "contrast": 64,
+    "master": 7,
+    "precharge": 23
+  },
+  "sentinel_every": 10,
+  "points": [
+    {
+      "axes": {
+        "ceiling": 2
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 3
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 4
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 5
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 6
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 7
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 8
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 9
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 10
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 11
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 12
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 13
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 14
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 15
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 16
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 17
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 18
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 19
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 20
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 21
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 22
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 23
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 24
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 25
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 26
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 27
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 28
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 29
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 30
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "ceiling": 31
+      },
+      "value": 255
+    }
+  ]
+}
