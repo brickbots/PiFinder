@@ -1,0 +1,107 @@
+{
+  "description": "master 1-D sweep at reference, all 16 codes",
+  "pinned": {
+    "contrast": 64,
+    "ceiling": 31,
+    "precharge": 23
+  },
+  "sentinel_every": 10,
+  "points": [
+    {
+      "axes": {
+        "master": 0
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 1
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 2
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 3
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 4
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 5
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 6
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 7
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 8
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 9
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 10
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 11
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 12
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 13
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 14
+      },
+      "value": 255
+    },
+    {
+      "axes": {
+        "master": 15
+      },
+      "value": 255
+    }
+  ]
+}

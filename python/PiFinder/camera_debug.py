@@ -32,7 +32,13 @@ class CameraDebug(CameraInterface):
 
     def __init__(self, exposure_time) -> None:
         logger.debug("init camera debug")
-        self.camType = "Debug imx296"  # Format matches PI cameras for compatibility
+        # Format matches PI cameras for compatibility. The sensor named here
+        # is not cosmetic: it half-determines the solver's FOV gate, and the
+        # frames in test_images/ are ~10.2 deg, which only the hq profile's
+        # train covers. Declaring imx296 centres the gate on 13.71 deg and
+        # every debug frame is rejected before verification -- no solves at
+        # all under `--camera debug`. See docs/adr/0027.
+        self.camType = "Debug hq"
         self.path = utils.pifinder_dir / "test_images"
         self.exposure_time = exposure_time
         self.gain = 10

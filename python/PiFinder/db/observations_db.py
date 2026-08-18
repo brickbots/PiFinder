@@ -1,13 +1,36 @@
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
 from sqlite3 import Connection, Cursor
-from PiFinder.db.db import Database
-import PiFinder.utils as utils
+from threading import RLock
+from typing import List, Optional, Tuple
+
 from PiFinder.composite_object import CompositeObject
+from PiFinder.db.db import Database
+from PiFinder.db.objects_db import ObjectsDatabase
+import PiFinder.utils as utils
 
 logger = logging.getLogger("Observations_DB")
+
+
+@dataclass
+class _ObservedIdentityCache:
+    fingerprint: tuple[tuple[int, int], tuple[int, int]]
+    listings: set[tuple[str, int]]
+    object_ids: set[int]
+
+
+_observed_identity_caches: dict[tuple[Path, Path], _ObservedIdentityCache] = {}
+_observed_identity_cache_lock = RLock()
+
+
+def _database_fingerprint(path: Path) -> tuple[int, int]:
+    try:
+        stat = path.stat()
+    except OSError:
+        return 0, 0
+    return stat.st_mtime_ns, stat.st_size
 
 
 class ObservationsDatabase(Database):
@@ -36,10 +59,48 @@ class ObservationsDatabase(Database):
         it. Opened lazily and kept for the life of this instance.
         """
         if self._objects_db is None:
-            from PiFinder.db.objects_db import ObjectsDatabase
-
             self._objects_db = ObjectsDatabase()
         return self._objects_db
+
+    def _identity_cache_key(self) -> tuple[Path, Path]:
+        return self.db_path.resolve(), Path(utils.pifinder_db).resolve()
+
+    def _identity_cache_fingerprint(self) -> tuple[tuple[int, int], tuple[int, int]]:
+        observations_path, objects_path = self._identity_cache_key()
+        return (
+            _database_fingerprint(observations_path),
+            _database_fingerprint(objects_path),
+        )
+
+    def _query_observed_identities(
+        self,
+    ) -> tuple[set[tuple[str, int]], set[int]]:
+        """Load listing and sky-object identities with one indexed query."""
+        alias = "catalog_identity"
+        self.cursor.execute(
+            f"ATTACH DATABASE ? AS {alias}", (str(Path(utils.pifinder_db)),)
+        )
+        try:
+            rows = self.cursor.execute(
+                f"""
+                SELECT DISTINCT observed.catalog, observed.sequence,
+                                catalog_object.object_id
+                FROM obs_objects AS observed
+                LEFT JOIN {alias}.catalog_objects AS catalog_object
+                  ON catalog_object.catalog_code = observed.catalog
+                 AND catalog_object.sequence = observed.sequence
+                """
+            ).fetchall()
+        finally:
+            self.cursor.execute(f"DETACH DATABASE {alias}")
+
+        listings = {(row["catalog"], row["sequence"]) for row in rows}
+        object_ids = {
+            row["object_id"]
+            for row in rows
+            if row["object_id"] is not None and row["object_id"] >= 0
+        }
+        return listings, object_ids
 
     def _resolve_object_id(self, catalog: str, sequence: int) -> Optional[int]:
         """
@@ -176,11 +237,17 @@ class ObservationsDatabase(Database):
         )
         self.conn.commit()
 
-        # Update caches so filters reflect the new observation immediately
-        self.observed_objects_cache.add((catalog, sequence))
-        object_id = self._resolve_object_id(catalog, sequence)
-        if object_id is not None and object_id >= 0:
-            self.observed_object_ids.add(object_id)
+        # Update the process-wide cache so every existing view reflects the
+        # new observation immediately.
+        with _observed_identity_cache_lock:
+            self.observed_objects_cache.add((catalog, sequence))
+            object_id = self._resolve_object_id(catalog, sequence)
+            if object_id is not None and object_id >= 0:
+                self.observed_object_ids.add(object_id)
+
+            cache = _observed_identity_caches.get(self._identity_cache_key())
+            if cache is not None:
+                cache.fingerprint = self._identity_cache_fingerprint()
 
         observation_id = self.cursor.execute(
             "select last_insert_rowid() as id"
@@ -210,14 +277,39 @@ class ObservationsDatabase(Database):
         entries. Listings that don't resolve to an object id (virtual
         objects, removed catalogs) stay listing-keyed only.
         """
-        self.observed_objects_cache: set[tuple[str, int]] = {
-            (x["catalog"], x["sequence"]) for x in self.get_observed_objects()
-        }
-        self.observed_object_ids: set[int] = set()
-        for catalog, sequence in self.observed_objects_cache:
-            object_id = self._resolve_object_id(catalog, sequence)
-            if object_id is not None and object_id >= 0:
-                self.observed_object_ids.add(object_id)
+        with _observed_identity_cache_lock:
+            key = self._identity_cache_key()
+            fingerprint = self._identity_cache_fingerprint()
+            cache = _observed_identity_caches.get(key)
+            if cache is None or cache.fingerprint != fingerprint:
+                try:
+                    listings, object_ids = self._query_observed_identities()
+                except Exception:
+                    logger.warning(
+                        "Could not resolve observed object identities; "
+                        "observed status stays per listing",
+                        exc_info=True,
+                    )
+                    listings = {
+                        (row["catalog"], row["sequence"])
+                        for row in self.get_observed_objects()
+                    }
+                    object_ids = set()
+
+                if cache is None:
+                    cache = _ObservedIdentityCache(fingerprint, listings, object_ids)
+                    _observed_identity_caches[key] = cache
+                else:
+                    # Existing database instances retain these set objects, so
+                    # refresh them in place rather than stranding stale readers.
+                    cache.listings.clear()
+                    cache.listings.update(listings)
+                    cache.object_ids.clear()
+                    cache.object_ids.update(object_ids)
+                    cache.fingerprint = fingerprint
+
+            self.observed_objects_cache = cache.listings
+            self.observed_object_ids = cache.object_ids
 
     def check_logged(self, obj_record: CompositeObject):
         """

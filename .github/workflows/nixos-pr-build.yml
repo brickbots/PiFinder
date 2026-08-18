@@ -6,10 +6,10 @@ name: Build PiFinder NixOS (testable PRs)
 # `pull_request_target` runs in the BASE repo's trusted context, so the job has
 # the real ATTIC_TOKEN and a read-write GITHUB_TOKEN even for fork PRs. The
 # contributor's code is checked out explicitly (head SHA) and built. This is
-# only reached after a maintainer applies the `testable` label — that label is
-# the security boundary: it runs contributor code with the cache push token, so
-# review the diff before labeling, and re-review on each new push to a labeled
-# PR.
+# only reached after a maintainer applies the `testable` (or `preview`) label —
+# that label is the security boundary: it runs contributor code with the cache
+# push token, so review the diff before labeling, and re-review on each new push
+# to a labeled PR.
 #
 # Build strategy: the free GitHub-hosted ubuntu-24.04-arm runner builds first.
 # Its cores are faster than the Pi5, and the Attic cache (cache.pifinder.eu) is
@@ -33,7 +33,9 @@ permissions:
 jobs:
   # Primary: free GitHub-hosted arm64 runner (native aarch64, no QEMU).
   build-hosted:
-    if: contains(github.event.pull_request.labels.*.name, 'testable')
+    if: |
+      contains(github.event.pull_request.labels.*.name, 'preview') ||
+      contains(github.event.pull_request.labels.*.name, 'testable')
     runs-on: ubuntu-24.04-arm
     # Generous: only a kernel/source change compiles from scratch (~1 h on this
     # 4-core runner); everything else substitutes from Attic in minutes.
@@ -48,6 +50,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           persist-credentials: false
+          # Fork PRs: pull_request_target checkout of the head requires opt-in
+          # since actions/checkout began refusing it. The head SHA is pinned
+          # explicitly and only reached after the `testable`/`preview` label,
+          # which is the review gate for running contributor code.
+          allow-unsafe-pr-checkout: true
 
       - uses: DeterminateSystems/nix-installer-action@main
         with:
@@ -99,7 +106,8 @@ jobs:
     needs: build-hosted
     if: |
       always() &&
-      contains(github.event.pull_request.labels.*.name, 'testable') &&
+      (contains(github.event.pull_request.labels.*.name, 'preview') ||
+       contains(github.event.pull_request.labels.*.name, 'testable')) &&
       needs.build-hosted.result == 'failure'
     runs-on: [self-hosted, aarch64]
     timeout-minutes: 240
@@ -111,6 +119,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           persist-credentials: false
+          # Fork PRs: pull_request_target checkout of the head requires opt-in
+          # since actions/checkout began refusing it. The head SHA is pinned
+          # explicitly and only reached after the `testable`/`preview` label,
+          # which is the review gate for running contributor code.
+          allow-unsafe-pr-checkout: true
 
       - name: Ensure nix is on PATH (self-hosted runner)
         run: |
@@ -157,17 +170,7 @@ jobs:
       group: manifest-write
       cancel-in-progress: false
     steps:
-      # Check out the PR's BASE branch explicitly. The default checkout under
-      # pull_request_target lands on the repository's default branch, which
-      # carries this workflow (so the event fires) but not necessarily the
-      # scripts below -- the job then dies with "No such file or directory"
-      # after a successful 19-minute build. The base branch is the branch this
-      # workflow file itself came from, so it always has them, and it is
-      # maintainer-controlled: never check out the PR head here, which would
-      # run contributor code with contents:write and the Attic token.
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
 
       - name: Update generated manifest branch
         env:

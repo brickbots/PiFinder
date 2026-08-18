@@ -62,7 +62,7 @@ displays. It's a dataclass that merges three things:
   (`MagnitudeObject`), `mag_str` (display string), `logged` (derived
   from the observations DB per sky object: any log entry under any of
   the object's listings counts, keyed by `object_id`; virtual objects
-  key on their own listing — see ADR 0020),
+  key on their own listing — see ADR 0025),
   `last_filtered_time`/`last_filtered_result` (used by the filter
   cache).
 
@@ -235,7 +235,7 @@ So if the filter has not changed since the last sweep, a list open is
 O(catalogs) cache reads with no real predicate work.
 
 Two freshness triggers advance `dirty_time` besides the setters
-([ADR 0020](../adr/0020-filter-freshness-staleness-promotion.md)):
+([ADR 0025](../adr/0025-filter-freshness-staleness-promotion.md)):
 
 - **Logging**: `Catalogs.mark_logged(obj)` sets `obj.logged` — on the
   object and its sibling composites sharing a non-negative `object_id`

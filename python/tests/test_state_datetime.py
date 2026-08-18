@@ -118,6 +118,26 @@ def test_local_datetime_falls_back_to_utc_for_unresolvable_timezone(frozen_clock
 
 
 @pytest.mark.unit
+def test_set_location_settles_an_unresolvable_zone_to_utc(monkeypatch):
+    """timezone_at() returning None must not reach the stored Location.
+
+    Location.timezone is Optional and pytz.timezone(None) raises, so a raw
+    None would turn every reader into a guard -- and crash the manual
+    time-entry callbacks, which slice and localise it. UTC is already the
+    documented fallback for an unknown zone, so set_location settles it there
+    and the field stays a usable zone name.
+    """
+    monkeypatch.setattr(
+        state_mod.TimezoneFinder, "timezone_at", lambda self, **kwargs: None
+    )
+
+    shared_state, location = _state_at(BRUSSELS_LAT, BRUSSELS_LON)
+
+    assert location.timezone == "UTC"
+    assert shared_state.location().timezone == "UTC"
+
+
+@pytest.mark.unit
 def test_accessors_return_none_when_datetime_unset():
     shared_state = SharedStateObj()
 

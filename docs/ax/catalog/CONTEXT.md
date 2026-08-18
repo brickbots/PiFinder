@@ -102,7 +102,7 @@ Epoch timestamps driving the two filter cache layers. `mark_dirty()` advances `f
 _Avoid_: invalidation, cache key.
 
 **Stale** (filter staleness):
-Verdicts outdated by time passing rather than by a parameter change — only possible for time-sensitive criteria, today just altitude (the sky rotates ≤ 15°/hour). `CatalogFilter.is_stale()` reports it: altitude criterion active, alt/az available, and either verdicts older than `ALTITUDE_STALE_SECONDS` (600 s ≈ 2.5° of drift) or an alt/az fix arrived after verdicts were computed without one. Staleness never invalidates by itself; `Catalogs.filter_catalogs()` promotes it to a dirty bump. See [ADR 0020](../../adr/0020-filter-freshness-staleness-promotion.md).
+Verdicts outdated by time passing rather than by a parameter change — only possible for time-sensitive criteria, today just altitude (the sky rotates ≤ 15°/hour). `CatalogFilter.is_stale()` reports it: altitude criterion active, alt/az available, and either verdicts older than `ALTITUDE_STALE_SECONDS` (600 s ≈ 2.5° of drift) or an alt/az fix arrived after verdicts were computed without one. Staleness never invalidates by itself; `Catalogs.filter_catalogs()` promotes it to a dirty bump. See [ADR 0025](../../adr/0025-filter-freshness-staleness-promotion.md).
 _Avoid_: dirty (that's a parameter change), expired.
 
 **Empty-list rejection**:

@@ -185,6 +185,37 @@ class CameraInterface:
     def capture_raw_file(self, filename) -> None:
         pass
 
+    def _settle_exposure(self, requested_us, max_frames=8, tolerance=0.02):
+        """Discard frames until the sensor actually delivers `requested_us`.
+
+        A fixed flush count cannot be right for every sensor: the IMX290/462
+        serves exactly three frames at the old exposure after a change, while
+        the IMX477 emits half-exposure transitional frames instead. Flushing
+        two frames -- as this did -- left the next capture still on the old
+        exposure, so a sweep's processed PNG was one step behind the raw TIFF
+        beside it, and the radiometer sample attached to the record described
+        the PNG. Watch the driver's reported ExposureTime instead.
+
+        Returns the number of frames discarded.
+        """
+        for n in range(max_frames):
+            self.capture()
+            meta = getattr(self, "last_frame_metadata", None) or {}
+            actual = meta.get("ExposureTime")
+            if actual is None:
+                # Backend reports no exposure metadata (debug/none cameras);
+                # nothing to settle against, so don't burn frames on it.
+                return n + 1
+            if abs(float(actual) - requested_us) <= tolerance * requested_us:
+                return n + 1
+        logger.warning(
+            "Exposure did not settle at %sµs after %d frames; "
+            "the frame may not match its label",
+            requested_us,
+            max_frames,
+        )
+        return max_frames
+
     def _blank_capture(self):
         """
         Returns a properly formated black frame
@@ -748,11 +779,8 @@ class CameraInterface:
                                 # Flush camera buffer - discard pre-buffered frames with old exposure
                                 # Picamera2 maintains a frame queue, need to flush frames captured
                                 # before the new exposure setting was applied
-                                logger.debug(
-                                    f"Flushing camera buffer for {exp_us}µs exposure"
-                                )
-                                _ = self.capture()  # Discard buffered frame 1
-                                _ = self.capture()  # Discard buffered frame 2
+                                logger.debug(f"Settling camera at {exp_us}µs exposure")
+                                settled = self._settle_exposure(exp_us)
 
                                 # Now capture both processed and RAW images with correct exposure
                                 exp_ms = exp_us / 1000
@@ -806,12 +834,21 @@ class CameraInterface:
                                 # sample below does NOT: it is recomputed on
                                 # every capture and gives live per-frame
                                 # background/MAD/gradient through the sweep.
+                                frame_record["settle_frames"] = settled
                                 try:
                                     frame_record["sqm_details"] = _json_safe(
                                         shared_state.sqm_details()
                                     )
+                                    # The freeze is expected, but only the
+                                    # source said so -- an analyst reading the
+                                    # archive saw one value repeated across
+                                    # every frame with nothing marking it as a
+                                    # single pre-sweep snapshot. Say so in the
+                                    # data.
+                                    frame_record["sqm_details_frozen"] = True
                                 except Exception:
                                     frame_record["sqm_details"] = None
+                                    frame_record["sqm_details_frozen"] = None
                                 try:
                                     frame_record["radiometer_sample"] = _json_safe(
                                         shared_state.sqm_radiometer_sample()
@@ -903,6 +940,7 @@ class CameraInterface:
                                     altitude_deg=altitude_deg,
                                     azimuth_deg=azimuth_deg,
                                     camera_type=shared_state.camera_type(),
+                                    lens_key=shared_state.camera_lens(),
                                     notes=f"Exposure sweep: {num_images} images, {min_exp / 1000:.1f}-{max_exp / 1000:.1f}ms",
                                 )
                                 logger.info(

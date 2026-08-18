@@ -346,7 +346,8 @@ class TestTelemetryRecorder:
                 cal = cfg_hdr["sqm_calibration"]
                 # full profile is captured, not a hand-picked subset
                 assert "radiometric_zero_point" in cal["profile"]
-                assert "radiometric_fov_degrees" in cal["profile"]
+                assert "pixel_pitch_um" in cal["profile"]
+                assert "default_lens_key" in cal["profile"]
                 assert "bias_offset" in cal["profile"]
                 # Airglow constants only exist on branches carrying the model.
                 if telemetry_module.airglow is not None:

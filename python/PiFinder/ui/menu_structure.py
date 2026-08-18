@@ -1227,6 +1227,33 @@ pifinder_menu = {
                             ],
                         },
                         {
+                            # The lens cannot be detected, so this is the
+                            # user telling the device what is fitted. It is
+                            # marked on the barrel. Getting it wrong stops
+                            # solving entirely (docs/adr/0027).
+                            "name": _("Lens"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "camera_lens",
+                            "label": "camera_lens",
+                            "value_callback": callbacks.get_camera_lens,
+                            "post_callback": callbacks.set_camera_lens,
+                            "items": [
+                                {
+                                    "name": _("12mm"),
+                                    "value": "12mm",
+                                },
+                                {
+                                    "name": _("16mm"),
+                                    "value": "16mm",
+                                },
+                                {
+                                    "name": _("25mm"),
+                                    "value": "25mm",
+                                },
+                            ],
+                        },
+                        {
                             "name": _("GPS Settings"),
                             "class": UITextMenu,
                             "select": "single",

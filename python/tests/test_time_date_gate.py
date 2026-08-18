@@ -11,6 +11,8 @@ suppression, live predicate). Full-screen rendering in both states is covered by
 the cold/warm crash-smoke in test_ui_modules.py.
 """
 
+import inspect
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -19,6 +21,7 @@ import pytest
 import PiFinder.i18n  # noqa: F401  installs the _() gettext builtin
 from PiFinder.displays import get_display
 from PiFinder.state import Location
+from PiFinder.ui import callbacks
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.timeentry import UITimeEntry
 
@@ -95,6 +98,60 @@ def test_time_entry_gate_message_renders():
     """The base gate helper draws without error on a real headless display."""
     module = _build(UITimeEntry, _UNLOCKED)
     module.draw_gate_message("Set location\nfirst")  # must not raise
+
+
+def _drawn_text(module):
+    """Run draw_local_time_note against a recording draw, return the strings."""
+    module.draw = MagicMock()
+    module.draw_local_time_note()  # must not raise
+    return [call.args[1] for call in module.draw.text.call_args_list]
+
+
+def test_time_entry_shows_utc_when_the_fix_has_no_resolvable_timezone():
+    """A lock without a resolvable zone must still name the zone in use.
+
+    Location.timezone is Optional -- timezone_at() returns None for
+    coordinates it cannot place. set_time reads the entry as UTC in that case,
+    so the note says UTC; leaving the line blank would hide which zone the
+    user's digits are being interpreted against.
+    """
+    assert "UTC" in _drawn_text(_build(UITimeEntry, Location(lock=True, timezone=None)))
+
+    # and a zone that did resolve is still shown as-is
+    assert "America/New_York" in _drawn_text(_build(UITimeEntry, _LOCKED))
+
+
+def test_set_time_survives_a_fix_with_no_resolvable_timezone():
+    """The commit path must tolerate what the screen renders.
+
+    _location_locked() gates on the fix alone, so a lock whose zone did not
+    resolve reaches set_time on the way out of the screen. pytz.timezone(None)
+    raises UnknownTimeZoneError, which would surface as a crash on commit --
+    the entry is read as UTC instead, matching what the note now shows.
+    """
+    gps_queue = MagicMock()
+    ui_module = MagicMock()
+    ui_module.command_queues = {"gps": gps_queue}
+    ui_module.shared_state.location.return_value = Location(lock=True, timezone=None)
+    ui_module.item_definition = {"time_str": "21:30:00"}
+
+    callbacks.set_time(ui_module, "21:30:00")  # must not raise
+    callbacks.set_datetime(ui_module, "2026-07-30")  # must not raise
+
+    pushed = [call.args[0] for call in gps_queue.put.call_args_list]
+    assert [name for name, _payload in pushed] == ["time_force", "time_force"]
+    assert [str(payload["time"].tzinfo) for _name, payload in pushed] == ["UTC", "UTC"]
+
+
+def test_enter_local_time_is_an_extractable_literal():
+    """The note must stay a literal so Babel keeps it in the catalogs.
+
+    Passing a variable to _() extracts nothing, which silently obsoletes the
+    msgid on the next extract run and drops every existing translation.
+    """
+    source = Path(inspect.getfile(UITimeEntry)).read_text()
+
+    assert '_("Enter Local Time")' in source
 
 
 # --------------------------------------------------------------------------- #
