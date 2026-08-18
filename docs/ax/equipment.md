@@ -87,7 +87,7 @@ burns into the image as the eyepiece label.
 Every measurement is a **float** and carries an inclusive `Limits(minimum,
 maximum)` pair declared alongside the dataclasses. The ranges themselves are
 tabulated in [`equipment/CONTEXT.md`](./equipment/CONTEXT.md); the rationale for
-floats-everywhere is [ADR 0027](../adr/0027-equipment-measurements-are-validated-floats.md).
+floats-everywhere is [ADR 0030](../adr/0030-equipment-measurements-are-validated-floats.md).
 
 Two properties matter more than the numbers:
 

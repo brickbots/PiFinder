@@ -15,7 +15,7 @@ class Limits(NamedTuple):
 # SCT is 279.4mm of aperture, a focal reducer turns 2032mm into 1280.2mm,
 # a Nagler is 3.5mm) and an int field made those values unenterable — or,
 # once written to config as a string, unbootable (#291).  See
-# docs/adr/0027-equipment-measurements-are-validated-floats.md.
+# docs/adr/0030-equipment-measurements-are-validated-floats.md.
 #
 # These limits are the single source of the validation rules: the edit
 # forms render them into their inputs and their client-side check, and the

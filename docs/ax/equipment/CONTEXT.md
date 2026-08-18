@@ -93,7 +93,7 @@ Two rules that are not about ranges:
 - **A blank field is not a zero.** An empty required measurement is an error, never silently `0`. Only `obstruction_perc` and `field_stop` have a documented zero meaning, and only those default when left blank.
 - **A rejected entry never reports success.** The handler re-renders the form with the message and the values the user typed. This is the defect [#569](https://github.com/brickbots/PiFinder/issues/569) was raised for: the old handlers logged the failure and rendered "Eyepiece added" anyway.
 
-Recorded in [ADR 0027](../../adr/0027-equipment-measurements-are-validated-floats.md).
+Recorded in [ADR 0030](../../adr/0030-equipment-measurements-are-validated-floats.md).
 
 ### Boundary terms
 
