@@ -74,12 +74,14 @@ class TestLensRegistry:
         assert lens.effective_focal_length_mm == pytest.approx(15.61)
         assert lens.nominal_focal_length_mm != lens.effective_focal_length_mm
 
-    def test_unmeasured_lengths_are_flagged_as_such(self):
-        # The 12mm's effective length is its nominal standing in for a
-        # measurement nobody has taken. That has to stay visible in the data,
-        # not just in a comment, or it gets quietly treated as calibrated.
-        assert LENSES["12mm"].effective_focal_length_measured is False
-        assert LENSES["16mm"].effective_focal_length_measured is True
+    def test_no_effective_length_is_standing_in_for_a_measurement(self):
+        # The 12mm carried its nominal 12.0 as a placeholder until a rev4
+        # imx462 measured it on sky at 13.04mm (#627), and it was 8.7% out.
+        # Nothing in the registry stands in for a measurement now; anything
+        # added that does has to say so in the data, not just in a comment,
+        # or it gets quietly treated as calibrated the same way.
+        for key, lens in LENSES.items():
+            assert lens.effective_focal_length_measured is True, key
 
     def test_unknown_lens_is_rejected(self):
         with pytest.raises(ValueError, match="Unknown lens"):
@@ -146,11 +148,13 @@ class TestDerivedFieldOfView:
         """The combination that motivated the whole change.
 
         The retired constants were fov_estimate=12.0, fov_max_error=4.0, i.e.
-        a [8.0, 16.0] window. A 12mm lens on an imx296 images ~17.8 degrees
-        and could not solve at all.
+        a [8.0, 16.0] window. A 12mm lens on an imx296 images ~16.4 degrees
+        and could not solve at all. The margin narrowed when the 12mm's
+        effective length was measured (#627) -- 17.8 degrees was derived from
+        the nominal -- but it did not close.
         """
         fov = build_optical_train("imx296", "12mm").fov_degrees
-        assert fov == pytest.approx(17.78, abs=0.05)
+        assert fov == pytest.approx(16.38, abs=0.05)
         assert fov > 16.0
 
     def test_field_of_view_is_the_crop_not_the_raw_sensor(self):
@@ -210,10 +214,16 @@ class TestFovGate:
 # specific windows were reasoned about, in particular that the imx462's lands
 # within a whisker of the pre-0027 [8.0, 16.0] these units are known to work
 # under, and that the hq's does not move at all.
+# Recomputed after the 12mm's effective focal length was measured at 13.04mm
+# (#627); the ADR's original table derived the 12mm's field from its nominal.
+# The upper bounds moved down with it, the hq is untouched because it never
+# shipped a 12mm, and every gate still spans both of its sensor's lenses --
+# which is the property test_the_assumed_gate_spans_every_lens_the_sensor
+# _shipped checks independently of these numbers.
 ADR_0029_ASSUMED_GATES = {
-    "imx296": (11.65, 20.44),
-    "imx462": (8.84, 15.53),
-    "imx290": (8.84, 15.53),
+    "imx296": (11.65, 18.84),
+    "imx462": (8.84, 14.30),
+    "imx290": (8.84, 14.30),
     "hq": (8.78, 11.88),
 }
 
@@ -313,11 +323,13 @@ class TestAssumedLensGate:
         """The regression, stated as a test.
 
         A rev4 that shipped with the 12mm and no config assumed the 16mm,
-        gated [8.84, 11.96], and rejected its own 13.51 degree frames -- every
-        one of them, having changed nothing.
+        gated [8.84, 11.96], and rejected its own 12.44 degree frames -- every
+        one of them, having changed nothing. (The ADR says 13.51 there: that
+        was derived from the 12mm's nominal length, before #627 measured it.
+        The frames were always 12.44 degrees wide, and always outside.)
         """
         fitted = build_optical_train("imx462", "12mm").fov_degrees
-        assert fitted == pytest.approx(13.51, abs=0.05)
+        assert fitted == pytest.approx(12.44, abs=0.05)
 
         estimate, max_error = build_optical_train("imx462", "16mm").solver_fov_params()
         assert fitted > estimate + max_error  # the bug
