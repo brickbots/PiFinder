@@ -14,7 +14,7 @@ MAX_DEVIATION = 1.0
 # the sky turns 15 deg/hour, so a short cadence buys nothing.
 MAX_TIME = 10
 # The Nearby list is a window onto the closest objects, not a total ordering of
-# the catalog. See ADR 0029.
+# the catalog. See ADR 0030.
 NEAREST_LIST_CAP = 200
 
 
@@ -114,7 +114,7 @@ class ClosestObjectsFinder:
         dimension 0 as latitude and dimension 1 as longitude. Feeding it
         ``[ra, dec]`` computes separations on a swapped sphere -- correct only
         between objects sharing a meridian, and increasingly wrong towards the
-        poles. See ADR 0029.
+        poles. See ADR 0030.
         """
         deduplicated_objects = deduplicate_objects(objects)
         if not deduplicated_objects:

@@ -9,7 +9,7 @@ share a meridian are the one case where the axis order cannot be observed
 (the metric degenerates to ``|dec1 - dec2|``), so every ordering assertion here
 places objects at *different* RAs and checks against an independently computed
 great-circle separation. High-declination cases are included: that is where a
-swapped axis order goes most badly wrong. See ADR 0029.
+swapped axis order goes most badly wrong. See ADR 0030.
 """
 
 import math
