@@ -53,7 +53,7 @@ import io
 import pkgutil
 import queue
 import shutil
-from typing import Iterator, cast
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -83,11 +83,12 @@ from PiFinder.ui.menu_manager import MenuManager
 
 # Dynamic-only module classes (pushed at runtime, never as static tree nodes).
 from PiFinder.ui.object_details import UIObjectDetails
+from PiFinder.ui.object_list import SortOrder, UIObjectList
+from PiFinder.nearby import NEAREST_LIST_CAP
 from PiFinder.ui.log import UILog
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
 from PiFinder.ui.sqm_sweep import UISQMSweep
-from PiFinder.ui.software import UIMigrationConfirm, UIMigrationProgress
 
 
 # --------------------------------------------------------------------------- #
@@ -121,7 +122,11 @@ _SWEEP_SKIP: dict[str, str] = {
 # UIModule subclasses that are intentionally *not* exercised, with the reason.
 # Keeps the completeness guard (test_all_ui_modules_covered) honest.
 _COVERAGE_SKIP: dict[str, str] = {
-    "UIReleaseNotes": "fetches markdown via HTTP in active(); needs a network mock",
+    "UIReleaseNotes": (
+        "Pushed onto the stack by UISoftware's Notes action with a "
+        "notes-payload item_definition; not reachable from the menu tree "
+        "and needs live update-channel state to construct."
+    ),
 }
 
 # Bound on the auto-sweep so a handler that keeps pushing modules
@@ -182,8 +187,6 @@ _DYNAMIC_IDS = [
     "UIDateEntry",
     "UISQMCalibration",
     "UISQMSweep",
-    "UIMigrationConfirm",
-    "UIMigrationProgress",
 ]
 
 
@@ -219,23 +222,6 @@ def _build_dynamic_item_definition(spec_id: str, sample_object) -> dict:
     if spec_id == "UISQMSweep":
         # sqm.py:302
         return {"name": "SQM Sweep", "class": UISQMSweep, "label": "sqm_sweep"}
-    if spec_id == "UIMigrationConfirm":
-        # Pushed by UISoftware.key_square() after a 7x-square unlock.
-        return {
-            "name": "Confirm Migration",
-            "class": UIMigrationConfirm,
-            "version_info": {"version": "2.5.0"},
-            "current_version": "2.4.0",
-            "label": "migration_confirm",
-        }
-    if spec_id == "UIMigrationProgress":
-        # Pushed by UIMigrationConfirm after the user confirms.
-        return {
-            "name": "Migration Progress",
-            "class": UIMigrationProgress,
-            "version_info": {"version": "2.5.0"},
-            "label": "migration_progress",
-        }
     raise KeyError(spec_id)  # pragma: no cover
 
 
@@ -248,7 +234,11 @@ def _all_uimodule_subclasses() -> set[str]:
 
     def _recurse(cls):
         for sub in cls.__subclasses__():
-            found.add(sub.__name__)
+            # Only classes that live in the UI package count — test helpers
+            # subclassing UIModule elsewhere (e.g. test_battery_titlebar_icon's
+            # _BareModule) must not trip the coverage guard.
+            if sub.__module__.startswith("PiFinder.ui"):
+                found.add(sub.__name__)
             _recurse(sub)
 
     _recurse(UIModule)
@@ -355,8 +345,31 @@ def _no_comet_download():
     """
     import PiFinder.comets as comets
 
-    with mock.patch.object(
-        comets, "comet_data_download", return_value=(False, None, None)
+    with (
+        mock.patch.object(
+            comets,
+            "check_if_comet_download_needed",
+            return_value=(False, "test environment"),
+        ),
+        mock.patch.object(
+            comets, "comet_data_download", return_value=(False, None, None)
+        ),
+    ):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_asteroid_download():
+    """Keep the UI harness hermetic while building AsteroidCatalog."""
+    import PiFinder.asteroids as asteroids
+
+    with (
+        mock.patch.object(
+            asteroids,
+            "check_asteroid_download_needed",
+            return_value=(False, "test environment"),
+        ),
+        mock.patch.object(asteroids, "download_asteroid_year"),
     ):
         yield
 
@@ -428,7 +441,7 @@ def camera_image():
 
 
 @pytest.fixture(scope="session")
-def catalogs(_no_comet_download) -> Iterator[Catalogs]:
+def catalogs(_sandbox_data_dir, _no_comet_download) -> Iterator[Catalogs]:
     """Build the real catalogs once from the bundled DB.
 
     Teardown stops the perpetual catalog timers. The planet and comet catalogs
@@ -559,10 +572,7 @@ def _sweep_stack(menu_manager: MenuManager, seen: set) -> None:
     """
     count = 0
     while count < _MAX_SWEEP_MODULES:
-        # MenuManager.stack is annotated list[type[UIModule]] upstream
-        # but holds instances; cast so the sweep sees them
-        # as the UIModule instances they are.
-        pending = [cast(UIModule, m) for m in menu_manager.stack if id(m) not in seen]
+        pending = [m for m in menu_manager.stack if id(m) not in seen]
         if not pending:
             break
         for module in pending:
@@ -679,6 +689,68 @@ def test_object_details_tracks_target(display, camera_image, catalogs):
     # ...and updated on scroll.
     module.scroll_object(1)
     assert shared_state.ui_state().target() is obj_b
+
+
+@pytest.mark.integration
+def test_nearby_sort_navigation_bounded_by_ranked_window(
+    display, camera_image, catalogs
+):
+    """Navigation stays inside the Nearby window, which is shorter than the catalog.
+
+    The Nearby sort ranks at most ``NEAREST_LIST_CAP`` objects, so the list the
+    carousel draws is far shorter than the filtered catalog behind it. Long-DOWN
+    scrolls to the last row and RIGHT opens it, so both must be bounded by the
+    ranked window rather than by the source list -- otherwise the cursor lands
+    on rows that do not exist and opening one raises IndexError.
+    """
+    cfg = Config()
+    shared_state = _make_shared_state("warm")
+    command_queues = _make_command_queues()
+    catalog_filter = CatalogFilter(shared_state=shared_state)
+    catalog_filter.load_from_config(cfg)
+    catalogs.set_catalog_filter(catalog_filter)
+
+    module = UIObjectList(
+        display,
+        camera_image,
+        shared_state,
+        command_queues,
+        cfg,
+        catalogs,
+        item_definition={
+            "name": "All Filtered",
+            "class": UIObjectList,
+            "objects": "catalogs.filtered",
+        },
+        add_to_stack=lambda item_definition: None,
+    )
+
+    module.current_sort = SortOrder.NEAREST
+    module.sort()
+    assert module.current_sort == SortOrder.NEAREST, "warm state should have a solve"
+
+    ranked = len(module._menu_items_sorted)
+    assert ranked <= NEAREST_LIST_CAP
+    # The point of the test: the source list is longer than the ranked window.
+    assert len(module._menu_items) > ranked
+
+    # The header still advertises the catalog behind the screen, not the window.
+    assert module.catalog_info_1 == str(len(module._menu_items))
+
+    module.key_long_down()
+    assert module._current_item_index == ranked - 1
+
+    # Opening the last row must not index past the ranked window.
+    module.key_right()
+    module.update()
+
+    state = module.serialize_ui_state()
+    assert "error" not in state
+    assert state["total_items"] == ranked
+    assert (
+        state["current_item"]
+        == module._menu_items_sorted[module._current_item_index].display_name
+    )
 
 
 @pytest.mark.integration

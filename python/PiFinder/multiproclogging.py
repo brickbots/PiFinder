@@ -10,7 +10,6 @@ the approach implemented here: A single process that is fed log records using `Q
 import multiprocessing.queues
 from pathlib import Path
 from multiprocessing import Queue, Process
-import multiprocessing
 from queue import Empty
 from time import sleep
 from typing import TextIO, List, Optional
@@ -18,6 +17,8 @@ import json5
 import logging
 import logging.config
 import logging.handlers
+
+from PiFinder import utils
 
 
 class MultiprocLogging:
@@ -190,7 +191,7 @@ class MultiprocLogging:
             queue, multiprocessing.queues.Queue
         ), "That's not a Queue! You have to pass a queue"
 
-        log_conf_file = Path("pifinder_logconf.json")
+        log_conf_file = utils.active_logconf_path()
         with open(log_conf_file, "r") as logconf:
             config = json5.load(logconf)
             logging.config.dictConfig(config)
