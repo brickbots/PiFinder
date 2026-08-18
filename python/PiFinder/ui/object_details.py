@@ -818,7 +818,14 @@ class UIObjectDetails(UIModule):
             return {
                 "object": object_info,
                 "display_mode": display_modes.get(self.object_display_mode, "unknown"),
-                "object_list_length": len(self.object_list) if self.object_list else 0,
+                # `is not None`, not truthiness: a Nearby-sorted list arrives as
+                # the NumPy object array get_closest_objects returns, and
+                # bool() on a multi-element array raises. The raise was caught
+                # below, so every object opened from a Nearby list serialised
+                # as an error instead of state.
+                "object_list_length": len(self.object_list)
+                if self.object_list is not None
+                else 0,
                 "observation_count": observation_count,
                 "has_image": self.object_image is not None,
                 "screen_direction": self.screen_direction,
