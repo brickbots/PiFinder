@@ -11,6 +11,7 @@ from PiFinder.sqm.camera_profiles import (
     detect_camera_type,
 )
 from PiFinder.sqm.save_sweep_metadata import save_sweep_metadata
+from PiFinder.optics import build_optical_train
 from PiFinder.sqm.wings import WingEstimator
 
 
@@ -1387,6 +1388,60 @@ class TestSaveSweepMetadata:
 
         assert data["timestamp"] == gps_time
 
+    def test_lens_key_is_recorded_and_moves_the_field_width(self, tmp_path):
+        """A stated lens has to reach the archive, field width and all.
+
+        The sweep archive is what the SQM calibration constants get re-derived
+        from, so recording the shipped lens for a device that is not on it
+        makes the mislabelling self-reinforcing: the refit divides by a field
+        width the frames were never taken through.
+        """
+        sweep_dir = tmp_path / "sweep_lens"
+        sweep_dir.mkdir()
+
+        save_sweep_metadata(
+            sweep_dir=sweep_dir,
+            observer_lat=50.85,
+            observer_lon=4.35,
+            camera_type="imx296",
+            lens_key="12mm",
+        )
+
+        with open(sweep_dir / "sweep_metadata.json") as f:
+            data = json.load(f)
+
+        assert data["camera"]["lens"] == "12mm"
+        assert data["camera"]["lens_effective_focal_length_mm"] == pytest.approx(12.0)
+        # 12mm on an imx296 images ~17.8 degrees, not the shipped 16mm's 13.71.
+        assert data["camera"]["radiometric_fov_degrees"] == pytest.approx(
+            build_optical_train("imx296", "12mm").fov_degrees
+        )
+        assert data["camera"]["radiometric_fov_degrees"] > 15.0
+
+    def test_omitted_lens_key_records_the_shipped_lens(self, tmp_path):
+        """The fallback, so the assertion above is about the lens, not the call.
+
+        Only correct for a caller that genuinely has no lens config to pass;
+        a caller holding shared_state must pass what it holds.
+        """
+        sweep_dir = tmp_path / "sweep_no_lens"
+        sweep_dir.mkdir()
+
+        save_sweep_metadata(
+            sweep_dir=sweep_dir,
+            observer_lat=50.85,
+            observer_lon=4.35,
+            camera_type="imx296",
+        )
+
+        with open(sweep_dir / "sweep_metadata.json") as f:
+            data = json.load(f)
+
+        assert data["camera"]["lens"] == "16mm"
+        assert data["camera"]["radiometric_fov_degrees"] == pytest.approx(
+            13.71, abs=0.03
+        )
+
     def test_nonexistent_directory_raises_error(self, tmp_path):
         """Test that saving to nonexistent directory raises an error."""
         nonexistent = tmp_path / "does_not_exist"
@@ -1854,5 +1909,5 @@ class TestBandOffset:
     def test_band_offset_values(self):
         assert get_camera_profile("imx462").sqm_band_offset == pytest.approx(0.53)
         assert get_camera_profile("imx290").sqm_band_offset == pytest.approx(0.53)
-        assert get_camera_profile("hq").sqm_band_offset == pytest.approx(0.60)
-        assert get_camera_profile("imx296").sqm_band_offset == pytest.approx(-0.22)
+        assert get_camera_profile("hq").sqm_band_offset == pytest.approx(0.99)
+        assert get_camera_profile("imx296").sqm_band_offset == pytest.approx(-0.02)

@@ -200,6 +200,10 @@ _Avoid_: processed preview, enhanced stars, focus strip.
 One of the four Focus-screen views cycled with short `square`, following the normal **display mode** convention: **Stars** (the four focus tiles and HFD history), **Single** (the brightest tracked star at twice the Stars magnification, with HFD and history on a translucent lower-third overlay), **Image** (the complete frame with the original per-frame autocontrast applied for display only), and **Stats** (HFD, supplementary area-equivalent FWHM, detected-star count, exposure mode/value, gain, and a log-scaled raw histogram). HFD, centroids, and the Stats histogram always use the unstretched raw frame. Every unavailable HFD readout is shown as `?.?`; no upper-limit sentinel is displayed.
 _Avoid_: tab, page, focus-strip mode.
 
+**Focus status bar**:
+The standing bar along the bottom of the Focus screen in the **Stars**, **Single** and **Image** display modes: the held exposure on the left, the keys that change it on the right. Zoom keys are advertised only where `+`/`-` do something, so **Image** lists the exposure keys alone. Its rows are *reserved* out of the camera area rather than drawn over it — the tiles and crops are raw sensor pixels, and none of them is hidden behind the bar. **Stats** has no bar: it already reports exposure mode and value, and its histogram owns the bottom of the panel. It replaced a transient top-left exposure readout when the Focus marking menu lost its jump to Camera Exp, so it is also the only advertisement of the UP / DOWN exposure keys.
+_Avoid_: exposure flash, title bar (that is the shared `titlebar`), legend.
+
 **Focus FWHM estimate**:
 The median area-equivalent diameter of the pixels above half local maximum for the same four brightest measurable stars. It is supplementary diagnostics on the Stats display mode, not the focus-quality metric; HFD remains primary because it behaves better on saturated, broad, and donut-shaped stars.
 _Avoid_: focus FWHM (when used as a replacement for HFD), fitted FWHM (there is no Gaussian fit).

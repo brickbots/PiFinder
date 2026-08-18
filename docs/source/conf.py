@@ -28,8 +28,13 @@ autosectionlabel_prefix_document = True
 
 # The minimum software version these docs describe.  Pages reference it as
 # |min_software| so a release bump only needs changing here.
+#
+# |v3_docs| links to the archived build of this manual from before rev4, where
+# every page describes the v3 hardware.  Notes that flag a v3 difference end
+# with it, so the URL only needs changing here.
 rst_epilog = """
 .. |min_software| replace:: 2.2.0
+.. |v3_docs| replace:: The `v3 manual <https://pifinder.readthedocs.io/en/v3_hardware/>`__ covers that hardware throughout.
 """
 
 # -- Options for HTML output -------------------------------------------------

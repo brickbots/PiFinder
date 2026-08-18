@@ -305,6 +305,10 @@ class SharedStateObj:
         self.__arch = None
         self.__camera_align = False
         self.__camera_type = "imx296"  # Default, will be set by camera process
+        # Configured lens, the half of the optical train nothing can detect.
+        # None means "not stated", which resolves to the sensor's shipped lens
+        # -- that is what lets installs predating this setting keep working.
+        self.__camera_lens = config.Config().get_option("camera_lens")
         # Degrees the camera process rotates the solve/display image relative
         # to the stored raw frame (PIL CCW). None until the camera reports.
         self.__solve_image_rotation = None
@@ -382,6 +386,18 @@ class SharedStateObj:
     def set_camera_type(self, v: str):
         self.__camera_type = v
 
+    def camera_lens(self) -> Optional[str]:
+        """Configured lens key, or None when the config states none."""
+        return self.__camera_lens
+
+    def set_camera_lens(self, v: Optional[str]):
+        """Publish a lens change so the solver picks it up on the next frame.
+
+        The solver derives its FOV gate from this, so it must be the key of a
+        registered lens (see PiFinder.optics.LENSES) or None.
+        """
+        self.__camera_lens = v
+
     def sats(self):
         return self.__sats
 
@@ -426,9 +442,17 @@ class SharedStateObj:
 
     def set_location(self, v):
         # if value is not none, set the timezone
-        # before saving the value
+        # before saving the value.
+        #
+        # timezone_at() returns None for coordinates it cannot resolve, and
+        # assigning that raw would overwrite Location's "UTC" default with a
+        # value every reader has to guard: pytz.timezone(None) raises
+        # UnknownTimeZoneError, so an unresolved zone would crash the manual
+        # time-entry callbacks rather than degrade. UTC is already the
+        # documented fallback for an unknown zone (see local_datetime /
+        # ADR-0018), so settle it here and keep the field a usable zone name.
         if v:
-            v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
+            v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon) or "UTC"
         self.__location = v
 
     def sqm(self):

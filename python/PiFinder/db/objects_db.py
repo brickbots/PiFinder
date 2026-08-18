@@ -13,6 +13,56 @@ class ObjectsDatabase(Database):
         super().__init__(conn, cursor, db_path)
         self.bulk_mode = False
 
+        self._ensure_catalog_object_indexes()
+
+    def _ensure_catalog_object_indexes(self) -> None:
+        """
+        Backfills the catalog_objects indexes on an already-built database.
+
+        The shipped objects.db carries these indexes, so this is normally a
+        no-op. It exists for the databases that don't come from the shipped
+        file: ones built by a catalog import predating the indexes, or carried
+        across an update that replaces code without replacing the DB.
+        create_tables() only runs at import time, so nothing else would ever
+        add them.
+
+        Building them takes ~100ms once; thereafter the sqlite_master check
+        below costs a fraction of a millisecond, so this is safe to run on
+        every open.
+
+        Failure is not fatal: several processes open this DB and may race for
+        the write lock, and the DB may sit on read-only media. Either way the
+        queries still return correct results -- just slowly, exactly as before
+        -- so we log and carry on rather than taking startup down with us.
+        """
+        try:
+            present = self.cursor.execute(
+                """
+                select count(*) as n from sqlite_master
+                where type = 'index' and name in (
+                    'idx_catalog_objects_object_id',
+                    'idx_catalog_objects_code_sequence'
+                )
+                """
+            ).fetchone()["n"]
+            if present == 2:
+                return
+
+            logging.info("Building catalog_objects indexes (one time)...")
+            start = time.time()
+            # Another process may be building them right now; wait rather than
+            # failing outright.
+            self.cursor.execute("PRAGMA busy_timeout = 30000;")
+            self.create_catalog_object_indexes()
+            self.conn.commit()
+            logging.info("Built catalog_objects indexes in %.1fs", time.time() - start)
+        except Exception:
+            logging.warning(
+                "Could not build catalog_objects indexes; "
+                "catalog lookups will be slower",
+                exc_info=True,
+            )
+
     def create_tables(self):
         # Create objects table
         self.cursor.execute(
@@ -83,6 +133,8 @@ class ObjectsDatabase(Database):
         """
         )
 
+        self.create_catalog_object_indexes()
+
         # Create images_objects table
         self.cursor.execute(
             """
@@ -97,6 +149,31 @@ class ObjectsDatabase(Database):
 
         # Commit changes to the database
         self.conn.commit()
+
+    def create_catalog_object_indexes(self) -> None:
+        """
+        Creates the catalog_objects lookup indexes.
+
+        Both directions of the sky-object <-> catalog-listing mapping are hot
+        paths: get_catalog_objects_by_object_id() (an object's sibling
+        listings, e.g. M 31 / NGC 224) and get_catalog_object_by_sequence()
+        (resolving a listing back to its sky object, as the observed-objects
+        cache does for every logged listing). Unindexed, each is a full scan of
+        ~151k rows -- ~6ms on a laptop and far worse on a Pi's SD card, paid
+        per call.
+        """
+        self.cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_catalog_objects_object_id
+            ON catalog_objects(object_id);
+            """
+        )
+        self.cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_catalog_objects_code_sequence
+            ON catalog_objects(catalog_code, sequence);
+            """
+        )
 
     def get_pifinder_database(self) -> Tuple[Connection, Cursor]:
         return self.get_database(utils.pifinder_db)

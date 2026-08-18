@@ -5,6 +5,7 @@ This module is for GPS related functions
 """
 
 import asyncio
+import time
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.gps_ubx_parser import UBXParser
 import logging
@@ -14,12 +15,42 @@ sats = [0, 0]
 
 MAX_GPS_ERROR = 50000  # 50 km
 
+# How long a NAV-SAT message keeps NAV-SVINFO suppressed. NAV-SAT is the better
+# source where a receiver emits it, but preferring it must not be a one-way
+# latch: a receiver that sends NAV-SAT once (or intermittently) would otherwise
+# silence the SVINFO fallback for the life of the connection and freeze the
+# counts at whatever that last NAV-SAT said.
+NAV_SAT_PREFERENCE_TIMEOUT = 5.0  # seconds
+
+
+def _publish_sats(gps_queue, seen=None, used=None):
+    """Publish the (seen, used) satellite counts, holding seen >= used.
+
+    A satellite used in the navigation solution is by definition tracked, so a
+    used count above the seen count is never physically meaningful. NAV-SOL and
+    NAV-PVT carry only the used count; without this floor the status screen
+    reads "0/9" until a NAV-SAT or NAV-SVINFO message supplies a seen count.
+    """
+    if seen is not None:
+        sats[0] = seen
+    if used is not None:
+        sats[1] = used
+    if sats[0] < sats[1]:
+        sats[0] = sats[1]
+    gps_queue.put(("satellites", tuple(sats)))
+
 
 async def process_messages(
-    parser_iterator, gps_queue, console_queue, error_info, wait=0, info=None
+    parser_iterator,
+    gps_queue,
+    console_queue,
+    error_info,
+    wait=0,
+    info=None,
+    clock=time.monotonic,
 ):
     gps_locked = False
-    got_sat_update = False  # Track if we got a NAV-SAT message this cycle
+    last_nav_sat = None  # monotonic stamp of the most recent NAV-SAT message
 
     async for msg in parser_iterator():
         msg_class = msg.get("class", "")
@@ -29,28 +60,28 @@ async def process_messages(
             error_info["error_2d"] = msg["hdop"]
             error_info["error_3d"] = msg["pdop"]
 
-        elif msg_class == "NAV-SVINFO" and not got_sat_update:
-            # Fallback satellite info if NAV-SAT not available
-            if "nSat" in msg:
+        elif msg_class == "NAV-SVINFO":
+            # Fallback satellite info, used while NAV-SAT is absent or stale
+            nav_sat_fresh = (
+                last_nav_sat is not None
+                and clock() - last_nav_sat < NAV_SAT_PREFERENCE_TIMEOUT
+            )
+            if not nav_sat_fresh and "nSat" in msg:
                 sats_seen = msg["nSat"]
                 sats_used = msg["uSat"]
-                sats[0] = sats_seen
-                sats[1] = sats_used
-                gps_queue.put(("satellites", tuple(sats)))
+                _publish_sats(gps_queue, seen=sats_seen, used=sats_used)
                 logger.debug(
                     "Number of sats (SVINFO) seen: %i, used: %i", sats_seen, sats_used
                 )
 
         elif msg_class == "NAV-SAT":
             # Preferred satellite info source - not seen in the current pifinder gps versions
-            got_sat_update = True
+            last_nav_sat = clock()
             sats_seen = msg["nSat"]
             sats_used = sum(
                 1 for sat in msg.get("satellites", []) if sat.get("used", False)
             )
-            sats[0] = sats_seen
-            sats[1] = sats_used
-            gps_queue.put(("satellites", tuple(sats)))
+            _publish_sats(gps_queue, seen=sats_seen, used=sats_used)
             logger.debug(
                 "Number of sats (NAV-SAT) seen: %i, used: %i", sats_seen, sats_used
             )
@@ -58,9 +89,7 @@ async def process_messages(
         elif msg_class == "NAV-SOL":
             # only source of truth for satellites used in a FIX
             if "satellites" in msg:
-                sats_used = msg["satellites"]
-                sats[1] = sats_used
-                gps_queue.put(("satellites", tuple(sats)))
+                _publish_sats(gps_queue, used=msg["satellites"])
 
             if all(k in msg for k in ["lat", "lon", "altHAE", "ecefpAcc", "mode"]):
                 if not gps_locked and msg["ecefpAcc"] < MAX_GPS_ERROR:
@@ -100,8 +129,7 @@ async def process_messages(
 
         elif msg_class == "NAV-PVT":
             if "numSV" in msg:
-                sats[1] = msg["numSV"]
-                gps_queue.put(("satellites", tuple(sats)))
+                _publish_sats(gps_queue, used=msg["numSV"])
             if all(k in msg for k in ["lat", "lon", "altHAE", "hAcc", "vAcc"]):
                 if not gps_locked and msg["hAcc"] < MAX_GPS_ERROR:
                     gps_locked = True

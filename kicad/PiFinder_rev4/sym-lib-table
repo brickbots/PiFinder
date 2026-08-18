@@ -1,0 +1,7 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "CM4IO")(type "KiCad")(uri "/Users/rich/Projects/CM4IO-KiCAD/CM4IO.kicad_sym")(options "")(descr ""))
+  (lib (name "5-Way")(type "KiCad")(uri "/Users/rich/Projects/Astronomy/sp_handle/LIB_MU-AS70R/MU-AS70R/KiCad/MU-AS70R.kicad_sym")(options "")(descr ""))
+  (lib (name "TPS61088")(type "KiCad")(uri "/Users/rich/Projects/Astronomy/PiFinder_smt/PF4/Kicad Footprint/ul_TPS61088QRHLRQ1/KiCADv6/2026-05-01_03-16-31.kicad_sym")(options "")(descr ""))
+  (lib (name "LTC2854")(type "KiCad")(uri "/Users/rich/Projects/Astronomy/PiFinder_smt/PF4/Kicad Footprint/LTC2954CTS8-1/2026-05-03_23-42-50.kicad_sym")(options "")(descr ""))
+)

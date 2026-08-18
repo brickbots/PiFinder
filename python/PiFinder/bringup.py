@@ -29,6 +29,27 @@ Only **probed** and **exercised** checks gate the verdict and the exit status.
 A witnessed check is reported as *emitted*: the program drove the hardware, and
 whether light or sound came out is not something it can know.
 
+Ending a run
+------------
+
+A run is open-ended; it ends on Ctrl-C, on ``--timeout``, or on the **power
+hold** — the power switch held closed for :data:`SHUTDOWN_HOLD_SECONDS`, which
+shuts the card down cleanly. That last one exists because a bring-up run
+happens at a bench with no keyboard and no SSH session in sight: the board is
+on a mat with a bare card in it, and pulling power on a mounted filesystem is
+how a builder corrupts an image between the first board and the tenth.
+
+*Tap* and *hold* therefore mean different things to the power switch, and both
+are wanted: a tap is what the ``SWITCHES`` check needs (it registers the
+closure like any other switch), and a hold ends the run. The power cell shows a
+filling bar for the whole second so the boundary is visible and an accidental
+hold can be released before it arms; ``--no-power-shutdown`` removes the
+gesture for a builder who would rather not risk it at all.
+
+The threshold matches ``keyboard_pi.run_keyboard``'s, which is also one second
+— the same press ends a bring-up run and opens the shutdown menu in the running
+application, so a builder learns the gesture once.
+
 Why the panel is not auto-detected
 ----------------------------------
 
@@ -62,6 +83,7 @@ import argparse
 import logging
 import os
 import signal
+import subprocess
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -131,6 +153,18 @@ CHARGER_POLL_SECONDS = 1.0
 
 PATTERN_SECONDS = 1.5  # per pattern; three of them
 STATUS_ROWS = 3  # IMU / CHARGER / SWITCHES lines under the title bar
+
+# How long the power switch must stay closed to end the run and shut the card
+# down. One second, matching keyboard_pi.run_keyboard's power threshold, so the
+# gesture is the same one the finished unit answers to.
+SHUTDOWN_HOLD_SECONDS = 1.0
+# Segments in the hold bar drawn in the power cell. Four puts the label at six
+# characters ("[####]"), which is 30 px in the 34 px power cell on the
+# narrowest panel bring-up supports -- see test_bringup.
+HOLD_BAR_SEGMENTS = 4
+# The clean-shutdown command, spelled out rather than imported: see
+# request_shutdown.
+SHUTDOWN_COMMAND = ("sudo", "shutdown", "now")
 
 DEFAULT_REVISION = "rev4"
 # Panel per revision. Keyed by keypad.POPULATION_MAPS, which is where the set of
@@ -449,6 +483,55 @@ class GridState:
         return not self.missing and self.power_seen
 
 
+class PowerHold:
+    """How long the power switch has been closed, and whether that has crossed
+    the shutdown threshold. PURE — the clock is injected.
+
+    Kept apart from :class:`GridState`, which records what the *switch check*
+    saw: a closure is a closure there whether it lasted 20 ms or 20 s, and
+    folding the gesture in would let "the builder is shutting down" and "the
+    power switch conducts" turn into one flag. They are separate findings.
+
+    Rearms on release, so a hold that is let go re-arms rather than firing
+    again on the next scan, and a held-down (or shorted) power line fires
+    exactly once instead of every frame for the rest of the run.
+    """
+
+    def __init__(
+        self, threshold: float = SHUTDOWN_HOLD_SECONDS, enabled: bool = True
+    ) -> None:
+        self.threshold = threshold
+        self.enabled = enabled
+        self.progress = 0.0  # 0.0 -> 1.0 across the hold; 0.0 while open
+        self._since: Optional[float] = None
+        self._fired = False
+
+    def update(self, closed: bool, now: float) -> bool:
+        """Feed one scan; True on the single frame the hold arms."""
+        if not closed:
+            self._since = None
+            self._fired = False
+            self.progress = 0.0
+            return False
+
+        if self._since is None:
+            self._since = now
+        if not self.enabled:
+            # No bar either: a run with the gesture off must not draw something
+            # that looks like it is about to arm.
+            self.progress = 0.0
+            return False
+
+        elapsed = now - self._since
+        self.progress = (
+            1.0 if self.threshold <= 0 else min(1.0, elapsed / self.threshold)
+        )
+        if self._fired or elapsed < self.threshold:
+            return False
+        self._fired = True
+        return True
+
+
 # --- Labels -----------------------------------------------------------------
 
 # One character per key, for the grid cells. ASCII on purpose: the UI fonts
@@ -480,6 +563,28 @@ def cell_label(row: int, col: int) -> str:
     if key == K.NA:
         return ""
     return KEY_LABELS.get(key, str(key))
+
+
+def power_cell_label(progress: float) -> str:
+    """The power cell's label: ``PWR`` at rest, a hold bar while held. PURE.
+
+    Feedback has to survive a 10 px cell on the 128 px panel, where the small
+    font is 9 px tall and leaves no room to draw a progress bar *under* the
+    text. So the bar **is** the text, rendered by the same centred-label path
+    every other cell uses — nothing new in the draw path, and it lays out
+    identically on all three panels.
+
+    The hold maps onto *one segment to full*, not zero to full. One segment
+    lights on the first frame the switch closes, because the bar's job is to
+    say "this is going somewhere" while there is still nearly a second left to
+    let go — and the last segment lights only at the threshold itself, so a
+    full bar never sits there for a quarter of the hold implying more time
+    remains than there is.
+    """
+    if progress <= 0.0:
+        return "PWR"
+    filled = min(HOLD_BAR_SEGMENTS, 1 + int(progress * (HOLD_BAR_SEGMENTS - 1)))
+    return "[" + "#" * filled + "-" * (HOLD_BAR_SEGMENTS - filled) + "]"
 
 
 def key_name(row: int, col: int) -> str:
@@ -652,6 +757,9 @@ class Dashboard:
     status_lines: List[str]
     grid: GridState
     passed: bool
+    # How far into the shutdown hold the power switch is, 0.0 when it is open
+    # or when --no-power-shutdown took the gesture away.
+    power_progress: float = 0.0
 
 
 def _text_width(font, text: str) -> int:
@@ -758,7 +866,8 @@ def draw_dashboard(
             )
 
     # The power switch is wired to its own line rather than into the matrix, so
-    # it gets its own wider cell -- but the same four states.
+    # it gets its own wider cell -- but the same four states. Its label doubles
+    # as the shutdown hold's progress bar.
     _draw_cell(
         draw,
         display_class,
@@ -766,12 +875,40 @@ def draw_dashboard(
         layout.power.y,
         layout.power.widths[0],
         layout.cell,
-        "PWR",
+        power_cell_label(dashboard.power_progress),
         populated=True,
         seen=grid.power_seen,
         held=grid.power_held,
     )
 
+    return image
+
+
+def notice_image(
+    display_class: displays.DisplayBase, lines: Sequence[str]
+) -> Image.Image:
+    """A full-panel message, centred. PURE (builds an image; draws nothing).
+
+    Used for the last thing a run puts on the glass when the power hold arms.
+    The builder is looking at the panel, not at a terminal — over SSH the
+    session is about to drop, and at the bench there may be no terminal at all.
+    """
+    image = Image.new("RGB", (display_class.resX, display_class.resY), (0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    font = display_class.fonts.bold
+    ink = display_class.colors.get(255)
+    block = len(lines) * font.height
+    top = max(0, (display_class.resY - block) // 2)
+    for index, line in enumerate(lines):
+        draw.text(
+            (
+                max(0, (display_class.resX - _text_width(font, line)) // 2),
+                top + index * font.height,
+            ),
+            line,
+            font=font.font,
+            fill=ink,
+        )
     return image
 
 
@@ -863,15 +1000,52 @@ class MatrixScanner:
     def power_closed(self) -> bool:
         """The power switch, read directly and active low.
 
-        Never acted on: no shutdown, no jump to a label, and nothing anywhere
-        near GPIO14. Pressing power during a bring-up run only lights a cell —
-        and there is no 1 s hold requirement, so a brief tap is enough, which
-        also keeps the press short in case the LTC2954 kills on a long hold.
+        Read only — this line is an input for the whole run, and nothing here
+        goes anywhere near GPIO14. The power *hold* ends the run by asking the
+        OS to shut down (:func:`request_shutdown`); the kill line is the
+        kernel's to drive at power-off, exactly as in the running application
+        (ADR 0007).
+
+        A **tap** is all the ``SWITCHES`` check needs — the closure registers
+        on the first scan that sees it — which also keeps the press short, in
+        case the LTC2954 kills on a long hold. That is still unconfirmed on
+        hardware, and it is the reason the shutdown hold is one second rather
+        than the several a "hold to power off" gesture would usually take.
         """
         return not self._gpio.input(keypad.POWER_GPIO)
 
     def stop(self) -> None:
         self._gpio.cleanup()
+
+
+def request_shutdown(
+    runner: Optional[Callable[[List[str]], int]] = None,
+) -> int:
+    """Ask the OS to shut down cleanly. The last thing a run does.
+
+    Runs the same command ``sys_utils.shutdown()`` runs, spelled out here
+    rather than imported: ``sys_utils`` pulls in ``pam``, ``requests`` and
+    ``sh``, and resolves ``wpa_cli`` / ``unzip`` / ``passwd`` at import time.
+    None of those are guaranteed on a card that has only just been imaged, and
+    a bring-up tool that fails to import on a bare card is useless — the whole
+    point is to run before the unit is configured. ``test_bringup`` asserts the
+    two spellings stay in step.
+
+    What happens after it returns is the kernel's business: on rev4 its
+    power-off handler drives GPIO14 low, tripping the LTC2954's KILL input and
+    dropping the SYS boost (ADR 0007). No Python touches that line.
+
+    Returns the command's exit status. A non-zero one is worth saying out loud
+    rather than swallowing: a card whose sudoers file does not grant passwordless
+    ``shutdown`` leaves the builder staring at a panel reading SHUTTING DOWN on a
+    board that is still very much up, and the obvious next move — reaching for
+    the power — is the one thing the gesture exists to avoid.
+    """
+    logger.info("bring-up: power hold -- requesting shutdown")
+    status = (runner or subprocess.call)(list(SHUTDOWN_COMMAND))
+    if status:
+        logger.error("bring-up: shutdown returned %s", status)
+    return status
 
 
 class ImuProbe:
@@ -1181,9 +1355,17 @@ def run_loop(
     hardware: Hardware,
     grid: GridState,
     pattern_count: int,
-) -> None:
-    """Scan, drive and redraw until Ctrl-C (or ``--timeout``)."""
+) -> bool:
+    """Scan, drive and redraw until Ctrl-C, ``--timeout`` or the power hold.
+
+    Returns True when the power hold armed, meaning the caller should shut the
+    card down once it has cleaned up and reported. The shutdown itself is not
+    issued here: ``main`` still has a summary to print and a buzzer to silence,
+    and a loop that could pull the floor out from under its own caller would
+    make that ordering impossible to see.
+    """
     layout = grid_layout(display_class)
+    power_hold = PowerHold(enabled=not args.no_power_shutdown)
 
     def draw() -> None:
         dashboard = Dashboard(
@@ -1199,6 +1381,7 @@ def run_loop(
             passed=compute_verdict(
                 build_results(hardware, grid, pattern_count, args.backlight_max)
             ),
+            power_progress=power_hold.progress,
         )
         show(display_class, draw_dashboard(display_class, dashboard, layout))
 
@@ -1216,16 +1399,31 @@ def run_loop(
     while True:
         now = time.monotonic()
         if args.timeout and now - started >= args.timeout:
-            return
+            return False
 
         if hardware.scanner is not None:
-            edges = grid.update(
-                hardware.scanner.scan(), hardware.scanner.power_closed()
-            )
+            power_closed = hardware.scanner.power_closed()
+            edges = grid.update(hardware.scanner.scan(), power_closed)
             if edges.any_pressed and hardware.buzzer is not None:
                 # Re-proves the buzzer once per closure -- ~18 times over a
                 # full keypad sweep.
                 play_earcon(hardware.buzzer, Earcon.KEYPRESS, args.volume)
+
+            # Timed with `now`, taken immediately before the power line was
+            # read -- not with a fresh clock here, which would be on the far
+            # side of the matrix scan and of a keypress earcon that blocks for
+            # its own duration. The hold has to measure the switch, not the
+            # cue the switch set off.
+            if power_hold.update(power_closed, now):
+                # Say so on the panel first: the builder is watching the glass,
+                # and the earcon holds the frame up for its own duration.
+                show(
+                    display_class,
+                    notice_image(display_class, ["SHUTTING", "DOWN"]),
+                )
+                if hardware.buzzer is not None:
+                    play_earcon(hardware.buzzer, Earcon.SHUTDOWN, args.volume)
+                return True
 
         # Each step is an open/write/close on a sysfs file, so step the ramp
         # well below the scan rate; the eye cannot tell the difference.
@@ -1329,6 +1527,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Buzzer master volume for the earcons (default 5)",
     )
     parser.add_argument(
+        "--no-power-shutdown",
+        action="store_true",
+        help=(
+            "Do not end the run and shut the card down when the power switch "
+            "is held. Tapping it still counts toward the SWITCHES check"
+        ),
+    )
+    parser.add_argument(
         "--timeout",
         type=float,
         default=None,
@@ -1371,28 +1577,44 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     frames = [] if args.no_patterns else pattern_images(display_class)
     pattern_count = len(frames)
+    shutting_down = False
     try:
         if frames:
             run_patterns(display_class, frames, args)
         # The frames are only needed while they are being shown; a full-panel
         # RGB image each is ~90 KB, and the dashboard run is open-ended.
         frames = []
-        run_loop(display_class, args, hardware, grid, pattern_count)
+        shutting_down = run_loop(display_class, args, hardware, grid, pattern_count)
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:
         hardware.close()
-        try:
-            blank = Image.new("RGB", (display_class.resX, display_class.resY))
-            show(display_class, blank)
-        except Exception:  # noqa: BLE001 - blanking is best-effort
-            logger.debug("bring-up: could not blank the panel", exc_info=True)
+        # A run that is shutting down leaves its notice up instead: the card
+        # has seconds of unmounting left and a blank panel during them looks
+        # exactly like a board that just died.
+        if not shutting_down:
+            try:
+                blank = Image.new("RGB", (display_class.resX, display_class.resY))
+                show(display_class, blank)
+            except Exception:  # noqa: BLE001 - blanking is best-effort
+                logger.debug("bring-up: could not blank the panel", exc_info=True)
 
     results = build_results(hardware, grid, pattern_count, args.backlight_max)
     verdict = compute_verdict(results)
     print()
     print(format_preflight(preflight))
     print(format_summary(results, verdict))
+
+    # Last, so the summary is on the terminal before the session drops -- and
+    # after hardware.close(), so nothing is left driving the buzzer if the
+    # shutdown stalls.
+    if shutting_down:
+        print("\nPower switch held -- shutting down.")
+        if request_shutdown():
+            print(
+                f"{' '.join(SHUTDOWN_COMMAND)} failed -- the board is still up. "
+                "Shut it down before pulling power."
+            )
     return 0 if verdict else 1
 
 

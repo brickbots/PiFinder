@@ -3,15 +3,15 @@ PiFinder™ Menu Map
 ==================
 
 .. note::
-   This map reflects v3 and v2.5 PiFinders running software |min_software| or above.  The
+   This map reflects rev4, v3 and v2.5 PiFinders running software |min_software| or above.  The
    exact items you see can vary slightly with your configuration and software
    version.
 
-Everything the PiFinder does is reached through its menu system.  This page is a
+The menu system controls everything the PiFinder does.  This page is a
 bird's-eye view of that system: a diagram of each branch, with a short note on
-what every option does.  For how to scroll and select — and for the Quick Menu
-that brings common actions into easier reach — see
-:ref:`user_guide:the menu system`.
+what every menu item does.  See :ref:`user_guide:the menu system` for how to
+scroll and select, and for the Quick Menu that brings common actions into
+easier reach.
 
 The top level has six sections:
 
@@ -25,14 +25,14 @@ The top level has six sections:
        PF --> Settings
        PF --> Tools
 
-- **Start** — Get set up for the night: focus, align, and check your GPS fix.
-- **Chart** — A live star chart of where the scope is pointing.
-- **Objects** — Choose what to look at: catalogs, recent objects, search, and
-  the filters that narrow your lists.
-- **SQM** — A Sky Quality Meter that estimates how dark your sky is from the
+- **Start** gets you ready for the night: focus, align, and check your GPS fix.
+- **Chart** draws a live star chart of where the telescope points.
+- **Objects** is where you choose what to look at: catalogs, recent objects,
+  search, and the filters that narrow your lists.
+- **SQM** is a Sky Quality Meter.  It estimates how dark your sky is from the
   camera.
-- **Settings** — Configure the interface, chart, camera, WiFi, and hardware.
-- **Tools** — Status, equipment, location and time, updates, and power.
+- **Settings** configures the interface, chart, camera, WiFi, and hardware.
+- **Tools** holds status, equipment, location and time, updates, and power.
 
 
 Start
@@ -49,11 +49,15 @@ Start
 Focus
    Magnified views of the four brightest stars the camera sees, with an **HFD**
    readout of how spread-out they are.  Adjust focus until the number is as low
-   as it will go — sharp stars are what let the PiFinder solve.  **SQUARE**
-   cycles the Stars, Single, Image, and Stats views.  The Quick Menu here
-   adjusts the camera Exposure.
+   as it will go.  Sharp stars let the PiFinder solve.  Press **SQUARE** to
+   cycle the Stars, Single, Image, and Stats views.  The screen holds the camera
+   exposure steady while it is open, so only the lens changes what you see.
+   Press **UP** and **DOWN** to step the exposure.  A bar along the bottom
+   shows the held exposure and the keys that change it.  Nothing you set here
+   is saved.  Your previous exposure setting returns when you leave.  To set an
+   exposure the PiFinder keeps, select Camera Exp in the Settings menu.
 Align
-   Align the PiFinder to your eyepiece.  Center a known star, confirm, and your
+   Align the PiFinder to your eyepiece.  Center a known star and confirm.  Your
    Push-To distances then account for any offset between the camera and where
    you're actually looking.
 Align (Day)
@@ -61,18 +65,18 @@ Align (Day)
    eyepiece-centered object appears in the camera image.
 GPS Status
    The current GPS fix: satellites in view, lock state, and the location and
-   time the PiFinder has acquired.  (Also reachable from Tools, under Place &
-   Time.)
+   time the PiFinder acquired.  You can also reach this screen from Tools,
+   under Place & Time.
 
 
 Chart
 -----
 
 Chart
-   A star chart centered on where your telescope is pointing, redrawn as you
-   move.  Zoom with the **+** / **-** keys.  Its appearance — reticle,
-   constellation lines, deep-sky markers, and coordinate readout — is set under
-   the Settings menu's Chart options.
+   A star chart centered on where your telescope points, redrawn as you move.
+   Press **+** and **-** to zoom.  Set its appearance under Chart in the
+   Settings menu: reticle, constellation lines, deep-sky markers, and
+   coordinate readout.
 
 
 Objects
@@ -111,14 +115,14 @@ All Filtered
    loose filters this can be many thousands of objects, so it's most useful once
    you've set strict filters.
 By Catalog
-   Browse one catalog at a time (still narrowed by your filters).  Common
-   catalogs sit at the top; the rest are grouped under DSO... and Stars....  For
-   what each catalog contains, see :doc:`catalogs`.
+   View one catalog at a time, still narrowed by your filters.  Common catalogs
+   sit at the top.  The rest are grouped under DSO... and Stars....  See
+   :doc:`catalogs` for what each catalog contains.
 
    Planets
       The major solar-system planets.
    Comets
-      Comets currently tracked by the PiFinder.
+      The comets the PiFinder currently tracks.
    NGC
       The New General Catalogue.
    Messier
@@ -135,13 +139,14 @@ Recent
    The objects you've viewed this session, most recent first.  It starts empty
    each session.
 Obs Lists
-   Load an observing list file you've copied to the PiFinder — SkySafari,
-   CSV, and several other formats.  See :ref:`user_guide:observing lists`.
+   Load an observing list file you've copied to the PiFinder, in SkySafari,
+   CSV, or one of several other formats.
+   See :ref:`user_guide:observing lists`.
 Custom
-   Enter a right ascension and declination by hand to make a one-off target you
-   can push to.  See :ref:`user_guide:custom targets`.
+   Enter a right ascension and declination by hand to make a one-off Custom
+   Target you can push to.  See :ref:`user_guide:custom targets`.
 Name Search
-   Find objects by common name using the keypad — multi-tap or T9 text entry.
+   Find objects by common name, using multi-tap or T9 text entry on the keypad.
    See :ref:`user_guide:name search`.
 Set Filters
    Narrow which objects appear in your lists.  These settings feed every list
@@ -149,35 +154,40 @@ Set Filters
    full picture.
 
    Reset All
-      Clear every filter back to its default.  Choose Confirm to apply, or
-      Cancel to back out.
+      Clear every filter back to its default.  Select Confirm to apply, or
+      Cancel to go back.
    Catalogs
-      Choose which catalogs feed the All Filtered list — multi-select, using the
-      same grouping (Planets, Comets, NGC, Messier, DSO..., Stars...) as By
-      Catalog.
+      Select which catalogs feed the All Filtered list.  You can select more
+      than one.  The grouping matches By Catalog: Planets, Comets, NGC,
+      Messier, DSO..., and Stars....
    Type
       Limit by object type: galaxy, open cluster, cluster with nebulosity,
       globular, nebula, planetary nebula, dark nebula, star, double and triple
-      stars, knot, asterism, planet, comet, and unknown.  Multi-select.
+      stars, knot, asterism, planet, comet, and unknown.  You can select more
+      than one.
    Altitude
-      Hide objects below a minimum altitude above your horizon — None, or 0, 10,
-      20, 30, or 40 degrees.
+      Hide objects below a minimum altitude above your horizon.  Values: None,
+      0, 10, 20, 30, 40 degrees.
    Magnitude
-      Hide objects fainter than the limit you pick — None, or 6 through 15.
+      Hide objects fainter than the limit you select.  Values: None, 6 through
+      15.
    Observed
-      Show Any object, only those you've Observed, or only those Not Observed —
-      handy for working through an observing project.
+      Limit the list by whether you have observed an object.  Values: Any,
+      Observed, Not Observed.  This helps when you work through an observing
+      project.
 
 
 SQM
 ---
 
 SQM
-   A Sky Quality Meter that estimates how dark your sky is, reported in
-   magnitudes per square arcsecond — higher numbers mean darker skies (roughly
-   21–22 at a dark site, 18–19 in the suburbs, 16–17 under city lights).  The
-   reading is a photometric measurement from a plate-solved camera frame, not a
-   separate hardware meter, so a recent solve gives the most reliable value.
+   A Sky Quality Meter that estimates how dark your sky is.  The PiFinder
+   reports the estimate in magnitudes per square arcsecond.  Higher numbers
+   mean darker skies: roughly 21–22 at a dark site, 18–19 in the suburbs, and
+   16–17 under city lights.  The PiFinder measures the sky from its own camera,
+   not from a separate hardware meter.  It does not need a plate solve to do
+   this, so the reading keeps updating through cloud and star-poor frames.  See
+   :doc:`sqm` for how to read the screen and when to calibrate.
 
 
 Settings
@@ -207,77 +217,86 @@ User Pref...
    Day-to-day interface preferences.
 
    Key Bright
-      Keypad backlight level, from -4 (dimmest) to +3.
+      Keypad backlight level.  Values: -4 (dimmest) to +3.
+   Volume
+      How loud the PiFinder's sounds are.  Values: Off, 1 (quietest) to 5.
+      Selecting a level plays a sample tone at that level.  Only rev4 PiFinders
+      have the buzzer.  See :ref:`user_guide:sounds`.
    Sleep Time
-      How long the PiFinder waits before power-save dims the screen — Off, or
-      10s up to 2m.
+      How long the PiFinder waits before power-save dims the screen.  Values:
+      Off, 10s to 2m.  Only key presses reset the timer.  Moving the PiFinder
+      wakes it from sleep but does not keep it awake.
    Menu Anim
-      Menu scrolling animation speed — Off, Fast, Medium, or Slow.
+      Menu scrolling animation speed.  Values: Off, Fast, Medium, Slow.
    Scroll Speed
-      How fast long lines of text scroll — Off, Fast, Medium, or Slow.
+      How fast long lines of text scroll.  Values: Off, Fast, Medium, Slow.
    Search Input
-      How Name Search reads the keypad — Multi-Tap (cycle through each key's
-      letters) or T9 (one press per letter).
+      How Name Search reads the keypad.  Values: Multi-Tap (cycle through each
+      key's letters), T9 (one press per letter).
    Az Arrows
-      Direction of the azimuth Push-To arrows — Default or Reverse, to match how
-      you read them at the scope.
+      Direction of the azimuth Push-To arrows.  Values: Default, Reverse.  Set
+      this to match how you read the arrows at the telescope.
    Language
-      Interface language: English, German, French, Spanish, or Chinese.
+      Interface language.  Values: English, German, French, Spanish, Chinese.
 Chart...
    How the Chart screen draws the sky.
 
    Coordinate Sys.
-      Chart orientation — Horizontal, or equatorial with automatic, north-up, or
-      south-up rotation.
+      Chart orientation.  Values: Horizontal, EQ (Auto), EQ (North-up),
+      EQ (South-up).
    Reticle
-      Brightness of the center reticle — Off, Low, Medium, or High.
+      Brightness of the center reticle.  Values: Off, Low, Medium, High.
    Constellation
-      Brightness of constellation lines — Off, Low, Medium, or High.
+      Brightness of constellation lines.  Values: Off, Low, Medium, High.
    DSO Display
-      Brightness of deep-sky object markers — Off, Low, Medium, or High.
+      Brightness of deep-sky object markers.  Values: Off, Low, Medium, High.
    RA/DEC Disp.
-      Show a coordinate readout — Off, HH:MM, or Degrees.
+      Show a coordinate readout.  Values: Off, HH:MM, Degrees.
 Image...
    Overlays on the :ref:`object image <user_guide:object images>`.
 
    NSEW Labels
-      Mark the cardinal directions at the edge of the image — On or Off.
+      Mark the cardinal directions at the edge of the image.  Values: On, Off.
    Object Size
-      Outline the object's cataloged size and orientation — On or Off.
+      Outline the object's cataloged size and orientation.  Values: On, Off.
 Camera Exp
-   Camera exposure time — Auto (the default), or a fixed value from 0.025s to
-   1s.  On Auto the PiFinder adjusts the exposure itself from the plate-solve
-   results.  Longer fixed exposures catch fainter stars but blur sooner as the
-   scope moves.
+   Camera exposure time.  Values: Auto (the default), or a fixed time from
+   0.025s to 1s.  On Auto the PiFinder adjusts the exposure itself from the
+   results of each plate solve.  Longer fixed exposures catch fainter stars,
+   but they blur sooner as the telescope moves.
 WiFi Mode
    Switch between Client Mode (join an existing network) and AP Mode (the
    PiFinder serves its own PiFinderAP network).  See :ref:`connectivity:wifi`.
 Mount Type
-   Tell the PiFinder whether your scope is Alt/Az or Equatorial.  Changing this
-   restarts the PiFinder.
+   Tell the PiFinder whether your telescope is Alt/Az or Equatorial.  Changing
+   this restarts the PiFinder.
 Advanced
-   Hardware setup normally configured once on a DIY build; opening it shows a
-   brief "Options for DIY PiFinders" reminder, since on a fully built unit these
-   already match your hardware.
+   Hardware setup that you normally configure once on a DIY build.  Opening it
+   shows a brief "Options for DIY PiFinders" reminder, because on a fully built
+   PiFinder these already match your hardware.
 
    PiFinder Type
-      Which physical configuration you have — Left, Right, Straight, Flat v3,
-      Flat v2, AS Bloom, AS Heart, Rev4 Left, Rev4 Right, or Rev4 Straight.
-      Restarts the PiFinder.
+      Which physical configuration you have.  Values: Left, Right, Straight,
+      Flat v3, Flat v2, AS Bloom, AS Heart, Rev4 Left, Rev4 Right,
+      Rev4 Straight.  Changing this restarts the PiFinder.
    Camera Type
-      Which camera sensor is fitted — v2 (imx477), v3 (imx296), or v3 (imx462).
+      Which camera sensor your PiFinder has.
+      Values: v2 - imx477, v3 - imx296, v3 - imx462.  A rev4 PiFinder takes
+      v3 - imx462.  There is no separate rev4 entry, and that one is correct.
    GPS Settings
       Configure the GPS receiver.
 
       GPS Type
-         UBlox (the built-in receiver) or GPSD for a generic receiver.  Restarts
-         the PiFinder.
+         Values: UBlox (the built-in receiver), GPSD (for a generic receiver).
+         Changing this restarts the PiFinder.
       GPS Baud Rate
-         Serial speed for the receiver — 9600 (standard) or 115200 (UBlox-10).
+         Serial speed for the receiver.  rev4 PiFinders carry a 10th-generation
+         UBlox receiver and run at 115200.  The older receiver in v3 and v2.5
+         PiFinders runs at 9600.
 IMU Sensit.
-   How readily scope motion switches pointing from a camera solve to the
-   motion-sensor estimate — Off (ignore the sensor), Very Low, Low, Medium, or
-   High.  Changing this restarts the PiFinder.
+   How readily telescope motion switches pointing from a camera solve to the
+   motion-sensor estimate.  Values: Off (ignore the sensor), Very Low, Low,
+   Medium, High.  Changing this restarts the PiFinder.
 
 
 Tools
@@ -312,11 +331,11 @@ information or perform actions.  See :ref:`user_guide:tools`.
        Power --> Restart
 
 Status
-   The PiFinder's current state — solver status, WiFi mode and address, GPS, and
+   The PiFinder's current state: solver status, WiFi mode and address, GPS, and
    more.  See :ref:`user_guide:status screen`.
 Equipment
-   Pick your active telescope and eyepiece and see the resulting magnification
-   and field of view.  See :doc:`equipment`.
+   Select your active telescope and eyepiece.  The screen shows the resulting
+   magnification and field of view.  See :doc:`equipment`.
 Place & Time
    Manage your observing location and the clock.
 
@@ -328,7 +347,7 @@ Place & Time
       Enter Coords
          Type your latitude and longitude by hand.
       Load Location
-         Choose one of your saved locations.
+         Select one of your saved locations.
       Save Location
          Save the current location to recall later.
    Set Time/Date
@@ -338,8 +357,8 @@ Place & Time
    Reset Time/Date
       Discard the current time and date.
 Console
-   A running log of messages from the PiFinder's subsystems — useful when
-   troubleshooting.
+   A running log of messages from the PiFinder's subsystems.  Use it when you
+   troubleshoot.
 Software Upd
    Download and install software updates over WiFi.  See
    :ref:`user_guide:update software`.
@@ -358,13 +377,14 @@ Experimental
       Developer instrumentation.
 
       Telemetry
-         Record a session's IMU and plate-solve data — optionally including
-         camera Images — then Load a saved recording to replay it.  Intended for
-         diagnosing and developing the PiFinder.
+         Record the IMU and plate solve data from a session, optionally
+         including camera Images.  Load a saved recording to replay it.  This
+         is intended for diagnosing and developing the PiFinder.
 Power
    Shut down or restart the PiFinder.
 
    Shutdown
-      Cleanly power down (Confirm or Cancel).  See :ref:`user_guide:shutdown`.
+      Shut the PiFinder down cleanly (Confirm or Cancel).  See
+      :ref:`user_guide:shutdown`.
    Restart
-      Reboot the PiFinder (Confirm or Cancel).
+      Restart the PiFinder (Confirm or Cancel).

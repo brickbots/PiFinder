@@ -50,7 +50,7 @@ Exactly one of three authorities decides exposure at any moment:
 | --- | --- | --- |
 | Solver-driven auto-exposure | `set_exp:auto` (menu "Auto", or restored from `camera_exp: "auto"` at startup) | match-count or background controller |
 | Native auto-exposure | `set_exp:native` (daytime alignment only) | the camera driver |
-| Manual exposure | `set_exp:<µs>` (menu), `exp_up` / `exp_dn` | the user |
+| Manual exposure | `set_exp:<µs>` (menu), `set_exp_transient:<µs>`, `exp_up` / `exp_dn` | the user |
 
 Transitions worth knowing:
 
@@ -59,6 +59,31 @@ Transitions worth knowing:
   saved manual value). On backends with no native AE (debug / non-Pi),
   the fallback is a fixed 1 ms daylight exposure
   (`DAYTIME_AE_FALLBACK_EXPOSURE`).
+- **Exposure holds** use `set_exp_transient:<µs>`, which is `set_exp` minus
+  the write to `camera_exp` — so the saved exposure survives the visit and
+  `inactive()` can put the previous regime back. The Focus screen
+  (`ui/preview.py`) holds from `active()` at the exposure already in effect:
+  the saved exposure when it is numeric (the metadata still reports the
+  previous exposure until the camera process drains its command queue),
+  otherwise the last frame's `exposure_time`. UP / DOWN step it along
+  `FOCUS_EXPOSURE_LADDER` — the Camera Exp menu's own values, pinned by
+  `tests/test_focus_preview.py` — and the ends of the ladder hold rather
+  than wrap. SQM calibration (`ui/sqm_calibration.py`) holds the same way.
+  `inactive()` is idempotent: `MenuManager` calls it twice on a LEFT
+  back-out.
+- **A hold survives only a clean exit.** The hand-back lives in
+  `inactive()`, and `add_to_stack` skips `inactive()` for non-stateful
+  modules, so *burying* the Focus screen strands the hold: the camera stays
+  pinned at the held manual exposure with `_auto_exposure_enabled` cleared
+  (only `set_exp:auto` sets it back, so zero-match recovery is dead too),
+  while Camera Exp still reads Auto. The Focus screen's marking menu used to
+  carry a `menu_jump` to `camera_exposure`, which was the likeliest route
+  into this, so it was removed — UP / DOWN already did the same job faster.
+  Its marking menu is now HELP only (`up` defaults to it, and the screen has
+  help pages), and a standing status bar along the bottom of the panel
+  advertises the UP / DOWN keys in its place. Long-RIGHT, the power button
+  and an object push from SkySafari can still bury the screen, so removing
+  the jump narrows this failure rather than closing it.
 - **Any manual nudge wins**: `exp_up` / `exp_dn` silently drop both
   auto-exposure regimes. The new value is *not* persisted until
   `exp_save`, which also writes `camera_gain`.

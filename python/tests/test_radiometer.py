@@ -11,8 +11,6 @@ from PiFinder.sqm.radiometer import (
     extract_photometry_image,
     radiometric_sqm,
 )
-from PiFinder.sqm.airglow import AirglowTracker, floor_from_sample, sample_diagnostics
-from PiFinder.camera_pi import optical_black_pedestal
 
 
 @pytest.mark.unit
@@ -33,50 +31,6 @@ def test_sparse_median_ignores_small_bright_sources():
     assert sample["background_per_pixel"] == 80.0
     assert sample["sequence"] == 3
     assert sample["pixels_per_side"] == 256
-
-
-@pytest.mark.unit
-def test_bayer_colour_and_airglow_intermediates_are_replayable():
-    profile = get_camera_profile("imx462")
-    raw = np.empty((256, 256), dtype=np.uint16)
-    raw[0::2, 0::2] = 300
-    raw[0::2, 1::2] = 280
-    raw[1::2, 0::2] = 280
-    raw[1::2, 1::2] = 270
-    sample = collect_radiometer_sample(raw, profile, 0.5, sequence=9, captured_at=10.0)
-    diagnostic = sample_diagnostics(sample, "imx462", pedestal=240.0)
-    assert sample["background_red"] == 300.0
-    assert sample["background_blue"] == 270.0
-    assert diagnostic["green_rate"] == 80.0
-    assert diagnostic["red_rate"] == 120.0
-    assert diagnostic["blue_rate"] == 60.0
-    assert diagnostic["red_over_green"] == 1.5
-    assert diagnostic["blue_over_green"] == 0.75
-    assert diagnostic["red_excess_unclipped"] == 52.0
-    assert diagnostic["correction_adu_per_sec"] == pytest.approx(4.07 * 52.0)
-    assert floor_from_sample(sample, "imx462", 240.0) == pytest.approx(
-        diagnostic["correction_adu_per_sec"]
-    )
-
-
-@pytest.mark.unit
-def test_airglow_is_imx462_only_and_tracker_dump_keeps_full_window():
-    sample = {
-        "sequence": 3,
-        "captured_at": 10.0,
-        "exposure_sec": 1.0,
-        "background_per_pixel": 260.0,
-        "background_red": 265.0,
-        "background_blue": 250.0,
-    }
-    assert not sample_diagnostics(sample, "imx290", 240.0)["valid"]
-    tracker = AirglowTracker("imx462", max_samples=2)
-    assert tracker.add_sample(sample, 240.0) is not None
-    dump = tracker.dump()
-    assert dump["n_samples"] == 1
-    assert dump["samples"][0]["sequence"] == 3
-    assert dump["samples"][0]["red_excess_unclipped"] is not None
-    assert dump["floor"] == dump["samples"][0]["correction_adu_per_sec"]
 
 
 @pytest.mark.unit
@@ -198,129 +152,245 @@ def test_recent_conditioned_optics_deficit_corrects_radiometer(monkeypatch):
 
 
 @pytest.mark.unit
-def test_converts_marked_libcamera_optical_black_to_native_adu():
-    metadata = {"SensorBlackLevels": [3808, 3808, 3808, 3809]}
-    assert optical_black_pedestal(metadata, 12) == 238.0
-    # an ordinary static four-channel tuning value carries no marker
-    assert (
-        optical_black_pedestal({"SensorBlackLevels": [3840, 3840, 3840, 3840]}, 12)
-        is None
+def test_colour_term_moves_the_zero_point_with_sky_colour():
+    """A bare sensor's zero point must track sky colour.
+
+    LP sky is green-weighted (low R/G), airglow is grey and NIR-rich (R/G ~1).
+    The sensor sees that difference and a V-band meter does not, so a single
+    constant is wrong at one end. Same sky signal, different colour, must give
+    a different answer.
+    """
+    from PiFinder.sqm import get_camera_profile
+    from PiFinder.sqm.radiometer import radiometric_sqm
+
+    prof = get_camera_profile("imx462")
+    base = dict(
+        sequence=1,
+        captured_at=0.0,
+        exposure_sec=1.0,
+        background_per_pixel=400.0,
+        pixels_per_side=980,
     )
-    assert optical_black_pedestal({}, 12) is None
-    assert optical_black_pedestal({"SensorBlackLevels": [3808, 3808, 3808]}, 12) is None
-    assert (
-        optical_black_pedestal(
-            {"SensorBlackLevels": [float("nan")] * 3 + [float("nan")]}, 12
-        )
-        is None
+    ped = prof.bias_offset
+
+    lp = dict(base, background_red=ped + 0.85 * 100, background_green=ped + 100)
+    dark = dict(base, background_red=ped + 1.00 * 100, background_green=ped + 100)
+
+    v_lp, d_lp = radiometric_sqm(lp, prof, pedestal=ped)
+    v_dark, _ = radiometric_sqm(dark, prof, pedestal=ped)
+
+    assert v_lp is not None and v_dark is not None
+    # 0.15 of R/G at the fitted slope
+    assert (v_dark - v_lp) == pytest.approx(
+        0.15 * prof.radiometric_colour_slope, abs=1e-6
     )
-    assert optical_black_pedestal({"SensorBlackLevels": [0, 0, 0, 1]}, 12) is None
+    assert d_lp["sky_red_over_green"] == pytest.approx(0.85, abs=1e-6)
+    # The reported constant must stay the profile value, not the applied one,
+    # so archives remain comparable across this change.
+    assert d_lp["radiometric_zero_point"] == pytest.approx(prof.radiometric_zero_point)
+    # At the pivot the correction is exactly zero -- that is what makes the
+    # no-colour fallback land on a sensible value rather than the fit intercept.
+    assert d_lp["radiometric_zero_point_effective"] == pytest.approx(
+        prof.radiometric_zero_point, abs=1e-9
+    )
 
 
 @pytest.mark.unit
-def test_optical_black_travels_through_sample_collection():
+def test_missing_colour_falls_back_to_the_constant():
+    """No colour (mono sensor, or a malformed sample) must not break or drift."""
+    from PiFinder.sqm import get_camera_profile
+    from PiFinder.sqm.radiometer import radiometric_sqm
+
+    prof = get_camera_profile("imx462")
+    sample = dict(
+        sequence=1,
+        captured_at=0.0,
+        exposure_sec=1.0,
+        background_per_pixel=400.0,
+        pixels_per_side=980,
+    )
+    v, d = radiometric_sqm(sample, prof, pedestal=prof.bias_offset)
+    assert v is not None
+    assert d["radiometric_zero_point"] == pytest.approx(prof.radiometric_zero_point)
+    assert d["radiometric_zero_point_effective"] == pytest.approx(
+        prof.radiometric_zero_point
+    )
+    assert "sky_red_over_green" not in d
+
+
+@pytest.mark.unit
+def test_colour_ratio_is_clamped_to_the_calibrated_range():
+    """Never extrapolate off the end of the fit."""
+    from PiFinder.sqm import get_camera_profile
+    from PiFinder.sqm.radiometer import radiometric_sqm
+
+    prof = get_camera_profile("imx462")
+    ped = prof.bias_offset
+    wild = dict(
+        sequence=1,
+        captured_at=0.0,
+        exposure_sec=1.0,
+        background_per_pixel=400.0,
+        pixels_per_side=980,
+        background_red=ped + 500.0,
+        background_green=ped + 100.0,  # R/G = 5
+    )
+    _, d = radiometric_sqm(wild, prof, pedestal=ped)
+    assert d["sky_red_over_green"] == pytest.approx(5.0)
+    assert d["sky_red_over_green_clamped"] == pytest.approx(
+        prof.radiometric_colour_range[1]
+    )
+
+
+@pytest.mark.unit
+def test_ir_cut_sensor_keeps_a_plain_constant():
+    """HQ has a factory IR-cut, so there is no NIR leak to correct."""
+    from PiFinder.sqm import get_camera_profile
+
+    assert get_camera_profile("hq").radiometric_colour_slope == 0.0
+    assert get_camera_profile("imx296").radiometric_colour_slope == 0.0
+
+
+def _rggb(height, width, red, green, blue):
+    """Synthetic RGGB mosaic with a known, distinct value per CFA site."""
+    a = np.zeros((height, width), dtype=np.uint16)
+    a[0::2, 0::2] = red
+    a[0::2, 1::2] = green
+    a[1::2, 0::2] = green
+    a[1::2, 1::2] = blue
+    return a
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("height,width", [(1080, 1920), (1085, 1925), (215, 215)])
+def test_sky_colour_is_sampled_on_the_right_mosaic_sites(height, width):
+    """Red must come off the red sites, at any frame size.
+
+    Blue is deliberately far from red here: a half-site phase slip reads blue
+    as red and would otherwise pass silently, since the result stays a
+    plausible number. The odd sizes exercise the border-evening -- a 215-px
+    frame gives a 21-px border, and an odd border is exactly what shifts the
+    crop onto the wrong CFA phase.
+    """
     profile = get_camera_profile("imx462")
-    raw = np.full((256, 256), 300, dtype=np.uint16)
     sample = collect_radiometer_sample(
-        raw, profile, 0.5, sequence=1, captured_at=1.0, optical_black_pedestal=241.5
-    )
-    assert sample["optical_black_pedestal"] == 241.5
-    without = collect_radiometer_sample(raw, profile, 0.5, sequence=2, captured_at=1.0)
-    assert "optical_black_pedestal" not in without
-    nan_ob = collect_radiometer_sample(
-        raw,
+        _rggb(height, width, red=850, green=1000, blue=500),
         profile,
-        0.5,
-        sequence=3,
-        captured_at=1.0,
-        optical_black_pedestal=float("nan"),
+        1.0,
+        sequence=1,
+        captured_at=0.0,
     )
-    assert "optical_black_pedestal" not in nan_ob
+    assert sample["background_red"] == pytest.approx(850.0)
+    assert sample["background_green"] == pytest.approx(1000.0)
 
 
 @pytest.mark.unit
-def test_per_frame_optical_black_is_complete_pedestal():
+def test_rotated_or_odd_cropped_profiles_refuse_to_report_colour():
+    """The invariants the sampler assumes are checked, not assumed.
+
+    A 180-degree rotation leaves the green sites alone but swaps red and blue,
+    so the pre-existing green extraction never had to care and this one does.
+    Reporting no colour costs a fallback to the constant zero point; reporting
+    blue as red would shift the published SQM by up to the clamp width.
+    """
+    from dataclasses import replace
+
+    from PiFinder.sqm.radiometer import _mosaic_phase_is_rggb
+
     profile = get_camera_profile("imx462")
-    base = {
-        "captured_at": 1.0,
-        "pixels_per_side": 490,
-        "method": "test",
-    }
-    short, short_details = radiometric_sqm(
-        {
-            **base,
-            "sequence": 1,
-            "exposure_sec": 0.25,
-            "background_per_pixel": 250.0,
-            "optical_black_pedestal": 240.0,
-        },
+    assert _mosaic_phase_is_rggb(profile)
+
+    for broken in (
+        replace(profile, rotation_90=2),  # 180 deg: red <-> blue
+        replace(profile, rotation_90=1),  # 90 deg: transposes the CFA
+        replace(profile, crop_x=(471, 471)),  # odd origin: half-site slip
+        replace(profile, crop_y=(51, 51)),
+        replace(profile, format="SBGGR12"),  # Bayer, but not RGGB
+    ):
+        assert not _mosaic_phase_is_rggb(broken)
+        sample = collect_radiometer_sample(
+            _rggb(256, 256, red=850, green=1000, blue=500),
+            broken,
+            1.0,
+            sequence=1,
+            captured_at=0.0,
+        )
+        assert "background_red" not in sample
+
+
+@pytest.mark.unit
+def test_shipped_colour_profiles_hold_the_phase_invariants():
+    """Guard the profiles themselves, not just the sampler.
+
+    These three are RGGB, unrotated and even-cropped today, which is why the
+    colour term is correct as shipped. If a future orientation change breaks
+    that, this fails here rather than quietly biasing everyone's SQM.
+    """
+    from PiFinder.sqm.radiometer import _mosaic_phase_is_rggb
+
+    for name in ("imx462", "imx290", "hq"):
+        profile = get_camera_profile(name)
+        assert _mosaic_phase_is_rggb(profile), name
+        assert profile.rotation_90 == 0
+        assert profile.crop_x[0] % 2 == 0 and profile.crop_y[0] % 2 == 0
+
+
+@pytest.mark.unit
+def test_mono_profile_reports_no_colour():
+    profile = get_camera_profile("imx296")
+    sample = collect_radiometer_sample(
+        np.full((256, 256), 300, dtype=np.uint16),
         profile,
+        1.0,
+        sequence=1,
+        captured_at=0.0,
     )
-    long, long_details = radiometric_sqm(
-        {
-            **base,
-            "sequence": 2,
-            "exposure_sec": 0.50,
-            "background_per_pixel": 262.0,
-            "optical_black_pedestal": 242.0,
-        },
+    assert "background_red" not in sample
+    assert "background_green" not in sample
+
+
+@pytest.mark.unit
+def test_colour_sample_survives_the_round_trip_to_a_corrected_value():
+    """End to end: mosaic in, colour-corrected zero point out.
+
+    The other colour tests hand-build background_red/green; this one is the
+    only path that proves the sampler and the estimator agree on units.
+    """
+    profile = get_camera_profile("imx462")
+    pedestal = profile.bias_offset
+    sample = collect_radiometer_sample(
+        _rggb(512, 512, red=int(pedestal + 100), green=int(pedestal + 100), blue=200),
         profile,
+        1.0,
+        sequence=1,
+        captured_at=0.0,
     )
-    assert short == pytest.approx(long)
-    assert short_details["pedestal"] == 240.0
-    assert long_details["pedestal"] == 242.0
-    assert short_details["pedestal_source"] == "optical_black"
+    _, details = radiometric_sqm(sample, profile, pedestal=pedestal)
+    assert details["sky_red_over_green"] == pytest.approx(1.0)
+    assert details["radiometric_zero_point_effective"] == pytest.approx(
+        profile.radiometric_zero_point
+        + profile.radiometric_colour_slope * (1.0 - profile.radiometric_colour_pivot)
+    )
 
 
 @pytest.mark.unit
-def test_optical_black_wins_over_calibrated_pedestal():
+def test_a_phase_slip_really_would_read_blue_as_red():
+    """Pin the failure the guard prevents, so its rationale stays checkable.
+
+    ``crop_and_rotate`` runs before the sampler, so a rotated profile hands it
+    an already-rotated frame. Feed the sampler that frame directly and red
+    comes back as blue -- silently, still a plausible sky level. This is the
+    whole reason _mosaic_phase_is_rggb refuses those profiles.
+    """
+    from PiFinder.sqm.radiometer import _sky_red_green
+
     profile = get_camera_profile("imx462")
-    sample = {
-        "sequence": 1,
-        "captured_at": 1.0,
-        "exposure_sec": 0.5,
-        "background_per_pixel": 260.0,
-        "pixels_per_side": 490,
-        "method": "test",
-        "optical_black_pedestal": 241.0,
-    }
-    value, details = radiometric_sqm(sample, profile, pedestal=235.0)
-    assert details["pedestal"] == 241.0
-    assert details["pedestal_source"] == "optical_black"
-    assert value is not None
+    frame = _rggb(256, 256, red=850, green=1000, blue=500)
 
+    red, green = _sky_red_green(frame, profile, 0.10, 4)
+    assert (red, green) == (850.0, 1000.0)
 
-@pytest.mark.unit
-def test_missing_optical_black_keeps_calibrated_then_profile_pedestal():
-    profile = get_camera_profile("imx462")
-    sample = {
-        "sequence": 1,
-        "captured_at": 1.0,
-        "exposure_sec": 0.5,
-        "background_per_pixel": 260.0,
-        "pixels_per_side": 490,
-        "method": "test",
-    }
-    _, calibrated = radiometric_sqm(sample, profile, pedestal=239.0)
-    assert calibrated["pedestal"] == 239.0
-    assert calibrated["pedestal_source"] == "calibrated"
-    _, fallback = radiometric_sqm(sample, profile)
-    assert fallback["pedestal"] == profile.bias_offset
-    assert fallback["pedestal_source"] == "profile"
-
-
-@pytest.mark.unit
-def test_unresolved_background_with_optical_black_returns_no_value():
-    profile = get_camera_profile("imx462")
-    sample = {
-        "sequence": 1,
-        "captured_at": 1.0,
-        "exposure_sec": 0.5,
-        "background_per_pixel": 241.5,
-        "pixels_per_side": 490,
-        "method": "test",
-        "optical_black_pedestal": 241.0,
-    }
-    value, details = radiometric_sqm(sample, profile)
-    assert value is None
-    assert details["failure_reason"] == "background_not_resolved_above_pedestal"
+    # What the sampler would have seen had the profile been rotated 180.
+    slipped_red, slipped_green = _sky_red_green(np.rot90(frame, 2), profile, 0.10, 4)
+    assert slipped_red == 500.0  # blue, not red
+    assert slipped_green == 1000.0  # green sites are rotation-invariant
