@@ -25,30 +25,35 @@
             <div class="input-field col s12">
                 <input value="{{ telescope.make }}" id="make" type="text" name="make">
                 <label for="make">{{ _('Make') }}</label>
+                <span class="helper-text"></span>
             </div>
         </div>
         <div class="row">
             <div class="input-field col s12">
                 <input value="{{ telescope.name }}" id="name" type="text" name="name">
                 <label for="name">{{ _('Instrument Name') }}</label>
+                <span class="helper-text"></span>
             </div>
         </div>
         <div class="row">
             <div class="input-field col s12">
-                <input value="{{ telescope.aperture_mm }}" id="aperture" type="number" name="aperture">
+                <input value="{{ telescope.aperture_mm|measurement }}" id="aperture" type="text" inputmode="decimal" name="aperture">
                 <label for="aperture">{{ _('Aperture (in mm)') }}</label>
+                <span class="helper-text"></span>
             </div>
         </div>
         <div class="row">
             <div class="input-field col s12">
-                <input value="{{ telescope.focal_length_mm }}" id="focal_length_mm" type="number" name="focal_length_mm">
+                <input value="{{ telescope.focal_length_mm|measurement }}" id="focal_length_mm" type="text" inputmode="decimal" name="focal_length_mm">
                 <label for="focal_length_mm">{{ _('Focal Length (in mm)') }}</label>
+                <span class="helper-text"></span>
             </div>
         </div>
         <div class="row">
             <div class="input-field col s12">
-                <input value="{{ telescope.obstruction_perc }}" id="obstruction_perc" type="number" name="obstruction_perc">
+                <input value="{{ telescope.obstruction_perc|measurement }}" id="obstruction_perc" type="text" inputmode="decimal" name="obstruction_perc">
                 <label for="obstruction_perc">{{ _('Obstruction %') }}</label>
+                <span class="helper-text">{{ _('Leave at 0 for a refractor') }}</span>
             </div>
         </div>
         <div class="row">
@@ -97,7 +102,7 @@
     </div>
 </form>
 
-<a href="#" onClick="document.getElementById('add_instrument').submit();"
+<a href="#" onClick="return submitEquipmentForm('add_instrument');"
    class="btn">
 {% if instrument_id < 0 %}
     {{ _('Add instrument!') }}
@@ -112,10 +117,19 @@
 {% endblock %}
 
 {% block scripts %}
+{% include "equipment_validation.html" %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         let elems = document.querySelectorAll('select');
         let instances = M.FormSelect.init(elems);
+    });
+
+    registerEquipmentForm('add_instrument', {
+        make: {text: true, maxLength: {{ name_max_length }}},
+        name: {text: true, required: true, maxLength: {{ name_max_length }}},
+        aperture: {required: true, minimum: {{ limits.aperture_mm.minimum }}, maximum: {{ limits.aperture_mm.maximum }}},
+        focal_length_mm: {required: true, minimum: {{ limits.focal_length_mm.minimum }}, maximum: {{ limits.focal_length_mm.maximum }}},
+        obstruction_perc: {minimum: {{ limits.obstruction_perc.minimum }}, maximum: {{ limits.obstruction_perc.maximum }}}
     });
 </script>
 {% endblock %}

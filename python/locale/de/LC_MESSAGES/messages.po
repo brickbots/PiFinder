@@ -3334,3 +3334,106 @@ msgstr ""
 #~ msgid "Download: {}MB"
 #~ msgstr ""
 
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:91
+#, python-format
+msgid "%(field)s must be between %(minimum)s and %(maximum)s"
+msgstr "%(field)s muss zwischen %(minimum)s und %(maximum)s liegen"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:108
+#, python-format
+msgid "%(field)s must be %(maximum)s characters or fewer"
+msgstr "%(field)s darf höchstens %(maximum)s Zeichen lang sein"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:169
+#: PiFinder/server.py:202
+msgid "Focal length"
+msgstr "Brennweite"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:173
+msgid "Apparent field of view"
+msgstr "Scheinbares Gesichtsfeld"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:177
+msgid "Field stop"
+msgstr "Feldblende"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:192
+#, python-format
+msgid "%s is not a valid mount type"
+msgstr "%s ist keine gültige Montierungsart"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:196
+msgid "Instrument name"
+msgstr "Instrumentenname"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:207
+msgid "Obstruction"
+msgstr "Obstruktion"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:518
+msgid "Date and time must be YYYY-MM-DD h:m:s"
+msgstr "Datum und Uhrzeit müssen im Format YYYY-MM-DD h:m:s vorliegen"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:797
+#: PiFinder/server.py:1020
+#: PiFinder/server.py:1085
+msgid "No such instrument"
+msgstr "Instrument nicht gefunden"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:816
+#: PiFinder/server.py:939
+#: PiFinder/server.py:1002
+msgid "No such eyepiece"
+msgstr "Okular nicht gefunden"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:924
+#, python-format
+msgid "%s entries were skipped because DeepskyLog had no usable values for them."
+msgstr "%s Einträge wurden übersprungen, weil DeepskyLog keine verwendbaren Werte dafür hatte."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:988
+#, python-format
+msgid "Could not save eyepiece: %s"
+msgstr "Okular konnte nicht gespeichert werden: %s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1071
+#, python-format
+msgid "Could not save instrument: %s"
+msgstr "Instrument konnte nicht gespeichert werden: %s"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:55
+msgid "Leave at 0 if unknown"
+msgstr "Bei 0 lassen, wenn unbekannt"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:56
+msgid "Leave at 0 for a refractor"
+msgstr "Bei einem Refraktor 0 lassen"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment_validation.html:10
+#, python-format
+msgid "Must be between %(minimum)s and %(maximum)s"
+msgstr "Muss zwischen %(minimum)s und %(maximum)s liegen"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment_validation.html:11
+#, python-format
+msgid "Must be %(maximum)s characters or fewer"
+msgstr "Darf höchstens %(maximum)s Zeichen lang sein"
