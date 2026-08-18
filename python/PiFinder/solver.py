@@ -13,7 +13,6 @@ import queue
 import numpy as np
 import time
 import logging
-import sys
 from time import perf_counter as precision_timestamp
 import os
 import platform
@@ -33,6 +32,7 @@ from PiFinder.sqm import SQM as SQMCalculator
 from PiFinder.sqm.wings import WingEstimator
 from PiFinder.sqm.clouds import CloudEstimator
 from PiFinder.sqm.black_level import BlackLevelTracker
+from PiFinder.sqm.airglow import AirglowTracker, sample_diagnostics
 from PiFinder.sqm.radiometer import (
     RadiometerAccumulator,
     extract_photometry_image,
@@ -50,7 +50,6 @@ from PiFinder.types.positioning import (
     SuccessfulSolve,
 )
 
-sys.path.append(str(utils.tetra3_dir))
 import tetra3
 from tetra3 import cedar_detect_client
 
@@ -193,36 +192,13 @@ def update_radiometric_sqm(
     calculation_interval_seconds=1.0,
     now=None,
     black_level_tracker=None,
+    airglow_tracker=None,
     field_width_degrees=None,
 ):
     """Collect every frame and publish a solve-independent value at cadence."""
     from datetime import datetime
 
-    fresh_sample = accumulator.add(sample)
     current_time = time.time() if now is None else float(now)
-
-    # Every fresh radiometer sample carries (exposure, background) — feed the
-    # black-level tracker here rather than only from the 10-second stellar
-    # diagnostics: this cadence conditions its fit in minutes and keeps working
-    # through failed solves. Withheld while the last transmission diagnostic
-    # said cloud (a moving sky breaks the intercept's single-line model; the
-    # tracker's own stderr gate catches drift the flag misses).
-    if black_level_tracker is not None and fresh_sample:
-        cloudy_now = shared_state.sqm_details().get("cloud_flag") is True
-        black_level_tracker.add_sample(
-            float(sample["exposure_sec"]),
-            float(sample["background_per_pixel"]),
-            stable=not cloudy_now,
-        )
-
-    current_sqm = shared_state.sqm()
-    if current_sqm.last_update is not None:
-        try:
-            last_update = datetime.fromisoformat(current_sqm.last_update).timestamp()
-            if current_time - last_update < calculation_interval_seconds:
-                return False
-        except (ValueError, AttributeError):
-            logger.warning("Failed to parse SQM timestamp, recalculating")
 
     noise = sqm_calculator.noise_floor_estimator
 
@@ -247,6 +223,48 @@ def update_radiometric_sqm(
         # dark from sky (both are linear in exposure).
         return bias + sqm_calculator.profile.dark_current_rate * exposure_sec
 
+    if sample is not None:
+        sample = dict(sample)
+    if airglow_tracker is not None and sample is not None:
+        optical_black = sample.get("optical_black_pedestal")
+        if optical_black is not None and np.isfinite(optical_black):
+            colour_pedestal = float(optical_black)
+            colour_pedestal_source = "optical_black"
+        else:
+            colour_pedestal = pedestal_for_exposure(float(sample["exposure_sec"]))
+            colour_pedestal_source = "tracked_or_calibrated"
+        diagnostic = sample_diagnostics(
+            sample, airglow_tracker.camera_type, colour_pedestal
+        )
+        diagnostic["pedestal_source"] = colour_pedestal_source
+        sample["airglow_diagnostic"] = diagnostic
+        if diagnostic["valid"]:
+            sample["paired_pedestal"] = colour_pedestal
+            sample["spectral_floor"] = diagnostic["correction_adu_per_sec"]
+            sample["paired_radiometric_zero_point"] = diagnostic["paired_zero_point"]
+
+    fresh_sample = accumulator.add(sample)
+    if black_level_tracker is not None and fresh_sample:
+        cloudy_now = shared_state.sqm_details().get("cloud_flag") is True
+        black_level_tracker.add_sample(
+            float(sample["exposure_sec"]),
+            float(sample["background_per_pixel"]),
+            stable=not cloudy_now,
+        )
+    if airglow_tracker is not None and fresh_sample:
+        airglow_tracker.add_sample(
+            sample, float(sample["airglow_diagnostic"]["pedestal"])
+        )
+
+    current_sqm = shared_state.sqm()
+    if current_sqm.last_update is not None:
+        try:
+            last_update = datetime.fromisoformat(current_sqm.last_update).timestamp()
+            if current_time - last_update < calculation_interval_seconds:
+                return False
+        except (ValueError, AttributeError):
+            logger.warning("Failed to parse SQM timestamp, recalculating")
+
     sqm_value, details = accumulator.estimate(
         sqm_calculator.profile,
         current_time,
@@ -255,6 +273,11 @@ def update_radiometric_sqm(
     )
     if sqm_value is None:
         previous = shared_state.sqm_details()
+        details["window_radiometer"] = accumulator.dump()
+        if black_level_tracker is not None:
+            details["window_black_level"] = black_level_tracker.dump()
+        if airglow_tracker is not None:
+            details["window_airglow"] = airglow_tracker.dump()
         shared_state.set_sqm_details({**previous, **details})
         return False
 
@@ -280,6 +303,8 @@ def update_radiometric_sqm(
         details["black_level_pedestal"] = tracked
         details["black_level_stderr"] = tracked_stderr
         details["window_black_level"] = black_level_tracker.dump()
+    if airglow_tracker is not None:
+        details["window_airglow"] = airglow_tracker.dump()
     details["window_radiometer"] = accumulator.dump()
     details["measurement_role"] = "primary_radiometer"
     shared_state.set_sqm_details({**previous, **details})
@@ -694,6 +719,12 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             )
         return self._stub
 
+    def _alloc_shmem(self, size):
+        # A fresh segment also requires the server to reopen its cached fd.
+        fresh = self._shmem is None
+        resized = super()._alloc_shmem(size)
+        return resized or fresh
+
     def extract_centroids(
         self, image, sigma, max_size, use_binned, detect_hot_pixels=True
     ):
@@ -707,14 +738,17 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
 
         # Use shared memory path (same machine)
         if self._use_shmem:
-            self._alloc_shmem(size=width * height)
+            reopen = self._alloc_shmem(size=width * height)
             shimg = np.ndarray(
                 np_image.shape, dtype=np_image.dtype, buffer=self._shmem.buf
             )
             shimg[:] = np_image[:]
 
             im = cedar_detect_pb2.Image(
-                width=width, height=height, shmem_name=self._shmem.name
+                width=width,
+                height=height,
+                shmem_name=self._shmem.name,
+                reopen_shmem=reopen,
             )
             req = cedar_detect_pb2.CentroidsRequest(
                 input_image=im,
@@ -870,7 +904,7 @@ def solver(
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
-    t3 = tetra3.Tetra3(str(utils.tetra3_dir / "data" / "default_database.npz"))
+    t3 = tetra3.Tetra3("default_database")
     align_ra = 0
     align_dec = 0
     last_solve_attempt: float = 0.0
@@ -894,6 +928,7 @@ def solver(
     # camera type is not yet known here.
     sqm_cloud_estimator = None
     sqm_black_level = None
+    sqm_airglow = None
     sqm_radiometer = RadiometerAccumulator()
     last_stellar_diagnostic = 0.0
 
@@ -946,6 +981,7 @@ def solver(
                         # here so stale seeds/history cannot carry over.
                         sqm_cloud_estimator = None
                         sqm_black_level = None
+                        sqm_airglow = None
                         sqm_radiometer.reset()
                         last_stellar_diagnostic = 0.0
                     else:
@@ -1016,6 +1052,10 @@ def solver(
                         clear_sky_brightness=profile.clear_sky_brightness,
                     )
                     sqm_black_level = BlackLevelTracker(profile.bias_offset)
+                    camera_type = shared_state.camera_type()
+                    sqm_airglow = (
+                        AirglowTracker(camera_type) if camera_type == "imx462" else None
+                    )
                 if sqm_calculator is not None:
                     update_radiometric_sqm(
                         shared_state,
@@ -1024,6 +1064,7 @@ def solver(
                         radiometer_sample,
                         calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
                         black_level_tracker=sqm_black_level,
+                        airglow_tracker=sqm_airglow,
                         field_width_degrees=train.fov_degrees,
                     )
 

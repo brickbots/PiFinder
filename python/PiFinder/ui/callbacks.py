@@ -54,6 +54,16 @@ def show_advanced_message(ui_module: UIModule) -> None:
     return
 
 
+def set_obj_chart_mark_fallback(ui_module: UIModule) -> None:
+    """Select the 'fallback' obj-chart mark source (entering its shape picker)."""
+    ui_module.config_object.set_option("obj_chart_mark_source", "fallback")
+
+
+def set_obj_chart_mark_custom(ui_module: UIModule) -> None:
+    """Select the 'custom' obj-chart mark source (entering its shape picker)."""
+    ui_module.config_object.set_option("obj_chart_mark_source", "custom")
+
+
 def reset_filters(ui_module: UIModule) -> None:
     """
     Reset all filters to default
@@ -72,13 +82,18 @@ def reset_filters(ui_module: UIModule) -> None:
 
 def activate_debug(ui_module: UIModule) -> None:
     """
-    Sets camera into debug
-    add fake gps info
+    Toggles test mode (fake camera image + fake GPS).
+    Main flips shared_state/config; the camera process follows
+    shared_state.test_mode() on its own.
     """
-    ui_module.command_queues["camera"].put("debug")
-    ui_module.command_queues["console"].put("Test Mode Activated")
     ui_module.command_queues["ui_queue"].put("test_mode")
-    ui_module.message(_("Test Mode"))
+
+
+def test_mode_suffix(ui_module: UIModule) -> str:
+    """Returns ON/OFF suffix for Test Mode menu entry."""
+    if ui_module.config_object.get_option("test_mode", False):
+        return " ON"
+    return " OFF"
 
 
 def set_exposure(ui_module: UIModule) -> None:
@@ -275,21 +290,7 @@ def set_camera_lens(ui_module: UIModule) -> None:
 
 
 def get_camera_type(ui_module: UIModule) -> list[str]:
-    cam_id = "000"
-
-    # read config.txt into a list
-    with open("/boot/config.txt", "r") as boot_in:
-        boot_lines = list(boot_in)
-
-    # Look for the line without a comment...
-    for line in boot_lines:
-        if line.startswith("dtoverlay=imx"):
-            cam_id = line[10:16]
-            # imx462 uses imx290 driver
-            if cam_id == "imx290":
-                cam_id = "imx462"
-
-    return [cam_id]
+    return sys_utils.get_camera_type()
 
 
 def switch_language(ui_module: UIModule) -> None:
@@ -301,9 +302,6 @@ def switch_language(ui_module: UIModule) -> None:
     )
     lang.install()
     logger.info("Switch Language: %s", iso2_code)
-    if iso2_code == "zh":
-        # Chinese requires a new font, so we have to restart
-        restart_pifinder(ui_module)
 
 
 def go_wifi_ap(ui_module: UIModule) -> None:
@@ -319,9 +317,15 @@ def go_wifi_cli(ui_module: UIModule) -> None:
 
 
 def get_wifi_mode(ui_module: UIModule) -> list[str]:
-    wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
-    with open(wifi_txt, "r") as wfs:
-        return [wfs.read()]
+    # Report the live mode from NetworkManager (as the web UI does), not the
+    # static wifi_status.txt — that file is written once at setup and never
+    # tracks reality, so it showed "Client" while the device was on the AP.
+    try:
+        return [sys_utils.get_wifi_mode()]
+    except Exception:
+        wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
+        with open(wifi_txt, "r") as wfs:
+            return [wfs.read()]
 
 
 def set_location(ui_module: UIModule) -> None:
@@ -559,8 +563,9 @@ def generate_custom_object_name(ui_module: UIModule) -> str:
 
 
 def telemetry_record_toggle(ui_module: UIModule) -> None:
-    """Toggle telemetry recording on/off via integrator command queue."""
-    enabled = ui_module.config_object.get_option("telemetry_record")
+    """Flip telemetry recording on/off in place (inline menu toggle)."""
+    enabled = not ui_module.config_object.get_option("telemetry_record")
+    ui_module.config_object.set_option("telemetry_record", enabled)
     if "integrator" in ui_module.command_queues:
         if enabled:
             ui_module.command_queues["integrator"].put(("telemetry_record_on", None))
@@ -570,6 +575,21 @@ def telemetry_record_toggle(ui_module: UIModule) -> None:
             ui_module.message("Telemetry\nStopped", 2)
     else:
         ui_module.message("No integrator\nqueue", 2)
+
+
+def telemetry_record_suffix(ui_module: UIModule) -> str:
+    """Return ' On'/' Off' for the inline Record toggle's current state."""
+    return " On" if ui_module.config_object.get_option("telemetry_record") else " Off"
+
+
+def telemetry_section_toggle(ui_module: UIModule) -> None:
+    """Apply a telemetry section on/off change to any live recording.
+
+    The section flag is already persisted to config by the menu; nudge the
+    integrator's recorder to re-read it so the change takes effect mid-session.
+    """
+    if "integrator" in ui_module.command_queues:
+        ui_module.command_queues["integrator"].put(("telemetry_update_sections", None))
 
 
 def update_gpsd_baud_rate(ui_module: UIModule) -> None:
