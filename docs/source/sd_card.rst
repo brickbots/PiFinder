@@ -2,43 +2,74 @@ Swapping the SD Card
 ====================
 
 .. note::
-   This procedure is for v3 PiFinders.  The microSD card holds everything the
-   PiFinder runs — the operating system, the PiFinder software, your settings,
-   and the deep sky catalog images — so swapping it is how you recover from a
-   corrupt card or move to a fresh or larger one.
+   This page covers rev4, v3 and v2.5 PiFinders, and the procedure differs on each.  If
+   you're not sure which one you have, the :ref:`quick_start:which pifinder do i have?`
+   section of the Quick Start tells them apart.  The microSD card holds everything the
+   PiFinder runs: the operating system, the PiFinder software, your settings, and the
+   deep-sky catalog images.  Swapping it is how you recover from a corrupt card or move
+   to a fresh or larger one.
 
-The PiFinder boots from a microSD card tucked inside the case, in the slot
-between the Raspberry Pi and the power board.  This page covers getting at that
-card and swapping it.  To put software on the new card first, see
-:doc:`Software Setup <software>`.
+The PiFinder boots from a microSD card.  On rev4 that card sits in a slot on the
+side of the case, reachable from outside.  Swapping it takes no tools, and
+nothing has to come apart.  This page covers how to reach the card and swap it.
+To put software on the new card first, see :doc:`Software Setup <software>`.
+
+.. note::
+   On v3 and v2.5 PiFinders the card is inside the case, in the slot between the
+   Raspberry Pi and the power board.  You have to open the case to reach it.
+   See :ref:`sd_card:reaching the card on v3 and v2.5 units` below.
+   |v3_docs|
 
 When you'd swap the card
 ------------------------
 
-* The card has become corrupt and the PiFinder won't boot reliably (see
+* The card is corrupt and the PiFinder won't boot reliably (see
   :doc:`troubleshooting`).
 * You'd rather re-image onto a spare card and keep your original as a backup.
 
-Image the new card before you open the case — the
-:ref:`software:prebuilt release image` is the quickest way, and it already
-includes the catalog images.
+Image the new card before you start.  The :ref:`software:prebuilt release image`
+is the quickest way, and it already includes the catalog images.
 
 Before you start
 ----------------
 
-If the PiFinder is on, shut the PiFinder down cleanly first (Tools → Shutdown), wait for the screen and
-keypad to go dark, then switch off the power.  Pulling a card from a running unit
-can corrupt it.
+If the PiFinder is on, shut it down cleanly.  Wait for the screen and keypad to
+go dark before you touch the card.  See :ref:`user_guide:shutdown`.  Pulling a
+card from a running PiFinder can corrupt it.
 
-You'll need a small Phillips screwdriver.  The card sits in a friction slot —
-there's no spring to push it in or out, so you pull it straight out and push the
-new one straight in.
+.. note::
+   On v3 and v2.5 PiFinders, turn the power off at the slide switch once the
+   screen and keypad have gone dark, before you open the case.
+   |v3_docs|
 
-Opening the case
-----------------
+Swapping the card
+-----------------
 
-On every v3 unit, start by removing the three screws on the right-hand side as
-you face the screen.
+Face the screen and look at the left-hand side of the case.  The card slot is a thin
+opening in that side panel with the edge of the microSD card sitting in it.  You need
+no tools, and nothing has to come apart.
+
+The slot is spring-loaded, so the card comes out with a push rather than a pull:
+
+1. Push the card in until it clicks, then let go.  The spring pushes it part-way out.
+2. Slide the card clear of the slot.
+3. Push the replacement in until it clicks and stays put.
+
+The card is easy to crack once it's part-way out, so support it as you work and
+don't flex it against the case.
+
+Reaching the card on v3 and v2.5 units
+--------------------------------------
+
+On these PiFinders the card is inside the case, so you must open the case first.
+It sits in a friction slot.  There is no spring, so you pull the card straight
+out and push the new one straight in.
+
+Opening a v3 case
+~~~~~~~~~~~~~~~~~
+
+You need a small Phillips screwdriver.  On every v3 PiFinder, start by removing
+the three screws on the right-hand side as you face the screen.
 
 .. image:: images/sd_card/sd_card_remove_screws.jpeg
    :width: 70%
@@ -48,34 +79,41 @@ sure which one you have, the :ref:`build_guide:configurations overview` has
 photos of each.
 
 Right configuration
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
-Simply lift off the separate cover held on by the three screws to expose the card.
+Lift off the separate cover held on by the three screws to expose the card.
 
 Left configuration
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
-For the left configuration, the three screws hold the camera assembly in place.  
-Gently tilt the camera assembly out of the way to reach the card. Be mindful of 
-the cable, but there should be plenty of slack.
+The three screws hold the camera assembly in place.  Tilt it gently out of the
+way to reach the card.  Be careful with the cable, but there should be plenty of
+slack.
 
 Flat configuration
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
-The three screws hold one side of the flat cradle. Removing them allows enough flex to 
-gently pull the flat holder down to expose the card.  The image below shows this, but 
-was taken during assembly before the camera is installed.  There is no need to remove
-the camera to access the sd card.
+Remove the three screws that hold one side of the flat cradle.  The cradle then
+flexes enough to pull the flat holder gently down and expose the card.  The image
+below shows this, taken during assembly before the camera was installed.  You don't need to remove the camera to reach the card.
 
 .. image:: images/sd_card/flat_open.jpeg
    :width: 70%
 
-Swapping the card
------------------
+Opening a v2.5 case
+~~~~~~~~~~~~~~~~~~~
 
-The card sits in the slot between the green Raspberry Pi board and the black
-power board.  The white camera ribbon cable runs nearby — move it gently aside
-if it's in the way, taking care not to crease or unseat it.
+A v2.5 PiFinder has an access door that snaps out to expose the card.  You need
+no tools.  The alternative is to undo the three faceplate screws with a small
+Phillips screwdriver and slide the whole shroud off.  Those are the faceplate
+screws, not the side screws a v3 uses.
+
+Removing and replacing the card
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The card sits in the slot between the Raspberry Pi board and the power board.
+The white camera ribbon cable runs nearby.  Move it gently aside if it's in the
+way, and take care not to crease or unseat it.
 
 .. image:: images/sd_card/sd_card_closup.jpg
    :width: 47%
@@ -86,23 +124,29 @@ Grip the card and pull it straight out, then push the replacement straight in
 until it's fully seated.  The card is easy to crack once it's part-way out, so
 support it as you work and don't flex it against the case.
 
-Reassemble and boot
--------------------
+Reassembling
+~~~~~~~~~~~~
 
-Reverse the steps: refit the cover or holder for your configuration, check that
-the camera ribbon is sitting flat and isn't pinched, and replace the three side
-screws — snug, not forced.
+Reverse the steps you took to get in: refit the cover, holder or shroud, check
+that the camera ribbon is sitting flat and isn't pinched, and replace the three
+screws.  Tighten them snug, but don't force them.  An access door presses back
+into place on its own.
 
-Power the PiFinder on.  The first boot from a freshly imaged card takes longer
-than usual while it expands the filesystem to fill the card, so give it a couple
+First boot
+----------
+
+Turn the PiFinder on.  The first boot from a freshly imaged card takes longer
+than usual, because it expands the filesystem to fill the card.  Give it a couple
 of minutes.
 
 .. important::
-   After swapping the card you'll most likely need to set the **Camera Type**
-   again.  A freshly imaged card defaults to one sensor, and if it doesn't match
-   your unit the camera view will be blank.  Set it under Settings → Advanced → Camera Type
-   — the v3 sensors are ``imx462`` and ``imx296`` — then **fully power the
-   PiFinder off and on**, as a software restart alone won't apply the change.
-   See :ref:`troubleshooting:the camera view is blank or black` for more.  It's
-   also worth re-checking your WiFi settings, since they won't carry over to a
-   freshly imaged card.
+   After swapping the card you usually need to set the **Camera Type** again.  A
+   freshly imaged card defaults to one sensor, and if it doesn't match your
+   PiFinder the camera view is blank.  From the main menu, select Settings,
+   scroll down to Advanced, then select Camera Type.  A rev4 PiFinder takes
+   ``v3 - imx462``.  There is no separate rev4 entry, and that one is correct.
+   The v3 sensors are ``v3 - imx462`` and ``v3 - imx296``, and older v2 cameras
+   are ``v2 - imx477``.  Then **turn the PiFinder fully off and on again**,
+   because a software restart alone won't apply the change.  See
+   :ref:`troubleshooting:the camera view is blank or black` for more.  Re-check
+   your WiFi settings too.  They don't carry over to a freshly imaged card.

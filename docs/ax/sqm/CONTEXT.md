@@ -119,6 +119,24 @@ Median of local annulus skies, used only by stellar diagnostics.
 **Bias offset**:
 Static mean detector signal at minimum exposure, in raw ADU. Comes from the
 built-in sensor profile unless an optional per-device calibration overrides it.
+Static is the operative word: it is a stored constant, and a **tracked black
+level** supersedes it when one is available.
+
+**Tracked black level (`BlackLevelTracker`)**:
+The sensor's actual pedestal right now, fitted as the intercept of sky
+background against exposure over the running session. The optical-black clamp
+moves with sensor state, so this measurement supersedes both the profile
+constant and any wizard-measured bias offset once its fit is **leased**. It
+needs no lens cap and no dark frame. Say "tracked black level", not "auto
+bias" or "dynamic calibration" — it measures one specific quantity and does
+not calibrate anything else. See
+[ADR 0028](../../adr/0028-tracked-black-level-supersedes-stored-bias.md).
+
+**Lease**:
+The gate that decides whether a tracked black level is trusted enough to
+publish, based on the fit's standard error and deviation band. Unleased, the
+pedestal falls back to the stored constant. A tracker holding samples is not
+the same as a tracker whose fit is leased.
 
 **Mean dark signal**:
 `calibrated_dark_current_rate × exposure_seconds`. A mean exposure-dependent
@@ -127,9 +145,10 @@ estimates and remain diagnostic until optional per-device calibration measures
 the rate.
 
 **Pedestal**:
-The mean detector signal subtracted from sky background. The validated
-zero-touch path uses `bias_offset`; an optional measured calibration uses
-`bias_offset + mean_dark_signal`. An explicit total `pedestal_override` wins.
+The mean detector signal subtracted from sky background. Its bias term is the
+**tracked black level** when one is leased, otherwise `bias_offset`. An
+optional measured calibration adds `mean_dark_signal` on top of that bias term.
+An explicit total `pedestal_override` wins over all of it.
 
 **Read noise**:
 Zero-mean RMS variation in raw ADU. Diagnostic uncertainty; never subtracted
@@ -160,7 +179,14 @@ It is fixed per shipped sensor/optics profile and does not change with current
 stellar transmission.
 
 **Radiometric field width**:
-Factory angular width used for square-arcsecond conversion when no solve exists.
+Angular width used for square-arcsecond conversion when no solve exists.
+Derived from the **optical train** (see [Camera](../camera/CONTEXT.md)) rather
+than stored per sensor: it is a property of the sensor *and* the fitted lens,
+so a sensor-only constant is silently wrong the moment the lens changes. An
+error here scales the assumed solid angle, and so biases every published
+radiometric SQM — a lens change of one step is worth ~0.6 mag.
+_Avoid_: factory field width (it is no longer a factory constant), FOV
+(unqualified — see [Camera](../camera/CONTEXT.md)).
 
 ## Passband and atmosphere
 
@@ -221,6 +247,9 @@ records the difference in its metadata.
 **Calibration JSON**:
 Optional `~/PiFinder_data/sqm_calibration_<sensor>.json` override containing
 bias, read noise, and dark-current rate. Absence is the normal zero-touch case.
+Of the three fields the dark-current rate is the one that still changes the
+published value: bias yields to a leased **tracked black level**, and read
+noise is diagnostic.
 
 **Calibration wizard**:
 Optional service flow. Captures minimum-exposure bias frames, fits temporal

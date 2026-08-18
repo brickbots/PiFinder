@@ -1453,7 +1453,24 @@ msgid "v3 - imx462"
 msgstr "v3 - imx462"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/menu_structure.py:1073 views/gps.html:6
+#: PiFinder/ui/menu_structure.py:1077
+# AI-TRANSLATED (claude): needs human review
+msgid "Lens"
+msgstr "Objetivo"
+
+#: PiFinder/ui/menu_structure.py:1086
+msgid "12mm"
+msgstr "12mm"
+
+#: PiFinder/ui/menu_structure.py:1090
+msgid "16mm"
+msgstr "16mm"
+
+#: PiFinder/ui/menu_structure.py:1094
+msgid "25mm"
+msgstr "25mm"
+
+#: PiFinder/ui/menu_structure.py:1100 views/gps.html:6
 msgid "GPS Settings"
 msgstr "Configuración GPS"
 

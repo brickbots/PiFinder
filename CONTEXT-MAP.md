@@ -22,6 +22,7 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - **Positioning → SQM**: SQM is a side effect of every successful plate solve in the solver process; it reuses the tetra3 `matched_centroids` and the camera frame.
 - **SQM / Camera units boundary**: SQM photometry and its pedestal diagnostics use raw sensor ADU. The Camera background controller measures processed 8-bit images and uses its separate shared 10 ADU floor; raw SQM thresholds must not cross that boundary.
 - **Positioning → Camera**: `Matches` is published on every solve attempt (success or failure) as the feedback signal for solver-driven auto-exposure.
+- **Camera → Positioning / SQM / UI (optical train)**: Camera owns the **optical train** — the detected sensor profile paired with the configured **lens**. Its derived **field of view** is the single source for Positioning's **FOV gate**, SQM's **radiometric field width**, and the chart's frustum shading. Each of those was previously an independent hard-coded constant, and they disagreed with each other and with the hardware. The sensor half is auto-detected and the lens half cannot be detected at all, so a mis-stated lens is a configuration error that surfaces as *no solves whatsoever* — deliberately not auto-corrected (see [ADR 0027](./docs/adr/0027-fov-gate-derived-from-optical-train.md)).
 - **Camera → Positioning**: `SCREEN_ROTATE_AMOUNTS` (`camera_interface.py`) rotates every capture before the solver sees it; the post-rotation image defines Positioning's **camera frame**, so each entry is only valid paired with that variant's `q_imu2cam` — pairs are derived with the imu2cam tool and pinned together by `tests/test_imu2cam_tool_presets.py`.
 - **Catalog ↔ Positioning**: Catalog supplies the `(RA, Dec)` target for the alignment flow that calibrates `solve_pixel` in Positioning.
 - **Equipment → Catalog**: the active telescope's flip/flop flags and the active eyepiece's true field of view orient and scale the POSS/SDSS object image in `cat_images.get_display_image`.
@@ -47,3 +48,4 @@ Companion architecture docs live next to each `CONTEXT.md`:
 - [`docs/ax/equipment.md`](./docs/ax/equipment.md)
 - [`docs/ax/ui.md`](./docs/ax/ui.md)
 - [`docs/ax/camera.md`](./docs/ax/camera.md)
+- [`docs/ax/bringup.md`](./docs/ax/bringup.md)

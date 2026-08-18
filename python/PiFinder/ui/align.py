@@ -13,6 +13,7 @@ from PIL import ImageChops
 
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import plot
+from PiFinder.optics import OpticalTrainResolver
 from PiFinder.types.positioning import AlignCancel, AlignOnRaDec, AlignedResult
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.chart import get_chart_rotation_angle
@@ -76,6 +77,10 @@ class UIAlign(UIModule):
         super().__init__(*args, **kwargs)
         self.last_update = time.time()
         self.starfield = plot.Starfield(self.colors, self.display_class.resolution)
+        # The shaded frustum marks what the camera can actually see, so it has
+        # to follow the fitted optical train rather than a constant. Resolved
+        # per frame (memoized) so a lens change shows up without a restart.
+        self._optical_train = OpticalTrainResolver()
         self.solution = None
         self.fov_list = [5, 10.2, 20, 30, 60]
         self.fov_index = 1
@@ -224,6 +229,14 @@ class UIAlign(UIModule):
                     dt=self.shared_state.datetime(),
                 )
                 chart_rot_angle = orientation.rot_deg if orientation else None
+                # The frustum marks what the camera images, so it follows the
+                # fitted optical train. It also decides which stars come back
+                # as visible_stars, and an alignment star the camera cannot
+                # see is no use.
+                camera_fov = self._optical_train.resolve(
+                    self.shared_state.camera_type(),
+                    self.shared_state.camera_lens(),
+                ).fov_degrees
                 # This needs to be called first to set RA/DEC/chart_rot_angle
                 image_obj, self.visible_stars = self.starfield.plot_starfield(
                     chart_center.RA,
@@ -231,6 +244,7 @@ class UIAlign(UIModule):
                     chart_rot_angle,
                     constellation_brightness,
                     shade_frustrum=True,
+                    camera_fov=camera_fov,
                 )
 
                 image_obj = ImageChops.multiply(

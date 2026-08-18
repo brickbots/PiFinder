@@ -1,0 +1,69 @@
+Comment	Designator	Footprint	JLCPart
+ - 503398-1892	J1	SD:MOLEX_503398-1892	C428492
+Light emitting diode - LED	D14,D12,D20,D3,D8,D18,D9,D5,D1,D6,D7,D2,D10,D4,D11,D17	LED_SMD:LED_1210_3225Metric	C264578
+Inductor, small symbol - 2.2uH	L4,L2	Inductor_SMD:L_Coilcraft_XAL4020-XXX	C3151182
+Resistor, small symbol - 180R	R6	Resistor_SMD:R_0402_1005Metric	C138045
+Gate resistor - 1k	R26	Resistor_SMD:R_0402_1005Metric	C11702
+22uF 25V cap - 22uF	C29,C28,C43,C45,C44	Capacitor_SMD:C_0805_2012Metric	C45783
+Resistor, small symbol - 5.1k	R19,R21,R18,R20	Resistor_SMD:R_0402_1005Metric	C25905
+2A, Discharge, Active High EN, TSOT-23-5 - RT9742CGJ5	U5,U4	Package_TO_SOT_SMD:TSOT-23-5	C424402
+Unpolarized capacitor, small symbol - 47nF	C47,C50	Capacitor_SMD:C_0603_1608Metric	C1622
+ - TPS61088RHLR	U1	TPS61088:RHL0020A	C87357
+Push button switch, generic, two pins - SW_Push	SW0,SW_PLUS1,SW5,SW3,SW1,SW8,SW9,SW7,SW2,SW_MINUS1,SW10,SW4,SW_SQUARE1,SW6	RSU:SW_Push_6x6mm_SMT_withhole_tight	C4364377
+Resistor, small symbol - 680	R5,R34,R33	Resistor_SMD:R_0402_1005Metric	C137948
+ - Q_NPN_EBC	Q1	RSU:PF_SOT-23-NPN	C280842
+Unpolarized capacitor, small symbol - 5.6nF	C46	Capacitor_SMD:C_0603_1608Metric	C107095
+Unpolarized capacitor, small symbol - 100nF	C35,C51,C22,C34,C2,C4,C30,C14,C17,C9,C23,C55,C8,C19,C25	Capacitor_SMD:C_0603_1608Metric	C14663
+Unpolarized capacitor, small symbol - 2.2uF	C54	Capacitor_SMD:C_0603_1608Metric	C23630
+HuaWha MLT-5020 magnetic transducer, 12 ohm, 4kHz, SMD - MLT-5020	BZ1	RSU_Buzzers:MagneticBuzzer_HuaWha_MLT-5020	C94598
+Unpolarized capacitor, small symbol - 10uf	C52,C27,C33,C5,C1	Capacitor_SMD:C_0805_2012Metric	C15850
+Controlled Single Cell 5A Fast Charger with MaxCharge, WQFN-24 - BQ25895RTW	U9	Package_DFN_QFN:Texas_RTW_WQFN-24-1EP_4x4mm_P0.5mm_EP2.7x2.7mm_ThermalVias	C80200
+Resistor, small symbol - 10k	R7,R32,R8,R11,R12,R13	Resistor_SMD:R_0402_1005Metric	C25744
+Resistor, small symbol - 22	R16,R29,R27,R28	Resistor_SMD:R_0402_1005Metric	C25092
+Resistor, small symbol - 182k 1%	R36	Resistor_SMD:R_0402_1005Metric	C5159679
+Unpolarized capacitor, small symbol - 1uF	C53,C40,C3,C20,C11,C18,C32	Capacitor_SMD:C_0603_1608Metric	C15849
+N-MOSFET, 30V, 5.7A, logic-level - AO3400A	Q2	Package_TO_SOT_SMD:SOT-23	C20917
+Unpolarized capacitor, small symbol - 10uF	C21,C48	Capacitor_SMD:C_0603_1608Metric	C96446
+Resistor, small symbol - 12k	R14	Resistor_SMD:R_0402_1005Metric	C25752
+Unpolarized capacitor, small symbol - 47uF	C42	Capacitor_SMD:C_1206_3216Metric	C403725
+Navigation Switch, SMD, 500 gf, 12 V, 50 mA, Solder, 5 - MU-AS90R	SW_5WAY1	5-Way:MUAS70R	C38516684
+Resistor, small symbol - 150k 1%	R39	Resistor_SMD:R_0402_1005Metric	C2909320
+Resistor, small symbol - 56k 1%	R37	Resistor_SMD:R_0402_1005Metric	C114756
+Resistor, small symbol - 270k 1%	R40	Resistor_SMD:R_0402_1005Metric	C25770
+Resistor, small symbol - 330	R17	Resistor_SMD:R_0402_1005Metric	C25104
+Resistor, small symbol - 100k	R10,R15,R23	Resistor_SMD:R_0402_1005Metric	C25741
+Unpolarized capacitor, small symbol - 4.7uF	C49	Capacitor_SMD:C_0603_1608Metric	C19666
+Resistor, small symbol - 11k	R38	Resistor_SMD:R_0402_1005Metric	C25749
+Resistor, small symbol - 50	R24	Resistor_SMD:R_0603_1608Metric	C844932
+Diode - D	D16,D15	Diode_SMD:D_SOD-123	C81598
+Resistor, small symbol - 73.2k	R1	Resistor_SMD:R_0402_1005Metric	C26986
+Unpolarized capacitor, small symbol - 15nf	C31	Capacitor_SMD:C_0402_1005Metric	C114405
+ - LTC2954ITS8-1#TRPBF	U3	LTC2954:TSOT-23_TS8_LIT	C683782
+Generic connector, single row, 01x06, script generated - JST 6pin connector - SM06B-SRSS-TB	J6	Connector_JST:JST_SH_BM06B-SRSS-TB_1x06-1MP_P1.00mm_Vertical	C160392
+Polarized capacitor, small symbol - 4.7uF	C26	Capacitor_SMD:CP_Elec_4x5.4	C970651
+Resistor, small symbol - 33	R31,R30	Resistor_SMD:R_0402_1005Metric	C25105
+Unpolarized capacitor, small symbol - 4.7uF	C15,C16	Capacitor_SMD:C_1206_3216Metric	C29823
+Ferrite bead, small symbol - 120Ω@100MHz	FB1	Inductor_SMD:L_1206_3216Metric	C85841
+Intelligent 9-axis absolute orientation sensor, LGA-28 - BNO055	U2	Package_LGA:LGA-28_5.2x3.8mm_P0.5mm	C93216
+USB 2.0-only 16P Type-C Receptacle connector - USB_C_Receptacle_USB2.0_16P	J7,J2	Connector_USB:USB_C_Receptacle_HCTL_HC-TYPE-C-16P-01A	C165948
+ - CM4102008	M1,M2	CM4102008:MODULE_CM4102008	C597931
+Unpolarized capacitor, small symbol - 10nF	C24	Capacitor_SMD:C_0402_1005Metric	C15195
+0.3mm 0.5mm 2mm 30P FPC Connector - ~	J5	FPCCONN:TE_3-1734592-0	C375905
+Schottky diode - SS210	D21	Diode_SMD:D_SMA	C14996
+Resistor, small symbol - 49.9k	R2	Resistor_SMD:R_0402_1005Metric	C2906873
+Resistor, small symbol - 1.8M	R25	Resistor_SMD:R_0402_1005Metric	C38587
+400W unidirectional Transient Voltage Suppressor, 5.0Vr, SMA(DO-214AC) - SMAJ5.0A	D19	Diode_SMD:D_SMA	C10758
+Resistor, small symbol - 5.1	R35	Resistor_SMD:R_0402_1005Metric	C412902
+Resistor, small symbol - 4.7k	R4,R46	Resistor_SMD:R_0402_1005Metric	C25900
+10uF 50v - 10uF	C7,C6	Capacitor_SMD:C_1206_3216Metric	C13585
+Two pin crystal - 32.768kHz	Y1	Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm	C32346
+Resistor, small symbol - 6.04k	R22	Resistor_SMD:R_0402_1005Metric	C97819
+Unpolarized capacitor, small symbol - 22pF	C13,C12	Capacitor_SMD:C_0402_1005Metric	C1555
+Resistor, small symbol - 3.09k	R3	Resistor_SMD:R_0402_1005Metric	C11460
+Resistor, small symbol - 44.2k	R9	Resistor_SMD:R_0402_1005Metric	C25895
+ - FH12-22S-0.5SH55	J8	CSI22CONN:CONN_FH12-22S-0.5SH55_HIR	C597981
+Inductor - 22uH	L1	Inductor_SMD_Wurth:L_Wurth_WE-LQSH-3012	C41405943
+Unpolarized capacitor, small symbol - 220pF	C10	Capacitor_SMD:C_0402_1005Metric	C1530
+Generic connector, single row, 01x02, script generated - Battery	J4	Connector_JST:JST_PH_B2B-PH-SM4-TB_1x02-1MP_P2.00mm_Vertical	C160352
+ - LM51571RTER	U8	LM5171Q1:LM51571	C3188430
+Very low capacitance ESD protection diode, 2 data-line, SOT-23-6 - USBLC6-2SC6	U7	Package_TO_SOT_SMD:SOT-23-6	C2687116

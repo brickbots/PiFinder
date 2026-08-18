@@ -5,30 +5,80 @@
       "id": 1,
       "name": "feature-in-user-guide",
       "prompt": "We just added a setting to the PiFinder. In the Settings menu there's now a 'Screen Off Timeout' option that turns the screen completely off after a period of inactivity — this is separate from the existing power-save dimming, and it's meant for very dark sites where even the dimmed screen is distracting. The choices are 30 seconds, 1 minute, 5 minutes, and Off. Please document this in the user guide so people know it exists and how to set it.",
-      "expected_output": "A new section added to docs/source/user_guide.rst (NOT the docs/user_guide.md stub) under/near the Settings Menu, written in the manual's warm second-person voice, explaining what the setting does and why (dark-site use), the four options, and how to reach it. Hardware keys/menu names styled per house conventions. Any cross-reference uses :ref:`user_guide:...` lowercase form. Builds without new Sphinx warnings.",
-      "files": []
+      "expected_output": "A new section added to docs/source/user_guide.rst (NOT the docs/user_guide.md stub) under/near the Settings Menu, explaining what the setting does and why (dark-site use), the four options, and how to reach it. Written in the simplified technical English house style: one idea per sentence, active voice, imperative instructions, approved terms. Any cross-reference uses the lowercase :ref:`user_guide:...` form. Builds clean under sphinx -n -q.",
+      "files": [],
+      "assertions": [
+        "Edits docs/source/user_guide.rst and does NOT edit docs/user_guide.md",
+        "Documents all four options: 30 seconds, 1 minute, 5 minutes, Off",
+        "States why the setting exists (dark-site / distraction), not just what it does",
+        "Distinguishes the new setting from the existing power-save dimming rather than conflating them",
+        "No added sentence uses an em-dash or semicolon to join two independent clauses",
+        "Uses 'select' for choosing menu entries, never 'choose', 'pick', or 'activate'",
+        "Uses 'the screen' for the physical screen, never 'the display' or 'the panel'",
+        "Uses 'press' for key operation, never 'push', 'tap', 'hit', or 'click'",
+        "Refers to the product as 'the PiFinder', never 'the unit' or 'the device'",
+        "Instructions are imperative and active, not passive ('Select Settings', not 'Settings should be selected')",
+        "Hardware key names are bold and uppercase where mentioned",
+        "Menu navigation is written as a prose chain, not an arrow path like Settings -> Advanced",
+        "Sphinx build with -n -q produces zero warnings"
+      ]
     },
     {
       "id": 2,
-      "name": "new-troubleshooting-page",
-      "prompt": "Can you add a Troubleshooting page to the docs? It should cover the three issues we get asked about most: the PiFinder can't get a GPS lock, the camera isn't solving (plate solving fails), and people can't connect to the PiFinder's wifi. Give a couple of likely causes and fixes for each. Make sure it actually shows up in the documentation site navigation.",
-      "expected_output": "A new docs/source/troubleshooting.rst page with a proper rST heading ladder and three sections, written in house voice, AND the page registered in the toctree in docs/source/index.rst so it appears in navigation (otherwise Sphinx flags an orphan). Cross-references to existing sections (gps/wifi/solver) use :doc:/:ref: correctly. Builds clean with -n.",
-      "files": []
+      "name": "new-mounting-page",
+      "prompt": "We keep answering the same mounting questions on Discord and it's scattered across the quick start right now. Can you write a proper page about mounting the PiFinder on different telescopes? It needs to cover the standard Vixen/Synta finder shoe case, what to do about scopes with non-standard finder brackets (Takahashi two-screw brackets, proprietary bayonet mounts and so on), SCT and fork mounts where the tube top is too high to read the screen comfortably, and the fact that mounting it tilted rather than perfectly perpendicular is fine. Make sure it actually shows up in the docs navigation.",
+      "expected_output": "A new docs/source/mounting.rst page (name may vary) with a correct rST heading ladder, registered in the toctree in docs/source/index.rst so it is not an orphan. Facts should be drawn from references/hardware-support.md: the Vixen/Synta foot is widespread so commercial aftermarket adapters usually exist, the finder shoe may already be on the scope, custom 3D printing is a last resort, Flat config works below head height on SCT/fork while Left/Right suits a high tube top, and non-perpendicular mounting degrades IMU accuracy only gracefully. Written in the STE house style. Builds clean under sphinx -n -q.",
+      "files": [],
+      "assertions": [
+        "Creates a new .rst file under docs/source/",
+        "Registers the new page in the toctree in docs/source/index.rst",
+        "Sphinx build with -n -q produces zero warnings (in particular no orphan or nonexisting-document warning)",
+        "Covers all four requested cases: standard finder shoe, non-standard brackets, SCT/fork tube height, tilted mounting",
+        "Uses facts from references/hardware-support.md rather than invented ones: aftermarket adapters commonly exist for the Vixen/Synta foot, and 3D printing is a last resort",
+        "States that non-perpendicular mounting degrades IMU accuracy gracefully rather than warning it will not work",
+        "Does not carry over customer-support voice (no reassurance scripts, escalation advice, or sign-offs)",
+        "No added sentence uses an em-dash or semicolon to join two independent clauses",
+        "Uses the approved terms: 'the PiFinder', 'the screen', 'press', 'select', 'scroll'",
+        "Instructions are imperative and active",
+        "Heading underline characters are used consistently and no level is skipped"
+      ]
     },
     {
       "id": 3,
       "name": "polish-how-it-works",
-      "prompt": "The 'How It Works' section at the top of the user guide reads a little flat and technical. Can you revise it so it has the same friendly, welcoming tone as the rest of the manual? Don't change what it's telling people, just the feel of it.",
-      "expected_output": "The How It Works section in docs/source/user_guide.rst rewritten in a warmer, second-person, why-first voice matching quick_start.rst — same information preserved, no broken cross-references or image paths, valid rST, no level/heading changes. Subjective; judged qualitatively for voice match.",
-      "files": []
+      "prompt": "The 'How It Works' section at the top of the user guide is a bit of a slog to read. Can you tighten it up so it matches our documentation style? Don't change what it's telling people, just how it reads.",
+      "expected_output": "The How It Works section in docs/source/user_guide.rst revised into the STE house style: joined sentences split at em-dashes and semicolons, terminology normalised to the approved table, passive instructions made active, padding cut. Same information preserved. No broken cross-references or image paths, valid rST, no heading-level changes. Scope stays on that section rather than sprawling across the page.",
+      "files": [],
+      "assertions": [
+        "Only the How It Works section is substantially revised; the rest of user_guide.rst is left alone",
+        "The revised section contains fewer em-dashes and semicolons than the original",
+        "No information present in the original is dropped",
+        "Every cross-reference and image path in the section still resolves",
+        "Heading text and underline level are unchanged",
+        "Terminology drift is fixed where present: 'target'/'DSO' to 'object', 'display' to 'screen', 'choose'/'pick' to 'select'",
+        "Sentences carry one idea each; long welded sentences are split",
+        "Passive constructions in instructions are made active",
+        "Sphinx build with -n -q produces zero warnings"
+      ]
     },
     {
       "id": 4,
       "name": "screenshot-a-feature",
       "prompt": "I want the user guide's 'The Menu System' section to include a screenshot of the actual main menu. Launch the PiFinder, capture the main menu screen, turn it into a documentation-ready image, and add it to that section.",
-      "expected_output": "End-to-end screenshot pipeline: uses the pifinder-remote skill to launch the headless app and capture the live 128x128 main-menu screen, converts it with scripts/screenshot_to_doc.py into a 256x256 amber-tinted PNG, saves it under docs/source/images/user_guide/ with a role-appropriate name (not a temp/raw name), references it via a .. image:: directive in user_guide.rst's 'The Menu System' section, and stops the app cleanly. The committed image is a real captured screenshot (amber, 256x256), not a placeholder. Valid rST / clean build.",
+      "expected_output": "End-to-end screenshot pipeline: uses the pifinder-remote skill to launch the headless app and capture the live main-menu screen at the rev4 default of 176x176, converts it with scripts/screenshot_to_doc.py into a 352x352 amber-tinted PNG, saves it under docs/source/images/user_guide/ with a role-appropriate name (not a temp/raw name), references it via a .. image:: directive in user_guide.rst's 'The Menu System' section, and stops the app cleanly. The committed image is a real captured screenshot (amber, 352x352), not a placeholder. It must NOT pass --display headless: that captures the 128x128 v3/v2.5 panel and is only correct when the shot specifically illustrates v3/v2.5 hardware. Valid rST / clean build.",
       "files": [],
-      "notes": "Heavier than the doc-only evals: it launches the real multi-process app. Constraints — (1) only one PiFinder instance can run at a time (binds port 80/8080, cedar on 50551), so with_skill and baseline must run SERIALLY, not in parallel; (2) the app needs the project venv + cedar-detect-server binary + object DB, which live in the main checkout and are NOT present in a fresh git worktree, so this eval must run in the main working tree (or with pf_remote --repo pointed at it), then clean up edits afterward. A live end-to-end smoke run is the practical way to validate it."
+      "assertions": [
+        "Launches the app via the pifinder-remote skill rather than inventing its own launcher",
+        "Does not pass --display headless, so the capture is the rev4 176x176 panel",
+        "The committed PNG is exactly 352x352",
+        "The committed PNG is amber-tinted, not raw red, confirming screenshot_to_doc.py was run",
+        "The image is saved under docs/source/images/user_guide/ with a role-appropriate name, not a raw/temp name",
+        "A .. image:: directive referencing that exact path is added to the 'The Menu System' section",
+        "The app is stopped cleanly at the end",
+        "Verifies the captured screen is actually the main menu before keeping it",
+        "Sphinx build with -n -q produces zero warnings"
+      ],
+      "notes": "Heavier than the doc-only evals: it launches the real multi-process app. Constraints — (1) only one PiFinder instance can run at a time (binds port 80/8080, cedar on 50551), so with_skill and baseline must run SERIALLY, not in parallel; (2) the app needs the project venv + cedar-detect-server binary + object DB, which live in the main checkout and are NOT present in a fresh git worktree, so pf_remote must be pointed at the main checkout with `launch --repo`, and doc edits must land in the run's scratch tree. A live end-to-end smoke run is the practical way to validate it."
     }
   ]
 }

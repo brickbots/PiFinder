@@ -93,7 +93,11 @@ These are the bigger items/assemblies which you'll need to purchase to include i
    * - 1
      - 16mm F2 CCTV Lens for m12 Mount
      - https://www.amazon.com/dp/B07VDWNSG9
-     - Other lenses might work here, but something fast with a 10deg FOV is ideal
+     - Other lenses might work here, but something fast is ideal.  How much sky the PiFinder
+       sees depends on the camera as well as the lens.  This 16mm lens gives about 13.7
+       degrees on the imx296 and about 10.4 degrees on the imx462.  If you fit a 12mm lens
+       instead, select Settings from the main menu, scroll down to Advanced, then select Lens
+       and set it to 12mm
 
 You can use either the imx296 or imx462 module from innomaker.  They both 
 perform about the same so choose the least expensive/easiest to get model 

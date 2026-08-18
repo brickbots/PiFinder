@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Convert a raw PiFinder screenshot into a documentation-ready image.
 
-PiFinder screens are 128x128 and rendered in the red channel only (the OLED is
+PiFinder screens are small and rendered in the red channel only (the OLED is
 driven red-only to preserve night vision), so a raw capture looks small and dim
-dark-red on black. The published docs use larger, brighter images: the red
+dark-red on black. rev4 captures are 176x176; v3 and v2.5 captures are 128x128.
+The published docs use larger, brighter images: the red
 intensity is recolored onto a warm amber tint and the image is scaled up. The
 amber recolor is what produces the "brighter" look — amber is far more luminous
 than dark red at the same intensity — so no separate brightness curve is needed.
@@ -14,7 +15,8 @@ Pipeline (matched to the existing docs/source/images screenshots):
   2. gamma: lift mid-tones (--gamma, >1 brightens) so dim elements like the
      title bar text stay legible once recolored
   3. recolor: out = tint * (intensity / 255)   [linear ramp, black stays black]
-  4. upscale by --scale (default 2x -> 128 becomes the 256x256 docs use)
+  4. upscale by --scale (default 2x: a 176 rev4 capture becomes 352x352, a
+     128 v3/v2.5 capture becomes 256x256)
 
 Defaults (the house values measured from the existing doc images):
   gamma = 1.5   tint = 245,76,10   scale = 2   resample = nearest (crisp pixels)

@@ -1,0 +1,571 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "e6df5949-4221-4777-8807-cdcf4fc96679")
+	(paper "A4")
+	(lib_symbols)
+	(text "OK\n"
+		(exclude_from_sim no)
+		(at 140.716 112.014 0)
+		(effects
+			(font
+				(size 3.048 3.048)
+				(thickness 0.6096)
+				(bold yes)
+				(color 109 228 157 1)
+			)
+		)
+		(uuid "0f047167-8acc-4818-8624-78a3282f4a77")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 148.59 63.5 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "10031a5b-fcd8-450c-b8bb-c9b6d3747922")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 242.824 63.5 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "23c175ea-4e0f-4f45-8ea9-63ef121e3062")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 144.78 63.5 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "2d90a99a-bf5c-48f9-a913-535c1a018a93")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 105.41 62.23 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "2e04419e-1bac-49d3-a6af-7156ab4aad57")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 236.22 63.5 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "49fa8ee9-85a7-4629-8284-a641eefb82c8")
+	)
+	(text "OK\n"
+		(exclude_from_sim no)
+		(at 186.944 111.76 0)
+		(effects
+			(font
+				(size 3.048 3.048)
+				(thickness 0.6096)
+				(bold yes)
+				(color 109 228 157 1)
+			)
+		)
+		(uuid "58b43513-7c08-405f-81ee-64b0075c9125")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 57.658 63.246 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "9c9acef9-6d96-40e5-ae02-c3ca5acc30fa")
+	)
+	(text "OK\n"
+		(exclude_from_sim no)
+		(at 49.784 111.76 0)
+		(effects
+			(font
+				(size 3.048 3.048)
+				(thickness 0.6096)
+				(bold yes)
+				(color 109 228 157 1)
+			)
+		)
+		(uuid "9d07168b-be16-4b01-a4b3-e1eedd9f96f3")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 193.04 63.5 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "a58839c1-ac1f-48d7-b434-aab8faff5903")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 199.898 63.5 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "b9d8ee9c-e564-4ba8-9c60-258a742c4c1a")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 152.654 63.754 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "bd13ae51-7df1-4a80-895c-a0c5ebe51710")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 239.522 63.5 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "bd8ebd03-ec6d-4cf7-bd97-afa7dedcf45e")
+	)
+	(text "PiFinder4"
+		(exclude_from_sim no)
+		(at 198.374 173.736 0)
+		(effects
+			(font
+				(face "KiCad Font")
+				(size 5.08 5.08)
+				(thickness 1.016)
+				(bold yes)
+				(italic yes)
+			)
+		)
+		(uuid "c2f7e6ce-f817-424b-aa84-23926a3763ca")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 101.6 62.23 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "d2284593-ec92-4909-827d-3f4b04347ef0")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 60.96 63.246 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "e59f860a-0f66-40da-ba3e-5f2a5fd369b7")
+	)
+	(text "OK\n"
+		(exclude_from_sim no)
+		(at 232.41 112.014 0)
+		(effects
+			(font
+				(size 3.048 3.048)
+				(thickness 0.6096)
+				(bold yes)
+				(color 109 228 157 1)
+			)
+		)
+		(uuid "e91e0aec-2dca-4b4d-b5af-9c2d4cc10a47")
+	)
+	(text "OK\n"
+		(exclude_from_sim no)
+		(at 95.504 111.506 0)
+		(effects
+			(font
+				(size 3.048 3.048)
+				(thickness 0.6096)
+				(bold yes)
+				(color 109 228 157 1)
+			)
+		)
+		(uuid "f15ff998-3850-476b-bf8a-d042e19eb4ff")
+	)
+	(text "+"
+		(exclude_from_sim no)
+		(at 196.85 63.5 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "f93b6698-886e-4b98-8995-fe5f059abfe0")
+	)
+	(sheet
+		(at 228.6 68.58)
+		(size 30.48 45.72)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "5b2ed9e8-10aa-4097-853b-b5ef38fb3dfd")
+		(property "Sheetname" "Connectors_IO"
+			(at 228.6 67.8684 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Connectors_IO.kicad_sch"
+			(at 228.6 114.8846 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "PiFinder4"
+				(path "/e6df5949-4221-4777-8807-cdcf4fc96679"
+					(page "6")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 137.16 68.58)
+		(size 30.48 45.72)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "6981f5b2-9939-444b-a876-47cb0c90520d")
+		(property "Sheetname" "Display_and_Input"
+			(at 137.16 67.8684 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Display_and_Input.kicad_sch"
+			(at 137.16 114.8846 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "PiFinder4"
+				(path "/e6df5949-4221-4777-8807-cdcf4fc96679"
+					(page "4")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 120.396 143.256)
+		(size 29.21 34.798)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "6f5b2266-e54a-4dc8-85d5-df46de1a8111")
+		(property "Sheetname" "Buzzer"
+			(at 120.396 142.5444 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "buzzer_driver.kicad_sch"
+			(at 120.396 178.6386 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "PiFinder4"
+				(path "/e6df5949-4221-4777-8807-cdcf4fc96679"
+					(page "8")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 80.01 143.51)
+		(size 30.48 34.29)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "86298749-245f-4532-be52-6bb2815abd4f")
+		(property "Sheetname" "BQ25895_Power"
+			(at 80.01 142.7984 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "BQ25895_Power.kicad_sch"
+			(at 80.01 178.3846 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "PiFinder4"
+				(path "/e6df5949-4221-4777-8807-cdcf4fc96679"
+					(page "7")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 182.88 68.58)
+		(size 30.48 45.72)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "8db14da8-1dcb-4a4d-8adc-9a7dc1dd2c81")
+		(property "Sheetname" "Sensors_IMU_GPS"
+			(at 182.88 67.8684 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Sensors_IMU_GPS.kicad_sch"
+			(at 182.88 114.8846 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "PiFinder4"
+				(path "/e6df5949-4221-4777-8807-cdcf4fc96679"
+					(page "5")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 91.44 68.58)
+		(size 30.48 45.72)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "9256f053-0d33-49ff-b142-7dfc34236c1b")
+		(property "Sheetname" "Display_Power_Supply"
+			(at 91.44 67.8684 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Power_Management.kicad_sch"
+			(at 91.44 114.8846 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "PiFinder4"
+				(path "/e6df5949-4221-4777-8807-cdcf4fc96679"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 45.72 68.58)
+		(size 30.48 45.72)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "e6ff249f-16d3-47f2-bdb7-1dd986bf5414")
+		(property "Sheetname" "CM4_Core"
+			(at 45.72 67.8684 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "CM4_Core .kicad_sch"
+			(at 45.72 114.8846 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "PiFinder4"
+				(path "/e6df5949-4221-4777-8807-cdcf4fc96679"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)

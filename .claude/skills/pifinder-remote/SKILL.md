@@ -3,7 +3,7 @@ name: pifinder-remote
 description: >-
   Run the PiFinder app headlessly and drive it like a user — launch it with no
   pygame window or physical display, send keypad presses to navigate menus,
-  capture the 128x128 screen as a PNG, read live state (plate solve, location,
+  capture the screen as a PNG, read live state (plate solve, location,
   IMU, SQM), and stop it cleanly. Use this whenever you need to actually
   operate or observe the running PiFinder UI rather than just read its code:
   "launch/start/run PiFinder", "navigate to <menu/screen>", "take a screenshot
@@ -33,8 +33,10 @@ full command list.
 ```bash
 S=.claude/skills/pifinder-remote/scripts/pf_remote.py   # adjust path as needed
 
-python3 $S launch            # start cedar + headless PiFinder, wait for the API
-python3 $S screen -o /tmp/pf.png   # capture the current 128x128 screen as PNG
+python3 $S launch            # start cedar + headless PiFinder (rev4, 176x176), wait for API
+python3 $S launch -fb        # ...with the rev4 battery icon + a simulated discharge
+python3 $S launch --display headless   # the 128x128 v3/v2.5 panel instead
+python3 $S screen -o /tmp/pf.png   # capture the current screen as PNG
 python3 $S key DOWN DOWN RIGHT     # send keypad presses, in order
 python3 $S status            # aggregated live state as JSON
 python3 $S stop              # graceful shutdown, then guaranteed teardown
@@ -49,8 +51,8 @@ to see the UI; that is how you "look at" PiFinder.
 
 | Command | What it does |
 |---|---|
-| `launch` | Starts `cedar-detect-server` then PiFinder headless (`-fh --camera debug --keyboard none --display headless -x`), in its own process group, and waits until `/api/status` answers. Records state for the other commands. |
-| `screen [-o PATH]` | Saves `GET /api/screen` (the live 128×128 display) as a PNG and prints the path. |
+| `launch` | Starts `cedar-detect-server` then PiFinder headless (`-fh --camera debug --keyboard none --display headless_176 -x`), in its own process group, and waits until `/api/status` answers. Records state for the other commands. `--display {headless_176,headless,headless_320}` picks the panel — **default `headless_176`**, rev4's 176×176; `headless` is the 128×128 panel on v3/v2.5. `-fb`/`--fakebattery` adds the rev4 battery monitor: the title-bar battery icon plus a full simulated discharge (low-battery warnings, blind-floor shutdown). |
+| `screen [-o PATH]` | Saves `GET /api/screen` (the live display) as a PNG and prints the path. 176×176 by default, 128×128 under `--display headless`. |
 | `key BTN [BTN ...]` | POSTs each button to `/api/key` in order (default 0.4s apart, `--delay` to change). |
 | `status` / `solution` / `location` | Pretty-prints `GET /api/status` / `/api/solution` / `/api/location`. |
 | `get PATH` | GETs any other endpoint, e.g. `get /api/imu`, `get /api/sqm`. |
@@ -76,9 +78,12 @@ the screen is the ground truth, menu order changes between versions.
 
 ## How it works (and why stop is built this way)
 
-- **Headless rendering.** The launch passes `--display headless`, which selects
-  the in-memory `DisplayHeadless` driver (`python/PiFinder/displays.py`, backed
-  by `luma.core.device.dummy`). The UI render loop already calls
+- **Headless rendering.** The launch passes `--display headless_176`, which
+  selects the in-memory `DisplayHeadless176` driver (`python/PiFinder/displays.py`,
+  backed by `luma.core.device.dummy`). It renders at 176×176 with rev4's
+  `Layout176` font and spacing profile, so what you capture matches the real
+  rev4 panel rather than merely being scaled up. `--display headless` gives the
+  128×128 `DisplayHeadless` used by v3/v2.5. The UI render loop already calls
   `shared_state.set_screen()` beside every hardware draw, so the current frame
   is always available at `GET /api/screen` regardless of display driver. No
   pygame/SDL/X is needed.
@@ -164,5 +169,8 @@ launches come up in a few seconds. If it times out:
 - This skill requires two small pieces of in-repo support that ship with it:
   the `headless` display driver and the `POST /api/stop` endpoint
   (`python/PiFinder/api_extensions.py`). They're already in this branch.
-- The screen is 128×128 and rendered mostly in the red channel (PiFinder's
+- The screen is 176×176 (rev4's panel, the default) or 128×128 under
+  `--display headless`, and is rendered mostly in the red channel (PiFinder's
   night-vision palette); that's expected, not a rendering bug.
+- Plain `-fh` emulates **rev3**: no battery process and no title-bar battery
+  icon. Add `-fb` when the shot or check involves the battery.
