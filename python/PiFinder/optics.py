@@ -47,7 +47,7 @@ FOV_GATE_MARGIN = 0.15
 # How close a fitted FOV must sit to a lens's derived field of view, as a
 # fraction of the latter, before that lens is taken as identified. tetra3 fits
 # the field of view to well under a percent, and the candidates on any one
-# sensor are ~30% apart (the imx462's are 13.51 and 10.40 degrees), so 5% is
+# sensor are ~20% apart (the imx462's are 12.44 and 10.40 degrees), so 5% is
 # generous without being ambiguous. Outside it, no lens is named: a third-party
 # lens must leave the assumption alone rather than be snapped to the nearest
 # thing we happen to sell. See docs/adr/0029.
@@ -105,7 +105,14 @@ LENSES: Dict[str, Lens] = {
     "12mm": Lens(
         key="12mm",
         nominal_focal_length_mm=12.0,
-        effective_focal_length_mm=12.0,
+        # 13.04 is what a rev4 imx462 measured on sky: six solves fitting
+        # 12.4366 +/- 0.0025 degrees against a 980px @ 2.9um crop. The same
+        # board on the 16mm then fitted 10.4011 degrees, reproducing that
+        # lens's derived field to 0.02% -- which is what makes this a
+        # measurement of the 12mm rather than of the sensor profile. The
+        # barrel runs 8.7% long, in the opposite direction from the 16mm's
+        # 2.4% short, so neither label predicts the other. See #627.
+        effective_focal_length_mm=13.04,
         # Front element measures 9.85mm, but that is not the entrance pupil:
         # M12 front elements are deliberately oversized to accept off-axis
         # rays (the advertised-f/2 16mm shows a 1.24x oversize). Applying the
@@ -115,10 +122,6 @@ LENSES: Dict[str, Lens] = {
         # is f/1.6-f/2.0; 2.0 never over-claims. Settle it by comparing
         # on-sky photometric zero points, not by measuring glass.
         f_number=2.0,
-        # Nominal standing in for a measurement. The 16mm measured 2.5% short
-        # of its label, so assuming this one is exact is optimistic; an on-sky
-        # sweep is needed, and the same sweep settles its SQM zero point.
-        effective_focal_length_measured=False,
     ),
     "16mm": Lens(
         key="16mm",

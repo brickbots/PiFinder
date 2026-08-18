@@ -39,6 +39,9 @@ re-centred (tetra3's window is symmetric — `fov_estimate ± fov_max_error`):
 | imx296 | 12 mm (17.78°), 16 mm (13.71°) | `16.05 ± 4.39` = [11.65, 20.44] | [11.65, 15.77] |
 | hq | 25 mm (10.33°) | [8.78, 11.88] — unchanged | n/a |
 
+**Every 12 mm figure in this table is superseded** — see the amendment at the
+foot of this document. The reasoning stands; the arithmetic moved.
+
 The imx462 assumed gate lands within a whisker of the pre-0027 constants it
 replaces, which is the behaviour these units are known to work under. The hq
 only ever shipped one lens, so nothing about it widens.
@@ -142,3 +145,58 @@ enough to have absorbed the swap. The general cure is to re-open the gate on
 sustained zero matches *with adequate centroids*, which is #611's scope and
 needs `Centroids` on `SolveDiagnostics` (#610). Until then it is a
 documentation path (#613).
+
+## Amendment (#627): the 12 mm's field of view was derived from a guess
+
+Every 12 mm number above — 13.51°, 17.78°, and the two assumed gates built on
+them — came from `LENSES["12mm"].effective_focal_length_mm = 12.0`, which was
+the nominal standing in for a measurement, flagged
+`effective_focal_length_measured=False` in the registry and called out in a
+comment as optimistic. It was.
+
+A rev4 imx462 on a 12 mm fitted **12.4366 ± 0.0025°** over six solves, giving
+an effective focal length of **13.04 mm** — the barrel runs 8.7% long. The same
+board, same night, same code, then took a 16 mm and fitted 10.4011°, which
+reproduces that lens's derived field to 0.02% and its 15.61 mm to 15.613. That
+control is what makes this a measurement of the 12 mm rather than of the crop
+geometry, which it independently confirms.
+
+| sensor | shipped lenses | assumed gate | stated-12mm gate |
+|---|---|---|---|
+| imx462 / imx290 | 12 mm (**12.44°**), 16 mm (10.40°) | **`11.57 ± 2.73` = [8.84, 14.30]** | [10.57, 14.30] |
+| imx296 | 12 mm (**16.38°**), 16 mm (13.71°) | **`15.25 ± 3.59` = [11.65, 18.84]** | [13.92, 18.84] |
+| hq | 25 mm (10.33°) | [8.78, 11.88] — still unchanged | n/a |
+
+What this does and does not disturb:
+
+**The decision is unaffected.** Gate width still follows lens confidence, the
+assumed gate still spans every lens its sensor shipped with, and the hq still
+has no union to take. Only the field of view the 12 mm implies has moved.
+
+**The regression this ADR exists to fix was real either way.** A rev4
+assuming the 16 mm gated `[8.84, 11.96]` against frames that are 12.44° wide,
+not 13.51° — still outside, still every frame, still forever.
+
+**The assumed gates narrowed rather than widened**, because the 12 mm's true
+field is closer to the 16 mm's than the nominal suggested. The imx462's upper
+bound moves 15.53° → 14.30°, so the mis-solve rejection argued for above gets
+slightly stronger, not weaker. The database floor note still holds: the
+effective imx462 assumed gate is now `[10.0, 14.30]`.
+
+**Self-heal could not identify the 12 mm until this was fixed.** A fitted
+12.44° sat 7.9% from the derived 13.51°, outside `LENS_IDENTIFY_TOLERANCE`
+(5%), so `identify_lens_from_fitted_fov` returned None on every frame and the
+affected units kept solving on the wide gate forever — the "matching no known
+lens writes nothing" consequence, firing on a lens we shipped. That is the
+symptom that surfaced this, and it is what #627 fixes.
+
+**SQM on 12 mm units was reading a field 8.6% too wide**, and its zero point
+with it. The f-number comment above still wants settling separately.
+
+**The 5% tolerance survives.** The imx462's two candidates are now 19.6% apart
+rather than ~30%, which is still far outside any plausible ambiguity.
+
+One caveat, recorded honestly: 13.04 mm rests on a **single 12 mm sample**. The
+16 mm earned its 15.61 by reproducing two independently calibrated field
+widths on two different sensors. A second 12 mm — ideally on an imx296, so the
+sensor half varies too — would put it on the same footing.

@@ -311,11 +311,11 @@ Everything above tests the *declaration*. This gate tests the thing the release 
 to enable. Needs a physically different lens.
 
 - [ ] **G3.1** Fit a 12 mm lens to an imx296 or imx462. Declare it in the menu. Confirm
-  it solves. **On 2.6.1 the imx296 + 12 mm combination could not solve at all** (17.8°,
+  it solves. **On 2.6.1 the imx296 + 12 mm combination could not solve at all** (16.4°,
   outside the old `[8.0, 16.0]` window) — this is the headline capability and it has to
   be demonstrated on real hardware, not re-projected frames.
 - [ ] **G3.2** With the 12 mm physically fitted, confirm the fitted FOV tetra3 reports
-  lands near the derived 17.78° (imx296) or 13.51° (imx462).
+  lands near the derived 16.38° (imx296) or 12.44° (imx462).
 - [ ] **G3.3** Declare the 12 mm while the 16 mm is fitted, and vice versa. Confirm both
   directions stop solving, and that recovering is simply a matter of correcting the menu.
 - [ ] **G3.4** Note the SQM value with the 12 mm fitted. Its zero-point offset is
