@@ -128,3 +128,22 @@ def test_cache_resolves_all_listings_in_one_query(tmp_path):
     assert CountingObservationsDatabase.resolve_calls == 1
     assert db.observed_object_ids == {42, 77}
     db.close()
+
+
+@pytest.mark.unit
+def test_cache_skips_listings_with_no_object_id(tmp_path):
+    # A listing whose catalog row carries a NULL object_id resolves to
+    # None. That must leave observed status per listing, not raise while
+    # building the cache.
+    class NullResolvingDatabase(MappedObservationsDatabase):
+        def _resolve_object_ids(self, listings):
+            return {listing: None for listing in listings}
+
+    db = NullResolvingDatabase(tmp_path / "observations.db")
+    _log(db, "M", 31)
+    db.load_observed_objects_cache()
+
+    assert db.observed_object_ids == set()
+    assert db.check_logged(_obj("M", 31, 42)) is True
+    assert db.check_logged(_obj("NGC", 224, 42)) is False
+    db.close()

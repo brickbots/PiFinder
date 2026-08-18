@@ -53,3 +53,17 @@ def test_bulk_lookup_spans_chunks(objects_db):
     assert objects_db.get_object_ids_by_listings(listings) == {
         ("NGC", 7000): objects_db.object_ids["north_america"]
     }
+
+
+@pytest.mark.unit
+def test_bulk_lookup_maps_null_object_id_to_none(objects_db):
+    # catalog_objects.object_id is nullable, so a listing can resolve to a
+    # row that names no sky object. Callers screen these out; the lookup
+    # reports them rather than dropping them.
+    objects_db.cursor.execute(
+        "INSERT INTO catalog_objects (object_id, catalog_code, sequence, description)"
+        " VALUES (NULL, ?, ?, ?)",
+        ("M", 999, ""),
+    )
+    objects_db.conn.commit()
+    assert objects_db.get_object_ids_by_listings([("M", 999)]) == {("M", 999): None}

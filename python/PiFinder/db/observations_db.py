@@ -56,12 +56,13 @@ class ObservationsDatabase(Database):
 
     def _resolve_object_ids(
         self, listings: Iterable[Tuple[str, int]]
-    ) -> Dict[Tuple[str, int], int]:
+    ) -> Dict[Tuple[str, int], Optional[int]]:
         """
         Maps many listings to their objects-table ids in one query.
 
         Unresolved listings (virtual objects, removed catalogs) are absent
-        from the result.
+        from the result; a listing carrying a NULL object_id maps to None,
+        so callers must screen for it as _resolve_object_id's do.
         """
         try:
             return self._get_objects_db().get_object_ids_by_listings(list(listings))
@@ -228,7 +229,9 @@ class ObservationsDatabase(Database):
         }
         resolved = self._resolve_object_ids(self.observed_objects_cache)
         self.observed_object_ids: set[int] = {
-            object_id for object_id in resolved.values() if object_id >= 0
+            object_id
+            for object_id in resolved.values()
+            if object_id is not None and object_id >= 0
         }
 
     def check_logged(self, obj_record: CompositeObject):
