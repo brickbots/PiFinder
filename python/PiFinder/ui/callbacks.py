@@ -220,11 +220,23 @@ def get_camera_lens(ui_module: UIModule) -> list[str]:
     resolvers -- so the menu shows what is actually in force rather than an
     arbitrary first entry, and so an unrecognised sensor leaves the lens menu
     openable instead of raising while it is built.
+
+    Both halves come from ``shared_state`` for the same reason: it is the only
+    view of the lens that is current. This process loaded its ``Config`` at
+    boot and reloads it only on an explicit ``reload_config``, so once lens
+    self-heal writes a lens from the integrator (see
+    :class:`PiFinder.integrator.LensSelfHeal`), ``config_object`` still holds
+    the *assumed* lens. Reading it here would show the wrong lens on the one
+    screen whose whole job is to say which lens is fitted -- and because
+    ``text_menu`` writes the highlighted entry on select, confirming that
+    stale value would state a lens the device measured itself out of, tighten
+    the FOV gate around it, and stop solving for good (self-heal only ever
+    writes into an absence, so it cannot undo that). ``shared_state`` is
+    seeded from config when it is built and republished by both the menu's own
+    ``set_camera_lens`` and self-heal, so it is never behind.
     """
     profile = resolve_camera_profile(ui_module.shared_state.camera_type())
-    return [
-        resolve_lens(profile, ui_module.config_object.get_option("camera_lens")).key
-    ]
+    return [resolve_lens(profile, ui_module.shared_state.camera_lens()).key]
 
 
 def set_camera_lens(ui_module: UIModule) -> None:

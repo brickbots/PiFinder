@@ -463,7 +463,10 @@ def register_api_routes(app, server_instance, require_auth=False):
             )
 
             # The frustum marks what the camera images, so it follows the
-            # fitted optical train. Passed per render rather than held on the
+            # derived optical train -- "fitted" is reserved for what tetra3
+            # measures off a frame (docs/ax/positioning/CONTEXT.md), and this
+            # is the sensor-times-lens derivation, not a measurement. Passed
+            # per render rather than held on the
             # Starfield: that object is cached and shared across requests, and
             # waitress serves them on several threads, so anything set on it
             # between one request's resolve and its render belongs to whoever
