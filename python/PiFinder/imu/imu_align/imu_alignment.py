@@ -73,10 +73,12 @@ Assumptions & limitations
    mount, the rotation will likely be around two axes. This may result in a 
    larger uncertainty for the rotation/alignment about some axes.
 """
+from dataclasses import dataclass
+
 import logging
 import numpy as np
 import quaternion
-from dataclasses import dataclass
+import time
 
 from PiFinder.types.coordinates import RaDecRoll
 from PiFinder.pointing_model import quaternion_transforms as qt
@@ -326,7 +328,7 @@ class ImuCameraAlignment:
         self.add_candidate(timestamp, cam_eq, q_x2imu)
 
         # Pair samples: Runs periodically
-        if ((self._samples_since_last_pair_attempt >= self.min_n_solve) or
+        if ((self._samples_since_last_pair_attempt >= self.min_n_solve) or  # TODO: Tune!
             (self.candidate_buffer.len >= self.candidate_buffer.max_buffer_length)):
             #self.purge_old_samples(timestamp)  # TODO: Run less frequently
             #self.purge_old_candidates()  # TODO: Run less frequently
@@ -345,7 +347,10 @@ class ImuCameraAlignment:
 
         # Solve if there are enough samples
         if self.pair_buffer.len >= self.min_n_solve:
+            t_start = time.time()
             q_cam2imu, diagnostics = self.solve()
+            diagnostics.meta_data["total_solve_time"] = time.time() - t_start
+
             self.pair_buffer.reset_buffer()  # Flush the values used for solve
             return q_cam2imu, diagnostics
         else:

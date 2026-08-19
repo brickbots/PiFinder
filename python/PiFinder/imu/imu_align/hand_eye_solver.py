@@ -186,9 +186,14 @@ def solve_rotation_with_outlier_removal(
     # Detect outliers above MAD threshold
     median = np.median(diagnostics.residual_norms)
     mad = np.median(np.abs(diagnostics.residual_norms - median))
-    logger.debug(f"MAD after first-pass: {np.rad2deg(mad):.2f} degrees. "
-                 f"Solution uncertainty: {np.rad2deg(diagnostics.sol_angle_error):.2f} degrees.")
-    msk_accept = diagnostics.residual_norms < (median + mad * mad_threshold)
+    mean = np.mean(diagnostics.residual_norms)
+    sd = np.std(diagnostics.residual_norms)
+    logger.debug("After first pass: "
+        f"Solution uncertainty: {np.rad2deg(diagnostics.sol_angle_error):.2f} degrees "
+        f"MAD: {np.rad2deg(mad):.2f} degrees SD: {np.rad2deg(sd):.2f} degrees.")
+                 
+    msk_accept = np.logical_and(diagnostics.residual_norms < (median + mad_threshold * mad),
+                                diagnostics.residual_norms < (mean + 3 * sd))
     if np.all(msk_accept):
         logger.debug("No outliers. Returning solution from first-pass.")
         return q12_solution, diagnostics
