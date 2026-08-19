@@ -159,8 +159,9 @@ class ImuCameraAlignment:
         :param min_angle_diff: [rad] Minimum allowed angle difference between pairs of samples
         :param max_age: [s] Remove samples older than this. None to ignore
         """
-        self.candidate_buffer = SampleBuffer(max_buffer_length=candidate_buffer_length)
-        diff_buffer_length = candidate_buffer_length  # TODO: Come up with a better value
+        self.candidate_buffer = SampleBuffer(
+            max_buffer_length=max(candidate_buffer_length, min_n_solve))
+        diff_buffer_length = candidate_buffer_length
         self.pair_buffer = SampleBuffer(max_buffer_length=diff_buffer_length)
 
         self.min_n_solve = min_n_solve
@@ -170,15 +171,52 @@ class ImuCameraAlignment:
 
         self._samples_since_last_pair_attempt = 0
 
-    def reset_buffers(self):
+    def add_candidate_attempt_solve(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
+        """
+        For general use, call this pipeline method. Add a new candidate to the
+        buffer. When the buffer fills up, pair samples and solve.
+        """
+        self._add_candidate(timestamp, cam_eq, q_x2imu)
+
+        # Pair samples: Runs periodically
+        if ((self._samples_since_last_pair_attempt >= self.min_n_solve) or
+            (self.candidate_buffer.len >= self.candidate_buffer.max_buffer_length)):
+            self._purge_old_samples(timestamp)
+            self._purge_old_candidates()
+            self._pair_samples()
+
+            # If the candidate buffer is still full after pairing, remove a 
+            # batch of the older samples from the buffer
+            if self.candidate_buffer.len >= self.candidate_buffer.max_buffer_length:
+                remove_set = set(range(self.min_n_solve))
+                self.candidate_buffer.remove_samples(remove_set)
+            
+            self._samples_since_last_pair_attempt = 0
+        else:
+            self._samples_since_last_pair_attempt += 1
+
+        # Solve if there are enough samples
+        if self.pair_buffer.len >= self.min_n_solve:
+            t_start = time.time()
+            q_cam2imu, diagnostics = self._solve()
+            diagnostics.meta_data["total_solve_time"] = time.time() - t_start
+
+            self.pair_buffer.reset_buffer()  # Flush the values used for solve
+            self.candidate_buffer.trim_to_max_length()
+
+            return q_cam2imu, diagnostics
+        else:
+            return None, None
+
+    def _reset_buffers(self):
         self.candidate_buffer.reset_buffer()
         self.pair_buffer.reset_buffer()
 
-    def trim_buffers(self):
+    def _trim_buffers(self):
         self.candidate_buffer.trim_to_max_length()
         self.pair_buffer.trim_to_max_length()
 
-    def add_candidate(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
+    def _add_candidate(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
         """
         Add to the candidate_buffer the camera solve & corresponding IMU sample
         from integrator.
@@ -196,17 +234,16 @@ class ImuCameraAlignment:
             q_imu = qt.ensure_quat_continuity(last_candidate.q_imu, q_x2imu)
             self.candidate_buffer.add_sample(CameraImuSample(timestamp, q_cam, q_imu))
 
-    def purge_old_samples(self, current_time: float):
+    def _purge_old_samples(self, ref_time: float):
         """
-        Remove samples from the candidate_buffer that are older than the current
-        time.
-
-        This should be run on a schedule every self.max_age [s].
+        Remove samples from the candidate_buffer that are older than max_age
+        relative to ref_time. This should be run on a schedule every
+        self.max_age [s].
         """
         if self.max_age is None:
             return
 
-        allowed_timestamp = current_time - self.max_age  # Purge anything older than this
+        allowed_timestamp = ref_time - self.max_age  # Purge anything older than this
         
         # Purge candidate_buffer:
         remove_idx_list = [i for i, samp in enumerate(self.candidate_buffer.buffer) 
@@ -221,7 +258,7 @@ class ImuCameraAlignment:
         if remove_idx_list:
             self.pair_buffer.remove_samples(set(remove_idx_list))
 
-    def purge_old_candidates(self):
+    def _purge_old_candidates(self):
         """
         Remove samples from candidate_buffer that are older than
         self.max_time_diff from other samples in buffer because these will be
@@ -242,7 +279,7 @@ class ImuCameraAlignment:
         if remove_ids:
             self.candidate_buffer.remove_samples(remove_ids)
 
-    def pair_samples(self) -> int:
+    def _pair_samples(self) -> int:
         """
         Go through the candidate_buffer from the first sample in the buffer.
         Pair two sets of camera/IMU samples from the candidate buffer that meet
@@ -293,7 +330,7 @@ class ImuCameraAlignment:
 
         return n_pairs  # Number of successful pairings
 
-    def solve(self, n_pairs=None):
+    def _solve(self, n_pairs=None):
         """
         Solve for the alignment between the camera and IMU using at least the
         last n_pairs or all available pairs (if None) in diff_buffer.
@@ -319,39 +356,3 @@ class ImuCameraAlignment:
         q_cam2imu, diagnostics = solve_rotation_with_outlier_removal(
             dq_cam_list, dq_imu_list, sample_timestamps=sample_timestamps)
         return q_cam2imu, diagnostics
-
-    def add_candidate_attempt_solve(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
-        """
-        For general use, call this pipeline method. Add a new candidate to the
-        buffer. When the buffer fills up, pair samples and solve.
-        """
-        self.add_candidate(timestamp, cam_eq, q_x2imu)
-
-        # Pair samples: Runs periodically
-        if ((self._samples_since_last_pair_attempt >= self.min_n_solve) or  # TODO: Tune!
-            (self.candidate_buffer.len >= self.candidate_buffer.max_buffer_length)):
-            #self.purge_old_samples(timestamp)  # TODO: Run less frequently
-            #self.purge_old_candidates()  # TODO: Run less frequently
-            self.pair_samples()
-            #self.trim_buffers()  # TODO
-
-            # If the candidate buffer is still full after pairing, remove a 
-            # batch of the older samples from the buffer
-            if self.candidate_buffer.len >= self.candidate_buffer.max_buffer_length:
-                remove_set = set(range(self.min_n_solve))
-                self.candidate_buffer.remove_samples(remove_set)
-            
-            self._samples_since_last_pair_attempt = 0
-        else:
-            self._samples_since_last_pair_attempt += 1
-
-        # Solve if there are enough samples
-        if self.pair_buffer.len >= self.min_n_solve:
-            t_start = time.time()
-            q_cam2imu, diagnostics = self.solve()
-            diagnostics.meta_data["total_solve_time"] = time.time() - t_start
-
-            self.pair_buffer.reset_buffer()  # Flush the values used for solve
-            return q_cam2imu, diagnostics
-        else:
-            return None, None

@@ -279,15 +279,6 @@ def calculate_relative_rotations(q1_list: list_of_quats, q2_list: list_of_quats)
     return [q1.conjugate() * q2 for q1, q2 in zip(q1_list, q2_list)]
 
 
-def reject_small_rotations(dq_list: list_of_quats,
-                           min_rotation=np.deg2rad(1.0),  # Reject rotations below this [radians]
-                           ):
-    """
-    Reject small rotations
-    """
-    pass
-
-
 # ------ Simulation functions for testing & analysis --------------------------
 
 def _q_noise(noise_amp: float):
