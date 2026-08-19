@@ -37,8 +37,8 @@ import pydeepskylog as pds
 # Read-only handle to the catalog DB, opened once and shared across detail
 # views. Used by _other_catalog_descriptions() to pull an object's listings in
 # its *other* catalogs (this always runs on the description view). Like the
-# per-instance ObservationsDatabase opened below, this read connection lives for
-# the life of the UI process and is closed when that process exits.
+# ObservationsDatabase below, this read connection lives for the life of the UI
+# process and is closed when that process exits.
 _objects_db = None
 
 
@@ -47,6 +47,19 @@ def _catalog_db() -> ObjectsDatabase:
     if _objects_db is None:
         _objects_db = ObjectsDatabase()
     return _objects_db
+
+
+# Handle to the observations DB, opened once and shared across detail views.
+# Constructing one builds the observed-objects cache, so a per-view instance
+# rebuilds that cache on every entry into this screen.
+_observations_db = None
+
+
+def _obs_db() -> ObservationsDatabase:
+    global _observations_db
+    if _observations_db is None:
+        _observations_db = ObservationsDatabase()
+    return _observations_db
 
 
 # Constants for display modes
@@ -93,7 +106,7 @@ class UIObjectDetails(UIModule):
         )
 
         # Used for displaying observation counts
-        self.observations_db = ObservationsDatabase()
+        self.observations_db = _obs_db()
 
         self.simpleTextLayout = functools.partial(
             TextLayouterSimple,
@@ -818,7 +831,14 @@ class UIObjectDetails(UIModule):
             return {
                 "object": object_info,
                 "display_mode": display_modes.get(self.object_display_mode, "unknown"),
-                "object_list_length": len(self.object_list) if self.object_list else 0,
+                # `is not None`, not truthiness: a Nearby-sorted list arrives as
+                # the NumPy object array get_closest_objects returns, and
+                # bool() on a multi-element array raises. The raise was caught
+                # below, so every object opened from a Nearby list serialised
+                # as an error instead of state.
+                "object_list_length": len(self.object_list)
+                if self.object_list is not None
+                else 0,
                 "observation_count": observation_count,
                 "has_image": self.object_image is not None,
                 "screen_direction": self.screen_direction,

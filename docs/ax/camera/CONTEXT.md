@@ -108,11 +108,35 @@ derived instead of hard-coded.
 **Lens**:
 The finder's camera lens (M12 mount). Always the *finder* lens — never the
 user's telescope or eyepiece, which are [Equipment](../equipment/CONTEXT.md)
-vocabulary and have their own focal lengths. Not detectable at runtime: the
-user states which lens is fitted, and a wrong statement is a configuration
-error the device cannot discover for itself.
+vocabulary and have their own focal lengths. Not detectable *directly* — no
+lens reports its focal length — but not unknowable either: once a frame
+solves, the **fitted FOV** measures the whole train, and the lens is what is
+left after dividing out the sensor. Whether the device is entitled to act on
+that measurement depends on whether the lens is **stated** or **assumed**.
 _Avoid_: "the lens" unqualified in any prose that also discusses telescope
 optics; objective (that is the telescope's).
+
+**Stated lens**:
+A lens recorded in the `camera_lens` config key — a claim that *this* glass is
+physically fitted. The claim is authoritative: it narrows the FOV gate around
+the one field of view it implies, and nothing overrides it, so a wrong
+statement still means no solves (that is [ADR
+0027](../../adr/0027-fov-gate-derived-from-optical-train.md)'s deliberate
+consequence, not a regression). Written by the user from the Lens menu, or
+once by the device itself from a fitted FOV it is confident about.
+_Avoid_: configured lens (true of a self-healed value too, so it does not
+distinguish), selected lens, user lens.
+
+**Assumed lens**:
+The camera profile's fallback (`default_lens_key`), used when no lens is
+stated. Not a claim about the hardware — an admission that nobody has said,
+which is the ordinary condition of an install predating the setting. Because
+there is nothing to trust, the FOV gate widens to cover *every* lens that
+sensor has shipped with rather than centring on the fallback. An assumed lens
+is a temporary state: the first confident solve turns it into a stated one.
+_Avoid_: default lens (reads as a preference rather than an absence of
+information), unset lens (the field of view is never unset — some lens is
+always assumed).
 
 **Nominal focal length**:
 The focal length printed on the lens barrel — what the user reads and picks

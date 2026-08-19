@@ -985,8 +985,14 @@ def solver(
                 if train is not logged_train:
                     logged_train = train
                     logger.info(
-                        "Optical train: %s lens on %s, field of view %.2f deg, "
-                        "FOV gate [%.2f, %.2f]",
+                        # Say which of the two it is: under an assumed lens
+                        # the gate is wider than the stated field of view
+                        # implies, and a reader diagnosing "why did it solve
+                        # / not solve" needs to know the lens is a fallback
+                        # rather than something the device was told.
+                        "Optical train: %s %s lens on %s, field of view "
+                        "%.2f deg, FOV gate [%.2f, %.2f]",
+                        "stated" if train.lens_stated else "assumed",
                         train.lens.menu_label,
                         shared_state.camera_type(),
                         train.fov_degrees,
@@ -1175,9 +1181,24 @@ def solver(
                         solver_queue.put(solve_result)
                     else:
                         if solution:
+                            # Report the gate actually in force. This line
+                            # used to hardcode the pre-0027 constants
+                            # (12.0 +/- 4.0), which stopped being true when
+                            # the gate started coming from the optical train
+                            # -- so the one message a reader consults while
+                            # diagnosing "why is nothing solving" told them
+                            # about a window the solver had not used in two
+                            # releases. Saying stated vs assumed matters for
+                            # the same reason it does on the "Optical train:"
+                            # line above.
                             logger.warning(
-                                f"Solve FAILED - {len(centroids)} centroids detected but "
-                                f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
+                                "Solve FAILED - %d centroids detected but "
+                                "pattern match failed (%s %s lens, FOV gate "
+                                "[%.2f, %.2f] deg)",
+                                len(centroids),
+                                "stated" if train.lens_stated else "assumed",
+                                train.lens.menu_label,
+                                *_fov_gate_bounds(train),
                             )
                         solver_queue.put(
                             _build_failed_solve(
