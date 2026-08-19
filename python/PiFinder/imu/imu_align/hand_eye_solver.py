@@ -17,7 +17,9 @@ from typing import Union
 
 import PiFinder.pointing_model.quaternion_transforms as qt
 
+# Typing:
 list_of_quats = list[quaternion.quaternion]
+list_of_float_pairs = list[tuple[float, float]]
 
 logger = logging.getLogger("IMU.AlignSolver")
 
@@ -26,6 +28,8 @@ N_UNKNOWN_PARAMS = 3  # Number of unknown parameters in the problem to solve
 class HandEyeSolverDiagnostics:
     lsq_result: OptimizeResult  # Result from scipy.optimize.least_squares
 
+    sample_timestamps: Union[list_of_float_pairs, None]  # Timestamps of each sample-pair
+    sample_time_differences: Union[np.ndarray, None]  # Time differences between each sample [s]
     residual_norms: np.ndarray  # Residual norms of each sample [rad]
     rotation_angles: np.ndarray  # Rotation angles of each sample [rad]
     sol_cov_matrix: np.ndarray  # Solution covariance matrix
@@ -34,7 +38,20 @@ class HandEyeSolverDiagnostics:
     # Optional
     meta_data: dict
 
-    def __init__(self, lsq_result, q1_list: list_of_quats, q2_list: list_of_quats):
+    def __init__(self, lsq_result, q1_list: list_of_quats, q2_list: list_of_quats, 
+                 sample_timestamps: Union[list_of_float_pairs, None] = None):
+                
+        if len(q1_list) != len(q2_list):
+            raise ValueError("q1_list and q2_list must be the same length")
+        if sample_timestamps is None:
+            self.sample_timestamps = None
+            self.sample_time_differences = None
+        else:
+            if len(sample_timestamps) != len(q1_list):
+                raise ValueError("sample_timestamps must be the same length as q1_list and q2_list")
+            self.sample_timestamps = sample_timestamps.copy()
+            self.sample_time_differences = np.array([t2 - t1 for t1, t2 in self.sample_timestamps])
+
         self.lsq_result = lsq_result
 
         # Residual norm per sample (collapse the 3 measurements per sample into one)
@@ -100,6 +117,7 @@ def solve_rotation(
         q1_list: list_of_quats,  # List of rotation quaternions
         q2_list: list_of_quats,
         x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN_PARAMS),  # Initial guess
+        sample_timestamps: Union[list_of_float_pairs, None] = None,
         ) -> tuple[Union[quaternion.quaternion, None], HandEyeSolverDiagnostics]:
     """
     Solve the quaternion form of the hand-eye problem using least-squares
@@ -132,7 +150,7 @@ def solve_rotation(
     # Convert estimate from rotation vector to quaternion
     q_12 = quaternion.from_rotation_vector(result.x)
 
-    diagnostics = HandEyeSolverDiagnostics(result, q1_list, q2_list)
+    diagnostics = HandEyeSolverDiagnostics(result, q1_list, q2_list, sample_timestamps=sample_timestamps)
     logger.debug(f"Ran solver for relative rotation: Solution q_12={q_12}, "
             f"Solution uncertainty: {np.rad2deg(diagnostics.sol_angle_error):.2f} degrees, "
             f"Func evaluations: {result.nfev}, Cost = {result.cost:.4g}, "
@@ -148,6 +166,7 @@ def solve_rotation_with_outlier_removal(
         q1_list: list_of_quats,  # List of rotation quaternions
         q2_list: list_of_quats,
         x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN_PARAMS),  # Initial guess
+        sample_timestamps: Union[list_of_float_pairs, None] = None,
         mad_threshold = 4.45,  # Reject outlier above this multiple of MAD in first pass
         n_min_samples = N_UNKNOWN_PARAMS,  # Minimum number of sample pairs for a solution
         ):
@@ -156,7 +175,7 @@ def solve_rotation_with_outlier_removal(
     solve_rotation() for details).
     """
     # First pass:
-    q12_solution, diagnostics = solve_rotation(q1_list, q2_list, x0)
+    q12_solution, diagnostics = solve_rotation(q1_list, q2_list, x0, sample_timestamps)
     if q12_solution is None:
         logger.debug("First-pass solve for imu/camera alignment failed to converge.")
         return None, diagnostics
@@ -171,6 +190,7 @@ def solve_rotation_with_outlier_removal(
     msk_accept = diagnostics.residual_norms < (median + mad * mad_threshold)
     if np.all(msk_accept):
         logger.debug("No outliers. Returning solution from first-pass.")
+        return q12_solution, diagnostics
     else:
         logger.debug("Running 2nd-pass solve for imu/camera alignment using "
             f"{np.sum(msk_accept)}/{diagnostics.residual_norms.shape[0]} samples.")
@@ -180,11 +200,15 @@ def solve_rotation_with_outlier_removal(
                     "Not enough samples for outlier removal. Returning solution from first-pass.")
             return q12_solution, diagnostics
 
-        # Solve again, using previous solution as the initial guess
-        q1_accept = [q for ii, q in enumerate(q1_list) if msk_accept[ii]]
-        q2_accept = [q for ii, q in enumerate(q2_list) if msk_accept[ii]]
+        # Remove outliers
+        q1_accepted = [q for ii, q in enumerate(q1_list) if msk_accept[ii]]
+        q2_accepted = [q for ii, q in enumerate(q2_list) if msk_accept[ii]]
+        timestamps_accepted = [t for ii, t in enumerate(sample_timestamps) if msk_accept[ii]]
+
+        # Solve again after outlier removal, using previous solution as the initial guess
         x0 = quaternion.as_rotation_vector(q12_solution)
-        q12_solution, diagnostics = solve_rotation(q1_accept, q2_accept, x0)
+        q12_solution, diagnostics = solve_rotation(
+            q1_accepted, q2_accepted, x0, timestamps_accepted)
 
     return q12_solution, diagnostics
 

@@ -306,16 +306,16 @@ class ImuCameraAlignment:
         # and this will solve the relative rotation between them. 
         dq_cam_list = []
         dq_imu_list = []
-        dt_list = []
+        sample_timestamps = []
         for samp1, samp2 in self.pair_buffer.buffer:
             dq_cam_list.append(samp1.q_cam.conj() * samp2.q_cam)
             dq_imu_list.append(samp1.q_imu.conj() * samp2.q_imu)
-            dt_list.append(samp2.timestamp - samp1.timestamp)
+            sample_timestamps.append((samp1.timestamp, samp2.timestamp))
 
         # Solve
         #q_cam2imu, diagnostics = solve_rotation(dq_cam_list, dq_imu_list)
-        q_cam2imu, diagnostics = solve_rotation_with_outlier_removal(dq_cam_list, dq_imu_list)
-        diagnostics.meta_data["time_differences"] = dt_list
+        q_cam2imu, diagnostics = solve_rotation_with_outlier_removal(
+            dq_cam_list, dq_imu_list, sample_timestamps=sample_timestamps)
         return q_cam2imu, diagnostics
 
     def add_candidate_attempt_solve(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
