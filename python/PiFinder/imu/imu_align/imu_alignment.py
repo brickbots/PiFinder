@@ -281,10 +281,13 @@ class ImuCameraAlignment:
             if self.pair_buffer.len >= self.pair_buffer.max_buffer_length:
                 break
 
-        logger.debug(f"paired {n_pairs} from {self.candidate_buffer.len} samples.")
+        logger.debug(f"Created {n_pairs}-way pairs from {self.candidate_buffer.len} candidate samples.")
 
         if remove_ids:
             self.candidate_buffer.remove_samples(remove_ids)
+        logger.debug(f"Removed {len(remove_ids)} samples from candidate buffer. "
+                     f"New candidate buffer length: {self.candidate_buffer.len}. "
+                     f"Pair buffer length: {self.pair_buffer.len}.")
 
         return n_pairs  # Number of successful pairings
 
@@ -310,15 +313,15 @@ class ImuCameraAlignment:
             dt_list.append(samp2.timestamp - samp1.timestamp)
 
         # Solve
-        q_cam2imu, diagnostics = solve_rotation(dq_cam_list, dq_imu_list)
-        #q_cam2imu, diagnostics = solve_rotation_with_outlier_removal(dq_cam_list, dq_imu_list)
+        #q_cam2imu, diagnostics = solve_rotation(dq_cam_list, dq_imu_list)
+        q_cam2imu, diagnostics = solve_rotation_with_outlier_removal(dq_cam_list, dq_imu_list)
         diagnostics.meta_data["time_differences"] = dt_list
         return q_cam2imu, diagnostics
 
     def add_candidate_attempt_solve(self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion):
         """
-        For general use, call this method. Add a new candidate to the buffer.
-        When the buffer fills up, pair samples and solve.
+        For general use, call this pipeline method. Add a new candidate to the
+        buffer. When the buffer fills up, pair samples and solve.
         """
         self.add_candidate(timestamp, cam_eq, q_x2imu)
 
@@ -328,7 +331,7 @@ class ImuCameraAlignment:
             #self.purge_old_samples(timestamp)  # TODO: Run less frequently
             #self.purge_old_candidates()  # TODO: Run less frequently
             self.pair_samples()
-            #self.trim_buffers()
+            #self.trim_buffers()  # TODO
 
             # If the candidate buffer is still full after pairing, remove a 
             # batch of the older samples from the buffer

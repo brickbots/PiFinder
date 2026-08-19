@@ -100,7 +100,7 @@ def solve_rotation(
         q1_list: list_of_quats,  # List of rotation quaternions
         q2_list: list_of_quats,
         x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN_PARAMS),  # Initial guess
-        ) -> tuple[quaternion.quaternion, HandEyeSolverDiagnostics]:
+        ) -> tuple[Union[quaternion.quaternion, None], HandEyeSolverDiagnostics]:
     """
     Solve the quaternion form of the hand-eye problem using least-squares
     optimization of the rotation q_12 parameterized as a rotation vector:
@@ -111,6 +111,8 @@ def solve_rotation(
 
     x0 is the initial guess for q_12 as a rotation vector. The default (zeros)
     is the identity rotation.
+
+    Returns None for q_12 if the solver failed to converge. 
     """
     if len(q1_list) != len(q2_list):
         raise ValueError("q1_list and q2_list must be the same length")
@@ -130,11 +132,14 @@ def solve_rotation(
     # Convert estimate from rotation vector to quaternion
     q_12 = quaternion.from_rotation_vector(result.x)
 
-    logger.debug(f"Solved for relative rotation q_12={q_12}, "
+    diagnostics = HandEyeSolverDiagnostics(result, q1_list, q2_list)
+    logger.debug(f"Ran solver for relative rotation: Solution q_12={q_12}, "
+            f"Solution uncertainty: {np.rad2deg(diagnostics.sol_angle_error):.2f} degrees, "
             f"Func evaluations: {result.nfev}, Cost = {result.cost:.4g}, "
             f"Success: {result.success}, {result.message}")
 
-    diagnostics = HandEyeSolverDiagnostics(result, q1_list, q2_list)
+    if not result.success:
+        return None, diagnostics
 
     return q_12, diagnostics
 
@@ -143,7 +148,7 @@ def solve_rotation_with_outlier_removal(
         q1_list: list_of_quats,  # List of rotation quaternions
         q2_list: list_of_quats,
         x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN_PARAMS),  # Initial guess
-        mad_threshold = 4.45,
+        mad_threshold = 4.45,  # Reject outlier above this multiple of MAD in first pass
         n_min_samples = N_UNKNOWN_PARAMS,  # Minimum number of sample pairs for a solution
         ):
     """
@@ -152,28 +157,32 @@ def solve_rotation_with_outlier_removal(
     """
     # First pass:
     q12_solution, diagnostics = solve_rotation(q1_list, q2_list, x0)
+    if q12_solution is None:
+        logger.debug("First-pass solve for imu/camera alignment failed to converge.")
+        return None, diagnostics
     if mad_threshold is None:
         return q12_solution, diagnostics
 
     # Second pass: Re-run least-squares with outliers removed
     median = np.median(diagnostics.residual_norms)
     mad = np.median(np.abs(diagnostics.residual_norms - median))
+    logger.debug(f"MAD after first-pass: {np.rad2deg(mad):.2f} degrees. "
+                 f"Solution uncertainty: {np.rad2deg(diagnostics.sol_angle_error):.2f} degrees.")
     msk_accept = diagnostics.residual_norms < (median + mad * mad_threshold)
-    if not np.all(msk_accept):
-        logger.debug("Re-solving for imu/camera alignment using "
+    if np.all(msk_accept):
+        logger.debug("No outliers. Returning solution from first-pass.")
+    else:
+        logger.debug("Running 2nd-pass solve for imu/camera alignment using "
             f"{np.sum(msk_accept)}/{diagnostics.residual_norms.shape[0]} samples.")
 
         if np.sum(msk_accept) < n_min_samples:
-            np.info(f"Less than {n_min_samples} samples remain. Exiting outlier removal.")
+            np.info(f"Less than {n_min_samples} samples remain. "
+                    "Not enough samples for outlier removal. Returning solution from first-pass.")
             return q12_solution, diagnostics
 
-        # Re-run using previous solution as the initial guess
-        # TODO: NOT A LIST!
-        #q1_accept = np.array(q1_list)[msk_accept]
-        #q2_accept = np.array(q2_list)[msk_accept]
+        # Solve again, using previous solution as the initial guess
         q1_accept = [q for ii, q in enumerate(q1_list) if msk_accept[ii]]
         q2_accept = [q for ii, q in enumerate(q2_list) if msk_accept[ii]]
-
         x0 = quaternion.as_rotation_vector(q12_solution)
         q12_solution, diagnostics = solve_rotation(q1_accept, q2_accept, x0)
 
