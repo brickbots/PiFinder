@@ -78,6 +78,9 @@ class HandEyeSolverDiagnostics:
         inv_JTJ, _, _, _ = np.linalg.lstsq(J.T @ J, np.eye(n_sol), rcond=None)
 
         # Calculate reduced Chi-square
+        # NOTE: Probably underestimates the reduced Chi-square because the DoF
+        # if overestimated. This is because the measurements are derived from
+        # multi-way pairs of samples and the samples are re-used.
         dof = m_meas - n_sol  # Degrees of freedom
         rss = 2 * self.lsq_result.cost  # Because cost = 0.5 * sum(residuals**2)
         chi_square = rss / dof
