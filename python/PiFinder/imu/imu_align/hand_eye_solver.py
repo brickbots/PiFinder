@@ -183,6 +183,7 @@ def solve_rotation_with_outlier_removal(
         return q12_solution, diagnostics
 
     # Second pass: Re-run least-squares with outliers removed
+    # Detect outliers above MAD threshold
     median = np.median(diagnostics.residual_norms)
     mad = np.median(np.abs(diagnostics.residual_norms - median))
     logger.debug(f"MAD after first-pass: {np.rad2deg(mad):.2f} degrees. "
@@ -191,26 +192,29 @@ def solve_rotation_with_outlier_removal(
     if np.all(msk_accept):
         logger.debug("No outliers. Returning solution from first-pass.")
         return q12_solution, diagnostics
-    else:
-        logger.debug("Running 2nd-pass solve for imu/camera alignment using "
-            f"{np.sum(msk_accept)}/{diagnostics.residual_norms.shape[0]} samples.")
+    
+    logger.debug("Outlier removal. Keeping"
+        f"{np.sum(msk_accept)}/{diagnostics.residual_norms.shape[0]} samples.")
 
-        if np.sum(msk_accept) < n_min_samples:
-            np.info(f"Less than {n_min_samples} samples remain. "
-                    "Not enough samples for outlier removal. Returning solution from first-pass.")
-            return q12_solution, diagnostics
+    if np.sum(msk_accept) < n_min_samples:
+        np.info(f"Less than {n_min_samples} samples after outlier removal. "
+                "Not enough samples for second pass. Returning solution from first-pass.")
+        return q12_solution, diagnostics
 
-        # Remove outliers
-        q1_accepted = [q for ii, q in enumerate(q1_list) if msk_accept[ii]]
-        q2_accepted = [q for ii, q in enumerate(q2_list) if msk_accept[ii]]
-        timestamps_accepted = [t for ii, t in enumerate(sample_timestamps) if msk_accept[ii]]
+    # Remove outliers
+    q1_accepted = [q for ii, q in enumerate(q1_list) if msk_accept[ii]]
+    q2_accepted = [q for ii, q in enumerate(q2_list) if msk_accept[ii]]
+    timestamps_accepted = [t for ii, t in enumerate(sample_timestamps) if msk_accept[ii]]
 
-        # Solve again after outlier removal, using previous solution as the initial guess
-        x0 = quaternion.as_rotation_vector(q12_solution)
-        q12_solution, diagnostics = solve_rotation(
-            q1_accepted, q2_accepted, x0, timestamps_accepted)
+    # Solve again after outlier removal, using previous solution as the initial guess
+    x0 = quaternion.as_rotation_vector(q12_solution)
+    q12_solution_new, diagnostics_new = solve_rotation(
+        q1_accepted, q2_accepted, x0, timestamps_accepted)
+    # Store solutions and diagnostics from first pass
+    diagnostics_new.meta_data['first_pass_solution'] = q12_solution
+    diagnostics_new.meta_data['first_pass_diagnostics'] = diagnostics
 
-    return q12_solution, diagnostics
+    return q12_solution_new, diagnostics_new
 
 
 def _solution_diagnostics(result):
