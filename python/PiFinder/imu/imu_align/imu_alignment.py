@@ -148,8 +148,12 @@ class ImuCameraAlignment:
     min_angle_diff: float  # [rad] Pair samples with large enough angle difference
     max_age: float  # [s] Maximum age of sample compared to current time
 
-    def __init__(self, candidate_buffer_length=60, min_n_solve=10, 
-                 max_time_diff=2.0, min_angle_diff=np.deg2rad(5), max_age=1200):
+    def __init__(self, 
+                 candidate_buffer_length: int = 60, 
+                 min_n_solve: int = 20, 
+                 max_time_diff: float = 20.0, 
+                 min_angle_diff: float = np.deg2rad(5.0), 
+                 max_age: float = 600.0):
         """
         candidate_buffer_length: Should be around sample_freq * max_time_diff
 

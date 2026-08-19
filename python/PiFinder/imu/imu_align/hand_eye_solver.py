@@ -33,7 +33,7 @@ class HandEyeSolverDiagnostics:
     residual_norms: np.ndarray  # Residual norms of each sample [rad]
     rotation_angles: np.ndarray  # Rotation angles of each sample [rad]
     sol_cov_matrix: np.ndarray  # Solution covariance matrix
-    sol_angle_error: np.ndarray  # Solution angle error
+    sol_angle_error: np.ndarray  # Solution angle error [rad]
 
     # Optional
     meta_data: dict
@@ -61,10 +61,10 @@ class HandEyeSolverDiagnostics:
         # Calculate rotations of each sample [rad]
         self.rotation_angles = [qt.get_quat_angular_diff(q1, q2) for q1, q2 in zip(q1_list, q2_list)]
 
-        self.sol_cov_matrix, self.sol_angle_error =self.calculate_solution_uncertainty()
+        self.sol_cov_matrix, self.sol_angle_error =self._calculate_solution_uncertainty()
         self.meta_data = {}
 
-    def calculate_solution_uncertainty(self):
+    def _calculate_solution_uncertainty(self):
         """
         Calculate the standard error of the solution:
         Cov = sigma ** 2 * inv(J.T @ J)
@@ -79,10 +79,10 @@ class HandEyeSolverDiagnostics:
 
         # Calculate reduced Chi-square
         dof = m_meas - n_sol  # Degrees of freedom
-        rss = 2 * self.lsq_result.cost  # res.cost is 0.5 * sum(residuals**2)
+        rss = 2 * self.lsq_result.cost  # Because cost = 0.5 * sum(residuals**2)
         chi_square = rss / dof
 
-        # Extract uncertainty 
+        # Estimate uncertainty about the solution
         sol_cov_matrix = chi_square * inv_JTJ
         sol_angle_error = np.sqrt(np.trace(sol_cov_matrix))  # [rad]
 
