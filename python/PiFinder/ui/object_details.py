@@ -37,8 +37,8 @@ import pydeepskylog as pds
 # Read-only handle to the catalog DB, opened once and shared across detail
 # views. Used by _other_catalog_descriptions() to pull an object's listings in
 # its *other* catalogs (this always runs on the description view). Like the
-# per-instance ObservationsDatabase opened below, this read connection lives for
-# the life of the UI process and is closed when that process exits.
+# ObservationsDatabase below, this read connection lives for the life of the UI
+# process and is closed when that process exits.
 _objects_db = None
 
 
@@ -47,6 +47,19 @@ def _catalog_db() -> ObjectsDatabase:
     if _objects_db is None:
         _objects_db = ObjectsDatabase()
     return _objects_db
+
+
+# Handle to the observations DB, opened once and shared across detail views.
+# Constructing one builds the observed-objects cache, so a per-view instance
+# rebuilds that cache on every entry into this screen.
+_observations_db = None
+
+
+def _obs_db() -> ObservationsDatabase:
+    global _observations_db
+    if _observations_db is None:
+        _observations_db = ObservationsDatabase()
+    return _observations_db
 
 
 # Constants for display modes
@@ -93,7 +106,7 @@ class UIObjectDetails(UIModule):
         )
 
         # Used for displaying observation counts
-        self.observations_db = ObservationsDatabase()
+        self.observations_db = _obs_db()
 
         self.simpleTextLayout = functools.partial(
             TextLayouterSimple,
