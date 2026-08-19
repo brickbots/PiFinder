@@ -617,7 +617,15 @@ class TestDebugCameraProfile:
         """The frames in test_images/ measure ~10.2 degrees when solved.
 
         That is inside hq + 25mm's window and outside imx296 + 16mm's, which
-        is the entire reason the debug camera's declared sensor changed.
+        is why the debug camera's declared sensor changed under ADR 0027.
+
+        It is no longer what makes `--camera debug` solve, though, and reading
+        it that way is how the regression got missed: this fits only because
+        no lens is stated. State one and the same sensor derives 17.12 or
+        20.43 degrees. The gate is now omitted entirely under an **unknown
+        optical train** -- see TestOpticalTrainKnown in
+        test_camera_interface.py and the no-gate cases in
+        test_optics_solving.py.
         """
         measured_debug_frame_fov = 10.2
 

@@ -287,6 +287,22 @@ class CameraInterface:
     def get_cam_type(self) -> str:
         return "foo"
 
+    def optical_train_known(self) -> bool:
+        """Whether these frames came through this device's own optics.
+
+        True for anything pointed at the sky, which is why it defaults that
+        way: a camera has to opt *out*, so a new hardware backend inherits the
+        FOV gate rather than silently losing it.
+
+        False is an **unknown optical train** (docs/ax/camera/CONTEXT.md): the
+        frames were captured through some other train, so the resolved one
+        describes this machine and not them. Two things follow, both handled
+        by the consumers rather than here -- the solver asserts no FOV gate,
+        and lens self-heal declines to infer a lens from a fitted FOV that
+        measured a recording. See docs/adr/0029.
+        """
+        return True
+
     def start_camera(self) -> None:
         pass
 
@@ -307,6 +323,18 @@ class CameraInterface:
                 camera_type = camera_type_str.split(" ")[1].lower()
                 shared_state.set_camera_type(camera_type)
                 logger.info(f"Camera type set to: {camera_type}")
+
+            # Published beside the sensor because it qualifies it: the sensor
+            # a playback camera declares is the one its *frames* were shot on,
+            # which is not the same claim a live camera makes.
+            train_known = self.optical_train_known()
+            shared_state.set_optical_train_known(train_known)
+            if not train_known:
+                logger.info(
+                    "Optical train is unknown: these frames did not come "
+                    "through this device's optics, so the solver gets no FOV "
+                    "gate and the lens cannot self-heal from them"
+                )
 
             # Check if auto-exposure was previously enabled in config
             config_exp = cfg.get_option("camera_exp")
