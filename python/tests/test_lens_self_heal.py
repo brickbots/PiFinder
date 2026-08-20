@@ -42,9 +42,10 @@ class FakeConfig:
 
 
 class FakeSharedState:
-    def __init__(self, camera_type="imx462", camera_lens=None):
+    def __init__(self, camera_type="imx462", camera_lens=None, train_known=True):
         self._camera_type = camera_type
         self._camera_lens = camera_lens
+        self._train_known = train_known
         self.published = []
 
     def camera_type(self):
@@ -52,6 +53,12 @@ class FakeSharedState:
 
     def camera_lens(self):
         return self._camera_lens
+
+    def optical_train_known(self):
+        return self._train_known
+
+    def set_optical_train_known(self, value):
+        self._train_known = value
 
     def set_camera_lens(self, value):
         self._camera_lens = value
@@ -75,6 +82,11 @@ def _solve(fov):
 # solving on 2.6.2 while assuming the 16mm.
 TWELVE_MM_ON_IMX462 = build_optical_train("imx462", "12mm").fov_degrees
 SIXTEEN_MM_ON_IMX462 = build_optical_train("imx462", "16mm").fov_degrees
+
+# What tetra3 fits the archived frames in test_images/ at -- the frames the
+# debug camera replays. Measured, not derived; test_optics_solving.py asserts
+# the same figure against the real solver.
+DEBUG_FRAME_FITTED_FOV = 10.20
 
 
 def _feed(healer, fov, times):
@@ -247,6 +259,66 @@ class TestSelfHealHoldsOff:
 
         assert len(caplog.records) == 1
         assert "matches no lens" in caplog.records[0].getMessage()
+
+    def test_an_unknown_optical_train_never_promotes(self):
+        """The exact `--camera debug` case, which used to write.
+
+        The archived frames fit 10.20 deg, which is 1.3% off the hq's derived
+        10.33 -- comfortably inside LENS_IDENTIFY_TOLERANCE, so this is not a
+        measurement self-heal would reject on its merits. It has to be
+        declined on provenance: the fit measures the train the frames were
+        *recorded* on, and the developer's config is about a different
+        machine. Writing 25mm here is what leaves a real imx462 attached
+        afterwards deriving 6.4 deg and unable to heal its way back.
+        """
+        cfg = FakeConfig()
+        state = FakeSharedState(camera_type="hq", train_known=False)
+        healer = LensSelfHeal(cfg, state)
+
+        _feed(healer, DEBUG_FRAME_FITTED_FOV, LENS_IDENTIFY_CONSECUTIVE * 4)
+
+        assert "camera_lens" not in cfg.options
+        assert state.published == []
+        assert cfg.calls == []
+
+    def test_the_same_fit_would_have_been_promoted_on_real_optics(self):
+        # Pins the test above to provenance rather than to the number: change
+        # only train_known and the identical measurement writes.
+        cfg = FakeConfig()
+        state = FakeSharedState(camera_type="hq", train_known=True)
+        healer = LensSelfHeal(cfg, state)
+
+        _feed(healer, DEBUG_FRAME_FITTED_FOV, LENS_IDENTIFY_CONSECUTIVE)
+
+        assert cfg.options["camera_lens"] == "25mm"
+
+    def test_an_unknown_train_logs_once_not_once_per_frame(self, caplog):
+        cfg = FakeConfig()
+        state = FakeSharedState(camera_type="hq", train_known=False)
+        healer = LensSelfHeal(cfg, state)
+
+        with caplog.at_level("INFO", logger="IMU.Integrator"):
+            _feed(healer, DEBUG_FRAME_FITTED_FOV, 25)
+
+        assert len(caplog.records) == 1
+        assert "Optical train is unknown" in caplog.records[0].getMessage()
+
+    def test_a_run_does_not_survive_the_train_going_unknown(self):
+        """Agreement counted on real optics must not be spent on a recording.
+
+        Ordering matters here: the check sits ahead of the stated-lens branch
+        precisely so it resets the streak rather than falling through it.
+        """
+        cfg, state = FakeConfig(), FakeSharedState(camera_type="hq")
+        healer = LensSelfHeal(cfg, state)
+
+        _feed(healer, DEBUG_FRAME_FITTED_FOV, LENS_IDENTIFY_CONSECUTIVE - 1)
+        state.set_optical_train_known(False)
+        _feed(healer, DEBUG_FRAME_FITTED_FOV, 1)
+        state.set_optical_train_known(True)
+        _feed(healer, DEBUG_FRAME_FITTED_FOV, 1)
+
+        assert "camera_lens" not in cfg.options
 
 
 @pytest.mark.unit
