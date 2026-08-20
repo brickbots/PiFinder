@@ -200,3 +200,106 @@ One caveat, recorded honestly: 13.04 mm rests on a **single 12 mm sample**. The
 16 mm earned its 15.61 by reproducing two independently calibrated field
 widths on two different sensors. A second 12 mm — ideally on an imx296, so the
 sensor half varies too — would put it on the same footing.
+
+## Amendment: a third rung — no gate when the optical train is unknown
+
+The ladder above has two rungs, and both assume the frames came through the
+optics the device is configured with. `--camera debug` breaks that assumption:
+it replays archived frames, and the train those frames were shot through is
+not the train this machine is configured for. So the ladder gains a third
+rung — **stated → ±15%, assumed → union over shipped lenses, unknown → no gate
+at all** — and the confidence the width follows becomes confidence in the
+pairing rather than only in the lens.
+
+### The failure
+
+ADR 0027 relabelled the debug camera's sensor from `imx296` to `hq`, because
+the frames in `test_images/` are 10.2° and only the hq's train covers that.
+That fixed the sensor half and left the lens half reading live from
+`camera_lens`, which `resolve_lens` honours whatever profile it is handed. The
+result is a train that has never physically existed:
+
+| train | derived FOV | gate | debug frames |
+|---|---|---|---|
+| hq + no stated lens | 10.33° | [8.78, 11.88] | solve (fitted 10.20°) |
+| hq + stated `25mm` | 10.33° | [8.78, 11.88] | solve |
+| hq + stated `16mm` | 17.12° | [14.55, 19.69] | **no solve** |
+| hq + stated `12mm` | 20.43° | [17.37, 23.49] | **no solve** |
+
+Any developer who has ever opened the Lens menu, and every device whose lens
+this ADR's own self-heal has written, loses `--camera debug` entirely. It is
+the same shape as the regression this document exists to fix, mirrored: there
+an assumption wore a statement's confidence; here a statement is made about
+hardware that is not in the loop.
+
+`tests/test_optics_solving.py` did not catch it because every case calls
+`build_optical_train("hq")` with no lens key — only ever the assumed path.
+
+### Why no hint, rather than the alternatives
+
+**Declaring a lens from the camera** (debug publishes hq + 25 mm, config
+loses) keeps the gate and its mis-solve rejection, and was the first
+instinct. Rejected because it needs a lens statement that must never reach
+`camera_lens` — a second, differently-scoped writer for a key whose whole
+meaning is "the user's claim" — and because it pins debug mode to the one
+frame set we happen to ship. Dropping your own unsolvable field into
+`test_images/` is the main thing debug mode is *for*, and under a declared
+lens those frames are gated out exactly as the shipped ones are today.
+
+**Emulating the configured train** (serve frames matching the user's sensor
+and lens, so `-fh` behaves like their rev4) is the right answer to a different
+question and needs a real archived frame per shipped combination. The frames
+we have are 10.2°, too narrow to re-project outward from; this stays open if
+anyone wants it, and it wants captures, not code.
+
+**A database-range gate** of `[10, 30]°` is no-hint with extra steps — the
+database floor is already doing that pruning — and leaves a constant to
+maintain for no protection gained.
+
+**Rejecting non-shipped pairings** in `resolve_lens` (an hq never shipped with
+a 12 mm, so that statement is not credible) would fix debug as a side effect
+and close the sensor-swap deadlock too. Rejected here as blast radius: it
+makes a user's explicit statement conditionally non-authoritative, which is a
+direct contradiction of 0027, and it deserves its own decision rather than
+riding along with a development-tool fix.
+
+The measured cost of no-hint is small and known. On the shipped frames all
+three widths return identical RA/Dec, `Matches` and `Prob` within ~1 ms of
+each other. What no-hint gives up is the upper bound that rejected confident
+mis-solves in this document's noise trials — a protection whose value is that
+a device under the stars never reports a wrong pointing. Nothing is under the
+stars in debug mode.
+
+### Consequences
+
+**The gate is omitted, not widened.** `fov_estimate` is not passed at all when
+the train is unknown, so there is no third window to keep consistent with the
+other two, and any frame from any train solves.
+
+**Self-heal is barred under an unknown train**, and this is a live bug the
+amendment fixes rather than a hazard it introduces. With no `camera_lens` in
+config — the ordinary state of a development machine — `--camera debug` solves
+at 10.20°, `identify_lens_from_fitted_fov` matches that to the hq's `25mm`
+within 1.3%, and after three frames the integrator writes `camera_lens: 25mm`
+into the developer's config. It is not wrong about the *frames*; it is a
+statement about a device made from a recording. The trap springs later: attach
+a real imx462 and the now-stated 25 mm derives 6.4°, nothing solves, and
+self-heal cannot undo it because it only ever writes into an absence. A fitted
+FOV measures the train the frames passed through, so under an unknown train it
+measures nothing about this device and must not be learned from.
+
+**Only the gate and self-heal follow the unknown train.** The **frustum** keeps
+deriving from the configured optics, deliberately: it answers "what would my
+camera image", which is a question about the device and stays meaningful while
+a recording plays. Propagating would also delete a frustum that is *correct*
+on a dev laptop (10.33° derived against 10.20° frames) to avoid one that is
+wrong only when a lens is stated. SQM is unaffected either way — only
+`camera_pi` publishes radiometer samples, so the radiometric path is inert
+under the debug camera.
+
+**A stated lens still means no solves on real hardware.** Nothing here softens
+0027. The unknown train is a property of where the frames came from, not a
+new escape hatch for a wrong statement — which is why the sensor-swap
+deadlock (switch imx296 → hq from the Camera Type menu with a stated 16 mm,
+derive 17.12°, and be unable to measure out of it) is untouched by this and
+remains a documentation path (#613).
