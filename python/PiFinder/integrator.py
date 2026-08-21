@@ -68,7 +68,7 @@ from PiFinder.types.positioning import (
     SolveSource,
     SuccessfulSolve,
 )
-from PiFinder.imu.imu_align import ImuCameraAlignment
+from PiFinder.imu.imu_align.imu_alignment import ImuCameraAlignment
 
 logger = logging.getLogger("IMU.Integrator")
 
