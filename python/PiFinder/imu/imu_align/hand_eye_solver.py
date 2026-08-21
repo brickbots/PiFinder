@@ -205,7 +205,7 @@ def solve_rotation_with_outlier_removal(
         q2_list: list_of_quats,
         x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN_PARAMS),  # Initial guess
         sample_timestamps: Union[list_of_float_pairs, None] = None,
-        mad_threshold = 4.45,  # Reject outlier above this multiple of MAD in first pass
+        mad_threshold = 4.45,  # TODO: Remove? Reject outlier above this multiple of MAD in first pass
         n_min_samples = N_UNKNOWN_PARAMS,  # Minimum number of sample pairs for a solution
         ):
     """
@@ -220,7 +220,7 @@ def solve_rotation_with_outlier_removal(
     if mad_threshold is None:
         return q12_solution, diagnostics
 
-    # Second pass: Re-run least-squares with outliers removed
+    # Second pass:
     # Detect outliers above MAD threshold
     median = np.median(diagnostics.residual_norms)
     mad = np.median(np.abs(diagnostics.residual_norms - median))
@@ -266,6 +266,8 @@ def _solution_diagnostics(result):
     `result` is the output from scipy.optimize.least_squares.
     
     Condition number: < 10 excellent, < 100 acceptable, <1E4 weak observability
+
+    TODO: Remove?
     """
     t_start = time.time()
 
@@ -385,45 +387,3 @@ def simulate_quaternion_measurements(
     q2 = _add_noise_to_quaternion_list(q2_true, q2_noise_amp)
 
     return q1, q2
-
-
-if __name__ == "__main__":
-    """ 
-    The main block simulates pairs of q1 and q2 measurements and solves
-    for the q_12 for the quaternion form of the hand-eye problem:
-    
-    q1 * q_12 = q_12 * q2
-    """
-
-    # Set the true camera-from-body rotation
-    true_rotvec = np.radians([10, -5, 20])
-    q_12_true = quaternion.from_rotation_vector(true_rotvec)
-
-    # Simulate measurements:
-    q1, q2 = simulate_quaternion_measurements(
-        q_12_true, N=100, camera_noise_amp=np.deg2rad(0.1), 
-        imu_noise_amp=np.deg2rad(0.1), seed=0)
-
-    # Optional steps: 
-    # Pair up and calculate relative rotations
-    # Reject small rotations
-
-    # solve
-    q_12_est, diagnostics = solve_rotation(
-        q1, q2, residual_threshold = 0.01, verbose=True)
-
-    # Results
-    print("\nTrue q_12:")
-    print(quaternion.as_float_array(q_12_true))
-
-    print("\nEstimated q_12_est:")
-    print(quaternion.as_float_array(q_12_est))
-
-    # Error
-    q_error = q_12_est.conjugate() * q_12_true
-    error_deg = np.rad2deg(
-        np.linalg.norm(
-            quaternion.as_rotation_vector(q_error)
-        )
-    )
-    print(f"\nCalibration error: {error_deg:.6f} deg")
