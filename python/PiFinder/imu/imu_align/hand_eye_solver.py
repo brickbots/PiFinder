@@ -83,10 +83,10 @@ class HandEyeSolverDiagnostics:
 
         # Calculate degrees of freedom of the problem
         if sample_timestamps is None:
-            dof = N_UNKNOWN_PARAMS * (m_meas - n_sol)  # Overestimates the DoF!
+            dof = N_UNKNOWN_PARAMS * (m_meas - n_sol)  # NOTE: Overestimates the DoF!
         else:
             n_connected_components, n_nodes = self._calculate_connected_components(sample_timestamps)
-            dof = N_UNKNOWN_PARAMS * (n_nodes - n_connected_components - 1)  # Degrees of freedom
+            dof = N_UNKNOWN_PARAMS * (n_nodes - n_connected_components - 1)
 
         # Calculate reduced Chi-square
         rss = 2 * self.lsq_result.cost  # Because cost = 0.5 * sum(residuals**2)
@@ -168,7 +168,10 @@ def solve_rotation(
     x0 is the initial guess for q_12 as a rotation vector. The default (zeros)
     is the identity rotation.
 
-    Returns None for q_12 if the solver failed to converge. 
+    Returns None for q_12 if the solver failed to converge.
+
+    NOTE: Possible future improvements: 1) Tune the LM parameters, 2) Calculate
+    the Jacobians analytically (though fast enough doing it numerically).
     """
     if len(q1_list) != len(q2_list):
         raise ValueError("q1_list and q2_list must be the same length")
@@ -179,9 +182,6 @@ def solve_rotation(
         raise ValueError("x0 must be a length-3 vector")
 
     logger.debug(f"Solving for relative rotation from {len(q1_list)} sample pairs.")
-
-    # TODO: Tune LM params
-    # TODO: Calculate the Jacobians analytically? Current numerical Jacobians is probably fast enough?
     result = least_squares(residual_rotation_vector, x0, method='lm', 
                            args=(q1_list, q2_list))
 
@@ -207,7 +207,7 @@ def solve_rotation_with_outlier_removal(
         sample_timestamps: Union[list_of_float_pairs, None] = None,
         mad_threshold = 4.45,  # TODO: Remove? Reject outlier above this multiple of MAD in first pass
         n_min_samples = N_UNKNOWN_PARAMS,  # Minimum number of sample pairs for a solution
-        ):
+        ) -> tuple[Union[quaternion.quaternion, None], HandEyeSolverDiagnostics]:
     """
     Solve the hand-eye problem with a single pass of outlier rejection (see 
     solve_rotation() for details).
