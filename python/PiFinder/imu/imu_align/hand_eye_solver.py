@@ -12,6 +12,8 @@ import logging
 import numpy as np
 import quaternion  # Note: numpy-quaternion convention: quaternion(w, x, y, z)
 from scipy.optimize import least_squares, OptimizeResult
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import connected_components
 import time
 from typing import Union
 
@@ -61,10 +63,12 @@ class HandEyeSolverDiagnostics:
         # Calculate rotations of each sample [rad]
         self.rotation_angles = [qt.get_quat_angular_diff(q1, q2) for q1, q2 in zip(q1_list, q2_list)]
 
-        self.sol_cov_matrix, self.sol_angle_error =self._calculate_solution_uncertainty()
+        self.sol_cov_matrix, self.sol_angle_error =self._calculate_solution_uncertainty(sample_timestamps)
         self.meta_data = {}
 
-    def _calculate_solution_uncertainty(self):
+
+    def _calculate_solution_uncertainty(
+            self, sample_timestamps: Union[list_of_float_pairs, None]) -> tuple[np.ndarray, float]:
         """
         Calculate the standard error of the solution:
         Cov = sigma ** 2 * inv(J.T @ J)
@@ -77,11 +81,14 @@ class HandEyeSolverDiagnostics:
         # NOTE: Could be speeded up using QR decomposition but this is good enough
         inv_JTJ, _, _, _ = np.linalg.lstsq(J.T @ J, np.eye(n_sol), rcond=None)
 
+        # Calculate degrees of freedom of the problem
+        if sample_timestamps is None:
+            dof = N_UNKNOWN_PARAMS * (m_meas - n_sol)  # Overestimates the DoF!
+        else:
+            n_connected_components, n_nodes = self._calculate_connected_components(sample_timestamps)
+            dof = N_UNKNOWN_PARAMS * (n_nodes - n_connected_components - 1)  # Degrees of freedom
+
         # Calculate reduced Chi-square
-        # NOTE: Probably underestimates the reduced Chi-square because the DoF
-        # if overestimated. This is because the measurements are derived from
-        # multi-way pairs of samples and the samples are re-used.
-        dof = m_meas - n_sol  # Degrees of freedom
         rss = 2 * self.lsq_result.cost  # Because cost = 0.5 * sum(residuals**2)
         chi_square = rss / dof
 
@@ -90,6 +97,34 @@ class HandEyeSolverDiagnostics:
         sol_angle_error = np.sqrt(np.trace(sol_cov_matrix))  # [rad]
 
         return sol_cov_matrix, sol_angle_error
+
+
+    @staticmethod
+    def _calculate_connected_components(sample_timestamps: list_of_float_pairs) -> int:
+        """
+        Returns the number of connected components in the sample_timestamps
+        measurements. For example, if we have 5 measurement pairs (edges) from
+        7 unique samples (nodes):
+
+        [(0, 1), (0, 2), (3, 4), (4, 5), (5, 7)]
+
+        There are 3 connected components: [(0, 1, 2), (3, 4, 5), (7,)]
+        """
+        # Flattened along the rows & convert from float timestamps to pairs of indices (0..N)
+        _, inverse_idx = np.unique(np.array(sample_timestamps), return_inverse=True)
+        n_nodes = np.max(inverse_idx) + 1  # Number of unique samples
+        idx_pairs = inverse_idx.reshape(-1, 2)
+
+        # Matrix A has a 1 in row/column pairs
+        rows, cols = idx_pairs.T
+        A = csr_matrix(
+            (np.ones(2 * len(idx_pairs)),
+            (np.r_[rows, cols], np.r_[cols, rows])),
+            shape=(n_nodes, n_nodes)
+        )
+
+        # Return the number of connected components
+        return connected_components(A, directed=False, return_labels=False), n_nodes
 
 
 def residual_rotation_vector(x,  # (3,) Trial solution (q as rotation vector) 
@@ -201,7 +236,7 @@ def solve_rotation_with_outlier_removal(
         logger.debug("No outliers. Returning solution from first-pass.")
         return q12_solution, diagnostics
     
-    logger.debug("Outlier removal. Keeping"
+    logger.debug("Outlier removal. Keeping "
         f"{np.sum(msk_accept)}/{diagnostics.residual_norms.shape[0]} samples.")
 
     if np.sum(msk_accept) < n_min_samples:
