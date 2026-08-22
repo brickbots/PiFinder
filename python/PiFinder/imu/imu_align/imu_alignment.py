@@ -187,7 +187,9 @@ class ImuCameraAlignment:
 
     def add_candidate_attempt_solve(
         self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion
-    ) -> tuple[Union[quaternion.quaternion, None], Union[HandEyeSolverDiagnostics, None]]:
+    ) -> tuple[
+        Union[quaternion.quaternion, None], Union[HandEyeSolverDiagnostics, None]
+    ]:
         """
         For general use, call this pipeline method. Add a new candidate to the
         buffer. When the buffer fills up, pair samples and solve.
@@ -364,7 +366,9 @@ class ImuCameraAlignment:
 
         return n_pairs  # Number of successful pairings
 
-    def _solve(self, n_pairs=None) -> tuple[Union[quaternion.quaternion, None], HandEyeSolverDiagnostics]:
+    def _solve(
+        self, n_pairs=None
+    ) -> tuple[Union[quaternion.quaternion, None], HandEyeSolverDiagnostics]:
         """
         Solve for the alignment between the camera and IMU using at least the
         last n_pairs or all available pairs (if None) in diff_buffer.

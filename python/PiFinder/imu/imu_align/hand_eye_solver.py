@@ -126,7 +126,9 @@ class HandEyeSolverDiagnostics:
         return sol_cov_matrix, sol_angle_error
 
     @staticmethod
-    def _calculate_connected_components(sample_timestamps: list_of_float_pairs) -> tuple[int, int]:
+    def _calculate_connected_components(
+        sample_timestamps: list_of_float_pairs,
+    ) -> tuple[int, int]:
         """
         Returns the number of connected components in the sample_timestamps
         measurements. For example, if we have 5 measurement pairs (edges) from

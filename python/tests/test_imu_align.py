@@ -53,7 +53,7 @@ def test_solve_rotation():
     assert isinstance(diagnostics, HandEyeSolverDiagnostics)
 
     # Check error
-    #q_error = q_12_est.conjugate() * q_12_true
-    #error_rad = np.linalg.norm(quaternion.as_rotation_vector(q_error))
-    #print(f"Uncertainty: {np.rad2deg(diagnostics.sol_angle_error):.3f} degrees.")
-    #assert error_rad < np.deg2rad(1.0), f"error_rad too large. Got {error_rad:.3f} rad"
+    # q_error = q_12_est.conjugate() * q_12_true
+    # error_rad = np.linalg.norm(quaternion.as_rotation_vector(q_error))
+    # print(f"Uncertainty: {np.rad2deg(diagnostics.sol_angle_error):.3f} degrees.")
+    # assert error_rad < np.deg2rad(1.0), f"error_rad too large. Got {error_rad:.3f} rad"
