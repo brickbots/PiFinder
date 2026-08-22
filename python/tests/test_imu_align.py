@@ -1,5 +1,3 @@
-import pytest
-
 import numpy as np
 import quaternion  # Note: numpy-quaternion convention: quaternion(w, x, y, z)
 from PiFinder.imu.imu_align.hand_eye_solver import solve_rotation, simulate_quaternion_measurements

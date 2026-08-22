@@ -82,7 +82,7 @@ import time
 
 from PiFinder.types.coordinates import RaDecRoll
 from PiFinder.pointing_model import quaternion_transforms as qt
-from PiFinder.imu.imu_align.hand_eye_solver import solve_rotation, solve_rotation_with_outlier_removal
+from PiFinder.imu.imu_align.hand_eye_solver import solve_rotation_with_outlier_removal
 
 list_of_quats = list[quaternion.quaternion]
 

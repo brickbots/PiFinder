@@ -7,7 +7,6 @@ q1 * q_12 = q_12 * q2
 Where the goal is to solve for the rotation q_12. Given enough measurements of 
 q1 and q2, we can solve for q_12.
 """
-from dataclasses import dataclass
 import logging
 import numpy as np
 import quaternion  # Note: numpy-quaternion convention: quaternion(w, x, y, z)
