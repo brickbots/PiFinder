@@ -257,8 +257,12 @@ def integrator(
         # TODO: Move to a different location
         logger.info("IMU/Camera alignment: Initialized with q_imu2cam: ", idr.q_imu2cam)
         imu_align = ImuCameraAlignment(
-            candidate_buffer_length=60, min_n_solve=20, 
-            max_time_diff=20.0, min_angle_diff=np.deg2rad(5.0), max_age=600.0)
+            candidate_buffer_length=60,
+            min_n_solve=20,
+            max_time_diff=20.0,
+            min_angle_diff=np.deg2rad(5.0),
+            max_age=600.0,
+        )
         # -------------------------------------------------
 
         while True:
@@ -316,21 +320,27 @@ def integrator(
                 # Add IMU/Camera samples to the buffer and attempt solve if buffer is full
                 # TODO: Move to a different location
                 new_q_cam2imu, _diag = imu_align.add_candidate_attempt_solve(
-                    solve_result.last_solve_success, 
-                    solve_result.camera.as_radecroll(), 
-                    solve_result.imu_anchor)
+                    solve_result.last_solve_success,
+                    solve_result.camera.as_radecroll(),
+                    solve_result.imu_anchor,
+                )
                 if new_q_cam2imu is not None:
-                    angular_diff = qt.get_quat_angular_diff(idr.q_imu2cam, new_q_cam2imu)
-                    logger.info("IMU/Camera alignment: New estimate q_imu2cam: ", new_q_cam2imu)
-                    logger.info("IMU/Camera alignment: Angular difference from previous estimate: "
-                                f"{np.rad2deg(angular_diff):.2f} deg | "
-                                "Solution uncertainty: "
-                                f"{np.rad2deg(_diag.sol_angle_error):.2f} deg | "
-                                f"Solve time: {_diag.meta_data['total_solve_time']}")
+                    angular_diff = qt.get_quat_angular_diff(
+                        idr.q_imu2cam, new_q_cam2imu
+                    )
+                    logger.info(
+                        "IMU/Camera alignment: New estimate q_imu2cam: ", new_q_cam2imu
+                    )
+                    logger.info(
+                        "IMU/Camera alignment: Angular difference from previous estimate: "
+                        f"{np.rad2deg(angular_diff):.2f} deg | "
+                        "Solution uncertainty: "
+                        f"{np.rad2deg(_diag.sol_angle_error):.2f} deg | "
+                        f"Solve time: {_diag.meta_data['total_solve_time']}"
+                    )
                     # Update:
                     idr.q_imu2cam = new_q_cam2imu
                 # ---------------------------------------
-
 
                 # Append plate-solve and IMU states to IMU/camera alignment buffer
                 # TODO: Append the following:
@@ -341,7 +351,7 @@ def integrator(
                 # Update idr.q_imu2cam with the new estimate from IMU/camera alignment
                 #
                 # TODO: SuccessfulSolve.last_solve_success is the exposure end time. It's ambiguous...
-                # TODO: Move ImuDeadReckoning._q_imu2cam() to a stand-alone func in imu_dead_reckoning.py with a view to deprecating it 
+                # TODO: Move ImuDeadReckoning._q_imu2cam() to a stand-alone func in imu_dead_reckoning.py with a view to deprecating it
 
             elif isinstance(solve_result, FailedSolve):
                 telemetry.record_solve(
