@@ -14,7 +14,6 @@ import quaternion  # Note: numpy-quaternion convention: quaternion(w, x, y, z)
 from scipy.optimize import least_squares, OptimizeResult
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
-import time
 from typing import Union
 
 import PiFinder.pointing_model.quaternion_transforms as qt
@@ -40,7 +39,7 @@ class HandEyeSolverDiagnostics:
     residual_norms: np.ndarray  # Residual norms of each sample [rad]
     rotation_angles: np.ndarray  # Rotation angles of each sample [rad]
     sol_cov_matrix: np.ndarray  # Solution covariance matrix
-    sol_angle_error: float  # Solution angle error [rad]
+    sol_angle_error: float  # Solution angle uncertainty [rad]
 
     # Optional
     meta_data: dict
@@ -93,6 +92,11 @@ class HandEyeSolverDiagnostics:
         """
         Calculate the standard error of the solution:
         Cov = sigma ** 2 * inv(J.T @ J)
+
+        Alternative approach using SVD (more robust):
+        U, s, Vt = np.linalg.svd(result.jac, full_matrices=False)
+        cov_x = residuals_var * (Vt.T / s**2) @ Vt
+        condition_number = s[0] / s[-1]
         """
         # Extract Jacobian from least_squares result
         J = self.lsq_result.jac  # Jacobian matrix (m_meas, n_sol)
@@ -301,44 +305,6 @@ def solve_rotation_with_outlier_removal(
     diagnostics_new.meta_data["first_pass_diagnostics"] = diagnostics
 
     return q12_solution_new, diagnostics_new
-
-
-def _solution_diagnostics(result):
-    """
-    Returns the diagnostics of the least-squares solution. The input,
-    `result` is the output from scipy.optimize.least_squares.
-
-    Condition number: < 10 excellent, < 100 acceptable, <1E4 weak observability
-
-    TODO: Remove?
-    """
-    t_start = time.time()
-
-    # Estimate the uncertainty of the solution
-    residuals = result.fun
-    dof = len(residuals) - len(
-        result.x
-    )  # Degrees-of-freedom = Number of meas - Number of params
-    residuals_var = np.sum(residuals**2) / dof  # Estimate of residual variance
-
-    # Using 'backslash' rather than inv(): Faster but could be unstable?
-    # JTJ = result.jac.T @ result.jac  # Hessian approx from the Jacobians
-    # cov_x = residuals_var * np.linalg.solve(JTJ, np.eye(JTJ.shape[0]))
-
-    # Estimate the uncertainty at the solution using SVD: More robust
-    U, s, Vt = np.linalg.svd(result.jac, full_matrices=False)
-    cov_x = residuals_var * (Vt.T / s**2) @ Vt
-    condition_number = s[0] / s[-1]
-    sigma_total = np.sqrt(np.trace(cov_x))  # [rad] Total rotaion uncertainty
-
-    t_compute = time.time() - t_start
-    print(
-        f"Diagnostics for q_cam2imu: compute time = {t_compute:.3f}s, ",
-        f"Total angular uncertainty = {np.rad2deg(sigma_total):.2} deg, ",
-        f"Condition number = {condition_number:.1g}",
-    )
-
-    return sigma_total, condition_number
 
 
 # ------- Helper functions -------
