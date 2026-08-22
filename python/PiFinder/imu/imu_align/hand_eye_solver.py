@@ -1,0 +1,409 @@
+"""
+Core solver functionalities for solving the quaternion form of the hand-eye
+problem:
+
+q1 * q_12 = q_12 * q2
+
+Where the goal is to solve for the rotation q_12. Given enough measurements of
+q1 and q2, we can solve for q_12.
+"""
+
+import logging
+import numpy as np
+import quaternion  # Note: numpy-quaternion convention: quaternion(w, x, y, z)
+from scipy.optimize import least_squares, OptimizeResult
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import connected_components
+from typing import Union
+
+import PiFinder.pointing_model.quaternion_transforms as qt
+
+# Typing:
+list_of_quats = list[quaternion.quaternion]
+list_of_float_pairs = list[tuple[float, float]]
+
+logger = logging.getLogger("IMU.AlignSolver")
+
+N_UNKNOWN_PARAMS = 3  # Number of unknown parameters in the problem to solve
+
+
+class HandEyeSolverDiagnostics:
+    lsq_result: OptimizeResult  # Result from scipy.optimize.least_squares
+
+    sample_timestamps: Union[
+        list_of_float_pairs, None
+    ]  # Timestamps of each sample-pair
+    sample_time_differences: Union[
+        np.ndarray, None
+    ]  # Time differences between each sample [s]
+    residual_norms: np.ndarray  # Residual norms of each sample [rad]
+    rotation_angles: np.ndarray  # Rotation angles of each sample [rad]
+    sol_cov_matrix: np.ndarray  # Solution covariance matrix
+    sol_angle_error: float  # Solution angle uncertainty [rad]
+
+    # Optional
+    meta_data: dict
+
+    def __init__(
+        self,
+        lsq_result,
+        q1_list: list_of_quats,
+        q2_list: list_of_quats,
+        sample_timestamps: Union[list_of_float_pairs, None] = None,
+    ):
+        if len(q1_list) != len(q2_list):
+            raise ValueError("q1_list and q2_list must be the same length")
+        if sample_timestamps is None:
+            self.sample_timestamps = None
+            self.sample_time_differences = None
+        else:
+            if len(sample_timestamps) != len(q1_list):
+                raise ValueError(
+                    "sample_timestamps must be the same length as q1_list and q2_list"
+                )
+            self.sample_timestamps = sample_timestamps.copy()
+            self.sample_time_differences = np.array(
+                [t2 - t1 for t1, t2 in self.sample_timestamps]
+            )
+
+        self.lsq_result = lsq_result
+
+        # Residual norm per sample (collapse the 3 measurements per sample into one)
+        resid = lsq_result.fun.reshape(
+            (-1, N_UNKNOWN_PARAMS)
+        )  # Each row corresponds to a sample
+        self.residual_norms = np.linalg.norm(
+            resid, axis=1
+        )  # Residual per sample in radians
+
+        # Calculate rotations of each sample-pair [rad]
+        self.rotation_angles = np.array(
+            [qt.get_quat_angular_diff(q1, q2) for q1, q2 in zip(q1_list, q2_list)]
+        )
+
+        self.sol_cov_matrix, self.sol_angle_error = (
+            self._calculate_solution_uncertainty(sample_timestamps)
+        )
+        self.meta_data = {}
+
+    def _calculate_solution_uncertainty(
+        self, sample_timestamps: Union[list_of_float_pairs, None]
+    ) -> tuple[np.ndarray, float]:
+        """
+        Calculate the standard error of the solution:
+        Cov = sigma ** 2 * inv(J.T @ J)
+
+        Alternative approach using SVD (more robust):
+        U, s, Vt = np.linalg.svd(result.jac, full_matrices=False)
+        cov_x = residuals_var * (Vt.T / s**2) @ Vt
+        condition_number = s[0] / s[-1]
+        """
+        # Extract Jacobian from least_squares result
+        J = self.lsq_result.jac  # Jacobian matrix (m_meas, n_sol)
+        m_meas, n_sol = J.shape
+
+        # Calculate the inverse using "backslash": Solve: (J.T @ J) @ X = I
+        # NOTE: Could be speeded up using QR decomposition but this is good enough
+        inv_JTJ, _, _, _ = np.linalg.lstsq(J.T @ J, np.eye(n_sol), rcond=None)
+
+        # Calculate degrees of freedom of the problem
+        if sample_timestamps is None:
+            dof = N_UNKNOWN_PARAMS * (m_meas - n_sol)  # NOTE: Overestimates the DoF!
+        else:
+            n_connected_components, n_nodes = self._calculate_connected_components(
+                sample_timestamps
+            )
+            dof = N_UNKNOWN_PARAMS * (n_nodes - n_connected_components - 1)
+
+        # Calculate reduced Chi-square
+        rss = 2 * self.lsq_result.cost  # Because cost = 0.5 * sum(residuals**2)
+        chi_square = rss / dof
+
+        # Estimate uncertainty about the solution
+        sol_cov_matrix = chi_square * inv_JTJ
+        sol_angle_error = np.sqrt(np.trace(sol_cov_matrix))  # [rad]
+
+        return sol_cov_matrix, sol_angle_error
+
+    @staticmethod
+    def _calculate_connected_components(
+        sample_timestamps: list_of_float_pairs,
+    ) -> tuple[int, int]:
+        """
+        Returns the number of connected components in the sample_timestamps
+        measurements. For example, if we have 5 measurement pairs (edges) from
+        7 unique samples (nodes):
+
+        [(0, 1), (0, 2), (3, 4), (4, 5), (5, 7)]
+
+        There are 3 connected components: [(0, 1, 2), (3, 4, 5), (7,)]
+        """
+        # Flattened along the rows & convert from float timestamps to pairs of indices (0..N)
+        _, inverse_idx = np.unique(np.array(sample_timestamps), return_inverse=True)
+        n_nodes = np.max(inverse_idx) + 1  # Number of unique samples
+        idx_pairs = inverse_idx.reshape(-1, 2)
+
+        # Matrix A has a 1 in row/column pairs
+        rows, cols = idx_pairs.T
+        A = csr_matrix(
+            (np.ones(2 * len(idx_pairs)), (np.r_[rows, cols], np.r_[cols, rows])),
+            shape=(n_nodes, n_nodes),
+        )
+
+        # Return the number of connected components
+        return connected_components(A, directed=False, return_labels=False), n_nodes
+
+
+def residual_rotation_vector(
+    x,  # (3,) Trial solution (q as rotation vector)
+    q1_list: list_of_quats,  # List of rotation quaternions
+    q2_list: list_of_quats,
+) -> np.ndarray:
+    """
+    For solving q_cam2imu in the quaternion form of the hand-eye problem:
+    q1 * q_12 = q_12 * q2
+
+    Calculate the esiduals at the trial solution x for least squares
+    optimization.
+    """
+    # Convert trial solution (rotation vector) to quaternion
+    q_12 = quaternion.from_rotation_vector(x)
+
+    n_meas = len(q1_list)
+    residuals = np.zeros(3 * n_meas)
+    for ii, (q1, q2) in enumerate(zip(q1_list, q2_list)):
+        q_err = (q1 * q_12) * (q_12 * q2).conjugate()  # Error quaternion
+        # Convert to rotation vector (Lie algebra logarithm map)
+        residuals[(3 * ii) : (3 * ii + 3)] = quaternion.as_rotation_vector(q_err)
+
+    return np.array(residuals)
+
+
+def solve_rotation(
+    q1_list: list_of_quats,  # List of rotation quaternions
+    q2_list: list_of_quats,
+    x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN_PARAMS),  # Initial guess
+    sample_timestamps: Union[list_of_float_pairs, None] = None,
+) -> tuple[Union[quaternion.quaternion, None], HandEyeSolverDiagnostics]:
+    """
+    Solve the quaternion form of the hand-eye problem using least-squares
+    optimization of the rotation q_12 parameterized as a rotation vector:
+
+    dq1 * q_12 = q_12 * dq2
+
+    Where q_12 is the unknown rotation that rotates q1 to q2.
+
+    x0 is the initial guess for q_12 as a rotation vector. The default (zeros)
+    is the identity rotation.
+
+    Returns None for q_12 if the solver failed to converge.
+
+    NOTE: Possible future improvements: 1) Tune the LM parameters, 2) Calculate
+    the Jacobians analytically (though fast enough doing it numerically).
+    """
+    if len(q1_list) != len(q2_list):
+        raise ValueError("q1_list and q2_list must be the same length")
+    if len(q1_list) < N_UNKNOWN_PARAMS:
+        raise ValueError(
+            f"q1_list and q2_list must have at least "
+            f"{N_UNKNOWN_PARAMS} elements. Got {len(q1_list)}"
+        )
+    if len(x0) != N_UNKNOWN_PARAMS:
+        raise ValueError("x0 must be a length-3 vector")
+
+    logger.debug(f"Solving for relative rotation from {len(q1_list)} sample pairs.")
+    result = least_squares(
+        residual_rotation_vector, x0, method="lm", args=(q1_list, q2_list)
+    )
+
+    # Convert estimate from rotation vector to quaternion
+    q_12 = quaternion.from_rotation_vector(result.x)
+
+    diagnostics = HandEyeSolverDiagnostics(
+        result, q1_list, q2_list, sample_timestamps=sample_timestamps
+    )
+    logger.debug(
+        f"Ran solver for relative rotation: Solution q_12={q_12}, "
+        f"Solution uncertainty: {np.rad2deg(diagnostics.sol_angle_error):.2f} degrees, "
+        f"Func evaluations: {result.nfev}, Cost = {result.cost:.4g}, "
+        f"Success: {result.success}, {result.message}"
+    )
+
+    if not result.success:
+        return None, diagnostics
+
+    return q_12, diagnostics
+
+
+def solve_rotation_with_outlier_removal(
+    q1_list: list_of_quats,  # List of rotation quaternions
+    q2_list: list_of_quats,
+    x0: Union[np.ndarray, list] = np.zeros(N_UNKNOWN_PARAMS),  # Initial guess
+    sample_timestamps: Union[list_of_float_pairs, None] = None,
+    mad_threshold=4.45,  # TODO: Remove? Reject outlier above this multiple of MAD in first pass
+    n_min_samples=N_UNKNOWN_PARAMS,  # Minimum number of sample pairs for a solution
+) -> tuple[Union[quaternion.quaternion, None], HandEyeSolverDiagnostics]:
+    """
+    Solve the hand-eye problem with a single pass of outlier rejection (see
+    solve_rotation() for details).
+    """
+    # First pass:
+    q12_solution, diagnostics = solve_rotation(q1_list, q2_list, x0, sample_timestamps)
+    if q12_solution is None:
+        logger.debug("First-pass solve for imu/camera alignment failed to converge.")
+        return None, diagnostics
+    if mad_threshold is None:
+        return q12_solution, diagnostics
+
+    # Second pass:
+    # Detect outliers above MAD threshold
+    median = np.median(diagnostics.residual_norms)
+    mad = np.median(np.abs(diagnostics.residual_norms - median))
+    mean = np.mean(diagnostics.residual_norms)
+    sd = np.std(diagnostics.residual_norms)
+    logger.debug(
+        "After first pass: "
+        f"Solution uncertainty: {np.rad2deg(diagnostics.sol_angle_error):.2f} degrees "
+        f"MAD: {np.rad2deg(mad):.2f} degrees SD: {np.rad2deg(sd):.2f} degrees."
+    )
+
+    msk_accept = np.logical_and(
+        diagnostics.residual_norms < (median + mad_threshold * mad),
+        diagnostics.residual_norms < (mean + 3 * sd),
+    )
+    if np.all(msk_accept):
+        logger.debug("No outliers. Returning solution from first-pass.")
+        return q12_solution, diagnostics
+
+    logger.debug(
+        "Outlier removal. Keeping "
+        f"{np.sum(msk_accept)}/{diagnostics.residual_norms.shape[0]} samples."
+    )
+
+    if np.sum(msk_accept) < n_min_samples:
+        np.info(
+            f"Less than {n_min_samples} samples after outlier removal. "
+            "Not enough samples for second pass. Returning solution from first-pass."
+        )
+        return q12_solution, diagnostics
+
+    # Remove outliers
+    q1_accepted = [q for ii, q in enumerate(q1_list) if msk_accept[ii]]
+    q2_accepted = [q for ii, q in enumerate(q2_list) if msk_accept[ii]]
+    if sample_timestamps is None:
+        timestamps_accepted = None
+    else:
+        timestamps_accepted = [
+            t for ii, t in enumerate(sample_timestamps) if msk_accept[ii]
+        ]
+
+    # Solve again after outlier removal, using previous solution as the initial guess
+    x0 = quaternion.as_rotation_vector(q12_solution)
+    q12_solution_new, diagnostics_new = solve_rotation(
+        q1_accepted, q2_accepted, x0, timestamps_accepted
+    )
+    # Store solutions and diagnostics from first pass
+    diagnostics_new.meta_data["first_pass_solution"] = q12_solution
+    diagnostics_new.meta_data["first_pass_diagnostics"] = diagnostics
+
+    return q12_solution_new, diagnostics_new
+
+
+# ------- Helper functions -------
+
+
+def ensure_quat_list_continuity(q_list: list_of_quats) -> list_of_quats:
+    """
+    Ensures that consecutive quaternions in the list have consistent signs (due
+    to the double coverage property of quaternions where q and -q represent
+    same rotation).
+    TODO: Possibly not needed. If so, remove.
+    """
+    q_list_out = [q_list[0]]
+    for q in q_list[1:]:
+        q = qt.ensure_quat_continuity(q_list_out[-1], q)
+        q_list_out.append(q)
+
+    return q_list_out
+
+
+def calculate_relative_rotations(
+    q1_list: list_of_quats, q2_list: list_of_quats
+) -> list_of_quats:
+    """
+    Calculate the relative rotation between q1_list and the corresponding q2_list:
+    dq[k] = q1[k].conjugate() * q2[k]
+    """
+    return [q1.conjugate() * q2 for q1, q2 in zip(q1_list, q2_list)]
+
+
+# ------ Simulation functions for testing & analysis --------------------------
+
+
+def _q_noise(noise_amp: float):
+    """Generates random quaternion noise. Noise amp is in radians"""
+    noise = np.radians(noise_amp) * np.random.randn(3)
+    return quaternion.from_rotation_vector(noise)
+
+
+def _add_noise_to_quaternion_list(qs: list_of_quats, noise_amp: float):
+    """Adds noise to a list of quaternions. noise_amp is in radians."""
+    qs_out = []
+    for q in qs:
+        qs_out.append(_q_noise(noise_amp) * q)
+
+    return qs_out
+
+
+def _random_quaternions(N: int, max_rot=None) -> list_of_quats:
+    """
+    Returns a list of N random quaternions. If max_rot is None, the quaternions
+    will be random. If specified, it limits the maximum swing angle from the
+    previous orientation.
+    """
+    qs: list_of_quats = []
+    for ii in range(N):
+        axis = np.random.randn(3)
+        axis /= np.linalg.norm(axis)
+
+        if (max_rot is None) or (ii == 0):
+            angle = np.random.uniform(0, np.pi)
+            q = quaternion.from_rotation_vector(axis * angle)
+        else:
+            angle = np.random.uniform(0, max_rot)
+            dq = quaternion.from_rotation_vector(axis * angle)
+            q = qs[-1] * dq
+
+        qs.append(q)
+
+    return qs
+
+
+def simulate_quaternion_measurements(
+    q_12: quaternion.quaternion,  # True rel. orientations (q1 ro q2 alignment)
+    N: int = 100,  # Number of samples to simulate
+    max_rot=None,  # Max rotation from previous orientation
+    q1_noise_amp: float = np.deg2rad(0.1),  # Noise amp in radians
+    q2_noise_amp: float = np.deg2rad(0.1),  # Noise amp in radians
+    seed=0,  # Random seed. None to disable
+):
+    """
+    Simulate camera and IMU measurements
+    """
+    if seed is not None:
+        np.random.seed(seed)
+
+    # Generate random IMU orientations
+    q2_true = _random_quaternions(N, max_rot=max_rot)
+
+    # Generate corresponding camera orientations
+    q_21 = q_12.conjugate()
+    q1_true = []
+    for q in q2_true:
+        q1_true.append(q * q_21)
+
+    # Add noise
+    q1 = _add_noise_to_quaternion_list(q1_true, q1_noise_amp)
+    q2 = _add_noise_to_quaternion_list(q2_true, q2_noise_amp)
+
+    return q1, q2

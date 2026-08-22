@@ -68,6 +68,7 @@ from PiFinder.types.positioning import (
     SolveSource,
     SuccessfulSolve,
 )
+from PiFinder.imu.imu_align.imu_alignment import ImuCameraAlignment
 
 logger = logging.getLogger("IMU.Integrator")
 
@@ -251,6 +252,19 @@ def integrator(
 
         lens_self_heal = LensSelfHeal(cfg, shared_state)
 
+        # ---------- TESTING ------------
+        # Initialize continual IMU/Camera alignment
+        # TODO: Move to a different location
+        logger.info("IMU/Camera alignment: Initialized with q_imu2cam: ", idr.q_imu2cam)
+        imu_align = ImuCameraAlignment(
+            candidate_buffer_length=60,
+            min_n_solve=20,
+            max_time_diff=20.0,
+            min_angle_diff=np.deg2rad(5.0),
+            max_age=600.0,
+        )
+        # -------------------------------------------------
+
         while True:
             state_utils.sleep_for_framerate(shared_state)
 
@@ -301,6 +315,44 @@ def integrator(
                     lens_self_heal.observe(solve_result)
                 estimate = _apply_successful_solve(estimate, solve_result, idr)
                 pointing_updated = True
+
+                # --------------- TESTING ---------------
+                # Add IMU/Camera samples to the buffer and attempt solve if buffer is full
+                # TODO: Move to a different location
+                new_q_cam2imu, _diag = imu_align.add_candidate_attempt_solve(
+                    solve_result.last_solve_success,
+                    solve_result.camera.as_radecroll(),
+                    solve_result.imu_anchor,
+                )
+                if new_q_cam2imu is not None:
+                    angular_diff = qt.get_quat_angular_diff(
+                        idr.q_imu2cam, new_q_cam2imu
+                    )
+                    logger.info(
+                        "IMU/Camera alignment: New estimate q_imu2cam: ", new_q_cam2imu
+                    )
+                    logger.info(
+                        "IMU/Camera alignment: Angular difference from previous estimate: "
+                        f"{np.rad2deg(angular_diff):.2f} deg | "
+                        "Solution uncertainty: "
+                        f"{np.rad2deg(_diag.sol_angle_error):.2f} deg | "
+                        f"Solve time: {_diag.meta_data['total_solve_time']}"
+                    )
+                    # Update:
+                    idr.q_imu2cam = new_q_cam2imu
+                # ---------------------------------------
+
+                # Append plate-solve and IMU states to IMU/camera alignment buffer
+                # TODO: Append the following:
+                # solve_result.last_solve_success (timestamp)
+                # solve_result.camera.as_radecroll() (RaDecRoll type)
+                # solve_result.imu_anchor
+                #
+                # Update idr.q_imu2cam with the new estimate from IMU/camera alignment
+                #
+                # TODO: SuccessfulSolve.last_solve_success is the exposure end time. It's ambiguous...
+                # TODO: Move ImuDeadReckoning._q_imu2cam() to a stand-alone func in imu_dead_reckoning.py with a view to deprecating it
+
             elif isinstance(solve_result, FailedSolve):
                 telemetry.record_solve(
                     solve_result, predicted=estimate.pointing.aligned.estimate
@@ -405,11 +457,12 @@ def _apply_successful_solve(
     estimate.matched_stars = result.matched_stars
     estimate.matched_catID = result.matched_catID
 
-    # Reseed the dead-reckoner from the new anchor. camera/aligned are
-    # always present on a SuccessfulSolve, so no None-guard is needed.
+    # Reset the dead-reckoning from the plate-solved pointing. camera/aligned
+    # are always present on a SuccessfulSolve, so no None-guard is needed.
     q_anchor = result.imu_anchor
     if q_anchor is None:
         q_anchor = quaternion.quaternion(np.nan)
+
     idr.solve(
         result.camera.as_radecroll(),
         result.aligned.as_radecroll(),

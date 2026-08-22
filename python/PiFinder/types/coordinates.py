@@ -32,7 +32,7 @@ class RaDecRoll:
     @classmethod
     def from_quaternion(cls, q_eq: quaternion.quaternion):
         ra, dec, roll = q_eq2radec(q_eq)
-        return cls(ra, dec, roll)
+        return cls(ra=ra, dec=dec, roll=roll)
 
     def reset(self):
         """Reset to unset state"""
