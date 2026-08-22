@@ -1226,7 +1226,11 @@ pifinder_menu = {
                 },
                 {"name": _("Console"), "class": UIConsole},
                 {"name": _("Software Upd"), "class": UISoftware},
-                {"name": _("Test Mode"), "callback": callbacks.activate_debug},
+                {
+                    "name": _("Test Mode"),
+                    "callback": callbacks.activate_debug,
+                    "name_suffix_callback": callbacks.test_mode_suffix,
+                },
                 {
                     "name": _("Experimental"),
                     "class": UITextMenu,
@@ -1243,41 +1247,69 @@ pifinder_menu = {
                             "select": "single",
                             "items": [
                                 {
+                                    "name": _("Dev Mode"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "dev_mode",
+                                    "items": [
+                                        {"name": _("Off"), "value": False},
+                                        {"name": _("On"), "value": True},
+                                    ],
+                                },
+                                {
+                                    "name": _("Screen Off"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "screen_off_timeout",
+                                    "items": [
+                                        {"name": _("Off"), "value": "Off"},
+                                        {"name": "30s", "value": "30s"},
+                                        {"name": "1m", "value": "1m"},
+                                        {"name": "10m", "value": "10m"},
+                                        {"name": "30m", "value": "30m"},
+                                    ],
+                                },
+                                {
                                     "name": _("Telemetry"),
                                     "class": UITextMenu,
                                     "select": "single",
                                     "items": [
                                         {
                                             "name": _("Record"),
+                                            "callback": callbacks.telemetry_record_toggle,
+                                            "name_suffix_callback": callbacks.telemetry_record_suffix,
+                                        },
+                                        {
+                                            "name": _("Sections"),
                                             "class": UITextMenu,
-                                            "select": "single",
-                                            "config_option": "telemetry_record",
-                                            "post_callback": callbacks.telemetry_record_toggle,
+                                            "select": "multi",
+                                            "config_option": "telemetry_sections",
+                                            "post_callback": callbacks.telemetry_section_toggle,
                                             "items": [
+                                                {"name": _("IMU"), "value": "imu"},
+                                                {"name": _("SQM"), "value": "sqm"},
+                                                {"name": _("Solves"), "value": "solve"},
                                                 {
-                                                    "name": _("Off"),
-                                                    "value": False,
+                                                    "name": _("Targets"),
+                                                    "value": "target",
                                                 },
                                                 {
-                                                    "name": _("On"),
-                                                    "value": True,
+                                                    "name": _("Images"),
+                                                    "value": "images",
                                                 },
                                             ],
                                         },
                                         {
-                                            "name": _("Images"),
+                                            "name": _("Max Size"),
                                             "class": UITextMenu,
                                             "select": "single",
-                                            "config_option": "telemetry_images",
+                                            "config_option": "telemetry_max_session_mb",
                                             "items": [
-                                                {
-                                                    "name": _("Off"),
-                                                    "value": False,
-                                                },
-                                                {
-                                                    "name": _("On"),
-                                                    "value": True,
-                                                },
+                                                {"name": _("250 MB"), "value": 250},
+                                                {"name": _("500 MB"), "value": 500},
+                                                {"name": _("1 GB"), "value": 1024},
+                                                {"name": _("2 GB"), "value": 2048},
+                                                {"name": _("Unlimited"), "value": 0},
                                             ],
                                         },
                                         {

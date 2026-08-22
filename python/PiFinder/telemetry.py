@@ -11,10 +11,12 @@ testing.
 import copy
 import json
 import logging
+import os
 import queue
 import threading
 import time
 from collections import deque
+from dataclasses import asdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -23,6 +25,14 @@ import quaternion as quaternion_module
 from PiFinder import calc_utils
 from PiFinder import utils
 from PiFinder import timez
+from PiFinder.sqm.camera_profiles import get_camera_profile
+
+try:
+    from PiFinder.sqm import airglow
+except ImportError:
+    # The airglow model is an optional part of the SQM stack; on a branch
+    # without it there are simply no airglow constants to snapshot.
+    airglow = None  # type: ignore[assignment]
 from PiFinder.types.positioning import (
     FailedSolve,
     ImuSample,
@@ -41,10 +51,56 @@ _R = 5  # decimal places for float rounding (BNO055 is ~14-bit)
 # Stationary IMU downsampling: record every Nth sample when not moving
 _STATIONARY_DECIMATION = 10
 
+# Independently toggleable recording sections. "imu"/"sqm"/"solve"/"target"
+# each gate one event class in the session file; "images" gates saving the
+# solve-frame PNGs alongside solve events. Stored as a list of enabled names
+# under the single ``telemetry_sections`` config option (a multi-select
+# checklist in the menu); an absent/None value means all enabled.
+#
+# "images" ships OFF by default: one 512x512 PNG is written per solve, so at a
+# typical ~1 solve/s it costs ~300 MB/hour against a few MB/hour for every
+# other section combined. Turn it on deliberately, for short diagnostic runs.
+SECTION_NAMES = ("imu", "sqm", "solve", "target", "images")
+SECTION_CONFIG_OPTION = "telemetry_sections"
+
+# Session size cap (MB, 0 = unlimited). Frames are written by the camera
+# process, so the recorder measures the session directory rather than counting
+# its own writes. On reaching the cap the Images section is suspended — that is
+# the only unbounded consumer; the event log keeps running at a few MB/hour so
+# a capped session stays useful instead of going dark.
+MAX_SESSION_MB_OPTION = "telemetry_max_session_mb"
+
 
 def _rf(v):
     """Round a float for compact serialization."""
     return round(v, _R)
+
+
+def _rfn(v):
+    """Round a float, or pass through None (for optional fields)."""
+    return None if v is None else round(v, _R)
+
+
+def _sqm_calibration_snapshot(camera_type):
+    """Every SQM/airglow constant for a camera, for the session header.
+
+    Snapshots the full camera profile (zero points, FOV, pedestal, band
+    offsets, …) plus the airglow calibration so a recorded session stays
+    recomputable even if these numbers change in code later — the radio-event
+    ingredients are only reproducible against the constants that produced them.
+    Returns None for an unknown or unset camera.
+    """
+    if not camera_type:
+        return None
+    try:
+        profile = get_camera_profile(camera_type)
+    except Exception:
+        return None
+    snapshot = {"profile": asdict(profile)}
+    cal = airglow.calibration(camera_type) if airglow is not None else None
+    if cal is not None:
+        snapshot["airglow"] = cal
+    return snapshot
 
 
 def _serialize_quat(q):
@@ -77,7 +133,15 @@ class TelemetryRecorder:
 
     def __init__(self):
         self.enabled = False
-        self.images_enabled = False
+        # Per-section record gates (including "images"); refreshed from config
+        # on start() and by apply_sections() so menu toggles reach an
+        # in-progress recording.
+        self.sections = {name: True for name in SECTION_NAMES}
+        # Session size cap; 0 disables it. _session_bytes is refreshed by the
+        # flush loop, so the cap is checked at most every 5 s.
+        self.max_session_bytes = 0
+        self._session_bytes = 0
+        self._cap_logged = False
         self._buffer = deque(maxlen=300)
         self._file = None
         self._flush_thread = None
@@ -115,6 +179,7 @@ class TelemetryRecorder:
 
         self._file = open(session_file, "a")
         self.enabled = True
+        self.apply_sections(cfg)
         self._last_flush = time.time()
 
         # Reset per-session state
@@ -124,12 +189,31 @@ class TelemetryRecorder:
         self._last_radio_time = 0.0
         self._last_target_id = None
         self._dropped_events = 0
+        try:
+            cap_mb = float(cfg.get_option(MAX_SESSION_MB_OPTION) or 0)
+        except (TypeError, ValueError):
+            cap_mb = 0
+        self.max_session_bytes = int(max(cap_mb, 0) * 1024 * 1024)
+        self._session_bytes = 0
+        self._cap_logged = False
 
-        # Write header (no location — written to separate .location file)
+        # Write header (no location — written to separate .location file).
+        # camera_type + sqm_calibration snapshot the SQM/airglow constants
+        # (zero point, FOV, pedestal, red response, …) so the logged radio
+        # ingredients can be recomputed under a future calculation.
         dt = shared_state.datetime()
+        camera_type = None
+        try:
+            candidate = shared_state.camera_type()
+            if isinstance(candidate, str):
+                camera_type = candidate
+        except Exception:
+            pass
         self._header_cfg = {
             "screen_direction": cfg.get_option("screen_direction"),
             "mount_type": cfg.get_option("mount_type"),
+            "camera_type": camera_type,
+            "sqm_calibration": _sqm_calibration_snapshot(camera_type),
         }
         header = {
             "t": time.time(),
@@ -151,6 +235,19 @@ class TelemetryRecorder:
         )
         self._flush_thread.start()
         logger.info("Telemetry recording started: %s", session_file)
+
+    def apply_sections(self, cfg):
+        """Refresh the per-section record gates from config.
+
+        Reads the ``telemetry_sections`` checklist (a list of enabled names);
+        an absent value means all enabled. Safe to call on a live recording: a
+        menu toggle takes effect on the next event of that class without
+        restarting the session.
+        """
+        enabled = cfg.get_option(SECTION_CONFIG_OPTION)
+        if enabled is None:
+            enabled = SECTION_NAMES
+        self.sections = {name: name in enabled for name in SECTION_NAMES}
 
     def _write_location_sidecar(self, location):
         """Write the .location sidecar. Returns True if written."""
@@ -214,7 +311,7 @@ class TelemetryRecorder:
         When stationary, only records every _STATIONARY_DECIMATION-th sample
         to reduce file size during long sessions.
         """
-        if not self.enabled or imu is None:
+        if not self.enabled or not self.sections["imu"] or imu is None:
             return
         if imu.timestamp == self._last_imu_timestamp:
             return  # same sample re-polled by a faster loop
@@ -238,17 +335,26 @@ class TelemetryRecorder:
         }
         self._append(record)
 
-    def record_radio(self, sample):
+    def record_radio(self, sample, sqm=None, floor=None):
         """Record one radiometer sample event (camera-side sky background).
 
-        Fields: t = capture epoch [s], exp = driver-reported exposure [s],
-        bg = background median [ADU], mad = median absolute deviation [ADU],
-        grad = quadrant gradient [ADU], seq = camera frame sequence.
-        Dedupes on sequence and rate-limits to ~1 Hz: the integrator loop
-        polls far faster than frames arrive at night, and daytime short
-        exposures produce many frames per second.
+        Ingredients (raw inputs — a future SQM/airglow algorithm can recompute
+        the sky brightness from these alone): exp = exposure [s], bg / red /
+        blue = green/red/blue Bayer background medians [ADU] (red/blue None on
+        mono sensors), ped = per-frame optical-black pedestal [ADU] (None if
+        the sensor exposes no shielded pixels), px = photometry image side
+        [px], mad = background MAD [ADU], grad = quadrant gradient [ADU].
+
+        Derived (audit only — what the device published at capture time, so the
+        floor and its warm-up are visible without a rerun; do NOT treat as
+        ground truth if the calculation later changes): sqm = sky brightness
+        [mag/arcsec²], floor = applied airglow floor [ADU/s].
+
+        seq = camera frame sequence. Dedupes on sequence and rate-limits to
+        ~1 Hz: the integrator loop polls far faster than frames arrive at
+        night, and daytime short exposures produce many frames per second.
         """
-        if not self.enabled or not sample:
+        if not self.enabled or not self.sections["sqm"] or not sample:
             return
         seq = sample.get("sequence")
         t = sample.get("captured_at")
@@ -267,6 +373,12 @@ class TelemetryRecorder:
                 "bg": _rf(sample.get("background_per_pixel")),
                 "mad": _rf(sample.get("background_mad")),
                 "grad": _rf(sample.get("background_gradient")),
+                "red": _rfn(sample.get("background_red")),
+                "blue": _rfn(sample.get("background_blue")),
+                "ped": _rfn(sample.get("optical_black_pedestal")),
+                "px": sample.get("pixels_per_side"),
+                "sqm": _rfn(sqm),
+                "floor": _rfn(floor),
             }
         )
 
@@ -279,7 +391,7 @@ class TelemetryRecorder:
 
         Returns the timestamp used for the record, or None if not recorded.
         """
-        if not self.enabled or solve_result is None:
+        if not self.enabled or not self.sections["solve"] or solve_result is None:
             return None
         t = time.time()
         success = isinstance(solve_result, SuccessfulSolve)
@@ -308,7 +420,7 @@ class TelemetryRecorder:
 
     def record_target(self, target, alt=None, az=None):
         """Record a target change event. Pass None when target is cleared."""
-        if not self.enabled:
+        if not self.enabled or not self.sections["target"]:
             return
         if target is None:
             target_id = None
@@ -344,6 +456,49 @@ class TelemetryRecorder:
     def get_session_dir(self):
         """Return current session directory path, or None."""
         return self._session_dir
+
+    @property
+    def session_bytes(self) -> int:
+        """Bytes on disk for this session as of the last flush."""
+        return self._session_bytes
+
+    @property
+    def images_capped(self) -> bool:
+        """True once the session has grown past its size cap.
+
+        Frame saving is suspended while this holds; the (small) event log
+        continues, so the cap bounds growth without ending the session.
+        """
+        return bool(self.max_session_bytes) and (
+            self._session_bytes >= self.max_session_bytes
+        )
+
+    def _refresh_session_bytes(self):
+        """Measure the session directory (event log plus any saved frames).
+
+        Frames are written by the camera process, so the recorder cannot count
+        them as it writes; measuring the directory captures both. Called from
+        the flush path, i.e. at most every 5 seconds.
+        """
+        if self._session_dir is None or not self.max_session_bytes:
+            return
+        total = 0
+        try:
+            with os.scandir(self._session_dir) as entries:
+                for entry in entries:
+                    if entry.is_file():
+                        total += entry.stat().st_size
+        except OSError:
+            return  # a transient stat failure must not break recording
+        self._session_bytes = total
+        if self.images_capped and not self._cap_logged:
+            self._cap_logged = True
+            logger.warning(
+                "Telemetry session reached its %d MB cap (%d MB on disk); "
+                "suspending frame capture, event log continues",
+                self.max_session_bytes // (1024 * 1024),
+                total // (1024 * 1024),
+            )
 
     def flush(self):
         """Time-gated flush - only actually flushes every 5 seconds."""
@@ -385,6 +540,9 @@ class TelemetryRecorder:
         while not self._stop_event.is_set():
             self._stop_event.wait(5.0)
             self._do_flush()
+            # Runs unconditionally: frames can grow the session even in a
+            # stretch where no events were buffered to flush.
+            self._refresh_session_bytes()
 
 
 class TelemetryPlayer:
@@ -566,8 +724,9 @@ class TelemetryManager:
         self._console_queue = console_queue
         self._camera_command_queue = camera_command_queue
         self._recorder = TelemetryRecorder()
-        self._recorder.images_enabled = bool(cfg.get_option("telemetry_images"))
         self._player = None
+        # One console notice per session when the size cap suspends frames.
+        self._cap_announced = False
         # Pre-replay state to restore when replay ends.
         self._saved_location = None
         self._datetime_overridden = False
@@ -592,15 +751,18 @@ class TelemetryManager:
     def _handle_command(self, cmd_name, cmd_arg):
         """Dispatch a telemetry command."""
         if cmd_name == "telemetry_record_on":
-            self._recorder.images_enabled = bool(
-                self._cfg.get_option("telemetry_images")
-            )
+            self._cap_announced = False
             self._recorder.start(self._cfg, self._shared_state)
             self._console_queue.put("Telemetry: Recording")
 
         elif cmd_name == "telemetry_record_off":
             self._recorder.stop()
             self._console_queue.put("Telemetry: Stopped")
+
+        elif cmd_name == "telemetry_update_sections":
+            # A section toggle in the menu; apply it to a live recording so the
+            # change takes effect without stopping and restarting the session.
+            self._recorder.apply_sections(self._cfg)
 
         elif cmd_name == "replay":
             logger.info("Entering replay mode: %s", cmd_arg)
@@ -652,19 +814,46 @@ class TelemetryManager:
         return None
 
     def record_radio(self, sample):
-        """Record a radiometer sample event (no-op while replaying)."""
+        """Record a radiometer sample event (no-op while replaying).
+
+        Pulls the last published SQM value and applied airglow floor from
+        shared state so each camera-side background frame is stamped with the
+        sky brightness the device was reporting at the time.
+        """
         if self.replaying:
             return
-        self._recorder.record_radio(sample)
+        sqm_value = None
+        floor = None
+        try:
+            sqm_state = self._shared_state.sqm()
+            if sqm_state is not None:
+                sqm_value = getattr(sqm_state, "value", None)
+            details = self._shared_state.sqm_details()
+            if details:
+                floor = details.get("skyglow_floor")
+        except Exception:
+            # Shared-state access must never break recording.
+            pass
+        self._recorder.record_radio(sample, sqm=sqm_value, floor=floor)
 
     def record_solve(self, solve_result, predicted=None):
-        """Record a solve event and send save_image command if enabled."""
+        """Record a solve event and save the frame if both sections are on.
+
+        ``record_solve`` returns a timestamp only when the Solves section is
+        enabled, so image saving is naturally gated on solves as well as the
+        Images section.
+        """
         if self.replaying:
             return
         t = self._recorder.record_solve(solve_result, predicted)
+        if t is not None and self._recorder.images_capped:
+            if not self._cap_announced:
+                self._cap_announced = True
+                self._console_queue.put("Telemetry: Size cap, frames off")
+            return
         if (
             t is not None
-            and self._recorder.images_enabled
+            and self._recorder.sections.get("images")
             and self._camera_command_queue is not None
         ):
             session_dir = self._recorder.get_session_dir()
