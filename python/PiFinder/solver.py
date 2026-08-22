@@ -1015,20 +1015,49 @@ def solver(
                     train = optical_train.resolve(
                         shared_state.camera_type(), shared_state.camera_lens()
                     )
+                    # Read live for the same reason the train is: the camera
+                    # process publishes this after the solver is already
+                    # looping, so latching it here would miss it.
+                    train_known = shared_state.optical_train_known()
                 except (BrokenPipeError, ConnectionResetError) as e:
                     logger.error(f"Lost connection to shared state manager: {e}")
                     continue
-                if train is not logged_train:
-                    logged_train = train
-                    logger.info(
-                        "Optical train: %s lens on %s, field of view %.2f deg, "
-                        "FOV gate [%.2f, %.2f]",
-                        train.lens.menu_label,
-                        shared_state.camera_type(),
-                        train.fov_degrees,
-                        *_fov_gate_bounds(train),
-                    )
-                    _warn_if_outside_solver_database(t3, train)
+                if (train, train_known) != logged_train:
+                    logged_train = (train, train_known)
+                    if not train_known:
+                        # The resolved train is still worth printing -- it is
+                        # what SQM and the frustum are using -- but saying it
+                        # without saying it describes the device rather than
+                        # the frames is how somebody concludes the gate is
+                        # wrong when there is no gate.
+                        logger.info(
+                            "Optical train: %s %s lens on %s (%.2f deg), but "
+                            "these frames did not come through it -- solving "
+                            "with no FOV gate",
+                            "stated" if train.lens_stated else "assumed",
+                            train.lens.menu_label,
+                            shared_state.camera_type(),
+                            train.fov_degrees,
+                        )
+                    else:
+                        logger.info(
+                            # Say which of the two it is: under an assumed
+                            # lens the gate is wider than the stated field of
+                            # view implies, and a reader diagnosing "why did
+                            # it solve / not solve" needs to know the lens is
+                            # a fallback rather than something the device was
+                            # told.
+                            "Optical train: %s %s lens on %s, field of view "
+                            "%.2f deg, FOV gate [%.2f, %.2f]",
+                            "stated" if train.lens_stated else "assumed",
+                            train.lens.menu_label,
+                            shared_state.camera_type(),
+                            train.fov_degrees,
+                            *_fov_gate_bounds(train),
+                        )
+                        # Only meaningful against a gate we are actually
+                        # going to hand over.
+                        _warn_if_outside_solver_database(t3, train)
 
                 # Every camera frame already carries a tiny radiometer sample
                 # reduced in the camera process. Collect all of them and publish
@@ -1111,12 +1140,22 @@ def solver(
                         # view before verification and rejects survivors after
                         # fitting, so this window has to describe the actual
                         # hardware or nothing solves. See docs/adr/0027.
-                        fov_estimate, fov_max_error = train.solver_fov_params()
+                        #
+                        # Under an **unknown optical train** there is nothing
+                        # to derive it from -- the frames came through some
+                        # other optics -- so no gate is passed at all rather
+                        # than a wrong one. Omitting costs the upper bound
+                        # that rejects confident mis-solves, which is a trade
+                        # only defensible because nothing is being pointed at
+                        # the sky. See the third-rung amendment to 0029.
+                        if train_known:
+                            (
+                                _solver_args["fov_estimate"],
+                                _solver_args["fov_max_error"],
+                            ) = train.solver_fov_params()
                         solution = t3.solve_from_centroids(
                             centroids,
                             (512, 512),
-                            fov_estimate=fov_estimate,
-                            fov_max_error=fov_max_error,
                             match_max_error=0.005,
                             return_matches=True,  # Required for SQM calculation
                             target_pixel=shared_state.target_pixel(),
@@ -1216,9 +1255,24 @@ def solver(
                         solver_queue.put(solve_result)
                     else:
                         if solution:
+                            # Report the gate actually in force. This line
+                            # used to hardcode the pre-0027 constants
+                            # (12.0 +/- 4.0), which stopped being true when
+                            # the gate started coming from the optical train
+                            # -- so the one message a reader consults while
+                            # diagnosing "why is nothing solving" told them
+                            # about a window the solver had not used in two
+                            # releases. Saying stated vs assumed matters for
+                            # the same reason it does on the "Optical train:"
+                            # line above.
                             logger.warning(
-                                f"Solve FAILED - {len(centroids)} centroids detected but "
-                                f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
+                                "Solve FAILED - %d centroids detected but "
+                                "pattern match failed (%s %s lens, FOV gate "
+                                "[%.2f, %.2f] deg)",
+                                len(centroids),
+                                "stated" if train.lens_stated else "assumed",
+                                train.lens.menu_label,
+                                *_fov_gate_bounds(train),
                             )
                         solver_queue.put(
                             _build_failed_solve(

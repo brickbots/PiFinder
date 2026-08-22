@@ -33,11 +33,14 @@ class CameraDebug(CameraInterface):
     def __init__(self, exposure_time) -> None:
         logger.debug("init camera debug")
         # Format matches PI cameras for compatibility. The sensor named here
-        # is not cosmetic: it half-determines the solver's FOV gate, and the
-        # frames in test_images/ are ~10.2 deg, which only the hq profile's
-        # train covers. Declaring imx296 centres the gate on 13.71 deg and
-        # every debug frame is rejected before verification -- no solves at
-        # all under `--camera debug`. See docs/adr/0027.
+        # is the one the frames in test_images/ were actually shot on, which
+        # is what makes SQM's profile lookup and the Lens menu resolve to
+        # something plausible. It is *not* a claim that this machine has an hq
+        # attached, and it does not settle the field of view on its own: the
+        # other half of the train comes from config, and a config that states
+        # a lens (16mm -> 17.12 deg, 12mm -> 20.43 deg) gates these ~10.2 deg
+        # frames straight out. Hence optical_train_known below. See
+        # docs/adr/0027 and the third-rung amendment to docs/adr/0029.
         self.camType = "Debug hq"
         self.path = utils.pifinder_dir / "test_images"
         self.exposure_time = exposure_time
@@ -105,6 +108,18 @@ class CameraDebug(CameraInterface):
 
     def get_cam_type(self) -> str:
         return self.camType
+
+    def optical_train_known(self) -> bool:
+        """No. These frames are a recording, not a view through this device.
+
+        Whatever lens config states is a claim about glass that is not in the
+        loop, so pairing it with the sensor above produces a field of view
+        that describes nothing. Saying so is what keeps `--camera debug`
+        solving whatever the config happens to hold -- including frames a
+        developer drops into test_images/ from another train entirely, which
+        no derived gate could have anticipated.
+        """
+        return False
 
 
 def get_images(shared_state, camera_image, command_queue, console_queue, log_queue):

@@ -309,6 +309,11 @@ class SharedStateObj:
         # None means "not stated", which resolves to the sensor's shipped lens
         # -- that is what lets installs predating this setting keep working.
         self.__camera_lens = config.Config().get_option("camera_lens")
+        # Whether the frames arriving actually came through the optics the two
+        # halves above describe. True until a camera says otherwise, so the
+        # window before the camera process reports behaves like the hardware
+        # case rather than silently dropping the FOV gate on every boot.
+        self.__optical_train_known = True
         # Degrees the camera process rotates the solve/display image relative
         # to the stored raw frame (PIL CCW). None until the camera reports.
         self.__solve_image_rotation = None
@@ -397,6 +402,18 @@ class SharedStateObj:
         registered lens (see PiFinder.optics.LENSES) or None.
         """
         self.__camera_lens = v
+
+    def optical_train_known(self) -> bool:
+        """False when the frames did not come through this device's optics.
+
+        See ``CameraInterface.optical_train_known``. Read alongside
+        ``camera_type``/``camera_lens`` rather than instead of them: the train
+        still resolves, it just does not describe the frames.
+        """
+        return self.__optical_train_known
+
+    def set_optical_train_known(self, v: bool):
+        self.__optical_train_known = bool(v)
 
     def sats(self):
         return self.__sats

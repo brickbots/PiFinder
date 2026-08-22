@@ -136,6 +136,16 @@ Work through these in order:
 - **High, thin cloud.**  An invisible drifting cloudbank stops solves at an otherwise perfect
   site.  If solves come and go while the telescope is dead still, suspect the sky before the
   hardware.
+- **Did you fit a different lens?**  The PiFinder cannot see which lens is on the front, so it
+  works from the Lens setting.  A setting that names the wrong lens stops solving completely
+  rather than making it worse, because the PiFinder then looks for a patch of sky the wrong
+  size.  Select Settings from the main menu, scroll down to Advanced, then select Lens.  Set
+  the focal length printed on the lens barrel.  The PiFinder restarts when you change it.
+
+.. note::
+   You only need to set the Lens by hand if you fitted the lens yourself.  A PiFinder still
+   set to the lens it shipped with works this out on its own.  It allows for every lens it
+   might have come with, then records the one it measures after its first few solves.
 
 .. note::
    On older v2 cameras the lens has two rings, a focus ring and an aperture ring.  The

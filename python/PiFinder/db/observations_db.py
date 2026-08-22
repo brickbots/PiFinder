@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from sqlite3 import Connection, Cursor
 from threading import RLock
-from typing import List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from PiFinder.composite_object import CompositeObject
 from PiFinder.db.db import Database
@@ -119,6 +119,25 @@ class ObservationsDatabase(Database):
             )
             return None
         return None if row is None else row["object_id"]
+
+    def _resolve_object_ids(
+        self, listings: Iterable[Tuple[str, int]]
+    ) -> Dict[Tuple[str, int], Optional[int]]:
+        """
+        Maps many listings to their objects-table ids in one query.
+
+        Unresolved listings (virtual objects, removed catalogs) are absent
+        from the result; a listing carrying a NULL object_id maps to None,
+        so callers must screen for it as _resolve_object_id's do.
+        """
+        try:
+            return self._get_objects_db().get_object_ids_by_listings(list(listings))
+        except Exception:
+            logger.warning(
+                "Objects DB unavailable; observed status stays per listing",
+                exc_info=True,
+            )
+            return {}
 
     def _resolve_listings(self, object_id: int) -> List[Tuple[str, int]]:
         """
