@@ -40,7 +40,7 @@ class HandEyeSolverDiagnostics:
     residual_norms: np.ndarray  # Residual norms of each sample [rad]
     rotation_angles: np.ndarray  # Rotation angles of each sample [rad]
     sol_cov_matrix: np.ndarray  # Solution covariance matrix
-    sol_angle_error: np.ndarray  # Solution angle error [rad]
+    sol_angle_error: float  # Solution angle error [rad]
 
     # Optional
     meta_data: dict
@@ -77,10 +77,10 @@ class HandEyeSolverDiagnostics:
             resid, axis=1
         )  # Residual per sample in radians
 
-        # Calculate rotations of each sample [rad]
-        self.rotation_angles = [
-            qt.get_quat_angular_diff(q1, q2) for q1, q2 in zip(q1_list, q2_list)
-        ]
+        # Calculate rotations of each sample-pair [rad]
+        self.rotation_angles = np.array(
+            [qt.get_quat_angular_diff(q1, q2) for q1, q2 in zip(q1_list, q2_list)]
+        )
 
         self.sol_cov_matrix, self.sol_angle_error = (
             self._calculate_solution_uncertainty(sample_timestamps)
@@ -122,7 +122,7 @@ class HandEyeSolverDiagnostics:
         return sol_cov_matrix, sol_angle_error
 
     @staticmethod
-    def _calculate_connected_components(sample_timestamps: list_of_float_pairs) -> int:
+    def _calculate_connected_components(sample_timestamps: list_of_float_pairs) -> tuple[int, int]:
         """
         Returns the number of connected components in the sample_timestamps
         measurements. For example, if we have 5 measurement pairs (edges) from
@@ -284,9 +284,12 @@ def solve_rotation_with_outlier_removal(
     # Remove outliers
     q1_accepted = [q for ii, q in enumerate(q1_list) if msk_accept[ii]]
     q2_accepted = [q for ii, q in enumerate(q2_list) if msk_accept[ii]]
-    timestamps_accepted = [
-        t for ii, t in enumerate(sample_timestamps) if msk_accept[ii]
-    ]
+    if sample_timestamps is None:
+        timestamps_accepted = None
+    else:
+        timestamps_accepted = [
+            t for ii, t in enumerate(sample_timestamps) if msk_accept[ii]
+        ]
 
     # Solve again after outlier removal, using previous solution as the initial guess
     x0 = quaternion.as_rotation_vector(q12_solution)
@@ -390,7 +393,7 @@ def _random_quaternions(N: int, max_rot=None) -> list_of_quats:
     will be random. If specified, it limits the maximum swing angle from the
     previous orientation.
     """
-    qs = []
+    qs: list_of_quats = []
     for ii in range(N):
         axis = np.random.randn(3)
         axis /= np.linalg.norm(axis)

@@ -75,6 +75,7 @@ Assumptions & limitations
 """
 
 from dataclasses import dataclass
+from typing import Any, Union
 
 import logging
 import numpy as np
@@ -84,6 +85,7 @@ import time
 from PiFinder.types.coordinates import RaDecRoll
 from PiFinder.pointing_model import quaternion_transforms as qt
 from PiFinder.imu.imu_align.hand_eye_solver import solve_rotation_with_outlier_removal
+from PiFinder.imu.imu_align.hand_eye_solver import HandEyeSolverDiagnostics
 
 list_of_quats = list[quaternion.quaternion]
 
@@ -119,12 +121,12 @@ class SampleBuffer:
         """Number of samples in buffer"""
         return len(self.buffer)
 
-    def add_sample(self, sample: CameraImuSample):
+    def add_sample(self, sample: Any):
         if len(self.buffer) >= self.max_buffer_length:
             self.buffer.pop(0)  # Remove oldest sample from buffer
         self.buffer.append(sample)
 
-    def pop_sample(self, idx: int):
+    def pop_sample(self, idx: int) -> int:
         """Remove and return the sample at the given index"""
         return self.buffer.pop(idx)
 
@@ -185,7 +187,7 @@ class ImuCameraAlignment:
 
     def add_candidate_attempt_solve(
         self, timestamp: float, cam_eq: RaDecRoll, q_x2imu: quaternion.quaternion
-    ):
+    ) -> tuple[Union[quaternion.quaternion, None], Union[HandEyeSolverDiagnostics, None]]:
         """
         For general use, call this pipeline method. Add a new candidate to the
         buffer. When the buffer fills up, pair samples and solve.
@@ -362,7 +364,7 @@ class ImuCameraAlignment:
 
         return n_pairs  # Number of successful pairings
 
-    def _solve(self, n_pairs=None):
+    def _solve(self, n_pairs=None) -> tuple[Union[quaternion.quaternion, None], HandEyeSolverDiagnostics]:
         """
         Solve for the alignment between the camera and IMU using at least the
         last n_pairs or all available pairs (if None) in diff_buffer.
