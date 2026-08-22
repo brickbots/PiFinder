@@ -3,6 +3,7 @@ import quaternion  # Note: numpy-quaternion convention: quaternion(w, x, y, z)
 from PiFinder.imu.imu_align.hand_eye_solver import (
     solve_rotation,
     simulate_quaternion_measurements,
+    HandEyeSolverDiagnostics,
 )
 
 
@@ -33,33 +34,26 @@ def test_solve_rotation():
     q1 * q_12 = q_12 * q2
     """
     # Set the true camera-from-body rotation
-    true_rotvec = np.radians([10, -5, 20])
+    true_rotvec = np.array([1, 1, 1]) / np.sqrt(3) * np.deg2rad(30)
     q_12_true = quaternion.from_rotation_vector(true_rotvec)
 
     # Simulate measurements:
+    sigma = np.deg2rad(0.1)
     q1, q2 = simulate_quaternion_measurements(
         q_12_true,
         N=100,
-        q1_noise_amp=np.deg2rad(0.1),
-        q2_noise_amp=np.deg2rad(0.1),
+        q1_noise_amp=sigma,
+        q2_noise_amp=sigma,
         seed=0,
     )
 
-    # Optional steps:
-    # Pair up and calculate relative rotations
-    # Reject small rotations
-
     # solve
     q_12_est, diagnostics = solve_rotation(q1, q2)
+    assert isinstance(q_12_est, quaternion.quaternion)
+    assert isinstance(diagnostics, HandEyeSolverDiagnostics)
 
-    # Results
-    print("\nTrue q_12:")
-    print(quaternion.as_float_array(q_12_true))
-
-    print("\nEstimated q_12_est:")
-    print(quaternion.as_float_array(q_12_est))
-
-    # Error
-    q_error = q_12_est.conjugate() * q_12_true
-    error_deg = np.rad2deg(np.linalg.norm(quaternion.as_rotation_vector(q_error)))
-    # print(f"\nCalibration error: {error_deg:.6f} deg")
+    # Check error
+    #q_error = q_12_est.conjugate() * q_12_true
+    #error_rad = np.linalg.norm(quaternion.as_rotation_vector(q_error))
+    #print(f"Uncertainty: {np.rad2deg(diagnostics.sol_angle_error):.3f} degrees.")
+    #assert error_rad < np.deg2rad(1.0), f"error_rad too large. Got {error_rad:.3f} rad"
