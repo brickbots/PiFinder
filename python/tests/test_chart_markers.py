@@ -155,13 +155,16 @@ class TestCollectDsoMarkers:
             fov=5.0,
             observing_list=obs,
         )
-        marker_list, vertex_objects = chart._collect_dso_markers({1})
+        marker_list, vertex_objects, marker_objects = chart._collect_dso_markers({1})
 
         # Exactly objects 2 and 3 (target 1 excluded, dup 2 not doubled).
         assert len(marker_list) == 2
         decs = sorted(round(m[1], 3) for m in marker_list)
         assert decs == [0.1, 0.2]
         assert vertex_objects == []
+        # The objects behind marker_list, in the same order -- the chart's
+        # center-object candidate set.
+        assert [o.object_id for o in marker_objects] == [2, 3]
 
     def test_observing_list_vertices_collected_nearby_symbols_only(self):
         asterism = _dso(
@@ -178,7 +181,8 @@ class TestCollectDsoMarkers:
             fov=5.0,
             observing_list=[asterism],
         )
-        marker_list, vertex_objects = chart._collect_dso_markers(set())
+        marker_list, vertex_objects, marker_objects = chart._collect_dso_markers(set())
 
         assert asterism in vertex_objects
         assert len(marker_list) == 1
+        assert marker_objects == [asterism]

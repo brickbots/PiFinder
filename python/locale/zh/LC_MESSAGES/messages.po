@@ -1350,6 +1350,13 @@ msgstr "深空天体显示"
 msgid "RA/DEC Disp."
 msgstr "RA/Dec显示"
 
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: chart setting — names the object nearest the middle of the
+#. chart
+#: PiFinder/ui/menu_structure.py:878
+msgid "Center Object"
+msgstr "中心天体"
+
 #: PiFinder/ui/menu_structure.py:866
 msgid "HH:MM"
 msgstr "时:分"
