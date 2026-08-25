@@ -15,5 +15,3 @@ Anything consuming the parser's output must tolerate a `class` that is not a rea
 The **comms row** on the STATUS screen is the only consumer that reads markers, and it is what makes the distinction visible: a churning `?CKSUM` says bytes are arriving corrupted, a churning `?0135` says the receiver is emitting something we have no parser for, and a frozen name with a rising age says the link is gone.
 
 A resync storm can yield markers far faster than real messages arrive, so the publisher caps how often it forwards events onto `gps_queue`; the cap is a rate limit on *reporting*, not on parsing. Only the event's name is forwarded — the main process stamps arrival with its own monotonic clock, because that is the process the row renders in and `time.monotonic()` is not comparable across processes.
-
-> Numbering note: `0031` is claimed independently by two in-flight branches (the chart center-object readout and the secure-WiFi refresh). This ADR takes `0032` to avoid becoming a third; resolving the `0031` collision is out of scope here.

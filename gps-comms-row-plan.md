@@ -114,4 +114,3 @@ Base font is 21 chars on the 128 panel (`width=6`), key padded to 7, so the valu
 
 - Surface `gps_comms` on the web status page / `/api/current-selection` — the web server already holds `shared_state`, so it is nearly free, and "read me your GPS MSG row" is a good support question.
 - User-guide line documenting how to read the row.
-- Resolve the `0031` ADR collision between the chart center-object and secure-WiFi branches.
