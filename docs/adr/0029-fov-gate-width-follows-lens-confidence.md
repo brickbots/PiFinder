@@ -39,6 +39,9 @@ re-centred (tetra3's window is symmetric — `fov_estimate ± fov_max_error`):
 | imx296 | 12 mm (17.78°), 16 mm (13.71°) | `16.05 ± 4.39` = [11.65, 20.44] | [11.65, 15.77] |
 | hq | 25 mm (10.33°) | [8.78, 11.88] — unchanged | n/a |
 
+**Every 12 mm figure in this table is superseded** — see the amendment at the
+foot of this document. The reasoning stands; the arithmetic moved.
+
 The imx462 assumed gate lands within a whisker of the pre-0027 constants it
 replaces, which is the behaviour these units are known to work under. The hq
 only ever shipped one lens, so nothing about it widens.
@@ -142,3 +145,161 @@ enough to have absorbed the swap. The general cure is to re-open the gate on
 sustained zero matches *with adequate centroids*, which is #611's scope and
 needs `Centroids` on `SolveDiagnostics` (#610). Until then it is a
 documentation path (#613).
+
+## Amendment (#627): the 12 mm's field of view was derived from a guess
+
+Every 12 mm number above — 13.51°, 17.78°, and the two assumed gates built on
+them — came from `LENSES["12mm"].effective_focal_length_mm = 12.0`, which was
+the nominal standing in for a measurement, flagged
+`effective_focal_length_measured=False` in the registry and called out in a
+comment as optimistic. It was.
+
+A rev4 imx462 on a 12 mm fitted **12.4366 ± 0.0025°** over six solves, giving
+an effective focal length of **13.04 mm** — the barrel runs 8.7% long. The same
+board, same night, same code, then took a 16 mm and fitted 10.4011°, which
+reproduces that lens's derived field to 0.02% and its 15.61 mm to 15.613. That
+control is what makes this a measurement of the 12 mm rather than of the crop
+geometry, which it independently confirms.
+
+| sensor | shipped lenses | assumed gate | stated-12mm gate |
+|---|---|---|---|
+| imx462 / imx290 | 12 mm (**12.44°**), 16 mm (10.40°) | **`11.57 ± 2.73` = [8.84, 14.30]** | [10.57, 14.30] |
+| imx296 | 12 mm (**16.38°**), 16 mm (13.71°) | **`15.25 ± 3.59` = [11.65, 18.84]** | [13.92, 18.84] |
+| hq | 25 mm (10.33°) | [8.78, 11.88] — still unchanged | n/a |
+
+What this does and does not disturb:
+
+**The decision is unaffected.** Gate width still follows lens confidence, the
+assumed gate still spans every lens its sensor shipped with, and the hq still
+has no union to take. Only the field of view the 12 mm implies has moved.
+
+**The regression this ADR exists to fix was real either way.** A rev4
+assuming the 16 mm gated `[8.84, 11.96]` against frames that are 12.44° wide,
+not 13.51° — still outside, still every frame, still forever.
+
+**The assumed gates narrowed rather than widened**, because the 12 mm's true
+field is closer to the 16 mm's than the nominal suggested. The imx462's upper
+bound moves 15.53° → 14.30°, so the mis-solve rejection argued for above gets
+slightly stronger, not weaker. The database floor note still holds: the
+effective imx462 assumed gate is now `[10.0, 14.30]`.
+
+**Self-heal could not identify the 12 mm until this was fixed.** A fitted
+12.44° sat 7.9% from the derived 13.51°, outside `LENS_IDENTIFY_TOLERANCE`
+(5%), so `identify_lens_from_fitted_fov` returned None on every frame and the
+affected units kept solving on the wide gate forever — the "matching no known
+lens writes nothing" consequence, firing on a lens we shipped. That is the
+symptom that surfaced this, and it is what #627 fixes.
+
+**SQM on 12 mm units was reading a field 8.6% too wide**, and its zero point
+with it. The f-number comment above still wants settling separately.
+
+**The 5% tolerance survives.** The imx462's two candidates are now 19.6% apart
+rather than ~30%, which is still far outside any plausible ambiguity.
+
+One caveat, recorded honestly: 13.04 mm rests on a **single 12 mm sample**. The
+16 mm earned its 15.61 by reproducing two independently calibrated field
+widths on two different sensors. A second 12 mm — ideally on an imx296, so the
+sensor half varies too — would put it on the same footing.
+
+## Amendment: a third rung — no gate when the optical train is unknown
+
+The ladder above has two rungs, and both assume the frames came through the
+optics the device is configured with. `--camera debug` breaks that assumption:
+it replays archived frames, and the train those frames were shot through is
+not the train this machine is configured for. So the ladder gains a third
+rung — **stated → ±15%, assumed → union over shipped lenses, unknown → no gate
+at all** — and the confidence the width follows becomes confidence in the
+pairing rather than only in the lens.
+
+### The failure
+
+ADR 0027 relabelled the debug camera's sensor from `imx296` to `hq`, because
+the frames in `test_images/` are 10.2° and only the hq's train covers that.
+That fixed the sensor half and left the lens half reading live from
+`camera_lens`, which `resolve_lens` honours whatever profile it is handed. The
+result is a train that has never physically existed:
+
+| train | derived FOV | gate | debug frames |
+|---|---|---|---|
+| hq + no stated lens | 10.33° | [8.78, 11.88] | solve (fitted 10.20°) |
+| hq + stated `25mm` | 10.33° | [8.78, 11.88] | solve |
+| hq + stated `16mm` | 17.12° | [14.55, 19.69] | **no solve** |
+| hq + stated `12mm` | 20.43° | [17.37, 23.49] | **no solve** |
+
+Any developer who has ever opened the Lens menu, and every device whose lens
+this ADR's own self-heal has written, loses `--camera debug` entirely. It is
+the same shape as the regression this document exists to fix, mirrored: there
+an assumption wore a statement's confidence; here a statement is made about
+hardware that is not in the loop.
+
+`tests/test_optics_solving.py` did not catch it because every case calls
+`build_optical_train("hq")` with no lens key — only ever the assumed path.
+
+### Why no hint, rather than the alternatives
+
+**Declaring a lens from the camera** (debug publishes hq + 25 mm, config
+loses) keeps the gate and its mis-solve rejection, and was the first
+instinct. Rejected because it needs a lens statement that must never reach
+`camera_lens` — a second, differently-scoped writer for a key whose whole
+meaning is "the user's claim" — and because it pins debug mode to the one
+frame set we happen to ship. Dropping your own unsolvable field into
+`test_images/` is the main thing debug mode is *for*, and under a declared
+lens those frames are gated out exactly as the shipped ones are today.
+
+**Emulating the configured train** (serve frames matching the user's sensor
+and lens, so `-fh` behaves like their rev4) is the right answer to a different
+question and needs a real archived frame per shipped combination. The frames
+we have are 10.2°, too narrow to re-project outward from; this stays open if
+anyone wants it, and it wants captures, not code.
+
+**A database-range gate** of `[10, 30]°` is no-hint with extra steps — the
+database floor is already doing that pruning — and leaves a constant to
+maintain for no protection gained.
+
+**Rejecting non-shipped pairings** in `resolve_lens` (an hq never shipped with
+a 12 mm, so that statement is not credible) would fix debug as a side effect
+and close the sensor-swap deadlock too. Rejected here as blast radius: it
+makes a user's explicit statement conditionally non-authoritative, which is a
+direct contradiction of 0027, and it deserves its own decision rather than
+riding along with a development-tool fix.
+
+The measured cost of no-hint is small and known. On the shipped frames all
+three widths return identical RA/Dec, `Matches` and `Prob` within ~1 ms of
+each other. What no-hint gives up is the upper bound that rejected confident
+mis-solves in this document's noise trials — a protection whose value is that
+a device under the stars never reports a wrong pointing. Nothing is under the
+stars in debug mode.
+
+### Consequences
+
+**The gate is omitted, not widened.** `fov_estimate` is not passed at all when
+the train is unknown, so there is no third window to keep consistent with the
+other two, and any frame from any train solves.
+
+**Self-heal is barred under an unknown train**, and this is a live bug the
+amendment fixes rather than a hazard it introduces. With no `camera_lens` in
+config — the ordinary state of a development machine — `--camera debug` solves
+at 10.20°, `identify_lens_from_fitted_fov` matches that to the hq's `25mm`
+within 1.3%, and after three frames the integrator writes `camera_lens: 25mm`
+into the developer's config. It is not wrong about the *frames*; it is a
+statement about a device made from a recording. The trap springs later: attach
+a real imx462 and the now-stated 25 mm derives 6.4°, nothing solves, and
+self-heal cannot undo it because it only ever writes into an absence. A fitted
+FOV measures the train the frames passed through, so under an unknown train it
+measures nothing about this device and must not be learned from.
+
+**Only the gate and self-heal follow the unknown train.** The **frustum** keeps
+deriving from the configured optics, deliberately: it answers "what would my
+camera image", which is a question about the device and stays meaningful while
+a recording plays. Propagating would also delete a frustum that is *correct*
+on a dev laptop (10.33° derived against 10.20° frames) to avoid one that is
+wrong only when a lens is stated. SQM is unaffected either way — only
+`camera_pi` publishes radiometer samples, so the radiometric path is inert
+under the debug camera.
+
+**A stated lens still means no solves on real hardware.** Nothing here softens
+0027. The unknown train is a property of where the frames came from, not a
+new escape hatch for a wrong statement — which is why the sensor-swap
+deadlock (switch imx296 → hq from the Camera Type menu with a stated 16 mm,
+derive 17.12°, and be unable to measure out of it) is untouched by this and
+remains a documentation path (#613).

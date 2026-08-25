@@ -101,6 +101,14 @@ class LensSelfHeal:
       authoritative, so this only ever writes into an absence. That also means
       it writes at most once in the life of a device -- the write is what ends
       the condition it triggers on.
+    * **An unknown optical train never writes at all.** A fitted FOV measures
+      the train the frames passed through; under ``--camera debug`` that is
+      the train they were *recorded* on, so it says nothing about this
+      machine. Without this, a debug run on a config with no lens writes the
+      hq's ``25mm`` (the archived frames fit 10.20 deg, 1.3% off its derived
+      10.33) into that developer's config -- and a real imx462 attached
+      afterwards then derives 6.4 deg, solves nothing, and cannot heal,
+      because healing only writes into an absence that no longer exists.
     * **A fitted FOV matching no shipped lens writes nothing.** Third-party
       glass leaves the lens assumed and the gate wide, which is honest: we do
       not know its focal length, and a wrong write would be worse than none
@@ -115,8 +123,9 @@ class LensSelfHeal:
         self._shared_state = shared_state
         self._candidate: Optional[str] = None
         self._streak = 0
-        # Both latch to keep a per-frame condition from logging per frame.
+        # All three latch to keep a per-frame condition from logging per frame.
         self._logged_unidentified = False
+        self._logged_unknown_train = False
         self._disabled = False
 
     def observe(self, result: SuccessfulSolve) -> None:
@@ -132,6 +141,19 @@ class LensSelfHeal:
             self._disabled = True
 
     def _observe(self, result: SuccessfulSolve) -> None:
+        if not self._shared_state.optical_train_known():
+            # Checked before the lens, not after: this is not "nothing to
+            # heal" but "nothing here can heal anything", and the streak must
+            # not carry across into a later run on real optics.
+            if not self._logged_unknown_train:
+                self._logged_unknown_train = True
+                logger.info(
+                    "Optical train is unknown, so a fitted FOV measures the "
+                    "recording rather than this device; lens self-heal is off"
+                )
+            self._reset()
+            return
+
         lens_key = self._shared_state.camera_lens()
         if lens_is_stated(lens_key):
             # Nothing to heal -- and after a successful write this is the

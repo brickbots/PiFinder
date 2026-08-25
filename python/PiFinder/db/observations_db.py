@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 from sqlite3 import Connection, Cursor
 from PiFinder.db.db import Database
 import PiFinder.utils as utils
@@ -53,6 +53,25 @@ class ObservationsDatabase(Database):
             )
             return None
         return None if row is None else row["object_id"]
+
+    def _resolve_object_ids(
+        self, listings: Iterable[Tuple[str, int]]
+    ) -> Dict[Tuple[str, int], Optional[int]]:
+        """
+        Maps many listings to their objects-table ids in one query.
+
+        Unresolved listings (virtual objects, removed catalogs) are absent
+        from the result; a listing carrying a NULL object_id maps to None,
+        so callers must screen for it as _resolve_object_id's do.
+        """
+        try:
+            return self._get_objects_db().get_object_ids_by_listings(list(listings))
+        except Exception:
+            logger.warning(
+                "Objects DB unavailable; observed status stays per listing",
+                exc_info=True,
+            )
+            return {}
 
     def _resolve_listings(self, object_id: int) -> List[Tuple[str, int]]:
         """
@@ -208,11 +227,12 @@ class ObservationsDatabase(Database):
         self.observed_objects_cache: set[tuple[str, int]] = {
             (x["catalog"], x["sequence"]) for x in self.get_observed_objects()
         }
-        self.observed_object_ids: set[int] = set()
-        for catalog, sequence in self.observed_objects_cache:
-            object_id = self._resolve_object_id(catalog, sequence)
-            if object_id is not None and object_id >= 0:
-                self.observed_object_ids.add(object_id)
+        resolved = self._resolve_object_ids(self.observed_objects_cache)
+        self.observed_object_ids: set[int] = {
+            object_id
+            for object_id in resolved.values()
+            if object_id is not None and object_id >= 0
+        }
 
     def check_logged(self, obj_record: CompositeObject):
         """
