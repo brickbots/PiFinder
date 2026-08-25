@@ -1252,6 +1252,13 @@ msgstr "DSO Anzeige"
 msgid "RA/DEC Disp."
 msgstr "RA/Dec Anzeige"
 
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: chart setting — names the object nearest the middle of the
+#. chart
+#: PiFinder/ui/menu_structure.py:878
+msgid "Center Object"
+msgstr "Zentralobjekt"
+
 #: PiFinder/ui/menu_structure.py:866
 msgid "HH:MM"
 msgstr "HH:MM"

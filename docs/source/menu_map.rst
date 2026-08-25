@@ -75,8 +75,8 @@ Chart
 Chart
    A star chart centered on where your telescope points, redrawn as you move.
    Press **+** and **-** to zoom.  Set its appearance under Chart in the
-   Settings menu: reticle, constellation lines, deep-sky markers, and
-   coordinate readout.
+   Settings menu: reticle, constellation lines, deep-sky markers, coordinate
+   readout, and center object.
 
 
 Objects
@@ -252,6 +252,10 @@ Chart...
       Brightness of deep-sky object markers.  Values: Off, Low, Medium, High.
    RA/DEC Disp.
       Show a coordinate readout.  Values: Off, HH:MM, Degrees.
+   Center Object
+      Name the object nearest the middle of the chart, on a line along the
+      bottom.  Values: Off, On (the default).  Press **RIGHT** on the chart to
+      open that object's details.
 Image...
    Overlays on the :ref:`object image <user_guide:object images>`.
 
