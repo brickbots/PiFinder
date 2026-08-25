@@ -15,6 +15,7 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - [Display](./docs/ax/display/CONTEXT.md) — how panels turn rendered pixels into light: each panel's brightness axes, the dimming policy (knee curve), and the camera-as-photometer bench rig that measures panel flux. Runtime policy + bench tooling.
 - [NixOS](./docs/ax/nixos/CONTEXT.md) — how a NixOS PiFinder is built, published, and updated over the air: the Attic cache, the stable/beta/unstable channels, and the on-device upgrade flow. Cross-cutting infrastructure, not a runtime slice.
 - [Bring-up](./docs/ax/bringup/CONTEXT.md) — first power-on validation of a freshly assembled board: the checks a builder runs at the bench and which of them can be machine-verified. Bench tooling, not a runtime slice.
+- [Network](./docs/ax/network/CONTEXT.md) — the device's WiFi identity and connections: AP vs Client mode, first-boot AP provisioning (random SSID + WPA2 on new units, [ADR 0031](./docs/adr/0031-ap-provisioning-ssid-tokens-encrypted-default.md)), client network credentials, and getting another device connected (Connect WiFi screen, web Network page).
 
 ## Relationships
 
@@ -39,6 +40,9 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 - **Display ↔ Bring-up**: both are (partly) bench tooling that drives panels below the UI layer; bring-up checks "does the panel light at all", Display characterizes how much light.
 - **Bring-up → UI**: bring-up reuses the display drivers, fonts and layout helpers, but **not** `UIModule`, `MenuManager` or the menu tree — it draws its own frames and never joins the navigation stack. It reads the keypad as **switches** at their **matrix positions**, below the layer where UI's logical **keys**, `ALT_*` chords and `LNG_*` long presses are formed.
 - **Bring-up ↛ `hardware_detect`**: unlike `main.py` and `splash.py`, bring-up does **not** derive its panel from the BQ25895 probe. Doing so would make a dead charger indistinguishable from a dead screen on exactly the boards it exists to diagnose.
+
+- **Network → UI**: the **Connect WiFi screen** renders the AP's identity — SSID, **AP passphrase**, **WiFi QR code** — from the Network context. On a **new unit** (encrypted by default, ADR 0031) it is the primary join path, not a convenience view, so it must work on every panel.
+- **Network → NixOS**: the migration converts **client networks** into NetworkManager keyfiles (`nixos_migration_wifi.py`); AP provisioning has no NixOS equivalent yet, so the encrypted-by-default AP posture must survive migration deliberately, not by luck (ADR 0031).
 
 Companion architecture docs live next to each `CONTEXT.md`:
 - [`docs/ax/nixos.md`](./docs/ax/nixos.md)
