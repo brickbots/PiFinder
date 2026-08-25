@@ -45,16 +45,22 @@ All four failure modes discriminated in one 21-character row. Today every one of
 
 Reserve the `?` prefix for markers. No real message class may start with it.
 
+### `PiFinder/gps_comms.py` — new
+
+`CommsPublisher(gps_queue, clock)`, shared by all three backends so the row means the same thing whichever is running. Holds the rate-cap state and does the `put`.
+
 ### `PiFinder/gps_ubx.py` — `process_messages`
 
 Publish one comms event at the top of the `async for` loop, before the dispatch chain, so *every* event counts including ones we parse but don't act on:
 
 ```python
-_publish_comms(gps_queue, msg_class, clock)
+now = clock()
+comms.publish(msg_class, now)
 ```
 
 - Send the **raw** class (`NAV-TIMEGPS`); presentation belongs to the UI.
-- Payload `("comms", (class_name, clock()))`.
+- Payload `("comms", class_name)` — the name only. See the stamping watch-out below.
+- One clock reading per event, shared with the NAV-SAT freshness window, so the two agree on when a message arrived.
 - **Rate-cap forwarding to ~20/s.** A resync storm can yield markers far faster than real messages arrive, and the `.ubx` replay path runs with `wait=0`. 20 Hz is well past perceptible against a 30 fps redraw, and it bounds worst-case queue traffic. This caps *reporting*, not parsing.
 
 Steady-state cost is a handful of pipe writes per second against backpressure thresholds of 10 and 50, on a queue the main loop drains to empty 30×/second. The throttles only bite when the main loop is already stalled, where slowing GPS is the intended behaviour.
@@ -73,11 +79,11 @@ The `.ubx` replay path reuses `process_messages` and gets this free. Add a publi
 
 ### `PiFinder/main.py`
 
-One branch in the existing `gps_queue` drain:
+One branch in the existing `gps_queue` drain, which is also where the event gets its stamp:
 
 ```python
 if gps_msg == "comms":
-    shared_state.set_gps_comms(gps_content)
+    shared_state.set_gps_comms((gps_content, time.monotonic()))
 ```
 
 ### `PiFinder/ui/status.py`
@@ -98,7 +104,9 @@ Base font is 21 chars on the 128 panel (`width=6`), key padded to 7, so the valu
 
 ## Watch-outs
 
-- **The age stamp must be `time.monotonic()`, never wall clock.** GPS is what *sets* the system clock, so a wall-clock age jumps or inverts the moment a fix lands. `CLOCK_MONOTONIC` is system-wide on Linux and safe to compare across processes on one host. This is the single easiest thing to get wrong here and it fails in exactly the situation the feature exists to diagnose.
+- **The age stamp must be `time.monotonic()`, never wall clock.** GPS is what *sets* the system clock, so a wall-clock age jumps or inverts the moment a fix lands. This is the single easiest thing to get wrong here and it fails in exactly the situation the feature exists to diagnose.
+- **...and both readings must come from the same process.** The first cut stamped in the GPS process and subtracted in main, on the theory that `CLOCK_MONOTONIC` is system-wide on Linux. It is — but `time.monotonic()`'s reference point is explicitly *undefined*, and on macOS it is process start, so the dev-machine row read a steady ~4s stale on a fake GPS publishing every 0.5s. Caught by running it, not by the tests. The stamp is now taken by main on receipt; only the name crosses the boundary.
+- **`gps_queue.qsize()` raises `NotImplementedError` on macOS**, so the `.ubx` replay backend cannot run there at all (pre-existing, in both `gps_fake.emit` and `process_messages`' backpressure check). Exercise the replay path by driving `process_messages` directly, or on a Pi.
 - `?` is reserved for markers.
 - The gpsd path is limited to TPV/SKY by an existing filter.
 

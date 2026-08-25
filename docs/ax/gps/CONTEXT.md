@@ -72,6 +72,10 @@ _Avoid_: provider, origin, fix source.
 The single `UIStatus` row reporting GPS link liveness, showing the name of the most recent **event** and the seconds elapsed since it arrived. A churning name means events are flowing; a frozen name with a rising age means the link died; `?XXYY` or `?CKSUM` mean bytes are arriving that we cannot decode; `--` means nothing has ever been received. Its age is derived from a **monotonic** stamp, never wall clock, because the GPS is what *sets* the wall clock.
 _Avoid_: GPS status (that is the whole `UIGPSStatus` screen), message counter, heartbeat.
 
+**Comms stamp**:
+The monotonic reading recorded when a comms **event** is drained off **gps_queue** — taken by the *main* process, not the **GPS process**, so it can be subtracted from the reading the **comms row** takes when it renders. Only the event's name travels over the queue. The difference between the two is queue latency, well under one redraw.
+_Avoid_: arrival time / timestamp unqualified (both read as wall clock), send time.
+
 ## Flagged ambiguities
 
 - **"the GPS thread"** — there isn't one. It is a **GPS process**, and it is the only subsystem process that does not receive `shared_state`. Anyone reasoning about how to get data out of it from the "thread" framing will reach for shared memory that does not exist.
@@ -80,7 +84,7 @@ _Avoid_: GPS status (that is the whole `UIGPSStatus` screen), message counter, h
 - **A worse fix is silently discarded** — the main loop only applies an incoming fix when its **position error** is *smaller* than the stored one. A receiver that degrades (antenna knocked, satellites lost) leaves the old position and its lock state standing indefinitely, with no on-screen signal that the fix is stale. This is deliberate but surprising.
 - **`class` collides across contexts** — a GPS **message**'s `class` is a wire message type (`NAV-SOL`). In `gps_gpsd` it is gpsd's own tag (`TPV`). Neither is a Python class. Say "message class" or, better, name the message.
 - **"solution"** — in this context a solution is the receiver's *navigation* solution. In [Positioning](../positioning/CONTEXT.md) a solution is a *plate-solve* result, and both are reachable from `shared_state`. Never use the bare word across the boundary.
-- **Comms age must be monotonic** — a GPS-derived timestamp sets the system clock, so an age computed from wall clock jumps or inverts the moment a fix lands. `time.monotonic()` is system-wide on Linux and safe to compare across processes on the same host.
+- **Comms age must be monotonic, and from one process** — a GPS-derived timestamp sets the system clock, so an age computed from wall clock jumps or inverts the moment a fix lands. Monotonic solves that but introduces a second trap: `time.monotonic()`'s reference point is *undefined*, and on macOS it is process start, so subtracting one process's reading from another's yields the gap between their launches. On a dev machine that reads as a permanently several-second-old GPS link. Hence the **comms stamp** is taken by the main process on receipt: only the event name crosses the process boundary.
 
 ## Example dialogue
 
