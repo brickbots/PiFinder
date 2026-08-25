@@ -1,6 +1,6 @@
 # PR #311 "More secure WiFi configuration" — release-readiness plan
 
-*Prepared 2026-08-24; revised the same day for EN 18031 (EU RED cybersecurity): new units must ship with an encrypted AP and a per-unit random password. PR: #311 (branch `secure-wifi`, Jens Scheidtmann), implements #179. The vocabulary for this plan is defined in [docs/ax/network/CONTEXT.md](docs/ax/network/CONTEXT.md); the shipped-posture decision is [ADR 0031](docs/adr/0031-ap-provisioning-ssid-tokens-encrypted-default.md).*
+*Prepared 2026-08-24; revised the same day for EN 18031 (EU RED cybersecurity): new units must ship with an encrypted AP and a per-unit random password. PR: #311 (branch `secure-wifi`, Jens Scheidtmann), implements #179. The vocabulary for this plan is defined in [docs/ax/network/CONTEXT.md](docs/ax/network/CONTEXT.md); the shipped-posture decision is [ADR 0034](docs/adr/0034-ap-provisioning-ssid-tokens-encrypted-default.md).*
 
 ## Where the PR stands
 
@@ -20,7 +20,7 @@
 3. **Three display geometries now** (128×128 OLED/ST7789-128, 176×176 rev4 SSD1333, 320×240 ST7789; titlebar heights 17/20/22). `wifi_password.py` hardcodes 128px geometry (8px char cells, 16-char password wrap, fixed 16px line steps, `len(ssid) > 14` breaks). Help PNGs are fine — base.py normalizes 128×128 help art onto any panel.
 4. **i18n**: a `zh` locale now exists (PR predates it). The PR's hand-merged `.po`/`.mo` churn (all conflicting) should be discarded and regenerated via `nox -s babel`; new strings need de/es/fr/zh translations.
 5. **Unchanged, so the PR's approach still lands**: hostapd/wpa_supplicant stack in sys_utils (no NetworkManager on the Debian runtime), the Start menu, `__help_name__` help convention, marking-menu `menu_jump`/`label` conventions. Conflict hunks: 1 in sys_utils.py (append position), 3 in server.py (all in the rewritten web layer), 1 import block in menu_structure.py.
-6. **NixOS migration touches WiFi config**: `nixos_migration_wifi.py` converts `wpa_supplicant.conf` into NetworkManager keyfiles when a device migrates to NixOS. Client networks the PR writes carry forward fine; the AP provisioning story (runtime hostapd.conf edits) has **no** NixOS equivalent — ADR 0031 records this seam so the migration doesn't silently change a unit's AP posture.
+6. **NixOS migration touches WiFi config**: `nixos_migration_wifi.py` converts `wpa_supplicant.conf` into NetworkManager keyfiles when a device migrates to NixOS. Client networks the PR writes carry forward fine; the AP provisioning story (runtime hostapd.conf edits) has **no** NixOS equivalent — ADR 0034 records this seam so the migration doesn't silently change a unit's AP posture.
 
 ## Defects found reading the diff (fix during refresh)
 
@@ -32,31 +32,31 @@
 6. Template typo "Acess Point WiFi Name"; web error strings not localized (match main's current Flask i18n convention).
 7. A stray `debug()` was added in server.py's port-8080 path — dies with the Flask port; don't reintroduce.
 8. QR image is LANCZOS-resized (`resize(..., 1)`); use explicit NEAREST — antialiasing softens QR modules and hurts scanning.
-9. **Docs bugs**: invalid `.. stop::` directive (docs build will complain); the "Reset Access Point" recovery section references `pi_config_files/hostapd-open.conf` **which the PR never adds** (add it — critical-path under the new posture, and it must not carry `ENCRYPTME`: a recovered unit has to stay open until the user re-encrypts, see ADR 0031), and a `switch-ap.sh` script name to verify; user_guide claims the AP "will be encrypted using WPA2" — now true for fresh images under the EN 18031 posture, but still wrong for field-upgraded units, so the docs must distinguish the two.
+9. **Docs bugs**: invalid `.. stop::` directive (docs build will complain); the "Reset Access Point" recovery section references `pi_config_files/hostapd-open.conf` **which the PR never adds** (add it — critical-path under the new posture, and it must not carry `ENCRYPTME`: a recovered unit has to stay open until the user re-encrypts, see ADR 0034), and a `switch-ap.sh` script name to verify; user_guide claims the AP "will be encrypted using WPA2" — now true for fresh images under the EN 18031 posture, but still wrong for field-upgraded units, so the docs must distinguish the two.
 10. **Drive-bys to drop**: `help/object_details/2.xcf`, the quick_start "Observation Session Checklist" (fine idea, separate PR).
 
 ## Decisions to settle (grill-with-docs input)
 
-- **Shipped security posture — SETTLED (2026-08-24)**: for **EN 18031 compliance (EU RED cybersecurity regulations), new units must ship encrypted with a per-unit random WiFi password**. The default `pi_config_files/hostapd.conf` ships with both tokens active (`ssid=PiFinder-CHANGEME-ENCRYPTME`), so first boot provisions a random SSID **and** WPA2 with a generated passphrase. This reverses the PR's shipped default. Recorded as ADR 0031.
+- **Shipped security posture — SETTLED (2026-08-24)**: for **EN 18031 compliance (EU RED cybersecurity regulations), new units must ship encrypted with a per-unit random WiFi password**. The default `pi_config_files/hostapd.conf` ships with both tokens active (`ssid=PiFinder-CHANGEME-ENCRYPTME`), so first boot provisions a random SSID **and** WPA2 with a generated passphrase. This reverses the PR's shipped default. Recorded as ADR 0034.
   - **New vs field-upgraded units**: tokens exist only in fresh images, so a software upgrade never force-encrypts an existing unit's AP — field units keep their config, new units placed on the market start encrypted. This distinction is what makes the token design load-bearing.
   - **Consequences**: the Connect WiFi QR screen and the documented recovery path stop being conveniences and become the mandatory first-boot UX. mrosseel's support-lockout concern is now *mitigated, not avoided* — a unit whose UI fails to start presents an encrypted AP nobody can join, so the recovery procedure and its bench validation move onto the critical path.
 - **Token vocabulary under the new posture**: keep both tokens (`ENCRYPTME` alone lets a legacy/open unit opt in; `CHANGEME` alone is no longer a shippable default) or collapse to one? Recommend keeping both, documented as such — grill fodder.
 - **May the web UI disable encryption?** Recommend no "disable" affordance on new units (keeps the compliance posture simple); legacy open APs keep the opt-in encrypt checkbox. Grill fodder.
-- **Recovery-vs-compliance check**: the documented reset-to-open procedure requires physical access (SSH over ethernet / console + manual file copy). Confirm that's an acceptable posture under EN 18031 and record the outcome in ADR 0031.
+- **Recovery-vs-compliance check**: the documented reset-to-open procedure requires physical access (SSH over ethernet / console + manual file copy). Confirm that's an acceptable posture under EN 18031 and record the outcome in ADR 0034.
 - **First-boot discoverability**: with encryption mandatory, should first boot surface the Connect WiFi screen (or a hint) rather than relying on the user finding Start > Connect WiFi? Issue #179 originally asked for the password to be reachable from the main screens. Grill fodder.
 - **Vocabulary/naming**: settled in [docs/ax/network/CONTEXT.md](docs/ax/network/CONTEXT.md) — the screen is the **Connect WiFi screen**; rename the module `wifi_connect.py` during the refresh.
 - Whether the web page also needs a "regenerate password" affordance. Under the encrypted-by-default posture this gets more attractive (password rotation without SSH), but it's not required to ship — recommend deciding at the grill, defaulting to follow-up.
 - Country entry: free-text with validation (as coded) vs dropdown — the author deliberately chose an entry box; keep unless grilling says otherwise.
-- **Where provisioning runs**: `main.py` startup (as coded) vs the service unit. Keep, recorded in ADR 0031's scope (needs passwordless sudo, which the pifinder user has).
+- **Where provisioning runs**: `main.py` startup (as coded) vs the service unit. Keep, recorded in ADR 0034's scope (needs passwordless sudo, which the pifinder user has).
 - **PR mechanics**: we can't push to Jens's fork branch, so refresh = new branch off main + superseding PR crediting Jens (`Co-authored-by`), after a courtesy comment on #311.
 
 ## Workstreams
 
 ### WS1 — Network bounded context + ADR *(landing via the docs PR that adds this plan)*
 - `docs/ax/network/CONTEXT.md`: the Network glossary — WiFi mode, Access Point, provisioning token, new unit vs field-upgraded unit, AP passphrase, Connect WiFi screen, WiFi QR code, recovery reset.
-- ADR 0031: "AP provisioning via SSID tokens: new units ship encrypted (EN 18031)" — the compliance trail for the posture decision, the #179/#311 history it supersedes, the token rationale, and the NixOS seam.
+- ADR 0034: "AP provisioning via SSID tokens: new units ship encrypted (EN 18031)" — the compliance trail for the posture decision, the #179/#311 history it supersedes, the token rationale, and the NixOS seam.
 - CONTEXT-MAP.md: Network context + relationships (Network → UI, Network → NixOS).
-- Grilling continues against these documents; open questions above are marked as such in ADR 0031.
+- Grilling continues against these documents; open questions above are marked as such in ADR 0034.
 - Side-note found while surveying: CONTEXT-MAP.md references `docs/ax/nixos/CONTEXT.md` + `docs/ax/nixos.md`, but neither exists on main — pre-existing inconsistency, worth a separate tiny fix.
 - The architecture companion (`docs/ax/network.md`: provisioning flow, restart semantics, real-vs-fake seam) arrives with the code PR, once the code it describes exists on main.
 
@@ -96,7 +96,7 @@ Rough effort: WS1 ~half-day, WS2 ~half-day, WS3+WS4 ~a day, WS5 small, WS6 ~a da
 ## Risks
 
 - **Lockout is now on the mainline path**: with new units encrypted by default, a unit whose UI fails to start presents an AP nobody can join. Mitigations: the recovery procedure (documented, hardware-walked in WS8) and making the first-boot path bulletproof. This was the maintainers' original objection to default encryption — EN 18031 overrides the preference, so the mitigation quality is what earns the merge.
-- **Compliance scope**: this work implements the technical posture and ADR 0031 records EN 18031 as the driver; the broader conformity-assessment paperwork is out of scope here.
-- **NixOS/Bookworm futures** (#499, NixOS channels) may replace runtime hostapd editing; contained by documenting the seam in ADR 0031, not blocked on it — but the encrypted-by-default posture must survive any migration.
+- **Compliance scope**: this work implements the technical posture and ADR 0034 records EN 18031 as the driver; the broader conformity-assessment paperwork is out of scope here.
+- **NixOS/Bookworm futures** (#499, NixOS channels) may replace runtime hostapd editing; contained by documenting the seam in ADR 0034, not blocked on it — but the encrypted-by-default posture must survive any migration.
 - **Fork courtesy**: Jens may prefer to update #311 himself — ask before superseding. (Worth telling him the posture he originally wanted — encryption on by default — is now the requirement; EN 18031 vindicates his instinct.)
 - **QR scan reliability on the LCD** — validate early in WS4/WS8, before docs promise it; under the new posture the QR screen is the primary join path, not a convenience.

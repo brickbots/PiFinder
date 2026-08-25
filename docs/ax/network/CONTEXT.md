@@ -25,7 +25,7 @@ A marker embedded in a fresh image's AP SSID that first boot consumes: `CHANGEME
 _Avoid_: "magic SSID"; leaving a token in the SSID after acting on it (that is the bug, not the design).
 
 **New unit** vs **field-upgraded unit**:
-The compliance boundary (EN 18031, see [ADR 0031](../../adr/0031-ap-provisioning-ssid-tokens-encrypted-default.md)). A **new unit** first-boots a fresh image, finds provisioning tokens, and provisions itself: random SSID, WPA2, unique AP passphrase. A **field-upgraded unit** took a software update over an existing configuration; its AP is left exactly as it was — an upgrade never provisions and never force-encrypts.
+The compliance boundary (EN 18031, see [ADR 0034](../../adr/0034-ap-provisioning-ssid-tokens-encrypted-default.md)). A **new unit** first-boots a fresh image, finds provisioning tokens, and provisions itself: random SSID, WPA2, unique AP passphrase. A **field-upgraded unit** took a software update over an existing configuration; its AP is left exactly as it was — an upgrade never provisions and never force-encrypts.
 _Avoid_: reasoning from software version (the predicate is "tokens present", not "release N or later").
 
 **AP passphrase**:
