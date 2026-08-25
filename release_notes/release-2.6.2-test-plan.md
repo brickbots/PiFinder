@@ -77,8 +77,11 @@ What actually changed, ranked by blast radius × likelihood of an undetected def
   ten bare `docs/adr/0027` mentions across seven source files plus two test modules),
   tracked black level moved to 0028. Three inbound references updated.
   - **Still outstanding, not this release:** #571 (`fix/equipment-input-validation`)
-    carries a third `0027-equipment-measurements-are-validated-floats.md` and should
-    take **0029** at merge. #502 still carries the older `0018` collision.
+    carried a third `0027-equipment-measurements-are-validated-floats.md`. The earmark
+    here went stale twice while the PR sat — 0029 went to #624, then 0030 to #622 — so
+    it took **0033**, the lowest slot free across every branch, when main was merged in.
+    Recompute the free slot at merge time; do not trust a written-down reservation.
+    #502 still carries the older `0018` collision.
 - [x] **P1.5 — i18n release pass verified.** Exactly four new msgids (`Lens`, `12mm`,
   `16mm`, `25mm`), taking every catalog 671 → **675 msgids, 0 untranslated, 0 fuzzy**,
   with no msgid removed. All four are wrapped in `_()` at `menu_structure.py`
