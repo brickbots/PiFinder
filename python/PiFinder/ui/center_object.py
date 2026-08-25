@@ -12,7 +12,9 @@ rather than the Nearby ranking.
 Deliberately free of PIL and ``plot.Starfield``: the chart hands in screen
 coordinates it has already computed and everything here is plain arithmetic.
 That keeps this unit-testable, which chart-level code isn't -- the chart needs
-``hip_main.dat``, which is git-ignored and doesn't ship.
+``hip_main.dat``, which is git-ignored and doesn't ship. The readout's layout
+and config rules live here for the same reason; what stays in ``ui/chart.py``
+is the drawing and the config reads that feed these.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ import math
 from typing import List, Optional, Sequence, Tuple
 
 from PiFinder.composite_object import CompositeObject
-from PiFinder.ui.ui_utils import name_deduplicate
+from PiFinder.ui.ui_utils import TextLayouterScroll, name_deduplicate
 
 # How much closer a rival marker has to be before it takes the center-object
 # line from the current one, as a fraction of the current distance. A fraction
@@ -32,6 +34,57 @@ STICKY_MARGIN = 0.15
 # What the chart hands to CenterObjectTracker.update(): the object plus the
 # screen coordinates the chart drew its marker at.
 Candidate = Tuple[CompositeObject, float, float]
+
+# The user's ``text_scroll_speed`` setting, in TextLayouterScroll's units.
+_SCROLL_SPEEDS = {
+    "Off": 0,
+    "Fast": TextLayouterScroll.FAST,
+    "Med": TextLayouterScroll.MEDIUM,
+    "Slow": TextLayouterScroll.SLOW,
+}
+
+
+def readout_enabled(chart_center_object: Optional[str]) -> bool:
+    """
+    Whether the readout is on, from the ``chart_center_object`` config value.
+
+    Anything that isn't exactly ``"On"`` is off, ``None`` included. Note that
+    an upgrading user does not hit the ``None`` case: their config predates
+    the setting, so ``get_option`` falls through to ``default_config.json``
+    and they get ``"On"`` -- the readout appears on charts that never had one.
+    """
+    return chart_center_object == "On"
+
+
+def readout_y(res_y: int, font_height: int, chart_radec: Optional[str]) -> int:
+    """
+    Top of the center-object strip, in screen pixels.
+
+    The bottom of the chart stacks upward: the RA/Dec readout keeps the bottom
+    line when it's on and the center-object line sits above it; with RA/Dec off
+    the center-object line takes the bottom line itself. The ``radec_y`` here
+    has to stay in step with the one ``UIChart.update`` draws coordinates at,
+    or the two lines overlap.
+    """
+    radec_y = res_y - font_height - 3
+    if chart_radec in ("HH:MM", "Degr"):
+        return radec_y - font_height - 1
+    return radec_y
+
+
+def readout_scroll_speed(text_scroll_speed: Optional[str]) -> int:
+    """
+    The readout marquee's speed, from the user's ``text_scroll_speed`` setting.
+
+    ``"Off"`` maps to 0, which stops ``TextLayouterScroll`` scrolling at all --
+    the caller truncates the string itself in that case. An unrecognised value
+    falls back to Medium rather than to no scrolling, so a stale config never
+    silently clips a long name.
+    """
+    default = TextLayouterScroll.MEDIUM
+    if text_scroll_speed is None:
+        return default
+    return _SCROLL_SPEEDS.get(text_scroll_speed, default)
 
 
 def center_object_text(obj: CompositeObject) -> str:

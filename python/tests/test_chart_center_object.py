@@ -1,10 +1,10 @@
 """
 Unit tests for the chart's center-object selection (ADR 0031).
 
-Tests the tracker and the readout string builder directly. Both live in
-``PiFinder.ui.center_object`` rather than ``ui/chart.py`` precisely so they can
-be tested: the chart itself needs ``hip_main.dat``, which is git-ignored and
-doesn't ship.
+Tests the tracker, the readout string builder, and the readout's layout and
+config rules directly. They all live in ``PiFinder.ui.center_object`` rather
+than ``ui/chart.py`` precisely so they can be tested: the chart itself needs
+``hip_main.dat``, which is git-ignored and doesn't ship.
 """
 
 import pytest
@@ -14,7 +14,11 @@ from PiFinder.ui.center_object import (
     STICKY_MARGIN,
     CenterObjectTracker,
     center_object_text,
+    readout_enabled,
+    readout_scroll_speed,
+    readout_y,
 )
+from PiFinder.ui.ui_utils import TextLayouterScroll
 
 # The chart's own geometry, so the numbers here read like the real thing.
 BOUNDS = (128, 128)
@@ -218,3 +222,81 @@ class TestCenterObjectText:
     def test_planets_show_their_own_name_once(self):
         """PL objects use names[0] as the designator, so it can't repeat."""
         assert center_object_text(obj(1, "PL", 4, names=["Mars"])) == "Mars"
+
+
+# The chart's own font metrics on a 128px screen, so the numbers below read
+# like the real thing: base font height 10, RA/Dec anchored 3px off the bottom.
+RES_Y = 128
+FONT_H = 10
+
+
+@pytest.mark.unit
+class TestReadoutEnabled:
+    def test_on_enables_it(self):
+        assert readout_enabled("On") is True
+
+    def test_off_disables_it(self):
+        assert readout_enabled("Off") is False
+
+    def test_anything_else_disables_it(self):
+        """
+        Only the exact string counts. Upgrading users don't land here -- their
+        config predates the setting, so get_option falls through to
+        default_config.json's "On" rather than handing over a None.
+        """
+        assert readout_enabled(None) is False
+        assert readout_enabled("on") is False
+        assert readout_enabled("") is False
+
+
+@pytest.mark.unit
+class TestReadoutY:
+    def test_takes_the_bottom_line_with_radec_off(self):
+        assert readout_y(RES_Y, FONT_H, "Off") == RES_Y - FONT_H - 3
+
+    def test_an_unset_radec_option_also_leaves_the_bottom_line_free(self):
+        assert readout_y(RES_Y, FONT_H, None) == RES_Y - FONT_H - 3
+
+    @pytest.mark.parametrize("radec", ["HH:MM", "Degr"])
+    def test_sits_a_line_higher_when_radec_is_on(self, radec):
+        """Either coordinate format keeps the bottom line for itself."""
+        assert readout_y(RES_Y, FONT_H, radec) == RES_Y - FONT_H - 3 - FONT_H - 1
+
+    @pytest.mark.parametrize("radec", ["HH:MM", "Degr"])
+    def test_the_strip_never_overlaps_the_radec_line(self, radec):
+        """
+        _draw_center_readout repaints from strip_y to strip_y + height + 1, so
+        that bottom edge has to stop at the RA/Dec line's top, not cross it.
+        """
+        radec_line_y = RES_Y - FONT_H - 3
+        strip_bottom = readout_y(RES_Y, FONT_H, radec) + FONT_H + 1
+
+        assert strip_bottom <= radec_line_y
+
+    def test_it_stays_on_screen_on_a_taller_display(self):
+        """Derived from resY rather than hardcoded for the 128px panel."""
+        assert 0 < readout_y(320, 16, "HH:MM") < 320
+
+
+@pytest.mark.unit
+class TestReadoutScrollSpeed:
+    @pytest.mark.parametrize(
+        "setting, expected",
+        [
+            ("Off", 0),
+            ("Fast", TextLayouterScroll.FAST),
+            ("Med", TextLayouterScroll.MEDIUM),
+            ("Slow", TextLayouterScroll.SLOW),
+        ],
+    )
+    def test_maps_each_setting(self, setting, expected):
+        assert readout_scroll_speed(setting) == expected
+
+    @pytest.mark.parametrize("setting", ["Medium", None, ""])
+    def test_an_unrecognised_setting_falls_back_to_medium(self, setting):
+        """
+        Not to 0 -- falling back to "no scroll" would silently clip long names
+        instead of just picking a different speed. Note "Medium" is the menu's
+        *label*; the stored value is "Med".
+        """
+        assert readout_scroll_speed(setting) == TextLayouterScroll.MEDIUM

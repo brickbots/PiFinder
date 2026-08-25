@@ -23,7 +23,13 @@ from PiFinder.ui.base import UIModule
 from PiFinder import calc_utils
 from PiFinder.composite_object import MagnitudeObject
 from PiFinder.nearby import ClosestObjectsFinder
-from PiFinder.ui.center_object import CenterObjectTracker, center_object_text
+from PiFinder.ui.center_object import (
+    CenterObjectTracker,
+    center_object_text,
+    readout_enabled,
+    readout_scroll_speed,
+    readout_y,
+)
 from PiFinder.ui.ui_utils import TextLayouterScroll
 
 
@@ -344,23 +350,39 @@ class UIChart(UIModule):
     # ADR 0031 and docs/ax/ui/CONTEXT.md.
 
     def _center_readout_enabled(self):
-        return self.config_object.get_option("chart_center_object", "On") == "On"
+        return readout_enabled(
+            self.config_object.get_option("chart_center_object", "On")
+        )
 
     def _update_center_object(self):
         """
         Re-pick the center object from the markers ``plot_markers`` just drew,
         and restart the marquee if the pick changed.
 
-        Projects each drawn object to screen space -- about 21 calls, once per
-        solve -- and hands the result to the tracker, which does the bounds
-        check, the ranking and the hysteresis.
+        Projects the drawn objects to screen space in one batched call and
+        hands the result to the tracker, which does the bounds check, the
+        ranking and the hysteresis.
+
+        Skipped entirely while the readout is off. Nothing else consumes the
+        pick -- RIGHT is gated on the readout too -- so there is no one to pay
+        the projection for, and a stale pick must not linger in the published
+        UI state either, hence the reset on the way past.
         """
-        candidates = []
-        for obj in self._drawn_objects:
-            if obj.ra is None or obj.dec is None:
-                continue
-            x, y = self.starfield.radec_to_xy(obj.ra, obj.dec)
-            candidates.append((obj, x, y))
+        if not self._center_readout_enabled():
+            if self._center_tracker.center_object is not None:
+                self._center_tracker.reset()
+                self._center_scroller = None
+            return
+
+        drawn = [
+            obj
+            for obj in self._drawn_objects
+            if obj.ra is not None and obj.dec is not None
+        ]
+        xs, ys = self.starfield.radec_to_xy_many(
+            [obj.ra for obj in drawn], [obj.dec for obj in drawn]
+        )
+        candidates = list(zip(drawn, xs, ys))
 
         self._center_tracker.update(
             candidates,
@@ -372,28 +394,19 @@ class UIChart(UIModule):
 
     def _center_readout_y(self):
         """
-        Top of the center-object strip.
-
-        Layout stacks from the bottom: the RA/Dec readout keeps the bottom line
-        when it's on and the center-object line sits above it; with RA/Dec off
-        the center-object line takes the bottom line itself. Recomputed each
-        frame because the setting can change while the preloaded chart is live.
+        Top of the center-object strip. Recomputed each frame because the
+        RA/Dec setting it stacks against can change while the preloaded chart
+        is live. See ``center_object.readout_y`` for the rule.
         """
-        radec_y = self.display_class.resY - self.fonts.base.height - 3
-        if self.config_object.get_option("chart_radec") in ("HH:MM", "Degr"):
-            return radec_y - self.fonts.base.height - 1
-        return radec_y
+        return readout_y(
+            self.display_class.resY,
+            self.fonts.base.height,
+            self.config_object.get_option("chart_radec"),
+        )
 
     def _center_scroll_speed_config(self):
-        scroll_dict = {
-            "Off": 0,
-            "Fast": TextLayouterScroll.FAST,
-            "Med": TextLayouterScroll.MEDIUM,
-            "Slow": TextLayouterScroll.SLOW,
-        }
-        return scroll_dict.get(
-            self.config_object.get_option("text_scroll_speed", "Med"),
-            TextLayouterScroll.MEDIUM,
+        return readout_scroll_speed(
+            self.config_object.get_option("text_scroll_speed", "Med")
         )
 
     def _build_center_scroll(self):
@@ -511,9 +524,9 @@ class UIChart(UIModule):
         """
         Chart state for ``/api/current-selection``: the zoom level and the
         current center object, so the readout is checkable without OCR-ing a
-        screenshot. ``center_object`` is reported whenever one is tracked,
-        even with the readout off -- ``center_object_readout`` says whether
-        it's on screen.
+        screenshot. ``center_object`` is null while ``center_object_readout``
+        is false -- with the readout off nothing picks one, so there is
+        nothing to report rather than something the user can't see.
         """
         obj = self._center_tracker.center_object
         center = None
