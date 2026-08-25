@@ -413,9 +413,10 @@ class UIObjectDetails(UIModule):
     def _check_catalog_initialized(self):
         code = self.object.catalog_code
         if code in ["PUSH", "USER", "OBS"]:
-            # In-memory objects with no backing catalog: pushed from SkySafari
-            # (PUSH), user-created (USER), or observing-list coordinate objects
-            # (OBS).  They're always "ready"; there's no catalog to initialize.
+            # In-memory objects with no backing catalog: pushed from a
+            # planetarium app such as SkySafari or Stellarium (PUSH),
+            # user-created (USER), or observing-list coordinate objects (OBS).
+            # They're always "ready"; there's no catalog to initialize.
             return True
         catalog = self.catalogs.get_catalog_by_code(code)
         return catalog and catalog.initialized
