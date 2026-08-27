@@ -1044,6 +1044,11 @@ Some of the key information shown:
   the number of stars matched.
 - WiFi information a bit further down, including the current WiFi mode, network name, and
   IP address.
+- The GPS rows near the bottom.  The list is longer than the screen, so scroll down to
+  see them.  GPS MSG names the last message from the GPS receiver, with how long ago it
+  arrived.  On a healthy link the names change constantly and the age stays under a
+  second.  A frozen name with a climbing age, or names starting with ``?``, point to a
+  GPS problem.  See :ref:`troubleshooting:the gps never locks`.
 
 Place & Time
 ----------------------------------
