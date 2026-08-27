@@ -370,13 +370,13 @@ class UISoftware(UIModule):
         # If we are here, go for update!
         self._go_for_update = True
         self.draw.text(
-            (10, 90),
+            (10, msg_top),
             _("Update Now"),
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
         self.draw.text(
-            (10, 105),
+            (10, msg_bottom),
             _("Cancel"),
             font=self.fonts.large.font,
             fill=self.colors.get(255),
