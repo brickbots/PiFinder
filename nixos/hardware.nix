@@ -88,9 +88,17 @@ let
   # LTC2954 and cuts power. The kernel's gpio-poweroff handler runs strictly
   # after filesystems are down, and only on a real power-off (reboot takes a
   # different path). Active-low; the board's hardware pull-up on GPIO14 holds
-  # power on until the handler fires. Deliberately unconditional across
-  # revisions: on rev-3 GPIO14-low does nothing electrically — the only effect
-  # is a cosmetic kernel WARN + ~3s wait at halt.
+  # power on until the handler fires.
+  #
+  # Applied to the CM4 device tree only — see the fdtoverlay loop below.
+  # Registering the handler REPLACES the firmware power-off path, it does not
+  # add to it. On a Pi 4B (rev 3) nothing answers GPIO14, so the handler waits
+  # out its 3 s timeout, logs a WARN backtrace and parks the kernel: the screen
+  # keeps showing "Shutting Down" and the unit never halts. ADR 0007 called
+  # that cosmetic and provisioned the overlay unconditionally; ADR 0034
+  # supersedes it. Raspbian gates the same overlay with a [cm4] config.txt
+  # filter; the equivalent here is the per-DTB overlay list, because u-boot
+  # picks the DTB from the board revision at boot.
   gpioPoweroffDtbo = compileOverlay "gpio-poweroff" ''
     /dts-v1/;
     /plugin/;
@@ -185,9 +193,17 @@ in {
       mkdir -p $out/broadcom
       for dtb in ${kernelDtbs}/broadcom/bcm2711-rpi-4-b.dtb \
                  ${kernelDtbs}/broadcom/bcm2711-rpi-cm4.dtb; do
+        # The power-off latch is rev-4 (CM4) hardware; on a 4B it hangs the
+        # halt instead of cutting power. One image still serves both boards,
+        # and a card moved between units picks the right tree at the next
+        # boot. See the gpioPoweroffDtbo comment above and ADR 0034.
+        case "$(basename $dtb)" in
+          bcm2711-rpi-cm4.dtb) poweroffDtbo="${gpioPoweroffDtbo}" ;;
+          *)                   poweroffDtbo="" ;;
+        esac
         fdtoverlay -i "$dtb" \
           -o "$out/broadcom/$(basename $dtb)" \
-          ${i2cGpioDtbo} ${spi0Dtbo} ${uart3Dtbo} ${pwmDtbo} ${gpioPoweroffDtbo} ${cameraDtbo} \
+          ${i2cGpioDtbo} ${spi0Dtbo} ${uart3Dtbo} ${pwmDtbo} $poweroffDtbo ${cameraDtbo} \
           ${lib.optionalString (cfg.cameraType == "imx462") cameraClockDtbo}
       done
     '');
