@@ -170,6 +170,13 @@ was cut short.
 - **Don't compare it with your phone.**  Phones use assisted GPS over the mobile network, so
   they lock in seconds.  That comparison says nothing about your PiFinder or your sky.
 
+One setting can stop a lock outright.  On a v3 or v2.5 PiFinder running a freshly imaged
+card, check the **GPS Baud Rate**.  The release image sets ``115200 (UBlox-10)``, which
+suits the rev4 receiver.  The older receiver in these PiFinders needs ``9600 (standard)``.
+At the wrong baud rate the GPS never locks, no matter how long you wait.  From the main
+menu, select Settings, scroll down to Advanced, select GPS Settings, then select GPS Baud
+Rate.
+
 If you would rather not wait, enter your location and time by hand and start observing.  See
 :ref:`user_guide:place & time`.  For what the lock types mean, see
 :ref:`user_guide:getting a gps lock`.
