@@ -69,9 +69,11 @@ Considered and rejected:
 - ADR 0007's serial-console strip (`console=serial0` removal, masked getty)
   stays unconditional; it is independent of the overlay and harmless on the
   Pi 4B revisions.
-- Deployed units converge through migration `v2.6.4.sh`, which deletes the
-  bare overlay line and appends the gated block. `pifinder_setup.sh`
-  provisions the gated form on fresh installs. Both keep the section closed
-  with `[all]` so later appends (camera overlays) stay unconditional.
+- **No migration for deployed cards.** `pifinder_setup.sh` provisions the
+  gated form, so it reaches the field only on newly built images; cards
+  already carrying the ungated line sit in existing units, where reprovisioning
+  isn't needed — on a rev4 the ungated and gated forms behave identically. The
+  section is kept closed with `[all]` so later appends (camera overlays) stay
+  unconditional.
 - Amends [ADR 0007](0007-gpio-poweroff-latch.md): its "Ungated across
   hardware revisions" section is superseded.
