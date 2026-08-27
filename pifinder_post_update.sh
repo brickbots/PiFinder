@@ -63,6 +63,14 @@ then
     touch /home/pifinder/PiFinder_data/migrations/v2.6.1
 fi
 
+# v2.6.4
+# Gate the gpio-poweroff overlay to the CM4 (rev4) so v3 poweroff completes again
+if ! [ -f "/home/pifinder/PiFinder_data/migrations/v2.6.4" ]
+then
+    source /home/pifinder/PiFinder/migration_source/v2.6.4.sh
+    touch /home/pifinder/PiFinder_data/migrations/v2.6.4
+fi
+
 # DONE
 echo "Post Update Complete"
 
