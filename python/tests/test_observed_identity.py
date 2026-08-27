@@ -212,30 +212,37 @@ def test_cache_resolves_all_listings_in_one_query(tmp_path):
     # One query for the whole cache, not one per logged listing: the cost
     # of building this cache then stays flat as a log grows.
     class CountingObservationsDatabase(MappedObservationsDatabase):
-        resolve_calls = 0
+        query_calls = 0
 
-        def _resolve_object_ids(self, listings):
-            CountingObservationsDatabase.resolve_calls += 1
-            return super()._resolve_object_ids(listings)
+        def _query_observed_identities(self):
+            CountingObservationsDatabase.query_calls += 1
+            return super()._query_observed_identities()
 
     db = CountingObservationsDatabase(tmp_path / "observations.db")
     for catalog, sequence in (("M", 31), ("NGC", 224), ("NGC", 7000)):
         _log(db, catalog, sequence)
-    CountingObservationsDatabase.resolve_calls = 0
+    # Logging keeps the process-wide cache warm and refreshes its
+    # fingerprint, so drop it to make the load below really rebuild.
+    _observed_identity_caches.clear()
+    CountingObservationsDatabase.query_calls = 0
     db.load_observed_objects_cache()
-    assert CountingObservationsDatabase.resolve_calls == 1
+    assert CountingObservationsDatabase.query_calls == 1
     assert db.observed_object_ids == {42, 77}
     db.close()
 
 
 @pytest.mark.unit
 def test_cache_skips_listings_with_no_object_id(tmp_path):
-    # A listing whose catalog row carries a NULL object_id resolves to
-    # None. That must leave observed status per listing, not raise while
+    # A listing whose catalog row carries a NULL object_id yields no sky
+    # object. That must leave observed status per listing, not raise while
     # building the cache.
     class NullResolvingDatabase(MappedObservationsDatabase):
-        def _resolve_object_ids(self, listings):
-            return {listing: None for listing in listings}
+        def _resolve_object_id(self, catalog, sequence):
+            return None
+
+        def _query_observed_identities(self):
+            listings, _ = super()._query_observed_identities()
+            return listings, set()
 
     db = NullResolvingDatabase(tmp_path / "observations.db")
     _log(db, "M", 31)
