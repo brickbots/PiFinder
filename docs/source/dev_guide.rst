@@ -57,61 +57,36 @@ to discuss the issue on the
   to sort things out and prioritize. 
 
 Beta Testing
--------------- 
+------------
 
-When you look at the `PiFinder GitHub repository <https://github.com/brickbots/PiFinder>`_ you will see, that there are different branches. 
-That is the way, how we develop the PiFinder. The main branch is the one, on which development is happening. If you want to test the latest changes, you can
-check out the main branch and run its code. For this your PiFinder needs to be connected to the internet, i.e. your WiFi. 
-Once you have connected, log into your PiFinder via ssh and run the following commands in the terminal:
+PiFinder updates over the air, right from the device. Open the
+:ref:`user_guide:tools` menu and choose Software Upd; the PiFinder downloads a
+prebuilt image and switches to it. The update screen is arranged as three
+**channels** that you move between on the device:
 
-.. code-block:: bash
+- **stable** — where Software Upd opens. The production channel of official
+  releases, listing the versions you can switch to. The safe choice for ordinary
+  observing.
+- **beta** — press **RIGHT** from the stable channel to reach it. Pre-release
+  builds cut from the development branch, curated with release notes before they
+  go stable. This is the channel for most beta testers.
+- **unstable** — the bleeding edge: the live tip of development plus individual
+  open pull requests, each installable before it's merged. It stays hidden until
+  you unlock it by pressing **SQUARE** seven times on the update screen.
 
-    cd ~/PiFinder
-    git fetch --all
-    sudo systemctl stop pifinder
-    git checkout main
-    git pull
-    ./pifinder_post_update.sh
-    sudo systemctl start pifinder
+Each version you pick resolves to a build the project's binary cache has already
+compiled, so the device only downloads and activates it — it never compiles
+anything itself, and the switch takes a couple of minutes. If a build misbehaves
+you can switch back to an earlier stable or beta version the same way, since
+those are kept in the cache.
 
-This will stop the PiFinder, update the code and dependencies to the latest development version and start it again.
+The PiFinder needs internet access to reach the cache, so put it in Client Mode
+on a WiFi network with a connection. See :ref:`user_guide:update software` for a
+full walkthrough of the update screen.
 
-If you want to return to the stable version, you can run the following command:
-
-.. code-block:: bash
-
-    ./pifinder_update.sh
-
-If you really, really would like to use bleeding edge code, you can check out a different branch, or checkout one of the forks of the repository.
-
-To list all branches, run the following command:
-
-.. code-block:: bash
-
-    cd ~/PiFinder
-    git branch -a
-
-To checkout one of the forks of the repository, run the following commands:
-
-.. code-block:: bash
-
-    cd ~/PiFinder
-    git remote add <rname> <url-of-fork>
-    git fetch --all
-    git checkout -b <branch> <rname>/<branch>
-
-You have to replace <rname> with the name of the remote you added, <url-of-fork> with the URL of the fork you want to check out (you can copy this from github, by pressing on the "code" button), and <branch> with the name of the branch you want to check out. This will create a new branch in your local repository, which follows the branch of the fork you checked out.
-
-To keep up to date with the latest changes in the fork, you can run the following commands:
-
-.. code-block:: bash
-
-    cd ~/PiFinder
-    git pull
-    cd python
-    sudo pip install -r requirements.txt
-
-The last command will install the requirements and only needs to be run occasionally, depending on the changes in the branch. You need to restart the pifinder service to see the changes.
+When you hit a problem on a beta or unstable build, report it as described in
+`Submitting issues, bugs and ideas`_ above, and say which channel and version
+you were running.
 
 Fork me - getting or contributing to the sources with pull request
 ------------------------------------------------------------------
@@ -139,15 +114,19 @@ The files are located in PiFinders GitHub repository under ``docs/source`` and h
 the ending ``.rst``. The documentation is then published to `readthedocs.io <https://readthedocs.io>`_, when the change is committed 
 to the official GitHub repository (using readthedocs's infrastructure). 
 
-You can link your fork also to your account on readthedocs.io, but it is easier to build the documentation locally. 
-For this, install Sphinx and the Read the Docs theme from the pinned
-requirements file (run this from the ``docs`` directory):
+Read the Docs rebuilds and publishes the site automatically whenever a change
+lands on the official GitHub repository, so you don't have to do anything to
+publish. To preview your changes first, build the site locally with the pinned
+requirements. The dev shell provides ``uv``, which can run Sphinx in a throwaway
+environment without installing anything globally — run this from the ``docs``
+directory:
 
 .. code-block::
 
-    pip install -r source/requirements.txt
+    uv run --no-project --with-requirements source/requirements.txt --python 3.11 \
+        sphinx-build -b html source build/html
 
-You can then use the supplied ``Makefile`` to build a html tree using ``make html`` and running a http server in the directory with the files: 
+Then serve the result and open it in your browser:
 
 .. code-block::
 
@@ -248,22 +227,22 @@ also contain the compiled ``.mo`` files, which are binary representations of the
 When you edit the files, check for each entry that has a ``msgstr ""`` line, which means the string is not translated yet.
 You also need to check the translations of strings marked as "fuzzy". You need to remove the "fuzzy" line, once you have checked the translation.
 
-In order to run the PiFinder software with the latest translation, you need to run the following commands: 
+The Babel toolchain extracts the strings, updates the ``.po`` files, and compiles
+them into the ``.mo`` files the PiFinder reads. Run it from ``python/`` inside the
+dev shell (see `Install dependencies with Nix`_):
 
 .. code-block::
 
-    cd ~/PiFinder/python
-    sudo pip install -r requirements_dev.txt
-    nox -s babel 
+    cd python
+    pybabel extract -F babel.cfg -c TRANSLATORS -o locale/messages.pot ./PiFinder ./views
+    pybabel update  -i locale/messages.pot -d locale
+    pybabel compile -d locale
 
-The ``pip`` command installs the dependencies for the translation, the second command runs the babel toolchain to extract the strings 
-to translate and update the .po files. This also compiles the .po files into .mo files, which are then used by the PiFinder software.
-
-So if you want to test your translations, you need to run the ``nox`` command every time you change the .po files, then restart the PiFinder software:
+Run these again every time you change a ``.po`` file, then restart the PiFinder
+to pick up the new ``.mo`` files. On a running device that is:
 
 .. code-block::
 
-    nox -s babel
     sudo systemctl restart pifinder
 
 Please post the changed po files in the Discord channel "translation" and we will include it in the next release.
@@ -271,46 +250,56 @@ Please post the changed po files in the Discord channel "translation" and we wil
 Setup the development environment
 ---------------------------------
 
-On the PiFinder
-..................
+PiFinder is developed on a Linux machine with the `Nix package manager
+<https://nixos.org/download/>`_, which provides the exact toolchain the project
+builds and tests with. An x86_64 machine running Linux — including WSL2 on
+Windows — is the primary platform, and the rest of this guide assumes it.
 
-The best development platform for the PiFinder is the PiFinder itself via SSH or with a 
-monitor keyboard attached.  This will let you develop and test any part of the code. 
+Most UI and catalog work can be done on that machine alone: the display is
+emulated and the camera, IMU and GPS are faked with the flags described under
+`Running/Debugging from the command line`_. Those physical features can only be
+exercised on a real PiFinder.
 
-See the :ref:`software:build from scratch` section of the Software Setup guide for 
-information on creating a base SD card and getting the base software running.
+The device itself runs an immutable NixOS image, so its software sits read-only in
+the Nix store. For a finished change you build an image and install it over the
+air through the update channels (see `Beta Testing`_), or cut a release. For quick
+iteration against the real camera, IMU and GPS, though, you can point the device
+at an editable copy of your code and skip the image build entirely — see
+`Developing on the PiFinder itself`_.
 
-Other Options
-................
+To get started, fork the repo and clone your fork, then set up the environment as
+described next.
 
-Second to this is a standalone Raspberry Pi hooked up to a keyboard and monitor.  This
-will make sure your code will run on the PiFinder, but you won't be able to test the 
-IMU, GPS or other physical hardware features.  You can emulate these using the 
-`--fakehardware` and `--display` flags.  See below for more details.
+Install dependencies with Nix
+.............................
 
-You can also develop on any Posix compatible system (Linux / MacOS) in roughly the 
-same way you can on a Raspberry Pi.  The emulated hardware and networking features 
-will work differently so this is mostly useful for UI/Catalog feature development.
-
-Note that you can develop on Windows by activating Windows Subsystem for Linux (WSL2) 
-and installing Ubuntu from the Microsoft Store. The window launched by PiFinder will 
-be fully integrated into your windows desktop. 
-
-To get started, fork the repo and set up your virtual environment system of choice
-using Python 3.9.  Then follow some of the steps below!
-
-Install python dependencies
-...........................
-
-For running PiFinder, you need to install some python libraries in certain
-versions. These lists can be installed via 
-`pip tool chain <https://pypi.org/project/pip/>`_  and are separated in two
-files: one for getting PiFinder to run, one for development purposes:
+PiFinder's development environment is described by the ``flake.nix`` at the
+repository root, so you don't install Python or its libraries by hand. On NixOS
+the Nix package manager is built in; on another Linux machine, install it and
+enable flakes. If you use `direnv <https://direnv.net/>`_, let it manage the
+shell automatically from the repository root:
 
 .. code-block::
 
-    pip install -r requirements.txt
-    pip install -r requirements_dev.txt
+    direnv allow
+
+The shell then loads and unloads as you enter and leave the checkout. If you do
+not use direnv, enter the identical shell explicitly instead:
+
+.. code-block::
+
+    nix develop
+
+Both routes give you everything PiFinder needs on your ``PATH``: a Python
+interpreter with the project's dependencies, the ``ruff`` linter, the ``uv``
+package manager, and the ``cedar-detect-server`` plate-solving helper. The
+repo's ``.envrc`` uses the classic ``shell.nix`` entry point, which selects the
+same flake dev shell but filters large runtime data out of the source copied to
+the Nix store. This keeps direnv reloads quick; manual ``nix develop`` and CI
+still evaluate the flake directly.
+
+You still need to fetch the Tetra3 submodule once; see
+`Install the Tetra3/Cedar solver`_ below.
 
 
 Hipparcos catalog
@@ -341,76 +330,58 @@ command from with your checked out repo
 Code Quality Automation
 -----------------------
 
-The PiFinder codebase includes features for maintaining code quality,
-adherence to style guide and for evaluation and testing.  These will
-be installed along with the dev dependencies and should be available
-to run immediately.
+PiFinder uses Ruff for linting and formatting, MyPy for type checking, and
+PyTest for the test suite. They all come with the dev shell, so inside
+``nix develop`` you run them directly from the ``python`` directory. Every push
+and pull request runs the same commands in CI, so it's worth running them
+locally before you open a PR.
 
-NOX
-....
+Linting and formatting
+......................
 
-We use `Nox <https://nox.thea.codes/en/stable/>`_ as an entrypoint to all of 
-the code quality tools. Simply run ``nox`` to from the ``PiFinder/python`` 
-directory and it will run (almost) all of the code quality checks and tests.
+`Ruff <https://docs.astral.sh/ruff/>`_ handles both. From ``python/``:
 
-The first time it runs Nox will set up suitable environments for each session
-it manages and this might take a bit.  Subsequent runs will be much faster.
+.. code-block::
 
-To see what sessions are available use ``nox -l``
+    ruff check        # report common issues (add --fix to repair them)
+    ruff format       # reformat code in the Black style
 
-To run only a specific session use ``nox -s [session_name]``
+CI runs ``ruff check`` and ``ruff format --check`` and fails if either reports
+anything, so run them before you push.
 
-The defined sessions are:
+Type checking
+.............
 
-- lint -> Runs `RUFF <https://docs.astral.sh/ruff/>`_ using ``ruff check --fix`` to 
-  check/fix common code issues.  It may produce warnings or fail completely if 
-  there are issues with new code you are working on.  See the documentation for 
-  details on any errors it finds.
+`MyPy <https://mypy.readthedocs.io/en/stable/>`_ does static type analysis. The
+PiFinder code is not fully typed yet, but new contributions need to be
+annotated. From ``python/``:
 
-- format -> Runs ``ruff format`` to reformat code in the Black style. 
+.. code-block::
 
-- type_hints -> Runs `my[py] <https://mypy.readthedocs.io/en/stable/>`_ to do static
-  type analysis.  The PiFinder code is not fully typed (yet!) but we are working on it
-  and any new contributions will need to be fully annotated.  If you've not worked
-  with type-hinted Python before, we'll help you out, so feel free to put up PR's 
-  for non-type-hinted code and we can collaborate.
+    mypy .
 
-- smoke_tests -> Runs `PyTest <https://docs.pytest.org/en/8.2.x/>`_ and executes
-  all tests marked SMOKE.  Smoke tests should be FAST and provide some basic 
-  checking of sanity/syntax.
+If you've not worked with type hints before we'll help you out, so feel free to
+open a PR for non-type-hinted code and we can collaborate.
 
-- unit_tests -> Runs PyTest and executes all tests marked as UNIT.  Unit tests 
-  should exercise more functionality and make take a bit more time.  This Nox
-  session is not run by default, but is executed on code check in to the PiFinder
-  repository.
+Tests
+.....
 
-- ui_tests -> Runs PyTest against the UI module smoke harness
-  (``tests/test_ui_modules.py``).  It builds every UI screen through a real
-  ``MenuManager`` and exercises each screen's key handlers as a crash-only smoke
-  test.  Because it builds the real catalogs and may download ``hip_main.dat`` on
-  first run, it is heavier and more network-dependent than the unit suite, so it
-  lives in its own session and is not run by default.
+`PyTest <https://docs.pytest.org/>`_ runs the test suite. Tests carry markers so
+you can run a slice of them. From ``python/``:
 
-- babel -> Runs the complete toolchain for internationalization (based on `pybabel`).
-  That means extracts strings to translate and updates the `.po`-files in `python/locale/**`
-  Then these are compiled into `.mo`-files. Unfortunately, this changes the `.mo`-files in any case,
-  even if the there have been no changes to strings or their translation. As this will show up 
-  as changes to checked-in, this is not run by default.
+.. code-block::
 
-- web_tests -> Runs PyTest and executes all tests marked as WEB. Web tests use Selenium 
-  to automate browser testing of the PiFinder web interface. These tests require a 
-  running Selenium Grid server and a running PiFinder web server. You can test against a real PiFinder 
-  or a locally running instance. See the sections below for setup instructions. 
-  
+    pytest -m smoke   # fast sanity/syntax checks
+    pytest -m unit    # broader unit coverage
+    pytest -m web     # browser tests of the web interface (see below)
 
-CI/CD
-.......
+There is also a UI smoke harness that builds every screen through a real
+``MenuManager`` and exercises its key handlers — run it with
+``pytest tests/test_ui_modules.py``. It builds the real catalogs and may
+download ``hip_main.dat`` on first run, so it's heavier than the unit suite.
 
-All pushes to the PiFinder repository will run all the defined Nox sessions. Automations
-for PR's will need to be triggered by a maintainer, but you can (and should!) set up 
-your fork to run the existing automation to validate your code as you develop.
-
-If you need help, reach out via email or discord.  We are happy to help :-)
+Smoke and unit tests run in CI on every push. The web tests need extra setup —
+a Selenium Grid and a running PiFinder web server — described next.
 
 Website Tests
 .............
@@ -455,20 +426,18 @@ Running against a locally running instance at localhost:8080:
 
 .. code-block:: bash
 
-    cd ~/PiFinder/python
-    . .venv/bin/activate # Optionally active your virtual environment
+    cd python
     export SELENIUM_GRID_URL=<your selenium grid url which ends in /wd/hub> # Optional, default is http://localhost:4444/wd/hub
-    nox -s web_tests
+    pytest -m web --local
 
 If you want to test against a real PiFinder, set the ``PIFINDER_HOMEPAGE`` environment variable to the URL of your PiFinder instance:
 
 .. code-block:: bash
 
-    cd ~/PiFinder/python
-    . .venv/bin/activate # Optionally active your virtual environment
+    cd python
     export SELENIUM_GRID_URL=<your selenium grid url which ends in /wd/hub> # Optional, default is http://localhost:4444/wd/hub
     export PIFINDER_HOMEPAGE=http://pifinder.local # Change to the URL of your PiFinder, which needs to be in the same WiFi
-    nox -s web_tests
+    pytest -m web
 
 If you run the tests with-out a working Selenium Grid instance, the tests will all be skipped. 
 You can also run individual tests with PyTest directly, use ``SELENIUM_GRID_URL=... PIFINDER_HOMEPAGE=... pytest tests/website/test_file.py``.
@@ -507,6 +476,13 @@ python program with the command line parameters you need for the certain use cas
 
 You simply stop the program with "Ctrl + C".
 
+.. note::
+
+   On a Nix development machine, enter the dev shell first (``nix develop``, or
+   let direnv load it) and run these commands from the ``python`` folder of your
+   own checkout rather than ``/home/pifinder/PiFinder``. Everything you need,
+   including ``cedar-detect-server``, is already on your ``PATH``.
+
 **Remember**: PiFinder is designed to automatically start after boot. So a
 PiFinder process is likely running. Before you can start a PiFinder process for
 testing purposes from the command line, you have to stop all currently running
@@ -522,14 +498,16 @@ PiFinder:
 Running cedar-detect-server
 .............................
 
-You will need to start the ``cedar-detect`` process manually, if your development machine is not a PiFinder, 
-as it is started as a separate process on the PiFinder starting with v2.4.0. 
-You can do this by running the following command in another terminal window:
+If your development machine isn't a PiFinder, you need to start the
+``cedar-detect`` star-detection process yourself — since v2.4.0 it runs as a
+separate process. The Nix dev shell puts ``cedar-detect-server`` on your
+``PATH``, so in another terminal window run:
 
 .. code-block::
 
-    cd /home/pifinder/PiFinder/bin
-    ./cedar-detect-server-<your arch> -p 50551
+    cedar-detect-server -p 50551
+
+The ``-p 50551`` port is required — PiFinder looks for the server there.
 
 -h, --help | available command line arguments
 .............................................
@@ -621,6 +599,117 @@ be retired because the remote server is always started.
     python3 -m PiFinder.main -fh -k server --camera debug -x
 
 
+Developing on the PiFinder itself
+---------------------------------
+
+Most development happens on your desktop, but the camera, IMU, GPS and the
+physical keypad and screen only exist on the device. When a change needs testing
+against that real hardware, you can run your own code on the PiFinder directly,
+without building and flashing an image for every edit.
+
+The shipped software sits read-only in the Nix store, and
+``/home/pifinder/PiFinder`` is a symlink pointing at it. Repoint that symlink at a
+writable copy of your code and the app runs your files instead, using the Python
+interpreter and libraries already installed on the device. The service follows
+the symlink into your checkout, so the loop is just edit, restart, look — no
+rebuild.
+
+Connect to the PiFinder over SSH, then:
+
+1. Stop the running app. It starts automatically at boot, and only one instance
+   can use the hardware at a time:
+
+   .. code-block:: bash
+
+       sudo systemctl stop pifinder
+
+2. Get a copy of your fork into the ``pifinder`` home directory, under any name
+   except ``PiFinder`` itself — that's the symlink you're about to move. The
+   device carries ``git`` and ``rsync``, so clone your fork directly:
+
+   .. code-block:: bash
+
+       git clone --depth 1 https://github.com/<your-fork>/PiFinder.git PiFinder-dev
+
+   The checkout includes the bundled catalog data, so it's a few hundred
+   megabytes; ``--depth 1`` keeps the Git history lean. If you'd rather edit on
+   your desktop, ``rsync`` the changed files over between runs:
+
+   .. code-block:: bash
+
+       rsync -a --exclude .git ./ pifinder@pifinder.local:PiFinder-dev/
+
+3. Note where the symlink currently points, so you can get back to the shipped
+   code later, then aim it at your copy:
+
+   .. code-block:: bash
+
+       readlink /home/pifinder/PiFinder                       # save this store path
+       ln -sfT /home/pifinder/PiFinder-dev /home/pifinder/PiFinder
+
+4. Start the app again. It now runs your code:
+
+   .. code-block:: bash
+
+       sudo systemctl start pifinder
+
+From here the cycle is quick. Edit a file — ``vim`` is on the device, or re-copy
+it from your desktop — then restart the app and follow its log:
+
+.. code-block:: bash
+
+    sudo systemctl restart pifinder
+    journalctl -u pifinder -f
+
+For verbose, interactive output (the ``-x`` flag and the other switches above),
+stop the service instead and run the app in the foreground from your copy's
+``python`` folder, exactly as in `Running/Debugging from the command line`_.
+
+For work that changes Python dependencies or needs development tools, enter the
+repository's complete Nix development environment first:
+
+.. code-block:: bash
+
+    cd /home/pifinder/PiFinder-dev
+    nix develop
+
+The flake provides this shell for both desktop Linux and the PiFinder's
+``aarch64-linux`` system. It uses the checked-in ``flake.lock``,
+``python/pyproject.toml`` and ``python/uv.lock`` and supplies the same native
+``libcamera`` and GObject bindings as the service. CI publishes the aarch64
+shell dependency closure for testable PRs and releases to the PiFinder binary
+caches.
+
+Why ``nix develop`` here instead of the desktop's preferred ``direnv allow``?
+The released device does not currently ship direnv. More importantly, the
+current dev-shell output still includes the PiFinder project source: editing a
+file changes that output's store hash even when none of its dependencies
+changed. ``--option max-jobs 0`` would therefore reject an ordinary edited
+checkout whose exact source-dependent output cannot already exist in a cache.
+The intended end state is to make the shell dependency-only and ship direnv on
+the device; at that point ``direnv allow`` can be the identical entry point on
+desktop and PiFinder while the editable source remains outside the cached
+environment.
+
+.. note::
+
+   This override is deliberately temporary. A reboot or an over-the-air software
+   update re-runs the device's activation step, which restores
+   ``/home/pifinder/PiFinder`` to the shipped store path. To return to the
+   released software at any time, reboot — or repoint the symlink at the path you
+   saved with ``readlink``.
+
+.. note::
+
+   Repointing the symlink runs your code against the image's existing Python
+   environment, which is the fastest path for pure-Python edits. Use ``nix
+   develop`` when changing the environment itself; do not create a separate
+   ``uv venv`` on the device, because that omits native bindings supplied by
+   Nix. A dependency you intend to keep belongs in ``python/pyproject.toml``
+   with an updated ``uv.lock`` and ultimately in a new image (see `Beta
+   Testing`_) so every device runs the same tested environment.
+
+
 Troubleshooting
 ---------------
 
@@ -694,6 +783,3 @@ Finally, you can start straight into this mode from the command line — see the
 .. image:: images/user_guide/DEMO_MODE_001_docs.png
 
 .. image:: images/user_guide/DEMO_MODE_002_docs.png
-
-
-

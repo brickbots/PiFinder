@@ -426,6 +426,7 @@ def test_shutdown_command_matches_sys_utils():
     source = (PYTHON_DIR / "PiFinder" / "sys_utils.py").read_text()
     assert (
         'sh.sudo("shutdown", "now")' in source
+        or '_run(["sudo", "shutdown", "now"])' in source
     ), "sys_utils.shutdown changed -- update SHUTDOWN_COMMAND"
     assert bringup.SHUTDOWN_COMMAND == ("sudo", "shutdown", "now")
 

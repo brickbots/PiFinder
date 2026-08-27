@@ -312,9 +312,9 @@ Testing
 Unit Testing
 ...............
 
-On commit or pull request to the repository the unit tests in ``python/tests`` are run using the 
-configuration in ``pyproject.toml`` using nox (also see its configuration in 
-``noxfile.py``). **Please provide unit tests with your pull requests.** 
+On commit or pull request to the repository the unit tests in ``python/tests`` are
+run in CI inside ``nix develop`` with ``pytest -m unit``, configured in
+``pyproject.toml``. **Please provide unit tests with your pull requests.**
 
 Fuzz Testing
 ...............

@@ -263,7 +263,7 @@ def load_wds():
             coord_2000 = entry["Coordinates_2000"]
             coord_arcsec = entry["Coordinates_Arcsec"]
             logging.error(
-                f"Empty or invalid RA/DEC detected for WDS object at line {i+1}"
+                f"Empty or invalid RA/DEC detected for WDS object at line {i + 1}"
             )
             logging.error(f"  Coordinates_2000: '{coord_2000}'")
             logging.error(f"  Coordinates_Arcsec: '{coord_arcsec}'")
@@ -273,7 +273,7 @@ def load_wds():
             )
             logging.error(f"  Final RA: {entry['ra']}, DEC: {entry['dec']}")
             raise ValueError(
-                f"Invalid RA/DEC coordinates for WDS object at line {i+1}: RA={entry['ra']}, DEC={entry['dec']}"
+                f"Invalid RA/DEC coordinates for WDS object at line {i + 1}: RA={entry['ra']}, DEC={entry['dec']}"
             )
 
     # make a dictionary of WDS objects to group duplicates
