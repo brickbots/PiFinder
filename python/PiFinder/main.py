@@ -882,6 +882,13 @@ def main(
                         if gps_msg == "satellites":
                             # logger.debug("Main: GPS nr sats seen: %s", gps_content)
                             shared_state.set_sats(gps_content)
+                        if gps_msg == "comms":
+                            # The GPS process has no shared_state, so liveness
+                            # reaches the STATUS screen only by way of this
+                            # queue. Stamp arrival here rather than at the
+                            # sending end: the row renders in this process, so
+                            # this is the only clock it can safely subtract.
+                            shared_state.set_gps_comms((gps_content, time.monotonic()))
                 except queue.Empty:
                     pass
 

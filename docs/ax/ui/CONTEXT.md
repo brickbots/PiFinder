@@ -169,12 +169,22 @@ The small mutable object (`state.py`) holding UI-process state — observing lis
 _Avoid_: ui config, session state.
 
 **Target** (`ui_state.target()`):
-The most-recently **selected object**, mirrored into `UIState` by `UIObjectDetails` (`update_object_info`) so cross-screen consumers can mark it — the **chart** draws it as a full-brightness cross (+ off-screen pointer, and its designator label when on-screen), and telemetry records it. Distinct from the Catalog *selected object* (the live `UIObjectDetails` cursor, see [Catalog](../catalog/CONTEXT.md)): the target is the **persisted last selection**, surviving after you leave details. Not a push-to concept — it follows selection automatically.
+The most-recently **selected object**, mirrored into `UIState` by `UIObjectDetails` (`update_object_info`) so cross-screen consumers can mark it — the **chart** draws it as a full-brightness cross (+ off-screen pointer, and its designator label when on-screen), and telemetry records it. Distinct from the Catalog *selected object* (the live `UIObjectDetails` cursor, see [Catalog](../catalog/CONTEXT.md)): the target is the **persisted last selection**, surviving after you leave details. Not a push-to concept — it follows selection automatically. Also distinct from the chart's **center object**, which is geometric rather than remembered — though opening the center object's details makes it the target, like any other selection.
 _Avoid_: push-to target, goto target.
 
 **Published UI state** (`serialize_current_ui_state`):
 The dict `MenuManager` writes to `shared_state.set_current_ui_state(...)` each redraw — `ui_type`, `title`, marking-menu options, and the active module's own `serialize_ui_state()`. This is what `/api/current-selection` reflects.
 _Avoid_: api state, ui snapshot.
+
+### Chart
+
+**Center object**:
+The plotted chart marker nearest the center of the chart. The candidate set is exactly what the chart drew on the current solve — the **target** cross, the observing list, and the nearby catalog DSOs that survived the zoom magnitude limit and the marker cap — further restricted to markers inside the screen bounds. So the center object is always something the user can see: with DSO Display off, the target cross is the only candidate, and when nothing qualifies there is no center object. It is held **sticky** between solves — a rival marker must be closer by a clear margin to take over — so it doesn't alternate between two near-equidistant markers as the pointing drifts. Ranked by distance in screen pixels, not great-circle degrees; at wide FOV the projection makes those differ, and "nearest the center of the chart" is the pixel one.
+_Avoid_: nearest object (the Catalog context's **Nearby** ranking is unbounded and ignores what's drawn — a different set), centre object (house spelling is `center`, matching `centerX`/`centerY`), selected object, target.
+
+**Center-object readout** (`chart_center_object`):
+The optional line along the bottom of the chart naming the **center object**: its **designator** plus its first common name, marquee-scrolled at the user's `text_scroll_speed` when it doesn't fit, with a right-arrow glyph advertising that RIGHT opens that object's details. Repainted every frame from a cached copy of the chart backdrop, so the scroll runs at UI frame rate rather than stuttering at the solve rate. Stacks from the bottom: the RA/Dec readout keeps the bottom line when it is on and the center-object readout sits above it; with RA/Dec off it takes the bottom line itself. The readout is the affordance for the RIGHT key — with it off, RIGHT on the chart does nothing.
+_Avoid_: chart label (**Label** is a menu item's identifier), object label, caption, status bar (that is the Focus screen's).
 
 ### Focus indicator
 
@@ -227,6 +237,7 @@ _Avoid_: optical zoom, solver zoom.
 - **"Selected"** in this context refers to the highlighted item in a `UITextMenu` cursor or a checked multi-select value. The Catalog context's "selected object" / "enabled catalog" distinctions are separate — see [Catalog](../catalog/CONTEXT.md).
 - **"Label" vs "name"** — `label` is the stable internal identifier (for `jump_to_label`); `name` is the user-visible, translated display string. They are different keys on the same menu item.
 - **"Preload" vs "stateful"** — preload is *when* (eagerly at boot); stateful is *whether reused* (cached on the item). Preload implies stateful, but a module can be stateful without being preloaded.
+- **"Center object" vs "target"** — both are single objects the chart singles out, and they are frequently the same one, but they answer different questions. The **target** is *what I last looked at* (remembered, survives navigation, drawn as the cross). The **center object** is *what I am pointed at right now* (recomputed each solve from the drawn markers, named by the readout). The target is also a candidate to *be* the center object.
 
 ## Example dialogue
 

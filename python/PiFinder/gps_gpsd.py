@@ -5,6 +5,7 @@ This module is for GPS related functions
 """
 
 from PiFinder.multiproclogging import MultiprocLogging
+from PiFinder.gps_comms import CommsPublisher
 from gpsdclient import GPSDClient
 import logging
 
@@ -47,6 +48,7 @@ def gps_main(gps_queue, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
     logger.info("Using GPSD GPS code")
     gps_locked = False
+    comms = CommsPublisher(gps_queue)
 
     while True:
         try:
@@ -54,6 +56,11 @@ def gps_main(gps_queue, console_queue, log_queue):
                 for result in client.dict_stream(
                     convert_datetime=True, filter=["TPV", "SKY"]
                 ):
+                    # gpsd hands us decoded dicts, so there are no frames here
+                    # and never any markers; the filter above also means the
+                    # comms row can only ever name TPV or SKY on this backend.
+                    comms.publish(result.get("class", ""))
+
                     if result["class"] == "TPV" and is_tpv_accurate(result):
                         logger.debug("last reading is %s", result)
                         if (

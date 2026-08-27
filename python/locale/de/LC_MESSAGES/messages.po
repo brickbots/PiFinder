@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-30 18:03-0700\n"
+"POT-Creation-Date: 2026-08-27 16:17+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: Jens Scheidtmann\n"
 "Language: de_DE\n"
@@ -16,13 +16,13 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.16.0\n"
+"Generated-By: Babel 2.18.0\n"
 
 #: PiFinder/cat_images.py:206
 msgid "No Image"
 msgstr "Kein Bild"
 
-#: PiFinder/main.py:703
+#: PiFinder/main.py:801
 msgid ""
 "Degraded\n"
 "Check Status"
@@ -30,7 +30,7 @@ msgstr ""
 "Eingeschränkt\n"
 "Status checken"
 
-#: PiFinder/main.py:810
+#: PiFinder/main.py:915
 msgid ""
 "Catalogs\n"
 "Fully Loaded"
@@ -38,8 +38,20 @@ msgstr ""
 "Kataloge\n"
 "geladen"
 
+#: PiFinder/main.py:925
+msgid ""
+"Test Mode ON\n"
+"fake cam+GPS"
+msgstr ""
+
+#: PiFinder/main.py:927
+msgid ""
+"Test Mode\n"
+"OFF"
+msgstr ""
+
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/main.py:860
+#: PiFinder/main.py:957
 msgid ""
 "Low battery\n"
 "Shutting down"
@@ -48,7 +60,8 @@ msgstr ""
 "Ausschalten"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/main.py:893
+#: PiFinder/main.py:990
+#, python-brace-format
 msgid ""
 "Low battery\n"
 "at {pct}%"
@@ -131,239 +144,351 @@ msgid "Unkn"
 msgstr "Unbkt"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/server.py:54
+#: PiFinder/server.py:69 PiFinder/server.py:105 PiFinder/server.py:124
 #, python-format
 msgid "%s is required"
 msgstr "%s ist erforderlich"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/server.py:58
+#: PiFinder/server.py:73
 #, python-format
 msgid "%s must be a number"
 msgstr "%s muss eine Zahl sein"
 
-#: PiFinder/server.py:231
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:91
+#, python-format
+msgid "%(field)s must be between %(minimum)s and %(maximum)s"
+msgstr "%(field)s muss zwischen %(minimum)s und %(maximum)s liegen"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:108
+#, python-format
+msgid "%(field)s must be %(maximum)s characters or fewer"
+msgstr "%(field)s darf höchstens %(maximum)s Zeichen lang sein"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:124 PiFinder/server.py:166 views/edit_eyepiece.html:33
+#: views/equipment.html:69 views/equipment.html:117 views/locations.html:62
+#: views/network.html:62
+msgid "Name"
+msgstr "Name"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:165 PiFinder/server.py:195 views/edit_eyepiece.html:26
+#: views/edit_instrument.html:27 views/equipment.html:68
+#: views/equipment.html:116
+msgid "Make"
+msgstr "Hersteller"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:169 PiFinder/server.py:202
+msgid "Focal length"
+msgstr "Brennweite"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:173
+msgid "Apparent field of view"
+msgstr "Scheinbares Gesichtsfeld"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:177
+msgid "Field stop"
+msgstr "Feldblende"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:192
+#, python-format
+msgid "%s is not a valid mount type"
+msgstr "%s ist keine gültige Montierungsart"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:196
+msgid "Instrument name"
+msgstr "Instrumentenname"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:198 views/equipment.html:70
+msgid "Aperture"
+msgstr "Öffnung"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:207
+msgid "Obstruction"
+msgstr "Obstruktion"
+
+#: PiFinder/server.py:390
 msgid "Locked"
 msgstr "Gesperrt"
 
-#: PiFinder/server.py:231
+#: PiFinder/server.py:390
 msgid "Not Locked"
 msgstr "Nicht gesperrt"
 
-#: PiFinder/server.py:253 views/base.html:17 views/base.html:28
+#: PiFinder/server.py:412 views/base.html:17 views/base.html:28
 msgid "Home"
 msgstr "Home"
 
-#: PiFinder/server.py:281 PiFinder/server.py:289 views/login.html:31
+#: PiFinder/server.py:440 PiFinder/server.py:448 views/login.html:31
 msgid "Login"
 msgstr "Einloggen"
 
-#: PiFinder/server.py:283
+#: PiFinder/server.py:442
 msgid "Invalid Password"
 msgstr "Falsches Passwort"
 
-#: PiFinder/server.py:295 views/base.html:18 views/base.html:29
+#: PiFinder/server.py:454 views/base.html:18 views/base.html:29
 msgid "Remote"
 msgstr "Fernsteuerung"
 
-#: PiFinder/server.py:301 PiFinder/ui/menu_structure.py:995
+#: PiFinder/server.py:460 PiFinder/ui/menu_structure.py:1013
 msgid "Advanced"
 msgstr "Erweitert"
 
-#: PiFinder/server.py:310
+#: PiFinder/server.py:469 PiFinder/server.py:723
 msgid "Network"
 msgstr "Netzwerk"
 
-#: PiFinder/server.py:328
+#: PiFinder/server.py:487 PiFinder/server.py:519
 msgid "GPS"
 msgstr "GPS"
 
-#: PiFinder/server.py:362 PiFinder/server.py:415 PiFinder/server.py:468
-#: views/base.html:21 views/base.html:32
-msgid "Locations"
-msgstr "Orte"
-
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/server.py:372 PiFinder/server.py:432 views/locations.html:63
+#: PiFinder/server.py:504 PiFinder/server.py:553 PiFinder/server.py:613
+#: views/locations.html:63
 msgid "Latitude"
 msgstr "Breite"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/server.py:373 PiFinder/server.py:433 views/locations.html:64
+#: PiFinder/server.py:505 PiFinder/server.py:554 PiFinder/server.py:614
+#: views/locations.html:64
 msgid "Longitude"
 msgstr "Länge"
 
-#: PiFinder/server.py:374 PiFinder/server.py:434
+#: PiFinder/server.py:506 PiFinder/server.py:555 PiFinder/server.py:615
 #: PiFinder/ui/menu_structure.py:431 views/locations.html:65
 msgid "Altitude"
 msgstr "Höhe"
 
-#: PiFinder/server.py:376 PiFinder/server.py:436 PiFinder/ui/object_list.py:309
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:514
+msgid "Date and time must be YYYY-MM-DD h:m:s"
+msgstr "Datum und Uhrzeit müssen im Format YYYY-MM-DD h:m:s vorliegen"
+
+#: PiFinder/server.py:543 PiFinder/server.py:596 PiFinder/server.py:649
+#: views/base.html:21 views/base.html:32
+msgid "Locations"
+msgstr "Orte"
+
+#: PiFinder/server.py:557 PiFinder/server.py:617 PiFinder/ui/object_list.py:346
 #: views/locations.html:66
 msgid "Error"
 msgstr "Fehler"
 
-#: PiFinder/server.py:382 PiFinder/server.py:442
+#: PiFinder/server.py:563 PiFinder/server.py:623
 msgid "Location name is required"
 msgstr "Ortname ist erforderlich"
 
-#: PiFinder/server.py:384 PiFinder/server.py:444
+#: PiFinder/server.py:565 PiFinder/server.py:625
 msgid "Latitude must be between -90 and 90"
 msgstr "Höhe muss zwischen -90 und 90 sein"
 
-#: PiFinder/server.py:386 PiFinder/server.py:446
+#: PiFinder/server.py:567 PiFinder/server.py:627
 msgid "Longitude must be between -180 and 180"
 msgstr "Breite muss zwischen -180 und 180 sein"
 
-#: PiFinder/server.py:389 PiFinder/server.py:449
+#: PiFinder/server.py:570 PiFinder/server.py:630
 msgid "Altitude must be between -1000 and 10000 meters"
 msgstr "Höhe muss zwischen -1000 und 10000 Metern sein"
 
-#: PiFinder/server.py:392 PiFinder/server.py:452
+#: PiFinder/server.py:573 PiFinder/server.py:633
 msgid "Error must be between 0 and 10000 meters"
 msgstr "Unsicherheit muss zwichen 0 und 10000 Metern liegen"
 
-#: PiFinder/server.py:539 PiFinder/ui/menu_structure.py:1283
-msgid "Restart"
-msgstr "Neu starten"
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:727
+#, python-brace-format
+msgid ""
+"Network settings updated — no restart needed. This device is now "
+"reachable at http://{host}.local. If you changed the host name, the "
+"previous address stops working, so reconnect there."
+msgstr ""
+"Netzwerkeinstellungen aktualisiert – kein Neustart nötig. Dieses Gerät "
+"ist jetzt unter http://{host}.local erreichbar. Wenn Sie den Hostnamen "
+"geändert haben, funktioniert die vorherige Adresse nicht mehr – verbinden"
+" Sie sich dort neu."
 
-#: PiFinder/server.py:550 PiFinder/server.py:559 PiFinder/server.py:563
-#: PiFinder/server.py:567 PiFinder/server.py:922
-#: PiFinder/ui/menu_structure.py:1151 views/base.html:23 views/base.html:34
+#: PiFinder/server.py:742 PiFinder/server.py:751 PiFinder/server.py:755
+#: PiFinder/server.py:759 PiFinder/server.py:1162
+#: PiFinder/ui/menu_structure.py:1196 views/base.html:23 views/base.html:34
 #: views/tools.html:6
 msgid "Tools"
 msgstr "Werkzeuge"
 
-#: PiFinder/server.py:551
+#: PiFinder/server.py:743
 msgid "You must fill in all password fields"
 msgstr "All Passwortfelder müssen gefüllt werden"
 
-#: PiFinder/server.py:559
+#: PiFinder/server.py:751
 msgid "Password Changed"
 msgstr "Passwort geändert"
 
-#: PiFinder/server.py:563
+#: PiFinder/server.py:755
 msgid "Incorrect current password"
 msgstr "Falsches aktuelles Passwort"
 
-#: PiFinder/server.py:567
+#: PiFinder/server.py:759
 msgid "New passwords do not match"
 msgstr "Neue Passwörter sind unterschiedlich"
 
-#: PiFinder/server.py:592 PiFinder/server.py:603 PiFinder/server.py:620
-#: PiFinder/server.py:702 PiFinder/server.py:758 PiFinder/server.py:771
-#: PiFinder/server.py:844 PiFinder/server.py:857
-#: PiFinder/ui/menu_structure.py:1156 views/base.html:22 views/base.html:33
+#: PiFinder/server.py:784 PiFinder/server.py:794 PiFinder/server.py:809
+#: PiFinder/server.py:828 PiFinder/server.py:935 PiFinder/server.py:993
+#: PiFinder/server.py:999 PiFinder/server.py:1014 PiFinder/server.py:1076
+#: PiFinder/server.py:1082 PiFinder/server.py:1097
+#: PiFinder/ui/menu_structure.py:1201 views/base.html:22 views/base.html:33
 #: views/equipment.html:6
 msgid "Equipment"
 msgstr "Ausrüstung"
 
-#: PiFinder/server.py:609
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:804 PiFinder/server.py:1027 PiFinder/server.py:1092
+msgid "No such instrument"
+msgstr "Instrument nicht gefunden"
+
+#: PiFinder/server.py:815
 msgid "set as active instrument."
 msgstr "als aktives Instrument gesetzt."
 
-#: PiFinder/server.py:626
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:823 PiFinder/server.py:946 PiFinder/server.py:1009
+msgid "No such eyepiece"
+msgstr "Okular nicht gefunden"
+
+#: PiFinder/server.py:834
 msgid "set as active eyepiece."
 msgstr "Als aktives Okular gesetzt."
 
-#: PiFinder/server.py:704
+#: PiFinder/server.py:928
 msgid "Equipment Imported, restart your PiFinder to use this new data"
 msgstr "Ausrüstung importiert, bitte PiFinder neustarten"
 
-#: PiFinder/server.py:720
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:932
+#, python-format
+msgid "%s entries were skipped because DeepskyLog had no usable values for them."
+msgstr ""
+"%s Einträge wurden übersprungen, weil DeepskyLog keine verwendbaren Werte"
+" dafür hatte."
+
+#: PiFinder/server.py:954 PiFinder/server.py:971
 msgid "Edit Eyepiece"
 msgstr "Okular editieren"
 
-#: PiFinder/server.py:760
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:995
+#, python-format
+msgid "Could not save eyepiece: %s"
+msgstr "Okular konnte nicht gespeichert werden: %s"
+
+#: PiFinder/server.py:1001
 msgid "Eyepiece added, restart your PiFinder to use"
 msgstr "Okular hinzugefügt, bitte PiFinder neustarten"
 
-#: PiFinder/server.py:773
+#: PiFinder/server.py:1017
 msgid "Eyepiece Deleted, restart your PiFinder to remove from menu"
 msgstr "Okular gelöscht, bitte PiFinder neustarten"
 
-#: PiFinder/server.py:798
+#: PiFinder/server.py:1035 PiFinder/server.py:1054
 msgid "Edit Instrument"
 msgstr "Instrument editieren"
 
-#: PiFinder/server.py:846
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1078
+#, python-format
+msgid "Could not save instrument: %s"
+msgstr "Instrument konnte nicht gespeichert werden: %s"
+
+#: PiFinder/server.py:1084
 msgid "Instrument Added, restart your PiFinder to use"
 msgstr "Instrument hinzugefügt, bitte PiFinder neustarten"
 
-#: PiFinder/server.py:859
+#: PiFinder/server.py:1100
 msgid "Instrument Deleted, restart your PiFinder to remove from menu"
 msgstr "Instrument gelöscht, bitte PiFinder neustarten"
 
-#: PiFinder/server.py:887 views/base.html:20 views/base.html:31
+#: PiFinder/server.py:1127 views/base.html:20 views/base.html:31
 msgid "Observations"
 msgstr "Beobachtungen"
 
-#: PiFinder/server.py:916
+#: PiFinder/server.py:1156
 msgid "Session Log"
 msgstr "Log speichern"
 
-#: PiFinder/server.py:927 PiFinder/server.py:1025 views/base.html:24
+#: PiFinder/server.py:1167 PiFinder/server.py:1265 views/base.html:24
 #: views/base.html:35
 msgid "Logs"
 msgstr "Logs"
 
-#: PiFinder/server.py:1025
+#: PiFinder/server.py:1265
 msgid "Error creating log archive"
 msgstr "Fehler beim zippen der Logs"
 
-#: PiFinder/server.py:1082 views/restart_pifinder.html:6
+#: PiFinder/server.py:1301 views/restart_pifinder.html:6
 msgid "Restarting PiFinder"
 msgstr "PiFinder Neustart..."
 
-#: PiFinder/server.py:1144
+#: PiFinder/server.py:1363
 msgid "Restart PiFinder"
 msgstr "PiFinder Neustart..."
 
-#: PiFinder/ui/align.py:50
+#: PiFinder/ui/align.py:51
 msgid "Align Timeout"
 msgstr "Justage Timeout"
 
-#: PiFinder/ui/align.py:64
+#: PiFinder/ui/align.py:65
 msgid "Alignment Set"
 msgstr "Justage fertig"
 
 # AI-TRANSLATED (claude): needs human review
 #. TRANSLATORS: hint bar; preserve leading spaces for layout
-#: PiFinder/ui/align.py:251 PiFinder/ui/align_daytime.py:209
+#: PiFinder/ui/align.py:265 PiFinder/ui/align_daytime.py:209
+#, python-brace-format
 msgid "  {icon} START ALIGN"
 msgstr "  {icon} START JUSTAGE"
 
 # AI-TRANSLATED (claude): needs human review
 #. TRANSLATORS: hint bar; {icon} is a directional-arrows glyph
-#: PiFinder/ui/align.py:254
+#: PiFinder/ui/align.py:268
+#, python-brace-format
 msgid "{icon} SELECT STAR"
 msgstr "{icon} STERN WÄHLEN"
 
 # AI-TRANSLATED (claude): needs human review
 #. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
-#: PiFinder/ui/align.py:257
+#: PiFinder/ui/align.py:271
+#, python-brace-format
 msgid "{icon} SAVE / 0 CANCEL"
 msgstr "{icon} SPEICHERN / 0 ABBR"
 
-#: PiFinder/ui/align.py:279 PiFinder/ui/chart.py:421
+#: PiFinder/ui/align.py:293 PiFinder/ui/chart.py:667
 msgid "Can't plot"
 msgstr "keine Anz."
 
-#: PiFinder/ui/align.py:288 PiFinder/ui/chart.py:430 PiFinder/ui/log.py:166
-#: PiFinder/ui/object_list.py:331 PiFinder/ui/object_list.py:351
+#: PiFinder/ui/align.py:302 PiFinder/ui/chart.py:676 PiFinder/ui/log.py:166
+#: PiFinder/ui/object_list.py:364 PiFinder/ui/object_list.py:403
 msgid "No Solve Yet"
 msgstr "kein Platesolve"
 
-#: PiFinder/ui/align.py:399 PiFinder/ui/object_details.py:682
+#: PiFinder/ui/align.py:413 PiFinder/ui/object_details.py:696
 msgid "Aligning..."
 msgstr "Justage..."
 
-#: PiFinder/ui/align.py:407 PiFinder/ui/align_daytime.py:310
-#: PiFinder/ui/object_details.py:690
+#: PiFinder/ui/align.py:421 PiFinder/ui/align_daytime.py:310
+#: PiFinder/ui/object_details.py:704
 msgid "Aligned!"
 msgstr "Justiert!"
 
-#: PiFinder/ui/align.py:409
+#: PiFinder/ui/align.py:423
 msgid "Alignment failed"
 msgstr "Justage abgebrochen"
 
@@ -379,6 +504,7 @@ msgstr "Bel. Auto"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/align_daytime.py:199
+#, python-brace-format
 msgid "{icon} SAVE  0 CANCEL"
 msgstr "{icon} SPEICHERN  0 ABBR"
 
@@ -387,12 +513,12 @@ msgstr "{icon} SPEICHERN  0 ABBR"
 msgid "AUTO"
 msgstr "AUTO"
 
-#: PiFinder/ui/base.py:300 PiFinder/ui/dateentry.py:166
-#: PiFinder/ui/locationentry.py:222 PiFinder/ui/timeentry.py:171
+#: PiFinder/ui/base.py:301 PiFinder/ui/dateentry.py:166
+#: PiFinder/ui/locationentry.py:222 PiFinder/ui/timeentry.py:178
 msgid " Cancel"
 msgstr " Abbruch"
 
-#: PiFinder/ui/callbacks.py:52
+#: PiFinder/ui/callbacks.py:53
 msgid ""
 "Options for\n"
 "DIY PiFinders"
@@ -400,36 +526,33 @@ msgstr ""
 "Optionen für\n"
 "DIY PiFinder"
 
-#: PiFinder/ui/callbacks.py:67
+#: PiFinder/ui/callbacks.py:68
 msgid "Filters Reset"
 msgstr "Filterreset"
 
-#: PiFinder/ui/callbacks.py:80 PiFinder/ui/menu_structure.py:1202
-msgid "Test Mode"
-msgstr "Test Modus"
-
-#: PiFinder/ui/callbacks.py:174
+#: PiFinder/ui/callbacks.py:180
 msgid "Shutting Down"
 msgstr "Ausschalten"
 
-#: PiFinder/ui/callbacks.py:183 PiFinder/ui/callbacks.py:191
+#: PiFinder/ui/callbacks.py:189 PiFinder/ui/callbacks.py:197
 msgid "Restarting..."
 msgstr "Neustart..."
 
-#: PiFinder/ui/callbacks.py:196 PiFinder/ui/callbacks.py:202
-#: PiFinder/ui/callbacks.py:208
+#: PiFinder/ui/callbacks.py:202 PiFinder/ui/callbacks.py:208
+#: PiFinder/ui/callbacks.py:214
 msgid "Switching cam"
 msgstr "andere Kamera"
 
-#: PiFinder/ui/callbacks.py:246
+#: PiFinder/ui/callbacks.py:298
 msgid "WiFi to AP"
 msgstr "WLAN AP"
 
-#: PiFinder/ui/callbacks.py:252
+#: PiFinder/ui/callbacks.py:304
 msgid "WiFi to Client"
 msgstr "WLAN Client"
 
-#: PiFinder/ui/callbacks.py:275
+#: PiFinder/ui/callbacks.py:333
+#, python-brace-format
 msgid ""
 "{lat:.2f}, {lon:.2f}\n"
 "{alt}m alt"
@@ -438,20 +561,21 @@ msgstr ""
 "{alt}m hoch"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/callbacks.py:282
+#: PiFinder/ui/callbacks.py:340
 msgid "Location Reset"
 msgstr "Ort zurücksetzen"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/callbacks.py:287
+#: PiFinder/ui/callbacks.py:345
 msgid "Time/Date Reset"
 msgstr "Zeit/Datum zurücks."
 
-#: PiFinder/ui/callbacks.py:294
+#: PiFinder/ui/callbacks.py:352
 msgid "No location lock"
 msgstr "Ort nicht gesetzt"
 
-#: PiFinder/ui/callbacks.py:308
+#: PiFinder/ui/callbacks.py:366
+#, python-brace-format
 msgid ""
 "Saved\n"
 "{name}"
@@ -459,21 +583,24 @@ msgstr ""
 "{name}\n"
 "gespeichert"
 
-#: PiFinder/ui/callbacks.py:312 PiFinder/ui/gpsstatus.py:79
+#: PiFinder/ui/callbacks.py:370 PiFinder/ui/gpsstatus.py:79
 #: PiFinder/ui/location_list.py:135 views/location_form.html:6
 #: views/locations.html:117
 msgid "Location Name"
 msgstr "Ort setzen"
 
-#: PiFinder/ui/callbacks.py:315 PiFinder/ui/gpsstatus.py:82
+#: PiFinder/ui/callbacks.py:373 PiFinder/ui/gpsstatus.py:82
+#, python-brace-format
 msgid "Loc {number}"
 msgstr "Ort {number}"
 
-#: PiFinder/ui/callbacks.py:346
+#: PiFinder/ui/callbacks.py:407
+#, python-brace-format
 msgid "Time: {time}"
 msgstr "Zeit: {time}"
 
-#: PiFinder/ui/callbacks.py:364
+#: PiFinder/ui/callbacks.py:426
+#, python-brace-format
 msgid ""
 "{date}\n"
 "{time}"
@@ -482,7 +609,8 @@ msgstr ""
 "{time}"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/callbacks.py:384
+#: PiFinder/ui/callbacks.py:446
+#, python-brace-format
 msgid ""
 "User object created\n"
 "{name}"
@@ -490,7 +618,7 @@ msgstr ""
 "Objekt erstellt\n"
 "{name}"
 
-#: PiFinder/ui/callbacks.py:514
+#: PiFinder/ui/callbacks.py:592
 msgid ""
 "Checking GPS\n"
 "config..."
@@ -498,7 +626,7 @@ msgstr ""
 "Überprüfen GPS\n"
 "Konfiguration..."
 
-#: PiFinder/ui/callbacks.py:519
+#: PiFinder/ui/callbacks.py:597
 msgid ""
 "GPS config\n"
 "updated"
@@ -506,7 +634,7 @@ msgstr ""
 "GPS Konfiguration\n"
 "aktualisiert"
 
-#: PiFinder/ui/callbacks.py:521
+#: PiFinder/ui/callbacks.py:599
 msgid ""
 "GPS config\n"
 "OK"
@@ -514,7 +642,7 @@ msgstr ""
 "GPS Konfiguration\n"
 "Ok"
 
-#: PiFinder/ui/callbacks.py:524
+#: PiFinder/ui/callbacks.py:602
 msgid ""
 "GPS config\n"
 "failed"
@@ -522,13 +650,14 @@ msgstr ""
 "GPS Konfig\n"
 "kaputt"
 
-#: PiFinder/ui/chart.py:92 PiFinder/ui/menu_structure.py:543
+#: PiFinder/ui/chart.py:112 PiFinder/ui/menu_structure.py:543
 msgid "Settings"
 msgstr "Einstellungen"
 
 # AI-TRANSLATED (claude): needs human review
 #. TRANSLATORS: chart corner label, e.g. "Zenith up" — keep short
-#: PiFinder/ui/chart.py:273
+#: PiFinder/ui/chart.py:307
+#, python-brace-format
 msgid "{label} up"
 msgstr "{label} oben"
 
@@ -549,22 +678,22 @@ msgstr "tt"
 msgid "Enter Local Date"
 msgstr "lok Zeit eingeben"
 
-#: PiFinder/ui/dateentry.py:159 PiFinder/ui/timeentry.py:164
+#: PiFinder/ui/dateentry.py:159 PiFinder/ui/timeentry.py:171
 msgid " Done"
 msgstr " Fertig"
 
 #: PiFinder/ui/dateentry.py:173 PiFinder/ui/locationentry.py:232
-#: PiFinder/ui/timeentry.py:178
+#: PiFinder/ui/timeentry.py:185
 msgid "󰍴 Delete/Previous"
 msgstr "󰍴 Löschen/Zurück"
 
 #: PiFinder/ui/dateentry.py:236 PiFinder/ui/locationentry.py:346
-#: PiFinder/ui/polar_align.py:525 PiFinder/ui/timeentry.py:252
+#: PiFinder/ui/polar_align.py:525 PiFinder/ui/timeentry.py:259
 msgid "Cancelled"
 msgstr "Abgebrochen"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/dateentry.py:250 PiFinder/ui/timeentry.py:270
+#: PiFinder/ui/dateentry.py:250 PiFinder/ui/timeentry.py:277
 msgid ""
 "Set location\n"
 "first"
@@ -583,10 +712,12 @@ msgstr "Kein Okular gewählt"
 # AI-TRANSLATED (claude): needs human review; previous "M" dropped the {mag}
 # value
 #: PiFinder/ui/equipment.py:74
+#, python-brace-format
 msgid "Mag: {mag:.0f}x"
 msgstr "Vergr: {mag:.0f}x"
 
-#: PiFinder/ui/equipment.py:86
+#: PiFinder/ui/equipment.py:87
+#, python-brace-format
 msgid "TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
 msgstr "WFld: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
 
@@ -598,7 +729,7 @@ msgstr "Teleskop..."
 msgid "Eyepiece..."
 msgstr "Okular..."
 
-#: PiFinder/ui/gpsstatus.py:30
+#: PiFinder/ui/gpsstatus.py:31
 msgid "Limited"
 msgstr "eingeschränkt"
 
@@ -618,7 +749,7 @@ msgstr "akkurat"
 msgid "Precise"
 msgstr "präzise"
 
-#: PiFinder/ui/gpsstatus.py:45 views/gps.html:77 views/network.html:81
+#: PiFinder/ui/gpsstatus.py:45 views/gps.html:84 views/network.html:74
 msgid "Save"
 msgstr "Speichern"
 
@@ -635,10 +766,12 @@ msgid "Location locked"
 msgstr "Ort gesetzt"
 
 #: PiFinder/ui/gpsstatus.py:127
+#, python-brace-format
 msgid "{error:.1f} km"
 msgstr "{error:.1f} km"
 
 #: PiFinder/ui/gpsstatus.py:131
+#, python-brace-format
 msgid "{error:.0f} m"
 msgstr "{error:.0f} m"
 
@@ -658,11 +791,11 @@ msgstr "Bereit zur"
 msgid "to observe!"
 msgstr "Beobachtung!"
 
-#: PiFinder/ui/gpsstatus.py:184
+#: PiFinder/ui/gpsstatus.py:185
 msgid "Stay on this screen"
 msgstr "Hiergeblieben für"
 
-#: PiFinder/ui/gpsstatus.py:193
+#: PiFinder/ui/gpsstatus.py:194
 msgid "for quicker lock"
 msgstr "schnellen GPS Fix"
 
@@ -671,7 +804,7 @@ msgid "Lock Type:"
 msgstr "Fix-Typ:"
 
 #: PiFinder/ui/gpsstatus.py:211 PiFinder/ui/menu_structure.py:437
-#: PiFinder/ui/menu_structure.py:469 views/network.html:74
+#: PiFinder/ui/menu_structure.py:469 views/network.html:67
 msgid "None"
 msgstr "Nix"
 
@@ -680,18 +813,22 @@ msgid "Sats seen/used:"
 msgstr "Sat gesehen/ben:"
 
 #: PiFinder/ui/gpsstatus.py:240
+#, python-brace-format
 msgid "{square} Toggle Details"
 msgstr "{square} für Details"
 
 #: PiFinder/ui/gpsstatus.py:249
+#, python-brace-format
 msgid "Sats seen/used: {sats_seen}/{sats_used}"
 msgstr "Sats ges/ben: {sats_seen}/{sats_used}"
 
 #: PiFinder/ui/gpsstatus.py:260
+#, python-brace-format
 msgid "Error: {error}"
 msgstr "Fehler: {error}"
 
 #: PiFinder/ui/gpsstatus.py:271
+#, python-brace-format
 msgid "Lock:  {locktype}"
 msgstr "Fix:   {locktype}"
 
@@ -700,31 +837,37 @@ msgid "No"
 msgstr "Nix"
 
 #: PiFinder/ui/gpsstatus.py:284
+#, python-brace-format
 msgid "Lat:   {latitude:.5f}"
 msgstr "Länge: {latitude:.5f}"
 
 #: PiFinder/ui/gpsstatus.py:292
+#, python-brace-format
 msgid "Lon:   {longitude:.5f}"
 msgstr "Breite: {longitude:.5f}"
 
 #: PiFinder/ui/gpsstatus.py:300
+#, python-brace-format
 msgid "Alt:   {altitude:.1f} m"
 msgstr "Höhe:  {altitude:.1f} m"
 
 #: PiFinder/ui/gpsstatus.py:309
+#, python-brace-format
 msgid "Time:  {time}"
 msgstr "Zeit:  {time}"
 
 #: PiFinder/ui/gpsstatus.py:318
+#, python-brace-format
 msgid "Date:  {date}"
 msgstr "Datum:  {date}"
 
 #: PiFinder/ui/gpsstatus.py:327
+#, python-brace-format
 msgid "From:  {location_source}"
 msgstr "Quelle: {location_source}"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/location_list.py:28 PiFinder/ui/menu_structure.py:1257
+#: PiFinder/ui/location_list.py:28 PiFinder/ui/menu_structure.py:1334
 msgid "Load"
 msgstr "Laden"
 
@@ -742,16 +885,19 @@ msgstr "Löschen"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/location_list.py:105
+#, python-brace-format
 msgid "Loaded: {name}"
 msgstr "Geladen: {name}"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/location_list.py:128
+#, python-brace-format
 msgid "Deleted: {name}"
 msgstr "Gelöscht: {name}"
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/location_list.py:148
+#, python-brace-format
 msgid ""
 "Renamed to:\n"
 "{name}"
@@ -800,7 +946,7 @@ msgid "󰍴 Delete  󰐕 E/W"
 msgstr "󰍴 Löschen  󰐕 O/W"
 
 #: PiFinder/ui/locationentry.py:312 PiFinder/ui/locationentry.py:324
-#: PiFinder/ui/menu_structure.py:1172
+#: PiFinder/ui/menu_structure.py:1217
 msgid "Enter Coords"
 msgstr "Koord eingeben"
 
@@ -908,7 +1054,7 @@ msgstr "Justieren"
 msgid "Align (Day)"
 msgstr "Justieren (Tag)"
 
-#: PiFinder/ui/menu_structure.py:67 PiFinder/ui/menu_structure.py:1163
+#: PiFinder/ui/menu_structure.py:67 PiFinder/ui/menu_structure.py:1208
 msgid "GPS Status"
 msgstr "GPS Status"
 
@@ -1057,19 +1203,17 @@ msgstr "Filter setzen"
 msgid "Reset All"
 msgstr "Zurücksetzen"
 
-#: PiFinder/ui/menu_structure.py:290 PiFinder/ui/menu_structure.py:1278
-#: PiFinder/ui/menu_structure.py:1289 PiFinder/ui/software.py:435
-#: PiFinder/ui/software.py:531
+#: PiFinder/ui/menu_structure.py:290 PiFinder/ui/menu_structure.py:1355
+#: PiFinder/ui/menu_structure.py:1366
 msgid "Confirm"
 msgstr "Bestätigen"
 
-#: PiFinder/ui/menu_structure.py:293 PiFinder/ui/menu_structure.py:1279
-#: PiFinder/ui/menu_structure.py:1292 PiFinder/ui/software.py:380
-#: PiFinder/ui/software.py:435 PiFinder/ui/software.py:529
-#: views/edit_eyepiece.html:54 views/edit_instrument.html:108
+#: PiFinder/ui/menu_structure.py:293 PiFinder/ui/menu_structure.py:1356
+#: PiFinder/ui/menu_structure.py:1369 PiFinder/ui/radec_entry.py:919
+#: views/edit_eyepiece.html:67 views/edit_instrument.html:113
 #: views/equipment.html:58 views/location_form.html:77 views/locations.html:187
-#: views/locations.html:200 views/network.html:46 views/network.html:83
-#: views/network_item.html:19 views/tools.html:97
+#: views/locations.html:200 views/network.html:76 views/network_item.html:19
+#: views/tools.html:97
 msgid "Cancel"
 msgstr "Abbrechen"
 
@@ -1114,9 +1258,9 @@ msgstr "Lautstärke"
 #: PiFinder/ui/menu_structure.py:647 PiFinder/ui/menu_structure.py:671
 #: PiFinder/ui/menu_structure.py:790 PiFinder/ui/menu_structure.py:814
 #: PiFinder/ui/menu_structure.py:838 PiFinder/ui/menu_structure.py:862
-#: PiFinder/ui/menu_structure.py:893 PiFinder/ui/menu_structure.py:909
-#: PiFinder/ui/menu_structure.py:1125 PiFinder/ui/menu_structure.py:1231
-#: PiFinder/ui/menu_structure.py:1247
+#: PiFinder/ui/menu_structure.py:884 PiFinder/ui/menu_structure.py:911
+#: PiFinder/ui/menu_structure.py:927 PiFinder/ui/menu_structure.py:1170
+#: PiFinder/ui/menu_structure.py:1273 PiFinder/ui/menu_structure.py:1283
 msgid "Off"
 msgstr "Aus"
 
@@ -1134,7 +1278,7 @@ msgstr "Schnell"
 
 #: PiFinder/ui/menu_structure.py:655 PiFinder/ui/menu_structure.py:679
 #: PiFinder/ui/menu_structure.py:798 PiFinder/ui/menu_structure.py:822
-#: PiFinder/ui/menu_structure.py:846 PiFinder/ui/menu_structure.py:1139
+#: PiFinder/ui/menu_structure.py:846 PiFinder/ui/menu_structure.py:1184
 msgid "Medium"
 msgstr "Mittel"
 
@@ -1231,12 +1375,12 @@ msgid "Reticle"
 msgstr "Fadenkreuz"
 
 #: PiFinder/ui/menu_structure.py:794 PiFinder/ui/menu_structure.py:818
-#: PiFinder/ui/menu_structure.py:842 PiFinder/ui/menu_structure.py:1135
+#: PiFinder/ui/menu_structure.py:842 PiFinder/ui/menu_structure.py:1180
 msgid "Low"
 msgstr "Niedrig"
 
 #: PiFinder/ui/menu_structure.py:802 PiFinder/ui/menu_structure.py:826
-#: PiFinder/ui/menu_structure.py:850 PiFinder/ui/menu_structure.py:1143
+#: PiFinder/ui/menu_structure.py:850 PiFinder/ui/menu_structure.py:1188
 msgid "High"
 msgstr "Hoch"
 
@@ -1261,411 +1405,499 @@ msgid "Degrees"
 msgstr "Grad"
 
 # AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: chart setting — names the object
+#. nearest the middle of the chart
 #: PiFinder/ui/menu_structure.py:878
-msgid "Image..."
-msgstr "Bild..."
+msgid "Center Object"
+msgstr "Zentralobjekt"
 
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/menu_structure.py:883
-msgid "NSEW Labels"
-msgstr "NSOW-Label"
-
-#: PiFinder/ui/menu_structure.py:889 PiFinder/ui/menu_structure.py:905
-#: PiFinder/ui/menu_structure.py:1235 PiFinder/ui/menu_structure.py:1251
+#: PiFinder/ui/menu_structure.py:888 PiFinder/ui/menu_structure.py:907
+#: PiFinder/ui/menu_structure.py:923 PiFinder/ui/menu_structure.py:1274
 msgid "On"
 msgstr "An"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/menu_structure.py:899
+#: PiFinder/ui/menu_structure.py:896
+msgid "Image..."
+msgstr "Bild..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:901
+msgid "NSEW Labels"
+msgstr "NSOW-Label"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:917
 msgid "Object Size"
 msgstr "Objektgröße"
 
-#: PiFinder/ui/menu_structure.py:917
+#: PiFinder/ui/menu_structure.py:935
 msgid "Camera Exp"
 msgstr "Belichtungsz."
 
-#: PiFinder/ui/menu_structure.py:925
+#: PiFinder/ui/menu_structure.py:943
 msgid "Auto"
 msgstr "Auto"
 
-#: PiFinder/ui/menu_structure.py:930
+#: PiFinder/ui/menu_structure.py:948
 msgid "0.025s"
 msgstr "0,025s"
 
-#: PiFinder/ui/menu_structure.py:934
+#: PiFinder/ui/menu_structure.py:952
 msgid "0.05s"
 msgstr "0,05s"
 
-#: PiFinder/ui/menu_structure.py:938
+#: PiFinder/ui/menu_structure.py:956
 msgid "0.1s"
 msgstr "0,1s"
 
-#: PiFinder/ui/menu_structure.py:942
+#: PiFinder/ui/menu_structure.py:960
 msgid "0.2s"
 msgstr "0,2s"
 
-#: PiFinder/ui/menu_structure.py:946
+#: PiFinder/ui/menu_structure.py:964
 msgid "0.4s"
 msgstr "0.4s"
 
-#: PiFinder/ui/menu_structure.py:950
+#: PiFinder/ui/menu_structure.py:968
 msgid "0.8s"
 msgstr "0.8s"
 
-#: PiFinder/ui/menu_structure.py:954
+#: PiFinder/ui/menu_structure.py:972
 msgid "1s"
 msgstr "1s"
 
-#: PiFinder/ui/menu_structure.py:960
+#: PiFinder/ui/menu_structure.py:978
 msgid "WiFi Mode"
 msgstr "WLAN"
 
-#: PiFinder/ui/menu_structure.py:966
+#: PiFinder/ui/menu_structure.py:984
 msgid "Client Mode"
 msgstr "client mode sein"
 
-#: PiFinder/ui/menu_structure.py:971
+#: PiFinder/ui/menu_structure.py:989
 msgid "AP Mode"
 msgstr "Access Point"
 
-#: PiFinder/ui/menu_structure.py:978 views/edit_instrument.html:61
+#: PiFinder/ui/menu_structure.py:996 views/edit_instrument.html:66
 #: views/equipment.html:73
 msgid "Mount Type"
 msgstr "Montierungsart"
 
-#: PiFinder/ui/menu_structure.py:985 views/edit_instrument.html:57
+#: PiFinder/ui/menu_structure.py:1003 views/edit_instrument.html:62
 msgid "Alt/Az"
 msgstr "Alt/Az"
 
-#: PiFinder/ui/menu_structure.py:989 views/edit_instrument.html:58
+#: PiFinder/ui/menu_structure.py:1007 views/edit_instrument.html:63
 msgid "Equatorial"
 msgstr "Parallaktisch"
 
-#: PiFinder/ui/menu_structure.py:1001
+#: PiFinder/ui/menu_structure.py:1019
 msgid "PiFinder Type"
 msgstr "PiFinder Art"
 
-#: PiFinder/ui/menu_structure.py:1008
+#: PiFinder/ui/menu_structure.py:1026
 msgid "Left"
 msgstr "Links"
 
-#: PiFinder/ui/menu_structure.py:1012
+#: PiFinder/ui/menu_structure.py:1030
 msgid "Right"
 msgstr "Rechts"
 
-#: PiFinder/ui/menu_structure.py:1016
+#: PiFinder/ui/menu_structure.py:1034
 msgid "Straight"
 msgstr "Gerade"
 
-#: PiFinder/ui/menu_structure.py:1020
+#: PiFinder/ui/menu_structure.py:1038
 msgid "Flat v3"
 msgstr "Flach v3"
 
-#: PiFinder/ui/menu_structure.py:1024
+#: PiFinder/ui/menu_structure.py:1042
 msgid "Flat v2"
 msgstr "Flach v2"
 
-#: PiFinder/ui/menu_structure.py:1028
+#: PiFinder/ui/menu_structure.py:1046
 msgid "AS Bloom"
 msgstr "AS Bloom"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/menu_structure.py:1032
+#: PiFinder/ui/menu_structure.py:1050
 msgid "AS Heart"
 msgstr "AS Heart"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/menu_structure.py:1036
+#: PiFinder/ui/menu_structure.py:1054
 msgid "Rev4 Left"
 msgstr "Rev4 Links"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/menu_structure.py:1040
+#: PiFinder/ui/menu_structure.py:1058
 msgid "Rev4 Right"
 msgstr "Rev4 Rechts"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/menu_structure.py:1044
+#: PiFinder/ui/menu_structure.py:1062
 msgid "Rev4 Straight"
 msgstr "Rev4 Gerade"
 
-#: PiFinder/ui/menu_structure.py:1050
+#: PiFinder/ui/menu_structure.py:1068
 msgid "Camera Type"
 msgstr "Typ Kamera"
 
-#: PiFinder/ui/menu_structure.py:1056
+#: PiFinder/ui/menu_structure.py:1074
 msgid "v2 - imx477"
 msgstr "v2 - imx477"
 
-#: PiFinder/ui/menu_structure.py:1061
+#: PiFinder/ui/menu_structure.py:1079
 msgid "v3 - imx296"
 msgstr "v3 - imx296"
 
-#: PiFinder/ui/menu_structure.py:1066
+#: PiFinder/ui/menu_structure.py:1084
 msgid "v3 - imx462"
 msgstr "v3 - imx462"
 
-#: PiFinder/ui/menu_structure.py:1077
 # AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1095
 msgid "Lens"
 msgstr "Objektiv"
 
-#: PiFinder/ui/menu_structure.py:1086
+#: PiFinder/ui/menu_structure.py:1104
 msgid "12mm"
 msgstr "12mm"
 
-#: PiFinder/ui/menu_structure.py:1090
+#: PiFinder/ui/menu_structure.py:1108
 msgid "16mm"
 msgstr "16mm"
 
-#: PiFinder/ui/menu_structure.py:1094
+#: PiFinder/ui/menu_structure.py:1112
 msgid "25mm"
 msgstr "25mm"
 
-#: PiFinder/ui/menu_structure.py:1100 views/gps.html:6
+#: PiFinder/ui/menu_structure.py:1118 views/gps.html:6
 msgid "GPS Settings"
 msgstr "GPS Einstell."
 
-#: PiFinder/ui/menu_structure.py:1078
+#: PiFinder/ui/menu_structure.py:1123
 msgid "GPS Type"
 msgstr "GPS Typ"
 
-#: PiFinder/ui/menu_structure.py:1086
+#: PiFinder/ui/menu_structure.py:1131
 msgid "UBlox"
 msgstr "Ublox"
 
-#: PiFinder/ui/menu_structure.py:1090
+#: PiFinder/ui/menu_structure.py:1135
 msgid "GPSD (generic)"
 msgstr "GPSD (generisch)"
 
-#: PiFinder/ui/menu_structure.py:1096
+#: PiFinder/ui/menu_structure.py:1141
 msgid "GPS Baud Rate"
 msgstr "GPS Baud Rate"
 
-#: PiFinder/ui/menu_structure.py:1104
+#: PiFinder/ui/menu_structure.py:1149
 msgid "9600 (standard)"
 msgstr "9600 (Standard)"
 
-#: PiFinder/ui/menu_structure.py:1108
+#: PiFinder/ui/menu_structure.py:1153
 msgid "115200 (UBlox-10)"
 msgstr "115200 (Ublox-10)"
 
-#: PiFinder/ui/menu_structure.py:1118
+#: PiFinder/ui/menu_structure.py:1163
 msgid "IMU Sensit."
 msgstr "IMU Sensit."
 
-#: PiFinder/ui/menu_structure.py:1129
+#: PiFinder/ui/menu_structure.py:1175
 msgid "Very Low"
 msgstr "Sehr klein"
 
-#: PiFinder/ui/menu_structure.py:1155
+#: PiFinder/ui/menu_structure.py:1200
 msgid "Status"
 msgstr "Status"
 
-#: PiFinder/ui/menu_structure.py:1158
+#: PiFinder/ui/menu_structure.py:1203
 msgid "Place & Time"
 msgstr "Ort & Zeit"
 
-#: PiFinder/ui/menu_structure.py:1167
+#: PiFinder/ui/menu_structure.py:1212
 msgid "Set Location"
 msgstr "Ort setzen"
 
-#: PiFinder/ui/menu_structure.py:1176 views/locations.html:86
+#: PiFinder/ui/menu_structure.py:1221 views/locations.html:86
 msgid "Load Location"
 msgstr "Ort laden"
 
-#: PiFinder/ui/menu_structure.py:1180 views/location_form.html:76
+#: PiFinder/ui/menu_structure.py:1225 views/location_form.html:76
 msgid "Save Location"
 msgstr "Ort speichern"
 
-#: PiFinder/ui/menu_structure.py:1186
+#: PiFinder/ui/menu_structure.py:1231
 msgid "Set Time/Date"
 msgstr "Zeit/Datum setzen"
 
-#: PiFinder/ui/menu_structure.py:1193
+#: PiFinder/ui/menu_structure.py:1238
 msgid "Reset Location"
 msgstr "Ort resetten"
 
-#: PiFinder/ui/menu_structure.py:1195
+#: PiFinder/ui/menu_structure.py:1240
 msgid "Reset Time/Date"
 msgstr "Rest Zeit/Datum"
 
-#: PiFinder/ui/menu_structure.py:1200
+#: PiFinder/ui/menu_structure.py:1245
 msgid "Console"
 msgstr "Konsole"
 
-#: PiFinder/ui/menu_structure.py:1201
+#: PiFinder/ui/menu_structure.py:1246
 msgid "Software Upd"
 msgstr "Update Softw"
 
-#: PiFinder/ui/menu_structure.py:1204
+#: PiFinder/ui/menu_structure.py:1248
+msgid "Test Mode"
+msgstr "Test Modus"
+
+#: PiFinder/ui/menu_structure.py:1253
 msgid "Experimental"
 msgstr "Experimentell"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/menu_structure.py:1209
+#: PiFinder/ui/menu_structure.py:1258
 msgid "Polar Align"
 msgstr "Polausricht."
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/menu_structure.py:1214
+#: PiFinder/ui/menu_structure.py:1263
 msgid "Dev Tools"
 msgstr "Entw.-Tools"
 
+#: PiFinder/ui/menu_structure.py:1268
+msgid "Dev Mode"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:1278
+msgid "Screen Off"
+msgstr ""
+
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/menu_structure.py:1219
+#: PiFinder/ui/menu_structure.py:1291
 msgid "Telemetry"
 msgstr "Telemetrie"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/menu_structure.py:1224
+#: PiFinder/ui/menu_structure.py:1296
 msgid "Record"
 msgstr "Aufnahme"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/menu_structure.py:1241
+#: PiFinder/ui/menu_structure.py:1301
+msgid "Sections"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:1307
+msgid "IMU"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:1308 PiFinder/ui/sqm.py:25
+msgid "SQM"
+msgstr "SQM"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1309
+msgid "Solves"
+msgstr ""
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1311
+msgid "Targets"
+msgstr ""
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1315
 msgid "Images"
 msgstr "Bilder"
 
-#: PiFinder/ui/menu_structure.py:1267
+#: PiFinder/ui/menu_structure.py:1321
+msgid "Max Size"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:1326
+msgid "250 MB"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:1327
+msgid "500 MB"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:1328
+msgid "1 GB"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:1329
+msgid "2 GB"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:1330
+msgid "Unlimited"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:1344
 msgid "Power"
 msgstr "Ein/Aus"
 
-#: PiFinder/ui/menu_structure.py:1273
+#: PiFinder/ui/menu_structure.py:1350
 msgid "Shutdown"
 msgstr "Ausschalten"
 
-#: PiFinder/ui/object_details.py:85 PiFinder/ui/object_details.py:90
+#: PiFinder/ui/menu_structure.py:1360
+msgid "Restart"
+msgstr "Neu starten"
+
+#: PiFinder/ui/object_details.py:98 PiFinder/ui/object_details.py:103
 msgid "ALIGN"
 msgstr "JUSTAGE"
 
-#: PiFinder/ui/object_details.py:88
+#: PiFinder/ui/object_details.py:101
 msgid "CANCEL"
 msgstr "ABBR"
 
-#: PiFinder/ui/object_details.py:120
+#: PiFinder/ui/object_details.py:133
 msgid "No Object Found"
 msgstr "Keine Objekte"
 
-#: PiFinder/ui/object_details.py:238 PiFinder/ui/object_details.py:245
+#: PiFinder/ui/object_details.py:251 PiFinder/ui/object_details.py:258
+#, python-brace-format
 msgid "Mag:{obj_mag}"
 msgstr "Gr:{obj_mag}"
 
 #. TRANSLATORS: object info magnitude
-#: PiFinder/ui/object_details.py:241
+#: PiFinder/ui/object_details.py:254
+#, python-brace-format
 msgid "Sz:{size}"
 msgstr "D:{size}"
 
-#: PiFinder/ui/object_details.py:367
+#: PiFinder/ui/object_details.py:380
 msgid "  Not Logged"
 msgstr "  Nicht geloggt"
 
-#: PiFinder/ui/object_details.py:369
+#: PiFinder/ui/object_details.py:382
+#, python-brace-format
 msgid "  {logs} Logs"
 msgstr "  {logs} Logs"
 
-#: PiFinder/ui/object_details.py:415 PiFinder/ui/polar_align.py:444
+#: PiFinder/ui/object_details.py:429 PiFinder/ui/polar_align.py:444
 msgid "No solve"
 msgstr "Bisher keine"
 
-#: PiFinder/ui/object_details.py:421
+#: PiFinder/ui/object_details.py:435
+#, python-brace-format
 msgid "yet{elipsis}"
 msgstr "Lösung{elipsis}"
 
-#: PiFinder/ui/object_details.py:435
+#: PiFinder/ui/object_details.py:449
 msgid "Searching"
 msgstr "Suche"
 
-#: PiFinder/ui/object_details.py:441
+#: PiFinder/ui/object_details.py:455
+#, python-brace-format
 msgid "for GPS{elipsis}"
 msgstr "nach GPS{elipsis}"
 
-#: PiFinder/ui/object_details.py:455 PiFinder/ui/object_details.py:483
+#: PiFinder/ui/object_details.py:469 PiFinder/ui/object_details.py:497
 msgid "Calculating"
 msgstr "berechne..."
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/object_details.py:461
+#: PiFinder/ui/object_details.py:475
 msgid "positions"
 msgstr "Positionen"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/object_details.py:489
+#: PiFinder/ui/object_details.py:503
 msgid "position"
 msgstr "Position"
 
-#: PiFinder/ui/object_details.py:573
+#: PiFinder/ui/object_details.py:587
 msgid "Contrast Reserve"
 msgstr "Kontrast Reserve"
 
-#: PiFinder/ui/object_details.py:599
+#: PiFinder/ui/object_details.py:613
 msgid "No contrast data"
 msgstr "Keine Kontrast Daten"
 
-#: PiFinder/ui/object_details.py:607
+#: PiFinder/ui/object_details.py:622
 msgid "CR measures object"
 msgstr "KR misst die Objekt"
 
 #. TRANSLATORS: Contrast reserve explanation line 1
-#: PiFinder/ui/object_details.py:610
+#: PiFinder/ui/object_details.py:625
 msgid "visibility based on"
 msgstr "Sichtbarkeit basierend auf"
 
 #. TRANSLATORS: Contrast reserve explanation line 2
-#: PiFinder/ui/object_details.py:613
+#: PiFinder/ui/object_details.py:628
 msgid "sky brightness,"
 msgstr "der Himmelshelligkeit"
 
 #. TRANSLATORS: Contrast reserve explanation line 3
-#: PiFinder/ui/object_details.py:616
+#: PiFinder/ui/object_details.py:631
 msgid "telescope, and EP."
 msgstr "Teleskop, und Okular"
 
-#: PiFinder/ui/object_details.py:692
+#: PiFinder/ui/object_details.py:706
 msgid "Too Far"
 msgstr "zu weit"
 
-#: PiFinder/ui/object_details.py:717
+#: PiFinder/ui/object_details.py:731
 msgid "LOG"
 msgstr "Loggen"
 
-#: PiFinder/ui/object_list.py:165
+#: PiFinder/ui/object_list.py:71 views/obs_session_log.html:21
+msgid "Catalog"
+msgstr "Katalog"
+
+#: PiFinder/ui/object_list.py:73 PiFinder/ui/object_list.py:950
+msgid "RA"
+msgstr "RA"
+
+#: PiFinder/ui/object_list.py:74
+msgid "Nearby"
+msgstr "Nächster"
+
+#: PiFinder/ui/object_list.py:180
 msgid "Refresh"
 msgstr "Aktualis."
 
-#: PiFinder/ui/object_list.py:171
+#: PiFinder/ui/object_list.py:186
 msgid "Sort"
 msgstr "Sortieren"
 
-#: PiFinder/ui/object_list.py:175 PiFinder/ui/object_list.py:879
+#: PiFinder/ui/object_list.py:190 PiFinder/ui/object_list.py:940
 msgid "Nearest"
 msgstr "Nächste"
 
-#: PiFinder/ui/object_list.py:179 PiFinder/ui/object_list.py:885
+#: PiFinder/ui/object_list.py:194 PiFinder/ui/object_list.py:945
 msgid "Standard"
 msgstr "Standard"
 
-#: PiFinder/ui/object_list.py:184
+#: PiFinder/ui/object_list.py:199
 msgid "Filter"
 msgstr "Filter"
 
-#: PiFinder/ui/object_list.py:289 PiFinder/ui/software.py:572
+#: PiFinder/ui/object_list.py:327 PiFinder/ui/software.py:1128
 msgid "Downloading..."
 msgstr "Herunterladen..."
 
-#: PiFinder/ui/object_list.py:296
+#: PiFinder/ui/object_list.py:334
 msgid "No GPS lock"
 msgstr "Kein GPS"
 
-#: PiFinder/ui/object_list.py:303
+#: PiFinder/ui/object_list.py:341
 msgid "Calculating..."
 msgstr "Berechne..."
 
-#: PiFinder/ui/object_list.py:312 PiFinder/ui/software.py:750
+#: PiFinder/ui/object_list.py:349 PiFinder/ui/software.py:1249
 msgid "Loading..."
 msgstr "Laden..."
 
-#: PiFinder/ui/object_list.py:319
+#: PiFinder/ui/object_list.py:356
+#, python-brace-format
 msgid ""
 "Sorting by\n"
 "{sort_order}"
@@ -1673,46 +1905,37 @@ msgstr ""
 "Sortieren nach\n"
 "{sort_order}"
 
-#: PiFinder/ui/object_list.py:320 PiFinder/ui/object_list.py:890
-msgid "RA"
-msgstr "RA"
-
-#: PiFinder/ui/object_list.py:322 PiFinder/ui/object_list.py:639
-#: views/obs_session_log.html:21
-msgid "Catalog"
-msgstr "Katalog"
-
-#: PiFinder/ui/object_list.py:324 PiFinder/ui/object_list.py:641
-msgid "Nearby"
-msgstr "Nächster"
-
-#: PiFinder/ui/object_list.py:596
+#: PiFinder/ui/object_list.py:653
 msgid "No objects"
 msgstr "Keine Objekte"
 
-#: PiFinder/ui/object_list.py:602
+#: PiFinder/ui/object_list.py:659
 msgid "match filter"
 msgstr "gefiltert"
 
-#: PiFinder/ui/object_list.py:625
+#: PiFinder/ui/object_list.py:688
+#, python-brace-format
 msgid "{catalog_info_1} obj"
 msgstr "{catalog_info_1} Obj"
 
 #. TRANSLATORS: number of objects in object list
-#: PiFinder/ui/object_list.py:628
+#: PiFinder/ui/object_list.py:691
+#, python-brace-format
 msgid ", {catalog_info_2}d old"
 msgstr ", {catalog_info_2}d alt"
 
-#: PiFinder/ui/object_list.py:638
+#: PiFinder/ui/object_list.py:701
+#, python-brace-format
 msgid "Sort: {sort_order}"
 msgstr "Sort.: {sort_order}"
 
-#: PiFinder/ui/object_list.py:932
+#: PiFinder/ui/object_list.py:995
 msgid "Refreshing..."
 msgstr "Erneuern..."
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/obs_list.py:151
+#, python-brace-format
 msgid ""
 "Error loading\n"
 "{parsed} parsed"
@@ -1722,6 +1945,7 @@ msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
 #: PiFinder/ui/obs_list.py:157
+#, python-brace-format
 msgid ""
 "{name}\n"
 "{matched}/{parsed} objects"
@@ -1787,6 +2011,7 @@ msgstr "GPS: warten..."
 # AI-TRANSLATED (claude): needs human review
 #. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
 #: PiFinder/ui/polar_align.py:331
+#, python-brace-format
 msgid "{icon} START"
 msgstr "{icon} START"
 
@@ -1844,6 +2069,7 @@ msgstr "Keine akt. Lösung"
 #. TRANSLATORS: hint bar; {square} is the SQUARE button glyph, {minus}
 #. is the MINUS button glyph.
 #: PiFinder/ui/polar_align.py:373
+#, python-brace-format
 msgid "{square} CAPTURE  {minus} CANCEL"
 msgstr "{square} AUFN.  {minus} ABBR"
 
@@ -1877,6 +2103,7 @@ msgstr "Kamera-Lösung."
 #. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
 #: PiFinder/ui/polar_align.py:398 PiFinder/ui/polar_align.py:470
 #: PiFinder/ui/polar_align.py:500
+#, python-brace-format
 msgid "{icon} BACK"
 msgstr "{icon} ZURÜCK"
 
@@ -1904,6 +2131,7 @@ msgstr "Pkt"
 #. TRANSLATORS: hint bar; {square} is the SQUARE button glyph, {minus}
 #. is the MINUS button glyph.
 #: PiFinder/ui/polar_align.py:428
+#, python-brace-format
 msgid "{square} REDO  {minus} CANCEL"
 msgstr "{square} NEU  {minus} ABBR"
 
@@ -1974,10 +2202,6 @@ msgstr "Keine Pkte"
 msgid "Dropped point"
 msgstr "Pkt verworfen"
 
-#: PiFinder/ui/preview.py:93
-msgid "Exposure"
-msgstr "BLZ"
-
 #: PiFinder/ui/radec_entry.py:516
 msgid "Full"
 msgstr "Voll"
@@ -2007,134 +2231,146 @@ msgstr "Dec:"
 msgid "EPOCH:"
 msgstr "Epoche:"
 
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:914 PiFinder/ui/radec_entry.py:916
+#: PiFinder/ui/radec_entry.py:918
+msgid "Format"
+msgstr ""
+
+#: PiFinder/ui/radec_entry.py:914 PiFinder/ui/radec_entry.py:916
+#: PiFinder/ui/radec_entry.py:918
+msgid "Nav"
+msgstr ""
+
+#: PiFinder/ui/radec_entry.py:914
+msgid "Sign"
+msgstr ""
+
+#: PiFinder/ui/radec_entry.py:916
+msgid "Toggle"
+msgstr ""
+
+#: PiFinder/ui/radec_entry.py:919
+msgid "Go "
+msgstr ""
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:919
+msgid "Del"
+msgstr ""
+
 #: PiFinder/ui/radec_entry.py:997
 msgid "RA/DEC"
 msgstr "RA/Dec"
 
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:213
-msgid "No release found"
-msgstr "Kein Release gefunden"
+#: PiFinder/ui/software.py:230
+#, python-brace-format
+msgid "{minutes}m ago"
+msgstr ""
 
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:219 PiFinder/ui/software.py:632
-msgid "System Upgrade"
-msgstr "System-Upgrade"
+#: PiFinder/ui/software.py:233
+#, python-brace-format
+msgid "{hours}h ago"
+msgstr ""
 
-#: PiFinder/ui/software.py:259
-msgid "Updating..."
-msgstr "Update läuft..."
+#: PiFinder/ui/software.py:234
+#, python-brace-format
+msgid "{days}d ago"
+msgstr ""
 
-#: PiFinder/ui/software.py:261
-msgid "Ok! Restarting"
-msgstr "Ok! Neustart..."
+#: PiFinder/ui/software.py:262 PiFinder/ui/software.py:878
+#, python-brace-format
+msgid "built {age}"
+msgstr ""
 
-#: PiFinder/ui/software.py:264
-msgid "Error on Upd"
-msgstr "Fehler beim Upd"
-
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:271
-msgid "Wifi Mode: {mode}"
-msgstr "WLAN-Modus: {mode}"
-
-#: PiFinder/ui/software.py:279
-msgid "Current Version"
-msgstr "aktuelle Version"
-
-#: PiFinder/ui/software.py:295
-msgid "Release Version"
-msgstr "Release Version"
-
-#: PiFinder/ui/software.py:317
-msgid "WiFi must be"
-msgstr "WLAN muss im"
-
-#: PiFinder/ui/software.py:323
-msgid "client mode"
-msgstr "client mode sein"
-
-#: PiFinder/ui/software.py:336
+#: PiFinder/ui/software.py:607
 msgid "Checking for"
 msgstr "Überprüfen nach"
 
-#: PiFinder/ui/software.py:342
+#: PiFinder/ui/software.py:613
+#, python-brace-format
 msgid "updates{elipsis}"
 msgstr "Updates{elipsis}"
 
-#: PiFinder/ui/software.py:358
-msgid "No Update"
-msgstr "Kein Update"
+#: PiFinder/ui/software.py:633
+msgid "WiFi must be"
+msgstr "WLAN muss im"
 
-#: PiFinder/ui/software.py:364
-msgid "needed"
-msgstr "notwendig"
+#: PiFinder/ui/software.py:639
+msgid "client mode"
+msgstr "client mode sein"
 
-#: PiFinder/ui/software.py:374
-msgid "Update Now"
-msgstr "Jetzt Updaten"
+#: PiFinder/ui/software.py:656
+msgid "No internet -"
+msgstr ""
 
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:444
-msgid "Major Upgrade"
-msgstr "Großes Upgrade"
+#: PiFinder/ui/software.py:662
+msgid "check WiFi"
+msgstr ""
 
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:464
-msgid "IRREVERSIBLE"
-msgstr "UNUMKEHRBAR"
+#: PiFinder/ui/software.py:728
+msgid "No versions"
+msgstr ""
 
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:473
-msgid "Download: {size}MB"
-msgstr "Download: {size}MB"
+#: PiFinder/ui/software.py:734 PiFinder/ui/software.py:1240
+msgid "available"
+msgstr ""
 
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:481
-msgid "Power + WiFi req"
-msgstr "Strom + WLAN nötig"
+#: PiFinder/ui/software.py:822
+msgid "checking for updates"
+msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:492
-msgid "No checksum avail."
-msgstr "Keine Prüfsumme"
+#: PiFinder/ui/software.py:827
+msgid "update check failed"
+msgstr ""
+
+#: PiFinder/ui/software.py:842
+msgid "Update to:"
+msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:552
-msgid "Starting..."
-msgstr "Starte..."
+#: PiFinder/ui/software.py:912 PiFinder/ui/software.py:1115
+msgid "Update failed!"
+msgstr ""
+
+#: PiFinder/ui/software.py:1080 PiFinder/ui/software.py:1111
+msgid ""
+"Version no\n"
+"longer available"
+msgstr ""
+
+#: PiFinder/ui/software.py:1113
+msgid ""
+"Can't reach\n"
+"update server"
+msgstr ""
+
+#: PiFinder/ui/software.py:1122
+msgid "Rebooting..."
+msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:594 PiFinder/ui/software.py:599
-msgid "Not supported"
-msgstr "Nicht unterstützt"
+#: PiFinder/ui/software.py:1124
+msgid "Activating..."
+msgstr ""
+
+#: PiFinder/ui/software.py:1126
+msgid "Preparing..."
+msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:604
-msgid "Failed: "
-msgstr "Fehler: "
+#: PiFinder/ui/software.py:1234
+msgid "No release notes"
+msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:735
-msgid "Could not load"
-msgstr "Nicht geladen"
-
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/software.py:741
-msgid "release notes"
-msgstr "Release-Notes"
-
-#: PiFinder/ui/sqm.py:25
-msgid "SQM"
-msgstr "SQM"
-
-# AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/sqm.py:41
+#: PiFinder/ui/sqm.py:42
 msgid "CALIB"
 msgstr "KALIB"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/ui/sqm.py:47
+#: PiFinder/ui/sqm.py:48
 msgid "SWEEP"
 msgstr "SCAN"
 
@@ -2147,6 +2383,7 @@ msgid "mag/arcsec²"
 msgstr "mag/arcsek²"
 
 #: PiFinder/ui/sqm.py:147 PiFinder/ui/sqm.py:250
+#, python-brace-format
 msgid "Bortle {bc}"
 msgstr "Bortle {bc}"
 
@@ -2159,10 +2396,12 @@ msgid "SCROLL"
 msgstr "ROLLEN"
 
 #: PiFinder/ui/sqm.py:170
+#, python-brace-format
 msgid "{s}s ago"
 msgstr "vor {s}s"
 
 #: PiFinder/ui/sqm.py:172
+#, python-brace-format
 msgid "{m}m ago"
 msgstr "vor {m}m"
 
@@ -2182,11 +2421,11 @@ msgstr "SQM Sweep"
 msgid "Excellent Dark-Sky Site"
 msgstr "Exzellenter Dunkelhimmel"
 
-#: PiFinder/ui/sqm.py:349
+#: PiFinder/ui/sqm.py:350
 msgid "The zodiacal light is visible and colorful. Gegenschein readily visible."
 msgstr "Das Zodiakallicht ist sichtbar und farbenfroh. Gegenschein gut sichtbar."
 
-#: PiFinder/ui/sqm.py:352
+#: PiFinder/ui/sqm.py:353
 msgid ""
 "The Scorpius and Sagittarius regions of the Milky Way cast obvious "
 "shadows."
@@ -2206,7 +2445,7 @@ msgstr "Zahlreiche Sterne erschweren das Erkennen schwacher Sternbilder."
 msgid "Typical Truly Dark Site"
 msgstr "Typischer Wirklich Dunkler Himmel"
 
-#: PiFinder/ui/sqm.py:365
+#: PiFinder/ui/sqm.py:366
 msgid ""
 "The zodiacal light is distinctly yellowish and bright enough to cast "
 "shadows at dusk and dawn."
@@ -2226,13 +2465,13 @@ msgstr "Die Sommer-Milchstraße ist stark strukturiert. M33 leicht sichtbar."
 msgid "Rural Sky"
 msgstr "Ländlicher Himmel"
 
-#: PiFinder/ui/sqm.py:378
+#: PiFinder/ui/sqm.py:379
 msgid "The zodiacal light is striking in spring and autumn, color still visible."
 msgstr ""
 "Das Zodiakallicht ist im Frühling und Herbst auffällig, Farben noch "
 "sichtbar."
 
-#: PiFinder/ui/sqm.py:381
+#: PiFinder/ui/sqm.py:382
 msgid ""
 "Some light pollution at horizon. Clouds illuminated near horizon, dark "
 "overhead."
@@ -2252,7 +2491,7 @@ msgstr "Mehrere Messier-Objekte bleiben mit bloßem Auge sichtbar."
 msgid "Brighter Rural"
 msgstr "Hellerer Ländlicher Himmel"
 
-#: PiFinder/ui/sqm.py:394
+#: PiFinder/ui/sqm.py:395
 msgid "Zodiacal light still visible but doesn't extend halfway to zenith."
 msgstr "Zodiakallicht noch sichtbar, aber reicht nicht bis zur Hälfte zum Zenit."
 
@@ -2260,7 +2499,7 @@ msgstr "Zodiakallicht noch sichtbar, aber reicht nicht bis zur Hälfte zum Zenit
 msgid "Light pollution domes apparent in multiple directions."
 msgstr "Lichtverschmutzungskuppeln in mehreren Richtungen sichtbar."
 
-#: PiFinder/ui/sqm.py:398
+#: PiFinder/ui/sqm.py:399
 msgid ""
 "The Milky Way well above the horizon is still impressive, but lacks "
 "detail."
@@ -2276,7 +2515,7 @@ msgstr "M33 schwer zu sehen."
 msgid "Semi-Suburban/Transition Sky"
 msgstr "Halbvorstädtischer/Übergangshimmel"
 
-#: PiFinder/ui/sqm.py:410
+#: PiFinder/ui/sqm.py:411
 msgid "Clouds have a grayish glow at zenith and appear bright toward city domes."
 msgstr ""
 "Wolken haben ein gräuliches Leuchten im Zenit und erscheinen hell zu "
@@ -2294,7 +2533,7 @@ msgstr "Großer Riss im Zenit beobachtbar."
 msgid "Suburban Sky"
 msgstr "Vorstädtischer Himmel"
 
-#: PiFinder/ui/sqm.py:423
+#: PiFinder/ui/sqm.py:424
 msgid "Only hints of zodiacal light seen on best nights in autumn and spring."
 msgstr ""
 "Nur Andeutungen von Zodiakallicht in den besten Nächten in Herbst und "
@@ -2320,13 +2559,13 @@ msgstr "Heller Vorstädtischer Himmel"
 msgid "The zodiacal light is invisible."
 msgstr "Das Zodiakallicht ist unsichtbar."
 
-#: PiFinder/ui/sqm.py:438
+#: PiFinder/ui/sqm.py:439
 msgid "Light pollution makes sky within 35° of horizon glow grayish white."
 msgstr ""
 "Lichtverschmutzung lässt Himmel innerhalb 35° vom Horizont grauweiß "
 "leuchten."
 
-#: PiFinder/ui/sqm.py:441
+#: PiFinder/ui/sqm.py:442
 msgid "The Milky Way is only visible near the zenith. M33 undetectable."
 msgstr "Die Milchstraße ist nur nahe dem Zenit sichtbar. M33 nicht erkennbar."
 
@@ -2382,7 +2621,7 @@ msgstr "Der Himmel ist hell erleuchtet."
 msgid "Many stars forming constellations invisible."
 msgstr "Viele Sterne die Sternbilder bilden sind unsichtbar."
 
-#: PiFinder/ui/sqm.py:478
+#: PiFinder/ui/sqm.py:479
 msgid ""
 "Only the Moon, planets, bright satellites, and a few of the brightest "
 "star clusters observable."
@@ -2426,7 +2665,7 @@ msgstr ""
 msgid "Select None"
 msgstr "Alle abwähl."
 
-#: PiFinder/ui/text_menu.py:213
+#: PiFinder/ui/text_menu.py:223
 msgid "Select All"
 msgstr "Alle anwähl."
 
@@ -2454,6 +2693,10 @@ msgstr "hh"
 #: PiFinder/ui/timeentry.py:29
 msgid "ss"
 msgstr "ss"
+
+#: PiFinder/ui/timeentry.py:133
+msgid "Enter Local Time"
+msgstr ""
 
 # AI-TRANSLATED (claude): needs human review
 #: views/advanced.html:7
@@ -2491,39 +2734,32 @@ msgid "Edit eyepiece"
 msgstr "Okular bearbeiten"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_eyepiece.html:18 views/edit_instrument.html:27
-#: views/equipment.html:68 views/equipment.html:116
-msgid "Make"
-msgstr "Hersteller"
-
-# AI-TRANSLATED (claude): needs human review
-#: views/edit_eyepiece.html:24 views/equipment.html:69 views/equipment.html:117
-#: views/locations.html:62 views/network.html:69
-msgid "Name"
-msgstr "Name"
-
-# AI-TRANSLATED (claude): needs human review
-#: views/edit_eyepiece.html:30 views/edit_instrument.html:45
+#: views/edit_eyepiece.html:40 views/edit_instrument.html:48
 msgid "Focal Length (in mm)"
 msgstr "Brennweite (in mm)"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_eyepiece.html:36
+#: views/edit_eyepiece.html:47
 msgid "Apparent Field of View (in °)"
 msgstr "Scheinbares Gesichtsfeld (in °)"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_eyepiece.html:42
+#: views/edit_eyepiece.html:54
 msgid "Field stop (in mm)"
 msgstr "Feldblende (in mm)"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_eyepiece.html:49
+#: views/edit_eyepiece.html:55
+msgid "Leave at 0 if unknown"
+msgstr "Bei 0 lassen, wenn unbekannt"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:62
 msgid "Add eyepiece!"
 msgstr "Okular hinzufügen!"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_eyepiece.html:51
+#: views/edit_eyepiece.html:64
 msgid "Update eyepiece!"
 msgstr "Okular aktualisieren!"
 
@@ -2538,47 +2774,52 @@ msgid "Edit instrument"
 msgstr "Instrument bearbeiten"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_instrument.html:33
+#: views/edit_instrument.html:34
 msgid "Instrument Name"
 msgstr "Instrumentenname"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_instrument.html:39
+#: views/edit_instrument.html:41
 msgid "Aperture (in mm)"
 msgstr "Öffnung (in mm)"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_instrument.html:51 views/equipment.html:72
+#: views/edit_instrument.html:55 views/equipment.html:72
 msgid "Obstruction %"
 msgstr "Obstruktion %"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_instrument.html:69
+#: views/edit_instrument.html:56
+msgid "Leave at 0 for a refractor"
+msgstr "Bei einem Refraktor 0 lassen"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:74
 msgid "Flip image (upside down)"
 msgstr "Bild kippen (oben/unten)"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_instrument.html:77
+#: views/edit_instrument.html:82
 msgid "Flop image (left right)"
 msgstr "Bild spiegeln (links/rechts)"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_instrument.html:85 views/equipment.html:76
+#: views/edit_instrument.html:90 views/equipment.html:76
 msgid "Reverse Arrow A"
 msgstr "Pfeil A umkehren"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_instrument.html:93 views/equipment.html:77
+#: views/edit_instrument.html:98 views/equipment.html:77
 msgid "Reverse Arrow B"
 msgstr "Pfeil B umkehren"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_instrument.html:103
+#: views/edit_instrument.html:108
 msgid "Add instrument!"
 msgstr "Instrument hinzufügen!"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/edit_instrument.html:105
+#: views/edit_instrument.html:110
 msgid "Update instrument!"
 msgstr "Instrument aktualisieren!"
 
@@ -2633,11 +2874,6 @@ msgid "Add new eyepiece"
 msgstr "Neues Okular hinzufügen"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/equipment.html:70
-msgid "Aperture"
-msgstr "Öffnung"
-
-# AI-TRANSLATED (claude): needs human review
 #: views/equipment.html:71 views/equipment.html:118
 msgid "Focal Length (mm)"
 msgstr "Brennweite (mm)"
@@ -2673,67 +2909,90 @@ msgid "Field Stop"
 msgstr "Feldblende"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:16 views/location_form.html:14 views/locations.html:124
+#: views/equipment_validation.html:8 views/locations.html:435
+#: views/locations.html:523 views/locations.html:580
+msgid "This field is required"
+msgstr "Dieses Feld ist erforderlich"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment_validation.html:9 views/locations.html:437
+msgid "Must be a valid number"
+msgstr "Muss eine gültige Zahl sein"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment_validation.html:10
+#, python-format
+msgid "Must be between %(minimum)s and %(maximum)s"
+msgstr "Muss zwischen %(minimum)s und %(maximum)s liegen"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment_validation.html:11
+#, python-format
+msgid "Must be %(maximum)s characters or fewer"
+msgstr "Darf höchstens %(maximum)s Zeichen lang sein"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:23 views/location_form.html:14 views/locations.html:124
 msgid "Use DMS Format"
 msgstr "DMS-Format verwenden"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:23 views/location_form.html:21 views/locations.html:131
+#: views/gps.html:30 views/location_form.html:21 views/locations.html:131
 msgid "Latitude (Decimal)"
 msgstr "Breite (dezimal)"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:27 views/location_form.html:26 views/locations.html:136
+#: views/gps.html:34 views/location_form.html:26 views/locations.html:136
 msgid "Longitude (Decimal)"
 msgstr "Länge (dezimal)"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:33 views/location_form.html:33 views/locations.html:143
+#: views/gps.html:40 views/location_form.html:33 views/locations.html:143
 msgid "Latitude Degrees"
 msgstr "Breite Grad"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:37 views/location_form.html:37 views/locations.html:147
+#: views/gps.html:44 views/location_form.html:37 views/locations.html:147
 msgid "Latitude Minutes"
 msgstr "Breite Minuten"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:41 views/location_form.html:41 views/locations.html:151
+#: views/gps.html:48 views/location_form.html:41 views/locations.html:151
 msgid "Latitude Seconds"
 msgstr "Breite Sekunden"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:45 views/location_form.html:45 views/locations.html:155
+#: views/gps.html:52 views/location_form.html:45 views/locations.html:155
 msgid "Longitude Degrees"
 msgstr "Länge Grad"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:49 views/location_form.html:49 views/locations.html:159
+#: views/gps.html:56 views/location_form.html:49 views/locations.html:159
 msgid "Longitude Minutes"
 msgstr "Länge Minuten"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:53 views/location_form.html:53 views/locations.html:163
+#: views/gps.html:60 views/location_form.html:53 views/locations.html:163
 msgid "Longitude Seconds"
 msgstr "Länge Sekunden"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:59
+#: views/gps.html:66
 msgid "Altitude in meter"
 msgstr "Höhe in Meter"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:65 views/obs_sessions.html:25
+#: views/gps.html:72 views/obs_sessions.html:25
 msgid "Date"
 msgstr "Datum"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:69
+#: views/gps.html:76
 msgid "UTC Time (h:m:s)"
 msgstr "UTC-Zeit (h:m:s)"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/gps.html:72
+#: views/gps.html:79
 msgid "Set to Browser Date/Time"
 msgstr "Auf Browser-Datum/-Zeit setzen"
 
@@ -2835,16 +3094,6 @@ msgid "This action cannot be undone."
 msgstr "Diese Aktion kann nicht rückgängig gemacht werden."
 
 # AI-TRANSLATED (claude): needs human review
-#: views/locations.html:435 views/locations.html:523 views/locations.html:580
-msgid "This field is required"
-msgstr "Dieses Feld ist erforderlich"
-
-# AI-TRANSLATED (claude): needs human review
-#: views/locations.html:437
-msgid "Must be a valid number"
-msgstr "Muss eine gültige Zahl sein"
-
-# AI-TRANSLATED (claude): needs human review
 #: views/locations.html:441
 msgid "Must be between -90 and 90"
 msgstr "Muss zwischen -90 und 90 liegen"
@@ -2875,7 +3124,7 @@ msgid "Login Required"
 msgstr "Anmeldung erforderlich"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/login.html:23 views/network.html:75
+#: views/login.html:23 views/network.html:68
 msgid "Password"
 msgstr "Passwort"
 
@@ -2980,67 +3229,47 @@ msgid "Network Settings"
 msgstr "Netzwerkeinstellungen"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/network.html:15
+#: views/network.html:18
 msgid "Access Point"
 msgstr "Access Point"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/network.html:16
+#: views/network.html:19
 msgid "Client"
 msgstr "Client"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/network.html:18
+#: views/network.html:21
 msgid "Wifi Mode"
 msgstr "WLAN-Modus"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/network.html:24
+#: views/network.html:27
 msgid "AP Network Name"
 msgstr "AP-Netzwerkname"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/network.html:30
+#: views/network.html:33
 msgid "Host Name"
 msgstr "Hostname"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/network.html:36
-msgid "Update and Restart"
-msgstr "Aktualisieren und neu starten"
+#: views/network.html:39
+msgid "Update"
+msgstr "Aktualisieren"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/network.html:41
-msgid "Save and Restart"
-msgstr "Speichern und neu starten"
-
-# AI-TRANSLATED (claude): needs human review
-#: views/network.html:42
-msgid ""
-"This will update the network settings and restart the PiFinder. You may "
-"have to adjust your network settings to re-connect. Are you sure?"
-msgstr ""
-"Dies aktualisiert die Netzwerkeinstellungen und startet den PiFinder neu."
-" Eventuell musst du deine Netzwerkeinstellungen anpassen, um dich erneut "
-"zu verbinden. Bist du sicher?"
-
-# AI-TRANSLATED (claude): needs human review
-#: views/network.html:45 views/tools.html:96
-msgid "Do It"
-msgstr "Ausführen"
-
-# AI-TRANSLATED (claude): needs human review
-#: views/network.html:51
+#: views/network.html:44
 msgid "Wifi Networks"
 msgstr "WLAN-Netzwerke"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/network.html:76
+#: views/network.html:69
 msgid "Too Short"
 msgstr "Zu kurz"
 
 # AI-TRANSLATED (claude): needs human review
-#: views/network.html:76
+#: views/network.html:69
 msgid "Min 8 Characters or leave None"
 msgstr "Mind. 8 Zeichen oder leer lassen"
 
@@ -3217,20 +3446,6 @@ msgid "Restore User Data"
 msgstr "Benutzerdaten wiederherstellen"
 
 # AI-TRANSLATED (claude): needs human review
-#: PiFinder/server.py:527
-msgid ""
-"Network settings updated — no restart needed. This device is now "
-"reachable at http://{host}.local. If you changed the host name, the "
-"previous address stops working, so reconnect there."
-msgstr ""
-"Netzwerkeinstellungen aktualisiert – kein Neustart nötig. Dieses Gerät ist jetzt unter http://{host}.local erreichbar. Wenn Sie den Hostnamen geändert haben, funktioniert die vorherige Adresse nicht mehr – verbinden Sie sich dort neu."
-
-# AI-TRANSLATED (claude): needs human review
-#: views/network.html:39
-msgid "Update"
-msgstr "Aktualisieren"
-
-# AI-TRANSLATED (claude): needs human review
 #: views/tools.html:93
 msgid ""
 "This will use the provided file to restore your user data. This will "
@@ -3239,6 +3454,11 @@ msgstr ""
 "Dies verwendet die angegebene Datei, um deine Benutzerdaten "
 "wiederherzustellen. Dabei werden vorhandene Einstellungen und "
 "Beobachtungen überschrieben. Bist du sicher?"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:96
+msgid "Do It"
+msgstr "Ausführen"
 
 #~ msgid "AE Algo"
 #~ msgstr "Autom. BLZ"
@@ -3347,4 +3567,90 @@ msgstr ""
 
 #~ msgid "Download: {}MB"
 #~ msgstr ""
+
+#~ msgid "Exposure"
+#~ msgstr "BLZ"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "No release found"
+#~ msgstr "Kein Release gefunden"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "System Upgrade"
+#~ msgstr "System-Upgrade"
+
+#~ msgid "Updating..."
+#~ msgstr "Update läuft..."
+
+#~ msgid "Ok! Restarting"
+#~ msgstr "Ok! Neustart..."
+
+#~ msgid "Error on Upd"
+#~ msgstr "Fehler beim Upd"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Wifi Mode: {mode}"
+#~ msgstr "WLAN-Modus: {mode}"
+
+#~ msgid "Release Version"
+#~ msgstr "Release Version"
+
+#~ msgid "No Update"
+#~ msgstr "Kein Update"
+
+#~ msgid "needed"
+#~ msgstr "notwendig"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Major Upgrade"
+#~ msgstr "Großes Upgrade"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "IRREVERSIBLE"
+#~ msgstr "UNUMKEHRBAR"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Download: {size}MB"
+#~ msgstr "Download: {size}MB"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Power + WiFi req"
+#~ msgstr "Strom + WLAN nötig"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "No checksum avail."
+#~ msgstr "Keine Prüfsumme"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Not supported"
+#~ msgstr "Nicht unterstützt"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Failed: "
+#~ msgstr "Fehler: "
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Could not load"
+#~ msgstr "Nicht geladen"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Update and Restart"
+#~ msgstr "Aktualisieren und neu starten"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid "Save and Restart"
+#~ msgstr "Speichern und neu starten"
+
+# AI-TRANSLATED (claude): needs human review
+#~ msgid ""
+#~ "This will update the network settings"
+#~ " and restart the PiFinder. You may"
+#~ " have to adjust your network settings"
+#~ " to re-connect. Are you sure?"
+#~ msgstr ""
+#~ "Dies aktualisiert die Netzwerkeinstellungen "
+#~ "und startet den PiFinder neu. Eventuell"
+#~ " musst du deine Netzwerkeinstellungen "
+#~ "anpassen, um dich erneut zu verbinden."
+#~ " Bist du sicher?"
 

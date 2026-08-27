@@ -50,6 +50,41 @@ The image files on our release pages bundle the correct Raspberry Pi OS version,
 
 Once the imager finishes writing, insert the SD card into your PiFinder and turn it on.  The first boot takes longer than usual, because the PiFinder expands the filesystem to fill the card.  Be patient.
 
+Match the Settings to Your PiFinder
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Release images from v2.6.3 onward come set up for a rev4 PiFinder in the right-hand
+position:
+
+* **Camera Type** is ``v3 - imx462``
+* **GPS Baud Rate** is ``115200 (UBlox-10)``
+* **PiFinder Type** is ``Rev4 Right``
+
+.. note::
+   ``v3 - imx462`` is correct for a rev4 PiFinder.  The rev4 camera uses the same sensor
+   as a v3, so there is no separate rev4 entry.
+
+If that describes your PiFinder, there is nothing to change.  For any other PiFinder,
+correct these settings after the first boot.  From the main menu, select Settings, scroll
+down to Advanced, then:
+
+* Select PiFinder Type and select the entry that matches your PiFinder and its position.
+  A wrong type reverses the Push-To directions.  See :ref:`quick_start:configuration setup`
+  for what each entry means.
+* On a v3 or v2.5 PiFinder, select GPS Settings, then GPS Baud Rate, and set it to
+  ``9600 (standard)``.  These PiFinders have an older GPS receiver.  At the wrong baud
+  rate the GPS never locks.
+* On a v3 PiFinder, check the Camera Type.  A v3 ships with either the ``v3 - imx462``
+  or the ``v3 - imx296`` sensor.  If yours has the imx296, select ``v3 - imx296``, then
+  turn the PiFinder fully off and on again.  A software restart alone won't apply a
+  camera change.  If you're not sure which sensor you have, leave the setting alone.  A
+  blank camera view means you have the other sensor, so select it and turn the PiFinder
+  fully off and on again.  See :ref:`troubleshooting:the camera view is blank or black`.
+  A v2.5 PiFinder with its original camera takes ``v2 - imx477``.
+
+A rev4 PiFinder rotated to the left or straight-back position needs only the PiFinder
+Type change.  The camera and GPS settings already match.
+
 The software is now installed.  Continue to the :doc:`Quick Start Guide<quick_start>` for a night of observing.
 
 Build From Scratch

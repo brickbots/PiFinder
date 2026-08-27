@@ -23,6 +23,14 @@ from PiFinder.ui.base import UIModule
 from PiFinder import calc_utils
 from PiFinder.composite_object import MagnitudeObject
 from PiFinder.nearby import ClosestObjectsFinder
+from PiFinder.ui.center_object import (
+    CenterObjectTracker,
+    center_object_text,
+    readout_enabled,
+    readout_scroll_speed,
+    readout_y,
+)
+from PiFinder.ui.ui_utils import TextLayouterScroll
 
 
 logger = logging.getLogger("Chart")
@@ -85,6 +93,18 @@ class UIChart(UIModule):
         self._nearby_finder = ClosestObjectsFinder()
         self._nearby_filter_dirty_time = None
 
+        # --- Center object + its readout
+        # The markers plot_markers() emitted a symbol for this solve; the
+        # tracker's candidate set (see ADR 0031).
+        self._drawn_objects = []
+        self._center_tracker = CenterObjectTracker()
+        self._center_scroller = None
+        self._center_scroll_speed = None
+        # The finished chart, cached so the readout strip can be repainted every
+        # frame -- the starfield under it is only redrawn on a new solve.
+        self._chart_backdrop = None
+        self._center_arrow_px = int(self.fonts.base.font.getlength(self._RIGHT_ARROW))
+
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
@@ -110,7 +130,12 @@ class UIChart(UIModule):
         Only called on the new-solve path, so the radius query runs at most
         once per solve (~1-2 Hz). ``chart_dso`` scales the two DSO layers but
         never the target cross.
+
+        Also records what it drew in ``self._drawn_objects``, which is the
+        center object's candidate set -- so with ``chart_dso`` off the early
+        return below leaves the target cross as the only candidate.
         """
+        self._drawn_objects = []
         if not self.solution:
             return
 
@@ -122,13 +147,17 @@ class UIChart(UIModule):
         if target is not None and target.ra is not None and target.dec is not None:
             exclude_ids.add(target.object_id)
             self._draw_target(target, W, H)
+            self._drawn_objects.append(target)
 
         marker_brightness = self.config_object.get_option("chart_dso", 128)
         if marker_brightness == 0:
             return
 
         # --- DSO layers (observing list + nearby), deduped against the target
-        marker_list, vertex_objects = self._collect_dso_markers(exclude_ids)
+        marker_list, vertex_objects, marker_objects = self._collect_dso_markers(
+            exclude_ids
+        )
+        self._drawn_objects.extend(marker_objects)
 
         if marker_list:
             marker_image = self.starfield.plot_markers(
@@ -184,13 +213,16 @@ class UIChart(UIModule):
         Build the marker list for the observing-list and nearby-catalog layers,
         deduped by ``object_id`` with precedence target -> observing-list ->
         nearby (``exclude_ids`` seeds the target). Returns
-        ``(marker_list, vertex_objects)`` where marker_list holds
-        ``(ra_hours, dec_deg, symbol)`` tuples for ``Starfield.plot_markers``
-        and vertex_objects holds asterism-polyline objects (observing list
-        only; nearby markers are symbols only).
+        ``(marker_list, vertex_objects, marker_objects)`` where marker_list
+        holds ``(ra_hours, dec_deg, symbol)`` tuples for
+        ``Starfield.plot_markers``, vertex_objects holds asterism-polyline
+        objects (observing list only; nearby markers are symbols only), and
+        marker_objects holds the objects behind marker_list in the same order,
+        for the center-object candidate set.
         """
         marker_list = []
         vertex_objects = []
+        marker_objects = []
         seen = set(exclude_ids)
 
         # Observing list: always on, uncapped, no mag limit.
@@ -203,6 +235,7 @@ class UIChart(UIModule):
             symbol = OBJ_TYPE_MARKERS.get(obj.obj_type)
             if symbol:
                 marker_list.append((plot.Angle(degrees=obj.ra)._hours, obj.dec, symbol))
+                marker_objects.append(obj)
 
         # Nearby catalog DSOs: symbols only.
         for obj in self._get_nearby_markers():
@@ -212,8 +245,9 @@ class UIChart(UIModule):
             symbol = OBJ_TYPE_MARKERS.get(obj.obj_type)
             if symbol:
                 marker_list.append((plot.Angle(degrees=obj.ra)._hours, obj.dec, symbol))
+                marker_objects.append(obj)
 
-        return marker_list, vertex_objects
+        return marker_list, vertex_objects, marker_objects
 
     def _get_nearby_markers(self):
         """
@@ -309,6 +343,206 @@ class UIChart(UIModule):
             self.draw.arc(bbox, 200, 250, fill=self.colors.get(brightness))
             self.draw.arc(bbox, 290, 340, fill=self.colors.get(brightness))
 
+    # --- Center object + readout ------------------------------------------
+    #
+    # The center object is the drawn marker nearest the middle of the chart;
+    # the readout is the optional line along the bottom that names it. See
+    # ADR 0031 and docs/ax/ui/CONTEXT.md.
+
+    def _center_readout_enabled(self):
+        return readout_enabled(
+            self.config_object.get_option("chart_center_object", "On")
+        )
+
+    def _update_center_object(self):
+        """
+        Re-pick the center object from the markers ``plot_markers`` just drew,
+        and restart the marquee if the pick changed.
+
+        Projects the drawn objects to screen space in one batched call and
+        hands the result to the tracker, which does the bounds check, the
+        ranking and the hysteresis.
+
+        Skipped entirely while the readout is off. Nothing else consumes the
+        pick -- RIGHT is gated on the readout too -- so there is no one to pay
+        the projection for, and a stale pick must not linger in the published
+        UI state either, hence the reset on the way past.
+        """
+        if not self._center_readout_enabled():
+            if self._center_tracker.center_object is not None:
+                self._center_tracker.reset()
+                self._center_scroller = None
+            return
+
+        drawn = [
+            obj
+            for obj in self._drawn_objects
+            if obj.ra is not None and obj.dec is not None
+        ]
+        xs, ys = self.starfield.radec_to_xy_many(
+            [obj.ra for obj in drawn], [obj.dec for obj in drawn]
+        )
+        candidates = list(zip(drawn, xs, ys))
+
+        self._center_tracker.update(
+            candidates,
+            (self.display_class.centerX, self.display_class.centerY),
+            self.display_class.resolution,
+        )
+        if self._center_tracker.changed:
+            self._build_center_scroll()
+
+    def _center_readout_y(self):
+        """
+        Top of the center-object strip. Recomputed each frame because the
+        RA/Dec setting it stacks against can change while the preloaded chart
+        is live. See ``center_object.readout_y`` for the rule.
+        """
+        return readout_y(
+            self.display_class.resY,
+            self.fonts.base.height,
+            self.config_object.get_option("chart_radec"),
+        )
+
+    def _center_scroll_speed_config(self):
+        return readout_scroll_speed(
+            self.config_object.get_option("text_scroll_speed", "Med")
+        )
+
+    def _build_center_scroll(self):
+        """
+        (Re)build the readout's marquee, which restarts it from the left.
+        Called when the center object changes, when the scroll speed setting
+        changes, and from ``active()``.
+        """
+        obj = self._center_tracker.center_object
+        if obj is None:
+            self._center_scroller = None
+            return
+
+        font = self.fonts.base
+        speed = self._center_scroll_speed_config()
+        # TextLayouterScroll slices a fixed-width string, so its width is a
+        # character count: the screen less the right-pinned arrow glyph.
+        width = max(
+            1,
+            int((self.display_class.resX - self._center_arrow_px - 2) // font.width),
+        )
+        text = center_object_text(obj)
+        if speed == 0:
+            # Not scrolling, and TextLayouterScroll then draws the string in
+            # full -- PIL would clip it at the panel edge with no ellipsis, so
+            # truncate here instead.
+            text = text[:width]
+
+        self._center_scroller = TextLayouterScroll(
+            text,
+            self.draw,
+            self.colors.get(255),
+            font,
+            width=width,
+            scrollspeed=speed,
+        )
+        self._center_scroll_speed = speed
+
+    def _draw_center_readout(self):
+        """
+        Draw the center-object line, on every frame rather than only on a new
+        solve -- otherwise the marquee would stutter along at the 1-2 Hz solve
+        rate. The strip is repainted from the cached chart backdrop first, so
+        the previous frame's text doesn't smear.
+        """
+        if not self._center_readout_enabled():
+            return
+        if self._center_tracker.center_object is None or self._chart_backdrop is None:
+            return
+
+        if self._center_scroll_speed != self._center_scroll_speed_config():
+            self._build_center_scroll()
+        if self._center_scroller is None:
+            return
+
+        font = self.fonts.base
+        strip_y = self._center_readout_y()
+        box = (
+            0,
+            strip_y,
+            self.display_class.resX,
+            min(self.display_class.resY, strip_y + font.height + 1),
+        )
+        self.screen.paste(self._chart_backdrop.crop(box), (box[0], box[1]))
+
+        self._center_scroller.draw((0, strip_y))
+        self.draw.text(
+            (self.display_class.resX - self._center_arrow_px, strip_y),
+            self._RIGHT_ARROW,
+            font=font.font,
+            fill=self.colors.get(255),
+        )
+
+    def active(self):
+        """
+        Restart the marquee when the chart is revealed again --
+        ``remove_from_stack`` calls ``active()`` on the module below, and the
+        chart is preloaded and stateful, so this is the hook for coming back
+        from an object's details.
+        """
+        super().active()
+        self._build_center_scroll()
+
+    def key_right(self):
+        """
+        Open the center object's details.
+
+        Gated on the readout: with it off, or with no center object (no solve,
+        nothing drawn, nothing on screen), RIGHT stays inert as it was before
+        the readout existed. Long RIGHT isn't ours -- ``MenuManager`` takes it
+        for the most recent object -- so the chart has both: short RIGHT for
+        what you're pointed at, long RIGHT for what you last looked at.
+        """
+        from PiFinder.ui.object_details import UIObjectDetails
+
+        if not self._center_readout_enabled():
+            return
+        obj = self._center_tracker.center_object
+        if obj is None:
+            return
+
+        self.add_to_stack(
+            {
+                "name": obj.display_name,
+                "class": UIObjectDetails,
+                "object": obj,
+                # Nearest-first, so UP/DOWN inside details walks outward
+                # through the chart's own markers.
+                "object_list": list(self._center_tracker.ranked),
+                "label": "object_details",
+            }
+        )
+
+    def serialize_ui_state(self) -> dict:
+        """
+        Chart state for ``/api/current-selection``: the zoom level and the
+        current center object, so the readout is checkable without OCR-ing a
+        screenshot. ``center_object`` is null while ``center_object_readout``
+        is false -- with the readout off nothing picks one, so there is
+        nothing to report rather than something the user can't see.
+        """
+        obj = self._center_tracker.center_object
+        center = None
+        if obj is not None:
+            xy = self._center_tracker.center_xy
+            center = {
+                "display_name": obj.display_name,
+                "object_id": obj.object_id,
+                "screen_px": [round(xy[0], 1), round(xy[1], 1)] if xy else None,
+            }
+        return {
+            "fov": self.fov,
+            "center_object_readout": self._center_readout_enabled(),
+            "center_object": center,
+        }
+
     def set_fov(self, fov):
         self.fov = fov
         self.starfield.set_fov(fov)
@@ -375,6 +609,7 @@ class UIChart(UIModule):
                 self.screen.paste(image_obj)
 
                 self.plot_markers()
+                self._update_center_object()
                 if orientation is not None:
                     self._draw_orientation_indicator(orientation)
 
@@ -405,13 +640,24 @@ class UIChart(UIModule):
                 self.last_update = last_estimate_time
 
                 self.draw_reticle()
+
+                # Cache the finished chart so _draw_center_readout can repaint
+                # its strip every frame without the starfield underneath it.
+                self._chart_backdrop = self.screen.copy()
         else:
             self.plot_no_solve()
 
+        self._draw_center_readout()
         return self.screen_update()
 
     def plot_no_solve(self):
         """Plot message: Can't plot No solve yet"""
+        # The screen is about to be cleared, so there are no drawn markers to
+        # be the center object and no backdrop to repaint its strip from.
+        self._drawn_objects = []
+        self._center_tracker.reset()
+        self._center_scroller = None
+        self._chart_backdrop = None
         self.draw.rectangle(
             [0, 0, self.display_class.resX, self.display_class.resY],
             fill=self.colors.get(0),

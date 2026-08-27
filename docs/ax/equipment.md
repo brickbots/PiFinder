@@ -55,8 +55,8 @@ for round-tripping through `config.json`; the nested `Telescope` /
 | --- | --- | --- |
 | `make` | str | Manufacturer, free text. |
 | `name` | str | Model / instrument name. |
-| `aperture_mm` | int | Clear aperture in mm. |
-| `focal_length_mm` | int | Focal length in mm. Numerator of `calc_magnification()`. |
+| `aperture_mm` | float | Clear aperture in mm. |
+| `focal_length_mm` | float | Focal length in mm. Numerator of `calc_magnification()`. |
 | `obstruction_perc` | float | Central obstruction as a percentage (0 for a refractor). Informational; not used by the optics calcs here. |
 | `mount_type` | str | `"alt/az"` or `"equatorial"`. |
 | `flip_image` | bool | Top-to-bottom (vertical) mirror of the object image. See §6. |
@@ -74,11 +74,31 @@ the glossary's "Flagged ambiguities."
 | `make` | str | Manufacturer, free text. |
 | `name` | str | Model name. |
 | `focal_length_mm` | float | Focal length in mm. Denominator of `calc_magnification()`; also the eyepiece sort key. |
-| `afov` | int | Apparent field of view (AFOV) in degrees — a property of the eyepiece alone. |
+| `afov` | float | Apparent field of view (AFOV) in degrees — a property of the eyepiece alone. |
 | `field_stop` | float | Field-stop diameter in mm; default `0`. When non-zero it gives a more accurate TFOV (see §5). |
 
-`Eyepiece.__str__` renders as `"{focal_length_mm}mm {name}"`, which is the
-string the object-detail screen burns into the image as the eyepiece label.
+`Eyepiece.__str__` renders as `"{focal_length_mm}mm {name}"` — through
+`format_measurement()`, so a whole-millimetre eyepiece reads "25mm Plossl"
+rather than "25.0mm Plossl". That is the string the object-detail screen
+burns into the image as the eyepiece label.
+
+### 2.5 Field rules (`TELESCOPE_LIMITS` / `EYEPIECE_LIMITS`)
+
+Every measurement is a **float** and carries an inclusive `Limits(minimum,
+maximum)` pair declared alongside the dataclasses. The ranges themselves are
+tabulated in [`equipment/CONTEXT.md`](./equipment/CONTEXT.md); the rationale for
+floats-everywhere is [ADR 0033](../adr/0033-equipment-measurements-are-validated-floats.md).
+
+Two properties matter more than the numbers:
+
+- **One table, two enforcement points.** The edit forms render the limits into
+  their client-side check (`views/equipment_validation.html`) and the API
+  re-checks them (`server.py`, `telescope_from_form` / `eyepiece_from_form`).
+  The client is feedback; the API decides what reaches config.
+- **The records themselves don't validate.** `__post_init__` only sorts. Raising
+  in the dataclasses would re-create #291 — an unbootable device — because
+  `from_dict` builds the same records at load. Validation lives at the write
+  boundary; the loader stays permissive and falls back to defaults (§3.1).
 
 ### 2.3 `Equipment` (`equipment.py:33`)
 
@@ -122,6 +142,11 @@ always reads the repo-root `default_config.json` into
   very wrong"), Equipment is built empty: `Equipment(telescopes=[], eyepieces=[])`.
 - Otherwise the section is validated (§3.3) and
   `Equipment.from_dict(eq_config)` builds the object.
+- If `from_dict` **can't** decode the section, the failure is logged and the
+  shipped defaults are used instead. This used to be an uncaught raise inside
+  `main()`, so a config an older release had written with a string measurement
+  produced a PiFinder that booted to nothing (#291); measurements are floats
+  now, and the fallback covers whatever else a hand edit can produce.
 
 ### 3.2 When a save is actually triggered — the freeze nuance
 
@@ -328,13 +353,25 @@ list/table page) and `views/edit_instrument.html` / `views/edit_eyepiece.html`
 | `GET /equipment` | List telescopes + eyepieces, show active radios, import button. |
 | `GET /equipment/set_active_instrument/<id>` | Set active telescope, save. |
 | `GET /equipment/set_active_eyepiece/<id>` | Set active eyepiece, save. |
-| `GET /equipment/edit_instrument/<id>` | Edit form (id `< 0` = add new, blank `Telescope`). |
+| `GET /equipment/edit_instrument/<id>` | Edit form (id `< 0` = add new, blank fields). |
 | `POST /equipment/add_instrument/<id>` | Create or update a telescope, save. |
 | `GET /equipment/delete_instrument/<id>` | Remove a telescope, save. |
 | `GET /equipment/edit_eyepiece/<id>` | Edit form (id `< 0` = add new). |
 | `POST /equipment/add_eyepiece/<id>` | Create or update an eyepiece, save. |
 | `GET /equipment/delete_eyepiece/<id>` | Remove an eyepiece, save. |
 | `POST /equipment/import_from_deepskylog` | Bulk import from DeepskyLog (see below). |
+
+Every route that takes an `<id>` range-checks it and re-renders the list page
+with "No such instrument / eyepiece" rather than letting a stale or hand-edited
+URL raise `IndexError` as a 500.
+
+The two `add_*` handlers build their record through `telescope_from_form` /
+`eyepiece_from_form` (§2.5). On a `ValueError` they re-render the **edit form**
+with the message and the values that were submitted; only a record that
+validated reaches `save_equipment()`. Before #569 both handlers swallowed the
+exception and rendered the success banner regardless, so an unparseable value —
+a decimal comma being the easiest way to produce one — reported "Eyepiece added"
+and saved nothing.
 
 The instrument form (`edit_instrument.html`) exposes the orientation flags
 directly as checkboxes — labelled "Flip image (upside down)" and
@@ -362,6 +399,10 @@ eyepieces:
   `flip_image` / `flop_image` straight from DeepskyLog). `reverse_arrow_*`
   default to `False`. HTML entities in names are unescaped.
 - Eyepieces map `focalLength`, `apparentFOV` → `afov`, and `field_stop_mm`.
+- Each record is re-checked against the same limits as the forms
+  (`check_equipment_limits`). One DeepskyLog can't supply usable values for is
+  skipped and counted in the result message, rather than written through and
+  discovered at the next boot.
 - Each new record is appended only if not already present (dedup via
   `list.index(...)` raising `ValueError`), then `save_equipment()`.
 

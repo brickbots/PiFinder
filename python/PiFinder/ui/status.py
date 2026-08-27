@@ -16,6 +16,41 @@ from PiFinder.ui.layout import rows_below_titlebar
 sys_utils = utils.get_sys_utils()
 
 
+def _format_comms_age(seconds: float) -> str:
+    """Age of the last GPS event, bucketed to stay within 5 characters.
+
+    Seconds carry a decimal because that is the range where the number is
+    doing the work (is it live, or a second stale?); past that only the order
+    of magnitude matters.
+    """
+    seconds = max(0.0, seconds)
+    if seconds < 99.95:
+        return f"{seconds:.1f}s"
+    if seconds < 6000:
+        return f"{seconds / 60:.0f}m"
+    return f"{seconds / 3600:.0f}h"
+
+
+def _format_gps_comms(comms) -> str:
+    """Render the comms row value from shared_state.gps_comms().
+
+    A churning name with a near-zero age means events are flowing; a frozen
+    name with a climbing age means the link died doing that; a ``?`` name
+    means bytes arrived that we could not decode. See docs/ax/gps/CONTEXT.md.
+    """
+    if not comms:
+        return "--"
+    name, stamp = comms
+    # Monotonic, because the GPS is what sets the wall clock and a wall-clock
+    # age inverts the instant a fix lands. main.py takes the stamp with this
+    # same process's clock, which is the only way the subtraction is valid.
+    age = _format_comms_age(time.monotonic() - stamp)
+    # NAV-TIMEGPS would not fit the 14-character value column; TIMEGPS does.
+    if name.startswith("NAV-"):
+        name = name[4:]
+    return f"{name} {age}"
+
+
 class UIStatus(UIModule):
     """
     Displays various status information
@@ -44,6 +79,7 @@ class UIStatus(UIModule):
             "GPS": "--",
             "GPS ALT": "--",
             "GPS LCK": "--",
+            "GPS MSG": "--",
             "LCL TM": "--",
             "UTC TM": "--",
             "CPU TMP": "--",
@@ -138,6 +174,7 @@ class UIStatus(UIModule):
         self.status_dict["GPS ALT"] = f"{location.altitude:.1f}m"
         last_lock = location.last_gps_lock
         self.status_dict["GPS LCK"] = last_lock if last_lock else "--"
+        self.status_dict["GPS MSG"] = _format_gps_comms(self.shared_state.gps_comms())
 
         # use datetimes explictly converted to the timezone we want to print
         # datetime() can be in any timezone and time() will just ignore TZ
