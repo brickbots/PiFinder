@@ -1350,6 +1350,13 @@ msgstr "深空天体显示"
 msgid "RA/DEC Disp."
 msgstr "RA/Dec显示"
 
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: chart setting — names the object nearest the middle of the
+#. chart
+#: PiFinder/ui/menu_structure.py:878
+msgid "Center Object"
+msgstr "中心天体"
+
 #: PiFinder/ui/menu_structure.py:866
 msgid "HH:MM"
 msgstr "时:分"
@@ -3543,3 +3550,106 @@ msgstr "这将使用所提供的文件恢复你的用户数据,并覆盖现有�
 #~ msgid "Download: {}MB"
 #~ msgstr ""
 
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:91
+#, python-format
+msgid "%(field)s must be between %(minimum)s and %(maximum)s"
+msgstr "%(field)s 必须在 %(minimum)s 和 %(maximum)s 之间"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:108
+#, python-format
+msgid "%(field)s must be %(maximum)s characters or fewer"
+msgstr "%(field)s 不能超过 %(maximum)s 个字符"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:169
+#: PiFinder/server.py:202
+msgid "Focal length"
+msgstr "焦距"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:173
+msgid "Apparent field of view"
+msgstr "视场角"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:177
+msgid "Field stop"
+msgstr "视场光阑"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:192
+#, python-format
+msgid "%s is not a valid mount type"
+msgstr "%s 不是有效的望远镜类型"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:196
+msgid "Instrument name"
+msgstr "器材名称"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:207
+msgid "Obstruction"
+msgstr "遮挡率"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:518
+msgid "Date and time must be YYYY-MM-DD h:m:s"
+msgstr "日期和时间必须为 YYYY-MM-DD h:m:s 格式"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:797
+#: PiFinder/server.py:1020
+#: PiFinder/server.py:1085
+msgid "No such instrument"
+msgstr "找不到该器材"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:816
+#: PiFinder/server.py:939
+#: PiFinder/server.py:1002
+msgid "No such eyepiece"
+msgstr "找不到该目镜"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:924
+#, python-format
+msgid "%s entries were skipped because DeepskyLog had no usable values for them."
+msgstr "%s 条记录被跳过，因为 DeepskyLog 没有可用的数值。"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:988
+#, python-format
+msgid "Could not save eyepiece: %s"
+msgstr "无法保存目镜：%s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1071
+#, python-format
+msgid "Could not save instrument: %s"
+msgstr "无法保存器材：%s"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:55
+msgid "Leave at 0 if unknown"
+msgstr "未知时请保持为 0"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:56
+msgid "Leave at 0 for a refractor"
+msgstr "折射镜请保持为 0"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment_validation.html:10
+#, python-format
+msgid "Must be between %(minimum)s and %(maximum)s"
+msgstr "必须在 %(minimum)s 和 %(maximum)s 之间"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment_validation.html:11
+#, python-format
+msgid "Must be %(maximum)s characters or fewer"
+msgstr "不能超过 %(maximum)s 个字符"

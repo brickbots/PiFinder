@@ -10,7 +10,7 @@ import os
 import numpy as np
 import pandas
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Sequence, Tuple
 from PiFinder import utils
 from PiFinder import timez
 from PIL import Image, ImageDraw, ImageChops
@@ -218,23 +218,33 @@ class Starfield:
         mag_setting = mag_range[0] - ((mag_range[0] - mag_range[1]) * perc_fov)
         self.set_mag_limit(mag_setting)
 
-    def radec_to_xy(self, ra: float, dec: float) -> tuple[float, float]:
+    def radec_to_xy_many(
+        self, ra: Sequence[float], dec: Sequence[float]
+    ) -> tuple[list[float], list[float]]:
         """
-        Converts and RA/DEC to screen space x/y for the current projection
+        Converts a sequence of RA/DEC to screen space x/y for the current
+        projection, in the input order.
+
+        The expensive part of a projection is the DataFrame -> Star ->
+        ``observe`` round trip, and it costs the same for one position as for
+        fifty, so callers with more than one position to place (the chart's
+        center-object candidate set) should batch through here rather than
+        loop over ``radec_to_xy``.
         """
-        # Skyfield needs a DataFrame to build the Star; rotate/screen-space
-        # math is scalar numpy/python after that point.
+        if len(ra) == 0:
+            return [], []
+
+        # Skyfield needs a DataFrame to build the Stars; rotate/screen-space
+        # math is numpy after that point.
         marker_df = pandas.DataFrame(
             {
-                "ra_hours": [Angle(degrees=ra)._hours],
-                "dec_degrees": [dec],
+                "ra_hours": Angle(degrees=np.asarray(ra, dtype=np.float64))._hours,
+                "dec_degrees": np.asarray(dec, dtype=np.float64),
                 "epoch_year": 1991.25,
             }
         )
-        marker_position = self.earth.observe(Star.from_dataframe(marker_df))
-        x_arr, y_arr = self.projection(marker_position)
-        x = float(x_arr[0])
-        y = float(y_arr[0])
+        marker_positions = self.earth.observe(Star.from_dataframe(marker_df))
+        x, y = self.projection(marker_positions)
 
         roll_rad = self.roll * (np.pi / 180.0)
         roll_sin = np.sin(roll_rad)
@@ -244,7 +254,14 @@ class Starfield:
 
         x_pos = xr * self.pixel_scale + self.render_center[0]
         y_pos = -yr * self.pixel_scale + self.render_center[1]
-        return x_pos, y_pos
+        return [float(v) for v in x_pos], [float(v) for v in y_pos]
+
+    def radec_to_xy(self, ra: float, dec: float) -> tuple[float, float]:
+        """
+        Converts and RA/DEC to screen space x/y for the current projection
+        """
+        x_pos, y_pos = self.radec_to_xy_many([ra], [dec])
+        return x_pos[0], y_pos[0]
 
     def plot_markers(self, marker_list):
         """

@@ -90,7 +90,19 @@ class Config:
             ):
                 eq_config["active_eyepiece_index"] = 0
 
-            self.equipment = equipment.Equipment.from_dict(eq_config)
+            try:
+                self.equipment = equipment.Equipment.from_dict(eq_config)
+            except (ValueError, TypeError, KeyError):
+                # A value the equipment dataclasses can't decode used to
+                # abort main() before the UI came up — an unusable PiFinder
+                # (#291).  Fall back to the defaults and keep booting; the
+                # web forms validate everything they write, so a config
+                # that lands here was hand-edited or written by an older
+                # release.
+                logger.exception(
+                    "Could not load saved equipment; falling back to defaults"
+                )
+                self.equipment = equipment.Equipment.from_dict(default_eq)
 
         # Load the locations config
         loc_config = self.get_option("locations")

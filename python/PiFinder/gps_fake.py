@@ -14,6 +14,7 @@ import logging
 from PiFinder import utils
 from PiFinder import timez
 from PiFinder.multiproclogging import MultiprocLogging
+from PiFinder.gps_comms import CommsPublisher
 from PiFinder.gps_ubx_parser import UBXParser
 from PiFinder.gps_ubx import process_messages
 
@@ -90,9 +91,13 @@ def gps_monitor(gps_queue, console_queue, log_queue, file_name="test.ubx"):
         lock = False
         lock_type = None
         i = -1
+        # Nothing is being received here, but the comms row should still be
+        # live under -fh so the feature is developable without hardware.
+        comms = CommsPublisher(gps_queue)
         while True:
             i += 1
             time.sleep(0.5)
+            comms.publish("FAKE")
             fix = (
                 "fix",
                 {

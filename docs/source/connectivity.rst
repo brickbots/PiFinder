@@ -35,7 +35,7 @@ those without zeroconf networking, use the IP address shown on the
 * A web browser, for the :ref:`connectivity:web interface` (remote control, WiFi setup, and configuration changes)
 * SSH, for shell access (advanced users)
 * SMB (Samba), to access saved images, logs, and observing lists
-* LX200 protocol, to update a planetarium app such as :doc:`skysafari` with the telescope's position
+* LX200 protocol, to update a planetarium app such as :doc:`SkySafari or Stellarium <skysafari>` with the telescope's position
 
 Web Interface
 ==============
@@ -119,9 +119,9 @@ to default when you're done.
 SkySafari and Planetarium Apps
 ==============================
 
-The PiFinder can send real-time pointing information to SkySafari and other planetarium apps
-over the LX200 protocol.  It also accepts the objects those apps send back.  The
-:doc:`skysafari` page has the connection settings and takes you through the setup step by
+The PiFinder can send real-time pointing information to SkySafari, Stellarium and other
+planetarium apps over the LX200 protocol.  It also accepts the objects those apps send back.
+The :doc:`skysafari` page has the connection settings and takes you through the setup step by
 step.
 
 Shared Data Access

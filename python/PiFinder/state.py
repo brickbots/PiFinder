@@ -288,6 +288,7 @@ class SharedStateObj:
         }
         self.__solution: PointingEstimate = PointingEstimate()
         self.__sats = None
+        self.__gps_comms = None
         self.__imu = None
         self.__battery = None
         self.__hardware = None
@@ -309,6 +310,11 @@ class SharedStateObj:
         # None means "not stated", which resolves to the sensor's shipped lens
         # -- that is what lets installs predating this setting keep working.
         self.__camera_lens = config.Config().get_option("camera_lens")
+        # Whether the frames arriving actually came through the optics the two
+        # halves above describe. True until a camera says otherwise, so the
+        # window before the camera process reports behaves like the hardware
+        # case rather than silently dropping the FOV gate on every boot.
+        self.__optical_train_known = True
         # Degrees the camera process rotates the solve/display image relative
         # to the stored raw frame (PIL CCW). None until the camera reports.
         self.__solve_image_rotation = None
@@ -396,11 +402,35 @@ class SharedStateObj:
         """
         self.__camera_lens = v
 
+    def optical_train_known(self) -> bool:
+        """False when the frames did not come through this device's optics.
+
+        See ``CameraInterface.optical_train_known``. Read alongside
+        ``camera_type``/``camera_lens`` rather than instead of them: the train
+        still resolves, it just does not describe the frames.
+        """
+        return self.__optical_train_known
+
+    def set_optical_train_known(self, v: bool):
+        self.__optical_train_known = bool(v)
+
     def sats(self):
         return self.__sats
 
     def set_sats(self, v):
         self.__sats = v
+
+    def gps_comms(self):
+        """The most recent GPS event as ``(name, monotonic_stamp)``, or None
+        when nothing has been received this session. The name is a message
+        class (``NAV-SOL``) or a marker (``?CKSUM``). The stamp is the main
+        process's ``time.monotonic()`` reading when the event was drained off
+        ``gps_queue``, so only that process can meaningfully subtract it --
+        see docs/ax/gps/CONTEXT.md."""
+        return self.__gps_comms
+
+    def set_gps_comms(self, v):
+        self.__gps_comms = v
 
     def imu(self):
         return self.__imu

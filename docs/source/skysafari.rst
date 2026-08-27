@@ -1,6 +1,11 @@
-===============
-SkySafari
-===============
+========================
+SkySafari and Stellarium
+========================
+
+The PiFinder connects to SkySafari and to Stellarium over the LX200 protocol.  Both apps show
+you where the telescope points.  Both can send an object to the PiFinder's observing list.
+The setup below covers SkySafari in full.  The :ref:`skysafari:stellarium` section covers what
+differs for Stellarium.
 
 
 Network Setup
@@ -85,6 +90,29 @@ A few things are worth knowing about the connection:
    If the PiFinder enters power-save mode, it stops sending position updates.  SkySafari then
    appears to freeze.  When you rely on SkySafari, lengthen the sleep timer or turn it off.
    See :ref:`quick_start:adjusting brightness`.
+
+Stellarium
+----------
+
+Stellarium connects to the PiFinder the same way SkySafari does.  It uses the same LX200
+protocol and the same port, so the network setup above applies unchanged.
+
+In Stellarium's telescope settings, add a telescope and select a Meade LX200 compatible type.
+Use ``pifinder.local`` for the address.  If that does not work, check the Status screen for the
+numeric IP address.  Set the port to 4030.
+
+After you connect, Stellarium marks the telescope's position on its star chart.  You can also
+select an object in Stellarium and send it to the PiFinder's observing list, then use Push-To
+guidance to find it.
+
+.. note::
+   Stellarium sends the PiFinder its own observing site and clock while it connects.  The
+   PiFinder accepts them and then keeps using its own GPS position and time.  Your observing
+   location does not change.
+
+The points under :ref:`skysafari:using skysafari` apply to Stellarium as well.  Only one app can
+connect at a time, and the PiFinder stops sending position updates in power-save mode.
+
 
 Troubleshooting
 ---------------
