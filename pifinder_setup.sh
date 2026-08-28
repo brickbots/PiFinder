@@ -15,6 +15,17 @@ else
 fi
 cd ~/PiFinder/ && sudo pip install -r python/requirements.txt
 
+# python/tetra3 must be a symlink to the solver package inside the
+# cedar-solve submodule — `import tetra3` resolves through it. It is
+# deliberately untracked (see ADR 0035); anything else at this path (from
+# an older install) is moved aside, kept rather than deleted.
+if [ "$(readlink python/tetra3)" != "PiFinder/tetra3/tetra3" ]; then
+    if [ -e python/tetra3 ] || [ -L python/tetra3 ]; then
+        mv python/tetra3 ~/tetra3_old_"$(date +%Y%m%d-%H%M%S)"
+    fi
+    ln -s PiFinder/tetra3/tetra3 python/tetra3
+fi
+
 # Setup GPSD
 sudo dpkg-reconfigure -plow gpsd
 sudo cp ~/PiFinder/pi_config_files/gpsd.conf /etc/default/gpsd

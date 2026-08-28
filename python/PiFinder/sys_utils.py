@@ -317,7 +317,15 @@ def update_software():
     service
     """
     logger.info("SYS: Running update")
-    sh.bash("/home/pifinder/PiFinder/pifinder_update.sh")
+    try:
+        sh.bash("/home/pifinder/PiFinder/pifinder_update.sh")
+    except sh.ErrorReturnCode as e:
+        logger.error(
+            "SYS: Software update failed: %s%s",
+            e.stdout.decode(errors="replace"),
+            e.stderr.decode(errors="replace"),
+        )
+        return False
     return True
 
 

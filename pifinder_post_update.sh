@@ -1,4 +1,25 @@
 git submodule update --init --recursive
+
+# python/tetra3 must be a symlink to the tetra3 package inside the
+# cedar-solve submodule. It is deliberately untracked (see ADR 0035):
+# older installs have a plain folder or an absolute symlink here, and a
+# tracked version makes `git pull` refuse to update those units. Anything
+# else at this path is moved aside (kept, not deleted) and the symlink is
+# (re)created on every update.
+TETRA3_LINK="/home/pifinder/PiFinder/python/tetra3"
+TETRA3_TARGET="PiFinder/tetra3/tetra3"
+if [ -e "$TETRA3_LINK" ] || [ -L "$TETRA3_LINK" ]
+then
+    if [ "$(readlink "$TETRA3_LINK")" != "$TETRA3_TARGET" ]
+    then
+        mv "$TETRA3_LINK" "/home/pifinder/tetra3_old_$(date +%Y%m%d-%H%M%S)"
+    fi
+fi
+if ! [ -L "$TETRA3_LINK" ]
+then
+    ln -s "$TETRA3_TARGET" "$TETRA3_LINK"
+fi
+
 sudo pip install -r /home/pifinder/PiFinder/python/requirements.txt
 
 # Set up migrations folder if it does not exist
