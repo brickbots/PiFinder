@@ -20,6 +20,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+      # python/tetra3 -> PiFinder/tetra3/tetra3 is untracked (see ADR 0035),
+      # and `import tetra3` resolves the package through it.
+      - run: ln -sfn PiFinder/tetra3/tetra3 tetra3
       - uses: wntrblm/nox@2024.04.15
         with:
           python-versions: "3.9"

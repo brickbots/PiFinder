@@ -15,6 +15,17 @@ else
 fi
 cd ~/PiFinder/ && sudo pip install -r python/requirements.txt
 
+# python/tetra3 must be a symlink to the solver package inside the
+# cedar-solve submodule — `import tetra3` resolves through it. It is
+# deliberately untracked (see ADR 0035); anything else at this path (from
+# an older install) is moved aside, kept rather than deleted.
+if [ "$(readlink python/tetra3)" != "PiFinder/tetra3/tetra3" ]; then
+    if [ -e python/tetra3 ] || [ -L python/tetra3 ]; then
+        mv python/tetra3 ~/tetra3_old_"$(date +%Y%m%d-%H%M%S)"
+    fi
+    ln -s PiFinder/tetra3/tetra3 python/tetra3
+fi
+
 # Setup GPSD
 sudo dpkg-reconfigure -plow gpsd
 sudo cp ~/PiFinder/pi_config_files/gpsd.conf /etc/default/gpsd
@@ -68,9 +79,12 @@ grep -q "dtoverlay=uart3" /boot/config.txt || \
 
 # Power-off latch (rev4): at kernel poweroff drive GPIO14 low -> LTC2954 KILL ->
 # TPS61088 boost EN off -> power cut. active_low + the hardware pull-up on GPIO14
-# keep the pin high (power on) through boot/reboot. No-op on rev3. See ADR 0007.
+# keep the pin high (power on) through boot/reboot. Gated to the CM4 (rev4): on
+# the Pi 4B revisions the overlay replaces the firmware power-off and parks the
+# halt path with the screen lit. The [all] keeps later appends unconditional.
+# See ADR 0007 + ADR 0034.
 grep -q "dtoverlay=gpio-poweroff" /boot/config.txt || \
-   echo "dtoverlay=gpio-poweroff,gpiopin=14,active_low" | sudo tee -a /boot/config.txt
+   printf '[cm4]\ndtoverlay=gpio-poweroff,gpiopin=14,active_low\n[all]\n' | sudo tee -a /boot/config.txt
 
 # Free GPIO14 (UART0 TXD) for the power-off latch: drop the serial console so the
 # kernel doesn't drive console bytes onto the kill line. Leaves enable_uart/BT alone.
