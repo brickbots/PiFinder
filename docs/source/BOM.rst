@@ -49,7 +49,9 @@ These are the electronic bits needed to build the Display/Keypad unit that fits 
    * - 1
      - Adafruit IMU Fusion Breakout - BNO055
      - https://www.adafruit.com/product/4646
-     - 
+     - Order product 4646 exactly. Adafruit sells another BNO055 board (product
+       2472) that looks very similar, but its data pins are in a different
+       order and it does not work in the PiFinder
    * - 1
      - 2x20 40 Pin Stacking Female Header
      - https://www.amazon.com/dp/B0827THC7R
