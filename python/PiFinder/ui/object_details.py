@@ -12,6 +12,7 @@ from PiFinder.object_images import get_display_image
 from PiFinder.object_images.image_base import ImageType
 from PiFinder.object_images.image_utils import (
     extent_perimeter_polylines,
+    eyepiece_image_rotation,
     project_radec_to_chart,
 )
 from PiFinder.object_images.star_catalog import CatalogState
@@ -490,10 +491,8 @@ class UIObjectDetails(UIModule):
         # Capture the exact geometry the Gaia chart is rendered with, so the
         # per-frame extent overlay projects onto the same pixels as the baked
         # stars (which don't re-rotate as the live solution drifts). Mirrors
-        # GaiaChartGenerator.render_chart: reflector adds a 180° base rotation.
-        telescope = self.config_object.equipment.active_telescope
-        image_rotate = 180.0 if (telescope and telescope.obstruction_perc > 0) else 0.0
-        image_rotate += roll
+        # GaiaChartGenerator uses the fixed parity-preserving 180° baseline.
+        image_rotate = eyepiece_image_rotation(roll)
         self._chart_geom = {
             "center_ra": self.object.ra,
             "center_dec": self.object.dec,

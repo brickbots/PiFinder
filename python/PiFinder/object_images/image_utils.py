@@ -16,6 +16,17 @@ from PIL import Image, ImageDraw, ImageChops
 from PiFinder.ui import ui_utils
 
 
+def eyepiece_image_rotation(roll: Optional[float]) -> float:
+    """Return the parity-preserving eyepiece rotation for a solved roll.
+
+    Survey plates and Gaia charts start North-up/East-left. Newtonians and
+    straight-through refractors both invert that field by 180 degrees; an odd
+    reflection is represented separately by flip/flop after this rotation.
+    See ADR 0003.
+    """
+    return 180.0 + (roll if roll is not None else 0.0)
+
+
 def rotation_radians(image_rotate: float) -> float:
     """Image rotation as a y-down pixel-space angle, in radians.
 

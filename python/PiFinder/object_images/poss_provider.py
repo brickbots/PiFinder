@@ -14,6 +14,7 @@ from .image_utils import (
     pad_to_display_resolution,
     add_image_overlays,
     add_orientation_overlays,
+    eyepiece_image_rotation,
 )
 import logging
 
@@ -64,23 +65,13 @@ class POSSImageProvider(ImageProvider):
         image_path = self._resolve_image_name(catalog_object, source="POSS")
         return_image = Image.open(image_path)
 
-        # Rotate for roll / telescope orientation
-        # Reflectors (Newtonian, SCT) invert the image 180°
-        # Refractors typically don't invert (depends on eyepiece design)
-        # Use obstruction as heuristic: obstruction > 0 = reflector
+        # Rotate the North-up/East-left survey plate into the
+        # parity-preserving eyepiece baseline, then apply any mirrors below.
         telescope = None
         if config_object and hasattr(config_object, "equipment"):
             telescope = config_object.equipment.active_telescope
 
-        if telescope and telescope.obstruction_perc > 0:
-            # Reflector telescope (Newtonian, SCT) - inverts image
-            image_rotate = 180
-        else:
-            # Refractor or unknown - no base rotation
-            image_rotate = 0
-
-        if roll is not None:
-            image_rotate += roll
+        image_rotate = eyepiece_image_rotation(roll)
         return_image = return_image.rotate(image_rotate)  # type: ignore[assignment]
 
         # Apply telescope flip/flop transformations
