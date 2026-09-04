@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from PiFinder import delta_updates
+
 logger = logging.getLogger("PiFinder.nixos_upgrade")
 
 RUN_DIR = Path("/run/pifinder")
@@ -534,6 +536,10 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
             raise UpgradeError(f"invalid store path: {store_path!r}")
 
         estimate = estimate_download(store_path)
+        if delta_updates.prefetch_deltas(store_path, estimate.paths):
+            # Imported paths won't be downloaded; re-estimate so the
+            # progress denominators match what nix will actually fetch.
+            estimate = estimate_download(store_path)
         build_rc = run_build(store_path, estimate)
         if build_rc != 0:
             availability = classify_store_path(store_path)

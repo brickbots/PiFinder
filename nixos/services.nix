@@ -74,6 +74,7 @@ in {
       default = false;
       description = "Enable development mode (NFS netboot support, etc.)";
     };
+
     gpsBaud = lib.mkOption {
       type = lib.types.nullOr lib.types.int;
       default = null;
@@ -82,6 +83,19 @@ in {
         Fixed serial speed for gpsd (-s). null keeps gpsd's autobaud hunt,
         which handles both the rev-3 GPS and the v4 u-blox Gen10 (UBX at
         115200). Set it only to pin a known receiver and skip the hunt.
+      '';
+    };
+
+    deltaUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "https://deltas.pifinder.eu";
+      description = ''
+        Base URL of the pifinder-differ delta server. When set, the upgrade
+        prefetches byte-level patches against store paths the device already
+        holds before letting nix download whole paths. Empty (the default)
+        disables delta prefetch entirely; every failure while prefetching
+        falls back to a normal binary-cache download.
       '';
     };
   };
@@ -493,8 +507,11 @@ in {
       RemainAfterExit = true;
       WorkingDirectory = "/home/pifinder/PiFinder/python";
       ExecStart = "${pifinderPythonEnv}/bin/python -m PiFinder.nixos_upgrade --default-camera ${cfg.cameraType}";
+    } // lib.optionalAttrs (cfg.deltaUrl != "") {
+      Environment = [ "PIFINDER_DELTA_URL=${cfg.deltaUrl}" ];
     };
-    path = with pkgs; [ nix systemd coreutils set-extlinux-default ];
+    # zstd applies delta patches (unused, harmless when deltaUrl is unset).
+    path = with pkgs; [ nix systemd coreutils zstd set-extlinux-default ];
   };
 
   # ---------------------------------------------------------------------------
