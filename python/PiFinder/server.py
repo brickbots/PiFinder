@@ -12,6 +12,7 @@ from datetime import timezone
 import pydeepskylog as pds
 from PIL import Image
 from PiFinder import utils, calc_utils, config
+from PiFinder import data_browser
 from PiFinder import timez
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
@@ -1333,6 +1334,124 @@ class Server:
             except Exception as e:
                 logger.error("Failed to save uploaded log config: %s", e)
                 return jsonify({"status": "error", "message": str(e)})
+
+        @app.route("/data")
+        @auth_required
+        def data_page():
+            return app.jinja_env.get_template("data.html").render(
+                title=_("Data"),
+                start_path=request.args.get("path", ""),
+                start_pattern=request.args.get("pattern", ""),
+            )
+
+        def data_error(exc, status=400):
+            return jsonify({"status": "error", "message": str(exc)}), status
+
+        @app.route("/data/api/list")
+        @auth_required
+        def data_list():
+            try:
+                root = data_browser.data_root()
+                listing = data_browser.list_dir(
+                    root,
+                    request.args.get("path", ""),
+                    request.args.get("pattern", ""),
+                )
+                listing["shortcuts"] = data_browser.shortcuts(root)
+                listing["status"] = "ok"
+                return jsonify(listing)
+            except data_browser.DataPathError as e:
+                return data_error(e, 404)
+
+        @app.route("/data/api/mkdir", methods=["POST"])
+        @auth_required
+        def data_mkdir():
+            body = request.get_json(silent=True) or {}
+            try:
+                new_path = data_browser.make_dir(
+                    data_browser.data_root(),
+                    body.get("path", ""),
+                    body.get("name", ""),
+                )
+                return jsonify({"status": "ok", "path": new_path})
+            except (data_browser.DataPathError, OSError) as e:
+                return data_error(e)
+
+        @app.route("/data/api/upload", methods=["POST"])
+        @auth_required
+        def data_upload():
+            rel_path = request.form.get("path", "")
+            files = request.files.getlist("files")
+            if not files:
+                return data_error(_("No file provided"))
+            saved = []
+            try:
+                for upload in files:
+                    saved.append(
+                        data_browser.save_upload(
+                            data_browser.data_root(),
+                            rel_path,
+                            upload.filename or "",
+                            upload.stream,
+                        )
+                    )
+            except (data_browser.DataPathError, OSError) as e:
+                logger.warning("Data upload failed: %s", e)
+                return data_error(e)
+            logger.info("Data upload: %s", ", ".join(saved))
+            return jsonify({"status": "ok", "saved": saved})
+
+        @app.route("/data/api/delete", methods=["POST"])
+        @auth_required
+        def data_delete():
+            body = request.get_json(silent=True) or {}
+            paths = body.get("paths")
+            if paths is None:
+                paths = [body.get("path", "")]
+            deleted = []
+            try:
+                for rel_path in paths:
+                    data_browser.delete(data_browser.data_root(), rel_path)
+                    deleted.append(rel_path)
+            except (data_browser.DataPathError, OSError) as e:
+                logger.warning("Data delete failed: %s", e)
+                return data_error(e)
+            logger.info("Data delete: %s", ", ".join(deleted))
+            return jsonify({"status": "ok", "deleted": deleted})
+
+        @app.route("/data/api/view")
+        @auth_required
+        def data_view():
+            try:
+                result = data_browser.read_text(
+                    data_browser.data_root(), request.args.get("path", "")
+                )
+                result["status"] = "ok"
+                return jsonify(result)
+            except data_browser.DataPathError as e:
+                return data_error(e, 404)
+
+        @app.route("/data/download")
+        @auth_required
+        def data_download():
+            rel_path = request.args.get("path", "")
+            root = data_browser.data_root()
+            try:
+                target = data_browser.resolve(root, rel_path)
+                if target.is_dir():
+                    zip_file, name = data_browser.zip_dir(root, rel_path)
+                    return send_file(
+                        zip_file,
+                        as_attachment=True,
+                        download_name=name,
+                        mimetype="application/zip",
+                    )
+                file_path = data_browser.file_for_download(root, rel_path)
+                return send_file(
+                    file_path, as_attachment=True, download_name=file_path.name
+                )
+            except data_browser.DataPathError as e:
+                return data_error(e, 404)
 
         @app.route("/tools/backup")
         @auth_required
