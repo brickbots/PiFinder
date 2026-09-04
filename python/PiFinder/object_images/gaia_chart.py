@@ -24,6 +24,7 @@ from PiFinder.object_images.star_catalog import CatalogState, GaiaStarCatalog
 from PiFinder.object_images.image_utils import (
     pad_to_display_resolution,
     add_image_overlays,
+    eyepiece_image_rotation,
 )
 
 logger = logging.getLogger("PiFinder.GaiaChart")
@@ -272,20 +273,10 @@ class GaiaChartGenerator:
             mag_limit=mag_limit_query,
         )
 
-        # Calculate rotation angle for roll / telescope orientation
-        # Reflectors (Newtonian, SCT) invert the image 180°
-        # Refractors typically don't invert (depends on eyepiece design)
-        # Use obstruction as heuristic: obstruction > 0 = reflector
+        # Rotate the North-up/East-left chart into the parity-preserving
+        # eyepiece baseline, then apply any mirrors during rendering.
         telescope = equipment.active_telescope
-        if telescope and telescope.obstruction_perc > 0:
-            # Reflector telescope (Newtonian, SCT) - inverts image
-            image_rotate = 180
-        else:
-            # Refractor or unknown - no base rotation
-            image_rotate = 0
-
-        if roll is not None:
-            image_rotate += roll
+        image_rotate = eyepiece_image_rotation(roll)
 
         # Get flip/flop settings from telescope config
         flip_image = telescope.flip_image if telescope else False
