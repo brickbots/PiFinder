@@ -1,5 +1,4 @@
 import io
-import json
 import logging
 import time
 import uuid
@@ -16,6 +15,7 @@ from PiFinder import timez
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
+from PiFinder import web_observations
 from PiFinder.equipment import Telescope, Eyepiece
 from PiFinder.keyboard_interface import KeyboardInterface
 from PiFinder.multiproclogging import MultiprocLogging
@@ -868,60 +868,119 @@ class Server:
                 ),
             )
 
+        def _tsv_response(observations, filename):
+            response = make_response(observations)
+            response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+            response.headers["Content-Type"] = "text/tsv"
+            return response
+
         @app.route("/observations")
         @auth_required
-        def obs_sessions():
+        def obs_nights():
             obs_db = ObservationsDatabase()
             if request.args.get("download", 0) == "1":
-                # Download all as TSV
-                observations = obs_db.observations_as_tsv()
+                return _tsv_response(obs_db.observations_as_tsv(), "observations.tsv")
 
-                response = make_response(observations)
-                response.headers["Content-Disposition"] = (
-                    "attachment; filename=observations.tsv"
-                )
-                response.headers["Content-Type"] = "text/tsv"
-                return response
+            nights = obs_db.get_nights()
+            for night in nights:
+                logs = obs_db.get_logs_by_night(night["night_key"])
+                night["ticks"] = web_observations.strip_ticks(night, logs)
+                night["hour_marks"] = web_observations.hour_marks(night)
 
-            # regular html page of sessions
-            sessions = obs_db.get_sessions()
-            metadata = {
-                "sess_count": len(sessions),
-                "object_count": sum(x["observations"] for x in sessions),
-                "total_duration": sum(x["duration"] for x in sessions),
-            }
-            return app.jinja_env.get_template("obs_sessions.html").render(
-                title=_("Observations"), sessions=sessions, metadata=metadata
+            return app.jinja_env.get_template("obs_nights.html").render(
+                title=_("Observations"),
+                nights=nights,
+                metadata=web_observations.night_summary(nights),
             )
+
+        @app.route("/observations/night/<night_key>")
+        @auth_required
+        def obs_night(night_key):
+            obs_db = ObservationsDatabase()
+            if request.args.get("download", 0) == "1":
+                return _tsv_response(
+                    obs_db.observations_as_tsv(night_key=night_key),
+                    f"observations_{night_key}.tsv",
+                )
+
+            logs = obs_db.get_logs_by_night(night_key)
+            night = next(
+                (n for n in obs_db.get_nights() if n["night_key"] == night_key),
+                None,
+            )
+            if night is None:
+                return redirect("/observations")
+
+            night["ticks"] = web_observations.strip_ticks(night, logs)
+            night["hour_marks"] = web_observations.hour_marks(night)
+            return app.jinja_env.get_template("obs_night_log.html").render(
+                title=_("Observing Night"),
+                night=night,
+                objects=web_observations.decorate_logs(logs),
+            )
+
+        @app.route("/observations/object/<catalog>/<int:sequence>")
+        @auth_required
+        def obs_object(catalog, sequence):
+            obs_db = ObservationsDatabase()
+            lookup = web_observations.ObjectLookup()
+            obj = lookup.composite(catalog, sequence)
+            if obj is None:
+                # A listing whose catalog is no longer installed: the log
+                # entries survive, the object behind them doesn't.
+                return redirect("/observations")
+
+            return app.jinja_env.get_template("obs_object.html").render(
+                title=obj.display_name,
+                object=obj,
+                listings=lookup.other_listings(obj),
+                logs=web_observations.decorate_logs(obs_db.get_object_history(obj)),
+                has_image=web_observations.poss_image_path(obj) is not None,
+                has_chart=web_observations.gaia_catalog_available(),
+            )
+
+        @app.route("/observations/object/<catalog>/<int:sequence>/image.jpg")
+        @auth_required
+        def obs_object_image(catalog, sequence):
+            obj = web_observations.ObjectLookup().composite(catalog, sequence)
+            path = None if obj is None else web_observations.poss_image_path(obj)
+            if path is None:
+                return "", 404
+            return send_file(path, mimetype="image/jpeg")
+
+        @app.route("/observations/object/<catalog>/<int:sequence>/chart.png")
+        @auth_required
+        def obs_object_chart(catalog, sequence):
+            obj = web_observations.ObjectLookup().composite(catalog, sequence)
+            if obj is None:
+                return "", 404
+
+            fov = request.args.get("fov", type=float) or 1.0
+            chart = web_observations.render_chart(
+                obj, config.Config(), self.shared_state, fov=fov
+            )
+            if chart is None:
+                # The catalog is absent or still loading in the background;
+                # a later request finds it ready.
+                return "", 404
+            return send_file(io.BytesIO(chart), mimetype="image/png")
 
         @app.route("/observations/<session_id>")
         @auth_required
         def obs_session(session_id):
             obs_db = ObservationsDatabase()
             if request.args.get("download", 0) == "1":
-                # Download all as TSV
-                observations = obs_db.observations_as_tsv(session_id)
-
-                response = make_response(observations)
-                response.headers["Content-Disposition"] = (
-                    f"attachment; filename=observations_{session_id}.tsv"
+                return _tsv_response(
+                    obs_db.observations_as_tsv(session_id),
+                    f"observations_{session_id}.tsv",
                 )
-                response.headers["Content-Type"] = "text/tsv"
-                return response
 
-            session = obs_db.get_sessions(session_id)[0]
-            objects = obs_db.get_logs_by_session(session_id)
-            ret_objects = []
-            for obj in objects:
-                obj_ = dict(obj)
-                obj_notes = json.loads(obj_["notes"])
-                obj_["notes"] = "<br>".join(
-                    [f"{key}: {value}" for key, value in obj_notes.items()]
-                )
-                ret_objects.append(obj_)
-            return app.jinja_env.get_template("obs_session_log.html").render(
-                title=_("Session Log"), session=session, objects=ret_objects
-            )
+            # Sessions are software runs, not nights; a link to one lands on
+            # the night it was part of.
+            night_key = obs_db.night_key_for_session(session_id)
+            if night_key is None:
+                return redirect("/observations")
+            return redirect(f"/observations/night/{night_key}")
 
         @app.route("/tools")
         @auth_required

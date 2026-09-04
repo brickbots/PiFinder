@@ -1,0 +1,58 @@
+{# Shared pieces of the observations pages. #}
+
+{% macro span_strip(night, tall=false) %}
+{# The shape of a night: its span as a rail, whole hours as gridlines, and a
+   mark where each object was logged. Positioned in percentages rather than
+   drawn to scale, so hour labels keep their proportions at any width.
+
+   A night with everything logged in one instant has no span to draw, and
+   says so with a single mark instead of a rail that implies duration. #}
+{% set instant = night["span_hours"] == 0 %}
+<div class="obs-strip {% if tall %}obs-strip--tall{% endif %} {% if instant %}obs-strip--instant{% endif %}"
+     role="img" aria-label="{{ _('Observations across the night') }}">
+  <div class="obs-strip__rail"></div>
+  {% if not instant %}
+  {% for fraction, label in night["hour_marks"] %}
+  <div class="obs-strip__hour" style="left: {{ (fraction * 100) | round(2) }}%">
+    <span>{{ label }}</span>
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% for fraction in night["ticks"] %}
+  <div class="obs-strip__tick" style="left: {{ (fraction * 100) | round(2) }}%"></div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro stars(rating) %}
+<span class="obs-stars">{{ "★" * rating["filled"] }}<span
+    class="obs-stars__empty">{{ "☆" * rating["empty"] }}</span></span>
+{% endmacro %}
+
+{% macro sky_badge(sqm) %}
+{% if sqm %}
+<span class="obs-badge obs-badge--sky"
+      title="{{ _('Measured sky brightness') }}">{{ sqm["median"] if sqm["median"] is defined else sqm["value"] }} {{ _('mag/arcsec²') }}</span>
+{% endif %}
+{% endmacro %}
+
+{% macro note_block(notes) %}
+<div class="obs-log__notes">
+  {% for key, rating in notes["ratings"].items() %}
+  <span class="obs-chip">
+    <span class="obs-chip__label">{{ key }}</span>{{ stars(rating) }}
+  </span>
+  {% endfor %}
+  {% for chip in notes["chips"] %}
+  <span class="obs-chip">
+    <span class="obs-chip__label">{{ chip["label"] }}</span>{{ chip["value"] }}
+  </span>
+  {% endfor %}
+  {% if notes["sqm"] %}
+  <span class="obs-chip">
+    <span class="obs-chip__label">{{ _('sky') }}</span>{{ notes["sqm"]["value"] }}
+    {%- if notes["sqm"]["scatter"] is defined %} ±{{ notes["sqm"]["scatter"] }}{% endif %}
+  </span>
+  {% endif %}
+</div>
+{% endmacro %}
