@@ -21,6 +21,11 @@ assumes them:
   first-class problem rather than a footnote, and it makes the typed free-text note more
   important than the spoken one, because most users will type. See section 6, WP5, and the
   new section 7.
+- **Near-real-time is the requirement**, with other processing paused if that is what it
+  takes. Sections 3 and 3a were rewritten to answer this. Short version: a transcript
+  appearing one to three seconds after you stop talking looks achievable, live word-by-word
+  captioning does not, and the first one is what a logging screen wants anyway. That
+  reversed D2, which now transcribes on the spot rather than deferring.
 - **Press-to-start and press-to-stop**, not hold-to-talk. The keyboard protocol stays as it
   is. See D5.
 - **No code yet.** This document is the deliverable; nothing has been implemented.
@@ -139,30 +144,103 @@ revision, so it does not belong in that record.
 
 ---
 
-## 3. The real risk: CPU
+## 3. CPU budget, and why the published numbers mislead
 
 The solver runs continuously. Capture, then cedar-detect in its own process over shared
 memory, then a tetra3 solve, plus the integrator and the IMU. The PiFinder does not have
 four idle cores; it has maybe one or two cores of genuine headroom.
 
-I went looking for a number I could design against and did not find a trustworthy one.
-The canonical whisper.cpp thread on this,
-[discussion #166, "Real-time transcription on Raspberry Pi 4"](https://github.com/ggml-org/whisper.cpp/discussions/166),
-demonstrates `ggml-tiny.en.bin` with a reduced audio context on three threads but publishes
-no audio-duration-versus-processing-time figures, and one commenter reports "several tens of
-seconds for a 3 second long wav file" in non-streaming mode. Secondary write-ups claim
-roughly two to three times faster than real time for tiny on a Pi 4, but they are
-content-farm grade and I would not bet a design on them. Vosk's own material claims
-real-time streaming on a Pi 3 or 4 with the 50MB small model, which is more plausible
-because the model is far smaller, and one hobbyist writeup reports 6.6 seconds for a test
-clip once the model is warm.
+My first pass at this section concluded there was no trustworthy number to design against.
+That was true as far as it went, but it missed the reason the published numbers look bad,
+and the reason turns out to be the most useful fact in this document.
 
-All of those numbers, even if accurate, are measured on an otherwise idle Pi. Ours is not
-idle.
+### Whisper always processes 30 seconds
 
-**So: bench it on the actual board with the solver running, before committing to anything
-downstream.** That measurement is the go/no-go for the whole transcription half of this
-project, and it is cheap to run. Details in WP2.
+Whisper's encoder takes a fixed 30-second window. Anything shorter is zero-padded to fill
+it. A 10-second note therefore costs exactly as much encoder time as a 30-second one, and
+almost every discouraging Raspberry Pi benchmark is measuring a full 30 seconds of encoder
+work no matter how short the clip was. Observation notes are five to twenty seconds. We
+would be paying for silence.
+
+Three ways out, and they compound.
+
+**Scale the audio context to the actual utterance.** whisper.cpp exposes `audio_ctx`, and
+[issue #1855](https://github.com/ggml-org/whisper.cpp/issues/1855) reports the effect of
+setting it with `audio_ctx = (length_in_seconds / 30) * 1500 + 128`. On roughly 5.7-second
+Common Voice clips with `base.en`, total processing went from 204 seconds to 60 seconds, a
+3.4x speedup, and word error rate slightly improved (20.06 to 19.2) rather than degrading.
+The known failure mode is that pushing `audio_ctx` too far from what the model was trained
+on can send the decoder into repeating the last few tokens, so this wants bounds and a test.
+
+**Or use a model that never pads.** [Moonshine](https://github.com/moonshine-ai/moonshine)
+is built for exactly this problem: its compute scales with actual audio length instead of a
+fixed window. From the [paper](https://arxiv.org/html/2410.15608v1), Moonshine Tiny is 27.1M
+parameters against Whisper tiny.en's 37.8M, claims a 5x compute reduction on a 10-second
+segment, and posts a slightly better average WER (12.66% vs 12.81%). Moonshine Base at 61.5M
+parameters beats Whisper base.en on WER (10.07% vs 10.32%) while costing less than base.en
+does. The English models are MIT licensed, and the project ships a portable C++ core on
+ONNX Runtime that lists Raspberry Pi as a target. The smaller model also helps the SD-image
+problem in section 7.
+
+The honest caveat: the Moonshine paper benchmarks on an H100, not on ARM. The architectural
+argument for why it should win on short clips is sound and the Pi support is claimed by the
+project, but nobody in these sources has published Pi 4 numbers. That is a WP2 question.
+
+**And give it all four cores for the burst.** More on that below, because it is cheaper than
+it sounds.
+
+### What the arithmetic suggests
+
+Treat the following as arithmetic, not measurement. Whisper tiny's encoder at full context
+is roughly 35 GFLOP (four layers, d=384, 1500 frames). Four Cortex-A72 cores at 1.5GHz
+realistically deliver somewhere in the region of 10 to 15 GFLOPS on quantized GEMM, which
+puts the encoder alone at about three seconds for a full 30-second window. Scale
+`audio_ctx` for a 10-second note and the quadratic attention terms fall away faster than
+the linear ones, dropping the encoder to roughly a third of that. Add a few hundred
+milliseconds of decoding for the thirty or so tokens such a note produces.
+
+That lands at **one to two seconds for a ten-second note on four dedicated cores**. If I am
+off by a factor of three, which is entirely possible given how badly the Pi 4 is served by
+its memory bandwidth, it is four to six seconds. Moonshine should beat both.
+
+So the answer to "can this be near real time" is yes, with an important distinction in the
+next section.
+
+**None of this removes the need for WP2.** It changes what WP2 is testing from "is this
+hopeless" to "which of these two engines wins, and by how much."
+
+---
+
+## 3a. Two different things called "near real time"
+
+**Live captioning**, where words appear as you speak, is hard on a Pi 4. whisper.cpp's
+streaming example needs a reduced context and a sliding window, it re-encodes overlapping
+audio repeatedly, and quality suffers. Moonshine v2 introduces a streaming encoder that
+attacks this directly, but it is new and unproven here.
+
+**Fast turnaround**, where you stop talking and the text appears a second or two later, is
+very achievable on the numbers above.
+
+For a logging screen, the second one is what matters, and I would argue it is the better
+interface regardless. Watching a transcript rewrite itself mid-sentence while you are dark
+adapted at the eyepiece is worse than a brief "transcribing" indicator followed by a clean
+result you can accept or redo.
+
+### On pausing other processing
+
+You offered to pause other work, and it is a cheaper trade than you may think, for a reason
+worth spelling out.
+
+Nothing needs pausing while recording. Capturing 16kHz mono audio is nearly free. The only
+contended window is the inference burst after the user stops talking, which on these numbers
+is one to three seconds.
+
+During that window the telescope is not moving. The user has just finished observing and is
+standing there dictating. The IMU keeps dead-reckoning the pointing throughout, so pausing
+the solver does not lose the position, it just briefly stops refreshing it. A two-second
+gap in solve cadence while the scope sits still is close to free.
+
+That makes four dedicated cores a realistic assumption rather than an optimistic one.
 
 ---
 
@@ -200,20 +278,32 @@ survivable, it makes deferred transcription safe, and it means a failed or skipp
 transcription still leaves the user with something. It is hard to reverse (once you have
 shipped a version that discards audio, those recordings are gone) and it deserves an ADR.
 
-### D2: transcribe after saving, not before
+### D2: transcribe on the spot, with a deferred fallback
 
-Pressing SAVE Log writes the entry immediately with a reference to the audio file and no
-transcript yet. The voice process transcribes at low priority and fills the text in
-afterwards.
+**Revised.** My first draft said transcribe after saving, on the assumption that inference
+would take long enough to be intolerable at the eyepiece. Section 3 undermines that
+assumption. At one to three seconds for a typical note, making the user wait is fine, and
+showing them the text while they can still do something about it is a much better feature
+than backfilling it into a record they have already walked away from.
 
-The alternative is making the user stand at the eyepiece watching a frozen screen while a
-Pi chews through inference, and risking the observation itself if that goes wrong. Not
-worth it. The cost is that users cannot immediately verify the text, which is what WP4
-(editing) is for, and what keeping the audio makes tolerable.
+So: stop recording, show a progress indicator, transcribe with the solver paused, and put
+the text in front of the user with the option to accept, redo, or edit before saving. That
+also removes the need for WP4 to exist before the feature is honest, though a web-side edit
+is still worth having.
 
-This needs the new `ObservationsDatabase` update method noted above, plus a startup sweep
-that re-queues any voice note whose transcript never landed because the unit was powered
-off mid-job. Without that sweep, "deferred" quietly means "sometimes never."
+Two things to keep from the original design:
+
+- Keep the deferred path as the fallback. If WP2 comes back slower than hoped, or a
+  particular note is unusually long, degrade to saving immediately and filling the text in
+  later rather than blocking. That still needs the new `ObservationsDatabase` update method,
+  and a startup sweep that re-queues any voice note whose transcript never landed because
+  the unit was powered off mid-job. Without that sweep, "deferred" quietly means "sometimes
+  never."
+- Set a hard ceiling on how long the UI will wait. If inference overruns it, fall back to
+  deferred rather than leaving the user staring at a spinner in the dark.
+
+Pausing the solver for the burst is discussed in section 3a. It costs almost nothing here
+because the scope is stationary and the IMU carries the pointing.
 
 ### D3: put the transcript in the notes JSON, bump to `schema_ver: 3`
 
@@ -271,13 +361,22 @@ the UI loop, and capture must not be interrupted by screen redraws.
 
 ### D8: pluggable recognition backend, English only to start
 
-Define one interface, ship one implementation, pick it with the bench in WP2. Prior
-expectation: Vosk wins on CPU and latency, whisper.cpp wins on prose accuracy, and because
-D2 makes latency mostly irrelevant, that tilts toward whisper.
+Define one interface, ship one implementation, pick it with the bench in WP2.
 
-English only for v1 (`tiny.en`, or `vosk-model-small-en-us`), with a `voice.language` key
-reserved. PiFinder ships translations including Chinese, so this is a real limitation and
-the docs should say so rather than let people discover it.
+**Revised prior: Moonshine first, whisper.cpp second, Vosk third.** Now that D2 wants a
+synchronous transcript, latency matters again, and Moonshine is the only candidate whose
+architecture is actually built for short utterances. It is also smaller than whisper tiny.en
+(27.1M parameters against 37.8M), scores marginally better on WER, and is MIT licensed for
+English. whisper.cpp with a scaled `audio_ctx` is the fallback and the better-proven
+ecosystem. Vosk drops to third: it streams well but its accuracy on free prose is the
+weakest of the three, and streaming is not what this interface needs.
+
+English only for v1, with a `voice.language` key reserved. PiFinder ships translations
+including Chinese, so this is a real limitation and the docs should say so rather than let
+people discover it by dictating a note and getting nonsense back. Worth noting for later
+that Moonshine publishes non-English models, but under a non-commercial licence for the
+legacy non-streaming ones, so the licensing needs rechecking before anyone promises
+multilingual support.
 
 ### D9: recording is explicit, and audio never leaves the device
 
@@ -321,12 +420,24 @@ files under `~/PiFinder_data/voice_notes/`. Web playback and download. Config ke
 a new hardware seam, a new process, a new UI module. Ships alone, and "record a spoken memo
 against an observation" is genuinely useful with zero recognition risk.
 
-**WP2. The bench, which is the go/no-go.** Build whisper.cpp for aarch64 and set up Vosk.
-Run `tiny.en` and `vosk-model-small-en-us` against ten clips of real observing speech,
-recorded through the actual microphone in the actual conditions. Measure wall time against
-audio duration, at one, two and four threads, both with the solver idle and with it running.
-Record the effect on solve rate, the CPU temperature, and the current draw delta on a rev4.
-Then decide. Nothing downstream should be built before this runs.
+**WP2. The bench.** No longer a go/no-go on whether this is possible, now a choice between
+engines and a check on the arithmetic in section 3. Build whisper.cpp for aarch64 and get
+Moonshine's C++ core running on ONNX Runtime. Record ten clips of real observing speech
+through the actual microphone in the actual conditions, five to twenty seconds each.
+
+Measure, for each engine:
+
+- wall time against audio duration, at one, two and four threads
+- whisper.cpp with default `audio_ctx` and with it scaled per issue #1855, to confirm the
+  3.4x holds on ARM and to find where the decoder starts repeating tokens
+- accuracy on catalogue designations specifically, with and without decoder priming from the
+  logged object's names
+- the same runs with the solver paused and with it running, plus the effect on solve rate
+- CPU temperature across a sustained run of twenty notes, since the case does not breathe
+- current draw delta on a rev4
+
+The target to beat is roughly two seconds for a ten-second note on four cores. My arithmetic
+says that is achievable; this is where it gets confirmed or corrected.
 
 **WP3. Transcription.** The backend interface, the chosen engine, the fake. The deferred
 queue and the startup sweep for orphaned recordings. Decoder priming from the logged
@@ -352,11 +463,18 @@ two of them are heavier than any of the code above.
 
 **The model has to be in the image.** Downloading on first use is not an option. A PiFinder
 in a field is usually its own access point with no route to the internet, and the first use
-is exactly when someone is standing in the dark trying it out. So 40MB (Vosk small) or 75MB
-(`tiny.en`) has to be present on a fresh card. Git is a poor home for a binary blob that
-size, and `astro_data/` is already large. Worth considering: a release asset fetched at
-image-build time rather than tracked in the repo, which keeps clones small and still gives
-every unit the file. This needs settling before WP3, not after.
+is exactly when someone is standing in the dark trying it out. So the model has to be
+present on a fresh card: roughly 40MB for Vosk small, 75MB for `tiny.en`, and less for
+Moonshine Tiny, which has about a quarter fewer parameters than `tiny.en` and quantizes the
+same way. Git is a poor home for a blob that size and `astro_data/` is already large. Worth
+considering: a release asset fetched at image-build time rather than tracked in the repo,
+which keeps clones small and still gives every unit the file. This needs settling before
+WP3, not after. Moonshine winning the bench would make this materially easier.
+
+**ONNX Runtime is a new dependency if Moonshine wins.** whisper.cpp is a self-contained
+binary in the `bin/cedar-detect-server` mould. Moonshine's portable core needs ONNX Runtime
+for aarch64, which is a heavier thing to package on both Raspberry Pi OS and NixOS. Weigh
+that against the speed advantage rather than assuming it away.
 
 **English only is a shipped limitation, not a detail.** PiFinder has translated UI including
 Chinese, and `tiny.en` and `vosk-model-small-en-us` are English models. Multilingual `tiny`
@@ -386,10 +504,19 @@ model file, and no privacy question.
 
 ## 8. Risks and kill criteria
 
-If WP2 shows transcription costing more than roughly twice the audio duration with the
-solver running, or measurably dropping the solve rate, kill on-device recognition. WP1
-alone already gives you downloadable recordings, so "record now, transcribe on a laptop"
-remains a complete feature, just a less magical one.
+Graded by what WP2 measures for a ten-second note on four paused-solver cores:
+
+- Under about two seconds, build it synchronously as D2 now describes.
+- Two to six seconds, still build it, but the progress indicator has to be good and the
+  deferred fallback needs to be real rather than theoretical.
+- Over about ten seconds, drop to deferred only, and expect people to find it disappointing.
+- Over thirty seconds, or measurably damaging the solve rate even with the solver paused,
+  kill on-device recognition. WP1 alone still gives you downloadable recordings, so "record
+  now, transcribe on a laptop" remains a complete feature, just a less magical one.
+
+Watch for the token-repetition failure mode if the `audio_ctx` route is taken. It degrades
+into gibberish rather than into slowness, which is harder to notice in testing and much
+worse in the field.
 
 If designations come back mangled often enough that every transcript needs hand-editing,
 the honest framing is "audio memos with a rough searchable index", not "voice notes", and
@@ -413,19 +540,37 @@ with nothing plugged in. Voice is an accelerator on top of it for the people who
 WP0 is good and WP2 comes back ugly, you have still shipped the feature that most people
 were actually asking for when they said they wanted to record what they saw.
 
+That said, the section 3 rewrite makes me more optimistic about the voice half than I was.
+The reason Whisper looks bad on a Pi is that it processes thirty seconds whether you spoke
+for thirty seconds or five, and both ways around that are cheap. If the bench confirms the
+arithmetic, this ends up being a genuinely nice feature rather than a compromise, and the
+hard problems go back to being the ones in sections 1, 4 and 7: where the text lives, whether
+it spells "NGC 7331" correctly, and how the model reaches every SD card.
+
 ## Next step
 
-Nothing here is committed to code. When you want to move, the two independent starting
-points are WP0, which needs no decisions beyond what is written above, and WP2, which needs
-a board, a microphone and an evening. WP2 does not block WP0.
+Nothing here is committed to code. Two independent starting points, and WP2 does not block
+WP0:
+
+- **WP0** needs no decisions beyond what is written above. It is the safe, useful half.
+- **WP2** needs a board, a microphone and an evening. Its most valuable single measurement
+  is Moonshine Tiny against whisper tiny.en with scaled `audio_ctx`, on a ten-second clip,
+  four threads, solver paused. That one number decides the shape of everything downstream.
 
 ---
 
 ## Sources for the performance claims
 
+- [whisper.cpp issue #1855, variable `audio_ctx` gives ~3x on short clips](https://github.com/ggml-org/whisper.cpp/issues/1855),
+  the source of the 204s to 60s figure and the WER comparison
+- [Moonshine paper, arXiv 2410.15608](https://arxiv.org/html/2410.15608v1), the source of
+  the parameter counts, the 5x claim for a 10-second segment, and the WER table
+- [Moonshine on GitHub](https://github.com/moonshine-ai/moonshine), for the MIT licence,
+  the C++ ONNX Runtime core, and the claimed Raspberry Pi support
 - [whisper.cpp discussion #166, "Real-time transcription on Raspberry Pi 4"](https://github.com/ggml-org/whisper.cpp/discussions/166)
 - [vosk-api on GitHub](https://github.com/alphacep/vosk-api)
 - [Interpreting speech with a Raspberry Pi, Dr John's Tech Talk](https://drjohnstechtalk.com/blog/2022/11/interpreting-speech-with-a-raspberry-pi/)
 
-Treat all of them as indicative only. The number that matters is the one measured on a
-PiFinder with the solver running.
+Treat all of them as indicative only. None of these sources measures either engine on a
+Cortex-A72, and the Moonshine paper benchmarks on an H100. The number that matters is the
+one measured on a PiFinder.
