@@ -3,12 +3,27 @@
 Question asked: given a USB microphone plugged into a PiFinder, what would it take to
 transcribe spoken observation notes on the logging screen?
 
-Short answer: it is feasible, but speech recognition is the smallest part of the job.
-Three of the four hard problems have nothing to do with audio, and one of them blocks the
-whole idea until it is solved.
+Short answer: it is feasible, and speech recognition is nowhere near the hardest part. Two
+of the obstacles have nothing to do with audio at all, and one of those two blocks the whole
+idea until it is fixed: there is currently nowhere in an observation record to put a
+sentence. The rest of the difficulty is CPU budget, accuracy on catalogue designations, and
+getting a model onto every SD card.
 
 Everything below was checked against the code on `main` as of 2026-09-06. File and line
 references are to that state.
+
+## Settled so far
+
+Three things were decided in the session that produced this document, and the rest of it
+assumes them:
+
+- **This would ship to every PiFinder**, not just one bench unit. That makes distribution a
+  first-class problem rather than a footnote, and it makes the typed free-text note more
+  important than the spoken one, because most users will type. See section 6, WP5, and the
+  new section 7.
+- **Press-to-start and press-to-stop**, not hold-to-talk. The keyboard protocol stays as it
+  is. See D5.
+- **No code yet.** This document is the deliverable; nothing has been implemented.
 
 ---
 
@@ -221,15 +236,21 @@ Suggested location: `~/PiFinder_data/voice_notes/<session_uuid>/<uuid>.wav`. At 
 night. Keep them by default, expose them for download on the web session page, add a
 retention setting later if anyone complains.
 
-### D5: a new "Voice Note..." row on LOG, opening its own screen
+### D5: a new "Voice Note..." row on LOG, opening its own screen (settled)
 
 Index 5 on the existing list, matching the "Conditions..." and "Eyepiece..." idiom. The new
 screen starts recording on RIGHT, stops on RIGHT, cancels on LEFT, and auto-stops at a
 timeout and after a few seconds of silence.
 
-Rejected: hold-to-talk, because of the keyboard protocol finding in section 2. Rejected for
+Rejected: hold-to-talk, because of the keyboard protocol finding in section 2. Changing that
+protocol would touch every screen, and the `hold_sent` and `alt_sent` bookkeeping in the scan
+loop is delicate enough that the regression risk is not worth the nicer gesture. Rejected for
 now: the marking menu, because a primary action should not hide there, though it would make
 a fine shortcut later once people know the feature exists.
+
+Because there is no release event to stop on, the two auto-stops are not polish, they are
+load-bearing. A user who walks away from a recording screen must not fill the SD card. Cap
+the duration hard (sixty seconds is my suggestion) and stop on sustained silence.
 
 ### D6: do not extend `HardwareCapabilities`
 
@@ -315,16 +336,55 @@ object's designations. The new `ObservationsDatabase` update path. Medium to lar
 Small to medium, and I would argue WP3 is not honest without it.
 
 **WP5. Distribution.** The binary into `bin/` with an architecture suffix, following
-cedar-detect. The model file needs a decision: ship it in git (75MB for `tiny.en`, 40MB for
-Vosk small) or download on first use, which needs network and therefore fails in the field.
+cedar-detect. Then the model file, which is the awkward part, and section 7 covers why.
 Both the Raspberry Pi OS image and NixOS need it. Unknown effort until WP2 picks the engine.
 
 **WP6. Docs.** A CONTEXT.md for the new context, the ADR on audio-as-artifact, the ADR on
-deferred transcription (possibly the same one), a user guide section, and the privacy line.
+deferred transcription (possibly the same one), a user guide section including which
+microphone to buy, and the privacy line.
 
 ---
 
-## 7. Risks and kill criteria
+## 7. What "ships to everyone" adds
+
+Deciding this is a product feature rather than a bench experiment changes four things, and
+two of them are heavier than any of the code above.
+
+**The model has to be in the image.** Downloading on first use is not an option. A PiFinder
+in a field is usually its own access point with no route to the internet, and the first use
+is exactly when someone is standing in the dark trying it out. So 40MB (Vosk small) or 75MB
+(`tiny.en`) has to be present on a fresh card. Git is a poor home for a binary blob that
+size, and `astro_data/` is already large. Worth considering: a release asset fetched at
+image-build time rather than tracked in the repo, which keeps clones small and still gives
+every unit the file. This needs settling before WP3, not after.
+
+**English only is a shipped limitation, not a detail.** PiFinder has translated UI including
+Chinese, and `tiny.en` and `vosk-model-small-en-us` are English models. Multilingual `tiny`
+is the same size but noticeably worse at English, so there is no free upgrade. The honest
+move is to say so plainly in the docs and in the menu, rather than let a German or Chinese
+user find out by dictating a note and getting nonsense back. If that is unacceptable, the
+feature may need to be English-gated at the config level.
+
+**Someone has to recommend a microphone.** "Assuming a USB microphone is plugged in" is fine
+for a study and not fine for a shipped feature. Users will ask what to buy, and a bad answer
+generates support load: ALSA device naming varies, cheap USB mics vary wildly in gain and
+noise floor, and outdoor night use adds wind. This wants one named part in the BOM that has
+actually been tried, plus a fallback path when the enumerated device is not the one the user
+expected. On rev4 the mic goes in the DATA port; on rev3 it goes in a Pi USB port through
+the shroud opening, which is a different physical story and needs its own line in the docs.
+
+**Recording other people becomes a real concern.** One person recording themselves is their
+own business. Shipping a microphone feature to a community that observes in groups is not.
+D9 (explicit recording only, visible indicator, nothing leaves the device) stops being a
+nicety and becomes the thing that makes the feature defensible.
+
+The consequence for sequencing: WP0 gets more valuable and WP3 gets more expensive. Typed
+notes serve every user in every language on every board revision with no new hardware, no
+model file, and no privacy question.
+
+---
+
+## 8. Risks and kill criteria
 
 If WP2 shows transcription costing more than roughly twice the audio duration with the
 solver running, or measurably dropping the solve rate, kill on-device recognition. WP1
@@ -340,12 +400,24 @@ and default it off.
 
 ---
 
-## 8. What I would actually build
+## 9. What I would actually build
 
 WP0 and WP1. Free-text notes plus voice memos. No new binaries, no model files, no CPU
 risk, no accuracy problem, and it is a coherent feature that people would use. Everything
 about transcription sits on top of that and can be decided later, on evidence from WP2,
 without any of it being wasted work.
+
+Now that this is a shipped feature, I would go further and say WP0 is the one that has to be
+excellent. A typed note works for every user, in every language, on both board revisions,
+with nothing plugged in. Voice is an accelerator on top of it for the people who want it. If
+WP0 is good and WP2 comes back ugly, you have still shipped the feature that most people
+were actually asking for when they said they wanted to record what they saw.
+
+## Next step
+
+Nothing here is committed to code. When you want to move, the two independent starting
+points are WP0, which needs no decisions beyond what is written above, and WP2, which needs
+a board, a microphone and an evening. WP2 does not block WP0.
 
 ---
 
