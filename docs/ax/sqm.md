@@ -76,13 +76,11 @@ eligible and do not enter the table above.
 
 They exposed two frame properties the radiometer assumed rather than read, worth
 0.211 and 0.236 mag, both invisible on Ghent hardware by construction. See
-[ADR 0030](../adr/0030-radiometer-reads-frame-properties.md). With both read,
-the unit's mean absolute error over the eight sweeps falls from 0.762 to 0.378
-mag, and across all 66 referenced archive sweeps from 0.251 to 0.202 mag, with
-the Ghent sweeps bit-identical and radiometer publications unchanged.
-
-The residual 0.378 is the factory path reading bright at a dark site, which is
-expected and separate from these two terms.
+[ADR 0030 §3](../adr/0030-sqm-measurement.md#3-frame-properties-are-read-from-the-frame-not-assumed).
+With both read,
+the unit's mean absolute error over the eight sweeps falls from 0.506 to 0.117
+mag on the airglow-floor path, and across all 66 referenced archive sweeps from
+0.201 to 0.150 mag, with the Ghent sweeps bit-identical.
 
 They also discharge the black-level tracker's dark-site obligation. On the two
 clear sweeps the tracker returns 238.65 and 238.62 ADU where an independent fit
@@ -90,7 +88,7 @@ of the same frames gives 238.78 and 238.73, agreeing to about 0.1 ADU on a sky
 where the pedestal error the tracker corrects is no longer swamped.
 
 Still outstanding: an independent dark site on the HQ and IMX296 profiles, and
-a dark-site treatment of the factory zero point itself.
+any dark site with the airglow floor's own calibration fitted out of sample.
 
 ## Runtime ownership and data flow
 
@@ -251,8 +249,8 @@ dark current from sky, because both are linear in exposure. Until a confident
 fit exists, `pedestal()` returns `None` and the caller falls back to the
 profile constant. Trust is a lease rather than a latch: an accepted fit expires
 after `max_age_seconds` and must be re-earned. See
-[ADR 0028](../adr/0028-tracked-black-level-supersedes-stored-bias.md) for the
-decision and its gates.
+[ADR 0030 §4.1](../adr/0030-sqm-measurement.md#41-the-tracked-black-level-supersedes-any-stored-bias)
+for the decision and its gates.
 
 Read noise is zero-mean RMS uncertainty and is never subtracted as signal.
 `NoiseFloorEstimator` retains a low image percentile only as a diagnostic;
@@ -292,7 +290,9 @@ sensors that mapping is not a constant: the radiometer measures sky in the
 sensor's passband while the reference meter measures V, and converting between
 them depends on the sky's spectrum. Sky colour measures that directly and is
 already in the frame, so the zero point is keyed to the measured red/green
-ratio of the sky background. See ADR 0026 for the derivation and the evidence.
+ratio of the sky background. See
+[ADR 0030 §5](../adr/0030-sqm-measurement.md#5-the-zero-point-is-keyed-to-measured-sky-colour)
+for the derivation and the evidence.
 
 `radiometric_colour_slope = 0` makes this a plain constant, which is the case
 for mono sensors (no colour to measure) and for the IR-cut HQ (no NIR leak to
@@ -390,9 +390,8 @@ was measured with no calibration file present.
 - Flats can characterize vignetting for research, but normal operation must
   remain accurate without asking the user to take one.
 
-See [`sqm/CONTEXT.md`](./sqm/CONTEXT.md) for canonical terminology,
-[`ADR-0022`](../adr/0022-sqm-radiometer-first.md) for radiometer-first ownership,
-[`ADR-0002`](../adr/0002-sqm-published-value-uncorrected.md) for the
-no-altitude-correction decision, and
-[`ADR-0028`](../adr/0028-tracked-black-level-supersedes-stored-bias.md) for why a
-tracked black level outranks any stored bias.
+See [`sqm/CONTEXT.md`](./sqm/CONTEXT.md) for canonical terminology and
+[`ADR 0030`](../adr/0030-sqm-measurement.md) for every SQM decision: what is published (§1),
+radiometer-first ownership (§2), which frame properties are read (§3), the
+pedestal precedence (§4), the colour-keyed zero point (§5), and the stellar
+diagnostic path (§6).

@@ -134,7 +134,7 @@ that fitted this profile's radiometric zero point actually ran at. The
 radiometer divides the corrected signal by `reported / calibration`, so a unit
 running its cohort's gain is unchanged. Refitting a zero point means updating
 this constant in the same change. See
-[ADR 0030](../../adr/0030-radiometer-reads-frame-properties.md).
+[ADR 0030 §3.2](../../adr/0030-sqm-measurement.md#32-scaling-the-reported-digital-gain).
 
 **Stellar sky background**:
 Median of local annulus skies, used only by stellar diagnostics.
@@ -153,7 +153,7 @@ constant and any wizard-measured bias offset once its fit is **leased**. It
 needs no lens cap and no dark frame. Say "tracked black level", not "auto
 bias" or "dynamic calibration" — it measures one specific quantity and does
 not calibrate anything else. See
-[ADR 0028](../../adr/0028-tracked-black-level-supersedes-stored-bias.md).
+[ADR 0030 §4.1](../../adr/0030-sqm-measurement.md#41-the-tracked-black-level-supersedes-any-stored-bias).
 
 **Lease**:
 The gate that decides whether a tracked black level is trusted enough to
@@ -237,7 +237,8 @@ spectrum, which a single constant cannot represent across regimes. Slope `0`
 means a plain constant, which is correct for mono sensors and for IR-cut
 sensors with no NIR leak. R/G is clamped to `_range` rather than extrapolated.
 Distinct from **colour coefficient**, which trims *catalog star* colour on the
-stellar path; this one trims *sky* colour on the radiometric path. See ADR 0026.
+stellar path; this one trims *sky* colour on the radiometric path. See
+[ADR 0030 §5](../../adr/0030-sqm-measurement.md#5-the-zero-point-is-keyed-to-measured-sky-colour).
 
 **Mosaic phase**:
 The property that pixel `(0, 0)` of the frame reaching photometry is still a

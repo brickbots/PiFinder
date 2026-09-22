@@ -133,7 +133,8 @@ class CameraProfile:
     # wrong at one end or the other. Measured per sensor; 0.0 disables the
     # correction and keeps a plain constant (mono sensors have no colour, and
     # an IR-cut sensor has almost no NIR leak to correct).
-    # Derivation, evidence and caveats: docs/adr/0026. Re-derive with
+    # Derivation, evidence and caveats: docs/adr/0030-sqm-measurement.md
+    # section 5. Re-derive with
     # scripts/evaluate_radiometer_archive.py rather than by hand.
     radiometric_colour_slope: float = 0.0
 
