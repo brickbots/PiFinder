@@ -1,13 +1,9 @@
 # SQM: how PiFinder measures and publishes sky brightness
 
-This is the single decision record for the SQM estimator. It replaces the
-five separate ADRs written between 2025 and 2026 as the estimator was
-rebuilt, and takes 0022 from among their numbers because that was the one the
-others cited. Their other numbers are left as gaps rather than reused; the
-[decision history](#decision-history) at the end says which, and what each one
-settled. Consolidating them is itself a decision: the estimator's parts are not
-independent, several later ADRs partly superseded earlier ones, and reading them
-in file order taught the sequence rather than the design.
+This is the decision record for the SQM estimator, end to end. Its parts are
+not independent: the pedestal, the zero point and the frame's own geometry each
+set the scale of the published magnitude, so a decision about one is only
+legible beside the others.
 
 The vocabulary these decisions use lives in
 [`../ax/sqm/CONTEXT.md`](../ax/sqm/CONTEXT.md); the measured accuracy and the
@@ -85,25 +81,19 @@ were assumed rather than read, and both were silently violated.
 `pixels_per_side` is the photometry image's height. That is correct only when
 the frame height spans `field_width_degrees`.
 
-Since #544 exposure sweeps archive the **whole sensor**, not the crop, on the
-explicit contract that a reader reduces the frame with
-`CameraProfile.ensure_cropped()` before photometry. Nothing ever called it. The
-vocabulary said the same thing — `ax/sqm/CONTEXT.md` defines the raw photometry
-image as "always the crop, never the full-sensor frame that exposure sweeps
-archive" — and the code still measured whatever it was handed.
+Three extents are in circulation and only one is safe to measure. The live
+camera path hands over the **crop**. Exposure sweeps archive the **whole
+sensor**, so every replay meets that one. The solve image is a third, and
+[ADR 0027](0027-fov-gate-derived-from-optical-train.md) already warns about it:
+`OpticalTrain.fov_degrees` is the edge-to-edge angular width of *the crop*,
+derived from `profile.crop_size` and the lens's effective focal length, and
+`plate_scale_arcsec` notes that the solve image and the crop "differ by the
+downscale factor, and confusing them silently" is the hazard.
 
-The pairing is not incidental.
-[ADR 0027](0027-fov-gate-derived-from-optical-train.md) made the field width a
-derived quantity: `OpticalTrain.fov_degrees` is documented as the edge-to-edge
-angular width of **the crop**, computed from `profile.crop_size` and the lens's
-effective focal length. The same class warns in `plate_scale_arcsec` that the
-solve image and the crop "differ by the downscale factor, and confusing them
-silently" is the hazard. A third extent, the full sensor, arrived two months
-later with no comparable guard.
-
-A 1080-row IMX462 frame measured against a field width describing the 980-row
-crop credits every pixel with too little sky and reads `5 log10(1080/980)` =
-0.211 mag bright.
+The field width and the frame must therefore describe the same pixels. A
+1080-row IMX462 frame measured against a field width describing the 980-row crop
+credits every pixel with too little sky and reads `5 log10(1080/980)` = 0.211
+mag bright.
 
 **Decision.** `collect_radiometer_sample` reduces its input with
 `profile.ensure_cropped()` before measuring anything. That is a no-op on the
@@ -171,11 +161,10 @@ often. Precedence today, highest first:
 
 ### 4.1 The tracked black level supersedes any stored bias
 
-The pedestal's bias term used to be a stored constant, from the profile or from
-the optional calibration wizard. Both are measured once and then trusted
-indefinitely, and that assumption is wrong about the hardware: the optical-black
-clamp pins raw black to a target that **moves with sensor state**, temperature
-being the suspect. On the 2026-07-18 IMX296 reference sweeps the delivered black
+A stored bias term, whether from the profile or from the optional calibration
+wizard, is measured once and then trusted indefinitely. That assumption is wrong
+about the hardware: the optical-black clamp pins raw black to a target that
+**moves with sensor state**, temperature being the suspect. On the 2026-07-18 IMX296 reference sweeps the delivered black
 level was 55.9–56.3 ADU, while the device's own wizard said 58 and the profile
 constant said 60. Both over-subtracted.
 
@@ -223,7 +212,7 @@ radiometer publishes nothing at all on 0 of 80 frames.
 The same table discharges §4.1's dark-site obligation: on the two clear
 21.4–21.6 mag sweeps the tracker returns 238.65 and 238.62 against those
 independent fits of 238.78 and 238.73, agreeing to about 0.1 ADU on a sky where
-the error it corrects is no longer swamped.
+the error it corrects is not swamped by the background.
 
 ---
 
@@ -246,7 +235,7 @@ already in the frame: measured R/G runs 0.83–0.89 at the light-polluted site a
 
 | model for the zero point | residual sd |
 |---|---|
-| constant (previously shipped) | 0.337 |
+| a single constant | 0.337 |
 | linear in sky brightness | 0.185 |
 | **linear in measured sky colour (R/G)** | **0.079** |
 
@@ -324,8 +313,8 @@ deliberately under-corrects rather than trusting the fit off its own end.
 
 ## 6. Stellar photometry, the diagnostic path
 
-The stellar chain is no longer what users see (§2), but it remains the
-transmission diagnostic and its design decisions still bind.
+The stellar chain is not what users see (§2). It is the transmission
+diagnostic, and its design decisions still bind.
 
 1. **Photometry on the raw green channel**, never the processed display image,
    whose clipping, 8-bit quantisation and resize break the flux linearity
@@ -368,8 +357,6 @@ transmission diagnostic and its design decisions still bind.
    unaccounted for and this constant is absorbing it. Whoever finds the real
    error should refit rather than assume this number transfers.
 
-Item 2's predecessor, a per-frame `PedestalEstimator` joint fit, is superseded by
-§4: the same idea, moved off the stellar cadence onto every radiometer sample.
 
 ---
 
@@ -387,8 +374,8 @@ parts of the estimator, and failed the same way each time.
   and a service flow in front of a value that drifts within a session, and
   contradicts the zero-touch product intent: normal operation must not require
   calibration.
-- *Letting the user correct the residual by hand.* This was `SQM Correct`,
-  removed 2026-07-18. A magnitude-additive knob silently absorbs an ADU-space,
+- *Letting the user correct the residual by hand,* the removed `SQM Correct`
+  setting. A magnitude-additive knob silently absorbs an ADU-space,
   brightness-dependent error, so it masks a pedestal fault instead of fixing it
   and produces a correction valid at exactly one sky brightness.
 - *Estimating the pedestal from a low image percentile.* Ordinary sky pixels
@@ -420,14 +407,14 @@ parts of the estimator, and failed the same way each time.
 
 **On frame handling**
 
-- *Cropping at every call site instead of inside the sample reduction.* This is
-  what #544 intended and what did not happen. The contract lived in a docstring
-  and a CONTEXT entry, and three scripts, the live path and every future replay
-  each had to remember it. Putting it inside the one function that reduces a
-  frame makes the rule unforgeable and costs a size comparison per frame.
-- *Refusing a full-sensor frame rather than reducing it.* Honest, and it would
-  have surfaced §3.1 immediately, but it makes every archived sweep since #544
-  unreplayable, which is the opposite of what an archive is for.
+- *Cropping at every call site instead of inside the sample reduction.* Tried,
+  as a docstring contract plus a CONTEXT entry. Three scripts, the live path and
+  every future replay each had to remember it, and a rule with no enforcement
+  point is not a rule. Inside the one function that reduces a frame it is
+  unforgeable, and costs one size comparison per frame.
+- *Refusing a full-sensor frame rather than reducing it.* Louder, and it would
+  surface a mismatch immediately, but it makes every full-sensor sweep in the
+  archive unreplayable, which is the opposite of what an archive is for.
 - *Normalising digital gain to 1.0.* Double-counts the gain the zero point
   already absorbed.
 - *Refitting each zero point with the gain divided out.* Equivalent in the end
@@ -456,14 +443,12 @@ parts of the estimator, and failed the same way each time.
 
 ## 8. Consequences and standing obligations
 
-- Published live values did not move when §3 landed. Over all 66 referenced
-  archive sweeps the calibrated devices replay bit-identical and radiometer
-  publication counts are unchanged; archive mean absolute error falls from 0.251
-  to 0.202 mag.
-- Published SQM *did* change on IMX462/IMX290 and HQ when §5 landed, and all
-  values changed scale when §6 landed. Prior logs are not comparable across
-  either; `radiometric_zero_point_effective` in the archive is what makes future
-  comparison possible.
+- §3 costs no published value: over all 66 referenced archive sweeps the
+  calibrated devices replay bit-identical, radiometer publication counts are
+  unchanged, and archive mean absolute error falls from 0.251 to 0.202 mag.
+- §5 and §6 each changed the published scale, so SQM logs are not comparable
+  across firmware that predates them. `radiometric_zero_point_effective` in the
+  archive is what makes comparison possible at all.
 - **A profile whose zero point is refitted must update
   `calibration_digital_gain` in the same change**, or the new zero point will be
   normalised against the old cohort.
@@ -473,9 +458,9 @@ parts of the estimator, and failed the same way each time.
   The flags reflect what publication actually used, not the raw last fit.
 - The published pedestal can differ between two units with identical profiles
   and identical calibration files. That is intended behaviour, not drift.
-- The wizard's headline output is no longer its most valuable one. Its lasting
-  contribution is the dark-current rate; its bias offset is superseded whenever
-  the tracker is leased, and its read noise was always diagnostic.
+- The calibration wizard's most valuable output is the dark-current rate, not
+  the bias offset it leads with: that offset is superseded whenever the tracker
+  is leased, and its read noise is diagnostic only.
 - **The dark-site colour anchor is one night, 3 sweeps.** Cross-validation is
   what makes the 5.544 slope credible, not the sample size. A single systematic
   peculiar to that night — observer, meter, dew — maps directly onto the slope.
@@ -488,26 +473,3 @@ parts of the estimator, and failed the same way each time.
   anyone could add to the archive. Its `color_coefficient` of 0.0 is likewise an
   unmeasured placeholder.
 - Still outstanding: an independent dark site on the HQ and IMX296 profiles.
-
----
-
-## Decision history
-
-Each row was a separate ADR, replaced by the section named. The files are in
-git history under their original numbers; nothing below is reversed, only
-gathered. This file keeps 0022's number, so that row is its own predecessor.
-
-| was | decided | now |
-|---|---|---|
-| 0002 | publish raw SQM, not the altitude-corrected value | §1 |
-| 0022 | radiometer-first, solve-independent publication | §2 |
-| 0024 | raw-green photometry, colour term, wing correction, robust mzero | §6 |
-| 0026 | radiometric zero point keyed to measured sky colour | §5 |
-| 0028 | the tracked black level supersedes any stored bias | §4.1 |
-
-§3 and §4.2 are not in that table. They are decided here for the first time,
-in the change that created this file.
-
-[ADR 0027](0027-fov-gate-derived-from-optical-train.md) is deliberately **not**
-folded in. It decides the solver's FOV gate and the chart's frustum shading as
-well as SQM's field width, so it is not an SQM decision; §3.1 depends on it.
