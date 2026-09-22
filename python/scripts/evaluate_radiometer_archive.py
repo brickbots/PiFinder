@@ -9,7 +9,7 @@ Two jobs, and they answer different questions:
 * ``radiometric_models`` -- re-derives the constant and sky-colour models from
   the archive and cross-validates them against each other, so the choice of
   model recorded in ``camera_profiles.py`` can be reproduced or refuted rather
-  than taken on trust. See docs/adr/0030-sqm-measurement.md section 5.
+  than taken on trust. See docs/adr/0022-sqm-measurement.md section 5.
 
 The model fit deliberately runs per sweep rather than per frame, and scores by
 leave-one-night-out error rather than in-sample scatter; ``radiometric_fit``

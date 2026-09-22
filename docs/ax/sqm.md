@@ -76,7 +76,7 @@ eligible and do not enter the table above.
 
 They exposed two frame properties the radiometer assumed rather than read, worth
 0.211 and 0.236 mag, both invisible on Ghent hardware by construction. See
-[ADR 0030 §3](../adr/0030-sqm-measurement.md#3-frame-properties-are-read-from-the-frame-not-assumed).
+[ADR 0022 §3](../adr/0022-sqm-measurement.md#3-frame-properties-are-read-from-the-frame-not-assumed).
 With both read,
 the unit's mean absolute error over the eight sweeps falls from 0.506 to 0.117
 mag on the airglow-floor path, and across all 66 referenced archive sweeps from
@@ -249,7 +249,7 @@ dark current from sky, because both are linear in exposure. Until a confident
 fit exists, `pedestal()` returns `None` and the caller falls back to the
 profile constant. Trust is a lease rather than a latch: an accepted fit expires
 after `max_age_seconds` and must be re-earned. See
-[ADR 0030 §4.1](../adr/0030-sqm-measurement.md#41-the-tracked-black-level-supersedes-any-stored-bias)
+[ADR 0022 §4.1](../adr/0022-sqm-measurement.md#41-the-tracked-black-level-supersedes-any-stored-bias)
 for the decision and its gates.
 
 Read noise is zero-mean RMS uncertainty and is never subtracted as signal.
@@ -291,7 +291,7 @@ sensor's passband while the reference meter measures V, and converting between
 them depends on the sky's spectrum. Sky colour measures that directly and is
 already in the frame, so the zero point is keyed to the measured red/green
 ratio of the sky background. See
-[ADR 0030 §5](../adr/0030-sqm-measurement.md#5-the-zero-point-is-keyed-to-measured-sky-colour)
+[ADR 0022 §5](../adr/0022-sqm-measurement.md#5-the-zero-point-is-keyed-to-measured-sky-colour)
 for the derivation and the evidence.
 
 `radiometric_colour_slope = 0` makes this a plain constant, which is the case
@@ -391,7 +391,7 @@ was measured with no calibration file present.
   remain accurate without asking the user to take one.
 
 See [`sqm/CONTEXT.md`](./sqm/CONTEXT.md) for canonical terminology and
-[`ADR 0030`](../adr/0030-sqm-measurement.md) for every SQM decision: what is published (§1),
+[`ADR 0030`](../adr/0022-sqm-measurement.md) for every SQM decision: what is published (§1),
 radiometer-first ownership (§2), which frame properties are read (§3), the
 pedestal precedence (§4), the colour-keyed zero point (§5), and the stellar
 diagnostic path (§6).

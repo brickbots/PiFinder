@@ -1,7 +1,9 @@
 # SQM: how PiFinder measures and publishes sky brightness
 
-This is the single decision record for the SQM estimator. It replaces six
-separate ADRs written between 2025 and 2026 as the estimator was rebuilt; the
+This is the single decision record for the SQM estimator. It replaces the
+five separate ADRs written between 2025 and 2026 as the estimator was
+rebuilt, and takes 0022 from among their numbers because that was the one the
+others cited. Their other numbers are left as gaps rather than reused; the
 [decision history](#decision-history) at the end says which, and what each one
 settled. Consolidating them is itself a decision: the estimator's parts are not
 independent, several later ADRs partly superseded earlier ones, and reading them
@@ -493,7 +495,7 @@ parts of the estimator, and failed the same way each time.
 
 Each row was a separate ADR, replaced by the section named. The files are in
 git history under their original numbers; nothing below is reversed, only
-gathered.
+gathered. This file keeps 0022's number, so that row is its own predecessor.
 
 | was | decided | now |
 |---|---|---|
@@ -502,7 +504,9 @@ gathered.
 | 0024 | raw-green photometry, colour term, wing correction, robust mzero | §6 |
 | 0026 | radiometric zero point keyed to measured sky colour | §5 |
 | 0028 | the tracked black level supersedes any stored bias | §4.1 |
-| 0030 | frame extent and reported digital gain are read, not assumed | §3, §4.2 |
+
+§3 and §4.2 are not in that table. They are decided here for the first time,
+in the change that created this file.
 
 [ADR 0027](0027-fov-gate-derived-from-optical-train.md) is deliberately **not**
 folded in. It decides the solver's FOV gate and the chart's frustum shading as
