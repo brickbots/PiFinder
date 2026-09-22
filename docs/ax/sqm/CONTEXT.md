@@ -47,7 +47,11 @@ flux and sky background are measured here, not on the processed solve image.
 Always the **crop**, never the full-sensor frame that exposure sweeps archive —
 see [Camera](../camera/CONTEXT.md) for the two extents. The margins are
 vignetted with no optical black, so measuring them would bias the sky
-background and break continuity with every calibrated sweep.
+background and break continuity with every calibrated sweep. A full-sensor
+frame also spans more sky than `field_width_degrees` describes, so measuring one
+reads bright by `5 log10(height / crop height)`. `collect_radiometer_sample`
+enforces the rule with `CameraProfile.ensure_cropped()` rather than leaving it
+to each caller.
 
 **Derotation**:
 Mapping solve-image `(y, x)` centroids back to the orientation of the stored
@@ -111,7 +115,26 @@ Median cleaned annulus value for one matched star.
 **Radiometer sample**:
 Sparse central median reduced in the camera process on every raw frame. It
 excludes the outer ten percent and records MAD, quadrant gradient, exposure,
-timestamp, sequence, and native green/mono pixel scale.
+timestamp, sequence, native green/mono pixel scale, and the driver's reported
+digital gain. The reduction crops a full-sensor frame first, so a sample always
+describes the crop whatever extent it was handed.
+
+**Reported digital gain**:
+The `DigitalGain` the driver attaches to a frame. It multiplies the sky signal
+above the pedestal, and it is in the raw array: the IMX290/462 IPA programs the
+sensor's own digital-gain register. Some libcamera versions fold the
+white-balance normalisation into it, so two units with identical settings can
+report 1.017 and 1.246 under the same sky. Say "reported digital gain" for this
+per-frame driver value, never for `CameraProfile.digital_gain`, which is an
+unrelated multiplier applied when building the 8-bit solve image.
+
+**Calibration digital gain**:
+`CameraProfile.calibration_digital_gain`, the reported digital gain the sweeps
+that fitted this profile's radiometric zero point actually ran at. The
+radiometer divides the corrected signal by `reported / calibration`, so a unit
+running its cohort's gain is unchanged. Refitting a zero point means updating
+this constant in the same change. See
+[ADR 0030](../../adr/0030-radiometer-reads-frame-properties.md).
 
 **Stellar sky background**:
 Median of local annulus skies, used only by stellar diagnostics.

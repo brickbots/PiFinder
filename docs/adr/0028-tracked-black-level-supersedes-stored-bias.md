@@ -109,5 +109,8 @@ diagnostics only, for this reason.
 - The headline archive accuracy in [`../ax/sqm.md`](../ax/sqm.md) is unchanged by
   this. Those sweeps are light-pollution-dominated Ghent skies, where the
   correction is negligible by construction. Its value at dark sites is argued
-  from the physics and the imx296 sweeps above, and remains a validation
-  obligation on independent dark-site nights.
+  from the physics and the imx296 sweeps above, and was a validation obligation
+  on independent dark-site nights. That obligation is discharged in
+  [ADR 0030](0030-radiometer-reads-frame-properties.md): on two clear 21.4-21.6
+  mag sweeps from an independent IMX462 the tracker returns 238.65 and 238.62
+  against a line fit of the same frames at 238.78 and 238.73.
