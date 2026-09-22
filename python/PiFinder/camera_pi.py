@@ -127,6 +127,7 @@ class CameraPI(CameraInterface):
                 radiometer_exposure,
                 sequence=self._radiometer_sequence,
                 captured_at=time.time(),
+                digital_gain=metadata.get("DigitalGain"),
             )
             if sample is not None:
                 self.shared_state.set_sqm_radiometer_sample(sample)

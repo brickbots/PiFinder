@@ -8,6 +8,7 @@ import csv
 import hashlib
 import json
 import math
+import re
 import statistics
 from collections import defaultdict
 from datetime import datetime
@@ -20,6 +21,32 @@ from PiFinder.sqm.black_level import BlackLevelTracker
 from PiFinder.sqm.camera_profiles import get_camera_profile
 from PiFinder.sqm.clouds import CloudEstimator
 from PiFinder.sqm.radiometer import RadiometerAccumulator, collect_radiometer_sample
+
+
+def _archived_frame_gains(sweep: Path) -> dict[int, float]:
+    """Frame index to the DigitalGain the driver reported when it was captured.
+
+    Sweeps written before the driver metadata was archived return an empty map,
+    and those frames then replay with no gain normalisation, exactly as before.
+    """
+    path = Path(sweep) / "frame_metadata.json"
+    if not path.exists():
+        return {}
+    try:
+        frames = json.loads(path.read_text())["frames"]
+    except (KeyError, OSError, ValueError):
+        return {}
+    gains = {}
+    for frame in frames:
+        gain = frame.get("camera_metadata", {}).get("DigitalGain")
+        if gain:
+            gains[int(frame["index"])] = float(gain)
+    return gains
+
+
+def _archived_frame_index(frame_name: str):
+    match = re.match(r"img_(\d+)", str(frame_name))
+    return int(match.group(1)) if match else None
 
 
 def _sha256(path: Path) -> str:
@@ -113,6 +140,8 @@ def main() -> None:
         diagnostic_frames = 0
         radiometer_on_failed_solve = 0
 
+        gains = _archived_frame_gains(sweep)
+
         for frame_index, row in enumerate(rows):
             sequence += 1
             now = frame_index * args.assumed_frame_seconds
@@ -123,6 +152,7 @@ def main() -> None:
                 raw,
                 profile,
                 exposure_sec,
+                digital_gain=gains.get(_archived_frame_index(row["frame"])),
                 sequence=sequence,
                 captured_at=now,
             )

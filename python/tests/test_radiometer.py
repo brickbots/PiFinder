@@ -394,3 +394,149 @@ def test_a_phase_slip_really_would_read_blue_as_red():
     slipped_red, slipped_green = _sky_red_green(np.rot90(frame, 2), profile, 0.10, 4)
     assert slipped_red == 500.0  # blue, not red
     assert slipped_green == 1000.0  # green sites are rotation-invariant
+
+
+# ---------------------------------------------------------------------------
+# Frame extent. Sweeps archive the whole sensor; photometry is calibrated on
+# the crop. A replayed full-sensor frame must measure the crop, or it spans
+# more sky than radiometric_fov_degrees describes.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name", ["imx462", "imx296", "hq"])
+def test_full_sensor_frame_is_reduced_to_the_crop(name):
+    profile = get_camera_profile(name)
+    width, height = profile.raw_size
+    rng = np.random.default_rng(7)
+    full = rng.integers(200, 400, size=(height, width), dtype=np.uint16)
+
+    from_full = collect_radiometer_sample(
+        full, profile, 0.5, sequence=1, captured_at=0.0
+    )
+    from_crop = collect_radiometer_sample(
+        profile.ensure_cropped(full), profile, 0.5, sequence=2, captured_at=0.0
+    )
+
+    assert from_full is not None and from_crop is not None
+    assert from_full["pixels_per_side"] == from_crop["pixels_per_side"]
+    assert from_full["background_per_pixel"] == from_crop["background_per_pixel"]
+    assert from_full["sampled_pixels"] == from_crop["sampled_pixels"]
+
+
+@pytest.mark.unit
+def test_cropped_frame_is_left_alone():
+    profile = get_camera_profile("imx462")
+    width, height = profile.raw_size
+    rng = np.random.default_rng(11)
+    crop = profile.ensure_cropped(
+        rng.integers(200, 400, size=(height, width), dtype=np.uint16)
+    )
+    before = crop.copy()
+
+    sample = collect_radiometer_sample(crop, profile, 0.5, sequence=1, captured_at=0.0)
+
+    assert sample is not None
+    np.testing.assert_array_equal(crop, before)
+
+
+@pytest.mark.unit
+def test_full_sensor_frame_lands_on_the_same_magnitude_as_its_crop():
+    profile = get_camera_profile("imx462")
+    width, height = profile.raw_size
+    full = np.full((height, width), 260, dtype=np.uint16)
+
+    from_full, _ = radiometric_sqm(
+        collect_radiometer_sample(full, profile, 1.0, sequence=1, captured_at=0.0),
+        profile,
+    )
+    from_crop, _ = radiometric_sqm(
+        collect_radiometer_sample(
+            profile.ensure_cropped(full), profile, 1.0, sequence=2, captured_at=0.0
+        ),
+        profile,
+    )
+
+    assert from_full == pytest.approx(from_crop)
+
+
+# ---------------------------------------------------------------------------
+# Digital gain. The driver's reported DigitalGain multiplies the background, so
+# a unit running a different one than the calibration cohort reads the
+# difference as sky.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_calibration_gain_publishes_the_same_value_as_no_gain_at_all():
+    profile = get_camera_profile("imx462")
+    raw = np.full((256, 256), 300, dtype=np.uint16)
+
+    silent = collect_radiometer_sample(raw, profile, 1.0, sequence=1, captured_at=0.0)
+    reported = collect_radiometer_sample(
+        raw,
+        profile,
+        1.0,
+        sequence=2,
+        captured_at=0.0,
+        digital_gain=profile.calibration_digital_gain,
+    )
+
+    assert "digital_gain" not in silent
+    assert radiometric_sqm(silent, profile)[0] == pytest.approx(
+        radiometric_sqm(reported, profile)[0]
+    )
+
+
+@pytest.mark.unit
+def test_extra_digital_gain_is_divided_out():
+    profile = get_camera_profile("imx462")
+    ratio = 1.25
+    background = 300.0
+    signal = background - profile.bias_offset
+    gained = np.full(
+        (256, 256), round(profile.bias_offset + signal * ratio), dtype=np.uint16
+    )
+    plain = np.full((256, 256), round(background), dtype=np.uint16)
+
+    corrected, details = radiometric_sqm(
+        collect_radiometer_sample(
+            gained,
+            profile,
+            1.0,
+            sequence=1,
+            captured_at=0.0,
+            digital_gain=profile.calibration_digital_gain * ratio,
+        ),
+        profile,
+    )
+    reference, _ = radiometric_sqm(
+        collect_radiometer_sample(plain, profile, 1.0, sequence=2, captured_at=0.0),
+        profile,
+    )
+
+    assert details["digital_gain_ratio"] == pytest.approx(ratio)
+    assert corrected == pytest.approx(reference, abs=0.01)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("reported", [None, 0.0, -1.0, float("nan")])
+def test_unusable_reported_gain_leaves_the_value_untouched(reported):
+    profile = get_camera_profile("imx462")
+    raw = np.full((256, 256), 300, dtype=np.uint16)
+
+    sample = collect_radiometer_sample(
+        raw, profile, 1.0, sequence=1, captured_at=0.0, digital_gain=reported
+    )
+    plain = collect_radiometer_sample(raw, profile, 1.0, sequence=2, captured_at=0.0)
+
+    value, details = radiometric_sqm(sample, profile)
+    assert details["digital_gain_ratio"] == 1.0
+    assert value == pytest.approx(radiometric_sqm(plain, profile)[0])
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name", ["imx462", "imx296", "hq", "imx290"])
+def test_every_profile_states_the_gain_its_calibration_ran_at(name):
+    profile = get_camera_profile(name)
+    assert profile.calibration_digital_gain > 0

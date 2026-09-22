@@ -109,6 +109,7 @@ def collect_radiometer_sample(
     captured_at: float,
     border_fraction: float = 0.10,
     stride: int = 4,
+    digital_gain: Optional[float] = None,
 ) -> Optional[dict]:
     """Reduce a raw frame to a robust sky-background sample.
 
@@ -116,9 +117,22 @@ def collect_radiometer_sample(
     The outer ten percent is excluded to reduce corner-vignetting bias. Stars
     occupy far below half the grid, so the median rejects them without building
     a source mask. Four quadrant medians provide a cheap gradient diagnostic.
+
+    ``raw`` may be either a crop or a whole sensor frame. Live capture hands
+    over the crop, but sweeps archive the full sensor, so anything replaying
+    one would otherwise measure a frame the calibration never saw: a taller
+    frame spans more sky than ``radiometric_fov_degrees`` describes, and every
+    pixel would be credited with too little of it. ``ensure_cropped`` reduces
+    it through the ordinary crop path first, which is a no-op on a crop.
+
+    ``digital_gain`` is the driver's reported DigitalGain for this frame. It
+    multiplies the background, so it is recorded here and divided out against
+    ``profile.calibration_digital_gain`` when the sample becomes a magnitude.
     """
     if not exposure_sec or exposure_sec <= 0 or stride < 1:
         return None
+    if raw is not None and hasattr(profile, "ensure_cropped"):
+        raw = profile.ensure_cropped(np.asarray(raw))
     image = extract_photometry_image(raw, profile)
     if image is None or min(image.shape) < 32:
         return None
@@ -158,7 +172,25 @@ def collect_radiometer_sample(
     if red is not None:
         sample["background_red"] = red
         sample["background_green"] = green
+    if digital_gain is not None and np.isfinite(digital_gain) and digital_gain > 0:
+        sample["digital_gain"] = float(digital_gain)
     return sample
+
+
+def _digital_gain_ratio(sample: dict, profile) -> float:
+    """Reported DigitalGain over the gain this profile was calibrated at.
+
+    Returns 1.0 when the frame reports no gain, so archives captured before the
+    driver metadata was recorded replay exactly as they did before.
+    """
+    reported = sample.get("digital_gain")
+    calibrated = float(getattr(profile, "calibration_digital_gain", 1.0) or 1.0)
+    if reported is None or calibrated <= 0:
+        return 1.0
+    reported = float(reported)
+    if not math.isfinite(reported) or reported <= 0:
+        return 1.0
+    return reported / calibrated
 
 
 def radiometric_sqm(
@@ -176,6 +208,11 @@ def radiometric_sqm(
     so callers that know the live optical train should pass its field of view;
     an error here biases every radiometric SQM, and one lens step is worth
     ~0.6 mag. Omitting it assumes the sensor's shipped lens.
+
+    A sample carrying ``digital_gain`` is normalised to the gain its profile's
+    zero point was fitted at. The gain multiplies the signal above the
+    pedestal, so this is one division of the corrected signal. A unit running
+    the calibration gain does not move.
     """
     exposure_sec = float(sample["exposure_sec"])
     background = float(sample["background_per_pixel"])
@@ -184,9 +221,12 @@ def radiometric_sqm(
     if field_width_degrees is None:
         field_width_degrees = optical_train_for_profile(profile).fov_degrees
     signal = background - pedestal
+    gain_ratio = _digital_gain_ratio(sample, profile)
+    signal /= gain_ratio
     details = {
         **sample,
         "pedestal": pedestal,
+        "digital_gain_ratio": gain_ratio,
         "background_corrected": signal,
         "radiometric_zero_point": profile.radiometric_zero_point,
         "radiometric_fov_degrees": field_width_degrees,
