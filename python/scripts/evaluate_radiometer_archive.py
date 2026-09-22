@@ -27,12 +27,41 @@ import statistics
 from collections import defaultdict
 from pathlib import Path
 
+from typing import Optional
+
 import numpy as np
 from PIL import Image
 
 from PiFinder.sqm.camera_profiles import get_camera_profile
 from PiFinder.sqm.radiometer import collect_radiometer_sample, radiometric_sqm
 from PiFinder.sqm.radiometric_fit import SweepPoint, evaluate_profile
+
+
+def _archived_gain(sweep: Path, frame_name: str) -> Optional[float]:
+    """The DigitalGain the driver reported for one archived frame.
+
+    Sweeps written before the driver metadata was archived return None, and
+    those frames then replay with no gain normalisation.
+    """
+    key = (str(sweep), str(frame_name))
+    if key[0] not in _GAIN_CACHE:
+        gains: dict[int, float] = {}
+        path = Path(sweep) / "frame_metadata.json"
+        if path.exists():
+            try:
+                frames = json.loads(path.read_text())["frames"]
+                for frame in frames:
+                    gain = frame.get("camera_metadata", {}).get("DigitalGain")
+                    if gain:
+                        gains[int(frame["index"])] = float(gain)
+            except (AttributeError, KeyError, OSError, TypeError, ValueError):
+                gains = {}
+        _GAIN_CACHE[key[0]] = gains
+    match = re.match(r"img_(\d+)", str(frame_name))
+    return _GAIN_CACHE[key[0]].get(int(match.group(1))) if match else None
+
+
+_GAIN_CACHE: dict[str, dict[int, float]] = {}
 
 
 def _sweep_index(root: Path) -> dict[str, Path]:
@@ -116,6 +145,9 @@ def main() -> None:
             exposure_sec,
             sequence=sequence,
             captured_at=float(sequence),
+            # A zero point refitted without this disagrees with production on
+            # any unit whose driver reports a gain off the calibration cohort.
+            digital_gain=_archived_gain(sweep, row["frame"]),
         )
         value, details = radiometric_sqm(sample, profile)
         if value is None:

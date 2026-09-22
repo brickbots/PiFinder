@@ -20,7 +20,11 @@ from PIL import Image
 from PiFinder.sqm.black_level import BlackLevelTracker
 from PiFinder.sqm.camera_profiles import get_camera_profile
 from PiFinder.sqm.clouds import CloudEstimator
-from PiFinder.sqm.radiometer import RadiometerAccumulator, collect_radiometer_sample
+from PiFinder.sqm.radiometer import (
+    RadiometerAccumulator,
+    collect_radiometer_sample,
+    digital_gain_ratio,
+)
 
 
 def _archived_frame_gains(sweep: Path) -> dict[int, float]:
@@ -32,15 +36,15 @@ def _archived_frame_gains(sweep: Path) -> dict[int, float]:
     path = Path(sweep) / "frame_metadata.json"
     if not path.exists():
         return {}
+    gains: dict[int, float] = {}
     try:
-        frames = json.loads(path.read_text())["frames"]
-    except (KeyError, OSError, ValueError):
+        for frame in json.loads(path.read_text())["frames"]:
+            gain = frame.get("camera_metadata", {}).get("DigitalGain")
+            if gain:
+                gains[int(frame["index"])] = float(gain)
+    except (AttributeError, KeyError, OSError, TypeError, ValueError):
+        # One malformed entry costs this sweep its gains, not the whole replay.
         return {}
-    gains = {}
-    for frame in frames:
-        gain = frame.get("camera_metadata", {}).get("DigitalGain")
-        if gain:
-            gains[int(frame["index"])] = float(gain)
     return gains
 
 
@@ -163,6 +167,7 @@ def main() -> None:
                     float(sample["exposure_sec"]),
                     float(sample["background_per_pixel"]),
                     stable=last_cloud_flag is not True,
+                    gain_ratio=digital_gain_ratio(sample, profile),
                 )
 
             def pedestal_for_exposure(_exposure_sec):

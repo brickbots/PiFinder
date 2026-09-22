@@ -540,3 +540,18 @@ def test_unusable_reported_gain_leaves_the_value_untouched(reported):
 def test_every_profile_states_the_gain_its_calibration_ran_at(name):
     profile = get_camera_profile(name)
     assert profile.calibration_digital_gain > 0
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("reported", ["1.25", object(), [1.25]])
+def test_a_mistyped_gain_does_not_stop_the_capture_loop(reported):
+    profile = get_camera_profile("imx462")
+    raw = np.full((256, 256), 300, dtype=np.uint16)
+
+    sample = collect_radiometer_sample(
+        raw, profile, 1.0, sequence=1, captured_at=0.0, digital_gain=reported
+    )
+
+    assert sample is not None
+    assert "digital_gain" not in sample or isinstance(sample["digital_gain"], float)
+    assert radiometric_sqm(sample, profile)[0] is not None

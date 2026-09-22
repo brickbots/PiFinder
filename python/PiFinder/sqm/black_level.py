@@ -86,6 +86,7 @@ class BlackLevelTracker:
         exposure_sec: float,
         background_per_pixel: float,
         stable: bool = True,
+        gain_ratio: float = 1.0,
     ) -> None:
         """Record one frame's raw (pre-pedestal) background and refit.
 
@@ -95,6 +96,14 @@ class BlackLevelTracker:
                 pedestal subtraction (``details['background_per_pixel']``).
             stable: False when transmission is changing (cloud) — the sample
                 is dropped so a moving sky cannot corrupt the intercept.
+            gain_ratio: this frame's digital gain over the profile's
+                calibration gain. The gain multiplies the sky signal but not
+                the pedestal, so ``background = P0 + ratio · rate · exposure``:
+                the fit runs against ``ratio · exposure`` and the intercept
+                stays the pedestal. Frames from a driver that folds white
+                balance into the sensor's digital gain move by 15% within one
+                sweep, which is ~20 ADU of false spread on the long exposures
+                and lands squarely in the intercept if ignored.
         """
         if (
             not stable
@@ -104,7 +113,11 @@ class BlackLevelTracker:
             or not np.isfinite(background_per_pixel)
         ):
             return
-        self._samples.append((float(exposure_sec), float(background_per_pixel)))
+        if gain_ratio is None or not np.isfinite(gain_ratio) or gain_ratio <= 0:
+            gain_ratio = 1.0
+        self._samples.append(
+            (float(exposure_sec) * float(gain_ratio), float(background_per_pixel))
+        )
         self._refit()
 
     def _refit(self) -> None:
@@ -112,6 +125,8 @@ class BlackLevelTracker:
             self._pedestal = None
             self._stderr = None
             return
+        # Gain-scaled exposure (see add_sample): the slope is a rate at the
+        # calibration gain, the intercept is the pedestal either way.
         exps = np.array([s[0] for s in self._samples], dtype=np.float64)
         bgs = np.array([s[1] for s in self._samples], dtype=np.float64)
         if exps.min() <= 0 or exps.max() / exps.min() < self.min_exposure_ratio:

@@ -172,23 +172,43 @@ def collect_radiometer_sample(
     if red is not None:
         sample["background_red"] = red
         sample["background_green"] = green
-    if digital_gain is not None and np.isfinite(digital_gain) and digital_gain > 0:
-        sample["digital_gain"] = float(digital_gain)
+    gain = _usable_gain(digital_gain)
+    if gain is not None:
+        sample["digital_gain"] = gain
     return sample
 
 
-def _digital_gain_ratio(sample: dict, profile) -> float:
+def _usable_gain(reported) -> Optional[float]:
+    """The reported gain as a positive finite float, or None.
+
+    Drivers do mistype their metadata keys -- ``camera_pi`` guards its
+    ``SensorTemperature`` read for the same reason -- and this runs in the
+    capture loop with no caller-side try, so a string here would stop
+    captures rather than lose one frame's gain.
+    """
+    if reported is None:
+        return None
+    try:
+        value = float(reported)
+    except (TypeError, ValueError):
+        return None
+    return value if math.isfinite(value) and value > 0 else None
+
+
+def digital_gain_ratio(sample: dict, profile) -> float:
     """Reported DigitalGain over the gain this profile was calibrated at.
 
     Returns 1.0 when the frame reports no gain, so archives captured before the
     driver metadata was recorded replay exactly as they did before.
+
+    Public because the black-level tracker needs it too: it fits the pedestal
+    as the intercept of background against exposure, and the gain multiplies
+    the slope, so a window whose gain moves must be fitted against
+    ``ratio * exposure`` or the jitter lands in the intercept.
     """
-    reported = sample.get("digital_gain")
+    reported = _usable_gain(sample.get("digital_gain"))
     calibrated = float(getattr(profile, "calibration_digital_gain", 1.0) or 1.0)
     if reported is None or calibrated <= 0:
-        return 1.0
-    reported = float(reported)
-    if not math.isfinite(reported) or reported <= 0:
         return 1.0
     return reported / calibrated
 
@@ -221,7 +241,7 @@ def radiometric_sqm(
     if field_width_degrees is None:
         field_width_degrees = optical_train_for_profile(profile).fov_degrees
     signal = background - pedestal
-    gain_ratio = _digital_gain_ratio(sample, profile)
+    gain_ratio = digital_gain_ratio(sample, profile)
     signal /= gain_ratio
     details = {
         **sample,

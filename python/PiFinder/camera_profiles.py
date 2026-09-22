@@ -12,10 +12,13 @@ with a :class:`~PiFinder.optics.Lens` to derive one. See
 ``docs/ax/camera/CONTEXT.md`` (Optics) and ``docs/adr/0027``.
 """
 
+import logging
 from dataclasses import dataclass, replace
 from typing import Dict, Tuple
 
 import numpy as np
+
+logger = logging.getLogger("Camera.Profiles")
 
 
 @dataclass
@@ -241,9 +244,25 @@ class CameraProfile:
         so the result matches the live pipeline by construction rather than by
         a parallel reimplementation. An already-cropped frame is returned
         untouched.
+
+        A frame matching neither extent is returned untouched and logged.
+        Photometry measures it whole against a field width that describes the
+        crop, which is the error this method exists to prevent, so it must not
+        pass in silence. The archive holds such frames: the 1520x1520 HQ
+        sweeps are four columns wider than today's 1516x1520 crop.
         """
         if self.is_full_sensor(raw_array):
             return self.crop_and_rotate(raw_array)
+        height, width = raw_array.shape[:2]
+        if (width, height) != self.crop_size:
+            logger.warning(
+                "Frame %dx%d matches neither the %dx%d sensor nor the %dx%d "
+                "crop; measuring it whole against the crop's field width",
+                width,
+                height,
+                *self.raw_size,
+                *self.crop_size,
+            )
         return raw_array
 
     def __repr__(self) -> str:
