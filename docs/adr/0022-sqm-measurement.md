@@ -124,6 +124,11 @@ zero point already absorbed whatever gain its own frames carried. Dividing by
 the raw reported gain would subtract that absorption a second time and shift
 every calibrated device by 0.02 mag for no reason.
 
+Dividing it out at the magnitude conversion is necessary but not sufficient:
+every consumer that reads `background_per_pixel` directly has to normalise
+first. `digital_gain_ratio` is public for that reason, and the black-level
+tracker (§4.1) is its other caller.
+
 **Evidence that the gain reaches the raw pixels.** PiFinder samples
 `make_array("raw")`, which bypasses the ISP, so this had to be measured. With
 the extent corrected and each sweep's pedestal taken from its own line fit
@@ -176,13 +181,25 @@ because `sky − pedestal` goes non-positive and the frame is discarded as
 0.2–0.4 mag at a dark site.
 
 **Decision.** `BlackLevelTracker` fits the pedestal as the intercept of sky
-background against exposure over the running session, and supersedes both the
+background against **gain-scaled** exposure over the running session, and supersedes both the
 profile constant and any wizard-measured bias offset once its fit is **leased**.
 The lease gates on the fit's standard error and deviation band; unleased, the
 pedestal falls back to the stored constant. It needs no lens cap and no dark
 frame, conditions from radiometer samples on every fresh frame rather than from
 the 10-second stellar diagnostics, and so converges in minutes and keeps working
 through failed solves.
+
+The scaling is not a detail. The reported digital gain of §3.2 multiplies the
+sky signal but not the pedestal, so `background = P0 + ratio · rate · t`: a
+window whose gain moves is a set of lines with a shared intercept and different
+slopes, and fitting them as one line puts the jitter straight into the
+intercept, which *is* the published pedestal. A driver that folds white balance
+into the sensor gain moves it 15% inside a single sweep, worth about 20 ADU of
+false spread on the long exposures. `add_sample` therefore takes the ratio and
+regresses against `ratio · exposure`; the slope becomes a rate at the
+calibration gain and the intercept stays the pedestal. Anything else that fits
+a line through raw background — an offline refit, a future estimator — owes the
+same scaling.
 
 ### 4.2 The reported black level is not another source
 

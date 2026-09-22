@@ -77,10 +77,15 @@ eligible and do not enter the table above.
 They exposed two frame properties the radiometer assumed rather than read, worth
 0.211 and 0.236 mag, both invisible on Ghent hardware by construction. See
 [ADR 0022 §3](../adr/0022-sqm-measurement.md#3-frame-properties-are-read-from-the-frame-not-assumed).
-With both read,
-the unit's mean absolute error over the eight sweeps falls from 0.506 to 0.117
-mag on the airglow-floor path, and across all 66 referenced archive sweeps from
-0.201 to 0.150 mag, with the Ghent sweeps bit-identical.
+With both read, the unit's mean absolute error over the eight sweeps falls from
+0.762 to 0.376 mag, and across all 66 referenced archive sweeps from 0.251 to
+0.202 mag, with the Ghent sweeps bit-identical and radiometer publications
+unchanged.
+
+The residual 0.376 is the factory zero point reading bright at a dark site. It
+is separate from these two terms and is not removed by them: the same eight
+sweeps measure 0.127 mag mean absolute error, and −0.005 median, once a
+spectral floor for airglow is applied, which is not on this branch.
 
 They also discharge the black-level tracker's dark-site obligation. On the two
 clear sweeps the tracker returns 238.65 and 238.62 ADU where an independent fit
@@ -88,7 +93,7 @@ of the same frames gives 238.78 and 238.73, agreeing to about 0.1 ADU on a sky
 where the pedestal error the tracker corrects is no longer swamped.
 
 Still outstanding: an independent dark site on the HQ and IMX296 profiles, and
-any dark site with the airglow floor's own calibration fitted out of sample.
+a dark-site treatment of the factory zero point itself.
 
 ## Runtime ownership and data flow
 
