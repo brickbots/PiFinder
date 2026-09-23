@@ -147,6 +147,10 @@ between screens:
 - The **RIGHT** arrow selects the current menu item, which either sets an option or opens another menu
 - The **LEFT** arrow takes you back to the previous menu or screen
 - Press and hold **LEFT** for more than a second to jump back to the TOP of the menus
+- **RIGHT** is also the confirm key. On a screen that asks you to confirm, such as the
+  shutdown screen, **RIGHT** selects the highlighted option and **LEFT** goes back
+- **SQUARE** does not confirm. Press and hold it to open the Quick Menu, described below. A
+  short press does whatever the screen you're on uses it for
 
 Some menus, like the catalog selection, let you check several menu items on and off with
 the **RIGHT** arrow.
@@ -187,13 +191,23 @@ Configuration Setup
 There is only one physical rev4 PiFinder. The body rotates on its mount, so the same
 PiFinder sits with the screen facing left, right or straight back, whichever suits your
 telescope. What changes between configurations is the position you rotate it into, not the
-hardware.
+hardware. Setting it up takes two steps. Rotate the body into position, then set the
+PiFinder Type so the software matches.
+
+Rotating the Body
+^^^^^^^^^^^^^^^^^
+
+Turn the body until the screen faces the way that suits your telescope. See
+:ref:`quick_start:pifinder type entries` below if you're not sure which position to use.
 
 .. image:: images/quick_start/rev4_convert.gif
 
 The mount is spring-loaded, with detents marking the three positions, so you don't need to
 loosen anything first. Take hold of the body and turn it firmly. It drops into the next
 position and stays there.
+
+Setting the PiFinder Type
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The software needs to know which position the body is in, so its star charts and pointing
 directions come out the right way round. Your PiFinder arrives set to match the position it
@@ -204,15 +218,22 @@ disagree.
 From the main menu, select Settings, scroll down to Advanced, then select PiFinder Type.
 
 .. image:: images/quick_start/settings_select.png
+.. image:: images/quick_start/settings_advanced_select.png
 .. image:: images/quick_start/settings_menu_config.png
+
+Advanced shows a short message about DIY PiFinders as it opens. The message clears on its
+own. PiFinder Type applies to every PiFinder, ready-built ones included.
 
 Highlight the type of PiFinder you're using and press **RIGHT** to select it. This restarts
 the PiFinder software.
 
 .. image:: images/quick_start/pifinder_type_select.png
 
-The rev4 entries sit at the bottom of the list. Three of them name the position you've
-rotated the body into:
+PiFinder Type Entries
+^^^^^^^^^^^^^^^^^^^^^
+
+The three rev4 entries sit at the bottom of the list. Each one names the position you have
+rotated the body into.
 
 - **Rev4 Left**: the screen faces left, for a Dobsonian or Newtonian with the focuser on
   the left of the tube.
@@ -225,13 +246,14 @@ telescope, where you already stand to observe. This is why rev4 has no separate 
 configuration. If the telescope sits above head height, or you point it very high, rotate
 the body left or right instead. The screen is easier to read from the side.
 
-**AS Bloom** and **AS Heart** are the exceptions: they name a telescope rather than an
-orientation. You can order Analog Sky's Bloom and Heart with a PiFinder fully integrated
-into the telescope. If you observe with one of those, select the entry that matches it.
+**AS Bloom** and **AS Heart** sit just above the rev4 entries. They name a telescope rather
+than an orientation. You can order Analog Sky's Bloom and Heart with a PiFinder fully
+integrated into the telescope. If you observe with one of those, select the entry that
+matches it.
 
 .. note::
-   The entries above these are the v3 and v2.5 configurations. Left, Right and Straight
-   mean the same as they do on rev4, but on those PiFinders the build sets the
+   The five entries at the top of the list are the v3 and v2.5 configurations. Left, Right
+   and Straight mean the same as they do on rev4, but on those PiFinders the build sets the
    configuration rather than a rotation. Flat v3 and Flat v2 sit with the lens on top and
    the screen angled back toward you.
    |v3_docs|
@@ -515,7 +537,8 @@ Now align in a few steps:
    a planet. Point your telescope at it and roughly center it in your eyepiece.
 2. Look at the PiFinder screen and find that star plotted there. Press the **+/-** keys to
    zoom out if it helps you identify it.
-3. Press **SQUARE** to switch to star-selection mode.
+3. Press **SQUARE** to start the alignment. The hint along the bottom of the screen reads
+   START ALIGN, and the screen switches to star-selection mode.
 
    .. image:: images/quick_start/align_start.png
 
@@ -526,14 +549,18 @@ Now align in a few steps:
 
 4. Use the arrow keys to highlight the star your telescope is pointing at, then return to
    the eyepiece and center it as well as you can.
-5. Press **SQUARE** to complete the alignment. The PiFinder now places objects wherever in
-   your eyepiece that star sits. To exit without changing the alignment point, press **0**.
+5. Press **SQUARE** to save the alignment. The hint now reads SAVE. The PiFinder then places
+   objects wherever in your eyepiece that star sits. To exit without changing the alignment
+   point, press **0**.
 
 .. image:: images/quick_start/align_done.png
 
 The marker returns to the normal Telrad-style reticle, showing your newly adjusted alignment
 point. The PiFinder saves it, so you don't need to repeat this unless you remove the
 PiFinder from your telescope and attach it again.
+
+**SQUARE** starts and saves the alignment on this screen only. It is not a general confirm
+key. On a screen that asks you to confirm, such as the shutdown screen, press **RIGHT**.
 
 .. note::
    You can also align on any catalog object. If you've found an object and it's not centered,
@@ -552,7 +579,8 @@ where the camera sees it, and mark that spot directly.
 .. image:: images/quick_start/align_day_start.png
 
 Opening the screen switches the camera to a short daytime exposure so you can see what it's
-pointing at. Press **SQUARE** to begin.
+pointing at. Press **SQUARE** to start the alignment. The hint along the bottom of the
+screen reads START ALIGN.
 
 The view splits into four quadrants, labelled to match the keypad corners: **7** top-left,
 **9** top-right, **1** bottom-left, **3** bottom-right. Press the key for the quadrant your
@@ -574,9 +602,11 @@ arrow press also leaves quadrant mode, so you can switch to fine adjustment at a
 .. image:: images/quick_start/align_day_fine.png
 
 Center your distant object in the eyepiece, move the marker onto it on screen, then press
-**SQUARE** to save. Press **0** to exit without changing the alignment. Use something far
-enough away that the focus matches the night sky, such as a distant treetop, chimney or
-hilltop, rather than something across the room.
+**SQUARE** to save the alignment. The hint now reads SAVE. Press **0** to exit without
+changing the alignment. Use something far enough away that the focus matches the night sky,
+such as a distant treetop, chimney or hilltop, rather than something across the room.
+
+**SQUARE** starts and saves the alignment on this screen. It is not a general confirm key.
 
 .. note::
    In daylight the PiFinder shows the image in plain white rather than the usual red, since
@@ -693,8 +723,9 @@ Shutting down the PiFinder
 
 A shutdown isn't strictly required before you turn the power off, but the PiFinder is a
 computer and skipping it risks file corruption.  Press and hold the power button for about a
-second.  The screen asks you to confirm, and a second press shuts the PiFinder down and
-turns it off.  The :ref:`user_guide:shutdown` section walks through it with pictures,
+second.  The screen then asks you to confirm.  Press and hold the power button again, or
+press the **RIGHT** arrow.  The PiFinder shuts down and turns itself off.  **SQUARE** does
+not confirm here.  The :ref:`user_guide:shutdown` section walks through it with pictures,
 including the keypad route.
 
 .. note::

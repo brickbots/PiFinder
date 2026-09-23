@@ -139,8 +139,11 @@ Work through these in order:
 - **Did you fit a different lens?**  The PiFinder cannot see which lens is on the front, so it
   works from the Lens setting.  A setting that names the wrong lens stops solving completely
   rather than making it worse, because the PiFinder then looks for a patch of sky the wrong
-  size.  Select Settings from the main menu, scroll down to Advanced, then select Lens.  Set
-  the focal length printed on the lens barrel.  The PiFinder restarts when you change it.
+  size.  This looks like an exposure problem.  On **AUTO** the PiFinder keeps working its way
+  up and down the exposure range and still never solves.  Check the Lens setting before you
+  spend more time on the exposure.  Select Settings from the main menu, scroll down to
+  Advanced, then select Lens.  Set the focal length printed on the lens barrel.  The PiFinder
+  restarts when you change it.
 
 .. note::
    You only need to set the Lens by hand if you fitted the lens yourself.  A PiFinder still
@@ -188,9 +191,12 @@ If you would rather not wait, enter your location and time by hand and start obs
 :ref:`user_guide:getting a gps lock`.
 
 .. note::
-   A GPS lock is not needed to focus, align, or push to objects once your location and time
-   are set.  It is needed before the Planets and Comets catalogs fill in, because those
-   depend on your time and place.
+   Push-To and the Planets and Comets catalogs need a location and a time.  They do not
+   need the GPS receiver to supply them.  Entering your location and time by hand works
+   just as well as a lock.  With no lock and nothing entered by hand, Push-To shows
+   **Searching for GPS** in place of directions, and the two catalogs stay empty.  The
+   Focus and Align screens work either way, because neither depends on where or when you
+   are.
 
 
 An object has "disappeared" from a list (for example, M45)
