@@ -90,7 +90,11 @@ same-unit test shows the ISP applies it after the raw stream
 ([§3.2](../adr/0022-sqm-measurement.md#32-scaling-the-analogue-gain-not-the-reported-digital-gain)).
 It is not the pedestal
 ([§4.2](../adr/0022-sqm-measurement.md#42-the-reported-black-level-is-not-another-source)).
-Pointing altitude explains at most about 0.1 mag.
+Pointing altitude explains at most about 0.1 mag. The unit is also more
+sensitive: its per-second stellar zero point, from the three clear sweeps and
+corrected for extinction, is **0.13 ± 0.08 mag** higher than the reference
+unit's. That explains about half of the residue. Neither term is significant
+alone, and more clear sweeps from the same unit would settle it.
 
 They also discharge the black-level tracker's dark-site obligation. On the two
 clear sweeps the tracker returns 238.65 and 238.62 ADU where an independent fit

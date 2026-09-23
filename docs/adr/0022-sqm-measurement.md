@@ -468,7 +468,10 @@ parts of the estimator, and failed the same way each time.
   still reads 0.59 mag bright on this branch, which has no airglow floor. With
   the floor, the same sweeps read 0.24 mag bright. That residue is not gain
   (§3.2) and not the pedestal (§4.2). Pointing altitude explains at most about
-  0.1 mag. The rest is open.
+  0.1 mag. The unit's stellar zero point is 0.13 ± 0.08 mag higher than the
+  reference unit's, so it collects more light, and that explains about half.
+  A factory radiometric zero point cannot see unit-to-unit throughput, and the
+  stellar correction of §2 only corrects attenuation, in one direction.
 - §5 and §6 each changed the published scale, so SQM logs are not comparable
   across firmware that predates them. `radiometric_zero_point_effective` in the
   archive is what makes comparison possible at all.
