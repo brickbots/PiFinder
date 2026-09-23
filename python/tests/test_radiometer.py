@@ -461,114 +461,106 @@ def test_full_sensor_frame_lands_on_the_same_magnitude_as_its_crop():
 
 
 # ---------------------------------------------------------------------------
-# Digital gain. The driver's reported DigitalGain multiplies the background, so
-# a unit running a different one than the calibration cohort reads the
-# difference as sky.
+# Analogue gain. It is applied in the sensor before the ADC, so it is in the
+# raw array. Each profile states the gain its zero point was fitted at.
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_calibration_gain_publishes_the_same_value_as_no_gain_at_all():
+def test_calibration_analogue_gain_changes_nothing():
     profile = get_camera_profile("imx462")
     raw = np.full((256, 256), 300, dtype=np.uint16)
-
-    silent = collect_radiometer_sample(raw, profile, 1.0, sequence=1, captured_at=0.0)
-    reported = collect_radiometer_sample(
+    plain = collect_radiometer_sample(raw, profile, 1.0, sequence=1, captured_at=0.0)
+    at_cal = collect_radiometer_sample(
         raw,
         profile,
         1.0,
         sequence=2,
         captured_at=0.0,
-        digital_gain=profile.calibration_digital_gain,
+        analogue_gain=profile.calibration_analogue_gain,
     )
-
-    assert "digital_gain" not in silent
-    assert radiometric_sqm(silent, profile)[0] == pytest.approx(
-        radiometric_sqm(reported, profile)[0]
+    assert radiometric_sqm(at_cal, profile)[0] == pytest.approx(
+        radiometric_sqm(plain, profile)[0]
     )
 
 
 @pytest.mark.unit
-def test_extra_digital_gain_is_divided_out():
-    profile = get_camera_profile("imx462")
-    ratio = 1.25
-    background = 300.0
-    signal = background - profile.bias_offset
-    gained = np.full(
+@pytest.mark.parametrize("name", ["imx462", "hq", "imx296"])
+def test_a_different_analogue_gain_is_divided_out(name):
+    profile = get_camera_profile(name)
+    ratio = 0.5  # half the calibration gain: half the signal above the pedestal
+    signal = 200.0
+    at_cal = np.full((256, 256), round(profile.bias_offset + signal), dtype=np.uint16)
+    halved = np.full(
         (256, 256), round(profile.bias_offset + signal * ratio), dtype=np.uint16
     )
-    plain = np.full((256, 256), round(background), dtype=np.uint16)
-
-    corrected, details = radiometric_sqm(
+    reference, _ = radiometric_sqm(
         collect_radiometer_sample(
-            gained,
+            at_cal,
             profile,
             1.0,
             sequence=1,
             captured_at=0.0,
-            digital_gain=profile.calibration_digital_gain * ratio,
+            analogue_gain=profile.calibration_analogue_gain,
         ),
         profile,
     )
-    reference, _ = radiometric_sqm(
-        collect_radiometer_sample(plain, profile, 1.0, sequence=2, captured_at=0.0),
+    value, details = radiometric_sqm(
+        collect_radiometer_sample(
+            halved,
+            profile,
+            1.0,
+            sequence=2,
+            captured_at=0.0,
+            analogue_gain=profile.calibration_analogue_gain * ratio,
+        ),
         profile,
     )
-
-    assert details["digital_gain_ratio"] == pytest.approx(ratio)
-    assert corrected == pytest.approx(reference, abs=0.01)
+    assert details["analogue_gain_ratio"] == pytest.approx(ratio)
+    assert value == pytest.approx(reference, abs=0.01)
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("reported", [None, 0.0, -1.0, float("nan")])
-def test_unusable_reported_gain_leaves_the_value_untouched(reported):
+@pytest.mark.parametrize(
+    "reported", [None, 0.0, -1.0, float("nan"), "30", object(), [30]]
+)
+def test_unusable_analogue_gain_leaves_the_value_untouched(reported):
     profile = get_camera_profile("imx462")
     raw = np.full((256, 256), 300, dtype=np.uint16)
-
     sample = collect_radiometer_sample(
-        raw, profile, 1.0, sequence=1, captured_at=0.0, digital_gain=reported
+        raw, profile, 1.0, sequence=1, captured_at=0.0, analogue_gain=reported
     )
     plain = collect_radiometer_sample(raw, profile, 1.0, sequence=2, captured_at=0.0)
-
+    assert sample is not None
     value, details = radiometric_sqm(sample, profile)
-    assert details["digital_gain_ratio"] == 1.0
-    assert value == pytest.approx(radiometric_sqm(plain, profile)[0])
+    if reported == "30":
+        # A numeric string parses; it is a real gain, just mistyped.
+        assert details["analogue_gain_ratio"] == pytest.approx(
+            30.0 / profile.calibration_analogue_gain
+        )
+    else:
+        assert details["analogue_gain_ratio"] == 1.0
+        assert value == pytest.approx(radiometric_sqm(plain, profile)[0])
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("name", ["imx462", "imx290"])
-def test_verified_profiles_state_their_calibration_gain(name):
-    assert get_camera_profile(name).calibration_digital_gain > 0
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("name", ["hq", "imx296"])
-def test_unverified_profiles_ignore_the_reported_gain(name):
-    # Nothing shows the gain reaching the raw array on these sensors, so a
-    # reported gain must not move the value. IMX296 skies sit about 1 ADU above
-    # the pedestal in the archive, where even a 0.02% change moves samples
-    # across the resolution limit and shifts published values by 0.9 mag.
-    profile = get_camera_profile(name)
-    raw = np.full((256, 256), 300, dtype=np.uint16)
-    plain = collect_radiometer_sample(raw, profile, 1.0, sequence=1, captured_at=0.0)
-    gained = collect_radiometer_sample(
-        raw, profile, 1.0, sequence=2, captured_at=0.0, digital_gain=1.3
-    )
-    value, details = radiometric_sqm(gained, profile)
-    assert details["digital_gain_ratio"] == 1.0
-    assert value == radiometric_sqm(plain, profile)[0]
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("reported", ["1.25", object(), [1.25]])
-def test_a_mistyped_gain_does_not_stop_the_capture_loop(reported):
+def test_reported_digital_gain_is_ignored():
+    # The ISP applies DigitalGain after the raw stream (ADR 0022 §3.2), so a
+    # sample must not carry it and the value must not depend on it.
     profile = get_camera_profile("imx462")
     raw = np.full((256, 256), 300, dtype=np.uint16)
+    with pytest.raises(TypeError):
+        collect_radiometer_sample(
+            raw, profile, 1.0, sequence=1, captured_at=0.0, digital_gain=1.25
+        )
 
-    sample = collect_radiometer_sample(
-        raw, profile, 1.0, sequence=1, captured_at=0.0, digital_gain=reported
-    )
 
-    assert sample is not None
-    assert "digital_gain" not in sample or isinstance(sample["digital_gain"], float)
-    assert radiometric_sqm(sample, profile)[0] is not None
+@pytest.mark.unit
+@pytest.mark.parametrize("name", ["imx462", "imx290", "hq", "imx296"])
+def test_calibration_analogue_gain_is_the_exact_reported_float(name):
+    # The driver reports a float32. A rounded constant (29.5121 for
+    # 29.51209259...) makes every ratio 0.999997, and on a sky one ADU above
+    # the pedestal that moves samples across the resolution limit: rich-imx296
+    # frames shifted by up to 0.92 mag in the archive replay.
+    gain = get_camera_profile(name).calibration_analogue_gain
+    assert float(np.float32(gain)) == gain

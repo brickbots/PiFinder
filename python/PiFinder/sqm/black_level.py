@@ -96,14 +96,11 @@ class BlackLevelTracker:
                 pedestal subtraction (``details['background_per_pixel']``).
             stable: False when transmission is changing (cloud) — the sample
                 is dropped so a moving sky cannot corrupt the intercept.
-            gain_ratio: this frame's digital gain over the profile's
-                calibration gain. The gain multiplies the sky signal but not
-                the pedestal, so ``background = P0 + ratio · rate · exposure``:
-                the fit runs against ``ratio · exposure`` and the intercept
-                stays the pedestal. Frames from a driver that folds white
-                balance into the sensor's digital gain move by 15% within one
-                sweep, which is ~20 ADU of false spread on the long exposures
-                and lands squarely in the intercept if ignored.
+            gain_ratio: this frame's analogue gain over the profile's
+                calibration gain. Analogue gain multiplies the sky signal but
+                not the pedestal, so a window that mixes gains is a set of
+                lines with a shared intercept. Fitting against
+                ``gain_ratio · exposure`` keeps the intercept the pedestal.
         """
         if (
             not stable
@@ -125,8 +122,6 @@ class BlackLevelTracker:
             self._pedestal = None
             self._stderr = None
             return
-        # Gain-scaled exposure (see add_sample): the slope is a rate at the
-        # calibration gain, the intercept is the pedestal either way.
         exps = np.array([s[0] for s in self._samples], dtype=np.float64)
         bgs = np.array([s[1] for s in self._samples], dtype=np.float64)
         if exps.min() <= 0 or exps.max() / exps.min() < self.min_exposure_ratio:

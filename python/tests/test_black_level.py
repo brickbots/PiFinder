@@ -85,47 +85,24 @@ def test_ignores_invalid_inputs():
 
 
 # ---------------------------------------------------------------------------
-# Digital gain. It multiplies the sky signal but not the pedestal, so a window
-# whose reported gain moves is a set of lines with a shared intercept and
-# different slopes. Fitting against gain-scaled exposure recovers it exactly.
+# Analogue gain multiplies the sky slope but not the pedestal. A window that
+# mixes gains must be fitted against gain-scaled exposure.
 # ---------------------------------------------------------------------------
 
 
-def _feed_with_gain(tracker, pedestal, rate, exposures, gains, pass_ratio):
-    for exp, gain in zip(exposures, gains):
-        bg = pedestal + rate * gain * exp
-        tracker.add_sample(exp, bg, gain_ratio=gain if pass_ratio else 1.0)
-
-
-def test_gain_jitter_corrupts_the_intercept_when_ignored():
-    # Measured spread on rich-imx462/sweep_20260719_041913: a driver that folds
-    # white balance into the sensor gain reports 1.017-1.197 inside one sweep.
-    rng = np.random.default_rng(3)
+def test_mixed_analogue_gain_keeps_the_pedestal_when_passed():
     exposures = np.linspace(0.05, 1.0, 24)
-    gains = rng.uniform(1.017, 1.197, size=exposures.size)
+    ratios = np.where(np.arange(exposures.size) % 2 == 0, 1.0, 0.7)
 
     ignored = BlackLevelTracker(bias_offset=238.0)
-    _feed_with_gain(ignored, 236.0, 120.0, exposures, gains, pass_ratio=False)
+    passed = BlackLevelTracker(bias_offset=238.0)
+    for exp, r in zip(exposures, ratios):
+        bg = 236.0 + 120.0 * r * exp
+        ignored.add_sample(exp, bg)
+        passed.add_sample(exp, bg, gain_ratio=r)
 
-    corrected = BlackLevelTracker(bias_offset=238.0)
-    _feed_with_gain(corrected, 236.0, 120.0, exposures, gains, pass_ratio=True)
-
-    assert corrected.pedestal() == pytest.approx(236.0, abs=0.05)
-    # The uncorrected fit is either rejected outright or lands off the truth by
-    # far more than the corrected one. Either way it must not quietly agree.
+    assert passed.pedestal() == pytest.approx(236.0, abs=0.05)
     assert ignored.pedestal() is None or abs(ignored.pedestal() - 236.0) > 0.5
-
-
-def test_constant_gain_changes_nothing():
-    exposures = np.linspace(0.05, 1.0, 20)
-    plain = BlackLevelTracker(bias_offset=238.0)
-    _feed(plain, pedestal=236.5, rate=40.0, exposures=exposures)
-
-    scaled = BlackLevelTracker(bias_offset=238.0)
-    _feed_with_gain(
-        scaled, 236.5, 40.0, exposures, np.full(exposures.size, 1.0), pass_ratio=True
-    )
-    assert scaled.pedestal() == pytest.approx(plain.pedestal())
 
 
 @pytest.mark.parametrize("ratio", [None, 0.0, -1.0, float("nan")])

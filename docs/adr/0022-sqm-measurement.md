@@ -101,60 +101,49 @@ crop the live path already hands it, so published values do not move; it makes
 every offline replay measure what production measures by routing through the
 ordinary crop rather than a second implementation of it.
 
-### 3.2 Scaling: the reported digital gain
+### 3.2 Scaling: the analogue gain, not the reported digital gain
 
-The driver reports a `DigitalGain` per frame that multiplies the background
-above the pedestal. Nothing under `PiFinder/sqm/` read it.
+Raw pixels scale with the **analogue gain**, which the sensor applies before
+the ADC. The driver cannot deliver every requested gain: a request of 30 on the
+IMX462 delivers 29.51209…, 22 on the HQ delivers 21.78723…, 15 on the IMX296
+delivers 14.96235…. Each value is exact and repeatable for a given request, on
+both the stock Raspberry Pi OS stack and the NixOS stack.
 
-It has identically zero effect on the hardware each zero point was fitted on:
-the IMX462 reference unit reports 1.0166 on all 500 of its archived frames, the
-HQ unit 1.0098 on all 80. It is therefore invisible to any regression built from
-our own sweeps, and it stayed invisible until an independent unit arrived
-reporting 1.246.
+**Decision.** The sample records the reported `AnalogueGain`, and
+`radiometric_sqm` divides the corrected signal by
+`reported / CameraProfile.calibration_analogue_gain`. The calibration value is
+the gain the sensor delivered on the sweeps that fitted the zero point, stored
+as the exact float the driver reports. A frame at that gain, and a frame that
+reports no gain, both produce the value they produced before. `None`, the
+default, turns the correction off.
 
-**Decision.** The reported gain is recorded on the sample, and `radiometric_sqm`
-divides the corrected signal by it. The divisor is not the reported gain but its
-ratio to `CameraProfile.calibration_digital_gain`: the median gain the sweeps
-that fitted that profile's zero point actually ran at. A frame reporting no
-gain, and a unit running the calibration gain, both produce the value they
-produced before.
+Today no archived frame runs at a gain other than its profile's, and nothing in
+PiFinder sends the camera's `set_gain` command. The correction is therefore a
+no-op on every archived frame, which the replay confirms bit for bit. It exists
+so that a changed gain request, whether from that command, a profile edit or a
+different gain table, cannot silently shift the published value by
+`2.5 log10` of the gain ratio.
 
-**The correction applies only where the gain is shown to reach the raw
-pixels:** IMX462 and IMX290, which share a driver. On HQ and IMX296 no unit has
-ever reported a gain different from its calibration cohort, so nothing shows
-whether the gain is in the raw array there. Those profiles state no calibration
-gain, and `None` is the default, so the correction stays off. A new profile
-opts in on evidence. The risk of the other default is not small: IMX296 skies
-in the archive sit about 1 ADU above the pedestal, where even a 0.02% change
-moves samples across the resolution limit and shifts published values by up to
-0.9 mag.
+**The stored constant must be the exact reported float.** A rounded value
+(29.5121) makes every ratio 0.999997. On the IMX296 archive the sky sits about
+1 ADU above the pedestal, and that ratio moves samples across the resolution
+limit, which shifted single published values by up to 0.92 mag in the replay.
+A test pins each constant to a float32.
 
-Normalising to the calibration cohort rather than to 1.0 is the whole point. The
-zero point already absorbed whatever gain its own frames carried. Dividing by
-the raw reported gain would subtract that absorption a second time and shift
-every calibrated device by 0.02 mag for no reason.
+Every consumer that reads `background_per_pixel` directly has to normalise
+first, not only the magnitude conversion. `analogue_gain_ratio` is public for
+that reason, and the black-level tracker (§4.1) is its other caller.
 
-Dividing it out at the magnitude conversion is necessary but not sufficient:
-every consumer that reads `background_per_pixel` directly has to normalise
-first. `digital_gain_ratio` is public for that reason, and the black-level
-tracker (§4.1) is its other caller.
-
-**Evidence that the gain reaches the raw pixels.** PiFinder samples
-`make_array("raw")`, which bypasses the ISP, so this had to be measured. With
-the extent corrected and each sweep's pedestal taken from its own line fit
-(§4.2), two units differ by 0.213 and 0.215 mag on two sweeps apiece;
-`2.5 log10(1.2464 / 1.0166)` predicts 0.221. For the IMX290/462 the IPA programs
-the sensor's own digital-gain register, so it is in the raw.
-
-**Why two units disagree at all** is the software stack, not the sky. Over 820
-archived frames `DigitalGain` tracks `1.0166 / min(ColourGains)` whenever a
-colour gain falls below unity: correlation +0.99 and +0.97 on the two units that
-show it. Those libcamera versions fold the white-balance normalisation into the
-sensor's digital gain. The IMX462 reference unit never folds — its colour gains
-reach 0.82 on its own darkest sweeps, lower than the folding unit's, and its
-gain does not move, correlation −0.03. A Pi OS update that starts folding would
-move our published SQM by up to 0.2 mag with no code change, which is the
-standing risk this removes.
+**The reported `DigitalGain` is recorded by the camera and deliberately not
+used.** The IPA adds it to make up the shortfall between the requested and the
+delivered analogue gain, so its base value is exactly that ratio: 1.01653 on
+the IMX462, 1.00977 on the HQ, 1.00252 on the IMX296. The Raspberry Pi libcamera
+fork on the stock image also divides it by the lowest colour gain. The ISP
+applies it after the raw stream. A same-unit test confirms this: on the two
+units whose reported gain changes from frame to frame inside a sweep, a fit of
+`background = P0 + a·t·gain^k` gives **k = 0.20 ± 0.07** over ten sweeps, where
+a gain in the raw array would give 1. A one-frame offset between metadata and
+pixels does not raise it. See §7 for the correction that was tried and removed.
 
 ### 3.3 What is still assumed
 
@@ -191,7 +180,7 @@ because `sky − pedestal` goes non-positive and the frame is discarded as
 0.2–0.4 mag at a dark site.
 
 **Decision.** `BlackLevelTracker` fits the pedestal as the intercept of sky
-background against **gain-scaled** exposure over the running session, and supersedes both the
+background against exposure over the running session, and supersedes both the
 profile constant and any wizard-measured bias offset once its fit is **leased**.
 The lease gates on the fit's standard error and deviation band; unleased, the
 pedestal falls back to the stored constant. It needs no lens cap and no dark
@@ -199,17 +188,13 @@ frame, conditions from radiometer samples on every fresh frame rather than from
 the 10-second stellar diagnostics, and so converges in minutes and keeps working
 through failed solves.
 
-The scaling is not a detail. The reported digital gain of §3.2 multiplies the
-sky signal but not the pedestal, so `background = P0 + ratio · rate · t`: a
-window whose gain moves is a set of lines with a shared intercept and different
-slopes, and fitting them as one line puts the jitter straight into the
-intercept, which *is* the published pedestal. A driver that folds white balance
-into the sensor gain moves it 15% inside a single sweep, worth about 20 ADU of
-false spread on the long exposures. `add_sample` therefore takes the ratio and
-regresses against `ratio · exposure`; the slope becomes a rate at the
-calibration gain and the intercept stays the pedestal. Anything else that fits
-a line through raw background — an offline refit, a future estimator — owes the
-same scaling.
+The fit is against **gain-scaled** exposure. The analogue gain of §3.2
+multiplies the sky signal but not the pedestal, so
+`background = P0 + ratio · rate · t`. A window that mixes gains is a set of
+lines with a shared intercept and different slopes, and fitting them as one
+line moves the intercept, which is the published pedestal. `add_sample` takes
+the ratio and regresses against `ratio · exposure`. Anything else that fits a
+line through raw background, such as an offline refit, owes the same scaling.
 
 ### 4.2 The reported black level is not another source
 
@@ -442,8 +427,14 @@ parts of the estimator, and failed the same way each time.
 - *Refusing a full-sensor frame rather than reducing it.* Louder, and it would
   surface a mismatch immediately, but it makes every full-sensor sweep in the
   archive unreplayable, which is the opposite of what an archive is for.
-- *Normalising digital gain to 1.0.* Double-counts the gain the zero point
-  already absorbed.
+- *Dividing by the reported `DigitalGain`.* Implemented and removed. It rested
+  on two units that differed by 0.213 mag against a gain ratio that predicts
+  0.221, but those units had different lenses and skies, and the match was
+  chance. The same-unit test in §3.2 gives k = 0.20 ± 0.07, not 1. On the one
+  other unit whose gain varies it moved the median error the wrong way, from
+  +0.167 to +0.207 mag.
+- *Normalising a gain to 1.0 rather than to the calibration value.* It
+  double-counts the gain the zero point already absorbed.
 - *Refitting each zero point with the gain divided out.* Equivalent in the end
   and strictly worse to land: it moves every calibrated device's published value
   on the same commit that introduces the mechanism, so a regression in either
@@ -470,21 +461,22 @@ parts of the estimator, and failed the same way each time.
 
 ## 8. Consequences and standing obligations
 
-- §3 does not move the calibrated devices. Over all 66 referenced archive
-  sweeps on the factory path, the HQ and IMX296 archives replay bit-identical.
-  The IMX462 reference unit moves by at most 0.0002 mag, from its own gain
-  jitter of 1.0165 to 1.0168 around the calibration value. Radiometer
-  publication counts are unchanged. Archive mean absolute error falls from
-  0.251 to 0.203 mag.
+- §3 moves only full-sensor frames. Over all 66 referenced archive sweeps,
+  every cropped dataset replays bit-identical, frame for frame. Archive mean
+  absolute error falls from 0.251 to 0.230 mag.
+- The one full-sensor unit (markcasazza, stock image, 21.3 to 21.6 mag site)
+  still reads 0.59 mag bright on this branch, which has no airglow floor. With
+  the floor, the same sweeps read 0.24 mag bright. That residue is not gain
+  (§3.2) and not the pedestal (§4.2). Pointing altitude explains at most about
+  0.1 mag. The rest is open.
 - §5 and §6 each changed the published scale, so SQM logs are not comparable
   across firmware that predates them. `radiometric_zero_point_effective` in the
   archive is what makes comparison possible at all.
 - **A profile whose zero point is refitted must update
-  `calibration_digital_gain` in the same change**, or the new zero point will be
-  normalised against the old cohort. This applies only to profiles that state
-  one.
+  `calibration_analogue_gain` in the same change**, or the new zero point will
+  be normalised against the old gain.
 - `sqm_details` carries `black_level_tracked`, `black_level_pedestal`,
-  `black_level_stderr`, `digital_gain` and `digital_gain_ratio`, so an archive
+  `black_level_stderr`, `analogue_gain` and `analogue_gain_ratio`, so an archive
   replay can tell which pedestal and which scaling a frame was published under.
   The flags reflect what publication actually used, not the raw last fit.
 - The published pedestal can differ between two units with identical profiles

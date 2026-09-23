@@ -22,28 +22,27 @@ from PiFinder.sqm.camera_profiles import get_camera_profile
 from PiFinder.sqm.clouds import CloudEstimator
 from PiFinder.sqm.radiometer import (
     RadiometerAccumulator,
+    analogue_gain_ratio,
     collect_radiometer_sample,
-    digital_gain_ratio,
 )
 
 
-def _archived_frame_gains(sweep: Path) -> dict[int, float]:
-    """Frame index to the DigitalGain the driver reported when it was captured.
+def _archived_analogue_gains(sweep: Path) -> dict[int, float]:
+    """Frame index to the AnalogueGain the sensor delivered, from the archive.
 
-    Sweeps written before the driver metadata was archived return an empty map,
-    and those frames then replay with no gain normalisation, exactly as before.
+    Sweeps written before the driver metadata was archived return an empty
+    map, and those frames replay with no gain normalisation.
     """
+    gains: dict[int, float] = {}
     path = Path(sweep) / "frame_metadata.json"
     if not path.exists():
-        return {}
-    gains: dict[int, float] = {}
+        return gains
     try:
         for frame in json.loads(path.read_text())["frames"]:
-            gain = frame.get("camera_metadata", {}).get("DigitalGain")
+            gain = frame.get("camera_metadata", {}).get("AnalogueGain")
             if gain:
                 gains[int(frame["index"])] = float(gain)
     except (AttributeError, KeyError, OSError, TypeError, ValueError):
-        # One malformed entry costs this sweep its gains, not the whole replay.
         return {}
     return gains
 
@@ -144,7 +143,7 @@ def main() -> None:
         diagnostic_frames = 0
         radiometer_on_failed_solve = 0
 
-        gains = _archived_frame_gains(sweep)
+        gains = _archived_analogue_gains(sweep)
 
         for frame_index, row in enumerate(rows):
             sequence += 1
@@ -156,7 +155,7 @@ def main() -> None:
                 raw,
                 profile,
                 exposure_sec,
-                digital_gain=gains.get(_archived_frame_index(row["frame"])),
+                analogue_gain=gains.get(_archived_frame_index(row["frame"])),
                 sequence=sequence,
                 captured_at=now,
             )
@@ -167,7 +166,7 @@ def main() -> None:
                     float(sample["exposure_sec"]),
                     float(sample["background_per_pixel"]),
                     stable=last_cloud_flag is not True,
-                    gain_ratio=digital_gain_ratio(sample, profile),
+                    gain_ratio=analogue_gain_ratio(sample, profile),
                 )
 
             def pedestal_for_exposure(_exposure_sec):

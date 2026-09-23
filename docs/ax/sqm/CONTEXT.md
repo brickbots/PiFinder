@@ -115,28 +115,26 @@ Median cleaned annulus value for one matched star.
 **Radiometer sample**:
 Sparse central median reduced in the camera process on every raw frame. It
 excludes the outer ten percent and records MAD, quadrant gradient, exposure,
-timestamp, sequence, native green/mono pixel scale, and the driver's reported
-digital gain. The reduction crops a full-sensor frame first, so a sample always
+timestamp, sequence, native green/mono pixel scale, and the delivered analogue
+gain. The reduction crops a full-sensor frame first, so a sample always
 describes the crop whatever extent it was handed.
 
 **Reported digital gain**:
-The `DigitalGain` the driver attaches to a frame. It multiplies the sky signal
-above the pedestal, and it is in the raw array: the IMX290/462 IPA programs the
-sensor's own digital-gain register. Some libcamera versions fold the
-white-balance normalisation into it, so two units with identical settings can
-report 1.017 and 1.246 under the same sky. Say "reported digital gain" for this
-per-frame driver value, never for `CameraProfile.digital_gain`, which is an
-unrelated multiplier applied when building the 8-bit solve image.
+The `DigitalGain` the driver attaches to a frame. The IPA sets it to make up the
+shortfall between the requested and the delivered analogue gain, and the stock
+Raspberry Pi libcamera also divides it by the lowest colour gain. The ISP
+applies it after the raw stream, so the radiometer ignores it. Say "reported
+digital gain" for this per-frame value, never for `CameraProfile.digital_gain`,
+which is an unrelated multiplier applied when building the 8-bit solve image.
 
-**Calibration digital gain**:
-`CameraProfile.calibration_digital_gain`, the reported digital gain the sweeps
-that fitted this profile's radiometric zero point actually ran at. The
-radiometer divides the corrected signal by `reported / calibration`, so a unit
-running its cohort's gain is unchanged. It is set only where the gain is shown
-to reach the raw pixels, today IMX462 and IMX290. `None`, the default, turns the
-correction off. Refitting a zero point means updating this constant in the same
+**Calibration analogue gain**:
+`CameraProfile.calibration_analogue_gain`, the analogue gain the sensor actually
+delivered on the sweeps that fitted this profile's radiometric zero point,
+stored as the exact float the driver reports. The radiometer divides the
+corrected signal by `reported / calibration`, so a unit at that gain is
+unchanged. Refitting a zero point means updating this constant in the same
 change. See
-[ADR 0022 §3.2](../../adr/0022-sqm-measurement.md#32-scaling-the-reported-digital-gain).
+[ADR 0022 §3.2](../../adr/0022-sqm-measurement.md#32-scaling-the-analogue-gain-not-the-reported-digital-gain).
 
 **Stellar sky background**:
 Median of local annulus skies, used only by stellar diagnostics.

@@ -44,12 +44,15 @@ class CameraProfile:
     # Digital gain multiplier applied after sensor readout
     digital_gain: float = 1.0
 
-    # Reported DigitalGain the radiometric zero point was fitted at, for sensors
-    # where that gain is shown to reach the raw pixels. The radiometer divides
-    # a frame's reported gain by this. None means no correction: the default,
-    # because dividing by a gain that never reached the raw array would bias
-    # every value, and a new profile must opt in on evidence.
-    calibration_digital_gain: Optional[float] = None
+    # Analogue gain the sensor actually delivered on the frames that fitted the
+    # radiometric zero point, as the exact value the driver reports. The sensor
+    # quantises the request (30 on the IMX462 becomes 29.51209...), and analogue
+    # gain is applied before the ADC, so it is in the raw array. The radiometer
+    # scales each frame by calibration / reported. Store the exact reported
+    # float: a rounded value makes the ratio 0.999997 instead of 1, and on a sky
+    # one ADU above the pedestal that moves samples across the resolution limit.
+    # None turns the correction off.
+    calibration_analogue_gain: Optional[float] = None
 
     # Bit depth of the sensor
     bit_depth: int = 10
@@ -290,6 +293,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         ),  # Avoid auto 728x544 mode that blacks out at high exposure
         analog_gain=15.0,  # Maximum analog gain for this sensor
         digital_gain=1.0,  # TODO: find optimum value
+        calibration_analogue_gain=14.962356567382812,  # delivered for a request of 15
         bit_depth=10,
         pixel_pitch_um=3.45,  # Sony Pregius S IMX296 datasheet
         default_lens_key="16mm",
@@ -333,7 +337,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         raw_size=(1920, 1080),
         analog_gain=30.0,
         digital_gain=1.0,  # TODO: find optimum value
-        calibration_digital_gain=1.0166,  # mr2 2026-07 sweeps; gain reaches raw (ADR 0022 §3.2)
+        calibration_analogue_gain=29.51209259033203,  # delivered for a request of 30
         bit_depth=12,
         pixel_pitch_um=2.90,  # Sony STARVIS IMX462 datasheet
         default_lens_key="16mm",
@@ -385,7 +389,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         raw_size=(1920, 1080),
         analog_gain=30.0,
         digital_gain=1.0,  # TODO: find optimum value
-        calibration_digital_gain=1.0166,  # measured: shares the imx462 calibration
+        calibration_analogue_gain=29.51209259033203,  # shares the imx462 driver
         bit_depth=12,
         pixel_pitch_um=2.90,  # Same sensor family as imx462
         default_lens_key="16mm",
@@ -428,6 +432,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         raw_size=(2028, 1520),  # Smaller size auto-selects sensor binning
         analog_gain=22.0,  # Cedar uses this value
         digital_gain=13.0,  # Initial tests show higher values don't help much
+        calibration_analogue_gain=21.787233352661133,  # delivered for a request of 22
         bit_depth=12,
         # IMX477's native pitch is 1.55; the 2028x1520 mode above 2x2-bins it.
         pixel_pitch_um=3.10,

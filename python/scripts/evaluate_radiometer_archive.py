@@ -26,7 +26,6 @@ import re
 import statistics
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 from PIL import Image
@@ -36,31 +35,29 @@ from PiFinder.sqm.radiometer import collect_radiometer_sample, radiometric_sqm
 from PiFinder.sqm.radiometric_fit import SweepPoint, evaluate_profile
 
 
-def _archived_gain(sweep: Path, frame_name: str) -> Optional[float]:
-    """The DigitalGain the driver reported for one archived frame.
+def _archived_analogue_gains(sweep: Path) -> dict[int, float]:
+    """Frame index to the AnalogueGain the sensor delivered, from the archive.
 
-    Sweeps written before the driver metadata was archived return None, and
-    those frames then replay with no gain normalisation.
+    Sweeps written before the driver metadata was archived return an empty
+    map, and those frames replay with no gain normalisation.
     """
-    key = (str(sweep), str(frame_name))
-    if key[0] not in _GAIN_CACHE:
-        gains: dict[int, float] = {}
-        path = Path(sweep) / "frame_metadata.json"
-        if path.exists():
-            try:
-                frames = json.loads(path.read_text())["frames"]
-                for frame in frames:
-                    gain = frame.get("camera_metadata", {}).get("DigitalGain")
-                    if gain:
-                        gains[int(frame["index"])] = float(gain)
-            except (AttributeError, KeyError, OSError, TypeError, ValueError):
-                gains = {}
-        _GAIN_CACHE[key[0]] = gains
+    gains: dict[int, float] = {}
+    path = Path(sweep) / "frame_metadata.json"
+    if not path.exists():
+        return gains
+    try:
+        for frame in json.loads(path.read_text())["frames"]:
+            gain = frame.get("camera_metadata", {}).get("AnalogueGain")
+            if gain:
+                gains[int(frame["index"])] = float(gain)
+    except (AttributeError, KeyError, OSError, TypeError, ValueError):
+        return {}
+    return gains
+
+
+def _archived_frame_index(frame_name: str):
     match = re.match(r"img_(\d+)", str(frame_name))
-    return _GAIN_CACHE[key[0]].get(int(match.group(1))) if match else None
-
-
-_GAIN_CACHE: dict[str, dict[int, float]] = {}
+    return int(match.group(1)) if match else None
 
 
 def _sweep_index(root: Path) -> dict[str, Path]:
@@ -144,9 +141,11 @@ def main() -> None:
             exposure_sec,
             sequence=sequence,
             captured_at=float(sequence),
-            # A zero point refitted without this disagrees with production on
-            # any unit whose driver reports a gain off the calibration cohort.
-            digital_gain=_archived_gain(sweep, row["frame"]),
+            # The refit must see the gain production sees, or a zero point
+            # fitted here disagrees with the device for any other gain.
+            analogue_gain=_archived_analogue_gains(sweep).get(
+                _archived_frame_index(row["frame"])
+            ),
         )
         value, details = radiometric_sqm(sample, profile)
         if value is None:

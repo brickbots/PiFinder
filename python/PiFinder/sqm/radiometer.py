@@ -109,7 +109,7 @@ def collect_radiometer_sample(
     captured_at: float,
     border_fraction: float = 0.10,
     stride: int = 4,
-    digital_gain: Optional[float] = None,
+    analogue_gain: Optional[float] = None,
 ) -> Optional[dict]:
     """Reduce a raw frame to a robust sky-background sample.
 
@@ -125,9 +125,6 @@ def collect_radiometer_sample(
     pixel would be credited with too little of it. ``ensure_cropped`` reduces
     it through the ordinary crop path first, which is a no-op on a crop.
 
-    ``digital_gain`` is the driver's reported DigitalGain for this frame. It
-    multiplies the background, so it is recorded here and divided out against
-    ``profile.calibration_digital_gain`` when the sample becomes a magnitude.
     """
     if not exposure_sec or exposure_sec <= 0 or stride < 1:
         return None
@@ -172,19 +169,17 @@ def collect_radiometer_sample(
     if red is not None:
         sample["background_red"] = red
         sample["background_green"] = green
-    gain = _usable_gain(digital_gain)
+    gain = _usable_gain(analogue_gain)
     if gain is not None:
-        sample["digital_gain"] = gain
+        sample["analogue_gain"] = gain
     return sample
 
 
 def _usable_gain(reported) -> Optional[float]:
     """The reported gain as a positive finite float, or None.
 
-    Drivers do mistype their metadata keys -- ``camera_pi`` guards its
-    ``SensorTemperature`` read for the same reason -- and this runs in the
-    capture loop with no caller-side try, so a string here would stop
-    captures rather than lose one frame's gain.
+    Drivers mistype metadata keys, and this runs in the capture loop with no
+    caller-side try, so a bad value must cost one frame's gain, not captures.
     """
     if reported is None:
         return None
@@ -195,21 +190,15 @@ def _usable_gain(reported) -> Optional[float]:
     return value if math.isfinite(value) and value > 0 else None
 
 
-def digital_gain_ratio(sample: dict, profile) -> float:
-    """Reported DigitalGain over the gain this profile was calibrated at.
+def analogue_gain_ratio(sample: dict, profile) -> float:
+    """Reported analogue gain over the gain the zero point was fitted at.
 
-    Returns 1.0 when the frame reports no gain, and when the profile states no
-    calibration gain. The second case covers sensors where nothing shows the
-    reported gain reaching the raw array (HQ, IMX296): correcting for a gain
-    that is not in the pixels would bias the value instead of fixing it.
-
-    Public because the black-level tracker needs it too: it fits the pedestal
-    as the intercept of background against exposure, and the gain multiplies
-    the slope, so a window whose gain moves must be fitted against
-    ``ratio * exposure`` or the jitter lands in the intercept.
+    1.0 when the frame reports no gain or the profile states no calibration
+    gain. The reported DigitalGain is deliberately not used: the ISP applies it
+    after the raw stream, which a same-unit test confirms (ADR 0022 §3.2).
     """
-    calibrated = getattr(profile, "calibration_digital_gain", None)
-    reported = _usable_gain(sample.get("digital_gain"))
+    calibrated = getattr(profile, "calibration_analogue_gain", None)
+    reported = _usable_gain(sample.get("analogue_gain"))
     if reported is None or not calibrated or calibrated <= 0:
         return 1.0
     return reported / float(calibrated)
@@ -231,10 +220,6 @@ def radiometric_sqm(
     an error here biases every radiometric SQM, and one lens step is worth
     ~0.6 mag. Omitting it assumes the sensor's shipped lens.
 
-    A sample carrying ``digital_gain`` is normalised to the gain its profile's
-    zero point was fitted at. The gain multiplies the signal above the
-    pedestal, so this is one division of the corrected signal. A unit running
-    the calibration gain does not move.
     """
     exposure_sec = float(sample["exposure_sec"])
     background = float(sample["background_per_pixel"])
@@ -243,12 +228,12 @@ def radiometric_sqm(
     if field_width_degrees is None:
         field_width_degrees = optical_train_for_profile(profile).fov_degrees
     signal = background - pedestal
-    gain_ratio = digital_gain_ratio(sample, profile)
+    gain_ratio = analogue_gain_ratio(sample, profile)
     signal /= gain_ratio
     details = {
         **sample,
         "pedestal": pedestal,
-        "digital_gain_ratio": gain_ratio,
+        "analogue_gain_ratio": gain_ratio,
         "background_corrected": signal,
         "radiometric_zero_point": profile.radiometric_zero_point,
         "radiometric_fov_degrees": field_width_degrees,
