@@ -188,9 +188,12 @@ If you would rather not wait, enter your location and time by hand and start obs
 :ref:`user_guide:getting a gps lock`.
 
 .. note::
-   A GPS lock is not needed to focus, align, or push to objects once your location and time
-   are set.  It is needed before the Planets and Comets catalogs fill in, because those
-   depend on your time and place.
+   Push-To and the Planets and Comets catalogs need a location and a time.  They do not
+   need the GPS receiver to supply them.  Entering your location and time by hand works
+   just as well as a lock.  With no lock and nothing entered by hand, Push-To shows
+   **Searching for GPS** in place of directions, and the two catalogs stay empty.  The
+   Focus and Align screens work either way, because neither depends on where or when you
+   are.
 
 
 An object has "disappeared" from a list (for example, M45)
