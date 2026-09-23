@@ -66,9 +66,15 @@ options.  Scroll through a menu and select items with these keys:
 - The **RIGHT** arrow selects the current menu item, which either sets an option or opens another menu
 - The **LEFT** arrow takes you back to the previous menu or screen
 - Press and hold **LEFT** for more than a second to jump back to the TOP of the menus
+- **RIGHT** is also the confirm key.  On a screen that asks you to confirm, such as
+  :ref:`user_guide:shutdown`, **RIGHT** selects the highlighted option and **LEFT** goes back
+- **SQUARE** does not confirm.  Press and hold it to open the :ref:`user_guide:quick menu`.
+  A short press does whatever the screen you're on uses it for, such as cycling through
+  extra information
 
 The arrows are the four directions of the joystick.  Pressing the joystick straight in does
-the same as the **SQUARE** key.
+the same as the **SQUARE** key, and holding it in opens the Quick Menu.  To confirm, press
+**RIGHT**.
 
 .. note::
    On v3 and v2.5 PiFinders the arrows are four separate buttons in a row along the bottom
@@ -780,11 +786,11 @@ goes out once the screen and keypad come up.
 .. image:: images/quick_start/rev4_power.jpeg
 
 To shut down, press and hold the button again for about a second.  The screen goes straight
-to the shutdown confirmation.  A second press confirms it, a tone plays, and the PiFinder
-turns itself off once it has closed everything down safely.  In normal use you never need to
-cut the power by hand.  If the software ever hangs and will not shut down, press and hold
-**PWR** for more than 14 seconds to reset the power system.  See
-:ref:`troubleshooting:the pifinder won't turn on`.
+to the shutdown confirmation.  Press and hold the button once more to confirm, or press the
+**RIGHT** arrow.  A tone plays, and the PiFinder turns itself off once it has closed
+everything down safely.  In normal use you never need to cut the power by hand.  If the
+software ever hangs and will not shut down, press and hold **PWR** for more than 14 seconds
+to reset the power system.  See :ref:`troubleshooting:the pifinder won't turn on`.
 
 The menus get you to the same place if your hands are already on the keypad.  See
 :ref:`user_guide:shutdown`.
@@ -1301,9 +1307,12 @@ confirmation below appears from wherever you are.
 
 .. image:: images/quick_start/shutdown_confirm.png
 
-Press the power button again, or the **RIGHT** arrow, to confirm.  Press the **LEFT** arrow
-to go back.  The screen and keypad turn off within a few seconds, and the PiFinder turns
-itself off.
+Press and hold the power button again, or press the **RIGHT** arrow, to confirm.  Press the
+**LEFT** arrow to go back.  The screen and keypad turn off within a few seconds, and the
+PiFinder turns itself off.
+
+**SQUARE** does not confirm on this screen.  Press and hold it and the Quick Menu opens
+instead.  For what each key does, see :ref:`user_guide:the menu system`.
 
 The keypad gets you to the same screen.  The Tools menu offers a Shutdown menu item under
 Power, and the Quick Menu is faster:
