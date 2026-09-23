@@ -187,13 +187,23 @@ Configuration Setup
 There is only one physical rev4 PiFinder. The body rotates on its mount, so the same
 PiFinder sits with the screen facing left, right or straight back, whichever suits your
 telescope. What changes between configurations is the position you rotate it into, not the
-hardware.
+hardware. Setting it up takes two steps. Rotate the body into position, then set the
+PiFinder Type so the software matches.
+
+Rotating the Body
+^^^^^^^^^^^^^^^^^
+
+Turn the body until the screen faces the way that suits your telescope. See
+:ref:`quick_start:pifinder type entries` below if you're not sure which position to use.
 
 .. image:: images/quick_start/rev4_convert.gif
 
 The mount is spring-loaded, with detents marking the three positions, so you don't need to
 loosen anything first. Take hold of the body and turn it firmly. It drops into the next
 position and stays there.
+
+Setting the PiFinder Type
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The software needs to know which position the body is in, so its star charts and pointing
 directions come out the right way round. Your PiFinder arrives set to match the position it
@@ -206,13 +216,19 @@ From the main menu, select Settings, scroll down to Advanced, then select PiFind
 .. image:: images/quick_start/settings_select.png
 .. image:: images/quick_start/settings_menu_config.png
 
+Advanced shows a short message about DIY PiFinders as it opens. The message clears on its
+own. PiFinder Type applies to every PiFinder, ready-built ones included.
+
 Highlight the type of PiFinder you're using and press **RIGHT** to select it. This restarts
 the PiFinder software.
 
 .. image:: images/quick_start/pifinder_type_select.png
 
-The rev4 entries sit at the bottom of the list. Three of them name the position you've
-rotated the body into:
+PiFinder Type Entries
+^^^^^^^^^^^^^^^^^^^^^
+
+The three rev4 entries sit at the bottom of the list. Each one names the position you have
+rotated the body into.
 
 - **Rev4 Left**: the screen faces left, for a Dobsonian or Newtonian with the focuser on
   the left of the tube.
@@ -225,13 +241,14 @@ telescope, where you already stand to observe. This is why rev4 has no separate 
 configuration. If the telescope sits above head height, or you point it very high, rotate
 the body left or right instead. The screen is easier to read from the side.
 
-**AS Bloom** and **AS Heart** are the exceptions: they name a telescope rather than an
-orientation. You can order Analog Sky's Bloom and Heart with a PiFinder fully integrated
-into the telescope. If you observe with one of those, select the entry that matches it.
+**AS Bloom** and **AS Heart** sit just above the rev4 entries. They name a telescope rather
+than an orientation. You can order Analog Sky's Bloom and Heart with a PiFinder fully
+integrated into the telescope. If you observe with one of those, select the entry that
+matches it.
 
 .. note::
-   The entries above these are the v3 and v2.5 configurations. Left, Right and Straight
-   mean the same as they do on rev4, but on those PiFinders the build sets the
+   The five entries at the top of the list are the v3 and v2.5 configurations. Left, Right
+   and Straight mean the same as they do on rev4, but on those PiFinders the build sets the
    configuration rather than a rotation. Flat v3 and Flat v2 sit with the lens on top and
    the screen angled back toward you.
    |v3_docs|
