@@ -33,6 +33,7 @@ s = _("Language: en")
 s = _("Language: es")
 s = _("Language: fr")
 s = _("Language: zh")
+s = _("Language: ko")
 s = s
 del s
 
@@ -745,6 +746,10 @@ pifinder_menu = {
                                 {
                                     "name": _("Chinese"),
                                     "value": "zh",
+                                },
+                                {
+                                    "name": _("Korean"),
+                                    "value": "ko",
                                 },
                             ],
                         },

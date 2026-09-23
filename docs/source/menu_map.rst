@@ -237,7 +237,7 @@ User Pref...
       Direction of the azimuth Push-To arrows.  Values: Default, Reverse.  Set
       this to match how you read the arrows at the telescope.
    Language
-      Interface language.  Values: English, German, French, Spanish, Chinese.
+      Interface language.  Values: English, German, French, Spanish, Chinese, Korean.
 Chart...
    How the Chart screen draws the sky.
 
