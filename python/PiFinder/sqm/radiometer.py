@@ -198,19 +198,21 @@ def _usable_gain(reported) -> Optional[float]:
 def digital_gain_ratio(sample: dict, profile) -> float:
     """Reported DigitalGain over the gain this profile was calibrated at.
 
-    Returns 1.0 when the frame reports no gain, so archives captured before the
-    driver metadata was recorded replay exactly as they did before.
+    Returns 1.0 when the frame reports no gain, and when the profile states no
+    calibration gain. The second case covers sensors where nothing shows the
+    reported gain reaching the raw array (HQ, IMX296): correcting for a gain
+    that is not in the pixels would bias the value instead of fixing it.
 
     Public because the black-level tracker needs it too: it fits the pedestal
     as the intercept of background against exposure, and the gain multiplies
     the slope, so a window whose gain moves must be fitted against
     ``ratio * exposure`` or the jitter lands in the intercept.
     """
+    calibrated = getattr(profile, "calibration_digital_gain", None)
     reported = _usable_gain(sample.get("digital_gain"))
-    calibrated = float(getattr(profile, "calibration_digital_gain", 1.0) or 1.0)
-    if reported is None or calibrated <= 0:
+    if reported is None or not calibrated or calibrated <= 0:
         return 1.0
-    return reported / calibrated
+    return reported / float(calibrated)
 
 
 def radiometric_sqm(

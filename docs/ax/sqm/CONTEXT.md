@@ -132,8 +132,10 @@ unrelated multiplier applied when building the 8-bit solve image.
 `CameraProfile.calibration_digital_gain`, the reported digital gain the sweeps
 that fitted this profile's radiometric zero point actually ran at. The
 radiometer divides the corrected signal by `reported / calibration`, so a unit
-running its cohort's gain is unchanged. Refitting a zero point means updating
-this constant in the same change. See
+running its cohort's gain is unchanged. It is set only where the gain is shown
+to reach the raw pixels, today IMX462 and IMX290. `None`, the default, turns the
+correction off. Refitting a zero point means updating this constant in the same
+change. See
 [ADR 0022 §3.2](../../adr/0022-sqm-measurement.md#32-scaling-the-reported-digital-gain).
 
 **Stellar sky background**:

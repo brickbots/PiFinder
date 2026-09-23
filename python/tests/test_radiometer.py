@@ -536,10 +536,27 @@ def test_unusable_reported_gain_leaves_the_value_untouched(reported):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("name", ["imx462", "imx296", "hq", "imx290"])
-def test_every_profile_states_the_gain_its_calibration_ran_at(name):
+@pytest.mark.parametrize("name", ["imx462", "imx290"])
+def test_verified_profiles_state_their_calibration_gain(name):
+    assert get_camera_profile(name).calibration_digital_gain > 0
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name", ["hq", "imx296"])
+def test_unverified_profiles_ignore_the_reported_gain(name):
+    # Nothing shows the gain reaching the raw array on these sensors, so a
+    # reported gain must not move the value. IMX296 skies sit about 1 ADU above
+    # the pedestal in the archive, where even a 0.02% change moves samples
+    # across the resolution limit and shifts published values by 0.9 mag.
     profile = get_camera_profile(name)
-    assert profile.calibration_digital_gain > 0
+    raw = np.full((256, 256), 300, dtype=np.uint16)
+    plain = collect_radiometer_sample(raw, profile, 1.0, sequence=1, captured_at=0.0)
+    gained = collect_radiometer_sample(
+        raw, profile, 1.0, sequence=2, captured_at=0.0, digital_gain=1.3
+    )
+    value, details = radiometric_sqm(gained, profile)
+    assert details["digital_gain_ratio"] == 1.0
+    assert value == radiometric_sqm(plain, profile)[0]
 
 
 @pytest.mark.unit

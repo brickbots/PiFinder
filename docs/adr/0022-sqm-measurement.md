@@ -116,8 +116,18 @@ reporting 1.246.
 divides the corrected signal by it. The divisor is not the reported gain but its
 ratio to `CameraProfile.calibration_digital_gain`: the median gain the sweeps
 that fitted that profile's zero point actually ran at. A frame reporting no
-gain, and a unit running the calibration gain, both produce exactly the value
-they produced before.
+gain, and a unit running the calibration gain, both produce the value they
+produced before.
+
+**The correction applies only where the gain is shown to reach the raw
+pixels:** IMX462 and IMX290, which share a driver. On HQ and IMX296 no unit has
+ever reported a gain different from its calibration cohort, so nothing shows
+whether the gain is in the raw array there. Those profiles state no calibration
+gain, and `None` is the default, so the correction stays off. A new profile
+opts in on evidence. The risk of the other default is not small: IMX296 skies
+in the archive sit about 1 ADU above the pedestal, where even a 0.02% change
+moves samples across the resolution limit and shifts published values by up to
+0.9 mag.
 
 Normalising to the calibration cohort rather than to 1.0 is the whole point. The
 zero point already absorbed whatever gain its own frames carried. Dividing by
@@ -460,15 +470,19 @@ parts of the estimator, and failed the same way each time.
 
 ## 8. Consequences and standing obligations
 
-- §3 costs no published value: over all 66 referenced archive sweeps the
-  calibrated devices replay bit-identical, radiometer publication counts are
-  unchanged, and archive mean absolute error falls from 0.251 to 0.202 mag.
+- §3 does not move the calibrated devices. Over all 66 referenced archive
+  sweeps on the factory path, the HQ and IMX296 archives replay bit-identical.
+  The IMX462 reference unit moves by at most 0.0002 mag, from its own gain
+  jitter of 1.0165 to 1.0168 around the calibration value. Radiometer
+  publication counts are unchanged. Archive mean absolute error falls from
+  0.251 to 0.203 mag.
 - §5 and §6 each changed the published scale, so SQM logs are not comparable
   across firmware that predates them. `radiometric_zero_point_effective` in the
   archive is what makes comparison possible at all.
 - **A profile whose zero point is refitted must update
   `calibration_digital_gain` in the same change**, or the new zero point will be
-  normalised against the old cohort.
+  normalised against the old cohort. This applies only to profiles that state
+  one.
 - `sqm_details` carries `black_level_tracked`, `black_level_pedestal`,
   `black_level_stderr`, `digital_gain` and `digital_gain_ratio`, so an archive
   replay can tell which pedestal and which scaling a frame was published under.
