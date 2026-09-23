@@ -214,6 +214,7 @@ disagree.
 From the main menu, select Settings, scroll down to Advanced, then select PiFinder Type.
 
 .. image:: images/quick_start/settings_select.png
+.. image:: images/quick_start/settings_advanced_select.png
 .. image:: images/quick_start/settings_menu_config.png
 
 Advanced shows a short message about DIY PiFinders as it opens. The message clears on its
