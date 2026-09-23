@@ -139,8 +139,11 @@ Work through these in order:
 - **Did you fit a different lens?**  The PiFinder cannot see which lens is on the front, so it
   works from the Lens setting.  A setting that names the wrong lens stops solving completely
   rather than making it worse, because the PiFinder then looks for a patch of sky the wrong
-  size.  Select Settings from the main menu, scroll down to Advanced, then select Lens.  Set
-  the focal length printed on the lens barrel.  The PiFinder restarts when you change it.
+  size.  This looks like an exposure problem.  On **AUTO** the PiFinder keeps working its way
+  up and down the exposure range and still never solves.  Check the Lens setting before you
+  spend more time on the exposure.  Select Settings from the main menu, scroll down to
+  Advanced, then select Lens.  Set the focal length printed on the lens barrel.  The PiFinder
+  restarts when you change it.
 
 .. note::
    You only need to set the Lens by hand if you fitted the lens yourself.  A PiFinder still
