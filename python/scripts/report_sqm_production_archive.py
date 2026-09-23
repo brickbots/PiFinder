@@ -1,53 +1,119 @@
 #!/usr/bin/env python3
-"""Replay and report the current radiometer-first production SQM pipeline."""
+"""Replay the archive through the production SQM path.
+
+One replay for every branch. Each archived frame becomes a radiometer sample
+and goes through the device's own ``solver.update_radiometric_sqm``, so the
+pedestal choice, the optical black, the airglow floor, the black-level tracker,
+the publish cadence and the optics correction are whatever the checked-out code
+does. Nothing here re-implements them.
+
+Features are used when both the code and the frame have them, and reported in
+provenance.json:
+
+- ``analogue-gain``: the delivered AnalogueGain from frame_metadata.json.
+- ``optical-black``: the measured optical black, by the production rule in
+  ``camera_pi.optical_black_pedestal``. Stock stacks report none.
+- ``airglow``: the airglow floor tracker, created as production does
+  (IMX462 only).
+- ``black-level-tracker``: the tracked black level.
+
+``--disable FEATURE`` turns one off for comparison, for example
+``--disable airglow`` for the factory path without the floor.
+
+The stellar diagnostic that update_sqm hands to the radiometer (cloud flag,
+transmission deficit, optics candidate) is rebuilt from the stellar CSV of
+the archive harness at production's 10-second cadence.
+"""
 
 from __future__ import annotations
 
 import argparse
 import csv
 import hashlib
+import inspect
 import json
 import math
 import re
 import statistics
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
+from PiFinder import solver
+from PiFinder.sqm import SQM
 from PiFinder.sqm.black_level import BlackLevelTracker
 from PiFinder.sqm.camera_profiles import get_camera_profile
 from PiFinder.sqm.clouds import CloudEstimator
-from PiFinder.sqm.radiometer import (
-    RadiometerAccumulator,
-    analogue_gain_ratio,
-    collect_radiometer_sample,
-)
+from PiFinder.sqm.radiometer import RadiometerAccumulator, collect_radiometer_sample
+from PiFinder.state import SQM as SQMState
+
+try:
+    from PiFinder.camera_pi import optical_black_pedestal
+except ImportError:  # branch without the optical-black patch
+    optical_black_pedestal = None
+try:
+    from PiFinder.sqm.airglow import AirglowTracker
+except ImportError:  # branch without the airglow floor
+    AirglowTracker = None
+
+FEATURES = ("analogue-gain", "optical-black", "airglow", "black-level-tracker")
+_COLLECT = inspect.signature(collect_radiometer_sample).parameters
+_UPDATE = inspect.signature(solver.update_radiometric_sqm).parameters
+SUPPORTED = {
+    "analogue-gain": "analogue_gain" in _COLLECT,
+    "optical-black": "optical_black_pedestal" in _COLLECT
+    and optical_black_pedestal is not None,
+    "airglow": AirglowTracker is not None and "airglow_tracker" in _UPDATE,
+    "black-level-tracker": "black_level_tracker" in _UPDATE,
+}
 
 
-def _archived_analogue_gains(sweep: Path) -> dict[int, float]:
-    """Frame index to the AnalogueGain the sensor delivered, from the archive.
+class ReplayState:
+    """The part of shared_state that update_radiometric_sqm touches.
 
-    Sweeps written before the driver metadata was archived return an empty
-    map, and those frames replay with no gain normalisation.
+    Production stamps last_update with the wall clock and compares it with the
+    frame time on the next call. The replay keeps replay time instead, or the
+    publish cadence would never reopen.
     """
-    gains: dict[int, float] = {}
+
+    def __init__(self):
+        self.now = 0.0
+        self._details: dict = {}
+        self._sqm = SQMState()
+
+    def sqm_details(self) -> dict:
+        return dict(self._details)
+
+    def set_sqm_details(self, details: dict) -> None:
+        self._details = dict(details)
+
+    def sqm(self):
+        return self._sqm
+
+    def set_sqm(self, state) -> None:
+        state.last_update = datetime.fromtimestamp(
+            self.now, tz=timezone.utc
+        ).isoformat()
+        self._sqm = state
+
+
+def _frame_metadata(sweep: Path) -> dict[int, dict]:
     path = Path(sweep) / "frame_metadata.json"
     if not path.exists():
-        return gains
+        return {}
     try:
-        for frame in json.loads(path.read_text())["frames"]:
-            gain = frame.get("camera_metadata", {}).get("AnalogueGain")
-            if gain:
-                gains[int(frame["index"])] = float(gain)
+        return {
+            int(frame["index"]): frame.get("camera_metadata") or {}
+            for frame in json.loads(path.read_text())["frames"]
+        }
     except (AttributeError, KeyError, OSError, TypeError, ValueError):
         return {}
-    return gains
 
 
-def _archived_frame_index(frame_name: str):
+def _frame_index(frame_name: str):
     match = re.match(r"img_(\d+)", str(frame_name))
     return int(match.group(1)) if match else None
 
@@ -99,7 +165,15 @@ def main() -> None:
         default=1.0,
         help="Archive has no capture timestamps; default models one new frame/second.",
     )
+    parser.add_argument(
+        "--disable",
+        action="append",
+        default=[],
+        choices=FEATURES,
+        help="turn a feature off for comparison; repeatable",
+    )
     args = parser.parse_args()
+    use = {name: SUPPORTED[name] and name not in args.disable for name in FEATURES}
 
     quality_path = args.quality or args.sweeps / "sqm_archive_quality.json"
     quality = json.loads(quality_path.read_text())
@@ -118,6 +192,7 @@ def main() -> None:
 
     frame_rows: list[dict] = []
     sweep_rows: list[dict] = []
+    frames_with = {"analogue-gain": 0, "optical-black": 0}
     sequence = 0
     for (dataset, sweep_name), rows in sorted(grouped.items()):
         sweep = sweep_index[sweep_name]
@@ -125,69 +200,81 @@ def main() -> None:
         profile = get_camera_profile(profile_name)
         annotation = quality.get(f"{dataset}/{sweep_name}", {})
         reference = _reference(rows[0], sweep)
+        metadata = _frame_metadata(sweep)
+
+        # A fresh session per sweep, created as the solver creates it.
+        state = ReplayState()
+        calculator = SQM(camera_type=profile_name)
         accumulator = RadiometerAccumulator()
+        black = (
+            BlackLevelTracker(profile.bias_offset)
+            if use["black-level-tracker"]
+            else None
+        )
+        airglow = (
+            AirglowTracker(profile_name)
+            if use["airglow"] and profile_name == "imx462"
+            else None
+        )
         cloud = CloudEstimator(
             clear_zero_point=profile.clear_zero_point,
             clear_sky_brightness=profile.clear_sky_brightness,
         )
-        black = BlackLevelTracker(profile.bias_offset)
-        last_cloud_flag = None
+        update_kwargs = {"black_level_tracker": black}
+        if SUPPORTED["airglow"]:
+            update_kwargs["airglow_tracker"] = airglow
+
         last_diagnostic_at = -math.inf
-        candidate_deficit = None
-        candidate_at = None
         published_values: list[float] = []
         uncorrected_values: list[float] = []
         stellar_values: list[float] = []
-        correction_frames = 0
-        cloud_flags = 0
-        diagnostic_frames = 0
+        correction_frames = cloud_flags = diagnostic_frames = 0
         radiometer_on_failed_solve = 0
-
-        gains = _archived_analogue_gains(sweep)
 
         for frame_index, row in enumerate(rows):
             sequence += 1
             now = frame_index * args.assumed_frame_seconds
-            raw_path = Path(row["raw_image"])
-            raw = np.asarray(Image.open(raw_path))
+            state.now = now
+            meta = metadata.get(_frame_index(row["frame"]), {})
             exposure_sec = float(row["exp_ms"]) / 1000.0
+
+            extra = {}
+            if use["analogue-gain"] and meta.get("AnalogueGain"):
+                extra["analogue_gain"] = meta["AnalogueGain"]
+                frames_with["analogue-gain"] += 1
+            if use["optical-black"]:
+                ob = optical_black_pedestal(meta, profile.bit_depth)
+                if ob is not None:
+                    extra["optical_black_pedestal"] = ob
+                    frames_with["optical-black"] += 1
             sample = collect_radiometer_sample(
-                raw,
+                np.asarray(Image.open(Path(row["raw_image"]))),
                 profile,
                 exposure_sec,
-                analogue_gain=gains.get(_archived_frame_index(row["frame"])),
                 sequence=sequence,
                 captured_at=now,
+                **extra,
             )
-            if accumulator.add(sample):
-                # Production feeds the tracker from every fresh radiometer
-                # sample, withheld while the last diagnostic said cloud.
-                black.add_sample(
-                    float(sample["exposure_sec"]),
-                    float(sample["background_per_pixel"]),
-                    stable=last_cloud_flag is not True,
-                    gain_ratio=analogue_gain_ratio(sample, profile),
-                )
 
-            def pedestal_for_exposure(_exposure_sec):
-                tracked = black.pedestal()
-                return tracked if tracked is not None else profile.bias_offset
-
-            radiometric, details = accumulator.estimate(
-                profile, now, pedestal_for_exposure=pedestal_for_exposure
+            published_now = solver.update_radiometric_sqm(
+                state,
+                calculator,
+                accumulator,
+                sample,
+                calculation_interval_seconds=args.assumed_frame_seconds,
+                now=now,
+                **update_kwargs,
             )
-            published = radiometric
-            corrected = False
-            if (
-                published is not None
-                and candidate_deficit is not None
-                and candidate_at is not None
-                and 0 <= now - candidate_at <= 15.0
-                and 0.0 < candidate_deficit <= 2.0
-            ):
-                published -= candidate_deficit
-                corrected = True
-                correction_frames += 1
+            details = state.sqm_details()
+            published = state.sqm().value if published_now else None
+            radiometric = details.get("sqm_radiometric") if published_now else None
+            corrected = bool(
+                published_now
+                and published is not None
+                and radiometric is not None
+                and abs(published - radiometric) > 1e-9
+            )
+            correction_frames += corrected
 
             solved = row["status"] == "ok" and bool(row.get("mzero"))
             if published is not None:
@@ -196,19 +283,22 @@ def main() -> None:
                 if not solved:
                     radiometer_on_failed_solve += 1
 
+            # Stellar hand-off, as update_sqm does it after a solve, at most
+            # once per 10 s: the uncorrected radiometric sky conditions it.
             diagnostic = False
-            cloud_flag = None
-            deficit = None
+            cloud_flag = deficit = None
             if solved and now - last_diagnostic_at >= 10.0:
                 diagnostic = True
                 diagnostic_frames += 1
                 last_diagnostic_at = now
                 stellar_values.append(float(row["sqm"]))
+                sky = details.get("sqm_radiometric")
+                if sky is None:
+                    sky = state.sqm().value
                 deficit = cloud.add_sample(
                     float(row["mzero"]),
                     exposure_sec,
-                    # Uncorrected: correction feedback must not read as excess.
-                    sky_brightness=radiometric,
+                    sky_brightness=sky,
                     # The harness mzero already contains its rolling wing term.
                     wing_correction=0.0,
                     altitude_deg=float(row["altitude_deg"])
@@ -217,18 +307,21 @@ def main() -> None:
                 )
                 cloud_flag = cloud.is_cloudy()
                 cloud_flags += cloud_flag is True
-                last_cloud_flag = cloud_flag
-                if (
-                    deficit is not None
-                    and deficit > cloud.cloud_threshold
-                    and cloud_flag is False
-                    and cloud.conditioned()
-                ):
-                    candidate_deficit = float(deficit)
-                    candidate_at = now
-                else:
-                    candidate_deficit = None
-                    candidate_at = now
+                state.set_sqm_details(
+                    {
+                        **details,
+                        "cloud_extinction": deficit,
+                        "cloud_flag": cloud_flag,
+                        "transmission_deficit": deficit,
+                        "optics_attenuation_candidate": bool(
+                            deficit is not None
+                            and deficit > cloud.cloud_threshold
+                            and cloud_flag is False
+                            and cloud.conditioned()
+                        ),
+                        "transmission_diagnostic_at": now,
+                    }
+                )
 
             frame_rows.append(
                 {
@@ -250,10 +343,14 @@ def main() -> None:
                     "cloud_flag": cloud_flag,
                     "optics_correction_applied": corrected,
                     "radiometer_samples": details.get("radiometer_samples"),
+                    "pedestal": details.get("pedestal"),
+                    "pedestal_source": details.get("pedestal_source"),
                 }
             )
 
-        pedestal, pedestal_stderr, pedestal_samples = black.state()
+        pedestal, pedestal_stderr, pedestal_samples = (
+            black.state() if black is not None else (None, None, 0)
+        )
         median_published = (
             statistics.median(published_values) if published_values else None
         )
@@ -349,18 +446,31 @@ def main() -> None:
         "quality_manifest": str(quality_path.resolve()),
         "quality_manifest_sha256": _sha256(quality_path),
         "script_sha256": _sha256(Path(__file__)),
+        "features_supported_by_code": SUPPORTED,
+        "features_used": use,
+        "frames_with_feature_data": frames_with,
+        "dark_current_calibrated": bool(
+            getattr(calculator.noise_floor_estimator, "dark_current_calibrated", False)
+        ),
     }
     (args.output_dir / "provenance.json").write_text(
         json.dumps(provenance, indent=2, sort_keys=True) + "\n"
     )
 
     lines = [
-        "# Latest production SQM archive replay",
+        "# Production SQM archive replay",
         "",
-        "This is the current zero-touch, radiometer-first `deepchart` path. "
-        "Every archived raw frame feeds the 12-sample/15-second accumulator; "
-        "publication is modeled at 1 Hz. Solved stellar photometry is sampled "
-        "at its production 10-second cadence and is diagnostic-only.",
+        "Every archived raw frame goes through the checked-out "
+        "`solver.update_radiometric_sqm`, so this is whatever the code does. "
+        "Publication is modeled at one frame per second. Solved stellar "
+        "photometry is handed over at its production 10-second cadence.",
+        "",
+        "Features used: "
+        + ", ".join(name for name in FEATURES if use[name])
+        + ". Not used: "
+        + (", ".join(name for name in FEATURES if not use[name]) or "none")
+        + f". Frames with optical black: {frames_with['optical-black']}; "
+        f"with analogue gain: {frames_with['analogue-gain']}.",
         "",
         "## Expected out-of-box accuracy",
         "",
@@ -422,10 +532,6 @@ def main() -> None:
             "fresh runtime session per sweep. The primary radiometer values do not "
             "depend on solves or this timing assumption; rolling scatter and the "
             "cloud/dew correction opportunity do.",
-            "",
-            "The black-level tracker currently refines the stellar diagnostic "
-            "pedestal only. It does not feed the published radiometer pedestal, so "
-            "it cannot improve the headline out-of-box SQM numbers in this code.",
         ]
     )
     (args.output_dir / "REPORT.md").write_text("\n".join(lines) + "\n")

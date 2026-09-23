@@ -466,12 +466,14 @@ parts of the estimator, and failed the same way each time.
   absolute error falls from 0.251 to 0.230 mag.
 - The one full-sensor unit (markcasazza, stock image, 21.3 to 21.6 mag site)
   still reads 0.59 mag bright on this branch, which has no airglow floor. With
-  the floor, the same sweeps read 0.24 mag bright. That residue is not gain
-  (§3.2) and not the pedestal (§4.2). Pointing altitude explains at most about
-  0.1 mag. The unit's stellar zero point is 0.13 ± 0.08 mag higher than the
-  reference unit's, so it collects more light, and that explains about half.
-  A factory radiometric zero point cannot see unit-to-unit throughput, and the
-  stellar correction of §2 only corrects attenuation, in one direction.
+  the floor, the same sweeps read 0.36 mag bright. That residue is not gain
+  (§3.2), not the pedestal (§4.2), not the settings or the focal length. The
+  lens f-number and the direction of the reference meters are not recorded.
+  The stellar zero point cannot settle it, because it measures the site's air
+  as well as the unit.
+- Archive numbers come from one replay, `report_sqm_production_archive.py`,
+  which drives the device's own `update_radiometric_sqm` and uses each feature
+  only where the code has it.
 - §5 and §6 each changed the published scale, so SQM logs are not comparable
   across firmware that predates them. `radiometric_zero_point_effective` in the
   archive is what makes comparison possible at all.

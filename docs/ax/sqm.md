@@ -85,16 +85,18 @@ bit-identical, and the archive falls from 0.251 to 0.230 mag.
 
 Most of the 0.59 is the factory zero point reading bright at a dark site. With a
 spectral floor for airglow, which is not on this branch, the same sweeps read
-−0.24 mag median. **That residue is open.** It is not the digital gain: a
-same-unit test shows the ISP applies it after the raw stream
-([§3.2](../adr/0022-sqm-measurement.md#32-scaling-the-analogue-gain-not-the-reported-digital-gain)).
-It is not the pedestal
-([§4.2](../adr/0022-sqm-measurement.md#42-the-reported-black-level-is-not-another-source)).
-Pointing altitude explains at most about 0.1 mag. The unit is also more
-sensitive: its per-second stellar zero point, from the three clear sweeps and
-corrected for extinction, is **0.13 ± 0.08 mag** higher than the reference
-unit's. That explains about half of the residue. Neither term is significant
-alone, and more clear sweeps from the same unit would settle it.
+−0.36 mag median. **That residue is open.** Checked and ruled out: the digital
+gain, since the ISP applies it after the raw stream
+([§3.2](../adr/0022-sqm-measurement.md#32-scaling-the-analogue-gain-not-the-reported-digital-gain));
+the pedestal
+([§4.2](../adr/0022-sqm-measurement.md#42-the-reported-black-level-is-not-another-source));
+focal length, exposure and analogue gain; sky colour; and dark current, about
+0.03 mag. The Milky Way explains the two worst sweeps only. Not recorded: the
+lens f-number or iris, and where the reference meters pointed. The stellar zero
+point cannot settle it, because it measures the site's air as well as the unit.
+
+These numbers come from `python/scripts/report_sqm_production_archive.py`,
+which replays each frame through the device's own `update_radiometric_sqm`.
 
 They also discharge the black-level tracker's dark-site obligation. On the two
 clear sweeps the tracker returns 238.65 and 238.62 ADU where an independent fit
