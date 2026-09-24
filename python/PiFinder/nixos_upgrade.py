@@ -218,31 +218,6 @@ def classify_store_path(
     return ABSENT if saw_404 else UNREACHABLE
 
 
-def fetch_cache_public_keys(
-    caches: Iterable[str] = CACHES, timeout: int = 15
-) -> list[str]:
-    """Fetch each cache's current signing key from its anonymous Attic
-    cache-config endpoint, so the upgrade trusts whatever key the cache uses
-    *now*. This makes a cache signing-key rotation invisible to devices — they
-    can never be stranded by a key change — while signature verification stays
-    on (verified against the freshly-fetched key, over the same HTTPS trust
-    boundary as the cache we already pull from). Best-effort: a cache we cannot
-    reach contributes no key and we fall back to the device's configured keys.
-    """
-    keys: list[str] = []
-    for cache in caches:
-        base, _, name = cache.rstrip("/").rpartition("/")
-        url = f"{base}/_api/v1/cache-config/{name}"
-        try:
-            with urllib.request.urlopen(url, timeout=timeout) as resp:
-                key = json.load(resp).get("public_key")
-            if key:
-                keys.append(key)
-        except Exception as exc:  # network / JSON errors are non-fatal
-            logger.warning("could not fetch cache key from %s: %s", url, exc)
-    return keys
-
-
 def estimate_download(store_path: str) -> DownloadEstimate:
     """Best-effort delta estimate: which paths nix will fetch, plus nix's own
     "unpacked" byte total from a dry-run. We deliberately do NOT query per-path
@@ -370,9 +345,9 @@ def run_build(
     else:
         write_status(f"downloading 0/{estimate.path_count} paths", status_file)
 
-    # Trust the cache's current signing key(s), fetched from the cache itself,
-    # so a key rotation can never strand this device mid-upgrade. This ADDS to
-    # the trusted set (verification stays on) — it is not a require-sigs bypass.
+    # Signatures are checked against the trusted-public-keys in the device's
+    # Nix config only. A cache key rotation needs a release that trusts the
+    # new key first.
     build_args = [
         "nix",
         "--log-format",
@@ -383,9 +358,6 @@ def run_build(
         "0",
         "--no-link",
     ]
-    cache_keys = fetch_cache_public_keys()
-    if cache_keys:
-        build_args += ["--option", "extra-trusted-public-keys", " ".join(cache_keys)]
 
     progress = _DownloadProgress(estimate.total_bytes, estimate.path_count, status_file)
     tail: deque[str] = deque(maxlen=40)
