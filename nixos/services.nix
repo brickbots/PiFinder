@@ -44,6 +44,17 @@ let
       exit 0
     fi
   '';
+  # Password change for the web UI (via sudo). Takes one line on stdin, the
+  # new password, and sets it for the pifinder user only.
+  pifinder-set-password = pkgs.writeShellScriptBin "pifinder-set-password" ''
+    set -euo pipefail
+    IFS= read -r NEW_PASSWORD
+    if [ -z "$NEW_PASSWORD" ]; then
+      echo "empty password" >&2
+      exit 1
+    fi
+    printf 'pifinder:%s\n' "$NEW_PASSWORD" | ${pkgs.shadow}/bin/chpasswd
+  '';
   pifinder-switch-camera = pkgs.writeShellScriptBin "pifinder-switch-camera" ''
     set -euo pipefail
     CAM="''${1:?usage: pifinder-switch-camera <camera>}"
@@ -106,6 +117,7 @@ in {
   # ---------------------------------------------------------------------------
   environment.systemPackages = with pkgs; [
     pifinder-switch-camera
+    pifinder-set-password
     set-extlinux-default
 
     # Diagnostic tools for SSH troubleshooting
@@ -166,10 +178,13 @@ in {
   # Keep 2 generations max in bootloader
   boot.loader.generic-extlinux-compatible.configurationLimit = 2;
 
+  # Removes store paths that no generation uses. It deletes no generations:
+  # the upgrade keeps the 3 newest (current + 2 rollback targets) by count,
+  # so an age limit here would delete the rollback targets.
   nix.gc = {
     automatic = true;
     dates = "weekly";
-    options = "--delete-older-than 3d";
+    options = "";
   };
   # Disable store optimization on NFS (hard links cause issues)
   nix.settings.auto-optimise-store = !cfg.devMode;
@@ -366,7 +381,7 @@ in {
       { command = "/run/current-system/sw/bin/avahi-set-host-name *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/shutdown -r now"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/shutdown now"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/chpasswd"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/pifinder-set-password"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/hostname *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/pifinder-switch-camera imx296"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/pifinder-switch-camera imx462"; options = [ "NOPASSWD" ]; }
@@ -539,7 +554,7 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = with pkgs; [ nix systemd coreutils jq gnugrep boot-splash ];
+    path = with pkgs; [ nix systemd coreutils jq gnugrep util-linux boot-splash ];
     script = ''
       set -euo pipefail
       MARKER=/var/lib/pifinder/trial-generation.json
@@ -634,12 +649,14 @@ in {
       # ----- capture evidence ------------------------------------------------
       echo "ERROR: trial generation unhealthy. Capturing evidence..."
       TS=$(date +%Y%m%d-%H%M%S)
-      mkdir -p "$DATA"
-      journalctl -b > "$DATA/failed-boot-$TS.log" || true
+      # The data folder is writable by the pifinder user, so the files are
+      # written as pifinder: root never opens a path in it, and a symlink
+      # there cannot redirect the write.
+      runuser -u pifinder -- mkdir -p "$DATA" || true
+      journalctl -b | runuser -u pifinder -- tee "$DATA/failed-boot-$TS.log" > /dev/null || true
       jq -n --arg failed "$CURRENT" --arg reverted_to "''${TARGET:-none}" --arg at "$TS" \
         '{failed: $failed, reverted_to: $reverted_to, at: $at}' \
-        > "$DATA/upgrade_failed.json" || true
-      chown pifinder:users "$DATA/failed-boot-$TS.log" "$DATA/upgrade_failed.json" 2>/dev/null || true
+        | runuser -u pifinder -- tee "$DATA/upgrade_failed.json" > /dev/null || true
 
       # Stop the crash-looping app so the display is free for the failure
       # message (and so the reboot is clean).
