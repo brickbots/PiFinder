@@ -15,6 +15,7 @@ Usage:
 Dependencies: No additional dependencies. Reuses PiFinder's existing Flask / PIL / shared state.
 """
 
+import functools
 import io
 import json
 import logging
@@ -144,8 +145,24 @@ def register_api_routes(app, server_instance, require_auth=False):
     def _auth_wrapper(func):
         """Return 401 if authentication is enabled and the request is not authorized"""
 
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if not _check_auth():
+                return _json_response({"error": "Unauthorized"}, 401)
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    def _login_required(func):
+        """Return 401 unless the request carries the Web UI login session.
+
+        Applies regardless of ``require_auth``: these endpoints press keys,
+        stop the app or return camera frames.
+        """
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if not session.get("authenticated"):
                 return _json_response({"error": "Unauthorized"}, 401)
             return func(*args, **kwargs)
 
@@ -701,7 +718,7 @@ def register_api_routes(app, server_instance, require_auth=False):
             return _json_response({"error": str(e)}, 500)
 
     # ───────────────────────────────────────────────
-    # 3. Image endpoint (no authentication required, convenient for direct embedding in browsers/OpenClaw)
+    # 3. Image endpoints (/api/screen is open for embedding; camera frames need the login)
     # ───────────────────────────────────────────────
 
     @app.route("/api/screen")
@@ -718,6 +735,7 @@ def register_api_routes(app, server_instance, require_auth=False):
             return _png_response(empty)
 
     @app.route("/api/camera/raw")
+    @_login_required
     def api_camera_raw():
         """Return the raw CMOS image, if available"""
         try:
@@ -741,6 +759,7 @@ def register_api_routes(app, server_instance, require_auth=False):
             return _json_response({"error": str(e)}, 500)
 
     @app.route("/api/camera/debug")
+    @_login_required
     def api_camera_debug():
         """Return the latest debug frame from the solver_debug_dumps directory"""
         try:
@@ -767,10 +786,11 @@ def register_api_routes(app, server_instance, require_auth=False):
             return _json_response({"error": str(e)}, 500)
 
     # ───────────────────────────────────────────────
-    # 4. Lightweight control endpoints (optional, for remote triggering by OpenClaw)
+    # 4. Control endpoints (need the Web UI login)
     # ───────────────────────────────────────────────
 
     @app.route("/api/key", methods=["POST"])
+    @_login_required
     def api_key():
         """Simulate button input. JSON body: {"button": "UP"} or {"button": 1}"""
         try:
@@ -790,6 +810,7 @@ def register_api_routes(app, server_instance, require_auth=False):
             return _json_response({"error": str(e)}, 500)
 
     @app.route("/api/stop", methods=["POST"])
+    @_login_required
     def api_stop():
         """Cleanly shut down the entire PiFinder application.
 

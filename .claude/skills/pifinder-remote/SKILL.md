@@ -61,6 +61,8 @@ to see the UI; that is how you "look at" PiFinder.
 | `logs [-n N]` | Tails the captured PiFinder and cedar startup logs (first place to look if `launch` fails). |
 | `ready` | Polls until the API answers; useful after a manual launch. |
 
+`/api/key`, `/api/stop` and `/api/camera/*` need the Web UI login. `key` and `stop` log in on the first 401 with `PIFINDER_PASSWORD` (default `solveit`); a headless dev run accepts any password.
+
 ## Keypad buttons
 
 PiFinder has a small keypad. Pass these names to `key` (case-sensitive), or a
