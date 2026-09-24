@@ -135,7 +135,7 @@ in {
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      TimeoutStartSec = "30min";
+      TimeoutStartSec = "90min";
     };
     path = with pkgs; [ nix coreutils systemd curl jq gnugrep ];
     script = ''
@@ -148,6 +148,17 @@ in {
       SPLASH_PID=$!
       trap 'kill $SPLASH_PID 2>/dev/null || true' EXIT
 
+      # The Pi has no RTC: at cold boot the clock starts in the past, so TLS
+      # validation against the binary cache fails ("certificate is not yet
+      # valid") and the download aborts. Wait for timesyncd to fix the clock.
+      echo "Waiting for clock synchronization..."
+      for _ in $(seq 1 120); do
+        [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = yes ] && break
+        [ -e /run/systemd/timesync/synchronized ] && break
+        sleep 1
+      done
+      echo "Clock: $(date -u)"
+
       # Resolve the full system from the update manifest — the same file the
       # on-device updater reads (NixOS ADR 0003). Migration rides the newest entry
       # in the best available channel: stable, then beta, then the unstable trunk.
@@ -157,7 +168,16 @@ in {
       # manifest can't be fetched.
       MANIFEST_URL="https://raw.githubusercontent.com/brickbots/PiFinder/nixos-manifest/update-manifest.json"
       STORE_PATH=""
-      if MANIFEST_JSON=$(curl -sf --max-time 15 "$MANIFEST_URL" 2>/dev/null); then
+      # A few tries, because WiFi and DNS can still be settling. If all fail,
+      # the baked-in target below is the fallback.
+      MANIFEST_JSON=""
+      for attempt in 1 2 3 4 5; do
+        MANIFEST_JSON=$(curl -sf --max-time 15 "$MANIFEST_URL" 2>/dev/null) && break
+        MANIFEST_JSON=""
+        echo "Manifest fetch failed (attempt $attempt/5)"
+        [ "$attempt" -lt 5 ] && sleep 20
+      done
+      if [ -n "$MANIFEST_JSON" ]; then
         # jq comma-stream encodes the priority order; first available, valid path
         # wins. TEMPORARY: the unstable trunk is pinned to source_ref "nixos"
         # because the NixOS line still lives on the nixos branch, not main. Drop
@@ -180,17 +200,6 @@ in {
         exit 1
       fi
 
-      # The Pi has no RTC: at cold boot the clock starts in the past, so TLS
-      # validation against the binary cache fails ("certificate is not yet
-      # valid") and the download aborts. Wait for timesyncd to fix the clock.
-      echo "Waiting for clock synchronization..."
-      for _ in $(seq 1 120); do
-        [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = yes ] && break
-        [ -e /run/systemd/timesync/synchronized ] && break
-        sleep 1
-      done
-      echo "Clock: $(date -u)"
-
       # First-boot fetches the whole system, so per-path byte sizing would mean
       # tens of thousands of cache lookups — too slow. Count the paths to fetch
       # (one dry-run, timeout-bounded so it can't hang) and show a path-count
@@ -202,15 +211,28 @@ in {
       set -e
       echo "Downloading full PiFinder system: $STORE_PATH ($TOTAL_PATHS paths)"
 
-      COPIED=0
-      nix build "$STORE_PATH" --max-jobs 0 2>&1 | while IFS= read -r line; do
-        echo "$line"
-        case "$line" in
-          *"copying path "*)
-            COPIED=$((COPIED + 1))
-            [ "$TOTAL_PATHS" -gt 0 ] && echo "$((COPIED * 100 / TOTAL_PATHS))" > "$PROGRESS_FILE"
-            ;;
-        esac
+      download() {
+        COPIED=0
+        nix build "$STORE_PATH" --max-jobs 0 2>&1 | while IFS= read -r line; do
+          echo "$line"
+          case "$line" in
+            *"copying path "*)
+              COPIED=$((COPIED + 1))
+              [ "$TOTAL_PATHS" -gt 0 ] && echo "$((COPIED * 100 / TOTAL_PATHS))" > "$PROGRESS_FILE"
+              ;;
+          esac
+        done
+      }
+      # Paths that are already downloaded stay in the store, so each try
+      # continues where the last one stopped. If all tries fail, the service
+      # fails and runs again at the next boot; nothing is deleted.
+      for attempt in 1 2 3; do
+        download && break
+        echo "Download failed (attempt $attempt/3)"
+        if [ "$attempt" -eq 3 ]; then
+          exit 1
+        fi
+        sleep 60
       done
       echo 100 > "$PROGRESS_FILE"
 
@@ -314,8 +336,8 @@ in {
   };
 
   # NetworkManager-wait-online adds ~10s to boot but is needed for
-  # pifinder-first-boot to have internet. The first-boot script also has
-  # its own connectivity retry loop as a fallback.
+  # pifinder-first-boot to have internet. The first-boot script also retries
+  # the manifest fetch and the download.
   systemd.services.NetworkManager-wait-online.serviceConfig.TimeoutStartSec = "30s";
 
   system.stateVersion = "24.11";
