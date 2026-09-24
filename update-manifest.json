@@ -3,6 +3,21 @@
     "beta": [
       {
         "available": true,
+        "built_at": "2026-09-24T20:58:13+00:00",
+        "kind": "release",
+        "label": "v3.0.1-beta",
+        "migration_sha256_url": "https://github.com/brickbots/PiFinder/releases/download/v3.0.1-beta/pifinder-migration-v3.0.1-beta.tar.zst.sha256",
+        "migration_url": "https://github.com/brickbots/PiFinder/releases/download/v3.0.1-beta/pifinder-migration-v3.0.1-beta.tar.zst",
+        "notes": "NixOS beta from nixos head (6843b0dc). Adds CM4/v4 support, SQM calibration rework, optics and GPS fixes, and the web Data page. Known faults: default root password, web API without login.",
+        "source_ref": "v3.0.1-beta",
+        "source_repo": "mrosseel/PiFinder",
+        "source_sha": "6843b0dc7bb61ec0ef7a5a6d20d11141785aa796",
+        "store_path": "/nix/store/qbcpmb1gdj5knak1mf8n546dxhg4ckjh-nixos-system-pifinder-25.11.20260209.2db38e0",
+        "title": "PiFinder v3.0.1-beta",
+        "version": "3.0.1"
+      },
+      {
+        "available": true,
         "kind": "release",
         "label": "v3.0.0-beta",
         "migration_sha256_url": "https://github.com/brickbots/PiFinder/releases/download/v3.0.0-beta/pifinder-migration-v3.0.0-beta.tar.zst.sha256",
@@ -142,6 +157,6 @@
       }
     ]
   },
-  "generated_at": "2026-09-04T14:01:09+00:00",
+  "generated_at": "2026-09-24T20:58:13+00:00",
   "schema": 1
 }
