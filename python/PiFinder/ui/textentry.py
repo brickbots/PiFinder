@@ -363,6 +363,14 @@ class UITextEntry(UIModule):
         self.current_text = ""
         self.update_search_results()
 
+    def key_text(self, char: str):
+        if len(char) != 1:
+            return
+        self.last_key = None
+        self.char_index = 0
+        self.last_key_press_time = time.time()
+        self.add_char(char)
+
     def key_number(self, number):
         current_time = time.time()
         number_key = str(number)

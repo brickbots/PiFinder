@@ -106,6 +106,61 @@ try:
         assert "# 127.0.1.1 oldname\n" in result
         assert result.endswith("127.0.1.1\tpf-rich\n")
 
+    @pytest.mark.unit
+    def test_parse_bluetooth_devices_merges_fields():
+        output = """
+        \x1b[0;94m[bluetooth]# Device AA:BB:CC:DD:EE:FF Keychron K2\r
+        Device AA:BB:CC:DD:EE:FF Paired: yes
+        Device AA:BB:CC:DD:EE:FF Connected: no
+        Device AA:BB:CC:DD:EE:FF Icon: input-keyboard
+        Device 11:22:33:44:55:66 11:22:33:44:55:66
+        Device 11:22:33:44:55:66 Name: Travel Mouse
+        """
+
+        devices = sys_utils._parse_bluetooth_devices(output)
+
+        keyboard = devices["AA:BB:CC:DD:EE:FF"]
+        assert keyboard["name"] == "Keychron K2"
+        assert keyboard["paired"] is True
+        assert keyboard["connected"] is False
+        assert keyboard["icon"] == "input-keyboard"
+        assert sys_utils.is_bluetooth_keyboard(keyboard)
+
+        mouse = devices["11:22:33:44:55:66"]
+        assert mouse["name"] == "Travel Mouse"
+        assert not sys_utils.is_bluetooth_keyboard(mouse)
+
+    @pytest.mark.unit
+    def test_list_bluetooth_devices_uses_info_status(monkeypatch):
+        def fake_bluetoothctl(commands, timeout=20):
+            if commands == ["power on", "devices", "devices Paired"]:
+                return "Device AA:BB:CC:DD:EE:FF AA:BB:CC:DD:EE:FF\n"
+            if commands == ["info AA:BB:CC:DD:EE:FF"]:
+                return """
+                Name: Compact Keyboard
+                Paired: yes
+                Trusted: yes
+                Connected: yes
+                Icon: input-keyboard
+                """
+            return ""
+
+        monkeypatch.setattr(sys_utils, "_bluetoothctl", fake_bluetoothctl)
+
+        devices = sys_utils.list_bluetooth_devices()
+
+        assert devices == [
+            {
+                "address": "AA:BB:CC:DD:EE:FF",
+                "name": "Compact Keyboard",
+                "paired": True,
+                "trusted": True,
+                "connected": True,
+                "blocked": False,
+                "icon": "input-keyboard",
+            }
+        ]
+
 
 except ImportError:
     pass

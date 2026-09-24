@@ -252,6 +252,53 @@ def go_wifi_cli():
     return True
 
 
+BLUETOOTHCTL_COMMAND = "bluetoothctl"
+
+
+def is_bluetooth_keyboard(device):
+    name = str(device.get("name", "")).lower()
+    icon = str(device.get("icon", "")).lower()
+    return "keyboard" in name or "keys" in name or icon == "input-keyboard"
+
+
+def list_bluetooth_devices(scan_output=""):
+    return []
+
+
+def scan_bluetooth_devices(scan_seconds=12):
+    logger.info("SYS: Fake Bluetooth scan for %s seconds", scan_seconds)
+    return []
+
+
+def connect_bluetooth_device(address, timeout=25):
+    logger.info("SYS: Fake Bluetooth connect %s", address)
+    return "Done"
+
+
+def disconnect_bluetooth_device(address):
+    logger.info("SYS: Fake Bluetooth disconnect %s", address)
+    return "Done"
+
+
+def remove_bluetooth_device(address):
+    logger.info("SYS: Fake Bluetooth remove %s", address)
+    return "Done"
+
+
+def reconnect_bluetooth_keyboards(connect_timeout=25):
+    logger.info("SYS: Fake Bluetooth keyboard reconnect")
+    return 0
+
+
+def auto_reconnect_bluetooth_keyboards(
+    attempts=12,
+    delay_seconds=5,
+    connect_timeout=10,
+):
+    logger.info("SYS: Fake Bluetooth keyboard auto-reconnect")
+    return 0
+
+
 def verify_password(username, password):
     """
     Checks the provided password against the provided user
