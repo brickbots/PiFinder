@@ -1,6 +1,7 @@
 import pytest
 
 try:
+    from PiFinder import board_config
     from PiFinder import sys_utils
 
     @pytest.mark.unit
@@ -66,6 +67,51 @@ try:
         wpa_list = [line for line in example2.split("\n") if line.strip()]
         result = sys_utils.Network._parse_wpa_supplicant(wpa_list)
         assert result[1]["psk"] == "1234@===!!!"
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        ("model", "profile", "gps_device", "uart_overlay"),
+        [
+            (
+                "Raspberry Pi 5 Model B Rev 1.0",
+                "pi5_class",
+                "/dev/ttyAMA2",
+                "dtoverlay=uart2-pi5",
+            ),
+            (
+                "Raspberry Pi Compute Module 5 Rev 1.0",
+                "pi5_class",
+                "/dev/ttyAMA2",
+                "dtoverlay=uart2-pi5",
+            ),
+            (
+                "Raspberry Pi 4 Model B Rev 1.5",
+                "pi4",
+                "/dev/ttyAMA3",
+                "dtoverlay=uart3",
+            ),
+            (
+                "Raspberry Pi 3 Model B Plus Rev 1.3",
+                "legacy",
+                "/dev/ttyAMA1",
+                "dtoverlay=uart3",
+            ),
+        ],
+    )
+    def test_board_profile_by_model(model, profile, gps_device, uart_overlay):
+        board_profile = board_config.get_board_profile(model)
+
+        assert board_profile.name == profile
+        assert board_profile.gps_device == gps_device
+        assert board_profile.uart_overlay == uart_overlay
+
+    @pytest.mark.unit
+    def test_resolve_gpsd_device_uses_board_default(monkeypatch):
+        monkeypatch.setattr(sys_utils, "get_default_gpsd_device", lambda: "/dev/ttyAMA3")
+
+        assert sys_utils.resolve_gpsd_device(None) == "/dev/ttyAMA3"
+        assert sys_utils.resolve_gpsd_device("auto") == "/dev/ttyAMA3"
+        assert sys_utils.resolve_gpsd_device("/dev/ttyACM0") == "/dev/ttyACM0"
 
     @pytest.mark.unit
     def test_rewrite_hosts_standard_line():
