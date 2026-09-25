@@ -144,6 +144,11 @@ in {
   };
 
   config = {
+    # Scripted stage 1, as on NixOS 25.11. 26.05 defaults to the systemd
+    # initrd; moving to it changes the early boot path and needs its own
+    # device test. The netboot config also uses scripted-initrd options.
+    boot.initrd.systemd.enable = false;
+
     # The nixos-hardware Raspberry Pi kernel expression fixes its patch list
     # after normal package overrides, so boot.kernelPatches cannot extend it.
     boot.kernelPackages = lib.mkForce (pkgs.linuxPackagesFor (
