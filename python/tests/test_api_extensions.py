@@ -96,3 +96,44 @@ def test_diagnostics_and_timing_keys_preserved():
     assert d["solve_time"] == 1234.5
     assert d["cam_solve_time"] == 1234.5
     json.dumps(d, default=str)  # full payload is JSON-serializable
+
+
+@pytest.mark.unit
+def test_raw_png_preserves_16bit_values():
+    """A 12-bit sensor frame must survive the PNG round trip intact.
+
+    Rendering uint16 via Image.fromarray(..., mode="L") reinterprets the
+    16-bit buffer as 8-bit and yields interleaved-byte noise that still looks
+    like a plausible image -- convincing enough to waste a night of captures
+    before anyone checks the histogram. Pin the values.
+    """
+    import io
+
+    import numpy as np
+    from PIL import Image
+
+    from PiFinder.api_extensions import _raw_to_png as to_png
+
+    frame = np.array([[0, 1, 255, 256], [4095, 2048, 300, 65535]], dtype=np.uint16)
+
+    buf = io.BytesIO()
+    to_png(frame).save(buf, format="PNG")
+    buf.seek(0)
+    restored = np.asarray(Image.open(buf))
+
+    np.testing.assert_array_equal(restored, frame)
+
+
+@pytest.mark.unit
+def test_full_raw_request_is_one_shot():
+    """One request yields one frame; the camera must not keep publishing 4 MB."""
+    from PiFinder.state import SharedStateObj
+
+    state = SharedStateObj()
+    assert state.cam_raw_full_requested() is False
+
+    state.request_cam_raw_full()
+    assert state.cam_raw_full_requested() is True
+
+    state.set_cam_raw_full(object())
+    assert state.cam_raw_full_requested() is False
