@@ -74,7 +74,11 @@
       # kernel; a non-null value injects a prebuilt (e.g. cross-built) one.
       specialArgs = pythonInputs // { pifinderKernel = kernel; };
       modules = commonModules ++ [
-        { pifinder.devMode = false; }
+        {
+          pifinder.devMode = false;
+          # Delta prefetch for upgrades (pifinder-differ, NixOS ADR 0036).
+          pifinder.deltaUrl = "https://deltas.pifinder.eu";
+        }
         # Camera specialisations — base is imx462 (default), specialisations for others
         ({ ... }: {
           specialisation = {
