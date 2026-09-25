@@ -361,3 +361,19 @@ def test_request_delta_sends_session_header(monkeypatch):
     monkeypatch.setattr(delta_updates.urllib.request, "urlopen", _open)
     delta_updates.request_delta(TARGET, [BASE], "tok-1")
     assert captured["session"] == "tok-1"
+
+
+def test_work_root_creates_dir_and_removes_leftovers(tmp_path):
+    root = tmp_path / "delta-work"
+    root.mkdir()
+    (root / "pifinder-delta.old").mkdir()
+    (root / "keep.txt").write_text("x")
+    assert delta_updates._work_root(root) == str(root)
+    assert not (root / "pifinder-delta.old").exists()
+    assert (root / "keep.txt").exists()
+
+
+def test_work_root_falls_back_when_unusable(tmp_path):
+    blocker = tmp_path / "file"
+    blocker.write_text("x")
+    assert delta_updates._work_root(blocker / "sub") is None

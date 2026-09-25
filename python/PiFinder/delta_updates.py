@@ -54,6 +54,10 @@ logger = logging.getLogger("PiFinder.delta_updates")
 
 STORE_DIR = Path("/nix/store")
 
+# Scratch space for patches and NARs. It must be on the SD card: /tmp is a
+# 200 MiB tmpfs on the device, smaller than FREE_SPACE_SLACK alone.
+WORK_ROOT = Path("/var/lib/pifinder/delta-work")
+
 # One retry cycle on a 202: the server is computing a miss. Pre-warmed pairs
 # answer 200 immediately; a genuinely cold pair is not worth stalling the
 # upgrade for, so after RETRIES the path falls back to a normal download.
@@ -400,6 +404,21 @@ def apply_delta(
                 pass
 
 
+def _work_root(root: Path = WORK_ROOT) -> str | None:
+    """Create the scratch root and remove what an interrupted run left there.
+
+    None (the system temp dir) if it cannot be created.
+    """
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        for stale in root.glob("pifinder-delta.*"):
+            shutil.rmtree(stale, ignore_errors=True)
+        return str(root)
+    except OSError as exc:
+        logger.warning("delta work dir %s unusable: %s", root, exc)
+        return None
+
+
 # --------------------------------------------------------------------------
 # The one entry point nixos_upgrade calls.
 
@@ -424,7 +443,9 @@ def prefetch_deltas(
         if session is None:
             return 0
         index = local_store_index()
-        with tempfile.TemporaryDirectory(prefix="pifinder-delta.") as tmp:
+        with tempfile.TemporaryDirectory(
+            prefix="pifinder-delta.", dir=_work_root()
+        ) as tmp:
             workdir = Path(tmp)
             waiting: list[tuple[str, list[str]]] = []
             for target in paths:
