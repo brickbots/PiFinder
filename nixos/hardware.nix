@@ -240,7 +240,7 @@ in {
       # persists; hashedPassword would re-enforce "solveit" on every activation
       # and silently revert the user's password on the next upgrade.
       initialPassword = "solveit";
-      extraGroups = [ "wheel" "spi" "i2c" "gpio" "dialout" "video" "networkmanager" "systemd-journal" "input" "kmem" ];
+      extraGroups = [ "wheel" "spi" "i2c" "gpio" "dialout" "video" "networkmanager" "systemd-journal" "input" ];
     };
     users.groups = {
       spi = {};
