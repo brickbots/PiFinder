@@ -438,6 +438,11 @@ def prefetch_deltas(
     if not enabled() or not caches:
         return 0
     imported = 0
+    # For the summary line: paths with no local base, and patches that could
+    # not be applied. The rest of the missing paths download in full.
+    no_basis = 0
+    failed = 0
+    missing = 0
     try:
         session = start_session(target_toplevel)
         if session is None:
@@ -451,8 +456,10 @@ def prefetch_deltas(
             for target in paths:
                 if Path(target).exists():
                     continue
+                missing += 1
                 bases = basis_candidates(target, index)
                 if not bases:
+                    no_basis += 1
                     continue
                 state, info = request_delta(target, bases, session)
                 if state == "hit":
@@ -460,6 +467,7 @@ def prefetch_deltas(
                         apply_delta(target, info, workdir, session, caches)
                         imported += 1
                     except DeltaError as exc:
+                        failed += 1
                         logger.warning("delta for %s failed: %s", target, exc)
                 elif state == "wait":
                     waiting.append((target, bases))
@@ -477,12 +485,21 @@ def prefetch_deltas(
                             apply_delta(target, info, workdir, session, caches)
                             imported += 1
                         except DeltaError as exc:
+                            failed += 1
                             logger.warning("delta for %s failed: %s", target, exc)
                     elif state == "wait":
                         still.append((target, bases))
                 waiting = still
     except Exception as exc:  # noqa: BLE001 — must never break the upgrade
         logger.warning("delta prefetch aborted: %s", exc)
-    if imported:
-        logger.info("delta prefetch imported %d path(s)", imported)
+    if missing:
+        logger.info(
+            "delta prefetch: %d of %d missing path(s) imported as patches; "
+            "%d had no local base, %d patch(es) failed, %d download in full",
+            imported,
+            missing,
+            no_basis,
+            failed,
+            missing - imported,
+        )
     return imported

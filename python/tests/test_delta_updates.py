@@ -377,3 +377,15 @@ def test_work_root_falls_back_when_unusable(tmp_path):
     blocker = tmp_path / "file"
     blocker.write_text("x")
     assert delta_updates._work_root(blocker / "sub") is None
+
+
+def test_prefetch_logs_summary(monkeypatch, caplog):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t: "s")
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {})
+    monkeypatch.setattr(delta_updates, "_work_root", lambda: None)
+    with caplog.at_level("INFO", logger="PiFinder.delta_updates"):
+        got = delta_updates.prefetch_deltas(TARGET, (TARGET,), ("https://c",))
+    assert got == 0
+    assert "0 of 1 missing path(s) imported" in caplog.text
+    assert "1 had no local base" in caplog.text
