@@ -20,8 +20,13 @@ simply don't provision the overlay and get the hardware bus.
 import glob
 import logging
 
-import board
-from adafruit_extended_bus import ExtendedI2C
+from PiFinder.blinka_board import force_pi_board
+
+# Must run before Blinka's board detection (import board below).
+force_pi_board()
+
+import board  # noqa: E402
+from adafruit_extended_bus import ExtendedI2C  # noqa: E402
 
 logger = logging.getLogger("I2C")
 
