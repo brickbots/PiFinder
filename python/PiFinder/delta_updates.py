@@ -19,11 +19,15 @@ Protocol (server: pifinder-differ):
 
 A patch reconstructs the target's NAR from the base's NAR (`nix-store --dump`
 on both ends is canonical, so the server and the device see identical base
-bytes). The reconstructed NAR is verified against nar_sha256 BEFORE import —
-`nix-store --import` does not check the NAR against the store path name for
-input-addressed paths, so this line is what stands between a bad patch and a
-corrupt store. Import framing (references, deriver) is assembled locally from
-the /delta response.
+bytes). The delta server is not trusted for content: the reconstructed NAR is
+imported only through Nix's own signature check. The device fetches the
+target's signed .narinfo from the binary cache, puts it with the NAR into a
+temporary file:// binary cache, and runs `nix copy --from` on it. Nix then
+checks the signature against the configured trusted-public-keys and the
+NarHash, NarSize and references, the same as for a normal download. The
+narinfo signature covers only the path, NarHash, NarSize and references, so
+the local copy may change URL and Compression. nar_sha256 from /delta is a
+cheap early check before that import.
 
 Best-effort throughout: every failure path leaves the work to the binary
 cache. Disabled unless PIFINDER_DELTA_URL is set (wired through the
@@ -39,7 +43,6 @@ import json
 import logging
 import os
 import shutil
-import struct
 import subprocess
 import tempfile
 import time
@@ -205,68 +208,84 @@ def request_delta(target: str, bases: list[str], session: str) -> tuple[str, dic
 
 
 # --------------------------------------------------------------------------
-# Import-stream framing.
-#
-# `nix-store --import` reads the `nix-store --export` wire format. We have the
-# NAR (reconstructed by the patch) and the metadata (from /delta), so the
-# framing is assembled here instead of shipped: per path a u64 1 marker, the
-# NAR bytes, the magic 0x4558494e, the store path, the references, the deriver
-# ("" if none) and a u64 0; a final u64 0 ends the stream. Strings are u64le
-# length + bytes zero-padded to 8.
-
-EXPORT_MAGIC = 0x4558494E
+# Verified import through a local binary cache.
 
 
-def _u64(n: int) -> bytes:
-    return struct.pack("<Q", n)
+def fetch_narinfo(target: str, caches: tuple[str, ...]) -> str | None:
+    """The target's signed .narinfo from the first cache that has it."""
+    parts = split_store_path(target)
+    if parts is None:
+        return None
+    for cache in caches:
+        url = f"{cache.rstrip('/')}/{parts[0]}.narinfo"
+        try:
+            with urllib.request.urlopen(url, timeout=REQUEST_TIMEOUT) as resp:
+                return resp.read().decode()
+        except (urllib.error.URLError, OSError, TimeoutError, UnicodeDecodeError):
+            continue
+    return None
 
 
-def _string(s: str) -> bytes:
-    raw = s.encode()
-    pad = (8 - len(raw) % 8) % 8
-    return _u64(len(raw)) + raw + b"\x00" * pad
+# Fields that describe the cache's compressed file, not the NAR. The signature
+# does not cover them, so the local copy replaces them.
+_FILE_FIELDS = ("URL", "Compression", "FileHash", "FileSize")
 
 
-def import_stream_parts(
-    target: str, references: list[str], deriver: str | None
-) -> tuple[bytes, bytes]:
-    """(prefix, suffix) around the raw NAR bytes of a one-path import stream."""
-    prefix = _u64(1)
-    suffix = _u64(EXPORT_MAGIC)
-    suffix += _string(target)
-    suffix += _u64(len(references))
-    for ref in sorted(references):
-        suffix += _string(ref)
-    suffix += _string(deriver or "")
-    suffix += _u64(0)  # no legacy signature
-    suffix += _u64(0)  # end of stream
-    return prefix, suffix
+def local_cache_narinfo(narinfo: str, target: str, nar_name: str) -> str:
+    """Rewrite a cache narinfo to point at an uncompressed local NAR.
+
+    Keeps StorePath, NarHash, NarSize, References, Deriver and every Sig line
+    as served. Raises DeltaError if the narinfo is for another path or has no
+    signature.
+    """
+    kept: list[str] = []
+    store_path = ""
+    has_sig = False
+    for line in narinfo.splitlines():
+        key, sep, value = line.partition(": ")
+        if not sep:
+            continue
+        if key == "StorePath":
+            store_path = value.strip()
+        if key == "Sig":
+            has_sig = True
+        if key in _FILE_FIELDS:
+            continue
+        kept.append(line)
+    if store_path != target:
+        raise DeltaError(f"narinfo is for {store_path!r}, not {target}")
+    if not has_sig:
+        raise DeltaError(f"narinfo for {target} has no signature")
+    kept += [f"URL: nar/{nar_name}", "Compression: none"]
+    return "\n".join(kept) + "\n"
 
 
-def import_nar(
-    target: str, nar_file: Path, references: list[str], deriver: str | None
-) -> None:
-    """Feed prefix + NAR + suffix to `nix-store --import` without holding the
-    NAR in memory."""
-    prefix, suffix = import_stream_parts(target, references, deriver)
-    proc = subprocess.Popen(
-        ["nix-store", "--import"],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    assert proc.stdin is not None
+def import_verified(target: str, narinfo: str, nar_file: Path, workdir: Path) -> None:
+    """Import `nar_file` as `target` through `nix copy` from a file:// cache,
+    so Nix checks the narinfo signature and the NAR hash, size and references.
+    Moves `nar_file` into the cache directory."""
+    parts = split_store_path(target)
+    if parts is None:
+        raise DeltaError(f"not a store path: {target}")
+    nar_name = f"{parts[0]}.nar"
+    cache = workdir / "cache"
+    (cache / "nar").mkdir(parents=True, exist_ok=True)
     try:
-        proc.stdin.write(prefix)
-        with nar_file.open("rb") as f:
-            shutil.copyfileobj(f, proc.stdin, 1024 * 1024)
-        proc.stdin.write(suffix)
-        proc.stdin.close()
-    except BrokenPipeError:
-        pass
-    _, err = proc.communicate(timeout=600)
-    if proc.returncode != 0:
-        raise DeltaError(f"nix-store --import failed: {err.decode().strip()}")
+        (cache / "nix-cache-info").write_text("StoreDir: /nix/store\n")
+        (cache / f"{parts[0]}.narinfo").write_text(
+            local_cache_narinfo(narinfo, target, nar_name)
+        )
+        nar_file.replace(cache / "nar" / nar_name)
+        copy = subprocess.run(
+            ["nix", "copy", "--from", f"file://{cache}", target],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        if copy.returncode != 0:
+            raise DeltaError(f"nix copy failed: {copy.stderr.strip()}")
+    finally:
+        shutil.rmtree(cache, ignore_errors=True)
 
 
 class DeltaError(RuntimeError):
@@ -292,10 +311,16 @@ def _download(url: str, dest: Path, session: str) -> None:
             shutil.copyfileobj(resp, f, 1024 * 1024)
 
 
-def apply_delta(target: str, info: dict, workdir: Path, session: str = "") -> None:
-    """Reconstruct `target` from a local base plus the served patch, verify,
-    and import. Raises DeltaError on any problem; never leaves a registered
-    path unverified."""
+def apply_delta(
+    target: str,
+    info: dict,
+    workdir: Path,
+    session: str = "",
+    caches: tuple[str, ...] = (),
+) -> None:
+    """Reconstruct `target` from a local base plus the served patch, and
+    import it through Nix's signature check. Raises DeltaError on any problem;
+    never leaves a registered path unverified."""
     basis = info.get("basis") or []
     base = basis[0] if basis else None
     window_log = int(info.get("window_log") or 0)
@@ -307,6 +332,10 @@ def apply_delta(target: str, info: dict, workdir: Path, session: str = "") -> No
         raise DeltaError(f"window 2^{window_log} exceeds device budget")
     if not Path(base).exists():
         raise DeltaError(f"basis {base} disappeared")
+
+    narinfo = fetch_narinfo(target, caches)
+    if narinfo is None:
+        raise DeltaError(f"no signed narinfo for {target}")
 
     free = shutil.disk_usage(workdir).free
     need = 2 * nar_size + int(info.get("size") or 0) + FREE_SPACE_SLACK
@@ -352,16 +381,15 @@ def apply_delta(target: str, info: dict, workdir: Path, session: str = "") -> No
         if unzstd.returncode != 0:
             raise DeltaError(f"zstd failed: {unzstd.stderr.strip()}")
 
-        # The line between a bad patch and a corrupt store.
+        # Early check only: a bad patch fails here without a nix copy. The
+        # import below is what checks the signed hash.
         digest = _sha256(new_nar)
         if digest != nar_sha256:
             raise DeltaError(
                 f"reconstructed NAR hash mismatch ({digest} != {nar_sha256})"
             )
 
-        import_nar(
-            target, new_nar, list(info.get("references") or []), info.get("deriver")
-        )
+        import_verified(target, narinfo, new_nar, workdir)
     except (OSError, subprocess.TimeoutExpired, urllib.error.URLError) as exc:
         raise DeltaError(str(exc)) from exc
     finally:
@@ -376,14 +404,19 @@ def apply_delta(target: str, info: dict, workdir: Path, session: str = "") -> No
 # The one entry point nixos_upgrade calls.
 
 
-def prefetch_deltas(target_toplevel: str, paths: tuple[str, ...]) -> int:
+def prefetch_deltas(
+    target_toplevel: str, paths: tuple[str, ...], caches: tuple[str, ...] = ()
+) -> int:
     """Fill the local store from patches. Returns paths imported.
+
+    `caches` are the binary caches that serve the signed narinfo for each
+    path. With none, nothing can be imported.
 
     Best-effort: any failure — server down, patch broken, disk full — just
     means that path substitutes from the binary cache as before. Must never
     raise.
     """
-    if not enabled():
+    if not enabled() or not caches:
         return 0
     imported = 0
     try:
@@ -403,7 +436,7 @@ def prefetch_deltas(target_toplevel: str, paths: tuple[str, ...]) -> int:
                 state, info = request_delta(target, bases, session)
                 if state == "hit":
                     try:
-                        apply_delta(target, info, workdir, session)
+                        apply_delta(target, info, workdir, session, caches)
                         imported += 1
                     except DeltaError as exc:
                         logger.warning("delta for %s failed: %s", target, exc)
@@ -420,7 +453,7 @@ def prefetch_deltas(target_toplevel: str, paths: tuple[str, ...]) -> int:
                     state, info = request_delta(target, bases, session)
                     if state == "hit":
                         try:
-                            apply_delta(target, info, workdir, session)
+                            apply_delta(target, info, workdir, session, caches)
                             imported += 1
                         except DeltaError as exc:
                             logger.warning("delta for %s failed: %s", target, exc)

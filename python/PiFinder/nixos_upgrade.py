@@ -508,7 +508,7 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
             raise UpgradeError(f"invalid store path: {store_path!r}")
 
         estimate = estimate_download(store_path)
-        if delta_updates.prefetch_deltas(store_path, estimate.paths):
+        if delta_updates.prefetch_deltas(store_path, estimate.paths, CACHES):
             # Imported paths won't be downloaded; re-estimate so the
             # progress denominators match what nix will actually fetch.
             estimate = estimate_download(store_path)
