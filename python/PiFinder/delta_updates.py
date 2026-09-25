@@ -2,8 +2,10 @@
 
 Before nixos_upgrade lets nix download whole store paths, this module asks the
 delta server for byte-level patches against store paths the device already
-holds (any retained generation), applies them, and imports the results into
-the store. Everything it manages to import is a path nix no longer downloads.
+holds (any retained generation), and rebuilds the target NARs from them. The
+rebuilt NARs go into a local file:// binary cache, which the upgrade's
+`nix build` uses as its preferred substituter. Every path it finds there is a
+path nix no longer downloads.
 
 Protocol (server: pifinder-differ):
     POST {url}/update-start {"target_toplevel": "/nix/store/..."}
@@ -19,15 +21,14 @@ Protocol (server: pifinder-differ):
 
 A patch reconstructs the target's NAR from the base's NAR (`nix-store --dump`
 on both ends is canonical, so the server and the device see identical base
-bytes). The delta server is not trusted for content: the reconstructed NAR is
-imported only through Nix's own signature check. The device fetches the
-target's signed .narinfo from the binary cache, puts it with the NAR into a
-temporary file:// binary cache, and runs `nix copy --from` on it. Nix then
-checks the signature against the configured trusted-public-keys and the
-NarHash, NarSize and references, the same as for a normal download. The
-narinfo signature covers only the path, NarHash, NarSize and references, so
-the local copy may change URL and Compression. nar_sha256 from /delta is a
-cheap early check before that import.
+bytes). The delta server is not trusted for content. Each rebuilt NAR is
+staged with the target's signed .narinfo from the binary cache, and nix
+itself substitutes it: it checks the signature against the configured
+trusted-public-keys and the NarHash, NarSize and references, the same as for
+a normal download, and it puts the paths in dependency order. The narinfo
+signature covers only the path, NarHash, NarSize and references, so the local
+copy may change URL and Compression. nar_sha256 from /delta is a cheap early
+check before staging.
 
 Best-effort throughout: every failure path leaves the work to the binary
 cache. Disabled unless PIFINDER_DELTA_URL is set (wired through the
@@ -45,10 +46,14 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable, Optional
 
 logger = logging.getLogger("PiFinder.delta_updates")
 
@@ -77,6 +82,14 @@ MAX_WINDOW_LOG = 28
 # Applying needs base NAR + patch + reconstructed NAR on disk at once, plus
 # slack for the rest of the upgrade.
 FREE_SPACE_SLACK = 512 * 1024 * 1024
+
+# Paths patched at the same time. The server computes misses with 2 workers;
+# most work here is waiting on the network and on nix-store --dump.
+WORKERS = 3
+
+# The staged cache must win over cache.pifinder.eu (Priority 41) and
+# cache.nixos.org (40). Lower is preferred.
+STAGED_CACHE_PRIORITY = 10
 
 
 def enabled() -> bool:
@@ -264,34 +277,6 @@ def local_cache_narinfo(narinfo: str, target: str, nar_name: str) -> str:
     return "\n".join(kept) + "\n"
 
 
-def import_verified(target: str, narinfo: str, nar_file: Path, workdir: Path) -> None:
-    """Import `nar_file` as `target` through `nix copy` from a file:// cache,
-    so Nix checks the narinfo signature and the NAR hash, size and references.
-    Moves `nar_file` into the cache directory."""
-    parts = split_store_path(target)
-    if parts is None:
-        raise DeltaError(f"not a store path: {target}")
-    nar_name = f"{parts[0]}.nar"
-    cache = workdir / "cache"
-    (cache / "nar").mkdir(parents=True, exist_ok=True)
-    try:
-        (cache / "nix-cache-info").write_text("StoreDir: /nix/store\n")
-        (cache / f"{parts[0]}.narinfo").write_text(
-            local_cache_narinfo(narinfo, target, nar_name)
-        )
-        nar_file.replace(cache / "nar" / nar_name)
-        copy = subprocess.run(
-            ["nix", "copy", "--from", f"file://{cache}", target],
-            capture_output=True,
-            text=True,
-            timeout=600,
-        )
-        if copy.returncode != 0:
-            raise DeltaError(f"nix copy failed: {copy.stderr.strip()}")
-    finally:
-        shutil.rmtree(cache, ignore_errors=True)
-
-
 class DeltaError(RuntimeError):
     """A delta could not be applied; the path falls back to a download."""
 
@@ -315,16 +300,18 @@ def _download(url: str, dest: Path, session: str) -> None:
             shutil.copyfileobj(resp, f, 1024 * 1024)
 
 
-def apply_delta(
+def stage_delta(
     target: str,
     info: dict,
-    workdir: Path,
+    jobdir: Path,
+    cache: Path,
     session: str = "",
     caches: tuple[str, ...] = (),
 ) -> None:
-    """Reconstruct `target` from a local base plus the served patch, and
-    import it through Nix's signature check. Raises DeltaError on any problem;
-    never leaves a registered path unverified."""
+    """Rebuild `target` from a local base plus the served patch and put it,
+    with its signed narinfo, into the staged binary cache `cache`. Raises
+    DeltaError on any problem. Nothing enters the store here: nix does that
+    during the build, after its signature and hash checks."""
     basis = info.get("basis") or []
     base = basis[0] if basis else None
     window_log = int(info.get("window_log") or 0)
@@ -336,32 +323,30 @@ def apply_delta(
         raise DeltaError(f"window 2^{window_log} exceeds device budget")
     if not Path(base).exists():
         raise DeltaError(f"basis {base} disappeared")
+    parts = split_store_path(target)
+    if parts is None:
+        raise DeltaError(f"not a store path: {target}")
 
     narinfo = fetch_narinfo(target, caches)
     if narinfo is None:
         raise DeltaError(f"no signed narinfo for {target}")
+    nar_name = f"{parts[0]}.nar"
+    local_narinfo = local_cache_narinfo(narinfo, target, nar_name)
 
-    free = shutil.disk_usage(workdir).free
+    free = shutil.disk_usage(jobdir).free
     need = 2 * nar_size + int(info.get("size") or 0) + FREE_SPACE_SLACK
     if free < need:
         raise DeltaError(f"not enough free space ({free} < {need})")
 
-    # A corrupt local base must not silently produce a corrupt target.
-    verify = subprocess.run(
-        ["nix-store", "--verify-path", base],
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
-    if verify.returncode != 0:
-        raise DeltaError(f"basis {base} fails verification")
-
-    patch = workdir / "patch.zst"
-    base_nar = workdir / "base.nar"
-    new_nar = workdir / "new.nar"
+    jobdir.mkdir(parents=True, exist_ok=True)
+    patch = jobdir / "patch.zst"
+    base_nar = jobdir / "base.nar"
+    new_nar = jobdir / "new.nar"
     try:
         _download(f"{_delta_url()}{info['url']}", patch, session)
 
+        # A corrupt local base gives a NAR whose hash does not match; nix then
+        # refuses it and downloads the path. No separate base check needed.
         with base_nar.open("wb") as f:
             dump = subprocess.run(["nix-store", "--dump", base], stdout=f, timeout=600)
         if dump.returncode != 0:
@@ -385,23 +370,20 @@ def apply_delta(
         if unzstd.returncode != 0:
             raise DeltaError(f"zstd failed: {unzstd.stderr.strip()}")
 
-        # Early check only: a bad patch fails here without a nix copy. The
-        # import below is what checks the signed hash.
+        # Early check only: a bad patch stops here. Nix checks the signed hash
+        # when it substitutes from the staged cache.
         digest = _sha256(new_nar)
         if digest != nar_sha256:
             raise DeltaError(
                 f"reconstructed NAR hash mismatch ({digest} != {nar_sha256})"
             )
 
-        import_verified(target, narinfo, new_nar, workdir)
+        new_nar.replace(cache / "nar" / nar_name)
+        (cache / f"{parts[0]}.narinfo").write_text(local_narinfo)
     except (OSError, subprocess.TimeoutExpired, urllib.error.URLError) as exc:
         raise DeltaError(str(exc)) from exc
     finally:
-        for tmp in (patch, base_nar, new_nar):
-            try:
-                tmp.unlink()
-            except OSError:
-                pass
+        shutil.rmtree(jobdir, ignore_errors=True)
 
 
 def _work_root(root: Path = WORK_ROOT) -> str | None:
@@ -419,87 +401,131 @@ def _work_root(root: Path = WORK_ROOT) -> str | None:
         return None
 
 
+@dataclass
+class StagedCache:
+    """Patched NARs ready for the build. `url` is None when nothing is staged."""
+
+    root: Optional[Path] = None
+    count: int = 0
+    failed: int = 0
+
+    @property
+    def url(self) -> Optional[str]:
+        if self.root is None or self.count == 0:
+            return None
+        return f"file://{self.root / 'cache'}"
+
+    def cleanup(self) -> None:
+        if self.root is not None:
+            shutil.rmtree(self.root, ignore_errors=True)
+
+
 # --------------------------------------------------------------------------
 # The one entry point nixos_upgrade calls.
 
 
 def prefetch_deltas(
-    target_toplevel: str, paths: tuple[str, ...], caches: tuple[str, ...] = ()
-) -> int:
-    """Fill the local store from patches. Returns paths imported.
+    target_toplevel: str,
+    paths: tuple[str, ...],
+    caches: tuple[str, ...] = (),
+    progress: Optional[Callable[[int, int], None]] = None,
+) -> StagedCache:
+    """Stage patches for the missing paths. Returns the staged cache; the
+    caller passes its url to nix build and calls cleanup() afterwards.
 
     `caches` are the binary caches that serve the signed narinfo for each
-    path. With none, nothing can be imported.
+    path. With none, nothing can be staged. `progress(done, total)` reports
+    the paths handled so far.
 
     Best-effort: any failure — server down, patch broken, disk full — just
     means that path substitutes from the binary cache as before. Must never
     raise.
     """
+    staged = StagedCache()
     if not enabled() or not caches:
-        return 0
-    imported = 0
-    # For the summary line: paths with no local base, and patches that could
-    # not be applied. The rest of the missing paths download in full.
-    no_basis = 0
-    failed = 0
+        return staged
+    # For the summary line: missing paths, and those with no local base.
     missing = 0
+    no_basis = 0
     try:
         session = start_session(target_toplevel)
         if session is None:
-            return 0
+            return staged
         index = local_store_index()
-        with tempfile.TemporaryDirectory(
-            prefix="pifinder-delta.", dir=_work_root()
-        ) as tmp:
-            workdir = Path(tmp)
-            waiting: list[tuple[str, list[str]]] = []
-            for target in paths:
-                if Path(target).exists():
-                    continue
-                missing += 1
-                bases = basis_candidates(target, index)
-                if not bases:
-                    no_basis += 1
-                    continue
-                state, info = request_delta(target, bases, session)
-                if state == "hit":
-                    try:
-                        apply_delta(target, info, workdir, session, caches)
-                        imported += 1
-                    except DeltaError as exc:
-                        failed += 1
-                        logger.warning("delta for %s failed: %s", target, exc)
-                elif state == "wait":
-                    waiting.append((target, bases))
-
-            # One bounded retry pass for pairs the server was still computing.
-            for _ in range(RETRIES):
-                if not waiting:
-                    break
-                time.sleep(RETRY_WAIT)
-                still: list[tuple[str, list[str]]] = []
-                for target, bases in waiting:
-                    state, info = request_delta(target, bases, session)
-                    if state == "hit":
-                        try:
-                            apply_delta(target, info, workdir, session, caches)
-                            imported += 1
-                        except DeltaError as exc:
-                            failed += 1
-                            logger.warning("delta for %s failed: %s", target, exc)
-                    elif state == "wait":
-                        still.append((target, bases))
-                waiting = still
+        jobs: list[tuple[str, list[str]]] = []
+        for target in paths:
+            if Path(target).exists():
+                continue
+            missing += 1
+            bases = basis_candidates(target, index)
+            if bases:
+                jobs.append((target, bases))
+            else:
+                no_basis += 1
+        if jobs:
+            _stage_all(staged, jobs, session, caches, progress)
     except Exception as exc:  # noqa: BLE001 — must never break the upgrade
         logger.warning("delta prefetch aborted: %s", exc)
     if missing:
         logger.info(
-            "delta prefetch: %d of %d missing path(s) imported as patches; "
+            "delta prefetch: %d of %d missing path(s) staged as patches; "
             "%d had no local base, %d patch(es) failed, %d download in full",
-            imported,
+            staged.count,
             missing,
             no_basis,
-            failed,
-            missing - imported,
+            staged.failed,
+            missing - staged.count,
         )
-    return imported
+    return staged
+
+
+def _stage_all(
+    staged: StagedCache,
+    jobs: list[tuple[str, list[str]]],
+    session: str,
+    caches: tuple[str, ...],
+    progress: Optional[Callable[[int, int], None]],
+) -> None:
+    """Request and stage every job, WORKERS at a time, into a new cache."""
+    root = Path(tempfile.mkdtemp(prefix="pifinder-delta.", dir=_work_root()))
+    staged.root = root
+    cache = root / "cache"
+    (cache / "nar").mkdir(parents=True)
+    (cache / "nix-cache-info").write_text(
+        f"StoreDir: /nix/store\nPriority: {STAGED_CACHE_PRIORITY}\n"
+    )
+
+    lock = threading.Lock()
+    done = 0
+    if progress:
+        progress(0, len(jobs))
+
+    def run(job: tuple[int, tuple[str, list[str]]]) -> str:
+        nonlocal done
+        n, (target, bases) = job
+        result = "none"
+        for attempt in range(RETRIES + 1):
+            state, info = request_delta(target, bases, session)
+            if state == "hit":
+                try:
+                    stage_delta(target, info, root / f"job{n}", cache, session, caches)
+                    result = "staged"
+                except DeltaError as exc:
+                    logger.warning("delta for %s failed: %s", target, exc)
+                    result = "failed"
+                break
+            if state != "wait" or attempt == RETRIES:
+                break
+            # The server is computing this pair; pre-warmed pairs answer
+            # at once, a cold one is not worth stalling the upgrade for.
+            time.sleep(RETRY_WAIT)
+        with lock:
+            done += 1
+            if progress:
+                progress(done, len(jobs))
+        return result
+
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+        results = list(pool.map(run, enumerate(jobs)))
+    staged.count = results.count("staged")
+    staged.failed = results.count("failed")

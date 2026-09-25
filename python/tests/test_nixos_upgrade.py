@@ -220,7 +220,7 @@ def test_run_upgrade_unavailable_writes_unavailable(tmp_path, monkeypatch):
         "estimate_download",
         lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
-    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 1)
+    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate, **_kw: 1)
     monkeypatch.setattr(
         nixos_upgrade, "classify_store_path", lambda _store: nixos_upgrade.ABSENT
     )
@@ -228,7 +228,7 @@ def test_run_upgrade_unavailable_writes_unavailable(tmp_path, monkeypatch):
     rc = nixos_upgrade.run_upgrade(ref_file, "imx462")
 
     assert rc == 1
-    assert statuses == ["starting", "unavailable"]
+    assert statuses == ["starting", "checking", "unavailable"]
 
 
 @pytest.mark.unit
@@ -241,7 +241,7 @@ def test_run_upgrade_unreachable_writes_connfail(tmp_path, monkeypatch):
         "estimate_download",
         lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
-    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 1)
+    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate, **_kw: 1)
     monkeypatch.setattr(
         nixos_upgrade, "classify_store_path", lambda _store: nixos_upgrade.UNREACHABLE
     )
@@ -249,7 +249,7 @@ def test_run_upgrade_unreachable_writes_connfail(tmp_path, monkeypatch):
     rc = nixos_upgrade.run_upgrade(ref_file, "imx462")
 
     assert rc == 1
-    assert statuses == ["starting", "connfail"]
+    assert statuses == ["starting", "checking", "connfail"]
 
 
 @pytest.mark.unit
@@ -262,7 +262,7 @@ def test_run_upgrade_build_failure_writes_failed(tmp_path, monkeypatch):
         "estimate_download",
         lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
-    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 1)
+    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate, **_kw: 1)
     monkeypatch.setattr(
         nixos_upgrade, "classify_store_path", lambda _store: nixos_upgrade.AVAILABLE
     )
@@ -270,7 +270,7 @@ def test_run_upgrade_build_failure_writes_failed(tmp_path, monkeypatch):
     rc = nixos_upgrade.run_upgrade(ref_file, "imx462")
 
     assert rc == 1
-    assert statuses == ["starting", "failed"]
+    assert statuses == ["starting", "checking", "failed"]
 
 
 @pytest.mark.unit
@@ -283,7 +283,7 @@ def test_run_upgrade_activation_failure_writes_failed(tmp_path, monkeypatch):
         "estimate_download",
         lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
-    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 0)
+    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate, **_kw: 0)
     monkeypatch.setattr(nixos_upgrade, "load_selection", dict)
     monkeypatch.setattr(
         nixos_upgrade,
@@ -294,7 +294,7 @@ def test_run_upgrade_activation_failure_writes_failed(tmp_path, monkeypatch):
     rc = nixos_upgrade.run_upgrade(ref_file, "imx462")
 
     assert rc == 1
-    assert statuses == ["starting", "failed"]
+    assert statuses == ["starting", "checking", "failed"]
 
 
 @pytest.mark.unit
@@ -310,7 +310,7 @@ def test_run_upgrade_success_writes_rebooting_and_persists(tmp_path, monkeypatch
         "estimate_download",
         lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
-    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 0)
+    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate, **_kw: 0)
     monkeypatch.setattr(
         nixos_upgrade,
         "load_selection",
@@ -327,7 +327,7 @@ def test_run_upgrade_success_writes_rebooting_and_persists(tmp_path, monkeypatch
     rc = nixos_upgrade.run_upgrade(ref_file, "imx462")
 
     assert rc == 0
-    assert statuses == ["starting", "rebooting"]
+    assert statuses == ["starting", "checking", "rebooting"]
     assert commands == [["systemctl", "reboot"]]
     assert json.loads(current_build.read_text())["version"] == "nixos-test"
 
@@ -344,7 +344,7 @@ def test_run_upgrade_reboot_failure_writes_failed(tmp_path, monkeypatch):
         "estimate_download",
         lambda _store: nixos_upgrade.DownloadEstimate(()),
     )
-    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate: 0)
+    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate, **_kw: 0)
     monkeypatch.setattr(nixos_upgrade, "load_selection", dict)
     monkeypatch.setattr(nixos_upgrade, "activate_system", lambda _store, _camera: None)
     monkeypatch.setattr(nixos_upgrade, "cleanup_old_generations", lambda: None)
@@ -357,7 +357,7 @@ def test_run_upgrade_reboot_failure_writes_failed(tmp_path, monkeypatch):
     rc = nixos_upgrade.run_upgrade(ref_file, "imx462")
 
     assert rc == 1
-    assert statuses == ["starting", "rebooting", "failed"]
+    assert statuses == ["starting", "checking", "rebooting", "failed"]
 
 
 def _setup_activation(tmp_path, monkeypatch, camera_type, specialisations):
@@ -430,3 +430,31 @@ def test_set_extlinux_default_prefers_new_builds_helper(tmp_path, monkeypatch):
 
     nixos_upgrade.set_extlinux_default("imx477", str(tmp_path / "missing"))
     assert calls[-1] == ["set-extlinux-default", "imx477"]
+
+
+def test_run_build_passes_staged_cache_as_substituter(monkeypatch, tmp_path):
+    started = {}
+
+    class FakeProcess:
+        stdout = iter(())
+
+        def wait(self):
+            return 0
+
+    def fake_popen(args, **kwargs):
+        started["args"] = args
+        return FakeProcess()
+
+    monkeypatch.setattr(nixos_upgrade.subprocess, "Popen", fake_popen)
+    nixos_upgrade.run_build(
+        STORE,
+        nixos_upgrade.DownloadEstimate(()),
+        status_file=tmp_path / "status",
+        log_file=tmp_path / "log",
+        substituter="file:///var/lib/pifinder/delta-work/x/cache",
+    )
+    args = started["args"]
+    i = args.index("extra-substituters")
+    assert args[i - 1] == "--option"
+    assert args[i + 1] == "file:///var/lib/pifinder/delta-work/x/cache"
+    assert "--no-check-sigs" not in args

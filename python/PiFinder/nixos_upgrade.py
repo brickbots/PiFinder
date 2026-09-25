@@ -339,6 +339,7 @@ def run_build(
     *,
     status_file: Path = UPGRADE_STATUS_FILE,
     log_file: Path = UPGRADE_LOG_FILE,
+    substituter: str | None = None,
 ) -> int:
     if estimate.total_bytes > 0:
         write_status(f"downloading 0/{estimate.total_bytes}", status_file)
@@ -358,6 +359,10 @@ def run_build(
         "0",
         "--no-link",
     ]
+    if substituter:
+        # The staged delta cache (delta_updates). Its narinfo is the signed
+        # one from the binary cache, so the same signature check applies.
+        build_args += ["--option", "extra-substituters", substituter]
 
     progress = _DownloadProgress(estimate.total_bytes, estimate.path_count, status_file)
     tail: deque[str] = deque(maxlen=40)
@@ -507,12 +512,18 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
         if not valid_store_path(store_path):
             raise UpgradeError(f"invalid store path: {store_path!r}")
 
+        write_status("checking")
         estimate = estimate_download(store_path)
-        if delta_updates.prefetch_deltas(store_path, estimate.paths, CACHES):
-            # Imported paths won't be downloaded; re-estimate so the
-            # progress denominators match what nix will actually fetch.
-            estimate = estimate_download(store_path)
-        build_rc = run_build(store_path, estimate)
+        staged = delta_updates.prefetch_deltas(
+            store_path,
+            estimate.paths,
+            CACHES,
+            progress=lambda done, total: write_status(f"patching {done}/{total}"),
+        )
+        try:
+            build_rc = run_build(store_path, estimate, substituter=staged.url)
+        finally:
+            staged.cleanup()
         if build_rc != 0:
             availability = classify_store_path(store_path)
             if availability == ABSENT:

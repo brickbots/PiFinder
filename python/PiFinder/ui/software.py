@@ -1122,6 +1122,10 @@ class UISoftware(UIModule):
             label = _("Rebooting...")
         elif phase == "activating":
             label = _("Activating...")
+        elif phase == "checking":
+            label = _("Checking...")
+        elif phase == "patching":
+            label = _("Patching...")
         elif phase == "starting":
             label = _("Preparing...")
         else:
@@ -1167,7 +1171,7 @@ class UISoftware(UIModule):
 
         # Amount below the bar: megabytes downloaded out of the total, or a
         # path count in the fallback case where byte sizes were unavailable.
-        if phase == "downloading" and total > 0:
+        if phase in ("downloading", "patching") and total > 0:
             if unit == "bytes":
                 amount_text = f"{done / 1048576:.0f}/{total / 1048576:.0f} MB"
             else:
