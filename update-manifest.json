@@ -3,6 +3,21 @@
     "beta": [
       {
         "available": true,
+        "built_at": "2026-09-25T01:36:19+00:00",
+        "kind": "release",
+        "label": "v3.0.2-beta",
+        "migration_sha256_url": "https://github.com/brickbots/PiFinder/releases/download/v3.0.2-beta/pifinder-migration-v3.0.2-beta.tar.zst.sha256",
+        "migration_url": "https://github.com/brickbots/PiFinder/releases/download/v3.0.2-beta/pifinder-migration-v3.0.2-beta.tar.zst",
+        "notes": "NixOS beta from nixos head (92791b34). Adds the last NixOS 25.11 packages, root only through sudo, a login for the web API control endpoints, signature checks only against configured keys, a first boot that waits for the clock and retries, rollback generations kept by the weekly cleanup, and the camera from before the migration. Known fault: the Raspbian side of the camera carry-over needs a 2.6.x release.",
+        "source_ref": "v3.0.2-beta",
+        "source_repo": "mrosseel/PiFinder",
+        "source_sha": "92791b3467f52313c58625d11b2c5574e156a78d",
+        "store_path": "/nix/store/3258vw6hlxhmd381bhri7xv5ryc0vixg-nixos-system-pifinder-25.11.20260630.b6018f8",
+        "title": "PiFinder v3.0.2-beta",
+        "version": "3.0.2"
+      },
+      {
+        "available": true,
         "built_at": "2026-09-24T20:58:13+00:00",
         "kind": "release",
         "label": "v3.0.1-beta",
@@ -157,6 +172,6 @@
       }
     ]
   },
-  "generated_at": "2026-09-25T01:24:54+00:00",
+  "generated_at": "2026-09-25T01:36:19+00:00",
   "schema": 1
 }
