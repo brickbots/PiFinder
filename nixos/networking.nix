@@ -101,8 +101,13 @@
     };
   };
 
+  # avahi leaves /run/avahi-daemon/pid behind, and a stale pid file stops the
+  # next start. The unit's sandbox drops CAP_DAC_OVERRIDE, and the directory
+  # belongs to the avahi user, so a plain ExecStartPre cannot remove the file
+  # ("Permission denied") and every restart fails. "+" runs this one command
+  # with full privileges.
   systemd.services.avahi-daemon.serviceConfig.ExecStartPre =
-    "${pkgs.coreutils}/bin/rm -f /run/avahi-daemon/pid";
+    "+${pkgs.coreutils}/bin/rm -f /run/avahi-daemon/pid";
 
   # Apply user-chosen hostname from PiFinder_data (survives NixOS rebuilds),
   # overriding networking.hostName above.
@@ -120,8 +125,13 @@
         name=$(cat "$f")
         [ -n "$name" ] || exit 0
         /run/current-system/sw/bin/hostname "$name"
-        /run/current-system/sw/bin/avahi-set-host-name "$name" || \
-          /run/current-system/sw/bin/systemctl restart avahi-daemon.service
+        # avahi can still be starting up; give it time before a restart.
+        for _ in $(seq 1 15); do
+          /run/current-system/sw/bin/avahi-set-host-name "$name" && exit 0
+          sleep 1
+        done
+        /run/current-system/sw/bin/systemctl restart avahi-daemon.service
+        /run/current-system/sw/bin/avahi-set-host-name "$name"
       '';
     };
   };
