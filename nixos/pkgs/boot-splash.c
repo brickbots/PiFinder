@@ -38,8 +38,10 @@
 
 #define PROGRESS_FILE_DEFAULT "/run/pifinder-boot-progress"
 
-/* Include generated image data (128x128, both panels center it) */
+/* Generated image data (nixos/pkgs/gen-welcome-image.py): 128x128 for the
+ * SSD1351, 176x176 for the SSD1333, so each panel shows it full-screen. */
 #include "welcome_image.h"
+#include "welcome_image_176.h"
 #define IMG_W 128
 #define IMG_H 128
 
@@ -248,9 +250,13 @@ static void oled_flush(void) {
     oled_data(buf, (size_t)disp_w * disp_h * 2);
 }
 
-/* Fill the framebuffer with the welcome image, centered (the image is
- * 128x128; the v4 panel is 176x176, leaving a black border). */
+/* Fill the framebuffer with the welcome image: the 176x176 image fills the
+ * v4 panel; on the 128x128 panel the 128x128 image does. */
 static void draw_welcome(void) {
+    if (panel == PANEL_SSD1333) {
+        memcpy(framebuf, welcome_image_176, sizeof(welcome_image_176));
+        return;
+    }
     memset(framebuf, 0, sizeof(uint16_t) * disp_w * disp_h);
     int x0 = (disp_w - IMG_W) / 2;
     int y0 = (disp_h - IMG_H) / 2;
