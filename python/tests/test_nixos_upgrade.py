@@ -116,7 +116,6 @@ def test_run_build_uses_no_link(monkeypatch, tmp_path):
         return FakeProcess()
 
     monkeypatch.setattr(nixos_upgrade.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(nixos_upgrade, "fetch_cache_public_keys", lambda: [])
 
     rc = nixos_upgrade.run_build(
         STORE,

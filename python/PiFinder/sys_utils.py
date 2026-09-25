@@ -707,7 +707,7 @@ def update_software(ref: str = "release", selection: Optional[dict] = None) -> b
 
 
 # ---------------------------------------------------------------------------
-# Password management (python-pam + chpasswd)
+# Password management (python-pam + pifinder-set-password)
 # ---------------------------------------------------------------------------
 
 
@@ -718,12 +718,14 @@ def verify_password(username: str, password: str) -> bool:
 
 
 def change_password(username: str, current_password: str, new_password: str) -> bool:
-    """Change the user password via chpasswd."""
+    """Change the pifinder user password via the pifinder-set-password wrapper."""
+    if username != "pifinder" or "\n" in new_password:
+        return False
     if not verify_password(username, current_password):
         return False
     result = subprocess.run(
-        ["sudo", "chpasswd"],
-        input=f"{username}:{new_password}\n",
+        ["sudo", "pifinder-set-password"],
+        input=f"{new_password}\n",
         capture_output=True,
         text=True,
     )

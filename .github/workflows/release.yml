@@ -35,6 +35,10 @@ on:
         required: false
         default: ''
 
+# Read-only by default. The release job asks for contents: write itself.
+permissions:
+  contents: read
+
 jobs:
   # Last-resort fallback: self-hosted Pi5. Only runs if the hosted build failed
   # (Pi offline/at capacity). Slow for a from-scratch kernel, hence the timeout.
@@ -136,7 +140,7 @@ jobs:
           extra-conf: |
             extra-system-features = big-parallel
             extra-substituters = https://cache.pifinder.eu/pifinder
-            extra-trusted-public-keys = pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck=
+            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
 
       - name: Setup Attic caches (cache.pifinder.eu)
         env:
