@@ -87,6 +87,14 @@ def test_list_dir_pattern_filters_entries(root):
 
 
 @pytest.mark.unit
+def test_list_dir_skips_symlink_pointing_out(root, tmp_path_factory):
+    outside = tmp_path_factory.mktemp("outside")
+    (root / "escape").symlink_to(outside)
+    names = [e["name"] for e in data_browser.list_dir(root)["entries"]]
+    assert "escape" not in names
+    assert "obslists" in names
+
+
 def test_list_dir_missing_folder_raises(root):
     with pytest.raises(DataPathError):
         data_browser.list_dir(root, "nope")

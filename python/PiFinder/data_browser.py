@@ -102,7 +102,9 @@ def list_dir(root: Path, rel_path: str = "", pattern: str = "") -> dict[str, Any
             continue
         try:
             entries.append(_entry(root, child))
-        except OSError:
+        except (OSError, ValueError):
+            # Unreadable, or a symlink that points outside the data root
+            # (for example into /nix/store): not browsable, so not listed.
             continue
     entries.sort(key=lambda e: (not e["is_dir"], e["name"].lower()))
     rel = relative(root, target)
