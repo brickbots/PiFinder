@@ -14,6 +14,7 @@ try/except so this module loads even without blinka / an I2C bus.
 """
 
 import logging
+from pathlib import Path
 
 from PiFinder.types.hardware import HardwareCapabilities
 
@@ -26,6 +27,21 @@ logger = logging.getLogger("HardwareDetect")
 
 # BQ25895 single-cell Li-ion charger, I2C address 0x6A.
 BQ25895_ADDRESS = 0x6A
+
+MODEL_FILE = Path("/proc/device-tree/model")
+
+
+def is_compute_module(model_file: Path = MODEL_FILE) -> bool:
+    """True on a Raspberry Pi Compute Module board.
+
+    rev4 is the only PiFinder built on a Compute Module (CM4), so this marks
+    rev4 without the charger, which does not answer while no battery is in.
+    """
+    try:
+        model = model_file.read_bytes().rstrip(b"\x00").decode(errors="replace")
+    except OSError:
+        return False
+    return model.startswith("Raspberry Pi Compute Module")
 
 
 def i2c_present(address: int) -> bool:
@@ -59,21 +75,22 @@ def i2c_present(address: int) -> bool:
 def detect_capabilities() -> HardwareCapabilities:
     """Probe the board and return its :class:`HardwareCapabilities`.
 
-    On any failure (no blinka, no I2C bus, probe error) returns all-False
-    capabilities — a dev machine or a rev3 board simply has no charger.
-
-    ``has_buzzer`` is set from the **same** rev4 charger probe: the buzzer is
-    a bare GPIO piezo (PWM ch0) that can't be probed directly, so the BQ25895
-    ACK is the rev4 marker that implies both (see CONTEXT-MAP "Sound →
+    ``is_rev4`` (display and buzzer) is true when the BQ25895 charger ACKs
+    or the board is a Compute Module. The charger does not ACK without a
+    battery, so the board model keeps a rev4 without a battery on the right
+    display. The buzzer is a bare GPIO piezo (PWM ch0) that can't be probed
+    directly, so ``has_buzzer`` follows ``is_rev4`` (see CONTEXT-MAP "Sound →
     system-wide").
 
-    The BQ25895 ACK is a valid whole-board rev-4 marker because a rev-4
-    always has a battery installed (mandatory by design); an unpowered
-    charger that fails to ACK only occurs on bare prototype boards.
+    ``has_bq25895`` (battery monitor, battery icon) needs the charger to ACK.
+    On a probe failure (no blinka, no I2C bus) it is False, and a dev machine
+    or a rev3 board gets all-False capabilities.
     """
+    compute_module = is_compute_module()
     try:
         present = i2c_present(BQ25895_ADDRESS)
-        return HardwareCapabilities(has_bq25895=present, has_buzzer=present)
     except Exception as e:
         logger.debug("Hardware detect: BQ25895 probe unavailable (%s)", e)
-        return HardwareCapabilities()
+        present = False
+    rev4 = present or compute_module
+    return HardwareCapabilities(has_bq25895=present, has_buzzer=rev4, is_rev4=rev4)

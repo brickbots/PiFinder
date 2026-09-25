@@ -1356,7 +1356,7 @@ if __name__ == "__main__":
         from PiFinder.types.hardware import HardwareCapabilities
 
         capabilities = HardwareCapabilities(
-            has_bq25895=args.fakebattery, has_buzzer=True
+            has_bq25895=args.fakebattery, has_buzzer=True, is_rev4=args.fakebattery
         )
         if args.fakebattery:
             battery = importlib.import_module("PiFinder.battery_fake")
@@ -1368,11 +1368,9 @@ if __name__ == "__main__":
         capabilities = hardware_detect.detect_capabilities()
 
         if capabilities.has_bq25895:
-            # BQ25895 is actually present (rev4 hardware).
+            # BQ25895 is actually present (rev4 hardware with a battery).
             battery = importlib.import_module("PiFinder.battery_bq25895")
-            display_hardware = "ssd1333"
-        else:
-            display_hardware = "ssd1351"
+        display_hardware = "ssd1333" if capabilities.is_rev4 else "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
 
         cfg = config.Config()
