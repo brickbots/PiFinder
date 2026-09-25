@@ -33,6 +33,10 @@ on:
         required: false
         default: ''
 
+# Read-only by default. Jobs that need more ask for it themselves.
+permissions:
+  contents: read
+
 jobs:
   # Native aarch64 build on the Pi5 self-hosted runner (preferred, fast).
   build-native:
@@ -109,6 +113,9 @@ jobs:
   native-wait:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Reads this run's job status through the API.
+    permissions:
+      actions: read
     outputs:
       need_fallback: ${{ steps.wait.outputs.need_fallback }}
     steps:
@@ -159,7 +166,7 @@ jobs:
           extra-conf: |
             extra-system-features = big-parallel
             extra-substituters = https://cache.pifinder.eu/pifinder
-            extra-trusted-public-keys = pifinder:VkemNaMqXDcsYlpONItSvOOcBIa1vEfnpyqdetr3gck=
+            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
 
       - name: Setup Attic caches (cache.pifinder.eu)
         env:
