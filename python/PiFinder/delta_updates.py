@@ -333,12 +333,16 @@ def stage_delta(
     nar_name = f"{parts[0]}.nar"
     local_narinfo = local_cache_narinfo(narinfo, target, nar_name)
 
-    free = shutil.disk_usage(jobdir).free
+    try:
+        jobdir.mkdir(parents=True, exist_ok=True)
+        free = shutil.disk_usage(jobdir).free
+    except OSError as exc:
+        raise DeltaError(f"work dir {jobdir}: {exc}") from exc
     need = 2 * nar_size + int(info.get("size") or 0) + FREE_SPACE_SLACK
     if free < need:
+        shutil.rmtree(jobdir, ignore_errors=True)
         raise DeltaError(f"not enough free space ({free} < {need})")
 
-    jobdir.mkdir(parents=True, exist_ok=True)
     patch = jobdir / "patch.zst"
     base_nar = jobdir / "base.nar"
     new_nar = jobdir / "new.nar"
@@ -510,7 +514,7 @@ def _stage_all(
                 try:
                     stage_delta(target, info, root / f"job{n}", cache, session, caches)
                     result = "staged"
-                except DeltaError as exc:
+                except Exception as exc:  # noqa: BLE001 — one path must not stop the rest
                     logger.warning("delta for %s failed: %s", target, exc)
                     result = "failed"
                 break

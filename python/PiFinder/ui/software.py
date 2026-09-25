@@ -13,6 +13,7 @@ import json
 import logging
 import re
 import threading
+import time
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
@@ -1147,6 +1148,20 @@ class UISoftware(UIModule):
             fill=self.colors.get(48),
             outline=self.colors.get(128),
         )
+        if phase in ("starting", "checking"):
+            # No measurable progress here (the dry run reports none), so a
+            # block moves back and forth to show the device is working.
+            block_w = 24
+            span = bar_w - block_w - 2
+            pos = int(time.monotonic() * 40) % (2 * span)
+            left = bar_x + 1 + (pos if pos < span else 2 * span - pos)
+            self.draw.rectangle(
+                [left, y + 1, left + block_w, y + bar_h - 1],
+                fill=self.colors.get(192),
+            )
+            y += bar_h + 6
+            return
+
         fill_w = int(bar_w * pct / 100)
         if fill_w > 0:
             self.draw.rectangle(

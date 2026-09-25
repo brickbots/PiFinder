@@ -601,3 +601,57 @@ class TestConsumeRefreshResult:
         ui = self._ui("browse")
         ui._consume_refresh_result()
         assert ui._checking is True
+
+
+def _drawing_ui():
+    from types import SimpleNamespace
+
+    from PIL import Image, ImageDraw, ImageFont
+
+    ui = UISoftware.__new__(UISoftware)
+    ui.screen = Image.new("RGB", (128, 128))
+    ui.draw = ImageDraw.Draw(ui.screen)
+    font = SimpleNamespace(font=ImageFont.load_default())
+    ui.fonts = SimpleNamespace(bold=font, base=font)
+    ui.colors = SimpleNamespace(get=lambda v: (v, 0, 0))
+    ui.display_class = SimpleNamespace(titlebar_height=16)
+    return ui
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "progress",
+    [
+        {"phase": "starting"},
+        {"phase": "checking"},
+        {"phase": "patching", "done": 2, "total": 5, "unit": "paths", "percent": 40},
+        {"phase": "downloading", "done": 3 << 20, "total": 9 << 20, "percent": 33},
+        {"phase": "activating", "percent": 100},
+    ],
+)
+def test_draw_upgrading_every_phase(progress):
+    base = {"phase": "", "done": 0, "total": 0, "unit": "bytes", "percent": 0}
+    ui = _drawing_ui()
+    with patch(
+        "PiFinder.ui.software.sys_utils.get_upgrade_progress",
+        return_value={**base, **progress},
+    ):
+        ui._draw_upgrading()
+    assert ui.screen.getbbox() is not None
+
+
+@pytest.mark.unit
+def test_draw_upgrading_checking_block_moves():
+    base = {"phase": "checking", "done": 0, "total": 0, "unit": "bytes", "percent": 0}
+    frames = []
+    for t in (0.0, 0.5):
+        ui = _drawing_ui()
+        with (
+            patch(
+                "PiFinder.ui.software.sys_utils.get_upgrade_progress", return_value=base
+            ),
+            patch("PiFinder.ui.software.time.monotonic", return_value=t),
+        ):
+            ui._draw_upgrading()
+        frames.append(ui.screen.tobytes())
+    assert frames[0] != frames[1]

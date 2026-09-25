@@ -393,3 +393,43 @@ def test_prefetch_retries_wait_then_gives_up(tmp_path, monkeypatch):
     staged.cleanup()
     assert staged.count == 0 and staged.url is None
     assert len(calls) == delta_updates.RETRIES + 1
+
+
+def test_prefetch_one_crashing_path_does_not_stop_the_rest(tmp_path, monkeypatch):
+    other = "/nix/store/" + "e" * 32 + "-testpkg-1.1"
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t: "s")
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
+    monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
+    monkeypatch.setattr(
+        delta_updates, "request_delta", lambda t, b, s: ("hit", {"basis": [BASE]})
+    )
+
+    def _stage(target, info, jobdir, cache, session, caches):
+        if target == TARGET:
+            raise FileNotFoundError("boom")
+
+    monkeypatch.setattr(delta_updates, "stage_delta", _stage)
+    staged = delta_updates.prefetch_deltas(TARGET, (TARGET, other), ("https://c",))
+    staged.cleanup()
+    assert staged.count == 1
+    assert staged.failed == 1
+
+
+def test_stage_delta_creates_jobdir_before_space_check(tmp_path, monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "fetch_narinfo", lambda t, c: NARINFO)
+    monkeypatch.setattr(delta_updates, "FREE_SPACE_SLACK", 1 << 62)
+    info = {
+        "basis": [str(tmp_path)],
+        "window_log": 27,
+        "nar_sha256": "0" * 64,
+        "nar_size": 10,
+        "url": "/blobs/x.zst",
+    }
+    jobdir = tmp_path / "work" / "job0"
+    with pytest.raises(delta_updates.DeltaError, match="free space"):
+        delta_updates.stage_delta(
+            TARGET, info, jobdir, tmp_path / "cache", caches=("https://c",)
+        )
+    assert not jobdir.exists()
