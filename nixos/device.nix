@@ -251,8 +251,26 @@ in {
       [ -n "$IDENTITY" ] || IDENTITY=$(jq -nc --arg sp "$STORE_PATH" '{store_path: $sp}')
       printf '%s\n' "$IDENTITY" > /var/lib/pifinder/current-build.json
 
+      # Boot the camera the device had before the migration. The migration
+      # init writes camera-type from the Pi OS config.txt; without it the full
+      # system boots its base camera. Same steps as the upgrade's
+      # activate_system: a camera with a specialisation activates that
+      # specialisation, then set-extlinux-default from the new system points
+      # the extlinux DEFAULT at the camera's entry.
       echo "Configuring bootloader..."
-      "$STORE_PATH/bin/switch-to-configuration" boot
+      CAMERA=""
+      if [ -f /var/lib/pifinder/camera-type ]; then
+        CAMERA=$(head -n 1 /var/lib/pifinder/camera-type | tr -d '[:space:]')
+      fi
+      if [ -n "$CAMERA" ] && [ -d "$STORE_PATH/specialisation/$CAMERA" ]; then
+        echo "Camera $CAMERA: activating its specialisation"
+        "$STORE_PATH/specialisation/$CAMERA/bin/switch-to-configuration" boot
+      else
+        "$STORE_PATH/bin/switch-to-configuration" boot
+      fi
+      if [ -n "$CAMERA" ] && [ -x "$STORE_PATH/sw/bin/set-extlinux-default" ]; then
+        "$STORE_PATH/sw/bin/set-extlinux-default" "$CAMERA" || true
+      fi
 
       echo "Removing first-boot trigger..."
       rm -f /var/lib/pifinder/first-boot-target
