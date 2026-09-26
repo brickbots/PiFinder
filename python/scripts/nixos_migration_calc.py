@@ -19,6 +19,9 @@ from pathlib import Path
 
 MIN_RAM_MB = 1800  # 2GB Pi reports ~1849MB due to GPU memory reservation
 MIN_SD_GB = 16
+# The tarball download, the extracted NixOS system and the btrfs metadata
+# that btrfs-convert writes all need room on the root (ADR 0039).
+MIN_FREE_GB = 4.0
 REQUIRED_MODEL = "Raspberry Pi 4"
 # Must match the initramfs progress renderer, not just the main PiFinder UI.
 SUPPORTED_DISPLAYS = {
@@ -161,7 +164,7 @@ def check_all(display_class: str = "", display_resolution: str = "") -> dict:
         "sd_gb": round(sd_gb, 1),
         "sd_ok": sd_gb >= MIN_SD_GB,
         "free_gb": round(free_gb, 1),
-        "free_ok": free_gb >= 1.5,
+        "free_ok": free_gb >= MIN_FREE_GB,
         "wifi_mode": wifi,
         "wifi_ok": wifi == "Client",
         "display_class": display_class,
@@ -215,7 +218,7 @@ def main():
     print(f"SD Card:    {checks['sd_gb']} GB")
     print(f"  >= {MIN_SD_GB}GB:  {'OK' if checks['sd_ok'] else 'FAIL'}")
     print(f"Free Space: {checks['free_gb']} GB")
-    print(f"  >= 1.5GB: {'OK' if checks['free_ok'] else 'FAIL'}")
+    print(f"  >= {MIN_FREE_GB}GB: {'OK' if checks['free_ok'] else 'FAIL'}")
     print(f"WiFi Mode:  {checks['wifi_mode']}")
     print(f"  Client:   {'OK' if checks['wifi_ok'] else 'FAIL'}")
     print(f"Display:    {checks['display_class']} {checks['display_resolution']}")

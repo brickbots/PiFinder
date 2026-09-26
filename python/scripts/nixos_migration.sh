@@ -4,10 +4,10 @@
 # Called by PiFinder app (sys_utils.start_nixos_migration).
 # Runs on RPi OS before rebooting into initramfs for the actual migration.
 #
-# The initramfs will:
-#   1. Save WiFi + user backup to RAM
-#   2. DD the .img.zst to the SD card
-#   3. Expand partition, restore WiFi + user data
+# The initramfs (nixos_migration_init.sh) will:
+#   1. Save WiFi and the camera type to RAM
+#   2. Grow partition 2, convert its ext4 to btrfs in place
+#   3. Move PiFinder_data into a subvolume, remove Pi OS, extract NixOS
 #   4. Reboot into NixOS
 #
 # Usage: nixos_migration.sh <migration_url> [sha256] [progress_file] [display_class] [display_resolution]
@@ -65,6 +65,14 @@ copy_with_libs() {
 
     cp "${bin_path}" "${dest}/bin/"
 
+    copy_libs "${bin_path}" "${dest}"
+}
+
+# Copy only the shared library dependencies of a binary into the initramfs.
+copy_libs() {
+    local bin_path="$1"
+    local dest="$2"
+
     ldd "${bin_path}" 2>/dev/null | grep -oP '/\S+' | while read -r lib; do
         local dir
         dir=$(dirname "${lib}")
@@ -75,11 +83,38 @@ copy_with_libs() {
 
 # --- Phase 0: Install required packages ---
 progress 0 "Installing dependencies"
-for pkg in busybox cpio curl dosfstools e2fsprogs fdisk gzip xz-utils zstd; do
+MISSING_PKGS=""
+for pkg in btrfs-progs busybox cpio curl dosfstools e2fsprogs fdisk gzip xz-utils zstd; do
     if ! dpkg -s "${pkg}" >/dev/null 2>&1; then
-        sudo apt-get install -y "${pkg}" || fail 1 "Failed to install ${pkg}"
+        MISSING_PKGS="${MISSING_PKGS} ${pkg}"
     fi
 done
+# The oldest btrfs-progs the migration is tested with (Debian 11 ships
+# 5.10.1; nixos/tests/migration-e2e on the NixOS line runs it).
+MIN_BTRFS_PROGS="5.10"
+btrfs_progs_version() {
+    dpkg-query -W -f='${Version}' btrfs-progs 2>/dev/null || true
+}
+btrfs_progs_ok() {
+    local v
+    v=$(btrfs_progs_version)
+    [ -n "${v}" ] && dpkg --compare-versions "${v}" ge "${MIN_BTRFS_PROGS}"
+}
+install_pkgs() {
+    # shellcheck disable=SC2086 # one word per package
+    sudo apt-get install -y ${MISSING_PKGS} btrfs-progs
+}
+# Try the package lists already on the card first: apt-get update can take
+# minutes on a slow connection. Refresh them only if the install fails or
+# btrfs-progs is too old.
+if [ -n "${MISSING_PKGS}" ] || ! btrfs_progs_ok; then
+    if ! install_pkgs || ! btrfs_progs_ok; then
+        progress 1 "Updating package lists"
+        sudo apt-get update || fail 1 "apt-get update failed"
+        install_pkgs || fail 1 "Failed to install:${MISSING_PKGS}"
+    fi
+fi
+btrfs_progs_ok || fail 1 "btrfs-progs $(btrfs_progs_version) is older than ${MIN_BTRFS_PROGS}"
 
 # --- Phase 1: Pre-flight checks ---
 # nixos_migration_calc.py is the single source of truth for whether this
@@ -148,16 +183,9 @@ progress 68 "Preparing"
 
 TARBALL_SIZE=$(stat -c%s "${TARBALL}")
 
-# Feasibility gate — fail HERE, on the running OS, never in the initramfs.
-# The initramfs copies the tarball to RAM (tmpfs) and needs headroom for the
-# user-data backup and tools, so the tarball plus 400MB must fit inside
-# total RAM. A 2GB board tops out around a ~1.4GB tarball.
-MEM_TOTAL_MB=$(awk '/MemTotal/ {print int($2 / 1024)}' /proc/meminfo)
+# The initramfs converts the root in place and reads the tarball from the
+# card, so the tarball does not have to fit in RAM.
 TARBALL_MB=$((TARBALL_SIZE / 1048576))
-NEEDED_MB=$((TARBALL_MB + 400))
-if [ "${NEEDED_MB}" -gt "${MEM_TOTAL_MB}" ]; then
-    fail 6 "Tarball too large for this board's RAM: needs ${NEEDED_MB}MB, have ${MEM_TOTAL_MB}MB"
-fi
 
 progress 75 "Tarball: ${TARBALL_MB}MB"
 
@@ -175,23 +203,54 @@ else
 fi
 
 # Filesystem tools
-for tool in e2fsck resize2fs mke2fs mkfs.vfat sfdisk zstd; do
+for tool in e2fsck resize2fs btrfs btrfs-convert mkfs.vfat sfdisk zstd; do
     tool_path=$(command -v "${tool}" 2>/dev/null || true)
     if [ -z "${tool_path}" ]; then
-        fail 5 "${tool} not found — install e2fsprogs dosfstools util-linux zstd"
+        fail 5 "${tool} not found — install e2fsprogs btrfs-progs dosfstools util-linux zstd"
     fi
     copy_with_libs "${tool_path}" "${INITRAMFS_DIR}"
 done
 
-# mkfs.ext4 is typically a symlink to mke2fs
-ln -sf mke2fs "${INITRAMFS_DIR}/bin/mkfs.ext4" 2>/dev/null || true
+# glibc loads libgcc_s at run time for pthread_cancel, so ldd does not list
+# it; btrfs-convert aborts without it.
+LIBGCC_S=$(ldconfig -p 2>/dev/null | awk '/libgcc_s\.so\.1 / {print $NF; exit}')
+[ -n "${LIBGCC_S}" ] || LIBGCC_S=$(find /lib /usr/lib -name libgcc_s.so.1 2>/dev/null | head -1)
+[ -n "${LIBGCC_S}" ] || fail 5 "libgcc_s.so.1 not found"
+mkdir -p "${INITRAMFS_DIR}$(dirname "${LIBGCC_S}")"
+cp "${LIBGCC_S}" "${INITRAMFS_DIR}${LIBGCC_S}"
+
+# GNU cp as gcp: the reflink copy into the PiFinder_data subvolume needs
+# --reflink, which busybox cp does not have.
+cp "$(command -v cp)" "${INITRAMFS_DIR}/bin/gcp"
+copy_libs "$(command -v cp)" "${INITRAMFS_DIR}"
+
+# btrfs kernel module and its dependencies, decompressed, numbered in load
+# order. The init loads /lib/modules/btrfs/*.ko in that order.
+# Modules must match the running kernel, which also boots the initramfs.
+KVER=$(uname -r)
+BTRFS_MOD_DIR="${INITRAMFS_DIR}/lib/modules/btrfs"
+mkdir -p "${BTRFS_MOD_DIR}"
+n=0
+while read -r ko; do
+    [ -f "${ko}" ] || continue
+    n=$((n + 1))
+    name=$(printf '%02d-%s' "${n}" "$(basename "${ko}" | sed 's/\.ko.*$//')")
+    case "${ko}" in
+        *.xz) xz -dc "${ko}" > "${BTRFS_MOD_DIR}/${name}.ko" ;;
+        *.gz) gzip -dc "${ko}" > "${BTRFS_MOD_DIR}/${name}.ko" ;;
+        *.zst) zstd -dc "${ko}" > "${BTRFS_MOD_DIR}/${name}.ko" ;;
+        *) cp "${ko}" "${BTRFS_MOD_DIR}/${name}.ko" ;;
+    esac
+done < <(modprobe -S "${KVER}" --show-depends btrfs 2>/dev/null | awk '$1 == "insmod" {print $2}')
+if [ "${n}" -eq 0 ] && ! grep -qw btrfs /proc/filesystems; then
+    fail 5 "btrfs kernel module not found"
+fi
 
 # OLED progress display (static binary, no libs needed)
 cp "${PROGRESS_BIN}" "${INITRAMFS_DIR}/bin/" 2>/dev/null || true
 
 # SPI kernel modules — needed for OLED progress display
 # Modules may be compressed (.ko.xz); decompress for insmod in initramfs
-KVER=$(uname -r)
 KMOD_DIR="/lib/modules/${KVER}/kernel/drivers/spi"
 if [ -d "${KMOD_DIR}" ]; then
     INITRAMFS_SPI="${INITRAMFS_DIR}/lib/modules"

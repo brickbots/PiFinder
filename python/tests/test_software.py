@@ -6,8 +6,10 @@ import requests
 from PiFinder.ui.software import (
     update_needed,
     _strip_markdown,
+    MIGRATION_GATE_FLAG,
     _fetch_migration_config,
     _fetch_update_manifest,
+    _migration_gate_open,
     _migration_version_info_from_manifest,
     _UNLOCK_SEQUENCE,
 )
@@ -147,6 +149,23 @@ class TestFetchMigrationConfig:
     def test_returns_none_when_payload_is_not_object(self, mock_get):
         mock_get.return_value = _mock_json_response(["nixos_for_everyone"])
         assert _fetch_migration_config() is None
+
+
+@pytest.mark.unit
+class TestMigrationGateOpen:
+    def test_open_when_flag_true(self):
+        assert _migration_gate_open({MIGRATION_GATE_FLAG: True})
+
+    def test_closed_when_flag_false(self):
+        assert not _migration_gate_open({MIGRATION_GATE_FLAG: False})
+
+    def test_old_flag_does_not_open_the_gate(self):
+        # 2.6.3 read nixos_for_everyone; this version ignores it.
+        assert not _migration_gate_open({"nixos_for_everyone": True})
+
+    def test_closed_without_config(self):
+        assert not _migration_gate_open(None)
+        assert not _migration_gate_open({MIGRATION_GATE_FLAG: "yes"})
 
 
 def _migration_entry(version="3.0.0", available=True, with_urls=True):

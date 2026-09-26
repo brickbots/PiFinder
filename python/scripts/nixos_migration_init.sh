@@ -1,13 +1,13 @@
 #!/bin/busybox sh
 # nixos_migration_init.sh - Initramfs init for NixOS migration
 #
-# Runs entirely from RAM. Strategy:
-#   1. Save WiFi credentials and user backup to RAM
-#   2. Copy tarball to RAM, unmount old root
-#   3. Format both partitions
-#   4. Extract tarball (boot → p1, rootfs → p2)
-#   5. Restore WiFi + user data, expand partition
-#   6. Reboot into NixOS
+# Strategy (ADR 0039):
+#   1. Save WiFi credentials and the camera type to RAM
+#   2. Grow partition 2 and its ext4, then convert it to btrfs in place
+#      (btrfs-convert keeps every file, the catalog images included)
+#   3. Move PiFinder_data into its own subvolume, remove Pi OS
+#   4. Extract the tarball (boot -> p1 FAT, rootfs -> p2 btrfs)
+#   5. Restore WiFi, write the camera type, reboot into NixOS
 
 set -e
 
@@ -33,7 +33,7 @@ if [ -f /lib/modules/spi-bcm2835.ko ]; then
     sleep 0.5
 fi
 
-# Shared lib path for dynamically linked tools (e2fsck, mkfs, etc.)
+# Shared lib path for dynamically linked tools (e2fsck, btrfs-convert, etc.)
 export LD_LIBRARY_PATH=/lib:/usr/lib:/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu
 
 BOOT_DEV="/dev/mmcblk0p1"
@@ -45,7 +45,7 @@ MOUNT_BOOT="/mnt/boot"
 PROGRESS="/bin/migration_progress"
 
 STAGE_NUM=0
-STAGE_TOTAL=22
+STAGE_TOTAL=19
 PROGRESS_FIFO="/tmp/migration_progress.fifo"
 PROGRESS_READY=0
 
@@ -171,13 +171,10 @@ fi
 . /migration_meta
 # Now we have: TARBALL_PATH, TARBALL_SIZE, PIFINDER_DATA_PATH
 
-# Initial RAM check: tarball + fixed overhead must fit. The exact user-data
-# backup size is checked after the old root is mounted, before formatting.
+# The tarball and the user data stay on the card, so only the tools and
+# btrfs-convert need RAM.
 MEM_KB=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
 MEM_MB=$((MEM_KB / 1024))
-TARBALL_SIZE_MB=$((TARBALL_SIZE / 1048576))
-NEEDED_MB=$((TARBALL_SIZE_MB + 150))
-[ "${MEM_MB}" -lt "${NEEDED_MB}" ] && fail "Insufficient RAM: ${MEM_MB}MB available, need ${NEEDED_MB}MB"
 
 show 31 "Validated: ${MEM_MB}MB"
 
@@ -206,214 +203,208 @@ if [ -d "${NM_SRC}" ]; then
 fi
 
 # -------------------------------------------------------------------
-# Phase 3: Create user backup in RAM
+# Phase 3: Hostname
 # -------------------------------------------------------------------
 
-show 35 "Creating backup"
-
-PIFINDER_DATA_ON_ROOT="${MOUNT_ROOT}${PIFINDER_DATA_PATH}"
-BACKUP_STAGE="/tmp/backup_stage/PiFinder_data"
-rm -rf /tmp/backup_stage
-mkdir -p "${BACKUP_STAGE}"
-
-if [ -d "${PIFINDER_DATA_ON_ROOT}" ]; then
-    BACKUP_NEED_KB=0
-
-    # Root-level files are preserved, except pifinder.log which is truncated
-    # while copying so a large log cannot exhaust initramfs RAM.
-    for f in "${PIFINDER_DATA_ON_ROOT}"/*; do
-        if [ -f "$f" ]; then
-            case "$(basename "$f")" in
-                pifinder.log)
-                    BACKUP_NEED_KB=$((BACKUP_NEED_KB + 256))
-                    ;;
-                *)
-                    FILE_KB=$(du -sk "$f" 2>/dev/null | awk '{print $1}')
-                    BACKUP_NEED_KB=$((BACKUP_NEED_KB + ${FILE_KB:-0}))
-                    ;;
-            esac
-        fi
-    done
-    if [ -d "${PIFINDER_DATA_ON_ROOT}/obslists" ]; then
-        OBSLISTS_KB=$(du -sk "${PIFINDER_DATA_ON_ROOT}/obslists" 2>/dev/null | awk '{print $1}')
-        BACKUP_NEED_KB=$((BACKUP_NEED_KB + ${OBSLISTS_KB:-0}))
-    fi
-
-    MEM_KB=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
-    TARBALL_KB=$((TARBALL_SIZE / 1024))
-    # Keep a conservative 150 MiB for tools, page cache, and shell overhead.
-    NEEDED_KB=$((TARBALL_KB + BACKUP_NEED_KB + 153600))
-    [ "${MEM_KB}" -lt "${NEEDED_KB}" ] && fail "Insufficient RAM for backup: $((MEM_KB / 1024))MB available, need $((NEEDED_KB / 1024))MB"
-
-    # Copy root-level files (observations.db, configs, etc.)
-    for f in "${PIFINDER_DATA_ON_ROOT}"/*; do
-        if [ -f "$f" ]; then
-            if [ "$(basename "$f")" = "pifinder.log" ]; then
-                tail -n 1000 "$f" > "${BACKUP_STAGE}/pifinder.log" 2>/dev/null || true
-            else
-                cp "$f" "${BACKUP_STAGE}/" 2>/dev/null || true
-            fi
-        fi
-    done
-
-    # Copy obslists directory
-    if [ -d "${PIFINDER_DATA_ON_ROOT}/obslists" ]; then
-        cp -a "${PIFINDER_DATA_ON_ROOT}/obslists" "${BACKUP_STAGE}/obslists"
-    fi
+# Pi OS stores the hostname in /etc/hostname, the NixOS image reads it from
+# PiFinder_data/hostname. Read it now; the old /etc is deleted in Phase 7.
+OLD_HOSTNAME=""
+if [ -s "${MOUNT_ROOT}/etc/hostname" ]; then
+    OLD_HOSTNAME=$(head -n1 "${MOUNT_ROOT}/etc/hostname" | tr -d '[:space:]')
 fi
-
-# Preserve the pre-migration hostname: Pi OS stores it in /etc/hostname, the NixOS
-# image reads it from PiFinder_data/hostname. Bridge them; don't clobber an existing one.
-if [ ! -f "${BACKUP_STAGE}/hostname" ] && [ -s "${MOUNT_ROOT}/etc/hostname" ]; then
-    head -n1 "${MOUNT_ROOT}/etc/hostname" | tr -d '[:space:]' > "${BACKUP_STAGE}/hostname"
-fi
-
-show 38 "Backup created"
-
-# -------------------------------------------------------------------
-# Phase 4: Copy tarball to RAM, unmount old root
-# -------------------------------------------------------------------
-
-show 40 "Loading tarball"
 
 TARBALL_ON_ROOT="${MOUNT_ROOT}${TARBALL_PATH}"
-[ ! -f "${TARBALL_ON_ROOT}" ] && { umount "${MOUNT_ROOT}"; fail "Tarball not found: ${TARBALL_PATH}"; }
-
-cp "${TARBALL_ON_ROOT}" /tmp/migration.tar.zst || fail "Failed to copy tarball to RAM"
+[ -f "${TARBALL_ON_ROOT}" ] || { umount "${MOUNT_ROOT}"; fail "Tarball not found: ${TARBALL_PATH}"; }
 umount "${MOUNT_ROOT}"
 
-show 48 "Tarball loaded to RAM"
+show 38 "Settings saved"
 
 # -------------------------------------------------------------------
-# Phase 5: Expand + format partitions
+# Phase 4: Grow partition and ext4
 # -------------------------------------------------------------------
 
-show 49 "Expanding partition"
+# btrfs-convert writes its metadata into the free space of the ext4, and a
+# full card has little. Grow the partition and the ext4 first. Both steps
+# leave Pi OS bootable.
+show 40 "Expanding partition"
 
-# Expand partition 2 BEFORE formatting — sfdisk rewrites the MBR and
-# blockdev --rereadpt can corrupt a written FAT partition if done after.
 echo ", +" | sfdisk -N 2 "${SD_DEV}" --no-reread 2>/dev/null || true
 blockdev --rereadpt "${SD_DEV}" 2>/dev/null || true
 sleep 1
 
-# Point of no return: from here on a failure cannot go back to the old OS.
+show 42 "Checking filesystem"
+# e2fsck exit codes 0 and 1 mean clean or fixed; btrfs-convert needs a clean fs.
+set +e
+e2fsck -f -y "${ROOT_DEV}"
+E2FSCK_RC=$?
+set -e
+[ "${E2FSCK_RC}" -le 1 ] || fail "e2fsck failed (${E2FSCK_RC})"
+
+show 45 "Growing filesystem"
+# -f: the Pi has no RTC, so the initramfs clock is in 1970 and e2fsck stores a
+# check time before the last mount. resize2fs would then ask for e2fsck again.
+# The check above has just passed.
+resize2fs -f "${ROOT_DEV}" || fail "resize2fs failed"
+
+# -------------------------------------------------------------------
+# Phase 5: Convert ext4 to btrfs
+# -------------------------------------------------------------------
+
+# btrfs-convert keeps every file, PiFinder_data with the catalog images
+# included. It writes the btrfs superblock last, so a failure before the end
+# leaves the ext4 intact and the old OS can still boot.
+show 48 "Converting to btrfs"
+
+for ko in /lib/modules/btrfs/*.ko; do
+    [ -f "${ko}" ] && insmod "${ko}" 2>/dev/null || true
+done
+btrfs-convert -l PIFINDER_SD "${ROOT_DEV}" || fail "btrfs-convert failed"
+
+# Point of no return: the root is btrfs now.
 DESTRUCTIVE=1
-show 50 "Formatting boot"
-
-mkfs.vfat -F 32 -n FIRMWARE "${BOOT_DEV}" || fail "mkfs.vfat failed"
-
-show 52 "Formatting root"
-
-mkfs.ext4 -F -L NIXOS_SD "${ROOT_DEV}" || fail "mkfs.ext4 failed"
-
-# -------------------------------------------------------------------
-# Phase 6: Extract tarball
-# -------------------------------------------------------------------
-
-show 55 "Extracting NixOS"
+show 58 "Converted to btrfs"
 
 mkdir -p "${MOUNT_NEW}"
-mount -t ext4 "${ROOT_DEV}" "${MOUNT_NEW}" || fail "Cannot mount new root"
+mount -t btrfs -o compress=zstd:1,noatime "${ROOT_DEV}" "${MOUNT_NEW}" || fail "Cannot mount btrfs root"
+btrfs filesystem resize max "${MOUNT_NEW}" || true
+# btrfs-convert 5.10 (Debian 11) keeps the ext4 label and ignores -l.
+btrfs filesystem label "${MOUNT_NEW}" PIFINDER_SD || true
 
-# Extract tarball directly to SD card (ext4 has plenty of space, tmpfs does not)
-zstd -d < /tmp/migration.tar.zst | tar xf - -C "${MOUNT_NEW}" || fail "Tarball extraction failed"
-rm -f /tmp/migration.tar.zst
+# -------------------------------------------------------------------
+# Phase 6: PiFinder_data subvolume
+# -------------------------------------------------------------------
 
-show 60 "Moving rootfs"
+# PiFinder_data gets its own subvolume, so an upgrade can snapshot user data
+# (ADR 0039). A reflink copy shares the data blocks, so it needs no space.
+show 60 "Creating data subvolume"
+
+HOME_NEW="${MOUNT_NEW}/home/pifinder"
+DATA_OLD="${MOUNT_NEW}${PIFINDER_DATA_PATH}"
+DATA_SUBVOL="${HOME_NEW}/PiFinder_data.subvol"
+mkdir -p "${HOME_NEW}"
+btrfs subvolume create "${DATA_SUBVOL}" || fail "Cannot create PiFinder_data subvolume"
+if [ -d "${DATA_OLD}" ]; then
+    # gcp is GNU cp from Pi OS: busybox cp has no --reflink.
+    gcp -a --reflink=always "${DATA_OLD}/." "${DATA_SUBVOL}/" || fail "Cannot copy PiFinder_data"
+    rm -rf "${DATA_OLD}"
+fi
+mv "${DATA_SUBVOL}" "${HOME_NEW}/PiFinder_data" || fail "Cannot rename PiFinder_data subvolume"
+
+if [ -n "${OLD_HOSTNAME}" ] && [ ! -f "${HOME_NEW}/PiFinder_data/hostname" ]; then
+    echo "${OLD_HOSTNAME}" > "${HOME_NEW}/PiFinder_data/hostname"
+fi
+
+# -------------------------------------------------------------------
+# Phase 7: Remove Pi OS
+# -------------------------------------------------------------------
+
+# Keep only PiFinder_data, the tarball, and ext2_saved (the ext4 image that
+# btrfs-convert leaves for rollback; NixOS deletes it after the first good
+# boot).
+show 64 "Removing Pi OS"
+
+mv "${MOUNT_NEW}${TARBALL_PATH}" "${MOUNT_NEW}/.migration.tar.zst" || fail "Cannot move tarball"
+
+for item in "${MOUNT_NEW}"/* "${MOUNT_NEW}"/.[!.]* "${MOUNT_NEW}"/..?*; do
+    [ -e "${item}" ] || continue
+    case "$(basename "${item}")" in
+        ext2_saved|home|.migration.tar.zst) ;;
+        *) rm -rf "${item}" || fail "Cannot remove ${item}" ;;
+    esac
+done
+for item in "${MOUNT_NEW}"/home/* "${MOUNT_NEW}"/home/.[!.]*; do
+    [ -e "${item}" ] || continue
+    [ "$(basename "${item}")" = pifinder ] || rm -rf "${item}"
+done
+for item in "${HOME_NEW}"/* "${HOME_NEW}"/.[!.]* "${HOME_NEW}"/..?*; do
+    [ -e "${item}" ] || continue
+    [ "$(basename "${item}")" = PiFinder_data ] || rm -rf "${item}"
+done
+
+# -------------------------------------------------------------------
+# Phase 8: Extract NixOS
+# -------------------------------------------------------------------
+
+show 68 "Extracting NixOS"
+
+zstd -d < "${MOUNT_NEW}/.migration.tar.zst" | tar xf - -C "${MOUNT_NEW}" || fail "Tarball extraction failed"
+rm -f "${MOUNT_NEW}/.migration.tar.zst"
+
+show 78 "Moving rootfs"
 
 # The tarball's top-level boot/ is the FIRMWARE partition payload; rootfs/
-# carries its own non-empty /boot (extlinux + kernels live on ext4). Stage the
-# firmware payload aside first or the rootfs move collides on "boot".
+# carries its own non-empty /boot (extlinux + kernels live on the btrfs root).
+# Stage the firmware payload aside first or the rootfs move collides on "boot".
 mv "${MOUNT_NEW}/boot" "${MOUNT_NEW}/.fw-staging" || fail "Cannot stage firmware payload"
 
-# Move rootfs/ contents up to partition root (same-fs rename, fast)
 cd "${MOUNT_NEW}/rootfs" || fail "rootfs missing from tarball"
 for item in * .[!.]* ..?*; do
     [ -e "$item" ] || continue
+    if [ "$item" = home ]; then
+        # home/pifinder/PiFinder_data already exists as the subvolume; merge.
+        mkdir -p "${MOUNT_NEW}/home"
+        cp -a home/. "${MOUNT_NEW}/home/" || fail "Cannot merge rootfs/home"
+        rm -rf home
+        continue
+    fi
     mv "$item" "${MOUNT_NEW}/" || fail "Cannot move rootfs/${item}"
 done
 cd /
 rmdir "${MOUNT_NEW}/rootfs" || fail "rootfs dir not empty after move"
 
-# NetworkManager (like other security-sensitive plugin loaders) refuses to load
-# any plugin file not owned by root, so a /nix/store with non-root paths baked
-# into the tarball silently kills wifi (wlan0 ends up "unmanaged"). Normalise
-# store ownership to root now, while the new root is still writable — once
-# NixOS boots /nix/store is mounted read-only. (The boot-time
-# fix-nix-store-ownership service is the runtime backstop for this.)
+# NetworkManager refuses plugin files not owned by root, so normalise store
+# ownership while the new root is still writable. (fix-nix-store-ownership on
+# NixOS is the runtime backstop.)
 chown -R 0:0 "${MOUNT_NEW}/nix/store" "${MOUNT_NEW}/nix/var/nix/db" 2>/dev/null || true
+chown 0:0 "${MOUNT_NEW}" "${MOUNT_NEW}/home" 2>/dev/null || true
 
-show 66 "Copying boot"
+# -------------------------------------------------------------------
+# Phase 9: Firmware partition
+# -------------------------------------------------------------------
 
+show 82 "Formatting boot"
+
+mkfs.vfat -F 32 -n FIRMWARE "${BOOT_DEV}" || fail "mkfs.vfat failed"
 mkdir -p "${MOUNT_BOOT}"
 mount -t vfat "${BOOT_DEV}" "${MOUNT_BOOT}" || fail "Cannot mount boot"
 
-# Copy the staged firmware payload to the FAT partition
 cd "${MOUNT_NEW}/.fw-staging" || fail "firmware staging missing"
 for item in *; do
     [ -e "$item" ] || continue
-    if [ -d "$item" ]; then
-        cp -r "$item" "${MOUNT_BOOT}/$item" || fail "Cannot copy ${item} to firmware partition"
-    else
-        cp "$item" "${MOUNT_BOOT}/$item" || fail "Cannot copy ${item} to firmware partition"
-    fi
+    cp -r "$item" "${MOUNT_BOOT}/$item" || fail "Cannot copy ${item} to firmware partition"
 done
 cd /
 rm -rf "${MOUNT_NEW}/.fw-staging"
 sync
 
-# Verify each partition got what its boot chain needs: the firmware partition
-# feeds the RPi firmware + U-Boot; extlinux.conf and kernels live on ext4
-# (U-Boot reads them from mmc 0:2).
+# The firmware partition feeds the RPi firmware + U-Boot; extlinux.conf and
+# the kernels live on the btrfs root (U-Boot reads them from mmc 0:2).
 if [ ! -f "${MOUNT_BOOT}/config.txt" ]; then
-    echo "Firmware partition contents:" >&2
     ls -lR "${MOUNT_BOOT}" >&2
     fail "config.txt missing from firmware partition after copy"
 fi
 if [ ! -f "${MOUNT_NEW}/boot/extlinux/extlinux.conf" ]; then
-    echo "Root /boot contents:" >&2
     ls -lR "${MOUNT_NEW}/boot" >&2
     fail "extlinux.conf missing from root /boot after move"
 fi
 
 # -------------------------------------------------------------------
-# Phase 7: Migrate WiFi
+# Phase 10: WiFi, owners, camera
 # -------------------------------------------------------------------
 
-show 70 "Migrating WiFi"
+show 88 "Migrating WiFi"
 
 NM_DIR="${MOUNT_NEW}/etc/NetworkManager/system-connections"
 mkdir -p "${NM_DIR}"
-
-# All keyfiles (pre-staged + user's pre-existing NM ones) were
-# consolidated into /tmp/wifi/nm-connections during Phase 2.
 if [ -d /tmp/wifi/nm-connections ]; then
     cp -a /tmp/wifi/nm-connections/. "${NM_DIR}/" 2>/dev/null || true
-    # The pre-stage Python runs as the app user on the old OS, and cp -a
-    # preserves that owner — NetworkManager refuses keyfiles not owned by
-    # root ("File owner (1000) is insecure"). We are root here; make them so.
+    # NetworkManager refuses keyfiles not owned by root.
     chown -R 0:0 "${NM_DIR}" 2>/dev/null || true
     chmod 600 "${NM_DIR}"/*.nmconnection 2>/dev/null || true
 fi
 
-sync
-
-show 74 "WiFi migrated"
-
-# -------------------------------------------------------------------
-# Phase 8: Restore user data
-# -------------------------------------------------------------------
-
-show 76 "Restoring user data"
-
-mkdir -p "${MOUNT_NEW}/home/pifinder"
-
-if [ -d /tmp/backup_stage/PiFinder_data ]; then
-    cp -a /tmp/backup_stage/PiFinder_data "${MOUNT_NEW}/home/pifinder/"
-fi
-
 # pifinder user: UID 1000, GID 100 (users) on NixOS
-chown -R 1000:100 "${MOUNT_NEW}/home/pifinder" 2>/dev/null || true
+chown -R 1000:100 "${HOME_NEW}" 2>/dev/null || true
 
 # Camera type from Phase 1; first boot selects the matching boot entry.
 if [ -n "${CAMERA_TYPE}" ]; then
@@ -421,26 +412,12 @@ if [ -n "${CAMERA_TYPE}" ]; then
     echo "${CAMERA_TYPE}" > "${MOUNT_NEW}/var/lib/pifinder/camera-type"
 fi
 
-show 80 "User data restored"
-
-# -------------------------------------------------------------------
-# Phase 9: Expand partition and finalize
-# -------------------------------------------------------------------
-
+show 92 "Syncing"
+sync
 umount "${MOUNT_BOOT}" 2>/dev/null || true
 umount "${MOUNT_NEW}" 2>/dev/null || true
 
-show 82 "Resizing filesystem"
-
-e2fsck -f -y "${ROOT_DEV}" 2>/dev/null || true
-resize2fs "${ROOT_DEV}" 2>/dev/null || true
-
-show 92 "Syncing"
-sync
-
-# Final verification: remount the firmware partition and confirm the RPi
-# firmware config survived (extlinux.conf lives on the ext4 root, verified
-# earlier).
+# Final verification: the RPi firmware config must be on the FAT partition.
 show 95 "Verifying boot"
 mkdir -p /mnt/bootchk
 mount -t vfat -o ro "${BOOT_DEV}" /mnt/bootchk || fail "Cannot remount boot for verification"

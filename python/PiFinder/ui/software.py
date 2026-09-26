@@ -36,6 +36,11 @@ UPDATE_MANIFEST_URL = (
 # Secret unlock: 7x square button
 _UNLOCK_SEQUENCE = ["square"] * 7
 
+# The gate flag this version reads. Versions up to 2.6.3 read
+# "nixos_for_everyone", which stays false, so they must update to a version
+# with the btrfs migration before they can migrate.
+MIGRATION_GATE_FLAG = "nixos_migration"
+
 # Migration targets are read from the update manifest, consulted in descending
 # stability; the first available entry carrying a migration tarball wins.
 _MIGRATION_CHANNELS = ("stable", "beta", "unstable")
@@ -45,8 +50,8 @@ def _fetch_migration_config() -> Optional[dict]:
     """Fetch and parse the remote migration gate JSON.
 
     Returns the parsed dict on success; None on network error, non-200
-    response, or malformed JSON. Only the `nixos_for_everyone` flag is used by
-    the caller — the tarball itself comes from the update manifest.
+    response, or malformed JSON. Only MIGRATION_GATE_FLAG is used by the
+    caller; the tarball itself comes from the update manifest.
     """
     try:
         res = requests.get(MIGRATION_GATE_URL, timeout=REQUEST_TIMEOUT)
@@ -61,6 +66,11 @@ def _fetch_migration_config() -> Optional[dict]:
     if not isinstance(data, dict):
         return None
     return data
+
+
+def _migration_gate_open(config: Optional[dict]) -> bool:
+    """True if the gate flag MIGRATION_GATE_FLAG is exactly true."""
+    return isinstance(config, dict) and config.get(MIGRATION_GATE_FLAG) is True
 
 
 def _fetch_update_manifest() -> Optional[dict]:
@@ -204,8 +214,7 @@ class UISoftware(UIModule):
         if self._key_buffer == _UNLOCK_SEQUENCE:
             self._key_buffer = []
             # Unlock: offer the first available migration target from the
-            # manifest, ignoring the nixos_for_everyone gate (that governs only
-            # the public path).
+            # manifest, ignoring the gate (that governs only the public path).
             version_info = _migration_version_info_from_manifest()
             if version_info:
                 self._trigger_migration(version_info)
@@ -232,8 +241,8 @@ class UISoftware(UIModule):
         Also checks the remote migration config.
         """
         config = _fetch_migration_config()
-        if config and config.get("nixos_for_everyone"):
-            # Gate is open for everyone; the tarball comes from the manifest
+        if _migration_gate_open(config):
+            # Gate is open; the tarball comes from the manifest
             # (stable -> beta -> unstable).
             version_info = _migration_version_info_from_manifest()
             if version_info:
