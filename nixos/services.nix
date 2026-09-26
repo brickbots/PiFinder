@@ -202,9 +202,12 @@ in {
     memoryPercent = 50;
   };
 
+  # Root is the second partition of the SD card or eMMC, whatever its label
+  # and file system. SD images have shipped NIXOS_SD (ext4) and PIFINDER_SD
+  # (btrfs). The initrd finds the type with blkid.
   fileSystems."/" = lib.mkDefault {
-    device = "/dev/disk/by-label/NIXOS_SD";
-    fsType = "ext4";
+    device = "/dev/mmcblk0p2";
+    fsType = "auto";
     options = [ "noatime" "nodiratime" ];
   };
 

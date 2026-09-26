@@ -87,7 +87,10 @@
           };
         })
         ({ lib, ... }: {
-          boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" ];
+          # Root is mounted with type "auto" (see nixos/services.nix), so the
+          # initrd must carry every root file system an SD image has used.
+          boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" "btrfs" ];
+          boot.initrd.supportedFilesystems = [ "ext4" "btrfs" ];
           boot.loader.timeout = 0;
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
@@ -131,11 +134,12 @@
           '';
         })
       ] ++ nixpkgs.lib.optionals (!includeSDImage) [
-        # Minimal filesystem stub for closure builds (CI)
+        # Filesystem stub for closure builds (CI). Devices install these
+        # builds, so root is the partition, not a label (see nixos/services.nix).
         ({ lib, ... }: {
           fileSystems."/" = {
-            device = "/dev/disk/by-label/NIXOS_SD";
-            fsType = "ext4";
+            device = "/dev/mmcblk0p2";
+            fsType = "auto";
           };
           fileSystems."/boot/firmware" = {
             device = "/dev/disk/by-label/FIRMWARE";
