@@ -87,10 +87,9 @@
           };
         })
         ({ lib, ... }: {
-          # Root is mounted with type "auto" (see nixos/services.nix), so the
-          # initrd must carry every root file system an SD image has used.
-          boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" "btrfs" ];
-          boot.initrd.supportedFilesystems = [ "ext4" "btrfs" ];
+          # Root is btrfs (see nixos/services.nix); vfat is the boot partition.
+          boot.supportedFilesystems = lib.mkForce [ "vfat" "btrfs" ];
+          boot.initrd.supportedFilesystems = lib.mkForce [ "btrfs" ];
           boot.loader.timeout = 0;
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
@@ -139,7 +138,8 @@
         ({ lib, ... }: {
           fileSystems."/" = {
             device = "/dev/mmcblk0p2";
-            fsType = "auto";
+            fsType = "btrfs";
+            options = [ "compress=zstd:1" "noatime" ];
           };
           fileSystems."/boot/firmware" = {
             device = "/dev/disk/by-label/FIRMWARE";

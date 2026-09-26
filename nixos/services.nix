@@ -202,13 +202,13 @@ in {
     memoryPercent = 50;
   };
 
-  # Root is the second partition of the SD card or eMMC, whatever its label
-  # and file system. SD images have shipped NIXOS_SD (ext4) and PIFINDER_SD
-  # (btrfs). The initrd finds the type with blkid.
+  # Root is btrfs on the second partition of the SD card or eMMC, whatever
+  # its label. A card that is still ext4 keeps the system it has until the
+  # migration reformats it; the upgrade refuses a build it cannot mount.
   fileSystems."/" = lib.mkDefault {
     device = "/dev/mmcblk0p2";
-    fsType = "auto";
-    options = [ "noatime" "nodiratime" ];
+    fsType = "btrfs";
+    options = [ "compress=zstd:1" "noatime" ];
   };
 
   # ---------------------------------------------------------------------------
