@@ -145,6 +145,23 @@ if [ ! -f /mnt/bootchk/nixos_migration ]; then
     umount /mnt/bootchk
     fail "No migration flag — aborting"
 fi
+
+# Camera type: Pi OS selects the camera with a dtoverlay line in config.txt
+# (switch_camera.py). The pre-migration copy is the unmodified one. NixOS
+# reads the camera from /var/lib/pifinder/camera-type, written in Phase 8.
+# The imx462 uses the imx290 driver. No overlay: NixOS uses its base camera.
+CAMERA_TYPE=""
+CAMERA_CONFIG=/mnt/bootchk/config.txt.premigration
+[ -f "${CAMERA_CONFIG}" ] || CAMERA_CONFIG=/mnt/bootchk/config.txt
+if [ -f "${CAMERA_CONFIG}" ]; then
+    CAMERA_OVERLAY=$(sed -n 's/^[[:space:]]*dtoverlay=\(imx[0-9]*\).*/\1/p' \
+        "${CAMERA_CONFIG}" | tail -n 1)
+    case "${CAMERA_OVERLAY}" in
+        imx296) CAMERA_TYPE=imx296 ;;
+        imx290|imx462) CAMERA_TYPE=imx462 ;;
+        imx477) CAMERA_TYPE=imx477 ;;
+    esac
+fi
 umount /mnt/bootchk
 
 # Read metadata written by pre-migration script
@@ -397,6 +414,12 @@ fi
 
 # pifinder user: UID 1000, GID 100 (users) on NixOS
 chown -R 1000:100 "${MOUNT_NEW}/home/pifinder" 2>/dev/null || true
+
+# Camera type from Phase 1; first boot selects the matching boot entry.
+if [ -n "${CAMERA_TYPE}" ]; then
+    mkdir -p "${MOUNT_NEW}/var/lib/pifinder"
+    echo "${CAMERA_TYPE}" > "${MOUNT_NEW}/var/lib/pifinder/camera-type"
+fi
 
 show 80 "User data restored"
 
