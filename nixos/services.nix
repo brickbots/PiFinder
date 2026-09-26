@@ -321,6 +321,24 @@ in {
   };
 
   # ---------------------------------------------------------------------------
+  # Repair top-level directory ownership
+  # ---------------------------------------------------------------------------
+  # A tarball migration can leave /, /var, /nix and other top-level
+  # directories owned by the pifinder user. systemd-tmpfiles then rejects the
+  # "unsafe path transition" from a user-owned / into the root-owned /run and
+  # does not create /run/pifinder, so every update fails. Activation scripts
+  # run at boot before systemd starts, so tmpfiles sees the repaired owners.
+  # Only the directories change owner, not their contents.
+  system.activationScripts.fix-root-ownership = ''
+    for d in / /boot /home /nix /var /var/lib; do
+      if [ -d "$d" ] && [ "$(stat -c %u "$d")" != 0 ]; then
+        echo "fix-root-ownership: $d is not owned by root, repairing"
+        chown 0:0 "$d" || true
+      fi
+    done
+  '';
+
+  # ---------------------------------------------------------------------------
   # PiFinder source + data directory setup
   # ---------------------------------------------------------------------------
   system.activationScripts.pifinder-home = lib.stringAfter [ "users" ] ''
