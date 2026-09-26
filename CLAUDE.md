@@ -39,7 +39,7 @@ uvx ruff@0.4.8 format .                           # format
 uv run mypy PiFinder                              # type checking
 uv run pytest -m smoke                            # smoke tests
 uv run pytest -m unit                             # unit tests
-uv run pytest -m integration tests/test_ui_modules.py  # UI module harness
+uv run pytest -m integration --ignore-glob='tests/test_web_*'  # integration (web tests need Selenium)
 ```
 
 CI (`.github/workflows/nox.yml` — keeps the upstream "nox" check name) runs
