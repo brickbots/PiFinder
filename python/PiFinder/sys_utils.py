@@ -613,6 +613,7 @@ def get_upgrade_progress() -> dict:
       total: int (total to download, in `unit`)
       unit: "bytes" | "paths"
       percent: int (0-100)
+      step: "asking" | "waiting" | "applying" | "" (patching phase only)
 
     The download status line is "downloading <done>/<total>" in bytes;
     a trailing " paths" marks the fallback where byte sizes were not
@@ -625,6 +626,7 @@ def get_upgrade_progress() -> dict:
         "unit": "bytes",
         "percent": 0,
         "item": "",
+        "step": "",
     }
     try:
         raw = UPGRADE_STATUS_FILE.read_text().strip()
@@ -667,16 +669,21 @@ def get_upgrade_progress() -> dict:
         except (ValueError, IndexError):
             return {**empty, "phase": "downloading"}
     if raw.startswith("patching "):
-        # "patching <done>/<total>": delta patches handled so far, in paths.
+        # "patching <step> <done>/<total>", step one of asking, waiting,
+        # applying (see delta_updates.prefetch_deltas). An older upgrade
+        # service writes "patching <done>/<total>" with no step.
+        body = raw[len("patching ") :].strip()
+        step, _sep, nums = body.rpartition(" ")
         try:
-            done_s, total_s = raw[len("patching ") :].strip().split("/")
+            done_s, total_s = nums.split("/")
             done, total = int(done_s), int(total_s)
         except ValueError:
-            return {**empty, "phase": "patching"}
+            return {**empty, "phase": "patching", "step": step}
         pct = max(0, min(100, int(done * 100 / total))) if total > 0 else 0
         return {
             **empty,
             "phase": "patching",
+            "step": step,
             "done": done,
             "total": total,
             "unit": "paths",

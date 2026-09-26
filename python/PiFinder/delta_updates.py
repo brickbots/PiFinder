@@ -46,7 +46,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-import threading
 import time
 import urllib.error
 import urllib.request
@@ -63,9 +62,11 @@ STORE_DIR = Path("/nix/store")
 # 200 MiB tmpfs on the device, smaller than FREE_SPACE_SLACK alone.
 WORK_ROOT = Path("/var/lib/pifinder/delta-work")
 
-# One retry cycle on a 202: the server is computing a miss. Pre-warmed pairs
-# answer 200 immediately; a genuinely cold pair is not worth stalling the
-# upgrade for, so after RETRIES the path falls back to a normal download.
+# A 202 means the server is computing that pair. The device asks for every
+# path first, then waits RETRY_WAIT once and asks again for the paths that
+# were not ready, for at most RETRIES rounds. A path that is still not ready
+# downloads in full. So a cold build costs at most RETRIES * RETRY_WAIT
+# seconds of waiting, not RETRY_WAIT per path.
 REQUEST_TIMEOUT = 20
 RETRY_WAIT = 15
 RETRIES = 2
@@ -432,14 +433,17 @@ def prefetch_deltas(
     target_toplevel: str,
     paths: tuple[str, ...],
     caches: tuple[str, ...] = (),
-    progress: Optional[Callable[[int, int], None]] = None,
+    progress: Optional[Callable[[str, int, int], None]] = None,
 ) -> StagedCache:
     """Stage patches for the missing paths. Returns the staged cache; the
     caller passes its url to nix build and calls cleanup() afterwards.
 
     `caches` are the binary caches that serve the signed narinfo for each
-    path. With none, nothing can be staged. `progress(done, total)` reports
-    the paths handled so far.
+    path. With none, nothing can be staged. `progress(step, done, total)`
+    reports the step and its progress:
+      "asking"    done of total paths asked for a patch in this round
+      "waiting"   done of total paths are not ready, a wait before the next round
+      "applying"  done of total patches downloaded and applied
 
     Best-effort: any failure — server down, patch broken, disk full — just
     means that path substitutes from the binary cache as before. Must never
@@ -488,9 +492,9 @@ def _stage_all(
     jobs: list[tuple[str, list[str]]],
     session: str,
     caches: tuple[str, ...],
-    progress: Optional[Callable[[int, int], None]],
+    progress: Optional[Callable[[str, int, int], None]],
 ) -> None:
-    """Request and stage every job, WORKERS at a time, into a new cache."""
+    """Ask for a patch for every job, then stage the hits into a new cache."""
     root = Path(tempfile.mkdtemp(prefix="pifinder-delta.", dir=_work_root()))
     staged.root = root
     cache = root / "cache"
@@ -499,37 +503,53 @@ def _stage_all(
         f"StoreDir: /nix/store\nPriority: {STAGED_CACHE_PRIORITY}\n"
     )
 
-    lock = threading.Lock()
-    done = 0
-    if progress:
-        progress(0, len(jobs))
+    def report(step: str, done: int, total: int) -> None:
+        if progress:
+            progress(step, done, total)
 
-    def run(job: tuple[int, tuple[str, list[str]]]) -> str:
-        nonlocal done
-        n, (target, bases) = job
-        result = "none"
-        for attempt in range(RETRIES + 1):
-            state, info = request_delta(target, bases, session)
-            if state == "hit":
-                try:
-                    stage_delta(target, info, root / f"job{n}", cache, session, caches)
-                    result = "staged"
-                except Exception as exc:  # noqa: BLE001 — one path must not stop the rest
-                    logger.warning("delta for %s failed: %s", target, exc)
-                    result = "failed"
-                break
-            if state != "wait" or attempt == RETRIES:
-                break
-            # The server is computing this pair; pre-warmed pairs answer
-            # at once, a cold one is not worth stalling the upgrade for.
+    def ask(job: tuple[int, tuple[str, list[str]]]) -> tuple[str, dict]:
+        _n, (target, bases) = job
+        return request_delta(target, bases, session)
+
+    # Ask for every path. The paths the server is still computing go to the
+    # next round, after one wait for all of them.
+    hits: list[tuple[int, str, dict]] = []
+    pending = list(enumerate(jobs))
+    for round_no in range(RETRIES + 1):
+        if round_no > 0:
+            report("waiting", len(pending), len(jobs))
             time.sleep(RETRY_WAIT)
-        with lock:
-            done += 1
-            if progress:
-                progress(done, len(jobs))
-        return result
+        report("asking", 0, len(pending))
+        not_ready = []
+        with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+            for asked, (job, (state, info)) in enumerate(
+                zip(pending, pool.map(ask, pending)), start=1
+            ):
+                report("asking", asked, len(pending))
+                if state == "hit":
+                    hits.append((job[0], job[1][0], info))
+                elif state == "wait":
+                    not_ready.append(job)
+        pending = not_ready
+        if not pending:
+            break
+    if pending:
+        logger.info("delta: %d path(s) not ready, they download in full", len(pending))
 
+    def apply(hit: tuple[int, str, dict]) -> str:
+        n, target, info = hit
+        try:
+            stage_delta(target, info, root / f"job{n}", cache, session, caches)
+            return "staged"
+        except Exception as exc:  # noqa: BLE001 — one path must not stop the rest
+            logger.warning("delta for %s failed: %s", target, exc)
+            return "failed"
+
+    results = []
+    report("applying", 0, len(hits))
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        results = list(pool.map(run, enumerate(jobs)))
+        for result in pool.map(apply, hits):
+            results.append(result)
+            report("applying", len(results), len(hits))
     staged.count = results.count("staged")
     staged.failed = results.count("failed")

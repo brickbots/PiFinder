@@ -518,7 +518,9 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
             store_path,
             estimate.paths,
             CACHES,
-            progress=lambda done, total: write_status(f"patching {done}/{total}"),
+            progress=lambda step, done, total: write_status(
+                f"patching {step} {done}/{total}"
+            ),
         )
         try:
             build_rc = run_build(store_path, estimate, substituter=staged.url)

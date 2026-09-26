@@ -145,6 +145,22 @@ try:
             "paths",
             25,
         )
+        status.write_text("patching waiting 5/12")
+        p = sys_utils.get_upgrade_progress()
+        assert (p["phase"], p["step"], p["done"], p["total"]) == (
+            "patching",
+            "waiting",
+            5,
+            12,
+        )
+        status.write_text("patching applying 2/4")
+        p = sys_utils.get_upgrade_progress()
+        assert (p["step"], p["done"], p["total"], p["percent"]) == (
+            "applying",
+            2,
+            4,
+            50,
+        )
 
 
 except (ImportError, ValueError):

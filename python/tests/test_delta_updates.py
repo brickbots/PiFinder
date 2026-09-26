@@ -364,14 +364,22 @@ def test_prefetch_stages_hits_and_reports_progress(tmp_path, monkeypatch):
     monkeypatch.setattr(delta_updates, "stage_delta", _stage)
     seen = []
     staged = delta_updates.prefetch_deltas(
-        TARGET, (TARGET,), ("https://c",), progress=lambda d, t: seen.append((d, t))
+        TARGET,
+        (TARGET,),
+        ("https://c",),
+        progress=lambda step, d, t: seen.append((step, d, t)),
     )
     try:
         assert staged.count == 1
         assert staged.url and staged.url.startswith("file://")
         info = (staged.root / "cache" / "nix-cache-info").read_text()
         assert "Priority: 10" in info
-        assert seen == [(0, 1), (1, 1)]
+        assert seen == [
+            ("asking", 0, 1),
+            ("asking", 1, 1),
+            ("applying", 0, 1),
+            ("applying", 1, 1),
+        ]
     finally:
         staged.cleanup()
     assert not staged.root.exists()
@@ -433,3 +441,56 @@ def test_stage_delta_creates_jobdir_before_space_check(tmp_path, monkeypatch):
             TARGET, info, jobdir, tmp_path / "cache", caches=("https://c",)
         )
     assert not jobdir.exists()
+
+
+def test_prefetch_waits_once_per_round_for_all_paths(tmp_path, monkeypatch):
+    """A cold build must not cost RETRY_WAIT for each path."""
+    targets = tuple("/nix/store/" + c * 32 + "-testpkg-1.1" for c in "abcdefghij")
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t: "s")
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
+    monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
+    sleeps = []
+    monkeypatch.setattr(delta_updates.time, "sleep", sleeps.append)
+    monkeypatch.setattr(delta_updates, "request_delta", lambda t, b, s: ("wait", {}))
+    seen = []
+    staged = delta_updates.prefetch_deltas(
+        TARGET,
+        targets,
+        ("https://c",),
+        progress=lambda step, d, t: seen.append((step, d, t)),
+    )
+    staged.cleanup()
+    assert sleeps == [delta_updates.RETRY_WAIT] * delta_updates.RETRIES
+    assert ("waiting", 10, 10) in seen
+    assert seen[-1] == ("applying", 0, 0)
+
+
+def test_prefetch_asks_again_only_for_paths_not_ready(tmp_path, monkeypatch):
+    ready = "/nix/store/" + "e" * 32 + "-testpkg-1.1"
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t: "s")
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
+    monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
+    monkeypatch.setattr(delta_updates, "RETRY_WAIT", 0)
+    calls = []
+
+    def _request(target, bases, session):
+        calls.append(target)
+        if target == ready or calls.count(target) > 1:
+            return "hit", {"basis": [BASE]}
+        return "wait", {}
+
+    monkeypatch.setattr(delta_updates, "request_delta", _request)
+    applied = []
+    monkeypatch.setattr(
+        delta_updates,
+        "stage_delta",
+        lambda target, info, jobdir, cache, session, caches: applied.append(target),
+    )
+    staged = delta_updates.prefetch_deltas(TARGET, (TARGET, ready), ("https://c",))
+    staged.cleanup()
+    assert calls.count(ready) == 1
+    assert calls.count(TARGET) == 2
+    assert sorted(applied) == sorted([TARGET, ready])
+    assert staged.count == 2

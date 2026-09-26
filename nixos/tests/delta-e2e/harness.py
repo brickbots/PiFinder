@@ -42,7 +42,7 @@ staged = delta_updates.prefetch_deltas(
     target,
     estimate.paths,
     nixos_upgrade.CACHES,
-    progress=lambda d, t: status(f"patching {d}/{t}"),
+    progress=lambda step, d, t: status(f"patching {step} {d}/{t}"),
 )
 print(f"staged: {staged.count}, failed: {staged.failed}, url: {staged.url}")
 staged_paths = []
