@@ -3,6 +3,21 @@
     "beta": [
       {
         "available": true,
+        "built_at": "2026-09-26T19:23:32+00:00",
+        "kind": "release",
+        "label": "v3.1.0-beta",
+        "migration_sha256_url": "https://github.com/brickbots/PiFinder/releases/download/v3.1.0-beta/pifinder-migration-v3.1.0-beta.tar.zst.sha256",
+        "migration_url": "https://github.com/brickbots/PiFinder/releases/download/v3.1.0-beta/pifinder-migration-v3.1.0-beta.tar.zst",
+        "notes": "Test release for the btrfs migration. The migration converts the Pi OS root to btrfs in place and keeps the catalog images and user data. Only for testing: the migration gate stays closed.",
+        "source_ref": "v3.1.0-beta",
+        "source_repo": "mrosseel/PiFinder",
+        "source_sha": "42fcbb5d777e74a7de35ceb0281f013229f921c8",
+        "store_path": "/nix/store/69bnqlv5w2j4w3ac1yq005aps2bvnl69-nixos-system-pifinder-26.05.20260924.c508844",
+        "title": "PiFinder v3.1.0-beta",
+        "version": "3.1.0"
+      },
+      {
+        "available": true,
         "built_at": "2026-09-25T01:36:19+00:00",
         "kind": "release",
         "label": "v3.0.2-beta",
@@ -172,6 +187,6 @@
       }
     ]
   },
-  "generated_at": "2026-09-26T19:17:56+00:00",
+  "generated_at": "2026-09-26T19:23:33+00:00",
   "schema": 1
 }
