@@ -6,8 +6,6 @@ This module contains all the UI code for the object details screen
 
 """
 
-from pydeepskylog.exceptions import InvalidParameterError
-
 from PiFinder import cat_images
 from PiFinder.composite_object import MagnitudeObject
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
@@ -31,7 +29,10 @@ from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.db.objects_db import ObjectsDatabase
 import numpy as np
 import time
-import pydeepskylog as pds
+from PiFinder.lazy_import import lazy_module
+
+pds = lazy_module("pydeepskylog")
+pds_exceptions = lazy_module("pydeepskylog.exceptions")
 
 
 # Read-only handle to the catalog DB, opened once and shared across detail
@@ -331,7 +332,11 @@ class UIObjectDetails(UIModule):
                             object_diameter1=diameter1,
                             object_diameter2=diameter2,
                         )
-                except (ValueError, TypeError, InvalidParameterError) as e:
+                except (
+                    ValueError,
+                    TypeError,
+                    pds_exceptions.InvalidParameterError,
+                ) as e:
                     # mag_str / size are not always plain numbers: double stars
                     # carry component mags like "7.0/9.5", asterisms a size like
                     # "3°", and some objects have no magnitude. float() then

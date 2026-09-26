@@ -33,13 +33,11 @@ from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 
 import PiFinder.i18n  # noqa: F401
-from PiFinder import solver
 from PiFinder import config
-from PiFinder import pos_server
 from PiFinder import utils
-from PiFinder import server
 from PiFinder import timez
 from PiFinder import keyboard_interface
+from PiFinder import lazy_import
 import PiFinder.sound as sound
 from PiFinder.types.sound import Earcon, SetVolume
 from PiFinder.battery_bq25895 import (
@@ -73,6 +71,24 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger("main")
+
+# Only the child processes use these modules. Each child loads its own module,
+# so the main process does not load tetra3, grpc or flask.
+run_web_server = lazy_import.lazy_function("PiFinder.server", "run_server")
+run_solver = lazy_import.lazy_function("PiFinder.solver", "solver")
+run_pos_server = lazy_import.lazy_function("PiFinder.pos_server", "run_server")
+
+# The UI uses these modules only after it shows the first screen.
+UI_PRELOAD_MODULES = [
+    "quaternion",
+    "pandas",
+    "sklearn.neighbors",
+    "pydeepskylog",
+    "scipy.ndimage",
+    "scipy.optimize",
+    "PiFinder.plot",
+    "PiFinder.nearby",
+]
 
 hardware_platform = "Pi"
 display_hardware = "SSD1351"
@@ -586,7 +602,7 @@ def main(
 
         server_process = Process(
             name="Webserver",
-            target=server.run_server,
+            target=run_web_server,
             args=(
                 keyboard_queue,
                 ui_queue,
@@ -667,7 +683,7 @@ def main(
         console.update()
         solver_process = Process(
             name="Solver",
-            target=solver.solver,
+            target=run_solver,
             args=(
                 shared_state,
                 solver_queue,
@@ -709,7 +725,7 @@ def main(
         console.update()
         posserver_process = Process(
             name="SkySafariServer",
-            target=pos_server.run_server,
+            target=run_pos_server,
             args=(shared_state, ui_queue, posserver_logqueue),
         )
         posserver_process.start()
@@ -755,6 +771,11 @@ def main(
         # a build that dies before this line never reports READY and fails its
         # trial. No-op outside systemd (development runs).
         utils.sd_notify("READY=1")
+
+        # Load the UI modules in the background. All child processes are
+        # forked now, so a background import cannot deadlock a child. A start
+        # before READY slows the catalog load, because both need the GIL.
+        lazy_import.preload(UI_PRELOAD_MODULES)
 
         # Stop profiling (uncomment to analyze startup performance)
         # stop_profiling(profiler, startup_profile_start)

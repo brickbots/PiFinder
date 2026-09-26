@@ -20,12 +20,11 @@ from dataclasses import asdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import quaternion as quaternion_module
-
 from PiFinder import calc_utils
 from PiFinder import utils
 from PiFinder import timez
 from PiFinder.sqm.camera_profiles import get_camera_profile
+from PiFinder.lazy_import import lazy_module
 
 try:
     from PiFinder.sqm import airglow
@@ -42,6 +41,8 @@ from PiFinder.types.positioning import (
 )
 
 logger = logging.getLogger("Telemetry")
+
+quaternion_module = lazy_module("quaternion")
 
 TELEMETRY_DIR = Path(utils.data_dir) / "telemetry"
 

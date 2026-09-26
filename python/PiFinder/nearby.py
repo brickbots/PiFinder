@@ -2,8 +2,10 @@ from PiFinder.catalogs import CompositeObject
 from typing import List, Optional, Sequence
 import time
 import numpy as np
-from sklearn.neighbors import BallTree
 import logging
+from PiFinder.lazy_import import lazy_module
+
+sklearn_neighbors = lazy_module("sklearn.neighbors")
 
 logger = logging.getLogger("Catalog.Nearby")
 
@@ -126,7 +128,7 @@ class ClosestObjectsFinder:
         )
 
         self._objects = np.array(deduplicated_objects)
-        self._objects_balltree = BallTree(
+        self._objects_balltree = sklearn_neighbors.BallTree(
             object_decras, leaf_size=20, metric="haversine"
         )
 

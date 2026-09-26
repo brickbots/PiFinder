@@ -127,3 +127,35 @@ def test_clear_removes_files(cache_paths):
 
     # Calling clear when files are already gone must not raise.
     catalog_cache.clear()
+
+
+@pytest.mark.unit
+def test_priority_and_deferred_are_split(cache_paths, monkeypatch):
+    monkeypatch.setattr(catalog_cache, "DEFERRED_CHUNK", 2)
+    objs = [_make_obj(i, "M") for i in range(3)] + [
+        _make_obj(i, "WDS") for i in range(5)
+    ]
+    catalog_cache.save(objs, {})
+
+    priority, _ = catalog_cache.load_priority()
+    assert [o.catalog_code for o in priority] == ["M"] * 3
+
+    chunks = list(catalog_cache.iter_deferred())
+    assert [len(c) for c in chunks] == [2, 2, 1]
+    assert [o.sequence for c in chunks for o in c] == [0, 1, 2, 3, 4]
+
+
+@pytest.mark.unit
+def test_missing_deferred_file_invalidates(cache_paths):
+    catalog_cache.save([_make_obj(0), _make_obj(1, "WDS")], {})
+    catalog_cache._deferred_path().unlink()
+    assert catalog_cache.load_priority() is None
+    assert catalog_cache.load() is None
+
+
+@pytest.mark.unit
+def test_clear_removes_deferred_file(cache_paths):
+    catalog_cache.save([_make_obj(0), _make_obj(1, "WDS")], {})
+    assert catalog_cache._deferred_path().exists()
+    catalog_cache.clear()
+    assert not catalog_cache._deferred_path().exists()

@@ -7,6 +7,7 @@ object.
 
 import time
 import datetime
+import threading
 import pickle
 import pytz
 from PiFinder import config
@@ -322,9 +323,21 @@ class SharedStateObj:
         self.__sqm_radiometer_sample = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
-        self.__tz_finder = TimezoneFinder()
+        # TimezoneFinder takes about 4 s to build on a Pi, so it builds in the
+        # background. set_location() waits for it only if it is not ready.
+        self.__tz_finder: Optional[TimezoneFinder] = None
+        self.__tz_finder_thread = threading.Thread(
+            target=self.__build_tz_finder, name="TimezoneFinder", daemon=True
+        )
+        self.__tz_finder_thread.start()
         self.__current_ui_state = None
         self.__test_mode = False
+
+    def __build_tz_finder(self):
+        try:
+            self.__tz_finder = TimezoneFinder()
+        except Exception:
+            logger.exception("Could not build TimezoneFinder, timezone is UTC")
 
     def serialize(self, output_file):
         with open(output_file, "wb") as f:
@@ -482,7 +495,11 @@ class SharedStateObj:
         # documented fallback for an unknown zone (see local_datetime /
         # ADR-0018), so settle it here and keep the field a usable zone name.
         if v:
-            v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon) or "UTC"
+            self.__tz_finder_thread.join()
+            tz = None
+            if self.__tz_finder is not None:
+                tz = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
+            v.timezone = tz or "UTC"
         self.__location = v
 
     def sqm(self):

@@ -8,7 +8,6 @@ and constelleations
 import logging
 import os
 import numpy as np
-import pandas
 from pathlib import Path
 from typing import Optional, Sequence, Tuple
 from PiFinder import utils
@@ -19,9 +18,12 @@ from skyfield.api import Star, load, Angle
 from skyfield.data import hipparcos, stellarium
 from skyfield.projections import build_stereographic_projection
 from PiFinder.calc_utils import sf_utils
+from PiFinder.lazy_import import lazy_module
 
 
 logger = logging.getLogger("Plot")
+
+pandas = lazy_module("pandas")
 
 # Below this ratio of camera field to chart field there is no frustum worth
 # drawing: the box would be within a pixel or two of the chart edge, so it

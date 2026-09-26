@@ -29,8 +29,9 @@ class CometCatalog(Catalog):
             - check if we have a file, if so which file modification time and store that time.
             - if we don't have a file, set want_download to true and log the reason
             - if we have a file, try to get the remote file header, if the file is too old set want_download to true and set the age and log the reason
-        - start the background download task, but wait till it returns
-        - manually start the do_timed_task so it starts immediately, use locks to prevent double start
+            - download if needed
+            - manually start the do_timed_task so it starts immediately, use locks to prevent double start
+            - start the timer and the retry loop
     """
 
     def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
@@ -55,19 +56,21 @@ class CometCatalog(Catalog):
         self._timer.do_timed_task = self.do_timed_task
         self._timer.time_delay_seconds = lambda: self.time_delay_seconds
 
-        # Check if we need to download
+        # The remote check and the download can take many seconds, so they
+        # run in the background and the PiFinder starts without them.
+        threading.Thread(target=self._startup_task, daemon=True).start()
+
+    def _startup_task(self):
+        """Download the comet file if needed, then start the periodic update."""
         want_download, reason = comets.check_if_comet_download_needed(comet_file)
 
         if want_download:
             logger.info(f"Download needed: {reason}")
-            # Start download in background and wait for completion
-            download_thread = threading.Thread(target=self._download_once, daemon=True)
-            download_thread.start()
-            download_thread.join()  # Wait for download to complete
+            self._download_once()
 
-        # Now try to initialize comets immediately (if GPS available)
+        # Initialize comets immediately if GPS is available
         if self.shared_state.altaz_ready() and os.path.exists(comet_file):
-            self.do_timed_task()  # Initialize immediately
+            self.do_timed_task()
 
         # Start timer after initialization
         self._timer.start_timer()

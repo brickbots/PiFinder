@@ -66,9 +66,14 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
-import quaternion
+from PiFinder.lazy_import import lazy_module
+
+if TYPE_CHECKING:
+    import quaternion
+else:
+    quaternion = lazy_module("quaternion")
 
 from PiFinder.types.coordinates import RaDecRoll
 

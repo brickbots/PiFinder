@@ -42,14 +42,15 @@ Alt/Az sign convention
 """
 
 import numpy as np
-from scipy.spatial.transform import Rotation as R
-from scipy.optimize import minimize
 from skyfield.constants import C as _SPEED_OF_LIGHT_M_S
 from skyfield.framelib import (
     true_equator_and_equinox_of_date as _SKYFIELD_TETE_FRAME,
 )
-
 from PiFinder.calc_utils import sf_utils
+from PiFinder.lazy_import import lazy_module
+
+scipy_transform = lazy_module("scipy.spatial.transform")
+scipy_optimize = lazy_module("scipy.optimize")
 
 # Minimum angular sweep between the first and last solve for a valid result.
 # If the recovered sweep is below this threshold, the solves are too close
@@ -289,7 +290,7 @@ def _altaz_knob_rotation(axis, target, zen):
     t_h = target - np.dot(target, zen) * zen
     if np.linalg.norm(n_h) > 1e-12 and np.linalg.norm(t_h) > 1e-12:
         d_az = np.arctan2(np.dot(np.cross(n_h, t_h), zen), np.dot(n_h, t_h))
-        R_az = R.from_rotvec(d_az * zen).as_matrix()
+        R_az = scipy_transform.Rotation.from_rotvec(d_az * zen).as_matrix()
     else:
         R_az = np.eye(3)  # axis or pole at the zenith: no azimuth dof
     n1 = R_az @ axis
@@ -308,9 +309,11 @@ def _altaz_knob_rotation(axis, target, zen):
             # Antipodal within the plane: 180° about the horizontal pin.
             pin = np.cross(zen, target)
             pin /= np.linalg.norm(pin)
-            R_alt = R.from_rotvec(np.pi * pin).as_matrix()
+            R_alt = scipy_transform.Rotation.from_rotvec(np.pi * pin).as_matrix()
     else:
-        R_alt = R.from_rotvec(np.arctan2(s, cosg) * (c / s)).as_matrix()
+        R_alt = scipy_transform.Rotation.from_rotvec(
+            np.arctan2(s, cosg) * (c / s)
+        ).as_matrix()
 
     return R_alt @ R_az
 
@@ -342,8 +345,8 @@ def _predict_three_solves(n, theta1, theta2, ra0, dec0, roll0):
     This matches the convention used in _signed_sweep_angle.
     """
     M0 = attitude_mat(ra0, dec0, roll0)
-    R1 = R.from_rotvec(np.radians(theta1) * n).as_matrix()
-    R2 = R.from_rotvec(np.radians(theta2) * n).as_matrix()
+    R1 = scipy_transform.Rotation.from_rotvec(np.radians(theta1) * n).as_matrix()
+    R2 = scipy_transform.Rotation.from_rotvec(np.radians(theta2) * n).as_matrix()
     return (
         extract_plate_solve(M0),
         extract_plate_solve(R1 @ M0),
@@ -484,7 +487,7 @@ def _refine_axis_three_solves(obs, axis_seed, sigma_ra, sigma_dec, sigma_roll):
     best_seed_idx = int(np.argmin(costs))
     x0 = seeds[best_seed_idx]
 
-    result = minimize(
+    result = scipy_optimize.minimize(
         _three_solve_cost,
         x0,
         args=(obs, sigma_ra, sigma_dec, sigma_roll),
@@ -549,7 +552,7 @@ def _two_solve_axis(solve_a, solve_b):
 
     m1 = attitude_mat(ra1, dec1, roll1)
     m2 = attitude_mat(ra2, dec2, roll2)
-    r_clean = R.from_matrix(m2 @ m1.T).as_matrix()
+    r_clean = scipy_transform.Rotation.from_matrix(m2 @ m1.T).as_matrix()
 
     cos_theta = np.clip((np.trace(r_clean) - 1.0) / 2.0, -1.0, 1.0)
     sweep_deg = np.degrees(np.arccos(cos_theta))
@@ -843,7 +846,9 @@ def make_solve_2(ra1, dec1, roll1, latitude, dAlt, dAz, sweep_deg, lst_deg):
     # rotation around NCP. The sign of from_rotvec therefore stays consistent
     # with NH when we leave the sign as-is after the SH axis construction.
     sign = 1 if latitude < 0 else -1
-    Rtrack = R.from_rotvec(np.radians(sign * sweep_deg) * axis).as_matrix()
+    Rtrack = scipy_transform.Rotation.from_rotvec(
+        np.radians(sign * sweep_deg) * axis
+    ).as_matrix()
     M2 = Rtrack @ M1
 
     return extract_plate_solve(M2)
