@@ -29,10 +29,10 @@ in {
 
   # ---------------------------------------------------------------------------
   # Binary substituters — Pi downloads pre-built paths, never compiles.
-  # Two Attic caches on cache.pifinder.eu (NixOS ADR 0001): pifinder-release
+  # Two Attic caches on cache.pifinder.eu (ADR 0037): pifinder-release
   # (retained release closures) and pifinder (dev/nightly). The first-boot
   # download below resolves its target from the update manifest's best available
-  # channel (NixOS ADR 0003).
+  # channel (ADR 0039).
   # ---------------------------------------------------------------------------
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
@@ -160,7 +160,7 @@ in {
       echo "Clock: $(date -u)"
 
       # Resolve the full system from the update manifest — the same file the
-      # on-device updater reads (NixOS ADR 0003). Migration rides the newest entry
+      # on-device updater reads (ADR 0039). Migration rides the newest entry
       # in the best available channel: stable, then beta, then the unstable trunk.
       # Stable holds only releases, whose closures live in the retained
       # pifinder-release cache, so a resolved stable path can't be GC'd out from

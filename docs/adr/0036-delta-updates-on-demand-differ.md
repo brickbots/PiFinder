@@ -36,7 +36,8 @@ request budget from that closure.
   touches a few bytes in thousands of files, dirtying nearly every chunk.
   Weakest exactly on the dominant case. (The differ still uses Attic's
   FastCDC chunk lists — as a free similarity index for ranking candidate
-  bases, not as the transfer unit.)
+  bases, not as the transfer unit. Data packs, whose files do not change
+  with each build, do use chunks as the transfer unit: see ADR 0040.)
 - **Content-addressed derivations.** Removes rebuild fan-out only for
   bit-identical rebuilds; helps nothing on a real code change. Complementary,
   not a transport.

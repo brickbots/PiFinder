@@ -76,7 +76,7 @@
       modules = commonModules ++ [
         {
           pifinder.devMode = false;
-          # Delta prefetch for upgrades (pifinder-differ, NixOS ADR 0036).
+          # Delta prefetch for upgrades (pifinder-differ, ADR 0036).
           pifinder.deltaUrl = "https://deltas.pifinder.eu";
         }
         # Camera specialisations — base is imx462 (default), specialisations for others

@@ -145,7 +145,7 @@ in {
 
   # ---------------------------------------------------------------------------
   # Binary substituters — Pi downloads pre-built paths, never compiles.
-  # Two Attic caches on cache.pifinder.eu (NixOS ADR 0001):
+  # Two Attic caches on cache.pifinder.eu (ADR 0037):
   #   pifinder-release — tagged release closures, never garbage-collected, so a
   #                      device upgrading long after a release still resolves it.
   #   pifinder         — dev/nightly builds, short retention.
