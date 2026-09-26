@@ -39,7 +39,7 @@ labels come from the update manifest, which maps store paths to versions.
 
 ## Binary caches
 
-Two self-hosted Attic caches on `cache.pifinder.eu` (ADR 0004):
+Two self-hosted Attic caches on `cache.pifinder.eu` (ADR 0037):
 
 | Cache              | Pushed by                  | Retention        | Holds                          |
 | ------------------ | -------------------------- | ---------------- | ------------------------------ |

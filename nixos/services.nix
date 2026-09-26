@@ -136,7 +136,7 @@ in {
     iotop
   ] ++ lib.optionals cfg.devMode [
     # On-device development only (excluded from the production image). Not used
-    # by the NixOS image updater, which is manifest/store-path based (ADR 0003).
+    # by the NixOS image updater, which is manifest/store-path based (ADR 0037).
     git             # clone/pull a checkout to run live
     rsync           # sync a checkout from a desktop without re-copying everything
   ];

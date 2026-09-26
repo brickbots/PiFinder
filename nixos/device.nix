@@ -1,6 +1,11 @@
 { config, lib, pkgs, ... }:
 let
   boot-splash = import ./pkgs/boot-splash.nix { inherit pkgs; };
+  check-root-mountable = pkgs.writeShellApplication {
+    name = "check-root-mountable";
+    runtimeInputs = with pkgs; [ coreutils gawk ];
+    text = builtins.readFile ./pkgs/check-root-mountable.sh;
+  };
 in {
   options.pifinder = {
     devMode = lib.mkOption {
@@ -128,7 +133,7 @@ in {
     wants = [ "time-sync.target" ];
     requires = [ "network-online.target" ];
     wantedBy = [ "multi-user.target" ];
-    # No existence condition: the manifest is the primary source (ADR 0003) and
+    # No existence condition: the manifest is the primary source (ADR 0039) and
     # needs no local file. The baked first-boot-target, when present, is only
     # the offline fallback — the old ConditionPathExists on it silently skipped
     # the whole service when the tarball pipeline stopped baking the file.
@@ -181,7 +186,7 @@ in {
         # jq comma-stream encodes the priority order; first available, valid path
         # wins. TEMPORARY: the unstable trunk is pinned to source_ref "nixos"
         # because the NixOS line still lives on the nixos branch, not main. Drop
-        # the source_ref guard once nixos becomes the mainline trunk (ADR 0003).
+        # the source_ref guard once nixos becomes the mainline trunk (ADR 0039).
         STORE_PATH=$(printf '%s\n' "$MANIFEST_JSON" | jq -r '
           [ ( .channels.stable[]?,
               .channels.beta[]?,
@@ -235,6 +240,14 @@ in {
         sleep 60
       done
       echo 100 > "$PROGRESS_FILE"
+
+      # A system that cannot mount this card's root stops in the initrd,
+      # before anything can roll it back. Refuse it and stay on the
+      # migration system; the service tries again at the next boot.
+      if ! ${check-root-mountable}/bin/check-root-mountable "$STORE_PATH"; then
+        echo "ERROR: not switching to $STORE_PATH"
+        exit 1
+      fi
 
       echo "Setting system profile..."
       nix-env -p /nix/var/nix/profiles/system --set "$STORE_PATH"
