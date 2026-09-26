@@ -285,6 +285,7 @@ def test_run_upgrade_activation_failure_writes_failed(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate, **_kw: 0)
     monkeypatch.setattr(nixos_upgrade, "load_selection", dict)
+    monkeypatch.setattr(nixos_upgrade, "check_root_mountable", lambda _system: None)
     monkeypatch.setattr(
         nixos_upgrade,
         "activate_system",
@@ -316,6 +317,7 @@ def test_run_upgrade_success_writes_rebooting_and_persists(tmp_path, monkeypatch
         "load_selection",
         lambda: {"version": "nixos-test", "label": "test", "channel": "unstable"},
     )
+    monkeypatch.setattr(nixos_upgrade, "check_root_mountable", lambda _system: None)
     monkeypatch.setattr(nixos_upgrade, "activate_system", lambda _store, _camera: None)
     monkeypatch.setattr(nixos_upgrade, "cleanup_old_generations", lambda: None)
     monkeypatch.setattr(
@@ -346,6 +348,7 @@ def test_run_upgrade_reboot_failure_writes_failed(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate, **_kw: 0)
     monkeypatch.setattr(nixos_upgrade, "load_selection", dict)
+    monkeypatch.setattr(nixos_upgrade, "check_root_mountable", lambda _system: None)
     monkeypatch.setattr(nixos_upgrade, "activate_system", lambda _store, _camera: None)
     monkeypatch.setattr(nixos_upgrade, "cleanup_old_generations", lambda: None)
 
@@ -458,3 +461,90 @@ def test_run_build_passes_staged_cache_as_substituter(monkeypatch, tmp_path):
     assert args[i - 1] == "--option"
     assert args[i + 1] == "file:///var/lib/pifinder/delta-work/x/cache"
     assert "--no-check-sigs" not in args
+
+
+def _system_with_fstab(tmp_path, line):
+    system = tmp_path / "system"
+    (system / "etc").mkdir(parents=True)
+    (system / "etc" / "fstab").write_text(
+        "# comment\n" + line + "\n/dev/disk/by-label/FIRMWARE /boot/firmware vfat\n"
+    )
+    return system
+
+
+@pytest.mark.unit
+def test_fstab_root_reads_the_root_line(tmp_path):
+    system = _system_with_fstab(tmp_path, "/dev/mmcblk0p2 / auto x-initrd.mount 0 1")
+    assert nixos_upgrade.fstab_root(system) == ("/dev/mmcblk0p2", "auto")
+    assert nixos_upgrade.fstab_root(tmp_path / "missing") is None
+
+
+@pytest.mark.unit
+def test_mounted_root_takes_the_top_entry(tmp_path):
+    mounts = tmp_path / "mounts"
+    mounts.write_text(
+        "rootfs / rootfs rw 0 0\n"
+        "/dev/mmcblk0p2 / btrfs rw,noatime 0 0\n"
+        "tmpfs /run tmpfs rw 0 0\n"
+    )
+    assert nixos_upgrade.mounted_root(mounts) == ("/dev/mmcblk0p2", "btrfs")
+
+
+@pytest.mark.unit
+def test_check_root_mountable_accepts_the_mounted_device(tmp_path, monkeypatch):
+    disk = tmp_path / "mmcblk0p2"
+    disk.touch()
+    system = _system_with_fstab(tmp_path, f"{disk} / auto x-initrd.mount 0 1")
+    monkeypatch.setattr(nixos_upgrade, "mounted_root", lambda: (str(disk), "btrfs"))
+    nixos_upgrade.check_root_mountable(system)
+
+
+@pytest.mark.unit
+def test_check_root_mountable_rejects_a_missing_label(tmp_path, monkeypatch):
+    disk = tmp_path / "mmcblk0p2"
+    disk.touch()
+    system = _system_with_fstab(
+        tmp_path, f"{tmp_path}/by-label/NIXOS_SD / ext4 x-initrd.mount 0 1"
+    )
+    monkeypatch.setattr(nixos_upgrade, "mounted_root", lambda: (str(disk), "btrfs"))
+    with pytest.raises(nixos_upgrade.UpgradeError, match="mounts / from"):
+        nixos_upgrade.check_root_mountable(system)
+
+
+@pytest.mark.unit
+def test_check_root_mountable_rejects_another_fs_type(tmp_path, monkeypatch):
+    disk = tmp_path / "mmcblk0p2"
+    disk.touch()
+    system = _system_with_fstab(tmp_path, f"{disk} / ext4 x-initrd.mount 0 1")
+    monkeypatch.setattr(nixos_upgrade, "mounted_root", lambda: (str(disk), "btrfs"))
+    with pytest.raises(nixos_upgrade.UpgradeError, match="as ext4"):
+        nixos_upgrade.check_root_mountable(system)
+
+
+@pytest.mark.unit
+def test_run_upgrade_refuses_a_build_that_cannot_mount_root(tmp_path, monkeypatch):
+    ref_file = tmp_path / "ref"
+    ref_file.write_text(STORE)
+    statuses = _capture_status(monkeypatch)
+    monkeypatch.setattr(
+        nixos_upgrade,
+        "estimate_download",
+        lambda _store: nixos_upgrade.DownloadEstimate(()),
+    )
+    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _store, _estimate, **_kw: 0)
+    monkeypatch.setattr(nixos_upgrade, "load_selection", dict)
+    activated = []
+    monkeypatch.setattr(
+        nixos_upgrade, "activate_system", lambda *args: activated.append(args)
+    )
+
+    def _refuse(_system):
+        raise nixos_upgrade.UpgradeError("mounts / from NIXOS_SD")
+
+    monkeypatch.setattr(nixos_upgrade, "check_root_mountable", _refuse)
+
+    rc = nixos_upgrade.run_upgrade(ref_file, "imx462")
+
+    assert rc == 1
+    assert activated == []
+    assert statuses == ["starting", "checking", "failed"]

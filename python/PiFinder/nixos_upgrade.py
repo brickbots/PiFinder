@@ -442,6 +442,56 @@ def arm_trial_marker(boot_target: Path) -> None:
         logger.warning("could not arm trial marker: %s", exc)
 
 
+def fstab_root(system: Path) -> tuple[str, str] | None:
+    """(device, fs type) of / in the etc/fstab of `system`, or None."""
+    try:
+        text = (system / "etc" / "fstab").read_text()
+    except OSError:
+        return None
+    for line in text.splitlines():
+        fields = line.split()
+        if len(fields) >= 3 and not fields[0].startswith("#") and fields[1] == "/":
+            return fields[0], fields[2]
+    return None
+
+
+def mounted_root(mounts: Path = Path("/proc/mounts")) -> tuple[str, str]:
+    """(device, fs type) of the root file system that is mounted now."""
+    root = ("", "")
+    for line in mounts.read_text().splitlines():
+        fields = line.split()
+        if len(fields) >= 3 and fields[1] == "/":
+            # The last entry for / is the one on top.
+            root = (fields[0], fields[2])
+    return root
+
+
+def check_root_mountable(system: Path) -> None:
+    """Raise UpgradeError if `system` cannot mount the root file system.
+
+    A build whose etc/fstab names a root device this device does not have
+    (for example a disk label from another image) stops in the initrd before
+    anything can roll it back. So refuse it before activation.
+    """
+    target = fstab_root(system)
+    if target is None:
+        raise UpgradeError(f"{system} has no root file system in etc/fstab")
+    device, fs_type = target
+    root_device, root_type = mounted_root()
+    if not Path(device).exists() or (
+        Path(device).resolve() != Path(root_device).resolve()
+    ):
+        raise UpgradeError(
+            f"{system} mounts / from {device}, but the root file system "
+            f"is {root_device}"
+        )
+    if fs_type != "auto" and fs_type != root_type:
+        raise UpgradeError(
+            f"{system} mounts / as {fs_type}, but the root file system "
+            f"is {root_type}"
+        )
+
+
 def activate_system(store_path: str, default_camera: str) -> None:
     write_status("activating")
     command(["nix-env", "-p", "/nix/var/nix/profiles/system", "--set", store_path])
@@ -544,6 +594,7 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
             raise UpgradeError(f"nix build failed rc={build_rc}")
 
         selection = load_selection()
+        check_root_mountable(Path(store_path))
         activate_system(store_path, default_camera)
         persist_current_build(store_path, selection)
         cleanup_old_generations()
