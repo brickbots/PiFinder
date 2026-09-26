@@ -73,6 +73,14 @@ show() {
     fi
 }
 
+# Update the display within the current step (no new step number), for
+# long steps that must visibly move.
+show_update() {
+    if [ "${PROGRESS_READY}" -eq 1 ]; then
+        echo "$1 ${STAGE_NUM} ${STAGE_TOTAL} $2" >&3 2>/dev/null || true
+    fi
+}
+
 # Set to 1 immediately before the first destructive step (formatting). While
 # it is 0, a failure can and must send the device back to the old OS.
 DESTRUCTIVE=0
@@ -122,7 +130,7 @@ if [ -f /migration_meta ]; then
     export MIGRATION_DISPLAY_RESOLUTION="${DISPLAY_RESOLUTION:-}"
 fi
 
-show 28 "Migrating..."
+show 28 "Starting upgrade"
 
 # Wait for SD card device to appear
 n=0
@@ -132,7 +140,7 @@ while [ ! -b "${BOOT_DEV}" ] && [ "${n}" -lt 30 ]; do
 done
 [ ! -b "${BOOT_DEV}" ] && fail "SD card not found after 30s: ${BOOT_DEV}"
 
-show 30 "Initramfs started"
+show 30 "Upgrade started"
 
 # -------------------------------------------------------------------
 # Phase 1: Validate
@@ -175,14 +183,15 @@ fi
 # btrfs-convert need RAM.
 MEM_KB=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
 MEM_MB=$((MEM_KB / 1024))
+echo "RAM available: ${MEM_MB} MB" > /dev/console 2>/dev/null || true
 
-show 31 "Validated: ${MEM_MB}MB"
+show 31 "Checks OK"
 
 # -------------------------------------------------------------------
 # Phase 2: Save WiFi credentials to RAM
 # -------------------------------------------------------------------
 
-show 33 "Saving WiFi to RAM"
+show 33 "Saving WiFi"
 
 mkdir -p "${MOUNT_ROOT}"
 mount -t ext4 -o ro "${ROOT_DEV}" "${MOUNT_ROOT}" || fail "Cannot mount root"
@@ -208,9 +217,38 @@ fi
 
 # Pi OS stores the hostname in /etc/hostname, the NixOS image reads it from
 # PiFinder_data/hostname. Read it now; the old /etc is deleted in Phase 7.
+# busybox tr has no character classes: '[:space:]' would delete the letters
+# of the set, so name the whitespace characters.
 OLD_HOSTNAME=""
 if [ -s "${MOUNT_ROOT}/etc/hostname" ]; then
-    OLD_HOSTNAME=$(head -n1 "${MOUNT_ROOT}/etc/hostname" | tr -d '[:space:]')
+    OLD_HOSTNAME=$(head -n1 "${MOUNT_ROOT}/etc/hostname" | tr -d ' \t\r\n')
+fi
+
+# The access point name: Pi OS keeps it in hostapd.conf, NixOS in
+# PiFinder_data/ap_name.
+OLD_AP_NAME=""
+if [ -f "${MOUNT_ROOT}/etc/hostapd/hostapd.conf" ]; then
+    OLD_AP_NAME=$(sed -n 's/^ssid=//p' "${MOUNT_ROOT}/etc/hostapd/hostapd.conf" | head -n 1 | tr -d '\r\n')
+fi
+
+# Login credentials: the pifinder password hash, the SSH host keys and the
+# user's authorized_keys. Kept in RAM now; written to the new root after the
+# extraction. NixOS applies them once at the first boot (pifinder-migrated-
+# credentials); the hash and host keys never go into PiFinder_data, which the
+# network share exposes.
+CARRY=/tmp/carry
+mkdir -p "${CARRY}/ssh"
+chmod 700 "${CARRY}"
+if [ -f "${MOUNT_ROOT}/etc/shadow" ]; then
+    awk -F: '$1 == "pifinder" {print $2}' "${MOUNT_ROOT}/etc/shadow" > "${CARRY}/password-hash"
+fi
+for key in "${MOUNT_ROOT}"/etc/ssh/ssh_host_*_key "${MOUNT_ROOT}"/etc/ssh/ssh_host_*_key.pub; do
+    [ -f "${key}" ] || continue
+    cp "${key}" "${CARRY}/ssh/" || echo "Cannot keep ${key}" > /dev/console
+done
+echo "SSH host keys kept: $(ls "${CARRY}/ssh" | wc -l)" > /dev/console 2>/dev/null || true
+if [ -f "${MOUNT_ROOT}/home/pifinder/.ssh/authorized_keys" ]; then
+    cp "${MOUNT_ROOT}/home/pifinder/.ssh/authorized_keys" "${CARRY}/authorized_keys"
 fi
 
 TARBALL_ON_ROOT="${MOUNT_ROOT}${TARBALL_PATH}"
@@ -226,13 +264,13 @@ show 38 "Settings saved"
 # btrfs-convert writes its metadata into the free space of the ext4, and a
 # full card has little. Grow the partition and the ext4 first. Both steps
 # leave Pi OS bootable.
-show 40 "Expanding partition"
+show 40 "Using full card"
 
 echo ", +" | sfdisk -N 2 "${SD_DEV}" --no-reread 2>/dev/null || true
 blockdev --rereadpt "${SD_DEV}" 2>/dev/null || true
 sleep 1
 
-show 42 "Checking filesystem"
+show 42 "Checking card"
 # e2fsck exit codes 0 and 1 mean clean or fixed; btrfs-convert needs a clean fs.
 set +e
 e2fsck -f -y "${ROOT_DEV}"
@@ -240,7 +278,7 @@ E2FSCK_RC=$?
 set -e
 [ "${E2FSCK_RC}" -le 1 ] || fail "e2fsck failed (${E2FSCK_RC})"
 
-show 45 "Growing filesystem"
+show 45 "Using full card"
 # -f: the Pi has no RTC, so the initramfs clock is in 1970 and e2fsck stores a
 # check time before the last mount. resize2fs would then ask for e2fsck again.
 # The check above has just passed.
@@ -253,16 +291,41 @@ resize2fs -f "${ROOT_DEV}" || fail "resize2fs failed"
 # btrfs-convert keeps every file, PiFinder_data with the catalog images
 # included. It writes the btrfs superblock last, so a failure before the end
 # leaves the ext4 intact and the old OS can still boot.
-show 48 "Converting to btrfs"
+show 48 "Converting (long)"
 
 for ko in /lib/modules/btrfs/*.ko; do
     [ -f "${ko}" ] && insmod "${ko}" 2>/dev/null || true
 done
-btrfs-convert -l PIFINDER_SD "${ROOT_DEV}" || fail "btrfs-convert failed"
+# The conversion takes many minutes, so the display shows the elapsed time
+# every 5 s, and the percentage of inodes copied once btrfs-convert reports
+# it ("copy inodes [o] [  1234/  5678]"). A display that does not move looks
+# like a hang, and a user who thinks it hangs pulls the power.
+btrfs-convert -l PIFINDER_SD "${ROOT_DEV}" > /tmp/convert.log 2>&1 &
+CONVERT_PID=$!
+CONVERT_START=$(date +%s)
+while kill -0 "${CONVERT_PID}" 2>/dev/null; do
+    ELAPSED=$(( $(date +%s) - CONVERT_START ))
+    CLOCK=$(printf '%d:%02d' $((ELAPSED / 60)) $((ELAPSED % 60)))
+    COUNTER=$(tr '\r' '\n' < /tmp/convert.log | grep -o '\[ *[0-9][0-9]*/ *[0-9][0-9]*\]' | tail -n 1 | sed 's/[^0-9\/]//g')
+    if [ -n "${COUNTER}" ] && [ "${COUNTER#*/}" -gt 0 ]; then
+        DONE_PCT=$(( ${COUNTER%/*} * 100 / ${COUNTER#*/} ))
+        [ "${DONE_PCT}" -gt 99 ] && DONE_PCT=99
+        show_update $((48 + DONE_PCT / 10)) "Converting ${DONE_PCT}% ${CLOCK}"
+    else
+        show_update 48 "Converting ${CLOCK}"
+    fi
+    sleep 5
+done
+set +e
+wait "${CONVERT_PID}"
+CONVERT_RC=$?
+set -e
+cat /tmp/convert.log
+[ "${CONVERT_RC}" -eq 0 ] || fail "btrfs-convert failed (${CONVERT_RC})"
 
 # Point of no return: the root is btrfs now.
 DESTRUCTIVE=1
-show 58 "Converted to btrfs"
+show 58 "Card converted"
 
 mkdir -p "${MOUNT_NEW}"
 mount -t btrfs -o compress=zstd:1,noatime "${ROOT_DEV}" "${MOUNT_NEW}" || fail "Cannot mount btrfs root"
@@ -276,7 +339,7 @@ btrfs filesystem label "${MOUNT_NEW}" PIFINDER_SD || true
 
 # PiFinder_data gets its own subvolume, so an upgrade can snapshot user data
 # (ADR 0039). A reflink copy shares the data blocks, so it needs no space.
-show 60 "Creating data subvolume"
+show 60 "Keeping your data"
 
 HOME_NEW="${MOUNT_NEW}/home/pifinder"
 DATA_OLD="${MOUNT_NEW}${PIFINDER_DATA_PATH}"
@@ -293,6 +356,9 @@ mv "${DATA_SUBVOL}" "${HOME_NEW}/PiFinder_data" || fail "Cannot rename PiFinder_
 if [ -n "${OLD_HOSTNAME}" ] && [ ! -f "${HOME_NEW}/PiFinder_data/hostname" ]; then
     echo "${OLD_HOSTNAME}" > "${HOME_NEW}/PiFinder_data/hostname"
 fi
+if [ -n "${OLD_AP_NAME}" ] && [ ! -f "${HOME_NEW}/PiFinder_data/ap_name" ]; then
+    echo "${OLD_AP_NAME}" > "${HOME_NEW}/PiFinder_data/ap_name"
+fi
 
 # -------------------------------------------------------------------
 # Phase 7: Remove Pi OS
@@ -301,7 +367,7 @@ fi
 # Keep only PiFinder_data, the tarball, and ext2_saved (the ext4 image that
 # btrfs-convert leaves for rollback; NixOS deletes it after the first good
 # boot).
-show 64 "Removing Pi OS"
+show 64 "Removing old system"
 
 mv "${MOUNT_NEW}${TARBALL_PATH}" "${MOUNT_NEW}/.migration.tar.zst" || fail "Cannot move tarball"
 
@@ -325,12 +391,12 @@ done
 # Phase 8: Extract NixOS
 # -------------------------------------------------------------------
 
-show 68 "Extracting NixOS"
+show 68 "Installing NixOS"
 
 zstd -d < "${MOUNT_NEW}/.migration.tar.zst" | tar xf - -C "${MOUNT_NEW}" || fail "Tarball extraction failed"
 rm -f "${MOUNT_NEW}/.migration.tar.zst"
 
-show 78 "Moving rootfs"
+show 78 "Installing NixOS"
 
 # The tarball's top-level boot/ is the FIRMWARE partition payload; rootfs/
 # carries its own non-empty /boot (extlinux + kernels live on the btrfs root).
@@ -362,7 +428,7 @@ chown 0:0 "${MOUNT_NEW}" "${MOUNT_NEW}/home" 2>/dev/null || true
 # Phase 9: Firmware partition
 # -------------------------------------------------------------------
 
-show 82 "Formatting boot"
+show 82 "Setting up boot"
 
 mkfs.vfat -F 32 -n FIRMWARE "${BOOT_DEV}" || fail "mkfs.vfat failed"
 mkdir -p "${MOUNT_BOOT}"
@@ -392,7 +458,7 @@ fi
 # Phase 10: WiFi, owners, camera
 # -------------------------------------------------------------------
 
-show 88 "Migrating WiFi"
+show 88 "Restoring WiFi"
 
 NM_DIR="${MOUNT_NEW}/etc/NetworkManager/system-connections"
 mkdir -p "${NM_DIR}"
@@ -406,19 +472,37 @@ fi
 # pifinder user: UID 1000, GID 100 (users) on NixOS
 chown -R 1000:100 "${HOME_NEW}" 2>/dev/null || true
 
+# Login credentials from Phase 3.
+MIGRATED="${MOUNT_NEW}/var/lib/pifinder/migrated"
+mkdir -p "${MIGRATED}"
+chmod 700 "${MIGRATED}"
+[ -s "${CARRY}/password-hash" ] && cp "${CARRY}/password-hash" "${MIGRATED}/password-hash"
+if ls "${CARRY}"/ssh/ssh_host_* >/dev/null 2>&1; then
+    mkdir -p "${MIGRATED}/ssh"
+    cp -p "${CARRY}"/ssh/ssh_host_* "${MIGRATED}/ssh/"
+fi
+chown -R 0:0 "${MIGRATED}"
+if [ -s "${CARRY}/authorized_keys" ]; then
+    mkdir -p "${HOME_NEW}/.ssh"
+    cp "${CARRY}/authorized_keys" "${HOME_NEW}/.ssh/authorized_keys"
+    chown -R 1000:100 "${HOME_NEW}/.ssh"
+    chmod 700 "${HOME_NEW}/.ssh"
+    chmod 600 "${HOME_NEW}/.ssh/authorized_keys"
+fi
+
 # Camera type from Phase 1; first boot selects the matching boot entry.
 if [ -n "${CAMERA_TYPE}" ]; then
     mkdir -p "${MOUNT_NEW}/var/lib/pifinder"
     echo "${CAMERA_TYPE}" > "${MOUNT_NEW}/var/lib/pifinder/camera-type"
 fi
 
-show 92 "Syncing"
+show 92 "Saving to card"
 sync
 umount "${MOUNT_BOOT}" 2>/dev/null || true
 umount "${MOUNT_NEW}" 2>/dev/null || true
 
 # Final verification: the RPi firmware config must be on the FAT partition.
-show 95 "Verifying boot"
+show 95 "Checking boot"
 mkdir -p /mnt/bootchk
 mount -t vfat -o ro "${BOOT_DEV}" /mnt/bootchk || fail "Cannot remount boot for verification"
 if [ ! -f /mnt/bootchk/config.txt ]; then
@@ -428,7 +512,7 @@ if [ ! -f /mnt/bootchk/config.txt ]; then
 fi
 umount /mnt/bootchk
 
-show 100 "Complete"
+show 100 "Done, restarting"
 sleep 3
 
 # Success: disarm the failure trap before the deliberate reboot.

@@ -126,7 +126,23 @@ if ! python3 "${SCRIPT_DIR}/nixos_migration_calc.py" --json \
     --display-class "${DISPLAY_CLASS}" \
     --display-resolution "${DISPLAY_RESOLUTION}" \
     > /tmp/migration_checks.json 2>&1; then
-    fail 1 "Pre-flight checks failed"
+    # Name what failed, so the user knows what to change.
+    REASONS=$(python3 - <<'PYEOF' 2>/dev/null || true
+import json
+reasons = {
+    "is_pi4": "a Raspberry Pi 4 is needed",
+    "ram_ok": "2 GB RAM is needed",
+    "sd_ok": "a 16 GB card is needed",
+    "free_ok": "4 GB free space is needed",
+    "wifi_ok": "WiFi must be in client mode",
+    "display_ok": "this display is not supported",
+    "layout_ok": "the card layout is not standard",
+}
+checks = json.load(open("/tmp/migration_checks.json"))
+print("; ".join(text for key, text in reasons.items() if checks.get(key) is False))
+PYEOF
+)
+    fail 1 "Cannot upgrade: ${REASONS:-pre-flight checks failed}"
 fi
 
 progress 5 "Pre-flight OK"

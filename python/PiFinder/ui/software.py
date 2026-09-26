@@ -487,7 +487,15 @@ class UIMigrationConfirm(UIModule):
 
         self.draw.text(
             (0, y),
-            _("Power + WiFi req"),
+            _("Keeps obs + images"),
+            font=self.fonts.base.font,
+            fill=self.colors.get(128),
+        )
+        y += 11
+
+        self.draw.text(
+            (0, y),
+            _("Keep power + WiFi on"),
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
