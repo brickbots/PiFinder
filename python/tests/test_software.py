@@ -1,3 +1,4 @@
+import builtins
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -12,7 +13,12 @@ from PiFinder.ui.software import (
     _migration_gate_open,
     _migration_version_info_from_manifest,
     _UNLOCK_SEQUENCE,
+    UIMigrationConfirm,
+    UIMigrationProgress,
+    on_battery,
 )
+from PiFinder.types.hardware import BatteryState, ChargeStatus
+from PiFinder.ui.base import UIModule
 
 
 _NIXOS_URL = "https://example.invalid/pifinder-nixos.tar.zst"
@@ -304,3 +310,70 @@ class TestMigrationVersionInfoFromManifest:
     def test_none_when_channels_missing(self, mock_get, _mock_head):
         mock_get.return_value = _mock_json_response({"schema": 1})
         assert _migration_version_info_from_manifest() is None
+
+
+def _battery(external: bool) -> BatteryState:
+    return BatteryState(
+        battery_voltage=3.9,
+        charge_status=ChargeStatus.NOT_CHARGING,
+        on_external_power=external,
+        state_of_charge_pct=70,
+        charge_current_ma=None,
+        vbus_voltage=None,
+        sys_voltage=None,
+        timestamp=0.0,
+    )
+
+
+def _shared_state(battery):
+    state = MagicMock()
+    state.battery.return_value = battery
+    return state
+
+
+def _confirm_screen(battery) -> UIMigrationConfirm:
+    screen = UIMigrationConfirm.__new__(UIMigrationConfirm)
+    screen.shared_state = _shared_state(battery)
+    screen._options = ["Confirm", "Cancel"]
+    screen._option_index = 0
+    return screen
+
+
+@pytest.mark.unit
+class TestMigrationPower:
+    @pytest.fixture(autouse=True)
+    def _gettext(self, monkeypatch):
+        # The app installs gettext's _ at start; the screens call it.
+        monkeypatch.setattr(builtins, "_", lambda text: text, raising=False)
+
+    def test_no_charger_counts_as_usb_power(self):
+        assert on_battery(_shared_state(None)) is False
+
+    def test_battery_without_usb_power(self):
+        assert on_battery(_shared_state(_battery(external=False))) is True
+
+    def test_battery_with_usb_power(self):
+        assert on_battery(_shared_state(_battery(external=True))) is False
+
+    def test_confirm_hidden_on_battery(self):
+        screen = _confirm_screen(_battery(external=False))
+        assert screen._refresh_options() is True
+        assert screen._options == ["Cancel"]
+        assert screen._option_index == 0
+
+    def test_confirm_back_when_plugged_in(self):
+        screen = _confirm_screen(_battery(external=False))
+        screen._refresh_options()
+        screen.shared_state = _shared_state(_battery(external=True))
+        assert screen._refresh_options() is False
+        assert screen._options == ["Confirm", "Cancel"]
+
+
+@pytest.mark.unit
+class TestKeepAwake:
+    def test_progress_screen_keeps_screen_awake(self):
+        assert UIMigrationProgress.keep_awake is True
+
+    def test_other_screens_may_dim(self):
+        assert UIModule.keep_awake is False
+        assert UIMigrationConfirm.keep_awake is False

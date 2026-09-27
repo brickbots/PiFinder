@@ -151,6 +151,14 @@ def _migration_version_info_from_manifest() -> Optional[dict]:
     return None
 
 
+def on_battery(shared_state) -> bool:
+    """True when the charger reports no USB-C power. Hardware without the
+    charger (rev3) reports no battery state; it cannot tell, so it counts as
+    on USB-C power."""
+    battery = shared_state.battery() if shared_state is not None else None
+    return battery is not None and not battery.on_external_power
+
+
 def update_needed(current_version: str, repo_version: str) -> bool:
     """
     Returns true if an update is available
@@ -443,8 +451,18 @@ class UIMigrationConfirm(UIModule):
         self._option_index = 0
         self._options = [_("Confirm"), _("Cancel")]
 
+    def _refresh_options(self) -> bool:
+        """Offer Confirm only on USB-C power. Returns True on battery."""
+        battery = on_battery(self.shared_state)
+        options = [_("Cancel")] if battery else [_("Confirm"), _("Cancel")]
+        if options != self._options:
+            self._options = options
+            self._option_index = 0
+        return battery
+
     def update(self, force=False):
         time.sleep(1 / 30)
+        battery = self._refresh_options()
         self.clear_screen()
         y = self.display_class.titlebar_height + 2
 
@@ -493,12 +511,20 @@ class UIMigrationConfirm(UIModule):
         )
         y += 11
 
-        self.draw.text(
-            (0, y),
-            _("Keep power + WiFi on"),
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
+        if battery:
+            self.draw.text(
+                (0, y),
+                _("Plug in USB-C power"),
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+        else:
+            self.draw.text(
+                (0, y),
+                _("Keep power + WiFi on"),
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
         y += 11
 
         if not self._version_info.get(
@@ -543,6 +569,7 @@ class UIMigrationConfirm(UIModule):
         return True
 
     def key_right(self):
+        self._refresh_options()
         if self._options[self._option_index] == _("Cancel"):
             self.remove_from_stack()
         elif self._options[self._option_index] == _("Confirm"):
@@ -561,13 +588,15 @@ class UIMigrationProgress(UIModule):
     """
 
     __title__ = "UPGRADE"
+    # The download takes minutes; the screen must stay readable.
+    keep_awake = True
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._version_info = self.item_definition.get("version_info", {})
         self._started = False
         self._status = _("Starting...")
-        self._progress = 0
+        self._progress = -1  # the current step; -1 = no measure
         self._terminal_failure = False
         self._status_layout = TextLayouter(
             self._status,
@@ -658,24 +687,29 @@ class UIMigrationProgress(UIModule):
             [bar_x, y, bar_x + bar_w, y + bar_h],
             outline=self.colors.get(64),
         )
-        fill_w = int(bar_w * self._progress / 100)
+        # The bar shows the current step; a negative percent means the step
+        # has no measure: an empty bar and no number.
+        fill_w = int(bar_w * max(self._progress, 0) / 100)
         if fill_w > 0:
             self.draw.rectangle(
                 [bar_x + 1, y + 1, bar_x + fill_w, y + bar_h - 1],
                 fill=self.colors.get(255),
             )
-        pct_text = f"{self._progress}%"
-        pct_bbox = self.fonts.base.font.getbbox(pct_text)
-        pct_w = pct_bbox[2] - pct_bbox[0]
-        pct_h = pct_bbox[3] - pct_bbox[1]
-        pct_x = bar_x + (bar_w - pct_w) // 2
-        pct_y = y + (bar_h - pct_h) // 2 - pct_bbox[1]
-        self.draw.text(
-            (pct_x, pct_y),
-            pct_text,
-            font=self.fonts.base.font,
-            fill=self.colors.get(0) if self._progress > 45 else self.colors.get(192),
-        )
+        if self._progress >= 0:
+            pct_text = f"{self._progress}%"
+            pct_bbox = self.fonts.base.font.getbbox(pct_text)
+            pct_w = pct_bbox[2] - pct_bbox[0]
+            pct_h = pct_bbox[3] - pct_bbox[1]
+            pct_x = bar_x + (bar_w - pct_w) // 2
+            pct_y = y + (bar_h - pct_h) // 2 - pct_bbox[1]
+            self.draw.text(
+                (pct_x, pct_y),
+                pct_text,
+                font=self.fonts.base.font,
+                fill=self.colors.get(0)
+                if self._progress > 45
+                else self.colors.get(192),
+            )
         y += bar_h + 4
 
         # Use TextLayouter for scrollable status text

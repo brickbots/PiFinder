@@ -31,7 +31,7 @@ DISPLAY_RESOLUTION="${5:-}"
 
 trap '_trap_err $LINENO "$BASH_COMMAND"' ERR
 _trap_err() {
-    echo "{\"percent\": 0, \"status\": \"FAILED at line $1: $2\"}" > "${PROGRESS_FILE}"
+    echo "{\"percent\": -1, \"status\": \"FAILED at line $1: $2\"}" > "${PROGRESS_FILE}"
     echo "ERROR at line $1: $2" >&2
 }
 
@@ -43,6 +43,8 @@ INITRAMFS_DIR="/tmp/nixos_initramfs"
 PROGRESS_BIN="${SCRIPT_DIR}/migration_progress"
 INIT_SCRIPT="${SCRIPT_DIR}/nixos_migration_init.sh"
 
+# The app's bar shows the progress of the current step: 0-100 for the
+# download, -1 (an empty bar, no number) for steps with no measure.
 progress() {
     local pct="$1"
     local msg="$2"
@@ -53,7 +55,7 @@ progress() {
 fail() {
     local code="$1"
     local msg="$2"
-    progress 0 "FAILED: ${msg}"
+    progress -1 "FAILED: ${msg}"
     echo "ERROR: ${msg}" >&2
     exit "${code}"
 }
@@ -82,7 +84,7 @@ copy_libs() {
 }
 
 # --- Phase 0: Install required packages ---
-progress 0 "Installing dependencies"
+progress -1 "Installing dependencies"
 MISSING_PKGS=""
 for pkg in btrfs-progs busybox cpio curl dosfstools e2fsprogs fdisk gzip xz-utils zstd; do
     if ! dpkg -s "${pkg}" >/dev/null 2>&1; then
@@ -109,7 +111,7 @@ install_pkgs() {
 # btrfs-progs is too old.
 if [ -n "${MISSING_PKGS}" ] || ! btrfs_progs_ok; then
     if ! install_pkgs || ! btrfs_progs_ok; then
-        progress 1 "Updating package lists"
+        progress -1 "Updating package lists"
         sudo apt-get update || fail 1 "apt-get update failed"
         install_pkgs || fail 1 "Failed to install:${MISSING_PKGS}"
     fi
@@ -120,7 +122,7 @@ btrfs_progs_ok || fail 1 "btrfs-progs $(btrfs_progs_version) is older than ${MIN
 # nixos_migration_calc.py is the single source of truth for whether this
 # system is ready to migrate (model, RAM, SD size + layout, free space,
 # WiFi mode, supported display). A non-zero exit means all_ok is false.
-progress 3 "Running pre-flight checks"
+progress -1 "Running pre-flight checks"
 
 if ! python3 "${SCRIPT_DIR}/nixos_migration_calc.py" --json \
     --display-class "${DISPLAY_CLASS}" \
@@ -145,35 +147,33 @@ PYEOF
     fail 1 "Cannot upgrade: ${REASONS:-pre-flight checks failed}"
 fi
 
-progress 5 "Pre-flight OK"
+progress -1 "Pre-flight OK"
 
 # --- Phase 2: Download image ---
 SKIP_DOWNLOAD=false
 if [ -f "${TARBALL}" ]; then
     if [ -z "${MIGRATION_SHA256}" ]; then
-        progress 60 "Using cached download (no checksum)"
+        progress -1 "Using cached download (no checksum)"
         SKIP_DOWNLOAD=true
     else
-        progress 10 "Verifying existing download"
+        progress -1 "Verifying existing download"
         EXISTING_SHA256=$(sha256sum "${TARBALL}" | awk '{print $1}')
         if [ "${EXISTING_SHA256}" = "${MIGRATION_SHA256}" ]; then
-            progress 60 "Using cached download"
+            progress -1 "Using cached download"
             SKIP_DOWNLOAD=true
         fi
     fi
 fi
 
 if [ "${SKIP_DOWNLOAD}" = false ]; then
-    progress 10 "Downloading..."
+    progress -1 "Downloading..."
     rm -f "${TARBALL}"
 
     if ! curl -L -f -o "${TARBALL}" \
         --progress-bar \
         "${MIGRATION_URL}" 2>&1 | tr '\r' '\n' | while IFS= read -r line; do
             if [[ "$line" =~ ([0-9]+)\.[0-9]% ]]; then
-                dl_pct="${BASH_REMATCH[1]}"
-                mapped_pct=$(( 10 + dl_pct * 50 / 100 ))
-                progress "${mapped_pct}" "Downloading..."
+                progress "${BASH_REMATCH[1]}" "Downloading..."
             fi
         done; then
         fail 2 "Download failed"
@@ -181,9 +181,9 @@ if [ "${SKIP_DOWNLOAD}" = false ]; then
 
     # --- Phase 3: Verify checksum ---
     if [ -z "${MIGRATION_SHA256}" ]; then
-        progress 60 "SHA256 not provided, skipping verification"
+        progress -1 "SHA256 not provided, skipping verification"
     else
-        progress 60 "Verifying checksum"
+        progress -1 "Verifying checksum"
         ACTUAL_SHA256=$(sha256sum "${TARBALL}" | awk '{print $1}')
         if [ "${ACTUAL_SHA256}" != "${MIGRATION_SHA256}" ]; then
             rm -f "${TARBALL}"
@@ -192,10 +192,10 @@ if [ "${SKIP_DOWNLOAD}" = false ]; then
     fi
 fi
 
-progress 65 "Download OK"
+progress -1 "Download OK"
 
 # --- Phase 4: Get image size ---
-progress 68 "Preparing"
+progress -1 "Preparing"
 
 TARBALL_SIZE=$(stat -c%s "${TARBALL}")
 
@@ -203,10 +203,10 @@ TARBALL_SIZE=$(stat -c%s "${TARBALL}")
 # card, so the tarball does not have to fit in RAM.
 TARBALL_MB=$((TARBALL_SIZE / 1048576))
 
-progress 75 "Tarball: ${TARBALL_MB}MB"
+progress -1 "Tarball: ${TARBALL_MB}MB"
 
 # --- Phase 5: Build initramfs ---
-progress 78 "Building initramfs"
+progress -1 "Building initramfs"
 
 rm -rf "${INITRAMFS_DIR}"
 mkdir -p "${INITRAMFS_DIR}"/{bin,lib,dev,proc,sys,mnt,tmp}
@@ -319,7 +319,7 @@ DISPLAY_CLASS=${DISPLAY_CLASS}
 DISPLAY_RESOLUTION=${DISPLAY_RESOLUTION}
 METAEOF
 
-progress 85 "Staging initramfs"
+progress -1 "Staging initramfs"
 
 # --- Phase 6: Create and stage initramfs ---
 cd "${INITRAMFS_DIR}"
@@ -330,7 +330,7 @@ sudo cp /tmp/nixos_migration_initramfs.gz "${BOOT_PARTITION}/initramfs-migration
 # Migration flag on boot partition (survives root format)
 sudo touch "${BOOT_PARTITION}/nixos_migration"
 
-progress 92 "Configuring boot"
+progress -1 "Configuring boot"
 
 # --- Phase 7: Configure boot to use migration initramfs ---
 if [ -f "${BOOT_PARTITION}/config.txt" ]; then
@@ -340,7 +340,7 @@ if [ -f "${BOOT_PARTITION}/config.txt" ]; then
         sudo tee -a "${BOOT_PARTITION}/config.txt" > /dev/null
 fi
 
-progress 100 "Rebooting in 5s..."
+progress -1 "Rebooting in 5s..."
 
 echo "Migration staged. Tarball: ${TARBALL_SIZE} bytes"
 echo "Rebooting in 5 seconds..."

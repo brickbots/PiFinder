@@ -5,7 +5,7 @@
  * Designed to be statically compiled and included in the initramfs.
  *
  * Usage: migration_progress <percent> <stage_num> <stage_total> <message>
- *   percent: 0-100
+ *   percent: progress of the current step, 0-100; -1 = the step has no measure
  *   message: status text (max ~20 chars fits on screen)
  *
  * Examples:
@@ -419,6 +419,9 @@ static void fb_string_centered_fit(int y, const char *s, uint16_t color, int max
 
 static void draw_progress(int percent, const char *stage, int stage_num, int stage_total)
 {
+    /* The bar shows the progress of the current step. A negative percent
+     * means the step has no measure: the bar stays empty, with no number. */
+    int measured = percent >= 0;
     if (percent < 0) percent = 0;
     if (percent > 100) percent = 100;
 
@@ -473,9 +476,11 @@ static void draw_progress(int percent, const char *stage, int stage_num, int sta
         fb_rect(unfill_x, bar_y + 2, unfill_w, bar_h - 4, COL_DKRED);
 
     /* Percentage */
-    char pct_str[8];
-    snprintf(pct_str, sizeof(pct_str), "%d%%", percent);
-    fb_string_centered(pct_y, pct_str, COL_RED, 2);
+    if (measured) {
+        char pct_str[8];
+        snprintf(pct_str, sizeof(pct_str), "%d%%", percent);
+        fb_string_centered(pct_y, pct_str, COL_RED, 2);
+    }
 
     /* Current stage name */
     if (stage && *stage)

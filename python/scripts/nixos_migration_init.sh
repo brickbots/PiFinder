@@ -62,6 +62,9 @@ if [ -x "${PROGRESS}" ]; then
     PROGRESS_READY=1
 fi
 
+# Start a new step. The first argument is the overall percentage, for the
+# console log only. The display bar shows the progress of the current step:
+# -1 (an empty bar, no number) until show_update gives a measure.
 show() {
     local pct="$1"
     local msg="$2"
@@ -69,13 +72,14 @@ show() {
     echo "[${pct}%] ${msg}" > /dev/console 2>/dev/null || true
     echo "[${pct}%] ${msg}"
     if [ "${PROGRESS_READY}" -eq 1 ]; then
-        echo "${pct} ${STAGE_NUM} ${STAGE_TOTAL} ${msg}" >&3 2>/dev/null || true
+        echo "-1 ${STAGE_NUM} ${STAGE_TOTAL} ${msg}" >&3 2>/dev/null || true
     fi
 }
 
-# Update the display within the current step (no new step number), for
-# long steps that must visibly move.
+# Progress of the current step (0-100), for long steps that must visibly
+# move. The step number does not change.
 show_update() {
+    echo "[step ${STAGE_NUM}] $1% $2" > /dev/console 2>/dev/null || true
     if [ "${PROGRESS_READY}" -eq 1 ]; then
         echo "$1 ${STAGE_NUM} ${STAGE_TOTAL} $2" >&3 2>/dev/null || true
     fi
@@ -273,10 +277,15 @@ sleep 1
 show 42 "Checking card"
 # e2fsck exit codes 0 and 1 mean clean or fixed; btrfs-convert needs a clean fs.
 set +e
-e2fsck -f -y "${ROOT_DEV}"
+e2fsck -f -y "${ROOT_DEV}" > /tmp/e2fsck.log 2>&1
 E2FSCK_RC=$?
 set -e
+cat /tmp/e2fsck.log
 [ "${E2FSCK_RC}" -le 1 ] || fail "e2fsck failed (${E2FSCK_RC})"
+# Used size in MiB, from the summary line "rootfs: 123/456 files (...),
+# 2786543/7654321 blocks". Pi OS makes the ext4 with 4 KiB blocks.
+USED_MB=$(awk '/ blocks$/ { split($(NF-1), b, "/"); used = b[1] }
+    END { printf "%d", used * 4 / 1024 }' /tmp/e2fsck.log)
 
 show 45 "Using full card"
 # -f: the Pi has no RTC, so the initramfs clock is in 1970 and e2fsck stores a
@@ -291,28 +300,30 @@ resize2fs -f "${ROOT_DEV}" || fail "resize2fs failed"
 # btrfs-convert keeps every file, PiFinder_data with the catalog images
 # included. It writes the btrfs superblock last, so a failure before the end
 # leaves the ext4 intact and the old OS can still boot.
-show 48 "Converting (long)"
+show 48 "Converting card"
 
 for ko in /lib/modules/btrfs/*.ko; do
     [ -f "${ko}" ] && insmod "${ko}" 2>/dev/null || true
 done
-# The conversion takes many minutes, so the display shows the elapsed time
-# every 5 s, and the percentage of inodes copied once btrfs-convert reports
-# it ("copy inodes [o] [  1234/  5678]"). A display that does not move looks
-# like a hang, and a user who thinks it hangs pulls the power.
+# The conversion takes many minutes, and a display that does not move looks
+# like a hang: a user who thinks it hangs pulls the power. btrfs-convert
+# reads every used data block once to make its checksums, so the step's
+# percentage is the data read from the root partition against the used size
+# from e2fsck. The output of btrfs-convert is no use for this: it goes to a
+# file, so it arrives in 4 KiB blocks, and its inode counter runs past its
+# total.
+root_sectors_read() {
+    awk '{print $3}' "/sys/class/block/${ROOT_DEV##*/}/stat" 2>/dev/null || echo 0
+}
+READ_START=$(root_sectors_read)
 btrfs-convert -l PIFINDER_SD "${ROOT_DEV}" > /tmp/convert.log 2>&1 &
 CONVERT_PID=$!
-CONVERT_START=$(date +%s)
 while kill -0 "${CONVERT_PID}" 2>/dev/null; do
-    ELAPSED=$(( $(date +%s) - CONVERT_START ))
-    CLOCK=$(printf '%d:%02d' $((ELAPSED / 60)) $((ELAPSED % 60)))
-    COUNTER=$(tr '\r' '\n' < /tmp/convert.log | grep -o '\[ *[0-9][0-9]*/ *[0-9][0-9]*\]' | tail -n 1 | sed 's/[^0-9\/]//g')
-    if [ -n "${COUNTER}" ] && [ "${COUNTER#*/}" -gt 0 ]; then
-        DONE_PCT=$(( ${COUNTER%/*} * 100 / ${COUNTER#*/} ))
+    READ_MB=$(( ($(root_sectors_read) - READ_START) / 2048 ))
+    if [ "${USED_MB}" -gt 0 ]; then
+        DONE_PCT=$(( READ_MB * 100 / USED_MB ))
         [ "${DONE_PCT}" -gt 99 ] && DONE_PCT=99
-        show_update $((48 + DONE_PCT / 10)) "Converting ${DONE_PCT}% ${CLOCK}"
-    else
-        show_update 48 "Converting ${CLOCK}"
+        show_update "${DONE_PCT}" "Converting card"
     fi
     sleep 5
 done
@@ -393,10 +404,50 @@ done
 
 show 68 "Installing NixOS"
 
-zstd -d < "${MOUNT_NEW}/.migration.tar.zst" | tar xf - -C "${MOUNT_NEW}" || fail "Tarball extraction failed"
-rm -f "${MOUNT_NEW}/.migration.tar.zst"
+# The step's percentage is how far zstd has read the tarball: the read
+# position of its file descriptor, against the tarball size.
+TARBALL_NEW="${MOUNT_NEW}/.migration.tar.zst"
+TARBALL_BYTES=$(stat -c %s "${TARBALL_NEW}")
+tarball_read_bytes() {
+    for fd in /proc/"$1"/fd/*; do
+        if [ "$(readlink "${fd}" 2>/dev/null)" = "${TARBALL_NEW}" ]; then
+            awk '$1 == "pos:" {print $2}' "/proc/$1/fdinfo/${fd##*/}" 2>/dev/null || echo 0
+            return 0
+        fi
+    done
+    echo 0
+}
+rm -f /tmp/extract.fifo
+mkfifo /tmp/extract.fifo
+zstd -dcq "${TARBALL_NEW}" > /tmp/extract.fifo &
+ZSTD_PID=$!
+tar xf /tmp/extract.fifo -C "${MOUNT_NEW}" &
+TAR_PID=$!
+# The percentage never goes down: once zstd has read the whole tarball and
+# closed it, tar still writes, and the read position is gone.
+LAST_PCT=0
+while kill -0 "${TAR_PID}" 2>/dev/null; do
+    READ_BYTES=$(tarball_read_bytes "${ZSTD_PID}")
+    if [ -n "${READ_BYTES}" ] && [ "${TARBALL_BYTES}" -gt 0 ]; then
+        EXTRACT_PCT=$(awk -v r="${READ_BYTES}" -v t="${TARBALL_BYTES}" \
+            'BEGIN { p = int(r * 100 / t); if (p > 99) p = 99; print p }')
+        [ "${EXTRACT_PCT}" -gt "${LAST_PCT}" ] && LAST_PCT=${EXTRACT_PCT}
+        show_update "${LAST_PCT}" "Installing NixOS"
+    fi
+    sleep 3
+done
+set +e
+wait "${ZSTD_PID}"
+ZSTD_RC=$?
+wait "${TAR_PID}"
+TAR_RC=$?
+set -e
+rm -f /tmp/extract.fifo
+[ "${ZSTD_RC}" -eq 0 ] && [ "${TAR_RC}" -eq 0 ] \
+    || fail "Tarball extraction failed (zstd ${ZSTD_RC}, tar ${TAR_RC})"
+rm -f "${TARBALL_NEW}"
 
-show 78 "Installing NixOS"
+show 78 "Setting up NixOS"
 
 # The tarball's top-level boot/ is the FIRMWARE partition payload; rootfs/
 # carries its own non-empty /boot (extlinux + kernels live on the btrfs root).
