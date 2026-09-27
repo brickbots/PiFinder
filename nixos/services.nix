@@ -4,6 +4,75 @@ let
   cedar-detect = import ./pkgs/cedar-detect.nix { inherit pkgs; };
   pifinder-src = import ./pkgs/pifinder-src.nix { inherit pkgs; };
   boot-splash = import ./pkgs/boot-splash.nix { inherit pkgs; };
+  uboot-sd = import ./pkgs/uboot-sd.nix { inherit pkgs; };
+  # The U-Boot boot counter (ADR 0038, nixos/pkgs/uboot-sd.nix): two files on
+  # the FAT FIRMWARE partition. pifinder.bootcount is 4 bytes: magic 0xbd,
+  # version 1, count, upgrade_available. pifinder-fallback.env names the
+  # extlinux entry that U-Boot boots when the count passes its limit.
+  #   arm <system>  count the next boots; fall back to the entry of <system>
+  #   reset         stop counting (a healthy boot)
+  #   armed         exit 0 if the counter counts
+  # A U-Boot without the counter does not read these files.
+  pifinder-bootcount = pkgs.writeShellScriptBin "pifinder-bootcount" ''
+    set -euo pipefail
+    export PATH=${lib.makeBinPath (with pkgs; [ coreutils gawk util-linux ])}
+    FW=/boot/firmware
+    COUNT=$FW/pifinder.bootcount
+    FALLBACK=$FW/pifinder-fallback.env
+    CONF=/boot/extlinux/extlinux.conf
+
+    # Replace a file on the FAT partition: write a new file, then rename it.
+    put() {
+      cat > "$1.tmp"
+      sync -f "$1.tmp"
+      mv -f "$1.tmp" "$1"
+      sync -f "$1"
+    }
+    state() {
+      od -An -tu1 -N4 "$COUNT" 2>/dev/null | awk '{$1=$1; print}'
+    }
+
+    if ! mountpoint -q "$FW"; then
+      echo "pifinder-bootcount: $FW is not mounted" >&2
+      [ "''${1:-}" = armed ] && exit 1
+      exit 0
+    fi
+    case "''${1:-}" in
+      arm)
+        PREVIOUS="''${2:?usage: pifinder-bootcount arm <system>}"
+        # The generation entry (not nixos-default, which moves to the new
+        # system) whose kernel command line starts <system>.
+        LABEL=$(awk -v init="init=$PREVIOUS/init" '
+          $1 == "LABEL" { label = $2 }
+          $1 == "APPEND" && label != "nixos-default" {
+            for (i = 2; i <= NF; i++) if ($i == init) { print label; exit }
+          }' "$CONF")
+        if [ -z "$LABEL" ]; then
+          echo "pifinder-bootcount: no boot entry for $PREVIOUS; the counter stays off" >&2
+          exit 0
+        fi
+        printf 'pxe_label_override=%s\n' "$LABEL" | put "$FALLBACK"
+        printf '\275\001\000\001' | put "$COUNT"
+        echo "pifinder-bootcount: counting boots; fallback entry $LABEL"
+        ;;
+      reset)
+        if [ "$(state)" != "189 1 0 0" ]; then
+          printf '\275\001\000\000' | put "$COUNT"
+        fi
+        rm -f "$FALLBACK"
+        ;;
+      armed)
+        case "$(state)" in
+          "189 1 "*" 1") exit 0 ;;
+          *) exit 1 ;;
+        esac
+        ;;
+      *)
+        echo "usage: pifinder-bootcount arm <system> | reset | armed" >&2
+        exit 2
+        ;;
+    esac
+  '';
   # Point the extlinux DEFAULT at a specific camera's boot entry. Device-tree
   # overlays load only at boot and the generic-extlinux builder always writes
   # DEFAULT=nixos-default (the base camera), so without this a switched camera
@@ -459,7 +528,7 @@ in {
     };
     # zstd applies delta patches (unused, harmless when deltaUrl is unset).
     # btrfs-progs takes the PiFinder_data snapshot before the switch.
-    path = with pkgs; [ nix systemd coreutils zstd btrfs-progs set-extlinux-default ];
+    path = with pkgs; [ nix systemd coreutils zstd btrfs-progs set-extlinux-default pifinder-bootcount ];
   };
 
   # ---------------------------------------------------------------------------
@@ -479,6 +548,54 @@ in {
   #     splash, roll back (marker hint first, else newest other generation),
   #     reboot. With no rollback target at all, stay up for rescue instead of
   #     boot-looping.
+  # A failure in stage 1 (the initrd) or a kernel panic restarts the Pi after
+  # 10 s instead of waiting for ever. Each restart counts on the U-Boot boot
+  # counter, so a trial generation that cannot boot falls back without a
+  # hand on the power switch.
+  boot.kernelParams = [ "boot.panic_on_fail" "panic=10" ];
+
+  # Install the U-Boot of this build (nixos/pkgs/uboot-sd.nix) on the FAT
+  # partition when the one there is different: devices installed before the
+  # boot counter get it this way. Only from a confirmed generation, so the
+  # system that installs it has booted well. The install writes a new file
+  # and renames it, and keeps the replaced U-Boot as u-boot-rpi4.bin.old: a
+  # U-Boot that does not start can then be put back with a card reader.
+  systemd.services.pifinder-uboot-update = {
+    description = "Install this build's U-Boot on the firmware partition";
+    after = [ "pifinder-watchdog.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig.Type = "oneshot";
+    path = with pkgs; [ coreutils diffutils gnugrep util-linux pifinder-bootcount ];
+    script = ''
+      set -euo pipefail
+      FW=/boot/firmware
+      NEW=${uboot-sd}/u-boot.bin
+      DEST=$FW/u-boot-rpi4.bin
+      mountpoint -q "$FW" || exit 0
+      # Only replace a Pi 4 U-Boot that is there already.
+      [ -f "$DEST" ] || exit 0
+      cmp -s "$NEW" "$DEST" && exit 0
+      CURRENT=$(readlink -f /run/current-system)
+      if ! grep -qxF "$CURRENT" /var/lib/pifinder/confirmed-generations 2>/dev/null; then
+        echo "$CURRENT is not confirmed yet; U-Boot stays as it is"
+        exit 0
+      fi
+      # The new U-Boot must find the counter off when it first starts.
+      pifinder-bootcount reset
+      cp "$DEST" "$FW/u-boot-rpi4.bin.old"
+      cp "$NEW" "$DEST.new"
+      sync -f "$DEST.new"
+      if ! cmp -s "$NEW" "$DEST.new"; then
+        rm -f "$DEST.new"
+        echo "the copy of U-Boot is not correct; U-Boot stays as it is" >&2
+        exit 1
+      fi
+      mv -f "$DEST.new" "$DEST"
+      sync -f "$DEST"
+      echo "installed U-Boot from $NEW"
+    '';
+  };
+
   systemd.services.pifinder-watchdog = {
     description = "PiFinder Boot Health Watchdog";
     after = [ "multi-user.target" "pifinder.service" ];
@@ -487,7 +604,7 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = with pkgs; [ nix systemd coreutils jq gnugrep util-linux boot-splash ];
+    path = with pkgs; [ nix systemd coreutils jq gnugrep util-linux boot-splash pifinder-bootcount ];
     script = ''
       set -euo pipefail
       MARKER=/var/lib/pifinder/trial-generation.json
@@ -500,6 +617,32 @@ in {
       }
 
       if is_confirmed "$CURRENT"; then
+        # A counting boot counter on a confirmed generation: U-Boot fell back
+        # to this entry because the trial generation did not come up three
+        # times (it stopped before this watchdog could run), or the trial is
+        # this same build. In the first case make this generation the default
+        # again, so the next boot does not try the failed one.
+        if pifinder-bootcount armed; then
+          PROFILE=$(readlink -f /nix/var/nix/profiles/system)
+          SAME=0
+          [ "$PROFILE" = "$CURRENT" ] && SAME=1
+          for S in "$PROFILE"/specialisation/*/; do
+            [ -e "$S" ] || continue
+            [ "$(readlink -f "$S")" = "$CURRENT" ] && SAME=1
+          done
+          if [ "$SAME" = 0 ]; then
+            echo "U-Boot fell back to $CURRENT: $PROFILE did not boot. Making $CURRENT the default again."
+            TS=$(date +%Y%m%d-%H%M%S)
+            runuser -u pifinder -- mkdir -p "$DATA" || true
+            jq -n --arg failed "$PROFILE" --arg reverted_to "$CURRENT" --arg at "$TS" \
+              '{failed: $failed, reverted_to: $reverted_to, at: $at, by: "boot counter"}' \
+              | runuser -u pifinder -- tee "$DATA/upgrade_failed.json" > /dev/null || true
+            rm -f /var/lib/pifinder/current-build.json
+            nix-env -p /nix/var/nix/profiles/system --set "$CURRENT"
+            "$CURRENT/bin/switch-to-configuration" boot || true
+          fi
+        fi
+        pifinder-bootcount reset || true
         # Stale marker from an aborted/rolled-back upgrade attempt is harmless
         # here but must not survive to a later boot.
         rm -f "$MARKER"
@@ -541,6 +684,7 @@ in {
             mkdir -p "$(dirname "$CONFIRMED")"
             echo "$CURRENT" >> "$CONFIRMED"
             rm -f "$MARKER"
+            pifinder-bootcount reset || true
             exit 0
           fi
         fi
@@ -594,6 +738,9 @@ in {
       # Stop the crash-looping app so the display is free for the failure
       # message (and so the reboot is clean).
       systemctl stop pifinder.service || true
+
+      # This watchdog does the rollback; U-Boot must not count on top of it.
+      pifinder-bootcount reset || true
 
       if [ -z "$TARGET" ]; then
         echo "FATAL: no rollback target exists — staying up for rescue (SSH) instead of boot-looping."

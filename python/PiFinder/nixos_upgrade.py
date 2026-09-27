@@ -494,6 +494,25 @@ def arm_trial_marker(boot_target: Path) -> None:
         logger.warning("could not arm trial marker: %s", exc)
 
 
+def arm_boot_counter(previous: Path = Path("/run/current-system")) -> None:
+    """Arm the U-Boot boot counter for the trial boot (ADR 0038).
+
+    If the new generation stops before the watchdog runs (in the initrd, or
+    with a kernel panic), U-Boot counts the restarts and, after three, boots
+    the extlinux entry of `previous`, the system that runs now. The watchdog
+    stops the counter when a boot is healthy.
+
+    Best-effort: without the counter the upgrade still has the watchdog.
+    """
+    try:
+        command(
+            ["pifinder-bootcount", "arm", str(previous.resolve())],
+            check=False,
+        )
+    except Exception as exc:  # noqa: BLE001 — must never stop the upgrade
+        logger.warning("could not arm the boot counter: %s", exc)
+
+
 def fstab_root(system: Path) -> tuple[str, str] | None:
     """(device, fs type) of / in the etc/fstab of `system`, or None."""
     try:
@@ -725,6 +744,7 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
         activate_system(store_path, default_camera)
         persist_current_build(store_path, selection)
         cleanup_old_generations()
+        arm_boot_counter()
         write_status("rebooting")
         command(["systemctl", "reboot"])
         terminal = True

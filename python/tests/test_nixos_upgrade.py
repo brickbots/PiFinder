@@ -409,7 +409,8 @@ def test_run_upgrade_success_writes_rebooting_and_persists(tmp_path, monkeypatch
 
     assert rc == 0
     assert statuses == ["starting", "checking", "rebooting"]
-    assert commands == [["systemctl", "reboot"]]
+    assert commands[-1] == ["systemctl", "reboot"]
+    assert commands[0][:2] == ["pifinder-bootcount", "arm"]
     assert json.loads(current_build.read_text())["version"] == "nixos-test"
 
 
@@ -752,3 +753,26 @@ def test_run_upgrade_snapshots_before_activation(tmp_path, monkeypatch):
     nixos_upgrade.run_upgrade(ref_file, "imx462")
 
     assert order == ["stop-tidy", "snapshot", "activate"]
+
+
+@pytest.mark.unit
+def test_arm_boot_counter_names_the_running_system(tmp_path, monkeypatch):
+    system = tmp_path / "system"
+    system.mkdir()
+    link = tmp_path / "current-system"
+    link.symlink_to(system)
+    calls = []
+    monkeypatch.setattr(
+        nixos_upgrade, "command", lambda args, **_kw: calls.append(args)
+    )
+    nixos_upgrade.arm_boot_counter(link)
+    assert calls == [["pifinder-bootcount", "arm", str(system)]]
+
+
+@pytest.mark.unit
+def test_arm_boot_counter_never_raises(monkeypatch):
+    def boom(_args, **_kw):
+        raise FileNotFoundError("pifinder-bootcount")
+
+    monkeypatch.setattr(nixos_upgrade, "command", boom)
+    nixos_upgrade.arm_boot_counter()

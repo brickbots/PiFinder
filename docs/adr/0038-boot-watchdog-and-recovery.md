@@ -17,7 +17,15 @@ The watchdog never rolls back a confirmed generation. A cold night or a slow SD 
 
 - The marker that the upgrade writes (`/var/lib/pifinder/trial-generation.json`) is only a hint. It names the exact system before the upgrade, camera specialisation included. The ledger is what counts. Loss of the ledger is harmless: a healthy generation confirms again.
 - A failing trial with no generation to roll back to (a first install) shows a failure message and stays up for rescue, and it does not loop.
-- **Known gap:** the watchdog runs only after the root file system is mounted. A build that stops in U-Boot, the kernel or the initrd boots the same entry again on each power cycle, with a black screen. On 2026-09-26 a CM4 stopped in the initrd this way, and recovery needed a change of `extlinux.conf` on the card. The chosen fix, not built yet, is U-Boot `bootcount` with `altbootcmd`: the confirm step resets the counter, and above the limit U-Boot boots the previous entry. It is preferred over Raspberry Pi `tryboot`, which works on partitions and would force an A/B layout.
-- The upgrade and the first boot refuse a build that cannot mount the root of the Pi ([ADR 0039](./0039-card-layout-and-migration.md)). That closes the cause of the 2026-09-26 failure, but not the gap.
+- The watchdog runs only after the root file system is mounted. A build that stops in the kernel or the initrd never reaches it. On 2026-09-26 a CM4 stopped in the initrd this way, and recovery needed a change of `extlinux.conf` on the card. **The U-Boot boot counter** closes this gap (`nixos/pkgs/uboot-sd.nix`, `pifinder-bootcount` in `nixos/services.nix`):
+  - U-Boot keeps a 4-byte file, `pifinder.bootcount`, on the FAT partition: magic, version, count and `upgrade_available` (U-Boot `BOOTCOUNT_FS`). With `upgrade_available=0`, U-Boot neither counts nor writes.
+  - Before the reboot into a trial, the upgrade sets `upgrade_available=1` and writes `pifinder-fallback.env` with the extlinux entry of the system that runs now (`pxe_label_override=nixos-<gen>-<camera>`).
+  - Each boot of the trial counts. Above `bootlimit` (3), U-Boot runs `altbootcmd`: it imports `pifinder-fallback.env` and boots that entry.
+  - The kernel parameters `boot.panic_on_fail panic=10` restart the Pi after a failure in the initrd or a kernel panic, so the count goes up without a hand on the power switch. A hang with no panic still needs power cycles.
+  - The watchdog stops the counter on each healthy boot. When it finds the counter on while a confirmed generation runs that is not the profile's generation, U-Boot has fallen back: the watchdog makes the running generation the default again and writes `upgrade_failed.json`.
+  - `pifinder-uboot-update` puts the U-Boot of the build on the FAT partition when it differs, only from a confirmed generation, and keeps the replaced one as `u-boot-rpi4.bin.old`.
+  - Chosen over Raspberry Pi `tryboot`, which works on partitions and would force an A/B layout, and over a counter in the U-Boot environment (`BOOTCOUNT_ENV`): a saved environment replaces the built-in one, `bootcmd` included, and an older U-Boot would read a partial file.
+  - Risk: a new U-Boot that does not start stops the device before any rollback. The `.old` copy then goes back with a card reader.
+- The upgrade and the first boot refuse a build that cannot mount the root of the Pi ([ADR 0039](./0039-card-layout-and-migration.md)). That closes the cause of the 2026-09-26 failure.
 
 Replaces NixOS ADR 0005 (watchdog) and 0006 (recovery mode).

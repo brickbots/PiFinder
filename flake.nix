@@ -282,24 +282,8 @@
     };
     # Custom u-boot variants
     pkgsAarch64 = import nixpkgs { system = "aarch64-linux"; };
-    # SD boot: skip PCI/USB/net probe, go straight to mmc extlinux
-    ubootSD = pkgsAarch64.ubootRaspberryPi4_64bit.override {
-      extraConfig = ''
-        CONFIG_CMD_PXE=y
-        CONFIG_CMD_SYSBOOT=y
-        CONFIG_BOOTDELAY=0
-        CONFIG_PREBOOT=""
-        CONFIG_BOOTCOMMAND="sysboot mmc 0:2 any 0x02400000 /boot/extlinux/extlinux.conf"
-        CONFIG_FS_BTRFS=y
-        CONFIG_CMD_BTRFS=y
-        CONFIG_PCI=n
-        CONFIG_USB=n
-        CONFIG_CMD_USB=n
-        CONFIG_CMD_PCI=n
-        CONFIG_USB_KEYBOARD=n
-        CONFIG_BCMGENET=n
-      '';
-    };
+    # SD boot: straight to mmc extlinux, with the boot counter (ADR 0038).
+    ubootSD = import ./nixos/pkgs/uboot-sd.nix { pkgs = pkgsAarch64; };
     # Netboot: PCI + DHCP + PXE
     ubootNetboot = pkgsAarch64.ubootRaspberryPi4_64bit.override {
       extraConfig = ''
@@ -349,6 +333,8 @@
 
       # Pi4 files
       cp ${ubootSD}/u-boot.bin firmware/u-boot-rpi4.bin
+      # Boot counter off (magic 0xbd, version 1, count 0, upgrade_available 0).
+      printf '\275\001\000\000' > firmware/pifinder.bootcount
       cp ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin firmware/armstub8-gic.bin
       cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-4-b.dtb firmware/
       cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-400.dtb firmware/
