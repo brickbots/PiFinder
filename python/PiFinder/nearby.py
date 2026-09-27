@@ -3,6 +3,9 @@ from typing import List, Optional, Sequence
 import time
 import numpy as np
 import logging
+from PiFinder.lazy_import import lazy_module
+
+sklearn_neighbors = lazy_module("sklearn.neighbors")
 
 logger = logging.getLogger("Catalog.Nearby")
 
@@ -13,7 +16,7 @@ MAX_DEVIATION = 1.0
 # the sky turns 15 deg/hour, so a short cadence buys nothing.
 MAX_TIME = 10
 # The Nearby list is a window onto the closest objects, not a total ordering of
-# the catalog. See ADR 0029.
+# the catalog. See ADR 0030.
 NEAREST_LIST_CAP = 200
 
 
@@ -113,7 +116,7 @@ class ClosestObjectsFinder:
         dimension 0 as latitude and dimension 1 as longitude. Feeding it
         ``[ra, dec]`` computes separations on a swapped sphere -- correct only
         between objects sharing a meridian, and increasingly wrong towards the
-        poles. See ADR 0029.
+        poles. See ADR 0030.
         """
         deduplicated_objects = deduplicate_objects(objects)
         if not deduplicated_objects:
@@ -123,10 +126,9 @@ class ClosestObjectsFinder:
         object_decras = np.array(
             [[np.deg2rad(x.dec), np.deg2rad(x.ra)] for x in deduplicated_objects]
         )
-        from sklearn.neighbors import BallTree
 
         self._objects = np.array(deduplicated_objects)
-        self._objects_balltree = BallTree(
+        self._objects_balltree = sklearn_neighbors.BallTree(
             object_decras, leaf_size=20, metric="haversine"
         )
 

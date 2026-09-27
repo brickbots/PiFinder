@@ -45,6 +45,17 @@ let
       exit 0
     fi
   '';
+  # Password change for the web UI (via sudo). Takes one line on stdin, the
+  # new password, and sets it for the pifinder user only.
+  pifinder-set-password = pkgs.writeShellScriptBin "pifinder-set-password" ''
+    set -euo pipefail
+    IFS= read -r NEW_PASSWORD
+    if [ -z "$NEW_PASSWORD" ]; then
+      echo "empty password" >&2
+      exit 1
+    fi
+    printf 'pifinder:%s\n' "$NEW_PASSWORD" | ${pkgs.shadow}/bin/chpasswd
+  '';
   pifinder-switch-camera = pkgs.writeShellScriptBin "pifinder-switch-camera" ''
     set -euo pipefail
     CAM="''${1:?usage: pifinder-switch-camera <camera>}"
@@ -75,6 +86,30 @@ in {
       default = false;
       description = "Enable development mode (NFS netboot support, etc.)";
     };
+
+    gpsBaud = lib.mkOption {
+      type = lib.types.nullOr lib.types.int;
+      default = null;
+      example = 115200;
+      description = ''
+        Fixed serial speed for gpsd (-s). null keeps gpsd's autobaud hunt,
+        which handles both the rev-3 GPS and the v4 u-blox Gen10 (UBX at
+        115200). Set it only to pin a known receiver and skip the hunt.
+      '';
+    };
+
+    deltaUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "https://deltas.pifinder.eu";
+      description = ''
+        Base URL of the pifinder-differ delta server. When set, the upgrade
+        prefetches byte-level patches against store paths the device already
+        holds before letting nix download whole paths. Empty (the default)
+        disables delta prefetch entirely; every failure while prefetching
+        falls back to a normal binary-cache download.
+      '';
+    };
   };
 
   config = {
@@ -83,6 +118,7 @@ in {
   # ---------------------------------------------------------------------------
   environment.systemPackages = with pkgs; [
     pifinder-switch-camera
+    pifinder-set-password
     set-extlinux-default
 
     # Diagnostic tools for SSH troubleshooting
@@ -101,7 +137,7 @@ in {
     iotop
   ] ++ lib.optionals cfg.devMode [
     # On-device development only (excluded from the production image). Not used
-    # by the NixOS image updater, which is manifest/store-path based (ADR 0003).
+    # by the NixOS image updater, which is manifest/store-path based (ADR 0037).
     git             # clone/pull a checkout to run live
     rsync           # sync a checkout from a desktop without re-copying everything
   ];
@@ -110,7 +146,7 @@ in {
 
   # ---------------------------------------------------------------------------
   # Binary substituters — Pi downloads pre-built paths, never compiles.
-  # Two Attic caches on cache.pifinder.eu (NixOS ADR 0001):
+  # Two Attic caches on cache.pifinder.eu (ADR 0037):
   #   pifinder-release — tagged release closures, never garbage-collected, so a
   #                      device upgrading long after a release still resolves it.
   #   pifinder         — dev/nightly builds, short retention.
@@ -143,10 +179,13 @@ in {
   # Keep 2 generations max in bootloader
   boot.loader.generic-extlinux-compatible.configurationLimit = 2;
 
+  # Removes store paths that no generation uses. It deletes no generations:
+  # the upgrade keeps the 3 newest (current + 2 rollback targets) by count,
+  # so an age limit here would delete the rollback targets.
   nix.gc = {
     automatic = true;
     dates = "weekly";
-    options = "--delete-older-than 3d";
+    options = "";
   };
   # Disable store optimization on NFS (hard links cause issues)
   nix.settings.auto-optimise-store = !cfg.devMode;
@@ -164,10 +203,13 @@ in {
     memoryPercent = 50;
   };
 
+  # Root is btrfs on the second partition of the SD card or eMMC, whatever
+  # its label. A card that is still ext4 keeps the system it has until the
+  # migration reformats it; the upgrade refuses a build it cannot mount.
   fileSystems."/" = lib.mkDefault {
-    device = "/dev/disk/by-label/NIXOS_SD";
-    fsType = "ext4";
-    options = [ "noatime" "nodiratime" ];
+    device = "/dev/mmcblk0p2";
+    fsType = "btrfs";
+    options = [ "compress=zstd:1" "noatime" ];
   };
 
   # ---------------------------------------------------------------------------
@@ -283,6 +325,24 @@ in {
   };
 
   # ---------------------------------------------------------------------------
+  # Repair top-level directory ownership
+  # ---------------------------------------------------------------------------
+  # A tarball migration can leave /, /var, /nix and other top-level
+  # directories owned by the pifinder user. systemd-tmpfiles then rejects the
+  # "unsafe path transition" from a user-owned / into the root-owned /run and
+  # does not create /run/pifinder, so every update fails. Activation scripts
+  # run at boot before systemd starts, so tmpfiles sees the repaired owners.
+  # Only the directories change owner, not their contents.
+  system.activationScripts.fix-root-ownership = ''
+    for d in / /boot /home /nix /var /var/lib; do
+      if [ -d "$d" ] && [ "$(stat -c %u "$d")" != 0 ]; then
+        echo "fix-root-ownership: $d is not owned by root, repairing"
+        chown 0:0 "$d" || true
+      fi
+    done
+  '';
+
+  # ---------------------------------------------------------------------------
   # PiFinder source + data directory setup
   # ---------------------------------------------------------------------------
   system.activationScripts.pifinder-home = lib.stringAfter [ "users" ] ''
@@ -351,7 +411,7 @@ in {
       { command = "/run/current-system/sw/bin/avahi-set-host-name *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/shutdown -r now"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/shutdown now"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/chpasswd"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/pifinder-set-password"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/hostname *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/pifinder-switch-camera imx296"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/pifinder-switch-camera imx462"; options = [ "NOPASSWD" ]; }
@@ -492,8 +552,11 @@ in {
       RemainAfterExit = true;
       WorkingDirectory = "/home/pifinder/PiFinder/python";
       ExecStart = "${pifinderPythonEnv}/bin/python -m PiFinder.nixos_upgrade --default-camera ${cfg.cameraType}";
+    } // lib.optionalAttrs (cfg.deltaUrl != "") {
+      Environment = [ "PIFINDER_DELTA_URL=${cfg.deltaUrl}" ];
     };
-    path = with pkgs; [ nix systemd coreutils set-extlinux-default ];
+    # zstd applies delta patches (unused, harmless when deltaUrl is unset).
+    path = with pkgs; [ nix systemd coreutils zstd set-extlinux-default ];
   };
 
   # ---------------------------------------------------------------------------
@@ -513,6 +576,33 @@ in {
   #     splash, roll back (marker hint first, else newest other generation),
   #     reboot. With no rollback target at all, stay up for rescue instead of
   #     boot-looping.
+  # ---------------------------------------------------------------------------
+  # Remove the ext4 rollback image after the migration (ADR 0039)
+  # ---------------------------------------------------------------------------
+  # btrfs-convert leaves ext2_saved, an image of the old ext4 that holds the
+  # space of Pi OS and its data. Once a generation on btrfs is confirmed, the
+  # migration is not rolled back any more, so delete it to free the space.
+  systemd.services.pifinder-migration-cleanup = {
+    description = "Remove the ext4 rollback image left by the migration";
+    after = [ "pifinder-watchdog.service" ];
+    wantedBy = [ "multi-user.target" ];
+    unitConfig.ConditionPathIsDirectory = "/ext2_saved";
+    serviceConfig = {
+      Type = "oneshot";
+      Nice = 19;
+      IOSchedulingClass = "idle";
+    };
+    path = with pkgs; [ btrfs-progs coreutils gnugrep ];
+    script = ''
+      CURRENT=$(readlink -f /run/current-system)
+      if ! grep -qxF "$CURRENT" /var/lib/pifinder/confirmed-generations 2>/dev/null; then
+        echo "$CURRENT is not confirmed yet; keeping /ext2_saved"
+        exit 0
+      fi
+      btrfs subvolume delete /ext2_saved
+    '';
+  };
+
   systemd.services.pifinder-watchdog = {
     description = "PiFinder Boot Health Watchdog";
     after = [ "multi-user.target" "pifinder.service" ];
@@ -521,7 +611,7 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = with pkgs; [ nix systemd coreutils jq gnugrep boot-splash ];
+    path = with pkgs; [ nix systemd coreutils jq gnugrep util-linux boot-splash ];
     script = ''
       set -euo pipefail
       MARKER=/var/lib/pifinder/trial-generation.json
@@ -616,12 +706,14 @@ in {
       # ----- capture evidence ------------------------------------------------
       echo "ERROR: trial generation unhealthy. Capturing evidence..."
       TS=$(date +%Y%m%d-%H%M%S)
-      mkdir -p "$DATA"
-      journalctl -b > "$DATA/failed-boot-$TS.log" || true
+      # The data folder is writable by the pifinder user, so the files are
+      # written as pifinder: root never opens a path in it, and a symlink
+      # there cannot redirect the write.
+      runuser -u pifinder -- mkdir -p "$DATA" || true
+      journalctl -b | runuser -u pifinder -- tee "$DATA/failed-boot-$TS.log" > /dev/null || true
       jq -n --arg failed "$CURRENT" --arg reverted_to "''${TARGET:-none}" --arg at "$TS" \
         '{failed: $failed, reverted_to: $reverted_to, at: $at}' \
-        > "$DATA/upgrade_failed.json" || true
-      chown pifinder:users "$DATA/failed-boot-$TS.log" "$DATA/upgrade_failed.json" 2>/dev/null || true
+        | runuser -u pifinder -- tee "$DATA/upgrade_failed.json" > /dev/null || true
 
       # Stop the crash-looping app so the display is free for the failure
       # message (and so the reboot is clean).
@@ -673,7 +765,7 @@ in {
   # gpsd's default (/var/run/gpsd.sock) is already what we want.
   environment.etc."default/gpsd".text = ''
     DEVICES="/dev/gpsuart"
-    GPSD_OPTIONS=""
+    GPSD_OPTIONS="${lib.optionalString (cfg.gpsBaud != null) "-s ${toString cfg.gpsBaud}"}"
     USBAUTO="true"
   '';
 

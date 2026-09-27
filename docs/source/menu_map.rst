@@ -75,8 +75,8 @@ Chart
 Chart
    A star chart centered on where your telescope points, redrawn as you move.
    Press **+** and **-** to zoom.  Set its appearance under Chart in the
-   Settings menu: reticle, constellation lines, deep-sky markers, and
-   coordinate readout.
+   Settings menu: reticle, constellation lines, deep-sky markers, coordinate
+   readout, and center object.
 
 
 Objects
@@ -252,6 +252,10 @@ Chart...
       Brightness of deep-sky object markers.  Values: Off, Low, Medium, High.
    RA/DEC Disp.
       Show a coordinate readout.  Values: Off, HH:MM, Degrees.
+   Center Object
+      Name the object nearest the middle of the chart, on a line along the
+      bottom.  Values: Off, On (the default).  Press **RIGHT** on the chart to
+      open that object's details.
 Image...
    Overlays on the :ref:`object image <user_guide:object images>`.
 
@@ -283,6 +287,13 @@ Advanced
       Which camera sensor your PiFinder has.
       Values: v2 - imx477, v3 - imx296, v3 - imx462.  A rev4 PiFinder takes
       v3 - imx462.  There is no separate rev4 entry, and that one is correct.
+   Lens
+      Which lens is fitted in front of the camera.  Values: 12mm, 16mm, 25mm.
+      The focal length is printed on the lens barrel.  The PiFinder cannot
+      detect the lens, so this is you telling it what is fitted — and naming
+      the wrong one stops solving completely rather than making it worse, so
+      check the barrel before you change it.  Changing this restarts the
+      PiFinder.
    GPS Settings
       Configure the GPS receiver.
 

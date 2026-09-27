@@ -7,6 +7,7 @@ This module is for GPS related functions
 import asyncio
 import time
 from PiFinder.multiproclogging import MultiprocLogging
+from PiFinder.gps_comms import CommsPublisher
 from PiFinder.gps_ubx_parser import UBXParser
 import logging
 
@@ -51,10 +52,19 @@ async def process_messages(
 ):
     gps_locked = False
     last_nav_sat = None  # monotonic stamp of the most recent NAV-SAT message
+    comms = CommsPublisher(gps_queue, clock=clock)
 
     async for msg in parser_iterator():
         msg_class = msg.get("class", "")
         logger.debug("GPS: %s: %s", msg_class, msg)
+
+        # One reading per event, shared by everything below, so the comms
+        # stamp and the NAV-SAT freshness window agree on when this arrived.
+        now = clock()
+
+        # Every event counts towards liveness, including markers and messages
+        # the dispatch chain below has no branch for.
+        comms.publish(msg_class, now)
 
         if msg_class == "NAV-DOP":
             error_info["error_2d"] = msg["hdop"]
@@ -64,7 +74,7 @@ async def process_messages(
             # Fallback satellite info, used while NAV-SAT is absent or stale
             nav_sat_fresh = (
                 last_nav_sat is not None
-                and clock() - last_nav_sat < NAV_SAT_PREFERENCE_TIMEOUT
+                and now - last_nav_sat < NAV_SAT_PREFERENCE_TIMEOUT
             )
             if not nav_sat_fresh and "nSat" in msg:
                 sats_seen = msg["nSat"]
@@ -76,7 +86,7 @@ async def process_messages(
 
         elif msg_class == "NAV-SAT":
             # Preferred satellite info source - not seen in the current pifinder gps versions
-            last_nav_sat = clock()
+            last_nav_sat = now
             sats_seen = msg["nSat"]
             sats_used = sum(
                 1 for sat in msg.get("satellites", []) if sat.get("used", False)

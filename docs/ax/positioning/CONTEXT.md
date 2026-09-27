@@ -100,15 +100,25 @@ implied field of view falls outside are discarded before verification, and any
 survivor is rejected after fitting — so a frame whose true field of view lies
 outside the window does not solve at all, however many centroids it has. Both
 values are derived from the **optical train** (see
-[Camera](../camera/CONTEXT.md)); neither is a tuning constant. See
-[ADR 0027](../../adr/0027-fov-gate-derived-from-optical-train.md).
-_Avoid_: FOV estimate (naming only half the pair), FOV tolerance, solver
-window.
+[Camera](../camera/CONTEXT.md)); neither is a tuning constant.
+
+Its *width* is proportional to what is actually known about the train, not
+fixed. A **stated lens** earns a narrow gate centred on the single field of
+view it implies. An **assumed lens** earns only a gate spanning every lens
+that sensor has shipped with — and there `fov_estimate` stops being an
+estimate of *this* device's field of view and becomes the centre of a range,
+which is why the pair must always be read together. See
+[ADR 0027](../../adr/0027-fov-gate-derived-from-optical-train.md) and
+[ADR 0029](../../adr/0029-fov-gate-width-follows-lens-confidence.md).
+_Avoid_: FOV estimate (naming only half the pair, and under an assumed lens it
+is not an estimate of anything the device has), FOV tolerance, solver window.
 
 **Fitted FOV** (`SolveDiagnostics.FOV`):
 The field of view tetra3 measured from the frame on a successful solve. An
 independent observation, not an echo of the FOV gate: comparing it against the
-derived field of view is how a mis-stated lens is diagnosed.
+derived field of view is how a mis-stated lens is diagnosed, and — when the
+lens is merely **assumed** — how the device identifies the lens for itself and
+promotes the assumption to a statement.
 _Avoid_: FOV (unqualified — see the flagged ambiguity in
 [Camera](../camera/CONTEXT.md)), solved FOV.
 

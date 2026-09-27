@@ -136,6 +136,16 @@ Work through these in order:
 - **High, thin cloud.**  An invisible drifting cloudbank stops solves at an otherwise perfect
   site.  If solves come and go while the telescope is dead still, suspect the sky before the
   hardware.
+- **Did you fit a different lens?**  The PiFinder cannot see which lens is on the front, so it
+  works from the Lens setting.  A setting that names the wrong lens stops solving completely
+  rather than making it worse, because the PiFinder then looks for a patch of sky the wrong
+  size.  Select Settings from the main menu, scroll down to Advanced, then select Lens.  Set
+  the focal length printed on the lens barrel.  The PiFinder restarts when you change it.
+
+.. note::
+   You only need to set the Lens by hand if you fitted the lens yourself.  A PiFinder still
+   set to the lens it shipped with works this out on its own.  It allows for every lens it
+   might have come with, then records the one it measures after its first few solves.
 
 .. note::
    On older v2 cameras the lens has two rings, a focus ring and an aperture ring.  The
@@ -159,6 +169,19 @@ was cut short.
 - **Get the receiver under open sky.**  It does not work indoors or under a roof.
 - **Don't compare it with your phone.**  Phones use assisted GPS over the mobile network, so
   they lock in seconds.  That comparison says nothing about your PiFinder or your sky.
+
+One setting can stop a lock outright.  On a v3 or v2.5 PiFinder running a freshly imaged
+card, check the **GPS Baud Rate**.  The release image sets ``115200 (UBlox-10)``, which
+suits the rev4 receiver.  The older receiver in these PiFinders needs ``9600 (standard)``.
+At the wrong baud rate the GPS never locks, no matter how long you wait.
+
+The :ref:`user_guide:status screen` shows this problem directly.  Its GPS MSG row names
+the last message from the GPS receiver, with how long ago it arrived.  From the main menu,
+select Tools, then Status, and scroll down to GPS MSG.  Watch it for a few seconds.  On a
+healthy link the names change constantly and the age stays under a second.  Names that
+start with ``?`` mean data is arriving that the PiFinder can't decode.  That is the sign
+of a wrong baud rate.  To fix it, from the main menu select Settings, scroll down to
+Advanced, select GPS Settings, then select GPS Baud Rate.
 
 If you would rather not wait, enter your location and time by hand and start observing.  See
 :ref:`user_guide:place & time`.  For what the lock types mean, see

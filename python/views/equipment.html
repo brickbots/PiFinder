@@ -82,9 +82,9 @@
     <tr>
         <td>{{ instrument.make }}</td>
         <td>{{ instrument.name }}</td>
-        <td>{{ instrument.aperture_mm }}</td>
-        <td>{{ instrument.focal_length_mm }}</td>
-        <td>{{ instrument.obstruction_perc }}</td>
+        <td>{{ instrument.aperture_mm|measurement }}</td>
+        <td>{{ instrument.focal_length_mm|measurement }}</td>
+        <td>{{ instrument.obstruction_perc|measurement }}</td>
         <td>{{ instrument.mount_type }}</td>
         <td>{{ instrument.flip_image }}</td>
         <td>{{ instrument.flop_image }}</td>
@@ -126,9 +126,9 @@
     <tr>
         <td>{{ eyepiece.make }}</td>
         <td>{{ eyepiece.name }}</td>
-        <td>{{ eyepiece.focal_length_mm }}</td>
-        <td>{{ eyepiece.afov }}</td>
-        <td>{{ eyepiece.field_stop }}</td>
+        <td>{{ eyepiece.focal_length_mm|measurement }}</td>
+        <td>{{ eyepiece.afov|measurement }}</td>
+        <td>{{ eyepiece.field_stop|measurement }}</td>
         <td>
                 <label>
                     <a href="/equipment/set_active_eyepiece/{{ loop.index0 }}">

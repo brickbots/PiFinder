@@ -11,7 +11,7 @@ Installing any version works the same way whether it's a channel pick, a rollbac
 When a version is chosen, the device makes a single request to the cache for that version's complete set of files and each file's download size. From the answer it gets:
 
 - **The download size, up front.** Drop the files already on the device, add up the sizes of the rest — a fixed total in megabytes, known before the download starts.
-- **Whether the version is still there.** If the cache can't return the full set, the version has been removed: stop immediately with "no longer available" instead of failing partway through. Only **unstable** versions can reach this state; **stable** and **beta** are kept forever (see [`nixos/CONTEXT.md`](./nixos/CONTEXT.md) and [ADR 0002](./nixos/adr/0002-update-channels-and-rollback.md)). The check happens at the moment a version is picked, so browsing the list costs nothing.
+- **Whether the version is still there.** If the cache can't return the full set, the version has been removed: stop immediately with "no longer available" instead of failing partway through. Only **unstable** versions can reach this state; **stable** and **beta** are kept forever (see [`nixos/CONTEXT.md`](./nixos/CONTEXT.md) and [ADR 0037](../adr/0037-nixos-builds-cache-and-update-channels.md)). The check happens at the moment a version is picked, so browsing the list costs nothing.
 
 ### Progress
 

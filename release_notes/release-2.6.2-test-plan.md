@@ -77,8 +77,11 @@ What actually changed, ranked by blast radius × likelihood of an undetected def
   ten bare `docs/adr/0027` mentions across seven source files plus two test modules),
   tracked black level moved to 0028. Three inbound references updated.
   - **Still outstanding, not this release:** #571 (`fix/equipment-input-validation`)
-    carries a third `0027-equipment-measurements-are-validated-floats.md` and should
-    take **0029** at merge. #502 still carries the older `0018` collision.
+    carried a third `0027-equipment-measurements-are-validated-floats.md`. The earmark
+    here went stale twice while the PR sat — 0029 went to #624, then 0030 to #622 — so
+    it took **0033**, the lowest slot free across every branch, when main was merged in.
+    Recompute the free slot at merge time; do not trust a written-down reservation.
+    #502 still carries the older `0018` collision.
 - [x] **P1.5 — i18n release pass verified.** Exactly four new msgids (`Lens`, `12mm`,
   `16mm`, `25mm`), taking every catalog 671 → **675 msgids, 0 untranslated, 0 fuzzy**,
   with no msgid removed. All four are wrapped in `_()` at `menu_structure.py`
@@ -311,11 +314,11 @@ Everything above tests the *declaration*. This gate tests the thing the release 
 to enable. Needs a physically different lens.
 
 - [ ] **G3.1** Fit a 12 mm lens to an imx296 or imx462. Declare it in the menu. Confirm
-  it solves. **On 2.6.1 the imx296 + 12 mm combination could not solve at all** (17.8°,
+  it solves. **On 2.6.1 the imx296 + 12 mm combination could not solve at all** (16.4°,
   outside the old `[8.0, 16.0]` window) — this is the headline capability and it has to
   be demonstrated on real hardware, not re-projected frames.
 - [ ] **G3.2** With the 12 mm physically fitted, confirm the fitted FOV tetra3 reports
-  lands near the derived 17.78° (imx296) or 13.51° (imx462).
+  lands near the derived 16.38° (imx296) or 12.44° (imx462).
 - [ ] **G3.3** Declare the 12 mm while the 16 mm is fitted, and vice versa. Confirm both
   directions stop solving, and that recovering is simply a matter of correcting the menu.
 - [ ] **G3.4** Note the SQM value with the 12 mm fitted. Its zero-point offset is

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "obs_macros.html" as obs %}
+
+{% block head %}
+<link href="/css/observations.css" type="text/css" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="obs-page">
+
+  <header class="obs-head">
+    <h1>{{ _('Observing Nights') }}</h1>
+    <div class="obs-stat">
+      <span class="obs-stat__value">{{ metadata["night_count"] }}</span>
+      <span class="obs-stat__label">{{ _('Nights') }}</span>
+    </div>
+    <div class="obs-stat">
+      <span class="obs-stat__value">{{ metadata["object_count"] }}</span>
+      <span class="obs-stat__label">{{ _('Objects') }}</span>
+    </div>
+    <div class="obs-stat">
+      <span class="obs-stat__value">{{ metadata["total_hours"] | round(1) }}</span>
+      <span class="obs-stat__label">{{ _('Hours') }}</span>
+    </div>
+    <div class="obs-actions">
+      <a href="/observations?download=1" title="{{ _('Download all observations') }}">
+        <i class="material-icons">download</i>
+      </a>
+    </div>
+  </header>
+
+  {% if not nights %}
+  <p class="obs-empty">{{ _('Nothing logged yet.') }}</p>
+  {% endif %}
+
+  <div class="obs-nights">
+    {% for night in nights %}
+    <a class="obs-night" href="/observations/night/{{ night['night_key'] }}">
+
+      <div class="obs-night__top">
+        <span class="obs-night__date">{{ night["date"].strftime('%a %d %b %Y') }}</span>
+        <span class="obs-night__where">
+          {{ night["timezone"] or _('UTC') }}
+          {%- if night["lat"] is not none %} · {{ night["lat"] | round(2) }} / {{ night["lon"] | round(2) }}{% endif %}
+        </span>
+        <span class="obs-night__count">
+          {{ night["observations"] }}<span>{{ _('objects') }}</span>
+        </span>
+      </div>
+
+      <div class="obs-night__times">
+        <span>{{ night["start"].strftime('%H:%M') }} → {{ night["end"].strftime('%H:%M') }}</span>
+        <span>{{ night["span_hours"] | round(1) }} {{ _('h') }}</span>
+        {{ obs.sky_badge(night["sqm"]) }}
+        {% if night["sessions"] > 1 %}
+        <span class="obs-badge" title="{{ _('The PiFinder was restarted during this night') }}">
+          {{ night["sessions"] }} {{ _('runs') }}
+        </span>
+        {% endif %}
+      </div>
+
+      {{ obs.span_strip(night) }}
+
+    </a>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

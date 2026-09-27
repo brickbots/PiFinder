@@ -6,6 +6,7 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 
 - [Catalog](./docs/ax/catalog/CONTEXT.md) — loads, filters, searches astronomical catalogs (M, NGC, IC, WDS, planets, comets) for the UI.
 - [Positioning](./docs/ax/positioning/CONTEXT.md) — acquires telescope pointing via plate-solving and IMU dead-reckoning; publishes the canonical "where am I looking?" answer.
+- [GPS](./docs/ax/gps/CONTEXT.md) — acquires the observer's position and the wall-clock time from a satellite receiver, behind three interchangeable backends (raw UBX, gpsd, replay/fake).
 - [SQM](./docs/ax/sqm/CONTEXT.md) — estimates sky brightness in mag/arcsec² from solved frames; also produces the noise-floor signal auto-exposure consumes.
 - [Equipment](./docs/ax/equipment/CONTEXT.md) — models the user's telescopes and eyepieces; supplies the active optics that drive magnification, true field of view, and object-image orientation.
 - [UI](./docs/ax/ui/CONTEXT.md) — the on-device menu system: menu tree, screen modules, the navigation stack and key dispatch, marking menus.
@@ -19,6 +20,9 @@ PiFinder is a multi-process Raspberry Pi finder/plate-solver. These contexts eac
 ## Relationships
 
 - **Positioning → Catalog**: Catalog reads RA/Dec/Alt/Az from `shared_state.solution()` to compute visibility and "near me" lists.
+- **GPS → system-wide**: the GPS process is the only subsystem process that does **not** hold `shared_state`; it publishes `("fix" | "time" | "satellites", payload)` onto `gps_queue` and the main loop writes them into shared state on its behalf, applying the **location source** precedence rules (a `WEB`/`MANUAL`/`CONFIG:`/`replay` location outranks the receiver) and discarding any fix whose **position error** is worse than the stored one. `gps_queue` flows only *into* main — there is no main → GPS channel.
+- **GPS → Positioning**: the stored location supplies the observer's lat/lon/altitude and the wall-clock time that turn a plate-solved RA/Dec into Alt/Az. Beware the word **solution**: in GPS it is the receiver's navigation solution, in Positioning it is a plate-solve result, and both hang off `shared_state`.
+- **GPS → UI**: `UIGPSStatus` renders lock and satellite state, and can publish a fix of its own back onto `gps_queue` (save/lock location). The STATUS screen's **comms row** reports link liveness from the parser's **event** stream, including markers for frames that could not be decoded (see [ADR 0032](./docs/adr/0032-ubx-parser-yields-undecodable-frames.md)).
 - **Positioning → SQM**: SQM is a side effect of every successful plate solve in the solver process; it reuses the tetra3 `matched_centroids` and the camera frame.
 - **SQM / Camera units boundary**: SQM photometry and its pedestal diagnostics use raw sensor ADU. The Camera background controller measures processed 8-bit images and uses its separate shared 10 ADU floor; raw SQM thresholds must not cross that boundary.
 - **Positioning → Camera**: `Matches` is published on every solve attempt (success or failure) as the feedback signal for solver-driven auto-exposure.

@@ -261,7 +261,7 @@ class UILog(UIModule):
             log_eyepiece = f"{log_eyepiece.focal_length_mm}mm {log_eyepiece.name}"
 
         notes = {
-            "schema_ver": 2,
+            "schema_ver": 3,
             "transparency": self.config_object.get_option(
                 "session.log_transparency", "NA"
             ),
@@ -270,6 +270,11 @@ class UILog(UIModule):
             "observability": self.log_observability,
             "appeal": self.log_appeal,
         }
+        # Measured sky brightness at the moment of logging; absent when the
+        # radiometer has not produced a reading (see obslog.sqm_note).
+        sqm = obslog.sqm_note(self.shared_state.sqm(), self.shared_state.sqm_details())
+        if sqm is not None:
+            notes["sqm"] = sqm
         self._observing_session = obslog.Observation_session(
             self.shared_state, self.__uuid__
         )

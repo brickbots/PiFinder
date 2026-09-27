@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from PiFinder import delta_updates
+
 logger = logging.getLogger("PiFinder.nixos_upgrade")
 
 RUN_DIR = Path("/run/pifinder")
@@ -216,31 +218,6 @@ def classify_store_path(
     return ABSENT if saw_404 else UNREACHABLE
 
 
-def fetch_cache_public_keys(
-    caches: Iterable[str] = CACHES, timeout: int = 15
-) -> list[str]:
-    """Fetch each cache's current signing key from its anonymous Attic
-    cache-config endpoint, so the upgrade trusts whatever key the cache uses
-    *now*. This makes a cache signing-key rotation invisible to devices — they
-    can never be stranded by a key change — while signature verification stays
-    on (verified against the freshly-fetched key, over the same HTTPS trust
-    boundary as the cache we already pull from). Best-effort: a cache we cannot
-    reach contributes no key and we fall back to the device's configured keys.
-    """
-    keys: list[str] = []
-    for cache in caches:
-        base, _, name = cache.rstrip("/").rpartition("/")
-        url = f"{base}/_api/v1/cache-config/{name}"
-        try:
-            with urllib.request.urlopen(url, timeout=timeout) as resp:
-                key = json.load(resp).get("public_key")
-            if key:
-                keys.append(key)
-        except Exception as exc:  # network / JSON errors are non-fatal
-            logger.warning("could not fetch cache key from %s: %s", url, exc)
-    return keys
-
-
 def estimate_download(store_path: str) -> DownloadEstimate:
     """Best-effort delta estimate: which paths nix will fetch, plus nix's own
     "unpacked" byte total from a dry-run. We deliberately do NOT query per-path
@@ -362,15 +339,16 @@ def run_build(
     *,
     status_file: Path = UPGRADE_STATUS_FILE,
     log_file: Path = UPGRADE_LOG_FILE,
+    substituter: str | None = None,
 ) -> int:
     if estimate.total_bytes > 0:
         write_status(f"downloading 0/{estimate.total_bytes}", status_file)
     else:
         write_status(f"downloading 0/{estimate.path_count} paths", status_file)
 
-    # Trust the cache's current signing key(s), fetched from the cache itself,
-    # so a key rotation can never strand this device mid-upgrade. This ADDS to
-    # the trusted set (verification stays on) — it is not a require-sigs bypass.
+    # Signatures are checked against the trusted-public-keys in the device's
+    # Nix config only. A cache key rotation needs a release that trusts the
+    # new key first.
     build_args = [
         "nix",
         "--log-format",
@@ -381,9 +359,10 @@ def run_build(
         "0",
         "--no-link",
     ]
-    cache_keys = fetch_cache_public_keys()
-    if cache_keys:
-        build_args += ["--option", "extra-trusted-public-keys", " ".join(cache_keys)]
+    if substituter:
+        # The staged delta cache (delta_updates). Its narinfo is the signed
+        # one from the binary cache, so the same signature check applies.
+        build_args += ["--option", "extra-substituters", substituter]
 
     progress = _DownloadProgress(estimate.total_bytes, estimate.path_count, status_file)
     tail: deque[str] = deque(maxlen=40)
@@ -463,6 +442,56 @@ def arm_trial_marker(boot_target: Path) -> None:
         logger.warning("could not arm trial marker: %s", exc)
 
 
+def fstab_root(system: Path) -> tuple[str, str] | None:
+    """(device, fs type) of / in the etc/fstab of `system`, or None."""
+    try:
+        text = (system / "etc" / "fstab").read_text()
+    except OSError:
+        return None
+    for line in text.splitlines():
+        fields = line.split()
+        if len(fields) >= 3 and not fields[0].startswith("#") and fields[1] == "/":
+            return fields[0], fields[2]
+    return None
+
+
+def mounted_root(mounts: Path = Path("/proc/mounts")) -> tuple[str, str]:
+    """(device, fs type) of the root file system that is mounted now."""
+    root = ("", "")
+    for line in mounts.read_text().splitlines():
+        fields = line.split()
+        if len(fields) >= 3 and fields[1] == "/":
+            # The last entry for / is the one on top.
+            root = (fields[0], fields[2])
+    return root
+
+
+def check_root_mountable(system: Path) -> None:
+    """Raise UpgradeError if `system` cannot mount the root file system.
+
+    A build whose etc/fstab names a root device this device does not have
+    (for example a disk label from another image) stops in the initrd before
+    anything can roll it back. So refuse it before activation.
+    """
+    target = fstab_root(system)
+    if target is None:
+        raise UpgradeError(f"{system} has no root file system in etc/fstab")
+    device, fs_type = target
+    root_device, root_type = mounted_root()
+    if not Path(device).exists() or (
+        Path(device).resolve() != Path(root_device).resolve()
+    ):
+        raise UpgradeError(
+            f"{system} mounts / from {device}, but the root file system "
+            f"is {root_device}"
+        )
+    if fs_type != "auto" and fs_type != root_type:
+        raise UpgradeError(
+            f"{system} mounts / as {fs_type}, but the root file system "
+            f"is {root_type}"
+        )
+
+
 def activate_system(store_path: str, default_camera: str) -> None:
     write_status("activating")
     command(["nix-env", "-p", "/nix/var/nix/profiles/system", "--set", store_path])
@@ -533,8 +562,20 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
         if not valid_store_path(store_path):
             raise UpgradeError(f"invalid store path: {store_path!r}")
 
+        write_status("checking")
         estimate = estimate_download(store_path)
-        build_rc = run_build(store_path, estimate)
+        staged = delta_updates.prefetch_deltas(
+            store_path,
+            estimate.paths,
+            CACHES,
+            progress=lambda step, done, total: write_status(
+                f"patching {step} {done}/{total}"
+            ),
+        )
+        try:
+            build_rc = run_build(store_path, estimate, substituter=staged.url)
+        finally:
+            staged.cleanup()
         if build_rc != 0:
             availability = classify_store_path(store_path)
             if availability == ABSENT:
@@ -553,6 +594,7 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
             raise UpgradeError(f"nix build failed rc={build_rc}")
 
         selection = load_selection()
+        check_root_mountable(Path(store_path))
         activate_system(store_path, default_camera)
         persist_current_build(store_path, selection)
         cleanup_old_generations()

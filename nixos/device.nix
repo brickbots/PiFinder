@@ -1,6 +1,11 @@
 { config, lib, pkgs, ... }:
 let
   boot-splash = import ./pkgs/boot-splash.nix { inherit pkgs; };
+  check-root-mountable = pkgs.writeShellApplication {
+    name = "check-root-mountable";
+    runtimeInputs = with pkgs; [ coreutils gawk ];
+    text = builtins.readFile ./pkgs/check-root-mountable.sh;
+  };
 in {
   options.pifinder = {
     devMode = lib.mkOption {
@@ -19,7 +24,7 @@ in {
     # hold the whole tarball in RAM during migration)
     nano
     htop
-    e2fsprogs
+    btrfs-progs
     dosfstools
     parted
     file
@@ -29,10 +34,10 @@ in {
 
   # ---------------------------------------------------------------------------
   # Binary substituters — Pi downloads pre-built paths, never compiles.
-  # Two Attic caches on cache.pifinder.eu (NixOS ADR 0001): pifinder-release
+  # Two Attic caches on cache.pifinder.eu (ADR 0037): pifinder-release
   # (retained release closures) and pifinder (dev/nightly). The first-boot
   # download below resolves its target from the update manifest's best available
-  # channel (NixOS ADR 0003).
+  # channel (ADR 0039).
   # ---------------------------------------------------------------------------
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
@@ -90,10 +95,11 @@ in {
     memoryPercent = 50;
   };
 
+  # The migration converts the root to btrfs on partition 2 (ADR 0039).
   fileSystems."/" = lib.mkDefault {
-    device = "/dev/disk/by-label/NIXOS_SD";
-    fsType = "ext4";
-    options = [ "noatime" "nodiratime" ];
+    device = "/dev/mmcblk0p2";
+    fsType = "btrfs";
+    options = [ "compress=zstd:1" "noatime" ];
   };
 
   # ---------------------------------------------------------------------------
@@ -128,40 +134,69 @@ in {
     wants = [ "time-sync.target" ];
     requires = [ "network-online.target" ];
     wantedBy = [ "multi-user.target" ];
-    # No existence condition: the manifest is the primary source (ADR 0003) and
+    # No existence condition: the manifest is the primary source (ADR 0039) and
     # needs no local file. The baked first-boot-target, when present, is only
     # the offline fallback — the old ConditionPathExists on it silently skipped
     # the whole service when the tarball pipeline stopped baking the file.
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      TimeoutStartSec = "30min";
+      TimeoutStartSec = "90min";
     };
     path = with pkgs; [ nix coreutils systemd curl jq gnugrep ];
     script = ''
       set -euo pipefail
 
-      # Real-progress splash on the OLED, fed via a progress file (0-100).
+      # Keep a log on the card: the migration system's journal is in RAM
+      # only, and the reboot below would lose it.
+      mkdir -p /home/pifinder/PiFinder_data/logs
+      exec > >(while IFS= read -r line; do printf '%s %s\n' "$(date -u +%FT%T)" "$line"; done \
+        | tee -a /home/pifinder/PiFinder_data/logs/first-boot.log) 2>&1
+
+      # Real-progress splash on the OLED, fed via a progress file: a number
+      # (0-100) and the step label (A-Z and spaces, the splash font). The
+      # splash exits at 100, so 100 comes only just before the reboot.
       PROGRESS_FILE=/run/pifinder-boot-progress
-      echo 0 > "$PROGRESS_FILE"
+      echo "0 WAITING FOR CLOCK" > "$PROGRESS_FILE"
       ${boot-splash}/bin/boot-splash --progress "$PROGRESS_FILE" &
       SPLASH_PID=$!
       trap 'kill $SPLASH_PID 2>/dev/null || true' EXIT
 
+      # The Pi has no RTC: at cold boot the clock starts in the past, so TLS
+      # validation against the binary cache fails ("certificate is not yet
+      # valid") and the download aborts. Wait for timesyncd to fix the clock.
+      echo "Waiting for clock synchronization..."
+      for _ in $(seq 1 120); do
+        [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = yes ] && break
+        [ -e /run/systemd/timesync/synchronized ] && break
+        sleep 1
+      done
+      echo "Clock: $(date -u)"
+
       # Resolve the full system from the update manifest — the same file the
-      # on-device updater reads (NixOS ADR 0003). Migration rides the newest entry
+      # on-device updater reads (ADR 0039). Migration rides the newest entry
       # in the best available channel: stable, then beta, then the unstable trunk.
       # Stable holds only releases, whose closures live in the retained
       # pifinder-release cache, so a resolved stable path can't be GC'd out from
       # under a published tarball. Falls back to the baked-in target if the
       # manifest can't be fetched.
+      echo "0 FINDING NIXOS" > "$PROGRESS_FILE"
       MANIFEST_URL="https://raw.githubusercontent.com/brickbots/PiFinder/nixos-manifest/update-manifest.json"
       STORE_PATH=""
-      if MANIFEST_JSON=$(curl -sf --max-time 15 "$MANIFEST_URL" 2>/dev/null); then
+      # A few tries, because WiFi and DNS can still be settling. If all fail,
+      # the baked-in target below is the fallback.
+      MANIFEST_JSON=""
+      for attempt in 1 2 3 4 5; do
+        MANIFEST_JSON=$(curl -sf --max-time 15 "$MANIFEST_URL" 2>/dev/null) && break
+        MANIFEST_JSON=""
+        echo "Manifest fetch failed (attempt $attempt/5)"
+        [ "$attempt" -lt 5 ] && sleep 20
+      done
+      if [ -n "$MANIFEST_JSON" ]; then
         # jq comma-stream encodes the priority order; first available, valid path
         # wins. TEMPORARY: the unstable trunk is pinned to source_ref "nixos"
         # because the NixOS line still lives on the nixos branch, not main. Drop
-        # the source_ref guard once nixos becomes the mainline trunk (ADR 0003).
+        # the source_ref guard once nixos becomes the mainline trunk (ADR 0039).
         STORE_PATH=$(printf '%s\n' "$MANIFEST_JSON" | jq -r '
           [ ( .channels.stable[]?,
               .channels.beta[]?,
@@ -180,17 +215,6 @@ in {
         exit 1
       fi
 
-      # The Pi has no RTC: at cold boot the clock starts in the past, so TLS
-      # validation against the binary cache fails ("certificate is not yet
-      # valid") and the download aborts. Wait for timesyncd to fix the clock.
-      echo "Waiting for clock synchronization..."
-      for _ in $(seq 1 120); do
-        [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = yes ] && break
-        [ -e /run/systemd/timesync/synchronized ] && break
-        sleep 1
-      done
-      echo "Clock: $(date -u)"
-
       # First-boot fetches the whole system, so per-path byte sizing would mean
       # tens of thousands of cache lookups — too slow. Count the paths to fetch
       # (one dry-run, timeout-bounded so it can't hang) and show a path-count
@@ -201,18 +225,63 @@ in {
       [ "$TOTAL_PATHS" -gt 0 ] 2>/dev/null || TOTAL_PATHS=0
       set -e
       echo "Downloading full PiFinder system: $STORE_PATH ($TOTAL_PATHS paths)"
+      echo "0 DOWNLOADING NIXOS" > "$PROGRESS_FILE"
 
-      COPIED=0
-      nix build "$STORE_PATH" --max-jobs 0 2>&1 | while IFS= read -r line; do
-        echo "$line"
-        case "$line" in
-          *"copying path "*)
-            COPIED=$((COPIED + 1))
-            [ "$TOTAL_PATHS" -gt 0 ] && echo "$((COPIED * 100 / TOTAL_PATHS))" > "$PROGRESS_FILE"
-            ;;
-        esac
+      download() {
+        COPIED=0
+        nix build "$STORE_PATH" --max-jobs 0 2>&1 | while IFS= read -r line; do
+          echo "$line"
+          case "$line" in
+            *"copying path "*)
+              COPIED=$((COPIED + 1))
+              if [ "$TOTAL_PATHS" -gt 0 ]; then
+                PCT=$((COPIED * 100 / TOTAL_PATHS))
+                [ "$PCT" -gt 98 ] && PCT=98
+                echo "$PCT DOWNLOADING NIXOS" > "$PROGRESS_FILE"
+              fi
+              ;;
+          esac
+        done
+      }
+      # Paths that are already downloaded stay in the store, so each try
+      # continues where the last one stopped. If all tries fail, the service
+      # fails and runs again at the next boot; nothing is deleted.
+      for attempt in 1 2 3; do
+        download && break
+        echo "Download failed (attempt $attempt/3)"
+        if [ "$attempt" -eq 3 ]; then
+          exit 1
+        fi
+        sleep 60
       done
-      echo 100 > "$PROGRESS_FILE"
+      echo "99 SETTING UP" > "$PROGRESS_FILE"
+
+      # A system that cannot mount this card's root stops in the initrd,
+      # before anything can roll it back. If the manifest's pick is such a
+      # system (an older build from before the btrfs root), use the baked-in
+      # target, which is built for this migration. If that fails too, stay
+      # on the migration system; the service tries again at the next boot.
+      if ! ${check-root-mountable}/bin/check-root-mountable "$STORE_PATH"; then
+        BAKED=""
+        [ -f /var/lib/pifinder/first-boot-target ] && BAKED=$(cat /var/lib/pifinder/first-boot-target)
+        if [ -z "$BAKED" ] || [ "$BAKED" = "$STORE_PATH" ]; then
+          echo "ERROR: not switching to $STORE_PATH"
+          exit 1
+        fi
+        echo "Falling back to the baked-in target $BAKED"
+        STORE_PATH=$BAKED
+        MANIFEST_JSON=""
+        for attempt in 1 2 3; do
+          download && break
+          echo "Download failed (attempt $attempt/3)"
+          [ "$attempt" -eq 3 ] && exit 1
+          sleep 60
+        done
+        if ! ${check-root-mountable}/bin/check-root-mountable "$STORE_PATH"; then
+          echo "ERROR: not switching to $STORE_PATH"
+          exit 1
+        fi
+      fi
 
       echo "Setting system profile..."
       nix-env -p /nix/var/nix/profiles/system --set "$STORE_PATH"
@@ -229,8 +298,26 @@ in {
       [ -n "$IDENTITY" ] || IDENTITY=$(jq -nc --arg sp "$STORE_PATH" '{store_path: $sp}')
       printf '%s\n' "$IDENTITY" > /var/lib/pifinder/current-build.json
 
+      # Boot the camera the device had before the migration. The migration
+      # init writes camera-type from the Pi OS config.txt; without it the full
+      # system boots its base camera. Same steps as the upgrade's
+      # activate_system: a camera with a specialisation activates that
+      # specialisation, then set-extlinux-default from the new system points
+      # the extlinux DEFAULT at the camera's entry.
       echo "Configuring bootloader..."
-      "$STORE_PATH/bin/switch-to-configuration" boot
+      CAMERA=""
+      if [ -f /var/lib/pifinder/camera-type ]; then
+        CAMERA=$(head -n 1 /var/lib/pifinder/camera-type | tr -d '[:space:]')
+      fi
+      if [ -n "$CAMERA" ] && [ -d "$STORE_PATH/specialisation/$CAMERA" ]; then
+        echo "Camera $CAMERA: activating its specialisation"
+        "$STORE_PATH/specialisation/$CAMERA/bin/switch-to-configuration" boot
+      else
+        "$STORE_PATH/bin/switch-to-configuration" boot
+      fi
+      if [ -n "$CAMERA" ] && [ -x "$STORE_PATH/sw/bin/set-extlinux-default" ]; then
+        "$STORE_PATH/sw/bin/set-extlinux-default" "$CAMERA" || true
+      fi
 
       echo "Removing first-boot trigger..."
       rm -f /var/lib/pifinder/first-boot-target
@@ -240,6 +327,7 @@ in {
       nix-collect-garbage || true
 
       echo "Rebooting into full PiFinder system..."
+      echo "100 RESTARTING" > "$PROGRESS_FILE"
       systemctl reboot
     '';
   };
@@ -314,8 +402,8 @@ in {
   };
 
   # NetworkManager-wait-online adds ~10s to boot but is needed for
-  # pifinder-first-boot to have internet. The first-boot script also has
-  # its own connectivity retry loop as a fallback.
+  # pifinder-first-boot to have internet. The first-boot script also retries
+  # the manifest fetch and the download.
   systemd.services.NetworkManager-wait-online.serviceConfig.TimeoutStartSec = "30s";
 
   system.stateVersion = "24.11";

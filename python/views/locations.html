@@ -279,13 +279,13 @@ function updateDMSFields(decimalLatitude, decimalLongitude, id = '') {
     const lonSField = document.getElementById("longitudeS-" + id);
     
     if (decimalLatitude && latDField && latMField && latSField) {
-        var dmsLat = decimalToDMS(parseFloat(decimalLatitude));
+        var dmsLat = decimalToDMS(parseFloat(normalizeDecimal(decimalLatitude)));
         latDField.value = dmsLat[0];
         latMField.value = dmsLat[1];
         latSField.value = dmsLat[2];
     }
     if (decimalLongitude && lonDField && lonMField && lonSField) {
-        var dmsLong = decimalToDMS(parseFloat(decimalLongitude));
+        var dmsLong = decimalToDMS(parseFloat(normalizeDecimal(decimalLongitude)));
         lonDField.value = dmsLong[0];
         lonMField.value = dmsLong[1];
         lonSField.value = dmsLong[2];

@@ -895,6 +895,24 @@ pifinder_menu = {
                                 },
                             ],
                         },
+                        {
+                            # TRANSLATORS: chart setting — names the object
+                            # nearest the middle of the chart
+                            "name": _("Center Object"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_center_object",
+                            "items": [
+                                {
+                                    "name": _("Off"),
+                                    "value": "Off",
+                                },
+                                {
+                                    "name": _("On"),
+                                    "value": "On",
+                                },
+                            ],
+                        },
                     ],
                 },
                 {

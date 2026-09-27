@@ -31,6 +31,13 @@ class MappedObservationsDatabase(ObservationsDatabase):
     def _resolve_object_id(self, catalog, sequence):
         return LISTING_TO_OBJECT_ID.get((catalog, sequence))
 
+    def _resolve_object_ids(self, listings):
+        return {
+            listing: LISTING_TO_OBJECT_ID[listing]
+            for listing in listings
+            if listing in LISTING_TO_OBJECT_ID
+        }
+
     def _resolve_listings(self, object_id):
         return [
             listing for listing, oid in LISTING_TO_OBJECT_ID.items() if oid == object_id
@@ -198,3 +205,50 @@ def test_details_logs_stay_per_listing_for_virtual_objects(obs_db):
     _log(obs_db, "PL", 1)
     assert len(obs_db.get_logs_for_object(_obj("PL", 1, -1))) == 1
     assert len(obs_db.get_logs_for_object(_obj("PL", 2, -1))) == 0
+
+
+@pytest.mark.unit
+def test_cache_resolves_all_listings_in_one_query(tmp_path):
+    # One query for the whole cache, not one per logged listing: the cost
+    # of building this cache then stays flat as a log grows.
+    class CountingObservationsDatabase(MappedObservationsDatabase):
+        query_calls = 0
+
+        def _query_observed_identities(self):
+            CountingObservationsDatabase.query_calls += 1
+            return super()._query_observed_identities()
+
+    db = CountingObservationsDatabase(tmp_path / "observations.db")
+    for catalog, sequence in (("M", 31), ("NGC", 224), ("NGC", 7000)):
+        _log(db, catalog, sequence)
+    # Logging keeps the process-wide cache warm and refreshes its
+    # fingerprint, so drop it to make the load below really rebuild.
+    _observed_identity_caches.clear()
+    CountingObservationsDatabase.query_calls = 0
+    db.load_observed_objects_cache()
+    assert CountingObservationsDatabase.query_calls == 1
+    assert db.observed_object_ids == {42, 77}
+    db.close()
+
+
+@pytest.mark.unit
+def test_cache_skips_listings_with_no_object_id(tmp_path):
+    # A listing whose catalog row carries a NULL object_id yields no sky
+    # object. That must leave observed status per listing, not raise while
+    # building the cache.
+    class NullResolvingDatabase(MappedObservationsDatabase):
+        def _resolve_object_id(self, catalog, sequence):
+            return None
+
+        def _query_observed_identities(self):
+            listings, _ = super()._query_observed_identities()
+            return listings, set()
+
+    db = NullResolvingDatabase(tmp_path / "observations.db")
+    _log(db, "M", 31)
+    db.load_observed_objects_cache()
+
+    assert db.observed_object_ids == set()
+    assert db.check_logged(_obj("M", 31, 42)) is True
+    assert db.check_logged(_obj("NGC", 224, 42)) is False
+    db.close()

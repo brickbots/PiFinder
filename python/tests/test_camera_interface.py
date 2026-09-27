@@ -120,3 +120,46 @@ class TestCaptureWithTimeout:
         assert cam.capture_calls == 2
         assert cam._capture_thread is not wedged_thread
         assert cam._capture_thread is None
+
+
+@pytest.mark.unit
+class TestOpticalTrainKnown:
+    """Which cameras are entitled to a derived FOV gate.
+
+    The default direction is the whole point: a camera has to opt *out*, so a
+    new hardware backend inherits the gate rather than silently losing it and
+    the mis-solve protection with it. See the third-rung amendment to
+    docs/adr/0029-fov-gate-width-follows-lens-confidence.md.
+    """
+
+    def test_a_camera_pointed_at_the_sky_defaults_to_known(self):
+        assert _ScriptedCamera().optical_train_known() is True
+
+    def test_the_debug_camera_declares_its_train_unknown(self):
+        """It replays a recording, so config's lens describes absent glass.
+
+        This is what keeps `--camera debug` solving on a config that states a
+        lens -- hq x 16mm gates [14.55, 19.69] and hq x 12mm [17.37, 23.49],
+        against frames that are 10.2 deg.
+        """
+        from PiFinder.camera_debug import CameraDebug
+
+        assert CameraDebug(exposure_time=400000).optical_train_known() is False
+
+    def test_the_debug_camera_still_declares_the_sensor_it_recorded_on(self):
+        # Unknown is about the *pairing*, not the sensor: SQM's profile lookup
+        # and the Lens menu still need a plausible half to resolve from.
+        from PiFinder.camera_debug import CameraDebug
+
+        assert CameraDebug(exposure_time=400000).get_cam_type() == "Debug hq"
+
+    def test_shared_state_assumes_known_before_any_camera_reports(self):
+        """The boot window every run passes through must keep its gate.
+
+        The camera process publishes this after the solver is already
+        looping, so a False default would drop the FOV gate on real hardware
+        for the first few frames of every boot.
+        """
+        from PiFinder.state import SharedStateObj
+
+        assert SharedStateObj().optical_train_known() is True

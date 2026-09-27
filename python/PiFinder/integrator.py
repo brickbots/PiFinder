@@ -48,6 +48,13 @@ import PiFinder.calc_utils as calc_utils
 from PiFinder import config
 from PiFinder import state_utils
 from PiFinder.multiproclogging import MultiprocLogging
+from PiFinder.optics import (
+    OpticalTrain,
+    get_lens,
+    identify_lens_from_fitted_fov,
+    lens_is_stated,
+    resolve_camera_profile,
+)
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 import PiFinder.pointing_model.quaternion_transforms as qt
 from PiFinder.telemetry import TelemetryManager
@@ -66,6 +73,146 @@ logger = logging.getLogger("IMU.Integrator")
 
 # Use IMU tracking if the angle moved is above this deadband.
 IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.06)
+
+# Consecutive solves that must identify the *same* lens before self-heal
+# writes it. A single rogue fit should not be able to state a lens, and three
+# frames is a couple of seconds -- cheap insurance for a once-per-device write.
+LENS_IDENTIFY_CONSECUTIVE = 3
+
+
+class LensSelfHeal:
+    """Promotes an **assumed lens** to a **stated** one from the fitted FOV.
+
+    Some rev4 units shipped with a 12mm lens and no ``camera_lens`` in their
+    config, so they assumed the 16mm, gated around 10.40 degrees, and stopped
+    solving on 2.6.2 having changed nothing. The assumed-lens gate (see
+    :meth:`PiFinder.optics.OpticalTrain.solver_fov_params`) gets them solving
+    again; this is what stops them living on a wide gate forever. Together
+    they are ``docs/adr/0029-fov-gate-width-follows-lens-confidence.md``.
+
+    The integrator is the right home for it: it already holds a
+    :class:`~PiFinder.config.Config` and the shared state, it sees every
+    successful solve with its diagnostics, and it is not the solver's hot
+    loop.
+
+    Three properties are load-bearing:
+
+    * **A stated lens is never overwritten.** The user's claim stays
+      authoritative, so this only ever writes into an absence. That also means
+      it writes at most once in the life of a device -- the write is what ends
+      the condition it triggers on.
+    * **An unknown optical train never writes at all.** A fitted FOV measures
+      the train the frames passed through; under ``--camera debug`` that is
+      the train they were *recorded* on, so it says nothing about this
+      machine. Without this, a debug run on a config with no lens writes the
+      hq's ``25mm`` (the archived frames fit 10.20 deg, 1.3% off its derived
+      10.33) into that developer's config -- and a real imx462 attached
+      afterwards then derives 6.4 deg, solves nothing, and cannot heal,
+      because healing only writes into an absence that no longer exists.
+    * **A fitted FOV matching no shipped lens writes nothing.** Third-party
+      glass leaves the lens assumed and the gate wide, which is honest: we do
+      not know its focal length, and a wrong write would be worse than none
+      because the gate then tightens around it and the device can no longer
+      measure its way out.
+    * **Failing is never fatal.** A read-only filesystem or a dropped manager
+      connection must cost the promotion, not the pointing.
+    """
+
+    def __init__(self, cfg, shared_state):
+        self._cfg = cfg
+        self._shared_state = shared_state
+        self._candidate: Optional[str] = None
+        self._streak = 0
+        # All three latch to keep a per-frame condition from logging per frame.
+        self._logged_unidentified = False
+        self._logged_unknown_train = False
+        self._disabled = False
+
+    def observe(self, result: SuccessfulSolve) -> None:
+        """Feed one successful solve in; write the lens once it is proven."""
+        if self._disabled:
+            return
+        try:
+            self._observe(result)
+        except (OSError, AttributeError, ValueError) as e:
+            # Writing config touches the filesystem and reading state touches
+            # the manager; neither is worth taking positioning down for.
+            logger.warning("Lens self-heal disabled after error: %s", e)
+            self._disabled = True
+
+    def _observe(self, result: SuccessfulSolve) -> None:
+        if not self._shared_state.optical_train_known():
+            # Checked before the lens, not after: this is not "nothing to
+            # heal" but "nothing here can heal anything", and the streak must
+            # not carry across into a later run on real optics.
+            if not self._logged_unknown_train:
+                self._logged_unknown_train = True
+                logger.info(
+                    "Optical train is unknown, so a fitted FOV measures the "
+                    "recording rather than this device; lens self-heal is off"
+                )
+            self._reset()
+            return
+
+        lens_key = self._shared_state.camera_lens()
+        if lens_is_stated(lens_key):
+            # Nothing to heal -- and after a successful write this is the
+            # branch every later solve takes. Dropping the streak keeps a
+            # lens set from the menu mid-run from inheriting agreement that
+            # was counted before it.
+            self._reset()
+            return
+
+        fitted_fov = result.diagnostics.FOV if result.diagnostics else None
+        if not fitted_fov:
+            return
+
+        profile = resolve_camera_profile(self._shared_state.camera_type())
+        identified = identify_lens_from_fitted_fov(profile, fitted_fov)
+        if identified is None:
+            if not self._logged_unidentified:
+                self._logged_unidentified = True
+                logger.info(
+                    "Fitted FOV %.2f deg matches no lens this sensor shipped "
+                    "with (%s); leaving the lens assumed and the FOV gate wide",
+                    fitted_fov,
+                    ", ".join(profile.shipped_lens_keys) or "none recorded",
+                )
+            self._reset()
+            return
+
+        if identified == self._candidate:
+            self._streak += 1
+        else:
+            self._candidate = identified
+            self._streak = 1
+        if self._streak < LENS_IDENTIFY_CONSECUTIVE:
+            return
+
+        self._write(identified, fitted_fov, profile)
+
+    def _write(self, lens_key: str, fitted_fov: float, profile) -> None:
+        derived = OpticalTrain(profile, get_lens(lens_key), lens_stated=True)
+        # Reload first: this process loaded its dict at start-up and
+        # dump_config rewrites the whole file from it, so anything the menu
+        # has changed since would be reverted by the write below.
+        self._cfg.load_config()
+        self._cfg.set_option("camera_lens", lens_key)
+        self._shared_state.set_camera_lens(lens_key)
+        logger.info(
+            "Lens self-heal: %d solves fitted %.2f deg, which is the %s "
+            "(%.2f deg derived). Stating it in config; the FOV gate narrows "
+            "from the assumed range to this lens on the next frame.",
+            LENS_IDENTIFY_CONSECUTIVE,
+            fitted_fov,
+            lens_key,
+            derived.fov_degrees,
+        )
+        self._reset()
+
+    def _reset(self) -> None:
+        self._candidate = None
+        self._streak = 0
 
 
 def integrator(
@@ -101,6 +248,8 @@ def integrator(
         telemetry = TelemetryManager(
             cfg, shared_state, console_queue, camera_command_queue
         )
+
+        lens_self_heal = LensSelfHeal(cfg, shared_state)
 
         while True:
             state_utils.sleep_for_framerate(shared_state)
@@ -144,6 +293,12 @@ def integrator(
                 telemetry.record_solve(
                     solve_result, predicted=estimate.pointing.aligned.estimate
                 )
+                # Not while replaying: a recorded session's fitted FOV
+                # measures the optics of whatever device recorded it, and
+                # writing that to this device's config would state a lens
+                # nobody here is looking through.
+                if not telemetry.replaying:
+                    lens_self_heal.observe(solve_result)
                 estimate = _apply_successful_solve(estimate, solve_result, idr)
                 pointing_updated = True
             elif isinstance(solve_result, FailedSolve):

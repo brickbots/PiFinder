@@ -30,8 +30,9 @@ class CometCatalog(Catalog):
             - check if we have a file, if so which file modification time and store that time.
             - if we don't have a file, set want_download to true and log the reason
             - if we have a file, try to get the remote file header, if the file is too old set want_download to true and set the age and log the reason
-        - start the background download task, but wait till it returns
-        - manually start the do_timed_task so it starts immediately, use locks to prevent double start
+            - download if needed
+            - manually start the do_timed_task so it starts immediately, use locks to prevent double start
+            - start the timer and the retry loop
     """
 
     def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
@@ -56,18 +57,24 @@ class CometCatalog(Catalog):
         self._timer.do_timed_task = self.do_timed_task
         self._timer.time_delay_seconds = lambda: self.time_delay_seconds
 
+        # The remote check and the download can take many seconds, so they
+        # run in the background and the PiFinder starts without them.
+        threading.Thread(target=self._startup_task, daemon=True).start()
+
+    def _startup_task(self):
+        """Start the periodic update, then download the comet file if needed."""
         # Existing elements stay usable while freshness is checked and a new
-        # file downloads in the background.
+        # file downloads.
         if self.shared_state.altaz_ready() and os.path.exists(comet_file):
             self.do_timed_task()
-
-        threading.Thread(target=self._refresh_if_needed, daemon=True).start()
 
         # Start timer after initialization
         self._timer.start_timer()
 
         # Start background retry loop (only retries if no file exists)
         self._start_background_retry()
+
+        self._refresh_if_needed()
 
     def get_age(self) -> Optional[int]:
         """Return the age of the comet data in days.

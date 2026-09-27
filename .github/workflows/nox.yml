@@ -39,5 +39,6 @@ jobs:
         run: uv run pytest -m smoke
       - name: Unit tests
         run: uv run pytest -m unit
-      - name: UI module tests
-        run: uv run pytest -m integration tests/test_ui_modules.py
+      # The web tests need a Selenium grid, which CI does not have.
+      - name: Integration tests
+        run: uv run pytest -m integration --ignore-glob='tests/test_web_*'

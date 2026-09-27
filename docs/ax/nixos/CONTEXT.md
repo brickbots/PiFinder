@@ -53,7 +53,7 @@ _Avoid_: "preview", "nightly".
 Returning a device — or the fleet — to a known-good build after a bad one ships. Guaranteed for **stable**, whose closures live in the retained `pifinder-release` cache; **beta** and **unstable** (`main` head / PR) builds share the short-retention dev cache and may be GC'd.
 
 **Watchdog**:
-The on-device boot guardian. It health-checks every boot of a not-yet-**confirmed** generation (a **trial**) and performs a **generation rollback** when the trial fails — capturing evidence and telling the operator on screen. It never rolls back a confirmed generation, but it still *reports*: a confirmed generation whose app fails gets an on-screen advisory naming the **recovery hold** (see [NixOS ADR 0005](./adr/0005-self-arming-watchdog-confirmed-generations.md)).
+The on-device boot guardian. It health-checks every boot of a not-yet-**confirmed** generation (a **trial**) and performs a **generation rollback** when the trial fails — capturing evidence and telling the operator on screen. It never rolls back a confirmed generation, but it still *reports*: a confirmed generation whose app fails gets an on-screen advisory naming the **recovery hold** (see [ADR 0038](../../adr/0038-boot-watchdog-and-recovery.md)).
 
 **Trial**:
 The probation boot of a generation that has not yet proven itself on this device. Every boot of an unconfirmed generation is a trial, regardless of which build installed it. A passed trial **confirms** the generation.
@@ -88,7 +88,7 @@ A release-level rollback — demoting a buggy official Release (to draft/prerele
 
 **Attic cache**:
 The binary cache at `cache.pifinder.eu`, with two namespaces: `pifinder` (dev builds, short retention) and `pifinder-release` (tagged releases, GC-disabled). Every Pi substitutes signed store paths from here. Hosted on the Fork's side through Phase 1.
-_Avoid_: "cachix" (an earlier/alternative cache; the current one is Attic — see [NixOS ADR 0001](./adr/0001-attic-binary-cache.md)).
+_Avoid_: "cachix" (an earlier/alternative cache; the current one is Attic — see [ADR 0037](../../adr/0037-nixos-builds-cache-and-update-channels.md)).
 
 **pi5 runner**:
 The self-hosted aarch64 GitHub Actions runner that builds NixOS systems natively, with a hosted `ubuntu-*-arm` runner (also native aarch64 — no emulation) as fallback. Fork-side infrastructure through Phase 1.
@@ -96,3 +96,19 @@ The self-hosted aarch64 GitHub Actions runner that builds NixOS systems natively
 **Update manifest**:
 `update-manifest.json` — the generated channel listing published on a metadata-only branch (`nixos-manifest` during the fork transition). It maps releases, trunk builds, and testable PR builds to signed Nix `store_path`s in the Attic cache (and, for releases, to the migration tarball). The device reads this raw JSON file instead of calling the GitHub API; it is the single mapping between versions and store paths.
 _Avoid_: bare "manifest" (say *update* manifest), "build stamp" (a retired concept: `pifinder-build.json` is gone — a device's identity lives in one file, seeded at image build and rewritten by every upgrade).
+
+### Card and data
+
+**Card layout**:
+Partition 1 is FAT `FIRMWARE` (firmware, `config.txt`, U-Boot only). Partition 2 is btrfs `PIFINDER_SD`, mounted as `/dev/mmcblk0p2`, with `PiFinder_data` as its own subvolume. See [ADR 0039](../../adr/0039-card-layout-and-migration.md).
+_Avoid_: "boot partition" for partition 1 (the kernels and `extlinux.conf` are on partition 2); `NIXOS_SD` (the old ext4 label).
+
+**Data pack**:
+An optional, large data set (for example the catalog images) shipped as one Nix store path, with its own profile under `/nix/var/nix/profiles/packs/`. The user gets it in Tools > Data packs. See [ADR 0040](../../adr/0040-data-packs.md).
+_Avoid_: "blob", "dataset" in code and docs; "download" for the whole pack mechanism.
+
+**Shard**:
+A fixed-output store path that holds part of a data pack, below 256 MiB. The same files always give the same shard store path, so an unchanged shard never downloads again.
+
+**Full image / lean image**:
+The two SD images. The full image has the default data packs in its store. The lean image has none, and the user gets them in Tools > Data packs.

@@ -108,11 +108,39 @@ derived instead of hard-coded.
 **Lens**:
 The finder's camera lens (M12 mount). Always the *finder* lens — never the
 user's telescope or eyepiece, which are [Equipment](../equipment/CONTEXT.md)
-vocabulary and have their own focal lengths. Not detectable at runtime: the
-user states which lens is fitted, and a wrong statement is a configuration
-error the device cannot discover for itself.
+vocabulary and have their own focal lengths. Not detectable *directly* — no
+lens reports its focal length — but not unknowable either: once a frame
+solves, the **fitted FOV** measures the whole train, and the lens is what is
+left after dividing out the sensor. Whether the device is entitled to act on
+that measurement depends on whether the lens is **stated** or **assumed**.
 _Avoid_: "the lens" unqualified in any prose that also discusses telescope
 optics; objective (that is the telescope's).
+
+**Stated lens**:
+A lens recorded in the `camera_lens` config key — a claim that *this* glass is
+physically fitted. The claim is authoritative: it narrows the FOV gate around
+the one field of view it implies, and nothing overrides it, so a wrong
+statement still means no solves (that is [ADR
+0027](../../adr/0027-fov-gate-derived-from-optical-train.md)'s deliberate
+consequence, not a regression). Written by the user from the Lens menu, or
+once by the device itself from a fitted FOV it is confident about — but never
+from a fitted FOV measured under an **unknown optical train**, which measures
+a recording rather than this device.
+_Avoid_: configured lens (true of a self-healed value too, so it does not
+distinguish), selected lens, user lens.
+
+**Assumed lens**:
+The camera profile's fallback (`default_lens_key`), used when no lens is
+stated. Not a claim about the hardware — an admission that nobody has said,
+which is the ordinary condition of an install predating the setting. Because
+there is nothing to trust, the FOV gate widens to cover *every* lens that
+sensor has shipped with rather than centring on the fallback. An assumed lens
+is a temporary state: the first confident solve turns it into a stated one —
+unless the train is **unknown**, in which case no solve ever ends the
+assumption, because none of them measured this device.
+_Avoid_: default lens (reads as a preference rather than an absence of
+information), unset lens (the field of view is never unset — some lens is
+always assumed).
 
 **Nominal focal length**:
 The focal length printed on the lens barrel — what the user reads and picks
@@ -141,6 +169,25 @@ and the pair is resolved wherever a derived value is needed.
 _Avoid_: optical configuration ("configuration" already names the physical
 build variants — see [Positioning](../positioning/CONTEXT.md) *screen
 direction*), camera setup, imaging train.
+
+**Unknown optical train**:
+The state of a camera whose frames did not come through this device's optics
+at all — today only the debug camera, which replays archived frames. The
+device's train still resolves to *something* (the debug camera declares the
+sensor its frames were shot on), but that train describes the machine, not
+the frames, so two things follow: nothing about the device may be **asserted**
+about the frames — the solver is handed no FOV gate rather than a derived one
+— and nothing about the device may be **inferred** from them, so a fitted FOV
+cannot promote an **assumed lens** to a **stated** one. This is the third rung
+of the confidence ladder the FOV gate's width follows: stated → ±15%, assumed
+→ the union over the sensor's shipped lenses, unknown → no gate at all (see
+[ADR 0029](../../adr/0029-fov-gate-width-follows-lens-confidence.md)).
+Deliberately *not* a blanket "everything derived goes dark": the **frustum**
+still answers what the configured camera would image, which is a question
+about the device and stays meaningful while a recording is being replayed.
+_Avoid_: debug FOV, no FOV (the frames have one — nobody here knows it),
+unknown lens (the lens resolves normally; it is the pairing that means
+nothing), fake camera.
 
 **Field of view**:
 The angular width of the **crop**, in degrees — the edge-to-edge extent, not

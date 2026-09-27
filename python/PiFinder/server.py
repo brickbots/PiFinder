@@ -1,5 +1,4 @@
 import io
-import json
 import logging
 import time
 import uuid
@@ -12,11 +11,21 @@ from datetime import timezone
 import pydeepskylog as pds
 from PIL import Image
 from PiFinder import utils, calc_utils, config
+from PiFinder import data_browser
 from PiFinder import timez
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
-from PiFinder.equipment import Telescope, Eyepiece
+from PiFinder import web_observations
+from PiFinder.equipment import (
+    EYEPIECE_LIMITS,
+    MOUNT_TYPES,
+    NAME_MAX_LENGTH,
+    TELESCOPE_LIMITS,
+    Eyepiece,
+    Telescope,
+    format_measurement,
+)
 from PiFinder.keyboard_interface import KeyboardInterface
 from PiFinder.multiproclogging import MultiprocLogging
 
@@ -48,6 +57,13 @@ logs_logger = logging.getLogger("Server.Logs")
 SESSION_SECRET = str(uuid.uuid4())
 
 
+# Bounds for the location fields the GPS form writes.  The /locations
+# handlers enforce the same ranges inline.
+LATITUDE_LIMITS = (-90.0, 90.0)
+LONGITUDE_LIMITS = (-180.0, 180.0)
+ALTITUDE_LIMITS = (-1000.0, 10000.0)
+
+
 def parse_coordinate(value, field_name):
     """Parse a coordinate/measurement field, accepting comma or period decimals."""
     if value is None:
@@ -56,6 +72,149 @@ def parse_coordinate(value, field_name):
         return float(str(value).strip().replace(",", "."))
     except ValueError:
         raise ValueError(_("%s must be a number") % field_name)
+
+
+def parse_measurement(value, field_name, limits, default=None):
+    """Parse a numeric field and range-check it against ``limits``.
+
+    ``limits`` is any (minimum, maximum) pair — an equipment ``Limits``
+    or one of the location tuples above.  A blank field falls back to
+    ``default`` when one is given, and is an error otherwise: a value the
+    user left empty must not silently become zero.
+    """
+    if default is not None and (value is None or str(value).strip() == ""):
+        return default
+
+    number = parse_coordinate(value, field_name)
+    minimum, maximum = limits
+    if not minimum <= number <= maximum:
+        raise ValueError(
+            _("%(field)s must be between %(minimum)s and %(maximum)s")
+            % {
+                "field": field_name,
+                "minimum": format_measurement(minimum),
+                "maximum": format_measurement(maximum),
+            }
+        )
+    return number
+
+
+def parse_name(value, field_name, required=True):
+    """Parse and length-check a free-text field, returning it stripped."""
+    text = (value or "").strip()
+    if required and not text:
+        raise ValueError(_("%s is required") % field_name)
+    if len(text) > NAME_MAX_LENGTH:
+        raise ValueError(
+            _("%(field)s must be %(maximum)s characters or fewer")
+            % {"field": field_name, "maximum": NAME_MAX_LENGTH}
+        )
+    return text
+
+
+def check_equipment_limits(record, limits):
+    """Re-check an equipment record's measurements against ``limits``.
+
+    For records that never pass through the edit form — the DeepskyLog
+    import — so an upstream value out of range is caught before it is
+    written into config rather than at the next boot.
+    """
+    for field, limit in limits.items():
+        parse_measurement(getattr(record, field), field, limit)
+    if not record.name.strip():
+        raise ValueError(_("%s is required") % _("Name"))
+
+
+def submitted_eyepiece(form):
+    """The raw submitted eyepiece values, keyed as the edit template reads
+    them, so a rejected form comes back with what the user typed still in it.
+    """
+    return {
+        "make": form.get("make", ""),
+        "name": form.get("name", ""),
+        "focal_length_mm": form.get("focal_length_mm", ""),
+        "afov": form.get("afov", ""),
+        "field_stop": form.get("field_stop", ""),
+    }
+
+
+def submitted_telescope(form):
+    """The raw submitted instrument values, keyed as the edit template reads
+    them, so a rejected form comes back with what the user typed still in it.
+    """
+    return {
+        "make": form.get("make", ""),
+        "name": form.get("name", ""),
+        "aperture_mm": form.get("aperture", ""),
+        "focal_length_mm": form.get("focal_length_mm", ""),
+        "obstruction_perc": form.get("obstruction_perc", ""),
+        "mount_type": form.get("mount_type", ""),
+        "flip_image": bool(form.get("flip")),
+        "flop_image": bool(form.get("flop")),
+        "reverse_arrow_a": bool(form.get("reverse_arrow_a")),
+        "reverse_arrow_b": bool(form.get("reverse_arrow_b")),
+    }
+
+
+def eyepiece_from_form(form) -> Eyepiece:
+    """Build an Eyepiece from submitted form values.
+
+    Raises ValueError — with a message meant for the user — if any field
+    is missing, unparseable or out of range.
+    """
+    return Eyepiece(
+        make=parse_name(form.get("make"), _("Make"), required=False),
+        name=parse_name(form.get("name"), _("Name")),
+        focal_length_mm=parse_measurement(
+            form.get("focal_length_mm"),
+            _("Focal length"),
+            EYEPIECE_LIMITS["focal_length_mm"],
+        ),
+        afov=parse_measurement(
+            form.get("afov"), _("Apparent field of view"), EYEPIECE_LIMITS["afov"]
+        ),
+        field_stop=parse_measurement(
+            form.get("field_stop"),
+            _("Field stop"),
+            EYEPIECE_LIMITS["field_stop"],
+            default=0.0,
+        ),
+    )
+
+
+def telescope_from_form(form) -> Telescope:
+    """Build a Telescope from submitted form values.
+
+    Raises ValueError — with a message meant for the user — if any field
+    is missing, unparseable or out of range.
+    """
+    mount_type = (form.get("mount_type") or MOUNT_TYPES[0]).strip().lower()
+    if mount_type not in MOUNT_TYPES:
+        raise ValueError(_("%s is not a valid mount type") % mount_type)
+
+    return Telescope(
+        make=parse_name(form.get("make"), _("Make"), required=False),
+        name=parse_name(form.get("name"), _("Instrument name")),
+        aperture_mm=parse_measurement(
+            form.get("aperture"), _("Aperture"), TELESCOPE_LIMITS["aperture_mm"]
+        ),
+        focal_length_mm=parse_measurement(
+            form.get("focal_length_mm"),
+            _("Focal length"),
+            TELESCOPE_LIMITS["focal_length_mm"],
+        ),
+        obstruction_perc=parse_measurement(
+            form.get("obstruction_perc"),
+            _("Obstruction"),
+            TELESCOPE_LIMITS["obstruction_perc"],
+            default=0.0,
+        ),
+        mount_type=mount_type,
+        flip_image=bool(form.get("flip")),
+        flop_image=bool(form.get("flop")),
+        reverse_arrow_a=bool(form.get("reverse_arrow_a")),
+        reverse_arrow_b=bool(form.get("reverse_arrow_b")),
+    )
 
 
 def auth_required(func):
@@ -171,6 +330,11 @@ class Server:
         import builtins
 
         app.jinja_env.globals["_"] = builtins._
+
+        # Equipment measurements are floats; render 1000.0 as "1000" so the
+        # tables and edit forms read the way the user typed them.
+        app.jinja_env.filters["measurement"] = format_measurement
+        app.jinja_env.globals["name_max_length"] = NAME_MAX_LENGTH
 
         # # Create a simple gettext function for templates that works without translation files
         # def simple_gettext(text):
@@ -336,11 +500,33 @@ class Server:
             altitude = request.form.get("altitude")
             date_req = request.form.get("date")
             time_req = request.form.get("time")
-            gps_lock(float(lat), float(lon), float(altitude))
-            if time_req and date_req:
-                datetime_str = f"{date_req} {time_req}"
-                datetime_obj = timez.parse(datetime_str, "%Y-%m-%d %H:%M:%S")
-                datetime_utc = datetime_obj.replace(tzinfo=timezone.utc)
+
+            try:
+                latitude = parse_measurement(lat, _("Latitude"), LATITUDE_LIMITS)
+                longitude = parse_measurement(lon, _("Longitude"), LONGITUDE_LIMITS)
+                height = parse_measurement(altitude, _("Altitude"), ALTITUDE_LIMITS)
+                datetime_utc = None
+                if time_req and date_req:
+                    try:
+                        datetime_obj = timez.parse(
+                            f"{date_req} {time_req}", "%Y-%m-%d %H:%M:%S"
+                        )
+                    except ValueError:
+                        raise ValueError(_("Date and time must be YYYY-MM-DD h:m:s"))
+                    datetime_utc = datetime_obj.replace(tzinfo=timezone.utc)
+            except ValueError as e:
+                # Re-render with what was typed, the way /locations does.
+                return app.jinja_env.get_template("gps.html").render(
+                    title=_("GPS"),
+                    show_new_form=0,
+                    lat=lat,
+                    lon=lon,
+                    altitude=altitude,
+                    error_message=str(e),
+                )
+
+            gps_lock(latitude, longitude, height)
+            if datetime_utc is not None:
                 time_lock(datetime_utc)
             logger.debug(
                 "GPS update: %s, %s, %s, %s, %s", lat, lon, altitude, date_req, time_req
@@ -599,10 +785,24 @@ class Server:
                 title=_("Equipment"), equipment=config.Config().equipment
             )
 
+        def equipment_page_error(message):
+            """Render the equipment page with an error instead of raising.
+
+            A hand-edited or stale URL carrying an index nobody owns used
+            to reach the list and raise IndexError as a 500.
+            """
+            return app.jinja_env.get_template("equipment.html").render(
+                title=_("Equipment"),
+                equipment=config.Config().equipment,
+                error_message=message,
+            )
+
         @app.route("/equipment/set_active_instrument/<int:instrument_id>")
         @auth_required
         def set_active_instrument(instrument_id: int):
             cfg = config.Config()
+            if not 0 <= instrument_id < len(cfg.equipment.telescopes):
+                return equipment_page_error(_("No such instrument"))
             cfg.equipment.set_active_telescope(cfg.equipment.telescopes[instrument_id])
             cfg.save_equipment()
             self.ui_queue.put("reload_config")
@@ -620,6 +820,8 @@ class Server:
         @auth_required
         def set_active_eyepiece(eyepiece_id: int):
             cfg = config.Config()
+            if not 0 <= eyepiece_id < len(cfg.equipment.eyepieces):
+                return equipment_page_error(_("No such eyepiece"))
             cfg.equipment.set_active_eyepiece(cfg.equipment.eyepieces[eyepiece_id])
             cfg.save_equipment()
             self.ui_queue.put("reload_config")
@@ -638,6 +840,7 @@ class Server:
         def equipment_import():
             username = request.form.get("dsl_name")
             cfg = config.Config()
+            skipped = 0
             if username:
                 instruments = pds.dsl_instruments(username)
                 for instrument in instruments:
@@ -645,34 +848,43 @@ class Server:
                         # Skip the naked eye
                         continue
 
-                    make = instrument["instrument_make"]["name"]
+                    try:
+                        make = instrument["instrument_make"]["name"]
 
-                    obstruction_perc = instrument["obstruction_perc"]
-                    if obstruction_perc is None:
-                        obstruction_perc = 0
-                    else:
-                        obstruction_perc = float(obstruction_perc)
+                        obstruction_perc = instrument["obstruction_perc"]
+                        if obstruction_perc is None:
+                            obstruction_perc = 0
 
-                    # Convert the html special characters (ampersand, quote, ...) in instrument["name"]
-                    # to the corresponding character
-                    instrument["name"] = instrument["name"].replace("&amp;", "&")
-                    instrument["name"] = instrument["name"].replace("&quot;", '"')
-                    instrument["name"] = instrument["name"].replace("&apos;", "'")
-                    instrument["name"] = instrument["name"].replace("&lt;", "<")
-                    instrument["name"] = instrument["name"].replace("&gt;", ">")
+                        # Convert the html special characters (ampersand, quote, ...) in instrument["name"]
+                        # to the corresponding character
+                        instrument["name"] = instrument["name"].replace("&amp;", "&")
+                        instrument["name"] = instrument["name"].replace("&quot;", '"')
+                        instrument["name"] = instrument["name"].replace("&apos;", "'")
+                        instrument["name"] = instrument["name"].replace("&lt;", "<")
+                        instrument["name"] = instrument["name"].replace("&gt;", ">")
 
-                    new_instrument = Telescope(
-                        make=make,
-                        name=instrument["name"],
-                        aperture_mm=int(instrument["diameter"]),
-                        focal_length_mm=int(instrument["diameter"] * instrument["fd"]),
-                        obstruction_perc=obstruction_perc,
-                        mount_type=instrument["mount_type"]["name"].lower(),
-                        flip_image=bool(instrument["flip_image"]),
-                        flop_image=bool(instrument["flop_image"]),
-                        reverse_arrow_a=False,
-                        reverse_arrow_b=False,
-                    )
+                        new_instrument = Telescope(
+                            make=make,
+                            name=instrument["name"],
+                            aperture_mm=float(instrument["diameter"]),
+                            focal_length_mm=float(
+                                instrument["diameter"] * instrument["fd"]
+                            ),
+                            obstruction_perc=float(obstruction_perc),
+                            mount_type=instrument["mount_type"]["name"].lower(),
+                            flip_image=bool(instrument["flip_image"]),
+                            flop_image=bool(instrument["flop_image"]),
+                            reverse_arrow_a=False,
+                            reverse_arrow_b=False,
+                        )
+                        check_equipment_limits(new_instrument, TELESCOPE_LIMITS)
+                    except (ValueError, TypeError, KeyError) as e:
+                        # An upstream record we can't make sense of is
+                        # skipped, not written through into config.
+                        logger.warning("Skipping DeepskyLog instrument: %s", e)
+                        skipped += 1
+                        continue
+
                     try:
                         cfg.equipment.telescopes.index(new_instrument)
                     except ValueError:
@@ -681,23 +893,30 @@ class Server:
                 # Add the eyepieces from deepskylog
                 eyepieces = pds.dsl_eyepieces(username)
                 for eyepiece in eyepieces:
-                    # Convert the html special characters (ampersand, quote, ...) in eyepiece["name"]
-                    # to the corresponding character
-                    eyepiece["name"] = eyepiece["name"].replace("&amp;", "&")
-                    eyepiece["name"] = eyepiece["name"].replace("&quot;", '"')
-                    eyepiece["name"] = eyepiece["name"].replace("&apos;", "'")
-                    eyepiece["name"] = eyepiece["name"].replace("&lt;", "<")
-                    eyepiece["name"] = eyepiece["name"].replace("&gt;", ">")
+                    try:
+                        # Convert the html special characters (ampersand, quote, ...) in eyepiece["name"]
+                        # to the corresponding character
+                        eyepiece["name"] = eyepiece["name"].replace("&amp;", "&")
+                        eyepiece["name"] = eyepiece["name"].replace("&quot;", '"')
+                        eyepiece["name"] = eyepiece["name"].replace("&apos;", "'")
+                        eyepiece["name"] = eyepiece["name"].replace("&lt;", "<")
+                        eyepiece["name"] = eyepiece["name"].replace("&gt;", ">")
 
-                    make = eyepiece["eyepiece_make"]["name"]
+                        make = eyepiece["eyepiece_make"]["name"]
 
-                    new_eyepiece = Eyepiece(
-                        make=make,
-                        name=eyepiece["name"],
-                        focal_length_mm=float(eyepiece["focalLength"]),
-                        afov=int(eyepiece["apparentFOV"]),
-                        field_stop=float(eyepiece["field_stop_mm"]),
-                    )
+                        new_eyepiece = Eyepiece(
+                            make=make,
+                            name=eyepiece["name"],
+                            focal_length_mm=float(eyepiece["focalLength"]),
+                            afov=float(eyepiece["apparentFOV"]),
+                            field_stop=float(eyepiece["field_stop_mm"]),
+                        )
+                        check_equipment_limits(new_eyepiece, EYEPIECE_LIMITS)
+                    except (ValueError, TypeError, KeyError) as e:
+                        logger.warning("Skipping DeepskyLog eyepiece: %s", e)
+                        skipped += 1
+                        continue
+
                     try:
                         cfg.equipment.eyepieces.index(new_eyepiece)
                     except ValueError:
@@ -705,26 +924,38 @@ class Server:
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
+
+            success_message = _(
+                "Equipment Imported, restart your PiFinder to use this new data"
+            )
+            if skipped:
+                success_message += " " + _(
+                    "%s entries were skipped because DeepskyLog had no usable values for them."
+                ) % str(skipped)
             return app.jinja_env.get_template("equipment.html").render(
                 title=_("Equipment"),
                 equipment=config.Config().equipment,
-                success_message=_(
-                    "Equipment Imported, restart your PiFinder to use this new data"
-                ),
+                success_message=success_message,
             )
 
         @app.route("/equipment/edit_eyepiece/<signed_int:eyepiece_id>")
         @auth_required
         def edit_eyepiece(eyepiece_id: int):
+            eyepieces = config.Config().equipment.eyepieces
             if eyepiece_id >= 0:
-                eyepiece = config.Config().equipment.eyepieces[eyepiece_id]
+                if eyepiece_id >= len(eyepieces):
+                    return equipment_page_error(_("No such eyepiece"))
+                eyepiece = eyepieces[eyepiece_id]
             else:
-                eyepiece = Eyepiece(
-                    make="", name="", focal_length_mm=0, afov=0, field_stop=0
-                )
+                # A new eyepiece starts blank rather than pre-filled with
+                # zeros, which are not values any eyepiece may keep.
+                eyepiece = submitted_eyepiece({})
 
             return app.jinja_env.get_template("edit_eyepiece.html").render(
-                title=_("Edit Eyepiece"), eyepiece=eyepiece, eyepiece_id=eyepiece_id
+                title=_("Edit Eyepiece"),
+                eyepiece=eyepiece,
+                eyepiece_id=eyepiece_id,
+                limits=EYEPIECE_LIMITS,
             )
 
         @app.route("/equipment/add_eyepiece/<signed_int:eyepiece_id>", methods=["POST"])
@@ -733,33 +964,37 @@ class Server:
             cfg = config.Config()
 
             try:
-                make = request.form.get("make") or ""
-                name = request.form.get("name") or ""
-                focal_length_str = request.form.get("focal_length_mm") or "0"
-                afov_str = request.form.get("afov") or "0"
-                field_stop_str = request.form.get("field_stop") or "0"
-
-                eyepiece = Eyepiece(
-                    make=make,
-                    name=name,
-                    focal_length_mm=float(focal_length_str),
-                    afov=int(afov_str),
-                    field_stop=float(field_stop_str),
+                eyepiece = eyepiece_from_form(request.form)
+            except ValueError as e:
+                # Hand the form back with the message and the values the
+                # user typed, rather than claiming the save worked.
+                return app.jinja_env.get_template("edit_eyepiece.html").render(
+                    title=_("Edit Eyepiece"),
+                    eyepiece=submitted_eyepiece(request.form),
+                    eyepiece_id=eyepiece_id,
+                    limits=EYEPIECE_LIMITS,
+                    error_message=str(e),
                 )
 
+            try:
                 if eyepiece_id >= 0:
                     cfg.equipment.eyepieces[eyepiece_id] = eyepiece
                 else:
                     try:
-                        index = cfg.equipment.telescopes.index(eyepiece)
-                        cfg.equipment.eyepieces[index] = eyepiece
+                        index = cfg.equipment.eyepieces.index(eyepiece)
+                        cfg.equipment.update_eyepiece(index, eyepiece)
                     except ValueError:
                         cfg.equipment.eyepieces.append(eyepiece)
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
             except Exception as e:
-                logger.error(f"Error adding eyepiece: {e}")
+                logger.exception("Error adding eyepiece")
+                return app.jinja_env.get_template("equipment.html").render(
+                    title=_("Equipment"),
+                    equipment=config.Config().equipment,
+                    error_message=_("Could not save eyepiece: %s") % e,
+                )
 
             return app.jinja_env.get_template("equipment.html").render(
                 title=_("Equipment"),
@@ -771,6 +1006,8 @@ class Server:
         @auth_required
         def equipment_delete_eyepiece(eyepiece_id: int):
             cfg = config.Config()
+            if not 0 <= eyepiece_id < len(cfg.equipment.eyepieces):
+                return equipment_page_error(_("No such eyepiece"))
             cfg.equipment.eyepieces.pop(eyepiece_id)
             cfg.save_equipment()
             self.ui_queue.put("reload_config")
@@ -785,26 +1022,21 @@ class Server:
         @app.route("/equipment/edit_instrument/<signed_int:instrument_id>")
         @auth_required
         def edit_instrument(instrument_id: int):
+            telescopes = config.Config().equipment.telescopes
             if instrument_id >= 0:
-                telescope = config.Config().equipment.telescopes[instrument_id]
+                if instrument_id >= len(telescopes):
+                    return equipment_page_error(_("No such instrument"))
+                telescope = telescopes[instrument_id]
             else:
-                telescope = Telescope(
-                    make="",
-                    name="",
-                    aperture_mm=0,
-                    focal_length_mm=0,
-                    obstruction_perc=0,
-                    mount_type="",
-                    flip_image=False,
-                    flop_image=False,
-                    reverse_arrow_a=False,
-                    reverse_arrow_b=False,
-                )
+                # A new instrument starts blank rather than pre-filled with
+                # zeros, which are not values any instrument may keep.
+                telescope = submitted_telescope({"mount_type": MOUNT_TYPES[0]})
 
             return app.jinja_env.get_template("edit_instrument.html").render(
                 title=_("Edit Instrument"),
                 telescope=telescope,
                 instrument_id=instrument_id,
+                limits=TELESCOPE_LIMITS,
             )
 
         @app.route(
@@ -815,25 +1047,19 @@ class Server:
             cfg = config.Config()
 
             try:
-                make = request.form.get("make") or ""
-                name = request.form.get("name") or ""
-                aperture_str = request.form.get("aperture") or "0"
-                focal_length_str = request.form.get("focal_length_mm") or "0"
-                obstruction_str = request.form.get("obstruction_perc") or "0"
-                mount_type = request.form.get("mount_type") or ""
-
-                instrument = Telescope(
-                    make=make,
-                    name=name,
-                    aperture_mm=int(aperture_str),
-                    focal_length_mm=int(focal_length_str),
-                    obstruction_perc=float(obstruction_str),
-                    mount_type=mount_type,
-                    flip_image=bool(request.form.get("flip")),
-                    flop_image=bool(request.form.get("flop")),
-                    reverse_arrow_a=bool(request.form.get("reverse_arrow_a")),
-                    reverse_arrow_b=bool(request.form.get("reverse_arrow_b")),
+                instrument = telescope_from_form(request.form)
+            except ValueError as e:
+                # Hand the form back with the message and the values the
+                # user typed, rather than claiming the save worked.
+                return app.jinja_env.get_template("edit_instrument.html").render(
+                    title=_("Edit Instrument"),
+                    telescope=submitted_telescope(request.form),
+                    instrument_id=instrument_id,
+                    limits=TELESCOPE_LIMITS,
+                    error_message=str(e),
                 )
+
+            try:
                 if instrument_id >= 0:
                     cfg.equipment.telescopes[instrument_id] = instrument
                 else:
@@ -846,7 +1072,13 @@ class Server:
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
             except Exception as e:
-                logger.error(f"Error adding instrument: {e}")
+                logger.exception("Error adding instrument")
+                return app.jinja_env.get_template("equipment.html").render(
+                    title=_("Equipment"),
+                    equipment=config.Config().equipment,
+                    error_message=_("Could not save instrument: %s") % e,
+                )
+
             return app.jinja_env.get_template("equipment.html").render(
                 title=_("Equipment"),
                 equipment=config.Config().equipment,
@@ -857,6 +1089,8 @@ class Server:
         @auth_required
         def equipment_delete_instrument(instrument_id: int):
             cfg = config.Config()
+            if not 0 <= instrument_id < len(cfg.equipment.telescopes):
+                return equipment_page_error(_("No such instrument"))
             cfg.equipment.telescopes.pop(instrument_id)
             cfg.save_equipment()
             self.ui_queue.put("reload_config")
@@ -868,60 +1102,119 @@ class Server:
                 ),
             )
 
+        def _tsv_response(observations, filename):
+            response = make_response(observations)
+            response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+            response.headers["Content-Type"] = "text/tsv"
+            return response
+
         @app.route("/observations")
         @auth_required
-        def obs_sessions():
+        def obs_nights():
             obs_db = ObservationsDatabase()
             if request.args.get("download", 0) == "1":
-                # Download all as TSV
-                observations = obs_db.observations_as_tsv()
+                return _tsv_response(obs_db.observations_as_tsv(), "observations.tsv")
 
-                response = make_response(observations)
-                response.headers["Content-Disposition"] = (
-                    "attachment; filename=observations.tsv"
-                )
-                response.headers["Content-Type"] = "text/tsv"
-                return response
+            nights = obs_db.get_nights()
+            for night in nights:
+                logs = obs_db.get_logs_by_night(night["night_key"])
+                night["ticks"] = web_observations.strip_ticks(night, logs)
+                night["hour_marks"] = web_observations.hour_marks(night)
 
-            # regular html page of sessions
-            sessions = obs_db.get_sessions()
-            metadata = {
-                "sess_count": len(sessions),
-                "object_count": sum(x["observations"] for x in sessions),
-                "total_duration": sum(x["duration"] for x in sessions),
-            }
-            return app.jinja_env.get_template("obs_sessions.html").render(
-                title=_("Observations"), sessions=sessions, metadata=metadata
+            return app.jinja_env.get_template("obs_nights.html").render(
+                title=_("Observations"),
+                nights=nights,
+                metadata=web_observations.night_summary(nights),
             )
+
+        @app.route("/observations/night/<night_key>")
+        @auth_required
+        def obs_night(night_key):
+            obs_db = ObservationsDatabase()
+            if request.args.get("download", 0) == "1":
+                return _tsv_response(
+                    obs_db.observations_as_tsv(night_key=night_key),
+                    f"observations_{night_key}.tsv",
+                )
+
+            logs = obs_db.get_logs_by_night(night_key)
+            night = next(
+                (n for n in obs_db.get_nights() if n["night_key"] == night_key),
+                None,
+            )
+            if night is None:
+                return redirect("/observations")
+
+            night["ticks"] = web_observations.strip_ticks(night, logs)
+            night["hour_marks"] = web_observations.hour_marks(night)
+            return app.jinja_env.get_template("obs_night_log.html").render(
+                title=_("Observing Night"),
+                night=night,
+                objects=web_observations.decorate_logs(logs),
+            )
+
+        @app.route("/observations/object/<catalog>/<int:sequence>")
+        @auth_required
+        def obs_object(catalog, sequence):
+            obs_db = ObservationsDatabase()
+            lookup = web_observations.ObjectLookup()
+            obj = lookup.composite(catalog, sequence)
+            if obj is None:
+                # A listing whose catalog is no longer installed: the log
+                # entries survive, the object behind them doesn't.
+                return redirect("/observations")
+
+            return app.jinja_env.get_template("obs_object.html").render(
+                title=obj.display_name,
+                object=obj,
+                listings=lookup.other_listings(obj),
+                logs=web_observations.decorate_logs(obs_db.get_object_history(obj)),
+                has_image=web_observations.poss_image_path(obj) is not None,
+                has_chart=web_observations.gaia_catalog_available(),
+            )
+
+        @app.route("/observations/object/<catalog>/<int:sequence>/image.jpg")
+        @auth_required
+        def obs_object_image(catalog, sequence):
+            obj = web_observations.ObjectLookup().composite(catalog, sequence)
+            path = None if obj is None else web_observations.poss_image_path(obj)
+            if path is None:
+                return "", 404
+            return send_file(path, mimetype="image/jpeg")
+
+        @app.route("/observations/object/<catalog>/<int:sequence>/chart.png")
+        @auth_required
+        def obs_object_chart(catalog, sequence):
+            obj = web_observations.ObjectLookup().composite(catalog, sequence)
+            if obj is None:
+                return "", 404
+
+            fov = request.args.get("fov", type=float) or 1.0
+            chart = web_observations.render_chart(
+                obj, config.Config(), self.shared_state, fov=fov
+            )
+            if chart is None:
+                # The catalog is absent or still loading in the background;
+                # a later request finds it ready.
+                return "", 404
+            return send_file(io.BytesIO(chart), mimetype="image/png")
 
         @app.route("/observations/<session_id>")
         @auth_required
         def obs_session(session_id):
             obs_db = ObservationsDatabase()
             if request.args.get("download", 0) == "1":
-                # Download all as TSV
-                observations = obs_db.observations_as_tsv(session_id)
-
-                response = make_response(observations)
-                response.headers["Content-Disposition"] = (
-                    f"attachment; filename=observations_{session_id}.tsv"
+                return _tsv_response(
+                    obs_db.observations_as_tsv(session_id),
+                    f"observations_{session_id}.tsv",
                 )
-                response.headers["Content-Type"] = "text/tsv"
-                return response
 
-            session = obs_db.get_sessions(session_id)[0]
-            objects = obs_db.get_logs_by_session(session_id)
-            ret_objects = []
-            for obj in objects:
-                obj_ = dict(obj)
-                obj_notes = json.loads(obj_["notes"])
-                obj_["notes"] = "<br>".join(
-                    [f"{key}: {value}" for key, value in obj_notes.items()]
-                )
-                ret_objects.append(obj_)
-            return app.jinja_env.get_template("obs_session_log.html").render(
-                title=_("Session Log"), session=session, objects=ret_objects
-            )
+            # Sessions are software runs, not nights; a link to one lands on
+            # the night it was part of.
+            night_key = obs_db.night_key_for_session(session_id)
+            if night_key is None:
+                return redirect("/observations")
+            return redirect(f"/observations/night/{night_key}")
 
         @app.route("/tools")
         @auth_required
@@ -1100,6 +1393,124 @@ class Server:
             except Exception as e:
                 logger.error("Failed to save uploaded log config: %s", e)
                 return jsonify({"status": "error", "message": str(e)})
+
+        @app.route("/data")
+        @auth_required
+        def data_page():
+            return app.jinja_env.get_template("data.html").render(
+                title=_("Data"),
+                start_path=request.args.get("path", ""),
+                start_pattern=request.args.get("pattern", ""),
+            )
+
+        def data_error(exc, status=400):
+            return jsonify({"status": "error", "message": str(exc)}), status
+
+        @app.route("/data/api/list")
+        @auth_required
+        def data_list():
+            try:
+                root = data_browser.data_root()
+                listing = data_browser.list_dir(
+                    root,
+                    request.args.get("path", ""),
+                    request.args.get("pattern", ""),
+                )
+                listing["shortcuts"] = data_browser.shortcuts(root)
+                listing["status"] = "ok"
+                return jsonify(listing)
+            except data_browser.DataPathError as e:
+                return data_error(e, 404)
+
+        @app.route("/data/api/mkdir", methods=["POST"])
+        @auth_required
+        def data_mkdir():
+            body = request.get_json(silent=True) or {}
+            try:
+                new_path = data_browser.make_dir(
+                    data_browser.data_root(),
+                    body.get("path", ""),
+                    body.get("name", ""),
+                )
+                return jsonify({"status": "ok", "path": new_path})
+            except (data_browser.DataPathError, OSError) as e:
+                return data_error(e)
+
+        @app.route("/data/api/upload", methods=["POST"])
+        @auth_required
+        def data_upload():
+            rel_path = request.form.get("path", "")
+            files = request.files.getlist("files")
+            if not files:
+                return data_error(_("No file provided"))
+            saved = []
+            try:
+                for upload in files:
+                    saved.append(
+                        data_browser.save_upload(
+                            data_browser.data_root(),
+                            rel_path,
+                            upload.filename or "",
+                            upload.stream,
+                        )
+                    )
+            except (data_browser.DataPathError, OSError) as e:
+                logger.warning("Data upload failed: %s", e)
+                return data_error(e)
+            logger.info("Data upload: %s", ", ".join(saved))
+            return jsonify({"status": "ok", "saved": saved})
+
+        @app.route("/data/api/delete", methods=["POST"])
+        @auth_required
+        def data_delete():
+            body = request.get_json(silent=True) or {}
+            paths = body.get("paths")
+            if paths is None:
+                paths = [body.get("path", "")]
+            deleted = []
+            try:
+                for rel_path in paths:
+                    data_browser.delete(data_browser.data_root(), rel_path)
+                    deleted.append(rel_path)
+            except (data_browser.DataPathError, OSError) as e:
+                logger.warning("Data delete failed: %s", e)
+                return data_error(e)
+            logger.info("Data delete: %s", ", ".join(deleted))
+            return jsonify({"status": "ok", "deleted": deleted})
+
+        @app.route("/data/api/view")
+        @auth_required
+        def data_view():
+            try:
+                result = data_browser.read_text(
+                    data_browser.data_root(), request.args.get("path", "")
+                )
+                result["status"] = "ok"
+                return jsonify(result)
+            except data_browser.DataPathError as e:
+                return data_error(e, 404)
+
+        @app.route("/data/download")
+        @auth_required
+        def data_download():
+            rel_path = request.args.get("path", "")
+            root = data_browser.data_root()
+            try:
+                target = data_browser.resolve(root, rel_path)
+                if target.is_dir():
+                    zip_file, name = data_browser.zip_dir(root, rel_path)
+                    return send_file(
+                        zip_file,
+                        as_attachment=True,
+                        download_name=name,
+                        mimetype="application/zip",
+                    )
+                file_path = data_browser.file_for_download(root, rel_path)
+                return send_file(
+                    file_path, as_attachment=True, download_name=file_path.name
+                )
+            except data_browser.DataPathError as e:
+                return data_error(e, 404)
 
         @app.route("/tools/backup")
         @auth_required

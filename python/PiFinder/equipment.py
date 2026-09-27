@@ -1,7 +1,60 @@
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from operator import attrgetter
-from typing import Union
+from typing import NamedTuple, Union
+
+
+class Limits(NamedTuple):
+    """The inclusive range a user-entered measurement may take."""
+
+    minimum: float
+    maximum: float
+
+
+# Every measurement below is a float: real optics are fractional (a 11"
+# SCT is 279.4mm of aperture, a focal reducer turns 2032mm into 1280.2mm,
+# a Nagler is 3.5mm) and an int field made those values unenterable — or,
+# once written to config as a string, unbootable (#291).  See
+# docs/adr/0033-equipment-measurements-are-validated-floats.md.
+#
+# These limits are the single source of the validation rules: the edit
+# forms render them into their inputs and their client-side check, and the
+# API handlers re-check them before anything reaches config.  Documented
+# in prose in docs/ax/equipment/CONTEXT.md.
+TELESCOPE_LIMITS = {
+    "aperture_mm": Limits(1, 2000),
+    "focal_length_mm": Limits(1, 20000),
+    "obstruction_perc": Limits(0, 100),
+}
+
+EYEPIECE_LIMITS = {
+    "focal_length_mm": Limits(0.1, 100),
+    "afov": Limits(1, 180),
+    "field_stop": Limits(0, 100),
+}
+
+# The mount types the instrument form offers.  Not consumed at runtime —
+# push-to arrows read the global ``mount_type`` option, not this one — but
+# a value outside this set has no meaning, so the form rejects it.
+MOUNT_TYPES = ("alt/az", "equatorial")
+
+# Names longer than this overflow the on-device menu and the web tables.
+NAME_MAX_LENGTH = 64
+
+
+def format_measurement(value) -> str:
+    """Render a measurement for display, dropping a meaningless ``.0``.
+
+    Focal lengths and apertures are stored as floats but are usually whole
+    millimetres; ``1000.0mm`` reads worse than ``1000mm``.
+    """
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if number == int(number):
+        return str(int(number))
+    return str(number)
 
 
 @dataclass
@@ -9,19 +62,19 @@ class Eyepiece:
     make: str
     name: str
     focal_length_mm: float
-    afov: int
+    afov: float
     field_stop: float = 0
 
     def __str__(self):
-        return f"{self.focal_length_mm}mm {self.name}"
+        return f"{format_measurement(self.focal_length_mm)}mm {self.name}"
 
 
 @dataclass
 class Telescope:
     make: str
     name: str
-    aperture_mm: int
-    focal_length_mm: int
+    aperture_mm: float
+    focal_length_mm: float
     obstruction_perc: float
     mount_type: str
     flip_image: bool

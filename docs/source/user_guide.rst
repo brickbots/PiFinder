@@ -392,6 +392,24 @@ On the chart the cross carries the object's designation, "M 57" for example.  On
 object drifts off the edge, an arrow at the rim points the way instead.  The cross stays
 bright even with DSO Display turned off.
 
+A line along the bottom of the chart names the center object, the marker nearest the middle
+of the chart.  It gives the object's designation and the first other name the catalogs carry
+for it, "NGC 7000 North America nebula" for example.  Text too long for the line scrolls
+across it.  With RA/DEC Disp. turned on, the
+coordinates keep the bottom line and the center object sits just above them.
+
+Press **RIGHT** to open that object's :ref:`user_guide:object details`.  The arrow at the
+right of the line is a reminder of that key.  In the details screen, press **LEFT** to come
+back to the chart.  Press **UP/DOWN** to step outward through the chart's other markers,
+nearest first.
+
+Only markers the chart has drawn can take the line, and only while they are on screen.  The
+readout never names something you cannot see.  With DSO Display off, the cross is the only
+marker left, so the line goes blank once the cross drifts off the edge.  The readout also
+holds its choice until another marker comes clearly closer, so it does not flicker between
+two markers as your aim drifts.  To switch the line off, set Center Object to Off under
+Chart... in the :ref:`user_guide:settings menu`.  **RIGHT** then does nothing on the chart.
+
 You decide how the chart is turned.  Select Coordinate Sys. under Chart... in the
 :ref:`user_guide:settings menu`:
 
@@ -1026,6 +1044,11 @@ Some of the key information shown:
   the number of stars matched.
 - WiFi information a bit further down, including the current WiFi mode, network name, and
   IP address.
+- The GPS rows near the bottom.  The list is longer than the screen, so scroll down to
+  see them.  GPS MSG names the last message from the GPS receiver, with how long ago it
+  arrived.  On a healthy link the names change constantly and the age stays under a
+  second.  A frozen name with a climbing age, or names starting with ``?``, point to a
+  GPS problem.  See :ref:`troubleshooting:the gps never locks`.
 
 Place & Time
 ----------------------------------
