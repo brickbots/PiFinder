@@ -73,6 +73,24 @@ class TestCompressedIndex(unittest.TestCase):
         self.assertEqual(idx.get(11), (1100, 200))
         self.assertEqual(idx.get(12), (1300, 50))
 
+    def test_run_directory_is_a_numpy_view_not_python_tuples(self):
+        idx = self._open(build_v3_index(self.RUNS))
+        self.assertIsInstance(idx.run_directory, np.ndarray)
+        self.assertEqual(idx.num_runs, 2)
+
+    def test_tiles_outside_the_runs(self):
+        idx = self._open(build_v3_index(self.RUNS))
+        self.assertIsNone(idx.get(-1))
+        self.assertIsNone(idx.get(9))  # before the first run
+        self.assertIsNone(idx.get(13))  # after the end of the first run
+        self.assertIsNone(idx.get(2**33))
+
+    def test_close_twice(self):
+        idx = self._open(build_v3_index(self.RUNS))
+        idx.close()
+        idx.close()
+        self.assertIsNone(idx.get(10))
+
     def test_second_run_uses_its_own_offset_base(self):
         idx = self._open(build_v3_index(self.RUNS))
         self.assertEqual(idx.get(20), (5000, 300))
