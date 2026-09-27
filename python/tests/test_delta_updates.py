@@ -377,7 +377,9 @@ def test_prefetch_stages_hits_and_reports_progress(tmp_path, monkeypatch):
     monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
     monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
     monkeypatch.setattr(
-        delta_updates, "request_delta", lambda t, b, s: ("hit", {"basis": [BASE]})
+        delta_updates,
+        "request_delta",
+        lambda t, b, s: ("hit", {"basis": [BASE], "nar_size": 4096}),
     )
 
     def _stage(target, info, jobdir, cache, session, caches):
@@ -393,6 +395,7 @@ def test_prefetch_stages_hits_and_reports_progress(tmp_path, monkeypatch):
     )
     try:
         assert staged.count == 1
+        assert staged.nar_bytes == 4096
         assert staged.url and staged.url.startswith("file://")
         info = (staged.root / "cache" / "nix-cache-info").read_text()
         assert "Priority: 10" in info

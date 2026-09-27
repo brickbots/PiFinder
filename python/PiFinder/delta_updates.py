@@ -429,6 +429,9 @@ class StagedCache:
     root: Optional[Path] = None
     count: int = 0
     failed: int = 0
+    # NAR bytes of the staged paths: nix copies them from the staged cache,
+    # so they are not part of the download.
+    nar_bytes: int = 0
 
     @property
     def url(self) -> Optional[str]:
@@ -568,4 +571,9 @@ def _stage_all(
             results.append(result)
             report("applying", len(results), len(hits))
     staged.count = results.count("staged")
+    staged.nar_bytes = sum(
+        int(info.get("nar_size") or 0)
+        for (_n, _target, info), result in zip(hits, results)
+        if result == "staged"
+    )
     staged.failed = results.count("failed")
