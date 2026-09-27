@@ -67,7 +67,15 @@
       headlessModule
     ];
 
-    mkPifinderSystem = { includeSDImage ? false, kernel ? null }:
+    # Catalog images for the full SD image (plan A4 and B8): a fixed-output
+    # derivation whose output is the content of PiFinder_data/catalog_images.
+    # TODO: the source is not decided. Set it here, for example
+    #   pkgsAarch64.fetchzip { url = "<catalog_images tarball>"; hash = "<sha256>"; stripRoot = false; }
+    # While it is null there is no images.pifinder-full and the release
+    # publishes the lean image only.
+    catalogImagesSrc = null;
+
+    mkPifinderSystem = { includeSDImage ? false, kernel ? null, catalogImages ? null }:
     nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
       # pifinderKernel must always be present in specialArgs: a NixOS module's
@@ -96,11 +104,12 @@
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
         "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+        ./nixos/sd-image.nix
         ({ config, pkgs, lib, ... }: {
-          # Catalog images (~5GB compressed) are not baked into the SD image: the
-          # app fetches per-object images on demand from the CDN (get_images.py)
-          # and renders a placeholder when one is absent. Shipping only the empty
-          # data dir keeps the image slim and the build fast.
+          # The lean image has an empty PiFinder_data: the app fetches
+          # per-object images on demand from the CDN (get_images.py) and
+          # renders a placeholder when one is absent. The full image also has
+          # the catalog images (catalogImages). Both have the same system.
           #
           # current-build.json seeds the device's identity with its own store
           # path; human version labels come from the update manifest (which maps
@@ -110,6 +119,9 @@
             mkdir -p ./files/var/lib/pifinder
             printf '{"store_path": "%s"}\n' "${config.system.build.toplevel}" \
               > ./files/var/lib/pifinder/current-build.json
+          '' + lib.optionalString (catalogImages != null) ''
+            mkdir -p ./files/home/pifinder/PiFinder_data/catalog_images
+            cp -a --reflink=auto ${catalogImages}/. ./files/home/pifinder/PiFinder_data/catalog_images/
           '';
           sdImage.populateFirmwareCommands = lib.mkForce firmwareCommands;
         })
@@ -143,6 +155,7 @@
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
         "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+        ./nixos/sd-image.nix
         ({ config, pkgs, lib, ... }: {
           sdImage.populateRootCommands = ''
             mkdir -p ./files/home/pifinder/PiFinder_data
@@ -432,8 +445,15 @@
       pifinder-netboot = mkPifinderNetboot;
     };
     images = {
+      # Lean: the system and an empty PiFinder_data.
       pifinder = (mkPifinderSystem { includeSDImage = true; }).config.system.build.sdImage;
       pifinder-migration = (mkPifinderMigration { includeSDImage = true; }).config.system.build.sdImage;
+    } // nixpkgs.lib.optionalAttrs (catalogImagesSrc != null) {
+      # Full: the lean image plus the catalog images.
+      pifinder-full = (mkPifinderSystem {
+        includeSDImage = true;
+        catalogImages = catalogImagesSrc;
+      }).config.system.build.sdImage;
     };
     packages.aarch64-linux = {
       migration-tarball = migrationTarball;
