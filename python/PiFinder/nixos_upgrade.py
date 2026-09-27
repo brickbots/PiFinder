@@ -37,6 +37,9 @@ TRIAL_MARKER_FILE = Path("/var/lib/pifinder/trial-generation.json")
 RELEASE_CACHE = "https://cache.pifinder.eu/pifinder-release"
 DEV_CACHE = "https://cache.pifinder.eu/pifinder"
 CACHES = (DEV_CACHE, RELEASE_CACHE)
+# Attic does not hold the paths that cache.nixos.org has. A patch for such a
+# path is staged with its signed narinfo from here.
+UPSTREAM_CACHE = "https://cache.nixos.org"
 
 STORE_PATH_RE = re.compile(r"/nix/store/[a-z0-9]+-[A-Za-z0-9._+=?,-]+")
 
@@ -567,7 +570,7 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
         staged = delta_updates.prefetch_deltas(
             store_path,
             estimate.paths,
-            CACHES,
+            CACHES + (UPSTREAM_CACHE,),
             progress=lambda step, done, total: write_status(
                 f"patching {step} {done}/{total}"
             ),

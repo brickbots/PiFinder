@@ -275,7 +275,7 @@ def test_prefetch_never_raises(monkeypatch):
 
 def test_prefetch_stops_without_session(monkeypatch):
     monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
-    monkeypatch.setattr(delta_updates, "start_session", lambda t: None)
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: None)
 
     def _no_requests(*a, **kw):
         raise AssertionError("no /delta request may happen without a session")
@@ -296,6 +296,28 @@ def test_start_session_parses_token(monkeypatch):
     monkeypatch.setattr(delta_updates.urllib.request, "urlopen", _open)
     assert delta_updates.start_session(TARGET) == "abc123"
     assert captured["url"].endswith("/update-start")
+
+
+def test_start_session_sends_base_toplevel(monkeypatch):
+    payload = json.dumps({"session": "abc123"}).encode()
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    captured = {}
+
+    def _open(req, timeout=None):
+        captured["body"] = json.loads(req.data)
+        return _FakeResp(200, payload)
+
+    monkeypatch.setattr(delta_updates.urllib.request, "urlopen", _open)
+    assert delta_updates.start_session(TARGET, BASE) == "abc123"
+    assert captured["body"] == {"target_toplevel": TARGET, "base_toplevel": BASE}
+
+
+def test_current_system_resolves_store_link(tmp_path):
+    link = tmp_path / "current-system"
+    link.symlink_to(TARGET)
+    # The target does not exist on the test host; strict resolve fails.
+    assert delta_updates.current_system(link) is None
+    assert delta_updates.current_system(tmp_path / "missing") is None
 
 
 def test_start_session_none_on_failure(monkeypatch):
@@ -339,7 +361,7 @@ def test_work_root_falls_back_when_unusable(tmp_path):
 
 def test_prefetch_logs_summary(monkeypatch, caplog):
     monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
-    monkeypatch.setattr(delta_updates, "start_session", lambda t: "s")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
     monkeypatch.setattr(delta_updates, "local_store_index", lambda: {})
     monkeypatch.setattr(delta_updates, "_work_root", lambda: None)
     with caplog.at_level("INFO", logger="PiFinder.delta_updates"):
@@ -351,7 +373,7 @@ def test_prefetch_logs_summary(monkeypatch, caplog):
 
 def test_prefetch_stages_hits_and_reports_progress(tmp_path, monkeypatch):
     monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
-    monkeypatch.setattr(delta_updates, "start_session", lambda t: "s")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
     monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
     monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
     monkeypatch.setattr(
@@ -387,7 +409,7 @@ def test_prefetch_stages_hits_and_reports_progress(tmp_path, monkeypatch):
 
 def test_prefetch_retries_wait_then_gives_up(tmp_path, monkeypatch):
     monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
-    monkeypatch.setattr(delta_updates, "start_session", lambda t: "s")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
     monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
     monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
     monkeypatch.setattr(delta_updates, "RETRY_WAIT", 0)
@@ -406,7 +428,7 @@ def test_prefetch_retries_wait_then_gives_up(tmp_path, monkeypatch):
 def test_prefetch_one_crashing_path_does_not_stop_the_rest(tmp_path, monkeypatch):
     other = "/nix/store/" + "e" * 32 + "-testpkg-1.1"
     monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
-    monkeypatch.setattr(delta_updates, "start_session", lambda t: "s")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
     monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
     monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
     monkeypatch.setattr(
@@ -447,7 +469,7 @@ def test_prefetch_waits_once_per_round_for_all_paths(tmp_path, monkeypatch):
     """A cold build must not cost RETRY_WAIT for each path."""
     targets = tuple("/nix/store/" + c * 32 + "-testpkg-1.1" for c in "abcdefghij")
     monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
-    monkeypatch.setattr(delta_updates, "start_session", lambda t: "s")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
     monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
     monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
     sleeps = []
@@ -469,7 +491,7 @@ def test_prefetch_waits_once_per_round_for_all_paths(tmp_path, monkeypatch):
 def test_prefetch_asks_again_only_for_paths_not_ready(tmp_path, monkeypatch):
     ready = "/nix/store/" + "e" * 32 + "-testpkg-1.1"
     monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
-    monkeypatch.setattr(delta_updates, "start_session", lambda t: "s")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
     monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
     monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
     monkeypatch.setattr(delta_updates, "RETRY_WAIT", 0)
