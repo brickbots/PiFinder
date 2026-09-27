@@ -519,3 +519,41 @@ def test_prefetch_asks_again_only_for_paths_not_ready(tmp_path, monkeypatch):
     assert calls.count(TARGET) == 2
     assert sorted(applied) == sorted([TARGET, ready])
     assert staged.count == 2
+
+
+def test_open_session_off_without_delta_url(monkeypatch):
+    monkeypatch.delenv("PIFINDER_DELTA_URL", raising=False)
+
+    def _no_session(*a, **kw):
+        raise AssertionError("no session when deltas are off")
+
+    monkeypatch.setattr(delta_updates, "start_session", _no_session)
+    assert delta_updates.open_session(TARGET) is None
+
+
+def test_open_session_never_raises(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+
+    def _boom(*a, **kw):
+        raise RuntimeError("chaos")
+
+    monkeypatch.setattr(delta_updates, "start_session", _boom)
+    assert delta_updates.open_session(TARGET) is None
+
+
+def test_prefetch_uses_the_given_session(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+
+    def _no_new_session(*a, **kw):
+        raise AssertionError("the given session must be used")
+
+    monkeypatch.setattr(delta_updates, "start_session", _no_new_session)
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
+    seen = []
+    monkeypatch.setattr(
+        delta_updates,
+        "request_delta",
+        lambda t, b, s: seen.append(s) or ("none", {}),
+    )
+    delta_updates.prefetch_deltas(TARGET, (TARGET,), ("https://c",), session="early")
+    assert seen == ["early"]

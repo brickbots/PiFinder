@@ -702,6 +702,9 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
             raise UpgradeError(f"invalid store path: {store_path!r}")
 
         write_status("checking")
+        # Open the delta session first: the server starts to patch this step
+        # while the dry run below works out which paths are missing.
+        session = delta_updates.open_session(store_path)
         estimate = estimate_download(store_path)
         staged = delta_updates.prefetch_deltas(
             store_path,
@@ -710,6 +713,7 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
             progress=lambda step, done, total: write_status(
                 f"patching {step} {done}/{total}"
             ),
+            session=session,
         )
         try:
             build_rc = run_build(

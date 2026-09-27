@@ -1127,11 +1127,11 @@ class UISoftware(UIModule):
         elif phase == "checking":
             label = _("Checking...")
         elif phase == "patching" and step == "asking":
-            label = _("Asking server")
+            label = _("Finding patches")
         elif phase == "patching" and step == "waiting":
-            label = _("Server busy")
+            label = _("Making patches")
         elif phase == "patching" and step == "applying":
-            label = _("Applying patch")
+            label = _("Applying patches")
         elif phase == "patching":
             label = _("Patching...")
         elif phase == "starting":
@@ -1172,7 +1172,7 @@ class UISoftware(UIModule):
                 # done is the number of paths the server is still computing.
                 self.draw.text(
                     (4, y),
-                    _("{n} not ready").format(n=done),
+                    _("{n} to go").format(n=done),
                     font=self.fonts.base.font,
                     fill=self.colors.get(128),
                 )
