@@ -10,6 +10,7 @@ from PiFinder.types.hardware import BatteryState, ChargeStatus
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.menu_manager import MenuManager
 from PiFinder.ui.software import (
+    format_amount,
     on_battery,
     UISoftware,
     UPDATE_MANIFEST_URL,
@@ -748,3 +749,18 @@ def test_draw_upgrading_checking_block_moves():
             ui._draw_upgrading()
         frames.append(ui.screen.tobytes())
     assert frames[0] != frames[1]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "done,total,text",
+    [
+        (0, 300 * 1024, "0/300 KB"),
+        (150 * 1024, 300 * 1024, "150/300 KB"),
+        (1024 * 1024, 5 * 1024 * 1024, "1.0/5.0 MB"),
+        (20 * 1048576, 740 * 1048576, "20/740 MB"),
+        (512 * 1048576, 2 * 1073741824, "0.5/2.0 GB"),
+    ],
+)
+def test_format_amount_picks_the_unit_by_total(done, total, text):
+    assert format_amount(done, total) == text
