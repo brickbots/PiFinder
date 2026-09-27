@@ -147,9 +147,17 @@ in {
     script = ''
       set -euo pipefail
 
-      # Real-progress splash on the OLED, fed via a progress file (0-100).
+      # Keep a log on the card: the migration system's journal is in RAM
+      # only, and the reboot below would lose it.
+      mkdir -p /home/pifinder/PiFinder_data/logs
+      exec > >(while IFS= read -r line; do printf '%s %s\n' "$(date -u +%FT%T)" "$line"; done \
+        | tee -a /home/pifinder/PiFinder_data/logs/first-boot.log) 2>&1
+
+      # Real-progress splash on the OLED, fed via a progress file: a number
+      # (0-100) and the step label (A-Z and spaces, the splash font). The
+      # splash exits at 100, so 100 comes only just before the reboot.
       PROGRESS_FILE=/run/pifinder-boot-progress
-      echo 0 > "$PROGRESS_FILE"
+      echo "0 WAITING FOR CLOCK" > "$PROGRESS_FILE"
       ${boot-splash}/bin/boot-splash --progress "$PROGRESS_FILE" &
       SPLASH_PID=$!
       trap 'kill $SPLASH_PID 2>/dev/null || true' EXIT
@@ -172,6 +180,7 @@ in {
       # pifinder-release cache, so a resolved stable path can't be GC'd out from
       # under a published tarball. Falls back to the baked-in target if the
       # manifest can't be fetched.
+      echo "0 FINDING NIXOS" > "$PROGRESS_FILE"
       MANIFEST_URL="https://raw.githubusercontent.com/brickbots/PiFinder/nixos-manifest/update-manifest.json"
       STORE_PATH=""
       # A few tries, because WiFi and DNS can still be settling. If all fail,
@@ -216,6 +225,7 @@ in {
       [ "$TOTAL_PATHS" -gt 0 ] 2>/dev/null || TOTAL_PATHS=0
       set -e
       echo "Downloading full PiFinder system: $STORE_PATH ($TOTAL_PATHS paths)"
+      echo "0 DOWNLOADING NIXOS" > "$PROGRESS_FILE"
 
       download() {
         COPIED=0
@@ -224,7 +234,11 @@ in {
           case "$line" in
             *"copying path "*)
               COPIED=$((COPIED + 1))
-              [ "$TOTAL_PATHS" -gt 0 ] && echo "$((COPIED * 100 / TOTAL_PATHS))" > "$PROGRESS_FILE"
+              if [ "$TOTAL_PATHS" -gt 0 ]; then
+                PCT=$((COPIED * 100 / TOTAL_PATHS))
+                [ "$PCT" -gt 98 ] && PCT=98
+                echo "$PCT DOWNLOADING NIXOS" > "$PROGRESS_FILE"
+              fi
               ;;
           esac
         done
@@ -240,7 +254,7 @@ in {
         fi
         sleep 60
       done
-      echo 100 > "$PROGRESS_FILE"
+      echo "99 SETTING UP" > "$PROGRESS_FILE"
 
       # A system that cannot mount this card's root stops in the initrd,
       # before anything can roll it back. If the manifest's pick is such a
@@ -313,6 +327,7 @@ in {
       nix-collect-garbage || true
 
       echo "Rebooting into full PiFinder system..."
+      echo "100 RESTARTING" > "$PROGRESS_FILE"
       systemctl reboot
     '';
   };

@@ -567,6 +567,33 @@ in {
   #     splash, roll back (marker hint first, else newest other generation),
   #     reboot. With no rollback target at all, stay up for rescue instead of
   #     boot-looping.
+  # ---------------------------------------------------------------------------
+  # Remove the ext4 rollback image after the migration (ADR 0039)
+  # ---------------------------------------------------------------------------
+  # btrfs-convert leaves ext2_saved, an image of the old ext4 that holds the
+  # space of Pi OS and its data. Once a generation on btrfs is confirmed, the
+  # migration is not rolled back any more, so delete it to free the space.
+  systemd.services.pifinder-migration-cleanup = {
+    description = "Remove the ext4 rollback image left by the migration";
+    after = [ "pifinder-watchdog.service" ];
+    wantedBy = [ "multi-user.target" ];
+    unitConfig.ConditionPathIsDirectory = "/ext2_saved";
+    serviceConfig = {
+      Type = "oneshot";
+      Nice = 19;
+      IOSchedulingClass = "idle";
+    };
+    path = with pkgs; [ btrfs-progs coreutils gnugrep ];
+    script = ''
+      CURRENT=$(readlink -f /run/current-system)
+      if ! grep -qxF "$CURRENT" /var/lib/pifinder/confirmed-generations 2>/dev/null; then
+        echo "$CURRENT is not confirmed yet; keeping /ext2_saved"
+        exit 0
+      fi
+      btrfs subvolume delete /ext2_saved
+    '';
+  };
+
   systemd.services.pifinder-watchdog = {
     description = "PiFinder Boot Health Watchdog";
     after = [ "multi-user.target" "pifinder.service" ];

@@ -289,6 +289,13 @@ class Network(NetworkBase):
         except Exception as e:
             logger.error("Failed to update AP SSID: %s", e)
             return
+        # NixOS writes the AP profile again at each activation; the
+        # pifinder-ap-name boot service applies this file to it.
+        data_dir = Path(os.environ.get("PIFINDER_DATA", "/home/pifinder/PiFinder_data"))
+        try:
+            (data_dir / "ap_name").write_text(ap_name + "\n")
+        except OSError as e:
+            logger.error("Failed to persist AP name: %s", e)
         if self.wifi_mode() == "AP":
             self._activate_connection(AP_CONNECTION_NAME)
 

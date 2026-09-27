@@ -295,19 +295,44 @@ static void draw_scanner(int pos, int scanner_width) {
 }
 
 /* Read a 0-100 percentage from a file. Returns -1 if missing/unparseable. */
+/* Label of the current step, read from the progress file after the number:
+ * "35 DOWNLOADING NIXOS". Letters, spaces and '!' only (the font). */
+static char progress_label[32];
+
 static int read_progress(const char *path) {
     FILE *f = fopen(path, "r");
     if (!f) return -1;
     int pct = -1;
     if (fscanf(f, "%d", &pct) != 1) pct = -1;
+    char label[sizeof(progress_label)] = "";
+    if (pct >= 0 && fgets(label, sizeof(label), f)) {
+        char *start = label;
+        while (*start == ' ') start++;
+        size_t len = strlen(start);
+        while (len > 0 && (start[len - 1] == '\n' || start[len - 1] == ' '))
+            start[--len] = '\0';
+        memmove(label, start, len + 1);
+    }
     fclose(f);
     if (pct < 0) return -1;
     if (pct > 100) pct = 100;
+    strncpy(progress_label, label, sizeof(progress_label) - 1);
     return pct;
 }
 
+static void draw_text_centered(int y, const char *s, int scale, uint16_t color);
+
 static void draw_progress(int pct) {
     draw_welcome();
+
+    /* Step label on a black band above the bar, so it reads on the image. */
+    if (progress_label[0]) {
+        int band_top = disp_h - 16;
+        for (int y = band_top; y < disp_h - 4; y++)
+            for (int x = 0; x < disp_w; x++)
+                framebuf[y * disp_w + x] = COL_BLACK;
+        draw_text_centered(band_top + 2, progress_label, 1, COL_RED);
+    }
 
     /* Progress bar across the bottom 4 rows, filling left-to-right.
      * Filled portion bright red, remaining track dim red. */
@@ -515,12 +540,14 @@ int main(int argc, char *argv[]) {
         /* Progress mode: render a real bar from the progress file until 100%
          * or until signalled. Only flush when the value changes. */
         int last = -1;
+        char last_label[sizeof(progress_label)] = "";
         while (running) {
             int pct = read_progress(progress_path);
             if (pct < 0) pct = 0;
-            if (pct != last) {
+            if (pct != last || strcmp(progress_label, last_label) != 0) {
                 draw_progress(pct);
                 last = pct;
+                strcpy(last_label, progress_label);
             }
             if (pct >= 100) break;
             msleep(100);

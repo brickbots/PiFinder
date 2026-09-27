@@ -14,16 +14,30 @@
 #              card; run nixos_migration.sh in an aarch64 chroot (network on)
 #   init       QEMU raspi4b boots the Pi OS kernel with the migration
 #              initramfs; the card is converted to btrfs
-#   firstboot  QEMU boots U-Boot from the new FAT partition; U-Boot starts the
-#              migration system; first boot switches to the full system
-#   full       QEMU boots the full system to multi-user.target
+#   firstboot  QEMU runs U-Boot from the new FAT partition until it has read
+#              extlinux.conf from btrfs and starts the kernel; then QEMU boots
+#              the default extlinux entry (the migration system), and first
+#              boot switches to the full system
+#   full       QEMU boots the new default entry, the full system; the carried
+#              settings are in place and the ext2_saved cleanup runs
+#
+# The PiFinder app cannot become healthy under QEMU (no display, camera or
+# GPIO), so the boot watchdog would roll the full system back. The full stage
+# records the full system as confirmed before it boots, as a passed trial
+# would; the app's health is for a real device. Snapshots of the card after
+# init and firstboot (card-init.img, card-firstboot.img) let a later stage
+# rerun without the two-hour conversion.
 #
 # QEMU raspi4b has no network, so the full system's closure is copied into
 # the card's store before first boot, and first boot falls back to the baked
 # first-boot target. QEMU puts the SD card on the controller that the Pi 4
 # device tree calls mmc1, so the device trees get mmc0 and mmc1 swapped;
-# then the card is mmcblk0, as on a real Pi 4. Nothing else of the code under
-# test changes.
+# then the card is mmcblk0, as on a real Pi 4. Under QEMU, U-Boot's hand-over
+# to the NixOS kernel hangs before the kernel's first output (on a real Pi 4
+# it works), so after the U-Boot check QEMU starts the extlinux default entry
+# itself, with console=ttyAMA1: a real Pi has the HDMI framebuffer as
+# console, QEMU without a display has none, and stage 1 needs one. All these
+# changes go to copies; the card holds the real boot entries.
 #
 # Needs: sudo, nix with aarch64 emulation (binfmt), about 40 GB free.
 # Work files: $MIGRATION_E2E_DIR (default /var/tmp/pifinder-migration-e2e).
@@ -117,7 +131,30 @@ qemu_run() { # <log> <timeout-s> <stop-text> <qemu args...>
     sleep 10; waited=$((waited + 10))
   done
   kill "$pid" 2>/dev/null || true
+  sleep 15
+  kill -9 "$pid" 2>/dev/null || true  # QEMU can ignore SIGTERM
   wait "$pid" 2>/dev/null || true
+}
+
+# Copy the default extlinux entry from the card (kernel, initrd, device tree,
+# kernel line) to $DIR/entry-* and start it in QEMU (see header).
+boot_default_entry() { # <log> <timeout-s> [stop-text]
+  local conf default label linux initrd append fdtdir
+  mount_part 2 "$MNT/root" btrfs
+  conf=$MNT/root/boot/extlinux/extlinux.conf
+  default=$(sudo awk '$1 == "DEFAULT" {print $2}' "$conf")
+  entry() { sudo awk -v l="$default" -v k="$1" '$1 == "LABEL" {on = ($2 == l)} on && $1 == k {sub(/^[ \t]*[A-Z]+[ \t]+/, ""); print; exit}' "$conf"; }
+  linux=$(entry LINUX); initrd=$(entry INITRD); append=$(entry APPEND); fdtdir=$(entry FDTDIR)
+  label=$default
+  log "boot entry $label: ${append%% *}"
+  sudo cp "$MNT/root/boot/extlinux/$linux" "$DIR/entry-Image"
+  sudo cp "$MNT/root/boot/extlinux/$initrd" "$DIR/entry-initrd"
+  sudo cp "$MNT/root/boot/extlinux/$fdtdir/broadcom/bcm2711-rpi-4-b.dtb" "$DIR/entry-orig.dtb"
+  sudo chown "$(id -u)" "$DIR"/entry-*
+  cleanup
+  patch_dtb "$DIR/entry-orig.dtb" "$DIR/entry.dtb"
+  qemu_run "$1" "$2" "${3:-}" -kernel "$DIR/entry-Image" -initrd "$DIR/entry-initrd" \
+    -dtb "$DIR/entry.dtb" -append "$append console=ttyAMA1,115200"
 }
 
 # --------------------------------------------------------------------------
@@ -144,6 +181,15 @@ if run_stage prepare; then
   sudo cp "$PIOS_SRC"/python/scripts/nixos_migration.sh "$PIOS_SRC"/python/scripts/nixos_migration_init.sh "$R/home/pifinder/PiFinder/python/scripts/"
   sudo cp "$PIOS_SRC"/python/PiFinder/nixos_migration_wifi.py "$R/home/pifinder/PiFinder/python/PiFinder/"
   sudo cp "$TARBALL" "$R/home/pifinder/pifinder-nixos-migration.tar.zst"
+  # A user who renamed the access point: the migration must carry the name.
+  sudo sed -i 's/^ssid=.*/ssid=PiFinderE2E/' "$R/etc/hostapd/hostapd.conf"
+  sudo cat "$R/etc/hostname" | tee "$DIR/hostname.expected" >/dev/null
+  # Login credentials the migration must carry over.
+  sudo awk -F: '$1 == "pifinder" {print $2}' "$R/etc/shadow" | tee "$DIR/password-hash.expected" >/dev/null
+  sudo cat "$R/etc/ssh/ssh_host_ed25519_key.pub" | tee "$DIR/hostkey.expected" >/dev/null
+  sudo install -d -o 1000 -g 1000 -m 700 "$R/home/pifinder/.ssh"
+  echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2eTestKeyForTheMigrationSimulation0000 e2e" \
+    | sudo tee -a "$R/home/pifinder/.ssh/authorized_keys" >/dev/null
 
   # Simulation stand-ins, removed again below: the pre-flight check needs a
   # real Pi (model, SD device, WiFi mode); uname must name the Pi OS kernel;
@@ -200,6 +246,8 @@ if run_stage init; then
   [ "$IMAGES" -gt 1000 ] || die "catalog images were not kept"
   [ -f "$MNT/root/home/pifinder/PiFinder_data/observations.db" ] || die "observations.db was not kept"
   [ "$(sudo cat "$MNT/root/var/lib/pifinder/camera-type" 2>/dev/null)" = imx462 ] || die "camera-type is not imx462"
+  [ "$(sudo cat "$MNT/root/home/pifinder/PiFinder_data/hostname")" = "$(cat "$DIR/hostname.expected")" ] || die "hostname was not kept"
+  [ "$(sudo cat "$MNT/root/home/pifinder/PiFinder_data/ap_name")" = PiFinderE2E ] || die "access point name was not kept"
   [ -f "$MNT/root/boot/extlinux/extlinux.conf" ] || die "no extlinux.conf on the btrfs root"
   [ ! -e "$MNT/root/usr/bin/apt" ] || die "Pi OS files are still there"
 
@@ -208,9 +256,6 @@ if run_stage init; then
   log "init: copy the full system $FULL into the card's store"
   nixb "$FULL" >/dev/null
   sudo nix copy --no-check-sigs --to "local?root=$MNT/root" "$FULL"
-  for d in $(sudo find "$MNT/root/boot/nixos" -name bcm2711-rpi-4-b.dtb); do
-    patch_dtb "$d" "$DIR/tmp.dtb" && sudo cp "$DIR/tmp.dtb" "$d"
-  done
   cleanup
 
   mount_part 1 "$MNT/boot" vfat
@@ -218,32 +263,51 @@ if run_stage init; then
   sudo cp "$MNT/boot/bcm2711-rpi-4-b.dtb" "$DIR/fw.dtb"
   cleanup
   patch_dtb "$DIR/fw.dtb" "$DIR/uboot.dtb"
+  cp --reflink=auto "$CARD" "$DIR/card-init.img"
 fi
 
 # --------------------------------------------------------------------------
 if run_stage firstboot; then
-  log "firstboot: U-Boot -> migration system -> switch to the full system"
-  qemu_run "$DIR/firstboot.log" 5400 "" -kernel "$DIR/u-boot.bin" -dtb "$DIR/uboot.dtb"
+  [ "$START" = firstboot ] && [ -f "$DIR/card-init.img" ] && cp --reflink=auto "$DIR/card-init.img" "$CARD"
+  log "firstboot: U-Boot reads extlinux.conf from btrfs and starts the kernel"
+  qemu_run "$DIR/uboot.log" 300 "Starting kernel" -kernel "$DIR/u-boot.bin" -dtb "$DIR/uboot.dtb"
+  grep -q "Retrieving file: /boot/extlinux/extlinux.conf" "$DIR/uboot.log" || die "U-Boot did not read extlinux.conf"
+  grep -q "Starting kernel" "$DIR/uboot.log" || die "U-Boot did not start the kernel"
+  log "firstboot: migration system -> switch to the full system"
+  boot_default_entry "$DIR/firstboot.log" 5400
   mount_part 2 "$MNT/root" btrfs
-  sudo journalctl -D "$MNT/root/var/log/journal" -u pifinder-first-boot --no-pager -o cat 2>&1 | tee "$DIR/firstboot-journal.txt" >/dev/null || true
-  tail -20 "$DIR/firstboot-journal.txt"
-  grep -q "Rebooting into full PiFinder system" "$DIR/firstboot-journal.txt" || die "first boot did not switch to the full system"
+  # The migration system's journal is in RAM; first boot keeps its own log.
+  sudo cat "$MNT/root/home/pifinder/PiFinder_data/logs/first-boot.log" 2>/dev/null | tee "$DIR/first-boot.log" >/dev/null || true
+  tail -20 "$DIR/first-boot.log"
+  grep -q "Rebooting into full PiFinder system" "$DIR/first-boot.log" || die "first boot did not switch to the full system"
   sudo readlink "$MNT/root/nix/var/nix/profiles/system" | tee "$DIR/profile.txt"
   cleanup
+  cp --reflink=auto "$CARD" "$DIR/card-firstboot.img"
 fi
 
 # --------------------------------------------------------------------------
 if run_stage full; then
-  log "full: boot the full system"
-  # NixOS has no serial console (the Pi's UART belongs to the GPS), so run
-  # for a fixed time and read the journal on the card afterwards.
-  qemu_run "$DIR/full.log" 1500 "" -kernel "$DIR/u-boot.bin" -dtb "$DIR/uboot.dtb"
+  [ "$START" = full ] && [ -f "$DIR/card-firstboot.img" ] && cp --reflink=auto "$DIR/card-firstboot.img" "$CARD"
+  log "full: record the full system as confirmed (QEMU only, see header)"
   mount_part 2 "$MNT/root" btrfs
-  # The last boot on the card must be the full system: only it has
-  # pifinder.service.
-  sudo journalctl -D "$MNT/root/var/log/journal" -b 0 --no-pager -o short-monotonic 2>&1 | tee "$DIR/full-journal.txt" >/dev/null || true
-  grep -q "Reached target Multi-User System" "$DIR/full-journal.txt" || die "the full system did not reach multi-user.target"
-  grep -q "Start.* PiFinder\b" "$DIR/full-journal.txt" || die "the last boot did not start pifinder.service"
+  FULL_SYSTEM=$(sudo readlink -f "$MNT/root/nix/var/nix/profiles/$(sudo readlink "$MNT/root/nix/var/nix/profiles/system")")
+  FULL_SYSTEM=${FULL_SYSTEM#"$MNT/root"}
+  echo "$FULL_SYSTEM" | sudo tee -a "$MNT/root/var/lib/pifinder/confirmed-generations" >/dev/null
+  cleanup
+  log "full: boot the full system $FULL_SYSTEM"
+  boot_default_entry "$DIR/full.log" 2400 "Finished.*Remove the ext4 rollback image"
+  sed 's/\x1b\[[0-9;]*[a-zA-Z]//g; s/\r/\n/g' "$DIR/full.log" > "$DIR/full-serial.txt"
+  grep -q "Reached target Login Prompts" "$DIR/full-serial.txt" || die "the full system did not reach the login prompts"
+  grep -q "Starting PiFinder" "$DIR/full-serial.txt" || die "the full system did not start pifinder.service"
+  grep -q "Finished Apply PiFinder custom access point name" "$DIR/full-serial.txt" || die "the access point name was not applied"
+  mount_part 2 "$MNT/root" btrfs
+  sudo grep -q "^ssid=PiFinderE2E$" "$MNT/root/etc/NetworkManager/system-connections/PiFinder-AP.nmconnection" || die "the access point profile has no PiFinderE2E"
+  sudo btrfs subvolume list "$MNT/root" | tee "$DIR/subvolumes-full.txt"
+  ! grep -q ext2_saved "$DIR/subvolumes-full.txt" || die "ext2_saved was not removed"
+  [ "$(sudo awk -F: '$1 == "pifinder" {print $2}' "$MNT/root/etc/shadow")" = "$(cat "$DIR/password-hash.expected")" ] || die "the password was not carried over"
+  [ "$(sudo cat "$MNT/root/etc/ssh/ssh_host_ed25519_key.pub")" = "$(cat "$DIR/hostkey.expected")" ] || die "the SSH host key was not carried over"
+  sudo grep -q "TestKeyForTheMigrationSimulation" "$MNT/root/home/pifinder/.ssh/authorized_keys" || die "authorized_keys was not carried over"
+  [ ! -e "$MNT/root/var/lib/pifinder/migrated" ] || die "the staged credentials were not removed"
   cleanup
   log "PASS: Pi OS -> NixOS migration boots the full system"
 fi

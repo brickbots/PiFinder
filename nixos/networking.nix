@@ -136,6 +136,58 @@
     };
   };
 
+  # Login credentials carried over by the Pi OS migration (ADR 0039): the
+  # pifinder password hash, the SSH host keys (so clients see the same host)
+  # and nothing else. Applied once, before sshd starts; NixOS keeps both
+  # across generations (mutable users, /etc/ssh), so the staged copies are
+  # deleted after use. In this shared module because the migration system
+  # boots first and must already answer SSH as the old host.
+  systemd.services.pifinder-migrated-credentials = {
+    description = "Apply login credentials carried over by the migration";
+    before = [ "sshd.service" ];
+    wantedBy = [ "multi-user.target" ];
+    unitConfig.ConditionPathIsDirectory = "/var/lib/pifinder/migrated";
+    serviceConfig.Type = "oneshot";
+    path = with pkgs; [ coreutils shadow ];
+    script = ''
+      dir=/var/lib/pifinder/migrated
+      if [ -s "$dir/password-hash" ]; then
+        printf 'pifinder:%s\n' "$(cat "$dir/password-hash")" | chpasswd -e
+      fi
+      for key in "$dir"/ssh/ssh_host_*; do
+        [ -e "$key" ] || continue
+        install -o root -g root -m 600 "$key" /etc/ssh/
+        case "$key" in *.pub) chmod 644 "/etc/ssh/$(basename "$key")" ;; esac
+      done
+      rm -rf "$dir"
+    '';
+  };
+
+  # Apply the user-chosen access point name from PiFinder_data. The AP
+  # profile above is written again at each activation, so the name lives in
+  # PiFinder_data (like the hostname) and goes into the profile before
+  # NetworkManager reads it. The migration writes it from Pi OS's hostapd.conf.
+  systemd.services.pifinder-ap-name = {
+    description = "Apply PiFinder custom access point name";
+    before = [ "NetworkManager.service" ];
+    wantedBy = [ "multi-user.target" ];
+    unitConfig.ConditionPathExists = "/home/pifinder/PiFinder_data/ap_name";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = with pkgs; [ coreutils gnused ];
+    script = ''
+      name=$(head -n 1 /home/pifinder/PiFinder_data/ap_name | tr -d '\r\n')
+      [ -n "$name" ] || exit 0
+      profile=/etc/NetworkManager/system-connections/PiFinder-AP.nmconnection
+      [ -f "$profile" ] || exit 0
+      # Escape the characters sed gives a meaning in the replacement.
+      value=$(printf '%s' "$name" | sed -e 's/[\\&|]/\\&/g')
+      sed -i "s|^ssid=.*|ssid=$value|" "$profile"
+    '';
+  };
+
   # Avahi watches interface/address changes itself, so it must remain running
   # while NetworkManager brings links up and down. Restarting it from a
   # dispatcher briefly withdraws the .local record and also resets a custom
