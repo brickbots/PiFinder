@@ -25,7 +25,7 @@ from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.layout import list_layout
 from PiFinder.ui.object_details import UIObjectDetails
 
-from PiFinder.calc_utils import aim_degrees
+from PiFinder.calc_utils import aim_degrees, pointing_snapshot
 from PiFinder import utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.nearby import Nearby
@@ -474,9 +474,13 @@ class UIObjectList(UITextMenu):
             return obj.names[0]
         return f"{obj.catalog_code}{obj.sequence}"
 
-    def create_locate_text(self, obj: CompositeObject) -> str:
+    def create_locate_text(self, obj: CompositeObject, snapshot=None) -> str:
         az, alt = aim_degrees(
-            self.shared_state, self.mount_type, self.screen_direction, obj
+            self.shared_state,
+            self.mount_type,
+            self.screen_direction,
+            obj,
+            snapshot=snapshot,
         )
         if az:
             az_txt, alt_txt = self.format_az_alt(az, alt)
@@ -758,6 +762,12 @@ class UIObjectList(UITextMenu):
         self.draw.rectangle(layout.selection_box, outline=self.colors.get(128), width=1)
         line_number, line_pos = 0, 0
         line_color = None
+        # One read of the pointing state for all rows of this frame.
+        pointing = (
+            pointing_snapshot(self.shared_state)
+            if self.current_mode == DisplayModes.LOCATE
+            else None
+        )
         for i in range(
             self._current_item_index - half, self._current_item_index + half + 1
         ):
@@ -768,7 +778,7 @@ class UIObjectList(UITextMenu):
                 item_name = self.create_shortname_text(_menu_item)
                 item_text = ""
                 if self.current_mode == DisplayModes.LOCATE:
-                    item_text = self.create_locate_text(_menu_item)
+                    item_text = self.create_locate_text(_menu_item, pointing)
                 elif self.current_mode == DisplayModes.NAME:
                     item_text = self.create_name_text(_menu_item)
                 elif self.current_mode == DisplayModes.INFO:

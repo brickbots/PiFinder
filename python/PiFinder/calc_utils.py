@@ -192,16 +192,28 @@ def b1950_to_j2000(ra_hours, dec_deg):
     return epoch_to_epoch(B1950, J2000, ra_hours, dec_deg)
 
 
-def aim_degrees(shared_state, mount_type, screen_direction, target):
+def pointing_snapshot(shared_state):
+    """(solution, location, datetime), read once from the shared state.
+
+    Each read is a round trip to the multiprocessing manager. A screen that
+    calls aim_degrees for many objects in one frame reads this once and passes
+    it on, instead of three round trips per object.
+    """
+    return shared_state.solution(), shared_state.location(), shared_state.datetime()
+
+
+def aim_degrees(shared_state, mount_type, screen_direction, target, snapshot=None):
     """
     Returns degrees in either
     az/alt or RA/DEC depending on mount type
     from current position
     to target
+
+    snapshot: a pointing_snapshot() of this frame; read now when None.
     """
-    solution = shared_state.solution()
-    location = shared_state.location()
-    dt = shared_state.datetime()
+    solution, location, dt = (
+        snapshot if snapshot is not None else pointing_snapshot(shared_state)
+    )
     if location.lock and dt and solution and solution.has_pointing():
         aligned = solution.pointing.aligned.estimate
         if mount_type == "Alt/Az":
