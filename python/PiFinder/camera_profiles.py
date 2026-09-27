@@ -51,11 +51,20 @@ class CameraProfile:
     # lens's effective focal length gives the field of view.
     pixel_pitch_um: float = 0.0
 
-    # Lens this sensor ships with, used when the config states none. Existing
-    # installs predate the lens setting entirely, so this is what makes them
-    # resolve correctly with no migration -- it must stay accurate to what
-    # shipped, not to what is currently preferred.
+    # The lens to *assume* when the config states none -- see "assumed lens"
+    # in docs/ax/camera/CONTEXT.md. Existing installs predate the lens setting
+    # entirely, so this is what makes them resolve correctly with no
+    # migration; it must stay accurate to what shipped, not to what is
+    # currently preferred. It is only the assumption, not the whole story:
+    # more than one lens has shipped on some sensors, and which of them is in
+    # the box is exactly what an assumption cannot know.
     default_lens_key: str = ""
+
+    # Every lens this sensor has shipped with. The assumed-lens FOV gate spans
+    # all of them, so this is the set of lenses a unit with no stated lens can
+    # still solve on, and the set self-heal is allowed to identify from.
+    # default_lens_key must be one of these (asserted in test_optics.py).
+    shipped_lens_keys: Tuple[str, ...] = ()
 
     # Pedestal/bias offset in ADU
     # The "zero point" added to prevent negative values
@@ -257,6 +266,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         bit_depth=10,
         pixel_pitch_um=3.45,  # Sony Pregius S IMX296 datasheet
         default_lens_key="16mm",
+        shipped_lens_keys=("16mm", "12mm"),
         # Sony-standard black level (240 @ 12-bit -> 60 @ 10-bit); confirmed by
         # the 2025-10-31 on-sky sweep intercept (60.3). The old 32.0 was a
         # mis-measurement.
@@ -299,6 +309,9 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         bit_depth=12,
         pixel_pitch_um=2.90,  # Sony STARVIS IMX462 datasheet
         default_lens_key="16mm",
+        # Some rev4 units shipped with the 12mm and no stated lens, which is
+        # the failure ADR 0029 exists to fix. Both belong here.
+        shipped_lens_keys=("16mm", "12mm"),
         bias_offset=238.0,  # Measured: dark-frame CAL 238.0 + on-sky sweep intercept 238.6 (raw green, gain 30)
         # Image cropping and orientation
         crop_y=(50, 50),  # Crop vertical edges
@@ -347,6 +360,7 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         bit_depth=12,
         pixel_pitch_um=2.90,  # Same sensor family as imx462
         default_lens_key="16mm",
+        shipped_lens_keys=("16mm", "12mm"),
         bias_offset=238.0,  # Measured: dark-frame CAL 238.0 + on-sky sweep intercept 238.6 (raw green, gain 30)
         # Image cropping and orientation (same as imx462)
         crop_y=(50, 50),  # Crop vertical edges
@@ -389,8 +403,11 @@ CAMERA_PROFILES: Dict[str, CameraProfile] = {
         # IMX477's native pitch is 1.55; the 2028x1520 mode above 2x2-bins it.
         pixel_pitch_um=3.10,
         # The HQ build shipped with the longer lens, so it is the only profile
-        # whose no-config default is not the 16mm.
+        # whose no-config default is not the 16mm. It is also the only one
+        # that ever shipped a single lens, so its assumed gate is identical to
+        # its stated one -- nothing about the HQ widens under ADR 0029.
         default_lens_key="25mm",
+        shipped_lens_keys=("25mm",),
         bias_offset=256.0,  # Measured with lens cap on
         # Image cropping and orientation
         crop_y=(0, 0),  # No vertical crop

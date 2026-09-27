@@ -18,6 +18,12 @@ logger = logging.getLogger("GPS.parser")
 QUALITY_SIGNAL_ACQUIRED = 2
 QUALITY_CODE_LOCKED = 4
 
+# Prefix reserved for markers: synthesised events standing in for a frame that
+# arrived but could not become a message. No real message class may start with
+# it. See docs/adr/0032-ubx-parser-yields-undecodable-frames.md.
+MARKER_PREFIX = "?"
+CHECKSUM_MARKER = f"{MARKER_PREFIX}CKSUM"
+
 
 class UBXClass(IntEnum):
     NAV = 0x01
@@ -226,6 +232,10 @@ class UBXParser:
                         logger.warning(
                             f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
                         )
+                        # Bytes arrived but could not be decoded - yield a
+                        # marker so this stays distinguishable from silence.
+                        # See docs/adr/0032.
+                        yield {"class": CHECKSUM_MARKER}
                     self.buffer = self.buffer[total_length:]
             except (ConnectionResetError, BrokenPipeError):
                 logger.exception("Connection error")
@@ -253,7 +263,9 @@ class UBXParser:
         logger.debug(
             f"No parser found for message class=0x{msg_class:02x}, id=0x{msg_id:02x}"
         )
-        return {"error": "Unknown message type"}
+        # A frame we cannot decode is still evidence the receiver is talking,
+        # so name it rather than dropping it. See docs/adr/0032.
+        return {"class": f"{MARKER_PREFIX}{msg_class:02X}{msg_id:02X}"}
 
     def _ecef_to_lla(self, x: float, y: float, z: float):
         try:

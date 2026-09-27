@@ -1411,8 +1411,8 @@ class TestSaveSweepMetadata:
             data = json.load(f)
 
         assert data["camera"]["lens"] == "12mm"
-        assert data["camera"]["lens_effective_focal_length_mm"] == pytest.approx(12.0)
-        # 12mm on an imx296 images ~17.8 degrees, not the shipped 16mm's 13.71.
+        assert data["camera"]["lens_effective_focal_length_mm"] == pytest.approx(13.04)
+        # 12mm on an imx296 images ~16.4 degrees, not the shipped 16mm's 13.71.
         assert data["camera"]["radiometric_fov_degrees"] == pytest.approx(
             build_optical_train("imx296", "12mm").fov_degrees
         )

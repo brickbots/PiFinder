@@ -289,6 +289,13 @@ class Network(NetworkBase):
         except Exception as e:
             logger.error("Failed to update AP SSID: %s", e)
             return
+        # NixOS writes the AP profile again at each activation; the
+        # pifinder-ap-name boot service applies this file to it.
+        data_dir = Path(os.environ.get("PIFINDER_DATA", "/home/pifinder/PiFinder_data"))
+        try:
+            (data_dir / "ap_name").write_text(ap_name + "\n")
+        except OSError as e:
+            logger.error("Failed to persist AP name: %s", e)
         if self.wifi_mode() == "AP":
             self._activate_connection(AP_CONNECTION_NAME)
 
@@ -606,12 +613,14 @@ def get_upgrade_progress() -> dict:
     """Return structured upgrade progress for UI display.
 
     Returns dict with keys:
-      phase: "starting" | "downloading" | "activating" | "rebooting"
+      phase: "starting" | "checking" | "patching" | "downloading"
+             | "activating" | "rebooting"
              | "success" | "failed" | "unavailable" | "connfail" | ""
       done: int (downloaded so far, in `unit`)
       total: int (total to download, in `unit`)
       unit: "bytes" | "paths"
       percent: int (0-100)
+      step: "asking" | "waiting" | "applying" | "" (patching phase only)
 
     The download status line is "downloading <done>/<total>" in bytes;
     a trailing " paths" marks the fallback where byte sizes were not
@@ -624,6 +633,7 @@ def get_upgrade_progress() -> dict:
         "unit": "bytes",
         "percent": 0,
         "item": "",
+        "step": "",
     }
     try:
         raw = UPGRADE_STATUS_FILE.read_text().strip()
@@ -636,7 +646,9 @@ def get_upgrade_progress() -> dict:
         return empty
 
     svc = _upgrade_service_state()
-    if raw in ("starting", "activating") or raw.startswith("downloading "):
+    if raw in ("starting", "checking", "activating") or raw.startswith(
+        ("downloading ", "patching ")
+    ):
         if svc in ("failed", "inactive"):
             return {**empty, "phase": "failed"}
 
@@ -663,8 +675,31 @@ def get_upgrade_progress() -> dict:
             }
         except (ValueError, IndexError):
             return {**empty, "phase": "downloading"}
+    if raw.startswith("patching "):
+        # "patching <step> <done>/<total>", step one of asking, waiting,
+        # applying (see delta_updates.prefetch_deltas). An older upgrade
+        # service writes "patching <done>/<total>" with no step.
+        body = raw[len("patching ") :].strip()
+        step, _sep, nums = body.rpartition(" ")
+        try:
+            done_s, total_s = nums.split("/")
+            done, total = int(done_s), int(total_s)
+        except ValueError:
+            return {**empty, "phase": "patching", "step": step}
+        pct = max(0, min(100, int(done * 100 / total))) if total > 0 else 0
+        return {
+            **empty,
+            "phase": "patching",
+            "step": step,
+            "done": done,
+            "total": total,
+            "unit": "paths",
+            "percent": pct,
+        }
     if raw == "starting":
         return {**empty, "phase": "starting"}
+    if raw == "checking":
+        return {**empty, "phase": "checking"}
     if raw == "activating":
         return {**empty, "phase": "activating", "percent": 100}
     if raw == "rebooting":
@@ -707,7 +742,7 @@ def update_software(ref: str = "release", selection: Optional[dict] = None) -> b
 
 
 # ---------------------------------------------------------------------------
-# Password management (python-pam + chpasswd)
+# Password management (python-pam + pifinder-set-password)
 # ---------------------------------------------------------------------------
 
 
@@ -718,12 +753,14 @@ def verify_password(username: str, password: str) -> bool:
 
 
 def change_password(username: str, current_password: str, new_password: str) -> bool:
-    """Change the user password via chpasswd."""
+    """Change the pifinder user password via the pifinder-set-password wrapper."""
+    if username != "pifinder" or "\n" in new_password:
+        return False
     if not verify_password(username, current_password):
         return False
     result = subprocess.run(
-        ["sudo", "chpasswd"],
-        input=f"{username}:{new_password}\n",
+        ["sudo", "pifinder-set-password"],
+        input=f"{new_password}\n",
         capture_output=True,
         text=True,
     )

@@ -29,7 +29,7 @@ def show_splash():
     # import-safe and never raises -- a dev box / rev3 board falls back to the
     # SSD1351.
     capabilities = hardware_detect.detect_capabilities()
-    display_hardware = "ssd1333" if capabilities.has_bq25895 else "ssd1351"
+    display_hardware = "ssd1333" if capabilities.is_rev4 else "ssd1351"
     display = displays.get_display(display_hardware)
     display.device.cleanup = do_nothing
     display.set_brightness(125)

@@ -13,6 +13,7 @@ import json
 import logging
 import re
 import threading
+import time
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
@@ -1105,6 +1106,7 @@ class UISoftware(UIModule):
         done = progress["done"]
         total = progress["total"]
         unit = progress.get("unit", "bytes")
+        step = progress.get("step", "")
 
         if phase in ("failed", "unavailable", "connfail"):
             if phase == "unavailable":
@@ -1122,6 +1124,16 @@ class UISoftware(UIModule):
             label = _("Rebooting...")
         elif phase == "activating":
             label = _("Activating...")
+        elif phase == "checking":
+            label = _("Checking...")
+        elif phase == "patching" and step == "asking":
+            label = _("Asking server")
+        elif phase == "patching" and step == "waiting":
+            label = _("Server busy")
+        elif phase == "patching" and step == "applying":
+            label = _("Applying patch")
+        elif phase == "patching":
+            label = _("Patching...")
         elif phase == "starting":
             label = _("Preparing...")
         else:
@@ -1143,6 +1155,35 @@ class UISoftware(UIModule):
             fill=self.colors.get(48),
             outline=self.colors.get(128),
         )
+        if phase in ("starting", "checking") or step == "waiting":
+            # No measurable progress here (the dry run reports none, and a
+            # wait for the delta server has no amount), so a block moves back
+            # and forth to show the device is working.
+            block_w = 24
+            span = bar_w - block_w - 2
+            pos = int(time.monotonic() * 40) % (2 * span)
+            left = bar_x + 1 + (pos if pos < span else 2 * span - pos)
+            self.draw.rectangle(
+                [left, y + 1, left + block_w, y + bar_h - 1],
+                fill=self.colors.get(192),
+            )
+            y += bar_h + 6
+            if step == "waiting":
+                # done is the number of paths the server is still computing.
+                self.draw.text(
+                    (4, y),
+                    _("{n} not ready").format(n=done),
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(128),
+                )
+                self.draw.text(
+                    (4, y + 12),
+                    _("asking again soon"),
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(96),
+                )
+            return
+
         fill_w = int(bar_w * pct / 100)
         if fill_w > 0:
             self.draw.rectangle(
@@ -1167,9 +1208,11 @@ class UISoftware(UIModule):
 
         # Amount below the bar: megabytes downloaded out of the total, or a
         # path count in the fallback case where byte sizes were unavailable.
-        if phase == "downloading" and total > 0:
+        if phase in ("downloading", "patching") and total > 0:
             if unit == "bytes":
                 amount_text = f"{done / 1048576:.0f}/{total / 1048576:.0f} MB"
+            elif step == "applying":
+                amount_text = _("{done}/{total} patches").format(done=done, total=total)
             else:
                 amount_text = f"{done}/{total} paths"
             self.draw.text(

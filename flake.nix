@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     nixos-hardware.url = "github:NixOS/nixos-hardware";
 
     pyproject-nix = {
@@ -74,7 +74,11 @@
       # kernel; a non-null value injects a prebuilt (e.g. cross-built) one.
       specialArgs = pythonInputs // { pifinderKernel = kernel; };
       modules = commonModules ++ [
-        { pifinder.devMode = false; }
+        {
+          pifinder.devMode = false;
+          # Delta prefetch for upgrades (pifinder-differ, ADR 0036).
+          pifinder.deltaUrl = "https://deltas.pifinder.eu";
+        }
         # Camera specialisations — base is imx462 (default), specialisations for others
         ({ ... }: {
           specialisation = {
@@ -83,7 +87,9 @@
           };
         })
         ({ lib, ... }: {
-          boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" ];
+          # Root is btrfs (see nixos/services.nix); vfat is the boot partition.
+          boot.supportedFilesystems = lib.mkForce [ "vfat" "btrfs" ];
+          boot.initrd.supportedFilesystems = lib.mkForce [ "btrfs" ];
           boot.loader.timeout = 0;
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
@@ -103,35 +109,16 @@
             printf '{"store_path": "%s"}\n' "${config.system.build.toplevel}" \
               > ./files/var/lib/pifinder/current-build.json
           '';
-          sdImage.populateFirmwareCommands = lib.mkForce ''
-            (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)
-
-            cp ${configTxt} firmware/config.txt
-
-            # Pi3 files
-            cp ${pkgs.ubootRaspberryPi3_64bit}/u-boot.bin firmware/u-boot-rpi3.bin
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-2-b.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b-plus.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-cm3.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2-w.dtb firmware/
-
-            # Pi4 files
-            cp ${ubootSD}/u-boot.bin firmware/u-boot-rpi4.bin
-            cp ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin firmware/armstub8-gic.bin
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-4-b.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-400.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4s.dtb firmware/
-          '';
+          sdImage.populateFirmwareCommands = lib.mkForce firmwareCommands;
         })
       ] ++ nixpkgs.lib.optionals (!includeSDImage) [
-        # Minimal filesystem stub for closure builds (CI)
+        # Filesystem stub for closure builds (CI). Devices install these
+        # builds, so root is the partition, not a label (see nixos/services.nix).
         ({ lib, ... }: {
           fileSystems."/" = {
-            device = "/dev/disk/by-label/NIXOS_SD";
-            fsType = "ext4";
+            device = "/dev/mmcblk0p2";
+            fsType = "btrfs";
+            options = [ "compress=zstd:1" "noatime" ];
           };
           fileSystems."/boot/firmware" = {
             device = "/dev/disk/by-label/FIRMWARE";
@@ -147,7 +134,9 @@
       modules = migrationModules ++ [
         { pifinder.devMode = false; }
         ({ lib, ... }: {
-          boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" ];
+          # The migration converts the root to btrfs (ADR 0039).
+          boot.supportedFilesystems = lib.mkForce [ "vfat" "btrfs" ];
+          boot.initrd.supportedFilesystems = lib.mkForce [ "btrfs" ];
           boot.loader.timeout = 0;
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
@@ -156,7 +145,7 @@
           sdImage.populateRootCommands = ''
             mkdir -p ./files/home/pifinder/PiFinder_data
             mkdir -p ./files/var/lib/pifinder
-            # ADR 0003: last-ditch fallback for first-boot resolution when the
+            # ADR 0039: last-ditch fallback for first-boot resolution when the
             # update manifest is unreachable. The manifest is the primary
             # source; this file is otherwise ignored and removed on success.
             # (The old closure-based tarball builder used to write it; the
@@ -164,34 +153,16 @@
             echo "${(mkPifinderSystem {}).config.system.build.toplevel}" \
               > ./files/var/lib/pifinder/first-boot-target
           '';
-          sdImage.populateFirmwareCommands = lib.mkForce ''
-            (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)
-
-            cp ${configTxt} firmware/config.txt
-
-            # Pi3 files
-            cp ${pkgs.ubootRaspberryPi3_64bit}/u-boot.bin firmware/u-boot-rpi3.bin
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-2-b.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b-plus.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-cm3.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2-w.dtb firmware/
-
-            # Pi4 files
-            cp ${ubootSD}/u-boot.bin firmware/u-boot-rpi4.bin
-            cp ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin firmware/armstub8-gic.bin
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-4-b.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-400.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4s.dtb firmware/
-          '';
+          sdImage.populateFirmwareCommands = lib.mkForce firmwareCommands;
         })
       ] ++ nixpkgs.lib.optionals (!includeSDImage) [
+        # The migration tarball is built from this system (migrationTarball),
+        # so root is the btrfs partition the migration makes (ADR 0039).
         ({ lib, ... }: {
           fileSystems."/" = {
-            device = "/dev/disk/by-label/NIXOS_SD";
-            fsType = "ext4";
+            device = "/dev/mmcblk0p2";
+            fsType = "btrfs";
+            options = [ "compress=zstd:1" "noatime" ];
           };
           fileSystems."/boot/firmware" = {
             device = "/dev/disk/by-label/FIRMWARE";
@@ -317,6 +288,8 @@
         CONFIG_BOOTDELAY=0
         CONFIG_PREBOOT=""
         CONFIG_BOOTCOMMAND="sysboot mmc 0:2 any 0x02400000 /boot/extlinux/extlinux.conf"
+        CONFIG_FS_BTRFS=y
+        CONFIG_CMD_BTRFS=y
         CONFIG_PCI=n
         CONFIG_USB=n
         CONFIG_CMD_USB=n
@@ -354,6 +327,64 @@
       arm_64bit=1
       enable_uart=1
       avoid_warnings=1
+    '';
+
+    # FAT firmware partition payload, shared by the SD images and the
+    # migration tarball. Runs with a firmware/ directory in the cwd.
+    firmwareCommands = let pkgs = pkgsAarch64; in ''
+      (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)
+
+      cp ${configTxt} firmware/config.txt
+
+      # Pi3 files
+      cp ${pkgs.ubootRaspberryPi3_64bit}/u-boot.bin firmware/u-boot-rpi3.bin
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-2-b.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b-plus.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-cm3.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2-w.dtb firmware/
+
+      # Pi4 files
+      cp ${ubootSD}/u-boot.bin firmware/u-boot-rpi4.bin
+      cp ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin firmware/armstub8-gic.bin
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-4-b.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-400.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4s.dtb firmware/
+    '';
+
+    # Migration tarball, built straight from the minimal migration system's
+    # closure (ADR 0039): boot/ is the FAT firmware payload, rootfs/ is the
+    # btrfs root (store paths, their registration, extlinux + kernels in
+    # /boot, and the first-boot fallback target). No SD image, no loop mount.
+    migrationTarball = let
+      pkgs = pkgsAarch64;
+      cfg = (mkPifinderMigration {}).config;
+      toplevel = cfg.system.build.toplevel;
+      closure = pkgs.closureInfo { rootPaths = [ toplevel ]; };
+    in pkgs.runCommand "pifinder-migration-tarball" {
+      nativeBuildInputs = with pkgs.buildPackages; [ zstd gnutar ];
+    } ''
+      mkdir -p firmware files/boot files/nix/store
+      ${firmwareCommands}
+
+      ${cfg.boot.loader.generic-extlinux-compatible.populateCmd} -c ${toplevel} -d ./files/boot
+      mkdir -p ./files/home/pifinder/PiFinder_data ./files/var/lib/pifinder
+      # ADR 0039: last-ditch fallback for first-boot resolution when the
+      # update manifest is unreachable.
+      echo "${(mkPifinderSystem {}).config.system.build.toplevel}" \
+        > ./files/var/lib/pifinder/first-boot-target
+
+      xargs -a ${closure}/store-paths cp -a --target-directory=files/nix/store
+      cp ${closure}/registration files/nix-path-registration
+
+      mkdir -p pack
+      mv firmware pack/boot
+      mv files pack/rootfs
+      mkdir -p $out
+      tar --sort=name --owner=0 --group=0 --numeric-owner -C pack -cf - boot rootfs \
+        | zstd -T0 -19 -o $out/pifinder-migration.tar.zst
     '';
 
     # Reproducible development environment for both desktop Linux and the
@@ -417,6 +448,7 @@
       pifinder-migration = (mkPifinderMigration { includeSDImage = true; }).config.system.build.sdImage;
     };
     packages.aarch64-linux = {
+      migration-tarball = migrationTarball;
       uboot-sd = ubootSD;
       uboot-netboot = ubootNetboot;
       migration-boot-firmware = pkgsAarch64.runCommand "migration-boot-firmware" {} ''

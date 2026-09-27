@@ -1,3 +1,4 @@
+import asyncio
 import struct
 
 import pytest
@@ -116,3 +117,78 @@ def test_nav_sat_used_from_svused_bit(parser):
     sat17, sat13 = result["satellites"]
     assert (sat17["id"], sat17["used"], sat17["quality"]) == (17, True, 4)
     assert (sat13["id"], sat13["used"], sat13["elevation"]) == (13, False, -5)
+
+
+# --- Markers -----------------------------------------------------------------
+# A frame that arrives but cannot be decoded yields a marker rather than being
+# dropped, so "we can't read this" stays distinguishable from "nothing is
+# arriving". See docs/adr/0032-ubx-parser-yields-undecodable-frames.md.
+
+
+@pytest.fixture
+def registered_parser():
+    """A parser with its message_parsers table populated, unlike the bare
+    __new__ fixture above -- _parse_ubx dispatches through that table."""
+    return UBXParser(log_queue=None)
+
+
+class FakeReader:
+    """Hands out canned chunks, then EOF to end parse_messages' read loop."""
+
+    def __init__(self, *chunks):
+        self.chunks = list(chunks)
+
+    async def read(self, _n):
+        return self.chunks.pop(0) if self.chunks else b""
+
+
+def make_frame(msg_class, msg_id, payload=b"", corrupt=False):
+    body = bytes([msg_class, msg_id]) + len(payload).to_bytes(2, "little") + payload
+    ck_a = ck_b = 0
+    for b in body:
+        ck_a = (ck_a + b) & 0xFF
+        ck_b = (ck_b + ck_a) & 0xFF
+    if corrupt:
+        ck_b ^= 0xFF
+    return b"\xb5\x62" + body + bytes([ck_a, ck_b])
+
+
+def drain(parser):
+    async def collect():
+        return [msg async for msg in parser.parse_messages()]
+
+    return asyncio.run(collect())
+
+
+@pytest.mark.unit
+def test_unregistered_class_id_yields_a_named_marker(registered_parser):
+    # 0x01/0x35 is NAV-SAT, which is registered; 0x01/0x22 is not.
+    result = registered_parser._parse_ubx(make_frame(0x01, 0x22, b"\x00" * 8))
+
+    assert result == {"class": "?0122"}
+
+
+@pytest.mark.unit
+def test_marker_passes_the_class_guard(registered_parser):
+    """The marker must survive parse_messages' `if "class" in parsed` guard --
+    that guard is what used to drop undecodable frames."""
+    registered_parser.reader = FakeReader(make_frame(0x0A, 0x04, b"\x00" * 4))
+
+    assert [msg["class"] for msg in drain(registered_parser)] == ["?0A04"]
+
+
+@pytest.mark.unit
+def test_checksum_mismatch_yields_a_marker(registered_parser):
+    registered_parser.reader = FakeReader(
+        make_frame(0x01, 0x04, b"\x00" * 18, corrupt=True)
+    )
+
+    assert [msg["class"] for msg in drain(registered_parser)] == ["?CKSUM"]
+
+
+@pytest.mark.unit
+def test_decodable_frame_still_yields_its_message(registered_parser):
+    """Guard against the markers swallowing the normal path."""
+    registered_parser.reader = FakeReader(make_frame(0x01, 0x61, b"\x00" * 4))
+
+    assert [msg["class"] for msg in drain(registered_parser)] == ["NAV-EOE"]

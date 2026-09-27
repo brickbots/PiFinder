@@ -7,6 +7,7 @@ object.
 
 import time
 import datetime
+import threading
 import pickle
 import pytz
 from PiFinder import config
@@ -288,6 +289,7 @@ class SharedStateObj:
         }
         self.__solution: PointingEstimate = PointingEstimate()
         self.__sats = None
+        self.__gps_comms = None
         self.__imu = None
         self.__battery = None
         self.__hardware = None
@@ -309,6 +311,11 @@ class SharedStateObj:
         # None means "not stated", which resolves to the sensor's shipped lens
         # -- that is what lets installs predating this setting keep working.
         self.__camera_lens = config.Config().get_option("camera_lens")
+        # Whether the frames arriving actually came through the optics the two
+        # halves above describe. True until a camera says otherwise, so the
+        # window before the camera process reports behaves like the hardware
+        # case rather than silently dropping the FOV gate on every boot.
+        self.__optical_train_known = True
         # Degrees the camera process rotates the solve/display image relative
         # to the stored raw frame (PIL CCW). None until the camera reports.
         self.__solve_image_rotation = None
@@ -316,9 +323,21 @@ class SharedStateObj:
         self.__sqm_radiometer_sample = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
-        self.__tz_finder = TimezoneFinder()
+        # TimezoneFinder takes about 4 s to build on a Pi, so it builds in the
+        # background. set_location() waits for it only if it is not ready.
+        self.__tz_finder: Optional[TimezoneFinder] = None
+        self.__tz_finder_thread = threading.Thread(
+            target=self.__build_tz_finder, name="TimezoneFinder", daemon=True
+        )
+        self.__tz_finder_thread.start()
         self.__current_ui_state = None
         self.__test_mode = False
+
+    def __build_tz_finder(self):
+        try:
+            self.__tz_finder = TimezoneFinder()
+        except Exception:
+            logger.exception("Could not build TimezoneFinder, timezone is UTC")
 
     def serialize(self, output_file):
         with open(output_file, "wb") as f:
@@ -398,11 +417,35 @@ class SharedStateObj:
         """
         self.__camera_lens = v
 
+    def optical_train_known(self) -> bool:
+        """False when the frames did not come through this device's optics.
+
+        See ``CameraInterface.optical_train_known``. Read alongside
+        ``camera_type``/``camera_lens`` rather than instead of them: the train
+        still resolves, it just does not describe the frames.
+        """
+        return self.__optical_train_known
+
+    def set_optical_train_known(self, v: bool):
+        self.__optical_train_known = bool(v)
+
     def sats(self):
         return self.__sats
 
     def set_sats(self, v):
         self.__sats = v
+
+    def gps_comms(self):
+        """The most recent GPS event as ``(name, monotonic_stamp)``, or None
+        when nothing has been received this session. The name is a message
+        class (``NAV-SOL``) or a marker (``?CKSUM``). The stamp is the main
+        process's ``time.monotonic()`` reading when the event was drained off
+        ``gps_queue``, so only that process can meaningfully subtract it --
+        see docs/ax/gps/CONTEXT.md."""
+        return self.__gps_comms
+
+    def set_gps_comms(self, v):
+        self.__gps_comms = v
 
     def imu(self):
         return self.__imu
@@ -452,7 +495,11 @@ class SharedStateObj:
         # documented fallback for an unknown zone (see local_datetime /
         # ADR-0018), so settle it here and keep the field a usable zone name.
         if v:
-            v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon) or "UTC"
+            self.__tz_finder_thread.join()
+            tz = None
+            if self.__tz_finder is not None:
+                tz = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
+            v.timezone = tz or "UTC"
         self.__location = v
 
     def sqm(self):

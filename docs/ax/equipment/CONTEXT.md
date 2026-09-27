@@ -62,6 +62,39 @@ _Avoid_: FOV (unqualified).
 Per-telescope flags that invert push-to chart arrow directions to match how the observer reads their eyepiece/finder. These orient the *arrows*, never the *image*.
 _Avoid_: flip arrows, mirror arrows.
 
+### Field rules
+
+**Measurement**:
+Any numeric field on a telescope or eyepiece — aperture, focal length, obstruction, AFOV, field stop. All measurements are **floats**: real optics are fractional (a 11" SCT is 279.4mm, a focal reducer turns 2032mm into 1280.2mm). Rendered for display through `format_measurement()`, which drops a meaningless `.0`.
+_Avoid_: dimension, spec, number.
+
+**Limits**:
+The inclusive `(minimum, maximum)` range a measurement may take, declared once in `equipment.py` (`TELESCOPE_LIMITS`, `EYEPIECE_LIMITS`). The edit form renders them into its client-side check and the API re-checks them; neither is the sole authority, but the API is the one that decides what reaches config.
+_Avoid_: bounds, constraints, validation rules (as a name for the table).
+
+The rules the two forms and the API enforce:
+
+| Record | Field | Required | Range | Notes |
+| --- | --- | --- | --- | --- |
+| Telescope | `make` | no | ≤ 64 chars | Free text, stripped. |
+| | `name` | **yes** | ≤ 64 chars | Blank names read as an empty row in the menu and the tables. |
+| | `aperture_mm` | yes | 1 – 2000 | |
+| | `focal_length_mm` | yes | 1 – 20000 | Zero would make magnification zero. |
+| | `obstruction_perc` | no (0) | 0 – 100 | A percentage; a refractor is 0. |
+| | `mount_type` | yes | `alt/az` \| `equatorial` | Anything else has no meaning. |
+| Eyepiece | `make` | no | ≤ 64 chars | |
+| | `name` | **yes** | ≤ 64 chars | |
+| | `focal_length_mm` | yes | 0.1 – 100 | `calc_magnification` divides by it, so never 0. |
+| | `afov` | yes | 1 – 180 | Degrees. |
+| | `field_stop` | no (0) | 0 – 100 | 0 means unknown — TFOV falls back to AFOV ÷ magnification. |
+
+Two rules that are not about ranges:
+
+- **A blank field is not a zero.** An empty required measurement is an error, never silently `0`. Only `obstruction_perc` and `field_stop` have a documented zero meaning, and only those default when left blank.
+- **A rejected entry never reports success.** The handler re-renders the form with the message and the values the user typed. This is the defect [#569](https://github.com/brickbots/PiFinder/issues/569) was raised for: the old handlers logged the failure and rendered "Eyepiece added" anyway.
+
+Recorded in [ADR 0033](../../adr/0033-equipment-measurements-are-validated-floats.md).
+
 ### Boundary terms
 
 - **Roll** — the camera roll from the latest plate-solve, owned by [Positioning](../positioning/CONTEXT.md); the object-image baseline rotation consumes it.

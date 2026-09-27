@@ -13,6 +13,7 @@
     "sleep_timeout": "30s",
     "screen_off_timeout": "Off",
     "chart_radec": "Off",
+    "chart_center_object": "On",
     "chart_dso": 128,
     "chart_reticle": 128,
     "chart_constellations": 64,

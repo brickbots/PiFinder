@@ -33,13 +33,11 @@ from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 
 import PiFinder.i18n  # noqa: F401
-from PiFinder import solver
 from PiFinder import config
-from PiFinder import pos_server
 from PiFinder import utils
-from PiFinder import server
 from PiFinder import timez
 from PiFinder import keyboard_interface
+from PiFinder import lazy_import
 import PiFinder.sound as sound
 from PiFinder.types.sound import Earcon, SetVolume
 from PiFinder.battery_bq25895 import (
@@ -73,6 +71,24 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger("main")
+
+# Only the child processes use these modules. Each child loads its own module,
+# so the main process does not load tetra3, grpc or flask.
+run_web_server = lazy_import.lazy_function("PiFinder.server", "run_server")
+run_solver = lazy_import.lazy_function("PiFinder.solver", "solver")
+run_pos_server = lazy_import.lazy_function("PiFinder.pos_server", "run_server")
+
+# The UI uses these modules only after it shows the first screen.
+UI_PRELOAD_MODULES = [
+    "quaternion",
+    "pandas",
+    "sklearn.neighbors",
+    "pydeepskylog",
+    "scipy.ndimage",
+    "scipy.optimize",
+    "PiFinder.plot",
+    "PiFinder.nearby",
+]
 
 hardware_platform = "Pi"
 display_hardware = "SSD1351"
@@ -586,7 +602,7 @@ def main(
 
         server_process = Process(
             name="Webserver",
-            target=server.run_server,
+            target=run_web_server,
             args=(
                 keyboard_queue,
                 ui_queue,
@@ -667,7 +683,7 @@ def main(
         console.update()
         solver_process = Process(
             name="Solver",
-            target=solver.solver,
+            target=run_solver,
             args=(
                 shared_state,
                 solver_queue,
@@ -709,7 +725,7 @@ def main(
         console.update()
         posserver_process = Process(
             name="SkySafariServer",
-            target=pos_server.run_server,
+            target=run_pos_server,
             args=(shared_state, ui_queue, posserver_logqueue),
         )
         posserver_process.start()
@@ -767,6 +783,11 @@ def main(
         # a build that dies before this line never reports READY and fails its
         # trial. No-op outside systemd (development runs).
         utils.sd_notify("READY=1")
+
+        # Load the UI modules in the background. All child processes are
+        # forked now, so a background import cannot deadlock a child. A start
+        # before READY slows the catalog load, because both need the GIL.
+        lazy_import.preload(UI_PRELOAD_MODULES)
 
         # Stop profiling (uncomment to analyze startup performance)
         # stop_profiling(profiler, startup_profile_start)
@@ -894,6 +915,13 @@ def main(
                         if gps_msg == "satellites":
                             # logger.debug("Main: GPS nr sats seen: %s", gps_content)
                             shared_state.set_sats(gps_content)
+                        if gps_msg == "comms":
+                            # The GPS process has no shared_state, so liveness
+                            # reaches the STATUS screen only by way of this
+                            # queue. Stamp arrival here rather than at the
+                            # sending end: the row renders in this process, so
+                            # this is the only clock it can safely subtract.
+                            shared_state.set_gps_comms((gps_content, time.monotonic()))
                 except queue.Empty:
                     pass
 
@@ -1364,7 +1392,7 @@ if __name__ == "__main__":
         from PiFinder.types.hardware import HardwareCapabilities
 
         capabilities = HardwareCapabilities(
-            has_bq25895=args.fakebattery, has_buzzer=True
+            has_bq25895=args.fakebattery, has_buzzer=True, is_rev4=args.fakebattery
         )
         if args.fakebattery:
             battery = importlib.import_module("PiFinder.battery_fake")
@@ -1376,11 +1404,9 @@ if __name__ == "__main__":
         capabilities = hardware_detect.detect_capabilities()
 
         if capabilities.has_bq25895:
-            # BQ25895 is actually present (rev4 hardware).
+            # BQ25895 is actually present (rev4 hardware with a battery).
             battery = importlib.import_module("PiFinder.battery_bq25895")
-            display_hardware = "ssd1333"
-        else:
-            display_hardware = "ssd1351"
+        display_hardware = "ssd1333" if capabilities.is_rev4 else "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
 
         cfg = config.Config()

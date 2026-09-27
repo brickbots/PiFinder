@@ -1,0 +1,109 @@
+{# Client-side validation shared by the two equipment edit forms.
+
+   Each form registers its field rules with registerEquipmentForm(); the
+   ranges in those rules are rendered from PiFinder.equipment, which is
+   also what the API re-checks, so the two can't drift.  This is feedback,
+   not enforcement — every rule here is applied again server side. #}
+<script>
+const MSG_REQUIRED = "{{ _('This field is required') }}";
+const MSG_NOT_A_NUMBER = "{{ _('Must be a valid number') }}";
+const MSG_RANGE = "{{ _('Must be between %(minimum)s and %(maximum)s') }}";
+const MSG_TOO_LONG = "{{ _('Must be %(maximum)s characters or fewer') }}";
+
+const EQUIPMENT_FORMS = {};
+
+// Accept both period and comma as the decimal separator, normalising to period
+function normalizeDecimal(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).trim().replace(',', '.');
+}
+
+// The message for what is wrong with this value, or '' if it is fine.
+function fieldError(rule, rawValue) {
+    const value = normalizeDecimal(rawValue);
+
+    if (rule.text) {
+        if (rule.required && value === '') return MSG_REQUIRED;
+        if (rule.maxLength && String(rawValue).trim().length > rule.maxLength) {
+            return MSG_TOO_LONG.replace('%(maximum)s', rule.maxLength);
+        }
+        return '';
+    }
+
+    if (value === '') return rule.required ? MSG_REQUIRED : '';
+    const number = Number(value);
+    if (!isFinite(number)) return MSG_NOT_A_NUMBER;
+    if (number < rule.minimum || number > rule.maximum) {
+        return MSG_RANGE
+            .replace('%(minimum)s', rule.minimum)
+            .replace('%(maximum)s', rule.maximum);
+    }
+    return '';
+}
+
+function showFieldError(field, message, force) {
+    const helper = field.parentElement.querySelector('.helper-text');
+    const show = Boolean(message) && (force || field.dataset.hasInteracted === 'true');
+
+    field.classList.toggle('invalid', show);
+    if (helper) {
+        helper.classList.toggle('red-text', show);
+        helper.textContent = show ? message : '';
+    }
+}
+
+// Validate every registered field, returning the first invalid one.
+function validateEquipmentForm(formId, force) {
+    const rules = EQUIPMENT_FORMS[formId] || {};
+    let firstInvalid = null;
+
+    Object.keys(rules).forEach(function (fieldName) {
+        const field = document.getElementById(fieldName);
+        if (!field) return;
+        const message = fieldError(rules[fieldName], field.value);
+        showFieldError(field, message, force);
+        if (message && !firstInvalid) firstInvalid = field;
+    });
+
+    return firstInvalid;
+}
+
+function registerEquipmentForm(formId, rules) {
+    EQUIPMENT_FORMS[formId] = rules;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        Object.keys(rules).forEach(function (fieldName) {
+            const field = document.getElementById(fieldName);
+            if (!field) return;
+            field.addEventListener('input', function () {
+                validateEquipmentForm(formId, false);
+            });
+            field.addEventListener('blur', function () {
+                field.dataset.hasInteracted = 'true';
+                validateEquipmentForm(formId, false);
+            });
+        });
+    });
+}
+
+// Called from the save link.  The form is submitted only once every field
+// passes, so an invalid entry can never reach the API as a silent no-op.
+function submitEquipmentForm(formId) {
+    const firstInvalid = validateEquipmentForm(formId, true);
+    if (firstInvalid) {
+        firstInvalid.focus();
+        return false;
+    }
+
+    const rules = EQUIPMENT_FORMS[formId] || {};
+    Object.keys(rules).forEach(function (fieldName) {
+        const field = document.getElementById(fieldName);
+        if (field && !rules[fieldName].text) {
+            field.value = normalizeDecimal(field.value);
+        }
+    });
+
+    document.getElementById(formId).submit();
+    return false;
+}
+</script>

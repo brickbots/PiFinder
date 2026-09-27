@@ -133,3 +133,50 @@ def test_unbuildable_indexes_are_not_fatal(tmp_path, caplog):
     assert db.conn is not None
     assert _indexes(path) == set()
     assert "catalog lookups will be slower" in caplog.text
+
+
+class _CapturingCursor:
+    """Records every statement executed through it, then delegates."""
+
+    def __init__(self, cursor, statements):
+        self._cursor = cursor
+        self._statements = statements
+
+    def execute(self, sql, params=()):
+        self._statements.append((sql, params))
+        return self._cursor.execute(sql, params)
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+
+@pytest.mark.unit
+def test_bulk_listing_lookup_uses_an_index(tmp_path):
+    """The bulk listing lookup plans as an index search, per catalog.
+
+    Written as one `(catalog_code, sequence) IN (VALUES ...)` this reads
+    naturally, but SQLite cannot drive a two-column index from a row-value
+    list: it constrains on catalog_code alone and scans the rest of every
+    catalog named in the list. With WDS holding ~131k of the ~151k rows,
+    that costs more than the per-listing lookups the bulk query replaces.
+    Grouping by catalog code is what keeps each listing a probe.
+    """
+    path = _make_db(tmp_path, with_indexes=False)
+    db = ObjectsDatabase(db_path=path)
+
+    statements: list = []
+    real_cursor = db.cursor
+    db.cursor = _CapturingCursor(real_cursor, statements)
+    try:
+        db.get_object_ids_by_listings([("M", 31), ("NGC", 224), ("NGC", 7000)])
+    finally:
+        db.cursor = real_cursor
+
+    assert statements, "expected the bulk lookup to issue at least one query"
+    for sql, params in statements:
+        plan = " ".join(
+            row["detail"]
+            for row in db.cursor.execute(f"explain query plan {sql}", params)
+        )
+        assert "idx_catalog_objects_code_sequence" in plan
+        assert "SCAN" not in plan

@@ -35,7 +35,7 @@ those without zeroconf networking, use the IP address shown on the
 * A web browser, for the :ref:`connectivity:web interface` (remote control, WiFi setup, and configuration changes)
 * SSH, for shell access (advanced users)
 * SMB (Samba), to access saved images, logs, and observing lists
-* LX200 protocol, to update a planetarium app such as :doc:`skysafari` with the telescope's position
+* LX200 protocol, to update a planetarium app such as :doc:`SkySafari or Stellarium <skysafari>` with the telescope's position
 
 Web Interface
 ==============
@@ -47,6 +47,7 @@ The PiFinder's web interface lets you:
 * Change network settings and connect to new WiFi networks
 * Add and edit your telescopes and eyepieces (see :doc:`equipment`)
 * Back up and restore your observing logs, settings, and other data
+* Browse, download, upload, and delete the files in the PiFinder's data folder (the Data page)
 * View and download your logged observations
 * Select or upload a logging configuration to capture detailed logs for a bug report
 
@@ -119,20 +120,38 @@ to default when you're done.
 SkySafari and Planetarium Apps
 ==============================
 
-The PiFinder can send real-time pointing information to SkySafari and other planetarium apps
-over the LX200 protocol.  It also accepts the objects those apps send back.  The
-:doc:`skysafari` page has the connection settings and takes you through the setup step by
+The PiFinder can send real-time pointing information to SkySafari, Stellarium and other
+planetarium apps over the LX200 protocol.  It also accepts the objects those apps send back.
+The :doc:`skysafari` page has the connection settings and takes you through the setup step by
 step.
 
 Shared Data Access
 ===================
 
-The PiFinder creates several data files you may want.  It shares them over SMB (samba) at
+The PiFinder creates several data files you may want.  There are two ways to reach them:
+the Data page of the web interface, and the SMB share.
+
+**Data page.** Open the :ref:`connectivity:web interface` and click ``Data`` in the top
+bar.  The page shows the contents of the data folder.  Shortcut chips at the top jump to
+the folders people use most: observing lists, captures, SQM sweeps, SQM calibration runs,
+screenshots, solver debug dumps, and logs.  Click a folder to open it.  Use the breadcrumb
+trail to go back up.  From here you can:
+
+* download a file, or download a whole folder as a zip file
+* upload files into the current folder (use the Upload button, or drop files on the list)
+* create a new folder
+* delete files and folders, one at a time or several at once (tick the boxes, then
+  ``Delete selected``)
+
+This needs no extra setup on your computer.  If you prefer to mount the folder as a
+network drive, use the SMB share below.
+
+**SMB share.** The PiFinder shares the same folder over SMB (samba) at
 ``//pifinder.local/shared``.  Access depends on your operating system, but the PiFinder
 should appear in a network browser.  The share needs no password.  Connect as ``guest`` and
 leave the password blank.
 
-Once connected, you see:
+In either case, you see:
 
 
 * ``captures/``\ : The images the PiFinder saves when you log an object.  Each name contains the observation ID from the database.

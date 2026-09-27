@@ -58,7 +58,7 @@ pkgs.stdenv.mkDerivation {
 
     # Bulky, stable inputs live in their own derivations and are symlinked in,
     # so a code change rewrites only the (small) code path — not astro-data
-    # (~193MB) or fonts (~31MB). See ADR 0001.
+    # (~193MB) or fonts (~31MB). See ADR 0037.
     rm -rf $out/astro_data
     ln -s ${astro-data} $out/astro_data
     rm -rf $out/fonts

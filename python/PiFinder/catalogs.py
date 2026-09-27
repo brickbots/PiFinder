@@ -912,6 +912,64 @@ class CatalogBackgroundLoader:
         return composite_instance
 
 
+class CachedCatalogLoader:
+    """
+    Loads the deferred catalog objects from the catalog cache in the
+    background. It has the same _thread, stop() and on_complete interface as
+    CatalogBackgroundLoader.
+    """
+
+    def __init__(
+        self,
+        obs_db: ObservationsDatabase,
+        on_complete: Optional[callable] = None,
+    ):
+        self._obs_db = obs_db
+        self._on_complete = on_complete
+        self._thread: Optional[threading.Thread] = None
+        self._stop_flag = threading.Event()
+
+        # Seconds to sleep between two cache chunks, to yield to the UI thread
+        self.yield_time = 0.05
+
+    def start(self) -> None:
+        """Start background loading in daemon thread"""
+        if self._thread and self._thread.is_alive():
+            return
+
+        self._stop_flag.clear()
+        self._thread = threading.Thread(
+            target=self._load, daemon=True, name="CatalogCacheLoader"
+        )
+        self._thread.start()
+
+    def stop(self) -> None:
+        """Stop background loading gracefully"""
+        self._stop_flag.set()
+        if self._thread:
+            self._thread.join(timeout=1.0)
+
+    def _load(self) -> None:
+        loaded: List[CompositeObject] = []
+        try:
+            for chunk in catalog_cache.iter_deferred():
+                if self._stop_flag.is_set():
+                    logger.info("Background cache loading stopped by request")
+                    return
+                for obj in chunk:
+                    obj.logged = self._obs_db.check_logged(obj)
+                loaded.extend(chunk)
+                time.sleep(self.yield_time)
+        except Exception as e:
+            # The next startup rebuilds the cache from the database.
+            logger.error(f"Deferred catalog cache failed: {e}", exc_info=True)
+            catalog_cache.clear()
+            loaded = []
+
+        if self._on_complete:
+            self._on_complete(loaded)
+
+
 class CatalogBuilder:
     """
     Builds catalogs from the database
@@ -928,7 +986,7 @@ class CatalogBuilder:
         """
         obs_db: Database = ObservationsDatabase()
 
-        cached = catalog_cache.load()
+        cached = catalog_cache.load_priority()
         if cached is not None:
             composite_objects, catalogs_info = cached
             obs_db.load_observed_objects_cache()
@@ -941,12 +999,19 @@ class CatalogBuilder:
             all_catalogs: Catalogs = self._get_catalogs(
                 composite_objects, catalogs_info
             )
-
-            # All objects loaded synchronously from cache — no background
-            # loader, no completion signal (there is nothing for the UI to
-            # transition from).
-            self._background_loader = None
             self._pending_catalogs_ref = all_catalogs
+
+            # The priority catalogs are loaded. The other catalogs load from
+            # the cache in the background. The cache is valid, so the
+            # completion callback does not write it again.
+            self._cache_catalogs_info = None
+            loader = CachedCatalogLoader(
+                obs_db=obs_db,
+                on_complete=lambda objs: self._on_loader_complete(objs, ui_queue),
+            )
+            loader.start()
+            self._background_loader = loader
+            all_catalogs._background_loader = loader
         else:
             db: Database = ObjectsDatabase()
 
@@ -1073,14 +1138,11 @@ class CatalogBuilder:
         Popular catalogs (M, NGC, IC) are loaded immediately.
         Other catalogs (WDS, etc.) are loaded in background.
         """
-        # Separate high-priority catalogs from low-priority ones
-        priority_catalogs = {"NGC", "IC", "M"}  # Most popular catalogs
-
         priority_objects = []
         deferred_objects = []
 
         for catalog_obj in catalog_objects:
-            if catalog_obj["catalog_code"] in priority_catalogs:
+            if catalog_obj["catalog_code"] in catalog_cache.PRIORITY_CATALOGS:
                 priority_objects.append(catalog_obj)
             else:
                 deferred_objects.append(catalog_obj)

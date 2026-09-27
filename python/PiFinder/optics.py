@@ -9,9 +9,15 @@ own optics -- the solver's FOV gate, SQM's radiometric field width, the
 chart's frustum shading -- comes from here.
 
 The sensor half is auto-detected at startup; the lens half cannot be detected
-at all and is whatever the user said is fitted. A wrong statement is a
+directly and is whatever the user said is fitted. A wrong *statement* is a
 configuration error the device does not, and deliberately will not, discover
 for itself: see ``docs/adr/0027-fov-gate-derived-from-optical-train.md``.
+
+When nothing has been stated, though, there is no statement to respect -- only
+a fallback. This module keeps the two apart (**stated lens** vs **assumed
+lens**, defined in ``docs/ax/camera/CONTEXT.md``), because the solver's FOV
+gate is only entitled to narrow around a claim somebody actually made. See
+``docs/adr/0029-fov-gate-width-follows-lens-confidence.md``.
 
 Vocabulary is defined in ``docs/ax/camera/CONTEXT.md`` (Optics). In particular
 *nominal* focal length is the label on the barrel and *effective* focal length
@@ -37,6 +43,15 @@ logger = logging.getLogger("Optics")
 # with +/-5% lens error injected. It is still tighter than the +/-33% the old
 # fixed pair worked out to. See docs/adr/0027.
 FOV_GATE_MARGIN = 0.15
+
+# How close a fitted FOV must sit to a lens's derived field of view, as a
+# fraction of the latter, before that lens is taken as identified. tetra3 fits
+# the field of view to well under a percent, and the candidates on any one
+# sensor are ~20% apart (the imx462's are 12.44 and 10.40 degrees), so 5% is
+# generous without being ambiguous. Outside it, no lens is named: a third-party
+# lens must leave the assumption alone rather than be snapped to the nearest
+# thing we happen to sell. See docs/adr/0029.
+LENS_IDENTIFY_TOLERANCE = 0.05
 
 # Pixels per side of the image handed to tetra3. Centroids are reported in
 # this grid, so it is the grid the solver's plate scale is stated against.
@@ -90,7 +105,14 @@ LENSES: Dict[str, Lens] = {
     "12mm": Lens(
         key="12mm",
         nominal_focal_length_mm=12.0,
-        effective_focal_length_mm=12.0,
+        # 13.04 is what a rev4 imx462 measured on sky: six solves fitting
+        # 12.4366 +/- 0.0025 degrees against a 980px @ 2.9um crop. The same
+        # board on the 16mm then fitted 10.4011 degrees, reproducing that
+        # lens's derived field to 0.02% -- which is what makes this a
+        # measurement of the 12mm rather than of the sensor profile. The
+        # barrel runs 8.7% long, in the opposite direction from the 16mm's
+        # 2.4% short, so neither label predicts the other. See #627.
+        effective_focal_length_mm=13.04,
         # Front element measures 9.85mm, but that is not the entrance pupil:
         # M12 front elements are deliberately oversized to accept off-axis
         # rays (the advertised-f/2 16mm shows a 1.24x oversize). Applying the
@@ -100,10 +122,6 @@ LENSES: Dict[str, Lens] = {
         # is f/1.6-f/2.0; 2.0 never over-claims. Settle it by comparing
         # on-sky photometric zero points, not by measuring glass.
         f_number=2.0,
-        # Nominal standing in for a measurement. The 16mm measured 2.5% short
-        # of its label, so assuming this one is exact is optimistic; an on-sky
-        # sweep is needed, and the same sweep settles its SQM zero point.
-        effective_focal_length_measured=False,
     ),
     "16mm": Lens(
         key="16mm",
@@ -167,16 +185,28 @@ def resolve_camera_profile(camera_type: str) -> CameraProfile:
         return get_camera_profile(FALLBACK_CAMERA_TYPE)
 
 
+def lens_is_stated(lens_key: Optional[str]) -> bool:
+    """True when config names a lens we recognise -- a claim, not a fallback.
+
+    The predicate ``resolve_lens`` decides on, exposed separately because the
+    *fact of having been told* outlives the resolution: the FOV gate widens
+    when this is false, and self-heal only ever writes into that case. An
+    unrecognised key counts as unstated -- it resolves to the fallback, so
+    treating it as a claim would gate tightly around a lens nobody named.
+    """
+    return bool(lens_key) and lens_key in LENSES
+
+
 def resolve_lens(profile: CameraProfile, lens_key: Optional[str] = None) -> Lens:
     """The lens to use for a profile, given what the config says (if anything).
 
-    An absent or unrecognised key falls back to the sensor's shipped lens.
+    An absent or unrecognised key falls back to the sensor's assumed lens.
     That fallback is what lets installs predating the lens setting resolve
     correctly with no migration, and it keeps a hand-edited config from
     breaking every derived angle.
     """
-    if lens_key and lens_key in LENSES:
-        return LENSES[lens_key]
+    if lens_is_stated(lens_key):
+        return LENSES[str(lens_key)]
     return get_lens(profile.default_lens_key)
 
 
@@ -189,6 +219,12 @@ class OpticalTrain:
 
     profile: CameraProfile
     lens: Lens
+
+    # Whether ``lens`` was stated in config or merely assumed. Only the FOV
+    # gate reads it: every other derived angle uses the resolved lens either
+    # way, because an assumption is still the best available answer. See
+    # :meth:`solver_fov_params`.
+    lens_stated: bool = False
 
     @property
     def fov_degrees(self) -> float:
@@ -229,9 +265,40 @@ class OpticalTrain:
         field of view falls outside are discarded before verification, and any
         survivor is rejected after fitting. A frame whose true field of view
         lies outside does not solve at all, however many centroids it has.
+        ``fov_max_error`` is an absolute angle, not a fraction, so the margin
+        is multiplied out here.
+
+        The width follows what is actually known about the lens. A **stated**
+        lens is a claim, so the gate narrows around the single field of view
+        it implies. An **assumed** lens is not a claim, so the gate spans
+        every lens this sensor has shipped with -- and then ``fov_estimate``
+        is no longer this device's field of view but the centre of a plausible
+        range, which is why the pair only means anything read together.
+        Widening costs essentially nothing in solve time while keeping the
+        upper bound that rejects confident mis-solves; over-tightening costs
+        the whole ``solve_timeout`` on every frame, forever. See ADR 0029.
         """
-        fov = self.fov_degrees
-        return fov, fov * FOV_GATE_MARGIN
+        candidates = self.profile.shipped_lens_keys or (self.lens.key,)
+        if self.lens_stated or len(candidates) == 1:
+            # Either somebody named the lens, or the sensor only ever shipped
+            # one and there is nothing an assumption could be wrong about. The
+            # second case is why the HQ's gate is unchanged by ADR 0029 --
+            # and it is spelled out rather than left to fall out of the union
+            # below, which would re-derive the same window through different
+            # arithmetic and land a float ULP away from the value that has
+            # been shipping.
+            fov = self.fov_degrees
+            return fov, fov * FOV_GATE_MARGIN
+
+        # tetra3's window is symmetric, so the union of the per-lens windows
+        # has to be re-centred rather than handed over as a pair of bounds.
+        bounds = [
+            OpticalTrain(self.profile, get_lens(key), lens_stated=True).fov_degrees
+            for key in candidates
+        ]
+        low = min(bound * (1.0 - FOV_GATE_MARGIN) for bound in bounds)
+        high = max(bound * (1.0 + FOV_GATE_MARGIN) for bound in bounds)
+        return (low + high) / 2.0, (high - low) / 2.0
 
     def __repr__(self) -> str:
         return (
@@ -241,11 +308,50 @@ class OpticalTrain:
         )
 
 
+def identify_lens_from_fitted_fov(
+    profile: CameraProfile, fitted_fov_degrees: Optional[float]
+) -> Optional[str]:
+    """Which shipped lens a measured field of view implies, if any.
+
+    The lens half of the train is not detectable directly, but it is not
+    unknowable: a **fitted FOV** measures the train as a whole, and the sensor
+    half is known, so what is left is the lens. This is that division, done by
+    comparison rather than by algebra -- the answer has to be a registry key,
+    since ``camera_lens`` is a key and the Lens menu renders it.
+
+    Candidates are restricted to the lenses this sensor has shipped with,
+    which is self-consistent: those are the only lenses the assumed-lens gate
+    could have admitted a solve for in the first place.
+
+    Returns None when nothing lands within :data:`LENS_IDENTIFY_TOLERANCE` --
+    the honest answer for third-party glass, and the reason this cannot snap a
+    measurement to a lens the device does not actually have.
+    """
+    if not fitted_fov_degrees or fitted_fov_degrees <= 0.0:
+        return None
+
+    best_key: Optional[str] = None
+    best_error: Optional[float] = None
+    for key in profile.shipped_lens_keys:
+        derived = OpticalTrain(profile, get_lens(key), lens_stated=True).fov_degrees
+        error = abs(fitted_fov_degrees - derived) / derived
+        if best_error is None or error < best_error:
+            best_key, best_error = key, error
+
+    if best_error is None or best_error > LENS_IDENTIFY_TOLERANCE:
+        return None
+    return best_key
+
+
 def optical_train_for_profile(
     profile: CameraProfile, lens_key: Optional[str] = None
 ) -> OpticalTrain:
-    """Pair an already-loaded profile with the configured (or shipped) lens."""
-    return OpticalTrain(profile=profile, lens=resolve_lens(profile, lens_key))
+    """Pair an already-loaded profile with the stated (or assumed) lens."""
+    return OpticalTrain(
+        profile=profile,
+        lens=resolve_lens(profile, lens_key),
+        lens_stated=lens_is_stated(lens_key),
+    )
 
 
 def build_optical_train(

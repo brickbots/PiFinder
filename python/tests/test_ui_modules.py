@@ -56,6 +56,7 @@ import shutil
 from typing import Iterator
 from unittest import mock
 
+import numpy as np
 import pytest
 from PIL import Image
 
@@ -728,6 +729,69 @@ def test_nearby_sort_navigation_bounded_by_ranked_window(
         state["current_item"]
         == module._menu_items_sorted[module._current_item_index].display_name
     )
+
+
+@pytest.mark.integration
+def test_object_details_serialises_from_a_nearby_sorted_list(
+    display, camera_image, catalogs
+):
+    """Object details opened from a Nearby list serialise as state, not an error.
+
+    The Nearby sort hands ``show_object_details`` the NumPy object array
+    ``get_closest_objects`` returns, not a Python list. Anything in
+    ``serialize_ui_state`` that tests that array for truthiness raises
+    ("truth value of an array with more than one element is ambiguous"), and
+    the raise is swallowed by the method's own except clause -- so the whole
+    remote state degrades to {"error": ...} for every object reached this way.
+    """
+    cfg = Config()
+    shared_state = _make_shared_state("warm")
+    command_queues = _make_command_queues()
+    catalog_filter = CatalogFilter(shared_state=shared_state)
+    catalog_filter.load_from_config(cfg)
+    catalogs.set_catalog_filter(catalog_filter)
+
+    object_list = UIObjectList(
+        display,
+        camera_image,
+        shared_state,
+        command_queues,
+        cfg,
+        catalogs,
+        item_definition={
+            "name": "All Filtered",
+            "class": UIObjectList,
+            "objects": "catalogs.filtered",
+        },
+        add_to_stack=lambda item_definition: None,
+    )
+    object_list.current_sort = SortOrder.NEAREST
+    object_list.sort()
+
+    ranked = object_list._menu_items_sorted
+    # The precondition the bug needs: a multi-element array, not a list.
+    assert isinstance(ranked, np.ndarray)
+    assert len(ranked) > 1
+
+    details = UIObjectDetails(
+        display,
+        camera_image,
+        shared_state,
+        command_queues,
+        cfg,
+        catalogs,
+        item_definition={
+            "name": ranked[0].display_name,
+            "class": UIObjectDetails,
+            "object": ranked[0],
+            "object_list": ranked,
+            "label": "object_details",
+        },
+    )
+
+    state = details.serialize_ui_state()
+    assert "error" not in state, state.get("error")
+    assert state["object_list_length"] == len(ranked)
 
 
 @pytest.mark.integration

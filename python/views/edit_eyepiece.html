@@ -11,39 +11,52 @@
     </div>
 </div>
 
+{% if error_message %}
+<div class="row">
+    <div class="col s12">
+        <p class="red-text">{{ error_message }}</p>
+    </div>
+</div>
+{% endif %}
+
 <form action="/equipment/add_eyepiece/{{ eyepiece_id }}" method="post" id="add_eyepiece" class="col s12">
     <div class="row">
         <div class="input-field col s12">
             <input value="{{ eyepiece.make }}" id="make" type="text" name="make">
             <label for="make">{{ _('Make') }}</label>
+            <span class="helper-text"></span>
         </div>
     </div>
     <div class="row">
         <div class="input-field col s12">
             <input value="{{ eyepiece.name }}" id="name" type="text" name="name">
             <label for="name">{{ _('Name') }}</label>
+            <span class="helper-text"></span>
         </div>
     </div>
     <div class="row">
         <div class="input-field col s12">
-            <input value="{{ eyepiece.focal_length_mm }}" id="focal_length_mm" type="number" name="focal_length_mm">
+            <input value="{{ eyepiece.focal_length_mm|measurement }}" id="focal_length_mm" type="text" inputmode="decimal" name="focal_length_mm">
             <label for="focal_length_mm">{{ _('Focal Length (in mm)') }}</label>
+            <span class="helper-text"></span>
         </div>
     </div>
     <div class="row">
         <div class="input-field col s12">
-            <input value="{{ eyepiece.afov }}" id="afov" type="number" name="afov">
+            <input value="{{ eyepiece.afov|measurement }}" id="afov" type="text" inputmode="decimal" name="afov">
             <label for="afov">{{ _('Apparent Field of View (in °)') }}</label>
+            <span class="helper-text"></span>
         </div>
     </div>
     <div class="row">
         <div class="input-field col s12">
-            <input value="{{ eyepiece.field_stop }}" id="field_stop" type="number" name="field_stop">
+            <input value="{{ eyepiece.field_stop|measurement }}" id="field_stop" type="text" inputmode="decimal" name="field_stop">
             <label for="field_stop">{{ _('Field stop (in mm)') }}</label>
+            <span class="helper-text">{{ _('Leave at 0 if unknown') }}</span>
         </div>
     </div>
 </form>
-<a href="#" onClick="document.getElementById('add_eyepiece').submit();"
+<a href="#" onClick="return submitEquipmentForm('add_eyepiece');"
    class="btn">
 {% if eyepiece_id < 0 %}
     {{ _('Add eyepiece!') }}
@@ -55,4 +68,17 @@
 
 <br />
 <br />
+{% endblock %}
+
+{% block scripts %}
+{% include "equipment_validation.html" %}
+<script>
+registerEquipmentForm('add_eyepiece', {
+    make: {text: true, maxLength: {{ name_max_length }}},
+    name: {text: true, required: true, maxLength: {{ name_max_length }}},
+    focal_length_mm: {required: true, minimum: {{ limits.focal_length_mm.minimum }}, maximum: {{ limits.focal_length_mm.maximum }}},
+    afov: {required: true, minimum: {{ limits.afov.minimum }}, maximum: {{ limits.afov.maximum }}},
+    field_stop: {minimum: {{ limits.field_stop.minimum }}, maximum: {{ limits.field_stop.maximum }}}
+});
+</script>
 {% endblock %}

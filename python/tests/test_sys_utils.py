@@ -129,6 +129,39 @@ try:
 
         assert sys_utils.get_upgrade_progress()["phase"] == "starting"
 
+    @pytest.mark.unit
+    def test_upgrade_progress_checking_and_patching(tmp_path, monkeypatch):
+        status = tmp_path / "status"
+        monkeypatch.setattr(sys_utils, "UPGRADE_STATUS_FILE", status)
+        monkeypatch.setattr(sys_utils, "_upgrade_service_state", lambda: "activating")
+        status.write_text("checking")
+        assert sys_utils.get_upgrade_progress()["phase"] == "checking"
+        status.write_text("patching 3/12")
+        p = sys_utils.get_upgrade_progress()
+        assert (p["phase"], p["done"], p["total"], p["unit"], p["percent"]) == (
+            "patching",
+            3,
+            12,
+            "paths",
+            25,
+        )
+        status.write_text("patching waiting 5/12")
+        p = sys_utils.get_upgrade_progress()
+        assert (p["phase"], p["step"], p["done"], p["total"]) == (
+            "patching",
+            "waiting",
+            5,
+            12,
+        )
+        status.write_text("patching applying 2/4")
+        p = sys_utils.get_upgrade_progress()
+        assert (p["step"], p["done"], p["total"], p["percent"]) == (
+            "applying",
+            2,
+            4,
+            50,
+        )
+
 
 except (ImportError, ValueError):
     pass
