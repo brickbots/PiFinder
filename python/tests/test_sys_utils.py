@@ -130,6 +130,18 @@ try:
         assert sys_utils.get_upgrade_progress()["phase"] == "starting"
 
     @pytest.mark.unit
+    def test_upgrade_progress_installing(tmp_path, monkeypatch):
+        status = tmp_path / "status"
+        monkeypatch.setattr(sys_utils, "UPGRADE_STATUS_FILE", status)
+        monkeypatch.setattr(sys_utils, "_upgrade_service_state", lambda: "activating")
+        status.write_text("installing 12/45 pifinder-src-0.0.1")
+        got = sys_utils.get_upgrade_progress()
+        assert got["phase"] == "installing"
+        assert (got["done"], got["total"], got["unit"]) == (12, 45, "paths")
+        assert got["percent"] == 26
+        assert got["item"] == "pifinder-src-0.0.1"
+
+    @pytest.mark.unit
     def test_upgrade_progress_checking_and_patching(tmp_path, monkeypatch):
         status = tmp_path / "status"
         monkeypatch.setattr(sys_utils, "UPGRADE_STATUS_FILE", status)

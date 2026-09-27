@@ -1178,6 +1178,8 @@ class UISoftware(UIModule):
             label = _("Applying patches")
         elif phase == "patching":
             label = _("Patching...")
+        elif phase == "installing":
+            label = _("Installing patches")
         elif phase == "starting":
             label = _("Preparing...")
         else:
@@ -1199,10 +1201,9 @@ class UISoftware(UIModule):
             fill=self.colors.get(48),
             outline=self.colors.get(128),
         )
-        if phase in ("starting", "checking") or step == "waiting":
-            # No measurable progress here (the dry run reports none, and a
-            # wait for the delta server has no amount), so a block moves back
-            # and forth to show the device is working.
+        if phase in ("starting", "checking"):
+            # No measurable progress here (the dry run reports none), so a
+            # block moves back and forth to show the device is working.
             block_w = 24
             span = bar_w - block_w - 2
             pos = int(time.monotonic() * 40) % (2 * span)
@@ -1211,21 +1212,6 @@ class UISoftware(UIModule):
                 [left, y + 1, left + block_w, y + bar_h - 1],
                 fill=self.colors.get(192),
             )
-            y += bar_h + 6
-            if step == "waiting":
-                # done is the number of paths the server is still computing.
-                self.draw.text(
-                    (4, y),
-                    _("{n} to go").format(n=done),
-                    font=self.fonts.large.font,
-                    fill=self.colors.get(255),
-                )
-                self.draw.text(
-                    (4, y + 19),
-                    _("asking again soon"),
-                    font=self.fonts.base.font,
-                    fill=self.colors.get(96),
-                )
             return
 
         fill_w = int(bar_w * pct / 100)
@@ -1250,13 +1236,13 @@ class UISoftware(UIModule):
         )
         y += bar_h + 6
 
-        # Amount below the bar: bytes downloaded out of the total, or a path
-        # count in the fallback case where byte sizes were unavailable.
-        if phase in ("downloading", "patching") and total > 0:
-            if unit == "bytes":
-                amount_text = format_amount(done, total)
-            elif step == "applying":
+        # Amount below the bar: patches ready, applied or installed; bytes
+        # downloaded; or a path count where byte sizes were unavailable.
+        if phase in ("downloading", "patching", "installing") and total > 0:
+            if phase in ("patching", "installing"):
                 amount_text = _("{done}/{total} patches").format(done=done, total=total)
+            elif unit == "bytes":
+                amount_text = format_amount(done, total)
             else:
                 amount_text = f"{done}/{total} paths"
             # The amount is the main fact on this screen: large and bright.

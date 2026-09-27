@@ -497,7 +497,8 @@ def test_prefetch_waits_once_per_round_for_all_paths(tmp_path, monkeypatch):
     )
     staged.cleanup()
     assert sleeps == [delta_updates.RETRY_WAIT] * delta_updates.RETRIES
-    assert ("waiting", 10, 10) in seen
+    # "waiting" counts the patches that are decided: none of the 10 here.
+    assert ("waiting", 0, 10) in seen
     assert seen[-1] == ("applying", 0, 0)
 
 

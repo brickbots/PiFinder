@@ -613,8 +613,8 @@ def get_upgrade_progress() -> dict:
     """Return structured upgrade progress for UI display.
 
     Returns dict with keys:
-      phase: "starting" | "checking" | "patching" | "downloading"
-             | "activating" | "rebooting"
+      phase: "starting" | "checking" | "patching" | "installing"
+             | "downloading" | "activating" | "rebooting"
              | "success" | "failed" | "unavailable" | "connfail" | ""
       done: int (downloaded so far, in `unit`)
       total: int (total to download, in `unit`)
@@ -647,7 +647,7 @@ def get_upgrade_progress() -> dict:
 
     svc = _upgrade_service_state()
     if raw in ("starting", "checking", "activating") or raw.startswith(
-        ("downloading ", "patching ")
+        ("downloading ", "patching ", "installing ")
     ):
         if svc in ("failed", "inactive"):
             return {**empty, "phase": "failed"}
@@ -675,6 +675,25 @@ def get_upgrade_progress() -> dict:
             }
         except (ValueError, IndexError):
             return {**empty, "phase": "downloading"}
+    if raw.startswith("installing "):
+        # "installing <done>/<total> [<package>]": nix installs the patched
+        # paths from the local cache (nixos_upgrade._DownloadProgress).
+        nums, _sep, item = raw[len("installing ") :].strip().partition(" ")
+        try:
+            done_s, total_s = nums.split("/")
+            done, total = int(done_s), int(total_s)
+        except ValueError:
+            return {**empty, "phase": "installing", "unit": "paths"}
+        pct = max(0, min(100, int(done * 100 / total))) if total > 0 else 0
+        return {
+            **empty,
+            "phase": "installing",
+            "done": done,
+            "total": total,
+            "unit": "paths",
+            "percent": pct,
+            "item": item.strip(),
+        }
     if raw.startswith("patching "):
         # "patching <step> <done>/<total>", step one of asking, waiting,
         # applying (see delta_updates.prefetch_deltas). An older upgrade

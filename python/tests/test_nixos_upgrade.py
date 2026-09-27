@@ -101,7 +101,7 @@ def test_download_progress_skips_the_local_patch_cache(monkeypatch):
         nixos_upgrade, "write_status", lambda s, _f=None: statuses.append(s)
     )
     progress = nixos_upgrade._DownloadProgress(
-        10_000_000, 2, None, local_source="file:///var/lib/x/cache"
+        10_000_000, 2, None, local_source="file:///var/lib/x/cache", local_total=1
     )
     progress.feed(
         '@nix {"action":"start","id":1,"type":100,'
@@ -111,7 +111,11 @@ def test_download_progress_skips_the_local_patch_cache(monkeypatch):
         '@nix {"action":"result","id":1,"type":105,"fields":[9000000,9000000,1,0]}'
     )
     progress.feed('@nix {"action":"stop","id":1,"type":100}')
-    assert statuses == []
+    # The local copy is the "installing" step, in paths, not a download.
+    assert [x.split(" ")[:2] for x in statuses] == [
+        ["installing", "0/1"],
+        ["installing", "1/1"],
+    ]
     progress.feed(
         '@nix {"action":"start","id":2,"type":100,'
         f'"fields":["{STORE}","https://cache.nixos.org","local"]}}'
@@ -143,7 +147,8 @@ def test_run_build_total_leaves_out_patched_bytes(monkeypatch, tmp_path):
         patched_bytes=26_000_000,
         patched_paths=2,
     )
-    assert status.read_text().strip() == "downloading 0/4000000"
+    # nix installs the 2 patched paths first, then downloads the rest.
+    assert status.read_text().strip() == "installing 0/2"
 
 
 @pytest.mark.unit
