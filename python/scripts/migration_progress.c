@@ -420,7 +420,7 @@ static void fb_string_centered_fit(int y, const char *s, uint16_t color, int max
 static void draw_progress(int percent, const char *stage, int stage_num, int stage_total)
 {
     /* The bar shows the progress of the current step. A negative percent
-     * means the step has no measure: the bar stays empty, with no number. */
+     * means the step has no measure: no bar and no number. */
     int measured = percent >= 0;
     if (percent < 0) percent = 0;
     if (percent > 100) percent = 100;
@@ -453,27 +453,29 @@ static void draw_progress(int percent, const char *stage, int stage_num, int sta
         fb_string_centered(stage_y, stage_str, COL_DKGRAY, scale);
     }
 
-    /* Progress bar */
-    int bar_x = margin;
-    int bar_w = display_width - (margin * 2);
-    int bar_h = display_width >= 160 ? 16 : 12;
+    /* Progress bar, only for a step with a measure */
+    if (measured) {
+        int bar_x = margin;
+        int bar_w = display_width - (margin * 2);
+        int bar_h = display_width >= 160 ? 16 : 12;
 
-    /* Border */
-    fb_rect(bar_x, bar_y, bar_w, 1, COL_DKGRAY);
-    fb_rect(bar_x, bar_y + bar_h - 1, bar_w, 1, COL_DKGRAY);
-    fb_rect(bar_x, bar_y, 1, bar_h, COL_DKGRAY);
-    fb_rect(bar_x + bar_w - 1, bar_y, 1, bar_h, COL_DKGRAY);
+        /* Border */
+        fb_rect(bar_x, bar_y, bar_w, 1, COL_DKGRAY);
+        fb_rect(bar_x, bar_y + bar_h - 1, bar_w, 1, COL_DKGRAY);
+        fb_rect(bar_x, bar_y, 1, bar_h, COL_DKGRAY);
+        fb_rect(bar_x + bar_w - 1, bar_y, 1, bar_h, COL_DKGRAY);
 
-    /* Fill */
-    int fill_w = (bar_w - 4) * percent / 100;
-    if (fill_w > 0)
-        fb_rect(bar_x + 2, bar_y + 2, fill_w, bar_h - 4, COL_RED);
+        /* Fill */
+        int fill_w = (bar_w - 4) * percent / 100;
+        if (fill_w > 0)
+            fb_rect(bar_x + 2, bar_y + 2, fill_w, bar_h - 4, COL_RED);
 
-    /* Dark red background for unfilled */
-    int unfill_x = bar_x + 2 + fill_w;
-    int unfill_w = (bar_w - 4) - fill_w;
-    if (unfill_w > 0)
-        fb_rect(unfill_x, bar_y + 2, unfill_w, bar_h - 4, COL_DKRED);
+        /* Dark red background for unfilled */
+        int unfill_x = bar_x + 2 + fill_w;
+        int unfill_w = (bar_w - 4) - fill_w;
+        if (unfill_w > 0)
+            fb_rect(unfill_x, bar_y + 2, unfill_w, bar_h - 4, COL_DKRED);
+    }
 
     /* Percentage */
     if (measured) {

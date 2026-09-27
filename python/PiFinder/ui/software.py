@@ -681,21 +681,20 @@ class UIMigrationProgress(UIModule):
         )
         y += 20
 
-        # Progress bar
-        bar_x, bar_w, bar_h = 4, 120, 12
-        self.draw.rectangle(
-            [bar_x, y, bar_x + bar_w, y + bar_h],
-            outline=self.colors.get(64),
-        )
-        # The bar shows the current step; a negative percent means the step
-        # has no measure: an empty bar and no number.
-        fill_w = int(bar_w * max(self._progress, 0) / 100)
-        if fill_w > 0:
-            self.draw.rectangle(
-                [bar_x + 1, y + 1, bar_x + fill_w, y + bar_h - 1],
-                fill=self.colors.get(255),
-            )
+        # Progress bar, only for a step with a measure: a negative percent
+        # means the step has none, and an empty bar would suggest one.
         if self._progress >= 0:
+            bar_x, bar_w, bar_h = 4, 120, 12
+            self.draw.rectangle(
+                [bar_x, y, bar_x + bar_w, y + bar_h],
+                outline=self.colors.get(64),
+            )
+            fill_w = int(bar_w * self._progress / 100)
+            if fill_w > 0:
+                self.draw.rectangle(
+                    [bar_x + 1, y + 1, bar_x + fill_w, y + bar_h - 1],
+                    fill=self.colors.get(255),
+                )
             pct_text = f"{self._progress}%"
             pct_bbox = self.fonts.base.font.getbbox(pct_text)
             pct_w = pct_bbox[2] - pct_bbox[0]
@@ -710,7 +709,7 @@ class UIMigrationProgress(UIModule):
                 if self._progress > 45
                 else self.colors.get(192),
             )
-        y += bar_h + 4
+            y += bar_h + 4
 
         # Use TextLayouter for scrollable status text
         self._status_layout.draw((0, y))
