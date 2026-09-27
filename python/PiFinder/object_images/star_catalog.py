@@ -63,20 +63,28 @@ class CatalogState(Enum):
     READY = 2
 
 
+# One run directory entry on disk: start_tile_id(4), data_offset(8), packed.
+RUN_DIRECTORY_DTYPE = np.dtype([("start", "<u4"), ("offset", "<u8")])
+
+
 class CompressedIndex:
     """
     Memory-efficient compressed index reader with mmap support.
 
     Uses run-length encoding format:
     - Header: version(4), num_tiles(4), num_runs(4)
-    - Run directory: [start_tile_id(4), data_offset(8)] per run (in RAM)
+    - Run directory: [start_tile_id(4), data_offset(8)] per run
     - Run data: [length(2), offset_base(8), sizes...] (mmap'd)
+
+    The run directory is a numpy view on the mmap. Only the start tile ids are
+    copied, 4 bytes per run, for the binary search. As a list of Python tuples
+    it took about 132 bytes per run: 161 MB in RAM for the 15 MB on disk of
+    the 1.2 million runs of the full catalog.
     """
 
     def __init__(self, index_file: Path):
-        """Load compressed index with run directory in memory"""
+        """Open the compressed index; the run directory stays on the mmap."""
         self.index_file = index_file
-        self.run_directory: List[Tuple[int, int]] = []  # (start_tile_id, data_offset)
 
         # Open file for mmap
         self._file = open(index_file, "rb")
@@ -86,13 +94,16 @@ class CompressedIndex:
         version, self.num_tiles, num_runs = struct.unpack_from("<III", self._mm, 0)
         if version != 3:
             raise ValueError(f"Expected compressed index v3, got v{version}")
+        self.num_runs = num_runs
 
-        # Read run directory into memory (fast!)
-        offset = 12
-        for _ in range(num_runs):
-            start_tile, data_offset = struct.unpack_from("<IQ", self._mm, offset)
-            self.run_directory.append((start_tile, data_offset))
-            offset += 12
+        self.run_directory: Optional[np.ndarray] = np.frombuffer(
+            self._mm, dtype=RUN_DIRECTORY_DTYPE, count=num_runs, offset=12
+        )
+        # Contiguous, for np.searchsorted (a strided view would be copied at
+        # each search).
+        self._run_starts: Optional[np.ndarray] = np.ascontiguousarray(
+            self.run_directory["start"]
+        )
 
         logger.debug(
             f"CompressedIndex: loaded {num_runs} runs for {self.num_tiles:,} tiles"
@@ -104,36 +115,21 @@ class CompressedIndex:
 
         Returns None if tile doesn't exist.
         """
-        # Binary search in run directory
-        left, right = 0, len(self.run_directory) - 1
-        run_idx = -1
-
-        while left <= right:
-            mid = (left + right) // 2
-            start_tile = self.run_directory[mid][0]
-
-            # Check if tile is in this run
-            if mid < len(self.run_directory) - 1:
-                next_start = self.run_directory[mid + 1][0]
-                if start_tile <= tile_id < next_start:
-                    run_idx = mid
-                    break
-            else:
-                # Last run
-                if start_tile <= tile_id:
-                    run_idx = mid
-                    break
-
-            if tile_id < start_tile:
-                right = mid - 1
-            else:
-                left = mid + 1
-
-        if run_idx == -1:
+        if self._run_starts is None or self.run_directory is None:
+            return None
+        if not 0 <= tile_id <= 0xFFFFFFFF:
+            return None
+        # The run with the largest start tile at or below tile_id. The value
+        # goes in as uint32: a Python int makes numpy convert the whole array.
+        run_idx = (
+            int(np.searchsorted(self._run_starts, np.uint32(tile_id), side="right")) - 1
+        )
+        if run_idx < 0:
             return None
 
         # Read run data from mmap
-        start_tile, data_offset = self.run_directory[run_idx]
+        start_tile = int(self._run_starts[run_idx])
+        data_offset = int(self.run_directory["offset"][run_idx])
         offset_in_run = tile_id - start_tile
 
         # Read run header
@@ -155,6 +151,10 @@ class CompressedIndex:
 
     def close(self):
         """Close mmap and file (idempotent)"""
+        # The numpy views hold the mmap's buffer; mmap.close() refuses while
+        # they exist.
+        self.run_directory = None
+        self._run_starts = None
         if self._mm is not None:
             self._mm.close()
             self._mm = None
@@ -1023,7 +1023,7 @@ class GaiaStarCatalog:
 
             logger.info(
                 f">>> Loaded compressed index {cache_key}: "
-                f"{compressed_idx.num_tiles:,} tiles, {len(compressed_idx.run_directory):,} runs "
+                f"{compressed_idx.num_tiles:,} tiles, {compressed_idx.num_runs:,} runs "
                 f"in {t_load:.1f}ms"
             )
 
