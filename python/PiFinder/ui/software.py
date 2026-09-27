@@ -303,6 +303,18 @@ def _hide_current_build(entries: List[dict], current_ref: Optional[str]) -> List
     return [e for e in entries if e.get("ref") != current_ref]
 
 
+def format_amount(done: int, total: int) -> str:
+    """'done/total unit' in one unit, chosen by the total, so that a small
+    download does not show as 0/0 MB."""
+    if total < 1024 * 1024:
+        return f"{done / 1024:.0f}/{total / 1024:.0f} KB"
+    if total < 10 * 1024 * 1024:
+        return f"{done / 1048576:.1f}/{total / 1048576:.1f} MB"
+    if total < 1024 * 1024 * 1024:
+        return f"{done / 1048576:.0f}/{total / 1048576:.0f} MB"
+    return f"{done / 1073741824:.1f}/{total / 1073741824:.1f} GB"
+
+
 def on_battery(shared_state) -> bool:
     """True when the charger reports no USB-C power. Hardware without the
     charger (rev3) reports no battery state; it cannot tell, so it counts as
@@ -1238,11 +1250,11 @@ class UISoftware(UIModule):
         )
         y += bar_h + 6
 
-        # Amount below the bar: megabytes downloaded out of the total, or a
-        # path count in the fallback case where byte sizes were unavailable.
+        # Amount below the bar: bytes downloaded out of the total, or a path
+        # count in the fallback case where byte sizes were unavailable.
         if phase in ("downloading", "patching") and total > 0:
             if unit == "bytes":
-                amount_text = f"{done / 1048576:.0f}/{total / 1048576:.0f} MB"
+                amount_text = format_amount(done, total)
             elif step == "applying":
                 amount_text = _("{done}/{total} patches").format(done=done, total=total)
             else:
