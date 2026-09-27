@@ -117,6 +117,13 @@ patch_dtb() { # <in> <out>
   mmc1=$("$FDTGET" -t s "$2" /aliases mmc1)
   "$FDTPUT" -t s "$2" /aliases mmc0 "$mmc1"
   "$FDTPUT" -t s "$2" /aliases mmc1 "$mmc0"
+  # QEMU emulates the SPI0 controller, but no display answers: the kernel
+  # driver then waits for ever inside boot-splash ("soft lockup"), and the
+  # watchdog, which calls boot-splash, never ends. Without SPI0 there is no
+  # /dev/spidev0.0 and boot-splash stops at once, as with no display.
+  if "$FDTGET" "$2" /soc/spi@7e204000 status >/dev/null 2>&1; then
+    "$FDTPUT" -t s "$2" /soc/spi@7e204000 status disabled
+  fi
 }
 
 # Run QEMU raspi4b until the guest reboots or powers off (-no-reboot), until
