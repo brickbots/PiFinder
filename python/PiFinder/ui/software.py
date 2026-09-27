@@ -1217,11 +1217,11 @@ class UISoftware(UIModule):
                 self.draw.text(
                     (4, y),
                     _("{n} to go").format(n=done),
-                    font=self.fonts.base.font,
-                    fill=self.colors.get(128),
+                    font=self.fonts.large.font,
+                    fill=self.colors.get(255),
                 )
                 self.draw.text(
-                    (4, y + 12),
+                    (4, y + 19),
                     _("asking again soon"),
                     font=self.fonts.base.font,
                     fill=self.colors.get(96),
@@ -1259,17 +1259,18 @@ class UISoftware(UIModule):
                 amount_text = _("{done}/{total} patches").format(done=done, total=total)
             else:
                 amount_text = f"{done}/{total} paths"
+            # The amount is the main fact on this screen: large and bright.
             self.draw.text(
                 (4, y),
                 amount_text,
-                font=self.fonts.base.font,
-                fill=self.colors.get(128),
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
             )
             # Name the package currently being copied, if known.
             item = progress.get("item", "")
             if item:
                 self.draw.text(
-                    (4, y + 12),
+                    (4, y + 19),
                     item[:22],
                     font=self.fonts.base.font,
                     fill=self.colors.get(96),
