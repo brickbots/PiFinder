@@ -303,6 +303,14 @@ def _hide_current_build(entries: List[dict], current_ref: Optional[str]) -> List
     return [e for e in entries if e.get("ref") != current_ref]
 
 
+def on_battery(shared_state) -> bool:
+    """True when the charger reports no USB-C power. Hardware without the
+    charger (rev3) reports no battery state; it cannot tell, so it counts as
+    on USB-C power."""
+    battery = shared_state.battery() if shared_state is not None else None
+    return battery is not None and not battery.on_external_power
+
+
 def update_needed(current_version: str, repo_version: str) -> bool:
     """
     Returns true if an update is available
@@ -835,7 +843,23 @@ class UISoftware(UIModule):
             fill=self.colors.get(96),
         )
 
+    def _refresh_confirm_options(self) -> bool:
+        """Offer Install only on USB-C power. Returns True on battery."""
+        battery = on_battery(self.shared_state)
+        version = self._selected_version or {}
+        options = []
+        if not version.get("unavailable") and not battery:
+            options.append("Install")
+        if version.get("notes"):
+            options.append("Notes")
+        options.append("Cancel")
+        if options != self._confirm_options:
+            self._confirm_options = options
+            self._confirm_index = 0
+        return battery
+
     def _draw_confirm(self):
+        battery = self._refresh_confirm_options()
         y = self.display_class.titlebar_height + 2
 
         self.draw.text(
@@ -879,6 +903,15 @@ class UISoftware(UIModule):
                 _("built {age}").format(age=age),
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
+            )
+            y += 11
+
+        if battery:
+            self.draw.text(
+                (0, y),
+                _("Plug in USB-C power"),
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
             )
             y += 11
 
@@ -942,6 +975,8 @@ class UISoftware(UIModule):
 
     def update(self, force=False):
         self.clear_screen()
+        # The download and install take minutes; the screen must not dim.
+        self.keep_awake = self._phase == "upgrading"
 
         if self._phase == "upgrading":
             self._draw_upgrading()
@@ -1032,14 +1067,11 @@ class UISoftware(UIModule):
             elif self._focus == "list" and self._version_list:
                 self._selected_version = self._version_list[self._list_index]
                 self._confirm_options = []
-                if not self._selected_version.get("unavailable"):
-                    self._confirm_options.append("Install")
-                if self._selected_version.get("notes"):
-                    self._confirm_options.append("Notes")
-                self._confirm_options.append("Cancel")
+                self._refresh_confirm_options()
                 self._confirm_index = 0
                 self._phase = "confirm"
         elif self._phase == "confirm":
+            self._refresh_confirm_options()
             opt = self._confirm_options[self._confirm_index]
             if opt == "Install":
                 self.update_software()

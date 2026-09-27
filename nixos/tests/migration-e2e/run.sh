@@ -50,6 +50,7 @@ set -euo pipefail
 if [ -z "${MIGRATION_E2E_NS:-}" ]; then
   exec sudo unshare --mount --propagation private -- \
     sudo -u "$(id -un)" MIGRATION_E2E_NS=1 MIGRATION_E2E_DIR="${MIGRATION_E2E_DIR:-}" \
+    MIGRATION_E2E_QEMU="${MIGRATION_E2E_QEMU:-}" \
     PATH="$PATH" NIX_PATH="${NIX_PATH:-}" bash "$0" "$@"
 fi
 
@@ -68,7 +69,9 @@ KEYS="pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE= cache.nixos.org-1:6N
 nixb() { nix build --no-link --print-out-paths --option extra-substituters "$SUBS" --option extra-trusted-public-keys "$KEYS" "$@"; }
 tool() { echo "$(nix build --no-link --print-out-paths "nixpkgs#$1")/bin/$2"; }
 
-QEMU=$(tool qemu qemu-system-aarch64)
+# MIGRATION_E2E_QEMU: another qemu-system-aarch64. QEMU 11.1 stops at start
+# with "Failed to initialize io_uring" on some hosts; 10.1 works.
+QEMU=${MIGRATION_E2E_QEMU:-$(tool qemu qemu-system-aarch64)}
 FDTPUT=$(tool dtc fdtput)
 FDTGET=$(tool dtc fdtget)
 
