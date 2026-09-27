@@ -15,6 +15,13 @@ Protocol (server: pifinder-differ):
            goes in an x-update-session header on every later request.
            base_toplevel is the running system. The server starts to patch
            this exact step at once.
+    POST {url}/deltas {"targets": [{"target": ..., "bases": [...]}, ...]}
+      200  a stream of JSON lines, one per target as soon as its patch is
+           decided: {"target", "state": "hit", "delta": {...as /delta...}},
+           {"target", "state": "none"} or {"target", "state": "wait"};
+           {"state": "heartbeat"} while it waits, {"state": "end"} last.
+           Targets with no line (a cut stream, an older server) and "wait"
+           targets are asked again one by one with /delta.
     POST {url}/delta {"target": "/nix/store/...", "bases": ["/nix/store/..."]}
       200  {"url", "size", "window_log", "nar_sha256", "references",
             "deriver", "basis": [...]}          patch ready
@@ -52,7 +59,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
@@ -75,6 +82,10 @@ WORK_ROOT = Path("/var/lib/pifinder/delta-work")
 REQUEST_TIMEOUT = 20
 RETRY_WAIT = 5
 RETRIES = 12
+
+# The /deltas stream sends a heartbeat line every 10 s while it waits; a read
+# that waits longer than this means the stream is cut.
+STREAM_READ_TIMEOUT = 30
 
 # Candidate bases sent per target. More candidates cost bytes and server
 # ranking time and rarely beat the newest same-stem path.
@@ -252,6 +263,40 @@ def request_delta(target: str, bases: list[str], session: str) -> tuple[str, dic
     except (urllib.error.URLError, OSError, TimeoutError, ValueError) as exc:
         logger.warning("delta request for %s: %s", target, exc)
         return "error", {}
+
+
+def stream_deltas(
+    jobs: list[tuple[str, list[str]]],
+    session: str,
+    on_line: Callable[[str, str, dict], None],
+) -> bool:
+    """One POST /deltas for all jobs. Calls on_line(target, state, delta)
+    for each target line as it arrives (state "hit", "none" or "wait").
+    Returns True when the stream reached its "end" line; False when it was
+    cut or the server has no /deltas. Never raises."""
+    body = json.dumps(
+        {"targets": [{"target": t, "bases": b} for t, b in jobs]}
+    ).encode()
+    req = urllib.request.Request(
+        f"{_delta_url()}/deltas",
+        data=body,
+        headers={"content-type": "application/json", "x-update-session": session},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=STREAM_READ_TIMEOUT) as resp:
+            for raw in resp:
+                line = json.loads(raw)
+                state = line.get("state")
+                if state == "end":
+                    return True
+                if state in ("hit", "none", "wait") and line.get("target"):
+                    on_line(line["target"], state, line.get("delta") or {})
+    except urllib.error.HTTPError as exc:
+        logger.info("delta stream not available: HTTP %s", exc.code)
+    except (urllib.error.URLError, OSError, TimeoutError, ValueError) as exc:
+        logger.warning("delta stream cut: %s", exc)
+    return False
 
 
 # --------------------------------------------------------------------------
@@ -545,54 +590,77 @@ def _stage_all(
         if progress:
             progress(step, done, total)
 
+    def apply(hit: tuple[int, str, dict]) -> tuple[str, int]:
+        """("staged", NAR bytes) or ("failed", 0)."""
+        n, target, info = hit
+        try:
+            stage_delta(target, info, root / f"job{n}", cache, session, caches)
+            return "staged", int(info.get("nar_size") or 0)
+        except Exception as exc:  # noqa: BLE001 — one path must not stop the rest
+            logger.warning("delta for %s failed: %s", target, exc)
+            return "failed", 0
+
     def ask(job: tuple[int, tuple[str, list[str]]]) -> tuple[str, dict]:
         _n, (target, bases) = job
         return request_delta(target, bases, session)
 
-    # Ask for every path. The paths the server is still computing go to the
-    # next round, after one wait for all of them.
-    hits: list[tuple[int, str, dict]] = []
-    pending = list(enumerate(jobs))
-    for round_no in range(RETRIES + 1):
-        if round_no > 0:
-            report("waiting", len(pending), len(jobs))
-            time.sleep(RETRY_WAIT)
-        report("asking", 0, len(pending))
-        not_ready = []
-        with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-            for asked, (job, (state, info)) in enumerate(
-                zip(pending, pool.map(ask, pending)), start=1
-            ):
-                report("asking", asked, len(pending))
-                if state == "hit":
-                    hits.append((job[0], job[1][0], info))
-                elif state == "wait":
-                    not_ready.append(job)
-        pending = not_ready
-        if not pending:
-            break
-    if pending:
-        logger.info("delta: %d path(s) not ready, they download in full", len(pending))
-
-    def apply(hit: tuple[int, str, dict]) -> str:
-        n, target, info = hit
-        try:
-            stage_delta(target, info, root / f"job{n}", cache, session, caches)
-            return "staged"
-        except Exception as exc:  # noqa: BLE001 — one path must not stop the rest
-            logger.warning("delta for %s failed: %s", target, exc)
-            return "failed"
-
-    results = []
-    report("applying", 0, len(hits))
+    index = {target: n for n, (target, _bases) in enumerate(jobs)}
+    # "hit" or "none" is final; "wait" or no line yet is still open.
+    answered: dict[str, str] = {}
+    applying: list[Future] = []
+    results: list[tuple[str, int]] = []
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        for result in pool.map(apply, hits):
-            results.append(result)
-            report("applying", len(results), len(hits))
-    staged.count = results.count("staged")
-    staged.nar_bytes = sum(
-        int(info.get("nar_size") or 0)
-        for (_n, _target, info), result in zip(hits, results)
-        if result == "staged"
-    )
-    staged.failed = results.count("failed")
+
+        def start(n: int, target: str, info: dict) -> None:
+            applying.append(pool.submit(apply, (n, target, info)))
+
+        def open_count() -> int:
+            return sum(1 for t, _b in jobs if answered.get(t) not in ("hit", "none"))
+
+        def on_line(target: str, state: str, info: dict) -> None:
+            n = index.get(target)
+            if n is None or answered.get(target) in ("hit", "none"):
+                return
+            answered[target] = state
+            if state == "hit":
+                start(n, target, info)
+            report("waiting", open_count(), len(jobs))
+
+        # One stream for all paths: each patch is applied as soon as it is
+        # ready, while the server still computes the others.
+        report("asking", 0, len(jobs))
+        stream_deltas(jobs, session, on_line)
+
+        # The paths the stream left open (cut stream, older server, still
+        # computing) are asked again one by one, in rounds with one wait.
+        pending = [
+            (n, (t, b))
+            for n, (t, b) in enumerate(jobs)
+            if answered.get(t) not in ("hit", "none")
+        ]
+        for round_no in range(RETRIES + 1):
+            if not pending:
+                break
+            if round_no > 0:
+                report("waiting", len(pending), len(jobs))
+                time.sleep(RETRY_WAIT)
+            not_ready = []
+            with ThreadPoolExecutor(max_workers=WORKERS) as asker:
+                for job, (state, info) in zip(pending, asker.map(ask, pending)):
+                    if state == "hit":
+                        start(job[0], job[1][0], info)
+                    elif state == "wait":
+                        not_ready.append(job)
+            pending = not_ready
+        if pending:
+            logger.info(
+                "delta: %d path(s) not ready, they download in full", len(pending)
+            )
+
+        report("applying", 0, len(applying))
+        for future in as_completed(applying):
+            results.append(future.result())
+            report("applying", len(results), len(applying))
+    staged.count = sum(1 for result, _size in results if result == "staged")
+    staged.nar_bytes = sum(size for result, size in results if result == "staged")
+    staged.failed = sum(1 for result, _size in results if result == "failed")
