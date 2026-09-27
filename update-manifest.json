@@ -3,6 +3,21 @@
     "beta": [
       {
         "available": true,
+        "built_at": "2026-09-27T06:14:22+00:00",
+        "kind": "release",
+        "label": "v3.1.1-beta",
+        "migration_sha256_url": "https://github.com/brickbots/PiFinder/releases/download/v3.1.1-beta/pifinder-migration-v3.1.1-beta.tar.zst.sha256",
+        "migration_url": "https://github.com/brickbots/PiFinder/releases/download/v3.1.1-beta/pifinder-migration-v3.1.1-beta.tar.zst",
+        "notes": "Test release for the btrfs migration. The migration keeps the catalog images, user data, hostname, access point name, password and SSH keys, and removes the ext4 rollback image after the first confirmed boot. Only for testing: the migration gate stays closed.",
+        "source_ref": "v3.1.1-beta",
+        "source_repo": "mrosseel/PiFinder",
+        "source_sha": "5280946774346cbf524b646781f32a986ec2de5c",
+        "store_path": "/nix/store/ywg7f2awjqjdd1y3wfz26ngxdhmzg3y2-nixos-system-pifinder-26.05.20260924.c508844",
+        "title": "PiFinder v3.1.1-beta",
+        "version": "3.1.1"
+      },
+      {
+        "available": true,
         "built_at": "2026-09-26T19:23:32+00:00",
         "kind": "release",
         "label": "v3.1.0-beta",
@@ -187,6 +202,6 @@
       }
     ]
   },
-  "generated_at": "2026-09-27T06:10:18+00:00",
+  "generated_at": "2026-09-27T06:14:23+00:00",
   "schema": 1
 }
