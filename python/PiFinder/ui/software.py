@@ -714,6 +714,13 @@ class UIMigrationProgress(UIModule):
 
         # Use TextLayouter for scrollable status text
         self._status_layout.draw((0, y))
+        if self._failed():
+            self.draw.text(
+                (0, self.display_class.resY - 12),
+                self._LEFT_ARROW + " " + _("Back"),
+                font=self.fonts.base.font,
+                fill=self.colors.get(192),
+            )
 
         return self.screen_update()
 
@@ -723,11 +730,16 @@ class UIMigrationProgress(UIModule):
     def key_down(self):
         self._status_layout.next()
 
+    def _failed(self) -> bool:
+        """The migration stopped: it never started in the app, or the script
+        reported FAILED. The script stops before the reboot, so Pi OS stays
+        as it is and going back is safe."""
+        return self._terminal_failure or self._status.startswith("FAILED")
+
     def key_left(self):
-        # Allow exit only if the migration never actually started (e.g.,
-        # pre-flight refused due to missing checksum or unsupported display).
-        # Once the bash script is running, going back is unsafe.
-        if self._terminal_failure:
+        # Going back is safe only when the migration stopped (see _failed).
+        # While the script runs, it is not.
+        if self._failed():
             self.remove_from_stack()
             return True
         return False

@@ -28,6 +28,13 @@ MIGRATION_SHA256="${2:-}"
 PROGRESS_FILE="${3:-/tmp/nixos_migration_progress}"
 DISPLAY_CLASS="${4:-}"
 DISPLAY_RESOLUTION="${5:-}"
+# Every CM4 PiFinder is a v4 with the 176x176 SSD1333 panel. Pi OS does not
+# always find the v4 hardware (the charger on the hardware I2C bus), and the
+# app then reports the 128x128 panel; the progress screen must not follow it.
+if tr -d '\0' < /proc/device-tree/model 2>/dev/null | grep -q '^Raspberry Pi Compute Module 4'; then
+    DISPLAY_CLASS="DisplaySSD1333"
+    DISPLAY_RESOLUTION="176x176"
+fi
 
 trap '_trap_err $LINENO "$BASH_COMMAND"' ERR
 _trap_err() {
@@ -132,7 +139,7 @@ if ! python3 "${SCRIPT_DIR}/nixos_migration_calc.py" --json \
     REASONS=$(python3 - <<'PYEOF' 2>/dev/null || true
 import json
 reasons = {
-    "is_pi4": "a Raspberry Pi 4 is needed",
+    "is_pi4": "a Raspberry Pi 4 or CM4 is needed",
     "ram_ok": "2 GB RAM is needed",
     "sd_ok": "a 16 GB card is needed",
     "free_ok": "4 GB free space is needed",

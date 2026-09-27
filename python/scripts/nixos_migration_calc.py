@@ -22,7 +22,10 @@ MIN_SD_GB = 16
 # The tarball download, the extracted NixOS system and the btrfs metadata
 # that btrfs-convert writes all need room on the root (ADR 0039).
 MIN_FREE_GB = 4.0
-REQUIRED_MODEL = "Raspberry Pi 4"
+# The boards NixOS boots: the Pi 4 (PiFinder rev 3) and the CM4 (PiFinder
+# v4). The tarball's firmware has the device trees and a [cm4] section for
+# both. Start of /proc/device-tree/model, so the Pi 400 does not match.
+SUPPORTED_MODELS = ("Raspberry Pi 4 Model B", "Raspberry Pi Compute Module 4")
 # Must match the initramfs progress renderer, not just the main PiFinder UI.
 SUPPORTED_DISPLAYS = {
     "DisplaySSD1351": "128x128",
@@ -128,10 +131,14 @@ def normalize_resolution(value: str) -> str:
     return f"{int(match.group(1))}x{int(match.group(2))}"
 
 
+def model_supported(model: str) -> bool:
+    """True for a Pi 4 or a CM4."""
+    return model.startswith(SUPPORTED_MODELS)
+
+
 def is_pi4() -> bool:
-    """Check if running on a Raspberry Pi 4."""
-    model = get_model()
-    return REQUIRED_MODEL in model
+    """Check if running on a board NixOS boots (Pi 4 or CM4)."""
+    return model_supported(get_model())
 
 
 def check_all(display_class: str = "", display_resolution: str = "") -> dict:
@@ -158,7 +165,7 @@ def check_all(display_class: str = "", display_resolution: str = "") -> dict:
 
     checks = {
         "model": model,
-        "is_pi4": REQUIRED_MODEL in model,
+        "is_pi4": model_supported(model),
         "ram_mb": ram_mb,
         "ram_ok": ram_mb >= MIN_RAM_MB,
         "sd_gb": round(sd_gb, 1),
@@ -222,10 +229,7 @@ def main():
     print(f"WiFi Mode:  {checks['wifi_mode']}")
     print(f"  Client:   {'OK' if checks['wifi_ok'] else 'FAIL'}")
     print(f"Display:    {checks['display_class']} {checks['display_resolution']}")
-    print(
-        f"  initramfs renderer supported: "
-        f"{'OK' if checks['display_ok'] else 'FAIL'}"
-    )
+    print(f"  initramfs renderer supported: {'OK' if checks['display_ok'] else 'FAIL'}")
     print(f"Root:       {checks['root_source'] or 'Unknown'}")
     print(f"Partitions: {checks['partition_count']} on {SD_DISK}")
     print(

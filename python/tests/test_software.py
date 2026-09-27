@@ -377,3 +377,48 @@ class TestKeepAwake:
     def test_other_screens_may_dim(self):
         assert UIModule.keep_awake is False
         assert UIMigrationConfirm.keep_awake is False
+
+
+@pytest.mark.unit
+class TestMigrationProgressBack:
+    def _screen(self, status, terminal=False):
+        screen = UIMigrationProgress.__new__(UIMigrationProgress)
+        screen._status = status
+        screen._terminal_failure = terminal
+        screen.remove_from_stack = MagicMock()
+        return screen
+
+    def test_back_after_script_failure(self):
+        screen = self._screen("FAILED: a Raspberry Pi 4 or CM4 is needed")
+        assert screen.key_left() is True
+        screen.remove_from_stack.assert_called_once()
+
+    def test_no_back_while_running(self):
+        screen = self._screen("Downloading...")
+        assert screen.key_left() is False
+        screen.remove_from_stack.assert_not_called()
+
+    def test_back_after_start_failure(self):
+        assert self._screen("Not supported", terminal=True).key_left() is True
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "model,ok",
+    [
+        ("Raspberry Pi 4 Model B Rev 1.4", True),
+        ("Raspberry Pi Compute Module 4 Rev 1.0", True),
+        ("Raspberry Pi 400 Rev 1.0", False),
+        ("Raspberry Pi 5 Model B Rev 1.0", False),
+        ("Unknown", False),
+    ],
+)
+def test_migration_model_check(model, ok):
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).parent.parent / "scripts" / "nixos_migration_calc.py"
+    spec = importlib.util.spec_from_file_location("nixos_migration_calc", path)
+    calc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(calc)
+    assert calc.model_supported(model) is ok
