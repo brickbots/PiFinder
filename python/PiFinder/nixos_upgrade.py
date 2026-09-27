@@ -37,6 +37,9 @@ TRIAL_MARKER_FILE = Path("/var/lib/pifinder/trial-generation.json")
 RELEASE_CACHE = "https://cache.pifinder.eu/pifinder-release"
 DEV_CACHE = "https://cache.pifinder.eu/pifinder"
 CACHES = (DEV_CACHE, RELEASE_CACHE)
+# Attic does not hold the paths that cache.nixos.org has. A patch for such a
+# path is staged with its signed narinfo from here.
+UPSTREAM_CACHE = "https://cache.nixos.org"
 
 STORE_PATH_RE = re.compile(r"/nix/store/[a-z0-9]+-[A-Za-z0-9._+=?,-]+")
 
@@ -70,6 +73,8 @@ class ProgressEvent:
     path: str | None
     done: int | None = None
     expected: int | None = None
+    # copyPath (type 100) start: the binary cache the path is copied from.
+    source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -140,7 +145,19 @@ def parse_progress_event(line: str) -> ProgressEvent | None:
                 path = match.group(0)
                 break
 
-    return ProgressEvent(action, activity_id, activity_type, path)
+    # copyPath start: fields = [path, source cache, destination store].
+    source = None
+    fields = payload.get("fields")
+    if (
+        action == "start"
+        and activity_type == 100
+        and isinstance(fields, list)
+        and len(fields) >= 2
+        and isinstance(fields[1], str)
+    ):
+        source = fields[1]
+
+    return ProgressEvent(action, activity_id, activity_type, path, source=source)
 
 
 def command(
@@ -256,7 +273,16 @@ class _DownloadProgress:
     bug here can never abort the upgrade.
     """
 
-    def __init__(self, total_bytes: int, total_paths: int, status_file: Path):
+    def __init__(
+        self,
+        total_bytes: int,
+        total_paths: int,
+        status_file: Path,
+        local_source: str | None = None,
+    ):
+        # Copies from local_source (the staged patch cache) are not downloads
+        # and are not counted.
+        self.local_source = local_source.rstrip("/") if local_source else None
         self.total_bytes = total_bytes
         self.use_bytes = total_bytes > 0
         self.total_paths = total_paths
@@ -285,6 +311,12 @@ class _DownloadProgress:
                 self._on_stop(event)
 
     def _on_start(self, event: ProgressEvent) -> None:
+        if (
+            self.local_source
+            and event.source
+            and event.source.rstrip("/") == self.local_source
+        ):
+            return
         self._active[event.activity_id] = _short_pkg(event.path)
         self._paths_seen += 1
         self._label = self._active[event.activity_id] or self._label
@@ -340,11 +372,18 @@ def run_build(
     status_file: Path = UPGRADE_STATUS_FILE,
     log_file: Path = UPGRADE_LOG_FILE,
     substituter: str | None = None,
+    patched_bytes: int = 0,
+    patched_paths: int = 0,
 ) -> int:
-    if estimate.total_bytes > 0:
-        write_status(f"downloading 0/{estimate.total_bytes}", status_file)
+    # The patched paths come from the local substituter, not the network.
+    total_bytes = (
+        max(estimate.total_bytes - patched_bytes, 1) if estimate.total_bytes else 0
+    )
+    total_paths = max(estimate.path_count - patched_paths, 0)
+    if total_bytes > 0:
+        write_status(f"downloading 0/{total_bytes}", status_file)
     else:
-        write_status(f"downloading 0/{estimate.path_count} paths", status_file)
+        write_status(f"downloading 0/{total_paths} paths", status_file)
 
     # Signatures are checked against the trusted-public-keys in the device's
     # Nix config only. A cache key rotation needs a release that trusts the
@@ -364,7 +403,9 @@ def run_build(
         # one from the binary cache, so the same signature check applies.
         build_args += ["--option", "extra-substituters", substituter]
 
-    progress = _DownloadProgress(estimate.total_bytes, estimate.path_count, status_file)
+    progress = _DownloadProgress(
+        total_bytes, total_paths, status_file, local_source=substituter
+    )
     tail: deque[str] = deque(maxlen=40)
 
     process = subprocess.Popen(
@@ -487,8 +528,7 @@ def check_root_mountable(system: Path) -> None:
         )
     if fs_type != "auto" and fs_type != root_type:
         raise UpgradeError(
-            f"{system} mounts / as {fs_type}, but the root file system "
-            f"is {root_type}"
+            f"{system} mounts / as {fs_type}, but the root file system is {root_type}"
         )
 
 
@@ -567,13 +607,19 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
         staged = delta_updates.prefetch_deltas(
             store_path,
             estimate.paths,
-            CACHES,
+            CACHES + (UPSTREAM_CACHE,),
             progress=lambda step, done, total: write_status(
                 f"patching {step} {done}/{total}"
             ),
         )
         try:
-            build_rc = run_build(store_path, estimate, substituter=staged.url)
+            build_rc = run_build(
+                store_path,
+                estimate,
+                substituter=staged.url,
+                patched_bytes=staged.nar_bytes,
+                patched_paths=staged.count,
+            )
         finally:
             staged.cleanup()
         if build_rc != 0:

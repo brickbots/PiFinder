@@ -68,6 +68,71 @@ def test_parse_progress_event_extracts_copy_path():
 
 
 @pytest.mark.unit
+def test_parse_progress_event_extracts_copy_source():
+    line = (
+        '@nix {"action":"start","id":7,"type":100,'
+        f'"fields":["{STORE}","file:///var/lib/x/cache","local"],'
+        f'"text":"copying path \'{STORE}\' from cache"}}'
+    )
+    event = nixos_upgrade.parse_progress_event(line)
+    assert event is not None
+    assert event.source == "file:///var/lib/x/cache"
+    assert event.path == STORE
+
+
+@pytest.mark.unit
+def test_download_progress_skips_the_local_patch_cache(monkeypatch):
+    statuses: list[str] = []
+    monkeypatch.setattr(
+        nixos_upgrade, "write_status", lambda s, _f=None: statuses.append(s)
+    )
+    progress = nixos_upgrade._DownloadProgress(
+        10_000_000, 2, None, local_source="file:///var/lib/x/cache"
+    )
+    progress.feed(
+        '@nix {"action":"start","id":1,"type":100,'
+        f'"fields":["{STORE}","file:///var/lib/x/cache/","local"]}}'
+    )
+    progress.feed(
+        '@nix {"action":"result","id":1,"type":105,"fields":[9000000,9000000,1,0]}'
+    )
+    progress.feed('@nix {"action":"stop","id":1,"type":100}')
+    assert statuses == []
+    progress.feed(
+        '@nix {"action":"start","id":2,"type":100,'
+        f'"fields":["{STORE}","https://cache.nixos.org","local"]}}'
+    )
+    progress.feed(
+        '@nix {"action":"result","id":2,"type":105,"fields":[4000000,4000000,1,0]}'
+    )
+    assert statuses[-1].startswith("downloading 4000000/10000000")
+
+
+@pytest.mark.unit
+def test_run_build_total_leaves_out_patched_bytes(monkeypatch, tmp_path):
+    class FakeProcess:
+        stdout = iter(())
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(
+        nixos_upgrade.subprocess, "Popen", lambda args, **kw: FakeProcess()
+    )
+    status = tmp_path / "status"
+    nixos_upgrade.run_build(
+        STORE,
+        nixos_upgrade.DownloadEstimate((STORE,) * 3, 30_000_000),
+        status_file=status,
+        log_file=tmp_path / "log",
+        substituter="file:///var/lib/x/cache",
+        patched_bytes=26_000_000,
+        patched_paths=2,
+    )
+    assert status.read_text().strip() == "downloading 0/4000000"
+
+
+@pytest.mark.unit
 def test_parse_progress_event_extracts_byte_progress():
     line = '@nix {"action":"result","id":3,"type":105,"fields":[1024,4096,1,0]}'
     event = nixos_upgrade.parse_progress_event(line)

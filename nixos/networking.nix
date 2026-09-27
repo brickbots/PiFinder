@@ -152,7 +152,17 @@
     script = ''
       dir=/var/lib/pifinder/migrated
       if [ -s "$dir/password-hash" ]; then
-        printf 'pifinder:%s\n' "$(cat "$dir/password-hash")" | chpasswd -e
+        hash=$(cat "$dir/password-hash")
+        # libxcrypt in nixpkgs checks only the strong hash types. Pi OS
+        # images store "solveit" as SHA-256 crypt ($5$), which NixOS cannot
+        # check: with that hash no password works. Keep the NixOS default
+        # then; it is the same password.
+        case "$hash" in
+          '$y$'* | '$gy$'* | '$7$'* | '$2b$'* | '$6$'*)
+            printf 'pifinder:%s\n' "$hash" | chpasswd -e ;;
+          *)
+            echo "carried password hash is not a strong type; the default stays" ;;
+        esac
       fi
       for key in "$dir"/ssh/ssh_host_*; do
         [ -e "$key" ] || continue
@@ -160,6 +170,27 @@
         case "$key" in *.pub) chmod 644 "/etc/ssh/$(basename "$key")" ;; esac
       done
       rm -rf "$dir"
+    '';
+  };
+
+  # A pifinder password hash that libxcrypt cannot check (not a strong type)
+  # makes every login fail, on SSH and in the web UI. Devices migrated before
+  # the filter above have one. Set the default password again; nobody can log
+  # in with such a hash anyway. A locked (!, *) or empty field is left as is.
+  systemd.services.pifinder-password-usable = {
+    description = "Reset a pifinder password hash that cannot be checked";
+    after = [ "pifinder-migrated-credentials.service" ];
+    before = [ "sshd.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig.Type = "oneshot";
+    path = with pkgs; [ coreutils gawk shadow ];
+    script = ''
+      hash=$(awk -F: '$1 == "pifinder" {print $2}' /etc/shadow)
+      case "$hash" in
+        "" | '!'* | '*'* | '$y$'* | '$gy$'* | '$7$'* | '$2b$'* | '$6$'*) exit 0 ;;
+      esac
+      echo "pifinder password hash cannot be checked; setting the default password"
+      printf 'pifinder:solveit\n' | chpasswd
     '';
   };
 

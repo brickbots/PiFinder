@@ -8,10 +8,13 @@ rebuilt NARs go into a local file:// binary cache, which the upgrade's
 path nix no longer downloads.
 
 Protocol (server: pifinder-differ):
-    POST {url}/update-start {"target_toplevel": "/nix/store/..."}
+    POST {url}/update-start {"target_toplevel": "/nix/store/...",
+                             "base_toplevel": "/nix/store/..."}
       200  {"session", "budget", "expires_in"}  per-update request budget,
            sized by the server from the target closure. The session token
-           rides an x-update-session header on every later request.
+           goes in an x-update-session header on every later request.
+           base_toplevel is the running system. The server starts to patch
+           this exact step at once.
     POST {url}/delta {"target": "/nix/store/...", "bases": ["/nix/store/..."]}
       200  {"url", "size", "window_log", "nar_sha256", "references",
             "deriver", "basis": [...]}          patch ready
@@ -57,6 +60,7 @@ from typing import Callable, Optional
 logger = logging.getLogger("PiFinder.delta_updates")
 
 STORE_DIR = Path("/nix/store")
+CURRENT_SYSTEM = Path("/run/current-system")
 
 # Scratch space for patches and NARs. It must be on the SD card: /tmp is a
 # 200 MiB tmpfs on the device, smaller than FREE_SPACE_SLACK alone.
@@ -174,11 +178,23 @@ def basis_candidates(
 # Server protocol.
 
 
-def start_session(target_toplevel: str) -> str | None:
+def current_system(link: Path = CURRENT_SYSTEM) -> str | None:
+    """Store path of the running system, or None."""
+    try:
+        path = str(link.resolve(strict=True))
+    except OSError:
+        return None
+    return path if split_store_path(path) else None
+
+
+def start_session(target_toplevel: str, base_toplevel: str | None = None) -> str | None:
     """Open the per-update session. The server sizes the request budget from
     the target closure; without a session every later request is refused, so
     None disables the prefetch for this run."""
-    body = json.dumps({"target_toplevel": target_toplevel}).encode()
+    request = {"target_toplevel": target_toplevel}
+    if base_toplevel:
+        request["base_toplevel"] = base_toplevel
+    body = json.dumps(request).encode()
     req = urllib.request.Request(
         f"{_delta_url()}/update-start",
         data=body,
@@ -413,6 +429,9 @@ class StagedCache:
     root: Optional[Path] = None
     count: int = 0
     failed: int = 0
+    # NAR bytes of the staged paths: nix copies them from the staged cache,
+    # so they are not part of the download.
+    nar_bytes: int = 0
 
     @property
     def url(self) -> Optional[str]:
@@ -456,7 +475,7 @@ def prefetch_deltas(
     missing = 0
     no_basis = 0
     try:
-        session = start_session(target_toplevel)
+        session = start_session(target_toplevel, current_system())
         if session is None:
             return staged
         index = local_store_index()
@@ -552,4 +571,9 @@ def _stage_all(
             results.append(result)
             report("applying", len(results), len(hits))
     staged.count = results.count("staged")
+    staged.nar_bytes = sum(
+        int(info.get("nar_size") or 0)
+        for (_n, _target, info), result in zip(hits, results)
+        if result == "staged"
+    )
     staged.failed = results.count("failed")
