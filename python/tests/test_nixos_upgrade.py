@@ -110,7 +110,7 @@ def test_download_progress_skips_the_local_patch_cache(monkeypatch):
     progress.feed(
         '@nix {"action":"result","id":1,"type":105,"fields":[9000000,9000000,1,0]}'
     )
-    progress.feed('@nix {"action":"stop","id":1,"type":100}')
+    progress.feed('@nix {"action":"stop","id":1}')
     # The local copy is the "installing" step, in paths, not a download.
     assert [x.split(" ")[:2] for x in statuses] == [
         ["installing", "0/1"],
@@ -172,7 +172,7 @@ def test_download_progress_tracks_bytes_and_label(monkeypatch):
     progress.feed(
         '@nix {"action":"result","id":1,"type":105,"fields":[5000000,8000000,1,0]}'
     )
-    progress.feed('@nix {"action":"stop","id":1,"type":100}')
+    progress.feed('@nix {"action":"stop","id":1}')
 
     # within-path byte movement, the package label, and never a crash on junk
     assert statuses and all(s.startswith("downloading ") for s in statuses)

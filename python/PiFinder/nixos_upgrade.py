@@ -319,11 +319,12 @@ class _DownloadProgress:
             return
         if event.action == "result":
             self._on_progress(event)
-        elif event.activity_type == 100:
-            if event.action == "start":
-                self._on_start(event)
-            elif event.action == "stop":
-                self._on_stop(event)
+        elif event.action == "start" and event.activity_type == 100:
+            self._on_start(event)
+        elif event.action == "stop":
+            # nix sends a stop with only the activity id, no type. _on_stop
+            # ignores the ids it does not track.
+            self._on_stop(event)
 
     def _on_start(self, event: ProgressEvent) -> None:
         if (
