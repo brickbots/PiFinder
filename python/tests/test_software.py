@@ -6,7 +6,11 @@ import requests
 
 # Installs the _() gettext builtin the UI modules rely on; must precede ui imports.
 import PiFinder.i18n  # noqa: F401
+from PiFinder.types.hardware import BatteryState, ChargeStatus
+from PiFinder.ui.base import UIModule
+from PiFinder.ui.menu_manager import MenuManager
 from PiFinder.ui.software import (
+    on_battery,
     UISoftware,
     UPDATE_MANIFEST_URL,
     _annotate_trunk_entries,
@@ -318,10 +322,7 @@ def test_unknown_current_build_hides_nothing():
 
 @pytest.mark.unit
 def test_unavailable_version_has_no_install_option():
-    ui = UISoftware.__new__(UISoftware)
-    ui._phase = "browse"
-    ui._focus = "list"
-    ui._list_index = 0
+    ui = _confirm_ui(battery=None)
     ui._version_list = [
         {
             "label": "main",
@@ -335,6 +336,83 @@ def test_unavailable_version_has_no_install_option():
 
     assert ui._phase == "confirm"
     assert ui._confirm_options == ["Cancel"]
+
+
+def _battery(external: bool) -> BatteryState:
+    return BatteryState(
+        battery_voltage=3.9,
+        charge_status=ChargeStatus.NOT_CHARGING,
+        on_external_power=external,
+        state_of_charge_pct=70,
+        charge_current_ma=None,
+        vbus_voltage=None,
+        sys_voltage=None,
+        timestamp=0.0,
+    )
+
+
+def _confirm_ui(battery) -> UISoftware:
+    ui = UISoftware.__new__(UISoftware)
+    ui.shared_state = MagicMock()
+    ui.shared_state.battery.return_value = battery
+    ui._phase = "browse"
+    ui._focus = "list"
+    ui._list_index = 0
+    ui._version_list = [{"label": "v3.1.1", "version": "3.1.1", "ref": "/nix/store/a"}]
+    return ui
+
+
+@pytest.mark.unit
+class TestUpgradePower:
+    def test_no_charger_counts_as_usb_power(self):
+        assert on_battery(MagicMock(battery=MagicMock(return_value=None))) is False
+
+    def test_install_offered_on_usb_power(self):
+        ui = _confirm_ui(_battery(external=True))
+        ui.key_right()
+        assert ui._confirm_options == ["Install", "Cancel"]
+
+    def test_install_hidden_on_battery(self):
+        ui = _confirm_ui(_battery(external=False))
+        ui.key_right()
+        assert ui._confirm_options == ["Cancel"]
+
+    def test_install_back_when_plugged_in(self):
+        ui = _confirm_ui(_battery(external=False))
+        ui.key_right()
+        ui.shared_state.battery.return_value = _battery(external=True)
+        assert ui._refresh_confirm_options() is False
+        assert ui._confirm_options == ["Install", "Cancel"]
+        assert ui._confirm_index == 0
+
+    def test_battery_press_on_cancel_leaves_confirm(self):
+        ui = _confirm_ui(_battery(external=False))
+        ui.key_right()
+        ui.key_right()
+        assert ui._phase == "browse"
+
+
+@pytest.mark.unit
+class TestKeepAwake:
+    def test_base_module_may_dim(self):
+        assert UIModule.keep_awake is False
+
+    def test_upgrading_phase_keeps_screen_awake(self):
+        ui = UISoftware.__new__(UISoftware)
+        ui._phase = "upgrading"
+        ui.clear_screen = MagicMock()
+        ui._draw_upgrading = MagicMock()
+        ui.screen_update = MagicMock()
+        ui.update()
+        assert ui.keep_awake is True
+
+    def test_menu_manager_reads_top_module(self):
+        manager = MenuManager.__new__(MenuManager)
+        manager.stack = []
+        assert manager.keep_awake() is False
+        top = MagicMock(keep_awake=True)
+        manager.stack = [MagicMock(keep_awake=False), top]
+        assert manager.keep_awake() is True
 
 
 def _iso_ago(**delta) -> str:

@@ -182,6 +182,22 @@ in {
   };
 
   config = {
+  # The watchdog runs after multi-user.target. A service that the target
+  # wants and that runs after the watchdog must name multi-user.target in
+  # "after" too; otherwise the order is a cycle and systemd deletes the job
+  # at each boot, with only a line in the journal.
+  assertions = let
+    services = config.systemd.services;
+    cycles = builtins.filter (name:
+      let after = services.${name}.after or [ ]; in
+      builtins.elem "pifinder-watchdog.service" after
+      && !(builtins.elem "multi-user.target" after))
+      (builtins.attrNames services);
+  in [ {
+    assertion = cycles == [ ];
+    message = "Add multi-user.target to after of: ${lib.concatStringsSep ", " cycles}";
+  } ];
+
   # ---------------------------------------------------------------------------
   # Camera switch wrapper (used by pifinder UI via sudo)
   # ---------------------------------------------------------------------------
@@ -571,7 +587,10 @@ in {
   # U-Boot that does not start can then be put back with a card reader.
   systemd.services.pifinder-uboot-update = {
     description = "Install this build's U-Boot on the firmware partition";
-    after = [ "pifinder-watchdog.service" ];
+    # multi-user.target in after: without it, "after the watchdog" (which
+    # runs after multi-user.target) is an ordering cycle, and systemd deletes
+    # this job at each boot. See pifinder-migration-cleanup in migration.nix.
+    after = [ "multi-user.target" "pifinder-watchdog.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig.Type = "oneshot";
     path = with pkgs; [ coreutils diffutils gnugrep util-linux pifinder-bootcount ];

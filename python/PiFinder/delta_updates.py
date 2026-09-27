@@ -70,10 +70,11 @@ WORK_ROOT = Path("/var/lib/pifinder/delta-work")
 # path first, then waits RETRY_WAIT once and asks again for the paths that
 # were not ready, for at most RETRIES rounds. A path that is still not ready
 # downloads in full. So a cold build costs at most RETRIES * RETRY_WAIT
-# seconds of waiting, not RETRY_WAIT per path.
+# seconds of waiting, not RETRY_WAIT per path. The server's first pass takes
+# under a second for most paths, so short waits find them sooner.
 REQUEST_TIMEOUT = 20
-RETRY_WAIT = 15
-RETRIES = 2
+RETRY_WAIT = 5
+RETRIES = 12
 
 # Candidate bases sent per target. More candidates cost bytes and server
 # ranking time and rarely beat the newest same-stem path.
@@ -185,6 +186,18 @@ def current_system(link: Path = CURRENT_SYSTEM) -> str | None:
     except OSError:
         return None
     return path if split_store_path(path) else None
+
+
+def open_session(target_toplevel: str) -> str | None:
+    """A session for this upgrade, or None when deltas are off or the server
+    does not answer. Never raises."""
+    if not enabled():
+        return None
+    try:
+        return start_session(target_toplevel, current_system())
+    except Exception as exc:  # noqa: BLE001 — must never break the upgrade
+        logger.warning("update-start failed: %s", exc)
+        return None
 
 
 def start_session(target_toplevel: str, base_toplevel: str | None = None) -> str | None:
@@ -453,6 +466,7 @@ def prefetch_deltas(
     paths: tuple[str, ...],
     caches: tuple[str, ...] = (),
     progress: Optional[Callable[[str, int, int], None]] = None,
+    session: Optional[str] = None,
 ) -> StagedCache:
     """Stage patches for the missing paths. Returns the staged cache; the
     caller passes its url to nix build and calls cleanup() afterwards.
@@ -467,6 +481,10 @@ def prefetch_deltas(
     Best-effort: any failure — server down, patch broken, disk full — just
     means that path substitutes from the binary cache as before. Must never
     raise.
+
+    `session` is a session from start_session, opened earlier so that the
+    server starts to patch while the caller works out the missing paths.
+    Without one, this opens a session itself.
     """
     staged = StagedCache()
     if not enabled() or not caches:
@@ -475,7 +493,8 @@ def prefetch_deltas(
     missing = 0
     no_basis = 0
     try:
-        session = start_session(target_toplevel, current_system())
+        if session is None:
+            session = start_session(target_toplevel, current_system())
         if session is None:
             return staged
         index = local_store_index()
