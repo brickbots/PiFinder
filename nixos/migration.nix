@@ -160,9 +160,15 @@
   # btrfs-convert leaves ext2_saved, an image of the old ext4 that holds the
   # space of Pi OS and its data. Once a generation on btrfs is confirmed, the
   # migration is not rolled back any more, so delete it to free the space.
+  #
+  # The watchdog orders itself after multi-user.target. A unit that
+  # multi-user.target wants, with no ordering of its own to that target, gets
+  # an implicit "multi-user.target after this unit"; with "after watchdog"
+  # that is a cycle, and systemd deletes the job at each boot. So the
+  # services that run after the watchdog name multi-user.target in after.
   systemd.services.pifinder-migration-cleanup = {
     description = "Remove the ext4 rollback image left by the migration";
-    after = [ "pifinder-watchdog.service" ];
+    after = [ "multi-user.target" "pifinder-watchdog.service" ];
     wantedBy = [ "multi-user.target" ];
     unitConfig.ConditionPathIsDirectory = "/ext2_saved";
     serviceConfig = {
@@ -178,6 +184,85 @@
         exit 0
       fi
       btrfs subvolume delete /ext2_saved
+    '';
+  };
+
+  # ---------------------------------------------------------------------------
+  # Compact the btrfs chunks once after the migration (ADR 0039)
+  # ---------------------------------------------------------------------------
+  # btrfs-convert maps the ext4 layout into btrfs chunks. When the Pi OS files
+  # and ext2_saved are gone, many data chunks are only partly used. A balance
+  # of the chunks under 50 % use packs them and gives the space back as
+  # unallocated space, so that metadata can still grow. It runs once, in the
+  # boot where the cleanup deleted /ext2_saved (or any later boot), on a
+  # confirmed generation. An upgrade stops it (nixos_upgrade.py); the stop
+  # signal cancels the balance, no marker is written, and the next boot
+  # starts again.
+  #
+  # No defragment. After the migration the only converted data is
+  # PiFinder_data, and nearly all of it is catalog JPEGs (about 5 GB). JPEG
+  # does not compress, and ext4 kept those files in few extents, so
+  # "defragment -czstd" would write gigabytes to the SD card for no gain. The
+  # system files were written after the conversion, so they are btrfs
+  # extents with zstd already.
+  #
+  # Each step logs its start, end, duration and the load average (every
+  # 30 s) to the journal and to PiFinder_data/logs/btrfs-tidy.log.
+  systemd.services.pifinder-btrfs-tidy = {
+    description = "Compact btrfs chunks once after the migration";
+    after = [
+      "multi-user.target"
+      "pifinder-watchdog.service"
+      "pifinder-migration-cleanup.service"
+    ];
+    wantedBy = [ "multi-user.target" ];
+    unitConfig = {
+      ConditionPathExists = [ "!/var/lib/pifinder/btrfs-tidy-done" "!/ext2_saved" ];
+    };
+    serviceConfig = {
+      Type = "oneshot";
+      Nice = 19;
+      IOSchedulingClass = "idle";
+      CPUWeight = 20;
+    };
+    path = with pkgs; [ btrfs-progs coreutils gnugrep systemd util-linux ];
+    script = ''
+      LOG=/home/pifinder/PiFinder_data/logs/btrfs-tidy.log
+      MARKER=/var/lib/pifinder/btrfs-tidy-done
+      log() {
+        echo "$*"
+        echo "$(date -u +%FT%TZ) $*" >> "$LOG" 2>/dev/null || true
+      }
+      load() { cut -d' ' -f1-3 /proc/loadavg; }
+
+      if [ "$(stat -f -c %T /)" != btrfs ]; then
+        touch "$MARKER"
+        exit 0
+      fi
+      CURRENT=$(readlink -f /run/current-system)
+      if ! grep -qxF "$CURRENT" /var/lib/pifinder/confirmed-generations 2>/dev/null; then
+        log "$CURRENT is not confirmed yet; balance at a later boot"
+        exit 0
+      fi
+      if systemctl is-active --quiet pifinder-upgrade.service; then
+        log "an upgrade runs; balance at a later boot"
+        exit 0
+      fi
+
+      log "before: $(btrfs filesystem usage -b / | grep -E 'Device (allocated|unallocated)|Used:' | tr -s ' \t' ' ' | tr '\n' ';')"
+      log "balance start, load $(load)"
+      ( while sleep 30; do log "balance running, load $(load)"; done ) &
+      sampler=$!
+      start=$(date +%s)
+      rc=0
+      out=$(btrfs balance start -dusage=50 -musage=50 / 2>&1) || rc=$?
+      kill "$sampler" 2>/dev/null || true
+      log "balance end rc=$rc after $(( $(date +%s) - start )) s, load $(load): $out"
+      log "after: $(btrfs filesystem usage -b / | grep -E 'Device (allocated|unallocated)|Used:' | tr -s ' \t' ' ' | tr '\n' ';')"
+      if [ "$rc" -ne 0 ]; then
+        exit 0
+      fi
+      touch "$MARKER"
     '';
   };
 }

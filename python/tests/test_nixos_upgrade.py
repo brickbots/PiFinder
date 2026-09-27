@@ -1,5 +1,8 @@
 import json
+import subprocess
 import urllib.error
+
+from pathlib import Path
 
 import pytest
 
@@ -7,6 +10,17 @@ from PiFinder import nixos_upgrade
 
 
 STORE = "/nix/store/abc123-nixos-system-pifinder"
+
+# The real functions, for their own tests; every other test gets no-ops so
+# that no test calls systemctl or btrfs on the host.
+_REAL_SNAPSHOT_USER_DATA = nixos_upgrade.snapshot_user_data
+_REAL_STOP_BTRFS_TIDY = nixos_upgrade.stop_btrfs_tidy
+
+
+@pytest.fixture(autouse=True)
+def _no_host_btrfs(monkeypatch):
+    monkeypatch.setattr(nixos_upgrade, "snapshot_user_data", lambda _store: None)
+    monkeypatch.setattr(nixos_upgrade, "stop_btrfs_tidy", lambda: None)
 
 
 class _FakeResp:
@@ -613,3 +627,128 @@ def test_run_upgrade_refuses_a_build_that_cannot_mount_root(tmp_path, monkeypatc
     assert rc == 1
     assert activated == []
     assert statuses == ["starting", "checking", "failed"]
+
+
+# ---------------------------------------------------------------------------
+# PiFinder_data snapshot before the switch (A9) and the btrfs balance stop (A8)
+
+
+class _FakeBtrfs:
+    """Fake command(): 'subvolume show' answers is_subvolume; 'snapshot'
+    creates the target directory; 'delete' removes it."""
+
+    def __init__(self, is_subvolume=True, snapshot_rc=0):
+        self.is_subvolume = is_subvolume
+        self.snapshot_rc = snapshot_rc
+        self.calls: list[list[str]] = []
+
+    def __call__(self, args, **_kw):
+        self.calls.append(args)
+        rc = 0
+        if args[:3] == ["btrfs", "subvolume", "show"]:
+            rc = 0 if self.is_subvolume else 1
+        elif args[:3] == ["btrfs", "subvolume", "snapshot"]:
+            rc = self.snapshot_rc
+            if rc == 0:
+                Path(args[-1]).mkdir()
+        elif args[:3] == ["btrfs", "subvolume", "delete"]:
+            Path(args[-1]).rmdir()
+        return subprocess.CompletedProcess(args, rc, "", "boom" if rc else "")
+
+
+@pytest.mark.unit
+def test_snapshot_name_sorts_by_time():
+    from datetime import datetime, timezone
+
+    name = nixos_upgrade.snapshot_name(
+        "/nix/store/l36zd40lf3nrg41crkdz478iq1ww0zh5-nixos-system-pifinder",
+        datetime(2026, 9, 27, 9, 8, 7, tzinfo=timezone.utc),
+    )
+    assert name == "PiFinder_data-20260927T090807Z-l36zd40l"
+
+
+@pytest.mark.unit
+def test_snapshot_skipped_when_not_a_subvolume(monkeypatch, tmp_path):
+    fake = _FakeBtrfs(is_subvolume=False)
+    monkeypatch.setattr(nixos_upgrade, "command", fake)
+    got = _REAL_SNAPSHOT_USER_DATA(STORE, tmp_path / "data", tmp_path / "snaps")
+    assert got is None
+    assert [c[:3] for c in fake.calls] == [["btrfs", "subvolume", "show"]]
+    assert not (tmp_path / "snaps").exists()
+
+
+@pytest.mark.unit
+def test_snapshot_taken_read_only_and_old_ones_pruned(monkeypatch, tmp_path):
+    snaps = tmp_path / "snaps"
+    snaps.mkdir()
+    for old in ("20260901T000000Z-aaaaaaaa", "20260902T000000Z-bbbbbbbb"):
+        (snaps / f"PiFinder_data-{old}").mkdir()
+    (snaps / "other").mkdir()
+    fake = _FakeBtrfs()
+    monkeypatch.setattr(nixos_upgrade, "command", fake)
+
+    got = _REAL_SNAPSHOT_USER_DATA(STORE, tmp_path / "data", snaps, keep=2)
+
+    assert got is not None and Path(got).name.startswith("PiFinder_data-")
+    snapshot_call = next(c for c in fake.calls if c[2] == "snapshot")
+    assert snapshot_call[3] == "-r"
+    kept = sorted(p.name for p in snaps.iterdir())
+    assert kept == ["PiFinder_data-20260902T000000Z-bbbbbbbb", Path(got).name, "other"]
+
+
+@pytest.mark.unit
+def test_snapshot_failure_never_raises(monkeypatch, tmp_path):
+    monkeypatch.setattr(nixos_upgrade, "command", _FakeBtrfs(snapshot_rc=1))
+    assert _REAL_SNAPSHOT_USER_DATA(STORE, tmp_path / "d", tmp_path / "s") is None
+
+    def missing(args, **_kw):
+        raise FileNotFoundError("btrfs")
+
+    monkeypatch.setattr(nixos_upgrade, "command", missing)
+    assert _REAL_SNAPSHOT_USER_DATA(STORE, tmp_path / "d", tmp_path / "s") is None
+    _REAL_STOP_BTRFS_TIDY()
+
+
+@pytest.mark.unit
+def test_stop_btrfs_tidy_stops_the_unit(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        nixos_upgrade, "command", lambda args, **_kw: calls.append(args)
+    )
+    _REAL_STOP_BTRFS_TIDY()
+    assert calls == [
+        ["systemctl", "stop", "--no-ask-password", "pifinder-btrfs-tidy.service"]
+    ]
+
+
+@pytest.mark.unit
+def test_run_upgrade_snapshots_before_activation(tmp_path, monkeypatch):
+    ref_file = tmp_path / "ref"
+    ref_file.write_text(STORE)
+    _capture_status(monkeypatch)
+    order: list[str] = []
+    monkeypatch.setattr(
+        nixos_upgrade, "stop_btrfs_tidy", lambda: order.append("stop-tidy")
+    )
+    monkeypatch.setattr(
+        nixos_upgrade,
+        "estimate_download",
+        lambda _store: nixos_upgrade.DownloadEstimate(()),
+    )
+    monkeypatch.setattr(nixos_upgrade, "run_build", lambda _s, _e, **_kw: 0)
+    monkeypatch.setattr(nixos_upgrade, "check_root_mountable", lambda _system: None)
+    monkeypatch.setattr(
+        nixos_upgrade, "snapshot_user_data", lambda _store: order.append("snapshot")
+    )
+    monkeypatch.setattr(
+        nixos_upgrade,
+        "activate_system",
+        lambda _store, _camera: order.append("activate"),
+    )
+    monkeypatch.setattr(nixos_upgrade, "persist_current_build", lambda *_a: None)
+    monkeypatch.setattr(nixos_upgrade, "cleanup_old_generations", lambda: None)
+    monkeypatch.setattr(nixos_upgrade, "command", lambda *a, **kw: None)
+
+    nixos_upgrade.run_upgrade(ref_file, "imx462")
+
+    assert order == ["stop-tidy", "snapshot", "activate"]

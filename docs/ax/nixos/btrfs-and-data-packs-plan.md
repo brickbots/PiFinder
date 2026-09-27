@@ -39,9 +39,9 @@ Needs A3 and A5. Open: the free space and RAM that `btrfs-convert` needs on a fu
 
 Needs A1 to A6 and a spare Pi. Nothing opens the gate before this passes.
 
-**A8. Cleanup after migration.** A service that runs after the first confirmed generation: delete `ext2_saved`, run a balance, and start `btrfs filesystem defragment -r -czstd` at low priority. Needs A6. Check: on the A7 card, the free space before and after.
+**A8. Cleanup after migration.** Done in two parts. `pifinder-migration-cleanup` deletes `ext2_saved` when the generation is confirmed (#76; its ordering cycle with the watchdog, which made systemd delete the job at each boot, is fixed in this PR). `pifinder-btrfs-tidy` then runs `btrfs balance start -dusage=50 -musage=50 /` once, at idle priority, and logs the duration and the load to `PiFinder_data/logs/btrfs-tidy.log`. No defragment (see ADR 0039). Check: on the A7 card, the free space before and after, and the log.
 
-**A9. Snapshot of user data before an upgrade.** `nixos_upgrade.py` takes a read-only snapshot of `PiFinder_data` before it switches, and keeps the last two. The restore path (a watchdog step or a manual step) is decided in this PR. Needs A4 or A6 (the subvolume). Check: unit tests; an upgrade on a btrfs card.
+**A9. Snapshot of user data before an upgrade.** Done. `nixos_upgrade.py` takes a read-only snapshot of `PiFinder_data` into `/.snapshots` before it switches, and keeps the last two. The restore is manual (ADR 0039, "Restore of PiFinder_data from a snapshot"). Check: unit tests; an upgrade on a btrfs card shows the snapshot in `/.snapshots`.
 
 **A10. U-Boot bootcount (ADR 0038 gap).** `bootcount` with `altbootcmd` in `ubootSD`. The watchdog's confirm step resets the counter. Needs A2. Check: install a build that stops in the initrd on a test card, and see that the third boot starts the previous entry.
 

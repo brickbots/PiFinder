@@ -16,6 +16,7 @@ import urllib.error
 import urllib.request
 from collections import deque
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -33,6 +34,16 @@ CAMERA_TYPE_FILE = Path("/var/lib/pifinder/camera-type")
 # Arms pifinder-watchdog: present = the next boot is a trial of an unproven
 # generation (roll back on failure); absent = committed system, never touched.
 TRIAL_MARKER_FILE = Path("/var/lib/pifinder/trial-generation.json")
+# PiFinder_data is a btrfs subvolume on btrfs cards (ADR 0039). Before each
+# switch, a read-only snapshot of it goes to SNAPSHOT_DIR, on the same file
+# system; the newest SNAPSHOT_KEEP stay. Restore is manual (ADR 0039).
+DATA_DIR = Path("/home/pifinder/PiFinder_data")
+SNAPSHOT_DIR = Path("/.snapshots")
+SNAPSHOT_PREFIX = "PiFinder_data-"
+SNAPSHOT_KEEP = 2
+# The one-time btrfs balance after the migration (services.nix). An upgrade
+# stops it; it starts again at the next boot.
+BTRFS_TIDY_UNIT = "pifinder-btrfs-tidy.service"
 
 RELEASE_CACHE = "https://cache.pifinder.eu/pifinder-release"
 DEV_CACHE = "https://cache.pifinder.eu/pifinder"
@@ -532,6 +543,74 @@ def check_root_mountable(system: Path) -> None:
         )
 
 
+def snapshot_name(store_path: str, now: datetime) -> str:
+    """PiFinder_data-<UTC time>-<first 8 of the target hash>. The time comes
+    first, so the names sort by age."""
+    digest = Path(store_path).name[:8]
+    return f"{SNAPSHOT_PREFIX}{now.strftime('%Y%m%dT%H%M%SZ')}-{digest}"
+
+
+def snapshot_user_data(
+    store_path: str,
+    data_dir: Path = DATA_DIR,
+    snapshot_dir: Path = SNAPSHOT_DIR,
+    keep: int = SNAPSHOT_KEEP,
+) -> str | None:
+    """Take a read-only snapshot of PiFinder_data before the switch and keep
+    the newest `keep`. Returns the snapshot path, or None when there is none.
+    Every failure only logs a warning: a snapshot must never stop an upgrade.
+    """
+    try:
+        show = command(
+            ["btrfs", "subvolume", "show", str(data_dir)], check=False, timeout=30
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        logger.warning("no PiFinder_data snapshot: %s", exc)
+        return None
+    if show.returncode != 0:
+        logger.info("PiFinder_data is not a btrfs subvolume; no snapshot")
+        return None
+
+    target = snapshot_dir / snapshot_name(store_path, datetime.now(timezone.utc))
+    try:
+        snapshot_dir.mkdir(mode=0o700, exist_ok=True)
+        result = command(
+            ["btrfs", "subvolume", "snapshot", "-r", str(data_dir), str(target)],
+            check=False,
+            timeout=60,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        logger.warning("PiFinder_data snapshot failed: %s", exc)
+        return None
+    if result.returncode != 0:
+        logger.warning("PiFinder_data snapshot failed: %s", result.stderr.strip())
+        return None
+    logger.info("PiFinder_data snapshot: %s", target)
+
+    snapshots = sorted(
+        p for p in snapshot_dir.iterdir() if p.name.startswith(SNAPSHOT_PREFIX)
+    )
+    for old in snapshots[: max(len(snapshots) - keep, 0)]:
+        try:
+            command(["btrfs", "subvolume", "delete", str(old)], check=False, timeout=60)
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            logger.warning("cannot delete old snapshot %s: %s", old, exc)
+    return str(target)
+
+
+def stop_btrfs_tidy() -> None:
+    """Stop the one-time balance: it must not compete with the download and
+    the switch. The stop cancels the balance; it runs again at the next boot."""
+    try:
+        command(
+            ["systemctl", "stop", "--no-ask-password", BTRFS_TIDY_UNIT],
+            check=False,
+            timeout=120,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        logger.warning("cannot stop %s: %s", BTRFS_TIDY_UNIT, exc)
+
+
 def activate_system(store_path: str, default_camera: str) -> None:
     write_status("activating")
     command(["nix-env", "-p", "/nix/var/nix/profiles/system", "--set", store_path])
@@ -598,6 +677,7 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
     selected_unavailable = False
     try:
         write_status("starting")
+        stop_btrfs_tidy()
         store_path = ref_file.read_text().strip()
         if not valid_store_path(store_path):
             raise UpgradeError(f"invalid store path: {store_path!r}")
@@ -641,6 +721,7 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
 
         selection = load_selection()
         check_root_mountable(Path(store_path))
+        snapshot_user_data(store_path)
         activate_system(store_path, default_camera)
         persist_current_build(store_path, selection)
         cleanup_old_generations()

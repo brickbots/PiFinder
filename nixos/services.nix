@@ -458,7 +458,8 @@ in {
       Environment = [ "PIFINDER_DELTA_URL=${cfg.deltaUrl}" ];
     };
     # zstd applies delta patches (unused, harmless when deltaUrl is unset).
-    path = with pkgs; [ nix systemd coreutils zstd set-extlinux-default ];
+    # btrfs-progs takes the PiFinder_data snapshot before the switch.
+    path = with pkgs; [ nix systemd coreutils zstd btrfs-progs set-extlinux-default ];
   };
 
   # ---------------------------------------------------------------------------
