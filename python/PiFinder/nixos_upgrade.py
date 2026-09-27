@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import re
 import subprocess
 import urllib.error
@@ -101,8 +102,13 @@ class DownloadEstimate:
 
 
 def write_status(status: str, status_file: Path = UPGRADE_STATUS_FILE) -> None:
+    """Replace the status line in one step. The Software screen reads this
+    file every frame; with a truncate-then-write it can read an empty file
+    and draw one frame of the default screen, which shows as a flicker."""
     status_file.parent.mkdir(parents=True, exist_ok=True)
-    status_file.write_text(status)
+    tmp = status_file.with_name(f".{status_file.name}.{os.getpid()}.tmp")
+    tmp.write_text(status)
+    os.replace(tmp, status_file)
 
 
 def valid_store_path(ref: str) -> bool:
@@ -319,11 +325,12 @@ class _DownloadProgress:
             return
         if event.action == "result":
             self._on_progress(event)
-        elif event.activity_type == 100:
-            if event.action == "start":
-                self._on_start(event)
-            elif event.action == "stop":
-                self._on_stop(event)
+        elif event.action == "start" and event.activity_type == 100:
+            self._on_start(event)
+        elif event.action == "stop":
+            # nix sends a stop with only the activity id, no type. _on_stop
+            # ignores the ids it does not track.
+            self._on_stop(event)
 
     def _on_start(self, event: ProgressEvent) -> None:
         if (
