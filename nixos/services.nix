@@ -253,95 +253,6 @@ in {
   };
 
   # ---------------------------------------------------------------------------
-  # Nix DB registration (first boot after migration)
-  # ---------------------------------------------------------------------------
-  # The migration tarball includes /nix-path-registration with store path data.
-  # Load it into the Nix DB so nix-store and nixos-rebuild work correctly.
-  systemd.services.nix-path-registration = {
-    description = "Load Nix store path registration from migration";
-    after = [ "local-fs.target" ];
-    before = [ "nix-daemon.service" ];
-    wantedBy = [ "multi-user.target" ];
-    unitConfig.ConditionPathExists = "/nix-path-registration";
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    path = with pkgs; [ nix coreutils ];
-    script = ''
-      nix-store --load-db < /nix-path-registration
-      rm /nix-path-registration
-    '';
-  };
-
-  # ---------------------------------------------------------------------------
-  # Repair /nix/store ownership before NetworkManager starts
-  # ---------------------------------------------------------------------------
-  # NetworkManager (like other security-sensitive plugin loaders) silently
-  # refuses to load any plugin file not owned by root. Tarball-based migration
-  # and single-user nix imports can leave /nix/store paths owned by a non-root
-  # uid; NM then drops its wifi device plugin entirely — wlan0 shows as
-  # "unmanaged", WIFI-HW as "missing", and no wifi client connection ever comes
-  # up. Normalise ownership back to root before NM reads its plugins. Idempotent
-  # and cheap on a clean store (early-exits without touching the ro mount).
-  systemd.services.fix-nix-store-ownership = {
-    description = "Normalise /nix/store ownership to root (NM rejects non-root plugins)";
-    after = [ "local-fs.target" ];
-    before = [ "NetworkManager.service" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    path = with pkgs; [ util-linux findutils coreutils ];
-    script = ''
-      set -u
-      if [ -z "$(find /nix/store -mindepth 1 -maxdepth 1 ! -uid 0 -print -quit)" ] \
-         && [ "$(stat -c %u /nix/var/nix/db)" = 0 ]; then
-        exit 0
-      fi
-      echo "normalising non-root /nix/store ownership"
-      # /nix/store is a read-only bind mount of the same device as /. The
-      # remount MUST carry "bind" so it flips only this mount's per-mount
-      # ro flag; a plain "remount,ro" would flip the shared superblock and
-      # take / (and /nix/var) read-only with it.
-      remounted=0
-      if findmnt -no OPTIONS /nix/store | grep -qw ro; then
-        if mount -o remount,bind,rw /nix/store; then
-          remounted=1
-        else
-          echo "WARNING: could not remount /nix/store rw; skipping repair"
-          exit 0
-        fi
-      fi
-      find /nix/store -mindepth 1 -maxdepth 1 ! -uid 0 -exec chown -R 0:0 {} + || true
-      chown 0:0 /nix/var/nix/db || true
-      if [ "$remounted" = 1 ]; then
-        mount -o remount,bind,ro /nix/store || true
-      fi
-      echo "store ownership normalised"
-    '';
-  };
-
-  # ---------------------------------------------------------------------------
-  # Repair top-level directory ownership
-  # ---------------------------------------------------------------------------
-  # A tarball migration can leave /, /var, /nix and other top-level
-  # directories owned by the pifinder user. systemd-tmpfiles then rejects the
-  # "unsafe path transition" from a user-owned / into the root-owned /run and
-  # does not create /run/pifinder, so every update fails. Activation scripts
-  # run at boot before systemd starts, so tmpfiles sees the repaired owners.
-  # Only the directories change owner, not their contents.
-  system.activationScripts.fix-root-ownership = ''
-    for d in / /boot /home /nix /var /var/lib; do
-      if [ -d "$d" ] && [ "$(stat -c %u "$d")" != 0 ]; then
-        echo "fix-root-ownership: $d is not owned by root, repairing"
-        chown 0:0 "$d" || true
-      fi
-    done
-  '';
-
-  # ---------------------------------------------------------------------------
   # PiFinder source + data directory setup
   # ---------------------------------------------------------------------------
   system.activationScripts.pifinder-home = lib.stringAfter [ "users" ] ''
@@ -567,33 +478,6 @@ in {
   #     splash, roll back (marker hint first, else newest other generation),
   #     reboot. With no rollback target at all, stay up for rescue instead of
   #     boot-looping.
-  # ---------------------------------------------------------------------------
-  # Remove the ext4 rollback image after the migration (ADR 0039)
-  # ---------------------------------------------------------------------------
-  # btrfs-convert leaves ext2_saved, an image of the old ext4 that holds the
-  # space of Pi OS and its data. Once a generation on btrfs is confirmed, the
-  # migration is not rolled back any more, so delete it to free the space.
-  systemd.services.pifinder-migration-cleanup = {
-    description = "Remove the ext4 rollback image left by the migration";
-    after = [ "pifinder-watchdog.service" ];
-    wantedBy = [ "multi-user.target" ];
-    unitConfig.ConditionPathIsDirectory = "/ext2_saved";
-    serviceConfig = {
-      Type = "oneshot";
-      Nice = 19;
-      IOSchedulingClass = "idle";
-    };
-    path = with pkgs; [ btrfs-progs coreutils gnugrep ];
-    script = ''
-      CURRENT=$(readlink -f /run/current-system)
-      if ! grep -qxF "$CURRENT" /var/lib/pifinder/confirmed-generations 2>/dev/null; then
-        echo "$CURRENT is not confirmed yet; keeping /ext2_saved"
-        exit 0
-      fi
-      btrfs subvolume delete /ext2_saved
-    '';
-  };
-
   systemd.services.pifinder-watchdog = {
     description = "PiFinder Boot Health Watchdog";
     after = [ "multi-user.target" "pifinder.service" ];

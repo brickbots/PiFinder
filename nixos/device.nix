@@ -103,26 +103,6 @@ in {
   };
 
   # ---------------------------------------------------------------------------
-  # Nix DB registration (first boot after migration)
-  # ---------------------------------------------------------------------------
-  systemd.services.nix-path-registration = {
-    description = "Load Nix store path registration from migration";
-    after = [ "local-fs.target" ];
-    before = [ "nix-daemon.service" ];
-    wantedBy = [ "multi-user.target" ];
-    unitConfig.ConditionPathExists = "/nix-path-registration";
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    path = with pkgs; [ nix coreutils ];
-    script = ''
-      nix-store --load-db < /nix-path-registration
-      rm /nix-path-registration
-    '';
-  };
-
-  # ---------------------------------------------------------------------------
   # First boot: download full PiFinder system from the binary cache and switch
   # ---------------------------------------------------------------------------
   systemd.services.pifinder-first-boot = {

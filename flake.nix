@@ -52,6 +52,7 @@
       ./nixos/networking.nix
       ./nixos/services.nix
       ./nixos/python-env.nix
+      ./nixos/migration.nix
       headlessModule
     ];
 
@@ -62,6 +63,7 @@
       ./nixos/networking.nix
       ./nixos/wifi-fallback-minimal.nix
       ./nixos/device.nix
+      ./nixos/migration.nix
       headlessModule
     ];
 
