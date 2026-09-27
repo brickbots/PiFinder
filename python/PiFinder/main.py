@@ -439,6 +439,45 @@ def _build_pygame_keymaps():
     return key_map, ctrl_key_map
 
 
+def drain_gps_queue(gps_queue, pending: dict) -> list:
+    """Take every message from gps_queue into `pending`, one per kind, and
+    return the resets ("reset", "reset_datetime") in their order.
+
+    "fix": the fix with the smallest error. One by one, the main loop applied
+    only a fix with a smaller error than the one before, so the result was
+    the best fix. "time": the newest time; force if any of them was
+    time_force. "satellites", "comms": the newest. A reset drops an older
+    pending fix, a reset_datetime an older pending time; the caller does the
+    resets before it applies what is pending.
+    """
+    resets = []
+    try:
+        while True:
+            gps_msg, gps_content = gps_queue.get(block=False)
+            if gps_msg == "reset":
+                pending.pop("fix", None)
+                resets.append(gps_msg)
+            elif gps_msg == "reset_datetime":
+                pending.pop("time", None)
+                resets.append(gps_msg)
+            elif gps_msg in ("time", "time_force"):
+                force = gps_msg == "time_force" or (
+                    "time" in pending and pending["time"][1]
+                )
+                pending["time"] = (gps_content, force)
+            elif gps_msg == "fix":
+                held = pending.get("fix")
+                if held is None or float(gps_content.get("error_in_m", 0) or 0) < float(
+                    held.get("error_in_m", 0) or 0
+                ):
+                    pending["fix"] = gps_content
+            elif gps_msg in ("satellites", "comms"):
+                pending[gps_msg] = gps_content
+    except queue.Empty:
+        pass
+    return resets
+
+
 def main(
     log_helper: MultiprocLogging,
     script_name=None,
@@ -801,6 +840,11 @@ def main(
         last_battery_watch = 0.0
 
         log_time = True
+        # GPS messages waiting to go to the shared state (see the GPS block in
+        # the loop), and when satellites and comms last went there.
+        gps_pending: dict = {}
+        gps_last_push = {"satellites": 0.0, "comms": 0.0}
+
         # Start of main except handler / loop
         try:
             while True:
@@ -830,90 +874,93 @@ def main(
                     # handles power-save by sleeping longer when asleep.
                     sleep_for_framerate(shared_state)
 
-                # GPS
-                try:
-                    while True:  # Consume from gps_queue until empty
-                        gps_msg, gps_content = gps_queue.get(block=False)
-                        if gps_msg == "fix":
-                            if gps_content["lat"] + gps_content["lon"] != 0:
-                                location = shared_state.location()
+                # GPS. The GPS process sends many messages a second, and each
+                # one applied is a round trip to the shared state: on a CM4
+                # that was about a seventh of the UI thread's time. So drain
+                # the queue first and keep the newest message of each kind;
+                # reset and reset_datetime still act in their place. The fix
+                # and the time go on at once; satellites and comms are
+                # display values and go on at most once a second.
+                for gps_reset in drain_gps_queue(gps_queue, gps_pending):
+                    if gps_reset == "reset":
+                        location.reset()
+                        shared_state.set_location(location)
+                    else:
+                        shared_state.reset_datetime()
+                if "fix" in gps_pending:
+                    gps_content = gps_pending.pop("fix")
+                    if gps_content["lat"] + gps_content["lon"] != 0:
+                        location = shared_state.location()
 
-                            # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
-                            # "replay" is protected too: a telemetry replay owns the
-                            # location until it ends and restores the original.
-                            if (
-                                not location.source == "WEB"
-                                and not location.source.startswith("CONFIG:")
-                                and not location.source == "MANUAL"
-                                and not location.source == "replay"
-                                and (
-                                    location.error_in_m == 0
-                                    or float(gps_content["error_in_m"])
-                                    < float(
-                                        location.error_in_m
-                                    )  # Only if new error is smaller
-                                )
-                            ):
-                                logger.debug(
-                                    f"Updating GPS location: new content: {gps_content}, old content: {location}"
-                                )
-                                location.lat = gps_content["lat"]
-                                location.lon = gps_content["lon"]
-                                location.altitude = gps_content["altitude"]
-                                location.source = gps_content["source"]
-                                if "error_in_m" in gps_content:
-                                    location.error_in_m = gps_content["error_in_m"]
-                                if "lock" in gps_content:
-                                    location.lock = gps_content["lock"]
-                                if "lock_type" in gps_content:
-                                    location.lock_type = gps_content["lock_type"]
+                    # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
+                    # "replay" is protected too: a telemetry replay owns the
+                    # location until it ends and restores the original.
+                    if (
+                        not location.source == "WEB"
+                        and not location.source.startswith("CONFIG:")
+                        and not location.source == "MANUAL"
+                        and not location.source == "replay"
+                        and (
+                            location.error_in_m == 0
+                            or float(gps_content["error_in_m"])
+                            < float(location.error_in_m)  # Only if new error is smaller
+                        )
+                    ):
+                        logger.debug(
+                            f"Updating GPS location: new content: {gps_content}, old content: {location}"
+                        )
+                        location.lat = gps_content["lat"]
+                        location.lon = gps_content["lon"]
+                        location.altitude = gps_content["altitude"]
+                        location.source = gps_content["source"]
+                        if "error_in_m" in gps_content:
+                            location.error_in_m = gps_content["error_in_m"]
+                        if "lock" in gps_content:
+                            location.lock = gps_content["lock"]
+                        if "lock_type" in gps_content:
+                            location.lock_type = gps_content["lock_type"]
 
-                                # Update last_gps_lock timestamp when lock is set
-                                if "lock" in gps_content and gps_content["lock"]:
-                                    dt = shared_state.datetime()
-                                    if dt is None:
-                                        location.last_gps_lock = "--"
-                                    else:
-                                        location.last_gps_lock = dt.time().isoformat()[
-                                            :8
-                                        ]
-                                    console.write(
-                                        f"GPS: Location {location.lat} {location.lon} {location.altitude} {location.error_in_m}"
-                                    )
-                                    shared_state.set_location(location)
-                                    sf_utils.set_location(
-                                        location.lat,
-                                        location.lon,
-                                        location.altitude,
-                                    )
-                        if gps_msg in ("time", "time_force"):
-                            if isinstance(gps_content, datetime.datetime):
-                                gps_dt = gps_content
+                        # Update last_gps_lock timestamp when lock is set
+                        if "lock" in gps_content and gps_content["lock"]:
+                            dt = shared_state.datetime()
+                            if dt is None:
+                                location.last_gps_lock = "--"
                             else:
-                                gps_dt = gps_content["time"]
-                            shared_state.set_datetime(
-                                gps_dt, force=(gps_msg == "time_force")
+                                location.last_gps_lock = dt.time().isoformat()[:8]
+                            console.write(
+                                f"GPS: Location {location.lat} {location.lon} {location.altitude} {location.error_in_m}"
                             )
-                            if log_time:
-                                logger.info("GPS Time (logged only once): %s", gps_dt)
-                                log_time = False
-                        if gps_msg == "reset":
-                            location.reset()
                             shared_state.set_location(location)
-                        if gps_msg == "reset_datetime":
-                            shared_state.reset_datetime()
-                        if gps_msg == "satellites":
-                            # logger.debug("Main: GPS nr sats seen: %s", gps_content)
-                            shared_state.set_sats(gps_content)
-                        if gps_msg == "comms":
-                            # The GPS process has no shared_state, so liveness
-                            # reaches the STATUS screen only by way of this
-                            # queue. Stamp arrival here rather than at the
-                            # sending end: the row renders in this process, so
-                            # this is the only clock it can safely subtract.
-                            shared_state.set_gps_comms((gps_content, time.monotonic()))
-                except queue.Empty:
-                    pass
+                            sf_utils.set_location(
+                                location.lat,
+                                location.lon,
+                                location.altitude,
+                            )
+                if "time" in gps_pending:
+                    gps_content, gps_force = gps_pending.pop("time")
+                    if isinstance(gps_content, datetime.datetime):
+                        gps_dt = gps_content
+                    else:
+                        gps_dt = gps_content["time"]
+                    shared_state.set_datetime(gps_dt, force=gps_force)
+                    if log_time:
+                        logger.info("GPS Time (logged only once): %s", gps_dt)
+                        log_time = False
+                gps_now = time.monotonic()
+                if (
+                    "satellites" in gps_pending
+                    and gps_now - gps_last_push["satellites"] >= 1.0
+                ):
+                    gps_last_push["satellites"] = gps_now
+                    shared_state.set_sats(gps_pending.pop("satellites"))
+                if "comms" in gps_pending and gps_now - gps_last_push["comms"] >= 1.0:
+                    gps_last_push["comms"] = gps_now
+                    # The GPS process has no shared_state, so liveness
+                    # reaches the STATUS screen only by way of this
+                    # queue. Stamp arrival here rather than at the
+                    # sending end: the row renders in this process, so
+                    # this is the only clock it can safely subtract.
+                    shared_state.set_gps_comms((gps_pending.pop("comms"), gps_now))
 
                 # ui queue
                 try:
