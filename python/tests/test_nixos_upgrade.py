@@ -781,3 +781,22 @@ def test_arm_boot_counter_never_raises(monkeypatch):
 
     monkeypatch.setattr(nixos_upgrade, "command", boom)
     nixos_upgrade.arm_boot_counter()
+
+
+@pytest.mark.unit
+def test_write_status_replaces_the_file_in_one_step(tmp_path, monkeypatch):
+    status = tmp_path / "upgrade-status"
+    status.write_text("patching applying 1/41")
+    seen = []
+    real_replace = nixos_upgrade.os.replace
+
+    def spy_replace(src, dst):
+        # Before the swap the old line is still complete; never empty.
+        seen.append(Path(dst).read_text())
+        real_replace(src, dst)
+
+    monkeypatch.setattr(nixos_upgrade.os, "replace", spy_replace)
+    nixos_upgrade.write_status("patching applying 2/41", status)
+    assert seen == ["patching applying 1/41"]
+    assert status.read_text() == "patching applying 2/41"
+    assert [p.name for p in tmp_path.iterdir()] == ["upgrade-status"]
