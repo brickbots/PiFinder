@@ -691,7 +691,7 @@ def _drawing_ui():
     ui.screen = Image.new("RGB", (128, 128))
     ui.draw = ImageDraw.Draw(ui.screen)
     font = SimpleNamespace(font=ImageFont.load_default())
-    ui.fonts = SimpleNamespace(bold=font, base=font)
+    ui.fonts = SimpleNamespace(bold=font, base=font, large=font)
     ui.colors = SimpleNamespace(get=lambda v: (v, 0, 0))
     ui.display_class = SimpleNamespace(titlebar_height=16)
     return ui
