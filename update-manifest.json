@@ -174,17 +174,17 @@
       },
       {
         "available": true,
-        "built_at": "2026-09-27T10:28:29+00:00",
+        "built_at": "2026-09-27T10:51:22+00:00",
         "kind": "pr",
-        "label": "PR#379-053c445",
+        "label": "PR#379-db79ff8",
         "notes": "## Summary\n- Full NixOS-based system for PiFinder (replaces Raspbian)\n- Declarative system configuration via Nix flake\n- SD card image, netboot, and migration bootstrap tarball builds\n- Software update via nixos-rebuild with GitHub release/PR channels\n\n## Test plan\n- [ ] Flash SD image and verify boot\n- [ ] Test WiFi AP and client mode switching\n- [ ] Test software update UI channels\n- [ ] Test hostname rename via web UI\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)",
         "number": 379,
         "source_ref": "nixos",
         "source_repo": "mrosseel/PiFinder",
-        "source_sha": "053c4454b2326f119603800c3749bdbe37280376",
-        "store_path": "/nix/store/zip4gnzns9a56cc8bdfh5c22nabw396w-nixos-system-pifinder-26.05.20260924.c508844",
+        "source_sha": "db79ff8b36ef4743b52464a417d410f7cd276182",
+        "store_path": "/nix/store/m5qy5lgfypwhyjvgbfisv8acvkpiy10g-nixos-system-pifinder-26.05.20260924.c508844",
         "title": "NixOS support",
-        "version": "PR#379-053c445"
+        "version": "PR#379-db79ff8"
       },
       {
         "available": true,
@@ -202,6 +202,6 @@
       }
     ]
   },
-  "generated_at": "2026-09-27T10:39:56+00:00",
+  "generated_at": "2026-09-27T10:51:22+00:00",
   "schema": 1
 }
