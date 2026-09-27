@@ -290,10 +290,14 @@ class _DownloadProgress:
         total_paths: int,
         status_file: Path,
         local_source: str | None = None,
+        local_total: int = 0,
     ):
-        # Copies from local_source (the staged patch cache) are not downloads
-        # and are not counted.
+        # Copies from local_source (the staged patch cache) are not downloads:
+        # they are the "installing" step, counted in paths, not bytes.
         self.local_source = local_source.rstrip("/") if local_source else None
+        self.local_total = local_total
+        self._local: dict[int, str] = {}  # copyPath id -> short label
+        self._local_done = 0
         self.total_bytes = total_bytes
         self.use_bytes = total_bytes > 0
         self.total_paths = total_paths
@@ -327,6 +331,8 @@ class _DownloadProgress:
             and event.source
             and event.source.rstrip("/") == self.local_source
         ):
+            self._local[event.activity_id] = _short_pkg(event.path)
+            self._write_installing(self._local[event.activity_id])
             return
         self._active[event.activity_id] = _short_pkg(event.path)
         self._paths_seen += 1
@@ -349,6 +355,11 @@ class _DownloadProgress:
 
     def _on_stop(self, event: ProgressEvent) -> None:
         aid = event.activity_id
+        if aid in self._local:
+            label = self._local.pop(aid)
+            self._local_done += 1
+            self._write_installing(label)
+            return
         if aid not in self._active:
             return
         label = self._active.pop(aid)
@@ -371,6 +382,13 @@ class _DownloadProgress:
             msg += f" {self._label}"
         write_status(msg, self.status_file)
 
+    def _write_installing(self, label: str) -> None:
+        total = max(self.local_total, self._local_done)
+        msg = f"installing {self._local_done}/{total}"
+        if label:
+            msg += f" {label}"
+        write_status(msg, self.status_file)
+
     def _write_paths(self) -> None:
         denom = self.total_paths or self._paths_seen
         write_status(f"downloading {self._paths_done}/{denom} paths", self.status_file)
@@ -391,7 +409,10 @@ def run_build(
         max(estimate.total_bytes - patched_bytes, 1) if estimate.total_bytes else 0
     )
     total_paths = max(estimate.path_count - patched_paths, 0)
-    if total_bytes > 0:
+    if patched_paths > 0:
+        # nix installs the patched paths from the local cache first.
+        write_status(f"installing 0/{patched_paths}", status_file)
+    elif total_bytes > 0:
         write_status(f"downloading 0/{total_bytes}", status_file)
     else:
         write_status(f"downloading 0/{total_paths} paths", status_file)
@@ -415,7 +436,11 @@ def run_build(
         build_args += ["--option", "extra-substituters", substituter]
 
     progress = _DownloadProgress(
-        total_bytes, total_paths, status_file, local_source=substituter
+        total_bytes,
+        total_paths,
+        status_file,
+        local_source=substituter,
+        local_total=patched_paths,
     )
     tail: deque[str] = deque(maxlen=40)
 

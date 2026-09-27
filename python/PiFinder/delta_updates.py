@@ -520,7 +520,7 @@ def prefetch_deltas(
     path. With none, nothing can be staged. `progress(step, done, total)`
     reports the step and its progress:
       "asking"    done of total paths asked for a patch in this round
-      "waiting"   done of total paths are not ready, a wait before the next round
+      "waiting"   done of total patches are decided (ready or no patch)
       "applying"  done of total patches downloaded and applied
 
     Best-effort: any failure — server down, patch broken, disk full — just
@@ -624,7 +624,7 @@ def _stage_all(
             answered[target] = state
             if state == "hit":
                 start(n, target, info)
-            report("waiting", open_count(), len(jobs))
+            report("waiting", len(jobs) - open_count(), len(jobs))
 
         # One stream for all paths: each patch is applied as soon as it is
         # ready, while the server still computes the others.
@@ -642,7 +642,7 @@ def _stage_all(
             if not pending:
                 break
             if round_no > 0:
-                report("waiting", len(pending), len(jobs))
+                report("waiting", len(jobs) - len(pending), len(jobs))
                 time.sleep(RETRY_WAIT)
             not_ready = []
             with ThreadPoolExecutor(max_workers=WORKERS) as asker:
