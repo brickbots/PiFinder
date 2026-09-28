@@ -366,7 +366,8 @@ class UISoftware(UIModule):
     """
 
     __title__ = "SOFTWARE"
-    MAX_VISIBLE = 4
+    # Version rows on screen; _draw_browse sets it from the screen height.
+    _visible_rows = 4
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -760,7 +761,14 @@ class UISoftware(UIModule):
             return
 
         label_width = self.fonts.base.line_length - 2
-        list_bottom = 114 if (self._checking or self._check_failed) else 128
+        # Rows and the list's bottom follow the font and the screen height:
+        # 12 px rows down to y 128 (114 with the status line) on the 128 px
+        # panel, more rows on the 176 and 320 px panels.
+        row_h = self._browse_row_height()
+        list_bottom = self._browse_list_bottom()
+        # Rows that fit below y, less one for the focused row's detail line;
+        # key_down scrolls by it.
+        self._visible_rows = max(1, (list_bottom - y) // row_h - 1)
         current_y = y
         for i in range(len(self._version_list)):
             idx = self._scroll_offset + i
@@ -770,7 +778,7 @@ class UISoftware(UIModule):
             prefix, text = _entry_row_parts(entry)
 
             if self._focus == "list" and idx == self._list_index:
-                if current_y + 24 > list_bottom:
+                if current_y + 2 * row_h > list_bottom:
                     break
                 self.draw.text(
                     (0, current_y),
@@ -799,7 +807,7 @@ class UISoftware(UIModule):
                     scroll_width,
                 )
                 scroller.draw((text_x, current_y))
-                current_y += 12
+                current_y += row_h
                 detail = _entry_detail(entry)
                 if detail:
                     sub_scroller = self._get_scroller(
@@ -810,11 +818,11 @@ class UISoftware(UIModule):
                         label_width,
                     )
                     sub_scroller.draw((10, current_y))
-                current_y += 12
+                current_y += row_h
             else:
                 # Unfocused rows stay dim so the selected row and its detail
                 # line carry the visual weight.
-                if current_y + 12 > list_bottom:
+                if current_y + row_h > list_bottom:
                     break
                 # The trunk ("main") row stands out from the PR rows: bold and
                 # brighter, with a leading dot.
@@ -832,9 +840,21 @@ class UISoftware(UIModule):
                         font=self.fonts.base.font,
                         fill=self.colors.get(128),
                     )
-                current_y += 12
+                current_y += row_h
 
         self._draw_refresh_status()
+
+    def _browse_row_height(self) -> int:
+        """One list row: the base font's height plus 1 px (12 on 128 px)."""
+        return self.fonts.base.height + 1
+
+    def _browse_list_bottom(self) -> int:
+        """Lowest y of the version list; the refresh status line takes the
+        row below it while it shows."""
+        bottom = self.display_class.resY
+        if self._checking or self._check_failed:
+            bottom -= self._browse_row_height() + 2
+        return bottom
 
     def _draw_refresh_status(self):
         """Bottom-line indicator for the background manifest refresh."""
@@ -849,7 +869,7 @@ class UISoftware(UIModule):
         else:
             return
         self.draw.text(
-            (4, 115),
+            (4, self._browse_list_bottom() + 1),
             text,
             font=self.fonts.base.font,
             fill=self.colors.get(96),
@@ -1054,8 +1074,9 @@ class UISoftware(UIModule):
             elif self._focus == "list":
                 if self._list_index < len(self._version_list) - 1:
                     self._list_index += 1
-                    if self._list_index >= self._scroll_offset + self.MAX_VISIBLE:
-                        self._scroll_offset = self._list_index - self.MAX_VISIBLE + 1
+                    rows = self._visible_rows
+                    if self._list_index >= self._scroll_offset + rows:
+                        self._scroll_offset = self._list_index - rows + 1
         elif self._phase == "confirm":
             if self._confirm_index < len(self._confirm_options) - 1:
                 self._confirm_index += 1
