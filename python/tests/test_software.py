@@ -3,9 +3,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from PIL import Image, ImageDraw
 
 # Installs the _() gettext builtin the UI modules rely on; must precede ui imports.
 import PiFinder.i18n  # noqa: F401
+from PiFinder.displays import get_display
 from PiFinder.types.hardware import BatteryState, ChargeStatus
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.menu_manager import MenuManager
@@ -414,6 +416,62 @@ class TestKeepAwake:
         top = MagicMock(keep_awake=True)
         manager.stack = [MagicMock(keep_awake=False), top]
         assert manager.keep_awake() is True
+
+
+def _browse_ui(display_name: str, versions: int, checking: bool = False) -> UISoftware:
+    display = get_display(display_name)
+    ui = UISoftware.__new__(UISoftware)
+    ui.display_class = display
+    ui.colors = display.colors
+    ui.fonts = display.fonts
+    ui.draw = ImageDraw.Draw(Image.new("RGBA", display.resolution), mode="RGBA")
+    ui.config_object = MagicMock()
+    ui.config_object.get_option.return_value = "Med"
+    ui._software_version = "2.6.4"
+    ui._software_subtitle = "nixos"
+    ui._channel_names = ["unstable"]
+    ui._channel_index = 0
+    ui._phase = "browse"
+    ui._focus = "list"
+    ui._version_list = [
+        {"label": f"PR#{n}", "version": f"PR#{n}", "ref": f"/nix/store/{n}"}
+        for n in range(versions)
+    ]
+    ui._list_index = 0
+    ui._scroll_offset = 0
+    ui._checking = checking
+    ui._elipsis_count = 0
+    ui._check_failed = False
+    ui._scrollers = {}
+    ui._scroller_phase = None
+    ui._scroller_index = None
+    return ui
+
+
+@pytest.mark.unit
+class TestBrowseListHeight:
+    @pytest.mark.parametrize(
+        "display_name, checking, rows",
+        [
+            ("headless", False, 4),
+            ("headless", True, 3),
+            ("headless_176", False, 7),
+            ("headless_320", False, 8),
+        ],
+    )
+    def test_rows_fill_the_screen(self, display_name, checking, rows):
+        ui = _browse_ui(display_name, versions=20, checking=checking)
+        ui._draw_browse()
+        assert ui._visible_rows == rows
+
+    def test_scroll_starts_after_the_last_visible_row(self):
+        ui = _browse_ui("headless_176", versions=20)
+        ui._draw_browse()
+        for _ in range(ui._visible_rows - 1):
+            ui.key_down()
+        assert ui._scroll_offset == 0
+        ui.key_down()
+        assert ui._scroll_offset == 1
 
 
 def _iso_ago(**delta) -> str:
