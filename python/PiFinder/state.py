@@ -16,11 +16,16 @@ from typing import List
 from PiFinder.composite_object import CompositeObject
 from PiFinder.types.positioning import PointingEstimate
 from typing import Optional
+from typing import Tuple
 from dataclasses import dataclass, asdict
 import json
 from timezonefinder import TimezoneFinder
 
 logger = logging.getLogger("SharedState")
+
+# A GPS fix moves by metres, a time zone border is kilometres away: the zone is
+# looked up again only after a move of more than this many degrees (~5 km).
+TZ_MOVE_DEG = 0.05
 
 
 class RecentCompositeObjectList(list):
@@ -323,9 +328,15 @@ class SharedStateObj:
         self.__sqm_radiometer_sample = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
-        # TimezoneFinder takes about 4 s to build on a Pi, so it builds in the
-        # background. set_location() waits for it only if it is not ready.
+        # TimezoneFinder takes about 10 s to build on a CM4, so it builds in the
+        # background. set_location() never waits for it: until it is ready a
+        # location keeps the last known zone (or UTC), and the build thread
+        # fills in the zone when it is done.
         self.__tz_finder: Optional[TimezoneFinder] = None
+        self.__tz_ready = False
+        self.__tz_pending = False
+        # (lat, lon, zone) of the last lookup; see TZ_MOVE_DEG.
+        self.__tz_last: Optional[Tuple[float, float, str]] = None
         self.__tz_finder_thread = threading.Thread(
             target=self.__build_tz_finder, name="TimezoneFinder", daemon=True
         )
@@ -338,6 +349,42 @@ class SharedStateObj:
             self.__tz_finder = TimezoneFinder()
         except Exception:
             logger.exception("Could not build TimezoneFinder, timezone is UTC")
+        finally:
+            self.__tz_ready = True
+        location = self.__location
+        if self.__tz_pending and location is not None:
+            self.__tz_pending = False
+            location.timezone = self.__timezone_for(location.lat, location.lon)
+
+    def wait_for_timezone_finder(self, timeout: Optional[float] = None) -> bool:
+        """Wait until the TimezoneFinder is built; True when it is. For tests
+        and tools: the app itself never waits for it."""
+        self.__tz_finder_thread.join(timeout)
+        return self.__tz_ready
+
+    def __timezone_for(self, lat: float, lon: float) -> str:
+        """The time zone name at lat, lon; "UTC" when it cannot be resolved.
+
+        A lookup costs up to about 180 ms on a CM4 (Belgium), and the caller,
+        usually the UI thread, waits for it. So it runs again only after a
+        move of more than TZ_MOVE_DEG, and never before the finder is built.
+        """
+        last = self.__tz_last
+        if (
+            last is not None
+            and abs(lat - last[0]) < TZ_MOVE_DEG
+            and abs(lon - last[1]) < TZ_MOVE_DEG
+        ):
+            return last[2]
+        if not self.__tz_ready:
+            self.__tz_pending = True
+            return last[2] if last is not None else "UTC"
+        tz = None
+        if self.__tz_finder is not None:
+            tz = self.__tz_finder.timezone_at(lat=lat, lng=lon)
+        zone = tz or "UTC"
+        self.__tz_last = (lat, lon, zone)
+        return zone
 
     def serialize(self, output_file):
         with open(output_file, "wb") as f:
@@ -495,11 +542,7 @@ class SharedStateObj:
         # documented fallback for an unknown zone (see local_datetime /
         # ADR-0018), so settle it here and keep the field a usable zone name.
         if v:
-            self.__tz_finder_thread.join()
-            tz = None
-            if self.__tz_finder is not None:
-                tz = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
-            v.timezone = tz or "UTC"
+            v.timezone = self.__timezone_for(v.lat, v.lon)
         self.__location = v
 
     def sqm(self):
