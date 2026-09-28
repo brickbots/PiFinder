@@ -17,10 +17,23 @@ def _draw_both(text, font, fill, xy=(5, 7)):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("width", [128, 176])
+@pytest.mark.parametrize("width", [128, 176, 320])
 @pytest.mark.parametrize(
     "text",
-    ["Messier", "NGC 7000", "Settings", "g j p q y", UIModule._CHECKMARK, "M 31 "],
+    [
+        "Messier",
+        "NGC 7000",
+        "Settings",
+        "g j p q y",
+        UIModule._CHECKMARK,
+        "M 31 ",
+        # Object list rows: a shortened name, the magnitude and size, the
+        # header lines.
+        "NGC 22…",
+        "m 8 \u200217.8'",
+        "110 obj, 3d old",
+        "Sort: Nearest",
+    ],
 )
 def test_cached_text_matches_imagedraw(width, text):
     fonts = Fonts(screen_width=width)
