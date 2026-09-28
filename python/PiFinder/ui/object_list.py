@@ -32,6 +32,7 @@ from PiFinder.nearby import Nearby
 from PiFinder.catalogs import CatalogState
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
+    draw_text_cached,
     name_deduplicate,
     pointing_arrows,
 )
@@ -736,19 +737,21 @@ class UIObjectList(UITextMenu):
                 catalog_header += _(", {catalog_info_2}d old").format(
                     catalog_info_2=self.catalog_info_2
                 )
-            self.draw.text(
+            draw_text_cached(
+                self.screen,
                 (begin_x, self.line_position(0)),
                 catalog_header,
-                font=self.fonts.bold.font,
-                fill=self.colors.get(intensity),
+                self.fonts.bold.font,
+                self.colors.get(intensity),
             )
-            self.draw.text(
+            draw_text_cached(
+                self.screen,
                 (begin_x, self.line_position(1)),
                 _("Sort: {sort_order}").format(
                     sort_order=_sort_order_label(self.current_sort)
                 ),
-                font=self.fonts.bold.font,
-                fill=self.colors.get(intensity),
+                self.fonts.bold.font,
+                self.colors.get(intensity),
             )
             if (
                 catalog_status is not None
@@ -816,11 +819,12 @@ class UIObjectList(UITextMenu):
                 begin_x2 = begin_x + (len(item_name) + 1) * line_font.width
 
                 # draw first text
-                self.draw.text(
+                draw_text_cached(
+                    self.screen,
                     (begin_x, line_pos),
                     item_name,  # TODO I18N: Does this need to be translated?
-                    font=line_font.font,
-                    fill=self.colors.get(line_color),
+                    line_font.font,
+                    self.colors.get(line_color),
                 )
                 if is_focus:
                     # should scrolling second text be refreshed?
@@ -842,11 +846,12 @@ class UIObjectList(UITextMenu):
                     self.item_text_scroll.draw((begin_x2, line_pos))
                 else:
                     # draw non-scrolling second text
-                    self.draw.text(
+                    draw_text_cached(
+                        self.screen,
                         (begin_x2, line_pos),
                         item_text,  # TODO I18N: Does this need to be translated?
-                        font=line_font.font,
-                        fill=self.colors.get(line_color),
+                        line_font.font,
+                        self.colors.get(line_color),
                     )
 
             line_number += 1
