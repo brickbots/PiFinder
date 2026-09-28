@@ -129,7 +129,9 @@ def test_set_location_settles_an_unresolvable_zone_to_utc(monkeypatch):
     and the field stays a usable zone name.
     """
     monkeypatch.setattr(
-        state_mod.TimezoneFinder, "timezone_at", lambda self, **kwargs: None
+        state_mod.timezonefinder.TimezoneFinder,
+        "timezone_at",
+        lambda self, **kwargs: None,
     )
 
     shared_state, location = _state_at(BRUSSELS_LAT, BRUSSELS_LON)
