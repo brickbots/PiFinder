@@ -2,6 +2,15 @@
 python/pifinder_logconf.json
 python/logconf_*.json
 
+# tetra3 import symlink -> PiFinder/tetra3/tetra3 (see ADR 0035).
+# Deliberately untracked: fielded units carry their own copy of this path,
+# and a tracked version makes `git pull` refuse to update them.
+# `import tetra3` resolves the solver package through it, so every working
+# tree needs it: pifinder_setup.sh and pifinder_post_update.sh create it on
+# devices, CI creates it after checkout, and in a fresh clone or worktree
+# you create it by hand (see CLAUDE.md).
+python/tetra3
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

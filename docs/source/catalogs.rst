@@ -36,8 +36,9 @@ CM
 Comets. The PiFinder computes each comet's position from orbital elements
 published by the Minor Planet Center.
 
-The catalog fills in once the PiFinder has a GPS lock, because a comet's position
-depends on your time and place. Until then it appears empty.
+The catalog fills in once the PiFinder knows your location and time, because a comet's
+position depends on both. A GPS lock supplies them, and so does entering them by hand
+in :ref:`user_guide:place & time`. Until then the catalog appears empty.
 
 The PiFinder refreshes the orbital elements by itself. Whenever it starts up with
 internet access in Client mode, it checks the Minor Planet Center for a newer set
@@ -83,8 +84,9 @@ Mercury, Venus, Mars, Jupiter, Saturn, Uranus and Neptune, along with the Moon a
 Pluto. The Sun is not included. The PiFinder computes their positions for the
 moment you look, and updates them as the night goes on.
 
-The catalog fills in once the PiFinder has a GPS lock, because a planet's position
-depends on your time and place. Until then it appears empty.
+The catalog fills in once the PiFinder knows your location and time, because a planet's
+position depends on both. A GPS lock supplies them, and so does entering them by hand
+in :ref:`user_guide:place & time`. Until then the catalog appears empty.
 
 RDS
 ----
