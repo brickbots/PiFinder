@@ -31,6 +31,11 @@ UPGRADE_SELECTION_FILE = RUN_DIR / "upgrade-selection.json"
 UPGRADE_STATUS_FILE = RUN_DIR / "upgrade-status"
 UPGRADE_LOG_FILE = RUN_DIR / "upgrade-nix.log"
 CURRENT_BUILD_FILE = Path("/var/lib/pifinder/current-build.json")
+# Build labels ("PR#534-38e7075", "v3.1.1-beta") by store path, for the
+# rollback list: a generation's store path only carries the NixOS version.
+# Display only; sys_utils.list_rollback_targets reads it.
+BUILD_LABELS_FILE = Path("/var/lib/pifinder/build-labels.json")
+MAX_BUILD_LABELS = 20
 CAMERA_TYPE_FILE = Path("/var/lib/pifinder/camera-type")
 # Arms pifinder-watchdog: present = the next boot is a trial of an unproven
 # generation (roll back on failure); absent = committed system, never touched.
@@ -491,8 +496,40 @@ def load_selection(selection_file: Path = UPGRADE_SELECTION_FILE) -> dict:
     return {}
 
 
+def remember_build_label(
+    store_path: str, label: str, labels_file: Path = BUILD_LABELS_FILE
+) -> None:
+    """Keep the label of a build for the rollback list (newest last, at most
+    MAX_BUILD_LABELS). Never raises: the labels are for display only."""
+    try:
+        labels = json.loads(labels_file.read_text())
+        if not isinstance(labels, dict):
+            labels = {}
+    except (OSError, ValueError):
+        labels = {}
+    labels.pop(store_path, None)
+    labels[store_path] = label
+    while len(labels) > MAX_BUILD_LABELS:
+        labels.pop(next(iter(labels)))
+    try:
+        labels_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp = labels_file.with_name(f".{labels_file.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(labels, indent=1) + "\n")
+        os.replace(tmp, labels_file)
+    except OSError as exc:
+        logger.warning("Could not store the build label: %s", exc)
+
+
 def persist_current_build(store_path: str, selection: dict) -> None:
     CURRENT_BUILD_FILE.parent.mkdir(parents=True, exist_ok=True)
+    # The build this upgrade leaves is the likely rollback target: keep its
+    # label before current-build.json names the new one.
+    try:
+        previous = json.loads(CURRENT_BUILD_FILE.read_text())
+        if previous.get("store_path") and previous.get("version"):
+            remember_build_label(previous["store_path"], previous["version"])
+    except (OSError, ValueError, AttributeError):
+        pass
     data = {
         "store_path": store_path,
         "version": selection.get("version") or selection.get("label") or store_path,
@@ -500,6 +537,7 @@ def persist_current_build(store_path: str, selection: dict) -> None:
         "channel": selection.get("channel"),
     }
     CURRENT_BUILD_FILE.write_text(json.dumps(data, sort_keys=True) + "\n")
+    remember_build_label(store_path, str(data["version"]))
 
 
 def arm_trial_marker(boot_target: Path) -> None:
