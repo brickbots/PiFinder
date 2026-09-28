@@ -538,18 +538,30 @@ def start_upgrade(ref: str = "release", selection: Optional[dict] = None) -> boo
     return True
 
 
-def list_rollback_targets(profile_dir: Path = Path("/nix/var/nix/profiles")) -> list:
+def list_rollback_targets(
+    profile_dir: Path = Path("/nix/var/nix/profiles"),
+    labels_file: Path = Path("/var/lib/pifinder/build-labels.json"),
+) -> list:
     """On-disk system generations available for rollback (all but the current).
 
-    Reads only immutable generation data — the profile symlinks and the
-    store-path names — so there is NO sidecar state file to evolve or corrupt,
-    and it works even when the updater is offline. Each entry mirrors a
-    Software-screen version entry so the same list UI can render it.
+    The list comes from the generation data: the profile symlinks and the
+    store-path names, so it works even when the updater is offline. A store
+    path only carries the NixOS version, so the build label ("PR#534-...",
+    "v3.1.1-beta") comes from labels_file, which the upgrade writes
+    (nixos_upgrade.remember_build_label). Without an entry there, the
+    NixOS version is the label. Each entry mirrors a Software-screen version
+    entry so the same list UI can render it.
     """
     try:
         current = (profile_dir / "system").resolve()
     except OSError:
         return []
+    try:
+        known = json.loads(labels_file.read_text())
+        if not isinstance(known, dict):
+            known = {}
+    except (OSError, ValueError):
+        known = {}
 
     targets = []
     for link in profile_dir.glob("system-*-link"):
@@ -563,7 +575,9 @@ def list_rollback_targets(profile_dir: Path = Path("/nix/var/nix/profiles")) -> 
             continue
         marker = "nixos-system-pifinder-"
         name = store_path.name
-        label = name.split(marker, 1)[-1] if marker in name else name
+        label = known.get(str(store_path))
+        if not isinstance(label, str) or not label:
+            label = name.split(marker, 1)[-1] if marker in name else name
         # Local time for display, via the tz-aware timez helper (DTZ)
         date = timez.utc_from_timestamp(mtime).astimezone().strftime("%d %b %H:%M")
         targets.append(

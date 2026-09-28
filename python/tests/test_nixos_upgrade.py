@@ -800,3 +800,42 @@ def test_write_status_replaces_the_file_in_one_step(tmp_path, monkeypatch):
     assert seen == ["patching applying 1/41"]
     assert status.read_text() == "patching applying 2/41"
     assert [p.name for p in tmp_path.iterdir()] == ["upgrade-status"]
+
+
+@pytest.mark.unit
+def test_remember_build_label_keeps_the_newest(tmp_path, monkeypatch):
+    labels = tmp_path / "build-labels.json"
+    monkeypatch.setattr(nixos_upgrade, "MAX_BUILD_LABELS", 3)
+    for i in range(5):
+        nixos_upgrade.remember_build_label(f"/nix/store/p{i}", f"L{i}", labels)
+    nixos_upgrade.remember_build_label("/nix/store/p2", "L2-again", labels)
+    stored = json.loads(labels.read_text())
+    assert list(stored) == ["/nix/store/p3", "/nix/store/p4", "/nix/store/p2"]
+    assert stored["/nix/store/p2"] == "L2-again"
+
+
+@pytest.mark.unit
+def test_remember_build_label_survives_a_broken_file(tmp_path):
+    labels = tmp_path / "build-labels.json"
+    labels.write_text("{not json")
+    nixos_upgrade.remember_build_label("/nix/store/a", "v3.1.1-beta", labels)
+    assert json.loads(labels.read_text()) == {"/nix/store/a": "v3.1.1-beta"}
+
+
+@pytest.mark.unit
+def test_persist_current_build_labels_the_new_and_the_left_build(tmp_path, monkeypatch):
+    current = tmp_path / "current-build.json"
+    labels = tmp_path / "build-labels.json"
+    monkeypatch.setattr(nixos_upgrade, "CURRENT_BUILD_FILE", current)
+    monkeypatch.setattr(nixos_upgrade, "BUILD_LABELS_FILE", labels)
+    monkeypatch.setattr(nixos_upgrade.remember_build_label, "__defaults__", (labels,))
+    current.write_text(
+        json.dumps({"store_path": "/nix/store/old", "version": "PR#379-aaa"})
+    )
+    nixos_upgrade.persist_current_build(
+        "/nix/store/new", {"label": "PR#534-bbb", "version": "PR#534-bbb"}
+    )
+    assert json.loads(labels.read_text()) == {
+        "/nix/store/old": "PR#379-aaa",
+        "/nix/store/new": "PR#534-bbb",
+    }
