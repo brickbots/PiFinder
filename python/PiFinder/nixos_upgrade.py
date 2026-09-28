@@ -19,7 +19,7 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 from PiFinder import delta_updates
 
@@ -273,6 +273,50 @@ def estimate_download(store_path: str) -> DownloadEstimate:
     except (subprocess.TimeoutExpired, OSError):
         return DownloadEstimate(())
     return DownloadEstimate(parse_store_paths(dry), parse_unpacked_total(dry))
+
+
+# Paths per `nix-store --check-validity` call: one call per status update.
+CHECK_BATCH = 100
+
+
+def estimate_from_closure(
+    store_path: str,
+    closure: tuple[tuple[str, int], ...],
+    progress: Callable[[int, int], None] | None = None,
+    batch: int = CHECK_BATCH,
+) -> DownloadEstimate | None:
+    """The paths of `closure` that this device does not hold, with the sum of
+    their NAR sizes: the same figures as the dry run, from a local check.
+    `progress(done, total)` follows each batch. None when the closure is not
+    the closure of `store_path` or a check fails; the caller then uses the
+    dry run."""
+    if not any(path == store_path for path, _size in closure):
+        return None
+    total = len(closure)
+    missing: list[str] = []
+    total_bytes = 0
+    for start in range(0, total, batch):
+        chunk = closure[start : start + batch]
+        try:
+            result = command(
+                ["nix-store", "--check-validity", "--print-invalid"]
+                + [path for path, _size in chunk],
+                check=False,
+                timeout=60,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return None
+        if result.returncode != 0:
+            logger.warning("check-validity failed: %s", result.stderr.strip())
+            return None
+        invalid = set(result.stdout.split())
+        for path, size in chunk:
+            if path in invalid:
+                missing.append(path)
+                total_bytes += size
+        if progress:
+            progress(start + len(chunk), total)
+    return DownloadEstimate(tuple(missing), total_bytes)
 
 
 def _short_pkg(path: str | None) -> str:
@@ -773,9 +817,21 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
 
         write_status("checking")
         # Open the delta session first: the server starts to patch this step
-        # while the dry run below works out which paths are missing.
+        # while the device works out which paths are missing. The reply lists
+        # the target closure, so a local check with a count replaces the
+        # dry run; an older server or a failed check uses the dry run.
         session = delta_updates.open_session(store_path)
-        estimate = estimate_download(store_path)
+        estimate = None
+        if session is not None and session.closure:
+            estimate = estimate_from_closure(
+                store_path,
+                session.closure,
+                progress=lambda done, total: write_status(f"checking {done}/{total}"),
+            )
+            if estimate is None:
+                write_status("checking")
+        if estimate is None:
+            estimate = estimate_download(store_path)
         staged = delta_updates.prefetch_deltas(
             store_path,
             estimate.paths,
@@ -783,7 +839,7 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
             progress=lambda step, done, total: write_status(
                 f"patching {step} {done}/{total}"
             ),
-            session=session,
+            session=session.token if session is not None else None,
         )
         try:
             build_rc = run_build(

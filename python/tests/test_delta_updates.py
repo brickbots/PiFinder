@@ -538,7 +538,7 @@ def test_open_session_off_without_delta_url(monkeypatch):
     def _no_session(*a, **kw):
         raise AssertionError("no session when deltas are off")
 
-    monkeypatch.setattr(delta_updates, "start_session", _no_session)
+    monkeypatch.setattr(delta_updates, "update_start", _no_session)
     assert delta_updates.open_session(TARGET) is None
 
 
@@ -548,7 +548,7 @@ def test_open_session_never_raises(monkeypatch):
     def _boom(*a, **kw):
         raise RuntimeError("chaos")
 
-    monkeypatch.setattr(delta_updates, "start_session", _boom)
+    monkeypatch.setattr(delta_updates, "update_start", _boom)
     assert delta_updates.open_session(TARGET) is None
 
 
@@ -684,3 +684,61 @@ def test_stream_deltas_false_on_old_server(monkeypatch):
 
     monkeypatch.setattr(delta_updates.urllib.request, "urlopen", _open)
     assert _REAL_STREAM_DELTAS([(TARGET, [BASE])], "s", lambda *a: None) is False
+
+
+def _closure_reply(closure) -> bytes:
+    return json.dumps({"session": "abc123", "budget": 10, "closure": closure}).encode()
+
+
+def test_update_start_keeps_the_closure(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    payload = _closure_reply([[TARGET, 1024], [BASE, 0]])
+    monkeypatch.setattr(
+        delta_updates.urllib.request,
+        "urlopen",
+        lambda req, timeout=None: _FakeResp(200, payload),
+    )
+    session = delta_updates.update_start(TARGET)
+    assert session == delta_updates.UpdateSession("abc123", ((TARGET, 1024), (BASE, 0)))
+    assert delta_updates.start_session(TARGET) == "abc123"
+
+
+def test_update_start_without_closure_from_an_older_server(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    payload = json.dumps({"session": "abc123"}).encode()
+    monkeypatch.setattr(
+        delta_updates.urllib.request,
+        "urlopen",
+        lambda req, timeout=None: _FakeResp(200, payload),
+    )
+    assert delta_updates.update_start(TARGET) == delta_updates.UpdateSession("abc123")
+
+
+@pytest.mark.parametrize(
+    "closure",
+    [
+        "not a list",
+        [[TARGET]],
+        [[TARGET, -1]],
+        [[TARGET, True]],
+        [[TARGET, "12"]],
+        [["/tmp/1xm0hcqksxfy24p8m2xsfdas7wvyga76-x", 1]],
+        [[TARGET, 1], ["/nix/store/../etc/passwd", 1]],
+    ],
+)
+def test_parse_closure_rejects_the_whole_list_on_a_bad_entry(closure):
+    assert delta_updates.parse_closure(closure) == ()
+
+
+def test_open_session_returns_the_closure(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "current_system", lambda: BASE)
+    sent = {}
+
+    def _update_start(target, base=None):
+        sent["base"] = base
+        return delta_updates.UpdateSession("s", ((TARGET, 5),))
+
+    monkeypatch.setattr(delta_updates, "update_start", _update_start)
+    assert delta_updates.open_session(TARGET).closure == ((TARGET, 5),)
+    assert sent["base"] == BASE

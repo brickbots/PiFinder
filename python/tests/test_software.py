@@ -761,6 +761,7 @@ def _drawing_ui():
     [
         {"phase": "starting"},
         {"phase": "checking"},
+        {"phase": "checking", "done": 400, "total": 1600, "unit": "paths"},
         {"phase": "patching", "done": 2, "total": 5, "unit": "paths", "percent": 40},
         {"phase": "patching", "step": "asking", "done": 2, "total": 5, "unit": "paths"},
         {
@@ -807,6 +808,40 @@ def test_draw_upgrading_checking_block_moves():
             ui._draw_upgrading()
         frames.append(ui.screen.tobytes())
     assert frames[0] != frames[1]
+
+
+@pytest.mark.unit
+def test_draw_upgrading_checking_count_shows_the_amount():
+    progress = {
+        "phase": "checking",
+        "done": 400,
+        "total": 1600,
+        "unit": "paths",
+        "percent": 25,
+    }
+    frames = []
+    texts = []
+    for t in (0.0, 0.5):
+        ui = _drawing_ui()
+        real_text = ui.draw.text
+        ui.draw.text = lambda xy, text, **kw: (
+            texts.append(text),
+            real_text(xy, text, **kw),
+        )
+        with (
+            patch(
+                "PiFinder.ui.software.sys_utils.get_upgrade_progress",
+                return_value=progress,
+            ),
+            patch("PiFinder.ui.software.time.monotonic", return_value=t),
+        ):
+            ui._draw_upgrading()
+        frames.append(ui.screen.tobytes())
+    # A bar at 25 %, not the moving block: both frames are the same.
+    assert frames[0] == frames[1]
+    assert "Checking paths" in texts
+    assert "25%" in texts
+    assert "400/1600" in texts
 
 
 @pytest.mark.unit

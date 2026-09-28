@@ -10,9 +10,11 @@ path nix no longer downloads.
 Protocol (server: pifinder-differ):
     POST {url}/update-start {"target_toplevel": "/nix/store/...",
                              "base_toplevel": "/nix/store/..."}
-      200  {"session", "budget", "expires_in"}  per-update request budget,
-           sized by the server from the target closure. The session token
-           goes in an x-update-session header on every later request.
+      200  {"session", "budget", "expires_in", "closure"}  per-update
+           request budget, sized by the server from the target closure. The
+           session token goes in an x-update-session header on every later
+           request. "closure" lists the target closure as [store path, NAR
+           size] pairs; an older server leaves it out.
            base_toplevel is the running system. The server starts to patch
            this exact step at once.
     POST {url}/deltas {"targets": [{"target": ..., "bases": [...]}, ...]}
@@ -199,22 +201,58 @@ def current_system(link: Path = CURRENT_SYSTEM) -> str | None:
     return path if split_store_path(path) else None
 
 
-def open_session(target_toplevel: str) -> str | None:
+@dataclass(frozen=True)
+class UpdateSession:
+    token: str
+    # The target closure as (store path, NAR size), or () when the server
+    # sent none or sent a malformed list.
+    closure: tuple[tuple[str, int], ...] = ()
+
+
+def parse_closure(raw: object) -> tuple[tuple[str, int], ...]:
+    """The "closure" field of an /update-start reply. One bad entry rejects
+    the whole list: a partial closure gives a wrong set of missing paths."""
+    if not isinstance(raw, list):
+        return ()
+    closure: list[tuple[str, int]] = []
+    for entry in raw:
+        if not (isinstance(entry, list) and len(entry) == 2):
+            return ()
+        path, size = entry
+        if not isinstance(path, str) or split_store_path(path) is None:
+            return ()
+        if not path.startswith(f"{STORE_DIR}/"):
+            return ()
+        if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+            return ()
+        closure.append((path, size))
+    return tuple(closure)
+
+
+def open_session(target_toplevel: str) -> UpdateSession | None:
     """A session for this upgrade, or None when deltas are off or the server
     does not answer. Never raises."""
     if not enabled():
         return None
     try:
-        return start_session(target_toplevel, current_system())
+        return update_start(target_toplevel, current_system())
     except Exception as exc:  # noqa: BLE001 — must never break the upgrade
         logger.warning("update-start failed: %s", exc)
         return None
 
 
 def start_session(target_toplevel: str, base_toplevel: str | None = None) -> str | None:
-    """Open the per-update session. The server sizes the request budget from
-    the target closure; without a session every later request is refused, so
-    None disables the prefetch for this run."""
+    """Open the per-update session and return its token. The server sizes the
+    request budget from the target closure; without a session every later
+    request is refused, so None disables the prefetch for this run."""
+    session = update_start(target_toplevel, base_toplevel)
+    return session.token if session else None
+
+
+def update_start(
+    target_toplevel: str, base_toplevel: str | None = None
+) -> UpdateSession | None:
+    """POST /update-start: the session token and the target closure."""
     request = {"target_toplevel": target_toplevel}
     if base_toplevel:
         request["base_toplevel"] = base_toplevel
@@ -227,10 +265,16 @@ def start_session(target_toplevel: str, base_toplevel: str | None = None) -> str
     )
     try:
         with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
-            return json.load(resp).get("session") or None
+            reply = json.load(resp)
     except (urllib.error.URLError, OSError, TimeoutError, ValueError) as exc:
         logger.warning("update-start failed: %s", exc)
         return None
+    if not isinstance(reply, dict):
+        return None
+    token = reply.get("session")
+    if not token or not isinstance(token, str):
+        return None
+    return UpdateSession(token, parse_closure(reply.get("closure")))
 
 
 def request_delta(target: str, bases: list[str], session: str) -> tuple[str, dict]:
