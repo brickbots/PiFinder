@@ -15,11 +15,18 @@ import logging
 from typing import List
 from PiFinder.composite_object import CompositeObject
 from PiFinder.types.positioning import PointingEstimate
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from typing import Tuple
 from dataclasses import dataclass, asdict
 import json
-from timezonefinder import TimezoneFinder
+from PiFinder.lazy_import import lazy_module
+
+if TYPE_CHECKING:
+    from timezonefinder import TimezoneFinder
+
+# The import alone takes 30 ms on a desktop and several times that on a Pi,
+# so it loads in the TimezoneFinder build thread, not at start-up.
+timezonefinder = lazy_module("timezonefinder")
 
 logger = logging.getLogger("SharedState")
 
@@ -332,7 +339,7 @@ class SharedStateObj:
         # background. set_location() never waits for it: until it is ready a
         # location keeps the last known zone (or UTC), and the build thread
         # fills in the zone when it is done.
-        self.__tz_finder: Optional[TimezoneFinder] = None
+        self.__tz_finder: Optional["TimezoneFinder"] = None
         self.__tz_ready = False
         self.__tz_pending = False
         # (lat, lon, zone) of the last lookup; see TZ_MOVE_DEG.
@@ -346,7 +353,7 @@ class SharedStateObj:
 
     def __build_tz_finder(self):
         try:
-            self.__tz_finder = TimezoneFinder()
+            self.__tz_finder = timezonefinder.TimezoneFinder()
         except Exception:
             logger.exception("Could not build TimezoneFinder, timezone is UTC")
         finally:

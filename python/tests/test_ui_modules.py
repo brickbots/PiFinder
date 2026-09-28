@@ -304,7 +304,7 @@ def _fast_timezonefinder():
     Timezone resolution is irrelevant to UI crash-smoke,
     so a constant-"UTC" stub is fine.
     """
-    with mock.patch("PiFinder.state.TimezoneFinder", _StubTimezoneFinder):
+    with mock.patch("timezonefinder.TimezoneFinder", _StubTimezoneFinder):
         yield
 
 
