@@ -839,3 +839,119 @@ def test_persist_current_build_labels_the_new_and_the_left_build(tmp_path, monke
         "/nix/store/old": "PR#379-aaa",
         "/nix/store/new": "PR#534-bbb",
     }
+
+
+# ---------------------------------------------------------------------------
+# The "checking" step from the closure in the /update-start reply
+
+_LIB = "/nix/store/def456-glibc-2.42"
+_APP = "/nix/store/ghi789-pifinder-src"
+_CLOSURE = ((STORE, 1000), (_LIB, 2000), (_APP, 4000))
+
+
+class _FakeValidity:
+    """Fake command() for `nix-store --check-validity --print-invalid`."""
+
+    def __init__(self, invalid, rc=0):
+        self.invalid = set(invalid)
+        self.rc = rc
+        self.batches: list[list[str]] = []
+
+    def __call__(self, args, **_kw):
+        assert args[:3] == ["nix-store", "--check-validity", "--print-invalid"]
+        paths = args[3:]
+        self.batches.append(paths)
+        return subprocess.CompletedProcess(
+            args, self.rc, "".join(f"{p}\n" for p in paths if p in self.invalid), ""
+        )
+
+
+@pytest.mark.unit
+def test_estimate_from_closure_counts_the_invalid_paths(monkeypatch):
+    fake = _FakeValidity(invalid={STORE, _APP})
+    monkeypatch.setattr(nixos_upgrade, "command", fake)
+    seen = []
+
+    estimate = nixos_upgrade.estimate_from_closure(
+        STORE, _CLOSURE, progress=lambda d, t: seen.append((d, t)), batch=2
+    )
+
+    assert estimate == nixos_upgrade.DownloadEstimate((STORE, _APP), 5000)
+    assert fake.batches == [[STORE, _LIB], [_APP]]
+    assert seen == [(2, 3), (3, 3)]
+
+
+@pytest.mark.unit
+def test_estimate_from_closure_none_when_the_check_fails(monkeypatch):
+    monkeypatch.setattr(nixos_upgrade, "command", _FakeValidity(invalid=(), rc=1))
+    assert nixos_upgrade.estimate_from_closure(STORE, _CLOSURE) is None
+
+
+@pytest.mark.unit
+def test_estimate_from_closure_none_for_another_toplevel(monkeypatch):
+    def _no_command(*_a, **_kw):
+        raise AssertionError("no check for a closure of another build")
+
+    monkeypatch.setattr(nixos_upgrade, "command", _no_command)
+    assert nixos_upgrade.estimate_from_closure(STORE, ((_LIB, 1),)) is None
+
+
+def _upgrade_until_build(tmp_path, monkeypatch, session, check_rc=0):
+    """run_upgrade up to the build, which fails; returns the statuses, the
+    estimate the build got, and whether the dry run ran."""
+    ref_file = tmp_path / "ref"
+    ref_file.write_text(STORE)
+    statuses = _capture_status(monkeypatch)
+    monkeypatch.setattr(nixos_upgrade.delta_updates, "open_session", lambda _s: session)
+    monkeypatch.setattr(
+        nixos_upgrade, "command", _FakeValidity(invalid={_APP}, rc=check_rc)
+    )
+    dry_runs = []
+
+    def _dry_run(_store):
+        dry_runs.append(_store)
+        return nixos_upgrade.DownloadEstimate(())
+
+    monkeypatch.setattr(nixos_upgrade, "estimate_download", _dry_run)
+    built = {}
+
+    def _build(_store, estimate, **_kw):
+        built["estimate"] = estimate
+        return 1
+
+    monkeypatch.setattr(nixos_upgrade, "run_build", _build)
+    monkeypatch.setattr(
+        nixos_upgrade, "classify_store_path", lambda _store: nixos_upgrade.ABSENT
+    )
+    nixos_upgrade.run_upgrade(ref_file, "imx462")
+    return statuses, built["estimate"], dry_runs
+
+
+@pytest.mark.unit
+def test_run_upgrade_checks_the_closure_with_a_count(tmp_path, monkeypatch):
+    session = nixos_upgrade.delta_updates.UpdateSession("tok", _CLOSURE)
+    statuses, estimate, dry_runs = _upgrade_until_build(tmp_path, monkeypatch, session)
+
+    assert statuses == ["starting", "checking", "checking 3/3", "unavailable"]
+    assert estimate == nixos_upgrade.DownloadEstimate((_APP,), 4000)
+    assert dry_runs == []
+
+
+@pytest.mark.unit
+def test_run_upgrade_dry_run_when_the_check_fails(tmp_path, monkeypatch):
+    session = nixos_upgrade.delta_updates.UpdateSession("tok", _CLOSURE)
+    statuses, _estimate, dry_runs = _upgrade_until_build(
+        tmp_path, monkeypatch, session, check_rc=1
+    )
+
+    assert statuses == ["starting", "checking", "checking", "unavailable"]
+    assert dry_runs == [STORE]
+
+
+@pytest.mark.unit
+def test_run_upgrade_dry_run_without_a_closure(tmp_path, monkeypatch):
+    session = nixos_upgrade.delta_updates.UpdateSession("tok")
+    statuses, _estimate, dry_runs = _upgrade_until_build(tmp_path, monkeypatch, session)
+
+    assert statuses == ["starting", "checking", "unavailable"]
+    assert dry_runs == [STORE]

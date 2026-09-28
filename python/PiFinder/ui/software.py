@@ -1189,6 +1189,8 @@ class UISoftware(UIModule):
             label = _("Rebooting...")
         elif phase == "activating":
             label = _("Activating...")
+        elif phase == "checking" and total > 0:
+            label = _("Checking paths")
         elif phase == "checking":
             label = _("Checking...")
         elif phase == "patching" and step == "asking":
@@ -1222,7 +1224,7 @@ class UISoftware(UIModule):
             fill=self.colors.get(48),
             outline=self.colors.get(128),
         )
-        if phase in ("starting", "checking"):
+        if phase == "starting" or (phase == "checking" and total <= 0):
             # No measurable progress here (the dry run reports none), so a
             # block moves back and forth to show the device is working.
             block_w = 24
@@ -1257,11 +1259,16 @@ class UISoftware(UIModule):
         )
         y += bar_h + 6
 
-        # Amount below the bar: patches ready, applied or installed; bytes
-        # downloaded; or a path count where byte sizes were unavailable.
-        if phase in ("downloading", "patching", "installing") and total > 0:
+        # Amount below the bar: store paths checked; patches ready, applied
+        # or installed; bytes downloaded; or a path count where byte sizes
+        # were unavailable.
+        if phase in ("checking", "downloading", "patching", "installing") and total > 0:
             if phase in ("patching", "installing"):
                 amount_text = _("{done}/{total} patches").format(done=done, total=total)
+            elif phase == "checking":
+                # The title names the unit: "1530/1530 paths" is wider than
+                # the 128 px panel in the large font.
+                amount_text = f"{done}/{total}"
             elif unit == "bytes":
                 amount_text = format_amount(done, total)
             else:

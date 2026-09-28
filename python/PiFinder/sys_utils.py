@@ -661,7 +661,7 @@ def get_upgrade_progress() -> dict:
 
     svc = _upgrade_service_state()
     if raw in ("starting", "checking", "activating") or raw.startswith(
-        ("downloading ", "patching ", "installing ")
+        ("downloading ", "patching ", "installing ", "checking ")
     ):
         if svc in ("failed", "inactive"):
             return {**empty, "phase": "failed"}
@@ -707,6 +707,23 @@ def get_upgrade_progress() -> dict:
             "unit": "paths",
             "percent": pct,
             "item": item.strip(),
+        }
+    if raw.startswith("checking "):
+        # "checking <done>/<total>": closure paths checked against the local
+        # store (nixos_upgrade.estimate_from_closure).
+        try:
+            done_s, total_s = raw[len("checking ") :].strip().split("/")
+            done, total = int(done_s), int(total_s)
+        except ValueError:
+            return {**empty, "phase": "checking"}
+        pct = max(0, min(100, int(done * 100 / total))) if total > 0 else 0
+        return {
+            **empty,
+            "phase": "checking",
+            "done": done,
+            "total": total,
+            "unit": "paths",
+            "percent": pct,
         }
     if raw.startswith("patching "):
         # "patching <step> <done>/<total>", step one of asking, waiting,

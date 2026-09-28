@@ -148,6 +148,17 @@ try:
         monkeypatch.setattr(sys_utils, "_upgrade_service_state", lambda: "activating")
         status.write_text("checking")
         assert sys_utils.get_upgrade_progress()["phase"] == "checking"
+        status.write_text("checking 400/1600")
+        p = sys_utils.get_upgrade_progress()
+        assert (p["phase"], p["done"], p["total"], p["unit"], p["percent"]) == (
+            "checking",
+            400,
+            1600,
+            "paths",
+            25,
+        )
+        status.write_text("checking x/y")
+        assert sys_utils.get_upgrade_progress()["total"] == 0
         status.write_text("patching 3/12")
         p = sys_utils.get_upgrade_progress()
         assert (p["phase"], p["done"], p["total"], p["unit"], p["percent"]) == (
