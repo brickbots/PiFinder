@@ -128,14 +128,9 @@ class GaiaChartGenerator:
         # Check if catalog exists before initializing
         metadata_file = catalog_path / "metadata.json"
         if not metadata_file.exists():
-            logger.warning(f"Gaia star catalog not found at {catalog_path}")
             logger.warning(
-                "To build catalog, run: python -m PiFinder.catalog_tools.gaia_downloader --mag-limit 12 --output /tmp/gaia.csv"
-            )
-            logger.warning(
-                "Then: python -m PiFinder.catalog_tools.healpix_builder --input /tmp/gaia.csv --output {}/astro_data/gaia_stars".format(
-                    Path.home() / "PiFinder"
-                )
+                f"Gaia star catalog not found at {catalog_path}. On NixOS the "
+                "system links it there; see docs/ax/catalog/gaia-star-catalog.md"
             )
 
         logger.info(">>> Creating GaiaStarCatalog instance...")
