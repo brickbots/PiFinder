@@ -7,6 +7,9 @@ import threading
 from pprint import pformat
 from typing import List, Dict, DefaultDict, Optional, Union
 from collections import defaultdict
+
+import numpy as np
+
 import PiFinder.calc_utils as calc_utils
 from PiFinder.calc_utils import sf_utils
 from PiFinder.state import SharedStateObj
@@ -245,70 +248,75 @@ class CatalogFilter:
             return self.shared_state.altaz_ready()
         return False
 
-    def apply_filter(self, obj: CompositeObject):
-        if obj.last_filtered_time > self.dirty_time:
-            return obj.last_filtered_result
+    def verdicts(self, objects: List[CompositeObject]) -> np.ndarray:
+        """
+        Filter verdict for each object, as a boolean array in list order.
 
-        obj.last_filtered_time = time.time()
-        self.last_filtered_time = time.time()
+        Each active criterion is evaluated for all objects at once with
+        numpy; a criterion that is not set costs nothing. Call
+        calc_fast_aa first so the altitude test uses the current time.
+        """
+        keep = np.ones(len(objects), dtype=bool)
+        if len(objects) == 0:
+            return keep
 
-        # check constellation
         if self._constellations:
-            if obj.const not in self._constellations:
-                obj.last_filtered_result = False
-                return False
+            consts = np.array([obj.const or "" for obj in objects])
+            keep &= np.isin(consts, list(self._constellations))
 
-        # check altitude
         if self._altitude != -1 and self.fast_aa:
-            # quick sanity check of object coords
-            try:
-                ra = float(obj.ra)
-                dec = float(obj.dec)
-            except TypeError:
-                print("Object coordinates error")
-                print(f"{pformat(obj)}")
-                return False
+            ra = _coordinates([obj.ra for obj in objects])
+            dec = _coordinates([obj.dec for obj in objects])
+            # An object without valid coordinates has a NaN altitude, which
+            # fails the comparison and so never passes the altitude test.
+            keep &= self.fast_aa.radec_to_alt_array(ra, dec) >= self._altitude
 
-            obj_altitude, _ = self.fast_aa.radec_to_altaz(
-                ra,
-                dec,
-                alt_only=True,
-            )
-            if obj_altitude < self._altitude:
-                obj.last_filtered_result = False
-                return False
+        if self._magnitude is not None:
+            mags = np.array([obj.mag.filter_mag for obj in objects], dtype=float)
+            keep &= ~(mags > self._magnitude)
 
-        # check magnitude
-        obj_mag = obj.mag.filter_mag
-
-        if self._magnitude is not None and obj_mag > self._magnitude:
-            obj.last_filtered_result = False
-            return False
-
-        # check type
         if self._object_types:
-            if obj.obj_type not in self._object_types:
-                obj.last_filtered_result = False
-                return False
+            types = np.array([obj.obj_type or "" for obj in objects])
+            keep &= np.isin(types, list(self._object_types))
 
-        # check observed
         if self._observed is not None and self._observed != "Any":
-            if self._observed == "Yes":
-                if not obj.logged:
-                    obj.last_filtered_result = False
-                    return False
-            else:
-                if obj.logged:
-                    obj.last_filtered_result = False
-                    return False
+            logged = np.array([bool(obj.logged) for obj in objects], dtype=bool)
+            keep &= logged if self._observed == "Yes" else ~logged
 
-        # object passed all the tests
-        obj.last_filtered_result = True
-        return True
+        return keep
 
     def apply(self, objects: List[CompositeObject]):
+        """
+        Returns the objects that pass the filter, and records the verdict on
+        each object (last_filtered_result / last_filtered_time).
+        """
         self.calc_fast_aa(self.shared_state)
-        return [obj for obj in objects if self.apply_filter(obj)]
+        now = time.time()
+        self.last_filtered_time = now
+        passed = []
+        for obj, keep in zip(objects, self.verdicts(objects).tolist()):
+            obj.last_filtered_time = now
+            obj.last_filtered_result = keep
+            if keep:
+                passed.append(obj)
+        return passed
+
+
+def _coordinates(values: list) -> np.ndarray:
+    """
+    Converts RA or Dec values to a float array. None and values that are
+    not numbers become NaN.
+    """
+    try:
+        return np.array(values, dtype=float)
+    except (TypeError, ValueError):
+        coords = np.full(len(values), np.nan)
+        for i, value in enumerate(values):
+            try:
+                coords[i] = float(value)
+            except (TypeError, ValueError):
+                logger.warning("Object coordinate is not a number: %r", value)
+        return coords
 
 
 class Catalog(CatalogBase):
@@ -412,18 +420,22 @@ class Catalogs:
         self._t9_cache: dict[tuple[str, int], list[str]] = {}
         self._t9_cache_dirty = True
 
-    def filter_catalogs(self):
+    def filter_catalogs(self, catalogs: Optional[List[Catalog]] = None):
         """
-        Applies filter to all catalogs
+        Applies the filter to the given catalogs, or to all catalogs when
+        catalogs is None. A screen passes only the catalogs it shows, so
+        opening a small catalog does not filter the large ones.
 
         Staleness (time-sensitive criteria outdated, see
-        CatalogFilter.is_stale) is promoted to a dirty bump here so both
-        cache layers — per-object verdicts and per-catalog filtered lists —
-        re-evaluate, not just the catalog that noticed.
+        CatalogFilter.is_stale) is promoted to a dirty bump here, so every
+        catalog re-evaluates on its next filter, not just the ones filtered
+        now. The bump also records the current alt/az state, so the filter
+        is not stale again until time passes.
         """
         if self.catalog_filter is not None and self.catalog_filter.is_stale():
             self.catalog_filter.mark_dirty()
-        for catalog in self.__catalogs:
+            self.catalog_filter.calc_fast_aa(self.catalog_filter.shared_state)
+        for catalog in self.__catalogs if catalogs is None else catalogs:
             catalog.filter_objects()
 
     def mark_logged(self, obj: CompositeObject) -> None:

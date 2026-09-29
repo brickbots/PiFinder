@@ -137,6 +137,8 @@ class UIObjectList(UITextMenu):
         self._was_loading: bool = False  # Track loading state to detect completion
         # Filter dirty_time the Nearby spatial index was last built against
         self._nearby_index_key: Any = _NEARBY_INDEX_UNBUILT
+        # Filter dirty_time the object list was last built against
+        self._list_dirty_time: Any = _NEARBY_INDEX_UNBUILT
 
         # Init display mode defaults
         self.mode_cycle = cycle(DisplayModes)
@@ -221,7 +223,12 @@ class UIObjectList(UITextMenu):
 
         force_update ignores filter dirty flag
         """
-        if not self.catalogs.catalog_filter.is_dirty() and not force_update:
+        catalog_filter = self.catalogs.catalog_filter
+        if (
+            not force_update
+            and not catalog_filter.is_dirty()
+            and catalog_filter.dirty_time == self._list_dirty_time
+        ):
             return
 
         # sort() resets the cursor to the top; keep it on the selected
@@ -229,7 +236,9 @@ class UIObjectList(UITextMenu):
         old_order = self._menu_items_sorted
         old_index = self._current_item_index
 
-        self.catalogs.filter_catalogs()
+        # Filter only the catalogs this list shows: a large catalog (WDS has
+        # over 130,000 objects) must not slow down opening a small one.
+        self.catalogs.filter_catalogs(self._source_catalogs())
 
         # The object list can display objects from various sources
         # This key of the item definition controls where to get the
@@ -240,11 +249,10 @@ class UIObjectList(UITextMenu):
             )
 
         if self.item_definition["objects"] == "catalog":
-            for catalog in self.catalogs.get_catalogs(only_selected=False):
-                if catalog.catalog_code == self.item_definition["value"]:
-                    self._menu_items = catalog.get_filtered_objects()
-                    age = catalog.get_age()
-                    self.catalog_info_2 = "" if age is None else str(round(age, 0))
+            for catalog in self._source_catalogs():
+                self._menu_items = catalog.get_filtered_objects()
+                age = catalog.get_age()
+                self.catalog_info_2 = "" if age is None else str(round(age, 0))
 
         if self.item_definition["objects"] == "recent":
             self._menu_items = self.ui_state.recent_list()
@@ -271,6 +279,20 @@ class UIObjectList(UITextMenu):
         self._current_item_index = _next_target_index(
             self._menu_items_sorted, old_order, old_index
         )
+        self._list_dirty_time = catalog_filter.dirty_time
+
+    def _source_catalogs(self) -> list:
+        """The catalogs whose filtered objects this list shows."""
+        source = self.item_definition["objects"]
+        if source == "catalogs.filtered":
+            return self.catalogs.get_catalogs(only_selected=True)
+        if source == "catalog":
+            return [
+                catalog
+                for catalog in self.catalogs.get_catalogs(only_selected=False)
+                if catalog.catalog_code == self.item_definition["value"]
+            ]
+        return []
 
     def get_nr_of_menu_items(self):
         """

@@ -92,6 +92,27 @@ class FastAltAz:
         az_deg = math.degrees(math.atan2(y, x)) % 360.0
         return alt_deg, az_deg
 
+    def radec_to_alt_array(self, ra: np.ndarray, dec: np.ndarray) -> np.ndarray:
+        """
+        Apparent altitude in degrees for arrays of RA/Dec in degrees: the
+        same calculation as radec_to_altaz(alt_only=True), done with numpy.
+        A NaN coordinate gives a NaN altitude.
+        """
+        ha_rad = np.radians((self.local_siderial_time - ra) % 360.0)
+        dec_rad = np.radians(dec)
+        sin_alt = np.sin(dec_rad) * self._sin_lat + np.cos(dec_rad) * (
+            self._cos_lat * np.cos(ha_rad)
+        )
+        alt_deg = np.degrees(np.arcsin(np.clip(sin_alt, -1.0, 1.0)))
+
+        # Bennett (1982) refraction, only above -1 deg as in radec_to_altaz.
+        lifted = alt_deg > -1.0
+        low = alt_deg[lifted]
+        alt_deg[lifted] = (
+            low + (1.0 / np.tan(np.radians(low + 7.31 / (low + 4.4)))) / 60.0
+        )
+        return alt_deg
+
 
 def ra_to_deg(ra_h, ra_m, ra_s):
     ra_deg = ra_h

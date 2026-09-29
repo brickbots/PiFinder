@@ -264,6 +264,11 @@ class UIChart(UIModule):
         if self.catalogs is None:
             return []
 
+        # Object lists filter only the catalogs they show, so bring the
+        # selected catalogs up to date first. This is a cheap check when the
+        # filter has not changed.
+        selected = self.catalogs.get_catalogs(only_selected=True)
+        self.catalogs.filter_catalogs(selected)
         catalog_filter = getattr(self.catalogs, "catalog_filter", None)
         dirty_time = getattr(catalog_filter, "dirty_time", None)
         if dirty_time != self._nearby_filter_dirty_time:
