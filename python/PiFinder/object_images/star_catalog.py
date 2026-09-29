@@ -1,15 +1,13 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-HEALPix-indexed star catalog loader with background loading and CPU throttling
+Reader for the HEALPix-tiled Gaia star catalog used by the deep charts.
 
-This module provides efficient loading of Gaia star catalogs for chart generation.
-Features:
-- Background loading with thread safety
-- CPU throttling to avoid blocking other processes
-- LRU tile caching
-- Hemisphere filtering for memory efficiency
-- Proper motion corrections
+The catalog has one directory per magnitude band, each with index.bin (the
+star count of each HEALPix pixel) and tiles.bin (the stars of each tile in
+columns). Both files are read through mmap. Proper motion is applied when the
+catalog is built. The format is described in
+docs/ax/catalog/gaia-star-catalog.md.
 """
 
 import json
@@ -32,27 +30,28 @@ import healpy as hp  # type: ignore[import-untyped]
 
 logger = logging.getLogger("PiFinder.StarCatalog")
 
-# Optimized tile format: header + star records (no redundant HEALPix per star)
-TILE_HEADER_FORMAT = "<IH"  # [HEALPix:4][NumStars:2]
-TILE_HEADER_SIZE = 6
-STAR_RECORD_FORMAT = "<BBB"  # [RA_offset:1][Dec_offset:1][Mag:1]
-STAR_RECORD_SIZE = 3
+# The catalog format this reader accepts (metadata.json "format" and the major
+# part of "catalog_version").
+CATALOG_FORMAT = "columnar"
+CATALOG_MAJOR_VERSION = 3
 
-# Numpy dtype for vectorized parsing (star records only, no HEALPix)
-# NOTE: Proper motion has been pre-applied at catalog build time
-STAR_RECORD_DTYPE = np.dtype(
-    [
-        ("ra_offset", "u1"),
-        ("dec_offset", "u1"),
-        ("mag", "u1"),
-    ]
-)
 
-# Index cache size limit (tiles per magnitude band)
-# At ~50 bytes per tile entry, 10000 tiles = ~500KB per band
-# With 6 mag bands, total cache size ~3MB (acceptable on Pi)
-# This accommodates the full mag 0-6 index (6465 tiles) without trimming
-MAX_INDEX_CACHE_SIZE = 10000
+def tile_star_count(size: int, mag_bits: int) -> int:
+    """Number of stars in a tile of `size` bytes.
+
+    A tile is ra_offset[n], dec_offset[n], then the magnitudes: n bytes, or
+    (n + 1) // 2 bytes of nibbles. So size is 3n, or 2n + (n + 1) // 2.
+    """
+    if mag_bits == 4:
+        return (2 * size) // 5
+    return size // 3
+
+
+def tile_byte_size(num_stars: int, mag_bits: int) -> int:
+    """Bytes of a tile with `num_stars` stars."""
+    if mag_bits == 4:
+        return 2 * num_stars + (num_stars + 1) // 2
+    return 3 * num_stars
 
 
 class CatalogState(Enum):
@@ -63,98 +62,106 @@ class CatalogState(Enum):
     READY = 2
 
 
-# One run directory entry on disk: start_tile_id(4), data_offset(8), packed.
-RUN_DIRECTORY_DTYPE = np.dtype([("start", "<u4"), ("offset", "<u8")])
+TILE_INDEX_VERSION = 4
+OVERFLOW_DTYPE = np.dtype([("pixel", "<u4"), ("count", "<u4")])
 
 
-class CompressedIndex:
+class TileIndex:
     """
-    Memory-efficient compressed index reader with mmap support.
+    Reader for index.bin, the dense tile index of one band.
 
-    Uses run-length encoding format:
-    - Header: version(4), num_tiles(4), num_runs(4)
-    - Run directory: [start_tile_id(4), data_offset(8)] per run
-    - Run data: [length(2), offset_base(8), sizes...] (mmap'd)
+    Format, little-endian:
+    - Header: version(4) = 4, num_pixels(4), stride(4), num_overflow(4)
+    - Counts: u8 per HEALPix pixel, the number of stars in its tile. 255
+      means the count is in the overflow list.
+    - Checkpoints: u64 per `stride` pixels, the offset in tiles.bin of the
+      tile of pixel k * stride.
+    - Overflow: num_overflow x [pixel u32, count u32], sorted by pixel.
 
-    The run directory is a numpy view on the mmap. Only the start tile ids are
-    copied, 4 bytes per run, for the binary search. As a list of Python tuples
-    it took about 132 bytes per run: 161 MB in RAM for the 15 MB on disk of
-    the 1.2 million runs of the full catalog.
+    tiles.bin holds the tiles in pixel order, back to back. The offset of a
+    tile is its checkpoint plus the sizes of the tiles before it in its
+    stride. Everything stays on the mmap except the overflow pixels.
     """
 
-    def __init__(self, index_file: Path):
-        """Open the compressed index; the run directory stays on the mmap."""
+    def __init__(self, index_file: Path, mag_bits: int):
+        """Open the tile index of a band that stores `mag_bits` magnitudes."""
         self.index_file = index_file
-
-        # Open file for mmap
+        self.mag_bits = mag_bits
+        self._counts: Optional[np.ndarray] = None
+        self._checkpoints: Optional[np.ndarray] = None
+        self._mm: Optional[mmap.mmap] = None
+        self._file = None
         self._file = open(index_file, "rb")
         self._mm = mmap.mmap(self._file.fileno(), 0, access=mmap.ACCESS_READ)
 
-        # Read header
-        version, self.num_tiles, num_runs = struct.unpack_from("<III", self._mm, 0)
-        if version != 3:
-            raise ValueError(f"Expected compressed index v3, got v{version}")
-        self.num_runs = num_runs
-
-        self.run_directory: Optional[np.ndarray] = np.frombuffer(
-            self._mm, dtype=RUN_DIRECTORY_DTYPE, count=num_runs, offset=12
+        version, num_pixels, stride, num_overflow = struct.unpack_from(
+            "<IIII", self._mm, 0
         )
-        # Contiguous, for np.searchsorted (a strided view would be copied at
-        # each search).
-        self._run_starts: Optional[np.ndarray] = np.ascontiguousarray(
-            self.run_directory["start"]
+        if version != TILE_INDEX_VERSION:
+            raise ValueError(
+                f"Expected tile index version {TILE_INDEX_VERSION}, got {version}"
+            )
+        self.num_pixels = num_pixels
+        self.stride = stride
+        num_checkpoints = -(-num_pixels // stride)
+        self._counts = np.frombuffer(
+            self._mm, dtype=np.uint8, count=num_pixels, offset=16
         )
+        self._checkpoints = np.frombuffer(
+            self._mm, dtype="<u8", count=num_checkpoints, offset=16 + num_pixels
+        )
+        overflow = np.frombuffer(
+            self._mm,
+            dtype=OVERFLOW_DTYPE,
+            count=num_overflow,
+            offset=16 + num_pixels + 8 * num_checkpoints,
+        )
+        self._overflow_pixels = np.array(overflow["pixel"], dtype=np.int64)
+        self._overflow_counts = np.array(overflow["count"], dtype=np.int64)
+        self.num_tiles = int(np.count_nonzero(self._counts))
 
         logger.debug(
-            f"CompressedIndex: loaded {num_runs} runs for {self.num_tiles:,} tiles"
+            f"TileIndex: {self.num_tiles:,} tiles, {num_overflow} overflow counts"
         )
+
+    def _star_counts(self, first: int, last: int) -> np.ndarray:
+        """Star counts of the pixels first..last-1, with the overflow applied."""
+        assert self._counts is not None
+        counts = self._counts[first:last].astype(np.int64)
+        big = np.nonzero(counts == 255)[0]
+        if len(big):
+            where = np.searchsorted(self._overflow_pixels, big + first)
+            counts[big] = self._overflow_counts[where]
+        return counts
 
     def get(self, tile_id: int) -> Optional[Tuple[int, int]]:
         """
-        Get (offset, size) for a tile ID.
+        Get (offset, size) in tiles.bin for a tile ID.
 
-        Returns None if tile doesn't exist.
+        Returns None if the tile doesn't exist.
         """
-        if self._run_starts is None or self.run_directory is None:
+        if self._counts is None or self._checkpoints is None:
             return None
-        if not 0 <= tile_id <= 0xFFFFFFFF:
+        if not 0 <= tile_id < self.num_pixels:
             return None
-        # The run with the largest start tile at or below tile_id. The value
-        # goes in as uint32: a Python int makes numpy convert the whole array.
-        run_idx = (
-            int(np.searchsorted(self._run_starts, np.uint32(tile_id), side="right")) - 1
-        )
-        if run_idx < 0:
+        if self._counts[tile_id] == 0:
             return None
-
-        # Read run data from mmap
-        start_tile = int(self._run_starts[run_idx])
-        data_offset = int(self.run_directory["offset"][run_idx])
-        offset_in_run = tile_id - start_tile
-
-        # Read run header
-        run_length, offset_base = struct.unpack_from("<HQ", self._mm, data_offset)
-
-        if offset_in_run >= run_length:
-            return None
-
-        # Read sizes up to and including our tile
-        sizes_offset = data_offset + 10  # After length(2) + offset_base(8)
-        sizes_data = self._mm[sizes_offset : sizes_offset + (offset_in_run + 1) * 2]
-        sizes = struct.unpack(f"<{offset_in_run + 1}H", sizes_data)
-
-        # Calculate tile offset and size
-        tile_offset = offset_base + sum(sizes[:-1])
-        tile_size = sizes[-1]
-
-        return (tile_offset, tile_size)
+        block = tile_id // self.stride
+        first = block * self.stride
+        counts = self._star_counts(first, tile_id + 1)
+        if self.mag_bits == 4:
+            sizes = 2 * counts + (counts + 1) // 2
+        else:
+            sizes = 3 * counts
+        offset = int(self._checkpoints[block]) + int(sizes[:-1].sum())
+        return (offset, int(sizes[-1]))
 
     def close(self):
         """Close mmap and file (idempotent)"""
         # The numpy views hold the mmap's buffer; mmap.close() refuses while
         # they exist.
-        self.run_directory = None
-        self._run_starts = None
+        self._counts = None
+        self._checkpoints = None
         if self._mm is not None:
             self._mm.close()
             self._mm = None
@@ -199,8 +206,6 @@ class GaiaStarCatalog:
         self.load_progress: str = ""  # Status message for UI
         self.load_percent: int = 0  # Progress percentage (0-100)
         self._index_cache: Dict[str, Any] = {}
-        # Cache of existing tile IDs per magnitude band to avoid scanning for non-existent tiles
-        self._existing_tiles_cache: Dict[str, Set[int]] = {}
         logger.info(">>> GaiaStarCatalog.__init__() completed")
 
     def start_background_load(
@@ -251,16 +256,27 @@ class GaiaStarCatalog:
 
             if not metadata_file.exists():
                 logger.error(f">>> Catalog metadata not found: {metadata_file}")
-                logger.error(
-                    ">>> Please build catalog using: python -m PiFinder.catalog_tools.gaia_downloader"
-                )
-                self.load_progress = "Error: catalog not built"
+                self.load_progress = "Error: catalog not found"
                 self.state = CatalogState.NOT_LOADED
                 return
 
             with open(metadata_file, "r") as f:
-                self.metadata = json.load(f)
+                metadata = json.load(f)
             logger.info(">>> metadata.json loaded")
+
+            version = str(metadata.get("catalog_version", "0"))
+            if metadata.get("format") != CATALOG_FORMAT or version.split(".")[0] != str(
+                CATALOG_MAJOR_VERSION
+            ):
+                logger.error(
+                    f">>> Unsupported catalog: format={metadata.get('format')} "
+                    f"version={version}, expected {CATALOG_FORMAT} "
+                    f"{CATALOG_MAJOR_VERSION}.x"
+                )
+                self.load_progress = "Error: unsupported catalog"
+                self.state = CatalogState.NOT_LOADED
+                return
+            self.metadata = metadata
 
             self.nside = self.metadata.get("nside", 512)
             star_count = self.metadata.get("star_count", 0)
@@ -273,9 +289,9 @@ class GaiaStarCatalog:
             bands = self.metadata.get("mag_bands", [])
             logger.info(f">>> Catalog mag bands: {json.dumps(bands)}")
 
-            # Preload all compressed indices (run directories) into memory (~2-12 MB total)
-            # This eliminates first-query delays (70ms per band → 420ms total stuttering)
-            self._preload_compressed_indices()
+            # Open the index of each band now, so the first chart does not wait
+            # for it.
+            self._preload_tile_indices()
 
             # Initialize empty structures (no preloading)
             self.visible_tiles = None  # Load full sky on-demand
@@ -305,36 +321,6 @@ class GaiaStarCatalog:
             None (full sky always loaded for now)
         """
         return None
-
-    def _preload_mag_band(self, mag_min: float, mag_max: float):
-        """
-        Preload all tiles for a magnitude band
-
-        Args:
-            mag_min: Minimum magnitude
-            mag_max: Maximum magnitude
-        """
-        band_dir = self.catalog_path / f"mag_{mag_min:02.0f}_{mag_max:02.0f}"
-        if not band_dir.exists():
-            return
-
-        # Get all tile files in this band
-        tile_files = sorted(band_dir.glob("tile_*.bin"))
-
-        for tile_file in tile_files:
-            # Extract tile ID from filename
-            tile_id = int(tile_file.stem.split("_")[1])
-
-            # Filter by hemisphere if applicable
-            if self.visible_tiles and tile_id not in self.visible_tiles:
-                continue
-
-            # Load tile
-            self._load_tile_from_file(tile_file, mag_min, mag_max)
-
-            # CPU throttle: 10ms pause between tiles
-            # (50ms was too conservative, slowing down loading significantly)
-            time.sleep(0.01)
 
     def get_stars_for_fov_progressive(
         self,
@@ -567,10 +553,9 @@ class GaiaStarCatalog:
         stars: np.ndarray = np.empty((0, 3))
         tile_star_counts = {}
 
-        # Try batch loading if catalog is compact format
-        # Only batch for moderate tile counts (10-50) to avoid UI blocking
-        is_compact = self.metadata.get("format") == "compact"
-        if is_compact and 10 < len(tiles) <= 50:
+        # Batch loading only for moderate tile counts (10-50), to avoid UI
+        # blocking
+        if 10 < len(tiles) <= 50:
             # Batch load is much faster for many tiles
             # Note: batch loading returns PM-corrected (ra, dec, mag) tuples
             logger.info(f"Using BATCH loading for {len(tiles)} tiles")
@@ -580,10 +565,8 @@ class GaiaStarCatalog:
                 t: 0 for t in tiles
             }  # Don't track individual counts for batch
         else:
-            # Load one by one (better for small queries or legacy format)
-            logger.info(
-                f"Using SINGLE-TILE loading for {len(tiles)} tiles (compact={is_compact})"
-            )
+            # Load one by one (better for small queries)
+            logger.info(f"Using SINGLE-TILE loading for {len(tiles)} tiles")
             stars_raw_list = []
 
             # To prevent UI blocking, limit the number of tiles loaded at once
@@ -688,40 +671,7 @@ class GaiaStarCatalog:
             logger.warning(f">>> Magnitude band directory not found: {band_dir}")
             return np.empty((0, 3))
 
-        # For compact format, use vectorized batch loading per band
-        assert self.metadata is not None, "metadata must be loaded"
-        is_compact = self.metadata.get("format") == "compact"
-        # logger.info(f">>> Format is_compact={is_compact}, calling _load_tiles_batch_single_band...")
-        if is_compact:
-            result = self._load_tiles_batch_single_band(
-                tile_ids, mag_band_info, mag_limit
-            )
-            # logger.info(f">>> _load_tiles_batch_single_band returned {len(result)} stars")
-            return result
-        else:
-            # Legacy format - load tiles one by one (will load all bands for each tile)
-            # This is less efficient but legacy format doesn't support per-band loading
-            stars_raw_list = []
-            for tile_id in tile_ids:
-                tile_stars = self._load_tile_data(tile_id, mag_limit)
-                # Filter to just this magnitude band
-                # tile_stars is (N, 5)
-                if len(tile_stars) > 0:
-                    mags = tile_stars[:, 2]
-                    mask = (mags >= mag_min) & (mags < mag_max)
-                    if np.any(mask):
-                        stars_raw_list.append(tile_stars[mask])
-
-            if stars_raw_list:
-                stars_raw_combined = np.concatenate(stars_raw_list)
-                ras = stars_raw_combined[:, 0]
-                decs = stars_raw_combined[:, 1]
-                mags = stars_raw_combined[:, 2]
-                pmras = stars_raw_combined[:, 3]
-                pmdecs = stars_raw_combined[:, 4]
-                return self._apply_proper_motion((ras, decs, mags, pmras, pmdecs))
-            else:
-                return np.empty((0, 3))
+        return self._load_tiles_batch_single_band(tile_ids, mag_band_info, mag_limit)
 
     def _load_tile_data(self, tile_id: int, mag_limit: float) -> np.ndarray:
         """
@@ -748,9 +698,6 @@ class GaiaStarCatalog:
         # Load from disk
         stars_list = []
 
-        # Check catalog format
-        is_compact = self.metadata.get("format") == "compact"
-
         # Determine which magnitude bands to load
         for mag_band_info in self.metadata.get("mag_bands", []):
             mag_min = mag_band_info["min"]
@@ -760,27 +707,9 @@ class GaiaStarCatalog:
                 continue  # Band too faint
 
             band_dir = self.catalog_path / f"mag_{mag_min:02.0f}_{mag_max:02.0f}"
-
-            if is_compact:
-                # Compact format: read from consolidated file using index
-                ras, decs, mags, pmras, pmdecs = self._load_tile_compact(
-                    band_dir, tile_id, mag_min, mag_max
-                )
-            else:
-                # Legacy format: one file per tile
-                tile_file = band_dir / f"tile_{tile_id:06d}.bin"
-                if tile_file.exists():
-                    ras, decs, mags, pmras, pmdecs = self._load_tile_from_file(
-                        tile_file, mag_min, mag_max
-                    )
-                else:
-                    ras, decs, mags, pmras, pmdecs = (
-                        np.array([]),
-                        np.array([]),
-                        np.array([]),
-                        np.array([]),
-                        np.array([]),
-                    )
+            ras, decs, mags, pmras, pmdecs = self._load_tile_compact(
+                band_dir, tile_id, mag_band_info
+            )
 
             if len(ras) > 0:
                 # Filter by magnitude
@@ -792,7 +721,7 @@ class GaiaStarCatalog:
                     )
                     stars_list.append(band_stars)
                     logger.debug(
-                        f"  Tile {tile_id} Band {mag_min}-{mag_max}: {len(band_stars)} stars (file: {tile_file if not is_compact else 'compact'})"
+                        f"  Tile {tile_id} Band {mag_min}-{mag_max}: {len(band_stars)} stars"
                     )
                 else:
                     logger.debug(
@@ -815,101 +744,72 @@ class GaiaStarCatalog:
 
         return stars
 
-    def _load_tile_from_file(
-        self, tile_file: Path, mag_min: float, mag_max: float
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Load stars from a tile file
-
-        Args:
-            tile_file: Path to tile binary file
-            mag_min: Minimum magnitude in this band
-            mag_max: Maximum magnitude in this band
-
-        Returns:
-            Tuple of (ras, decs, mags, pmras, pmdecs) arrays
-        """
-
-        # Read entire file at once
-        with open(tile_file, "rb") as f:
-            data = f.read()
-
-        return self._parse_records(data)
-
     def _load_tile_compact(
-        self, band_dir: Path, tile_id: int, mag_min: float, mag_max: float
+        self, band_dir: Path, tile_id: int, band: dict
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Load stars from compact format (consolidated tiles.bin + v3 compressed index)
+        Load the stars of one tile of one band.
 
         Args:
             band_dir: Magnitude band directory
             tile_id: HEALPix tile ID
-            mag_min: Minimum magnitude
-            mag_max: Maximum magnitude
+            band: Magnitude band metadata dict
 
         Returns:
             Tuple of (ras, decs, mags, pmras, pmdecs) arrays
         """
-
+        empty = (np.array([]), np.array([]), np.array([]), np.array([]), np.array([]))
         index_file = band_dir / "index.bin"
         tiles_file = band_dir / "tiles.bin"
 
         if not tiles_file.exists():
-            return (
-                np.array([]),
-                np.array([]),
-                np.array([]),
-                np.array([]),
-                np.array([]),
-            )
+            return empty
 
         if not index_file.exists():
-            raise FileNotFoundError(
-                f"Compressed index not found: {index_file}\n"
-                f"This catalog requires v3 format. Please rebuild using healpix_builder_compact.py"
-            )
+            raise FileNotFoundError(f"Tile index not found: {index_file}")
 
         # Load index (cached per band)
-        cache_key = f"index_{mag_min}_{mag_max}"
+        cache_key = f"index_{band['min']}_{band['max']}"
         if cache_key not in self._index_cache:
-            self._index_cache[cache_key] = CompressedIndex(index_file)
+            self._index_cache[cache_key] = TileIndex(
+                index_file, int(band.get("mag_bits", 8))
+            )
 
         index = self._index_cache[cache_key]
 
-        # Get tile offset and size from compressed index
         result = index.get(tile_id)
         if result is None:
-            return (
-                np.array([]),
-                np.array([]),
-                np.array([]),
-                np.array([]),
-                np.array([]),
-            )
+            return empty
         offset, size = result
 
-        # Read tile data
         with open(tiles_file, "rb") as f:
             f.seek(offset)
             data = f.read(size)
-            return self._parse_records(data)
+            return self._parse_records(data, tile_id, band)
 
     def _parse_records(
-        self, data: bytes
+        self, data: bytes, tile_id: int, band: dict
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Parse binary tile data into numpy arrays (VECTORIZED)
+        Decode one tile into numpy arrays.
 
-        New format: [Tile Header: 6 bytes][Star Records: 5 bytes each]
+        A tile has no header: index.bin gives its HEALPix id and its size. The
+        stars are in three columns: ra_offset[n], dec_offset[n], then the
+        magnitudes. band["mag_bits"] is 8 (one byte per star, tenths of a
+        magnitude) or 4 (one nibble per star, tenths above band["mag_base"];
+        star 2k in the low nibble of byte k, star 2k+1 in the high nibble).
 
         Args:
-            data: Binary tile data (header + star records)
+            data: The bytes of the tile
+            tile_id: HEALPix pixel of the tile (nested scheme)
+            band: Magnitude band metadata dict
 
         Returns:
             Tuple of (ras, decs, mags, pmras, pmdecs) as numpy arrays
         """
-        if len(data) < TILE_HEADER_SIZE:
+        mag_bits = int(band.get("mag_bits", 8))
+        num_stars = tile_star_count(len(data), mag_bits)
+        if num_stars == 0:
             return (
                 np.array([]),
                 np.array([]),
@@ -917,173 +817,100 @@ class GaiaStarCatalog:
                 np.array([]),
                 np.array([]),
             )
-
-        # Parse tile header
-        healpix_pixel, num_stars = struct.unpack(
-            TILE_HEADER_FORMAT, data[:TILE_HEADER_SIZE]
-        )
-
-        # Extract star records
-        star_data = data[TILE_HEADER_SIZE:]
-
-        if len(star_data) == 0:
-            return (
-                np.array([]),
-                np.array([]),
-                np.array([]),
-                np.array([]),
-                np.array([]),
-            )
-
-        # Verify data size matches expected
-        expected_size = num_stars * STAR_RECORD_SIZE
-        if len(star_data) != expected_size:
+        if tile_byte_size(num_stars, mag_bits) != len(data):
             logger.warning(
-                f"Tile {healpix_pixel}: size mismatch. Expected {expected_size} bytes "
-                f"for {num_stars} stars, got {len(star_data)} bytes"
+                f"Tile {tile_id}: {len(data)} bytes is not a whole number of "
+                f"stars for {mag_bits}-bit magnitudes"
             )
-            # Truncate to valid records
-            num_stars = len(star_data) // STAR_RECORD_SIZE
+            return (
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+            )
 
-        # Parse all star records using numpy
-        records = np.frombuffer(star_data, dtype=STAR_RECORD_DTYPE, count=num_stars)
+        raw = np.frombuffer(data, dtype=np.uint8)
+        ra_offset = raw[:num_stars]
+        dec_offset = raw[num_stars : 2 * num_stars]
+        mag_bytes = raw[2 * num_stars :]
+        tenths = np.empty(num_stars, dtype=np.int16)
+        if mag_bits == 4:
+            tenths[0::2] = mag_bytes[: (num_stars + 1) // 2] & 0x0F
+            tenths[1::2] = mag_bytes[: num_stars // 2] >> 4
+            tenths += int(band["mag_base"])
+        else:
+            tenths[:] = mag_bytes
 
         # Get pixel center (same for all stars in this tile)
-        pixel_ra, pixel_dec = hp.pix2ang(self.nside, healpix_pixel, lonlat=True)
+        pixel_ra, pixel_dec = hp.pix2ang(self.nside, tile_id, lonlat=True)
 
-        # Calculate pixel size once
+        # The offsets span +-0.75 of the pixel size in 255 steps.
         pixel_size_deg = np.sqrt(hp.nside2pixarea(self.nside, degrees=True))
         max_offset_arcsec = pixel_size_deg * 3600.0 * 0.75
 
-        # Decode all offsets
-        ra_offset_arcsec = (records["ra_offset"] / 127.5 - 1.0) * max_offset_arcsec
-        dec_offset_arcsec = (records["dec_offset"] / 127.5 - 1.0) * max_offset_arcsec
+        ra_offset_arcsec = (ra_offset / 127.5 - 1.0) * max_offset_arcsec
+        dec_offset_arcsec = (dec_offset / 127.5 - 1.0) * max_offset_arcsec
 
         # Calculate final positions (broadcast pixel center to all stars)
         decs = pixel_dec + dec_offset_arcsec / 3600.0
         ras = pixel_ra + ra_offset_arcsec / 3600.0 / np.cos(np.radians(decs))
 
-        # Decode magnitudes
-        mags = records["mag"] / 10.0
+        mags = tenths / 10.0
 
-        # v2.1: Proper motion has been pre-applied at build time
-        # Return empty arrays for backward compatibility
-        pmras = np.zeros(len(records))
-        pmdecs = np.zeros(len(records))
+        # Proper motion is applied when the catalog is built. The zero arrays
+        # keep the (ras, decs, mags, pmras, pmdecs) shape the callers use.
+        pmras = np.zeros(num_stars)
+        pmdecs = np.zeros(num_stars)
 
         return ras, decs, mags, pmras, pmdecs
 
-    def _preload_compressed_indices(self) -> None:
+    def _preload_tile_indices(self) -> None:
         """
-        Preload all v3 compressed indices (run directories) into memory during startup.
+        Open the index of each magnitude band during startup.
 
-        Loads compressed index run directories (~2-12 MB total) to eliminate first-query
-        delays during chart generation. Each compressed index loads its run directory
-        into RAM for fast binary search, while keeping run data in mmap.
-
-        This runs in background thread during catalog startup and trades a one-time
-        ~200ms startup cost for eliminating 6 × 70ms = 420ms of stuttering during
-        first chart generation.
+        Each index is an mmap; only its overflow list (about 0.3 MB for all
+        bands) is copied into RAM. This runs in the background load thread, so
+        the first chart does not wait for the indices.
         """
         if not self.metadata or "mag_bands" not in self.metadata:
-            logger.warning(
-                ">>> No metadata available, skipping compressed index preload"
-            )
+            logger.warning(">>> No metadata available, skipping tile index preload")
             return
 
         t0_total = time.time()
         bands_loaded = 0
 
-        logger.info(">>> Preloading v3 compressed indices for all magnitude bands...")
+        logger.info(">>> Opening the tile index of each magnitude band...")
 
         for band_info in self.metadata["mag_bands"]:
             mag_min = int(band_info["min"])
             mag_max = int(band_info["max"])
             cache_key = f"index_{mag_min}_{mag_max}"
 
-            # Load compressed index (v3 format stored as index.bin)
             index_file = (
                 self.catalog_path / f"mag_{mag_min:02d}_{mag_max:02d}" / "index.bin"
             )
 
             if not index_file.exists():
-                raise FileNotFoundError(
-                    f"Compressed index not found: {index_file}\n"
-                    f"This catalog requires v3 format. Please rebuild using healpix_builder_compact.py"
-                )
+                raise FileNotFoundError(f"Tile index not found: {index_file}")
 
             t0 = time.time()
 
-            # Load compressed index (v3 only)
-            self._index_cache[cache_key] = CompressedIndex(index_file)
+            tile_index = TileIndex(index_file, int(band_info.get("mag_bits", 8)))
+            self._index_cache[cache_key] = tile_index
             t_load = (time.time() - t0) * 1000
-
-            compressed_idx = self._index_cache[cache_key]
             bands_loaded += 1
 
             logger.info(
-                f">>> Loaded compressed index {cache_key}: "
-                f"{compressed_idx.num_tiles:,} tiles, {compressed_idx.num_runs:,} runs "
-                f"in {t_load:.1f}ms"
+                f">>> Loaded tile index {cache_key}: "
+                f"{tile_index.num_tiles:,} tiles in {t_load:.1f}ms"
             )
 
         t_total = (time.time() - t0_total) * 1000
         logger.info(
-            f">>> Compressed index preload complete: {bands_loaded} indices "
+            f">>> Tile index preload complete: {bands_loaded} indices "
             f"in {t_total:.1f}ms"
         )
-
-    def _load_existing_tiles_set(self, index_file: Path) -> Set[int]:
-        """
-        Quickly load the set of all existing tile IDs from an index file.
-        This is much faster than scanning for specific tiles when we just need
-        to know "does this tile exist?" to avoid wasteful searches.
-
-        Args:
-            index_file: Path to binary index file
-
-        Returns:
-            Set of existing tile IDs (as integers)
-        """
-        existing_tiles: set[int] = set()
-
-        if not index_file.exists():
-            return existing_tiles
-
-        with open(index_file, "rb") as f:
-            # Read header
-            header = f.read(8)
-            if len(header) < 8:
-                return existing_tiles
-
-            version, _num_tiles = struct.unpack("<II", header)
-
-            # Define dtype to read just tile IDs (we don't need offset/size)
-            if version == 1:
-                # [tile_id:4][offset:8][size:4]
-                tile_id_dtype = np.dtype(
-                    [("tile_id", "<u4"), ("_skip", "V12")]
-                )  # Skip 12 bytes
-            elif version == 2:
-                # [tile_id:4][offset:8][compressed_size:4][uncompressed_size:4]
-                tile_id_dtype = np.dtype(
-                    [("tile_id", "<u4"), ("_skip", "V16")]
-                )  # Skip 16 bytes
-            else:
-                logger.error(f"Unsupported index version: {version}")
-                return existing_tiles
-
-            # Read all tile IDs at once (very fast, just reading integers)
-            data = f.read()
-            if not data:
-                return existing_tiles
-
-            records = np.frombuffer(data, dtype=tile_id_dtype)
-
-            # Convert to set (numpy → set is fast for integers)
-            existing_tiles = set(records["tile_id"].tolist())
-
-        return existing_tiles
 
     def _apply_proper_motion(
         self, stars: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
@@ -1124,54 +951,6 @@ class GaiaStarCatalog:
         # Stack into (N, 3) array
         return np.column_stack((ra_corrected, dec_corrected, mags))
 
-    def _trim_index_cache(self, cache_key: str, protected_tile_ids: List[int]) -> None:
-        """
-        Trim index cache to stay within MAX_INDEX_CACHE_SIZE limit.
-
-        Strategy: Remove oldest tiles not in the current request (protected_tile_ids).
-        This ensures we keep tiles needed for the current chart while evicting others.
-
-        Args:
-            cache_key: Cache key (e.g., "index_12_14")
-            protected_tile_ids: Tile IDs that must NOT be evicted (current FOV)
-        """
-        index = self._index_cache.get(cache_key)
-        if not index:
-            return
-
-        cache_size = len(index)
-        if cache_size <= MAX_INDEX_CACHE_SIZE:
-            return  # Within limit, nothing to do
-
-        # Calculate how many to remove
-        tiles_to_remove = cache_size - MAX_INDEX_CACHE_SIZE
-        logger.info(
-            f">>> Cache {cache_key} exceeds limit ({cache_size} > {MAX_INDEX_CACHE_SIZE}), removing {tiles_to_remove} tiles"
-        )
-
-        # Build set of protected tiles
-        protected_set = {str(tid) for tid in protected_tile_ids}
-
-        # Find eviction candidates (tiles not in current request)
-        candidates = [
-            tile_key for tile_key in index.keys() if tile_key not in protected_set
-        ]
-
-        if len(candidates) < tiles_to_remove:
-            # Not enough non-protected tiles, just remove what we can
-            logger.warning(
-                f">>> Only {len(candidates)} evictable tiles, removing all of them"
-            )
-            tiles_to_remove = len(candidates)
-
-        # Remove the first N candidates (simple FIFO-ish eviction)
-        # Could enhance this with LRU tracking later
-        for i in range(tiles_to_remove):
-            tile_key = candidates[i]
-            del index[tile_key]
-
-        logger.info(f">>> Cache trimmed: {cache_size} → {len(index)} tiles")
-
     def _load_tiles_batch_single_band(
         self,
         tile_ids: List[int],
@@ -1202,25 +981,24 @@ class GaiaStarCatalog:
             return np.empty((0, 3))
 
         if not index_file.exists():
-            raise FileNotFoundError(
-                f"Compressed index not found: {index_file}\n"
-                f"This catalog requires v3 format. Please rebuild using healpix_builder_compact.py"
-            )
+            raise FileNotFoundError(f"Tile index not found: {index_file}")
 
         cache_key = f"index_{mag_min}_{mag_max}"
 
-        # Load v3 compressed index (cached)
+        # Load the tile index (cached)
         if not hasattr(self, "_index_cache"):
             self._index_cache = {}
 
         t_index_start = time.time()
         logger.debug(f"Checking index cache for {cache_key}")
         if cache_key not in self._index_cache:
-            logger.info(f">>> Loading v3 compressed index from {index_file}")
+            logger.info(f">>> Loading tile index from {index_file}")
             t0 = time.time()
-            self._index_cache[cache_key] = CompressedIndex(index_file)
+            self._index_cache[cache_key] = TileIndex(
+                index_file, int(mag_band_info.get("mag_bits", 8))
+            )
             t_read_index = (time.time() - t0) * 1000
-            logger.info(f">>> Compressed index loaded in {t_read_index:.1f}ms")
+            logger.info(f">>> Tile index loaded in {t_read_index:.1f}ms")
         else:
             logger.debug(f">>> Using cached index for {cache_key}")
 
@@ -1231,7 +1009,7 @@ class GaiaStarCatalog:
         t_readops_start = time.time()
         logger.debug(f"Building read_ops for {len(tile_ids)} tiles...")
 
-        # Collect all tile read operations from v3 compressed index
+        # Collect all tile read operations from the tile index
         read_ops: List[Tuple[int, Dict[str, int]]] = []
         missing_tiles = 0
         for tile_id in tile_ids:
@@ -1325,7 +1103,9 @@ class GaiaStarCatalog:
 
                     # Parse records using shared helper
                     t_decode_start = time.time()
-                    ras, decs, mags, pmras, pmdecs = self._parse_records(data)
+                    ras, decs, mags, pmras, pmdecs = self._parse_records(
+                        data, tile_id, mag_band_info
+                    )
                     t_decode_total += time.time() - t_decode_start
 
                     # Filter by magnitude
@@ -1409,22 +1189,21 @@ class GaiaStarCatalog:
                 continue
 
             if not index_file.exists():
-                raise FileNotFoundError(
-                    f"Compressed index not found: {index_file}\n"
-                    f"This catalog requires v3 format. Please rebuild using healpix_builder_compact.py"
-                )
+                raise FileNotFoundError(f"Tile index not found: {index_file}")
 
-            # Load v3 compressed index
+            # Load the tile index
             cache_key = f"index_{mag_min}_{mag_max}"
             if not hasattr(self, "_index_cache"):
                 self._index_cache = {}
 
             if cache_key not in self._index_cache:
-                self._index_cache[cache_key] = CompressedIndex(index_file)
+                self._index_cache[cache_key] = TileIndex(
+                    index_file, int(mag_band_info.get("mag_bits", 8))
+                )
 
             index = self._index_cache[cache_key]
 
-            # Collect all tile read operations from v3 compressed index
+            # Collect all tile read operations from the tile index
             read_ops = []
             for tile_id in tile_ids:
                 tile_tuple = index.get(tile_id)
@@ -1493,7 +1272,9 @@ class GaiaStarCatalog:
                         data = chunk_data[tile_offset : tile_offset + size]
 
                         # Parse records using shared helper
-                        ras, decs, mags, pmras, pmdecs = self._parse_records(data)
+                        ras, decs, mags, pmras, pmdecs = self._parse_records(
+                            data, tile_id, mag_band_info
+                        )
 
                         # Filter by magnitude
                         mask = mags <= mag_limit

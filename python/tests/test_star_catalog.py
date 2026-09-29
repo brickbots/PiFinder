@@ -1,134 +1,227 @@
-import struct
+import json
 import shutil
+import struct
 import tempfile
 import unittest
 from pathlib import Path
 
+import healpy as hp  # type: ignore[import-untyped]
 import numpy as np
+import pytest
 
-from PiFinder.object_images.star_catalog import CompressedIndex, GaiaStarCatalog
+from PiFinder.object_images.star_catalog import (
+    CatalogState,
+    GaiaStarCatalog,
+    TileIndex,
+    tile_byte_size,
+    tile_star_count,
+)
+
+pytestmark = pytest.mark.unit
 
 
-def build_v3_index(runs, version=3):
-    """Build a v3 run-length-encoded index file image.
+def build_dense_index(counts, num_pixels=256, stride=16, mag_bits=8, version=4):
+    """Bytes of a dense tile index (see TileIndex).
 
-    Format (see CompressedIndex):
-      header:        <III  version, num_tiles, num_runs
-      run directory: <IQ   start_tile, data_offset   (one per run)
-      run data:      <HQ   run_length, offset_base    (at data_offset)
-                     <H*   per-tile sizes             (run_length of them)
-
-    runs: list of (start_tile, offset_base, [tile_size, ...]).
+    counts: {pixel: number of stars}. Tiles are back to back in pixel order.
     """
-    num_runs = len(runs)
-    num_tiles = sum(len(sizes) for _, _, sizes in runs)
-
-    header = struct.pack("<III", version, num_tiles, num_runs)
-    directory_size = num_runs * 12  # <IQ per run
-    data_cursor = len(header) + directory_size
-
-    directory = b""
-    blocks = []
-    for start_tile, offset_base, sizes in runs:
-        directory += struct.pack("<IQ", start_tile, data_cursor)
-        block = struct.pack("<HQ", len(sizes), offset_base)
-        block += struct.pack(f"<{len(sizes)}H", *sizes)
-        blocks.append(block)
-        data_cursor += len(block)
-
-    return header + directory + b"".join(blocks)
+    full = [counts.get(p, 0) for p in range(num_pixels)]
+    sizes = [tile_byte_size(n, mag_bits) for n in full]
+    starts = [sum(sizes[:p]) for p in range(0, num_pixels, stride)]
+    overflow = [(p, n) for p, n in enumerate(full) if n >= 255]
+    data = struct.pack("<IIII", version, num_pixels, stride, len(overflow))
+    data += bytes(min(n, 255) for n in full)
+    data += struct.pack(f"<{len(starts)}Q", *starts)
+    for p, n in overflow:
+        data += struct.pack("<II", p, n)
+    return data
 
 
-class TestCompressedIndex(unittest.TestCase):
-    """Tests for the v3 run-length-encoded binary tile index reader."""
-
-    # Two runs with a gap (tiles 13-19 do not exist):
-    #   run A: tiles 10,11,12  offset_base 1000  sizes 100,200,50
-    #   run B: tiles 20,21     offset_base 5000  sizes 300,400
-    RUNS = [(10, 1000, [100, 200, 50]), (20, 5000, [300, 400])]
+class TestTileIndex(unittest.TestCase):
+    """Tests for the dense tile index reader."""
 
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
-        self.path = Path(self.test_dir) / "index_v3.bin"
+        self.path = Path(self.test_dir) / "index.bin"
 
     def tearDown(self):
         shutil.rmtree(self.test_dir)
 
-    def _open(self, data):
-        with open(self.path, "wb") as f:
-            f.write(data)
-        idx = CompressedIndex(self.path)
+    def _open(self, data, mag_bits=8):
+        self.path.write_bytes(data)
+        idx = TileIndex(self.path, mag_bits)
         self.addCleanup(idx.close)
         return idx
 
-    def test_header_tile_count(self):
-        idx = self._open(build_v3_index(self.RUNS))
-        self.assertEqual(idx.num_tiles, 5)
-        self.assertEqual(len(idx.run_directory), 2)
+    def test_offsets_add_up_the_tiles_before(self):
+        idx = self._open(build_dense_index({10: 3, 11: 5, 13: 1}))
+        self.assertEqual(idx.num_tiles, 3)
+        self.assertEqual(idx.get(10), (0, 9))
+        self.assertEqual(idx.get(11), (9, 15))
+        self.assertEqual(idx.get(13), (24, 3))
 
-    def test_offsets_are_cumulative_within_a_run(self):
-        idx = self._open(build_v3_index(self.RUNS))
-        # tile_offset = offset_base + sum(preceding sizes in run); tile_size = own size
-        self.assertEqual(idx.get(10), (1000, 100))
-        self.assertEqual(idx.get(11), (1100, 200))
-        self.assertEqual(idx.get(12), (1300, 50))
+    def test_checkpoint_starts_each_stride(self):
+        # Stride 4: pixels 5 and 9 are in later strides than pixel 2.
+        idx = self._open(build_dense_index({2: 1, 5: 2, 9: 4}, 16, 4))
+        self.assertEqual(idx.get(2), (0, 3))
+        self.assertEqual(idx.get(5), (3, 6))
+        self.assertEqual(idx.get(9), (9, 12))
 
-    def test_run_directory_is_a_numpy_view_not_python_tuples(self):
-        idx = self._open(build_v3_index(self.RUNS))
-        self.assertIsInstance(idx.run_directory, np.ndarray)
-        self.assertEqual(idx.num_runs, 2)
+    def test_count_of_255_or_more_is_in_the_overflow_list(self):
+        idx = self._open(build_dense_index({3: 300, 4: 255, 5: 2}))
+        self.assertEqual(idx.get(3), (0, 900))
+        self.assertEqual(idx.get(4), (900, 765))
+        self.assertEqual(idx.get(5), (1665, 6))
 
-    def test_tiles_outside_the_runs(self):
-        idx = self._open(build_v3_index(self.RUNS))
+    def test_four_bit_tile_sizes(self):
+        idx = self._open(build_dense_index({0: 3, 1: 2}, mag_bits=4), mag_bits=4)
+        self.assertEqual(idx.get(0), (0, 8))
+        self.assertEqual(idx.get(1), (8, 5))
+
+    def test_missing_tiles_return_none(self):
+        idx = self._open(build_dense_index({10: 3}))
+        self.assertIsNone(idx.get(9))
+        self.assertIsNone(idx.get(11))
         self.assertIsNone(idx.get(-1))
-        self.assertIsNone(idx.get(9))  # before the first run
-        self.assertIsNone(idx.get(13))  # after the end of the first run
+        self.assertIsNone(idx.get(256))
         self.assertIsNone(idx.get(2**33))
 
     def test_close_twice(self):
-        idx = self._open(build_v3_index(self.RUNS))
+        idx = self._open(build_dense_index({10: 3}))
         idx.close()
         idx.close()
         self.assertIsNone(idx.get(10))
 
-    def test_second_run_uses_its_own_offset_base(self):
-        idx = self._open(build_v3_index(self.RUNS))
-        self.assertEqual(idx.get(20), (5000, 300))
-        self.assertEqual(idx.get(21), (5300, 400))
-
-    def test_missing_tiles_return_none(self):
-        idx = self._open(build_v3_index(self.RUNS))
-        self.assertIsNone(idx.get(5))  # before the first run
-        self.assertIsNone(idx.get(13))  # past run A length, still in run A's id span
-        self.assertIsNone(idx.get(17))  # in the gap between runs
-        self.assertIsNone(idx.get(22))  # past the last run's length
-
-    def test_single_run_lookup(self):
-        idx = self._open(build_v3_index([(0, 0, [42])]))
-        self.assertEqual(idx.get(0), (0, 42))
-        self.assertIsNone(idx.get(1))
-
     def test_wrong_version_raises(self):
-        with open(self.path, "wb") as f:
-            f.write(build_v3_index([(0, 0, [1])], version=2))
+        self.path.write_bytes(build_dense_index({0: 1}, version=3))
         with self.assertRaises(ValueError):
-            CompressedIndex(self.path)
+            TileIndex(self.path, 8)
 
 
-class TestGaiaStarCatalog(unittest.TestCase):
+def columnar_tile(ra, dec, tenths, mag_bits, mag_base=0):
+    """Bytes of one columnar tile: ra[n], dec[n], then the magnitudes."""
+    data = bytes(ra) + bytes(dec)
+    if mag_bits == 8:
+        return data + bytes(tenths)
+    rel = [t - mag_base for t in tenths]
+    nibbles = bytearray((len(rel) + 1) // 2)
+    for k, value in enumerate(rel):
+        nibbles[k // 2] |= value << (4 * (k & 1))
+    return data + bytes(nibbles)
+
+
+BAND_8 = {"min": 14, "max": 16, "mag_bits": 8, "mag_base": 0}
+BAND_4 = {"min": 16, "max": 17, "mag_bits": 4, "mag_base": 160}
+
+
+class TestTileSizes(unittest.TestCase):
+    def test_star_count_inverts_byte_size(self):
+        for mag_bits in (4, 8):
+            for n in range(0, 200):
+                size = tile_byte_size(n, mag_bits)
+                self.assertEqual(tile_star_count(size, mag_bits), n)
+
+
+class TestColumnarDecode(unittest.TestCase):
     def setUp(self):
-        self.test_dir = tempfile.mkdtemp()
-        self.catalog = GaiaStarCatalog(self.test_dir)
+        self.catalog = GaiaStarCatalog(tempfile.mkdtemp())
         self.catalog.nside = 512
+        self.addCleanup(shutil.rmtree, str(self.catalog.catalog_path))
 
-    def tearDown(self):
-        shutil.rmtree(self.test_dir)
+    def test_eight_bit_magnitudes(self):
+        data = columnar_tile([0, 255, 128], [10, 20, 30], [140, 151, 159], 8)
+        ras, _, mags, _, _ = self.catalog._parse_records(data, 1000, BAND_8)
+        np.testing.assert_allclose(mags, [14.0, 15.1, 15.9])
+        self.assertEqual(len(ras), 3)
 
-    def test_return_empty_on_missing_file(self):
-        # Returns an empty array instead of crashing on a missing tile file.
-        result = self.catalog._load_tile_from_file(Path("/nonexistent"), 0, 20)
-        self.assertEqual(len(result[0]), 0)
-        self.assertTrue(isinstance(result[0], np.ndarray))
+    def test_four_bit_magnitudes_odd_count(self):
+        # Star 2k in the low nibble, star 2k+1 in the high nibble.
+        data = columnar_tile([1, 2, 3], [4, 5, 6], [160, 169, 163], 4, 160)
+        self.assertEqual(len(data), 2 * 3 + 2)
+        _, _, mags, _, _ = self.catalog._parse_records(data, 1000, BAND_4)
+        np.testing.assert_allclose(mags, [16.0, 16.9, 16.3])
+
+    def test_four_bit_magnitudes_even_count(self):
+        data = columnar_tile([1, 2], [4, 5], [165, 161], 4, 160)
+        _, _, mags, _, _ = self.catalog._parse_records(data, 1000, BAND_4)
+        np.testing.assert_allclose(mags, [16.5, 16.1])
+
+    def test_columns_are_ra_then_dec(self):
+        # The same offset bytes give the pixel centre plus the same shift.
+        tile = 12345
+        data = columnar_tile([255, 0], [0, 255], [150, 150], 8)
+        ras, decs, _, _, _ = self.catalog._parse_records(data, tile, BAND_8)
+        centre_ra, centre_dec = hp.pix2ang(512, tile, lonlat=True)
+        self.assertGreater(ras[0], centre_ra)
+        self.assertLess(decs[0], centre_dec)
+        self.assertLess(ras[1], centre_ra)
+        self.assertGreater(decs[1], centre_dec)
+
+    def test_size_that_is_not_whole_stars_is_rejected(self):
+        ras, _, _, _, _ = self.catalog._parse_records(b"\x00" * 4, 1, BAND_8)
+        self.assertEqual(len(ras), 0)
+
+    def test_empty_tile(self):
+        ras, _, _, _, _ = self.catalog._parse_records(b"", 1, BAND_4)
+        self.assertEqual(len(ras), 0)
+
+
+class TestCatalogFiles(unittest.TestCase):
+    """A small catalog on disk, read through the public load path."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, str(self.root))
+
+    def write_catalog(self, fmt="columnar", version="3.0"):
+        tiles = {
+            100: ([10, 200], [30, 40], [160, 167]),
+            101: ([50], [60], [169]),
+        }
+        blob = b""
+        for tile_id in sorted(tiles):
+            ra, dec, tenths = tiles[tile_id]
+            blob += columnar_tile(ra, dec, tenths, 4, 160)
+        counts = {tile_id: len(tiles[tile_id][0]) for tile_id in tiles}
+        band_dir = self.root / "mag_16_17"
+        band_dir.mkdir()
+        (band_dir / "tiles.bin").write_bytes(blob)
+        (band_dir / "index.bin").write_bytes(build_dense_index(counts, mag_bits=4))
+        meta = {
+            "format": fmt,
+            "catalog_version": version,
+            "nside": 512,
+            "mag_limit": 17.0,
+            "star_count": 3,
+            "mag_bands": [dict(BAND_4, tiles=2, stars=3)],
+        }
+        (self.root / "metadata.json").write_text(json.dumps(meta))
+
+    def load(self):
+        catalog = GaiaStarCatalog(str(self.root))
+        catalog._background_load_worker()
+        return catalog
+
+    def test_band_load_returns_all_stars(self):
+        self.write_catalog()
+        catalog = self.load()
+        self.assertEqual(catalog.state, CatalogState.READY)
+        band = catalog.metadata["mag_bands"][0]
+        stars = catalog._load_tiles_batch_single_band([100, 101, 102], band, 17.0)
+        np.testing.assert_allclose(sorted(stars[:, 2]), [16.0, 16.7, 16.9])
+
+    def test_magnitude_limit_filters_stars(self):
+        self.write_catalog()
+        catalog = self.load()
+        band = catalog.metadata["mag_bands"][0]
+        stars = catalog._load_tiles_batch_single_band([100, 101], band, 16.5)
+        np.testing.assert_allclose(stars[:, 2], [16.0])
+
+    def test_older_format_is_refused(self):
+        self.write_catalog(fmt="compact", version="2.1")
+        catalog = self.load()
+        self.assertEqual(catalog.state, CatalogState.NOT_LOADED)
+        self.assertIsNone(catalog.metadata)
 
 
 if __name__ == "__main__":
