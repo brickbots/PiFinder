@@ -33,6 +33,28 @@ if TYPE_CHECKING:
 GPS_ANIM_RATE = 128
 
 
+class FrameRate:
+    """
+    Frames per second of the whole UI. One instance is shared by all
+    screens, so the rate stays correct when the menu changes screen.
+    """
+
+    def __init__(self):
+        self.fps = 0
+        self._count = 0
+        self._window_start = time.monotonic()
+
+    def tick(self) -> None:
+        """Counts one frame sent to the display."""
+        self._count += 1
+        now = time.monotonic()
+        elapsed = now - self._window_start
+        if elapsed >= 1.0:
+            self.fps = round(self._count / elapsed)
+            self._count = 0
+            self._window_start = now
+
+
 class RotatingInfoDisplay:
     """Alternates between constellation and SQM with cross-fade animation."""
 
@@ -133,6 +155,8 @@ class UIModule:
     keep_awake = False
     _display_mode_list: Union[list[None], list[str]] = [None]  # List of display modes
     marking_menu: Union[None, MarkingMenu] = None
+    # Counted by the menu manager for each frame it sends to the display.
+    frame_rate = FrameRate()
 
     def __init__(
         self,
@@ -174,11 +198,6 @@ class UIModule:
         self.title = item_definition.get("name", self.title)
 
         self.config_object: Config = config_object
-
-        # FPS
-        self.fps = 0
-        self.frame_count = 0
-        self.last_fps_sample_time = time.time()
 
         # anim timer stuff
         self.last_update_time = time.time()
@@ -451,7 +470,9 @@ class UIModule:
             # track titlebar_height across displays (was hardcoded for 128).
             title_y = max(0, (tb_height - self.fonts.bold.height) // 2)
             icon_y = (tb_height - self.fonts.icon_bold_large.height) // 2
-            title_text = str(self.fps) if self.ui_state.show_fps() else _(self.title)
+            title_text = (
+                str(self.frame_rate.fps) if self.ui_state.show_fps() else _(self.title)
+            )
             # Truncate so the title never runs under the right-side status icons.
             # They start at the GPS icon (~0.8*resX); leave a small gap. Derived
             # from the screen size + bold font, so it adapts to 128/176/320.
@@ -537,14 +558,6 @@ class UIModule:
                         font=self.fonts.bold.font,
                         fill=fg,
                     )
-
-        # FPS
-        self.frame_count += 1
-        if int(time.time()) - self.last_fps_sample_time > 0:
-            # flipped second
-            self.fps = self.frame_count
-            self.frame_count = 0
-            self.last_fps_sample_time = int(time.time())
 
         self.last_update_time = time.time()
 

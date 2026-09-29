@@ -343,6 +343,7 @@ class MenuManager:
             return None
 
         self.display_class.device.display(screen_to_display)
+        UIModule.frame_rate.tick()
 
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
