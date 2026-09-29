@@ -571,7 +571,7 @@ def main(
         shared_state = manager.SharedState()  # type: ignore[attr-defined]
         location = shared_state.location()
         ui_state = manager.UIState()  # type: ignore[attr-defined]
-        ui_state.set_show_fps(show_fps)
+        ui_state.set_show_fps(show_fps or cfg.get_option("show_fps", False))
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal

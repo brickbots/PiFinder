@@ -104,6 +104,13 @@ def apply_brightness(ui_module: UIModule) -> None:
     ui_module.command_queues["ui_queue"].put("set_brightness")
 
 
+def apply_show_fps(ui_module: UIModule) -> None:
+    """Show or hide the frame rate in the title bar, from current config."""
+    ui_module.ui_state.set_show_fps(
+        ui_module.config_object.get_option("show_fps", False)
+    )
+
+
 def apply_sound_volume(ui_module: UIModule) -> None:
     """Re-push master volume from current config to the buzzer."""
     ui_module.command_queues["ui_queue"].put("set_volume")

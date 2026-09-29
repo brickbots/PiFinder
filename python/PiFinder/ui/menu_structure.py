@@ -1275,6 +1275,17 @@ pifinder_menu = {
                                     ],
                                 },
                                 {
+                                    "name": _("Show FPS"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "show_fps",
+                                    "post_callback": callbacks.apply_show_fps,
+                                    "items": [
+                                        {"name": _("Off"), "value": False},
+                                        {"name": _("On"), "value": True},
+                                    ],
+                                },
+                                {
                                     "name": _("Screen Off"),
                                     "class": UITextMenu,
                                     "select": "single",
