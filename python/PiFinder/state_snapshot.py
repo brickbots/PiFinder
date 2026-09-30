@@ -293,6 +293,20 @@ class StateSnapshot:
     Tests build one directly: ``StateSnapshot({"solution": solution})``.
     """
 
+    @classmethod
+    def from_state(cls, state) -> "StateSnapshot":
+        """
+        A snapshot of an object with the SharedStateObj getters (the object
+        itself or its proxy), read one getter at a time. For tests and tools;
+        the app reads the shared-memory block with StateReader.
+        """
+        values = {
+            name: getattr(state, name)() for name in DEFAULTS if name != "datetime"
+        }
+        now = state.datetime()
+        values["datetime"] = None if now is None else (now, time.time())
+        return cls(values)
+
     def __init__(self, values: Optional[Dict[str, Any]] = None):
         self._values = dict(DEFAULTS)
         if values:

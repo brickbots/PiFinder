@@ -807,8 +807,8 @@ def main(
         # applies to the UI process only.
         sys.setswitchinterval(UI_SWITCH_INTERVAL)
 
-        # Initialize Catalogs (pass ui_queue for background loading completion signal)
-        catalogs: Catalogs = CatalogBuilder().build(shared_state, ui_queue)
+        # Open the catalogs (numpy columns, see catalog_arrays)
+        catalogs: Catalogs = CatalogBuilder().build(shared_state)
 
         # Establish the common catalog filter object
         _new_filter = CatalogFilter(shared_state=CurrentSnapshot())
@@ -1005,16 +1005,6 @@ def main(
                     menu_manager.jump_to_label("recent")
                 elif ui_command == "reload_config":
                     cfg.load_config()
-                elif ui_command == "catalogs_fully_loaded":
-                    logger.info(
-                        "All catalogs loaded - WDS and extended catalogs available"
-                    )
-                    # Mark the filter dirty so downstream consumers that cache
-                    # off dirty_time (e.g. the chart's nearby-DSO spatial index)
-                    # rebuild to include the newly available objects.
-                    if catalogs.catalog_filter is not None:
-                        catalogs.catalog_filter.mark_dirty()
-                    menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
                     # Toggle test mode (store in both shared_state and config).
                     # The camera process follows shared_state.test_mode()

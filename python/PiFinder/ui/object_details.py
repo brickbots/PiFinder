@@ -7,6 +7,7 @@ This module contains all the UI code for the object details screen
 """
 
 from PiFinder import cat_images
+from PiFinder.object_sequence import ObjectSequence
 from PiFinder.composite_object import MagnitudeObject
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
@@ -27,7 +28,6 @@ import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.db.objects_db import ObjectsDatabase
-import numpy as np
 import time
 from PiFinder.lazy_import import lazy_module
 
@@ -672,12 +672,7 @@ class UIObjectDetails(UIModule):
             self.active()  # reset activation time
 
     def scroll_object(self, direction: int) -> None:
-        if isinstance(self.object_list, np.ndarray):
-            # For NumPy array
-            current_index = np.where(self.object_list == self.object)[0][0]
-        else:
-            # For regular Python list
-            current_index = self.object_list.index(self.object)
+        current_index = ObjectSequence.of(self.object_list).index(self.object)
         current_index += direction
         if current_index < 0:
             current_index = 0

@@ -208,7 +208,9 @@ def test_the_snapshot_reads_like_the_shared_state_proxy():
     getters = {
         name
         for name in dir(StateSnapshot)
-        if not name.startswith("_") and callable(getattr(StateSnapshot, name))
+        if not name.startswith("_")
+        and callable(getattr(StateSnapshot, name))
+        and name != "from_state"
     }
     missing = {name for name in getters if not hasattr(SharedStateObj, name)}
     assert missing == set()

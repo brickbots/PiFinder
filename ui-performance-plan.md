@@ -293,6 +293,27 @@ to 300 MB (an estimate).
 - `mark_logged` marks sibling listings in other catalogs.
 - On the CM4: startup time, RAM of the UI process, FPS after start.
 
+### Results
+
+Measured on a CM4 (pifinder.local), from a copy in `/tmp`, with the arrays
+of the repo DB:
+
+| Step | Objects (before) | Columns |
+|---|---|---|
+| Open the catalogs | about 1 s, then a 17 s loader thread | 0.8 to 0.9 s, no thread |
+| Filter WDS (altitude + magnitude) | 2.37 s | 150 to 200 ms |
+| Filter all 21 catalogs | | about 170 ms |
+| Nearby de-duplication + BallTree, All Filtered | | about 220 ms |
+| T9 search | | 0.1 to 0.5 s |
+| Text search "andromeda" | | 40 to 140 ms |
+| Make one row | | about 1 ms |
+
+Private RAM of the UI process in a headless run on a PC: 542 MB before,
+152 MB after.
+
+The first Nearby sort after a start imports sklearn, which takes about 9 s
+on a CM4. This is not part of this change.
+
 ### Bugs found on the way (not part of this plan)
 
 - `catalog_cache.save()` sets `logged = False` on the live objects, so after
@@ -304,6 +325,6 @@ to 300 MB (an estimate).
   (`catalogs.py:1089-1095`).
 - `object_details.serialize_ui_state` reads the attributes `catalog` and
   `magnitude`, which do not exist (`object_details.py:786-805`).
-- `docs/ax/catalog/CONTEXT.md` says that an empty `object_types` or
+- `docs/ax/catalog/CONTEXT.md` said that an empty `object_types` or
   `constellations` list rejects every object. The code treats an empty list
-  as "no filter".
+  as "no filter". The docs now say so (fixed with step 2).
