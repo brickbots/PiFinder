@@ -11,6 +11,7 @@ import threading
 import pickle
 import pytz
 from PiFinder import config
+from PiFinder import state_snapshot
 import logging
 from typing import List
 from PiFinder.composite_object import CompositeObject
@@ -283,6 +284,33 @@ class Location:
         return cls.from_dict(data)
 
 
+def initial_image_metadata() -> dict:
+    """Image metadata before the camera reports its first frame."""
+    return {
+        "exposure_start": 0,
+        "exposure_end": 0,
+        "exposure_time": 500000,  # Default exposure time in microseconds (0.5s)
+        "imu": None,
+        "imu_delta": 0.0,  # Angle between quaternion at start and end of exposure [deg]
+    }
+
+
+def initial_snapshot() -> state_snapshot.StateSnapshot:
+    """
+    The snapshot of a SharedStateObj that no setter has changed yet. Screens
+    see it before the main loop reads the first snapshot; tests start from it.
+    """
+    return state_snapshot.StateSnapshot(
+        {
+            "solution": PointingEstimate(),
+            "location": Location(),
+            "sqm": SQM(),
+            "last_image_metadata": initial_image_metadata(),
+            "camera_type": "imx296",
+        }
+    )
+
+
 class SharedStateObj:
     def __init__(self) -> None:
         self.__power_state = 1  # 0 = sleep state, 1 = awake state
@@ -292,13 +320,7 @@ class SharedStateObj:
         # False = Invalid solve data
         self.__solve_state: Optional[bool] = None
         self.__ui_state = None
-        self.__last_image_metadata = {
-            "exposure_start": 0,
-            "exposure_end": 0,
-            "exposure_time": 500000,  # Default exposure time in microseconds (0.5s)
-            "imu": None,
-            "imu_delta": 0.0,  # Angle between quaternion at start and end of exposure [deg]
-        }
+        self.__last_image_metadata = initial_image_metadata()
         self.__solution: PointingEstimate = PointingEstimate()
         self.__sats = None
         self.__gps_comms = None
@@ -350,6 +372,36 @@ class SharedStateObj:
         self.__tz_finder_thread.start()
         self.__current_ui_state = None
         self.__test_mode = False
+        self.__publish_all()
+
+    def __publish_all(self):
+        """Writes every snapshot value, so readers never see an unwritten
+        slot once the manager has built this object. See state_snapshot."""
+        publish = state_snapshot.publish
+        publish("power_state", self.__power_state)
+        publish("solution", (self.__solution, self.__solve_state))
+        publish("imu", self.__imu)
+        publish("location", self.__location)
+        self.__publish_datetime()
+        publish("sqm", self.__sqm)
+        publish("sqm_details", self.__sqm_details)
+        publish("battery", self.__battery)
+        publish("hardware", self.__hardware)
+        publish("sats", self.__sats)
+        publish("gps_comms", self.__gps_comms)
+        publish("last_image_metadata", self.__last_image_metadata)
+        publish("camera_type", self.__camera_type)
+        publish("camera_lens", self.__camera_lens)
+        publish("optical_train_known", self.__optical_train_known)
+        publish("test_mode", self.__test_mode)
+
+    def __publish_datetime(self):
+        # The stored time and when it was stored: a reader adds the time
+        # passed since, as datetime() does.
+        if self.__datetime is None:
+            state_snapshot.publish("datetime", None)
+        else:
+            state_snapshot.publish("datetime", (self.__datetime, self.__datetime_time))
 
     def __build_tz_finder(self):
         try:
@@ -362,6 +414,7 @@ class SharedStateObj:
         if self.__tz_pending and location is not None:
             self.__tz_pending = False
             location.timezone = self.__timezone_for(location.lat, location.lon)
+            state_snapshot.publish("location", location)
 
     def wait_for_timezone_finder(self, timeout: Optional[float] = None) -> bool:
         """Wait until the TimezoneFinder is built; True when it is. For tests
@@ -424,6 +477,7 @@ class SharedStateObj:
         """
         if v in (-1, 0, 1):
             self.__power_state = v
+            state_snapshot.publish("power_state", v)
         else:
             logger.error(
                 f"Invalid value for set_power_state: {v}. power_state not changed."
@@ -440,6 +494,7 @@ class SharedStateObj:
 
     def set_solve_state(self, v):
         self.__solve_state = v
+        state_snapshot.publish("solution", (self.__solution, v))
 
     def camera_align(self):
         return self.__camera_align
@@ -458,6 +513,7 @@ class SharedStateObj:
 
     def set_camera_type(self, v: str):
         self.__camera_type = v
+        state_snapshot.publish("camera_type", v)
 
     def camera_lens(self) -> Optional[str]:
         """Configured lens key, or None when the config states none."""
@@ -470,6 +526,7 @@ class SharedStateObj:
         registered lens (see PiFinder.optics.LENSES) or None.
         """
         self.__camera_lens = v
+        state_snapshot.publish("camera_lens", v)
 
     def optical_train_known(self) -> bool:
         """False when the frames did not come through this device's optics.
@@ -482,12 +539,14 @@ class SharedStateObj:
 
     def set_optical_train_known(self, v: bool):
         self.__optical_train_known = bool(v)
+        state_snapshot.publish("optical_train_known", self.__optical_train_known)
 
     def sats(self):
         return self.__sats
 
     def set_sats(self, v):
         self.__sats = v
+        state_snapshot.publish("sats", v)
 
     def gps_comms(self):
         """The most recent GPS event as ``(name, monotonic_stamp)``, or None
@@ -500,12 +559,14 @@ class SharedStateObj:
 
     def set_gps_comms(self, v):
         self.__gps_comms = v
+        state_snapshot.publish("gps_comms", v)
 
     def imu(self):
         return self.__imu
 
     def set_imu(self, v):
         self.__imu = v
+        state_snapshot.publish("imu", v)
 
     def battery(self):
         """Latest BatteryState, or None when no charger is present
@@ -515,6 +576,7 @@ class SharedStateObj:
 
     def set_battery(self, v):
         self.__battery = v
+        state_snapshot.publish("battery", v)
 
     def hardware(self):
         """Detected HardwareCapabilities for this board."""
@@ -522,6 +584,7 @@ class SharedStateObj:
 
     def set_hardware(self, v):
         self.__hardware = v
+        state_snapshot.publish("hardware", v)
 
     def solution(self) -> PointingEstimate:
         return self.__solution
@@ -532,6 +595,7 @@ class SharedStateObj:
         # exist?" -- exactly solution().has_pointing(). Derive it here so the
         # two can never drift and callers can't forget to update it.
         self.__solve_state = v.has_pointing()
+        state_snapshot.publish("solution", (v, self.__solve_state))
 
     def location(self):
         """Return the current location"""
@@ -551,6 +615,7 @@ class SharedStateObj:
         if v:
             v.timezone = self.__timezone_for(v.lat, v.lon)
         self.__location = v
+        state_snapshot.publish("location", v)
 
     def sqm(self):
         """Return the current SQM object"""
@@ -559,6 +624,7 @@ class SharedStateObj:
     def set_sqm(self, sqm: SQM):
         """Update the SQM value"""
         self.__sqm = sqm
+        state_snapshot.publish("sqm", sqm)
 
     def noise_floor(self) -> float:
         """Return the processed-image background floor in 8-bit ADU."""
@@ -575,6 +641,7 @@ class SharedStateObj:
     def set_sqm_details(self, v: dict):
         """Update the SQM calculation details"""
         self.__sqm_details = v
+        state_snapshot.publish("sqm_details", v)
 
     def get_sky_brightness(self):
         """Return just the numeric SQM value for convenience"""
@@ -585,6 +652,7 @@ class SharedStateObj:
 
     def set_last_image_metadata(self, v):
         self.__last_image_metadata = v
+        state_snapshot.publish("last_image_metadata", v)
 
     def datetime(self):
         """The civil datetime (astronomical epoch), timezone-aware in UTC.
@@ -648,6 +716,7 @@ class SharedStateObj:
             self.__datetime_time = time.time()
             self.__datetime = dt
             self.__datetime_manual = True
+            self.__publish_datetime()
             return
 
         # Skip GPS time updates when time was manually set
@@ -657,6 +726,7 @@ class SharedStateObj:
         if self.__datetime is None:
             self.__datetime_time = time.time()
             self.__datetime = dt
+            self.__publish_datetime()
         else:
             # only reset if there is some significant diff
             # as some gps recievers send multiple updates that can
@@ -667,12 +737,14 @@ class SharedStateObj:
             if curtime < dt:
                 self.__datetime_time = time.time()
                 self.__datetime = dt
+                self.__publish_datetime()
 
     def reset_datetime(self):
         """Clear manual datetime override, allowing GPS time updates again."""
         self.__datetime = None
         self.__datetime_time = None
         self.__datetime_manual = False
+        self.__publish_datetime()
 
     def screen(self):
         return self.__screen
@@ -740,3 +812,4 @@ class SharedStateObj:
 
     def set_test_mode(self, v: bool):
         self.__test_mode = v
+        state_snapshot.publish("test_mode", v)

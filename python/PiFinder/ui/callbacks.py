@@ -21,7 +21,7 @@ from PiFinder import timez
 from PiFinder.locations import Location as SavedLocation
 from PiFinder.optics import resolve_camera_profile, resolve_lens
 from PiFinder.state import Location
-from PiFinder.ui.base import UIModule
+from PiFinder.ui.base import CurrentSnapshot, UIModule
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.catalogs import CatalogFilter
 from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
@@ -70,7 +70,7 @@ def reset_filters(ui_module: UIModule) -> None:
     """
     ui_module.config_object.reset_filters()
 
-    new_filter = CatalogFilter(shared_state=ui_module.shared_state)
+    new_filter = CatalogFilter(shared_state=CurrentSnapshot())
     new_filter.load_from_config(ui_module.config_object)
 
     ui_module.catalogs.set_catalog_filter(new_filter)
@@ -114,6 +114,13 @@ def apply_brightness(ui_module: UIModule) -> None:
     ui_module.command_queues["ui_queue"].put("set_brightness")
 
 
+def apply_show_fps(ui_module: UIModule) -> None:
+    """Show or hide the frame rate in the title bar, from current config."""
+    show_fps = ui_module.config_object.get_option("show_fps", False)
+    UIModule.frame_rate.visible = show_fps
+    ui_module.ui_state.set_show_fps(show_fps)
+
+
 def apply_sound_volume(ui_module: UIModule) -> None:
     """Re-push master volume from current config to the buzzer."""
     ui_module.command_queues["ui_queue"].put("set_volume")
@@ -153,7 +160,7 @@ def get_camera_exposure_display(ui_module: UIModule) -> str:
     # For auto mode, get actual exposure from metadata
     if config_exp == "auto":
         try:
-            metadata = ui_module.shared_state.last_image_metadata()
+            metadata = ui_module.snapshot.last_image_metadata()
             if metadata and "exposure_time" in metadata:
                 actual_exp = metadata["exposure_time"]
                 exp_sec = actual_exp / 1_000_000
@@ -250,8 +257,8 @@ def get_camera_lens(ui_module: UIModule) -> list[str]:
     seeded from config when it is built and republished by both the menu's own
     ``set_camera_lens`` and self-heal, so it is never behind.
     """
-    profile = resolve_camera_profile(ui_module.shared_state.camera_type())
-    return [resolve_lens(profile, ui_module.shared_state.camera_lens()).key]
+    profile = resolve_camera_profile(ui_module.snapshot.camera_type())
+    return [resolve_lens(profile, ui_module.snapshot.camera_lens()).key]
 
 
 def set_camera_lens(ui_module: UIModule) -> None:
@@ -357,7 +364,7 @@ def datetime_reset(ui_module: UIModule) -> None:
 
 def save_location(ui_module: UIModule) -> None:
     """Save current location — prompts for name via text entry."""
-    location = ui_module.shared_state.location()
+    location = ui_module.snapshot.location()
     if not location.lock:
         ui_module.message(_("No location lock"), 2)
         return
@@ -395,7 +402,7 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     # Location.timezone is Optional and pytz.timezone(None) raises, so fall
     # back rather than crash on commit. set_location already settles the zone
     # to UTC when it cannot resolve one; this covers a Location built directly.
-    timezone_str = ui_module.shared_state.location().timezone or "UTC"
+    timezone_str = ui_module.snapshot.location().timezone or "UTC"
 
     # First create a datetime object (using today's date by default)
     dt = timez.parse(time_str, "%H:%M:%S")
@@ -426,7 +433,7 @@ def set_datetime(ui_module: UIModule, date_str: str) -> None:
     logger.info(f"Setting datetime to: {date_str} {time_str}")
 
     # See set_time: fall back rather than raise on an unresolved zone.
-    timezone_str = ui_module.shared_state.location().timezone or "UTC"
+    timezone_str = ui_module.snapshot.location().timezone or "UTC"
     timezone = pytz.timezone(timezone_str)
 
     dt = timez.parse(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
