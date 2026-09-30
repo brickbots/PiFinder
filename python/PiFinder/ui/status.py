@@ -103,8 +103,8 @@ class UIStatus(UIModule):
         """
         Updates all the status dict values
         """
-        if self.shared_state.solve_state():
-            solution = self.shared_state.solution()
+        if self.snapshot.solve_state():
+            solution = self.snapshot.solution()
 
             # Time since last solve
             if solution.last_solve_success:
@@ -147,7 +147,7 @@ class UIStatus(UIModule):
                     f"{solution.Az: >6.2f}/{solution.Alt: >6.2f}"
                 )
 
-        imu = self.shared_state.imu()
+        imu = self.snapshot.imu()
         # IMU Status & reading
         if imu:
             if imu.quat is not None:
@@ -164,8 +164,8 @@ class UIStatus(UIModule):
             self.status_dict["IMU qw,qx"] = "--"
             self.status_dict["IMU qy,qz"] = "--"
 
-        location = self.shared_state.location()
-        sats = self.shared_state.sats()
+        location = self.snapshot.location()
+        sats = self.snapshot.sats()
         self.status_dict["GPS"] = [
             f"GPS {sats[0]}/{sats[1]}" if sats else "GPS 0/0",
             f"{location.lat:.2f}/{location.lon:.2f}",
@@ -174,12 +174,12 @@ class UIStatus(UIModule):
         self.status_dict["GPS ALT"] = f"{location.altitude:.1f}m"
         last_lock = location.last_gps_lock
         self.status_dict["GPS LCK"] = last_lock if last_lock else "--"
-        self.status_dict["GPS MSG"] = _format_gps_comms(self.shared_state.gps_comms())
+        self.status_dict["GPS MSG"] = _format_gps_comms(self.snapshot.gps_comms())
 
         # use datetimes explictly converted to the timezone we want to print
         # datetime() can be in any timezone and time() will just ignore TZ
-        utc_dt = self.shared_state.utc_datetime()
-        local_dt = self.shared_state.local_datetime()
+        utc_dt = self.snapshot.utc_datetime()
+        local_dt = self.snapshot.local_datetime()
         if utc_dt:
             self.status_dict["UTC TM"] = utc_dt.time().isoformat()[:8]
         if local_dt:

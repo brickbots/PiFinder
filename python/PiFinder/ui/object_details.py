@@ -275,7 +275,7 @@ class UIObjectDetails(UIModule):
             )
 
         # Get the SQM from the shared state
-        sqm = self.shared_state.get_sky_brightness()
+        sqm = self.snapshot.get_sky_brightness()
 
         # Check if a telescope and eyepiece are set
         if (
@@ -389,7 +389,7 @@ class UIObjectDetails(UIModule):
         self.descTextLayout.set_sections(sections)
         self.texts["desc"] = self.descTextLayout
 
-        solution = self.shared_state.solution()
+        solution = self.snapshot.solution()
         roll = 0
         if solution and solution.has_pointing():
             roll = solution.pointing.aligned.estimate.Roll
@@ -428,7 +428,7 @@ class UIObjectDetails(UIModule):
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
-        if not self.shared_state.solution().has_pointing():
+        if not self.snapshot.solution().has_pointing():
             self.draw.text(
                 self._pointing_msg_anchor_1,
                 _("No solve"),  # TRANSLATORS: No solve yet... (Part 1/2)
@@ -448,7 +448,7 @@ class UIObjectDetails(UIModule):
                 self._elipsis_count = 0
             return
 
-        if not self.shared_state.altaz_ready():
+        if not self.snapshot.altaz_ready():
             self.draw.text(
                 self._pointing_msg_anchor_1,
                 _("Searching"),  # TRANSLATORS: Searching for GPS (Part 1/2)
@@ -488,7 +488,7 @@ class UIObjectDetails(UIModule):
 
         indicator_color = 255 if self._unmoved else 128
         point_az, point_alt = calc_utils.aim_degrees(
-            self.shared_state,
+            self.snapshot,
             self.mount_type,
             self.screen_direction,
             self.object,
@@ -555,7 +555,7 @@ class UIObjectDetails(UIModule):
                 if self.object:
                     # check for visibility and adjust mag/size text color
                     obj_altitude = calc_utils.calc_object_altitude(
-                        self.shared_state, self.object
+                        self.snapshot, self.object
                     )
 
                     if obj_altitude:
@@ -730,7 +730,7 @@ class UIObjectDetails(UIModule):
         logging screen
         """
         self.maybe_add_to_recents()
-        if not self.shared_state.solution().has_pointing():
+        if not self.snapshot.solution().has_pointing():
             return
         object_item_definition = {
             "name": _("LOG"),
@@ -812,7 +812,7 @@ class UIObjectDetails(UIModule):
             try:
                 if self.object:
                     point_val1, point_val2 = calc_utils.aim_degrees(
-                        self.shared_state,
+                        self.snapshot,
                         self.mount_type,
                         self.screen_direction,
                         self.object,

@@ -54,7 +54,7 @@ class UILocationEntry(UIModule):
         self.current_box = 0
 
         # Pre-fill from shared state if available
-        location = self.shared_state.location() if self.shared_state else None
+        location = self.snapshot.location() if self.shared_state else None
         if location and location.lock:
             if self.coordinate == "lat":
                 val = location.lat

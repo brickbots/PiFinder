@@ -580,12 +580,12 @@ class UIChart(UIModule):
         if force:
             self.last_update = 0
 
-        if self.shared_state.solve_state():
+        if self.snapshot.solve_state():
             self.animate_fov()
             constellation_brightness = self.config_object.get_option(
                 "chart_constellations", 64
             )
-            self.solution = self.shared_state.solution()
+            self.solution = self.snapshot.solution()
             last_estimate_time = self.solution.estimate_time
 
             if last_estimate_time is None:
@@ -597,8 +597,8 @@ class UIChart(UIModule):
                     aligned.RA,
                     aligned.Dec,
                     chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
-                    location=self.shared_state.location(),
-                    dt=self.shared_state.datetime(),
+                    location=self.snapshot.location(),
+                    dt=self.snapshot.datetime(),
                 )
                 chart_rot_angle = orientation.rot_deg if orientation else None
                 # This needs to be called first to set RA/DEC/chart_rot_angle

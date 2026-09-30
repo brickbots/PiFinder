@@ -129,16 +129,23 @@ in the UI process (PR #111).
 
 ### How the UI uses it
 
-- `MenuManager.update` reads the snapshot once per frame and stores it in
-  `UIModule.snapshot`. Every screen reads `self.snapshot.solution`,
-  `self.snapshot.imu`, and so on. All screens see the same values during one
-  frame.
-- `PowerManager.update` and `sleep_for_framerate` read `power_state` from the
-  snapshot.
+- The main loop reads the snapshot once per frame and stores it in
+  `UIModule.snapshot`. Every screen reads `self.snapshot.solution()`,
+  `self.snapshot.imu()`, and so on. All screens see the same values during
+  one frame.
+- `StateSnapshot` has the same getter names as `SharedStateObj`. So a helper
+  that only reads state (`calc_utils.aim_degrees`, `pointing_snapshot`,
+  `sleep_for_framerate`) takes either one, unchanged.
+- Objects that keep a state object for their whole life (the catalog filter,
+  `Nearby`) get `CurrentSnapshot()`, a view that answers from
+  `UIModule.snapshot`.
+- `PowerManager` is the only writer of the power state, so it keeps the value
+  itself and does not read it back.
 - Code that writes state keeps the setters on the proxy.
-- The getters on `SharedStateObj` stay, so we can change the readers one file
-  at a time. We change the UI first. The web server, pos_server and the
-  worker processes can follow later.
+- The SQM calibration and sweep screens wait in loops for a new camera frame.
+  The snapshot changes only between frames, so these screens keep the proxy.
+- The getters on `SharedStateObj` stay. The web server, pos_server and the
+  worker processes can change to the snapshot later.
 
 ### Why the code gets simpler
 

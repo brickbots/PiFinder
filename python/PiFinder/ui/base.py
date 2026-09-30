@@ -17,6 +17,8 @@ from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
 from PiFinder.ui.marking_menus import MarkingMenu
 from PiFinder.catalogs import Catalogs
+from PiFinder.state import initial_snapshot
+from PiFinder.state_snapshot import StateSnapshot
 from PiFinder.types.hardware import ChargeStatus
 from typing import Any, TYPE_CHECKING
 
@@ -60,37 +62,24 @@ class FrameRate:
 class RotatingInfoDisplay:
     """Alternates between constellation and SQM with cross-fade animation."""
 
-    TEXT_REFRESH_SECONDS = 1.0
-
-    def __init__(self, shared_state, interval=3.0, fade_speed=0.15):
-        self.shared_state = shared_state
+    def __init__(self, interval=3.0, fade_speed=0.15):
         self.interval = interval
         self.fade_speed = fade_speed
         self.show_sqm = False
         self.last_switch = time.time()
         self.progress = 1.0  # 1.0 = stable, <1.0 = transitioning
-        # Texts read from shared state, and when. The SQM value and the
-        # constellation change slowly, so one read a second is enough and
-        # saves two shared-state round trips per frame.
-        self._texts = {True: "---", False: "---"}
-        self._texts_time = 0.0
 
-    def _read_texts(self):
-        sqm = self.shared_state.sqm()
-        self._texts[True] = (
-            f"{sqm.value:.1f}" if sqm and sqm.last_update is not None else "---"
-        )
-        sol = self.shared_state.solution()
-        self._texts[False] = sol.constellation if sol and sol.constellation else "---"
+    @staticmethod
+    def _get_text(state, use_sqm):
+        if use_sqm:
+            sqm = state.sqm()
+            if sqm and sqm.last_update is not None:
+                return f"{sqm.value:.1f}"
+            return "---"
+        sol = state.solution()
+        return sol.constellation if sol and sol.constellation else "---"
 
-    def _get_text(self, use_sqm):
-        now = time.monotonic()
-        if now - self._texts_time >= self.TEXT_REFRESH_SECONDS:
-            self._read_texts()
-            self._texts_time = now
-        return self._texts[use_sqm]
-
-    def update(self):
+    def update(self, state):
         """Update state, returns (current_text, previous_text, progress)."""
         now = time.time()
         if now - self.last_switch >= self.interval:
@@ -100,14 +89,15 @@ class RotatingInfoDisplay:
         if self.progress < 1.0:
             self.progress = min(1.0, self.progress + self.fade_speed)
         return (
-            self._get_text(self.show_sqm),
-            self._get_text(not self.show_sqm),
+            self._get_text(state, self.show_sqm),
+            self._get_text(state, not self.show_sqm),
             self.progress,
         )
 
-    def draw(self, draw, x, y, font, colors, max_brightness=255, inverted=False):
-        """Draw with cross-fade animation. inverted=True for dark text on light bg."""
-        current, previous, progress = self.update()
+    def draw(self, state, draw, x, y, font, colors, max_brightness=255, inverted=False):
+        """Draw with cross-fade animation. inverted=True for dark text on light bg.
+        ``state`` is the frame's StateSnapshot."""
+        current, previous, progress = self.update(state)
         if progress < 1.0:
             fade_out = progress < 0.5
             t = progress * 2 if fade_out else (progress - 0.5) * 2
@@ -175,11 +165,10 @@ class UIModule:
     # process shows messages, so a class attribute replaces a shared-state
     # read on every frame.
     message_until = 0.0
-    # Battery reading for the title bar and when it was read; the level
-    # changes slowly, so one read a second is enough.
-    BATTERY_REFRESH_SECONDS = 1.0
-    _battery = None
-    _battery_time = -BATTERY_REFRESH_SECONDS
+    # The shared state for the current frame. The main loop reads it once
+    # per frame (StateReader.read); screens read state from here and write
+    # it through self.shared_state setters.
+    snapshot: StateSnapshot = initial_snapshot()
 
     def __init__(
         self,
@@ -226,7 +215,7 @@ class UIModule:
         self.last_update_time = time.time()
 
         # Rotating info: alternates between constellation and SQM value
-        self._rotating_display = RotatingInfoDisplay(self.shared_state)
+        self._rotating_display = RotatingInfoDisplay()
 
     def active(self):
         """
@@ -423,7 +412,6 @@ class UIModule:
             return self._BATT_80
         return self._BATT_FULL
 
-    _hardware = None
     # Bytes of the last frame sent to shared state (see publish_screen)
     _published_frame: Union[None, bytes] = None
 
@@ -440,31 +428,21 @@ class UIModule:
             shared_state.set_screen(image)
             UIModule._published_frame = frame
 
-    def has_battery_hardware(self) -> bool:
-        """True on hardware with the BQ25895 charger. The capabilities are
-        fixed at startup, so they are read from shared state only once."""
-        if UIModule._hardware is None:
-            UIModule._hardware = self.shared_state.hardware()
-        return bool(UIModule._hardware and UIModule._hardware.has_bq25895)
-
     def _draw_battery_icon(self, fg) -> bool:
         """Draw the battery indicator to the left of the GPS/solver icons.
 
         Only rendered on battery-enabled hardware once a real reading exists;
-        ``shared_state.battery()`` is ``None`` both on non-battery boards and in
+        ``snapshot.battery()`` is ``None`` both on non-battery boards and in
         the brief window before the monitor's first sample, so we show nothing
         rather than a fake level.
 
         returns True if the battery indicator was drawn (has battery)
                 False if no battery hardware
         """
-        if not self.has_battery_hardware():
+        hardware = self.snapshot.hardware()
+        if not (hardware and hardware.has_bq25895):
             return False
-        now = time.monotonic()
-        if now - UIModule._battery_time >= self.BATTERY_REFRESH_SECONDS:
-            UIModule._battery = self.shared_state.battery()
-            UIModule._battery_time = now
-        battery = UIModule._battery
+        battery = self.snapshot.battery()
         if battery is None:
             return False
 
@@ -489,6 +467,7 @@ class UIModule:
     def _draw_titlebar_rotating_info(self, x, y, fg):
         """Draw rotating constellation/SQM in title bar (dark text on gray bg)."""
         self._rotating_display.draw(
+            self.snapshot,
             self.draw,
             x,
             y,
@@ -532,11 +511,11 @@ class UIModule:
             if len(title_text) > title_max_chars:
                 title_text = title_text[: title_max_chars - 1] + "…"
             self.draw.text((6, title_y), title_text, font=self.fonts.bold.font, fill=fg)
-            imu = self.shared_state.imu()
+            imu = self.snapshot.imu()
             moving = True if imu and imu.quat and imu.moving else False
 
             # GPS status
-            if self.shared_state.altaz_ready():
+            if self.snapshot.altaz_ready():
                 self._gps_brightness = 0
             else:
                 gps_anim = (
@@ -563,8 +542,8 @@ class UIModule:
                 self._unmoved = False
 
             if self.shared_state:
-                if self.shared_state.solve_state():
-                    solution = self.shared_state.solution()
+                if self.snapshot.solve_state():
+                    solution = self.snapshot.solution()
                     if solution is None:
                         return
                     cam_active = solution.is_camera_solve()
@@ -669,3 +648,15 @@ class UIModule:
         first press raises the confirmation and a second press confirms.
         """
         self.jump_to_label("shutdown")
+
+
+class CurrentSnapshot:
+    """
+    Reads like the shared-state proxy, from the snapshot of the current frame
+    (``UIModule.snapshot``). For UI-process objects that keep a state object
+    for their whole life and only read it, such as the catalog filter and
+    Nearby.
+    """
+
+    def __getattr__(self, name):
+        return getattr(UIModule.snapshot, name)

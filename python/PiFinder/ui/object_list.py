@@ -20,6 +20,7 @@ from itertools import cycle
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.ui.text_menu import UITextMenu
+from PiFinder.ui.base import CurrentSnapshot
 from PiFinder.ui.layout import list_layout
 from PiFinder.ui.object_details import UIObjectDetails
 
@@ -213,7 +214,7 @@ class UIObjectList(UITextMenu):
         # Force update because this is the first time and we
         # need to get the object list always
         self.refresh_object_list(force_update=True)
-        self.nearby = Nearby(self.shared_state)
+        self.nearby = Nearby(CurrentSnapshot())
 
     def refresh_object_list(self, force_update=False):
         """
@@ -383,7 +384,7 @@ class UIObjectList(UITextMenu):
         self.update()
 
         if self.current_sort == SortOrder.NEAREST:
-            if not self.shared_state.solution().has_pointing():
+            if not self.snapshot.solution().has_pointing():
                 self.message(_("No Solve Yet"), 1)
                 self.current_sort = SortOrder.CATALOG_SEQUENCE
             else:
@@ -488,7 +489,7 @@ class UIObjectList(UITextMenu):
 
     def create_locate_text(self, obj: CompositeObject, snapshot=None) -> str:
         az, alt = aim_degrees(
-            self.shared_state,
+            self.snapshot,
             self.mount_type,
             self.screen_direction,
             obj,
@@ -739,7 +740,7 @@ class UIObjectList(UITextMenu):
         line_color = None
         # One read of the pointing state for all rows of this frame.
         pointing = (
-            pointing_snapshot(self.shared_state)
+            pointing_snapshot(self.snapshot)
             if self.current_mode == DisplayModes.LOCATE
             else None
         )

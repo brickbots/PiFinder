@@ -13,6 +13,7 @@ import numpy as np
 import PiFinder.calc_utils as calc_utils
 from PiFinder.calc_utils import sf_utils
 from PiFinder.state import SharedStateObj
+from PiFinder.state_snapshot import ReadableState
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
@@ -105,7 +106,7 @@ class CatalogFilter:
 
     def __init__(
         self,
-        shared_state: SharedStateObj,
+        shared_state: ReadableState,
         magnitude: Union[float, None] = None,
         object_types: Union[list[str], None] = None,
         altitude: int = -1,

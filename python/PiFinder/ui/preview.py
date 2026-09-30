@@ -219,7 +219,7 @@ class UIPreview(UIModule):
         saved = self._saved_camera_exp
         if isinstance(saved, (int, float)) and saved > 0:
             return int(saved)
-        metadata = self.shared_state.last_image_metadata() or {}
+        metadata = self.snapshot.last_image_metadata() or {}
         exposure = metadata.get("exposure_time")
         if isinstance(exposure, (int, float)) and exposure > 0:
             return int(exposure)
@@ -274,7 +274,7 @@ class UIPreview(UIModule):
         """Attach HIP identities only to blobs from the solved exposure."""
         if frame_time <= 0 or frame_time == self._last_focus_catalog_time:
             return
-        solution = self.shared_state.solution()
+        solution = self.snapshot.solution()
         if solution.last_solve_success != frame_time:
             return
         centroids = solution.matched_centroids
@@ -783,7 +783,7 @@ class UIPreview(UIModule):
         if force:
             self.last_update = 0
 
-        metadata = self.shared_state.last_image_metadata()
+        metadata = self.snapshot.last_image_metadata()
         last_image_time = metadata["exposure_end"]
         image_updated = False
         if last_image_time > self.last_update:
