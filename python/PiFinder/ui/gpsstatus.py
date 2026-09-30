@@ -72,7 +72,7 @@ class UIGPSStatus(UIModule):
 
     def mm_save_location(self, marking_menu, menu_item):
         """Save current location to the locations config"""
-        gps_reading = self.shared_state.location()
+        gps_reading = self.snapshot.location()
 
         # Create text entry definition for location name
         item_definition = {
@@ -113,7 +113,7 @@ class UIGPSStatus(UIModule):
 
     def mm_lock_location(self, marking_menu, menu_item):
         """Lock to current location"""
-        gps_reading = self.shared_state.location()
+        gps_reading = self.snapshot.location()
 
         # Set current location
         self._send_fix_message(gps_reading, "GPS")
@@ -141,8 +141,8 @@ class UIGPSStatus(UIModule):
     def update(self, force=False):
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 1
-        location = self.shared_state.location()
-        sats = self.shared_state.sats()
+        location = self.snapshot.location()
+        sats = self.snapshot.sats()
         if sats is None:
             sats = (0, 0)
 
@@ -303,7 +303,7 @@ class UIGPSStatus(UIModule):
             )
             draw_pos += 10
 
-            time = self.shared_state.local_datetime()
+            time = self.snapshot.local_datetime()
             self.draw.text(
                 (0, draw_pos),
                 _("Time:  {time}").format(

@@ -37,6 +37,7 @@ def frozen_clock(monkeypatch):
 def _state_at(lat=0.0, lon=0.0):
     """A SharedStateObj whose location resolves to the zone at (lat, lon)."""
     shared_state = SharedStateObj()
+    assert shared_state.wait_for_timezone_finder(timeout=60)
     location = Location()
     location.lat = lat
     location.lon = lon
@@ -128,7 +129,9 @@ def test_set_location_settles_an_unresolvable_zone_to_utc(monkeypatch):
     and the field stays a usable zone name.
     """
     monkeypatch.setattr(
-        state_mod.TimezoneFinder, "timezone_at", lambda self, **kwargs: None
+        state_mod.timezonefinder.TimezoneFinder,
+        "timezone_at",
+        lambda self, **kwargs: None,
     )
 
     shared_state, location = _state_at(BRUSSELS_LAT, BRUSSELS_LON)
@@ -143,3 +146,60 @@ def test_accessors_return_none_when_datetime_unset():
 
     assert shared_state.utc_datetime() is None
     assert shared_state.local_datetime() is None
+
+
+class _CountingFinder:
+    def __init__(self):
+        self.calls = 0
+
+    def timezone_at(self, lat, lng):
+        self.calls += 1
+        return "Europe/Brussels" if lng > 0 else "America/Los_Angeles"
+
+
+def _state_with_counting_finder():
+    shared_state = SharedStateObj()
+    assert shared_state.wait_for_timezone_finder(timeout=60)
+    finder = _CountingFinder()
+    shared_state._SharedStateObj__tz_finder = finder
+    return shared_state, finder
+
+
+def _loc(lat, lon):
+    location = Location()
+    location.lat = lat
+    location.lon = lon
+    return location
+
+
+@pytest.mark.unit
+def test_gps_jitter_does_not_look_up_the_zone_again():
+    shared_state, finder = _state_with_counting_finder()
+    for i in range(10):
+        shared_state.set_location(_loc(51.05 + i * 0.001, 3.72))
+    assert finder.calls == 1
+    assert shared_state.location().timezone == "Europe/Brussels"
+
+
+@pytest.mark.unit
+def test_a_real_move_looks_up_the_zone_again():
+    shared_state, finder = _state_with_counting_finder()
+    shared_state.set_location(_loc(51.05, 3.72))
+    shared_state.set_location(_loc(34.22, -118.22))
+    assert finder.calls == 2
+    assert shared_state.location().timezone == "America/Los_Angeles"
+
+
+@pytest.mark.unit
+def test_set_location_does_not_wait_for_the_finder_build():
+    shared_state = SharedStateObj()
+    assert shared_state.wait_for_timezone_finder(timeout=60)
+    # As if the build still ran: no lookup, the known zone (UTC) at once,
+    # and the zone is filled in when the build ends.
+    shared_state._SharedStateObj__tz_ready = False
+    shared_state._SharedStateObj__tz_finder = _CountingFinder()
+    shared_state.set_location(_loc(51.05, 3.72))
+    assert shared_state.location().timezone == "UTC"
+    shared_state._SharedStateObj__tz_finder = None
+    shared_state._SharedStateObj__build_tz_finder()
+    assert shared_state.location().timezone != "UTC"

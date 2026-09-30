@@ -4,6 +4,9 @@
 <div class="row valign-wrapper" style="margin: 0px;">
   <div class="col s12">
         <h5 class="grey-text">{{ _('Network Settings') }}</h5>
+        {% if status_message %}
+        <p class="green-text">{{ status_message }}</p>
+        {% endif %}
   </div>
 </div>
 <div class="card grey darken-2">
@@ -33,17 +36,7 @@
     </form>
   </div>
   <div class="card-action">
-    <a href="#modal_restart" class="btn modal-trigger">{{ _('Update and Restart') }}</a>
-  </div>
-</div>
-<div id="modal_restart" class="modal">
-  <div class="modal-content">
-    <h4>{{ _('Save and Restart') }}</h4>
-    <p>{{ _('This will update the network settings and restart the PiFinder. You may have to adjust your network settings to re-connect. Are you sure?') }}</p>
-  </div>
-  <div class="modal-footer">
-    <a href="#" onClick="document.getElementById('network_form').submit();" class="modal-close btn-flat">{{ _('Do It') }}</a>
-    <a href="#!" class="modal-close btn-flat">{{ _('Cancel') }}</a>
+    <a href="#" onClick="document.getElementById('network_form').submit(); return false;" class="btn">{{ _('Update') }}</a>
   </div>
 </div>
 <div class="row valign-wrapper" style="margin: 0px;">

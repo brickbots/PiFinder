@@ -1,5 +1,4 @@
 import io
-import json
 import logging
 import time
 import uuid
@@ -12,10 +11,12 @@ from datetime import timezone
 import pydeepskylog as pds
 from PIL import Image
 from PiFinder import utils, calc_utils, config
+from PiFinder import data_browser
 from PiFinder import timez
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
+from PiFinder import web_observations
 from PiFinder.equipment import (
     EYEPIECE_LIMITS,
     MOUNT_TYPES,
@@ -268,7 +269,7 @@ class Server:
         shared_state=None,
         is_debug=False,
     ):
-        self.version_txt = f"{utils.pifinder_dir}/version.txt"
+        self._software_version = utils.get_version()
         self.keyboard_queue = keyboard_queue or multiprocessing.Queue()
         self.ui_queue = ui_queue or multiprocessing.Queue()
         self.gps_queue = gps_queue or multiprocessing.Queue()
@@ -374,12 +375,8 @@ class Server:
         def home():
             # logger.debug("/ called")
             # Get version info
-            software_version = "Unknown"
-            try:
-                with open(self.version_txt, "r") as ver_f:
-                    software_version = ver_f.read()
-            except (FileNotFoundError, IOError) as e:
-                logger.warning(f"Could not read version file: {str(e)}")
+
+            software_version = self._software_version
 
             # Try to update GPS state
             try:
@@ -417,7 +414,7 @@ class Server:
                 software_version=software_version,
                 wifi_mode=self.network.wifi_mode(),
                 ip=self.network.local_ip(),
-                network_name=self.network.get_connected_ssid(),
+                network_name=self.network.get_active_label(),
                 gps_icon=gps_icon,
                 gps_text=gps_text,
                 lat_text=lat_text,
@@ -721,7 +718,18 @@ class Server:
             self.network.set_wifi_mode(wifi_mode)
             self.network.set_ap_name(ap_name)
             self.network.set_host_name(host_name)
-            return app.jinja_env.get_template("restart.html").render(title=_("Restart"))
+
+            applied_host = self.network.get_host_name()
+            return app.jinja_env.get_template("network.html").render(
+                title=_("Network"),
+                net=self.network,
+                show_new_form=0,
+                status_message=_(
+                    "Network settings updated — no restart needed. This device is "
+                    "now reachable at http://{host}.local. If you changed the host "
+                    "name, the previous address stops working, so reconnect there."
+                ).format(host=applied_host),
+            )
 
         @app.route("/tools/pwchange", methods=["POST"])
         @auth_required
@@ -970,13 +978,13 @@ class Server:
 
             try:
                 if eyepiece_id >= 0:
-                    cfg.equipment.update_eyepiece(eyepiece_id, eyepiece)
+                    cfg.equipment.eyepieces[eyepiece_id] = eyepiece
                 else:
                     try:
                         index = cfg.equipment.eyepieces.index(eyepiece)
                         cfg.equipment.update_eyepiece(index, eyepiece)
                     except ValueError:
-                        cfg.equipment.add_eyepiece(eyepiece)
+                        cfg.equipment.eyepieces.append(eyepiece)
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
@@ -1094,60 +1102,119 @@ class Server:
                 ),
             )
 
+        def _tsv_response(observations, filename):
+            response = make_response(observations)
+            response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+            response.headers["Content-Type"] = "text/tsv"
+            return response
+
         @app.route("/observations")
         @auth_required
-        def obs_sessions():
+        def obs_nights():
             obs_db = ObservationsDatabase()
             if request.args.get("download", 0) == "1":
-                # Download all as TSV
-                observations = obs_db.observations_as_tsv()
+                return _tsv_response(obs_db.observations_as_tsv(), "observations.tsv")
 
-                response = make_response(observations)
-                response.headers["Content-Disposition"] = (
-                    "attachment; filename=observations.tsv"
-                )
-                response.headers["Content-Type"] = "text/tsv"
-                return response
+            nights = obs_db.get_nights()
+            for night in nights:
+                logs = obs_db.get_logs_by_night(night["night_key"])
+                night["ticks"] = web_observations.strip_ticks(night, logs)
+                night["hour_marks"] = web_observations.hour_marks(night)
 
-            # regular html page of sessions
-            sessions = obs_db.get_sessions()
-            metadata = {
-                "sess_count": len(sessions),
-                "object_count": sum(x["observations"] for x in sessions),
-                "total_duration": sum(x["duration"] for x in sessions),
-            }
-            return app.jinja_env.get_template("obs_sessions.html").render(
-                title=_("Observations"), sessions=sessions, metadata=metadata
+            return app.jinja_env.get_template("obs_nights.html").render(
+                title=_("Observations"),
+                nights=nights,
+                metadata=web_observations.night_summary(nights),
             )
+
+        @app.route("/observations/night/<night_key>")
+        @auth_required
+        def obs_night(night_key):
+            obs_db = ObservationsDatabase()
+            if request.args.get("download", 0) == "1":
+                return _tsv_response(
+                    obs_db.observations_as_tsv(night_key=night_key),
+                    f"observations_{night_key}.tsv",
+                )
+
+            logs = obs_db.get_logs_by_night(night_key)
+            night = next(
+                (n for n in obs_db.get_nights() if n["night_key"] == night_key),
+                None,
+            )
+            if night is None:
+                return redirect("/observations")
+
+            night["ticks"] = web_observations.strip_ticks(night, logs)
+            night["hour_marks"] = web_observations.hour_marks(night)
+            return app.jinja_env.get_template("obs_night_log.html").render(
+                title=_("Observing Night"),
+                night=night,
+                objects=web_observations.decorate_logs(logs),
+            )
+
+        @app.route("/observations/object/<catalog>/<int:sequence>")
+        @auth_required
+        def obs_object(catalog, sequence):
+            obs_db = ObservationsDatabase()
+            lookup = web_observations.ObjectLookup()
+            obj = lookup.composite(catalog, sequence)
+            if obj is None:
+                # A listing whose catalog is no longer installed: the log
+                # entries survive, the object behind them doesn't.
+                return redirect("/observations")
+
+            return app.jinja_env.get_template("obs_object.html").render(
+                title=obj.display_name,
+                object=obj,
+                listings=lookup.other_listings(obj),
+                logs=web_observations.decorate_logs(obs_db.get_object_history(obj)),
+                has_image=web_observations.poss_image_path(obj) is not None,
+                has_chart=web_observations.gaia_catalog_available(),
+            )
+
+        @app.route("/observations/object/<catalog>/<int:sequence>/image.jpg")
+        @auth_required
+        def obs_object_image(catalog, sequence):
+            obj = web_observations.ObjectLookup().composite(catalog, sequence)
+            path = None if obj is None else web_observations.poss_image_path(obj)
+            if path is None:
+                return "", 404
+            return send_file(path, mimetype="image/jpeg")
+
+        @app.route("/observations/object/<catalog>/<int:sequence>/chart.png")
+        @auth_required
+        def obs_object_chart(catalog, sequence):
+            obj = web_observations.ObjectLookup().composite(catalog, sequence)
+            if obj is None:
+                return "", 404
+
+            fov = request.args.get("fov", type=float) or 1.0
+            chart = web_observations.render_chart(
+                obj, config.Config(), self.shared_state, fov=fov
+            )
+            if chart is None:
+                # The catalog is absent or still loading in the background;
+                # a later request finds it ready.
+                return "", 404
+            return send_file(io.BytesIO(chart), mimetype="image/png")
 
         @app.route("/observations/<session_id>")
         @auth_required
         def obs_session(session_id):
             obs_db = ObservationsDatabase()
             if request.args.get("download", 0) == "1":
-                # Download all as TSV
-                observations = obs_db.observations_as_tsv(session_id)
-
-                response = make_response(observations)
-                response.headers["Content-Disposition"] = (
-                    f"attachment; filename=observations_{session_id}.tsv"
+                return _tsv_response(
+                    obs_db.observations_as_tsv(session_id),
+                    f"observations_{session_id}.tsv",
                 )
-                response.headers["Content-Type"] = "text/tsv"
-                return response
 
-            session = obs_db.get_sessions(session_id)[0]
-            objects = obs_db.get_logs_by_session(session_id)
-            ret_objects = []
-            for obj in objects:
-                obj_ = dict(obj)
-                obj_notes = json.loads(obj_["notes"])
-                obj_["notes"] = "<br>".join(
-                    [f"{key}: {value}" for key, value in obj_notes.items()]
-                )
-                ret_objects.append(obj_)
-            return app.jinja_env.get_template("obs_session_log.html").render(
-                title=_("Session Log"), session=session, objects=ret_objects
-            )
+            # Sessions are software runs, not nights; a link to one lands on
+            # the night it was part of.
+            night_key = obs_db.night_key_for_session(session_id)
+            if night_key is None:
+                return redirect("/observations")
+            return redirect(f"/observations/night/{night_key}")
 
         @app.route("/tools")
         @auth_required
@@ -1261,23 +1328,16 @@ class Server:
         @app.route("/logs/configs")
         @auth_required
         def list_log_configs():
-            """Return all available logconf_*.json files with display names."""
-            import glob
-
+            """Return all available logconf_*.json presets with display names."""
+            active = utils.active_logconf_name()
             configs = []
-            active = (
-                os.path.realpath("pifinder_logconf.json")
-                if os.path.exists("pifinder_logconf.json")
-                else None
-            )
-            for path in sorted(glob.glob("logconf_*.json")):
-                stem = path[len("logconf_") : -len(".json")]
-                display = stem.replace("_", " ").title()
+            for name in utils.available_logconfs():
+                stem = name[len("logconf_") : -len(".json")]
                 configs.append(
                     {
-                        "file": path,
-                        "name": display,
-                        "active": os.path.realpath(path) == active,
+                        "file": name,
+                        "name": stem.replace("_", " ").title(),
+                        "active": name == active,
                     }
                 )
             return jsonify({"configs": configs})
@@ -1285,29 +1345,15 @@ class Server:
         @app.route("/logs/switch_config", methods=["POST"])
         @auth_required
         def switch_log_config():
-            """Atomically repoint pifinder_logconf.json to the chosen config, then restart."""
+            """Persist the chosen log config to the data dir, then restart."""
             logconf_file = request.form.get("logconf_file", "").strip()
-            if (
-                not logconf_file
-                or not logconf_file.startswith("logconf_")
-                or not logconf_file.endswith(".json")
-            ):
+            try:
+                utils.set_active_logconf(logconf_file)
+                logger.info("Switched log config to %s", logconf_file)
+            except (ValueError, FileNotFoundError):
                 return jsonify(
                     {"status": "error", "message": "Invalid log config file name"}
                 )
-            if not os.path.exists(logconf_file):
-                return jsonify(
-                    {
-                        "status": "error",
-                        "message": f"Log config file not found: {logconf_file}",
-                    }
-                )
-            try:
-                link = "pifinder_logconf.json"
-                tmp = link + ".tmp"
-                os.symlink(logconf_file, tmp)
-                os.replace(tmp, link)
-                logger.info("Switched log config to %s", logconf_file)
             except Exception as e:
                 logger.error("Failed to switch log config: %s", e)
                 return jsonify({"status": "error", "message": str(e)})
@@ -1347,6 +1393,124 @@ class Server:
             except Exception as e:
                 logger.error("Failed to save uploaded log config: %s", e)
                 return jsonify({"status": "error", "message": str(e)})
+
+        @app.route("/data")
+        @auth_required
+        def data_page():
+            return app.jinja_env.get_template("data.html").render(
+                title=_("Data"),
+                start_path=request.args.get("path", ""),
+                start_pattern=request.args.get("pattern", ""),
+            )
+
+        def data_error(exc, status=400):
+            return jsonify({"status": "error", "message": str(exc)}), status
+
+        @app.route("/data/api/list")
+        @auth_required
+        def data_list():
+            try:
+                root = data_browser.data_root()
+                listing = data_browser.list_dir(
+                    root,
+                    request.args.get("path", ""),
+                    request.args.get("pattern", ""),
+                )
+                listing["shortcuts"] = data_browser.shortcuts(root)
+                listing["status"] = "ok"
+                return jsonify(listing)
+            except data_browser.DataPathError as e:
+                return data_error(e, 404)
+
+        @app.route("/data/api/mkdir", methods=["POST"])
+        @auth_required
+        def data_mkdir():
+            body = request.get_json(silent=True) or {}
+            try:
+                new_path = data_browser.make_dir(
+                    data_browser.data_root(),
+                    body.get("path", ""),
+                    body.get("name", ""),
+                )
+                return jsonify({"status": "ok", "path": new_path})
+            except (data_browser.DataPathError, OSError) as e:
+                return data_error(e)
+
+        @app.route("/data/api/upload", methods=["POST"])
+        @auth_required
+        def data_upload():
+            rel_path = request.form.get("path", "")
+            files = request.files.getlist("files")
+            if not files:
+                return data_error(_("No file provided"))
+            saved = []
+            try:
+                for upload in files:
+                    saved.append(
+                        data_browser.save_upload(
+                            data_browser.data_root(),
+                            rel_path,
+                            upload.filename or "",
+                            upload.stream,
+                        )
+                    )
+            except (data_browser.DataPathError, OSError) as e:
+                logger.warning("Data upload failed: %s", e)
+                return data_error(e)
+            logger.info("Data upload: %s", ", ".join(saved))
+            return jsonify({"status": "ok", "saved": saved})
+
+        @app.route("/data/api/delete", methods=["POST"])
+        @auth_required
+        def data_delete():
+            body = request.get_json(silent=True) or {}
+            paths = body.get("paths")
+            if paths is None:
+                paths = [body.get("path", "")]
+            deleted = []
+            try:
+                for rel_path in paths:
+                    data_browser.delete(data_browser.data_root(), rel_path)
+                    deleted.append(rel_path)
+            except (data_browser.DataPathError, OSError) as e:
+                logger.warning("Data delete failed: %s", e)
+                return data_error(e)
+            logger.info("Data delete: %s", ", ".join(deleted))
+            return jsonify({"status": "ok", "deleted": deleted})
+
+        @app.route("/data/api/view")
+        @auth_required
+        def data_view():
+            try:
+                result = data_browser.read_text(
+                    data_browser.data_root(), request.args.get("path", "")
+                )
+                result["status"] = "ok"
+                return jsonify(result)
+            except data_browser.DataPathError as e:
+                return data_error(e, 404)
+
+        @app.route("/data/download")
+        @auth_required
+        def data_download():
+            rel_path = request.args.get("path", "")
+            root = data_browser.data_root()
+            try:
+                target = data_browser.resolve(root, rel_path)
+                if target.is_dir():
+                    zip_file, name = data_browser.zip_dir(root, rel_path)
+                    return send_file(
+                        zip_file,
+                        as_attachment=True,
+                        download_name=name,
+                        mimetype="application/zip",
+                    )
+                file_path = data_browser.file_for_download(root, rel_path)
+                return send_file(
+                    file_path, as_attachment=True, download_name=file_path.name
+                )
+            except data_browser.DataPathError as e:
+                return data_error(e, 404)
 
         @app.route("/tools/backup")
         @auth_required

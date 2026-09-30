@@ -3,46 +3,49 @@ Selenium tests for PiFinder's observation tracking web interface.
 
 Test Overview
 
-The test suite validates the observations page at localhost:8080/observations through
-automated browser testing using Selenium WebDriver. Authentication uses the default
-password "solveit".
+The test suite validates the observations pages at localhost:8080/observations
+through automated browser testing using Selenium WebDriver. Authentication uses
+the default password "solveit".
 
-Observations List Tests
+The pages are organised by observing *night* rather than by software run: a
+restart mid-evening starts a new session but not a new night, so one night's
+card can cover several runs. See PiFinder.observing_nights.
 
-Page Load: Tests that the observations list page loads and contains the word
-"Observations" in the title or body.
+Nights List Tests
 
-Summary Counters: Tests that the session counter ("Sessions"), observation object
-counter ("Objects"), and total hours display ("Total Hours") are all visible on
-the page.
+Page Load: the nights page loads and says so in its title or body.
 
-Table Structure: Tests that the sessions table is present with at least four header
-columns: Date, Location, Hours, and objects. Validates the header row contains the
-minimum expected cells.
+Summary Counters: the night counter ("Nights"), object counter ("Objects") and
+observing hours ("Hours") are visible.
 
-Responsive Layout: Tests that the table remains visible when the viewport is
-reduced to a mobile size (375×667).
+Night Cards: each night is a card linking to /observations/night/<date>,
+carrying a date, an object count and a start -> end local time range.
 
-Session Detail Tests
+Responsive Layout: the cards remain visible at a mobile size (375x667).
 
-Row Navigation: Tests that clicking a session row navigates to a detail URL of
-the form /observations/<id>. Skips gracefully when the database is empty.
+Night Detail Tests
 
-Detail Page Content: Tests that the detail page shows "Observing Session", "Objects",
-"Hours", and a download link. Also validates the detail table has the required
-headers: Time, Catalog, Sequence, Notes.
+Card Navigation: clicking a night card navigates to /observations/night/<date>.
 
-Detail Table Structure: Tests that the detail table's header row contains exactly
-4 cells. Skips when no sessions are available.
+Detail Page Content: the detail page shows the night's date, an Objects count,
+Hours, a download link, and one timeline entry per logged object.
+
+Object Link: a logged object links through to its own page, which shows the
+object's identity and its observation history.
+
+Session Compatibility
+
+Session Redirect: an old /observations/<session_id> link still resolves, landing
+on the night that run belonged to; ?download=1 on it still returns that
+session's TSV unchanged.
 
 Download / Export Tests
 
-List Download: Tests the download link on the observations list page by making a
-direct HTTP request (with session cookies). Verifies HTTP 200, Content-Type text/tsv,
-Content-Disposition: attachment; filename=observations.tsv, and valid TSV content.
+List Download: verifies HTTP 200, Content-Type text/tsv, Content-Disposition
+attachment; filename=observations.tsv, and valid TSV content.
 
-Session Download: Tests the per-session download link on a detail page, verifying
-the filename contains the session ID and the content is valid TSV.
+Night Download: the per-night download link, verifying the filename carries the
+night's date and the content is valid TSV.
 
 Infrastructure: Uses the same Selenium Grid setup as other web tests with
 automatic skipping when unavailable or when the database contains no data.
@@ -75,12 +78,28 @@ def _login_to_observations(driver):
         pass
 
 
+def _night_cards(driver, timeout=10):
+    """The night cards on the list page, or an empty list if there are none."""
+    WebDriverWait(driver, timeout).until(
+        EC.presence_of_element_located((By.TAG_NAME, "body"))
+    )
+    return driver.find_elements(By.CLASS_NAME, "obs-night")
+
+
+def _open_first_night(driver, wait):
+    """Navigate into the first night, skipping the test if there are none."""
+    cards = _night_cards(driver)
+    if not cards:
+        pytest.skip("No observing nights available")
+    cards[0].click()
+    wait.until(lambda d: "/observations/night/" in d.current_url)
+
+
 @pytest.mark.web
 def test_observations_page_loads(driver):
     """Test that the observations page loads correctly."""
     _login_to_observations(driver)
 
-    # Verify page loads with expected title or header
     wait = WebDriverWait(driver, 10)
     wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
     assert (
@@ -89,278 +108,163 @@ def test_observations_page_loads(driver):
 
 
 @pytest.mark.web
-def test_session_counter_display(driver):
-    """Test that Session counter is displayed."""
+def test_summary_counters_display(driver):
+    """Test that the nights/objects/hours counters are displayed."""
     _login_to_observations(driver)
 
-    # Look for session counter element
-    wait = WebDriverWait(driver, 10)
-    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.TAG_NAME, "body"))
+    )
     body_text = driver.find_element(By.TAG_NAME, "body").text
-    assert "Sessions" in body_text or "session" in body_text
+
+    for label in ("Nights", "Objects", "Hours"):
+        assert label in body_text, f"Counter '{label}' not found on the page"
 
 
 @pytest.mark.web
-def test_observation_counter_display(driver):
-    """Test that Observation Counter is displayed."""
+def test_night_cards_carry_date_count_and_span(driver):
+    """Each night card links to its night and shows when it ran."""
     _login_to_observations(driver)
 
-    # Look for observation counter element
-    wait = WebDriverWait(driver, 10)
-    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-    body_text = driver.find_element(By.TAG_NAME, "body").text
-    assert "Objects" in body_text
+    cards = _night_cards(driver)
+    if not cards:
+        pytest.skip("No observing nights available")
 
-
-@pytest.mark.web
-def test_total_hours_display(driver):
-    """Test that Total Hours display is present."""
-    _login_to_observations(driver)
-
-    # Look for total hours element
-    wait = WebDriverWait(driver, 10)
-    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-    body_text = driver.find_element(By.TAG_NAME, "body").text
-    assert "Total Hours" in body_text
-
-
-@pytest.mark.web
-def test_observations_table_headers(driver):
-    """Test that observations table exists with correct headers."""
-    _login_to_observations(driver)
-
-    # Wait for table to load
-    wait = WebDriverWait(driver, 10)
-    wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
-
-    # Check for required headers
-    required_headers = ["Date", "Location", "Hours", "objects"]
-
-    # Get all table headers
-    headers = driver.find_elements(By.TAG_NAME, "th")
-    header_texts = [header.text.strip() for header in headers]
-
-    # Verify each required header is present
-    for required_header in required_headers:
-        assert any(
-            required_header.lower() in header_text.lower()
-            for header_text in header_texts
-        ), f"Header '{required_header}' not found in table headers: {header_texts}"
-
-
-@pytest.mark.web
-def test_observations_table_structure(driver):
-    """Test that observations table has proper structure."""
-    _login_to_observations(driver)
-
-    # Wait for table to load
-    wait = WebDriverWait(driver, 10)
-    table = wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
-
-    # Verify table has rows with headers
-    rows = table.find_elements(By.TAG_NAME, "tr")
-    assert len(rows) >= 1, "Table should have at least one row for headers"
-
-    # Check that first row contains header cells
-    first_row = rows[0]
-    headers = first_row.find_elements(By.TAG_NAME, "th")
-    assert len(headers) >= 4, f"Expected at least 4 header cells, found {len(headers)}"
+    first = cards[0]
+    assert "/observations/night/" in first.get_attribute("href")
+    assert first.find_element(By.CLASS_NAME, "obs-night__date").text.strip()
+    assert first.find_element(By.CLASS_NAME, "obs-night__count").text.strip()
+    # Local start -> end times, which read sensibly even for a single object.
+    assert "→" in first.find_element(By.CLASS_NAME, "obs-night__times").text
 
 
 @pytest.mark.web
 def test_mobile_layout(driver):
     """Test observations page layout on mobile viewport."""
     driver.set_window_size(375, 667)
-    _login_to_observations(driver)
+    try:
+        _login_to_observations(driver)
 
-    # Verify page elements are visible in mobile layout
-    wait = WebDriverWait(driver, 10)
-    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-
-    # Check that table adapts to mobile layout
-    table = driver.find_element(By.TAG_NAME, "table")
-    assert table.is_displayed()
-
-    # Reset to desktop size for other tests
-    driver.set_window_size(1920, 1080)
+        cards = _night_cards(driver)
+        if not cards:
+            pytest.skip("No observing nights available")
+        assert cards[0].is_displayed()
+    finally:
+        # Reset to desktop size for other tests
+        driver.set_window_size(1920, 1080)
 
 
 @pytest.mark.web
-def test_session_detail_navigation(driver):
-    """Test that clicking on a table row navigates to session detail page."""
+def test_night_detail_navigation(driver):
+    """Test that clicking a night card navigates to the night page."""
     _login_to_observations(driver)
 
     wait = WebDriverWait(driver, 10)
-    table = wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
+    _open_first_night(driver, wait)
 
-    # Find data rows (skip header row)
-    rows = table.find_elements(By.TAG_NAME, "tr")
-    data_rows = [row for row in rows if row.find_elements(By.TAG_NAME, "td")]
-
-    if len(data_rows) > 0:
-        # Click on the first data row
-        first_data_row = data_rows[0]
-        first_data_row.click()
-
-        # Wait for navigation to detail page
-        wait.until(
-            lambda d: "/observations/" in d.current_url
-            and d.current_url != f"{get_homepage_url()}/observations"
-        )
-
-        # Verify we're on a detail page
-        assert "/observations/" in driver.current_url
-        assert driver.current_url != f"{get_homepage_url()}/observations"
-    else:
-        # No data rows to click - this is acceptable for empty database
-        pytest.skip("No observation sessions available to test detail navigation")
+    assert "/observations/night/" in driver.current_url
 
 
 @pytest.mark.web
-def test_session_detail_page_content(driver):
-    """Test the content displayed on the session detail page."""
+def test_night_detail_page_content(driver):
+    """Test the content displayed on the night detail page."""
     _login_to_observations(driver)
 
     wait = WebDriverWait(driver, 10)
-    table = wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
+    _open_first_night(driver, wait)
 
-    # Find data rows (skip header row)
-    rows = table.find_elements(By.TAG_NAME, "tr")
-    data_rows = [row for row in rows if row.find_elements(By.TAG_NAME, "td")]
+    body_text = driver.find_element(By.TAG_NAME, "body").text
+    assert "Objects" in body_text
+    assert "Hours" in body_text
 
-    if len(data_rows) > 0:
-        # Click on the first data row to navigate to detail page
-        first_data_row = data_rows[0]
-        first_data_row.click()
+    download_link = driver.find_element(By.CSS_SELECTOR, "a[href*='download=1']")
+    assert download_link.is_displayed()
 
-        # Wait for navigation to detail page
-        wait.until(
-            lambda d: "/observations/" in d.current_url
-            and d.current_url != f"{get_homepage_url()}/observations"
-        )
-
-        # Test session detail page content
-        body_text = driver.find_element(By.TAG_NAME, "body").text
-
-        # Check for session header
-        assert "Observing Session" in body_text
-
-        # Check for Objects counter
-        assert "Objects" in body_text
-
-        # Check for Hours display
-        assert "Hours" in body_text
-
-        # Check for download link (material icon)
-        download_link = driver.find_element(By.CSS_SELECTOR, "a[href*='download=1']")
-        assert download_link.is_displayed()
-
-        # Check for observations table with correct headers
-        detail_table = driver.find_element(By.TAG_NAME, "table")
-        headers = detail_table.find_elements(By.TAG_NAME, "th")
-        header_texts = [header.text.strip() for header in headers]
-
-        required_headers = ["Time", "Catalog", "Sequence", "Notes"]
-        for required_header in required_headers:
-            assert any(
-                required_header.lower() in header_text.lower()
-                for header_text in header_texts
-            ), f"Header '{required_header}' not found in detail table headers: {header_texts}"
-
-    else:
-        # No data rows to click - this is acceptable for empty database
-        pytest.skip("No observation sessions available to test detail page content")
+    entries = driver.find_elements(By.CLASS_NAME, "obs-log__entry")
+    assert entries, "Expected at least one logged object on the night page"
 
 
 @pytest.mark.web
-def test_session_detail_table_structure(driver):
-    """Test the structure of the observations detail table."""
+def test_logged_object_links_to_its_own_page(driver):
+    """A logged object opens a page about the object, not just the log line."""
     _login_to_observations(driver)
 
     wait = WebDriverWait(driver, 10)
-    table = wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
+    _open_first_night(driver, wait)
 
-    # Find data rows (skip header row)
-    rows = table.find_elements(By.TAG_NAME, "tr")
-    data_rows = [row for row in rows if row.find_elements(By.TAG_NAME, "td")]
+    links = driver.find_elements(By.CSS_SELECTOR, "a[href*='/observations/object/']")
+    if not links:
+        pytest.skip("No logged objects available")
 
-    if len(data_rows) > 0:
-        # Click on the first data row to navigate to detail page
-        first_data_row = data_rows[0]
-        first_data_row.click()
+    links[0].click()
+    wait.until(lambda d: "/observations/object/" in d.current_url)
 
-        # Wait for navigation to detail page
-        wait.until(
-            lambda d: "/observations/" in d.current_url
-            and d.current_url != f"{get_homepage_url()}/observations"
-        )
+    body_text = driver.find_element(By.TAG_NAME, "body").text
+    assert "Observations" in body_text
+    assert "Observation history" in body_text
+    assert driver.find_elements(By.CLASS_NAME, "obs-log__entry")
 
-        # Test detail table structure
-        detail_table = driver.find_element(By.TAG_NAME, "table")
-        detail_rows = detail_table.find_elements(By.TAG_NAME, "tr")
 
-        # Should have at least header row
-        assert (
-            len(detail_rows) >= 1
-        ), "Detail table should have at least one row for headers"
+@pytest.mark.web
+def test_session_link_redirects_to_its_night(driver):
+    """Links to a software run still resolve, landing on that run's night."""
+    _login_to_observations(driver)
 
-        # Check that first row contains header cells
-        first_row = detail_rows[0]
-        headers = first_row.find_elements(By.TAG_NAME, "th")
-        assert (
-            len(headers) == 4
-        ), f"Expected 4 header cells (Time, Catalog, Sequence, Notes), found {len(headers)}"
+    wait = WebDriverWait(driver, 10)
+    _open_first_night(driver, wait)
 
-    else:
-        # No data rows to click - this is acceptable for empty database
-        pytest.skip("No observation sessions available to test detail table structure")
+    cookies = {cookie["name"]: cookie["value"] for cookie in driver.get_cookies()}
+    night_url = driver.current_url
+    tsv = requests.get(f"{night_url}?download=1", cookies=cookies).text
+    lines = [line for line in tsv.strip().split("\n")[1:] if line]
+    if not lines:
+        pytest.skip("No observations in this night to resolve a session from")
+
+    session_id = lines[0].split("\t")[0]
+    response = requests.get(
+        f"{get_homepage_url()}/observations/{session_id}", cookies=cookies
+    )
+    assert response.status_code == 200
+    assert "/observations/night/" in response.url
 
 
 @pytest.mark.web
 def test_observations_list_download(driver):
-    """Test that clicking download button on observations list page downloads a valid TSV file."""
+    """Test that the download button on the nights page returns a valid TSV."""
 
     _login_to_observations(driver)
 
     wait = WebDriverWait(driver, 10)
     wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 
-    # Find the download link on the observations list page
     download_link = wait.until(
         EC.element_to_be_clickable(
             (By.CSS_SELECTOR, "a[href='/observations?download=1']")
         )
     )
 
-    # Verify the download link has the correct href
     assert (
         download_link.get_attribute("href")
         == f"{get_homepage_url()}/observations?download=1"
     )
 
-    # Check that the download icon is present (material-icons)
     download_icon = download_link.find_element(By.CLASS_NAME, "material-icons")
     assert download_icon.text.strip() == "download"
 
-    # Get cookies from the selenium session for authentication
     cookies = {cookie["name"]: cookie["value"] for cookie in driver.get_cookies()}
 
-    # Make a direct request to download the file
     response = requests.get(
         f"{get_homepage_url()}/observations?download=1", cookies=cookies
     )
 
-    # Verify the response
     assert (
         response.status_code == 200
     ), f"Download request failed with status {response.status_code}"
 
-    # Check content type header
     assert "text/tsv" in response.headers.get(
         "Content-Type", ""
     ), "Expected TSV content type"
 
-    # Check content disposition header (should indicate file download)
     content_disposition = response.headers.get("Content-Disposition", "")
     assert (
         "attachment" in content_disposition
@@ -369,97 +273,59 @@ def test_observations_list_download(driver):
         "observations.tsv" in content_disposition
     ), "Expected observations.tsv filename"
 
-    # Verify file content is not empty and looks like TSV
     file_content = response.text.strip()
     if file_content:  # Only check if there's content (empty database is acceptable)
         lines = file_content.split("\n")
         assert len(lines) > 0, "TSV file should have at least header line"
-        # Check that it's tab-separated (TSV format)
         if len(lines) > 1:  # If there are data rows beyond header
             assert "\t" in lines[0], "First line should contain tabs (TSV format)"
 
 
 @pytest.mark.web
-def test_observation_detail_download(driver):
-    """Test that clicking download button on observation detail page downloads a valid session TSV file."""
+def test_night_download(driver):
+    """Test that a night's download link returns that night's TSV."""
 
     _login_to_observations(driver)
 
     wait = WebDriverWait(driver, 10)
-    table = wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
+    _open_first_night(driver, wait)
 
-    # Find data rows (skip header row)
-    rows = table.find_elements(By.TAG_NAME, "tr")
-    data_rows = [row for row in rows if row.find_elements(By.TAG_NAME, "td")]
+    night_key = driver.current_url.rstrip("/").split("/observations/night/")[1]
 
-    if len(data_rows) > 0:
-        # Click on the first data row to navigate to detail page
-        first_data_row = data_rows[0]
-        first_data_row.click()
+    download_link = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href*='download=1']"))
+    )
+    assert download_link.is_displayed()
 
-        # Wait for navigation to detail page
-        wait.until(
-            lambda d: "/observations/" in d.current_url
-            and d.current_url != f"{get_homepage_url()}/observations"
-        )
+    href = download_link.get_attribute("href")
+    assert "download=1" in href
+    assert f"/observations/night/{night_key}" in href
 
-        # Find the download link on the detail page
-        download_link = wait.until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href*='download=1']"))
-        )
+    download_icon = download_link.find_element(By.CLASS_NAME, "material-icons")
+    assert download_icon.text.strip() == "download"
 
-        # Verify download link is displayed and has correct attributes
-        assert download_link.is_displayed()
+    cookies = {cookie["name"]: cookie["value"] for cookie in driver.get_cookies()}
+    response = requests.get(href, cookies=cookies)
 
-        # Get the href to verify it contains the session ID and download parameter
-        href = download_link.get_attribute("href")
-        assert "download=1" in href
-        assert "/observations/" in href
+    assert (
+        response.status_code == 200
+    ), f"Night download request failed with status {response.status_code}"
 
-        # Extract session ID from URL for testing
-        session_id = href.split("/observations/")[1].split("?")[0]
+    assert "text/tsv" in response.headers.get(
+        "Content-Type", ""
+    ), "Expected TSV content type"
 
-        # Check that the download icon is present (material-icons)
-        download_icon = download_link.find_element(By.CLASS_NAME, "material-icons")
-        assert download_icon.text.strip() == "download"
+    content_disposition = response.headers.get("Content-Disposition", "")
+    assert (
+        "attachment" in content_disposition
+    ), "Expected attachment in Content-Disposition header"
+    assert (
+        f"observations_{night_key}.tsv" in content_disposition
+    ), f"Expected observations_{night_key}.tsv filename"
 
-        # Get cookies from the selenium session for authentication
-        cookies = {cookie["name"]: cookie["value"] for cookie in driver.get_cookies()}
-
-        # Make a direct request to download the session file
-        response = requests.get(href, cookies=cookies)
-
-        # Verify the response
-        assert (
-            response.status_code == 200
-        ), f"Session download request failed with status {response.status_code}"
-
-        # Check content type header
-        assert "text/tsv" in response.headers.get(
-            "Content-Type", ""
-        ), "Expected TSV content type"
-
-        # Check content disposition header (should indicate file download with session ID)
-        content_disposition = response.headers.get("Content-Disposition", "")
-        assert (
-            "attachment" in content_disposition
-        ), "Expected attachment in Content-Disposition header"
-        assert (
-            f"observations_{session_id}.tsv" in content_disposition
-        ), f"Expected observations_{session_id}.tsv filename"
-
-        # Verify file content is not empty and looks like TSV
-        file_content = response.text.strip()
-        if file_content:  # Only check if there's content (empty session is acceptable)
-            lines = file_content.split("\n")
-            assert len(lines) > 0, "Session TSV file should have at least header line"
-            # Check that it's tab-separated (TSV format)
-            if len(lines) > 1:  # If there are data rows beyond header
-                assert "\t" in lines[0], "First line should contain tabs (TSV format)"
-
-        # The page should remain on the detail page after download
-        assert "/observations/" in driver.current_url
-
-    else:
-        # No data rows to click - this is acceptable for empty database
-        pytest.skip("No observation sessions available to test detail download")
+    file_content = response.text.strip()
+    if file_content:  # Only check if there's content (empty night is acceptable)
+        lines = file_content.split("\n")
+        assert len(lines) > 0, "Night TSV file should have at least header line"
+        if len(lines) > 1:  # If there are data rows beyond header
+            assert "\t" in lines[0], "First line should contain tabs (TSV format)"
