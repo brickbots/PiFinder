@@ -67,7 +67,9 @@ class GaiaChartGenerator:
 
         Args:
             config: PiFinder config object
-            shared_state: Shared state object
+            shared_state: State the generator reads (location() and sqm()).
+                The UI passes CurrentSnapshot(), the current frame's state
+                snapshot, so a chart reads no value through the manager.
         """
         logger.info(">>> GaiaChartGenerator.__init__() called")
         self.config = config

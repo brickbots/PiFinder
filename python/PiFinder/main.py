@@ -823,7 +823,9 @@ def main(
         logger.info("   Initializing Gaia chart generator...")
         from PiFinder.object_images.gaia_chart import get_gaia_chart_generator
 
-        chart_gen = get_gaia_chart_generator(cfg, shared_state)
+        # The generator only reads location and SQM, so it gets the view of
+        # the current frame's snapshot, not the shared-state proxy.
+        chart_gen = get_gaia_chart_generator(cfg, CurrentSnapshot())
         # Trigger background loading so catalog is ready when needed
         chart_gen.ensure_catalog_loading()
         logger.info("   Gaia chart background loading started")

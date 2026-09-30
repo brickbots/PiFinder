@@ -19,7 +19,7 @@ from PiFinder.composite_object import MagnitudeObject
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.align import align_on_radec
-from PiFinder.ui.base import UIModule
+from PiFinder.ui.base import CurrentSnapshot, UIModule
 from PiFinder.ui.log import UILog
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
@@ -560,7 +560,7 @@ class UIObjectDetails(UIModule):
                 flip_image=flip_image,
                 flop_image=flop_image,
                 config_object=self.config_object,
-                shared_state=self.shared_state,
+                shared_state=CurrentSnapshot(),
                 chart_generator=chart_gen,  # Pass our chart generator to object_images
                 force_chart=self._force_gaia_chart,  # Toggle state
             )
@@ -1157,7 +1157,7 @@ class UIObjectDetails(UIModule):
 
         logger = logging.getLogger("ObjectDetails")
 
-        chart_gen = get_gaia_chart_generator(self.config_object, self.shared_state)
+        chart_gen = get_gaia_chart_generator(self.config_object, CurrentSnapshot())
         logger.info(f">>> _get_gaia_chart_generator returning: {chart_gen}")
         return chart_gen
 

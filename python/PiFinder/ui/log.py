@@ -272,7 +272,7 @@ class UILog(UIModule):
         }
         # Measured sky brightness at the moment of logging; absent when the
         # radiometer has not produced a reading (see obslog.sqm_note).
-        sqm = obslog.sqm_note(self.shared_state.sqm(), self.shared_state.sqm_details())
+        sqm = obslog.sqm_note(self.snapshot.sqm(), self.snapshot.sqm_details())
         if sqm is not None:
             notes["sqm"] = sqm
         self._observing_session = obslog.Observation_session(
