@@ -92,6 +92,20 @@
       },
       {
         "available": true,
+        "built_at": "2026-09-30T10:09:35+00:00",
+        "kind": "pr",
+        "label": "PR#664-4c0d1cc",
+        "notes": "Test build of the UI performance work on the NixOS branch. Not for merge: the review and merge happen in mrosseel/PiFinder#113 (https://github.com/mrosseel/PiFinder/pull/113).\n\n- The UI reads shared state from a shared-memory snapshot, one lock per slot (ADR 0042).\n- The DB catalogs are numpy columns built in CI, and objects are made only for the rows on screen (ADR 0043).\n\nDesign and measurements: `ui-performance-plan.md` and the PR above.\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)",
+        "number": 664,
+        "source_ref": "perf/ui-state-snapshot-catalog-arrays",
+        "source_repo": "mrosseel/PiFinder",
+        "source_sha": "4c0d1cc4cc6e71958afb1a07870c2323e673c3a8",
+        "store_path": "/nix/store/3f9xmi6z06kx499wd2281rvxpv3dnj0p-nixos-system-pifinder-26.05.20260924.c508844",
+        "title": "UI performance",
+        "version": "PR#664-4c0d1cc"
+      },
+      {
+        "available": true,
         "built_at": "2026-08-15T12:25:33+00:00",
         "kind": "pr",
         "label": "PR#617-57c5cc9",
@@ -202,6 +216,6 @@
       }
     ]
   },
-  "generated_at": "2026-09-29T22:10:05+00:00",
+  "generated_at": "2026-09-30T10:09:35+00:00",
   "schema": 1
 }
