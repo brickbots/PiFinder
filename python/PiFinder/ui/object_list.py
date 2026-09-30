@@ -375,12 +375,18 @@ class UIObjectList(UITextMenu):
 
         return (None, None)
 
-    def sort(self) -> None:
-        message = _("Sorting by\n{sort_order}").format(
-            sort_order=_sort_order_label(self.current_sort)
-        )
-        self.message(message, 0.1)
-        self.update()
+    def sort(self, announce: bool = False) -> None:
+        """
+        Sorts the list by ``current_sort``. With ``announce`` (the user chose
+        a sort order), a popup names the order first. A list that opens or
+        refreshes shows no popup: the popup would cover the menu slide.
+        """
+        if announce:
+            message = _("Sorting by\n{sort_order}").format(
+                sort_order=_sort_order_label(self.current_sort)
+            )
+            self.message(message, 0.1)
+            self.update()
 
         if self.current_sort == SortOrder.NEAREST:
             if not self.snapshot.solution().has_pointing():
@@ -964,17 +970,17 @@ class UIObjectList(UITextMenu):
 
         if menu_item.label == _("Nearest"):
             self.current_sort = SortOrder.NEAREST
-            self.sort()
+            self.sort(announce=True)
             return True
 
         if menu_item.label == _("Standard"):
             self.current_sort = SortOrder.CATALOG_SEQUENCE
-            self.sort()
+            self.sort(announce=True)
             return True
 
         if menu_item.label == _("RA"):
             self.current_sort = SortOrder.RA
-            self.sort()
+            self.sort(announce=True)
             return True
 
     def mm_jump_to_filter(self, marking_menu, menu_item):
