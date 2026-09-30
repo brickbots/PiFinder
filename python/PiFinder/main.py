@@ -495,6 +495,8 @@ def main(
     show_fps=False,
     verbose=False,
     profile_startup=False,
+    record_path=None,
+    record_audio=False,
 ) -> None:
     """
     Get this show on the road!
@@ -861,6 +863,11 @@ def main(
             logger.info("Pygame event polling enabled for keyboard input")
             pygame_key_map, pygame_ctrl_key_map = _build_pygame_keymaps()
 
+        # Start the recording only now: a child process forked after this
+        # keeps the ffmpeg pipe open, and the video file does not end.
+        if record_path:
+            display_device.start_recording(Path(record_path), record_audio)
+
         # Advisory low-battery warnings (ADR 0021). UI-only: the shutdown
         # trigger lives in the battery monitor and keys on ADC validity,
         # never on this estimate.
@@ -885,6 +892,12 @@ def main(
                                 keyboard_queue.put(pygame_ctrl_key_map[event.key])
                             elif event.key in pygame_key_map:
                                 keyboard_queue.put(pygame_key_map[event.key])
+                        elif event.type == pygame.MOUSEBUTTONDOWN:
+                            # The demo display maps a click on a button
+                            # in its photo to that key.
+                            clicked = display_device.keycode_for_event(event)
+                            if clicked is not None:
+                                keyboard_queue.put(clicked)
                         elif event.type == pygame.QUIT:
                             logger.info("Pygame window closed, exiting...")
                             raise KeyboardInterrupt
@@ -1088,6 +1101,7 @@ def main(
                 try:
                     while True:
                         keycode = keyboard_queue.get(block=False)
+                        display_device.show_key(keycode)
                 except queue.Empty:
                     pass
 
@@ -1252,10 +1266,12 @@ def main(
 
                 menu_manager.update()
                 power_manager.update(keep_awake=menu_manager.keep_awake())
+                display_device.tick()
 
         except KeyboardInterrupt:
             logger.info("KeyboardInterrupt received: shutting down.")
             logger.info("SHUTDOWN")
+            display_device.stop_recording()
             try:
                 logger.debug("\tClearing console queue...")
                 while True:
@@ -1428,6 +1444,19 @@ if __name__ == "__main__":
         action="store_true",
         required=False,
     )
+    parser.add_argument(
+        "--record",
+        help="Record the demo display (--display pg_demo) to this MP4 file",
+        default=None,
+        required=False,
+    )
+    parser.add_argument(
+        "--record-audio",
+        help="With --record, add the default microphone to the recording",
+        default=False,
+        action="store_true",
+        required=False,
+    )
     args = parser.parse_args()
     # add the handlers to the logger
     if args.verbose:
@@ -1494,6 +1523,9 @@ if __name__ == "__main__":
     if args.display is not None:
         display_hardware = args.display.lower()
 
+    if args.record and not display_hardware.startswith("pg_demo"):
+        parser.error("--record needs --display pg_demo or pg_demo_176")
+
     camera_type = args.camera.lower() if args.camera is not None else None
     if camera_type is None:
         camera_type = "debug" if args.fakehardware else "pi"
@@ -1535,7 +1567,15 @@ if __name__ == "__main__":
             config.Config().set_option("language", args.lang)
 
     try:
-        main(log_helper, args.script, args.fps, args.verbose, args.profile_startup)
+        main(
+            log_helper,
+            args.script,
+            args.fps,
+            args.verbose,
+            args.profile_startup,
+            args.record,
+            args.record_audio,
+        )
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
         # Logging is multiprocess (QueueHandler -> listener); os._exit() below
