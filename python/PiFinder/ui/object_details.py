@@ -6,9 +6,8 @@ This module contains all the UI code for the object details screen
 
 """
 
-from pydeepskylog.exceptions import InvalidParameterError
-
 from PiFinder import cat_images
+from PiFinder.object_sequence import ObjectSequence
 from PiFinder.composite_object import MagnitudeObject
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
@@ -29,9 +28,11 @@ import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.db.objects_db import ObjectsDatabase
-import numpy as np
 import time
-import pydeepskylog as pds
+from PiFinder.lazy_import import lazy_module
+
+pds = lazy_module("pydeepskylog")
+pds_exceptions = lazy_module("pydeepskylog.exceptions")
 
 
 # Read-only handle to the catalog DB, opened once and shared across detail
@@ -274,7 +275,7 @@ class UIObjectDetails(UIModule):
             )
 
         # Get the SQM from the shared state
-        sqm = self.shared_state.get_sky_brightness()
+        sqm = self.snapshot.get_sky_brightness()
 
         # Check if a telescope and eyepiece are set
         if (
@@ -331,7 +332,11 @@ class UIObjectDetails(UIModule):
                             object_diameter1=diameter1,
                             object_diameter2=diameter2,
                         )
-                except (ValueError, TypeError, InvalidParameterError) as e:
+                except (
+                    ValueError,
+                    TypeError,
+                    pds_exceptions.InvalidParameterError,
+                ) as e:
                     # mag_str / size are not always plain numbers: double stars
                     # carry component mags like "7.0/9.5", asterisms a size like
                     # "3°", and some objects have no magnitude. float() then
@@ -384,7 +389,7 @@ class UIObjectDetails(UIModule):
         self.descTextLayout.set_sections(sections)
         self.texts["desc"] = self.descTextLayout
 
-        solution = self.shared_state.solution()
+        solution = self.snapshot.solution()
         roll = 0
         if solution and solution.has_pointing():
             roll = solution.pointing.aligned.estimate.Roll
@@ -423,7 +428,7 @@ class UIObjectDetails(UIModule):
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
-        if not self.shared_state.solution().has_pointing():
+        if not self.snapshot.solution().has_pointing():
             self.draw.text(
                 self._pointing_msg_anchor_1,
                 _("No solve"),  # TRANSLATORS: No solve yet... (Part 1/2)
@@ -443,7 +448,7 @@ class UIObjectDetails(UIModule):
                 self._elipsis_count = 0
             return
 
-        if not self.shared_state.altaz_ready():
+        if not self.snapshot.altaz_ready():
             self.draw.text(
                 self._pointing_msg_anchor_1,
                 _("Searching"),  # TRANSLATORS: Searching for GPS (Part 1/2)
@@ -483,7 +488,7 @@ class UIObjectDetails(UIModule):
 
         indicator_color = 255 if self._unmoved else 128
         point_az, point_alt = calc_utils.aim_degrees(
-            self.shared_state,
+            self.snapshot,
             self.mount_type,
             self.screen_direction,
             self.object,
@@ -550,7 +555,7 @@ class UIObjectDetails(UIModule):
                 if self.object:
                     # check for visibility and adjust mag/size text color
                     obj_altitude = calc_utils.calc_object_altitude(
-                        self.shared_state, self.object
+                        self.snapshot, self.object
                     )
 
                     if obj_altitude:
@@ -667,12 +672,7 @@ class UIObjectDetails(UIModule):
             self.active()  # reset activation time
 
     def scroll_object(self, direction: int) -> None:
-        if isinstance(self.object_list, np.ndarray):
-            # For NumPy array
-            current_index = np.where(self.object_list == self.object)[0][0]
-        else:
-            # For regular Python list
-            current_index = self.object_list.index(self.object)
+        current_index = ObjectSequence.of(self.object_list).index(self.object)
         current_index += direction
         if current_index < 0:
             current_index = 0
@@ -725,7 +725,7 @@ class UIObjectDetails(UIModule):
         logging screen
         """
         self.maybe_add_to_recents()
-        if not self.shared_state.solution().has_pointing():
+        if not self.snapshot.solution().has_pointing():
             return
         object_item_definition = {
             "name": _("LOG"),
@@ -807,7 +807,7 @@ class UIObjectDetails(UIModule):
             try:
                 if self.object:
                     point_val1, point_val2 = calc_utils.aim_degrees(
-                        self.shared_state,
+                        self.snapshot,
                         self.mount_type,
                         self.screen_direction,
                         self.object,

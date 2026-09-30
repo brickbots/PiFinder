@@ -1,0 +1,744 @@
+import json
+import os
+import urllib.error
+
+import pytest
+
+from PiFinder import delta_updates
+
+
+_REAL_STREAM_DELTAS = delta_updates.stream_deltas
+
+
+@pytest.fixture(autouse=True)
+def _no_stream(monkeypatch):
+    """By default the server has no /deltas (an older differ): the tests of
+    the round-based retry need no network. Stream tests set their own."""
+    monkeypatch.setattr(delta_updates, "stream_deltas", lambda jobs, s, cb: False)
+
+
+pytestmark = pytest.mark.unit
+
+
+TARGET = "/nix/store/1xm0hcqksxfy24p8m2xsfdas7wvyga76-testpkg-1.1"
+BASE = "/nix/store/6jpbvvp1njd0h18knw1ddi1p2r29inh1-testpkg-1.0"
+
+
+# --------------------------------------------------------------------------
+# Naming helpers.
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("python3.13-numpy-2.1.3", "python3.13-numpy"),
+        ("testpkg-1.0", "testpkg"),
+        ("glibc-2.40-66", "glibc"),
+        ("etc", "etc"),
+        ("nixos-system-pifinder-25.11.20260209.2db38e0", "nixos-system-pifinder"),
+        ("1", "1"),  # never strips down to nothing
+    ],
+)
+def test_stem(name, expected):
+    assert delta_updates.stem(name) == expected
+
+
+def test_split_store_path():
+    digest, name = delta_updates.split_store_path(TARGET)
+    assert digest == "1xm0hcqksxfy24p8m2xsfdas7wvyga76"
+    assert name == "testpkg-1.1"
+    assert delta_updates.split_store_path("/nix/store/short-x") is None
+    assert delta_updates.split_store_path("/nix/store/" + "A" * 32 + "-x") is None
+
+
+def test_basis_candidates_prefers_newest(tmp_path):
+    store = tmp_path
+    old = store / (BASE.rsplit("/", 1)[1])
+    new = store / ("qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq-testpkg-1.0.1")
+    old.mkdir()
+    new.mkdir()
+    os.utime(old, (1000, 1000))
+    os.utime(new, (2000, 2000))
+    index = delta_updates.local_store_index(store)
+    cands = delta_updates.basis_candidates(TARGET, index)
+    assert cands == [str(new), str(old)]
+
+
+def test_basis_candidates_excludes_target_itself(tmp_path):
+    (tmp_path / TARGET.rsplit("/", 1)[1]).mkdir()
+    index = delta_updates.local_store_index(tmp_path)
+    # The only same-stem path is the target: no candidates.
+    assert (
+        delta_updates.basis_candidates("/nix/store/" + TARGET.rsplit("/", 1)[1], index)
+        == []
+    )
+
+
+def test_local_store_index_skips_drv_and_lock(tmp_path):
+    (tmp_path / ("a" * 32 + "-foo-1.0.drv")).touch()
+    (tmp_path / ("b" * 32 + "-foo-1.0.lock")).touch()
+    assert delta_updates.local_store_index(tmp_path) == {}
+
+
+# --------------------------------------------------------------------------
+# Import-stream framing. Byte-exact: this is the nix-store --export wire
+# format, and --import rejects any framing drift.
+
+
+NARINFO = f"""StorePath: {TARGET}
+URL: nar/abc.nar.zst
+Compression: zstd
+FileHash: sha256:1111
+FileSize: 123
+NarHash: sha256:2222
+NarSize: 456
+References: 6jpbvvp1njd0h18knw1ddi1p2r29inh1-testpkg-1.0
+Deriver: 3333-testpkg-1.1.drv
+Sig: pifinder:abcd==
+"""
+
+
+def test_local_cache_narinfo_points_at_local_nar():
+    out = delta_updates.local_cache_narinfo(NARINFO, TARGET, "x.nar")
+    lines = out.splitlines()
+    assert "URL: nar/x.nar" in lines
+    assert "Compression: none" in lines
+    assert not any(line.startswith(("FileHash", "FileSize")) for line in lines)
+    # The signed fields stay exactly as served.
+    for field in ("StorePath", "NarHash", "NarSize", "References", "Sig"):
+        served = [x for x in NARINFO.splitlines() if x.startswith(field + ":")]
+        assert served and served[0] in lines
+
+
+def test_local_cache_narinfo_rejects_other_path():
+    with pytest.raises(delta_updates.DeltaError, match="not"):
+        delta_updates.local_cache_narinfo(NARINFO, BASE, "x.nar")
+
+
+def test_local_cache_narinfo_rejects_unsigned():
+    unsigned = "\n".join(x for x in NARINFO.splitlines() if not x.startswith("Sig:"))
+    with pytest.raises(delta_updates.DeltaError, match="signature"):
+        delta_updates.local_cache_narinfo(unsigned, TARGET, "x.nar")
+
+
+def test_fetch_narinfo_tries_caches_in_order(monkeypatch):
+    urls = []
+
+    def _urlopen(url, timeout=None):
+        urls.append(url)
+        if "first" in url:
+            raise urllib.error.HTTPError(url, 404, "nf", {}, None)
+        return _FakeResp(200, NARINFO.encode())
+
+    monkeypatch.setattr(delta_updates.urllib.request, "urlopen", _urlopen)
+    got = delta_updates.fetch_narinfo(TARGET, ("https://c/first", "https://c/second/"))
+    assert got == NARINFO
+    assert urls == [
+        "https://c/first/1xm0hcqksxfy24p8m2xsfdas7wvyga76.narinfo",
+        "https://c/second/1xm0hcqksxfy24p8m2xsfdas7wvyga76.narinfo",
+    ]
+
+
+# --------------------------------------------------------------------------
+# Server protocol.
+
+
+class _FakeResp:
+    def __init__(self, status, body=b"{}"):
+        self.status = status
+        self._body = body
+
+    def read(self, *a):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_request_delta_hit(monkeypatch):
+    payload = json.dumps({"url": "/blobs/x.zst"}).encode()
+
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(
+        delta_updates.urllib.request,
+        "urlopen",
+        lambda req, timeout=None: _FakeResp(200, payload),
+    )
+    state, info = delta_updates.request_delta(TARGET, [BASE], "tok")
+    assert state == "hit"
+    assert info == {"url": "/blobs/x.zst"}
+
+
+@pytest.mark.parametrize(
+    "outcome,expected",
+    [
+        (202, "wait"),
+        (204, "none"),
+        (
+            urllib.error.HTTPError("u", 500, "boom", None, None),
+            "error",
+        ),
+        (urllib.error.URLError("down"), "error"),
+    ],
+)
+def test_request_delta_non_hit(monkeypatch, outcome, expected):
+    def _open(req, timeout=None):
+        if isinstance(outcome, Exception):
+            raise outcome
+        return _FakeResp(outcome)
+
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates.urllib.request, "urlopen", _open)
+    state, _ = delta_updates.request_delta(TARGET, [BASE], "tok")
+    assert state == expected
+
+
+# --------------------------------------------------------------------------
+# apply_delta guardrails (no subprocess reached).
+
+
+def test_stage_delta_rejects_oversized_window(tmp_path, monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    info = {
+        "basis": [BASE],
+        "window_log": delta_updates.MAX_WINDOW_LOG + 1,
+        "nar_sha256": "0" * 64,
+        "nar_size": 10,
+        "url": "/blobs/x.zst",
+    }
+    with pytest.raises(delta_updates.DeltaError, match="window"):
+        delta_updates.stage_delta(TARGET, info, tmp_path / "job", tmp_path / "cache")
+
+
+def test_stage_delta_rejects_malformed_response(tmp_path, monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    with pytest.raises(delta_updates.DeltaError, match="malformed"):
+        delta_updates.stage_delta(
+            TARGET, {"basis": []}, tmp_path / "job", tmp_path / "cache"
+        )
+
+
+def test_stage_delta_rejects_missing_basis(tmp_path, monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    info = {
+        "basis": ["/nix/store/" + "d" * 32 + "-gone-1.0"],
+        "window_log": 27,
+        "nar_sha256": "0" * 64,
+        "nar_size": 10,
+        "url": "/blobs/x.zst",
+    }
+    with pytest.raises(delta_updates.DeltaError, match="disappeared"):
+        delta_updates.stage_delta(TARGET, info, tmp_path / "job", tmp_path / "cache")
+
+
+# --------------------------------------------------------------------------
+# prefetch_deltas must never raise and must be inert when disabled.
+
+
+def test_stage_delta_needs_signed_narinfo(tmp_path, monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "fetch_narinfo", lambda t, c: None)
+
+    def _no_download(*a, **kw):
+        raise AssertionError("no patch download without a signed narinfo")
+
+    monkeypatch.setattr(delta_updates, "_download", _no_download)
+    info = {
+        "basis": [str(tmp_path)],
+        "window_log": 27,
+        "nar_sha256": "0" * 64,
+        "nar_size": 10,
+        "url": "/blobs/x.zst",
+    }
+    with pytest.raises(delta_updates.DeltaError, match="narinfo"):
+        delta_updates.stage_delta(
+            TARGET, info, tmp_path / "job", tmp_path / "cache", caches=("https://c",)
+        )
+
+
+def test_prefetch_disabled_without_env(monkeypatch):
+    monkeypatch.delenv("PIFINDER_DELTA_URL", raising=False)
+    assert delta_updates.prefetch_deltas(TARGET, (TARGET,), ("https://c",)).count == 0
+
+
+def test_prefetch_disabled_without_caches(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+
+    def _no_session(*a, **kw):
+        raise AssertionError("no session without a narinfo source")
+
+    monkeypatch.setattr(delta_updates, "start_session", _no_session)
+    assert delta_updates.prefetch_deltas(TARGET, (TARGET,)).count == 0
+
+
+def test_prefetch_never_raises(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+
+    def _boom(*a, **kw):
+        raise RuntimeError("chaos")
+
+    monkeypatch.setattr(delta_updates, "start_session", _boom)
+    assert delta_updates.prefetch_deltas(TARGET, (TARGET,), ("https://c",)).count == 0
+
+
+def test_prefetch_stops_without_session(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: None)
+
+    def _no_requests(*a, **kw):
+        raise AssertionError("no /delta request may happen without a session")
+
+    monkeypatch.setattr(delta_updates, "request_delta", _no_requests)
+    assert delta_updates.prefetch_deltas(TARGET, (TARGET,), ("https://c",)).count == 0
+
+
+def test_start_session_parses_token(monkeypatch):
+    payload = json.dumps({"session": "abc123", "budget": 100}).encode()
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    captured = {}
+
+    def _open(req, timeout=None):
+        captured["url"] = req.full_url
+        return _FakeResp(200, payload)
+
+    monkeypatch.setattr(delta_updates.urllib.request, "urlopen", _open)
+    assert delta_updates.start_session(TARGET) == "abc123"
+    assert captured["url"].endswith("/update-start")
+
+
+def test_start_session_sends_base_toplevel(monkeypatch):
+    payload = json.dumps({"session": "abc123"}).encode()
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    captured = {}
+
+    def _open(req, timeout=None):
+        captured["body"] = json.loads(req.data)
+        return _FakeResp(200, payload)
+
+    monkeypatch.setattr(delta_updates.urllib.request, "urlopen", _open)
+    assert delta_updates.start_session(TARGET, BASE) == "abc123"
+    assert captured["body"] == {"target_toplevel": TARGET, "base_toplevel": BASE}
+
+
+def test_current_system_resolves_store_link(tmp_path):
+    link = tmp_path / "current-system"
+    link.symlink_to(TARGET)
+    # The target does not exist on the test host; strict resolve fails.
+    assert delta_updates.current_system(link) is None
+    assert delta_updates.current_system(tmp_path / "missing") is None
+
+
+def test_start_session_none_on_failure(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+
+    def _open(req, timeout=None):
+        raise urllib.error.URLError("down")
+
+    monkeypatch.setattr(delta_updates.urllib.request, "urlopen", _open)
+    assert delta_updates.start_session(TARGET) is None
+
+
+def test_request_delta_sends_session_header(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    captured = {}
+
+    def _open(req, timeout=None):
+        captured["session"] = req.headers.get("X-update-session")
+        return _FakeResp(200, b"{}")
+
+    monkeypatch.setattr(delta_updates.urllib.request, "urlopen", _open)
+    delta_updates.request_delta(TARGET, [BASE], "tok-1")
+    assert captured["session"] == "tok-1"
+
+
+def test_work_root_creates_dir_and_removes_leftovers(tmp_path):
+    root = tmp_path / "delta-work"
+    root.mkdir()
+    (root / "pifinder-delta.old").mkdir()
+    (root / "keep.txt").write_text("x")
+    assert delta_updates._work_root(root) == str(root)
+    assert not (root / "pifinder-delta.old").exists()
+    assert (root / "keep.txt").exists()
+
+
+def test_work_root_falls_back_when_unusable(tmp_path):
+    blocker = tmp_path / "file"
+    blocker.write_text("x")
+    assert delta_updates._work_root(blocker / "sub") is None
+
+
+def test_prefetch_logs_summary(monkeypatch, caplog):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {})
+    monkeypatch.setattr(delta_updates, "_work_root", lambda: None)
+    with caplog.at_level("INFO", logger="PiFinder.delta_updates"):
+        got = delta_updates.prefetch_deltas(TARGET, (TARGET,), ("https://c",))
+    assert got.count == 0 and got.url is None
+    assert "0 of 1 missing path(s) staged" in caplog.text
+    assert "1 had no local base" in caplog.text
+
+
+def test_prefetch_stages_hits_and_reports_progress(tmp_path, monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
+    monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
+    monkeypatch.setattr(
+        delta_updates,
+        "request_delta",
+        lambda t, b, s: ("hit", {"basis": [BASE], "nar_size": 4096}),
+    )
+
+    def _stage(target, info, jobdir, cache, session, caches):
+        (cache / "nar" / "x.nar").write_bytes(b"nar")
+
+    monkeypatch.setattr(delta_updates, "stage_delta", _stage)
+    seen = []
+    staged = delta_updates.prefetch_deltas(
+        TARGET,
+        (TARGET,),
+        ("https://c",),
+        progress=lambda step, d, t: seen.append((step, d, t)),
+    )
+    try:
+        assert staged.count == 1
+        assert staged.nar_bytes == 4096
+        assert staged.url and staged.url.startswith("file://")
+        info = (staged.root / "cache" / "nix-cache-info").read_text()
+        assert "Priority: 10" in info
+        assert seen == [
+            ("asking", 0, 1),
+            ("applying", 0, 1),
+            ("applying", 1, 1),
+        ]
+    finally:
+        staged.cleanup()
+    assert not staged.root.exists()
+
+
+def test_prefetch_retries_wait_then_gives_up(tmp_path, monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
+    monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
+    monkeypatch.setattr(delta_updates, "RETRY_WAIT", 0)
+    calls = []
+    monkeypatch.setattr(
+        delta_updates,
+        "request_delta",
+        lambda t, b, s: calls.append(t) or ("wait", {}),
+    )
+    staged = delta_updates.prefetch_deltas(TARGET, (TARGET,), ("https://c",))
+    staged.cleanup()
+    assert staged.count == 0 and staged.url is None
+    assert len(calls) == delta_updates.RETRIES + 1
+
+
+def test_prefetch_one_crashing_path_does_not_stop_the_rest(tmp_path, monkeypatch):
+    other = "/nix/store/" + "e" * 32 + "-testpkg-1.1"
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
+    monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
+    monkeypatch.setattr(
+        delta_updates, "request_delta", lambda t, b, s: ("hit", {"basis": [BASE]})
+    )
+
+    def _stage(target, info, jobdir, cache, session, caches):
+        if target == TARGET:
+            raise FileNotFoundError("boom")
+
+    monkeypatch.setattr(delta_updates, "stage_delta", _stage)
+    staged = delta_updates.prefetch_deltas(TARGET, (TARGET, other), ("https://c",))
+    staged.cleanup()
+    assert staged.count == 1
+    assert staged.failed == 1
+
+
+def test_stage_delta_creates_jobdir_before_space_check(tmp_path, monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "fetch_narinfo", lambda t, c: NARINFO)
+    monkeypatch.setattr(delta_updates, "FREE_SPACE_SLACK", 1 << 62)
+    info = {
+        "basis": [str(tmp_path)],
+        "window_log": 27,
+        "nar_sha256": "0" * 64,
+        "nar_size": 10,
+        "url": "/blobs/x.zst",
+    }
+    jobdir = tmp_path / "work" / "job0"
+    with pytest.raises(delta_updates.DeltaError, match="free space"):
+        delta_updates.stage_delta(
+            TARGET, info, jobdir, tmp_path / "cache", caches=("https://c",)
+        )
+    assert not jobdir.exists()
+
+
+def test_prefetch_waits_once_per_round_for_all_paths(tmp_path, monkeypatch):
+    """A cold build must not cost RETRY_WAIT for each path."""
+    targets = tuple("/nix/store/" + c * 32 + "-testpkg-1.1" for c in "abcdefghij")
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
+    monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
+    sleeps = []
+    monkeypatch.setattr(delta_updates.time, "sleep", sleeps.append)
+    monkeypatch.setattr(delta_updates, "request_delta", lambda t, b, s: ("wait", {}))
+    seen = []
+    staged = delta_updates.prefetch_deltas(
+        TARGET,
+        targets,
+        ("https://c",),
+        progress=lambda step, d, t: seen.append((step, d, t)),
+    )
+    staged.cleanup()
+    assert sleeps == [delta_updates.RETRY_WAIT] * delta_updates.RETRIES
+    # "waiting" counts the patches that are decided: none of the 10 here.
+    assert ("waiting", 0, 10) in seen
+    assert seen[-1] == ("applying", 0, 0)
+
+
+def test_prefetch_asks_again_only_for_paths_not_ready(tmp_path, monkeypatch):
+    ready = "/nix/store/" + "e" * 32 + "-testpkg-1.1"
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
+    monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
+    monkeypatch.setattr(delta_updates, "RETRY_WAIT", 0)
+    calls = []
+
+    def _request(target, bases, session):
+        calls.append(target)
+        if target == ready or calls.count(target) > 1:
+            return "hit", {"basis": [BASE]}
+        return "wait", {}
+
+    monkeypatch.setattr(delta_updates, "request_delta", _request)
+    applied = []
+    monkeypatch.setattr(
+        delta_updates,
+        "stage_delta",
+        lambda target, info, jobdir, cache, session, caches: applied.append(target),
+    )
+    staged = delta_updates.prefetch_deltas(TARGET, (TARGET, ready), ("https://c",))
+    staged.cleanup()
+    assert calls.count(ready) == 1
+    assert calls.count(TARGET) == 2
+    assert sorted(applied) == sorted([TARGET, ready])
+    assert staged.count == 2
+
+
+def test_open_session_off_without_delta_url(monkeypatch):
+    monkeypatch.delenv("PIFINDER_DELTA_URL", raising=False)
+
+    def _no_session(*a, **kw):
+        raise AssertionError("no session when deltas are off")
+
+    monkeypatch.setattr(delta_updates, "update_start", _no_session)
+    assert delta_updates.open_session(TARGET) is None
+
+
+def test_open_session_never_raises(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+
+    def _boom(*a, **kw):
+        raise RuntimeError("chaos")
+
+    monkeypatch.setattr(delta_updates, "update_start", _boom)
+    assert delta_updates.open_session(TARGET) is None
+
+
+def test_prefetch_uses_the_given_session(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+
+    def _no_new_session(*a, **kw):
+        raise AssertionError("the given session must be used")
+
+    monkeypatch.setattr(delta_updates, "start_session", _no_new_session)
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
+    seen = []
+    monkeypatch.setattr(
+        delta_updates,
+        "request_delta",
+        lambda t, b, s: seen.append(s) or ("none", {}),
+    )
+    delta_updates.prefetch_deltas(TARGET, (TARGET,), ("https://c",), session="early")
+    assert seen == ["early"]
+
+
+def _stream_setup(tmp_path, monkeypatch, lines, ended=True):
+    """prefetch_deltas with a fake /deltas stream that sends `lines`
+    (target, state, info), and a fake stage_delta that records targets."""
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "start_session", lambda t, b=None: "s")
+    monkeypatch.setattr(delta_updates, "local_store_index", lambda: {"testpkg": [BASE]})
+    monkeypatch.setattr(delta_updates, "_work_root", lambda: str(tmp_path))
+    monkeypatch.setattr(delta_updates, "RETRY_WAIT", 0)
+
+    def _stream(jobs, session, on_line):
+        for target, state, info in lines:
+            on_line(target, state, info)
+        return ended
+
+    staged_targets = []
+
+    def _stage(target, info, jobdir, cache, session, caches):
+        staged_targets.append(target)
+
+    monkeypatch.setattr(delta_updates, "stream_deltas", _stream)
+    monkeypatch.setattr(delta_updates, "stage_delta", _stage)
+    return staged_targets
+
+
+def test_stream_hits_are_applied_without_rounds(tmp_path, monkeypatch):
+    staged_targets = _stream_setup(
+        tmp_path, monkeypatch, [(TARGET, "hit", {"basis": [BASE], "nar_size": 10})]
+    )
+
+    def _no_rounds(*a, **kw):
+        raise AssertionError("no /delta round when the stream answered")
+
+    monkeypatch.setattr(delta_updates, "request_delta", _no_rounds)
+    staged = delta_updates.prefetch_deltas(TARGET, (TARGET,), ("https://c",))
+    try:
+        assert staged_targets == [TARGET]
+        assert staged.count == 1 and staged.nar_bytes == 10
+    finally:
+        staged.cleanup()
+
+
+def test_cut_stream_retries_the_open_paths(tmp_path, monkeypatch):
+    other = "/nix/store/2xm0hcqksxfy24p8m2xsfdas7wvyga76-testpkg-1.1"
+    staged_targets = _stream_setup(
+        tmp_path, monkeypatch, [(TARGET, "hit", {"basis": [BASE]})], ended=False
+    )
+    asked = []
+
+    def _round(target, bases, session):
+        asked.append(target)
+        return "hit", {"basis": [BASE]}
+
+    monkeypatch.setattr(delta_updates, "request_delta", _round)
+    staged = delta_updates.prefetch_deltas(TARGET, (TARGET, other), ("https://c",))
+    try:
+        assert asked == [other]
+        assert sorted(staged_targets) == sorted([TARGET, other])
+    finally:
+        staged.cleanup()
+
+
+def test_stream_none_is_final(tmp_path, monkeypatch):
+    staged_targets = _stream_setup(tmp_path, monkeypatch, [(TARGET, "none", {})])
+
+    def _no_rounds(*a, **kw):
+        raise AssertionError("a none answer is not asked again")
+
+    monkeypatch.setattr(delta_updates, "request_delta", _no_rounds)
+    staged = delta_updates.prefetch_deltas(TARGET, (TARGET,), ("https://c",))
+    assert staged_targets == [] and staged.count == 0
+
+
+def test_stream_deltas_reads_lines(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    body = (
+        b'{"target": "%s", "state": "hit", "delta": {"url": "/b"}}\n'
+        b'{"state": "heartbeat", "pending": 1}\n'
+        b'{"target": "%s", "state": "wait"}\n'
+        b'{"state": "end"}\n'
+    ) % (TARGET.encode(), BASE.encode())
+
+    class _Resp:
+        def __enter__(self):
+            return iter(body.splitlines(keepends=True))
+
+        def __exit__(self, *a):
+            return False
+
+    captured = {}
+
+    def _open(req, timeout=None):
+        captured["url"] = req.full_url
+        captured["body"] = json.loads(req.data)
+        return _Resp()
+
+    monkeypatch.setattr(delta_updates.urllib.request, "urlopen", _open)
+    got = []
+    ended = _REAL_STREAM_DELTAS(
+        [(TARGET, [BASE])], "s", lambda t, st, info: got.append((t, st, info))
+    )
+    assert ended is True
+    assert captured["url"].endswith("/deltas")
+    assert captured["body"] == {"targets": [{"target": TARGET, "bases": [BASE]}]}
+    assert got == [(TARGET, "hit", {"url": "/b"}), (BASE, "wait", {})]
+
+
+def test_stream_deltas_false_on_old_server(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+
+    def _open(req, timeout=None):
+        raise urllib.error.HTTPError(req.full_url, 404, "not found", {}, None)
+
+    monkeypatch.setattr(delta_updates.urllib.request, "urlopen", _open)
+    assert _REAL_STREAM_DELTAS([(TARGET, [BASE])], "s", lambda *a: None) is False
+
+
+def _closure_reply(closure) -> bytes:
+    return json.dumps({"session": "abc123", "budget": 10, "closure": closure}).encode()
+
+
+def test_update_start_keeps_the_closure(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    payload = _closure_reply([[TARGET, 1024], [BASE, 0]])
+    monkeypatch.setattr(
+        delta_updates.urllib.request,
+        "urlopen",
+        lambda req, timeout=None: _FakeResp(200, payload),
+    )
+    session = delta_updates.update_start(TARGET)
+    assert session == delta_updates.UpdateSession("abc123", ((TARGET, 1024), (BASE, 0)))
+    assert delta_updates.start_session(TARGET) == "abc123"
+
+
+def test_update_start_without_closure_from_an_older_server(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    payload = json.dumps({"session": "abc123"}).encode()
+    monkeypatch.setattr(
+        delta_updates.urllib.request,
+        "urlopen",
+        lambda req, timeout=None: _FakeResp(200, payload),
+    )
+    assert delta_updates.update_start(TARGET) == delta_updates.UpdateSession("abc123")
+
+
+@pytest.mark.parametrize(
+    "closure",
+    [
+        "not a list",
+        [[TARGET]],
+        [[TARGET, -1]],
+        [[TARGET, True]],
+        [[TARGET, "12"]],
+        [["/tmp/1xm0hcqksxfy24p8m2xsfdas7wvyga76-x", 1]],
+        [[TARGET, 1], ["/nix/store/../etc/passwd", 1]],
+    ],
+)
+def test_parse_closure_rejects_the_whole_list_on_a_bad_entry(closure):
+    assert delta_updates.parse_closure(closure) == ()
+
+
+def test_open_session_returns_the_closure(monkeypatch):
+    monkeypatch.setenv("PIFINDER_DELTA_URL", "http://differ")
+    monkeypatch.setattr(delta_updates, "current_system", lambda: BASE)
+    sent = {}
+
+    def _update_start(target, base=None):
+        sent["base"] = base
+        return delta_updates.UpdateSession("s", ((TARGET, 5),))
+
+    monkeypatch.setattr(delta_updates, "update_start", _update_start)
+    assert delta_updates.open_session(TARGET).closure == ((TARGET, 5),)
+    assert sent["base"] == BASE

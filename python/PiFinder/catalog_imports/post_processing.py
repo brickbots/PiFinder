@@ -148,6 +148,15 @@ def add_missing_messier_objects():
         aka_names=m45_aka_names,
     )
     m45.insert()
+    # "Cr 42" links M45 to the Collinder 42 object, which insert() does not
+    # change. Set the Pleiades values above on that shared object.
+    objects_db.update_object_by_id(
+        m45.object_id,
+        ra=m45.ra,
+        dec=m45.dec,
+        mag=m45.mag.to_json(),
+        size=m45.size.to_json(),
+    )
 
     # M24 - Sagittarius Star Cloud (no NGC equivalent, it's a dense star field)
     # RA: 18h 18m 24s = 274.6°, Dec: -18° 24′ 00″ = -18.4°

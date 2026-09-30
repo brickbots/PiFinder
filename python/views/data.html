@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  .data-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px;
+                    padding: 8px 10px; border-radius: 6px; background-color: rgba(0,0,0,0.18); }
+  .data-shortcuts .label { color: #bbb; font-size: 0.95em; margin-right: 4px; white-space: nowrap; }
+  .data-shortcuts .label i { font-size: 18px; vertical-align: middle; margin-right: 4px; color: #ef9a9a; }
+  .data-shortcuts .chip { cursor: pointer; background-color: transparent; color: #ef9a9a; margin: 0;
+                          border: 1px solid #ef9a9a; line-height: 30px; height: 32px; }
+  .data-shortcuts .chip:hover { background-color: rgba(239, 154, 154, 0.15); }
+  .data-shortcuts .chip.active { background-color: #c62828; border-color: #c62828; color: #fff; }
+  .data-shortcuts .chip i { font-size: 16px; vertical-align: middle; margin-right: 4px; }
+  .data-shortcuts select { display: none; }
+  @media only screen and (max-width: 420px) {
+    .data-shortcuts .chip { display: none; }
+    .data-shortcuts select { display: block; flex: 1 1 auto; height: 34px; padding: 0 6px;
+                             background-color: #424242; color: #eee; border: 1px solid #ef9a9a; border-radius: 4px; }
+  }
+  .data-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .data-toolbar .btn { margin-right: 0; }
+  .data-toolbar .spacer { flex: 1 1 auto; }
+  .data-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px;
+                 color: #ccc; font-size: 1.1em; margin-bottom: 8px; min-height: 32px; }
+  .data-crumbs a { color: #ef9a9a; cursor: pointer; }
+  .data-crumbs .sep { color: #777; margin: 0 4px; }
+  .data-filter { color: #ffcc80; font-size: 0.9em; margin-left: 8px; }
+  .data-filter a { color: #ef9a9a; cursor: pointer; margin-left: 4px; }
+  .data-drop { border: 2px dashed #777; border-radius: 6px; padding: 0; transition: border-color .15s, background-color .15s; }
+  .data-drop.dragover { border-color: #ef5350; background-color: rgba(239, 83, 80, 0.08); }
+  table.data-table { color: #ddd; }
+  table.data-table td, table.data-table th { padding: 6px 8px; }
+  table.data-table tr.entry { cursor: default; }
+  table.data-table tr.entry:hover { background-color: rgba(255,255,255,0.05); }
+  table.data-table td.name { word-break: break-all; }
+  table.data-table td.name a { color: #eee; cursor: pointer; }
+  table.data-table td.name a:hover { color: #ef9a9a; }
+  table.data-table td.name i { font-size: 20px; vertical-align: middle; margin-right: 6px; color: #aaa; }
+  table.data-table td.name i.folder { color: #ffb74d; }
+  table.data-table td.size, table.data-table td.mtime { white-space: nowrap; color: #aaa; }
+  table.data-table td.actions { white-space: nowrap; text-align: right; }
+  table.data-table td.actions a { color: #bbb; margin-left: 10px; cursor: pointer; }
+  table.data-table td.actions a:hover { color: #fff; }
+  table.data-table td.actions a.del:hover { color: #ef5350; }
+  table.data-table td.actions i { font-size: 20px; vertical-align: middle; }
+  table.data-table td.check { width: 28px; }
+  table.data-table td.check label { height: 20px; }
+  .data-empty { color: #888; padding: 24px; text-align: center; }
+  .data-status { color: #aaa; font-size: 0.9em; min-height: 20px; }
+  .data-progress { height: 4px; margin: 0; display: none; }
+  #modal_view { width: 90%; max-height: 90%; }
+  #modal_view .modal-content { padding-bottom: 0; }
+  #modal_view h5 { word-break: break-all; color: #ddd; margin-right: 40px; }
+  #modal_view .view-close { position: absolute; top: 12px; right: 12px; color: #bbb; cursor: pointer; }
+  #modal_view .view-close:hover { color: #fff; }
+  #modal_view .view-close i { font-size: 28px; }
+  #modal_view .modal-content, #modal_view .modal-footer { background-color: #2b2b2b; }
+  #view-text { background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+               font-size: 13px; padding: 12px; border-radius: 4px; max-height: 55vh; overflow: auto;
+               white-space: pre; margin: 0; }
+  #view-meta { color: #aaa; font-size: 0.9em; margin: 6px 0 0; }
+  @media only screen and (max-width: 600px) {
+    table.data-table td.mtime, table.data-table th.mtime { display: none; }
+  }
+</style>
+
+<div class="row valign-wrapper" style="margin: 0px;">
+  <div class="col s12">
+    <h3 class="grey-text">{{ _('Data') }}</h3>
+    <p class="grey-text">
+      {{ _('Browse the files the PiFinder saves: observing lists, captures, SQM sweeps, screenshots and more.') }}
+      {{ _('This is the same folder that is shared over SMB at') }} <code>//pifinder.local/shared</code>.
+    </p>
+  </div>
+</div>
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    <div class="data-shortcuts">
+      <span class="label"><i class="material-icons">bookmark</i>{{ _('Shortcuts') }}:</span>
+      <span id="shortcuts" style="display:contents"></span>
+      <select class="browser-default" id="shortcut-select" aria-label="{{ _('Shortcuts') }}"></select>
+    </div>
+
+    <div class="data-toolbar">
+      <a class="btn" id="btn-upload"><i class="material-icons left">file_upload</i>{{ _('Upload') }}</a>
+      <a class="btn" id="btn-mkdir"><i class="material-icons left">create_new_folder</i>{{ _('New folder') }}</a>
+      <a class="btn" id="btn-download-all" title="{{ _('Download this folder as a zip file') }}"><i class="material-icons left">archive</i>{{ _('Download folder') }}</a>
+      <span class="spacer"></span>
+      <a class="btn red darken-3" id="btn-delete-selected" style="display:none"><i class="material-icons left">delete</i>{{ _('Delete selected') }} (<span id="sel-count">0</span>)</a>
+      <input type="file" id="file-input" multiple style="display:none">
+    </div>
+
+    <div class="data-crumbs" id="crumbs"></div>
+    <div class="progress red lighten-4 data-progress" id="progress"><div class="indeterminate red"></div></div>
+
+    <div class="data-drop" id="dropzone">
+      <table class="data-table highlight">
+        <thead>
+          <tr>
+            <th class="check"><label><input type="checkbox" id="check-all"><span></span></label></th>
+            <th>{{ _('Name') }}</th>
+            <th>{{ _('Size') }}</th>
+            <th class="mtime">{{ _('Modified') }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="entries"></tbody>
+      </table>
+      <div class="data-empty" id="empty" style="display:none">{{ _('This folder is empty. Drop files here or use Upload.') }}</div>
+    </div>
+    <p class="data-status" id="status"></p>
+  </div>
+</div>
+
+<div id="modal_delete" class="modal">
+  <div class="modal-content">
+    <h4>{{ _('Delete') }}</h4>
+    <p id="delete-text"></p>
+    <p class="red-text">{{ _('Folders are deleted with everything inside them. This cannot be undone.') }}</p>
+  </div>
+  <div class="modal-footer">
+    <a href="#!" id="delete-confirm" class="modal-close btn red darken-3">{{ _('Delete') }}</a>
+    <a href="#!" class="modal-close btn-flat">{{ _('Cancel') }}</a>
+  </div>
+</div>
+
+<div id="modal_view" class="modal">
+  <a href="#!" class="modal-close view-close" title="{{ _('Close') }}"><i class="material-icons">close</i></a>
+  <div class="modal-content">
+    <h5 id="view-title"></h5>
+    <pre id="view-text"></pre>
+    <p id="view-meta"></p>
+  </div>
+  <div class="modal-footer">
+    <a href="#!" id="view-download" class="btn"><i class="material-icons left">file_download</i>{{ _('Download') }}</a>
+    <a href="#!" class="modal-close btn-flat">{{ _('Close') }}</a>
+  </div>
+</div>
+
+<div id="modal_mkdir" class="modal">
+  <div class="modal-content">
+    <h4>{{ _('New folder') }}</h4>
+    <div class="input-field">
+      <input id="mkdir-name" type="text">
+      <label for="mkdir-name">{{ _('Folder name') }}</label>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <a href="#!" id="mkdir-confirm" class="modal-close btn">{{ _('Create') }}</a>
+    <a href="#!" class="modal-close btn-flat">{{ _('Cancel') }}</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const T = {
+    loading: "{{ _('Loading…') }}",
+    root: "{{ _('PiFinder data') }}",
+    items: "{{ _('items') }}",
+    filter: "{{ _('showing only') }}",
+    clear: "{{ _('show all') }}",
+    download: "{{ _('Download') }}",
+    del: "{{ _('Delete') }}",
+    deleteOne: "{{ _('Delete “%s”?') }}",
+    deleteMany: "{{ _('Delete %s selected items?') }}",
+    uploading: "{{ _('Uploading %s…') }}",
+    uploaded: "{{ _('Uploaded %s file(s)') }}",
+    deleted: "{{ _('Deleted %s item(s)') }}",
+    created: "{{ _('Folder created') }}",
+    failed: "{{ _('Error') }}",
+    pick: "{{ _('Go to…') }}",
+    truncated: "{{ _('Showing the first %s of this file. Download it to see everything.') }}",
+    view: "{{ _('View') }}",
+  };
+  const fmt = (s, v) => s.replace('%s', v);
+
+  let currentPath = {{ start_path | tojson }};
+  let currentPattern = {{ start_pattern | tojson }};
+  let entries = [];
+  let deleteTargets = [];
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const q = (p) => encodeURIComponent(p || '');
+
+  function humanSize(n) {
+    if (n === null || n === undefined) return '—';
+    const u = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return (i === 0 ? n : n.toFixed(1)) + ' ' + u[i];
+  }
+  function humanTime(t) {
+    const d = new Date(t * 1000);
+    const p = (x) => String(x).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  function setStatus(msg, isError) {
+    const el = $('status');
+    el.textContent = msg || '';
+    el.style.color = isError ? '#ef5350' : '#aaa';
+  }
+  function busy(on) { $('progress').style.display = on ? 'block' : 'none'; }
+
+  function iconFor(e) {
+    if (e.is_dir) return 'folder';
+    const n = e.name.toLowerCase();
+    if (/\.(png|jpe?g|gif|bmp|tiff?)$/.test(n)) return 'image';
+    if (/\.(json|txt|csv|tsv|log|md)$/.test(n)) return 'description';
+    if (/\.(zip|gz|tgz|tar)$/.test(n)) return 'archive';
+    if (/\.(db|sqlite)$/.test(n)) return 'storage';
+    return 'insert_drive_file';
+  }
+
+  function navigate(path, pattern) {
+    currentPath = path || '';
+    currentPattern = pattern || '';
+    const url = new URL(window.location);
+    if (currentPath) url.searchParams.set('path', currentPath); else url.searchParams.delete('path');
+    if (currentPattern) url.searchParams.set('pattern', currentPattern); else url.searchParams.delete('pattern');
+    history.replaceState(null, '', url);
+    load();
+  }
+
+  async function load() {
+    busy(true);
+    setStatus(T.loading);
+    try {
+      const r = await fetch(`/data/api/list?path=${q(currentPath)}&pattern=${q(currentPattern)}`);
+      const d = await r.json();
+      if (d.status !== 'ok') {
+        if (currentPath) { navigate('', ''); return; }
+        setStatus(d.message, true);
+        return;
+      }
+      entries = d.entries;
+      renderShortcuts(d.shortcuts);
+      renderCrumbs(d);
+      renderEntries();
+      setStatus(`${entries.length} ${T.items}`);
+    } catch (e) {
+      setStatus(`${T.failed}: ${e}`, true);
+    } finally {
+      busy(false);
+    }
+  }
+
+  function renderShortcuts(list) {
+    const host = $('shortcuts');
+    host.innerHTML = '';
+    const sel = $('shortcut-select');
+    sel.innerHTML = `<option value="">${T.pick}</option>`;
+    list.forEach((sc, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = sc.label;
+      if (sc.path === currentPath && (sc.pattern || '') === currentPattern) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.onchange = () => { const sc = list[sel.value]; if (sc) navigate(sc.path, sc.pattern); };
+    list.forEach(sc => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      const active = sc.path === currentPath && (sc.pattern || '') === currentPattern;
+      if (active) chip.classList.add('active');
+      chip.title = sc.description;
+      chip.innerHTML = `<i class="material-icons">${sc.pattern ? 'filter_list' : 'folder'}</i>${esc(sc.label)}`;
+      chip.onclick = () => navigate(sc.path, sc.pattern);
+      host.appendChild(chip);
+    });
+  }
+
+  function renderCrumbs(d) {
+    const host = $('crumbs');
+    host.innerHTML = '';
+    const rootA = document.createElement('a');
+    rootA.innerHTML = `<i class="material-icons" style="vertical-align:middle;font-size:20px">home</i> ${T.root}`;
+    rootA.onclick = () => navigate('', '');
+    host.appendChild(rootA);
+    d.breadcrumbs.forEach((c, i) => {
+      const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = '/';
+      host.appendChild(sep);
+      const isLast = i === d.breadcrumbs.length - 1;
+      const el = document.createElement(isLast ? 'span' : 'a');
+      el.textContent = c.name;
+      if (!isLast) el.onclick = () => navigate(c.path, '');
+      host.appendChild(el);
+    });
+    if (d.pattern) {
+      const f = document.createElement('span');
+      f.className = 'data-filter';
+      f.innerHTML = `${T.filter} <code>${esc(d.pattern)}</code><a>(${T.clear})</a>`;
+      f.querySelector('a').onclick = () => navigate(currentPath, '');
+      host.appendChild(f);
+    }
+  }
+
+  function renderEntries() {
+    const tbody = $('entries');
+    tbody.innerHTML = '';
+    $('empty').style.display = entries.length ? 'none' : 'block';
+    $('check-all').checked = false;
+    entries.forEach((e, idx) => {
+      const tr = document.createElement('tr');
+      tr.className = 'entry';
+      tr.innerHTML = `
+        <td class="check"><label><input type="checkbox" class="sel" data-idx="${idx}"><span></span></label></td>
+        <td class="name"><a><i class="material-icons ${e.is_dir ? 'folder' : ''}">${iconFor(e)}</i>${esc(e.name)}</a></td>
+        <td class="size">${e.is_dir ? '—' : humanSize(e.size)}</td>
+        <td class="mtime">${humanTime(e.mtime)}</td>
+        <td class="actions">
+          <a class="dl" title="${T.download}" href="/data/download?path=${q(e.path)}"><i class="material-icons">file_download</i></a>
+          <a class="del" title="${T.del}"><i class="material-icons">delete</i></a>
+        </td>`;
+      const nameA = tr.querySelector('td.name a');
+      if (e.is_dir) {
+        nameA.onclick = () => navigate(e.path, '');
+      } else if (e.is_text) {
+        nameA.title = T.view;
+        nameA.onclick = () => viewFile(e);
+      } else {
+        nameA.href = `/data/download?path=${q(e.path)}`;
+      }
+      tr.querySelector('a.del').onclick = () => askDelete([e]);
+      tr.querySelector('input.sel').onchange = updateSelection;
+      tbody.appendChild(tr);
+    });
+    updateSelection();
+  }
+
+  function selected() {
+    return Array.from(document.querySelectorAll('input.sel:checked')).map(cb => entries[cb.dataset.idx]);
+  }
+  function updateSelection() {
+    const n = selected().length;
+    $('sel-count').textContent = n;
+    $('btn-delete-selected').style.display = n ? 'inline-block' : 'none';
+  }
+
+  function askDelete(targets) {
+    deleteTargets = targets;
+    $('delete-text').textContent = targets.length === 1
+      ? fmt(T.deleteOne, targets[0].name)
+      : fmt(T.deleteMany, targets.length);
+    M.Modal.getInstance($('modal_delete')).open();
+  }
+
+  async function doDelete() {
+    const paths = deleteTargets.map(t => t.path);
+    busy(true);
+    try {
+      const r = await fetch('/data/api/delete', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({paths}),
+      });
+      const d = await r.json();
+      if (d.status === 'ok') M.toast({html: fmt(T.deleted, d.deleted.length)});
+      else M.toast({html: `${T.failed}: ${esc(d.message)}`, classes: 'red darken-3'});
+    } finally {
+      busy(false);
+      load();
+    }
+  }
+
+  async function viewFile(e) {
+    busy(true);
+    try {
+      const r = await fetch(`/data/api/view?path=${q(e.path)}`);
+      const d = await r.json();
+      if (d.status !== 'ok') { M.toast({html: `${T.failed}: ${esc(d.message)}`, classes: 'red darken-3'}); return; }
+      $('view-title').textContent = e.path;
+      $('view-text').textContent = d.text;
+      $('view-meta').textContent = d.truncated ? fmt(T.truncated, humanSize(d.text.length)) : humanSize(d.size);
+      $('view-download').href = `/data/download?path=${q(e.path)}`;
+      M.Modal.getInstance($('modal_view')).open();
+      $('view-text').scrollTop = 0;
+    } catch (err) {
+      M.toast({html: `${T.failed}: ${esc(err)}`, classes: 'red darken-3'});
+    } finally {
+      busy(false);
+    }
+  }
+
+  async function uploadFiles(files) {
+    if (!files || !files.length) return;
+    const fd = new FormData();
+    fd.append('path', currentPath);
+    Array.from(files).forEach(f => fd.append('files', f, f.name));
+    busy(true);
+    setStatus(fmt(T.uploading, files.length === 1 ? files[0].name : files.length + ' files'));
+    try {
+      const r = await fetch('/data/api/upload', {method: 'POST', body: fd});
+      const d = await r.json();
+      if (d.status === 'ok') {
+        M.toast({html: fmt(T.uploaded, d.saved.length)});
+        currentPattern = '';  // show the new files even inside a filtered view
+      } else {
+        M.toast({html: `${T.failed}: ${esc(d.message)}`, classes: 'red darken-3'});
+      }
+    } catch (e) {
+      M.toast({html: `${T.failed}: ${esc(e)}`, classes: 'red darken-3'});
+    } finally {
+      busy(false);
+      navigate(currentPath, currentPattern);
+    }
+  }
+
+  async function doMkdir() {
+    const name = $('mkdir-name').value.trim();
+    if (!name) return;
+    const r = await fetch('/data/api/mkdir', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({path: currentPath, name}),
+    });
+    const d = await r.json();
+    if (d.status === 'ok') { M.toast({html: T.created}); $('mkdir-name').value = ''; }
+    else M.toast({html: `${T.failed}: ${esc(d.message)}`, classes: 'red darken-3'});
+    load();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    M.Modal.init(document.querySelectorAll('.modal'));
+    $('btn-upload').onclick = () => $('file-input').click();
+    $('file-input').onchange = (ev) => { uploadFiles(ev.target.files); ev.target.value = ''; };
+    $('btn-mkdir').onclick = () => {
+      M.Modal.getInstance($('modal_mkdir')).open();
+      setTimeout(() => $('mkdir-name').focus(), 200);
+    };
+    $('mkdir-name').addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { M.Modal.getInstance($('modal_mkdir')).close(); doMkdir(); }
+    });
+    $('mkdir-confirm').onclick = doMkdir;
+    $('delete-confirm').onclick = doDelete;
+    $('btn-delete-selected').onclick = () => askDelete(selected());
+    $('btn-download-all').onclick = () => { window.location = `/data/download?path=${q(currentPath)}`; };
+    $('check-all').onchange = (ev) => {
+      document.querySelectorAll('input.sel').forEach(cb => cb.checked = ev.target.checked);
+      updateSelection();
+    };
+
+    const dz = $('dropzone');
+    ['dragenter', 'dragover'].forEach(evn => dz.addEventListener(evn, (ev) => {
+      ev.preventDefault(); dz.classList.add('dragover');
+    }));
+    ['dragleave', 'drop'].forEach(evn => dz.addEventListener(evn, (ev) => {
+      ev.preventDefault(); dz.classList.remove('dragover');
+    }));
+    dz.addEventListener('drop', (ev) => uploadFiles(ev.dataTransfer.files));
+
+    load();
+  });
+})();
+</script>
+{% endblock %}

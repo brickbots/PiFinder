@@ -1,0 +1,710 @@
+"""Delta prefetch for NixOS upgrades.
+
+Before nixos_upgrade lets nix download whole store paths, this module asks the
+delta server for byte-level patches against store paths the device already
+holds (any retained generation), and rebuilds the target NARs from them. The
+rebuilt NARs go into a local file:// binary cache, which the upgrade's
+`nix build` uses as its preferred substituter. Every path it finds there is a
+path nix no longer downloads.
+
+Protocol (server: pifinder-differ):
+    POST {url}/update-start {"target_toplevel": "/nix/store/...",
+                             "base_toplevel": "/nix/store/..."}
+      200  {"session", "budget", "expires_in", "closure"}  per-update
+           request budget, sized by the server from the target closure. The
+           session token goes in an x-update-session header on every later
+           request. "closure" lists the target closure as [store path, NAR
+           size] pairs; an older server leaves it out.
+           base_toplevel is the running system. The server starts to patch
+           this exact step at once.
+    POST {url}/deltas {"targets": [{"target": ..., "bases": [...]}, ...]}
+      200  a stream of JSON lines, one per target as soon as its patch is
+           decided: {"target", "state": "hit", "delta": {...as /delta...}},
+           {"target", "state": "none"} or {"target", "state": "wait"};
+           {"state": "heartbeat"} while it waits, {"state": "end"} last.
+           Targets with no line (a cut stream, an older server) and "wait"
+           targets are asked again one by one with /delta.
+    POST {url}/delta {"target": "/nix/store/...", "bases": ["/nix/store/..."]}
+      200  {"url", "size", "window_log", "nar_sha256", "references",
+            "deriver", "basis": [...]}          patch ready
+      202  computing — retry after a short wait
+      204  no basis worth using — full download
+    GET  {url}{blob url}                        the patch bytes
+
+A patch reconstructs the target's NAR from the base's NAR (`nix-store --dump`
+on both ends is canonical, so the server and the device see identical base
+bytes). The delta server is not trusted for content. Each rebuilt NAR is
+staged with the target's signed .narinfo from the binary cache, and nix
+itself substitutes it: it checks the signature against the configured
+trusted-public-keys and the NarHash, NarSize and references, the same as for
+a normal download, and it puts the paths in dependency order. The narinfo
+signature covers only the path, NarHash, NarSize and references, so the local
+copy may change URL and Compression. nar_sha256 from /delta is a cheap early
+check before staging.
+
+Best-effort throughout: every failure path leaves the work to the binary
+cache. Disabled unless PIFINDER_DELTA_URL is set (wired through the
+pifinder.deltaUrl NixOS option).
+
+Standard-library only, like nixos_upgrade.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+import os
+import shutil
+import subprocess
+import tempfile
+import time
+import urllib.error
+import urllib.request
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable, Optional
+
+logger = logging.getLogger("PiFinder.delta_updates")
+
+STORE_DIR = Path("/nix/store")
+CURRENT_SYSTEM = Path("/run/current-system")
+
+# Scratch space for patches and NARs. It must be on the SD card: /tmp is a
+# 200 MiB tmpfs on the device, smaller than FREE_SPACE_SLACK alone.
+WORK_ROOT = Path("/var/lib/pifinder/delta-work")
+
+# A 202 means the server is computing that pair. The device asks for every
+# path first, then waits RETRY_WAIT once and asks again for the paths that
+# were not ready, for at most RETRIES rounds. A path that is still not ready
+# downloads in full. So a cold build costs at most RETRIES * RETRY_WAIT
+# seconds of waiting, not RETRY_WAIT per path. The server's first pass takes
+# under a second for most paths, so short waits find them sooner.
+REQUEST_TIMEOUT = 20
+RETRY_WAIT = 5
+RETRIES = 12
+
+# The /deltas stream sends a heartbeat line every 10 s while it waits; a read
+# that waits longer than this means the stream is cut.
+STREAM_READ_TIMEOUT = 30
+
+# Candidate bases sent per target. More candidates cost bytes and server
+# ranking time and rarely beat the newest same-stem path.
+MAX_CANDIDATES = 3
+
+# Decode memory is 2^window_log bytes. 28 = 256 MiB, the most a Pi 4 should
+# spend mid-upgrade; the server raises window_log with NAR size, so this also
+# caps how large a patched path can be.
+MAX_WINDOW_LOG = 28
+
+# Applying needs base NAR + patch + reconstructed NAR on disk at once, plus
+# slack for the rest of the upgrade.
+FREE_SPACE_SLACK = 512 * 1024 * 1024
+
+# Paths patched at the same time. The server computes misses with 2 workers;
+# most work here is waiting on the network and on nix-store --dump.
+WORKERS = 3
+
+# The staged cache must win over cache.pifinder.eu (Priority 41) and
+# cache.nixos.org (40). Lower is preferred.
+STAGED_CACHE_PRIORITY = 10
+
+
+def enabled() -> bool:
+    return bool(os.environ.get("PIFINDER_DELTA_URL"))
+
+
+def _delta_url() -> str:
+    return os.environ["PIFINDER_DELTA_URL"].rstrip("/")
+
+
+# --------------------------------------------------------------------------
+# Candidate selection: newest same-stem paths already in the store.
+
+
+def stem(name: str) -> str:
+    """Package name with trailing version-ish components dropped.
+
+    "python3.13-numpy-2.1.3" -> "python3.13-numpy"
+    """
+    parts = name.split("-")
+    while len(parts) > 1 and parts[-1][:1].isdigit():
+        parts.pop()
+    return "-".join(parts)
+
+
+def split_store_path(path: str) -> tuple[str, str] | None:
+    """ "/nix/store/<32hash>-name" -> (hash, name), or None."""
+    base = os.path.basename(path)
+    if len(base) < 34 or base[32] != "-":
+        return None
+    digest, name = base[:32], base[33:]
+    if not all(c.islower() or c.isdigit() for c in digest) or not name:
+        return None
+    return digest, name
+
+
+def local_store_index(store_dir: Path = STORE_DIR) -> dict[str, list[str]]:
+    """stem -> store paths present locally, across all retained generations."""
+    index: dict[str, list[str]] = {}
+    try:
+        entries = list(store_dir.iterdir())
+    except OSError:
+        return index
+    for entry in entries:
+        if entry.name.endswith((".drv", ".lock")):
+            continue
+        parts = split_store_path(str(entry))
+        if parts is None:
+            continue
+        index.setdefault(stem(parts[1]), []).append(str(entry))
+    return index
+
+
+def basis_candidates(
+    target: str, index: dict[str, list[str]], limit: int = MAX_CANDIDATES
+) -> list[str]:
+    """Local paths most likely to resemble `target`, best guess first.
+
+    Newest first: the most recently created path of the same package is
+    almost always the closest in content, and needs no version parsing.
+    """
+    parts = split_store_path(target)
+    if parts is None:
+        return []
+    target_base = os.path.basename(target)
+    hits = [
+        p for p in index.get(stem(parts[1]), []) if os.path.basename(p) != target_base
+    ]
+
+    def _mtime(p: str) -> float:
+        try:
+            return Path(p).stat().st_mtime
+        except OSError:
+            return 0.0
+
+    hits.sort(key=_mtime, reverse=True)
+    return hits[:limit]
+
+
+# --------------------------------------------------------------------------
+# Server protocol.
+
+
+def current_system(link: Path = CURRENT_SYSTEM) -> str | None:
+    """Store path of the running system, or None."""
+    try:
+        path = str(link.resolve(strict=True))
+    except OSError:
+        return None
+    return path if split_store_path(path) else None
+
+
+@dataclass(frozen=True)
+class UpdateSession:
+    token: str
+    # The target closure as (store path, NAR size), or () when the server
+    # sent none or sent a malformed list.
+    closure: tuple[tuple[str, int], ...] = ()
+
+
+def parse_closure(raw: object) -> tuple[tuple[str, int], ...]:
+    """The "closure" field of an /update-start reply. One bad entry rejects
+    the whole list: a partial closure gives a wrong set of missing paths."""
+    if not isinstance(raw, list):
+        return ()
+    closure: list[tuple[str, int]] = []
+    for entry in raw:
+        if not (isinstance(entry, list) and len(entry) == 2):
+            return ()
+        path, size = entry
+        if not isinstance(path, str) or split_store_path(path) is None:
+            return ()
+        if not path.startswith(f"{STORE_DIR}/"):
+            return ()
+        if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+            return ()
+        closure.append((path, size))
+    return tuple(closure)
+
+
+def open_session(target_toplevel: str) -> UpdateSession | None:
+    """A session for this upgrade, or None when deltas are off or the server
+    does not answer. Never raises."""
+    if not enabled():
+        return None
+    try:
+        return update_start(target_toplevel, current_system())
+    except Exception as exc:  # noqa: BLE001 — must never break the upgrade
+        logger.warning("update-start failed: %s", exc)
+        return None
+
+
+def start_session(target_toplevel: str, base_toplevel: str | None = None) -> str | None:
+    """Open the per-update session and return its token. The server sizes the
+    request budget from the target closure; without a session every later
+    request is refused, so None disables the prefetch for this run."""
+    session = update_start(target_toplevel, base_toplevel)
+    return session.token if session else None
+
+
+def update_start(
+    target_toplevel: str, base_toplevel: str | None = None
+) -> UpdateSession | None:
+    """POST /update-start: the session token and the target closure."""
+    request = {"target_toplevel": target_toplevel}
+    if base_toplevel:
+        request["base_toplevel"] = base_toplevel
+    body = json.dumps(request).encode()
+    req = urllib.request.Request(
+        f"{_delta_url()}/update-start",
+        data=body,
+        headers={"content-type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
+            reply = json.load(resp)
+    except (urllib.error.URLError, OSError, TimeoutError, ValueError) as exc:
+        logger.warning("update-start failed: %s", exc)
+        return None
+    if not isinstance(reply, dict):
+        return None
+    token = reply.get("session")
+    if not token or not isinstance(token, str):
+        return None
+    return UpdateSession(token, parse_closure(reply.get("closure")))
+
+
+def request_delta(target: str, bases: list[str], session: str) -> tuple[str, dict]:
+    """One POST /delta. Returns (state, info) with state one of
+    "hit" (info = server response), "wait", "none", "error"."""
+    body = json.dumps({"target": target, "bases": bases}).encode()
+    req = urllib.request.Request(
+        f"{_delta_url()}/delta",
+        data=body,
+        headers={
+            "content-type": "application/json",
+            "x-update-session": session,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
+            if resp.status == 200:
+                return "hit", json.load(resp)
+            if resp.status == 202:
+                return "wait", {}
+            return "none", {}
+    except urllib.error.HTTPError as exc:
+        if exc.code == 202:
+            return "wait", {}
+        if exc.code == 204:
+            return "none", {}
+        logger.warning("delta request for %s: HTTP %s", target, exc.code)
+        return "error", {}
+    except (urllib.error.URLError, OSError, TimeoutError, ValueError) as exc:
+        logger.warning("delta request for %s: %s", target, exc)
+        return "error", {}
+
+
+def stream_deltas(
+    jobs: list[tuple[str, list[str]]],
+    session: str,
+    on_line: Callable[[str, str, dict], None],
+) -> bool:
+    """One POST /deltas for all jobs. Calls on_line(target, state, delta)
+    for each target line as it arrives (state "hit", "none" or "wait").
+    Returns True when the stream reached its "end" line; False when it was
+    cut or the server has no /deltas. Never raises."""
+    body = json.dumps(
+        {"targets": [{"target": t, "bases": b} for t, b in jobs]}
+    ).encode()
+    req = urllib.request.Request(
+        f"{_delta_url()}/deltas",
+        data=body,
+        headers={"content-type": "application/json", "x-update-session": session},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=STREAM_READ_TIMEOUT) as resp:
+            for raw in resp:
+                line = json.loads(raw)
+                state = line.get("state")
+                if state == "end":
+                    return True
+                if state in ("hit", "none", "wait") and line.get("target"):
+                    on_line(line["target"], state, line.get("delta") or {})
+    except urllib.error.HTTPError as exc:
+        logger.info("delta stream not available: HTTP %s", exc.code)
+    except (urllib.error.URLError, OSError, TimeoutError, ValueError) as exc:
+        logger.warning("delta stream cut: %s", exc)
+    return False
+
+
+# --------------------------------------------------------------------------
+# Verified import through a local binary cache.
+
+
+def fetch_narinfo(target: str, caches: tuple[str, ...]) -> str | None:
+    """The target's signed .narinfo from the first cache that has it."""
+    parts = split_store_path(target)
+    if parts is None:
+        return None
+    for cache in caches:
+        url = f"{cache.rstrip('/')}/{parts[0]}.narinfo"
+        try:
+            with urllib.request.urlopen(url, timeout=REQUEST_TIMEOUT) as resp:
+                return resp.read().decode()
+        except (urllib.error.URLError, OSError, TimeoutError, UnicodeDecodeError):
+            continue
+    return None
+
+
+# Fields that describe the cache's compressed file, not the NAR. The signature
+# does not cover them, so the local copy replaces them.
+_FILE_FIELDS = ("URL", "Compression", "FileHash", "FileSize")
+
+
+def local_cache_narinfo(narinfo: str, target: str, nar_name: str) -> str:
+    """Rewrite a cache narinfo to point at an uncompressed local NAR.
+
+    Keeps StorePath, NarHash, NarSize, References, Deriver and every Sig line
+    as served. Raises DeltaError if the narinfo is for another path or has no
+    signature.
+    """
+    kept: list[str] = []
+    store_path = ""
+    has_sig = False
+    for line in narinfo.splitlines():
+        key, sep, value = line.partition(": ")
+        if not sep:
+            continue
+        if key == "StorePath":
+            store_path = value.strip()
+        if key == "Sig":
+            has_sig = True
+        if key in _FILE_FIELDS:
+            continue
+        kept.append(line)
+    if store_path != target:
+        raise DeltaError(f"narinfo is for {store_path!r}, not {target}")
+    if not has_sig:
+        raise DeltaError(f"narinfo for {target} has no signature")
+    kept += [f"URL: nar/{nar_name}", "Compression: none"]
+    return "\n".join(kept) + "\n"
+
+
+class DeltaError(RuntimeError):
+    """A delta could not be applied; the path falls back to a download."""
+
+
+# --------------------------------------------------------------------------
+# Apply one patch.
+
+
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for block in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def _download(url: str, dest: Path, session: str) -> None:
+    req = urllib.request.Request(url, headers={"x-update-session": session})
+    with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
+        with dest.open("wb") as f:
+            shutil.copyfileobj(resp, f, 1024 * 1024)
+
+
+def stage_delta(
+    target: str,
+    info: dict,
+    jobdir: Path,
+    cache: Path,
+    session: str = "",
+    caches: tuple[str, ...] = (),
+) -> None:
+    """Rebuild `target` from a local base plus the served patch and put it,
+    with its signed narinfo, into the staged binary cache `cache`. Raises
+    DeltaError on any problem. Nothing enters the store here: nix does that
+    during the build, after its signature and hash checks."""
+    basis = info.get("basis") or []
+    base = basis[0] if basis else None
+    window_log = int(info.get("window_log") or 0)
+    nar_sha256 = info.get("nar_sha256") or ""
+    nar_size = int(info.get("nar_size") or 0)
+    if not base or not nar_sha256 or not window_log:
+        raise DeltaError(f"malformed delta response for {target}")
+    if window_log > MAX_WINDOW_LOG:
+        raise DeltaError(f"window 2^{window_log} exceeds device budget")
+    if not Path(base).exists():
+        raise DeltaError(f"basis {base} disappeared")
+    parts = split_store_path(target)
+    if parts is None:
+        raise DeltaError(f"not a store path: {target}")
+
+    narinfo = fetch_narinfo(target, caches)
+    if narinfo is None:
+        raise DeltaError(f"no signed narinfo for {target}")
+    nar_name = f"{parts[0]}.nar"
+    local_narinfo = local_cache_narinfo(narinfo, target, nar_name)
+
+    try:
+        jobdir.mkdir(parents=True, exist_ok=True)
+        free = shutil.disk_usage(jobdir).free
+    except OSError as exc:
+        raise DeltaError(f"work dir {jobdir}: {exc}") from exc
+    need = 2 * nar_size + int(info.get("size") or 0) + FREE_SPACE_SLACK
+    if free < need:
+        shutil.rmtree(jobdir, ignore_errors=True)
+        raise DeltaError(f"not enough free space ({free} < {need})")
+
+    patch = jobdir / "patch.zst"
+    base_nar = jobdir / "base.nar"
+    new_nar = jobdir / "new.nar"
+    try:
+        _download(f"{_delta_url()}{info['url']}", patch, session)
+
+        # A corrupt local base gives a NAR whose hash does not match; nix then
+        # refuses it and downloads the path. No separate base check needed.
+        with base_nar.open("wb") as f:
+            dump = subprocess.run(["nix-store", "--dump", base], stdout=f, timeout=600)
+        if dump.returncode != 0:
+            raise DeltaError(f"nix-store --dump {base} failed")
+
+        unzstd = subprocess.run(
+            [
+                "zstd",
+                "-dq",
+                "--force",
+                f"--long={window_log}",
+                f"--patch-from={base_nar}",
+                str(patch),
+                "-o",
+                str(new_nar),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        if unzstd.returncode != 0:
+            raise DeltaError(f"zstd failed: {unzstd.stderr.strip()}")
+
+        # Early check only: a bad patch stops here. Nix checks the signed hash
+        # when it substitutes from the staged cache.
+        digest = _sha256(new_nar)
+        if digest != nar_sha256:
+            raise DeltaError(
+                f"reconstructed NAR hash mismatch ({digest} != {nar_sha256})"
+            )
+
+        new_nar.replace(cache / "nar" / nar_name)
+        (cache / f"{parts[0]}.narinfo").write_text(local_narinfo)
+    except (OSError, subprocess.TimeoutExpired, urllib.error.URLError) as exc:
+        raise DeltaError(str(exc)) from exc
+    finally:
+        shutil.rmtree(jobdir, ignore_errors=True)
+
+
+def _work_root(root: Path = WORK_ROOT) -> str | None:
+    """Create the scratch root and remove what an interrupted run left there.
+
+    None (the system temp dir) if it cannot be created.
+    """
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        for stale in root.glob("pifinder-delta.*"):
+            shutil.rmtree(stale, ignore_errors=True)
+        return str(root)
+    except OSError as exc:
+        logger.warning("delta work dir %s unusable: %s", root, exc)
+        return None
+
+
+@dataclass
+class StagedCache:
+    """Patched NARs ready for the build. `url` is None when nothing is staged."""
+
+    root: Optional[Path] = None
+    count: int = 0
+    failed: int = 0
+    # NAR bytes of the staged paths: nix copies them from the staged cache,
+    # so they are not part of the download.
+    nar_bytes: int = 0
+
+    @property
+    def url(self) -> Optional[str]:
+        if self.root is None or self.count == 0:
+            return None
+        return f"file://{self.root / 'cache'}"
+
+    def cleanup(self) -> None:
+        if self.root is not None:
+            shutil.rmtree(self.root, ignore_errors=True)
+
+
+# --------------------------------------------------------------------------
+# The one entry point nixos_upgrade calls.
+
+
+def prefetch_deltas(
+    target_toplevel: str,
+    paths: tuple[str, ...],
+    caches: tuple[str, ...] = (),
+    progress: Optional[Callable[[str, int, int], None]] = None,
+    session: Optional[str] = None,
+) -> StagedCache:
+    """Stage patches for the missing paths. Returns the staged cache; the
+    caller passes its url to nix build and calls cleanup() afterwards.
+
+    `caches` are the binary caches that serve the signed narinfo for each
+    path. With none, nothing can be staged. `progress(step, done, total)`
+    reports the step and its progress:
+      "asking"    done of total paths asked for a patch in this round
+      "waiting"   done of total patches are decided (ready or no patch)
+      "applying"  done of total patches downloaded and applied
+
+    Best-effort: any failure — server down, patch broken, disk full — just
+    means that path substitutes from the binary cache as before. Must never
+    raise.
+
+    `session` is a session from start_session, opened earlier so that the
+    server starts to patch while the caller works out the missing paths.
+    Without one, this opens a session itself.
+    """
+    staged = StagedCache()
+    if not enabled() or not caches:
+        return staged
+    # For the summary line: missing paths, and those with no local base.
+    missing = 0
+    no_basis = 0
+    try:
+        if session is None:
+            session = start_session(target_toplevel, current_system())
+        if session is None:
+            return staged
+        index = local_store_index()
+        jobs: list[tuple[str, list[str]]] = []
+        for target in paths:
+            if Path(target).exists():
+                continue
+            missing += 1
+            bases = basis_candidates(target, index)
+            if bases:
+                jobs.append((target, bases))
+            else:
+                no_basis += 1
+        if jobs:
+            _stage_all(staged, jobs, session, caches, progress)
+    except Exception as exc:  # noqa: BLE001 — must never break the upgrade
+        logger.warning("delta prefetch aborted: %s", exc)
+    if missing:
+        logger.info(
+            "delta prefetch: %d of %d missing path(s) staged as patches; "
+            "%d had no local base, %d patch(es) failed, %d download in full",
+            staged.count,
+            missing,
+            no_basis,
+            staged.failed,
+            missing - staged.count,
+        )
+    return staged
+
+
+def _stage_all(
+    staged: StagedCache,
+    jobs: list[tuple[str, list[str]]],
+    session: str,
+    caches: tuple[str, ...],
+    progress: Optional[Callable[[str, int, int], None]],
+) -> None:
+    """Ask for a patch for every job, then stage the hits into a new cache."""
+    root = Path(tempfile.mkdtemp(prefix="pifinder-delta.", dir=_work_root()))
+    staged.root = root
+    cache = root / "cache"
+    (cache / "nar").mkdir(parents=True)
+    (cache / "nix-cache-info").write_text(
+        f"StoreDir: /nix/store\nPriority: {STAGED_CACHE_PRIORITY}\n"
+    )
+
+    def report(step: str, done: int, total: int) -> None:
+        if progress:
+            progress(step, done, total)
+
+    def apply(hit: tuple[int, str, dict]) -> tuple[str, int]:
+        """("staged", NAR bytes) or ("failed", 0)."""
+        n, target, info = hit
+        try:
+            stage_delta(target, info, root / f"job{n}", cache, session, caches)
+            return "staged", int(info.get("nar_size") or 0)
+        except Exception as exc:  # noqa: BLE001 — one path must not stop the rest
+            logger.warning("delta for %s failed: %s", target, exc)
+            return "failed", 0
+
+    def ask(job: tuple[int, tuple[str, list[str]]]) -> tuple[str, dict]:
+        _n, (target, bases) = job
+        return request_delta(target, bases, session)
+
+    index = {target: n for n, (target, _bases) in enumerate(jobs)}
+    # "hit" or "none" is final; "wait" or no line yet is still open.
+    answered: dict[str, str] = {}
+    applying: list[Future] = []
+    results: list[tuple[str, int]] = []
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+
+        def start(n: int, target: str, info: dict) -> None:
+            applying.append(pool.submit(apply, (n, target, info)))
+
+        def open_count() -> int:
+            return sum(1 for t, _b in jobs if answered.get(t) not in ("hit", "none"))
+
+        def on_line(target: str, state: str, info: dict) -> None:
+            n = index.get(target)
+            if n is None or answered.get(target) in ("hit", "none"):
+                return
+            answered[target] = state
+            if state == "hit":
+                start(n, target, info)
+            report("waiting", len(jobs) - open_count(), len(jobs))
+
+        # One stream for all paths: each patch is applied as soon as it is
+        # ready, while the server still computes the others.
+        report("asking", 0, len(jobs))
+        stream_deltas(jobs, session, on_line)
+
+        # The paths the stream left open (cut stream, older server, still
+        # computing) are asked again one by one, in rounds with one wait.
+        pending = [
+            (n, (t, b))
+            for n, (t, b) in enumerate(jobs)
+            if answered.get(t) not in ("hit", "none")
+        ]
+        for round_no in range(RETRIES + 1):
+            if not pending:
+                break
+            if round_no > 0:
+                report("waiting", len(jobs) - len(pending), len(jobs))
+                time.sleep(RETRY_WAIT)
+            not_ready = []
+            with ThreadPoolExecutor(max_workers=WORKERS) as asker:
+                for job, (state, info) in zip(pending, asker.map(ask, pending)):
+                    if state == "hit":
+                        start(job[0], job[1][0], info)
+                    elif state == "wait":
+                        not_ready.append(job)
+            pending = not_ready
+        if pending:
+            logger.info(
+                "delta: %d path(s) not ready, they download in full", len(pending)
+            )
+
+        report("applying", 0, len(applying))
+        for future in as_completed(applying):
+            results.append(future.result())
+            report("applying", len(results), len(applying))
+    staged.count = sum(1 for result, _size in results if result == "staged")
+    staged.nar_bytes = sum(size for result, size in results if result == "staged")
+    staged.failed = sum(1 for result, _size in results if result == "failed")

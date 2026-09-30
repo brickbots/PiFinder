@@ -21,7 +21,7 @@ from PiFinder import timez
 from PiFinder.locations import Location as SavedLocation
 from PiFinder.optics import resolve_camera_profile, resolve_lens
 from PiFinder.state import Location
-from PiFinder.ui.base import UIModule
+from PiFinder.ui.base import CurrentSnapshot, UIModule
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.catalogs import CatalogFilter
 from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
@@ -60,7 +60,7 @@ def reset_filters(ui_module: UIModule) -> None:
     """
     ui_module.config_object.reset_filters()
 
-    new_filter = CatalogFilter(shared_state=ui_module.shared_state)
+    new_filter = CatalogFilter(shared_state=CurrentSnapshot())
     new_filter.load_from_config(ui_module.config_object)
 
     ui_module.catalogs.set_catalog_filter(new_filter)
@@ -72,13 +72,18 @@ def reset_filters(ui_module: UIModule) -> None:
 
 def activate_debug(ui_module: UIModule) -> None:
     """
-    Sets camera into debug
-    add fake gps info
+    Toggles test mode (fake camera image + fake GPS).
+    Main flips shared_state/config; the camera process follows
+    shared_state.test_mode() on its own.
     """
-    ui_module.command_queues["camera"].put("debug")
-    ui_module.command_queues["console"].put("Test Mode Activated")
     ui_module.command_queues["ui_queue"].put("test_mode")
-    ui_module.message(_("Test Mode"))
+
+
+def test_mode_suffix(ui_module: UIModule) -> str:
+    """Returns ON/OFF suffix for Test Mode menu entry."""
+    if ui_module.config_object.get_option("test_mode", False):
+        return " ON"
+    return " OFF"
 
 
 def set_exposure(ui_module: UIModule) -> None:
@@ -97,6 +102,13 @@ def set_exposure(ui_module: UIModule) -> None:
 def apply_brightness(ui_module: UIModule) -> None:
     """Re-apply display + keypad brightness from current config."""
     ui_module.command_queues["ui_queue"].put("set_brightness")
+
+
+def apply_show_fps(ui_module: UIModule) -> None:
+    """Show or hide the frame rate in the title bar, from current config."""
+    show_fps = ui_module.config_object.get_option("show_fps", False)
+    UIModule.frame_rate.visible = show_fps
+    ui_module.ui_state.set_show_fps(show_fps)
 
 
 def apply_sound_volume(ui_module: UIModule) -> None:
@@ -138,7 +150,7 @@ def get_camera_exposure_display(ui_module: UIModule) -> str:
     # For auto mode, get actual exposure from metadata
     if config_exp == "auto":
         try:
-            metadata = ui_module.shared_state.last_image_metadata()
+            metadata = ui_module.snapshot.last_image_metadata()
             if metadata and "exposure_time" in metadata:
                 actual_exp = metadata["exposure_time"]
                 exp_sec = actual_exp / 1_000_000
@@ -235,8 +247,8 @@ def get_camera_lens(ui_module: UIModule) -> list[str]:
     seeded from config when it is built and republished by both the menu's own
     ``set_camera_lens`` and self-heal, so it is never behind.
     """
-    profile = resolve_camera_profile(ui_module.shared_state.camera_type())
-    return [resolve_lens(profile, ui_module.shared_state.camera_lens()).key]
+    profile = resolve_camera_profile(ui_module.snapshot.camera_type())
+    return [resolve_lens(profile, ui_module.snapshot.camera_lens()).key]
 
 
 def set_camera_lens(ui_module: UIModule) -> None:
@@ -275,21 +287,7 @@ def set_camera_lens(ui_module: UIModule) -> None:
 
 
 def get_camera_type(ui_module: UIModule) -> list[str]:
-    cam_id = "000"
-
-    # read config.txt into a list
-    with open("/boot/config.txt", "r") as boot_in:
-        boot_lines = list(boot_in)
-
-    # Look for the line without a comment...
-    for line in boot_lines:
-        if line.startswith("dtoverlay=imx"):
-            cam_id = line[10:16]
-            # imx462 uses imx290 driver
-            if cam_id == "imx290":
-                cam_id = "imx462"
-
-    return [cam_id]
+    return sys_utils.get_camera_type()
 
 
 def switch_language(ui_module: UIModule) -> None:
@@ -301,9 +299,6 @@ def switch_language(ui_module: UIModule) -> None:
     )
     lang.install()
     logger.info("Switch Language: %s", iso2_code)
-    if iso2_code == "zh":
-        # Chinese requires a new font, so we have to restart
-        restart_pifinder(ui_module)
 
 
 def go_wifi_ap(ui_module: UIModule) -> None:
@@ -319,9 +314,15 @@ def go_wifi_cli(ui_module: UIModule) -> None:
 
 
 def get_wifi_mode(ui_module: UIModule) -> list[str]:
-    wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
-    with open(wifi_txt, "r") as wfs:
-        return [wfs.read()]
+    # Report the live mode from NetworkManager (as the web UI does), not the
+    # static wifi_status.txt — that file is written once at setup and never
+    # tracks reality, so it showed "Client" while the device was on the AP.
+    try:
+        return [sys_utils.get_wifi_mode()]
+    except Exception:
+        wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
+        with open(wifi_txt, "r") as wfs:
+            return [wfs.read()]
 
 
 def set_location(ui_module: UIModule) -> None:
@@ -353,7 +354,7 @@ def datetime_reset(ui_module: UIModule) -> None:
 
 def save_location(ui_module: UIModule) -> None:
     """Save current location — prompts for name via text entry."""
-    location = ui_module.shared_state.location()
+    location = ui_module.snapshot.location()
     if not location.lock:
         ui_module.message(_("No location lock"), 2)
         return
@@ -391,7 +392,7 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     # Location.timezone is Optional and pytz.timezone(None) raises, so fall
     # back rather than crash on commit. set_location already settles the zone
     # to UTC when it cannot resolve one; this covers a Location built directly.
-    timezone_str = ui_module.shared_state.location().timezone or "UTC"
+    timezone_str = ui_module.snapshot.location().timezone or "UTC"
 
     # First create a datetime object (using today's date by default)
     dt = timez.parse(time_str, "%H:%M:%S")
@@ -422,7 +423,7 @@ def set_datetime(ui_module: UIModule, date_str: str) -> None:
     logger.info(f"Setting datetime to: {date_str} {time_str}")
 
     # See set_time: fall back rather than raise on an unresolved zone.
-    timezone_str = ui_module.shared_state.location().timezone or "UTC"
+    timezone_str = ui_module.snapshot.location().timezone or "UTC"
     timezone = pytz.timezone(timezone_str)
 
     dt = timez.parse(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
@@ -559,8 +560,9 @@ def generate_custom_object_name(ui_module: UIModule) -> str:
 
 
 def telemetry_record_toggle(ui_module: UIModule) -> None:
-    """Toggle telemetry recording on/off via integrator command queue."""
-    enabled = ui_module.config_object.get_option("telemetry_record")
+    """Flip telemetry recording on/off in place (inline menu toggle)."""
+    enabled = not ui_module.config_object.get_option("telemetry_record")
+    ui_module.config_object.set_option("telemetry_record", enabled)
     if "integrator" in ui_module.command_queues:
         if enabled:
             ui_module.command_queues["integrator"].put(("telemetry_record_on", None))
@@ -570,6 +572,21 @@ def telemetry_record_toggle(ui_module: UIModule) -> None:
             ui_module.message("Telemetry\nStopped", 2)
     else:
         ui_module.message("No integrator\nqueue", 2)
+
+
+def telemetry_record_suffix(ui_module: UIModule) -> str:
+    """Return ' On'/' Off' for the inline Record toggle's current state."""
+    return " On" if ui_module.config_object.get_option("telemetry_record") else " Off"
+
+
+def telemetry_section_toggle(ui_module: UIModule) -> None:
+    """Apply a telemetry section on/off change to any live recording.
+
+    The section flag is already persisted to config by the menu; nudge the
+    integrator's recorder to re-read it so the change takes effect mid-session.
+    """
+    if "integrator" in ui_module.command_queues:
+        ui_module.command_queues["integrator"].put(("telemetry_update_sections", None))
 
 
 def update_gpsd_baud_rate(ui_module: UIModule) -> None:

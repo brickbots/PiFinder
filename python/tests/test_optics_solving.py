@@ -5,8 +5,7 @@ through tetra3 against the frames in ``test_images/``, because the failure
 mode being guarded against is not a wrong number -- it is a plausible-looking
 number that silently stops every frame from solving.
 
-Requires the tetra3 submodule and its bundled pattern database; skipped when a
-worktree has not initialised it (see CLAUDE.md).
+Requires the tetra3 package (cedar-solve) and the pattern database it ships.
 """
 
 import numpy as np
@@ -15,6 +14,8 @@ from PIL import Image
 
 from PiFinder import utils
 from PiFinder.optics import LENSES, build_optical_train
+
+tetra3 = pytest.importorskip("tetra3")
 
 pytestmark = pytest.mark.integration
 
@@ -30,32 +31,17 @@ MEASURED_DEBUG_FRAME_FOV = 10.2
 
 
 @pytest.fixture(scope="module")
-def tetra3_module():
-    import sys
-
-    database = utils.tetra3_dir / "data" / "default_database.npz"
-    if not database.exists():
-        pytest.skip(
-            "tetra3 submodule not initialised: "
-            "git submodule update --init python/PiFinder/tetra3"
-        )
-    sys.path.append(str(utils.tetra3_dir))
-    import tetra3
-
-    return tetra3
+def solver():
+    # The same database the solver process loads.
+    return tetra3.Tetra3("default_database")
 
 
 @pytest.fixture(scope="module")
-def solver(tetra3_module):
-    return tetra3_module.Tetra3(str(utils.tetra3_dir / "data" / "default_database.npz"))
-
-
-@pytest.fixture(scope="module")
-def debug_centroids(tetra3_module):
+def debug_centroids():
     centroids = {}
     for name in DEBUG_FRAMES:
         image = Image.open(utils.pifinder_dir / "test_images" / name).convert("L")
-        centroids[name] = tetra3_module.get_centroids_from_image(
+        centroids[name] = tetra3.get_centroids_from_image(
             np.asarray(image, dtype=np.uint8)
         )
     return centroids

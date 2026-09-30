@@ -1,0 +1,505 @@
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+    nixos-hardware.url = "github:NixOS/nixos-hardware";
+
+    pyproject-nix = {
+      url = "github:pyproject-nix/pyproject.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    uv2nix = {
+      url = "github:pyproject-nix/uv2nix";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    pyproject-build-systems = {
+      url = "github:pyproject-nix/build-system-pkgs";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.uv2nix.follows = "uv2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { self, nixpkgs, nixos-hardware, pyproject-nix, uv2nix, pyproject-build-systems, ... }: let
+    # Flake inputs the python-env module needs, passed via specialArgs.
+    pythonInputs = { inherit nixos-hardware pyproject-nix uv2nix pyproject-build-systems; };
+    crossPkgsAarch64 = import nixpkgs {
+      localSystem = "x86_64-linux";
+      crossSystem = "aarch64-linux";
+    };
+    pifinderCrossKernel = import ./nixos/pkgs/pifinder-kernel.nix {
+      pkgs = crossPkgsAarch64;
+      inherit nixos-hardware;
+    };
+    # Headless config shared by all profiles
+    headlessModule = { lib, ... }: {
+      services.xserver.enable = false;
+      security.polkit.enable = true;
+      fonts.fontconfig.enable = false;
+      documentation.enable = false;
+      documentation.man.enable = false;
+      documentation.nixos.enable = false;
+      xdg.portal.enable = false;
+      services.pipewire.enable = false;
+      services.pulseaudio.enable = false;
+      boot.initrd.availableKernelModules = lib.mkForce [ "mmc_block" "usbhid" "usb_storage" "vc4" ];
+    };
+
+    # Shared modules for all PiFinder configurations
+    commonModules = [
+      nixos-hardware.nixosModules.raspberry-pi-4
+      ./nixos/hardware.nix
+      ./nixos/networking.nix
+      ./nixos/services.nix
+      ./nixos/python-env.nix
+      ./nixos/migration.nix
+      headlessModule
+    ];
+
+    # Migration profile — minimal bootable system, full config fetched on first boot
+    migrationModules = [
+      nixos-hardware.nixosModules.raspberry-pi-4
+      ./nixos/hardware.nix
+      ./nixos/networking.nix
+      ./nixos/wifi-fallback-minimal.nix
+      ./nixos/device.nix
+      ./nixos/migration.nix
+      headlessModule
+    ];
+
+    # Catalog images for the full SD image (plan A4 and B8): a fixed-output
+    # derivation whose output is the content of PiFinder_data/catalog_images.
+    # TODO: the source is not decided. Set it here, for example
+    #   pkgsAarch64.fetchzip { url = "<catalog_images tarball>"; hash = "<sha256>"; stripRoot = false; }
+    # While it is null there is no images.pifinder-full and the release
+    # publishes the lean image only.
+    catalogImagesSrc = null;
+
+    mkPifinderSystem = { includeSDImage ? false, kernel ? null, catalogImages ? null }:
+    nixpkgs.lib.nixosSystem {
+      system = "aarch64-linux";
+      # pifinderKernel must always be present in specialArgs: a NixOS module's
+      # `arg ? default` formal is not honoured by the module system, so an
+      # absent arg fails evaluation. null selects the natively-built patched
+      # kernel; a non-null value injects a prebuilt (e.g. cross-built) one.
+      specialArgs = pythonInputs // { pifinderKernel = kernel; };
+      modules = commonModules ++ [
+        {
+          pifinder.devMode = false;
+          # Delta prefetch for upgrades (pifinder-differ, ADR 0036).
+          pifinder.deltaUrl = "https://deltas.pifinder.eu";
+        }
+        # Camera specialisations — base is imx462 (default), specialisations for others
+        ({ ... }: {
+          specialisation = {
+            imx296.configuration = { pifinder.cameraType = "imx296"; };
+            imx477.configuration = { pifinder.cameraType = "imx477"; };
+          };
+        })
+        ({ lib, ... }: {
+          # Root is btrfs (see nixos/services.nix); vfat is the boot partition.
+          boot.supportedFilesystems = lib.mkForce [ "vfat" "btrfs" ];
+          boot.initrd.supportedFilesystems = lib.mkForce [ "btrfs" ];
+          boot.loader.timeout = 0;
+        })
+      ] ++ nixpkgs.lib.optionals includeSDImage [
+        "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+        ./nixos/sd-image.nix
+        ({ config, pkgs, lib, ... }: {
+          # The lean image has an empty PiFinder_data: the app fetches
+          # per-object images on demand from the CDN (get_images.py) and
+          # renders a placeholder when one is absent. The full image also has
+          # the catalog images (catalogImages). Both have the same system.
+          #
+          # current-build.json seeds the device's identity with its own store
+          # path; human version labels come from the update manifest (which maps
+          # store paths to versions), and every upgrade rewrites this file.
+          sdImage.populateRootCommands = ''
+            mkdir -p ./files/home/pifinder/PiFinder_data
+            mkdir -p ./files/var/lib/pifinder
+            printf '{"store_path": "%s"}\n' "${config.system.build.toplevel}" \
+              > ./files/var/lib/pifinder/current-build.json
+          '' + lib.optionalString (catalogImages != null) ''
+            mkdir -p ./files/home/pifinder/PiFinder_data/catalog_images
+            cp -a --reflink=auto ${catalogImages}/. ./files/home/pifinder/PiFinder_data/catalog_images/
+          '';
+          sdImage.populateFirmwareCommands = lib.mkForce firmwareCommands;
+        })
+      ] ++ nixpkgs.lib.optionals (!includeSDImage) [
+        # Filesystem stub for closure builds (CI). Devices install these
+        # builds, so root is the partition, not a label (see nixos/services.nix).
+        ({ lib, ... }: {
+          fileSystems."/" = {
+            device = "/dev/mmcblk0p2";
+            fsType = "btrfs";
+            options = [ "compress=zstd:1" "noatime" ];
+          };
+          fileSystems."/boot/firmware" = {
+            device = "/dev/disk/by-label/FIRMWARE";
+            fsType = "vfat";
+          };
+        })
+      ];
+    };
+
+    mkPifinderMigration = { includeSDImage ? false }: nixpkgs.lib.nixosSystem {
+      system = "aarch64-linux";
+      specialArgs = pythonInputs // { pifinderKernel = null; };
+      modules = migrationModules ++ [
+        { pifinder.devMode = false; }
+        ({ lib, ... }: {
+          # The migration converts the root to btrfs (ADR 0039).
+          boot.supportedFilesystems = lib.mkForce [ "vfat" "btrfs" ];
+          boot.initrd.supportedFilesystems = lib.mkForce [ "btrfs" ];
+          boot.loader.timeout = 0;
+        })
+      ] ++ nixpkgs.lib.optionals includeSDImage [
+        "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+        ./nixos/sd-image.nix
+        ({ config, pkgs, lib, ... }: {
+          sdImage.populateRootCommands = ''
+            mkdir -p ./files/home/pifinder/PiFinder_data
+            mkdir -p ./files/var/lib/pifinder
+            # ADR 0039: last-ditch fallback for first-boot resolution when the
+            # update manifest is unreachable. The manifest is the primary
+            # source; this file is otherwise ignored and removed on success.
+            # (The old closure-based tarball builder used to write it; the
+            # image-based pipeline must bake it.)
+            echo "${(mkPifinderSystem {}).config.system.build.toplevel}" \
+              > ./files/var/lib/pifinder/first-boot-target
+          '';
+          sdImage.populateFirmwareCommands = lib.mkForce firmwareCommands;
+        })
+      ] ++ nixpkgs.lib.optionals (!includeSDImage) [
+        # The migration tarball is built from this system (migrationTarball),
+        # so root is the btrfs partition the migration makes (ADR 0039).
+        ({ lib, ... }: {
+          fileSystems."/" = {
+            device = "/dev/mmcblk0p2";
+            fsType = "btrfs";
+            options = [ "compress=zstd:1" "noatime" ];
+          };
+          fileSystems."/boot/firmware" = {
+            device = "/dev/disk/by-label/FIRMWARE";
+            fsType = "vfat";
+          };
+        })
+      ];
+    };
+
+    # Netboot configuration — NFS root, DHCP network in initrd
+    mkPifinderNetboot = nixpkgs.lib.nixosSystem {
+      system = "aarch64-linux";
+      specialArgs = pythonInputs // { pifinderKernel = null; };
+      modules = commonModules ++ [
+        { pifinder.devMode = true; }
+        { pifinder.cameraType = nixpkgs.lib.mkDefault "imx477"; }  # HQ camera for netboot dev
+        # Camera specialisations for netboot (base is imx477)
+        ({ ... }: {
+          specialisation = {
+            imx296.configuration = { pifinder.cameraType = "imx296"; };
+            imx462.configuration = { pifinder.cameraType = "imx462"; };
+          };
+        })
+        ({ lib, pkgs, ... }:
+        let
+          boot-splash = import ./nixos/pkgs/boot-splash.nix { inherit pkgs; };
+        in {
+          # Static passwd/group — NFS can't run activation scripts
+          users.mutableUsers = false;
+          # DNS for netboot (udhcpc doesn't configure resolvconf properly)
+          networking.nameservers = [ "192.168.5.1" "8.8.8.8" ];
+          boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" "nfs" ];
+          boot.initrd.supportedFilesystems = [ "nfs" ];
+          # Add SPI kernel module for early OLED splash
+          boot.initrd.kernelModules = [ "spi_bcm2835" ];
+          # Override the minimal module list from commonModules — add network drivers
+          # Note: genet (RPi4 ethernet) is built into the kernel, not a module
+          boot.initrd.availableKernelModules = lib.mkForce [
+            "mmc_block" "usbhid" "usb_storage" "vc4"
+          ];
+          # Add boot-splash to initrd
+          boot.initrd.extraUtilsCommands = ''
+            copy_bin_and_libs ${boot-splash}/bin/boot-splash
+          '';
+          # Disable predictable interface names so eth0 works
+          boot.kernelParams = [ "net.ifnames=0" "biosdevname=0" ];
+          boot.initrd.network = {
+            enable = true;
+          };
+          # Show static splash, then configure network
+          boot.initrd.postDeviceCommands = ''
+            # Create device nodes for SPI OLED
+            mkdir -p /dev
+            mknod -m 666 /dev/spidev0.0 c 153 0 2>/dev/null || true
+            mknod -m 666 /dev/gpiochip0 c 254 0 2>/dev/null || true
+
+            # Show static splash image (--static flag = display once and exit)
+            boot-splash --static || true
+            # Wait for interface to appear (up to 30 seconds)
+            echo "Waiting for eth0..."
+            for i in $(seq 1 60); do
+              if ip link show eth0 >/dev/null 2>&1; then
+                echo "eth0 found after $i attempts"
+                break
+              fi
+              sleep 0.5
+            done
+
+            ip link set eth0 up
+
+            # Wait for link carrier (cable connected)
+            echo "Waiting for link carrier..."
+            for i in $(seq 1 20); do
+              if [ "$(cat /sys/class/net/eth0/carrier 2>/dev/null)" = "1" ]; then
+                echo "Link up after $i attempts"
+                break
+              fi
+              sleep 0.5
+            done
+
+            # DHCP with retries
+            echo "Starting DHCP..."
+            for attempt in 1 2 3; do
+              if udhcpc -i eth0 -t 5 -T 3 -n -q -s /etc/udhcpc.script; then
+                echo "DHCP succeeded on attempt $attempt"
+                break
+              fi
+              echo "DHCP attempt $attempt failed, retrying..."
+              sleep 2
+            done
+
+            # Verify we got an IP
+            if ip addr show eth0 | grep -q "inet "; then
+              echo "Network configured:"
+              ip addr show eth0
+            else
+              echo "WARNING: No IP address on eth0!"
+              ip addr show eth0
+            fi
+          '';
+          # NFS root filesystem - NFSv4 with disabled caching for Nix compatibility
+          fileSystems."/" = {
+            device = "192.168.5.12:/srv/nfs/pifinder";
+            fsType = "nfs";
+            options = [ "vers=4" "noac" "actimeo=0" ];
+          };
+          # Dummy /boot — not used for netboot but NixOS requires it
+          fileSystems."/boot" = {
+            device = "none";
+            fsType = "tmpfs";
+            neededForBoot = false;
+          };
+        })
+      ];
+    };
+    # Custom u-boot variants
+    pkgsAarch64 = import nixpkgs { system = "aarch64-linux"; };
+    # SD boot: straight to mmc extlinux, with the boot counter (ADR 0038).
+    ubootSD = import ./nixos/pkgs/uboot-sd.nix { pkgs = pkgsAarch64; };
+    # Netboot: PCI + DHCP + PXE
+    ubootNetboot = pkgsAarch64.ubootRaspberryPi4_64bit.override {
+      extraConfig = ''
+        CONFIG_BOOTCOMMAND="pci enum; dhcp; pxe get; pxe boot"
+      '';
+    };
+
+    configTxt = pkgsAarch64.writeText "config.txt" ''
+      [pi3]
+      kernel=u-boot-rpi3.bin
+
+      [pi02]
+      kernel=u-boot-rpi3.bin
+
+      [pi4]
+      kernel=u-boot-rpi4.bin
+      enable_gic=1
+      armstub=armstub8-gic.bin
+
+      disable_overscan=1
+      arm_boost=1
+
+      [cm4]
+      otg_mode=1
+
+      [all]
+      arm_64bit=1
+      enable_uart=1
+      avoid_warnings=1
+    '';
+
+    # FAT firmware partition payload, shared by the SD images and the
+    # migration tarball. Runs with a firmware/ directory in the cwd.
+    firmwareCommands = let pkgs = pkgsAarch64; in ''
+      (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)
+
+      cp ${configTxt} firmware/config.txt
+
+      # Pi3 files
+      cp ${pkgs.ubootRaspberryPi3_64bit}/u-boot.bin firmware/u-boot-rpi3.bin
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-2-b.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b-plus.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-cm3.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2-w.dtb firmware/
+
+      # Pi4 files
+      cp ${ubootSD}/u-boot.bin firmware/u-boot-rpi4.bin
+      # Boot counter off (magic 0xbd, version 1, count 0, upgrade_available 0).
+      printf '\275\001\000\000' > firmware/pifinder.bootcount
+      cp ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin firmware/armstub8-gic.bin
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-4-b.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-400.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4.dtb firmware/
+      cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4s.dtb firmware/
+    '';
+
+    # Migration tarball, built straight from the minimal migration system's
+    # closure (ADR 0039): boot/ is the FAT firmware payload, rootfs/ is the
+    # btrfs root (store paths, their registration, extlinux + kernels in
+    # /boot, and the first-boot fallback target). No SD image, no loop mount.
+    migrationTarball = let
+      pkgs = pkgsAarch64;
+      cfg = (mkPifinderMigration {}).config;
+      toplevel = cfg.system.build.toplevel;
+      closure = pkgs.closureInfo { rootPaths = [ toplevel ]; };
+    in pkgs.runCommand "pifinder-migration-tarball" {
+      nativeBuildInputs = with pkgs.buildPackages; [ zstd gnutar ];
+    } ''
+      mkdir -p firmware files/boot files/nix/store
+      ${firmwareCommands}
+
+      ${cfg.boot.loader.generic-extlinux-compatible.populateCmd} -c ${toplevel} -d ./files/boot
+      mkdir -p ./files/home/pifinder/PiFinder_data ./files/var/lib/pifinder
+      # ADR 0039: last-ditch fallback for first-boot resolution when the
+      # update manifest is unreachable.
+      echo "${(mkPifinderSystem {}).config.system.build.toplevel}" \
+        > ./files/var/lib/pifinder/first-boot-target
+
+      xargs -a ${closure}/store-paths cp -a --target-directory=files/nix/store
+      cp ${closure}/registration files/nix-path-registration
+
+      mkdir -p pack
+      mv firmware pack/boot
+      mv files pack/rootfs
+      mkdir -p $out
+      tar --sort=name --owner=0 --group=0 --numeric-owner -C pack -cf - boot rootfs \
+        | zstd -T0 -19 -o $out/pifinder-migration.tar.zst
+    '';
+
+    # Reproducible development environment for both desktop Linux and the
+    # aarch64 PiFinder itself. Runtime-native bindings come from Nix, just as
+    # they do in the systemd service; uv supplies the locked Python workspace.
+    mkDevShell = system: let
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [(final: prev: {
+          libcamera = prev.libcamera.overrideAttrs (old: {
+            mesonFlags = (old.mesonFlags or []) ++ [ "-Dpycamera=enabled" ];
+            buildInputs = (old.buildInputs or []) ++ [
+              final.python313
+              final.python313.pkgs.pybind11
+            ];
+          });
+        })];
+      };
+      pyPkgs = import ./nixos/pkgs/uv-python.nix {
+        inherit pkgs pyproject-nix uv2nix pyproject-build-systems;
+      };
+      cedar-detect = import ./nixos/pkgs/cedar-detect.nix { inherit pkgs; };
+    in pkgs.mkShell {
+      packages = [
+        pyPkgs.devEnv
+        pkgs.bashInteractive
+        pkgs.ruff
+        pkgs.uv
+        pkgs.git
+        pkgs.rsync
+        pkgs.gobject-introspection
+        pkgs.networkmanager
+        pkgs.libcamera
+        pkgs.gpsd
+        cedar-detect
+      ];
+      shellHook = ''
+        export PYTHONPATH="${pkgs.libcamera}/lib/python3.13/site-packages:$PYTHONPATH"
+        export GI_TYPELIB_PATH="${pkgs.lib.makeSearchPath "lib/girepository-1.0" [
+          pkgs.networkmanager
+          pkgs.glib.out
+          pkgs.gobject-introspection
+        ]}:$GI_TYPELIB_PATH"
+        export LIBCAMERA_IPA_MODULE_PATH="${pkgs.libcamera}/lib/libcamera"
+      '';
+    };
+
+  in {
+    nixosConfigurations = {
+      # SD card boot — camera baked into DT, switched via specialisations
+      pifinder = mkPifinderSystem {};
+      # Cache-compatible aarch64 userspace with a kernel cross-built on x86_64.
+      pifinder-fast = mkPifinderSystem { kernel = pifinderCrossKernel; };
+      # Migration — minimal bootable system, defers full system to first boot
+      pifinder-migration = mkPifinderMigration {};
+      # NFS netboot — for development on proxnix
+      pifinder-netboot = mkPifinderNetboot;
+    };
+    images = {
+      # Lean: the system and an empty PiFinder_data.
+      pifinder = (mkPifinderSystem { includeSDImage = true; }).config.system.build.sdImage;
+      pifinder-migration = (mkPifinderMigration { includeSDImage = true; }).config.system.build.sdImage;
+    } // nixpkgs.lib.optionalAttrs (catalogImagesSrc != null) {
+      # Full: the lean image plus the catalog images.
+      pifinder-full = (mkPifinderSystem {
+        includeSDImage = true;
+        catalogImages = catalogImagesSrc;
+      }).config.system.build.sdImage;
+    };
+    packages.aarch64-linux = {
+      migration-tarball = migrationTarball;
+      uboot-sd = ubootSD;
+      uboot-netboot = ubootNetboot;
+      migration-boot-firmware = pkgsAarch64.runCommand "migration-boot-firmware" {} ''
+        mkdir -p $out
+        FW=${pkgsAarch64.raspberrypifw}/share/raspberrypi/boot
+
+        # RPi firmware
+        cp $FW/bootcode.bin $FW/fixup*.dat $FW/start*.elf $out/
+
+        # Pi3 DTBs
+        cp $FW/bcm2710-rpi-2-b.dtb $FW/bcm2710-rpi-3-b.dtb $FW/bcm2710-rpi-3-b-plus.dtb $out/
+        cp $FW/bcm2710-rpi-cm3.dtb $FW/bcm2710-rpi-zero-2.dtb $FW/bcm2710-rpi-zero-2-w.dtb $out/
+
+        # Pi4 DTBs
+        cp $FW/bcm2711-rpi-4-b.dtb $FW/bcm2711-rpi-400.dtb $FW/bcm2711-rpi-cm4.dtb $FW/bcm2711-rpi-cm4s.dtb $out/
+
+        # config.txt
+        cp ${configTxt} $out/config.txt
+
+        # u-boot binaries
+        cp ${pkgsAarch64.ubootRaspberryPi3_64bit}/u-boot.bin $out/u-boot-rpi3.bin
+        cp ${ubootSD}/u-boot.bin $out/u-boot-rpi4.bin
+
+        # armstub
+        cp ${pkgsAarch64.raspberrypi-armstubs}/armstub8-gic.bin $out/armstub8-gic.bin
+      '';
+    };
+
+    packages.x86_64-linux.pifinder-kernel-cross = pifinderCrossKernel;
+
+    devShells = {
+      x86_64-linux.default = mkDevShell "x86_64-linux";
+      aarch64-linux.default = mkDevShell "aarch64-linux";
+    };
+
+    devShells.aarch64-darwin.default = let
+      pkgs = import nixpkgs { system = "aarch64-darwin"; };
+      pyPkgs = import ./nixos/pkgs/uv-python-darwin.nix {
+        inherit pkgs pyproject-nix uv2nix pyproject-build-systems;
+      };
+      cedar-detect = import ./nixos/pkgs/cedar-detect.nix { inherit pkgs; };
+    in pkgs.mkShell {
+      packages = [ pyPkgs.devEnv pkgs.ruff pkgs.uv cedar-detect ];
+    };
+  };
+}

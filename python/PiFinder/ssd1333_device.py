@@ -16,6 +16,7 @@ Command set reference (key differences from SSD1351):
 - Built-in linear LUT command 0xB9
 """
 
+import numpy as np
 from luma.oled.device.color import color_device
 
 #: Number of gray scale levels on the 5-bit color A and C channels. luma packs
@@ -25,6 +26,17 @@ GRAY_SCALE_LEVELS = 31
 #: Dimmest gray level that still emits. Level 1 has only a pre-charge stage and
 #: no current drive at all (datasheet section 6.8), and measures as fully dark.
 MIN_GRAY_SCALE_LEVEL = 2
+
+
+def pack_rgb565(image):
+    """
+    Packs an RGB image into big-endian 5-6-5 pixels, two bytes per pixel, in
+    the controller's 65k color format 1 (the format luma's color_device sends).
+    """
+    rgb = np.asarray(image, dtype=np.uint16)
+    red, green, blue = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    packed = ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3)
+    return packed.astype(">u2").tobytes()
 
 
 class ssd1333(color_device):
@@ -223,10 +235,23 @@ class ssd1333(color_device):
     def display(self, image):
         """
         Renders an image, capped at the gray scale ceiling if one is set.
+
+        Sends the same bytes as ``color_device.display``, but packs each
+        changed region to 5-6-5 RGB with numpy. The luma version packs one
+        pixel at a time in Python, which takes tens of milliseconds for a
+        176x176 frame on a Pi 4 / CM4.
         """
+        assert image.mode == self.mode
+        assert image.size == self.size
+
         if self._gray_scale_lut is not None:
             image = image.point(self._gray_scale_lut)
-        super().display(image)
+        image = self.preprocess(image)
+
+        for region, bounding_box in self.framebuffer.redraw(image):
+            left, top, right, bottom = self._apply_offsets(bounding_box)
+            self._set_position(top, right, bottom, left)
+            self.data(list(pack_rgb565(region)))
 
     def command(self, cmd, *args):
         """

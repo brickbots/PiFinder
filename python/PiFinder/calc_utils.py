@@ -92,6 +92,27 @@ class FastAltAz:
         az_deg = math.degrees(math.atan2(y, x)) % 360.0
         return alt_deg, az_deg
 
+    def radec_to_alt_array(self, ra: np.ndarray, dec: np.ndarray) -> np.ndarray:
+        """
+        Apparent altitude in degrees for arrays of RA/Dec in degrees: the
+        same calculation as radec_to_altaz(alt_only=True), done with numpy.
+        A NaN coordinate gives a NaN altitude.
+        """
+        ha_rad = np.radians((self.local_siderial_time - ra) % 360.0)
+        dec_rad = np.radians(dec)
+        sin_alt = np.sin(dec_rad) * self._sin_lat + np.cos(dec_rad) * (
+            self._cos_lat * np.cos(ha_rad)
+        )
+        alt_deg = np.degrees(np.arcsin(np.clip(sin_alt, -1.0, 1.0)))
+
+        # Bennett (1982) refraction, only above -1 deg as in radec_to_altaz.
+        lifted = alt_deg > -1.0
+        low = alt_deg[lifted]
+        alt_deg[lifted] = (
+            low + (1.0 / np.tan(np.radians(low + 7.31 / (low + 4.4)))) / 60.0
+        )
+        return alt_deg
+
 
 def ra_to_deg(ra_h, ra_m, ra_s):
     ra_deg = ra_h
@@ -192,16 +213,28 @@ def b1950_to_j2000(ra_hours, dec_deg):
     return epoch_to_epoch(B1950, J2000, ra_hours, dec_deg)
 
 
-def aim_degrees(shared_state, mount_type, screen_direction, target):
+def pointing_snapshot(shared_state):
+    """(solution, location, datetime), read once from the shared state.
+
+    Each read is a round trip to the multiprocessing manager. A screen that
+    calls aim_degrees for many objects in one frame reads this once and passes
+    it on, instead of three round trips per object.
+    """
+    return shared_state.solution(), shared_state.location(), shared_state.datetime()
+
+
+def aim_degrees(shared_state, mount_type, screen_direction, target, snapshot=None):
     """
     Returns degrees in either
     az/alt or RA/DEC depending on mount type
     from current position
     to target
+
+    snapshot: a pointing_snapshot() of this frame; read now when None.
     """
-    solution = shared_state.solution()
-    location = shared_state.location()
-    dt = shared_state.datetime()
+    solution, location, dt = (
+        snapshot if snapshot is not None else pointing_snapshot(shared_state)
+    )
     if location.lock and dt and solution and solution.has_pointing():
         aligned = solution.pointing.aligned.estimate
         if mount_type == "Alt/Az":

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import logging
+import re
 from PiFinder import utils
 from PiFinder.calc_utils import sf_utils
 from PiFinder.obj_types import OBJ_TYPES
@@ -245,39 +246,52 @@ def _normalize_designation(name: str):
     return None
 
 
+def _name_key(name: str) -> tuple:
+    """
+    The name-index key of ``name``: the normalized name (ui_utils.normalize,
+    which ignores case, spaces and hyphens, with leading zeros removed) and
+    its digit groups as numbers.
+    The digit groups keep "M 2-9" (2, 9), a Minkowski nebula, apart from
+    "M 29" (29). "Sh 2-71" and "Sh2 71" both give (2, 71), and "NGC 0497" and
+    "NGC 497" both give (497,), so these still match.
+    """
+    text = re.sub(r"\d+", lambda m: str(int(m.group())), normalize(name))
+    return (text, tuple(int(d) for d in re.findall(r"\d+", name)))
+
+
 def _build_name_index(catalogs: Catalogs) -> dict:
     """
-    Map every catalog object's names to the object, for name-based resolution.
-    Names are normalized (ui_utils.normalize) so spacing/case variants like
+    Map every catalog object's names to a function that returns the object,
+    for name-based resolution; the object is made only for a name that an
+    entry uses. The key is _name_key, so spacing/case variants like
     "NGC 6205" and "NGC6205" collapse together. First writer wins, so a name
     resolves to one stable object.
     """
     index: dict = {}
-    for obj in catalogs.get_objects(only_selected=False, filtered=False):
-        for nm in obj.names:
-            key = normalize(nm)
-            if key and key not in index:
-                index[key] = obj
+    for name, resolve in catalogs.iter_names():
+        key = _name_key(name)
+        if key[0] and key not in index:
+            index[key] = resolve
     return index
 
 
 def resolve_by_name(name: str, name_index: dict):
     """
-    Resolve an entry to a catalog object by normalized name (ui_utils.normalize:
-    case-, space- and hyphen-insensitive), also trying a constellation-normalized
-    variant ("VY Andromedae" -> "VY And"). Returns the shared catalog object or
-    None.
+    Resolve an entry to a catalog object by name (see _name_key: case-,
+    space- and hyphen-insensitive, but the digit groups must match), also
+    trying a constellation-normalized variant ("VY Andromedae" -> "VY And").
+    Returns the shared catalog object or None.
     """
     if not name:
         return None
-    keys = [normalize(name)]
+    keys = [_name_key(name)]
     designation = _normalize_designation(name)
     if designation:
-        keys.append(normalize(designation))
+        keys.append(_name_key(designation))
     for key in keys:
-        obj = name_index.get(key)
-        if obj:
-            return obj
+        resolve = name_index.get(key)
+        if resolve:
+            return resolve()
     return None
 
 
