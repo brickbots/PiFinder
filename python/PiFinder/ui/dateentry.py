@@ -30,7 +30,7 @@ class UIDateEntry(UIModule):
         self.max_digits = [4, 2, 2]
 
         # Pre-fill from best-known date
-        local_dt = self.shared_state.local_datetime() if self.shared_state else None
+        local_dt = self.snapshot.local_datetime() if self.shared_state else None
         if local_dt is not None:
             self.boxes[0] = str(local_dt.year)
             self.boxes[1] = f"{local_dt.month:02d}"
@@ -132,7 +132,7 @@ class UIDateEntry(UIModule):
         same precondition so it stays correct if it is ever surfaced directly
         (see ADR 0019). The check is live, mirroring UITimeEntry.
         """
-        return bool(self.shared_state and self.shared_state.location().lock)
+        return bool(self.shared_state and self.snapshot.location().lock)
 
     def draw_local_date_note(self):
         note_y = self.text_y + self.box_height + 10

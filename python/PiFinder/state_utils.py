@@ -1,7 +1,9 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from PiFinder.state import SharedStateObj
 import time
+
+if TYPE_CHECKING:
+    from PiFinder.state_snapshot import PowerStateSource
 
 
 _TARGET_PERIOD = 1.0 / 30.0
@@ -31,7 +33,7 @@ def is_dead_manager_error(exc: BaseException) -> bool:
     return isinstance(exc, DEAD_MANAGER_EXCEPTIONS + (SharedStateLost,))
 
 
-def sleep_for_framerate(shared_state: SharedStateObj, limit_framerate=True) -> bool:
+def sleep_for_framerate(shared_state: "PowerStateSource", limit_framerate=True) -> bool:
     global _last_wake
 
     try:

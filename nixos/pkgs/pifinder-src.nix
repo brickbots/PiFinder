@@ -13,6 +13,10 @@ let
     '';
   };
 
+  # The DB catalogs as numpy columns, built from astro-data (see
+  # catalog-arrays.nix). Own derivation + symlink like astro-data.
+  catalog-arrays = import ./catalog-arrays.nix { inherit pkgs python astro-data; };
+
   # UI fonts — ~31MB, effectively never change. Own derivation + symlink so they
   # are distributed once and not rewritten on every code change.
   fonts = pkgs.stdenv.mkDerivation {
@@ -61,6 +65,7 @@ pkgs.stdenv.mkDerivation {
     # (~193MB) or fonts (~31MB). See ADR 0037.
     rm -rf $out/astro_data
     ln -s ${astro-data} $out/astro_data
+    ln -s ${catalog-arrays} $out/catalog_arrays
     rm -rf $out/fonts
     ln -s ${fonts} $out/fonts
 

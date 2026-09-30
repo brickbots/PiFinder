@@ -5,6 +5,7 @@ This module contains all the UI Module classes
 
 """
 
+import numpy as np
 import copy
 from enum import Enum
 from typing import Union, Optional, Tuple
@@ -20,6 +21,7 @@ from itertools import cycle
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.ui.text_menu import UITextMenu
+from PiFinder.ui.base import CurrentSnapshot
 from PiFinder.ui.layout import list_layout
 from PiFinder.ui.object_details import UIObjectDetails
 
@@ -27,6 +29,7 @@ from PiFinder.calc_utils import aim_degrees, pointing_snapshot
 from PiFinder import utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.nearby import Nearby
+from PiFinder.object_sequence import ObjectSequence
 from PiFinder.catalogs import CatalogState
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
@@ -76,8 +79,8 @@ def _sort_order_label(sort_order: "SortOrder") -> str:
 
 
 def _next_target_index(
-    new_order: list,
-    old_order: list,
+    new_order,
+    old_order,
     old_index: int,
 ) -> int:
     """
@@ -89,19 +92,17 @@ def _next_target_index(
 
     Matches listings by (catalog_code, sequence) — CompositeObject.__eq__
     compares object_id alone, which would land on a *sibling* listing
-    (M 31 == NGC 224).
+    (M 31 == NGC 224). Works on the listing-key columns, so no object is
+    made.
     """
     if not len(new_order) or not len(old_order):
         return 0
-    index_by_listing = {}
-    for index, obj in enumerate(new_order):
-        key = (obj.catalog_code, obj.sequence)
-        if key not in index_by_listing:
-            index_by_listing[key] = index
-    for candidate in old_order[old_index:]:
-        new_index = index_by_listing.get((candidate.catalog_code, candidate.sequence))
-        if new_index is not None:
-            return new_index
+    new_keys = ObjectSequence.of(new_order).column("listing_key")
+    old_keys = ObjectSequence.of(old_order).column("listing_key")[max(old_index, 0) :]
+    survived = np.flatnonzero(np.isin(old_keys, new_keys))
+    if len(survived):
+        key = old_keys[survived[0]]
+        return int(np.flatnonzero(new_keys == key)[0])
     return min(max(old_index, 0), len(new_order) - 1)
 
 
@@ -130,11 +131,10 @@ class UIObjectList(UITextMenu):
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
 
-        self._menu_items: list[CompositeObject] = []
-        self._menu_items_sorted: list[CompositeObject] = []
+        self._menu_items: ObjectSequence = ObjectSequence()
+        self._menu_items_sorted: ObjectSequence = ObjectSequence()
         self.catalog_info_1: str = ""
         self.catalog_info_2: str = ""
-        self._was_loading: bool = False  # Track loading state to detect completion
         # Filter dirty_time the Nearby spatial index was last built against
         self._nearby_index_key: Any = _NEARBY_INDEX_UNBUILT
         # Filter dirty_time the object list was last built against
@@ -213,7 +213,7 @@ class UIObjectList(UITextMenu):
         # Force update because this is the first time and we
         # need to get the object list always
         self.refresh_object_list(force_update=True)
-        self.nearby = Nearby(self.shared_state)
+        self.nearby = Nearby(CurrentSnapshot())
 
     def refresh_object_list(self, force_update=False):
         """
@@ -250,12 +250,12 @@ class UIObjectList(UITextMenu):
 
         if self.item_definition["objects"] == "catalog":
             for catalog in self._source_catalogs():
-                self._menu_items = catalog.get_filtered_objects()
+                self._menu_items = catalog.as_sequence(filtered=True)
                 age = catalog.get_age()
                 self.catalog_info_2 = "" if age is None else str(round(age, 0))
 
         if self.item_definition["objects"] == "recent":
-            self._menu_items = self.ui_state.recent_list()
+            self._menu_items = ObjectSequence.of(self.ui_state.recent_list())
 
         if self.item_definition["objects"] == "custom":
             # item_definition must contain a list of CompositeObjects
@@ -265,7 +265,7 @@ class UIObjectList(UITextMenu):
             # results are shown as-is.
             if self.item_definition.get("filtered", False):
                 object_list = self.catalogs.catalog_filter.apply(object_list)
-            self._menu_items = object_list
+            self._menu_items = ObjectSequence.of(object_list)
 
         # The header count describes the catalog behind the screen, so it is
         # deliberately the whole filtered set -- not the possibly-shorter list
@@ -375,15 +375,21 @@ class UIObjectList(UITextMenu):
 
         return (None, None)
 
-    def sort(self) -> None:
-        message = _("Sorting by\n{sort_order}").format(
-            sort_order=_sort_order_label(self.current_sort)
-        )
-        self.message(message, 0.1)
-        self.update()
+    def sort(self, announce: bool = False) -> None:
+        """
+        Sorts the list by ``current_sort``. With ``announce`` (the user chose
+        a sort order), a popup names the order first. A list that opens or
+        refreshes shows no popup: the popup would cover the menu slide.
+        """
+        if announce:
+            message = _("Sorting by\n{sort_order}").format(
+                sort_order=_sort_order_label(self.current_sort)
+            )
+            self.message(message, 0.1)
+            self.update()
 
         if self.current_sort == SortOrder.NEAREST:
-            if not self.shared_state.solution().has_pointing():
+            if not self.snapshot.solution().has_pointing():
                 self.message(_("No Solve Yet"), 1)
                 self.current_sort = SortOrder.CATALOG_SEQUENCE
             else:
@@ -400,7 +406,10 @@ class UIObjectList(UITextMenu):
             self._current_item_index = 0
 
         if self.current_sort == SortOrder.RA:
-            self._menu_items_sorted = sorted(self._menu_items, key=lambda x: x.ra)
+            ra = self._menu_items.column("ra")
+            self._menu_items_sorted = self._menu_items.take(
+                np.argsort(ra, kind="stable")
+            )
             self._current_item_index = 0
         self.update()
 
@@ -488,7 +497,7 @@ class UIObjectList(UITextMenu):
 
     def create_locate_text(self, obj: CompositeObject, snapshot=None) -> str:
         az, alt = aim_degrees(
-            self.shared_state,
+            self.snapshot,
             self.mount_type,
             self.screen_direction,
             obj,
@@ -628,16 +637,6 @@ class UIObjectList(UITextMenu):
         half = layout.center_index
         begin_x = layout.text_x
 
-        # Check if loading just completed and refresh if so
-        is_loading = self.catalogs.is_loading()
-        if self._was_loading and not is_loading:
-            # Loading just completed - force refresh to show new objects
-            # Update flag BEFORE calling refresh to avoid infinite loop
-            self._was_loading = False
-            self.refresh_object_list(force_update=True)
-        else:
-            self._was_loading = is_loading
-
         # Altitude verdicts age out while the screen sits open (the sky
         # rotates); refresh the list when the filter reports staleness.
         # Before the no-objects check so an emptied-by-altitude list can
@@ -739,7 +738,7 @@ class UIObjectList(UITextMenu):
         line_color = None
         # One read of the pointing state for all rows of this frame.
         pointing = (
-            pointing_snapshot(self.shared_state)
+            pointing_snapshot(self.snapshot)
             if self.current_mode == DisplayModes.LOCATE
             else None
         )
@@ -848,18 +847,13 @@ class UIObjectList(UITextMenu):
         if start_at_top:
             self._current_item_index = 0
 
+        hits = np.flatnonzero(self._menu_items_sorted.column("sequence") == sequence)
         if direction == "down":
-            search_list = list(
-                range(self._current_item_index + 1, len(self._menu_items_sorted))
-            )
+            hits = hits[hits > self._current_item_index]
         else:
-            search_list = list(range(0, self._current_item_index - 1))
-            search_list.reverse()
-
-        for i in search_list:
-            if self._menu_items_sorted[i].sequence == sequence:
-                self._current_item_index = i
-                break
+            hits = hits[hits < self._current_item_index - 1][::-1]
+        if len(hits):
+            self._current_item_index = int(hits[0])
 
     def get_marker(
         self, obj_type: str, color: int, bgcolor: int
@@ -976,17 +970,17 @@ class UIObjectList(UITextMenu):
 
         if menu_item.label == _("Nearest"):
             self.current_sort = SortOrder.NEAREST
-            self.sort()
+            self.sort(announce=True)
             return True
 
         if menu_item.label == _("Standard"):
             self.current_sort = SortOrder.CATALOG_SEQUENCE
-            self.sort()
+            self.sort(announce=True)
             return True
 
         if menu_item.label == _("RA"):
             self.current_sort = SortOrder.RA
-            self.sort()
+            self.sort(announce=True)
             return True
 
     def mm_jump_to_filter(self, marking_menu, menu_item):
