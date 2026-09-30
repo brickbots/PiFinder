@@ -13,9 +13,8 @@ from types import SimpleNamespace
 import pytest
 
 from PiFinder import obslist
-from PiFinder.obslist import _normalize_designation, resolve_by_name
+from PiFinder.obslist import _name_key, _normalize_designation, resolve_by_name
 from PiFinder.obslist_formats import ObsList, ObsListEntry
-from PiFinder.ui.ui_utils import normalize
 
 
 @pytest.mark.unit
@@ -47,31 +46,43 @@ def _resolvers(mapping: dict) -> dict:
 class TestResolveByName:
     def test_exact_match(self):
         index = _resolvers(
-            {normalize("Andromeda Galaxy"): "M31", normalize("VY And"): "SaR7"}
+            {_name_key("Andromeda Galaxy"): "M31", _name_key("VY And"): "SaR7"}
         )
         assert resolve_by_name("Andromeda Galaxy", index) == "M31"
 
     def test_normalized_match(self):
-        index = _resolvers({normalize("VY And"): "SaR7"})
+        index = _resolvers({_name_key("VY And"): "SaR7"})
         assert resolve_by_name("VY Andromedae", index) == "SaR7"
 
     def test_exact_preferred_over_normalized(self):
         index = _resolvers(
-            {normalize("VY Andromedae"): "EXACT", normalize("VY And"): "NORM"}
+            {_name_key("VY Andromedae"): "EXACT", _name_key("VY And"): "NORM"}
         )
         assert resolve_by_name("VY Andromedae", index) == "EXACT"
 
     def test_no_match(self):
         assert (
-            resolve_by_name("CGCS135", _resolvers({normalize("VY And"): "SaR7"}))
+            resolve_by_name("CGCS135", _resolvers({_name_key("VY And"): "SaR7"}))
             is None
         )
 
     def test_spacing_insensitive(self):
         # A CSV "M 13" matches an object stored as "M13" (no space), and vice versa.
-        index = _resolvers({normalize("M13"): "OBJ"})
+        index = _resolvers({_name_key("M13"): "OBJ"})
         assert resolve_by_name("M 13", index) == "OBJ"
         assert resolve_by_name("M13", index) == "OBJ"
+
+    def test_a_minkowski_name_does_not_resolve_to_messier(self):
+        # "M 2-9" and "M 29" normalize to the same text; the digit groups
+        # keep them apart.
+        index = _resolvers({_name_key("M 29"): "MESSIER", _name_key("M 2-9"): "PK"})
+        assert resolve_by_name("M 2-9", index) == "PK"
+        assert resolve_by_name("M 3-1", _resolvers({_name_key("M 31"): "M31"})) is None
+
+    def test_hyphen_and_space_variants_still_match(self):
+        index = _resolvers({_name_key("Sh2 71"): "SH2", _name_key("NGC 497"): "N"})
+        assert resolve_by_name("Sh 2-71", index) == "SH2"
+        assert resolve_by_name("NGC 0497", index) == "N"
 
     def test_empty_name(self):
         assert resolve_by_name("", _resolvers({"x": 1})) is None
