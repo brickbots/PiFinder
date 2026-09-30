@@ -283,7 +283,7 @@ class UITimeEntry(UIModule):
             self.draw_legend(separator_y)
 
         if self.shared_state:
-            self.shared_state.set_screen(self.screen)
+            self.publish_screen(self.shared_state, self.screen)
         return self.screen_update()
 
     def serialize_ui_state(self) -> dict:
