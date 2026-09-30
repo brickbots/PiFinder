@@ -231,6 +231,6 @@ class UIConsole(UIModule):
         self.display.display(screen_to_display)
 
         if self.shared_state:
-            self.shared_state.set_screen(screen_to_display)
+            self.publish_screen(self.shared_state, screen_to_display)
 
         return

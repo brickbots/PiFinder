@@ -106,9 +106,9 @@ def apply_brightness(ui_module: UIModule) -> None:
 
 def apply_show_fps(ui_module: UIModule) -> None:
     """Show or hide the frame rate in the title bar, from current config."""
-    ui_module.ui_state.set_show_fps(
-        ui_module.config_object.get_option("show_fps", False)
-    )
+    show_fps = ui_module.config_object.get_option("show_fps", False)
+    UIModule.frame_rate.visible = show_fps
+    ui_module.ui_state.set_show_fps(show_fps)
 
 
 def apply_sound_volume(ui_module: UIModule) -> None:

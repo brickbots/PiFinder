@@ -51,6 +51,7 @@ from PiFinder.calc_utils import sf_utils
 from PiFinder.state_utils import sleep_for_framerate
 
 from PiFinder.ui.console import UIConsole
+from PiFinder.ui.base import UIModule
 from PiFinder.ui.menu_manager import MenuManager
 
 from PiFinder.state import SharedStateObj, UIState
@@ -180,6 +181,9 @@ def setup_dirs():
 
 patch.apply()
 
+# GIL switch interval for the UI process, in seconds (Python default 0.005).
+UI_SWITCH_INTERVAL = 0.001
+
 
 class StateManager(BaseManager):
     pass
@@ -248,12 +252,16 @@ class PowerManager:
             self.register_activity()
             return
 
-        if self.shared_state.power_state() > 0:
+        # One read per frame: each read is a round trip to the shared-state
+        # process. Read again only after this method changes the state.
+        power_state = self.shared_state.power_state()
+        if power_state > 0:
             # We are awake, should we sleep?
             if time.time() - self.last_activity > self.get_sleep_timeout():
                 self.go_to_sleep()
+                power_state = 0
 
-        elif self.shared_state.power_state() == 0:
+        elif power_state == 0:
             # We are asleep, should we wake up or go to screen off?
             _imu = self.shared_state.imu()
             if _imu:
@@ -269,9 +277,10 @@ class PowerManager:
                 and time.time() - self.sleep_start_time > screen_off_timeout
             ):
                 self.screen_off()
+                power_state = -1
 
         # Screen off mode: LED heartbeat, longer sleep
-        if self.shared_state.power_state() == -1:
+        if power_state == -1:
             _imu = self.shared_state.imu()
             if _imu and _imu.moving:
                 self.wake_up()
@@ -281,7 +290,7 @@ class PowerManager:
             return
 
         # should we pause execution for a bit?
-        if self.shared_state.power_state() < 1:
+        if power_state < 1:
             time.sleep(0.2)
 
     def get_sleep_timeout(self):
@@ -571,7 +580,9 @@ def main(
         shared_state = manager.SharedState()  # type: ignore[attr-defined]
         location = shared_state.location()
         ui_state = manager.UIState()  # type: ignore[attr-defined]
-        ui_state.set_show_fps(show_fps or cfg.get_option("show_fps", False))
+        show_fps = show_fps or cfg.get_option("show_fps", False)
+        ui_state.set_show_fps(show_fps)
+        UIModule.frame_rate.visible = show_fps
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
@@ -778,6 +789,14 @@ def main(
 
         # Start profiling (uncomment to enable performance analysis)
         # profiler, startup_profile_start = start_profiling()
+
+        # The UI thread waits for a shared-state answer many times per frame.
+        # After each wait it needs the GIL back, and a busy thread in this
+        # process (the catalog loader) keeps it for up to the switch
+        # interval. The 5 ms default cut the frame rate to a few FPS while
+        # catalogs loaded. All worker processes are already started, so this
+        # applies to the UI process only.
+        sys.setswitchinterval(UI_SWITCH_INTERVAL)
 
         # Initialize Catalogs (pass ui_queue for background loading completion signal)
         catalogs: Catalogs = CatalogBuilder().build(shared_state, ui_queue)
