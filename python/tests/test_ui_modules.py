@@ -53,10 +53,10 @@ import io
 import pkgutil
 import queue
 import shutil
-from typing import Iterator, cast
+from typing import Iterator
 from unittest import mock
 
-import numpy as np
+
 import pytest
 from PIL import Image
 
@@ -86,11 +86,12 @@ from PiFinder.ui.menu_manager import MenuManager
 from PiFinder.ui.object_details import UIObjectDetails
 from PiFinder.ui.object_list import SortOrder, UIObjectList
 from PiFinder.nearby import NEAREST_LIST_CAP
+from PiFinder.object_sequence import ObjectSequence
+from PiFinder.state_snapshot import StateSnapshot
 from PiFinder.ui.log import UILog
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
 from PiFinder.ui.sqm_sweep import UISQMSweep
-from PiFinder.ui.software import UIMigrationConfirm, UIMigrationProgress
 
 
 # --------------------------------------------------------------------------- #
@@ -124,7 +125,11 @@ _SWEEP_SKIP: dict[str, str] = {
 # UIModule subclasses that are intentionally *not* exercised, with the reason.
 # Keeps the completeness guard (test_all_ui_modules_covered) honest.
 _COVERAGE_SKIP: dict[str, str] = {
-    "UIReleaseNotes": "fetches markdown via HTTP in active(); needs a network mock",
+    "UIReleaseNotes": (
+        "Pushed onto the stack by UISoftware's Notes action with a "
+        "notes-payload item_definition; not reachable from the menu tree "
+        "and needs live update-channel state to construct."
+    ),
 }
 
 # Bound on the auto-sweep so a handler that keeps pushing modules
@@ -185,8 +190,6 @@ _DYNAMIC_IDS = [
     "UIDateEntry",
     "UISQMCalibration",
     "UISQMSweep",
-    "UIMigrationConfirm",
-    "UIMigrationProgress",
 ]
 
 
@@ -222,23 +225,6 @@ def _build_dynamic_item_definition(spec_id: str, sample_object) -> dict:
     if spec_id == "UISQMSweep":
         # sqm.py:302
         return {"name": "SQM Sweep", "class": UISQMSweep, "label": "sqm_sweep"}
-    if spec_id == "UIMigrationConfirm":
-        # Pushed by UISoftware.key_square() after a 7x-square unlock.
-        return {
-            "name": "Confirm Migration",
-            "class": UIMigrationConfirm,
-            "version_info": {"version": "2.5.0"},
-            "current_version": "2.4.0",
-            "label": "migration_confirm",
-        }
-    if spec_id == "UIMigrationProgress":
-        # Pushed by UIMigrationConfirm after the user confirms.
-        return {
-            "name": "Migration Progress",
-            "class": UIMigrationProgress,
-            "version_info": {"version": "2.5.0"},
-            "label": "migration_progress",
-        }
     raise KeyError(spec_id)  # pragma: no cover
 
 
@@ -251,7 +237,11 @@ def _all_uimodule_subclasses() -> set[str]:
 
     def _recurse(cls):
         for sub in cls.__subclasses__():
-            found.add(sub.__name__)
+            # Only classes that live in the UI package count — test helpers
+            # subclassing UIModule elsewhere (e.g. test_battery_titlebar_icon's
+            # _BareModule) must not trip the coverage guard.
+            if sub.__module__.startswith("PiFinder.ui"):
+                found.add(sub.__name__)
             _recurse(sub)
 
     _recurse(UIModule)
@@ -316,7 +306,7 @@ def _fast_timezonefinder():
     Timezone resolution is irrelevant to UI crash-smoke,
     so a constant-"UTC" stub is fine.
     """
-    with mock.patch("PiFinder.state.TimezoneFinder", _StubTimezoneFinder):
+    with mock.patch("timezonefinder.TimezoneFinder", _StubTimezoneFinder):
         yield
 
 
@@ -358,8 +348,31 @@ def _no_comet_download():
     """
     import PiFinder.comets as comets
 
-    with mock.patch.object(
-        comets, "comet_data_download", return_value=(False, None, None)
+    with (
+        mock.patch.object(
+            comets,
+            "check_if_comet_download_needed",
+            return_value=(False, "test environment"),
+        ),
+        mock.patch.object(
+            comets, "comet_data_download", return_value=(False, None, None)
+        ),
+    ):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_asteroid_download():
+    """Keep the UI harness hermetic while building AsteroidCatalog."""
+    import PiFinder.asteroids as asteroids
+
+    with (
+        mock.patch.object(
+            asteroids,
+            "check_asteroid_download_needed",
+            return_value=(False, "test environment"),
+        ),
+        mock.patch.object(asteroids, "download_asteroid_year"),
     ):
         yield
 
@@ -431,7 +444,7 @@ def camera_image():
 
 
 @pytest.fixture(scope="session")
-def catalogs(_no_comet_download) -> Iterator[Catalogs]:
+def catalogs(_sandbox_data_dir, _no_comet_download) -> Iterator[Catalogs]:
     """Build the real catalogs once from the bundled DB.
 
     Teardown stops the perpetual catalog timers. The planet and comet catalogs
@@ -442,16 +455,13 @@ def catalogs(_no_comet_download) -> Iterator[Catalogs]:
     """
     boot_state = SharedStateObj()
     boot_state.set_ui_state(UIState())
-    built = CatalogBuilder().build(boot_state, queue.Queue())
+    built = CatalogBuilder().build(boot_state)
     yield built
 
     for catalog in built.get_catalogs(only_selected=False):
         timer = getattr(catalog, "_timer", None)
         if timer is not None:
             timer.stop()
-    loader = getattr(built, "_background_loader", None)
-    if loader is not None:
-        loader.stop()
 
 
 @pytest.fixture(scope="session")
@@ -518,6 +528,9 @@ def _make_shared_state(state: str) -> SharedStateObj:
         )
         # set_solution derives solve_state from has_pointing() (True here).
         shared_state.set_solution(solved)
+    # Screens read the frame's snapshot, which the main loop reads once per
+    # frame; here it is taken from the shared state directly.
+    UIModule.snapshot = StateSnapshot.from_state(shared_state)
     return shared_state
 
 
@@ -562,10 +575,7 @@ def _sweep_stack(menu_manager: MenuManager, seen: set) -> None:
     """
     count = 0
     while count < _MAX_SWEEP_MODULES:
-        # MenuManager.stack is annotated list[type[UIModule]] upstream
-        # but holds instances; cast so the sweep sees them
-        # as the UIModule instances they are.
-        pending = [cast(UIModule, m) for m in menu_manager.stack if id(m) not in seen]
+        pending = [m for m in menu_manager.stack if id(m) not in seen]
         if not pending:
             break
         for module in pending:
@@ -752,11 +762,10 @@ def test_object_details_serialises_from_a_nearby_sorted_list(
 ):
     """Object details opened from a Nearby list serialise as state, not an error.
 
-    The Nearby sort hands ``show_object_details`` the NumPy object array
+    The Nearby sort hands ``show_object_details`` the ObjectSequence
     ``get_closest_objects`` returns, not a Python list. Anything in
-    ``serialize_ui_state`` that tests that array for truthiness raises
-    ("truth value of an array with more than one element is ambiguous"), and
-    the raise is swallowed by the method's own except clause -- so the whole
+    ``serialize_ui_state`` that needs a real list must still work on it; an
+    error there is swallowed by the method's own except clause -- so the whole
     remote state degrades to {"error": ...} for every object reached this way.
     """
     cfg = Config()
@@ -784,8 +793,8 @@ def test_object_details_serialises_from_a_nearby_sorted_list(
     object_list.sort()
 
     ranked = object_list._menu_items_sorted
-    # The precondition the bug needs: a multi-element array, not a list.
-    assert isinstance(ranked, np.ndarray)
+    # The precondition: a multi-element ObjectSequence, not a list.
+    assert isinstance(ranked, ObjectSequence)
     assert len(ranked) > 1
 
     details = UIObjectDetails(

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% import "obs_macros.html" as obs %}
+
+{% block head %}
+<link href="/css/observations.css" type="text/css" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="obs-page">
+
+  <header class="obs-head">
+    <h1>{{ night["date"].strftime('%A %d %B %Y') }}</h1>
+    <div class="obs-stat">
+      <span class="obs-stat__value">{{ night["observations"] }}</span>
+      <span class="obs-stat__label">{{ _('Objects') }}</span>
+    </div>
+    <div class="obs-stat">
+      <span class="obs-stat__value">{{ night["span_hours"] | round(1) }}</span>
+      <span class="obs-stat__label">{{ _('Hours') }}</span>
+    </div>
+    {% if night["sqm"] %}
+    <div class="obs-stat">
+      <span class="obs-stat__value">{{ night["sqm"]["median"] }}</span>
+      <span class="obs-stat__label">{{ _('Median sky') }}</span>
+    </div>
+    {% endif %}
+    <div class="obs-actions">
+      <a href="/observations/night/{{ night['night_key'] }}?download=1"
+         title="{{ _('Download this night') }}">
+        <i class="material-icons">download</i>
+      </a>
+    </div>
+  </header>
+
+  <div class="obs-night__times">
+    <span>{{ night["start"].strftime('%H:%M') }} → {{ night["end"].strftime('%H:%M') }}</span>
+    <span>{{ night["timezone"] or _('UTC') }}</span>
+    {% if night["sqm"] %}
+    <span class="obs-badge obs-badge--sky">
+      {{ night["sqm"]["min"] }}–{{ night["sqm"]["max"] }} {{ _('mag/arcsec²') }}
+      ({{ night["sqm"]["count"] }})
+    </span>
+    {% endif %}
+    {% if night["sessions"] > 1 %}
+    <span class="obs-badge">{{ night["sessions"] }} {{ _('runs') }}</span>
+    {% endif %}
+  </div>
+
+  {{ obs.span_strip(night, tall=true) }}
+
+  <ul class="obs-log">
+    {% for object in objects %}
+
+    {% if object["starts_new_run"] %}
+    <li class="obs-log__break">{{ _('PiFinder restarted') }}</li>
+    {% endif %}
+
+    <li class="obs-log__entry">
+      <div class="obs-log__head">
+        <span class="obs-log__time">{{ object["local_time"].strftime('%H:%M') }}</span>
+        <a class="obs-log__name"
+           href="/observations/object/{{ object['catalog'] }}/{{ object['sequence'] }}">
+          {{ object["catalog"] }} {{ object["sequence"] }}
+        </a>
+        <span class="obs-log__where">
+          {%- if object["solution"]["constellation"] %}{{ object["solution"]["constellation"] }}{% endif %}
+          {%- if object["solution"]["altitude"] is defined %} · {{ object["solution"]["altitude"] }}° {{ _('alt') }}{% endif %}
+        </span>
+      </div>
+      {{ obs.note_block(object["notes"]) }}
+    </li>
+
+    {% endfor %}
+  </ul>
+
+  <p><a href="/observations">← {{ _('All nights') }}</a></p>
+
+</div>
+{% endblock %}

@@ -1,0 +1,400 @@
+/* Observing nights, night logs and object pages.
+   Dark, red-accented to match the PiFinder brand; Materialize supplies the
+   grid, everything here is the look. No external assets. */
+
+:root {
+  --obs-ink: #e8e2df;
+  --obs-ink-dim: #9d9591;
+  --obs-ink-faint: #6f6764;
+  --obs-surface: #2b2726;
+  --obs-surface-raised: #363130;
+  --obs-line: #464040;
+  --obs-accent: #e5533d;
+  --obs-accent-soft: rgba(229, 83, 61, 0.18);
+  --obs-radius: 10px;
+}
+
+.obs-page {
+  color: var(--obs-ink);
+}
+
+.obs-page a {
+  color: var(--obs-accent);
+}
+
+/* --- Page header ------------------------------------------------------ */
+
+.obs-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--obs-line);
+  margin-bottom: 1.5rem;
+}
+
+.obs-head h1 {
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0 auto 0 0;
+  color: var(--obs-ink);
+}
+
+.obs-stat {
+  text-align: right;
+  line-height: 1.15;
+}
+
+.obs-stat__value {
+  display: block;
+  font-size: 1.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.obs-stat__label {
+  display: block;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--obs-ink-faint);
+}
+
+.obs-actions a {
+  color: var(--obs-ink-dim);
+}
+
+.obs-actions a:hover {
+  color: var(--obs-accent);
+}
+
+/* --- Night cards ------------------------------------------------------ */
+
+.obs-nights {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.obs-night {
+  display: block;
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-line);
+  border-left: 3px solid var(--obs-accent);
+  border-radius: var(--obs-radius);
+  padding: 1rem 1.15rem;
+  color: inherit;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+a.obs-night:hover {
+  background: var(--obs-surface-raised);
+  transform: translateX(2px);
+  color: inherit;
+}
+
+.obs-night__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem 1rem;
+}
+
+.obs-night__date {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.obs-night__where {
+  font-size: 0.8rem;
+  color: var(--obs-ink-dim);
+  margin-right: auto;
+}
+
+.obs-night__count {
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.obs-night__count span {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--obs-ink-faint);
+  margin-left: 0.35rem;
+}
+
+.obs-night__times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.55rem;
+  font-size: 0.85rem;
+  color: var(--obs-ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Span strip ------------------------------------------------------- */
+
+.obs-strip {
+  position: relative;
+  margin: 0.8rem 0 1.1rem;
+  height: 12px;
+}
+
+.obs-strip--tall {
+  height: 18px;
+  margin-bottom: 1.4rem;
+}
+
+.obs-strip__rail {
+  position: absolute;
+  inset: 0;
+  background: var(--obs-accent-soft);
+  border-radius: 4px;
+}
+
+.obs-strip--instant .obs-strip__rail {
+  /* Nothing spanned, so nothing to span: the rail shrinks to the mark. */
+  left: calc(50% - 9px);
+  right: calc(50% - 9px);
+  background: none;
+}
+
+.obs-strip__hour {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--obs-line);
+}
+
+.obs-strip__hour span {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding-top: 2px;
+  font-size: 0.6rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--obs-ink-faint);
+}
+
+.obs-strip__tick {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--obs-accent);
+}
+
+/* --- Badges and chips ------------------------------------------------- */
+
+.obs-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--obs-line);
+  color: var(--obs-ink-dim);
+  white-space: nowrap;
+}
+
+.obs-badge--sky {
+  border-color: var(--obs-accent);
+  color: var(--obs-accent);
+}
+
+.obs-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.12rem 0.55rem;
+  margin: 0.15rem 0.3rem 0.15rem 0;
+  border-radius: 999px;
+  background: var(--obs-surface-raised);
+  font-size: 0.75rem;
+}
+
+.obs-chip__label {
+  color: var(--obs-ink-faint);
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+}
+
+.obs-stars {
+  color: var(--obs-accent);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.obs-stars__empty {
+  color: var(--obs-ink-faint);
+}
+
+/* --- Night log timeline ----------------------------------------------- */
+
+.obs-log {
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  border-left: 1px solid var(--obs-line);
+}
+
+.obs-log__entry {
+  position: relative;
+  padding: 0.75rem 0 0.75rem 1.25rem;
+}
+
+.obs-log__entry::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 1.15rem;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--obs-accent);
+}
+
+.obs-log__break {
+  margin: 0.4rem 0 0.4rem -1px;
+  padding-left: 1.25rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--obs-ink-faint);
+  border-top: 1px dashed var(--obs-line);
+  padding-top: 0.5rem;
+}
+
+.obs-log__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.obs-log__time {
+  font-variant-numeric: tabular-nums;
+  color: var(--obs-ink-dim);
+  font-size: 0.9rem;
+  min-width: 3.4rem;
+}
+
+.obs-log__name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--obs-ink);
+}
+
+a.obs-log__name:hover {
+  color: var(--obs-accent);
+}
+
+.obs-log__where {
+  font-size: 0.8rem;
+  color: var(--obs-ink-faint);
+}
+
+.obs-log__notes {
+  margin-top: 0.35rem;
+}
+
+/* --- Object page ------------------------------------------------------ */
+
+.obs-object__hero {
+  display: grid;
+  /* Capped rather than free-growing: a single panel at full container
+     width would push the object's own details off the screen. */
+  grid-template-columns: repeat(auto-fit, minmax(240px, 400px));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.obs-figure {
+  background: #000;
+  border: 1px solid var(--obs-line);
+  border-radius: var(--obs-radius);
+  overflow: hidden;
+}
+
+.obs-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.obs-figure figcaption {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--obs-ink-faint);
+  background: var(--obs-surface);
+}
+
+.obs-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.obs-aka {
+  color: var(--obs-ink-dim);
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+}
+
+.obs-desc {
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-line);
+  border-radius: var(--obs-radius);
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 0.8rem;
+  line-height: 1.5;
+}
+
+.obs-desc h3 {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--obs-ink-faint);
+  margin: 0 0 0.4rem;
+}
+
+.obs-section-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--obs-ink-faint);
+  margin: 2rem 0 0;
+}
+
+.obs-empty {
+  color: var(--obs-ink-faint);
+  padding: 2rem 0;
+  text-align: center;
+}
+
+@media only screen and (max-width: 600px) {
+  .obs-head h1 {
+    width: 100%;
+  }
+
+  .obs-stat {
+    text-align: left;
+  }
+
+  .obs-night__count {
+    font-size: 1.25rem;
+  }
+}

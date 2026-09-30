@@ -2,10 +2,21 @@
 Astronomical coordinate types
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 import numpy as np
-import quaternion
-from typing import Union  # When updated to Python 3.10+, remove and use new type hints
+from typing import (
+    TYPE_CHECKING,
+    Union,
+)  # When updated to Python 3.10+, remove and use new type hints
+
+from PiFinder.lazy_import import lazy_module
+
+if TYPE_CHECKING:
+    import quaternion
+else:
+    quaternion = lazy_module("quaternion")
 
 from PiFinder.pointing_model.quaternion_transforms import q_eq2radec, radec2q_eq
 

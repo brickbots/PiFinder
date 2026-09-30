@@ -1,0 +1,922 @@
+{ config, lib, pkgs, pifinderPythonEnv, ... }:
+let
+  cfg = config.pifinder;
+  cedar-detect = import ./pkgs/cedar-detect.nix { inherit pkgs; };
+  pifinder-src = import ./pkgs/pifinder-src.nix { inherit pkgs; };
+  gaia-stars = import ./pkgs/gaia-stars.nix { inherit pkgs; };
+  boot-splash = import ./pkgs/boot-splash.nix { inherit pkgs; };
+  uboot-sd = import ./pkgs/uboot-sd.nix { inherit pkgs; };
+  # The U-Boot boot counter (ADR 0038, nixos/pkgs/uboot-sd.nix): two files on
+  # the FAT FIRMWARE partition. pifinder.bootcount is 4 bytes: magic 0xbd,
+  # version 1, count, upgrade_available. pifinder-fallback.env names the
+  # extlinux entry that U-Boot boots when the count passes its limit.
+  #   arm <system>  count the next boots; fall back to the entry of <system>
+  #   reset         stop counting (a healthy boot)
+  #   armed         exit 0 if the counter counts
+  # A U-Boot without the counter does not read these files.
+  pifinder-bootcount = pkgs.writeShellScriptBin "pifinder-bootcount" ''
+    set -euo pipefail
+    export PATH=${lib.makeBinPath (with pkgs; [ coreutils gawk util-linux ])}
+    FW=/boot/firmware
+    COUNT=$FW/pifinder.bootcount
+    FALLBACK=$FW/pifinder-fallback.env
+    CONF=/boot/extlinux/extlinux.conf
+
+    # Replace a file on the FAT partition: write a new file, then rename it.
+    put() {
+      cat > "$1.tmp"
+      sync -f "$1.tmp"
+      mv -f "$1.tmp" "$1"
+      sync -f "$1"
+    }
+    state() {
+      od -An -tu1 -N4 "$COUNT" 2>/dev/null | awk '{$1=$1; print}'
+    }
+
+    if ! mountpoint -q "$FW"; then
+      echo "pifinder-bootcount: $FW is not mounted" >&2
+      [ "''${1:-}" = armed ] && exit 1
+      exit 0
+    fi
+    case "''${1:-}" in
+      arm)
+        PREVIOUS="''${2:?usage: pifinder-bootcount arm <system>}"
+        # The generation entry (not nixos-default, which moves to the new
+        # system) whose kernel command line starts <system>.
+        LABEL=$(awk -v init="init=$PREVIOUS/init" '
+          $1 == "LABEL" { label = $2 }
+          $1 == "APPEND" && label != "nixos-default" {
+            for (i = 2; i <= NF; i++) if ($i == init) { print label; exit }
+          }' "$CONF")
+        if [ -z "$LABEL" ]; then
+          echo "pifinder-bootcount: no boot entry for $PREVIOUS; the counter stays off" >&2
+          exit 0
+        fi
+        printf 'pxe_label_override=%s\n' "$LABEL" | put "$FALLBACK"
+        printf '\275\001\000\001' | put "$COUNT"
+        echo "pifinder-bootcount: counting boots; fallback entry $LABEL"
+        ;;
+      reset)
+        if [ "$(state)" != "189 1 0 0" ]; then
+          printf '\275\001\000\000' | put "$COUNT"
+        fi
+        rm -f "$FALLBACK"
+        ;;
+      armed)
+        case "$(state)" in
+          "189 1 "*" 1") exit 0 ;;
+          *) exit 1 ;;
+        esac
+        ;;
+      *)
+        echo "usage: pifinder-bootcount arm <system> | reset | armed" >&2
+        exit 2
+        ;;
+    esac
+  '';
+  # Point the extlinux DEFAULT at a specific camera's boot entry. Device-tree
+  # overlays load only at boot and the generic-extlinux builder always writes
+  # DEFAULT=nixos-default (the base camera), so without this a switched camera
+  # never actually boots its matching DTB. Boot-critical and best-effort: on any
+  # doubt it leaves the existing (bootable) DEFAULT untouched.
+  set-extlinux-default = pkgs.writeShellScriptBin "set-extlinux-default" ''
+    set -euo pipefail
+    CAM="''${1:?usage: set-extlinux-default <camera>}"
+    CONF=/boot/extlinux/extlinux.conf
+
+    [ -f "$CONF" ] || { echo "set-extlinux-default: $CONF missing" >&2; exit 0; }
+
+    if [ "$CAM" = "${cfg.cameraType}" ]; then
+      # The base camera is the builder's own default entry.
+      TARGET=nixos-default
+    else
+      # Highest-numbered generation carrying this camera's specialisation entry.
+      TARGET=$(grep -oE "^LABEL nixos-[0-9]+-$CAM" "$CONF" \
+        | sed 's/^LABEL //' | sort -t- -k2,2n | tail -n1 || true)
+    fi
+
+    if [ -z "$TARGET" ] || ! grep -qx "LABEL $TARGET" "$CONF"; then
+      echo "set-extlinux-default: no boot entry for '$CAM'; DEFAULT left unchanged" >&2
+      exit 0
+    fi
+
+    TMP="$CONF.tmp.$$"
+    sed "s/^DEFAULT .*/DEFAULT $TARGET/" "$CONF" > "$TMP"
+    # Refuse to install anything that isn't exactly one DEFAULT pointing at a
+    # real LABEL — a malformed extlinux.conf would brick the next boot.
+    if [ "$(grep -c '^DEFAULT ' "$TMP")" = "1" ] && grep -qx "LABEL $TARGET" "$TMP"; then
+      mv "$TMP" "$CONF"
+      sync
+      echo "set-extlinux-default: DEFAULT -> $TARGET" >&2
+    else
+      rm -f "$TMP"
+      echo "set-extlinux-default: sanity check failed; DEFAULT left unchanged" >&2
+      exit 0
+    fi
+  '';
+  # Password change for the web UI (via sudo). Takes one line on stdin, the
+  # new password, and sets it for the pifinder user only.
+  pifinder-set-password = pkgs.writeShellScriptBin "pifinder-set-password" ''
+    set -euo pipefail
+    IFS= read -r NEW_PASSWORD
+    if [ -z "$NEW_PASSWORD" ]; then
+      echo "empty password" >&2
+      exit 1
+    fi
+    printf 'pifinder:%s\n' "$NEW_PASSWORD" | ${pkgs.shadow}/bin/chpasswd
+  '';
+  pifinder-switch-camera = pkgs.writeShellScriptBin "pifinder-switch-camera" ''
+    set -euo pipefail
+    CAM="''${1:?usage: pifinder-switch-camera <camera>}"
+    PERSIST="/var/lib/pifinder/camera-type"
+    mkdir -p /var/lib/pifinder
+
+    # Accept only the base camera or a camera with a built specialisation.
+    if [ "$CAM" != "${cfg.cameraType}" ] && [ ! -d "/run/current-system/specialisation/$CAM" ]; then
+      echo "Unknown camera: $CAM" >&2
+      exit 1
+    fi
+
+    # Regenerate the bootloader (installs every specialisation entry; 'boot'
+    # mode touches no running services), make the chosen camera the boot
+    # default, and persist the choice.
+    /run/current-system/bin/switch-to-configuration boot
+    ${set-extlinux-default}/bin/set-extlinux-default "$CAM"
+    echo "$CAM" > "$PERSIST"
+
+    # Device-tree overlays load only at boot, so apply the new camera by
+    # rebooting into its entry.
+    exec ${pkgs.systemd}/bin/systemctl reboot
+  '';
+in {
+  options.pifinder = {
+    devMode = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable development mode (NFS netboot support, etc.)";
+    };
+
+    gpsBaud = lib.mkOption {
+      type = lib.types.nullOr lib.types.int;
+      default = null;
+      example = 115200;
+      description = ''
+        Fixed serial speed for gpsd (-s). null keeps gpsd's autobaud hunt,
+        which handles both the rev-3 GPS and the v4 u-blox Gen10 (UBX at
+        115200). Set it only to pin a known receiver and skip the hunt.
+      '';
+    };
+
+    deltaUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "https://deltas.pifinder.eu";
+      description = ''
+        Base URL of the pifinder-differ delta server. When set, the upgrade
+        prefetches byte-level patches against store paths the device already
+        holds before letting nix download whole paths. Empty (the default)
+        disables delta prefetch entirely; every failure while prefetching
+        falls back to a normal binary-cache download.
+      '';
+    };
+  };
+
+  config = {
+  # The watchdog runs after multi-user.target. A service that the target
+  # wants and that runs after the watchdog must name multi-user.target in
+  # "after" too; otherwise the order is a cycle and systemd deletes the job
+  # at each boot, with only a line in the journal.
+  assertions = let
+    services = config.systemd.services;
+    cycles = builtins.filter (name:
+      let after = services.${name}.after or [ ]; in
+      builtins.elem "pifinder-watchdog.service" after
+      && !(builtins.elem "multi-user.target" after))
+      (builtins.attrNames services);
+  in [ {
+    assertion = cycles == [ ];
+    message = "Add multi-user.target to after of: ${lib.concatStringsSep ", " cycles}";
+  } ];
+
+  # ---------------------------------------------------------------------------
+  # Camera switch wrapper (used by pifinder UI via sudo)
+  # ---------------------------------------------------------------------------
+  environment.systemPackages = with pkgs; [
+    pifinder-switch-camera
+    pifinder-set-password
+    set-extlinux-default
+
+    # Diagnostic tools for SSH troubleshooting
+    htop
+    vim
+    tcpdump
+    iftop
+    lsof
+    strace
+    file
+    dnsutils        # dig, nslookup
+    curl
+    usbutils        # lsusb
+    pciutils        # lspci
+    i2c-tools       # i2cdetect (sensor debugging)
+    iotop
+  ] ++ lib.optionals cfg.devMode [
+    # On-device development only (excluded from the production image). Not used
+    # by the NixOS image updater, which is manifest/store-path based (ADR 0037).
+    git             # clone/pull a checkout to run live
+    rsync           # sync a checkout from a desktop without re-copying everything
+  ];
+
+
+
+  # ---------------------------------------------------------------------------
+  # Binary substituters — Pi downloads pre-built paths, never compiles.
+  # Two Attic caches on cache.pifinder.eu (ADR 0037):
+  #   pifinder-release — tagged release closures, never garbage-collected, so a
+  #                      device upgrading long after a release still resolves it.
+  #   pifinder         — dev/nightly builds, short retention.
+  # cache.nixos.org serves everything not built locally.
+  # ---------------------------------------------------------------------------
+  nix.settings = {
+    experimental-features = [ "nix-command" "flakes" ];
+    substituters = [
+      "https://cache.pifinder.eu/pifinder-release"
+      "https://cache.pifinder.eu/pifinder"
+      "https://cache.nixos.org"
+    ];
+    trusted-public-keys = [
+      # Attic cache signing keys. pifinder is the original 8UU key: the S3
+      # cutover briefly rotated it (Vkem), but nothing deployed trusted the new
+      # key so the whole fleet was stranded — the cache and this config were
+      # restored to 8UU. pifinder-release was minted fresh with the cutover (no
+      # device trusted a release key before). Real keys — never swap one for a
+      # placeholder; invalid base64 aborts every nix op and bricks upgrades.
+      "pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE="
+      "pifinder-release:WG/Fw1cIX7YpwfWrbWTP5eCzn3bz6AaicW5qKxLKpoM="
+      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+    ];
+  };
+
+  # ---------------------------------------------------------------------------
+  # SD card optimizations
+  # ---------------------------------------------------------------------------
+
+  # Keep 2 generations max in bootloader
+  boot.loader.generic-extlinux-compatible.configurationLimit = 2;
+
+  # Removes store paths that no generation uses. It deletes no generations:
+  # the upgrade keeps the 3 newest (current + 2 rollback targets) by count,
+  # so an age limit here would delete the rollback targets.
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "";
+  };
+  # Disable store optimization on NFS (hard links cause issues)
+  nix.settings.auto-optimise-store = !cfg.devMode;
+
+  boot.tmp.useTmpfs = true;
+  boot.tmp.tmpfsSize = "200M";
+
+  services.journald.extraConfig = ''
+    Storage=volatile
+    RuntimeMaxUse=50M
+  '';
+
+  zramSwap = {
+    enable = true;
+    memoryPercent = 50;
+  };
+
+  # Root is btrfs on the second partition of the SD card or eMMC, whatever
+  # its label. A card that is still ext4 keeps the system it has until the
+  # migration reformats it; the upgrade refuses a build it cannot mount.
+  fileSystems."/" = lib.mkDefault {
+    device = "/dev/mmcblk0p2";
+    fsType = "btrfs";
+    options = [ "compress=zstd:1" "noatime" ];
+  };
+
+  # ---------------------------------------------------------------------------
+  # Tmpfiles — runtime directory for upgrade ref file
+  # ---------------------------------------------------------------------------
+  systemd.tmpfiles.rules = [
+    "d /run/pifinder 0755 pifinder users -"
+  ];
+
+  # ---------------------------------------------------------------------------
+  # PWM permissions setup for keypad backlight
+  # ---------------------------------------------------------------------------
+  systemd.services.pwm-permissions = {
+    description = "Set PWM sysfs permissions for pifinder";
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      # Export PWM channels: 1 (GPIO 13, keypad backlight) and 0 (GPIO 12,
+      # rev-4 buzzer — harmless no-op wiring on rev-3).
+      for ch in 0 1; do
+        if [ ! -d /sys/class/pwm/pwmchip0/pwm$ch ]; then
+          echo $ch > /sys/class/pwm/pwmchip0/export || true
+          sleep 0.5
+        fi
+      done
+      # sysfs doesn't support chgrp, so make files world-writable
+      chmod 0666 /sys/class/pwm/pwmchip0/export /sys/class/pwm/pwmchip0/unexport
+      for ch in 0 1; do
+        if [ -d /sys/class/pwm/pwmchip0/pwm$ch ]; then
+          chmod 0666 /sys/class/pwm/pwmchip0/pwm$ch/{enable,period,duty_cycle,polarity}
+        fi
+      done
+      # Red PWR LED — the app turns it off for night vision (sys_utils
+      # set_power_led writes these directly, no sudo).
+      if [ -d /sys/class/leds/PWR ]; then
+        chmod 0666 /sys/class/leds/PWR/trigger /sys/class/leds/PWR/brightness
+      fi
+    '';
+  };
+
+  # ---------------------------------------------------------------------------
+  # PiFinder source + data directory setup
+  # ---------------------------------------------------------------------------
+  system.activationScripts.pifinder-home = lib.stringAfter [ "users" ] ''
+    # Create writable data directory
+    mkdir -p /home/pifinder/PiFinder_data
+    chown pifinder:users /home/pifinder/PiFinder_data
+
+    # Symlink immutable source tree from Nix store
+    # Database is opened read-only, so no need for writable copy
+    PFHOME=/home/pifinder/PiFinder
+
+    # Remove existing directory (not symlink) to allow symlink creation
+    if [ -e "$PFHOME" ] && [ ! -L "$PFHOME" ]; then
+      rm -rf "$PFHOME"
+    fi
+
+    # Create symlink to immutable Nix store path
+    ln -sfT ${pifinder-src} "$PFHOME"
+
+    # Gaia deep-chart catalog — immutable, read-only; symlink from the closure
+    # into PiFinder_data where chart_provider expects it (utils.data_dir/gaia_stars)
+    GAIA=/home/pifinder/PiFinder_data/gaia_stars
+    if [ -e "$GAIA" ] && [ ! -L "$GAIA" ]; then
+      rm -rf "$GAIA"
+    fi
+    ln -sfT ${gaia-stars} "$GAIA"
+  '';
+
+  # ---------------------------------------------------------------------------
+  # Sudoers — pifinder user can start upgrade and restart services
+  # ---------------------------------------------------------------------------
+  # Polkit rules for pifinder user (D-Bus hostname changes, NetworkManager)
+  security.polkit.extraConfig = ''
+    polkit.addRule(function(action, subject) {
+      if (subject.user == "pifinder") {
+        // Allow hostname changes via systemd-hostnamed
+        if (action.id == "org.freedesktop.hostname1.set-static-hostname" ||
+            action.id == "org.freedesktop.hostname1.set-hostname") {
+          return polkit.Result.YES;
+        }
+        // Allow NetworkManager control
+        if (action.id.indexOf("org.freedesktop.NetworkManager") == 0) {
+          return polkit.Result.YES;
+        }
+        // Allow reboot/shutdown via D-Bus (logind)
+        if (action.id == "org.freedesktop.login1.reboot" ||
+            action.id == "org.freedesktop.login1.reboot-multiple-sessions" ||
+            action.id == "org.freedesktop.login1.power-off" ||
+            action.id == "org.freedesktop.login1.power-off-multiple-sessions") {
+          return polkit.Result.YES;
+        }
+      }
+    });
+  '';
+
+  security.sudo.extraRules = [{
+    users = [ "pifinder" ];
+    commands = [
+      { command = "/run/current-system/sw/bin/systemctl start --no-block pifinder-upgrade.service"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl start pifinder-upgrade.service"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl reset-failed pifinder-upgrade.service"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl restart pifinder.service"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl stop pifinder.service"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl start pifinder.service"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl restart avahi-daemon.service"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/avahi-set-host-name *"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/shutdown -r now"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/shutdown now"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/pifinder-set-password"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/hostname *"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/pifinder-switch-camera imx296"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/pifinder-switch-camera imx462"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/pifinder-switch-camera imx477"; options = [ "NOPASSWD" ]; }
+    ];
+  }];
+
+  # ---------------------------------------------------------------------------
+  # Cedar Detect star detection gRPC server
+  # ---------------------------------------------------------------------------
+  systemd.services.cedar-detect = {
+    description = "Cedar Detect Star Detection Server";
+    after = [ "basic.target" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "idle";
+      User = "pifinder";
+      ExecStart = "${cedar-detect}/bin/cedar-detect-server --port 50551";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+  };
+
+  # ---------------------------------------------------------------------------
+  # Early boot splash — show static welcome image, pifinder overwrites when ready
+  # ---------------------------------------------------------------------------
+  systemd.services.boot-splash = {
+    description = "Early boot splash screen";
+    wantedBy = [ "sysinit.target" ];
+    after = [ "systemd-modules-load.service" ];
+    wants = [ "systemd-modules-load.service" ];
+    unitConfig.DefaultDependencies = false;
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = pkgs.writeShellScript "boot-splash-wait" ''
+        for i in $(seq 1 40); do
+          [ -e /dev/spidev0.0 ] && exec ${boot-splash}/bin/boot-splash --static
+          sleep 0.25
+        done
+        echo "SPI device never appeared" >&2
+        exit 1
+      '';
+    };
+  };
+
+  # ---------------------------------------------------------------------------
+  # Main PiFinder application
+  # ---------------------------------------------------------------------------
+  systemd.services.pifinder = {
+    description = "PiFinder";
+    after = [ "basic.target" "cedar-detect.service" "gpsd.socket" ];
+    wants = [ "cedar-detect.service" "gpsd.socket" ];
+    wantedBy = [ "multi-user.target" ];
+    path = let
+      # Runtime paths not in the nix store — symlinks resolve at boot, not build time
+      wrapperBins = pkgs.runCommand "wrapper-bins" {} ''
+        mkdir -p $out
+        ln -s /run/wrappers/bin $out/bin
+      '';
+      systemBins = pkgs.runCommand "system-bins" {} ''
+        mkdir -p $out
+        ln -s /run/current-system/sw/bin $out/bin
+      '';
+    in [ wrapperBins systemBins pkgs.gpsd ];
+    environment = {
+      PIFINDER_HOME = "/home/pifinder/PiFinder";
+      PIFINDER_DATA = "/home/pifinder/PiFinder_data";
+      GI_TYPELIB_PATH = lib.makeSearchPath "lib/girepository-1.0" [
+        pkgs.networkmanager
+        pkgs.glib.out  # Use .out to get the main package with typelibs, not glib-bin
+        pkgs.gobject-introspection
+      ];
+      # libcamera Python bindings for picamera2
+      PYTHONPATH = "${pkgs.libcamera}/lib/python3.13/site-packages";
+      # libcamera IPA modules path
+      LIBCAMERA_IPA_MODULE_PATH = "${pkgs.libcamera}/lib/libcamera";
+    };
+    serviceConfig = {
+      # The app sends READY=1 once the UI is constructed and drawing
+      # (utils.sd_notify in main.py). "active" therefore means "the screen is
+      # live", which is what the boot watchdog's health check keys off — a
+      # build that starts but never turns the screen on times out, restarts,
+      # and fails its trial.
+      Type = "notify";
+      # Cold start on a Pi is ~30-60s (imports dominate); leave ample slack.
+      TimeoutStartSec = 180;
+      User = "pifinder";
+      Group = "users";
+      WorkingDirectory = "/home/pifinder/PiFinder/python";
+      ExecStart = "${pifinderPythonEnv}/bin/python -m PiFinder.main";
+      # Allow binding to privileged ports (80 for web UI)
+      AmbientCapabilities = "CAP_NET_BIND_SERVICE";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+  };
+
+  # ---------------------------------------------------------------------------
+  # PiFinder Network Policy
+  # ---------------------------------------------------------------------------
+  # Enforces connectivity priority wired > wifi client > AP via libnm
+  # (PiFinder/net_policy.py). Event-driven on NetworkManager state changes;
+  # brings the AP up only as an offline fallback and periodically drops an
+  # idle AP so NM can rejoin a client network. The migration image, which has
+  # no Python env, uses wifi-fallback-minimal.nix instead.
+  systemd.services.pifinder-net-policy = {
+    description = "PiFinder network policy (wired > wifi client > AP)";
+    after = [ "NetworkManager.service" ];
+    wants = [ "NetworkManager.service" ];
+    wantedBy = [ "multi-user.target" ];
+    path = [ pkgs.iw ];
+    environment = {
+      PIFINDER_DATA = "/home/pifinder/PiFinder_data";
+      GI_TYPELIB_PATH = lib.makeSearchPath "lib/girepository-1.0" [
+        pkgs.networkmanager
+        pkgs.glib.out
+        pkgs.gobject-introspection
+      ];
+    };
+    serviceConfig = {
+      WorkingDirectory = "/home/pifinder/PiFinder/python";
+      ExecStart = "${pifinderPythonEnv}/bin/python -m PiFinder.net_policy";
+      Restart = "always";
+      RestartSec = 5;
+    };
+  };
+
+  # ---------------------------------------------------------------------------
+  # PiFinder NixOS Upgrade
+  # ---------------------------------------------------------------------------
+  # Downloads from binary caches, sets profile, updates bootloader, reboots.
+  # No live switch-to-configuration — avoids killing running services.
+  # The pifinder-watchdog handles rollback if the new generation fails to boot.
+  systemd.services.pifinder-upgrade = {
+    description = "PiFinder NixOS Upgrade";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      WorkingDirectory = "/home/pifinder/PiFinder/python";
+      ExecStart = "${pifinderPythonEnv}/bin/python -m PiFinder.nixos_upgrade --default-camera ${cfg.cameraType}";
+    } // lib.optionalAttrs (cfg.deltaUrl != "") {
+      Environment = [ "PIFINDER_DELTA_URL=${cfg.deltaUrl}" ];
+    };
+    # zstd applies delta patches (unused, harmless when deltaUrl is unset).
+    # btrfs-progs takes the PiFinder_data snapshot before the switch.
+    path = with pkgs; [ nix systemd coreutils zstd btrfs-progs set-extlinux-default pifinder-bootcount ];
+  };
+
+  # ---------------------------------------------------------------------------
+  # PiFinder Boot Health Watchdog — self-arming trial/commit
+  # ---------------------------------------------------------------------------
+  # A generation is on probation until it has passed a health check once
+  # (recorded in confirmed-generations). Any boot of an UNCONFIRMED generation
+  # is a trial — whether or not the (possibly older, marker-unaware) system
+  # that installed it armed the trial marker. Protection never depends on the
+  # previous build's code.
+  #   - confirmed generation  -> never roll back, so a transient failure in
+  #     the field can't cause a surprise downgrade
+  #   - trial gen healthy     -> confirm it
+  #   - trial gen unhealthy   -> capture the journal to PiFinder_data (journald
+  #     is volatile to spare the SD card; a failed boot is the one moment worth
+  #     a write), leave a notice the app shows after reboot, show the failure
+  #     splash, roll back (marker hint first, else newest other generation),
+  #     reboot. With no rollback target at all, stay up for rescue instead of
+  #     boot-looping.
+  # A failure in stage 1 (the initrd) or a kernel panic restarts the Pi after
+  # 10 s instead of waiting for ever. Each restart counts on the U-Boot boot
+  # counter, so a trial generation that cannot boot falls back without a
+  # hand on the power switch.
+  boot.kernelParams = [ "boot.panic_on_fail" "panic=10" ];
+
+  # Install the U-Boot of this build (nixos/pkgs/uboot-sd.nix) on the FAT
+  # partition when the one there is different: devices installed before the
+  # boot counter get it this way. Only from a confirmed generation, so the
+  # system that installs it has booted well. The install writes a new file
+  # and renames it, and keeps the replaced U-Boot as u-boot-rpi4.bin.old: a
+  # U-Boot that does not start can then be put back with a card reader.
+  systemd.services.pifinder-uboot-update = {
+    description = "Install this build's U-Boot on the firmware partition";
+    # multi-user.target in after: without it, "after the watchdog" (which
+    # runs after multi-user.target) is an ordering cycle, and systemd deletes
+    # this job at each boot. See pifinder-migration-cleanup in migration.nix.
+    after = [ "multi-user.target" "pifinder-watchdog.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig.Type = "oneshot";
+    path = with pkgs; [ coreutils diffutils gnugrep util-linux pifinder-bootcount ];
+    script = ''
+      set -euo pipefail
+      FW=/boot/firmware
+      NEW=${uboot-sd}/u-boot.bin
+      DEST=$FW/u-boot-rpi4.bin
+      mountpoint -q "$FW" || exit 0
+      # Only replace a Pi 4 U-Boot that is there already.
+      [ -f "$DEST" ] || exit 0
+      cmp -s "$NEW" "$DEST" && exit 0
+      CURRENT=$(readlink -f /run/current-system)
+      if ! grep -qxF "$CURRENT" /var/lib/pifinder/confirmed-generations 2>/dev/null; then
+        echo "$CURRENT is not confirmed yet; U-Boot stays as it is"
+        exit 0
+      fi
+      # The new U-Boot must find the counter off when it first starts.
+      pifinder-bootcount reset
+      cp "$DEST" "$FW/u-boot-rpi4.bin.old"
+      cp "$NEW" "$DEST.new"
+      sync -f "$DEST.new"
+      if ! cmp -s "$NEW" "$DEST.new"; then
+        rm -f "$DEST.new"
+        echo "the copy of U-Boot is not correct; U-Boot stays as it is" >&2
+        exit 1
+      fi
+      mv -f "$DEST.new" "$DEST"
+      sync -f "$DEST"
+      echo "installed U-Boot from $NEW"
+    '';
+  };
+
+  systemd.services.pifinder-watchdog = {
+    description = "PiFinder Boot Health Watchdog";
+    after = [ "multi-user.target" "pifinder.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = with pkgs; [ nix systemd coreutils jq gnugrep util-linux boot-splash pifinder-bootcount ];
+    script = ''
+      set -euo pipefail
+      MARKER=/var/lib/pifinder/trial-generation.json
+      CONFIRMED=/var/lib/pifinder/confirmed-generations
+      DATA=/home/pifinder/PiFinder_data
+      CURRENT=$(readlink -f /run/current-system)
+
+      is_confirmed() {
+        [ -f "$CONFIRMED" ] && grep -qxF "$1" "$CONFIRMED"
+      }
+
+      if is_confirmed "$CURRENT"; then
+        # A counting boot counter on a confirmed generation: U-Boot fell back
+        # to this entry because the trial generation did not come up three
+        # times (it stopped before this watchdog could run), or the trial is
+        # this same build. In the first case make this generation the default
+        # again, so the next boot does not try the failed one.
+        if pifinder-bootcount armed; then
+          PROFILE=$(readlink -f /nix/var/nix/profiles/system)
+          SAME=0
+          [ "$PROFILE" = "$CURRENT" ] && SAME=1
+          for S in "$PROFILE"/specialisation/*/; do
+            [ -e "$S" ] || continue
+            [ "$(readlink -f "$S")" = "$CURRENT" ] && SAME=1
+          done
+          if [ "$SAME" = 0 ]; then
+            echo "U-Boot fell back to $CURRENT: $PROFILE did not boot. Making $CURRENT the default again."
+            TS=$(date +%Y%m%d-%H%M%S)
+            runuser -u pifinder -- mkdir -p "$DATA" || true
+            jq -n --arg failed "$PROFILE" --arg reverted_to "$CURRENT" --arg at "$TS" \
+              '{failed: $failed, reverted_to: $reverted_to, at: $at, by: "boot counter"}' \
+              | runuser -u pifinder -- tee "$DATA/upgrade_failed.json" > /dev/null || true
+            rm -f /var/lib/pifinder/current-build.json
+            nix-env -p /nix/var/nix/profiles/system --set "$CURRENT"
+            "$CURRENT/bin/switch-to-configuration" boot || true
+          fi
+        fi
+        pifinder-bootcount reset || true
+        # Stale marker from an aborted/rolled-back upgrade attempt is harmless
+        # here but must not survive to a later boot.
+        rm -f "$MARKER"
+        # Never ACT on a confirmed generation — but still REPORT (ADR 0005):
+        # if the app can't start, the frozen splash gets replaced by an
+        # advisory naming the recovery hold, so the escape hatch reveals
+        # itself exactly when it is needed.
+        echo "Generation already confirmed — report-only watch."
+        for i in $(seq 1 24); do
+          if systemctl is-active --quiet pifinder.service; then
+            exit 0
+          fi
+          sleep 5
+        done
+        echo "Confirmed generation's app is not starting — showing recovery advisory (no action taken)."
+        # The crash-looping app redraws its boot console between restarts, so
+        # re-assert the advisory periodically (bounded — 30 min, then leave
+        # the last draw standing) while bailing out if the app recovers.
+        for i in $(seq 1 60); do
+          if systemctl is-active --quiet pifinder.service; then
+            exit 0
+          fi
+          boot-splash --message "PIFINDER" "FAILED TO START" "HOLD SQUARE" "AT POWER ON" "FOR RECOVERY" || true
+          sleep 30
+        done
+        exit 0
+      fi
+
+      echo "Trial boot of unconfirmed generation $CURRENT: waiting up to 120s for pifinder.service..."
+      for i in $(seq 1 24); do
+        if systemctl is-active --quiet pifinder.service; then
+          # Verify it stays running (not crash-looping)
+          UPTIME=$(systemctl show pifinder.service --property=ExecMainStartTimestamp --value)
+          START_EPOCH=$(date -d "$UPTIME" +%s 2>/dev/null || echo 0)
+          NOW_EPOCH=$(date +%s)
+          RUNNING_FOR=$((NOW_EPOCH - START_EPOCH))
+          if [ "$RUNNING_FOR" -ge 15 ]; then
+            echo "pifinder.service healthy (running ''${RUNNING_FOR}s) — confirming generation."
+            mkdir -p "$(dirname "$CONFIRMED")"
+            echo "$CURRENT" >> "$CONFIRMED"
+            rm -f "$MARKER"
+            pifinder-bootcount reset || true
+            exit 0
+          fi
+        fi
+        sleep 5
+      done
+
+      # ----- unhealthy: pick a rollback target ------------------------------
+      # Marker hint (exact pre-upgrade system, specialisation included) first;
+      # otherwise walk the profile, newest first, skipping any generation that
+      # boots into this same failed build (directly or via a specialisation)
+      # and preferring confirmed generations.
+      TARGET=""
+      if [ -f "$MARKER" ]; then
+        HINT=$(jq -r '.previous // empty' "$MARKER" 2>/dev/null || true)
+        if [ -n "$HINT" ] && [ -e "$HINT" ] && [ "$HINT" != "$CURRENT" ]; then
+          TARGET="$HINT"
+        fi
+      fi
+      if [ -z "$TARGET" ]; then
+        FALLBACK=""
+        for GEN in $(ls -d /nix/var/nix/profiles/system-*-link 2>/dev/null | sort -t- -k2 -rn); do
+          G=$(readlink -f "$GEN")
+          [ "$G" = "$CURRENT" ] && continue
+          SKIP=0
+          for S in "$G"/specialisation/*/; do
+            [ -e "$S" ] || continue
+            [ "$(readlink -f "$S")" = "$CURRENT" ] && SKIP=1 && break
+          done
+          [ "$SKIP" = 1 ] && continue
+          if is_confirmed "$G"; then
+            TARGET="$G"
+            break
+          fi
+          [ -z "$FALLBACK" ] && FALLBACK="$G"
+        done
+        [ -z "$TARGET" ] && TARGET="$FALLBACK"
+      fi
+
+      # ----- capture evidence ------------------------------------------------
+      echo "ERROR: trial generation unhealthy. Capturing evidence..."
+      TS=$(date +%Y%m%d-%H%M%S)
+      # The data folder is writable by the pifinder user, so the files are
+      # written as pifinder: root never opens a path in it, and a symlink
+      # there cannot redirect the write.
+      runuser -u pifinder -- mkdir -p "$DATA" || true
+      journalctl -b | runuser -u pifinder -- tee "$DATA/failed-boot-$TS.log" > /dev/null || true
+      jq -n --arg failed "$CURRENT" --arg reverted_to "''${TARGET:-none}" --arg at "$TS" \
+        '{failed: $failed, reverted_to: $reverted_to, at: $at}' \
+        | runuser -u pifinder -- tee "$DATA/upgrade_failed.json" > /dev/null || true
+
+      # Stop the crash-looping app so the display is free for the failure
+      # message (and so the reboot is clean).
+      systemctl stop pifinder.service || true
+
+      # This watchdog does the rollback; U-Boot must not count on top of it.
+      pifinder-bootcount reset || true
+
+      if [ -z "$TARGET" ]; then
+        echo "FATAL: no rollback target exists — staying up for rescue (SSH) instead of boot-looping."
+        boot-splash --message "UPDATE" "FAILED" "NO ROLLBACK" "USE SSH OR REFLASH" "HOLD SQ AT POWER ON" "FOR RECOVERY" || true
+        exit 1
+      fi
+
+      boot-splash --message "UPDATE" "FAILED" "ROLLING BACK" "PLEASE WAIT" "HOLD SQ AT POWER ON" "FOR RECOVERY" || true
+
+      echo "Rolling back to $TARGET and rebooting..."
+      rm -f "$MARKER"
+      # current-build.json was written for the (now failed) generation before
+      # its reboot; left in place it makes the rolled-back system misreport
+      # its identity (and the update UI mis-hide entries). Remove it — version
+      # display falls back to the baked build metadata.
+      rm -f /var/lib/pifinder/current-build.json
+      nix-env -p /nix/var/nix/profiles/system --set "$TARGET"
+      "$TARGET/bin/switch-to-configuration" boot || true
+      systemctl reboot
+    '';
+  };
+
+  # ---------------------------------------------------------------------------
+  # GPSD for GPS receiver - full USB hotplug support
+  # ---------------------------------------------------------------------------
+  # Don't use services.gpsd module - it doesn't support hotplug.
+  # Instead, use gpsd's own systemd units with socket activation.
+
+  # Install gpsd's udev rules (25-gpsd.rules) for USB GPS auto-detection
+  # Includes u-blox 5/6/7/8/9 and many other GPS receivers
+  services.udev.packages = [ pkgs.gpsd ];
+
+  # Install gpsd's systemd units (gpsd.service, gpsd.socket, gpsdctl@.service)
+  systemd.packages = [ pkgs.gpsd ];
+
+  # Enable socket activation - gpsd starts when something connects to port 2947
+  systemd.sockets.gpsd = {
+    wantedBy = [ "sockets.target" ];
+  };
+
+  # /etc/default/gpsd — same shape as upstream pi_config_files/gpsd.conf.
+  # DEVICES opens the on-board UART GPS at startup via its stable udev name
+  # (see hardware.nix — ttyAMA numbering shifts between kernels); USBAUTO lets
+  # udev hotplug USB GPSes via gpsdctl. GPSD_SOCKET is intentionally omitted —
+  # gpsd's default (/var/run/gpsd.sock) is already what we want.
+  environment.etc."default/gpsd".text = ''
+    DEVICES="/dev/gpsuart"
+    GPSD_OPTIONS="${lib.optionalString (cfg.gpsBaud != null) "-s ${toString cfg.gpsBaud}"}"
+    USBAUTO="true"
+  '';
+
+  # Ensure gpsd user/group exist (normally created by services.gpsd module)
+  users.users.gpsd = {
+    isSystemUser = true;
+    group = "gpsd";
+    description = "GPSD daemon user";
+  };
+  users.groups.gpsd = {};
+
+  # Add the on-board UART GPS to gpsd (uart3 overlay, published as
+  # /dev/gpsuart by udev — platform UARTs are not auto-detected the way USB
+  # GPSes are). Started by udev via SYSTEMD_WANTS when the device appears
+  # (see hardware.nix), so a unit without an on-board GPS never starts it
+  # and USB-only setups still work through USBAUTO hotplug alone.
+  systemd.services.gpsd-add-uart = {
+    description = "Add UART GPS to gpsd";
+    after = [ "gpsd.socket" "dev-gpsuart.device" ];
+    requires = [ "gpsd.socket" ];
+    # BindsTo ensures this stops if the GPS UART disappears
+    bindsTo = [ "dev-gpsuart.device" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.gpsd}/sbin/gpsdctl add /dev/gpsuart";
+      ExecStop = "${pkgs.gpsd}/sbin/gpsdctl remove /dev/gpsuart";
+    };
+  };
+
+  # ---------------------------------------------------------------------------
+  # PAM service for PiFinder web UI password verification
+  # ---------------------------------------------------------------------------
+  security.pam.services.pifinder = {
+    # Auth-only: no account/session management (avoids setuid and pam_lastlog2 errors)
+    allowNullPassword = false;
+    unixAuth = true;
+    setLoginUid = false;
+    updateWtmp = false;
+  };
+
+  # ---------------------------------------------------------------------------
+  # Samba for file sharing (observation data, backups)
+  # ---------------------------------------------------------------------------
+  system.stateVersion = "24.11";
+
+  # ---------------------------------------------------------------------------
+  # SSH access
+  # ---------------------------------------------------------------------------
+  services.openssh = {
+    enable = true;
+    settings = {
+      PasswordAuthentication = true;
+      PermitRootLogin = "no";
+    };
+  };
+
+  # Avahi/mDNS + the PiFinder custom-hostname service live in nixos/device.nix
+  # (single owner — this block used to be duplicated here and there).
+
+  # Don't block boot waiting for network — NM still works, just async
+  systemd.services.NetworkManager-wait-online.enable = false;
+
+  services.samba = {
+    enable = true;
+    openFirewall = true;
+    settings = {
+      global = {
+        workgroup = "WORKGROUP";
+        security = "user";
+        # Anonymous access, as on the original Raspbian PiFinder: unauthenticated
+        # clients are mapped to the pifinder user, which owns the share, so no SMB
+        # password is ever needed. (Samba's passdb is separate from the Unix login,
+        # so "solveit" never authenticated SMB anyway.)
+        "map to guest" = "bad user";
+        "guest account" = "pifinder";
+      };
+      PiFinder_data = {
+        path = "/home/pifinder/PiFinder_data";
+        browseable = "yes";
+        "read only" = "no";
+        "guest ok" = "yes";
+      };
+    };
+  };
+
+  # Advertise the Samba share over mDNS so it appears in file-manager "Network"
+  # browse views (Finder, Nautilus). Samba itself never publishes an
+  # _smb._tcp record; Avahi (configured in networking.nix) does the DNS-SD.
+  # Lives here, tied to the samba block, so only the device build advertises it.
+  services.avahi.extraServiceFiles.smb = ''
+    <?xml version="1.0" standalone='no'?>
+    <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+    <service-group>
+      <name replace-wildcards="yes">%h</name>
+      <service>
+        <type>_smb._tcp</type>
+        <port>445</port>
+      </service>
+    </service-group>
+  '';
+  }; # config
+}

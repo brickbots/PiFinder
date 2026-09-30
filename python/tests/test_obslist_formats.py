@@ -272,6 +272,8 @@ def test_stellarium_type_mapping():
 
     assert _read_type("Planetary Nebula") == "PN"
     assert _read_type("open star cluster") == "OC"
+    assert _read_type("asteroid") == "AS"
+    assert _read_type("minor planet") == "AS"
     # PiFinder codes (from our own v1.0 exports) pass through unchanged
     assert _read_type("Gx") == "Gx"
     # Unknown strings become '?' so the default Type filter still shows them

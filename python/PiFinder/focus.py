@@ -24,8 +24,11 @@ from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
-from scipy import ndimage
-from scipy.optimize import linear_sum_assignment
+
+from PiFinder.lazy_import import lazy_module
+
+ndimage = lazy_module("scipy.ndimage")
+scipy_optimize = lazy_module("scipy.optimize")
 
 
 @dataclass
@@ -275,7 +278,7 @@ def track_blob_slots(
             distances = np.linalg.norm(
                 predicted[:, np.newaxis, :] - current_xy[np.newaxis, :, :], axis=2
             )
-            rows, columns = linear_sum_assignment(distances)
+            rows, columns = scipy_optimize.linear_sum_assignment(distances)
             valid = distances[rows, columns] <= max_relative_motion
             match_count = int(valid.sum())
             if match_count < 2:
@@ -342,7 +345,7 @@ def match_catalog_ids(
     distances = np.linalg.norm(
         blob_xy[:, np.newaxis, :] - catalog_xy[np.newaxis, :, :], axis=2
     )
-    rows, columns = linear_sum_assignment(distances)
+    rows, columns = scipy_optimize.linear_sum_assignment(distances)
     for row, column in zip(rows, columns):
         if distances[row, column] <= max_distance:
             identities[int(row)] = matched_catalog_ids[int(column)]

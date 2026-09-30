@@ -12,6 +12,7 @@ from __future__ import (
 
 import datetime
 import logging
+import math
 import time
 from dataclasses import dataclass
 from PIL import ImageChops, Image
@@ -35,6 +36,76 @@ from PiFinder.ui.ui_utils import TextLayouterScroll
 
 logger = logging.getLogger("Chart")
 
+# Smallest on-screen span (px) worth outlining. Below this the object's marker
+# glyph carries the position and an outline would just be a blob.
+_MIN_OUTLINE_PX = 4
+
+
+def _angular_sep_deg(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
+    """Great-circle separation between two RA/Dec points, all in degrees."""
+    d1 = math.radians(dec1)
+    d2 = math.radians(dec2)
+    dra = math.radians(ra2 - ra1)
+    cos_sep = math.sin(d1) * math.sin(d2) + math.cos(d1) * math.cos(d2) * math.cos(dra)
+    return math.degrees(math.acos(max(-1.0, min(1.0, cos_sep))))
+
+
+def size_perimeter_radec(
+    ra0: float,
+    dec0: float,
+    extents: list,
+    position_angle: float,
+    steps: int = 48,
+) -> list:
+    """Build a closed RA/Dec perimeter for a numeric-extent size.
+
+    ``extents`` are angular sizes in arcseconds (as stored by ``SizeObject``):
+
+    * ``[d]``            -> circle of diameter ``d``
+    * ``[major, minor]`` -> ellipse, ``position_angle`` measured N through E
+    * ``[r1, r2, ...]``  -> polygon of radial distances at equal angular steps
+
+    Returns ``[[ra, dec], ...]`` in degrees, first point repeated at the end so
+    the caller can draw a closed outline. Empty near the poles where the RA
+    scaling blows up.
+    """
+    if not extents:
+        return []
+    cos_dec0 = math.cos(math.radians(dec0))
+    if abs(cos_dec0) < 1e-6:
+        return []
+
+    pa = math.radians(position_angle)
+    sin_pa = math.sin(pa)
+    cos_pa = math.cos(pa)
+
+    # Local tangent-plane offsets in arcsec: E(ast), N(orth).
+    offsets = []
+    if len(extents) == 1:
+        r = extents[0] / 2.0
+        for i in range(steps):
+            t = 2.0 * math.pi * i / steps
+            offsets.append((r * math.cos(t), r * math.sin(t)))
+    elif len(extents) == 2:
+        a = extents[0] / 2.0
+        b = extents[1] / 2.0
+        for i in range(steps):
+            t = 2.0 * math.pi * i / steps
+            u = a * math.cos(t)  # along major axis
+            v = b * math.sin(t)  # along minor axis
+            offsets.append((u * sin_pa + v * cos_pa, u * cos_pa - v * sin_pa))
+    else:
+        step = 2.0 * math.pi / len(extents)
+        for i, ext in enumerate(extents):
+            phi = pa + i * step  # position angle of this radial spoke, N through E
+            r = ext / 2.0
+            offsets.append((r * math.sin(phi), r * math.cos(phi)))
+
+    radec = [[ra0 + (e / 3600.0) / cos_dec0, dec0 + n / 3600.0] for e, n in offsets]
+    radec.append(radec[0])
+    return radec
+
+
 # --- Nearby-DSO marker tuning ------------------------------------------------
 # Starting values; tune on-device (see the chart-markers handoff). The radius
 # query fetches catalog objects within ``fov * NEARBY_RADIUS_FACTOR`` degrees of
@@ -49,15 +120,7 @@ _MAG_LIMIT_HI = (60.0, 7.0)
 
 
 def dso_mag_limit(fov: float) -> float:
-    """
-    Magnitude limit for nearby DSO markers as a function of chart FOV.
-
-    Linear between the two hard-coded endpoints and clamped outside the
-    chart's zoom range: 5deg -> mag 11 (zoomed in, show dimmer objects),
-    60deg -> mag 7 (zoomed out, only the brightest). Kept deliberately
-    separate from ``plot.Starfield.set_fov``'s *star* mag limit -- different
-    curve, different purpose (DSO markers vs Hipparcos stars).
-    """
+    """Magnitude limit for nearby DSO markers as a function of chart FOV."""
     fov_lo, mag_lo = _MAG_LIMIT_LO
     fov_hi, mag_hi = _MAG_LIMIT_HI
     if fov <= fov_lo:
@@ -140,6 +203,7 @@ class UIChart(UIModule):
             return
 
         W, H = self.display_class.resolution
+        center = self._chart_center()
 
         # --- Target cross: always drawn, full brightness, chart_dso-independent
         target = self.ui_state.target()
@@ -147,6 +211,7 @@ class UIChart(UIModule):
         if target is not None and target.ra is not None and target.dec is not None:
             exclude_ids.add(target.object_id)
             self._draw_target(target, W, H)
+            self._draw_object_outline(target, self.colors.get(255), center)
             self._drawn_objects.append(target)
 
         marker_brightness = self.config_object.get_option("chart_dso", 128)
@@ -154,7 +219,7 @@ class UIChart(UIModule):
             return
 
         # --- DSO layers (observing list + nearby), deduped against the target
-        marker_list, vertex_objects, marker_objects = self._collect_dso_markers(
+        marker_list, outline_objects, marker_objects = self._collect_dso_markers(
             exclude_ids
         )
         self._drawn_objects.extend(marker_objects)
@@ -174,12 +239,61 @@ class UIChart(UIModule):
             )
             self.screen.paste(ImageChops.add(self.screen, marker_image))
 
-        if vertex_objects:
-            line_color = self.colors.get(marker_brightness)
-            for obj in vertex_objects:
-                screen_pts = self.starfield.project_vertices(obj.size.extents)
-                if len(screen_pts) >= 2:
-                    self.draw.line(screen_pts, fill=line_color, width=1)
+        line_color = self.colors.get(marker_brightness)
+        for obj in outline_objects:
+            self._draw_object_outline(obj, line_color, center)
+
+    def _chart_center(self):
+        """(RA, Dec) the chart is currently centred on, or ``None``."""
+        if self.solution and self.solution.has_pointing():
+            est = self.solution.pointing.aligned.estimate
+            return est.RA, est.Dec
+        return None
+
+    def _draw_object_outline(self, obj, line_color, center):
+        """Outline an object's true angular extent on the chart.
+
+        Draws polyline/segment shapes as stored, and renders numeric
+        circle/ellipse/polygon sizes from their major/minor axes and position
+        angle. Objects well outside the field, or too small to resolve into
+        more than a glyph, are skipped so the outline never degrades to a blob.
+        """
+        size = getattr(obj, "size", None)
+        if not size or not size.extents:
+            return
+
+        # Cheap RA/Dec cull before any projection: skip anything comfortably
+        # off the current field of view.
+        if center is not None:
+            if _angular_sep_deg(obj.ra, obj.dec, center[0], center[1]) > self.fov:
+                return
+
+        if size.is_segments:
+            for seg in size.extents:
+                pts = self.starfield.project_vertices(seg)
+                if len(pts) >= 2:
+                    self.draw.line(pts, fill=line_color, width=1)
+            return
+
+        if size.is_vertices:
+            pts = self.starfield.project_vertices(size.extents)
+            if len(pts) >= 2:
+                self.draw.line(pts, fill=line_color, width=1)
+            return
+
+        radec = size_perimeter_radec(obj.ra, obj.dec, size.extents, size.position_angle)
+        if not radec:
+            return
+        pts = self.starfield.project_vertices(radec)
+        if len(pts) < 2:
+            return
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        if (max(xs) - min(xs)) < _MIN_OUTLINE_PX and (
+            max(ys) - min(ys)
+        ) < _MIN_OUTLINE_PX:
+            return
+        self.draw.line(pts, fill=line_color, width=1)
 
     def _draw_target(self, target, W, H):
         """
@@ -213,15 +327,15 @@ class UIChart(UIModule):
         Build the marker list for the observing-list and nearby-catalog layers,
         deduped by ``object_id`` with precedence target -> observing-list ->
         nearby (``exclude_ids`` seeds the target). Returns
-        ``(marker_list, vertex_objects, marker_objects)`` where marker_list
+        ``(marker_list, outline_objects, marker_objects)`` where marker_list
         holds ``(ra_hours, dec_deg, symbol)`` tuples for
-        ``Starfield.plot_markers``, vertex_objects holds asterism-polyline
-        objects (observing list only; nearby markers are symbols only), and
-        marker_objects holds the objects behind marker_list in the same order,
-        for the center-object candidate set.
+        ``Starfield.plot_markers``, outline_objects holds sized observing-list
+        objects (nearby markers are symbols only), and marker_objects holds the
+        objects behind marker_list in the same order, for the center-object
+        candidate set.
         """
         marker_list = []
-        vertex_objects = []
+        outline_objects = []
         marker_objects = []
         seen = set(exclude_ids)
 
@@ -230,8 +344,8 @@ class UIChart(UIModule):
             if obj.object_id in seen:
                 continue
             seen.add(obj.object_id)
-            if obj.size.is_vertices:
-                vertex_objects.append(obj)
+            if obj.size and obj.size.extents:
+                outline_objects.append(obj)
             symbol = OBJ_TYPE_MARKERS.get(obj.obj_type)
             if symbol:
                 marker_list.append((plot.Angle(degrees=obj.ra)._hours, obj.dec, symbol))
@@ -247,7 +361,7 @@ class UIChart(UIModule):
                 marker_list.append((plot.Angle(degrees=obj.ra)._hours, obj.dec, symbol))
                 marker_objects.append(obj)
 
-        return marker_list, vertex_objects, marker_objects
+        return marker_list, outline_objects, marker_objects
 
     def _get_nearby_markers(self):
         """
@@ -264,6 +378,11 @@ class UIChart(UIModule):
         if self.catalogs is None:
             return []
 
+        # Object lists filter only the catalogs they show, so bring the
+        # selected catalogs up to date first. This is a cheap check when the
+        # filter has not changed.
+        selected = self.catalogs.get_catalogs(only_selected=True)
+        self.catalogs.filter_catalogs(selected)
         catalog_filter = getattr(self.catalogs, "catalog_filter", None)
         dirty_time = getattr(catalog_filter, "dirty_time", None)
         if dirty_time != self._nearby_filter_dirty_time:
@@ -575,12 +694,12 @@ class UIChart(UIModule):
         if force:
             self.last_update = 0
 
-        if self.shared_state.solve_state():
+        if self.snapshot.solve_state():
             self.animate_fov()
             constellation_brightness = self.config_object.get_option(
                 "chart_constellations", 64
             )
-            self.solution = self.shared_state.solution()
+            self.solution = self.snapshot.solution()
             last_estimate_time = self.solution.estimate_time
 
             if last_estimate_time is None:
@@ -592,8 +711,8 @@ class UIChart(UIModule):
                     aligned.RA,
                     aligned.Dec,
                     chart_coord_sys=self.config_object.get_option("chart_coord_sys"),
-                    location=self.shared_state.location(),
-                    dt=self.shared_state.datetime(),
+                    location=self.snapshot.location(),
+                    dt=self.snapshot.datetime(),
                 )
                 chart_rot_angle = orientation.rot_deg if orientation else None
                 # This needs to be called first to set RA/DEC/chart_rot_angle

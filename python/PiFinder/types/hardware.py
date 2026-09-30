@@ -86,4 +86,8 @@ class HardwareCapabilities:
 
     has_bq25895: bool = False
     has_buzzer: bool = False  # rev4 passive piezo on PWM ch0 (see Sound context)
+    # rev4 board: SSD1333 176x176 display and the buzzer. True when the
+    # charger answers or the board is a Compute Module (rev4 is the only
+    # PiFinder built on one), so it holds without a battery.
+    is_rev4: bool = False
     # room to grow: other rev-dependent hardware facts go here
