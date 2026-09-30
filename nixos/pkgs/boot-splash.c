@@ -211,12 +211,17 @@ static void ssd1333_init(void) {
     oled_cmd(0xB1); d = 0x32; oled_data(&d, 1); /* Precharge */
     oled_cmd(0xBB); d = 0x17; oled_data(&d, 1); /* Pre-charge voltage */
     oled_cmd(0xBE); d = 0x05; oled_data(&d, 1); /* VCOMH */
-    oled_cmd(0xC7); d = 0x0F; oled_data(&d, 1); /* Master contrast */
     oled_cmd(0xB6); d = 0x08; oled_data(&d, 1); /* Precharge2 */
     oled_cmd(0xB9); /* Built-in linear LUT */
     oled_cmd(0xA6); /* Normal display */
 
-    uint8_t contrast[3] = {0xFF, 0xFF, 0xFF};
+    /* Brightness: the registers PiFinder.displays.DisplaySSD1333
+     * .set_brightness(125) sets, the level of the app splash (splash.py), so
+     * the image keeps its brightness when the app takes over. Full drive
+     * (contrast 0xFF, master 0x0F) is 14 times this and blooms: bright
+     * pixels smear into their neighbours. */
+    oled_cmd(0xC7); d = 0x01; oled_data(&d, 1); /* Master contrast */
+    uint8_t contrast[3] = {142, 142, 142};
     oled_cmd(0xC1); oled_data(contrast, 3); /* Contrast */
 }
 

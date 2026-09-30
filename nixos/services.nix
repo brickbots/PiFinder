@@ -5,6 +5,75 @@ let
   pifinder-src = import ./pkgs/pifinder-src.nix { inherit pkgs; };
   gaia-stars = import ./pkgs/gaia-stars.nix { inherit pkgs; };
   boot-splash = import ./pkgs/boot-splash.nix { inherit pkgs; };
+  uboot-sd = import ./pkgs/uboot-sd.nix { inherit pkgs; };
+  # The U-Boot boot counter (ADR 0038, nixos/pkgs/uboot-sd.nix): two files on
+  # the FAT FIRMWARE partition. pifinder.bootcount is 4 bytes: magic 0xbd,
+  # version 1, count, upgrade_available. pifinder-fallback.env names the
+  # extlinux entry that U-Boot boots when the count passes its limit.
+  #   arm <system>  count the next boots; fall back to the entry of <system>
+  #   reset         stop counting (a healthy boot)
+  #   armed         exit 0 if the counter counts
+  # A U-Boot without the counter does not read these files.
+  pifinder-bootcount = pkgs.writeShellScriptBin "pifinder-bootcount" ''
+    set -euo pipefail
+    export PATH=${lib.makeBinPath (with pkgs; [ coreutils gawk util-linux ])}
+    FW=/boot/firmware
+    COUNT=$FW/pifinder.bootcount
+    FALLBACK=$FW/pifinder-fallback.env
+    CONF=/boot/extlinux/extlinux.conf
+
+    # Replace a file on the FAT partition: write a new file, then rename it.
+    put() {
+      cat > "$1.tmp"
+      sync -f "$1.tmp"
+      mv -f "$1.tmp" "$1"
+      sync -f "$1"
+    }
+    state() {
+      od -An -tu1 -N4 "$COUNT" 2>/dev/null | awk '{$1=$1; print}'
+    }
+
+    if ! mountpoint -q "$FW"; then
+      echo "pifinder-bootcount: $FW is not mounted" >&2
+      [ "''${1:-}" = armed ] && exit 1
+      exit 0
+    fi
+    case "''${1:-}" in
+      arm)
+        PREVIOUS="''${2:?usage: pifinder-bootcount arm <system>}"
+        # The generation entry (not nixos-default, which moves to the new
+        # system) whose kernel command line starts <system>.
+        LABEL=$(awk -v init="init=$PREVIOUS/init" '
+          $1 == "LABEL" { label = $2 }
+          $1 == "APPEND" && label != "nixos-default" {
+            for (i = 2; i <= NF; i++) if ($i == init) { print label; exit }
+          }' "$CONF")
+        if [ -z "$LABEL" ]; then
+          echo "pifinder-bootcount: no boot entry for $PREVIOUS; the counter stays off" >&2
+          exit 0
+        fi
+        printf 'pxe_label_override=%s\n' "$LABEL" | put "$FALLBACK"
+        printf '\275\001\000\001' | put "$COUNT"
+        echo "pifinder-bootcount: counting boots; fallback entry $LABEL"
+        ;;
+      reset)
+        if [ "$(state)" != "189 1 0 0" ]; then
+          printf '\275\001\000\000' | put "$COUNT"
+        fi
+        rm -f "$FALLBACK"
+        ;;
+      armed)
+        case "$(state)" in
+          "189 1 "*" 1") exit 0 ;;
+          *) exit 1 ;;
+        esac
+        ;;
+      *)
+        echo "usage: pifinder-bootcount arm <system> | reset | armed" >&2
+        exit 2
+        ;;
+    esac
+  '';
   # Point the extlinux DEFAULT at a specific camera's boot entry. Device-tree
   # overlays load only at boot and the generic-extlinux builder always writes
   # DEFAULT=nixos-default (the base camera), so without this a switched camera
@@ -113,6 +182,22 @@ in {
   };
 
   config = {
+  # The watchdog runs after multi-user.target. A service that the target
+  # wants and that runs after the watchdog must name multi-user.target in
+  # "after" too; otherwise the order is a cycle and systemd deletes the job
+  # at each boot, with only a line in the journal.
+  assertions = let
+    services = config.systemd.services;
+    cycles = builtins.filter (name:
+      let after = services.${name}.after or [ ]; in
+      builtins.elem "pifinder-watchdog.service" after
+      && !(builtins.elem "multi-user.target" after))
+      (builtins.attrNames services);
+  in [ {
+    assertion = cycles == [ ];
+    message = "Add multi-user.target to after of: ${lib.concatStringsSep ", " cycles}";
+  } ];
+
   # ---------------------------------------------------------------------------
   # Camera switch wrapper (used by pifinder UI via sudo)
   # ---------------------------------------------------------------------------
@@ -252,95 +337,6 @@ in {
       fi
     '';
   };
-
-  # ---------------------------------------------------------------------------
-  # Nix DB registration (first boot after migration)
-  # ---------------------------------------------------------------------------
-  # The migration tarball includes /nix-path-registration with store path data.
-  # Load it into the Nix DB so nix-store and nixos-rebuild work correctly.
-  systemd.services.nix-path-registration = {
-    description = "Load Nix store path registration from migration";
-    after = [ "local-fs.target" ];
-    before = [ "nix-daemon.service" ];
-    wantedBy = [ "multi-user.target" ];
-    unitConfig.ConditionPathExists = "/nix-path-registration";
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    path = with pkgs; [ nix coreutils ];
-    script = ''
-      nix-store --load-db < /nix-path-registration
-      rm /nix-path-registration
-    '';
-  };
-
-  # ---------------------------------------------------------------------------
-  # Repair /nix/store ownership before NetworkManager starts
-  # ---------------------------------------------------------------------------
-  # NetworkManager (like other security-sensitive plugin loaders) silently
-  # refuses to load any plugin file not owned by root. Tarball-based migration
-  # and single-user nix imports can leave /nix/store paths owned by a non-root
-  # uid; NM then drops its wifi device plugin entirely — wlan0 shows as
-  # "unmanaged", WIFI-HW as "missing", and no wifi client connection ever comes
-  # up. Normalise ownership back to root before NM reads its plugins. Idempotent
-  # and cheap on a clean store (early-exits without touching the ro mount).
-  systemd.services.fix-nix-store-ownership = {
-    description = "Normalise /nix/store ownership to root (NM rejects non-root plugins)";
-    after = [ "local-fs.target" ];
-    before = [ "NetworkManager.service" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    path = with pkgs; [ util-linux findutils coreutils ];
-    script = ''
-      set -u
-      if [ -z "$(find /nix/store -mindepth 1 -maxdepth 1 ! -uid 0 -print -quit)" ] \
-         && [ "$(stat -c %u /nix/var/nix/db)" = 0 ]; then
-        exit 0
-      fi
-      echo "normalising non-root /nix/store ownership"
-      # /nix/store is a read-only bind mount of the same device as /. The
-      # remount MUST carry "bind" so it flips only this mount's per-mount
-      # ro flag; a plain "remount,ro" would flip the shared superblock and
-      # take / (and /nix/var) read-only with it.
-      remounted=0
-      if findmnt -no OPTIONS /nix/store | grep -qw ro; then
-        if mount -o remount,bind,rw /nix/store; then
-          remounted=1
-        else
-          echo "WARNING: could not remount /nix/store rw; skipping repair"
-          exit 0
-        fi
-      fi
-      find /nix/store -mindepth 1 -maxdepth 1 ! -uid 0 -exec chown -R 0:0 {} + || true
-      chown 0:0 /nix/var/nix/db || true
-      if [ "$remounted" = 1 ]; then
-        mount -o remount,bind,ro /nix/store || true
-      fi
-      echo "store ownership normalised"
-    '';
-  };
-
-  # ---------------------------------------------------------------------------
-  # Repair top-level directory ownership
-  # ---------------------------------------------------------------------------
-  # A tarball migration can leave /, /var, /nix and other top-level
-  # directories owned by the pifinder user. systemd-tmpfiles then rejects the
-  # "unsafe path transition" from a user-owned / into the root-owned /run and
-  # does not create /run/pifinder, so every update fails. Activation scripts
-  # run at boot before systemd starts, so tmpfiles sees the repaired owners.
-  # Only the directories change owner, not their contents.
-  system.activationScripts.fix-root-ownership = ''
-    for d in / /boot /home /nix /var /var/lib; do
-      if [ -d "$d" ] && [ "$(stat -c %u "$d")" != 0 ]; then
-        echo "fix-root-ownership: $d is not owned by root, repairing"
-        chown 0:0 "$d" || true
-      fi
-    done
-  '';
 
   # ---------------------------------------------------------------------------
   # PiFinder source + data directory setup
@@ -556,7 +552,8 @@ in {
       Environment = [ "PIFINDER_DELTA_URL=${cfg.deltaUrl}" ];
     };
     # zstd applies delta patches (unused, harmless when deltaUrl is unset).
-    path = with pkgs; [ nix systemd coreutils zstd set-extlinux-default ];
+    # btrfs-progs takes the PiFinder_data snapshot before the switch.
+    path = with pkgs; [ nix systemd coreutils zstd btrfs-progs set-extlinux-default pifinder-bootcount ];
   };
 
   # ---------------------------------------------------------------------------
@@ -576,30 +573,54 @@ in {
   #     splash, roll back (marker hint first, else newest other generation),
   #     reboot. With no rollback target at all, stay up for rescue instead of
   #     boot-looping.
-  # ---------------------------------------------------------------------------
-  # Remove the ext4 rollback image after the migration (ADR 0039)
-  # ---------------------------------------------------------------------------
-  # btrfs-convert leaves ext2_saved, an image of the old ext4 that holds the
-  # space of Pi OS and its data. Once a generation on btrfs is confirmed, the
-  # migration is not rolled back any more, so delete it to free the space.
-  systemd.services.pifinder-migration-cleanup = {
-    description = "Remove the ext4 rollback image left by the migration";
-    after = [ "pifinder-watchdog.service" ];
+  # A failure in stage 1 (the initrd) or a kernel panic restarts the Pi after
+  # 10 s instead of waiting for ever. Each restart counts on the U-Boot boot
+  # counter, so a trial generation that cannot boot falls back without a
+  # hand on the power switch.
+  boot.kernelParams = [ "boot.panic_on_fail" "panic=10" ];
+
+  # Install the U-Boot of this build (nixos/pkgs/uboot-sd.nix) on the FAT
+  # partition when the one there is different: devices installed before the
+  # boot counter get it this way. Only from a confirmed generation, so the
+  # system that installs it has booted well. The install writes a new file
+  # and renames it, and keeps the replaced U-Boot as u-boot-rpi4.bin.old: a
+  # U-Boot that does not start can then be put back with a card reader.
+  systemd.services.pifinder-uboot-update = {
+    description = "Install this build's U-Boot on the firmware partition";
+    # multi-user.target in after: without it, "after the watchdog" (which
+    # runs after multi-user.target) is an ordering cycle, and systemd deletes
+    # this job at each boot. See pifinder-migration-cleanup in migration.nix.
+    after = [ "multi-user.target" "pifinder-watchdog.service" ];
     wantedBy = [ "multi-user.target" ];
-    unitConfig.ConditionPathIsDirectory = "/ext2_saved";
-    serviceConfig = {
-      Type = "oneshot";
-      Nice = 19;
-      IOSchedulingClass = "idle";
-    };
-    path = with pkgs; [ btrfs-progs coreutils gnugrep ];
+    serviceConfig.Type = "oneshot";
+    path = with pkgs; [ coreutils diffutils gnugrep util-linux pifinder-bootcount ];
     script = ''
+      set -euo pipefail
+      FW=/boot/firmware
+      NEW=${uboot-sd}/u-boot.bin
+      DEST=$FW/u-boot-rpi4.bin
+      mountpoint -q "$FW" || exit 0
+      # Only replace a Pi 4 U-Boot that is there already.
+      [ -f "$DEST" ] || exit 0
+      cmp -s "$NEW" "$DEST" && exit 0
       CURRENT=$(readlink -f /run/current-system)
       if ! grep -qxF "$CURRENT" /var/lib/pifinder/confirmed-generations 2>/dev/null; then
-        echo "$CURRENT is not confirmed yet; keeping /ext2_saved"
+        echo "$CURRENT is not confirmed yet; U-Boot stays as it is"
         exit 0
       fi
-      btrfs subvolume delete /ext2_saved
+      # The new U-Boot must find the counter off when it first starts.
+      pifinder-bootcount reset
+      cp "$DEST" "$FW/u-boot-rpi4.bin.old"
+      cp "$NEW" "$DEST.new"
+      sync -f "$DEST.new"
+      if ! cmp -s "$NEW" "$DEST.new"; then
+        rm -f "$DEST.new"
+        echo "the copy of U-Boot is not correct; U-Boot stays as it is" >&2
+        exit 1
+      fi
+      mv -f "$DEST.new" "$DEST"
+      sync -f "$DEST"
+      echo "installed U-Boot from $NEW"
     '';
   };
 
@@ -611,7 +632,7 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = with pkgs; [ nix systemd coreutils jq gnugrep util-linux boot-splash ];
+    path = with pkgs; [ nix systemd coreutils jq gnugrep util-linux boot-splash pifinder-bootcount ];
     script = ''
       set -euo pipefail
       MARKER=/var/lib/pifinder/trial-generation.json
@@ -624,6 +645,32 @@ in {
       }
 
       if is_confirmed "$CURRENT"; then
+        # A counting boot counter on a confirmed generation: U-Boot fell back
+        # to this entry because the trial generation did not come up three
+        # times (it stopped before this watchdog could run), or the trial is
+        # this same build. In the first case make this generation the default
+        # again, so the next boot does not try the failed one.
+        if pifinder-bootcount armed; then
+          PROFILE=$(readlink -f /nix/var/nix/profiles/system)
+          SAME=0
+          [ "$PROFILE" = "$CURRENT" ] && SAME=1
+          for S in "$PROFILE"/specialisation/*/; do
+            [ -e "$S" ] || continue
+            [ "$(readlink -f "$S")" = "$CURRENT" ] && SAME=1
+          done
+          if [ "$SAME" = 0 ]; then
+            echo "U-Boot fell back to $CURRENT: $PROFILE did not boot. Making $CURRENT the default again."
+            TS=$(date +%Y%m%d-%H%M%S)
+            runuser -u pifinder -- mkdir -p "$DATA" || true
+            jq -n --arg failed "$PROFILE" --arg reverted_to "$CURRENT" --arg at "$TS" \
+              '{failed: $failed, reverted_to: $reverted_to, at: $at, by: "boot counter"}' \
+              | runuser -u pifinder -- tee "$DATA/upgrade_failed.json" > /dev/null || true
+            rm -f /var/lib/pifinder/current-build.json
+            nix-env -p /nix/var/nix/profiles/system --set "$CURRENT"
+            "$CURRENT/bin/switch-to-configuration" boot || true
+          fi
+        fi
+        pifinder-bootcount reset || true
         # Stale marker from an aborted/rolled-back upgrade attempt is harmless
         # here but must not survive to a later boot.
         rm -f "$MARKER"
@@ -665,6 +712,7 @@ in {
             mkdir -p "$(dirname "$CONFIRMED")"
             echo "$CURRENT" >> "$CONFIRMED"
             rm -f "$MARKER"
+            pifinder-bootcount reset || true
             exit 0
           fi
         fi
@@ -718,6 +766,9 @@ in {
       # Stop the crash-looping app so the display is free for the failure
       # message (and so the reboot is clean).
       systemctl stop pifinder.service || true
+
+      # This watchdog does the rollback; U-Boot must not count on top of it.
+      pifinder-bootcount reset || true
 
       if [ -z "$TARGET" ]; then
         echo "FATAL: no rollback target exists — staying up for rescue (SSH) instead of boot-looping."

@@ -10,14 +10,16 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import re
 import subprocess
 import urllib.error
 import urllib.request
 from collections import deque
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 from PiFinder import delta_updates
 
@@ -29,14 +31,32 @@ UPGRADE_SELECTION_FILE = RUN_DIR / "upgrade-selection.json"
 UPGRADE_STATUS_FILE = RUN_DIR / "upgrade-status"
 UPGRADE_LOG_FILE = RUN_DIR / "upgrade-nix.log"
 CURRENT_BUILD_FILE = Path("/var/lib/pifinder/current-build.json")
+# Build labels ("PR#534-38e7075", "v3.1.1-beta") by store path, for the
+# rollback list: a generation's store path only carries the NixOS version.
+# Display only; sys_utils.list_rollback_targets reads it.
+BUILD_LABELS_FILE = Path("/var/lib/pifinder/build-labels.json")
+MAX_BUILD_LABELS = 20
 CAMERA_TYPE_FILE = Path("/var/lib/pifinder/camera-type")
 # Arms pifinder-watchdog: present = the next boot is a trial of an unproven
 # generation (roll back on failure); absent = committed system, never touched.
 TRIAL_MARKER_FILE = Path("/var/lib/pifinder/trial-generation.json")
+# PiFinder_data is a btrfs subvolume on btrfs cards (ADR 0039). Before each
+# switch, a read-only snapshot of it goes to SNAPSHOT_DIR, on the same file
+# system; the newest SNAPSHOT_KEEP stay. Restore is manual (ADR 0039).
+DATA_DIR = Path("/home/pifinder/PiFinder_data")
+SNAPSHOT_DIR = Path("/.snapshots")
+SNAPSHOT_PREFIX = "PiFinder_data-"
+SNAPSHOT_KEEP = 2
+# The one-time btrfs balance after the migration (services.nix). An upgrade
+# stops it; it starts again at the next boot.
+BTRFS_TIDY_UNIT = "pifinder-btrfs-tidy.service"
 
 RELEASE_CACHE = "https://cache.pifinder.eu/pifinder-release"
 DEV_CACHE = "https://cache.pifinder.eu/pifinder"
 CACHES = (DEV_CACHE, RELEASE_CACHE)
+# Attic does not hold the paths that cache.nixos.org has. A patch for such a
+# path is staged with its signed narinfo from here.
+UPSTREAM_CACHE = "https://cache.nixos.org"
 
 STORE_PATH_RE = re.compile(r"/nix/store/[a-z0-9]+-[A-Za-z0-9._+=?,-]+")
 
@@ -70,6 +90,8 @@ class ProgressEvent:
     path: str | None
     done: int | None = None
     expected: int | None = None
+    # copyPath (type 100) start: the binary cache the path is copied from.
+    source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -85,8 +107,13 @@ class DownloadEstimate:
 
 
 def write_status(status: str, status_file: Path = UPGRADE_STATUS_FILE) -> None:
+    """Replace the status line in one step. The Software screen reads this
+    file every frame; with a truncate-then-write it can read an empty file
+    and draw one frame of the default screen, which shows as a flicker."""
     status_file.parent.mkdir(parents=True, exist_ok=True)
-    status_file.write_text(status)
+    tmp = status_file.with_name(f".{status_file.name}.{os.getpid()}.tmp")
+    tmp.write_text(status)
+    os.replace(tmp, status_file)
 
 
 def valid_store_path(ref: str) -> bool:
@@ -140,7 +167,19 @@ def parse_progress_event(line: str) -> ProgressEvent | None:
                 path = match.group(0)
                 break
 
-    return ProgressEvent(action, activity_id, activity_type, path)
+    # copyPath start: fields = [path, source cache, destination store].
+    source = None
+    fields = payload.get("fields")
+    if (
+        action == "start"
+        and activity_type == 100
+        and isinstance(fields, list)
+        and len(fields) >= 2
+        and isinstance(fields[1], str)
+    ):
+        source = fields[1]
+
+    return ProgressEvent(action, activity_id, activity_type, path, source=source)
 
 
 def command(
@@ -236,6 +275,50 @@ def estimate_download(store_path: str) -> DownloadEstimate:
     return DownloadEstimate(parse_store_paths(dry), parse_unpacked_total(dry))
 
 
+# Paths per `nix-store --check-validity` call: one call per status update.
+CHECK_BATCH = 100
+
+
+def estimate_from_closure(
+    store_path: str,
+    closure: tuple[tuple[str, int], ...],
+    progress: Callable[[int, int], None] | None = None,
+    batch: int = CHECK_BATCH,
+) -> DownloadEstimate | None:
+    """The paths of `closure` that this device does not hold, with the sum of
+    their NAR sizes: the same figures as the dry run, from a local check.
+    `progress(done, total)` follows each batch. None when the closure is not
+    the closure of `store_path` or a check fails; the caller then uses the
+    dry run."""
+    if not any(path == store_path for path, _size in closure):
+        return None
+    total = len(closure)
+    missing: list[str] = []
+    total_bytes = 0
+    for start in range(0, total, batch):
+        chunk = closure[start : start + batch]
+        try:
+            result = command(
+                ["nix-store", "--check-validity", "--print-invalid"]
+                + [path for path, _size in chunk],
+                check=False,
+                timeout=60,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return None
+        if result.returncode != 0:
+            logger.warning("check-validity failed: %s", result.stderr.strip())
+            return None
+        invalid = set(result.stdout.split())
+        for path, size in chunk:
+            if path in invalid:
+                missing.append(path)
+                total_bytes += size
+        if progress:
+            progress(start + len(chunk), total)
+    return DownloadEstimate(tuple(missing), total_bytes)
+
+
 def _short_pkg(path: str | None) -> str:
     """A screen-friendly package name from a store path: drop the
     /nix/store/<hash>- prefix and trim, e.g.
@@ -256,7 +339,20 @@ class _DownloadProgress:
     bug here can never abort the upgrade.
     """
 
-    def __init__(self, total_bytes: int, total_paths: int, status_file: Path):
+    def __init__(
+        self,
+        total_bytes: int,
+        total_paths: int,
+        status_file: Path,
+        local_source: str | None = None,
+        local_total: int = 0,
+    ):
+        # Copies from local_source (the staged patch cache) are not downloads:
+        # they are the "installing" step, counted in paths, not bytes.
+        self.local_source = local_source.rstrip("/") if local_source else None
+        self.local_total = local_total
+        self._local: dict[int, str] = {}  # copyPath id -> short label
+        self._local_done = 0
         self.total_bytes = total_bytes
         self.use_bytes = total_bytes > 0
         self.total_paths = total_paths
@@ -278,13 +374,22 @@ class _DownloadProgress:
             return
         if event.action == "result":
             self._on_progress(event)
-        elif event.activity_type == 100:
-            if event.action == "start":
-                self._on_start(event)
-            elif event.action == "stop":
-                self._on_stop(event)
+        elif event.action == "start" and event.activity_type == 100:
+            self._on_start(event)
+        elif event.action == "stop":
+            # nix sends a stop with only the activity id, no type. _on_stop
+            # ignores the ids it does not track.
+            self._on_stop(event)
 
     def _on_start(self, event: ProgressEvent) -> None:
+        if (
+            self.local_source
+            and event.source
+            and event.source.rstrip("/") == self.local_source
+        ):
+            self._local[event.activity_id] = _short_pkg(event.path)
+            self._write_installing(self._local[event.activity_id])
+            return
         self._active[event.activity_id] = _short_pkg(event.path)
         self._paths_seen += 1
         self._label = self._active[event.activity_id] or self._label
@@ -306,6 +411,11 @@ class _DownloadProgress:
 
     def _on_stop(self, event: ProgressEvent) -> None:
         aid = event.activity_id
+        if aid in self._local:
+            label = self._local.pop(aid)
+            self._local_done += 1
+            self._write_installing(label)
+            return
         if aid not in self._active:
             return
         label = self._active.pop(aid)
@@ -328,6 +438,13 @@ class _DownloadProgress:
             msg += f" {self._label}"
         write_status(msg, self.status_file)
 
+    def _write_installing(self, label: str) -> None:
+        total = max(self.local_total, self._local_done)
+        msg = f"installing {self._local_done}/{total}"
+        if label:
+            msg += f" {label}"
+        write_status(msg, self.status_file)
+
     def _write_paths(self) -> None:
         denom = self.total_paths or self._paths_seen
         write_status(f"downloading {self._paths_done}/{denom} paths", self.status_file)
@@ -340,11 +457,21 @@ def run_build(
     status_file: Path = UPGRADE_STATUS_FILE,
     log_file: Path = UPGRADE_LOG_FILE,
     substituter: str | None = None,
+    patched_bytes: int = 0,
+    patched_paths: int = 0,
 ) -> int:
-    if estimate.total_bytes > 0:
-        write_status(f"downloading 0/{estimate.total_bytes}", status_file)
+    # The patched paths come from the local substituter, not the network.
+    total_bytes = (
+        max(estimate.total_bytes - patched_bytes, 1) if estimate.total_bytes else 0
+    )
+    total_paths = max(estimate.path_count - patched_paths, 0)
+    if patched_paths > 0:
+        # nix installs the patched paths from the local cache first.
+        write_status(f"installing 0/{patched_paths}", status_file)
+    elif total_bytes > 0:
+        write_status(f"downloading 0/{total_bytes}", status_file)
     else:
-        write_status(f"downloading 0/{estimate.path_count} paths", status_file)
+        write_status(f"downloading 0/{total_paths} paths", status_file)
 
     # Signatures are checked against the trusted-public-keys in the device's
     # Nix config only. A cache key rotation needs a release that trusts the
@@ -364,7 +491,13 @@ def run_build(
         # one from the binary cache, so the same signature check applies.
         build_args += ["--option", "extra-substituters", substituter]
 
-    progress = _DownloadProgress(estimate.total_bytes, estimate.path_count, status_file)
+    progress = _DownloadProgress(
+        total_bytes,
+        total_paths,
+        status_file,
+        local_source=substituter,
+        local_total=patched_paths,
+    )
     tail: deque[str] = deque(maxlen=40)
 
     process = subprocess.Popen(
@@ -407,8 +540,40 @@ def load_selection(selection_file: Path = UPGRADE_SELECTION_FILE) -> dict:
     return {}
 
 
+def remember_build_label(
+    store_path: str, label: str, labels_file: Path = BUILD_LABELS_FILE
+) -> None:
+    """Keep the label of a build for the rollback list (newest last, at most
+    MAX_BUILD_LABELS). Never raises: the labels are for display only."""
+    try:
+        labels = json.loads(labels_file.read_text())
+        if not isinstance(labels, dict):
+            labels = {}
+    except (OSError, ValueError):
+        labels = {}
+    labels.pop(store_path, None)
+    labels[store_path] = label
+    while len(labels) > MAX_BUILD_LABELS:
+        labels.pop(next(iter(labels)))
+    try:
+        labels_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp = labels_file.with_name(f".{labels_file.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(labels, indent=1) + "\n")
+        os.replace(tmp, labels_file)
+    except OSError as exc:
+        logger.warning("Could not store the build label: %s", exc)
+
+
 def persist_current_build(store_path: str, selection: dict) -> None:
     CURRENT_BUILD_FILE.parent.mkdir(parents=True, exist_ok=True)
+    # The build this upgrade leaves is the likely rollback target: keep its
+    # label before current-build.json names the new one.
+    try:
+        previous = json.loads(CURRENT_BUILD_FILE.read_text())
+        if previous.get("store_path") and previous.get("version"):
+            remember_build_label(previous["store_path"], previous["version"])
+    except (OSError, ValueError, AttributeError):
+        pass
     data = {
         "store_path": store_path,
         "version": selection.get("version") or selection.get("label") or store_path,
@@ -416,6 +581,7 @@ def persist_current_build(store_path: str, selection: dict) -> None:
         "channel": selection.get("channel"),
     }
     CURRENT_BUILD_FILE.write_text(json.dumps(data, sort_keys=True) + "\n")
+    remember_build_label(store_path, str(data["version"]))
 
 
 def arm_trial_marker(boot_target: Path) -> None:
@@ -440,6 +606,25 @@ def arm_trial_marker(boot_target: Path) -> None:
         )
     except OSError as exc:
         logger.warning("could not arm trial marker: %s", exc)
+
+
+def arm_boot_counter(previous: Path = Path("/run/current-system")) -> None:
+    """Arm the U-Boot boot counter for the trial boot (ADR 0038).
+
+    If the new generation stops before the watchdog runs (in the initrd, or
+    with a kernel panic), U-Boot counts the restarts and, after three, boots
+    the extlinux entry of `previous`, the system that runs now. The watchdog
+    stops the counter when a boot is healthy.
+
+    Best-effort: without the counter the upgrade still has the watchdog.
+    """
+    try:
+        command(
+            ["pifinder-bootcount", "arm", str(previous.resolve())],
+            check=False,
+        )
+    except Exception as exc:  # noqa: BLE001 — must never stop the upgrade
+        logger.warning("could not arm the boot counter: %s", exc)
 
 
 def fstab_root(system: Path) -> tuple[str, str] | None:
@@ -487,9 +672,76 @@ def check_root_mountable(system: Path) -> None:
         )
     if fs_type != "auto" and fs_type != root_type:
         raise UpgradeError(
-            f"{system} mounts / as {fs_type}, but the root file system "
-            f"is {root_type}"
+            f"{system} mounts / as {fs_type}, but the root file system is {root_type}"
         )
+
+
+def snapshot_name(store_path: str, now: datetime) -> str:
+    """PiFinder_data-<UTC time>-<first 8 of the target hash>. The time comes
+    first, so the names sort by age."""
+    digest = Path(store_path).name[:8]
+    return f"{SNAPSHOT_PREFIX}{now.strftime('%Y%m%dT%H%M%SZ')}-{digest}"
+
+
+def snapshot_user_data(
+    store_path: str,
+    data_dir: Path = DATA_DIR,
+    snapshot_dir: Path = SNAPSHOT_DIR,
+    keep: int = SNAPSHOT_KEEP,
+) -> str | None:
+    """Take a read-only snapshot of PiFinder_data before the switch and keep
+    the newest `keep`. Returns the snapshot path, or None when there is none.
+    Every failure only logs a warning: a snapshot must never stop an upgrade.
+    """
+    try:
+        show = command(
+            ["btrfs", "subvolume", "show", str(data_dir)], check=False, timeout=30
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        logger.warning("no PiFinder_data snapshot: %s", exc)
+        return None
+    if show.returncode != 0:
+        logger.info("PiFinder_data is not a btrfs subvolume; no snapshot")
+        return None
+
+    target = snapshot_dir / snapshot_name(store_path, datetime.now(timezone.utc))
+    try:
+        snapshot_dir.mkdir(mode=0o700, exist_ok=True)
+        result = command(
+            ["btrfs", "subvolume", "snapshot", "-r", str(data_dir), str(target)],
+            check=False,
+            timeout=60,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        logger.warning("PiFinder_data snapshot failed: %s", exc)
+        return None
+    if result.returncode != 0:
+        logger.warning("PiFinder_data snapshot failed: %s", result.stderr.strip())
+        return None
+    logger.info("PiFinder_data snapshot: %s", target)
+
+    snapshots = sorted(
+        p for p in snapshot_dir.iterdir() if p.name.startswith(SNAPSHOT_PREFIX)
+    )
+    for old in snapshots[: max(len(snapshots) - keep, 0)]:
+        try:
+            command(["btrfs", "subvolume", "delete", str(old)], check=False, timeout=60)
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            logger.warning("cannot delete old snapshot %s: %s", old, exc)
+    return str(target)
+
+
+def stop_btrfs_tidy() -> None:
+    """Stop the one-time balance: it must not compete with the download and
+    the switch. The stop cancels the balance; it runs again at the next boot."""
+    try:
+        command(
+            ["systemctl", "stop", "--no-ask-password", BTRFS_TIDY_UNIT],
+            check=False,
+            timeout=120,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        logger.warning("cannot stop %s: %s", BTRFS_TIDY_UNIT, exc)
 
 
 def activate_system(store_path: str, default_camera: str) -> None:
@@ -558,22 +810,45 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
     selected_unavailable = False
     try:
         write_status("starting")
+        stop_btrfs_tidy()
         store_path = ref_file.read_text().strip()
         if not valid_store_path(store_path):
             raise UpgradeError(f"invalid store path: {store_path!r}")
 
         write_status("checking")
-        estimate = estimate_download(store_path)
+        # Open the delta session first: the server starts to patch this step
+        # while the device works out which paths are missing. The reply lists
+        # the target closure, so a local check with a count replaces the
+        # dry run; an older server or a failed check uses the dry run.
+        session = delta_updates.open_session(store_path)
+        estimate = None
+        if session is not None and session.closure:
+            estimate = estimate_from_closure(
+                store_path,
+                session.closure,
+                progress=lambda done, total: write_status(f"checking {done}/{total}"),
+            )
+            if estimate is None:
+                write_status("checking")
+        if estimate is None:
+            estimate = estimate_download(store_path)
         staged = delta_updates.prefetch_deltas(
             store_path,
             estimate.paths,
-            CACHES,
+            CACHES + (UPSTREAM_CACHE,),
             progress=lambda step, done, total: write_status(
                 f"patching {step} {done}/{total}"
             ),
+            session=session.token if session is not None else None,
         )
         try:
-            build_rc = run_build(store_path, estimate, substituter=staged.url)
+            build_rc = run_build(
+                store_path,
+                estimate,
+                substituter=staged.url,
+                patched_bytes=staged.nar_bytes,
+                patched_paths=staged.count,
+            )
         finally:
             staged.cleanup()
         if build_rc != 0:
@@ -595,9 +870,11 @@ def run_upgrade(ref_file: Path, default_camera: str) -> int:
 
         selection = load_selection()
         check_root_mountable(Path(store_path))
+        snapshot_user_data(store_path)
         activate_system(store_path, default_camera)
         persist_current_build(store_path, selection)
         cleanup_old_generations()
+        arm_boot_counter()
         write_status("rebooting")
         command(["systemctl", "reboot"])
         terminal = True

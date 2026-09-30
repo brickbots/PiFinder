@@ -302,8 +302,10 @@ def load_taas200():
                 extra_desc = "\n" + "; ".join(extra)
                 desc += extra_desc
 
-            duplicate_names = set(other_catalog)
-            duplicate_names.add(other_names)
+            # Keep the source order: the first name that resolves decides
+            # which sky object this entry joins, so the import stays
+            # reproducible.
+            duplicate_names = list(dict.fromkeys([*other_catalog, other_names]))
             new_object = NewCatalogObject(
                 object_type=obj_type,
                 catalog_code=catalog,
@@ -313,7 +315,7 @@ def load_taas200():
                 mag=mag,
                 size=size,
                 description=desc,
-                aka_names=list(duplicate_names),
+                aka_names=duplicate_names,
             )
             objects_to_insert.append(new_object)
 
@@ -578,7 +580,7 @@ def load_sharpless():
                 catalog_code=catalog,
                 sequence=record["Sh2"],
                 ra=j_ra_deg,
-                dec=dec_deg,
+                dec=j_dec_deg,
                 size=SizeObject.from_arcmin(float(record["Diam"])),
                 mag=MagnitudeObject([]),
                 description=desc,

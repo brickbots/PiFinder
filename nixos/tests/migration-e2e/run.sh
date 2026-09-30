@@ -50,6 +50,7 @@ set -euo pipefail
 if [ -z "${MIGRATION_E2E_NS:-}" ]; then
   exec sudo unshare --mount --propagation private -- \
     sudo -u "$(id -un)" MIGRATION_E2E_NS=1 MIGRATION_E2E_DIR="${MIGRATION_E2E_DIR:-}" \
+    MIGRATION_E2E_QEMU="${MIGRATION_E2E_QEMU:-}" \
     PATH="$PATH" NIX_PATH="${NIX_PATH:-}" bash "$0" "$@"
 fi
 
@@ -68,7 +69,9 @@ KEYS="pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE= cache.nixos.org-1:6N
 nixb() { nix build --no-link --print-out-paths --option extra-substituters "$SUBS" --option extra-trusted-public-keys "$KEYS" "$@"; }
 tool() { echo "$(nix build --no-link --print-out-paths "nixpkgs#$1")/bin/$2"; }
 
-QEMU=$(tool qemu qemu-system-aarch64)
+# MIGRATION_E2E_QEMU: another qemu-system-aarch64. QEMU 11.1 stops at start
+# with "Failed to initialize io_uring" on some hosts; 10.1 works.
+QEMU=${MIGRATION_E2E_QEMU:-$(tool qemu qemu-system-aarch64)}
 FDTPUT=$(tool dtc fdtput)
 FDTGET=$(tool dtc fdtget)
 
@@ -97,6 +100,10 @@ cleanup() {
   for m in "$MNT"/chroot/boot "$MNT"/chroot "$MNT"/boot "$MNT"/root; do
     mountpoint -q "$m" 2>/dev/null && sudo umount "$m"
   done
+  # QEMU reads the card file next. Without a sync it can read the FAT before
+  # the last writes of the unmount (seen: "Volume was not properly
+  # unmounted" and a missing migration flag).
+  sync
   for l in "${LOOPS[@]:-}"; do [ -n "$l" ] && sudo losetup -d "$l" 2>/dev/null; done
   LOOPS=()
 }
@@ -110,6 +117,13 @@ patch_dtb() { # <in> <out>
   mmc1=$("$FDTGET" -t s "$2" /aliases mmc1)
   "$FDTPUT" -t s "$2" /aliases mmc0 "$mmc1"
   "$FDTPUT" -t s "$2" /aliases mmc1 "$mmc0"
+  # QEMU emulates the SPI0 controller, but no display answers: the kernel
+  # driver then waits for ever inside boot-splash ("soft lockup"), and the
+  # watchdog, which calls boot-splash, never ends. Without SPI0 there is no
+  # /dev/spidev0.0 and boot-splash stops at once, as with no display.
+  if "$FDTGET" "$2" /soc/spi@7e204000 status >/dev/null 2>&1; then
+    "$FDTPUT" -t s "$2" /soc/spi@7e204000 status disabled
+  fi
 }
 
 # Run QEMU raspi4b until the guest reboots or powers off (-no-reboot), until
@@ -304,7 +318,18 @@ if run_stage full; then
   sudo grep -q "^ssid=PiFinderE2E$" "$MNT/root/etc/NetworkManager/system-connections/PiFinder-AP.nmconnection" || die "the access point profile has no PiFinderE2E"
   sudo btrfs subvolume list "$MNT/root" | tee "$DIR/subvolumes-full.txt"
   ! grep -q ext2_saved "$DIR/subvolumes-full.txt" || die "ext2_saved was not removed"
-  [ "$(sudo awk -F: '$1 == "pifinder" {print $2}' "$MNT/root/etc/shadow")" = "$(cat "$DIR/password-hash.expected")" ] || die "the password was not carried over"
+  # NixOS checks only the strong hash types. A Pi OS hash of another type
+  # ($5$ on the release images) is not carried; the NixOS default stays.
+  shadow_hash=$(sudo awk -F: '$1 == "pifinder" {print $2}' "$MNT/root/etc/shadow")
+  case "$(cat "$DIR/password-hash.expected")" in
+    '$y$'* | '$gy$'* | '$7$'* | '$2b$'* | '$6$'*)
+      [ "$shadow_hash" = "$(cat "$DIR/password-hash.expected")" ] || die "the password was not carried over" ;;
+    *)
+      case "$shadow_hash" in
+        '$y$'* | '$gy$'* | '$7$'* | '$2b$'* | '$6$'*) ;;
+        *) die "the pifinder password hash is not a type NixOS can check" ;;
+      esac ;;
+  esac
   [ "$(sudo cat "$MNT/root/etc/ssh/ssh_host_ed25519_key.pub")" = "$(cat "$DIR/hostkey.expected")" ] || die "the SSH host key was not carried over"
   sudo grep -q "TestKeyForTheMigrationSimulation" "$MNT/root/home/pifinder/.ssh/authorized_keys" || die "authorized_keys was not carried over"
   [ ! -e "$MNT/root/var/lib/pifinder/migrated" ] || die "the staged credentials were not removed"

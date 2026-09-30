@@ -3,10 +3,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from PIL import Image, ImageDraw
 
 # Installs the _() gettext builtin the UI modules rely on; must precede ui imports.
 import PiFinder.i18n  # noqa: F401
+from PiFinder.displays import get_display
+from PiFinder.types.hardware import BatteryState, ChargeStatus
+from PiFinder.ui.base import UIModule
+from PiFinder.ui.menu_manager import MenuManager
 from PiFinder.ui.software import (
+    format_amount,
+    on_battery,
     UISoftware,
     UPDATE_MANIFEST_URL,
     _annotate_trunk_entries,
@@ -318,10 +325,7 @@ def test_unknown_current_build_hides_nothing():
 
 @pytest.mark.unit
 def test_unavailable_version_has_no_install_option():
-    ui = UISoftware.__new__(UISoftware)
-    ui._phase = "browse"
-    ui._focus = "list"
-    ui._list_index = 0
+    ui = _confirm_ui(battery=None)
     ui._version_list = [
         {
             "label": "main",
@@ -335,6 +339,139 @@ def test_unavailable_version_has_no_install_option():
 
     assert ui._phase == "confirm"
     assert ui._confirm_options == ["Cancel"]
+
+
+def _battery(external: bool) -> BatteryState:
+    return BatteryState(
+        battery_voltage=3.9,
+        charge_status=ChargeStatus.NOT_CHARGING,
+        on_external_power=external,
+        state_of_charge_pct=70,
+        charge_current_ma=None,
+        vbus_voltage=None,
+        sys_voltage=None,
+        timestamp=0.0,
+    )
+
+
+def _confirm_ui(battery) -> UISoftware:
+    ui = UISoftware.__new__(UISoftware)
+    ui.shared_state = MagicMock()
+    ui.shared_state.battery.return_value = battery
+    ui._phase = "browse"
+    ui._focus = "list"
+    ui._list_index = 0
+    ui._version_list = [{"label": "v3.1.1", "version": "3.1.1", "ref": "/nix/store/a"}]
+    return ui
+
+
+@pytest.mark.unit
+class TestUpgradePower:
+    def test_no_charger_counts_as_usb_power(self):
+        assert on_battery(MagicMock(battery=MagicMock(return_value=None))) is False
+
+    def test_install_offered_on_usb_power(self):
+        ui = _confirm_ui(_battery(external=True))
+        ui.key_right()
+        assert ui._confirm_options == ["Install", "Cancel"]
+
+    def test_install_hidden_on_battery(self):
+        ui = _confirm_ui(_battery(external=False))
+        ui.key_right()
+        assert ui._confirm_options == ["Cancel"]
+
+    def test_install_back_when_plugged_in(self):
+        ui = _confirm_ui(_battery(external=False))
+        ui.key_right()
+        ui.shared_state.battery.return_value = _battery(external=True)
+        assert ui._refresh_confirm_options() is False
+        assert ui._confirm_options == ["Install", "Cancel"]
+        assert ui._confirm_index == 0
+
+    def test_battery_press_on_cancel_leaves_confirm(self):
+        ui = _confirm_ui(_battery(external=False))
+        ui.key_right()
+        ui.key_right()
+        assert ui._phase == "browse"
+
+
+@pytest.mark.unit
+class TestKeepAwake:
+    def test_base_module_may_dim(self):
+        assert UIModule.keep_awake is False
+
+    def test_upgrading_phase_keeps_screen_awake(self):
+        ui = UISoftware.__new__(UISoftware)
+        ui._phase = "upgrading"
+        ui.clear_screen = MagicMock()
+        ui._draw_upgrading = MagicMock()
+        ui.screen_update = MagicMock()
+        ui.update()
+        assert ui.keep_awake is True
+
+    def test_menu_manager_reads_top_module(self):
+        manager = MenuManager.__new__(MenuManager)
+        manager.stack = []
+        assert manager.keep_awake() is False
+        top = MagicMock(keep_awake=True)
+        manager.stack = [MagicMock(keep_awake=False), top]
+        assert manager.keep_awake() is True
+
+
+def _browse_ui(display_name: str, versions: int, checking: bool = False) -> UISoftware:
+    display = get_display(display_name)
+    ui = UISoftware.__new__(UISoftware)
+    ui.display_class = display
+    ui.colors = display.colors
+    ui.fonts = display.fonts
+    ui.draw = ImageDraw.Draw(Image.new("RGBA", display.resolution), mode="RGBA")
+    ui.config_object = MagicMock()
+    ui.config_object.get_option.return_value = "Med"
+    ui._software_version = "2.6.4"
+    ui._software_subtitle = "nixos"
+    ui._channel_names = ["unstable"]
+    ui._channel_index = 0
+    ui._phase = "browse"
+    ui._focus = "list"
+    ui._version_list = [
+        {"label": f"PR#{n}", "version": f"PR#{n}", "ref": f"/nix/store/{n}"}
+        for n in range(versions)
+    ]
+    ui._list_index = 0
+    ui._scroll_offset = 0
+    ui._checking = checking
+    ui._elipsis_count = 0
+    ui._check_failed = False
+    ui._scrollers = {}
+    ui._scroller_phase = None
+    ui._scroller_index = None
+    return ui
+
+
+@pytest.mark.unit
+class TestBrowseListHeight:
+    @pytest.mark.parametrize(
+        "display_name, checking, rows",
+        [
+            ("headless", False, 4),
+            ("headless", True, 3),
+            ("headless_176", False, 7),
+            ("headless_320", False, 8),
+        ],
+    )
+    def test_rows_fill_the_screen(self, display_name, checking, rows):
+        ui = _browse_ui(display_name, versions=20, checking=checking)
+        ui._draw_browse()
+        assert ui._visible_rows == rows
+
+    def test_scroll_starts_after_the_last_visible_row(self):
+        ui = _browse_ui("headless_176", versions=20)
+        ui._draw_browse()
+        for _ in range(ui._visible_rows - 1):
+            ui.key_down()
+        assert ui._scroll_offset == 0
+        ui.key_down()
+        assert ui._scroll_offset == 1
 
 
 def _iso_ago(**delta) -> str:
@@ -612,7 +749,7 @@ def _drawing_ui():
     ui.screen = Image.new("RGB", (128, 128))
     ui.draw = ImageDraw.Draw(ui.screen)
     font = SimpleNamespace(font=ImageFont.load_default())
-    ui.fonts = SimpleNamespace(bold=font, base=font)
+    ui.fonts = SimpleNamespace(bold=font, base=font, large=font)
     ui.colors = SimpleNamespace(get=lambda v: (v, 0, 0))
     ui.display_class = SimpleNamespace(titlebar_height=16)
     return ui
@@ -624,6 +761,7 @@ def _drawing_ui():
     [
         {"phase": "starting"},
         {"phase": "checking"},
+        {"phase": "checking", "done": 400, "total": 1600, "unit": "paths"},
         {"phase": "patching", "done": 2, "total": 5, "unit": "paths", "percent": 40},
         {"phase": "patching", "step": "asking", "done": 2, "total": 5, "unit": "paths"},
         {
@@ -670,3 +808,52 @@ def test_draw_upgrading_checking_block_moves():
             ui._draw_upgrading()
         frames.append(ui.screen.tobytes())
     assert frames[0] != frames[1]
+
+
+@pytest.mark.unit
+def test_draw_upgrading_checking_count_shows_the_amount():
+    progress = {
+        "phase": "checking",
+        "done": 400,
+        "total": 1600,
+        "unit": "paths",
+        "percent": 25,
+    }
+    frames = []
+    texts = []
+    for t in (0.0, 0.5):
+        ui = _drawing_ui()
+        real_text = ui.draw.text
+        ui.draw.text = lambda xy, text, **kw: (
+            texts.append(text),
+            real_text(xy, text, **kw),
+        )
+        with (
+            patch(
+                "PiFinder.ui.software.sys_utils.get_upgrade_progress",
+                return_value=progress,
+            ),
+            patch("PiFinder.ui.software.time.monotonic", return_value=t),
+        ):
+            ui._draw_upgrading()
+        frames.append(ui.screen.tobytes())
+    # A bar at 25 %, not the moving block: both frames are the same.
+    assert frames[0] == frames[1]
+    assert "Checking paths" in texts
+    assert "25%" in texts
+    assert "400/1600" in texts
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "done,total,text",
+    [
+        (0, 300 * 1024, "0/300 KB"),
+        (150 * 1024, 300 * 1024, "150/300 KB"),
+        (1024 * 1024, 5 * 1024 * 1024, "1.0/5.0 MB"),
+        (20 * 1048576, 740 * 1048576, "20/740 MB"),
+        (512 * 1048576, 2 * 1073741824, "0.5/2.0 GB"),
+    ],
+)
+def test_format_amount_picks_the_unit_by_total(done, total, text):
+    assert format_amount(done, total) == text

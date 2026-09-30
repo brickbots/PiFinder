@@ -205,6 +205,12 @@ pifinder_menu = {
                                     "value": "NGC",
                                 },
                                 {
+                                    "name": _("PK Planetary"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "PK",
+                                },
+                                {
                                     "name": _("Sharpless"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
@@ -381,6 +387,10 @@ pifinder_menu = {
                                         {
                                             "name": _("NGC"),
                                             "value": "NGC",
+                                        },
+                                        {
+                                            "name": _("PK Planetary"),
+                                            "value": "PK",
                                         },
                                         {
                                             "name": _("Sharpless"),
@@ -1426,6 +1436,17 @@ pifinder_menu = {
                                     "class": UITextMenu,
                                     "select": "single",
                                     "config_option": "dev_mode",
+                                    "items": [
+                                        {"name": _("Off"), "value": False},
+                                        {"name": _("On"), "value": True},
+                                    ],
+                                },
+                                {
+                                    "name": _("Show FPS"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "show_fps",
+                                    "post_callback": callbacks.apply_show_fps,
                                     "items": [
                                         {"name": _("Off"), "value": False},
                                         {"name": _("On"), "value": True},

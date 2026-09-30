@@ -47,9 +47,11 @@ These are the electronic bits needed to build the Display/Keypad unit that fits 
      - `https://www.waveshare.com/wiki/1.5inch_RGB_OLED_Module <https://www.waveshare.com/wiki/1.5inch_RGB_OLED_Module>`_
      - 
    * - 1
-     - Adafruit IMU Fusion Breakout - BNO055
+     - Adafruit IMU Fusion Breakout - BNO055 - **See Note**
      - https://www.adafruit.com/product/4646
-     - 
+     - Order product 4646 exactly. Adafruit sells another BNO055 board (product
+       2472) that looks very similar, but its data pins are in a different
+       order and it does not work in the PiFinder
    * - 1
      - 2x20 40 Pin Stacking Female Header
      - https://www.amazon.com/dp/B0827THC7R
@@ -95,9 +97,12 @@ These are the bigger items/assemblies which you'll need to purchase to include i
      - https://www.amazon.com/dp/B07VDWNSG9
      - Other lenses might work here, but something fast is ideal.  How much sky the PiFinder
        sees depends on the camera as well as the lens.  This 16mm lens gives about 13.7
-       degrees on the imx296 and about 10.4 degrees on the imx462.  If you fit a 12mm lens
-       instead, select Settings from the main menu, scroll down to Advanced, then select Lens
-       and set it to 12mm
+       degrees on the imx296 and about 10.4 degrees on the imx462.  The bundled star-pattern
+       database sets the real limit on what you can substitute.  It is built for fields
+       between 10 and 30 degrees.  A camera and lens that together see less than 10 degrees,
+       or more than 30, cannot plate solve at all.  If you fit a 12mm lens instead, select
+       Settings from the main menu, scroll down to Advanced, then select Lens and set it to
+       12mm
 
 You can use either the imx296 or imx462 module from innomaker.  They both 
 perform about the same so choose the least expensive/easiest to get model 

@@ -182,12 +182,12 @@ def load_source(name, path):
     # luma-emulator); pygame is not in the Pi runtime env.
     pygame = prev.pygame.overrideAttrs (old: {
       appendRunpaths = map (p: "${lib.getLib p}/lib") [
-        pkgs.xorg.libX11
-        pkgs.xorg.libXext
-        pkgs.xorg.libXcursor
-        pkgs.xorg.libXrandr
-        pkgs.xorg.libXi
-        pkgs.xorg.libXfixes
+        pkgs.libx11
+        pkgs.libxext
+        pkgs.libxcursor
+        pkgs.libxrandr
+        pkgs.libxi
+        pkgs.libxfixes
         pkgs.libxrender
         pkgs.libxscrnsaver
         pkgs.libxinerama

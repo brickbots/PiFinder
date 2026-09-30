@@ -119,7 +119,7 @@ class UITimeEntry(UIModule):
         The check is live, so the boxes appear the moment a fix locks while the
         screen is open, without needing to back out and re-enter.
         """
-        return bool(self.shared_state and self.shared_state.location().lock)
+        return bool(self.shared_state and self.snapshot.location().lock)
 
     def draw_local_time_note(self):
         # Add a note about local time. The time is entered in the observer's
@@ -144,7 +144,7 @@ class UITimeEntry(UIModule):
         # against (see set_location / local_datetime, ADR-0018), and the whole
         # point of this line is to tell the user which zone that is.
         if self.shared_state:
-            timezone = self.shared_state.location().timezone or "UTC"
+            timezone = self.snapshot.location().timezone or "UTC"
             self.draw.text(
                 (10, note_y),
                 timezone[:18],
@@ -283,7 +283,7 @@ class UITimeEntry(UIModule):
             self.draw_legend(separator_y)
 
         if self.shared_state:
-            self.shared_state.set_screen(self.screen)
+            self.publish_screen(self.shared_state, self.screen)
         return self.screen_update()
 
     def serialize_ui_state(self) -> dict:

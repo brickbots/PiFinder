@@ -303,6 +303,26 @@ def _hide_current_build(entries: List[dict], current_ref: Optional[str]) -> List
     return [e for e in entries if e.get("ref") != current_ref]
 
 
+def format_amount(done: int, total: int) -> str:
+    """'done/total unit' in one unit, chosen by the total, so that a small
+    download does not show as 0/0 MB."""
+    if total < 1024 * 1024:
+        return f"{done / 1024:.0f}/{total / 1024:.0f} KB"
+    if total < 10 * 1024 * 1024:
+        return f"{done / 1048576:.1f}/{total / 1048576:.1f} MB"
+    if total < 1024 * 1024 * 1024:
+        return f"{done / 1048576:.0f}/{total / 1048576:.0f} MB"
+    return f"{done / 1073741824:.1f}/{total / 1073741824:.1f} GB"
+
+
+def on_battery(shared_state) -> bool:
+    """True when the charger reports no USB-C power. Hardware without the
+    charger (rev3) reports no battery state; it cannot tell, so it counts as
+    on USB-C power."""
+    battery = shared_state.battery() if shared_state is not None else None
+    return battery is not None and not battery.on_external_power
+
+
 def update_needed(current_version: str, repo_version: str) -> bool:
     """
     Returns true if an update is available
@@ -346,7 +366,8 @@ class UISoftware(UIModule):
     """
 
     __title__ = "SOFTWARE"
-    MAX_VISIBLE = 4
+    # Version rows on screen; _draw_browse sets it from the screen height.
+    _visible_rows = 4
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -740,7 +761,14 @@ class UISoftware(UIModule):
             return
 
         label_width = self.fonts.base.line_length - 2
-        list_bottom = 114 if (self._checking or self._check_failed) else 128
+        # Rows and the list's bottom follow the font and the screen height:
+        # 12 px rows down to y 128 (114 with the status line) on the 128 px
+        # panel, more rows on the 176 and 320 px panels.
+        row_h = self._browse_row_height()
+        list_bottom = self._browse_list_bottom()
+        # Rows that fit below y, less one for the focused row's detail line;
+        # key_down scrolls by it.
+        self._visible_rows = max(1, (list_bottom - y) // row_h - 1)
         current_y = y
         for i in range(len(self._version_list)):
             idx = self._scroll_offset + i
@@ -750,7 +778,7 @@ class UISoftware(UIModule):
             prefix, text = _entry_row_parts(entry)
 
             if self._focus == "list" and idx == self._list_index:
-                if current_y + 24 > list_bottom:
+                if current_y + 2 * row_h > list_bottom:
                     break
                 self.draw.text(
                     (0, current_y),
@@ -779,7 +807,7 @@ class UISoftware(UIModule):
                     scroll_width,
                 )
                 scroller.draw((text_x, current_y))
-                current_y += 12
+                current_y += row_h
                 detail = _entry_detail(entry)
                 if detail:
                     sub_scroller = self._get_scroller(
@@ -790,11 +818,11 @@ class UISoftware(UIModule):
                         label_width,
                     )
                     sub_scroller.draw((10, current_y))
-                current_y += 12
+                current_y += row_h
             else:
                 # Unfocused rows stay dim so the selected row and its detail
                 # line carry the visual weight.
-                if current_y + 12 > list_bottom:
+                if current_y + row_h > list_bottom:
                     break
                 # The trunk ("main") row stands out from the PR rows: bold and
                 # brighter, with a leading dot.
@@ -812,9 +840,21 @@ class UISoftware(UIModule):
                         font=self.fonts.base.font,
                         fill=self.colors.get(128),
                     )
-                current_y += 12
+                current_y += row_h
 
         self._draw_refresh_status()
+
+    def _browse_row_height(self) -> int:
+        """One list row: the base font's height plus 1 px (12 on 128 px)."""
+        return self.fonts.base.height + 1
+
+    def _browse_list_bottom(self) -> int:
+        """Lowest y of the version list; the refresh status line takes the
+        row below it while it shows."""
+        bottom = self.display_class.resY
+        if self._checking or self._check_failed:
+            bottom -= self._browse_row_height() + 2
+        return bottom
 
     def _draw_refresh_status(self):
         """Bottom-line indicator for the background manifest refresh."""
@@ -829,13 +869,29 @@ class UISoftware(UIModule):
         else:
             return
         self.draw.text(
-            (4, 115),
+            (4, self._browse_list_bottom() + 1),
             text,
             font=self.fonts.base.font,
             fill=self.colors.get(96),
         )
 
+    def _refresh_confirm_options(self) -> bool:
+        """Offer Install only on USB-C power. Returns True on battery."""
+        battery = on_battery(self.shared_state)
+        version = self._selected_version or {}
+        options = []
+        if not version.get("unavailable") and not battery:
+            options.append("Install")
+        if version.get("notes"):
+            options.append("Notes")
+        options.append("Cancel")
+        if options != self._confirm_options:
+            self._confirm_options = options
+            self._confirm_index = 0
+        return battery
+
     def _draw_confirm(self):
+        battery = self._refresh_confirm_options()
         y = self.display_class.titlebar_height + 2
 
         self.draw.text(
@@ -879,6 +935,15 @@ class UISoftware(UIModule):
                 _("built {age}").format(age=age),
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
+            )
+            y += 11
+
+        if battery:
+            self.draw.text(
+                (0, y),
+                _("Plug in USB-C power"),
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
             )
             y += 11
 
@@ -942,6 +1007,8 @@ class UISoftware(UIModule):
 
     def update(self, force=False):
         self.clear_screen()
+        # The download and install take minutes; the screen must not dim.
+        self.keep_awake = self._phase == "upgrading"
 
         if self._phase == "upgrading":
             self._draw_upgrading()
@@ -1007,8 +1074,9 @@ class UISoftware(UIModule):
             elif self._focus == "list":
                 if self._list_index < len(self._version_list) - 1:
                     self._list_index += 1
-                    if self._list_index >= self._scroll_offset + self.MAX_VISIBLE:
-                        self._scroll_offset = self._list_index - self.MAX_VISIBLE + 1
+                    rows = self._visible_rows
+                    if self._list_index >= self._scroll_offset + rows:
+                        self._scroll_offset = self._list_index - rows + 1
         elif self._phase == "confirm":
             if self._confirm_index < len(self._confirm_options) - 1:
                 self._confirm_index += 1
@@ -1032,14 +1100,11 @@ class UISoftware(UIModule):
             elif self._focus == "list" and self._version_list:
                 self._selected_version = self._version_list[self._list_index]
                 self._confirm_options = []
-                if not self._selected_version.get("unavailable"):
-                    self._confirm_options.append("Install")
-                if self._selected_version.get("notes"):
-                    self._confirm_options.append("Notes")
-                self._confirm_options.append("Cancel")
+                self._refresh_confirm_options()
                 self._confirm_index = 0
                 self._phase = "confirm"
         elif self._phase == "confirm":
+            self._refresh_confirm_options()
             opt = self._confirm_options[self._confirm_index]
             if opt == "Install":
                 self.update_software()
@@ -1124,16 +1189,20 @@ class UISoftware(UIModule):
             label = _("Rebooting...")
         elif phase == "activating":
             label = _("Activating...")
+        elif phase == "checking" and total > 0:
+            label = _("Checking paths")
         elif phase == "checking":
             label = _("Checking...")
         elif phase == "patching" and step == "asking":
-            label = _("Asking server")
+            label = _("Finding patches")
         elif phase == "patching" and step == "waiting":
-            label = _("Server busy")
+            label = _("Making patches")
         elif phase == "patching" and step == "applying":
-            label = _("Applying patch")
+            label = _("Applying patches")
         elif phase == "patching":
             label = _("Patching...")
+        elif phase == "installing":
+            label = _("Installing patches")
         elif phase == "starting":
             label = _("Preparing...")
         else:
@@ -1155,10 +1224,9 @@ class UISoftware(UIModule):
             fill=self.colors.get(48),
             outline=self.colors.get(128),
         )
-        if phase in ("starting", "checking") or step == "waiting":
-            # No measurable progress here (the dry run reports none, and a
-            # wait for the delta server has no amount), so a block moves back
-            # and forth to show the device is working.
+        if phase == "starting" or (phase == "checking" and total <= 0):
+            # No measurable progress here (the dry run reports none), so a
+            # block moves back and forth to show the device is working.
             block_w = 24
             span = bar_w - block_w - 2
             pos = int(time.monotonic() * 40) % (2 * span)
@@ -1167,21 +1235,6 @@ class UISoftware(UIModule):
                 [left, y + 1, left + block_w, y + bar_h - 1],
                 fill=self.colors.get(192),
             )
-            y += bar_h + 6
-            if step == "waiting":
-                # done is the number of paths the server is still computing.
-                self.draw.text(
-                    (4, y),
-                    _("{n} not ready").format(n=done),
-                    font=self.fonts.base.font,
-                    fill=self.colors.get(128),
-                )
-                self.draw.text(
-                    (4, y + 12),
-                    _("asking again soon"),
-                    font=self.fonts.base.font,
-                    fill=self.colors.get(96),
-                )
             return
 
         fill_w = int(bar_w * pct / 100)
@@ -1206,26 +1259,32 @@ class UISoftware(UIModule):
         )
         y += bar_h + 6
 
-        # Amount below the bar: megabytes downloaded out of the total, or a
-        # path count in the fallback case where byte sizes were unavailable.
-        if phase in ("downloading", "patching") and total > 0:
-            if unit == "bytes":
-                amount_text = f"{done / 1048576:.0f}/{total / 1048576:.0f} MB"
-            elif step == "applying":
+        # Amount below the bar: store paths checked; patches ready, applied
+        # or installed; bytes downloaded; or a path count where byte sizes
+        # were unavailable.
+        if phase in ("checking", "downloading", "patching", "installing") and total > 0:
+            if phase in ("patching", "installing"):
                 amount_text = _("{done}/{total} patches").format(done=done, total=total)
+            elif phase == "checking":
+                # The title names the unit: "1530/1530 paths" is wider than
+                # the 128 px panel in the large font.
+                amount_text = f"{done}/{total}"
+            elif unit == "bytes":
+                amount_text = format_amount(done, total)
             else:
                 amount_text = f"{done}/{total} paths"
+            # The amount is the main fact on this screen: large and bright.
             self.draw.text(
                 (4, y),
                 amount_text,
-                font=self.fonts.base.font,
-                fill=self.colors.get(128),
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
             )
             # Name the package currently being copied, if known.
             item = progress.get("item", "")
             if item:
                 self.draw.text(
-                    (4, y + 12),
+                    (4, y + 19),
                     item[:22],
                     font=self.fonts.base.font,
                     fill=self.colors.get(96),

@@ -34,6 +34,12 @@ on real hardware before this is trusted.
 
 ## Ungated across hardware revisions
 
+> **Superseded by [ADR 0034](0034-gpio-poweroff-gated-to-cm4.md).** The rev3
+> effect proved not cosmetic: with the firmware power-off replaced, the halt
+> path parks with the screen still lit. The overlay is now gated behind a
+> `[cm4]` `config.txt` model filter — firmware-evaluated per boot, so the
+> probe-at-provisioning-time objection below no longer applies.
+
 The overlay is added unconditionally rather than gated on the rev4 BQ25895 probe.
 On rev3 (no latch) GPIO14-low does nothing electrically; the only effect is that
 `gpio-poweroff` changes the halt path, so `poweroff` logs a kernel WARN and waits

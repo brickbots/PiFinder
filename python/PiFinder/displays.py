@@ -2,6 +2,8 @@ import functools
 import logging
 import math
 from collections import namedtuple
+from pathlib import Path
+from typing import Any, Optional
 
 import numpy as np
 from PIL import Image
@@ -15,6 +17,11 @@ from PiFinder import ssd1333_device
 from PiFinder.ssd1333_device import ssd1333
 
 from PiFinder.ui.fonts import Fonts
+
+try:
+    from PiFinder import demo_display
+except ImportError:  # pygame is a dev dependency; the Pi image has none
+    demo_display = None  # type: ignore[assignment]
 
 logger = logging.getLogger("Display")
 
@@ -71,6 +78,23 @@ class DisplayBase:
         self.resY = self.resolution[1]
 
     def set_brightness(self, brightness: int) -> None:
+        return None
+
+    # Hooks for the demo display (DisplayDemo). The main loop calls them
+    # for every display, and they do nothing on the others.
+    def show_key(self, keycode: int) -> None:
+        return None
+
+    def keycode_for_event(self, event: Any) -> Optional[int]:
+        return None
+
+    def tick(self) -> None:
+        return None
+
+    def start_recording(self, path: Path, audio: bool = False) -> None:
+        raise ValueError("--record needs --display pg_demo or pg_demo_176")
+
+    def stop_recording(self) -> None:
         return None
 
 
@@ -566,6 +590,43 @@ class DisplayHeadless320(Layout320, DisplayHeadless):
     """
 
 
+class DisplayDemo(DisplayBase):
+    """Pygame window with the UI inside a photo of the PiFinder.
+
+    Pressed buttons glow, a click on a button presses it, and --record
+    writes the window to an MP4 file. For instruction videos. Select with
+    --display pg_demo. See docs/adr/0044-demo-display-in-process.md.
+    """
+
+    resolution = (128, 128)
+
+    def __init__(self):
+        if demo_display is None:
+            raise RuntimeError("The demo display needs pygame (uv dev group)")
+        self.device = demo_display.DemoDevice(self.resolution)
+        super().__init__()
+
+    def show_key(self, keycode: int) -> None:
+        self.device.show_key(keycode)
+
+    def keycode_for_event(self, event: Any) -> Optional[int]:
+        return self.device.keycode_for_event(event)
+
+    def tick(self) -> None:
+        self.device.tick()
+
+    def start_recording(self, path: Path, audio: bool = False) -> None:
+        self.device.start_recording(path, audio)
+
+    def stop_recording(self) -> None:
+        self.device.cleanup()
+
+
+class DisplayDemo176(Layout176, DisplayDemo):
+    """The demo display with the 176x176 SSD1333 layout profile. Select
+    with --display pg_demo_176."""
+
+
 def get_display(display_hardware: str) -> DisplayBase:
     if display_hardware == "headless":
         return DisplayHeadless()
@@ -584,6 +645,12 @@ def get_display(display_hardware: str) -> DisplayBase:
 
     if display_hardware == "pg_320":
         return DisplayPygame_320()
+
+    if display_hardware == "pg_demo":
+        return DisplayDemo()
+
+    if display_hardware == "pg_demo_176":
+        return DisplayDemo176()
 
     if display_hardware == "ssd1351":
         return DisplaySSD1351()

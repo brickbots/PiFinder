@@ -145,11 +145,11 @@ class UIConsole(UIModule):
                 fill=bg,
             )
             self.draw.text((6, 1), self.title, font=self.fonts.bold.font, fill=fg)
-            imu = self.shared_state.imu()
+            imu = self.snapshot.imu()
             moving = True if imu and imu.quat and imu.moving else False
 
             # GPS status
-            if self.shared_state.altaz_ready():
+            if self.snapshot.altaz_ready():
                 self._gps_brightness = 0
             else:
                 gps_anim = (
@@ -173,8 +173,8 @@ class UIConsole(UIModule):
                 self._unmoved = False
 
             if self.shared_state:
-                if self.shared_state.solve_state():
-                    solution = self.shared_state.solution()
+                if self.snapshot.solve_state():
+                    solution = self.snapshot.solution()
                     cam_active = solution.is_camera_solve()
                     # a fresh cam solve sets unmoved to True
                     self._unmoved = True if cam_active else self._unmoved
@@ -231,6 +231,6 @@ class UIConsole(UIModule):
         self.display.display(screen_to_display)
 
         if self.shared_state:
-            self.shared_state.set_screen(screen_to_display)
+            self.publish_screen(self.shared_state, screen_to_display)
 
         return

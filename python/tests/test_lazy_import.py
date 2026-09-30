@@ -1,6 +1,7 @@
 """Tests for PiFinder.lazy_import."""
 
 import importlib.util
+import subprocess
 import sys
 import types
 
@@ -72,3 +73,13 @@ def test_preload_loads_in_background_and_survives_a_bad_name(fake_module):
     thread.join(timeout=10)
     assert not thread.is_alive()
     assert fake_module == [FAKE_NAME]
+
+
+@pytest.mark.unit
+def test_state_import_leaves_timezonefinder_unloaded():
+    # A fresh interpreter: this test process may have loaded it already.
+    code = "import sys, PiFinder.state; " "print('timezonefinder' in sys.modules)"
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "False"

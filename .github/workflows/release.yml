@@ -1,6 +1,7 @@
 name: Release NixOS image
 
-# Builds the PiFinder NixOS SD image and migration tarball and publishes them as
+# Builds the PiFinder NixOS SD images (lean, and full when flake.nix has
+# catalog images) and the migration tarball and publishes them as
 # a GitHub (pre-)release, and records the closure in the nixos-manifest branch.
 #
 # Runners are native aarch64 (no QEMU): the free GitHub-hosted
@@ -89,6 +90,7 @@ jobs:
           fi
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
+      # Lean image: the system and an empty PiFinder_data.
       - name: Build SD image
         run: |
           nix build .#images.pifinder -L -o result-sd
@@ -98,6 +100,26 @@ jobs:
         with:
           name: sdimage-native
           path: result-sd/sd-image/*.img.zst
+          retention-days: 1
+
+      # Full image: the lean image plus the catalog images. It exists only when
+      # flake.nix sets catalogImagesSrc (plan A4 and B8).
+      - name: Build full SD image
+        id: full
+        run: |
+          if [ "$(nix eval --json .#images --apply 'i: i ? pifinder-full')" = true ]; then
+            nix build .#images.pifinder-full -L -o result-full
+            echo "built=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No images.pifinder-full: publishing the lean image only."
+          fi
+
+      - name: Upload full SD image
+        if: steps.full.outputs.built == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdfull-native
+          path: result-full/sd-image/*.img.zst
           retention-days: 1
 
       # The migration tarball holds the MINIMAL migration system, built
@@ -162,6 +184,7 @@ jobs:
           fi
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
+      # Lean image: the system and an empty PiFinder_data.
       - name: Build SD image
         run: |
           nix build .#images.pifinder -L -o result-sd
@@ -171,6 +194,26 @@ jobs:
         with:
           name: sdimage-hosted
           path: result-sd/sd-image/*.img.zst
+          retention-days: 1
+
+      # Full image: the lean image plus the catalog images. It exists only when
+      # flake.nix sets catalogImagesSrc (plan A4 and B8).
+      - name: Build full SD image
+        id: full
+        run: |
+          if [ "$(nix eval --json .#images --apply 'i: i ? pifinder-full')" = true ]; then
+            nix build .#images.pifinder-full -L -o result-full
+            echo "built=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No images.pifinder-full: publishing the lean image only."
+          fi
+
+      - name: Upload full SD image
+        if: steps.full.outputs.built == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdfull-hosted
+          path: result-full/sd-image/*.img.zst
           retention-days: 1
 
       # Minimal migration system — see the native job's comment (ADR 0039).
@@ -220,6 +263,20 @@ jobs:
           name: sdimage-hosted
           path: img-hosted
 
+      - name: Download native full SD image
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: sdfull-native
+          path: full-native
+
+      - name: Download hosted full SD image
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: sdfull-hosted
+          path: full-hosted
+
       - name: Download native migration image
         continue-on-error: true
         uses: actions/download-artifact@v4
@@ -246,8 +303,9 @@ jobs:
           # Only some dirs may exist (downloads are continue-on-error); create
           # all so find can't fail under pipefail. Prefer the hosted builder's
           # artifacts (listed first); fall back to native (Pi5).
-          mkdir -p img-native img-hosted mig-native mig-hosted
+          mkdir -p img-native img-hosted full-native full-hosted mig-native mig-hosted
           IMAGE_SRC=$(find img-hosted img-native -type f -name '*.img.zst' -print -quit)
+          FULL_SRC=$(find full-hosted full-native -type f -name '*.img.zst' -print -quit)
           MIG_SRC=$(find mig-hosted mig-native -type f -name '*.tar.zst' -print -quit)
           if [ -z "$IMAGE_SRC" ] || [ -z "$MIG_SRC" ]; then
             echo "Missing artifact: sd=[$IMAGE_SRC] migration=[$MIG_SRC]" >&2
@@ -255,6 +313,10 @@ jobs:
           fi
           mkdir -p release
           cp "$IMAGE_SRC" "release/pifinder-${TAG}.img.zst"
+          # The full image is optional (flake.nix catalogImagesSrc).
+          if [ -n "$FULL_SRC" ]; then
+            cp "$FULL_SRC" "release/pifinder-full-${TAG}.img.zst"
+          fi
 
           # The migration tarball is built by Nix from the minimal migration
           # system's closure (ADR 0039); publish it as is.

@@ -49,8 +49,10 @@ from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
 from PiFinder.calc_utils import sf_utils
 from PiFinder.state_utils import sleep_for_framerate
+from PiFinder.state_snapshot import SnapshotBlock, StateReader, attach_writer
 
 from PiFinder.ui.console import UIConsole
+from PiFinder.ui.base import CurrentSnapshot, UIModule
 from PiFinder.ui.menu_manager import MenuManager
 
 from PiFinder.state import SharedStateObj, UIState
@@ -180,6 +182,9 @@ def setup_dirs():
 
 patch.apply()
 
+# GIL switch interval for the UI process, in seconds (Python default 0.005).
+UI_SWITCH_INTERVAL = 0.001
+
 
 class StateManager(BaseManager):
     pass
@@ -198,6 +203,9 @@ class PowerManager:
         self.last_activity = time.time()
         self.sleep_start_time = None
         self.screen_off_start_time = None
+        # This class is the only writer of the shared power state, so it
+        # keeps the value itself and never reads it back.
+        self.power_state = 1
 
     def register_activity(self):
         """
@@ -210,7 +218,7 @@ class PowerManager:
         # -1 = Screen off
         #  0 = Sleep
         #  1 = Wake
-        if self.shared_state.power_state() < 1:
+        if self.power_state < 1:
             # wake up
             self.wake_up()
             return True
@@ -224,6 +232,7 @@ class PowerManager:
         self.last_activity = time.time()
         self.sleep_start_time = None
         self.screen_off_start_time = None
+        self.power_state = 1
         self.shared_state.set_power_state(1)
         self.wake_screen()
 
@@ -231,29 +240,32 @@ class PowerManager:
         """
         Do all the sleep things
         """
+        self.power_state = 0
         self.shared_state.set_power_state(0)
         self.sleep_start_time = time.time()
         self.sleep_screen()
 
-    def update(self):
+    def update(self, keep_awake: bool = False):
         """
         Check IMU for activity
         go to sleep if needed
         if asleep, Introduce wait state
+
+        keep_awake: the screen on top (e.g. upgrade progress) must not dim.
         """
-        if self.get_sleep_timeout() <= 0:
-            # Disabled
+        if keep_awake or self.get_sleep_timeout() <= 0:
+            # Disabled, or held awake
             self.register_activity()
             return
 
-        if self.shared_state.power_state() > 0:
+        if self.power_state > 0:
             # We are awake, should we sleep?
             if time.time() - self.last_activity > self.get_sleep_timeout():
                 self.go_to_sleep()
 
-        elif self.shared_state.power_state() == 0:
+        elif self.power_state == 0:
             # We are asleep, should we wake up or go to screen off?
-            _imu = self.shared_state.imu()
+            _imu = UIModule.snapshot.imu()
             if _imu:
                 if _imu.moving:
                     self.wake_up()
@@ -269,8 +281,8 @@ class PowerManager:
                 self.screen_off()
 
         # Screen off mode: LED heartbeat, longer sleep
-        if self.shared_state.power_state() == -1:
-            _imu = self.shared_state.imu()
+        if self.power_state == -1:
+            _imu = UIModule.snapshot.imu()
             if _imu and _imu.moving:
                 self.wake_up()
                 return
@@ -279,7 +291,7 @@ class PowerManager:
             return
 
         # should we pause execution for a bit?
-        if self.shared_state.power_state() < 1:
+        if self.power_state < 1:
             time.sleep(0.2)
 
     def get_sleep_timeout(self):
@@ -323,6 +335,7 @@ class PowerManager:
 
     def screen_off(self):
         """Completely blank screen and turn off LEDs"""
+        self.power_state = -1
         self.shared_state.set_power_state(-1)
         self.screen_off_start_time = time.time()
         self.display_device.device.hide()
@@ -437,12 +450,53 @@ def _build_pygame_keymaps():
     return key_map, ctrl_key_map
 
 
+def drain_gps_queue(gps_queue, pending: dict) -> list:
+    """Take every message from gps_queue into `pending`, one per kind, and
+    return the resets ("reset", "reset_datetime") in their order.
+
+    "fix": the fix with the smallest error. One by one, the main loop applied
+    only a fix with a smaller error than the one before, so the result was
+    the best fix. "time": the newest time; force if any of them was
+    time_force. "satellites", "comms": the newest. A reset drops an older
+    pending fix, a reset_datetime an older pending time; the caller does the
+    resets before it applies what is pending.
+    """
+    resets = []
+    try:
+        while True:
+            gps_msg, gps_content = gps_queue.get(block=False)
+            if gps_msg == "reset":
+                pending.pop("fix", None)
+                resets.append(gps_msg)
+            elif gps_msg == "reset_datetime":
+                pending.pop("time", None)
+                resets.append(gps_msg)
+            elif gps_msg in ("time", "time_force"):
+                force = gps_msg == "time_force" or (
+                    "time" in pending and pending["time"][1]
+                )
+                pending["time"] = (gps_content, force)
+            elif gps_msg == "fix":
+                held = pending.get("fix")
+                if held is None or float(gps_content.get("error_in_m", 0) or 0) < float(
+                    held.get("error_in_m", 0) or 0
+                ):
+                    pending["fix"] = gps_content
+            elif gps_msg in ("satellites", "comms"):
+                pending[gps_msg] = gps_content
+    except queue.Empty:
+        pass
+    return resets
+
+
 def main(
     log_helper: MultiprocLogging,
     script_name=None,
     show_fps=False,
     verbose=False,
     profile_startup=False,
+    record_path=None,
+    record_audio=False,
 ) -> None:
     """
     Get this show on the road!
@@ -526,11 +580,20 @@ def main(
     )
     langXX.install()
 
-    with StateManager() as manager:
+    # The manager process writes the most-read shared state into a
+    # shared-memory snapshot, which the UI reads without a round trip to the
+    # manager (see state_snapshot).
+    snapshot_block = SnapshotBlock()
+    manager = StateManager()
+    manager.start(initializer=attach_writer, initargs=(snapshot_block.spec,))
+    with manager:
         shared_state = manager.SharedState()  # type: ignore[attr-defined]
+        state_reader = StateReader(snapshot_block.spec)
         location = shared_state.location()
         ui_state = manager.UIState()  # type: ignore[attr-defined]
+        show_fps = show_fps or cfg.get_option("show_fps", False)
         ui_state.set_show_fps(show_fps)
+        UIModule.frame_rate.visible = show_fps
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
@@ -738,11 +801,19 @@ def main(
         # Start profiling (uncomment to enable performance analysis)
         # profiler, startup_profile_start = start_profiling()
 
-        # Initialize Catalogs (pass ui_queue for background loading completion signal)
-        catalogs: Catalogs = CatalogBuilder().build(shared_state, ui_queue)
+        # The UI thread waits for a shared-state answer many times per frame.
+        # After each wait it needs the GIL back, and a busy thread in this
+        # process (the catalog loader) keeps it for up to the switch
+        # interval. The 5 ms default cut the frame rate to a few FPS while
+        # catalogs loaded. All worker processes are already started, so this
+        # applies to the UI process only.
+        sys.setswitchinterval(UI_SWITCH_INTERVAL)
+
+        # Open the catalogs (numpy columns, see catalog_arrays)
+        catalogs: Catalogs = CatalogBuilder().build(shared_state)
 
         # Establish the common catalog filter object
-        _new_filter = CatalogFilter(shared_state=shared_state)
+        _new_filter = CatalogFilter(shared_state=CurrentSnapshot())
         _new_filter.load_from_config(cfg)
         catalogs.set_catalog_filter(_new_filter)
 
@@ -804,6 +875,11 @@ def main(
             logger.info("Pygame event polling enabled for keyboard input")
             pygame_key_map, pygame_ctrl_key_map = _build_pygame_keymaps()
 
+        # Start the recording only now: a child process forked after this
+        # keeps the ffmpeg pipe open, and the video file does not end.
+        if record_path:
+            display_device.start_recording(Path(record_path), record_audio)
+
         # Advisory low-battery warnings (ADR 0021). UI-only: the shutdown
         # trigger lives in the battery monitor and keys on ADC validity,
         # never on this estimate.
@@ -811,6 +887,11 @@ def main(
         last_battery_watch = 0.0
 
         log_time = True
+        # GPS messages waiting to go to the shared state (see the GPS block in
+        # the loop), and when satellites and comms last went there.
+        gps_pending: dict = {}
+        gps_last_push = {"satellites": 0.0, "comms": 0.0}
+
         # Start of main except handler / loop
         try:
             while True:
@@ -823,6 +904,12 @@ def main(
                                 keyboard_queue.put(pygame_ctrl_key_map[event.key])
                             elif event.key in pygame_key_map:
                                 keyboard_queue.put(pygame_key_map[event.key])
+                        elif event.type == pygame.MOUSEBUTTONDOWN:
+                            # The demo display maps a click on a button
+                            # in its photo to that key.
+                            clicked = display_device.keycode_for_event(event)
+                            if clicked is not None:
+                                keyboard_queue.put(clicked)
                         elif event.type == pygame.QUIT:
                             logger.info("Pygame window closed, exiting...")
                             raise KeyboardInterrupt
@@ -838,92 +925,99 @@ def main(
                 except queue.Empty:
                     # Frame-rate-limit the main loop; sleep_for_framerate also
                     # handles power-save by sleeping longer when asleep.
-                    sleep_for_framerate(shared_state)
+                    sleep_for_framerate(UIModule.snapshot)
 
-                # GPS
-                try:
-                    while True:  # Consume from gps_queue until empty
-                        gps_msg, gps_content = gps_queue.get(block=False)
-                        if gps_msg == "fix":
-                            if gps_content["lat"] + gps_content["lon"] != 0:
-                                location = shared_state.location()
+                # One read of the shared state for this frame. Screens read
+                # it from UIModule.snapshot.
+                UIModule.snapshot = state_reader.read()
 
-                            # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
-                            # "replay" is protected too: a telemetry replay owns the
-                            # location until it ends and restores the original.
-                            if (
-                                not location.source == "WEB"
-                                and not location.source.startswith("CONFIG:")
-                                and not location.source == "MANUAL"
-                                and not location.source == "replay"
-                                and (
-                                    location.error_in_m == 0
-                                    or float(gps_content["error_in_m"])
-                                    < float(
-                                        location.error_in_m
-                                    )  # Only if new error is smaller
-                                )
-                            ):
-                                logger.debug(
-                                    f"Updating GPS location: new content: {gps_content}, old content: {location}"
-                                )
-                                location.lat = gps_content["lat"]
-                                location.lon = gps_content["lon"]
-                                location.altitude = gps_content["altitude"]
-                                location.source = gps_content["source"]
-                                if "error_in_m" in gps_content:
-                                    location.error_in_m = gps_content["error_in_m"]
-                                if "lock" in gps_content:
-                                    location.lock = gps_content["lock"]
-                                if "lock_type" in gps_content:
-                                    location.lock_type = gps_content["lock_type"]
+                # GPS. The GPS process sends many messages a second, and each
+                # one applied is a round trip to the shared state: on a CM4
+                # that was about a seventh of the UI thread's time. So drain
+                # the queue first and keep the newest message of each kind;
+                # reset and reset_datetime still act in their place. The fix
+                # and the time go on at once; satellites and comms are
+                # display values and go on at most once a second.
+                for gps_reset in drain_gps_queue(gps_queue, gps_pending):
+                    if gps_reset == "reset":
+                        location.reset()
+                        shared_state.set_location(location)
+                    else:
+                        shared_state.reset_datetime()
+                if "fix" in gps_pending:
+                    gps_content = gps_pending.pop("fix")
+                    if gps_content["lat"] + gps_content["lon"] != 0:
+                        location = shared_state.location()
 
-                                # Update last_gps_lock timestamp when lock is set
-                                if "lock" in gps_content and gps_content["lock"]:
-                                    dt = shared_state.datetime()
-                                    if dt is None:
-                                        location.last_gps_lock = "--"
-                                    else:
-                                        location.last_gps_lock = dt.time().isoformat()[
-                                            :8
-                                        ]
-                                    console.write(
-                                        f"GPS: Location {location.lat} {location.lon} {location.altitude} {location.error_in_m}"
-                                    )
-                                    shared_state.set_location(location)
-                                    sf_utils.set_location(
-                                        location.lat,
-                                        location.lon,
-                                        location.altitude,
-                                    )
-                        if gps_msg in ("time", "time_force"):
-                            if isinstance(gps_content, datetime.datetime):
-                                gps_dt = gps_content
+                    # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
+                    # "replay" is protected too: a telemetry replay owns the
+                    # location until it ends and restores the original.
+                    if (
+                        not location.source == "WEB"
+                        and not location.source.startswith("CONFIG:")
+                        and not location.source == "MANUAL"
+                        and not location.source == "replay"
+                        and (
+                            location.error_in_m == 0
+                            or float(gps_content["error_in_m"])
+                            < float(location.error_in_m)  # Only if new error is smaller
+                        )
+                    ):
+                        logger.debug(
+                            f"Updating GPS location: new content: {gps_content}, old content: {location}"
+                        )
+                        location.lat = gps_content["lat"]
+                        location.lon = gps_content["lon"]
+                        location.altitude = gps_content["altitude"]
+                        location.source = gps_content["source"]
+                        if "error_in_m" in gps_content:
+                            location.error_in_m = gps_content["error_in_m"]
+                        if "lock" in gps_content:
+                            location.lock = gps_content["lock"]
+                        if "lock_type" in gps_content:
+                            location.lock_type = gps_content["lock_type"]
+
+                        # Update last_gps_lock timestamp when lock is set
+                        if "lock" in gps_content and gps_content["lock"]:
+                            dt = shared_state.datetime()
+                            if dt is None:
+                                location.last_gps_lock = "--"
                             else:
-                                gps_dt = gps_content["time"]
-                            shared_state.set_datetime(
-                                gps_dt, force=(gps_msg == "time_force")
+                                location.last_gps_lock = dt.time().isoformat()[:8]
+                            console.write(
+                                f"GPS: Location {location.lat} {location.lon} {location.altitude} {location.error_in_m}"
                             )
-                            if log_time:
-                                logger.info("GPS Time (logged only once): %s", gps_dt)
-                                log_time = False
-                        if gps_msg == "reset":
-                            location.reset()
                             shared_state.set_location(location)
-                        if gps_msg == "reset_datetime":
-                            shared_state.reset_datetime()
-                        if gps_msg == "satellites":
-                            # logger.debug("Main: GPS nr sats seen: %s", gps_content)
-                            shared_state.set_sats(gps_content)
-                        if gps_msg == "comms":
-                            # The GPS process has no shared_state, so liveness
-                            # reaches the STATUS screen only by way of this
-                            # queue. Stamp arrival here rather than at the
-                            # sending end: the row renders in this process, so
-                            # this is the only clock it can safely subtract.
-                            shared_state.set_gps_comms((gps_content, time.monotonic()))
-                except queue.Empty:
-                    pass
+                            sf_utils.set_location(
+                                location.lat,
+                                location.lon,
+                                location.altitude,
+                            )
+                if "time" in gps_pending:
+                    gps_content, gps_force = gps_pending.pop("time")
+                    if isinstance(gps_content, datetime.datetime):
+                        gps_dt = gps_content
+                    else:
+                        gps_dt = gps_content["time"]
+                    shared_state.set_datetime(gps_dt, force=gps_force)
+                    if log_time:
+                        logger.info("GPS Time (logged only once): %s", gps_dt)
+                        log_time = False
+                gps_now = time.monotonic()
+                if (
+                    "satellites" in gps_pending
+                    and gps_now - gps_last_push["satellites"] >= 1.0
+                ):
+                    gps_last_push["satellites"] = gps_now
+                    shared_state.set_sats(gps_pending.pop("satellites"))
+                if "comms" in gps_pending and gps_now - gps_last_push["comms"] >= 1.0:
+                    gps_last_push["comms"] = gps_now
+                    # The GPS process has no shared_state, so liveness
+                    # reaches the STATUS screen only by way of this
+                    # queue. Stamp arrival here rather than at the
+                    # sending end: the row renders in this process, so
+                    # this is the only clock it can safely subtract.
+                    shared_state.set_gps_comms((gps_pending.pop("comms"), gps_now))
 
                 # Gaia catalog loading removed - now lazy-loads on first chart view
                 # (object_images triggers loading when needed)
@@ -939,16 +1033,6 @@ def main(
                     menu_manager.jump_to_label("recent")
                 elif ui_command == "reload_config":
                     cfg.load_config()
-                elif ui_command == "catalogs_fully_loaded":
-                    logger.info(
-                        "All catalogs loaded - WDS and extended catalogs available"
-                    )
-                    # Mark the filter dirty so downstream consumers that cache
-                    # off dirty_time (e.g. the chart's nearby-DSO spatial index)
-                    # rebuild to include the newly available objects.
-                    if catalogs.catalog_filter is not None:
-                        catalogs.catalog_filter.mark_dirty()
-                    menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
                     # Toggle test mode (store in both shared_state and config).
                     # The camera process follows shared_state.test_mode()
@@ -1032,6 +1116,7 @@ def main(
                 try:
                     while True:
                         keycode = keyboard_queue.get(block=False)
+                        display_device.show_key(keycode)
                 except queue.Empty:
                     pass
 
@@ -1195,11 +1280,13 @@ def main(
                             menu_manager.key_right()
 
                 menu_manager.update()
-                power_manager.update()
+                power_manager.update(keep_awake=menu_manager.keep_awake())
+                display_device.tick()
 
         except KeyboardInterrupt:
             logger.info("KeyboardInterrupt received: shutting down.")
             logger.info("SHUTDOWN")
+            display_device.stop_recording()
             try:
                 logger.debug("\tClearing console queue...")
                 while True:
@@ -1241,6 +1328,8 @@ def main(
                 sound_process.terminate()
                 sound_process.join()
 
+            state_reader.close()
+            snapshot_block.close()
             log_helper.join()
             exit()
 
@@ -1370,6 +1459,19 @@ if __name__ == "__main__":
         action="store_true",
         required=False,
     )
+    parser.add_argument(
+        "--record",
+        help="Record the demo display (--display pg_demo) to this MP4 file",
+        default=None,
+        required=False,
+    )
+    parser.add_argument(
+        "--record-audio",
+        help="With --record, add the default microphone to the recording",
+        default=False,
+        action="store_true",
+        required=False,
+    )
     args = parser.parse_args()
     # add the handlers to the logger
     if args.verbose:
@@ -1436,6 +1538,9 @@ if __name__ == "__main__":
     if args.display is not None:
         display_hardware = args.display.lower()
 
+    if args.record and not display_hardware.startswith("pg_demo"):
+        parser.error("--record needs --display pg_demo or pg_demo_176")
+
     camera_type = args.camera.lower() if args.camera is not None else None
     if camera_type is None:
         camera_type = "debug" if args.fakehardware else "pi"
@@ -1482,7 +1587,15 @@ if __name__ == "__main__":
             config.Config().set_option("language", args.lang)
 
     try:
-        main(log_helper, args.script, args.fps, args.verbose, args.profile_startup)
+        main(
+            log_helper,
+            args.script,
+            args.fps,
+            args.verbose,
+            args.profile_startup,
+            args.record,
+            args.record_audio,
+        )
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
         # Logging is multiprocess (QueueHandler -> listener); os._exit() below

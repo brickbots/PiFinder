@@ -36,8 +36,9 @@ CM
 Comets. The PiFinder computes each comet's position from orbital elements
 published by the Minor Planet Center.
 
-The catalog fills in once the PiFinder has a GPS lock, because a comet's position
-depends on your time and place. Until then it appears empty.
+The catalog fills in once the PiFinder knows your location and time, because a comet's
+position depends on both. A GPS lock supplies them, and so does entering them by hand
+in :ref:`user_guide:place & time`. Until then the catalog appears empty.
 
 The PiFinder refreshes the orbital elements by itself. Whenever it starts up with
 internet access in Client mode, it checks the Minor Planet Center for a newer set
@@ -77,14 +78,35 @@ NGC
 ----------
 NGC 2000.0, The Complete New General Catalogue and Index Catalogue of Nebulae and Star Clusters by J.L.E. Dreyer (edited by R.W. Sinnott).
 
+PK
+----
+The Perek-Kohoutek catalog of galactic planetary nebulae: 1,510 objects, from
+Kohoutek's 2001 revision of the 1967 original.
+
+A PK designation encodes galactic position rather than brightness:
+PK 036+17.1 lies at galactic longitude 36°, latitude +17°, and is the first
+nebula listed in that cell. Use **Name Search** to jump straight to one. The
+list itself is numbered 1 to 1,510 in order of right ascension, matching the
+printed catalog, so ``PK 743`` is a position in the list rather than a
+designation.
+
+The source catalog records positions and identifications only, so most entries
+carry no magnitude. Entries that are also NGC, IC, Abell or Sharpless objects
+take their magnitude from that catalog. Roughly 200 to 300 of these nebulae are
+within reach of a small telescope; many of the rest are faint or heavily
+reddened by dust in the galactic plane. Sizes come from the Strasbourg-ESO
+Catalogue of Galactic Planetary Nebulae (Acker et al. 1992), which covers about
+two thirds of the entries.
+
 PL
 ----
 Mercury, Venus, Mars, Jupiter, Saturn, Uranus and Neptune, along with the Moon and
 Pluto. The Sun is not included. The PiFinder computes their positions for the
 moment you look, and updates them as the night goes on.
 
-The catalog fills in once the PiFinder has a GPS lock, because a planet's position
-depends on your time and place. Until then it appears empty.
+The catalog fills in once the PiFinder knows your location and time, because a planet's
+position depends on both. A GPS lock supplies them, and so does entering them by hand
+in :ref:`user_guide:place & time`. Until then the catalog appears empty.
 
 RDS
 ----

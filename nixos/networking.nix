@@ -136,33 +136,6 @@
     };
   };
 
-  # Login credentials carried over by the Pi OS migration (ADR 0039): the
-  # pifinder password hash, the SSH host keys (so clients see the same host)
-  # and nothing else. Applied once, before sshd starts; NixOS keeps both
-  # across generations (mutable users, /etc/ssh), so the staged copies are
-  # deleted after use. In this shared module because the migration system
-  # boots first and must already answer SSH as the old host.
-  systemd.services.pifinder-migrated-credentials = {
-    description = "Apply login credentials carried over by the migration";
-    before = [ "sshd.service" ];
-    wantedBy = [ "multi-user.target" ];
-    unitConfig.ConditionPathIsDirectory = "/var/lib/pifinder/migrated";
-    serviceConfig.Type = "oneshot";
-    path = with pkgs; [ coreutils shadow ];
-    script = ''
-      dir=/var/lib/pifinder/migrated
-      if [ -s "$dir/password-hash" ]; then
-        printf 'pifinder:%s\n' "$(cat "$dir/password-hash")" | chpasswd -e
-      fi
-      for key in "$dir"/ssh/ssh_host_*; do
-        [ -e "$key" ] || continue
-        install -o root -g root -m 600 "$key" /etc/ssh/
-        case "$key" in *.pub) chmod 644 "/etc/ssh/$(basename "$key")" ;; esac
-      done
-      rm -rf "$dir"
-    '';
-  };
-
   # Apply the user-chosen access point name from PiFinder_data. The AP
   # profile above is written again at each activation, so the name lives in
   # PiFinder_data (like the hostname) and goes into the profile before

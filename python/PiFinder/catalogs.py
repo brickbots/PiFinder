@@ -1,17 +1,18 @@
 # mypy: ignore-errors
 import logging
-import re
 import time
 import datetime
 import threading
+from collections import OrderedDict
 from pprint import pformat
-from typing import List, Dict, DefaultDict, Optional, Union
-from collections import defaultdict
+from typing import List, Dict, Optional, Union
+
+import numpy as np
+
 import PiFinder.calc_utils as calc_utils
 from PiFinder.calc_utils import sf_utils
 from PiFinder.state import SharedStateObj
-from PiFinder.db.db import Database
-from PiFinder.db.objects_db import ObjectsDatabase
+from PiFinder.state_snapshot import ReadableState
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.composite_object import CompositeObject, MagnitudeObject, SizeObject
 from PiFinder.utils import Timer
@@ -23,71 +24,26 @@ from PiFinder.catalog_base import (
     TimerMixin,
     VirtualIDManager,
 )
-from PiFinder import catalog_cache
+from PiFinder import catalog_arrays
+from PiFinder.catalog_arrays import (  # noqa: F401  (public keypad maps)
+    KEYPAD_DIGIT_TO_CHARS,
+    LETTER_TO_DIGIT_MAP,
+    CatalogColumns,
+    name_to_t9_digits,
+)
+from PiFinder.object_sequence import ListSource, ObjectSequence, catalog_code_id
 from PiFinder import timez
 
 logger = logging.getLogger("Catalog")
 
-# Mapping from keypad numbers to characters (non-conventional layout)
-KEYPAD_DIGIT_TO_CHARS = {
-    "7": "abc",
-    "8": "def",
-    "9": "ghi",
-    "4": "jkl",
-    "5": "mno",
-    "6": "pqrs",
-    "1": "tuv",
-    "2": "wxyz",
-    "3": "'-+/",
-}
-
-LETTER_TO_DIGIT_MAP: dict[str, str] = {}
-for _digit, _chars in KEYPAD_DIGIT_TO_CHARS.items():
-    # Map the digit to itself so numbers in names still match
-    LETTER_TO_DIGIT_MAP[_digit] = _digit
-    for _char in _chars:
-        LETTER_TO_DIGIT_MAP[_char] = _digit
-        LETTER_TO_DIGIT_MAP[_char.upper()] = _digit
-
-translator = str.maketrans(LETTER_TO_DIGIT_MAP)
-VALID_T9_DIGITS = "".join(KEYPAD_DIGIT_TO_CHARS.keys())
-INVALID_T9_DIGITS_RE = re.compile(f"[^{VALID_T9_DIGITS}]")
-
 # collection of all catalog-related classes
 
 # CatalogBase : just the CompositeObjects (imported from catalog_base)
-# Catalog: extends the CatalogBase with filtering
-# CatalogIterator: TODO iterates over the composite_objects
+# Catalog: extends the CatalogBase with filtering; holds Python objects
+# ArrayCatalog: a DB catalog backed by numpy columns (catalog_arrays)
 # CatalogFilter: can be set on catalog to filter
-# CatalogBuilder: builds catalogs from the database
+# CatalogBuilder: opens the DB catalogs and adds planets and comets
 # Catalogs: holds all catalogs
-
-
-class Names:
-    """
-    Holds all name related info
-    """
-
-    db: Database
-    names: DefaultDict[int, List[str]] = defaultdict(list)
-
-    def __init__(self):
-        self.db = ObjectsDatabase()
-        self.id_to_names = self.db.get_object_id_to_names()
-        self.name_to_id = self.db.get_name_to_object_id(self.id_to_names)
-        self._sort_names()
-
-    def _sort_names(self):
-        """
-        sort the names according to some hierarchy
-        """
-        pass
-
-    def get_name(self, object_id: int) -> List[str]:
-        return self.id_to_names[object_id]
-
-    def get_id(self, name: str) -> Optional[int]:
-        return self.name_to_id.get(name)
 
 
 class CatalogFilter:
@@ -102,7 +58,7 @@ class CatalogFilter:
 
     def __init__(
         self,
-        shared_state: SharedStateObj,
+        shared_state: ReadableState,
         magnitude: Union[float, None] = None,
         object_types: Union[list[str], None] = None,
         altitude: int = -1,
@@ -245,70 +201,69 @@ class CatalogFilter:
             return self.shared_state.altaz_ready()
         return False
 
-    def apply_filter(self, obj: CompositeObject):
-        if obj.last_filtered_time > self.dirty_time:
-            return obj.last_filtered_result
+    def verdicts(self, items) -> np.ndarray:
+        """
+        Filter verdict for each item, as a boolean array in order.
 
-        obj.last_filtered_time = time.time()
-        self.last_filtered_time = time.time()
+        ``items`` is a list of objects, or an ObjectSequence. Each active
+        criterion is evaluated for all items at once with numpy; a criterion
+        that is not set costs nothing. Call calc_fast_aa first so the
+        altitude test uses the current time.
+        """
+        column = (
+            items.column
+            if isinstance(items, ObjectSequence)
+            else ListSource(items).column
+        )
+        keep = np.ones(len(items), dtype=bool)
+        if len(items) == 0:
+            return keep
 
-        # check constellation
         if self._constellations:
-            if obj.const not in self._constellations:
-                obj.last_filtered_result = False
-                return False
+            keep &= np.isin(column("const"), list(self._constellations))
 
-        # check altitude
         if self._altitude != -1 and self.fast_aa:
-            # quick sanity check of object coords
-            try:
-                ra = float(obj.ra)
-                dec = float(obj.dec)
-            except TypeError:
-                print("Object coordinates error")
-                print(f"{pformat(obj)}")
-                return False
+            # An object without valid coordinates has a NaN altitude, which
+            # fails the comparison and so never passes the altitude test.
+            altitude = self.fast_aa.radec_to_alt_array(column("ra"), column("dec"))
+            keep &= altitude >= self._altitude
 
-            obj_altitude, _ = self.fast_aa.radec_to_altaz(
-                ra,
-                dec,
-                alt_only=True,
-            )
-            if obj_altitude < self._altitude:
-                obj.last_filtered_result = False
-                return False
+        if self._magnitude is not None:
+            keep &= ~(column("filter_mag") > self._magnitude)
 
-        # check magnitude
-        obj_mag = obj.mag.filter_mag
-
-        if self._magnitude is not None and obj_mag > self._magnitude:
-            obj.last_filtered_result = False
-            return False
-
-        # check type
         if self._object_types:
-            if obj.obj_type not in self._object_types:
-                obj.last_filtered_result = False
-                return False
+            keep &= np.isin(column("obj_type"), list(self._object_types))
 
-        # check observed
         if self._observed is not None and self._observed != "Any":
-            if self._observed == "Yes":
-                if not obj.logged:
-                    obj.last_filtered_result = False
-                    return False
-            else:
-                if obj.logged:
-                    obj.last_filtered_result = False
-                    return False
+            logged = column("logged")
+            keep &= logged if self._observed == "Yes" else ~logged
 
-        # object passed all the tests
-        obj.last_filtered_result = True
-        return True
+        return keep
 
-    def apply(self, objects: List[CompositeObject]):
+    def evaluate(self, items) -> np.ndarray:
+        """The verdicts for ``items`` at the current time and location."""
         self.calc_fast_aa(self.shared_state)
-        return [obj for obj in objects if self.apply_filter(obj)]
+        self.last_filtered_time = time.time()
+        return self.verdicts(items)
+
+    def apply(self, items):
+        """
+        Returns the items that pass the filter: an ObjectSequence for an
+        ObjectSequence, else a list. For a list, also records the verdict on
+        each object (last_filtered_result / last_filtered_time); rows of an
+        ArrayCatalog get their catalog's verdict when they are made.
+        """
+        keep = self.evaluate(items)
+        if isinstance(items, ObjectSequence):
+            return items.mask(keep)
+        now = self.last_filtered_time
+        passed = []
+        for obj, ok in zip(items, keep.tolist()):
+            obj.last_filtered_time = now
+            obj.last_filtered_result = ok
+            if ok:
+                passed.append(obj)
+        return passed
 
 
 class Catalog(CatalogBase):
@@ -379,6 +334,12 @@ class Catalog(CatalogBase):
     def get_filtered_count(self):
         return len(self.filtered_objects)
 
+    def as_sequence(self, filtered: bool) -> ObjectSequence:
+        """The catalog's objects (only those that pass the filter when
+        ``filtered``) as an ObjectSequence."""
+        objects = self.get_filtered_objects() if filtered else self.get_objects()
+        return ObjectSequence.of(list(objects))
+
     def get_age(self) -> Optional[int]:
         """If the catalog data is time-sensitive, return age in days."""
         return None
@@ -403,27 +364,206 @@ class Catalog(CatalogBase):
         return self.__repr__()
 
 
+class ArrayCatalog(Catalog):
+    """
+    A DB catalog backed by numpy columns (see catalog_arrays).
+
+    It keeps no CompositeObject per catalog listing: ``row(i)`` builds one
+    when code asks for it, and keeps the last ``ROW_CACHE_SIZE`` of them, so
+    a row on screen stays the same object from frame to frame. Lists of its
+    objects are ObjectSequences.
+
+    Runtime state per listing lives next to the read-only columns:
+    ``logged`` (bool array), ``verdict`` (the filter result, bool array)
+    and the observing-list descriptions (a dict by sequence).
+    """
+
+    ROW_CACHE_SIZE = 5000
+
+    def __init__(self, columns: CatalogColumns, logged: np.ndarray):
+        self.columns = columns
+        self.logged = logged
+        self.verdict = np.ones(len(columns), dtype=bool)
+        self._list_descriptions: Dict[int, dict] = {}
+        self._rows: "OrderedDict[int, CompositeObject]" = OrderedDict()
+        self._rows_lock = threading.Lock()
+        self._listing_keys: Optional[np.ndarray] = None
+        super().__init__(columns.catalog_code, columns.desc, columns.max_sequence)
+
+    # --- rows -------------------------------------------------------------
+
+    def row(self, i: int) -> CompositeObject:
+        with self._rows_lock:
+            obj = self._rows.get(i)
+            if obj is not None:
+                self._rows.move_to_end(i)
+                return obj
+        obj = self._make_row(i)
+        with self._rows_lock:
+            obj = self._rows.setdefault(i, obj)
+            while len(self._rows) > self.ROW_CACHE_SIZE:
+                self._rows.popitem(last=False)
+        return obj
+
+    def _make_row(self, i: int) -> CompositeObject:
+        columns = self.columns
+        try:
+            mag = MagnitudeObject.from_json(columns.text("mag", i))
+            mag_str = mag.calc_two_mag_representation()
+        except Exception:
+            mag = MagnitudeObject([])
+            mag_str = "-"
+        sequence = int(columns.sequence[i])
+        return CompositeObject(
+            id=int(columns.id[i]),
+            object_id=int(columns.object_id[i]),
+            obj_type=str(columns.obj_type_table[columns.obj_type_codes[i]]),
+            ra=float(columns.ra[i]),
+            dec=float(columns.dec[i]),
+            const=str(columns.const_table[columns.const_codes[i]]),
+            size=SizeObject.from_json(columns.text("size", i)),
+            mag=mag,
+            mag_str=mag_str,
+            catalog_code=self.catalog_code,
+            sequence=sequence,
+            description=columns.text("description", i),
+            names=columns.names(i),
+            logged=bool(self.logged[i]),
+            last_filtered_result=bool(self.verdict[i]),
+            list_descriptions=self._list_descriptions.setdefault(sequence, {}),
+        )
+
+    def _cached_rows(self) -> List[tuple]:
+        with self._rows_lock:
+            return list(self._rows.items())
+
+    def column(self, name: str) -> np.ndarray:
+        columns = self.columns
+        if name in ("ra", "dec", "filter_mag", "object_id", "sequence"):
+            return getattr(columns, name)
+        if name == "obj_type":
+            return columns.obj_type()
+        if name == "const":
+            return columns.const()
+        if name == "logged":
+            return self.logged
+        if name == "catalog_code":
+            return np.full(self.get_count(), self.catalog_code)
+        if name == "listing_key":
+            if self._listing_keys is None:
+                self._listing_keys = (
+                    np.int64(catalog_code_id(self.catalog_code)) << 32
+                ) + columns.sequence.astype(np.int64)
+            return self._listing_keys
+        raise KeyError(name)
+
+    # --- the Catalog interface ---------------------------------------------
+
+    def get_objects(self) -> ObjectSequence:
+        return ObjectSequence.from_rows(self, np.arange(self.get_count()))
+
+    def get_count(self) -> int:
+        return len(self.columns)
+
+    def as_sequence(self, filtered: bool) -> ObjectSequence:
+        return self.filtered_objects if filtered else self.get_objects()
+
+    def get_object_by_sequence(self, sequence: int) -> Optional[CompositeObject]:
+        sequences = self.columns.sequence
+        i = int(np.searchsorted(sequences, sequence))
+        if i < len(sequences) and sequences[i] == sequence:
+            return self.row(i)
+        return None
+
+    def get_object_by_id(self, id: int) -> Optional[CompositeObject]:
+        hits = np.flatnonzero(self.columns.id == id)
+        return self.row(int(hits[0])) if len(hits) else None
+
+    def check_sequences(self) -> bool:
+        sequences = self.columns.sequence
+        if len(np.unique(sequences)) != len(sequences):
+            logger.error("Duplicate sequence catalog %s!", self.catalog_code)
+            return False
+        return True
+
+    def _filtered_objects_to_seq(self):
+        return self.filtered_objects.column("sequence")
+
+    def _read_only(self, *args):
+        raise TypeError(f"catalog {self.catalog_code} is read-only")
+
+    add_object = add_objects = clear_objects = _read_only
+
+    def filter_objects(self) -> ObjectSequence:
+        if self.catalog_filter is None:
+            return self.filtered_objects
+        # Already filtered against the current criteria: reuse the result.
+        if self.last_filtered > self.catalog_filter.dirty_time:
+            return self.filtered_objects
+
+        self.verdict = self.catalog_filter.evaluate(self.get_objects())
+        self.filtered_objects = ObjectSequence.from_rows(
+            self, np.flatnonzero(self.verdict)
+        )
+        self.filtered_objects_seq = self._filtered_objects_to_seq()
+        for i, obj in self._cached_rows():
+            obj.last_filtered_result = bool(self.verdict[i])
+        logger.info(
+            "FILTERED %s %d/%d",
+            self.catalog_code,
+            len(self.filtered_objects),
+            self.get_count(),
+        )
+        self.last_filtered = time.time()
+        return self.filtered_objects
+
+    # --- logged, search, names ---------------------------------------------
+
+    def set_logged(self, object_id: int) -> None:
+        """Marks every listing of the sky object ``object_id`` logged."""
+        rows = np.flatnonzero(self.columns.object_id == object_id)
+        if not len(rows):
+            return
+        self.logged[rows] = True
+        for i, obj in self._cached_rows():
+            if obj.object_id == object_id:
+                obj.logged = True
+
+    def search(self, field: str, pattern: str) -> ObjectSequence:
+        """Listings whose names contain ``pattern``: T9 digits for field
+        "t9", lower-case text for field "lower"."""
+        return ObjectSequence.from_rows(self, self.columns.search(field, pattern))
+
+    def iter_names(self):
+        """(name, row) for every name of every listing, in row order."""
+        for i in range(self.get_count()):
+            for name in self.columns.names(i):
+                yield name, i
+
+
 class Catalogs:
     """Holds all catalogs"""
 
     def __init__(self, catalogs: List[Catalog]):
         self.__catalogs: List[Catalog] = catalogs
         self.catalog_filter: Union[CatalogFilter, None] = None
-        self._t9_cache: dict[tuple[str, int], list[str]] = {}
-        self._t9_cache_dirty = True
 
-    def filter_catalogs(self):
+    def filter_catalogs(self, catalogs: Optional[List[Catalog]] = None):
         """
-        Applies filter to all catalogs
+        Applies the filter to the given catalogs, or to all catalogs when
+        catalogs is None. A screen passes only the catalogs it shows, so
+        opening a small catalog does not filter the large ones.
 
         Staleness (time-sensitive criteria outdated, see
-        CatalogFilter.is_stale) is promoted to a dirty bump here so both
-        cache layers — per-object verdicts and per-catalog filtered lists —
-        re-evaluate, not just the catalog that noticed.
+        CatalogFilter.is_stale) is promoted to a dirty bump here, so every
+        catalog re-evaluates on its next filter, not just the ones filtered
+        now. The bump also records the current alt/az state, so the filter
+        is not stale again until time passes.
         """
         if self.catalog_filter is not None and self.catalog_filter.is_stale():
             self.catalog_filter.mark_dirty()
-        for catalog in self.__catalogs:
+            self.catalog_filter.calc_fast_aa(self.catalog_filter.shared_state)
+        for catalog in self.__catalogs if catalogs is None else catalogs:
             catalog.filter_objects()
 
     def mark_logged(self, obj: CompositeObject) -> None:
@@ -442,9 +582,13 @@ class Catalogs:
         """
         obj.logged = True
         if obj.object_id is not None and obj.object_id >= 0:
-            for sibling in self.get_objects(only_selected=False, filtered=False):
-                if sibling.object_id == obj.object_id:
-                    sibling.logged = True
+            for catalog in self.__catalogs:
+                if isinstance(catalog, ArrayCatalog):
+                    catalog.set_logged(obj.object_id)
+                    continue
+                for sibling in catalog.get_objects():
+                    if sibling.object_id == obj.object_id:
+                        sibling.logged = True
         if self.catalog_filter is not None and self.catalog_filter.observed not in (
             None,
             "Any",
@@ -471,15 +615,11 @@ class Catalogs:
 
     def get_objects(
         self, only_selected: bool = True, filtered: bool = True
-    ) -> list[CompositeObject]:
-        return_list = []
-        for catalog in self.__catalogs:
-            if (only_selected and catalog.is_selected()) or not only_selected:
-                if filtered:
-                    return_list += catalog.get_filtered_objects()
-                else:
-                    return_list += catalog.get_objects()
-        return return_list
+    ) -> ObjectSequence:
+        return ObjectSequence.concat(
+            catalog.as_sequence(filtered)
+            for catalog in self.get_catalogs(only_selected)
+        )
 
     def select_catalogs(self, catalog_codes: List[str]):
         for catalog_code in catalog_codes:
@@ -496,88 +636,69 @@ class Catalogs:
         if catalog:
             return catalog.get_object_by_sequence(sequence)
 
-    # this is memory efficient and doesn't hit the sdcard, but could be faster
-    # also, it could be cached
-    def _name_to_t9_digits(self, name: str) -> str:
-        translated_name = name.translate(translator)
-        return INVALID_T9_DIGITS_RE.sub("", translated_name)
-
-    def _object_cache_key(self, obj: CompositeObject) -> tuple[str, int]:
-        return (obj.catalog_code, obj.sequence)
-
-    def _invalidate_t9_cache(self) -> None:
-        self._t9_cache_dirty = True
-
-    def _rebuild_t9_cache(self, objs: list[CompositeObject]) -> None:
-        self._t9_cache = {}
-        for obj in objs:
-            self._t9_cache[self._object_cache_key(obj)] = [
-                self._name_to_t9_digits(name) for name in obj.names
-            ]
-        self._t9_cache_dirty = False
-
-    def _ensure_t9_cache(self, objs: list[CompositeObject]) -> None:
-        current_keys = {self._object_cache_key(obj) for obj in objs}
-        if self._t9_cache_dirty or current_keys != set(self._t9_cache.keys()):
-            self._rebuild_t9_cache(objs)
-
-    def search_by_t9(self, search_digits: str) -> List[CompositeObject]:
+    def search_by_t9(self, search_digits: str) -> ObjectSequence:
         """Search catalog objects using keypad digits.
 
-        Uses the existing keypad letter mapping (including its non-conventional
+        Uses the keypad letter mapping (including its non-conventional
         layout) to convert object names to their digit representation and
-        returns all objects whose digit string contains the search pattern.
+        returns all objects with a name whose digit string contains the
+        search pattern.
         """
+        return self._search(
+            "t9",
+            search_digits,
+            lambda obj: any(
+                search_digits in name_to_t9_digits(name) for name in obj.names
+            ),
+        )
 
-        objs = self.get_objects(only_selected=False, filtered=False)
-        result: list[CompositeObject] = []
-        if not search_digits:
-            return result
+    def search_by_text(self, search_text: str) -> ObjectSequence:
+        pattern = search_text.lower()
+        return self._search(
+            "lower",
+            pattern,
+            lambda obj: any(pattern in name.lower() for name in obj.names),
+        )
 
-        self._ensure_t9_cache(objs)
+    def _search(self, field: str, pattern: str, matches) -> ObjectSequence:
+        """Every catalog's objects that match, in catalog order. An
+        ArrayCatalog searches its precomputed text ``field``; other catalogs
+        test each object with ``matches``."""
+        if not pattern:
+            return ObjectSequence()
+        parts = []
+        for catalog in self.__catalogs:
+            if isinstance(catalog, ArrayCatalog):
+                parts.append(catalog.search(field, pattern))
+            else:
+                found = [obj for obj in catalog.get_objects() if matches(obj)]
+                parts.append(ObjectSequence.from_objects(found))
+        return ObjectSequence.concat(parts)
 
-        for obj in objs:
-            for digits in self._t9_cache.get(self._object_cache_key(obj), []):
-                if len(digits) < len(search_digits):
-                    continue
-                if search_digits in digits:
-                    result.append(obj)
-                    logger.debug(
-                        "Found %s in %s %i via T9",
-                        digits,
-                        obj.catalog_code,
-                        obj.sequence,
-                    )
-                    break
-        return result
-
-    def search_by_text(self, search_text: str) -> List[CompositeObject]:
-        objs = self.get_objects(only_selected=False, filtered=False)
-        result = []
-        if not search_text:
-            return result
-        for obj in objs:
-            for name in obj.names:
-                if search_text.lower() in name.lower():
-                    result.append(obj)
-                    # if not search_text == "":
-                    logger.debug(
-                        "Found %s in %s %i", name, obj.catalog_code, obj.sequence
-                    )
-                    break
-        return result
+    def iter_names(self):
+        """
+        (name, resolve) for every name of every object, in catalog order.
+        ``resolve()`` returns the object; for an ArrayCatalog it makes the
+        object only when called.
+        """
+        for catalog in self.__catalogs:
+            if isinstance(catalog, ArrayCatalog):
+                for name, i in catalog.iter_names():
+                    yield name, (lambda c=catalog, i=i: c.row(i))
+            else:
+                for obj in catalog.get_objects():
+                    for name in obj.names:
+                        yield name, (lambda o=obj: o)
 
     def set(self, catalogs: List[Catalog]):
         self.__catalogs = catalogs
         self.select_all_catalogs()
-        self._invalidate_t9_cache()
 
     def add(self, catalog: Catalog, select: bool = False):
         if catalog.catalog_code not in [x.catalog_code for x in self.__catalogs]:
             if select:
                 self.catalog_filter.selected_catalogs.add(catalog.catalog_code)
             self.__catalogs.append(catalog)
-            self._invalidate_t9_cache()
         else:
             logger.warning(
                 "Catalog %s already exists, not replaced (in Catalogs.add)",
@@ -588,7 +709,6 @@ class Catalogs:
         for catalog in self.__catalogs:
             if catalog.catalog_code == catalog_code:
                 self.__catalogs.remove(catalog)
-                self._invalidate_t9_cache()
                 return
 
         logger.warning("Catalog %s does not exist, cannot remove", catalog_code)
@@ -616,21 +736,6 @@ class Catalogs:
     def select_all_catalogs(self):
         for catalog in self.__catalogs:
             self.catalog_filter.selected_catalogs.add(catalog.catalog_code)
-
-    def is_loading(self) -> bool:
-        """
-        Check if background catalog loading is still in progress.
-
-        Returns:
-            True if background loader thread is active, False otherwise
-        """
-        return (
-            hasattr(self, "_background_loader")
-            and self._background_loader is not None
-            and hasattr(self._background_loader, "_thread")
-            and self._background_loader._thread is not None
-            and self._background_loader._thread.is_alive()
-        )
 
     def __repr__(self):
         return f"Catalogs(\n{pformat(self.get_catalogs(only_selected=False))})"
@@ -766,293 +871,30 @@ class PlanetCatalog(Catalog):
                     logger.error(f"Error updating planet {name}: {e}")
 
 
-class CatalogBackgroundLoader:
-    """
-    Handles background loading of deferred catalog objects.
-    Isolated, testable, and thread-safe.
-    """
-
-    def __init__(
-        self,
-        deferred_catalog_objects: List[Dict],
-        objects: Dict[int, Dict],
-        common_names: Names,
-        obs_db: ObservationsDatabase,
-        on_progress: Optional[callable] = None,
-        on_complete: Optional[callable] = None,
-    ):
-        """
-        Args:
-            deferred_catalog_objects: List of catalog_object dicts to load
-            objects: Object data dict by ID
-            common_names: Names lookup instance
-            obs_db: Observations database instance
-            on_progress: Callback(loaded_count, total_count, catalog_code)
-            on_complete: Callback(loaded_objects: List[CompositeObject])
-        """
-        self._deferred_data = deferred_catalog_objects
-        self._objects = objects
-        self._names = common_names
-        self._obs_db = obs_db
-        self._on_progress = on_progress
-        self._on_complete = on_complete
-
-        self._loaded_objects: List[CompositeObject] = []
-        self._lock = threading.Lock()
-        self._thread: Optional[threading.Thread] = None
-        self._stop_flag = threading.Event()
-
-        # Performance tuning - load in batches with CPU yielding
-        self.batch_size = 100  # Objects per batch before yielding CPU
-        self.yield_time = 0.05  # Seconds to sleep between batches (50ms)
-
-    def start(self) -> None:
-        """Start background loading in daemon thread"""
-        if self._thread and self._thread.is_alive():
-            return
-
-        self._stop_flag.clear()
-        self._thread = threading.Thread(
-            target=self._load_deferred_objects, daemon=True, name="CatalogLoader"
-        )
-        self._thread.start()
-
-    def stop(self) -> None:
-        """Stop background loading gracefully"""
-        self._stop_flag.set()
-        if self._thread:
-            self._thread.join(timeout=1.0)
-
-    def get_loaded_objects(self) -> List[CompositeObject]:
-        """Thread-safe access to loaded objects"""
-        with self._lock:
-            return self._loaded_objects.copy()
-
-    def _load_deferred_objects(self) -> None:
-        """Background worker - loads objects in batches with CPU yielding"""
-        try:
-            total = len(self._deferred_data)
-            batch = []
-            current_catalog = None
-
-            for i, catalog_obj in enumerate(self._deferred_data):
-                if self._stop_flag.is_set():
-                    logger.info("Background loading stopped by request")
-                    return
-
-                # Create composite object with full details
-                obj = self._create_full_composite_object(catalog_obj)
-                batch.append(obj)
-                current_catalog = catalog_obj["catalog_code"]
-
-                # Process batch
-                if len(batch) >= self.batch_size:
-                    self._commit_batch(batch)
-                    batch = []
-
-                    # Yield CPU to UI/solver processes
-                    time.sleep(self.yield_time)
-
-                    # Progress callback
-                    if self._on_progress:
-                        self._on_progress(i + 1, total, current_catalog)
-
-            # Final batch
-            if batch:
-                self._commit_batch(batch)
-
-            # Completion callback
-            if self._on_complete:
-                with self._lock:
-                    self._on_complete(self._loaded_objects)
-
-        except Exception as e:
-            logger.error(f"Background loading failed: {e}", exc_info=True)
-
-    def _commit_batch(self, batch: List[CompositeObject]) -> None:
-        """Thread-safe append of loaded batch"""
-        with self._lock:
-            self._loaded_objects.extend(batch)
-
-    def _create_full_composite_object(self, catalog_obj: Dict) -> CompositeObject:
-        """Create composite object with all details populated"""
-        object_id = catalog_obj["object_id"]
-        obj_data = self._objects[object_id]
-
-        # Full object creation with all details
-        composite_data = {
-            "id": catalog_obj["id"],
-            "object_id": object_id,
-            "ra": obj_data["ra"],
-            "dec": obj_data["dec"],
-            "obj_type": obj_data["obj_type"],
-            "catalog_code": catalog_obj["catalog_code"],
-            "sequence": catalog_obj["sequence"],
-            "description": catalog_obj.get("description", ""),
-            "const": obj_data.get("const", ""),
-            "surface_brightness": obj_data.get("surface_brightness", None),
-        }
-
-        composite_instance = CompositeObject.from_dict(composite_data)
-        composite_instance.names = self._names.id_to_names.get(object_id, [])
-        composite_instance.logged = self._obs_db.check_logged(composite_instance)
-
-        # Parse magnitude
-        try:
-            mag = MagnitudeObject.from_json(obj_data.get("mag", ""))
-            composite_instance.mag = mag
-            composite_instance.mag_str = mag.calc_two_mag_representation()
-        except Exception:
-            composite_instance.mag = MagnitudeObject([])
-            composite_instance.mag_str = "-"
-
-        composite_instance.size = SizeObject.from_json(obj_data.get("size", ""))
-
-        composite_instance._details_loaded = True
-        return composite_instance
-
-
-class CachedCatalogLoader:
-    """
-    Loads the deferred catalog objects from the catalog cache in the
-    background. It has the same _thread, stop() and on_complete interface as
-    CatalogBackgroundLoader.
-    """
-
-    def __init__(
-        self,
-        obs_db: ObservationsDatabase,
-        on_complete: Optional[callable] = None,
-    ):
-        self._obs_db = obs_db
-        self._on_complete = on_complete
-        self._thread: Optional[threading.Thread] = None
-        self._stop_flag = threading.Event()
-
-        # Seconds to sleep between two cache chunks, to yield to the UI thread
-        self.yield_time = 0.05
-
-    def start(self) -> None:
-        """Start background loading in daemon thread"""
-        if self._thread and self._thread.is_alive():
-            return
-
-        self._stop_flag.clear()
-        self._thread = threading.Thread(
-            target=self._load, daemon=True, name="CatalogCacheLoader"
-        )
-        self._thread.start()
-
-    def stop(self) -> None:
-        """Stop background loading gracefully"""
-        self._stop_flag.set()
-        if self._thread:
-            self._thread.join(timeout=1.0)
-
-    def _load(self) -> None:
-        loaded: List[CompositeObject] = []
-        try:
-            for chunk in catalog_cache.iter_deferred():
-                if self._stop_flag.is_set():
-                    logger.info("Background cache loading stopped by request")
-                    return
-                for obj in chunk:
-                    obj.logged = self._obs_db.check_logged(obj)
-                loaded.extend(chunk)
-                time.sleep(self.yield_time)
-        except Exception as e:
-            # The next startup rebuilds the cache from the database.
-            logger.error(f"Deferred catalog cache failed: {e}", exc_info=True)
-            catalog_cache.clear()
-            loaded = []
-
-        if self._on_complete:
-            self._on_complete(loaded)
-
-
 class CatalogBuilder:
     """
-    Builds catalogs from the database
-    Merges object table data and catalog_object table data
+    Opens the DB catalogs from their numpy columns (see catalog_arrays), sets
+    their logged state from the observations DB, and adds the planet and
+    comet catalogs.
     """
 
-    def build(self, shared_state, ui_queue=None) -> Catalogs:
-        """
-        Build catalogs with priority loading for popular catalogs.
+    def build(self, shared_state) -> Catalogs:
+        catalog_arrays.remove_old_pickle_cache()
+        directory = catalog_arrays.locate()
+        obs_db = ObservationsDatabase()
+        obs_db.load_observed_objects_cache()
+        catalog_list: List[Catalog] = [
+            ArrayCatalog(columns, self._logged(columns, obs_db))
+            for columns in catalog_arrays.open_catalogs(directory)
+        ]
+        logger.info(
+            "Opened %d catalogs, %d listings, from %s",
+            len(catalog_list),
+            sum(c.get_count() for c in catalog_list),
+            directory,
+        )
+        all_catalogs = Catalogs(catalog_list)
 
-        Args:
-            shared_state: Shared state object
-            ui_queue: Optional queue to signal completion (for main loop integration)
-        """
-        obs_db: Database = ObservationsDatabase()
-
-        cached = catalog_cache.load_priority()
-        if cached is not None:
-            composite_objects, catalogs_info = cached
-            obs_db.load_observed_objects_cache()
-            for obj in composite_objects:
-                obj.logged = obs_db.check_logged(obj)
-
-            self.catalog_dicts = {}
-            logger.info("Loaded %i objects from catalog cache", len(composite_objects))
-
-            all_catalogs: Catalogs = self._get_catalogs(
-                composite_objects, catalogs_info
-            )
-            self._pending_catalogs_ref = all_catalogs
-
-            # The priority catalogs are loaded. The other catalogs load from
-            # the cache in the background. The cache is valid, so the
-            # completion callback does not write it again.
-            self._cache_catalogs_info = None
-            loader = CachedCatalogLoader(
-                obs_db=obs_db,
-                on_complete=lambda objs: self._on_loader_complete(objs, ui_queue),
-            )
-            loader.start()
-            self._background_loader = loader
-            all_catalogs._background_loader = loader
-        else:
-            db: Database = ObjectsDatabase()
-
-            # list of dicts, one dict for each entry in the catalog_objects table
-            catalog_objects: List[Dict] = [
-                dict(row) for row in db.get_catalog_objects()
-            ]
-            objects = db.get_objects()
-            common_names = Names()
-            catalogs_info = db.get_catalogs_dict()
-            objects = {row["id"]: dict(row) for row in objects}
-
-            composite_objects = self._build_composite(
-                catalog_objects, objects, common_names, obs_db, ui_queue
-            )
-
-            # Cache write context for _on_loader_complete
-            self._cache_priority_objects = list(composite_objects)
-            self._cache_catalogs_info = catalogs_info
-
-            # This is used for caching catalog dicts
-            # to speed up repeated searches
-            self.catalog_dicts = {}
-            logger.debug("Loaded %i objects from database", len(composite_objects))
-
-            all_catalogs = self._get_catalogs(composite_objects, catalogs_info)
-
-            # Store catalogs reference for background loader completion
-            self._pending_catalogs_ref = all_catalogs
-
-            # Pass background loader reference to Catalogs instance so it can check loading status
-            # This is set in _build_composite() if there are deferred objects
-            if (
-                hasattr(self, "_background_loader")
-                and self._background_loader is not None
-            ):
-                all_catalogs._background_loader = self._background_loader
-            else:
-                # No deferred objects — write cache immediately since
-                # _on_loader_complete will never fire.
-                catalog_cache.save(list(composite_objects), catalogs_info)
         # Initialize planet catalog with whatever date we have for now
         # This will be re-initialized on activation of Catalog ui module
         # if we have GPS lock
@@ -1070,181 +912,27 @@ class CatalogBuilder:
             shared_state=shared_state,
         )
         all_catalogs.add(comet_catalog)
-
-        assert self.check_catalogs_sequences(all_catalogs) is True
         return all_catalogs
 
-    def check_catalogs_sequences(self, catalogs: Catalogs):
-        for catalog in catalogs.get_catalogs(only_selected=False):
-            result = catalog.check_sequences()
-            if not result:
-                logger.error("Duplicate sequence catalog %s!", catalog.catalog_code)
-                return False
-            return True
-
-    def _create_full_composite_object(
-        self,
-        catalog_obj: Dict,
-        objects: Dict[int, Dict],
-        common_names: Names,
-        obs_db: ObservationsDatabase,
-    ) -> CompositeObject:
-        """Create a composite object with all details populated"""
-        object_id = catalog_obj["object_id"]
-        obj_data = objects[object_id]
-
-        # Create composite object with all details
-        composite_data = {
-            "id": catalog_obj["id"],
-            "object_id": object_id,
-            "ra": obj_data["ra"],
-            "dec": obj_data["dec"],
-            "obj_type": obj_data["obj_type"],
-            "catalog_code": catalog_obj["catalog_code"],
-            "sequence": catalog_obj["sequence"],
-            "description": catalog_obj.get("description", ""),
-            "const": obj_data.get("const", ""),
-            "surface_brightness": obj_data.get("surface_brightness", None),
-        }
-
-        composite_instance = CompositeObject.from_dict(composite_data)
-        composite_instance.names = common_names.id_to_names.get(object_id, [])
-        composite_instance.logged = obs_db.check_logged(composite_instance)
-
-        # Parse magnitude
-        try:
-            mag = MagnitudeObject.from_json(obj_data.get("mag", ""))
-            composite_instance.mag = mag
-            composite_instance.mag_str = mag.calc_two_mag_representation()
-        except Exception:
-            composite_instance.mag = MagnitudeObject([])
-            composite_instance.mag_str = "-"
-
-        composite_instance.size = SizeObject.from_json(obj_data.get("size", ""))
-
-        composite_instance._details_loaded = True
-        return composite_instance
-
-    def _build_composite(
-        self,
-        catalog_objects: List[Dict],
-        objects: Dict[int, Dict],
-        common_names: Names,
-        obs_db: ObservationsDatabase,
-        ui_queue=None,
-    ) -> List[CompositeObject]:
+    @staticmethod
+    def _logged(columns: CatalogColumns, obs_db: ObservationsDatabase) -> np.ndarray:
         """
-        Build composite objects with priority loading.
-        Popular catalogs (M, NGC, IC) are loaded immediately.
-        Other catalogs (WDS, etc.) are loaded in background.
+        Logged state per listing, as ObservationsDatabase.check_logged: a log
+        entry for the listing itself, or for any listing of the same sky
+        object.
         """
-        priority_objects = []
-        deferred_objects = []
-
-        for catalog_obj in catalog_objects:
-            if catalog_obj["catalog_code"] in catalog_cache.PRIORITY_CATALOGS:
-                priority_objects.append(catalog_obj)
-            else:
-                deferred_objects.append(catalog_obj)
-
-        # Load priority catalogs synchronously (fast - ~13K objects)
-        composite_objects = []
-        for catalog_obj in priority_objects:
-            obj = self._create_full_composite_object(
-                catalog_obj, objects, common_names, obs_db
-            )
-            composite_objects.append(obj)
-
-        # Store reference for background loader completion callback
-        self._pending_catalogs_ref = None
-
-        # Start background loader for deferred objects
-        if deferred_objects:
-            loader = CatalogBackgroundLoader(
-                deferred_catalog_objects=deferred_objects,
-                objects=objects,
-                common_names=common_names,
-                obs_db=obs_db,
-                on_progress=self._on_loader_progress,
-                on_complete=lambda objs: self._on_loader_complete(objs, ui_queue),
-            )
-            loader.start()
-
-            # Store loader reference for potential stop/test access
-            self._background_loader = loader
-
-        return composite_objects
-
-    def _on_loader_progress(self, loaded: int, total: int, catalog: str) -> None:
-        """Progress callback - log every 10K objects"""
-        pass  # Muted to reduce log noise
-
-    def _on_loader_complete(
-        self, loaded_objects: List[CompositeObject], ui_queue
-    ) -> None:
-        """Completion callback - integrate deferred objects"""
-        logger.info(
-            f"Background loading complete: {len(loaded_objects)} objects loaded"
+        observed_ids = np.fromiter(obs_db.observed_object_ids, dtype=np.int64)
+        observed_sequences = np.array(
+            [
+                sequence
+                for catalog, sequence in obs_db.observed_objects_cache
+                if catalog == columns.catalog_code
+            ],
+            dtype=np.int64,
         )
-
-        # Store loaded objects for catalog integration
-        if self._pending_catalogs_ref:
-            catalogs = self._pending_catalogs_ref
-
-            # Group objects by catalog code for batch insertion
-            objects_by_catalog = {}
-            for obj in loaded_objects:
-                if obj.catalog_code not in objects_by_catalog:
-                    objects_by_catalog[obj.catalog_code] = []
-                objects_by_catalog[obj.catalog_code].append(obj)
-
-            # Add objects in batches (much faster than one-by-one)
-            for catalog_code, objects in objects_by_catalog.items():
-                catalog = catalogs.get_catalog_by_code(catalog_code)
-                if catalog:
-                    catalog.add_objects(objects)  # Batch add - rebuilds indexes once
-                    logger.info(f"Added {len(objects)} objects to {catalog_code}")
-
-                    # Re-filter this catalog now that it has objects
-                    if catalog.catalog_filter:
-                        catalog.filter_objects()
-
-        # Persist the full composite list (priority + deferred) for next startup.
-        priority_objects = getattr(self, "_cache_priority_objects", []) or []
-        catalogs_info_for_cache = getattr(self, "_cache_catalogs_info", None)
-        if catalogs_info_for_cache is not None:
-            catalog_cache.save(
-                priority_objects + list(loaded_objects), catalogs_info_for_cache
-            )
-
-        # Signal main loop that catalogs are fully loaded
-        if ui_queue:
-            try:
-                ui_queue.put("catalogs_fully_loaded")
-            except Exception as e:
-                logger.error(f"Failed to signal catalog completion: {e}")
-
-    def _get_catalogs(
-        self, composite_objects: List[CompositeObject], catalogs_info: Dict[str, Dict]
-    ) -> Catalogs:
-        # group composite_objects per catalog_code in a dictionary
-        composite_dict: Dict[str, List[CompositeObject]] = {}
-        for obj in composite_objects:
-            composite_dict.setdefault(obj.catalog_code, []).append(obj)
-
-        # convert dict of composite_objects into a List of Catalog
-        catalog_list: List[Catalog] = []
-        for catalog_code in catalogs_info.keys():
-            catalog_info = catalogs_info[catalog_code]
-            catalog = Catalog(
-                catalog_code,
-                desc=catalog_info["desc"],
-                max_sequence=catalog_info["max_sequence"],
-            )
-            catalog.add_objects(composite_dict.get(catalog_code, []))
-            catalog_list.append(catalog)
-            catalog = None
-        return Catalogs(catalog_list)
+        return np.isin(columns.object_id, observed_ids) | np.isin(
+            columns.sequence, observed_sequences
+        )
 
 
 class CatalogDesignator:

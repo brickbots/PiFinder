@@ -56,7 +56,7 @@ import shutil
 from typing import Iterator
 from unittest import mock
 
-import numpy as np
+
 import pytest
 from PIL import Image
 
@@ -86,6 +86,8 @@ from PiFinder.ui.menu_manager import MenuManager
 from PiFinder.ui.object_details import UIObjectDetails
 from PiFinder.ui.object_list import SortOrder, UIObjectList
 from PiFinder.nearby import NEAREST_LIST_CAP
+from PiFinder.object_sequence import ObjectSequence
+from PiFinder.state_snapshot import StateSnapshot
 from PiFinder.ui.log import UILog
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
@@ -304,7 +306,7 @@ def _fast_timezonefinder():
     Timezone resolution is irrelevant to UI crash-smoke,
     so a constant-"UTC" stub is fine.
     """
-    with mock.patch("PiFinder.state.TimezoneFinder", _StubTimezoneFinder):
+    with mock.patch("timezonefinder.TimezoneFinder", _StubTimezoneFinder):
         yield
 
 
@@ -430,16 +432,13 @@ def catalogs(_sandbox_data_dir, _no_comet_download) -> Iterator[Catalogs]:
     """
     boot_state = SharedStateObj()
     boot_state.set_ui_state(UIState())
-    built = CatalogBuilder().build(boot_state, queue.Queue())
+    built = CatalogBuilder().build(boot_state)
     yield built
 
     for catalog in built.get_catalogs(only_selected=False):
         timer = getattr(catalog, "_timer", None)
         if timer is not None:
             timer.stop()
-    loader = getattr(built, "_background_loader", None)
-    if loader is not None:
-        loader.stop()
 
 
 @pytest.fixture(scope="session")
@@ -506,6 +505,9 @@ def _make_shared_state(state: str) -> SharedStateObj:
         )
         # set_solution derives solve_state from has_pointing() (True here).
         shared_state.set_solution(solved)
+    # Screens read the frame's snapshot, which the main loop reads once per
+    # frame; here it is taken from the shared state directly.
+    UIModule.snapshot = StateSnapshot.from_state(shared_state)
     return shared_state
 
 
@@ -737,11 +739,10 @@ def test_object_details_serialises_from_a_nearby_sorted_list(
 ):
     """Object details opened from a Nearby list serialise as state, not an error.
 
-    The Nearby sort hands ``show_object_details`` the NumPy object array
+    The Nearby sort hands ``show_object_details`` the ObjectSequence
     ``get_closest_objects`` returns, not a Python list. Anything in
-    ``serialize_ui_state`` that tests that array for truthiness raises
-    ("truth value of an array with more than one element is ambiguous"), and
-    the raise is swallowed by the method's own except clause -- so the whole
+    ``serialize_ui_state`` that needs a real list must still work on it; an
+    error there is swallowed by the method's own except clause -- so the whole
     remote state degrades to {"error": ...} for every object reached this way.
     """
     cfg = Config()
@@ -769,8 +770,8 @@ def test_object_details_serialises_from_a_nearby_sorted_list(
     object_list.sort()
 
     ranked = object_list._menu_items_sorted
-    # The precondition the bug needs: a multi-element array, not a list.
-    assert isinstance(ranked, np.ndarray)
+    # The precondition: a multi-element ObjectSequence, not a list.
+    assert isinstance(ranked, ObjectSequence)
     assert len(ranked) > 1
 
     details = UIObjectDetails(

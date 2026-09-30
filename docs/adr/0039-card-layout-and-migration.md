@@ -34,7 +34,7 @@ The migration moves a Raspbian PiFinder to NixOS once. A Raspbian card runs ext4
 
    The partition table stays as it is, so the FAT partition keeps its Raspbian size (256 or 512 MB).
 4. **First boot:** a minimal migration system boots. It reads the update manifest, takes the newest entry of the best channel (stable, then beta, then the unstable trunk), downloads that full system, switches to it and reboots. The minimal system carries a built-in target only as a fallback when the manifest cannot be read.
-5. **Cleanup:** after the first confirmed generation, a service deletes the `ext2_saved` subvolume that `btrfs-convert` left for rollback and runs a balance. Later, a background `btrfs filesystem defragment -r -czstd` compresses the old files.
+5. **Cleanup:** after the first confirmed generation, a service deletes the `ext2_saved` subvolume that `btrfs-convert` left for rollback. In the same boot a second service runs one balance of the chunks under 50 % use, at idle priority. There is no defragment: the only converted data left is `PiFinder_data`, nearly all JPEGs, which do not compress. The system files were written after the conversion and are btrfs extents with zstd already.
 
 **Tarball.** It holds the minimal migration system, not the full system, so it never goes stale: the full system comes from the manifest. CI builds it straight from the Nix closure (a `boot/` folder with the firmware and a `rootfs/` folder with the store paths), without an SD image and without a loop mount. It is published as an asset with a `.sha256` sidecar on each stable or beta release, and the manifest names it per entry as `migration_url`.
 
@@ -56,7 +56,23 @@ The migration moves a Raspbian PiFinder to NixOS once. A Raspbian card runs ext4
 - The upgrade refuses a build whose `etc/fstab` root does not match the mounted root (`check_root_mountable` in `nixos_upgrade.py`). `pifinder-first-boot` must make the same check.
 - U-Boot must read btrfs, because `extlinux.conf` and the kernels are on partition 2.
 - The SD images must create btrfs `PIFINDER_SD` with the `PiFinder_data` subvolume, so flashed and migrated cards are the same apart from the FAT size.
-- The upgrade can take a read-only snapshot of `PiFinder_data` before it switches, and restore it if a new version damages user data.
+- The upgrade takes a read-only snapshot of `PiFinder_data` before it switches, into `/.snapshots/PiFinder_data-<UTC time>-<target hash>` on the same file system, and keeps the newest two. A failed snapshot only logs a warning. The restore is manual (below).
+
+## Restore of PiFinder_data from a snapshot
+
+There is no automatic restore: only a person can tell if the data after an upgrade is wrong. As root on the device:
+
+```sh
+ls /.snapshots/                      # pick the snapshot before the bad upgrade
+systemctl stop pifinder
+btrfs subvolume snapshot /.snapshots/PiFinder_data-<time>-<hash> /home/pifinder/PiFinder_data.restore
+mv /home/pifinder/PiFinder_data /home/pifinder/PiFinder_data.broken
+mv /home/pifinder/PiFinder_data.restore /home/pifinder/PiFinder_data
+systemctl start pifinder
+btrfs subvolume delete /home/pifinder/PiFinder_data.broken   # when the data is good
+```
+
+The snapshot itself stays read-only; the restore makes a writable snapshot of it. A rename of a subvolume on the same file system is instant.
 - Anything that reads the tarball must not assume the Raspbian layout: `boot/` is the firmware, and `rootfs/boot` holds the kernels and `extlinux.conf`. On 2026-07-05 the first real migration failed on this.
 - The migration must write `/var/lib/pifinder/camera-type` from the Raspbian `config.txt`. `device.nix` expects it, and no migration code writes it today.
 - `btrfs-convert` needs free space and RAM. It must be tested on full cards and on a Pi with 1.8 GB of RAM before the gate opens.

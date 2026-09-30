@@ -17,6 +17,8 @@ The design is in [ADR 0039](../../adr/0039-card-layout-and-migration.md) (card l
 
 **A4. SD images on btrfs.** `images.pifinder` and `images.pifinder-migration`: `sdImage.rootFilesystemCreator = make-btrfs-fs.nix`, label `PIFINDER_SD`, the `PiFinder_data` subvolume, and a `fileSystems."/"` override (the sd-image module fixes it to ext4). Needs A2 and A3. Open: does `make-btrfs-fs.nix` create subvolumes, or must a first-boot service create it? Check: build the image, loop-mount it, and read the label, the file system and the subvolumes; boot it on a Pi.
 
+Status (2026-09-27): done in code, not yet booted on a Pi. `nixos/sd-image.nix` makes the root btrfs `PIFINDER_SD`, mounted as `/dev/mmcblk0p2`, and grows it at first boot with `btrfs filesystem resize max` (the nixpkgs service uses `resize2fs`). The open question has an answer: `make-btrfs-fs.nix` makes no subvolumes, so `nixos/pkgs/make-pifinder-btrfs-fs.nix` passes `--subvol rw:home/pifinder/PiFinder_data` and `--compress zstd:1` to `mkfs.btrfs`. `release.yml` publishes the lean image, and also the full image (`images.pifinder-full`) when `flake.nix` sets `catalogImagesSrc`. The source of the catalog images is not decided (a TODO in `flake.nix`).
+
 **A5. Tarball from the closure.** A derivation that writes `boot/` (firmware, U-Boot, `config.txt`) and `rootfs/` (the migration system's store paths, the registration file, the first-boot target), packed as `.tar.zst`. `release.yml` uses it, with no loop mount. The 800 MB budget and the `.sha256` sidecar stay. Needs A3. Check: compare the file list with a tarball cut from today's image; run the migration init against it in a test (A7).
 
 **A6. Migration init converts in place.** `python/scripts/nixos_migration.sh` and `nixos_migration_init.sh`. This goes to the Raspbian line on `brickbots/PiFinder` `main`, through the migration PR. The steps:
@@ -39,11 +41,11 @@ Needs A3 and A5. Open: the free space and RAM that `btrfs-convert` needs on a fu
 
 Needs A1 to A6 and a spare Pi. Nothing opens the gate before this passes.
 
-**A8. Cleanup after migration.** A service that runs after the first confirmed generation: delete `ext2_saved`, run a balance, and start `btrfs filesystem defragment -r -czstd` at low priority. Needs A6. Check: on the A7 card, the free space before and after.
+**A8. Cleanup after migration.** Done in two parts. `pifinder-migration-cleanup` deletes `ext2_saved` when the generation is confirmed (#76; its ordering cycle with the watchdog, which made systemd delete the job at each boot, is fixed in this PR). `pifinder-btrfs-tidy` then runs `btrfs balance start -dusage=50 -musage=50 /` once, at idle priority, and logs the duration and the load to `PiFinder_data/logs/btrfs-tidy.log`. No defragment (see ADR 0039). Check: on the A7 card, the free space before and after, and the log.
 
-**A9. Snapshot of user data before an upgrade.** `nixos_upgrade.py` takes a read-only snapshot of `PiFinder_data` before it switches, and keeps the last two. The restore path (a watchdog step or a manual step) is decided in this PR. Needs A4 or A6 (the subvolume). Check: unit tests; an upgrade on a btrfs card.
+**A9. Snapshot of user data before an upgrade.** Done. `nixos_upgrade.py` takes a read-only snapshot of `PiFinder_data` into `/.snapshots` before it switches, and keeps the last two. The restore is manual (ADR 0039, "Restore of PiFinder_data from a snapshot"). Check: unit tests; an upgrade on a btrfs card shows the snapshot in `/.snapshots`.
 
-**A10. U-Boot bootcount (ADR 0038 gap).** `bootcount` with `altbootcmd` in `ubootSD`. The watchdog's confirm step resets the counter. Needs A2. Check: install a build that stops in the initrd on a test card, and see that the third boot starts the previous entry.
+**A10. U-Boot bootcount (ADR 0038 gap).** Built: `BOOTCOUNT_FS` with a file on the FAT partition, `altbootcmd` with the previous generation's entry, reset by the watchdog, and `pifinder-uboot-update` for devices that have an older U-Boot. Needs A2. Check: install a build that stops in the initrd on a test card, and see that the fourth boot starts the previous entry.
 
 ## Part B: data packs
 

@@ -1,9 +1,10 @@
 from PiFinder.catalogs import CompositeObject
-from typing import List, Optional, Sequence
+from typing import List, Optional
 import time
 import numpy as np
 import logging
 from PiFinder.lazy_import import lazy_module
+from PiFinder.object_sequence import ObjectSequence
 
 sklearn_neighbors = lazy_module("sklearn.neighbors")
 
@@ -41,9 +42,9 @@ class Nearby:
         self.last_ra: Optional[float] = None
         self.last_dec: Optional[float] = None
         self.last_refresh = 0.0
-        self.result: Sequence[CompositeObject] = []
+        self.result: ObjectSequence = ObjectSequence()
 
-    def set_items(self, items: list[CompositeObject]):
+    def set_items(self, items):
         self.closest_objects_finder.calculate_objects_balltree(
             objects=items,
         )
@@ -81,11 +82,11 @@ class Nearby:
         )
         return should
 
-    def refresh(self):
+    def refresh(self) -> ObjectSequence:
         solution = self.shared_state.solution()
         if not solution or not solution.has_pointing():
             # No solution yet (initial state before first successful solve)
-            return []
+            return ObjectSequence()
         # After first successful solve, RA/Dec are guaranteed to be valid
         aligned = solution.pointing.aligned.estimate
         ra, dec = aligned.RA, aligned.Dec
@@ -102,15 +103,17 @@ class Nearby:
 class ClosestObjectsFinder:
     def __init__(self):
         self._objects_balltree = None
-        self._objects = None
+        self._objects: Optional[ObjectSequence] = None
 
     def is_ready(self) -> bool:
         """True once an index has been built over a non-empty object set."""
         return self._objects_balltree is not None
 
-    def calculate_objects_balltree(self, objects: list[CompositeObject]) -> None:
+    def calculate_objects_balltree(self, objects) -> None:
         """
-        Calculates a flat list of objects and the balltree for those objects.
+        Builds the balltree over ``objects`` (a list or an ObjectSequence),
+        one entry per sky object (see deduplicate_objects). The tree is built
+        from the RA/Dec columns, so no object is made here.
 
         Rows are ``[dec_rad, ra_rad]``: sklearn's haversine metric reads
         dimension 0 as latitude and dimension 1 as longitude. Feeding it
@@ -119,20 +122,22 @@ class ClosestObjectsFinder:
         poles. See ADR 0030.
         """
         deduplicated_objects = deduplicate_objects(objects)
-        if not deduplicated_objects:
-            self._objects = np.array([])
+        if not len(deduplicated_objects):
+            self._objects = ObjectSequence()
             self._objects_balltree = None
             return
-        object_decras = np.array(
-            [[np.deg2rad(x.dec), np.deg2rad(x.ra)] for x in deduplicated_objects]
+        object_decras = np.column_stack(
+            [
+                np.deg2rad(deduplicated_objects.column("dec")),
+                np.deg2rad(deduplicated_objects.column("ra")),
+            ]
         )
-
-        self._objects = np.array(deduplicated_objects)
+        self._objects = deduplicated_objects
         self._objects_balltree = sklearn_neighbors.BallTree(
             object_decras, leaf_size=20, metric="haversine"
         )
 
-    def get_closest_objects(self, ra, dec, n: int = 0) -> Sequence[CompositeObject]:
+    def get_closest_objects(self, ra, dec, n: int = 0) -> ObjectSequence:
         """
         Returns the n closest objects to ra/dec, nearest first. n=0 ranks the
         whole set -- callers drawing a list should pass a cap instead, since
@@ -141,7 +146,7 @@ class ClosestObjectsFinder:
         """
 
         if self._objects_balltree is None or self._objects is None:
-            return []
+            return ObjectSequence()
 
         nr_objects = len(self._objects)
 
@@ -151,7 +156,7 @@ class ClosestObjectsFinder:
 
         query = [[np.deg2rad(dec), np.deg2rad(ra)]]
         _, obj_ind = self._objects_balltree.query(query, k=min(n, nr_objects))
-        return self._objects[obj_ind[0]]
+        return self._objects.take(obj_ind[0])
 
     def get_objects_within_radius(
         self, ra, dec, radius_deg: float
@@ -173,31 +178,35 @@ class ClosestObjectsFinder:
 
         query = [[np.deg2rad(dec), np.deg2rad(ra)]]
         obj_ind = self._objects_balltree.query_radius(query, r=np.deg2rad(radius_deg))
-        return list(self._objects[obj_ind[0]])
+        return list(self._objects.take(obj_ind[0]))
 
 
-def deduplicate_objects(
-    unfiltered_objects: list[CompositeObject],
-) -> list[CompositeObject]:
-    deduplicated_dict = {}
+# Catalog precedence when one sky object has several listings: M first, then
+# NGC, then the rest.
+_PRECEDENCE = {"M": 2, "NGC": 1}
 
-    # Define precedence for catalog codes
-    # M (Messier) objects have highest precedence, followed by NGC objects
-    precedence = {"M": 2, "NGC": 1}
 
-    for obj in unfiltered_objects:
-        if obj.object_id not in deduplicated_dict:
-            # If the object ID is not in the dictionary, add it
-            deduplicated_dict[obj.object_id] = obj
-        else:
-            # If the object ID already exists, get it
-            existing_obj = deduplicated_dict[obj.object_id]
-            # Get precedence for existing object, default to 0 if not in precedence dict
-            existing_precedence = precedence.get(existing_obj.catalog_code, 0)
-            # Get precedence for new object, default to 0 if not in precedence dict
-            new_precedence = precedence.get(obj.catalog_code, 0)
-            # Replace existing object if new object has higher precedence
-            if new_precedence > existing_precedence:
-                deduplicated_dict[obj.object_id] = obj
-    results = list(deduplicated_dict.values())
-    return results
+def deduplicate_objects(unfiltered_objects) -> ObjectSequence:
+    """
+    One listing per sky object (object_id): the listing of the catalog with
+    the highest precedence, and of those the first. The result keeps the
+    order in which each sky object first appears.
+    """
+    objects = ObjectSequence.of(unfiltered_objects)
+    if not len(objects):
+        return objects
+    object_ids = objects.column("object_id")
+    codes = objects.column("catalog_code")
+    precedence = np.zeros(len(objects), dtype=np.int64)
+    for code, rank in _PRECEDENCE.items():
+        precedence[codes == code] = rank
+    positions = np.arange(len(objects))
+    # Sort by object_id, then highest precedence, then earliest position:
+    # the first entry of each object_id group is the listing to keep.
+    order = np.lexsort((positions, -precedence, object_ids))
+    sorted_ids = object_ids[order]
+    group_start = np.r_[True, sorted_ids[1:] != sorted_ids[:-1]]
+    keep = order[group_start]
+    # Both keep and first_seen are in object_id order.
+    _, first_seen = np.unique(object_ids, return_index=True)
+    return objects.take(keep[np.argsort(first_seen, kind="stable")])

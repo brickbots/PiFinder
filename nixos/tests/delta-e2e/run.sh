@@ -23,8 +23,13 @@ keys="cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= pifinder:8U
 nix build --store "$dir/pstore" "$base" --max-jobs 0 --no-link \
   --option substituters "$subs" --option trusted-public-keys "$keys"
 # Everything the target has beyond the base must be missing, as on the device
-# before the upgrade (an earlier run may have fetched it).
+# before the upgrade (an earlier run may have fetched it). An earlier run
+# also gives the target closure with NAR sizes, as the differ's
+# /update-start reply lists it; the harness compares the local check of that
+# closure with the dry run.
+rm -f "$dir/closure.json"
 if nix path-info --store "$dir/pstore" "$target" >/dev/null 2>&1; then
+  nix path-info --store "$dir/pstore" -r --json "$target" > "$dir/closure.json"
   mapfile -t extra < <(comm -23 \
     <(nix path-info --store "$dir/pstore" -r "$target" | sort) \
     <(nix path-info --store "$dir/pstore" -r "$base" | sort))
@@ -61,4 +66,4 @@ exec "$bw" --dev-bind / / --bind "$dir/pstore/nix" /nix \
   --clearenv --setenv PATH "$path" --setenv HOME "$dir/home" \
   --setenv NIX_REMOTE local --setenv NIX_CONFIG "$nc" --setenv NIX_CONF_DIR /nonexistent \
   --setenv SSL_CERT_FILE "$ca" --setenv NIX_SSL_CERT_FILE "$ca" \
-  -- python3 "$here/harness.py" "$target" "$dir/work"
+  -- python3 "$here/harness.py" "$target" "$dir/work" "$dir/closure.json"

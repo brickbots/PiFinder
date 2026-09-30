@@ -138,6 +138,8 @@ class MenuManager:
 
         # This will be populated if we are in 'help' mode
         self.help_images: Union[None, list[Image.Image]] = None
+        # Last UI state written to shared state (see update_screen)
+        self._published_ui_state: Union[None, dict] = None
         self.help_image_index = 0
 
         # screenshot stuff
@@ -280,6 +282,10 @@ class MenuManager:
         self.update_screen(marking_menu_image)
         time.sleep(0.15)
 
+    def keep_awake(self) -> bool:
+        """True while the module on top must keep the screen awake."""
+        return bool(self.stack) and self.stack[-1].keep_awake
+
     def update(self) -> None:
         if self.help_images is not None:
             # We are in help mode, just chill...
@@ -330,18 +336,23 @@ class MenuManager:
         """
         screen_to_display = screen_image.convert(self.display_class.device.mode)
 
-        # Always update the logical UI state so the API reflects the current stack top,
-        # even while a visual message popup is displayed.
+        # Keep the logical UI state current so the API reflects the stack
+        # top, even while a visual message popup is displayed. Each write is
+        # a round trip to the shared-state process, so write only a change.
         if self.shared_state:
-            self.shared_state.set_current_ui_state(self.serialize_current_ui_state())
+            ui_state = self.serialize_current_ui_state()
+            if ui_state != self._published_ui_state:
+                self.shared_state.set_current_ui_state(ui_state)
+                self._published_ui_state = ui_state
 
-        if time.time() < self.ui_state.message_timeout():
+        if time.time() < UIModule.message_until:
             return None
 
         self.display_class.device.display(screen_to_display)
+        UIModule.frame_rate.tick()
 
         if self.shared_state:
-            self.shared_state.set_screen(screen_to_display)
+            UIModule.publish_screen(self.shared_state, screen_to_display)
 
     def key_number(self, number):
         if self.help_images is not None:
