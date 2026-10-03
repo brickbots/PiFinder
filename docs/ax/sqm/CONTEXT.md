@@ -47,7 +47,11 @@ flux and sky background are measured here, not on the processed solve image.
 Always the **crop**, never the full-sensor frame that exposure sweeps archive —
 see [Camera](../camera/CONTEXT.md) for the two extents. The margins are
 vignetted with no optical black, so measuring them would bias the sky
-background and break continuity with every calibrated sweep.
+background and break continuity with every calibrated sweep. A full-sensor
+frame also spans more sky than `field_width_degrees` describes, so measuring one
+reads bright by `5 log10(height / crop height)`. `collect_radiometer_sample`
+enforces the rule with `CameraProfile.ensure_cropped()` rather than leaving it
+to each caller.
 
 **Derotation**:
 Mapping solve-image `(y, x)` centroids back to the orientation of the stored
@@ -111,7 +115,26 @@ Median cleaned annulus value for one matched star.
 **Radiometer sample**:
 Sparse central median reduced in the camera process on every raw frame. It
 excludes the outer ten percent and records MAD, quadrant gradient, exposure,
-timestamp, sequence, and native green/mono pixel scale.
+timestamp, sequence, native green/mono pixel scale, and the delivered analogue
+gain. The reduction crops a full-sensor frame first, so a sample always
+describes the crop whatever extent it was handed.
+
+**Reported digital gain**:
+The `DigitalGain` the driver attaches to a frame. The IPA sets it to make up the
+shortfall between the requested and the delivered analogue gain, and the stock
+Raspberry Pi libcamera also divides it by the lowest colour gain. The ISP
+applies it after the raw stream, so the radiometer ignores it. Say "reported
+digital gain" for this per-frame value, never for `CameraProfile.digital_gain`,
+which is an unrelated multiplier applied when building the 8-bit solve image.
+
+**Calibration analogue gain**:
+`CameraProfile.calibration_analogue_gain`, the analogue gain the sensor actually
+delivered on the sweeps that fitted this profile's radiometric zero point,
+stored as the exact float the driver reports. The radiometer divides the
+corrected signal by `reported / calibration`, so a unit at that gain is
+unchanged. Refitting a zero point means updating this constant in the same
+change. See
+[ADR 0022 §3.2](../../adr/0022-sqm-measurement.md#32-scaling-the-analogue-gain-not-the-reported-digital-gain).
 
 **Stellar sky background**:
 Median of local annulus skies, used only by stellar diagnostics.
@@ -130,7 +153,7 @@ constant and any wizard-measured bias offset once its fit is **leased**. It
 needs no lens cap and no dark frame. Say "tracked black level", not "auto
 bias" or "dynamic calibration" — it measures one specific quantity and does
 not calibrate anything else. See
-[ADR 0028](../../adr/0028-tracked-black-level-supersedes-stored-bias.md).
+[ADR 0022 §4.1](../../adr/0022-sqm-measurement.md#41-the-tracked-black-level-supersedes-any-stored-bias).
 
 **Lease**:
 The gate that decides whether a tracked black level is trusted enough to
@@ -214,7 +237,8 @@ spectrum, which a single constant cannot represent across regimes. Slope `0`
 means a plain constant, which is correct for mono sensors and for IR-cut
 sensors with no NIR leak. R/G is clamped to `_range` rather than extrapolated.
 Distinct from **colour coefficient**, which trims *catalog star* colour on the
-stellar path; this one trims *sky* colour on the radiometric path. See ADR 0026.
+stellar path; this one trims *sky* colour on the radiometric path. See
+[ADR 0022 §5](../../adr/0022-sqm-measurement.md#5-the-zero-point-is-keyed-to-measured-sky-colour).
 
 **Mosaic phase**:
 The property that pixel `(0, 0)` of the frame reaching photometry is still a

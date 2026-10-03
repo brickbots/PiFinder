@@ -9,7 +9,7 @@ Two jobs, and they answer different questions:
 * ``radiometric_models`` -- re-derives the constant and sky-colour models from
   the archive and cross-validates them against each other, so the choice of
   model recorded in ``camera_profiles.py`` can be reproduced or refuted rather
-  than taken on trust. See ADR 0026.
+  than taken on trust. See docs/adr/0022-sqm-measurement.md section 5.
 
 The model fit deliberately runs per sweep rather than per frame, and scores by
 leave-one-night-out error rather than in-sample scatter; ``radiometric_fit``
@@ -33,6 +33,31 @@ from PIL import Image
 from PiFinder.sqm.camera_profiles import get_camera_profile
 from PiFinder.sqm.radiometer import collect_radiometer_sample, radiometric_sqm
 from PiFinder.sqm.radiometric_fit import SweepPoint, evaluate_profile
+
+
+def _archived_analogue_gains(sweep: Path) -> dict[int, float]:
+    """Frame index to the AnalogueGain the sensor delivered, from the archive.
+
+    Sweeps written before the driver metadata was archived return an empty
+    map, and those frames replay with no gain normalisation.
+    """
+    gains: dict[int, float] = {}
+    path = Path(sweep) / "frame_metadata.json"
+    if not path.exists():
+        return gains
+    try:
+        for frame in json.loads(path.read_text())["frames"]:
+            gain = frame.get("camera_metadata", {}).get("AnalogueGain")
+            if gain:
+                gains[int(frame["index"])] = float(gain)
+    except (AttributeError, KeyError, OSError, TypeError, ValueError):
+        return {}
+    return gains
+
+
+def _archived_frame_index(frame_name: str):
+    match = re.match(r"img_(\d+)", str(frame_name))
+    return int(match.group(1)) if match else None
 
 
 def _sweep_index(root: Path) -> dict[str, Path]:
@@ -116,6 +141,11 @@ def main() -> None:
             exposure_sec,
             sequence=sequence,
             captured_at=float(sequence),
+            # The refit must see the gain production sees, or a zero point
+            # fitted here disagrees with the device for any other gain.
+            analogue_gain=_archived_analogue_gains(sweep).get(
+                _archived_frame_index(row["frame"])
+            ),
         )
         value, details = radiometric_sqm(sample, profile)
         if value is None:

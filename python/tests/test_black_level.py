@@ -82,3 +82,32 @@ def test_ignores_invalid_inputs():
     t.add_sample(0.5, float("nan"))  # nan background
     t.add_sample(0.5, None)  # missing background
     assert t.state()[2] == 0
+
+
+# ---------------------------------------------------------------------------
+# Analogue gain multiplies the sky slope but not the pedestal. A window that
+# mixes gains must be fitted against gain-scaled exposure.
+# ---------------------------------------------------------------------------
+
+
+def test_mixed_analogue_gain_keeps_the_pedestal_when_passed():
+    exposures = np.linspace(0.05, 1.0, 24)
+    ratios = np.where(np.arange(exposures.size) % 2 == 0, 1.0, 0.7)
+
+    ignored = BlackLevelTracker(bias_offset=238.0)
+    passed = BlackLevelTracker(bias_offset=238.0)
+    for exp, r in zip(exposures, ratios):
+        bg = 236.0 + 120.0 * r * exp
+        ignored.add_sample(exp, bg)
+        passed.add_sample(exp, bg, gain_ratio=r)
+
+    assert passed.pedestal() == pytest.approx(236.0, abs=0.05)
+    assert ignored.pedestal() is None or abs(ignored.pedestal() - 236.0) > 0.5
+
+
+@pytest.mark.parametrize("ratio", [None, 0.0, -1.0, float("nan")])
+def test_unusable_gain_ratio_falls_back_to_one(ratio):
+    t = BlackLevelTracker(bias_offset=238.0)
+    for exp in np.linspace(0.05, 1.0, 20):
+        t.add_sample(exp, 236.0 + 40.0 * exp, gain_ratio=ratio)
+    assert t.pedestal() == pytest.approx(236.0, abs=0.2)
