@@ -128,6 +128,8 @@ class UIModule:
     _BATT_FULL = "󰁹"  # F0079
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
+    # True: the screen does not dim while this module is on top of the stack.
+    keep_awake = False
     _display_mode_list: Union[list[None], list[str]] = [None]  # List of display modes
     marking_menu: Union[None, MarkingMenu] = None
 
