@@ -45,6 +45,13 @@ MIGRATION_GATE_FLAG = "nixos_migration"
 # stability; the first available entry carrying a migration tarball wins.
 _MIGRATION_CHANNELS = ("stable", "beta", "unstable")
 
+# The manifest keys this version reads. Versions up to 2.6.3 read
+# "migration_url" and "migration_sha256_url" and then write an ext4 root,
+# so the manifest does not carry those keys. Without them, 2.6.3 finds no
+# migration target, also with the 7x square.
+MIGRATION_URL_KEY = "migration_v2_url"
+MIGRATION_SHA256_URL_KEY = "migration_v2_sha256_url"
+
 
 def _fetch_migration_config() -> Optional[dict]:
     """Fetch and parse the remote migration gate JSON.
@@ -132,8 +139,8 @@ def _migration_version_info_from_manifest() -> Optional[dict]:
         for entry in entries:
             if not isinstance(entry, dict) or not entry.get("available"):
                 continue
-            url = entry.get("migration_url")
-            sha_url = entry.get("migration_sha256_url")
+            url = entry.get(MIGRATION_URL_KEY)
+            sha_url = entry.get(MIGRATION_SHA256_URL_KEY)
             if not url or not sha_url:
                 continue
             version_info = {

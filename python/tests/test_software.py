@@ -8,6 +8,8 @@ from PiFinder.ui.software import (
     update_needed,
     _strip_markdown,
     MIGRATION_GATE_FLAG,
+    MIGRATION_SHA256_URL_KEY,
+    MIGRATION_URL_KEY,
     _fetch_migration_config,
     _fetch_update_manifest,
     _migration_gate_open,
@@ -174,14 +176,18 @@ class TestMigrationGateOpen:
         assert not _migration_gate_open({MIGRATION_GATE_FLAG: "yes"})
 
 
-def _migration_entry(version="3.0.0", available=True, with_urls=True):
+def _migration_entry(
+    version="3.0.0",
+    available=True,
+    with_urls=True,
+    url_key=MIGRATION_URL_KEY,
+    sha256_url_key=MIGRATION_SHA256_URL_KEY,
+):
     entry = {"version": version, "available": available}
     if with_urls:
         base = f"https://example.invalid/releases/download/v{version}"
-        entry["migration_url"] = f"{base}/pifinder-migration-v{version}.tar.zst"
-        entry["migration_sha256_url"] = (
-            f"{base}/pifinder-migration-v{version}.tar.zst.sha256"
-        )
+        entry[url_key] = f"{base}/pifinder-migration-v{version}.tar.zst"
+        entry[sha256_url_key] = f"{base}/pifinder-migration-v{version}.tar.zst.sha256"
     return entry
 
 
@@ -295,6 +301,21 @@ class TestMigrationVersionInfoFromManifest:
             )
         )
         assert _migration_version_info_from_manifest()["version"] == "3.1.0-beta"
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_ignores_keys_read_by_2_6_3(self, mock_get, _mock_head):
+        mock_get.return_value = _mock_json_response(
+            _manifest(
+                stable=[
+                    _migration_entry(
+                        "3.0.0",
+                        url_key="migration_url",
+                        sha256_url_key="migration_sha256_url",
+                    )
+                ]
+            )
+        )
+        assert _migration_version_info_from_manifest() is None
 
     @patch("PiFinder.ui.software.requests.get")
     def test_none_when_no_migration_entries(self, mock_get, _mock_head):
