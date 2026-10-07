@@ -92,7 +92,7 @@ class UISQM(UIModule):
         ncal_x = round(resX * 98 / 128)
 
         # Get SQM from shared state
-        sqm_state = self.shared_state.sqm()
+        sqm_state = self.snapshot.sqm()
 
         if sqm_state.last_update is None:
             self.draw.text(
@@ -178,7 +178,7 @@ class UISQM(UIModule):
                     )
 
                 # Show star count and exposure time (right side)
-                sqm_details = self.shared_state.sqm_details()
+                sqm_details = self.snapshot.sqm_details()
                 if sqm_details:
                     n_stars = sqm_details.get("n_matched_stars", 0)
                     self.draw.text(
@@ -188,7 +188,7 @@ class UISQM(UIModule):
                         fill=self.colors.get(64),
                     )
 
-                image_metadata = self.shared_state.last_image_metadata()
+                image_metadata = self.snapshot.last_image_metadata()
                 if image_metadata and "exposure_time" in image_metadata:
                     exp_ms = image_metadata["exposure_time"] / 1000  # Convert µs to ms
                     if exp_ms >= 1000:
@@ -281,7 +281,7 @@ class UISQM(UIModule):
 
     def _is_calibrated(self) -> bool:
         """Check if SQM calibration file exists for current camera."""
-        camera_type = self.shared_state.camera_type()
+        camera_type = self.snapshot.camera_type()
         calibration_file = (
             Path.home() / "PiFinder_data" / f"sqm_calibration_{camera_type}.json"
         )

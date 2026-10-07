@@ -1,7 +1,10 @@
+from functools import lru_cache
 from typing import Tuple, List
 import textwrap
 import re
 import math
+
+from PIL import Image, ImageDraw
 
 
 class SpaceCalculatorFixed:
@@ -375,10 +378,10 @@ def format_number(num: float, width=5):
         return f"{num:{width}d}"
     elif num < 1000000:
         decimal_places = max(0, width - 3)  # 'K' and at least one digit
-        return f"{num/1000:{width}.{decimal_places}f}K"
+        return f"{num / 1000:{width}.{decimal_places}f}K"
     else:
         decimal_places = max(0, width - 3)  # 'M' and at least one digit
-        return f"{num/1000000:{width}.{decimal_places}f}M"
+        return f"{num / 1000000:{width}.{decimal_places}f}M"
 
 
 def pointing_arrows(ui, point_az, point_alt, mount_type=None):
@@ -448,7 +451,31 @@ def draw_pointing_instructions(
         decimals = 2 if value < 1 else 1
         ui.draw.text(
             anchor,
-            f"{arrow}{value : >5.{decimals}f}",
+            f"{arrow}{value: >5.{decimals}f}",
             font=ui.fonts.huge.font,
             fill=ui.colors.get(brightness),
         )
+
+
+@lru_cache(maxsize=512)
+def _text_mask(text: str, font) -> Tuple[Image.Image, int, int]:
+    """The rendered text as a grey mask, and its offset from the text origin.
+
+    Rendering glyphs with FreeType is the costly part of drawing text, and a
+    menu draws the same lines on every frame. The font object is part of the
+    key: each size and weight is its own FreeTypeFont.
+    """
+    left, top, right, bottom = font.getbbox(text)
+    mask = Image.new("L", (max(1, right - left), max(1, bottom - top)), 0)
+    ImageDraw.Draw(mask).text((-left, -top), text, font=font, fill=255)
+    return mask, left, top
+
+
+def draw_text_cached(screen: Image.Image, xy, text: str, font, fill) -> None:
+    """Draw text like ImageDraw.text((x, y), text, font=font, fill=fill), from
+    a cached mask. The colour goes on at paste time, so it is not part of the
+    cache key."""
+    if not text:
+        return
+    mask, left, top = _text_mask(text, font)
+    screen.paste(fill, (int(xy[0]) + left, int(xy[1]) + top), mask)

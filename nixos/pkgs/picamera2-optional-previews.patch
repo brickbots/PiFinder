@@ -1,0 +1,22 @@
+Make picamera2's DRM/Qt preview imports optional.
+
+previews/__init__.py imports DrmPreview (needs pykms) and the Qt previews
+(need PyQt) unconditionally, so on a headless device without those native
+deps `import picamera2` fails outright and PiFinder's camera process crashes.
+PiFinder only ever uses NullPreview, so guard the optional backends.
+
+--- a/picamera2/previews/__init__.py
++++ b/picamera2/previews/__init__.py
+@@ -1,3 +1,10 @@
+-from .drm_preview import DrmPreview
+ from .null_preview import NullPreview
+-from .qt_previews import QtGlPreview, QtPreview
++
++try:
++    from .drm_preview import DrmPreview
++except ImportError:
++    DrmPreview = None
++try:
++    from .qt_previews import QtGlPreview, QtPreview
++except ImportError:
++    QtGlPreview = QtPreview = None

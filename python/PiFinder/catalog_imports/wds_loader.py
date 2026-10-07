@@ -175,7 +175,8 @@ def load_wds():
         return ra_to_deg(ra_h, ra_m, ra_s), dec_to_deg(dec_deg, dec_m, dec_s)
 
     def handle_multiples(key, values) -> dict:
-        discoverers = set()
+        # Ordered, so the names keep the source order in every import.
+        discoverers: dict = {}
         components = {}
         result = {}
         descriptions = []
@@ -208,7 +209,7 @@ def load_wds():
                 result["mag"] = MagnitudeObject([mag1, mag2])
                 sizemax = float(np.max([value["Sep_First"], value["Sep_Last"]]))
                 result["size"] = SizeObject.from_arcsec(round(sizemax, 1))
-            discoverers.add(value["Discoverer_Number"])
+            discoverers[value["Discoverer_Number"]] = None
             notes = value["Notes"].strip()
             notes_str = "" if len(notes) == 0 else f" Notes: {notes}"
             components = value["Components"].strip()
@@ -263,7 +264,7 @@ def load_wds():
             coord_2000 = entry["Coordinates_2000"]
             coord_arcsec = entry["Coordinates_Arcsec"]
             logging.error(
-                f"Empty or invalid RA/DEC detected for WDS object at line {i+1}"
+                f"Empty or invalid RA/DEC detected for WDS object at line {i + 1}"
             )
             logging.error(f"  Coordinates_2000: '{coord_2000}'")
             logging.error(f"  Coordinates_Arcsec: '{coord_arcsec}'")
@@ -273,7 +274,7 @@ def load_wds():
             )
             logging.error(f"  Final RA: {entry['ra']}, DEC: {entry['dec']}")
             raise ValueError(
-                f"Invalid RA/DEC coordinates for WDS object at line {i+1}: RA={entry['ra']}, DEC={entry['dec']}"
+                f"Invalid RA/DEC coordinates for WDS object at line {i + 1}: RA={entry['ra']}, DEC={entry['dec']}"
             )
 
     # make a dictionary of WDS objects to group duplicates

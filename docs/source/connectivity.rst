@@ -47,6 +47,7 @@ The PiFinder's web interface lets you:
 * Change network settings and connect to new WiFi networks
 * Add and edit your telescopes and eyepieces (see :doc:`equipment`)
 * Back up and restore your observing logs, settings, and other data
+* Browse, download, upload, and delete the files in the PiFinder's data folder (the Data page)
 * View and download your logged observations
 * Select or upload a logging configuration to capture detailed logs for a bug report
 
@@ -127,12 +128,30 @@ step.
 Shared Data Access
 ===================
 
-The PiFinder creates several data files you may want.  It shares them over SMB (samba) at
+The PiFinder creates several data files you may want.  There are two ways to reach them:
+the Data page of the web interface, and the SMB share.
+
+**Data page.** Open the :ref:`connectivity:web interface` and click ``Data`` in the top
+bar.  The page shows the contents of the data folder.  Shortcut chips at the top jump to
+the folders people use most: observing lists, captures, SQM sweeps, SQM calibration runs,
+screenshots, solver debug dumps, and logs.  Click a folder to open it.  Use the breadcrumb
+trail to go back up.  From here you can:
+
+* download a file, or download a whole folder as a zip file
+* upload files into the current folder (use the Upload button, or drop files on the list)
+* create a new folder
+* delete files and folders, one at a time or several at once (tick the boxes, then
+  ``Delete selected``)
+
+This needs no extra setup on your computer.  If you prefer to mount the folder as a
+network drive, use the SMB share below.
+
+**SMB share.** The PiFinder shares the same folder over SMB (samba) at
 ``//pifinder.local/shared``.  Access depends on your operating system, but the PiFinder
 should appear in a network browser.  The share needs no password.  Connect as ``guest`` and
 leave the password blank.
 
-Once connected, you see:
+In either case, you see:
 
 
 * ``captures/``\ : The images the PiFinder saves when you log an object.  Each name contains the observation ID from the database.
