@@ -201,8 +201,10 @@ def update_release(args: argparse.Namespace) -> None:
         "source_sha": args.sha,
         "version": args.version,
         "store_path": args.store_path or None,
-        "migration_url": args.migration_url or None,
-        "migration_sha256_url": args.migration_sha256_url or None,
+        # 2.6.x reads "migration_url" and must not find a tarball: its
+        # migration writes an ext4 root, and these builds need btrfs.
+        "migration_v2_url": args.migration_url or None,
+        "migration_v2_sha256_url": args.migration_sha256_url or None,
         "built_at": now_iso(),
     }
     set_available(entry, caches, verify)
