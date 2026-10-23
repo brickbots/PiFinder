@@ -35,7 +35,11 @@ def _mag(*mags):
 
 @pytest.fixture
 def db(tmp_path):
-    """Sky objects, each with its listings and names (in insertion order)."""
+    """Sky objects, each with its listings and names (in insertion order).
+
+    As in the real import, an "M nn" name comes with Steinicke's NGC record,
+    so its origin is NGC, not M.
+    """
     db = ObjectsDatabase(tmp_path / "objects.db")
     db.create_tables()
     for code in ("M", "NGC", "IC", "C", "SaM"):
@@ -45,7 +49,7 @@ def db(tmp_path):
         (
             ("Nb", 83.82125, -5.390277777777778, "Ori", _size(5400, 3600), _mag(4.0)),
             [("M", 42, "Orion Nebula"), ("NGC", 1976, "Theta Orionis neb")],
-            [("NGC 1976", "NGC"), ("Orion Nebula", "NGC"), ("M 42", "M")],
+            [("NGC 1976", "NGC"), ("Orion Nebula", "NGC"), ("M 42", "NGC")],
         ),
         (
             ("Nb", 83.405, -0.413, "Ori", _size(7200), _mag()),
@@ -59,7 +63,7 @@ def db(tmp_path):
                 ("NGC 3034", "NGC"),
                 ("Bode's nebulae", "NGC"),
                 ("M82", "NGC"),
-                ("M 82", "M"),
+                ("M 82", "NGC"),
             ],
         ),
         (
@@ -423,7 +427,8 @@ def test_was_description_can_be_empty(db, corrections_dir):
     assert description(db, "IC", 424) == "Faint."
 
 
-def test_a_position_correction_moves_the_constellation(db, corrections_dir):
+def test_a_position_correction_moves_the_constellation(db, corrections_dir, caplog):
+    caplog.set_level("INFO")
     apply(
         db,
         corrections_dir,
@@ -436,6 +441,9 @@ def test_a_position_correction_moves_the_constellation(db, corrections_dir):
     assert row["ra"] == pytest.approx(97.979167, abs=1e-6)
     assert row["dec"] == pytest.approx(4.942778, abs=1e-6)
     assert row["const"] == "Mon"
+    assert "Constellation of IC 424 follows its corrected position: Ori -> Mon" in (
+        caplog.text
+    )
 
 
 def test_a_const_correction_wins_over_the_position(db, corrections_dir):
@@ -742,6 +750,26 @@ def test_a_stray_name_left_behind_can_be_removed_by_a_correction(db, corrections
     )
     assert names(db, "NGC", 7466) == ["NGC 7466"]
     assert names(db, "IC", 5281) == ["IC 5281"]
+
+
+@pytest.mark.parametrize("identification", ["own_object = true", 'same_as = "IC 2480"'])
+def test_moving_an_m_listing_needs_the_ngc_records_m_name_removed(
+    db, corrections_dir, identification
+):
+    # Steinicke's NGC record carries "M 42", so moving the M listing alone
+    # leaves NGC 1976 asserting a cross-identification the correction denies.
+    move = f'["M 42"]\n{CITED}{identification}\n'
+    problems = apply_fails(db, corrections_dir, move)
+    assert "leaves NGC 1976 still named 'M 42' (from NGC)" in problems
+
+    apply(
+        db,
+        corrections_dir,
+        move + '["NGC 1976"]\n' + CITED + 'names.remove = ["M 42"]\n',
+    )
+    assert object_id(db, "M", 42) != object_id(db, "NGC", 1976)
+    assert names(db, "NGC", 1976) == ["NGC 1976", "Orion Nebula"]
+    assert names(db, "M", 42)[-1] == "M 42"
 
 
 def test_a_failed_check_rolls_back_the_identifications_too(db, corrections_dir):

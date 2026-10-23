@@ -351,7 +351,7 @@ def _parse_correction(source_file: str, designator: str, table: Any) -> Correcti
         why = ""
     sources = _string_list(table.get("sources"))
     if sources is None:
-        problem("needs `sources`: a list of citations, as URLs")
+        problem("needs `sources`: a list of citations (URLs where they exist)")
         sources = []
 
     correction = Correction(source_file, designator, listing, why.strip(), sources)
@@ -866,18 +866,26 @@ def _recompute_constellations(
 ) -> None:
     """A moved sky object's constellation follows its position, as at insert,
     unless a correction sets const itself (a boundary case like NGC 1404)."""
-    moved: Set[int] = set()
+    moved: Dict[int, str] = {}
     const_set: Set[int] = set()
     for correction, _listing_id, object_id in planned:
         if "ra" in correction.fields or "dec" in correction.fields:
-            moved.add(object_id)
+            moved.setdefault(object_id, correction.designator)
         if "const" in correction.fields:
             const_set.add(object_id)
-    for object_id in sorted(moved - const_set):
+    for object_id, designator in moved.items():
+        if object_id in const_set:
+            continue
         row = cursor.execute(
-            "SELECT ra, dec FROM objects WHERE id = ?", (object_id,)
+            "SELECT ra, dec, const FROM objects WHERE id = ?", (object_id,)
         ).fetchone()
         const = calc_utils.sf_utils.radec_to_constellation(row["ra"], row["dec"])
+        logging.info(
+            "Constellation of %s follows its corrected position: %s -> %s",
+            designator,
+            row["const"],
+            const,
+        )
         cursor.execute("UPDATE objects SET const = ? WHERE id = ?", (const, object_id))
 
 
@@ -888,8 +896,9 @@ def _check_nothing_left_behind(
 
     Another catalog's name equal to the moved designator means that catalog's
     listing was matched through the wrong identification, and it stays behind
-    on the old sky object. Runs after names corrections, so a stray name can
-    be removed by one.
+    on the old sky object, or that its record asserts the cross-identification
+    the correction denies (Steinicke's NGC records carry the "M nn" names).
+    Runs after names corrections, so a stray name can be removed by one.
     """
     problems = []
     for correction, source in moved:
@@ -911,8 +920,9 @@ def _check_nothing_left_behind(
         )
         problems.append(
             f"{correction.label}: {operation} leaves {left} still named {found};"
-            " that listing was matched through the wrong identification, so"
-            " correct it too"
+            " if that catalog's listing joined through the wrong identification,"
+            " correct it too, and if its record only names the designator,"
+            " remove the name with names.remove"
         )
     if problems:
         raise CorrectionError(problems)

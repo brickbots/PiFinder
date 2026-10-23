@@ -38,9 +38,8 @@ such as this README, are ignored.
 ## Tables
 
 Each correction is one table, headed by a **designator**: a catalog code, one
-space, and the number, quoted. The code is the one the database uses: `NGC`,
-`IC`, `M`, `C`, `Col`, `Ta2`, `H`, `SaA`, `SaM`, `SaR`, `Str`, `EGC`, `RDS`,
-`B`, `Sh2`, `Abl`, `Arp`, `TLK`, `WDS`, `Har`, `Lyn`.
+space, and the number, quoted. The code is the one in the database's
+`catalogs` table, such as `NGC`, `IC`, `M`, `Sh2`, `SaM` or `WDS`.
 
 ```toml
 ["IC 424"]
@@ -59,7 +58,8 @@ magnitude.
 Every table needs:
 
 - **`why`**: what is wrong, and what the sources say.
-- **`sources`**: a list of citations, as URLs.
+- **`sources`**: a list of citations: a URL where one exists, otherwise a
+  full citation (a book and page, or a bibcode).
 
 ## Fields
 
@@ -109,7 +109,9 @@ These correct which sky object a designator belongs to.
 
 - **`same_as = "IC 2480"`**: this designator is the same sky object as that
   one. Its listing moves there. If it was the sky object's only listing, the
-  whole sky object merges in, names and all, and is deleted.
+  whole sky object merges in, names and all, and is deleted. The target's
+  values stand and the merged object's are dropped, so correct anything
+  worth keeping in the same table.
 - **`own_object = true`**: this designator is a sky object of its own. Its
   listing moves to a new sky object that starts as a copy of the old one.
   Correct its fields in the same table, with `was` stating the copied
@@ -117,8 +119,11 @@ These correct which sky object a designator belongs to.
 - **`hip = 102989`**: this star listing is that Hipparcos star. Use it where
   the source's position is too far off for the star cross-match to find it.
 
-A listing moves with the names that are its designator, such as "IC 5281"
-from IC. Its other names stay where they are.
+A listing moves with the names that are its designator and come from its
+own catalog, such as "IC 5281" from IC. Its other names stay where they
+are. If it has no such name, as with an M listing, whose "M nn" name comes
+with Steinicke's NGC record, the designator is added as a name where it
+lands.
 
 All splits (`own_object`) run before all joins (`same_as`), and both run
 before any other correction. So the other fields in an identification's
@@ -154,6 +159,10 @@ The import fails, naming the file and the designator, when:
   matching does. That catalog's listing was matched through the
   wrong identification and would be left behind, so correct it too. If the
   name is only a stray, a `names.remove` on the old sky object clears it.
+  That is the usual case for an M listing: Steinicke's NGC record carries
+  its "M nn" name, so splitting or moving one needs a `names.remove` of that
+  name keyed by the NGC designator, which records that the NGC record's
+  cross-identification is wrong.
 
 A check compares values within tolerances: 0.05 for magnitudes, 1″ for RA
 and Dec, each taken separately, and 1″ for each size extent once parsed. So
