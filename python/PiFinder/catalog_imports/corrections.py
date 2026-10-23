@@ -32,7 +32,7 @@ from PiFinder import calc_utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.obj_types import OBJ_TYPES
-from .catalog_import_utils import parse_arcmin_size
+from .catalog_import_utils import parse_arcmin_size, parse_designation
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -533,9 +533,29 @@ def _designator(listing: Tuple[str, int]) -> str:
     return f"{listing[0]} {listing[1]}"
 
 
-def _name_key(name: str) -> str:
-    """How a loader's lookup compares designations: case and spaces ignored."""
-    return "".join(name.split()).lower()
+def resolves_to(name: str, listing: Tuple[str, int]) -> bool:
+    """Whether a loader's lookup would resolve this name to this listing.
+
+    The question ObjectFinder.get_object_id asks: the lowercased name is the
+    listing's exact key ("NGC70"), or parse_designation reads it as the
+    listing ("Cr 42" is Col 42, "NGC 0070" is NGC 70). "H 24" and "M 2-9"
+    resolve to nothing, since neither prefix names a catalog.
+    """
+    code, sequence = listing
+    return (
+        name.lower() == f"{code.lower()}{sequence}"
+        or parse_designation(name) == listing
+    )
+
+
+def _is_own_name(name: str, correction: Correction) -> bool:
+    """Whether a name is the correction's designator, as its listing's own.
+
+    Every loader writes a listing's own name as "<code> <sequence>", which the
+    lookup can't resolve for codes that are no designation prefix (B, H, WDS),
+    so that form counts as well as any form the lookup resolves.
+    """
+    return name == correction.designator or resolves_to(name, correction.listing)
 
 
 def _resolve(
@@ -600,20 +620,20 @@ def _move_listing(
     from_object: int,
     to_object: int,
 ) -> None:
-    """Move one catalog listing, and the names that are its designator."""
+    """Move one catalog listing, and its own names that are its designator."""
     cursor.execute(
         "UPDATE catalog_objects SET object_id = ? WHERE id = ?", (to_object, listing_id)
     )
-    key = _name_key(correction.designator)
     own_names = [
         row
         for row in _names(cursor, from_object)
         if row["origin"] == correction.listing[0]
-        and _name_key(row["common_name"]) == key
+        and _is_own_name(row["common_name"], correction)
     ]
     _move_names(cursor, own_names, to_object)
     if not any(
-        _name_key(row["common_name"]) == key for row in _names(cursor, to_object)
+        _is_own_name(row["common_name"], correction)
+        for row in _names(cursor, to_object)
     ):
         cursor.execute(
             "INSERT INTO names (object_id, common_name, origin) VALUES (?, ?, ?)",
@@ -894,19 +914,19 @@ def _check_nothing_left_behind(
 ) -> None:
     """Fail a split or join whose old sky object still answers to its designator.
 
-    Another catalog's name equal to the moved designator means that catalog's
-    listing was matched through the wrong identification, and it stays behind
-    on the old sky object, or that its record asserts the cross-identification
-    the correction denies (Steinicke's NGC records carry the "M nn" names).
-    Runs after names corrections, so a stray name can be removed by one.
+    Another catalog's name that the loaders' lookup resolves to the moved
+    designator means that catalog's listing was matched through the wrong
+    identification, and it stays behind on the old sky object, or that its
+    record asserts the cross-identification the correction denies (Steinicke's
+    NGC records carry the "M nn" names). Runs after names corrections, so a
+    stray name can be removed by one.
     """
     problems = []
     for correction, source in moved:
-        key = _name_key(correction.designator)
         stray = [
             row
             for row in _names(cursor, source)
-            if _name_key(row["common_name"]) == key
+            if resolves_to(row["common_name"], correction.listing)
         ]
         if not stray:
             continue

@@ -17,6 +17,7 @@ from PiFinder.catalog_imports.corrections import (
     parse_dec,
     parse_designator,
     parse_ra,
+    resolves_to,
 )
 from PiFinder.db.objects_db import ObjectsDatabase
 
@@ -42,7 +43,7 @@ def db(tmp_path):
     """
     db = ObjectsDatabase(tmp_path / "objects.db")
     db.create_tables()
-    for code in ("M", "NGC", "IC", "C", "SaM"):
+    for code in ("M", "NGC", "IC", "C", "SaM", "Col", "H", "B"):
         db.insert_catalog(code, 10000, code)
     objects = [
         # M 42 / NGC 1976 at 05 35 17.1, -05 23 25.0
@@ -770,6 +771,73 @@ def test_moving_an_m_listing_needs_the_ngc_records_m_name_removed(
     assert object_id(db, "M", 42) != object_id(db, "NGC", 1976)
     assert names(db, "NGC", 1976) == ["NGC 1976", "Orion Nebula"]
     assert names(db, "M", 42)[-1] == "M 42"
+
+
+@pytest.mark.parametrize(
+    "name, listing, resolves",
+    [
+        ("Cr 42", ("Col", 42), True),
+        ("Collinder 42", ("Col", 42), True),
+        ("NGC 0070", ("NGC", 70), True),
+        ("ngc 70", ("NGC", 70), True),
+        ("NGC70", ("NGC", 70), True),  # the lookup's exact key
+        ("H24", ("H", 24), True),  # likewise
+        ("H 24", ("H", 24), False),  # a bare "h" names no catalog
+        ("M 2-9", ("M", 29), False),  # Minkowski 2-9, not Messier 29
+        ("M 2-9", ("M", 9), False),
+        ("NGC 7466", ("NGC", 70), False),
+    ],
+)
+def test_resolves_to_asks_the_loaders_lookup_question(name, listing, resolves):
+    assert resolves_to(name, listing) is resolves
+
+
+def _share_with_ngc_7466(db, code, sequence, own_name, stray):
+    """Put a listing, its own name and another catalog's name on NGC 7466."""
+    ngc_7466 = object_id(db, "NGC", 7466)
+    db.insert_catalog_object(ngc_7466, code, sequence, "")
+    db.insert_name(ngc_7466, own_name, code)
+    if stray:
+        db.insert_name(ngc_7466, stray, "SaM")
+
+
+@pytest.mark.parametrize(
+    "code, sequence, stray, left_behind",
+    [
+        ("Col", 42, "Cr 42", True),
+        ("NGC", 70, "NGC 0070", True),
+        ("H", 24, "H 24", False),
+        ("M", 29, "M 2-9", False),
+    ],
+)
+def test_a_name_left_behind_counts_if_the_lookup_resolves_it(
+    db, corrections_dir, code, sequence, stray, left_behind
+):
+    _share_with_ngc_7466(db, code, sequence, f"{code} {sequence}", stray)
+    split = f'["{code} {sequence}"]\n{CITED}own_object = true\n'
+    if left_behind:
+        problems = apply_fails(db, corrections_dir, split)
+        assert f"still named {stray!r} (from SaM)" in problems
+    else:
+        apply(db, corrections_dir, split)
+        assert object_id(db, code, sequence) != object_id(db, "NGC", 7466)
+        assert names(db, "NGC", 7466) == ["NGC 7466", "IC 5281", stray]
+
+
+@pytest.mark.parametrize(
+    "code, sequence, own_name",
+    [
+        ("B", 33, "B 33"),  # the lookup can't resolve a bare "B"
+        ("Col", 42, "Collinder 42"),  # the lookup resolves the alias
+    ],
+)
+def test_a_split_takes_the_listings_own_names(
+    db, corrections_dir, code, sequence, own_name
+):
+    _share_with_ngc_7466(db, code, sequence, own_name, None)
+    apply(db, corrections_dir, f'["{code} {sequence}"]\n{CITED}own_object = true\n')
+    assert names(db, code, sequence) == [own_name]
+    assert names(db, "NGC", 7466) == ["NGC 7466", "IC 5281"]
 
 
 def test_a_failed_check_rolls_back_the_identifications_too(db, corrections_dir):

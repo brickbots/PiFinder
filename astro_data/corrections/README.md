@@ -119,9 +119,10 @@ These correct which sky object a designator belongs to.
 - **`hip = 102989`**: this star listing is that Hipparcos star. Use it where
   the source's position is too far off for the star cross-match to find it.
 
-A listing moves with the names that are its designator and come from its
-own catalog, such as "IC 5281" from IC. Its other names stay where they
-are. If it has no such name, as with an M listing, whose "M nn" name comes
+A listing moves with the names from its own catalog that are its
+designator: its own "IC 5281", or any form the loaders' lookup resolves to
+it, such as "Collinder 42" from Col. Its other names stay where they are.
+If it has no such name, as with an M listing, whose "M nn" name comes
 with Steinicke's NGC record, the designator is added as a name where it
 lands.
 
@@ -154,9 +155,11 @@ The import fails, naming the file and the designator, when:
   own sky object;
 - a `same_as` points at a designator that has its own `same_as` (point it at
   the final sky object instead);
-- a split or join leaves its old sky object still carrying the designator as
-  another catalog's name, compared ignoring case and spaces as the loaders'
-  matching does. That catalog's listing was matched through the
+- a split or join leaves its old sky object still carrying another
+  catalog's name that the loaders' lookup resolves to the designator: its
+  exact key ("NGC70"), or a designation `parse_designation` reads as it
+  ("Cr 42" for Col 42, "NGC 0070" for NGC 70, but not "H 24", since a bare
+  "H" names no catalog). That catalog's listing was matched through the
   wrong identification and would be left behind, so correct it too. If the
   name is only a stray, a `names.remove` on the old sky object clears it.
   That is the usual case for an M listing: Steinicke's NGC record carries
