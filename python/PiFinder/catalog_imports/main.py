@@ -10,6 +10,7 @@ import logging
 
 from PiFinder import timez
 from .catalog_import_utils import print_database, resolve_object_images
+from .corrections import apply_corrections, load_corrections
 from .database import init_shared_database
 
 # Loader registry - import functions dynamically to reduce coupling
@@ -81,6 +82,10 @@ def main():
 
     logging.info("Starting")
 
+    # Read the corrections up front, so a malformed file fails the import
+    # before the loaders run rather than after.
+    corrections = load_corrections()
+
     # Initialize shared databases
     logging.info("Creating DB")
     objects_db, _ = init_shared_database()
@@ -118,6 +123,11 @@ def main():
         except Exception as e:
             logging.error(f"Failed to run {function_name} from {module_name}: {e}")
             raise
+
+    # The final pass: corrections have the last word over every stage above,
+    # so any stage added later goes before this (ADR 0046).
+    logging.info("Applying corrections...")
+    apply_corrections(objects_db, corrections)
 
     # Populate the images table
     logging.info("Resolving object images...")

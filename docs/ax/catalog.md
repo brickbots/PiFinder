@@ -414,10 +414,11 @@ machine; a device never runs it, and ships the committed file instead.
 
 > **Status (2026-10-22).** Parts of this section describe the import as
 > the catalog-audit fixes leave it, not as `main` has it today: the
-> match guard (9.3), the star cross-match (9.3), the supplementary
-> sources (9.4) and the correction pass (9.5) are being built, and the
-> designation allowlist (9.3) is being extracted from the NixOS branch
-> (#379) to land on its own.
+> match guard (9.3), the star cross-match (9.3) and the supplementary
+> sources (9.4) are being built, and the designation allowlist (9.3) is
+> being extracted from the NixOS branch (#379) to land on its own. The
+> correction pass (9.5) is in `catalog_imports/corrections.py`, and
+> `astro_data/corrections/` holds no corrections yet.
 > The decision record is [ADR 0046](../adr/0046-catalog-corrections-cited-checked-applied-last.md).
 
 ### 9.1 Pipeline
@@ -553,7 +554,8 @@ that is a correction citing Bica.
 A **correction** is a cited value that replaces what the sources give,
 in `astro_data/corrections/<source>.toml` — one file per published
 source it contradicts, so each file doubles as the upstream report. The
-format is documented in `astro_data/corrections/README.md`.
+format, and every check, is documented in
+[`astro_data/corrections/README.md`](../../astro_data/corrections/README.md).
 
 - **Keyed by designator**, applied to the sky object it resolves to; a
   description applies to that one listing.
@@ -567,7 +569,12 @@ format is documented in `astro_data/corrections/README.md`.
   correction is redundant; if it holds anything but `was` it is stale.
   Either fails the import, as do two corrections reaching one field of
   one sky object, a designator that resolves to nothing, and a missing
-  `why` or `sources`.
+  `why` or `sources`. Name and identification corrections are checked
+  the same way: removing an absent name, or a `same_as` that is already
+  true, fails.
+- **All or nothing.** Identifications go first, since they change what
+  designators resolve to; every other correction is then checked before
+  any is written, and a failure rolls the whole pass back.
 
 The pass runs last (9.1), so a correction always wins. A rule of thumb
 for anyone adding one: if you are about to write more than a handful of
@@ -594,6 +601,7 @@ The name files:
   including the half of a fix whose key is another catalog's (the
   Horsehead moves from IC 434 to B 33): a correction lives in the file
   of the source whose error it fixes.
+
 The import must therefore keep names in a reproducible order; a `set()`
 of strings is ordered by Python's per-process hash seed and is not.
 
