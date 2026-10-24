@@ -652,8 +652,8 @@ def test_object_details_tracks_target(display, camera_image, catalogs):
     catalog_filter.load_from_config(cfg)
     catalogs.set_catalog_filter(catalog_filter)
 
-    # Two catalog objects with distinct object_ids (scroll_object indexes by
-    # equality, which is object_id-based).
+    # Two catalog objects with distinct object_ids, so the scroll is a change
+    # of sky object as well as of listing.
     objs = catalogs.get_objects(only_selected=False, filtered=False)
     obj_a = objs[0]
     obj_b = next((o for o in objs if o.object_id != obj_a.object_id), None)
@@ -682,6 +682,52 @@ def test_object_details_tracks_target(display, camera_image, catalogs):
     # ...and updated on scroll.
     module.scroll_object(1)
     assert shared_state.ui_state().target() is obj_b
+
+
+@pytest.mark.integration
+def test_object_details_scrolls_past_a_sibling_listing(display, camera_image, catalogs):
+    """UP/DOWN in object details steps by catalog listing, not by sky object.
+
+    M 31 and NGC 224 are two catalog listings of one sky object, so they share
+    an object_id and compare equal. Opened on NGC 224 with no "object_index"
+    (as the chart and recents open it), DOWN has to reach the listing after it
+    rather than finding M 31's slot and stepping onto NGC 224 again.
+    """
+    m31 = catalogs.get_object("M", 31)
+    ngc224 = catalogs.get_object("NGC", 224)
+    m32 = catalogs.get_object("M", 32)
+    if m31 is None or ngc224 is None or m32 is None:
+        pytest.skip("M 31, NGC 224 or M 32 missing from the catalog DB")
+    assert m31.object_id == ngc224.object_id  # the premise: sibling listings
+
+    cfg = Config()
+    shared_state = _make_shared_state("warm")
+    catalog_filter = CatalogFilter(shared_state=shared_state)
+    catalog_filter.load_from_config(cfg)
+    catalogs.set_catalog_filter(catalog_filter)
+
+    module = UIObjectDetails(
+        display,
+        camera_image,
+        shared_state,
+        _make_command_queues(),
+        cfg,
+        catalogs,
+        item_definition={
+            "name": ngc224.display_name,
+            "class": UIObjectDetails,
+            "object": ngc224,
+            "object_list": [m31, ngc224, m32],
+            "label": "object_details",
+        },
+    )
+
+    module.scroll_object(1)
+    assert module.object is m32
+    module.scroll_object(-1)
+    assert module.object is ngc224
+    module.scroll_object(-1)
+    assert module.object is m31
 
 
 @pytest.mark.integration
