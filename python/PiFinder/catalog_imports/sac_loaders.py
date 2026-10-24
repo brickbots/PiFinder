@@ -316,7 +316,9 @@ def load_sac_redstars():
 
     with open(sac, "r") as df:
         df.readline()
-        obj_type = "D*"
+        # A red star is a single star; one that is also a double gets D* from
+        # its double-star listing when the star cross-match merges them.
+        obj_type = "*"
         for line in tqdm(list(df), leave=False):
             dfs = line.split("|")
             dfs = [d.strip() for d in dfs]

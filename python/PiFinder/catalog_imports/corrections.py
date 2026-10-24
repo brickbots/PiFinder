@@ -32,7 +32,13 @@ from PiFinder import calc_utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.obj_types import OBJ_TYPES
-from .catalog_import_utils import listing_named, parse_arcmin_size
+from .catalog_import_utils import (
+    listing_named,
+    merge_sky_object,
+    move_names,
+    object_names,
+    parse_arcmin_size,
+)
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -553,7 +559,7 @@ def _is_own_name(name: str, correction: Correction) -> bool:
     return name == correction.designator or resolves_to(name, correction.listing)
 
 
-def _resolve(
+def resolve_listing(
     cursor: sqlite3.Cursor, listing: Tuple[str, int]
 ) -> Tuple[Optional[sqlite3.Row], str]:
     """The catalog_objects row a designator names, or None and why not."""
@@ -574,38 +580,12 @@ def _resolve(
     return None, f"{_designator(listing)} resolves to nothing"
 
 
-def _names(cursor: sqlite3.Cursor, object_id: int) -> List[sqlite3.Row]:
-    return cursor.execute(
-        "SELECT id, common_name, origin FROM names WHERE object_id = ? ORDER BY id",
-        (object_id,),
-    ).fetchall()
-
-
 def _listings(cursor: sqlite3.Cursor, object_id: int) -> List[sqlite3.Row]:
     return cursor.execute(
         "SELECT id, catalog_code, sequence FROM catalog_objects"
         " WHERE object_id = ? ORDER BY id",
         (object_id,),
     ).fetchall()
-
-
-def _move_names(
-    cursor: sqlite3.Cursor, rows: Iterable[sqlite3.Row], object_id: int
-) -> None:
-    """Move name rows to the end of another sky object's names.
-
-    Re-inserted rather than re-pointed, so a moved name can't land ahead of
-    the names already there; a name the sky object already has is dropped.
-    """
-    present = {row["common_name"] for row in _names(cursor, object_id)}
-    for row in rows:
-        cursor.execute("DELETE FROM names WHERE id = ?", (row["id"],))
-        if row["common_name"] not in present:
-            cursor.execute(
-                "INSERT INTO names (object_id, common_name, origin) VALUES (?, ?, ?)",
-                (object_id, row["common_name"], row["origin"]),
-            )
-            present.add(row["common_name"])
 
 
 def _move_listing(
@@ -621,14 +601,14 @@ def _move_listing(
     )
     own_names = [
         row
-        for row in _names(cursor, from_object)
+        for row in object_names(cursor, from_object)
         if row["origin"] == correction.listing[0]
         and _is_own_name(row["common_name"], correction)
     ]
-    _move_names(cursor, own_names, to_object)
+    move_names(cursor, own_names, to_object)
     if not any(
         _is_own_name(row["common_name"], correction)
-        for row in _names(cursor, to_object)
+        for row in object_names(cursor, to_object)
     ):
         cursor.execute(
             "INSERT INTO names (object_id, common_name, origin) VALUES (?, ?, ?)",
@@ -664,7 +644,7 @@ def _apply_identifications(
     moved: List[Tuple[Correction, int]] = []
     splits_first = sorted(identifications, key=lambda c: not c.own_object)
     for correction in splits_first:
-        listing, why_not = _resolve(cursor, correction.listing)
+        listing, why_not = resolve_listing(cursor, correction.listing)
         if listing is None:
             problems.append(f"{correction.label}: {why_not}")
             continue
@@ -690,7 +670,7 @@ def _apply_identifications(
         else:
             assert correction.same_as is not None
             target_designator = _designator(correction.same_as)
-            target, why_not = _resolve(cursor, correction.same_as)
+            target, why_not = resolve_listing(cursor, correction.same_as)
             if target is None:
                 problems.append(f"{correction.label}: same_as: {why_not}")
                 continue
@@ -706,15 +686,7 @@ def _apply_identifications(
                 )
             else:
                 # The whole sky object is this listing: merge it in.
-                cursor.execute(
-                    "UPDATE catalog_objects SET object_id = ? WHERE id = ?",
-                    (target["object_id"], listing["id"]),
-                )
-                _move_names(cursor, _names(cursor, source), target["object_id"])
-                cursor.execute(
-                    "DELETE FROM object_images WHERE object_id = ?", (source,)
-                )
-                cursor.execute("DELETE FROM objects WHERE id = ?", (source,))
+                merge_sky_object(cursor, source, target["object_id"])
         moved.append((correction, source))
     if problems:
         raise CorrectionError(problems)
@@ -733,7 +705,7 @@ def _plan(
     claims: Dict[Tuple[Any, ...], Correction] = {}
     conflicts: Dict[Tuple[str, str], List[str]] = defaultdict(list)
     for correction in corrections:
-        listing, why_not = _resolve(cursor, correction.listing)
+        listing, why_not = resolve_listing(cursor, correction.listing)
         if listing is None:
             problems.append(f"{correction.label}: {why_not}")
             continue
@@ -810,7 +782,7 @@ def _check(
                 f" database holds {format_value(field_name, holds)}; check the"
                 " correction against the source"
             )
-    names = [row["common_name"] for row in _names(cursor, object_id)]
+    names = [row["common_name"] for row in object_names(cursor, object_id)]
     for name in correction.names_remove:
         if name not in names:
             problems.append(
@@ -865,7 +837,8 @@ def _write(
         # Names are ordered by row id, so putting one first means re-inserting
         # them all, the preferred name's rows ahead of the rest.
         rows = [
-            (row["common_name"], row["origin"]) for row in _names(cursor, object_id)
+            (row["common_name"], row["origin"])
+            for row in object_names(cursor, object_id)
         ]
         first = [row for row in rows if row[0] == preferred] or [(preferred, code)]
         rest = [row for row in rows if row[0] != preferred]
@@ -920,7 +893,7 @@ def _check_nothing_left_behind(
     for correction, source in moved:
         stray = [
             row
-            for row in _names(cursor, source)
+            for row in object_names(cursor, source)
             if resolves_to(row["common_name"], correction.listing)
         ]
         if not stray:
