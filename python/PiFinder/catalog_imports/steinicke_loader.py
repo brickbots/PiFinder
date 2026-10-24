@@ -5,6 +5,7 @@ This module loads NGC, IC, and Messier catalogs from the Steinicke JSON data.
 """
 
 import json
+import math
 import re
 import logging
 import zipfile
@@ -35,7 +36,9 @@ BASIC_TYPE_MAPPING = {
     "*3": "***",
     "*4": "***",
     "**": "D*",
-    "*Cloud": "Nb",
+    # A Milky Way star cloud is a rich star field, not a nebula; post_processing
+    # types M 24 the same way.
+    "*Cloud": "Ast",
     "*Grp": "Ast",
     # Basic clusters
     "OCL": "OC",
@@ -54,7 +57,9 @@ BASIC_TYPE_MAPPING = {
     # Combinations
     "OCL+EN": "C+N",
     "EN+OCL": "C+N",
-    "PN+OCL": "C+N",
+    # A planetary seen inside a cluster (NGC 2818 in NGC 2818A) is the
+    # planetary: Steinicke's status 3.
+    "PN+OCL": "PN",
     "RN+EN": "Nb",
     "RN+OCL": "C+N",
     "EN+RN": "Nb",
@@ -117,9 +122,10 @@ def preprocess_steinicke_type(obj_type, remarks=""):
     if is_galaxy_type(cleaned):
         return "Gx"
 
-    # Trumpler class patterns for open clusters
+    # Trumpler class patterns for open clusters. A trailing "n" is the
+    # Trumpler flag for nebulosity in the cluster ("III3pn": IC 1805, M 16).
     if is_trumpler_class(cleaned):
-        return "OC"
+        return "C+N" if cleaned.endswith("n") else "OC"
 
     # Star patterns
     if is_star_type(cleaned):
@@ -196,6 +202,227 @@ def is_star_type(obj_type):
             return True
 
     return False
+
+
+# Steinicke's status field S: what the identification of an NGC/IC number
+# found (NI2023, Table 2). It says what an object is more reliably than its
+# TYPE, which mixes Hubble types, Trumpler classes and concentration classes.
+STATUS_GALAXY = 1
+STATUS_NEBULA = 2
+STATUS_PLANETARY = 3
+STATUS_OPEN_CLUSTER = 4
+STATUS_GLOBULAR = 5
+STATUS_PART_OF_GALAXY = 6
+STATUS_DUPLICATE = 7  # another number in the same catalog (NGC 6 = NGC 20)
+STATUS_DUPLICATE_OF_NGC = 8  # an IC number that is already an NGC object
+STATUS_STARS = 9
+STATUS_NOT_FOUND = 10
+
+DUPLICATE_STATUSES = (STATUS_DUPLICATE, STATUS_DUPLICATE_OF_NGC)
+
+# The status alone decides these types.
+STATUS_TYPES = {
+    STATUS_GALAXY: "Gx",
+    STATUS_PLANETARY: "PN",
+    STATUS_GLOBULAR: "Gb",
+    STATUS_NOT_FOUND: "?",
+}
+
+# Leads the description of a not-found object, ahead of Dreyer's text.
+NOT_FOUND_DESCRIPTION = "Not found: nothing at Dreyer's position (Steinicke)."
+
+# Steinicke places a duplicate at its twin's position. A duplicate row further
+# than this from its twin carries values of its own, so the source contradicts
+# itself and the row stays a sky object of its own.
+DUPLICATE_MAX_SEPARATION_ARCMIN = 1.0
+
+_HII_REGION = re.compile(r"\bHII\b")
+_CLUSTER_OR_ASSOCIATION = re.compile(r"\b(?:OCL|SCL)\b|\*Cloud|associat", re.IGNORECASE)
+_DESIGNATION = re.compile(r"^(NGC|IC|M)\s*(\d+)\s*([A-Z]?)(?:-(\d+))?$")
+
+
+def steinicke_status(obj):
+    """A Steinicke row's status S as an int, or None when it has none."""
+    status = obj.get("status")
+    try:
+        return int(status)
+    except (TypeError, ValueError):
+        return None
+
+
+def _remark(remarks):
+    """
+    The remark of a Steinicke row: its last non-empty ID field, where
+    Steinicke puts the remark when there is one.
+    """
+    if isinstance(remarks, list):
+        filled = [str(r) for r in remarks if r]
+        return filled[-1] if filled else ""
+    return str(remarks) if remarks else ""
+
+
+def part_of_galaxy_type(obj_type, remarks=""):
+    """
+    Type a part of another galaxy (status 6) by its remark: an HII region is a
+    nebula, a cluster, star cloud or association is a cluster (PiFinder has no
+    association type), and any other part of a galaxy is not a galaxy of its
+    own, so it is typed unknown.
+    """
+    remark = _remark(remarks)
+    if _HII_REGION.search(remark):
+        return "Nb"
+    if _CLUSTER_OR_ASSOCIATION.search(remark):
+        return "OC"
+    if (obj_type or "").strip() == "GxyP":
+        return "?"
+    return preprocess_steinicke_type(obj_type, remarks)
+
+
+def steinicke_object_type(status, obj_type, remarks=""):
+    """
+    Map a Steinicke row to a PiFinder type by its status first, then by its
+    TYPE. A duplicate (status 7 or 8) is typed by its TYPE: it only needs a
+    type of its own when its twin cannot be found.
+    """
+    if status in STATUS_TYPES:
+        return STATUS_TYPES[status]
+    if status == STATUS_PART_OF_GALAXY:
+        return part_of_galaxy_type(obj_type, remarks)
+    if status == STATUS_OPEN_CLUSTER and (obj_type or "").strip() == "*Grp":
+        # A star group Steinicke identifies as a cluster (NGC 6885)
+        return "OC"
+    return preprocess_steinicke_type(obj_type, remarks)
+
+
+def steinicke_radec(obj):
+    """A Steinicke row's J2000 position in decimal degrees (0, 0 if none)."""
+    if not (obj.get("right_ascension") and obj.get("declination")):
+        return 0.0, 0.0
+    ra_dict = obj["right_ascension"]
+    ra = (
+        ra_dict.get("hours", 0)
+        + ra_dict.get("minutes", 0) / 60
+        + ra_dict.get("seconds", 0) / 3600
+    ) * 15
+    dec_dict = obj["declination"]
+    dec = (
+        dec_dict.get("degrees", 0)
+        + dec_dict.get("minutes", 0) / 60
+        + dec_dict.get("seconds", 0) / 3600
+    )
+    if dec_dict.get("sign", 1) < 0:
+        dec = -dec
+    return ra, dec
+
+
+def _separation_arcmin(obj_a, obj_b):
+    ra1, dec1, ra2, dec2 = map(
+        math.radians, (*steinicke_radec(obj_a), *steinicke_radec(obj_b))
+    )
+    cos_sep = math.sin(dec1) * math.sin(dec2) + math.cos(dec1) * math.cos(
+        dec2
+    ) * math.cos(ra1 - ra2)
+    return math.degrees(math.acos(max(-1.0, min(1.0, cos_sep)))) * 60
+
+
+def _designation(key):
+    prefix, number = key
+    return f"{'NGC' if prefix == 'N' else 'IC'} {number}"
+
+
+def _is_duplicate(obj):
+    return steinicke_status(obj) in DUPLICATE_STATUSES
+
+
+def resolve_duplicate_twins(selected):
+    """
+    Find the twin of every duplicate (status 7 or 8) among the selected rows,
+    by Steinicke's own identification.
+
+    ``selected`` maps (catalogue_prefix, catalogue_number) to the one row the
+    loader keeps for that number. Steinicke names a duplicate's twin in its
+    first ID field: an NGC or IC number, possibly with an extension letter or
+    component ("NGC 3280A", "NGC 1040-1"), or a Messier number. A twin that is
+    itself a duplicate is followed to the row it names (IC 249 -> NGC 961 ->
+    NGC 1051). Duplicates that name each other (IC 5179, IC 5183) take the
+    first non-duplicate any of them names (IC 5184).
+
+    Returns ``{duplicate key: twin key}`` for each duplicate whose twin is a
+    non-duplicate row within DUPLICATE_MAX_SEPARATION_ARCMIN. Every other
+    duplicate is logged and left out, so it stays a sky object of its own.
+    """
+    # "M 76" names the one non-duplicate row that lists it (NGC 650)
+    messier_rows = defaultdict(list)
+    for key, obj in selected.items():
+        if _is_duplicate(obj):
+            continue
+        for remark in obj.get("remarks") or []:
+            match = re.match(r"^M\s*(\d+)$", str(remark))
+            if match:
+                messier_rows[int(match.group(1))].append(key)
+
+    def named_row(identification):
+        """The selected row an identification names, or None."""
+        match = _DESIGNATION.match(str(identification or "").strip())
+        if not match:
+            return None
+        catalog, number, letter, component = match.groups()
+        if catalog == "M":
+            rows = messier_rows.get(int(number), [])
+            return rows[0] if len(rows) == 1 else None
+        key = ("N" if catalog == "NGC" else "I", int(number))
+        row = selected.get(key)
+        if row is None:
+            return None
+        # A lettered twin or component is only the loader's sky object for
+        # that number if it is the row the loader kept ("NGC 4676B" is not).
+        if letter and row.get("extension_letter") != letter:
+            return None
+        if component and row.get("component") != int(component):
+            return None
+        return key
+
+    def first_identification(key):
+        remarks = selected[key].get("remarks") or []
+        return remarks[0] if remarks else None
+
+    def cycle_exit(cycle):
+        """The first non-duplicate row any member of a cycle names."""
+        for member in cycle:
+            for remark in selected[member].get("remarks") or []:
+                named = named_row(remark)
+                if named is not None and not _is_duplicate(selected[named]):
+                    return named
+        return None
+
+    twins = {}
+    for key, obj in selected.items():
+        if not _is_duplicate(obj):
+            continue
+        chain = [key]
+        twin = named_row(first_identification(key))
+        while twin is not None and _is_duplicate(selected[twin]):
+            if twin in chain:
+                twin = cycle_exit(chain)
+                break
+            chain.append(twin)
+            twin = named_row(first_identification(twin))
+
+        if twin is None:
+            logging.warning(
+                f"Steinicke duplicate {_designation(key)}: no sky object for "
+                f"its twin {first_identification(key)!r}, so it stays its own"
+            )
+            continue
+        separation = _separation_arcmin(obj, selected[twin])
+        if separation > DUPLICATE_MAX_SEPARATION_ARCMIN:
+            logging.warning(
+                f"Steinicke duplicate {_designation(key)} is {separation:.1f}' "
+                f"from its twin {_designation(twin)}, so it stays its own"
+            )
+            continue
+        twins[key] = twin
+    return twins
 
 
 def _check_required_files() -> bool:
@@ -311,52 +538,12 @@ def _process_ngc2000_descriptions():
         sys.path.remove(str(steinicke_dir))
 
 
-def load_ngc_catalog():
+def select_listings(data):
     """
-    Load NGC, IC, and Messier catalogs with automated data extraction.
-
-    This function first checks if the required JSON files exist. If not, it automatically
-    extracts the ZIP file and processes the data to generate the required files.
-    Then it loads the catalog data using existing infrastructure methods.
+    The one Steinicke row the loader keeps for each NGC and IC number, keyed
+    by (catalogue_prefix, catalogue_number): the main row, else its extension
+    letter A or component 1. Other letters and components are not loaded.
     """
-    # Check if required files exist, extract and process if not
-    if not _check_required_files():
-        logging.info("Required JSON files not found, extracting and processing data...")
-        _extract_and_process_data()
-
-    # Load JSON data
-    data_path = Path(utils.astro_data_dir, "ngc_ic_m/steinicke/steinicke_catalog.json")
-    logging.info(f"Loading catalog data from {data_path}")
-
-    with open(data_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    # Load descriptions
-    with open(
-        utils.astro_data_dir / "ngc_ic_m/steinicke/ngc2000_descriptions.json", "r"
-    ) as f:
-        catalog_data = json.load(f)
-    ngc_dict, ic_dict = (
-        {int(k): v for k, v in catalog_data["ngc"].items()},
-        {int(k): v for k, v in catalog_data["ic"].items()},
-    )
-
-    # Create dictionary to map between object IDs and descriptions
-    object_id_desc_dict = {}
-
-    # Delete existing catalog data
-    delete_catalog_from_database("NGC")
-    delete_catalog_from_database("IC")
-    delete_catalog_from_database("M")
-
-    # Insert catalog descriptions
-    insert_catalog("NGC", Path(utils.astro_data_dir, "ngc_ic_m/ngc2000", "ngc.desc"))
-    insert_catalog("IC", Path(utils.astro_data_dir, "ngc_ic_m/", "ic.desc"))
-    insert_catalog("M", Path(utils.astro_data_dir, "ngc_ic_m/messier", "messier.desc"))
-
-    conn, _db_c = objects_db.get_conn_cursor()
-
-    # First pass: Group objects by catalogue number and select the best one from each group
     logging.info("Grouping objects by catalogue number...")
     object_groups = defaultdict(list)
 
@@ -407,107 +594,152 @@ def load_ngc_catalog():
                     )
 
     logging.debug(f"Selected {len(selected_objects)} objects after deduplication")
+    return {
+        (obj["catalogue_prefix"], obj["catalogue_number"]): obj
+        for obj in selected_objects
+    }
+
+
+def steinicke_description(obj, dreyer_description=""):
+    """
+    A listing's description: Dreyer's text (from NGC 2000.0) and Steinicke's
+    redshift distance and surface brightness. A not-found object's leads with
+    NOT_FOUND_DESCRIPTION, so nobody hunts an empty field.
+    """
+    desc = dreyer_description or ""
+    extra = ""
+    rs = obj.get("redshift_distance")
+    if rs:
+        extra += f"D(z)={rs:.1f} Mpc"
+    sb = obj.get("surface_brightness")
+    if sb:
+        extra += f"{',' if rs else ''}SB={sb} mag/arcmin²"
+    if (rs or sb) and desc:
+        desc += "\n" + extra
+    if steinicke_status(obj) == STATUS_NOT_FOUND:
+        desc = f"{NOT_FOUND_DESCRIPTION}\n{desc}" if desc else NOT_FOUND_DESCRIPTION
+    return desc
+
+
+def prepare_steinicke_object(obj, dreyer_description=""):
+    """The NewCatalogObject for one selected Steinicke row."""
+    catalog = "NGC" if obj.get("catalogue_prefix") == "N" else "IC"
+    obj_type = steinicke_object_type(
+        steinicke_status(obj),
+        (obj.get("object_type") or "").strip(),
+        obj.get("remarks") or "",
+    )
+    ra, dec = steinicke_radec(obj)
+
+    mag_value = obj.get("visual_magnitude")
+    if mag_value is None:
+        mag = MagnitudeObject([])
+    else:
+        mag = MagnitudeObject([float(mag_value)])
+
+    # Format size information (arcminutes from Steinicke)
+    pa = float(obj["position_angle"]) if obj.get("position_angle") else 0.0
+    if obj.get("diameter_larger"):
+        larger = float(obj["diameter_larger"])
+        if obj.get("diameter_smaller"):
+            size = SizeObject.from_arcmin(
+                larger, float(obj["diameter_smaller"]), position_angle=pa
+            )
+        else:
+            size = SizeObject.from_arcmin(larger, position_angle=pa)
+    else:
+        size = SizeObject([])
+
+    return NewCatalogObject(
+        object_type=obj_type,
+        catalog_code=catalog,
+        sequence=obj.get("catalogue_number"),
+        ra=ra,
+        dec=dec,
+        mag=mag,
+        size=size,
+        description=steinicke_description(obj, dreyer_description),
+        surface_brightness=obj.get("surface_brightness"),
+    )
+
+
+def insert_steinicke_objects(prepared, twins):
+    """
+    Insert the prepared listings. Each one mints its sky object, except a
+    duplicate in ``twins``, whose listing joins its twin's sky object: the
+    twins go in first, so every duplicate finds its twin's object_id.
+    """
+    for key, new_object in prepared.items():
+        if key not in twins:
+            new_object.insert()
+    for key, twin in twins.items():
+        new_object = prepared[key]
+        new_object.object_id = prepared[twin].object_id
+        new_object.insert(find_object_id=False)
+
+
+def load_ngc_catalog():
+    """
+    Load NGC, IC, and Messier catalogs with automated data extraction.
+
+    This function first checks if the required JSON files exist. If not, it automatically
+    extracts the ZIP file and processes the data to generate the required files.
+    Then it loads the catalog data using existing infrastructure methods.
+    """
+    # Check if required files exist, extract and process if not
+    if not _check_required_files():
+        logging.info("Required JSON files not found, extracting and processing data...")
+        _extract_and_process_data()
+
+    # Load JSON data
+    data_path = Path(utils.astro_data_dir, "ngc_ic_m/steinicke/steinicke_catalog.json")
+    logging.info(f"Loading catalog data from {data_path}")
+
+    with open(data_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # Load descriptions
+    with open(
+        utils.astro_data_dir / "ngc_ic_m/steinicke/ngc2000_descriptions.json", "r"
+    ) as f:
+        catalog_data = json.load(f)
+    ngc_dict, ic_dict = (
+        {int(k): v for k, v in catalog_data["ngc"].items()},
+        {int(k): v for k, v in catalog_data["ic"].items()},
+    )
+
+    # Create dictionary to map between object IDs and descriptions
+    object_id_desc_dict = {}
+
+    # Delete existing catalog data
+    delete_catalog_from_database("NGC")
+    delete_catalog_from_database("IC")
+    delete_catalog_from_database("M")
+
+    # Insert catalog descriptions
+    insert_catalog("NGC", Path(utils.astro_data_dir, "ngc_ic_m/ngc2000", "ngc.desc"))
+    insert_catalog("IC", Path(utils.astro_data_dir, "ngc_ic_m/", "ic.desc"))
+    insert_catalog("M", Path(utils.astro_data_dir, "ngc_ic_m/messier", "messier.desc"))
+
+    conn, _db_c = objects_db.get_conn_cursor()
+
+    # First pass: select the best row for each catalogue number
+    selected = select_listings(data)
 
     # Prepare all objects for batch insertion
     logging.info("Preparing objects for batch insertion...")
-    prepared_objects = []
-    object_id_desc_dict = {}
-
-    for obj in tqdm(selected_objects, desc="Preparing objects", leave=False):
-        # Get basic object properties
-        prefix = obj.get("catalogue_prefix")
-        sequence = obj.get("catalogue_number")
-
-        # Determine catalog code
-        if prefix == "N":
-            catalog = "NGC"
-        elif prefix == "I":
-            catalog = "IC"
-        else:
-            continue
-
-        # Extract object type and preprocess for mapping
-        steinicke_type = obj.get("object_type", "").strip()
-        remarks = obj.get("remarks", "")
-        obj_type = preprocess_steinicke_type(steinicke_type, remarks)
-
-        # Convert coordinates to decimal degrees
-        ra, dec = 0.0, 0.0
-        if obj.get("right_ascension") and obj.get("declination"):
-            # Extract RA components
-            ra_dict = obj["right_ascension"]
-            rah = ra_dict.get("hours", 0)
-            ram = ra_dict.get("minutes", 0)
-            ras = ra_dict.get("seconds", 0)
-
-            # Extract Dec components
-            dec_dict = obj["declination"]
-            des = "+" if dec_dict.get("sign", 1) > 0 else "-"
-            ded = dec_dict.get("degrees", 0)
-            dem = dec_dict.get("minutes", 0)
-            des_sec = dec_dict.get("seconds", 0)
-
-            # Convert to decimal degrees
-            dec = ded + (dem / 60) + (des_sec / 3600)
-            if des == "-":
-                dec = dec * -1
-            ra = (rah + (ram / 60) + (ras / 3600)) * 15
-
-        # Get magnitude
-        mag_value = obj.get("visual_magnitude")
-        if mag_value is None:
-            mag = MagnitudeObject([])
-        else:
-            mag = MagnitudeObject([float(mag_value)])
-
-        # Get surface brightness
-        surface_brightness = obj.get("surface_brightness")
-
-        # Format size information (arcminutes from Steinicke)
-        pa = float(obj["position_angle"]) if obj.get("position_angle") else 0.0
-        if obj.get("diameter_larger"):
-            larger = float(obj["diameter_larger"])
-            if obj.get("diameter_smaller"):
-                size = SizeObject.from_arcmin(
-                    larger, float(obj["diameter_smaller"]), position_angle=pa
-                )
-            else:
-                size = SizeObject.from_arcmin(larger, position_angle=pa)
-        else:
-            size = SizeObject([])
-
-        desc = ""
-        extra = ""
-        # Get description from remarks
-        if catalog == "NGC":
-            desc = ngc_dict.get(sequence) or ""
-        elif catalog == "IC":
-            desc = ic_dict.get(sequence) or ""
-        rs = obj.get("redshift_distance")
-        if rs:
-            extra += f"D(z)={rs:.1f} Mpc"
-        sb = obj.get("surface_brightness")
-        if sb:
-            extra += f"{',' if rs else ''}SB={sb} mag/arcmin²"
-        if (rs or sb) and desc:
-            desc += "\n" + extra
-
-        # Prepare object for batch insertion
-        new_object = NewCatalogObject(
-            object_type=obj_type,
-            catalog_code=catalog,
-            sequence=sequence,
-            ra=ra,
-            dec=dec,
-            mag=mag,
-            size=size,
-            description=desc,
-            surface_brightness=surface_brightness,
-        )
-        prepared_objects.append(new_object)
+    descriptions = {"N": ngc_dict, "I": ic_dict}
+    prepared = {
+        key: prepare_steinicke_object(obj, descriptions[key[0]].get(key[1]) or "")
+        for key, obj in tqdm(selected.items(), desc="Preparing objects", leave=False)
+    }
+    twins = resolve_duplicate_twins(selected)
+    logging.info(
+        f"Attaching {len(twins)} Steinicke duplicates to their twins' sky objects"
+    )
 
     # Batch insert all objects in single transaction
-    logging.info(f"Batch inserting {len(prepared_objects)} objects...")
+    logging.info(f"Batch inserting {len(prepared)} objects...")
     objects_db.bulk_mode = True
 
     # Create shared finder before bulk operations to avoid database conflicts
@@ -517,8 +749,8 @@ def load_ngc_catalog():
     NewCatalogObject.set_shared_finder(shared_finder)
 
     try:
-        for obj in tqdm(prepared_objects, desc="Inserting objects", leave=False):
-            obj.insert()
+        insert_steinicke_objects(prepared, twins)
+        for obj in prepared.values():
             # Create mapping using catalog+sequence format for Messier lookup
             catalog_sequence_key = f"{obj.catalog_code}{obj.sequence}"
             object_id_desc_dict[catalog_sequence_key] = obj.description
