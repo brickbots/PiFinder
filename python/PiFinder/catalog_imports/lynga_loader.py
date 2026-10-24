@@ -18,7 +18,7 @@ import numpy as np
 import numpy.typing as npt
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg
+from PiFinder.calc_utils import ra_to_deg, dms_to_dec
 from .catalog_import_utils import (
     delete_catalog_from_database,
     insert_catalog,
@@ -377,11 +377,14 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, Any]:
     ra_m = entry["RA2000m"].item()
     result["ra"] = ra_to_deg(ra_h, ra_m, 0.0)
 
-    dec_d = entry["DE2000d"].item()
-    if entry["DE2000s"] == "-":
-        dec_d = -dec_d
-    dec_m = entry["DE2000m"].item()
-    result["dec"] = dec_to_deg(dec_d, dec_m, 0)
+    # The sign is a column of its own, so a declination between -1° and 0°
+    # (Lyn 229 at -00 54) stays south: negating 0 degrees would lose it.
+    result["dec"] = dms_to_dec(
+        entry["DE2000s"].item(),
+        entry["DE2000d"].item(),
+        entry["DE2000m"].item(),
+        0,
+    )
 
     if VERBOSE:
         logging.debug(

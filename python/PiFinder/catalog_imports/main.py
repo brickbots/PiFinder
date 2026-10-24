@@ -9,7 +9,11 @@ import argparse
 import logging
 
 from PiFinder import timez
-from .catalog_import_utils import print_database, resolve_object_images
+from .catalog_import_utils import (
+    MATCH_REJECTIONS,
+    print_database,
+    resolve_object_images,
+)
 from .corrections import apply_corrections, load_corrections
 from .database import init_shared_database
 
@@ -17,9 +21,12 @@ from .database import init_shared_database
 CATALOG_LOADERS = [
     # Core catalogs (order matters for referencing)
     ("steinicke_loader", "load_ngc_catalog"),
-    # Additional catalogs
-    ("caldwell_loader", "load_caldwell"),
+    # Additional catalogs. A loader joins only sky objects that earlier
+    # loaders created, so Collinder and Sharpless come before Caldwell, whose
+    # C 9 is Sh2 155.
     ("specialized_loaders", "load_collinder"),
+    ("specialized_loaders", "load_sharpless"),
+    ("caldwell_loader", "load_caldwell"),
     ("specialized_loaders", "load_taas200"),
     ("herschel_loader", "load_herschel400"),
     ("sac_loaders", "load_sac_asterisms"),
@@ -29,7 +36,6 @@ CATALOG_LOADERS = [
     ("specialized_loaders", "load_egc"),
     ("specialized_loaders", "load_rasc_double_Stars"),
     ("specialized_loaders", "load_barnard"),
-    ("specialized_loaders", "load_sharpless"),
     ("specialized_loaders", "load_abell"),
     ("specialized_loaders", "load_arp"),
     ("specialized_loaders", "load_tlk_90_vars"),
@@ -123,6 +129,10 @@ def main():
         except Exception as e:
             logging.error(f"Failed to run {function_name} from {module_name}: {e}")
             raise
+
+    # A rejected join doesn't fail the import: the listing stays a sky object
+    # of its own, and each one was logged as it happened (catalog.md §9.3).
+    logging.info("Match guard rejected %d joins", len(MATCH_REJECTIONS))
 
     # The final pass: corrections have the last word over every stage above,
     # so any stage added later goes before this (ADR 0046).
