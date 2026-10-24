@@ -5,8 +5,10 @@ This module contains common classes and functions used by all catalog loaders.
 """
 
 import logging
+import math
 import re
-from typing import Dict, Optional, Tuple
+import sqlite3
+from typing import Dict, List, Optional, Sequence, Tuple
 from dataclasses import dataclass, field
 from tqdm import tqdm
 
@@ -18,6 +20,91 @@ from PiFinder.db.observations_db import ObservationsDatabase
 # Global database objects (will be initialized by the main import script)
 objects_db: Optional[ObjectsDatabase] = None
 observations_db: Optional[ObservationsDatabase] = None
+
+# The match guard (docs/ax/catalog.md §9.3): a listing joins the sky object an
+# aka names only within this distance of it, or within the sky object's own
+# size where that is larger.
+MATCH_RADIUS_ARCMIN = 30.0
+
+# Types a listing of either kind may join: an unknown type, which the guard
+# can't judge, and a star group (Steinicke's *3 and *4, such as M 73), which
+# cluster catalogs and double-star lists both list.
+_EITHER_KIND_TYPES = frozenset({"", "?", "-", "***"})
+
+# Star types as the loaders write them, before fix_object_types normalises
+# them: "*" (or "* "), "D*" and "**", each perhaps with a trailing "?".
+_STAR_TYPE_RE = re.compile(r"(\*\*?|D\*)\??")
+
+# Precedence (docs/ax/catalog.md §9.1): a listing that joins a sky object an
+# earlier loader created fills an empty magnitude or size and replaces nothing,
+# but for these exceptions, keyed by the joining listing's catalog code. A new
+# exception belongs in that table and here, never in a loader.
+#
+# Harris is the reference for Milky Way globulars, and every Harris listing is
+# one: its magnitude replaces the sky object's.
+MAGNITUDE_REPLACED_BY = frozenset({"Har"})
+# A cluster on PiFinder's globular list is a globular.
+TYPE_SET_BY = {"EGC": "Gb"}
+
+
+@dataclass
+class MatchRejection:
+    """A join the match guard refused: the listing became its own sky object."""
+
+    listing: str
+    aka: str
+    object_id: int
+    reason: str
+
+
+# Every rejection in this import, in order. Rejections don't fail the import.
+MATCH_REJECTIONS: List[MatchRejection] = []
+
+
+def separation_arcmin(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
+    """Great-circle distance between two positions in degrees, in arcminutes."""
+    ra1, dec1, ra2, dec2 = map(math.radians, (ra1, dec1, ra2, dec2))
+    # Haversine: stays accurate for the sub-arcminute separations of a match.
+    h = (
+        math.sin((dec2 - dec1) / 2) ** 2
+        + math.cos(dec1) * math.cos(dec2) * math.sin((ra2 - ra1) / 2) ** 2
+    )
+    return math.degrees(2 * math.asin(min(1.0, math.sqrt(h)))) * 60
+
+
+def is_star_type(obj_type: Optional[str]) -> Optional[bool]:
+    """Whether a type is a star's, or None when it is compatible with both kinds."""
+    cleaned = (obj_type or "").strip()
+    if cleaned in _EITHER_KIND_TYPES:
+        return None
+    return _STAR_TYPE_RE.fullmatch(cleaned) is not None
+
+
+def match_guard(
+    obj_type: str, ra: float, dec: float, sky_object: sqlite3.Row
+) -> Optional[str]:
+    """Why a listing may not join a sky object, or None if it may.
+
+    The types must be compatible: a star joins only a star, and anything else
+    only a non-star; an unknown type ("?") and a star group ("***") are
+    compatible with both. And the listing must lie within MATCH_RADIUS_ARCMIN
+    of the sky object, or within the sky object's major axis where that is
+    larger.
+    """
+    listing_is_star = is_star_type(obj_type)
+    object_is_star = is_star_type(sky_object["obj_type"])
+    if (
+        listing_is_star is not None
+        and object_is_star is not None
+        and listing_is_star != object_is_star
+    ):
+        return f"types {obj_type.strip()} and {sky_object['obj_type'].strip()}"
+    separation = separation_arcmin(ra, dec, sky_object["ra"], sky_object["dec"])
+    major_axis = SizeObject.from_json(sky_object["size"]).max_extent_arcsec / 60
+    limit = max(MATCH_RADIUS_ARCMIN, major_axis)
+    if separation > limit:
+        return f"{separation:.1f}' apart, limit {limit:.0f}'"
+    return None
 
 
 @dataclass
@@ -33,6 +120,9 @@ class NewCatalogObject:
     description: str = ""
     aka_names: list[str] = field(default_factory=list)
     surface_brightness: float = 0.0
+    # Read lettered akas ("NGC 4676A") as components: see ObjectFinder.resolve.
+    # Only the Arp loader sets it.
+    lettered_components: bool = False
 
     # Class-level shared finder for performance optimization
     _shared_finder: Optional["ObjectFinder"] = None
@@ -57,15 +147,20 @@ class NewCatalogObject:
 
         # Check to see if this object matches one in the DB already
         # This is a costly operation, so disabled for 'source' catalogs like WDS
+        finder = None
         if find_object_id:
-            self.find_object_id()
+            finder = self.__class__._shared_finder or ObjectFinder()
+            self.find_object_id(finder)
+        joined = self.object_id != 0
 
         try:
             # Enable bulk mode to prevent individual commits
             objects_db.bulk_mode = True
             objects_db.conn.execute("BEGIN TRANSACTION")
 
-            if self.object_id == 0:
+            if joined:
+                self.fill_joined_object(group=self.describes_a_group(finder))
+            else:
                 # Did not find a match, first insert object info
                 self.find_constellation()
                 assert isinstance(self.mag, MagnitudeObject)
@@ -93,7 +188,15 @@ class NewCatalogObject:
                 self.catalog_code,
             )
             for aka in self.aka_names:
-                objects_db.insert_name(self.object_id, aka, self.catalog_code)
+                if finder is None or self.keeps_as_name(aka, finder, joined):
+                    objects_db.insert_name(self.object_id, aka, self.catalog_code)
+                else:
+                    logging.debug(
+                        "Not naming %s %s %r: another sky object's designation",
+                        self.catalog_code,
+                        self.sequence,
+                        aka,
+                    )
 
             # Commit the transaction
             objects_db.conn.commit()
@@ -106,6 +209,84 @@ class NewCatalogObject:
             # Restore bulk mode to False
             objects_db.bulk_mode = False
 
+    def keeps_as_name(self, aka: str, finder: "ObjectFinder", joined: bool) -> bool:
+        """Whether an aka is stored as one of this listing's names.
+
+        A designation of a PiFinder catalog is a name only of the sky object it
+        resolves to, so a member's number (NGC 869 in the Double Cluster's
+        "869;884") is not stored on its sibling. One that resolves to nothing
+        names something PiFinder doesn't hold: on a joined sky object that is
+        another object (NGC 1097A beside NGC 1097), but a listing of its own
+        may carry it (Arp 79 is NGC 5490C). Every other aka, a common name or
+        another catalog's number, is stored.
+        """
+        is_designation, object_id = finder.resolve(
+            aka, self.aka_names, self.lettered_components
+        )
+        if not is_designation:
+            return True
+        if object_id is None:
+            return not joined
+        return object_id == self.object_id
+
+    def describes_a_group(self, finder: Optional["ObjectFinder"]) -> bool:
+        """Whether this listing's akas resolve to more than one sky object.
+
+        Such a listing gives the group's values, not those of the member it
+        joins: TAAS's "2237;2244" carries NGC 2244's cluster magnitude, which
+        is no value of NGC 2237, the Rosette Nebula.
+        """
+        if finder is None:
+            return False
+        named = {
+            finder.resolve(aka, self.aka_names, self.lettered_components)[1]
+            for aka in self.aka_names
+        }
+        named.discard(None)
+        return len(named) > 1
+
+    def fill_joined_object(self, group: bool = False):
+        """Fill the joined sky object's empty values from this listing.
+
+        A later loader fills an empty magnitude or size and never replaces a
+        value; the type and position are the first loader's. A listing that
+        describes a group fills nothing. The exceptions are
+        MAGNITUDE_REPLACED_BY and TYPE_SET_BY (docs/ax/catalog.md §9.1).
+        """
+        assert objects_db is not None
+        sky_object = objects_db.conn.execute(
+            "SELECT obj_type, mag, size FROM objects WHERE id = ?", (self.object_id,)
+        ).fetchone()
+        updates = {}
+        has_mag = self.mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
+        object_mag = MagnitudeObject.from_json(sky_object["mag"])
+        fills = not group
+        if has_mag and (
+            (fills and object_mag.filter_mag == MagnitudeObject.UNKNOWN_MAG)
+            or self.catalog_code in MAGNITUDE_REPLACED_BY
+        ):
+            updates["mag"] = self.mag.to_json()
+        object_size = SizeObject.from_json(sky_object["size"])
+        if fills and self.size.extents and not object_size.extents:
+            updates["size"] = self.size.to_json()
+        obj_type = TYPE_SET_BY.get(self.catalog_code)
+        if obj_type is not None and sky_object["obj_type"] != obj_type:
+            updates["obj_type"] = obj_type
+        if not updates:
+            return
+        logging.debug(
+            "%s %s fills %s on object %d",
+            self.catalog_code,
+            self.sequence,
+            ", ".join(updates),
+            self.object_id,
+        )
+        columns = ", ".join(f"{column} = ?" for column in updates)
+        objects_db.conn.execute(
+            f"UPDATE objects SET {columns} WHERE id = ?",
+            (*updates.values(), self.object_id),
+        )
+
     def find_constellation(self):
         """
         Uses RA/DEC to figure out what constellation this object is in
@@ -116,17 +297,63 @@ class NewCatalogObject:
         if self.constellation is None:
             raise ValueError("Constellation not set")
 
-    def find_object_id(self):
+    def find_object_id(self, finder: Optional["ObjectFinder"] = None):
+        """Join the sky object of the first aka that passes the match guard.
+
+        Each aka that resolves to a sky object is a candidate, in source order.
+        match_guard rejects one of an incompatible type or too far away; every
+        rejection is logged and kept in MATCH_REJECTIONS. If no candidate
+        passes, object_id stays 0 and the listing becomes a sky object of its
+        own.
         """
-        Finds an object id if one exists using AKAs
-        """
+        assert objects_db is not None
         # Use class-level shared finder if available, otherwise create new one
-        finder = self.__class__._shared_finder or ObjectFinder()
+        finder = finder or self.__class__._shared_finder or ObjectFinder()
+        rejected = set()
         for aka in self.aka_names:
-            _id = finder.get_object_id(aka)
-            if _id is not None:
-                self.object_id = _id
-                break
+            _, object_id = finder.resolve(aka, self.aka_names, self.lettered_components)
+            if object_id is None or object_id in rejected:
+                continue
+            sky_object = objects_db.conn.execute(
+                "SELECT obj_type, ra, dec, size FROM objects WHERE id = ?",
+                (object_id,),
+            ).fetchone()
+            reason = match_guard(self.object_type, self.ra, self.dec, sky_object)
+            if reason is None:
+                self.object_id = object_id
+                return
+            rejected.add(object_id)
+            rejection = MatchRejection(
+                f"{self.catalog_code} {self.sequence}", aka, object_id, reason
+            )
+            MATCH_REJECTIONS.append(rejection)
+            logging.warning(
+                "Match guard: %s does not join %r (object %d): %s",
+                rejection.listing,
+                aka,
+                object_id,
+                reason,
+            )
+
+
+# A component letter after a designation: "NGC 4676A", "M51B".
+_COMPONENT_RE = re.compile(r"(.*\d)\s*([A-Za-z])")
+
+
+def parse_component(raw: str) -> Optional[Tuple[str, int, str]]:
+    """Split a lettered designation into catalog code, sequence and letter.
+
+    "NGC 4676A" -> ("NGC", 4676, "A"), "M51B" -> ("M", 51, "B"). None unless
+    the part before the letter is a designation parse_designation reads, so
+    "UGC 10814A" and "h 2827A" are no component of anything.
+    """
+    match = _COMPONENT_RE.fullmatch(trim_string(raw))
+    if match is None:
+        return None
+    parsed = parse_designation(match.group(1))
+    if parsed is None:
+        return None
+    return parsed[0], parsed[1], match.group(2).upper()
 
 
 class ObjectFinder:
@@ -135,24 +362,54 @@ class ObjectFinder:
     Should be reinited for every catalog as the database changes.
     """
 
-    mappings: Dict[str, str]
+    mappings: Dict[Tuple[str, int], int]
 
-    def __init__(self):
-        self.objects_db = ObjectsDatabase()
+    def __init__(self, db: Optional[ObjectsDatabase] = None):
+        self.objects_db = db or ObjectsDatabase()
         self.catalog_objects = self.objects_db.get_catalog_objects()
         self.mappings = {
-            f"{row['catalog_code'].lower()}{row['sequence']}": row["object_id"]
+            (row["catalog_code"], row["sequence"]): row["object_id"]
             for row in self.catalog_objects
         }
 
-    def get_object_id(self, object_name: str):
+    def resolve(
+        self,
+        aka: str,
+        listing_akas: Sequence[str] = (),
+        lettered_components: bool = False,
+    ) -> Tuple[bool, Optional[int]]:
+        """Whether an aka is a designation of a PiFinder catalog, and its sky object.
+
+        listing_named reads designations, so the prefix allowlist governs
+        every lookup: "B53" and "h99" are never Barnard 53 or Herschel 400
+        #99. The sky object is None when the designation resolves to nothing.
+
+        With ``lettered_components``, a lettered aka ("NGC 4676A") is a
+        designation too. It resolves to the sky object of its number when it
+        is the A component and the listing, ``listing_akas``, does not also
+        name the number itself: PiFinder's NGC 4676 is that component, and
+        Arp 242 lists only NGC 4676A and B, but Arp 77 lists both NGC 1097 and
+        NGC 1097A, a companion galaxy beside it. Any other letter is a galaxy
+        of its own (NGC 5490C) and resolves to nothing. A source can mean
+        either by the letter, so only a loader that has checked its own opts
+        in.
+        """
+        listing = listing_named(aka)
+        if listing is not None:
+            return True, self.mappings.get(listing)
+        component = parse_component(aka) if lettered_components else None
+        if component is None:
+            return False, None
+        catalog_code, sequence, letter = component
+        if letter != "A" or any(
+            listing_named(other) == (catalog_code, sequence) for other in listing_akas
+        ):
+            return True, None
+        return True, self.mappings.get((catalog_code, sequence))
+
+    def get_object_id(self, object_name: str) -> Optional[int]:
         logging.debug(f"Looking up object id for {object_name}")
-        result = self.mappings.get(object_name.lower())
-        if not result:
-            parsed = parse_designation(object_name)
-            if parsed is not None:
-                catalog_code, sequence = parsed
-                result = self.mappings.get(f"{catalog_code.lower()}{sequence}")
+        _, result = self.resolve(object_name)
         if result:
             logging.debug(f"Found object id {result} for {object_name}")
         else:
@@ -188,9 +445,11 @@ def parse_arcmin_size(raw: str, strict: bool = False) -> SizeObject:
     trailing suffix: ' (arcmin), " (arcsec), or ° (degrees) — so arcsecond
     catalogs like EGC ('36"') parse correctly. The axis separators 'x', '×',
     '/', and '+' are all treated as delimiters, so "32'x6.5'", "0.3/5.8", and
-    "30'+30'" each yield two extents. Tokens whose numeric part can't be
-    parsed (e.g. "nl", "see") are skipped with a warning, or raise ValueError
-    when strict: a correction's size is typed by hand and must parse whole.
+    "30'+30'" each yield two extents. Two extents are an ellipse's axes, and
+    SizeObject keeps the major axis first, so Collinder's "25x30" is
+    30' x 25'. Tokens whose numeric part can't be parsed (e.g. "nl", "see")
+    are skipped with a warning, or raise ValueError when strict: a
+    correction's size is typed by hand and must parse whole.
     """
     if not raw:
         return SizeObject([])
@@ -208,6 +467,8 @@ def parse_arcmin_size(raw: str, strict: bool = False) -> SizeObject:
             values.append(arcsec)
     if not values:
         return SizeObject([])
+    if len(values) == 2:
+        values.sort(reverse=True)
     return SizeObject.from_arcsec(*values)
 
 
@@ -313,6 +574,17 @@ def parse_designation(
     if catalog_code is None:
         return None
     return catalog_code, int(sequence)
+
+
+def listing_named(name: str) -> Optional[Tuple[str, int]]:
+    """The listing a name resolves to in the loaders' lookup, or None.
+
+    parse_designation alone answers it, so its prefix allowlist governs every
+    lookup: "B53" and "h99" name no listing, though Barnard 53 and Herschel
+    400 #99 exist. ObjectFinder and the correction pass's checks
+    (corrections.resolves_to) both ask this, so they cannot disagree.
+    """
+    return parse_designation(name)
 
 
 def delete_catalog_from_database(catalog_code: str):

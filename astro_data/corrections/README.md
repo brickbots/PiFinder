@@ -156,9 +156,9 @@ The import fails, naming the file and the designator, when:
 - a `same_as` points at a designator that has its own `same_as` (point it at
   the final sky object instead);
 - a split or join leaves its old sky object still carrying another
-  catalog's name that the loaders' lookup resolves to the designator: its
-  exact key ("NGC70"), or a designation `parse_designation` reads as it
-  ("Cr 42" for Col 42, "NGC 0070" for NGC 70, but not "H 24", since a bare
+  catalog's name that the loaders' lookup resolves to the designator: a
+  designation `parse_designation` reads as it ("Cr 42" for Col 42,
+  "NGC 0070" and "NGC70" for NGC 70, but not "H 24" or "H24", since a bare
   "H" names no catalog). That catalog's listing was matched through the
   wrong identification and would be left behind, so correct it too. If the
   name is only a stray, a `names.remove` on the old sky object clears it.

@@ -780,9 +780,10 @@ def test_moving_an_m_listing_needs_the_ngc_records_m_name_removed(
         ("Collinder 42", ("Col", 42), True),
         ("NGC 0070", ("NGC", 70), True),
         ("ngc 70", ("NGC", 70), True),
-        ("NGC70", ("NGC", 70), True),  # the lookup's exact key
-        ("H24", ("H", 24), True),  # likewise
-        ("H 24", ("H", 24), False),  # a bare "h" names no catalog
+        ("NGC70", ("NGC", 70), True),
+        ("H24", ("H", 24), False),  # a bare "h" names no catalog, spaced or not
+        ("H 24", ("H", 24), False),
+        ("B53", ("B", 53), False),  # nor a bare "b"
         ("M 2-9", ("M", 29), False),  # Minkowski 2-9, not Messier 29
         ("M 2-9", ("M", 9), False),
         ("NGC 7466", ("NGC", 70), False),
