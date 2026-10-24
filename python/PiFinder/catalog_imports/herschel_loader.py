@@ -60,7 +60,7 @@ def load_herschel400():
                         "NGC %s not found, skipping H%d", NGC_sequence, sequence
                     )
                     continue
-                object_id = result["id"]
+                object_id = result["object_id"]
                 objects_db.insert_name(object_id, h_name, catalog)
                 objects_db.insert_catalog_object(object_id, catalog, sequence, h_desc)
         conn.commit()
