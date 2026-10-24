@@ -14,8 +14,9 @@ from .catalog_import_utils import (
     print_database,
     resolve_object_images,
 )
-from .corrections import apply_corrections, load_corrections
+from .corrections import apply_corrections, hip_identifications, load_corrections
 from .database import init_shared_database
+from .star_identity import identify_stars
 
 # Loader registry - import functions dynamically to reduce coupling
 CATALOG_LOADERS = [
@@ -130,6 +131,11 @@ def main():
         except Exception as e:
             logging.error(f"Failed to run {function_name} from {module_name}: {e}")
             raise
+
+    # Star identity: merge the star catalogs' listings by Hipparcos number,
+    # reading the `hip` corrections ahead of position (catalog.md §9.3).
+    logging.info("Identifying stars...")
+    identify_stars(objects_db, hip_identifications(corrections))
 
     # A rejected join doesn't fail the import: the listing stays a sky object
     # of its own, and each one was logged as it happened (catalog.md §9.3).

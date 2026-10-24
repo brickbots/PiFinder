@@ -42,6 +42,7 @@ def db(tmp_path, monkeypatch):
         monkeypatch.setattr(module, "objects_db", db)
     yield db
     db.conn.close()
+    ciu.ROUNDED_POSITIONS.clear()
 
 
 @pytest.fixture
@@ -212,6 +213,8 @@ def test_load_sac_redstars_keeps_the_sign_of_minus_00(db, astro_data):
     )
     sac_loaders.load_sac_redstars()
     assert listing(db, "SaR", 1)["dec"] == pytest.approx(-0.1)
+    # A red star is single; the star cross-match makes a double one D*.
+    assert listing(db, "SaR", 1)["obj_type"] == "*"
 
 
 def test_load_sac_asterisms_keeps_the_sign_of_minus_00(db, astro_data):
@@ -288,6 +291,9 @@ WDS_LINES = [
     # A separation over 1000", which the old columns cut to its last digits.
     "00023+3257ABC   1AB    2015 2015    2  30.90 1234.567      9.07  9.5  G0  "
     "      +026-039          +32 4755      000219.30+325724.7",
+    # No arcsecond coordinates: placed by its identifier.
+    "00123-2729LDS2101      1954 2017    2  57.20    1.900     16.0  19.8      "
+    "      +085+027                    X         .         . ",
 ]
 
 
@@ -355,3 +361,20 @@ def test_load_wds_keeps_a_missing_companion_magnitude_out(wds):
     assert pair["description"].split("\n")[0] == (
         "Aa,Ab: Mag=9.07/?, PA=30.9 (2015), Sep=0.354"
     )
+
+
+def test_load_wds_types_a_listing_by_its_pairs(wds):
+    # Vega's pairs are all flagged optical; SHN 45 is a close pair of its own.
+    assert listing(wds, "WDS", 1)["obj_type"] == "*"
+    assert listing(wds, "WDS", 2)["obj_type"] == "D*"
+    # No companion magnitude, or a companion 1234" away: no double star.
+    assert listing(wds, "WDS", 3)["obj_type"] == "*"
+
+
+def test_load_wds_records_a_row_placed_by_its_identifier(wds):
+    # 00123-2729 is 00h12.3m -27°29': the star cross-match gives it 3'.
+    row = listing(wds, "WDS", 4)
+    assert row["ra"] == pytest.approx((12.3 / 60) * 15)
+    assert row["dec"] == pytest.approx(-(27 + 29 / 60))
+    assert ("WDS", 4) in ciu.ROUNDED_POSITIONS
+    assert ("WDS", 1) not in ciu.ROUNDED_POSITIONS

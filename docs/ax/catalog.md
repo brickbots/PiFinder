@@ -433,10 +433,11 @@ tracked file with `git checkout -- astro_data/pifinder_objects.db`
 before the next build.
 
 > **Status (2026-10-23).** Parts of this section describe the import as
-> the catalog-audit fixes leave it, not as `main` has it today: the star
-> cross-match (9.3) and the supplementary sources (9.4) are being built.
+> the catalog-audit fixes leave it, not as `main` has it today: the
+> supplementary sources (9.4) are being built.
 > The designation allowlist, the match guard (9.3) and precedence (9.1)
-> are in `catalog_imports/catalog_import_utils.py`. The correction pass
+> are in `catalog_imports/catalog_import_utils.py`, the star cross-match
+> (9.3) in `catalog_imports/star_identity.py`. The correction pass
 > (9.5) is in `catalog_imports/corrections.py`, and
 > `astro_data/corrections/` holds no corrections yet.
 > The decision record is [ADR 0046](../adr/0046-catalog-corrections-cited-checked-applied-last.md).
@@ -455,7 +456,7 @@ before the next build.
         │   type normalisation, the hand-built Messier objects,
         │   the Messier names
         ▼
-   star identity: Hipparcos cross-match, merge by HIP
+   star identity: Hipparcos cross-match, merge by HIP   (star_identity.py)
         │   (`hip` corrections are read here, ahead of position)
         ▼
    supplementary sources: Hipparcos values → WGSN names → Bica sizes
@@ -574,26 +575,69 @@ Arp 79's NGC 5490C, a galaxy of its own 4.8′ from NGC 5490, does not. A
 source can mean either by the letter, so every other loader keeps the
 strict default, where "NGC 4676A" is a plain name.
 
-**Stars are identified by Hipparcos number.** Each star listing is
-cross-matched to `hip_main.dat`: the nearest Hipparcos star within about
-3′ whose V is within about 1 mag of the listing's. Listings that match
-one HIP number are one sky object, whatever catalogs list them — Str,
-SaM, SaR, TLK, RDS and WDS alike — so Mizar is one sky object. A listing
-with no match (a SAC double fainter than Hipparcos's completeness, say)
-stays its own. A listing whose source position is too wrong to match
-(SAC's α Mic, whole degrees off) gets a `hip` correction, which this
-stage reads before it cross-matches — the one correction that does not
-wait for the final pass (9.5). Source positions are rounded to 0.1ᵐ in RA and 1′ in Dec,
-and few sources carry an ID, so position alone or a catalog ID alone
-cannot do this.
+**Stars are identified by Hipparcos number.** The star-identity stage
+cross-matches every sky object that carries a listing of a star catalog
+(Str, SaM, SaR, TLK, RDS, WDS) to `hip_main.dat`, and merges the sky
+objects that match one HIP number into one, whatever catalogs list them:
+Mizar is one sky object. A listing with no match (a SAC double fainter
+than Hipparcos's completeness, say) stays its own. Source positions are
+rounded, and few sources carry an ID, so position alone or a catalog ID
+alone cannot do this: the match takes a star's V as well as its place.
 
-A merged star is typed `D*` if SAC's doubles (SaM, less its "rej."
-rows), RASC's doubles (RDS), or a WDS pair not flagged optical
-(S, U, Y, L) or dubious (X) lists it; otherwise `*`. WDS alone would
-make nearly every bright star a double — Vega's WDS companions are
-field stars — and Hipparcos's CCDM letter is blank for wide pairs and
-for pairs it could not resolve (Sirius, Polaris, Antares), so neither
-decides by itself.
+- **The match** is the nearest Hipparcos star within the listing's radius
+  whose V lies within 1 mag of the listing's first magnitude, the
+  primary's. The radius follows the position's precision: 3′ for SAC,
+  RASC and the bright stars, which round to 0.1ᵐ in RA and 1′ in Dec, and
+  for a WDS row without arcsecond coordinates, which is placed by its
+  identifier; 0.5′ for the arcsecond positions of WDS and TLK. Beyond
+  0.5′ a WDS pair is nearly always another star than the Hipparcos one it
+  would match: its Durchmusterung number differs. Hipparcos's
+  J1991.25 positions are carried to J2000 by their proper motion, which
+  moves Arcturus 20″. Two stars equally near go to the lower HIP number,
+  so every import picks the same one.
+- **Variables, and no V.** A variable listed by its range (TLK's
+  [max, min]) passes the gate when the Hipparcos star's V lies within
+  1 mag of the range. A listing without a magnitude (SAC's continuation
+  rows, such as ν Sco's AC) is matched by position alone. When no star
+  within the radius passes the gate, a variable is matched by position
+  alone too: TLK's ranges are often photographic (La Superba), and the
+  catalogs give a large-amplitude variable (Hipparcos's variability flag
+  3) its maximum where Hipparcos gives its mean (Mira: 2.0 against 6.47).
+  So a variable never takes a listing from a star whose V the listing
+  matches.
+- **`hip` corrections come first.** A listing whose source position or
+  magnitude is too wrong to match (SAC's α Mic, whole degrees off) gets a
+  `hip` correction, which this stage reads before it cross-matches and
+  uses in place of the match — the one correction that does not wait for
+  the final pass (9.5). One whose designator resolves to nothing or to no
+  star listing, that names a HIP number Hipparcos lacks, or that names the
+  star the cross-match finds anyway (redundant) fails the import, before
+  anything is merged.
+- **The merge.** The first loader's sky object survives (the lowest id),
+  as if the later listings had joined it, and keeps its position. The
+  others' listings and names move onto it in id order, their names after
+  its own (a name it already has is dropped), and their magnitudes and
+  sizes fill its empty ones by the precedence of 9.1, never replacing
+  one. The stage returns each surviving sky object's HIP number, which the
+  Hipparcos supplementary source (9.4) joins on.
+
+A star is typed `D*` if SAC's doubles (SaM, less its "rej." rows),
+RASC's doubles (RDS), or a WDS pair that is a double star lists it;
+otherwise `*`. Each loader types its own listings by the rule — SaM and
+RDS `D*`; Str, SaR and TLK `*`; a WDS listing `D*` when one of its pairs
+is a double star — and a merged star is `D*` if any of its sky objects
+was. A WDS pair is a double star if WDS flags it neither optical
+(S, U, Y, L) nor dubious (X), it includes the primary (its components
+are blank or start with A), and its companion is one an observer would
+look for: within 60″ and 5 mag of the primary (Rich's choice, 2026-10;
+the limits are named constants in `wds_loader.py`). WDS lists every pair
+ever measured, and many it has never flagged are faint field stars:
+without those limits nearly every bright star would be a double
+(Alphard's 9.7 mag companion at 284″, Vega's 12 mag survey stars).
+Hipparcos's CCDM letter is blank for wide pairs and for pairs it could
+not resolve (Sirius, Polaris, Antares), so neither decides by itself.
+SAC lists Vega and Fomalhaut, so the rule makes them `D*`; their
+companions are field stars, and corrections make them `*`.
 
 A **not-found** NGC/IC number (Steinicke's status 10, about 300 of
 them) keeps its listing, its nominal position and type `?`, and its

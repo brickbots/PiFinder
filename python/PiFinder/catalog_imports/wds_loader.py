@@ -18,6 +18,7 @@ import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.calc_utils import ra_to_deg, dms_to_dec
 from .catalog_import_utils import (
+    ROUNDED_POSITIONS,
     delete_catalog_from_database,
     insert_catalog,
     insert_catalog_max_sequence,
@@ -122,6 +123,34 @@ def wds_magnitudes(mag1: float, mag2: float) -> MagnitudeObject:
     return MagnitudeObject(mags)
 
 
+# The D* rule's WDS clause (docs/ax/catalog.md §9.3): WDS lists every pair
+# ever measured, so a pair makes a double star only if WDS flags it neither
+# optical (S, U, Y, L) nor dubious (X), it includes the primary, and its
+# companion is one an observer would look for: within this separation and
+# magnitude difference of the primary. Vega's companions fail, Propus's
+# BU 1008 (6.2 at 1.9") passes. The limits are Rich's choice (2026-10), his
+# to tune.
+OPTICAL_OR_DUBIOUS = frozenset("SUYLX")
+DOUBLE_MAX_SEPARATION_ARCSEC = 60.0
+DOUBLE_MAX_DELTA_MAG = 5.0
+
+
+def is_double_star_pair(value) -> bool:
+    """Whether one WDS pair makes its primary a double star (D*)."""
+    if set(value["Notes"]) & OPTICAL_OR_DUBIOUS:
+        return False
+    components = value["Components"].strip()
+    if components and not components.startswith("A"):
+        return False
+    sep = value["Sep"].item()
+    if np.isnan(sep) or sep > DOUBLE_MAX_SEPARATION_ARCSEC:
+        return False
+    mag1, mag2 = value["Mag_First"].item(), value["Mag_Second"].item()
+    if np.isnan(mag2):
+        return False
+    return bool(np.isnan(mag1) or mag2 - mag1 <= DOUBLE_MAX_DELTA_MAG)
+
+
 def describe_pair(value) -> str:
     """One pair's line of a WDS listing's description, without what WDS lacks."""
     components = value["Components"].strip()
@@ -147,7 +176,6 @@ def describe_pair(value) -> str:
 def load_wds():
     logging.info("Loading WDS")
     catalog = "WDS"
-    obj_type = "D*"
     conn, _ = objects_db.get_conn_cursor()
 
     # Optimize SQLite for bulk import
@@ -216,6 +244,7 @@ def load_wds():
         # Ordered, so the names keep the source order in every import.
         discoverers: dict = {}
         result: dict = {}
+        double = False
         descriptions = []
         for i, value in enumerate(values):
             if i == 0:
@@ -241,6 +270,7 @@ def load_wds():
                     )
                 result["ra"] = value["ra"]
                 result["dec"] = value["dec"]
+                result["precise"] = bool(value["precise"])
                 result["mag"] = wds_magnitudes(value["Mag_First"], value["Mag_Second"])
                 sep = value["Sep"].item()
                 result["size"] = (
@@ -250,19 +280,24 @@ def load_wds():
                 )
             discoverers[value["Discoverer_Number"]] = None
             descriptions.append(describe_pair(value))
+            double = double or is_double_star_pair(value)
 
+        # A listing none of whose pairs is a double star is a single star.
+        result["obj_type"] = "D*" if double else "*"
         result["discoverers"] = list(discoverers)
         result["name"] = key
         result["description"] = "\n".join(descriptions)
         return result
 
     # Add coordinate columns to the numpy array
-    new_dtype = data.dtype.descr + [("ra", "f8"), ("dec", "f8")]
+    new_dtype = data.dtype.descr + [("ra", "f8"), ("dec", "f8"), ("precise", "?")]
     new_data = np.empty(data.shape, dtype=new_dtype)
 
     # Copy existing data
     for name in data.dtype.names:
         new_data[name] = data[name]
+    # Whether the position is the arcsecond one, not the identifier's.
+    new_data["precise"] = False
 
     # Replace the old data with the new data
     data = new_data
@@ -275,6 +310,7 @@ def load_wds():
         if ra_arcsec is not None and dec_arcsec is not None:
             entry["ra"] = ra_arcsec
             entry["dec"] = dec_arcsec
+            entry["precise"] = True
         else:
             # Fall back to 2000 coordinates
             ra_2000, dec_2000 = parse_coordinates_2000(entry["Coordinates_2000"])
@@ -310,6 +346,9 @@ def load_wds():
     for line, entry in enumerate(tqdm(data, total=len(data))):
         wds_dict[entry["Coordinates_2000"]].append(entry)
 
+    ROUNDED_POSITIONS.difference_update(
+        {listing for listing in ROUNDED_POSITIONS if listing[0] == catalog}
+    )
     seq = 1
     for key, value in tqdm(wds_dict.items(), total=len(wds_dict.items())):
         current_result = handle_multiples(key, value)
@@ -318,7 +357,7 @@ def load_wds():
             trim_string(name) for name in current_result["discoverers"]
         ]
         new_object = NewCatalogObject(
-            object_type=obj_type,
+            object_type=current_result["obj_type"],
             catalog_code=catalog,
             sequence=seq,
             ra=current_result["ra"],
@@ -329,6 +368,8 @@ def load_wds():
             description=current_result["description"],
         )
         new_object.insert(find_object_id=False)
+        if not current_result["precise"]:
+            ROUNDED_POSITIONS.add((catalog, seq))
         seq += 1
 
     insert_catalog_max_sequence(catalog)
