@@ -15,7 +15,7 @@ import numpy as np
 import numpy.typing as npt
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg
+from PiFinder.calc_utils import ra_to_deg, dms_to_dec
 from .catalog_import_utils import (
     delete_catalog_from_database,
     insert_catalog,
@@ -261,13 +261,14 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, Any]:
     ra_s = entry["RAs"].item()
     result["ra"] = ra_to_deg(ra_h, ra_m, ra_s)
 
-    # Handle declination sign
-    dec_d = entry["DEd"].item()
-    if entry["DE_sign"] == "-":
-        dec_d = -dec_d
-    dec_m = entry["DEm"].item()
-    dec_s = entry["DEs"].item()
-    result["dec"] = dec_to_deg(dec_d, dec_m, dec_s)
+    # The sign is a column of its own, so a declination between -1° and 0°
+    # (NGC 6535 at -00 17 49) stays south: negating 0 degrees would lose it.
+    result["dec"] = dms_to_dec(
+        entry["DE_sign"].item(),
+        entry["DEd"].item(),
+        entry["DEm"].item(),
+        entry["DEs"].item(),
+    )
 
     if VERBOSE:
         logging.debug(

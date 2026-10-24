@@ -16,7 +16,7 @@ from collections import namedtuple, defaultdict
 
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg, b1950_to_j2000
+from PiFinder.calc_utils import ra_to_deg, dec_to_deg, dms_to_dec, b1950_to_j2000
 from .catalog_import_utils import (
     NewCatalogObject,
     delete_catalog_from_database,
@@ -131,14 +131,9 @@ def load_collinder():
             ra_s = float(ra[8:12])
             ra_deg = ra_to_deg(ra_h, ra_m, ra_s)
 
+            # The sign is read on its own, so Col 401 at -00 20 stays south.
             dec = dfs[4]
-            dec_sign = dec[0]
-            dec_deg = int(dec[1:3])
-            if dec_sign == "-":
-                dec_deg *= -1
-            dec_m = int(dec[5:7])
-            dec_s = int(dec[9:11])
-            dec_deg = dec_to_deg(dec_deg, dec_m, dec_s)
+            dec_deg = dms_to_dec(dec[0], int(dec[1:3]), int(dec[5:7]), int(dec[9:11]))
 
             size = parse_arcmin_size(dfs[7])
             desc = f"{dfs[6]} stars, like {dfs[8]}"
@@ -276,11 +271,10 @@ def load_taas200():
             logging.debug(f"TAAS catalog {other_catalog=} {other_names=}")
             obj_type = typedict[row["Type"]]
             ra = ra_to_deg(float(row["RA Hr"]), float(row["RA Min"]), 0)
+            # "n" or "s" is the sign, so NGC 4666 at s00 28 stays south.
             dec_deg = row["Dec Deg"]
-            dec_deg = (
-                float(dec_deg[1:]) if dec_deg[0] == "n" else float(dec_deg[1:]) * -1
-            )
-            dec = dec_to_deg(dec_deg, float(row["Dec Min"]), 0)
+            dec_sign = "+" if dec_deg[0] == "n" else "-"
+            dec = dms_to_dec(dec_sign, float(dec_deg[1:]), float(row["Dec Min"]), 0)
             mag = row["Magnitude"]
             if mag == "none" or mag == "":
                 mag = MagnitudeObject([])
@@ -453,9 +447,8 @@ def load_barnard():
                 ra_s = RA2000s
                 ra_deg = ra_to_deg(ra_h, ra_m, ra_s)
 
-                dec_deg = DE2000d * -1 if DE2000_sign == "-" else DE2000d
-                dec_m = DE2000m
-                dec_deg = dec_to_deg(dec_deg, dec_m, 0)
+                # The sign is a column of its own, so B 326 at -0 23 stays south.
+                dec_deg = dms_to_dec(DE2000_sign, DE2000d, DE2000m, 0)
                 desc = barn_dict[Barn].strip()
 
                 if raw_diam:

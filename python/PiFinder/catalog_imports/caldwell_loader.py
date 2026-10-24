@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg
+from PiFinder.calc_utils import ra_to_deg, dms_to_dec
 from .catalog_import_utils import (
     NewCatalogObject,
     delete_catalog_from_database,
@@ -79,13 +79,9 @@ def load_caldwell():
             ra_m = float(dfs[7])
             ra_deg = ra_to_deg(ra_h, ra_m, 0)
 
-            dec_sign = dfs[8]
-            dec_deg = int(dfs[9])
-            dec_m = float(dfs[10])
-            if dec_sign == "-":
-                dec_deg *= -1
-
-            dec_deg = dec_to_deg(dec_deg, dec_m, 0)
+            # The sign is a column of its own, so a declination between -1°
+            # and 0° would stay south (caldwell.dat has none today).
+            dec_deg = dms_to_dec(dfs[8], int(dfs[9]), float(dfs[10]), 0)
             new_object = NewCatalogObject(
                 object_type=obj_type,
                 catalog_code=catalog,

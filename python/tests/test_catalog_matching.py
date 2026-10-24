@@ -53,6 +53,7 @@ SKY_OBJECTS = [
     ("H", 99, "Gx", 150.0, 20.0, [2.0], [11.0]),
     ("Str", 1, "*", 100.0, 10.0, [], [3.0]),
     ("NGC", 2000, "?", 120.0, 5.0, [], []),
+    ("NGC", 4666, "Gx", 191.286, -0.462, [4.6, 1.3], [10.7]),
 ]
 LISTING_CODES = ("M", "Arp", "C", "Col", "EGC", "Har", "Lyn", "SaM", "Ta2", "WDS")
 
@@ -574,3 +575,106 @@ def test_load_arp_reads_lettered_components(db, astro_data, monkeypatch):
     assert names(db, "NGC", 1097) == ["NGC 1097", "Arp 77", "NGC 1097"]
     assert names(db, "Arp", 79) == ["Arp 79", "NGC 5490C"]
     assert [rejection.listing for rejection in ciu.MATCH_REJECTIONS] == ["Arp 65"]
+
+
+# --- Declinations between -1° and 0° ----------------------------------------
+#
+# Each loader below once negated the degrees and lost the sign of "-00". The
+# fixtures are the sources' own rows for the case.
+
+
+def test_harris_keeps_the_sign_of_a_declination_just_south_of_the_equator(tmp_path):
+    from PiFinder.catalog_imports.harris_loader import (
+        create_cluster_object,
+        read_harris_catalog,
+    )
+
+    # The position columns of three rows of astro_data/harris/catalog.
+    catalog = tmp_path / "catalog"
+    catalog.write_text(
+        " NGC 104   47 Tuc      00 24 05.2  -72 04 51  305.90 -44.89\n"
+        " NGC 6535              18 03 50.7  -00 17 49   27.18  10.44\n"
+        " NGC 7089  M 2         21 33 29.3  -00 49 23   53.38 -35.78\n"
+    )
+    decs = [
+        create_cluster_object(entry, seq)["dec"]
+        for seq, entry in enumerate(read_harris_catalog(catalog), 1)
+    ]
+    assert decs == pytest.approx(
+        [-(72 + 4 / 60 + 51 / 3600), -(17 / 60 + 49 / 3600), -(49 / 60 + 23 / 3600)]
+    )
+
+
+def test_lynga_keeps_the_sign_of_a_declination_just_south_of_the_equator(tmp_path):
+    from PiFinder.catalog_imports.lynga_loader import (
+        create_cluster_object,
+        read_lynga_catalog,
+    )
+
+    # Lyn 229, astro_data/lynga/catalog line 229.
+    catalog = tmp_path / "catalog"
+    catalog.write_text(
+        " 3  24  637.8-0054  635.2-0052 .51 -.5212.18 -3.46 241 539  10.  419"
+        "                                     0 0 0 0 0 0 0 0\n"
+    )
+    (entry,) = read_lynga_catalog(catalog)
+    assert create_cluster_object(entry, 229)["dec"] == pytest.approx(-54 / 60)
+
+
+def test_load_taas200_keeps_the_sign_of_s00(db, astro_data, monkeypatch):
+    (astro_data / "taas200.desc").write_text("TAAS 200")
+    (astro_data / "TAAS_200.csv").write_text(
+        "Nr,NGC/IC,Name,Type,Const,RA Hr,RA Min,Dec Deg,Dec Min,Magnitude,Size,"
+        "GC Conc or Class,# Stars,Min Aperture,Herschel 400,Description\n"
+        '129,4666,,eg,VIR,12,45.1,s00,28,10.8,4.5\'x1.5,Sc,,"4 in, 25X",Y,"Edge-on"\n'
+        '130,,,eg,VIR,12,45.1,s00,28,10.8,,,,,,""\n'
+    )
+    monkeypatch.setattr(specialized_loaders, "objects_db", db)
+    specialized_loaders.load_taas200()
+
+    # At +00 28 it lay 56' from NGC 4666, and the match guard refused it.
+    assert object_of(db, "Ta2", 129) == object_of(db, "NGC", 4666)
+    assert ciu.MATCH_REJECTIONS == []
+    assert sky_object(db, "Ta2", 130)["dec"] == pytest.approx(-28 / 60)
+
+
+def test_load_barnard_keeps_the_sign_of_minus_0(db, astro_data, monkeypatch):
+    barnard = astro_data / "barnard"
+    barnard.mkdir()
+    (barnard / "barnard.desc").write_text("Barnard")
+    (barnard / "barnard.dat").write_text(
+        " 326 18 57    -00 34  19  3     - 0 23  20.\n"
+    )
+    (barnard / "notes.dat").write_text(" 326  Narrow; 25' long E and W; 3' wide\n")
+    monkeypatch.setattr(specialized_loaders, "objects_db", db)
+    specialized_loaders.load_barnard()
+
+    assert sky_object(db, "B", 326)["dec"] == pytest.approx(-23 / 60)
+
+
+def test_load_collinder_keeps_the_sign_of_minus_00(db, astro_data, monkeypatch):
+    (astro_data / "collinder.desc").write_text("Collinder")
+    (astro_data / "collinder.txt").write_text(
+        "Col #\tNGC/Other Cat.\tCon\tRA\tDEC\tm (v/p)\t# Stars\tSize\tClass\tn\n"
+        "401\t \tAql\t19h 38m 24.0s\t-00\u00ba 20' 00\"\t7p\t8\u00b1\t1\t\u03bcNorm\t \n"
+    )
+    (astro_data / "collinder2.txt").write_text(
+        "Collinder number\tNGC/IC number\tOther names\tImage\tObject type"
+        "\tConstellation\tApparent magnitude\n"
+        "Cr 401\t-\t\t\tOpen cluster\tAquila\t7.0\n"
+    )
+    monkeypatch.setattr(specialized_loaders, "objects_db", db)
+    specialized_loaders.load_collinder()
+
+    assert sky_object(db, "Col", 401)["dec"] == pytest.approx(-20 / 60)
+
+
+def test_load_caldwell_keeps_the_sign_of_minus_0(db, astro_data, monkeypatch):
+    (astro_data / "caldwell.desc").write_text("Caldwell")
+    (astro_data / "caldwell.dat").write_text(
+        caldwell_line(200, "none", "Open Cluster", "5.0", "5", 12, 30.0, "-", 0, 30)
+    )
+    monkeypatch.setattr(caldwell_loader, "objects_db", db)
+    caldwell_loader.load_caldwell()
+
+    assert sky_object(db, "C", 200)["dec"] == pytest.approx(-0.5)
