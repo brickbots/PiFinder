@@ -447,7 +447,7 @@ def load_barnard():
                 raw_diam = row[39:44].strip()
                 sequence = Barn
                 logging.debug(f"<------------- Barnard {sequence=} ------------->")
-                obj_type = "Nb"
+                obj_type = "DN"
                 ra_h = RA2000h
                 ra_m = RA2000m
                 ra_s = RA2000s
@@ -682,6 +682,10 @@ def load_arp():
                     dec=row["dec"],
                     mag=mag,
                     description=arp_comments.get(row["catalog_identifier"], ""),
+                    # Arp names an interacting pair by its components
+                    # ("NGC 4676A", "NGC 4676B"), and a companion beside its
+                    # main galaxy by a letter as well ("NGC 1097A").
+                    lettered_components=True,
                 )
             else:
                 # Collect additional names for the same object

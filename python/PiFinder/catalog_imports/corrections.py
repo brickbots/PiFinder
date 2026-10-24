@@ -32,7 +32,7 @@ from PiFinder import calc_utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.obj_types import OBJ_TYPES
-from .catalog_import_utils import parse_arcmin_size, parse_designation
+from .catalog_import_utils import listing_named, parse_arcmin_size
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -536,16 +536,11 @@ def _designator(listing: Tuple[str, int]) -> str:
 def resolves_to(name: str, listing: Tuple[str, int]) -> bool:
     """Whether a loader's lookup would resolve this name to this listing.
 
-    The question ObjectFinder.get_object_id asks: the lowercased name is the
-    listing's exact key ("NGC70"), or parse_designation reads it as the
-    listing ("Cr 42" is Col 42, "NGC 0070" is NGC 70). "H 24" and "M 2-9"
-    resolve to nothing, since neither prefix names a catalog.
+    The question ObjectFinder asks, through the same listing_named: "Cr 42"
+    is Col 42, "NGC 0070" and "NGC70" are NGC 70. "H 24", "H24" and "M 2-9"
+    resolve to nothing, since none of their prefixes names a catalog.
     """
-    code, sequence = listing
-    return (
-        name.lower() == f"{code.lower()}{sequence}"
-        or parse_designation(name) == listing
-    )
+    return listing_named(name) == listing
 
 
 def _is_own_name(name: str, correction: Correction) -> bool:
