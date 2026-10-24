@@ -1,9 +1,10 @@
 """Tests for how a catalog listing joins a sky object (docs/ax/catalog.md §9).
 
 The match guard (§9.3), precedence when a listing joins (§9.1), which akas
-are stored as names, the Arp loader's lettered components, and the Caldwell,
-Barnard and Arp loaders. Everything runs against a small objects DB built
-here, never the committed one.
+are stored as names, the Arp loader's lettered components, the Caldwell,
+Barnard and Arp loaders, and what the Lyngå and Harris loaders identify as a
+designation. Everything runs against a small objects DB built here, never the
+committed one.
 """
 
 import importlib
@@ -678,3 +679,108 @@ def test_load_caldwell_keeps_the_sign_of_minus_0(db, astro_data, monkeypatch):
     caldwell_loader.load_caldwell()
 
     assert sky_object(db, "C", 200)["dec"] == pytest.approx(-0.5)
+
+
+# --- Identification: Lyngå's "Collinder nnn", Harris's "Arp 2" ---------------
+
+
+def add_sky_object(db, code, sequence, obj_type, ra, dec, size=(), mag=()):
+    object_id = db.insert_object(
+        obj_type,
+        ra,
+        dec,
+        "And",
+        SizeObject.from_arcmin(*size).to_json(),
+        MagnitudeObject(list(mag)).to_json(),
+    )
+    db.insert_catalog_object(object_id, code, sequence, "")
+    db.insert_name(object_id, f"{code} {sequence}", code)
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("Collinder 65", (True, "Col 65")),
+        ("NGC 6222", (True, "NGC 6222")),
+        ("IC 1848", (True, "IC 1848")),
+        # Lyngå's own clusters, Harvard's and Melotte's are no PiFinder
+        # catalog's: "Lynga 7" is not Lyn 7, nor "Harvard 5" Har 5.
+        ("Lynga 7", (False, "Lynga 7")),
+        ("Harvard 5", (False, "Harvard 5")),
+        ("Melotte 20", (False, "Melotte 20")),
+    ],
+)
+def test_lynga_identifies_pifinder_catalog_designations(name, expected):
+    from PiFinder.catalog_imports.lynga_loader import identify_catalog_type
+
+    assert identify_catalog_type(name) == expected
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("NGC 104", (True, "NGC 104")),
+        ("M 79", (True, "M 79")),
+        ("IC 4499", (True, "IC 4499")),
+        # The globular Arp found in the Sagittarius dwarf, not Arp's galaxy 2.
+        ("Arp 2", (False, "Arp 2")),
+        ("Pal 1", (False, "Pal 1")),
+        ("Lynga 7", (False, "Lynga 7")),
+    ],
+)
+def test_harris_identifies_pifinder_catalog_designations(name, expected):
+    from PiFinder.catalog_imports.harris_loader import identify_catalog_type
+
+    assert identify_catalog_type(name) == expected
+
+
+def test_load_lynga_joins_collinder_nnn_to_its_collinder_object(
+    db, astro_data, monkeypatch
+):
+    import PiFinder.catalog_imports.lynga_loader as lynga_loader
+
+    # Col 65 and Col 401 as the Collinder loader builds them. Col 401 is at
+    # collinder.txt's -00 20; Lyngå (and SIMBAD) have +00 20.
+    add_sky_object(db, "Col", 65, "OC", 81.2708, 15.6997, [220.0], [3.0])
+    add_sky_object(db, "Col", 401, "OC", 294.6, -20 / 60, [1.0], [7.0])
+    lynga = astro_data / "lynga"
+    lynga.mkdir()
+    (lynga / "ReadMe").write_text("Lynga")
+    # Lyn 163 and Lyn 855, astro_data/lynga/catalog lines 163 and 855.
+    (lynga / "catalog").write_text(
+        " 6  65  525.9+16 5  523.0+16 3 .58  .5188.48-10.71 174 474 219.  315\n"
+        " 6 401 1938.4+0020 1935.8+0013 .51 1.4 38.64-10.27 898  98   1.0 315\n"
+    )
+    monkeypatch.setattr(lynga_loader, "objects_db", db)
+    lynga_loader.load_lynga()
+
+    # 25.9' apart, inside Col 65's 220'. The aka repeats Col 65's own name,
+    # which the device drops when it loads names.
+    assert object_of(db, "Lyn", 1) == object_of(db, "Col", 65)
+    assert names(db, "Col", 65) == ["Col 65", "Lyn 1", "Col 65"]
+    # 40' apart: the guard refuses it, and "Col 401" names another sky object.
+    assert [rejection.listing for rejection in ciu.MATCH_REJECTIONS] == ["Lyn 2"]
+    assert names(db, "Lyn", 2) == ["Lyn 2"]
+
+
+def test_load_harris_keeps_arp_2_as_a_common_name(db, astro_data, monkeypatch):
+    import PiFinder.catalog_imports.harris_loader as harris_loader
+
+    # Arp's galaxy 2, which a lookup of "Arp 2" would find.
+    add_sky_object(db, "Arp", 2, "Gx", 244.075, 47.0333)
+    harris = astro_data / "harris"
+    harris.mkdir()
+    (harris / "ReadMe").write_text("Harris")
+    # Har 133 and Har 85, the position columns of astro_data/harris/catalog.
+    (harris / "catalog").write_text(
+        " Arp 2                 19 28 44.1  -30 21 14    8.55 -20.78\n"
+        " NGC 6401              17 38 36.9  -23 54 32    3.45   3.98\n"
+    )
+    monkeypatch.setattr(harris_loader, "objects_db", db)
+    harris_loader.load_harris()
+
+    assert object_of(db, "Har", 1) != object_of(db, "Arp", 2)
+    assert names(db, "Har", 1) == ["Har 1", "Arp 2"]
+    assert ciu.MATCH_REJECTIONS == []
+    # A designation is written as PiFinder writes its designators.
+    assert names(db, "NGC", 6401) == ["NGC 6401", "Har 2", "NGC 6401"]

@@ -23,6 +23,7 @@ from .catalog_import_utils import (
     delete_catalog_from_database,
     insert_catalog,
     insert_catalog_max_sequence,
+    listing_named,
     NewCatalogObject,
     trim_string,
 )
@@ -309,7 +310,14 @@ def identify_catalog_type(name: str) -> Tuple[bool, str]:
     Identify if a name is an official catalog designation or a common name.
 
     Official catalogs in the system: NGC, IC, M, C, Col, Ta2, H, SaA, SaM,
-    SaR, Str, EGC, RDS, B, Sh2, Abl, Arp, TLK, WDS
+    SaR, Str, EGC, RDS, B, Sh2, Abl, Arp, TLK, WDS. Lyngå spells Collinder
+    out ("Collinder 65"), so that long form is a designation too, and the
+    listing joins its Collinder sky object.
+
+    A designation the loaders' lookup reads (listing_named) is written as
+    PiFinder writes its designators, so "Collinder 65" is "Col 65" and
+    "NGC 6222" stays "NGC 6222": on the sky object the listing joins, it
+    repeats that listing's own name. Any other has its spaces removed.
 
     Args:
         name: Name to check
@@ -323,6 +331,7 @@ def identify_catalog_type(name: str) -> Tuple[bool, str]:
         "M",
         "C",
         "Col",
+        "Collinder",
         "Ta2",
         "H",
         "SaA",
@@ -343,8 +352,11 @@ def identify_catalog_type(name: str) -> Tuple[bool, str]:
 
     for catalog in official_catalogs:
         if name.startswith(catalog + " ") or name == catalog:
-            normalized = name.replace(" ", "")
-            return True, normalized
+            listing = listing_named(name)
+            if listing is None:
+                return True, name.replace(" ", "")
+            catalog_code, sequence = listing
+            return True, f"{catalog_code} {sequence}"
 
     return False, name
 
