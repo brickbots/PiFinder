@@ -41,6 +41,7 @@ CATALOG_LOADERS = [
 POST_PROCESSING_FUNCTIONS = [
     ("post_processing", "fix_object_types"),
     ("post_processing", "add_missing_messier_objects"),
+    ("post_processing", "add_messier_names"),
 ]
 
 
