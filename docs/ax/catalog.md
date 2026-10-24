@@ -522,6 +522,18 @@ description leads with "Not found: nothing at Dreyer's position
 Where Corwin identifies one, a correction sets its position and type
 and replaces that description.
 
+A Steinicke **duplicate** (status 7, another number in the same
+catalog; status 8, an IC number already in the NGC) is not a sky object
+of its own: its listing joins the sky object of the twin its first
+identification names (NGC 6 joins NGC 20), following a twin that is
+itself a duplicate. This is Steinicke's identification, not an aka
+match, so the match guard does not apply; instead, a duplicate whose
+row lies more than 1′ from its twin's contradicts the source and stays
+its own, logged (NGC 6363, whose named twin is 11° away). The loader
+types every other row by its status first (galaxy, planetary, globular,
+not found) and by its TYPE within the status's kind; a part of another
+galaxy (status 6) is typed by its remark.
+
 For NGC and IC numbers, where the sources disagree about an
 identification, Corwin's decides; an identification Corwin leaves open
 ("?", "??") stays as the sources give it. Corwin is not a vendored
