@@ -586,10 +586,13 @@ alone cannot do this: the match takes a star's V as well as its place.
 
 - **The match** is the nearest Hipparcos star within the listing's radius
   whose V lies within 1 mag of the listing's first magnitude, the
-  primary's. The radius follows the position's precision: 3′ for SAC,
-  RASC and the bright stars, which round to 0.1ᵐ in RA and 1′ in Dec, and
-  for a WDS row without arcsecond coordinates, which is placed by its
-  identifier; 0.5′ for the arcsecond positions of WDS and TLK. Beyond
+  primary's. The radius follows the position's precision: 3′ for RASC
+  and the bright stars, which round to 0.1ᵐ in RA and 1′ in Dec, and for a
+  WDS row without arcsecond coordinates, which is placed by its
+  identifier; 6′ for SAC's doubles and red stars, which sometimes give an
+  RA to the whole minute (α Her's "17 15") or a position a few arcminutes
+  off (ι Lep, δ Ser) (Rich's choice, 2026-10); 0.5′ for the arcsecond
+  positions of WDS and TLK. Beyond
   0.5′ a WDS pair is nearly always another star than the Hipparcos one it
   would match: its Durchmusterung number differs. Hipparcos's
   J1991.25 positions are carried to J2000 by their proper motion, which
@@ -629,8 +632,10 @@ is a double star — and a merged star is `D*` if any of its sky objects
 was. A WDS pair is a double star if WDS flags it neither optical
 (S, U, Y, L) nor dubious (X), it includes the primary (its components
 are blank or start with A), and its companion is one an observer would
-look for: within 60″ and 5 mag of the primary (Rich's choice, 2026-10;
-the limits are named constants in `wds_loader.py`). WDS lists every pair
+look for: between 0.5″ and 60″ from the primary and within 5 mag of it
+(Rich's choice, 2026-10; the limits are named constants in
+`wds_loader.py`). Closer pairs are interferometric, split by no observer
+(Capella, Algol, Dschubba). WDS lists every pair
 ever measured, and many it has never flagged are faint field stars:
 without those limits nearly every bright star would be a double
 (Alphard's 9.7 mag companion at 284″, Vega's 12 mag survey stars).

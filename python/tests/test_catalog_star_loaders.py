@@ -294,6 +294,9 @@ WDS_LINES = [
     # No arcsecond coordinates: placed by its identifier.
     "00123-2729LDS2101      1954 2017    2  57.20    1.900     16.0  19.8      "
     "      +085+027                    X         .         . ",
+    # Propus's BU 1008, 6.15 at 1.9" with an orbit.
+    "06149+2230BU 1008      1881 2021  113 256.20    1.900      3.52  6.15 M2III "
+    "    -060-008          +22 1241 NC   061452.69+223024.6",
 ]
 
 
@@ -364,9 +367,11 @@ def test_load_wds_keeps_a_missing_companion_magnitude_out(wds):
 
 
 def test_load_wds_types_a_listing_by_its_pairs(wds):
-    # Vega's pairs are all flagged optical; SHN 45 is a close pair of its own.
+    # Vega's pairs are all flagged optical; Propus's BU 1008 is a double.
     assert listing(wds, "WDS", 1)["obj_type"] == "*"
-    assert listing(wds, "WDS", 2)["obj_type"] == "D*"
+    assert listing(wds, "WDS", 5)["obj_type"] == "D*"
+    # SHN 45 is 0.16" wide, too close to split.
+    assert listing(wds, "WDS", 2)["obj_type"] == "*"
     # No companion magnitude, or a companion 1234" away: no double star.
     assert listing(wds, "WDS", 3)["obj_type"] == "*"
 

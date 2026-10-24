@@ -166,7 +166,7 @@ An NGC or IC number with nothing at Dreyer's position (Steinicke's status 10). I
 _Avoid_: nonexistent object (OpenNGC's `NonEx`; some are later identified), missing object, phantom.
 
 **Double star** (`D*`):
-A star with a companion worth looking for: one an observer's double-star list (SAC, RASC) lists, or a WDS pair that is neither optical nor dubious, includes the star as its primary, and has its companion within 60″ and 5 mag of it (Rich's choice: WDS's unflagged pairs include many faint field stars). What the device's "double star" type filter finds. A star that WDS lists only with optical companions (Vega) is a single star (`*`).
+A star with a companion worth looking for: one an observer's double-star list (SAC, RASC) lists, or a WDS pair that is neither optical nor dubious, includes the star as its primary, and has its companion between 0.5″ and 60″ from it and within 5 mag of it (Rich's choice: WDS's unflagged pairs include many faint field stars, and interferometric pairs no observer can split). What the device's "double star" type filter finds. A star that WDS lists only with optical companions (Vega) is a single star (`*`).
 _Avoid_: binary (that's physical, and some listed pairs aren't proven binaries), multiple star.
 
 **Common name**:

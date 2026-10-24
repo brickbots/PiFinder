@@ -117,8 +117,17 @@ def test_the_nearest_star_within_3_arcmin_matches(db):
 
 
 def test_nothing_within_the_radius_is_no_match(db):
-    lone = add(db, "SaM", 1, "D*", 200.975, 54.925 + 3.5 * ARCMIN, mag=[2.3])
+    lone = add(db, "Str", 1, "*", 200.975, 54.925 + 3.5 * ARCMIN, mag=[2.3])
     assert matches(db) == {lone: None}
+
+
+def test_sac_matches_within_6_arcmin(db):
+    # SAC gives some RAs to the whole minute: α Her's "17 15" lies 5.8' off.
+    near = add(db, "SaM", 958, "D*", 200.975, 54.925 + 5.5 * ARCMIN, mag=[2.3])
+    sar = add(db, "SaR", 1, "*", 200.975, 54.925 + 5.5 * ARCMIN, mag=[2.3])
+    far = add(db, "SaM", 1, "D*", 200.975, 54.925 + 6.5 * ARCMIN, mag=[2.3])
+    rds = add(db, "RDS", 1, "D*", 200.975, 54.925 + 5.5 * ARCMIN, mag=[2.3])
+    assert matches(db) == {near: MIZAR, sar: MIZAR, far: None, rds: None}
 
 
 def test_the_v_gate_passes_over_a_star_of_another_magnitude(db):
@@ -180,7 +189,7 @@ def test_a_wds_row_placed_by_its_identifier_matches_within_3_arcmin(db):
 
 
 def test_a_wider_radius_shows_what_lies_just_outside(db):
-    lone = add(db, "SaM", 1, "D*", 200.975, 54.925 + 3.5 * ARCMIN, mag=[2.3])
+    lone = add(db, "Str", 1, "*", 200.975, 54.925 + 3.5 * ARCMIN, mag=[2.3])
     assert matches(db, radius_scale=2) == {lone: MIZAR}
 
 
@@ -411,7 +420,10 @@ def wds_pair(components="AB", notes="N", sep=1.9, mag1=3.5, mag2=6.2):
         # Propus's BU 1008, with an orbit.
         (wds_pair(notes="NC"), True),
         (wds_pair(components=""), True),
-        (wds_pair(components="Aa,Ab", sep=0.33), True),
+        (wds_pair(components="Aa,Ab", sep=0.5), True),
+        # Too close to split: Capella's, Algol's and Dschubba's pairs.
+        (wds_pair(components="Aa,Ab", sep=0.33), False),
+        (wds_pair(notes="NO", sep=0.076), False),
         # Flagged optical or dubious: Vega's H 5 39 (U), Arcturus's HDS 2003 (X).
         (wds_pair(notes="NL U"), False),
         (wds_pair(notes="NS"), False),

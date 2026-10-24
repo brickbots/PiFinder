@@ -34,13 +34,17 @@ from .corrections import CorrectionError, parse_designator, resolve_listing
 # The catalogs whose listings are stars, in loader order.
 STAR_CATALOGS = ("SaM", "SaR", "Str", "RDS", "TLK", "WDS")
 
-# The match radius follows the precision of a listing's position. SAC, RASC
-# and the bright stars round to 0.1m in RA and 1' in Dec, so their stars lie
-# up to 2-3' from Hipparcos's. WDS and TLK give arcseconds, and a WDS pair
-# that lies more than 0.5' from the nearest Hipparcos star is nearly always
-# another star (catalog.md §9.3); a WDS row without arcsecond coordinates is
-# placed by its identifier, rounded (ROUNDED_POSITIONS).
+# The match radius follows the precision of a listing's position. RASC and
+# the bright stars round to 0.1m in RA and 1' in Dec, so their stars lie up
+# to 2-3' from Hipparcos's. SAC sometimes gives an RA to the whole minute
+# (α Her's "17 15") or a position a few arcminutes off (ι Lep, δ Ser), so its
+# doubles and red stars match within 6' (Rich's choice, 2026-10). WDS and TLK
+# give arcseconds, and a WDS pair that lies more than 0.5' from the nearest
+# Hipparcos star is nearly always another star (catalog.md §9.3); a WDS row
+# without arcsecond coordinates is placed by its identifier, rounded
+# (ROUNDED_POSITIONS).
 MATCH_RADIUS_ARCMIN = 3.0
+CATALOG_MATCH_RADIUS_ARCMIN = {"SaM": 6.0, "SaR": 6.0}
 PRECISE_MATCH_RADIUS_ARCMIN = 0.5
 PRECISE_CATALOGS = frozenset({"WDS", "TLK"})
 
@@ -184,7 +188,9 @@ class StarObject:
 
     @property
     def radius_arcmin(self) -> float:
-        return PRECISE_MATCH_RADIUS_ARCMIN if self.precise else MATCH_RADIUS_ARCMIN
+        if self.precise:
+            return PRECISE_MATCH_RADIUS_ARCMIN
+        return CATALOG_MATCH_RADIUS_ARCMIN.get(self.catalog_code, MATCH_RADIUS_ARCMIN)
 
 
 def read_star_objects(
