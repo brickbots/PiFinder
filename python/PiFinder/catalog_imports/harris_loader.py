@@ -20,6 +20,7 @@ from .catalog_import_utils import (
     delete_catalog_from_database,
     insert_catalog,
     insert_catalog_max_sequence,
+    listing_named,
     NewCatalogObject,
     trim_string,
 )
@@ -168,21 +169,26 @@ def is_valid_mag(mag: Any) -> bool:
 
 def normalize_catalog_name(name: str) -> str:
     """
-    Normalize catalog designations by removing spaces between prefix and number.
+    Write a catalog designation as PiFinder writes its designators.
 
-    Harris catalog has names like "NGC 104", "M 79", "Arp 2" with spaces,
-    but the database has them as "NGC104", "M79", "Arp2" without spaces.
+    A designation the loaders' lookup reads (listing_named) becomes
+    "<catalog code> <sequence>", so Harris's "NGC 104" and "M 79" stay as
+    they are: on the sky object the listing joins, they repeat that
+    listing's own name. Any other has its spaces removed.
 
     Args:
         name: Catalog designation with potential spaces
 
     Returns:
-        Normalized name with spaces removed
+        Normalized name
     """
     name = name.strip()
 
-    # Remove spaces between catalog prefix and number
-    return name.replace(" ", "")
+    listing = listing_named(name)
+    if listing is None:
+        return name.replace(" ", "")
+    catalog_code, sequence = listing
+    return f"{catalog_code} {sequence}"
 
 
 def identify_catalog_type(name: str) -> Tuple[bool, str]:
@@ -190,7 +196,11 @@ def identify_catalog_type(name: str) -> Tuple[bool, str]:
     Identify if a name is an official catalog designation or a common name.
 
     Official catalogs in the system: NGC, IC, M, C, Col, Ta2, H, SaA, SaM,
-    SaR, Str, EGC, RDS, B, Sh2, Abl, Arp, TLK, WDS
+    SaR, Str, EGC, RDS, B, Sh2, Abl, TLK, WDS
+
+    Not Arp: Harris's "Arp 2" (Har 133) is the globular Arp found in the
+    Sagittarius dwarf, not galaxy 2 of Arp's Atlas of Peculiar Galaxies,
+    PiFinder's Arp catalog. It is a common name, like "Pal 1".
 
     Args:
         name: Name to check
@@ -216,7 +226,6 @@ def identify_catalog_type(name: str) -> Tuple[bool, str]:
         "B",
         "Sh2",
         "Abl",
-        "Arp",
         "TLK",
         "WDS",
     }
@@ -226,7 +235,6 @@ def identify_catalog_type(name: str) -> Tuple[bool, str]:
     # Check if the name starts with any official catalog prefix
     for catalog in official_catalogs:
         if name.startswith(catalog + " ") or name == catalog:
-            # Normalize NGC and IC by removing spaces
             normalized = normalize_catalog_name(name)
             return True, normalized
 
@@ -334,8 +342,8 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, Any]:
         logging.debug(f"  Description: {len(description_parts)} features")
 
     # Separate catalog names from common names
-    # Official catalogs: NGC, IC, M, C, Col, Ta2, H, SaA, SaM, SaR, Str, EGC, RDS, B, Sh2, Abl, Arp, TLK, WDS
-    # Everything else (Pal, AM, Terzan, etc.) becomes a common name
+    # Official catalogs: NGC, IC, M, C, Col, Ta2, H, SaA, SaM, SaR, Str, EGC, RDS, B, Sh2, Abl, TLK, WDS
+    # Everything else (Pal, AM, Terzan, Arp 2, etc.) becomes a common name
     result["catalog_names"] = []  # For aka_names (catalog designations)
     result["common_names"] = []  # For insert_name (common names)
     result["primary_name"] = f"Har {seq}"
