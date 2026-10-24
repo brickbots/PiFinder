@@ -50,6 +50,14 @@ POST_PROCESSING_FUNCTIONS = [
     ("post_processing", "add_messier_names"),
 ]
 
+# Supplementary sources (docs/ax/catalog.md §9.4) fill or replace fields on the
+# sky objects made above, and never add a listing. Each is called with the
+# objects database.
+SUPPLEMENTARY_SOURCES = [
+    ("supplementary_sources", "fill_bica_sizes"),
+    ("supplementary_sources", "replace_rc3_v_magnitudes"),
+]
+
 
 def main():
     """
@@ -134,6 +142,18 @@ def main():
     # A rejected join doesn't fail the import: the listing stays a sky object
     # of its own, and each one was logged as it happened (catalog.md §9.3).
     logging.info("Match guard rejected %d joins", len(MATCH_REJECTIONS))
+
+    for module_name, function_name in SUPPLEMENTARY_SOURCES:
+        try:
+            module = __import__(
+                f"PiFinder.catalog_imports.{module_name}", fromlist=[function_name]
+            )
+            source_func = getattr(module, function_name)
+            logging.info(f"Applying supplementary source: {function_name}")
+            source_func(objects_db)
+        except Exception as e:
+            logging.error(f"Failed to apply {function_name} from {module_name}: {e}")
+            raise
 
     # The final pass: corrections have the last word over every stage above,
     # so any stage added later goes before this (ADR 0046).
