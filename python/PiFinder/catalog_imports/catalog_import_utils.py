@@ -181,7 +181,7 @@ def _size_token_to_arcsec(token: str) -> Optional[float]:
         return None
 
 
-def parse_arcmin_size(raw: str) -> SizeObject:
+def parse_arcmin_size(raw: str, strict: bool = False) -> SizeObject:
     """Parse a size string into a SizeObject (extents stored in arcseconds).
 
     Values default to arcminutes, but a token may override its unit with a
@@ -189,7 +189,8 @@ def parse_arcmin_size(raw: str) -> SizeObject:
     catalogs like EGC ('36"') parse correctly. The axis separators 'x', '×',
     '/', and '+' are all treated as delimiters, so "32'x6.5'", "0.3/5.8", and
     "30'+30'" each yield two extents. Tokens whose numeric part can't be
-    parsed (e.g. "nl", "see") are skipped with a warning.
+    parsed (e.g. "nl", "see") are skipped with a warning, or raise ValueError
+    when strict: a correction's size is typed by hand and must parse whole.
     """
     if not raw:
         return SizeObject([])
@@ -199,6 +200,8 @@ def parse_arcmin_size(raw: str) -> SizeObject:
     values = []
     for token in cleaned.split():
         arcsec = _size_token_to_arcsec(token)
+        if arcsec is None and strict:
+            raise ValueError(f"non-numeric size token {token!r} in {raw!r}")
         if arcsec is None:
             logging.warning("Non-numeric size token %r in %r", token, raw)
         else:
