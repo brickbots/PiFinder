@@ -891,6 +891,9 @@ class UIObjectList(UITextMenu):
             "class": UIObjectDetails,
             "object": _menu_item,
             "object_list": self._menu_items_sorted,
+            # The row itself: a list can hold one listing twice (an observing
+            # list naming it twice), and only the index tells them apart.
+            "object_index": object_index,
             "label": "object_details",
         }
         self.add_to_stack(object_item_definition)
