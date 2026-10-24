@@ -127,10 +127,12 @@ def wds_magnitudes(mag1: float, mag2: float) -> MagnitudeObject:
 # ever measured, so a pair makes a double star only if WDS flags it neither
 # optical (S, U, Y, L) nor dubious (X), it includes the primary, and its
 # companion is one an observer would look for: within this separation and
-# magnitude difference of the primary. Vega's companions fail, Propus's
-# BU 1008 (6.2 at 1.9") passes. The limits are Rich's choice (2026-10), his
-# to tune.
+# magnitude difference of the primary, and wide enough to split (Capella's
+# and Algol's interferometric pairs are not). Vega's companions fail,
+# Propus's BU 1008 (6.2 at 1.9") passes. The limits are Rich's choice
+# (2026-10), his to tune.
 OPTICAL_OR_DUBIOUS = frozenset("SUYLX")
+DOUBLE_MIN_SEPARATION_ARCSEC = 0.5
 DOUBLE_MAX_SEPARATION_ARCSEC = 60.0
 DOUBLE_MAX_DELTA_MAG = 5.0
 
@@ -143,7 +145,9 @@ def is_double_star_pair(value) -> bool:
     if components and not components.startswith("A"):
         return False
     sep = value["Sep"].item()
-    if np.isnan(sep) or sep > DOUBLE_MAX_SEPARATION_ARCSEC:
+    if np.isnan(sep) or not (
+        DOUBLE_MIN_SEPARATION_ARCSEC <= sep <= DOUBLE_MAX_SEPARATION_ARCSEC
+    ):
         return False
     mag1, mag2 = value["Mag_First"].item(), value["Mag_Second"].item()
     if np.isnan(mag2):
