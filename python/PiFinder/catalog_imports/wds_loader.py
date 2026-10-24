@@ -16,7 +16,7 @@ from collections import defaultdict
 
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg
+from PiFinder.calc_utils import ra_to_deg, dms_to_dec
 from .catalog_import_utils import (
     delete_catalog_from_database,
     insert_catalog,
@@ -31,7 +31,10 @@ import numpy as np
 
 
 def read_wds_catalog(file_path):
-    # Define the column specifications
+    # wds_precise.txt is not laid out like the standard WDS file: it gives one
+    # position angle and separation, the last measured, at columns 38-44 and
+    # 45-53 with more decimals, and nothing at the standard columns' places.
+    # "-1" stands for a measure WDS lacks, and "." for a magnitude it lacks.
     col_specs = [
         (0, 10),  # coords
         (10, 17),  # discoverer
@@ -39,10 +42,8 @@ def read_wds_catalog(file_path):
         (23, 27),  # date_first
         (28, 32),  # date_last
         (33, 37),  # num_obs
-        (38, 41),  # pa_first
-        (42, 45),  # pa_last
-        (46, 51),  # sep_first
-        (52, 57),  # sep_last
+        (37, 44),  # pa (last)
+        (44, 53),  # sep (last)
         (58, 63),  # mag_first
         (64, 69),  # mag_second
         (70, 79),  # spectral_type
@@ -63,12 +64,10 @@ def read_wds_catalog(file_path):
         ("Date_First", "i4"),
         ("Date_Last", "i4"),
         ("Num_Observations", "i4"),
-        ("PA_First", "f4"),
-        ("PA_Last", "f4"),
-        ("Sep_First", "f4"),
-        ("Sep_Last", "f4"),
-        ("Mag_First", "f4"),
-        ("Mag_Second", "f4"),
+        ("PA", "f8"),
+        ("Sep", "f8"),
+        ("Mag_First", "f8"),
+        ("Mag_Second", "f8"),
         ("Spectral_Type", "U9"),
         ("PM_RA_Primary", "i4"),
         ("PM_Dec_Primary", "i4"),
@@ -91,18 +90,58 @@ def read_wds_catalog(file_path):
             return value
         elif dtype == "i4":
             return int(value) if value and value != "." else 0
-        elif dtype == "f4":
+        elif dtype == "f8":
+            # A missing value is NaN, never 0.0, which reads as a 0 mag star.
             try:
-                return float(value) if value and value != "." else 0.0
+                return float(value) if value and value != "." else np.nan
             except ValueError:
-                return 0.0
+                return np.nan
 
     data = []
     with open(file_path, "r") as file:
         for line in file:
             data.append(parse_line(line))
 
-    return np.array(data, dtype=dtype)
+    data = np.array(data, dtype=dtype)
+    for measure in ("PA", "Sep"):
+        data[measure][data[measure] < 0] = np.nan
+    return data
+
+
+def wds_magnitudes(mag1: float, mag2: float) -> MagnitudeObject:
+    """A pair's [primary, companion] magnitudes, leaving out what WDS lacks.
+
+    Without the primary's magnitude there is none for the star, so the
+    companion's stays off it, as in the SAC loader.
+    """
+    if np.isnan(mag1):
+        return MagnitudeObject([])
+    mags = [round(float(mag1), 2)]
+    if not np.isnan(mag2):
+        mags.append(round(float(mag2), 2))
+    return MagnitudeObject(mags)
+
+
+def describe_pair(value) -> str:
+    """One pair's line of a WDS listing's description, without what WDS lacks."""
+    components = value["Components"].strip()
+    parts = [] if not components else [f"{components}:"]
+    mags = [value["Mag_First"].item(), value["Mag_Second"].item()]
+    parts.append(
+        "Mag=" + "/".join("?" if np.isnan(m) else f"{round(m, 2)}" for m in mags)
+    )
+    pa = value["PA"].item()
+    if not np.isnan(pa):
+        parts[-1] += ","
+        parts.append(f"PA={round(pa, 1)} ({value['Date_Last']})")
+    sep = value["Sep"].item()
+    if not np.isnan(sep):
+        parts[-1] += ","
+        parts.append(f"Sep={round(sep, 3)}")
+    notes = value["Notes"].strip()
+    if notes:
+        parts.append(f"Notes: {notes}")
+    return " ".join(parts)
 
 
 def load_wds():
@@ -131,10 +170,9 @@ def load_wds():
             ra_h = float(coord[:2])
             ra_m = float(coord[2:4])
             ra_s = float(coord[4:5]) * 6  # Convert tenths of minutes to seconds
-            dec_sign = 1 if coord[5] == "+" else -1
-            dec_deg = float(coord[6:8]) * dec_sign
-            dec_m = float(coord[8:10])
-            return ra_to_deg(ra_h, ra_m, ra_s), dec_to_deg(dec_deg, dec_m, 0)
+            # The sign is read on its own: -1 * 00 is -0.0, which is not < 0.
+            dec_deg = dms_to_dec(coord[5], int(coord[6:8]), float(coord[8:10]), 0)
+            return ra_to_deg(ra_h, ra_m, ra_s), dec_deg
         except (ValueError, IndexError):
             return None, None
 
@@ -163,26 +201,23 @@ def load_wds():
 
             # Parse DEC part (after sign)
             dec_part = coord_clean[sign_pos:]
-            dec_sign = 1 if dec_part[0] == "+" else -1
             dec_coords = dec_part[1:].strip()  # Remove sign
 
-            dec_deg = float(dec_coords[:2]) * dec_sign
+            dec_d = int(dec_coords[:2])
             dec_m = float(dec_coords[2:4])
             dec_s = float(dec_coords[4:]) if len(dec_coords) > 4 else 0.0
 
         except (ValueError, IndexError):
             return None, None
-        return ra_to_deg(ra_h, ra_m, ra_s), dec_to_deg(dec_deg, dec_m, dec_s)
+        # The sign is read on its own, so a pair at -00 44 stays south.
+        return ra_to_deg(ra_h, ra_m, ra_s), dms_to_dec(dec_part[0], dec_d, dec_m, dec_s)
 
     def handle_multiples(key, values) -> dict:
         # Ordered, so the names keep the source order in every import.
         discoverers: dict = {}
-        components = {}
-        result = {}
+        result: dict = {}
         descriptions = []
         for i, value in enumerate(values):
-            mag1 = round(value["Mag_First"].item(), 2)
-            mag2 = round(value["Mag_Second"].item(), 2)
             if i == 0:
                 # Validate RA/DEC in the first (primary) object
                 if (
@@ -206,23 +241,15 @@ def load_wds():
                     )
                 result["ra"] = value["ra"]
                 result["dec"] = value["dec"]
-                result["mag"] = MagnitudeObject([mag1, mag2])
-                sizemax = float(np.max([value["Sep_First"], value["Sep_Last"]]))
-                result["size"] = SizeObject.from_arcsec(round(sizemax, 1))
+                result["mag"] = wds_magnitudes(value["Mag_First"], value["Mag_Second"])
+                sep = value["Sep"].item()
+                result["size"] = (
+                    SizeObject([])
+                    if np.isnan(sep)
+                    else SizeObject.from_arcsec(round(sep, 1))
+                )
             discoverers[value["Discoverer_Number"]] = None
-            notes = value["Notes"].strip()
-            notes_str = "" if len(notes) == 0 else f" Notes: {notes}"
-            components = value["Components"].strip()
-            components_str = "" if len(components) == 0 else f"{components}: "
-            pa = value["PA_Last"]
-            pa_str = f", PA={pa} ({value['Date_Last']})"
-            sep = value["Sep_Last"].item()
-            sep_str = f", Sep={sep}"
-            mag_str = f"Mag={mag1}/{mag2}"
-
-            descriptions.append(
-                f"{components_str}{mag_str}{pa_str}{sep_str}{notes_str}"
-            )
+            descriptions.append(describe_pair(value))
 
         result["discoverers"] = list(discoverers)
         result["name"] = key

@@ -374,10 +374,12 @@ def load_rasc_double_Stars():
                 ra_m = float(ra[1])
                 ra_deg = ra_to_deg(ra_h, ra_m, 0)
 
+                # The sign is read on its own, so Mintaka at "-00 18" stays south.
                 dec = dfs[6].split()
-                dec_deg = int(dec[0])
-                dec_m = float(dec[1])
-                dec_deg = dec_to_deg(dec_deg, dec_m, 0)
+                dec_sign = "-" if dec[0].startswith("-") else "+"
+                dec_deg = dms_to_dec(
+                    dec_sign, int(dec[0].lstrip("+-")), float(dec[1]), 0
+                )
                 desc = dfs[9].strip().replace("<NEWLINE>", "\n").replace("<SECS>", '"')
                 aka_names = [target, wds] + alternate_ids
 
@@ -725,11 +727,13 @@ def load_tlk_90_vars():
                 ra_s = float(row["RA2K_S"].replace(",", "."))
                 ra_deg = ra_to_deg(ra_h, ra_m, ra_s)
 
-                dec_sign = -1 if row["DEC2K_SIGN"] == "-" else 1
-                dec_deg = dec_sign * int(row["DEC2K_D"])
-                dec_m = int(row["DEC2K_M"])
-                dec_s = float(row["DEC2K_S"])
-                dec_deg = dec_to_deg(dec_deg, dec_m, dec_s)
+                # The sign is its own column, so a "-" with 0 degrees stays south.
+                dec_deg = dms_to_dec(
+                    row["DEC2K_SIGN"],
+                    int(row["DEC2K_D"]),
+                    int(row["DEC2K_M"]),
+                    float(row["DEC2K_S"]),
+                )
 
                 desc = str(row["DESCRIPTION"])
                 mag_max = float(row["MagMax"].replace(",", "."))

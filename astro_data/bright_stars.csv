@@ -50,7 +50,7 @@ N,NamedStar,LatinDesignation,RA Hr,RA Min,Dec Deg,Dec Min,Magnitude,Const
 49,Megrez,Delta Ursae Majoris,12,15.4,57,1,3.3,UMa
 50,Menkar,Alpha Ceti,3,2.2,4,5,2.5,Cet
 51,Merck,Beta Ursae Majoris,11,1.8,56,22,2.3,UMa
-52,Mintaka,Delta Orionis,5,32,0,17,2.2,Ori
+52,Mintaka,Delta Orionis,5,32,-0,17,2.2,Ori
 53,Mira,Omicron Ceti,2,19.3,-2,58,6.5,Cet
 54,Mirach,Beta Andromedae,1,9.7,35,37,2,And
 55,Mirphak,Alpha Persei,3,24.3,49,51,1.8,Per
@@ -65,7 +65,7 @@ N,NamedStar,LatinDesignation,RA Hr,RA Min,Dec Deg,Dec Min,Magnitude,Const
 64,Rasalhague,Alpha Ophiuchi,17,34.9,12,33,2,Oph
 65,Regulus,Alpha Leonis,10,8.3,11,58,1.4,Leo
 66,Rigel,Beta Orionis,5,14.5,-8,12,0.2,Ori
-67,Sadalmelik,Alpha Aquarii,22,5.7,0,19,2.9,Aql
+67,Sadalmelik,Alpha Aquarii,22,5.7,-0,19,2.9,Aql
 68,Saiph,Kappa Orionis,5,47.7,-9,40,2,Ori
 69,Scheet,Beta Pegasi,23,3.7,28,4,2.4,Peg
 70,Shaula,Lambda Scorpii,17,33.6,-37,6,1.6,Sco
