@@ -432,7 +432,8 @@ machine; a device never runs it, and ships the committed file instead.
         │   join an existing sky object, or mint a new one
         ▼
    post-processing                               (POST_PROCESSING_FUNCTIONS)
-        │   type normalisation, the hand-built Messier objects
+        │   type normalisation, the hand-built Messier objects,
+        │   the Messier names
         ▼
    star identity: Hipparcos cross-match, merge by HIP
         │   (`hip` corrections are read here, ahead of position)
@@ -591,9 +592,12 @@ by a correction. An object without one shows its first cross-designation.
 
 The name files:
 
-- `ngc_ic_m/messier/messier_names.dat` is curated, one line per object
-  (`M<n><TAB>Name; Name`); its first name is the object's preferred
-  name.
+- `ngc_ic_m/messier/messier_names.dat` is curated, one line per named
+  Messier object (`M<n><TAB>Name; Name`). A post-processing step puts a
+  line's names ahead of the object's other names, in order, so its first
+  name is the object's preferred name. A cross-designation ("Winnecke 4")
+  or a description ("Satellite of M31") is not a name, so it has no
+  place here.
 - `ngc_ic_m/ngc2000/names.dat` is NGC 2000.0's, published. It is read
   as published but title-cased on read (the atlas's rule: small words
   after the first stay lower case), so "Crab nebula" reads "Crab

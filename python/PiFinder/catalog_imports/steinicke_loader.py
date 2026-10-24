@@ -25,6 +25,7 @@ from .catalog_import_utils import (
 
 # Import shared database object
 from .database import objects_db
+from .post_processing import title_case
 
 
 # Basic object type mappings for exact matches
@@ -542,6 +543,10 @@ def load_ngc_catalog():
                 if common_name.startswith("M "):
                     m_sequence = common_name[2:].strip()
                     common_name = "M" + m_sequence
+                else:
+                    # NGC 2000.0's names are mostly lower case after the first
+                    # word ("Crab nebula").
+                    common_name = title_case(common_name)
                 catalog = line[36:37]
                 if catalog == " ":
                     catalog = "N"
