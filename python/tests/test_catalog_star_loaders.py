@@ -42,7 +42,7 @@ def db(tmp_path, monkeypatch):
         monkeypatch.setattr(module, "objects_db", db)
     yield db
     db.conn.close()
-    ciu.ROUNDED_POSITIONS.clear()
+    ciu.STAND_IN_POSITIONS.clear()
 
 
 @pytest.fixture
@@ -159,6 +159,8 @@ SAM_ROWS = [
             "6.8", "0.9", "2", "CoCo; Y/O"),
     sam_row("SCO", "Nu Sco", "16 12.0", "-19 28", "AC", "Laseth", "    ", "6.4",
             "41.1", "336", "Bino pair"),
+    sam_row("SCO", "Nu Sco", "16 12.0", "-19 28", "CD", "Laseth", "    ", "7.8",
+            "2.3", "51", ""),
 ]  # fmt: skip
 
 
@@ -181,7 +183,7 @@ def test_load_sac_multistars_skips_a_rejected_pair_and_keeps_the_numbering(
 ):
     # σ Per's row is no double; ν Sco keeps the numbers it always had.
     assert listing(sac_multistars, "SaM", 3) is None
-    assert sequences(sac_multistars, "SaM") == [1, 2, 4, 5]
+    assert sequences(sac_multistars, "SaM") == [1, 2, 4, 5, 6]
 
 
 def test_load_sac_multistars_keeps_a_companions_magnitude_off_its_primary(
@@ -381,5 +383,12 @@ def test_load_wds_records_a_row_placed_by_its_identifier(wds):
     row = listing(wds, "WDS", 4)
     assert row["ra"] == pytest.approx((12.3 / 60) * 15)
     assert row["dec"] == pytest.approx(-(27 + 29 / 60))
-    assert ("WDS", 4) in ciu.ROUNDED_POSITIONS
-    assert ("WDS", 1) not in ciu.ROUNDED_POSITIONS
+    assert ("WDS", 4) in ciu.STAND_IN_POSITIONS
+    assert ("WDS", 1) not in ciu.STAND_IN_POSITIONS
+
+
+def test_load_sac_multistars_records_a_companion_pair_as_a_stand_in(sac_multistars):
+    # ν Sco's CD row sits at A's position, which is not C's.
+    assert ("SaM", 6) in ciu.STAND_IN_POSITIONS
+    assert ("SaM", 5) not in ciu.STAND_IN_POSITIONS
+    assert ("SaM", 4) not in ciu.STAND_IN_POSITIONS

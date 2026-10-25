@@ -60,11 +60,12 @@ class MatchRejection:
 # Every rejection in this import, in order. Rejections don't fail the import.
 MATCH_REJECTIONS: List[MatchRejection] = []
 
-# Listings whose position is rounded though their catalog's are otherwise to
-# the arcsecond: a WDS row without arcsecond coordinates is placed by its
-# identifier, to 0.1m in RA and 1' in Dec. The star cross-match gives them the
-# radius of a rounded position (catalog.md §9.3). Loaders add to it.
-ROUNDED_POSITIONS: Set[Tuple[str, int]] = set()
+# Listings whose position stands in for their own star's: a WDS row without
+# arcsecond coordinates, which its identifier places to 0.1m in RA and 1' in
+# Dec, and a SAC row of a companion pair (BC, CD...), which SAC places at its
+# system's position. The star cross-match leaves them unmatched
+# (catalog.md §9.3). Loaders add to it.
+STAND_IN_POSITIONS: Set[Tuple[str, int]] = set()
 
 
 def fill_sky_object(

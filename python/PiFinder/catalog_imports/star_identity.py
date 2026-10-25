@@ -9,12 +9,14 @@ sky objects that match one HIP number into one, typed by the D* rule
 (docs/ax/catalog.md §9.3). It runs after post-processing and before the
 supplementary sources and the correction pass (§9.1).
 
-A `hip` correction names the Hipparcos number of a listing whose source
-position or magnitude is too wrong to match (ADR 0046, decision 4). This stage
-reads them before it cross-matches and uses each in place of position.
+A match is made only where it is reliably right; a star the rules miss is
+matched by a `hip` correction, which names the Hipparcos number of a listing
+(ADR 0046, decision 4). This stage reads them before it cross-matches and uses
+each in place of position.
 """
 
 import logging
+import re
 import sqlite3
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
@@ -28,37 +30,61 @@ from scipy.spatial import cKDTree
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.db.objects_db import ObjectsDatabase
-from .catalog_import_utils import ROUNDED_POSITIONS, fill_sky_object, merge_sky_object
+from .catalog_import_utils import STAND_IN_POSITIONS, fill_sky_object, merge_sky_object
 from .corrections import CorrectionError, parse_designator, resolve_listing
 
 # The catalogs whose listings are stars, in loader order.
 STAR_CATALOGS = ("SaM", "SaR", "Str", "RDS", "TLK", "WDS")
 
-# The match radius follows the precision of a listing's position. RASC and
-# the bright stars round to 0.1m in RA and 1' in Dec, so their stars lie up
-# to 2-3' from Hipparcos's. SAC sometimes gives an RA to the whole minute
-# (α Her's "17 15") or a position a few arcminutes off (ι Lep, δ Ser), so its
-# doubles and red stars match within 6' (Rich's choice, 2026-10). WDS and TLK
-# give arcseconds, and a WDS pair that lies more than 0.5' from the nearest
-# Hipparcos star is nearly always another star (catalog.md §9.3); a WDS row
-# without arcsecond coordinates is placed by its identifier, rounded
-# (ROUNDED_POSITIONS).
+# A match is made only where it is reliably right, at the cost of missing
+# some stars; those are matched by `hip` corrections (catalog.md §9.3). The
+# rules below each removed the wrong matches the evidence found.
+#
+# The radius follows the precision of a listing's position: 3' for SAC, RASC
+# and the bright stars, which round to 0.1m in RA and 1' in Dec, and 3" for
+# the arcsecond positions of WDS and TLK. A listing whose position stands in
+# for its star's (STAND_IN_POSITIONS: a WDS row its identifier places, a SAC
+# companion pair at its system's position) is not matched at all.
 MATCH_RADIUS_ARCMIN = 3.0
-CATALOG_MATCH_RADIUS_ARCMIN = {"SaM": 6.0, "SaR": 6.0}
-PRECISE_MATCH_RADIUS_ARCMIN = 0.5
+PRECISE_MATCH_RADIUS_ARCMIN = 0.05
 PRECISE_CATALOGS = frozenset({"WDS", "TLK"})
 
 # The V gate: a listing's V must lie within this of the Hipparcos star's, or
 # for a variable listed by its range (TLK's [max, min]), the Hipparcos star's
-# V within this of the range.
+# V within this of the range. A listing without a V is not matched, and
+# neither is one that two stars within the radius pass: a pair whose
+# components each have a Hipparcos entry (61 Oph, ε Equ) is ambiguous.
 V_TOLERANCE = 1.0
 RANGE_CATALOGS = frozenset({"TLK"})
-# A variable matches by position alone when no star passes the V gate. TLK's
-# ranges are often photographic (La Superba's 7.4-10.0 is 4.9-7.3 in V), and
-# the catalogs give a large-amplitude variable its maximum where Hipparcos
-# gives its mean (Mira: SAC 2.0, Hipparcos 6.47). Hipparcos flags an
-# amplitude over 0.6 mag 3.
-LARGE_AMPLITUDE_FLAG = 3
+
+# A match must not contradict the listing's own designations: its HD, BD, CD
+# or CPD numbers must include the matched star's in Hipparcos's own columns,
+# and a double-star designation (SAC's "STF 362") that a WDS listing within
+# this distance carries must not place the pair at another star.
+VETO_RADIUS_ARCMIN = 15.0
+# How far from the matched star the pair's WDS listing may lie: WDS's
+# arcsecond positions sit on their star, though a few are 20" off (HDS 2003,
+# Arcturus).
+WDS_PAIR_SLACK_ARCMIN = 0.5
+# SAC writes some discoverers as words where WDS abbreviates them, and "h"
+# (John Herschel) apart from "H" (William Herschel, whose class WDS adds).
+DISCOVERER_SPELLINGS = {
+    "h": "HJ",
+    "Howe": "HWE",
+    "Stone": "STN",
+    "Sh": "SHJ",
+    "Dunlop": "DUN",
+    "Burnham": "BU",
+    "South": "S",
+}
+# Prefixes that are catalog numbers, not double-star discoverers.
+_NOT_DISCOVERERS = frozenset(
+    {"HD", "HR", "SAO", "HIP", "BD", "CD", "CPD", "COD", "NGC", "IC", "M", "ADS"}
+    | {code.upper() for code in ("SaM", "SaR", "Str", "RDS", "TLK", "WDS", "H")}
+)
+_DESIGNATION_RE = re.compile(r"([A-Za-z]{1,8})\s*(\d+)")
+_HD_RE = re.compile(r"HD\s*(\d+)")
+_DM_RE = re.compile(r"(BD|CD|CoD|CPD)\s*([+-])\s*(\d+)\s+(\d+)\w?")
 
 # Hipparcos positions are for J1991.25; the sources give J2000.
 HIPPARCOS_EPOCH = 1991.25
@@ -68,8 +94,9 @@ _MAS_PER_DEGREE = 3.6e6
 # The fields of hip_main.dat this stage reads, by position (VizieR I/239):
 # H1 the HIP number, H3/H4 the position in h m s and d m s, H5 V, H6 the
 # variability flag, H8/H9 the position in degrees (blank for the 263 stars
-# with no astrometric solution, such as ξ UMa) and H12/H13 the proper motion
-# in mas/yr, the RA component times cos(Dec).
+# with no astrometric solution, such as ξ UMa), H12/H13 the proper motion
+# in mas/yr, the RA component times cos(Dec), and H71-H74 the star's HD, BD,
+# CD and CPD numbers.
 _HIP_FIELDS = {
     1: "hip",
     3: "ra_hms",
@@ -80,7 +107,14 @@ _HIP_FIELDS = {
     9: "dec",
     12: "pm_ra",
     13: "pm_dec",
+    71: "HD",
+    72: "BD",
+    73: "CD",
+    74: "CPD",
 }
+
+# A catalog number, as a hashable key: ("HD", 12345) or ("BD", "+", 0, 5077).
+CatalogNumber = Tuple
 
 
 @dataclass
@@ -92,6 +126,9 @@ class Hipparcos:
     dec: np.ndarray
     vmag: np.ndarray
     var_flag: np.ndarray
+    # Each HIP number's HD, BD, CD and CPD numbers, and the reverse.
+    numbers_of: Dict[int, Set[CatalogNumber]] = field(default_factory=dict)
+    star_with: Dict[CatalogNumber, int] = field(default_factory=dict)
     _tree: Optional[cKDTree] = field(default=None, init=False, repr=False)
     _index: Optional[Dict[int, int]] = field(default=None, init=False, repr=False)
 
@@ -130,6 +167,27 @@ def _sexagesimal(text: str) -> float:
     return -value if text.strip().startswith("-") else value
 
 
+def dm_number(system: str, text: str) -> Optional[CatalogNumber]:
+    """A Durchmusterung number as a key: ("BD", "+", 0, 5077) for "B+00 5077"."""
+    match = re.search(r"([+-])\s*(\d+)\s+(\d+)", text)
+    if match is None:
+        return None
+    return (system, match.group(1), int(match.group(2)), int(match.group(3)))
+
+
+def catalog_numbers(name: str) -> List[CatalogNumber]:
+    """The HD, BD, CD and CPD numbers a listing's name gives."""
+    match = _HD_RE.fullmatch(name.strip())
+    if match:
+        return [("HD", int(match.group(1)))]
+    match = _DM_RE.fullmatch(name.strip())
+    if match:
+        system = "CD" if match.group(1) == "CoD" else match.group(1)
+        number = dm_number(system, " ".join(match.group(2, 3, 4)))
+        return [number] if number else []
+    return []
+
+
 def load_hipparcos(path: Optional[Path] = None) -> Hipparcos:
     """Read hip_main.dat, with each position carried to J2000."""
     path = path or Path(utils.astro_data_dir, "hip_main.dat")
@@ -139,6 +197,7 @@ def load_hipparcos(path: Optional[Path] = None) -> Hipparcos:
         header=None,
         usecols=list(_HIP_FIELDS),
         skipinitialspace=True,
+        dtype={71: str, 72: str, 73: str, 74: str},
     ).rename(columns=_HIP_FIELDS)
     ra = frame["ra"].to_numpy(dtype=float)
     dec = frame["dec"].to_numpy(dtype=float)
@@ -150,12 +209,28 @@ def load_hipparcos(path: Optional[Path] = None) -> Hipparcos:
     pm_dec = np.nan_to_num(frame["pm_dec"].to_numpy(dtype=float))
     dec_2000 = dec + pm_dec * years / _MAS_PER_DEGREE
     ra_2000 = ra + pm_ra * years / _MAS_PER_DEGREE / np.cos(np.radians(dec))
+    numbers_of: Dict[int, Set[CatalogNumber]] = {}
+    star_with: Dict[CatalogNumber, int] = {}
+    columns = [frame[column].tolist() for column in ("HD", "BD", "CD", "CPD")]
+    for number, hd, *dms in zip(frame["hip"].tolist(), *columns):
+        numbers: Set[CatalogNumber] = set()
+        if isinstance(hd, str) and hd.strip():
+            numbers.add(("HD", int(hd)))
+        for system, text in zip(("BD", "CD", "CPD"), dms):
+            dm = dm_number(system, text) if isinstance(text, str) else None
+            if dm:
+                numbers.add(dm)
+        numbers_of[int(number)] = numbers
+        for catalog_number in numbers:
+            star_with[catalog_number] = int(number)
     return Hipparcos(
         hip=frame["hip"].to_numpy(dtype=int),
         ra=np.mod(ra_2000, 360),
         dec=dec_2000,
         vmag=frame["vmag"].to_numpy(dtype=float),
         var_flag=np.nan_to_num(frame["var_flag"].to_numpy(dtype=float)).astype(int),
+        numbers_of=numbers_of,
+        star_with=star_with,
     )
 
 
@@ -171,10 +246,12 @@ class StarObject:
     mag: MagnitudeObject
     size: SizeObject
     obj_type: str
-    # Whether its position is to the arcsecond (WDS's and TLK's, but for a
-    # WDS row placed by its identifier).
+    # Whether its catalog gives arcsecond positions (WDS, TLK), and whether
+    # its position stands in for its star's (STAND_IN_POSITIONS).
     precise: bool = False
+    stand_in: bool = False
     listings: List[str] = field(default_factory=list)
+    names: List[str] = field(default_factory=list)
 
     @property
     def vmag(self) -> Optional[float]:
@@ -187,21 +264,22 @@ class StarObject:
         return [float(m) for m in self.mag.mags if utils.is_number(m)]
 
     @property
-    def radius_arcmin(self) -> float:
-        if self.precise:
-            return PRECISE_MATCH_RADIUS_ARCMIN
-        return CATALOG_MATCH_RADIUS_ARCMIN.get(self.catalog_code, MATCH_RADIUS_ARCMIN)
+    def radius_arcmin(self) -> Optional[float]:
+        """The match radius, or None for a listing that is not matched."""
+        if self.stand_in:
+            return None
+        return PRECISE_MATCH_RADIUS_ARCMIN if self.precise else MATCH_RADIUS_ARCMIN
 
 
 def read_star_objects(
-    cursor: sqlite3.Cursor, rounded: Optional[Set[Tuple[str, int]]] = None
+    cursor: sqlite3.Cursor, stand_in: Optional[Set[Tuple[str, int]]] = None
 ) -> Dict[int, StarObject]:
     """Every sky object with a star catalog's listing, by object id.
 
-    `rounded` names the listings of a precise catalog whose position is
-    rounded; it defaults to what the loaders recorded in ROUNDED_POSITIONS.
+    `stand_in` names the listings whose position stands in for their star's;
+    it defaults to what the loaders recorded in STAND_IN_POSITIONS.
     """
-    rounded = ROUNDED_POSITIONS if rounded is None else rounded
+    stand_in = STAND_IN_POSITIONS if stand_in is None else stand_in
     codes = ", ".join("?" * len(STAR_CATALOGS))
     rows = cursor.execute(
         "SELECT o.id, o.obj_type, o.ra, o.dec, o.mag, o.size,"
@@ -225,11 +303,17 @@ def read_star_objects(
                 mag=MagnitudeObject.from_json(row["mag"]),
                 size=SizeObject.from_json(row["size"]),
                 obj_type=row["obj_type"],
-                precise=(
-                    row["catalog_code"] in PRECISE_CATALOGS and listing not in rounded
-                ),
+                precise=row["catalog_code"] in PRECISE_CATALOGS,
+                stand_in=listing in stand_in,
             )
         star.listings.append(f"{row['catalog_code']} {row['sequence']}")
+    for row in cursor.execute(
+        "SELECT object_id, common_name FROM names WHERE object_id IN"
+        f" (SELECT object_id FROM catalog_objects WHERE catalog_code IN ({codes}))"
+        " ORDER BY id",
+        STAR_CATALOGS,
+    ):
+        stars[row["object_id"]].names.append(row["common_name"])
     return stars
 
 
@@ -240,12 +324,10 @@ class Match:
     object_id: int
     hip: Optional[int] = None
     separation_arcmin: Optional[float] = None
-    # How many Hipparcos stars within the radius could have matched: those
-    # that pass the V gate or, failing any, the variables.
-    candidates: int = 0
-    # The nearest Hipparcos star within the radius that failed the V gate,
-    # as (HIP, separation in arcmin, its V), where it came first.
-    rejected_by_v: Optional[Tuple[int, float, float]] = None
+    # Why there is no match: "no V", "V gate", "ambiguous", or a veto.
+    reason: Optional[str] = None
+    # The Hipparcos stars within the radius that pass the V gate.
+    candidates: List[int] = field(default_factory=list)
     by_correction: bool = False
 
 
@@ -253,12 +335,12 @@ def passes_v_gate(star: StarObject, hip_vmag: float) -> bool:
     """Whether a listing's V agrees with a Hipparcos star's (V_TOLERANCE).
 
     A variable listed by its range passes when the Hipparcos star's V lies
-    within V_TOLERANCE of the range. A listing without a V, or a Hipparcos
-    star without one, passes: it is matched by position alone.
+    within V_TOLERANCE of the range. Without a V on either side there is
+    nothing to compare, and no match.
     """
     mags = star.numeric_mags
     if not mags or np.isnan(hip_vmag):
-        return True
+        return False
     if star.catalog_code in RANGE_CATALOGS:
         low, high = min(mags), max(mags)
     else:
@@ -266,69 +348,142 @@ def passes_v_gate(star: StarObject, hip_vmag: float) -> bool:
     return low - V_TOLERANCE <= hip_vmag <= high + V_TOLERANCE
 
 
-def matches_as_variable(star: StarObject, var_flag: int) -> bool:
-    """Whether a Hipparcos star may match a listing whose V it fails.
-
-    A variable's V is not compared: TLK's variables, and Hipparcos's
-    large-amplitude ones. Such a star matches only when no star within the
-    radius passes the V gate, so a variable never takes a listing from the
-    star its V describes (STF 2816, beside the variable HIP 106890).
-    """
-    return star.catalog_code in RANGE_CATALOGS or var_flag == LARGE_AMPLITUDE_FLAG
-
-
 def cross_match(
     stars: Mapping[int, StarObject],
     hipparcos: Hipparcos,
     radius_scale: float = 1.0,
 ) -> Dict[int, Match]:
-    """Each star sky object's Hipparcos star: the nearest within its radius
-    that passes the V gate, or failing that the nearest variable.
+    """Each star sky object's Hipparcos star: the one star within its radius
+    that passes the V gate. None passes, or two do: no match.
     `radius_scale` widens every radius, to see what lies just outside it."""
-    stars_list = list(stars.values())
-    matches: Dict[int, Match] = {}
+    stars_list = [star for star in stars.values() if star.radius_arcmin is not None]
+    matches: Dict[int, Match] = {
+        star.object_id: Match(star.object_id, reason="position not to be matched")
+        for star in stars.values()
+        if star.radius_arcmin is None
+    }
     if not stars_list:
         return matches
     vectors = unit_vectors(
         np.array([star.ra for star in stars_list]),
         np.array([star.dec for star in stars_list]),
     )
-    radii = np.array([star.radius_arcmin * radius_scale for star in stars_list])
+    radii = np.array(
+        [float(star.radius_arcmin or 0) * radius_scale for star in stars_list]
+    )
     for radius in np.unique(radii):
         chosen = np.flatnonzero(radii == radius)
         found = hipparcos.tree.query_ball_point(vectors[chosen], _chord(radius))
-        for i, candidates in zip(chosen, found):
+        for i, near in zip(chosen, found):
             star = stars_list[i]
             match = matches[star.object_id] = Match(star.object_id)
-            if not candidates:
+            if star.vmag is None:
+                match.reason = "no V"
                 continue
-            candidates = np.array(candidates)
+            if not near:
+                match.reason = "nothing within the radius"
+                continue
+            near = np.array(near)
             separations = _arcmin(
-                np.linalg.norm(hipparcos.tree.data[candidates] - vectors[i], axis=1)
+                np.linalg.norm(hipparcos.tree.data[near] - vectors[i], axis=1)
             )
-            # Nearest first; ties fall to the lower HIP, so every import picks
-            # the same star.
-            order = np.lexsort((hipparcos.hip[candidates], separations))
-            passing = [
-                j for j in order if passes_v_gate(star, hipparcos.vmag[candidates[j]])
-            ] or [
-                j
-                for j in order
-                if matches_as_variable(star, hipparcos.var_flag[candidates[j]])
-            ]
-            nearest = candidates[order[0]]
-            if not passing or passing[0] != order[0]:
-                match.rejected_by_v = (
-                    int(hipparcos.hip[nearest]),
-                    float(separations[order[0]]),
-                    float(hipparcos.vmag[nearest]),
-                )
-            if passing:
-                best = passing[0]
-                match.hip = int(hipparcos.hip[candidates[best]])
-                match.separation_arcmin = float(separations[best])
-                match.candidates = len(passing)
+            # Nearest first, ties to the lower HIP, so the record reads the
+            # same in every import.
+            order = np.lexsort((hipparcos.hip[near], separations))
+            passing = [j for j in order if passes_v_gate(star, hipparcos.vmag[near[j]])]
+            match.candidates = [int(hipparcos.hip[near[j]]) for j in passing]
+            if not passing:
+                match.reason = "V gate"
+            elif len(passing) > 1:
+                match.reason = "ambiguous"
+            else:
+                match.hip = match.candidates[0]
+                match.separation_arcmin = float(separations[passing[0]])
     return matches
+
+
+def double_star_designation(name: str) -> Optional[str]:
+    """A name read as WDS writes a discoverer designation, or None.
+
+    "STF 362" is "STF362", SAC's "h 4166" is "HJ4166" and "Howe 87" "HWE87".
+    Catalog numbers (HD, SAO) and PiFinder's own designations are none.
+    """
+    match = _DESIGNATION_RE.fullmatch(name.strip())
+    if match is None:
+        return None
+    prefix = match.group(1)
+    spelled = DISCOVERER_SPELLINGS.get(prefix, prefix.upper())
+    if spelled in _NOT_DISCOVERERS:
+        return None
+    return f"{spelled}{int(match.group(2))}"
+
+
+def apply_vetoes(
+    stars: Mapping[int, StarObject],
+    matches: Dict[int, Match],
+    hipparcos: Hipparcos,
+) -> None:
+    """Undo a match that contradicts the listing's own designations.
+
+    The listing's HD, BD, CD and CPD numbers must include one of the matched
+    star's, unless it has none. And a double-star designation that a WDS
+    listing within VETO_RADIUS_ARCMIN carries must not place the pair
+    elsewhere: that WDS listing may not match another star, nor lie more than
+    WDS_PAIR_SLACK_ARCMIN from the matched one.
+    """
+    wds: Dict[str, List[StarObject]] = defaultdict(list)
+    for star in stars.values():
+        if star.catalog_code == "WDS":
+            for name in star.names:
+                designation = re.sub(r"\s+", "", name).upper()
+                wds[designation].append(star)
+    for object_id, match in matches.items():
+        star = stars[object_id]
+        if match.hip is None or star.catalog_code == "WDS":
+            continue
+        reason = _contradiction(star, match.hip, wds, matches, hipparcos)
+        if reason:
+            match.hip, match.separation_arcmin, match.reason = None, None, reason
+
+
+def _contradiction(
+    star: StarObject,
+    hip: int,
+    wds: Mapping[str, List[StarObject]],
+    matches: Mapping[int, Match],
+    hipparcos: Hipparcos,
+) -> Optional[str]:
+    numbers = [number for name in star.names for number in catalog_numbers(name)]
+    if numbers and not any(n in hipparcos.numbers_of.get(hip, set()) for n in numbers):
+        for number in numbers:
+            other = hipparcos.star_with.get(number)
+            if other is not None:
+                return f"{' '.join(map(str, number))} is HIP {other}"
+        return f"{' '.join(map(str, numbers[0]))} is no Hipparcos star's"
+    index = hipparcos.index_of(hip)
+    assert index is not None
+    matched = unit_vectors(
+        hipparcos.ra[index : index + 1], hipparcos.dec[index : index + 1]
+    )[0]
+    here = unit_vectors(np.array([star.ra]), np.array([star.dec]))[0]
+    for name in star.names:
+        designation = double_star_designation(name)
+        if designation is None:
+            continue
+        for pair in wds.get(designation, ()):
+            there = unit_vectors(np.array([pair.ra]), np.array([pair.dec]))[0]
+            if (
+                _arcmin(np.array([np.linalg.norm(there - here)]))[0]
+                > VETO_RADIUS_ARCMIN
+            ):
+                continue
+            pair_hip = matches[pair.object_id].hip
+            if pair_hip is not None and pair_hip != hip:
+                return f"WDS {name} is HIP {pair_hip}"
+            away = _arcmin(np.array([np.linalg.norm(there - matched)]))[0]
+            if away > WDS_PAIR_SLACK_ARCMIN:
+                return f"WDS {name} is {away:.1f}' from HIP {hip}"
+    return None
 
 
 def apply_hip_identifications(
@@ -424,6 +579,7 @@ def identify_stars(
     cursor = conn.cursor()
     stars = read_star_objects(cursor)
     matches = cross_match(stars, hipparcos)
+    apply_vetoes(stars, matches, hipparcos)
     apply_hip_identifications(cursor, stars, matches, hip_identifications, hipparcos)
 
     by_hip: Dict[int, List[int]] = defaultdict(list)
@@ -477,11 +633,16 @@ def _log_summary(
                 matched[code],
                 total[code],
             )
+    reasons = Counter(
+        "veto" if " is " in match.reason else match.reason
+        for match in matches.values()
+        if match.reason
+    )
     logging.info(
         "Star identity: merged %d sky objects into %d stars, %d by hip"
-        " correction; the V gate turned away %d nearest stars",
+        " correction; no match: %s",
         len(merged_into),
         len(set(merged_into.values())),
         len(hip_identifications),
-        sum(match.rejected_by_v is not None for match in matches.values()),
+        ", ".join(f"{reason} {count}" for reason, count in sorted(reasons.items())),
     )

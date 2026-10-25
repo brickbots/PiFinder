@@ -579,37 +579,45 @@ strict default, where "NGC 4676A" is a plain name.
 cross-matches every sky object that carries a listing of a star catalog
 (Str, SaM, SaR, TLK, RDS, WDS) to `hip_main.dat`, and merges the sky
 objects that match one HIP number into one, whatever catalogs list them:
-Mizar is one sky object. A listing with no match (a SAC double fainter
-than Hipparcos's completeness, say) stays its own. Source positions are
-rounded, and few sources carry an ID, so position alone or a catalog ID
-alone cannot do this: the match takes a star's V as well as its place.
+Mizar is one sky object. **A match is made only where it is reliably
+right; a star the rules miss is matched by a `hip` correction** (Rich's
+principle, 2026-10). A wrong match cannot be undone and would give a
+listing another star's values, while a miss costs one line in a
+corrections file. A listing with no match stays its own sky object.
 
-- **The match** is the nearest Hipparcos star within the listing's radius
+- **The match** is the one Hipparcos star within the listing's radius
   whose V lies within 1 mag of the listing's first magnitude, the
-  primary's. The radius follows the position's precision: 3′ for RASC
-  and the bright stars, which round to 0.1ᵐ in RA and 1′ in Dec, and for a
-  WDS row without arcsecond coordinates, which is placed by its
-  identifier; 6′ for SAC's doubles and red stars, which sometimes give an
-  RA to the whole minute (α Her's "17 15") or a position a few arcminutes
-  off (ι Lep, δ Ser) (Rich's choice, 2026-10); 0.5′ for the arcsecond
-  positions of WDS and TLK. Beyond
-  0.5′ a WDS pair is nearly always another star than the Hipparcos one it
-  would match: its Durchmusterung number differs. Hipparcos's
-  J1991.25 positions are carried to J2000 by their proper motion, which
-  moves Arcturus 20″. Two stars equally near go to the lower HIP number,
-  so every import picks the same one.
-- **Variables, and no V.** A variable listed by its range (TLK's
-  [max, min]) passes the gate when the Hipparcos star's V lies within
-  1 mag of the range. A listing without a magnitude (SAC's continuation
-  rows, such as ν Sco's AC) is matched by position alone. When no star
-  within the radius passes the gate, a variable is matched by position
-  alone too: TLK's ranges are often photographic (La Superba), and the
-  catalogs give a large-amplitude variable (Hipparcos's variability flag
-  3) its maximum where Hipparcos gives its mean (Mira: 2.0 against 6.47).
-  So a variable never takes a listing from a star whose V the listing
-  matches.
-- **`hip` corrections come first.** A listing whose source position or
-  magnitude is too wrong to match (SAC's α Mic, whole degrees off) gets a
+  primary's; for a variable listed by its range (TLK's [max, min]),
+  within 1 mag of the range. No match is made when:
+  - no star passes the V gate;
+  - two stars pass it (a pair whose components each have a Hipparcos
+    entry, such as 61 Oph or ε Equ);
+  - the listing gives no V (SAC's continuation rows, such as ν Sco's AC).
+    By position alone they found a companion or a neighbour.
+  A variable whose catalog V is not Hipparcos's (Mira: SAC 2.0, Hipparcos
+  6.47; TLK's photographic ranges) is therefore a `hip` correction.
+- **The radius follows the position's precision**: 3′ for SAC, RASC and
+  the bright stars, which round to 0.1ᵐ in RA and 1′ in Dec; 3″ for the
+  arcsecond positions of WDS and TLK. Within 3″ a WDS listing is its
+  Hipparcos star; its Durchmusterung number disagrees only where WDS's
+  own column has a slip. A listing whose position stands in for its
+  star's is not matched at all:
+  - a WDS row without arcsecond coordinates, which its identifier places;
+  - a SAC companion pair (BC, CD), which SAC places at its system's
+    position (ε Lyr's CD row lies at ε¹).
+  SAC's rows 3–6′ from their star were a third chance matches, so they are
+  corrections too. Hipparcos's J1991.25 positions are carried to J2000 by
+  their proper motion, which moves Arcturus 20″.
+- **A match must not contradict the listing's own designations.**
+  - Its HD, BD, CD or CPD numbers, if it gives any, must include the
+    matched star's in Hipparcos's own columns.
+  - A double-star designation (SAC's "STF 362", "h 4166" for WDS's
+    HJ 4166) that a WDS listing within 15′ carries must not place the pair
+    elsewhere: that listing may not match another star, nor lie more than
+    0.5′ from the matched one. That is how a SAC row 1–2′ off is kept off
+    the wrong star when its own pair is not in Hipparcos.
+- **`hip` corrections come first.** A listing the rules miss (SAC's α Mic,
+  whole degrees off; Mira's SAC rows; a pair's ambiguous components) gets a
   `hip` correction, which this stage reads before it cross-matches and
   uses in place of the match — the one correction that does not wait for
   the final pass (9.5). One whose designator resolves to nothing or to no
