@@ -14,6 +14,7 @@ import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.calc_utils import ra_to_deg, dms_to_dec
 from .catalog_import_utils import (
+    STAND_IN_POSITIONS,
     NewCatalogObject,
     delete_catalog_from_database,
     insert_catalog,
@@ -78,6 +79,17 @@ def sac_pair_magnitudes(
     if primary is None:
         return [], companion
     return [primary] + ([companion] if companion is not None else []), None
+
+
+def is_companion_pair(components: str) -> bool:
+    """Whether a SAC row's pair leaves out the primary (BC, CD, ED).
+
+    SAC gives such a row its system's position, which is A's, so the
+    position does not place the row's own star (ε Lyr's CD, ε² Lyr, lies at
+    ε¹'s): the star cross-match leaves it unmatched.
+    """
+    components = components.strip()
+    return bool(components) and not components.upper().startswith("A")
 
 
 def is_rejected_pair(name: str, notes: str) -> bool:
@@ -198,6 +210,9 @@ def load_sac_multistars():
     catalog = "SaM"
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
+    STAND_IN_POSITIONS.difference_update(
+        {listing for listing in STAND_IN_POSITIONS if listing[0] == catalog}
+    )
     sam_path = Path(utils.astro_data_dir, "SAC_Multistars_Ver40")
     insert_catalog(catalog, sam_path / "sacm.desc")
     saca = sam_path / "SAC_DBL40_Fence.txt"
@@ -252,6 +267,8 @@ def load_sac_multistars():
             desc += f"\nPA: {pa}°" if pa else ""
             if companion_mag is not None:
                 desc += f"\nCompanion mag {companion_mag:g}"
+            if is_companion_pair(components):
+                STAND_IN_POSITIONS.add((catalog, sequence))
 
             ra = ra.split()
             ra_h = int(ra[0])

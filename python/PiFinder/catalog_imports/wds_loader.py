@@ -18,7 +18,7 @@ import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.calc_utils import ra_to_deg, dms_to_dec
 from .catalog_import_utils import (
-    ROUNDED_POSITIONS,
+    STAND_IN_POSITIONS,
     delete_catalog_from_database,
     insert_catalog,
     insert_catalog_max_sequence,
@@ -350,8 +350,8 @@ def load_wds():
     for line, entry in enumerate(tqdm(data, total=len(data))):
         wds_dict[entry["Coordinates_2000"]].append(entry)
 
-    ROUNDED_POSITIONS.difference_update(
-        {listing for listing in ROUNDED_POSITIONS if listing[0] == catalog}
+    STAND_IN_POSITIONS.difference_update(
+        {listing for listing in STAND_IN_POSITIONS if listing[0] == catalog}
     )
     seq = 1
     for key, value in tqdm(wds_dict.items(), total=len(wds_dict.items())):
@@ -373,7 +373,7 @@ def load_wds():
         )
         new_object.insert(find_object_id=False)
         if not current_result["precise"]:
-            ROUNDED_POSITIONS.add((catalog, seq))
+            STAND_IN_POSITIONS.add((catalog, seq))
         seq += 1
 
     insert_catalog_max_sequence(catalog)

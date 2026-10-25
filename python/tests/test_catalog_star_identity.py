@@ -13,7 +13,9 @@ from PiFinder.catalog_imports import wds_loader
 from PiFinder.catalog_imports.corrections import CorrectionError
 from PiFinder.catalog_imports.star_identity import (
     Hipparcos,
+    apply_vetoes,
     cross_match,
+    double_star_designation,
     identify_stars,
     load_hipparcos,
     read_star_objects,
@@ -28,16 +30,20 @@ ARCMIN = 1 / 60
 CODES = ("SaM", "SaR", "Str", "RDS", "TLK", "WDS", "NGC")
 
 
-def hipparcos(*stars, var_flags=None):
-    """Hipparcos stars as (hip, ra, dec, V)."""
+def hipparcos(*stars, var_flags=None, numbers=None):
+    """Hipparcos stars as (hip, ra, dec, V); `numbers` maps a HIP to its
+    catalog numbers, such as {("HD", 12345)}."""
     hip, ra, dec, vmag = (np.array(column) for column in zip(*stars))
     flags = np.array(var_flags or [0] * len(stars), dtype=int)
+    numbers = numbers or {}
     return Hipparcos(
         hip=hip.astype(int),
         ra=ra.astype(float),
         dec=dec.astype(float),
         vmag=vmag.astype(float),
         var_flag=flags,
+        numbers_of={number: set(keys) for number, keys in numbers.items()},
+        star_with={key: number for number, keys in numbers.items() for key in keys},
     )
 
 
@@ -54,7 +60,7 @@ HIPPARCOS = hipparcos(
 @pytest.fixture
 def db(tmp_path):
     # No listing's position is rounded unless a test says so.
-    ciu.ROUNDED_POSITIONS.clear()
+    ciu.STAND_IN_POSITIONS.clear()
     db = ObjectsDatabase(tmp_path / "objects.db")
     db.create_tables()
     for code in CODES:
@@ -102,90 +108,91 @@ def names(db, code, sequence):
     return [row["common_name"] for row in rows]
 
 
-def matches(db, stars=HIPPARCOS, **kwargs):
-    found = cross_match(read_star_objects(db.conn.cursor(), set()), stars, **kwargs)
+def matches(db, stars=HIPPARCOS, stand_in=(), **kwargs):
+    """Each sky object's match, after the vetoes, as its HIP or None."""
+    found = cross_match(
+        read_star_objects(db.conn.cursor(), set(stand_in)), stars, **kwargs
+    )
+    apply_vetoes(read_star_objects(db.conn.cursor(), set(stand_in)), found, stars)
     return {object_id: match.hip for object_id, match in found.items()}
 
 
+def reasons(db, stars=HIPPARCOS):
+    """Each sky object's reason for having no match."""
+    star_objects = read_star_objects(db.conn.cursor(), set())
+    found = cross_match(star_objects, stars)
+    apply_vetoes(star_objects, found, stars)
+    return {object_id: match.reason for object_id, match in found.items()}
+
+
 # --- The cross-match -----------------------------------------------------------
+#
+# A match is made only where it is reliably right; a star the rules miss is
+# matched by a `hip` correction (catalog.md §9.3).
+
+ARCSEC = ARCMIN / 60
 
 
-def test_the_nearest_star_within_3_arcmin_matches(db):
-    # SAC rounds to 0.1m of RA and 1' of Dec: Mizar lies 1.2' off.
+def test_the_one_star_within_3_arcmin_that_passes_the_v_gate_matches(db):
+    # SAC rounds to 0.1m of RA and 1' of Dec: Mizar lies 1.2' off. The 9.5 mag
+    # star 1.5' away fails the V gate.
     sam = add(db, "SaM", 2054, "D*", 200.975, 54.9333, mag=[2.3, 4.0])
     assert matches(db) == {sam: MIZAR}
 
 
-def test_nothing_within_the_radius_is_no_match(db):
+def test_nothing_within_3_arcmin_is_no_match(db):
+    # SAC's 3-6' rows are mostly stars Hipparcos lacks; those it has get a
+    # hip correction.
     lone = add(db, "Str", 1, "*", 200.975, 54.925 + 3.5 * ARCMIN, mag=[2.3])
-    assert matches(db) == {lone: None}
+    sam = add(db, "SaM", 958, "D*", 200.975, 54.925 + 5.5 * ARCMIN, mag=[2.3])
+    assert matches(db) == {lone: None, sam: None}
 
 
-def test_sac_matches_within_6_arcmin(db):
-    # SAC gives some RAs to the whole minute: α Her's "17 15" lies 5.8' off.
-    near = add(db, "SaM", 958, "D*", 200.975, 54.925 + 5.5 * ARCMIN, mag=[2.3])
-    sar = add(db, "SaR", 1, "*", 200.975, 54.925 + 5.5 * ARCMIN, mag=[2.3])
-    far = add(db, "SaM", 1, "D*", 200.975, 54.925 + 6.5 * ARCMIN, mag=[2.3])
-    rds = add(db, "RDS", 1, "D*", 200.975, 54.925 + 5.5 * ARCMIN, mag=[2.3])
-    assert matches(db) == {near: MIZAR, sar: MIZAR, far: None, rds: None}
-
-
-def test_the_v_gate_passes_over_a_star_of_another_magnitude(db):
-    # A 9.6 mag double 0.1' from the 9.5 mag star, 1.4' from Mizar.
+def test_the_v_gate_picks_the_star_of_the_listings_magnitude(db):
     near_faint = add(db, "SaM", 1, "D*", 200.98, 54.925 + 1.4 * ARCMIN, mag=[9.6])
-    # A 2.2 mag listing 0.2' from the faint star still finds Mizar, 1.3' off.
     bright = add(db, "Str", 56, "*", 200.98, 54.925 + 1.3 * ARCMIN, mag=[2.2])
-    found = cross_match(read_star_objects(db.conn.cursor(), set()), HIPPARCOS)
-    assert found[near_faint].hip == FAINT
-    assert found[bright].hip == MIZAR
-    assert found[bright].rejected_by_v == (FAINT, pytest.approx(0.2), 9.5)
+    assert matches(db) == {near_faint: FAINT, bright: MIZAR}
 
 
 def test_v_outside_1_mag_of_every_star_is_no_match(db):
     off = add(db, "SaR", 1, "*", 200.98, 54.925, mag=[5.5])
-    found = cross_match(read_star_objects(db.conn.cursor(), set()), HIPPARCOS)
-    assert found[off].hip is None
-    assert found[off].rejected_by_v == (MIZAR, pytest.approx(0.0), 2.23)
+    assert reasons(db) == {off: "V gate"}
 
 
-def test_a_listing_without_a_magnitude_matches_by_position(db):
-    # ν Sco's AC row gives no magnitude for the star.
+def test_a_listing_without_a_magnitude_is_not_matched(db):
+    # ν Sco's AC row gives no magnitude for the star; by position alone, 14 Aur
+    # AC found its companion C.
     ac = add(db, "SaM", 1772, "D*", 200.98, 54.925 + 0.2 * ARCMIN)
-    assert matches(db) == {ac: MIZAR}
+    assert reasons(db) == {ac: "no V"}
 
 
-def test_of_several_candidates_the_nearest_wins(db):
+def test_two_stars_that_pass_the_v_gate_are_no_match(db):
+    # 61 Oph: both components have a Hipparcos entry, and SAC's rounded
+    # position cannot tell them apart.
     stars = hipparcos(
-        (10, 50.0, 20.0 + 1.0 * ARCMIN, 6.0), (11, 50.0, 20.0 + 2.0 * ARCMIN, 6.2)
+        (86831, 50.0, 20.0 + 0.9 * ARCMIN, 6.16),
+        (86835, 50.0, 20.0 + 0.76 * ARCMIN, 6.67),
     )
-    listing = add(db, "SaM", 1, "D*", 50.0, 20.0, mag=[6.1])
-    found = cross_match(read_star_objects(db.conn.cursor(), set()), stars)
-    assert found[listing].hip == 10
-    assert found[listing].candidates == 2
+    sam = add(db, "SaM", 1380, "D*", 50.0, 20.0, mag=[6.2])
+    assert reasons(db, stars) == {sam: "ambiguous"}
 
 
-def test_a_tie_goes_to_the_lower_hip_number(db):
-    stars = hipparcos(
-        (12, 50.0, 20.0 + 1.0 * ARCMIN, 6.0), (11, 50.0, 20.0 - 1.0 * ARCMIN, 6.0)
-    )
-    listing = add(db, "SaM", 1, "D*", 50.0, 20.0, mag=[6.0])
-    assert matches(db, stars) == {listing: 11}
+def test_an_arcsecond_source_matches_within_3_arcsec(db):
+    # WDS and TLK place a star to the arcsecond: a pair 10" from a Hipparcos
+    # star may be another star.
+    wds = add(db, "WDS", 1, "D*", 200.98, 54.925 + 2 * ARCSEC, mag=[2.3])
+    far = add(db, "WDS", 2, "D*", 200.98, 54.925 + 10 * ARCSEC, mag=[2.3])
+    sam = add(db, "SaM", 1, "D*", 200.98, 54.925 + 1.0 * ARCMIN, mag=[2.3])
+    assert matches(db) == {wds: MIZAR, far: None, sam: MIZAR}
 
 
-def test_an_arcsecond_source_matches_within_half_an_arcminute(db):
-    # A WDS pair 1' from a Hipparcos star is another star; SAC's 1' is rounding.
-    wds = add(db, "WDS", 1, "D*", 200.98, 54.925 + 1.0 * ARCMIN, mag=[2.5])
-    sam = add(db, "SaM", 1, "D*", 200.98, 54.925 + 1.0 * ARCMIN, mag=[2.5])
-    close = add(db, "WDS", 2, "D*", 200.98, 54.925 + 0.4 * ARCMIN, mag=[2.5])
-    assert matches(db) == {wds: None, sam: MIZAR, close: MIZAR}
-
-
-def test_a_wds_row_placed_by_its_identifier_matches_within_3_arcmin(db):
-    wds = add(db, "WDS", 1, "D*", 200.98, 54.925 + 1.0 * ARCMIN, mag=[2.5])
-    stars = read_star_objects(db.conn.cursor(), rounded={("WDS", 1)})
-    assert cross_match(stars, HIPPARCOS)[wds].hip == MIZAR
-    stars = read_star_objects(db.conn.cursor(), rounded=set())
-    assert cross_match(stars, HIPPARCOS)[wds].hip is None
+def test_a_stand_in_position_is_not_matched(db):
+    # A WDS row its identifier places, a SAC companion pair at its system's
+    # position (ε Lyr's CD row lies at ε¹).
+    wds = add(db, "WDS", 1, "D*", 200.98, 54.925, mag=[2.3])
+    cd = add(db, "SaM", 1251, "D*", 200.98, 54.925, mag=[2.3])
+    found = matches(db, stand_in={("WDS", 1), ("SaM", 1251)})
+    assert found == {wds: None, cd: None}
 
 
 def test_a_wider_radius_shows_what_lies_just_outside(db):
@@ -193,47 +200,121 @@ def test_a_wider_radius_shows_what_lies_just_outside(db):
     assert matches(db, radius_scale=2) == {lone: MIZAR}
 
 
-def test_variables_are_matched_by_position(db):
-    stars = hipparcos((10826, 34.8366, -2.9773, 6.47), var_flags=[3])
-    # Mira: SAC gives its maximum, TLK its range, Hipparcos its mean V.
-    sar = add(db, "SaR", 82, "*", 34.825, -2.9833, mag=[2.0])
-    tlk = add(db, "TLK", 32, "*", 34.8367, -2.9778, mag=[2.0, 10.1])
-    assert matches(db, stars) == {sar: 10826, tlk: 10826}
-
-
-def test_a_variable_never_takes_a_listing_from_the_star_its_v_describes(db):
-    # STF 2816: the 5.7 mag star lies 0.3' away, a large-amplitude variable
-    # of V 8.1 0.14' away.
-    stars = hipparcos(
-        (106886, 324.7401, 57.4891, 5.74),
-        (106890, 324.7454, 57.4874, 8.10),
-        var_flags=[1, 3],
-    )
-    rds = add(db, "RDS", 78, "D*", 324.7454, 57.4850, mag=[5.5, 5.7, 7.5])
-    found = cross_match(read_star_objects(db.conn.cursor(), set()), stars)
-    assert found[rds].hip == 106886
-    assert found[rds].rejected_by_v == (106890, pytest.approx(0.14, abs=0.01), 8.1)
-
-
 def test_a_tlk_range_passes_a_star_within_1_mag_of_it(db):
     # A star of V 9.0 is nearer, but only the 5.5 one lies near TLK's range.
     stars = hipparcos(
-        (1, 189.0, 45.44 + 0.1 * ARCMIN, 9.0), (2, 189.0, 45.44 + 0.3 * ARCMIN, 5.5)
+        (1, 189.0, 45.44 + 1 * ARCSEC, 9.0), (2, 189.0, 45.44 + 2 * ARCSEC, 5.5)
     )
     tlk = add(db, "TLK", 1, "*", 189.0, 45.44, mag=[3.5, 4.6])
     assert matches(db, stars) == {tlk: 2}
 
 
-def test_a_tlk_range_is_not_compared(db):
-    # La Superba: TLK's range is photographic, Hipparcos's V 5.42.
-    stars = hipparcos((62223, 189.0, 45.44, 5.42), var_flags=[2])
+def test_a_variable_whose_v_disagrees_is_not_matched(db):
+    # Mira: SAC gives its maximum, Hipparcos its mean; La Superba: TLK's
+    # range is photographic. Both are hip corrections.
+    stars = hipparcos((10826, 34.8366, -2.9773, 6.47), (62223, 189.0, 45.44, 5.42))
+    sar = add(db, "SaR", 82, "*", 34.825, -2.9833, mag=[2.0])
     tlk = add(db, "TLK", 19, "*", 189.0, 45.44, mag=[7.4, 10.0])
-    assert matches(db, stars) == {tlk: 62223}
+    assert reasons(db, stars) == {sar: "V gate", tlk: "V gate"}
 
 
 def test_only_the_star_catalogs_are_cross_matched(db):
     add(db, "NGC", 5055, "*", 200.98, 54.925, mag=[2.3])
     assert matches(db) == {}
+
+
+# --- The vetoes: a match must not contradict the listing's own designations ---
+
+NUMBERED = hipparcos(
+    (99649, 300.0, 30.0, 6.5),
+    (99653, 300.0, 30.0 + 6 * ARCMIN, 6.6),
+    numbers={99649: {("HD", 192422)}, 99653: {("HD", 192443)}},
+)
+
+
+def test_a_catalog_number_of_another_star_vetoes(db):
+    # SaR 123 names HD 192443, which is HIP 99653, not the star 2' away.
+    sar = add(
+        db, "SaR", 123, "*", 300.0, 30.0 + 2 * ARCMIN, mag=[6.5], names=["HD 192443"]
+    )
+    assert reasons(db, NUMBERED) == {sar: "HD 192443 is HIP 99653"}
+
+
+def test_a_catalog_number_the_star_has_confirms(db):
+    sar = add(db, "SaR", 1, "*", 300.0, 30.0, mag=[6.5], names=["HD 192422"])
+    assert matches(db, NUMBERED) == {sar: 99649}
+
+
+def test_one_confirming_number_outweighs_a_wrong_one(db):
+    # SaR 329: its HD is SAC's slip; its BD names the star.
+    stars = hipparcos(
+        (1, 300.0, 30.0, 6.5),
+        (2, 300.0, 31.0, 6.5),
+        numbers={1: {("BD", "+", 19, 4017)}, 2: {("HD", 183556)}},
+    )
+    sar = add(
+        db, "SaR", 329, "*", 300.0, 30.0, mag=[6.5], names=["HD 183556", "BD +19 4017"]
+    )
+    assert matches(db, stars) == {sar: 1}
+
+
+def test_a_catalog_number_hipparcos_lacks_vetoes(db):
+    # SaR 306's HD 26748 is in no Hipparcos row: its star is not this one.
+    sar = add(db, "SaR", 306, "*", 300.0, 30.0, mag=[6.5], names=["HD 26748"])
+    assert reasons(db, NUMBERED) == {sar: "HD 26748 is no Hipparcos star's"}
+
+
+def test_a_wds_designation_elsewhere_vetoes(db):
+    # STF 1162's WDS listing lies 3.9' from the star a SAC row 1' off found.
+    sam = add(
+        db, "SaM", 554, "D*", 200.98, 54.925 + 1 * ARCMIN, mag=[2.3], names=["STF 1162"]
+    )
+    wds = add(
+        db, "WDS", 1, "D*", 200.98, 54.925 + 3.9 * ARCMIN, mag=[9.0], names=["STF1162"]
+    )
+    found = reasons(db)
+    assert found[sam] == "WDS STF 1162 is 3.9' from HIP 65378"
+    assert found[wds] is not None
+
+
+def test_a_wds_designation_on_another_star_vetoes(db):
+    # SAC's h 4166 row found the 9.5 mag star; WDS's HJ 4166 is Mizar.
+    sam = add(
+        db, "SaM", 1, "D*", 200.98, 54.925 + 1.4 * ARCMIN, mag=[9.6], names=["h 4166"]
+    )
+    add(db, "WDS", 1, "D*", 200.98, 54.925, mag=[2.3], names=["HJ 4166"])
+    assert reasons(db)[sam] == "WDS h 4166 is HIP 65378"
+
+
+def test_a_wds_designation_on_the_star_confirms(db):
+    # The WDS listing sits on the star, matched or not (here: no V).
+    sam = add(
+        db, "SaM", 1, "D*", 200.98, 54.925 + 1 * ARCMIN, mag=[2.3], names=["Howe 87"]
+    )
+    add(db, "WDS", 1, "D*", 200.98, 54.925 + 5 * ARCSEC, names=["HWE 87"])
+    assert matches(db)[sam] == MIZAR
+
+
+@pytest.mark.parametrize(
+    "name, designation",
+    [
+        ("STF 362", "STF362"),
+        ("STF1744", "STF1744"),
+        ("h 4166", "HJ4166"),
+        ("Howe 87", "HWE87"),
+        ("Burnham 584", "BU584"),
+        ("Stone 15", "STN15"),
+        ("Sh 73", "SHJ73"),
+        ("HD 60585", None),
+        ("SAO 129835", None),
+        ("SaM 1234", None),
+        ("H 38", None),
+        ("Alpha Her", None),
+        ("41 Ari", None),
+    ],
+)
+def test_double_star_designation(name, designation):
+    assert double_star_designation(name) == designation
 
 
 # --- The `hip` hook ------------------------------------------------------------
@@ -316,9 +397,18 @@ def test_the_first_loaders_sky_object_survives_with_its_values(db):
 
 
 def test_names_follow_the_survivors_in_id_order(db):
-    add(db, "SaM", 2054, "D*", 200.975, 54.9333, names=["Zeta UMa", "Mizar"])
-    add(db, "Str", 56, "*", 200.975, 54.9167, names=["Mizar", "Zeta Ursae Majoris"])
-    add(db, "WDS", 70779, "D*", 200.981, 54.9254, names=["WDS J13239+5456"])
+    add(db, "SaM", 2054, "D*", 200.975, 54.9333, mag=[2.3], names=["Zeta UMa", "Mizar"])
+    add(
+        db,
+        "Str",
+        56,
+        "*",
+        200.975,
+        54.9167,
+        mag=[2.2],
+        names=["Mizar", "Zeta Ursae Majoris"],
+    )
+    add(db, "WDS", 70779, "D*", 200.981, 54.9254, mag=[2.2], names=["WDS J13239+5456"])
     run(db)
     assert names(db, "SaM", 2054) == [
         "SaM 2054",
@@ -331,15 +421,15 @@ def test_names_follow_the_survivors_in_id_order(db):
     ]
 
 
-def test_an_empty_magnitude_or_size_is_filled_and_never_replaced(db):
-    # ν Sco's AC row has no magnitude and comes first here; AB fills it.
-    add(db, "SaM", 1772, "D*", 200.98, 54.925, size_arcsec=[41.1])
-    add(db, "SaM", 1771, "D*", 200.98, 54.925, mag=[2.3, 6.8], size_arcsec=[0.9])
+def test_an_empty_size_is_filled_and_nothing_replaced(db):
+    # The bright stars give no size; SAC's comes first, WDS's would replace it.
     add(db, "Str", 56, "*", 200.98, 54.925, mag=[2.2])
+    add(db, "SaM", 2054, "D*", 200.98, 54.925, mag=[2.3, 4.0], size_arcsec=[14.4])
+    add(db, "WDS", 1, "D*", 200.98, 54.925, mag=[2.23, 3.88], size_arcsec=[14.0])
     run(db)
-    survivor = sky_object(db, "SaM", 1772)
-    assert MagnitudeObject.from_json(survivor["mag"]).mags == [2.3, 6.8]
-    assert SizeObject.from_json(survivor["size"]).extents == [pytest.approx(41.1)]
+    survivor = sky_object(db, "Str", 56)
+    assert MagnitudeObject.from_json(survivor["mag"]).mags == [2.2]
+    assert SizeObject.from_json(survivor["size"]).extents == [pytest.approx(14.4)]
 
 
 def test_a_star_without_a_match_stays_its_own(db):
@@ -356,9 +446,9 @@ def test_a_merge_is_reproducible(tmp_path):
         db.create_tables()
         for code in CODES:
             db.insert_catalog(code, 100000, code)
-        add(db, "SaM", 2054, "D*", 200.975, 54.9333, names=["Mizar"])
-        add(db, "WDS", 1, "D*", 200.981, 54.9254, names=["STF1744"])
-        add(db, "Str", 56, "*", 200.975, 54.9167, names=["Mizar", "Zeta"])
+        add(db, "SaM", 2054, "D*", 200.975, 54.9333, mag=[2.3], names=["Mizar"])
+        add(db, "WDS", 1, "D*", 200.981, 54.9254, mag=[2.2], names=["STF1744"])
+        add(db, "Str", 56, "*", 200.975, 54.9167, mag=[2.2], names=["Mizar", "Zeta"])
         run(db)
         rows = db.conn.execute(
             "SELECT object_id, common_name, origin FROM names ORDER BY id"
@@ -446,22 +536,36 @@ def test_is_double_star_pair(pair, double):
 
 # --- Reading hip_main.dat ------------------------------------------------------
 
-# The first 14 fields of four rows of astro_data/hip_main.dat.
+# The first 14 fields of four rows of astro_data/hip_main.dat, and their HD,
+# BD, CD and CPD numbers (H71-H74).
 HIP_ROWS = [
-    "H|       10826| |02 19 20.79|-02 58 37.4| 6.47|3|H|034.83661103|-02.97706055"
-    "| |   7.79|   10.33| -239.48",
-    "H|       55203| |11 18 11.24|+31 31 50.8| 3.79| |G|            |            "
-    "| |       |        |        ",
-    "H|       69673|H|14 15 40.35|+19 11 14.2|-0.05|1|G|213.91811403|+19.18726997"
-    "|*|  88.85|-1093.45|-1999.40",
-    "H|       91262| |18 36 56.19|+38 46 58.8| 0.03|1|G|279.23410832|+38.78299311"
-    "| |128.93|  201.02|  287.46",
+    (
+        "H|       10826| |02 19 20.79|-02 58 37.4| 6.47|3|H|034.83661103|-02.97706055"
+        "| |   7.79|   10.33| -239.48",
+        " 14386|B-03  353 |          |          ",
+    ),
+    (
+        "H|       55203| |11 18 11.24|+31 31 50.8| 3.79| |G|            |            "
+        "| |       |        |        ",
+        " 98230|B+32 2132 |          |          ",
+    ),
+    (
+        "H|       69673|H|14 15 40.35|+19 11 14.2|-0.05|1|G|213.91811403|+19.18726997"
+        "|*|  88.85|-1093.45|-1999.40",
+        "124897|B+19 2777 |          |          ",
+    ),
+    (
+        "H|       91262| |18 36 56.19|+38 46 58.8| 0.03|1|G|279.23410832|+38.78299311"
+        "| |128.93|  201.02|  287.46",
+        "172167|B+38 3238 |          |          ",
+    ),
 ]
 
 
 def test_load_hipparcos(tmp_path):
     path = tmp_path / "hip_main.dat"
-    path.write_text("\n".join(HIP_ROWS) + "\n")
+    # Fields 14-70 are blank here; 71-74 are the catalog numbers.
+    path.write_text("".join(f"{head}{'|' * 58}{tail}\n" for head, tail in HIP_ROWS))
     stars = load_hipparcos(path)
     assert stars.hip.tolist() == [10826, 55203, 69673, 91262]
     assert stars.vmag.tolist() == [6.47, 3.79, -0.05, 0.03]
@@ -477,6 +581,8 @@ def test_load_hipparcos(tmp_path):
     assert stars.dec[1] == pytest.approx(31 + 31 / 60 + 50.8 / 3600)
     assert stars.index_of(91262) == 3
     assert stars.index_of(1) is None
+    assert stars.numbers_of[69673] == {("HD", 124897), ("BD", "+", 19, 2777)}
+    assert stars.star_with[("BD", "-", 3, 353)] == 10826
 
 
 def test_the_stage_runs_between_post_processing_and_corrections():
