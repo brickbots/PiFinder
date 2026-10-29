@@ -355,11 +355,22 @@ def _no_comet_download():
     Stub the network function to report "no download" (success=False);
     the real catalog/threading logic stays intact
     and just loads no comets, keeping the suite hermetic.
+
+    A failed download starts CometCatalog's background retry, which loops
+    "sleep 60 s, download" until the comet file exists. Under `_fast_sleep`
+    that loop never sleeps and the stubbed download never makes the file, so
+    it spun for the whole session, calling (and recording) the mock and
+    logging on every pass, until CI's tests crawled past the job's time
+    limit. With no network there is nothing to retry, so the retry is off.
     """
     import PiFinder.comets as comets
+    from PiFinder.comet_catalog import CometCatalog
 
-    with mock.patch.object(
-        comets, "comet_data_download", return_value=(False, None, None)
+    with (
+        mock.patch.object(
+            comets, "comet_data_download", return_value=(False, None, None)
+        ),
+        mock.patch.object(CometCatalog, "_start_background_retry", lambda self: None),
     ):
         yield
 
@@ -436,10 +447,10 @@ def catalogs(_no_comet_download) -> Iterator[Catalogs]:
 
     Without a catalog cache (always so in CI), the build hands the deferred
     objects to a background CatalogLoader thread. Wait for it before any test
-    runs: its completion callback adds objects to the live catalogs and
-    re-filters them, and writes the cache, from that thread, so tests racing
-    it saw catalogs change under them. `_fast_sleep` also removes the loader's
-    per-batch yield, so it would otherwise compete flat out with every test.
+    runs, so every test sees fully loaded catalogs: its completion callback
+    adds objects to the live catalogs, re-filters them and writes the cache
+    from that thread, and `_fast_sleep` removes its per-batch yield, so it
+    would otherwise compete flat out with the first tests.
 
     Teardown stops the perpetual catalog timers. The planet and comet catalogs
     run a self-rescheduling, *non-daemon* threading.Timer (via TimerMixin);
