@@ -434,6 +434,13 @@ def camera_image():
 def catalogs(_no_comet_download) -> Iterator[Catalogs]:
     """Build the real catalogs once from the bundled DB.
 
+    Without a catalog cache (always so in CI), the build hands the deferred
+    objects to a background CatalogLoader thread. Wait for it before any test
+    runs: its completion callback adds objects to the live catalogs and
+    re-filters them, and writes the cache, from that thread, so tests racing
+    it saw catalogs change under them. `_fast_sleep` also removes the loader's
+    per-batch yield, so it would otherwise compete flat out with every test.
+
     Teardown stops the perpetual catalog timers. The planet and comet catalogs
     run a self-rescheduling, *non-daemon* threading.Timer (via TimerMixin);
     left running they keep the interpreter alive at shutdown,
@@ -443,6 +450,11 @@ def catalogs(_no_comet_download) -> Iterator[Catalogs]:
     boot_state = SharedStateObj()
     boot_state.set_ui_state(UIState())
     built = CatalogBuilder().build(boot_state, queue.Queue())
+    loader = getattr(built, "_background_loader", None)
+    thread = getattr(loader, "_thread", None)
+    if thread is not None:
+        thread.join(timeout=600)
+        assert not thread.is_alive(), "background catalog loading did not finish"
     yield built
 
     for catalog in built.get_catalogs(only_selected=False):
