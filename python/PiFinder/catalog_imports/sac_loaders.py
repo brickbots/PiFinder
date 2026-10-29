@@ -14,6 +14,7 @@ import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.calc_utils import ra_to_deg, dms_to_dec
 from .catalog_import_utils import (
+    SAC_SYSTEMS,
     STAND_IN_POSITIONS,
     NewCatalogObject,
     delete_catalog_from_database,
@@ -213,6 +214,11 @@ def load_sac_multistars():
     STAND_IN_POSITIONS.difference_update(
         {listing for listing in STAND_IN_POSITIONS if listing[0] == catalog}
     )
+    for listing in [listing for listing in SAC_SYSTEMS if listing[0] == catalog]:
+        del SAC_SYSTEMS[listing]
+    # The current system: SAC's (constellation, name) and its rows' sequences.
+    system_key = None
+    system_first = previous_sequence = 0
     sam_path = Path(utils.astro_data_dir, "SAC_Multistars_Ver40")
     insert_catalog(catalog, sam_path / "sacm.desc")
     saca = sam_path / "SAC_DBL40_Fence.txt"
@@ -258,6 +264,15 @@ def load_sac_multistars():
             components = dfs[5].strip()
 
             mag_list, companion_mag = sac_pair_magnitudes(dfs[7], dfs[8], notes)
+
+            # A row continues its system when it follows it at once, under the
+            # same constellation and name.
+            key = (dfs[1].strip(), trim_string(dfs[2].strip()))
+            if key != system_key or sequence != previous_sequence + 1:
+                system_key, system_first = key, sequence
+            elif not mag_list or is_companion_pair(components):
+                SAC_SYSTEMS[(catalog, sequence)] = (catalog, system_first)
+            previous_sequence = sequence
             mag = MagnitudeObject(mag_list)
 
             sep = dfs[9].strip()

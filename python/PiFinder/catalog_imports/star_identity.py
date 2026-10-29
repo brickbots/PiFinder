@@ -30,7 +30,13 @@ from scipy.spatial import cKDTree
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.db.objects_db import ObjectsDatabase
-from .catalog_import_utils import STAND_IN_POSITIONS, fill_sky_object, merge_sky_object
+from .catalog_import_utils import (
+    SAC_SYSTEMS,
+    SOURCE_DM_NUMBERS,
+    STAND_IN_POSITIONS,
+    fill_sky_object,
+    merge_sky_object,
+)
 from .corrections import CorrectionError, parse_designator, resolve_listing
 
 # The catalogs whose listings are stars, in loader order.
@@ -66,6 +72,17 @@ VETO_RADIUS_ARCMIN = 15.0
 # arcsecond positions sit on their star, though a few are 20" off (HDS 2003,
 # Arcturus).
 WDS_PAIR_SLACK_ARCMIN = 0.5
+# Exact identifiers, for a star the position match leaves unmatched (catalog.md
+# §9.3): a catalog number the star shares with Hipparcos's own columns, a WDS
+# designation it shares with a matched WDS listing, and SAC's own grouping of
+# a multiple star's rows. A shared identifier is right when it fires, but a
+# source's number can be a slip, so the star a number names must also lie
+# within this distance of the listing: 3' for a rounded position, 30" for an
+# arcsecond one (WDS's DM column names stars 1-3' away that its V does not
+# fit).
+IDENTIFIER_RADIUS_ARCMIN = 3.0
+PRECISE_IDENTIFIER_RADIUS_ARCMIN = 0.5
+
 # SAC writes some discoverers as words where WDS abbreviates them, and "h"
 # (John Herschel) apart from "H" (William Herschel, whose class WDS adds).
 DISCOVERER_SPELLINGS = {
@@ -130,6 +147,9 @@ class Hipparcos:
     numbers_of: Dict[int, Set[CatalogNumber]] = field(default_factory=dict)
     star_with: Dict[CatalogNumber, int] = field(default_factory=dict)
     _tree: Optional[cKDTree] = field(default=None, init=False, repr=False)
+    _by_dm: Optional[Dict[Tuple[str, int, int], Set[int]]] = field(
+        default=None, init=False, repr=False
+    )
     _index: Optional[Dict[int, int]] = field(default=None, init=False, repr=False)
 
     @property
@@ -137,6 +157,16 @@ class Hipparcos:
         if self._tree is None:
             self._tree = cKDTree(unit_vectors(self.ra, self.dec))
         return self._tree
+
+    def stars_with_dm(self, dm: Tuple[str, int, int]) -> Set[int]:
+        """The stars whose BD, CD or CPD number is (sign, zone, number)."""
+        if self._by_dm is None:
+            self._by_dm = defaultdict(set)
+            for number, keys in self.numbers_of.items():
+                for key in keys:
+                    if key[0] != "HD":
+                        self._by_dm[key[1:]].add(number)
+        return self._by_dm.get(dm, set())
 
     def index_of(self, hip: int) -> Optional[int]:
         if self._index is None:
@@ -252,6 +282,10 @@ class StarObject:
     stand_in: bool = False
     listings: List[str] = field(default_factory=list)
     names: List[str] = field(default_factory=list)
+    # The DM number its source gives outside its names (WDS's), and for a SAC
+    # continuation row, its system's first listing.
+    dm: Optional[Tuple[str, int, int]] = None
+    system_first: Optional[Tuple[str, int]] = None
 
     @property
     def vmag(self) -> Optional[float]:
@@ -272,14 +306,19 @@ class StarObject:
 
 
 def read_star_objects(
-    cursor: sqlite3.Cursor, stand_in: Optional[Set[Tuple[str, int]]] = None
+    cursor: sqlite3.Cursor,
+    stand_in: Optional[Set[Tuple[str, int]]] = None,
+    dm_numbers: Optional[Mapping[Tuple[str, int], Tuple[str, int, int]]] = None,
+    systems: Optional[Mapping[Tuple[str, int], Tuple[str, int]]] = None,
 ) -> Dict[int, StarObject]:
     """Every sky object with a star catalog's listing, by object id.
 
-    `stand_in` names the listings whose position stands in for their star's;
-    it defaults to what the loaders recorded in STAND_IN_POSITIONS.
+    `stand_in`, `dm_numbers` and `systems` default to what the loaders
+    recorded in STAND_IN_POSITIONS, SOURCE_DM_NUMBERS and SAC_SYSTEMS.
     """
     stand_in = STAND_IN_POSITIONS if stand_in is None else stand_in
+    dm_numbers = SOURCE_DM_NUMBERS if dm_numbers is None else dm_numbers
+    systems = SAC_SYSTEMS if systems is None else systems
     codes = ", ".join("?" * len(STAR_CATALOGS))
     rows = cursor.execute(
         "SELECT o.id, o.obj_type, o.ra, o.dec, o.mag, o.size,"
@@ -305,6 +344,8 @@ def read_star_objects(
                 obj_type=row["obj_type"],
                 precise=row["catalog_code"] in PRECISE_CATALOGS,
                 stand_in=listing in stand_in,
+                dm=dm_numbers.get(listing),
+                system_first=systems.get(listing),
             )
         star.listings.append(f"{row['catalog_code']} {row['sequence']}")
     for row in cursor.execute(
@@ -326,6 +367,12 @@ class Match:
     separation_arcmin: Optional[float] = None
     # Why there is no match: "no V", "V gate", "ambiguous", or a veto.
     reason: Optional[str] = None
+    # The rule that made it: "position", "catalog number", "WDS designation"
+    # or "SAC system".
+    rule: Optional[str] = None
+    # A SAC continuation row joins its system's first row's sky object,
+    # with that row's HIP, or none.
+    joined_to: Optional[int] = None
     # The Hipparcos stars within the radius that pass the V gate.
     candidates: List[int] = field(default_factory=list)
     by_correction: bool = False
@@ -399,6 +446,7 @@ def cross_match(
             else:
                 match.hip = match.candidates[0]
                 match.separation_arcmin = float(separations[passing[0]])
+                match.rule = "position"
     return matches
 
 
@@ -431,12 +479,7 @@ def apply_vetoes(
     elsewhere: that WDS listing may not match another star, nor lie more than
     WDS_PAIR_SLACK_ARCMIN from the matched one.
     """
-    wds: Dict[str, List[StarObject]] = defaultdict(list)
-    for star in stars.values():
-        if star.catalog_code == "WDS":
-            for name in star.names:
-                designation = re.sub(r"\s+", "", name).upper()
-                wds[designation].append(star)
+    wds = _wds_index(stars)
     for object_id, match in matches.items():
         star = stars[object_id]
         if match.hip is None or star.catalog_code == "WDS":
@@ -444,6 +487,181 @@ def apply_vetoes(
         reason = _contradiction(star, match.hip, wds, matches, hipparcos)
         if reason:
             match.hip, match.separation_arcmin, match.reason = None, None, reason
+            match.rule = None
+
+
+def _wds_index(stars: Mapping[int, StarObject]) -> Dict[str, List[StarObject]]:
+    """The WDS listings, by each designation they carry ("STF1744")."""
+    wds: Dict[str, List[StarObject]] = defaultdict(list)
+    for star in stars.values():
+        if star.catalog_code == "WDS":
+            for name in star.names:
+                wds[re.sub(r"\s+", "", name).upper()].append(star)
+    return wds
+
+
+def _separation_arcmin(star: StarObject, ra: float, dec: float) -> float:
+    here = unit_vectors(np.array([star.ra]), np.array([star.dec]))[0]
+    there = unit_vectors(np.array([ra]), np.array([dec]))[0]
+    return float(_arcmin(np.array([np.linalg.norm(there - here)]))[0])
+
+
+def _hip_separation(star: StarObject, hip: int, hipparcos: Hipparcos) -> float:
+    index = hipparcos.index_of(hip)
+    assert index is not None
+    return _separation_arcmin(star, hipparcos.ra[index], hipparcos.dec[index])
+
+
+def number_candidates(star: StarObject, hipparcos: Hipparcos) -> Set[int]:
+    """Rule 1: the Hipparcos stars the listing's catalog numbers name.
+
+    An HD, BD, CD or CPD number in its names must be the star's in that
+    column; WDS's DM column, which does not say which Durchmusterung it is,
+    may be in any of the three. A named star beyond the identifier radius is
+    taken for a slip in the source (TU Gem's HD 42247 names a star 65° away).
+    A number never overrides an arcsecond position: for WDS and TLK the named
+    star must also be the nearest Hipparcos star (θ¹ Ori's PTR 1 sits on HIP
+    26220 while its DM names HIP 26221, 13" away).
+    """
+    radius = (
+        PRECISE_IDENTIFIER_RADIUS_ARCMIN if star.precise else IDENTIFIER_RADIUS_ARCMIN
+    )
+    named = {
+        hipparcos.star_with[number]
+        for name in star.names
+        for number in catalog_numbers(name)
+        if number in hipparcos.star_with
+    }
+    if star.dm is not None:
+        named |= hipparcos.stars_with_dm(star.dm)
+    named = {h for h in named if _hip_separation(star, h, hipparcos) <= radius}
+    if named and star.precise:
+        here = unit_vectors(np.array([star.ra]), np.array([star.dec]))[0]
+        _, nearest = hipparcos.tree.query(here)
+        named &= {int(hipparcos.hip[nearest])}
+    return named
+
+
+def designation_candidates(
+    star: StarObject,
+    wds: Mapping[str, List[StarObject]],
+    matches: Mapping[int, Match],
+    hipparcos: Hipparcos,
+) -> Set[int]:
+    """Rule 2: the stars of the matched WDS listings that carry the
+    listing's own double-star designation, within VETO_RADIUS_ARCMIN.
+
+    A designation names a pair, not one of its stars, so the star must pass
+    the listing's V gate where the listing gives a V (θ¹ Ori's 5.1 is C, not
+    the WDS primary of STF 748). And a WDS listing whose own DM names another
+    star than its match vouches for nothing: which of a near-equal pair is
+    its primary is not settled (STF 1122).
+    """
+    found: Set[int] = set()
+    for name in star.names:
+        designation = double_star_designation(name)
+        for pair in wds.get(designation or "", ()):
+            hip = matches[pair.object_id].hip
+            if (
+                hip is None
+                or _separation_arcmin(star, pair.ra, pair.dec) > VETO_RADIUS_ARCMIN
+            ):
+                continue
+            dm_stars = {
+                h
+                for h in (hipparcos.stars_with_dm(pair.dm) if pair.dm else ())
+                if _hip_separation(pair, h, hipparcos) <= VETO_RADIUS_ARCMIN
+            }
+            if dm_stars and hip not in dm_stars:
+                continue
+            index = hipparcos.index_of(hip)
+            assert index is not None
+            if star.vmag is not None and not passes_v_gate(star, hipparcos.vmag[index]):
+                continue
+            found.add(hip)
+    return found
+
+
+def apply_identifier_rules(
+    stars: Mapping[int, StarObject],
+    matches: Dict[int, Match],
+    hipparcos: Hipparcos,
+) -> None:
+    """Identify the stars the position match left unmatched by an identifier.
+
+    A rule never replaces a position match. Rule 1 (catalog numbers) runs
+    first, so that a WDS listing it identifies counts for rule 2 (WDS
+    designations); rule 3 (SAC systems) joins a continuation row to its
+    system's first row. Two rules naming different stars, one rule naming
+    two, or a veto against the result (apply_vetoes): no match.
+    """
+    unmatched = [oid for oid, match in sorted(matches.items()) if match.hip is None]
+    wds = _wds_index(stars)
+    proposals: Dict[int, Dict[str, Set[int]]] = {
+        oid: {"catalog number": number_candidates(stars[oid], hipparcos)}
+        for oid in unmatched
+    }
+    for oid in unmatched:
+        if stars[oid].catalog_code == "WDS":
+            _decide(stars[oid], matches[oid], proposals[oid], wds, matches, hipparcos)
+    for oid in unmatched:
+        star = stars[oid]
+        if star.catalog_code != "WDS":
+            proposals[oid]["WDS designation"] = designation_candidates(
+                star, wds, matches, hipparcos
+            )
+            if star.system_first is None:
+                _decide(star, matches[oid], proposals[oid], wds, matches, hipparcos)
+    by_listing = {star.listings[0]: oid for oid, star in stars.items()}
+    for oid in unmatched:
+        star = stars[oid]
+        if star.system_first is None:
+            continue
+        first = by_listing.get(f"{star.system_first[0]} {star.system_first[1]}")
+        if first is None:
+            continue
+        match = matches[oid]
+        own = set().union(*proposals[oid].values())
+        system_hip = matches[first].hip
+        if own and own != {system_hip}:
+            match.reason = "rules disagree: its own identifiers name another star"
+            continue
+        if system_hip is not None:
+            reason = _contradiction(star, system_hip, wds, matches, hipparcos)
+            if reason:
+                match.reason = reason
+                continue
+        match.joined_to, match.rule, match.reason = first, "SAC system", None
+        match.hip = system_hip
+
+
+def _decide(
+    star: StarObject,
+    match: Match,
+    proposal: Mapping[str, Set[int]],
+    wds: Mapping[str, List[StarObject]],
+    matches: Mapping[int, Match],
+    hipparcos: Hipparcos,
+) -> None:
+    named = {rule: hips for rule, hips in proposal.items() if hips}
+    if not named:
+        return
+    hips = set().union(*named.values())
+    if len(hips) > 1:
+        match.reason = "rules disagree: " + ", ".join(
+            f"{rule} names HIP {', '.join(map(str, sorted(h)))}"
+            for rule, h in named.items()
+        )
+        return
+    (hip,) = hips
+    if star.catalog_code != "WDS":
+        reason = _contradiction(star, hip, wds, matches, hipparcos)
+        if reason:
+            match.reason = reason
+            return
+    match.hip, match.reason = hip, None
+    match.rule = " and ".join(sorted(named))
+    match.separation_arcmin = _hip_separation(star, hip, hipparcos)
 
 
 def _contradiction(
@@ -580,20 +798,21 @@ def identify_stars(
     stars = read_star_objects(cursor)
     matches = cross_match(stars, hipparcos)
     apply_vetoes(stars, matches, hipparcos)
+    apply_identifier_rules(stars, matches, hipparcos)
     apply_hip_identifications(cursor, stars, matches, hip_identifications, hipparcos)
-
-    by_hip: Dict[int, List[int]] = defaultdict(list)
-    for object_id in sorted(matches):
-        hip = matches[object_id].hip
-        if hip is not None:
-            by_hip[hip].append(object_id)
+    # A joined continuation row follows its system's first row, which a hip
+    # correction may have identified since.
+    for match in matches.values():
+        if match.joined_to is not None:
+            match.hip = matches[match.joined_to].hip
 
     hips: Dict[int, int] = {}
     merged_into: Dict[int, int] = {}
     try:
-        for hip, members in sorted(by_hip.items(), key=lambda item: item[1][0]):
+        for members, hip in _star_groups(matches):
             survivor, others = members[0], members[1:]
-            hips[survivor] = hip
+            if hip is not None:
+                hips[survivor] = hip
             for other in others:
                 star = stars[other]
                 fill_sky_object(conn, survivor, star.catalog_code, star.mag, star.size)
@@ -611,6 +830,45 @@ def identify_stars(
     conn.commit()
     _log_summary(stars, matches, merged_into, hip_identifications)
     return StarIdentity(hips, matches, stars, merged_into)
+
+
+def _star_groups(
+    matches: Mapping[int, Match],
+) -> List[Tuple[List[int], Optional[int]]]:
+    """The sky objects that become one, each group with its HIP (or None).
+
+    Those matched to one HIP number are one star, and a SAC continuation row
+    joins its system's first row, matched or not. Groups and their members
+    come in id order.
+    """
+    parent: Dict[int, int] = {}
+
+    def root(oid: int) -> int:
+        while parent.setdefault(oid, oid) != oid:
+            oid = parent[oid]
+        return oid
+
+    def join(a: int, b: int) -> None:
+        ra, rb = root(a), root(b)
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+
+    first_of_hip: Dict[int, int] = {}
+    for oid in sorted(matches):
+        match = matches[oid]
+        if match.hip is not None:
+            join(oid, first_of_hip.setdefault(match.hip, oid))
+        if match.joined_to is not None:
+            join(oid, match.joined_to)
+    members: Dict[int, List[int]] = defaultdict(list)
+    for oid in sorted(parent):
+        members[root(oid)].append(oid)
+    groups = []
+    for _, group in sorted(members.items()):
+        hips = sorted({h for h in (matches[oid].hip for oid in group) if h is not None})
+        assert len(hips) <= 1, f"sky objects {group} would join HIPs {hips}"
+        groups.append((group, hips[0] if hips else None))
+    return groups
 
 
 def _log_summary(
@@ -633,8 +891,17 @@ def _log_summary(
                 matched[code],
                 total[code],
             )
+    rules = Counter(match.rule for match in matches.values() if match.rule)
+    logging.info(
+        "Star identity: matched by %s",
+        ", ".join(f"{rule} {count}" for rule, count in sorted(rules.items())),
+    )
     reasons = Counter(
-        "veto" if " is " in match.reason else match.reason
+        "veto"
+        if " is " in match.reason
+        else "rules disagree"
+        if match.reason.startswith("rules disagree")
+        else match.reason
         for match in matches.values()
         if match.reason
     )
