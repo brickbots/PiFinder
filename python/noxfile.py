@@ -116,7 +116,16 @@ def ui_tests(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
-    session.run("pytest", "-m", "integration", "tests/test_ui_modules.py")
+    # A test that runs past the timeout dumps every thread's stack to the log
+    # (pytest's faulthandler plugin), so a hang in CI shows where it is.
+    session.run(
+        "pytest",
+        "-m",
+        "integration",
+        "-o",
+        "faulthandler_timeout=180",
+        "tests/test_ui_modules.py",
+    )
 
 
 @nox.session(reuse_venv=True, python="3.9")
