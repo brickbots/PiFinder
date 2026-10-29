@@ -43,6 +43,8 @@ def db(tmp_path, monkeypatch):
     yield db
     db.conn.close()
     ciu.STAND_IN_POSITIONS.clear()
+    ciu.SAC_SYSTEMS.clear()
+    ciu.SOURCE_DM_NUMBERS.clear()
 
 
 @pytest.fixture
@@ -392,3 +394,28 @@ def test_load_sac_multistars_records_a_companion_pair_as_a_stand_in(sac_multista
     assert ("SaM", 6) in ciu.STAND_IN_POSITIONS
     assert ("SaM", 5) not in ciu.STAND_IN_POSITIONS
     assert ("SaM", 4) not in ciu.STAND_IN_POSITIONS
+
+
+def test_load_sac_multistars_records_a_systems_continuation_rows(sac_multistars):
+    # ν Sco: AB (SaM 4) is the system's first row; AC gives no V, CD is a
+    # companion pair. Mira's and δ Ori's rows are systems of one row.
+    assert ciu.SAC_SYSTEMS == {("SaM", 5): ("SaM", 4), ("SaM", 6): ("SaM", 4)}
+
+
+def test_load_wds_records_each_listings_dm_number(wds):
+    # Vega's rows give BD +38 3238; SHN 45's none.
+    assert ciu.SOURCE_DM_NUMBERS[("WDS", 1)] == ("+", 38, 3238)
+    assert ("WDS", 2) not in ciu.SOURCE_DM_NUMBERS
+
+
+@pytest.mark.parametrize(
+    "raw, dm",
+    [
+        ("+38 3238", ("+", 38, 3238)),
+        ("-00 6337", ("-", 0, 6337)),
+        ("", None),
+        (".", None),
+    ],
+)
+def test_wds_dm_number(raw, dm):
+    assert wds_loader.wds_dm_number(raw) == dm

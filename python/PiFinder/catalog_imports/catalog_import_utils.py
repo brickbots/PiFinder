@@ -67,6 +67,18 @@ MATCH_REJECTIONS: List[MatchRejection] = []
 # (catalog.md §9.3). Loaders add to it.
 STAND_IN_POSITIONS: Set[Tuple[str, int]] = set()
 
+# SAC lists a multiple star as consecutive rows under one name (AB, then AC,
+# BC...). A continuation row that gives no V of its own, or is a companion
+# pair, belongs to its system's first row: the star cross-match joins it to
+# that row's sky object (catalog.md §9.3). Maps such a row's listing to its
+# system's first listing. The SAC loader adds to it.
+SAC_SYSTEMS: Dict[Tuple[str, int], Tuple[str, int]] = {}
+
+# A Durchmusterung number a source gives outside a listing's names: WDS's DM
+# column, as (sign, zone, number), which does not say whether it is BD, CD or
+# CPD. The star cross-match identifies a star by it (catalog.md §9.3).
+SOURCE_DM_NUMBERS: Dict[Tuple[str, int], Tuple[str, int, int]] = {}
+
 
 def fill_sky_object(
     conn: sqlite3.Connection,

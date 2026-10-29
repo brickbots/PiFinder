@@ -580,10 +580,12 @@ cross-matches every sky object that carries a listing of a star catalog
 (Str, SaM, SaR, TLK, RDS, WDS) to `hip_main.dat`, and merges the sky
 objects that match one HIP number into one, whatever catalogs list them:
 Mizar is one sky object. **A match is made only where it is reliably
-right; a star the rules miss is matched by a `hip` correction** (Rich's
-principle, 2026-10). A wrong match cannot be undone and would give a
-listing another star's values, while a miss costs one line in a
-corrections file. A listing with no match stays its own sky object.
+right — by position, or by an exact identifier the listing shares with
+Hipparcos or WDS — and a star the rules miss is matched by a `hip`
+correction** (Rich's principle, 2026-10). A wrong match cannot be undone
+and would give a listing another star's values, while a miss costs one
+line in a corrections file. A listing with no match stays its own sky
+object.
 
 - **The match** is the one Hipparcos star within the listing's radius
   whose V lies within 1 mag of the listing's first magnitude, the
@@ -616,6 +618,31 @@ corrections file. A listing with no match stays its own sky object.
     elsewhere: that listing may not match another star, nor lie more than
     0.5′ from the matched one. That is how a SAC row 1–2′ off is kept off
     the wrong star when its own pair is not in Hipparcos.
+- **Exact identifiers**, for a listing the position match leaves
+  unmatched. A rule never replaces a position match, and two rules that
+  name different stars, one that names two, or a veto against the result
+  give no match.
+  1. **A shared catalog number.** An HD, BD, CD or CPD number in the
+     listing's names, or WDS's DM column (which does not say whether it is
+     BD, CD or CPD), names the Hipparcos star that has it in its own
+     columns. The star must lie within 3′ of a rounded position or 30″ of
+     an arcsecond one, since a source's number can be a slip (SAC's TU Gem
+     names a star 65° away); for WDS and TLK it must also be the nearest
+     Hipparcos star, since a number never overrides an arcsecond position
+     (θ¹ Ori's PTR 1 sits on one component while its DM names the other).
+  2. **A shared WDS designation.** A SAC or RASC row whose double-star
+     designation a WDS listing within 15′ carries, and which that WDS
+     listing's match identifies, is that star. This settles the pairs whose
+     two components each have a Hipparcos entry: WDS's listing sits on its
+     primary. A designation names a pair, so the star must pass the row's
+     V gate where the row gives a V (θ¹ Ori's CF row is C, not STF 748's
+     primary), and a WDS listing whose own DM names its other star vouches
+     for nothing.
+  3. **SAC's own systems.** SAC lists a multiple star as consecutive rows
+     under one constellation and name (AB, then AC, CD…). A continuation
+     row that gives no V, or that is a companion pair, joins its system's
+     first row's sky object — with that row's HIP, or none — unless its
+     own identifiers name another star (STF 1830's rows).
 - **`hip` corrections come first.** A listing the rules miss (SAC's α Mic,
   whole degrees off; Mira's SAC rows; a pair's ambiguous components) gets a
   `hip` correction, which this stage reads before it cross-matches and
