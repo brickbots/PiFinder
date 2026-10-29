@@ -8,7 +8,7 @@ import logging
 import math
 import re
 import sqlite3
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 from dataclasses import dataclass, field
 from tqdm import tqdm
 
@@ -59,6 +59,98 @@ class MatchRejection:
 
 # Every rejection in this import, in order. Rejections don't fail the import.
 MATCH_REJECTIONS: List[MatchRejection] = []
+
+# Listings whose position stands in for their own star's: a WDS row without
+# arcsecond coordinates, which its identifier places to 0.1m in RA and 1' in
+# Dec, and a SAC row of a companion pair (BC, CD...), which SAC places at its
+# system's position. The star cross-match leaves them unmatched
+# (catalog.md §9.3). Loaders add to it.
+STAND_IN_POSITIONS: Set[Tuple[str, int]] = set()
+
+
+def fill_sky_object(
+    conn: sqlite3.Connection,
+    object_id: int,
+    catalog_code: str,
+    mag: MagnitudeObject,
+    size: SizeObject,
+    group: bool = False,
+) -> List[str]:
+    """Fill a sky object's empty values from a listing of catalog_code.
+
+    The precedence of docs/ax/catalog.md §9.1: an empty magnitude or size is
+    filled and a value is never replaced, unless the catalog is one of
+    MAGNITUDE_REPLACED_BY; TYPE_SET_BY sets the type; a group's values fill
+    nothing. Returns the fields it wrote.
+    """
+    sky_object = conn.execute(
+        "SELECT obj_type, mag, size FROM objects WHERE id = ?", (object_id,)
+    ).fetchone()
+    updates = {}
+    has_mag = mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
+    object_mag = MagnitudeObject.from_json(sky_object["mag"])
+    fills = not group
+    if has_mag and (
+        (fills and object_mag.filter_mag == MagnitudeObject.UNKNOWN_MAG)
+        or catalog_code in MAGNITUDE_REPLACED_BY
+    ):
+        updates["mag"] = mag.to_json()
+    object_size = SizeObject.from_json(sky_object["size"])
+    if fills and size.extents and not object_size.extents:
+        updates["size"] = size.to_json()
+    obj_type = TYPE_SET_BY.get(catalog_code)
+    if obj_type is not None and sky_object["obj_type"] != obj_type:
+        updates["obj_type"] = obj_type
+    if updates:
+        columns = ", ".join(f"{column} = ?" for column in updates)
+        conn.execute(
+            f"UPDATE objects SET {columns} WHERE id = ?",
+            (*updates.values(), object_id),
+        )
+    return list(updates)
+
+
+def object_names(cursor: sqlite3.Cursor, object_id: int) -> List[sqlite3.Row]:
+    """A sky object's name rows, in order: the first is what the device shows."""
+    return cursor.execute(
+        "SELECT id, common_name, origin FROM names WHERE object_id = ? ORDER BY id",
+        (object_id,),
+    ).fetchall()
+
+
+def move_names(
+    cursor: sqlite3.Cursor, rows: Sequence[sqlite3.Row], object_id: int
+) -> None:
+    """Move name rows to the end of another sky object's names.
+
+    Re-inserted rather than re-pointed, so a moved name can't land ahead of
+    the names already there; a name the sky object already has is dropped.
+    """
+    present = {row["common_name"] for row in object_names(cursor, object_id)}
+    for row in rows:
+        cursor.execute("DELETE FROM names WHERE id = ?", (row["id"],))
+        if row["common_name"] not in present:
+            cursor.execute(
+                "INSERT INTO names (object_id, common_name, origin) VALUES (?, ?, ?)",
+                (object_id, row["common_name"], row["origin"]),
+            )
+            present.add(row["common_name"])
+
+
+def merge_sky_object(cursor: sqlite3.Cursor, source: int, target: int) -> None:
+    """Merge one sky object into another, which keeps its own values.
+
+    Every catalog listing of `source` moves to `target`, and its names follow
+    target's (move_names); then `source` is deleted. Filling any of target's
+    empty values from source's is the caller's choice (fill_sky_object).
+    """
+    cursor.execute(
+        "UPDATE catalog_objects SET object_id = ? WHERE object_id = ?",
+        (target, source),
+    )
+    move_names(cursor, object_names(cursor, source), target)
+    cursor.execute("DELETE FROM object_images WHERE object_id = ?", (source,))
+    cursor.execute("DELETE FROM objects WHERE id = ?", (source,))
 
 
 def separation_arcmin(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
@@ -254,38 +346,22 @@ class NewCatalogObject:
         MAGNITUDE_REPLACED_BY and TYPE_SET_BY (docs/ax/catalog.md §9.1).
         """
         assert objects_db is not None
-        sky_object = objects_db.conn.execute(
-            "SELECT obj_type, mag, size FROM objects WHERE id = ?", (self.object_id,)
-        ).fetchone()
-        updates = {}
-        has_mag = self.mag.filter_mag != MagnitudeObject.UNKNOWN_MAG
-        object_mag = MagnitudeObject.from_json(sky_object["mag"])
-        fills = not group
-        if has_mag and (
-            (fills and object_mag.filter_mag == MagnitudeObject.UNKNOWN_MAG)
-            or self.catalog_code in MAGNITUDE_REPLACED_BY
-        ):
-            updates["mag"] = self.mag.to_json()
-        object_size = SizeObject.from_json(sky_object["size"])
-        if fills and self.size.extents and not object_size.extents:
-            updates["size"] = self.size.to_json()
-        obj_type = TYPE_SET_BY.get(self.catalog_code)
-        if obj_type is not None and sky_object["obj_type"] != obj_type:
-            updates["obj_type"] = obj_type
-        if not updates:
-            return
-        logging.debug(
-            "%s %s fills %s on object %d",
-            self.catalog_code,
-            self.sequence,
-            ", ".join(updates),
+        filled = fill_sky_object(
+            objects_db.conn,
             self.object_id,
+            self.catalog_code,
+            self.mag,
+            self.size,
+            group=group,
         )
-        columns = ", ".join(f"{column} = ?" for column in updates)
-        objects_db.conn.execute(
-            f"UPDATE objects SET {columns} WHERE id = ?",
-            (*updates.values(), self.object_id),
-        )
+        if filled:
+            logging.debug(
+                "%s %s fills %s on object %d",
+                self.catalog_code,
+                self.sequence,
+                ", ".join(filled),
+                self.object_id,
+            )
 
     def find_constellation(self):
         """
