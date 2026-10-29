@@ -432,9 +432,10 @@ without committing the data (9.7), copy the result out and restore the
 tracked file with `git checkout -- astro_data/pifinder_objects.db`
 before the next build.
 
-> **Status (2026-10-23).** Parts of this section describe the import as
+> **Status (2026-10-24).** Parts of this section describe the import as
 > the catalog-audit fixes leave it, not as `main` has it today: the star
-> cross-match (9.3) and the supplementary sources (9.4) are being built.
+> cross-match (9.3) and the Hipparcos and WGSN supplementary sources (9.4)
+> are being built; Bica and RC3 are in `catalog_imports/supplementary_sources.py`.
 > The designation allowlist, the match guard (9.3) and precedence (9.1)
 > are in `catalog_imports/catalog_import_utils.py`. The correction pass
 > (9.5) is in `catalog_imports/corrections.py`, and
@@ -458,7 +459,8 @@ before the next build.
    star identity: Hipparcos cross-match, merge by HIP
         │   (`hip` corrections are read here, ahead of position)
         ▼
-   supplementary sources: Hipparcos values → WGSN names → Bica sizes
+   supplementary sources                         (SUPPLEMENTARY_SOURCES)
+        │   Hipparcos values → WGSN names → Bica sizes → RC3 magnitudes
         ▼
    correction pass                               (astro_data/corrections/*.toml)
         ▼
@@ -628,18 +630,52 @@ key and fills or replaces one or more fields by a stated rule:
 |---|---|---|
 | Hipparcos (`hip_main.dat`) | HIP, from the cross-match | **replace** the position and the primary's V on every matched star listing; a companion's magnitude is untouched |
 | IAU WGSN, Catalog of Star Names | HIP | **add** the IAU name as the **preferred name**; older names (Graffias, Tegmen) stay as ordinary names, so text search still finds them |
-| Bica et al. 2008 (VizieR J/MNRAS/389/678) | NGC/IC designation | **fill** a missing size on a Magellanic object; never replace one |
-| RC3 (VizieR VII/155), extract of the rows whose `BT` is coded "V" | NGC/IC designation | **replace** V with Steinicke's Bmag where that Bmag equals RC3's V-coded `BT` within 0.05 — Steinicke read those as B and subtracted a colour, making 48 galaxies about 1 mag too bright |
+| Bica et al. 2008 (VizieR J/MNRAS/389/678) | NGC/IC designation, through the match guard | **fill** a missing size on a Magellanic object; never replace one |
+| RC3 (VizieR VII/155), extract of the rows whose `BT` is coded "V" | NGC/IC designation, letter included, to the Steinicke row the loader kept | **replace** V with Steinicke's Bmag where that Bmag equals RC3's V-coded `BT` within 0.05 — Steinicke read those as B and subtracted a colour, making 49 galaxies about 1 mag too bright |
+
+They run in `SUPPLEMENTARY_SOURCES` order (`main.py`), after every
+loader, post-processing and the star cross-match, and before the
+correction pass, so a correction still has the last word. Each source is
+vendored under `astro_data/` with a README recording where it came from;
+Bica and RC3 are VizieR extracts, kept verbatim as the recorded queries in
+their `fetch.sh` return them.
 
 Steinicke's Bmag is never used as a fallback V on its own: for
 non-galaxies it is often NGC 2000.0's photographic figure, and for M 43
 it is the exciting star's. An object with no V stays without one unless
 a later loader fills it or a correction sets it.
 
+**Bica.** Each NGC or IC number in a row's names joins that listing's
+sky object, and the join must pass the match guard (9.3), as a loader's
+does: the two catalogs disagree about some identifications, and position
+is what shows it. Steinicke and Bica swap NGC 2029 and NGC 2030, 91′
+apart; Bica's NGC 2171 and NGC 2094 lie 70′ and 33′ from Steinicke's;
+and Steinicke types NGC 1932, IC 2115 and IC 2116 as stars, which none of
+Bica's clusters, associations or nebulae joins. Each rejection is logged
+and fills nothing. A not-found object gets no size either, since only an
+identification places one (Bica has a cluster 5′ from NGC 1915's nominal
+position). Where two rows reach one sky object, the nearer fills it:
+Steinicke makes NGC 1911 a duplicate of NGC 1920, while Bica lists a
+0.6′ cluster 8.8′ away as NGC 1911. A lettered name (`NGC1921e`,
+`NGC1850A`) is half of a pair or a neighbour, so it joins nothing.
+
 Fill-only for Bica is deliberate: its cluster-only sizes would otherwise
 overwrite the complex sizes PiFinder keeps for objects like NGC 1966.
 Where Bica shows that a size is simply wrong (NGC 602's 34′ for 3.2′),
-that is a correction citing Bica.
+or gives the size for an identification the join refused, that is a
+correction citing Bica.
+
+**RC3.** RC3 writes a galaxy's NGC or IC designation as Steinicke does,
+letter included, so each RC3 name joins the Steinicke row the loader keeps
+for that number (`select_listings`): RC3's NGC 78A is the row PiFinder
+lists as NGC 78, and RC3's NGC 986A, a companion, is not NGC 986.
+Steinicke's Bmag comes from that row in `steinicke_catalog.json`, which
+the Steinicke loader extracts before anything else runs; the database
+has no Bmag column and needs none. The V is replaced only on a sky object
+that still holds that row's V, the value the rule fixes, and a row with
+no V leaves its sky object without one. Matched this way, RC3 and
+Steinicke give the audit's 48 galaxies exactly, plus NGC 78, which
+Steinicke lists only as its A component.
 
 ### 9.5 Corrections
 

@@ -1,0 +1,394 @@
+VII/155     Third Reference Cat. of Bright Galaxies (RC3) (de Vaucouleurs+ 1991)
+================================================================================
+Third Reference Catalogue of Bright Galaxies (RC3)
+     de Vaucouleurs G., de Vaucouleurs A., Corwin H.G., Buta R.J.,
+     Paturel G., Fouque P.
+    <Springer-Verlag: New York, (1991)>
+================================================================================
+ADC_Keywords: Galaxy catalogs
+
+Description:
+     The University of Texas has revised its third edition of its
+     catalogue of bright galaxies. This not only contains many more
+     entries than the second edition (23,022) but substantially more
+     information for each entry.
+
+Introduction:
+     The original Harvard Survey of the External Galaxies brighter
+     than the 13th magnitude, by H. Shapley and A. Ames (1932),
+     included just 1,249 objects (of which five were not galaxies),
+     with estimated photographic magnitudes and diameters from
+     heterogeneous sources.
+
+     The first Reference Catalogue of Bright Galaxies (RC1) (G. and
+     A. de Vaucouleurs 1964), prepared between 1949 and 1963, included
+     2,599 objects (six are not galaxies), over twice the number in
+     the original Shapley-Ames catalogue. In addition to diameters,
+     magnitudes, colors, and redshifts in relatively homogeneous
+     systems, it gave revised classifications and detailed literature
+     references from 1913 to 1963. (NGC 8 is a double star; NGC 4361
+     is a planetary nebula; NGC 5396 is nonexistent, probably = NGC
+     5375; IC 1308 is a H II region in NGC 6822; IC 3917 is
+     nonexistent, probably a plate defect (M. Wolf 1905); and A2144 =
+     Palomar 12 is a globular cluster.)
+
+     The Second Reference Catalogue (RC2) (G. and A. de Vaucouleurs,
+     and H. G. Corwin 1976), prepared between 1971 and 1975, included
+     4,364 objects (two are not galaxies), for which it gave improved
+     isophotal diameters and axis ratios in the D25 system, newly
+     determined total magnitudes and colors in the UBV system,
+     continuum and 21-cm radio magnitudes, HI index, and redshifts, as
+     well as references to published photographs and a bibliography
+     for the years 1964 to 1975. Both the First and Second Reference
+     Catalogues are limited to galaxies with useful literature
+     references and are incomplete beyond the Shapley-Ames limit.
+     (A0733+02 = DDO 45 is a planetary nebula; A2143-21 = Palomar 12
+     is a globular cluster.)
+
+     The present, much enlarged Third Reference Catalogue of Bright
+     Galaxies (RC3) attempts to be reasonably complete for galaxies
+     having apparent diameters larger than 1 arcmin at the D25
+     isophotal level and total B-band magnitudes BT brighter than
+     about 15.5, with a redshift not in excess of 15,000 km/s. Objects
+     of special interest, such as compact galaxies smaller than 1
+     arcmin or fainter than magnitude 15.5, and those already in RC2,
+     are also included. The number of RC3 objects meeting these
+     conditions is 11,897. Additional objects meeting only the
+     diameter or the magnitude condition, and objects of interest
+     smaller than 1.00, fainter than 15.5, or with redshifts > 15,000
+     km/s, bring the total to 23,022. (PGC 41636 and P65386 have been
+     deleted since the catalogue was printed. The first is a globular
+     cluster, Palomar 15, and the second is a duplicate entry for NGC
+     6967.) These were extracted from the database of 73,197 galaxies
+     maintained by G. Paturel at Lyons Observatory (Paturel et al.
+     1989a,b). Data published prior to mid-1990 are included in the
+     main RC3 table and appendices.
+
+     As might be expected in a compilation of this size, a number of
+     errors have been detected since this catalog was archived. These
+     have been corrected by H. G. Corwin who submitted the current,
+     corrected version. Any problems relating to the catalogue itself
+     should be addressed to him:
+           Dr. Harold G. Corwin, Jr.
+           IPAC, M/S 100-22
+           California Institute of Technology
+           Pasadena, CA 91125
+
+     Details of the reduction procedures, and Notes, References, and
+     Appendices are in Volume 1 of the printed version of RC3,
+     available from Springer-Verlag New York. Volumes 2 and 3
+     (included in this distribution) are also be available from
+     Springer-Verlag should you wish to have a printed and bound
+     version of the complete catalogue. The user of this catalogue is
+     referred to this source volume for notes, references to data on
+     individual galaxies, and the important information contained in
+     the appendices as well as a discussion of how the entries were
+     derived.
+
+     We ask that you acknowledge RC3 and its authors in any
+     publication that results from your use of the Catalogue. You may
+     also freely distribute unaltered electromagnetic copies of RC3 to
+     friends and colleagues as long as a copy of this documentation -
+     including this notice - accompanies the Catalogue. The printed
+     version of RC3 is protected by copyright, and may not be
+     reproduced in any manner without the written permission of the
+     copyright holder, Springer-Verlag New York, Inc.
+
+File Summary:
+--------------------------------------------------------------------------------
+ FileName    Lrecl   Records   Explanations
+--------------------------------------------------------------------------------
+ReadMe         80       .      This file
+rc3           363     23011    The revised RC3 catalog
+mtypes.tex     80       271    Explanations of Morphological Types
+--------------------------------------------------------------------------------
+
+See also:
+     J/AJ/108/2128 : RC3 corrections and additions (Corwin+ 1994)
+
+Byte-by-byte Description of file: rc3
+--------------------------------------------------------------------------------
+  Bytes    Format    Unit     Label      Item
+--------------------------------------------------------------------------------
+   1-  2   I2        h        RAh       *Right Ascension B2000 (hours)
+   3-  4   I2       min       RAm       *Right Ascension B2000 (minutes)
+   5-  8   F4.1      s        RAs       *Right Ascension B2000 (sec. or min.)
+  10- 10   A1       ---       DE-        [-+] Sign of declination
+  11- 12   I2       deg       DEd       *Declination B2000 (degrees)
+  13- 14   I2     arcmin      DEm       *Declination B2000 (minutes)
+  15- 16   I2     arcsec      DEs       *? Declination B2000 (seconds)
+  18- 19   I2        h        RA1950h    Right Ascension 1950 (hours)
+  20- 21   I2       min       RA1950m    Right Ascension 1950 (minutes)
+  22- 25   F4.1      s        RA1950s   *Right Ascension 1950 (sec. or min.)
+  27- 27   A1       ---       DE1950-    [-+] Sign of declination 1950
+  28- 29   I2       deg       DE1950d    Declination 1950 (degrees)
+  30- 31   I2     arcmin      DE1950m    Declination 1950 (minutes)
+  32- 33   I2     arcsec      DE1950s   *? Declination 1950 (seconds)
+  35- 40   F6.2      deg      GLON      *Galactic longitude
+  42- 47   F6.2      deg      GLAT      *Galactic latitude
+  49- 54   F6.2      deg      SGLON      Supergalactic longitude on RC2 sys.
+  56- 61   F6.2      deg      SGLAT      Supergalactic latitude on RC2 sys.
+  63- 74   A12      ---       name      *Name
+  75- 89   A15      ---       altname   *Alternate name
+  91-104   A14      ---       desig      Other designation
+ 106-116   A11      ---       PGC       *PGC number
+ 118-124   A7       ---       type      *Type
+ 126-130   A5       ---       typesr    *Source of revised type
+ 132-135   F4.1     ---       T         *? T (Hubble stage)
+ 137-139   F3.1     ---       e_T        ? Mean error of T
+ 141-144   F4.1     ---       lumcl      ? Luminosity class (file "mtypes.tex")
+ 146-148   F3.1     ---       e_lumcl    ? Mean error on luminosity class
+ 150-150   I1       ---       o_lumcl    ? Num. of luminosity class estimates
+ 152-155   F4.2   [0.1arcmin] D25       *? Log D25
+ 156-156   A1       ---       u_D25      [?]? indicates Log D25 very uncer.
+ 158-160   F3.2   [0.1arcmin] e_D25     *? Mean error on log D25
+ 162-165   F4.2     ---       R25       *? Log R25 (isophotal diameter ratio)
+ 166-166   A1       ---       u_R25      [?]? indicates Log R25 very uncertain
+ 168-170   F3.2     ---       e_R25     *? Mean error on log R25
+ 172-175   F4.2   [0.1arcmin] Do        *? Log Do
+ 177-180   F4.2   [0.1arcmin] Ae        *? Log Ae (effective aperture)
+ 182-184   F3.2   [0.1arcmin] e_Ae       ? Mean error on log Ae
+ 186-188   I3       deg       PA        *? Position angle of the major axis
+ 190-194   F5.2      mag      BT        *? BT (total B magnitude)
+ 195-195   A1       ---       BT_code   *? BT code
+ 197-199   F3.2      mag      e_BT       ? Mean error on BT
+ 201-205   F5.2      mag      Bmag      *? mB (photographic magnitude)
+ 207-209   F3.2      mag      e_Bmag    *? Mean error on Bmag
+ 211-215   F5.2      mag      BoT       *? BoT
+ 217-221   F5.2   mag/arcmin2 m'25      *? m'25
+ 223-226   F4.2   mag/arcmin2 e_m'25     ? Mean error m'25
+ 228-232   F5.2   mag/arcmin2 m'e       *? m'e
+ 234-236   F3.2   mag/arcmin2 e_m'e      ? Mean error m'e
+ 238-242   F5.2      mag      mFIR      *? mFIR
+ 244-248   F5.2      mag      m21       *? m21
+ 250-251   F2.1      mag      e_m21      ? Mean error on m21
+ 253-256   F4.2      mag      B-VT      *? (B-V)T (total (B-V))
+ 258-260   F3.2      mag      e_B-VT     ? Mean error on (B-V)T
+ 262-265   F4.2      mag      B-Ve      *? (B-V)e (mean B-V within Ae)
+ 267-269   F3.2      mag      e_B-Ve     ? Mean error on (B-V)e
+ 271-274   F4.2      mag      B-VoT     *? (B-V)oT
+ 276-280   F5.2      mag      U-BT      *? (U-B)T (total (U-B))
+ 282-284   F3.2      mag      e_U-BT     ? Mean error on (U-B)T
+ 286-289   F4.2      mag      U-Be      *? (U-B)e
+ 291-293   F3.2      mag      e_U-Be     ? Mean error on (U-B)e
+ 295-298   F4.2      mag      U-BoT     *? (U-B)To
+ 300-304   F5.2      mag      HI        *? HI (neutral hydrogen index)
+ 306-309   F4.2      mag      Ai        *? Ai (internal B extinction)
+ 311-313   F3.2      mag      A21       *? A21 (HI self absorption)
+ 315-318   F4.2      mag      Ag        *? Ag (galactic extinction in B)
+ 320-322   I3        km/s     W20       *? W20
+ 324-325   I2        km/s     e_W20      ? Mean error on W20
+ 327-329   I3        km/s     W50       *? W50
+ 331-332   I2        km/s     e_W50      ? Mean error of W50
+ 334-338   I5        km/s     V21       *? V21 (heliocentric radial velocity)
+ 340-341   I2        km/s     e_V21      ? Mean error on V21
+ 343-347   I5        km/s     cz        *? Vopt= cz
+ 349-351   I3        km/s     e_cz       ? Mean error on Vopt
+ 353-357   I5        km/s     VGSR      *? VGSR
+ 359-363   I5        km/s     V3K       *? V3K
+--------------------------------------------------------------------------------
+Note on RAh, RAm, RAs, DEd, DEm, DEs, RA1950s and DE1950s:
+   The right ascensions and declinations for the equinox 2000.0, are
+   precessed from the 1950.0 position using the 1976 IAU constants
+   (see, e.g., the Supplement to The Astronomical Almanac for 1984).
+   These are given to 0.1 second of time and 1 arcsec when available,
+   and to 0.1 minute of time and 1 arcmin otherwise (Section 3.1.a,
+   page 11).
+   The right ascensions originally given with an accuracy of 0.1min
+   have been converted to seconds; such converted RAs and RAs1950
+   values have no decimal, and the corresponding DEs and DEs1950
+   are blank.
+Note on GLON and GLAT:
+   The galactic coordinates given to 0.01, are calculated following
+   the IAU 1958 prescription (Blaauw et al. 1960) with the North
+   Galactic Pole at alpha = 12h49m , delta = +27 24 (1950), and the
+   origin at alpha = 17h 42.4m, delta = -28 55 (1950).
+Note on name:
+   Names (e.g., LMC, SMC) or NGC and IC designations.
+Note on altname:
+   UGC (Nilson 1973), ESO (Lauberts 1982), MCG (Vorontsov-Velyaminov
+   et al. 1962-1974), UGCA (Nilson 1974), and CGCG (Zwicky et al.
+   1961-1968) designations, given in that order of preference. MCG
+   designations not listed here are given in UGC and ESO.
+Note on PGC:
+   PGC (Paturel et al. 1989a,b) designation. For cross identifications
+   of various catalogues with the PGC, see Appendix 10, page 561.
+Note on type:
+   Mean revised morphological type in the RC2 system, coded as in RC2
+   (Section 3.3.a, page 13; see also file "mtypes.tex").
+Note on typesr:
+   "V" indicates a classification by de Vaucouleurs; "4" indicates a
+   ring galaxy classified by Buta on 4-meter plates.
+Note on T:
+   Mean numerical index of stage along the Hubble sequence in RC2
+   system (coded as explained in Section 3.3.c, page 16;
+   see also file "mtypes.tex").
+Note on D25:
+   Mean decimal logarithm of the apparent major isophotal diameter
+   measured at or reduced to surface brightness level muB = 25.0 B/mag2,
+   as explained in Section 3.4.a, page 21. The unit of D is 0.1
+   arcmin to avoid negative entries.
+Note on e_D25:
+   A "?" indicates a large, uncertain error.
+Note on R25:
+   Mean decimal logarithm of the ratio of the major isophotal
+   diameter, D25, to the minor isophotal diameter, D25, measured at or
+   reduced to the surface brightness level muB = 25.0 B/mag2, and its
+   mean error as explained in Section 3.4.b, page 26.
+Note on e_R25:
+   A "?" indicates a large, uncertain error.
+Note on Ae:
+   Decimal logarithm of the apparent diameter (in 0.1 arcmin) of the
+   "effective aperture," the circle centered on the nucleus within
+   which one-half of the total B-band flux is emitted, derived as
+   explained in Section 3.4.c, page 28.
+Note on Do:
+   Decimal logarithm of the isophotal major diameter corrected to
+   "face-on" (i = 0), and corrected for galactic extinction to Ag = 0,
+   but not for redshift, as explained in Section 3.4.d, page 29.
+Note on PA:
+   Position angle, measured in degrees from north through east (all
+   <180), taken when available from UGC, ESO, and ESGC (and in a few
+   cases from H I data) (Section 3.5.a, page 30).
+Note on Ag:
+   Galactic extinction in B-band magnitudes, calculated following
+   Burstein and Heiles (1978a,b, 1982, 1984) as explained in Section
+   3.5.b, page 30.
+Note on Ai:
+   Internal extinction in B-band magnitudes (for correction to
+   face-on), calculated from log R and T as explained in Section
+   3.5.c, page 31.
+Note on A21:
+   A21 = H I line self-absorption in magnitudes (for correction to
+   face-on), calculated from log R and T greater or equal to 1 as
+   explained in Section 3.5.d, page 32.
+Note on BT:
+   BT = total (asymptotic) magnitude in the B system derived by
+   extrapolation from photoelectric aperture- magnitude data, BAT, and
+   from surface photometry with photoelectric zero point, BSTas
+   explained in Section 3.6.a, page 32.
+Note on BT_code:
+     "M" = BT is the weighted mean of BAT and BST,
+     "S" = only surface photometry used
+     "V" = BT is a V-band magnitude rather than a B-band magnitude
+     "v" = the nucleus of the galaxy is variable.
+     "*" indicates that deriving BAT would have required an
+         extrapolation in excess of 0.75 mag.
+Note on Bmag and e_Bmag:
+   Photographic magnitude and its mean error from Ames (1930), Shapley
+   and Ames (1932), CGCG, Buta and Corwin (1986), and/or Lauberts and
+   Valentijn (1989) reduced to the BT system as explained in Section
+   3.6.b, page 37.
+Note on mFIR:
+   Calculated from mFIR = -20.0 - 2.5 logFIR, where FIR is the far
+   infrared continuum flux measured at 60 and 100 microns as listed in
+   the IRAS Point Source Catalog (1987) <II/125>. For galaxies larger
+    than 80 in RC2 and for the Virgo cluster area, resolved by the IRAS
+    beam, integrated fluxes are taken from Rice et al.(1988) or Helou et
+    al.(1988). See Section 3.6.c, page 43, for details.
+Note on BoT:
+   Total "face-on" magnitude corrected for galactic and internal
+   extinction, and for redshift as explained in Section 3.6.d, page
+   44.
+Note on B-VT and U-BT:
+   Total (asymptotic) color index in the Johnson B-V and U-B system,
+   respectively, derived by extrapolation from photoelectric
+   color-aperture data, and/or from surface photometry with a
+   photoelectric zero point as explained in Section 3.7.a, page 45.
+Note on B-VoT and U-BoT:
+   Total B-V and U-B color indices, respectively, corrected for
+   galactic and internal extinction, and for redshift, as explained in
+   Section 3.7.b, page 47.
+Note on B-Ve and U-Be:
+   Mean B-V and U-B color indices, respectively, within the effective
+   aperture Ae, derived by interpolation from photoelectric
+   color-aperture data as explained in Section 3.7.a, page 45.
+Note on m'e:
+   Mean B-band surface brightness in magnitudes per square arcmin
+   (B-m/sm) within the effective aperture Ae, and its mean error,
+   calculated by the relation m'e= BT + 0.75 + 5 logAe- 5.26. This m'e
+   is statistically related to the effective mean surface brightness,
+   mu'e (RC2, p. 31; Olson and de Vaucouleurs 1981), with which it
+   coincides when log R = 0 (i = 0) (Section 3.8.a, page 49).
+Note on m'25:
+   The mean surface brightness in magnitudes per square arcmin
+   (B-m/sm) within the muB = 25.0 B-m/ss elliptical isophote of major
+   axis log D25 and axis ratio log R25, defined as in RC2 (Equation
+   21) by:
+         m'25= BT +  delta(m25) + 5 logD25- 2.5 logR25- 5.26,
+   where delta(m25) = 2.5 log LT/L25 = B25 - BT and is the magnitude
+   increment contributed by the outer regions of a galaxy fainter than
+   muB = 25.0B-m/ss and, its mean error. For details, see Section
+   3.8.b, page 50.
+Note on m21:
+   21-cm emission line magnitude defined by m21 = 21.6 - 2.5 log SH ,
+   where SH is the measured neutral hydrogen flux density in units of
+   10-24W/m2. For details, see Section 3.9.a, page 51.
+Note on W20 and W50:
+   Neutral hydrogen line full width (in km/s) measured at the 20%
+   level (I20/Imax) and the 50% level (I50/Imax), respectively, as
+   explained in Section 3.9.b, page 51.
+Note on HI:
+   Corrected neutral hydrogen index, which is the difference
+   mo21-BoT between the corrected (face-on) 21-cm emission line
+   magnitude and the similarly corrected magnitude in the BT system.
+   Details are given in Section 3.9.c, page 52. Since m21 and BT are
+   listed separately in columns 6 and 9, record 1, there is no need to
+   print the uncorrected index.
+Note on V21:
+   The mean heliocentric radial velocity derived from neutral hydrogen
+   observations, as explained in Section 3.10.a, page 52.
+Note on cz:
+   The mean heliocentric radial velocity, derived from optical
+   observations, as explained in Section 3.10.b, page 53.
+Note on VGSR:
+   The weighted mean of the neutral hydrogen and optical velocities,
+   corrected to the "Galactic standard of rest", as explained in
+   Section 3.10.c, page 54.
+Note on V3K:
+   The weighted mean velocity corrected to the reference frame defined
+   by the 3K microwave background radiation, as explained in Section
+   3.10.d, page 55.
+
+NOTE: The references with many of the descriptions are to the page
+      numbers in Volume 1 of the printed catalogue.
+
+Construction of the current version of the RC3:
+   The RC3 was received electronically from Dr. Harold Corwin. It was
+   transferred to a Dec-alpha work station for examination and then to
+   a Cray computer for processing and archiving. Dr. Corwin also
+   provided the introduction to the catalogue in LaTeX for the
+   original version of the Third Reference Catalog. This introduction
+   has been modified for the present document.
+
+   Several changes were made in the catalogue. The printed version
+   contained plus/minus signs. Since the eighth bit, which
+   distinguishes special characters, tends to be dropped when the file
+   is transferred electronically, these have all been removed; the
+   meaning is obvious. The original version of the catalog contained
+   four records for each galaxy. Those values in the same columns were
+   often related. The catalog has been reformatted into a single
+   record per galaxy and the order of the data has been changed to
+   keep related information contiguous. Extra blank columns which
+   resulted from the original structure have been removed, keeping a
+   single blank between adjacent columns.
+
+Acknowlegements:
+   We sincerely thank Dr. Harold Corwin for sending us the RC3 and the
+   LaTeX version of the introduction. We also thank him for extensive
+   advise during the production of the original document and for a
+   careful reading of this final product. We thank Dr. Francois Ochsenbein
+   for help in formatting this document.
+
+Historical Notes:
+  * 16-Feb-1995: Documentation done by Nancy G. Roman [SSDOO/ADC]
+  * 28-Oct-1995: the values of RA (1950 and 2000) originally reported with
+    a 0.1 min were converted to seconds at CDS
+    (see notes above on RAs and RAs1950)
+
+See also:
+   VII/112 : RC2 Catalogue
+   VII/119 : PGC Catalogue (Paturel et al., =1989A&AS...80..299P)
+   J/A+AS/116/15 : Spiral galaxies global HI profiles (Kamphuis et al., 1996)
+================================================================================
+(End)   Nancy G. Roman [SSDOO/ADC], Francois Ochsenbein [CDS]        16-Feb-1995
