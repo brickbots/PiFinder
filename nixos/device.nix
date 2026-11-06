@@ -34,7 +34,7 @@ in {
 
   # ---------------------------------------------------------------------------
   # Binary substituters — Pi downloads pre-built paths, never compiles.
-  # Two Attic caches on cache.pifinder.eu (ADR 0037): pifinder-release
+  # Two Attic caches on cache.pifinder.io (ADR 0037): pifinder-release
   # (retained release closures) and pifinder (dev/nightly). The first-boot
   # download below resolves its target from the update manifest's best available
   # channel (ADR 0039).
@@ -42,8 +42,8 @@ in {
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     substituters = [
-      "https://cache.pifinder.eu/pifinder-release"
-      "https://cache.pifinder.eu/pifinder"
+      "https://cache.pifinder.io/pifinder-release"
+      "https://cache.pifinder.io/pifinder"
       "https://cache.nixos.org"
     ];
     trusted-public-keys = [

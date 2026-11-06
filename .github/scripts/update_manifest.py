@@ -14,8 +14,8 @@ STORE_PATH_RE = re.compile(r"^/nix/store/[a-z0-9]+-[A-Za-z0-9._+=?,-]+$")
 
 # The binary caches devices resolve upgrades from. A build is only advertised
 # as available once one of these actually serves its narinfo — see set_available.
-DEV_CACHE = "https://cache.pifinder.eu/pifinder"
-RELEASE_CACHE = "https://cache.pifinder.eu/pifinder-release"
+DEV_CACHE = "https://cache.pifinder.io/pifinder"
+RELEASE_CACHE = "https://cache.pifinder.io/pifinder-release"
 DEFAULT_CACHES = (DEV_CACHE, RELEASE_CACHE)
 EMPTY_MANIFEST = {
     "schema": 1,

@@ -51,8 +51,8 @@ SNAPSHOT_KEEP = 2
 # stops it; it starts again at the next boot.
 BTRFS_TIDY_UNIT = "pifinder-btrfs-tidy.service"
 
-RELEASE_CACHE = "https://cache.pifinder.eu/pifinder-release"
-DEV_CACHE = "https://cache.pifinder.eu/pifinder"
+RELEASE_CACHE = "https://cache.pifinder.io/pifinder-release"
+DEV_CACHE = "https://cache.pifinder.io/pifinder"
 CACHES = (DEV_CACHE, RELEASE_CACHE)
 # Attic does not hold the paths that cache.nixos.org has. A patch for such a
 # path is staged with its signed narinfo from here.

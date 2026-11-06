@@ -30,7 +30,7 @@ labels come from the update manifest, which maps store paths to versions.
 
 | Artifact                       | Where                             | Purpose                                |
 | ------------------------------ | --------------------------------- | -------------------------------------- |
-| Release closure on Attic       | `cache.pifinder.eu/pifinder-release` | What the device upgrade pulls (retained) |
+| Release closure on Attic       | `cache.pifinder.io/pifinder-release` | What the device upgrade pulls (retained) |
 | `update-manifest.json`         | `nixos-manifest` branch           | Tells the channel checker what's live  |
 | Git tag `vX.Y.Z`               | GitHub                            | Marks a release commit                 |
 | GitHub Release                 | GitHub Releases                   | Carries the SD image + tarball         |
@@ -39,7 +39,7 @@ labels come from the update manifest, which maps store paths to versions.
 
 ## Binary caches
 
-Two self-hosted Attic caches on `cache.pifinder.eu` (ADR 0037):
+Two self-hosted Attic caches on `cache.pifinder.io` (ADR 0037):
 
 | Cache              | Pushed by                  | Retention        | Holds                          |
 | ------------------ | -------------------------- | ---------------- | ------------------------------ |

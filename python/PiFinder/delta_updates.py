@@ -106,7 +106,7 @@ FREE_SPACE_SLACK = 512 * 1024 * 1024
 # most work here is waiting on the network and on nix-store --dump.
 WORKERS = 3
 
-# The staged cache must win over cache.pifinder.eu (Priority 41) and
+# The staged cache must win over cache.pifinder.io (Priority 41) and
 # cache.nixos.org (40). Lower is preferred.
 STAGED_CACHE_PRIORITY = 10
 

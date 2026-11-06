@@ -12,7 +12,7 @@ name: Build PiFinder NixOS (testable PRs)
 # PR.
 #
 # Build strategy: the free GitHub-hosted ubuntu-24.04-arm runner builds first.
-# Its cores are faster than the Pi5, and the Attic cache (cache.pifinder.eu) is
+# Its cores are faster than the Pi5, and the Attic cache (cache.pifinder.io) is
 # a substituter, so anything already built — including the patched kernel once
 # it has been built once — is downloaded, not recompiled. Each successful build
 # is pushed back to Attic, so the first build after a kernel/source change is
@@ -59,7 +59,7 @@ jobs:
           determinate: false
           extra-conf: |
             extra-system-features = big-parallel
-            extra-substituters = https://cache.pifinder.eu/pifinder
+            extra-substituters = https://cache.pifinder.io/pifinder
             extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
 
       - name: Attic login for push
@@ -71,7 +71,7 @@ jobs:
             exit 0
           fi
           nix profile install nixpkgs#attic-client
-          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic login pifinder https://cache.pifinder.io "$ATTIC_TOKEN"
           attic use pifinder:pifinder
 
       - name: Build NixOS system and on-device dev shell closures
@@ -127,12 +127,12 @@ jobs:
           echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
           echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
 
-      - name: Setup Attic substituter (cache.pifinder.eu)
+      - name: Setup Attic substituter (cache.pifinder.io)
         env:
           ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
         run: |
           nix profile install nixpkgs#attic-client
-          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic login pifinder https://cache.pifinder.io "$ATTIC_TOKEN"
           attic use pifinder:pifinder
 
       - name: Build NixOS system and on-device dev shell closures

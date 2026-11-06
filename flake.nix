@@ -87,7 +87,7 @@
         {
           pifinder.devMode = false;
           # Delta prefetch for upgrades (pifinder-differ, ADR 0036).
-          pifinder.deltaUrl = "https://deltas.pifinder.eu";
+          pifinder.deltaUrl = "https://deltas.pifinder.io";
         }
         # Camera specialisations — base is imx462 (default), specialisations for others
         ({ ... }: {

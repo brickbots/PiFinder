@@ -67,12 +67,12 @@ jobs:
           echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
           echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
 
-      - name: Setup Attic caches (cache.pifinder.eu)
+      - name: Setup Attic caches (cache.pifinder.io)
         env:
           ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
         run: |
           nix profile install nixpkgs#attic-client
-          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic login pifinder https://cache.pifinder.io "$ATTIC_TOKEN"
           attic use pifinder:pifinder
 
       - name: Build and push release closure to Attic
@@ -161,15 +161,15 @@ jobs:
           determinate: false
           extra-conf: |
             extra-system-features = big-parallel
-            extra-substituters = https://cache.pifinder.eu/pifinder
+            extra-substituters = https://cache.pifinder.io/pifinder
             extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
 
-      - name: Setup Attic caches (cache.pifinder.eu)
+      - name: Setup Attic caches (cache.pifinder.io)
         env:
           ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
         run: |
           nix profile install nixpkgs#attic-client
-          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic login pifinder https://cache.pifinder.io "$ATTIC_TOKEN"
           attic use pifinder:pifinder
 
       - name: Build and push release closure to Attic
