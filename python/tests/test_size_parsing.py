@@ -43,8 +43,21 @@ def test_degree_suffix():
 
 @pytest.mark.unit
 def test_slash_separator():
-    # Caldwell "0.3/5.8" -> two arcmin extents.
-    assert parse_arcmin_size("0.3/5.8").extents == pytest.approx([18.0, 348.0])
+    # Caldwell "0.3/5.8" -> two arcmin extents, the major first.
+    assert parse_arcmin_size("0.3/5.8").extents == pytest.approx([348.0, 18.0])
+
+
+@pytest.mark.unit
+def test_two_axes_are_stored_major_first():
+    # Collinder writes IC 1590 as "25x30"; SizeObject keeps [major, minor].
+    assert parse_arcmin_size("25x30").extents == pytest.approx([1800.0, 1500.0])
+    assert parse_arcmin_size("30x25").extents == pytest.approx([1800.0, 1500.0])
+
+
+@pytest.mark.unit
+def test_three_extents_keep_source_order():
+    # Three or more extents are a polygon's radii, in order around it.
+    assert parse_arcmin_size("1/3/2").extents == pytest.approx([60.0, 180.0, 120.0])
 
 
 @pytest.mark.unit

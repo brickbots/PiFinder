@@ -370,7 +370,7 @@ hardware, or network dependency at construct or update time — are:
 | `UIChart` | `chart.py:32` | Builds `plot.Starfield`, which loads the **Hipparcos** catalog and constellation lines (see §8.1). Heavy; this is why it's preloaded. |
 | `UIAlign` | `align.py:89` | Same `plot.Starfield` (Hipparcos). Also drives alignment via `command_queues["align_command"/"align_response"]` and reads/writes `shared_state.set_solve_pixel`. |
 | `UIObjectList` | `object_list.py:108` | Reads `catalogs` heavily (filtered/by-code lists). Loads marker PNGs from `PiFinder/markers/`. Constructor mutates the passed `item_definition` (`select`/`items`). |
-| `UIObjectDetails` | `object_details.py:56`, `:77` | Requires `item_definition["object"]` and `["object_list"]`. Opens an `ObservationsDatabase` (SQLite, `~/PiFinder_data/observations.db`). Reads `catalogs`, `shared_state`. |
+| `UIObjectDetails` | `object_details.py:56`, `:77` | Requires `item_definition["object"]` and `["object_list"]`; optional `["object_index"]` is the object's slot in that list (UP/DOWN steps from it, matching catalog listings by identity, never by `==`, since sibling listings share an `object_id`). Opens an `ObservationsDatabase` (SQLite, `~/PiFinder_data/observations.db`). Reads `catalogs`, `shared_state`. |
 | `UILog` | `log.py:30`, `:44` | Requires `item_definition["object"]`. Opens `ObservationsDatabase`. |
 | `UITextEntry` | `textentry.py:104` | In catalog-search mode opens `ObjectsDatabase` (the bundled `pifinder_objects.db`) and calls `catalogs.search_by_t9` / `search_by_text`. |
 | `UISQM` | `sqm.py:54` | `update()` calls `self.camera_image.copy()` — needs a real `camera_image` (a `PIL.Image`, **not** `None`). Reads `shared_state.sqm()`, sends camera commands. |

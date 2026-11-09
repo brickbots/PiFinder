@@ -4,7 +4,9 @@ This document describes how PiFinder loads, organizes, filters, searches,
 and updates astronomical catalogs at runtime. The bulk of the system
 lives in `PiFinder/catalogs.py`, with supporting types in
 `PiFinder/catalog_base.py` and `PiFinder/composite_object.py`, and the
-on-disk SQLite layer in `PiFinder/db/objects_db.py`.
+on-disk SQLite layer in `PiFinder/db/objects_db.py`. Section 9 covers
+the offline **catalog import** in `PiFinder/catalog_imports/`, which
+builds that SQLite file from the sources in `astro_data/`.
 
 For the canonical glossary of terms and data structures, see
 [`catalog/CONTEXT.md`](./catalog/CONTEXT.md).
@@ -403,7 +405,351 @@ of logged status, for example).
 
 ---
 
-## 9. Glossary
+## 9. Building the database: the catalog import
+
+`astro_data/pifinder_objects.db` is a build artifact. `main()` in
+`catalog_imports/main.py` drops every table and rebuilds the file from
+the **sources** in `astro_data/`. The import runs on a developer's
+machine; a device never runs it, and ships the committed file instead.
+
+To rebuild it, initialise the solver submodule and its symlink once per
+checkout (see `CLAUDE.md`), then, from `python/` with the Python 3.9
+virtualenv active:
+
+```bash
+python -m PiFinder.catalog_imports.main
+```
+
+It takes no arguments (`-x` logs at debug level, `-l` also logs to a
+file in the working directory) and writes `astro_data/pifinder_objects.db`
+in place, wherever it is run from. The build takes under a minute and is
+reproducible: two builds with different `PYTHONHASHSEED` values are
+byte-identical, as long as both start from the same file. The import
+drops and recreates the tables inside the existing file, so SQLite's
+header counters carry on from whatever was there, and a second build on
+top of the first differs from it in those bytes alone. To try a change
+without committing the data (9.7), copy the result out and restore the
+tracked file with `git checkout -- astro_data/pifinder_objects.db`
+before the next build.
+
+> **Status (2026-10-24).** Parts of this section describe the import as
+> the catalog-audit fixes leave it, not as `main` has it today: the star
+> cross-match (9.3) and the Hipparcos and WGSN supplementary sources (9.4)
+> are being built; Bica and RC3 are in `catalog_imports/supplementary_sources.py`.
+> The designation allowlist, the match guard (9.3) and precedence (9.1)
+> are in `catalog_imports/catalog_import_utils.py`. The correction pass
+> (9.5) is in `catalog_imports/corrections.py`, and
+> `astro_data/corrections/` holds no corrections yet.
+> The decision record is [ADR 0046](../adr/0046-catalog-corrections-cited-checked-applied-last.md).
+
+### 9.1 Pipeline
+
+```
+   sources (astro_data/)
+        │
+        ▼
+   loaders, in CATALOG_LOADERS order            (main.py)
+        │   each listing: parse its akas → match guard →
+        │   join an existing sky object, or mint a new one
+        ▼
+   post-processing                               (POST_PROCESSING_FUNCTIONS)
+        │   type normalisation, the hand-built Messier objects,
+        │   the Messier names
+        ▼
+   star identity: Hipparcos cross-match, merge by HIP
+        │   (`hip` corrections are read here, ahead of position)
+        ▼
+   supplementary sources                         (SUPPLEMENTARY_SOURCES)
+        │   Hipparcos values → WGSN names → Bica sizes → RC3 magnitudes
+        ▼
+   correction pass                               (astro_data/corrections/*.toml)
+        ▼
+   resolve_object_images → finalise (WAL checkpoint, DELETE journal)
+```
+
+Each stage has the last word over the stages before it. Loader order
+matters: a loader can only join sky objects that earlier loaders created
+(so Sharpless loads before Caldwell, whose C 9 is Sh2 155).
+
+When a loader joins a sky object an earlier loader created, it may only
+fill what is empty — never replace — with two named exceptions:
+
+| field | rule |
+|---|---|
+| magnitude, size | fill if the sky object has none (`filter_mag == 99`, no extents) |
+| magnitude, size, from a group listing | **fill nothing**: a listing whose akas resolve to more than one sky object (TAAS's "2237;2244") gives the group's values, not the member's it joins |
+| magnitude of a globular | **Harris replaces**: it is the reference for Milky Way globulars, and every Harris listing is one |
+| type | the first loader's stands; **EGC sets `Gb`** — a cluster on PiFinder's globular list is a globular |
+| position | the first loader's stands (for stars, Hipparcos replaces it later) |
+
+`NewCatalogObject.fill_joined_object` applies the table; the exceptions
+are `MAGNITUDE_REPLACED_BY` and `TYPE_SET_BY`, keyed by the joining
+listing's catalog code, and still apply to a group listing. A new exception belongs in this table and
+there, not in a loader's `if`.
+
+Because the first value wins, loader order also decides which source
+fills a field that several leave to later loaders. Collinder, Sharpless
+and Caldwell all join some NGC objects Steinicke left without a
+magnitude or size, and no order of the three gets every value right:
+
+| sky object | Col | Sh2 | C | right (the audit) | needs |
+|---|---|---|---|---|---|
+| NGC 6885 = C 37, magnitude | 8.1 | — | 5.9 | about 5.9 | C before Col |
+| NGC 2467, size | 15′ | 45′ | — | about 8–16′ | Col before Sh2 |
+| NGC 1931, size | 4′ | 7′ | — | about 4′ | Col before Sh2 |
+| C 9 joins Sh2 155 at all | | | | | Sh2 before C |
+
+The import loads Collinder, then Sharpless, then Caldwell, so C 37's
+magnitude is a correction of Collinder's value. Anyone reordering these
+loaders moves the rows above.
+
+### 9.2 Where a fix goes
+
+When the database holds a wrong value, the fix goes in exactly one place:
+
+| the cause | the fix |
+|---|---|
+| a loader misreads its source | fix the loader |
+| a published source is wrong, and one better reference covers more than a handful of objects by a stable key | a **supplementary source** (9.4) |
+| a published source is wrong for one object, and no rule or reference can produce the value | a **correction** (9.5) |
+| a **curated source** (EGC, `bright_stars.csv`, `messier_names.dat`) is wrong or incomplete | edit the file |
+
+A published source is never edited, even to fix it: it stays as its
+publisher released it, so an updated release can be dropped in.
+
+### 9.3 Matching
+
+A listing's akas join it to an existing sky object only if both hold:
+
+1. **The aka parses as a designation of a PiFinder catalog.** Prefixes
+   are an allowlist (`CATALOG_CODE_ALIASES`, `parse_designation`), so a
+   double-star discoverer code — `h 301`, `A 58`, `B 53` — never joins
+   Herschel 400, Abell or Barnard. Matching on a whitespace-stripped
+   lowercase key is what put ν Aur's names on NGC 4245 (#668). The
+   allowlist governs every lookup, spaced or not: `listing_named` is the
+   one question `ObjectFinder` and the correction pass's checks ask, so
+   "B53" and "h99" name no listing.
+2. **The match guard passes** (`match_guard`). The types must be
+   compatible, read from the loaders' own type strings before type
+   normalisation:
+   - a **star** type is `*`, `D*` or `**`, perhaps with a trailing `?`
+     (`D*?`);
+   - an **unknown** type (`?`, `-`, empty) is compatible with either
+     kind, and so is a **star group** (`***`, Steinicke's `*3` and `*4`),
+     which cluster catalogs and double-star lists both list: Lyngå's
+     open cluster Lyn 921 is M 73, Steinicke's `*4`;
+   - every other type (`Gx`, `OC`, `Ast`, `C+N`, "Open Cluster"…) is a
+     non-star.
+
+   A star joins only a star, a non-star only a non-star, and either
+   joins, or is joined by, an unknown type or a star group. And the
+   listing must lie within 30′ of the sky object
+   (great-circle distance between the two positions), or within the
+   object's major axis if that is larger.
+
+The akas are tried in source order: the first that resolves to a sky
+object and passes the guard decides which sky object the listing joins.
+A rejected match leaves the listing as a sky object of its own — the
+right outcome for a double star whose discoverer code once matched a
+galaxy — unless a later aka passes. Each rejection is logged, and the
+import ends with a count. Rejections do not fail the import.
+
+**Only akas that resolve to the listing's sky object are stored as its
+names.** A designation of a PiFinder catalog that resolves to another
+sky object is not a name of this one, so the Double Cluster's "869;884"
+leaves NGC 884's number off NGC 869. One that resolves to nothing names
+something PiFinder doesn't hold: dropped from a joined sky object (Arp's
+NGC 1097A is a companion beside NGC 1097), kept on a sky object the
+listing mints (Arp 79 is NGC 5490C). Every other aka — a common name,
+another catalog's number (UGC, SIMEIS) — is stored. An aka the sky
+object already has is stored again under the new listing's origin; the
+device drops repeated names when it loads them.
+
+**Lettered components, for Arp only.** Arp names an interacting pair by
+its components ("NGC 4676A", "NGC 4676B"), but also a companion beside
+its main galaxy ("NGC 1097A", listed with NGC 1097). The Arp loader opts
+in (`lettered_components`) to reading a lettered aka as a designation:
+the A component resolves to its number's sky object when the listing
+does not also name the number itself, and any other letter resolves to
+nothing. PiFinder's NGC 4676 is Steinicke's A row, so Arp 242 joins it;
+Arp 79's NGC 5490C, a galaxy of its own 4.8′ from NGC 5490, does not. A
+source can mean either by the letter, so every other loader keeps the
+strict default, where "NGC 4676A" is a plain name.
+
+**Stars are identified by Hipparcos number.** Each star listing is
+cross-matched to `hip_main.dat`: the nearest Hipparcos star within about
+3′ whose V is within about 1 mag of the listing's. Listings that match
+one HIP number are one sky object, whatever catalogs list them — Str,
+SaM, SaR, TLK, RDS and WDS alike — so Mizar is one sky object. A listing
+with no match (a SAC double fainter than Hipparcos's completeness, say)
+stays its own. A listing whose source position is too wrong to match
+(SAC's α Mic, whole degrees off) gets a `hip` correction, which this
+stage reads before it cross-matches — the one correction that does not
+wait for the final pass (9.5). Source positions are rounded to 0.1ᵐ in RA and 1′ in Dec,
+and few sources carry an ID, so position alone or a catalog ID alone
+cannot do this.
+
+A merged star is typed `D*` if SAC's doubles (SaM, less its "rej."
+rows), RASC's doubles (RDS), or a WDS pair not flagged optical
+(S, U, Y, L) or dubious (X) lists it; otherwise `*`. WDS alone would
+make nearly every bright star a double — Vega's WDS companions are
+field stars — and Hipparcos's CCDM letter is blank for wide pairs and
+for pairs it could not resolve (Sirius, Polaris, Antares), so neither
+decides by itself.
+
+A **not-found** NGC/IC number (Steinicke's status 10, about 300 of
+them) keeps its listing, its nominal position and type `?`, and its
+description leads with "Not found: nothing at Dreyer's position
+(Steinicke)." ahead of Dreyer's text, so nobody hunts an empty field.
+Where Corwin identifies one, a correction sets its position and type
+and replaces that description.
+
+A Steinicke **duplicate** (status 7, another number in the same
+catalog; status 8, an IC number already in the NGC) is not a sky object
+of its own: its listing joins the sky object of the twin its first
+identification names (NGC 6 joins NGC 20), following a twin that is
+itself a duplicate. This is Steinicke's identification, not an aka
+match, so the match guard does not apply; instead, a duplicate whose
+row lies more than 1′ from its twin's contradicts the source and stays
+its own, logged (NGC 6363, whose named twin is 11° away). The loader
+types every other row by its status first (galaxy, planetary, globular,
+not found) and by its TYPE within the status's kind; a part of another
+galaxy (status 6) is typed by its remark.
+
+For NGC and IC numbers, where the sources disagree about an
+identification, Corwin's decides; an identification Corwin leaves open
+("?", "??") stays as the sources give it. Corwin is not a vendored
+source, so his identifications enter as corrections.
+
+### 9.4 Supplementary sources
+
+A supplementary source never adds listings. It is joined on a stable
+key and fills or replaces one or more fields by a stated rule:
+
+| source | joined on | rule |
+|---|---|---|
+| Hipparcos (`hip_main.dat`) | HIP, from the cross-match | **replace** the position and the primary's V on every matched star listing; a companion's magnitude is untouched |
+| IAU WGSN, Catalog of Star Names | HIP | **add** the IAU name as the **preferred name**; older names (Graffias, Tegmen) stay as ordinary names, so text search still finds them |
+| Bica et al. 2008 (VizieR J/MNRAS/389/678) | NGC/IC designation, through the match guard | **fill** a missing size on a Magellanic object; never replace one |
+| RC3 (VizieR VII/155), extract of the rows whose `BT` is coded "V" | NGC/IC designation, letter included, to the Steinicke row the loader kept | **replace** V with Steinicke's Bmag where that Bmag equals RC3's V-coded `BT` within 0.05 — Steinicke read those as B and subtracted a colour, making 49 galaxies about 1 mag too bright |
+
+They run in `SUPPLEMENTARY_SOURCES` order (`main.py`), after every
+loader, post-processing and the star cross-match, and before the
+correction pass, so a correction still has the last word. Each source is
+vendored under `astro_data/` with a README recording where it came from;
+Bica and RC3 are VizieR extracts, kept verbatim as the recorded queries in
+their `fetch.sh` return them.
+
+Steinicke's Bmag is never used as a fallback V on its own: for
+non-galaxies it is often NGC 2000.0's photographic figure, and for M 43
+it is the exciting star's. An object with no V stays without one unless
+a later loader fills it or a correction sets it.
+
+**Bica.** Each NGC or IC number in a row's names joins that listing's
+sky object, and the join must pass the match guard (9.3), as a loader's
+does: the two catalogs disagree about some identifications, and position
+is what shows it. Steinicke and Bica swap NGC 2029 and NGC 2030, 91′
+apart; Bica's NGC 2171 and NGC 2094 lie 70′ and 33′ from Steinicke's;
+and Steinicke types NGC 1932, IC 2115 and IC 2116 as stars, which none of
+Bica's clusters, associations or nebulae joins. Each rejection is logged
+and fills nothing. A not-found object gets no size either, since only an
+identification places one (Bica has a cluster 5′ from NGC 1915's nominal
+position). Where two rows reach one sky object, the nearer fills it:
+Steinicke makes NGC 1911 a duplicate of NGC 1920, while Bica lists a
+0.6′ cluster 8.8′ away as NGC 1911. A lettered name (`NGC1921e`,
+`NGC1850A`) is half of a pair or a neighbour, so it joins nothing.
+
+Fill-only for Bica is deliberate: its cluster-only sizes would otherwise
+overwrite the complex sizes PiFinder keeps for objects like NGC 1966.
+Where Bica shows that a size is simply wrong (NGC 602's 34′ for 3.2′),
+or gives the size for an identification the join refused, that is a
+correction citing Bica.
+
+**RC3.** RC3 writes a galaxy's NGC or IC designation as Steinicke does,
+letter included, so each RC3 name joins the Steinicke row the loader keeps
+for that number (`select_listings`): RC3's NGC 78A is the row PiFinder
+lists as NGC 78, and RC3's NGC 986A, a companion, is not NGC 986.
+Steinicke's Bmag comes from that row in `steinicke_catalog.json`, which
+the Steinicke loader extracts before anything else runs; the database
+has no Bmag column and needs none. The V is replaced only on a sky object
+that still holds that row's V, the value the rule fixes, and a row with
+no V leaves its sky object without one. Matched this way, RC3 and
+Steinicke give the audit's 48 galaxies exactly, plus NGC 78, which
+Steinicke lists only as its A component.
+
+### 9.5 Corrections
+
+A **correction** is a cited value that replaces what the sources give,
+in `astro_data/corrections/<source>.toml` — one file per published
+source it contradicts, so each file doubles as the upstream report. The
+format, and every check, is documented in
+[`astro_data/corrections/README.md`](../../astro_data/corrections/README.md).
+
+- **Keyed by designator**, applied to the sky object it resolves to; a
+  description applies to that one listing.
+- **Three operations**: set fields (`obj_type`, `ra`, `dec`, `const`,
+  `size`, `mag`, `description`); edit names (`names.add`,
+  `names.remove`, `names.preferred`); correct an identification
+  (`same_as`, `own_object`, or `hip` for a star listing — applied
+  before the star cross-match, not in the final pass).
+- **Checked.** A field correction states the value it replaces
+  (`was.<field>`). If the field already holds the corrected value the
+  correction is redundant; if it holds anything but `was` it is stale.
+  Either fails the import, as do two corrections reaching one field of
+  one sky object, a designator that resolves to nothing, and a missing
+  `why` or `sources`. Name and identification corrections are checked
+  the same way: removing an absent name, or a `same_as` that is already
+  true, fails.
+- **All or nothing.** Identifications go first, since they change what
+  designators resolve to; every other correction is then checked before
+  any is written, and a failure rolls the whole pass back.
+
+The pass runs last (9.1), so a correction always wins. A rule of thumb
+for anyone adding one: if you are about to write more than a handful of
+corrections citing the same reference, it is a supplementary source.
+
+### 9.6 Name order
+
+The names table holds **common names** and **cross-designations** side
+by side, in import order, and nothing marks which is which. The order is
+meaningful: the device shows `names[0]` (chart readout, object list) and
+the atlas takes the first name that survives its filters. A **preferred
+name** is a common name placed first — by WGSN, by the Messier names, or
+by a correction. An object without one shows its first cross-designation.
+
+The name files:
+
+- `ngc_ic_m/messier/messier_names.dat` is curated, one line per named
+  Messier object (`M<n><TAB>Name; Name`). A post-processing step puts a
+  line's names ahead of the object's other names, in order, so its first
+  name is the object's preferred name. A cross-designation ("Winnecke 4")
+  or a description ("Satellite of M31") is not a name, so it has no
+  place here.
+- `ngc_ic_m/ngc2000/names.dat` is NGC 2000.0's, published. It is read
+  as published but title-cased on read (the atlas's rule: small words
+  after the first stay lower case), so "Crab nebula" reads "Crab
+  Nebula". Its misplaced names are corrected in `ngc2000_names.toml` —
+  including the half of a fix whose key is another catalog's (the
+  Horsehead moves from IC 434 to B 33): a correction lives in the file
+  of the source whose error it fixes.
+
+The import must therefore keep names in a reproducible order; a `set()`
+of strings is ordered by Python's per-process hash seed and is not.
+
+### 9.7 Committing the database
+
+The committed `pifinder_objects.db` is about 23 MB compressed, and a
+fielded unit's update downloads every version of it that was committed
+since its last one. Commit a rebuilt database only in a pull request
+that means to change the data, and batch import changes so one rebuild
+carries many. Loader code may sit ahead of the committed database in
+the meantime — a device never runs the import. The data assertions in
+`tests/test_catalog_data.py` read the committed file, so they land
+together with the rebuild that makes them true.
+
+---
+
+## 10. Glossary
 
 The canonical glossary lives at [`catalog/CONTEXT.md`](./catalog/CONTEXT.md).
 Use those terms when reading, writing, and discussing code in this area.

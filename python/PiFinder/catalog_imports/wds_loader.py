@@ -175,7 +175,8 @@ def load_wds():
         return ra_to_deg(ra_h, ra_m, ra_s), dec_to_deg(dec_deg, dec_m, dec_s)
 
     def handle_multiples(key, values) -> dict:
-        discoverers = set()
+        # Ordered, so the names keep the source order in every import.
+        discoverers: dict = {}
         components = {}
         result = {}
         descriptions = []
@@ -208,7 +209,7 @@ def load_wds():
                 result["mag"] = MagnitudeObject([mag1, mag2])
                 sizemax = float(np.max([value["Sep_First"], value["Sep_Last"]]))
                 result["size"] = SizeObject.from_arcsec(round(sizemax, 1))
-            discoverers.add(value["Discoverer_Number"])
+            discoverers[value["Discoverer_Number"]] = None
             notes = value["Notes"].strip()
             notes_str = "" if len(notes) == 0 else f" Notes: {notes}"
             components = value["Components"].strip()

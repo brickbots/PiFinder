@@ -18,11 +18,12 @@ import numpy as np
 import numpy.typing as npt
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg
+from PiFinder.calc_utils import ra_to_deg, dms_to_dec
 from .catalog_import_utils import (
     delete_catalog_from_database,
     insert_catalog,
     insert_catalog_max_sequence,
+    listing_named,
     NewCatalogObject,
     trim_string,
 )
@@ -309,7 +310,14 @@ def identify_catalog_type(name: str) -> Tuple[bool, str]:
     Identify if a name is an official catalog designation or a common name.
 
     Official catalogs in the system: NGC, IC, M, C, Col, Ta2, H, SaA, SaM,
-    SaR, Str, EGC, RDS, B, Sh2, Abl, Arp, TLK, WDS
+    SaR, Str, EGC, RDS, B, Sh2, Abl, Arp, TLK, WDS. Lyngå spells Collinder
+    out ("Collinder 65"), so that long form is a designation too, and the
+    listing joins its Collinder sky object.
+
+    A designation the loaders' lookup reads (listing_named) is written as
+    PiFinder writes its designators, so "Collinder 65" is "Col 65" and
+    "NGC 6222" stays "NGC 6222": on the sky object the listing joins, it
+    repeats that listing's own name. Any other has its spaces removed.
 
     Args:
         name: Name to check
@@ -323,6 +331,7 @@ def identify_catalog_type(name: str) -> Tuple[bool, str]:
         "M",
         "C",
         "Col",
+        "Collinder",
         "Ta2",
         "H",
         "SaA",
@@ -343,8 +352,11 @@ def identify_catalog_type(name: str) -> Tuple[bool, str]:
 
     for catalog in official_catalogs:
         if name.startswith(catalog + " ") or name == catalog:
-            normalized = name.replace(" ", "")
-            return True, normalized
+            listing = listing_named(name)
+            if listing is None:
+                return True, name.replace(" ", "")
+            catalog_code, sequence = listing
+            return True, f"{catalog_code} {sequence}"
 
     return False, name
 
@@ -377,11 +389,14 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, Any]:
     ra_m = entry["RA2000m"].item()
     result["ra"] = ra_to_deg(ra_h, ra_m, 0.0)
 
-    dec_d = entry["DE2000d"].item()
-    if entry["DE2000s"] == "-":
-        dec_d = -dec_d
-    dec_m = entry["DE2000m"].item()
-    result["dec"] = dec_to_deg(dec_d, dec_m, 0)
+    # The sign is a column of its own, so a declination between -1° and 0°
+    # (Lyn 229 at -00 54) stays south: negating 0 degrees would lose it.
+    result["dec"] = dms_to_dec(
+        entry["DE2000s"].item(),
+        entry["DE2000d"].item(),
+        entry["DE2000m"].item(),
+        0,
+    )
 
     if VERBOSE:
         logging.debug(

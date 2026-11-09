@@ -1,0 +1,125 @@
+J/MNRAS/389/678 Catalogue of extended objects in Magellanic Clouds (Bica+, 2008)
+================================================================================
+A general catalogue of extended objects in the Magellanic System.
+    Bica E., Bonatto C., Dutra C.M., Santos J.F.C.JR
+   <Mon. Not. R. Astron. Soc., 389, 678-690 (2008)>
+   =2008MNRAS.389..678B
+================================================================================
+ADC_Keywords: Magellanic Clouds ; Associations, stellar ; Clusters, open ;
+              Nebulae ; H II regions
+Keywords: Magellanic Clouds
+
+Abstract:
+    We update the Small Magellanic Cloud (SMC), Bridge and Large
+    Magellanic Cloud (LMC) catalogues of extended objects that were
+    constructed by members of our group from 1995 to 2000. In addition to
+    the rich subsequent literature for the previous classes, we now also
+    include HI shells and supershells. A total of 9305 objects were
+    cross-identified, while our previous catalogues amounted to 7900
+    entries, an increase of ~12 per cent. We present the results in
+    subcatalogues containing 1445 emission nebulae, 3740 star clusters,
+    3326 associations and 794 HI shells and supershells. Angular and
+    apparent size distributions of the extended objects are analysed. We
+    conclude that the objects, in general, appear to respond to tidal
+    effects arising from the LMC, SMC and Bridge. Number-density profiles
+    extracted along directions parallel and perpendicular to the LMC bar,
+    can be described by two exponential-discs. A single exponential-disc
+    fits the equivalent SMC profiles. Interestingly, when angular-averaged
+    number-densities of most of the extended objects are considered, the
+    profiles of both Clouds do not follow an exponential-disc. Rather,
+    they are best described by a tidally truncated, core/halo profile,
+    despite the fact that the Clouds are clearly disturbed discs. On the
+    other hand, the older star clusters taken isolately, distribute as an
+    exponential disc. The present catalogue is an important tool for the
+    unambiguous identification of previous objects in current CCD surveys
+    and to establish new findings.
+
+File Summary:
+--------------------------------------------------------------------------------
+ FileName   Lrecl  Records   Explanations
+--------------------------------------------------------------------------------
+ReadMe         80        .   This file
+table3.dat    118     3740   Star clusters
+table4.dat    117     3326   Associations
+table5.dat    119     1445   Emission nebulae
+table6.dat    120      794   HI shells and supershells
+--------------------------------------------------------------------------------
+
+See also:
+       VII/232    : Nebulae in the Magellanic Clouds (Davies+ 1976)
+       VII/183    : The Cluster System of the LMC (Kontizas+ 1990)
+  J/AcA/48/175    : OGLE SMC clusters (Pietrzynski+ 1998)
+  J/AJ/117/238    : LMC extended catalog (Bica+, 1999)
+  J/AcA/49/521    : OGLE LMC star clusters BVI photometry (Pietrzynski+, 1999)
+  J/AcA/50/355    : OGLE Multiple Cluster Candidates in LMC (Pietrzynski+, 2000)
+  J/MNRAS/339/105 : Western Magellanic Bridge HI observations (Muller+, 2003)
+  J/A+A/405/111   : LMC Survey of Young Stellar Systems (Gouliermis+, 2003)
+  J/ApJS/171/419  : Catalog of LMC HI clouds (Kim+, 2007)
+
+Byte-by-byte Description of file: table3.dat table4.dat table5.dat table6.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units   Label     Explanations
+--------------------------------------------------------------------------------
+   1- 32  A32   ---     Names     Source name(s) (2)
+  33- 34  I2    h       RAh       right ascension (J2000)
+  36- 37  I2    min     RAm       right ascension (J2000)
+  39- 40  I2    s       RAs       right ascension (J2000)
+      43  A1    ---     DE-       Declination sign (J2000)
+  44- 45  I2    deg     DEd       Declination (J2000)
+  47- 48  I2    arcmin  DEm       Declination (J2000)
+  50- 51  I2    arcsec  DEs       Declination (J2000)
+  53- 55  A3    ---     Type      Object type (1)
+  57- 62  F6.2  arcmin  amaj      Major axis
+  64- 68  F5.2  arcmin  amin      Minor axis
+  70- 72  I3    deg     PA        ?=- Major axis position angle
+  74-120  A47   ---     Com       Comments (IAC = Intermediate Age Cluster;
+                                  mP, mT, m4 etc = member of Pair, Triplet, ...)
+--------------------------------------------------------------------------------
+
+Note (1): Object type as follows:
+      C = Ordinary cluster
+     CN = Cluster in nebula
+     CA = Cluster similar to association
+    DCN = Decoupled cluster from nebula
+      A = Ordinary association
+     AN = Association w/nebular traces
+     AC = Association similar to cluster
+    DAN = Decoupled association from nebula
+     NA = Nebula w/embedded association
+     NC = Nebula w/probable embedded cluster
+     EN = Nebula wo/association/cluster
+    SNR = Supernova remnants
+    DNC = Decoupled nebula from cluster
+    DNA = Decoupled cluster from nebula
+     HS = HI shells and supershells
+
+Note (2): Acronyms used:
+      TLB = Testor, Llebaria & Debray (1988Msngr..54...43T)
+       WB = Walborn & Blades (1997ApJS..112..457W)
+      WBB = Walborn et al. (1999AJ....117..225W)
+      WDP = Walborn et al. (1999AJ....118.1684W)
+      WMB = Walborn, Maiz-Apellaniz & Barba (2002AJ....124.1601W)
+   HCD99- = Heydari-Malayeri et al. (1999A&A...347..841H)
+      HRR = Heydari-Malayeri et al. (2000A&A...361..877H)
+   HCD01- = Heydari-Malayeri et al. (2001A&A...372..527H)
+   HCD02- = Heydari-Malayeri et al. (2001A&A...372..527H)
+      HMW = Heydari-Malayeri, Meynadier & Walborn (2003A&A...400..923H)
+      MHW = Meynadier, Heydari-Malayeri & Walborn (2005A&A...436..117M)
+  Bologna = Bellazzini, Pancino & Ferraro (2005A&A...435..871B)
+      NSS = Nota et al. (2006ApJ...640L..29N); 
+            Sabbi et al. (2007AJ....133...44S)
+      NKD = Nakajima et al. (2005AJ....129..776N)
+      TLF = Testor et al. (2006A&A...453..517T)
+      TLK = Testor et al. (2007A&A...469..459T)
+    LOGLE = Pietrzynski et al. (1999AcA....49..521P)
+    GKK-O = Gouliermis et al. (2003A&A...405..111G - Clustres)
+    GKK-A = Gouliermis et al. (2003A&A...405..111G - Associations)
+      GKH = Gouliermis, Quanz & Henning (2007ApJ...665..306G)
+      HGH = Hennekemper et al. (2008ApJ...672..914H)
+     SGDH = Schmalzl et al. (2008ApJ...681..290S)
+--------------------------------------------------------------------------------
+ 
+History: History:
+    From electronic version of the journal
+================================================================================
+(End)                                      Patricia Vannier [CDS]    02-Feb-2010

@@ -1,6 +1,6 @@
 # Catalog
 
-The Catalog context owns runtime loading, filtering, searching and display of astronomical catalogs (Messier, NGC, IC, WDS, planets, comets…) for the UI and web layers. Catalog state lives in the main UI process; other processes only see catalog content indirectly through the shared `objects.db` and `observations.db`.
+The Catalog context owns runtime loading, filtering, searching and display of astronomical catalogs (Messier, NGC, IC, WDS, planets, comets…) for the UI and web layers. Catalog state lives in the main UI process; other processes only see catalog content indirectly through the shared `objects.db` and `observations.db`. It also owns the build-time **catalog import** that produces `objects.db` (see **Import**).
 
 > Companion architecture doc: [`../catalog.md`](../catalog.md).
 
@@ -135,6 +135,56 @@ _Avoid_: background loader, async loader.
 The literal string token pushed onto `ui_queue` once deferred loading completes. The UI watches for it to refresh lists.
 _Avoid_: load-done event, ready signal.
 
+### Import
+
+**Catalog import**:
+The offline build that turns the **sources** in `astro_data/` into `objects.db`. It runs at development time, not on the device; the device ships the built database.
+_Avoid_: catalog load (that's the runtime), DB generation.
+
+**Source**:
+A reference data file under `astro_data/` that a **loader** reads. Most are published (Steinicke, SAC, WDS, Harris…) and vendored as their publisher released them — or as a subset of rows and columns fetched from the publisher by a recorded query (a VizieR extract), so it can be fetched again. A published source can be wrong, and the import never edits one to fix it. The exception is a **curated source**.
+_Avoid_: input file, raw data, catalog (a catalog is what the device shows).
+
+**Curated source**:
+A **source** PiFinder compiles itself (EGC, the bright stars list, the Messier names). Its contents are PiFinder's own editorial choices, so it is edited directly — a missing or wrong entry there is fixed in the file, never by a **correction**.
+_Avoid_: custom catalog, house list.
+
+**Loader**:
+The import code that reads one **source** and contributes its **catalog listings**, matching each listing to an existing **sky object** or minting a new one. A loader that misreads its source has a bug; one that reads it faithfully does not, even when the source is wrong.
+_Avoid_: reader, importer, parser.
+
+**Supplementary source**:
+A **source** read only to fill or replace fields (names, magnitudes, sizes, positions) on sky objects other loaders created, joined on a stable identifier such as HIP. It never adds catalog listings. Use one where a single reference covers more than a handful of objects (IAU WGSN for star names, Bica et al. 2008 for Magellanic sizes).
+_Avoid_: enrichment, secondary catalog.
+
+**Identification**:
+Which sky object a **designator** refers to. Sources disagree about identifications (Steinicke and Corwin on IC 2477), and a wrong one either puts a listing on the wrong sky object or splits one thing into two sky objects. A **correction** can fix an identification in either direction: this designator is the same sky object as that one, or it is a sky object of its own. For stars, the Hipparcos (HIP) number is the identity: star listings that cross-match to one HIP number are one sky object, whatever catalogs list them. For NGC and IC numbers, Corwin's identification decides when the sources disagree; where Corwin is undecided ("?", "??"), the sources' identification stands.
+_Avoid_: merge, alias, same-as, match (matching is what a **loader** does to arrive at an identification).
+
+**Not-found object**:
+An NGC or IC number with nothing at Dreyer's position (Steinicke's status 10). It stays a sky object — the number still resolves — typed `?` and described as not found, until an identification places it.
+_Avoid_: nonexistent object (OpenNGC's `NonEx`; some are later identified), missing object, phantom.
+
+**Double star** (`D*`):
+A star with a companion worth looking for: one an observer's double-star list (SAC, RASC) or a WDS pair that is neither optical nor dubious lists. What the device's "double star" type filter finds. A star that WDS lists only with optical companions (Vega) is a single star (`*`).
+_Avoid_: binary (that's physical, and some listed pairs aren't proven binaries), multiple star.
+
+**Common name**:
+A **Name** that is what the sky object is called ("Cigar Galaxy", "Albireo") rather than a designation of it.
+_Avoid_: popular name, proper name, alias.
+
+**Cross-designation**:
+A **Name** that is another catalog's designator for the same sky object ("NGC 3034" and "Arp 337" on M 82). The names table holds cross-designations and common names side by side, and nothing marks which is which.
+_Avoid_: alias, aka, alternate name.
+
+**Preferred name**:
+The **common name** placed first among a sky object's **Names**, ahead of its cross-designations, so the device and the atlas show it. Only some sky objects have one; for the rest the first name is a cross-designation. Order alone marks it.
+_Avoid_: primary name, main name, display name (that's the **catalog display name**).
+
+**Correction**:
+A cited value for one sky object that replaces what the sources give because the sources are wrong. Reserved for what no loader fix or **supplementary source** can produce; the fix of last resort. Keyed by a **designator** and applied to the sky object that designator resolves to — except a description, which belongs to that one **catalog listing**. Two corrections reaching the same field of one sky object through different designators (M 42, NGC 1976) are a conflict, not a precedence question.
+_Avoid_: override (it says one value wins, not that the source is wrong), patch, erratum, fix-up.
+
 ### Dynamic catalogs
 
 **Dynamic catalog**:
@@ -255,3 +305,21 @@ _Avoid_: readonly list, immutable view.
 > **Dev:** The user loads an observing list with "M 31" and a nameless target at some RA/Dec. What comes out?
 >
 > **Domain:** Two **observing list entries**. "M 31" is **catalog-keyed**, so **resolution** finds the existing `CompositeObject` — same `object_id`, same logged state. The RA/Dec one is a **coordinate entry**; it can't resolve, so it's minted as a **coordinate object** with a fresh **virtual ID** under catalog code `OBS`. Don't call either one a "catalog listing" — that's a DB row.
+
+An import-side dialogue:
+
+> **Dev:** IC 424 shows as 120′ across. It's 2.5′. I'll fix the Steinicke loader.
+>
+> **Domain:** Check first whether the **loader** misreads Steinicke. If Steinicke's own file says 120′, the loader is right and the **source** is wrong — so it's a **correction** in `steinicke.toml`, with the value it replaces, why, and a citation. Don't edit Steinicke's file: it's a published source.
+>
+> **Dev:** And the 49 Magellanic clusters with no size at all?
+>
+> **Domain:** One reference, Bica 2008, covers all of them by designation. That's a **supplementary source**, not 49 corrections.
+>
+> **Dev:** NGC 1783 should be a globular. Correction?
+>
+> **Domain:** No — put it on the EGC list. EGC is a **curated source**: our own list, so we edit it, and an EGC listing makes its sky object a globular.
+>
+> **Dev:** Last one: M 82 shows "Bode's nebulae".
+>
+> **Domain:** That's the M 81/82 pair's name, which NGC 2000's names file put on M 82 alone. A correction removes it and makes "Cigar Galaxy" the **preferred name** — the **common name** placed ahead of M 82's **cross-designations**, so the device and the atlas show it.
