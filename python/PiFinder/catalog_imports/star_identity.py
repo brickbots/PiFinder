@@ -307,6 +307,16 @@ class StarObject:
             return None
         return PRECISE_MATCH_RADIUS_ARCMIN if self.precise else MATCH_RADIUS_ARCMIN
 
+    @property
+    def companion_pair(self) -> bool:
+        """Whether it is a SAC row of a pair without the primary (BC, CD).
+
+        Its star is not its system's primary, which is the star its
+        position, its system's names and numbers, and its pair's WDS
+        listing all name (STF 2532's BC row), so no rule identifies it.
+        """
+        return self.stand_in and self.catalog_code != "WDS"
+
 
 def read_star_objects(
     cursor: sqlite3.Cursor,
@@ -642,13 +652,18 @@ def apply_identifier_rules(
 ) -> None:
     """Identify the stars the position match left unmatched by an identifier.
 
-    A rule never replaces a position match or a `hip` correction. Rule 1
+    A rule never replaces a position match or a `hip` correction, and none
+    identifies a SAC companion pair (StarObject.companion_pair). Rule 1
     (catalog numbers) runs first, so that a WDS listing it identifies counts
     for rule 2 (WDS designations); rule 3 (SAC systems) joins a continuation
     row to its system's first row. Two rules naming different stars, one rule
     naming two, or a veto against the result (apply_vetoes): no match.
     """
-    unmatched = [oid for oid, match in sorted(matches.items()) if match.hip is None]
+    unmatched = [
+        oid
+        for oid, match in sorted(matches.items())
+        if match.hip is None and not stars[oid].companion_pair
+    ]
     wds = _wds_index(stars)
     proposals: Dict[int, Dict[str, Set[int]]] = {
         oid: {"catalog number": number_candidates(stars[oid], hipparcos)}

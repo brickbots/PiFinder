@@ -529,6 +529,18 @@ def test_a_continuation_row_with_a_v_and_an_unmatched_system_stays_apart(db):
     assert found[row].joined_to is None
 
 
+def test_no_rule_identifies_a_companion_pair(db):
+    # STF 1604's BC row names the pair, whose WDS listing sits on A: the
+    # row's own star is B, so it stays unmatched.
+    sam = add(db, "SaM", 662, "D*", 182.0, 20.0, names=["STF 1604", "HD 105590"])
+    add(db, "WDS", 1, "D*", 182.0, 20.0 + 1 * ARCSEC, mag=[6.86], names=["STF1604"])
+    star_objects = read_star_objects(db.conn.cursor(), {("SaM", 662)}, {}, {})
+    found = cross_match(star_objects, IDENTIFIED)
+    apply_vetoes(star_objects, found, IDENTIFIED)
+    apply_identifier_rules(star_objects, found, IDENTIFIED)
+    assert found[sam].hip is None and found[sam].rule is None
+
+
 # --- The `hip` hook ------------------------------------------------------------
 
 
