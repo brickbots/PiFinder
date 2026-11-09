@@ -664,7 +664,10 @@ object.
      components (θ¹ Ori's CF, σ Ori's ED, α Cep's CD) is another star of
      the system, and a row or a system without components says nothing, so
      it stays its own sky object; a row that gives a V must also pass the
-     V gate against its system's star. It does not join if its own
+     V gate against its system's star. No rule identifies a companion pair
+     at all: its names and numbers are its system's, and its double-star
+     designation's WDS listing sits on the primary, so rules 1 and 2 would
+     name the primary too (STF 2532's BC row). It does not join if its own
      identifiers name another star (STF 1830's rows). Joining every
      continuation row put θ¹ Ori's CF row (V 5.1, θ¹ Ori C) on HIP 26224
      (V 6.71) and σ Ori's ED row (V 6.5) on σ Ori A (V 3.77) — mrosseel's
