@@ -82,9 +82,13 @@ otherwise `"<catalog_code> <sequence>"` — e.g. `"NGC 7000"`.
 Every `CompositeObject.mag` is a `MagnitudeObject` wrapping a list of
 magnitudes (visual, photographic, combined-pair for doubles, etc.).
 
-- `filter_mag` — single float used by the filter. Computed as the mean
-  of all entries that parse as floats; defaults to
-  `UNKNOWN_MAG = 99` when nothing parses.
+- `filter_mag` — single float used by the filter. The brightest (the
+  smallest) of the entries that parse as floats, so a double filters by
+  its primary and a variable by its maximum (Rich's choice, 2026-11; a
+  mean hid SAC's Vega, [0.6, 9.5], behind a 5.05 filter magnitude);
+  defaults to `UNKNOWN_MAG = 99` when nothing parses. `from_json`
+  recomputes it from the magnitudes and ignores the stored value, so a
+  database built under the old rule filters by the new one.
 - `calc_two_mag_representation()` — returns `"-"` if unknown, `"X.X"` if
   one value, `"min/max"` for two-or-more, used as `mag_str` for display.
 - Serialised to/from JSON in the DB via `to_json` / `from_json`.
