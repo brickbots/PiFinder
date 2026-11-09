@@ -1,0 +1,18 @@
+# Corrections to the Saguaro Astronomy Club Red Stars list, version 2.0 (SAC_RedStars_Ver20).
+# See README.md in this directory for the format.
+# was values from a build of 6441f7cf3; refresh after PR 5b.
+
+["SaR 110"]
+why = "SAC's position or magnitude is off, so the cross-match finds no star, or the wrong component. Evidence: Gacrux: SAC's V 3.6 against Hipparcos 1.59, 0.35′."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2061084"]
+hip = 61084
+
+["SaR 311"]
+why = "SAC's position or magnitude is off, so the cross-match finds no star, or the wrong component. Evidence: 119 Tau is HD 36389 = HIP 25945 (V 4.32), 14.0′ from SaR's row."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2025945"]
+hip = 25945
+
+["SaR 128"]
+why = "Both components of the pair have a Hipparcos entry, so the cross-match finds two stars and makes no match; this is the component the evidence names. Evidence: 61 Cyg is HIP 104214,104217."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%20104214"]
+hip = 104214

@@ -1,0 +1,23 @@
+# Corrections to the Washington Double Star Catalog (WDS).
+# See README.md in this directory for the format.
+# was values from a build of 6441f7cf3; refresh after PR 5b.
+
+["WDS 24652"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: position within 0.1\"; WDS DM ('-', 4, 1145) differs from Hipparcos's (a WDS DM error)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2025673"]
+hip = 25673
+
+["WDS 25639"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaM 1427 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2026224"]
+hip = 26224
+
+["WDS 58296"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: WDS DM matches."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2051752"]
+hip = 51752
+
+["WDS 106086"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: WDS DM matches."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2097734"]
+hip = 97734

@@ -1,0 +1,73 @@
+# Corrections to the TLK 90 variable stars list (variables/).
+# See README.md in this directory for the format.
+# was values from a build of 6441f7cf3; refresh after PR 5b.
+
+["TLK 15"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 41 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2031579"]
+hip = 31579
+
+["TLK 16"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 44 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2017257"]
+hip = 17257
+
+["TLK 17"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 46 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2022552"]
+hip = 22552
+
+["TLK 19"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 'La Superba' is HIP 62223."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2062223"]
+hip = 62223
+
+["TLK 21"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 49 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2099990"]
+hip = 99990
+
+["TLK 37"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 118 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2096836"]
+hip = 96836
+
+["TLK 51"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 171 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2048327"]
+hip = 48327
+
+["TLK 52"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 173 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2052009"]
+hip = 52009
+
+["TLK 63"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 225 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2023680"]
+hip = 23680
+
+["TLK 65"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 230 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2030564"]
+hip = 30564
+
+["TLK 72"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 253 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%205914"]
+hip = 5914
+
+["TLK 83"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 272 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%206759"]
+hip = 6759
+
+["TLK 85"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 284 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2092442"]
+hip = 92442
+
+["TLK 76"]
+why = "The position lies 3-30\" from its star, outside the cross-match's 3\" radius for an arcsecond position. Evidence: shares a name with SaM 1862 (verified)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2098909"]
+hip = 98909
