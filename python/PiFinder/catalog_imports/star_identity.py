@@ -11,8 +11,8 @@ supplementary sources and the correction pass (§9.1).
 
 A match is made only where it is reliably right; a star the rules miss is
 matched by a `hip` correction, which names the Hipparcos number of a listing
-(ADR 0046, decision 4). This stage reads them before it cross-matches and uses
-each in place of position.
+(ADR 0046, decision 4). This stage applies them after the position match and
+before the identifier rules, so the rules see the corrected stars.
 """
 
 import logging
@@ -589,11 +589,11 @@ def apply_identifier_rules(
 ) -> None:
     """Identify the stars the position match left unmatched by an identifier.
 
-    A rule never replaces a position match. Rule 1 (catalog numbers) runs
-    first, so that a WDS listing it identifies counts for rule 2 (WDS
-    designations); rule 3 (SAC systems) joins a continuation row to its
-    system's first row. Two rules naming different stars, one rule naming
-    two, or a veto against the result (apply_vetoes): no match.
+    A rule never replaces a position match or a `hip` correction. Rule 1
+    (catalog numbers) runs first, so that a WDS listing it identifies counts
+    for rule 2 (WDS designations); rule 3 (SAC systems) joins a continuation
+    row to its system's first row. Two rules naming different stars, one rule
+    naming two, or a veto against the result (apply_vetoes): no match.
     """
     unmatched = [oid for oid, match in sorted(matches.items()) if match.hip is None]
     wds = _wds_index(stars)
@@ -626,6 +626,10 @@ def apply_identifier_rules(
         if own and own != {system_hip}:
             match.reason = "rules disagree: its own identifiers name another star"
             continue
+        # A row that gives a V must be its system's star by that V too.
+        if star.vmag is not None and not _passes_v_gate_of(star, system_hip, hipparcos):
+            match.reason = "V gate: its V is not its system's star's"
+            continue
         if system_hip is not None:
             reason = _contradiction(star, system_hip, wds, matches, hipparcos)
             if reason:
@@ -633,6 +637,13 @@ def apply_identifier_rules(
                 continue
         match.joined_to, match.rule, match.reason = first, "SAC system", None
         match.hip = system_hip
+
+
+def _passes_v_gate_of(
+    star: StarObject, hip: Optional[int], hipparcos: Hipparcos
+) -> bool:
+    index = None if hip is None else hipparcos.index_of(hip)
+    return index is not None and passes_v_gate(star, hipparcos.vmag[index])
 
 
 def _decide(
@@ -704,22 +715,21 @@ def _contradiction(
     return None
 
 
-def apply_hip_identifications(
+def read_hip_identifications(
     cursor: sqlite3.Cursor,
     stars: Mapping[int, StarObject],
-    matches: Dict[int, Match],
     identifications: Mapping[str, int],
     hipparcos: Hipparcos,
-) -> None:
-    """Put each `hip` correction's number in place of its listing's match.
+) -> Tuple[Dict[int, Tuple[str, int]], List[str]]:
+    """Each `hip` correction's designator and HIP number, by the sky object
+    it identifies, and the problems.
 
-    Fails, before anything is written, on a designator that resolves to
-    nothing or to no star listing, on a HIP number Hipparcos lacks, on two
-    corrections that reach one sky object, and on a correction the
-    cross-match alone makes: it is redundant (ADR 0046).
+    A problem is a designator that resolves to nothing or to no star
+    listing, a HIP number Hipparcos lacks, or two corrections that reach
+    one sky object (ADR 0046).
     """
     problems: List[str] = []
-    corrected: Dict[int, str] = {}
+    corrected: Dict[int, Tuple[str, int]] = {}
     for designator, hip in sorted(identifications.items()):
         label = f"hip correction for {designator}"
         try:
@@ -741,19 +751,48 @@ def apply_hip_identifications(
         if object_id in corrected:
             problems.append(
                 f"{label}: conflicts with the hip correction for"
-                f" {corrected[object_id]}: both identify one sky object"
+                f" {corrected[object_id][0]}: both identify one sky object"
             )
             continue
-        corrected[object_id] = designator
-        if matches[object_id].hip == hip:
-            problems.append(
-                f"{label}: the cross-match alone finds HIP {hip}, so the"
-                " correction is redundant; delete it"
-            )
-            continue
+        corrected[object_id] = (designator, hip)
+    return corrected, problems
+
+
+def match_stars(
+    stars: Mapping[int, StarObject],
+    hipparcos: Hipparcos,
+    corrected: Optional[Mapping[int, int]] = None,
+) -> Dict[int, Match]:
+    """Each star sky object's match, by the rules in their order.
+
+    The position match and its vetoes come first. The `hip` corrections
+    (`corrected`, each sky object's HIP number) then replace the matches of
+    their sky objects, and the identifier rules run last, so that they see
+    the corrected stars: a SAC row whose WDS listing a correction identifies
+    follows it by rule 2, and a continuation row follows its system's first
+    row by rule 3.
+    """
+    matches = cross_match(stars, hipparcos)
+    apply_vetoes(stars, matches, hipparcos)
+    for object_id, hip in (corrected or {}).items():
         matches[object_id] = Match(object_id, hip=hip, by_correction=True)
-    if problems:
-        raise CorrectionError(problems)
+    apply_identifier_rules(stars, matches, hipparcos)
+    return matches
+
+
+def redundant_corrections(
+    corrected: Mapping[int, Tuple[str, int]], found: Mapping[int, Match]
+) -> List[str]:
+    """The `hip` corrections whose star the rules find without them (`found`,
+    the matches made with no correction): each must be deleted."""
+    return [
+        f"hip correction for {designator}: the cross-match alone finds"
+        f" HIP {hip}, so the correction is redundant; delete it"
+        for object_id, (designator, hip) in sorted(
+            corrected.items(), key=lambda item: item[1]
+        )
+        if found[object_id].hip == hip
+    ]
 
 
 def d_star_type(members: Sequence[StarObject]) -> str:
@@ -785,7 +824,9 @@ def identify_stars(
 ) -> StarIdentity:
     """Cross-match the star sky objects to Hipparcos and merge them by HIP.
 
-    The sky objects that match one HIP number become one: the first loader's
+    The `hip` corrections are checked first (read_hip_identifications,
+    redundant_corrections), and any problem fails the stage before anything
+    is written. The sky objects that match one HIP number become one: the first loader's
     survives (the lowest id), as when a later loader's listing joins it, and
     keeps its position. The others' listings and names move onto it,
     in id order, their names after its own; an empty magnitude or size is
@@ -796,15 +837,17 @@ def identify_stars(
     conn = db.conn
     cursor = conn.cursor()
     stars = read_star_objects(cursor)
-    matches = cross_match(stars, hipparcos)
-    apply_vetoes(stars, matches, hipparcos)
-    apply_identifier_rules(stars, matches, hipparcos)
-    apply_hip_identifications(cursor, stars, matches, hip_identifications, hipparcos)
-    # A joined continuation row follows its system's first row, which a hip
-    # correction may have identified since.
-    for match in matches.values():
-        if match.joined_to is not None:
-            match.hip = matches[match.joined_to].hip
+    corrected, problems = read_hip_identifications(
+        cursor, stars, hip_identifications, hipparcos
+    )
+    matches = match_stars(stars, hipparcos)
+    problems += redundant_corrections(corrected, matches)
+    if problems:
+        raise CorrectionError(problems)
+    if corrected:
+        matches = match_stars(
+            stars, hipparcos, {oid: hip for oid, (_, hip) in corrected.items()}
+        )
 
     hips: Dict[int, int] = {}
     merged_into: Dict[int, int] = {}

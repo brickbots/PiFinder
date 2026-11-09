@@ -488,6 +488,31 @@ def test_a_continuation_row_naming_another_star_stays_apart(db):
     assert found[cont].reason.startswith("rules disagree")
 
 
+def test_a_continuation_row_whose_v_is_not_its_systems_star_stays_apart(db):
+    # θ¹ Ori's CF row gives C's V, 5.1; its system's star, 59272, is 6.81.
+    ab = add(db, "SaM", 1, "D*", 182.0, 20.0, mag=[6.8], names=["HD 105590"])
+    row = add(db, "SaM", 2, "D*", 182.0, 20.0, mag=[5.1])
+    found = identified(db, IDENTIFIED, systems={("SaM", 2): ("SaM", 1)})
+    assert found[ab].hip == 59272
+    assert found[row].hip is None and found[row].joined_to is None
+    assert found[row].reason.startswith("V gate")
+
+
+def test_a_continuation_row_whose_v_is_its_systems_star_joins(db):
+    ab = add(db, "SaM", 1, "D*", 182.0, 20.0, mag=[6.8], names=["HD 105590"])
+    row = add(db, "SaM", 2, "D*", 182.0, 20.0, mag=[6.9])
+    found = identified(db, IDENTIFIED, systems={("SaM", 2): ("SaM", 1)})
+    assert (found[row].hip, found[row].joined_to) == (59272, ab)
+
+
+def test_a_continuation_row_with_a_v_and_an_unmatched_system_stays_apart(db):
+    # Without the system's star there is nothing to check its V against.
+    add(db, "SaM", 1, "D*", 100.0, 10.0, mag=[9.0])
+    row = add(db, "SaM", 2, "D*", 100.0, 10.0, mag=[9.1])
+    found = identified(db, systems={("SaM", 2): ("SaM", 1)})
+    assert found[row].joined_to is None
+
+
 # --- The `hip` hook ------------------------------------------------------------
 
 
@@ -509,6 +534,42 @@ def test_a_hip_correction_the_cross_match_makes_is_redundant(db):
     add(db, "SaM", 2054, "D*", 200.975, 54.9333, mag=[2.3])
     with pytest.raises(CorrectionError, match="redundant"):
         run(db, {"SaM 2054": MIZAR})
+
+
+def test_a_hip_correction_the_identifier_rules_make_is_redundant(db):
+    # SAC's STF 1604 row is 59272 by its WDS designation (rule 2).
+    add(db, "SaM", 661, "D*", 182.0, 20.0 + 0.1 * ARCMIN, mag=[6.8], names=["STF 1604"])
+    add(db, "WDS", 1, "D*", 182.0, 20.0 + 1 * ARCSEC, mag=[6.86], names=["STF1604"])
+    with pytest.raises(CorrectionError, match="redundant"):
+        run(db, {"SaM 661": 59272}, stars=IDENTIFIED)
+
+
+def test_the_identifier_rules_see_a_hip_correction_of_a_wds_listing(db):
+    # mrosseel's case (#670): WDS's STF 1604 listing sits on 59272, and a
+    # correction says it is 59273. SAC's row, ambiguous by position, follows
+    # the WDS listing by rule 2 to the corrected star, and they merge.
+    sam = add(
+        db, "SaM", 661, "D*", 182.0, 20.0 + 0.1 * ARCMIN, mag=[6.7], names=["STF 1604"]
+    )
+    wds = add(
+        db, "WDS", 1, "D*", 182.0, 20.0 + 1 * ARCSEC, mag=[6.86], names=["STF1604"]
+    )
+    result = run(db, {"WDS 1": 59273}, stars=IDENTIFIED)
+    assert result.matches[wds].by_correction
+    assert (result.matches[sam].hip, result.matches[sam].rule) == (
+        59273,
+        "WDS designation",
+    )
+    assert result.hips == {sam: 59273} and result.merged_into == {wds: sam}
+
+
+def test_a_continuation_row_follows_a_hip_correction_of_its_system(db):
+    ab = add(db, "SaM", 1, "D*", 13.0, -14.0, mag=[5.0])
+    ac = add(db, "SaM", 2, "D*", 13.0, -14.0)
+    ciu.SAC_SYSTEMS[("SaM", 2)] = ("SaM", 1)
+    result = run(db, {"SaM 1": FAR})
+    assert (result.matches[ac].hip, result.matches[ac].rule) == (FAR, "SAC system")
+    assert result.hips == {ab: FAR} and result.merged_into == {ac: ab}
 
 
 def test_a_hip_correction_that_resolves_to_nothing_fails(db):

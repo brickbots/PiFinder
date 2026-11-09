@@ -93,6 +93,19 @@ def is_companion_pair(components: str) -> bool:
     return bool(components) and not components.upper().startswith("A")
 
 
+def shares_primary(components: str, system_components: str) -> bool:
+    """Whether a SAC continuation row's pair has its system's primary star.
+
+    ν Sco's AC row has AB's primary, A, so it is ν Sco. A row of other
+    components (θ¹ Ori's CF, σ Ori's ED) is another star of the system, and a
+    row or a system that gives no components says nothing.
+    """
+    components, system_components = components.strip(), system_components.strip()
+    return bool(components and system_components) and (
+        components[0] == system_components[0]
+    )
+
+
 def is_rejected_pair(name: str, notes: str) -> bool:
     """Whether SAC marks a row's pair as rejected ("STT 56 rej.", σ Per)."""
     return "rej." in name or "rej." in notes
@@ -216,9 +229,11 @@ def load_sac_multistars():
     )
     for listing in [listing for listing in SAC_SYSTEMS if listing[0] == catalog]:
         del SAC_SYSTEMS[listing]
-    # The current system: SAC's (constellation, name) and its rows' sequences.
+    # The current system: SAC's (constellation, name), its first row's
+    # sequence and components, and the previous row's sequence.
     system_key = None
     system_first = previous_sequence = 0
+    system_components = ""
     sam_path = Path(utils.astro_data_dir, "SAC_Multistars_Ver40")
     insert_catalog(catalog, sam_path / "sacm.desc")
     saca = sam_path / "SAC_DBL40_Fence.txt"
@@ -266,11 +281,15 @@ def load_sac_multistars():
             mag_list, companion_mag = sac_pair_magnitudes(dfs[7], dfs[8], notes)
 
             # A row continues its system when it follows it at once, under the
-            # same constellation and name.
+            # same constellation and name. It belongs to the system's first
+            # row only if it is a pair of the same primary star.
             key = (dfs[1].strip(), trim_string(dfs[2].strip()))
             if key != system_key or sequence != previous_sequence + 1:
                 system_key, system_first = key, sequence
-            elif not mag_list or is_companion_pair(components):
+                system_components = components
+            elif (not mag_list or is_companion_pair(components)) and shares_primary(
+                components, system_components
+            ):
                 SAC_SYSTEMS[(catalog, sequence)] = (catalog, system_first)
             previous_sequence = sequence
             mag = MagnitudeObject(mag_list)
