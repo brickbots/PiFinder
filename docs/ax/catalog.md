@@ -784,7 +784,9 @@ format, and every check, is documented in
   one sky object, a designator that resolves to nothing, and a missing
   `why` or `sources`. Name and identification corrections are checked
   the same way: removing an absent name, or a `same_as` that is already
-  true, fails.
+  true, fails. A `same_as` must also pass the loaders' match guard from
+  the listing's own type and position, unless it opts out with a cited
+  `guard = false`; a size must be finite and positive.
 - **All or nothing.** Identifications go first, since they change what
   designators resolve to; every other correction is then checked before
   any is written, and a failure rolls the whole pass back.

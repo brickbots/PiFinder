@@ -34,6 +34,7 @@ from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.obj_types import OBJ_TYPES
 from .catalog_import_utils import (
     listing_named,
+    match_guard,
     merge_sky_object,
     move_names,
     object_names,
@@ -60,7 +61,17 @@ POSITION_TOLERANCE_DEG = 1 / 3600  # 1 arcsecond, on RA and Dec separately
 SIZE_TOLERANCE_ARCSEC = 1.0
 _FLOAT_SLACK = 1e-9
 
-_KEYS = {"why", "sources", "was", "names", "same_as", "own_object", "hip", *FIELDS}
+_KEYS = {
+    "why",
+    "sources",
+    "was",
+    "names",
+    "same_as",
+    "guard",
+    "own_object",
+    "hip",
+    *FIELDS,
+}
 _NAME_KEYS = {"add", "remove", "preferred"}
 
 # A catalog code, one space, and a number without leading zeros: "NGC 604",
@@ -98,6 +109,9 @@ class Correction:
     names_remove: List[str] = field(default_factory=list)
     names_preferred: Optional[str] = None
     same_as: Optional[Tuple[str, int]] = None
+    # False opts a same_as out of the match guard, for a cited identification
+    # whose listing's source position or type is wrong.
+    guard: bool = True
     own_object: bool = False
     hip: Optional[int] = None
 
@@ -470,6 +484,13 @@ def _parse_identification(
         else:
             if correction.same_as == correction.listing:
                 problem("same_as names the designator itself")
+    if "guard" in table:
+        if table["guard"] is not False:
+            problem("guard can only be false")
+        elif "same_as" not in table:
+            problem("guard = false without a same_as")
+        else:
+            correction.guard = False
     if "own_object" in table:
         if table["own_object"] is not True:
             problem("own_object can only be true")
@@ -532,12 +553,13 @@ def apply_corrections(db: ObjectsDatabase, corrections: List[Correction]) -> Non
 
 
 def _apply(cursor: sqlite3.Cursor, corrections: List[Correction]) -> None:
-    moved = _apply_identifications(cursor, corrections)
+    moved, joined_from = _apply_identifications(cursor, corrections)
     planned = _plan(cursor, corrections)
     for correction, listing_id, object_id in planned:
         _write(cursor, correction, listing_id, object_id)
     _recompute_constellations(cursor, planned)
     _check_nothing_left_behind(cursor, moved)
+    _check_match_guard(cursor, joined_from)
     logging.info(
         "Applied %d corrections (hip identifications are left to the star"
         " cross-match: %d)",
@@ -629,8 +651,12 @@ def _move_listing(
 
 def _apply_identifications(
     cursor: sqlite3.Cursor, corrections: List[Correction]
-) -> List[Tuple[Correction, int]]:
-    """Apply own_object and same_as; return each with the sky object it left."""
+) -> Tuple[List[Tuple[Correction, int]], List[Tuple[Correction, sqlite3.Row]]]:
+    """Apply own_object and same_as.
+
+    Returns each with the sky object it left, and each same_as with that sky
+    object's type and position, as the listing's own for the match guard.
+    """
     identifications = [c for c in corrections if c.own_object or c.same_as]
     problems: List[str] = []
     claimed: Dict[Tuple[str, int], Correction] = {}
@@ -653,6 +679,7 @@ def _apply_identifications(
         raise CorrectionError(problems)
 
     moved: List[Tuple[Correction, int]] = []
+    joined_from: List[Tuple[Correction, sqlite3.Row]] = []
     splits_first = sorted(identifications, key=lambda c: not c.own_object)
     for correction in splits_first:
         listing, why_not = resolve_listing(cursor, correction.listing)
@@ -691,6 +718,15 @@ def _apply_identifications(
                     " already the same sky object"
                 )
                 continue
+            joined_from.append(
+                (
+                    correction,
+                    cursor.execute(
+                        "SELECT obj_type, ra, dec FROM objects WHERE id = ?",
+                        (source,),
+                    ).fetchone(),
+                )
+            )
             if siblings:
                 _move_listing(
                     cursor, correction, listing["id"], source, target["object_id"]
@@ -701,7 +737,7 @@ def _apply_identifications(
         moved.append((correction, source))
     if problems:
         raise CorrectionError(problems)
-    return moved
+    return moved, joined_from
 
 
 def _plan(
@@ -923,5 +959,42 @@ def _check_nothing_left_behind(
             " correct it too, and if its record only names the designator,"
             " remove the name with names.remove"
         )
+    if problems:
+        raise CorrectionError(problems)
+
+
+def _check_match_guard(
+    cursor: sqlite3.Cursor, joined_from: List[Tuple[Correction, sqlite3.Row]]
+) -> None:
+    """Fail a same_as that the loaders' match guard would reject.
+
+    The listing's own type and position, those of the sky object it left,
+    must be compatible with the sky object it joined, as corrected, and lie
+    within the match radius or that sky object's major axis. `guard = false`
+    opts out a cited identification whose source position or type is wrong;
+    on a same_as the guard accepts, it is redundant and fails too.
+    """
+    problems = []
+    for correction, origin in joined_from:
+        listing, _why_not = resolve_listing(cursor, correction.listing)
+        assert listing is not None
+        target = cursor.execute(
+            "SELECT obj_type, ra, dec, size FROM objects WHERE id = ?",
+            (listing["object_id"],),
+        ).fetchone()
+        reason = match_guard(origin["obj_type"], origin["ra"], origin["dec"], target)
+        target_designator = _designator(cast(Tuple[str, int], correction.same_as))
+        if reason and correction.guard:
+            problems.append(
+                f"{correction.label}: same_as {target_designator}: the match guard"
+                f" rejects it ({reason}); if the identification is right and the"
+                " source's position or type is wrong, say so in `why` and add"
+                " guard = false"
+            )
+        elif not reason and not correction.guard:
+            problems.append(
+                f"{correction.label}: guard = false, but the match guard accepts"
+                f" same_as {target_designator}; delete it"
+            )
     if problems:
         raise CorrectionError(problems)

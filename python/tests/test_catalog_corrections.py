@@ -87,6 +87,18 @@ def db(tmp_path):
             [("SaM", 1297, "alpha Mic")],
             [("SaM 1297", "SaM")],
         ),
+        # M 43, 7.5' from M 42
+        (
+            ("Nb", 83.879, -5.2675, "Ori", _size(1200, 900), _mag(9.0)),
+            [("NGC", 1982, "B, L, R")],
+            [("NGC 1982", "NGC")],
+        ),
+        # 1.5' from NGC 7466
+        (
+            ("Gx", 345.53, 27.04, "Peg", _size(30), _mag(15.0)),
+            [("IC", 5283, "eF, S")],
+            [("IC 5283", "IC")],
+        ),
     ]
     for values, listings, names in objects:
         object_id = db.insert_object(*values)
@@ -258,6 +270,12 @@ def test_load_parses_values_into_reference_units(corrections_dir):
         (CITED + 'const = "Orion"\nwas.const = "Ori"', "not an IAU constellation"),
         (CITED + 'size = "2.5\' x see"\nwas.size = ""', "non-numeric size token"),
         (CITED + 'size = 2.5\nwas.size = ""', "size must be a string"),
+        (CITED + 'size = "nan"\nwas.size = ""', "is not a positive size"),
+        (CITED + 'size = "inf"\nwas.size = ""', "is not a positive size"),
+        (CITED + 'size = "-5"\nwas.size = ""', "is not a positive size"),
+        (CITED + 'size = "0\'"\nwas.size = ""', "is not a positive size"),
+        (CITED + 'size = "3\'x-1\'"\nwas.size = ""', "is not a positive size"),
+        (CITED + 'size = "2\'"\nwas.size = "nan"', "was.size: size token"),
         (CITED + 'mag = "11.4"\nwas.mag = ""', "mag must be a number"),
         (CITED + 'mag = true\nwas.mag = ""', "mag must be a number"),
         (CITED + 'ra = 83.4\nwas.ra = "05 33 37"', "sexagesimal string"),
@@ -268,6 +286,9 @@ def test_load_parses_values_into_reference_units(corrections_dir):
         (CITED + 'description = ""\nwas.description = "F"', "non-empty string"),
         (CITED + 'same_as = "IC 2480"\nown_object = true', "contradict"),
         (CITED + "own_object = false", "can only be true"),
+        (CITED + 'same_as = "IC 2480"\nguard = true', "guard can only be false"),
+        (CITED + 'same_as = "IC 2480"\nguard = "no"', "guard can only be false"),
+        (CITED + "own_object = true\nguard = false", "without a same_as"),
         (CITED + 'same_as = "IC 424"', "the designator itself"),
         (CITED + 'same_as = "IC424"', "same_as: 'IC424' is not a designator"),
         (CITED + "names.add = []", "names.add must be a non-empty list"),
@@ -646,9 +667,9 @@ def test_same_as_merges_a_lone_listing_into_the_other_sky_object(db, corrections
 
 
 def test_same_as_moves_one_listing_off_a_shared_sky_object(db, corrections_dir):
-    apply(db, corrections_dir, '["IC 5281"]\n' + CITED + 'same_as = "IC 2480"\n')
-    assert object_id(db, "IC", 5281) == object_id(db, "IC", 2480)
-    assert names(db, "IC", 5281) == ["IC 2480", "IC 5281"]
+    apply(db, corrections_dir, '["IC 5281"]\n' + CITED + 'same_as = "IC 5283"\n')
+    assert object_id(db, "IC", 5281) == object_id(db, "IC", 5283)
+    assert names(db, "IC", 5281) == ["IC 5283", "IC 5281"]
     assert names(db, "NGC", 7466) == ["NGC 7466"]
 
 
@@ -728,14 +749,14 @@ def test_same_as_a_split_designator_joins_its_new_sky_object(db, corrections_dir
     apply(
         db,
         corrections_dir,
-        '["IC 2477"]\n'
+        '["IC 5283"]\n'
         + CITED
         + 'same_as = "IC 5281"\n'
         + '["IC 5281"]\n'
         + CITED
         + "own_object = true\n",
     )
-    assert object_id(db, "IC", 2477) == object_id(db, "IC", 5281)
+    assert object_id(db, "IC", 5283) == object_id(db, "IC", 5281)
     assert object_id(db, "IC", 5281) != object_id(db, "NGC", 7466)
 
 
@@ -777,7 +798,9 @@ def test_a_stray_name_left_behind_can_be_removed_by_a_correction(db, corrections
     assert names(db, "IC", 5281) == ["IC 5281"]
 
 
-@pytest.mark.parametrize("identification", ["own_object = true", 'same_as = "IC 2480"'])
+@pytest.mark.parametrize(
+    "identification", ["own_object = true", 'same_as = "NGC 1982"']
+)
 def test_moving_an_m_listing_needs_the_ngc_records_m_name_removed(
     db, corrections_dir, identification
 ):
@@ -877,3 +900,57 @@ def test_a_failed_check_rolls_back_the_identifications_too(db, corrections_dir):
         + "mag = 4.1\nwas.mag = 9.0\n",
     )
     assert object_id(db, "IC", 2477) != object_id(db, "IC", 2480)
+
+
+def test_same_as_far_from_the_listing_fails_the_match_guard(db, corrections_dir):
+    problems = apply_fails(
+        db, corrections_dir, '["IC 5281"]\n' + CITED + 'same_as = "IC 2480"\n'
+    )
+    assert "[IC 5281]: same_as IC 2480: the match guard rejects it (" in problems
+    assert "apart, limit 30'" in problems
+    assert object_id(db, "IC", 5281) == object_id(db, "NGC", 7466)  # rolled back
+
+
+def test_same_as_of_an_incompatible_type_fails_the_match_guard(db, corrections_dir):
+    star = db.insert_object("*", 345.515, 27.054, "Peg", _size(), _mag(9.5))
+    db.insert_catalog_object(star, "SaM", 2000, "a star by NGC 7466")
+    db.insert_name(star, "SaM 2000", "SaM")
+    problems = apply_fails(
+        db, corrections_dir, '["SaM 2000"]\n' + CITED + 'same_as = "NGC 7466"\n'
+    )
+    assert "the match guard rejects it (types * and Gx)" in problems
+
+
+def test_guard_false_lets_a_cited_far_identification_through(db, corrections_dir):
+    apply(
+        db,
+        corrections_dir,
+        '["IC 5281"]\n' + CITED + 'same_as = "IC 2480"\nguard = false\n',
+    )
+    assert object_id(db, "IC", 5281) == object_id(db, "IC", 2480)
+
+
+def test_guard_false_on_a_same_as_the_guard_accepts_is_redundant(db, corrections_dir):
+    problems = apply_fails(
+        db,
+        corrections_dir,
+        '["IC 5283"]\n' + CITED + 'same_as = "NGC 7466"\nguard = false\n',
+    )
+    assert "guard = false, but the match guard accepts same_as NGC 7466" in problems
+
+
+def test_the_match_guard_sees_the_target_as_corrected(db, corrections_dir):
+    # As for Lyn 855 and Col 401: the target's own position is wrong, and a
+    # correction in the same pass moves it next to the listing.
+    apply(
+        db,
+        corrections_dir,
+        '["IC 5283"]\n'
+        + CITED
+        + 'same_as = "IC 2480"\n'
+        + '["IC 2480"]\n'
+        + CITED
+        + 'ra = "23 02 07"\nwas.ra = "08 00 24"\n'
+        + 'dec = "+27 02 24"\nwas.dec = "-40 06 00"\n',
+    )
+    assert object_id(db, "IC", 5283) == object_id(db, "IC", 2480)

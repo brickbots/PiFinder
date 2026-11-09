@@ -1357,6 +1357,7 @@ sources = [
     "http://haroldcorwin.net/ngcic/ngcnotes.all",
 ]
 same_as = "NGC 6363"
+guard = false
 
 ["IC 1028"]
 why = "Steinicke makes IC 1028 a duplicate of NGC 5731, 62' away, so the import keeps it apart; his IC 1028 row is at NGC 5739's position. Corwin: IC 1028 = NGC 5739."
