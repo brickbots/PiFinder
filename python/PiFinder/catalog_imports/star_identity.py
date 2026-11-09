@@ -62,6 +62,9 @@ PRECISE_CATALOGS = frozenset({"WDS", "TLK"})
 # components each have a Hipparcos entry (61 Oph, ε Equ) is ambiguous.
 V_TOLERANCE = 1.0
 RANGE_CATALOGS = frozenset({"TLK"})
+# Hipparcos's variability flag (H6) for a star that varies by more than
+# 0.6 mag: a catalog number identifies it whatever V the listing gives.
+LARGE_AMPLITUDE_VARIABLE = 3
 
 # A match must not contradict the listing's own designations: its HD, BD, CD
 # or CPD numbers must include the matched star's in Hipparcos's own columns,
@@ -477,17 +480,65 @@ def apply_vetoes(
     star's, unless it has none. And a double-star designation that a WDS
     listing within VETO_RADIUS_ARCMIN carries must not place the pair
     elsewhere: that WDS listing may not match another star, nor lie more than
-    WDS_PAIR_SLACK_ARCMIN from the matched one.
+    WDS_PAIR_SLACK_ARCMIN from the matched one. A WDS listing's own DM must
+    not name another star within VETO_RADIUS_ARCMIN: where WDS's position and
+    its DM name the two stars of a pair (LDS 5227), which is its primary is
+    not settled.
     """
     wds = _wds_index(stars)
     for object_id, match in matches.items():
         star = stars[object_id]
-        if match.hip is None or star.catalog_code == "WDS":
+        if match.hip is None:
             continue
-        reason = _contradiction(star, match.hip, wds, matches, hipparcos)
+        if star.catalog_code == "WDS":
+            reason = _dm_contradiction(star, match.hip, hipparcos)
+        else:
+            reason = _contradiction(star, match.hip, wds, matches, hipparcos)
         if reason:
             match.hip, match.separation_arcmin, match.reason = None, None, reason
             match.rule = None
+
+
+def _dm_stars(star: StarObject, hipparcos: Hipparcos) -> Set[int]:
+    """The stars within VETO_RADIUS_ARCMIN that a listing's source DM names."""
+    if star.dm is None:
+        return set()
+    return {
+        hip
+        for hip in hipparcos.stars_with_dm(star.dm)
+        if _hip_separation(star, hip, hipparcos) <= VETO_RADIUS_ARCMIN
+    }
+
+
+def _dm_contradiction(
+    star: StarObject, hip: int, hipparcos: Hipparcos
+) -> Optional[str]:
+    named = _dm_stars(star, hipparcos)
+    if named and hip not in named:
+        sign, zone, number = star.dm or ("", 0, 0)
+        return (
+            f"WDS DM {sign}{zone} {number} is HIP {', '.join(map(str, sorted(named)))}"
+        )
+    return None
+
+
+def _fits_v(star: StarObject, hip: int, hipparcos: Hipparcos) -> bool:
+    """Whether a listing's V passes the V gate for a star its number names.
+
+    A star Hipparcos finds varying by more than 0.6 mag passes whatever the
+    listing's V (Mira: SAC 2.0, Hipparcos 6.47), and so does a listing
+    without a V. WDS's first magnitude is often another band's (K for an
+    interferometric pair: 4.86 for WDS 00162-7951, a V 6.59 star), so a WDS
+    listing's is not compared.
+    """
+    index = hipparcos.index_of(hip)
+    assert index is not None
+    return (
+        star.vmag is None
+        or star.catalog_code == "WDS"
+        or hipparcos.var_flag[index] == LARGE_AMPLITUDE_VARIABLE
+        or passes_v_gate(star, hipparcos.vmag[index])
+    )
 
 
 def _wds_index(stars: Mapping[int, StarObject]) -> Dict[str, List[StarObject]]:
@@ -521,7 +572,9 @@ def number_candidates(star: StarObject, hipparcos: Hipparcos) -> Set[int]:
     taken for a slip in the source (TU Gem's HD 42247 names a star 65° away).
     A number never overrides an arcsecond position: for WDS and TLK the named
     star must also be the nearest Hipparcos star (θ¹ Ori's PTR 1 sits on HIP
-    26220 while its DM names HIP 26221, 13" away).
+    26220 while its DM names HIP 26221, 13" away). And the listing's V must
+    fit the named star (_fits_v): SAC's red stars BE CMa and BE CMi give V
+    1.7 mag brighter than the stars their HD numbers name.
     """
     radius = (
         PRECISE_IDENTIFIER_RADIUS_ARCMIN if star.precise else IDENTIFIER_RADIUS_ARCMIN
@@ -534,7 +587,11 @@ def number_candidates(star: StarObject, hipparcos: Hipparcos) -> Set[int]:
     }
     if star.dm is not None:
         named |= hipparcos.stars_with_dm(star.dm)
-    named = {h for h in named if _hip_separation(star, h, hipparcos) <= radius}
+    named = {
+        h
+        for h in named
+        if _hip_separation(star, h, hipparcos) <= radius and _fits_v(star, h, hipparcos)
+    }
     if named and star.precise:
         here = unit_vectors(np.array([star.ra]), np.array([star.dec]))[0]
         _, nearest = hipparcos.tree.query(here)
@@ -567,11 +624,7 @@ def designation_candidates(
                 or _separation_arcmin(star, pair.ra, pair.dec) > VETO_RADIUS_ARCMIN
             ):
                 continue
-            dm_stars = {
-                h
-                for h in (hipparcos.stars_with_dm(pair.dm) if pair.dm else ())
-                if _hip_separation(pair, h, hipparcos) <= VETO_RADIUS_ARCMIN
-            }
+            dm_stars = _dm_stars(pair, hipparcos)
             if dm_stars and hip not in dm_stars:
                 continue
             index = hipparcos.index_of(hip)

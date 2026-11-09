@@ -340,6 +340,8 @@ IDENTIFIED = hipparcos(
     (59272, 182.0, 20.0, 6.81),
     (59273, 182.0, 20.0 + 15 * ARCSEC, 6.65),
     (1, 182.0, 20.0 + 1.0 * ARCMIN, 6.8),
+    # Mira varies by more than 0.6 mag (Hipparcos's H6 = 3).
+    var_flags=[3, 0, 0, 0],
     numbers={
         10826: {("HD", 14386)},
         59272: {("HD", 105590), ("BD", "+", 20, 2700)},
@@ -364,6 +366,12 @@ def test_a_catalog_number_resolves_a_pair_the_position_cannot(db):
     assert identified(db, IDENTIFIED)[rds].hip == 59272
 
 
+def test_a_catalog_number_still_needs_the_listings_v(db):
+    # SAC's BE CMi gives 8.7; the star its HD names is 10.43 and constant.
+    sar = add(db, "SaR", 98, "*", 182.0, 20.0, mag=[8.7], names=["HD 105590"])
+    assert identified(db, IDENTIFIED)[sar].hip is None
+
+
 def test_a_catalog_number_naming_a_far_star_is_a_slip(db):
     # TU Gem's HD 42247 names a star 65° away: no match.
     sar = add(db, "SaR", 147, "*", 100.0, 22.0, mag=[7.4], names=["HD 14386"])
@@ -372,7 +380,7 @@ def test_a_catalog_number_naming_a_far_star_is_a_slip(db):
 
 def test_two_catalog_numbers_naming_two_stars_are_no_match(db):
     sam = add(
-        db, "SaR", 1, "*", 182.0, 20.0, mag=[2.0], names=["HD 105590", "HD 105591"]
+        db, "SaR", 1, "*", 182.0, 20.0, mag=[6.8], names=["HD 105590", "HD 105591"]
     )
     match = identified(db, IDENTIFIED)[sam]
     assert match.hip is None and match.reason.startswith("rules disagree")
@@ -389,6 +397,14 @@ def test_a_wds_dm_number_identifies_the_star_within_30_arcsec(db):
     )
     assert found[wds].hip == 59273
     assert found[far].hip is None
+
+
+def test_a_wds_listing_whose_dm_names_its_neighbour_is_not_matched(db):
+    # LDS 5227: WDS's position sits on one star, its DM names another.
+    wds = add(db, "WDS", 1, "D*", 182.0, 20.0 + 15 * ARCSEC, mag=[6.65])
+    found = identified(db, IDENTIFIED, dm_numbers={("WDS", 1): ("+", 20, 2700)})
+    assert found[wds].hip is None
+    assert found[wds].reason == "WDS DM +20 2700 is HIP 59272"
 
 
 def test_a_wds_dm_number_never_overrides_an_arcsecond_position(db):
