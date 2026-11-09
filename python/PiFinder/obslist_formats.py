@@ -31,7 +31,7 @@ from PiFinder.calc_utils import (
     ra_to_hms_exact,
 )
 from PiFinder.composite_object import MagnitudeObject, SizeObject
-from PiFinder.designations import parse_designation
+from PiFinder.designations import designation, parse_designation
 
 
 # ── Data model ──────────────────────────────────────────────────────────
@@ -271,11 +271,13 @@ def _skylist_object_id(obj_type: str) -> str:
 def write_skylist(obs_list: ObsList) -> str:
     lines = ["SkySafariObservingListVersion=3.0"]
     for i, entry in enumerate(obs_list.entries):
+        # Write a designation the reader parses back to the same listing:
+        # "Herschel 24", not "H 24", which the parser reads as a double star.
         catalog_num = (
-            f"{entry.catalog_code} {entry.sequence}"
+            designation(entry.catalog_code, entry.sequence)
             if entry.catalog_code and entry.sequence
-            else entry.name
-        )
+            else None
+        ) or entry.name
         lines.extend(
             [
                 "SkyObject=BeginObject",

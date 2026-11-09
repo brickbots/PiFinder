@@ -124,3 +124,23 @@ def is_ambiguous_designation(raw: str) -> bool:
     """
     parsed = _prefix_and_sequence(raw)
     return parsed is not None and parsed[0] in AMBIGUOUS_PREFIXES
+
+
+def designation(catalog_code: str, sequence: int) -> Optional[str]:
+    """A designation of a listing that listing_named reads back, or None.
+
+    ("Col", 399) -> "Col 399". The parser refuses a bare "H" or "B", so
+    Herschel 400 and Barnard listings get their long form: ("H", 24) ->
+    "Herschel 24", ("B", 33) -> "Barnard 33". A catalog with no readable
+    prefix (WDS) gives None.
+    """
+    candidates = [catalog_code] + [
+        prefix.capitalize()
+        for prefix, code in CATALOG_CODE_ALIASES.items()
+        if code == catalog_code
+    ]
+    for prefix in candidates:
+        text = f"{prefix} {sequence}"
+        if listing_named(text) == (catalog_code, sequence):
+            return text
+    return None

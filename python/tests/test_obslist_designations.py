@@ -20,6 +20,7 @@ import pytest
 
 from PiFinder import designations, obslist
 from PiFinder.catalog_imports import catalog_import_utils
+from PiFinder.obslist_formats import ObsList, ObsListEntry, write_skylist
 
 
 def _obj(label, *names):
@@ -225,3 +226,44 @@ def test_designations_is_runtime_safe():
         elif isinstance(node, ast.ImportFrom):
             imported.add(node.module)
     assert imported <= {"re", "typing"}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "code, sequence, expected",
+    [
+        ("Col", 399, "Col 399"),
+        ("NGC", 224, "NGC 224"),
+        ("Sh2", 155, "Sh2 155"),
+        ("H", 24, "Herschel 24"),
+        ("B", 33, "Barnard 33"),
+        ("WDS", 50812, None),
+    ],
+)
+def test_designation_reads_back(code, sequence, expected):
+    assert designations.designation(code, sequence) == expected
+    if expected:
+        assert designations.listing_named(expected) == (code, sequence)
+
+
+@pytest.mark.unit
+def test_saved_skylist_round_trips_herschel_and_barnard(tmp_path, monkeypatch):
+    # PiFinder saves lists as SkySafari files. A Herschel 400 or Barnard
+    # object must come back as the same object, not as a double star.
+    entries = [
+        ObsListEntry(
+            name="NGC 5676", ra=218.2, dec=49.5, catalog_code="H", sequence=24
+        ),
+        ObsListEntry(name="B 33", ra=85.2, dec=-2.5, catalog_code="B", sequence=33),
+        ObsListEntry(
+            name="Col 399", ra=291.3, dec=20.2, catalog_code="Col", sequence=399
+        ),
+    ]
+    text = write_skylist(ObsList(name="saved", entries=entries))
+    assert "CatalogNumber=Herschel 24" in text
+    assert "CatalogNumber=Barnard 33" in text
+    assert _resolve(tmp_path, monkeypatch, "saved.skylist", text) == [
+        "NGC 5676",
+        "B 33",
+        "Col 399",
+    ]
