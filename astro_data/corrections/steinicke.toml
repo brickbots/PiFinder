@@ -870,16 +870,6 @@ sources = [
 size = "2\""
 was.size = "10.8\""
 
-["IC 2145"]
-why = "Steinicke 2.0': about ten times Bica et al. 2008, which OpenNGC carries (a decimal slip in NI2023.xls, read unchanged by the loader)."
-sources = [
-    "Bica+ 2008 via OpenNGC (HEASARC lmcextobj/smcclustrs)",
-    "NGC 2000.0",
-    "Steinicke NI2023.xls",
-]
-size = "0.2'"
-was.size = "2'"
-
 ["NGC 395"]
 why = "Steinicke 17'; NGC 2000.0 'group of about 10 st, no neb', no size: about ten times Bica et al. 2008, which OpenNGC carries (a decimal slip in NI2023.xls, read unchanged by the loader)."
 sources = [
@@ -1366,6 +1356,15 @@ sources = [
     "http://haroldcorwin.net/ngcic/icnotes.all",
 ]
 same_as = "NGC 5739"
+
+["IC 2145"]
+why = "Steinicke lists IC 2145 and NGC 2086 as two objects 0.97' apart, so the import keeps two. Corwin: IC 2145 = NGC 2086, one nebula (N 160C); Bica et al. 2008 names them in one row, NGC2086,IC2145,LMC-N160C, 0.85'x0.80', the size NGC 2086 already has. Steinicke's 2.0' for IC 2145 goes with the duplicate."
+sources = [
+    "http://haroldcorwin.net/ngcic/iconly.txt",
+    "http://haroldcorwin.net/ngcic/icnotes.all",
+    "Bica et al. 2008, VizieR J/MNRAS/389/678 (astro_data/bica2008)",
+]
+same_as = "NGC 2086"
 
 ["IC 4763"]
 why = "Steinicke makes IC 4763 a duplicate of NGC 6677. Corwin, after reducing Bigourdan's micrometry: NGC 6677 is object A, and object B is NGC 6679 = IC 4763."
