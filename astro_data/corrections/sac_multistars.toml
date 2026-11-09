@@ -449,3 +449,11 @@ sources = [
 ]
 obj_type = "*"
 was.obj_type = "D*"
+
+["SaM 693"]
+why = "SAC's STF 2576 row (8.0/8.0 at 19 46.0 +33 36) lies about 5' from its star, outside the cross-match's 3' radius, and no WDS row names it. STF 2576 AB is HD 186858 = HIP 97222 (V 7.66, K5V+K5V), WDS 19464+3344 FG at 19 45 33.5 +33 36 07."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HD%20186858",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2097222",
+]
+hip = 97222

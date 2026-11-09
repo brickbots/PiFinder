@@ -54,3 +54,8 @@ names.remove = ["Owl or E.T. Cluster"]
 why = "collinder2.txt's 'Theta Carinae Cluster, Southern Pleiades' is two names in one string; the sky object already carries 'Southern Pleiades'."
 sources = ["https://en.wikipedia.org/wiki/IC_2602"]
 names.remove = ["Theta Carinae Cluster, Southern Pleiades"]
+
+["Col 208"]
+why = "collinder.txt names Collinder 208 'IC 2488' and gives IC 2488's magnitude (7.4) and size (18'), but a Dec of -57 40, 43' south of IC 2488 (SIMBAD 09 27 25.7 -57 00 14), so the match guard rejects the join: a Dec slip in Collinder."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=IC%202488"]
+same_as = "IC 2488"
