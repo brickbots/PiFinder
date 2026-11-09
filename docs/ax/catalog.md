@@ -433,9 +433,9 @@ tracked file with `git checkout -- astro_data/pifinder_objects.db`
 before the next build.
 
 > **Status (2026-11-08).** Parts of this section describe the import as
-> the catalog-audit fixes leave it, not as `main` has it today: the
-> Hipparcos and WGSN supplementary sources (9.4) are being built; Bica
-> and RC3 are in `catalog_imports/supplementary_sources.py`.
+> the catalog-audit fixes leave it, not as `main` has it today. The
+> supplementary sources (9.4) — Hipparcos, WGSN, Bica and RC3 — are in
+> `catalog_imports/supplementary_sources.py`.
 > The designation allowlist, the match guard (9.3) and precedence (9.1)
 > are in `catalog_imports/catalog_import_utils.py`, the star cross-match
 > (9.3) in `catalog_imports/star_identity.py`. The correction pass
@@ -458,7 +458,8 @@ before the next build.
         │   the Messier names
         ▼
    star identity: Hipparcos cross-match, merge by HIP   (star_identity.py)
-        │   (`hip` corrections are read here, ahead of position)
+        │   (`hip` corrections are read here, ahead of position;
+        │   each star's HIP is recorded in STAR_HIPS)
         ▼
    supplementary sources                         (SUPPLEMENTARY_SOURCES)
         │   Hipparcos values → WGSN names → Bica sizes → RC3 magnitudes
@@ -481,7 +482,7 @@ fill what is empty — never replace — with two named exceptions:
 | magnitude, size, from a group listing | **fill nothing**: a listing whose akas resolve to more than one sky object (TAAS's "2237;2244") gives the group's values, not the member's it joins |
 | magnitude of a globular | **Harris replaces**: it is the reference for Milky Way globulars, and every Harris listing is one |
 | type | the first loader's stands; **EGC sets `Gb`** — a cluster on PiFinder's globular list is a globular |
-| position | the first loader's stands (for stars, Hipparcos replaces it later) |
+| position | the first loader's stands (for a star identified by HIP, Hipparcos replaces it later, 9.4) |
 
 `NewCatalogObject.fill_joined_object` applies the table; the exceptions
 are `MAGNITUDE_REPLACED_BY` and `TYPE_SET_BY`, keyed by the joining
@@ -658,8 +659,9 @@ object.
   others' listings and names move onto it in id order, their names after
   its own (a name it already has is dropped), and their magnitudes and
   sizes fill its empty ones by the precedence of 9.1, never replacing
-  one. The stage returns each surviving sky object's HIP number, which the
-  Hipparcos supplementary source (9.4) joins on.
+  one. The stage returns each surviving sky object's HIP number and
+  records it in `STAR_HIPS`, which the Hipparcos and WGSN supplementary
+  sources (9.4) join on.
 
 A star is typed `D*` if SAC's doubles (SaM, less its "rej." rows),
 RASC's doubles (RDS), or a WDS pair that is a double star lists it;
@@ -712,8 +714,8 @@ key and fills or replaces one or more fields by a stated rule:
 
 | source | joined on | rule |
 |---|---|---|
-| Hipparcos (`hip_main.dat`) | HIP, from the cross-match | **replace** the position and the primary's V on every matched star listing; a companion's magnitude is untouched |
-| IAU WGSN, Catalog of Star Names | HIP | **add** the IAU name as the **preferred name**; older names (Graffias, Tegmen) stay as ordinary names, so text search still finds them |
+| Hipparcos (`hip_main.dat`) | HIP, from the star-identity stage (9.3) | **replace** the position on every identified star; **replace** the primary's V only where Hipparcos's V is that star's own — not a double's combined light or another component's, and not a large-amplitude variable's; a companion's magnitude is untouched |
+| IAU WGSN, Catalog of Star Names (`iau_wgsn/`) | HIP, from the star-identity stage | **add** the IAU name as the **preferred name**, with an ASCII form beside one with diacritics; older names (Graffias, Tegmen) stay as ordinary names, so text search still finds them |
 | Bica et al. 2008 (VizieR J/MNRAS/389/678) | NGC/IC designation, through the match guard | **fill** a missing size on a Magellanic object; never replace one |
 | RC3 (VizieR VII/155), extract of the rows whose `BT` is coded "V" | NGC/IC designation, letter included, to the Steinicke row the loader kept | **replace** V with Steinicke's Bmag where that Bmag equals RC3's V-coded `BT` within 0.05 — Steinicke read those as B and subtracted a colour, making 49 galaxies about 1 mag too bright |
 
@@ -722,7 +724,58 @@ loader, post-processing and the star cross-match, and before the
 correction pass, so a correction still has the last word. Each source is
 vendored under `astro_data/` with a README recording where it came from;
 Bica and RC3 are VizieR extracts, kept verbatim as the recorded queries in
-their `fetch.sh` return them.
+their `fetch.sh` return them, and the WGSN's catalog is its web page, kept
+verbatim beside the table `extract.py` takes from it.
+
+**Hipparcos.** A star is given Hipparcos's values only if the
+star-identity stage identified it by HIP — by position, by an exact
+identifier, or by a `hip` correction (9.3) — and this stage makes no
+match of its own: an unidentified star keeps its source's values even
+where it sits on a Hipparcos star. Those identifications are the ones
+the audit checked.
+
+- **Position.** Hipparcos's, carried to J2000 by its proper motion as the
+  cross-match reads it. The constellation follows the new position, as a
+  loader computes it at insert. For a close double Hipparcos gives the
+  pair's photocentre (its `AstroRef` flag), which is as good at a finder's
+  scale. The sources' positions are rounded (SAC's to 0.1ᵐ in RA and 1′ in
+  Dec), and a few SAC rows identified by their WDS designation lie
+  minutes off (SaM 1019, STF 1316, 14′).
+- **V.** The primary's, the first magnitude, becomes Hipparcos's V (H5)
+  only where that V is the star's own: Hipparcos flags a double's
+  combined light (`CombMag`, H43) and the component its photometry
+  refers to (`m_Hpmag`, H48: `*` and `-` a system's combined light, a
+  letter that component). V is the star's own where H43 is blank and H48
+  is blank or `A`. Porrima's Hipparcos V, 2.74, is its two 3.5 mag stars
+  together; put in A's place beside B's 3.5, it would count B twice.
+  Those stars keep their source's V, and so do:
+  - a variable of large amplitude (H6, the variability flag, is 3: over
+    0.6 mag), whose Hipparcos V is one value of its swing (SAC gives
+    Mira's maximum, 2.0; Hipparcos 6.47);
+  - a sky object whose magnitude is a variable's range (TLK's
+    `[max, min]`), for the same reason;
+  - a star Hipparcos gives no V for.
+
+  A companion's magnitude is never touched: a `D*`'s `[A, B]` keeps B.
+
+**WGSN.** The IAU Working Group on Star Names keeps the IAU Catalog of
+Star Names as a living table on its own site; `fetch.sh` keeps the page
+verbatim and `extract.py` writes the table the import reads, so the import
+never parses HTML. Each name with a HIP number joins the star the
+star-identity stage identified by that number, and nothing else:
+
+- The IAU name becomes the sky object's **preferred name** (9.6), placed
+  first, or moved first if the object already has it; its other names
+  stay behind it, so Graffias, Azmidiske and Tegmen still find their
+  stars.
+- The name is stored as the WGSN spells it, diacritics included (Mönch,
+  Dhanuśarāgra). Where it has diacritics its ASCII form (Unicode NFKD,
+  combining marks dropped: Monch) is stored as well, as an ordinary
+  name, so the keypad's text search finds it.
+- A name with no HIP number, one whose star PiFinder doesn't hold or
+  didn't identify, and the two names of HIP 72105 (Izar and Pulcherrima,
+  with no component to choose between them) are skipped; the import logs
+  how many, and the names other sky objects carry too.
 
 Steinicke's Bmag is never used as a fallback V on its own: for
 non-galaxies it is often NGC 2000.0's photographic figure, and for M 43
@@ -816,6 +869,8 @@ The name files:
   including the half of a fix whose key is another catalog's (the
   Horsehead moves from IC 434 to B 33): a correction lives in the file
   of the source whose error it fixes.
+- `iau_wgsn/iau_csn.tsv` is the IAU's, published: each identified star's
+  IAU name becomes its preferred name (9.4).
 
 The import must therefore keep names in a reproducible order; a `set()`
 of strings is ordered by Python's per-process hash seed and is not.

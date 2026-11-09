@@ -3,31 +3,42 @@ Supplementary sources: published references that fill or replace fields on
 the sky objects the loaders made, joined on a stable key. A supplementary
 source never adds a catalog listing (ADR 0046, docs/ax/catalog.md section 9.4).
 
-The import runs them after the loaders and post-processing, and before the
-correction pass, so a correction still has the last word:
+The import runs them after the loaders, post-processing and the star-identity
+stage, and before the correction pass, so a correction still has the last
+word:
 
+- replace_hipparcos_values: Hipparcos replaces the position and the primary's
+  V of every star the star-identity stage identified by its HIP number
+  (astro_data/hip_main.dat).
+- add_wgsn_names: the IAU Catalog of Star Names, joined on the same HIP
+  numbers, makes each IAU name its star's preferred name (astro_data/iau_wgsn/).
 - fill_bica_sizes: Bica et al. (2008) fills a missing size on a Magellanic
   object, and never replaces one (astro_data/bica2008/).
 - replace_rc3_v_magnitudes: an extract of RC3's rows whose BT is coded "V"
   replaces Steinicke's V where Steinicke took that V-band magnitude for his
   Bmag (astro_data/rc3/).
 
-Both sources are VizieR extracts, vendored verbatim with the queries that
+Bica and RC3 are VizieR extracts, vendored verbatim with the queries that
 fetched them; read_vizier_tsv reads them.
 """
 
+import csv
 import json
 import logging
+import math
 import sqlite3
+import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Set, Tuple
+from typing import Dict, Iterator, List, Mapping, Optional, Set, Tuple
 
 import PiFinder.utils as utils
+from PiFinder import calc_utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.db.objects_db import ObjectsDatabase
 from .catalog_import_utils import (
+    STAR_HIPS,
     MatchRejection,
     match_guard,
     parse_component,
@@ -35,8 +46,11 @@ from .catalog_import_utils import (
     separation_arcmin,
 )
 from .corrections import parse_dec, parse_ra
+from .post_processing import put_names_first
+from .star_identity import RANGE_CATALOGS, Hipparcos, load_hipparcos
 from .steinicke_loader import NOT_FOUND_DESCRIPTION, select_listings
 
+WGSN_PATH = Path(utils.astro_data_dir) / "iau_wgsn" / "iau_csn.tsv"
 BICA_PATH = Path(utils.astro_data_dir) / "bica2008" / "bica2008_ngc_ic.tsv"
 RC3_PATH = Path(utils.astro_data_dir) / "rc3" / "rc3_bt_code_v.tsv"
 # Extracted from steinicke_catalog_source.zip by the Steinicke loader, which
@@ -116,6 +130,332 @@ def _listing_object(
         " WHERE co.catalog_code = ? AND co.sequence = ?",
         (catalog_code, sequence),
     ).fetchone()
+
+
+# ---- Hipparcos: star positions and V ----
+
+# Hipparcos's coarse variability flag (H6) for an amplitude over 0.6 mag
+# (VizieR I/239, ReadMe): such a star's V is one value of its swing.
+LARGE_AMPLITUDE_FLAG = 3
+
+
+@dataclass
+class HipparcosReplacement:
+    """What replace_hipparcos_values did, star by star.
+
+    `moved` is (object id, HIP, arcseconds moved) for every star whose
+    position changed; `magnitudes` (object id, HIP, V before, V after) for
+    every star whose primary's V changed, None before where it had none;
+    `constellations` (object id, before, after). These keep their magnitude:
+    `not_own_v`, (object id, HIP) where Hipparcos's V is not the star's own
+    (a double's combined light, or another component's); `large_amplitude`,
+    (object id, HIP) where Hipparcos flags a variability of more than 0.6 mag;
+    `kept_range`, the stars whose magnitude is a variable's range; and `no_v`,
+    those Hipparcos gives no V for.
+    """
+
+    replaced: int = 0
+    moved: List[Tuple[int, int, float]] = field(default_factory=list)
+    magnitudes: List[Tuple[int, int, Optional[float], float]] = field(
+        default_factory=list
+    )
+    constellations: List[Tuple[int, str, str]] = field(default_factory=list)
+    not_own_v: List[Tuple[int, int]] = field(default_factory=list)
+    large_amplitude: List[Tuple[int, int]] = field(default_factory=list)
+    kept_range: List[int] = field(default_factory=list)
+    no_v: List[int] = field(default_factory=list)
+
+
+def primary_v_replaced(mag: MagnitudeObject, vmag: float) -> MagnitudeObject:
+    """The magnitudes with the first, the primary's, replaced by `vmag`.
+
+    A companion's magnitude is untouched: a double star's [A, B] keeps B. A
+    star with no magnitude gets the primary's.
+    """
+    return MagnitudeObject([vmag] + list(mag.mags[1:]))
+
+
+def replace_hipparcos_values(
+    db: ObjectsDatabase,
+    hips: Optional[Mapping[int, int]] = None,
+    hipparcos: Optional[Hipparcos] = None,
+) -> HipparcosReplacement:
+    """Replace each identified star's position and primary's V with Hipparcos's.
+
+    `hips` maps a star sky object to the HIP number the star-identity stage
+    identified it by (by position, by an exact identifier, or by a `hip`
+    correction); it defaults to what that stage recorded in STAR_HIPS. No
+    other star is touched, and nothing is matched here.
+
+    The position becomes Hipparcos's, carried to J2000 by its proper motion
+    (load_hipparcos), and the constellation follows it, as a loader computes
+    it at insert. For a close double that is the pair's photocentre, which is
+    as good at a finder's scale.
+
+    The first magnitude, the primary's, becomes Hipparcos's V (H5) only where
+    that V is the star's own (Hipparcos.own_vmag): for many doubles it is the
+    combined light of the pair (Porrima's 2.74, for two stars of 3.5), which
+    would put A and B's total in A's place. A companion's magnitude is
+    untouched. These keep their magnitude: a star whose Hipparcos V is not its
+    own; a variable of large amplitude (LARGE_AMPLITUDE_FLAG), or one whose
+    sky object holds its range (TLK's [max, min]), since no one value of a
+    variable's swing is the primary's V (SAC gives Mira's maximum, 2.0;
+    Hipparcos 6.47); and one Hipparcos gives no V for.
+    """
+    hips = STAR_HIPS if hips is None else hips
+    hipparcos = hipparcos if hipparcos is not None else load_hipparcos()
+    if hipparcos.own_vmag is None:
+        raise ValueError("Hipparcos was read without its photometry flags")
+    result = HipparcosReplacement()
+    cursor = db.conn.cursor()
+    for object_id, hip in sorted(hips.items()):
+        index = hipparcos.index_of(hip)
+        if index is None:
+            raise ValueError(f"object {object_id}: Hipparcos has no HIP {hip}")
+        row = cursor.execute(
+            "SELECT o.ra, o.dec, o.const, o.mag,"
+            " (SELECT catalog_code FROM catalog_objects"
+            "  WHERE object_id = o.id ORDER BY id LIMIT 1) AS first_catalog"
+            " FROM objects o WHERE o.id = ?",
+            (object_id,),
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"HIP {hip}: there is no object {object_id}")
+        ra, dec = float(hipparcos.ra[index]), float(hipparcos.dec[index])
+        const = calc_utils.sf_utils.radec_to_constellation(ra, dec)
+        mag = MagnitudeObject.from_json(row["mag"])
+        vmag = float(hipparcos.vmag[index])
+        if row["first_catalog"] in RANGE_CATALOGS:
+            result.kept_range.append(object_id)
+        elif math.isnan(vmag):
+            result.no_v.append(object_id)
+        elif not hipparcos.own_vmag[index]:
+            result.not_own_v.append((object_id, hip))
+        elif hipparcos.var_flag[index] == LARGE_AMPLITUDE_FLAG:
+            result.large_amplitude.append((object_id, hip))
+        elif list(mag.mags[:1]) != [vmag]:
+            before = mag.mags[0] if mag.mags and utils.is_number(mag.mags[0]) else None
+            mag = primary_v_replaced(mag, vmag)
+            result.magnitudes.append((object_id, hip, before, vmag))
+        if (ra, dec) != (row["ra"], row["dec"]):
+            moved = separation_arcmin(row["ra"], row["dec"], ra, dec) * 60
+            result.moved.append((object_id, hip, moved))
+        if const != row["const"]:
+            result.constellations.append((object_id, row["const"], const))
+            logging.info(
+                "Hipparcos: HIP %d (object %d) moves from %s into %s",
+                hip,
+                object_id,
+                row["const"],
+                const,
+            )
+        cursor.execute(
+            "UPDATE objects SET ra = ?, dec = ?, const = ?, mag = ? WHERE id = ?",
+            (ra, dec, const, mag.to_json(), object_id),
+        )
+        result.replaced += 1
+    db.conn.commit()
+    logging.info(
+        "Hipparcos: %d stars; %d positions moved, %d V replaced,"
+        " %d constellations changed; V left as it is on %d stars whose"
+        " Hipparcos V is not their own, %d variables of large amplitude,"
+        " %d variable ranges and %d stars without a Hipparcos V",
+        result.replaced,
+        len(result.moved),
+        len(result.magnitudes),
+        len(result.constellations),
+        len(result.not_own_v),
+        len(result.large_amplitude),
+        len(result.kept_range),
+        len(result.no_v),
+    )
+    return result
+
+
+# ---- IAU WGSN: star names ----
+
+# The origin recorded on the names the WGSN adds.
+WGSN_ORIGIN = "WGSN"
+
+
+@dataclass
+class WgsnName:
+    """One name of the IAU Catalog of Star Names."""
+
+    name: str
+    hip: Optional[int]
+    designation: str
+
+
+@dataclass
+class WgsnNames:
+    """What add_wgsn_names did.
+
+    `preferred` is (name, object id) for every name made a star's preferred
+    name, of which `added` were new to the sky object and the rest moved
+    first; `folded` is (name, its ASCII form) for every ASCII alias stored.
+    `spellings` is (IAU name, the sky object's name) where the sky object
+    already had the name spelled otherwise (diacritics, case), and
+    `elsewhere` (name, other object ids) where another sky object has it too.
+    The skipped names: no HIP number, a HIP number PiFinder holds no star
+    for, and a HIP number with two names.
+    """
+
+    preferred: List[Tuple[str, int]] = field(default_factory=list)
+    added: List[str] = field(default_factory=list)
+    folded: List[Tuple[str, str]] = field(default_factory=list)
+    spellings: List[Tuple[str, str]] = field(default_factory=list)
+    elsewhere: List[Tuple[str, List[int]]] = field(default_factory=list)
+    no_hip: List[str] = field(default_factory=list)
+    not_held: List[str] = field(default_factory=list)
+    shared_hip: List[str] = field(default_factory=list)
+
+
+def read_wgsn(path: Path = WGSN_PATH) -> List[WgsnName]:
+    """The names of iau_csn.tsv, in its order; extract.py writes it."""
+    with open(path, encoding="utf-8", newline="") as tsv:
+        return [
+            WgsnName(
+                name=row["name"],
+                hip=int(row["hip"]) if row["hip"] else None,
+                designation=row["designation"],
+            )
+            for row in csv.DictReader(tsv, delimiter="\t")
+        ]
+
+
+def ascii_folded(name: str) -> str:
+    """The name without its diacritics: "Mönch" -> "Monch".
+
+    Unicode's compatibility decomposition (NFKD) with the combining marks
+    dropped, so the keypad's text search finds a name it can't type.
+    """
+    decomposed = unicodedata.normalize("NFKD", name)
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
+def _spelling_key(name: str) -> str:
+    """A name compared without diacritics, case, spaces or punctuation."""
+    return "".join(char for char in ascii_folded(name).casefold() if char.isalnum())
+
+
+def add_wgsn_names(
+    db: ObjectsDatabase,
+    hips: Optional[Mapping[int, int]] = None,
+    path: Path = WGSN_PATH,
+) -> WgsnNames:
+    """Make each star's IAU name its preferred name, joined by HIP number.
+
+    `hips` maps a star sky object to the HIP number the star-identity stage
+    identified it by, and defaults to STAR_HIPS; a name joins only those, and
+    nothing is matched here. The IAU name is placed first among the sky
+    object's names (put_names_first), or moved first if it has it already,
+    and its other names (Graffias, Tegmen) stay behind it as ordinary names,
+    so text search still finds them. Where the IAU spelling has diacritics,
+    its ASCII form is stored too, as an ordinary name.
+
+    A name with no HIP number, one whose star PiFinder doesn't hold, and the
+    names of a HIP number that has two (HIP 72105, Izar and Pulcherrima, with
+    no component to choose between them) are skipped, and counted.
+    """
+    hips = STAR_HIPS if hips is None else hips
+    object_of: Dict[int, int] = {}
+    for star, hip in sorted(hips.items()):
+        if hip in object_of:
+            raise ValueError(
+                f"HIP {hip} identifies objects {object_of[hip]} and {star}"
+            )
+        object_of[hip] = star
+    names = read_wgsn(path)
+    names_of_hip: Dict[int, List[str]] = defaultdict(list)
+    for wgsn in names:
+        if wgsn.hip is not None:
+            names_of_hip[wgsn.hip].append(wgsn.name)
+
+    result = WgsnNames()
+    cursor = db.conn.cursor()
+    for wgsn in names:
+        if wgsn.hip is None:
+            result.no_hip.append(wgsn.name)
+            logging.debug("WGSN: %s (%s) has no HIP", wgsn.name, wgsn.designation)
+            continue
+        if len(names_of_hip[wgsn.hip]) > 1:
+            result.shared_hip.append(wgsn.name)
+            logging.info(
+                "WGSN: HIP %d has two names, %s, so neither is added",
+                wgsn.hip,
+                " and ".join(names_of_hip[wgsn.hip]),
+            )
+            continue
+        object_id = object_of.get(wgsn.hip)
+        if object_id is None:
+            result.not_held.append(wgsn.name)
+            logging.debug("WGSN: PiFinder holds no HIP %d (%s)", wgsn.hip, wgsn.name)
+            continue
+        held = [
+            row[0]
+            for row in cursor.execute(
+                "SELECT common_name FROM names WHERE object_id = ? ORDER BY id",
+                (object_id,),
+            )
+        ]
+        for name in held:
+            if name != wgsn.name and _spelling_key(name) == _spelling_key(wgsn.name):
+                result.spellings.append((wgsn.name, name))
+                logging.info(
+                    "WGSN: HIP %d's %s is spelled %s on object %d",
+                    wgsn.hip,
+                    wgsn.name,
+                    name,
+                    object_id,
+                )
+        if wgsn.name not in held:
+            result.added.append(wgsn.name)
+        put_names_first(cursor, object_id, [wgsn.name], WGSN_ORIGIN)
+        result.preferred.append((wgsn.name, object_id))
+        folded = ascii_folded(wgsn.name)
+        if folded != wgsn.name:
+            if not folded.isascii():
+                logging.warning("WGSN: %s folds to %s, not ASCII", wgsn.name, folded)
+            if folded not in held:
+                cursor.execute(
+                    "INSERT INTO names (object_id, common_name, origin)"
+                    " VALUES (?, ?, ?)",
+                    (object_id, folded, WGSN_ORIGIN),
+                )
+            result.folded.append((wgsn.name, folded))
+        others = sorted(
+            {
+                row[0]
+                for row in cursor.execute(
+                    "SELECT object_id FROM names WHERE common_name IN (?, ?)"
+                    " AND object_id != ?",
+                    (wgsn.name, folded, object_id),
+                )
+            }
+        )
+        if others:
+            result.elsewhere.append((wgsn.name, others))
+            logging.info(
+                "WGSN: %s (HIP %d, object %d) is also a name of objects %s",
+                wgsn.name,
+                wgsn.hip,
+                object_id,
+                ", ".join(map(str, others)),
+            )
+    db.conn.commit()
+    logging.info(
+        "WGSN: %d preferred names (%d new to their star, %d ASCII forms added);"
+        " skipped %d without a HIP number, %d for stars PiFinder doesn't hold,"
+        " %d on a HIP number with two names",
+        len(result.preferred),
+        len(result.added),
+        len(result.folded),
+        len(result.no_hip),
+        len(result.not_held),
+        len(result.shared_hip),
+    )
+    return result
 
 
 # ---- Bica et al. (2008): sizes ----

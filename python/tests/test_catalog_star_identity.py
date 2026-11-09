@@ -64,6 +64,7 @@ def db(tmp_path):
     ciu.STAND_IN_POSITIONS.clear()
     ciu.SAC_SYSTEMS.clear()
     ciu.SOURCE_DM_NUMBERS.clear()
+    ciu.STAR_HIPS.clear()
     db = ObjectsDatabase(tmp_path / "objects.db")
     db.create_tables()
     for code in CODES:
@@ -554,6 +555,8 @@ def test_listings_of_one_star_become_one_sky_object(db):
     for code, sequence in (("SaM", 2054), ("Str", 56), ("WDS", 70779)):
         assert object_of(db, code, sequence) == sam
     assert result.hips == {sam: MIZAR}
+    # Recorded for the supplementary sources that join on it (§9.4).
+    assert ciu.STAR_HIPS == {sam: MIZAR}
     count = db.conn.execute("SELECT count(*) FROM objects").fetchone()[0]
     assert count == 1
 
@@ -754,6 +757,27 @@ def test_load_hipparcos(tmp_path):
     assert stars.index_of(1) is None
     assert stars.numbers_of[69673] == {("HD", 124897), ("BD", "+", 19, 2777)}
     assert stars.star_with[("BD", "-", 3, 353)] == 10826
+
+
+@pytest.mark.parametrize(
+    "comb_mag, hp_ref, own",
+    [
+        ("", "", True),  # a single star
+        ("", "A", True),  # component A's photometry (Mizar)
+        ("*", "*", False),  # a double's combined V (Castor)
+        ("", "*", False),  # combined photometry, H43 blank (Porrima)
+        ("", "-", False),  # a multiple's combined photometry
+        ("", "B", False),  # another component's
+    ],
+)
+def test_load_hipparcos_reads_whose_light_v_is(tmp_path, comb_mag, hp_ref, own):
+    head, tail = HIP_ROWS[3]
+    # Fields 14-70, with H43 (CombMag) and H48 (m_Hpmag) set.
+    middle = [""] * 57
+    middle[43 - 14], middle[48 - 14] = comb_mag, hp_ref
+    path = tmp_path / "hip_main.dat"
+    path.write_text(f"{head}|{'|'.join(middle)}|{tail}\n")
+    assert load_hipparcos(path).own_vmag.tolist() == [own]
 
 
 def test_the_stage_runs_between_post_processing_and_corrections():

@@ -34,6 +34,7 @@ from .catalog_import_utils import (
     SAC_SYSTEMS,
     SOURCE_DM_NUMBERS,
     STAND_IN_POSITIONS,
+    STAR_HIPS,
     fill_sky_object,
     merge_sky_object,
 )
@@ -112,8 +113,9 @@ _MAS_PER_DEGREE = 3.6e6
 # H1 the HIP number, H3/H4 the position in h m s and d m s, H5 V, H6 the
 # variability flag, H8/H9 the position in degrees (blank for the 263 stars
 # with no astrometric solution, such as ξ UMa), H12/H13 the proper motion
-# in mas/yr, the RA component times cos(Dec), and H71-H74 the star's HD, BD,
-# CD and CPD numbers.
+# in mas/yr, the RA component times cos(Dec), H43 and H48 the flags saying
+# whose light V is (OWN_VMAG_REFS), and H71-H74 the star's HD, BD, CD and CPD
+# numbers.
 _HIP_FIELDS = {
     1: "hip",
     3: "ra_hms",
@@ -124,11 +126,20 @@ _HIP_FIELDS = {
     9: "dec",
     12: "pm_ra",
     13: "pm_dec",
+    43: "comb_mag",
+    48: "hp_ref",
     71: "HD",
     72: "BD",
     73: "CD",
     74: "CPD",
 }
+
+# A double's V (H5) in Hipparcos is often the light of the whole system: H43
+# is "*" where V is combined, and H48 names the component(s) the photometry
+# refers to ("*" and "-" a double's or multiple's combined light, a letter
+# that component). V is a star's own only where H43 is blank and H48 is
+# blank or "A" (VizieR I/239, ReadMe).
+OWN_VMAG_REFS = frozenset({"", "A"})
 
 # A catalog number, as a hashable key: ("HD", 12345) or ("BD", "+", 0, 5077).
 CatalogNumber = Tuple
@@ -143,6 +154,9 @@ class Hipparcos:
     dec: np.ndarray
     vmag: np.ndarray
     var_flag: np.ndarray
+    # Whether each star's V is its own, not a double's combined light nor
+    # another component's (OWN_VMAG_REFS). None where it wasn't read.
+    own_vmag: Optional[np.ndarray] = None
     # Each HIP number's HD, BD, CD and CPD numbers, and the reverse.
     numbers_of: Dict[int, Set[CatalogNumber]] = field(default_factory=dict)
     star_with: Dict[CatalogNumber, int] = field(default_factory=dict)
@@ -227,7 +241,7 @@ def load_hipparcos(path: Optional[Path] = None) -> Hipparcos:
         header=None,
         usecols=list(_HIP_FIELDS),
         skipinitialspace=True,
-        dtype={71: str, 72: str, 73: str, 74: str},
+        dtype={43: str, 48: str, 71: str, 72: str, 73: str, 74: str},
     ).rename(columns=_HIP_FIELDS)
     ra = frame["ra"].to_numpy(dtype=float)
     dec = frame["dec"].to_numpy(dtype=float)
@@ -259,6 +273,10 @@ def load_hipparcos(path: Optional[Path] = None) -> Hipparcos:
         dec=dec_2000,
         vmag=frame["vmag"].to_numpy(dtype=float),
         var_flag=np.nan_to_num(frame["var_flag"].to_numpy(dtype=float)).astype(int),
+        own_vmag=(
+            frame["comb_mag"].fillna("").str.strip().eq("")
+            & frame["hp_ref"].fillna("").str.strip().isin(OWN_VMAG_REFS)
+        ).to_numpy(),
         numbers_of=numbers_of,
         star_with=star_with,
     )
@@ -791,6 +809,9 @@ def identify_stars(
     in id order, their names after its own; an empty magnitude or size is
     filled by the loaders' precedence and never replaced. Each merged star is
     then typed by the D* rule. All or nothing: a problem rolls it back.
+
+    Each surviving sky object's HIP number is returned, and recorded in
+    STAR_HIPS for the supplementary sources that join on it.
     """
     hipparcos = hipparcos if hipparcos is not None else load_hipparcos()
     conn = db.conn
@@ -828,6 +849,8 @@ def identify_stars(
         conn.rollback()
         raise
     conn.commit()
+    STAR_HIPS.clear()
+    STAR_HIPS.update(hips)
     _log_summary(stars, matches, merged_into, hip_identifications)
     return StarIdentity(hips, matches, stars, merged_into)
 
