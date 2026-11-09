@@ -1,0 +1,184 @@
+#
+#   VizieR Astronomical Server vizier.cds.unistra.fr
+#    Date: 2026-10-24T17:14:28 [V7.6.2]
+#   In case of problem, please report to:	cds-question@unistra.fr
+#
+#
+#Coosys	J2000:	eq_FK5 J2000
+#INFO	service_protocol=ASU	  IVOID of the protocol through which the data was retrieved
+#INFO	request_date=2026-10-24T17:14:28	  Query execution date
+#INFO	request=https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=VII/155/rc3&-out=name,altname,PGC,RA2000,DE2000,BT,BT_code,e_BT&BT_code=%3D%3DV&-out.max=unlimited	  Full request URL
+#INFO	contact=cds-question@unistra.fr	  Email or URL to contact publisher
+#INFO	server_software=VizieR/7.6.2	  Software version
+#INFO	publisher=CDS	  Data centre that produced the VOTable
+
+#RESOURCE=yCat_7155
+#Name: VII/155
+#Title: Third Reference Cat. of Bright Galaxies (RC3) (de Vaucouleurs+ 1991)
+#INFO	ivoid=ivo://cds.vizier/vii/155	    IVOID of underlying data collection
+#INFO	data_ivoid=ivo://cds.vizier/vii/155	    IVOID of underlying data collection
+#INFO	creator=de Vaucouleurs G.	    First author or institution
+#INFO	reference_url=https://cdsarc.cds.unistra.fr/viz-bin/cat/VII/155	    Dataset landing page
+#INFO	publication_date=2002-08-09	    Date of first publication in the data centre
+#INFO	rights_uri=https://cds.unistra.fr/vizier-org/licences_vizier.html	    Licence URI
+#Coosys	B2000:	eq_FK4 B2000
+#Table	VII_155_rc3:
+#Name: VII/155/rc3
+#Title: The revised RC3 catalog
+#Column	name	(a12)	Name	[ucd=meta.id]
+#Column	altname	(a15)	Alternate name	[ucd=meta.id]
+#Column	PGC	(a11)	PGC number	[ucd=meta.id;meta.main]
+#Column	RA2000	(A10)	Right Ascension 2000 (hours)	[ucd=pos.eq.ra;meta.main]
+#Column	DE2000	(A9)	Declination 2000 (degrees)	[ucd=pos.eq.dec;meta.main]
+#Column	BT	(F5.2)	? BT (total B magnitude)	[ucd=phot.mag;em.opt.B]
+#Column	BT_code	(A1)	? BT code	[ucd=meta.code]
+#Column	e_BT	(F5.2)	? Mean error on BT	[ucd=stat.error]
+name	altname	PGC	RA2000	DE2000	BT	BT_code	e_BT
+ 	 	 	"h:m:s"	"d:m:s"	mag	 	mag
+------------	---------------	-----------	----------	---------	-----	-	-----
+            	 MCG -2- 1- 12 	PGC  219   	00 03 12.0	-10 45 00	14.04	V	 0.13
+NGC  7808   	 MCG -2- 1- 13 	PGC  243   	00 03 32.3	-10 44 42	13.48	V	 0.13
+            	 MCG -7- 1- 10 	PGC  482   	00 06 24.0	-41 30 00	14.58	V	 0.15
+NGC    25   	 ESO  149- 19  	PGC  706   	00 09 59.9	-57 01 12	13.00	V	 0.20
+            	 MCG -2- 1- 52 	PGC 1221   	00 18 50.1	-10 21 40	13.60	V	 0.30
+NGC    78A  	 UGC   193     	PGC 1306   	00 20 25.5	+00 49 36	13.68	V	 0.14
+            	 ESO  194- 21  	PGC 1816   	00 29 42.3	-51 31 07	12.15	V	 0.15
+            	 ESO   79-  2  	PGC 1951   	00 32 01.0	-64 23 27	13.66	V	 0.15
+            	 ESO   79-  3  	PGC 1952   	00 32 02.1	-64 15 09	12.59	V	 0.14
+            	               	PGC 3152   	00 54 08.5	-61 55 43	14.30	V	 0.14
+            	 ESO  151- 12  	PGC 3387   	00 56 47.3	-53 05 53	12.86	V	 0.14
+NGC   484   	 ESO  113- 36  	PGC 4764   	01 19 34.9	-58 31 28	12.05	V	 0.13
+NGC   630   	 ESO  297-  9  	PGC 5924   	01 35 36.7	-39 21 36	12.51	V	 0.16
+NGC   642   	 ESO  413- 14  	PGC 6112   	01 39 06.8	-29 54 54	12.88	V	 0.14
+NGC   745   	 ESO  152- 32  	PGC 7054   	01 54 09.3	-56 41 24	12.60	V	 0.20
+NGC   802   	 ESO   52- 13  	PGC 7505   	01 59 07.1	-67 52 11	13.67	V	 0.13
+NGC   800   	 UGC  1526     	PGC 7740   	02 02 11.9	-00 07 53	13.70	V	 0.15
+NGC   799   	 UGC  1527     	PGC 7741   	02 02 12.3	-00 06 03	12.97	V	 0.17
+NGC   862   	 ESO  298- 20  	PGC 8487   	02 13 02.9	-42 02 00	12.78	V	 0.13
+IC   1788   	 ESO  415- 15  	PGC 8649   	02 15 50.3	-31 12 06	12.34	V	 0.13
+IC   1796   	 ESO  298- 38  	PGC 9041   	02 22 47.5	-41 22 17	13.02	V	 0.13
+NGC   986A  	 ESO  299-  6A 	PGC 9685   	02 32 40.6	-39 17 50	13.97	V	 0.15
+NGC  1025   	 ESO  154-  4  	PGC 9891   	02 36 19.9	-54 51 54	13.84	V	 0.13
+Maffei I    	 UGCA   34     	PGC 9892   	02 36 36.3	+59 39 21	11.40	V	 0.50
+IC   1853   	 MCG -2- 8-  6 	PGC10595   	02 48 04.2	-13 59 38	14.22	V	 0.13
+IC   1864   	 ESO  356- 17  	PGC10925   	02 53 39.6	-34 11 49	12.55	V	 0.14
+NGC  1241   	 MCG -2- 9- 11 	PGC11887   	03 11 14.7	-08 55 19	11.99	V	 0.13
+NGC  1341   	 ESO  358-  8  	PGC12911   	03 27 57.9	-37 09 03	12.28	V	 0.13
+NGC  1366   	 ESO  418- 10  	PGC13197   	03 33 53.3	-31 11 36	11.97	V	 0.13
+NGC  1382   	 ESO  358- 37  	PGC13354   	03 37 08.5	-35 11 41	12.92	V	 0.13
+NGC  1567   	 ESO  202- 10  	PGC14934   	04 21 08.7	-48 15 16	12.17	V	 0.15
+            	 ESO  486- 17  	PGC16635   	05 03 11.5	-22 48 49	13.80	V	 0.13
+            	 ESO  486- 19  	PGC16638   	05 03 16.5	-22 49 56	12.45	V	 0.13
+NGC  2007   	 ESO  204- 19  	PGC17478   	05 34 59.0	-50 55 20	13.91	V	 0.14
+NGC  2008   	 ESO  204- 20  	PGC17480   	05 35 03.8	-50 58 02	13.80	V	 0.13
+NGC  2101   	 ESO  205-  1  	PGC17793   	05 46 23.2	-52 05 22	13.69	V	 0.14
+NGC  2191   	 ESO  160- 14  	PGC18464   	06 08 23.8	-52 30 40	12.33	V	 0.13
+NGC  2328   	 ESO  309- 16  	PGC20046   	07 02 36.7	-42 04 09	12.75	V	 0.13
+A   0811+58 	 UGC  4289     	PGC23160   	08 15 42.0	+58 19 00	13.09	V	 0.11
+NGC  2902   	 MCG -2-24- 30 	PGC27004   	09 30 53.0	-14 44 10	12.21	V	 0.15
+A   0930+55A	               	PGC27182   	09 34 02.2	+55 14 25	15.98	V	 0.16
+NGC  3087   	 ESO  374- 15  	PGC28845   	09 59 08.8	-34 13 30	11.58	V	 0.13
+NGC  3224   	 ESO  375- 13  	PGC30314   	10 21 41.5	-34 41 45	12.00	V	 0.15
+NGC  3275   	 ESO  375- 50  	PGC31014   	10 30 51.8	-36 44 25	11.80	V	 0.20
+NGC  3307   	 ESO  501- 31  	PGC31430   	10 36 17.3	-27 31 46	14.49	V	 0.13
+            	 ESO  376-  9  	PGC31876   	10 42 02.0	-33 14 43	12.83	V	 0.13
+NGC  3449   	 ESO  376- 25  	PGC32666   	10 52 53.1	-32 55 34	12.19	V	 0.15
+            	 ESO  377- 29  	PGC34262   	11 14 38.8	-33 54 21	12.68	V	 0.13
+            	 CGCG 156- 39  	PGC34375   	11 16 00.0	+29 26 00	13.98	V	 0.05
+A   1113+29A	 MCG  5-27- 35 	PGC34376   	11 16 11.2	+29 23 25	13.98	V	 0.14
+NGC  3732   	 MCG -2-30-  5 	PGC35734   	11 34 14.0	-09 50 45	12.50	V	 0.13
+NGC  3885   	 ESO  440-  7  	PGC36737   	11 46 46.6	-27 55 22	11.89	V	 0.13
+            	 ESO  378- 20  	PGC36767   	11 47 16.7	-37 33 04	12.76	V	 0.13
+            	 UGC  6793     	PGC36928   	11 49 18.0	-01 04 00	14.01	V	 0.13
+NGC  3907   	 UGC  6796     	PGC36941   	11 49 29.7	-01 05 08	13.11	V	 0.14
+            	 MCG -2-31- 19A	PGC38534   	12 08 14.7	-15 43 03	13.30	V	 0.13
+NGC  4277   	 MCG  1-32-  9 	PGC39759   	12 20 03.9	+05 20 31	13.38	V	 0.15
+IC    785   	 MCG -2-32-  7 	PGC40167   	12 23 00.0	-13 13 00	13.96	V	 0.13
+IC    786   	 MCG -2-32-  8 	PGC40189   	12 23 06.0	-13 12 00	13.36	V	 0.13
+NGC  4413   	 UGC  7538     	PGC40705   	12 26 31.8	+12 36 35	12.25	V	 0.16
+NGC  4516   	 UGC  7703     	PGC41661   	12 33 07.8	+14 34 33	12.76	V	 0.15
+NGC  4580   	 UGC  7794     	PGC42174   	12 37 48.4	+05 22 09	11.83	V	 0.15
+            	 ESO  322- 51  	PGC42505   	12 40 53.9	-41 36 22	12.69	V	 0.15
+NGC  4645A  	 ESO  322- 59  	PGC42764   	12 43 05.4	-41 21 32	12.20	V	 0.20
+NGC  4645B  	 ESO  322- 60  	PGC42813   	12 43 31.5	-41 21 43	12.10	V	 0.20
+            	 ESO  381- 12  	PGC42871   	12 44 05.2	-34 12 13	12.60	V	 0.20
+NGC  4665   	 UGC  7924     	PGC42970   	12 45 06.2	+03 03 26	10.50	V	 0.20
+NGC  4696B  	 ESO  322- 81  	PGC43155   	12 47 21.4	-41 14 16	12.68	V	 0.13
+A   1249-41 	 ESO  323- 19  	PGC43623   	12 52 03.7	-41 27 36	12.80	V	 0.20
+NGC  4751   	 ESO  323- 29  	PGC43723   	12 52 51.5	-42 39 35	11.80	V	 0.15
+NGC  4760   	 MCG -2-33- 41 	PGC43763   	12 53 07.3	-10 29 40	11.40	V	 0.20
+NGC  4763   	 MCG -3-33- 13 	PGC43792   	12 53 27.2	-17 00 21	12.58	V	 0.13
+NGC  4795   	 UGC  8037     	PGC43998   	12 55 03.2	+08 04 01	12.10	V	 0.13
+NGC  4832   	 ESO  323- 51  	PGC44361   	12 57 47.3	-39 45 36	12.20	V	 0.20
+            	 MCG  5-31- 46 	PGC44467   	12 58 30.0	+28 00 00	14.10	V	 0.13
+NGC  4940   	 ESO  269- 42  	PGC45235   	13 05 00.5	-47 14 10	13.10	V	 0.20
+            	 ESO  323- 93  	PGC45922   	13 13 14.5	-42 17 12	12.29	V	 0.13
+NGC  5037   	 MCG -3-34- 29 	PGC46078   	13 14 59.5	-16 35 28	12.22	V	 0.16
+NGC  5062   	 ESO  382- 35  	PGC46351   	13 18 23.4	-35 27 28	12.20	V	 0.20
+            	 ESO  269- 80  	PGC46414   	13 19 01.7	-47 15 27	12.70	V	 0.20
+NGC  5121   	 ESO  382- 57  	PGC46896   	13 24 46.1	-37 41 01	11.51	V	 0.13
+NGC  5150   	 ESO  444- 43  	PGC47169   	13 27 36.7	-29 33 44	12.60	V	 0.20
+NGC  5257   	 UGC  8641     	PGC48330   	13 39 53.0	+00 50 29	12.87	V	 0.13
+NGC  5258   	 UGC  8645     	PGC48338   	13 39 58.0	+00 49 59	12.93	V	 0.13
+NGC  5333   	 ESO  221- 17  	PGC49424   	13 54 24.4	-48 30 43	11.67	V	 0.14
+            	 ESO  384- 19  	PGC49658   	13 57 39.8	-34 13 06	12.80	V	 0.20
+NGC  5397   	 ESO  384- 31  	PGC49908   	14 01 10.2	-33 56 40	12.73	V	 0.14
+            	 UGC  8993     	PGC50203   	14 04 51.7	-00 38 31	13.97	V	 0.13
+IC   4451   	 ESO  385- 46  	PGC52094   	14 34 37.1	-36 17 07	12.00	V	 0.20
+IC   4464   	 ESO  385- 50  	PGC52286   	14 37 49.3	-36 52 40	12.59	V	 0.14
+NGC  5691   	 UGC  9420     	PGC52291   	14 37 53.7	-00 23 50	12.28	V	 0.13
+A   1437+37 	               	PGC52358   	14 39 04.9	+36 48 14	14.47	V	 0.18
+NGC  5756   	 MCG -2-38- 12 	PGC52825   	14 47 33.8	-14 51 14	12.34	V	 0.13
+IC   1265   	 UGC 10917     	PGC60568   	17 36 39.7	+42 05 16	12.31	V	 0.14
+NGC  6407   	 ESO  139- 22  	PGC60796   	17 44 57.7	-60 44 22	12.34	V	 0.15
+IC   4731   	 ESO  103- 37  	PGC62187   	18 38 43.1	-62 56 34	12.52	V	 0.14
+NGC  6653   	 ESO   45- 13  	PGC62342   	18 44 38.7	-73 15 47	12.20	V	 0.20
+            	 ESO  104-  2  	PGC62393   	18 46 54.7	-63 21 47	14.14	V	 0.15
+            	 ESO  104-  7  	PGC62408   	18 47 18.6	-63 21 39	12.90	V	 0.14
+IC   4766   	 ESO  104-  9  	PGC62421   	18 47 36.2	-63 17 37	13.79	V	 0.16
+NGC  6708   	 ESO  183- 27  	PGC62569   	18 55 35.5	-53 43 26	12.70	V	 0.20
+IC   4800   	 ESO  104- 25  	PGC62637   	18 58 43.0	-63 08 20	12.79	V	 0.15
+NGC  6725   	 ESO  183- 36  	PGC62692   	19 01 56.3	-53 51 53	12.19	V	 0.14
+            	 ESO  337- 10  	PGC62765   	19 05 59.5	-42 21 59	12.50	V	 0.20
+NGC  6730   	 ESO   72-  9  	PGC62796   	19 07 33.5	-68 54 38	12.21	V	 0.13
+NGC  6746   	 ESO  141- 29  	PGC62852   	19 10 22.0	-61 58 13	12.60	V	 0.20
+IC   4831   	 ESO  141- 38  	PGC62951   	19 14 43.9	-62 16 18	12.30	V	 0.20
+NGC  6782   	 ESO  142-  1  	PGC63168   	19 23 57.2	-59 55 22	11.84	V	 0.13
+            	 ESO  105-  4  	PGC63344   	19 32 25.1	-64 24 48	12.73	V	 0.14
+            	 ESO  142- 19  	PGC63351   	19 33 18.0	-58 06 50	11.82	V	 0.17
+NGC  6808   	 ESO   73-  3  	PGC63578   	19 43 54.3	-70 37 58	12.46	V	 0.13
+            	 ESO  232- 21  	PGC63598   	19 44 37.0	-51 36 10	13.00	V	 0.20
+IC   4906   	 ESO  142- 57  	PGC63849   	19 56 47.6	-60 28 05	12.50	V	 0.17
+NGC  6848   	 ESO  185- 52  	PGC64023   	20 02 47.0	-56 05 18	12.08	V	 0.15
+            	 ESO  185- 54  	PGC64041   	20 03 27.4	-55 56 51	11.30	V	 0.20
+IC   4991   	 ESO  340- 11  	PGC64450   	20 18 23.1	-41 03 01	11.56	V	 0.09
+            	 ESO  186- 36  	PGC64518   	20 21 18.9	-53 45 51	12.55	V	 0.15
+            	 ESO  234- 21  	PGC64628   	20 24 20.0	-49 41 04	12.69	V	 0.15
+IC   5041   	 ESO  463- 21  	PGC65258   	20 43 33.9	-29 42 16	12.58	V	 0.13
+NGC  6920   	 ESO   26-  4  	PGC65273   	20 43 56.6	-80 00 03	12.35	V	 0.13
+IC   5038   	 ESO  106- 12  	PGC65365   	20 46 51.3	-65 01 00	13.38	V	 0.13
+IC   5042   	 ESO  106- 13  	PGC65394   	20 47 46.2	-65 05 09	13.22	V	 0.13
+IC   5052   	 ESO   74- 15  	PGC65603   	20 52 06.3	-69 12 14	11.16	V	 0.15
+IC   5053   	 ESO   74- 18  	PGC65662   	20 53 36.2	-71 08 21	13.67	V	 0.13
+IC   5054   	 ESO   74- 19  	PGC65665   	20 53 45.2	-71 01 27	13.94	V	 0.13
+A   2100-48 	 ESO  235- 42  	PGC65997   	21 03 26.5	-48 12 12	13.10	V	 0.20
+NGC  7004   	 ESO  235- 46  	PGC66019   	21 04 02.1	-49 06 46	13.80	V	 0.20
+            	 ESO  235- 57  	PGC66101   	21 06 21.7	-48 10 09	13.46	V	 0.16
+A   2103-47 	 ESO  286- 49  	PGC66117   	21 06 47.9	-47 11 14	13.05	V	 0.13
+IC   5084   	 ESO  107-  7  	PGC66208   	21 09 14.1	-63 17 25	12.60	V	 0.14
+            	 ESO  342- 26  	PGC66467   	21 16 46.0	-42 15 38	12.96	V	 0.17
+            	 ESO  342- 27  	PGC66477   	21 16 55.0	-42 15 31	12.30	V	 0.30
+NGC  7057   	 ESO  287- 17  	PGC66708   	21 24 58.6	-42 27 39	12.60	V	 0.13
+NGC  7065A  	 MCG -1-54- 18 	PGC66774   	21 26 57.7	-07 01 20	13.10	V	 0.20
+            	 ESO   11-  3  	PGC67018   	21 35 33.0	-82 54 11	13.30	V	 0.20
+NGC  7123   	 ESO   75- 27  	PGC67466   	21 50 46.9	-70 20 04	12.22	V	 0.16
+IC   5157   	 ESO  404- 26  	PGC67941   	22 03 26.9	-34 56 28	12.70	V	 0.20
+NGC  7252   	 ESO  533- 15  	PGC68612   	22 20 44.9	-24 40 41	12.06	V	 0.13
+NGC  7404   	 ESO  346- 10  	PGC69964   	22 54 18.7	-39 18 55	12.75	V	 0.14
+IC   5267B  	 ESO  290- 27  	PGC70085   	22 56 56.7	-43 45 39	12.66	V	 0.13
+IC   5271   	 ESO  406- 34  	PGC70128   	22 58 02.1	-33 44 32	11.59	V	 0.13
+NGC  7443   	 MCG -2-58- 15 	PGC70218   	23 00 06.0	-12 48 00	12.57	V	 0.13
+NGC  7513   	 ESO  469- 22  	PGC70714   	23 13 13.4	-28 21 34	11.39	V	 0.14
+NGC  7676   	 ESO  148- 16  	PGC71564   	23 29 02.0	-59 43 04	12.49	V	 0.14
+NGC  7731   	 UGC 12737     	PGC72128   	23 41 29.2	+03 44 21	13.51	V	 0.13
+
