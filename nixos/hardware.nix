@@ -99,6 +99,12 @@ let
   # supersedes it. Raspbian gates the same overlay with a [cm4] config.txt
   # filter; the equivalent here is the per-DTB overlay list, because u-boot
   # picks the DTB from the board revision at boot.
+  #
+  # The overlay also disables uart1, the mini UART on GPIO14/15. The tree
+  # marks it okay and points stdout-path at it, so without this line the
+  # kernel registers it as ttyS0 and as the default console, and a later
+  # pinctrl change could make GPIO14 TXD again. The CM4 config.txt sets the
+  # pin to an input for U-Boot (flake.nix).
   gpioPoweroffDtbo = compileOverlay "gpio-poweroff" ''
     /dts-v1/;
     /plugin/;
@@ -110,6 +116,7 @@ let
         timeout-ms = <3000>;
       };
     };
+    &uart1 { status = "disabled"; };
   '';
 
   # Camera overlay from kernel's DTB overlays directory
@@ -181,10 +188,11 @@ in {
     # as a module; listing it here makes the dependency explicit)
     boot.kernelModules = [ "i2c-gpio" ];
 
-    # GPIO14 is the rev-4 power-off kill line (gpio-poweroff overlay above) —
-    # its default function is UART0 TXD, so nothing may drive serial console
-    # bytes onto it (ADR 0007). No console= kernel param points there, and this
-    # keeps a getty from ever claiming the port.
+    # GPIO14 is the rev-4 power-off kill line (gpio-poweroff overlay above).
+    # Its UART function is TXD, so nothing may drive serial console bytes onto
+    # it (ADR 0007). On the CM4 the firmware sets the pin to an input and the
+    # overlay disables uart1. No console= kernel param names a serial port
+    # (nixos/sd-image.nix), and this keeps a getty off the PL011.
     systemd.services."serial-getty@ttyAMA0".enable = false;
 
     # Apply all DT overlays via fdtoverlay, bypassing NixOS apply_overlays.py

@@ -103,7 +103,6 @@
           boot.loader.timeout = 0;
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
-        "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
         ./nixos/sd-image.nix
         ({ config, pkgs, lib, ... }: {
           # The lean image has an empty PiFinder_data: the app fetches
@@ -154,7 +153,6 @@
           boot.loader.timeout = 0;
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
-        "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
         ./nixos/sd-image.nix
         ({ config, pkgs, lib, ... }: {
           sdImage.populateRootCommands = ''
@@ -326,6 +324,16 @@
       arm_64bit=1
       enable_uart=1
       avoid_warnings=1
+
+      # Rev 4: GPIO14 is the power-off kill line (ADR 0007). enable_uart=1
+      # makes it UART TXD, and the first byte U-Boot prints cuts the power.
+      # U-Boot needs enable_uart=1 (arch/arm/mach-bcm283x/Kconfig), and its
+      # serial drivers check only GPIO15. So the firmware sets GPIO14 back to
+      # an input, with the same pull-up as the board, before U-Boot starts.
+      # U-Boot keeps a console, and no byte reaches the kill line. The kernel
+      # side is the uart1 entry in the CM4 overlay (nixos/hardware.nix).
+      [cm4]
+      gpio=14=ip,pu
     '';
 
     # FAT firmware partition payload, shared by the SD images and the
