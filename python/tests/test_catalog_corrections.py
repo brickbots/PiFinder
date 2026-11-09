@@ -263,6 +263,9 @@ def test_load_parses_values_into_reference_units(corrections_dir):
         (CITED + 'ra = 83.4\nwas.ra = "05 33 37"', "sexagesimal string"),
         (CITED + 'size = "2.5\'"\nwas.size = "150\\""', "corrects nothing"),
         (CITED + "mag = 4.0\nwas.mag = 4.04", "corrects nothing"),
+        (CITED + 'mag = ""\nwas.mag = ""', "corrects nothing"),
+        (CITED + 'obj_type = ""\nwas.obj_type = "Nb"', "not a type code"),
+        (CITED + 'description = ""\nwas.description = "F"', "non-empty string"),
         (CITED + 'same_as = "IC 2480"\nown_object = true', "contradict"),
         (CITED + "own_object = false", "can only be true"),
         (CITED + 'same_as = "IC 424"', "the designator itself"),
@@ -391,6 +394,27 @@ def test_mag_takes_a_number_or_a_range(db, corrections_dir):
     mag = json.loads(sky_object(db, "IC", 2480)["mag"])
     assert mag["mags"] == [4.86, 7.32]
     assert mag["filter_mag"] == pytest.approx(6.09)
+
+
+def test_a_magnitude_and_a_size_can_be_cleared(db, corrections_dir):
+    apply(
+        db,
+        corrections_dir,
+        '["M 82"]\n' + CITED + 'mag = ""\nwas.mag = 8.4\n'
+        'size = ""\nwas.size = "11.2\'x4.3\'"\n',
+    )
+    assert json.loads(sky_object(db, "M", 82)["mag"]) == {
+        "mags": [],
+        "filter_mag": 99,
+    }
+    assert json.loads(sky_object(db, "M", 82)["size"])["e"] == []
+
+
+def test_clearing_an_empty_field_is_redundant(db, corrections_dir):
+    problems = apply_fails(
+        db, corrections_dir, '["IC 424"]\n' + CITED + 'mag = ""\nwas.mag = 4.0\n'
+    )
+    assert 'mag is already ""; the correction is redundant' in problems
 
 
 def test_a_field_correction_reaches_the_sky_object_through_any_designator(

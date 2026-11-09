@@ -228,6 +228,17 @@ _EMPTY: Dict[str, Callable[[], Any]] = {
     "description": str,
 }
 
+# Fields a correction can clear, with `size = ""`: where a split or a moved
+# identification leaves a sky object holding another object's value, and no
+# source gives its own.
+_CLEARABLE = ("size", "mag")
+
+
+def _parse_value(field_name: str, value: Any) -> Any:
+    if value == "" and field_name in _CLEARABLE:
+        return _EMPTY[field_name]()
+    return _FIELD_PARSERS[field_name](value)
+
 
 def _parse_was(field_name: str, value: Any) -> Any:
     if value == "" and field_name in _EMPTY:
@@ -365,8 +376,8 @@ def _parse_correction(source_file: str, designator: str, table: Any) -> Correcti
     for field_name in FIELDS:
         if field_name in table:
             try:
-                correction.fields[field_name] = _FIELD_PARSERS[field_name](
-                    table[field_name]
+                correction.fields[field_name] = _parse_value(
+                    field_name, table[field_name]
                 )
             except ValueError as error:
                 problem(str(error))

@@ -77,6 +77,10 @@ If the field is empty in the database, write `was.<field> = ""`.
 | `mag` | a number, or a list for a variable's range | `11.4`, `[4.86, 7.32]` |
 | `description` | text; a multi-line string is fine | `"""…"""` |
 
+- `size` and `mag` can be cleared with `""`, for a sky object left holding
+  another object's value that no source replaces: the sky object a split
+  (`own_object`) copies from its old one, or the one a moved identification
+  leaves behind.
 - `ra` and `dec` take two or three parts, and only the last may have
   decimals. A bare number is refused, because it could be hours or degrees.
 - `size` is read by the loaders' own `parse_arcmin_size`, and must parse
