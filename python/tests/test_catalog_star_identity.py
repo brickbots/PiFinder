@@ -13,6 +13,7 @@ from PiFinder.catalog_imports import wds_loader
 from PiFinder.catalog_imports.corrections import CorrectionError
 from PiFinder.catalog_imports.star_identity import (
     Hipparcos,
+    apply_identifier_rules,
     apply_vetoes,
     cross_match,
     double_star_designation,
@@ -59,8 +60,10 @@ HIPPARCOS = hipparcos(
 
 @pytest.fixture
 def db(tmp_path):
-    # No listing's position is rounded unless a test says so.
+    # No loader records unless a test says so.
     ciu.STAND_IN_POSITIONS.clear()
+    ciu.SAC_SYSTEMS.clear()
+    ciu.SOURCE_DM_NUMBERS.clear()
     db = ObjectsDatabase(tmp_path / "objects.db")
     db.create_tables()
     for code in CODES:
@@ -315,6 +318,174 @@ def test_a_wds_designation_on_the_star_confirms(db):
 )
 def test_double_star_designation(name, designation):
     assert double_star_designation(name) == designation
+
+
+# --- Exact identifiers: for a star the position match leaves unmatched --------
+
+
+def identified(db, stars=HIPPARCOS, dm_numbers=None, systems=None):
+    """Each sky object's match after the identifier rules, and why not."""
+    star_objects = read_star_objects(
+        db.conn.cursor(), set(), dm_numbers or {}, systems or {}
+    )
+    found = cross_match(star_objects, stars)
+    apply_vetoes(star_objects, found, stars)
+    apply_identifier_rules(star_objects, found, stars)
+    return found
+
+
+# Mira, with its HD; a pair 15" apart, both in Hipparcos, for WDS and SAC.
+IDENTIFIED = hipparcos(
+    (10826, 34.8366, -2.9773, 6.47),
+    (59272, 182.0, 20.0, 6.81),
+    (59273, 182.0, 20.0 + 15 * ARCSEC, 6.65),
+    (1, 182.0, 20.0 + 1.0 * ARCMIN, 6.8),
+    numbers={
+        10826: {("HD", 14386)},
+        59272: {("HD", 105590), ("BD", "+", 20, 2700)},
+        59273: {("HD", 105591), ("BD", "+", 20, 2701)},
+        1: {("BD", "+", 20, 2702)},
+    },
+)
+
+
+def test_a_catalog_number_identifies_a_star_the_v_gate_turned_away(db):
+    # Mira's SAC red-star row gives its maximum, 2.0; its HD is Hipparcos's.
+    sar = add(db, "SaR", 82, "*", 34.825, -2.9833, mag=[2.0], names=["HD 14386"])
+    match = identified(db, IDENTIFIED)[sar]
+    assert (match.hip, match.rule) == (10826, "catalog number")
+
+
+def test_a_catalog_number_resolves_a_pair_the_position_cannot(db):
+    # RASC's STF 1604 row lies between the two components.
+    rds = add(
+        db, "RDS", 32, "D*", 182.0, 20.0 + 0.1 * ARCMIN, mag=[6.8], names=["HD 105590"]
+    )
+    assert identified(db, IDENTIFIED)[rds].hip == 59272
+
+
+def test_a_catalog_number_naming_a_far_star_is_a_slip(db):
+    # TU Gem's HD 42247 names a star 65° away: no match.
+    sar = add(db, "SaR", 147, "*", 100.0, 22.0, mag=[7.4], names=["HD 14386"])
+    assert identified(db, IDENTIFIED)[sar].hip is None
+
+
+def test_two_catalog_numbers_naming_two_stars_are_no_match(db):
+    sam = add(
+        db, "SaR", 1, "*", 182.0, 20.0, mag=[2.0], names=["HD 105590", "HD 105591"]
+    )
+    match = identified(db, IDENTIFIED)[sam]
+    assert match.hip is None and match.reason.startswith("rules disagree")
+
+
+def test_a_wds_dm_number_identifies_the_star_within_30_arcsec(db):
+    # WDS's DM column, which may be BD, CD or CPD; its V is another band's.
+    wds = add(db, "WDS", 1, "D*", 182.0, 20.0 + 10 * ARCSEC, mag=[9.5])
+    far = add(db, "WDS", 2, "D*", 182.0, 20.0 + 1.6 * ARCMIN, mag=[9.5])
+    found = identified(
+        db,
+        IDENTIFIED,
+        dm_numbers={("WDS", 1): ("+", 20, 2701), ("WDS", 2): ("+", 20, 2702)},
+    )
+    assert found[wds].hip == 59273
+    assert found[far].hip is None
+
+
+def test_a_wds_dm_number_never_overrides_an_arcsecond_position(db):
+    # θ¹ Ori's PTR 1 sits on one component while its DM names the other.
+    wds = add(db, "WDS", 1, "D*", 182.0, 20.0 + 1 * ARCSEC, mag=[9.5])
+    found = identified(db, IDENTIFIED, dm_numbers={("WDS", 1): ("+", 20, 2701)})
+    assert found[wds].hip is None
+
+
+def test_a_wds_designation_identifies_a_pairs_primary(db):
+    # SAC's STF 1604 row is ambiguous by position; WDS's listing sits on 59272.
+    sam = add(
+        db, "SaM", 661, "D*", 182.0, 20.0 + 0.1 * ARCMIN, mag=[6.8], names=["STF 1604"]
+    )
+    add(db, "WDS", 1, "D*", 182.0, 20.0 + 1 * ARCSEC, mag=[6.86], names=["STF1604"])
+    match = identified(db, IDENTIFIED)[sam]
+    assert (match.hip, match.rule) == (59272, "WDS designation")
+
+
+def test_a_wds_designation_still_needs_the_rows_v(db):
+    # θ¹ Ori's CF row (5.1) is not the WDS primary of STF 748 (6.71).
+    sam = add(
+        db, "SaM", 1, "D*", 182.0, 20.0 + 0.1 * ARCMIN, mag=[5.1], names=["STF 1604"]
+    )
+    add(db, "WDS", 1, "D*", 182.0, 20.0 + 1 * ARCSEC, mag=[6.86], names=["STF1604"])
+    assert identified(db, IDENTIFIED)[sam].hip is None
+
+
+def test_a_wds_listing_whose_dm_names_its_other_star_vouches_for_nothing(db):
+    # STF 1122: the position says one component, WDS's DM the other.
+    sam = add(
+        db, "SaM", 259, "D*", 182.0, 20.0 + 0.1 * ARCMIN, mag=[6.8], names=["STF 1604"]
+    )
+    add(db, "WDS", 1, "D*", 182.0, 20.0 + 1 * ARCSEC, mag=[6.86], names=["STF1604"])
+    found = identified(db, IDENTIFIED, dm_numbers={("WDS", 1): ("+", 20, 2701)})
+    assert found[sam].hip is None
+
+
+def test_rules_that_name_different_stars_are_no_match(db):
+    # Its HD names 59273, its WDS designation 59272.
+    sam = add(
+        db,
+        "SaM",
+        1,
+        "D*",
+        182.0,
+        20.0 + 0.1 * ARCMIN,
+        mag=[6.8],
+        names=["STF 1604", "HD 105591"],
+    )
+    add(db, "WDS", 1, "D*", 182.0, 20.0 + 1 * ARCSEC, mag=[6.86], names=["STF1604"])
+    match = identified(db, IDENTIFIED)[sam]
+    assert match.hip is None and match.reason.startswith("rules disagree")
+
+
+def test_a_sac_continuation_row_joins_its_systems_first_row(db):
+    # ν Sco's AC row gives no V; its AB row is the system's.
+    ab = add(db, "SaM", 1771, "D*", 200.98, 54.925, mag=[2.3, 6.8])
+    ac = add(db, "SaM", 1772, "D*", 200.98, 54.925)
+    found = identified(db, systems={("SaM", 1772): ("SaM", 1771)})
+    assert (found[ac].hip, found[ac].rule, found[ac].joined_to) == (
+        MIZAR,
+        "SAC system",
+        ab,
+    )
+    ciu.SAC_SYSTEMS[("SaM", 1772)] = ("SaM", 1771)
+    run(db)
+    assert object_of(db, "SaM", 1772) == object_of(db, "SaM", 1771) == ab
+
+
+def test_a_sac_system_is_one_sky_object_though_unmatched(db):
+    ab = add(db, "SaM", 1, "D*", 100.0, 10.0, mag=[9.0])
+    ac = add(db, "SaM", 2, "D*", 100.0, 10.0)
+    found = identified(db, systems={("SaM", 2): ("SaM", 1)})
+    assert found[ab].hip is None and found[ac].joined_to == ab
+    ciu.SAC_SYSTEMS[("SaM", 2)] = ("SaM", 1)
+    result = run(db)
+    assert object_of(db, "SaM", 2) == ab
+    assert result.hips == {} and result.merged_into == {ac: ab}
+
+
+def test_a_continuation_row_naming_another_star_stays_apart(db):
+    # STF 1830's rows: its own designation's WDS listing matched another star.
+    add(
+        db,
+        "SaM",
+        2058,
+        "D*",
+        182.0,
+        20.0 + 0.1 * ARCMIN,
+        mag=[6.8],
+        names=["HD 105590"],
+    )
+    cont = add(db, "SaM", 2059, "D*", 182.0, 20.0 + 0.1 * ARCMIN, names=["HD 105591"])
+    found = identified(db, IDENTIFIED, systems={("SaM", 2059): ("SaM", 2058)})
+    assert found[cont].hip is None and found[cont].joined_to is None
+    assert found[cont].reason.startswith("rules disagree")
 
 
 # --- The `hip` hook ------------------------------------------------------------

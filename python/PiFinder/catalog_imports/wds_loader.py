@@ -10,7 +10,9 @@ TODO:
 """
 
 import logging
+import re
 from pathlib import Path
+from typing import Optional, Tuple
 from tqdm import tqdm
 from collections import defaultdict
 
@@ -18,6 +20,7 @@ import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject, SizeObject
 from PiFinder.calc_utils import ra_to_deg, dms_to_dec
 from .catalog_import_utils import (
+    SOURCE_DM_NUMBERS,
     STAND_IN_POSITIONS,
     delete_catalog_from_database,
     insert_catalog,
@@ -155,6 +158,14 @@ def is_double_star_pair(value) -> bool:
     return bool(np.isnan(mag1) or mag2 - mag1 <= DOUBLE_MAX_DELTA_MAG)
 
 
+def wds_dm_number(raw: str) -> Optional[Tuple[str, int, int]]:
+    """WDS's DM column ("+38 3238") as (sign, zone, number), or None."""
+    match = re.fullmatch(r"([+-])\s*(\d+)\s+(\d+)", raw.strip())
+    if match is None:
+        return None
+    return match.group(1), int(match.group(2)), int(match.group(3))
+
+
 def describe_pair(value) -> str:
     """One pair's line of a WDS listing's description, without what WDS lacks."""
     components = value["Components"].strip()
@@ -288,6 +299,10 @@ def load_wds():
 
         # A listing none of whose pairs is a double star is a single star.
         result["obj_type"] = "D*" if double else "*"
+        # The primary's Durchmusterung number, which every row repeats.
+        result["dm"] = next(
+            (dm for dm in (wds_dm_number(v["DM_Number"]) for v in values) if dm), None
+        )
         result["discoverers"] = list(discoverers)
         result["name"] = key
         result["description"] = "\n".join(descriptions)
@@ -353,6 +368,8 @@ def load_wds():
     STAND_IN_POSITIONS.difference_update(
         {listing for listing in STAND_IN_POSITIONS if listing[0] == catalog}
     )
+    for listing in [listing for listing in SOURCE_DM_NUMBERS if listing[0] == catalog]:
+        del SOURCE_DM_NUMBERS[listing]
     seq = 1
     for key, value in tqdm(wds_dict.items(), total=len(wds_dict.items())):
         current_result = handle_multiples(key, value)
@@ -374,6 +391,8 @@ def load_wds():
         new_object.insert(find_object_id=False)
         if not current_result["precise"]:
             STAND_IN_POSITIONS.add((catalog, seq))
+        if current_result["dm"]:
+            SOURCE_DM_NUMBERS[(catalog, seq)] = current_result["dm"]
         seq += 1
 
     insert_catalog_max_sequence(catalog)
