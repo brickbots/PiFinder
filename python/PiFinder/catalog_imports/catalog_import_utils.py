@@ -80,6 +80,11 @@ SAC_SYSTEMS: Dict[Tuple[str, int], Tuple[str, int]] = {}
 # CPD. The star cross-match identifies a star by it (catalog.md §9.3).
 SOURCE_DM_NUMBERS: Dict[Tuple[str, int], Tuple[str, int, int]] = {}
 
+# Each star sky object's Hipparcos number, as the star-identity stage
+# identified it: the key the Hipparcos and WGSN supplementary sources join on
+# (catalog.md §9.4). The star-identity stage fills it.
+STAR_HIPS: Dict[int, int] = {}
+
 
 def fill_sky_object(
     conn: sqlite3.Connection,

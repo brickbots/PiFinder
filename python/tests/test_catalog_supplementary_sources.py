@@ -1,24 +1,37 @@
-"""Tests for the catalog import's supplementary sources: Bica et al. (2008)
-sizes and the RC3 extract's V magnitudes.
+"""Tests for the catalog import's supplementary sources: Hipparcos's star
+positions and V, the IAU WGSN's star names, Bica et al. (2008) sizes and the
+RC3 extract's V magnitudes.
 
 The rules run against a small objects DB and small VizieR responses built
 here, never the committed DB. See docs/ax/catalog.md section 9.4.
 """
 
+import csv
+import importlib.util
 import json
+from pathlib import Path
 
+import numpy as np
 import pytest
 
+import PiFinder.catalog_imports.catalog_import_utils as ciu
+import PiFinder.utils as utils
 from PiFinder.catalog_imports.main import SUPPLEMENTARY_SOURCES
+from PiFinder.catalog_imports.star_identity import Hipparcos
 from PiFinder.catalog_imports.steinicke_loader import NOT_FOUND_DESCRIPTION
 from PiFinder.catalog_imports.supplementary_sources import (
     BICA_PATH,
     RC3_PATH,
+    WGSN_PATH,
+    add_wgsn_names,
+    ascii_folded,
     fill_bica_sizes,
     ngc_ic_designation,
     read_bica,
     read_rc3_v_coded,
     read_vizier_tsv,
+    read_wgsn,
+    replace_hipparcos_values,
     replace_rc3_v_magnitudes,
 )
 from PiFinder.composite_object import MagnitudeObject, SizeObject
@@ -94,7 +107,7 @@ NGC_1745 = (73.5, -69.1875)  # 04 54 00, -69 11 15
 def db(tmp_path):
     db = ObjectsDatabase(tmp_path / "objects.db")
     db.create_tables()
-    for code in ("NGC", "IC", "Col"):
+    for code in ("NGC", "IC", "Col", "SaM", "Str", "TLK", "WDS"):
         db.insert_catalog(code, 10000, code)
     yield db
     db.conn.close()
@@ -124,6 +137,323 @@ def size_of(db, object_id):
 def mags_of(db, object_id):
     row = db.conn.execute("SELECT mag FROM objects WHERE id = ?", (object_id,))
     return MagnitudeObject.from_json(row.fetchone()["mag"]).mags
+
+
+# ---- Hipparcos: star positions and V ----
+
+VEGA, CASTOR, MIRA, EPS_AUR, NO_V = 91262, 36850, 10826, 23416, 1
+# (hip, ra, dec, V, V is the star's own, variability flag H6)
+HIPPARCOS_STARS = (
+    (VEGA, 279.23473, 38.78369, 0.03, True, 1),
+    (CASTOR, 113.64947, 31.88828, 1.58, False, 0),
+    (MIRA, 34.83663, -2.97764, 6.47, True, 3),
+    (EPS_AUR, 75.49222, 43.82331, 3.03, True, 2),
+    (NO_V, 0.00091, 1.08901, float("nan"), True, 0),
+)
+
+
+def hipparcos_stars(stars=HIPPARCOS_STARS):
+    hip, ra, dec, vmag, own, var = (np.array(column) for column in zip(*stars))
+    return Hipparcos(
+        hip=hip.astype(int),
+        ra=ra.astype(float),
+        dec=dec.astype(float),
+        vmag=vmag.astype(float),
+        var_flag=var.astype(int),
+        own_vmag=own.astype(bool),
+    )
+
+
+def position_of(db, object_id):
+    row = db.conn.execute(
+        "SELECT ra, dec, const FROM objects WHERE id = ?", (object_id,)
+    ).fetchone()
+    return row["ra"], row["dec"], row["const"]
+
+
+def test_hipparcos_replaces_position_and_the_primarys_v(db):
+    # SAC's Vega: 0.6, a minute off; the companion's 9.5 stays.
+    vega = add_object(
+        db, [("SaM", 1241, "")], "D*", position=(279.25, 38.8), mag=_mag(0.6, 9.5)
+    )
+    result = replace_hipparcos_values(db, {vega: VEGA}, hipparcos_stars())
+    assert position_of(db, vega)[:2] == (279.23473, 38.78369)
+    assert mags_of(db, vega) == [0.03, 9.5]
+    assert result.replaced == 1
+    assert result.magnitudes == [(vega, VEGA, 0.6, 0.03)]
+    [(object_id, hip, arcsec)] = result.moved
+    assert (object_id, hip) == (vega, VEGA)
+    assert arcsec == pytest.approx(72.7, abs=0.1)
+
+
+def test_hipparcos_recomputes_the_constellation(db):
+    # The fixture's sky objects say Dor; Vega's position is in Lyra.
+    vega = add_object(db, [("Str", 77, "")], "*", position=(279.2, 38.8), mag=_mag(0))
+    result = replace_hipparcos_values(db, {vega: VEGA}, hipparcos_stars())
+    assert position_of(db, vega)[2] == "Lyr"
+    assert result.constellations == [(vega, "Dor", "Lyr")]
+
+
+def test_hipparcos_fills_the_primarys_v_of_a_star_without_one(db):
+    vega = add_object(db, [("SaM", 1241, "")], "D*", position=(279.2, 38.8))
+    replace_hipparcos_values(db, {vega: VEGA}, hipparcos_stars())
+    assert mags_of(db, vega) == [0.03]
+
+
+def test_hipparcos_keeps_a_v_that_is_not_the_stars_own(db):
+    # Castor's 1.58 is A and B together: in A's place beside B it would
+    # count B twice. The position is replaced all the same.
+    castor = add_object(
+        db, [("SaM", 1, "")], "D*", position=(113.65, 31.9), mag=_mag(1.9, 2.9)
+    )
+    result = replace_hipparcos_values(db, {castor: CASTOR}, hipparcos_stars())
+    assert mags_of(db, castor) == [1.9, 2.9]
+    assert position_of(db, castor)[:2] == (113.64947, 31.88828)
+    assert result.not_own_v == [(castor, CASTOR)]
+    assert result.magnitudes == []
+
+
+def test_hipparcos_keeps_a_large_amplitude_variables_v(db):
+    # SAC gives Mira at its maximum, 2.0; Hipparcos's 6.47 is one value of
+    # a 2-10 mag swing.
+    mira = add_object(db, [("SaM", 465, "")], "*", position=(34.84, -2.98), mag=_mag(2))
+    result = replace_hipparcos_values(db, {mira: MIRA}, hipparcos_stars())
+    assert mags_of(db, mira) == [2.0]
+    assert result.large_amplitude == [(mira, MIRA)]
+
+
+def test_hipparcos_keeps_a_variables_range(db):
+    # TLK's [max, min] is a range, not a primary and a companion.
+    eps_aur = add_object(
+        db, [("TLK", 11, "")], "*", position=(75.49, 43.82), mag=_mag(2.9, 3.8)
+    )
+    result = replace_hipparcos_values(db, {eps_aur: EPS_AUR}, hipparcos_stars())
+    assert mags_of(db, eps_aur) == [2.9, 3.8]
+    assert result.kept_range == [eps_aur]
+
+
+def test_hipparcos_without_a_v_keeps_the_sources(db):
+    star = add_object(db, [("WDS", 1, "")], "*", position=(0.0, 1.09), mag=_mag(9.1))
+    result = replace_hipparcos_values(db, {star: NO_V}, hipparcos_stars())
+    assert mags_of(db, star) == [9.1]
+    assert result.no_v == [star]
+
+
+def test_hipparcos_touches_only_identified_stars(db):
+    # No new matching: a star sky object without a HIP keeps its values,
+    # even on a Hipparcos star's position.
+    vega = add_object(db, [("SaM", 1241, "")], "D*", position=(279.25, 38.8))
+    other = add_object(
+        db, [("SaM", 1242, "")], "D*", position=(279.23473, 38.78369), mag=_mag(0.6)
+    )
+    replace_hipparcos_values(db, {vega: VEGA}, hipparcos_stars())
+    assert position_of(db, other) == (279.23473, 38.78369, "Dor")
+    assert mags_of(db, other) == [0.6]
+
+
+def test_hipparcos_joins_the_hips_star_identity_recorded(db):
+    vega = add_object(db, [("SaM", 1241, "")], "D*", position=(279.25, 38.8))
+    ciu.STAR_HIPS.clear()
+    ciu.STAR_HIPS[vega] = VEGA
+    try:
+        replace_hipparcos_values(db, hipparcos=hipparcos_stars())
+    finally:
+        ciu.STAR_HIPS.clear()
+    assert mags_of(db, vega) == [0.03]
+
+
+# ---- IAU WGSN: star names ----
+
+WGSN_COLUMNS = [
+    "name",
+    "wgsn_id",
+    "designation",
+    "hip",
+    "bayer_id",
+    "constellation",
+    "adopted",
+]
+
+
+def write_wgsn(tmp_path, *rows):
+    """iau_csn.tsv with (name, HIP) rows; a HIP of None is blank."""
+    path = tmp_path / "iau_csn.tsv"
+    with open(path, "w", encoding="utf-8", newline="") as tsv:
+        writer = csv.writer(tsv, delimiter="\t", lineterminator="\n")
+        writer.writerow(WGSN_COLUMNS)
+        for name, hip in rows:
+            writer.writerow([name, "1", "HR 1", hip or "", "", "Sco", "2016/08/21"])
+    return path
+
+
+def star_with_names(db, *names, sequence=1):
+    object_id = add_object(db, [], "D*")
+    db.insert_catalog_object(object_id, "SaM", sequence, "")
+    for name in names:
+        db.insert_name(object_id, name, "SaM")
+    return object_id
+
+
+def names_of(db, object_id):
+    return [
+        (row["common_name"], row["origin"])
+        for row in db.conn.execute(
+            "SELECT common_name, origin FROM names WHERE object_id = ? ORDER BY id",
+            (object_id,),
+        )
+    ]
+
+
+def test_wgsn_name_becomes_the_preferred_name_and_old_names_stay(db, tmp_path):
+    acrab = star_with_names(db, "SaM 1768", "Beta Sco", "Graffias")
+    path = write_wgsn(tmp_path, ("Acrab", 78820))
+    result = add_wgsn_names(db, {acrab: 78820}, path)
+    assert names_of(db, acrab) == [
+        ("Acrab", "WGSN"),
+        ("SaM 1768", "SaM"),
+        ("Beta Sco", "SaM"),
+        ("Graffias", "SaM"),
+    ]
+    assert result.preferred == [("Acrab", acrab)]
+    assert result.added == ["Acrab"]
+
+
+def test_wgsn_name_the_star_has_moves_first(db, tmp_path):
+    vega = star_with_names(db, "SaM 1241", "Alpha Lyr", "Vega")
+    result = add_wgsn_names(db, {vega: VEGA}, write_wgsn(tmp_path, ("Vega", VEGA)))
+    assert names_of(db, vega) == [
+        ("Vega", "SaM"),
+        ("SaM 1241", "SaM"),
+        ("Alpha Lyr", "SaM"),
+    ]
+    assert result.preferred == [("Vega", vega)]
+    assert result.added == []
+
+
+def test_wgsn_spelling_with_diacritics_gets_an_ascii_alias(db, tmp_path):
+    star = star_with_names(db, "WDS 1")
+    result = add_wgsn_names(db, {star: 2}, write_wgsn(tmp_path, ("Mönch", 2)))
+    assert names_of(db, star) == [
+        ("Mönch", "WGSN"),
+        ("WDS 1", "SaM"),
+        ("Monch", "WGSN"),
+    ]
+    assert result.folded == [("Mönch", "Monch")]
+
+
+def test_wgsn_skips_and_counts_names_it_cannot_place(db, tmp_path):
+    star = star_with_names(db, "SaM 1", "Izar")
+    unidentified = star_with_names(db, "SaM 2", "Polaris", sequence=2)
+    path = write_wgsn(
+        tmp_path,
+        ("Mesarthim", None),  # no HIP
+        ("Polaris", 11767),  # a star PiFinder holds, but not identified
+        ("Pulcherrima", 72105),  # two names for one HIP, no component
+        ("Izar", 72105),
+    )
+    result = add_wgsn_names(db, {star: 72105}, path)
+    assert result.no_hip == ["Mesarthim"]
+    assert result.not_held == ["Polaris"]
+    assert result.shared_hip == ["Pulcherrima", "Izar"]
+    assert result.preferred == []
+    assert names_of(db, star) == [("SaM 1", "SaM"), ("Izar", "SaM")]
+    assert names_of(db, unidentified) == [("SaM 2", "SaM"), ("Polaris", "SaM")]
+
+
+def test_wgsn_notes_a_name_spelled_otherwise(db, tmp_path):
+    star = star_with_names(db, "SaM 1", "Zuben Elgenubi")
+    path = write_wgsn(tmp_path, ("Zubenelgenubi", 72622))
+    result = add_wgsn_names(db, {star: 72622}, path)
+    assert result.spellings == [("Zubenelgenubi", "Zuben Elgenubi")]
+    assert [name for name, _ in names_of(db, star)] == [
+        "Zubenelgenubi",
+        "SaM 1",
+        "Zuben Elgenubi",
+    ]
+
+
+def test_wgsn_notes_a_name_another_sky_object_has(db, tmp_path):
+    star = star_with_names(db, "Str 31")
+    other = star_with_names(db, "SaR 228", "Betelgeuse", sequence=2)
+    path = write_wgsn(tmp_path, ("Betelgeuse", 27989))
+    result = add_wgsn_names(db, {star: 27989}, path)
+    assert result.elsewhere == [("Betelgeuse", [other])]
+    assert names_of(db, other) == [("SaR 228", "SaM"), ("Betelgeuse", "SaM")]
+
+
+@pytest.mark.parametrize(
+    "name, folded",
+    [
+        ("Mönch", "Monch"),
+        ("Dhanuśarāgra", "Dhanusaragra"),
+        ("Batsũ̀", "Batsu"),
+        ("Uñallamacha", "Unallamacha"),
+        ("Vega", "Vega"),
+    ],
+)
+def test_ascii_folded(name, folded):
+    assert ascii_folded(name) == folded
+
+
+def test_read_wgsn(tmp_path):
+    names = read_wgsn(write_wgsn(tmp_path, ("Acrab", 78820), ("Mesarthim", None)))
+    assert [(name.name, name.hip) for name in names] == [
+        ("Acrab", 78820),
+        ("Mesarthim", None),
+    ]
+
+
+def _extract_module():
+    path = Path(utils.astro_data_dir) / "iau_wgsn" / "extract.py"
+    spec = importlib.util.spec_from_file_location("wgsn_extract", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_wgsn_extract_reads_the_catalog_table(tmp_path):
+    header = "".join(
+        f"<th class='sort'> {column}</th>"
+        for column in (
+            "proper names",
+            "NEC+",
+            "Designation",
+            "HIP",
+            "Bayer ID",
+            "Constellation",
+            "Origin",
+            "Date of Adoption",
+        )
+    )
+    page = tmp_path / "page.html"
+    page.write_text(
+        "<table id='other'><tbody><tr><td>not this</td></tr></tbody></table>"
+        f"<table id='table_1'><thead><tr>{header}</tr></thead><tbody>"
+        "<tr><td>M&ouml;nch</td><td>1</td><td>HD 1</td><td>30905</td>"
+        "<td>&alpha; X</td><td>Ari</td><td>long <b>text</b></td><td>2015/12/15</td></tr>"
+        "<tr><td>Krios</td><td>2</td><td>HD 240429</td><td></td>"
+        "<td></td><td>Cas</td><td></td><td>2026/01/01</td></tr>"
+        f"</tbody><tfoot><tr>{header}</tr></tfoot></table>",
+        encoding="utf-8",
+    )
+    tsv = tmp_path / "out.tsv"
+    assert _extract_module().extract(page, tsv) == 2
+    assert tsv.read_text(encoding="utf-8").splitlines() == [
+        "\t".join(WGSN_COLUMNS),
+        "Mönch\t1\tHD 1\t30905\tα X\tAri\t2015/12/15",
+        "Krios\t2\tHD 240429\t\t\tCas\t2026/01/01",
+    ]
+
+
+def test_vendored_wgsn_extract(tmp_path):
+    """iau_csn.tsv is extract.py's output for the vendored page, as committed."""
+    names = read_wgsn(WGSN_PATH)
+    assert len(names) == 652
+    assert sum(1 for name in names if name.hip is not None) == 579
+    tsv = tmp_path / "iau_csn.tsv"
+    _extract_module().extract(WGSN_PATH.with_name("modern-iau-star-names.html"), tsv)
+    assert tsv.read_bytes() == WGSN_PATH.read_bytes()
 
 
 # ---- reading VizieR responses ----
@@ -581,8 +911,11 @@ def test_rc3_reads_only_v_coded_rows(tmp_path):
 
 
 def test_supplementary_sources_are_registered_in_order():
-    """Sizes then magnitudes, each a function of the objects database."""
+    """Hipparcos values, WGSN names, Bica sizes, RC3 magnitudes (§9.1), each a
+    function of the objects database."""
     assert SUPPLEMENTARY_SOURCES == [
+        ("supplementary_sources", "replace_hipparcos_values"),
+        ("supplementary_sources", "add_wgsn_names"),
         ("supplementary_sources", "fill_bica_sizes"),
         ("supplementary_sources", "replace_rc3_v_magnitudes"),
     ]
