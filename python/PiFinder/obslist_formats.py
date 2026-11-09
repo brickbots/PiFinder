@@ -31,6 +31,7 @@ from PiFinder.calc_utils import (
     ra_to_hms_exact,
 )
 from PiFinder.composite_object import MagnitudeObject, SizeObject
+from PiFinder.designations import parse_designation
 
 
 # ── Data model ──────────────────────────────────────────────────────────
@@ -45,6 +46,9 @@ class ObsListEntry:
     dec: float  # Dec in degrees (-90 to +90), J2000
     obj_type: str = ""
     mag: MagnitudeObject = field(default_factory=lambda: MagnitudeObject([]))
+    # The PiFinder listing (catalog code and sequence) the entry names, or ""
+    # and 0. Readers fill it through _parse_catalog_name, so it is always a
+    # PiFinder catalog code and never a source spelling such as "Cr".
     catalog_code: str = ""
     sequence: int = 0
     description: str = ""
@@ -181,17 +185,29 @@ def _parse_dec_flexible(s: str) -> float:
 
 
 def _parse_catalog_name(name: str) -> tuple[str, int]:
-    """Extract catalog code and sequence from 'NGC 224' or 'NGC224' or 'Sh2 155'."""
-    name = name.strip()
-    # With space: "NGC 7640", "Sh2 155", "Messier 31"
-    match = re.match(r"([A-Za-z]+\d*[A-Za-z]*)\s+(\d+)$", name)
-    if match:
-        return match.group(1), int(match.group(2))
-    # No space: "NGC7640", "M31" — split at letter/digit boundary
-    match = re.match(r"([A-Za-z]+)(\d+)$", name)
-    if match:
-        return match.group(1), int(match.group(2))
-    return "", 0
+    """The PiFinder listing a designation names, as (catalog code, sequence).
+
+    "NGC 224", "NGC224", "Sh 2-155" and "Collinder 399" all parse. Returns
+    ("", 0) for a name that names no PiFinder listing: a common name, a
+    compound designation such as "M 2-9", or a bare double-star prefix such
+    as "H 24". It asks parse_designation, the parser the catalog import uses,
+    so an observing list and the import read a designation the same way.
+    """
+    parsed = parse_designation(name)
+    return parsed if parsed else ("", 0)
+
+
+def _parse_catalog_fields(code: str, sequence: int, name: str) -> tuple[str, int]:
+    """The listing named by a separate catalog and number field, else by name.
+
+    A CSV "CatalogCode" column or a NexTour category is the source's own
+    spelling ("Messier", "Cr"), so it goes through the same parser as a name.
+    """
+    if code and sequence:
+        parsed = _parse_catalog_name(f"{code} {sequence}")
+        if parsed[0]:
+            return parsed
+    return _parse_catalog_name(name)
 
 
 # ── Type mapping tables ─────────────────────────────────────────────────
@@ -240,14 +256,6 @@ for _k, _v in CELESTRON_TYPE_MAP.items():
     if _v not in CELESTRON_TYPE_MAP_INV:
         CELESTRON_TYPE_MAP_INV[_v] = _k
 
-SKYSAFARI_CATALOG_NAMES: dict[str, str] = {
-    "CAL": "C",
-    "COL": "Cr",
-}
-SKYSAFARI_CATALOG_NAMES_INV: dict[str, str] = {
-    v: k for k, v in SKYSAFARI_CATALOG_NAMES.items()
-}
-
 
 def _skylist_object_id(obj_type: str) -> str:
     if obj_type in ("*", "D*", "***"):
@@ -263,9 +271,10 @@ def _skylist_object_id(obj_type: str) -> str:
 def write_skylist(obs_list: ObsList) -> str:
     lines = ["SkySafariObservingListVersion=3.0"]
     for i, entry in enumerate(obs_list.entries):
-        cat = SKYSAFARI_CATALOG_NAMES.get(entry.catalog_code, entry.catalog_code)
         catalog_num = (
-            f"{cat} {entry.sequence}" if cat and entry.sequence else entry.name
+            f"{entry.catalog_code} {entry.sequence}"
+            if entry.catalog_code and entry.sequence
+            else entry.name
         )
         lines.extend(
             [
@@ -448,6 +457,7 @@ def read_csv(text: str) -> ObsList:
             sequence = int(seq_str)
         except ValueError:
             sequence = 0
+        catalog_code, sequence = _parse_catalog_fields(catalog_code, sequence, name)
 
         entries.append(
             ObsListEntry(
@@ -879,7 +889,9 @@ def _read_nextour_catalog_first(text: str) -> ObsList:
         except ValueError:
             obj_num = 0
 
-        catalog_code = category if category != "User" else ""
+        catalog_code, obj_num = _parse_catalog_fields(
+            category if category != "User" else "", obj_num, obj_name
+        )
         entries.append(
             ObsListEntry(
                 name=obj_name,

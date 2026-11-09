@@ -13,6 +13,11 @@ from dataclasses import dataclass, field
 from tqdm import tqdm
 
 from PiFinder.composite_object import MagnitudeObject, SizeObject
+from PiFinder.designations import (  # noqa: F401 -- re-exported for the loaders
+    CATALOG_CODE_ALIASES,
+    listing_named,
+    parse_designation,
+)
 from PiFinder import calc_utils
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
@@ -582,97 +587,6 @@ def add_space_after_prefix(s):
 def trim_string(s):
     """Remove extra whitespace from string"""
     return " ".join(s.split())
-
-
-# Designation prefixes that name a PiFinder catalog, keyed on the lowercase,
-# whitespace-free prefix as source catalogs write it. A prefix must be listed
-# here for an alias to link one object to another; every other designation is
-# kept as a plain name. The same catalog is spelled several ways across
-# sources, and SIMBAD writes Abell planetaries as "PN A66 nn".
-#
-# Deliberately absent:
-# - A bare "h". Herschel 400 uses catalog code "H", but "H 1-1" and similar
-#   names are Haro planetary nebulae, and a bare "H 12" can also be Hubble.
-# - A bare "a" or "b". Double-star sources use them for the discoverers
-#   Aitken and van den Bos ("A 58", "B 53"). A loader whose source means
-#   Abell or Barnard passes them as extra_aliases to parse_designation.
-# - "wds" and "pk". Their designations end in digits that are not a sequence
-#   ("WDS 00001+7508", "PK 120+09.1").
-CATALOG_CODE_ALIASES: Dict[str, str] = {
-    "abell": "Abl",
-    "abl": "Abl",
-    "pna66": "Abl",
-    "arp": "Arp",
-    "barnard": "B",
-    "c": "C",
-    "caldwell": "C",
-    "col": "Col",
-    "collinder": "Col",
-    "cr": "Col",
-    "egc": "EGC",
-    "har": "Har",
-    "herschel": "H",
-    "ic": "IC",
-    "lyn": "Lyn",
-    "m": "M",
-    "messier": "M",
-    "ngc": "NGC",
-    "rds": "RDS",
-    "saa": "SaA",
-    "sam": "SaM",
-    "sar": "SaR",
-    "sh2": "Sh2",
-    "sharpless": "Sh2",
-    "str": "Str",
-    "ta2": "Ta2",
-    "tlk": "TLK",
-}
-
-# A designation reads "<prefix><sequence>": the sequence is the trailing run of
-# digits, the prefix is everything before it.
-_DESIGNATION_RE = re.compile(r"(.*?)\s*(\d+)")
-
-
-def parse_designation(
-    raw: str, extra_aliases: Optional[Dict[str, str]] = None
-) -> Optional[Tuple[str, int]]:
-    """Split a source designation into a PiFinder catalog code and sequence.
-
-    "NGC 7008" -> ("NGC", 7008), "Sh 2-176" -> ("Sh2", 176),
-    "PN A66 80" -> ("Abl", 80).
-
-    Returns None when the designation names no PiFinder catalog. That covers
-    the planetary-nebula families whose numeric part is compound: "M 1-92"
-    (Minkowski), "H 3-29" (Haro), "K 2-1" (Kohoutek), "NGC 650-1" (the two
-    halves of M76). Those leave a prefix of "m1", "h3", "k2" or "ngc650",
-    none of which is a catalog, so they are rejected instead of being read as
-    Messier 92, Herschel 29, "K 21" or NGC 6501.
-
-    ``extra_aliases`` adds prefixes for one source, for example {"a": "Abl"}
-    for a source that writes Abell planetaries as "A 50".
-    """
-    match = _DESIGNATION_RE.fullmatch(trim_string(raw).lower())
-    if match is None:
-        return None
-    prefix, sequence = match.groups()
-    key = prefix.rstrip("-.").replace(" ", "")
-    catalog_code = CATALOG_CODE_ALIASES.get(key)
-    if catalog_code is None and extra_aliases:
-        catalog_code = extra_aliases.get(key)
-    if catalog_code is None:
-        return None
-    return catalog_code, int(sequence)
-
-
-def listing_named(name: str) -> Optional[Tuple[str, int]]:
-    """The listing a name resolves to in the loaders' lookup, or None.
-
-    parse_designation alone answers it, so its prefix allowlist governs every
-    lookup: "B53" and "h99" name no listing, though Barnard 53 and Herschel
-    400 #99 exist. ObjectFinder and the correction pass's checks
-    (corrections.resolves_to) both ask this, so they cannot disagree.
-    """
-    return parse_designation(name)
 
 
 def delete_catalog_from_database(catalog_code: str):
