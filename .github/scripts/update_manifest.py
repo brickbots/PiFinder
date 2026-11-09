@@ -187,9 +187,37 @@ def update_build(args: argparse.Namespace) -> None:
     save_manifest(args.manifest, manifest)
 
 
+def newest_migration(manifest: dict) -> tuple[str, str]:
+    """The migration_v2 keys of the newest release entry that has them.
+
+    One migration tarball serves many releases: at first boot it installs the
+    newest system in the manifest, not the release it was built with. A
+    release without its own tarball takes the newest one from stable or beta.
+    """
+    entries = [
+        item
+        for name in ("stable", "beta")
+        for item in manifest["channels"][name]
+        if item.get("migration_v2_url") and item.get("migration_v2_sha256_url")
+    ]
+    if not entries:
+        raise SystemExit(
+            "no release in the manifest has a migration tarball: "
+            "build one with this release"
+        )
+    newest = max(entries, key=lambda item: item.get("built_at") or "")
+    return newest["migration_v2_url"], newest["migration_v2_sha256_url"]
+
+
 def update_release(args: argparse.Namespace) -> None:
     manifest = load_manifest(args.manifest)
     caches, verify = resolve_verify(args)
+    if args.migration_from_manifest:
+        if args.migration_url or args.migration_sha256_url:
+            raise SystemExit(
+                "--migration-from-manifest cannot be used with --migration-url"
+            )
+        args.migration_url, args.migration_sha256_url = newest_migration(manifest)
     channel = "beta" if args.release_type == "beta" else "stable"
     entry = {
         "kind": "release",
@@ -257,6 +285,11 @@ def parser() -> argparse.ArgumentParser:
     release.add_argument("--store-path", required=True)
     release.add_argument("--migration-url")
     release.add_argument("--migration-sha256-url")
+    release.add_argument(
+        "--migration-from-manifest",
+        action="store_true",
+        help="take the migration tarball of the newest release that has one",
+    )
     release.add_argument("--title")
     release.add_argument("--notes")
     add_cache_args(release)
