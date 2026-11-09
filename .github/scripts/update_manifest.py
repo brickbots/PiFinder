@@ -14,8 +14,8 @@ STORE_PATH_RE = re.compile(r"^/nix/store/[a-z0-9]+-[A-Za-z0-9._+=?,-]+$")
 
 # The binary caches devices resolve upgrades from. A build is only advertised
 # as available once one of these actually serves its narinfo — see set_available.
-DEV_CACHE = "https://cache.pifinder.eu/pifinder"
-RELEASE_CACHE = "https://cache.pifinder.eu/pifinder-release"
+DEV_CACHE = "https://cache.pifinder.io/pifinder"
+RELEASE_CACHE = "https://cache.pifinder.io/pifinder-release"
 DEFAULT_CACHES = (DEV_CACHE, RELEASE_CACHE)
 EMPTY_MANIFEST = {
     "schema": 1,
@@ -201,8 +201,10 @@ def update_release(args: argparse.Namespace) -> None:
         "source_sha": args.sha,
         "version": args.version,
         "store_path": args.store_path or None,
-        "migration_url": args.migration_url or None,
-        "migration_sha256_url": args.migration_sha256_url or None,
+        # 2.6.x reads "migration_url" and must not find a tarball: its
+        # migration writes an ext4 root, and these builds need btrfs.
+        "migration_v2_url": args.migration_url or None,
+        "migration_v2_sha256_url": args.migration_sha256_url or None,
         "built_at": now_iso(),
     }
     set_available(entry, caches, verify)
