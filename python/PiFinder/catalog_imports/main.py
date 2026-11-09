@@ -141,7 +141,7 @@ def main():
             raise
 
     # Star identity: merge the star catalogs' listings by Hipparcos number,
-    # reading the `hip` corrections ahead of position (catalog.md §9.3).
+    # applying the `hip` corrections before the identifier rules (catalog.md §9.3).
     logging.info("Identifying stars...")
     identify_stars(objects_db, hip_identifications(corrections))
 
