@@ -696,6 +696,10 @@ def wds_pair(components="AB", notes="N", sep=1.9, mag1=3.5, mag2=6.2):
         # σ CMa's 14.2 at 11".
         (wds_pair(sep=284.4, mag1=2.0, mag2=9.7), False),
         (wds_pair(sep=11.1, mag1=3.5, mag2=14.2), False),
+        # Exactly 5 mag fainter passes, though 18.6 - 13.6 is
+        # 5.000000000000002 in floating point (WDS 02594+4847).
+        (wds_pair(sep=10.0, mag1=13.6, mag2=18.6), True),
+        (wds_pair(sep=10.0, mag1=13.6, mag2=18.61), False),
         (wds_pair(sep=np.nan), False),
         (wds_pair(mag2=np.nan), False),
         (wds_pair(mag1=np.nan, mag2=9.0), True),

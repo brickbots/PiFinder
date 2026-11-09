@@ -413,6 +413,11 @@ def test_load_wds_records_each_listings_dm_number(wds):
     [
         ("+38 3238", ("+", 38, 3238)),
         ("-00 6337", ("-", 0, 6337)),
+        ("-31  105", ("-", 31, 105)),
+        # A five-digit number runs into the zone (WDS 00002-2519).
+        ("-2616866", ("-", 26, 16866)),
+        ("+4213634", ("+", 42, 13634)),
+        ("-009-016", None),
         ("", None),
         (".", None),
     ],
