@@ -1,6 +1,6 @@
 # Corrections to the TLK 90 variable stars list (variables/).
 # See README.md in this directory for the format.
-# was values from a build of 6441f7cf3; refresh after PR 5b.
+# was values from a build of e95ddc069; refresh after PR 5b.
 
 ["TLK 15"]
 why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 41 (verified)."
@@ -18,9 +18,16 @@ sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2022552"]
 hip = 22552
 
 ["TLK 19"]
-why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 'La Superba' is HIP 62223."
-sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2062223"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: 'La Superba' is HIP 62223. TLK gives La Superba (Y CVn) a range of 7.4-10.0, which is photographic. Its V range is 4.86-7.32 (GCVS)."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2062223",
+    "GCVS B/gcvs via VizieR (Y CVn SRB 4.86-7.32 V)",
+    "Bright Star Catalogue V/50 via VizieR HR 4846 V 4.99",
+    "SIMBAD (sim-tap, V and otype)",
+]
 hip = 62223
+mag = [4.86, 7.32]
+was.mag = 4.8
 
 ["TLK 21"]
 why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: shares a name with SaR 49 (verified)."

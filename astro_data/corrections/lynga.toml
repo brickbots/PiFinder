@@ -1,0 +1,21 @@
+# Corrections to Lyngå's Catalogue of Open Cluster Data (lynga/).
+# See README.md in this directory for the format.
+# was values from a build of e95ddc069; refresh after PR 5b.
+
+["Lyn 919"]
+why = "Lyngå names this cluster 'NGC 6996', but its position, 20 56.5 +44 37, is NGC 6997's (Steinicke +44 39); NGC 6996 is 51' north. One cluster."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%206997",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%206996",
+]
+same_as = "NGC 6997"
+
+["Lyn 866"]
+why = "Lyngå names this cluster NGC 6846 and gives its RA, size and magnitude (14.2), but a declination of +30 21, two degrees south of NGC 6846's +32 20 56 (SIMBAD): a slip in Lyngå."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%206846"]
+same_as = "NGC 6846"
+
+["Lyn 639"]
+why = "Lyngå's 'Collinder 285', the Ursa Major Moving Group, at 14 40.9 +69 34 (SIMBAD C 1440+697 = Cl Collinder 285 follows it), and Collinder's own Col 285 at 12 03 +58 (the Big Dipper's core) are one group with two centres, 20 degrees apart (Rich's decision, #680)."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=C%201440%2B697"]
+same_as = "Col 285"

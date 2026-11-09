@@ -1,6 +1,6 @@
 # Corrections to the Saguaro Astronomy Club Red Stars list, version 2.0 (SAC_RedStars_Ver20).
 # See README.md in this directory for the format.
-# was values from a build of 6441f7cf3; refresh after PR 5b.
+# was values from a build of e95ddc069; refresh after PR 5b.
 
 ["SaR 110"]
 why = "SAC's position or magnitude is off, so the cross-match finds no star, or the wrong component. Evidence: Gacrux: SAC's V 3.6 against Hipparcos 1.59, 0.35′."

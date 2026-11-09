@@ -1,0 +1,11 @@
+# Corrections to the Caldwell catalog (caldwell.dat).
+# See README.md in this directory for the format.
+# was values from a build of e95ddc069; refresh after PR 5b.
+
+["C 41"]
+why = "caldwell.dat gives no designation for C 41, the Hyades ('none'), so no loader can join it to Collinder's Col 50 = Mel 25 at the same position: two objects one pixel apart."
+sources = [
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/addendum.csv",
+    "https://vizier.cds.unistra.fr/viz-bin/VizieR-3?-source=J/A%2BA/673/A114/clusters",
+]
+same_as = "Col 50"

@@ -1,6 +1,6 @@
 # Corrections to the Saguaro Astronomy Club Double Stars list, version 4.0 (SAC_Multistars_Ver40).
 # See README.md in this directory for the format.
-# was values from a build of 6441f7cf3; refresh after PR 5b.
+# was values from a build of e95ddc069; refresh after PR 5b.
 
 ["SaM 1211"]
 why = "The source's position is too far off for the star cross-match to find the star. Evidence: ξ¹ Lup, V 5.14 (SAC 5.3), the pair's primary (ξ² is HIP 78106); SAC's Dec is whole degrees off."
@@ -311,3 +311,141 @@ hip = 25050
 why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: Omicron Cet is HIP 10826."
 sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2010826"]
 hip = 10826
+
+["SaM 307"]
+why = "SAC names this row 'Beta1 Cas' and 'Caph', but at 00 52.8 +56 38 it is BU 1 (HD 5005, the Trapezium of NGC 281). Caph is beta Cas, at 00 09 +59 09."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HD%205005",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=bet%20Cas",
+    "https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt",
+]
+names.remove = ["Beta1 Cas", "Caph"]
+
+["SaM 1709"]
+why = "SAC names this row 'Kappa Pup' and 'Markeb', but it is k Pup (Roman k1/k2 Pup). Markeb is kappa Vel (IAU WGSN)."
+sources = [
+    "https://en.wikipedia.org/wiki/K_Puppis",
+    "https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt",
+]
+names.remove = ["Kappa Pup", "Markeb"]
+names.add = ["k Pup"]
+
+["SaM 1348"]
+why = "SAC names this row 'Nu Oph', but at 16 27.8 -08 22 it is upsilon Oph (HIP 80628): a nu/upsilon confusion."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=ups%20Oph"]
+names.remove = ["Nu Oph"]
+names.add = ["Upsilon Oph"]
+
+["SaM 2003"]
+why = "SAC names this row 'Omicron2 UMa' and 'Muscida', but at 09 10.4 +67 08 it is sigma2 UMa (STF 1306): a sigma/omicron confusion. Muscida is omicron UMa, at 08 30 +60 43."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=sig02%20UMa",
+    "https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt",
+]
+names.remove = ["Omicron2 UMa", "Muscida"]
+names.add = ["Sigma2 UMa"]
+
+["SaM 853"]
+why = "omicron2 Eri is right, but its name is Keid, which the sky object already carries from RASC; Beid is omicron1 Eri (IAU WGSN)."
+sources = ["https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt"]
+names.remove = ["Beid"]
+
+["SaM 860"]
+why = "SAC names this row '65 Eri', but STF 590 at 04 46 -08 48 is 55 Eri."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=55%20Eri"]
+names.remove = ["65 Eri"]
+names.add = ["55 Eri"]
+
+["SaM 835"]
+why = "SAC names this row 'Rho Eri' as well as 'p Eri', but at 01 39.8 -56 12 it is p Eri (DUN 5): Roman p read as Greek rho."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=p%20Eri"]
+names.remove = ["Rho Eri"]
+
+["SaM 1165"]
+why = "SAC names this row '33 Lib', but H N 28 at 14 57.5 -21 25 is Gliese 570 (KX Lib), '33 G. Librae', a Gould number. Flamsteed's 33 Lib is HIP 75848."
+sources = [
+    "https://en.wikipedia.org/wiki/Gliese_570",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=Gliese%20570",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=GJ%20570",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=33%20Lib",
+]
+names.remove = ["33 Lib"]
+names.add = ["Gliese 570"]
+
+["SaM 1771"]
+why = "SAC names nu Sco 'Lesath' (AB row) and 'Laseth' (AC and CD rows). nu Sco is Jabbah (IAU WGSN); Lesath is upsilon Sco, and 'Laseth' misspells it."
+sources = [
+    "https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt",
+    "https://en.wikipedia.org/wiki/Nu_Scorpii",
+]
+names.remove = ["Lesath", "Laseth"]
+names.preferred = "Jabbah"
+
+["SaM 1440"]
+why = "SAC's 'Hatsya' misspells iota Ori's IAU name, Hatysa."
+sources = [
+    "https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt",
+    "https://en.wikipedia.org/wiki/Iota_Orionis",
+]
+names.remove = ["Hatsya"]
+names.add = ["Hatysa"]
+
+["SaM 587"]
+why = "SAC's 'Ascellus Australis' misspells delta Cnc's IAU name, Asellus Australis."
+sources = ["https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt"]
+names.remove = ["Ascellus Australis"]
+names.add = ["Asellus Australis"]
+
+["SaM 1252"]
+why = "SAC names this row 'Zeta2 Lyr', but its 4.3/5.9 at 43.7\" is the zeta1-zeta2 Lyr pair with zeta1 (V 4.36) as primary."
+sources = [
+    "Bright Star Catalogue V/50 via VizieR HR 7056 zeta1 Lyr 4.36, HR 7057 zeta2 Lyr 5.73",
+    "WDS, wds_precise.txt as shipped in PiFinder astro_data/WDS (GSU/USNO, 2025-09) 18448+3736 STFA 38",
+]
+names.remove = ["Zeta2 Lyr"]
+names.add = ["Zeta1 Lyr"]
+
+["SaM 457"]
+why = "SAC's 'Burnham pm' on 38 Cet is a note (a Burnham proper-motion pair, BUP 18), not a name."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=38%20Cet"]
+names.remove = ["Burnham pm"]
+
+["SaM 1667"]
+why = "SAC's 'Al Rischa (Alrescha)' holds two spellings in one string; the IAU name is Alrescha."
+sources = ["https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt"]
+names.remove = ["Al Rischa (Alrescha)"]
+names.add = ["Alrescha"]
+
+["SaM 1521"]
+why = "SAC names xi Peg 'Menkib', which is xi Per's name (IAU WGSN). xi Peg's own IAU name, Tugongli (2026), is the WGSN supplementary source's to add."
+sources = ["https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt"]
+names.remove = ["Menkib"]
+
+["SaM 1633"]
+why = "SAC lists Fomalhaut as a double, so the D* rule types it D*. Its 14 mag companion at 30\" is See's lambda 478, which Burnham showed is a field star, and WDS has dropped it (Mamajek et al. 2013)."
+sources = [
+    "WDS, wds_precise.txt as shipped in PiFinder astro_data/WDS (GSU/USNO, 2025-09): 22577-2937 KAL 1, SHY 106, MAM 1 only",
+    "https://arxiv.org/pdf/1310.0764 (Mamajek et al. 2013, Fomalhaut C, section on See 1898)",
+    "https://en.wikipedia.org/wiki/Fomalhaut",
+]
+obj_type = "*"
+was.obj_type = "D*"
+
+["SaM 1745"]
+why = "SAC lists zeta Scl as a double, so the D* rule types it D*. Its only pair, B 631, is flagged X (dubious) in WDS."
+sources = [
+    "WDS, wds_precise.txt as shipped in PiFinder astro_data/WDS (GSU/USNO, 2025-09): 00023-2943 B 631 [NX]",
+    "SIMBAD (sim-tap, V and otype) (* zet Scl, SB*)",
+]
+obj_type = "*"
+was.obj_type = "D*"
+
+["SaM 1241"]
+why = "SAC lists Vega AB, so the D* rule types Vega D*. Its WDS companions are all field stars: H 5 39 AB 9.5 at 85\" (U, non-physical), STFB 9 AC 11.0 at 79\" and AE 9.5 at 83\" (S), and faint MET 11 stars, so to an observer it is a single star (the audit: * equally acceptable; planned in #683)."
+sources = [
+    "WDS, wds_precise.txt as shipped in PiFinder astro_data/WDS (GSU/USNO, 2025-09)",
+    "Hipparcos I/239 hip_main.dat (PiFinder astro_data), CCDM fields H55-H62",
+    "Bright Star Catalogue V/50 via VizieR",
+]
+obj_type = "*"
+was.obj_type = "D*"

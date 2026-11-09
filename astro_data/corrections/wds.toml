@@ -1,6 +1,6 @@
 # Corrections to the Washington Double Star Catalog (WDS).
 # See README.md in this directory for the format.
-# was values from a build of 6441f7cf3; refresh after PR 5b.
+# was values from a build of e95ddc069; refresh after PR 5b.
 
 ["WDS 24652"]
 why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: position within 0.1\"; WDS DM ('-', 4, 1145) differs from Hipparcos's (a WDS DM error)."

@@ -1,0 +1,56 @@
+# Corrections to the Collinder catalog (collinder.txt, collinder2.txt).
+# See README.md in this directory for the format.
+# was values from a build of e95ddc069; refresh after PR 5b.
+
+["Lyn 855"]
+why = "collinder.txt places Collinder 401 at -00 20, 39' from SIMBAD's +00 19 00, so Lyngå's Lyn 855, which names it 'Collinder 401' and lies at +00 20, could not join it. One cluster."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=Cl%20Collinder%20401"]
+same_as = "Col 401"
+
+["Col 401"]
+why = "collinder.txt has -00 20; SIMBAD has Collinder 401 at 19 38 24.0 +00 19 00, and Lyngå (Lyn 855, which names it 'Collinder 401') at +00 20, whose B1950 +00 13 precesses to that."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=Cl%20Collinder%20401"]
+dec = "+00 19 00"
+was.dec = "-00 20 00.0"
+
+["Lyn 829"]
+why = "collinder.txt places Collinder 394 45.8' too far south (-20 59 28; SIMBAD -20 13 44), so Lyngå's Lyn 829, which names it 'Collinder 394', could not join it. One cluster."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=Cl%20Collinder%20394"]
+same_as = "Col 394"
+
+["Col 394"]
+why = "collinder.txt has -20 59 28, 45.8' south of SIMBAD's 18 52 22.1 -20 13 44 (Tarricq et al. 2021); its RA is right."
+sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=Cl%20Collinder%20394"]
+dec = "-20 13 44"
+was.dec = "-20 59 28.0"
+
+["Col 8"]
+why = "Collinder gives IC 1590 30'x25', which now fills the sky object's missing size. Corwin: 6'x4', the cluster involved in NGC 281; Dias 4'."
+sources = [
+    "Corwin, IC notes (IC 1590)",
+    "Dias+ 2002",
+    "Kharchenko+ 2013 MWSC",
+]
+size = "6'x4'"
+was.size = "30'x25'"
+
+["Col 417"]
+why = "Collinder's 8.1 for Col 417 = NGC 6885 = C 37 fills the cluster's missing magnitude, since Collinder loads before Caldwell. The cluster is about 5.7-5.9 (caldwell.dat 5.9)."
+sources = [
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "https://github.com/mattiaverga/OpenNGC/blob/master/database_files/NGC.csv",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%206885",
+    "https://en.wikipedia.org/wiki/Caldwell_catalogue",
+]
+mag = 5.9
+was.mag = 8.1
+
+["NGC 457"]
+why = "collinder2.txt gives NGC 457 the one name 'Owl or E.T. Cluster', which is two names in one string; the sky object already carries 'The Owl Cluster' (TAAS)."
+sources = ["https://en.wikipedia.org/wiki/NGC_457"]
+names.remove = ["Owl or E.T. Cluster"]
+
+["IC 2602"]
+why = "collinder2.txt's 'Theta Carinae Cluster, Southern Pleiades' is two names in one string; the sky object already carries 'Southern Pleiades'."
+sources = ["https://en.wikipedia.org/wiki/IC_2602"]
+names.remove = ["Theta Carinae Cluster, Southern Pleiades"]
