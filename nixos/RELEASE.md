@@ -50,12 +50,13 @@ Devices also use `cache.nixos.org` for paths that nixpkgs builds.
    branch with `nixos`:
 
    ```sh
-   for f in .github/workflows/release.yml .github/scripts/update_manifest.py .github/scripts/publish_manifest.sh; do
-     diff <(jj file show -r ci/btrfs-migration-release@upstream "$f") <(jj file show -r nixos "$f")
-   done
+   git fetch https://github.com/brickbots/PiFinder.git ci/btrfs-migration-release && ci=$(git rev-parse FETCH_HEAD)
+   git fetch https://github.com/mrosseel/PiFinder.git nixos && nixos=$(git rev-parse FETCH_HEAD)
+   git diff --stat "$ci" "$nixos" -- .github/workflows/release.yml \
+     .github/scripts/update_manifest.py .github/scripts/publish_manifest.sh
    ```
 
-   If they are different, add a commit to the CI branch that copies them.
+   No output means that the files are the same. If they are different, add a commit to the CI branch that copies them.
    Push it as a fast-forward. Never force-push.
 5. Set `new_migration_tarball` only when the migration must change. See
    [When a new tarball is needed](#when-a-new-tarball-is-needed). When it is
@@ -185,8 +186,40 @@ and a rev 4 (CM4) before the manifest names it.
 - **The manifest marks an entry available only when the cache serves its
   narinfo.** A failed Attic push gives `available: false`, and 2.6.4 skips
   that entry.
-- **Read the live manifest.** A local `jj` copy of `nixos-manifest@upstream`
-  can be older than the last release.
+- **Read the live manifest.** A local copy of the `nixos-manifest` branch can
+  be older than the last release. Use the raw URL in
+  [Start a release](#start-a-release).
+- **The initrd module list is forced.** `flake.nix` sets
+  `boot.initrd.availableKernelModules` with `lib.mkForce`. This also removes
+  the modules that NixOS modules add, for example the btrfs checksum modules.
+  When a kernel update changes a built-in driver to a module, stage 1 does not
+  have it. Kernel 6.18 did this to `crc32c`, and the root did not mount. Add
+  each module that stage 1 needs to that list.
+
+## Kernel and package updates
+
+The kernel is the Raspberry Pi vendor kernel. Its tag and hash are fixed in
+`nixos/pkgs/pifinder-kernel.nix`, so it changes only when that file changes.
+An update of `nixos-hardware` does not change it. An update of nixpkgs
+rebuilds it with the new compiler, at the same version.
+
+To update the kernel:
+
+1. Find the newest `stable_YYYYMMDD` tag of `raspberrypi/linux`.
+2. Set `tag` and `modDirVersion` in `pifinder-kernel.nix`. `modDirVersion` is
+   `VERSION.PATCHLEVEL.SUBLEVEL` from the `Makefile` of that tag.
+3. Get the hash:
+   `nix store prefetch-file --unpack https://github.com/raspberrypi/linux/archive/refs/tags/<tag>.tar.gz`.
+4. Check that `nixos/patches/imx290-optical-black-stream.patch` applies, and
+   that the camera overlays are in the new source.
+5. Open a PR with the `testable` label. CI compiles the kernel and pushes it to
+   Attic.
+6. Run the migration simulation. It also boots the full system with the new
+   initrd.
+7. Test the camera, GPS, display and keypad on a Pi 4 and a rev 4.
+
+To update nixpkgs: `nix flake update nixpkgs`, then steps 5 to 7.
+`nixos-hardware` follows our nixpkgs, so the lock has only one nixpkgs.
 
 ## Tests
 
