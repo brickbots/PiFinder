@@ -1,6 +1,6 @@
 # Corrections to Steinicke's Revised NGC and IC, NI2023 (ngc_ic_m/steinicke).
 # See README.md in this directory for the format.
-# was values from a build of e95ddc069; refresh after PR 5b.
+# was values from a build of 4da2a0a2b.
 
 ["NGC 2034"]
 why = "Bica 2008 classes it a plain association (A, in LH84) with no nebula, and SIMBAD As*; Steinicke's OCL+EN adds a nebula that is not there."

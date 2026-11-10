@@ -1,8 +1,8 @@
 # Corrections to the RASC Observer's Handbook double stars (RASC_DoubleStars).
 # See README.md in this directory for the format.
-# was values from a build of e95ddc069; refresh after PR 5b.
+# was values from a build of 4da2a0a2b.
 
 ["RDS 69"]
-why = "The row's catalog number names no Hipparcos star, so the designation check vetoes the match, though WDS confirms the star. Evidence: WDS STF2486 lies 0.00' from the star."
+why = "The row's catalog number names no Hipparcos star, so the designation check vetoes the match, though WDS confirms the star. Evidence: WDS STF2486 lies 0.00' from HIP 94336; V 5.8 fits HIP 94336 5.85, no other star within 3' does."
 sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2094336"]
 hip = 94336

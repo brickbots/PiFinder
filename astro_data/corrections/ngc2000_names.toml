@@ -1,6 +1,6 @@
 # Corrections to NGC 2000.0's names file (ngc_ic_m/ngc2000/names.dat; Sinnott 1988, CDS VII/118).
 # See README.md in this directory for the format.
-# was values from a build of e95ddc069; refresh after PR 5b.
+# was values from a build of 4da2a0a2b.
 
 ["M 82"]
 why = "NGC 2000.0's names.dat gives 'Bode's nebulae', the name of the M 81/M 82 pair, to M 82 alone. M 82 is the Cigar Galaxy, which messier_names.dat already puts first."

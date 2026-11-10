@@ -1,6 +1,6 @@
 # Corrections to Lyngå's Catalogue of Open Cluster Data (lynga/).
 # See README.md in this directory for the format.
-# was values from a build of e95ddc069; refresh after PR 5b.
+# was values from a build of 4da2a0a2b.
 
 ["Lyn 919"]
 why = "Lyngå names this cluster 'NGC 6996', but its position, 20 56.5 +44 37, is NGC 6997's (Steinicke +44 39); NGC 6996 is 51' north. One cluster."
