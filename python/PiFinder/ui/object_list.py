@@ -13,6 +13,7 @@ import os
 import functools
 from functools import cache
 import math as math
+import re
 
 from PIL import Image, ImageChops
 from itertools import cycle
@@ -27,7 +28,8 @@ from PiFinder.calc_utils import aim_degrees
 from PiFinder import utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.nearby import Nearby
-from PiFinder.catalogs import CatalogState
+from PiFinder.catalogs import CatalogState, default_display_mode_for
+from PiFinder.designations import parse_designation
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     name_deduplicate,
@@ -64,6 +66,27 @@ class SortOrder(Enum):
 # Sentinel for "the Nearby spatial index has never been built". A plain None
 # can't serve: it is a legitimate dirty_time when no filter is configured.
 _NEARBY_INDEX_UNBUILT = object()
+
+
+# PiFinder's own WDS listing ("WDS 4631") and the WDS coordinate designation
+# ("WDS J00568+3830"). parse_designation reads neither: "wds" is not a
+# catalog code alias.
+_WDS_LISTING_RE = re.compile(r"wds\s*\d+", re.IGNORECASE)
+_WDS_COORDINATE_RE = re.compile(r"wds\s*j", re.IGNORECASE)
+
+
+def _name_group(name: str) -> int:
+    """
+    Where a name goes in the NAME-mode text: 0 for a real name ("Mu And",
+    "h 1057", "HD 208526"), 1 for a PiFinder catalog designation ("SaM 25",
+    "M15", "WDS 4631"), 2 for a WDS coordinate designation.
+    """
+    name = name.strip()
+    if _WDS_COORDINATE_RE.match(name):
+        return 2
+    if _WDS_LISTING_RE.fullmatch(name) or parse_designation(name) is not None:
+        return 1
+    return 0
 
 
 def _sort_order_label(sort_order: "SortOrder") -> str:
@@ -138,8 +161,7 @@ class UIObjectList(UITextMenu):
         self._nearby_index_key: Any = _NEARBY_INDEX_UNBUILT
 
         # Init display mode defaults
-        self.mode_cycle = cycle(DisplayModes)
-        self.current_mode = next(self.mode_cycle)
+        self._init_display_mode()
 
         # Initialize sort default
         self.sort_cycle = cycle(SortOrder)
@@ -211,6 +233,28 @@ class UIObjectList(UITextMenu):
         # need to get the object list always
         self.refresh_object_list(force_update=True)
         self.nearby = Nearby(self.shared_state)
+
+    def _init_display_mode(self) -> None:
+        """
+        Start in the default display mode of the list's catalog: NAME for
+        catalogs whose objects go by name (planets, stars, doubles), LOCATE
+        for the others and for lists that mix catalogs. The cycle is advanced
+        to that mode, so SQUARE goes on to the next mode in the usual order.
+        """
+        start_mode = DisplayModes.LOCATE
+        if self.item_definition.get("objects") == "catalog":
+            catalog_code = self.item_definition.get("value", "")
+            catalog = self.catalogs.get_catalog_by_code(catalog_code)
+            start_mode = DisplayModes[
+                catalog.default_display_mode
+                if catalog is not None
+                else default_display_mode_for(catalog_code)
+            ]
+
+        self.mode_cycle = cycle(DisplayModes)
+        self.current_mode = next(self.mode_cycle)
+        while self.current_mode != start_mode:
+            self.current_mode = next(self.mode_cycle)
 
     def refresh_object_list(self, force_update=False):
         """
@@ -436,9 +480,16 @@ class UIObjectList(UITextMenu):
             return int(255 + ((125 - 255) / (16 - 9)) * (mag - 9))
 
     def create_name_text(self, obj: CompositeObject) -> str:
+        """
+        The NAME-mode text: real names first, then PiFinder catalog
+        designations, then WDS coordinate designations. The names table
+        often puts designations first ("SaM 25, Mu And" on SaM 26); the
+        observer looks for the name. The order inside each group is kept, and
+        the row's own designation is left out.
+        """
         dedups = name_deduplicate(obj.names, [f"{obj.catalog_code}{obj.sequence}"])
-        result = ", ".join(dedups)
-        return result
+        # sorted() is stable, so each group keeps the names table's order.
+        return ", ".join(sorted(dedups, key=_name_group))
 
     # Use 3-letter abbreviations for planets instead of PL1, PL2, etc.
     # Falls back to full name if planet is not in the dictionary.
