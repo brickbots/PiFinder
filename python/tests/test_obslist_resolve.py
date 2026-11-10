@@ -119,12 +119,12 @@ class TestReadListErrorHandling:
 
         resolved = SimpleNamespace(list_descriptions={})
 
-        def fake_resolve(catalog_numbers, catalogs):
-            if "NGC 224" in catalog_numbers:
+        def fake_resolve(entry, catalogs):
+            if entry.name == "NGC 224":
                 raise RuntimeError("bad row")
             return resolved
 
-        monkeypatch.setattr(obslist, "resolve_object", fake_resolve)
+        monkeypatch.setattr(obslist, "resolve_entry", fake_resolve)
 
         result = obslist.read_list(catalogs=None, name="Mixed.skylist")
 
@@ -143,10 +143,10 @@ class TestReadListErrorHandling:
         )
         monkeypatch.setattr(obslist, "formats_read_file", lambda path: obs_list)
 
-        def fake_resolve(catalog_numbers, catalogs):
+        def fake_resolve(entry, catalogs):
             raise RuntimeError("catalog db gone")
 
-        monkeypatch.setattr(obslist, "resolve_object", fake_resolve)
+        monkeypatch.setattr(obslist, "resolve_entry", fake_resolve)
 
         result = obslist.read_list(catalogs=None, name="AllBad.skylist")
 

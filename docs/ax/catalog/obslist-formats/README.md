@@ -173,9 +173,12 @@ decimal as hours instead. The hint only affects a bare decimal — the colon and
 sexagesimal forms are already in hours.
 
 **Resolution.** A CSV list carries no special flag; its entries resolve through
-the normal path (`obslist.py`): a `Name` that matches a catalog designation
-resolves to that catalog object, otherwise the row's own coordinates become an
-OBS target. Name lookup runs through the shared `ui_utils.normalize` (case-,
+the normal path (`obslist.py`): a `CatalogCode` + `Sequence` pair, or a `Name`,
+that the designation parser reads (`designations.parse_designation`, shared
+with the catalog import) resolves to that catalog object; then a `Name` that
+matches a catalog object's name; otherwise the row's own coordinates become an
+OBS target. A bare `H`, `h`, `A` or `B` designation (`H 24`) is a double star
+in some sources, so it never resolves by catalog or by name. Name lookup runs through the shared `ui_utils.normalize` (case-,
 space- and hyphen-insensitive, plus constellation-genitive folding), so `M 3`,
 `M3` and `NGC 224` all match regardless of how the catalog stores them. To force
 coordinates for an otherwise-matchable name, use a non-designation label (e.g.
