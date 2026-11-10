@@ -298,9 +298,6 @@ same flake dev shell but filters large runtime data out of the source copied to
 the Nix store. This keeps direnv reloads quick; manual ``nix develop`` and CI
 still evaluate the flake directly.
 
-You still need to fetch the Tetra3 submodule once; see
-`Install the Tetra3/Cedar solver`_ below.
-
 
 Hipparcos catalog
 .................
@@ -320,21 +317,29 @@ Install the Tetra3/Cedar solver
 The `Tetra3 Solver <https://github.com/esa/tetra3>`_ is a "fast lost-in-space
 plate solver for star trackers written in Python". It is the next gen solver, that PiFinder uses.
 
-This is set up as a git submodule and you will need to initialize it using the following
-command from with your checked out repo
-
-.. code-block::
-
-    git submodule update --init --recursive
+It is an ordinary Python dependency (``cedar-solve``, pinned in
+``python/pyproject.toml``), so the dev shell already includes it.
 
 Code Quality Automation
 -----------------------
 
 PiFinder uses Ruff for linting and formatting, MyPy for type checking, and
-PyTest for the test suite. They all come with the dev shell, so inside
-``nix develop`` you run them directly from the ``python`` directory. Every push
-and pull request runs the same commands in CI, so it's worth running them
-locally before you open a PR.
+PyTest for the test suite. They all come with the dev shell, with the versions
+pinned in ``python/uv.lock``. Inside ``nix develop`` you can run them directly
+from the ``python`` directory.
+
+``python/scripts/check.sh`` runs all the checks. It enters the dev shell by
+itself when needed. CI and the pre-commit hooks run this same script, so run it
+before you open a PR. From ``python/``:
+
+.. code-block::
+
+    scripts/check.sh          # lint, types, smoke, unit and integration
+    scripts/check.sh lint     # one stage: lint, format, types, smoke, unit, integration
+
+Do not use ``uv sync`` or ``uv run`` to make a separate ``.venv``. It installs
+manylinux wheels instead of the Nix environment, and on NixOS those wheels fail
+to load ``libstdc++``.
 
 Linting and formatting
 ......................
@@ -358,7 +363,7 @@ annotated. From ``python/``:
 
 .. code-block::
 
-    mypy .
+    mypy PiFinder
 
 If you've not worked with type hints before we'll help you out, so feel free to
 open a PR for non-type-hinted code and we can collaborate.
@@ -380,7 +385,7 @@ There is also a UI smoke harness that builds every screen through a real
 ``pytest tests/test_ui_modules.py``. It builds the real catalogs and may
 download ``hip_main.dat`` on first run, so it's heavier than the unit suite.
 
-Smoke and unit tests run in CI on every push. The web tests need extra setup —
+Smoke, unit and integration tests run in CI on every push. The web tests need extra setup —
 a Selenium Grid and a running PiFinder web server — described next.
 
 Website Tests

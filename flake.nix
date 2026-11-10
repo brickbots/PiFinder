@@ -405,6 +405,17 @@
         | zstd -T0 -19 -o $out/pifinder-migration.tar.zst
     '';
 
+    # Every tool in the dev shell, ruff included, comes from python/uv.lock
+    # through uv2nix. uv stays available to edit the lock, but it must not
+    # build its own .venv of wheels next to the Nix environment.
+    uvShellEnv = pyPkgs: ''
+      export PIFINDER_DEV_SHELL=1
+      export UV_NO_SYNC=1
+      export UV_PROJECT_ENVIRONMENT="${pyPkgs.devEnv}"
+      export UV_PYTHON="${pyPkgs.devEnv}/bin/python"
+      export UV_PYTHON_DOWNLOADS=never
+    '';
+
     # Reproducible development environment for both desktop Linux and the
     # aarch64 PiFinder itself. Runtime-native bindings come from Nix, just as
     # they do in the systemd service; uv supplies the locked Python workspace.
@@ -429,7 +440,6 @@
       packages = [
         pyPkgs.devEnv
         pkgs.bashInteractive
-        pkgs.ruff
         pkgs.uv
         pkgs.git
         pkgs.rsync
@@ -440,6 +450,7 @@
         cedar-detect
       ];
       shellHook = ''
+        ${uvShellEnv pyPkgs}
         export PYTHONPATH="${pkgs.libcamera}/lib/python3.13/site-packages:$PYTHONPATH"
         export GI_TYPELIB_PATH="${pkgs.lib.makeSearchPath "lib/girepository-1.0" [
           pkgs.networkmanager
@@ -516,7 +527,8 @@
       };
       cedar-detect = import ./nixos/pkgs/cedar-detect.nix { inherit pkgs; };
     in pkgs.mkShell {
-      packages = [ pyPkgs.devEnv pkgs.ruff pkgs.uv cedar-detect ];
+      packages = [ pyPkgs.devEnv pkgs.uv cedar-detect ];
+      shellHook = uvShellEnv pyPkgs;
     };
   };
 }

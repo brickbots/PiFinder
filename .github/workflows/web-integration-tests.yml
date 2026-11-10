@@ -15,47 +15,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.9.25
-        uses: actions/setup-python@v5
+      # The same flake dev shell as the nox workflow and the developers. The
+      # runner's preinstalled Chrome drives the --local WebDriver.
+      - uses: DeterminateSystems/nix-installer-action@main
         with:
-          python-version: '3.9.25'
+          determinate: false
+          extra-conf: |
+            extra-substituters = https://cache.pifinder.io/pifinder
+            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
 
-      - name: Create virtual environment and install dependencies
-        working-directory: python
-        run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements_dev.txt
+      - name: Build dev shell
+        run: nix develop .#default -c true
 
       - name: Use webserver log configuration
         working-directory: python
         run: |
           ln -s logconf_webserver.json pifinder_logconf.json
-
-      - name: Initialize tetra3
-        working-directory: python
-        run: |
-          git submodule sync
-          git submodule update --init --recursive
-          # The python/tetra3 -> PiFinder/tetra3/tetra3 symlink is tracked in
-          # the repo, so it no longer needs to be created here.
-
-      - name: Use cache of hip_main.dat star catalog
-        
-        id: cache-hip-main
-        uses: actions/cache@v4
-        with:
-          path: astro_data/hip_main.dat
-          key: hip_main-dat-v1
-          # Bump this key, to force redownloading the catalog if it changes or if we want to refresh the cache
-
-      - name: Download hip_main.dat star catalog
-        if: steps.cache-hip-main.outputs.cache-hit != 'true'
-        run: |
-          wget -q -O astro_data/hip_main.dat \
-            https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
 
       - name: Set up PiFinder_data directory
         run: |
@@ -66,8 +41,8 @@ jobs:
       - name: Start PiFinder with fake hardware
         working-directory: python
         run: |
-          source .venv/bin/activate
-          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m PiFinder.main -fh --camera debug --keyboard local \
+          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy nix develop ..#default -c \
+            python -m PiFinder.main -fh --camera debug --keyboard local \
             > /tmp/pifinder.log 2>&1 &
           echo $! > /tmp/pifinder.pid
           echo "PiFinder started with PID $(cat /tmp/pifinder.pid)"
@@ -95,8 +70,7 @@ jobs:
         env:
           PIFINDER_HOMEPAGE: http://localhost:8080
         run: |
-          source .venv/bin/activate
-          pytest -ra -m web --local -v
+          nix develop ..#default -c pytest -ra -m web --local -v
 
       - name: Rerun failed tests with --lf
         id: pytest_rerun
@@ -106,8 +80,7 @@ jobs:
         env:
           PIFINDER_HOMEPAGE: http://localhost:8080
         run: |
-          source .venv/bin/activate
-          pytest -ra -m web --local -v --lf
+          nix develop ..#default -c pytest -ra -m web --local -v --lf
 
       - name: Alert maintainers via GitHub Issue
         if: steps.pytest_rerun.outcome == 'failure'
