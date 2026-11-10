@@ -64,7 +64,7 @@ CARD=$DIR/card.img
 MNT=$DIR/mnt
 mkdir -p "$DIR" "$MNT"
 
-SUBS="https://cache.pifinder.eu/pifinder https://cache.nixos.org"
+SUBS="https://cache.pifinder.io/pifinder https://cache.nixos.org"
 KEYS="pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
 nixb() { nix build --no-link --print-out-paths --option extra-substituters "$SUBS" --option extra-trusted-public-keys "$KEYS" "$@"; }
 tool() { echo "$(nix build --no-link --print-out-paths "nixpkgs#$1")/bin/$2"; }

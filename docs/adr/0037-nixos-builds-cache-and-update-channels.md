@@ -2,7 +2,7 @@
 
 A NixOS PiFinder runs only prebuilt store paths. It never compiles: a build on a Pi takes hours, and Rust crates alone are too slow. So CI builds every system, and the Pi downloads it from a binary cache.
 
-**Cache.** We host the [Attic](https://github.com/zhaofengli/attic) cache at `cache.pifinder.eu`. It has two caches with different retention:
+**Cache.** We host the [Attic](https://github.com/zhaofengli/attic) cache at `cache.pifinder.io`. It has two caches with different retention:
 
 - `pifinder`: CI builds, PR builds and beta prereleases. Old paths are garbage-collected.
 - `pifinder-release`: stable releases. Garbage collection is off, so a release stays installable for ever.
@@ -37,7 +37,7 @@ The Pi installs a pick with `nix build <store path> --max-jobs 0`, so it downloa
 
 - We operate one small server: Attic (one Rust binary, SQLite, local disk, Caddy with Let's Encrypt). Backup is a snapshot of the SQLite file and the chunk directory.
 - CI pushes with `attic push` and a long-lived token (`secrets.ATTIC_TOKEN`). The upload holds only new chunks.
-- If `cache.pifinder.eu` is down, the Pi still gets every path that `cache.nixos.org` has. Only our own paths (patched kernel, `cedar-detect-server`, Python packages) wait for our cache.
+- If `cache.pifinder.io` is down, the Pi still gets every path that `cache.nixos.org` has. Only our own paths (patched kernel, `cedar-detect-server`, Python packages) wait for our cache.
 - Rollback by reinstall is guaranteed only for stable. beta and unstable closures can be garbage-collected, and then that build cannot install until CI pushes it again.
 - The update manifest is the single mapping from versions to store paths. The first boot after the migration reads it too ([ADR 0039](./0039-card-layout-and-migration.md)).
 

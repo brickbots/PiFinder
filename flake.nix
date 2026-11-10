@@ -1,7 +1,10 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
-    nixos-hardware.url = "github:NixOS/nixos-hardware";
+    nixos-hardware = {
+      url = "github:NixOS/nixos-hardware";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     pyproject-nix = {
       url = "github:pyproject-nix/pyproject.nix";
@@ -42,7 +45,13 @@
       xdg.portal.enable = false;
       services.pipewire.enable = false;
       services.pulseaudio.enable = false;
-      boot.initrd.availableKernelModules = lib.mkForce [ "mmc_block" "usbhid" "usb_storage" "vc4" ];
+      # The mkForce also removes the checksum modules that the NixOS btrfs
+      # module adds, so they are listed here. Without crc32c, stage 1 cannot
+      # mount the btrfs root. The names are the algorithm names that btrfs asks for.
+      boot.initrd.availableKernelModules = lib.mkForce [
+        "mmc_block" "usbhid" "usb_storage" "vc4"
+        "crc32c" "xxhash64" "sha256" "blake2b-256"
+      ];
     };
 
     # Shared modules for all PiFinder configurations
@@ -87,7 +96,7 @@
         {
           pifinder.devMode = false;
           # Delta prefetch for upgrades (pifinder-differ, ADR 0036).
-          pifinder.deltaUrl = "https://deltas.pifinder.eu";
+          pifinder.deltaUrl = "https://deltas.pifinder.io";
         }
         # Camera specialisations — base is imx462 (default), specialisations for others
         ({ ... }: {
@@ -103,7 +112,6 @@
           boot.loader.timeout = 0;
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
-        "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
         ./nixos/sd-image.nix
         ({ config, pkgs, lib, ... }: {
           # The lean image has an empty PiFinder_data: the app fetches
@@ -154,7 +162,6 @@
           boot.loader.timeout = 0;
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
-        "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
         ./nixos/sd-image.nix
         ({ config, pkgs, lib, ... }: {
           sdImage.populateRootCommands = ''
@@ -326,6 +333,16 @@
       arm_64bit=1
       enable_uart=1
       avoid_warnings=1
+
+      # Rev 4: GPIO14 is the power-off kill line (ADR 0007). enable_uart=1
+      # makes it UART TXD, and the first byte U-Boot prints cuts the power.
+      # U-Boot needs enable_uart=1 (arch/arm/mach-bcm283x/Kconfig), and its
+      # serial drivers check only GPIO15. So the firmware sets GPIO14 back to
+      # an input, with the same pull-up as the board, before U-Boot starts.
+      # U-Boot keeps a console, and no byte reaches the kill line. The kernel
+      # side is the uart1 entry in the CM4 overlay (nixos/hardware.nix).
+      [cm4]
+      gpio=14=ip,pu
     '';
 
     # FAT firmware partition payload, shared by the SD images and the

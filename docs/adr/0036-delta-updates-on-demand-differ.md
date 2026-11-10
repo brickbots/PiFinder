@@ -59,7 +59,7 @@ request budget from that closure.
   `window_log` at 28 (256 MiB); paths larger than the cap fall back to full
   download.
 - The server is a new operational component (loopback service behind a Caddy
-  vhost, `deltas.pifinder.eu`). It reads Attic's SQLite DB and NAR bytes, so
+  vhost, `deltas.pifinder.io`). It reads Attic's SQLite DB and NAR bytes, so
   it inherits Attic's availability — and Attic's retention holes: a path GC'd
   from the cache simply cannot be patched, which degrades per path by design.
 - Delta bases are whatever old generations the device retains; GC policy on

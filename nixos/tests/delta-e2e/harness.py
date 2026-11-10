@@ -25,7 +25,7 @@ target = sys.argv[1]
 work = Path(sys.argv[2])
 work.mkdir(parents=True, exist_ok=True)
 delta_updates.WORK_ROOT = work / "delta-work"
-os.environ.setdefault("PIFINDER_DELTA_URL", "https://deltas.pifinder.eu")
+os.environ.setdefault("PIFINDER_DELTA_URL", "https://deltas.pifinder.io")
 
 statuses = []
 
