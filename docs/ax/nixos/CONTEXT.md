@@ -87,7 +87,7 @@ A release-level rollback — demoting a buggy official Release (to draft/prerele
 ### Build and cache
 
 **Attic cache**:
-The binary cache at `cache.pifinder.eu`, with two namespaces: `pifinder` (dev builds, short retention) and `pifinder-release` (tagged releases, GC-disabled). Every Pi substitutes signed store paths from here. Hosted on the Fork's side through Phase 1.
+The binary cache at `cache.pifinder.io`, with two namespaces: `pifinder` (dev builds, short retention) and `pifinder-release` (tagged releases, GC-disabled). Every Pi substitutes signed store paths from here. Hosted on the Fork's side through Phase 1.
 _Avoid_: "cachix" (an earlier/alternative cache; the current one is Attic — see [ADR 0037](../../adr/0037-nixos-builds-cache-and-update-channels.md)).
 
 **pi5 runner**:

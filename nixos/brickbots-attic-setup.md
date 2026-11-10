@@ -1,7 +1,7 @@
 # Giving brickbots/PiFinder access to the Attic cache
 
 The NixOS CI builds substitute from the self-hosted Attic cache
-`cache.pifinder.eu/pifinder` (ADR 0037). There are two levels of access:
+`cache.pifinder.io/pifinder` (ADR 0037). There are two levels of access:
 
 | Access | Needs a token? | Who | Status |
 | ------ | -------------- | --- | ------ |
@@ -12,7 +12,7 @@ The NixOS CI builds substitute from the self-hosted Attic cache
 substituter directly:
 
 ```
-extra-substituters = https://cache.pifinder.eu/pifinder
+extra-substituters = https://cache.pifinder.io/pifinder
 extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
 ```
 
