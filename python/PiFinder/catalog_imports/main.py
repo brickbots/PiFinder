@@ -53,8 +53,11 @@ POST_PROCESSING_FUNCTIONS = [
 
 # Supplementary sources (docs/ax/catalog.md §9.4) fill or replace fields on the
 # sky objects made above, and never add a listing. Each is called with the
-# objects database.
+# objects database. Hipparcos and the WGSN join on the HIP numbers the star
+# identity stage recorded in STAR_HIPS.
 SUPPLEMENTARY_SOURCES = [
+    ("supplementary_sources", "replace_hipparcos_values"),
+    ("supplementary_sources", "add_wgsn_names"),
     ("supplementary_sources", "fill_bica_sizes"),
     ("supplementary_sources", "replace_rc3_v_magnitudes"),
 ]
@@ -141,7 +144,7 @@ def main():
             raise
 
     # Star identity: merge the star catalogs' listings by Hipparcos number,
-    # reading the `hip` corrections ahead of position (catalog.md §9.3).
+    # applying the `hip` corrections before the identifier rules (catalog.md §9.3).
     logging.info("Identifying stars...")
     identify_stars(objects_db, hip_identifications(corrections))
 

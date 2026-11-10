@@ -11,8 +11,8 @@ supplementary sources and the correction pass (§9.1).
 
 A match is made only where it is reliably right; a star the rules miss is
 matched by a `hip` correction, which names the Hipparcos number of a listing
-(ADR 0046, decision 4). This stage reads them before it cross-matches and uses
-each in place of position.
+(ADR 0046, decision 4). This stage applies them after the position match and
+before the identifier rules, so the rules see the corrected stars.
 """
 
 import logging
@@ -34,6 +34,7 @@ from .catalog_import_utils import (
     SAC_SYSTEMS,
     SOURCE_DM_NUMBERS,
     STAND_IN_POSITIONS,
+    STAR_HIPS,
     fill_sky_object,
     merge_sky_object,
 )
@@ -62,6 +63,9 @@ PRECISE_CATALOGS = frozenset({"WDS", "TLK"})
 # components each have a Hipparcos entry (61 Oph, ε Equ) is ambiguous.
 V_TOLERANCE = 1.0
 RANGE_CATALOGS = frozenset({"TLK"})
+# Hipparcos's variability flag (H6) for a star that varies by more than
+# 0.6 mag: a catalog number identifies it whatever V the listing gives.
+LARGE_AMPLITUDE_VARIABLE = 3
 
 # A match must not contradict the listing's own designations: its HD, BD, CD
 # or CPD numbers must include the matched star's in Hipparcos's own columns,
@@ -112,8 +116,9 @@ _MAS_PER_DEGREE = 3.6e6
 # H1 the HIP number, H3/H4 the position in h m s and d m s, H5 V, H6 the
 # variability flag, H8/H9 the position in degrees (blank for the 263 stars
 # with no astrometric solution, such as ξ UMa), H12/H13 the proper motion
-# in mas/yr, the RA component times cos(Dec), and H71-H74 the star's HD, BD,
-# CD and CPD numbers.
+# in mas/yr, the RA component times cos(Dec), H43 and H48 the flags saying
+# whose light V is (OWN_VMAG_REFS), and H71-H74 the star's HD, BD, CD and CPD
+# numbers.
 _HIP_FIELDS = {
     1: "hip",
     3: "ra_hms",
@@ -124,11 +129,20 @@ _HIP_FIELDS = {
     9: "dec",
     12: "pm_ra",
     13: "pm_dec",
+    43: "comb_mag",
+    48: "hp_ref",
     71: "HD",
     72: "BD",
     73: "CD",
     74: "CPD",
 }
+
+# A double's V (H5) in Hipparcos is often the light of the whole system: H43
+# is "*" where V is combined, and H48 names the component(s) the photometry
+# refers to ("*" and "-" a double's or multiple's combined light, a letter
+# that component). V is a star's own only where H43 is blank and H48 is
+# blank or "A" (VizieR I/239, ReadMe).
+OWN_VMAG_REFS = frozenset({"", "A"})
 
 # A catalog number, as a hashable key: ("HD", 12345) or ("BD", "+", 0, 5077).
 CatalogNumber = Tuple
@@ -143,6 +157,9 @@ class Hipparcos:
     dec: np.ndarray
     vmag: np.ndarray
     var_flag: np.ndarray
+    # Whether each star's V is its own, not a double's combined light nor
+    # another component's (OWN_VMAG_REFS). None where it wasn't read.
+    own_vmag: Optional[np.ndarray] = None
     # Each HIP number's HD, BD, CD and CPD numbers, and the reverse.
     numbers_of: Dict[int, Set[CatalogNumber]] = field(default_factory=dict)
     star_with: Dict[CatalogNumber, int] = field(default_factory=dict)
@@ -227,7 +244,7 @@ def load_hipparcos(path: Optional[Path] = None) -> Hipparcos:
         header=None,
         usecols=list(_HIP_FIELDS),
         skipinitialspace=True,
-        dtype={71: str, 72: str, 73: str, 74: str},
+        dtype={43: str, 48: str, 71: str, 72: str, 73: str, 74: str},
     ).rename(columns=_HIP_FIELDS)
     ra = frame["ra"].to_numpy(dtype=float)
     dec = frame["dec"].to_numpy(dtype=float)
@@ -259,6 +276,10 @@ def load_hipparcos(path: Optional[Path] = None) -> Hipparcos:
         dec=dec_2000,
         vmag=frame["vmag"].to_numpy(dtype=float),
         var_flag=np.nan_to_num(frame["var_flag"].to_numpy(dtype=float)).astype(int),
+        own_vmag=(
+            frame["comb_mag"].fillna("").str.strip().eq("")
+            & frame["hp_ref"].fillna("").str.strip().isin(OWN_VMAG_REFS)
+        ).to_numpy(),
         numbers_of=numbers_of,
         star_with=star_with,
     )
@@ -303,6 +324,16 @@ class StarObject:
         if self.stand_in:
             return None
         return PRECISE_MATCH_RADIUS_ARCMIN if self.precise else MATCH_RADIUS_ARCMIN
+
+    @property
+    def companion_pair(self) -> bool:
+        """Whether it is a SAC row of a pair without the primary (BC, CD).
+
+        Its star is not its system's primary, which is the star its
+        position, its system's names and numbers, and its pair's WDS
+        listing all name (STF 2532's BC row), so no rule identifies it.
+        """
+        return self.stand_in and self.catalog_code != "WDS"
 
 
 def read_star_objects(
@@ -477,17 +508,65 @@ def apply_vetoes(
     star's, unless it has none. And a double-star designation that a WDS
     listing within VETO_RADIUS_ARCMIN carries must not place the pair
     elsewhere: that WDS listing may not match another star, nor lie more than
-    WDS_PAIR_SLACK_ARCMIN from the matched one.
+    WDS_PAIR_SLACK_ARCMIN from the matched one. A WDS listing's own DM must
+    not name another star within VETO_RADIUS_ARCMIN: where WDS's position and
+    its DM name the two stars of a pair (LDS 5227), which is its primary is
+    not settled.
     """
     wds = _wds_index(stars)
     for object_id, match in matches.items():
         star = stars[object_id]
-        if match.hip is None or star.catalog_code == "WDS":
+        if match.hip is None:
             continue
-        reason = _contradiction(star, match.hip, wds, matches, hipparcos)
+        if star.catalog_code == "WDS":
+            reason = _dm_contradiction(star, match.hip, hipparcos)
+        else:
+            reason = _contradiction(star, match.hip, wds, matches, hipparcos)
         if reason:
             match.hip, match.separation_arcmin, match.reason = None, None, reason
             match.rule = None
+
+
+def _dm_stars(star: StarObject, hipparcos: Hipparcos) -> Set[int]:
+    """The stars within VETO_RADIUS_ARCMIN that a listing's source DM names."""
+    if star.dm is None:
+        return set()
+    return {
+        hip
+        for hip in hipparcos.stars_with_dm(star.dm)
+        if _hip_separation(star, hip, hipparcos) <= VETO_RADIUS_ARCMIN
+    }
+
+
+def _dm_contradiction(
+    star: StarObject, hip: int, hipparcos: Hipparcos
+) -> Optional[str]:
+    named = _dm_stars(star, hipparcos)
+    if named and hip not in named:
+        sign, zone, number = star.dm or ("", 0, 0)
+        return (
+            f"WDS DM {sign}{zone} {number} is HIP {', '.join(map(str, sorted(named)))}"
+        )
+    return None
+
+
+def _fits_v(star: StarObject, hip: int, hipparcos: Hipparcos) -> bool:
+    """Whether a listing's V passes the V gate for a star its number names.
+
+    A star Hipparcos finds varying by more than 0.6 mag passes whatever the
+    listing's V (Mira: SAC 2.0, Hipparcos 6.47), and so does a listing
+    without a V. WDS's first magnitude is often another band's (K for an
+    interferometric pair: 4.86 for WDS 00162-7951, a V 6.59 star), so a WDS
+    listing's is not compared.
+    """
+    index = hipparcos.index_of(hip)
+    assert index is not None
+    return (
+        star.vmag is None
+        or star.catalog_code == "WDS"
+        or hipparcos.var_flag[index] == LARGE_AMPLITUDE_VARIABLE
+        or passes_v_gate(star, hipparcos.vmag[index])
+    )
 
 
 def _wds_index(stars: Mapping[int, StarObject]) -> Dict[str, List[StarObject]]:
@@ -521,7 +600,9 @@ def number_candidates(star: StarObject, hipparcos: Hipparcos) -> Set[int]:
     taken for a slip in the source (TU Gem's HD 42247 names a star 65° away).
     A number never overrides an arcsecond position: for WDS and TLK the named
     star must also be the nearest Hipparcos star (θ¹ Ori's PTR 1 sits on HIP
-    26220 while its DM names HIP 26221, 13" away).
+    26220 while its DM names HIP 26221, 13" away). And the listing's V must
+    fit the named star (_fits_v): SAC's red stars BE CMa and BE CMi give V
+    1.7 mag brighter than the stars their HD numbers name.
     """
     radius = (
         PRECISE_IDENTIFIER_RADIUS_ARCMIN if star.precise else IDENTIFIER_RADIUS_ARCMIN
@@ -534,7 +615,11 @@ def number_candidates(star: StarObject, hipparcos: Hipparcos) -> Set[int]:
     }
     if star.dm is not None:
         named |= hipparcos.stars_with_dm(star.dm)
-    named = {h for h in named if _hip_separation(star, h, hipparcos) <= radius}
+    named = {
+        h
+        for h in named
+        if _hip_separation(star, h, hipparcos) <= radius and _fits_v(star, h, hipparcos)
+    }
     if named and star.precise:
         here = unit_vectors(np.array([star.ra]), np.array([star.dec]))[0]
         _, nearest = hipparcos.tree.query(here)
@@ -567,11 +652,7 @@ def designation_candidates(
                 or _separation_arcmin(star, pair.ra, pair.dec) > VETO_RADIUS_ARCMIN
             ):
                 continue
-            dm_stars = {
-                h
-                for h in (hipparcos.stars_with_dm(pair.dm) if pair.dm else ())
-                if _hip_separation(pair, h, hipparcos) <= VETO_RADIUS_ARCMIN
-            }
+            dm_stars = _dm_stars(pair, hipparcos)
             if dm_stars and hip not in dm_stars:
                 continue
             index = hipparcos.index_of(hip)
@@ -589,13 +670,18 @@ def apply_identifier_rules(
 ) -> None:
     """Identify the stars the position match left unmatched by an identifier.
 
-    A rule never replaces a position match. Rule 1 (catalog numbers) runs
-    first, so that a WDS listing it identifies counts for rule 2 (WDS
-    designations); rule 3 (SAC systems) joins a continuation row to its
-    system's first row. Two rules naming different stars, one rule naming
-    two, or a veto against the result (apply_vetoes): no match.
+    A rule never replaces a position match or a `hip` correction, and none
+    identifies a SAC companion pair (StarObject.companion_pair). Rule 1
+    (catalog numbers) runs first, so that a WDS listing it identifies counts
+    for rule 2 (WDS designations); rule 3 (SAC systems) joins a continuation
+    row to its system's first row. Two rules naming different stars, one rule
+    naming two, or a veto against the result (apply_vetoes): no match.
     """
-    unmatched = [oid for oid, match in sorted(matches.items()) if match.hip is None]
+    unmatched = [
+        oid
+        for oid, match in sorted(matches.items())
+        if match.hip is None and not stars[oid].companion_pair
+    ]
     wds = _wds_index(stars)
     proposals: Dict[int, Dict[str, Set[int]]] = {
         oid: {"catalog number": number_candidates(stars[oid], hipparcos)}
@@ -626,6 +712,10 @@ def apply_identifier_rules(
         if own and own != {system_hip}:
             match.reason = "rules disagree: its own identifiers name another star"
             continue
+        # A row that gives a V must be its system's star by that V too.
+        if star.vmag is not None and not _passes_v_gate_of(star, system_hip, hipparcos):
+            match.reason = "V gate: its V is not its system's star's"
+            continue
         if system_hip is not None:
             reason = _contradiction(star, system_hip, wds, matches, hipparcos)
             if reason:
@@ -633,6 +723,13 @@ def apply_identifier_rules(
                 continue
         match.joined_to, match.rule, match.reason = first, "SAC system", None
         match.hip = system_hip
+
+
+def _passes_v_gate_of(
+    star: StarObject, hip: Optional[int], hipparcos: Hipparcos
+) -> bool:
+    index = None if hip is None else hipparcos.index_of(hip)
+    return index is not None and passes_v_gate(star, hipparcos.vmag[index])
 
 
 def _decide(
@@ -704,22 +801,21 @@ def _contradiction(
     return None
 
 
-def apply_hip_identifications(
+def read_hip_identifications(
     cursor: sqlite3.Cursor,
     stars: Mapping[int, StarObject],
-    matches: Dict[int, Match],
     identifications: Mapping[str, int],
     hipparcos: Hipparcos,
-) -> None:
-    """Put each `hip` correction's number in place of its listing's match.
+) -> Tuple[Dict[int, Tuple[str, int]], List[str]]:
+    """Each `hip` correction's designator and HIP number, by the sky object
+    it identifies, and the problems.
 
-    Fails, before anything is written, on a designator that resolves to
-    nothing or to no star listing, on a HIP number Hipparcos lacks, on two
-    corrections that reach one sky object, and on a correction the
-    cross-match alone makes: it is redundant (ADR 0046).
+    A problem is a designator that resolves to nothing or to no star
+    listing, a HIP number Hipparcos lacks, or two corrections that reach
+    one sky object (ADR 0046).
     """
     problems: List[str] = []
-    corrected: Dict[int, str] = {}
+    corrected: Dict[int, Tuple[str, int]] = {}
     for designator, hip in sorted(identifications.items()):
         label = f"hip correction for {designator}"
         try:
@@ -741,19 +837,48 @@ def apply_hip_identifications(
         if object_id in corrected:
             problems.append(
                 f"{label}: conflicts with the hip correction for"
-                f" {corrected[object_id]}: both identify one sky object"
+                f" {corrected[object_id][0]}: both identify one sky object"
             )
             continue
-        corrected[object_id] = designator
-        if matches[object_id].hip == hip:
-            problems.append(
-                f"{label}: the cross-match alone finds HIP {hip}, so the"
-                " correction is redundant; delete it"
-            )
-            continue
+        corrected[object_id] = (designator, hip)
+    return corrected, problems
+
+
+def match_stars(
+    stars: Mapping[int, StarObject],
+    hipparcos: Hipparcos,
+    corrected: Optional[Mapping[int, int]] = None,
+) -> Dict[int, Match]:
+    """Each star sky object's match, by the rules in their order.
+
+    The position match and its vetoes come first. The `hip` corrections
+    (`corrected`, each sky object's HIP number) then replace the matches of
+    their sky objects, and the identifier rules run last, so that they see
+    the corrected stars: a SAC row whose WDS listing a correction identifies
+    follows it by rule 2, and a continuation row follows its system's first
+    row by rule 3.
+    """
+    matches = cross_match(stars, hipparcos)
+    apply_vetoes(stars, matches, hipparcos)
+    for object_id, hip in (corrected or {}).items():
         matches[object_id] = Match(object_id, hip=hip, by_correction=True)
-    if problems:
-        raise CorrectionError(problems)
+    apply_identifier_rules(stars, matches, hipparcos)
+    return matches
+
+
+def redundant_corrections(
+    corrected: Mapping[int, Tuple[str, int]], found: Mapping[int, Match]
+) -> List[str]:
+    """The `hip` corrections whose star the rules find without them (`found`,
+    the matches made with no correction): each must be deleted."""
+    return [
+        f"hip correction for {designator}: the cross-match alone finds"
+        f" HIP {hip}, so the correction is redundant; delete it"
+        for object_id, (designator, hip) in sorted(
+            corrected.items(), key=lambda item: item[1]
+        )
+        if found[object_id].hip == hip
+    ]
 
 
 def d_star_type(members: Sequence[StarObject]) -> str:
@@ -785,26 +910,33 @@ def identify_stars(
 ) -> StarIdentity:
     """Cross-match the star sky objects to Hipparcos and merge them by HIP.
 
-    The sky objects that match one HIP number become one: the first loader's
+    The `hip` corrections are checked first (read_hip_identifications,
+    redundant_corrections), and any problem fails the stage before anything
+    is written. The sky objects that match one HIP number become one: the first loader's
     survives (the lowest id), as when a later loader's listing joins it, and
     keeps its position. The others' listings and names move onto it,
     in id order, their names after its own; an empty magnitude or size is
     filled by the loaders' precedence and never replaced. Each merged star is
     then typed by the D* rule. All or nothing: a problem rolls it back.
+
+    Each surviving sky object's HIP number is returned, and recorded in
+    STAR_HIPS for the supplementary sources that join on it.
     """
     hipparcos = hipparcos if hipparcos is not None else load_hipparcos()
     conn = db.conn
     cursor = conn.cursor()
     stars = read_star_objects(cursor)
-    matches = cross_match(stars, hipparcos)
-    apply_vetoes(stars, matches, hipparcos)
-    apply_identifier_rules(stars, matches, hipparcos)
-    apply_hip_identifications(cursor, stars, matches, hip_identifications, hipparcos)
-    # A joined continuation row follows its system's first row, which a hip
-    # correction may have identified since.
-    for match in matches.values():
-        if match.joined_to is not None:
-            match.hip = matches[match.joined_to].hip
+    corrected, problems = read_hip_identifications(
+        cursor, stars, hip_identifications, hipparcos
+    )
+    matches = match_stars(stars, hipparcos)
+    problems += redundant_corrections(corrected, matches)
+    if problems:
+        raise CorrectionError(problems)
+    if corrected:
+        matches = match_stars(
+            stars, hipparcos, {oid: hip for oid, (_, hip) in corrected.items()}
+        )
 
     hips: Dict[int, int] = {}
     merged_into: Dict[int, int] = {}
@@ -828,6 +960,8 @@ def identify_stars(
         conn.rollback()
         raise
     conn.commit()
+    STAR_HIPS.clear()
+    STAR_HIPS.update(hips)
     _log_summary(stars, matches, merged_into, hip_identifications)
     return StarIdentity(hips, matches, stars, merged_into)
 

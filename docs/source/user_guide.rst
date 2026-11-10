@@ -467,7 +467,9 @@ like Object type.  Here's a brief explanation of each:
   catalogs at once.
 - **Type**: Limit by object type.  You can select multiple types to include.
 - **Altitude**: The current apparent altitude of an object from your observing location.
-- **Magnitude**: Limit to objects at least as bright as the selected magnitude.
+- **Magnitude**: Limit to objects at least as bright as the selected magnitude.  For a
+  double star the filter uses its brightest star, and for a variable star its brightest
+  magnitude.
 - **Observed**: Include only objects you've logged, never logged, or any logged state.
 
 Catalogs Filter

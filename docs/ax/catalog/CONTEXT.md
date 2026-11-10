@@ -51,7 +51,7 @@ The runtime unit displayed in the UI: a catalog listing merged with its underlyi
 _Avoid_: object record, catalog row, entry.
 
 **MagnitudeObject**:
-Wrapper around a list of magnitude values. Exposes `filter_mag` (mean of parseable floats) for filtering and `calc_two_mag_representation()` for the `"min/max"` display string. `UNKNOWN_MAG = 99` is the sentinel.
+Wrapper around a list of magnitude values. Exposes `filter_mag` (the brightest parseable float: a double's primary, a variable's maximum) for filtering and `calc_two_mag_representation()` for the `"min/max"` display string. `UNKNOWN_MAG = 99` is the sentinel.
 _Avoid_: magnitude, mag (those are the underlying floats).
 
 **Names**:
@@ -237,8 +237,8 @@ _Avoid_: PiFinder format (ambiguous in prose), JSON format (Stellarium is JSON t
 
 **Resolution**:
 The umbrella term for matching an observing list entry to a `CompositeObject` in the catalog collection. Two strategies are tried in a fixed order, then a coordinate fallback:
-1. **Catalog-keyed resolution** — match by catalog code + sequence, with alias mapping (Messier→M, Caldwell→C, Collinder→Cr). Tried whenever the entry carries a catalog key.
-2. **Name resolution** — exact, case-insensitive match of the entry's name against catalog object names, also trying a constellation-genitive–normalized variant ("VY Andromedae" → "VY And"). **Strictly a fallback**: attempted only when catalog-keyed resolution finds nothing. Names collide more readily than catalog keys, so a name never overrides a key match.
+1. **Catalog-keyed resolution** — match by catalog code + sequence. A designation is read by `designations.parse_designation`, the same parser the import uses, so "Cr 399", "Collinder 399" and "Col 399" all name Collinder 399, and a designation the import refuses ("H 24", a double star; "M 2-9", a Minkowski nebula) names no listing. The native format's catalog key is PiFinder's own and is looked up as it is. Tried whenever the entry carries a catalog key.
+2. **Name resolution** — case-, space- and hyphen-insensitive match of the entry's name against catalog object names (the digit groups must match, so "M 2-9" never matches "M 29"), also trying a constellation-genitive–normalized variant ("VY Andromedae" → "VY And"). **Strictly a fallback**: attempted only when catalog-keyed resolution finds nothing. Names collide more readily than catalog keys, so a name never overrides a key match. A designation with a bare "A", "B" or "H" prefix ("H 24", "B 33") is never matched by name: sources use those names for different objects.
 3. If both fail, an entry carrying coordinates becomes a **coordinate object**; an entry with no key, no name match, and no coordinates is dropped.
 _Avoid_: lookup, import (import is the whole read-then-resolve flow).
 

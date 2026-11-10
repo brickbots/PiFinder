@@ -414,7 +414,7 @@ def test_mag_takes_a_number_or_a_range(db, corrections_dir):
     }
     mag = json.loads(sky_object(db, "IC", 2480)["mag"])
     assert mag["mags"] == [4.86, 7.32]
-    assert mag["filter_mag"] == pytest.approx(6.09)
+    assert mag["filter_mag"] == pytest.approx(4.86)
 
 
 def test_a_magnitude_and_a_size_can_be_cleared(db, corrections_dir):

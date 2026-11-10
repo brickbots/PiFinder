@@ -155,12 +155,19 @@ def is_double_star_pair(value) -> bool:
     mag1, mag2 = value["Mag_First"].item(), value["Mag_Second"].item()
     if np.isnan(mag2):
         return False
-    return bool(np.isnan(mag1) or mag2 - mag1 <= DOUBLE_MAX_DELTA_MAG)
+    # WDS gives magnitudes to 0.01, so compare the difference at that
+    # precision: 18.6 - 13.6 is 5.000000000000002 in floating point.
+    return bool(np.isnan(mag1) or round(mag2 - mag1, 2) <= DOUBLE_MAX_DELTA_MAG)
 
 
 def wds_dm_number(raw: str) -> Optional[Tuple[str, int, int]]:
-    """WDS's DM column ("+38 3238") as (sign, zone, number), or None."""
-    match = re.fullmatch(r"([+-])\s*(\d+)\s+(\d+)", raw.strip())
+    """WDS's DM column as (sign, zone, number), or None.
+
+    The column is a sign, a two-digit zone and a five-place number, right
+    aligned: "+38 3238", "-31  105", and "-2616866" for a five-digit number,
+    with no space between zone and number.
+    """
+    match = re.fullmatch(r"([+-])(\d{2})\s*(\d{1,5})", raw.strip())
     if match is None:
         return None
     return match.group(1), int(match.group(2)), int(match.group(3))
