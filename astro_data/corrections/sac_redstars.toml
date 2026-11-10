@@ -11,3 +11,41 @@ hip = 61084
 why = "SAC's position or magnitude is off, so the cross-match finds no star, or the wrong component. Evidence: 119 Tau is HIP 25945; HD 36389 is HIP 25945's; V 4.7 fits HIP 25945 4.32, no other star within 3' does."
 sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2025945"]
 hip = 25945
+
+["SaR 139"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: BD +58 1772a is HIP 87820's; SIMBAD gives T Dra = BD+58 1772a = HIP 87820; 0.14' from HIP 87820. SAC gives T Dra one value, 7.2, its maximum. T Dra is a Mira; its V range is 7.2-13.5 (GCVS)."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2087820",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=T%20Dra",
+    "GCVS B/gcvs via VizieR (T Dra M 7.2-13.5 V)",
+]
+hip = 87820
+mag = [7.2, 13.5]
+was.mag = 10
+
+["SaR 96"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: HD 58195 and BD -22 1850 are HIP 35865's; SIMBAD gives BE CMa = HD 58195 = HIP 35865; 0.62' from HIP 35865. SAC gives BE CMa V 7.0, outside its V range of 8.6-9.4 (GCVS); Hipparcos gives V 8.70 and SIMBAD 8.67."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2035865",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=BE%20CMa",
+    "GCVS B/gcvs via VizieR (BE CMa SRB 8.6-9.4 V)",
+]
+hip = 35865
+mag = [8.6, 9.4]
+was.mag = 8.7
+
+["SaR 187"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: HD 128033 is HIP 71386's; SIMBAD gives Z Lup = HD 128033 = HIP 71386; 0.42' from HIP 71386; source's V is the error (V 7.0 vs HIP 71386 8.20, Hp 8.06-8.42). GCVS gives Z Lup only a photographic range (10.5-12.6)."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2071386",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=Z%20Lup",
+]
+hip = 71386
+
+["SaR 155"]
+why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: HD 47396 is HIP 31829's; SIMBAD gives NY Gem = HD 47396 = HIP 31829; 0.31' from HIP 31829; source's V is the error (V 9.2 vs HIP 31829 10.33, Hp 10.17-10.44; Tycho-2 V 10.56). GCVS gives NY Gem only a photographic range (12.5-<15.5)."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2031829",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NY%20Gem",
+]
+hip = 31829

@@ -16,3 +16,11 @@ hip = 51752
 why = "A variable whose catalog magnitude is not Hipparcos's V, so the cross-match's V gate turns its star away. Evidence: WDS DM ('+', 30, 3779) is HIP 97734's."
 sources = ["https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2097734"]
 hip = 97734
+
+["WDS 99456"]
+why = "WDS gives this pair's magnitudes in the K band (its note K: 'Summary line gives K-band or other infrared (>1 micron) magnitudes'), so the cross-match's V gate turns its star away: WDS's 4.94 is K, and HIP 94645's V is 6.25. Evidence: 1.4\" from SIMBAD's HD 179949 = HIP 94645 (Gumala, IAU WGSN)."
+sources = [
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2094645",
+    "https://www.astro.gsu.edu/wds/Webtextfiles/wdsweb_format.txt",
+]
+hip = 94645

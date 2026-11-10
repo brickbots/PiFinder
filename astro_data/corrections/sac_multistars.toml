@@ -363,3 +363,11 @@ sources = [
     "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HIP%2097222",
 ]
 hip = 97222
+
+["SaM 1773"]
+why = "SAC names nu Sco 'Lesath' (AB row) and 'Laseth' (AC and CD rows). nu Sco is Jabbah (IAU WGSN), which the WGSN supplementary source gives it as its preferred name; Lesath is upsilon Sco, and 'Laseth' misspells it."
+sources = [
+    "https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt",
+    "https://en.wikipedia.org/wiki/Nu_Scorpii",
+]
+names.remove = ["Laseth"]
