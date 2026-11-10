@@ -77,10 +77,15 @@ If the field is empty in the database, write `was.<field> = ""`.
 | `mag` | a number, or a list for a variable's range | `11.4`, `[4.86, 7.32]` |
 | `description` | text; a multi-line string is fine | `"""…"""` |
 
+- `size` and `mag` can be cleared with `""`, for a sky object left holding
+  another object's value that no source replaces: the sky object a split
+  (`own_object`) copies from its old one, or the one a moved identification
+  leaves behind.
 - `ra` and `dec` take two or three parts, and only the last may have
   decimals. A bare number is refused, because it could be hours or degrees.
 - `size` is read by the loaders' own `parse_arcmin_size`, and must parse
-  whole. It corrects the extents. The position angle stays as it was.
+  whole, into finite, positive extents: `"nan"`, `"inf"`, `"0"` and `"-5"`
+  are refused. It corrects the extents. The position angle stays as it was.
 - Correcting `ra` or `dec` recomputes the constellation from the new
   position, as a loader would. To overrule that, for a boundary case like
   NGC 1404, correct `const` too.
@@ -112,6 +117,10 @@ These correct which sky object a designator belongs to.
   whole sky object merges in, names and all, and is deleted. The target's
   values stand and the merged object's are dropped, so correct anything
   worth keeping in the same table.
+- **`guard = false`**, with a `same_as` only: skip the match guard for an
+  identification the sources confirm although the listing's own position
+  or type is wrong (Collinder's Dec slip for Col 208 = IC 2488). Say in
+  `why` what is wrong with the listing. See the checks below.
 - **`own_object = true`**: this designator is a sky object of its own. Its
   listing moves to a new sky object that starts as a copy of the old one.
   Correct its fields in the same table, with `was` stating the copied
@@ -155,6 +164,14 @@ The import fails, naming the file and the designator, when:
   own sky object;
 - a `same_as` points at a designator that has its own `same_as` (point it at
   the final sky object instead);
+- a `same_as` fails the loaders' match guard: the listing's own type and
+  position, those of the sky object it leaves, must be compatible with the
+  sky object it joins, as corrected, and lie within 30′ of it or within its
+  major axis. If the identification is right and the listing's position or
+  type is wrong, say so in `why` and add `guard = false`. A `guard = false`
+  on a `same_as` the guard accepts is redundant, and fails too. An
+  `own_object` has no such check: its new sky object starts at the old
+  position, and any field it corrects carries its own `was`;
 - a split or join leaves its old sky object still carrying another
   catalog's name that the loaders' lookup resolves to the designator: a
   designation `parse_designation` reads as it ("Cr 42" for Col 42,

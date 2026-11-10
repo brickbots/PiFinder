@@ -548,7 +548,8 @@ def parse_arcmin_size(raw: str, strict: bool = False) -> SizeObject:
     SizeObject keeps the major axis first, so Collinder's "25x30" is
     30' x 25'. Tokens whose numeric part can't be parsed (e.g. "nl", "see")
     are skipped with a warning, or raise ValueError when strict: a
-    correction's size is typed by hand and must parse whole.
+    correction's size is typed by hand and must parse whole, into finite,
+    positive extents ("nan", "inf" and "-5" parse as floats but are no size).
     """
     if not raw:
         return SizeObject([])
@@ -560,6 +561,8 @@ def parse_arcmin_size(raw: str, strict: bool = False) -> SizeObject:
         arcsec = _size_token_to_arcsec(token)
         if arcsec is None and strict:
             raise ValueError(f"non-numeric size token {token!r} in {raw!r}")
+        if strict and arcsec is not None and not (math.isfinite(arcsec) and arcsec > 0):
+            raise ValueError(f"size token {token!r} in {raw!r} is not a positive size")
         if arcsec is None:
             logging.warning("Non-numeric size token %r in %r", token, raw)
         else:
