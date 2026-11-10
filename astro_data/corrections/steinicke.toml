@@ -1374,6 +1374,15 @@ sources = [
 ]
 same_as = "NGC 6679"
 
+["NGC 771"]
+why = "Steinicke lists NGC 771 as a star, apart from the star it is. Corwin: NGC 771 = 50 Cassiopeiae is a star, a normal A1 V star with no nebulosity on the POSS1 (JH suspected it once). 50 Cas is HIP 9598, IAU name Gang, the Named Stars listing Nam 9598."
+sources = [
+    "http://haroldcorwin.net/ngcic/ngconly.txt",
+    "http://haroldcorwin.net/ngcic/ngcnotes.all",
+    "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=NGC%20771",
+]
+same_as = "Nam 9598"
+
 ["NGC 6885"]
 why = "NGC 6885 = NGC 6882 (Corwin, OpenNGC, Steinicke): one open cluster around 20 Vul. Steinicke's shared position is 5' north-west of Corwin's and OpenNGC's centre, 20 12 00 +26 30.2."
 sources = [
