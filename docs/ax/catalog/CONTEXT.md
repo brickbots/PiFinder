@@ -51,7 +51,7 @@ The runtime unit displayed in the UI: a catalog listing merged with its underlyi
 _Avoid_: object record, catalog row, entry.
 
 **MagnitudeObject**:
-Wrapper around a list of magnitude values. Exposes `filter_mag` (mean of parseable floats) for filtering and `calc_two_mag_representation()` for the `"min/max"` display string. `UNKNOWN_MAG = 99` is the sentinel.
+Wrapper around a list of magnitude values. Exposes `filter_mag` (the brightest parseable float: a double's primary, a variable's maximum) for filtering and `calc_two_mag_representation()` for the `"min/max"` display string. `UNKNOWN_MAG = 99` is the sentinel.
 _Avoid_: magnitude, mag (those are the underlying floats).
 
 **Names**:

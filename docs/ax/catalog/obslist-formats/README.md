@@ -96,7 +96,7 @@ Either a bare number, or a structured object for multi-band data:
 ```
 
 `mags` holds the raw values (numbers, or strings like `"~12"`); `filter_mag` is
-the mean of the parseable ones, used for filtering.
+the brightest of the parseable ones (the smallest number), used for filtering.
 
 ### Extents
 

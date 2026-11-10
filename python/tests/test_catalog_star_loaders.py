@@ -18,6 +18,7 @@ import PiFinder.catalog_imports.wds_loader as wds_loader
 import PiFinder.utils as utils
 from PiFinder.catalog_imports.sac_loaders import (
     is_rejected_pair,
+    shares_primary,
     parse_sac_dec,
     parse_sac_magnitude,
     sac_pair_magnitudes,
@@ -397,9 +398,29 @@ def test_load_sac_multistars_records_a_companion_pair_as_a_stand_in(sac_multista
 
 
 def test_load_sac_multistars_records_a_systems_continuation_rows(sac_multistars):
-    # ν Sco: AB (SaM 4) is the system's first row; AC gives no V, CD is a
-    # companion pair. Mira's and δ Ori's rows are systems of one row.
-    assert ciu.SAC_SYSTEMS == {("SaM", 5): ("SaM", 4), ("SaM", 6): ("SaM", 4)}
+    # ν Sco: AB (SaM 4) is the system's first row and AC gives no V, so AC
+    # is ν Sco too. CD is a pair of other stars, not A's: it stays apart.
+    # Mira's and δ Ori's rows are systems of one row.
+    assert ciu.SAC_SYSTEMS == {("SaM", 5): ("SaM", 4)}
+
+
+@pytest.mark.parametrize(
+    "components, system_components, shares",
+    [
+        ("AC", "AB", True),
+        ("ABXC", "AB", True),
+        ("AD", "AC", True),
+        # θ¹ Ori's CF and σ Ori's ED rows are other stars of the system.
+        ("CF", "AB", False),
+        ("ED", "AB", False),
+        ("BC", "AB", False),
+        # No components: nothing says it is the primary.
+        ("", "AB", False),
+        ("AC", "", False),
+    ],
+)
+def test_shares_primary(components, system_components, shares):
+    assert shares_primary(components, system_components) is shares
 
 
 def test_load_wds_records_each_listings_dm_number(wds):
@@ -413,6 +434,11 @@ def test_load_wds_records_each_listings_dm_number(wds):
     [
         ("+38 3238", ("+", 38, 3238)),
         ("-00 6337", ("-", 0, 6337)),
+        ("-31  105", ("-", 31, 105)),
+        # A five-digit number runs into the zone (WDS 00002-2519).
+        ("-2616866", ("-", 26, 16866)),
+        ("+4213634", ("+", 42, 13634)),
+        ("-009-016", None),
         ("", None),
         (".", None),
     ],
