@@ -43,6 +43,9 @@ CATALOG_LOADERS = [
     ("wds_loader", "load_wds"),
     ("harris_loader", "load_harris"),
     ("lynga_loader", "load_lynga"),
+    # Last, so each star another catalog lists keeps its sky object when the
+    # star-identity stage joins the Named Stars listing to it by HIP number.
+    ("named_stars_loader", "load_named_stars"),
 ]
 
 POST_PROCESSING_FUNCTIONS = [

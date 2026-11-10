@@ -1,7 +1,7 @@
 """
 Star identity: a star is identified by its Hipparcos number.
 
-The star catalogs (Str, SaM, SaR, TLK, RDS, WDS) list many of the same stars,
+The star catalogs (Str, SaM, SaR, TLK, RDS, WDS, Nam) list many of the same stars,
 and few of their listings carry a designation the loaders' lookup resolves, so
 each loader leaves a star a sky object of its own: Mizar was SaM's and Str's.
 This stage cross-matches each star sky object to hip_main.dat and merges the
@@ -41,7 +41,12 @@ from .catalog_import_utils import (
 from .corrections import CorrectionError, parse_designator, resolve_listing
 
 # The catalogs whose listings are stars, in loader order.
-STAR_CATALOGS = ("SaM", "SaR", "Str", "RDS", "TLK", "WDS")
+STAR_CATALOGS = ("SaM", "SaR", "Str", "RDS", "TLK", "WDS", "Nam")
+
+# The catalogs whose sequence is the star's HIP number (Named Stars, Nam 91262
+# is Vega). Such a listing is identified by its number alone: it is not
+# cross-matched, and no rule or `hip` correction applies to it.
+HIP_NUMBERED_CATALOGS = frozenset({"Nam"})
 
 # A match is made only where it is reliably right, at the cost of missing
 # some stars; those are matched by `hip` corrections (catalog.md §9.3). The
@@ -98,7 +103,7 @@ DISCOVERER_SPELLINGS = {
 # Prefixes that are catalog numbers, not double-star discoverers.
 _NOT_DISCOVERERS = frozenset(
     {"HD", "HR", "SAO", "HIP", "BD", "CD", "CPD", "COD", "NGC", "IC", "M", "ADS"}
-    | {code.upper() for code in ("SaM", "SaR", "Str", "RDS", "TLK", "WDS", "H")}
+    | {code.upper() for code in ("SaM", "SaR", "Str", "RDS", "TLK", "WDS", "Nam", "H")}
 )
 _DESIGNATION_RE = re.compile(r"([A-Za-z]{1,8})\s*(\d+)")
 _HD_RE = re.compile(r"HD\s*(\d+)")
@@ -298,6 +303,8 @@ class StarObject:
     # its position stands in for its star's (STAND_IN_POSITIONS).
     precise: bool = False
     stand_in: bool = False
+    # The HIP number of a listing of a HIP-numbered catalog: its sequence.
+    hip_number: Optional[int] = None
     listings: List[str] = field(default_factory=list)
     names: List[str] = field(default_factory=list)
     # The DM number its source gives outside its names (WDS's), and for a SAC
@@ -365,6 +372,8 @@ def read_star_objects(
                 dm=dm_numbers.get(listing),
                 system_first=systems.get(listing),
             )
+        if row["catalog_code"] in HIP_NUMBERED_CATALOGS and star.hip_number is None:
+            star.hip_number = row["sequence"]
         star.listings.append(f"{row['catalog_code']} {row['sequence']}")
     for row in cursor.execute(
         "SELECT object_id, common_name FROM names WHERE object_id IN"
@@ -385,8 +394,8 @@ class Match:
     separation_arcmin: Optional[float] = None
     # Why there is no match: "no V", "V gate", "ambiguous", or a veto.
     reason: Optional[str] = None
-    # The rule that made it: "position", "catalog number", "WDS designation"
-    # or "SAC system".
+    # The rule that made it: "position", "catalog number", "WDS designation",
+    # "SAC system", or "HIP number" for a HIP-numbered catalog's listing.
     rule: Optional[str] = None
     # A SAC continuation row joins its system's first row's sky object,
     # with that row's HIP, or none.
@@ -753,6 +762,12 @@ def apply_hip_identifications(
         if code not in STAR_CATALOGS or object_id not in stars:
             problems.append(f"{label}: {designator} is no star catalog's listing")
             continue
+        if stars[object_id].hip_number is not None:
+            problems.append(
+                f"{label}: {designator} is numbered by its HIP; it takes no"
+                " hip correction"
+            )
+            continue
         if hipparcos.index_of(hip) is None:
             problems.append(f"{label}: Hipparcos has no HIP {hip}")
             continue
@@ -772,6 +787,33 @@ def apply_hip_identifications(
         matches[object_id] = Match(object_id, hip=hip, by_correction=True)
     if problems:
         raise CorrectionError(problems)
+
+
+def hip_numbered_matches(
+    stars: Mapping[int, StarObject], hipparcos: Hipparcos
+) -> Dict[int, Match]:
+    """The matches of the HIP-numbered catalogs' listings: each its number.
+
+    Fails on a number Hipparcos lacks, and on a sky object that holds a
+    HIP-numbered listing and is not that listing's alone (a loader joined
+    another listing to it): its number would identify the other too.
+    """
+    matches: Dict[int, Match] = {}
+    for object_id, star in sorted(stars.items()):
+        hip = star.hip_number
+        if hip is None:
+            continue
+        if hipparcos.index_of(hip) is None:
+            raise ValueError(f"{star.listings[0]}: Hipparcos has no HIP {hip}")
+        if len(star.listings) > 1:
+            raise ValueError(
+                f"HIP {hip}'s listing shares its sky object with other"
+                f" listings: {', '.join(star.listings)}"
+            )
+        matches[object_id] = Match(
+            object_id, hip=hip, separation_arcmin=0.0, rule="HIP number"
+        )
+    return matches
 
 
 def d_star_type(members: Sequence[StarObject]) -> str:
@@ -817,9 +859,14 @@ def identify_stars(
     conn = db.conn
     cursor = conn.cursor()
     stars = read_star_objects(cursor)
-    matches = cross_match(stars, hipparcos)
-    apply_vetoes(stars, matches, hipparcos)
-    apply_identifier_rules(stars, matches, hipparcos)
+    # A HIP-numbered listing is its star: it takes no part in the rules, so
+    # it changes no other listing's match, and it joins the stars they match
+    # to its number in the merge below.
+    listed = {oid: star for oid, star in stars.items() if star.hip_number is None}
+    matches = cross_match(listed, hipparcos)
+    apply_vetoes(listed, matches, hipparcos)
+    apply_identifier_rules(listed, matches, hipparcos)
+    matches.update(hip_numbered_matches(stars, hipparcos))
     apply_hip_identifications(cursor, stars, matches, hip_identifications, hipparcos)
     # A joined continuation row follows its system's first row, which a hip
     # correction may have identified since.

@@ -915,8 +915,13 @@ class UIObjectList(UITextMenu):
         self.show_object_details(self._current_item_index)
 
     def key_number(self, number):
+        if not self.jump_input_display:
+            # As many digits as the list's largest number: a Named Stars HIP
+            # number or a WDS sequence has six.
+            largest = max((obj.sequence for obj in self._menu_items_sorted), default=0)
+            self.jump_to_number.width = max(4, len(str(largest)))
         self.jump_to_number.append_number(number)
-        if str(self.jump_to_number) == "----":
+        if not self.jump_to_number.has_number():
             self.jump_input_display = False
             return
 

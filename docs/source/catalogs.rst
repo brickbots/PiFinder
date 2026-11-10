@@ -74,6 +74,19 @@ M
 ----------
 Messier catalog
 
+Nam
+----
+Named Stars: every star with a name from the IAU Catalog of Star Names, 578 in
+all, from Vega and Miaplacidus down to faint stars named for the planets they
+host. Each star is listed by its Hipparcos number, so Vega is Nam 91262. Type a
+name in **Name Search** to find the star, or sort by **Nearest**. The 73 IAU names
+of objects without a Hipparcos number are not included. See
+`IAU Catalog of Star Names <https://exopla.net/star-names/modern-iau-star-names/>`_.
+
+The IAU name is the name the PiFinder shows for each of these stars, in every
+catalog that lists it. A name with accents, such as Mönch, can also be found
+by typing it without them.
+
 NGC
 ----------
 NGC 2000.0, The Complete New General Catalogue and Index Catalogue of Nebulae and Star Clusters by J.L.E. Dreyer (edited by R.W. Sinnott).
@@ -110,7 +123,8 @@ Sh2
 
 Str
 ----
-Named bright stars. Especially useful for aligning GoTo telescopes.
+Named bright stars. Especially useful for aligning GoTo telescopes. For every
+star the IAU has named, see Nam.
 
 Ta2
 ----------
