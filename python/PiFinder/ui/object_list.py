@@ -27,7 +27,7 @@ from PiFinder.calc_utils import aim_degrees
 from PiFinder import utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.nearby import Nearby
-from PiFinder.catalogs import CatalogState
+from PiFinder.catalogs import CatalogState, default_display_mode_for
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     name_deduplicate,
@@ -138,8 +138,7 @@ class UIObjectList(UITextMenu):
         self._nearby_index_key: Any = _NEARBY_INDEX_UNBUILT
 
         # Init display mode defaults
-        self.mode_cycle = cycle(DisplayModes)
-        self.current_mode = next(self.mode_cycle)
+        self._init_display_mode()
 
         # Initialize sort default
         self.sort_cycle = cycle(SortOrder)
@@ -211,6 +210,28 @@ class UIObjectList(UITextMenu):
         # need to get the object list always
         self.refresh_object_list(force_update=True)
         self.nearby = Nearby(self.shared_state)
+
+    def _init_display_mode(self) -> None:
+        """
+        Start in the default display mode of the list's catalog: NAME for
+        catalogs whose objects go by name (planets, stars, doubles), LOCATE
+        for the others and for lists that mix catalogs. The cycle is advanced
+        to that mode, so SQUARE goes on to the next mode in the usual order.
+        """
+        start_mode = DisplayModes.LOCATE
+        if self.item_definition.get("objects") == "catalog":
+            catalog_code = self.item_definition.get("value", "")
+            catalog = self.catalogs.get_catalog_by_code(catalog_code)
+            start_mode = DisplayModes[
+                catalog.default_display_mode
+                if catalog is not None
+                else default_display_mode_for(catalog_code)
+            ]
+
+        self.mode_cycle = cycle(DisplayModes)
+        self.current_mode = next(self.mode_cycle)
+        while self.current_mode != start_mode:
+            self.current_mode = next(self.mode_cycle)
 
     def refresh_object_list(self, force_update=False):
         """
