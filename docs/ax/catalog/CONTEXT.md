@@ -17,7 +17,7 @@ The readable, human-facing label for a catalog as a whole — `"Collinder"`, `"C
 _Avoid_: catalog name (prefer the full term), catalog title, long name.
 
 **Sequence**:
-Integer position of an object inside one catalog (e.g. `13` for M 13). Must be unique within a catalog (enforced by `CatalogBase.check_sequences()`).
+Integer position of an object inside one catalog (e.g. `13` for M 13). Must be unique within a catalog (enforced by `CatalogBase.check_sequences()`). In the Named Stars catalog (`Nam`) it is the star's Hipparcos (HIP) number, so it stays the star's as names are added: Vega is Nam 91262.
 _Avoid_: number, index, ordinal.
 
 **Object ID** (`object_id`):

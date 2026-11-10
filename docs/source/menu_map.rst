@@ -133,8 +133,9 @@ By Catalog
       extragalactic globulars, Harris globulars, Herschel 400, IC, Lyngå open
       clusters, Messier, NGC, Sharpless emission nebulae, and the TAAS 200 list.
    Stars...
-      Star catalogs: bright named stars, the SAC double, asterism and red-star
-      lists, RASC and WDS doubles, and TLK's hand-picked variable stars.
+      Star catalogs: bright named stars, every IAU-named star, the SAC double,
+      asterism and red-star lists, RASC and WDS doubles, and TLK's hand-picked
+      variable stars.
 Recent
    The objects you've viewed this session, most recent first.  It starts empty
    each session.

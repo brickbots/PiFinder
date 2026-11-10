@@ -42,6 +42,7 @@ CATALOG_CODE_ALIASES: Dict[str, str] = {
     "lyn": "Lyn",
     "m": "M",
     "messier": "M",
+    "nam": "Nam",
     "ngc": "NGC",
     "rds": "RDS",
     "saa": "SaA",

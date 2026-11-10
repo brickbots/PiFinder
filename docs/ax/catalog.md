@@ -475,7 +475,11 @@ before the next build.
 
 Each stage has the last word over the stages before it. Loader order
 matters: a loader can only join sky objects that earlier loaders created
-(so Sharpless loads before Caldwell, whose C 9 is Sh2 155).
+(so Sharpless loads before Caldwell, whose C 9 is Sh2 155). The Named
+Stars loader (`Nam`) loads last: its listings join no sky object at
+insert, and the star-identity stage joins each to its star by HIP number,
+where the lowest id survives, so a star another catalog lists keeps that
+catalog's sky object.
 
 When a loader joins a sky object an earlier loader created, it may only
 fill what is empty — never replace — with two named exceptions:
@@ -593,6 +597,22 @@ correction** (Rich's principle, 2026-10). A wrong match cannot be undone
 and would give a listing another star's values, while a miss costs one
 line in a corrections file. A listing with no match stays its own sky
 object.
+
+- **A HIP-numbered listing is its star.** The Named Stars catalog (`Nam`)
+  lists each star the IAU Catalog of Star Names gives a HIP number, and its
+  sequence is that number (Vega is Nam 91262), so the number stays the
+  star's as the WGSN adopts names (`HIP_NUMBERED_CATALOGS`). Such a listing
+  is identified by its number alone, with the rule "HIP number": it is not
+  cross-matched, takes no part in the rules below, and takes no `hip`
+  correction. It changes no other listing's match, and joins whatever the
+  rules and corrections identify as its HIP number in the merge. Where they
+  miss a star another catalog lists, the Named Stars listing is a sky object
+  of its own beside it, until a `hip` correction identifies the missed
+  listing; position never joins them. The listing's position and V are
+  Hipparcos's: V is the star's own where Hipparcos says so (9.4), and
+  otherwise its system's combined light, which is what a finder shows of
+  a star listed alone. A star with no other listing keeps that V, and
+  without one it would drop out of every magnitude filter.
 
 - **The match** is the one Hipparcos star within the listing's radius
   whose V lies within 1 mag of the listing's first magnitude, the
@@ -811,7 +831,10 @@ star-identity stage identified by that number, and nothing else:
 - A name with no HIP number, one whose star PiFinder doesn't hold or
   didn't identify, and the two names of HIP 72105 (Izar and Pulcherrima,
   with no component to choose between them) are skipped; the import logs
-  how many, and the names other sky objects carry too.
+  how many, and the names other sky objects carry too. Since the Named
+  Stars catalog lists every HIP number the WGSN names (9.3), every name
+  with a HIP number has its star: Nam 72105 is ε Boo, the pair, with
+  neither IAU name, as before.
 
 Steinicke's Bmag is never used as a fallback V on its own: for
 non-galaxies it is often NGC 2000.0's photographic figure, and for M 43
