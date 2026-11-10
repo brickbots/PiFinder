@@ -13,6 +13,7 @@ import os
 import functools
 from functools import cache
 import math as math
+import re
 
 from PIL import Image, ImageChops
 from itertools import cycle
@@ -28,6 +29,7 @@ from PiFinder import utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.nearby import Nearby
 from PiFinder.catalogs import CatalogState, default_display_mode_for
+from PiFinder.designations import parse_designation
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     name_deduplicate,
@@ -64,6 +66,27 @@ class SortOrder(Enum):
 # Sentinel for "the Nearby spatial index has never been built". A plain None
 # can't serve: it is a legitimate dirty_time when no filter is configured.
 _NEARBY_INDEX_UNBUILT = object()
+
+
+# PiFinder's own WDS listing ("WDS 4631") and the WDS coordinate designation
+# ("WDS J00568+3830"). parse_designation reads neither: "wds" is not a
+# catalog code alias.
+_WDS_LISTING_RE = re.compile(r"wds\s*\d+", re.IGNORECASE)
+_WDS_COORDINATE_RE = re.compile(r"wds\s*j", re.IGNORECASE)
+
+
+def _name_group(name: str) -> int:
+    """
+    Where a name goes in the NAME-mode text: 0 for a real name ("Mu And",
+    "h 1057", "HD 208526"), 1 for a PiFinder catalog designation ("SaM 25",
+    "M15", "WDS 4631"), 2 for a WDS coordinate designation.
+    """
+    name = name.strip()
+    if _WDS_COORDINATE_RE.match(name):
+        return 2
+    if _WDS_LISTING_RE.fullmatch(name) or parse_designation(name) is not None:
+        return 1
+    return 0
 
 
 def _sort_order_label(sort_order: "SortOrder") -> str:
@@ -457,9 +480,16 @@ class UIObjectList(UITextMenu):
             return int(255 + ((125 - 255) / (16 - 9)) * (mag - 9))
 
     def create_name_text(self, obj: CompositeObject) -> str:
+        """
+        The NAME-mode text: real names first, then PiFinder catalog
+        designations, then WDS coordinate designations. The names table
+        often puts designations first ("SaM 25, Mu And" on SaM 26); the
+        observer looks for the name. The order inside each group is kept, and
+        the row's own designation is left out.
+        """
         dedups = name_deduplicate(obj.names, [f"{obj.catalog_code}{obj.sequence}"])
-        result = ", ".join(dedups)
-        return result
+        # sorted() is stable, so each group keeps the names table's order.
+        return ", ".join(sorted(dedups, key=_name_group))
 
     # Use 3-letter abbreviations for planets instead of PL1, PL2, etc.
     # Falls back to full name if planet is not in the dictionary.

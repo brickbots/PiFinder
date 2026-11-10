@@ -1,9 +1,10 @@
-"""Tests for the per-catalog default display mode of the object list (#408).
+"""Tests for the object list's NAME mode (#408).
 
 A list of one catalog opens in its catalog's default display mode: NAME for
 catalogs whose objects go by name (planets, comets, stars, doubles), LOCATE
 for the others. SQUARE then cycles on from there in the usual order. Lists
-that mix catalogs keep the LOCATE start.
+that mix catalogs keep the LOCATE start. The NAME-mode text puts real names
+before catalog designations.
 """
 
 import pytest
@@ -16,7 +17,8 @@ from PiFinder.catalogs import (
     default_display_mode_for,
 )
 from PiFinder.comet_catalog import CometCatalog
-from PiFinder.ui.object_list import DisplayModes, UIObjectList
+from PiFinder.composite_object import CompositeObject
+from PiFinder.ui.object_list import DisplayModes, UIObjectList, _name_group
 
 NAME_MODE = ["PL", "CM", "Str", "Nam", "SaA", "SaR", "TLK", "SaM", "RDS", "WDS"]
 LOCATE_MODE = [
@@ -141,3 +143,78 @@ def test_square_cycles_on_from_a_locate_start(catalogs):
 def test_mixed_lists_open_in_locate_mode(objects, catalogs):
     module = _object_list({"objects": objects}, catalogs)
     assert module.current_mode is DisplayModes.LOCATE
+
+
+# --------------------------------------------------------------------------- #
+# NAME-mode text: real names first
+# --------------------------------------------------------------------------- #
+
+
+def _name_text(catalog_code: str, sequence: int, names: list) -> str:
+    module = UIObjectList.__new__(UIObjectList)
+    return module.create_name_text(
+        CompositeObject(catalog_code=catalog_code, sequence=sequence, names=names)
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "name, group",
+    [
+        ("Mu And", 0),
+        ("h 1057", 0),
+        ("Algol", 0),
+        ("CVR 117", 0),
+        ("HD 208526", 0),
+        ("STT 514", 0),
+        ("Winter Triangle", 0),
+        ("SaM 25", 1),
+        ("Str 12", 1),
+        ("TLK 69", 1),
+        ("WDS 4631", 1),
+        ("NGC 7078", 1),
+        ("M15", 1),
+        ("WDS J00568+3830", 2),
+        ("WDS J11246+2024", 2),
+    ],
+)
+def test_name_groups(name, group):
+    assert _name_group(name) == group
+
+
+@pytest.mark.unit
+def test_groups_keep_the_names_table_order():
+    names = ["WDS J1", "NGC 2", "Beta", "M 1", "Alpha", "WDS J0", "Gamma"]
+    assert _name_text("SaM", 99, names) == (
+        "Beta, Alpha, Gamma, NGC 2, M 1, WDS J1, WDS J0"
+    )
+
+
+@pytest.mark.unit
+def test_name_text_sam_26():
+    names = [
+        "SaM 25",
+        "Mu And",
+        "h 1057",
+        "SaM 26",
+        "SaM 27",
+        "WDS 4631",
+        "WDS J00568+3830",
+        "CIA 50",
+        "HJ 1057",
+    ]
+    assert _name_text("SaM", 26, names) == (
+        "Mu And, h 1057, CIA 50, HJ 1057, SaM 25, SaM 27, WDS 4631, WDS J00568+3830"
+    )
+
+
+@pytest.mark.unit
+def test_name_text_wds_62246():
+    names = ["WDS 62246", "WDS J11246+2024", "CVR 117"]
+    assert _name_text("WDS", 62246, names) == "CVR 117, WDS J11246+2024"
+
+
+@pytest.mark.unit
+def test_name_text_removes_nothing_but_the_rows_own_designation():
+    names = ["Str 12", "TLK 69", "Algol", "Algol"]
+    assert _name_text("TLK", 69, names) == "Algol, Str 12"
