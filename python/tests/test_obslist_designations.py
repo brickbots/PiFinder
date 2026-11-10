@@ -237,6 +237,7 @@ def test_designations_is_runtime_safe():
         ("Sh2", 155, "Sh2 155"),
         ("H", 24, "Herschel 24"),
         ("B", 33, "Barnard 33"),
+        ("Nam", 91262, "Nam 91262"),
         ("WDS", 50812, None),
     ],
 )
