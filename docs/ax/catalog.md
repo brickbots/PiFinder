@@ -82,9 +82,13 @@ otherwise `"<catalog_code> <sequence>"` — e.g. `"NGC 7000"`.
 Every `CompositeObject.mag` is a `MagnitudeObject` wrapping a list of
 magnitudes (visual, photographic, combined-pair for doubles, etc.).
 
-- `filter_mag` — single float used by the filter. Computed as the mean
-  of all entries that parse as floats; defaults to
-  `UNKNOWN_MAG = 99` when nothing parses.
+- `filter_mag` — single float used by the filter. The brightest (the
+  smallest) of the entries that parse as floats, so a double filters by
+  its primary and a variable by its maximum (Rich's choice, 2026-11; a
+  mean hid SAC's Vega, [0.6, 9.5], behind a 5.05 filter magnitude);
+  defaults to `UNKNOWN_MAG = 99` when nothing parses. `from_json`
+  recomputes it from the magnitudes and ignores the stored value, so a
+  database built under the old rule filters by the new one.
 - `calc_two_mag_representation()` — returns `"-"` if unknown, `"X.X"` if
   one value, `"min/max"` for two-or-more, used as `mag_str` for display.
 - Serialised to/from JSON in the DB via `to_json` / `from_json`.
@@ -458,7 +462,7 @@ before the next build.
         │   the Messier names
         ▼
    star identity: Hipparcos cross-match, merge by HIP   (star_identity.py)
-        │   (`hip` corrections are read here, ahead of position;
+        │   (`hip` corrections apply here, before the identifier rules;
         │   each star's HIP is recorded in STAR_HIPS)
         ▼
    supplementary sources                         (SUPPLEMENTARY_SOURCES)
@@ -636,6 +640,10 @@ object.
 - **A match must not contradict the listing's own designations.**
   - Its HD, BD, CD or CPD numbers, if it gives any, must include the
     matched star's in Hipparcos's own columns.
+  - A WDS listing's own DM, where it names a Hipparcos star within 15′,
+    must name the matched one. Where WDS's position sits on one star of a
+    pair and its DM names the other (LDS 5227), which star is the primary
+    is not settled: 45 WDS listings go unmatched for it.
   - A double-star designation (SAC's "STF 362", "h 4166" for WDS's
     HJ 4166) that a WDS listing within 15′ carries must not place the pair
     elsewhere: that listing may not match another star, nor lie more than
@@ -653,6 +661,13 @@ object.
      names a star 65° away); for WDS and TLK it must also be the nearest
      Hipparcos star, since a number never overrides an arcsecond position
      (θ¹ Ori's PTR 1 sits on one component while its DM names the other).
+     And the listing's V must pass the V gate, as for a position match
+     (SAC's red stars BE CMa and BE CMi give a V 1.7 mag brighter than the
+     stars their HD numbers name), except for a star Hipparcos finds
+     varying by more than 0.6 mag (its H6 flag is 3: Mira) and for a WDS
+     listing, whose first magnitude is often another band's (K for an
+     interferometric pair). WDS writes a five-digit DM number with no space
+     after the zone (`-2616866`); the loader reads both forms.
   2. **A shared WDS designation.** A SAC or RASC row whose double-star
      designation a WDS listing within 15′ carries, and which that WDS
      listing's match identifies, is that star. This settles the pairs whose
@@ -664,16 +679,37 @@ object.
   3. **SAC's own systems.** SAC lists a multiple star as consecutive rows
      under one constellation and name (AB, then AC, CD…). A continuation
      row that gives no V, or that is a companion pair, joins its system's
-     first row's sky object — with that row's HIP, or none — unless its
-     own identifiers name another star (STF 1830's rows).
-- **`hip` corrections come first.** A listing the rules miss (SAC's α Mic,
-  whole degrees off; Mira's SAC rows; a pair's ambiguous components) gets a
-  `hip` correction, which this stage reads before it cross-matches and
-  uses in place of the match — the one correction that does not wait for
-  the final pass (9.5). One whose designator resolves to nothing or to no
-  star listing, that names a HIP number Hipparcos lacks, or that names the
-  star the cross-match finds anyway (redundant) fails the import, before
-  anything is merged.
+     first row's sky object — with that row's HIP, or none — only if it is
+     a pair of the first row's primary star: its components start with the
+     first row's primary letter (ν Sco's AC after AB). A pair of other
+     components (θ¹ Ori's CF, σ Ori's ED, α Cep's CD) is another star of
+     the system, and a row or a system without components says nothing, so
+     it stays its own sky object; a row that gives a V must also pass the
+     V gate against its system's star. No rule identifies a companion pair
+     at all: its names and numbers are its system's, and its double-star
+     designation's WDS listing sits on the primary, so rules 1 and 2 would
+     name the primary too (STF 2532's BC row). It does not join if its own
+     identifiers name another star (STF 1830's rows). Joining every
+     continuation row put θ¹ Ori's CF row (V 5.1, θ¹ Ori C) on HIP 26224
+     (V 6.71) and σ Ori's ED row (V 6.5) on σ Ori A (V 3.77) — mrosseel's
+     review of #685.
+- **`hip` corrections come before the identifier rules.** A listing the
+  rules miss (SAC's α Mic, whole degrees off; Mira's SAC rows; a pair's
+  ambiguous components) gets a `hip` correction — the one correction that
+  does not wait for the final pass (9.5). It replaces the listing's
+  position match after the vetoes, and the identifier rules run after it,
+  so they see the corrected stars: a SAC row whose WDS listing a
+  correction identifies follows it by rule 2, and a continuation row
+  follows a corrected first row by rule 3. (Applied after the rules, a
+  correction of a WDS listing left the SAC rows rule 2 had put on its old
+  star behind — mrosseel's review.) One whose designator resolves to
+  nothing or to no star listing, that names a HIP number Hipparcos lacks,
+  that reaches a sky object another correction reaches, or that names the
+  star the rules find without any correction (redundant) fails the
+  import, before anything is merged. A correction made redundant only by
+  another correction (SaM 1105, which rule 2 finds once WDS 58296's
+  correction applies) is not caught by the import; the list's
+  maintenance tools check it.
 - **The merge.** The first loader's sky object survives (the lowest id),
   as if the later listings had joined it, and keeps its position. The
   others' listings and names move onto it in id order, their names after

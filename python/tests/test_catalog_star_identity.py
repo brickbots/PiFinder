@@ -341,6 +341,8 @@ IDENTIFIED = hipparcos(
     (59272, 182.0, 20.0, 6.81),
     (59273, 182.0, 20.0 + 15 * ARCSEC, 6.65),
     (1, 182.0, 20.0 + 1.0 * ARCMIN, 6.8),
+    # Mira varies by more than 0.6 mag (Hipparcos's H6 = 3).
+    var_flags=[3, 0, 0, 0],
     numbers={
         10826: {("HD", 14386)},
         59272: {("HD", 105590), ("BD", "+", 20, 2700)},
@@ -365,6 +367,12 @@ def test_a_catalog_number_resolves_a_pair_the_position_cannot(db):
     assert identified(db, IDENTIFIED)[rds].hip == 59272
 
 
+def test_a_catalog_number_still_needs_the_listings_v(db):
+    # SAC's BE CMi gives 8.7; the star its HD names is 10.43 and constant.
+    sar = add(db, "SaR", 98, "*", 182.0, 20.0, mag=[8.7], names=["HD 105590"])
+    assert identified(db, IDENTIFIED)[sar].hip is None
+
+
 def test_a_catalog_number_naming_a_far_star_is_a_slip(db):
     # TU Gem's HD 42247 names a star 65° away: no match.
     sar = add(db, "SaR", 147, "*", 100.0, 22.0, mag=[7.4], names=["HD 14386"])
@@ -373,7 +381,7 @@ def test_a_catalog_number_naming_a_far_star_is_a_slip(db):
 
 def test_two_catalog_numbers_naming_two_stars_are_no_match(db):
     sam = add(
-        db, "SaR", 1, "*", 182.0, 20.0, mag=[2.0], names=["HD 105590", "HD 105591"]
+        db, "SaR", 1, "*", 182.0, 20.0, mag=[6.8], names=["HD 105590", "HD 105591"]
     )
     match = identified(db, IDENTIFIED)[sam]
     assert match.hip is None and match.reason.startswith("rules disagree")
@@ -390,6 +398,14 @@ def test_a_wds_dm_number_identifies_the_star_within_30_arcsec(db):
     )
     assert found[wds].hip == 59273
     assert found[far].hip is None
+
+
+def test_a_wds_listing_whose_dm_names_its_neighbour_is_not_matched(db):
+    # LDS 5227: WDS's position sits on one star, its DM names another.
+    wds = add(db, "WDS", 1, "D*", 182.0, 20.0 + 15 * ARCSEC, mag=[6.65])
+    found = identified(db, IDENTIFIED, dm_numbers={("WDS", 1): ("+", 20, 2700)})
+    assert found[wds].hip is None
+    assert found[wds].reason == "WDS DM +20 2700 is HIP 59272"
 
 
 def test_a_wds_dm_number_never_overrides_an_arcsecond_position(db):
@@ -489,6 +505,43 @@ def test_a_continuation_row_naming_another_star_stays_apart(db):
     assert found[cont].reason.startswith("rules disagree")
 
 
+def test_a_continuation_row_whose_v_is_not_its_systems_star_stays_apart(db):
+    # θ¹ Ori's CF row gives C's V, 5.1; its system's star, 59272, is 6.81.
+    ab = add(db, "SaM", 1, "D*", 182.0, 20.0, mag=[6.8], names=["HD 105590"])
+    row = add(db, "SaM", 2, "D*", 182.0, 20.0, mag=[5.1])
+    found = identified(db, IDENTIFIED, systems={("SaM", 2): ("SaM", 1)})
+    assert found[ab].hip == 59272
+    assert found[row].hip is None and found[row].joined_to is None
+    assert found[row].reason.startswith("V gate")
+
+
+def test_a_continuation_row_whose_v_is_its_systems_star_joins(db):
+    ab = add(db, "SaM", 1, "D*", 182.0, 20.0, mag=[6.8], names=["HD 105590"])
+    row = add(db, "SaM", 2, "D*", 182.0, 20.0, mag=[6.9])
+    found = identified(db, IDENTIFIED, systems={("SaM", 2): ("SaM", 1)})
+    assert (found[row].hip, found[row].joined_to) == (59272, ab)
+
+
+def test_a_continuation_row_with_a_v_and_an_unmatched_system_stays_apart(db):
+    # Without the system's star there is nothing to check its V against.
+    add(db, "SaM", 1, "D*", 100.0, 10.0, mag=[9.0])
+    row = add(db, "SaM", 2, "D*", 100.0, 10.0, mag=[9.1])
+    found = identified(db, systems={("SaM", 2): ("SaM", 1)})
+    assert found[row].joined_to is None
+
+
+def test_no_rule_identifies_a_companion_pair(db):
+    # STF 1604's BC row names the pair, whose WDS listing sits on A: the
+    # row's own star is B, so it stays unmatched.
+    sam = add(db, "SaM", 662, "D*", 182.0, 20.0, names=["STF 1604", "HD 105590"])
+    add(db, "WDS", 1, "D*", 182.0, 20.0 + 1 * ARCSEC, mag=[6.86], names=["STF1604"])
+    star_objects = read_star_objects(db.conn.cursor(), {("SaM", 662)}, {}, {})
+    found = cross_match(star_objects, IDENTIFIED)
+    apply_vetoes(star_objects, found, IDENTIFIED)
+    apply_identifier_rules(star_objects, found, IDENTIFIED)
+    assert found[sam].hip is None and found[sam].rule is None
+
+
 # --- The `hip` hook ------------------------------------------------------------
 
 
@@ -510,6 +563,42 @@ def test_a_hip_correction_the_cross_match_makes_is_redundant(db):
     add(db, "SaM", 2054, "D*", 200.975, 54.9333, mag=[2.3])
     with pytest.raises(CorrectionError, match="redundant"):
         run(db, {"SaM 2054": MIZAR})
+
+
+def test_a_hip_correction_the_identifier_rules_make_is_redundant(db):
+    # SAC's STF 1604 row is 59272 by its WDS designation (rule 2).
+    add(db, "SaM", 661, "D*", 182.0, 20.0 + 0.1 * ARCMIN, mag=[6.8], names=["STF 1604"])
+    add(db, "WDS", 1, "D*", 182.0, 20.0 + 1 * ARCSEC, mag=[6.86], names=["STF1604"])
+    with pytest.raises(CorrectionError, match="redundant"):
+        run(db, {"SaM 661": 59272}, stars=IDENTIFIED)
+
+
+def test_the_identifier_rules_see_a_hip_correction_of_a_wds_listing(db):
+    # mrosseel's case (#670): WDS's STF 1604 listing sits on 59272, and a
+    # correction says it is 59273. SAC's row, ambiguous by position, follows
+    # the WDS listing by rule 2 to the corrected star, and they merge.
+    sam = add(
+        db, "SaM", 661, "D*", 182.0, 20.0 + 0.1 * ARCMIN, mag=[6.7], names=["STF 1604"]
+    )
+    wds = add(
+        db, "WDS", 1, "D*", 182.0, 20.0 + 1 * ARCSEC, mag=[6.86], names=["STF1604"]
+    )
+    result = run(db, {"WDS 1": 59273}, stars=IDENTIFIED)
+    assert result.matches[wds].by_correction
+    assert (result.matches[sam].hip, result.matches[sam].rule) == (
+        59273,
+        "WDS designation",
+    )
+    assert result.hips == {sam: 59273} and result.merged_into == {wds: sam}
+
+
+def test_a_continuation_row_follows_a_hip_correction_of_its_system(db):
+    ab = add(db, "SaM", 1, "D*", 13.0, -14.0, mag=[5.0])
+    ac = add(db, "SaM", 2, "D*", 13.0, -14.0)
+    ciu.SAC_SYSTEMS[("SaM", 2)] = ("SaM", 1)
+    result = run(db, {"SaM 1": FAR})
+    assert (result.matches[ac].hip, result.matches[ac].rule) == (FAR, "SAC system")
+    assert result.hips == {ab: FAR} and result.merged_into == {ac: ab}
 
 
 def test_a_hip_correction_that_resolves_to_nothing_fails(db):
@@ -699,6 +788,10 @@ def wds_pair(components="AB", notes="N", sep=1.9, mag1=3.5, mag2=6.2):
         # σ CMa's 14.2 at 11".
         (wds_pair(sep=284.4, mag1=2.0, mag2=9.7), False),
         (wds_pair(sep=11.1, mag1=3.5, mag2=14.2), False),
+        # Exactly 5 mag fainter passes, though 18.6 - 13.6 is
+        # 5.000000000000002 in floating point (WDS 02594+4847).
+        (wds_pair(sep=10.0, mag1=13.6, mag2=18.6), True),
+        (wds_pair(sep=10.0, mag1=13.6, mag2=18.61), False),
         (wds_pair(sep=np.nan), False),
         (wds_pair(mag2=np.nan), False),
         (wds_pair(mag1=np.nan, mag2=9.0), True),
