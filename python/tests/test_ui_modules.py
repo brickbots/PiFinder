@@ -729,6 +729,7 @@ def test_object_details_mount_keys(display, camera_image, catalogs, sample_objec
             break
     assert module.object_display_mode == object_details.DM_MOUNT
     module.update()
+    assert module.serialize_ui_state()["display_mode"] == "mount"
 
 
 @pytest.mark.integration

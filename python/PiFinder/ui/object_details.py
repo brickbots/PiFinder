@@ -853,6 +853,8 @@ class UIObjectDetails(UIModule):
                 DM_LOCATE: "locate",
                 DM_POSS: "poss_image",
                 DM_SDSS: "sdss_image",
+                DM_CONTRAST: "contrast",
+                DM_MOUNT: "mount",
             }
 
             # Serialize the object information safely
