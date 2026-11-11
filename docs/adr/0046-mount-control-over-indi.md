@@ -31,4 +31,6 @@ PiFinder can move a GoTo mount: goto the selected object, sync to the plate solv
 - The INDI telescope simulator confirms a sync, but it does not move its reported position. The integration tests check the driver message.
 - PiFinder does not change the pointing model inside the mount controller (for example OnStepX). It turns off only the INDI alignment subsystem. A controller pointing model can disagree with the plate solve.
 - WiFi mounts use the driver's TCP connection. An empty host or port keeps the driver default, for example UDP 11880 on the AZ-GTi driver.
+- INDI applies `TELESCOPE_TRACK_RATE` only in the `TRACK_CUSTOM` track mode. Drift compensation sets that mode first, and a new goto goes back to sidereal. A mount without custom tracking keeps sidereal tracking and skips drift compensation.
+- After a sync, the driver confirms with a position update in state Ok, and that reply can come after the next goto was sent. A slew therefore ends only after the driver reported Busy for it, or after 3 s.
 - Presets live in the config (`mount_control_presets`). A user preset with the name of a built-in preset overrides it.
