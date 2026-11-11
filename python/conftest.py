@@ -1,5 +1,13 @@
 import os
 
+# Adafruit Blinka detects the board when a module does "import board". It
+# knows a Raspberry Pi and a generic x86 PC, but not a generic aarch64 host
+# such as a GitHub arm runner, and the import fails there. The tests use no
+# real hardware, so they always run as a generic PC. A value that is already
+# set wins.
+os.environ.setdefault("BLINKA_FORCECHIP", "GENERIC_X86")
+os.environ.setdefault("BLINKA_FORCEBOARD", "GENERIC_LINUX_PC")
+
 
 def pytest_addoption(parser):
     parser.addoption(

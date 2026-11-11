@@ -11,6 +11,12 @@ jobs:
     name: Web Integration Tests
     # aarch64, like the PiFinder and the nox workflow.
     runs-on: ubuntu-24.04-arm
+    # Adafruit Blinka does not know the arm runner, which is not a Pi, and
+    # "import board" fails. The fake-hardware PiFinder runs as a generic PC,
+    # as python/conftest.py does for the tests.
+    env:
+      BLINKA_FORCECHIP: GENERIC_X86
+      BLINKA_FORCEBOARD: GENERIC_LINUX_PC
 
     steps:
       - name: Checkout repository
