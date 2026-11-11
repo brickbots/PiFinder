@@ -1,6 +1,7 @@
 """USB and WiFi mount connections: the driver properties that PiFinder sets,
 the settings and presets, and the Mount web form."""
 
+import time
 from pathlib import Path
 from queue import Queue
 from unittest.mock import Mock
@@ -12,6 +13,7 @@ from PiFinder import indi_drivers, mount_settings
 from PiFinder.mount_settings import MountSettings, Preset
 from PiFinder.indi_client import IndiProperty
 from PiFinder.mountcontrol_indi import MountControlIndi, split_address
+from PiFinder.mountcontrol_interface import MountControlPhases
 from PiFinder.state import SharedStateObj
 
 pytestmark = pytest.mark.unit
@@ -315,3 +317,42 @@ def test_reload_config_command_reloads_settings():
     assert mount.settings.model == "SAL-33"
     assert mount.state.name == "MOUNT_INIT_TELESCOPE"
     assert mount.console_queue.get_nowait()[0] == "MOUNT"
+
+
+def _slewing_mount(target):
+    mount = _mount(FakeClient({}), "usb")
+    mount._slewing = True
+    mount._slew_busy_seen = True
+    mount._slew_target = target
+    return mount
+
+
+def test_slew_end_at_target_is_target_reached():
+    mount = _slewing_mount((84.0, 22.0))
+    mount._mount_current_position(84.001, 22.0, "Ok")
+    assert mount.target_reached
+    assert mount.console_queue.empty()
+
+
+def test_slew_end_far_from_target_is_interrupted():
+    """The driver ended the slew elsewhere: no target reached, so REFINE
+    does not sync to a wrong place."""
+    mount = _slewing_mount((84.0, 22.0))
+    mount.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
+    mount._mount_current_position(325.8, 22.0, "Ok")
+    assert not mount.target_reached
+    assert mount.state == MountControlPhases.MOUNT_STOPPED
+    assert mount.console_queue.get_nowait() == ["WARNING", "Goto interrupted"]
+
+
+def test_location_waits_while_the_mount_slews():
+    mount = _mount(FakeClient({}), "usb")
+    mount.sync_mount_location_and_time = Mock()
+    mount._slewing = True
+    mount._slew_start = time.time()
+    mount.periodic_mount_task()
+    mount.sync_mount_location_and_time.assert_not_called()
+    mount._slewing = False
+    mount.current_time = 0.0
+    mount.periodic_mount_task()
+    mount.sync_mount_location_and_time.assert_called_once()

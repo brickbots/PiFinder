@@ -23,6 +23,7 @@ from PiFinder.indi_client import TELESCOPE_INTERFACE, IndiClient, IndiProperty
 from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_interface import (
     MountControlBase,
+    angular_distance,
     MountControlPhases,
     MountDirections,
     MountDirectionsAltAz,
@@ -48,6 +49,9 @@ CONNECT_TIMEOUT_S = 20.0
 # driver reported Busy, or after this time: the driver's reply to an earlier
 # sync can come after the goto was sent.
 SLEW_START_GRACE_S = 3.0
+# A slew that ends further than this from its own target was interrupted
+# (a hand controller, a limit, or a driver that stops on a new location).
+GOTO_END_TOLERANCE_DEG = 1.0
 # A slew with no end report counts as ended after this time.
 SLEW_TIMEOUT_S = 300.0
 # Time for the driver to define CONNECTION_MODE after DRIVER_INFO.
@@ -99,6 +103,7 @@ class MountControlIndi(MountControlBase):
         self._slewing = False
         self._slew_busy_seen = False
         self._slew_start = 0.0
+        self._slew_target: Optional[Tuple[float, float]] = None
         # The track mode is Custom after a drift compensation.
         self._custom_tracking = False
 
@@ -210,6 +215,13 @@ class MountControlIndi(MountControlBase):
             # Not this goto's end yet, for example the reply to a sync.
             return
         self._slewing = False
+        if self._slew_target is not None and state != "Alert":
+            off = angular_distance(ra_deg, dec_deg, *self._slew_target)
+            if off > GOTO_END_TOLERANCE_DEG:
+                logger.warning("Slew ended %.2f° from its target: interrupted", off)
+                self.console_queue.put(["WARNING", _("Goto interrupted")])
+                self.mount_stopped()
+                return
         if state == "Alert":
             logger.warning("Goto failed: the mount reports Alert")
             self.console_queue.put(["WARNING", _("Goto failed!")])
@@ -446,6 +458,7 @@ class MountControlIndi(MountControlBase):
         self._slewing = True
         self._slew_busy_seen = False
         self._slew_start = time.time()
+        self._slew_target = (ra_deg % 360.0, dec_deg)
         self.current_time = time.time()
         return True
 
@@ -580,6 +593,10 @@ class MountControlIndi(MountControlBase):
         return True
 
     def periodic_mount_task(self) -> None:
+        # Some drivers stop a slew when the location changes, so the
+        # location waits until the mount stands still.
+        if self.is_mount_moving():
+            return
         if self.last_periodic_update + self.periodic_update_interval < time.time():
             self.last_periodic_update = time.time()
             self.sync_mount_location_and_time()

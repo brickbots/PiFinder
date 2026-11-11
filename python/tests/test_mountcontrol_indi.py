@@ -465,3 +465,46 @@ def test_closed_loop_goto_refines_onto_the_target(indi: int) -> None:
         runner.join(timeout=10)
         mount.disconnect_mount()
         indi_drivers.stop_driver()
+
+
+def test_gps_lock_during_a_slew_does_not_stop_it(indi: int) -> None:
+    """The location arrives while the mount slews. PiFinder sends it after
+    the slew, so the goto ends at the target."""
+    shared_state = _shared_state()
+    shared_state.location.return_value = Location(lock=False)
+    mount = _simulator_mount(indi)
+    mount.shared_state = shared_state
+    runner = threading.Thread(target=mount.run, daemon=True)
+    runner.start()
+    try:
+        assert _wait(lambda: mount.state == MountControlPhases.MOUNT_TRACKING, 30)
+        mount.mount_queue.put({"type": "goto_target", "ra": 250.0, "dec": -10.0})
+        assert _wait(mount.is_mount_moving, 10)
+        shared_state.location.return_value = Location(
+            lat=50.85, lon=-4.35, altitude=60.0, lock=True
+        )
+        mount.last_periodic_update = 0.0
+        # The state machine clears target_reached when it goes to REFINE, so
+        # wait for the mount to stand at the target.
+        assert _wait(
+            lambda: not mount.is_mount_moving()
+            and mount.current_ra is not None
+            and abs(mount.current_ra - 250.0) < 0.1,
+            120,
+        )
+        warnings = []
+        while not mount.console_queue.empty():
+            message = mount.console_queue.get_nowait()
+            if message[0] == "WARNING":
+                warnings.append(message[1])
+        assert "Goto interrupted" not in warnings
+        assert _wait(
+            lambda: mount.client.get_value(mount.device, "GEOGRAPHIC_COORD", "LAT")
+            == pytest.approx(50.85, abs=1e-3),
+            40,
+        )
+    finally:
+        mount.mount_queue.put({"type": "exit"})
+        runner.join(timeout=10)
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
