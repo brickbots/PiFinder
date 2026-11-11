@@ -151,6 +151,7 @@ Tests use pytest with custom markers for different test types. The smoke tests p
 **Testing Framework:** Uses Selenium WebDriver with Pytest for automated browser testing of the web interface
 
 **Infrastructure Requirements:**
+- Dev shell `nix develop .#web`: the default dev shell plus Chromium and chromedriver from the pinned nixpkgs. It sets `CHROME_BINARY`. The web test workflow uses it.
 - Selenium Grid server at localhost:4444 (configurable via SELENIUM_GRID_URL environment variable). 
   This server is started outside of the test code, for maximum flexibility
 - Chrome browser in headless mode for test execution

@@ -9,6 +9,9 @@ name: nox
 # `push` to those branches means a push to a feature branch with an open PR only
 # triggers the `pull_request` run (not also a `push` run), so a PR gets a single
 # run per push instead of two.
+#
+# On a push, a job that passes puts its dev shell in the PiFinder cache, so
+# developers and later jobs download the shell and do not build it.
 on:
   push:
     branches:
@@ -20,8 +23,7 @@ permissions:
   contents: read
 jobs:
   nox:
-    # aarch64, like the PiFinder. The aarch64 dev shell closure is in the
-    # PiFinder cache, so the shell substitutes instead of building.
+    # aarch64, like the PiFinder.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     defaults:
@@ -29,12 +31,9 @@ jobs:
         working-directory: ./python
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: ./.github/actions/setup-nix
         with:
-          determinate: false
-          extra-conf: |
-            extra-substituters = https://cache.pifinder.io/pifinder
-            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+          attic-token: ${{ github.event_name == 'push' && secrets.ATTIC_TOKEN || '' }}
       - name: Build dev shell
         run: nix develop ..#default -c true
       - name: Lint and format check
@@ -47,3 +46,25 @@ jobs:
         run: scripts/check.sh unit
       - name: Integration tests
         run: scripts/check.sh integration
+      - name: Push dev shell to the cache
+        if: github.event_name == 'push'
+        working-directory: .
+        run: .github/scripts/push_dev_shell.sh aarch64-linux
+
+  # Developer desktops are x86. This job puts the x86 dev shells in the cache
+  # after the checks pass, so a desktop downloads libcamera and the Python
+  # environment and does not build them.
+  dev-shell-x86:
+    needs: nox
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-nix
+        with:
+          attic-token: ${{ secrets.ATTIC_TOKEN }}
+      - name: Push dev shells to the cache
+        run: |
+          .github/scripts/push_dev_shell.sh x86_64-linux
+          .github/scripts/push_dev_shell.sh x86_64-linux web

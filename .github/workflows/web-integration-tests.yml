@@ -9,23 +9,20 @@ permissions:
 jobs:
   web-integration-tests:
     name: Web Integration Tests
-    runs-on: ubuntu-latest
+    # aarch64, like the PiFinder and the nox workflow.
+    runs-on: ubuntu-24.04-arm
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # The same flake dev shell as the nox workflow and the developers. The
-      # runner's preinstalled Chrome drives the --local WebDriver.
-      - uses: DeterminateSystems/nix-installer-action@main
-        with:
-          determinate: false
-          extra-conf: |
-            extra-substituters = https://cache.pifinder.io/pifinder
-            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+      # The flake's web dev shell: the nox dev shell plus chromium and
+      # chromedriver from the same pinned nixpkgs. It sets CHROME_BINARY for
+      # the --local WebDriver.
+      - uses: ./.github/actions/setup-nix
 
       - name: Build dev shell
-        run: nix develop .#default -c true
+        run: nix develop .#web -c true
 
       - name: Use webserver log configuration
         working-directory: python
@@ -41,7 +38,7 @@ jobs:
       - name: Start PiFinder with fake hardware
         working-directory: python
         run: |
-          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy nix develop ..#default -c \
+          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy nix develop ..#web -c \
             python -m PiFinder.main -fh --camera debug --keyboard local \
             > /tmp/pifinder.log 2>&1 &
           echo $! > /tmp/pifinder.pid
@@ -70,7 +67,7 @@ jobs:
         env:
           PIFINDER_HOMEPAGE: http://localhost:8080
         run: |
-          nix develop ..#default -c pytest -ra -m web --local -v
+          nix develop ..#web -c pytest -ra -m web --local -v
 
       - name: Rerun failed tests with --lf
         id: pytest_rerun
@@ -80,7 +77,7 @@ jobs:
         env:
           PIFINDER_HOMEPAGE: http://localhost:8080
         run: |
-          nix develop ..#default -c pytest -ra -m web --local -v --lf
+          nix develop ..#web -c pytest -ra -m web --local -v --lf
 
       - name: Alert maintainers via GitHub Issue
         if: steps.pytest_rerun.outcome == 'failure'

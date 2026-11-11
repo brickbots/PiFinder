@@ -409,6 +409,16 @@ You can run ``pytest -m web --browser <browser> --local`` to run the website tes
 This will have Selenium launch a browser on your local machine and run the tests against a locally running instance of PiFinder. 
 The respective browsers need to be installed on your machine. Recognized browsers are ``chrome``, ``firefox`` and ``safari``. 
 
+On Linux, the ``web`` dev shell supplies Chromium and chromedriver from the
+flake's pinned nixpkgs. It is the default dev shell plus the browser, and CI
+runs the web tests in it:
+
+.. code-block:: bash
+
+    nix develop .#web
+    cd python
+    pytest -m web --local
+
 Note that when running the tests on Safari, you need to enable "Allow Remote Automation" in the Develop menu of Safari. In addition Safari
 does not support the "headless" mode, so you will see the browser window when running the tests and you cannot use other windows while the tests are running.
 
@@ -738,9 +748,10 @@ repository's complete Nix development environment first:
 The flake provides this shell for both desktop Linux and the PiFinder's
 ``aarch64-linux`` system. It uses the checked-in ``flake.lock``,
 ``python/pyproject.toml`` and ``python/uv.lock`` and supplies the same native
-``libcamera`` and GObject bindings as the service. CI publishes the aarch64
-shell dependency closure for testable PRs and releases to the PiFinder binary
-caches.
+``libcamera`` and GObject bindings as the service. CI puts the dependency closure of the
+aarch64 shell in the PiFinder binary cache for testable PRs, releases and each
+green push to ``nixos``, ``main`` or ``release``. The x86 shells go to the cache
+on the same pushes, so a desktop also downloads the shell and does not build it.
 
 Why ``nix develop`` here instead of the desktop's preferred ``direnv allow``?
 The released device does not currently ship direnv. More importantly, the
