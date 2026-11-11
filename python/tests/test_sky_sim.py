@@ -103,6 +103,15 @@ def test_a_sync_is_tracked_and_a_slew_is_not():
     assert (sim.sync_ra, sim.sync_dec) == pytest.approx((1.5, -0.8))
 
 
+def test_startup_positions_are_not_a_sync():
+    """The driver first reports 0,0 and then the pole, with state Idle."""
+    sim, client, _clock = _sim()
+    client.move(0.0, 0.0, state="Idle")
+    client.move(0.0, 90.0, state="Idle")
+    client.move(0.0, 90.0)
+    assert (sim.sync_ra, sim.sync_dec) == (0.0, 0.0)
+
+
 def test_failures_and_scenario_events():
     sim, _client, clock = _sim(
         failure_rate=0.0,

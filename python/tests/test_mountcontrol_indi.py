@@ -431,10 +431,16 @@ def test_closed_loop_goto_refines_onto_the_target(indi: int) -> None:
         ),
         shared_state.datetime,
     )
+    # The simulator listens before the driver starts, as in the app, so it
+    # sees the driver's startup positions too.
+    sim.next_message()
     runner = threading.Thread(target=mount.run, daemon=True)
     runner.start()
     try:
         assert _wait(lambda: mount.state == MountControlPhases.MOUNT_TRACKING, 30)
+        for _step in range(10):
+            sim.next_message()
+            time.sleep(0.1)
         target = (80.0, 25.0)
         mount.mount_queue.put(
             {"type": "goto_target", "ra": target[0], "dec": target[1]}

@@ -100,7 +100,7 @@ class SkySimulator:
         self._next_due = 0.0
         self._events = sorted(settings.events, key=lambda e: e["t"])
         self._last_reported: Optional[tuple[float, float]] = None
-        self._was_busy = False
+        self._last_ok = False
         # The sum of the sync jumps in RA and Dec (degrees).
         self.sync_ra = 0.0
         self.sync_dec = 0.0
@@ -145,12 +145,14 @@ class SkySimulator:
         dec = prop.elements.get("DEC")
         if isinstance(ra, float) and isinstance(dec, float):
             with self._lock:
-                self._track_syncs(ra * 15.0, dec, prop.state == "Busy")
+                self._track_syncs(ra * 15.0, dec, prop.state)
 
-    def _track_syncs(self, ra: float, dec: float, busy: bool) -> None:
-        """Add a jump of the reported position while the mount stands still
-        to the sync record."""
-        if self._last_reported is not None and not busy and not self._was_busy:
+    def _track_syncs(self, ra: float, dec: float, state: str) -> None:
+        """Add a jump of the reported position between two updates with state
+        Ok to the sync record. A driver confirms a sync with state Ok; a slew
+        reports Busy, and the first positions after the driver starts are
+        Idle."""
+        if self._last_reported is not None and state == "Ok" and self._last_ok:
             d_ra = (ra - self._last_reported[0] + 180.0) % 360.0 - 180.0
             d_dec = dec - self._last_reported[1]
             if abs(d_ra) > SYNC_JUMP_DEG or abs(d_dec) > SYNC_JUMP_DEG:
@@ -158,7 +160,7 @@ class SkySimulator:
                 self.sync_dec += d_dec
                 logger.info("Sync seen: RA %+.4f°, Dec %+.4f°", d_ra, d_dec)
         self._last_reported = (ra, dec)
-        self._was_busy = busy
+        self._last_ok = state == "Ok"
 
     # Scenario
 
