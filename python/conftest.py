@@ -8,6 +8,12 @@ import os
 os.environ.setdefault("BLINKA_FORCECHIP", "GENERIC_X86")
 os.environ.setdefault("BLINKA_FORCEBOARD", "GENERIC_LINUX_PC")
 
+# tests/test_sys_utils.py comes from upstream main. It tests the Raspbian
+# sys_utils, which edits wpa_supplicant.conf and /etc/hosts. The NixOS
+# sys_utils uses NetworkManager and has none of that code. The file stays
+# unchanged, so merges from upstream main do not conflict.
+collect_ignore = ["tests/test_sys_utils.py"]
+
 
 def pytest_addoption(parser):
     parser.addoption(
