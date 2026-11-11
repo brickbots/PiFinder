@@ -131,7 +131,10 @@
             mkdir -p ./files/home/pifinder/PiFinder_data/catalog_images
             cp -a --reflink=auto ${catalogImages}/. ./files/home/pifinder/PiFinder_data/catalog_images/
           '';
-          sdImage.populateFirmwareCommands = lib.mkForce firmwareCommands;
+          # nixos-hardware also sets this option with mkForce. At the same
+          # priority the two scripts are joined, and its read-only copies stop
+          # ours. The higher priority keeps only firmwareCommands.
+          sdImage.populateFirmwareCommands = lib.mkOverride 40 firmwareCommands;
         })
       ] ++ nixpkgs.lib.optionals (!includeSDImage) [
         # Filesystem stub for closure builds (CI). Devices install these
@@ -175,7 +178,10 @@
             echo "${(mkPifinderSystem {}).config.system.build.toplevel}" \
               > ./files/var/lib/pifinder/first-boot-target
           '';
-          sdImage.populateFirmwareCommands = lib.mkForce firmwareCommands;
+          # nixos-hardware also sets this option with mkForce. At the same
+          # priority the two scripts are joined, and its read-only copies stop
+          # ours. The higher priority keeps only firmwareCommands.
+          sdImage.populateFirmwareCommands = lib.mkOverride 40 firmwareCommands;
         })
       ] ++ nixpkgs.lib.optionals (!includeSDImage) [
         # The migration tarball is built from this system (migrationTarball),
