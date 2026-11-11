@@ -692,17 +692,17 @@ def test_object_details_mount_keys(display, camera_image, catalogs, sample_objec
         item_definition=item_definition,
     )
     mount_queue = command_queues["mountcontrol"]
-    # The menu sweep of other tests can turn mount control on in the shared
-    # config; the module then sends the step size at construction.
+    # The menu sweep of other tests can turn mount control on in the
+    # sandbox config; the module then sends the step size at construction.
     while not mount_queue.empty():
         mount_queue.get_nowait()
 
     # Off: no commands.
-    module.mount_control = False
+    cfg.set_option("mount_control", False)
     module.key_number(5)
     assert mount_queue.empty()
 
-    module.mount_control = True
+    cfg.set_option("mount_control", True)
     for number in range(10):
         module.key_number(number)
     commands = []

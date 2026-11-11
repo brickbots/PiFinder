@@ -16,12 +16,14 @@ drives the mount with the standard INDI telescope properties.
 import logging
 import time
 from multiprocessing import Queue
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
 
-from PiFinder import indi_drivers
+from PiFinder import config, indi_drivers
 from PiFinder.indi_client import TELESCOPE_INTERFACE, IndiClient, IndiProperty
+from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_interface import (
     MountControlBase,
+    MountControlPhases,
     MountDirections,
     MountDirectionsAltAz,
     MountDirectionsEquatorial,
@@ -42,16 +44,19 @@ POSITION = "EQUATORIAL_EOD_COORD"
 DEVICE_TIMEOUT_S = 10.0
 # Time for the driver to open the port and talk to the mount.
 CONNECT_TIMEOUT_S = 20.0
+# Time for the driver to define CONNECTION_MODE after DRIVER_INFO.
+CONNECTION_MODE_WAIT_S = 3.0
 
 
 class MountControlIndi(MountControlBase):
     """MountControlBase on INDI.
 
-    Args:
-        model_label: the mount model label from the INDI driver XML, as the
-            config stores it (see indi_drivers.MountModel).
-        port: the serial port of the mount, for drivers that have DEVICE_PORT.
-        baud: the serial speed, for drivers that have DEVICE_BAUD_RATE.
+    The settings (mount_settings.MountSettings) give the mount model label
+    from the INDI driver XML, and the connection: "usb" with a serial port
+    and speed, or "wifi" with "host:port". An empty host or port keeps the
+    driver's own value (the AZ-GTi driver defaults to 192.168.4.1 port
+    11880, for example). A reload_config command reads them again with
+    load_settings.
     """
 
     def __init__(
@@ -60,21 +65,22 @@ class MountControlIndi(MountControlBase):
         console_queue: Queue,
         shared_state: SharedStateObj,
         log_queue: Optional[Queue],
-        model_label: str,
-        port: str = "/dev/ttyUSB0",
-        baud: int = 9600,
+        settings: MountSettings,
+        load_settings: Optional[Callable[[], MountSettings]] = None,
         indi_host: str = "localhost",
         indi_port: int = 7624,
         target_tolerance_deg: float = 0.01,
     ):
         super().__init__(mount_queue, console_queue, shared_state)
-        self.model_label = model_label
-        self.port = port
-        self.baud = baud
+        self.settings = settings
+        self._load_settings = load_settings or settings_from_config
         self.log_queue = log_queue
+        self.indi_host = indi_host
+        self.indi_port = indi_port
+        if not settings.enabled:
+            self.state = MountControlPhases.MOUNT_UNKNOWN
 
-        self.client = IndiClient(indi_host, indi_port)
-        self.client.add_listener(self._on_property)
+        self.client = self._new_client()
         self.device: Optional[str] = None
 
         self.current_time: float = 0.0  # Timestamp of last position update
@@ -92,6 +98,55 @@ class MountControlIndi(MountControlBase):
         self.last_periodic_update: float = 0.0
         self.periodic_update_interval: float = 30.0  # seconds
         self._last_synced_location: Optional[Tuple[float, float, float]] = None
+
+    @property
+    def model_label(self) -> str:
+        return self.settings.model
+
+    @property
+    def port(self) -> str:
+        return self.settings.port
+
+    @property
+    def baud(self) -> int:
+        return self.settings.baud
+
+    @property
+    def connection(self) -> str:
+        return self.settings.connection
+
+    @property
+    def address(self) -> str:
+        return self.settings.address
+
+    def _new_client(self) -> IndiClient:
+        client = IndiClient(self.indi_host, self.indi_port)
+        client.add_listener(self._on_property)
+        return client
+
+    def reload_settings(self) -> None:
+        """Apply changed settings at once: disconnect, change the driver if
+        the model changed, and connect again if mount control is on."""
+        new = self._load_settings()
+        if new == self.settings:
+            return
+        old = self.settings
+        logger.info("Mount settings changed: %s", new)
+        if self.device is not None or self.client.is_connected():
+            self.disconnect_mount()
+        self.device = None
+        self._slewing = False
+        if not new.enabled or new.model != old.model:
+            indi_drivers.stop_driver()
+        self.settings = new
+        self.client = self._new_client()
+        self._last_synced_location = None
+        if new.enabled:
+            self.state = MountControlPhases.MOUNT_INIT_TELESCOPE
+            self.console_queue.put(["WARNING", _("Mount settings applied")])
+        else:
+            self.state = MountControlPhases.MOUNT_UNKNOWN
+            self.console_queue.put(["WARNING", _("Mount control off")])
 
     #
     # INDI events (reader thread of the client)
@@ -178,15 +233,20 @@ class MountControlIndi(MountControlBase):
             self.device, name, values
         )
 
-    def _configure_port(self) -> None:
-        """Set the serial port and speed before CONNECT, if the driver has
-        them. Drivers that use TCP or USB without a port skip this."""
+    def _configure_connection(self) -> bool:
+        """Set the connection of the driver before CONNECT: the serial port
+        and speed for USB, or the network address for WiFi. A driver
+        without these properties keeps its own settings."""
         assert self.device is not None
+        # The driver defines its connection properties a moment after
+        # DRIVER_INFO. Drivers without a connection plugin have none.
+        self.client.wait_property(
+            self.device, "CONNECTION_MODE", CONNECTION_MODE_WAIT_S
+        )
+        if self.connection == "wifi":
+            return self._configure_network()
         if (
-            self._has("CONNECTION_MODE")
-            and self.client.get_value(
-                self.device, "CONNECTION_MODE", "CONNECTION_SERIAL"
-            )
+            self.client.get_value(self.device, "CONNECTION_MODE", "CONNECTION_SERIAL")
             is not None
         ):
             self._set_switch("CONNECTION_MODE", "CONNECTION_SERIAL")
@@ -195,6 +255,31 @@ class MountControlIndi(MountControlBase):
         baud = str(self.baud)
         if self.client.get_value(self.device, "DEVICE_BAUD_RATE", baud) is not None:
             self._set_switch("DEVICE_BAUD_RATE", baud)
+        return True
+
+    def _configure_network(self) -> bool:
+        assert self.device is not None
+        if (
+            self.client.get_value(self.device, "CONNECTION_MODE", "CONNECTION_TCP")
+            is None
+        ):
+            logger.error("Driver of %s has no network connection", self.device)
+            self.console_queue.put(["WARNING", _("No WiFi in driver")])
+            return False
+        self._set_switch("CONNECTION_MODE", "CONNECTION_TCP")
+        host, port = split_address(self.address)
+        values = {}
+        if host:
+            values["ADDRESS"] = host
+        if port:
+            values["PORT"] = port
+        if values:
+            # The TCP connection defines DEVICE_ADDRESS when it is the mode.
+            if self.client.wait_property(self.device, "DEVICE_ADDRESS", 5.0) is None:
+                logger.error("Driver of %s has no DEVICE_ADDRESS", self.device)
+                return False
+            self.client.set_text(self.device, "DEVICE_ADDRESS", values)
+        return True
 
     #
     # MountControlBase
@@ -207,6 +292,8 @@ class MountControlIndi(MountControlBase):
     ) -> bool:
         """Start the driver, connect the mount, sync location and time,
         unpark, track, and sync to the solve if one is given."""
+        if not self.settings.enabled:
+            return False
         model = indi_drivers.find_model(self.model_label)
         if model is None:
             logger.error("Unknown mount model %r", self.model_label)
@@ -239,7 +326,8 @@ class MountControlIndi(MountControlBase):
         logger.info("Telescope device: %s", self.device)
 
         if not self._switch_on("CONNECTION", "CONNECT"):
-            self._configure_port()
+            if not self._configure_connection():
+                return False
             if not self._set_switch("CONNECTION", "CONNECT"):
                 return False
             connected = self.client.wait_state(
@@ -247,7 +335,7 @@ class MountControlIndi(MountControlBase):
             )
             prop = self.client.get_property(self.device, "CONNECTION")
             if not connected or prop is None or prop.state != "Ok":
-                logger.error("Mount did not connect on %s", self.port)
+                logger.error("Mount did not connect on %s", self.where())
                 self.console_queue.put(["WARNING", _("Mount not found")])
                 return False
         if self.client.wait_property(self.device, POSITION, 5.0) is None:
@@ -392,6 +480,12 @@ class MountControlIndi(MountControlBase):
         logger.info("Manual move %s by %.5f°", direction, step_size_deg)
         return self._goto(ra, dec)
 
+    def where(self) -> str:
+        """The port or the network address, for messages."""
+        if self.connection == "wifi":
+            return self.address or "the driver address"
+        return self.port
+
     def disconnect_mount(self) -> bool:
         if self.device is not None and self.client.is_connected():
             self._set_switch("CONNECTION", "DISCONNECT")
@@ -435,20 +529,30 @@ class MountControlIndi(MountControlBase):
             self.sync_mount_location_and_time()
 
 
+def split_address(address: str) -> Tuple[str, str]:
+    """Split "host:port" into host and port. Either part can be empty."""
+    host, sep, port = address.strip().rpartition(":")
+    if not sep:
+        return address.strip(), ""
+    return host, port
+
+
+def settings_from_config() -> MountSettings:
+    return MountSettings.from_config(config.Config())
+
+
 def run(
     mount_queue: Queue,
     console_queue: Queue,
     shared_state: SharedStateObj,
     log_queue: Optional[Queue],
-    model_label: str,
-    port: str = "/dev/ttyUSB0",
-    baud: int = 9600,
 ):
-    """Process target for mount control."""
+    """Process target for mount control. It runs while PiFinder runs, idle
+    while mount control is off."""
     if log_queue is not None:
         MultiprocLogging.configurer(log_queue)
     mount_control = MountControlIndi(
-        mount_queue, console_queue, shared_state, log_queue, model_label, port, baud
+        mount_queue, console_queue, shared_state, log_queue, settings_from_config()
     )
     try:
         mount_control.run()

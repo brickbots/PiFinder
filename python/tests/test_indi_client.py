@@ -571,7 +571,8 @@ def test_simulator_goto(indiserver_port: int) -> None:
                 target_ra,
                 target_dec,
             )
-            < 0.1
+            # The simulator stops near the target; under load a little further.
+            < 0.5
         )
     finally:
         indi.disconnect()

@@ -27,6 +27,8 @@
     "mount_control_model": "",
     "mount_control_port": "/dev/ttyUSB0",
     "mount_control_baud": 9600,
+    "mount_control_connection": "usb",
+    "mount_control_address": "",
     "filter.selected_catalogs": [
         "NGC",
         "M",

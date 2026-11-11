@@ -37,6 +37,7 @@ from PiFinder import config
 from PiFinder import utils
 from PiFinder import timez
 from PiFinder import keyboard_interface
+from PiFinder import usb_gps
 from PiFinder import lazy_import
 import PiFinder.sound as sound
 from PiFinder.types.sound import Earcon, SetVolume
@@ -562,6 +563,15 @@ def main(
     }
     cfg = config.Config()
 
+    # gpsd may take generic USB-serial bridges only with a generic USB GPS;
+    # otherwise they are for a mount (usb_gps.py). A GPS Type change
+    # restarts PiFinder, so this runs after each change.
+    if (
+        usb_gps.set_generic_usb_gps(cfg.get_option("gps_type") == "gpsd")
+        and usb_gps.bridge_plugged_in()
+    ):
+        console_queue.put(["WARNING", _("Replug USB device")])
+
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
@@ -797,27 +807,23 @@ def main(
         )
         posserver_process.start()
 
-        # Mount control (INDI) runs only when it is enabled. A change of the
-        # setting restarts PiFinder, so the UI reads the same config option.
-        mountcontrol_process: Optional[Process] = None
-        if cfg.get_option("mount_control", False):
-            console.write("  Mount Control")
-            logger.info("  Mount Control")
-            console.update()
-            mountcontrol_process = Process(
-                name="MountControl",
-                target=run_mount_control,
-                args=(
-                    mountcontrol_queue,
-                    console_queue,
-                    shared_state,
-                    mountcontrol_logqueue,
-                    cfg.get_option("mount_control_model", ""),
-                    cfg.get_option("mount_control_port", "/dev/ttyUSB0"),
-                    int(cfg.get_option("mount_control_baud", 9600)),
-                ),
-            )
-            mountcontrol_process.start()
+        # Mount control (INDI). The process reads its settings from the
+        # config, is idle while mount control is off, and applies changed
+        # settings on reload_config.
+        console.write("  Mount Control")
+        logger.info("  Mount Control")
+        console.update()
+        mountcontrol_process = Process(
+            name="MountControl",
+            target=run_mount_control,
+            args=(
+                mountcontrol_queue,
+                console_queue,
+                shared_state,
+                mountcontrol_logqueue,
+            ),
+        )
+        mountcontrol_process.start()
 
         # Initialize Catalogs
         console.write("   Catalogs")
@@ -1044,6 +1050,7 @@ def main(
                     menu_manager.jump_to_label("recent")
                 elif ui_command == "reload_config":
                     cfg.load_config()
+                    mountcontrol_queue.put({"type": "reload_config"})
                 elif ui_command == "test_mode":
                     # Toggle test mode (store in both shared_state and config).
                     # The camera process follows shared_state.test_mode()
@@ -1318,13 +1325,12 @@ def main(
             logger.info("\tPos Server...")
             posserver_process.join()
 
-            if mountcontrol_process is not None:
-                logger.info("\tMount Control...")
-                mountcontrol_queue.put({"type": "exit"})
-                mountcontrol_process.join(timeout=5)
-                if mountcontrol_process.is_alive():
-                    mountcontrol_process.terminate()
-                    mountcontrol_process.join()
+            logger.info("\tMount Control...")
+            mountcontrol_queue.put({"type": "exit"})
+            mountcontrol_process.join(timeout=5)
+            if mountcontrol_process.is_alive():
+                mountcontrol_process.terminate()
+                mountcontrol_process.join()
 
             logger.info("\tGPS...")
             gps_process.terminate()

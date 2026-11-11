@@ -50,7 +50,7 @@ _mount_items = [
         "class": UITextMenu,
         "select": "single",
         "config_option": "mount_control_model",
-        "post_callback": callbacks.restart_pifinder,
+        "post_callback": callbacks.mount_settings_changed,
         "items": models,
     }
     for manufacturer, models in _mount_manufacturers.items()
@@ -65,7 +65,7 @@ _mount_control_menu = {
             "class": UITextMenu,
             "select": "single",
             "config_option": "mount_control",
-            "post_callback": callbacks.restart_pifinder,
+            "post_callback": callbacks.mount_settings_changed,
             "items": [
                 {"name": _("Off"), "value": False},
                 {"name": _("On"), "value": True},
@@ -78,11 +78,36 @@ _mount_control_menu = {
             "items": _mount_items,
         },
         {
+            "name": _("Connection"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control_connection",
+            "post_callback": callbacks.mount_settings_changed,
+            "items": [
+                {"name": _("USB"), "value": "usb"},
+                {"name": _("WiFi"), "value": "wifi"},
+            ],
+        },
+        {
+            # Common mount access points. Other addresses: the Mount page of
+            # the web interface.
+            "name": _("WiFi Address"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control_address",
+            "post_callback": callbacks.mount_settings_changed,
+            "items": [
+                {"name": _("Driver default"), "value": ""},
+                {"name": "OnStep 192.168.0.1", "value": "192.168.0.1:9999"},
+                {"name": "SkyWatcher 192.168.4.1", "value": "192.168.4.1:11880"},
+            ],
+        },
+        {
             "name": _("Port"),
             "class": UITextMenu,
             "select": "single",
             "config_option": "mount_control_port",
-            "post_callback": callbacks.restart_pifinder,
+            "post_callback": callbacks.mount_settings_changed,
             "items": [
                 {"name": port, "value": port}
                 for port in (
@@ -98,7 +123,7 @@ _mount_control_menu = {
             "class": UITextMenu,
             "select": "single",
             "config_option": "mount_control_baud",
-            "post_callback": callbacks.restart_pifinder,
+            "post_callback": callbacks.mount_settings_changed,
             "items": [
                 {"name": str(baud), "value": baud}
                 for baud in (9600, 19200, 38400, 57600, 115200)

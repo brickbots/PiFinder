@@ -582,6 +582,10 @@ class MountControlBase:
         """Commands the mount to perform a spiral search around the center position."""
         raise NotImplementedError("Not yet implemented.")
 
+    def reload_settings(self) -> None:
+        """Apply changed settings. Override in subclasses that have any."""
+        pass
+
     def latest_solve(self) -> Optional[tuple[float, float, float]]:
         """The last plate solve of the aligned axis, in JNow degrees.
 
@@ -780,6 +784,10 @@ class MountControlBase:
         elif command["type"] == "spiral_search":
             logger.debug("Mount: spiral_search command received")
             raise NotImplementedError("Spiral search not yet implemented.")
+
+        elif command["type"] == "reload_config":
+            logger.debug("Mount: reload_config command received")
+            self.reload_settings()
 
         elif command["type"] == "init":
             logger.debug("Mount: init command received")

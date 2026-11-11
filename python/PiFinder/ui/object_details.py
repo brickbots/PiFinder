@@ -95,7 +95,6 @@ class UIObjectDetails(UIModule):
         self.object_list = self.item_definition["object_list"]
         self.object_display_mode = DM_LOCATE
         self.object_image = None
-        self.mount_control = bool(self.config_object.get_option("mount_control", False))
 
         # Marking Menu - Just default help for now
         self.marking_menu = MarkingMenu(
@@ -751,6 +750,12 @@ class UIObjectDetails(UIModule):
         self.set_mount_step_from_fov()
         self.update_object_info()
         self.update()
+
+    @property
+    def mount_control(self) -> bool:
+        """Mount control setting, read at each use: it can change while the
+        screen is open."""
+        return bool(self.config_object.get_option("mount_control", False))
 
     def _render_mount_keys(self):
         y_pos = self.display_class.titlebar_height + 2

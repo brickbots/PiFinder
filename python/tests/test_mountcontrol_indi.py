@@ -7,6 +7,7 @@ import os
 import shutil
 import socket
 import subprocess
+import threading
 import time
 from pathlib import Path
 from queue import Queue
@@ -16,7 +17,9 @@ from unittest.mock import Mock
 import pytest
 
 from PiFinder import indi_drivers
+from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_indi import POSITION, MountControlIndi
+from PiFinder.mountcontrol_interface import MountControlPhases
 from PiFinder.state import Location, SharedStateObj
 
 pytestmark = [
@@ -93,7 +96,7 @@ def test_init_goto_sync_stop_with_simulator(indi: int) -> None:
         Queue(),
         _shared_state(),
         None,
-        indi_drivers.SIMULATOR,
+        MountSettings(enabled=True, model=indi_drivers.SIMULATOR),
         indi_port=indi,
     )
     try:
@@ -149,6 +152,102 @@ def test_init_goto_sync_stop_with_simulator(indi: int) -> None:
 
 def test_unknown_model_fails_without_driver(indi: int) -> None:
     console = Queue()
-    mount = MountControlIndi(Queue(), console, _shared_state(), None, "No Such Mount")
+    mount = MountControlIndi(
+        Queue(),
+        console,
+        _shared_state(),
+        None,
+        MountSettings(enabled=True, model="No Such Mount"),
+        indi_port=indi,
+    )
     assert not mount.init_mount()
     assert console.get_nowait()[0] == "WARNING"
+
+
+def test_wifi_mount_driver_connects_to_the_address(indi: int) -> None:
+    """The OnStep driver in TCP mode opens a connection to the address that
+    PiFinder sets. A dummy server accepts it; it does not answer the LX200
+    handshake, so the init itself fails."""
+    model = indi_drivers.find_model("LX200 OnStep")
+    assert model is not None
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    server.settimeout(30)
+    address = f"127.0.0.1:{server.getsockname()[1]}"
+    console: Queue = Queue()
+    mount = MountControlIndi(
+        Queue(),
+        console,
+        _shared_state(),
+        None,
+        MountSettings(
+            enabled=True, model="LX200 OnStep", connection="wifi", address=address
+        ),
+        indi_port=indi,
+    )
+    accepted: list[bytes] = []
+
+    def accept() -> None:
+        try:
+            conn, _addr = server.accept()
+        except OSError:
+            return
+        conn.settimeout(5)
+        try:
+            accepted.append(conn.recv(64))
+        except OSError:
+            accepted.append(b"")
+        conn.close()
+
+    thread = threading.Thread(target=accept, daemon=True)
+    thread.start()
+    try:
+        mount.init_mount()
+        thread.join(timeout=30)
+        assert accepted, "the driver did not connect to the WiFi address"
+        assert mount.client.get_value(mount.device, "CONNECTION_MODE", "CONNECTION_TCP")
+        assert (
+            mount.client.get_value(mount.device, "DEVICE_ADDRESS", "PORT")
+            == (address.split(":")[1])
+        )
+    finally:
+        server.close()
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def test_reload_switches_model_and_turns_off(indi: int) -> None:
+    """reload_config applies new settings at once: off stops the driver,
+    on with another model starts that driver."""
+    settings = [MountSettings(enabled=True, model=indi_drivers.SIMULATOR)]
+    console: Queue = Queue()
+    mount = MountControlIndi(
+        Queue(),
+        console,
+        _shared_state(),
+        None,
+        settings[0],
+        load_settings=lambda: settings[0],
+        indi_port=indi,
+    )
+    running = Path(os.environ["INDI_FIFO"]).parent / indi_drivers.RUNNING_DRIVER_FILE
+    try:
+        assert mount.init_mount()
+        assert "indi_simulator_telescope" in running.read_text()
+
+        settings[0] = MountSettings(enabled=False, model=indi_drivers.SIMULATOR)
+        mount.reload_settings()
+        assert mount.state == MountControlPhases.MOUNT_UNKNOWN
+        assert mount.device is None
+        assert not running.exists()
+        assert not mount.init_mount()
+
+        settings[0] = MountSettings(enabled=True, model=indi_drivers.SIMULATOR)
+        mount.reload_settings()
+        assert mount.state == MountControlPhases.MOUNT_INIT_TELESCOPE
+        assert mount.init_mount()
+        assert mount.device == "Telescope Simulator"
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
