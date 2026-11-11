@@ -14,6 +14,7 @@ from PIL import Image
 from PiFinder import utils, calc_utils, config
 from PiFinder import data_browser
 from PiFinder import indi_drivers, mount_settings
+from PiFinder.types.mount import status_lines
 from PiFinder import timez
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
@@ -244,6 +245,9 @@ class MockSharedState:
 
     def location(self):
         return self._location
+
+    def mount_status(self):
+        return None
 
     def screen(self):
         return self._screen_img
@@ -1175,6 +1179,7 @@ class Server:
                 baud_rates=mount_settings.BAUD_RATES,
                 presets=mount_settings.presets(cfg),
                 clients=mount_settings.wifi_clients(),
+                status_lines=status_lines(self.shared_state.mount_status()),
                 error_message=error_message,
                 status_message=status_message,
             )

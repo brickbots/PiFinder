@@ -129,6 +129,14 @@ class MountControlIndi(MountControlBase):
     def address(self) -> str:
         return self.settings.address
 
+    def status_text(self) -> str:
+        if not self.settings.enabled:
+            return _("Off")
+        return super().status_text()
+
+    def status_model(self) -> str:
+        return self.settings.model
+
     def _new_client(self) -> IndiClient:
         client = IndiClient(self.indi_host, self.indi_port)
         client.add_listener(self._on_property)

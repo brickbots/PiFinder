@@ -348,3 +348,40 @@ def test_stale_running_driver_record_is_restarted(indi: int) -> None:
     finally:
         mount.disconnect_mount()
         indi_drivers.stop_driver()
+
+
+def test_status_follows_a_goto(indi: int) -> None:
+    """The mount process status shows the slew with a shrinking distance."""
+    shared_state = _shared_state()
+    mount = MountControlIndi(
+        Queue(),
+        Queue(),
+        shared_state,
+        None,
+        MountSettings(enabled=True, model=indi_drivers.SIMULATOR),
+        indi_port=indi,
+    )
+    try:
+        assert mount.init_mount()
+        mount.state = MountControlPhases.MOUNT_TRACKING
+        for _step in mount._process_command(
+            {"type": "goto_target", "ra": 60.0, "dec": 10.0}
+        ):
+            pass
+        distances = []
+        deadline = time.time() + 60
+        while time.time() < deadline and not mount.target_reached:
+            status = mount.mount_status()
+            assert status.model == indi_drivers.SIMULATOR
+            if status.distance_deg is not None:
+                distances.append(status.distance_deg)
+            time.sleep(0.5)
+        assert mount.target_reached
+        assert len(distances) >= 2
+        assert distances[-1] < distances[0]
+        assert mount.mount_status().text == "Slewing"
+        mount.publish_status()
+        assert shared_state.set_mount_status.called
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()

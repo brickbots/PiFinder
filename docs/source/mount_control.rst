@@ -89,7 +89,9 @@ Key          Action
 ===========  ==================================================================
 
 The first step is 20% of the eyepiece field of view.  Press the **square** key until
-the key page shows, for a reminder of these keys.
+the mount page shows.  Its first two lines show what the mount does now, for example
+**Slewing 12.4°** (the distance to the object) and **Step 14.6'**.  Below them is a
+reminder of the keys.  The **Mount** page of the web interface shows the same status.
 
 After each command, the PiFinder shows a short message: **Slewing**, **Target
 reached**, **Refining 1/3**, **On target**, **Mount synced**, **Mount stopped**, or

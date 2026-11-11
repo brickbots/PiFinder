@@ -8,6 +8,7 @@
 # (at your option) any later version.
 
 import logging
+import math
 from enum import Enum, auto
 import queue
 from multiprocessing import Queue
@@ -17,6 +18,7 @@ from typing import TYPE_CHECKING, Generator, Iterator, Optional, Any
 
 from PiFinder import calc_utils
 from PiFinder.state import SharedStateObj
+from PiFinder.types.mount import MountStatus, format_step
 
 import PiFinder.i18n  # noqa: F401
 
@@ -122,14 +124,20 @@ class MountDirectionsEquatorial(MountDirections):
     WEST = auto()
 
 
-def format_step(step_deg: float) -> str:
-    """A step size in the unit that fits it: degrees, arcminutes or
-    arcseconds."""
-    if step_deg >= 1.0:
-        return f"{step_deg:.1f}°"
-    if step_deg >= 1 / 60:
-        return f"{step_deg * 60:.1f}'"
-    return f'{step_deg * 3600:.0f}"'
+# The mount process writes the status at once when the phase or the step
+# changes, at most this often when only the distance changes, and at least
+# this often as a sign of life.
+STATUS_DISTANCE_PERIOD_S = 1.0
+STATUS_HEARTBEAT_S = 2.0
+
+
+def angular_distance(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
+    """The angle in degrees between two RA/Dec positions in degrees."""
+    r1, d1, r2, d2 = map(math.radians, (ra1, dec1, ra2, dec2))
+    cos_d = math.sin(d1) * math.sin(d2) + math.cos(d1) * math.cos(d2) * math.cos(
+        r1 - r2
+    )
+    return math.degrees(math.acos(max(-1.0, min(1.0, cos_d))))
 
 
 class MountControlBase:
@@ -215,6 +223,11 @@ class MountControlBase:
         )
 
         self.state: MountControlPhases = MountControlPhases.MOUNT_INIT_TELESCOPE
+
+        # The last status written to the shared state (publish_status).
+        self._status_key: Optional[tuple] = None
+        self._status_distance: Optional[float] = None
+        self._status_written: float = 0.0
 
         # Drift compensation data structures
         self.drift_solve_times: list[float] = []  # Timestamps for each solve
@@ -488,6 +501,66 @@ class MountControlBase:
     #
     # Helper methods to decorate mount control methods with state management
     #
+    def status_text(self) -> str:
+        """The short phase text of the status line."""
+        texts = {
+            MountControlPhases.MOUNT_UNKNOWN: _("Not connected"),
+            MountControlPhases.MOUNT_INIT_TELESCOPE: _("Connecting"),
+            MountControlPhases.MOUNT_TRACKING: _("Tracking"),
+            MountControlPhases.MOUNT_STOPPED: _("Stopped"),
+            MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE: _("Slewing"),
+            MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE: _("Refining"),
+            MountControlPhases.MOUNT_DRIFT_COMPENSATION: _("On target"),
+            MountControlPhases.MOUNT_SPIRAL_SEARCH: _("Searching"),
+        }
+        text = texts.get(self.state, str(self.state.name))
+        if self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
+            text = f"{text} {self._refine_count + 1}/{self.refine_max_iterations}"
+        return text
+
+    def status_model(self) -> str:
+        """The mount model for the status. Override in subclasses."""
+        return ""
+
+    def mount_status(self, now: Optional[float] = None) -> MountStatus:
+        distance = None
+        if (
+            self.target_ra is not None
+            and self.target_dec is not None
+            and self.current_ra is not None
+            and self.current_dec is not None
+        ):
+            distance = angular_distance(
+                self.current_ra, self.current_dec, self.target_ra, self.target_dec
+            )
+        return MountStatus(
+            phase=self.state.name,
+            text=self.status_text(),
+            distance_deg=distance,
+            step_deg=self.step_size,
+            model=self.status_model(),
+            updated=time.time() if now is None else now,
+        )
+
+    def publish_status(self) -> None:
+        """Write the status to the shared state when it changed (see
+        STATUS_DISTANCE_PERIOD_S and STATUS_HEARTBEAT_S)."""
+        now = time.time()
+        status = self.mount_status(now)
+        key = (status.phase, status.text, status.step_deg, status.model)
+        age = now - self._status_written
+        distance_changed = status.distance_deg != self._status_distance
+        if (
+            key == self._status_key
+            and not (distance_changed and age >= STATUS_DISTANCE_PERIOD_S)
+            and age < STATUS_HEARTBEAT_S
+        ):
+            return
+        self.shared_state.set_mount_status(status)
+        self._status_key = key
+        self._status_distance = status.distance_deg
+        self._status_written = now
+
     def notify(self, text: str) -> None:
         """Show mount control progress on the PiFinder screen."""
         self.console_queue.put(["MOUNT", text])
@@ -1208,6 +1281,7 @@ class MountControlBase:
             phase_step = None
             while True:
                 self.periodic_mount_task()
+                self.publish_status()
 
                 #
                 # Process commands from UI

@@ -24,6 +24,7 @@ from PiFinder.ui.ui_utils import (
     draw_pointing_instructions,
 )
 from PiFinder import calc_utils
+from PiFinder.types.mount import status_lines
 import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
@@ -758,22 +759,23 @@ class UIObjectDetails(UIModule):
         return bool(self.config_object.get_option("mount_control", False))
 
     def _render_mount_keys(self):
+        """The live mount status, then the mount keys."""
         y_pos = self.display_class.titlebar_height + 2
-        mount_keys = [
-            ("1", _("Init mount")),
-            ("5", _("Goto object")),
-            ("7", _("Sync to solve")),
-            ("0", _("Stop mount")),
-            ("8 2", _("North South")),
-            ("4 6", _("West East")),
-            ("3 9", _("Step - +")),
-        ]
-        for key, label in mount_keys:
+        for line in status_lines(self.snapshot.mount_status()):
             self.draw.text(
-                (0, y_pos),
-                f"{key}: {label}",
-                font=self.fonts.base.font,
-                fill=self.colors.get(255),
+                (0, y_pos), line, font=self.fonts.bold.font, fill=self.colors.get(255)
+            )
+            y_pos += self.fonts.bold.height + 1
+        y_pos += 3
+        mount_keys = [
+            "1 " + _("Init") + "  5 " + _("Goto"),
+            "7 " + _("Sync") + "  0 " + _("Stop"),
+            "8 2 " + _("N S") + "  4 6 " + _("W E"),
+            "3 9 " + _("Step - +"),
+        ]
+        for line in mount_keys:
+            self.draw.text(
+                (0, y_pos), line, font=self.fonts.base.font, fill=self.colors.get(192)
             )
             y_pos += self.fonts.base.height + 1
 

@@ -53,6 +53,7 @@ import io
 import pkgutil
 import queue
 import shutil
+import time
 from typing import Iterator
 from unittest import mock
 
@@ -88,6 +89,7 @@ from PiFinder.ui.object_list import SortOrder, UIObjectList
 from PiFinder.nearby import NEAREST_LIST_CAP
 from PiFinder.object_sequence import ObjectSequence
 from PiFinder.state_snapshot import StateSnapshot
+from PiFinder.types.mount import MountStatus
 from PiFinder.ui.log import UILog
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
@@ -730,6 +732,23 @@ def test_object_details_mount_keys(display, camera_image, catalogs, sample_objec
     assert module.object_display_mode == object_details.DM_MOUNT
     module.update()
     assert module.serialize_ui_state()["display_mode"] == "mount"
+
+    # The key page draws with a live status and with none.
+    UIModule.snapshot = StateSnapshot(
+        {
+            "mount_status": MountStatus(
+                "MOUNT_TARGET_ACQUISITION_MOVE",
+                "Slewing",
+                3.2,
+                0.25,
+                "SAL-33",
+                time.time(),
+            )
+        }
+    )
+    module.update()
+    UIModule.snapshot = StateSnapshot()
+    module.update()
 
 
 @pytest.mark.integration

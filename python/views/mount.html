@@ -5,6 +5,7 @@
   <div class="col s12">
     <h5 class="grey-text">{{ _('Mount Control') }}</h5>
     <p class="grey-text">{{ _('Experimental. PiFinder controls the mount through INDI. Saved settings apply at once.') }}</p>
+    {% if status_lines %}<p class="white-text" id="mount_live_status"><b>{{ status_lines | join(' · ') }}</b></p>{% endif %}
   </div>
 </div>
 {% if status_message %}
