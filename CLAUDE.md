@@ -49,7 +49,8 @@ scripts/check.sh unit         # pytest -m unit (also: smoke, integration)
 ```
 
 The integration stage skips the web tests, which need Selenium and a running
-PiFinder. Ruff is pinned in the uv `dev` group (0.4.8, the pin of upstream
+PiFinder. The pytest stages run with an empty temporary HOME, as on a CI
+runner, so they never see your `~/PiFinder_data`. Ruff is pinned in the uv `dev` group (0.4.8, the pin of upstream
 main's noxfile). To change a dependency, edit `pyproject.toml` and run `uv lock`
 inside the dev shell. The shell sets `UV_NO_SYNC` and `UV_PROJECT_ENVIRONMENT`
 so `uv` uses the Nix environment and never creates `.venv`.

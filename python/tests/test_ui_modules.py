@@ -67,6 +67,7 @@ import PiFinder.i18n  # noqa: F401
 import PiFinder.ui as ui_pkg
 from PiFinder import utils
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
+from PiFinder.comet_catalog import CometCatalog
 from PiFinder.config import Config
 from PiFinder.displays import get_display
 from PiFinder.state import Location, SharedStateObj, UIState
@@ -348,8 +349,14 @@ def _no_comet_download():
     """
     import PiFinder.comets as comets
 
-    with mock.patch.object(
-        comets, "comet_data_download", return_value=(False, None, None)
+    # With no comets.txt, the retry thread loops "while the file is missing:
+    # sleep(60), log, download". _fast_sleep makes the sleep a no-op, so the
+    # loop logs without a pause and pytest keeps every record in memory.
+    with (
+        mock.patch.object(
+            comets, "comet_data_download", return_value=(False, None, None)
+        ),
+        mock.patch.object(CometCatalog, "_start_background_retry", lambda self: None),
     ):
         yield
 

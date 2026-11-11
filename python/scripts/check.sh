@@ -17,6 +17,16 @@ fi
 
 cd "$python_dir"
 
+# The tests run with an empty HOME, as on a new CI runner. Then they never
+# read or change the developer's ~/PiFinder_data, and a local run sees the
+# same files as CI.
+test_home="$(mktemp -d)"
+trap 'rm -rf "$test_home"' EXIT
+
+run_pytest() {
+    HOME="$test_home" pytest "$@"
+}
+
 run_stage() {
     case "$1" in
         lint)
@@ -25,10 +35,10 @@ run_stage() {
             ;;
         format) ruff format . ;;
         types) mypy PiFinder ;;
-        smoke) pytest -m smoke ;;
-        unit) pytest -m unit ;;
+        smoke) run_pytest -m smoke ;;
+        unit) run_pytest -m unit ;;
         # The web tests need a Selenium grid and a running PiFinder.
-        integration) pytest -m integration --ignore-glob='tests/test_web_*' ;;
+        integration) run_pytest -m integration --ignore-glob='tests/test_web_*' ;;
         all)
             for stage in lint types smoke unit integration; do
                 run_stage "$stage"

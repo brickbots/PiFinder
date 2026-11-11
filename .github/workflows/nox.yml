@@ -45,18 +45,7 @@ jobs:
       - name: Unit tests
         run: scripts/check.sh unit
       - name: Integration tests
-        run: |
-          # TEMPORARY diagnostic: stacks and memory of the UI module tests.
-          nix develop ..#default -c pytest -v -m integration -p no:cacheprovider tests/test_ui_modules.py > /tmp/ui.log 2>&1 &
-          sleep 45
-          ps -eo pid,ppid,rss,nlwp,args --sort=-rss | head -8 | cut -c1-200
-          PID=$(pgrep -f "bin/pytest -v -m integration" | head -1)
-          echo "pytest pid $PID"
-          nix shell --inputs-from .. nixpkgs#uv -c uv tool install py-spy
-          sudo "$HOME/.local/bin/py-spy" dump --pid "$PID" | head -200
-          kill "$PID" || true
-          tail -5 /tmp/ui.log
-          exit 1
+        run: scripts/check.sh integration
       - name: Push dev shell to the cache
         if: github.event_name == 'push'
         working-directory: .
