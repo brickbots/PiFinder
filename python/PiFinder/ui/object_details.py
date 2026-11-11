@@ -69,6 +69,11 @@ DM_LOCATE = 1  # Display mode for LOCATE
 DM_POSS = 2  # Display mode for POSS
 DM_SDSS = 3  # Display mode for SDSS
 DM_CONTRAST = 4  # Display mode for Contrast Reserve explanation
+DM_MOUNT = 5  # Display mode for the mount control keys
+
+MOUNT_MOVES = {2: "south", 4: "west", 6: "east", 8: "north"}
+# Manual move step as a part of the true field of view.
+MOUNT_STEP_OF_TFOV = 0.2
 
 
 class UIObjectDetails(UIModule):
@@ -90,6 +95,7 @@ class UIObjectDetails(UIModule):
         self.object_list = self.item_definition["object_list"]
         self.object_display_mode = DM_LOCATE
         self.object_image = None
+        self.mount_control = bool(self.config_object.get_option("mount_control", False))
 
         # Marking Menu - Just default help for now
         self.marking_menu = MarkingMenu(
@@ -414,6 +420,7 @@ class UIObjectDetails(UIModule):
 
     def active(self):
         self.activation_time = time.time()
+        self.set_mount_step_from_fov()
 
     def _check_catalog_initialized(self):
         code = self.object.catalog_code
@@ -582,6 +589,9 @@ class UIObjectDetails(UIModule):
                 desc.set_available_lines(desc_available_lines)
                 desc.draw((0, posy))
 
+        elif self.object_display_mode == DM_MOUNT:
+            self._render_mount_keys()
+
         elif self.object_display_mode == DM_CONTRAST:
             # Display contrast reserve explanation page
             y_pos = 20
@@ -654,14 +664,16 @@ class UIObjectDetails(UIModule):
         for a module.  Invoked when the square
         key is pressed
         """
-        # Cycle: LOCATE -> POSS -> DESC -> CONTRAST -> LOCATE
+        # Cycle: LOCATE -> POSS -> DESC -> CONTRAST -> (MOUNT) -> LOCATE
         if self.object_display_mode == DM_LOCATE:
             self.object_display_mode = DM_POSS
         elif self.object_display_mode == DM_POSS:
             self.object_display_mode = DM_DESC
         elif self.object_display_mode == DM_DESC:
             self.object_display_mode = DM_CONTRAST
-        else:  # DM_CONTRAST or any other mode
+        elif self.object_display_mode == DM_CONTRAST and self.mount_control:
+            self.object_display_mode = DM_MOUNT
+        else:  # DM_CONTRAST, DM_MOUNT or any other mode
             self.object_display_mode = DM_LOCATE
         self.update_object_info()
         self.update()
@@ -736,8 +748,76 @@ class UIObjectDetails(UIModule):
 
     def change_fov(self, direction):
         self.config_object.equipment.cycle_eyepieces(direction)
+        self.set_mount_step_from_fov()
         self.update_object_info()
         self.update()
+
+    def _render_mount_keys(self):
+        y_pos = self.display_class.titlebar_height + 2
+        mount_keys = [
+            ("1", _("Init mount")),
+            ("5", _("Goto object")),
+            ("7", _("Sync to solve")),
+            ("0", _("Stop mount")),
+            ("8 2", _("North South")),
+            ("4 6", _("West East")),
+            ("3 9", _("Step - +")),
+        ]
+        for key, label in mount_keys:
+            self.draw.text(
+                (0, y_pos),
+                f"{key}: {label}",
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),
+            )
+            y_pos += self.fonts.base.height + 1
+
+    def _mount_command(self, command: dict) -> None:
+        mount_queue = self.command_queues.get("mountcontrol")
+        if self.mount_control and mount_queue is not None:
+            mount_queue.put(command)
+
+    def set_mount_step_from_fov(self):
+        """Set the manual move step from the true field of view."""
+        tfov = self.config_object.equipment.calc_tfov()
+        if tfov:
+            self._mount_command(
+                {"type": "set_step_size", "step_size": tfov * MOUNT_STEP_OF_TFOV}
+            )
+
+    def key_number(self, number):
+        """Mount control keys, in every display mode."""
+        if not self.mount_control:
+            return
+        if number == 0:
+            self._mount_command({"type": "stop_movement"})
+            self.message(_("Stop mount"), 0.5)
+        elif number == 1:
+            self._mount_command({"type": "init"})
+            self.message(_("Init mount"), 0.5)
+        elif number == 5:
+            # Catalog coordinates are J2000; the mount process converts them.
+            self._mount_command(
+                {
+                    "type": "goto_target",
+                    "ra": self.object.ra,
+                    "dec": self.object.dec,
+                    "epoch": "J2000",
+                }
+            )
+            self.message(_("Goto"), 0.5)
+        elif number == 7:
+            # Without coordinates the mount process syncs to the last solve.
+            self._mount_command({"type": "sync"})
+            self.message(_("Sync mount"), 0.5)
+        elif number == 3:
+            self._mount_command({"type": "reduce_step_size"})
+        elif number == 9:
+            self._mount_command({"type": "increase_step_size"})
+        elif number in MOUNT_MOVES:
+            self._mount_command(
+                {"type": "manual_movement", "direction": MOUNT_MOVES[number]}
+            )
 
     def key_plus(self):
         if self.object_display_mode == DM_DESC:

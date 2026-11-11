@@ -106,6 +106,7 @@ _COMMAND_QUEUE_KEYS = (
     "align_command",
     "align_response",
     "gps",
+    "mountcontrol",
 )
 
 # Modules that need the Hipparcos catalogue to construct (build plot.Starfield)
@@ -669,6 +670,65 @@ def test_object_details_tracks_target(display, camera_image, catalogs):
     # ...and updated on scroll.
     module.scroll_object(1)
     assert shared_state.ui_state().target() is obj_b
+
+
+@pytest.mark.integration
+def test_object_details_mount_keys(display, camera_image, catalogs, sample_object):
+    """With mount control on, the number keys send mount commands, and the
+    square key reaches the mount key page."""
+    from PiFinder.ui import object_details
+
+    cfg = Config()
+    shared_state = _make_shared_state("warm")
+    command_queues = _make_command_queues()
+    item_definition = _build_dynamic_item_definition("UIObjectDetails", sample_object)
+    module = UIObjectDetails(
+        display,
+        camera_image,
+        shared_state,
+        command_queues,
+        cfg,
+        catalogs,
+        item_definition=item_definition,
+    )
+    mount_queue = command_queues["mountcontrol"]
+    # The menu sweep of other tests can turn mount control on in the shared
+    # config; the module then sends the step size at construction.
+    while not mount_queue.empty():
+        mount_queue.get_nowait()
+
+    # Off: no commands.
+    module.mount_control = False
+    module.key_number(5)
+    assert mount_queue.empty()
+
+    module.mount_control = True
+    for number in range(10):
+        module.key_number(number)
+    commands = []
+    while not mount_queue.empty():
+        commands.append(mount_queue.get_nowait())
+    by_type = {c["type"]: c for c in commands}
+    assert by_type["goto_target"] == {
+        "type": "goto_target",
+        "ra": sample_object.ra,
+        "dec": sample_object.dec,
+        "epoch": "J2000",
+    }
+    assert by_type["sync"] == {"type": "sync"}
+    assert {"init", "stop_movement", "reduce_step_size", "increase_step_size"} <= set(
+        by_type
+    )
+    moves = [c["direction"] for c in commands if c["type"] == "manual_movement"]
+    assert sorted(moves) == ["east", "north", "south", "west"]
+
+    # The square key reaches the mount key page, and it renders.
+    for _step in range(6):
+        module.cycle_display_mode()
+        if module.object_display_mode == object_details.DM_MOUNT:
+            break
+    assert module.object_display_mode == object_details.DM_MOUNT
+    module.update()
 
 
 @pytest.mark.integration

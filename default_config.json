@@ -23,6 +23,10 @@
     "target_pixel": [256, 256],
     "gps_type": "ublox",
     "gps_baud_rate": 9600,
+    "mount_control": false,
+    "mount_control_model": "",
+    "mount_control_port": "/dev/ttyUSB0",
+    "mount_control_baud": 9600,
     "filter.selected_catalogs": [
         "NGC",
         "M",

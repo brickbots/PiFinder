@@ -79,6 +79,7 @@ logger = logging.getLogger("main")
 run_web_server = lazy_import.lazy_function("PiFinder.server", "run_server")
 run_solver = lazy_import.lazy_function("PiFinder.solver", "solver")
 run_pos_server = lazy_import.lazy_function("PiFinder.pos_server", "run_server")
+run_mount_control = lazy_import.lazy_function("PiFinder.mountcontrol_indi", "run")
 
 # The UI uses these modules only after it shows the first screen.
 UI_PRELOAD_MODULES = [
@@ -524,6 +525,7 @@ def main(
     imu_logqueue: Queue = log_helper.get_queue()
     battery_logqueue: Queue = log_helper.get_queue()
     sound_logqueue: Queue = log_helper.get_queue()
+    mountcontrol_logqueue: Queue = log_helper.get_queue()
 
     # Refuse to start if another instance is already running. A second copy
     # would otherwise boot and let its subsystems (web/pos-server ports, cedar
@@ -546,6 +548,7 @@ def main(
 
     # init UI Modes
     integrator_command_queue: Queue = Queue()
+    mountcontrol_queue: Queue = Queue()
 
     command_queues = {
         "camera": camera_command_queue,
@@ -555,6 +558,7 @@ def main(
         "align_response": alignment_response_queue,
         "gps": gps_queue,
         "integrator": integrator_command_queue,
+        "mountcontrol": mountcontrol_queue,
     }
     cfg = config.Config()
 
@@ -792,6 +796,28 @@ def main(
             args=(shared_state, ui_queue, posserver_logqueue),
         )
         posserver_process.start()
+
+        # Mount control (INDI) runs only when it is enabled. A change of the
+        # setting restarts PiFinder, so the UI reads the same config option.
+        mountcontrol_process: Optional[Process] = None
+        if cfg.get_option("mount_control", False):
+            console.write("  Mount Control")
+            logger.info("  Mount Control")
+            console.update()
+            mountcontrol_process = Process(
+                name="MountControl",
+                target=run_mount_control,
+                args=(
+                    mountcontrol_queue,
+                    console_queue,
+                    shared_state,
+                    mountcontrol_logqueue,
+                    cfg.get_option("mount_control_model", ""),
+                    cfg.get_option("mount_control_port", "/dev/ttyUSB0"),
+                    int(cfg.get_option("mount_control_baud", 9600)),
+                ),
+            )
+            mountcontrol_process.start()
 
         # Initialize Catalogs
         console.write("   Catalogs")
@@ -1291,6 +1317,14 @@ def main(
 
             logger.info("\tPos Server...")
             posserver_process.join()
+
+            if mountcontrol_process is not None:
+                logger.info("\tMount Control...")
+                mountcontrol_queue.put({"type": "exit"})
+                mountcontrol_process.join(timeout=5)
+                if mountcontrol_process.is_alive():
+                    mountcontrol_process.terminate()
+                    mountcontrol_process.join()
 
             logger.info("\tGPS...")
             gps_process.terminate()

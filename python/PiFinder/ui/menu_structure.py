@@ -21,6 +21,7 @@ from PiFinder.ui.locationentry import UILocationEntry
 from PiFinder.ui.radec_entry import UIRADecEntry
 from PiFinder.ui.telemetry_list import UITelemetryList
 import PiFinder.ui.callbacks as callbacks
+from PiFinder import indi_drivers
 
 
 # override locally the gettext marker function, i.e. the strings are not translated on load, but extracted. CHECK END OF FILE
@@ -35,6 +36,77 @@ s = _("Language: fr")
 s = _("Language: zh")
 s = s
 del s
+
+# Experimental > Mount Control. The mount list comes from the installed INDI
+# driver files, grouped by manufacturer.
+_mount_manufacturers: dict[str, list[dict]] = {}
+for _mount_model in indi_drivers.mount_models():
+    _mount_manufacturers.setdefault(_mount_model.manufacturer, []).append(
+        {"name": _mount_model.label, "value": _mount_model.label}
+    )
+_mount_items = [
+    {
+        "name": manufacturer,
+        "class": UITextMenu,
+        "select": "single",
+        "config_option": "mount_control_model",
+        "post_callback": callbacks.restart_pifinder,
+        "items": models,
+    }
+    for manufacturer, models in _mount_manufacturers.items()
+] or [{"name": _("No INDI drivers")}]
+_mount_control_menu = {
+    "name": _("Mount Control"),
+    "class": UITextMenu,
+    "select": "single",
+    "items": [
+        {
+            "name": _("Mount Control"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control",
+            "post_callback": callbacks.restart_pifinder,
+            "items": [
+                {"name": _("Off"), "value": False},
+                {"name": _("On"), "value": True},
+            ],
+        },
+        {
+            "name": _("Mount"),
+            "class": UITextMenu,
+            "select": "single",
+            "items": _mount_items,
+        },
+        {
+            "name": _("Port"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control_port",
+            "post_callback": callbacks.restart_pifinder,
+            "items": [
+                {"name": port, "value": port}
+                for port in (
+                    "/dev/ttyUSB0",
+                    "/dev/ttyUSB1",
+                    "/dev/ttyACM0",
+                    "/dev/ttyACM1",
+                )
+            ],
+        },
+        {
+            "name": _("Baud Rate"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control_baud",
+            "post_callback": callbacks.restart_pifinder,
+            "items": [
+                {"name": str(baud), "value": baud}
+                for baud in (9600, 19200, 38400, 57600, 115200)
+            ],
+        },
+    ],
+}
+
 
 pifinder_menu = {
     "name": "PiFinder",
@@ -1264,6 +1336,7 @@ pifinder_menu = {
                     "class": UITextMenu,
                     "select": "Single",
                     "items": [
+                        _mount_control_menu,
                         {
                             "name": _("Polar Align"),
                             "class": UIPolarAlign,
