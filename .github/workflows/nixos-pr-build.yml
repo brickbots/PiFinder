@@ -54,25 +54,18 @@ jobs:
           # review gate for running contributor code.
           allow-unsafe-pr-checkout: true
 
-      - uses: DeterminateSystems/nix-installer-action@main
+      # The shared CI action and scripts come from the base branch, which is
+      # trusted code, and never from the PR head.
+      - uses: actions/checkout@v4
         with:
-          determinate: false
-          extra-conf: |
-            extra-system-features = big-parallel
-            extra-substituters = https://cache.pifinder.io/pifinder
-            extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: .ci
+          sparse-checkout: .github
+          persist-credentials: false
 
-      - name: Attic login for push
-        env:
-          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
-        run: |
-          if [ -z "$ATTIC_TOKEN" ]; then
-            echo "No ATTIC_TOKEN — pull-only via the public substituter"
-            exit 0
-          fi
-          nix profile install nixpkgs#attic-client
-          attic login pifinder https://cache.pifinder.io "$ATTIC_TOKEN"
-          attic use pifinder:pifinder
+      - uses: ./.ci/.github/actions/setup-nix
+        with:
+          attic-token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: Build NixOS system and on-device dev shell closures
         run: |
@@ -87,12 +80,10 @@ jobs:
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             --json | jq -r '.[].outputs.out')
-          DEV_SHELL_PATH=$(nix build .#devShells.aarch64-linux.default \
-            --json | jq -r '.[].outputs.out')
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
           if [ -n "$ATTIC_TOKEN" ]; then
             attic push pifinder:pifinder "$STORE_PATH"
-            attic push pifinder:pifinder "$DEV_SHELL_PATH"
+            .ci/.github/scripts/push_dev_shell.sh aarch64-linux
           else
             echo "No ATTIC_TOKEN — skipping push; build is verify-only"
           fi
@@ -122,18 +113,19 @@ jobs:
           # review gate for running contributor code.
           allow-unsafe-pr-checkout: true
 
-      - name: Ensure nix is on PATH (self-hosted runner)
-        run: |
-          echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
-          echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
+      # The shared CI action and scripts come from the base branch, which is
+      # trusted code, and never from the PR head.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: .ci
+          sparse-checkout: .github
+          persist-credentials: false
 
-      - name: Setup Attic substituter (cache.pifinder.io)
-        env:
-          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
-        run: |
-          nix profile install nixpkgs#attic-client
-          attic login pifinder https://cache.pifinder.io "$ATTIC_TOKEN"
-          attic use pifinder:pifinder
+      - uses: ./.ci/.github/actions/setup-nix
+        with:
+          attic-token: ${{ secrets.ATTIC_TOKEN }}
+          self-hosted: "true"
 
       - name: Build NixOS system and on-device dev shell closures
         run: |
@@ -146,10 +138,8 @@ jobs:
         run: |
           STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             --json | jq -r '.[].outputs.out')
-          DEV_SHELL_PATH=$(nix build .#devShells.aarch64-linux.default \
-            --json | jq -r '.[].outputs.out')
           attic push pifinder:pifinder "$STORE_PATH"
-          attic push pifinder:pifinder "$DEV_SHELL_PATH"
+          .ci/.github/scripts/push_dev_shell.sh aarch64-linux
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
   # Stamp the PR's build into the metadata-only nixos-manifest branch. Runs the
