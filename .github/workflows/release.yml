@@ -1,6 +1,7 @@
 name: Release NixOS image
 
-# Builds the PiFinder NixOS SD image and migration tarball and publishes them as
+# Builds the PiFinder NixOS SD images (lean, and full when flake.nix has
+# catalog images) and the migration tarball and publishes them as
 # a GitHub (pre-)release, and records the closure in the nixos-manifest branch.
 #
 # Runners are native aarch64 (no QEMU): the free GitHub-hosted
@@ -34,6 +35,10 @@ on:
         description: 'Source repo to build (blank = this repo; e.g. mrosseel/PiFinder to build a fork)'
         required: false
         default: ''
+      new_migration_tarball:
+        description: 'Build a new migration tarball (only when the migration itself changes; off = use the newest tarball in the manifest)'
+        type: boolean
+        default: false
 
 # Read-only by default. The release job asks for contents: write itself.
 permissions:
@@ -66,12 +71,12 @@ jobs:
           echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
           echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
 
-      - name: Setup Attic caches (cache.pifinder.eu)
+      - name: Setup Attic caches (cache.pifinder.io)
         env:
           ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
         run: |
           nix profile install nixpkgs#attic-client
-          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic login pifinder https://cache.pifinder.io "$ATTIC_TOKEN"
           attic use pifinder:pifinder
 
       - name: Build and push release closure to Attic
@@ -89,6 +94,7 @@ jobs:
           fi
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
+      # Lean image: the system and an empty PiFinder_data.
       - name: Build SD image
         run: |
           nix build .#images.pifinder -L -o result-sd
@@ -100,14 +106,37 @@ jobs:
           path: result-sd/sd-image/*.img.zst
           retention-days: 1
 
+      # Full image: the lean image plus the catalog images. It exists only when
+      # flake.nix sets catalogImagesSrc (plan A4 and B8).
+      - name: Build full SD image
+        id: full
+        run: |
+          if [ "$(nix eval --json .#images --apply 'i: i ? pifinder-full')" = true ]; then
+            nix build .#images.pifinder-full -L -o result-full
+            echo "built=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No images.pifinder-full: publishing the lean image only."
+          fi
+
+      - name: Upload full SD image
+        if: steps.full.outputs.built == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdfull-native
+          path: result-full/sd-image/*.img.zst
+          retention-days: 1
+
       # The migration tarball holds the MINIMAL migration system, built
       # straight from its closure. It resolves the full system from the update
-      # manifest at first boot (ADR 0039).
+      # manifest at first boot (ADR 0039), so one tarball serves many releases.
+      # It is built only when new_migration_tarball is set.
       - name: Build migration tarball
+        if: inputs.new_migration_tarball
         run: |
           nix build .#packages.aarch64-linux.migration-tarball -L -o result-mig
 
       - name: Upload migration image
+        if: inputs.new_migration_tarball
         uses: actions/upload-artifact@v4
         with:
           name: migimage-native
@@ -139,15 +168,15 @@ jobs:
           determinate: false
           extra-conf: |
             extra-system-features = big-parallel
-            extra-substituters = https://cache.pifinder.eu/pifinder
+            extra-substituters = https://cache.pifinder.io/pifinder
             extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
 
-      - name: Setup Attic caches (cache.pifinder.eu)
+      - name: Setup Attic caches (cache.pifinder.io)
         env:
           ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
         run: |
           nix profile install nixpkgs#attic-client
-          attic login pifinder https://cache.pifinder.eu "$ATTIC_TOKEN"
+          attic login pifinder https://cache.pifinder.io "$ATTIC_TOKEN"
           attic use pifinder:pifinder
 
       - name: Build and push release closure to Attic
@@ -162,6 +191,7 @@ jobs:
           fi
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
+      # Lean image: the system and an empty PiFinder_data.
       - name: Build SD image
         run: |
           nix build .#images.pifinder -L -o result-sd
@@ -173,12 +203,34 @@ jobs:
           path: result-sd/sd-image/*.img.zst
           retention-days: 1
 
+      # Full image: the lean image plus the catalog images. It exists only when
+      # flake.nix sets catalogImagesSrc (plan A4 and B8).
+      - name: Build full SD image
+        id: full
+        run: |
+          if [ "$(nix eval --json .#images --apply 'i: i ? pifinder-full')" = true ]; then
+            nix build .#images.pifinder-full -L -o result-full
+            echo "built=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No images.pifinder-full: publishing the lean image only."
+          fi
+
+      - name: Upload full SD image
+        if: steps.full.outputs.built == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdfull-hosted
+          path: result-full/sd-image/*.img.zst
+          retention-days: 1
+
       # Minimal migration system — see the native job's comment (ADR 0039).
       - name: Build migration tarball
+        if: inputs.new_migration_tarball
         run: |
           nix build .#packages.aarch64-linux.migration-tarball -L -o result-mig
 
       - name: Upload migration image
+        if: inputs.new_migration_tarball
         uses: actions/upload-artifact@v4
         with:
           name: migimage-hosted
@@ -220,6 +272,20 @@ jobs:
           name: sdimage-hosted
           path: img-hosted
 
+      - name: Download native full SD image
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: sdfull-native
+          path: full-native
+
+      - name: Download hosted full SD image
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: sdfull-hosted
+          path: full-hosted
+
       - name: Download native migration image
         continue-on-error: true
         uses: actions/download-artifact@v4
@@ -241,34 +307,47 @@ jobs:
           echo "TAG=$TAG" >> "$GITHUB_ENV"
 
       - name: Assemble image + migration tarball + checksums
+        env:
+          NEW_MIGRATION: ${{ inputs.new_migration_tarball }}
         run: |
           set -euo pipefail
           # Only some dirs may exist (downloads are continue-on-error); create
           # all so find can't fail under pipefail. Prefer the hosted builder's
           # artifacts (listed first); fall back to native (Pi5).
-          mkdir -p img-native img-hosted mig-native mig-hosted
+          mkdir -p img-native img-hosted full-native full-hosted mig-native mig-hosted
           IMAGE_SRC=$(find img-hosted img-native -type f -name '*.img.zst' -print -quit)
+          FULL_SRC=$(find full-hosted full-native -type f -name '*.img.zst' -print -quit)
           MIG_SRC=$(find mig-hosted mig-native -type f -name '*.tar.zst' -print -quit)
-          if [ -z "$IMAGE_SRC" ] || [ -z "$MIG_SRC" ]; then
-            echo "Missing artifact: sd=[$IMAGE_SRC] migration=[$MIG_SRC]" >&2
+          if [ -z "$IMAGE_SRC" ]; then
+            echo "Missing artifact: sd=[$IMAGE_SRC]" >&2
+            exit 1
+          fi
+          if [ "$NEW_MIGRATION" = true ] && [ -z "$MIG_SRC" ]; then
+            echo "Missing artifact: migration=[$MIG_SRC]" >&2
             exit 1
           fi
           mkdir -p release
           cp "$IMAGE_SRC" "release/pifinder-${TAG}.img.zst"
+          # The full image is optional (flake.nix catalogImagesSrc).
+          if [ -n "$FULL_SRC" ]; then
+            cp "$FULL_SRC" "release/pifinder-full-${TAG}.img.zst"
+          fi
 
-          # The migration tarball is built by Nix from the minimal migration
-          # system's closure (ADR 0039); publish it as is.
-          cp "$MIG_SRC" "release/pifinder-migration-${TAG}.tar.zst"
+          if [ "$NEW_MIGRATION" = true ]; then
+            # The migration tarball is built by Nix from the minimal migration
+            # system's closure (ADR 0039); publish it as is.
+            cp "$MIG_SRC" "release/pifinder-migration-${TAG}.tar.zst"
 
-          # Size guard. The btrfs migration reads the tarball from the card, not
-          # from RAM, but the download still happens over the user's WiFi, and
-          # the budget keeps the minimal system minimal.
-          MIG_MB=$(( $(stat -c%s "release/pifinder-migration-${TAG}.tar.zst") / 1048576 ))
-          BUDGET_MB=800
-          echo "migration tarball: ${MIG_MB}MB (budget ${BUDGET_MB}MB)"
-          if [ "${MIG_MB}" -gt "${BUDGET_MB}" ]; then
-            echo "::error::migration tarball ${MIG_MB}MB exceeds ${BUDGET_MB}MB budget — shrink the migration closure (check linux-firmware and friends)"
-            exit 1
+            # Size guard. The btrfs migration reads the tarball from the card,
+            # not from RAM, but the download still happens over the user's
+            # WiFi, and the budget keeps the minimal system minimal.
+            MIG_MB=$(( $(stat -c%s "release/pifinder-migration-${TAG}.tar.zst") / 1048576 ))
+            BUDGET_MB=800
+            echo "migration tarball: ${MIG_MB}MB (budget ${BUDGET_MB}MB)"
+            if [ "${MIG_MB}" -gt "${BUDGET_MB}" ]; then
+              echo "::error::migration tarball ${MIG_MB}MB exceeds ${BUDGET_MB}MB budget — shrink the migration closure (check linux-firmware and friends)"
+              exit 1
+            fi
           fi
 
           # Checksum sidecars. The in-app upgrade (PiFinder.sys_utils) fetches
@@ -276,6 +355,7 @@ jobs:
           # it reads the first whitespace-delimited token, so sha256sum output is
           # the expected format.
           ( cd release
+            shopt -s nullglob
             for f in pifinder-*.img.zst pifinder-migration-*.tar.zst; do
               sha256sum "$f" > "$f.sha256"
             done )
@@ -317,12 +397,20 @@ jobs:
           STORE_PATH: ${{ needs.build-hosted.outputs.store_path || needs.build-native.outputs.store_path }}
           SOURCE_SHA: ${{ needs.build-hosted.outputs.source_sha || needs.build-native.outputs.source_sha }}
           RELEASE_NOTES: ${{ inputs.notes }}
+          NEW_MIGRATION: ${{ inputs.new_migration_tarball }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          MIGRATION_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/pifinder-migration-${TAG}.tar.zst"
+          # A new tarball is an asset of this release. Without one, the entry
+          # names the tarball of the newest release that has one.
+          if [ "$NEW_MIGRATION" = true ]; then
+            MIGRATION_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/pifinder-migration-${TAG}.tar.zst"
+            MIGRATION_ARGS=(--migration-url "$MIGRATION_URL" --migration-sha256-url "${MIGRATION_URL}.sha256")
+          else
+            MIGRATION_ARGS=(--migration-from-manifest)
+          fi
 
           bash .github/scripts/publish_manifest.sh \
             "chore: update release manifest [skip ci]" \
@@ -334,7 +422,6 @@ jobs:
               --version "${{ inputs.version }}" \
               --release-type "${{ inputs.type }}" \
               --store-path "$STORE_PATH" \
-              --migration-url "$MIGRATION_URL" \
-              --migration-sha256-url "${MIGRATION_URL}.sha256" \
+              "${MIGRATION_ARGS[@]}" \
               --title "PiFinder $TAG" \
               --notes "$RELEASE_NOTES"

@@ -14,8 +14,8 @@ STORE_PATH_RE = re.compile(r"^/nix/store/[a-z0-9]+-[A-Za-z0-9._+=?,-]+$")
 
 # The binary caches devices resolve upgrades from. A build is only advertised
 # as available once one of these actually serves its narinfo — see set_available.
-DEV_CACHE = "https://cache.pifinder.eu/pifinder"
-RELEASE_CACHE = "https://cache.pifinder.eu/pifinder-release"
+DEV_CACHE = "https://cache.pifinder.io/pifinder"
+RELEASE_CACHE = "https://cache.pifinder.io/pifinder-release"
 DEFAULT_CACHES = (DEV_CACHE, RELEASE_CACHE)
 EMPTY_MANIFEST = {
     "schema": 1,
@@ -187,9 +187,37 @@ def update_build(args: argparse.Namespace) -> None:
     save_manifest(args.manifest, manifest)
 
 
+def newest_migration(manifest: dict) -> tuple[str, str]:
+    """The migration_v2 keys of the newest release entry that has them.
+
+    One migration tarball serves many releases: at first boot it installs the
+    newest system in the manifest, not the release it was built with. A
+    release without its own tarball takes the newest one from stable or beta.
+    """
+    entries = [
+        item
+        for name in ("stable", "beta")
+        for item in manifest["channels"][name]
+        if item.get("migration_v2_url") and item.get("migration_v2_sha256_url")
+    ]
+    if not entries:
+        raise SystemExit(
+            "no release in the manifest has a migration tarball: "
+            "build one with this release"
+        )
+    newest = max(entries, key=lambda item: item.get("built_at") or "")
+    return newest["migration_v2_url"], newest["migration_v2_sha256_url"]
+
+
 def update_release(args: argparse.Namespace) -> None:
     manifest = load_manifest(args.manifest)
     caches, verify = resolve_verify(args)
+    if args.migration_from_manifest:
+        if args.migration_url or args.migration_sha256_url:
+            raise SystemExit(
+                "--migration-from-manifest cannot be used with --migration-url"
+            )
+        args.migration_url, args.migration_sha256_url = newest_migration(manifest)
     channel = "beta" if args.release_type == "beta" else "stable"
     entry = {
         "kind": "release",
@@ -201,8 +229,10 @@ def update_release(args: argparse.Namespace) -> None:
         "source_sha": args.sha,
         "version": args.version,
         "store_path": args.store_path or None,
-        "migration_url": args.migration_url or None,
-        "migration_sha256_url": args.migration_sha256_url or None,
+        # 2.6.x reads "migration_url" and must not find a tarball: its
+        # migration writes an ext4 root, and these builds need btrfs.
+        "migration_v2_url": args.migration_url or None,
+        "migration_v2_sha256_url": args.migration_sha256_url or None,
         "built_at": now_iso(),
     }
     set_available(entry, caches, verify)
@@ -255,6 +285,11 @@ def parser() -> argparse.ArgumentParser:
     release.add_argument("--store-path", required=True)
     release.add_argument("--migration-url")
     release.add_argument("--migration-sha256-url")
+    release.add_argument(
+        "--migration-from-manifest",
+        action="store_true",
+        help="take the migration tarball of the newest release that has one",
+    )
     release.add_argument("--title")
     release.add_argument("--notes")
     add_cache_args(release)
