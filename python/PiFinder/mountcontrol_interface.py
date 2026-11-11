@@ -652,7 +652,6 @@ class MountControlBase:
         The only exception is when retrying failed and we need to change the state to MOUNT_INIT_TELESCOPE or MOUNT_STOPPED.
         """
 
-        start_time = time.time()  # Used for determining timeouts for retries.
         # Process the command based on its type
         if command["type"] == "exit":
             # This is here for debugging and testing purposes.
@@ -665,6 +664,7 @@ class MountControlBase:
             logger.debug("Mount: stop command received")
             while retry_count > 0 and not self._stop_mount():
                 # Wait for delay before retrying
+                start_time = time.time()
                 while time.time() - start_time <= delay:
                     yield
                 retry_count -= 1
@@ -695,6 +695,7 @@ class MountControlBase:
             logger.debug(f"Mount: Syncing - RA={sync_ra}, DEC={sync_dec}")
             while retry_count > 0 and not self.sync_mount(sync_ra, sync_dec):
                 # Wait for delay before retrying
+                start_time = time.time()
                 while time.time() - start_time <= delay:
                     yield
                 retry_count -= 1
@@ -733,6 +734,7 @@ class MountControlBase:
                 self.target_ra, self.target_dec
             ):
                 # Wait for delay before retrying
+                start_time = time.time()
                 while time.time() - start_time <= delay:
                     yield
                 retry_count -= 1
@@ -746,11 +748,7 @@ class MountControlBase:
                     stop_mount_cmd = self._process_command(
                         {"type": "stop_movement"}, retry_stop, delay
                     )
-                    try:
-                        while next(stop_mount_cmd):
-                            pass
-                    except StopIteration:
-                        pass
+                    yield from stop_mount_cmd
                 else:
                     logger.warning(
                         "Retrying to move mount to target. Attempts left: %d",
@@ -913,6 +911,12 @@ class MountControlBase:
             wait_start = time.time()
             solve = self.latest_solve()
             while solve is None or solve[2] < self._refine_after:
+                if self.is_mount_moving():
+                    # A solve taken now would have slew blur, or be at the
+                    # wrong place.
+                    self.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
+                    logger.debug("Phase REFINE: mount moves, back to MOVE")
+                    return
                 if self.state != MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
                     logger.debug(
                         "PHASE REFINE: State changed to %s, aborting wait for solve.",

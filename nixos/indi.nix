@@ -67,6 +67,9 @@ in
 
     # PiFinder reads the mount driver list from the INDI driver XML files, and
     # looks for the USB bridges when GPS Type changes (usb_gps.py).
+    # The mount process starts the driver through the FIFO at boot.
+    systemd.services.pifinder.wants = [ "indiserver.service" ];
+    systemd.services.pifinder.after = [ "indiserver.service" ];
     systemd.services.pifinder.environment = {
       INDI_DATA_DIR = "${indi}/share/indi";
       INDI_FIFO = "/run/indi/fifo";

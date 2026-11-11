@@ -261,3 +261,90 @@ def test_reload_switches_model_and_turns_off(indi: int) -> None:
     finally:
         mount.disconnect_mount()
         indi_drivers.stop_driver()
+
+
+def _simulator_mount(indi: int) -> MountControlIndi:
+    return MountControlIndi(
+        Queue(),
+        Queue(),
+        _shared_state(),
+        None,
+        MountSettings(enabled=True, model=indi_drivers.SIMULATOR),
+        indi_port=indi,
+    )
+
+
+def test_drift_compensation_uses_custom_tracking(indi: int) -> None:
+    """INDI applies a track rate only in TRACK_CUSTOM mode; a new goto goes
+    back to sidereal."""
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        device = mount.device
+        rate = mount.client.get_value(device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_RA")
+        assert mount.adjust_mount_drift_rates(0.001, 0.0)
+        assert _wait(
+            lambda: mount.client.get_value(
+                device, "TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"
+            )
+            is True,
+            5,
+        )
+        assert _wait(
+            lambda: mount.client.get_value(
+                device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_RA"
+            )
+            == pytest.approx(rate + 3.6, abs=0.01),
+            5,
+        )
+        assert not any(
+            "must be set to Custom" in m for m in mount.client.messages(device)
+        )
+        assert mount.move_mount_to_target(40.0, 10.0)
+        assert _wait(
+            lambda: mount.client.get_value(
+                device, "TELESCOPE_TRACK_MODE", "TRACK_SIDEREAL"
+            )
+            is True,
+            5,
+        )
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def test_sync_reply_does_not_end_the_next_goto(indi: int) -> None:
+    """The driver confirms a sync with state Ok. When that reply comes after
+    the next goto was sent, the goto must still run to its end."""
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        assert mount.move_mount_to_target(30.0, 20.0)
+        assert _wait(lambda: mount.target_reached, 60)
+        mount.target_reached = False
+        assert mount.sync_mount(30.5, 20.5)
+        assert mount.move_mount_to_target(120.0, -10.0)
+        time.sleep(1.0)
+        assert not mount.target_reached
+        assert mount.is_mount_moving()
+        assert _wait(lambda: mount.target_reached, 90)
+        assert mount.current_dec == pytest.approx(-10.0, abs=0.1)
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def test_stale_running_driver_record_is_restarted(indi: int) -> None:
+    """A record that names the driver while indiserver does not run it must
+    not stop the init."""
+    running = Path(os.environ["INDI_FIFO"]).parent / indi_drivers.RUNNING_DRIVER_FILE
+    model = indi_drivers.find_model(indi_drivers.SIMULATOR)
+    assert model is not None
+    running.write_text(f"{model.driver}\t{model.device_name}\n")
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        assert mount.device == "Telescope Simulator"
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()

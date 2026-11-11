@@ -401,11 +401,11 @@ class TestMountControl:
         if initial_state == MountControlPhases.MOUNT_STOPPED:
             # _stop_mount returns True without calling stop_mount if already stopped
             assert self.mount_control.stop_mount.call_count == 0
+            assert self.mount_control.state == initial_state
         else:
-            # Stop mount should be called once (nested generator doesn't fully execute due to yield/while pattern)
-            assert self.mount_control.stop_mount.call_count == 1
-        # State should remain as initial_state when stop doesn't fully execute
-        assert self.mount_control.state == initial_state
+            # The stop runs with all its retries, then the mount re-inits.
+            assert self.mount_control.stop_mount.call_count == 2
+            assert self.mount_control.state == MountControlPhases.MOUNT_INIT_TELESCOPE
 
         # Verify warning message was sent to console
         assert not self.console_queue.empty()
@@ -726,3 +726,22 @@ class TestMountProgressMessages(TestMountControl):
 )
 def test_format_step(step, text):
     assert format_step(step) == text
+
+
+def test_failed_goto_retries_the_stop():
+    """After a failed goto the stop runs with all its retries, and each
+    retry waits."""
+    mount = MountControlBase(Queue(), Queue(), Mock(spec=SharedStateObj))
+    mount.notify = Mock()
+    mount.move_mount_to_target = Mock(return_value=False)
+    mount.stop_mount = Mock(return_value=False)
+    mount.state = MountControlPhases.MOUNT_TRACKING
+    start = time.time()
+    for _step in mount._process_command(
+        {"type": "goto_target", "ra": 1.0, "dec": 2.0}, 2, 0.05
+    ):
+        pass
+    assert mount.move_mount_to_target.call_count == 2
+    assert mount.stop_mount.call_count == 2
+    # Two goto waits and two stop waits.
+    assert time.time() - start >= 0.15

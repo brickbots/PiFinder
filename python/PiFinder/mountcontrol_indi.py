@@ -44,6 +44,12 @@ POSITION = "EQUATORIAL_EOD_COORD"
 DEVICE_TIMEOUT_S = 10.0
 # Time for the driver to open the port and talk to the mount.
 CONNECT_TIMEOUT_S = 20.0
+# After a goto, a position update with state Ok ends the slew only after the
+# driver reported Busy, or after this time: the driver's reply to an earlier
+# sync can come after the goto was sent.
+SLEW_START_GRACE_S = 3.0
+# A slew with no end report counts as ended after this time.
+SLEW_TIMEOUT_S = 300.0
 # Time for the driver to define CONNECTION_MODE after DRIVER_INFO.
 CONNECTION_MODE_WAIT_S = 3.0
 
@@ -89,8 +95,12 @@ class MountControlIndi(MountControlBase):
         self._target_ra: Optional[float] = None
         self._target_dec: Optional[float] = None
         self._target_tolerance_deg = target_tolerance_deg
-        # True from a goto until the position state leaves Busy.
+        # True from a goto until the slew ends (see SLEW_START_GRACE_S).
         self._slewing = False
+        self._slew_busy_seen = False
+        self._slew_start = 0.0
+        # The track mode is Custom after a drift compensation.
+        self._custom_tracking = False
 
         self.available_slew_rates: List[str] = []
 
@@ -136,6 +146,7 @@ class MountControlIndi(MountControlBase):
             self.disconnect_mount()
         self.device = None
         self._slewing = False
+        self._custom_tracking = False
         if not new.enabled or new.model != old.model:
             indi_drivers.stop_driver()
         self.settings = new
@@ -179,7 +190,16 @@ class MountControlIndi(MountControlBase):
         self.current_dec = dec_deg
         self.current_time = time.time()
         self.mount_current_position(ra_deg, dec_deg)
-        if not self._slewing or state == "Busy":
+        if not self._slewing:
+            return
+        if state == "Busy":
+            self._slew_busy_seen = True
+            return
+        if (
+            not self._slew_busy_seen
+            and time.time() - self._slew_start < SLEW_START_GRACE_S
+        ):
+            # Not this goto's end yet, for example the reply to a sync.
             return
         self._slewing = False
         if state == "Alert":
@@ -320,6 +340,13 @@ class MountControlIndi(MountControlBase):
 
         self.client.wait_for(telescope_found, DEVICE_TIMEOUT_S)
         if not found:
+            # The running-driver record can be stale, for example when
+            # indiserver gave up on a crashing driver. Start it again.
+            logger.warning("No telescope device, starting %s again", model.driver)
+            indi_drivers.stop_driver()
+            if indi_drivers.start_driver(model):
+                self.client.wait_for(telescope_found, DEVICE_TIMEOUT_S)
+        if not found:
             logger.error("No telescope device from driver %s", model.driver)
             return False
         self.device = found[0]
@@ -411,11 +438,17 @@ class MountControlIndi(MountControlBase):
         if not self._set_number(POSITION, {"RA": ra_deg / 15.0, "DEC": dec_deg}):
             return False
         self._slewing = True
+        self._slew_busy_seen = False
+        self._slew_start = time.time()
         self.current_time = time.time()
         return True
 
     def move_mount_to_target(self, target_ra_deg: float, target_dec_deg: float) -> bool:
         """Goto the target (JNow degrees) and track."""
+        if self._custom_tracking:
+            # Drift rates belong to the old target.
+            self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_SIDEREAL")
+            self._custom_tracking = False
         if not self._goto(target_ra_deg, target_dec_deg):
             logger.error("Failed to send goto")
             return False
@@ -425,6 +458,8 @@ class MountControlIndi(MountControlBase):
         return True
 
     def is_mount_moving(self) -> bool:
+        if self._slewing and time.time() - self._slew_start < SLEW_TIMEOUT_S:
+            return True
         if self.device is not None:
             prop = self.client.get_property(self.device, POSITION)
             if prop is not None and prop.state == "Busy":
@@ -434,9 +469,20 @@ class MountControlIndi(MountControlBase):
     def adjust_mount_drift_rates(
         self, drift_rate_adjustment_ra: float, drift_rate_adjustment_dec: float
     ) -> bool:
-        """Add the adjustments (degrees/second) to TELESCOPE_TRACK_RATE."""
+        """Add the adjustments (degrees/second) to TELESCOPE_TRACK_RATE.
+
+        INDI applies TELESCOPE_TRACK_RATE only in the TRACK_CUSTOM track
+        mode. A mount without that mode keeps sidereal tracking, and drift
+        compensation does nothing.
+        """
         if self.device is None:
             return False
+        if (
+            self.client.get_value(self.device, "TELESCOPE_TRACK_MODE", "TRACK_CUSTOM")
+            is None
+        ):
+            logger.info("Mount has no custom tracking, no drift compensation")
+            return True
         rates = self.client.get_property(self.device, "TELESCOPE_TRACK_RATE")
         if rates is None:
             logger.warning("Mount has no TELESCOPE_TRACK_RATE, no drift control")
@@ -445,6 +491,10 @@ class MountControlIndi(MountControlBase):
         dec_rate = rates.elements.get("TRACK_RATE_DE")
         if not isinstance(ra_rate, float) or not isinstance(dec_rate, float):
             return False
+        if not self._custom_tracking:
+            if not self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"):
+                return False
+            self._custom_tracking = True
         # TELESCOPE_TRACK_RATE is in arcseconds per second.
         return self._set_number(
             "TELESCOPE_TRACK_RATE",
