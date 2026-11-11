@@ -1,0 +1,44 @@
+name: Set up Nix
+description: >
+  Nix with the PiFinder binary cache (cache.pifinder.io). Every workflow uses
+  this action, so all jobs get the same Nix settings and the same cache.
+inputs:
+  attic-token:
+    description: Token that lets the job push to the cache. Empty means pull only.
+    required: false
+    default: ""
+  self-hosted:
+    description: '"true" on a self-hosted runner, which already has Nix installed.'
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - if: inputs.self-hosted != 'true'
+      uses: DeterminateSystems/nix-installer-action@main
+      with:
+        determinate: false
+        extra-conf: |
+          extra-system-features = big-parallel
+          extra-substituters = https://cache.pifinder.io/pifinder
+          extra-trusted-public-keys = pifinder:8UU/O3oLkaJHHUyqEcPGl+9F1m4MqDca39Ewl49jBmE=
+
+    - if: inputs.self-hosted == 'true'
+      shell: bash
+      run: |
+        echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
+        echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
+
+    - name: Attic login
+      shell: bash
+      env:
+        ATTIC_TOKEN: ${{ inputs.attic-token }}
+      run: |
+        if [ -z "$ATTIC_TOKEN" ]; then
+          echo "No Attic token: the job pulls from the cache but does not push"
+          exit 0
+        fi
+        export PATH="/nix/var/nix/profiles/default/bin:$HOME/.nix-profile/bin:$PATH"
+        nix profile install nixpkgs#attic-client
+        attic login pifinder https://cache.pifinder.io "$ATTIC_TOKEN"
+        attic use pifinder:pifinder

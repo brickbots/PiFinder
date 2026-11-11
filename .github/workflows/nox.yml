@@ -1,44 +1,70 @@
 name: nox
-# The nixos branch manages the Python environment with uv (pyproject.toml +
-# uv.lock) instead of nox + requirements*.txt, so this runs the same checks
-# (ruff, mypy, pytest) through uv. The workflow keeps upstream's "nox" name so
+# The nixos branch manages the Python environment with uv2nix (pyproject.toml +
+# uv.lock) instead of nox + requirements*.txt. This runs the ruff, mypy and
+# pytest checks in the flake dev shell, the same Nix environment that
+# developers and the PiFinder use. The workflow keeps upstream's "nox" name so
 # PR check wiring stays identical across branches.
 #
 # Run on pushes to the long-lived branches and on pull requests. Restricting
-# `push` to main/release means a push to a feature branch with an open PR only
+# `push` to those branches means a push to a feature branch with an open PR only
 # triggers the `pull_request` run (not also a `push` run), so a PR gets a single
 # run per push instead of two.
+#
+# On a push, a job that passes puts its dev shell in the PiFinder cache, so
+# developers and later jobs download the shell and do not build it.
 on:
   push:
     branches:
       - main
+      - nixos
       - release
   pull_request:
+permissions:
+  contents: read
 jobs:
   nox:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # aarch64, like the PiFinder.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: ./python
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: ./.github/actions/setup-nix
         with:
-          enable-cache: true
-      # Same ruff pin as upstream main's noxfile, so shared files keep one style.
-      - name: Lint
-        run: uvx ruff@0.4.8 check --config "builtins=['_']" .
-      - name: Format check
-        run: uvx ruff@0.4.8 format --check .
-      - name: Sync environment
-        run: uv sync --frozen
+          attic-token: ${{ github.event_name == 'push' && secrets.ATTIC_TOKEN || '' }}
+      - name: Build dev shell
+        run: nix develop ..#default -c true
+      - name: Lint and format check
+        run: scripts/check.sh lint
       - name: Type check
-        run: uv run mypy PiFinder
+        run: scripts/check.sh types
       - name: Smoke tests
-        run: uv run pytest -m smoke
+        run: scripts/check.sh smoke
       - name: Unit tests
-        run: uv run pytest -m unit
-      # The web tests need a Selenium grid, which CI does not have.
+        run: scripts/check.sh unit
       - name: Integration tests
-        run: uv run pytest -m integration --ignore-glob='tests/test_web_*'
+        run: scripts/check.sh integration
+      - name: Push dev shell to the cache
+        if: github.event_name == 'push'
+        working-directory: .
+        run: .github/scripts/push_dev_shell.sh aarch64-linux
+
+  # Developer desktops are x86. This job puts the x86 dev shells in the cache
+  # after the checks pass, so a desktop downloads libcamera and the Python
+  # environment and does not build them.
+  dev-shell-x86:
+    needs: nox
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-nix
+        with:
+          attic-token: ${{ secrets.ATTIC_TOKEN }}
+      - name: Push dev shells to the cache
+        run: |
+          .github/scripts/push_dev_shell.sh x86_64-linux
+          .github/scripts/push_dev_shell.sh x86_64-linux web

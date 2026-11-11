@@ -1,27 +1,22 @@
+# Each hook runs python/scripts/check.sh, the same script and dev shell as CI.
 repos:
   - repo: local
     hooks:
-      - id: ruff-lint
-        name: ruff lint
-        entry: bash -c 'cd python && ruff check'
-        language: system
-        files: ^python/.*\.py$
-        pass_filenames: false
-      - id: ruff-format
-        name: ruff format check
-        entry: bash -c 'cd python && ruff format --check'
+      - id: ruff
+        name: ruff lint and format check
+        entry: python/scripts/check.sh lint
         language: system
         files: ^python/.*\.py$
         pass_filenames: false
       - id: mypy
         name: mypy type check
-        entry: bash -c 'cd python && mypy .'
+        entry: python/scripts/check.sh types
         language: system
         files: ^python/.*\.py$
         pass_filenames: false
       - id: smoke-tests
         name: smoke tests
-        entry: bash -c 'cd python && pytest -m smoke'
+        entry: python/scripts/check.sh smoke
         language: system
         files: ^python/.*\.py$
         pass_filenames: false

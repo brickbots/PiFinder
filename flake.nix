@@ -131,7 +131,10 @@
             mkdir -p ./files/home/pifinder/PiFinder_data/catalog_images
             cp -a --reflink=auto ${catalogImages}/. ./files/home/pifinder/PiFinder_data/catalog_images/
           '';
-          sdImage.populateFirmwareCommands = lib.mkForce firmwareCommands;
+          # nixos-hardware also sets this option with mkForce. At the same
+          # priority the two scripts are joined, and its read-only copies stop
+          # ours. The higher priority keeps only firmwareCommands.
+          sdImage.populateFirmwareCommands = lib.mkOverride 40 firmwareCommands;
         })
       ] ++ nixpkgs.lib.optionals (!includeSDImage) [
         # Filesystem stub for closure builds (CI). Devices install these
@@ -175,7 +178,10 @@
             echo "${(mkPifinderSystem {}).config.system.build.toplevel}" \
               > ./files/var/lib/pifinder/first-boot-target
           '';
-          sdImage.populateFirmwareCommands = lib.mkForce firmwareCommands;
+          # nixos-hardware also sets this option with mkForce. At the same
+          # priority the two scripts are joined, and its read-only copies stop
+          # ours. The higher priority keeps only firmwareCommands.
+          sdImage.populateFirmwareCommands = lib.mkOverride 40 firmwareCommands;
         })
       ] ++ nixpkgs.lib.optionals (!includeSDImage) [
         # The migration tarball is built from this system (migrationTarball),
@@ -405,31 +411,37 @@
         | zstd -T0 -19 -o $out/pifinder-migration.tar.zst
     '';
 
+    # Every tool in the dev shell, ruff included, comes from python/uv.lock
+    # through uv2nix. uv stays available to edit the lock, but it must not
+    # build its own .venv of wheels next to the Nix environment.
+    uvShellEnv = pyPkgs: ''
+      export PIFINDER_DEV_SHELL=1
+      export UV_NO_SYNC=1
+      export UV_PROJECT_ENVIRONMENT="${pyPkgs.devEnv}"
+      export UV_PYTHON="${pyPkgs.devEnv}/bin/python"
+      export UV_PYTHON_DOWNLOADS=never
+    '';
+
     # Reproducible development environment for both desktop Linux and the
     # aarch64 PiFinder itself. Runtime-native bindings come from Nix, just as
     # they do in the systemd service; uv supplies the locked Python workspace.
-    mkDevShell = system: let
+    # The web variant adds the browser that the Selenium web tests drive.
+    mkDevShell = { system, web ? false }: let
       pkgs = import nixpkgs {
         inherit system;
-        overlays = [(final: prev: {
-          libcamera = prev.libcamera.overrideAttrs (old: {
-            mesonFlags = (old.mesonFlags or []) ++ [ "-Dpycamera=enabled" ];
-            buildInputs = (old.buildInputs or []) ++ [
-              final.python313
-              final.python313.pkgs.pybind11
-            ];
-          });
-        })];
+        overlays = [ (import ./nixos/libcamera-overlay.nix) ];
       };
       pyPkgs = import ./nixos/pkgs/uv-python.nix {
         inherit pkgs pyproject-nix uv2nix pyproject-build-systems;
       };
       cedar-detect = import ./nixos/pkgs/cedar-detect.nix { inherit pkgs; };
+      # The browser comes from nixpkgs without the libcamera overlay. With the
+      # overlay, ffmpeg and SDL change, and chromium must build from source.
+      browserPkgs = nixpkgs.legacyPackages.${system};
     in pkgs.mkShell {
       packages = [
         pyPkgs.devEnv
         pkgs.bashInteractive
-        pkgs.ruff
         pkgs.uv
         pkgs.git
         pkgs.rsync
@@ -438,8 +450,13 @@
         pkgs.libcamera
         pkgs.gpsd
         cedar-detect
+      ] ++ pkgs.lib.optionals web [
+        browserPkgs.chromium
+        browserPkgs.chromedriver
       ];
       shellHook = ''
+        ${uvShellEnv pyPkgs}
+        ${pkgs.lib.optionalString web "export CHROME_BINARY=${browserPkgs.chromium}/bin/chromium"}
         export PYTHONPATH="${pkgs.libcamera}/lib/python3.13/site-packages:$PYTHONPATH"
         export GI_TYPELIB_PATH="${pkgs.lib.makeSearchPath "lib/girepository-1.0" [
           pkgs.networkmanager
@@ -505,8 +522,10 @@
     packages.x86_64-linux.pifinder-kernel-cross = pifinderCrossKernel;
 
     devShells = {
-      x86_64-linux.default = mkDevShell "x86_64-linux";
-      aarch64-linux.default = mkDevShell "aarch64-linux";
+      x86_64-linux.default = mkDevShell { system = "x86_64-linux"; };
+      x86_64-linux.web = mkDevShell { system = "x86_64-linux"; web = true; };
+      aarch64-linux.default = mkDevShell { system = "aarch64-linux"; };
+      aarch64-linux.web = mkDevShell { system = "aarch64-linux"; web = true; };
     };
 
     devShells.aarch64-darwin.default = let
@@ -516,7 +535,8 @@
       };
       cedar-detect = import ./nixos/pkgs/cedar-detect.nix { inherit pkgs; };
     in pkgs.mkShell {
-      packages = [ pyPkgs.devEnv pkgs.ruff pkgs.uv cedar-detect ];
+      packages = [ pyPkgs.devEnv pkgs.uv cedar-detect ];
+      shellHook = uvShellEnv pyPkgs;
     };
   };
 }
