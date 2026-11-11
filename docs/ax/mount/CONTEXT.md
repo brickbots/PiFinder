@@ -41,5 +41,9 @@ A `["MOUNT", text]` item on `console_queue`: short progress text ("Slewing", "On
 **Mount status**:
 `types.mount.MountStatus` in the `mount_status` snapshot slot: the phase text, the distance from the mount position to the target, the step, the model and the write time. The mount process writes it when the phase or the step changes, at most once per second when only the distance changes, and at least every 2 s. A status older than 5 s shows as "No mount status". The mount page of Object Details and the web Mount page show it with `status_lines()`.
 
+**Sky simulator**:
+`sky_sim.SkySimulator`, started with `--sky-sim FILE|default`. In the integrator it replaces the solver output with solves made from the INDI mount position: physical position (reported minus the syncs it saw) plus a **pointing error**, with noise, failures, no solve while the mount slews, and scenario events in time. For tests and demos with no sky.
+_Avoid_: camera simulator (it makes no frames), replay (that is a telemetry recording).
+
 **Generic USB bridge**:
 A USB-serial chip that both GPS dongles and mount controllers use (CP210x `10c4`, ATEN `0557`, Prolific `067b`). gpsd hotplug gets it only with GPS Type "GPSD (generic)" (`usb_gps.py`, `/var/lib/pifinder/usb/generic-gps`).

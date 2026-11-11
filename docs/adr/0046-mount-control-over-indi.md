@@ -28,8 +28,9 @@ PiFinder can move a GoTo mount: goto the selected object, sync to the plate solv
 
 - A USB GPS dongle on one of the generic bridges starts gpsd only with GPS Type "GPSD (generic)". After a change of GPS Type, a device that is already plugged in needs a replug, and PiFinder tells the user.
 - `indiserver` binds a local socket with a fixed default name, so only one runs per machine. The tests start theirs with a private socket (`-u`).
-- The INDI telescope simulator confirms a sync, but it does not move its reported position. The integration tests check the driver message.
-- PiFinder does not change the pointing model inside the mount controller (for example OnStepX). It turns off only the INDI alignment subsystem. A controller pointing model can disagree with the plate solve.
+- The tests run against the device's INDI (`nix shell .#indi`, from `nixos/pkgs/indi.nix`). Other INDI versions differ: in INDI 2.2.4 the telescope simulator syncs through the alignment subsystem.
+- The closed-loop sky simulator (`--sky-sim`, `sky_sim.py`) makes plate solves from the mount position with a pointing error, so goto, refine and sync can be tested with no sky. It replaces the solver output in the integrator, as a telemetry replay does.
+- PiFinder does not change a pointing model: neither the one inside the mount controller (for example OnStepX) nor the INDI alignment subsystem. Some drivers, for example the AZ-GTi driver and the newer telescope simulator, do a sync through the alignment subsystem, so turning it off breaks the sync. A controller pointing model can disagree with the plate solve; REFINE corrects small errors.
 - WiFi mounts use the driver's TCP connection. An empty host or port keeps the driver default, for example UDP 11880 on the AZ-GTi driver.
 - INDI applies `TELESCOPE_TRACK_RATE` only in the `TRACK_CUSTOM` track mode. Drift compensation sets that mode first, and a new goto goes back to sidereal. A mount without custom tracking keeps sidereal tracking and skips drift compensation.
 - After a sync, the driver confirms with a position update in state Ok, and that reply can come after the next goto was sent. A slew therefore ends only after the driver reported Busy for it, or after 3 s.

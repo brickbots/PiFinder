@@ -383,11 +383,9 @@ class MountControlIndi(MountControlBase):
         slew_rates = self.client.get_property(self.device, "TELESCOPE_SLEW_RATE")
         self.available_slew_rates = list(slew_rates.elements) if slew_rates else []
 
-        # The plate solve is the pointing model. The INDI alignment
-        # subsystem would correct the synced position a second time.
-        if self._switch_on("ALIGNMENT_SUBSYSTEM_ACTIVE", "ALIGNMENT SUBSYSTEM ACTIVE"):
-            self.client.set_switch_off(self.device, "ALIGNMENT_SUBSYSTEM_ACTIVE")
-            logger.info("INDI alignment subsystem turned off")
+        # The INDI alignment subsystem stays as the driver has it: drivers
+        # such as the AZ-GTi driver and the newer telescope simulator do a
+        # sync through it.
 
         if self._switch_on("TELESCOPE_PARK", "PARK"):
             logger.info("Mount is parked, unparking")

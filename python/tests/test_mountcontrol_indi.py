@@ -20,6 +20,13 @@ from PiFinder import indi_drivers
 from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_indi import POSITION, MountControlIndi
 from PiFinder.mountcontrol_interface import MountControlPhases
+from PiFinder.sky_sim import SkySimSettings, SkySimulator
+from PiFinder.types.positioning import (
+    PointingAxis,
+    PointingEstimate,
+    PointingMatrix,
+    SuccessfulSolve,
+)
 from PiFinder.state import Location, SharedStateObj
 
 pytestmark = [
@@ -383,5 +390,72 @@ def test_status_follows_a_goto(indi: int) -> None:
         mount.publish_status()
         assert shared_state.set_mount_status.called
     finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def test_closed_loop_goto_refines_onto_the_target(indi: int) -> None:
+    """The full loop: the mount process, the INDI simulator and the sky
+    simulator with a 1.5° pointing error. A goto must end "On target" (within
+    0.01°) after at most three refine rounds."""
+    latest: list = []
+    shared_state = _shared_state()
+
+    def solution():
+        if not latest:
+            return None
+        solve = latest[-1]
+        axis = PointingAxis(solve=solve.aligned, estimate=solve.aligned)
+        return PointingEstimate(
+            pointing=PointingMatrix(camera=axis, aligned=axis),
+            last_solve_success=solve.last_solve_success,
+        )
+
+    shared_state.solution.side_effect = solution
+    mount = MountControlIndi(
+        Queue(),
+        Queue(),
+        shared_state,
+        None,
+        MountSettings(enabled=True, model=indi_drivers.SIMULATOR),
+        indi_port=indi,
+    )
+    sim = SkySimulator(
+        SkySimSettings(
+            rate_hz=2.0,
+            offset_ra_deg=1.5,
+            offset_dec_deg=-0.8,
+            noise_arcsec=5,
+            seed=3,
+            indi_port=indi,
+        ),
+        shared_state.datetime,
+    )
+    runner = threading.Thread(target=mount.run, daemon=True)
+    runner.start()
+    try:
+        assert _wait(lambda: mount.state == MountControlPhases.MOUNT_TRACKING, 30)
+        target = (80.0, 25.0)
+        mount.mount_queue.put(
+            {"type": "goto_target", "ra": target[0], "dec": target[1]}
+        )
+        deadline = time.time() + 180
+        while time.time() < deadline:
+            message = sim.next_message()
+            if isinstance(message, SuccessfulSolve):
+                latest.append(message)
+            if mount.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
+                break
+            time.sleep(0.05)
+        assert mount.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION
+        assert 1 <= mount._refine_count <= 3
+        solve = mount.latest_solve()
+        assert solve is not None
+        assert abs((solve[0] - target[0] + 180) % 360 - 180) <= 0.01
+        assert abs(solve[1] - target[1]) <= 0.01
+        assert sim.sync_ra == pytest.approx(1.5, abs=0.01)
+    finally:
+        mount.mount_queue.put({"type": "exit"})
+        runner.join(timeout=10)
         mount.disconnect_mount()
         indi_drivers.stop_driver()

@@ -510,6 +510,10 @@
     };
 
     packages.x86_64-linux.pifinder-kernel-cross = pifinderCrossKernel;
+    # The device's INDI, for the mount tests: nix shell .#indi
+    packages.x86_64-linux.indi = import ./nixos/pkgs/indi.nix {
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+    };
 
     # VM test of the indiserver service and its driver FIFO.
     checks.x86_64-linux.indiserver =

@@ -1,16 +1,6 @@
 { config, pkgs, lib, ... }:
 let
-  # Core INDI has the mount drivers for OnStep/OnStepX, LX200, SynScan,
-  # iOptron, Celestron, PMC-8, AM5 and more. The 3rd-party set adds the
-  # common mounts that core INDI does not have. No camera drivers.
-  indi = pkgs.indi-with-drivers.override {
-    extraDrivers = with pkgs.indi-3rdparty; [
-      indi-eqmod
-      indi-celestronaux
-      indi-starbook
-      indi-starbook-ten
-    ];
-  };
+  indi = import ./pkgs/indi.nix { inherit pkgs; };
 in
 {
   options.pifinder.mountUsbBridges = lib.mkOption {

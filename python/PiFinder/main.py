@@ -512,6 +512,7 @@ def main(
     profile_startup=False,
     record_path=None,
     record_audio=False,
+    sky_sim=None,
 ) -> None:
     """
     Get this show on the road!
@@ -805,6 +806,7 @@ def main(
             kwargs={
                 "command_queue": integrator_command_queue,
                 "camera_command_queue": camera_command_queue,
+                "sky_sim": sky_sim,
             },
         )
         integrator_process.start()
@@ -1483,6 +1485,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("-l", "--log", help="Log to file", action="store_true")
     parser.add_argument(
+        "--sky-sim",
+        help="Take plate solves from the closed-loop sky simulator, which follows "
+        "the INDI mount: a settings file (JSON) or 'default'. See PiFinder/sky_sim.py",
+        default=None,
+    )
+    parser.add_argument(
         "--debug-no-file-logs",
         help="Debug: log everything at DEBUG level to console only, bypassing log configuration and file output",
         action="store_true",
@@ -1630,6 +1638,7 @@ if __name__ == "__main__":
             args.profile_startup,
             args.record,
             args.record_audio,
+            args.sky_sim,
         )
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
