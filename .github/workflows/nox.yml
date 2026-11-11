@@ -46,9 +46,16 @@ jobs:
         run: scripts/check.sh unit
       - name: Integration tests
         run: |
-          # TEMPORARY diagnostic: disk and memory every 15 s.
-          ( while true; do echo "DIAG $(date +%T) $(df -h / /tmp | tail -n +2 | awk '{print $6"="$4}' | tr '\n' ' ') $(free -m | awk '/Mem:/{print "mem_avail="$7"MB"}') $(free -m | awk '/Swap:/{print "swap_used="$3"MB"}')"; sleep 15; done ) &
-          nix develop ..#default -c pytest -v -m integration --ignore-glob='tests/test_web_*' -p no:cacheprovider
+          # TEMPORARY diagnostic: stacks and memory of the UI module tests.
+          nix develop ..#default -c pytest -v -m integration -p no:cacheprovider tests/test_ui_modules.py > /tmp/ui.log 2>&1 &
+          sleep 45
+          ps -eo pid,ppid,rss,nlwp,args --sort=-rss | head -8 | cut -c1-200
+          PID=$(pgrep -f "bin/pytest -v -m integration" | head -1)
+          echo "pytest pid $PID"
+          nix shell --inputs-from .. nixpkgs#py-spy -c sudo env "PATH=$PATH" py-spy dump --pid "$PID" | head -150
+          kill "$PID" || true
+          tail -5 /tmp/ui.log
+          exit 1
       - name: Push dev shell to the cache
         if: github.event_name == 'push'
         working-directory: .
