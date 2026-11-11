@@ -28,6 +28,8 @@ class MountControlPhasesTestable(MountControlBase):
         self.move_mount_manual = Mock(return_value=True)
         self.set_mount_step_size = Mock(return_value=True)
         self.disconnect_mount = Mock(return_value=True)
+        # Progress messages go to a mock; console_queue keeps the warnings.
+        self.notify = Mock()
         self.refine_solve_timeout_s = 0.05
         self.refine_settle_s = 0.0
 

@@ -314,4 +314,4 @@ def test_reload_config_command_reloads_settings():
         pass
     assert mount.settings.model == "SAL-33"
     assert mount.state.name == "MOUNT_INIT_TELESCOPE"
-    assert mount.console_queue.get_nowait()[0] == "WARNING"
+    assert mount.console_queue.get_nowait()[0] == "MOUNT"

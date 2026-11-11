@@ -50,7 +50,17 @@ def indi(tmp_path: Path, monkeypatch) -> Iterator[int]:
     monkeypatch.setenv("INDI_FIFO", str(fifo))
     monkeypatch.setenv("INDI_DATA_DIR", str(_indi_data_dir()))
     proc = subprocess.Popen(
-        ["indiserver", "-p", str(port), "-f", str(fifo)],
+        # A private local socket (-u): the default one allows one indiserver
+        # per machine.
+        [
+            "indiserver",
+            "-p",
+            str(port),
+            "-u",
+            f"/tmp/indiserver-test-{port}",
+            "-f",
+            str(fifo),
+        ],
         env={**os.environ, "HOME": str(home)},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

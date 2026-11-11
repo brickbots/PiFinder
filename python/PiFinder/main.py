@@ -491,6 +491,19 @@ def drain_gps_queue(gps_queue, pending: dict) -> list:
     return resets
 
 
+# Seconds on screen of a [kind, text] console message, by kind.
+STATUS_MESSAGE_SECONDS = {"WARNING": 3.0, "MOUNT": 1.5}
+
+
+def show_status_message(menu_manager, console, message) -> None:
+    """Show a [kind, text] message from a worker process on the screen,
+    and keep it in the console log. Kinds: "WARNING" (a fault) and
+    "MOUNT" (mount control progress)."""
+    kind, text = str(message[0]), str(message[1])
+    console.write(f"{kind}: {text}")
+    menu_manager.message(text, STATUS_MESSAGE_SECONDS.get(kind, 2.0))
+
+
 def main(
     log_helper: MultiprocLogging,
     script_name=None,
@@ -937,7 +950,9 @@ def main(
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
-                    if console_msg.startswith("DEGRADED_OPS"):
+                    if isinstance(console_msg, (list, tuple)):
+                        show_status_message(menu_manager, console, console_msg)
+                    elif console_msg.startswith("DEGRADED_OPS"):
                         menu_manager.message(_("Degraded\nCheck Status"), 5)
                         time.sleep(5)
                     else:

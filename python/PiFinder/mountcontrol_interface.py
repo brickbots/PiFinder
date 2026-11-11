@@ -122,6 +122,16 @@ class MountDirectionsEquatorial(MountDirections):
     WEST = auto()
 
 
+def format_step(step_deg: float) -> str:
+    """A step size in the unit that fits it: degrees, arcminutes or
+    arcseconds."""
+    if step_deg >= 1.0:
+        return f"{step_deg:.1f}°"
+    if step_deg >= 1 / 60:
+        return f"{step_deg * 60:.1f}'"
+    return f'{step_deg * 3600:.0f}"'
+
+
 class MountControlBase:
     """
     Base class for mount control interfaces.
@@ -478,12 +488,20 @@ class MountControlBase:
     #
     # Helper methods to decorate mount control methods with state management
     #
+    def notify(self, text: str) -> None:
+        """Show mount control progress on the PiFinder screen."""
+        self.console_queue.put(["MOUNT", text])
+
     def _stop_mount(self) -> bool:
         if self.state != MountControlPhases.MOUNT_STOPPED:
             # Reset drift compensation data when stopping
             if self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
                 self._reset_drift_compensation_data()
-            return self.stop_mount()  # State is set in mount_stopped() callback
+            # State is set in mount_stopped() callback
+            stopped = self.stop_mount()
+            if stopped:
+                self.notify(_("Mount stopped"))
+            return stopped
         else:
             logger.debug("Mount already stopped, not sending stop command")
             return True
@@ -532,6 +550,17 @@ class MountControlBase:
             ):
                 self.state = MountControlPhases.MOUNT_TRACKING
                 logger.debug("Phase: -> MOUNT_TRACKING due to manual movement")
+            names = {
+                MountDirectionsEquatorial.NORTH: _("North"),
+                MountDirectionsEquatorial.SOUTH: _("South"),
+                MountDirectionsEquatorial.EAST: _("East"),
+                MountDirectionsEquatorial.WEST: _("West"),
+                MountDirectionsAltAz.UP: _("Up"),
+                MountDirectionsAltAz.DOWN: _("Down"),
+                MountDirectionsAltAz.LEFT: _("Left"),
+                MountDirectionsAltAz.RIGHT: _("Right"),
+            }
+            self.notify(f"{names.get(direction, '')} {format_step(step_size_deg)}")
         return success
 
     def _goto_target(self, target_ra, target_dec) -> bool:
@@ -546,6 +575,7 @@ class MountControlBase:
             logger.debug(
                 f"Phase: -> MOUNT_TARGET_ACQUISITION_MOVE to RA={target_ra}, DEC={target_dec}"
             )
+            self.notify(_("Slewing"))
         return success
 
     #
@@ -679,6 +709,8 @@ class MountControlBase:
                         "Retrying to sync mount. Attempts left: %d", retry_count
                     )
                     yield
+            if retry_count > 0:
+                self.notify(_("Mount synced"))
 
         elif command["type"] == "goto_target":
             logger.debug("Mount: goto_target command received")
@@ -770,6 +802,7 @@ class MountControlBase:
                 "Mount: Reduce step size - new step size = %.5f degrees",
                 self.get_mount_step_size(),
             )
+            self.notify(_("Step") + " " + format_step(self.step_size))
 
         elif command["type"] == "increase_step_size":
             logger.debug("Mount: increase_step_size command received")
@@ -780,6 +813,7 @@ class MountControlBase:
                 "Mount: Increase step size - new step size = %.5f degrees",
                 self.step_size,
             )
+            self.notify(_("Step") + " " + format_step(self.step_size))
 
         elif command["type"] == "spiral_search":
             logger.debug("Mount: spiral_search command received")
@@ -836,6 +870,7 @@ class MountControlBase:
             self.init_solve_dec = None
             self.state = MountControlPhases.MOUNT_TRACKING
             logger.debug("Phase: -> MOUNT_TRACKING")
+            self.notify(_("Mount ready"))
             return
 
         elif (
@@ -853,6 +888,7 @@ class MountControlBase:
                 self.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
                 self._refine_after = time.time() + self.refine_settle_s
                 self.target_reached = False
+                self.notify(_("Target reached"))
                 return
             # If mount is stopped during move, self.state will be changed to MOUNT_STOPPED by the command.
 
@@ -912,6 +948,7 @@ class MountControlBase:
                 self.state = MountControlPhases.MOUNT_DRIFT_COMPENSATION
                 # Reset drift compensation data when entering this phase
                 self._reset_drift_compensation_data()
+                self.notify(_("On target"))
                 return
             elif self._refine_count >= self.refine_max_iterations:
                 logger.warning(
@@ -1009,6 +1046,11 @@ class MountControlBase:
                         yield
                 logger.info("Phase REFINE: Move to target command successful.")
                 self._refine_count += 1
+                self.notify(
+                    _("Refining {n}/{total}").format(
+                        n=self._refine_count, total=self.refine_max_iterations
+                    )
+                )
                 self.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
                 return
 

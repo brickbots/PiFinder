@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 
 # Import the classes we want to test
 from PiFinder.mountcontrol_interface import (
+    format_step,
     MountControlPhases,
     MountDirectionsEquatorial,
     MountControlBase,
@@ -57,6 +58,8 @@ class TestMountControl:
         self.mount_control.move_mount_to_target = Mock(return_value=True)
         self.mount_control.adjust_mount_drift_rates = Mock(return_value=True)
         self.mount_control.move_mount_manual = Mock(return_value=True)
+        # Progress messages go to a mock; console_queue keeps the warnings.
+        self.mount_control.notify = Mock()
 
         # Make set_mount_step_size actually update the step_size like the real implementation does
         def set_step_size_side_effect(step_size):
@@ -686,3 +689,40 @@ class TestMountControl:
         self.mount_control.disconnect_mount.assert_not_called()
 
         assert self.console_queue.empty()
+
+
+class TestMountProgressMessages(TestMountControl):
+    """The progress messages that the screen shows after a success."""
+
+    def _run(self, command):
+        for _step in self.mount_control._process_command(command, 2, 0.01):
+            pass
+
+    def test_messages_after_success(self):
+        self.shared_state.datetime.return_value = None
+        self._run({"type": "goto_target", "ra": 10.0, "dec": 20.0})
+        self.mount_control.notify.assert_called_with("Slewing")
+        self._run({"type": "sync", "ra": 10.0, "dec": 20.0})
+        self.mount_control.notify.assert_called_with("Mount synced")
+        self.mount_control.step_size = 1.0
+        self._run({"type": "reduce_step_size"})
+        self.mount_control.notify.assert_called_with("Step 30.0'")
+        self._run({"type": "manual_movement", "direction": "north"})
+        self.mount_control.notify.assert_called_with("North 30.0'")
+        self._run({"type": "stop_movement"})
+        self.mount_control.notify.assert_called_with("Mount stopped")
+        assert self.console_queue.empty()
+
+    def test_no_success_message_after_failure(self):
+        self.mount_control.sync_mount = Mock(return_value=False)
+        self._run({"type": "sync", "ra": 10.0, "dec": 20.0})
+        self.mount_control.notify.assert_not_called()
+        assert self.console_queue.get_nowait()[0] == "WARNING"
+
+
+@pytest.mark.parametrize(
+    "step, text",
+    [(2.0, "2.0°"), (0.5, "30.0'"), (1 / 120, '30"')],
+)
+def test_format_step(step, text):
+    assert format_step(step) == text

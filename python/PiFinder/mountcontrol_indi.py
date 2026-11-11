@@ -143,10 +143,10 @@ class MountControlIndi(MountControlBase):
         self._last_synced_location = None
         if new.enabled:
             self.state = MountControlPhases.MOUNT_INIT_TELESCOPE
-            self.console_queue.put(["WARNING", _("Mount settings applied")])
+            self.notify(_("Mount settings applied"))
         else:
             self.state = MountControlPhases.MOUNT_UNKNOWN
-            self.console_queue.put(["WARNING", _("Mount control off")])
+            self.notify(_("Mount control off"))
 
     #
     # INDI events (reader thread of the client)

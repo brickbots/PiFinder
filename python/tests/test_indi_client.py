@@ -489,7 +489,16 @@ def indiserver_port(tmp_path: Path) -> Iterator[int]:
     # The simulator writes ~/.indi/ParkData.xml, so give it a private HOME.
     env = dict(os.environ, HOME=str(tmp_path))
     proc = subprocess.Popen(
-        ["indiserver", "-p", str(port), "indi_simulator_telescope"],
+        # A private local socket (-u): the default one allows one indiserver
+        # per machine.
+        [
+            "indiserver",
+            "-p",
+            str(port),
+            "-u",
+            f"/tmp/indiserver-test-{port}",
+            "indi_simulator_telescope",
+        ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         env=env,
