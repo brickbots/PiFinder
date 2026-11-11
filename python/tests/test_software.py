@@ -1,3 +1,4 @@
+import builtins
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -6,11 +7,20 @@ import requests
 from PiFinder.ui.software import (
     update_needed,
     _strip_markdown,
+    MIGRATION_GATE_FLAG,
+    MIGRATION_SHA256_URL_KEY,
+    MIGRATION_URL_KEY,
     _fetch_migration_config,
     _fetch_update_manifest,
+    _migration_gate_open,
     _migration_version_info_from_manifest,
     _UNLOCK_SEQUENCE,
+    UIMigrationConfirm,
+    UIMigrationProgress,
+    on_battery,
 )
+from PiFinder.types.hardware import BatteryState, ChargeStatus
+from PiFinder.ui.base import UIModule
 
 
 _NIXOS_URL = "https://example.invalid/pifinder-nixos.tar.zst"
@@ -149,14 +159,35 @@ class TestFetchMigrationConfig:
         assert _fetch_migration_config() is None
 
 
-def _migration_entry(version="3.0.0", available=True, with_urls=True):
+@pytest.mark.unit
+class TestMigrationGateOpen:
+    def test_open_when_flag_true(self):
+        assert _migration_gate_open({MIGRATION_GATE_FLAG: True})
+
+    def test_closed_when_flag_false(self):
+        assert not _migration_gate_open({MIGRATION_GATE_FLAG: False})
+
+    def test_old_flag_does_not_open_the_gate(self):
+        # 2.6.3 read nixos_for_everyone; this version ignores it.
+        assert not _migration_gate_open({"nixos_for_everyone": True})
+
+    def test_closed_without_config(self):
+        assert not _migration_gate_open(None)
+        assert not _migration_gate_open({MIGRATION_GATE_FLAG: "yes"})
+
+
+def _migration_entry(
+    version="3.0.0",
+    available=True,
+    with_urls=True,
+    url_key=MIGRATION_URL_KEY,
+    sha256_url_key=MIGRATION_SHA256_URL_KEY,
+):
     entry = {"version": version, "available": available}
     if with_urls:
         base = f"https://example.invalid/releases/download/v{version}"
-        entry["migration_url"] = f"{base}/pifinder-migration-v{version}.tar.zst"
-        entry["migration_sha256_url"] = (
-            f"{base}/pifinder-migration-v{version}.tar.zst.sha256"
-        )
+        entry[url_key] = f"{base}/pifinder-migration-v{version}.tar.zst"
+        entry[sha256_url_key] = f"{base}/pifinder-migration-v{version}.tar.zst.sha256"
     return entry
 
 
@@ -272,6 +303,21 @@ class TestMigrationVersionInfoFromManifest:
         assert _migration_version_info_from_manifest()["version"] == "3.1.0-beta"
 
     @patch("PiFinder.ui.software.requests.get")
+    def test_ignores_keys_read_by_2_6_3(self, mock_get, _mock_head):
+        mock_get.return_value = _mock_json_response(
+            _manifest(
+                stable=[
+                    _migration_entry(
+                        "3.0.0",
+                        url_key="migration_url",
+                        sha256_url_key="migration_sha256_url",
+                    )
+                ]
+            )
+        )
+        assert _migration_version_info_from_manifest() is None
+
+    @patch("PiFinder.ui.software.requests.get")
     def test_none_when_no_migration_entries(self, mock_get, _mock_head):
         mock_get.return_value = _mock_json_response(_manifest())
         assert _migration_version_info_from_manifest() is None
@@ -285,3 +331,115 @@ class TestMigrationVersionInfoFromManifest:
     def test_none_when_channels_missing(self, mock_get, _mock_head):
         mock_get.return_value = _mock_json_response({"schema": 1})
         assert _migration_version_info_from_manifest() is None
+
+
+def _battery(external: bool) -> BatteryState:
+    return BatteryState(
+        battery_voltage=3.9,
+        charge_status=ChargeStatus.NOT_CHARGING,
+        on_external_power=external,
+        state_of_charge_pct=70,
+        charge_current_ma=None,
+        vbus_voltage=None,
+        sys_voltage=None,
+        timestamp=0.0,
+    )
+
+
+def _shared_state(battery):
+    state = MagicMock()
+    state.battery.return_value = battery
+    return state
+
+
+def _confirm_screen(battery) -> UIMigrationConfirm:
+    screen = UIMigrationConfirm.__new__(UIMigrationConfirm)
+    screen.shared_state = _shared_state(battery)
+    screen._options = ["Confirm", "Cancel"]
+    screen._option_index = 0
+    return screen
+
+
+@pytest.mark.unit
+class TestMigrationPower:
+    @pytest.fixture(autouse=True)
+    def _gettext(self, monkeypatch):
+        # The app installs gettext's _ at start; the screens call it.
+        monkeypatch.setattr(builtins, "_", lambda text: text, raising=False)
+
+    def test_no_charger_counts_as_usb_power(self):
+        assert on_battery(_shared_state(None)) is False
+
+    def test_battery_without_usb_power(self):
+        assert on_battery(_shared_state(_battery(external=False))) is True
+
+    def test_battery_with_usb_power(self):
+        assert on_battery(_shared_state(_battery(external=True))) is False
+
+    def test_confirm_hidden_on_battery(self):
+        screen = _confirm_screen(_battery(external=False))
+        assert screen._refresh_options() is True
+        assert screen._options == ["Cancel"]
+        assert screen._option_index == 0
+
+    def test_confirm_back_when_plugged_in(self):
+        screen = _confirm_screen(_battery(external=False))
+        screen._refresh_options()
+        screen.shared_state = _shared_state(_battery(external=True))
+        assert screen._refresh_options() is False
+        assert screen._options == ["Confirm", "Cancel"]
+
+
+@pytest.mark.unit
+class TestKeepAwake:
+    def test_progress_screen_keeps_screen_awake(self):
+        assert UIMigrationProgress.keep_awake is True
+
+    def test_other_screens_may_dim(self):
+        assert UIModule.keep_awake is False
+        assert UIMigrationConfirm.keep_awake is False
+
+
+@pytest.mark.unit
+class TestMigrationProgressBack:
+    def _screen(self, status, terminal=False):
+        screen = UIMigrationProgress.__new__(UIMigrationProgress)
+        screen._status = status
+        screen._terminal_failure = terminal
+        screen.remove_from_stack = MagicMock()
+        return screen
+
+    def test_back_after_script_failure(self):
+        screen = self._screen("FAILED: a Raspberry Pi 4 or CM4 is needed")
+        assert screen.key_left() is True
+        screen.remove_from_stack.assert_called_once()
+
+    def test_no_back_while_running(self):
+        screen = self._screen("Downloading...")
+        assert screen.key_left() is False
+        screen.remove_from_stack.assert_not_called()
+
+    def test_back_after_start_failure(self):
+        assert self._screen("Not supported", terminal=True).key_left() is True
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "model,ok",
+    [
+        ("Raspberry Pi 4 Model B Rev 1.4", True),
+        ("Raspberry Pi Compute Module 4 Rev 1.0", True),
+        ("Raspberry Pi 400 Rev 1.0", False),
+        ("Raspberry Pi 5 Model B Rev 1.0", False),
+        ("Unknown", False),
+    ],
+)
+def test_migration_model_check(model, ok):
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).parent.parent / "scripts" / "nixos_migration_calc.py"
+    spec = importlib.util.spec_from_file_location("nixos_migration_calc", path)
+    calc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(calc)
+    assert calc.model_supported(model) is ok
