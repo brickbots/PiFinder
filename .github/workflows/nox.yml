@@ -52,7 +52,8 @@ jobs:
           ps -eo pid,ppid,rss,nlwp,args --sort=-rss | head -8 | cut -c1-200
           PID=$(pgrep -f "bin/pytest -v -m integration" | head -1)
           echo "pytest pid $PID"
-          nix shell --inputs-from .. nixpkgs#py-spy -c sudo env "PATH=$PATH" py-spy dump --pid "$PID" | head -150
+          nix shell --inputs-from .. nixpkgs#uv -c uv tool install py-spy
+          sudo "$HOME/.local/bin/py-spy" dump --pid "$PID" | head -200
           kill "$PID" || true
           tail -5 /tmp/ui.log
           exit 1
