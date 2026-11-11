@@ -28,40 +28,46 @@ git remote set-head origin main
 
 ## Development Commands
 
-**This branch uses uv (pyproject.toml + uv.lock), not nox/requirements*.txt.**
-All Python tooling runs through uv from `python/`:
+**This branch uses uv2nix (pyproject.toml + uv.lock), not nox/requirements*.txt.**
+All Python tooling comes from the flake dev shell (`nix develop`, or direnv with
+the repo's `.envrc`). The shell is built from `python/uv.lock`, the same Nix
+environment as the PiFinder service. Do not run `uv sync`: it builds a separate
+`.venv` of manylinux wheels, and on NixOS those fail to load `libstdc++`.
+
+`python/scripts/check.sh` runs every check. It enters the dev shell by itself
+when needed. CI (`.github/workflows/nox.yml`, which keeps the upstream "nox"
+check name) and the pre-commit hooks call this script, so local runs and CI
+run the same commands with the same tools.
 
 ```bash
 cd python/
-uv sync --frozen                                  # create/refresh .venv from uv.lock
-uvx ruff@0.4.8 check --config "builtins=['_']" .  # lint (same pin as CI / upstream noxfile)
-uvx ruff@0.4.8 format .                           # format
-uv run mypy PiFinder                              # type checking
-uv run pytest -m smoke                            # smoke tests
-uv run pytest -m unit                             # unit tests
-uv run pytest -m integration --ignore-glob='tests/test_web_*'  # integration (web tests need Selenium)
+scripts/check.sh              # all checks: lint, types, smoke, unit, integration
+scripts/check.sh lint         # ruff check + ruff format --check
+scripts/check.sh format       # ruff format (writes the files)
+scripts/check.sh types        # mypy PiFinder
+scripts/check.sh unit         # pytest -m unit (also: smoke, integration)
 ```
 
-CI (`.github/workflows/nox.yml` — keeps the upstream "nox" check name) runs
-exactly these commands.
-
-NixOS dev-box note: manylinux wheels (numpy etc.) need `libstdc++`; if imports
-fail with `libstdc++.so.6: cannot open shared object file`, run tests with
-`LD_LIBRARY_PATH=$(nix build --print-out-paths nixpkgs#stdenv.cc.cc.lib)/lib`.
+The integration stage skips the web tests, which need Selenium and a running
+PiFinder. The pytest stages run with an empty temporary HOME, as on a CI
+runner, so they never see your `~/PiFinder_data`. Ruff is pinned in the uv `dev` group (0.4.8, the pin of upstream
+main's noxfile). To change a dependency, edit `pyproject.toml` and run `uv lock`
+inside the dev shell. The shell sets `UV_NO_SYNC` and `UV_PROJECT_ENVIRONMENT`
+so `uv` uses the Nix environment and never creates `.venv`.
 
 **Running the application:**
 
-First start the `cedar-detect-server` which is in `bin` (you need to use `-p 50551`, when invoking it).
-Use the correct architecture suffix for cedar-detect-server according to the platform you're running on.
+First start the `cedar-detect-server`, which is on the dev shell `PATH` (use
+`-p 50551` when you start it).
 
 ```bash
 cd python/
-uv run python -m PiFinder.main [options]
+python -m PiFinder.main [options]
 ```
 Usual startup:
 
 ```bash
-uv run python -m PiFinder.main -fh --camera debug --keyboard local -x
+python -m PiFinder.main -fh --camera debug --keyboard local -x
 ```
 
 ## Reference Documentation
@@ -146,6 +152,7 @@ Tests use pytest with custom markers for different test types. The smoke tests p
 **Testing Framework:** Uses Selenium WebDriver with Pytest for automated browser testing of the web interface
 
 **Infrastructure Requirements:**
+- Dev shell `nix develop .#web`: the default dev shell plus Chromium and chromedriver from the pinned nixpkgs. It sets `CHROME_BINARY`. The web test workflow uses it.
 - Selenium Grid server at localhost:4444 (configurable via SELENIUM_GRID_URL environment variable). 
   This server is started outside of the test code, for maximum flexibility
 - Chrome browser in headless mode for test execution
