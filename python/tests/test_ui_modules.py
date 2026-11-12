@@ -966,3 +966,103 @@ def test_all_ui_modules_covered():
         f"{sorted(uncovered)}. Wire them into the menu tree, add a fixture"
         " to _DYNAMIC_IDS, or document an exception in _COVERAGE_SKIP."
     )
+
+
+class _CameraSolve:
+    """The part of a solution that the polar alignment wizard reads."""
+
+    def __init__(self, ra: float, dec: float, roll: float, solve_time: float):
+        pointing = Mock()
+        pointing.RA, pointing.Dec, pointing.Roll = ra, dec, roll
+        self.pointing = Mock()
+        self.pointing.camera.solve = pointing
+        self.last_solve_success = solve_time
+
+    def has_pointing(self) -> bool:
+        return True
+
+
+@pytest.mark.integration
+def test_polar_align_mount_mode_turns_ra_between_captures(
+    display, camera_image, catalogs
+):
+    """With a connected mount, the wizard captures point 1 on SQUARE, then
+    sends rotate_ra and captures the next points after each rotation."""
+    from PiFinder.ui import polar_align
+    from PiFinder.ui.polar_align import PAState, UIPolarAlign
+
+    cfg = Config()
+    cfg.set_option("mount_control", True)
+    shared_state = _make_shared_state("warm")
+    command_queues = _make_command_queues()
+    mount_queue = command_queues["mountcontrol"]
+    while not mount_queue.empty():
+        mount_queue.get_nowait()
+    module = UIPolarAlign(
+        display,
+        camera_image,
+        shared_state,
+        command_queues,
+        cfg,
+        catalogs,
+        item_definition={"name": "Polar Align", "class": UIPolarAlign},
+    )
+    location = shared_state.location()
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    def snapshot(phase: str, solve_time: float) -> StateSnapshot:
+        return StateSnapshot(
+            {
+                "mount_status": MountStatus(
+                    phase, "", None, 1.0, "Simulator", time.time()
+                ),
+                "solution": _CameraSolve(80.0, 30.0, 10.0, solve_time),
+                "location": location,
+                "datetime": (now, time.time()),
+            }
+        )
+
+    try:
+        UIModule.snapshot = snapshot("MOUNT_TRACKING", time.time() - 10)
+        module.update()
+        assert module._mount_mode()
+        module.key_square()  # intro -> aim
+        module.key_square()  # capture point 1
+        assert module.state == PAState.WAIT_SOLVE
+        UIModule.snapshot = snapshot("MOUNT_TRACKING", time.time() + 0.1)
+        module.update()
+        assert len(module.solves) == 1
+        assert module.state == PAState.ROTATE
+        assert mount_queue.get_nowait() == {
+            "type": "rotate_ra",
+            "degrees": polar_align.MOUNT_ROTATION_DEG,
+        }
+
+        # The mount turns, then tracks again: the wizard waits for a solve
+        # that starts after the settle time.
+        UIModule.snapshot = snapshot("MOUNT_RA_ROTATION", time.time())
+        module.update()
+        assert module.state == PAState.ROTATE
+        UIModule.snapshot = snapshot("MOUNT_TRACKING", time.time())
+        module.update()
+        assert module.state == PAState.WAIT_SOLVE
+        assert module.capture_request_time > time.time()
+        module.update()
+        assert len(module.solves) == 1
+
+        # MINUS while turning stops the mount.
+        module.state = PAState.ROTATE
+        module.key_minus()
+        assert mount_queue.get_nowait() == {"type": "stop_movement"}
+        assert module.state == PAState.AIM
+
+        # Without a rotation phase the wizard falls back to manual capture.
+        module._rotate_mount()
+        mount_queue.get_nowait()
+        module._rotation_sent -= polar_align.MOUNT_ROTATION_START_SECS + 1
+        UIModule.snapshot = snapshot("MOUNT_TRACKING", time.time())
+        module.update()
+        assert module.state == PAState.AIM
+    finally:
+        UIModule.snapshot = StateSnapshot()
+        cfg.set_option("mount_control", False)

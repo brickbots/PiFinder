@@ -17,7 +17,8 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from PiFinder import indi_drivers
+from PiFinder import calc_utils, indi_drivers
+from PiFinder.polar_alignment import get_platform_adjustments
 from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_indi import POSITION, MountControlIndi
 from PiFinder.mountcontrol_interface import MountControlPhases
@@ -624,5 +625,113 @@ def test_drift_compensation_removes_a_drift(indi: int, wrong_axis) -> None:
     finally:
         mount.mount_queue.put({"type": "exit"})
         runner.join(timeout=10)
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def test_ra_rotation_for_the_polar_alignment(indi: int) -> None:
+    """rotate_ra moves only the RA axis, by about the asked angle."""
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        assert mount.move_mount_to_target(60.0, 40.0)
+        assert _wait(lambda: mount.target_reached, 60)
+        mount.state = MountControlPhases.MOUNT_TRACKING
+        start = (mount.current_ra, mount.current_dec)
+        for _step in mount._process_command({"type": "rotate_ra", "degrees": 30.0}):
+            pass
+        assert mount.state == MountControlPhases.MOUNT_RA_ROTATION
+        assert _wait(
+            lambda: (
+                mount._rotation_step(time.time())
+                or mount.state == MountControlPhases.MOUNT_TRACKING
+            ),
+            60,
+        )
+        time.sleep(2.0)
+        turned = abs((mount.current_ra - start[0] + 540) % 360 - 180)
+        assert 30.0 <= turned < 36.0
+        assert mount.current_dec == pytest.approx(start[1], abs=0.05)
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+@pytest.mark.parametrize("ignore_roll", [True, False])
+def test_mount_polar_alignment_finds_the_polar_error(indi: int, ignore_roll) -> None:
+    """The mount polar alignment end to end: a mount axis 0.5° too high and
+    0.3° west of the pole, three solves with two RA rotations between them,
+    then the fit of polar_alignment."""
+    latest: list = []
+    shared_state = _shared_state()
+    location = shared_state.location()
+    mount = _simulator_mount(indi)
+    sim = SkySimulator(
+        SkySimSettings(
+            rate_hz=2.0,
+            offset_ra_deg=0.0,
+            offset_dec_deg=0.0,
+            noise_arcsec=3,
+            seed=7,
+            indi_port=indi,
+            polar_error_alt_deg=0.5,
+            polar_error_az_deg=-0.3,
+            latitude_deg=location.lat,
+            longitude_deg=location.lon,
+        ),
+        shared_state.datetime,
+    )
+    sim.next_message()
+
+    def solve_after(start: float) -> SuccessfulSolve:
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            message = sim.next_message()
+            if isinstance(message, SuccessfulSolve) and (
+                message.last_solve_success > start
+            ):
+                return message
+            time.sleep(0.05)
+        raise AssertionError("no solve")
+
+    try:
+        assert mount.init_mount()
+        assert mount.move_mount_to_target(30.0, 20.0)
+        assert _wait(lambda: mount.target_reached, 60)
+        mount.state = MountControlPhases.MOUNT_TRACKING
+        solves = []
+        for point in range(3):
+            if point:
+                for _step in mount._process_command(
+                    {"type": "rotate_ra", "degrees": 30.0}
+                ):
+                    pass
+                assert _wait(
+                    lambda: (
+                        mount._rotation_step(time.time())
+                        or mount.state == MountControlPhases.MOUNT_TRACKING
+                    ),
+                    60,
+                )
+            solve = solve_after(time.time() + 1.0)
+            latest.append(solve)
+            # The sky of the simulator has one fixed time: no sidereal drift
+            # between the solves.
+            solves.append((solve.camera.RA, solve.camera.Dec, solve.camera.Roll, 0.0))
+        dt = shared_state.datetime()
+        t = calc_utils.sf_utils.ts.from_datetime(dt)
+        lst = (float(t.gast) * 15.0 + location.lon) % 360.0
+        jyear = 2000.0 + (t.tt - 2451545.0) / 365.25
+        d_alt, d_az, sweep, *_rest = get_platform_adjustments(
+            solves,
+            location.lat,
+            lst,
+            ignore_roll=ignore_roll,
+            observation_jyear=jyear,
+        )
+        assert abs(sweep) > 50
+        assert d_alt == pytest.approx(0.5, abs=0.05)
+        assert d_az == pytest.approx(-0.3, abs=0.05)
+    finally:
         mount.disconnect_mount()
         indi_drivers.stop_driver()

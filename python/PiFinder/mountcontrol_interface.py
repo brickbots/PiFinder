@@ -66,6 +66,9 @@ class MountControlPhases(Enum):
             The mount is tracking the sky but we are not doing drift compensation. This is entered, if the user moves the telescope manually.
         MOUNT_SPIRAL_SEARCH:
             The mount has been commanded to a spiral search pattern to find a target.
+        MOUNT_RA_ROTATION:
+            The mount turns only its RA axis by a set angle, for the polar
+            alignment. Then it tracks again.
 
     Note that a user interaction may at any time move the mount back to MOUNT_STOPPED, or put it into MOUNT_TRACKING.
     Once in drift compensation mode, the user may also select a new target, which will move the phase to MOUNT_TARGET_ACQUISITION_MOVE.
@@ -82,6 +85,7 @@ class MountControlPhases(Enum):
     MOUNT_DRIFT_COMPENSATION = auto()
     MOUNT_TRACKING = auto()
     MOUNT_SPIRAL_SEARCH = auto()
+    MOUNT_RA_ROTATION = auto()
 
 
 class MountDirections(Enum):
@@ -135,6 +139,10 @@ STATUS_HEARTBEAT_S = 2.0
 # Drift compensation fits a line when the solves span this part of the
 # drift window.
 DRIFT_WINDOW_FILL = 0.8
+# An RA rotation for the polar alignment stops after this time.
+RA_ROTATION_TIMEOUT_S = 90.0
+# The largest RA rotation of one command.
+RA_ROTATION_MAX_DEG = 45.0
 
 
 def angular_distance(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
@@ -256,6 +264,9 @@ class MountControlBase:
         # Sync-and-move rounds in REFINE before PiFinder stops refining.
         self.refine_max_iterations: int = 3
         self._refine_count: int = 0
+
+        # The running RA rotation: (start RA, angle, start time), or None.
+        self._rotation: Optional[tuple[float, float, float]] = None
 
     #
     # Methods to be overridden by subclasses for controlling the specifics of a mount
@@ -384,7 +395,7 @@ class MountControlBase:
         Override in subclasses."""
         return False
 
-    def start_motion(self, north: float, east: float) -> bool:
+    def start_motion(self, north: float, east: float, fastest: bool = False) -> bool:
         """Start moving in the sky direction (north, east) until
         stop_motion. Override in subclasses."""
         return False
@@ -571,6 +582,7 @@ class MountControlBase:
             MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE: _("Refining"),
             MountControlPhases.MOUNT_DRIFT_COMPENSATION: _("On target"),
             MountControlPhases.MOUNT_SPIRAL_SEARCH: _("Searching"),
+            MountControlPhases.MOUNT_RA_ROTATION: _("Turning RA"),
         }
         if self._motion_started is not None:
             return _("Moving")
@@ -711,6 +723,64 @@ class MountControlBase:
         return success
 
     #
+    # RA rotation for the polar alignment
+    #
+
+    def rotation_direction_east(self) -> bool:
+        """The direction of an RA rotation: toward the meridian, where the
+        telescope points higher, unless the rotation would cross it."""
+        dt = self.shared_state.datetime()
+        location = self.shared_state.location()
+        if dt is None or location is None or self.current_ra is None:
+            return True
+        t = calc_utils.sf_utils.ts.from_datetime(dt)
+        lst_deg = (float(t.gast) * 15.0 + location.lon) % 360.0
+        hour_angle = (lst_deg - self.current_ra + 540.0) % 360.0 - 180.0
+        # East in the sky raises the RA and lowers the hour angle.
+        toward_meridian_east = bool(hour_angle > 0)
+        if abs(hour_angle) >= 2 * RA_ROTATION_MAX_DEG:
+            return toward_meridian_east
+        return not toward_meridian_east
+
+    def _start_rotation(self, degrees: float) -> None:
+        if self.current_ra is None:
+            self.warn(_("No mount position"))
+            return
+        degrees = max(5.0, min(RA_ROTATION_MAX_DEG, degrees))
+        east = self.rotation_direction_east()
+        if not self.start_motion(0.0, 1.0 if east else -1.0, fastest=True):
+            self.warn(_("Mount did not move!"))
+            return
+        self._rotation = (self.current_ra, degrees, time.time())
+        self._reset_drift_compensation_data()
+        self.state = MountControlPhases.MOUNT_RA_ROTATION
+        logger.info("RA rotation %.0f° %s", degrees, "east" if east else "west")
+
+    def _end_rotation(self) -> None:
+        if self._rotation is None:
+            return
+        self._rotation = None
+        if not self.stop_motion():
+            self.warn(_("Move not stopped!"))
+        if self.state == MountControlPhases.MOUNT_RA_ROTATION:
+            self.state = MountControlPhases.MOUNT_TRACKING
+
+    def _rotation_step(self, now: float) -> None:
+        rotation = self._rotation
+        if rotation is None or self.current_ra is None:
+            self.state = MountControlPhases.MOUNT_TRACKING
+            return
+        start_ra, degrees, started = rotation
+        turned = abs((self.current_ra - start_ra + 540.0) % 360.0 - 180.0)
+        if turned >= degrees:
+            logger.info("RA rotation done: %.1f°", turned)
+            self._end_rotation()
+        elif now - started > RA_ROTATION_TIMEOUT_S:
+            logger.warning("RA rotation stopped after %.0f s", now - started)
+            self._end_rotation()
+            self.warn(_("Rotation too slow"))
+
+    #
     # Shared logic and main loop
     #
 
@@ -787,6 +857,8 @@ class MountControlBase:
         # Any other command ends a continuous move first.
         if command["type"] not in ("motion_start", "motion_stop"):
             self._stop_motion()
+        if command["type"] not in ("reload_config", "rotate_ra"):
+            self._end_rotation()
 
         # Process the command based on its type
         if command["type"] == "motion_start":
@@ -859,6 +931,9 @@ class MountControlBase:
                     yield
             if retry_count > 0:
                 self.notify(_("Mount synced"))
+
+        elif command["type"] == "rotate_ra":
+            self._start_rotation(float(command.get("degrees", 25.0)))
 
         elif command["type"] == "goto_target":
             logger.debug("Mount: goto_target command received")
@@ -1037,6 +1112,10 @@ class MountControlBase:
         ):
             # Wait for user command to move to target
             # When that is received, the state will be changed to MOUNT_TARGET_ACQUISITION_MOVE
+            return
+
+        elif self.state == MountControlPhases.MOUNT_RA_ROTATION:
+            self._rotation_step(time.time())
             return
 
         elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE:

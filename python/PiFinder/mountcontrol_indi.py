@@ -634,15 +634,18 @@ class MountControlIndi(MountControlBase):
         logger.info("Move N %+.2f E %+.2f by %.5f°", north, east, step_size_deg)
         return self._goto(ra, dec)
 
-    def start_motion(self, north: float, east: float) -> bool:
+    def start_motion(self, north: float, east: float, fastest: bool = False) -> bool:
         """Move with TELESCOPE_MOTION_NS/WE until stop_motion. A diagonal
-        moves both axes. The slew rate is the middle of the driver's rates."""
+        moves both axes. The slew rate is the middle of the driver's rates,
+        or the fastest rate."""
         if self.device is None:
             return False
         rates = self.client.get_property(self.device, "TELESCOPE_SLEW_RATE")
         if rates is not None and rates.elements:
             names = list(rates.elements)
-            self._set_switch("TELESCOPE_SLEW_RATE", names[len(names) // 2])
+            self._set_switch(
+                "TELESCOPE_SLEW_RATE", names[-1] if fastest else names[len(names) // 2]
+            )
         moved = False
         if abs(north) > MOTION_AXIS_THRESHOLD:
             element = "MOTION_NORTH" if north > 0 else "MOTION_SOUTH"
