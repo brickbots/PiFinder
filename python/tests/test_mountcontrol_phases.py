@@ -453,6 +453,33 @@ class TestMountControlPhases:
             abs(dec_adjustment - dec_drift_rate) < dec_drift_rate * 0.2
         ), f"Dec drift rate adjustment {dec_adjustment} should be close to expected {dec_drift_rate}"
 
+    def test_drift_compensation_with_solves_between_whole_seconds(self):
+        """Real solves do not fall on the edge of the window: the span of
+        the kept solves is always a little shorter than the window."""
+        self.mount_control.state = MountControlPhases.MOUNT_DRIFT_COMPENSATION
+        solves = [
+            {
+                "solve_time": 1000.0 + 0.37 * i,
+                "RA_target": 15.5 + 0.001 * 0.37 * i,
+                "Dec_target": 45.2 - 0.0005 * 0.37 * i,
+            }
+            for i in range(40)
+        ]
+        index = [0]
+
+        def next_solution():
+            index[0] = min(index[0] + 1, len(solves))
+            return solves[index[0] - 1]
+
+        self.shared_state.solution.side_effect = next_solution
+        for _solve in solves:
+            for _step in self.mount_control._process_phase(retry_count=3, delay=0.01):
+                pass
+        assert self.mount_control.adjust_mount_drift_rates.called
+        ra, dec = self.mount_control.adjust_mount_drift_rates.call_args[0]
+        assert ra == pytest.approx(0.001, rel=0.05)
+        assert dec == pytest.approx(-0.0005, rel=0.05)
+
     def test_mount_drift_compensation_with_poor_fit(self):
         """Test MOUNT_DRIFT_COMPENSATION phase with noisy data that produces poor R² fit."""
         import random

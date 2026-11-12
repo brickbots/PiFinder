@@ -14,6 +14,7 @@ from queue import Queue
 from typing import Iterator
 from unittest.mock import Mock
 
+import numpy as np
 import pytest
 
 from PiFinder import indi_drivers
@@ -528,5 +529,100 @@ def test_continuous_move_north_until_stop(indi: int) -> None:
         dec_later = mount.client.get_value(mount.device, POSITION, "DEC")
         assert dec_later == pytest.approx(dec_stopped, abs=0.01)
     finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def _solve_drift(solves: list, seconds: float) -> tuple[float, float]:
+    """RA and Dec drift in arcseconds per second of the solves of the last
+    ``seconds``, by a straight line fit."""
+    end = solves[-1].last_solve_success
+    recent = [s for s in solves if s.last_solve_success >= end - seconds]
+    times = np.array([s.last_solve_success for s in recent])
+    ra = np.unwrap(np.radians([s.aligned.RA for s in recent]))
+    dec = np.array([s.aligned.Dec for s in recent])
+    ra_slope = np.degrees(np.polyfit(times, ra, 1)[0]) * 3600.0
+    dec_slope = np.polyfit(times, dec, 1)[0] * 3600.0
+    return float(ra_slope), float(dec_slope)
+
+
+@pytest.mark.parametrize("wrong_axis", [None, "ra", "dec"])
+def test_drift_compensation_removes_a_drift(indi: int, wrong_axis) -> None:
+    """The mount drifts 10"/s in RA and 20"/s in Dec on target. Drift
+    compensation must stop the drift, also when it starts with the wrong
+    sign of an axis for this driver."""
+    latest: list = []
+    shared_state = _shared_state()
+
+    def solution():
+        if not latest:
+            return None
+        solve = latest[-1]
+        axis = PointingAxis(solve=solve.aligned, estimate=solve.aligned)
+        return PointingEstimate(
+            pointing=PointingMatrix(camera=axis, aligned=axis),
+            last_solve_success=solve.last_solve_success,
+        )
+
+    shared_state.solution.side_effect = solution
+    mount = MountControlIndi(
+        Queue(),
+        Queue(),
+        shared_state,
+        None,
+        MountSettings(enabled=True, model=indi_drivers.SIMULATOR),
+        indi_port=indi,
+    )
+    mount.drift_compensation_window = 4.0
+    sim = SkySimulator(
+        SkySimSettings(rate_hz=4.0, noise_arcsec=2, seed=5, indi_port=indi),
+        shared_state.datetime,
+    )
+    sim.next_message()
+    runner = threading.Thread(target=mount.run, daemon=True)
+    runner.start()
+
+    def feed(seconds: float) -> None:
+        end = time.time() + seconds
+        while time.time() < end:
+            message = sim.next_message()
+            if isinstance(message, SuccessfulSolve):
+                latest.append(message)
+            time.sleep(0.05)
+
+    try:
+        assert _wait(lambda: mount.state == MountControlPhases.MOUNT_TRACKING, 30)
+        feed(1.0)
+        mount.mount_queue.put({"type": "goto_target", "ra": 80.0, "dec": 25.0})
+        deadline = time.time() + 120
+        while (
+            time.time() < deadline
+            and mount.state != MountControlPhases.MOUNT_DRIFT_COMPENSATION
+        ):
+            feed(0.2)
+        assert mount.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION
+        if wrong_axis == "ra":
+            mount._ra_rate_sign = -mount._ra_rate_sign
+        if wrong_axis == "dec":
+            mount._dec_rate_sign = -mount._dec_rate_sign
+        # No correction while the drift is measured.
+        mount.drift_compensation_window = 1000.0
+        # The drift: custom rates that the mount process does not know.
+        assert mount._set_switch("TELESCOPE_TRACK_MODE", "TRACK_CUSTOM")
+        assert mount._set_number(
+            "TELESCOPE_TRACK_RATE",
+            {"TRACK_RATE_RA": 15.041067 - 10.0, "TRACK_RATE_DE": 20.0},
+        )
+        feed(6.0)
+        before = _solve_drift(latest, 4.0)
+        assert abs(before[0]) > 5 and abs(before[1]) > 10, before
+        mount.drift_compensation_window = 4.0
+        feed(60.0)
+        after = _solve_drift(latest, 6.0)
+        assert mount.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION
+        assert abs(after[0]) < 2.0 and abs(after[1]) < 2.0, (before, after)
+    finally:
+        mount.mount_queue.put({"type": "exit"})
+        runner.join(timeout=10)
         mount.disconnect_mount()
         indi_drivers.stop_driver()

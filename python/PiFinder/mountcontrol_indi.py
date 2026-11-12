@@ -59,6 +59,19 @@ SLEW_TIMEOUT_S = 300.0
 MOTION_AXIS_THRESHOLD = 0.38
 # Time for the driver to define CONNECTION_MODE after DRIVER_INFO.
 CONNECTION_MODE_WAIT_S = 3.0
+# A drift this small (degrees/second, 0.5"/s) says nothing about the
+# direction of a rate axis.
+DRIFT_DIRECTION_MIN_DEG_S = 0.5 / 3600.0
+
+
+def _drift_grew(last: float, new: float) -> bool:
+    """The drift after a correction has the same direction and is larger:
+    the correction went the wrong way."""
+    return (
+        abs(last) >= DRIFT_DIRECTION_MIN_DEG_S
+        and (last > 0) == (new > 0)
+        and abs(new) > 1.5 * abs(last)
+    )
 
 
 class MountControlIndi(MountControlBase):
@@ -109,6 +122,12 @@ class MountControlIndi(MountControlBase):
         self._slew_target: Optional[Tuple[float, float]] = None
         # The track mode is Custom after a drift compensation.
         self._custom_tracking = False
+        # The direction of each TELESCOPE_TRACK_RATE axis for this driver:
+        # the change of the pointing per unit of rate (see _rate_values).
+        self._ra_rate_sign = -1.0
+        self._dec_rate_sign = 1.0
+        # The last drift adjustment, to check the axis directions.
+        self._last_drift: Optional[Tuple[float, float]] = None
 
         self.available_slew_rates: List[str] = []
 
@@ -163,9 +182,12 @@ class MountControlIndi(MountControlBase):
         self.device = None
         self._slewing = False
         self._custom_tracking = False
+        self._last_drift = None
         self._last_error = ""
         if not new.enabled or new.model != old.model:
             indi_drivers.stop_driver()
+            self._ra_rate_sign = -1.0
+            self._dec_rate_sign = 1.0
         self.settings = new
         self.client = self._new_client()
         self._last_synced_location = None
@@ -475,6 +497,7 @@ class MountControlIndi(MountControlBase):
             # Drift rates belong to the old target.
             self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_SIDEREAL")
             self._custom_tracking = False
+        self._last_drift = None
         if not self._goto(target_ra_deg, target_dec_deg):
             logger.error("Failed to send goto")
             return False
@@ -495,11 +518,19 @@ class MountControlIndi(MountControlBase):
     def adjust_mount_drift_rates(
         self, drift_rate_adjustment_ra: float, drift_rate_adjustment_dec: float
     ) -> bool:
-        """Add the adjustments (degrees/second) to TELESCOPE_TRACK_RATE.
+        """Cancel a drift of the pointing (degrees/second) with custom rates.
 
         INDI applies TELESCOPE_TRACK_RATE only in the TRACK_CUSTOM track
         mode. A mount without that mode keeps sidereal tracking, and drift
         compensation does nothing.
+
+        The direction of the rate axes differs between drivers. With
+        TRACK_RATE_RA above sidereal the RA axis turns faster and the RA of
+        the pointing decreases. In the INDI telescope simulator a positive
+        TRACK_RATE_DE makes the Dec decrease, and other drivers can do the
+        opposite. If a drift has the same direction as the last one and is
+        larger, the last correction went the wrong way: the axis turns its
+        direction, and this correction cancels the full drift.
         """
         if self.device is None:
             return False
@@ -517,18 +548,44 @@ class MountControlIndi(MountControlBase):
         dec_rate = rates.elements.get("TRACK_RATE_DE")
         if not isinstance(ra_rate, float) or not isinstance(dec_rate, float):
             return False
+        self._check_drift_directions(
+            drift_rate_adjustment_ra, drift_rate_adjustment_dec
+        )
         if not self._custom_tracking:
             if not self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"):
                 return False
             self._custom_tracking = True
-        # TELESCOPE_TRACK_RATE is in arcseconds per second.
-        return self._set_number(
+        # TELESCOPE_TRACK_RATE is in arcseconds per second. The pointing
+        # must move against the drift.
+        ok = self._set_number(
             "TELESCOPE_TRACK_RATE",
             {
-                "TRACK_RATE_RA": ra_rate + drift_rate_adjustment_ra * 3600.0,
-                "TRACK_RATE_DE": dec_rate + drift_rate_adjustment_dec * 3600.0,
+                "TRACK_RATE_RA": ra_rate
+                - self._ra_rate_sign * drift_rate_adjustment_ra * 3600.0,
+                "TRACK_RATE_DE": dec_rate
+                - self._dec_rate_sign * drift_rate_adjustment_dec * 3600.0,
             },
         )
+        if ok:
+            self._last_drift = (drift_rate_adjustment_ra, drift_rate_adjustment_dec)
+        return ok
+
+    def _check_drift_directions(self, ra_drift: float, dec_drift: float) -> None:
+        """Turn the direction of an axis whose last correction made the
+        drift larger."""
+        if self._last_drift is None:
+            return
+        last_ra, last_dec = self._last_drift
+        if _drift_grew(last_ra, ra_drift):
+            self._ra_rate_sign = -self._ra_rate_sign
+            logger.info(
+                "RA track rate direction of this driver: %+.0f", self._ra_rate_sign
+            )
+        if _drift_grew(last_dec, dec_drift):
+            self._dec_rate_sign = -self._dec_rate_sign
+            logger.info(
+                "Dec track rate direction of this driver: %+.0f", self._dec_rate_sign
+            )
 
     def move_mount_manual(
         self, direction: MountDirections, step_size_deg: float
