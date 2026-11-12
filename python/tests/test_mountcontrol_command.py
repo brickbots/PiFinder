@@ -721,6 +721,31 @@ class TestMountProgressMessages(TestMountControl):
 
 
 @pytest.mark.parametrize(
+    "command",
+    [
+        {"type": "manual_movement", "direction": "north"},
+        {"type": "manual_movement", "offset": (1.0, 0.0), "label": "N"},
+        {"type": "motion_start", "north": 1.0, "east": 0.0},
+    ],
+)
+def test_manual_move_leaves_on_target(command):
+    """A manual move takes the mount off the target: the status no longer
+    says On target, and drift compensation stops."""
+    mount = MountControlBase(Queue(), Queue(), Mock(spec=SharedStateObj))
+    mount.notify = Mock()
+    mount.move_mount_manual = Mock(return_value=True)
+    mount.move_mount_offset = Mock(return_value=True)
+    mount.start_motion = Mock(return_value=True)
+    mount.state = MountControlPhases.MOUNT_DRIFT_COMPENSATION
+    mount.drift_solve_times.append(1.0)
+    for _step in mount._process_command(command, 2, 0.01):
+        pass
+    assert mount.state == MountControlPhases.MOUNT_TRACKING
+    assert mount.status_text() in ("Tracking", "Moving")
+    assert mount.drift_solve_times == []
+
+
+@pytest.mark.parametrize(
     "step, text",
     [(2.0, "2.0°"), (0.5, "30.0'"), (1 / 120, '30"')],
 )

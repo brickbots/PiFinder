@@ -135,6 +135,8 @@ After a goto, the PiFinder waits for a plate solve that was taken after the moun
 stopped.  If the object is more than 0.01° from the center, the PiFinder syncs the
 mount and moves again, at most three times.  It then shows **On target** or
 **Refine stopped**.
+After a manual move the band shows **TRACKING** and the distance to the object,
+because the object is no longer in the center.
 
 
 Troubleshooting

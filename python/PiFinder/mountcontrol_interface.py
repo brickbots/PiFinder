@@ -413,14 +413,17 @@ class MountControlBase:
     ) -> bool:
         success = self.move_mount_offset(north, east, step_size_deg)
         if success:
-            if self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
-                self._reset_drift_compensation_data()
-            if self.state not in (
-                MountControlPhases.MOUNT_TRACKING,
-                MountControlPhases.MOUNT_DRIFT_COMPENSATION,
-            ):
-                self.state = MountControlPhases.MOUNT_TRACKING
+            self._manual_move_done()
         return success
+
+    def _manual_move_done(self) -> None:
+        """A manual move takes the mount off the target: the phase is
+        TRACKING, and drift compensation stops."""
+        if self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
+            self._reset_drift_compensation_data()
+        if self.state != MountControlPhases.MOUNT_TRACKING:
+            logger.debug("Phase: -> MOUNT_TRACKING due to manual movement")
+        self.state = MountControlPhases.MOUNT_TRACKING
 
     def move_mount_manual(
         self, direction: MountDirections, step_size_deg: float
@@ -676,15 +679,7 @@ class MountControlBase:
 
         success = self.move_mount_manual(direction, step_size_deg)
         if success:
-            # Reset drift compensation if leaving that state
-            if self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
-                self._reset_drift_compensation_data()
-            if (
-                self.state != MountControlPhases.MOUNT_TRACKING
-                and self.state != MountControlPhases.MOUNT_DRIFT_COMPENSATION
-            ):
-                self.state = MountControlPhases.MOUNT_TRACKING
-                logger.debug("Phase: -> MOUNT_TRACKING due to manual movement")
+            self._manual_move_done()
             names = {
                 MountDirectionsEquatorial.NORTH: _("North"),
                 MountDirectionsEquatorial.SOUTH: _("South"),
@@ -796,6 +791,7 @@ class MountControlBase:
             self._stop_motion()
             if self.start_motion(command["north"], command["east"]):
                 self._motion_started = time.time()
+                self._manual_move_done()
             else:
                 self.warn(_("Mount did not move!"))
 
