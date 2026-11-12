@@ -438,6 +438,11 @@ class UIObjectDetails(UIModule):
             flop_image=flop_image,
         )
 
+    def inactive(self):
+        # Leaving the screen ends a continuous move.
+        self.arrow_hold_end()
+        super().inactive()
+
     def active(self):
         self.activation_time = time.time()
         self.set_mount_step_from_fov()
@@ -689,6 +694,8 @@ class UIObjectDetails(UIModule):
         for a module.  Invoked when the square
         key is pressed
         """
+        # Leaving the mount page ends a continuous move.
+        self.arrow_hold_end()
         # Cycle: LOCATE -> POSS -> DESC -> CONTRAST -> (MOUNT) -> LOCATE
         if self.object_display_mode == DM_LOCATE:
             self.object_display_mode = DM_POSS
@@ -763,7 +770,35 @@ class UIObjectDetails(UIModule):
             and is_connected(self.snapshot.mount_status())
         )
 
+    @property
+    def holds_arrows(self) -> bool:
+        """The menu manager leaves long LEFT/RIGHT to this screen: on the
+        mount page a held arrow moves the mount."""
+        return self._arrows_move_mount()
+
+    def arrow_hold(self, direction: str) -> None:
+        """A held arrow moves the mount until the release."""
+        if not self._arrows_move_mount():
+            return
+        key = {"up": 8, "down": 2, "left": 4, "right": 6}[direction]
+        north, east = self._sky_directions()[key]
+        self._mount_command({"type": "motion_start", "north": north, "east": east})
+        self._mount_page_state.held_key = key
+
+    def arrow_hold_end(self) -> None:
+        if self._mount_page_state.held_key is None:
+            return
+        self._mount_command({"type": "motion_stop"})
+        self._mount_page_state.held_key = None
+
+    def _holding(self) -> bool:
+        # The scanner repeats UP/DOWN and sends a release key during a hold;
+        # those are not steps.
+        return self._mount_page_state.held_key is not None
+
     def key_down(self):
+        if self._holding():
+            return
         if self._arrows_move_mount():
             self.key_number(2)
             return
@@ -771,6 +806,8 @@ class UIObjectDetails(UIModule):
         self.scroll_object(1)
 
     def key_up(self):
+        if self._holding():
+            return
         if self._arrows_move_mount():
             self.key_number(8)
             return
@@ -778,6 +815,8 @@ class UIObjectDetails(UIModule):
         self.scroll_object(-1)
 
     def key_left(self):
+        if self._holding():
+            return False
         if self._arrows_move_mount():
             self.key_number(4)
             return False
@@ -789,6 +828,8 @@ class UIObjectDetails(UIModule):
         When right is pressed, move to
         logging screen
         """
+        if self._holding():
+            return
         if self._arrows_move_mount():
             self.key_number(6)
             return

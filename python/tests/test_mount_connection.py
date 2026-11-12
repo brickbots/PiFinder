@@ -13,7 +13,7 @@ from PiFinder import indi_drivers, mount_settings
 from PiFinder.mount_settings import MountSettings, Preset
 from PiFinder.indi_client import IndiProperty
 from PiFinder.mountcontrol_indi import MountControlIndi, split_address
-from PiFinder.mountcontrol_interface import MountControlPhases
+from PiFinder.mountcontrol_interface import MAX_MOTION_S, MountControlPhases
 from PiFinder.state import SharedStateObj
 
 pytestmark = pytest.mark.unit
@@ -356,3 +356,58 @@ def test_location_waits_while_the_mount_slews():
     mount.current_time = 0.0
     mount.periodic_mount_task()
     mount.sync_mount_location_and_time.assert_called_once()
+
+
+MOTION_DRIVER = {
+    "TELESCOPE_MOTION_NS": {"MOTION_NORTH": False, "MOTION_SOUTH": False},
+    "TELESCOPE_MOTION_WE": {"MOTION_WEST": False, "MOTION_EAST": False},
+    "TELESCOPE_SLEW_RATE": {"1x": True, "2x": False, "3x": False, "4x": False},
+}
+
+
+class MotionClient(FakeClient):
+    def set_switch_off(self, device, name):
+        self.sent.append(("off", name))
+        return True
+
+
+def test_continuous_move_uses_the_motion_switches():
+    client = MotionClient(MOTION_DRIVER)
+    mount = _mount(client, "usb")
+    assert mount.start_motion(1.0, 0.0)
+    assert ("switch", "TELESCOPE_MOTION_NS", "MOTION_NORTH") in client.sent
+    assert ("switch", "TELESCOPE_SLEW_RATE", "3x") in client.sent
+    assert not any(c[1] == "TELESCOPE_MOTION_WE" for c in client.sent)
+    client.sent.clear()
+    # A diagonal moves both axes.
+    assert mount.start_motion(-0.7, -0.7)
+    assert ("switch", "TELESCOPE_MOTION_NS", "MOTION_SOUTH") in client.sent
+    assert ("switch", "TELESCOPE_MOTION_WE", "MOTION_WEST") in client.sent
+    client.sent.clear()
+    assert mount.stop_motion()
+    assert client.sent == [
+        ("off", "TELESCOPE_MOTION_NS"),
+        ("off", "TELESCOPE_MOTION_WE"),
+    ]
+
+
+def _run(mount, command):
+    for _step in mount._process_command(command, 1, 0.0):
+        pass
+
+
+def test_motion_commands_stop_and_time_out():
+    mount = _mount(MotionClient(MOTION_DRIVER), "usb")
+    mount.start_motion = Mock(return_value=True)
+    mount.stop_motion = Mock(return_value=True)
+    _run(mount, {"type": "motion_start", "north": 1.0, "east": 0.0})
+    assert mount.mount_status().text == "Moving"
+    # Another command ends the move first.
+    mount.move_mount_to_target = Mock(return_value=True)
+    _run(mount, {"type": "goto_target", "ra": 1.0, "dec": 2.0})
+    mount.stop_motion.assert_called_once()
+    # A move whose release never comes stops after MAX_MOTION_S.
+    _run(mount, {"type": "motion_start", "north": 0.0, "east": 1.0})
+    mount.check_motion_timeout(time.time() + MAX_MOTION_S + 1)
+    assert mount.stop_motion.call_count == 2
+    assert ["WARNING", "Move stopped"] in list(mount.console_queue.queue)

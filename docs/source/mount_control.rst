@@ -110,8 +110,11 @@ progress messages do not pop up, because the band shows them; warnings still pop
 The **Mount** page of the web interface shows the same status.
 
 On the mount page the arrow keys (and the rev 4 joystick) move the mount like **8**,
-**2**, **4** and **6**.  So **LEFT** moves the mount there, and does not go back.  To
-leave the page, press the **square** key, or hold **LEFT** to go back to the top menu.
+**2**, **4** and **6**: a short press moves one step.  Hold an arrow to move the mount
+continuously at a medium slew speed; it stops when you let go, and after 30 seconds at
+the latest.  The key shows inverted while you hold it, and the band shows **MOVING**.
+So **LEFT** moves the mount on this page and does not go back.  To leave the page,
+press the **square** key.
 
 Hold the **square** key on the mount page for its marking menu: **CONNECT** (connect
 the mount again), **SETUP** (the Mount Control settings), **STEP** (the step goes back

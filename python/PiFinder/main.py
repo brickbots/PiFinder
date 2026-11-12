@@ -491,6 +491,14 @@ def drain_gps_queue(gps_queue, pending: dict) -> list:
     return resets
 
 
+# Hold codes of the keypad scanner -> arrow direction.
+HOLD_DIRECTIONS = {
+    keyboard_interface.KeyboardInterface.HOLD_UP: "up",
+    keyboard_interface.KeyboardInterface.HOLD_DOWN: "down",
+    keyboard_interface.KeyboardInterface.HOLD_LEFT: "left",
+    keyboard_interface.KeyboardInterface.HOLD_RIGHT: "right",
+}
+
 # Seconds on screen of a [kind, text] console message, by kind.
 STATUS_MESSAGE_SECONDS = {"WARNING": 3.0, "MOUNT": 1.5}
 
@@ -1168,7 +1176,15 @@ def main(
                     # Beep on accepted keys, except the wake-up press (handled
                     # above) and POWER_BTN (which opens shutdown — that path has
                     # its own SHUTDOWN cue).
-                    if keycode != keyboard_base.POWER_BTN:
+                    # No beep for the hold codes: the press already beeped.
+                    if keycode not in (
+                        keyboard_base.POWER_BTN,
+                        keyboard_base.HOLD_UP,
+                        keyboard_base.HOLD_DOWN,
+                        keyboard_base.HOLD_LEFT,
+                        keyboard_base.HOLD_RIGHT,
+                        keyboard_base.HOLD_END,
+                    ):
                         sound.request(sound_queue, Earcon.KEYPRESS)
                     # ignore keystroke if we have been asleep
                     if keycode > 99:
@@ -1179,6 +1195,12 @@ def main(
                         # Long right is return to last observed object
                         if keycode == keyboard_base.LNG_RIGHT:
                             menu_manager.key_long_right()
+
+                        # An arrow held down, and its release
+                        if keycode in HOLD_DIRECTIONS:
+                            menu_manager.arrow_hold(HOLD_DIRECTIONS[keycode])
+                        if keycode == keyboard_base.HOLD_END:
+                            menu_manager.arrow_hold_end()
 
                         # Long square is marking menu
                         if keycode == keyboard_base.LNG_SQUARE:

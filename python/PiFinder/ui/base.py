@@ -622,6 +622,13 @@ class UIModule:
     def key_long_right(self):
         pass
 
+    def arrow_hold(self, direction: str) -> None:
+        """An arrow is held down (keypad scanner). Most screens ignore it."""
+        pass
+
+    def arrow_hold_end(self) -> None:
+        pass
+
     def key_up(self):
         pass
 

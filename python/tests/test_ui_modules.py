@@ -793,6 +793,23 @@ def test_object_details_mount_keys(display, camera_image, catalogs, sample_objec
     module.key_down()
     sent = [c for c in mount_queue.queue if c["type"] == "manual_movement"]
     assert len(sent) == 4
+    # A held arrow starts a continuous move; repeats and the release key
+    # during the hold are not steps; the release stops it.
+    mount_queue.queue.clear()
+    assert module.holds_arrows
+    module.arrow_hold("up")
+    module.key_up()
+    module.key_up()
+    assert module.key_left() is False
+    module.arrow_hold_end()
+    sent = [c["type"] for c in mount_queue.queue]
+    assert sent == ["motion_start", "motion_stop"]
+    # The menu manager leaves long LEFT/RIGHT to the mount page.
+    fake_manager = Mock(stack=[module], help_images=None, marking_menu_stack=[])
+    MenuManager.key_long_left(fake_manager)
+    MenuManager.key_long_right(fake_manager)
+    fake_manager.remove_from_stack.assert_not_called()
+
     # The mount page has its own marking menu with the quick settings.
     assert module.marking_menu.right.menu_jump == "mount_settings"
     left = module.marking_menu.left

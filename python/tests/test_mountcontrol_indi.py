@@ -508,3 +508,25 @@ def test_gps_lock_during_a_slew_does_not_stop_it(indi: int) -> None:
         runner.join(timeout=10)
         mount.disconnect_mount()
         indi_drivers.stop_driver()
+
+
+def test_continuous_move_north_until_stop(indi: int) -> None:
+    """A held arrow: the simulator moves north until the stop."""
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        assert mount.move_mount_to_target(60.0, 10.0)
+        assert _wait(lambda: mount.target_reached, 60)
+        dec_start = mount.client.get_value(mount.device, POSITION, "DEC")
+        assert mount.start_motion(1.0, 0.0)
+        time.sleep(2.0)
+        assert mount.stop_motion()
+        time.sleep(1.0)
+        dec_stopped = mount.client.get_value(mount.device, POSITION, "DEC")
+        assert dec_stopped > dec_start + 0.05
+        time.sleep(1.5)
+        dec_later = mount.client.get_value(mount.device, POSITION, "DEC")
+        assert dec_later == pytest.approx(dec_stopped, abs=0.01)
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()

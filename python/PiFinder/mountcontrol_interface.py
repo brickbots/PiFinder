@@ -128,6 +128,9 @@ class MountDirectionsEquatorial(MountDirections):
 # changes, at most this often when only the distance changes, and at least
 # this often as a sign of life.
 STATUS_DISTANCE_PERIOD_S = 1.0
+# A continuous move (a held arrow) stops after this time, if the release
+# never comes.
+MAX_MOTION_S = 30.0
 STATUS_HEARTBEAT_S = 2.0
 
 
@@ -226,6 +229,8 @@ class MountControlBase:
 
         # The last fault, for the status (cleared by a good init).
         self._last_error = ""
+        # When the running continuous move started, or None.
+        self._motion_started: Optional[float] = None
         # The last status written to the shared state (publish_status).
         self._status_key: Optional[tuple] = None
         self._status_distance: Optional[float] = None
@@ -376,6 +381,32 @@ class MountControlBase:
         """Move by step_size_deg in the sky direction (north, east).
         Override in subclasses."""
         return False
+
+    def start_motion(self, north: float, east: float) -> bool:
+        """Start moving in the sky direction (north, east) until
+        stop_motion. Override in subclasses."""
+        return False
+
+    def stop_motion(self) -> bool:
+        """Stop a continuous move. Override in subclasses."""
+        return True
+
+    def _stop_motion(self) -> None:
+        if self._motion_started is not None:
+            self._motion_started = None
+            if not self.stop_motion():
+                self.warn(_("Move not stopped!"))
+
+    def check_motion_timeout(self, now: Optional[float] = None) -> None:
+        """Stop a continuous move that runs longer than MAX_MOTION_S."""
+        now = time.time() if now is None else now
+        if (
+            self._motion_started is not None
+            and now - self._motion_started > MAX_MOTION_S
+        ):
+            logger.warning("Continuous move ran %.0f s, stopping", MAX_MOTION_S)
+            self._stop_motion()
+            self.warn(_("Move stopped"))
 
     def _move_mount_offset(
         self, north: float, east: float, step_size_deg: float
@@ -536,6 +567,8 @@ class MountControlBase:
             MountControlPhases.MOUNT_DRIFT_COMPENSATION: _("On target"),
             MountControlPhases.MOUNT_SPIRAL_SEARCH: _("Searching"),
         }
+        if self._motion_started is not None:
+            return _("Moving")
         text = texts.get(self.state, str(self.state.name))
         if self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
             text = f"{text} {self._refine_count + 1}/{self.refine_max_iterations}"
@@ -754,8 +787,22 @@ class MountControlBase:
         The only exception is when retrying failed and we need to change the state to MOUNT_INIT_TELESCOPE or MOUNT_STOPPED.
         """
 
+        # Any other command ends a continuous move first.
+        if command["type"] not in ("motion_start", "motion_stop"):
+            self._stop_motion()
+
         # Process the command based on its type
-        if command["type"] == "exit":
+        if command["type"] == "motion_start":
+            self._stop_motion()
+            if self.start_motion(command["north"], command["east"]):
+                self._motion_started = time.time()
+            else:
+                self.warn(_("Mount did not move!"))
+
+        elif command["type"] == "motion_stop":
+            self._stop_motion()
+
+        elif command["type"] == "exit":
             # This is here for debugging and testing purposes.
             logger.warning("Mount control exiting on command.")
             self._stop_mount()
@@ -1323,6 +1370,7 @@ class MountControlBase:
             phase_step = None
             while True:
                 self.periodic_mount_task()
+                self.check_motion_timeout()
                 self.publish_status()
 
                 #

@@ -100,6 +100,8 @@ class MountPageState:
     pressed_at: float = 0.0
     # When the page opened: the cells show their key numbers for a moment.
     opened_at: float = 0.0
+    # The direction key whose arrow is held down (a continuous move).
+    held_key: Optional[int] = None
     # The largest distance of the current slew, for the progress bar.
     slew_start_distance: Optional[float] = None
     last_phase: str = field(default="")
@@ -109,6 +111,8 @@ class MountPageState:
         self.pressed_at = time.time() if now is None else now
 
     def flashing(self, key: int, now: float) -> bool:
+        if self.held_key == key:
+            return True
         return self.pressed_key == key and now - self.pressed_at < PRESS_FLASH_S
 
     def open(self, now: Optional[float] = None) -> None:
