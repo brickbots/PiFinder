@@ -372,6 +372,7 @@ class SharedStateObj:
         self.__tz_finder_thread.start()
         self.__current_ui_state = None
         self.__test_mode = False
+        self.__mount_status = None
         self.__publish_all()
 
     def __publish_all(self):
@@ -394,6 +395,7 @@ class SharedStateObj:
         publish("camera_lens", self.__camera_lens)
         publish("optical_train_known", self.__optical_train_known)
         publish("test_mode", self.__test_mode)
+        publish("mount_status", self.__mount_status)
 
     def __publish_datetime(self):
         # The stored time and when it was stored: a reader adds the time
@@ -813,3 +815,11 @@ class SharedStateObj:
     def set_test_mode(self, v: bool):
         self.__test_mode = v
         state_snapshot.publish("test_mode", v)
+
+    def mount_status(self):
+        """The live MountStatus from the mount process, or None."""
+        return self.__mount_status
+
+    def set_mount_status(self, v):
+        self.__mount_status = v
+        state_snapshot.publish("mount_status", v)

@@ -13,6 +13,8 @@ import pydeepskylog as pds
 from PIL import Image
 from PiFinder import utils, calc_utils, config
 from PiFinder import data_browser
+from PiFinder import indi_drivers, mount_settings
+from PiFinder.types.mount import status_lines
 from PiFinder import timez
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
@@ -247,6 +249,9 @@ class MockSharedState:
 
     def location(self):
         return self._location
+
+    def mount_status(self):
+        return None
 
     def screen(self):
         return self._screen_img
@@ -1365,6 +1370,84 @@ class Server:
             if night_key is None:
                 return redirect("/observations")
             return redirect(f"/observations/night/{night_key}")
+
+        def render_mount(cfg, error_message=None, form=None, status_message=None):
+            values = mount_settings.MountSettings.from_config(cfg).as_dict()
+            if form is not None:
+                # Show what was typed after an error.
+                values.update({k: form.get(k, "") for k in values})
+                values["enabled"] = form.get("enabled") == "on"
+            manufacturers: dict[str, list[str]] = {}
+            for model in indi_drivers.mount_models():
+                manufacturers.setdefault(model.manufacturer, []).append(model.label)
+            return app.jinja_env.get_template("mount.html").render(
+                title=_("Mount"),
+                values=values,
+                manufacturers=manufacturers,
+                usb_ports=mount_settings.USB_PORTS,
+                baud_rates=mount_settings.BAUD_RATES,
+                presets=mount_settings.presets(cfg),
+                clients=mount_settings.wifi_clients(),
+                status_lines=status_lines(self.shared_state.mount_status()),
+                error_message=error_message,
+                status_message=status_message,
+            )
+
+        def apply_mount_settings(cfg, settings):
+            for option, value in settings.options().items():
+                cfg.set_option(option, value)
+            # The main process reloads the config and the mount process
+            # applies the settings at once.
+            self.ui_queue.put("reload_config")
+
+        @app.route("/mount")
+        @auth_required
+        def mount_page():
+            return render_mount(config.Config())
+
+        @app.route("/mount/update", methods=["POST"])
+        @auth_required
+        def mount_update():
+            cfg = config.Config()
+            try:
+                settings = mount_settings.settings_from_form(request.form)
+                if request.form.get("action") == "save_preset":
+                    preset = mount_settings.save_preset(
+                        cfg, request.form.get("preset_name", ""), settings
+                    )
+                    message = _("Preset {name} saved, settings applied").format(
+                        name=preset.name
+                    )
+                else:
+                    message = _("Settings applied")
+            except ValueError as e:
+                return render_mount(cfg, str(e), request.form)
+            apply_mount_settings(cfg, settings)
+            return render_mount(cfg, status_message=message)
+
+        @app.route("/mount/preset/apply", methods=["POST"])
+        @auth_required
+        def mount_preset_apply():
+            cfg = config.Config()
+            preset = mount_settings.find_preset(cfg, request.form.get("name", ""))
+            if preset is None:
+                return render_mount(cfg, _("Unknown preset"))
+            settings = preset.apply(mount_settings.MountSettings.from_config(cfg))
+            apply_mount_settings(cfg, settings)
+            return render_mount(
+                cfg,
+                status_message=_("Preset {name} applied").format(name=preset.name),
+            )
+
+        @app.route("/mount/preset/delete", methods=["POST"])
+        @auth_required
+        def mount_preset_delete():
+            cfg = config.Config()
+            name = request.form.get("name", "")
+            mount_settings.delete_preset(cfg, name)
+            return render_mount(
+                cfg, status_message=_("Preset {name} deleted").format(name=name)
+            )
 
         @app.route("/tools")
         @auth_required

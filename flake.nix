@@ -60,6 +60,7 @@
       ./nixos/hardware.nix
       ./nixos/networking.nix
       ./nixos/services.nix
+      ./nixos/indi.nix
       ./nixos/python-env.nix
       ./nixos/migration.nix
       headlessModule
@@ -520,6 +521,14 @@
     };
 
     packages.x86_64-linux.pifinder-kernel-cross = pifinderCrossKernel;
+    # The device's INDI, for the mount tests: nix shell .#indi
+    packages.x86_64-linux.indi = import ./nixos/pkgs/indi.nix {
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+    };
+
+    # VM test of the indiserver service and its driver FIFO.
+    checks.x86_64-linux.indiserver =
+      nixpkgs.legacyPackages.x86_64-linux.testers.runNixOSTest ./nixos/tests/indiserver/test.nix;
 
     devShells = {
       x86_64-linux.default = mkDevShell { system = "x86_64-linux"; };

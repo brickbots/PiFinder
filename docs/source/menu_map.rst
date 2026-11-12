@@ -335,6 +335,7 @@ information or perform actions.  See :ref:`user_guide:tools`.
        SL --> EC["Enter Coords"]
        SL --> LL["Load Location"]
        SL --> SV["Save Location"]
+       Exp --> MC["Mount Control"]
        Exp --> PA["Polar Align"]
        Exp --> DT["Dev Tools"]
        DT --> Tel["Telemetry"]
@@ -379,6 +380,25 @@ Test Mode
 Experimental
    Features still under development.
 
+   Mount Control
+      Move a GoTo mount through INDI.  See :doc:`mount_control`.
+
+      Mount Control
+         Values: Off, On.
+      Mount
+         The mount model, by manufacturer, from the installed INDI drivers.
+      Arrows
+         Values: Eyepiece view (default), Compass.  What the direction keys and
+         the arrows move to on the mount page.
+      Connection
+         Values: USB, WiFi.
+      WiFi Address
+         Values: Driver default, OnStep 192.168.0.1, SkyWatcher 192.168.4.1.
+         Other addresses: the Mount page of the web interface.
+      Port
+         Values: /dev/ttyUSB0, /dev/ttyUSB1, /dev/ttyACM0, /dev/ttyACM1.
+      Baud Rate
+         Values: 9600, 19200, 38400, 57600, 115200.
    Polar Align
       For equatorial platforms: capture two or three solves while rotating the
       platform, then use the platform's altitude and azimuth adjusters until the

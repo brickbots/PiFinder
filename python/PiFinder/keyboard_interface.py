@@ -29,6 +29,13 @@ class KeyboardInterface:
     LNG_RIGHT = 203
     LNG_SQUARE = 204
     POWER_BTN = 300
+    # An arrow held for HOLD_START_S (keypad.HoldTracker): it starts, and
+    # HOLD_END stops, a continuous move. Only the matrix scanner sends them.
+    HOLD_LEFT = 400
+    HOLD_UP = 401
+    HOLD_DOWN = 402
+    HOLD_RIGHT = 403
+    HOLD_END = 404
 
     def __init__(self, q=None):
         self.q = q

@@ -165,3 +165,48 @@ def test_keyboard_pi_derived_keycodes_survive_the_extraction(keyboard_pi_module)
         keypad.keymap_index(4, 1),  # UP, rev3 bottom row
         keypad.keymap_index(4, 2),  # DOWN, rev3 bottom row
     }
+
+
+# --- HoldTracker -------------------------------------------------------------
+
+
+def _code_of(key):
+    return keypad.KEYMAP.index(key)
+
+
+def test_short_arrow_press_has_no_hold_events():
+    tracker = keypad.HoldTracker(keypad.KEYMAP)
+    up = _code_of(K.UP)
+    tracker.press(up, 10.0)
+    assert tracker.tick(10.2) == []
+    assert tracker.release(up) == []
+
+
+def test_held_arrow_starts_once_and_ends_on_release():
+    tracker = keypad.HoldTracker(keypad.KEYMAP)
+    left = _code_of(K.LEFT)
+    tracker.press(left, 10.0)
+    assert tracker.tick(10.0 + keypad.HOLD_START_S) == [K.HOLD_LEFT]
+    assert tracker.tick(12.0) == []
+    assert tracker.release(left) == [K.HOLD_END]
+    assert tracker.release(left) == []
+
+
+def test_number_keys_and_second_arrows_do_not_hold():
+    tracker = keypad.HoldTracker(keypad.KEYMAP)
+    five = keypad.KEYMAP.index(5)
+    tracker.press(five, 0.0)
+    assert tracker.tick(5.0) == []
+    up, down = _code_of(K.UP), _code_of(K.DOWN)
+    tracker.press(up, 10.0)
+    assert tracker.tick(11.0) == [K.HOLD_UP]
+    tracker.press(down, 11.0)
+    assert tracker.tick(12.0) == []
+    assert tracker.release(down) == []
+    assert tracker.release(up) == [K.HOLD_END]
+
+
+def test_keyboard_pi_has_a_hold_tracker(keyboard_pi_module):
+    kb = keyboard_pi_module.KeyboardPi.__new__(keyboard_pi_module.KeyboardPi)
+    keyboard_pi_module.KeyboardPi.__init__(kb, None)
+    assert isinstance(kb.holds, keypad.HoldTracker)

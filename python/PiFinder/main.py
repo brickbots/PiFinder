@@ -37,6 +37,7 @@ from PiFinder import config
 from PiFinder import utils
 from PiFinder import timez
 from PiFinder import keyboard_interface
+from PiFinder import usb_gps
 from PiFinder import lazy_import
 import PiFinder.sound as sound
 from PiFinder.types.sound import Earcon, SetVolume
@@ -79,6 +80,7 @@ logger = logging.getLogger("main")
 run_web_server = lazy_import.lazy_function("PiFinder.server", "run_server")
 run_solver = lazy_import.lazy_function("PiFinder.solver", "solver")
 run_pos_server = lazy_import.lazy_function("PiFinder.pos_server", "run_server")
+run_mount_control = lazy_import.lazy_function("PiFinder.mountcontrol_indi", "run")
 
 # The UI uses these modules only after it shows the first screen.
 UI_PRELOAD_MODULES = [
@@ -489,6 +491,30 @@ def drain_gps_queue(gps_queue, pending: dict) -> list:
     return resets
 
 
+# Hold codes of the keypad scanner -> arrow direction.
+HOLD_DIRECTIONS = {
+    keyboard_interface.KeyboardInterface.HOLD_UP: "up",
+    keyboard_interface.KeyboardInterface.HOLD_DOWN: "down",
+    keyboard_interface.KeyboardInterface.HOLD_LEFT: "left",
+    keyboard_interface.KeyboardInterface.HOLD_RIGHT: "right",
+}
+
+# Seconds on screen of a [kind, text] console message, by kind.
+STATUS_MESSAGE_SECONDS = {"WARNING": 3.0, "MOUNT": 1.5}
+
+
+def show_status_message(menu_manager, console, message) -> None:
+    """Show a [kind, text] message from a worker process on the screen,
+    and keep it in the console log. Kinds: "WARNING" (a fault) and
+    "MOUNT" (mount control progress)."""
+    kind, text = str(message[0]), str(message[1])
+    console.write(f"{kind}: {text}")
+    # The mount page shows mount progress in its status band.
+    if kind == "MOUNT" and getattr(menu_manager.stack[-1], "shows_mount_status", False):
+        return
+    menu_manager.message(text, STATUS_MESSAGE_SECONDS.get(kind, 2.0))
+
+
 def main(
     log_helper: MultiprocLogging,
     script_name=None,
@@ -497,6 +523,7 @@ def main(
     profile_startup=False,
     record_path=None,
     record_audio=False,
+    sky_sim=None,
 ) -> None:
     """
     Get this show on the road!
@@ -524,6 +551,7 @@ def main(
     imu_logqueue: Queue = log_helper.get_queue()
     battery_logqueue: Queue = log_helper.get_queue()
     sound_logqueue: Queue = log_helper.get_queue()
+    mountcontrol_logqueue: Queue = log_helper.get_queue()
 
     # Refuse to start if another instance is already running. A second copy
     # would otherwise boot and let its subsystems (web/pos-server ports, cedar
@@ -546,6 +574,7 @@ def main(
 
     # init UI Modes
     integrator_command_queue: Queue = Queue()
+    mountcontrol_queue: Queue = Queue()
 
     command_queues = {
         "camera": camera_command_queue,
@@ -555,8 +584,18 @@ def main(
         "align_response": alignment_response_queue,
         "gps": gps_queue,
         "integrator": integrator_command_queue,
+        "mountcontrol": mountcontrol_queue,
     }
     cfg = config.Config()
+
+    # gpsd may take generic USB-serial bridges only with a generic USB GPS;
+    # otherwise they are for a mount (usb_gps.py). A GPS Type change
+    # restarts PiFinder, so this runs after each change.
+    if (
+        usb_gps.set_generic_usb_gps(cfg.get_option("gps_type") == "gpsd")
+        and usb_gps.bridge_plugged_in()
+    ):
+        console_queue.put(["WARNING", _("Replug USB device")])
 
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
@@ -778,6 +817,7 @@ def main(
             kwargs={
                 "command_queue": integrator_command_queue,
                 "camera_command_queue": camera_command_queue,
+                "sky_sim": sky_sim,
             },
         )
         integrator_process.start()
@@ -792,6 +832,24 @@ def main(
             args=(shared_state, ui_queue, posserver_logqueue),
         )
         posserver_process.start()
+
+        # Mount control (INDI). The process reads its settings from the
+        # config, is idle while mount control is off, and applies changed
+        # settings on reload_config.
+        console.write("  Mount Control")
+        logger.info("  Mount Control")
+        console.update()
+        mountcontrol_process = Process(
+            name="MountControl",
+            target=run_mount_control,
+            args=(
+                mountcontrol_queue,
+                console_queue,
+                shared_state,
+                mountcontrol_logqueue,
+            ),
+        )
+        mountcontrol_process.start()
 
         # Initialize Catalogs
         console.write("   Catalogs")
@@ -919,7 +977,9 @@ def main(
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
-                    if console_msg.startswith("DEGRADED_OPS"):
+                    if isinstance(console_msg, (list, tuple)):
+                        show_status_message(menu_manager, console, console_msg)
+                    elif console_msg.startswith("DEGRADED_OPS"):
                         menu_manager.message(_("Degraded\nCheck Status"), 5)
                         time.sleep(5)
                     else:
@@ -1035,6 +1095,7 @@ def main(
                     menu_manager.jump_to_label("recent")
                 elif ui_command == "reload_config":
                     cfg.load_config()
+                    mountcontrol_queue.put({"type": "reload_config"})
                 elif ui_command == "test_mode":
                     # Toggle test mode (store in both shared_state and config).
                     # The camera process follows shared_state.test_mode()
@@ -1132,7 +1193,15 @@ def main(
                     # Beep on accepted keys, except the wake-up press (handled
                     # above) and POWER_BTN (which opens shutdown — that path has
                     # its own SHUTDOWN cue).
-                    if keycode != keyboard_base.POWER_BTN:
+                    # No beep for the hold codes: the press already beeped.
+                    if keycode not in (
+                        keyboard_base.POWER_BTN,
+                        keyboard_base.HOLD_UP,
+                        keyboard_base.HOLD_DOWN,
+                        keyboard_base.HOLD_LEFT,
+                        keyboard_base.HOLD_RIGHT,
+                        keyboard_base.HOLD_END,
+                    ):
                         sound.request(sound_queue, Earcon.KEYPRESS)
                     # ignore keystroke if we have been asleep
                     if keycode > 99:
@@ -1143,6 +1212,12 @@ def main(
                         # Long right is return to last observed object
                         if keycode == keyboard_base.LNG_RIGHT:
                             menu_manager.key_long_right()
+
+                        # An arrow held down, and its release
+                        if keycode in HOLD_DIRECTIONS:
+                            menu_manager.arrow_hold(HOLD_DIRECTIONS[keycode])
+                        if keycode == keyboard_base.HOLD_END:
+                            menu_manager.arrow_hold_end()
 
                         # Long square is marking menu
                         if keycode == keyboard_base.LNG_SQUARE:
@@ -1309,6 +1384,13 @@ def main(
             logger.info("\tPos Server...")
             posserver_process.join()
 
+            logger.info("\tMount Control...")
+            mountcontrol_queue.put({"type": "exit"})
+            mountcontrol_process.join(timeout=5)
+            if mountcontrol_process.is_alive():
+                mountcontrol_process.terminate()
+                mountcontrol_process.join()
+
             logger.info("\tGPS...")
             gps_process.terminate()
 
@@ -1444,6 +1526,12 @@ if __name__ == "__main__":
         "-x", "--verbose", help="Set logging to debug mode", action="store_true"
     )
     parser.add_argument("-l", "--log", help="Log to file", action="store_true")
+    parser.add_argument(
+        "--sky-sim",
+        help="Take plate solves from the closed-loop sky simulator, which follows "
+        "the INDI mount: a settings file (JSON) or 'default'. See PiFinder/sky_sim.py",
+        default=None,
+    )
     parser.add_argument(
         "--debug-no-file-logs",
         help="Debug: log everything at DEBUG level to console only, bypassing log configuration and file output",
@@ -1597,6 +1685,7 @@ if __name__ == "__main__":
             args.profile_startup,
             args.record,
             args.record_audio,
+            args.sky_sim,
         )
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")

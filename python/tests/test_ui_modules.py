@@ -57,6 +57,7 @@ import threading
 import time
 from typing import Iterator
 from unittest import mock
+from unittest.mock import Mock
 
 
 import pytest
@@ -90,6 +91,7 @@ from PiFinder.ui.object_list import SortOrder, UIObjectList
 from PiFinder.nearby import NEAREST_LIST_CAP
 from PiFinder.object_sequence import ObjectSequence
 from PiFinder.state_snapshot import StateSnapshot
+from PiFinder.types.mount import MountStatus
 from PiFinder.ui.log import UILog
 from PiFinder.ui.dateentry import UIDateEntry
 from PiFinder.ui.sqm_calibration import UISQMCalibration
@@ -108,6 +110,7 @@ _COMMAND_QUEUE_KEYS = (
     "align_command",
     "align_response",
     "gps",
+    "mountcontrol",
 )
 
 # Modules that need the Hipparcos catalogue to construct (build plot.Starfield)
@@ -706,6 +709,154 @@ def test_object_details_tracks_target(display, camera_image, catalogs):
     # ...and updated on scroll.
     module.scroll_object(1)
     assert shared_state.ui_state().target() is obj_b
+
+
+@pytest.mark.integration
+def test_object_details_mount_keys(display, camera_image, catalogs, sample_object):
+    """With mount control on, the number keys send mount commands, and the
+    square key reaches the mount key page."""
+    from PiFinder.ui import object_details
+
+    cfg = Config()
+    shared_state = _make_shared_state("warm")
+    command_queues = _make_command_queues()
+    item_definition = _build_dynamic_item_definition("UIObjectDetails", sample_object)
+    module = UIObjectDetails(
+        display,
+        camera_image,
+        shared_state,
+        command_queues,
+        cfg,
+        catalogs,
+        item_definition=item_definition,
+    )
+    mount_queue = command_queues["mountcontrol"]
+    # The menu sweep of other tests can turn mount control on in the
+    # sandbox config; the module then sends the step size at construction.
+    while not mount_queue.empty():
+        mount_queue.get_nowait()
+
+    # Off: no commands.
+    cfg.set_option("mount_control", False)
+    module.key_number(5)
+    assert mount_queue.empty()
+
+    cfg.set_option("mount_control", True)
+    # 5 (GOTO) last: it opens the mount page.
+    for number in (0, 1, 2, 3, 4, 6, 7, 8, 9, 5):
+        module.key_number(number)
+    commands = []
+    while not mount_queue.empty():
+        commands.append(mount_queue.get_nowait())
+    by_type = {c["type"]: c for c in commands}
+    assert by_type["goto_target"] == {
+        "type": "goto_target",
+        "ra": sample_object.ra,
+        "dec": sample_object.dec,
+        "epoch": "J2000",
+    }
+    assert by_type["sync"] == {"type": "sync"}
+    assert {"init", "stop_movement", "reduce_step_size", "increase_step_size"} <= set(
+        by_type
+    )
+    moves = [c["label"] for c in commands if c["type"] == "manual_movement"]
+    assert sorted(moves) == ["E", "N", "S", "W"]
+
+    # GOTO (5) opens the mount page to watch the slew.
+    module.object_display_mode = object_details.DM_LOCATE
+    module.key_number(5)
+    assert module.object_display_mode == object_details.DM_MOUNT
+    module.cycle_display_mode()
+    assert module.object_display_mode == object_details.DM_LOCATE
+    assert module.marking_menu is module._default_marking_menu
+
+    # The square key reaches the mount key page, and it renders.
+    for _step in range(6):
+        module.cycle_display_mode()
+        if module.object_display_mode == object_details.DM_MOUNT:
+            break
+    assert module.object_display_mode == object_details.DM_MOUNT
+    module.update()
+    assert module.serialize_ui_state()["display_mode"] == "mount"
+
+    # The key page draws with a live status and with none.
+    UIModule.snapshot = StateSnapshot(
+        {
+            "mount_status": MountStatus(
+                "MOUNT_TARGET_ACQUISITION_MOVE",
+                "Slewing",
+                3.2,
+                0.25,
+                "SAL-33",
+                time.time(),
+            )
+        }
+    )
+    module.update()
+    UIModule.snapshot = StateSnapshot()
+    module.update()
+
+    # Without a connected mount the page is the connection screen: 5 does
+    # nothing, 1 connects, 2 opens the mount settings.
+    command_queues["mountcontrol"].queue.clear()
+    module.key_number(5)
+    assert command_queues["mountcontrol"].empty()
+    module.key_number(1)
+    assert command_queues["mountcontrol"].get_nowait() == {"type": "init"}
+    module.jump_to_label = Mock()
+    module.key_number(2)
+    module.jump_to_label.assert_called_once_with("mount_settings")
+
+    # On the mount page a key flashes in the key map, with no message box.
+    UIModule.snapshot = StateSnapshot(
+        {
+            "mount_status": MountStatus(
+                "MOUNT_TRACKING", "Tracking", None, 0.25, "SAL-33", time.time()
+            )
+        }
+    )
+    module.message = Mock()
+    module.key_number(8)
+    assert module._mount_page_state.pressed_key == 8
+    module.message.assert_not_called()
+    assert module.shows_mount_status
+
+    # On the mount page the arrows move the mount; LEFT does not go back.
+    mount_queue.queue.clear()
+    module.key_up()
+    module.key_right()
+    assert module.key_left() is False
+    module.key_down()
+    sent = [c for c in mount_queue.queue if c["type"] == "manual_movement"]
+    assert len(sent) == 4
+    # A held arrow starts a continuous move; repeats and the release key
+    # during the hold are not steps; the release stops it.
+    mount_queue.queue.clear()
+    assert module.holds_arrows
+    module.arrow_hold("up")
+    module.key_up()
+    module.key_up()
+    assert module.key_left() is False
+    module.arrow_hold_end()
+    sent = [c["type"] for c in mount_queue.queue]
+    assert sent == ["motion_start", "motion_stop"]
+    # The menu manager leaves long LEFT/RIGHT to the mount page.
+    fake_manager = Mock(stack=[module], help_images=None, marking_menu_stack=[])
+    MenuManager.key_long_left(fake_manager)
+    MenuManager.key_long_right(fake_manager)
+    fake_manager.remove_from_stack.assert_not_called()
+
+    # The mount page has its own marking menu with the quick settings.
+    assert module.marking_menu.right.menu_jump == "mount_settings"
+    left = module.marking_menu.left
+    before = cfg.get_option("mount_control_arrows", "eyepiece")
+    left.callback(module.marking_menu, left)
+    assert cfg.get_option("mount_control_arrows") != before
+
+    # Mount control turned off while the page is open: back to LOCATE.
+    cfg.set_option("mount_control", False)
+    module.update()
+    assert module.object_display_mode == object_details.DM_LOCATE
 
 
 @pytest.mark.integration
