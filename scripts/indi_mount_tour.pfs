@@ -1,0 +1,56 @@
+# Key script for the INDI mount control video. Run it with the sky simulator:
+#   python/scripts/record_demo.sh --script indi_mount_tour --sky-sim default \
+#       --record indi_mount_tour.mp4
+# Mount control must be on, with the Telescope Simulator as the mount and an
+# indiserver running (see docs/source/mount_control.rst).
+# Wait for the start-up and the mount to connect.
+wait 25
+# Objects > By Catalog > Messier > M 1
+RIGHT
+wait 1
+DOWN
+wait 1
+RIGHT
+wait 1
+DOWN
+wait 1
+DOWN
+wait 1
+DOWN
+wait 1
+RIGHT
+wait 2
+RIGHT
+wait 3
+# GOTO: the mount page opens, the mount slews, PiFinder refines.
+5
+wait 45
+# Arrow steps in the eyepiece view, and a larger step.
+UP
+wait 2
+RIGHT
+wait 2
+9
+wait 2
+DOWN
+wait 2
+# Hold an arrow: a continuous move until the release.
+HOLD_LEFT
+wait 3
+HOLD_END
+wait 3
+# The marking menu of the mount page: quick settings.
+LNG_SQUARE
+wait 3
+LEFT
+wait 3
+LNG_SQUARE
+wait 2
+RIGHT
+wait 3
+DOWN
+wait 1
+DOWN
+wait 1
+DOWN
+wait 3
