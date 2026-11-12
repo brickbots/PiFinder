@@ -24,7 +24,7 @@ from PiFinder.ui.ui_utils import (
     draw_pointing_instructions,
 )
 from PiFinder import calc_utils
-from PiFinder.types.mount import status_lines
+from PiFinder.ui.mount_page import MountPageState, draw_mount_page
 import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
@@ -96,6 +96,7 @@ class UIObjectDetails(UIModule):
         self.object_list = self.item_definition["object_list"]
         self.object_display_mode = DM_LOCATE
         self.object_image = None
+        self._mount_page_state = MountPageState()
 
         # Marking Menu - Just default help for now
         self.marking_menu = MarkingMenu(
@@ -758,26 +759,28 @@ class UIObjectDetails(UIModule):
         screen is open."""
         return bool(self.config_object.get_option("mount_control", False))
 
+    @property
+    def shows_mount_status(self) -> bool:
+        """True on the mount page: it shows the mount progress itself, so
+        the main loop does not cover it with progress messages."""
+        return self.object_display_mode == DM_MOUNT
+
     def _render_mount_keys(self):
-        """The live mount status, then the mount keys."""
-        y_pos = self.display_class.titlebar_height + 2
-        for line in status_lines(self.snapshot.mount_status()):
-            self.draw.text(
-                (0, y_pos), line, font=self.fonts.bold.font, fill=self.colors.get(255)
-            )
-            y_pos += self.fonts.bold.height + 1
-        y_pos += 3
-        mount_keys = [
-            "1 " + _("Init") + "  5 " + _("Goto"),
-            "7 " + _("Sync") + "  0 " + _("Stop"),
-            "8 2 " + _("N S") + "  4 6 " + _("W E"),
-            "3 9 " + _("Step - +"),
-        ]
-        for line in mount_keys:
-            self.draw.text(
-                (0, y_pos), line, font=self.fonts.base.font, fill=self.colors.get(192)
-            )
-            y_pos += self.fonts.base.height + 1
+        draw_mount_page(
+            self.draw,
+            self.display_class,
+            self.fonts,
+            self.colors,
+            self.snapshot.mount_status(),
+            self._mount_page_state,
+        )
+
+    def _key_feedback(self, number: int, text: str) -> None:
+        """Flash the key on the mount page; elsewhere show a short message."""
+        if self.object_display_mode == DM_MOUNT:
+            self._mount_page_state.press(number)
+        elif text:
+            self.message(text, 0.5)
 
     def _mount_command(self, command: dict) -> None:
         mount_queue = self.command_queues.get("mountcontrol")
@@ -798,10 +801,10 @@ class UIObjectDetails(UIModule):
             return
         if number == 0:
             self._mount_command({"type": "stop_movement"})
-            self.message(_("Stop mount"), 0.5)
+            self._key_feedback(number, _("Stop mount"))
         elif number == 1:
             self._mount_command({"type": "init"})
-            self.message(_("Init mount"), 0.5)
+            self._key_feedback(number, _("Init mount"))
         elif number == 5:
             # Catalog coordinates are J2000; the mount process converts them.
             self._mount_command(
@@ -812,19 +815,22 @@ class UIObjectDetails(UIModule):
                     "epoch": "J2000",
                 }
             )
-            self.message(_("Goto"), 0.5)
+            self._key_feedback(number, _("Goto"))
         elif number == 7:
             # Without coordinates the mount process syncs to the last solve.
             self._mount_command({"type": "sync"})
-            self.message(_("Sync mount"), 0.5)
+            self._key_feedback(number, _("Sync mount"))
         elif number == 3:
             self._mount_command({"type": "reduce_step_size"})
+            self._key_feedback(number, "")
         elif number == 9:
             self._mount_command({"type": "increase_step_size"})
+            self._key_feedback(number, "")
         elif number in MOUNT_MOVES:
             self._mount_command(
                 {"type": "manual_movement", "direction": MOUNT_MOVES[number]}
             )
+            self._key_feedback(number, "")
 
     def key_plus(self):
         if self.object_display_mode == DM_DESC:

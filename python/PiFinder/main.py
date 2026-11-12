@@ -501,6 +501,9 @@ def show_status_message(menu_manager, console, message) -> None:
     "MOUNT" (mount control progress)."""
     kind, text = str(message[0]), str(message[1])
     console.write(f"{kind}: {text}")
+    # The mount page shows mount progress in its status band.
+    if kind == "MOUNT" and getattr(menu_manager.stack[-1], "shows_mount_status", False):
+        return
     menu_manager.message(text, STATUS_MESSAGE_SECONDS.get(kind, 2.0))
 
 

@@ -56,6 +56,7 @@ import shutil
 import time
 from typing import Iterator
 from unittest import mock
+from unittest.mock import Mock
 
 
 import pytest
@@ -749,6 +750,13 @@ def test_object_details_mount_keys(display, camera_image, catalogs, sample_objec
     module.update()
     UIModule.snapshot = StateSnapshot()
     module.update()
+
+    # On the mount page a key flashes in the key map, with no message box.
+    module.message = Mock()
+    module.key_number(8)
+    assert module._mount_page_state.pressed_key == 8
+    module.message.assert_not_called()
+    assert module.shows_mount_status
 
 
 @pytest.mark.integration

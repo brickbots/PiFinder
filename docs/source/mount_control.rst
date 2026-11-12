@@ -88,10 +88,15 @@ Key          Action
 **3** **9**  Make the step smaller or larger.
 ===========  ==================================================================
 
-The first step is 20% of the eyepiece field of view.  Press the **square** key until
-the mount page shows.  Its first two lines show what the mount does now, for example
-**Slewing 12.4°** (the distance to the object) and **Step 14.6'**.  Below them is a
-reminder of the keys.  The **Mount** page of the web interface shows the same status.
+The first step is 20% of the eyepiece field of view.
+
+Press the **square** key until the mount page shows.  Its top band shows what the mount
+does now, for example **SLEWING 12.4°** with the distance to the object, the step size,
+and a bar that fills while the mount slews.  Below the band is a map of the keypad: each
+function is where its key is, with **GOTO** in the middle, the four directions around it
+and **STOP** across the bottom.  A key flashes when you press it.  On this page the
+progress messages do not pop up, because the band shows them; warnings still pop up.
+The **Mount** page of the web interface shows the same status.
 
 After each command, the PiFinder shows a short message: **Slewing**, **Target
 reached**, **Refining 1/3**, **On target**, **Mount synced**, **Mount stopped**, or
