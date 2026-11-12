@@ -460,7 +460,12 @@ def test_closed_loop_goto_refines_onto_the_target(indi: int) -> None:
         assert solve is not None
         assert abs((solve[0] - target[0] + 180) % 360 - 180) <= 0.01
         assert abs(solve[1] - target[1]) <= 0.01
-        assert sim.sync_ra == pytest.approx(1.5, abs=0.01)
+        # The refine synced the pointing error away. The location that the
+        # mount sends at start can also move the reported RA; the simulator
+        # counts that jump too if it already listens.
+        assert any(
+            jump == pytest.approx((1.5, -0.8), abs=0.01) for jump in sim.sync_jumps
+        ), sim.sync_jumps
     finally:
         mount.mount_queue.put({"type": "exit"})
         runner.join(timeout=10)
