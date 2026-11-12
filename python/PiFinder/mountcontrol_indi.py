@@ -14,6 +14,7 @@ drives the mount with the standard INDI telescope properties.
 """
 
 import logging
+import math
 import time
 from multiprocessing import Queue
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
@@ -558,6 +559,21 @@ class MountControlIndi(MountControlBase):
         if self.connection == "wifi":
             return self.address or "the driver address"
         return self.port
+
+    def move_mount_offset(
+        self, north: float, east: float, step_size_deg: float
+    ) -> bool:
+        """Move by one step in a sky direction, as a goto from the current
+        position. East is +RA; an RA step grows with 1/cos(Dec)."""
+        if self.current_ra is None or self.current_dec is None:
+            logger.error("Current mount position unknown, cannot move manually")
+            self.warn(_("No position"))
+            return False
+        dec = max(-90.0, min(90.0, self.current_dec + north * step_size_deg))
+        cos_dec = max(math.cos(math.radians(self.current_dec)), 1e-3)
+        ra = (self.current_ra + east * step_size_deg / cos_dec) % 360.0
+        logger.info("Move N %+.2f E %+.2f by %.5f°", north, east, step_size_deg)
+        return self._goto(ra, dec)
 
     def disconnect_mount(self) -> bool:
         if self.device is not None and self.client.is_connected():

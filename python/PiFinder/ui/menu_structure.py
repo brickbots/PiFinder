@@ -80,6 +80,18 @@ _mount_control_menu = {
             "items": _mount_items,
         },
         {
+            # What the direction keys and the arrows move to: the direction
+            # in the eyepiece view, or a fixed compass (N up, E left).
+            "name": _("Arrows"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control_arrows",
+            "items": [
+                {"name": _("Eyepiece view"), "value": "eyepiece"},
+                {"name": _("Compass"), "value": "compass"},
+            ],
+        },
+        {
             "name": _("Connection"),
             "class": UITextMenu,
             "select": "single",

@@ -387,6 +387,9 @@ Experimental
          Values: Off, On.
       Mount
          The mount model, by manufacturer, from the installed INDI drivers.
+      Arrows
+         Values: Eyepiece view (default), Compass.  What the direction keys and
+         the arrows move to on the mount page.
       Connection
          Values: USB, WiFi.
       WiFi Address

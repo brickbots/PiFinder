@@ -80,23 +80,42 @@ On an object's detail screen, the number keys control the mount:
 Key          Action
 ===========  ==================================================================
 **1**        Init: connect the mount again and sync it to the last plate solve.
-**5**        Goto the object on the screen.
+**5**        Goto the object on the screen, and open the mount page.
 **7**        Sync the mount to the last plate solve.
 **0**        Stop the mount.
-**8** **2**  Move north or south by one step.
-**4** **6**  Move west or east by one step.
+**8** **2**  Move up or down in the view by one step.
+**4** **6**  Move left or right in the view by one step.
 **3** **9**  Make the step smaller or larger.
 ===========  ==================================================================
 
-The first step is 20% of the eyepiece field of view.
+The first step is 20% of the eyepiece field of view.  One press moves the telescope by
+one step: with a step of 14.6', the object moves 14.6 arcminutes in the eyepiece.
 
-Press the **square** key until the mount page shows.  Its top band shows what the mount
+Directions
+   By default the direction keys follow the eyepiece view: **8** moves the telescope
+   towards what you see at the top of the eyepiece, and **4** towards what you see on
+   the left.  The PiFinder works out the view from the last plate solve and the
+   telescope's image settings (flip and flop), the same way it turns the object
+   images.  Before the first plate solve, and with the **Arrows** setting at
+   **Compass**, the keys use north up and east left.  The mount page shows which
+   compass direction each key moves to now, for example **↑ S**.
+
+A goto (**5**) opens the mount page.  You can also press the **square** key until it
+shows, or use the marking menu.  Its top band shows what the mount
 does now, for example **SLEWING 12.4°** with the distance to the object, the step size,
 and a bar that fills while the mount slews.  Below the band is a map of the keypad: each
 function is where its key is, with **GOTO** in the middle, the four directions around it
 and **STOP** across the bottom.  A key flashes when you press it.  On this page the
 progress messages do not pop up, because the band shows them; warnings still pop up.
 The **Mount** page of the web interface shows the same status.
+
+On the mount page the arrow keys (and the rev 4 joystick) move the mount like **8**,
+**2**, **4** and **6**.  So **LEFT** moves the mount there, and does not go back.  To
+leave the page, press the **square** key, or hold **LEFT** to go back to the top menu.
+
+Hold the **square** key on the mount page for its marking menu: **Reconnect**,
+**Settings** (the Mount Control settings), **Reset step** (back to 20% of the field)
+and the arrow mode (**Eyepiece** or **Compass**).
 
 When no mount is connected, the mount page is a connection screen instead.  It shows
 why the mount is not connected (for example **Mount not found** or **No INDI

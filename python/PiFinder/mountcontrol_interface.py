@@ -370,6 +370,27 @@ class MountControlBase:
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
+    def move_mount_offset(
+        self, north: float, east: float, step_size_deg: float
+    ) -> bool:
+        """Move by step_size_deg in the sky direction (north, east).
+        Override in subclasses."""
+        return False
+
+    def _move_mount_offset(
+        self, north: float, east: float, step_size_deg: float
+    ) -> bool:
+        success = self.move_mount_offset(north, east, step_size_deg)
+        if success:
+            if self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
+                self._reset_drift_compensation_data()
+            if self.state not in (
+                MountControlPhases.MOUNT_TRACKING,
+                MountControlPhases.MOUNT_DRIFT_COMPENSATION,
+            ):
+                self.state = MountControlPhases.MOUNT_TRACKING
+        return success
+
     def move_mount_manual(
         self, direction: MountDirections, step_size_deg: float
     ) -> bool:
@@ -836,6 +857,18 @@ class MountControlBase:
                         retry_count,
                     )
                     yield
+
+        elif command["type"] == "manual_movement" and "offset" in command:
+            # A move in any sky direction: (north, east) parts of a unit
+            # vector, from the eyepiece view. "label" names it on screen.
+            north, east = command["offset"]
+            step_size = command.get("step_size", self.step_size)
+            if not self._move_mount_offset(north, east, step_size):
+                logger.warning("Mount: Manual movement failed")
+                self.warn(_("Mount did not move!"))
+            else:
+                label = command.get("label", "")
+                self.notify(f"{label} {format_step(step_size)}".strip())
 
         elif command["type"] == "manual_movement":
             logger.debug("Mount: manual_movement command received")

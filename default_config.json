@@ -29,6 +29,7 @@
     "mount_control_baud": 9600,
     "mount_control_connection": "usb",
     "mount_control_address": "",
+    "mount_control_arrows": "eyepiece",
     "filter.selected_catalogs": [
         "NGC",
         "M",

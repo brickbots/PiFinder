@@ -25,13 +25,16 @@ from PiFinder.ui.ui_utils import (
 )
 from PiFinder import calc_utils
 from PiFinder.ui.mount_page import (
+    ARROW_KEYS,
     CONNECT_KEY,
     SETTINGS_KEY,
     MountPageState,
     MountSetup,
     draw_connect_page,
+    compass_letter,
     draw_mount_page,
     is_connected,
+    sky_directions,
 )
 import functools
 
@@ -80,7 +83,6 @@ DM_SDSS = 3  # Display mode for SDSS
 DM_CONTRAST = 4  # Display mode for Contrast Reserve explanation
 DM_MOUNT = 5  # Display mode for the mount control keys
 
-MOUNT_MOVES = {2: "south", 4: "west", 6: "east", 8: "north"}
 # Manual move step as a part of the true field of view.
 MOUNT_STEP_OF_TFOV = 0.2
 
@@ -107,7 +109,7 @@ class UIObjectDetails(UIModule):
         self._mount_page_state = MountPageState()
 
         # Marking Menu - Just default help for now
-        self.marking_menu = MarkingMenu(
+        self._object_marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
             right=MarkingMenuOption(),
             down=MarkingMenuOption(
@@ -120,6 +122,16 @@ class UIObjectDetails(UIModule):
                 ),
             ),
         )
+        # On the mount page: quick mount settings.
+        self._mount_marking_menu = MarkingMenu(
+            up=MarkingMenuOption(label=_("Reconnect"), callback=self.mm_reconnect),
+            left=MarkingMenuOption(
+                label=self._arrows_label(), callback=self.mm_toggle_arrows
+            ),
+            right=MarkingMenuOption(label=_("Settings"), menu_jump="mount_settings"),
+            down=MarkingMenuOption(label=_("Reset step"), callback=self.mm_reset_step),
+        )
+        self.marking_menu = self._object_marking_menu
 
         # Used for displaying observation counts
         self.observations_db = _obs_db()
@@ -604,6 +616,7 @@ class UIObjectDetails(UIModule):
             else:
                 # Mount control was turned off while the page was open.
                 self.object_display_mode = DM_LOCATE
+                self.marking_menu = self._object_marking_menu
 
         elif self.object_display_mode == DM_CONTRAST:
             # Display contrast reserve explanation page
@@ -685,10 +698,18 @@ class UIObjectDetails(UIModule):
         elif self.object_display_mode == DM_DESC:
             self.object_display_mode = DM_CONTRAST
         elif self.object_display_mode == DM_CONTRAST and self.mount_control:
-            self.object_display_mode = DM_MOUNT
-            self._mount_page_state.open()
+            self._open_mount_page()
+            return
         else:  # DM_CONTRAST, DM_MOUNT or any other mode
             self.object_display_mode = DM_LOCATE
+        self.marking_menu = self._object_marking_menu
+        self.update_object_info()
+        self.update()
+
+    def _open_mount_page(self) -> None:
+        self.object_display_mode = DM_MOUNT
+        self._mount_page_state.open()
+        self.marking_menu = self._mount_marking_menu
         self.update_object_info()
         self.update()
 
@@ -733,15 +754,34 @@ class UIObjectDetails(UIModule):
 
         return True
 
+    def _arrows_move_mount(self) -> bool:
+        """On the mount page with a connected mount, the arrows (and the rev 4
+        joystick) move the mount. Leave the page with the square key or a
+        long press of LEFT."""
+        return (
+            self.object_display_mode == DM_MOUNT
+            and self.mount_control
+            and is_connected(self.snapshot.mount_status())
+        )
+
     def key_down(self):
+        if self._arrows_move_mount():
+            self.key_number(2)
+            return
         self.maybe_add_to_recents()
         self.scroll_object(1)
 
     def key_up(self):
+        if self._arrows_move_mount():
+            self.key_number(8)
+            return
         self.maybe_add_to_recents()
         self.scroll_object(-1)
 
     def key_left(self):
+        if self._arrows_move_mount():
+            self.key_number(4)
+            return False
         self.maybe_add_to_recents()
         return True
 
@@ -750,6 +790,9 @@ class UIObjectDetails(UIModule):
         When right is pressed, move to
         logging screen
         """
+        if self._arrows_move_mount():
+            self.key_number(6)
+            return
         self.maybe_add_to_recents()
         if not self.snapshot.solution().has_pointing():
             return
@@ -793,6 +836,10 @@ class UIObjectDetails(UIModule):
         screen."""
         status = self.snapshot.mount_status()
         if is_connected(status):
+            letters = {
+                key: compass_letter(*move)
+                for key, move in self._sky_directions().items()
+            }
             draw_mount_page(
                 self.draw,
                 self.display_class,
@@ -800,6 +847,7 @@ class UIObjectDetails(UIModule):
                 self.colors,
                 status,
                 self._mount_page_state,
+                letters=letters,
             )
         else:
             draw_connect_page(
@@ -864,6 +912,9 @@ class UIObjectDetails(UIModule):
                 }
             )
             self._key_feedback(number, _("Goto"))
+            # Watch the slew and correct it on the mount page.
+            if self.object_display_mode != DM_MOUNT:
+                self._open_mount_page()
         elif number == 7:
             # Without coordinates the mount process syncs to the last solve.
             self._mount_command({"type": "sync"})
@@ -874,11 +925,53 @@ class UIObjectDetails(UIModule):
         elif number == 9:
             self._mount_command({"type": "increase_step_size"})
             self._key_feedback(number, "")
-        elif number in MOUNT_MOVES:
+        elif number in ARROW_KEYS:
+            north, east = self._sky_directions()[number]
             self._mount_command(
-                {"type": "manual_movement", "direction": MOUNT_MOVES[number]}
+                {
+                    "type": "manual_movement",
+                    "offset": (north, east),
+                    "label": compass_letter(north, east),
+                }
             )
             self._key_feedback(number, "")
+
+    def _sky_directions(self) -> dict[int, tuple[float, float]]:
+        """The sky move of each direction key, from the arrow setting, the
+        solve roll and the telescope's mirrors."""
+        solution = self.snapshot.solution()
+        roll = None
+        if solution and solution.has_pointing():
+            roll = solution.pointing.aligned.estimate.Roll
+        flip, flop = self.config_object.equipment.active_telescope_image_orientation()
+        mode = self.config_object.get_option("mount_control_arrows", "eyepiece")
+        return sky_directions(mode, roll, flip, flop)
+
+    def _arrows_label(self) -> str:
+        if self.config_object.get_option("mount_control_arrows", "eyepiece") == (
+            "compass"
+        ):
+            return _("Compass")
+        return _("Eyepiece")
+
+    def mm_toggle_arrows(self, _marking_menu, menu_item) -> bool:
+        """Switch the arrows between the eyepiece view and the compass."""
+        current = self.config_object.get_option("mount_control_arrows", "eyepiece")
+        new = "compass" if current == "eyepiece" else "eyepiece"
+        self.config_object.set_option("mount_control_arrows", new)
+        menu_item.label = self._arrows_label()
+        self.message(_("Arrows: {mode}").format(mode=menu_item.label), 1)
+        return True
+
+    def mm_reset_step(self, _marking_menu, _menu_item) -> bool:
+        self.set_mount_step_from_fov()
+        self.message(_("Step reset"), 1)
+        return True
+
+    def mm_reconnect(self, _marking_menu, _menu_item) -> bool:
+        self._mount_command({"type": "init"})
+        self.message(_("Reconnecting"), 1)
+        return True
 
     def key_plus(self):
         if self.object_display_mode == DM_DESC:

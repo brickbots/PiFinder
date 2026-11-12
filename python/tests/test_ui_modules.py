@@ -706,7 +706,8 @@ def test_object_details_mount_keys(display, camera_image, catalogs, sample_objec
     assert mount_queue.empty()
 
     cfg.set_option("mount_control", True)
-    for number in range(10):
+    # 5 (GOTO) last: it opens the mount page.
+    for number in (0, 1, 2, 3, 4, 6, 7, 8, 9, 5):
         module.key_number(number)
     commands = []
     while not mount_queue.empty():
@@ -722,8 +723,16 @@ def test_object_details_mount_keys(display, camera_image, catalogs, sample_objec
     assert {"init", "stop_movement", "reduce_step_size", "increase_step_size"} <= set(
         by_type
     )
-    moves = [c["direction"] for c in commands if c["type"] == "manual_movement"]
-    assert sorted(moves) == ["east", "north", "south", "west"]
+    moves = [c["label"] for c in commands if c["type"] == "manual_movement"]
+    assert sorted(moves) == ["E", "N", "S", "W"]
+
+    # GOTO (5) opens the mount page to watch the slew.
+    module.object_display_mode = object_details.DM_LOCATE
+    module.key_number(5)
+    assert module.object_display_mode == object_details.DM_MOUNT
+    module.cycle_display_mode()
+    assert module.object_display_mode == object_details.DM_LOCATE
+    assert module.marking_menu is module._object_marking_menu
 
     # The square key reaches the mount key page, and it renders.
     for _step in range(6):
@@ -775,6 +784,21 @@ def test_object_details_mount_keys(display, camera_image, catalogs, sample_objec
     assert module._mount_page_state.pressed_key == 8
     module.message.assert_not_called()
     assert module.shows_mount_status
+
+    # On the mount page the arrows move the mount; LEFT does not go back.
+    mount_queue.queue.clear()
+    module.key_up()
+    module.key_right()
+    assert module.key_left() is False
+    module.key_down()
+    sent = [c for c in mount_queue.queue if c["type"] == "manual_movement"]
+    assert len(sent) == 4
+    # The mount page has its own marking menu with the quick settings.
+    assert module.marking_menu.right.menu_jump == "mount_settings"
+    left = module.marking_menu.left
+    before = cfg.get_option("mount_control_arrows", "eyepiece")
+    left.callback(module.marking_menu, left)
+    assert cfg.get_option("mount_control_arrows") != before
 
     # Mount control turned off while the page is open: back to LOCATE.
     cfg.set_option("mount_control", False)

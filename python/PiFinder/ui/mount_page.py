@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
+from PiFinder.cat_images import cardinal_vectors
 from PiFinder.types.mount import MountStatus, format_step
 
 if TYPE_CHECKING:
@@ -39,6 +40,10 @@ ICON_SETTINGS = "\uf013"
 # Keys of the connection screen.
 CONNECT_KEY = 1
 SETTINGS_KEY = 2
+
+# The direction keys: number key -> screen direction (x right, y down).
+ARROW_KEYS = {8: (0.0, -1.0), 2: (0.0, 1.0), 4: (-1.0, 0.0), 6: (1.0, 0.0)}
+ARROW_ICONS = {8: ICON_UP, 2: ICON_DOWN, 4: ICON_LEFT, 6: ICON_RIGHT}
 
 # Key -> (row, column) on the keypad. 0 spans the bottom row.
 KEY_CELLS = {
@@ -67,17 +72,21 @@ _MOVE_KEYS = (2, 3, 4, 5, 6, 7, 8, 9, 0)
 _MOVING_PHASES = ("MOUNT_TARGET_ACQUISITION_MOVE", "MOUNT_TARGET_ACQUISITION_REFINE")
 
 
-def key_labels(connected: bool = True) -> dict[int, tuple[str, str]]:
-    """Key -> (icon, label). The labels are short: a cell is about 40 px."""
+def key_labels(
+    connected: bool = True, letters: Optional[dict[int, str]] = None
+) -> dict[int, tuple[str, str]]:
+    """Key -> (icon, label). The labels are short: a cell is about 40 px.
+    ``letters`` is the compass point each direction key moves to now."""
+    letters = letters or {8: _("N"), 2: _("S"), 4: _("W"), 6: _("E")}
     return {
         7: (ICON_SYNC, _("Sync")),
-        8: (ICON_UP, _("N")),
+        8: (ICON_UP, letters[8]),
         9: (ICON_PLUS, _("Step")),
-        4: (ICON_LEFT, _("W")),
+        4: (ICON_LEFT, letters[4]),
         5: (ICON_GOTO, _("GOTO")),
-        6: (ICON_RIGHT, _("E")),
+        6: (ICON_RIGHT, letters[6]),
         1: (ICON_INIT, _("Init") if connected else _("Connect")),
-        2: (ICON_DOWN, _("S")),
+        2: (ICON_DOWN, letters[2]),
         3: (ICON_MINUS, _("Step")),
         STOP_KEY: (ICON_STOP, _("STOP")),
     }
@@ -107,6 +116,34 @@ class MountPageState:
 
     def showing_numbers(self, now: float) -> bool:
         return now - self.opened_at < KEY_NUMBERS_S
+
+
+def sky_directions(
+    mode: str, roll: Optional[float], flip: bool, flop: bool
+) -> dict[int, tuple[float, float]]:
+    """For each direction key, the move on the sky as (north, east) parts.
+
+    "eyepiece": a key moves towards what is in that direction of the
+    eyepiece view (8 brings the sky at the top of the view to the centre).
+    The view is the POSS image orientation of Object Details: 180° plus the
+    solve roll, then the telescope's flip and flop (ADR 0003).
+    "compass", or no roll yet: north up and east left.
+    """
+    if mode == "eyepiece" and roll is not None:
+        n, e = cardinal_vectors(180.0 + roll, -1 if flop else 1, -1 if flip else 1)
+    else:
+        n, e = (0.0, -1.0), (-1.0, 0.0)
+    return {
+        key: (dx * n[0] + dy * n[1], dx * e[0] + dy * e[1])
+        for key, (dx, dy) in ARROW_KEYS.items()
+    }
+
+
+def compass_letter(north: float, east: float) -> str:
+    """The compass point nearest to a (north, east) move."""
+    if abs(north) >= abs(east):
+        return _("N") if north > 0 else _("S")
+    return _("E") if east > 0 else _("W")
 
 
 def is_connected(status: Optional[MountStatus], now: Optional[float] = None) -> bool:
@@ -218,6 +255,7 @@ def draw_mount_page(
     status: Optional[MountStatus],
     state: MountPageState,
     now: Optional[float] = None,
+    letters: Optional[dict[int, str]] = None,
 ) -> None:
     now = time.time() if now is None else now
     width = display_class.resX
@@ -265,7 +303,7 @@ def draw_mount_page(
     rows = 4
     cell_h = (height - y - gap * (rows - 1)) // rows
     cell_w = (width - gap * 2) // 3
-    labels = key_labels(connected)
+    labels = key_labels(connected, letters)
     numbers = state.showing_numbers(now)
     # The next step is the highlighted key: GOTO, or Connect without a mount.
     primary_key = 5 if connected else 1
