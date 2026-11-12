@@ -16,10 +16,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from PiFinder import indi_drivers
+from PiFinder import indi_drivers, satellites
 from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_indi import POSITION, MountControlIndi
-from PiFinder.mountcontrol_interface import MountControlPhases
+from PiFinder.mountcontrol_interface import MountControlPhases, angular_distance
+from PiFinder.satellite_follow import FollowPoint, FollowStage, SatelliteFollow
 from PiFinder.sky_sim import SkySimSettings, SkySimulator
 from PiFinder.types.positioning import (
     PointingAxis,
@@ -527,6 +528,105 @@ def test_continuous_move_north_until_stop(indi: int) -> None:
         time.sleep(1.5)
         dec_later = mount.client.get_value(mount.device, POSITION, "DEC")
         assert dec_later == pytest.approx(dec_stopped, abs=0.01)
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def _follow_rates(mount, ra_rate: float, dec_rate: float, seconds: float):
+    """Set the rates once a second, as the satellite follow does, and return
+    the rates measured in the last two seconds."""
+    end = time.time() + seconds
+    while time.time() < end - 2.0:
+        assert mount.set_track_rates(ra_rate, dec_rate)
+        time.sleep(1.0)
+    start = (time.time(), mount.current_ra, mount.current_dec)
+    assert mount.set_track_rates(ra_rate, dec_rate)
+    time.sleep(2.0)
+    elapsed = time.time() - start[0]
+    return (
+        ((mount.current_ra - start[1] + 540) % 360 - 180) / elapsed,
+        (mount.current_dec - start[2]) / elapsed,
+    )
+
+
+def test_satellite_track_rates_move_the_mount_at_those_rates(indi: int) -> None:
+    """set_track_rates gives absolute RA/Dec rates in both directions; it
+    learns the sign convention of the driver from the motion."""
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        assert mount.move_mount_to_target(40.0, 10.0)
+        assert _wait(lambda: mount.target_reached, 60)
+        ra_rate, dec_rate = _follow_rates(mount, 0.05, 0.02, 10.0)
+        assert ra_rate == pytest.approx(0.05, abs=0.01)
+        assert dec_rate == pytest.approx(0.02, abs=0.01)
+        ra_rate, dec_rate = _follow_rates(mount, -0.05, -0.02, 8.0)
+        assert ra_rate == pytest.approx(-0.05, abs=0.01)
+        assert dec_rate == pytest.approx(-0.02, abs=0.01)
+        mount.restore_sidereal_tracking()
+        assert _wait(
+            lambda: mount.client.get_value(
+                mount.device, "TELESCOPE_TRACK_MODE", "TRACK_SIDEREAL"
+            )
+            is True,
+            5,
+        )
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def test_follow_a_moving_target_end_to_end(indi: int, monkeypatch) -> None:
+    """The satellite follow with the simulator: aim ahead, wait, then track a
+    target that moves 0.03°/s in RA and 0.01°/s in Dec."""
+    t0 = time.time()
+
+    def point(_self, unix_time: float) -> FollowPoint:
+        seconds = unix_time - t0
+        return FollowPoint(
+            ra=(60.0 + 0.03 * seconds) % 360.0,
+            dec=20.0 + 0.01 * seconds,
+            ra_rate=0.03,
+            dec_rate=0.01,
+            alt=45.0,
+        )
+
+    monkeypatch.setattr(SatelliteFollow, "point", point)
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        mount.state = MountControlPhases.MOUNT_TRACKING
+        element = satellites.parse_elements(
+            (Path(__file__).parent / "data" / "satellites" / "25544.3le").read_text()
+        )[0][0]
+        for _step in mount._process_command(
+            {
+                "type": "follow_satellite",
+                "name": "TEST",
+                "line1": element.line1,
+                "line2": element.line2,
+            }
+        ):
+            pass
+        assert mount.state == MountControlPhases.MOUNT_SATELLITE_FOLLOW
+        follow = mount._follow
+        tracking_since = None
+        deadline = time.time() + 120
+        while time.time() < deadline:
+            mount._follow_step(time.time())
+            if follow.stage == FollowStage.TRACK and tracking_since is None:
+                tracking_since = time.time()
+            if tracking_since and time.time() - tracking_since > 10:
+                break
+            time.sleep(0.1)
+        assert tracking_since is not None, follow.stage
+        target = point(None, mount.current_time)
+        error = angular_distance(
+            mount.current_ra, mount.current_dec, target.ra, target.dec
+        )
+        assert error < 0.1
+        assert mount._follow is follow and follow.aim_count <= 2
     finally:
         mount.disconnect_mount()
         indi_drivers.stop_driver()

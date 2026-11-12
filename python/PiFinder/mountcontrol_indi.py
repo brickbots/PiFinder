@@ -59,6 +59,21 @@ SLEW_TIMEOUT_S = 300.0
 MOTION_AXIS_THRESHOLD = 0.38
 # Time for the driver to define CONNECTION_MODE after DRIVER_INFO.
 CONNECTION_MODE_WAIT_S = 3.0
+# The sidereal rate of TELESCOPE_TRACK_RATE, in arcseconds per second. With
+# TRACK_RATE_RA at this value the RA of the mount does not change.
+SIDEREAL_RATE_ARCSEC_S = 15.041067
+# The sign check of the custom track rates needs this much motion.
+RATE_CHECK_MIN_S = 1.5
+RATE_CHECK_MIN_DEG_S = 0.002
+
+
+def _moved_against(moved_deg_s: float, requested_deg_s: float) -> bool:
+    """The axis moved clearly in the direction opposite to the request."""
+    return (
+        abs(requested_deg_s) >= RATE_CHECK_MIN_DEG_S
+        and abs(moved_deg_s) >= abs(requested_deg_s) / 2.0
+        and (moved_deg_s > 0) != (requested_deg_s > 0)
+    )
 
 
 class MountControlIndi(MountControlBase):
@@ -109,6 +124,12 @@ class MountControlIndi(MountControlBase):
         self._slew_target: Optional[Tuple[float, float]] = None
         # The track mode is Custom after a drift compensation.
         self._custom_tracking = False
+        # The signs of the custom track rates of this driver (set_track_rates).
+        self._ra_rate_sign = -1.0
+        self._dec_rate_sign = 1.0
+        self._rate_sample: Optional[tuple] = None
+        self._ra_against = 0
+        self._dec_against = 0
 
         self.available_slew_rates: List[str] = []
 
@@ -529,6 +550,104 @@ class MountControlIndi(MountControlBase):
                 "TRACK_RATE_DE": dec_rate + drift_rate_adjustment_dec * 3600.0,
             },
         )
+
+    def set_track_rates(self, ra_rate_deg_s: float, dec_rate_deg_s: float) -> bool:
+        """Track a moving object: RA and Dec change at these rates (JNow).
+
+        INDI applies TELESCOPE_TRACK_RATE only in the TRACK_CUSTOM mode. The
+        sign of the rates differs between drivers: in the telescope
+        simulator a TRACK_RATE_RA above sidereal makes the RA decrease, and a
+        positive TRACK_RATE_DE makes the Dec decrease. Each call compares the
+        motion since the last call with the rates of that call, and turns
+        the sign of an axis that moved the wrong way. A mount without
+        TRACK_CUSTOM, or one that refuses the rates, returns False.
+        """
+        if self.device is None:
+            return False
+        if (
+            self.client.get_value(self.device, "TELESCOPE_TRACK_MODE", "TRACK_CUSTOM")
+            is None
+        ):
+            return False
+        if not self._custom_tracking:
+            if not self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"):
+                return False
+            self._custom_tracking = True
+            self._rate_sample = None
+        self._check_rate_signs()
+        values = {
+            "TRACK_RATE_RA": SIDEREAL_RATE_ARCSEC_S
+            + self._ra_rate_sign * ra_rate_deg_s * 3600.0,
+            "TRACK_RATE_DE": self._dec_rate_sign * dec_rate_deg_s * 3600.0,
+        }
+        current = self.client.get_value(
+            self.device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_RA"
+        )
+        reverse = isinstance(current, float) and (current < 0) != (
+            values["TRACK_RATE_RA"] < 0
+        )
+        if reverse and self._has("TELESCOPE_TRACK_STATE"):
+            # INDI refuses to reverse an axis while tracking is on.
+            self._set_switch("TELESCOPE_TRACK_STATE", "TRACK_OFF")
+        ok = self._set_number("TELESCOPE_TRACK_RATE", values)
+        if reverse and self._has("TELESCOPE_TRACK_STATE"):
+            self._set_switch("TELESCOPE_TRACK_STATE", "TRACK_ON")
+        if reverse or not ok:
+            # The motion right after a reversal tells nothing about the sign.
+            self._rate_sample = None
+        elif self._rate_sample is None and self.current_ra is not None:
+            self._rate_sample = (
+                self.current_time,
+                self.current_ra,
+                self.current_dec,
+                ra_rate_deg_s,
+                dec_rate_deg_s,
+            )
+        return ok
+
+    def _check_rate_signs(self) -> None:
+        """Turn the sign of an axis that moved against the requested rate.
+
+        The motion is measured between two position reports of the driver,
+        over at least RATE_CHECK_MIN_S. An axis turns its sign after two
+        such measurements in a row against the request.
+        """
+        sample = self._rate_sample
+        if sample is None or self.current_ra is None or self.current_dec is None:
+            return
+        start, ra0, dec0, ra_rate, dec_rate = sample
+        seconds = self.current_time - start
+        if seconds < RATE_CHECK_MIN_S:
+            return
+        self._rate_sample = None
+        ra_moved = ((self.current_ra - ra0 + 540.0) % 360.0 - 180.0) / seconds
+        dec_moved = (self.current_dec - dec0) / seconds
+        self._ra_against = (
+            self._ra_against + 1 if _moved_against(ra_moved, ra_rate) else 0
+        )
+        self._dec_against = (
+            self._dec_against + 1 if _moved_against(dec_moved, dec_rate) else 0
+        )
+        if self._ra_against >= 2:
+            self._ra_rate_sign = -self._ra_rate_sign
+            self._ra_against = 0
+            logger.info("RA track rate sign of this driver: %+.0f", self._ra_rate_sign)
+        if self._dec_against >= 2:
+            self._dec_rate_sign = -self._dec_rate_sign
+            self._dec_against = 0
+            logger.info(
+                "Dec track rate sign of this driver: %+.0f", self._dec_rate_sign
+            )
+
+    def restore_sidereal_tracking(self) -> None:
+        if self.device is None or not self._custom_tracking:
+            return
+        self._set_number(
+            "TELESCOPE_TRACK_RATE",
+            {"TRACK_RATE_RA": SIDEREAL_RATE_ARCSEC_S, "TRACK_RATE_DE": 0.0},
+        )
+        self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_SIDEREAL")
+        self._custom_tracking = False
 
     def move_mount_manual(
         self, direction: MountDirections, step_size_deg: float

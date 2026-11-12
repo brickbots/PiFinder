@@ -6,6 +6,8 @@ This module contains all the UI code for the object details screen
 
 """
 
+from typing import Optional
+
 from PiFinder.object_images import get_display_image
 from PiFinder.object_images.image_base import ImageType
 from PiFinder.object_images.image_utils import (
@@ -1820,16 +1822,23 @@ class UIObjectDetails(UIModule):
             self._mount_command({"type": "init"})
             self._key_feedback(number, _("Init mount"))
         elif number == 5:
-            # Catalog coordinates are J2000; the mount process converts them.
-            self._mount_command(
-                {
-                    "type": "goto_target",
-                    "ra": self.object.ra,
-                    "dec": self.object.dec,
-                    "epoch": "J2000",
-                }
-            )
-            self._key_feedback(number, _("Goto"))
+            follow = self._satellite_follow_command()
+            if follow is not None:
+                # The mount process computes the satellite position itself,
+                # ten times a second.
+                self._mount_command(follow)
+                self._key_feedback(number, _("Follow"))
+            else:
+                # Catalog coordinates are J2000; the mount process converts them.
+                self._mount_command(
+                    {
+                        "type": "goto_target",
+                        "ra": self.object.ra,
+                        "dec": self.object.dec,
+                        "epoch": "J2000",
+                    }
+                )
+                self._key_feedback(number, _("Goto"))
             # Watch the slew and correct it on the mount page.
             if self.object_display_mode != DM_MOUNT:
                 self._open_mount_page()
@@ -1853,6 +1862,23 @@ class UIObjectDetails(UIModule):
                 }
             )
             self._key_feedback(number, "")
+
+    def _satellite_follow_command(self) -> Optional[dict]:
+        """The follow_satellite command for a satellite object, else None."""
+        if not satellite_catalog.is_satellite(self.object):
+            return None
+        catalog = satellite_catalog.active_catalog()
+        tracked = catalog.tracked(self.object.sequence) if catalog else None
+        if tracked is None:
+            return None
+        elements = tracked.elements
+        return {
+            "type": "follow_satellite",
+            "norad_id": elements.norad_id,
+            "name": elements.name,
+            "line1": elements.line1,
+            "line2": elements.line2,
+        }
 
     def _sky_directions(self) -> dict[int, tuple[float, float]]:
         """The sky move of each direction key, from the arrow setting, the
