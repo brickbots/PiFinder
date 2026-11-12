@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row valign-wrapper" style="margin: 0px;">
+  <div class="col s12">
+    <h3 class="grey-text">{{ sat['name'] }}</h3>
+    <p class="grey-text"><a href="/satellites">{{ _('All satellites') }}</a></p>
+  </div>
+</div>
+
+<div class="card grey darken-2">
+  <div class="card-content grey-text">
+    <table class="grey-text">
+      <tr><td>NORAD</td><td>{{ sat['norad_id'] }}</td></tr>
+      <tr><td>{{ _('Source') }}</td><td>{% if sat['source'] == 'user' %}{{ _('Web entry') }}{% else %}CelesTrak{% endif %}</td></tr>
+      <tr><td>{{ _('Epoch') }}</td><td>{{ sat['epoch'] }} ({{ '%.1f' | format(sat['age_days']) }} d)</td></tr>
+      <tr><td>{{ _('Standard magnitude') }}</td><td>{{ '%.1f' | format(sat['std_mag']) }}</td></tr>
+      {% if sat['now'] %}
+      <tr><td>{{ _('Now') }}</td><td>
+        {{ _('alt') }} {{ sat['now']['alt'] | round(1) }}° {{ _('az') }} {{ sat['now']['az'] | round(1) }}° {{ sat['now']['dir'] }},
+        {{ sat['now']['range_km'] | round | int }} km,
+        {% if sat['now']['alt'] < 0 %}{{ _('below the horizon') }}{% elif sat['now']['mag'] is not none %}{{ _('mag') }} {{ '%.1f' | format(sat['now']['mag']) }}{% else %}{{ _('in Earth shadow') }}{% endif %},
+        {{ '%.1f' | format(sat['now']['rate_arcmin_s']) }}'/s
+      </td></tr>
+      {% else %}
+      <tr><td>{{ _('Now') }}</td><td>{{ _('The PiFinder has no location yet.') }}</td></tr>
+      {% endif %}
+    </table>
+    <pre style="font-size: 0.8em; overflow-x: auto;">{{ sat['line1'] }}
+{{ sat['line2'] }}</pre>
+    <form action="/satellites/show/{{ sat['norad_id'] }}" method="post">
+      <button type="submit" class="btn">{{ _('Show on PiFinder') }}</button>
+    </form>
+  </div>
+</div>
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('Passes in the next 3 days') }}</h5>
+    {% if sat['passes'] %}
+    <table class="grey-text striped responsive-table" id="satellite_pass_table">
+      <thead>
+        <tr>
+          <th>{{ _('Rise') }}</th><th>{{ _('Highest') }}</th><th>{{ _('Set') }}</th>
+          <th>{{ _('Visible') }}</th><th>{{ _('Mag') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in sat['passes'] %}
+        <tr class="{% if not p['visible'] %}grey-text text-darken-1{% endif %}">
+          <td>{{ p['rise_local'] }} {{ p['rise_dir'] }}</td>
+          <td>{{ p['culmination_local'] }} {{ p['max_alt'] | round | int }}° {{ p['max_dir'] }}</td>
+          <td>{{ p['set_local'] }} {{ p['set_dir'] }}</td>
+          <td>{% if p['visible'] %}{{ p['visible_start_local'][4:] }} - {{ p['visible_end_local'][4:] }}{% else %}-{% endif %}</td>
+          <td>{% if p['min_mag'] is not none %}{{ '%.1f' | format(p['min_mag']) }}{% else %}-{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="grey-text">{{ _('No passes above 10° in the next 3 days.') }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -39,6 +39,7 @@ COLUMNS = (
     "listing_key",
     "earth_distance_au",
     "opposition_ordinal",
+    "next_pass_ts",
 )
 
 # Column values for an object without a distance or an opposition date, so
@@ -101,6 +102,9 @@ class ListSource:
                 [NO_OPPOSITION if d is None else d.toordinal() for d in dates],
                 dtype=np.int64,
             )
+        if name == "next_pass_ts":
+            times = (getattr(obj, "next_pass_ts", None) for obj in objects)
+            return np.array([np.inf if t is None else t for t in times], dtype=float)
         raise KeyError(name)
 
 

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row valign-wrapper" style="margin: 0px;">
+  <div class="col s12">
+    <h3 class="grey-text">{{ _('Satellites') }}</h3>
+  </div>
+</div>
+
+{% if status_message %}
+<div class="row"><div class="col s12"><p class="grey-text"><b>{{ status_message }}</b></p></div></div>
+{% endif %}
+{% if error_message %}
+<div class="row"><div class="col s12"><p class="red-text">{{ error_message }}</p></div></div>
+{% endif %}
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">
+      {% if show_all %}{{ _('All passes') }}{% else %}{{ _('Visible passes') }}{% endif %}
+    </h5>
+    {% if cache %}
+    <p class="grey-text">
+      {{ _('Computed') }} {{ cache['computed'][:16] | replace('T', ' ') }} UTC,
+      {{ _('times in') }} {{ cache['timezone'] }},
+      {{ _('above') }} {{ cache['min_alt'] | int }}°.
+      {% if max_mag is not none %}{{ _('Brighter than magnitude') }} {{ max_mag }}.{% endif %}
+      {% if show_all %}
+      <a href="/satellites">{{ _('Show bright visible passes') }}</a>
+      {% else %}
+      <a href="/satellites?maxmag=99">{{ _('Show all visible passes') }}</a> ·
+      <a href="/satellites?all=1">{{ _('Show all passes') }}</a>
+      {% endif %}
+    </p>
+    {% if passes %}
+    <table class="grey-text striped responsive-table" id="pass_table">
+      <thead>
+        <tr>
+          <th>{{ _('Satellite') }}</th>
+          <th>{{ _('Rise') }}</th>
+          <th>{{ _('Highest') }}</th>
+          <th>{{ _('Set') }}</th>
+          <th>{{ _('Visible') }}</th>
+          <th>{{ _('Mag') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in passes %}
+        <tr>
+          <td><a href="/satellites/{{ p['norad_id'] }}">{{ p['name'] }}</a></td>
+          <td>{{ p['rise_local'] }} {{ p['rise_dir'] }}</td>
+          <td>{{ p['culmination_local'] }} {{ p['max_alt'] | round | int }}° {{ p['max_dir'] }}</td>
+          <td>{{ p['set_local'] }} {{ p['set_dir'] }}</td>
+          <td>{% if p['visible'] %}{{ p['visible_start_local'][4:] }} - {{ p['visible_end_local'][4:] }}{% else %}-{% endif %}</td>
+          <td>{% if p['min_mag'] is not none %}{{ '%.1f' | format(p['min_mag']) }}{% else %}-{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="grey-text">{{ _('No passes in the next 24 hours.') }}</p>
+    {% endif %}
+    {% else %}
+    <p class="grey-text">{{ _('No predictions yet. The PiFinder needs a location and the element sets. The first prediction can take a minute.') }}</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('Add satellites') }}</h5>
+    <p class="grey-text">{{ _('Paste element sets in any of these formats: TLE with or without a name line, or OMM as JSON, CSV, XML or KVN (CelesTrak, Space-Track). You can also upload a file, or give a NORAD number to get the current elements from CelesTrak.') }}</p>
+    <form action="/satellites/add" method="post" enctype="multipart/form-data" id="satellite_add_form">
+      <div class="row">
+        <div class="input-field col s12">
+          <textarea id="elements" name="elements" class="materialize-textarea grey-text" style="font-family: monospace;"></textarea>
+          <label for="elements">{{ _('Element sets') }}</label>
+        </div>
+        <div class="input-field col s12 m6">
+          <input id="name" name="name" type="text" class="grey-text">
+          <label for="name">{{ _('Name (optional, for one element set)') }}</label>
+        </div>
+        <div class="input-field col s12 m4">
+          <input id="norad" name="norad" type="number" min="1" class="grey-text">
+          <label for="norad">{{ _('NORAD number (optional)') }}</label>
+        </div>
+        <div class="input-field col s12 m2">
+          <input id="std_mag" name="std_mag" type="number" step="0.1" class="grey-text">
+          <label for="std_mag">{{ _('Standard magnitude (optional)') }}</label>
+        </div>
+        <div class="file-field input-field col s12">
+          <div class="btn"><span>{{ _('File') }}</span><input type="file" name="file"></div>
+          <div class="file-path-wrapper"><input class="file-path grey-text" type="text"></div>
+        </div>
+      </div>
+      <div class="card-action">
+        <button type="submit" class="btn">{{ _('Add') }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('Your satellites') }}</h5>
+    {% if user_satellites %}
+    <table class="grey-text striped" id="user_satellite_table">
+      <thead>
+        <tr><th>{{ _('Name') }}</th><th>NORAD</th><th>{{ _('Epoch') }}</th><th>{{ _('Age') }}</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for s in user_satellites %}
+        <tr>
+          <td><a href="/satellites/{{ s['norad_id'] }}">{{ s['name'] }}</a></td>
+          <td>{{ s['norad_id'] }}</td>
+          <td>{{ s['epoch'] }}</td>
+          <td class="{% if s['too_old'] %}red-text{% endif %}">{{ '%.1f' | format(s['age_days']) }} d</td>
+          <td>
+            <form action="/satellites/delete/{{ s['norad_id'] }}" method="post" style="display:inline;">
+              <button type="submit" class="btn-flat grey-text" title="{{ _('Delete') }}"><i class="material-icons">delete</i></button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="grey-text">{{ _('Element sets older than 30 days are not used.') }}</p>
+    {% else %}
+    <p class="grey-text">{{ _('None yet.') }}</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('Downloaded element sets') }}</h5>
+    <p class="grey-text">{{ _('The PiFinder gets the CelesTrak groups of the brightest satellites and of the space stations every 12 hours when it has internet.') }}</p>
+    <table class="grey-text">
+      {% for g in groups %}
+      <tr>
+        <td>{{ g['group'] }}</td>
+        <td>{{ g['count'] }} {{ _('objects') }}</td>
+        <td>{% if g['age_hours'] is not none %}{{ g['age_hours'] | round(1) }} h {{ _('old') }}{% else %}{{ _('not downloaded') }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    <form action="/satellites/refresh" method="post">
+      <div class="card-action">
+        <button type="submit" class="btn">{{ _('Download now') }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

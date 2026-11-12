@@ -31,6 +31,7 @@ from PiFinder.ui.ui_utils import (
     draw_pointing_instructions,
 )
 from PiFinder import calc_utils
+from PiFinder import satellite_catalog
 import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
@@ -81,6 +82,8 @@ DM_IMAGE = 2  # Display mode for images (POSS or Gaia chart)
 DM_POSS = 2  # Display mode for POSS (alias of DM_IMAGE)
 DM_SDSS = 3  # Display mode for SDSS
 DM_CONTRAST = 4  # Display mode for Contrast Reserve explanation
+# Seconds between position updates of a satellite on the screen.
+SATELLITE_UPDATE_SECONDS = 0.2
 
 
 class EyepieceInput:
@@ -155,6 +158,7 @@ class UIObjectDetails(UIModule):
         super().__init__(*args, **kwargs)
 
         self.contrast = None
+        self._satellite_update_time = 0.0
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
         self._chart_gen = None  # Cached chart generator instance
@@ -1207,10 +1211,28 @@ class UIObjectDetails(UIModule):
         else:
             logger.warning(f">>> Invalid focal length: {focal_length}mm, not applying")
 
+    def _follow_satellite(self) -> None:
+        """A satellite moves up to a degree per second: move the object to
+        its position now, so the pointing arrows follow it."""
+        if not satellite_catalog.is_satellite(self.object):
+            return
+        now = time.time()
+        if now - self._satellite_update_time < SATELLITE_UPDATE_SECONDS:
+            return
+        self._satellite_update_time = now
+        dt = self.snapshot.datetime()
+        if dt is None:
+            return
+        radec = satellite_catalog.live_radec(self.object, dt)
+        if radec is not None:
+            self.object.ra, self.object.dec = radec
+
     def update(self, force=True):
         import logging
 
         logger = logging.getLogger("ObjectDetails")
+
+        self._follow_satellite()
 
         # Check for eyepiece input timeout
         if self.eyepiece_input_display and self.eyepiece_input.is_complete():

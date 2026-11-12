@@ -267,6 +267,7 @@ module = [
     'adafruit_extended_bus',
     'scipy.*',
     'luma.*',
+    'sgp4.*',
     'skyfield.*',
     'sh.*',
     'sklearn.*',

@@ -37,6 +37,7 @@
         "PL",
         "CM",
         "MP",
+        "SA",
         "RDS"
     ],
     "filter.object_types": [
@@ -55,7 +56,8 @@
         "?",
         "Pla",
         "CM",
-        "AS"
+        "AS",
+        "Sat"
     ],
     "filter.constellations": [
         "And",
