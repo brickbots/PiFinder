@@ -461,7 +461,12 @@ def test_closed_loop_goto_refines_onto_the_target(indi: int) -> None:
         assert solve is not None
         assert abs((solve[0] - target[0] + 180) % 360 - 180) <= 0.01
         assert abs(solve[1] - target[1]) <= 0.01
-        assert sim.sync_ra == pytest.approx(1.5, abs=0.01)
+        # The refine synced the pointing error away. The location that the
+        # mount sends at start can also move the reported RA; the simulator
+        # counts that jump too if it already listens.
+        assert any(
+            jump == pytest.approx((1.5, -0.8), abs=0.01) for jump in sim.sync_jumps
+        ), sim.sync_jumps
     finally:
         mount.mount_queue.put({"type": "exit"})
         runner.join(timeout=10)
@@ -618,7 +623,7 @@ def test_follow_a_moving_target_end_to_end(indi: int, monkeypatch) -> None:
             mount._follow_step(time.time())
             if follow.stage == FollowStage.TRACK and tracking_since is None:
                 tracking_since = time.time()
-            if tracking_since and time.time() - tracking_since > 10:
+            if tracking_since and time.time() - tracking_since > 20:
                 break
             time.sleep(0.1)
         assert tracking_since is not None, follow.stage
@@ -626,7 +631,7 @@ def test_follow_a_moving_target_end_to_end(indi: int, monkeypatch) -> None:
         error = angular_distance(
             mount.current_ra, mount.current_dec, target.ra, target.dec
         )
-        assert error < 0.1
+        assert error < 0.05
         assert mount._follow is follow and follow.aim_count <= 2
     finally:
         mount.disconnect_mount()

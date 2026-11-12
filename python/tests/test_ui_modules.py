@@ -742,6 +742,8 @@ def test_object_details_mount_keys(display, camera_image, catalogs, sample_objec
     assert mount_queue.empty()
 
     cfg.set_option("mount_control", True)
+    # The menu sweep of other tests can change the track rate setting too.
+    cfg.set_option("mount_control_track_rate", "auto")
     # 5 (GOTO) last: it opens the mount page.
     for number in (0, 1, 2, 3, 4, 6, 7, 8, 9, 5):
         module.key_number(number)

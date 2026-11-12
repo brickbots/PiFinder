@@ -40,6 +40,10 @@ PASS_DISTANCE_DEG = 1.0
 MIN_ALT_DEG = 5.0
 # Seconds between two track rate updates.
 RATE_UPDATE_S = 1.0
+# In TRACK, the rates remove an offset to the satellite in about this time,
+# at most this fast.
+CORRECTION_S = 5.0
+MAX_CORRECTION_DEG_S = 0.1
 
 
 class FollowStage(Enum):

@@ -886,14 +886,34 @@ class MountControlBase:
                 logger.info("Follow: %.2f° off, aim again", error)
                 self._follow_aim(now)
                 return
-            if follow.rate_update_due(now) and not self.set_track_rates(
-                point.ra_rate, point.dec_rate
-            ):
-                follow.stage = FollowStage.PASS
+            if follow.rate_update_due(now):
+                ra_rate, dec_rate = self._follow_rates(follow, point, now)
+                if not self.set_track_rates(ra_rate, dec_rate):
+                    follow.stage = FollowStage.PASS
             return
 
         if follow.stage == FollowStage.PASS and follow.past_aim_point(now):
             self._follow_aim(now)
+
+    def _follow_rates(
+        self, follow: SatelliteFollow, point, now: float
+    ) -> tuple[float, float]:
+        """The satellite rates, plus a part of the offset between mount and
+        satellite, so that an offset goes away in a few seconds.
+
+        The offset uses the satellite position at the time of the last
+        mount position report, so the delay of the report causes no bias.
+        """
+        if self.current_ra is None or self.current_dec is None:
+            return point.ra_rate, point.dec_rate
+        reported = getattr(self, "current_time", None)
+        at = point if not reported or now - reported > 5.0 else follow.point(reported)
+        d_ra = (at.ra - self.current_ra + 540.0) % 360.0 - 180.0
+        d_dec = at.dec - self.current_dec
+        limit = satellite_follow.MAX_CORRECTION_DEG_S
+        correction_ra = max(-limit, min(limit, d_ra / satellite_follow.CORRECTION_S))
+        correction_dec = max(-limit, min(limit, d_dec / satellite_follow.CORRECTION_S))
+        return point.ra_rate + correction_ra, point.dec_rate + correction_dec
 
     def _follow_status_text(self) -> str:
         follow = self._follow

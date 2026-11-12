@@ -64,7 +64,7 @@ CONNECTION_MODE_WAIT_S = 3.0
 # TRACK_RATE_RA at this value the RA of the mount does not change.
 SIDEREAL_RATE_ARCSEC_S = 15.041067
 # The sign check of the custom track rates needs this much motion.
-RATE_CHECK_MIN_S = 1.5
+RATE_CHECK_MIN_S = 0.9
 RATE_CHECK_MIN_DEG_S = 0.002
 
 

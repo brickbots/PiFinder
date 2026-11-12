@@ -1,6 +1,5 @@
 import logging
 import os
-import time
 import datetime
 import pytz
 import threading
@@ -202,9 +201,11 @@ class CometCatalog(Catalog):
         """
 
         def retry_task():
-            # Only retry if no file exists
+            # Only retry if no file exists. An Event wait, not time.sleep:
+            # tests that replace time.sleep must not make this loop spin.
+            retry_wait = threading.Event()
             while not os.path.exists(comet_file):
-                time.sleep(60)
+                retry_wait.wait(60)
                 logger.info("Retrying download: no file exists")
                 success = self._download_once()
                 if success and os.path.exists(comet_file):
