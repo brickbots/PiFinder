@@ -98,6 +98,12 @@ and **STOP** across the bottom.  A key flashes when you press it.  On this page 
 progress messages do not pop up, because the band shows them; warnings still pop up.
 The **Mount** page of the web interface shows the same status.
 
+When no mount is connected, the mount page is a connection screen instead.  It shows
+why the mount is not connected (for example **Mount not found** or **No INDI
+server**), the mount and the link that are set up, and two actions: **1 Connect** and
+**2 Settings**.  **2** opens the Mount Control settings.  The other keys do nothing on
+this screen.
+
 After each command, the PiFinder shows a short message: **Slewing**, **Target
 reached**, **Refining 1/3**, **On target**, **Mount synced**, **Mount stopped**, or
 the step, for example **North 14.6'**.  A fault shows as a warning, for example

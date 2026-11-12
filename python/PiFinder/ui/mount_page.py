@@ -34,6 +34,12 @@ ICON_PLUS = ""
 ICON_MINUS = ""
 ICON_STOP = ""
 
+ICON_SETTINGS = "\uf013"
+
+# Keys of the connection screen.
+CONNECT_KEY = 1
+SETTINGS_KEY = 2
+
 # Key -> (row, column) on the keypad. 0 spans the bottom row.
 KEY_CELLS = {
     7: (0, 0),
@@ -101,6 +107,54 @@ class MountPageState:
 
     def showing_numbers(self, now: float) -> bool:
         return now - self.opened_at < KEY_NUMBERS_S
+
+
+def is_connected(status: Optional[MountStatus], now: Optional[float] = None) -> bool:
+    """True when the mount process has a connected mount: the page shows
+    the keypad map, else the connection screen."""
+    now = time.time() if now is None else now
+    return (
+        status is not None
+        and not status.is_stale(now)
+        and status.phase not in _UNCONNECTED_PHASES
+    )
+
+
+@dataclass(frozen=True)
+class MountSetup:
+    """The configured mount, for the connection screen."""
+
+    model: str
+    connection: str
+    port: str
+    baud: int
+    address: str
+
+    def link_text(self) -> str:
+        if self.connection == "wifi":
+            return _("WiFi") + " " + (self.address or _("driver default"))
+        port = self.port.rsplit("/", 1)[-1]
+        return f"USB {port} {self.baud}"
+
+
+def _wrap(text: str, font, width: int, lines: int) -> list[str]:
+    """Split text into at most ``lines`` lines of ``width`` pixels."""
+    chars = max(1, width // max(font.width, 1))
+    out: list[str] = []
+    line = ""
+    for word in text.split():
+        candidate = f"{line} {word}".strip()
+        if len(candidate) <= chars:
+            line = candidate
+            continue
+        out.append(line)
+        line = word
+    if line:
+        out.append(line)
+    if len(out) > lines:
+        out = out[:lines]
+        out[-1] = _fit(out[-1] + " …", font, width)
+    return [_fit(x, font, width) for x in out]
 
 
 def _fit(text: str, font, width: int) -> str:
@@ -256,3 +310,104 @@ def draw_mount_page(
     for key, (row, col) in KEY_CELLS.items():
         draw_cell(key, cell_box(row, col), primary=(key == primary_key))
     draw_cell(STOP_KEY, cell_box(3, 0, span=3), outline=dim)
+
+
+def draw_connect_page(
+    draw,
+    display_class,
+    fonts,
+    colors,
+    status: Optional[MountStatus],
+    setup: MountSetup,
+    state: MountPageState,
+    now: Optional[float] = None,
+) -> None:
+    """The mount page without a connected mount: why, what is set up, and
+    two actions: 1 Connect, 2 Settings."""
+    now = time.time() if now is None else now
+    width = display_class.resX
+    height = display_class.resY
+    top = display_class.titlebar_height + 2
+    bright, mid, dim, faint = (
+        colors.get(255),
+        colors.get(160),
+        colors.get(96),
+        colors.get(40),
+    )
+    connecting = status is not None and status.phase == "MOUNT_INIT_TELESCOPE"
+    answering = status is not None and not status.is_stale(now)
+
+    # Title: what is wrong, or that it is working on it.
+    if connecting:
+        title = _("CONNECTING") + "." * (1 + int(now * 2) % 3)
+    elif answering:
+        title = _("NOT CONNECTED")
+    else:
+        title = _("NO STATUS")
+    draw.text(
+        (0, top), _fit(title, fonts.bold, width), font=fonts.bold.font, fill=bright
+    )
+    y = top + fonts.bold.height + 3
+
+    # Why: the last fault, or the next step.
+    if connecting:
+        reason = _("Starting the driver and the mount")
+    elif not answering:
+        reason = _("Mount control does not answer")
+    elif status is not None and status.error:
+        reason = status.error
+    elif not setup.model:
+        reason = _("No mount selected")
+    else:
+        reason = _("Press 1 to connect")
+    for line in _wrap(reason, fonts.base, width, 2):
+        draw.text((0, y), line, font=fonts.base.font, fill=mid)
+        y += fonts.base.height + 1
+    y += 3
+
+    # What is set up: the mount and the link.
+    label_w = fonts.small.width * 6
+    link = setup.link_text()
+    if setup.connection == "wifi" and setup.address:
+        # An address says WiFi already; drop the word if the line is full.
+        if len(link) * fonts.small.width > width - label_w:
+            link = setup.address
+    for label, value in (
+        (_("Mount"), setup.model or "-"),
+        (_("Link"), link),
+    ):
+        draw.text((0, y), label, font=fonts.small.font, fill=dim)
+        draw.text(
+            (label_w, y),
+            _fit(value, fonts.small, width - label_w),
+            font=fonts.small.font,
+            fill=mid,
+        )
+        y += fonts.small.height + 2
+
+    # Two actions, full width, at the bottom.
+    gap = 3
+    row_h = min(max(fonts.bold.height + 6, 16), (height - y - gap) // 2)
+    actions = (
+        (CONNECT_KEY, ICON_INIT, _("Connect"), not connecting and bool(setup.model)),
+        (SETTINGS_KEY, ICON_SETTINGS, _("Settings"), True),
+    )
+    box_y = height - 2 * row_h - gap
+    for index, (key, icon, label, enabled) in enumerate(actions):
+        box = (0, box_y, width - 1, box_y + row_h - 1)
+        flash = state.flashing(key, now)
+        primary = index == 0 and enabled
+        if flash or primary:
+            draw.rectangle(box, fill=bright if flash else mid)
+            ink = colors.get(0)
+        else:
+            draw.rectangle(box, outline=dim if enabled else faint)
+            ink = bright if enabled else dim
+        draw.text(
+            (4, box[1] + (row_h - fonts.bold.height) / 2),
+            str(key),
+            font=fonts.bold.font,
+            fill=ink,
+        )
+        _centered(draw, box, f"{icon} {label}", fonts.bold, ink)
+        box_y += row_h + gap

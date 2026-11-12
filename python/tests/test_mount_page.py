@@ -12,8 +12,11 @@ from PiFinder.ui.mount_page import (
     MountPageState,
     _fit,
     _progress,
+    MountSetup,
     _status_texts,
+    draw_connect_page,
     draw_mount_page,
+    is_connected,
     key_labels,
 )
 
@@ -129,3 +132,49 @@ def test_key_numbers_show_after_opening():
     state.open(NOW)
     assert state.showing_numbers(NOW + 1.0)
     assert not state.showing_numbers(NOW + 2.5)
+
+
+@pytest.mark.parametrize("display", ["headless", "headless_176", "headless_320"])
+@pytest.mark.parametrize(
+    "status",
+    [
+        None,
+        MountStatus("MOUNT_UNKNOWN", "", None, 0.25, "SAL-33", NOW, "Mount not found"),
+        MountStatus("MOUNT_INIT_TELESCOPE", "", None, 0.25, "SAL-33", NOW),
+    ],
+)
+def test_connect_page_draws_inside_the_screen(display, status):
+    d = get_display(display)
+    image = Image.new("RGB", (d.resX, d.resY))
+    setup = MountSetup("LX200 OnStep", "wifi", "", 9600, "192.168.0.1:9999")
+    draw_connect_page(
+        ImageDraw.Draw(image),
+        d,
+        d.fonts,
+        d.colors,
+        status,
+        setup,
+        MountPageState(),
+        NOW,
+    )
+    assert image.crop((0, d.resY - 3, d.resX, d.resY)).getbbox() is not None
+
+
+def test_is_connected():
+    assert not is_connected(None, NOW)
+    assert not is_connected(MountStatus("MOUNT_UNKNOWN", "", None, 0.25, "x", NOW), NOW)
+    assert not is_connected(
+        MountStatus("MOUNT_INIT_TELESCOPE", "", None, 0.25, "x", NOW), NOW
+    )
+    assert is_connected(_status(), NOW)
+    assert not is_connected(_status(), NOW + 60)
+
+
+def test_link_text():
+    assert MountSetup("x", "usb", "/dev/ttyACM0", 9600, "").link_text() == (
+        "USB ttyACM0 9600"
+    )
+    assert MountSetup("x", "wifi", "", 9600, "10.42.0.23:9998").link_text() == (
+        "WiFi 10.42.0.23:9998"
+    )
+    assert MountSetup("x", "wifi", "", 9600, "").link_text() == "WiFi driver default"

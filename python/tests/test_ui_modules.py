@@ -751,7 +751,25 @@ def test_object_details_mount_keys(display, camera_image, catalogs, sample_objec
     UIModule.snapshot = StateSnapshot()
     module.update()
 
+    # Without a connected mount the page is the connection screen: 5 does
+    # nothing, 1 connects, 2 opens the mount settings.
+    command_queues["mountcontrol"].queue.clear()
+    module.key_number(5)
+    assert command_queues["mountcontrol"].empty()
+    module.key_number(1)
+    assert command_queues["mountcontrol"].get_nowait() == {"type": "init"}
+    module.jump_to_label = Mock()
+    module.key_number(2)
+    module.jump_to_label.assert_called_once_with("mount_settings")
+
     # On the mount page a key flashes in the key map, with no message box.
+    UIModule.snapshot = StateSnapshot(
+        {
+            "mount_status": MountStatus(
+                "MOUNT_TRACKING", "Tracking", None, 0.25, "SAL-33", time.time()
+            )
+        }
+    )
     module.message = Mock()
     module.key_number(8)
     assert module._mount_page_state.pressed_key == 8

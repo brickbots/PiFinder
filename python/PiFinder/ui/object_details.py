@@ -24,7 +24,15 @@ from PiFinder.ui.ui_utils import (
     draw_pointing_instructions,
 )
 from PiFinder import calc_utils
-from PiFinder.ui.mount_page import MountPageState, draw_mount_page
+from PiFinder.ui.mount_page import (
+    CONNECT_KEY,
+    SETTINGS_KEY,
+    MountPageState,
+    MountSetup,
+    draw_connect_page,
+    draw_mount_page,
+    is_connected,
+)
 import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
@@ -770,15 +778,39 @@ class UIObjectDetails(UIModule):
         the main loop does not cover it with progress messages."""
         return self.object_display_mode == DM_MOUNT
 
-    def _render_mount_keys(self):
-        draw_mount_page(
-            self.draw,
-            self.display_class,
-            self.fonts,
-            self.colors,
-            self.snapshot.mount_status(),
-            self._mount_page_state,
+    def _mount_setup(self) -> MountSetup:
+        cfg = self.config_object
+        return MountSetup(
+            model=cfg.get_option("mount_control_model", ""),
+            connection=cfg.get_option("mount_control_connection", "usb"),
+            port=cfg.get_option("mount_control_port", "/dev/ttyUSB0"),
+            baud=cfg.get_option("mount_control_baud", 9600),
+            address=cfg.get_option("mount_control_address", ""),
         )
+
+    def _render_mount_keys(self):
+        """The keypad map with a connected mount, else the connection
+        screen."""
+        status = self.snapshot.mount_status()
+        if is_connected(status):
+            draw_mount_page(
+                self.draw,
+                self.display_class,
+                self.fonts,
+                self.colors,
+                status,
+                self._mount_page_state,
+            )
+        else:
+            draw_connect_page(
+                self.draw,
+                self.display_class,
+                self.fonts,
+                self.colors,
+                status,
+                self._mount_setup(),
+                self._mount_page_state,
+            )
 
     def _key_feedback(self, number: int, text: str) -> None:
         """Flash the key on the mount page; elsewhere show a short message."""
@@ -803,6 +835,17 @@ class UIObjectDetails(UIModule):
     def key_number(self, number):
         """Mount control keys, in every display mode."""
         if not self.mount_control:
+            return
+        if self.object_display_mode == DM_MOUNT and not is_connected(
+            self.snapshot.mount_status()
+        ):
+            # The connection screen: only Connect and Settings.
+            if number == CONNECT_KEY:
+                self._mount_command({"type": "init"})
+                self._mount_page_state.press(number)
+            elif number == SETTINGS_KEY:
+                self._mount_page_state.press(number)
+                self.jump_to_label("mount_settings")
             return
         if number == 0:
             self._mount_command({"type": "stop_movement"})

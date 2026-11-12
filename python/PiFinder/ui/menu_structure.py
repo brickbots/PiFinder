@@ -59,6 +59,8 @@ _mount_control_menu = {
     "name": _("Mount Control"),
     "class": UITextMenu,
     "select": "single",
+    # The connection screen of Object Details jumps here.
+    "label": "mount_settings",
     "items": [
         {
             "name": _("Mount Control"),
