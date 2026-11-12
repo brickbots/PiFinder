@@ -15,7 +15,12 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
 from PiFinder.cat_images import cardinal_vectors
-from PiFinder.types.mount import DISTANCE_PHASES, MountStatus, format_step
+from PiFinder.types.mount import (
+    DISTANCE_PHASES,
+    MountStatus,
+    format_distance,
+    format_step,
+)
 
 if TYPE_CHECKING:
 
@@ -228,7 +233,7 @@ def _status_texts(
         return _("CONNECTING"), "", status.model, True, False
     distance = ""
     if status.distance_deg is not None and status.phase in DISTANCE_PHASES:
-        distance = format_step(status.distance_deg)
+        distance = format_distance(status.distance_deg)
     detail = _("step") + " " + format_step(status.step_deg)
     return status.text.upper(), distance, detail, True, True
 

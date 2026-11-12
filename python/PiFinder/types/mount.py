@@ -59,6 +59,18 @@ def format_step(step_deg: float) -> str:
     return f'{step_deg * 3600:.0f}"'
 
 
+# A plate solve is good to about 20 arcseconds (the median solve RMSE in
+# field telemetry), and the camera alignment adds more. A distance to the
+# target therefore shows whole arcminutes at most.
+def format_distance(distance_deg: float) -> str:
+    """A distance to the target, no finer than the plate solve."""
+    if distance_deg >= 1.0:
+        return f"{distance_deg:.1f}°"
+    if distance_deg >= 1 / 60:
+        return f"{distance_deg * 60:.0f}'"
+    return "<1'"
+
+
 def status_lines(
     status: Optional[MountStatus], now: Optional[float] = None
 ) -> list[str]:
@@ -68,5 +80,5 @@ def status_lines(
         return [_("No mount status")]
     first = status.text
     if status.distance_deg is not None and status.phase in DISTANCE_PHASES:
-        first = f"{first} {format_step(status.distance_deg)}"
+        first = f"{first} {format_distance(status.distance_deg)}"
     return [first, _("Step") + " " + format_step(status.step_deg)]

@@ -14,7 +14,12 @@ from PiFinder.mountcontrol_interface import (
 )
 from PiFinder.state import SharedStateObj
 from PiFinder.state_snapshot import StateSnapshot
-from PiFinder.types.mount import STATUS_MAX_AGE_S, MountStatus, status_lines
+from PiFinder.types.mount import (
+    STATUS_MAX_AGE_S,
+    MountStatus,
+    format_distance,
+    status_lines,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -37,7 +42,7 @@ def test_status_lines():
     tracking = _status(phase="MOUNT_TRACKING", text="Tracking", distance_deg=None)
     assert status_lines(tracking, now=1001.0) == ["Tracking", "Step 14.6'"]
     moved = _status(phase="MOUNT_TRACKING", text="Tracking", distance_deg=0.5)
-    assert status_lines(moved, now=1001.0)[0] == "Tracking 30.0'"
+    assert status_lines(moved, now=1001.0)[0] == "Tracking 30'"
     assert status_lines(_status(distance_deg=None), now=1001.0)[0] == "Slewing"
 
 
@@ -136,3 +141,18 @@ def test_failed_init_keeps_the_specific_fault():
     assert mount.state == MountControlPhases.MOUNT_UNKNOWN
     assert mount.console_queue.get_nowait() == ["WARNING", "No INDI server"]
     assert mount.mount_status().error == "No INDI server"
+
+
+@pytest.mark.parametrize(
+    "distance, text",
+    [
+        (12.44, "12.4°"),
+        (0.5, "30'"),
+        (7.3 / 60, "7'"),
+        (40 / 3600, "<1'"),
+        (0.0, "<1'"),
+    ],
+)
+def test_format_distance(distance, text):
+    """No finer than the plate solve: whole arcminutes below one degree."""
+    assert format_distance(distance) == text
