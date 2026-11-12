@@ -10,6 +10,7 @@
     "screen_direction": "right",
     "mount_type": "Alt/Az",
     "solver_debug": 0,
+    "solver_full_frame": true,
     "sleep_timeout": "30s",
     "screen_off_timeout": "Off",
     "chart_radec": "Off",
