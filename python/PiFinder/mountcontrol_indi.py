@@ -20,6 +20,7 @@ from multiprocessing import Queue
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
 
 from PiFinder import config, indi_drivers
+from PiFinder import track_rates
 from PiFinder.indi_client import TELESCOPE_INTERFACE, IndiClient, IndiProperty
 from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_interface import (
@@ -130,6 +131,10 @@ class MountControlIndi(MountControlBase):
         self._rate_sample: Optional[tuple] = None
         self._ra_against = 0
         self._dec_against = 0
+        # The lunar or solar rate as custom rates, for a driver without
+        # TRACK_LUNAR or TRACK_SOLAR (see refresh_track_rate), or None.
+        self._body_custom_rate: Optional[str] = None
+        self._body_rate_time = 0.0
 
         self.available_slew_rates: List[str] = []
 
@@ -538,6 +543,13 @@ class MountControlIndi(MountControlBase):
         dec_rate = rates.elements.get("TRACK_RATE_DE")
         if not isinstance(ra_rate, float) or not isinstance(dec_rate, float):
             return False
+        if not self._custom_tracking and self.track_rate != track_rates.SIDEREAL:
+            # TRACK_LUNAR or TRACK_SOLAR: the drift is on top of that rate.
+            body = self._body_rate_values(self.track_rate)
+            if body is not None:
+                ra_rate, dec_rate = body["TRACK_RATE_RA"], body["TRACK_RATE_DE"]
+        # The measured drift replaces the minute updates of a body rate.
+        self._body_custom_rate = None
         if not self._custom_tracking:
             if not self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"):
                 return False
@@ -639,7 +651,71 @@ class MountControlIndi(MountControlBase):
                 "Dec track rate sign of this driver: %+.0f", self._dec_rate_sign
             )
 
+    def apply_track_rate(self, rate: str) -> bool:
+        """Sidereal, lunar or solar tracking: the INDI track mode if the
+        driver has it, else custom rates from the ephemeris."""
+        self._body_custom_rate = None
+        if self.device is None:
+            return rate == track_rates.SIDEREAL
+        mode = track_rates.INDI_TRACK_MODES[rate]
+        if rate == track_rates.SIDEREAL:
+            if self._custom_tracking:
+                self.restore_sidereal_tracking()
+            elif self._has("TELESCOPE_TRACK_MODE"):
+                self._set_switch("TELESCOPE_TRACK_MODE", mode)
+            return True
+        if self.client.get_value(self.device, "TELESCOPE_TRACK_MODE", mode) is not None:
+            self.restore_sidereal_tracking()
+            return self._set_switch("TELESCOPE_TRACK_MODE", mode)
+        if (
+            self.client.get_value(self.device, "TELESCOPE_TRACK_MODE", "TRACK_CUSTOM")
+            is None
+        ):
+            return False
+        values = self._body_rate_values(rate)
+        if values is None:
+            return False
+        if not self._custom_tracking:
+            if not self._set_switch("TELESCOPE_TRACK_MODE", "TRACK_CUSTOM"):
+                return False
+            self._custom_tracking = True
+        if not self._set_number("TELESCOPE_TRACK_RATE", values):
+            return False
+        self._body_custom_rate = rate
+        self._body_rate_time = time.time()
+        logger.info("%s rate as custom track rates: %s", rate, values)
+        return True
+
+    def refresh_track_rate(self) -> None:
+        """The rates of the Moon change in hours: update them every minute."""
+        if self._body_custom_rate is None:
+            return
+        if time.time() - self._body_rate_time < track_rates.RATE_STEP_S:
+            return
+        values = self._body_rate_values(self._body_custom_rate)
+        if values is not None and self._set_number("TELESCOPE_TRACK_RATE", values):
+            self._body_rate_time = time.time()
+
+    def _body_rate_values(self, rate: str) -> Optional[dict[str, float]]:
+        """TELESCOPE_TRACK_RATE values for the Moon or the Sun, or None."""
+        location = self.shared_state.location()
+        dt = self.shared_state.datetime()
+        if location is None or not location.lock or dt is None:
+            return None
+        rates = track_rates.body_rates(
+            rate, location.lat, location.lon, location.altitude, dt
+        )
+        if rates is None:
+            return None
+        ra_rate, dec_rate = rates
+        return {
+            "TRACK_RATE_RA": SIDEREAL_RATE_ARCSEC_S
+            + self._ra_rate_sign * ra_rate * 3600.0,
+            "TRACK_RATE_DE": self._dec_rate_sign * dec_rate * 3600.0,
+        }
+
     def restore_sidereal_tracking(self) -> None:
+        self._body_custom_rate = None
         if self.device is None or not self._custom_tracking:
             return
         self._set_number(

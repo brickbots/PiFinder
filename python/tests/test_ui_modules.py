@@ -754,6 +754,7 @@ def test_object_details_mount_keys(display, camera_image, catalogs, sample_objec
         "ra": sample_object.ra,
         "dec": sample_object.dec,
         "epoch": "J2000",
+        "track_rate": "sidereal",
     }
     assert by_type["sync"] == {"type": "sync"}
     assert {"init", "stop_movement", "reduce_step_size", "increase_step_size"} <= set(

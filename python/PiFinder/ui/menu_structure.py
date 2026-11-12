@@ -105,6 +105,20 @@ _mount_control_menu = {
             ],
         },
         {
+            # Auto: the lunar rate for the Moon, sidereal for the rest.
+            "name": _("Track Rate"),
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "mount_control_track_rate",
+            "post_callback": callbacks.mount_track_rate_changed,
+            "items": [
+                {"name": _("Auto"), "value": "auto"},
+                {"name": _("Sidereal"), "value": "sidereal"},
+                {"name": _("Lunar"), "value": "lunar"},
+                {"name": _("Solar"), "value": "solar"},
+            ],
+        },
+        {
             "name": _("Connection"),
             "class": UITextMenu,
             "select": "single",

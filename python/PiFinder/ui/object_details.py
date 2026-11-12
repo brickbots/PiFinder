@@ -34,6 +34,7 @@ from PiFinder.ui.ui_utils import (
 )
 from PiFinder import calc_utils
 from PiFinder import satellite_catalog
+from PiFinder import track_rates
 from PiFinder.ui.mount_page import (
     ARROW_KEYS,
     CONNECT_KEY,
@@ -1836,6 +1837,12 @@ class UIObjectDetails(UIModule):
                         "ra": self.object.ra,
                         "dec": self.object.dec,
                         "epoch": "J2000",
+                        "track_rate": track_rates.rate_for_object(
+                            self.config_object.get_option(
+                                track_rates.OPTION, track_rates.AUTO
+                            ),
+                            self.object,
+                        ),
                     }
                 )
                 self._key_feedback(number, _("Goto"))

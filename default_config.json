@@ -36,6 +36,7 @@
     "mount_control_connection": "usb",
     "mount_control_address": "",
     "mount_control_arrows": "eyepiece",
+    "mount_control_track_rate": "auto",
     "filter.selected_catalogs": [
         "NGC",
         "M",

@@ -16,7 +16,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from PiFinder import indi_drivers, satellites
+from PiFinder import indi_drivers, satellites, track_rates
 from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_indi import POSITION, MountControlIndi
 from PiFinder.mountcontrol_interface import MountControlPhases, angular_distance
@@ -627,6 +627,68 @@ def test_follow_a_moving_target_end_to_end(indi: int, monkeypatch) -> None:
         )
         assert error < 0.1
         assert mount._follow is follow and follow.aim_count <= 2
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def test_lunar_rate_uses_the_indi_track_mode(indi: int) -> None:
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        assert mount.apply_track_rate(track_rates.LUNAR)
+        assert _wait(
+            lambda: mount.client.get_value(
+                mount.device, "TELESCOPE_TRACK_MODE", "TRACK_LUNAR"
+            )
+            is True,
+            5,
+        )
+        assert mount.apply_track_rate(track_rates.SIDEREAL)
+        assert _wait(
+            lambda: mount.client.get_value(
+                mount.device, "TELESCOPE_TRACK_MODE", "TRACK_SIDEREAL"
+            )
+            is True,
+            5,
+        )
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def test_lunar_rate_as_custom_rates_without_the_track_mode(
+    indi: int, monkeypatch
+) -> None:
+    """A driver without TRACK_LUNAR gets the motion of the Moon as custom
+    rates: the RA of the mount grows by about half an arcsecond a second."""
+    monkeypatch.setitem(track_rates.INDI_TRACK_MODES, track_rates.LUNAR, "NONE")
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        assert mount.move_mount_to_target(40.0, 10.0)
+        assert _wait(lambda: mount.target_reached, 60)
+        assert mount.apply_track_rate(track_rates.LUNAR)
+        location = mount.shared_state.location()
+        moon_ra, _moon_dec = track_rates.body_rates(
+            track_rates.LUNAR,
+            location.lat,
+            location.lon,
+            location.altitude,
+            mount.shared_state.datetime(),
+        )
+        assert _wait(
+            lambda: mount.client.get_value(
+                mount.device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_RA"
+            )
+            == pytest.approx(15.041067 - moon_ra * 3600.0, abs=0.01),
+            5,
+        )
+        time.sleep(1.5)
+        start = (mount.current_time, mount.current_ra)
+        time.sleep(8.0)
+        ra_rate = (mount.current_ra - start[1]) / (mount.current_time - start[0])
+        assert ra_rate * 3600 == pytest.approx(moon_ra * 3600, abs=0.2)
     finally:
         mount.disconnect_mount()
         indi_drivers.stop_driver()

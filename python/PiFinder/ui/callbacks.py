@@ -16,6 +16,7 @@ from datetime import datetime
 import pytz
 
 from typing import Any, TYPE_CHECKING
+from PiFinder import track_rates
 from PiFinder import utils, calc_utils
 from PiFinder import timez
 from PiFinder.locations import Location as SavedLocation
@@ -203,6 +204,14 @@ def mount_settings_changed(ui_module: UIModule) -> None:
     mount_queue = ui_module.command_queues.get("mountcontrol")
     if mount_queue is not None:
         mount_queue.put({"type": "reload_config"})
+
+
+def mount_track_rate_changed(ui_module: UIModule) -> None:
+    """A fixed track rate applies at once. Auto applies at the next goto."""
+    rate = ui_module.config_object.get_option(track_rates.OPTION, track_rates.AUTO)
+    mount_queue = ui_module.command_queues.get("mountcontrol")
+    if mount_queue is not None and rate in track_rates.TRACK_RATES:
+        mount_queue.put({"type": "set_track_rate", "rate": rate})
 
 
 def restart_pifinder(ui_module: UIModule) -> None:

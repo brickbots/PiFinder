@@ -17,7 +17,7 @@ import time
 from typing import TYPE_CHECKING, Generator, Iterator, Optional, Any
 
 from PiFinder import calc_utils
-from PiFinder import satellite_follow
+from PiFinder import satellite_follow, track_rates
 from PiFinder.satellite_follow import FollowStage, SatelliteFollow
 from PiFinder.state import SharedStateObj
 from PiFinder.types.mount import MountStatus, format_step
@@ -138,6 +138,12 @@ STATUS_DISTANCE_PERIOD_S = 1.0
 # never comes.
 MAX_MOTION_S = 30.0
 STATUS_HEARTBEAT_S = 2.0
+
+
+def track_rate_label(rate: str) -> str:
+    """Short label of a non-sidereal track rate, for the status line."""
+    return {track_rates.LUNAR: _("Lunar"), track_rates.SOLAR: _("Solar")}.get(rate, "")
+
 
 # Commands that do not end a satellite follow.
 FOLLOW_KEEPING_COMMANDS = (
@@ -273,6 +279,10 @@ class MountControlBase:
         self._follow: Optional[SatelliteFollow] = None
         # The clock of the satellite follow; tests replace it.
         self.clock = time.time
+        # The track rate: track_rates.SIDEREAL, LUNAR or SOLAR.
+        self.track_rate: str = track_rates.SIDEREAL
+        # The track rate of the running goto_target command.
+        self._goto_track_rate: str = track_rates.SIDEREAL
 
     #
     # Methods to be overridden by subclasses for controlling the specifics of a mount
@@ -405,6 +415,18 @@ class MountControlBase:
 
     def restore_sidereal_tracking(self) -> None:
         """Track at the sidereal rate again, after set_track_rates."""
+        return None
+
+    def apply_track_rate(self, rate: str) -> bool:
+        """Track at the sidereal, lunar or solar rate (track_rates).
+
+        Returns False if the mount cannot track at that rate.
+        """
+        return rate == track_rates.SIDEREAL
+
+    def refresh_track_rate(self) -> None:
+        """Called from the main loop. A mount that follows the Moon or the
+        Sun with custom rates updates them here."""
         return None
 
     def move_mount_offset(
@@ -608,6 +630,11 @@ class MountControlBase:
         if self.state == MountControlPhases.MOUNT_SATELLITE_FOLLOW and self._follow:
             return self._follow_status_text()
         text = texts.get(self.state, str(self.state.name))
+        if self.track_rate != track_rates.SIDEREAL and self.state in (
+            MountControlPhases.MOUNT_TRACKING,
+            MountControlPhases.MOUNT_DRIFT_COMPENSATION,
+        ):
+            text = f"{text} {track_rate_label(self.track_rate)}"
         if self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
             text = f"{text} {self._refine_count + 1}/{self.refine_max_iterations}"
         return text
@@ -731,6 +758,7 @@ class MountControlBase:
     def _goto_target(self, target_ra, target_dec) -> bool:
         success = self.move_mount_to_target(target_ra, target_dec)
         if success:
+            self._set_track_rate(self._goto_track_rate)
             # Reset drift compensation when starting a new target acquisition
             if self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
                 self._reset_drift_compensation_data()
@@ -742,6 +770,21 @@ class MountControlBase:
             )
             self.notify(_("Slewing"))
         return success
+
+    def _set_track_rate(self, rate: str) -> None:
+        if rate not in track_rates.TRACK_RATES:
+            logger.warning("Unknown track rate %s", rate)
+            rate = track_rates.SIDEREAL
+        if rate == self.track_rate and rate == track_rates.SIDEREAL:
+            return
+        if self.apply_track_rate(rate):
+            if rate != self.track_rate and rate != track_rates.SIDEREAL:
+                self.notify(_("Track rate") + " " + track_rate_label(rate))
+            self.track_rate = rate
+            return
+        self.warn(_("No such track rate"))
+        if self.apply_track_rate(track_rates.SIDEREAL):
+            self.track_rate = track_rates.SIDEREAL
 
     #
     # Satellite follow
@@ -763,6 +806,7 @@ class MountControlBase:
             self.warn(_("Satellite too low"))
             return
         self._follow = follow
+        self.track_rate = track_rates.SIDEREAL
         self._reset_drift_compensation_data()
         logger.info("Following satellite %s", follow.name)
         self.notify(_("Follow") + " " + follow.name)
@@ -1018,8 +1062,12 @@ class MountControlBase:
         elif command["type"] == "follow_satellite":
             self._start_follow(command)
 
+        elif command["type"] == "set_track_rate":
+            self._set_track_rate(command.get("rate", track_rates.SIDEREAL))
+
         elif command["type"] == "goto_target":
             logger.debug("Mount: goto_target command received")
+            self._goto_track_rate = command.get("track_rate", track_rates.SIDEREAL)
             self.target_ra = command["ra"]
             self.target_dec = command["dec"]
             if command.get("epoch") == "J2000":
@@ -1183,6 +1231,8 @@ class MountControlBase:
             # Clear the init solve coordinates after successful initialization
             self.init_solve_ra = None
             self.init_solve_dec = None
+            # init_mount sets the sidereal track mode.
+            self.track_rate = track_rates.SIDEREAL
             self.state = MountControlPhases.MOUNT_TRACKING
             logger.debug("Phase: -> MOUNT_TRACKING")
             self._last_error = ""
@@ -1530,6 +1580,7 @@ class MountControlBase:
             phase_step = None
             while True:
                 self.periodic_mount_task()
+                self.refresh_track_rate()
                 self.check_motion_timeout()
                 self.publish_status()
 
