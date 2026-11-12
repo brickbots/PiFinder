@@ -50,3 +50,18 @@ main {
     background-color: #555;
   }
 }
+
+/* The full nav bar needs about 1500 px. Narrower screens use the menu
+   button and the side menu, as phones do. */
+@media only screen and (max-width: 1500px) {
+  nav ul.right.hide-on-med-and-down {
+    display: none;
+  }
+  nav a.sidenav-trigger {
+    display: block;
+  }
+  nav .brand-logo {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}

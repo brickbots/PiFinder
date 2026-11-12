@@ -33,7 +33,7 @@
       {% endif %}
     </p>
     {% if passes %}
-    <table class="grey-text striped responsive-table" id="pass_table">
+    <table class="grey-text responsive-table" id="pass_table">
       <thead>
         <tr>
           <th>{{ _('Satellite') }}</th>
@@ -80,11 +80,11 @@
           <input id="name" name="name" type="text" class="grey-text">
           <label for="name">{{ _('Name (optional, for one element set)') }}</label>
         </div>
-        <div class="input-field col s12 m4">
+        <div class="input-field col s12 m3">
           <input id="norad" name="norad" type="number" min="1" class="grey-text">
           <label for="norad">{{ _('NORAD number (optional)') }}</label>
         </div>
-        <div class="input-field col s12 m2">
+        <div class="input-field col s12 m3">
           <input id="std_mag" name="std_mag" type="number" step="0.1" class="grey-text">
           <label for="std_mag">{{ _('Standard magnitude (optional)') }}</label>
         </div>
@@ -104,7 +104,7 @@
   <div class="card-content">
     <h5 class="grey-text">{{ _('Your satellites') }}</h5>
     {% if user_satellites %}
-    <table class="grey-text striped" id="user_satellite_table">
+    <table class="grey-text" id="user_satellite_table">
       <thead>
         <tr><th>{{ _('Name') }}</th><th>NORAD</th><th>{{ _('Epoch') }}</th><th>{{ _('Age') }}</th><th></th></tr>
       </thead>
