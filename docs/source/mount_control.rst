@@ -113,9 +113,9 @@ On the mount page the arrow keys (and the rev 4 joystick) move the mount like **
 **2**, **4** and **6**.  So **LEFT** moves the mount there, and does not go back.  To
 leave the page, press the **square** key, or hold **LEFT** to go back to the top menu.
 
-Hold the **square** key on the mount page for its marking menu: **Reconnect**,
-**Settings** (the Mount Control settings), **Reset step** (back to 20% of the field)
-and the arrow mode (**Eyepiece** or **Compass**).
+Hold the **square** key on the mount page for its marking menu: **CONNECT** (connect
+the mount again), **SETUP** (the Mount Control settings), **STEP** (the step goes back
+to 20% of the field) and **ARROWS** (switch between the eyepiece view and the compass).
 
 When no mount is connected, the mount page is a connection screen instead.  It shows
 why the mount is not connected (for example **Mount not found** or **No INDI

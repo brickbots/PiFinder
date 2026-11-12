@@ -122,14 +122,13 @@ class UIObjectDetails(UIModule):
                 ),
             ),
         )
-        # On the mount page: quick mount settings.
+        # On the mount page: quick mount settings. The labels are short, as
+        # they sit on the ring of the marking menu.
         self._mount_marking_menu = MarkingMenu(
-            up=MarkingMenuOption(label=_("Reconnect"), callback=self.mm_reconnect),
-            left=MarkingMenuOption(
-                label=self._arrows_label(), callback=self.mm_toggle_arrows
-            ),
-            right=MarkingMenuOption(label=_("Settings"), menu_jump="mount_settings"),
-            down=MarkingMenuOption(label=_("Reset step"), callback=self.mm_reset_step),
+            up=MarkingMenuOption(label=_("CONNECT"), callback=self.mm_reconnect),
+            left=MarkingMenuOption(label=_("ARROWS"), callback=self.mm_toggle_arrows),
+            right=MarkingMenuOption(label=_("SETUP"), menu_jump="mount_settings"),
+            down=MarkingMenuOption(label=_("STEP"), callback=self.mm_reset_step),
         )
         self.marking_menu = self._object_marking_menu
 
@@ -954,18 +953,17 @@ class UIObjectDetails(UIModule):
             return _("Compass")
         return _("Eyepiece")
 
-    def mm_toggle_arrows(self, _marking_menu, menu_item) -> bool:
+    def mm_toggle_arrows(self, _marking_menu, _menu_item) -> bool:
         """Switch the arrows between the eyepiece view and the compass."""
         current = self.config_object.get_option("mount_control_arrows", "eyepiece")
         new = "compass" if current == "eyepiece" else "eyepiece"
         self.config_object.set_option("mount_control_arrows", new)
-        menu_item.label = self._arrows_label()
-        self.message(_("Arrows: {mode}").format(mode=menu_item.label), 1)
+        self.message(_("Arrows:") + "\n" + self._arrows_label(), 1.5)
         return True
 
     def mm_reset_step(self, _marking_menu, _menu_item) -> bool:
         self.set_mount_step_from_fov()
-        self.message(_("Step reset"), 1)
+        self.message(_("Step reset") + "\n" + _("20% of field"), 1.5)
         return True
 
     def mm_reconnect(self, _marking_menu, _menu_item) -> bool:
