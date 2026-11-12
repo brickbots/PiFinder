@@ -138,6 +138,9 @@ STATUS_DISTANCE_PERIOD_S = 1.0
 # never comes.
 MAX_MOTION_S = 30.0
 STATUS_HEARTBEAT_S = 2.0
+# Drift compensation fits a line when the solves span this part of the
+# drift window.
+DRIFT_WINDOW_FILL = 0.8
 
 
 def track_rate_label(rate: str) -> str:
@@ -382,17 +385,16 @@ class MountControlBase:
     def adjust_mount_drift_rates(
         self, delta_drift_rate_ra, delta_drift_rate_dec
     ) -> bool:
-        """Adjust the mount's drift rates in RA and DEC by the specified amounts.
+        """Cancel a measured drift of the pointing.
 
-        The parameters are adjustments (deltas) to be added to the current tracking rates,
-        not absolute rate values. The mount should immediately apply these adjustments.
-
-        These adjustments are determined by measuring the drift in platesolved images.
-        That means as the mount is already applying the previous drift rates, these are incremental adjustments.
+        The parameters are the drift that the plate solves show: the RA and
+        Dec of the pointing change at these rates. The mount changes its
+        tracking so that this drift stops. The drift is measured while the
+        earlier adjustments are in effect, so each call is an increment.
 
         Args:
-            delta_drift_rate_ra: Adjustment to RA drift rate in degrees/second
-            delta_drift_rate_dec: Adjustment to Dec drift rate in degrees/second
+            delta_drift_rate_ra: RA drift of the pointing in degrees/second
+            delta_drift_rate_dec: Dec drift of the pointing in degrees/second
 
         The subclass needs to return a boolean indicating success or failure,
         if the command was successfully sent.
@@ -1472,7 +1474,9 @@ class MountControlBase:
             if len(self.drift_solve_times) >= 3:
                 # Check if we have collected data for the full window duration
                 time_span = self.drift_solve_times[-1] - self.drift_solve_times[0]
-                if time_span >= self.drift_compensation_window:
+                # Solves older than the window are gone, so the span is
+                # always a little shorter than the window.
+                if time_span >= self.drift_compensation_window * DRIFT_WINDOW_FILL:
                     # Perform linear regression for RA and Dec
                     ra_slope, _intercept_ra, ra_r_squared = self._compute_linear_fit(
                         self.drift_solve_times, self.drift_solve_ra
