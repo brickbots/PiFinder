@@ -40,11 +40,13 @@ class MountStatus:
         return now - self.updated > STATUS_MAX_AGE_S
 
 
-# Phases in which the distance to the target means something.
-_DISTANCE_PHASES = (
+# Phases in which the distance to the target means something. In TRACKING
+# it tells how far a manual move took the mount from the goto target.
+DISTANCE_PHASES = (
     "MOUNT_TARGET_ACQUISITION_MOVE",
     "MOUNT_TARGET_ACQUISITION_REFINE",
     "MOUNT_DRIFT_COMPENSATION",
+    "MOUNT_TRACKING",
 )
 
 
@@ -65,6 +67,6 @@ def status_lines(
     if status is None or status.is_stale(now):
         return [_("No mount status")]
     first = status.text
-    if status.distance_deg is not None and status.phase in _DISTANCE_PHASES:
+    if status.distance_deg is not None and status.phase in DISTANCE_PHASES:
         first = f"{first} {format_step(status.distance_deg)}"
     return [first, _("Step") + " " + format_step(status.step_deg)]

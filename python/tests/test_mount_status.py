@@ -34,8 +34,10 @@ def _status(**values):
 
 def test_status_lines():
     assert status_lines(_status(), now=1001.0) == ["Slewing 12.4°", "Step 14.6'"]
-    tracking = _status(phase="MOUNT_TRACKING", text="Tracking")
+    tracking = _status(phase="MOUNT_TRACKING", text="Tracking", distance_deg=None)
     assert status_lines(tracking, now=1001.0) == ["Tracking", "Step 14.6'"]
+    moved = _status(phase="MOUNT_TRACKING", text="Tracking", distance_deg=0.5)
+    assert status_lines(moved, now=1001.0)[0] == "Tracking 30.0'"
     assert status_lines(_status(distance_deg=None), now=1001.0)[0] == "Slewing"
 
 
