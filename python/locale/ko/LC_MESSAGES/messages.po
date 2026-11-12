@@ -1,0 +1,3771 @@
+# Korean translations for PiFinder.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PiFinder project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PiFinder 2.6.3\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-06 09:31+0900\n"
+"PO-Revision-Date: 2026-09-06 00:31+0000\n"
+"Last-Translator: Claude (AI draft, needs human review)\n"
+"Language: ko\n"
+"Language-Team: ko <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/cat_images.py:206
+msgid "No Image"
+msgstr "이미지 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/main.py:703
+msgid ""
+"Degraded\n"
+"Check Status"
+msgstr ""
+"성능 저하\n"
+"상태 확인"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/main.py:817
+msgid ""
+"Catalogs\n"
+"Fully Loaded"
+msgstr ""
+"카탈로그\n"
+"로딩 완료"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/main.py:867
+msgid ""
+"Low battery\n"
+"Shutting down"
+msgstr ""
+"배터리 부족\n"
+"종료 중"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/main.py:900
+#, python-brace-format
+msgid ""
+"Low battery\n"
+"at {pct}%"
+msgstr ""
+"배터리 부족\n"
+"{pct}%"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/obj_types.py:10
+msgid "Galaxy"
+msgstr "은하"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:11
+msgid "Open Cluster"
+msgstr "산개성단"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:12
+msgid "Cluster + Neb"
+msgstr "성단+성운"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:13
+msgid "Globular"
+msgstr "구상성단"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:14
+msgid "Nebula"
+msgstr "성운"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:15
+msgid "Planetary"
+msgstr "행성상성운"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:16
+msgid "Dark Nebula"
+msgstr "암흑성운"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:17
+msgid "Star"
+msgstr "별"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:18
+msgid "Double star"
+msgstr "이중성"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:19
+msgid "Triple star"
+msgstr "삼중성"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:20
+msgid "Knot"
+msgstr "Knot"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:21
+msgid "Asterism"
+msgstr "성군"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:22
+msgid "Planet"
+msgstr "행성"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:23
+msgid "Comet"
+msgstr "혜성"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:24
+msgid "Unkn"
+msgstr "미상"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:69 PiFinder/server.py:105 PiFinder/server.py:124
+#, python-format
+msgid "%s is required"
+msgstr "%s은(는) 필수입니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:73
+#, python-format
+msgid "%s must be a number"
+msgstr "%s은(는) 숫자여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:91
+#, python-format
+msgid "%(field)s must be between %(minimum)s and %(maximum)s"
+msgstr "%(field)s은(는) %(minimum)s과(와) %(maximum)s 사이여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:108
+#, python-format
+msgid "%(field)s must be %(maximum)s characters or fewer"
+msgstr "%(field)s은(는) %(maximum)s자 이하여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:124 PiFinder/server.py:166 views/edit_eyepiece.html:33
+#: views/equipment.html:69 views/equipment.html:117 views/locations.html:62
+#: views/network.html:69
+msgid "Name"
+msgstr "이름"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:165 PiFinder/server.py:195 views/edit_eyepiece.html:26
+#: views/edit_instrument.html:27 views/equipment.html:68
+#: views/equipment.html:116
+msgid "Make"
+msgstr "제조사"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:169 PiFinder/server.py:202
+msgid "Focal length"
+msgstr "초점거리"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:173
+msgid "Apparent field of view"
+msgstr "겉보기 시야각"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:177
+msgid "Field stop"
+msgstr "필드 스톱"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:192
+#, python-format
+msgid "%s is not a valid mount type"
+msgstr "%s은(는) 유효한 마운트 종류가 아닙니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:196
+msgid "Instrument name"
+msgstr "망원경 이름"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:198 views/equipment.html:70
+msgid "Aperture"
+msgstr "구경"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:207
+msgid "Obstruction"
+msgstr "중앙 차폐"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:394
+msgid "Locked"
+msgstr "수신됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:394
+msgid "Not Locked"
+msgstr "미수신"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:416 views/base.html:17 views/base.html:28
+msgid "Home"
+msgstr "홈"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:444 PiFinder/server.py:452 views/login.html:31
+msgid "Login"
+msgstr "로그인"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:446
+msgid "Invalid Password"
+msgstr "잘못된 비밀번호"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:458 views/base.html:18 views/base.html:29
+msgid "Remote"
+msgstr "원격 제어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:464 PiFinder/ui/menu_structure.py:1018
+msgid "Advanced"
+msgstr "고급"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:473
+msgid "Network"
+msgstr "네트워크"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:491 PiFinder/server.py:523
+msgid "GPS"
+msgstr "GPS"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:508 PiFinder/server.py:557 PiFinder/server.py:617
+#: views/locations.html:63
+msgid "Latitude"
+msgstr "위도"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:509 PiFinder/server.py:558 PiFinder/server.py:618
+#: views/locations.html:64
+msgid "Longitude"
+msgstr "경도"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:510 PiFinder/server.py:559 PiFinder/server.py:619
+#: PiFinder/ui/menu_structure.py:432 views/locations.html:65
+msgid "Altitude"
+msgstr "고도"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:518
+msgid "Date and time must be YYYY-MM-DD h:m:s"
+msgstr "날짜와 시간은 YYYY-MM-DD h:m:s 형식이어야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:547 PiFinder/server.py:600 PiFinder/server.py:653
+#: views/base.html:21 views/base.html:32
+msgid "Locations"
+msgstr "위치"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:561 PiFinder/server.py:621 PiFinder/ui/object_list.py:346
+#: views/locations.html:66
+msgid "Error"
+msgstr "오류"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:567 PiFinder/server.py:627
+msgid "Location name is required"
+msgstr "위치 이름은 필수입니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:569 PiFinder/server.py:629
+msgid "Latitude must be between -90 and 90"
+msgstr "위도는 -90과 90 사이여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:571 PiFinder/server.py:631
+msgid "Longitude must be between -180 and 180"
+msgstr "경도는 -180과 180 사이여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:574 PiFinder/server.py:634
+msgid "Altitude must be between -1000 and 10000 meters"
+msgstr "고도는 -1000과 10000 m 사이여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:577 PiFinder/server.py:637
+msgid "Error must be between 0 and 10000 meters"
+msgstr "오차는 0과 10000 m 사이여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:724 PiFinder/ui/menu_structure.py:1333
+msgid "Restart"
+msgstr "재시작"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:735 PiFinder/server.py:744 PiFinder/server.py:748
+#: PiFinder/server.py:752 PiFinder/server.py:1155
+#: PiFinder/ui/menu_structure.py:1201 views/base.html:23 views/base.html:34
+#: views/tools.html:6
+msgid "Tools"
+msgstr "도구"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:736
+msgid "You must fill in all password fields"
+msgstr "모든 비밀번호 항목을 입력해야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:744
+msgid "Password Changed"
+msgstr "비밀번호가 변경되었습니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:748
+msgid "Incorrect current password"
+msgstr "현재 비밀번호가 올바르지 않습니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:752
+msgid "New passwords do not match"
+msgstr "새 비밀번호가 일치하지 않습니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:777 PiFinder/server.py:787 PiFinder/server.py:802
+#: PiFinder/server.py:821 PiFinder/server.py:928 PiFinder/server.py:986
+#: PiFinder/server.py:992 PiFinder/server.py:1007 PiFinder/server.py:1069
+#: PiFinder/server.py:1075 PiFinder/server.py:1090
+#: PiFinder/ui/menu_structure.py:1206 views/base.html:22 views/base.html:33
+#: views/equipment.html:6
+msgid "Equipment"
+msgstr "장비"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:797 PiFinder/server.py:1020 PiFinder/server.py:1085
+msgid "No such instrument"
+msgstr "해당 망원경이 없습니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:808
+msgid "set as active instrument."
+msgstr "이(가) 활성 망원경으로 설정되었습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:816 PiFinder/server.py:939 PiFinder/server.py:1002
+msgid "No such eyepiece"
+msgstr "해당 아이피스가 없습니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:827
+msgid "set as active eyepiece."
+msgstr "이(가) 활성 아이피스로 설정되었습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:921
+msgid "Equipment Imported, restart your PiFinder to use this new data"
+msgstr "장비를 가져왔습니다. 새 데이터를 사용하려면 PiFinder를 재시작하세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:925
+#, python-format
+msgid "%s entries were skipped because DeepskyLog had no usable values for them."
+msgstr "DeepskyLog에 사용 가능한 값이 없어 %s개 항목을 건너뛰었습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:947 PiFinder/server.py:964
+msgid "Edit Eyepiece"
+msgstr "아이피스 편집"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:988
+#, python-format
+msgid "Could not save eyepiece: %s"
+msgstr "아이피스를 저장할 수 없습니다: %s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:994
+msgid "Eyepiece added, restart your PiFinder to use"
+msgstr "아이피스가 추가되었습니다. 사용하려면 PiFinder를 재시작하세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1010
+msgid "Eyepiece Deleted, restart your PiFinder to remove from menu"
+msgstr "아이피스가 삭제되었습니다. 메뉴에서 제거하려면 PiFinder를 재시작하세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1028 PiFinder/server.py:1047
+msgid "Edit Instrument"
+msgstr "망원경 편집"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1071
+#, python-format
+msgid "Could not save instrument: %s"
+msgstr "망원경을 저장할 수 없습니다: %s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1077
+msgid "Instrument Added, restart your PiFinder to use"
+msgstr "망원경이 추가되었습니다. 사용하려면 PiFinder를 재시작하세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1093
+msgid "Instrument Deleted, restart your PiFinder to remove from menu"
+msgstr "망원경이 삭제되었습니다. 메뉴에서 제거하려면 PiFinder를 재시작하세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1120 views/base.html:20 views/base.html:31
+msgid "Observations"
+msgstr "관측 기록"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1149
+msgid "Session Log"
+msgstr "세션 로그"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1160 PiFinder/server.py:1258 views/base.html:24
+#: views/base.html:35
+msgid "Logs"
+msgstr "로그"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1258
+msgid "Error creating log archive"
+msgstr "로그 아카이브 생성 오류"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1315 views/restart_pifinder.html:6
+msgid "Restarting PiFinder"
+msgstr "PiFinder 재시작 중"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/server.py:1377
+msgid "Restart PiFinder"
+msgstr "PiFinder 재시작"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align.py:51
+msgid "Align Timeout"
+msgstr "얼라인 시간 초과"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align.py:65
+msgid "Alignment Set"
+msgstr "얼라인 설정됨"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; preserve leading spaces for layout
+#: PiFinder/ui/align.py:265 PiFinder/ui/align_daytime.py:209
+#, python-brace-format
+msgid "  {icon} START ALIGN"
+msgstr "  {icon} 얼라인 시작"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; {icon} is a directional-arrows glyph
+#: PiFinder/ui/align.py:268
+#, python-brace-format
+msgid "{icon} SELECT STAR"
+msgstr "{icon} 별 선택"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
+#: PiFinder/ui/align.py:271
+#, python-brace-format
+msgid "{icon} SAVE / 0 CANCEL"
+msgstr "{icon} 저장 / 0 취소"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align.py:293 PiFinder/ui/chart.py:667
+msgid "Can't plot"
+msgstr "표시 불가"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align.py:302 PiFinder/ui/chart.py:676 PiFinder/ui/log.py:166
+#: PiFinder/ui/object_list.py:364 PiFinder/ui/object_list.py:403
+msgid "No Solve Yet"
+msgstr "아직 솔빙 안 됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align.py:413 PiFinder/ui/object_details.py:696
+msgid "Aligning..."
+msgstr "얼라인 중..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align.py:421 PiFinder/ui/align_daytime.py:310
+#: PiFinder/ui/object_details.py:704
+msgid "Aligned!"
+msgstr "얼라인 완료!"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align.py:423
+msgid "Alignment failed"
+msgstr "얼라인 실패"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align_daytime.py:114
+msgid "Center"
+msgstr "중앙"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align_daytime.py:119
+msgid "Exp Auto"
+msgstr "노출 자동"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align_daytime.py:199
+#, python-brace-format
+msgid "{icon} SAVE  0 CANCEL"
+msgstr "{icon} 저장  0 취소"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/align_daytime.py:242
+msgid "AUTO"
+msgstr "자동"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/base.py:300 PiFinder/ui/dateentry.py:166
+#: PiFinder/ui/locationentry.py:222 PiFinder/ui/timeentry.py:178
+msgid " Cancel"
+msgstr " 취소"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:53
+msgid ""
+"Options for\n"
+"DIY PiFinders"
+msgstr ""
+"DIY PiFinder\n"
+"옵션"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:68
+msgid "Filters Reset"
+msgstr "필터 초기화됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:81 PiFinder/ui/menu_structure.py:1252
+msgid "Test Mode"
+msgstr "테스트 모드"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:175
+msgid "Shutting Down"
+msgstr "종료 중"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:184 PiFinder/ui/callbacks.py:192
+msgid "Restarting..."
+msgstr "재시작 중..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:197 PiFinder/ui/callbacks.py:203
+#: PiFinder/ui/callbacks.py:209
+msgid "Switching cam"
+msgstr "카메라 전환"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:310
+msgid "WiFi to AP"
+msgstr "WiFi AP 모드로"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:316
+msgid "WiFi to Client"
+msgstr "WiFi 클라이언트로"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:339
+#, python-brace-format
+msgid ""
+"{lat:.2f}, {lon:.2f}\n"
+"{alt}m alt"
+msgstr ""
+"{lat:.2f}, {lon:.2f}\n"
+"고도 {alt}m"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:346
+msgid "Location Reset"
+msgstr "위치 초기화됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:351
+msgid "Time/Date Reset"
+msgstr "시간/날짜 초기화됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:358
+msgid "No location lock"
+msgstr "위치 정보 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:372
+#, python-brace-format
+msgid ""
+"Saved\n"
+"{name}"
+msgstr ""
+"저장됨\n"
+"{name}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:376 PiFinder/ui/gpsstatus.py:79
+#: PiFinder/ui/location_list.py:135 views/location_form.html:6
+#: views/locations.html:117
+msgid "Location Name"
+msgstr "위치 이름"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:379 PiFinder/ui/gpsstatus.py:82
+#, python-brace-format
+msgid "Loc {number}"
+msgstr "위치 {number}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:413
+#, python-brace-format
+msgid "Time: {time}"
+msgstr "시간: {time}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:432
+#, python-brace-format
+msgid ""
+"{date}\n"
+"{time}"
+msgstr ""
+"{date}\n"
+"{time}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:452
+#, python-brace-format
+msgid ""
+"User object created\n"
+"{name}"
+msgstr ""
+"사용자 천체 생성됨\n"
+"{name}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:582
+msgid ""
+"Checking GPS\n"
+"config..."
+msgstr ""
+"GPS 설정\n"
+"확인 중..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:587
+msgid ""
+"GPS config\n"
+"updated"
+msgstr ""
+"GPS 설정\n"
+"갱신됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:589
+msgid ""
+"GPS config\n"
+"OK"
+msgstr ""
+"GPS 설정\n"
+"정상"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/callbacks.py:592
+msgid ""
+"GPS config\n"
+"failed"
+msgstr ""
+"GPS 설정\n"
+"실패"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/chart.py:112 PiFinder/ui/menu_structure.py:544
+msgid "Settings"
+msgstr "설정"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: chart corner label, e.g. "Zenith up" — keep short
+#: PiFinder/ui/chart.py:307
+#, python-brace-format
+msgid "{label} up"
+msgstr "{label} 위"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:26
+msgid "yyyy"
+msgstr "yyyy"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:27 PiFinder/ui/timeentry.py:28
+msgid "mm"
+msgstr "mm"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:28 PiFinder/ui/locationentry.py:34
+#: PiFinder/ui/locationentry.py:41
+msgid "dd"
+msgstr "dd"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:141
+msgid "Enter Local Date"
+msgstr "현지 날짜 입력"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:159 PiFinder/ui/timeentry.py:171
+msgid " Done"
+msgstr " 완료"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:173 PiFinder/ui/locationentry.py:232
+#: PiFinder/ui/timeentry.py:185
+msgid "󰍴 Delete/Previous"
+msgstr "󰍴 삭제/이전"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:236 PiFinder/ui/locationentry.py:346
+#: PiFinder/ui/polar_align.py:525 PiFinder/ui/timeentry.py:259
+msgid "Cancelled"
+msgstr "취소됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/dateentry.py:250 PiFinder/ui/timeentry.py:277
+msgid ""
+"Set location\n"
+"first"
+msgstr ""
+"먼저 위치를\n"
+"설정하세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/equipment.py:39
+msgid "No telescope selected"
+msgstr "선택된 망원경 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/equipment.py:54
+msgid "No eyepiece selected"
+msgstr "선택된 아이피스 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/equipment.py:74
+#, python-brace-format
+msgid "Mag: {mag:.0f}x"
+msgstr "배율: {mag:.0f}x"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/equipment.py:87
+#, python-brace-format
+msgid "TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
+msgstr "실시야: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/equipment.py:104
+msgid "Telescope..."
+msgstr "망원경..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/equipment.py:115 PiFinder/ui/log.py:229
+msgid "Eyepiece..."
+msgstr "아이피스..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:31
+msgid "Limited"
+msgstr "제한적"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: there's no GPS lock but we accept the position due to low
+#. enough error value
+#: PiFinder/ui/gpsstatus.py:33
+msgid "Basic"
+msgstr "기본"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: coarse GPS fix, does this happen?
+#: PiFinder/ui/gpsstatus.py:34
+msgid "Accurate"
+msgstr "정확"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: GPS 2D Fix
+#: PiFinder/ui/gpsstatus.py:35
+msgid "Precise"
+msgstr "정밀"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:45 views/gps.html:84 views/network.html:81
+msgid "Save"
+msgstr "저장"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:48
+msgid "Lock"
+msgstr "고정"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:112
+msgid "Location saved"
+msgstr "위치 저장됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:122
+msgid "Location locked"
+msgstr "위치 고정됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:127
+#, python-brace-format
+msgid "{error:.1f} km"
+msgstr "{error:.1f} km"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:131
+#, python-brace-format
+msgid "{error:.0f} m"
+msgstr "{error:.0f} m"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:153
+msgid "GPS Locked"
+msgstr "GPS 수신됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:160
+msgid "Lock boost on"
+msgstr "수신 부스트 켜짐"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:169
+msgid "You are ready"
+msgstr "관측할 준비가"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:176
+msgid "to observe!"
+msgstr "되었습니다!"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:185
+msgid "Stay on this screen"
+msgstr "빠른 수신을 위해"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:194
+msgid "for quicker lock"
+msgstr "이 화면에 머무르세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:204
+msgid "Lock Type:"
+msgstr "수신 상태:"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:211 PiFinder/ui/menu_structure.py:438
+#: PiFinder/ui/menu_structure.py:470 views/network.html:74
+msgid "None"
+msgstr "없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:224
+msgid "Sats seen/used:"
+msgstr "위성 감지/사용:"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:240
+#, python-brace-format
+msgid "{square} Toggle Details"
+msgstr "{square} 상세 보기"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:249
+#, python-brace-format
+msgid "Sats seen/used: {sats_seen}/{sats_used}"
+msgstr "위성 감지/사용: {sats_seen}/{sats_used}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:260
+#, python-brace-format
+msgid "Error: {error}"
+msgstr "오차: {error}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:271
+#, python-brace-format
+msgid "Lock:  {locktype}"
+msgstr "수신:  {locktype}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:272
+msgid "No"
+msgstr "없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:284
+#, python-brace-format
+msgid "Lat:   {latitude:.5f}"
+msgstr "위도:  {latitude:.5f}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:292
+#, python-brace-format
+msgid "Lon:   {longitude:.5f}"
+msgstr "경도:  {longitude:.5f}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:300
+#, python-brace-format
+msgid "Alt:   {altitude:.1f} m"
+msgstr "고도:  {altitude:.1f} m"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:309
+#, python-brace-format
+msgid "Time:  {time}"
+msgstr "시간:  {time}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:318
+#, python-brace-format
+msgid "Date:  {date}"
+msgstr "날짜:  {date}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/gpsstatus.py:327
+#, python-brace-format
+msgid "From:  {location_source}"
+msgstr "출처:  {location_source}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:28 PiFinder/ui/menu_structure.py:1307
+msgid "Load"
+msgstr "불러오기"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:29
+msgid "Rename"
+msgstr "이름 변경"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:30 views/locations.html:95
+#: views/locations.html:201 views/network_item.html:14
+#: views/network_item.html:18
+msgid "Delete"
+msgstr "삭제"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:105
+#, python-brace-format
+msgid "Loaded: {name}"
+msgstr "불러옴: {name}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:128
+#, python-brace-format
+msgid "Deleted: {name}"
+msgstr "삭제됨: {name}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:148
+#, python-brace-format
+msgid ""
+"Renamed to:\n"
+"{name}"
+msgstr ""
+"이름 변경됨:\n"
+"{name}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/location_list.py:187
+msgid "No locations"
+msgstr "저장된 위치 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:31
+msgid "Enter Latitude"
+msgstr "위도 입력"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:34
+msgid "DD"
+msgstr "DD"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:38
+msgid "Enter Longitude"
+msgstr "경도 입력"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:41
+msgid "DDD"
+msgstr "DDD"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:45
+msgid "Altitude (m)"
+msgstr "고도 (m)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:46
+msgid "meters"
+msgstr "미터"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:215
+msgid " Next/Done"
+msgstr " 다음/완료"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:228
+msgid "󰍴 Delete  󰐕 N/S"
+msgstr "󰍴 삭제  󰐕 N/S"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:230
+msgid "󰍴 Delete  󰐕 E/W"
+msgstr "󰍴 삭제  󰐕 E/W"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/locationentry.py:312 PiFinder/ui/locationentry.py:324
+#: PiFinder/ui/menu_structure.py:1222
+msgid "Enter Coords"
+msgstr "좌표 입력"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:49
+msgid "Conditions"
+msgstr "관측 조건"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:54
+msgid "Transparency"
+msgstr "투명도"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Transparency not available
+#. TRANSLATORS: Seeing not available
+#. TRANSLATORS: eyepiece info not available
+#: PiFinder/ui/log.py:61 PiFinder/ui/log.py:94 PiFinder/ui/log.py:259
+msgid "NA"
+msgstr "N/A"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:65 PiFinder/ui/log.py:98
+msgid "Excellent"
+msgstr "최상"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:69 PiFinder/ui/log.py:102
+msgid "Very Good"
+msgstr "매우 좋음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:73 PiFinder/ui/log.py:106
+msgid "Good"
+msgstr "좋음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:77 PiFinder/ui/log.py:110
+msgid "Fair"
+msgstr "보통"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:81 PiFinder/ui/log.py:114
+msgid "Poor"
+msgstr "나쁨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:87
+msgid "Seeing"
+msgstr "시잉"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:183
+msgid "SAVE Log"
+msgstr "기록 저장"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:194
+msgid "Observability"
+msgstr "가시성"
+
+# AI-TRANSLATED (claude): needs human review: unsure of intended meaning
+#: PiFinder/ui/log.py:207
+#, fuzzy
+msgid "Appeal"
+msgstr "매력도"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:219
+msgid "Conditions..."
+msgstr "관측 조건..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/log.py:303
+msgid "Logged!"
+msgstr "기록됨!"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_manager.py:77
+msgid "Eyepiece"
+msgstr "아이피스"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_manager.py:96
+msgid "Telescope"
+msgstr "망원경"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:31
+msgid "Language: de"
+msgstr "언어: 독일어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:32
+msgid "Language: en"
+msgstr "언어: 영어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:33
+msgid "Language: es"
+msgstr "언어: 스페인어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:34
+msgid "Language: fr"
+msgstr "언어: 프랑스어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:35
+msgid "Language: zh"
+msgstr "언어: 중국어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:36
+msgid "Language: ko"
+msgstr "언어: 한국어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:47
+msgid "Start"
+msgstr "시작"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:52
+msgid "Focus"
+msgstr "초점"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:56
+msgid "Align"
+msgstr "얼라인"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:62
+msgid "Align (Day)"
+msgstr "얼라인 (주간)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:68 PiFinder/ui/menu_structure.py:1213
+msgid "GPS Status"
+msgstr "GPS 상태"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:74
+msgid "Chart"
+msgstr "성도"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:80 views/obs_session_log.html:7
+#: views/obs_sessions.html:11 views/obs_sessions.html:25
+msgid "Objects"
+msgstr "천체"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:85
+msgid "All Filtered"
+msgstr "전체 (필터)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:90
+msgid "By Catalog"
+msgstr "카탈로그별"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:95 PiFinder/ui/menu_structure.py:304
+msgid "Planets"
+msgstr "행성"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:101 PiFinder/ui/menu_structure.py:308
+msgid "Comets"
+msgstr "혜성"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:107 PiFinder/ui/menu_structure.py:190
+#: PiFinder/ui/menu_structure.py:312 PiFinder/ui/menu_structure.py:370
+msgid "NGC"
+msgstr "NGC"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:113 PiFinder/ui/menu_structure.py:184
+#: PiFinder/ui/menu_structure.py:316 PiFinder/ui/menu_structure.py:366
+msgid "Messier"
+msgstr "메시에"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:119 PiFinder/ui/menu_structure.py:320
+msgid "DSO..."
+msgstr "딥스카이..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:124 PiFinder/ui/menu_structure.py:326
+msgid "Abell Pn"
+msgstr "Abell 행성상성운"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:130 PiFinder/ui/menu_structure.py:330
+msgid "Arp Galaxies"
+msgstr "Arp 은하"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:136 PiFinder/ui/menu_structure.py:334
+msgid "Barnard"
+msgstr "바너드"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:142 PiFinder/ui/menu_structure.py:338
+msgid "Caldwell"
+msgstr "콜드웰"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:148 PiFinder/ui/menu_structure.py:342
+msgid "Collinder"
+msgstr "콜린더"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:154 PiFinder/ui/menu_structure.py:346
+msgid "E.G. Globs"
+msgstr "외부은하 구상성단"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:160 PiFinder/ui/menu_structure.py:350
+msgid "Harris Globs"
+msgstr "Harris 구상성단"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:166 PiFinder/ui/menu_structure.py:354
+msgid "Herschel 400"
+msgstr "허셜 400"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:172 PiFinder/ui/menu_structure.py:358
+msgid "IC"
+msgstr "IC"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:178 PiFinder/ui/menu_structure.py:362
+msgid "Lynga Opn Cl"
+msgstr "Lynga 산개성단"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:196 PiFinder/ui/menu_structure.py:374
+msgid "Sharpless"
+msgstr "샤플리스"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:202 PiFinder/ui/menu_structure.py:378
+msgid "TAAS 200"
+msgstr "TAAS 200"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:210 PiFinder/ui/menu_structure.py:384
+msgid "Stars..."
+msgstr "별..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:215 PiFinder/ui/menu_structure.py:390
+msgid "Bright Named"
+msgstr "밝은 고유명 별"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:221 PiFinder/ui/menu_structure.py:394
+msgid "SAC Doubles"
+msgstr "SAC 이중성"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:227 PiFinder/ui/menu_structure.py:398
+msgid "SAC Asterisms"
+msgstr "SAC 성군"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:233 PiFinder/ui/menu_structure.py:402
+msgid "SAC Red Stars"
+msgstr "SAC 적색별"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:239 PiFinder/ui/menu_structure.py:406
+msgid "RASC Doubles"
+msgstr "RASC 이중성"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:245
+msgid "WDS Doubles"
+msgstr "WDS 이중성"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:251 PiFinder/ui/menu_structure.py:410
+msgid "TLK 90 Variables"
+msgstr "TLK 90 변광성"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:261
+msgid "Recent"
+msgstr "최근"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:267 PiFinder/ui/obs_list.py:70
+msgid "Obs Lists"
+msgstr "관측 목록"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:271
+msgid "Custom"
+msgstr "사용자 지정"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:276
+msgid "Name Search"
+msgstr "이름 검색"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:280
+msgid "Set Filters"
+msgstr "필터 설정"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:286
+msgid "Reset All"
+msgstr "모두 초기화"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:291 PiFinder/ui/menu_structure.py:1328
+#: PiFinder/ui/menu_structure.py:1339 PiFinder/ui/software.py:435
+#: PiFinder/ui/software.py:531
+msgid "Confirm"
+msgstr "확인"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:294 PiFinder/ui/menu_structure.py:1329
+#: PiFinder/ui/menu_structure.py:1342 PiFinder/ui/software.py:380
+#: PiFinder/ui/software.py:435 PiFinder/ui/software.py:529
+#: views/edit_eyepiece.html:67 views/edit_instrument.html:113
+#: views/equipment.html:58 views/location_form.html:77 views/locations.html:187
+#: views/locations.html:200 views/network.html:46 views/network.html:83
+#: views/network_item.html:19 views/tools.html:97
+msgid "Cancel"
+msgstr "취소"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:298
+msgid "Catalogs"
+msgstr "카탈로그"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:418
+msgid "Type"
+msgstr "종류"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:464
+msgid "Magnitude"
+msgstr "등급"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:516 PiFinder/ui/menu_structure.py:526
+msgid "Observed"
+msgstr "관측됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:522
+msgid "Any"
+msgstr "모두"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:530
+msgid "Not Observed"
+msgstr "미관측"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:549
+msgid "User Pref..."
+msgstr "사용자 설정..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:554
+msgid "Key Bright"
+msgstr "키패드 밝기"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:595
+msgid "Volume"
+msgstr "음량"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:601 PiFinder/ui/menu_structure.py:616
+#: PiFinder/ui/menu_structure.py:648 PiFinder/ui/menu_structure.py:672
+#: PiFinder/ui/menu_structure.py:795 PiFinder/ui/menu_structure.py:819
+#: PiFinder/ui/menu_structure.py:843 PiFinder/ui/menu_structure.py:867
+#: PiFinder/ui/menu_structure.py:889 PiFinder/ui/menu_structure.py:916
+#: PiFinder/ui/menu_structure.py:932 PiFinder/ui/menu_structure.py:1175
+#: PiFinder/ui/menu_structure.py:1281 PiFinder/ui/menu_structure.py:1297
+msgid "Off"
+msgstr "끔"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:610
+msgid "Sleep Time"
+msgstr "절전 시간"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:642
+msgid "Menu Anim"
+msgstr "메뉴 애니메이션"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:652 PiFinder/ui/menu_structure.py:676
+msgid "Fast"
+msgstr "빠름"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:656 PiFinder/ui/menu_structure.py:680
+#: PiFinder/ui/menu_structure.py:803 PiFinder/ui/menu_structure.py:827
+#: PiFinder/ui/menu_structure.py:851 PiFinder/ui/menu_structure.py:1189
+msgid "Medium"
+msgstr "보통"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:660 PiFinder/ui/menu_structure.py:684
+msgid "Slow"
+msgstr "느림"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:666
+msgid "Scroll Speed"
+msgstr "스크롤 속도"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:690
+msgid "Search Input"
+msgstr "검색 입력 방식"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:697
+msgid "Multi-Tap"
+msgstr "멀티탭"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:701
+msgid "T9"
+msgstr "T9"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:707
+msgid "Az Arrows"
+msgstr "방위각 화살표"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:714
+msgid "Default"
+msgstr "기본"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:718
+msgid "Reverse"
+msgstr "반전"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:724
+msgid "Language"
+msgstr "언어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:731
+msgid "English"
+msgstr "영어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:735
+msgid "German"
+msgstr "독일어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:739
+msgid "French"
+msgstr "프랑스어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:743
+msgid "Spanish"
+msgstr "스페인어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:747
+msgid "Chinese"
+msgstr "중국어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:751
+msgid "Korean"
+msgstr "한국어"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:759
+msgid "Chart..."
+msgstr "성도..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:765
+msgid "Coordinate Sys."
+msgstr "좌표계"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:771
+msgid "Horizontal"
+msgstr "지평좌표"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:775
+msgid "EQ (Auto)"
+msgstr "EQ (자동)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:779
+msgid "EQ (North-up)"
+msgstr "EQ (북쪽 위)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:783
+msgid "EQ (South-up)"
+msgstr "EQ (남쪽 위)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:789
+msgid "Reticle"
+msgstr "레티클"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:799 PiFinder/ui/menu_structure.py:823
+#: PiFinder/ui/menu_structure.py:847 PiFinder/ui/menu_structure.py:1185
+msgid "Low"
+msgstr "낮음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:807 PiFinder/ui/menu_structure.py:831
+#: PiFinder/ui/menu_structure.py:855 PiFinder/ui/menu_structure.py:1193
+msgid "High"
+msgstr "높음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:813
+msgid "Constellation"
+msgstr "별자리"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:837
+msgid "DSO Display"
+msgstr "딥스카이 표시"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:861
+msgid "RA/DEC Disp."
+msgstr "RA/Dec 표시"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:871
+msgid "HH:MM"
+msgstr "HH:MM"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:875
+msgid "Degrees"
+msgstr "도"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: chart setting — names the object
+#. nearest the middle of the chart
+#: PiFinder/ui/menu_structure.py:883
+msgid "Center Object"
+msgstr "중앙 천체 이름"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:893 PiFinder/ui/menu_structure.py:912
+#: PiFinder/ui/menu_structure.py:928 PiFinder/ui/menu_structure.py:1285
+#: PiFinder/ui/menu_structure.py:1301
+msgid "On"
+msgstr "켬"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:901
+msgid "Image..."
+msgstr "이미지..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:906
+msgid "NSEW Labels"
+msgstr "방위 표시"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:922
+msgid "Object Size"
+msgstr "천체 크기"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:940
+msgid "Camera Exp"
+msgstr "카메라 노출"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:948
+msgid "Auto"
+msgstr "자동"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:953
+msgid "0.025s"
+msgstr "0.025s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:957
+msgid "0.05s"
+msgstr "0.05s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:961
+msgid "0.1s"
+msgstr "0.1s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:965
+msgid "0.2s"
+msgstr "0.2s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:969
+msgid "0.4s"
+msgstr "0.4s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:973
+msgid "0.8s"
+msgstr "0.8s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:977
+msgid "1s"
+msgstr "1s"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:983
+msgid "WiFi Mode"
+msgstr "WiFi 모드"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:989
+msgid "Client Mode"
+msgstr "클라이언트 모드"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:994
+msgid "AP Mode"
+msgstr "AP 모드"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1001 views/edit_instrument.html:66
+#: views/equipment.html:73
+msgid "Mount Type"
+msgstr "마운트 종류"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1008 views/edit_instrument.html:62
+msgid "Alt/Az"
+msgstr "Alt/Az"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1012 views/edit_instrument.html:63
+msgid "Equatorial"
+msgstr "적도의"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1024
+msgid "PiFinder Type"
+msgstr "PiFinder 종류"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1031
+msgid "Left"
+msgstr "왼쪽"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1035
+msgid "Right"
+msgstr "오른쪽"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1039
+msgid "Straight"
+msgstr "직선형"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1043
+msgid "Flat v3"
+msgstr "Flat v3"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1047
+msgid "Flat v2"
+msgstr "Flat v2"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1051
+msgid "AS Bloom"
+msgstr "AS Bloom"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1055
+msgid "AS Heart"
+msgstr "AS Heart"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1059
+msgid "Rev4 Left"
+msgstr "Rev4 왼쪽"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1063
+msgid "Rev4 Right"
+msgstr "Rev4 오른쪽"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1067
+msgid "Rev4 Straight"
+msgstr "Rev4 직선형"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1073
+msgid "Camera Type"
+msgstr "카메라 종류"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1079
+msgid "v2 - imx477"
+msgstr "v2 - imx477"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1084
+msgid "v3 - imx296"
+msgstr "v3 - imx296"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1089
+msgid "v3 - imx462"
+msgstr "v3 - imx462"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1100
+msgid "Lens"
+msgstr "렌즈"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1109
+msgid "12mm"
+msgstr "12mm"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1113
+msgid "16mm"
+msgstr "16mm"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1117
+msgid "25mm"
+msgstr "25mm"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1123 views/gps.html:6
+msgid "GPS Settings"
+msgstr "GPS 설정"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1128
+msgid "GPS Type"
+msgstr "GPS 종류"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1136
+msgid "UBlox"
+msgstr "UBlox"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1140
+msgid "GPSD (generic)"
+msgstr "GPSD (일반)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1146
+msgid "GPS Baud Rate"
+msgstr "GPS 보드레이트"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1154
+msgid "9600 (standard)"
+msgstr "9600 (표준)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1158
+msgid "115200 (UBlox-10)"
+msgstr "115200 (UBlox-10)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1168
+msgid "IMU Sensit."
+msgstr "IMU 감도"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1180
+msgid "Very Low"
+msgstr "매우 낮음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1205
+msgid "Status"
+msgstr "상태"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1208
+msgid "Place & Time"
+msgstr "위치 및 시간"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1217
+msgid "Set Location"
+msgstr "위치 설정"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1226 views/locations.html:86
+msgid "Load Location"
+msgstr "위치 불러오기"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1230 views/location_form.html:76
+msgid "Save Location"
+msgstr "위치 저장"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1236
+msgid "Set Time/Date"
+msgstr "시간/날짜 설정"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1243
+msgid "Reset Location"
+msgstr "위치 초기화"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1245
+msgid "Reset Time/Date"
+msgstr "시간/날짜 초기화"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1250
+msgid "Console"
+msgstr "콘솔"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1251
+msgid "Software Upd"
+msgstr "소프트웨어 업데이트"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1254
+msgid "Experimental"
+msgstr "실험적 기능"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1259
+msgid "Polar Align"
+msgstr "극축 정렬"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1264
+msgid "Dev Tools"
+msgstr "개발자 도구"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1269
+msgid "Telemetry"
+msgstr "텔레메트리"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1274
+msgid "Record"
+msgstr "기록"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1291
+msgid "Images"
+msgstr "이미지"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1317
+msgid "Power"
+msgstr "전원"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:1323
+msgid "Shutdown"
+msgstr "종료"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:98 PiFinder/ui/object_details.py:103
+msgid "ALIGN"
+msgstr "얼라인"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:101
+msgid "CANCEL"
+msgstr "취소"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:133
+msgid "No Object Found"
+msgstr "천체를 찾을 수 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:251 PiFinder/ui/object_details.py:258
+#, python-brace-format
+msgid "Mag:{obj_mag}"
+msgstr "등급:{obj_mag}"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: object info magnitude
+#: PiFinder/ui/object_details.py:254
+#, python-brace-format
+msgid "Sz:{size}"
+msgstr "크기:{size}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:380
+msgid "  Not Logged"
+msgstr "  기록 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:382
+#, python-brace-format
+msgid "  {logs} Logs"
+msgstr "  기록 {logs}건"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:429 PiFinder/ui/polar_align.py:444
+msgid "No solve"
+msgstr "아직 솔빙"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:435
+#, python-brace-format
+msgid "yet{elipsis}"
+msgstr "안 됨{elipsis}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:449
+msgid "Searching"
+msgstr "GPS 신호"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:455
+#, python-brace-format
+msgid "for GPS{elipsis}"
+msgstr "검색 중{elipsis}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:469 PiFinder/ui/object_details.py:497
+msgid "Calculating"
+msgstr "위치"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:475
+msgid "positions"
+msgstr "계산 중"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:503
+msgid "position"
+msgstr "계산 중"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:587
+msgid "Contrast Reserve"
+msgstr "콘트라스트 리저브 (CR)"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:613
+msgid "No contrast data"
+msgstr "대비 데이터 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:622
+msgid "CR measures object"
+msgstr "CR은 하늘 밝기,"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Contrast reserve explanation line 1
+#: PiFinder/ui/object_details.py:625
+msgid "visibility based on"
+msgstr "망원경, 아이피스에"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Contrast reserve explanation line 2
+#: PiFinder/ui/object_details.py:628
+msgid "sky brightness,"
+msgstr "따른 천체의"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: Contrast reserve explanation line 3
+#: PiFinder/ui/object_details.py:631
+msgid "telescope, and EP."
+msgstr "가시성 지표입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:706
+msgid "Too Far"
+msgstr "너무 멀리 있음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_details.py:731
+msgid "LOG"
+msgstr "기록"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:71 views/obs_session_log.html:21
+msgid "Catalog"
+msgstr "카탈로그"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:73 PiFinder/ui/object_list.py:950
+msgid "RA"
+msgstr "RA"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:74
+msgid "Nearby"
+msgstr "근처"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:180
+msgid "Refresh"
+msgstr "새로 고침"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:186
+msgid "Sort"
+msgstr "정렬"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:190 PiFinder/ui/object_list.py:940
+msgid "Nearest"
+msgstr "가까운 순"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:194 PiFinder/ui/object_list.py:945
+msgid "Standard"
+msgstr "표준"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:199
+msgid "Filter"
+msgstr "필터"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:327 PiFinder/ui/software.py:572
+msgid "Downloading..."
+msgstr "다운로드 중..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:334
+msgid "No GPS lock"
+msgstr "GPS 미수신"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:341
+msgid "Calculating..."
+msgstr "계산 중..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:349 PiFinder/ui/software.py:750
+msgid "Loading..."
+msgstr "로딩 중..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:356
+#, python-brace-format
+msgid ""
+"Sorting by\n"
+"{sort_order}"
+msgstr ""
+"{sort_order}\n"
+"순 정렬"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:653
+msgid "No objects"
+msgstr "필터에 맞는"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:659
+msgid "match filter"
+msgstr "천체 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:688
+#, python-brace-format
+msgid "{catalog_info_1} obj"
+msgstr "{catalog_info_1}개"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: number of objects in object list
+#: PiFinder/ui/object_list.py:691
+#, python-brace-format
+msgid ", {catalog_info_2}d old"
+msgstr ", {catalog_info_2}일 전"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:701
+#, python-brace-format
+msgid "Sort: {sort_order}"
+msgstr "정렬: {sort_order}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/object_list.py:995
+msgid "Refreshing..."
+msgstr "새로 고침 중..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/obs_list.py:151
+#, python-brace-format
+msgid ""
+"Error loading\n"
+"{parsed} parsed"
+msgstr ""
+"로딩 오류\n"
+"{parsed}개 파싱됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/obs_list.py:157
+#, python-brace-format
+msgid ""
+"{name}\n"
+"{matched}/{parsed} objects"
+msgstr ""
+"{name}\n"
+"{matched}/{parsed} 천체"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:91
+msgid "REDO PT"
+msgstr "포인트 다시"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:93
+msgid "STATS"
+msgstr "통계"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:228 PiFinder/ui/polar_align.py:549
+msgid "Need GPS lock"
+msgstr "GPS 수신 필요"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:234 PiFinder/ui/polar_align.py:551
+msgid "Rotate more"
+msgstr "더 회전하세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:313
+msgid "PLATFORM PA"
+msgstr "플랫폼 극축정렬"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:321
+msgid "Solve 2-3 points,"
+msgstr "플랫폼을 회전하며"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:322
+msgid "rotating platform"
+msgstr "2-3개 포인트를"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:323
+msgid "between them."
+msgstr "솔빙하세요."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:324
+msgid "Do not move scope"
+msgstr "마운트 위의 망원경은"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:325
+msgid "on the mount."
+msgstr "움직이지 마세요."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:329
+msgid "GPS: waiting..."
+msgstr "GPS: 대기 중..."
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
+#: PiFinder/ui/polar_align.py:331
+#, python-brace-format
+msgid "{icon} START"
+msgstr "{icon} 시작"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:338
+msgid "POINT"
+msgstr "포인트"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:346
+msgid "Aim away from"
+msgstr "극에서 떨어진 곳을"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:347
+msgid "the pole, wait"
+msgstr "겨냥하고 솔빙을"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:348
+msgid "for a solve."
+msgstr "기다리세요."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:352
+msgid "Rotate platform"
+msgstr "플랫폼을 10° 이상"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:353
+msgid "10° or more."
+msgstr "회전하세요."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:357
+msgid "Rotate further"
+msgstr "더 회전하거나"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:358
+msgid "or solve now."
+msgstr "지금 솔빙하세요."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:364
+msgid "Solve"
+msgstr "솔빙"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:367
+msgid "No recent solve"
+msgstr "최근 솔빙 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; {square} is the SQUARE button glyph, {minus}
+#. is the MINUS button glyph.
+#: PiFinder/ui/polar_align.py:373
+#, python-brace-format
+msgid "{square} CAPTURE  {minus} CANCEL"
+msgstr "{square} 캡처  {minus} 취소"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:377
+msgid "0 SOLVE NOW"
+msgstr "0 지금 솔빙"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:384
+msgid "CAPTURING"
+msgstr "캡처 중"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:392
+msgid "Hold still,"
+msgstr "카메라 솔빙을"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:393
+msgid "waiting for"
+msgstr "기다리는 중,"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:394
+msgid "camera solve."
+msgstr "움직이지 마세요."
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; {icon} is the MINUS button glyph
+#. TRANSLATORS: hint bar; {icon} is the SQUARE button glyph
+#: PiFinder/ui/polar_align.py:398 PiFinder/ui/polar_align.py:470
+#: PiFinder/ui/polar_align.py:500
+#, python-brace-format
+msgid "{icon} BACK"
+msgstr "{icon} 뒤로"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:406
+msgid "ok"
+msgstr "양호"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:408
+msgid "mid"
+msgstr "보통"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:409
+msgid "bad"
+msgstr "나쁨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:414 PiFinder/ui/polar_align.py:481
+msgid "pt"
+msgstr "점"
+
+# AI-TRANSLATED (claude): needs human review
+#. TRANSLATORS: hint bar; {square} is the SQUARE button glyph, {minus}
+#. is the MINUS button glyph.
+#: PiFinder/ui/polar_align.py:428
+#, python-brace-format
+msgid "{square} REDO  {minus} CANCEL"
+msgstr "{square} 다시  {minus} 취소"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:468
+msgid "No result yet"
+msgstr "아직 결과 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:477
+msgid "RA/Dec"
+msgstr "RA/Dec"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:477
+msgid "3-axis"
+msgstr "3축"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:484
+msgid "Fit"
+msgstr "피팅"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:485
+msgid "Alt"
+msgstr "고도"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:486
+msgid "Az"
+msgstr "방위"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:487
+msgid "Axis"
+msgstr "축"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:497
+msgid "time"
+msgstr "시간"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:497
+msgid "sec"
+msgstr "초"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:547
+msgid "Need 2 points"
+msgstr "포인트 2개 필요"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:561 PiFinder/ui/polar_align.py:568
+msgid "Roll Off"
+msgstr "롤 끔"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:561 PiFinder/ui/polar_align.py:568
+msgid "Roll On"
+msgstr "롤 켬"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:576
+msgid "No points"
+msgstr "포인트 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/polar_align.py:582
+msgid "Dropped point"
+msgstr "포인트 제거됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:516
+msgid "Full"
+msgstr "전체"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:530
+msgid "H/D"
+msgstr "H/D"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:540
+msgid "D/D"
+msgstr "D/D"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:602
+msgid "RA/DEC Entry"
+msgstr "RA/Dec 입력"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:839
+msgid "RA:"
+msgstr "RA:"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:845
+msgid "DEC:"
+msgstr "Dec:"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:851
+msgid "EPOCH:"
+msgstr "EPOCH:"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/radec_entry.py:997
+msgid "RA/DEC"
+msgstr "RA/Dec"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:213
+msgid "No release found"
+msgstr "릴리스 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:219 PiFinder/ui/software.py:632
+msgid "System Upgrade"
+msgstr "시스템 업그레이드"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:259
+msgid "Updating..."
+msgstr "업데이트 중..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:261
+msgid "Ok! Restarting"
+msgstr "완료! 재시작 중"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:264
+msgid "Error on Upd"
+msgstr "업데이트 오류"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:271
+#, python-brace-format
+msgid "Wifi Mode: {mode}"
+msgstr "WiFi 모드: {mode}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:279
+msgid "Current Version"
+msgstr "현재 버전"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:295
+msgid "Release Version"
+msgstr "릴리스 버전"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:317
+msgid "WiFi must be"
+msgstr "WiFi가 클라이언트"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:323
+msgid "client mode"
+msgstr "모드여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:336
+msgid "Checking for"
+msgstr "업데이트"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:342
+#, python-brace-format
+msgid "updates{elipsis}"
+msgstr "확인 중{elipsis}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:358
+msgid "No Update"
+msgstr "업데이트"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:364
+msgid "needed"
+msgstr "필요 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:374
+msgid "Update Now"
+msgstr "지금 업데이트"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:444
+msgid "Major Upgrade"
+msgstr "메이저 업그레이드"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:464
+msgid "IRREVERSIBLE"
+msgstr "되돌릴 수 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:473
+#, python-brace-format
+msgid "Download: {size}MB"
+msgstr "다운로드: {size}MB"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:481
+msgid "Power + WiFi req"
+msgstr "전원 + WiFi 필요"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:492
+msgid "No checksum avail."
+msgstr "체크섬 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:552
+msgid "Starting..."
+msgstr "시작 중..."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:594 PiFinder/ui/software.py:599
+msgid "Not supported"
+msgstr "지원되지 않음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:604
+msgid "Failed: "
+msgstr "실패: "
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:735
+msgid "Could not load"
+msgstr "릴리스 노트를"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/software.py:741
+msgid "release notes"
+msgstr "불러올 수 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:25
+msgid "SQM"
+msgstr "SQM"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:42
+msgid "CALIB"
+msgstr "보정"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:48
+msgid "SWEEP"
+msgstr "스윕"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:100
+msgid "NO SQM DATA"
+msgstr "SQM 데이터 없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:128 PiFinder/ui/sqm.py:215
+msgid "mag/arcsec²"
+msgstr "mag/arcsec²"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:147 PiFinder/ui/sqm.py:250
+#, python-brace-format
+msgid "Bortle {bc}"
+msgstr "보틀 {bc}"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:156
+msgid "BACK"
+msgstr "뒤로"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:157
+msgid "SCROLL"
+msgstr "스크롤"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:170
+#, python-brace-format
+msgid "{s}s ago"
+msgstr "{s}초 전"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:172
+#, python-brace-format
+msgid "{m}m ago"
+msgstr "{m}분 전"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:256
+msgid "DETAILS"
+msgstr "상세"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:311
+msgid "SQM Calibration"
+msgstr "SQM 보정"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:323
+msgid "SQM Sweep"
+msgstr "SQM 스윕"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:345
+msgid "Excellent Dark-Sky Site"
+msgstr "최상의 어두운 하늘"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:350
+msgid "The zodiacal light is visible and colorful. Gegenschein readily visible."
+msgstr "황도광이 선명하고 색이 보입니다. 대일조가 쉽게 보입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:353
+msgid ""
+"The Scorpius and Sagittarius regions of the Milky Way cast obvious "
+"shadows."
+msgstr "전갈자리와 궁수자리 부근의 은하수가 뚜렷한 그림자를 드리웁니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:355
+msgid "M33 is a direct naked-eye object. Airglow readily visible."
+msgstr "M33이 맨눈으로 직접 보입니다. 대기광이 쉽게 보입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:356
+msgid "Abundant stars make faint constellations hard to distinguish."
+msgstr "별이 너무 많아 어두운 별자리를 구분하기 어렵습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:361
+msgid "Typical Truly Dark Site"
+msgstr "전형적인 어두운 하늘"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:366
+msgid ""
+"The zodiacal light is distinctly yellowish and bright enough to cast "
+"shadows at dusk and dawn."
+msgstr "황도광이 뚜렷하게 노란빛을 띠며 새벽과 해질녘에 그림자를 드리울 만큼 밝습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:368
+msgid "Clouds appear as dark silhouettes against the sky."
+msgstr "구름이 하늘을 배경으로 어두운 실루엣으로 보입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:369
+msgid "The summer Milky Way is highly structured. M33 easily visible."
+msgstr "여름 은하수의 구조가 매우 뚜렷합니다. M33이 쉽게 보입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:374
+msgid "Rural Sky"
+msgstr "시골 하늘"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:379
+msgid "The zodiacal light is striking in spring and autumn, color still visible."
+msgstr "봄과 가을에 황도광이 인상적이며 색도 여전히 보입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:382
+msgid ""
+"Some light pollution at horizon. Clouds illuminated near horizon, dark "
+"overhead."
+msgstr "지평선 부근에 약간의 광공해가 있습니다. 지평선 근처 구름은 밝고 머리 위는 어둡습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:384
+msgid "The summer Milky Way still appears complex."
+msgstr "여름 은하수가 여전히 복잡한 구조로 보입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:385
+msgid "Several Messier objects remain naked-eye visible."
+msgstr "여러 메시에 천체가 맨눈으로 보입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:390
+msgid "Brighter Rural"
+msgstr "밝은 시골 하늘"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:395
+msgid "Zodiacal light still visible but doesn't extend halfway to zenith."
+msgstr "황도광이 보이지만 천정까지의 절반에도 미치지 못합니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:397
+msgid "Light pollution domes apparent in multiple directions."
+msgstr "여러 방향에서 광공해 돔이 뚜렷합니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:399
+msgid ""
+"The Milky Way well above the horizon is still impressive, but lacks "
+"detail."
+msgstr "지평선 위 높이 뜬 은하수는 여전히 인상적이지만 세부 구조가 부족합니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:401
+msgid "M33 difficult to see."
+msgstr "M33을 보기 어렵습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:406
+msgid "Semi-Suburban/Transition Sky"
+msgstr "준교외/전환 하늘"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:411
+msgid "Clouds have a grayish glow at zenith and appear bright toward city domes."
+msgstr "천정의 구름이 회색빛으로 빛나며 도시 광공해 돔 방향으로는 밝게 보입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:413
+msgid "Milky Way only vaguely visible 10-15° above horizon."
+msgstr "은하수가 지평선 위 10-15°에서 희미하게만 보입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:414
+msgid "Great Rift observable overhead."
+msgstr "머리 위에서 대암극이 관측됩니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:419
+msgid "Suburban Sky"
+msgstr "교외 하늘"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:424
+msgid "Only hints of zodiacal light seen on best nights in autumn and spring."
+msgstr "가을과 봄의 가장 좋은 밤에만 황도광의 흔적이 보입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:426
+msgid "Light pollution visible in most, if not all, directions."
+msgstr "거의 모든 방향에서 광공해가 보입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:427
+msgid "Clouds noticeably brighter than the sky."
+msgstr "구름이 하늘보다 눈에 띄게 밝습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:428
+msgid "Milky Way invisible near horizon, looks washed out overhead."
+msgstr "지평선 근처에서는 은하수가 보이지 않고 머리 위에서는 흐릿합니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:433
+msgid "Bright Suburban Sky"
+msgstr "밝은 교외 하늘"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:437
+msgid "The zodiacal light is invisible."
+msgstr "황도광이 보이지 않습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:439
+msgid "Light pollution makes sky within 35° of horizon glow grayish white."
+msgstr "광공해로 지평선 위 35° 이내의 하늘이 회백색으로 빛납니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:442
+msgid "The Milky Way is only visible near the zenith. M33 undetectable."
+msgstr "은하수가 천정 부근에서만 보입니다. M33은 감지되지 않습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:444
+msgid "M31 modestly apparent. Surroundings easily visible."
+msgstr "M31이 어느 정도 보입니다. 주변이 쉽게 보입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:449
+msgid "Suburban/Urban Transition"
+msgstr "교외/도시 전환"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:453
+msgid "Light pollution makes the entire sky light gray."
+msgstr "광공해로 하늘 전체가 밝은 회색입니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:454
+msgid "Strong light sources evident in all directions."
+msgstr "모든 방향에서 강한 광원이 뚜렷합니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:455
+msgid "The Milky Way is nearly or totally invisible."
+msgstr "은하수가 거의 또는 전혀 보이지 않습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:456
+msgid "M31 and M44 may be glimpsed, but with no detail."
+msgstr "M31과 M44가 언뜻 보일 수 있으나 세부는 보이지 않습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:461
+msgid "City Sky"
+msgstr "도시 하늘"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:465
+msgid "The sky is light gray or orange—one can easily read."
+msgstr "하늘이 밝은 회색 또는 주황색이며 글을 쉽게 읽을 수 있습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:466
+msgid "Stars forming recognizable patterns may vanish entirely."
+msgstr "별자리를 이루는 별들이 완전히 사라질 수 있습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:467
+msgid "Only bright Messier objects can be detected with telescopes."
+msgstr "망원경으로 밝은 메시에 천체만 감지할 수 있습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:472
+msgid "Inner-City Sky"
+msgstr "도심 하늘"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:476
+msgid "The sky is brilliantly lit."
+msgstr "하늘이 매우 밝게 빛납니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:477
+msgid "Many stars forming constellations invisible."
+msgstr "별자리를 이루는 많은 별이 보이지 않습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/sqm.py:479
+msgid ""
+"Only the Moon, planets, bright satellites, and a few of the brightest "
+"star clusters observable."
+msgstr "달, 행성, 밝은 인공위성과 가장 밝은 성단 몇 개만 관측할 수 있습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/telemetry_list.py:69
+msgid "Stop replay"
+msgstr "재생 중지"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/telemetry_list.py:93
+msgid ""
+"No integrator\n"
+"queue"
+msgstr ""
+"integrator 큐\n"
+"없음"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/telemetry_list.py:99
+msgid ""
+"Replay\n"
+"stopped"
+msgstr ""
+"재생\n"
+"중지됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/telemetry_list.py:105
+msgid ""
+"Replay\n"
+"started"
+msgstr ""
+"재생\n"
+"시작됨"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/text_menu.py:61
+msgid "Select None"
+msgstr "모두 해제"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/text_menu.py:223
+msgid "Select All"
+msgstr "모두 선택"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/textentry.py:110
+msgid "Input"
+msgstr "입력"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/textentry.py:221
+msgid "Results"
+msgstr "결과"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/textentry.py:426
+msgid "Enter Location Name:"
+msgstr "위치 이름 입력:"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/textentry.py:428
+msgid "Search"
+msgstr "검색"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/timeentry.py:27
+msgid "hh"
+msgstr "hh"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/timeentry.py:29
+msgid "ss"
+msgstr "ss"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/timeentry.py:133
+msgid "Enter Local Time"
+msgstr "현지 시간 입력"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/advanced.html:7
+msgid "GPS location lock"
+msgstr "GPS 위치 수신"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/advanced.html:8
+msgid "GPS time lock"
+msgstr "GPS 시간 수신"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/base.html:19 views/base.html:30
+msgid "Network Setup"
+msgstr "네트워크 설정"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/base.html:50
+msgid "PiFinder User Guide"
+msgstr "PiFinder 사용자 가이드"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/base.html:51
+msgid "PiFinder Support Page"
+msgstr "PiFinder 지원 페이지"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:7
+msgid "Add a new eyepiece"
+msgstr "새 아이피스 추가"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:9
+msgid "Edit eyepiece"
+msgstr "아이피스 편집"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:40 views/edit_instrument.html:48
+msgid "Focal Length (in mm)"
+msgstr "초점거리 (mm)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:47
+msgid "Apparent Field of View (in °)"
+msgstr "겉보기 시야각 (°)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:54
+msgid "Field stop (in mm)"
+msgstr "필드 스톱 (mm)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:55
+msgid "Leave at 0 if unknown"
+msgstr "모르면 0으로 두세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:62
+msgid "Add eyepiece!"
+msgstr "아이피스 추가!"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_eyepiece.html:64
+msgid "Update eyepiece!"
+msgstr "아이피스 갱신!"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:7
+msgid "Add a new instrument"
+msgstr "새 망원경 추가"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:9
+msgid "Edit instrument"
+msgstr "망원경 편집"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:34
+msgid "Instrument Name"
+msgstr "망원경 이름"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:41
+msgid "Aperture (in mm)"
+msgstr "구경 (mm)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:55 views/equipment.html:72
+msgid "Obstruction %"
+msgstr "중앙 차폐 %"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:56
+msgid "Leave at 0 for a refractor"
+msgstr "굴절망원경은 0으로 두세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:74
+msgid "Flip image (upside down)"
+msgstr "이미지 상하 반전"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:82
+msgid "Flop image (left right)"
+msgstr "이미지 좌우 반전"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:90 views/equipment.html:76
+msgid "Reverse Arrow A"
+msgstr "화살표 A 반전"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:98 views/equipment.html:77
+msgid "Reverse Arrow B"
+msgstr "화살표 B 반전"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:108
+msgid "Add instrument!"
+msgstr "망원경 추가!"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/edit_instrument.html:110
+msgid "Update instrument!"
+msgstr "망원경 갱신!"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:28 views/equipment.html:65
+msgid "Instruments"
+msgstr "망원경"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:32 views/equipment.html:113
+msgid "Eyepieces"
+msgstr "아이피스"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:36
+msgid "Import from DeepskyLog"
+msgstr "DeepskyLog에서 가져오기"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:44
+msgid "Download instruments from DeepskyLog"
+msgstr "DeepskyLog에서 망원경 다운로드"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:45
+msgid ""
+"This will delete all instruments and eyepieces from your PiFinder and "
+"replace them with the instruments and eyepieces from DeepskyLog. Are you "
+"really sure?"
+msgstr "PiFinder의 모든 망원경과 아이피스를 삭제하고 DeepskyLog의 장비로 교체합니다. 정말 진행하시겠습니까?"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:50
+msgid "DeepskyLog User Name"
+msgstr "DeepskyLog 사용자 이름"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:57
+msgid "Import!"
+msgstr "가져오기!"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:62
+msgid "Add new instrument"
+msgstr "새 망원경 추가"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:63
+msgid "Add new eyepiece"
+msgstr "새 아이피스 추가"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:71 views/equipment.html:118
+msgid "Focal Length (mm)"
+msgstr "초점거리 (mm)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:74
+msgid "Flip"
+msgstr "상하 반전"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:75
+msgid "Flop"
+msgstr "좌우 반전"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:78 views/equipment.html:121
+msgid "Active"
+msgstr "활성"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:79 views/equipment.html:122 views/locations.html:68
+msgid "Actions"
+msgstr "작업"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:119
+msgid "Apparent FOV"
+msgstr "겉보기 시야각"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment.html:120
+msgid "Field Stop"
+msgstr "필드 스톱"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment_validation.html:8 views/locations.html:435
+#: views/locations.html:523 views/locations.html:580
+msgid "This field is required"
+msgstr "필수 항목입니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment_validation.html:9 views/locations.html:437
+msgid "Must be a valid number"
+msgstr "유효한 숫자여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment_validation.html:10
+#, python-format
+msgid "Must be between %(minimum)s and %(maximum)s"
+msgstr "%(minimum)s과(와) %(maximum)s 사이여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/equipment_validation.html:11
+#, python-format
+msgid "Must be %(maximum)s characters or fewer"
+msgstr "%(maximum)s자 이하여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:23 views/location_form.html:14 views/locations.html:124
+msgid "Use DMS Format"
+msgstr "도분초(DMS) 형식 사용"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:30 views/location_form.html:21 views/locations.html:131
+msgid "Latitude (Decimal)"
+msgstr "위도 (십진수)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:34 views/location_form.html:26 views/locations.html:136
+msgid "Longitude (Decimal)"
+msgstr "경도 (십진수)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:40 views/location_form.html:33 views/locations.html:143
+msgid "Latitude Degrees"
+msgstr "위도 (도)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:44 views/location_form.html:37 views/locations.html:147
+msgid "Latitude Minutes"
+msgstr "위도 (분)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:48 views/location_form.html:41 views/locations.html:151
+msgid "Latitude Seconds"
+msgstr "위도 (초)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:52 views/location_form.html:45 views/locations.html:155
+msgid "Longitude Degrees"
+msgstr "경도 (도)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:56 views/location_form.html:49 views/locations.html:159
+msgid "Longitude Minutes"
+msgstr "경도 (분)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:60 views/location_form.html:53 views/locations.html:163
+msgid "Longitude Seconds"
+msgstr "경도 (초)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:66
+msgid "Altitude in meter"
+msgstr "고도 (m)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:72 views/obs_sessions.html:25
+msgid "Date"
+msgstr "날짜"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:76
+msgid "UTC Time (h:m:s)"
+msgstr "UTC 시간 (h:m:s)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/gps.html:79
+msgid "Set to Browser Date/Time"
+msgstr "브라우저 날짜/시간으로 설정"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:6 views/remote.html:6
+msgid "PiFinder Screen"
+msgstr "PiFinder 화면"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:14
+msgid "Mode"
+msgstr "모드"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:21
+msgid "lat"
+msgstr "위도"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:21
+msgid "lon"
+msgstr "경도"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:29
+msgid "Sky Position"
+msgstr "하늘 위치"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:36
+msgid "Software Version"
+msgstr "소프트웨어 버전"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/index.html:63 views/remote.html:55
+msgid "PiFinder server is currently unavailable. Please try again later."
+msgstr "PiFinder 서버를 현재 사용할 수 없습니다. 나중에 다시 시도하세요."
+
+# AI-TRANSLATED (claude): needs human review
+#: views/location_form.html:59 views/locations.html:169
+msgid "Altitude (meters)"
+msgstr "고도 (m)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/location_form.html:66 views/locations.html:176
+msgid "Error (meters)"
+msgstr "오차 (m)"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/location_form.html:71 views/locations.html:67 views/locations.html:181
+msgid "Source"
+msgstr "출처"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:31
+msgid "Location Management"
+msgstr "위치 관리"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:48
+msgid "Add New Location"
+msgstr "새 위치 추가"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:89
+msgid "Set as Default"
+msgstr "기본으로 설정"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:92
+msgid "Edit"
+msgstr "편집"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:111
+msgid "Edit Location"
+msgstr "위치 편집"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:186
+msgid "Save Changes"
+msgstr "변경 사항 저장"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:196
+msgid "Confirm Delete"
+msgstr "삭제 확인"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:197
+msgid "Are you sure you want to delete the location"
+msgstr "다음 위치를 삭제하시겠습니까:"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:197
+msgid "This action cannot be undone."
+msgstr "이 작업은 되돌릴 수 없습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:441
+msgid "Must be between -90 and 90"
+msgstr "-90과 90 사이여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:444
+msgid "Must be between -180 and 180"
+msgstr "-180과 180 사이여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:447
+msgid "Must be between -1000 and 10000 meters"
+msgstr "-1000과 10000 m 사이여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:450
+msgid "Must be between 0 and 10000 meters"
+msgstr "0과 10000 m 사이여야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/locations.html:548
+msgid "Please fix the validation errors before saving"
+msgstr "저장하기 전에 입력 오류를 수정하세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/login.html:6
+msgid "Login Required"
+msgstr "로그인 필요"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/login.html:23 views/network.html:75
+msgid "Password"
+msgstr "비밀번호"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/login.html:25
+msgid "Note: The default password is"
+msgstr "참고: 기본 비밀번호는"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/login.html:25
+msgid "You can change this using the Tool menu option"
+msgstr "도구 메뉴에서 변경할 수 있습니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:103
+msgid "PiFinder Logs"
+msgstr "PiFinder 로그"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:121
+msgid "Download All Logs"
+msgstr "모든 로그 다운로드"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:124 views/logs.html:262 views/logs.html:274
+msgid "Pause"
+msgstr "일시정지"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:127
+msgid "Resume from Current"
+msgstr "현재 위치에서 재개"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:130
+msgid "Restart from End"
+msgstr "끝에서 다시 시작"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:133
+msgid "Copy to Clipboard"
+msgstr "클립보드에 복사"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:136
+msgid "Upload Log Conf"
+msgstr "로그 설정 업로드"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:140 views/logs.html:340
+msgid "Select Log Configuration"
+msgstr "로그 설정 선택"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:144
+msgid "Total lines:"
+msgstr "전체 줄 수:"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:152
+msgid "Loading log files..."
+msgstr "로그 파일 로딩 중..."
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:262
+msgid "Resume"
+msgstr "재개"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:322 views/logs.html:330
+msgid "Failed to copy"
+msgstr "복사 실패"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:327
+msgid "Copied!"
+msgstr "복사됨!"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:355
+msgid "Switch log configuration to"
+msgstr "로그 설정을 다음으로 전환:"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:355
+msgid "and restart PiFinder?"
+msgstr "그리고 PiFinder를 재시작할까요?"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:375
+msgid "File must be named logconf_<name>.json"
+msgstr "파일 이름은 logconf_<name>.json 형식이어야 합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/logs.html:387
+msgid "Upload failed:"
+msgstr "업로드 실패:"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:6
+msgid "Network Settings"
+msgstr "네트워크 설정"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:15
+msgid "Access Point"
+msgstr "액세스 포인트"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:16
+msgid "Client"
+msgstr "클라이언트"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:18
+msgid "Wifi Mode"
+msgstr "WiFi 모드"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:24
+msgid "AP Network Name"
+msgstr "AP 네트워크 이름"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:30
+msgid "Host Name"
+msgstr "호스트 이름"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:36
+msgid "Update and Restart"
+msgstr "적용 후 재시작"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:41
+msgid "Save and Restart"
+msgstr "저장 후 재시작"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:42
+msgid ""
+"This will update the network settings and restart the PiFinder. You may "
+"have to adjust your network settings to re-connect. Are you sure?"
+msgstr "네트워크 설정을 갱신하고 PiFinder를 재시작합니다. 다시 연결하려면 네트워크 설정을 조정해야 할 수 있습니다. 계속하시겠습니까?"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:45 views/tools.html:96
+msgid "Do It"
+msgstr "실행"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:51
+msgid "Wifi Networks"
+msgstr "WiFi 네트워크"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:76
+msgid "Too Short"
+msgstr "너무 짧음"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network.html:76
+msgid "Min 8 Characters or leave None"
+msgstr "최소 8자 또는 비워 두세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network_item.html:4
+msgid "Security"
+msgstr "보안"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/network_item.html:15
+msgid "This will take effect immediately and can not be undone. Are you sure?"
+msgstr "즉시 적용되며 되돌릴 수 없습니다. 계속하시겠습니까?"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_session_log.html:4
+msgid "Observing Session"
+msgstr "관측 세션"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_session_log.html:11 views/obs_sessions.html:25
+msgid "Hours"
+msgstr "시간"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_session_log.html:21
+msgid "Time"
+msgstr "시각"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_session_log.html:21
+msgid "Sequence"
+msgstr "순번"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_session_log.html:21
+msgid "Notes"
+msgstr "메모"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_sessions.html:4
+msgid "Observing Sessions"
+msgstr "관측 세션"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_sessions.html:7
+msgid "Sessions"
+msgstr "세션"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_sessions.html:15
+msgid "Total Hours"
+msgstr "총 시간"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/obs_sessions.html:25
+msgid "Location"
+msgstr "위치"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/restart.html:6
+msgid "Restarting System"
+msgstr "시스템 재시작 중"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/restart.html:7
+msgid ""
+"This will take approximately 45 seconds and you should be redirected to "
+"the home page."
+msgstr "약 45초가 걸리며 홈 페이지로 자동 이동됩니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: views/restart.html:9
+msgid ""
+"You may need to change the URL above or connect to a different wifi "
+"network on your phone/tablet/computer depending on the changes you made "
+"to the PiFinder configuration."
+msgstr ""
+"PiFinder 설정 변경 내용에 따라 위 URL을 변경하거나 휴대폰/태블릿/컴퓨터를 다른 WiFi 네트워크에 연결해야 할 수 "
+"있습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: views/restart.html:11 views/restart_pifinder.html:8
+msgid "If you are not automatically redirected"
+msgstr "자동으로 이동되지 않으면"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/restart.html:11 views/restart_pifinder.html:8
+msgid "Click Here"
+msgstr "여기를 클릭하세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/restart_pifinder.html:7
+msgid ""
+"This will take approximately 20 seconds and you should be redirected to "
+"the home page."
+msgstr "약 20초가 걸리며 홈 페이지로 자동 이동됩니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:28 views/tools.html:49
+msgid "Change Password"
+msgstr "비밀번호 변경"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:30
+msgid ""
+"This will change the password for this web interface and the user account"
+" pifinder for ssh and other tools"
+msgstr "이 웹 인터페이스와 ssh 등 다른 도구용 pifinder 사용자 계정의 비밀번호를 변경합니다"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:36
+msgid "Current Password"
+msgstr "현재 비밀번호"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:40
+msgid "New Password"
+msgstr "새 비밀번호"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:44
+msgid "Re-Enter New Password"
+msgstr "새 비밀번호 재입력"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:58
+msgid "User Data and Settings"
+msgstr "사용자 데이터 및 설정"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:60
+msgid ""
+"You can download a zip file of all your personal settings, observations "
+"and observing lists for safe keeping."
+msgstr "개인 설정, 관측 기록, 관측 목록 전체를 zip 파일로 다운로드하여 안전하게 보관할 수 있습니다."
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:63
+msgid "Download Backup File"
+msgstr "백업 파일 다운로드"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:69
+msgid "To restore a previously downloaded backup, upload it below"
+msgstr "이전에 다운로드한 백업을 복원하려면 아래에 업로드하세요"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:73
+msgid "Choose file"
+msgstr "파일 선택"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:78
+msgid "Select backup file to restore"
+msgstr "복원할 백업 파일 선택"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:85
+msgid "Upload and Restore"
+msgstr "업로드 및 복원"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:92
+msgid "Restore User Data"
+msgstr "사용자 데이터 복원"
+
+# AI-TRANSLATED (claude): needs human review
+#: views/tools.html:93
+msgid ""
+"This will use the provided file to restore your user data. This will "
+"overwrite any existing preference and observations. Are you sure?"
+msgstr "제공된 파일로 사용자 데이터를 복원합니다. 기존 설정과 관측 기록을 덮어씁니다. 계속하시겠습니까?"
+

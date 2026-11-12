@@ -3653,3 +3653,13 @@ msgstr "必须在 %(minimum)s 和 %(maximum)s 之间"
 #, python-format
 msgid "Must be %(maximum)s characters or fewer"
 msgstr "不能超过 %(maximum)s 个字符"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:36
+msgid "Language: ko"
+msgstr "语言: 韩语"
+
+# AI-TRANSLATED (claude): needs human review
+#: PiFinder/ui/menu_structure.py:751
+msgid "Korean"
+msgstr "韩语"

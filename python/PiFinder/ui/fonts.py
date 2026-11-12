@@ -52,16 +52,14 @@ class Fonts:
     ):
         font_path = str(Path(utils.pifinder_dir, "fonts"))
 
-        # Check for chinese language specifically
+        # CJK languages (zh, ko) need a font with Han/Hangul glyphs
         cfg = config.Config()
         lang = cfg.get_option("language", "en")
-        if lang == "zh":
-            # Use Chinese font for Chinese language
-            chinesettf = str(
-                Path(font_path, "sarasa-mono-sc-light-nerd-font+patched.ttf")
-            )
-            boldttf = chinesettf
-            regularttf = chinesettf
+        if lang in ("zh", "ko"):
+            # Sarasa Mono covers both Chinese (Han) and Korean (Hangul)
+            cjkttf = str(Path(font_path, "sarasa-mono-sc-light-nerd-font+patched.ttf"))
+            boldttf = cjkttf
+            regularttf = cjkttf
             use_layout_engine = False
         else:
             # Use default fonts for other languages
