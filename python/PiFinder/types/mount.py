@@ -23,7 +23,8 @@ class MountStatus:
 
     ``text`` is the short phase text ("Slewing", "Refining 2/3"), already
     translated by the mount process. ``distance_deg`` is the angle from the
-    mount position to the goto target, or None without a target.
+    mount position to the goto target, or None without a target. ``error``
+    is the last fault ("Mount not found"), empty after a good init.
     """
 
     phase: str
@@ -32,6 +33,7 @@ class MountStatus:
     step_deg: float
     model: str
     updated: float
+    error: str = ""
 
     def is_stale(self, now: Optional[float] = None) -> bool:
         now = time.time() if now is None else now

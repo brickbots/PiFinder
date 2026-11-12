@@ -160,6 +160,7 @@ class MountControlIndi(MountControlBase):
         self.device = None
         self._slewing = False
         self._custom_tracking = False
+        self._last_error = ""
         if not new.enabled or new.model != old.model:
             indi_drivers.stop_driver()
         self.settings = new
@@ -219,12 +220,12 @@ class MountControlIndi(MountControlBase):
             off = angular_distance(ra_deg, dec_deg, *self._slew_target)
             if off > GOTO_END_TOLERANCE_DEG:
                 logger.warning("Slew ended %.2f° from its target: interrupted", off)
-                self.console_queue.put(["WARNING", _("Goto interrupted")])
+                self.warn(_("Goto interrupted"))
                 self.mount_stopped()
                 return
         if state == "Alert":
             logger.warning("Goto failed: the mount reports Alert")
-            self.console_queue.put(["WARNING", _("Goto failed!")])
+            self.warn(_("Goto failed!"))
             self.mount_stopped()
             return
         logger.info(
@@ -304,7 +305,7 @@ class MountControlIndi(MountControlBase):
             is None
         ):
             logger.error("Driver of %s has no network connection", self.device)
-            self.console_queue.put(["WARNING", _("No WiFi in driver")])
+            self.warn(_("No WiFi in driver"))
             return False
         self._set_switch("CONNECTION_MODE", "CONNECTION_TCP")
         host, port = split_address(self.address)
@@ -337,10 +338,10 @@ class MountControlIndi(MountControlBase):
         model = indi_drivers.find_model(self.model_label)
         if model is None:
             logger.error("Unknown mount model %r", self.model_label)
-            self.console_queue.put(["WARNING", _("Select a mount")])
+            self.warn(_("Select a mount"))
             return False
         if not indi_drivers.start_driver(model):
-            self.console_queue.put(["WARNING", _("No INDI server")])
+            self.warn(_("No INDI server"))
             return False
         if not self.client.is_connected() and not self.client.connect():
             logger.error(
@@ -348,6 +349,7 @@ class MountControlIndi(MountControlBase):
                 self.client.host,
                 self.client.port,
             )
+            self._last_error = _("No INDI server")
             return False
 
         found: list[str] = []
@@ -368,6 +370,7 @@ class MountControlIndi(MountControlBase):
                 self.client.wait_for(telescope_found, DEVICE_TIMEOUT_S)
         if not found:
             logger.error("No telescope device from driver %s", model.driver)
+            self._last_error = _("Driver failed")
             return False
         self.device = found[0]
         logger.info("Telescope device: %s", self.device)
@@ -383,10 +386,11 @@ class MountControlIndi(MountControlBase):
             prop = self.client.get_property(self.device, "CONNECTION")
             if not connected or prop is None or prop.state != "Ok":
                 logger.error("Mount did not connect on %s", self.where())
-                self.console_queue.put(["WARNING", _("Mount not found")])
+                self.warn(_("Mount not found"))
                 return False
         if self.client.wait_property(self.device, POSITION, 5.0) is None:
             logger.error("Mount has no %s", POSITION)
+            self._last_error = _("Mount not ready")
             return False
         logger.info("Telescope %s connected", self.device)
 
@@ -529,7 +533,7 @@ class MountControlIndi(MountControlBase):
         """Move by one step with a goto to the current position plus the step."""
         if self.current_ra is None or self.current_dec is None:
             logger.error("Current mount position unknown, cannot move manually")
-            self.console_queue.put(["WARNING", _("No position")])
+            self.warn(_("No position"))
             return False
         ra = self.current_ra
         dec = self.current_dec

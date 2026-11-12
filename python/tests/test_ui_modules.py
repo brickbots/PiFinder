@@ -758,6 +758,11 @@ def test_object_details_mount_keys(display, camera_image, catalogs, sample_objec
     module.message.assert_not_called()
     assert module.shows_mount_status
 
+    # Mount control turned off while the page is open: back to LOCATE.
+    cfg.set_option("mount_control", False)
+    module.update()
+    assert module.object_display_mode == object_details.DM_LOCATE
+
 
 @pytest.mark.integration
 def test_nearby_sort_navigation_bounded_by_ranked_window(

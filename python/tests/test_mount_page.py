@@ -12,7 +12,9 @@ from PiFinder.ui.mount_page import (
     MountPageState,
     _fit,
     _progress,
+    _status_texts,
     draw_mount_page,
+    key_labels,
 )
 
 pytestmark = pytest.mark.unit
@@ -93,3 +95,37 @@ def test_status_is_live_only_when_fresh(monkeypatch):
     # The stale page is dimmer: its brightest status pixel is lower.
     band = (0, d.titlebar_height, d.resX, d.titlebar_height + 16)
     assert max(image.crop(band).getextrema()[0]) < max(fresh.crop(band).getextrema()[0])
+
+
+def test_band_texts_for_each_connection_state():
+    assert _status_texts(None, NOW)[:1] == ("NO STATUS",)
+    unknown = MountStatus("MOUNT_UNKNOWN", "Not connected", None, 0.25, "SAL-33", NOW)
+    phase, _d, detail, live, connected = _status_texts(unknown, NOW)
+    assert (phase, detail, live, connected) == (
+        "NOT CONNECTED",
+        "Press 1 to connect",
+        True,
+        False,
+    )
+    failed = MountStatus(
+        "MOUNT_UNKNOWN", "Not connected", None, 0.25, "SAL-33", NOW, "Mount not found"
+    )
+    assert _status_texts(failed, NOW)[2] == "Mount not found"
+    connecting = MountStatus(
+        "MOUNT_INIT_TELESCOPE", "Connecting", None, 0.25, "SAL-33", NOW
+    )
+    texts = _status_texts(connecting, NOW)
+    assert (texts[0], texts[2], texts[4]) == ("CONNECTING", "SAL-33", False)
+    assert _status_texts(_status(), NOW)[4] is True
+
+
+def test_key_one_connects_without_a_mount():
+    assert key_labels(True)[1][1] == "Init"
+    assert key_labels(False)[1][1] == "Connect"
+
+
+def test_key_numbers_show_after_opening():
+    state = MountPageState()
+    state.open(NOW)
+    assert state.showing_numbers(NOW + 1.0)
+    assert not state.showing_numbers(NOW + 2.5)

@@ -49,12 +49,19 @@ KEY_CELLS = {
 STOP_KEY = 0
 # How long a pressed key shows inverted (seconds).
 PRESS_FLASH_S = 0.35
+# How long the cells show their key numbers after the page opens (seconds).
+KEY_NUMBERS_S = 2.0
+
+# Phases without a connected mount: key 1 connects, the move keys are dim.
+_UNCONNECTED_PHASES = ("MOUNT_UNKNOWN", "MOUNT_INIT_TELESCOPE")
+# Keys that need a connected mount.
+_MOVE_KEYS = (2, 3, 4, 5, 6, 7, 8, 9, 0)
 
 # Phases that move the mount: the distance bar shows the progress.
 _MOVING_PHASES = ("MOUNT_TARGET_ACQUISITION_MOVE", "MOUNT_TARGET_ACQUISITION_REFINE")
 
 
-def key_labels() -> dict[int, tuple[str, str]]:
+def key_labels(connected: bool = True) -> dict[int, tuple[str, str]]:
     """Key -> (icon, label). The labels are short: a cell is about 40 px."""
     return {
         7: (ICON_SYNC, _("Sync")),
@@ -63,7 +70,7 @@ def key_labels() -> dict[int, tuple[str, str]]:
         4: (ICON_LEFT, _("W")),
         5: (ICON_GOTO, _("GOTO")),
         6: (ICON_RIGHT, _("E")),
-        1: (ICON_INIT, _("Init")),
+        1: (ICON_INIT, _("Init") if connected else _("Connect")),
         2: (ICON_DOWN, _("S")),
         3: (ICON_MINUS, _("Step")),
         STOP_KEY: (ICON_STOP, _("STOP")),
@@ -76,6 +83,8 @@ class MountPageState:
 
     pressed_key: Optional[int] = None
     pressed_at: float = 0.0
+    # When the page opened: the cells show their key numbers for a moment.
+    opened_at: float = 0.0
     # The largest distance of the current slew, for the progress bar.
     slew_start_distance: Optional[float] = None
     last_phase: str = field(default="")
@@ -86,6 +95,12 @@ class MountPageState:
 
     def flashing(self, key: int, now: float) -> bool:
         return self.pressed_key == key and now - self.pressed_at < PRESS_FLASH_S
+
+    def open(self, now: Optional[float] = None) -> None:
+        self.opened_at = time.time() if now is None else now
+
+    def showing_numbers(self, now: float) -> bool:
+        return now - self.opened_at < KEY_NUMBERS_S
 
 
 def _fit(text: str, font, width: int) -> str:
@@ -107,10 +122,15 @@ def _centered(draw, box, text: str, font, fill) -> None:
 
 def _status_texts(
     status: Optional[MountStatus], now: float
-) -> tuple[str, str, str, bool]:
-    """(phase, distance, detail, live) for the status band."""
+) -> tuple[str, str, str, bool, bool]:
+    """(phase, distance, detail, live, connected) for the status band."""
     if status is None or status.is_stale(now):
-        return _("NO MOUNT"), "", _("No status from the mount"), False
+        return _("NO STATUS"), "", _("No answer yet"), False, False
+    if status.phase == "MOUNT_UNKNOWN":
+        detail = status.error or _("Press 1 to connect")
+        return _("NOT CONNECTED"), "", detail, True, False
+    if status.phase == "MOUNT_INIT_TELESCOPE":
+        return _("CONNECTING"), "", status.model, True, False
     distance = ""
     if status.distance_deg is not None and status.phase in (
         *_MOVING_PHASES,
@@ -118,7 +138,7 @@ def _status_texts(
     ):
         distance = format_step(status.distance_deg)
     detail = _("step") + " " + format_step(status.step_deg)
-    return status.text.upper(), distance, detail, True
+    return status.text.upper(), distance, detail, True, True
 
 
 def _progress(state: MountPageState, status: Optional[MountStatus]) -> Optional[float]:
@@ -157,7 +177,7 @@ def draw_mount_page(
     )
 
     # Status band: the phase and the distance, then the step.
-    phase, distance, detail, live = _status_texts(status, now)
+    phase, distance, detail, live, connected = _status_texts(status, now)
     # A margin of 2 px: textlength cuts the right edge of some glyphs.
     distance_w = (
         int(draw.textlength(distance, font=fonts.bold.font)) + 2 if distance else 0
@@ -191,7 +211,10 @@ def draw_mount_page(
     rows = 4
     cell_h = (height - y - gap * (rows - 1)) // rows
     cell_w = (width - gap * 2) // 3
-    labels = key_labels()
+    labels = key_labels(connected)
+    numbers = state.showing_numbers(now)
+    # The next step is the highlighted key: GOTO, or Connect without a mount.
+    primary_key = 5 if connected else 1
 
     def cell_box(row: int, col: int, span: int = 1) -> tuple[int, int, int, int]:
         x0 = col * (cell_w + gap)
@@ -215,10 +238,21 @@ def draw_mount_page(
             draw.rectangle(box, fill=bright if flash else mid)
         else:
             draw.rectangle(box, outline=outline or faint)
-        ink = colors.get(0) if filled else (bright if live else dim)
-        text = f"{icon} {label}" if label else icon
-        _centered(draw, box, text, fonts.base, ink)
+        usable = live and (connected or key not in _MOVE_KEYS)
+        ink = colors.get(0) if filled else (bright if usable else dim)
+        # Just after the page opens, the key number takes the icon's place.
+        lead = str(key) if numbers else icon
+        room = box[2] - box[0] - 2
+        # Too wide: drop the icon, then use the small font.
+        for text, font in (
+            (f"{lead} {label}", fonts.base),
+            (label, fonts.base),
+            (label, fonts.small),
+        ):
+            if draw.textlength(text, font=font.font) <= room:
+                break
+        _centered(draw, box, text, font, ink)
 
     for key, (row, col) in KEY_CELLS.items():
-        draw_cell(key, cell_box(row, col), primary=(key == 5))
+        draw_cell(key, cell_box(row, col), primary=(key == primary_key))
     draw_cell(STOP_KEY, cell_box(3, 0, span=3), outline=dim)

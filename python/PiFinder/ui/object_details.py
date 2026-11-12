@@ -591,7 +591,11 @@ class UIObjectDetails(UIModule):
                 desc.draw((0, posy))
 
         elif self.object_display_mode == DM_MOUNT:
-            self._render_mount_keys()
+            if self.mount_control:
+                self._render_mount_keys()
+            else:
+                # Mount control was turned off while the page was open.
+                self.object_display_mode = DM_LOCATE
 
         elif self.object_display_mode == DM_CONTRAST:
             # Display contrast reserve explanation page
@@ -674,6 +678,7 @@ class UIObjectDetails(UIModule):
             self.object_display_mode = DM_CONTRAST
         elif self.object_display_mode == DM_CONTRAST and self.mount_control:
             self.object_display_mode = DM_MOUNT
+            self._mount_page_state.open()
         else:  # DM_CONTRAST, DM_MOUNT or any other mode
             self.object_display_mode = DM_LOCATE
         self.update_object_info()

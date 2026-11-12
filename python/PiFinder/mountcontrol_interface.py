@@ -224,6 +224,8 @@ class MountControlBase:
 
         self.state: MountControlPhases = MountControlPhases.MOUNT_INIT_TELESCOPE
 
+        # The last fault, for the status (cleared by a good init).
+        self._last_error = ""
         # The last status written to the shared state (publish_status).
         self._status_key: Optional[tuple] = None
         self._status_distance: Optional[float] = None
@@ -540,6 +542,7 @@ class MountControlBase:
             step_deg=self.step_size,
             model=self.status_model(),
             updated=time.time() if now is None else now,
+            error=self._last_error,
         )
 
     def publish_status(self) -> None:
@@ -547,7 +550,7 @@ class MountControlBase:
         STATUS_DISTANCE_PERIOD_S and STATUS_HEARTBEAT_S)."""
         now = time.time()
         status = self.mount_status(now)
-        key = (status.phase, status.text, status.step_deg, status.model)
+        key = (status.phase, status.text, status.step_deg, status.model, status.error)
         age = now - self._status_written
         distance_changed = status.distance_deg != self._status_distance
         if (
@@ -560,6 +563,11 @@ class MountControlBase:
         self._status_key = key
         self._status_distance = status.distance_deg
         self._status_written = now
+
+    def warn(self, text: str) -> None:
+        """Show a fault on the screen and keep it for the status."""
+        self._last_error = text
+        self.console_queue.put(["WARNING", text])
 
     def notify(self, text: str) -> None:
         """Show mount control progress on the PiFinder screen."""
@@ -745,7 +753,7 @@ class MountControlBase:
                     logger.error(
                         "Failed to stop mount after retrying. Re-initializing mount."
                     )
-                    self.console_queue.put(["WARNING", _("Cannot stop mount!")])
+                    self.warn(_("Cannot stop mount!"))
                     self.state = MountControlPhases.MOUNT_INIT_TELESCOPE
                 else:
                     logger.warning(
@@ -762,7 +770,7 @@ class MountControlBase:
                 # Sync to the last plate solve.
                 latest = self.latest_solve()
                 if latest is None:
-                    self.console_queue.put(["WARNING", _("No solve")])
+                    self.warn(_("No solve"))
                     return
                 sync_ra, sync_dec, _solve_time = latest
             logger.debug(f"Mount: Syncing - RA={sync_ra}, DEC={sync_dec}")
@@ -776,7 +784,7 @@ class MountControlBase:
                     logger.error(
                         "Failed to sync mount after retrying. Re-initializing."
                     )
-                    self.console_queue.put(["WARNING", _("Cannot sync mount!")])
+                    self.warn(_("Cannot sync mount!"))
                     self.state = MountControlPhases.MOUNT_INIT_TELESCOPE
                 else:
                     logger.warning(
@@ -794,7 +802,7 @@ class MountControlBase:
                 # Catalog coordinates: the mount uses coordinates of date.
                 dt = self.shared_state.datetime()
                 if dt is None:
-                    self.console_queue.put(["WARNING", _("No time")])
+                    self.warn(_("No time"))
                     return
                 self.target_ra, self.target_dec = calc_utils.j2000_to_jnow(
                     command["ra"], command["dec"], dt
@@ -813,7 +821,7 @@ class MountControlBase:
                 retry_count -= 1
                 if retry_count == 0:
                     logger.error("Failed to command mount to move to target.")
-                    self.console_queue.put(["WARNING", _("Goto failed!")])
+                    self.warn(_("Goto failed!"))
                     # Try to stop the mount.
                     logger.warning(
                         f"Stopping mount after failed goto_target. {retry_stop} retries"
@@ -839,13 +847,13 @@ class MountControlBase:
             # Not retrying these.
             if not self._move_mount_manual(direction, step_size):
                 logger.warning("Mount: Manual movement failed")
-                self.console_queue.put(["WARNING", _("Mount did not move!")])
+                self.warn(_("Mount did not move!"))
 
         elif command["type"] == "set_step_size":
             logger.debug("Mount: set_step_size command received")
             step_size = command["step_size"]
             if step_size < 1 / 3600 or step_size > 10.0:
-                self.console_queue.put(["WARNING", _("Step size wrong")])
+                self.warn(_("Step size wrong"))
                 logger.warning(
                     "Mount: Step size out of range - %.5f degrees", step_size
                 )
@@ -859,7 +867,7 @@ class MountControlBase:
                 )
             else:
                 if not self.set_mount_step_size(step_size):
-                    self.console_queue.put(["WARNING", _("Cannot set step size!")])
+                    self.warn(_("Cannot set step size!"))
                 else:
                     self.step_size = step_size
                     logger.debug("Mount: Step size set to %.5f degrees", self.step_size)
@@ -925,11 +933,11 @@ class MountControlBase:
                 retry_count -= 1
                 if retry_count <= 0:
                     logger.error("Failed to initialize mount.")
-                    self.console_queue.put(["WARNING", _("Mount no init!")])
+                    self.warn(self._last_error or _("Mount no init!"))
                     self.state = MountControlPhases.MOUNT_UNKNOWN
                     if not self.disconnect_mount():
                         logger.error("Failed to disconnect mount.")
-                        self.console_queue.put(["WARNING", _("Disconnect mount!")])
+                        self.warn(_("Disconnect mount!"))
                     return
                 else:
                     logger.warning(
@@ -941,6 +949,7 @@ class MountControlBase:
             self.init_solve_dec = None
             self.state = MountControlPhases.MOUNT_TRACKING
             logger.debug("Phase: -> MOUNT_TRACKING")
+            self._last_error = ""
             self.notify(_("Mount ready"))
             return
 
@@ -998,7 +1007,7 @@ class MountControlBase:
                     return
                 if time.time() - wait_start > self.refine_solve_timeout_s:
                     logger.error("Phase REFINE: no solve after the move.")
-                    self.console_queue.put(["WARNING", _("Solve failed!")])
+                    self.warn(_("Solve failed!"))
                     self.state = MountControlPhases.MOUNT_TRACKING
                     logger.debug("Phase: -> MOUNT_TRACKING")
                     return
@@ -1032,7 +1041,7 @@ class MountControlBase:
                     "Phase REFINE: still off target after %d refinements.",
                     self._refine_count,
                 )
-                self.console_queue.put(["WARNING", _("Refine stopped")])
+                self.warn(_("Refine stopped"))
                 self.state = MountControlPhases.MOUNT_TRACKING
                 return
             else:
@@ -1067,7 +1076,7 @@ class MountControlBase:
                         logger.error(
                             "Phase REFINE: Failed to sync mount after move (after retrying)."
                         )
-                        self.console_queue.put(["WARNING", _("Cannot sync mount!")])
+                        self.warn(_("Cannot sync mount!"))
                         self.state = MountControlPhases.MOUNT_STOPPED
                         return
                     elif (
@@ -1110,7 +1119,7 @@ class MountControlBase:
                         logger.error(
                             "Failed to command mount to move to target (after retrying)."
                         )
-                        self.console_queue.put(["WARNING", _("Cannot move to target!")])
+                        self.warn(_("Cannot move to target!"))
                         self.state = MountControlPhases.MOUNT_TRACKING
                         return
                     elif (
@@ -1224,7 +1233,7 @@ class MountControlBase:
                                 logger.error(
                                     "Failed to adjust drift rates after retrying."
                                 )
-                                self.console_queue.put(["WARNING", _("Drift failure!")])
+                                self.warn(_("Drift failure!"))
                                 self.state = MountControlPhases.MOUNT_TRACKING
                                 # Reset drift compensation data
                                 self._reset_drift_compensation_data()

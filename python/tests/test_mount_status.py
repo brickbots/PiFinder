@@ -105,3 +105,32 @@ def test_snapshot_slot():
     assert StateSnapshot().mount_status() is None
     status = _status()
     assert StateSnapshot({"mount_status": status}).mount_status() is status
+
+
+def test_last_fault_is_in_the_status_until_a_good_init():
+    mount = _mount()
+    mount.warn("Mount not found")
+    assert mount.console_queue.get_nowait() == ["WARNING", "Mount not found"]
+    assert mount.mount_status().error == "Mount not found"
+    mount.init_mount = Mock(return_value=True)
+    mount.state = MountControlPhases.MOUNT_INIT_TELESCOPE
+    for _step in mount._process_phase():
+        pass
+    assert mount.mount_status().error == ""
+
+
+def test_failed_init_keeps_the_specific_fault():
+    mount = _mount()
+    mount.disconnect_mount = Mock(return_value=True)
+
+    def fail(**_kwargs):
+        mount._last_error = "No INDI server"
+        return False
+
+    mount.init_mount = fail
+    mount.state = MountControlPhases.MOUNT_INIT_TELESCOPE
+    for _step in mount._process_phase(retry_count=1, delay=0.0):
+        pass
+    assert mount.state == MountControlPhases.MOUNT_UNKNOWN
+    assert mount.console_queue.get_nowait() == ["WARNING", "No INDI server"]
+    assert mount.mount_status().error == "No INDI server"
