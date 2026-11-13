@@ -101,7 +101,9 @@ def main() -> None:
         (
             processed,
             np.asarray(Image.open(processed).convert("L")),
-            np.asarray(Image.open(raw)),
+            # Sweeps archive the full sensor; the solve image and calibration
+            # describe the crop, so benchmark what production measures.
+            profile.ensure_cropped(np.asarray(Image.open(raw))),
         )
         for processed, raw in pairs
     ]
