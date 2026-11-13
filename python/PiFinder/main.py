@@ -57,7 +57,7 @@ from PiFinder.state import SharedStateObj, UIState
 
 from PiFinder.image_util import subtract_background
 
-from PiFinder.displays import DisplayBase, get_display
+from PiFinder.displays import DisplayBase, get_display, spi_speed_hz_from_mhz
 
 import PiFinder.manager_patch as patch
 
@@ -74,6 +74,8 @@ logger = logging.getLogger("main")
 
 hardware_platform = "Pi"
 display_hardware = "SSD1351"
+# --spi-speed (MHz); overrides the display_spi_speed_mhz config option
+display_spi_speed_mhz: Optional[float] = None
 display_device: DisplayBase = DisplayBase()
 keypad_pwm = None
 
@@ -391,7 +393,16 @@ def main(
     # Start log consolidation process first.
     log_helper.start()
 
-    display_device = get_display(display_hardware)
+    # Config is read before the display is built, so a unit whose panel
+    # misbehaves at the default SPI clock can be slowed down from config.json.
+    cfg = config.Config()
+    spi_speed_mhz = display_spi_speed_mhz
+    if spi_speed_mhz is None:
+        spi_speed_mhz = cfg.get_option("display_spi_speed_mhz")
+    spi_speed_hz = spi_speed_hz_from_mhz(spi_speed_mhz)
+    if spi_speed_hz is not None:
+        logger.info("Display SPI speed override: %d Hz", spi_speed_hz)
+    display_device = get_display(display_hardware, spi_speed_hz)
     init_keypad_pwm()
     setup_dirs()
 
@@ -413,7 +424,6 @@ def main(
         "gps": gps_queue,
         "integrator": integrator_command_queue,
     }
-    cfg = config.Config()
 
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
@@ -1222,6 +1232,14 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--spi-speed",
+        help="Display SPI clock in MHz (overrides display_spi_speed_mhz in config)",
+        type=float,
+        default=None,
+        required=False,
+    )
+
+    parser.add_argument(
         "-n",
         "--notmp",
         help="Don't use the /dev/shm temporary directory.\
@@ -1318,6 +1336,7 @@ if __name__ == "__main__":
 
     if args.display is not None:
         display_hardware = args.display.lower()
+    display_spi_speed_mhz = args.spi_speed
 
     camera_type = args.camera.lower() if args.camera is not None else None
     if camera_type is None:

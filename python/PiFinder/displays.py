@@ -1,6 +1,8 @@
 import functools
+import logging
 import math
 from collections import namedtuple
+from typing import Optional
 
 import numpy as np
 from PIL import Image
@@ -14,6 +16,8 @@ from PiFinder import ssd1333_device
 from PiFinder.ssd1333_device import ssd1333
 
 from PiFinder.ui.fonts import Fonts
+
+logger = logging.getLogger("Display")
 
 
 ColorMask = namedtuple("ColorMask", ["mask", "mode"])
@@ -134,9 +138,13 @@ class DisplayPygame_320(Layout320, DisplayBase):
 class DisplaySSD1351(DisplayBase):
     resolution = (128, 128)
 
-    def __init__(self):
+    default_spi_speed_hz = 40_000_000
+
+    def __init__(self, spi_speed_hz: Optional[int] = None):
         # init display  (SPI hardware)
-        serial = spi(device=0, port=0, bus_speed_hz=40000000)
+        serial = spi(
+            device=0, port=0, bus_speed_hz=spi_speed_hz or self.default_spi_speed_hz
+        )
         device_serial = ssd1351(serial, rotate=0, bgr=True)
 
         device_serial.capabilities(
@@ -378,9 +386,13 @@ class DisplaySSD1333(Layout176, DisplayBase):
         255 / CEILING_TOP_LEVEL
     )
 
-    def __init__(self):
+    default_spi_speed_hz = 40_000_000
+
+    def __init__(self, spi_speed_hz: Optional[int] = None):
         # init display  (SPI hardware)
-        serial = spi(device=0, port=0, bus_speed_hz=40000000)
+        serial = spi(
+            device=0, port=0, bus_speed_hz=spi_speed_hz or self.default_spi_speed_hz
+        )
         device_serial = ssd1333(serial, width=176, height=176, rotate=3, bgr=True)
         self.device = device_serial
         super().__init__()
@@ -476,9 +488,13 @@ class DisplayPygame_176(Layout176, DisplayBase):
 class DisplayST7789_128(DisplayBase):
     resolution = (128, 128)
 
-    def __init__(self):
+    default_spi_speed_hz = 52_000_000
+
+    def __init__(self, spi_speed_hz: Optional[int] = None):
         # init display  (SPI hardware)
-        serial = spi(device=0, port=0, bus_speed_hz=52000000)
+        serial = spi(
+            device=0, port=0, bus_speed_hz=spi_speed_hz or self.default_spi_speed_hz
+        )
         device_serial = st7789(serial, bgr=True)
 
         device_serial.capabilities(
@@ -489,9 +505,13 @@ class DisplayST7789_128(DisplayBase):
 
 
 class DisplayST7789(Layout320, DisplayBase):
-    def __init__(self):
+    default_spi_speed_hz = 52_000_000
+
+    def __init__(self, spi_speed_hz: Optional[int] = None):
         # init display  (SPI hardware)
-        serial = spi(device=0, port=0, bus_speed_hz=52000000)
+        serial = spi(
+            device=0, port=0, bus_speed_hz=spi_speed_hz or self.default_spi_speed_hz
+        )
         device_serial = st7789(serial, bgr=True)
 
         device_serial.capabilities(
@@ -549,7 +569,34 @@ class DisplayHeadless320(Layout320, DisplayHeadless):
     """
 
 
-def get_display(display_hardware: str) -> DisplayBase:
+def spi_speed_hz_from_mhz(value) -> Optional[int]:
+    """Convert a ``display_spi_speed_mhz`` setting to Hz.
+
+    None means "use the panel's default". A value that is not a positive
+    number is logged and treated as None: a typo in config.json must not
+    leave the unit without a screen.
+    """
+    if value is None:
+        return None
+    try:
+        mhz = float(value)
+    except (TypeError, ValueError):
+        mhz = 0.0
+    if mhz <= 0:
+        logger.warning("Ignoring invalid display SPI speed %r MHz", value)
+        return None
+    return int(mhz * 1_000_000)
+
+
+def get_display(
+    display_hardware: str, spi_speed_hz: Optional[int] = None
+) -> DisplayBase:
+    """Build the display for ``display_hardware``.
+
+    ``spi_speed_hz`` overrides the SPI clock of the hardware panels; None
+    keeps each panel's ``default_spi_speed_hz``. Pygame and headless
+    displays ignore it.
+    """
     if display_hardware == "headless":
         return DisplayHeadless()
 
@@ -569,14 +616,14 @@ def get_display(display_hardware: str) -> DisplayBase:
         return DisplayPygame_320()
 
     if display_hardware == "ssd1351":
-        return DisplaySSD1351()
+        return DisplaySSD1351(spi_speed_hz)
 
     if display_hardware == "ssd1333":
-        return DisplaySSD1333()
+        return DisplaySSD1333(spi_speed_hz)
 
     if display_hardware == "st7789":
-        return DisplayST7789()
+        return DisplayST7789(spi_speed_hz)
 
     else:
         print("Hardware platform not recognized")
-        return DisplaySSD1351()
+        return DisplaySSD1351(spi_speed_hz)

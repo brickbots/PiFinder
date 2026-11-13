@@ -1,5 +1,6 @@
 {
     "display_brightness": 255,
+    "display_spi_speed_mhz": null,
     "keypad_brightness": "0",
     "sound_volume": "2",
     "camera_exp": "auto",

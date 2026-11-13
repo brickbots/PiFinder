@@ -576,6 +576,20 @@ are:
 - pg_128 - PyGame emulated 128x128 display.  Use this for developing/testing
   PiFinder code on a laptop or desktop.
 
+--spi-speed MHZ
+..........................
+
+Set the SPI clock of the display, in MHz.  Without it, each panel uses its
+own default (40 MHz for the OLED screens).  Try a lower value, for example
+``--spi-speed 10``, if a screen stays blank or shows garbage.
+
+The ``display_spi_speed_mhz`` option in ``~/PiFinder_data/config.json`` does
+the same thing, and the PiFinder service picks it up on restart::
+
+    "display_spi_speed_mhz": 10
+
+``--spi-speed`` overrides the config option.
+
 
 -c CAMERA, --camera CAMERA
 ..........................
