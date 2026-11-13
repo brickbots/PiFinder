@@ -92,6 +92,35 @@ def user_satellites(
     return rows
 
 
+def corrected_satellites(
+    now: datetime.datetime, directory: Path = satellite_data_dir
+) -> list:
+    """The rows of the corrected sets. A row is in use when the catalog uses
+    the set: it is enabled and no newer set of the satellite exists."""
+    selection = satellites.load_selection(directory)
+    in_use = {
+        e.norad_id
+        for e in satellites.load_all_elements(now, directory)
+        if e.source == "corrected"
+    }
+    rows = []
+    for element in satellites.load_corrected_elements(directory):
+        age = element.age_days(now)
+        rows.append(
+            {
+                "norad_id": element.norad_id,
+                "name": element.name,
+                "epoch": element.epoch.strftime("%Y-%m-%d %H:%M"),
+                "age_days": age,
+                "too_old": abs(age) > satellites.MAX_ELEMENT_AGE_DAYS,
+                "enabled": selection.corrected_enabled(element.norad_id),
+                "in_use": element.norad_id in in_use,
+            }
+        )
+    rows.sort(key=lambda row: str(row["name"]))
+    return rows
+
+
 def upcoming_passes(
     now: datetime.datetime,
     visible_only: bool = True,
@@ -183,6 +212,8 @@ def set_enabled(
         satellites.set_group_enabled(name, enabled, directory)
     elif kind == "user":
         satellites.set_user_enabled(int(name), enabled, directory)
+    elif kind == "corrected":
+        satellites.set_corrected_enabled(int(name), enabled, directory)
     else:
         raise ValueError(f"not a group or a satellite: {kind}")
 

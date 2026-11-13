@@ -179,6 +179,43 @@
   </div>
 </div>
 
+{% if corrected_satellites %}
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('Corrected by a follow') }}</h5>
+    <table class="grey-text" id="corrected_satellite_table">
+      <thead>
+        <tr><th>{{ _('Use') }}</th><th>{{ _('Name') }}</th><th>NORAD</th><th>{{ _('Epoch') }}</th><th>{{ _('Age') }}</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for s in corrected_satellites %}
+        <tr>
+          <td>
+            <form action="/satellites/enable" method="post" style="display:inline;">
+              <input type="hidden" name="kind" value="corrected">
+              <input type="hidden" name="id" value="{{ s['norad_id'] }}">
+              <input type="hidden" name="enabled" value="{% if s['enabled'] %}0{% else %}1{% endif %}">
+              <label><input type="checkbox" class="filled-in" {% if s['enabled'] %}checked{% endif %} onchange="this.form.submit()"><span></span></label>
+            </form>
+          </td>
+          <td>{% if s['in_use'] %}<a href="/satellites/{{ s['norad_id'] }}">{{ s['name'] }}</a>{% else %}{{ s['name'] }} <span class="orange-text">({{ _('not in use') }})</span>{% endif %}</td>
+          <td>{{ s['norad_id'] }}</td>
+          <td>{{ s['epoch'] }}</td>
+          <td class="{% if s['too_old'] %}red-text{% endif %}">{{ '%.1f' | format(s['age_days']) }} d</td>
+          <td>
+            <form action="/satellites/corrected/delete/{{ s['norad_id'] }}" method="post" style="display:inline;">
+              <button type="submit" class="btn-flat grey-text" title="{{ _('Delete') }}"><i class="material-icons">delete</i></button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="grey-text">{{ _('A mount follow that you correct with the arrow keys stores a set here. It replaces the set it corrects until a newer set is downloaded.') }}</p>
+  </div>
+</div>
+{% endif %}
+
 <div class="card grey darken-2">
   <div class="card-content">
     <h5 class="grey-text">{{ _('Downloaded element sets') }}</h5>

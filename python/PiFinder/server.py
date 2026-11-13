@@ -1230,6 +1230,7 @@ class Server:
                 max_mag=max_mag,
                 groups=web_satellites.group_status(now),
                 user_satellites=web_satellites.user_satellites(now),
+                corrected_satellites=web_satellites.corrected_satellites(now),
                 sky_now=web_satellites.sky_now(now, self.shared_state.location()),
                 time_from_gps=time_from_gps,
                 now_utc=now.strftime("%Y-%m-%d %H:%M"),
@@ -1271,6 +1272,15 @@ class Server:
         @auth_required
         def satellites_delete(norad_id):
             if satellite_data.delete_user_element(norad_id):
+                return _satellites_redirect(_("Deleted {norad}").format(norad=norad_id))
+            return _satellites_redirect(
+                error=_("Not found: {norad}").format(norad=norad_id)
+            )
+
+        @app.route("/satellites/corrected/delete/<int:norad_id>", methods=["POST"])
+        @auth_required
+        def satellites_corrected_delete(norad_id):
+            if satellite_data.delete_corrected_element(norad_id):
                 return _satellites_redirect(_("Deleted {norad}").format(norad=norad_id))
             return _satellites_redirect(
                 error=_("Not found: {norad}").format(norad=norad_id)

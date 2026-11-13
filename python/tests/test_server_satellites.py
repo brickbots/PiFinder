@@ -179,3 +179,21 @@ def test_refresh_route_refuses_a_download_after_a_recent_one(web, monkeypatch):
     response = client.post("/satellites/refresh")
     assert "Wait 5 min" in redirect_query(response)["err"][0]
     assert calls == []
+
+
+@pytest.mark.unit
+def test_page_lists_corrected_sets_with_a_delete_route(web):
+    client, shared_state, directory = web
+    page = client.get("/satellites").get_data(as_text=True)
+    assert "corrected_satellite_table" not in page
+    element = satellites.load_all_elements(shared_state.dt, directory)[0]
+    satellites.save_corrected_element(element, shared_state.dt, directory)
+    page = client.get("/satellites").get_data(as_text=True)
+    assert "corrected_satellite_table" in page
+    assert 'name="kind" value="corrected"' in page
+
+    response = client.post(f"/satellites/corrected/delete/{element.norad_id}")
+    assert "msg" in redirect_query(response)
+    assert satellites.load_corrected_elements(directory) == []
+    response = client.post(f"/satellites/corrected/delete/{element.norad_id}")
+    assert "err" in redirect_query(response)
