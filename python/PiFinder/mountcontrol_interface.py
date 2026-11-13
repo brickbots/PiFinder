@@ -176,6 +176,23 @@ RA_ROTATION_WRONG_WAY_DEG = 2.0
 RA_ROTATION_STILL_DEG = 0.01
 RA_ROTATION_STILL_S = 2.0
 RA_ROTATION_STILL_TIMEOUT_S = 15.0
+# While no axis has a significant drift, the drift window grows to this
+# length (seconds). Then the data is cleared and a new window starts.
+DRIFT_WINDOW_MAX_S = 60.0
+# The fit needs at least this many solves.
+DRIFT_MIN_SOLVES = 10
+# A drift is significant when its slope is at least this many standard
+# errors of the slope. The test runs again at each solve while the window
+# grows, so the limit is above the usual 3. With 2" noise and no drift,
+# about one 60 s window in 30 (1 solve/s) or in 100 (4 solves/s) gives a
+# correction, and that correction is below 0.6"/s.
+DRIFT_SIGNIFICANCE_SE = 4.0
+# A drift on the sky below this (degrees/second, 0.05"/s) gets no
+# correction. It does not show in an eyepiece.
+DRIFT_MIN_CORRECTION_DEG_S = 0.05 / 3600.0
+# A correction cancels this part of the measured drift. A gain below 1
+# keeps the noise of the slope from an overshoot.
+DRIFT_CORRECTION_GAIN = 0.7
 
 
 def angular_distance(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
@@ -373,10 +390,15 @@ class MountControlBase:
 
         # Drift compensation data structures
         self.drift_solve_times: list[float] = []  # Timestamps for each solve
-        self.drift_solve_ra: list[float] = []  # RA_target values from solves
+        # RA values of the solves, unwrapped: each value is within 180° of
+        # the first value of the window, so a window can cross RA 0.
+        self.drift_solve_ra: list[float] = []
         self.drift_solve_dec: list[float] = []  # Dec_target values from solves
-        self.drift_compensation_window: float = 10.0  # Time window in seconds, this is how long we take measurements before applying a drift compensation
-        self.drift_r_squared_threshold: float = 0.90  # R² threshold for applying rates
+        # The shortest drift window in seconds. While no axis has a
+        # significant drift, the window grows to DRIFT_WINDOW_MAX_S.
+        self.drift_compensation_window: float = 10.0
+        # The exposure time of the last solve of the last window.
+        self._drift_used_until: Optional[float] = None
 
         # REFINE uses only a plate solve whose exposure ended this many
         # seconds after the mount reached the target, so the frame has no
@@ -493,7 +515,11 @@ class MountControlBase:
         raise NotImplementedError("This method should be overridden by subclasses.")
 
     def adjust_mount_drift_rates(
-        self, delta_drift_rate_ra, delta_drift_rate_dec
+        self,
+        delta_drift_rate_ra: float,
+        delta_drift_rate_dec: float,
+        ra_se: float = 0.0,
+        dec_se: float = 0.0,
     ) -> bool:
         """Cancel a measured drift of the pointing.
 
@@ -501,10 +527,13 @@ class MountControlBase:
         Dec of the pointing change at these rates. The mount changes its
         tracking so that this drift stops. The drift is measured while the
         earlier adjustments are in effect, so each call is an increment.
+        An axis with a value of 0.0 has no significant drift.
 
         Args:
             delta_drift_rate_ra: RA drift of the pointing in degrees/second
             delta_drift_rate_dec: Dec drift of the pointing in degrees/second
+            ra_se: standard error of the RA value (degrees/second)
+            dec_se: standard error of the Dec value (degrees/second)
 
         The subclass needs to return a boolean indicating success or failure,
         if the command was successfully sent.
@@ -666,47 +695,50 @@ class MountControlBase:
     def _compute_linear_fit(
         self, x_values: list[float], y_values: list[float]
     ) -> tuple[float, float, float]:
-        """Compute linear regression fit and R² value.
+        """Fit a straight line by least squares.
 
         Args:
             x_values: List of independent variable values (time).
             y_values: List of dependent variable values (RA or Dec).
 
         Returns:
-            Tuple of (slope, intercept, r_squared).
+            Tuple of (slope, intercept, slope_se). slope_se is the standard
+            error of the slope from the residuals of the fit. It is
+            infinite with fewer than three values.
         """
         n = len(x_values)
-        if n < 2:
-            return 0.0, 0.0, 0.0
+        if n < 3:
+            return 0.0, 0.0, math.inf
 
-        # Calculate means
         x_mean = sum(x_values) / n
         y_mean = sum(y_values) / n
-
-        # Calculate slope and intercept using least squares
-        numerator = sum(
-            (x_values[i] - x_mean) * (y_values[i] - y_mean) for i in range(n)
-        )
-        denominator = sum((x_values[i] - x_mean) ** 2 for i in range(n))
-
-        if denominator == 0:
-            return 0.0, y_mean, 0.0
-
-        slope = numerator / denominator
+        sxx = sum((x - x_mean) ** 2 for x in x_values)
+        if sxx == 0:
+            return 0.0, y_mean, math.inf
+        sxy = sum((x - x_mean) * (y - y_mean) for x, y in zip(x_values, y_values))
+        slope = sxy / sxx
         intercept = y_mean - slope * x_mean
 
-        # Calculate R²
-        ss_tot = sum((y_values[i] - y_mean) ** 2 for i in range(n))
         ss_res = sum(
-            (y_values[i] - (slope * x_values[i] + intercept)) ** 2 for i in range(n)
+            (y - (slope * x + intercept)) ** 2 for x, y in zip(x_values, y_values)
         )
+        slope_se = math.sqrt(ss_res / (n - 2) / sxx)
+        return slope, intercept, slope_se
 
-        if ss_tot == 0:
-            r_squared = 0.0
-        else:
-            r_squared = 1.0 - (ss_res / ss_tot)
+    def _drift_correction(
+        self, slope: float, slope_se: float, sky_scale: float
+    ) -> tuple[float, float]:
+        """The correction for one axis and its standard error.
 
-        return slope, intercept, r_squared
+        An axis gets a correction only if its slope is significant and its
+        drift on the sky (slope times sky_scale) is above the floor. Else
+        the correction is (0.0, 0.0).
+        """
+        if abs(slope) < DRIFT_SIGNIFICANCE_SE * slope_se:
+            return 0.0, 0.0
+        if abs(slope) * sky_scale < DRIFT_MIN_CORRECTION_DEG_S:
+            return 0.0, 0.0
+        return DRIFT_CORRECTION_GAIN * slope, DRIFT_CORRECTION_GAIN * slope_se
 
     def _reset_drift_compensation_data(self) -> None:
         """Reset drift compensation data collection and clear current drift rates."""
@@ -714,6 +746,13 @@ class MountControlBase:
         self.drift_solve_ra.clear()
         self.drift_solve_dec.clear()
         self.drift_rates_applied = False
+
+    def _start_drift_window(self) -> None:
+        """Clear the drift data for a new window. The new window uses only
+        solves after the last solve of the old window."""
+        if self.drift_solve_times:
+            self._drift_used_until = self.drift_solve_times[-1]
+        self._reset_drift_compensation_data()
 
     #
     # Helper methods to decorate mount control methods with state management
@@ -1548,7 +1587,14 @@ class MountControlBase:
 
         elif self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
             # Handle drift compensation by collecting solve data over time
-            # and applying drift rates based on linear regression
+            # and applying drift rates based on linear regression.
+            # The fit starts when the solves span most of
+            # drift_compensation_window. Each new solve repeats the fit.
+            # An axis with a slope of at least DRIFT_SIGNIFICANCE_SE
+            # standard errors gets DRIFT_CORRECTION_GAIN of its drift as a
+            # correction, and a new window starts. Without such an axis the
+            # window grows up to DRIFT_WINDOW_MAX_S, then a new window
+            # starts.
 
             ###
             ### Data Collection
@@ -1564,107 +1610,109 @@ class MountControlBase:
                 yield
                 return
 
-            # Collect solve data
             ra_target, dec_target, solve_time = latest
-
-            # Add new data point, if it is not a duplicate
-            if not self.drift_solve_times or self.drift_solve_times[-1] != solve_time:
-                self.drift_solve_times.append(solve_time)
-                self.drift_solve_ra.append(ra_target)
-                self.drift_solve_dec.append(dec_target)
-
-            # Remove data points older than the window
-            cutoff_time = solve_time - self.drift_compensation_window
-            while self.drift_solve_times and self.drift_solve_times[0] < cutoff_time:
-                self.drift_solve_times.pop(0)
-                self.drift_solve_ra.pop(0)
-                self.drift_solve_dec.pop(0)
+            if self.drift_solve_times and self.drift_solve_times[-1] == solve_time:
+                # No new solve.
+                return
+            if (
+                self._drift_used_until is not None
+                and solve_time <= self._drift_used_until
+            ):
+                # The last window used this solve.
+                return
+            if self.drift_solve_ra:
+                first_ra = self.drift_solve_ra[0]
+                ra_target = first_ra + (ra_target - first_ra + 180.0) % 360.0 - 180.0
+            self.drift_solve_times.append(solve_time)
+            self.drift_solve_ra.append(ra_target)
+            self.drift_solve_dec.append(dec_target)
 
             ###
             ### Data Analysis and Drift Rate Adjustment
             ###
 
-            # Check if we have enough data
-            if len(self.drift_solve_times) >= 3:
-                # Check if we have collected data for the full window duration
-                time_span = self.drift_solve_times[-1] - self.drift_solve_times[0]
-                # Solves older than the window are gone, so the span is
-                # always a little shorter than the window.
-                if time_span >= self.drift_compensation_window * DRIFT_WINDOW_FILL:
-                    # Perform linear regression for RA and Dec
-                    ra_slope, _intercept_ra, ra_r_squared = self._compute_linear_fit(
-                        self.drift_solve_times, self.drift_solve_ra
-                    )
-                    dec_slope, _intercept_dec, dec_r_squared = self._compute_linear_fit(
-                        self.drift_solve_times, self.drift_solve_dec
-                    )
+            time_span = self.drift_solve_times[-1] - self.drift_solve_times[0]
+            max_window = max(DRIFT_WINDOW_MAX_S, self.drift_compensation_window)
+            if (
+                len(self.drift_solve_times) < DRIFT_MIN_SOLVES
+                or time_span < self.drift_compensation_window * DRIFT_WINDOW_FILL
+            ):
+                if time_span >= max_window:
+                    # Too few solves in the longest window.
+                    self._start_drift_window()
+                return
 
+            # Times relative to the first solve keep the sums small.
+            t0 = self.drift_solve_times[0]
+            times = [t - t0 for t in self.drift_solve_times]
+            ra_slope, _intercept_ra, ra_se = self._compute_linear_fit(
+                times, self.drift_solve_ra
+            )
+            dec_slope, _intercept_dec, dec_se = self._compute_linear_fit(
+                times, self.drift_solve_dec
+            )
+            logger.debug(
+                "Drift compensation: %d solves over %.1fs, "
+                'RA %+.2f"/s (SE %.2f), Dec %+.2f"/s (SE %.2f)',
+                len(times),
+                time_span,
+                ra_slope * 3600.0,
+                ra_se * 3600.0,
+                dec_slope * 3600.0,
+                dec_se * 3600.0,
+            )
+            cos_dec = math.cos(math.radians(self.drift_solve_dec[-1]))
+            ra_adjustment, ra_adjustment_se = self._drift_correction(
+                ra_slope, ra_se, cos_dec
+            )
+            dec_adjustment, dec_adjustment_se = self._drift_correction(
+                dec_slope, dec_se, 1.0
+            )
+
+            if ra_adjustment == 0.0 and dec_adjustment == 0.0:
+                if time_span >= max_window:
                     logger.info(
-                        "Drift compensation:"
-                        f"Drift compensation analysis: RA R²={ra_r_squared:.4f}, "
-                        f"Dec R²={dec_r_squared:.4f}"
+                        "Drift compensation: no significant drift in %.0fs, new window.",
+                        time_span,
                     )
-                    logger.info(
-                        "Drift compensation:"
-                        f"Drift rates: RA slope={ra_slope:.6f} deg/s, "
-                        f"Dec slope={dec_slope:.6f} deg/s"
-                    )
+                    self._start_drift_window()
+                return
 
-                    # Check if the R² threshold is met for either axis
-                    if (
-                        ra_r_squared >= self.drift_r_squared_threshold
-                        or dec_r_squared >= self.drift_r_squared_threshold
-                    ):
-                        ra_adjustment = 0.0
-                        dec_adjustment = 0.0
-                        if ra_r_squared >= self.drift_r_squared_threshold:
-                            ra_adjustment = ra_slope
-                        if dec_r_squared >= self.drift_r_squared_threshold:
-                            dec_adjustment = dec_slope
-
-                        logger.info(
-                            f"Drift Compensation: Applying drift rate adjustments: RA={ra_adjustment:.4f} deg/s, "
-                            f"Dec={dec_adjustment:.4f} deg/s"
-                        )
-
-                        # Apply the drift rate adjustments to the mount
-                        retries = retry_count
-                        while retries > 0 and not self.adjust_mount_drift_rates(
-                            ra_adjustment, dec_adjustment
-                        ):
-                            # Wait for delay before retrying
-                            start_time = time.time()
-                            while time.time() - start_time <= delay:
-                                yield
-                            retries -= 1
-                            if retries <= 0:
-                                logger.error(
-                                    "Failed to adjust drift rates after retrying."
-                                )
-                                self.warn(_("Drift failure!"))
-                                self.state = MountControlPhases.MOUNT_TRACKING
-                                # Reset drift compensation data
-                                self._reset_drift_compensation_data()
-                                return
-                            else:
-                                logger.warning(
-                                    "Retrying to adjust drift rates. Attempts left: %d",
-                                    retries,
-                                )
-                                yield
-                        # Applied compensation successfully, start fresh with measuring drift again
-                        self._reset_drift_compensation_data()
-                    else:
-                        logger.info(
-                            f"Drift Compensation: R² threshold not met (threshold={self.drift_r_squared_threshold}). "
-                            "Continuing to collect data."
-                        )
+            logger.info(
+                'Drift compensation: drift RA %+.2f"/s Dec %+.2f"/s over %.1fs, '
+                'correction RA %+.2f"/s Dec %+.2f"/s',
+                ra_slope * 3600.0,
+                dec_slope * 3600.0,
+                time_span,
+                ra_adjustment * 3600.0,
+                dec_adjustment * 3600.0,
+            )
+            retries = retry_count
+            while retries > 0 and not self.adjust_mount_drift_rates(
+                ra_adjustment,
+                dec_adjustment,
+                ra_se=ra_adjustment_se,
+                dec_se=dec_adjustment_se,
+            ):
+                # Wait for delay before retrying
+                start_time = time.time()
+                while time.time() - start_time <= delay:
+                    yield
+                retries -= 1
+                if retries <= 0:
+                    logger.error("Failed to adjust drift rates after retrying.")
+                    self.warn(_("Drift failure!"))
+                    self.state = MountControlPhases.MOUNT_TRACKING
+                    self._start_drift_window()
+                    return
                 else:
-                    logger.debug(
-                        f"Drift Compensation: Collecting drift data: {len(self.drift_solve_times)} points "
-                        f"over {time_span:.1f}s (need {self.drift_compensation_window}s)"
+                    logger.warning(
+                        "Retrying to adjust drift rates. Attempts left: %d",
+                        retries,
                     )
-            # Continue collecting data - let generator finish naturally and restart
+                    yield
+            # The rates changed: measure the drift again in a new window.
+            self._start_drift_window()
             return
         elif self.state == MountControlPhases.MOUNT_SPIRAL_SEARCH:
             # Handle spiral search state
@@ -1745,6 +1793,11 @@ class MountControlBase:
                 #         f"Mount control loop: {cmd_steps} command steps, {phase_steps} phase steps"
                 #     )
                 #     logger.debug(f"Mount state: {self.state}")
+        except SystemExit:
+            # The exit command ends the loop. A return ends the process (or
+            # the thread in a test) with no unhandled exception.
+            logger.info("Mount control stopped.")
+            return
         except KeyboardInterrupt:
             self._stop_motion()
             self.disconnect_mount()
