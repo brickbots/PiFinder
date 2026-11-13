@@ -21,7 +21,7 @@ from PiFinder import indi_drivers, satellites, track_rates
 from PiFinder.mount_settings import MountSettings
 from PiFinder.mountcontrol_indi import POSITION, MountControlIndi
 from PiFinder.mountcontrol_interface import MountControlPhases, angular_distance
-from PiFinder.satellite_follow import FollowPoint, FollowStage, SatelliteFollow
+from PiFinder.target_follow import FollowPoint, FollowStage, SatelliteTarget
 from PiFinder.sky_sim import SkySimSettings, SkySimulator
 from PiFinder.types.positioning import (
     PointingAxis,
@@ -540,7 +540,7 @@ def test_continuous_move_north_until_stop(indi: int) -> None:
 
 
 def _follow_rates(mount, ra_rate: float, dec_rate: float, seconds: float):
-    """Set the rates once a second, as the satellite follow does, and return
+    """Set the rates once a second, as the target follow does, and return
     the rates measured in the last two seconds."""
     end = time.time() + seconds
     while time.time() < end - 2.0:
@@ -584,7 +584,7 @@ def test_satellite_track_rates_move_the_mount_at_those_rates(indi: int) -> None:
 
 
 def test_follow_a_moving_target_end_to_end(indi: int, monkeypatch) -> None:
-    """The satellite follow with the simulator: aim ahead, wait, then track a
+    """The target follow with the simulator: aim ahead, wait, then track a
     target that moves 0.03°/s in RA and 0.01°/s in Dec."""
     t0 = time.time()
 
@@ -598,24 +598,26 @@ def test_follow_a_moving_target_end_to_end(indi: int, monkeypatch) -> None:
             alt=45.0,
         )
 
-    monkeypatch.setattr(SatelliteFollow, "point", point)
+    monkeypatch.setattr(SatelliteTarget, "point", point)
     mount = _simulator_mount(indi)
     try:
         assert mount.init_mount()
         mount.state = MountControlPhases.MOUNT_TRACKING
+        mount.clock = time.time
         element = satellites.parse_elements(
             (Path(__file__).parent / "data" / "satellites" / "25544.3le").read_text()
         )[0][0]
         for _step in mount._process_command(
             {
-                "type": "follow_satellite",
+                "type": "follow_target",
+                "kind": "satellite",
                 "name": "TEST",
                 "line1": element.line1,
                 "line2": element.line2,
             }
         ):
             pass
-        assert mount.state == MountControlPhases.MOUNT_SATELLITE_FOLLOW
+        assert mount.state == MountControlPhases.MOUNT_TARGET_FOLLOW
         follow = mount._follow
         tracking_since = None
         deadline = time.time() + 120

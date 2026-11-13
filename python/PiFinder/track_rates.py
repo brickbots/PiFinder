@@ -9,12 +9,10 @@ motion of the Moon or the Sun for custom track rates.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional
 
-from skyfield.api import wgs84
-
-from PiFinder.calc_utils import sf_utils
+from PiFinder.target_follow import BodyTarget
 
 SIDEREAL = "sidereal"
 LUNAR = "lunar"
@@ -31,7 +29,7 @@ INDI_TRACK_MODES = {
 }
 # The ephemeris body of each non-sidereal rate.
 BODIES = {LUNAR: "moon", SOLAR: "sun"}
-# Interval of the rate measurement, and of the custom rate updates.
+# Interval of the custom rate updates.
 RATE_STEP_S = 60.0
 
 
@@ -62,14 +60,5 @@ def body_rates(
         return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    observer = sf_utils.eph["earth"] + wgs84.latlon(lat, lon, altitude_m)
-    target = sf_utils.eph[body]
-    times = sf_utils.ts.from_datetimes([dt, dt + timedelta(seconds=RATE_STEP_S)])
-    ra, dec, _distance = (
-        observer.at(times).observe(target).apparent().radec(epoch="date")
-    )
-    ra_step = (ra._degrees[1] - ra._degrees[0] + 540.0) % 360.0 - 180.0
-    return (
-        float(ra_step / RATE_STEP_S),
-        float((dec.degrees[1] - dec.degrees[0]) / RATE_STEP_S),
-    )
+    point = BodyTarget(body, lat, lon, altitude_m).point(dt.timestamp())
+    return point.ra_rate, point.dec_rate

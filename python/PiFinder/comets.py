@@ -325,3 +325,22 @@ def calc_comets(
             progress_callback(100)
 
         return comet_dict
+
+
+def comet_track(name: str, datetimes) -> list:
+    """Topocentric J2000 (ra, dec) in degrees of one comet at each datetime.
+
+    The element file is read once. The list is empty if the comet is not in
+    the file or no location is set.
+    """
+    if sf_utils.observer_loc is None:
+        return []
+    comets_df = _load_comets_dataframe()
+    comets_df = comets_df[comets_df["designation"] == name]
+    track = []
+    for dt in datetimes:
+        comet = _calc_comets_vectorized(comets_df, dt).get(name)
+        if comet is None:
+            return []
+        track.append(comet["radec"])
+    return track

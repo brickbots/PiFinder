@@ -6,8 +6,6 @@ This module contains all the UI code for the object details screen
 
 """
 
-from typing import Optional
-
 from PiFinder.object_images import get_display_image
 from PiFinder.object_images.image_base import ImageType
 from PiFinder.object_images.image_utils import (
@@ -35,6 +33,7 @@ from PiFinder.ui.ui_utils import (
 from PiFinder import calc_utils
 from PiFinder import satellite_catalog
 from PiFinder import track_rates
+from PiFinder.follow_command import follow_command
 from PiFinder.ui.mount_page import (
     ARROW_KEYS,
     CONNECT_KEY,
@@ -1823,10 +1822,10 @@ class UIObjectDetails(UIModule):
             self._mount_command({"type": "init"})
             self._key_feedback(number, _("Init mount"))
         elif number == 5:
-            follow = self._satellite_follow_command()
+            follow = follow_command(self.object, self.snapshot.datetime())
             if follow is not None:
-                # The mount process computes the satellite position itself,
-                # ten times a second.
+                # The mount process computes the position of a moving
+                # target itself, ten times a second.
                 self._mount_command(follow)
                 self._key_feedback(number, _("Follow"))
             else:
@@ -1869,23 +1868,6 @@ class UIObjectDetails(UIModule):
                 }
             )
             self._key_feedback(number, "")
-
-    def _satellite_follow_command(self) -> Optional[dict]:
-        """The follow_satellite command for a satellite object, else None."""
-        if not satellite_catalog.is_satellite(self.object):
-            return None
-        catalog = satellite_catalog.active_catalog()
-        tracked = catalog.tracked(self.object.sequence) if catalog else None
-        if tracked is None:
-            return None
-        elements = tracked.elements
-        return {
-            "type": "follow_satellite",
-            "norad_id": elements.norad_id,
-            "name": elements.name,
-            "line1": elements.line1,
-            "line2": elements.line2,
-        }
 
     def _sky_directions(self) -> dict[int, tuple[float, float]]:
         """The sky move of each direction key, from the arrow setting, the

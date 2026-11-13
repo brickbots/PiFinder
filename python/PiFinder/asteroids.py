@@ -412,3 +412,24 @@ def calc_asteroids(
         if progress_callback:
             progress_callback(100)
         return result
+
+
+def asteroid_track(number: int, datetimes: list[datetime]) -> list[tuple[float, float]]:
+    """Topocentric J2000 (ra, dec) in degrees of one asteroid at each datetime.
+
+    The element files are read once. The list is empty if the asteroid is
+    not in the files or no location is set.
+    """
+    if sf_utils.observer_loc is None or not datetimes:
+        return []
+    dataframe = load_asteroids_dataframe(available_element_files(datetimes[0]))
+    if dataframe.empty:
+        return []
+    dataframe = dataframe[dataframe.number == number].reset_index(drop=True)
+    track = []
+    for dt in datetimes:
+        result = _calculate_dataframe(dataframe, dt, include_apparitions=False)
+        if number not in result:
+            return []
+        track.append(result[number]["radec"])
+    return track

@@ -1,7 +1,7 @@
 """Asteroid source parsing, propagation, photometry, and apparition tests."""
 
 import math
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -133,3 +133,14 @@ def test_calc_asteroids_without_observer_is_empty():
     finally:
         sf_utils.observer_loc = saved_location
         sf_utils._last_location = saved_last
+
+
+@pytest.mark.unit
+def test_asteroid_track_gives_one_position_per_time(monkeypatch):
+    monkeypatch.setattr(asteroids, "available_element_files", lambda dt: [FIXTURE])
+    times = [DT, DT + timedelta(hours=1)]
+    track = asteroids.asteroid_track(4, times)
+    assert len(track) == 2
+    assert track[0] == asteroids.calc_asteroids(DT, [FIXTURE])[4]["radec"]
+    assert track[1] != track[0]
+    assert asteroids.asteroid_track(999999, times) == []
