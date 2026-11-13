@@ -296,6 +296,11 @@ class Catalog(CatalogBase):
         self.initialized = True
         self._last_state: CatalogState = CatalogState.READY
 
+    def touch(self) -> None:
+        """Record a use of the catalog. A screen that shows the objects of
+        the catalog calls this on each update. A dynamic catalog does its
+        work only while it is in use. This catalog does nothing."""
+
     def is_selected(self):
         """
         Convenience function to see if this catalog is in the

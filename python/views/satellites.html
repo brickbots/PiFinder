@@ -59,7 +59,12 @@
     <h5 class="grey-text">
       {% if show_all %}{{ _('All passes') }}{% else %}{{ _('Visible passes') }}{% endif %}
     </h5>
-    {% if cache %}
+    {% if cache and cache['state'] == 'calculating' %}
+    <p class="grey-text" id="pass_state">{{ _('Calculating passes. The page loads again in a few seconds.') }}</p>
+    <script>setTimeout(function () { window.location.reload(); }, 5000);</script>
+    {% elif cache and cache['state'] == 'error' %}
+    <p class="grey-text" id="pass_state">{{ _('The pass calculation failed. See the log.') }}</p>
+    {% elif cache %}
     <p class="grey-text">
       {{ _('Computed') }} {{ cache['computed'][:16] | replace('T', ' ') }} UTC,
       {{ _('times in') }} {{ cache['timezone'] }},
@@ -101,7 +106,7 @@
     <p class="grey-text">{{ _('No passes in the next 24 hours.') }}</p>
     {% endif %}
     {% else %}
-    <p class="grey-text">{{ _('No predictions yet. The PiFinder needs a location and the element sets. The first prediction can take a minute.') }}</p>
+    <p class="grey-text">{{ _('No predictions. The PiFinder needs a location.') }}</p>
     {% endif %}
   </div>
 </div>

@@ -391,17 +391,6 @@ def corrected_file(directory: Path = satellite_data_dir) -> Path:
     return directory / CORRECTED_FILE_NAME
 
 
-def pass_cache_file(directory: Path = satellite_data_dir) -> Path:
-    return directory / "passes.json"
-
-
-def read_pass_cache(directory: Path = satellite_data_dir) -> Optional[dict]:
-    try:
-        return json.loads(pass_cache_file(directory).read_text())
-    except (OSError, ValueError):
-        return None
-
-
 def _validate_tle_file(path: Path) -> None:
     results, _errors = parse_elements(path.read_text(errors="replace"), "celestrak")
     if not results:

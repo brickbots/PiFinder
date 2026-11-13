@@ -1,27 +1,41 @@
 """Data for the satellite web pages.
 
-The web server runs in its own process. It reads the element files and the
-pass cache that the satellite catalog writes, and it computes the passes of
-one satellite on request.
+The web server runs in its own process. It reads the element files and
+computes the passes itself. The pass table of the selected satellites takes
+many seconds on a Pi, so a background thread computes it, and the table
+stays in memory for some time (see ``PassTable``).
 """
 
 from __future__ import annotations
 
 import datetime
+import logging
 import math
+import threading
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import pytz
 
 import PiFinder.satellites as satellites
-from PiFinder.utils import satellite_data_dir
+from PiFinder.utils import Timer, satellite_data_dir
 
 
 # The pass table on the web page lists passes this bright or brighter.
 DEFAULT_MAX_MAG = 4.0
 # The largest element file that the web form accepts.
 MAX_UPLOAD_BYTES = 1_000_000
+# The pass table: its time window, its minimum altitude and its row limit.
+PASS_HOURS = 24.0
+MIN_PASS_ALT_DEG = 10.0
+PASS_TABLE_ROWS = 200
+# A pass table is good for this long, and for a location change up to
+# PASS_TABLE_MOVE_DEG in latitude and in longitude.
+PASS_TABLE_SECONDS = 30 * 60
+PASS_TABLE_MOVE_DEG = 0.5
+
+logger = logging.getLogger("WebSatellites")
 
 
 def _zone(name: Optional[str]):
@@ -134,30 +148,260 @@ def corrected_satellites(
     return rows
 
 
+def _element_files(directory: Path) -> list[Path]:
+    """The files that decide the satellites and their passes."""
+    files = [
+        satellites.group_file(group, directory)
+        for group in satellites.selected_groups(directory)
+    ]
+    files.append(satellites.user_file(directory))
+    files.append(satellites.corrected_file(directory))
+    files.append(satellites.user_mag_file(directory))
+    files.append(satellites.selection_file(directory))
+    return files
+
+
+def _files_key(directory: Path) -> tuple:
+    """The name, the time and the size of each file. A change of a file or
+    of the selection changes this key."""
+    key = []
+    for path in _element_files(directory):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        key.append((str(path), stat.st_mtime_ns, stat.st_size))
+    return tuple(key)
+
+
+@dataclass(frozen=True)
+class PassRow:
+    norad_id: int
+    name: str
+    item: satellites.SatPass
+
+
+@dataclass(frozen=True)
+class PassInputs:
+    """The time, the place and the files of a pass computation."""
+
+    computed: datetime.datetime
+    lat: float
+    lon: float
+    files: tuple
+
+
+def _good_for(
+    inputs: PassInputs, now: datetime.datetime, location, files: tuple
+) -> bool:
+    """True when a computation with ``inputs`` is good for this request."""
+    age = abs((now - inputs.computed).total_seconds())
+    moved = (
+        abs(inputs.lat - location.lat) > PASS_TABLE_MOVE_DEG
+        or abs(inputs.lon - location.lon) > PASS_TABLE_MOVE_DEG
+    )
+    return age <= PASS_TABLE_SECONDS and not moved and inputs.files == files
+
+
+@dataclass(frozen=True)
+class PassTableResult:
+    inputs: PassInputs
+    timezone: str
+    # Sorted by the rise time. See _rows_to_keep.
+    rows: tuple[PassRow, ...]
+
+    @property
+    def computed(self) -> datetime.datetime:
+        return self.inputs.computed
+
+    def info(self) -> dict:
+        return {
+            "state": "ready",
+            "computed": self.computed.isoformat(),
+            "timezone": self.timezone,
+            "min_alt": MIN_PASS_ALT_DEG,
+            "hours": PASS_HOURS,
+        }
+
+
+def _rows_to_keep(
+    rows: list[PassRow], computed: datetime.datetime
+) -> tuple[PassRow, ...]:
+    """The rows that a page can show while the table is good.
+
+    Each visible pass stays, because the magnitude limit of a page can have
+    any value. Of the other passes, the first PASS_TABLE_ROWS that end after
+    the end of the good time stay, and each pass that rises before the last
+    of them. So up to that time, the first PASS_TABLE_ROWS rows of "all
+    passes" are the same as with the full result.
+    """
+    rows = sorted(rows, key=lambda row: row.item.rise)
+    end = computed + datetime.timedelta(seconds=PASS_TABLE_SECONDS)
+    late = [row for row in rows if row.item.set >= end]
+    if len(late) <= PASS_TABLE_ROWS:
+        return tuple(rows)
+    last_rise = late[PASS_TABLE_ROWS - 1].item.rise
+    return tuple(row for row in rows if row.item.visible or row.item.rise <= last_rise)
+
+
+def compute_pass_table(
+    now: datetime.datetime, location, directory: Path = satellite_data_dir
+) -> PassTableResult:
+    """The passes of the selected satellites in the next PASS_HOURS."""
+    files = _files_key(directory)
+    user_mags = satellites.load_user_mags(directory)
+    tracked = []
+    for element in satellites.load_all_elements(now, directory):
+        try:
+            tracked.append(
+                satellites.TrackedSatellite.from_elements(element, user_mags)
+            )
+        except ValueError:
+            continue
+    topos = satellites.observer_topos(location.lat, location.lon, location.altitude)
+    start = now - datetime.timedelta(minutes=15)
+    found = satellites.find_passes_many(
+        tracked, topos, start, PASS_HOURS, MIN_PASS_ALT_DEG
+    )
+    rows = [
+        PassRow(sat.norad_id, sat.name, item)
+        for sat, items in zip(tracked, found)
+        for item in items
+    ]
+    return PassTableResult(
+        inputs=PassInputs(now, location.lat, location.lon, files),
+        timezone=location.timezone or "UTC",
+        rows=_rows_to_keep(rows, now),
+    )
+
+
+def _start_thread(target: Callable[[], None]) -> None:
+    threading.Thread(target=target, daemon=True).start()
+
+
+class PassTable:
+    """The pass table of the web server, in the memory of its process.
+
+    A request gets the table when it is good: less than PASS_TABLE_SECONDS
+    old, for the same element files and selection, and for a location less
+    than PASS_TABLE_MOVE_DEG away. Otherwise the request starts a
+    computation in a background thread and gets the state "calculating".
+    Only one computation runs at a time. A computation that fails gives the
+    state "error" until the inputs change or the time limit ends.
+    """
+
+    def __init__(
+        self,
+        directory: Path = satellite_data_dir,
+        start_thread: Callable[[Callable[[], None]], None] = _start_thread,
+        compute: Callable[..., PassTableResult] = compute_pass_table,
+    ):
+        self.directory = directory
+        self._start_thread = start_thread
+        self._compute = compute
+        self._lock = threading.Lock()
+        self._result: Optional[PassTableResult] = None
+        self._failed: Optional[PassInputs] = None
+        self._running = False
+
+    def get(
+        self, now: datetime.datetime, location
+    ) -> tuple[str, Optional[PassTableResult]]:
+        """The state ("ready", "calculating" or "error") and the table."""
+        files = _files_key(self.directory)
+        with self._lock:
+            state = self._state(now, location, files)
+            if state is not None:
+                return state
+            self._running = True
+        self._start_thread(lambda: self._run(now, location, files))
+        with self._lock:
+            return self._state(now, location, files) or ("calculating", None)
+
+    def _state(
+        self, now: datetime.datetime, location, files: tuple
+    ) -> Optional[tuple[str, Optional[PassTableResult]]]:
+        """The answer to a request, or None when a computation must start.
+        The caller holds the lock."""
+        result = self._result
+        if result is not None and _good_for(result.inputs, now, location, files):
+            return "ready", result
+        if self._running:
+            return "calculating", None
+        failed = self._failed
+        if failed is not None and _good_for(failed, now, location, files):
+            return "error", None
+        return None
+
+    def _run(self, now: datetime.datetime, location, files: tuple) -> None:
+        result = None
+        try:
+            with Timer("Satellite pass table"):
+                result = self._compute(now, location, self.directory)
+        except Exception:  # the next request must be able to try again
+            logger.exception("Satellite pass table failed")
+        with self._lock:
+            if result is None:
+                self._failed = PassInputs(now, location.lat, location.lon, files)
+            else:
+                self._result = result
+                self._failed = None
+            self._running = False
+
+
+_pass_tables: dict[Path, PassTable] = {}
+_pass_tables_lock = threading.Lock()
+
+
+def pass_table(directory: Path = satellite_data_dir) -> PassTable:
+    """The pass table of ``directory``, one for each process."""
+    with _pass_tables_lock:
+        table = _pass_tables.get(directory)
+        if table is None:
+            table = PassTable(directory)
+            _pass_tables[directory] = table
+        return table
+
+
+def _has_location(location) -> bool:
+    return location is not None and bool(getattr(location, "lock", False))
+
+
 def upcoming_passes(
     now: datetime.datetime,
+    location,
     visible_only: bool = True,
     directory: Path = satellite_data_dir,
     max_mag: Optional[float] = None,
+    limit: int = PASS_TABLE_ROWS,
+    table: Optional[PassTable] = None,
 ) -> tuple[list, Optional[dict]]:
-    cache = satellites.read_pass_cache(directory)
-    if cache is None:
+    """The rows of the pass table and the data of the table.
+
+    The data is None without a location. Its "state" is "ready",
+    "calculating" or "error". Only a ready table has rows.
+    """
+    if not _has_location(location):
         return [], None
-    zone = _zone(cache.get("timezone"))
-    # The catalog writes the cache again some seconds after a change of the
-    # selection. Until then the cache can hold a satellite that is disabled.
-    enabled = {e.norad_id for e in satellites.load_all_elements(now, directory)}
+    if table is None:
+        table = pass_table(directory)
+    state, result = table.get(now, location)
+    if result is None:
+        return [], {"state": state}
+    zone = _zone(result.timezone)
     rows = []
-    for row in cache.get("passes", []):
-        if row["norad_id"] not in enabled:
+    for row in result.rows:
+        item = row.item
+        if item.set < now or (visible_only and not item.visible):
             continue
-        end = datetime.datetime.fromisoformat(row["set"])
-        if end < now or (visible_only and not row["visible"]):
+        if max_mag is not None and (item.min_mag is None or item.min_mag > max_mag):
             continue
-        if max_mag is not None and (row["min_mag"] is None or row["min_mag"] > max_mag):
-            continue
-        rows.append(format_pass(row, zone))
-    return rows, cache
+        data = item.to_dict()
+        data.update(norad_id=row.norad_id, name=row.name)
+        rows.append(format_pass(data, zone))
+        if len(rows) >= limit:
+            break
+    return rows, result.info()
 
 
 def add_elements(
