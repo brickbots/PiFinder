@@ -336,3 +336,19 @@ def test_page_lists_corrected_sets_with_a_delete_route(web):
     assert satellites.load_corrected_elements(directory) == []
     response = client.post(f"/satellites/corrected/delete/{element.norad_id}")
     assert "err" in redirect_query(response)
+
+
+GEO_TLE = """ASTRA 1KR
+1 29055U 06012A   26316.93979443  .00000130  00000+0  00000+0 0  9998
+2 29055   0.8523  82.1538 0003456 151.0788 176.1913  1.00270139 47187
+"""
+
+
+@pytest.mark.unit
+def test_geostationary_page_says_always_up(web):
+    client, _shared_state, directory = web
+    satellites.save_user_elements(satellites.parse_elements(GEO_TLE)[0], directory)
+    page = client.get("/satellites/29055").get_data(as_text=True)
+    assert 'id="satellite_geostationary"' in page
+    assert "Always up: alt" in page
+    assert 'id="satellite_pass_table"' not in page

@@ -1732,3 +1732,27 @@ def test_web_pass_table_keeps_the_rows_that_a_page_can_show(monkeypatch):
         ][:3]
         part = [r for r in kept if r.item.set >= moment][:3]
         assert part == full
+
+
+@pytest.mark.unit
+def test_geostationary_elements_are_found():
+    geo = satellites.parse_elements(GEO_TLE)[0][0]
+    assert geo.geostationary
+    assert geo.revs_per_day == pytest.approx(1.0027, abs=1e-4)
+    assert not iss_elements().geostationary
+
+
+@pytest.mark.unit
+def test_a_geostationary_satellite_has_no_passes_and_a_fixed_text(catalog, tmp_path):
+    satellites.save_user_elements(satellites.parse_elements(GEO_TLE)[0], tmp_path)
+    catalog.do_timed_task()
+    geo = next(obj for obj in catalog._get_objects() if obj.sequence == 29055)
+    assert "Geostationary: fixed in the sky" in geo.description
+    assert catalog._passes.get(29055, []) == []
+
+    location = FixedSharedState(NOW).location()
+    table = web_satellites.compute_pass_table(NOW, location, tmp_path)
+    assert all(row.norad_id != 29055 for row in table.rows)
+    detail = web_satellites.satellite_detail(29055, NOW, location, directory=tmp_path)
+    assert detail["geostationary"] and detail["passes"] == []
+    assert detail["now"]["alt"] > 0
