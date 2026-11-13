@@ -123,6 +123,9 @@ class SkySimulator:
         self._motion_end = 0.0
         # The sum of the sync jumps in RA and Dec (degrees).
         self.sync_ra = 0.0
+        # Every jump that counted as a sync: (RA, Dec) in degrees. A sync,
+        # and also a new location, which moves the reported RA of a mount.
+        self.sync_jumps: list[tuple[float, float]] = []
         self.sync_dec = 0.0
 
     # Mount
@@ -192,6 +195,7 @@ class SkySimulator:
             d_dec = dec - self._last_reported[1]
             if abs(d_ra) > SYNC_JUMP_DEG or abs(d_dec) > SYNC_JUMP_DEG:
                 self.sync_ra += d_ra
+                self.sync_jumps.append((d_ra, d_dec))
                 self.sync_dec += d_dec
                 logger.info("Sync seen: RA %+.4f°, Dec %+.4f°", d_ra, d_dec)
         self._last_reported = (ra, dec)
