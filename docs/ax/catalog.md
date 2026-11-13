@@ -436,16 +436,13 @@ without committing the data (9.7), copy the result out and restore the
 tracked file with `git checkout -- astro_data/pifinder_objects.db`
 before the next build.
 
-> **Status (2026-11-08).** Parts of this section describe the import as
-> the catalog-audit fixes leave it, not as `main` has it today. The
-> supplementary sources (9.4) — Hipparcos, WGSN, Bica and RC3 — are in
-> `catalog_imports/supplementary_sources.py`.
-> The designation allowlist, the match guard (9.3) and precedence (9.1)
-> are in `catalog_imports/catalog_import_utils.py`, the star cross-match
-> (9.3) in `catalog_imports/star_identity.py`. The correction pass
-> (9.5) is in `catalog_imports/corrections.py`, and
-> `astro_data/corrections/` holds no corrections yet.
-> The decision record is [ADR 0046](../adr/0046-catalog-corrections-cited-checked-applied-last.md).
+The committed database is a build of the import this section describes.
+The designation allowlist, the match guard (9.3) and precedence (9.1)
+are in `catalog_imports/catalog_import_utils.py`, the star cross-match
+(9.3) in `catalog_imports/star_identity.py`, the supplementary sources
+(9.4) in `catalog_imports/supplementary_sources.py`, and the correction
+pass (9.5) in `catalog_imports/corrections.py`. The decision record is
+[ADR 0046](../adr/0046-catalog-corrections-cited-checked-applied-last.md).
 
 ### 9.1 Pipeline
 
@@ -939,7 +936,7 @@ of strings is ordered by Python's per-process hash seed and is not.
 
 ### 9.7 Committing the database
 
-The committed `pifinder_objects.db` is about 23 MB compressed, and a
+The committed `pifinder_objects.db` is about 24 MB compressed, and a
 fielded unit's update downloads every version of it that was committed
 since its last one. Commit a rebuilt database only in a pull request
 that means to change the data, and batch import changes so one rebuild

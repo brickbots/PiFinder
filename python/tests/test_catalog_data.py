@@ -1,3 +1,4 @@
+import json
 import pytest
 import threading
 from PiFinder.db import objects_db
@@ -22,10 +23,10 @@ def test_object_counts():
         "Ta2": 200,
         "H": 400,
         "SaA": 114,
-        "SaM": 2162,
+        "SaM": 2157,  # 5 rows SAC marks as rejected pairs ("rej.") are skipped
         "SaR": 333,
         "Str": 78,
-        "EGC": 91,
+        "EGC": 102,
         "RDS": 110,
         "B": 343,
         "Sh2": 313,
@@ -34,11 +35,12 @@ def test_object_counts():
         "TLK": 93,
         "Har": 147,
         "Lyn": 1151,
+        "Nam": 578,
     }
 
     # catalog count
     num_catalogs = len(list(db.get_catalogs()))
-    assert num_catalogs == 21
+    assert num_catalogs == 22
     actual_catalogs = [row["catalog_code"] for row in db.get_catalogs()]
     expected_catalogs = list(catalog_counts.keys())
     missing_catalogs = set(expected_catalogs) - set(actual_catalogs)
@@ -291,8 +293,8 @@ def check_ic_objects():
             "name": "Heart Nebula",
             "ra": 38.200,  # RA = 02h 32m 48s
             "dec": 61.450,  # Dec = +61° 27' 00"
-            # "obj_type": "Nb", # Emission nebula
-            "obj_type": "OC",  # Open cluster at the heart of the nebula
+            # Cluster with nebula: Trumpler class "n" (#676)
+            "obj_type": "C+N",
             "const": "Cas",  # Cassiopeia
         },
         {
@@ -351,6 +353,139 @@ def test_catalog_data_validation():
     check_messier_objects()
     check_ngc_objects()
     check_ic_objects()
+
+
+# The catalog-audit fixes (#670) as the committed database holds them.
+
+
+def listing_object(db, catalog_code, sequence):
+    """The sky object a catalog listing belongs to."""
+    listing = db.get_catalog_object_by_sequence(catalog_code, sequence)
+    assert listing is not None, f"{catalog_code} {sequence} should exist"
+    return db.get_object_by_id(listing["object_id"])
+
+
+def object_listings(db, object_id):
+    """The sky object's listings, as designators."""
+    return {
+        f"{row['catalog_code']} {row['sequence']}"
+        for row in db.get_catalog_objects_by_object_id(object_id)
+    }
+
+
+def object_names(db, object_id):
+    """The sky object's names in import order, repeats dropped, as the device loads them."""
+    db.cursor.execute(
+        "SELECT common_name FROM names WHERE object_id = ? ORDER BY rowid;",
+        (object_id,),
+    )
+    return list(dict.fromkeys(row["common_name"] for row in db.cursor.fetchall()))
+
+
+def objects_named(db, name):
+    db.cursor.execute(
+        "SELECT DISTINCT object_id FROM names WHERE common_name = ?;", (name,)
+    )
+    return [row["object_id"] for row in db.cursor.fetchall()]
+
+
+@pytest.fixture(scope="module")
+def hipparcos():
+    from PiFinder.catalog_imports.star_identity import load_hipparcos
+
+    return load_hipparcos()
+
+
+def hip_position(hipparcos, hip):
+    i = hipparcos.index_of(hip)
+    return hipparcos.ra[i], hipparcos.dec[i]
+
+
+@pytest.mark.unit
+def test_messier_preferred_names():
+    db = objects_db.ObjectsDatabase()
+    m82 = object_names(db, listing_object(db, "M", 82)["id"])
+    assert m82[0] == "Cigar Galaxy"
+    assert not any(name.lower() == "bode's nebulae" for name in m82)
+    m57 = object_names(db, listing_object(db, "M", 57)["id"])
+    assert m57[0] == "Ring Nebula"
+
+
+@pytest.mark.unit
+def test_not_found_description():
+    db = objects_db.ObjectsDatabase()
+    listing = db.get_catalog_object_by_sequence("NGC", 56)
+    assert listing["description"].startswith(
+        "Not found: nothing at Dreyer's position (Steinicke).\n"
+    )
+    assert db.get_object_by_id(listing["object_id"])["obj_type"] == "?"
+
+
+@pytest.mark.unit
+def test_mizar_is_one_double_star():
+    db = objects_db.ObjectsDatabase()
+    assert len(objects_named(db, "Mizar")) == 1
+    mizar = listing_object(db, "Nam", 65378)
+    assert mizar["obj_type"] == "D*"
+    assert object_listings(db, mizar["id"]) == {
+        "Str 56",
+        "SaM 2054",
+        "WDS 70779",
+        "Nam 65378",
+    }
+    assert object_names(db, mizar["id"])[0] == "Mizar"
+    # A double star is filtered by its brightest magnitude.
+    mag = json.loads(mizar["mag"])
+    assert mag["mags"] == [2.23, 4.0]
+    assert mag["filter_mag"] == 2.23
+
+
+@pytest.mark.unit
+def test_vega_takes_hipparcos_values(hipparcos):
+    db = objects_db.ObjectsDatabase()
+    vega = listing_object(db, "Nam", 91262)
+    assert object_listings(db, vega["id"]) >= {"Str 77", "SaM 1241", "WDS 94640"}
+    assert json.loads(vega["mag"])["filter_mag"] == 0.03
+    ra, dec = hip_position(hipparcos, 91262)
+    assert vega["ra"] == pytest.approx(ra, abs=1e-9)
+    assert vega["dec"] == pytest.approx(dec, abs=1e-9)
+
+
+@pytest.mark.unit
+def test_sam_1019_is_hip_44804(hipparcos):
+    # SAC's position for STF 1316 is 14' off; the WDS designation identifies it.
+    db = objects_db.ObjectsDatabase()
+    star = listing_object(db, "SaM", 1019)
+    assert object_listings(db, star["id"]) == {"SaM 1019", "WDS 50812"}
+    ra, dec = hip_position(hipparcos, 44804)
+    assert star["ra"] == pytest.approx(ra, abs=1e-9)
+    assert star["dec"] == pytest.approx(dec, abs=1e-9)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "listing, joined",
+    [
+        (("IC", 2145), "NGC 2086"),  # Corwin: IC 2145 = NGC 2086
+        (("NGC", 771), "Nam 9598"),  # Corwin: NGC 771 = 50 Cas (Gang)
+        (("WDS", 99456), "Nam 94645"),  # Gumala, by a hip correction
+    ],
+)
+def test_identifications_join_one_sky_object(listing, joined):
+    db = objects_db.ObjectsDatabase()
+    sky_object = listing_object(db, *listing)
+    assert object_listings(db, sky_object["id"]) == {
+        f"{listing[0]} {listing[1]}",
+        joined,
+    }
+
+
+@pytest.mark.unit
+def test_iau_names_keep_their_diacritics():
+    db = objects_db.ObjectsDatabase()
+    star = listing_object(db, "Nam", 88567)
+    assert object_names(db, star["id"])[0] == "Dhanuśarāgra"
+    assert objects_named(db, "Gumala") == [listing_object(db, "Nam", 94645)["id"]]
 
 
 @pytest.mark.unit
