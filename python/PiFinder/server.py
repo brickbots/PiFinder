@@ -1219,19 +1219,20 @@ class Server:
             max_mag = request.args.get("maxmag", type=float)
             if max_mag is None and not show_all:
                 max_mag = web_satellites.DEFAULT_MAX_MAG
+            location = self.shared_state.location()
             passes, cache = web_satellites.upcoming_passes(
-                now, visible_only=not show_all, max_mag=max_mag
+                now, location, visible_only=not show_all, max_mag=max_mag
             )
             return app.jinja_env.get_template("satellites.html").render(
                 title=_("Satellites"),
-                passes=passes[:200],
+                passes=passes,
                 cache=cache,
                 show_all=show_all,
                 max_mag=max_mag,
                 groups=web_satellites.group_status(now),
                 user_satellites=web_satellites.user_satellites(now),
                 corrected_satellites=web_satellites.corrected_satellites(now),
-                sky_now=web_satellites.sky_now(now, self.shared_state.location()),
+                sky_now=web_satellites.sky_now(now, location),
                 time_from_gps=time_from_gps,
                 now_utc=now.strftime("%Y-%m-%d %H:%M"),
                 status_message=request.args.get("msg", ""),
@@ -1397,10 +1398,16 @@ class Server:
         @auth_required
         def satellites_api_passes():
             passes, cache = web_satellites.upcoming_passes(
-                _now_utc(), visible_only=request.args.get("all", "0") != "1"
+                _now_utc(),
+                self.shared_state.location(),
+                visible_only=request.args.get("all", "0") != "1",
             )
             return jsonify(
-                {"computed": cache.get("computed") if cache else None, "passes": passes}
+                {
+                    "state": cache.get("state") if cache else None,
+                    "computed": cache.get("computed") if cache else None,
+                    "passes": passes,
+                }
             )
 
         @app.route("/observations/object/<catalog>/<int:sequence>/chart.png")

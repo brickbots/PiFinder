@@ -64,6 +64,17 @@ class UITextMenu(UIModule):
             else:
                 self._sync_single_selection(config_option)
 
+        # A multi menu with "values_callback" and "toggle_callback" stores its
+        # values through these callbacks, not in the config file. It has no
+        # "Select None" item.
+        if self._uses_value_callbacks():
+            self._selected_values = list(self.item_definition["values_callback"](self))
+
+    def _uses_value_callbacks(self) -> bool:
+        return self._menu_type == "multi" and bool(
+            self.item_definition.get("values_callback")
+        )
+
     def _sync_single_selection(self, config_option):
         """Match the highlight/checkmark to the stored config value."""
         stored_value = self.config_object.get_option(config_option)
@@ -87,8 +98,15 @@ class UITextMenu(UIModule):
         config_option = self.item_definition.get("config_option")
         if config_option and self._menu_type != "multi":
             self._sync_single_selection(config_option)
+        if self._uses_value_callbacks():
+            self._selected_values = list(self.item_definition["values_callback"](self))
 
     def update(self, force=False):
+        # An "update_callback" runs on each frame, for example to show a
+        # message that a background thread made.
+        if self.item_definition.get("update_callback"):
+            self.item_definition["update_callback"](self)
+
         # clear screen
         self.clear_screen()
 
@@ -189,8 +207,21 @@ class UITextMenu(UIModule):
             self.add_to_stack(selected_item_definition)
             return
 
+        # Is this a multi menu that stores its values through callbacks?
+        if self._uses_value_callbacks() and selected_item_definition is not None:
+            value = selected_item_definition.get("value")
+            if value is not None:
+                selected = value not in self._selected_values
+                if selected:
+                    self._selected_values.append(value)
+                else:
+                    self._selected_values.remove(value)
+                toggle_callback = self.item_definition.get("toggle_callback")
+                if toggle_callback:
+                    toggle_callback(self, value, selected)
+
         # Is this a configuration item menu?
-        if config_option := self.item_definition.get("config_option"):
+        elif config_option := self.item_definition.get("config_option"):
             if self._menu_type == "single":
                 config_value = selected_item_definition["value"]
                 value_changed = config_value not in self._selected_values

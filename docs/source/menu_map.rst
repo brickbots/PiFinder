@@ -97,12 +97,17 @@ for how the lists work.
        Objects --> Custom
        Objects --> NS["Name Search"]
        Objects --> SF["Set Filters"]
-       BC --> Planets
-       BC --> Comets
-       BC --> NGC
        BC --> Messier
+       BC --> NGC
+       BC --> Planets
        BC --> DSO["DSO... (14 catalogs)"]
        BC --> Stars["Stars... (7 catalogs)"]
+       BC --> SB["Small bodies..."]
+       BC --> SAT["Satellites..."]
+       SB --> Comets
+       SB --> Asteroids
+       SAT --> Satellites
+       SAT --> SG["Sat groups"]
        SF --> RA["Reset All"]
        SF --> Cat["Catalogs"]
        SF --> Type
@@ -116,17 +121,16 @@ All Filtered
    you've set strict filters.
 By Catalog
    View one catalog at a time, still narrowed by your filters.  Common catalogs
-   sit at the top.  The rest are grouped under DSO... and Stars....  See
-   :doc:`catalogs` for what each catalog contains.
+   sit at the top.  The rest are grouped under DSO..., Stars..., Small
+   bodies... and Satellites....  See :doc:`catalogs` for what each catalog
+   contains.
 
-   Planets
-      The major solar-system planets.
-   Comets
-      The comets the PiFinder currently tracks.
-   NGC
-      The New General Catalogue.
    Messier
       The 110 Messier objects.
+   NGC
+      The New General Catalogue.
+   Planets
+      The major solar-system planets.
    DSO...
       Less-common deep-sky catalogs: Abell planetary nebulae, Arp peculiar
       galaxies, Barnard dark nebulae, Caldwell, Collinder open clusters,
@@ -135,6 +139,15 @@ By Catalog
    Stars...
       Star catalogs: bright named stars, the SAC double, asterism and red-star
       lists, RASC and WDS doubles, and TLK's hand-picked variable stars.
+   Small bodies...
+      Comets and Asteroids: the comets and minor planets that the PiFinder
+      currently tracks.
+   Satellites...
+      Satellites is the list of artificial satellites from the selected
+      groups.  Sat groups selects the CelesTrak groups, as the satellites web
+      page does.  A group with a "*" is large, and its passes are slow to
+      calculate.  When you select a group that has no file, the PiFinder
+      downloads it.
 Recent
    The objects you've viewed this session, most recent first.  It starts empty
    each session.

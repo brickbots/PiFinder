@@ -7,6 +7,13 @@ verdict, the set of satellites above the horizon, or the passes. The object
 details screen asks ``live_radec`` for a position on every frame. Pass
 predictions run in a separate thread, because they take many seconds on a Pi.
 
+The catalog works only while satellites are in use. Each use calls
+``touch``: the object list of the catalog, the object details screen of a
+satellite, ``active_catalog``, ``tracked`` and ``live_radec``. Ten minutes
+after the last use, the position updates, the pass predictions and the
+downloads stop. The objects stay in the catalog with their last positions.
+The next use updates the positions at once and starts the work again.
+
 The shared state is a proxy to another process, so each call to it is slow.
 One update reads the time and the location once.
 """
@@ -14,12 +21,12 @@ One update reads the time and the location once.
 from __future__ import annotations
 
 import datetime
-import json
 import logging
 import math
 import threading
+import time
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 import pytz
@@ -29,7 +36,6 @@ from PiFinder.calc_utils import sf_utils
 from PiFinder.catalog_base import (
     CatalogState,
     CatalogStatus,
-    TimerMixin,
     VirtualIDManager,
 )
 from PiFinder.catalogs import Catalog
@@ -49,7 +55,10 @@ _active_catalog: Optional["SatelliteCatalog"] = None
 
 
 def active_catalog() -> Optional["SatelliteCatalog"]:
-    return _active_catalog
+    catalog = _active_catalog
+    if catalog is not None:
+        catalog.touch()
+    return catalog
 
 
 def is_satellite(obj) -> bool:
@@ -74,15 +83,17 @@ class SatelliteCatalog(Catalog):
     # The wait after a download that failed.
     DOWNLOAD_FAILED_RETRY_SECONDS = 60
     MIN_PASS_ALT_DEG = 10.0
+    # The catalog stops its work this long after the last use.
+    IDLE_SECONDS = 10 * 60
 
     def __init__(
         self,
         shared_state: SharedStateObj,
         data_directory: Path = satellite_data_dir,
         start_threads: bool = True,
+        clock: Callable[[], float] = time.monotonic,
     ):
         global _active_catalog
-        self._timer = TimerMixin()
         self._virtual_id_manager = VirtualIDManager()
         super().__init__(CATALOG_CODE, "Satellites")
         self.shared_state = shared_state
@@ -105,29 +116,135 @@ class SatelliteCatalog(Catalog):
         # What the lists showed after the last update. See _list_signature.
         self._list_state: Optional[tuple] = None
         self.initialized = False
+        # Use and work state. See touch and in_use.
+        self._clock = clock
+        self._use_lock = threading.Lock()
+        self._last_use: Optional[float] = None
+        self._active = False
+        self._last_update: Optional[float] = None
+        self._update_wake = threading.Event()
+        self._download_wake = threading.Event()
+        self._next_download_check: Optional[float] = None
         _active_catalog = self
 
-        self._timer.do_timed_task = self.do_timed_task
-        self._timer.time_delay_seconds = lambda: self.time_delay_seconds
         if start_threads:
-            threading.Thread(target=self._startup_task, daemon=True).start()
+            threading.Thread(target=self._update_loop, daemon=True).start()
+            threading.Thread(target=self._download_loop, daemon=True).start()
+
+    # -- use ------------------------------------------------------------------
+
+    def in_use(self) -> bool:
+        """True when the last use is less than IDLE_SECONDS ago."""
+        last = self._last_use
+        return last is not None and self._clock() - last <= self.IDLE_SECONDS
+
+    def touch(self) -> None:
+        """Record a use of the catalog. The first use after an idle time
+        starts the work again."""
+        with self._use_lock:
+            self._last_use = self._clock()
+            if self._active:
+                return
+            self._active = True
+        self._wake()
+
+    def _wake(self) -> None:
+        """Update the positions at once when that is fast: the objects exist
+        and the element files did not change. Otherwise the update thread
+        builds the objects again in the background."""
+        logger.info("Satellite catalog in use: work starts")
+        if self.initialized and not self._files_differ():
+            try:
+                self.do_timed_task()
+            except Exception:  # a failed update must not stop the caller
+                logger.exception("Satellite position update failed")
+        self._update_wake.set()
+        self._download_wake.set()
+
+    def _update_step(self) -> Optional[float]:
+        """One step of the update thread.
+
+        Returns the seconds until the next step, or None when the catalog is
+        idle. An idle catalog does no work until the next touch.
+        """
+        with self._use_lock:
+            if not self.in_use():
+                if self._active:
+                    logger.info("Satellite catalog idle: work stops")
+                self._active = False
+                self._update_wake.clear()
+                return None
+        delay = self.time_delay_seconds
+        last = self._last_update
+        if self.initialized and last is not None:
+            remaining = delay - (self._clock() - last)
+            if remaining > 0:
+                return remaining
+        try:
+            self.do_timed_task()
+        except Exception:  # the thread must stay usable for the next step
+            logger.exception("Satellite position update failed")
+        return self.time_delay_seconds
+
+    def _update_loop(self) -> None:
+        while True:
+            delay = self._update_step()
+            if delay is None:
+                self._update_wake.wait()
+            else:
+                time.sleep(delay)
 
     # -- data -----------------------------------------------------------------
 
-    def _startup_task(self) -> None:
-        if self.shared_state.altaz_ready():
-            self.do_timed_task()
-        self._timer.start_timer()
-        retry_wait = threading.Event()
+    def _download_missing(self) -> None:
+        """Download each selected group that has no file, so the first use
+        has data."""
+        missing = tuple(
+            group
+            for group in satellites.selected_groups(self.data_directory)
+            if not satellites.group_file(group, self.data_directory).exists()
+        )
+        if missing:
+            self._refresh_sources(groups=missing)
+
+    def _download_step(self) -> Optional[float]:
+        """One step of the download thread.
+
+        While the catalog is in use, the file ages decide on a download, once
+        each DOWNLOAD_RETRY_SECONDS. Returns the seconds until the next step,
+        or None when the catalog is idle.
+        """
+        if not self.in_use():
+            return None
+        due = self._next_download_check
+        if due is None or self._clock() >= due:
+            result = self._refresh_sources()
+            due = self._clock() + self._download_wait_seconds(result)
+            self._next_download_check = due
+        return max(1.0, due - self._clock())
+
+    def _download_loop(self) -> None:
+        try:
+            self._download_missing()
+        except Exception:  # the thread must stay usable for later downloads
+            logger.exception("Satellite download failed")
         while True:
-            retry_wait.wait(self._download_wait_seconds(self._refresh_sources()))
+            try:
+                timeout = self._download_step()
+            except Exception:  # the thread must stay usable for later downloads
+                logger.exception("Satellite download failed")
+                timeout = self.DOWNLOAD_FAILED_RETRY_SECONDS
+            self._download_wake.wait(timeout)
+            self._download_wake.clear()
 
     def _download_wait_seconds(self, result: satellites.GroupRefresh) -> float:
         if result.status == "failed":
             return self.DOWNLOAD_FAILED_RETRY_SECONDS
         return self.DOWNLOAD_RETRY_SECONDS
 
-    def _refresh_sources(self, force: bool = False) -> satellites.GroupRefresh:
+    def _refresh_sources(
+        self, force: bool = False, groups: Optional[tuple[str, ...]] = None
+    ) -> satellites.GroupRefresh:
         started = []
 
         def on_start() -> None:
@@ -144,6 +261,7 @@ class SatelliteCatalog(Catalog):
                 self.data_directory,
                 progress_callback=self._set_download_progress,
                 on_start=on_start,
+                groups=groups,
             )
         finally:
             if started:
@@ -185,8 +303,15 @@ class SatelliteCatalog(Catalog):
         files.append(satellites.selection_file(self.data_directory))
         return [path for path in files if path.exists()]
 
+    def _current_mtimes(self) -> dict[str, float]:
+        return {str(path): path.stat().st_mtime for path in self._element_files()}
+
+    def _files_differ(self) -> bool:
+        """True when the element files changed since the last update."""
+        return self._current_mtimes() != self._file_mtimes
+
     def _files_changed(self) -> bool:
-        mtimes = {str(path): path.stat().st_mtime for path in self._element_files()}
+        mtimes = self._current_mtimes()
         if mtimes != self._file_mtimes:
             self._file_mtimes = mtimes
             return True
@@ -245,6 +370,14 @@ class SatelliteCatalog(Catalog):
         return cache[1]
 
     def tracked(self, norad_id: int) -> Optional[satellites.TrackedSatellite]:
+        """The satellite with its element set. A mount follow uses it.
+
+        The elements do not age, so a satellite of an idle catalog is good.
+        A catalog that has no objects yet builds them first.
+        """
+        self.touch()
+        if not self.initialized:
+            self.do_timed_task()
         return self._tracked.get(norad_id)
 
     def radec_of(
@@ -255,6 +388,7 @@ class SatelliteCatalog(Catalog):
         The object details screen calls this many times per second, so it
         does not read the shared state.
         """
+        self.touch()
         sat = self._tracked.get(norad_id)
         cache = self._topos_cache
         if sat is None or cache is None:
@@ -469,49 +603,6 @@ class SatelliteCatalog(Catalog):
             passes = {sat.norad_id: items for sat, items in zip(tracked, found)}
             self._passes = passes
             self._pass_time = dt
-            self._write_pass_cache(dt, location, tracked, passes)
-
-    def _write_pass_cache(
-        self,
-        dt: datetime.datetime,
-        location,
-        tracked: list[satellites.TrackedSatellite],
-        passes: dict[int, list[satellites.SatPass]],
-    ) -> None:
-        """Write the passes for the web server, which runs in another process."""
-        rows = []
-        for sat in tracked:
-            for item in passes.get(sat.norad_id, []):
-                row = item.to_dict()
-                row.update(norad_id=sat.norad_id, name=sat.name)
-                rows.append(row)
-        rows.sort(key=lambda row: row["rise"])
-        cache = {
-            "computed": dt.isoformat(),
-            "hours": self.PASS_HOURS,
-            "min_alt": self.MIN_PASS_ALT_DEG,
-            "location": {"lat": location.lat, "lon": location.lon},
-            "timezone": location.timezone or "UTC",
-            "satellites": [
-                {
-                    "norad_id": sat.norad_id,
-                    "name": sat.name,
-                    "source": sat.elements.source,
-                    "std_mag": sat.std_mag,
-                    "epoch": sat.elements.epoch.isoformat(),
-                }
-                for sat in tracked
-            ],
-            "passes": rows,
-        }
-        path = satellites.pass_cache_file(self.data_directory)
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            temporary = path.with_suffix(".tmp")
-            temporary.write_text(json.dumps(cache))
-            temporary.replace(path)
-        except OSError as exc:
-            logger.warning("Cannot write %s: %s", path, exc)
 
     def _passes_stale(self, dt: datetime.datetime, location) -> bool:
         """True when the newest pass request is old or for another place.
@@ -551,6 +642,7 @@ class SatelliteCatalog(Catalog):
             location = self.shared_state.location()
             if dt.tzinfo is None:
                 dt = pytz.UTC.localize(dt)
+            self._last_update = self._clock()
             if self._files_changed() or not self.initialized:
                 if not self._element_files():
                     return
