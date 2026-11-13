@@ -12,7 +12,8 @@ the displayed push-to offsets reach zero.
 
 With mount control on and an equatorial goto mount connected, the mount
 turns its RA axis between the captures (the rotate_ra command), and the
-wizard captures the three points by itself after the first one.
+wizard captures the three points by itself after the first one. The wizard
+chooses the direction and the angle one time, for both rotations.
 """
 
 import math
@@ -22,10 +23,15 @@ from enum import Enum
 from typing import Any, List, Optional, Tuple, TYPE_CHECKING
 
 from PiFinder import calc_utils
+from PiFinder.mountcontrol_interface import (
+    local_sidereal_deg,
+    plan_ra_rotation,
+)
 from PiFinder.polar_alignment import (
     correction_target,
     get_platform_adjustments,
 )
+from PiFinder.types.mount import ROTATION_DONE, ROTATION_TURNING, MountStatus
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenu, MarkingMenuOption
 from PiFinder.ui.mount_page import is_connected
@@ -40,13 +46,14 @@ if TYPE_CHECKING:
 MAX_POINTS = 3
 # A camera solve older than this is considered stale for capture/guidance
 SOLVE_FRESH_SECS = 5.0
-# Mount mode: the RA rotation between two captures.
+# Mount mode: the RA rotation between two captures. The wizard uses a
+# smaller angle when the limits of the mount need that, but not less than
+# the minimum.
 MOUNT_ROTATION_DEG = 30.0
-# Mount mode: the capture waits this long after the rotation for a sharp frame.
+MOUNT_ROTATION_MIN_DEG = 10.0
+# Mount mode: the capture waits this long after the mount reports that it
+# is still, for a sharp frame.
 MOUNT_SETTLE_SECS = 2.0
-# Mount mode: no rotation phase after this time means the command failed.
-MOUNT_ROTATION_START_SECS = 5.0
-ROTATION_PHASE = "MOUNT_RA_ROTATION"
 
 
 def wrap180(angle: float) -> float:
@@ -97,10 +104,17 @@ class UIPolarAlign(UIModule):
         # flop). A session-level preference toggled from the marking menu;
         # only affects three-point solves.
         self.ignore_roll = False
-        # Mount mode: when the rotate_ra command went out, and whether the
-        # mount status showed the rotation.
-        self._rotation_sent = 0.0
-        self._rotation_seen = False
+        # The correction target as a sky position, and the mount RA at
+        # each capture (None without a mount). See _target_altaz_at.
+        self.target_radec: Optional[Tuple[float, float]] = None
+        self._mount_ras: List[Optional[float]] = []
+        # Mount mode: the signed angle of each rotation (positive is
+        # east), chosen one time for the sequence.
+        self._rotation_step: Optional[float] = None
+        # Mount mode: the id of the last rotate_ra command, and whether the
+        # mount still must do that rotation before the next capture.
+        self._rotation_id = 0
+        self._rotation_pending = False
 
         # Marking menu (long-press square): advanced actions. The roll
         # option's label tracks the current state (see _update_roll_label).
@@ -117,8 +131,16 @@ class UIPolarAlign(UIModule):
     def _reset(self):
         self.state = PAState.INTRO
         self.solves = []
+        self._mount_ras = []
         self.result = None
         self.target_altaz = None
+        self.target_radec = None
+        self._rotation_step = None
+        self._rotation_pending = False
+
+    def _drop_last_point(self) -> None:
+        self.solves.pop()
+        self._mount_ras.pop()
 
     def _solve_datetime(self, timestamp: float):
         """UTC datetime of a time.time()-based solve timestamp."""
@@ -162,6 +184,7 @@ class UIPolarAlign(UIModule):
             return
         if solve_time > self.capture_request_time:
             self.solves.append((cam.RA, cam.Dec, cam.Roll, solve_time))
+            self._mount_ras.append(self._mount_ra())
             if len(self.solves) >= MAX_POINTS:
                 self._compute()
             elif self._mount_mode():
@@ -169,37 +192,92 @@ class UIPolarAlign(UIModule):
             else:
                 self.state = PAState.AIM
 
-    def _mount_mode(self) -> bool:
-        """Mount control is on and a mount is connected."""
+    def _connected_mount(self) -> Optional[MountStatus]:
+        """The status of the connected mount, or None when mount control
+        is off or no mount is connected."""
         if not self.config_object.get_option("mount_control", False):
-            return False
+            return None
         if self.command_queues.get("mountcontrol") is None:
+            return None
+        status = self.snapshot.mount_status()
+        return status if is_connected(status) else None
+
+    def _mount_mode(self) -> bool:
+        """Mount control is on and a mount is connected that is not
+        alt-az. An alt-az mount cannot turn about the polar axis."""
+        status = self._connected_mount()
+        return status is not None and not status.altaz
+
+    def _mount_ra(self) -> Optional[float]:
+        """The RA that the mount reports, or None without a mount."""
+        status = self._connected_mount()
+        return None if status is None else status.ra_deg
+
+    def _plan_rotation(self) -> bool:
+        """Choose the direction and the angle of the remaining rotations
+        one time. Show a message and return False if the mount cannot do
+        them inside its limits."""
+        status = self._connected_mount()
+        location = self.snapshot.location()
+        dt = self.snapshot.datetime()
+        if (
+            status is None
+            or status.ra_deg is None
+            or status.dec_deg is None
+            or dt is None
+            or not self.snapshot.altaz_ready()
+        ):
+            self.message(_("Need GPS lock"), 2)
             return False
-        return is_connected(self.snapshot.mount_status())
+        lst_deg = local_sidereal_deg(dt, location.lon)
+        self._rotation_step = plan_ra_rotation(
+            wrap180(lst_deg - status.ra_deg),
+            status.dec_deg,
+            location.lat,
+            MOUNT_ROTATION_DEG,
+            MAX_POINTS - max(1, len(self.solves)),
+            MOUNT_ROTATION_MIN_DEG,
+        )
+        if self._rotation_step is None:
+            self.message(_("Start nearer the meridian"), 3)
+            return False
+        return True
 
     def _rotate_mount(self) -> None:
+        if self._rotation_step is None and not self._plan_rotation():
+            self.state = PAState.AIM
+            return
+        self._rotation_id = time.time_ns() // 1_000_000
         self.command_queues["mountcontrol"].put(
-            {"type": "rotate_ra", "degrees": MOUNT_ROTATION_DEG}
+            {
+                "type": "rotate_ra",
+                "angle_deg": self._rotation_step,
+                "id": self._rotation_id,
+            }
         )
-        self._rotation_sent = time.time()
-        self._rotation_seen = False
+        self._rotation_pending = True
         self.state = PAState.ROTATE
 
     def _check_rotation(self) -> None:
-        """In ROTATE: when the rotation ends, capture the next point."""
-        status = self.snapshot.mount_status()
-        rotating = status is not None and status.phase == ROTATION_PHASE
-        now = time.time()
-        if rotating:
-            self._rotation_seen = True
+        """In ROTATE: capture the next point when the mount reports that
+        the rotation is done and the mount is still. After any other end
+        the wizard waits in AIM, and SQUARE sends the rotation again. The
+        mount process shows the cause."""
+        status = self._connected_mount()
+        if status is None:
+            self.message(_("Mount did not turn"), 2)
+            self.state = PAState.AIM
             return
-        if not self._rotation_seen:
-            if now - self._rotation_sent > MOUNT_ROTATION_START_SECS:
-                self.message(_("Mount did not turn"), 2)
-                self.state = PAState.AIM
+        if status.rotation_id != self._rotation_id:
             return
-        # The frame must start after the mount stopped.
-        self.capture_request_time = now + MOUNT_SETTLE_SECS
+        if status.rotation == ROTATION_TURNING:
+            return
+        if status.rotation != ROTATION_DONE:
+            self.state = PAState.AIM
+            return
+        self._rotation_pending = False
+        # The frame must start after the mount is still.
+        self.capture_request_time = time.time() + MOUNT_SETTLE_SECS
         self.state = PAState.WAIT_SOLVE
 
     def _gps_ready(self) -> bool:
@@ -211,8 +289,8 @@ class UIPolarAlign(UIModule):
     def _recompute(self) -> bool:
         """
         Run the polar alignment calculation on the captured solves and build
-        the fixed ground-frame target for the adjustment phase. Sets
-        self.result and self.target_altaz and returns True on success;
+        the target for the adjustment phase. Sets self.result,
+        self.target_altaz and self.target_radec and returns True on success;
         returns False (leaving them unchanged) if GPS isn't ready or the
         rotation is too small to determine an axis. Silent and
         non-destructive: it does not message, change state, or mutate
@@ -256,6 +334,7 @@ class UIPolarAlign(UIModule):
             ra_target, dec_target, dt_last, atmos=False
         )
         self.target_altaz = (alt_t, az_t)
+        self.target_radec = (ra_target, dec_target)
         self.result = {
             "dAlt": dAlt,
             "dAz": dAz,
@@ -282,9 +361,38 @@ class UIPolarAlign(UIModule):
         else:
             # Enough GPS, but too little rotation to determine an axis: drop
             # the last point so the user can rotate further and recapture.
-            self.solves.pop()
+            self._drop_last_point()
             self.message(_("Rotate more"), 2)
             self.state = PAState.AIM
+
+    def _target_altaz_at(self, dt_solve) -> Tuple[float, float]:
+        """The correction target in the ground frame at the time of a
+        solve.
+
+        Without a mount the boresight is fixed to the ground until the
+        user turns the adjusters, so the target is fixed too. With a mount
+        the RA axis can turn after the last capture: the mount tracks, or
+        the user moves it in RA. That turns the boresight about the axis of
+        the mount. The adjusters put that axis on the pole, so the target
+        turns by the same angle about the pole. The change of the RA that
+        the mount reports gives this angle: zero while the mount tracks,
+        the sidereal rate while it stands still. The target is thus the
+        sky position of the target plus that change, seen at the time of
+        the solve.
+        """
+        assert self.target_altaz is not None
+        mount_ra = self._mount_ra()
+        capture_ra = self._mount_ras[-1] if self._mount_ras else None
+        if self.target_radec is None or mount_ra is None or capture_ra is None:
+            return self.target_altaz
+        ra_target, dec_target = self.target_radec
+        alt_t, az_t = calc_utils.sf_utils.radec_to_altaz(
+            (ra_target + mount_ra - capture_ra) % 360.0,
+            dec_target,
+            dt_solve,
+            atmos=False,
+        )
+        return alt_t, az_t
 
     def _current_offset(self) -> Optional[Tuple[float, float, float]]:
         """
@@ -304,7 +412,7 @@ class UIPolarAlign(UIModule):
         alt_c, az_c = calc_utils.sf_utils.radec_to_altaz(
             cam.RA, cam.Dec, dt_solve, atmos=False
         )
-        alt_t, az_t = self.target_altaz
+        alt_t, az_t = self._target_altaz_at(dt_solve)
         return (
             wrap180(az_t - az_c),
             alt_t - alt_c,
@@ -376,9 +484,9 @@ class UIPolarAlign(UIModule):
             lines = [
                 _("Solve 3 points."),
                 _("The mount turns"),
-                _("RA 30° between"),
-                _("them. Equatorial"),
-                _("mounts only."),
+                _("its RA axis"),
+                _("between them."),
+                _("Equatorial only."),
             ]
         else:
             lines = [
@@ -405,7 +513,14 @@ class UIPolarAlign(UIModule):
         )
         y += self.fonts.bold.height + 6
 
-        if point_number == 1:
+        turn = self._rotation_pending and self._mount_mode()
+        if turn:
+            guidance = [
+                _("The mount did"),
+                _("not finish the"),
+                _("RA turn."),
+            ]
+        elif point_number == 1:
             guidance = [
                 _("Aim away from"),
                 _("the pole, wait"),
@@ -438,6 +553,13 @@ class UIPolarAlign(UIModule):
             square=self._SQUARE_,
             minus=self._MINUS_,
         )
+        if turn:
+            # TRANSLATORS: hint bar; {square} is the SQUARE button glyph,
+            # {minus} is the MINUS button glyph.
+            capture_hint = _("{square} TURN  {minus} CANCEL").format(
+                square=self._SQUARE_,
+                minus=self._MINUS_,
+            )
         self._draw_hints(capture_hint, _("0 SOLVE NOW") if point_number > 2 else None)
 
     def _draw_rotate(self):
@@ -589,14 +711,29 @@ class UIPolarAlign(UIModule):
             # Back to wherever stats was opened from.
             self.state = self._stats_return
         elif self.state == PAState.INTRO:
+            status = self._connected_mount()
+            if status is not None and status.altaz:
+                self.message(_("Alt-az mount: turn by hand"), 3)
             self.state = PAState.AIM
         elif self.state == PAState.AIM:
-            self.capture_request_time = time.time()
-            self.state = PAState.WAIT_SOLVE
+            self._capture_or_turn()
         elif self.state == PAState.ADJUST:
             self._reset()
             self.state = PAState.AIM
         self.update(force=True)
+
+    def _capture_or_turn(self) -> None:
+        """SQUARE in AIM. In mount mode the first capture needs a safe plan
+        for the rotations, and a rotation that did not finish runs again
+        before the next capture."""
+        if self._mount_mode():
+            if self._rotation_pending:
+                self._rotate_mount()
+                return
+            if not self.solves and not self._plan_rotation():
+                return
+        self.capture_request_time = time.time()
+        self.state = PAState.WAIT_SOLVE
 
     def key_minus(self):
         if self.state == PAState.ROTATE:
@@ -667,9 +804,10 @@ class UIPolarAlign(UIModule):
         if not self.solves:
             self.message(_("No points"), 1)
             return True
-        self.solves.pop()
+        self._drop_last_point()
         self.result = None
         self.target_altaz = None
+        self.target_radec = None
         self.state = PAState.AIM
         self.message(_("Dropped point"), 1)
         return True

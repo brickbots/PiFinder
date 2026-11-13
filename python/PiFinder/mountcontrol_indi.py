@@ -59,6 +59,12 @@ SLEW_TIMEOUT_S = 300.0
 MOTION_AXIS_THRESHOLD = 0.38
 # Time for the driver to define CONNECTION_MODE after DRIVER_INFO.
 CONNECTION_MODE_WAIT_S = 3.0
+# Switches that are on when the driver reports an alt-az mount: the
+# standard INDI mount type, and the mount type of the OnStep driver.
+ALTAZ_SWITCHES = (
+    ("TELESCOPE_MOUNT_TYPE", "ALTAZ"),
+    ("MOUNT_TYPE", "MOUNT_TYPE_ALTAZ"),
+)
 # A drift this small (degrees/second, 0.5"/s) says nothing about the
 # direction of a rate axis.
 DRIFT_DIRECTION_MIN_DEG_S = 0.5 / 3600.0
@@ -514,6 +520,16 @@ class MountControlIndi(MountControlBase):
             if prop is not None and prop.state == "Busy":
                 return True
         return time.time() - self.current_time < self._current_position_update_threshold
+
+    def is_slewing(self) -> bool:
+        return self._slewing and time.time() - self._slew_start < SLEW_TIMEOUT_S
+
+    def is_altaz(self) -> bool:
+        """True when the driver reports an alt-az mount. A driver without
+        a mount type property gives False: the type is then unknown."""
+        if self.device is None:
+            return False
+        return any(self._switch_on(name, element) for name, element in ALTAZ_SWITCHES)
 
     def adjust_mount_drift_rates(
         self, drift_rate_adjustment_ra: float, drift_rate_adjustment_dec: float

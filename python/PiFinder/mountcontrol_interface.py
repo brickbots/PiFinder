@@ -7,6 +7,8 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
+import dataclasses
+import datetime
 import logging
 import math
 from enum import Enum, auto
@@ -18,7 +20,17 @@ from typing import TYPE_CHECKING, Generator, Iterator, Optional, Any
 
 from PiFinder import calc_utils
 from PiFinder.state import SharedStateObj
-from PiFinder.types.mount import MountStatus, format_step
+from PiFinder.types.mount import (
+    ROTATION_DONE,
+    ROTATION_FAILED,
+    ROTATION_REFUSED,
+    ROTATION_STALE,
+    ROTATION_STOPPED,
+    ROTATION_TIMEOUT,
+    ROTATION_TURNING,
+    MountStatus,
+    format_step,
+)
 
 import PiFinder.i18n  # noqa: F401
 
@@ -68,7 +80,8 @@ class MountControlPhases(Enum):
             The mount has been commanded to a spiral search pattern to find a target.
         MOUNT_RA_ROTATION:
             The mount turns only its RA axis by a set angle, for the polar
-            alignment. Then it tracks again.
+            alignment. Then it returns to MOUNT_TRACKING, or to
+            MOUNT_STOPPED if it was stopped before.
 
     Note that a user interaction may at any time move the mount back to MOUNT_STOPPED, or put it into MOUNT_TRACKING.
     Once in drift compensation mode, the user may also select a new target, which will move the phase to MOUNT_TARGET_ACQUISITION_MOVE.
@@ -141,8 +154,28 @@ STATUS_HEARTBEAT_S = 2.0
 DRIFT_WINDOW_FILL = 0.8
 # An RA rotation for the polar alignment stops after this time.
 RA_ROTATION_TIMEOUT_S = 90.0
-# The largest RA rotation of one command.
+# The smallest and the largest RA rotation of one command.
+RA_ROTATION_MIN_DEG = 5.0
 RA_ROTATION_MAX_DEG = 45.0
+# Limits of an RA rotation. The hour angle stays on its side of the
+# meridian (no pier flip), this far from the meridian at the end of a turn
+# toward it, and at most this far from it.
+RA_ROTATION_MERIDIAN_MARGIN_DEG = 3.0
+RA_ROTATION_MAX_HA_DEG = 85.0
+# The telescope points at least this high at both ends of a rotation.
+RA_ROTATION_MIN_ALT_DEG = 15.0
+# The mount can turn this much more than the angle before it stands still.
+RA_ROTATION_OVERSHOOT_DEG = 6.0
+# A rotation stops when the mount sends no position for this time.
+RA_ROTATION_STALE_S = 3.0
+# A rotation stops when the RA moved this much against the direction.
+RA_ROTATION_WRONG_WAY_DEG = 2.0
+# After the stop, the mount is still when its RA changed less than
+# RA_ROTATION_STILL_DEG for RA_ROTATION_STILL_S. The wait ends after
+# RA_ROTATION_STILL_TIMEOUT_S.
+RA_ROTATION_STILL_DEG = 0.01
+RA_ROTATION_STILL_S = 2.0
+RA_ROTATION_STILL_TIMEOUT_S = 15.0
 
 
 def angular_distance(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
@@ -152,6 +185,97 @@ def angular_distance(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
         r1 - r2
     )
     return math.degrees(math.acos(max(-1.0, min(1.0, cos_d))))
+
+
+def wrap180(angle: float) -> float:
+    """Wrap an angle in degrees to [-180, +180)."""
+    return (angle + 180.0) % 360.0 - 180.0
+
+
+def local_sidereal_deg(dt: datetime.datetime, lon_deg: float) -> float:
+    """The local apparent sidereal time in degrees."""
+    t = calc_utils.sf_utils.ts.from_datetime(dt)
+    return (float(t.gast) * 15.0 + lon_deg) % 360.0
+
+
+def ra_rotation_room(
+    hour_angle_deg: float, dec_deg: float, lat_deg: float
+) -> tuple[float, float]:
+    """How far the RA axis can turn east and west inside the limits, in
+    degrees. East raises the RA and lowers the hour angle.
+
+    The altitude at a fixed declination falls as the hour angle moves away
+    from the meridian. So the lowest altitude of a turn is at one of its
+    ends, and the altitude limit is a limit of the hour angle.
+    """
+    lat, dec = math.radians(lat_deg), math.radians(dec_deg)
+    sin_min_alt = math.sin(math.radians(RA_ROTATION_MIN_ALT_DEG))
+    max_ha = RA_ROTATION_MAX_HA_DEG
+    across = math.cos(lat) * math.cos(dec)
+    along = math.sin(lat) * math.sin(dec)
+    if across < 1e-9:
+        # At a pole the altitude does not change with the hour angle.
+        if along < sin_min_alt:
+            return 0.0, 0.0
+    else:
+        cos_ha = (sin_min_alt - along) / across
+        if cos_ha > 1.0:
+            return 0.0, 0.0
+        if cos_ha > -1.0:
+            max_ha = min(max_ha, math.degrees(math.acos(cos_ha)))
+    off_meridian = abs(hour_angle_deg)
+    if off_meridian > max_ha:
+        return 0.0, 0.0
+    away = max_ha - off_meridian
+    toward = max(0.0, off_meridian - RA_ROTATION_MERIDIAN_MARGIN_DEG)
+    # West of the meridian the hour angle is positive: east is toward it.
+    if hour_angle_deg >= 0.0:
+        return toward, away
+    return away, toward
+
+
+def plan_ra_rotation(
+    hour_angle_deg: float,
+    dec_deg: float,
+    lat_deg: float,
+    step_deg: float,
+    count: int,
+    min_step_deg: float,
+) -> Optional[float]:
+    """The signed angle of each of `count` RA rotations in one direction
+    (positive is east), or None if no direction keeps the limits.
+
+    The step is at most step_deg and smaller if the room needs that. If
+    both directions keep the limits, the direction toward the meridian
+    wins: the telescope points higher there.
+    """
+    east_room, west_room = ra_rotation_room(hour_angle_deg, dec_deg, lat_deg)
+    toward_is_east = hour_angle_deg >= 0.0
+    best: Optional[tuple[tuple[bool, float], float]] = None
+    for sign, room in ((1.0, east_room), (-1.0, west_room)):
+        step = min(step_deg, room / count - RA_ROTATION_OVERSHOOT_DEG)
+        if step < min_step_deg:
+            continue
+        key = ((sign > 0) == toward_is_east, step)
+        if best is None or key > best[0]:
+            best = (key, sign * step)
+    return None if best is None else best[1]
+
+
+@dataclasses.dataclass
+class RaRotation:
+    """The running RA rotation."""
+
+    start_ra: float
+    # Positive is east (the RA rises).
+    angle_deg: float
+    # The phase before the rotation.
+    previous: MountControlPhases
+    # When the stop went out after the angle, or None while the mount turns.
+    stopped_at: Optional[float] = None
+    # The RA at the last change, and its time, for the wait until still.
+    still_ra: float = 0.0
+    still_since: float = 0.0
 
 
 class MountControlBase:
@@ -265,8 +389,13 @@ class MountControlBase:
         self.refine_max_iterations: int = 3
         self._refine_count: int = 0
 
-        # The running RA rotation: (start RA, angle, start time), or None.
-        self._rotation: Optional[tuple[float, float, float]] = None
+        # When the mount sent its last position.
+        self._position_time: float = 0.0
+        # The running RA rotation, or None. Its timer is _motion_started.
+        self._rotation: Optional[RaRotation] = None
+        # The id and the result (ROTATION_*) of the last rotate_ra command.
+        self._rotation_id: int = 0
+        self._rotation_result: str = ""
 
     #
     # Methods to be overridden by subclasses for controlling the specifics of a mount
@@ -404,15 +533,32 @@ class MountControlBase:
         """Stop a continuous move. Override in subclasses."""
         return True
 
+    def is_slewing(self) -> bool:
+        """True while a goto runs. Override in subclasses."""
+        return False
+
+    def is_altaz(self) -> bool:
+        """True when the mount reports that it is alt-az. Override in
+        subclasses."""
+        return False
+
     def _stop_motion(self) -> None:
+        if self._rotation is not None:
+            self._end_rotation(ROTATION_STOPPED)
+            return
         if self._motion_started is not None:
             self._motion_started = None
             if not self.stop_motion():
                 self.warn(_("Move not stopped!"))
 
     def check_motion_timeout(self, now: Optional[float] = None) -> None:
-        """Stop a continuous move that runs longer than MAX_MOTION_S."""
+        """Stop a continuous move that runs longer than MAX_MOTION_S, and
+        check a running RA rotation. The main loop calls this in every
+        phase."""
         now = time.time() if now is None else now
+        if self._rotation is not None:
+            self._check_rotation(now)
+            return
         if (
             self._motion_started is not None
             and now - self._motion_started > MAX_MOTION_S
@@ -491,6 +637,7 @@ class MountControlBase:
         logger.debug(f"Mount current position: RA={ra_deg:.4f}°, Dec={dec_deg:.4f}°")
         self.current_ra = ra_deg
         self.current_dec = dec_deg
+        self._position_time = time.time()
 
     def mount_target_reached(self) -> None:
         """Notification that the mount has reached the target position and stopped slewing.
@@ -584,7 +731,7 @@ class MountControlBase:
             MountControlPhases.MOUNT_SPIRAL_SEARCH: _("Searching"),
             MountControlPhases.MOUNT_RA_ROTATION: _("Turning RA"),
         }
-        if self._motion_started is not None:
+        if self._motion_started is not None and self._rotation is None:
             return _("Moving")
         text = texts.get(self.state, str(self.state.name))
         if self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
@@ -614,6 +761,15 @@ class MountControlBase:
             model=self.status_model(),
             updated=time.time() if now is None else now,
             error=self._last_error,
+            ra_deg=self.current_ra,
+            dec_deg=self.current_dec,
+            rotation_id=self._rotation_id,
+            rotation=(
+                ROTATION_TURNING
+                if self._rotation is not None
+                else self._rotation_result
+            ),
+            altaz=self.is_altaz(),
         )
 
     def publish_status(self) -> None:
@@ -621,7 +777,16 @@ class MountControlBase:
         STATUS_DISTANCE_PERIOD_S and STATUS_HEARTBEAT_S)."""
         now = time.time()
         status = self.mount_status(now)
-        key = (status.phase, status.text, status.step_deg, status.model, status.error)
+        key = (
+            status.phase,
+            status.text,
+            status.step_deg,
+            status.model,
+            status.error,
+            status.rotation_id,
+            status.rotation,
+            status.altaz,
+        )
         age = now - self._status_written
         distance_changed = status.distance_deg != self._status_distance
         if (
@@ -726,58 +891,143 @@ class MountControlBase:
     # RA rotation for the polar alignment
     #
 
-    def rotation_direction_east(self) -> bool:
-        """The direction of an RA rotation: toward the meridian, where the
-        telescope points higher, unless the rotation would cross it."""
+    def _hour_angle(self) -> Optional[float]:
+        """The hour angle of the mount position in degrees, or None
+        without the time, a located site or a mount position."""
         dt = self.shared_state.datetime()
         location = self.shared_state.location()
-        if dt is None or location is None or self.current_ra is None:
-            return True
-        t = calc_utils.sf_utils.ts.from_datetime(dt)
-        lst_deg = (float(t.gast) * 15.0 + location.lon) % 360.0
-        hour_angle = (lst_deg - self.current_ra + 540.0) % 360.0 - 180.0
-        # East in the sky raises the RA and lowers the hour angle.
-        toward_meridian_east = bool(hour_angle > 0)
-        if abs(hour_angle) >= 2 * RA_ROTATION_MAX_DEG:
-            return toward_meridian_east
-        return not toward_meridian_east
-
-    def _start_rotation(self, degrees: float) -> None:
+        if dt is None or location is None or not location.lock:
+            return None
         if self.current_ra is None:
-            self.warn(_("No mount position"))
+            return None
+        return wrap180(local_sidereal_deg(dt, location.lon) - self.current_ra)
+
+    def _rotation_fault(self, angle_deg: float) -> str:
+        """Why the mount must not turn its RA axis by the signed angle, or
+        an empty text if it can."""
+        if self.is_altaz():
+            return _("Not equatorial")
+        if self.state in (
+            MountControlPhases.MOUNT_UNKNOWN,
+            MountControlPhases.MOUNT_INIT_TELESCOPE,
+        ):
+            return _("Mount not ready")
+        if (
+            self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
+            or self.is_slewing()
+        ):
+            return _("Mount is slewing")
+        if self.current_ra is None or self.current_dec is None:
+            return _("No mount position")
+        hour_angle = self._hour_angle()
+        if hour_angle is None:
+            return _("Need GPS lock")
+        east_room, west_room = ra_rotation_room(
+            hour_angle, self.current_dec, self.shared_state.location().lat
+        )
+        room = east_room if angle_deg > 0 else west_room
+        if room < abs(angle_deg) + RA_ROTATION_OVERSHOOT_DEG:
+            return _("RA turn not safe")
+        return ""
+
+    def _start_rotation(self, angle_deg: float, rotation_id: int = 0) -> None:
+        """Turn the RA axis by the signed angle (positive is east). The
+        sender chooses the direction; the limits are checked here."""
+        self._rotation_id = rotation_id
+        self._rotation_result = ROTATION_REFUSED
+        size = max(RA_ROTATION_MIN_DEG, min(RA_ROTATION_MAX_DEG, abs(angle_deg)))
+        angle_deg = size if angle_deg > 0 else -size
+        fault = self._rotation_fault(angle_deg)
+        if fault:
+            logger.warning("RA rotation %+.1f° refused: %s", angle_deg, fault)
+            self.warn(fault)
             return
-        degrees = max(5.0, min(RA_ROTATION_MAX_DEG, degrees))
-        east = self.rotation_direction_east()
-        if not self.start_motion(0.0, 1.0 if east else -1.0, fastest=True):
+        assert self.current_ra is not None
+        if not self.start_motion(0.0, 1.0 if angle_deg > 0 else -1.0, fastest=True):
+            self._rotation_result = ROTATION_FAILED
             self.warn(_("Mount did not move!"))
             return
-        self._rotation = (self.current_ra, degrees, time.time())
+        self._motion_started = time.time()
+        self._rotation = RaRotation(self.current_ra, angle_deg, self.state)
         self._reset_drift_compensation_data()
         self.state = MountControlPhases.MOUNT_RA_ROTATION
-        logger.info("RA rotation %.0f° %s", degrees, "east" if east else "west")
+        logger.info("RA rotation %+.1f° (positive is east)", angle_deg)
 
-    def _end_rotation(self) -> None:
-        if self._rotation is None:
+    def _end_rotation(self, result: str) -> None:
+        """End the rotation with a result. Stop the motion if it still
+        runs. The phase returns to the one before the rotation."""
+        rotation = self._rotation
+        if rotation is None:
             return
         self._rotation = None
-        if not self.stop_motion():
+        self._rotation_result = result
+        self._motion_started = None
+        if rotation.stopped_at is None and not self.stop_motion():
+            # The last option: abort all motion of the mount.
             self.warn(_("Move not stopped!"))
+            self.stop_mount()
         if self.state == MountControlPhases.MOUNT_RA_ROTATION:
-            self.state = MountControlPhases.MOUNT_TRACKING
+            # The rotation took the mount off a goto target, so drift
+            # compensation and refine do not continue.
+            if rotation.previous == MountControlPhases.MOUNT_STOPPED:
+                self.state = MountControlPhases.MOUNT_STOPPED
+            else:
+                self.state = MountControlPhases.MOUNT_TRACKING
+        logger.info("RA rotation ended: %s", result)
 
-    def _rotation_step(self, now: float) -> None:
+    def _check_rotation(self, now: float) -> None:
+        """Stop the rotation at the angle, on a fault, or when the phase
+        changed. Then wait until the mount is still. This does not depend
+        on the phase."""
         rotation = self._rotation
-        if rotation is None or self.current_ra is None:
-            self.state = MountControlPhases.MOUNT_TRACKING
+        if rotation is None:
             return
-        start_ra, degrees, started = rotation
-        turned = abs((self.current_ra - start_ra + 540.0) % 360.0 - 180.0)
-        if turned >= degrees:
-            logger.info("RA rotation done: %.1f°", turned)
-            self._end_rotation()
+        if self.state != MountControlPhases.MOUNT_RA_ROTATION:
+            logger.warning("Phase %s during the RA rotation", self.state.name)
+            self._end_rotation(ROTATION_STOPPED)
+            return
+        if self.current_ra is None:
+            self._end_rotation(ROTATION_STALE)
+            self.warn(_("No mount position"))
+            return
+        if rotation.stopped_at is not None:
+            if abs(wrap180(self.current_ra - rotation.still_ra)) > (
+                RA_ROTATION_STILL_DEG
+            ):
+                rotation.still_ra = self.current_ra
+                rotation.still_since = now
+            if now - rotation.still_since >= RA_ROTATION_STILL_S:
+                self._end_rotation(ROTATION_DONE)
+            elif now - rotation.stopped_at > RA_ROTATION_STILL_TIMEOUT_S:
+                logger.warning("The mount still moves after the stop")
+                self._end_rotation(ROTATION_TIMEOUT)
+                self.warn(_("Mount not still"))
+                self.stop_mount()
+            return
+        started = now if self._motion_started is None else self._motion_started
+        direction = 1.0 if rotation.angle_deg > 0 else -1.0
+        turned = direction * wrap180(self.current_ra - rotation.start_ra)
+        if turned >= abs(rotation.angle_deg):
+            logger.info("RA rotation reached %.1f°", turned)
+            self._motion_started = None
+            rotation.stopped_at = now
+            rotation.still_ra = self.current_ra
+            rotation.still_since = now
+            if not self.stop_motion():
+                self._end_rotation(ROTATION_FAILED)
+                self.warn(_("Move not stopped!"))
+                self.stop_mount()
+        elif turned <= -RA_ROTATION_WRONG_WAY_DEG:
+            logger.warning("RA rotation went the wrong way: %.1f°", turned)
+            self._end_rotation(ROTATION_FAILED)
+            self.warn(_("Wrong RA direction"))
+        elif now - max(self._position_time, started) > RA_ROTATION_STALE_S:
+            logger.warning("No mount position during the RA rotation")
+            self._end_rotation(ROTATION_STALE)
+            self.warn(_("No mount position"))
         elif now - started > RA_ROTATION_TIMEOUT_S:
             logger.warning("RA rotation stopped after %.0f s", now - started)
-            self._end_rotation()
+            self._end_rotation(ROTATION_TIMEOUT)
             self.warn(_("Rotation too slow"))
 
     #
@@ -854,11 +1104,10 @@ class MountControlBase:
         The only exception is when retrying failed and we need to change the state to MOUNT_INIT_TELESCOPE or MOUNT_STOPPED.
         """
 
-        # Any other command ends a continuous move first.
+        # Any other command ends a continuous move first. Every command
+        # ends an RA rotation.
         if command["type"] not in ("motion_start", "motion_stop"):
             self._stop_motion()
-        if command["type"] not in ("reload_config", "rotate_ra"):
-            self._end_rotation()
 
         # Process the command based on its type
         if command["type"] == "motion_start":
@@ -933,7 +1182,7 @@ class MountControlBase:
                 self.notify(_("Mount synced"))
 
         elif command["type"] == "rotate_ra":
-            self._start_rotation(float(command.get("degrees", 25.0)))
+            self._start_rotation(float(command["angle_deg"]), int(command.get("id", 0)))
 
         elif command["type"] == "goto_target":
             logger.debug("Mount: goto_target command received")
@@ -1115,7 +1364,7 @@ class MountControlBase:
             return
 
         elif self.state == MountControlPhases.MOUNT_RA_ROTATION:
-            self._rotation_step(time.time())
+            # check_motion_timeout watches the rotation in every phase.
             return
 
         elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE:
@@ -1497,6 +1746,7 @@ class MountControlBase:
                 #     )
                 #     logger.debug(f"Mount state: {self.state}")
         except KeyboardInterrupt:
+            self._stop_motion()
             self.disconnect_mount()
             print("Mount control stopped.")
             raise
