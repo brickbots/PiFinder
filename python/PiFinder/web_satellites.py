@@ -48,22 +48,35 @@ def format_pass(row: dict, zone) -> dict:
     return result
 
 
+def _count_sets(path: Path) -> int:
+    """The number of element sets in a TLE file, without a parse of each set.
+
+    A large group holds thousands of sets. A parse of each on each page load
+    takes too long on a Pi.
+    """
+    with path.open(errors="replace") as handle:
+        return sum(1 for line in handle if line.startswith("1 "))
+
+
 def group_status(now: datetime.datetime, directory: Path = satellite_data_dir) -> list:
+    """One row for each CelesTrak group that the user can select."""
     selection = satellites.load_selection(directory)
     rows = []
-    for group in satellites.CELESTRAK_GROUPS:
-        path = satellites.group_file(group, directory)
+    for group in satellites.AVAILABLE_GROUPS:
+        path = satellites.group_file(group.name, directory)
         if path.exists():
             age_hours = (now.timestamp() - path.stat().st_mtime) / 3600.0
-            count = len(satellites.read_tle_file(path, "celestrak"))
+            count = _count_sets(path)
         else:
             age_hours, count = None, 0
         rows.append(
             {
-                "group": group,
+                "group": group.name,
+                "label": group.label,
+                "large": group.large,
                 "age_hours": age_hours,
                 "count": count,
-                "enabled": selection.group_enabled(group),
+                "enabled": selection.group_enabled(group.name),
             }
         )
     return rows
@@ -204,7 +217,7 @@ def add_elements(
 def set_enabled(
     kind: str, name: str, enabled: bool, directory: Path = satellite_data_dir
 ) -> None:
-    """Enable or disable one group or one satellite of the user.
+    """Select a group, or enable or disable one satellite of the user.
 
     Raises ValueError when the group or the number is not known.
     """
@@ -218,16 +231,40 @@ def set_enabled(
         raise ValueError(f"not a group or a satellite: {kind}")
 
 
+def download_if_missing(
+    group: str, now: datetime.datetime, directory: Path = satellite_data_dir
+) -> Optional[satellites.GroupRefresh]:
+    """Download a selected group that has no file.
+
+    Returns None when the group is not selected or its file exists.
+    """
+    if not satellites.load_selection(directory).group_enabled(group):
+        return None
+    if satellites.group_file(group, directory).exists():
+        return None
+    return satellites.refresh_groups(now, True, directory, groups=(group,))
+
+
 def refresh_message(result: satellites.GroupRefresh) -> tuple[str, str]:
     """The message and the error text for the result of a forced download."""
-    if result.status == "too_soon":
-        minutes = math.ceil(result.wait_seconds / 60.0)
-        return "", f"The last download is too recent. Wait {minutes} min."
     if result.status == "busy":
         return "", "A download runs now. Try again in a minute."
-    if result.status == "failed":
-        return "", "Download failed: " + ", ".join(result.failed)
-    return "Element sets downloaded", ""
+    if result.status == "no_groups":
+        return "", "No group is selected."
+    errors = []
+    if result.failed:
+        errors.append("Download failed: " + ", ".join(result.failed) + ".")
+    for group, seconds in result.refused:
+        minutes = math.ceil(seconds / 60.0)
+        errors.append(
+            f"The last download of {group} is too recent. Wait {minutes} min."
+        )
+    message = ""
+    if result.downloaded:
+        message = "Downloaded: " + ", ".join(result.downloaded)
+    elif result.status == "current":
+        message = "The element sets are recent."
+    return message, " ".join(errors)
 
 
 def _duration(seconds: Optional[float]) -> str:

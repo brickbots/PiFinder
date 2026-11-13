@@ -1,6 +1,6 @@
 """Artificial satellites: element sets, positions, magnitudes and passes.
 
-Element sets come from the CelesTrak "visual" and "stations" groups and from
+Element sets come from the CelesTrak groups that the user selects and from
 the user, who can paste them on the web page. A mount follow that the user
 corrects with the arrow keys stores a corrected set. Every set is stored as a
 three-line TLE, whatever format it arrived in.
@@ -48,7 +48,54 @@ CELESTRAK_GROUP_URL = (
 CELESTRAK_CATNR_URL = (
     "https://celestrak.org/NORAD/elements/gp.php?CATNR={norad}&FORMAT=tle"
 )
-CELESTRAK_GROUPS = ("visual", "stations")
+
+
+@dataclass(frozen=True)
+class CelestrakGroup:
+    """A CelesTrak GP group that the user can select."""
+
+    name: str  # the GROUP value of the CelesTrak URL
+    label: str
+    # A large group holds thousands of satellites. A Pi needs a long time to
+    # predict their passes.
+    large: bool = False
+
+
+# The CelesTrak groups that the user can select. The names are the GROUP
+# values of the CelesTrak GP page. The large groups are at the end. They are
+# not selected by default. CelesTrak has no "noaa" and "goes" groups. Their
+# satellites are in "weather".
+AVAILABLE_GROUPS = (
+    CelestrakGroup("visual", "Brightest"),
+    CelestrakGroup("stations", "Space stations"),
+    CelestrakGroup("last-30-days", "Launched in the last 30 days"),
+    CelestrakGroup("amateur", "Amateur radio"),
+    CelestrakGroup("cubesat", "CubeSats"),
+    CelestrakGroup("education", "Education"),
+    CelestrakGroup("engineering", "Engineering"),
+    CelestrakGroup("science", "Science"),
+    CelestrakGroup("geodetic", "Geodetic"),
+    CelestrakGroup("weather", "Weather"),
+    CelestrakGroup("resource", "Earth resources"),
+    CelestrakGroup("planet", "Planet"),
+    CelestrakGroup("spire", "Spire"),
+    CelestrakGroup("radar", "Radar calibration"),
+    CelestrakGroup("sarsat", "Search and rescue"),
+    CelestrakGroup("military", "Military"),
+    CelestrakGroup("iridium-NEXT", "Iridium NEXT"),
+    CelestrakGroup("gps-ops", "GPS"),
+    CelestrakGroup("galileo", "Galileo"),
+    CelestrakGroup("glo-ops", "GLONASS"),
+    CelestrakGroup("beidou", "BeiDou"),
+    CelestrakGroup("geo", "Geostationary"),
+    CelestrakGroup("oneweb", "OneWeb", large=True),
+    CelestrakGroup("kuiper", "Kuiper", large=True),
+    CelestrakGroup("starlink", "Starlink", large=True),
+    CelestrakGroup("active", "All active satellites", large=True),
+)
+CELESTRAK_GROUPS = tuple(group.name for group in AVAILABLE_GROUPS)
+# The groups that a PiFinder without a stored selection uses.
+DEFAULT_GROUPS = ("visual", "stations")
 USER_FILE_NAME = "user.tle"
 CORRECTED_FILE_NAME = "corrected.tle"
 # The text between the name and the time in the name of a corrected set.
@@ -410,30 +457,42 @@ def group_download_needed(
 
 @dataclass(frozen=True)
 class GroupRefresh:
-    """The result of one request to download the CelesTrak groups.
+    """The result of one request to download CelesTrak groups.
 
-    ``status`` is "downloaded", "current" (no file was old enough), "busy"
-    (another download runs), "too_soon" or "failed".
+    ``status`` is "downloaded", "current" (no file was old enough),
+    "no_groups" (no group is selected), "busy" (another download runs),
+    "too_soon" (each group downloaded a few minutes ago) or "failed".
+    ``refused`` holds each group that downloaded a few minutes ago, with
+    the seconds until a forced download is permitted.
     """
 
     status: str
     failed: tuple[str, ...] = ()
     wait_seconds: float = 0.0
+    downloaded: tuple[str, ...] = ()
+    refused: tuple[tuple[str, float], ...] = ()
 
     @property
     def ok(self) -> bool:
-        return self.status in ("downloaded", "current")
+        return self.status in ("downloaded", "current", "no_groups")
 
 
 _download_lock = threading.Lock()
 
 
 def forced_download_wait(
-    now: datetime, directory: Path = satellite_data_dir
+    now: datetime,
+    directory: Path = satellite_data_dir,
+    groups: Optional[Iterable[str]] = None,
 ) -> dict[str, float]:
-    """Seconds until a forced download of each group is permitted."""
+    """Seconds until a forced download of each group is permitted.
+
+    Without ``groups`` the selected groups are used.
+    """
+    if groups is None:
+        groups = selected_groups(directory)
     waits: dict[str, float] = {}
-    for group in CELESTRAK_GROUPS:
+    for group in groups:
         path = group_file(group, directory)
         age = now.timestamp() - path.stat().st_mtime if path.exists() else None
         # A file from the future means the clock changed: permit the download.
@@ -450,34 +509,55 @@ def refresh_groups(
     directory: Path = satellite_data_dir,
     progress_callback: Optional[Callable[[Optional[int]], None]] = None,
     on_start: Optional[Callable[[], None]] = None,
+    groups: Optional[Iterable[str]] = None,
 ) -> GroupRefresh:
     """Download the groups that need it. Only one download runs at a time.
 
-    Without ``force`` the file age decides. With ``force`` each group
-    downloads, except a group that downloaded a few minutes ago.
+    Without ``groups`` the selected groups are used. Without ``force`` the
+    file age decides. With ``force`` each group downloads, except a group
+    that downloaded a few minutes ago.
     """
     if not _download_lock.acquire(blocking=False):
         return GroupRefresh("busy")
     try:
-        waits = forced_download_wait(now, directory)
+        if groups is None:
+            groups = selected_groups(directory)
+        groups = tuple(groups)
+        if not groups:
+            return GroupRefresh("no_groups")
+        waits = forced_download_wait(now, directory, groups)
         wanted = []
-        for group in CELESTRAK_GROUPS:
+        refused = []
+        for group in groups:
             needed, reason = group_download_needed(group, now, directory)
             if needed or (force and waits[group] <= 0):
                 logger.info("Satellite group %s: %s", group, reason)
                 wanted.append(group)
+            elif force:
+                refused.append((group, waits[group]))
+        wait = min((seconds for _group, seconds in refused), default=0.0)
         if not wanted:
             if force:
-                return GroupRefresh("too_soon", wait_seconds=min(waits.values()))
+                return GroupRefresh(
+                    "too_soon", wait_seconds=wait, refused=tuple(refused)
+                )
             return GroupRefresh("current")
         if on_start is not None:
             on_start()
-        failed = tuple(
-            group
-            for group in wanted
-            if not download_group(group, directory, progress_callback).success
+        downloaded = []
+        failed = []
+        for group in wanted:
+            if download_group(group, directory, progress_callback).success:
+                downloaded.append(group)
+            else:
+                failed.append(group)
+        return GroupRefresh(
+            "failed" if failed else "downloaded",
+            tuple(failed),
+            wait,
+            tuple(downloaded),
+            tuple(refused),
         )
-        return GroupRefresh("failed" if failed else "downloaded", failed)
     finally:
         _download_lock.release()
 
@@ -620,18 +700,21 @@ def _write_user_file(elements: list[SatElements], directory: Path) -> None:
 
 @dataclass(frozen=True)
 class Selection:
-    """The groups, user satellites and corrected sets that the user disabled.
+    """The selected groups, and the user satellites and corrected sets that
+    the user disabled.
 
-    A disabled item stays stored. It is not in the device catalog and not
-    in the pass lists.
+    The PiFinder downloads, updates and uses only the selected groups. The
+    file of a group that is not selected stays on disk, but it is not read.
+    A disabled set stays stored. It is not in the device catalog and not in
+    the pass lists.
     """
 
-    disabled_groups: frozenset[str] = frozenset()
+    groups: frozenset[str] = frozenset(DEFAULT_GROUPS)
     disabled_user: frozenset[int] = frozenset()
     disabled_corrected: frozenset[int] = frozenset()
 
     def group_enabled(self, group: str) -> bool:
-        return group not in self.disabled_groups
+        return group in self.groups
 
     def user_enabled(self, norad_id: int) -> bool:
         return norad_id not in self.disabled_user
@@ -645,10 +728,16 @@ def selection_file(directory: Path = satellite_data_dir) -> Path:
 
 
 def load_selection(directory: Path = satellite_data_dir) -> Selection:
+    """The stored selection. Group names that are not known are ignored."""
     try:
         data = json.loads(selection_file(directory).read_text())
+        groups = frozenset(DEFAULT_GROUPS)
+        if "groups" in data:
+            groups = frozenset(
+                str(group) for group in data["groups"] if group in CELESTRAK_GROUPS
+            )
         return Selection(
-            frozenset(str(group) for group in data.get("disabled_groups", [])),
+            groups,
             frozenset(int(norad) for norad in data.get("disabled_user", [])),
             frozenset(int(norad) for norad in data.get("disabled_corrected", [])),
         )
@@ -656,11 +745,17 @@ def load_selection(directory: Path = satellite_data_dir) -> Selection:
         return Selection()
 
 
+def selected_groups(directory: Path = satellite_data_dir) -> tuple[str, ...]:
+    """The selected groups, in the order of ``AVAILABLE_GROUPS``."""
+    selection = load_selection(directory)
+    return tuple(group for group in CELESTRAK_GROUPS if selection.group_enabled(group))
+
+
 def _write_selection(selection: Selection, directory: Path) -> None:
     _write_json(
         selection_file(directory),
         {
-            "disabled_groups": sorted(selection.disabled_groups),
+            "groups": sorted(selection.groups),
             "disabled_user": sorted(selection.disabled_user),
             "disabled_corrected": sorted(selection.disabled_corrected),
         },
@@ -670,14 +765,15 @@ def _write_selection(selection: Selection, directory: Path) -> None:
 def set_group_enabled(
     group: str, enabled: bool, directory: Path = satellite_data_dir
 ) -> None:
+    """Select a group, or remove it from the selection."""
     if group not in CELESTRAK_GROUPS:
         raise ValueError(f"unknown group: {group}")
     with _user_file_lock:
         selection = load_selection(directory)
-        groups = selection.disabled_groups - {group}
-        if not enabled:
+        groups = selection.groups - {group}
+        if enabled:
             groups = groups | {group}
-        _write_selection(replace(selection, disabled_groups=groups), directory)
+        _write_selection(replace(selection, groups=groups), directory)
 
 
 def set_user_enabled(
@@ -714,8 +810,9 @@ def load_all_elements(
     newer, so a pasted TLE does not stay in use after CelesTrak has a fresh one.
     A corrected set keeps the epoch of the set it corrects. It replaces a set
     of the same epoch or older, so a newer download replaces the correction.
-    Groups and sets that the user disabled are left out, unless
-    ``include_disabled`` is set.
+    Groups that are not selected and sets that the user disabled are left
+    out, unless ``include_disabled`` is set. Then each group file on disk
+    is read.
     """
     selection = Selection() if include_disabled else load_selection(directory)
     by_id: dict[int, SatElements] = {}

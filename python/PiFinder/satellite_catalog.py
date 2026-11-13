@@ -158,13 +158,14 @@ class SatelliteCatalog(Catalog):
         self.download_progress = value
 
     def refresh(self) -> Optional[int]:
-        """Start a download of the groups in the background.
+        """Start a download of the selected groups in the background.
 
         Returns None when the download starts. Returns the seconds to wait
-        when the last download is too recent.
+        when the last download of each selected group is too recent.
         """
         now = datetime.datetime.now(datetime.timezone.utc)
-        wait = min(satellites.forced_download_wait(now, self.data_directory).values())
+        waits = satellites.forced_download_wait(now, self.data_directory)
+        wait = min(waits.values(), default=0.0)
         if wait > 0:
             logger.info("Satellite refresh refused: wait %.0f s", wait)
             return math.ceil(wait)
@@ -176,7 +177,7 @@ class SatelliteCatalog(Catalog):
     def _element_files(self) -> list[Path]:
         files = [
             satellites.group_file(group, self.data_directory)
-            for group in satellites.CELESTRAK_GROUPS
+            for group in satellites.selected_groups(self.data_directory)
         ]
         files.append(satellites.user_file(self.data_directory))
         files.append(satellites.corrected_file(self.data_directory))

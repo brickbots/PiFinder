@@ -1284,17 +1284,33 @@ class Server:
         @app.route("/satellites/refresh", methods=["POST"])
         @auth_required
         def satellites_refresh():
+            """Update one group, or each selected group without a group."""
+            group = request.form.get("group", "")
+            groups = None
+            if group:
+                if group not in satellite_data.CELESTRAK_GROUPS:
+                    return _satellites_redirect(
+                        error=_("Not found: {norad}").format(norad=group)
+                    )
+                if not satellite_data.load_selection().group_enabled(group):
+                    return _satellites_redirect(
+                        error=_("Select {name} first").format(name=group)
+                    )
+                groups = (group,)
             # The file times come from the system clock, so the check of the
             # last download uses the system clock too.
             result = satellite_data.refresh_groups(
-                datetime.datetime.now(timezone.utc), force=True
+                datetime.datetime.now(timezone.utc), force=True, groups=groups
             )
             return _satellites_redirect(*web_satellites.refresh_message(result))
 
         @app.route("/satellites/enable", methods=["POST"])
         @auth_required
         def satellites_enable():
-            """Enable or disable one group or one satellite of the user."""
+            """Select a group, or enable or disable one satellite of the user.
+
+            A selected group without a file downloads at once.
+            """
             kind = request.form.get("kind", "")
             name = request.form.get("id", "")
             enabled = request.form.get("enabled", "0") == "1"
@@ -1304,9 +1320,19 @@ class Server:
                 return _satellites_redirect(
                     error=_("Not found: {norad}").format(norad=name)
                 )
-            if enabled:
-                return _satellites_redirect(_("Enabled {name}").format(name=name))
-            return _satellites_redirect(_("Disabled {name}").format(name=name))
+            if not enabled:
+                return _satellites_redirect(_("Disabled {name}").format(name=name))
+            message = _("Enabled {name}").format(name=name)
+            error = ""
+            if kind == "group":
+                result = web_satellites.download_if_missing(
+                    name, datetime.datetime.now(timezone.utc)
+                )
+                if result is not None:
+                    downloaded, error = web_satellites.refresh_message(result)
+                    if downloaded:
+                        message += ". " + downloaded
+            return _satellites_redirect(message, error)
 
         @app.route("/satellites/show/<int:norad_id>", methods=["POST"])
         @auth_required

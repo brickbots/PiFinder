@@ -2,6 +2,8 @@
 
 import datetime
 import json
+import os
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -461,7 +463,8 @@ def test_web_rows_show_the_selection(tmp_path):
     groups = {
         r["group"]: r["enabled"] for r in web_satellites.group_status(NOW, tmp_path)
     }
-    assert groups == {"visual": True, "stations": False}
+    assert [name for name, enabled in groups.items() if enabled] == ["visual"]
+    assert list(groups) == list(satellites.CELESTRAK_GROUPS)
     assert [r["enabled"] for r in web_satellites.user_satellites(NOW, tmp_path)] == [
         False
     ]
@@ -597,12 +600,12 @@ def test_forced_download_is_refused_a_short_time_after_a_download(
     monkeypatch.setattr(satellites, "download_group", downloads)
     first = satellites.refresh_groups(system_now(), True, tmp_path)
     assert first.status == "downloaded" and first.ok
-    assert downloads.groups == list(satellites.CELESTRAK_GROUPS)
+    assert downloads.groups == list(satellites.DEFAULT_GROUPS)
 
     again = satellites.refresh_groups(system_now(), True, tmp_path)
     assert again.status == "too_soon" and not again.ok
     assert 0 < again.wait_seconds <= satellites.MIN_FORCED_DOWNLOAD_SECONDS
-    assert len(downloads.groups) == len(satellites.CELESTRAK_GROUPS)
+    assert len(downloads.groups) == len(satellites.DEFAULT_GROUPS)
     assert "Wait 5 min" in web_satellites.refresh_message(again)[1]
 
     later = system_now() + datetime.timedelta(
@@ -638,7 +641,7 @@ def test_failed_download_is_tried_again_soon_and_shows_an_error(tmp_path, monkey
     assert cat.get_status().current == CatalogState.CALCULATING
     result = cat._refresh_sources()
     assert result.status == "failed"
-    assert result.failed == satellites.CELESTRAK_GROUPS
+    assert result.failed == satellites.DEFAULT_GROUPS
     assert cat._download_wait_seconds(result) == cat.DOWNLOAD_FAILED_RETRY_SECONDS
     assert cat.DOWNLOAD_FAILED_RETRY_SECONDS <= 60
     assert cat.get_status().current == CatalogState.ERROR
@@ -662,6 +665,170 @@ def test_device_refresh_is_refused_after_a_recent_download(catalog, monkeypatch)
     wait = catalog.refresh()
     assert wait is not None and 0 < wait <= satellites.MIN_FORCED_DOWNLOAD_SECONDS
     assert downloads.groups == []
+
+
+def make_old(path: Path, hours: float = 1.0) -> None:
+    """Set the time of ``path`` to ``hours`` before the system clock."""
+    when = system_now().timestamp() - hours * 3600.0
+    os.utime(path, (when, when))
+
+
+@pytest.mark.unit
+def test_group_list_has_the_small_groups_and_marks_the_large_groups():
+    names = satellites.CELESTRAK_GROUPS
+    assert len(names) == len(set(names))
+    for name in ("visual", "stations", "amateur", "weather", "gps-ops", "geo"):
+        assert name in names
+    large = {group.name for group in satellites.AVAILABLE_GROUPS if group.large}
+    assert large == {"active", "starlink", "oneweb", "kuiper"}
+    assert not large & set(satellites.DEFAULT_GROUPS)
+    assert all(group.label for group in satellites.AVAILABLE_GROUPS)
+
+
+@pytest.mark.unit
+def test_selection_default_is_visual_and_stations(tmp_path):
+    assert satellites.selected_groups(tmp_path) == ("visual", "stations")
+    # A file without the "groups" key gives the default groups.
+    (tmp_path / satellites.SELECTION_FILE_NAME).write_text(
+        json.dumps({"disabled_user": [90001]})
+    )
+    selection = satellites.load_selection(tmp_path)
+    assert selection.groups == frozenset(satellites.DEFAULT_GROUPS)
+    assert not selection.user_enabled(90001)
+
+
+@pytest.mark.unit
+def test_selected_groups_are_stored_and_unknown_names_are_ignored(tmp_path):
+    satellites.set_group_enabled("amateur", True, tmp_path)
+    satellites.set_group_enabled("visual", False, tmp_path)
+    data = json.loads((tmp_path / satellites.SELECTION_FILE_NAME).read_text())
+    assert data["groups"] == ["amateur", "stations"]
+    assert "disabled_groups" not in data
+    assert satellites.selected_groups(tmp_path) == ("stations", "amateur")
+
+    data["groups"] = ["amateur", "no-such-group", 7]
+    (tmp_path / satellites.SELECTION_FILE_NAME).write_text(json.dumps(data))
+    assert satellites.selected_groups(tmp_path) == ("amateur",)
+    satellites.set_group_enabled("amateur", False, tmp_path)
+    assert satellites.selected_groups(tmp_path) == ()
+    with pytest.raises(ValueError):
+        satellites.set_group_enabled("no-such-group", True, tmp_path)
+
+
+@pytest.mark.unit
+def test_unselected_group_is_not_downloaded_and_not_loaded(tmp_path, monkeypatch):
+    (tmp_path / "visual.tle").write_text((DATA / "visual.tle").read_text())
+    make_old(tmp_path / "visual.tle", satellites.DOWNLOAD_INTERVAL_HOURS + 1)
+    visual_ids = {
+        e.norad_id for e in satellites.read_tle_file(tmp_path / "visual.tle", "x")
+    }
+    satellites.set_group_enabled("visual", False, tmp_path)
+    satellites.set_group_enabled("stations", False, tmp_path)
+    satellites.set_group_enabled("amateur", True, tmp_path)
+    downloads = FakeDownloads()
+    monkeypatch.setattr(satellites, "download_group", downloads)
+
+    assert satellites.refresh_groups(system_now(), False, tmp_path).downloaded == (
+        "amateur",
+    )
+    later = system_now() + datetime.timedelta(hours=1)
+    assert satellites.refresh_groups(later, True, tmp_path).downloaded == ("amateur",)
+    assert downloads.groups == ["amateur", "amateur"]
+
+    # The file of the unselected group stays, but it is not read.
+    assert (tmp_path / "visual.tle").exists()
+    loaded = {e.norad_id for e in satellites.load_all_elements(NOW, tmp_path)}
+    assert loaded == {ISS_NORAD}
+    every = satellites.load_all_elements(NOW, tmp_path, include_disabled=True)
+    assert visual_ids <= {e.norad_id for e in every}
+
+
+@pytest.mark.unit
+def test_download_atomic_is_not_called_for_an_unselected_group(tmp_path, monkeypatch):
+    urls = []
+
+    def download_atomic(url, path, progress_callback=None, validator=None):
+        urls.append(url)
+        return satellites.DownloadResult(False, None, None)
+
+    monkeypatch.setattr(satellites, "download_atomic", download_atomic)
+    satellites.set_group_enabled("visual", False, tmp_path)
+    result = satellites.refresh_groups(system_now(), True, tmp_path)
+    assert result.failed == ("stations",)
+    assert urls == [satellites.CELESTRAK_GROUP_URL.format(group="stations")]
+
+    satellites.set_group_enabled("stations", False, tmp_path)
+    result = satellites.refresh_groups(system_now(), True, tmp_path)
+    assert result.status == "no_groups" and result.ok
+    assert web_satellites.refresh_message(result)[1] == "No group is selected."
+    assert len(urls) == 1
+
+
+@pytest.mark.unit
+def test_forced_download_wait_applies_to_each_group(tmp_path, monkeypatch):
+    downloads = FakeDownloads()
+    monkeypatch.setattr(satellites, "download_group", downloads)
+    satellites.set_group_enabled("amateur", True, tmp_path)
+    (tmp_path / "visual.tle").write_text((DATA / "visual.tle").read_text())
+    (tmp_path / "stations.tle").write_text((DATA / "25544.3le").read_text())
+    make_old(tmp_path / "stations.tle")
+
+    result = satellites.refresh_groups(system_now(), True, tmp_path)
+    assert result.status == "downloaded"
+    assert result.downloaded == ("stations", "amateur")
+    assert [group for group, _seconds in result.refused] == ["visual"]
+    message, error = web_satellites.refresh_message(result)
+    assert message == "Downloaded: stations, amateur"
+    assert error == "The last download of visual is too recent. Wait 5 min."
+
+    result = satellites.refresh_groups(system_now(), True, tmp_path, groups=["visual"])
+    assert result.status == "too_soon" and result.downloaded == ()
+    assert "visual" in web_satellites.refresh_message(result)[1]
+    assert downloads.groups == ["stations", "amateur"]
+
+
+@pytest.mark.unit
+def test_group_status_shows_the_count_and_the_age(tmp_path, monkeypatch):
+    rows = {row["group"]: row for row in web_satellites.group_status(NOW, tmp_path)}
+    assert rows["visual"]["age_hours"] is None and rows["visual"]["count"] == 0
+    assert rows["starlink"]["large"] and not rows["visual"]["large"]
+    assert rows["stations"]["label"] == "Space stations"
+
+    monkeypatch.setattr(satellites, "download_group", FakeDownloads())
+    satellites.refresh_groups(system_now(), True, tmp_path, groups=["stations"])
+    rows = {
+        row["group"]: row for row in web_satellites.group_status(system_now(), tmp_path)
+    }
+    assert rows["stations"]["count"] == 1
+    assert 0 <= rows["stations"]["age_hours"] < 0.1
+    assert rows["visual"]["age_hours"] is None
+
+
+@pytest.mark.unit
+def test_device_refresh_downloads_the_selected_groups_only(catalog, monkeypatch):
+    directory = catalog.data_directory
+    downloads = FakeDownloads()
+    monkeypatch.setattr(satellites, "download_group", downloads)
+    satellites.set_group_enabled("stations", False, directory)
+    satellites.set_group_enabled("amateur", True, directory)
+    make_old(directory / "visual.tle")
+    make_old(directory / "stations.tle")
+
+    finished = threading.Event()
+    refresh_sources = catalog._refresh_sources
+
+    def refresh_and_report(force=False):
+        try:
+            return refresh_sources(force)
+        finally:
+            finished.set()
+
+    catalog._refresh_sources = refresh_and_report
+    assert catalog.refresh() is None
+    assert finished.wait(10)
+    assert sorted(downloads.groups) == ["amateur", "visual"]
+    paths = {path.name for path in catalog._element_files()}
+    assert "amateur.tle" in paths and "stations.tle" not in paths
 
 
 # ---------------------------------------------------------------------------
