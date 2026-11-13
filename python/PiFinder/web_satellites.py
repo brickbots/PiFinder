@@ -258,6 +258,8 @@ def compute_pass_table(
             )
         except ValueError:
             continue
+    # A geostationary satellite has no passes. The sky table lists it.
+    tracked = [sat for sat in tracked if not sat.elements.geostationary]
     topos = satellites.observer_topos(location.lat, location.lon, location.altitude)
     start = now - datetime.timedelta(minutes=15)
     found = satellites.find_passes_many(
@@ -593,6 +595,7 @@ def satellite_detail(
         "line1": elements.line1,
         "line2": elements.line2,
         "enabled": enabled,
+        "geostationary": elements.geostationary,
         "now": None,
         "passes": [],
     }
@@ -614,7 +617,7 @@ def satellite_detail(
         "rate_arcmin_s": 60.0
         * math.hypot(look.ra_rate * math.cos(math.radians(look.dec)), look.dec_rate),
     }
-    if days > 0:
+    if days > 0 and not elements.geostationary:
         result["passes"] = [
             format_pass(item.to_dict(), zone)
             for item in satellites.find_passes(sat, topos, now, days * 24.0)

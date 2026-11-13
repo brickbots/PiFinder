@@ -45,7 +45,17 @@
 <div class="card grey darken-2">
   <div class="card-content">
     <h5 class="grey-text">{{ _('Passes in the next 3 days') }}</h5>
-    {% if sat['passes'] %}
+    {% if sat['geostationary'] %}
+    <p class="grey-text" id="satellite_geostationary">
+      {% if sat['now'] and sat['now']['alt'] > 0 %}
+      {{ _('Always up: alt {alt}° az {az}° {dir}. A geostationary satellite stays at one place in the sky.').format(alt=sat['now']['alt'] | round | int, az=sat['now']['az'] | round | int, dir=sat['now']['dir']) }}
+      {% elif sat['now'] %}
+      {{ _('Never rises here. A geostationary satellite stays at one place in the sky.') }}
+      {% else %}
+      {{ _('A geostationary satellite stays at one place in the sky.') }}
+      {% endif %}
+    </p>
+    {% elif sat['passes'] %}
     <table class="grey-text responsive-table" id="satellite_pass_table">
       <thead>
         <tr>

@@ -424,7 +424,13 @@ class SatelliteCatalog(Catalog):
                 lines.append(f"Mag {now.mag:.1f}, visible")
         else:
             lines.append("Below horizon")
-        if next_pass is not None:
+        if sat.elements.geostationary:
+            lines.append(
+                "Geostationary: fixed in the sky"
+                if now.alt > 0
+                else "Geostationary: never rises here"
+            )
+        elif next_pass is not None:
             start = next_pass.visible_start or next_pass.rise
             lines.append(
                 f"Next: {start.astimezone(zone).strftime('%H:%M')} "
@@ -596,7 +602,10 @@ class SatelliteCatalog(Catalog):
                 location.lat, location.lon, location.altitude
             )
             start = dt - datetime.timedelta(minutes=15)
-            tracked = list(self._tracked.values())
+            # A geostationary satellite has no passes.
+            tracked = [
+                sat for sat in self._tracked.values() if not sat.elements.geostationary
+            ]
             found = satellites.find_passes_many(
                 tracked, topos, start, self.PASS_HOURS, self.MIN_PASS_ALT_DEG
             )

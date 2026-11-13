@@ -70,6 +70,11 @@ STD_MAG_FILE = astro_data_dir / "satellite_std_mags.csv"
 DEFAULT_STD_MAG = 4.0
 # Element sets older than this give positions that are wrong by many degrees.
 MAX_ELEMENT_AGE_DAYS = 30.0
+# A geostationary orbit: one turn per sidereal day, almost circular. Such a
+# satellite stays at one place in the sky, so it has no passes.
+GEO_REVS_PER_DAY = 1.0027
+GEO_REVS_TOLERANCE = 0.01
+GEO_MAX_ECCENTRICITY = 0.01
 # CelesTrak updates the groups a few times a day and asks clients not to
 # download them more often than every two hours.
 DOWNLOAD_INTERVAL_HOURS = 12.0
@@ -132,6 +137,22 @@ class SatElements:
 
     def to_tle(self) -> str:
         return f"{self.name}\n{self.line1}\n{self.line2}\n"
+
+    @property
+    def revs_per_day(self) -> float:
+        return float(self.line2[52:63])
+
+    @property
+    def eccentricity(self) -> float:
+        return float("0." + self.line2[26:33].strip())
+
+    @property
+    def geostationary(self) -> bool:
+        """True for a satellite that stays at one place in the sky."""
+        return (
+            abs(self.revs_per_day - GEO_REVS_PER_DAY) < GEO_REVS_TOLERANCE
+            and self.eccentricity < GEO_MAX_ECCENTRICITY
+        )
 
     def to_earth_satellite(self) -> EarthSatellite:
         return EarthSatellite(self.line1, self.line2, self.name, sf_utils.ts)
