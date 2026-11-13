@@ -179,6 +179,7 @@ class SatelliteCatalog(Catalog):
             for group in satellites.CELESTRAK_GROUPS
         ]
         files.append(satellites.user_file(self.data_directory))
+        files.append(satellites.corrected_file(self.data_directory))
         files.append(satellites.user_mag_file(self.data_directory))
         files.append(satellites.selection_file(self.data_directory))
         return [path for path in files if path.exists()]

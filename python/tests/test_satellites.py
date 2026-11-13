@@ -895,3 +895,77 @@ def test_sky_now_lists_the_satellites_above_the_horizon(catalog):
     web_satellites.set_enabled("group", "stations", False, directory)
     assert web_satellites.sky_now(moment, location, directory) == []
     assert web_satellites.sky_now(moment, None, directory) is None
+
+
+def shifted_iss(minutes: float) -> satellites.SatElements:
+    """The ISS set with another mean anomaly and the same epoch."""
+    element = iss_elements()
+    body = element.line2[:43] + f"{float(element.line2[43:51]) + minutes:8.4f}"
+    body += element.line2[51:68]
+    return satellites.SatElements(
+        element.name,
+        element.norad_id,
+        element.line1,
+        body + str(satellites.tle_checksum(body)),
+    )
+
+
+@pytest.mark.unit
+def test_corrected_name_has_the_mark_and_the_time():
+    when = datetime.datetime(2026, 11, 13, 21, 4, 30, tzinfo=datetime.timezone.utc)
+    assert satellites.corrected_name("ISS (ZARYA)", when) == (
+        "ISS (ZARYA) corr 2026-11-13 21:04"
+    )
+    again = satellites.corrected_name("ISS (ZARYA) corr 2026-11-12 20:00", when)
+    assert again == "ISS (ZARYA) corr 2026-11-13 21:04"
+
+
+@pytest.mark.unit
+def test_a_corrected_set_replaces_its_base_until_a_newer_download(tmp_path):
+    (tmp_path / "stations.tle").write_text(iss_elements().to_tle())
+    when = NOW
+    satellites.save_corrected_element(shifted_iss(0.5), when, tmp_path)
+    satellites.save_corrected_element(shifted_iss(1.0), when, tmp_path)
+    stored = satellites.load_corrected_elements(tmp_path)
+    assert len(stored) == 1 and stored[0].source == "corrected"
+    assert stored[0].line2 == shifted_iss(1.0).line2
+    merged = {e.norad_id: e for e in satellites.load_all_elements(NOW, tmp_path)}
+    assert merged[ISS_NORAD].source == "corrected"
+    assert merged[ISS_NORAD].name.startswith("ISS")
+    assert satellites.CORRECTED_MARK in merged[ISS_NORAD].name
+
+    # A newer download replaces the correction.
+    element = iss_elements()
+    line1 = element.line1[:18] + "26330.50000000" + element.line1[32:68]
+    line1 += str(satellites.tle_checksum(line1))
+    newer = satellites.SatElements(element.name, ISS_NORAD, line1, element.line2)
+    (tmp_path / "stations.tle").write_text(newer.to_tle())
+    later = newer.epoch + datetime.timedelta(days=1)
+    merged = {e.norad_id: e for e in satellites.load_all_elements(later, tmp_path)}
+    assert merged[ISS_NORAD].source == "celestrak"
+
+
+@pytest.mark.unit
+def test_corrected_sets_can_be_disabled_and_deleted(tmp_path):
+    (tmp_path / "stations.tle").write_text(iss_elements().to_tle())
+    satellites.save_corrected_element(shifted_iss(0.5), NOW, tmp_path)
+    satellites.set_user_enabled(90001, False, tmp_path)
+    web_satellites.set_enabled("corrected", str(ISS_NORAD), False, tmp_path)
+    selection = satellites.load_selection(tmp_path)
+    assert not selection.corrected_enabled(ISS_NORAD)
+    assert not selection.user_enabled(90001)
+    merged = {e.norad_id: e for e in satellites.load_all_elements(NOW, tmp_path)}
+    assert merged[ISS_NORAD].source == "celestrak"
+    rows = web_satellites.corrected_satellites(NOW, tmp_path)
+    assert [(r["enabled"], r["in_use"]) for r in rows] == [(False, False)]
+
+    web_satellites.set_enabled("corrected", str(ISS_NORAD), True, tmp_path)
+    rows = web_satellites.corrected_satellites(NOW, tmp_path)
+    assert [(r["enabled"], r["in_use"]) for r in rows] == [(True, True)]
+
+    web_satellites.set_enabled("corrected", str(ISS_NORAD), False, tmp_path)
+    assert satellites.delete_corrected_element(ISS_NORAD, tmp_path)
+    assert not satellites.delete_corrected_element(ISS_NORAD, tmp_path)
+    selection = satellites.load_selection(tmp_path)
+    assert selection.corrected_enabled(ISS_NORAD)
+    assert not selection.user_enabled(90001)

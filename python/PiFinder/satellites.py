@@ -1,7 +1,8 @@
 """Artificial satellites: element sets, positions, magnitudes and passes.
 
 Element sets come from the CelesTrak "visual" and "stations" groups and from
-the user, who can paste them on the web page. Every set is stored as a
+the user, who can paste them on the web page. A mount follow that the user
+corrects with the arrow keys stores a corrected set. Every set is stored as a
 three-line TLE, whatever format it arrived in.
 
 Positions use SGP4 through Skyfield. The magnitude estimate uses the standard
@@ -18,7 +19,7 @@ import logging
 import math
 import re
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
 from pathlib import Path
@@ -49,6 +50,9 @@ CELESTRAK_CATNR_URL = (
 )
 CELESTRAK_GROUPS = ("visual", "stations")
 USER_FILE_NAME = "user.tle"
+CORRECTED_FILE_NAME = "corrected.tle"
+# The text between the name and the time in the name of a corrected set.
+CORRECTED_MARK = " corr "
 USER_MAG_FILE_NAME = "user_mags.json"
 SELECTION_FILE_NAME = "selection.json"
 STD_MAG_FILE = astro_data_dir / "satellite_std_mags.csv"
@@ -357,6 +361,10 @@ def user_file(directory: Path = satellite_data_dir) -> Path:
     return directory / USER_FILE_NAME
 
 
+def corrected_file(directory: Path = satellite_data_dir) -> Path:
+    return directory / CORRECTED_FILE_NAME
+
+
 def pass_cache_file(directory: Path = satellite_data_dir) -> Path:
     return directory / "passes.json"
 
@@ -533,8 +541,62 @@ def delete_user_element(norad_id: int, directory: Path = satellite_data_dir) -> 
         selection = load_selection(directory)
         if norad_id in selection.disabled_user:
             _write_selection(
-                Selection(
-                    selection.disabled_groups, selection.disabled_user - {norad_id}
+                replace(selection, disabled_user=selection.disabled_user - {norad_id}),
+                directory,
+            )
+        return True
+
+
+def load_corrected_elements(directory: Path = satellite_data_dir) -> list[SatElements]:
+    return read_tle_file(corrected_file(directory), "corrected")
+
+
+def corrected_name(name: str, when: datetime) -> str:
+    """The name of a corrected set: the base name, the mark and the UTC time.
+
+    The mark and the time of an earlier correction are replaced.
+    """
+    base = name.split(CORRECTED_MARK)[0].strip()
+    return f"{base}{CORRECTED_MARK}{_as_utc(when):%Y-%m-%d %H:%M}"
+
+
+def save_corrected_element(
+    element: SatElements, when: datetime, directory: Path = satellite_data_dir
+) -> SatElements:
+    """Store the corrected set of one satellite. It replaces an earlier
+    corrected set of the same NORAD id."""
+    corrected = SatElements(
+        corrected_name(element.name, when),
+        element.norad_id,
+        element.line1,
+        element.line2,
+        "corrected",
+    )
+    with _user_file_lock:
+        by_id = {e.norad_id: e for e in load_corrected_elements(directory)}
+        by_id[corrected.norad_id] = corrected
+        _write_text(
+            corrected_file(directory), "".join(e.to_tle() for e in by_id.values())
+        )
+    return corrected
+
+
+def delete_corrected_element(
+    norad_id: int, directory: Path = satellite_data_dir
+) -> bool:
+    """Remove a corrected set and its selection entry."""
+    with _user_file_lock:
+        current = load_corrected_elements(directory)
+        kept = [e for e in current if e.norad_id != norad_id]
+        if len(kept) == len(current):
+            return False
+        _write_text(corrected_file(directory), "".join(e.to_tle() for e in kept))
+        selection = load_selection(directory)
+        if norad_id in selection.disabled_corrected:
+            _write_selection(
+                replace(
+                    selection,
+                    disabled_corrected=selection.disabled_corrected - {norad_id},
                 ),
                 directory,
             )
@@ -558,7 +620,7 @@ def _write_user_file(elements: list[SatElements], directory: Path) -> None:
 
 @dataclass(frozen=True)
 class Selection:
-    """The groups and user satellites that the user disabled.
+    """The groups, user satellites and corrected sets that the user disabled.
 
     A disabled item stays stored. It is not in the device catalog and not
     in the pass lists.
@@ -566,12 +628,16 @@ class Selection:
 
     disabled_groups: frozenset[str] = frozenset()
     disabled_user: frozenset[int] = frozenset()
+    disabled_corrected: frozenset[int] = frozenset()
 
     def group_enabled(self, group: str) -> bool:
         return group not in self.disabled_groups
 
     def user_enabled(self, norad_id: int) -> bool:
         return norad_id not in self.disabled_user
+
+    def corrected_enabled(self, norad_id: int) -> bool:
+        return norad_id not in self.disabled_corrected
 
 
 def selection_file(directory: Path = satellite_data_dir) -> Path:
@@ -584,6 +650,7 @@ def load_selection(directory: Path = satellite_data_dir) -> Selection:
         return Selection(
             frozenset(str(group) for group in data.get("disabled_groups", [])),
             frozenset(int(norad) for norad in data.get("disabled_user", [])),
+            frozenset(int(norad) for norad in data.get("disabled_corrected", [])),
         )
     except (OSError, ValueError, TypeError, AttributeError):
         return Selection()
@@ -595,6 +662,7 @@ def _write_selection(selection: Selection, directory: Path) -> None:
         {
             "disabled_groups": sorted(selection.disabled_groups),
             "disabled_user": sorted(selection.disabled_user),
+            "disabled_corrected": sorted(selection.disabled_corrected),
         },
     )
 
@@ -609,7 +677,7 @@ def set_group_enabled(
         groups = selection.disabled_groups - {group}
         if not enabled:
             groups = groups | {group}
-        _write_selection(Selection(groups, selection.disabled_user), directory)
+        _write_selection(replace(selection, disabled_groups=groups), directory)
 
 
 def set_user_enabled(
@@ -620,7 +688,18 @@ def set_user_enabled(
         user = selection.disabled_user - {norad_id}
         if not enabled:
             user = user | {norad_id}
-        _write_selection(Selection(selection.disabled_groups, user), directory)
+        _write_selection(replace(selection, disabled_user=user), directory)
+
+
+def set_corrected_enabled(
+    norad_id: int, enabled: bool, directory: Path = satellite_data_dir
+) -> None:
+    with _user_file_lock:
+        selection = load_selection(directory)
+        corrected = selection.disabled_corrected - {norad_id}
+        if not enabled:
+            corrected = corrected | {norad_id}
+        _write_selection(replace(selection, disabled_corrected=corrected), directory)
 
 
 def load_all_elements(
@@ -633,7 +712,9 @@ def load_all_elements(
 
     A user set replaces a downloaded set of the same object only if it is
     newer, so a pasted TLE does not stay in use after CelesTrak has a fresh one.
-    Groups and user sets that the user disabled are left out, unless
+    A corrected set keeps the epoch of the set it corrects. It replaces a set
+    of the same epoch or older, so a newer download replaces the correction.
+    Groups and sets that the user disabled are left out, unless
     ``include_disabled`` is set.
     """
     selection = Selection() if include_disabled else load_selection(directory)
@@ -648,6 +729,12 @@ def load_all_elements(
             continue
         existing = by_id.get(element.norad_id)
         if existing is None or element.epoch > existing.epoch:
+            by_id[element.norad_id] = element
+    for element in load_corrected_elements(directory):
+        if not selection.corrected_enabled(element.norad_id):
+            continue
+        existing = by_id.get(element.norad_id)
+        if existing is None or element.epoch >= existing.epoch:
             by_id[element.norad_id] = element
     return [e for e in by_id.values() if abs(e.age_days(now)) <= MAX_ELEMENT_AGE_DAYS]
 
