@@ -6,10 +6,14 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from sgp4 import exporter
+from sgp4.api import WGS72, Satrec
+from skyfield.api import wgs84
 
 import PiFinder.satellites as satellites
 import PiFinder.satellite_catalog as satellite_catalog
 import PiFinder.web_satellites as web_satellites
+from PiFinder.calc_utils import sf_utils
 from PiFinder.catalog_base import CatalogState
 from PiFinder.state import Location
 
@@ -150,6 +154,194 @@ def test_passes_rise_culminate_and_set_in_order():
     first = passes[0].to_dict()
     json.dumps(first)
     assert set(first) >= {"rise", "max_alt", "visible", "min_mag"}
+
+
+# ---------------------------------------------------------------------------
+# Pass search against Skyfield's find_events
+# ---------------------------------------------------------------------------
+
+# A geostationary satellite. Its inclination is 0.85 degrees.
+GEO_TLE = """ASTRA 1KR
+1 29055U 06012A   26316.93979443  .00000130  00000+0  00000+0 0  9998
+2 29055   0.8523  82.1538 0003456 151.0788 176.1913  1.00270139 47187
+"""
+
+
+def reference_passes(sat, topos, start, hours, min_alt=10.0):
+    """Passes from Skyfield's find_events, with rise, culmination and set
+    only. A pass that is in progress at the start or the end of the window
+    is left out."""
+    ts = sf_utils.ts
+    t0 = ts.from_datetime(start)
+    t1 = ts.from_datetime(start + datetime.timedelta(hours=hours))
+    times, events = sat.satellite.find_events(topos, t0, t1, altitude_degrees=min_alt)
+    difference = sat.satellite - topos
+    passes = []
+    rise = culmination = None
+    for t, event in zip(times, events):
+        if event == 0:
+            rise, culmination = t, None
+        elif event == 1 and rise is not None:
+            culmination = t
+        elif event == 2 and rise is not None and culmination is not None:
+            alt = difference.at(culmination).altaz()[0].degrees
+            passes.append(
+                (
+                    rise.utc_datetime(),
+                    culmination.utc_datetime(),
+                    t.utc_datetime(),
+                    float(alt),
+                )
+            )
+            rise = culmination = None
+    return passes
+
+
+@pytest.mark.unit
+def test_pass_search_agrees_with_find_events():
+    sats = visual_satellites() + [
+        satellites.TrackedSatellite.from_elements(iss_elements())
+    ]
+    found = satellites.find_passes_many(sats, BRUSSELS, NOW, hours=24)
+    total = 0
+    for sat, passes in zip(sats, found):
+        inside = [
+            item
+            for item in passes
+            if item.rise > NOW and item.set < NOW + datetime.timedelta(hours=24)
+        ]
+        expected = reference_passes(sat, BRUSSELS, NOW, 24)
+        assert len(inside) == len(expected), sat.name
+        for item, (rise, culmination, set_time, max_alt) in zip(inside, expected):
+            assert abs((item.rise - rise).total_seconds()) < 3, sat.name
+            assert abs((item.set - set_time).total_seconds()) < 3, sat.name
+            assert abs((item.culmination - culmination).total_seconds()) < 3
+            assert item.max_alt == pytest.approx(max_alt, abs=0.1)
+        total += len(inside)
+    assert total > 30
+
+
+@pytest.mark.unit
+def test_one_satellite_search_is_the_many_satellite_search():
+    sats = visual_satellites()[:4]
+    many = satellites.find_passes_many(sats, BRUSSELS, NOW, hours=12)
+    for sat, passes in zip(sats, many):
+        # The grid of a chunk has the smallest step of its satellites, so the
+        # times differ a little.
+        alone = satellites.find_passes(sat, BRUSSELS, NOW, hours=12)
+        assert len(alone) == len(passes)
+        for one, other in zip(alone, passes):
+            for key in ("rise", "culmination", "set"):
+                gap = getattr(one, key) - getattr(other, key)
+                assert abs(gap.total_seconds()) < 1
+            assert one.max_alt == pytest.approx(other.max_alt, abs=0.02)
+            assert one.visible == other.visible
+
+
+@pytest.mark.unit
+def test_pass_visibility_follows_the_sun_and_the_shadow():
+    sat = satellites.TrackedSatellite.from_elements(iss_elements())
+    passes = satellites.find_passes(sat, BRUSSELS, NOW, hours=48)
+    assert any(item.visible for item in passes)
+    for item in passes:
+        if not item.visible:
+            continue
+        for moment in (item.visible_start, item.visible_end):
+            look = satellites.look(sat, BRUSSELS, moment, with_rates=False)
+            # The samples are 10 s apart; the look is at a sample time.
+            assert look.visible
+            # min_mag is the brightest magnitude of the visible part.
+            assert look.mag >= item.min_mag - 0.01
+
+
+@pytest.mark.unit
+def test_geostationary_satellite_has_one_pass_for_the_full_window():
+    results, _errors = satellites.parse_elements(GEO_TLE)
+    sat = satellites.TrackedSatellite.from_elements(results[0])
+    below = wgs84.subpoint_of(sat.satellite.at(sf_utils.ts.from_datetime(NOW)))
+    topos = satellites.observer_topos(45.0, below.longitude.degrees, 0.0)
+    passes = satellites.find_passes(sat, topos, NOW, hours=24)
+    assert len(passes) == 1
+    item = passes[0]
+    assert item.rise == NOW
+    assert item.set == NOW + datetime.timedelta(hours=24)
+    assert NOW <= item.culmination <= item.set
+    highest = max(
+        satellites.look(sat, topos, NOW + datetime.timedelta(minutes=m)).alt
+        for m in range(0, 24 * 60 + 1, 10)
+    )
+    assert 30 < item.max_alt == pytest.approx(highest, abs=0.05)
+
+
+@pytest.mark.unit
+def test_passes_in_progress_at_the_start_and_at_the_end_of_the_window():
+    sat = satellites.TrackedSatellite.from_elements(iss_elements())
+    first = satellites.find_passes(sat, BRUSSELS, NOW, hours=24)[0]
+    # The window starts after the culmination and ends before the next one.
+    start = first.culmination + datetime.timedelta(seconds=60)
+    following = satellites.find_passes(sat, BRUSSELS, start, hours=24)[1]
+    hours = (following.culmination - start).total_seconds() / 3600.0 - 0.01
+    end = start + datetime.timedelta(hours=hours)
+    passes = satellites.find_passes(sat, BRUSSELS, start, hours=hours)
+
+    head, tail = passes[0], passes[-1]
+    assert head.rise == head.culmination == start
+    assert abs((head.set - first.set).total_seconds()) < 1
+    assert head.max_alt == pytest.approx(
+        satellites.look(sat, BRUSSELS, start).alt, abs=0.05
+    )
+    assert tail.culmination == tail.set == end
+    assert abs((tail.rise - following.rise).total_seconds()) < 1
+    assert tail.max_alt == pytest.approx(
+        satellites.look(sat, BRUSSELS, end).alt, abs=0.05
+    )
+
+
+def decaying_elements() -> satellites.SatElements:
+    """A satellite at 200 km with a very high drag term. SGP4 reports that
+    it decays some hours after its epoch."""
+    satrec = Satrec()
+    epoch = iss_elements().epoch + datetime.timedelta(days=0.5)
+    days = epoch - datetime.datetime(1949, 12, 31, tzinfo=datetime.timezone.utc)
+    satrec.sgp4init(
+        WGS72,
+        "i",
+        99999,
+        days.total_seconds() / 86400.0,
+        0.5,
+        0.0,
+        0.0,
+        0.001,
+        0.0,
+        0.9,
+        0.0,
+        0.0675,
+        0.0,
+    )
+    line1, line2 = exporter.export_tle(satrec)
+    return satellites.SatElements("DECAYED", 99999, line1, line2, "user")
+
+
+@pytest.mark.unit
+def test_element_set_that_sgp4_cannot_propagate_is_skipped(caplog):
+    bad = satellites.TrackedSatellite.from_elements(decaying_elements())
+    iss = satellites.TrackedSatellite.from_elements(iss_elements())
+    with caplog.at_level("WARNING", logger="Satellites"):
+        found = satellites.find_passes_many([bad, iss], BRUSSELS, NOW, hours=24)
+    assert found[0] == []
+    assert len(found[1]) >= 2
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1 and "DECAYED" in warnings[0].getMessage()
+
+
+@pytest.mark.unit
+def test_pass_grid_step_is_a_fraction_of_the_orbit():
+    iss = satellites.TrackedSatellite.from_elements(iss_elements()).satellite.model
+    # 92.9 minute orbit: 1/20 of it.
+    assert satellites._grid_step_seconds(iss) == pytest.approx(279, abs=2)
+    results, _errors = satellites.parse_elements(GEO_TLE)
+    geo = satellites.TrackedSatellite.from_elements(results[0]).satellite.model
+    assert satellites._grid_step_seconds(geo) == satellites.PASS_GRID_MAX_SECONDS
 
 
 @pytest.mark.unit
