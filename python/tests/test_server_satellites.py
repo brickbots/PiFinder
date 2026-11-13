@@ -62,6 +62,12 @@ def web(tmp_path, monkeypatch):
     use_directory(monkeypatch, tmp_path)
     (tmp_path / "visual.tle").write_text((DATA / "visual.tle").read_text())
     (tmp_path / "stations.tle").write_text((DATA / "25544.3le").read_text())
+    # The pass table computes in the request thread, so a test sees it.
+    monkeypatch.setitem(
+        web_satellites._pass_tables,
+        tmp_path,
+        web_satellites.PassTable(tmp_path, start_thread=lambda run: run()),
+    )
     shared_state = WebSharedState(iss_epoch() + datetime.timedelta(days=1))
     server = server_module.Server(shared_state=shared_state)
     server.app.testing = True
@@ -85,6 +91,47 @@ def test_page_shows_the_sky_table_and_the_check_boxes(web):
     assert "In the sky now" in page
     assert 'name="kind" value="group"' in page
     assert 'id="satellite_time_note"' not in page
+
+
+@pytest.mark.unit
+def test_page_shows_the_pass_table(web):
+    client, _shared_state, _directory = web
+    page = client.get("/satellites?all=1").get_data(as_text=True)
+    assert 'id="pass_table"' in page
+    assert "Calculating passes" not in page
+    data = client.get("/api/satellites/passes?all=1").get_json()
+    assert data["state"] == "ready" and data["computed"]
+    assert data["passes"]
+
+
+@pytest.mark.unit
+def test_page_shows_the_state_while_the_passes_compute(web, monkeypatch):
+    client, _shared_state, directory = web
+    started = []
+    monkeypatch.setitem(
+        web_satellites._pass_tables,
+        directory,
+        web_satellites.PassTable(directory, start_thread=started.append),
+    )
+    page = client.get("/satellites?all=1").get_data(as_text=True)
+    assert 'id="pass_state"' in page and "Calculating passes" in page
+    assert "window.location.reload" in page
+    assert 'id="pass_table"' not in page
+    assert client.get("/api/satellites/passes").get_json()["state"] == "calculating"
+    # The second request does not start a second computation.
+    client.get("/satellites")
+    assert len(started) == 1
+    started[0]()
+    page = client.get("/satellites?all=1").get_data(as_text=True)
+    assert 'id="pass_table"' in page and "Calculating passes" not in page
+
+
+@pytest.mark.unit
+def test_page_without_a_location_has_no_pass_table(web):
+    client, shared_state, _directory = web
+    shared_state._location = None
+    page = client.get("/satellites").get_data(as_text=True)
+    assert "No predictions. The PiFinder needs a location." in page
 
 
 @pytest.mark.unit

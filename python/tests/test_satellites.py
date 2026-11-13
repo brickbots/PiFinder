@@ -5,6 +5,7 @@ import json
 import os
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -17,7 +18,9 @@ import PiFinder.satellite_catalog as satellite_catalog
 import PiFinder.web_satellites as web_satellites
 from PiFinder.calc_utils import sf_utils
 from PiFinder.catalog_base import CatalogState
+from PiFinder.catalogs import Catalog
 from PiFinder.state import Location
+from PiFinder.ui.object_list import UIObjectList
 
 DATA = Path(__file__).parent / "data" / "satellites"
 ISS_NORAD = 25544
@@ -420,6 +423,22 @@ class FixedSharedState:
         return self._location
 
 
+def sync_table(directory: Path) -> web_satellites.PassTable:
+    """A web pass table that computes in the calling thread."""
+    return web_satellites.PassTable(directory, start_thread=lambda run: run())
+
+
+def web_passes(directory: Path, visible_only: bool = False, **kwargs):
+    return web_satellites.upcoming_passes(
+        NOW,
+        FixedSharedState(NOW).location(),
+        visible_only,
+        directory,
+        table=sync_table(directory),
+        **kwargs,
+    )
+
+
 @pytest.fixture
 def catalog(tmp_path):
     (tmp_path / "visual.tle").write_text((DATA / "visual.tle").read_text())
@@ -468,14 +487,15 @@ def test_live_radec_follows_the_satellite(catalog):
 
 
 @pytest.mark.unit
-def test_catalog_writes_the_pass_cache_for_the_web_page(catalog):
-    cache = satellites.read_pass_cache(catalog.data_directory)
-    assert cache is not None
-    assert any(s["norad_id"] == ISS_NORAD for s in cache["satellites"])
-    rises = [row["rise"] for row in cache["passes"]]
-    assert rises == sorted(rises)
-    rows, _cache = web_satellites.upcoming_passes(NOW, False, catalog.data_directory)
+def test_web_pass_table_lists_the_passes(catalog):
+    rows, info = web_passes(catalog.data_directory)
+    assert info["state"] == "ready"
+    assert info["timezone"] == "Europe/Brussels"
     assert rows and {"rise_local", "rise_dir"} <= set(rows[0])
+    assert ISS_NORAD in {row["norad_id"] for row in rows}
+    rises = [row["rise"] for row in rows]
+    assert rises == sorted(rises)
+    assert len(rows) <= web_satellites.PASS_TABLE_ROWS
     iss = catalog.get_object_by_sequence(ISS_NORAD)
     assert iss.next_pass_ts is None or iss.next_pass_ts > 0
 
@@ -531,10 +551,8 @@ def test_user_standard_magnitude_replaces_the_table(catalog):
 
 @pytest.mark.unit
 def test_bright_pass_filter(catalog):
-    every, _cache = web_satellites.upcoming_passes(NOW, True, catalog.data_directory)
-    bright, _cache = web_satellites.upcoming_passes(
-        NOW, True, catalog.data_directory, max_mag=3.0
-    )
+    every, _info = web_passes(catalog.data_directory, True)
+    bright, _info = web_passes(catalog.data_directory, True, max_mag=3.0)
     assert len(bright) <= len(every)
     assert all(row["min_mag"] <= 3.0 for row in bright)
 
@@ -677,8 +695,7 @@ def test_hand_made_tle_outside_every_group_enters_the_catalog(catalog):
     catalog.do_timed_task()
     obj = catalog.get_object_by_sequence(90001)
     assert obj is not None and obj.names == ["USA 999"]
-    cache = satellites.read_pass_cache(directory)
-    assert any(s["norad_id"] == 90001 for s in cache["satellites"])
+    assert 90001 in catalog._passes
     detail = web_satellites.satellite_detail(
         90001, NOW, catalog.shared_state.location(), days=0.0, directory=directory
     )
@@ -698,9 +715,8 @@ def test_catalog_follows_the_selection_without_a_restart(catalog):
     catalog.do_timed_task()
     # The stations group stays, and it holds only the ISS.
     assert [obj.sequence for obj in catalog.get_objects()] == [ISS_NORAD]
-    cache = satellites.read_pass_cache(directory)
-    assert [s["norad_id"] for s in cache["satellites"]] == [ISS_NORAD]
-    rows, _cache = web_satellites.upcoming_passes(NOW, False, directory)
+    assert list(catalog._passes) == [ISS_NORAD]
+    rows, _info = web_passes(directory)
     assert {row["norad_id"] for row in rows} == {ISS_NORAD}
     detail = web_satellites.satellite_detail(
         90001, NOW, catalog.shared_state.location(), days=0.0, directory=directory
@@ -714,13 +730,19 @@ def test_catalog_follows_the_selection_without_a_restart(catalog):
 
 
 @pytest.mark.unit
-def test_pass_table_hides_a_satellite_before_the_cache_is_new(catalog):
+def test_web_pass_table_follows_the_selection(catalog):
     directory = catalog.data_directory
-    before, _cache = web_satellites.upcoming_passes(NOW, False, directory)
+    table = sync_table(directory)
+    location = catalog.shared_state.location()
+    before, _info = web_satellites.upcoming_passes(
+        NOW, location, False, directory, table=table
+    )
     assert any(row["norad_id"] != ISS_NORAD for row in before)
-    # The catalog did not run after this change, so the cache is the old one.
+    # The catalog did not run after this change. The web table computes again.
     web_satellites.set_enabled("group", "visual", False, directory)
-    after, _cache = web_satellites.upcoming_passes(NOW, False, directory)
+    after, _info = web_satellites.upcoming_passes(
+        NOW, location, False, directory, table=table
+    )
     assert after and {row["norad_id"] for row in after} == {ISS_NORAD}
 
 
@@ -1062,11 +1084,14 @@ def test_one_update_reads_the_shared_state_once(tmp_path):
     cat.do_timed_task()
     assert shared_state.calls == {"altaz_ready": 2, "datetime": 2, "location": 2}
 
+    # The first use updates the positions once.
+    cat.touch()
+    assert shared_state.calls == {"altaz_ready": 3, "datetime": 3, "location": 3}
     obj = cat.get_objects()[0]
     for second in range(10):
         moment = shared_state.dt + datetime.timedelta(seconds=second)
         assert satellite_catalog.live_radec(obj, moment) is not None
-    assert shared_state.calls == {"altaz_ready": 2, "datetime": 2, "location": 2}
+    assert shared_state.calls == {"altaz_ready": 3, "datetime": 3, "location": 3}
 
 
 @pytest.mark.unit
@@ -1328,3 +1353,382 @@ def test_corrected_sets_can_be_disabled_and_deleted(tmp_path):
     selection = satellites.load_selection(tmp_path)
     assert selection.corrected_enabled(ISS_NORAD)
     assert not selection.user_enabled(90001)
+
+
+# ---------------------------------------------------------------------------
+# Work only while in use
+# ---------------------------------------------------------------------------
+
+
+class FakeClock:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+
+@pytest.fixture
+def idle_catalog(tmp_path):
+    """A catalog that nobody used yet, with a clock that the test moves."""
+    (tmp_path / "visual.tle").write_text((DATA / "visual.tle").read_text())
+    (tmp_path / "stations.tle").write_text((DATA / "25544.3le").read_text())
+    clock = FakeClock()
+    cat = satellite_catalog.SatelliteCatalog(
+        FixedSharedState(NOW), data_directory=tmp_path, start_threads=False, clock=clock
+    )
+    cat.updates = []
+    cat.pass_runs = []
+    task = cat.do_timed_task
+    cat.do_timed_task = lambda: (cat.updates.append(clock()), task())
+    run_passes = cat._run_pass_updates
+    cat._spawn_pass_worker = lambda: (cat.pass_runs.append(clock()), run_passes())
+    return cat, clock
+
+
+@pytest.mark.unit
+def test_catalog_does_no_work_before_the_first_use(idle_catalog):
+    cat, clock = idle_catalog
+    for _step in range(5):
+        clock.now += cat.POSITION_UPDATE_SECONDS
+        assert cat._update_step() is None
+    assert cat.updates == [] and cat.pass_runs == []
+    assert not cat.initialized and not cat.in_use()
+
+
+@pytest.mark.unit
+def test_first_use_builds_the_catalog_in_the_update_thread(idle_catalog):
+    cat, clock = idle_catalog
+    cat.touch()
+    # Nothing to update yet: the update thread builds the objects.
+    assert cat.updates == []
+    assert cat._update_wake.is_set() and cat._download_wake.is_set()
+    assert cat._update_step() == cat.POSITION_UPDATE_SECONDS
+    assert cat.initialized and len(cat.updates) == 1
+    assert cat.pass_runs == [clock.now]
+
+
+@pytest.mark.unit
+def test_catalog_stops_after_the_idle_time_and_restarts_on_use(idle_catalog):
+    cat, clock = idle_catalog
+    cat.touch()
+    cat._update_step()
+    iss = cat.get_object_by_sequence(ISS_NORAD)
+    # The update thread steps on the update interval while the catalog is in use.
+    clock.now += 1
+    assert cat._update_step() == pytest.approx(cat.POSITION_UPDATE_SECONDS - 1)
+    assert len(cat.updates) == 1
+    clock.now += cat.POSITION_UPDATE_SECONDS
+    assert cat._update_step() == cat.POSITION_UPDATE_SECONDS
+    assert len(cat.updates) == 2
+
+    # No use for the idle time: the thread stops and does no more work.
+    clock.now += cat.IDLE_SECONDS + 1
+    assert cat._update_step() is None
+    assert not cat._active and not cat.in_use()
+    updates, pass_runs = len(cat.updates), len(cat.pass_runs)
+    old = (iss.ra, iss.dec)
+    for _step in range(5):
+        clock.now += cat.PASS_UPDATE_SECONDS
+        cat.shared_state.dt += datetime.timedelta(seconds=cat.PASS_UPDATE_SECONDS)
+        assert cat._update_step() is None
+    assert len(cat.updates) == updates and len(cat.pass_runs) == pass_runs
+    # The object stays, with its old position.
+    assert cat.get_object_by_sequence(ISS_NORAD) is iss
+    assert (iss.ra, iss.dec) == old
+
+    # The next use updates the position at once and predicts the passes again.
+    cat.touch()
+    assert len(cat.updates) == updates + 1
+    assert len(cat.pass_runs) == pass_runs + 1
+    topos = satellites.observer_topos(50.85, 4.35, 50.0)
+    now = satellites.look(cat.tracked(ISS_NORAD), topos, cat.shared_state.dt)
+    assert (iss.ra, iss.dec) == pytest.approx((now.ra, now.dec))
+    assert cat._update_wake.is_set()
+    # The update thread continues on the interval, without a second update now.
+    assert cat._update_step() == pytest.approx(cat.POSITION_UPDATE_SECONDS)
+    assert len(cat.updates) == updates + 1
+
+
+@pytest.mark.unit
+def test_short_idle_time_keeps_the_passes(idle_catalog):
+    cat, clock = idle_catalog
+    cat.touch()
+    cat._update_step()
+    clock.now += cat.IDLE_SECONDS + 1
+    cat.shared_state.dt += datetime.timedelta(seconds=cat.IDLE_SECONDS + 1)
+    assert cat._update_step() is None
+    cat.touch()
+    # The passes are less than PASS_UPDATE_SECONDS old.
+    assert len(cat.pass_runs) == 1
+
+
+@pytest.mark.unit
+def test_each_access_counts_as_a_use(idle_catalog):
+    cat, clock = idle_catalog
+    satellite_catalog.active_catalog()
+    assert cat.in_use()
+    cat._update_step()
+    for access in (
+        lambda: satellite_catalog.active_catalog(),
+        lambda: cat.tracked(ISS_NORAD),
+        lambda: satellite_catalog.live_radec(
+            cat.get_object_by_sequence(ISS_NORAD), NOW
+        ),
+        cat.touch,
+    ):
+        clock.now += cat.IDLE_SECONDS + 1
+        assert not cat.in_use()
+        access()
+        assert cat.in_use()
+        clock.now += cat.IDLE_SECONDS - 1
+        assert cat.in_use()
+
+
+@pytest.mark.unit
+def test_tracked_builds_a_catalog_that_has_no_objects(idle_catalog):
+    cat, _clock = idle_catalog
+    sat = cat.tracked(ISS_NORAD)
+    assert sat is not None and sat.norad_id == ISS_NORAD
+    assert cat.initialized
+
+
+@pytest.mark.unit
+def test_object_list_touches_the_catalogs_it_shows(idle_catalog):
+    cat, _clock = idle_catalog
+    plain = Catalog("XX", "Plain")
+    screen = SimpleNamespace(_source_catalogs=lambda: [plain, cat])
+    UIObjectList._touch_sources(screen)
+    assert cat.in_use()
+
+
+@pytest.mark.unit
+def test_downloads_run_only_while_in_use(idle_catalog):
+    cat, clock = idle_catalog
+    calls = []
+    current = satellites.GroupRefresh("current")
+    cat._refresh_sources = lambda force=False, groups=None: (
+        calls.append(clock()),
+        current,
+    )[1]
+    assert cat._download_step() is None
+    assert calls == []
+
+    cat.touch()
+    assert cat._download_step() == cat.DOWNLOAD_RETRY_SECONDS
+    assert len(calls) == 1
+    # The file ages are checked once each DOWNLOAD_RETRY_SECONDS.
+    clock.now += 60
+    assert cat._download_step() == cat.DOWNLOAD_RETRY_SECONDS - 60
+    assert len(calls) == 1
+
+    clock.now += cat.IDLE_SECONDS + cat.DOWNLOAD_RETRY_SECONDS
+    assert cat._download_step() is None
+    assert len(calls) == 1
+    cat.touch()
+    cat._download_step()
+    assert len(calls) == 2
+
+
+@pytest.mark.unit
+def test_boot_downloads_only_the_selected_groups_without_a_file(
+    idle_catalog, monkeypatch
+):
+    cat, _clock = idle_catalog
+    calls = []
+
+    def refresh_groups(now, force=False, directory=None, groups=None, **kwargs):
+        calls.append((force, groups))
+        return satellites.GroupRefresh("current")
+
+    monkeypatch.setattr(satellites, "refresh_groups", refresh_groups)
+    cat._download_missing()
+    assert calls == []
+    satellites.group_file("stations", cat.data_directory).unlink()
+    cat._download_missing()
+    assert calls == [(False, ("stations",))]
+
+
+# ---------------------------------------------------------------------------
+# The pass table of the web server
+# ---------------------------------------------------------------------------
+
+
+class CountingCompute:
+    """Counts the computations of a pass table."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, now, location, directory):
+        self.calls.append((now, location.lat, location.lon))
+        return web_satellites.compute_pass_table(now, location, directory)
+
+
+def pass_location(lat=50.85, lon=4.35):
+    return Location(lat=lat, lon=lon, altitude=50.0, lock=True, timezone="UTC")
+
+
+@pytest.fixture
+def web_table(tmp_path):
+    (tmp_path / "visual.tle").write_text((DATA / "visual.tle").read_text())
+    (tmp_path / "stations.tle").write_text((DATA / "25544.3le").read_text())
+    compute = CountingCompute()
+    table = web_satellites.PassTable(
+        tmp_path, start_thread=lambda run: run(), compute=compute
+    )
+    return table, compute, tmp_path
+
+
+@pytest.mark.unit
+def test_web_pass_table_is_kept_for_the_good_time(web_table):
+    table, compute, _directory = web_table
+    state, first = table.get(NOW, pass_location())
+    assert state == "ready" and first is not None
+    later = NOW + datetime.timedelta(seconds=web_satellites.PASS_TABLE_SECONDS - 1)
+    assert table.get(later, pass_location()) == ("ready", first)
+    assert len(compute.calls) == 1
+    too_late = NOW + datetime.timedelta(seconds=web_satellites.PASS_TABLE_SECONDS + 1)
+    state, again = table.get(too_late, pass_location())
+    assert state == "ready" and again is not first
+    assert len(compute.calls) == 2
+
+
+@pytest.mark.unit
+def test_web_pass_table_follows_a_file_change(web_table):
+    table, compute, directory = web_table
+    table.get(NOW, pass_location())
+    web_satellites.add_elements(renumbered_tle(90001), directory=directory)
+    state, result = table.get(NOW, pass_location())
+    assert state == "ready" and len(compute.calls) == 2
+    assert 90001 in {row.norad_id for row in result.rows}
+    satellites.save_user_mag(90001, 2.0, directory)
+    table.get(NOW, pass_location())
+    assert len(compute.calls) == 3
+
+
+@pytest.mark.unit
+def test_web_pass_table_follows_the_selection_change(web_table):
+    table, compute, directory = web_table
+    table.get(NOW, pass_location())
+    satellites.set_group_enabled("visual", False, directory)
+    state, result = table.get(NOW, pass_location())
+    assert state == "ready" and len(compute.calls) == 2
+    assert {row.norad_id for row in result.rows} == {ISS_NORAD}
+
+
+@pytest.mark.unit
+def test_web_pass_table_follows_a_location_move(web_table):
+    table, compute, _directory = web_table
+    table.get(NOW, pass_location())
+    table.get(NOW, pass_location(lat=50.85 + 0.4, lon=4.35 - 0.4))
+    assert len(compute.calls) == 1
+    table.get(NOW, pass_location(lat=50.85 + 0.6))
+    assert len(compute.calls) == 2
+    table.get(NOW, pass_location(lat=50.85 + 0.6, lon=4.35 + 0.6))
+    assert len(compute.calls) == 3
+
+
+@pytest.mark.unit
+def test_web_pass_table_runs_one_computation_at_a_time(web_table):
+    _table, compute, directory = web_table
+    started = []
+    table = web_satellites.PassTable(
+        directory, start_thread=started.append, compute=compute
+    )
+    assert table.get(NOW, pass_location()) == ("calculating", None)
+    assert table.get(NOW, pass_location(lat=10.0)) == ("calculating", None)
+    assert len(started) == 1 and compute.calls == []
+    started[0]()
+    assert len(compute.calls) == 1
+    state, result = table.get(NOW, pass_location())
+    assert state == "ready" and result is not None
+
+
+@pytest.mark.unit
+def test_web_pass_table_runs_in_a_thread(web_table):
+    _table, compute, directory = web_table
+    gate = threading.Event()
+
+    def slow(now, location, place):
+        gate.wait(10)
+        return compute(now, location, place)
+
+    table = web_satellites.PassTable(directory, compute=slow)
+    assert table.get(NOW, pass_location())[0] == "calculating"
+    assert table.get(NOW, pass_location())[0] == "calculating"
+    gate.set()
+    for _attempt in range(200):
+        state, _result = table.get(NOW, pass_location())
+        if state == "ready":
+            break
+        threading.Event().wait(0.05)
+    assert state == "ready" and len(compute.calls) == 1
+
+
+@pytest.mark.unit
+def test_web_pass_table_reports_a_failure_once(web_table):
+    _table, _compute, directory = web_table
+    calls = []
+
+    def fail(now, location, place):
+        calls.append(now)
+        raise RuntimeError("no passes")
+
+    table = web_satellites.PassTable(
+        directory, start_thread=lambda run: run(), compute=fail
+    )
+    assert table.get(NOW, pass_location()) == ("error", None)
+    assert table.get(NOW, pass_location()) == ("error", None)
+    assert len(calls) == 1
+    later = NOW + datetime.timedelta(seconds=web_satellites.PASS_TABLE_SECONDS + 1)
+    table.get(later, pass_location())
+    assert len(calls) == 2
+
+
+@pytest.mark.unit
+def test_web_pass_table_keeps_the_rows_that_a_page_can_show(monkeypatch):
+    def row(minutes, visible=False, norad=1):
+        rise = NOW + datetime.timedelta(minutes=minutes)
+        item = satellites.SatPass(
+            rise,
+            rise + datetime.timedelta(minutes=2),
+            rise + datetime.timedelta(minutes=4),
+            0.0,
+            45.0,
+            90.0,
+            180.0,
+            visible_start=rise if visible else None,
+            visible_end=rise + datetime.timedelta(minutes=4) if visible else None,
+            min_mag=3.0 if visible else None,
+        )
+        return web_satellites.PassRow(norad, "SAT", item)
+
+    monkeypatch.setattr(web_satellites, "PASS_TABLE_ROWS", 3)
+    rows = [row(minutes) for minutes in range(0, 120, 5)]
+    rows.append(row(600, visible=True))
+    kept = web_satellites._rows_to_keep(list(reversed(rows)), NOW)
+    rises = [r.item.rise for r in kept]
+    assert rises == sorted(rises)
+    # The table is good for 30 min. Passes that end after that start at
+    # 30 min, so the three after that rise at 30, 35 and 40 min.
+    assert [round((r.item.rise - NOW).total_seconds() / 60) for r in kept] == [
+        0,
+        5,
+        10,
+        15,
+        20,
+        25,
+        30,
+        35,
+        40,
+        600,
+    ]
+    # At each time of the good time, the first rows are the same as with all rows.
+    for minutes in range(0, 31):
+        moment = NOW + datetime.timedelta(minutes=minutes)
+        full = [
+            r for r in sorted(rows, key=lambda r: r.item.rise) if r.item.set >= moment
+        ][:3]
+        part = [r for r in kept if r.item.set >= moment][:3]
+        assert part == full

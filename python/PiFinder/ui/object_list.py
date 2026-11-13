@@ -635,7 +635,14 @@ class UIObjectList(UITextMenu):
         # call-site compatibility but the anchor now comes from the layout.
         return list_layout(self.display_class).rows[line_number].y
 
+    def _touch_sources(self) -> None:
+        """Tell the catalogs of this list that the list shows them. The
+        satellite catalog updates its positions only while it is in use."""
+        for catalog in self._source_catalogs():
+            catalog.touch()
+
     def active(self):
+        self._touch_sources()
         # trigger refilter
         super().active()
 
@@ -684,6 +691,7 @@ class UIObjectList(UITextMenu):
         # rotates); refresh the list when the filter reports staleness or a
         # dynamic catalog replaced its objects. Before the no-objects check so
         # an emptied-by-altitude list can repopulate as objects rise.
+        self._touch_sources()
         catalog_filter = self.catalogs.catalog_filter
         if catalog_filter is not None and (
             catalog_filter.dirty_time != self._list_dirty_time
