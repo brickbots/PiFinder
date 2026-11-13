@@ -58,6 +58,12 @@ def follow_command() -> dict:
     }
 
 
+@pytest.fixture(autouse=True)
+def corrected_directory(tmp_path, monkeypatch):
+    """Corrected element sets go to a temporary directory."""
+    monkeypatch.setattr(MountControlBase, "corrected_directory", tmp_path)
+
+
 class FakeMount(MountControlBase):
     def __init__(self, rates_ok: bool):
         shared_state = Mock(spec=SharedStateObj)
@@ -324,6 +330,29 @@ def test_arrow_during_a_follow_corrects_the_path_and_keeps_the_follow():
     mount.phase()
     still = follow.point(at)
     assert angular_distance(still.ra, still.dec, moved.ra, moved.dec) < 1e-6
+
+
+def test_a_corrected_follow_stores_its_elements(tmp_path):
+    mount = FakeMount(rates_ok=True)
+    mount.now = iss_pass().culmination.timestamp() - 60.0
+    mount.command(follow_command())
+    follow = mount._follow
+    follow.nudge(0.0, 0.0, mount.now)
+    mount.command({"type": "stop_movement"})
+    assert satellites.load_corrected_elements(tmp_path) == []
+
+    mount.command(follow_command())
+    mount._follow.nudge(0.5, 0.5, mount.now)
+    assert mount._follow.corrected_elements() is not None
+    mount.command({"type": "stop_movement"})
+    stored = satellites.load_corrected_elements(tmp_path)
+    assert len(stored) == 1
+    assert stored[0].norad_id == iss_elements().norad_id
+    assert stored[0].line2 != iss_elements().line2
+    when = datetime.datetime.fromtimestamp(mount.now, datetime.timezone.utc)
+    assert stored[0].name == satellites.corrected_name(iss_elements().name, when)
+    notes = [call.args[0] for call in mount.notify.call_args_list]
+    assert any(note.startswith("Saved") for note in notes), notes
 
 
 def test_plate_solve_before_the_pass_gives_a_pointing_offset(monkeypatch):

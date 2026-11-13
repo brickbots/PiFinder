@@ -7,6 +7,7 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
+import datetime
 import logging
 import math
 from enum import Enum, auto
@@ -14,12 +15,14 @@ import queue
 from multiprocessing import Queue
 import sys
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Generator, Iterator, Optional, Any
 
-from PiFinder import calc_utils
+from PiFinder import calc_utils, satellites
 from PiFinder import target_follow, track_rates
 from PiFinder.target_follow import FollowStage, TargetFollow, angular_distance
 from PiFinder.state import SharedStateObj
+from PiFinder.utils import satellite_data_dir
 from PiFinder.types.mount import MountStatus, format_step
 
 import PiFinder.i18n  # noqa: F401
@@ -226,6 +229,9 @@ class MountControlBase:
         The `run` method manages the main control loop, calling `init` on startup and
         handling graceful shutdown on interruption.
     """
+
+    # The directory where a follow stores corrected element sets.
+    corrected_directory: Path = satellite_data_dir
 
     def __init__(
         self, mount_queue: Queue, console_queue: Queue, shared_state: SharedStateObj
@@ -902,17 +908,36 @@ class MountControlBase:
         logger.info("Follow of %s ends", follow.name)
         elements = follow.corrected_elements()
         if elements is not None:
-            logger.info(
-                "Follow: %s was %+.1f s ahead of its elements. Corrected:\n%s",
-                follow.name,
-                follow.time_offset_s,
-                elements.to_tle(),
-            )
+            self._save_corrected(follow, elements)
         self._follow = None
         self._follow_motion = None
         self.restore_sidereal_tracking()
         if self.state == MountControlPhases.MOUNT_TARGET_FOLLOW:
             self.state = MountControlPhases.MOUNT_TRACKING
+
+    def _save_corrected(
+        self, follow: TargetFollow, elements: satellites.SatElements
+    ) -> None:
+        """Store the elements with the correction of the user. The catalog
+        uses them for the next follow and the next passes."""
+        now = self.clock()
+        if now is None:
+            now = time.time()
+        when = datetime.datetime.fromtimestamp(now, datetime.timezone.utc)
+        logger.info(
+            "Follow: %s was %+.1f s ahead of its elements. Corrected:\n%s",
+            follow.name,
+            follow.time_offset_s,
+            elements.to_tle(),
+        )
+        try:
+            saved = satellites.save_corrected_element(
+                elements, when, self.corrected_directory
+            )
+        except OSError as exc:
+            logger.warning("Cannot store the corrected elements: %s", exc)
+            return
+        self.notify(_("Saved") + " " + saved.name)
 
     def _follow_pointing(self) -> Optional[tuple[float, float]]:
         """Where the telescope points: the mount position plus the offset
