@@ -487,6 +487,74 @@ def test_slow_target_without_custom_rates_gets_a_goto_after_a_small_motion():
     assert mount.move_mount_to_target.call_count == gotos + 1
 
 
+SIDEREAL_DEG_S = target_follow.SIDEREAL_DEG_PER_DAY / 86400.0
+
+
+def geostationary_samples(start: float) -> list:
+    """A target fixed in alt-az: the RA grows at the sidereal rate."""
+    return [
+        (start + 600.0 * i, 80.0 + SIDEREAL_DEG_S * 600.0 * i, 5.0) for i in range(4)
+    ]
+
+
+def test_ground_fixed_finds_a_geostationary_target():
+    geo = target_follow.FollowPoint(80.0, 5.0, SIDEREAL_DEG_S, 0.0, 30.0)
+    assert target_follow.ground_fixed(geo)
+    drifting = target_follow.FollowPoint(80.0, 5.0, SIDEREAL_DEG_S, 0.001, 30.0)
+    assert not target_follow.ground_fixed(drifting)
+    star = target_follow.FollowPoint(80.0, 5.0, 0.0, 0.0, 30.0)
+    assert not target_follow.ground_fixed(star)
+
+
+def test_geostationary_follow_without_custom_rates_turns_tracking_off():
+    mount = FakeMount(rates_ok=False)
+    mount.set_tracking = Mock(return_value=True)
+    mount.now = high_time(80.0, 5.0)
+    mount.command(
+        {
+            "type": "follow_target",
+            "kind": "samples",
+            "name": "ASTRA 1KR",
+            "samples": geostationary_samples(mount.now),
+        }
+    )
+    follow = mount._follow
+    mount.target_reached = True
+    mount.phase()
+    mount.phase()
+    assert follow.stage == FollowStage.PASS
+    mount.set_tracking.assert_called_once_with(False)
+    # With tracking off the mount stays on the target: no new goto.
+    start = follow.point(mount.now)
+    mount.current_ra, mount.current_dec = start.ra, start.dec
+    gotos = mount.move_mount_to_target.call_count
+    for _step in range(10):
+        mount.now += 30.0
+        mount.current_ra = (mount.current_ra + SIDEREAL_DEG_S * 30.0) % 360.0
+        mount.phase()
+    assert mount.move_mount_to_target.call_count == gotos
+    mount.command({"type": "stop_movement"})
+    assert mount.set_tracking.call_args_list[-1].args == (True,)
+
+
+def test_comet_follow_without_custom_rates_keeps_tracking():
+    mount = FakeMount(rates_ok=False)
+    mount.set_tracking = Mock(return_value=True)
+    mount.now = high_time(80.0, 30.0)
+    mount.command(
+        {
+            "type": "follow_target",
+            "kind": "samples",
+            "name": "C/2026 A1",
+            "samples": comet_samples(mount.now),
+        }
+    )
+    mount.target_reached = True
+    mount.phase()
+    mount.phase()
+    mount.set_tracking.assert_not_called()
+
+
 def test_bad_follow_command_is_refused():
     mount = FakeMount(rates_ok=True)
     mount.command({"type": "follow_target", "kind": "ufo"})

@@ -73,6 +73,10 @@ MIN_TIME_OFFSET_S = 0.05
 MAX_OFFSET_DEG = 5.0
 
 SIDEREAL_DEG_PER_DAY = 360.98564736629
+# A target whose motion differs from a fixed point in alt-az by less than
+# this (degrees per second, 1.8"/s) stays in view with tracking off. A
+# geostationary satellite is such a target.
+GROUND_FIXED_DEG_S = 0.0005
 UNIX_EPOCH_JD = 2440587.5
 J2000_JD = 2451545.0
 GMST_AT_J2000_DEG = 280.46061837
@@ -101,6 +105,14 @@ class FollowPoint:
         return math.hypot(
             self.ra_rate * math.cos(math.radians(self.dec)), self.dec_rate
         )
+
+
+def ground_fixed(point: FollowPoint) -> bool:
+    """True when the target is almost fixed in alt-az: its RA grows at the
+    sidereal rate and its Dec stays the same."""
+    sidereal = SIDEREAL_DEG_PER_DAY / 86400.0
+    off_ra = (point.ra_rate - sidereal) * math.cos(math.radians(point.dec))
+    return math.hypot(off_ra, point.dec_rate) < GROUND_FIXED_DEG_S
 
 
 class MovingTarget(Protocol):

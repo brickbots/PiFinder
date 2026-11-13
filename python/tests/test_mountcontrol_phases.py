@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 
+import math
+import random
 import pytest
 from queue import Queue
 import time
 from unittest.mock import Mock
 
 # Import the classes we want to test
-from PiFinder.mountcontrol_interface import MountControlBase, MountControlPhases
+from PiFinder.mountcontrol_indi import _drift_grew
+from PiFinder.mountcontrol_interface import (
+    DRIFT_CORRECTION_GAIN,
+    DRIFT_WINDOW_MAX_S,
+    MountControlBase,
+    MountControlPhases,
+)
 from PiFinder.state import SharedStateObj
 
 pytestmark = pytest.mark.unit
@@ -445,13 +453,13 @@ class TestMountControlPhases:
 
         ra_adjustment, dec_adjustment = call_args[0]
 
-        # Verify the adjustments are close to expected drift rates (within 20% tolerance due to discrete sampling)
-        assert (
-            abs(ra_adjustment - ra_drift_rate) < ra_drift_rate * 0.2
-        ), f"RA drift rate adjustment {ra_adjustment} should be close to expected {ra_drift_rate}"
-        assert (
-            abs(dec_adjustment - dec_drift_rate) < dec_drift_rate * 0.2
-        ), f"Dec drift rate adjustment {dec_adjustment} should be close to expected {dec_drift_rate}"
+        # A correction is the drift times the gain.
+        assert ra_adjustment == pytest.approx(
+            DRIFT_CORRECTION_GAIN * ra_drift_rate, rel=0.01
+        )
+        assert dec_adjustment == pytest.approx(
+            DRIFT_CORRECTION_GAIN * dec_drift_rate, rel=0.01
+        )
 
     def test_drift_compensation_with_solves_between_whole_seconds(self):
         """Real solves do not fall on the edge of the window: the span of
@@ -477,13 +485,12 @@ class TestMountControlPhases:
                 pass
         assert self.mount_control.adjust_mount_drift_rates.called
         ra, dec = self.mount_control.adjust_mount_drift_rates.call_args[0]
-        assert ra == pytest.approx(0.001, rel=0.05)
-        assert dec == pytest.approx(-0.0005, rel=0.05)
+        assert ra == pytest.approx(DRIFT_CORRECTION_GAIN * 0.001, rel=0.05)
+        assert dec == pytest.approx(DRIFT_CORRECTION_GAIN * -0.0005, rel=0.05)
 
     def test_mount_drift_compensation_with_poor_fit(self):
-        """Test MOUNT_DRIFT_COMPENSATION phase with noisy data that produces poor R² fit."""
-        import random
-
+        """Test MOUNT_DRIFT_COMPENSATION phase with noise and no drift."""
+        rnd = random.Random(3)
         self.mount_control.state = MountControlPhases.MOUNT_DRIFT_COMPENSATION
 
         # Create mock solution data with random noise (poor fit)
@@ -497,8 +504,8 @@ class TestMountControlPhases:
             mock_solves.append(
                 {
                     "solve_time": base_time + i,
-                    "RA_target": base_ra + random.uniform(-0.1, 0.1),
-                    "Dec_target": base_dec + random.uniform(-0.1, 0.1),
+                    "RA_target": base_ra + rnd.uniform(-0.1, 0.1),
+                    "Dec_target": base_dec + rnd.uniform(-0.1, 0.1),
                 }
             )
 
@@ -527,10 +534,10 @@ class TestMountControlPhases:
             except StopIteration:
                 phase_generator = None
 
-        # Verify that adjust_mount_drift_rates was NOT called (due to poor R²)
+        # Verify that adjust_mount_drift_rates was NOT called (no significant drift)
         assert (
             not self.mount_control.adjust_mount_drift_rates.called
-        ), "adjust_mount_drift_rates should NOT have been called with poor R² fit"
+        ), "adjust_mount_drift_rates should NOT have been called for noise"
 
         # Verify no INFO console message (only logger messages)
         # There might be WARNING messages, but no INFO about drift rates adjusted
@@ -539,6 +546,121 @@ class TestMountControlPhases:
             assert msg[0] != "INFO" or "Drift rates adjusted" not in str(
                 msg
             ), "Should not send INFO message about drift rates with poor fit"
+
+    def _feed_drift(
+        self,
+        seconds: float,
+        rate_hz: float,
+        ra_drift_arcsec: float = 0.0,
+        dec_drift_arcsec: float = 0.0,
+        noise_arcsec: float = 0.0,
+        ra0: float = 80.0,
+        dec0: float = 10.0,
+        seed: int = 1,
+        on_solve=None,
+    ) -> list:
+        """Run the drift phase once for each solve of a simulated drift.
+
+        The drifts and the noise are on the sky, in arcseconds (per
+        second). Returns the calls to adjust_mount_drift_rates as
+        (time of the solve, args, kwargs).
+        """
+        rnd = random.Random(seed)
+        self.mount_control.state = MountControlPhases.MOUNT_DRIFT_COMPENSATION
+        cos_dec = math.cos(math.radians(dec0))
+        calls: list = []
+        now = [0.0]
+
+        def adjust(*args, **kwargs):
+            calls.append((now[0], args, kwargs))
+            return True
+
+        self.mount_control.adjust_mount_drift_rates = Mock(side_effect=adjust)
+        for i in range(int(seconds * rate_hz)):
+            now[0] = i / rate_hz
+            t = now[0]
+            ra = ra0 + (ra_drift_arcsec * t + rnd.gauss(0.0, noise_arcsec)) / (
+                3600.0 * cos_dec
+            )
+            dec = dec0 + (dec_drift_arcsec * t + rnd.gauss(0.0, noise_arcsec)) / 3600.0
+            self.shared_state.solution.return_value = {
+                "solve_time": 1000.0 + t,
+                "RA_target": ra % 360.0,
+                "Dec_target": dec,
+            }
+            for _step in self.mount_control._process_phase(retry_count=3, delay=0.01):
+                pass
+            if on_solve is not None:
+                on_solve()
+        return calls
+
+    def test_drift_fit_unwraps_ra_zero(self):
+        """Solves on both sides of RA 0 give the true small drift, not a
+        drift of almost 360° per interval."""
+        calls = self._feed_drift(15.0, 1.0, ra_drift_arcsec=3.6, ra0=359.996, dec0=0.0)
+        assert calls
+        ra, dec = calls[0][1]
+        assert ra == pytest.approx(DRIFT_CORRECTION_GAIN * 0.001, rel=0.01)
+        assert dec == 0.0
+        assert all(
+            abs(v - self.mount_control.drift_solve_ra[0]) < 1.0
+            for v in self.mount_control.drift_solve_ra
+        )
+
+    def test_small_drift_is_corrected_in_a_longer_window(self):
+        """0.3"/s with 2" noise at one solve per second is not significant
+        in 10 s. The window grows until it is."""
+        calls = self._feed_drift(
+            60.0, 1.0, ra_drift_arcsec=0.3, dec_drift_arcsec=0.3, noise_arcsec=2.0
+        )
+        assert calls
+        t, (ra, dec), kwargs = calls[0]
+        assert t > 12.0
+        corrected = [v for v in (ra * math.cos(math.radians(10.0)), dec) if v != 0.0]
+        assert corrected
+        for value in corrected:
+            assert value * 3600.0 == pytest.approx(
+                DRIFT_CORRECTION_GAIN * 0.3, abs=0.12
+            )
+        assert kwargs["ra_se"] > 0.0 or kwargs["dec_se"] > 0.0
+
+    @pytest.mark.parametrize("seed", [1, 2, 3, 4, 5])
+    def test_noise_gives_no_correction(self, seed):
+        """2" noise and no drift: no correction in 5 windows."""
+        calls = self._feed_drift(300.0, 4.0, noise_arcsec=2.0, seed=seed)
+        assert calls == []
+
+    def test_drift_window_stops_at_its_maximum(self):
+        """With no significant drift, the window grows to the maximum and
+        then a new window starts."""
+        spans: list = []
+
+        def record():
+            times = self.mount_control.drift_solve_times
+            spans.append(times[-1] - times[0] if times else 0.0)
+
+        calls = self._feed_drift(150.0, 2.0, noise_arcsec=2.0, seed=7, on_solve=record)
+        assert calls == []
+        assert max(spans) <= DRIFT_WINDOW_MAX_S
+        assert max(spans) >= DRIFT_WINDOW_MAX_S - 1.0
+        # Two new windows in 150 s.
+        assert sum(1 for a, b in zip(spans, spans[1:]) if b < a) == 2
+
+    def test_drift_below_the_floor_gets_no_correction(self):
+        """A drift of 0.03"/s with no noise is significant, but it is below
+        the floor."""
+        calls = self._feed_drift(30.0, 1.0, ra_drift_arcsec=0.03, dec_drift_arcsec=0.03)
+        assert calls == []
+
+    def test_new_window_does_not_reuse_a_solve(self):
+        """After a correction the last solve stays the latest solve until a
+        new one comes. The new window does not start with it."""
+        self._feed_drift(10.0, 1.0, ra_drift_arcsec=36.0)
+        assert self.mount_control.adjust_mount_drift_rates.called
+        assert self.mount_control.drift_solve_times == []
+        for _step in self.mount_control._process_phase(retry_count=3, delay=0.01):
+            pass
+        assert self.mount_control.drift_solve_times == []
 
     def test_mount_spiral_search_unimplemented(self):
         """Test MOUNT_SPIRAL_SEARCH phase that is not yet implemented."""
@@ -594,3 +716,44 @@ class TestMountControlPhases:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_drift_grew_needs_a_growth_above_the_noise():
+    """An axis direction turns only for a growth well above the noise."""
+    d = 1.0 / 3600.0
+    se = 0.25 / 3600.0
+    # A wrong direction with the gain: the drift grows by 1 + gain.
+    assert _drift_grew(d, se, (1 + DRIFT_CORRECTION_GAIN) * d, 1.7 * se)
+    # A growth inside the noise.
+    assert not _drift_grew(d, se, 1.3 * d, se)
+    # The other direction, or an axis with no significant drift.
+    assert not _drift_grew(d, se, -2.0 * d, se)
+    assert not _drift_grew(d, se, 0.0, 0.0)
+    assert not _drift_grew(0.0, 0.0, 2.0 * d, se)
+    # Exact values (no standard error): any growth counts.
+    assert _drift_grew(d, 0.0, 1.01 * d, 0.0)
+
+
+def _turns(new_factor: float, trials: int = 2000) -> int:
+    """How often the axis direction turns, for a drift of 1"/s measured
+    at 4 standard errors, then a new drift of new_factor times it. A
+    measured drift below 4 standard errors is sent as 0.0."""
+    rnd = random.Random(11)
+    d = 1.0 / 3600.0
+    se = d / 4.0
+    turns = 0
+    for _ in range(trials):
+        last = d + rnd.gauss(0.0, se)
+        new = new_factor * d + rnd.gauss(0.0, se)
+        if abs(new) < 4.0 * se:
+            new = 0.0
+        turns += _drift_grew(last, se, new, se)
+    return turns
+
+
+def test_drift_grew_with_noise_does_not_turn_a_correct_axis():
+    """The correct direction leaves 1 - gain of the drift. Noise on the
+    two measured drifts turns the axis almost never. The wrong direction
+    turns it in most cases."""
+    assert _turns(1 - DRIFT_CORRECTION_GAIN) <= 10
+    assert _turns(1 + DRIFT_CORRECTION_GAIN) >= 1500

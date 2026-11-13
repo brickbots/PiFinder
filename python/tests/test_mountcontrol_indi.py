@@ -322,6 +322,83 @@ def test_drift_compensation_uses_custom_tracking(indi: int) -> None:
         indi_drivers.stop_driver()
 
 
+def test_drift_correction_reverses_an_axis_rate(indi: int) -> None:
+    """While tracking, the driver ignores a track rate with the opposite sign
+    of the current one. A correction that reverses the Dec rate must still
+    reach the driver."""
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        device = mount.device
+        assert _wait(
+            lambda: mount.client.get_value(device, "TELESCOPE_TRACK_STATE", "TRACK_ON")
+            is True,
+            10,
+        )
+        assert mount.adjust_mount_drift_rates(0.0, 0.001)
+        assert _wait(
+            lambda: mount.client.get_value(
+                device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_DE"
+            )
+            == pytest.approx(-3.6, abs=0.01),
+            5,
+        )
+        assert mount.adjust_mount_drift_rates(0.0, -0.002)
+        assert _wait(
+            lambda: mount.client.get_value(
+                device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_DE"
+            )
+            == pytest.approx(3.6, abs=0.01),
+            5,
+        )
+        assert not any("Cannot reverse" in m for m in mount.client.messages(device))
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
+def test_follow_rates_reverse_the_dec_axis_and_tracking_turns_off(indi: int) -> None:
+    """A follow that reverses the Dec rate must reach the driver, and a
+    follow without custom rates can turn the tracking off and on."""
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        device = mount.device
+        assert _wait(
+            lambda: mount.client.get_value(device, "TELESCOPE_TRACK_STATE", "TRACK_ON")
+            is True,
+            10,
+        )
+
+        def dec_rate() -> object:
+            return mount.client.get_value(
+                device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_DE"
+            )
+
+        assert mount.set_track_rates(0.0, 0.001)
+        first = 3.6 * mount._dec_rate_sign
+        assert _wait(lambda: dec_rate() == pytest.approx(first, abs=0.01), 5)
+        assert mount.set_track_rates(0.0, -0.001)
+        assert _wait(lambda: dec_rate() == pytest.approx(-first, abs=0.01), 5)
+        assert not any("Cannot reverse" in m for m in mount.client.messages(device))
+
+        assert mount.set_tracking(False)
+        assert _wait(
+            lambda: mount.client.get_value(device, "TELESCOPE_TRACK_STATE", "TRACK_OFF")
+            is True,
+            5,
+        )
+        assert mount.set_tracking(True)
+        assert _wait(
+            lambda: mount.client.get_value(device, "TELESCOPE_TRACK_STATE", "TRACK_ON")
+            is True,
+            5,
+        )
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
 def test_sync_reply_does_not_end_the_next_goto(indi: int) -> None:
     """The driver confirms a sync with state Ok. When that reply comes after
     the next goto was sent, the goto must still run to its end."""
@@ -715,11 +792,26 @@ def _solve_drift(solves: list, seconds: float) -> tuple[float, float]:
     return float(ra_slope), float(dec_slope)
 
 
-@pytest.mark.parametrize("wrong_axis", [None, "ra", "dec"])
-def test_drift_compensation_removes_a_drift(indi: int, wrong_axis) -> None:
-    """The mount drifts 10"/s in RA and 20"/s in Dec on target. Drift
-    compensation must stop the drift, also when it starts with the wrong
-    sign of an axis for this driver."""
+# A drift case: the axis with a wrong rate sign, the RA and Dec drift
+# ("/s), the seconds of drift before the compensation starts, the seconds
+# of compensation, the seconds at the end that give the residual drift, and
+# the limit of the residual drift ("/s).
+DRIFT_CASES = {
+    "None": (None, 10.0, 20.0, 6.0, 60.0, 20.0, 0.5),
+    "ra": ("ra", 10.0, 20.0, 6.0, 60.0, 20.0, 0.5),
+    "dec": ("dec", 10.0, 20.0, 6.0, 60.0, 20.0, 0.5),
+    "small": (None, 0.5, 0.3, 20.0, 100.0, 40.0, 0.15),
+}
+
+
+@pytest.mark.parametrize("case", list(DRIFT_CASES))
+def test_drift_compensation_removes_a_drift(indi: int, case: str) -> None:
+    """The mount drifts on target. Drift compensation must stop the drift,
+    also when it starts with the wrong sign of an axis for this driver,
+    and also for a drift that is small against the 2" solve noise."""
+    wrong_axis, ra_drift, dec_drift, measure_s, run_s, residual_s, limit = DRIFT_CASES[
+        case
+    ]
     latest: list = []
     shared_state = _shared_state()
 
@@ -780,16 +872,16 @@ def test_drift_compensation_removes_a_drift(indi: int, wrong_axis) -> None:
         assert mount._set_switch("TELESCOPE_TRACK_MODE", "TRACK_CUSTOM")
         assert mount._set_number(
             "TELESCOPE_TRACK_RATE",
-            {"TRACK_RATE_RA": 15.041067 - 10.0, "TRACK_RATE_DE": 20.0},
+            {"TRACK_RATE_RA": 15.041067 - ra_drift, "TRACK_RATE_DE": dec_drift},
         )
-        feed(6.0)
-        before = _solve_drift(latest, 4.0)
-        assert abs(before[0]) > 5 and abs(before[1]) > 10, before
+        feed(measure_s)
+        before = _solve_drift(latest, measure_s - 2.0)
+        assert abs(before[0]) > ra_drift / 2 and abs(before[1]) > dec_drift / 2, before
         mount.drift_compensation_window = 4.0
-        feed(60.0)
-        after = _solve_drift(latest, 6.0)
+        feed(run_s)
+        after = _solve_drift(latest, residual_s)
         assert mount.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION
-        assert abs(after[0]) < 2.0 and abs(after[1]) < 2.0, (before, after)
+        assert abs(after[0]) < limit and abs(after[1]) < limit, (before, after)
     finally:
         mount.mount_queue.put({"type": "exit"})
         runner.join(timeout=10)
