@@ -30,7 +30,8 @@ import requests
 from sgp4 import exporter, omm
 from sgp4.api import Satrec, SatrecArray
 from skyfield.api import EarthSatellite, wgs84
-from skyfield.sgp4lib import TEME
+from skyfield.framelib import itrs
+from skyfield.sgp4lib import TEME, theta_GMST1982
 
 from PiFinder.calc_utils import sf_utils
 from PiFinder.download_utils import (
@@ -116,6 +117,23 @@ MIN_FORCED_DOWNLOAD_SECONDS = 5 * 60.0
 # The observer is in darkness when the Sun is below this altitude.
 DARK_SUN_ALT_DEG = -6.0
 PASS_STEP_SECONDS = 10.0
+# A long pass, of a high orbit, gets at most this many samples.
+PASS_MAX_SAMPLES = 400
+# The coarse step of the pass search is this fraction of the orbit. The
+# search of Skyfield's find_events uses the same step.
+PASS_GRID_ORBIT_FRACTION = 0.05
+PASS_GRID_MIN_SECONDS = 20.0
+PASS_GRID_MAX_SECONDS = 1800.0
+# A grid point that is a local maximum gets a refined search when it is
+# above min_alt minus this margin. The true peak can be higher than the
+# grid point. On the CelesTrak "active" group it was less than 5 degrees
+# higher.
+PASS_PEAK_MARGIN_DEG = 20.0
+# The pass search keeps at most this many satellite times in memory at once.
+PASS_CHUNK_SAMPLES = 100_000
+PASS_TIME_TOLERANCE_SECONDS = 0.5
+# The pass search interpolates the Sun linearly between points this far apart.
+SUN_GRID_SECONDS = 300.0
 RATE_STEP_SECONDS = 1.0
 # The search for the time a satellite sets looks this far ahead.
 SET_SEARCH_SECONDS = 2 * 3600.0
@@ -1160,68 +1178,485 @@ def find_passes(
 ) -> list[SatPass]:
     """Passes above ``min_alt`` between ``start`` and ``start + hours``.
 
+    See ``find_passes_many``, which does the work.
+    """
+    return find_passes_many([sat], topos, start, hours, min_alt)[0]
+
+
+def find_passes_many(
+    sats: list[TrackedSatellite],
+    topos,
+    start: datetime,
+    hours: float = 24.0,
+    min_alt: float = 10.0,
+) -> list[list[SatPass]]:
+    """For each satellite: its passes above ``min_alt`` in the window from
+    ``start`` to ``start + hours``.
+
+    A pass is an interval of the window in which the satellite is above
+    ``min_alt``. A pass that is in progress at the start or at the end of
+    the window starts or ends there, and its culmination is the highest
+    point inside the window. A satellite that stays above ``min_alt`` has
+    one pass for the full window.
+
     A pass is visible when, for at least one sample, the satellite is in
     sunlight and the Sun is below DARK_SUN_ALT_DEG for the observer.
+
+    The search propagates the satellites in chunks on a coarse time grid
+    with one SGP4 call per chunk. It interpolates between the grid points
+    with the SGP4 velocities, and finds the culminations, the rises and
+    the sets on that curve. A satellite that SGP4 cannot propagate over
+    the full window gets no passes.
     """
-    ts = sf_utils.ts
-    start = _as_utc(start)
-    t0 = ts.from_datetime(start)
-    t1 = ts.from_datetime(start + timedelta(hours=hours))
-    times, events = sat.satellite.find_events(topos, t0, t1, altitude_degrees=min_alt)
-    difference = sat.satellite - topos
-
-    passes: list[SatPass] = []
-    rise = culmination = None
-    for t, event in zip(times, events):
-        if event == 0:
-            rise, culmination = t, None
-        elif event == 1:
-            if rise is None:
-                rise = t0
-            culmination = t
-        elif event == 2 and rise is not None:
-            if culmination is None:
-                culmination = rise
-            passes.append(_describe_pass(sat, topos, difference, rise, culmination, t))
-            rise = culmination = None
-    if rise is not None and culmination is not None:
-        passes.append(_describe_pass(sat, topos, difference, rise, culmination, t1))
-    return passes
-
-
-def _describe_pass(sat, topos, difference, rise, culmination, set_time) -> SatPass:
-    ts = sf_utils.ts
-    duration = max((set_time.tt - rise.tt) * 86400.0, 1.0)
-    count = max(2, int(duration / PASS_STEP_SECONDS) + 1)
-    samples = ts.tt_jd(np.linspace(rise.tt, set_time.tt, count))
-    topocentric = difference.at(samples)
-    alt, az, distance = topocentric.altaz()
-    earth = sf_utils.eph["earth"]
-    sun = sf_utils.eph["sun"]
-    sun_alt = (earth + topos).at(samples).observe(sun).apparent().altaz()[0].degrees
-    sun_km = sun.at(samples).position.km - earth.at(samples).position.km
-    sat_km = sat.satellite.at(samples).position.km
-    sunlit = in_sunlight(sat_km, sun_km)
-    phase = phase_angle_deg(sat_km, sun_km, topos.at(samples).position.km)
-    mags = _magnitudes(sat.std_mag, distance.km, phase)
-    visible = np.asarray(sunlit) & (sun_alt < DARK_SUN_ALT_DEG) & (alt.degrees > 0)
-
-    culmination_alt, culmination_az, _ = difference.at(culmination).altaz()
-    result = SatPass(
-        rise=rise.utc_datetime(),
-        culmination=culmination.utc_datetime(),
-        set=set_time.utc_datetime(),
-        rise_az=float(az.degrees[0]),
-        max_alt=float(culmination_alt.degrees),
-        max_alt_az=float(culmination_az.degrees),
-        set_az=float(az.degrees[-1]),
-    )
-    if visible.any():
-        indices = np.nonzero(visible)[0]
-        result.visible_start = samples[int(indices[0])].utc_datetime()
-        result.visible_end = samples[int(indices[-1])].utc_datetime()
-        result.min_mag = float(np.min(mags[visible]))
+    result: list[list[SatPass]] = [[] for _sat in sats]
+    span = hours * 3600.0
+    if not sats or span <= 0:
+        return result
+    frame = _PassFrame.create(topos, _as_utc(start), span)
+    steps = np.array([_grid_step_seconds(sat.satellite.model) for sat in sats])
+    order = np.argsort(steps, kind="stable")
+    failed: list[str] = []
+    position = 0
+    while position < len(order):
+        # The steps are in ascending order, so the first is the smallest.
+        count = int(math.ceil(span / steps[order[position]])) + 1
+        size = max(1, PASS_CHUNK_SAMPLES // count)
+        chunk = order[position : position + size]
+        position += size
+        chunk_passes = _chunk_passes(
+            [sats[i] for i in chunk], frame, count, min_alt, failed
+        )
+        for index, passes in zip(chunk, chunk_passes):
+            result[index] = passes
+    if failed:
+        logger.warning(
+            "No passes for %d satellites that SGP4 cannot propagate: %s",
+            len(failed),
+            ", ".join(failed[:5]) + (" ..." if len(failed) > 5 else ""),
+        )
     return result
+
+
+def _grid_step_seconds(model: Satrec) -> float:
+    """The coarse step of the pass search for one satellite.
+
+    It is a fraction of the orbit. For an eccentric orbit it is shorter, by
+    the ratio of the angular rate at perigee to the mean angular rate.
+    """
+    if not model.no_kozai > 0:
+        return PASS_GRID_MAX_SECONDS
+    period = 2.0 * math.pi / model.no_kozai * 60.0
+    ecc = min(max(model.ecco, 0.0), 0.99)
+    perigee_rate = (1.0 + ecc) ** 2 / (1.0 - ecc**2) ** 1.5
+    step = PASS_GRID_ORBIT_FRACTION * period / perigee_rate
+    return min(max(step, PASS_GRID_MIN_SECONDS), PASS_GRID_MAX_SECONDS)
+
+
+@dataclass
+class _PassFrame:
+    """The observer, the Earth rotation and the Sun for one pass search.
+
+    All positions are Earth-fixed and in km. Times are seconds after the
+    start of the window.
+    """
+
+    start: datetime
+    span: float
+    observer_km: np.ndarray  # (3,)
+    up: np.ndarray  # (3,) unit vectors of the observer's horizon frame
+    north: np.ndarray
+    east: np.ndarray
+    theta0: float  # Greenwich mean sidereal angle (GMST 1982) at the start
+    theta_rate: float  # radians per second
+    sun_seconds: np.ndarray  # (g,)
+    sun_km: np.ndarray  # (g, 3)
+    sun_alt: np.ndarray  # (g,) degrees, as seen by the observer
+
+    @classmethod
+    def create(cls, topos, start: datetime, span: float) -> "_PassFrame":
+        ts = sf_utils.ts
+        t0 = ts.from_datetime(start)
+        theta0, theta_rate = theta_GMST1982(t0.whole, t0.ut1_fraction)
+        lat = topos.latitude.radians
+        lon = topos.longitude.radians
+        up = np.array(
+            [
+                math.cos(lat) * math.cos(lon),
+                math.cos(lat) * math.sin(lon),
+                math.sin(lat),
+            ]
+        )
+        north = np.array(
+            [
+                -math.sin(lat) * math.cos(lon),
+                -math.sin(lat) * math.sin(lon),
+                math.cos(lat),
+            ]
+        )
+        east = np.array([-math.sin(lon), math.cos(lon), 0.0])
+
+        count = int(math.ceil(span / SUN_GRID_SECONDS)) + 1
+        sun_seconds = np.linspace(0.0, span, count)
+        t = ts.tt_jd(t0.tt + sun_seconds / 86400.0)
+        earth = sf_utils.eph["earth"]
+        sun = sf_utils.eph["sun"]
+        sun_gcrs = sun.at(t).position.km - earth.at(t).position.km
+        sun_km = np.einsum("ijg,jg->gi", itrs.rotation_at(t), sun_gcrs)
+        sun_alt = (earth + topos).at(t).observe(sun).apparent().altaz()[0].degrees
+        return cls(
+            start=start,
+            span=span,
+            observer_km=np.asarray(topos.itrs_xyz.km, dtype=float),
+            up=up,
+            north=north,
+            east=east,
+            theta0=float(theta0),
+            theta_rate=float(theta_rate) / 86400.0,
+            sun_seconds=sun_seconds,
+            sun_km=sun_km,
+            sun_alt=np.asarray(sun_alt, dtype=float),
+        )
+
+    def sgp4_dates(self, seconds: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """The UTC Julian dates of ``seconds``, as SGP4 wants them."""
+        days = (self.start.timestamp() + seconds) / 86400.0
+        whole = np.floor(days)
+        return whole + UNIX_EPOCH_JD, days - whole
+
+    def earth_fixed(self, teme_km: np.ndarray, seconds: np.ndarray) -> np.ndarray:
+        """TEME positions (..., 3) at ``seconds`` (...) in the Earth frame."""
+        theta = self.theta0 + self.theta_rate * seconds
+        cos, sin = np.cos(theta), np.sin(theta)
+        x, y = teme_km[..., 0], teme_km[..., 1]
+        return np.stack((cos * x + sin * y, cos * y - sin * x, teme_km[..., 2]), -1)
+
+    def altitude(self, sat_km: np.ndarray) -> np.ndarray:
+        relative = sat_km - self.observer_km
+        return np.degrees(
+            np.arcsin(relative @ self.up / np.linalg.norm(relative, axis=-1))
+        )
+
+    def horizon(self, sat_km: np.ndarray):
+        """Altitude and azimuth in degrees, and the range in km."""
+        relative = sat_km - self.observer_km
+        range_km = np.linalg.norm(relative, axis=-1)
+        alt = np.degrees(np.arcsin(relative @ self.up / range_km))
+        az = np.degrees(np.arctan2(relative @ self.east, relative @ self.north))
+        return alt, az % 360.0, range_km
+
+    def min_sun_alt(self, low: np.ndarray, high: np.ndarray) -> np.ndarray:
+        """The lowest Sun altitude between ``low`` and ``high``.
+
+        The Sun altitude is linear between the grid points, so the lowest
+        value is at an end or at a grid point between them.
+        """
+        lowest = np.minimum(
+            np.interp(low, self.sun_seconds, self.sun_alt),
+            np.interp(high, self.sun_seconds, self.sun_alt),
+        )
+        first = np.searchsorted(self.sun_seconds, low, "right")
+        last = np.searchsorted(self.sun_seconds, high, "left")
+        inside = np.flatnonzero(first < last)
+        if len(inside):
+            # reduceat gives the minimum of [first, last) for each pair.
+            values = np.append(self.sun_alt, np.inf)
+            pairs = np.ravel(np.column_stack((first[inside], last[inside])))
+            lowest[inside] = np.minimum(
+                lowest[inside], np.minimum.reduceat(values, pairs)[::2]
+            )
+        return lowest
+
+    def sun_at(self, seconds: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """The Sun position (n, 3) and its altitude (n,) at ``seconds``."""
+        sun_km = np.stack(
+            [np.interp(seconds, self.sun_seconds, self.sun_km[:, i]) for i in range(3)],
+            -1,
+        )
+        return sun_km, np.interp(seconds, self.sun_seconds, self.sun_alt)
+
+
+class _Track:
+    """SGP4 positions of some satellites on a uniform time grid, with cubic
+    Hermite interpolation between the grid points."""
+
+    def __init__(self, frame: _PassFrame, models: list[Satrec], count: int):
+        self.frame = frame
+        self.step = frame.span / (count - 1)
+        self.seconds = np.arange(count) * self.step
+        self.seconds[-1] = frame.span
+        errors, teme_km, velocity = SatrecArray(models).sgp4(
+            *frame.sgp4_dates(self.seconds)
+        )
+        self.ok = ~np.any(errors != 0, axis=1)
+        self.teme_km = teme_km[self.ok]
+        self.velocity = velocity[self.ok]
+
+    def grid_altitude(self) -> np.ndarray:
+        """(n, m) altitudes at the grid points."""
+        return self.frame.altitude(self.frame.earth_fixed(self.teme_km, self.seconds))
+
+    def earth_fixed_at(self, rows: np.ndarray, seconds: np.ndarray) -> np.ndarray:
+        """Earth-fixed positions (k, 3) of satellites ``rows`` at ``seconds``."""
+        last = len(self.seconds) - 2
+        k = np.clip((seconds // self.step).astype(int), 0, last)
+        h = self.seconds[k + 1] - self.seconds[k]
+        s = ((seconds - self.seconds[k]) / h)[:, np.newaxis]
+        s2, s3 = s * s, s * s * s
+        h = h[:, np.newaxis]
+        teme_km = (
+            (2 * s3 - 3 * s2 + 1) * self.teme_km[rows, k]
+            + (s3 - 2 * s2 + s) * h * self.velocity[rows, k]
+            + (3 * s2 - 2 * s3) * self.teme_km[rows, k + 1]
+            + (s3 - s2) * h * self.velocity[rows, k + 1]
+        )
+        return self.frame.earth_fixed(teme_km, seconds)
+
+    def altitude_at(self, rows: np.ndarray, seconds: np.ndarray) -> np.ndarray:
+        return self.frame.altitude(self.earth_fixed_at(rows, seconds))
+
+
+def _iterations(width: float, factor: float) -> int:
+    """Steps until a bracket of ``width`` seconds is below the tolerance."""
+    if width <= PASS_TIME_TOLERANCE_SECONDS:
+        return 0
+    return int(
+        math.ceil(math.log(width / PASS_TIME_TOLERANCE_SECONDS) / math.log(factor))
+    )
+
+
+def _maximize(track: _Track, rows, low, high) -> tuple[np.ndarray, np.ndarray]:
+    """Golden section search for the highest altitude in [low, high]."""
+    golden = (math.sqrt(5.0) - 1.0) / 2.0
+    a, b = low.copy(), high.copy()
+    c = b - golden * (b - a)
+    d = a + golden * (b - a)
+    fc, fd = track.altitude_at(rows, c), track.altitude_at(rows, d)
+    for _ in range(_iterations(float(np.max(b - a)), 1.0 / golden)):
+        left = fc > fd
+        b = np.where(left, d, b)
+        a = np.where(left, a, c)
+        new_c = np.where(left, b - golden * (b - a), d)
+        new_d = np.where(left, c, a + golden * (b - a))
+        value = track.altitude_at(rows, np.where(left, new_c, new_d))
+        fc, fd = np.where(left, value, fd), np.where(left, fc, value)
+        c, d = new_c, new_d
+    best = (a + b) / 2.0
+    return best, track.altitude_at(rows, best)
+
+
+def _crossing(track: _Track, rows, low, high, min_alt: float, rising: bool):
+    """Bisection for the time the altitude crosses ``min_alt``.
+
+    The satellite is below ``min_alt`` at ``low`` when ``rising``, and at
+    ``high`` when not.
+    """
+    for _ in range(_iterations(float(np.max(high - low, initial=0.0)), 2.0)):
+        middle = (low + high) / 2.0
+        up = track.altitude_at(rows, middle) >= min_alt
+        if rising:
+            low, high = np.where(up, low, middle), np.where(up, middle, high)
+        else:
+            low, high = np.where(up, middle, low), np.where(up, high, middle)
+    return (low + high) / 2.0
+
+
+def _chunk_passes(
+    sats: list[TrackedSatellite],
+    frame: _PassFrame,
+    count: int,
+    min_alt: float,
+    failed: list[str],
+) -> list[list[SatPass]]:
+    """The passes of a few satellites, on a grid of ``count`` points."""
+    track = _Track(frame, [sat.satellite.model for sat in sats], count)
+    failed.extend(sat.name for sat, ok in zip(sats, track.ok) if not ok)
+    good = [sat for sat, ok in zip(sats, track.ok) if ok]
+    result: list[list[SatPass]] = [[] for _sat in sats]
+    if not good:
+        return result
+    grid = track.seconds
+    alt = track.grid_altitude()
+
+    # The grid points that are higher than their neighbours. The true
+    # highest point is less than one step away. The ends of the window
+    # count when the altitude falls away from them.
+    peak = np.zeros(alt.shape, dtype=bool)
+    peak[:, 1:-1] = (alt[:, 1:-1] > alt[:, :-2]) & (alt[:, 1:-1] >= alt[:, 2:])
+    peak[:, 0] = alt[:, 0] >= alt[:, 1]
+    peak[:, -1] = alt[:, -1] > alt[:, -2]
+    peak &= alt > min_alt - PASS_PEAK_MARGIN_DEG
+    rows, columns = np.nonzero(peak)
+    if len(rows) == 0:
+        return result
+    low = grid[np.maximum(columns - 1, 0)]
+    high = grid[np.minimum(columns + 1, len(grid) - 1)]
+    top, top_alt = _maximize(track, rows, low, high)
+    # The grid point itself can be higher, at the end of the window.
+    grid_alt = alt[rows, columns]
+    better = grid_alt > top_alt
+    top = np.where(better, grid[columns], top)
+    top_alt = np.where(better, grid_alt, top_alt)
+    keep = top_alt >= min_alt
+    rows, top, top_alt = rows[keep], top[keep], top_alt[keep]
+    if len(rows) == 0:
+        return result
+
+    # The grid points before and after each peak where the satellite is
+    # below min_alt. The rise and the set are between those and the next
+    # grid points.
+    below = alt < min_alt
+    index = np.arange(len(grid))
+    last_below = np.maximum.accumulate(np.where(below, index, -1), axis=1)
+    next_below = np.minimum.accumulate(
+        np.where(below, index, len(grid))[:, ::-1], axis=1
+    )[:, ::-1]
+    before = np.minimum((top // track.step).astype(int), len(grid) - 1)
+    after = np.minimum(before + 1, len(grid) - 1)
+    rise_point = last_below[rows, before]
+    set_point = np.where(top >= frame.span, len(grid), next_below[rows, after])
+
+    # Two peaks with the same rise are one pass: keep the higher one.
+    order = np.lexsort((-top_alt, rise_point, rows))
+    rows, top, top_alt = rows[order], top[order], top_alt[order]
+    rise_point, set_point = rise_point[order], set_point[order]
+    first = np.ones(len(rows), dtype=bool)
+    first[1:] = (rows[1:] != rows[:-1]) | (rise_point[1:] != rise_point[:-1])
+    rows, top, top_alt = rows[first], top[first], top_alt[first]
+    rise_point, set_point = rise_point[first], set_point[first]
+
+    rise = np.zeros(len(rows))
+    inside = rise_point >= 0
+    if inside.any():
+        point = rise_point[inside]
+        rise[inside] = _crossing(
+            track,
+            rows[inside],
+            grid[point],
+            np.minimum(grid[point + 1], top[inside]),
+            min_alt,
+            rising=True,
+        )
+    set_time = np.full(len(rows), frame.span)
+    inside = set_point < len(grid)
+    if inside.any():
+        point = set_point[inside]
+        set_time[inside] = _crossing(
+            track,
+            rows[inside],
+            np.maximum(grid[point - 1], top[inside]),
+            grid[point],
+            min_alt,
+            rising=False,
+        )
+
+    passes = _describe_passes(good, track, rows, rise, top, top_alt, set_time)
+    by_sat: dict[int, list[SatPass]] = {}
+    for row, item in zip(rows.tolist(), passes):
+        by_sat.setdefault(row, []).append(item)
+    good_index = np.flatnonzero(track.ok)
+    for row, items in by_sat.items():
+        items.sort(key=lambda item: item.rise)
+        result[int(good_index[row])] = items
+    return result
+
+
+def _describe_passes(
+    sats: list[TrackedSatellite],
+    track: _Track,
+    rows: np.ndarray,
+    rise: np.ndarray,
+    top: np.ndarray,
+    top_alt: np.ndarray,
+    set_time: np.ndarray,
+) -> list[SatPass]:
+    """Directions, visibility and magnitude of the passes.
+
+    Samples are PASS_STEP_SECONDS apart, or more for a pass longer than
+    PASS_MAX_SAMPLES steps. A pass with a bright sky from rise to set gets
+    no samples, because it cannot be visible.
+    """
+    frame = track.frame
+    count = len(rows)
+    ends = np.concatenate((rise, top, set_time))
+    az = frame.horizon(track.earth_fixed_at(np.tile(rows, 3), ends))[1]
+    rise_az, top_az, set_az = az[:count], az[count : 2 * count], az[2 * count :]
+    visible_start = np.full(count, np.nan)
+    visible_end = np.full(count, np.nan)
+    min_mag = np.full(count, np.nan)
+
+    dark = np.flatnonzero(frame.min_sun_alt(rise, set_time) < DARK_SUN_ALT_DEG)
+    duration = np.maximum(set_time - rise, 1.0)
+    counts = np.clip(
+        (duration / PASS_STEP_SECONDS).astype(int) + 1, 2, PASS_MAX_SAMPLES
+    )
+    std_mag = np.array([sat.std_mag for sat in sats])
+
+    # Batches of passes keep the number of samples at once small.
+    total = np.cumsum(counts[dark])
+    first = 0
+    while first < len(dark):
+        done = total[first - 1] if first else 0
+        last = max(
+            first + 1, int(np.searchsorted(total, done + PASS_CHUNK_SAMPLES, "right"))
+        )
+        batch = dark[first:last]
+        first = last
+        batch_counts = counts[batch]
+        offsets = np.concatenate(([0], np.cumsum(batch_counts)[:-1]))
+        owner = np.repeat(np.arange(len(batch)), batch_counts)
+        step = (set_time[batch] - rise[batch]) / (batch_counts - 1)
+        sample = np.arange(len(owner))
+        seconds = rise[batch][owner] + (sample - offsets[owner]) * step[owner]
+        sat_rows = rows[batch][owner]
+        sat_km = track.earth_fixed_at(sat_rows, seconds)
+        alt, _az, range_km = frame.horizon(sat_km)
+        sun_km, sun_alt = frame.sun_at(seconds)
+        sunlit = in_sunlight(sat_km.T, sun_km.T)
+        phase = phase_angle_deg(sat_km.T, sun_km.T, frame.observer_km[:, np.newaxis])
+        mags = _magnitudes(std_mag[sat_rows], range_km, phase)
+        visible = sunlit & (sun_alt < DARK_SUN_ALT_DEG) & (alt > 0)
+
+        start_index = np.minimum.reduceat(
+            np.where(visible, sample, len(owner)), offsets
+        )
+        end_index = np.maximum.reduceat(np.where(visible, sample, -1), offsets)
+        seen = end_index >= 0
+        seen_batch = batch[seen]
+        visible_start[seen_batch] = seconds[start_index[seen]]
+        visible_end[seen_batch] = seconds[end_index[seen]]
+        min_mag[seen_batch] = np.minimum.reduceat(
+            np.where(visible, mags, np.inf), offsets
+        )[seen]
+
+    start = frame.start
+    passes = []
+    for values in zip(
+        rise.tolist(),
+        top.tolist(),
+        set_time.tolist(),
+        rise_az.tolist(),
+        top_alt.tolist(),
+        top_az.tolist(),
+        set_az.tolist(),
+        visible_start.tolist(),
+        visible_end.tolist(),
+        min_mag.tolist(),
+    ):
+        item = SatPass(
+            rise=start + timedelta(seconds=values[0]),
+            culmination=start + timedelta(seconds=values[1]),
+            set=start + timedelta(seconds=values[2]),
+            rise_az=values[3],
+            max_alt=values[4],
+            max_alt_az=values[5],
+            set_az=values[6],
+        )
+        if not math.isnan(values[7]):
+            item.visible_start = start + timedelta(seconds=values[7])
+            item.visible_end = start + timedelta(seconds=values[8])
+            item.min_mag = values[9]
+        passes.append(item)
+    return passes
 
 
 AZ_NAMES = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")

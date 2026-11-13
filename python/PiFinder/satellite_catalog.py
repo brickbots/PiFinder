@@ -351,6 +351,7 @@ class SatelliteCatalog(Catalog):
         sat: satellites.TrackedSatellite,
         now: satellites.SatLook,
         zone: datetime.tzinfo,
+        const: Optional[str] = None,
     ) -> None:
         if not (math.isfinite(now.ra) and math.isfinite(now.dec)):
             # SGP4 cannot propagate this element set to the current time.
@@ -358,9 +359,16 @@ class SatelliteCatalog(Catalog):
             return
         next_pass = self._next_visible(sat.norad_id, now.time)
         obj.ra, obj.dec = now.ra, now.dec
-        obj.const = sf_utils.radec_to_constellation(now.ra, now.dec)
-        obj.mag = MagnitudeObject([round(self._list_magnitude(sat, now, next_pass), 1)])
-        obj.mag_str = obj.mag.calc_two_mag_representation()
+        obj.const = (
+            const
+            if const is not None
+            else sf_utils.radec_to_constellation(now.ra, now.dec)
+        )
+        mag = round(self._list_magnitude(sat, now, next_pass), 1)
+        # Most magnitudes do not change between two updates.
+        if obj.mag.mags != [mag]:
+            obj.mag = MagnitudeObject([mag])
+            obj.mag_str = obj.mag.calc_two_mag_representation()
         obj.description = self._describe(sat, now, next_pass, zone)
         obj.next_pass_ts = self._pass_sort_key(now, next_pass)
 
@@ -393,8 +401,9 @@ class SatelliteCatalog(Catalog):
         topos = self._topos(location)
         zone = _zone(location.timezone)
         looks = satellites.look_many([sat for _obj, sat in pairs], topos, dt)
-        for (obj, sat), now in zip(pairs, looks):
-            self._update_object(obj, sat, now, zone)
+        consts = _constellations(looks)
+        for (obj, sat), now, const in zip(pairs, looks, consts):
+            self._update_object(obj, sat, now, zone, const)
         return frozenset(
             sat.norad_id for (_obj, sat), now in zip(pairs, looks) if now.alt > 0
         )
@@ -454,14 +463,10 @@ class SatelliteCatalog(Catalog):
             )
             start = dt - datetime.timedelta(minutes=15)
             tracked = list(self._tracked.values())
-            passes: dict[int, list[satellites.SatPass]] = {}
-            for sat in tracked:
-                try:
-                    passes[sat.norad_id] = satellites.find_passes(
-                        sat, topos, start, self.PASS_HOURS, self.MIN_PASS_ALT_DEG
-                    )
-                except Exception as exc:  # one bad set must not stop the rest
-                    logger.warning("No passes for %s: %s", sat.name, exc)
+            found = satellites.find_passes_many(
+                tracked, topos, start, self.PASS_HOURS, self.MIN_PASS_ALT_DEG
+            )
+            passes = {sat.norad_id: items for sat, items in zip(tracked, found)}
             self._passes = passes
             self._pass_time = dt
             self._write_pass_cache(dt, location, tracked, passes)
@@ -562,6 +567,22 @@ class SatelliteCatalog(Catalog):
                 self.invalidate_filter_cache()
                 if self.catalog_filter is not None:
                     self.catalog_filter.mark_catalog_content_dirty()
+
+
+def _constellations(looks: list[satellites.SatLook]) -> list[Optional[str]]:
+    """The constellation of each position, with one lookup for all.
+
+    A position that is not finite gets None.
+    """
+    ra = np.array([now.ra for now in looks], dtype=float)
+    dec = np.array([now.dec for now in looks], dtype=float)
+    finite = np.isfinite(ra) & np.isfinite(dec)
+    result: list[Optional[str]] = [None] * len(looks)
+    if finite.any():
+        names = sf_utils.radec_to_constellations(ra[finite], dec[finite])
+        for index, name in zip(np.flatnonzero(finite).tolist(), names.tolist()):
+            result[index] = name
+    return result
 
 
 def _zone(name: Optional[str]) -> datetime.tzinfo:
