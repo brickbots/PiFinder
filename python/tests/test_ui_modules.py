@@ -286,6 +286,7 @@ def _sandbox_data_dir(tmp_path_factory):
         mock.patch.object(utils, "data_dir", sandbox),
         mock.patch.object(utils, "observations_db", sandbox / "observations.db"),
         mock.patch.object(utils, "debug_dump_dir", sandbox / "solver_debug_dumps"),
+        mock.patch.object(utils, "satellite_data_dir", sandbox / "satellites"),
     ):
         yield sandbox
 
@@ -387,6 +388,21 @@ def _no_asteroid_download():
             return_value=(False, "test environment"),
         ),
         mock.patch.object(asteroids, "download_asteroid_year"),
+    ):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_satellite_download():
+    """Stop the "Sat groups" menu from downloading a CelesTrak group.
+
+    The key sweep selects a group, and a selected group without a file
+    starts a download thread.
+    """
+    import PiFinder.satellites as satellites
+
+    with mock.patch.object(
+        satellites, "refresh_groups", return_value=satellites.GroupRefresh("failed")
     ):
         yield
 

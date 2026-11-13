@@ -22,6 +22,7 @@ from PiFinder.ui.radec_entry import UIRADecEntry
 from PiFinder.ui.telemetry_list import UITelemetryList
 from PiFinder.ui.lm_entry import UILMEntry
 import PiFinder.ui.callbacks as callbacks
+import PiFinder.ui.sat_groups as sat_groups
 
 
 # override locally the gettext marker function, i.e. the strings are not translated on load, but extracted. CHECK END OF FILE
@@ -104,28 +105,10 @@ pifinder_menu = {
                     "select": "single",
                     "items": [
                         {
-                            "name": _("Planets"),
+                            "name": _("Messier"),
                             "class": UIObjectList,
                             "objects": "catalog",
-                            "value": "PL",
-                        },
-                        {
-                            "name": _("Comets"),
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "CM",
-                        },
-                        {
-                            "name": _("Asteroids"),
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "MP",
-                        },
-                        {
-                            "name": _("Satellites"),
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "SA",
+                            "value": "M",
                         },
                         {
                             "name": _("NGC"),
@@ -134,10 +117,10 @@ pifinder_menu = {
                             "value": "NGC",
                         },
                         {
-                            "name": _("Messier"),
+                            "name": _("Planets"),
                             "class": UIObjectList,
                             "objects": "catalog",
-                            "value": "M",
+                            "value": "PL",
                         },
                         {
                             "name": _("DSO..."),
@@ -282,6 +265,48 @@ pifinder_menu = {
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "TLK",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Small bodies..."),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": _("Comets"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "CM",
+                                },
+                                {
+                                    "name": _("Asteroids"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "MP",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Satellites..."),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": _("Satellites"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "SA",
+                                },
+                                {
+                                    "name": _("Sat groups"),
+                                    "class": UITextMenu,
+                                    "select": "multi",
+                                    "label": "sat_groups",
+                                    "values_callback": sat_groups.selected_groups,
+                                    "toggle_callback": sat_groups.toggle_group,
+                                    "update_callback": sat_groups.show_next_message,
+                                    "items": sat_groups.menu_items(),
                                 },
                             ],
                         },
