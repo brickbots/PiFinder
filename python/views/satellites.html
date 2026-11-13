@@ -219,9 +219,13 @@
 <div class="card grey darken-2">
   <div class="card-content">
     <h5 class="grey-text">{{ _('Downloaded element sets') }}</h5>
-    <p class="grey-text">{{ _('The PiFinder gets the CelesTrak groups of the brightest satellites and of the space stations every 12 hours when it has internet.') }}</p>
-    <p class="grey-text">{{ _('A group without a check mark stays stored, but the PiFinder does not list its satellites.') }}</p>
+    <p class="grey-text">{{ _('Select the CelesTrak groups that the PiFinder uses. The PiFinder downloads a selected group at once and updates it every 12 hours when it has internet.') }}</p>
+    <p class="grey-text">{{ _('A group without a check mark is not downloaded and not used. Its file stays stored.') }}</p>
     <table class="grey-text" id="satellite_group_table">
+      <thead>
+        <tr><th>{{ _('Use') }}</th><th>{{ _('Group') }}</th><th>{{ _('Sets') }}</th><th>{{ _('Age') }}</th><th></th></tr>
+      </thead>
+      <tbody>
       {% for g in groups %}
       <tr>
         <td>
@@ -232,15 +236,27 @@
               <label><input type="checkbox" class="filled-in" {% if g['enabled'] %}checked{% endif %} onchange="this.form.submit()"><span></span></label>
             </form>
         </td>
-        <td>{{ g['group'] }}</td>
-        <td>{{ g['count'] }} {{ _('objects') }}</td>
+        <td>
+          {{ g['label'] }} <span class="grey-text text-darken-1">({{ g['group'] }})</span>
+          {% if g['large'] %}<br><span class="orange-text large-group-note">{{ _('Large group: the pass prediction takes long on a Pi') }}</span>{% endif %}
+        </td>
+        <td>{% if g['age_hours'] is not none %}{{ g['count'] }}{% else %}-{% endif %}</td>
         <td>{% if g['age_hours'] is not none %}{{ g['age_hours'] | round(1) }} h {{ _('old') }}{% else %}{{ _('not downloaded') }}{% endif %}</td>
+        <td>
+          {% if g['enabled'] %}
+          <form action="/satellites/refresh" method="post" style="display:inline;">
+            <input type="hidden" name="group" value="{{ g['group'] }}">
+            <button type="submit" class="btn-flat grey-text">{{ _('Update') }}</button>
+          </form>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
+      </tbody>
     </table>
     <form action="/satellites/refresh" method="post">
       <div class="card-action">
-        <button type="submit" class="btn">{{ _('Download now') }}</button>
+        <button type="submit" class="btn">{{ _('Update selected') }}</button>
       </div>
     </form>
   </div>

@@ -2,14 +2,20 @@
 
 import datetime
 import json
+import os
+import threading
 from pathlib import Path
 
 import numpy as np
 import pytest
+from sgp4 import exporter
+from sgp4.api import WGS72, Satrec
+from skyfield.api import wgs84
 
 import PiFinder.satellites as satellites
 import PiFinder.satellite_catalog as satellite_catalog
 import PiFinder.web_satellites as web_satellites
+from PiFinder.calc_utils import sf_utils
 from PiFinder.catalog_base import CatalogState
 from PiFinder.state import Location
 
@@ -150,6 +156,194 @@ def test_passes_rise_culminate_and_set_in_order():
     first = passes[0].to_dict()
     json.dumps(first)
     assert set(first) >= {"rise", "max_alt", "visible", "min_mag"}
+
+
+# ---------------------------------------------------------------------------
+# Pass search against Skyfield's find_events
+# ---------------------------------------------------------------------------
+
+# A geostationary satellite. Its inclination is 0.85 degrees.
+GEO_TLE = """ASTRA 1KR
+1 29055U 06012A   26316.93979443  .00000130  00000+0  00000+0 0  9998
+2 29055   0.8523  82.1538 0003456 151.0788 176.1913  1.00270139 47187
+"""
+
+
+def reference_passes(sat, topos, start, hours, min_alt=10.0):
+    """Passes from Skyfield's find_events, with rise, culmination and set
+    only. A pass that is in progress at the start or the end of the window
+    is left out."""
+    ts = sf_utils.ts
+    t0 = ts.from_datetime(start)
+    t1 = ts.from_datetime(start + datetime.timedelta(hours=hours))
+    times, events = sat.satellite.find_events(topos, t0, t1, altitude_degrees=min_alt)
+    difference = sat.satellite - topos
+    passes = []
+    rise = culmination = None
+    for t, event in zip(times, events):
+        if event == 0:
+            rise, culmination = t, None
+        elif event == 1 and rise is not None:
+            culmination = t
+        elif event == 2 and rise is not None and culmination is not None:
+            alt = difference.at(culmination).altaz()[0].degrees
+            passes.append(
+                (
+                    rise.utc_datetime(),
+                    culmination.utc_datetime(),
+                    t.utc_datetime(),
+                    float(alt),
+                )
+            )
+            rise = culmination = None
+    return passes
+
+
+@pytest.mark.unit
+def test_pass_search_agrees_with_find_events():
+    sats = visual_satellites() + [
+        satellites.TrackedSatellite.from_elements(iss_elements())
+    ]
+    found = satellites.find_passes_many(sats, BRUSSELS, NOW, hours=24)
+    total = 0
+    for sat, passes in zip(sats, found):
+        inside = [
+            item
+            for item in passes
+            if item.rise > NOW and item.set < NOW + datetime.timedelta(hours=24)
+        ]
+        expected = reference_passes(sat, BRUSSELS, NOW, 24)
+        assert len(inside) == len(expected), sat.name
+        for item, (rise, culmination, set_time, max_alt) in zip(inside, expected):
+            assert abs((item.rise - rise).total_seconds()) < 3, sat.name
+            assert abs((item.set - set_time).total_seconds()) < 3, sat.name
+            assert abs((item.culmination - culmination).total_seconds()) < 3
+            assert item.max_alt == pytest.approx(max_alt, abs=0.1)
+        total += len(inside)
+    assert total > 30
+
+
+@pytest.mark.unit
+def test_one_satellite_search_is_the_many_satellite_search():
+    sats = visual_satellites()[:4]
+    many = satellites.find_passes_many(sats, BRUSSELS, NOW, hours=12)
+    for sat, passes in zip(sats, many):
+        # The grid of a chunk has the smallest step of its satellites, so the
+        # times differ a little.
+        alone = satellites.find_passes(sat, BRUSSELS, NOW, hours=12)
+        assert len(alone) == len(passes)
+        for one, other in zip(alone, passes):
+            for key in ("rise", "culmination", "set"):
+                gap = getattr(one, key) - getattr(other, key)
+                assert abs(gap.total_seconds()) < 1
+            assert one.max_alt == pytest.approx(other.max_alt, abs=0.02)
+            assert one.visible == other.visible
+
+
+@pytest.mark.unit
+def test_pass_visibility_follows_the_sun_and_the_shadow():
+    sat = satellites.TrackedSatellite.from_elements(iss_elements())
+    passes = satellites.find_passes(sat, BRUSSELS, NOW, hours=48)
+    assert any(item.visible for item in passes)
+    for item in passes:
+        if not item.visible:
+            continue
+        for moment in (item.visible_start, item.visible_end):
+            look = satellites.look(sat, BRUSSELS, moment, with_rates=False)
+            # The samples are 10 s apart; the look is at a sample time.
+            assert look.visible
+            # min_mag is the brightest magnitude of the visible part.
+            assert look.mag >= item.min_mag - 0.01
+
+
+@pytest.mark.unit
+def test_geostationary_satellite_has_one_pass_for_the_full_window():
+    results, _errors = satellites.parse_elements(GEO_TLE)
+    sat = satellites.TrackedSatellite.from_elements(results[0])
+    below = wgs84.subpoint_of(sat.satellite.at(sf_utils.ts.from_datetime(NOW)))
+    topos = satellites.observer_topos(45.0, below.longitude.degrees, 0.0)
+    passes = satellites.find_passes(sat, topos, NOW, hours=24)
+    assert len(passes) == 1
+    item = passes[0]
+    assert item.rise == NOW
+    assert item.set == NOW + datetime.timedelta(hours=24)
+    assert NOW <= item.culmination <= item.set
+    highest = max(
+        satellites.look(sat, topos, NOW + datetime.timedelta(minutes=m)).alt
+        for m in range(0, 24 * 60 + 1, 10)
+    )
+    assert 30 < item.max_alt == pytest.approx(highest, abs=0.05)
+
+
+@pytest.mark.unit
+def test_passes_in_progress_at_the_start_and_at_the_end_of_the_window():
+    sat = satellites.TrackedSatellite.from_elements(iss_elements())
+    first = satellites.find_passes(sat, BRUSSELS, NOW, hours=24)[0]
+    # The window starts after the culmination and ends before the next one.
+    start = first.culmination + datetime.timedelta(seconds=60)
+    following = satellites.find_passes(sat, BRUSSELS, start, hours=24)[1]
+    hours = (following.culmination - start).total_seconds() / 3600.0 - 0.01
+    end = start + datetime.timedelta(hours=hours)
+    passes = satellites.find_passes(sat, BRUSSELS, start, hours=hours)
+
+    head, tail = passes[0], passes[-1]
+    assert head.rise == head.culmination == start
+    assert abs((head.set - first.set).total_seconds()) < 1
+    assert head.max_alt == pytest.approx(
+        satellites.look(sat, BRUSSELS, start).alt, abs=0.05
+    )
+    assert tail.culmination == tail.set == end
+    assert abs((tail.rise - following.rise).total_seconds()) < 1
+    assert tail.max_alt == pytest.approx(
+        satellites.look(sat, BRUSSELS, end).alt, abs=0.05
+    )
+
+
+def decaying_elements() -> satellites.SatElements:
+    """A satellite at 200 km with a very high drag term. SGP4 reports that
+    it decays some hours after its epoch."""
+    satrec = Satrec()
+    epoch = iss_elements().epoch + datetime.timedelta(days=0.5)
+    days = epoch - datetime.datetime(1949, 12, 31, tzinfo=datetime.timezone.utc)
+    satrec.sgp4init(
+        WGS72,
+        "i",
+        99999,
+        days.total_seconds() / 86400.0,
+        0.5,
+        0.0,
+        0.0,
+        0.001,
+        0.0,
+        0.9,
+        0.0,
+        0.0675,
+        0.0,
+    )
+    line1, line2 = exporter.export_tle(satrec)
+    return satellites.SatElements("DECAYED", 99999, line1, line2, "user")
+
+
+@pytest.mark.unit
+def test_element_set_that_sgp4_cannot_propagate_is_skipped(caplog):
+    bad = satellites.TrackedSatellite.from_elements(decaying_elements())
+    iss = satellites.TrackedSatellite.from_elements(iss_elements())
+    with caplog.at_level("WARNING", logger="Satellites"):
+        found = satellites.find_passes_many([bad, iss], BRUSSELS, NOW, hours=24)
+    assert found[0] == []
+    assert len(found[1]) >= 2
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1 and "DECAYED" in warnings[0].getMessage()
+
+
+@pytest.mark.unit
+def test_pass_grid_step_is_a_fraction_of_the_orbit():
+    iss = satellites.TrackedSatellite.from_elements(iss_elements()).satellite.model
+    # 92.9 minute orbit: 1/20 of it.
+    assert satellites._grid_step_seconds(iss) == pytest.approx(279, abs=2)
+    results, _errors = satellites.parse_elements(GEO_TLE)
+    geo = satellites.TrackedSatellite.from_elements(results[0]).satellite.model
+    assert satellites._grid_step_seconds(geo) == satellites.PASS_GRID_MAX_SECONDS
 
 
 @pytest.mark.unit
@@ -461,7 +655,8 @@ def test_web_rows_show_the_selection(tmp_path):
     groups = {
         r["group"]: r["enabled"] for r in web_satellites.group_status(NOW, tmp_path)
     }
-    assert groups == {"visual": True, "stations": False}
+    assert [name for name, enabled in groups.items() if enabled] == ["visual"]
+    assert list(groups) == list(satellites.CELESTRAK_GROUPS)
     assert [r["enabled"] for r in web_satellites.user_satellites(NOW, tmp_path)] == [
         False
     ]
@@ -597,12 +792,12 @@ def test_forced_download_is_refused_a_short_time_after_a_download(
     monkeypatch.setattr(satellites, "download_group", downloads)
     first = satellites.refresh_groups(system_now(), True, tmp_path)
     assert first.status == "downloaded" and first.ok
-    assert downloads.groups == list(satellites.CELESTRAK_GROUPS)
+    assert downloads.groups == list(satellites.DEFAULT_GROUPS)
 
     again = satellites.refresh_groups(system_now(), True, tmp_path)
     assert again.status == "too_soon" and not again.ok
     assert 0 < again.wait_seconds <= satellites.MIN_FORCED_DOWNLOAD_SECONDS
-    assert len(downloads.groups) == len(satellites.CELESTRAK_GROUPS)
+    assert len(downloads.groups) == len(satellites.DEFAULT_GROUPS)
     assert "Wait 5 min" in web_satellites.refresh_message(again)[1]
 
     later = system_now() + datetime.timedelta(
@@ -638,7 +833,7 @@ def test_failed_download_is_tried_again_soon_and_shows_an_error(tmp_path, monkey
     assert cat.get_status().current == CatalogState.CALCULATING
     result = cat._refresh_sources()
     assert result.status == "failed"
-    assert result.failed == satellites.CELESTRAK_GROUPS
+    assert result.failed == satellites.DEFAULT_GROUPS
     assert cat._download_wait_seconds(result) == cat.DOWNLOAD_FAILED_RETRY_SECONDS
     assert cat.DOWNLOAD_FAILED_RETRY_SECONDS <= 60
     assert cat.get_status().current == CatalogState.ERROR
@@ -662,6 +857,170 @@ def test_device_refresh_is_refused_after_a_recent_download(catalog, monkeypatch)
     wait = catalog.refresh()
     assert wait is not None and 0 < wait <= satellites.MIN_FORCED_DOWNLOAD_SECONDS
     assert downloads.groups == []
+
+
+def make_old(path: Path, hours: float = 1.0) -> None:
+    """Set the time of ``path`` to ``hours`` before the system clock."""
+    when = system_now().timestamp() - hours * 3600.0
+    os.utime(path, (when, when))
+
+
+@pytest.mark.unit
+def test_group_list_has_the_small_groups_and_marks_the_large_groups():
+    names = satellites.CELESTRAK_GROUPS
+    assert len(names) == len(set(names))
+    for name in ("visual", "stations", "amateur", "weather", "gps-ops", "geo"):
+        assert name in names
+    large = {group.name for group in satellites.AVAILABLE_GROUPS if group.large}
+    assert large == {"active", "starlink", "oneweb", "kuiper"}
+    assert not large & set(satellites.DEFAULT_GROUPS)
+    assert all(group.label for group in satellites.AVAILABLE_GROUPS)
+
+
+@pytest.mark.unit
+def test_selection_default_is_visual_and_stations(tmp_path):
+    assert satellites.selected_groups(tmp_path) == ("visual", "stations")
+    # A file without the "groups" key gives the default groups.
+    (tmp_path / satellites.SELECTION_FILE_NAME).write_text(
+        json.dumps({"disabled_user": [90001]})
+    )
+    selection = satellites.load_selection(tmp_path)
+    assert selection.groups == frozenset(satellites.DEFAULT_GROUPS)
+    assert not selection.user_enabled(90001)
+
+
+@pytest.mark.unit
+def test_selected_groups_are_stored_and_unknown_names_are_ignored(tmp_path):
+    satellites.set_group_enabled("amateur", True, tmp_path)
+    satellites.set_group_enabled("visual", False, tmp_path)
+    data = json.loads((tmp_path / satellites.SELECTION_FILE_NAME).read_text())
+    assert data["groups"] == ["amateur", "stations"]
+    assert "disabled_groups" not in data
+    assert satellites.selected_groups(tmp_path) == ("stations", "amateur")
+
+    data["groups"] = ["amateur", "no-such-group", 7]
+    (tmp_path / satellites.SELECTION_FILE_NAME).write_text(json.dumps(data))
+    assert satellites.selected_groups(tmp_path) == ("amateur",)
+    satellites.set_group_enabled("amateur", False, tmp_path)
+    assert satellites.selected_groups(tmp_path) == ()
+    with pytest.raises(ValueError):
+        satellites.set_group_enabled("no-such-group", True, tmp_path)
+
+
+@pytest.mark.unit
+def test_unselected_group_is_not_downloaded_and_not_loaded(tmp_path, monkeypatch):
+    (tmp_path / "visual.tle").write_text((DATA / "visual.tle").read_text())
+    make_old(tmp_path / "visual.tle", satellites.DOWNLOAD_INTERVAL_HOURS + 1)
+    visual_ids = {
+        e.norad_id for e in satellites.read_tle_file(tmp_path / "visual.tle", "x")
+    }
+    satellites.set_group_enabled("visual", False, tmp_path)
+    satellites.set_group_enabled("stations", False, tmp_path)
+    satellites.set_group_enabled("amateur", True, tmp_path)
+    downloads = FakeDownloads()
+    monkeypatch.setattr(satellites, "download_group", downloads)
+
+    assert satellites.refresh_groups(system_now(), False, tmp_path).downloaded == (
+        "amateur",
+    )
+    later = system_now() + datetime.timedelta(hours=1)
+    assert satellites.refresh_groups(later, True, tmp_path).downloaded == ("amateur",)
+    assert downloads.groups == ["amateur", "amateur"]
+
+    # The file of the unselected group stays, but it is not read.
+    assert (tmp_path / "visual.tle").exists()
+    loaded = {e.norad_id for e in satellites.load_all_elements(NOW, tmp_path)}
+    assert loaded == {ISS_NORAD}
+    every = satellites.load_all_elements(NOW, tmp_path, include_disabled=True)
+    assert visual_ids <= {e.norad_id for e in every}
+
+
+@pytest.mark.unit
+def test_download_atomic_is_not_called_for_an_unselected_group(tmp_path, monkeypatch):
+    urls = []
+
+    def download_atomic(url, path, progress_callback=None, validator=None):
+        urls.append(url)
+        return satellites.DownloadResult(False, None, None)
+
+    monkeypatch.setattr(satellites, "download_atomic", download_atomic)
+    satellites.set_group_enabled("visual", False, tmp_path)
+    result = satellites.refresh_groups(system_now(), True, tmp_path)
+    assert result.failed == ("stations",)
+    assert urls == [satellites.CELESTRAK_GROUP_URL.format(group="stations")]
+
+    satellites.set_group_enabled("stations", False, tmp_path)
+    result = satellites.refresh_groups(system_now(), True, tmp_path)
+    assert result.status == "no_groups" and result.ok
+    assert web_satellites.refresh_message(result)[1] == "No group is selected."
+    assert len(urls) == 1
+
+
+@pytest.mark.unit
+def test_forced_download_wait_applies_to_each_group(tmp_path, monkeypatch):
+    downloads = FakeDownloads()
+    monkeypatch.setattr(satellites, "download_group", downloads)
+    satellites.set_group_enabled("amateur", True, tmp_path)
+    (tmp_path / "visual.tle").write_text((DATA / "visual.tle").read_text())
+    (tmp_path / "stations.tle").write_text((DATA / "25544.3le").read_text())
+    make_old(tmp_path / "stations.tle")
+
+    result = satellites.refresh_groups(system_now(), True, tmp_path)
+    assert result.status == "downloaded"
+    assert result.downloaded == ("stations", "amateur")
+    assert [group for group, _seconds in result.refused] == ["visual"]
+    message, error = web_satellites.refresh_message(result)
+    assert message == "Downloaded: stations, amateur"
+    assert error == "The last download of visual is too recent. Wait 5 min."
+
+    result = satellites.refresh_groups(system_now(), True, tmp_path, groups=["visual"])
+    assert result.status == "too_soon" and result.downloaded == ()
+    assert "visual" in web_satellites.refresh_message(result)[1]
+    assert downloads.groups == ["stations", "amateur"]
+
+
+@pytest.mark.unit
+def test_group_status_shows_the_count_and_the_age(tmp_path, monkeypatch):
+    rows = {row["group"]: row for row in web_satellites.group_status(NOW, tmp_path)}
+    assert rows["visual"]["age_hours"] is None and rows["visual"]["count"] == 0
+    assert rows["starlink"]["large"] and not rows["visual"]["large"]
+    assert rows["stations"]["label"] == "Space stations"
+
+    monkeypatch.setattr(satellites, "download_group", FakeDownloads())
+    satellites.refresh_groups(system_now(), True, tmp_path, groups=["stations"])
+    rows = {
+        row["group"]: row for row in web_satellites.group_status(system_now(), tmp_path)
+    }
+    assert rows["stations"]["count"] == 1
+    assert 0 <= rows["stations"]["age_hours"] < 0.1
+    assert rows["visual"]["age_hours"] is None
+
+
+@pytest.mark.unit
+def test_device_refresh_downloads_the_selected_groups_only(catalog, monkeypatch):
+    directory = catalog.data_directory
+    downloads = FakeDownloads()
+    monkeypatch.setattr(satellites, "download_group", downloads)
+    satellites.set_group_enabled("stations", False, directory)
+    satellites.set_group_enabled("amateur", True, directory)
+    make_old(directory / "visual.tle")
+    make_old(directory / "stations.tle")
+
+    finished = threading.Event()
+    refresh_sources = catalog._refresh_sources
+
+    def refresh_and_report(force=False):
+        try:
+            return refresh_sources(force)
+        finally:
+            finished.set()
+
+    catalog._refresh_sources = refresh_and_report
+    assert catalog.refresh() is None
+    assert finished.wait(10)
+    assert sorted(downloads.groups) == ["amateur", "visual"]
+    paths = {path.name for path in catalog._element_files()}
+    assert "amateur.tle" in paths and "stations.tle" not in paths
 
 
 # ---------------------------------------------------------------------------

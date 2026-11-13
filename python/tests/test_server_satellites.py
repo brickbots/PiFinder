@@ -3,6 +3,8 @@
 import datetime
 import inspect
 import io
+import os
+import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -179,6 +181,96 @@ def test_refresh_route_refuses_a_download_after_a_recent_one(web, monkeypatch):
     response = client.post("/satellites/refresh")
     assert "Wait 5 min" in redirect_query(response)["err"][0]
     assert calls == []
+
+
+class RecordedDownloads:
+    """Replaces the network. Writes the ISS set as the group file."""
+
+    def __init__(self):
+        self.groups = []
+
+    def __call__(self, group, directory=None, progress_callback=None):
+        self.groups.append(group)
+        satellites.group_file(group, directory).write_text(
+            (DATA / "25544.3le").read_text()
+        )
+        return satellites.DownloadResult(True, None, None)
+
+
+def make_old(path: Path) -> None:
+    when = time.time() - 3600.0
+    os.utime(path, (when, when))
+
+
+@pytest.mark.unit
+def test_page_has_a_row_and_an_update_button_for_each_selected_group(web):
+    client, _shared_state, _directory = web
+    page = client.get("/satellites").get_data(as_text=True)
+    for name in satellites.CELESTRAK_GROUPS:
+        assert f'name="id" value="{name}"' in page
+    assert page.count('name="group" value=') == len(satellites.DEFAULT_GROUPS)
+    assert 'name="group" value="visual"' in page
+    assert "Update selected" in page
+    assert page.count("Large group: the pass prediction takes long on a Pi") == 4
+    assert "not downloaded" in page
+
+
+@pytest.mark.unit
+def test_update_route_downloads_one_group(web, monkeypatch):
+    client, _shared_state, directory = web
+    downloads = RecordedDownloads()
+    monkeypatch.setattr(satellites, "download_group", downloads)
+    make_old(directory / "visual.tle")
+    make_old(directory / "stations.tle")
+
+    response = client.post("/satellites/refresh", data={"group": "visual"})
+    assert redirect_query(response)["msg"] == ["Downloaded: visual"]
+    assert downloads.groups == ["visual"]
+
+    response = client.post("/satellites/refresh", data={"group": "visual"})
+    assert "Wait 5 min" in redirect_query(response)["err"][0]
+    assert downloads.groups == ["visual"]
+
+    response = client.post("/satellites/refresh")
+    query = redirect_query(response)
+    assert query["msg"] == ["Downloaded: stations"]
+    assert "visual" in query["err"][0] and "Wait 5 min" in query["err"][0]
+    assert downloads.groups == ["visual", "stations"]
+
+    response = client.post("/satellites/refresh", data={"group": "amateur"})
+    assert "err" in redirect_query(response)
+    response = client.post("/satellites/refresh", data={"group": "no-such-group"})
+    assert "err" in redirect_query(response)
+    assert downloads.groups == ["visual", "stations"]
+
+
+@pytest.mark.unit
+def test_selecting_a_group_without_a_file_downloads_it(web, monkeypatch):
+    client, _shared_state, directory = web
+    downloads = RecordedDownloads()
+    monkeypatch.setattr(satellites, "download_group", downloads)
+    response = client.post(
+        "/satellites/enable", data={"kind": "group", "id": "amateur", "enabled": "1"}
+    )
+    query = redirect_query(response)
+    assert "Downloaded: amateur" in query["msg"][0]
+    assert "err" not in query
+    assert downloads.groups == ["amateur"]
+    assert satellites.selected_groups(directory) == ("visual", "stations", "amateur")
+    page = client.get("/satellites").get_data(as_text=True)
+    assert 'name="group" value="amateur"' in page
+
+    # A group with a file and a group that the user deselects do not download.
+    client.post(
+        "/satellites/enable", data={"kind": "group", "id": "visual", "enabled": "0"}
+    )
+    client.post(
+        "/satellites/enable", data={"kind": "group", "id": "visual", "enabled": "1"}
+    )
+    client.post(
+        "/satellites/enable", data={"kind": "group", "id": "weather", "enabled": "0"}
+    )
+    assert downloads.groups == ["amateur"]
 
 
 @pytest.mark.unit

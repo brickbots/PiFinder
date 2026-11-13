@@ -572,6 +572,11 @@ class Skyfield_utils:
         sky_pos = position_of_radec(Angle(degrees=ra)._hours, dec)
         return self.constellation_map(sky_pos)
 
+    def radec_to_constellations(self, ra: np.ndarray, dec: np.ndarray) -> np.ndarray:
+        """``radec_to_constellation`` for arrays of RA and Dec in degrees."""
+        sky_pos = position_of_radec(np.asarray(ra) / 15.0, np.asarray(dec))
+        return self.constellation_map(sky_pos)
+
     def calc_planets(self, dt):
         """Returns dictionary with all planet positions:
         {'SUN': {'radec': (279.05819685702846, -23.176809282384962),
