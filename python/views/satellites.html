@@ -14,6 +14,46 @@
 <div class="row"><div class="col s12"><p class="red-text">{{ error_message }}</p></div></div>
 {% endif %}
 
+{% if not time_from_gps %}
+<div class="row" id="satellite_time_note"><div class="col s12"><p class="orange-text"><b>{{ _('The PiFinder has no GPS time. This page uses the system clock ({time} UTC), which can be wrong.').format(time=now_utc) }}</b></p></div></div>
+{% endif %}
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    <h5 class="grey-text">{{ _('In the sky now') }}</h5>
+    {% if sky_now is none %}
+    <p class="grey-text">{{ _('The PiFinder has no location yet.') }}</p>
+    {% elif sky_now %}
+    <table class="grey-text responsive-table" id="sky_now_table">
+      <thead>
+        <tr>
+          <th>{{ _('Satellite') }}</th>
+          <th>{{ _('Altitude') }}</th>
+          <th>{{ _('Azimuth') }}</th>
+          <th>{{ _('Mag') }}</th>
+          <th>{{ _('Light') }}</th>
+          <th>{{ _('Sets in') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sky_now %}
+        <tr>
+          <td><a href="/satellites/{{ s['norad_id'] }}">{{ s['name'] }}</a></td>
+          <td>{{ s['alt'] | round | int }}°</td>
+          <td>{{ s['az'] | round | int }}° {{ s['dir'] }}</td>
+          <td>{% if s['mag'] is not none %}{{ '%.1f' | format(s['mag']) }}{% else %}-{% endif %}</td>
+          <td>{% if s['sunlit'] %}{{ _('Sunlit') }}{% else %}{{ _('In shadow') }}{% endif %}</td>
+          <td>{% if s['sets_in'] %}{{ s['sets_in'] }}{% else %}{{ _('Does not set') }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="grey-text">{{ _('No satellite is above the horizon.') }}</p>
+    {% endif %}
+  </div>
+</div>
+
 <div class="card grey darken-2">
   <div class="card-content">
     <h5 class="grey-text">
@@ -106,11 +146,19 @@
     {% if user_satellites %}
     <table class="grey-text" id="user_satellite_table">
       <thead>
-        <tr><th>{{ _('Name') }}</th><th>NORAD</th><th>{{ _('Epoch') }}</th><th>{{ _('Age') }}</th><th></th></tr>
+        <tr><th>{{ _('Use') }}</th><th>{{ _('Name') }}</th><th>NORAD</th><th>{{ _('Epoch') }}</th><th>{{ _('Age') }}</th><th></th></tr>
       </thead>
       <tbody>
         {% for s in user_satellites %}
         <tr>
+          <td>
+            <form action="/satellites/enable" method="post" style="display:inline;">
+              <input type="hidden" name="kind" value="user">
+              <input type="hidden" name="id" value="{{ s['norad_id'] }}">
+              <input type="hidden" name="enabled" value="{% if s['enabled'] %}0{% else %}1{% endif %}">
+              <label><input type="checkbox" class="filled-in" {% if s['enabled'] %}checked{% endif %} onchange="this.form.submit()"><span></span></label>
+            </form>
+          </td>
           <td><a href="/satellites/{{ s['norad_id'] }}">{{ s['name'] }}</a></td>
           <td>{{ s['norad_id'] }}</td>
           <td>{{ s['epoch'] }}</td>
@@ -124,7 +172,7 @@
         {% endfor %}
       </tbody>
     </table>
-    <p class="grey-text">{{ _('Element sets older than 30 days are not used.') }}</p>
+    <p class="grey-text">{{ _('Element sets older than 30 days are not used.') }} {{ _('A satellite without a check mark stays stored, but the PiFinder does not list it.') }}</p>
     {% else %}
     <p class="grey-text">{{ _('None yet.') }}</p>
     {% endif %}
@@ -135,9 +183,18 @@
   <div class="card-content">
     <h5 class="grey-text">{{ _('Downloaded element sets') }}</h5>
     <p class="grey-text">{{ _('The PiFinder gets the CelesTrak groups of the brightest satellites and of the space stations every 12 hours when it has internet.') }}</p>
-    <table class="grey-text">
+    <p class="grey-text">{{ _('A group without a check mark stays stored, but the PiFinder does not list its satellites.') }}</p>
+    <table class="grey-text" id="satellite_group_table">
       {% for g in groups %}
       <tr>
+        <td>
+            <form action="/satellites/enable" method="post" style="display:inline;">
+              <input type="hidden" name="kind" value="group">
+              <input type="hidden" name="id" value="{{ g['group'] }}">
+              <input type="hidden" name="enabled" value="{% if g['enabled'] %}0{% else %}1{% endif %}">
+              <label><input type="checkbox" class="filled-in" {% if g['enabled'] %}checked{% endif %} onchange="this.form.submit()"><span></span></label>
+            </form>
+        </td>
         <td>{{ g['group'] }}</td>
         <td>{{ g['count'] }} {{ _('objects') }}</td>
         <td>{% if g['age_hours'] is not none %}{{ g['age_hours'] | round(1) }} h {{ _('old') }}{% else %}{{ _('not downloaded') }}{% endif %}</td>

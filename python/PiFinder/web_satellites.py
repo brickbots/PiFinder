@@ -20,6 +20,8 @@ from PiFinder.utils import satellite_data_dir
 
 # The pass table on the web page lists passes this bright or brighter.
 DEFAULT_MAX_MAG = 4.0
+# The largest element file that the web form accepts.
+MAX_UPLOAD_BYTES = 1_000_000
 
 
 def _zone(name: Optional[str]):
@@ -47,21 +49,30 @@ def format_pass(row: dict, zone) -> dict:
 
 
 def group_status(now: datetime.datetime, directory: Path = satellite_data_dir) -> list:
+    selection = satellites.load_selection(directory)
     rows = []
     for group in satellites.CELESTRAK_GROUPS:
         path = satellites.group_file(group, directory)
         if path.exists():
             age_hours = (now.timestamp() - path.stat().st_mtime) / 3600.0
             count = len(satellites.read_tle_file(path, "celestrak"))
-            rows.append({"group": group, "age_hours": age_hours, "count": count})
         else:
-            rows.append({"group": group, "age_hours": None, "count": 0})
+            age_hours, count = None, 0
+        rows.append(
+            {
+                "group": group,
+                "age_hours": age_hours,
+                "count": count,
+                "enabled": selection.group_enabled(group),
+            }
+        )
     return rows
 
 
 def user_satellites(
     now: datetime.datetime, directory: Path = satellite_data_dir
 ) -> list:
+    selection = satellites.load_selection(directory)
     rows = []
     for element in satellites.load_user_elements(directory):
         age = element.age_days(now)
@@ -74,6 +85,7 @@ def user_satellites(
                 "too_old": abs(age) > satellites.MAX_ELEMENT_AGE_DAYS,
                 "line1": element.line1,
                 "line2": element.line2,
+                "enabled": selection.user_enabled(element.norad_id),
             }
         )
     rows.sort(key=lambda row: str(row["name"]))
@@ -90,8 +102,13 @@ def upcoming_passes(
     if cache is None:
         return [], None
     zone = _zone(cache.get("timezone"))
+    # The catalog writes the cache again some seconds after a change of the
+    # selection. Until then the cache can hold a satellite that is disabled.
+    enabled = {e.norad_id for e in satellites.load_all_elements(now, directory)}
     rows = []
     for row in cache.get("passes", []):
+        if row["norad_id"] not in enabled:
+            continue
         end = datetime.datetime.fromisoformat(row["set"])
         if end < now or (visible_only and not row["visible"]):
             continue
@@ -120,11 +137,18 @@ def add_elements(
             errors.append(str(exc))
     if norad.strip():
         try:
-            found.extend(satellites.fetch_by_norad(int(norad)))
+            number = int(norad)
         except ValueError:
+            number = 0
+        if number <= 0:
             errors.append(f"not a NORAD number: {norad}")
-        except Exception as exc:  # network errors of many types
-            errors.append(f"CelesTrak: {exc}")
+        else:
+            try:
+                found.extend(satellites.fetch_by_norad(number))
+            except satellites.ElementParseError:
+                errors.append(f"CelesTrak has no elements for NORAD {number}")
+            except Exception as exc:  # network errors of many types
+                errors.append(f"CelesTrak: {exc}")
     name = name.strip()
     if name and len(found) == 1:
         element = found[0]
@@ -138,11 +162,94 @@ def add_elements(
     if std_mag.strip() and found:
         try:
             value = float(std_mag)
+        except ValueError:
+            value = math.nan
+        if math.isfinite(value):
             for element in found:
                 satellites.save_user_mag(element.norad_id, value, directory)
-        except ValueError:
+        else:
             errors.append(f"not a magnitude: {std_mag}")
     return found, errors
+
+
+def set_enabled(
+    kind: str, name: str, enabled: bool, directory: Path = satellite_data_dir
+) -> None:
+    """Enable or disable one group or one satellite of the user.
+
+    Raises ValueError when the group or the number is not known.
+    """
+    if kind == "group":
+        satellites.set_group_enabled(name, enabled, directory)
+    elif kind == "user":
+        satellites.set_user_enabled(int(name), enabled, directory)
+    else:
+        raise ValueError(f"not a group or a satellite: {kind}")
+
+
+def refresh_message(result: satellites.GroupRefresh) -> tuple[str, str]:
+    """The message and the error text for the result of a forced download."""
+    if result.status == "too_soon":
+        minutes = math.ceil(result.wait_seconds / 60.0)
+        return "", f"The last download is too recent. Wait {minutes} min."
+    if result.status == "busy":
+        return "", "A download runs now. Try again in a minute."
+    if result.status == "failed":
+        return "", "Download failed: " + ", ".join(result.failed)
+    return "Element sets downloaded", ""
+
+
+def _duration(seconds: Optional[float]) -> str:
+    if seconds is None:
+        return ""
+    minutes, rest = divmod(int(seconds), 60)
+    if minutes >= 60:
+        return f"{minutes // 60} h {minutes % 60:02d} min"
+    return f"{minutes} min {rest:02d} s"
+
+
+def sky_now(
+    now: datetime.datetime,
+    location,
+    directory: Path = satellite_data_dir,
+) -> Optional[list]:
+    """The enabled satellites above the horizon, the highest first.
+
+    Returns None when the PiFinder has no location.
+    """
+    if location is None or not getattr(location, "lock", False):
+        return None
+    user_mags = satellites.load_user_mags(directory)
+    tracked = []
+    for element in satellites.load_all_elements(now, directory):
+        try:
+            tracked.append(
+                satellites.TrackedSatellite.from_elements(element, user_mags)
+            )
+        except ValueError:
+            continue
+    topos = satellites.observer_topos(location.lat, location.lon, location.altitude)
+    looks = satellites.look_many(tracked, topos, now)
+    up = [(sat, look) for sat, look in zip(tracked, looks) if look.alt > 0]
+    up.sort(key=lambda pair: -pair[1].alt)
+    until_set = satellites.seconds_until_set([sat for sat, _look in up], topos, now)
+    rows = []
+    for (sat, look), seconds in zip(up, until_set):
+        rows.append(
+            {
+                "norad_id": sat.norad_id,
+                "name": sat.name,
+                "alt": look.alt,
+                "az": look.az,
+                "dir": satellites.compass(look.az),
+                "mag": look.mag,
+                "sunlit": look.sunlit,
+                "visible": look.visible,
+                "sets_in_seconds": seconds,
+                "sets_in": _duration(seconds),
+            }
+        )
+    return rows
 
 
 def satellite_detail(
@@ -153,10 +260,14 @@ def satellite_detail(
     directory: Path = satellite_data_dir,
 ) -> Optional[dict]:
     elements = {
-        e.norad_id: e for e in satellites.load_all_elements(now, directory)
+        e.norad_id: e
+        for e in satellites.load_all_elements(now, directory, include_disabled=True)
     }.get(norad_id)
     if elements is None:
         return None
+    enabled = any(
+        e.norad_id == norad_id for e in satellites.load_all_elements(now, directory)
+    )
     sat = satellites.TrackedSatellite.from_elements(
         elements, satellites.load_user_mags(directory)
     )
@@ -169,6 +280,7 @@ def satellite_detail(
         "age_days": elements.age_days(now),
         "line1": elements.line1,
         "line2": elements.line2,
+        "enabled": enabled,
         "now": None,
         "passes": [],
     }
