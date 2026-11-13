@@ -1417,6 +1417,11 @@ class MountControlBase:
                 #         f"Mount control loop: {cmd_steps} command steps, {phase_steps} phase steps"
                 #     )
                 #     logger.debug(f"Mount state: {self.state}")
+        except SystemExit:
+            # The exit command ends the loop. A return ends the process (or
+            # the thread in a test) with no unhandled exception.
+            logger.info("Mount control stopped.")
+            return
         except KeyboardInterrupt:
             self.disconnect_mount()
             print("Mount control stopped.")

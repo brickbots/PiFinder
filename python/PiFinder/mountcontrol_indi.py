@@ -531,6 +531,8 @@ class MountControlIndi(MountControlBase):
         opposite. If a drift has the same direction as the last one and is
         larger, the last correction went the wrong way: the axis turns its
         direction, and this correction cancels the full drift.
+
+        An axis rate that changes its sign goes through zero (see below).
         """
         if self.device is None:
             return False
@@ -557,14 +559,25 @@ class MountControlIndi(MountControlBase):
             self._custom_tracking = True
         # TELESCOPE_TRACK_RATE is in arcseconds per second. The pointing
         # must move against the drift.
+        new_ra = ra_rate - self._ra_rate_sign * drift_rate_adjustment_ra * 3600.0
+        new_dec = dec_rate - self._dec_rate_sign * drift_rate_adjustment_dec * 3600.0
+        # While tracking, an INDI driver ignores a rate that has the opposite
+        # sign of its current rate ("Cannot reverse tracking"), and it sends
+        # no reply. A rate of zero is always accepted, so an axis whose sign
+        # changes goes through zero first.
+        if ra_rate * new_ra < 0 or dec_rate * new_dec < 0:
+            ok = self._set_number(
+                "TELESCOPE_TRACK_RATE",
+                {
+                    "TRACK_RATE_RA": 0.0 if ra_rate * new_ra < 0 else new_ra,
+                    "TRACK_RATE_DE": 0.0 if dec_rate * new_dec < 0 else new_dec,
+                },
+            )
+            if not ok:
+                return False
         ok = self._set_number(
             "TELESCOPE_TRACK_RATE",
-            {
-                "TRACK_RATE_RA": ra_rate
-                - self._ra_rate_sign * drift_rate_adjustment_ra * 3600.0,
-                "TRACK_RATE_DE": dec_rate
-                - self._dec_rate_sign * drift_rate_adjustment_dec * 3600.0,
-            },
+            {"TRACK_RATE_RA": new_ra, "TRACK_RATE_DE": new_dec},
         )
         if ok:
             self._last_drift = (drift_rate_adjustment_ra, drift_rate_adjustment_dec)

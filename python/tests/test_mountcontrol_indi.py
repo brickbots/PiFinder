@@ -321,6 +321,41 @@ def test_drift_compensation_uses_custom_tracking(indi: int) -> None:
         indi_drivers.stop_driver()
 
 
+def test_drift_correction_reverses_an_axis_rate(indi: int) -> None:
+    """While tracking, the driver ignores a track rate with the opposite sign
+    of the current one. A correction that reverses the Dec rate must still
+    reach the driver."""
+    mount = _simulator_mount(indi)
+    try:
+        assert mount.init_mount()
+        device = mount.device
+        assert _wait(
+            lambda: mount.client.get_value(device, "TELESCOPE_TRACK_STATE", "TRACK_ON")
+            is True,
+            10,
+        )
+        assert mount.adjust_mount_drift_rates(0.0, 0.001)
+        assert _wait(
+            lambda: mount.client.get_value(
+                device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_DE"
+            )
+            == pytest.approx(-3.6, abs=0.01),
+            5,
+        )
+        assert mount.adjust_mount_drift_rates(0.0, -0.002)
+        assert _wait(
+            lambda: mount.client.get_value(
+                device, "TELESCOPE_TRACK_RATE", "TRACK_RATE_DE"
+            )
+            == pytest.approx(3.6, abs=0.01),
+            5,
+        )
+        assert not any("Cannot reverse" in m for m in mount.client.messages(device))
+    finally:
+        mount.disconnect_mount()
+        indi_drivers.stop_driver()
+
+
 def test_sync_reply_does_not_end_the_next_goto(indi: int) -> None:
     """The driver confirms a sync with state Ok. When that reply comes after
     the next goto was sent, the goto must still run to its end."""
