@@ -232,9 +232,10 @@ def catalog(tmp_path):
     (tmp_path / "stations.tle").write_text((DATA / "25544.3le").read_text())
     shared_state = FixedSharedState(NOW)
     cat = satellite_catalog.SatelliteCatalog(
-        NOW, shared_state, data_directory=tmp_path, start_threads=False
+        shared_state, data_directory=tmp_path, start_threads=False
     )
-    cat._start_pass_update = lambda dt: cat._update_passes(dt)
+    # The pass worker runs in the calling thread, so a test sees the result.
+    cat._spawn_pass_worker = cat._run_pass_updates
     cat.do_timed_task()
     return cat
 
@@ -342,3 +343,555 @@ def test_bright_pass_filter(catalog):
     )
     assert len(bright) <= len(every)
     assert all(row["min_mag"] <= 3.0 for row in bright)
+
+
+# ---------------------------------------------------------------------------
+# Many satellites at one time
+# ---------------------------------------------------------------------------
+
+
+def visual_satellites() -> list:
+    elements, _errors = satellites.parse_elements((DATA / "visual.tle").read_text())
+    return [satellites.TrackedSatellite.from_elements(e) for e in elements]
+
+
+def renumbered_tle(norad_id: int, name: str = "HAND MADE") -> str:
+    """The ISS element set with another catalog number, as a typed TLE."""
+    element = iss_elements()
+    lines = []
+    for line in (element.line1, element.line2):
+        line = line[:2] + f"{norad_id:05d}" + line[7:68]
+        lines.append(line + str(satellites.tle_checksum(line)))
+    return f"{name}\n{lines[0]}\n{lines[1]}\n"
+
+
+@pytest.mark.unit
+def test_look_many_agrees_with_look():
+    sats = visual_satellites()
+    assert len(sats) > 10
+    many = satellites.look_many(sats, BRUSSELS, NOW)
+    for sat, fast in zip(sats, many):
+        slow = satellites.look(sat, BRUSSELS, NOW)
+        assert fast.alt == pytest.approx(slow.alt, abs=1e-3)
+        assert (fast.az - slow.az + 180) % 360 - 180 == pytest.approx(0, abs=1e-2)
+        assert (fast.ra - slow.ra + 180) % 360 - 180 == pytest.approx(0, abs=1e-2)
+        assert fast.dec == pytest.approx(slow.dec, abs=1e-3)
+        assert fast.range_km == pytest.approx(slow.range_km, rel=1e-5)
+        assert fast.sunlit == slow.sunlit
+        assert (fast.mag is None) == (slow.mag is None)
+        if fast.mag is not None:
+            assert fast.mag == pytest.approx(slow.mag, abs=1e-3)
+    assert satellites.look_many([], BRUSSELS, NOW) == []
+
+
+@pytest.mark.unit
+def test_seconds_until_set_is_the_horizon_crossing():
+    iss = satellites.TrackedSatellite.from_elements(iss_elements())
+    moment = satellites.find_passes(iss, BRUSSELS, NOW, hours=24)[0].culmination
+    sats = visual_satellites() + [iss]
+    looks = satellites.look_many(sats, BRUSSELS, moment)
+    waits = satellites.seconds_until_set(sats, BRUSSELS, moment)
+    assert waits[-1] is not None
+    checked = 0
+    for sat, now, wait in zip(sats, looks, waits):
+        if now.alt <= 0:
+            assert wait is None
+            continue
+        if wait is None:
+            continue
+        before = moment + datetime.timedelta(seconds=max(wait - 15, 0))
+        after = moment + datetime.timedelta(seconds=wait + 15)
+        assert satellites.look(sat, BRUSSELS, before).alt > 0
+        assert satellites.look(sat, BRUSSELS, after).alt < 0
+        checked += 1
+    assert checked > 0
+
+
+@pytest.mark.unit
+def test_epoch_is_computed_once():
+    element = iss_elements()
+    assert element.epoch is element.epoch
+
+
+# ---------------------------------------------------------------------------
+# User data: magnitudes and the selection
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_delete_removes_the_magnitude_and_the_selection_entry(tmp_path):
+    satellites.save_user_elements([iss_elements()], tmp_path)
+    satellites.save_user_mag(ISS_NORAD, 1.5, tmp_path)
+    satellites.set_user_enabled(ISS_NORAD, False, tmp_path)
+    assert satellites.delete_user_element(ISS_NORAD, tmp_path)
+    assert satellites.load_user_mags(tmp_path) == {}
+    assert satellites.load_selection(tmp_path).user_enabled(ISS_NORAD)
+
+
+@pytest.mark.unit
+def test_selection_is_stored_and_filters_the_elements(tmp_path):
+    (tmp_path / "visual.tle").write_text((DATA / "visual.tle").read_text())
+    web_satellites.add_elements(renumbered_tle(90001), directory=tmp_path)
+    every = {e.norad_id for e in satellites.load_all_elements(NOW, tmp_path)}
+    assert 90001 in every and len(every) > 10
+
+    satellites.set_group_enabled("visual", False, tmp_path)
+    assert json.loads((tmp_path / satellites.SELECTION_FILE_NAME).read_text())
+    ids = {e.norad_id for e in satellites.load_all_elements(NOW, tmp_path)}
+    assert ids == {90001}
+    stored = satellites.load_all_elements(NOW, tmp_path, include_disabled=True)
+    assert {e.norad_id for e in stored} == every
+
+    satellites.set_user_enabled(90001, False, tmp_path)
+    assert satellites.load_all_elements(NOW, tmp_path) == []
+    assert [e.norad_id for e in satellites.load_user_elements(tmp_path)] == [90001]
+
+    satellites.set_group_enabled("visual", True, tmp_path)
+    satellites.set_user_enabled(90001, True, tmp_path)
+    assert {e.norad_id for e in satellites.load_all_elements(NOW, tmp_path)} == every
+    with pytest.raises(ValueError):
+        satellites.set_group_enabled("no-such-group", False, tmp_path)
+
+
+@pytest.mark.unit
+def test_web_rows_show_the_selection(tmp_path):
+    web_satellites.add_elements(renumbered_tle(90001), directory=tmp_path)
+    web_satellites.set_enabled("group", "stations", False, tmp_path)
+    web_satellites.set_enabled("user", "90001", False, tmp_path)
+    groups = {
+        r["group"]: r["enabled"] for r in web_satellites.group_status(NOW, tmp_path)
+    }
+    assert groups == {"visual": True, "stations": False}
+    assert [r["enabled"] for r in web_satellites.user_satellites(NOW, tmp_path)] == [
+        False
+    ]
+    with pytest.raises(ValueError):
+        web_satellites.set_enabled("other", "1", True, tmp_path)
+    with pytest.raises(ValueError):
+        web_satellites.set_enabled("user", "abc", True, tmp_path)
+
+
+@pytest.mark.unit
+def test_hand_made_tle_outside_every_group_enters_the_catalog(catalog):
+    directory = catalog.data_directory
+    assert catalog.get_object_by_sequence(90001) is None
+    found, errors = web_satellites.add_elements(
+        renumbered_tle(90001, "USA 999"), directory=directory
+    )
+    assert errors == [] and [e.norad_id for e in found] == [90001]
+    catalog.do_timed_task()
+    obj = catalog.get_object_by_sequence(90001)
+    assert obj is not None and obj.names == ["USA 999"]
+    cache = satellites.read_pass_cache(directory)
+    assert any(s["norad_id"] == 90001 for s in cache["satellites"])
+    detail = web_satellites.satellite_detail(
+        90001, NOW, catalog.shared_state.location(), days=0.0, directory=directory
+    )
+    assert detail["enabled"] and detail["source"] == "user"
+
+
+@pytest.mark.unit
+def test_catalog_follows_the_selection_without_a_restart(catalog):
+    directory = catalog.data_directory
+    web_satellites.add_elements(renumbered_tle(90001), directory=directory)
+    catalog.do_timed_task()
+    count = len(catalog.get_objects())
+    assert catalog.get_object_by_sequence(90001) is not None
+
+    web_satellites.set_enabled("user", "90001", False, directory)
+    web_satellites.set_enabled("group", "visual", False, directory)
+    catalog.do_timed_task()
+    # The stations group stays, and it holds only the ISS.
+    assert [obj.sequence for obj in catalog.get_objects()] == [ISS_NORAD]
+    cache = satellites.read_pass_cache(directory)
+    assert [s["norad_id"] for s in cache["satellites"]] == [ISS_NORAD]
+    rows, _cache = web_satellites.upcoming_passes(NOW, False, directory)
+    assert {row["norad_id"] for row in rows} == {ISS_NORAD}
+    detail = web_satellites.satellite_detail(
+        90001, NOW, catalog.shared_state.location(), days=0.0, directory=directory
+    )
+    assert detail is not None and not detail["enabled"]
+
+    web_satellites.set_enabled("user", "90001", True, directory)
+    web_satellites.set_enabled("group", "visual", True, directory)
+    catalog.do_timed_task()
+    assert len(catalog.get_objects()) == count
+
+
+@pytest.mark.unit
+def test_pass_table_hides_a_satellite_before_the_cache_is_new(catalog):
+    directory = catalog.data_directory
+    before, _cache = web_satellites.upcoming_passes(NOW, False, directory)
+    assert any(row["norad_id"] != ISS_NORAD for row in before)
+    # The catalog did not run after this change, so the cache is the old one.
+    web_satellites.set_enabled("group", "visual", False, directory)
+    after, _cache = web_satellites.upcoming_passes(NOW, False, directory)
+    assert after and {row["norad_id"] for row in after} == {ISS_NORAD}
+
+
+# ---------------------------------------------------------------------------
+# Web form checks
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_norad_number_messages(tmp_path, monkeypatch):
+    def no_elements(norad):
+        raise satellites.ElementParseError("no element sets found")
+
+    monkeypatch.setattr(satellites, "fetch_by_norad", no_elements)
+    _found, errors = web_satellites.add_elements("", norad="99999", directory=tmp_path)
+    assert errors == ["CelesTrak has no elements for NORAD 99999"]
+    for text in ("abc", "-4", "0"):
+        _found, errors = web_satellites.add_elements("", norad=text, directory=tmp_path)
+        assert errors == [f"not a NORAD number: {text}"]
+
+    def network_down(norad):
+        raise OSError("no route")
+
+    monkeypatch.setattr(satellites, "fetch_by_norad", network_down)
+    _found, errors = web_satellites.add_elements("", norad="25544", directory=tmp_path)
+    assert errors == ["CelesTrak: no route"]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("text", ["nan", "inf", "-inf", "bright"])
+def test_magnitude_must_be_a_finite_number(tmp_path, text):
+    found, errors = web_satellites.add_elements(
+        (DATA / "25544.3le").read_text(), std_mag=text, directory=tmp_path
+    )
+    assert found and errors == [f"not a magnitude: {text}"]
+    assert satellites.load_user_mags(tmp_path) == {}
+
+
+# ---------------------------------------------------------------------------
+# Downloads
+# ---------------------------------------------------------------------------
+
+
+class FakeDownloads:
+    """Replaces the network. Writes the fixture file when ``success`` is set."""
+
+    def __init__(self, success=True):
+        self.success = success
+        self.groups = []
+
+    def __call__(self, group, directory=None, progress_callback=None):
+        self.groups.append(group)
+        if self.success:
+            satellites.group_file(group, directory).write_text(
+                (DATA / "25544.3le").read_text()
+            )
+        return satellites.DownloadResult(self.success, None, None)
+
+
+def system_now() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+@pytest.mark.unit
+def test_forced_download_is_refused_a_short_time_after_a_download(
+    tmp_path, monkeypatch
+):
+    downloads = FakeDownloads()
+    monkeypatch.setattr(satellites, "download_group", downloads)
+    first = satellites.refresh_groups(system_now(), True, tmp_path)
+    assert first.status == "downloaded" and first.ok
+    assert downloads.groups == list(satellites.CELESTRAK_GROUPS)
+
+    again = satellites.refresh_groups(system_now(), True, tmp_path)
+    assert again.status == "too_soon" and not again.ok
+    assert 0 < again.wait_seconds <= satellites.MIN_FORCED_DOWNLOAD_SECONDS
+    assert len(downloads.groups) == len(satellites.CELESTRAK_GROUPS)
+    assert "Wait 5 min" in web_satellites.refresh_message(again)[1]
+
+    later = system_now() + datetime.timedelta(
+        seconds=satellites.MIN_FORCED_DOWNLOAD_SECONDS + 1
+    )
+    assert satellites.refresh_groups(later, True, tmp_path).status == "downloaded"
+    assert satellites.refresh_groups(later, False, tmp_path).status == "current"
+
+
+@pytest.mark.unit
+def test_only_one_download_runs_at_a_time(tmp_path, monkeypatch):
+    results = []
+
+    def download_during_a_download(group, directory=None, progress_callback=None):
+        results.append(satellites.refresh_groups(system_now(), True, tmp_path))
+        return satellites.DownloadResult(True, None, None)
+
+    monkeypatch.setattr(satellites, "download_group", download_during_a_download)
+    assert satellites.refresh_groups(system_now(), True, tmp_path).status == (
+        "downloaded"
+    )
+    assert results and {result.status for result in results} == {"busy"}
+    assert web_satellites.refresh_message(results[0])[1]
+
+
+@pytest.mark.unit
+def test_failed_download_is_tried_again_soon_and_shows_an_error(tmp_path, monkeypatch):
+    downloads = FakeDownloads(success=False)
+    monkeypatch.setattr(satellites, "download_group", downloads)
+    cat = satellite_catalog.SatelliteCatalog(
+        FixedSharedState(NOW), data_directory=tmp_path, start_threads=False
+    )
+    assert cat.get_status().current == CatalogState.CALCULATING
+    result = cat._refresh_sources()
+    assert result.status == "failed"
+    assert result.failed == satellites.CELESTRAK_GROUPS
+    assert cat._download_wait_seconds(result) == cat.DOWNLOAD_FAILED_RETRY_SECONDS
+    assert cat.DOWNLOAD_FAILED_RETRY_SECONDS <= 60
+    assert cat.get_status().current == CatalogState.ERROR
+    assert "Download failed" in web_satellites.refresh_message(result)[1]
+
+    downloads.success = True
+    result = cat._refresh_sources()
+    assert result.status == "downloaded"
+    assert cat._download_wait_seconds(result) == cat.DOWNLOAD_RETRY_SECONDS
+    assert cat.get_status().current == CatalogState.CALCULATING
+    cat._spawn_pass_worker = lambda: None
+    cat.do_timed_task()
+    assert cat.get_status().current == CatalogState.READY
+
+
+@pytest.mark.unit
+def test_device_refresh_is_refused_after_a_recent_download(catalog, monkeypatch):
+    # The fixture wrote the group files a moment ago.
+    downloads = FakeDownloads()
+    monkeypatch.setattr(satellites, "download_group", downloads)
+    wait = catalog.refresh()
+    assert wait is not None and 0 < wait <= satellites.MIN_FORCED_DOWNLOAD_SECONDS
+    assert downloads.groups == []
+
+
+# ---------------------------------------------------------------------------
+# Catalog updates
+# ---------------------------------------------------------------------------
+
+
+class CountingSharedState(FixedSharedState):
+    def __init__(self, dt):
+        super().__init__(dt)
+        self.calls = {"altaz_ready": 0, "datetime": 0, "location": 0}
+
+    def altaz_ready(self):
+        self.calls["altaz_ready"] += 1
+        return True
+
+    def datetime(self):
+        self.calls["datetime"] += 1
+        return self.dt
+
+    def location(self):
+        self.calls["location"] += 1
+        return self._location
+
+
+@pytest.mark.unit
+def test_one_update_reads_the_shared_state_once(tmp_path):
+    (tmp_path / "visual.tle").write_text((DATA / "visual.tle").read_text())
+    shared_state = CountingSharedState(NOW)
+    cat = satellite_catalog.SatelliteCatalog(
+        shared_state, data_directory=tmp_path, start_threads=False
+    )
+    cat._spawn_pass_worker = cat._run_pass_updates
+    cat.do_timed_task()
+    assert len(cat.get_objects()) > 10
+    assert shared_state.calls == {"altaz_ready": 1, "datetime": 1, "location": 1}
+
+    shared_state.dt = NOW + datetime.timedelta(seconds=5)
+    cat.do_timed_task()
+    assert shared_state.calls == {"altaz_ready": 2, "datetime": 2, "location": 2}
+
+    obj = cat.get_objects()[0]
+    for second in range(10):
+        moment = shared_state.dt + datetime.timedelta(seconds=second)
+        assert satellite_catalog.live_radec(obj, moment) is not None
+    assert shared_state.calls == {"altaz_ready": 2, "datetime": 2, "location": 2}
+
+
+@pytest.mark.unit
+def test_position_update_does_not_make_the_lists_build_again(catalog):
+    invalidations = []
+    invalidate = catalog.invalidate_filter_cache
+    catalog.invalidate_filter_cache = lambda: (
+        invalidations.append(catalog.shared_state.dt),
+        invalidate(),
+    )
+    iss = catalog.get_object_by_sequence(ISS_NORAD)
+    position = (iss.ra, iss.dec)
+    # The same time again: no satellite crosses the horizon.
+    catalog.do_timed_task()
+    assert invalidations == []
+
+    # Updates five seconds apart. The positions change on each update. The
+    # lists build again only when the set of satellites above the horizon
+    # changes.
+    up_sets = [catalog._list_state[1]]
+    for step in range(1, 55):
+        catalog.shared_state.dt = NOW + datetime.timedelta(seconds=5 * step)
+        catalog.do_timed_task()
+        up_sets.append(catalog._list_state[1])
+    assert (iss.ra, iss.dec) != position
+    changes = sum(1 for a, b in zip(up_sets, up_sets[1:]) if a != b)
+    assert len(invalidations) == changes
+    assert changes < 54
+
+    # A change of the object set makes the lists build again.
+    before = len(invalidations)
+    web_satellites.set_enabled("group", "visual", False, catalog.data_directory)
+    catalog.do_timed_task()
+    assert len(invalidations) == before + 1
+
+
+@pytest.mark.unit
+def test_new_pass_data_makes_the_lists_build_again(catalog):
+    catalog.do_timed_task()
+    marker = catalog.last_filtered = 123.0
+    catalog.do_timed_task()
+    assert catalog.last_filtered == marker
+    catalog._update_passes(
+        NOW + datetime.timedelta(seconds=1), catalog.shared_state.location()
+    )
+    catalog.do_timed_task()
+    assert catalog.last_filtered == 0
+
+
+@pytest.mark.unit
+def test_pass_request_during_a_run_causes_one_more_run(catalog):
+    location = catalog.shared_state.location()
+    spawned = []
+    runs = []
+    catalog._spawn_pass_worker = lambda: spawned.append(True)
+    first = NOW + datetime.timedelta(minutes=1)
+    second = NOW + datetime.timedelta(minutes=2)
+    third = NOW + datetime.timedelta(minutes=3)
+
+    def update_passes(dt, place):
+        runs.append((dt, sorted(catalog._tracked)))
+        if dt == first:
+            # Two requests arrive while this run is busy. The newest one wins.
+            del catalog._tracked[ISS_NORAD]
+            catalog._start_pass_update(second, location)
+            catalog._start_pass_update(third, location)
+
+    catalog._update_passes = update_passes
+    catalog._start_pass_update(first, location)
+    assert spawned == [True]
+    catalog._run_pass_updates()
+    assert spawned == [True]
+    assert [dt for dt, _ids in runs] == [first, third]
+    assert ISS_NORAD in runs[0][1] and ISS_NORAD not in runs[1][1]
+    assert not catalog._pass_running
+
+    catalog._start_pass_update(first, location)
+    assert spawned == [True, True]
+
+
+@pytest.mark.unit
+def test_pass_worker_stays_usable_after_an_error(catalog):
+    location = catalog.shared_state.location()
+
+    def fail(dt, place):
+        raise RuntimeError("no passes")
+
+    catalog._update_passes = fail
+    catalog._start_pass_update(NOW, location)
+    assert not catalog._pass_running
+
+
+@pytest.mark.unit
+def test_slow_pass_run_does_not_cause_a_request_on_each_update(catalog):
+    requests = []
+    catalog._spawn_pass_worker = lambda: requests.append(catalog.shared_state.dt)
+    catalog.shared_state.dt = NOW + datetime.timedelta(
+        seconds=catalog.PASS_UPDATE_SECONDS + 1
+    )
+    catalog.do_timed_task()
+    assert len(requests) == 1
+    # The run is not complete. The next updates do not ask again.
+    for second in (5, 10, 15):
+        catalog.shared_state.dt += datetime.timedelta(seconds=second)
+        catalog.do_timed_task()
+    assert len(requests) == 1
+    assert catalog._pass_request is not None
+
+
+# ---------------------------------------------------------------------------
+# In the sky now
+# ---------------------------------------------------------------------------
+
+
+def time_with_iss_up() -> datetime.datetime:
+    sat = satellites.TrackedSatellite.from_elements(iss_elements())
+    passes = satellites.find_passes(sat, BRUSSELS, NOW, hours=24)
+    return passes[0].culmination
+
+
+@pytest.mark.unit
+def test_description_starts_with_altitude_and_azimuth_when_up(catalog):
+    catalog.shared_state.dt = time_with_iss_up()
+    catalog.do_timed_task()
+    iss = catalog.get_object_by_sequence(ISS_NORAD)
+    sat = catalog.tracked(ISS_NORAD)
+    now = satellites.look(sat, BRUSSELS, catalog.shared_state.dt)
+    assert now.alt >= 10
+    first_line = iss.description.splitlines()[0]
+    assert first_line == (
+        f"Alt {now.alt:.0f}° Az {now.az:.0f}° {satellites.compass(now.az)}"
+    )
+    down = [
+        obj
+        for obj in catalog.get_objects()
+        if obj.description.startswith("Below horizon")
+    ]
+    assert down
+
+
+@pytest.mark.unit
+def test_next_pass_sort_puts_satellites_above_the_horizon_first(catalog):
+    catalog.shared_state.dt = time_with_iss_up()
+    catalog.do_timed_task()
+    objects = catalog.get_objects()
+    up = [obj for obj in objects if obj.description.startswith("Alt ")]
+    down = [obj for obj in objects if not obj.description.startswith("Alt ")]
+    assert up and down
+    assert all(obj.next_pass_ts < 0 for obj in up)
+    assert all(obj.next_pass_ts is None or obj.next_pass_ts > 0 for obj in down)
+    # The object list sorts by this key and puts None last.
+    key = lambda obj: np.inf if obj.next_pass_ts is None else obj.next_pass_ts  # noqa: E731
+    ordered = sorted(objects, key=key)
+    assert set(map(id, ordered[: len(up)])) == set(map(id, up))
+    altitudes = [-obj.next_pass_ts for obj in ordered[: len(up)]]
+    assert altitudes == sorted(altitudes, reverse=True)
+
+
+@pytest.mark.unit
+def test_sky_now_lists_the_satellites_above_the_horizon(catalog):
+    moment = time_with_iss_up()
+    location = catalog.shared_state.location()
+    directory = catalog.data_directory
+    rows = web_satellites.sky_now(moment, location, directory)
+    assert rows
+    altitudes = [row["alt"] for row in rows]
+    assert altitudes == sorted(altitudes, reverse=True)
+    assert all(alt > 0 for alt in altitudes)
+    iss = next(row for row in rows if row["norad_id"] == ISS_NORAD)
+    sat = satellites.TrackedSatellite.from_elements(iss_elements())
+    now = satellites.look(sat, BRUSSELS, moment)
+    assert iss["alt"] == pytest.approx(now.alt, abs=0.01)
+    assert iss["az"] == pytest.approx(now.az, abs=0.05)
+    assert iss["dir"] == satellites.compass(now.az)
+    assert iss["sunlit"] == now.sunlit
+    assert (iss["mag"] is None) == (now.mag is None)
+    # The ISS is at the top of a pass, so it sets in a few minutes.
+    assert 60 < iss["sets_in_seconds"] < 600
+    assert "min" in iss["sets_in"]
+
+    everything = satellites.load_all_elements(moment, directory)
+    assert len(rows) < len(everything)
+
+    web_satellites.set_enabled("group", "visual", False, directory)
+    web_satellites.set_enabled("group", "stations", False, directory)
+    assert web_satellites.sky_now(moment, location, directory) == []
+    assert web_satellites.sky_now(moment, None, directory) is None

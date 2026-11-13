@@ -272,7 +272,9 @@ class CompositeObject:
     opposition_kind: str = field(default="")
     peak_magnitude: Optional[float] = field(default=None)
     peak_date: Optional[date] = field(default=None)
-    # Satellites: UTC timestamp of the start of the next visible pass.
+    # Satellites: the sort key of the "Next pass" order. The negative altitude
+    # when the satellite is up, else the UTC timestamp of the start of the
+    # next visible pass.
     next_pass_ts: Optional[float] = field(default=None)
     logged: bool = field(default=False)
     last_filtered_time: float = 0

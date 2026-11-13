@@ -20,14 +20,16 @@ import re
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from functools import cached_property
 from pathlib import Path
 from typing import Callable, Iterable, Optional
 
 import numpy as np
 import requests
 from sgp4 import exporter, omm
-from sgp4.api import Satrec
+from sgp4.api import Satrec, SatrecArray
 from skyfield.api import EarthSatellite, wgs84
+from skyfield.sgp4lib import TEME
 
 from PiFinder.calc_utils import sf_utils
 from PiFinder.download_utils import (
@@ -48,6 +50,7 @@ CELESTRAK_CATNR_URL = (
 CELESTRAK_GROUPS = ("visual", "stations")
 USER_FILE_NAME = "user.tle"
 USER_MAG_FILE_NAME = "user_mags.json"
+SELECTION_FILE_NAME = "selection.json"
 STD_MAG_FILE = astro_data_dir / "satellite_std_mags.csv"
 # The CelesTrak "visual" group holds the brightest objects. A member without a
 # magnitude in the table gets this value.
@@ -57,10 +60,16 @@ MAX_ELEMENT_AGE_DAYS = 30.0
 # CelesTrak updates the groups a few times a day and asks clients not to
 # download them more often than every two hours.
 DOWNLOAD_INTERVAL_HOURS = 12.0
+# A download that the user asks for is refused when the file is younger.
+MIN_FORCED_DOWNLOAD_SECONDS = 5 * 60.0
 # The observer is in darkness when the Sun is below this altitude.
 DARK_SUN_ALT_DEG = -6.0
 PASS_STEP_SECONDS = 10.0
 RATE_STEP_SECONDS = 1.0
+# The search for the time a satellite sets looks this far ahead.
+SET_SEARCH_SECONDS = 2 * 3600.0
+SET_STEP_SECONDS = 20.0
+UNIX_EPOCH_JD = 2440587.5
 
 _TLE_LINE1 = re.compile(r"^1 [ 0-9A-Z]{5}[A-Z ] ")
 _TLE_LINE2 = re.compile(r"^2 [ 0-9A-Z]{5} ")
@@ -80,7 +89,7 @@ class SatElements:
     line2: str
     source: str = "user"
 
-    @property
+    @cached_property
     def epoch(self) -> datetime:
         satrec = Satrec.twoline2rv(self.line1, self.line2)
         jd = satrec.jdsatepoch + satrec.jdsatepochF
@@ -391,6 +400,80 @@ def group_download_needed(
     return False, "file is recent"
 
 
+@dataclass(frozen=True)
+class GroupRefresh:
+    """The result of one request to download the CelesTrak groups.
+
+    ``status`` is "downloaded", "current" (no file was old enough), "busy"
+    (another download runs), "too_soon" or "failed".
+    """
+
+    status: str
+    failed: tuple[str, ...] = ()
+    wait_seconds: float = 0.0
+
+    @property
+    def ok(self) -> bool:
+        return self.status in ("downloaded", "current")
+
+
+_download_lock = threading.Lock()
+
+
+def forced_download_wait(
+    now: datetime, directory: Path = satellite_data_dir
+) -> dict[str, float]:
+    """Seconds until a forced download of each group is permitted."""
+    waits: dict[str, float] = {}
+    for group in CELESTRAK_GROUPS:
+        path = group_file(group, directory)
+        age = now.timestamp() - path.stat().st_mtime if path.exists() else None
+        # A file from the future means the clock changed: permit the download.
+        if age is None or age < 0:
+            waits[group] = 0.0
+        else:
+            waits[group] = max(0.0, MIN_FORCED_DOWNLOAD_SECONDS - age)
+    return waits
+
+
+def refresh_groups(
+    now: datetime,
+    force: bool = False,
+    directory: Path = satellite_data_dir,
+    progress_callback: Optional[Callable[[Optional[int]], None]] = None,
+    on_start: Optional[Callable[[], None]] = None,
+) -> GroupRefresh:
+    """Download the groups that need it. Only one download runs at a time.
+
+    Without ``force`` the file age decides. With ``force`` each group
+    downloads, except a group that downloaded a few minutes ago.
+    """
+    if not _download_lock.acquire(blocking=False):
+        return GroupRefresh("busy")
+    try:
+        waits = forced_download_wait(now, directory)
+        wanted = []
+        for group in CELESTRAK_GROUPS:
+            needed, reason = group_download_needed(group, now, directory)
+            if needed or (force and waits[group] <= 0):
+                logger.info("Satellite group %s: %s", group, reason)
+                wanted.append(group)
+        if not wanted:
+            if force:
+                return GroupRefresh("too_soon", wait_seconds=min(waits.values()))
+            return GroupRefresh("current")
+        if on_start is not None:
+            on_start()
+        failed = tuple(
+            group
+            for group in wanted
+            if not download_group(group, directory, progress_callback).success
+        )
+        return GroupRefresh("failed" if failed else "downloaded", failed)
+    finally:
+        _download_lock.release()
+
+
 def fetch_by_norad(norad: int) -> list[SatElements]:
     """Get the current element set of one object from CelesTrak."""
     response = requests.get(CELESTRAK_CATNR_URL.format(norad=int(norad)), timeout=15)
@@ -437,38 +520,132 @@ def save_user_elements(
 
 
 def delete_user_element(norad_id: int, directory: Path = satellite_data_dir) -> bool:
+    """Remove a user element set, its magnitude and its selection entry."""
     with _user_file_lock:
         current = load_user_elements(directory)
         kept = [e for e in current if e.norad_id != norad_id]
         if len(kept) == len(current):
             return False
         _write_user_file(kept, directory)
+        mags = load_user_mags(directory)
+        if mags.pop(norad_id, None) is not None:
+            _write_json(user_mag_file(directory), {str(k): v for k, v in mags.items()})
+        selection = load_selection(directory)
+        if norad_id in selection.disabled_user:
+            _write_selection(
+                Selection(
+                    selection.disabled_groups, selection.disabled_user - {norad_id}
+                ),
+                directory,
+            )
         return True
 
 
-def _write_user_file(elements: list[SatElements], directory: Path) -> None:
-    path = user_file(directory)
+def _write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
-    temporary.write_text("".join(e.to_tle() for e in elements))
+    temporary.write_text(text)
     temporary.replace(path)
+
+
+def _write_json(path: Path, data: dict) -> None:
+    _write_text(path, json.dumps(data))
+
+
+def _write_user_file(elements: list[SatElements], directory: Path) -> None:
+    _write_text(user_file(directory), "".join(e.to_tle() for e in elements))
+
+
+@dataclass(frozen=True)
+class Selection:
+    """The groups and user satellites that the user disabled.
+
+    A disabled item stays stored. It is not in the device catalog and not
+    in the pass lists.
+    """
+
+    disabled_groups: frozenset[str] = frozenset()
+    disabled_user: frozenset[int] = frozenset()
+
+    def group_enabled(self, group: str) -> bool:
+        return group not in self.disabled_groups
+
+    def user_enabled(self, norad_id: int) -> bool:
+        return norad_id not in self.disabled_user
+
+
+def selection_file(directory: Path = satellite_data_dir) -> Path:
+    return directory / SELECTION_FILE_NAME
+
+
+def load_selection(directory: Path = satellite_data_dir) -> Selection:
+    try:
+        data = json.loads(selection_file(directory).read_text())
+        return Selection(
+            frozenset(str(group) for group in data.get("disabled_groups", [])),
+            frozenset(int(norad) for norad in data.get("disabled_user", [])),
+        )
+    except (OSError, ValueError, TypeError, AttributeError):
+        return Selection()
+
+
+def _write_selection(selection: Selection, directory: Path) -> None:
+    _write_json(
+        selection_file(directory),
+        {
+            "disabled_groups": sorted(selection.disabled_groups),
+            "disabled_user": sorted(selection.disabled_user),
+        },
+    )
+
+
+def set_group_enabled(
+    group: str, enabled: bool, directory: Path = satellite_data_dir
+) -> None:
+    if group not in CELESTRAK_GROUPS:
+        raise ValueError(f"unknown group: {group}")
+    with _user_file_lock:
+        selection = load_selection(directory)
+        groups = selection.disabled_groups - {group}
+        if not enabled:
+            groups = groups | {group}
+        _write_selection(Selection(groups, selection.disabled_user), directory)
+
+
+def set_user_enabled(
+    norad_id: int, enabled: bool, directory: Path = satellite_data_dir
+) -> None:
+    with _user_file_lock:
+        selection = load_selection(directory)
+        user = selection.disabled_user - {norad_id}
+        if not enabled:
+            user = user | {norad_id}
+        _write_selection(Selection(selection.disabled_groups, user), directory)
 
 
 def load_all_elements(
     now: datetime,
     directory: Path = satellite_data_dir,
     groups: Iterable[str] = CELESTRAK_GROUPS,
+    include_disabled: bool = False,
 ) -> list[SatElements]:
     """All element sets, one per NORAD id, without sets that are too old.
 
     A user set replaces a downloaded set of the same object only if it is
     newer, so a pasted TLE does not stay in use after CelesTrak has a fresh one.
+    Groups and user sets that the user disabled are left out, unless
+    ``include_disabled`` is set.
     """
+    selection = Selection() if include_disabled else load_selection(directory)
     by_id: dict[int, SatElements] = {}
     for group in groups:
+        if not selection.group_enabled(group):
+            continue
         for element in read_tle_file(group_file(group, directory), "celestrak"):
             by_id.setdefault(element.norad_id, element)
     for element in load_user_elements(directory):
+        if not selection.user_enabled(element.norad_id):
+            continue
         existing = by_id.get(element.norad_id)
         if existing is None or element.epoch > existing.epoch:
             by_id[element.norad_id] = element
@@ -500,11 +677,7 @@ def save_user_mag(
             mags.pop(norad_id, None)
         else:
             mags[norad_id] = float(std_mag)
-        path = user_mag_file(directory)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_suffix(".tmp")
-        temporary.write_text(json.dumps({str(k): v for k, v in mags.items()}))
-        temporary.replace(path)
+        _write_json(user_mag_file(directory), {str(k): v for k, v in mags.items()})
 
 
 def std_magnitude(norad_id: int, user_mags: Optional[dict[int, float]] = None) -> float:
@@ -678,6 +851,115 @@ def look(
     )
 
 
+def _magnitudes(std_mag, range_km, phase_deg) -> np.ndarray:
+    """``apparent_magnitude`` for arrays."""
+    phi = np.radians(phase_deg)
+    relative = (
+        ((np.pi - phi) * np.cos(phi) + np.sin(phi)) / np.pi / phase_function(90.0)
+    )
+    return (
+        std_mag
+        + 5.0 * np.log10(np.asarray(range_km) / 1000.0)
+        - 2.5 * np.log10(np.maximum(relative, 1e-4))
+    )
+
+
+def _geometry_many(sats: list[TrackedSatellite], topos, times: list[datetime]):
+    """Positions of n satellites at m times with one SGP4 call.
+
+    Returns the Skyfield times, the geocentric positions in km (3, n, m),
+    the positions relative to the observer in km (3, n, m), the altitude
+    and the azimuth in degrees (n, m). A satellite that SGP4 cannot
+    propagate gets NaN.
+    """
+    t = sf_utils.ts.from_datetimes(times)
+    days = np.array([dt.timestamp() for dt in times]) / 86400.0
+    whole = np.floor(days)
+    _errors, teme_km, _velocity = SatrecArray(
+        [sat.satellite.model for sat in sats]
+    ).sgp4(whole + UNIX_EPOCH_JD, days - whole)
+    # The rotation matrix goes from GCRS to TEME: use its transpose.
+    sat_km = np.einsum("jim,nmj->inm", TEME.rotation_at(t), teme_km)
+    relative_km = sat_km - topos.at(t).position.km[:, np.newaxis, :]
+    horizon = np.einsum("ijm,jnm->inm", topos.rotation_at(t), relative_km)
+    range_km = np.linalg.norm(relative_km, axis=0)
+    alt = np.degrees(np.arcsin(horizon[2] / range_km))
+    az = np.degrees(np.arctan2(horizon[1], horizon[0])) % 360.0
+    return t, sat_km, relative_km, alt, az
+
+
+def look_many(
+    sats: list[TrackedSatellite],
+    topos,
+    dt: datetime,
+    sun: Optional[SunContext] = None,
+) -> list[SatLook]:
+    """``look`` without rates for many satellites at one time.
+
+    One vectorized SGP4 call replaces a Skyfield call per satellite.
+    """
+    if not sats:
+        return []
+    dt = _as_utc(dt)
+    if sun is None:
+        sun = sun_context(topos, dt)
+    t, sat_km, relative_km, alt, az = _geometry_many(sats, topos, [dt])
+    sat_km, relative_km = sat_km[:, :, 0], relative_km[:, :, 0]
+    range_km = np.linalg.norm(relative_km, axis=0)
+    ra = np.degrees(np.arctan2(relative_km[1], relative_km[0])) % 360.0
+    dec = np.degrees(np.arcsin(relative_km[2] / range_km))
+    sun_km = sun.sun_geocentric_km[:, np.newaxis]
+    sunlit = in_sunlight(sat_km, sun_km)
+    phase = phase_angle_deg(sat_km, sun_km, topos.at(t).position.km)
+    mags = _magnitudes(np.array([sat.std_mag for sat in sats]), range_km, phase)
+    return [
+        SatLook(
+            time=dt,
+            ra=float(ra[i]),
+            dec=float(dec[i]),
+            alt=float(alt[i, 0]),
+            az=float(az[i, 0]),
+            range_km=float(range_km[i]),
+            sunlit=bool(sunlit[i]),
+            sun_alt=sun.sun_alt,
+            mag=float(mags[i]) if sunlit[i] else None,
+        )
+        for i in range(len(sats))
+    ]
+
+
+def seconds_until_set(
+    sats: list[TrackedSatellite],
+    topos,
+    dt: datetime,
+    search_seconds: float = SET_SEARCH_SECONDS,
+    step_seconds: float = SET_STEP_SECONDS,
+) -> list[Optional[float]]:
+    """For each satellite: the seconds until it goes below the horizon.
+
+    None when the satellite is below the horizon at ``dt``, or stays up for
+    the full search time (a geostationary satellite, for example).
+    """
+    if not sats:
+        return []
+    dt = _as_utc(dt)
+    offsets = np.arange(0.0, search_seconds + step_seconds, step_seconds)
+    times = [dt + timedelta(seconds=float(offset)) for offset in offsets]
+    alt = _geometry_many(sats, topos, times)[3]
+    result: list[Optional[float]] = []
+    for row in alt:
+        down = np.flatnonzero(~(row > 0))
+        if len(down) == 0 or down[0] == 0:
+            result.append(None)
+            continue
+        after = int(down[0])
+        above, below = row[after - 1], row[after]
+        # The altitude is close to linear over one step near the horizon.
+        part = above / (above - below) if np.isfinite(below) else 0.0
+        result.append(float(offsets[after - 1] + part * step_seconds))
+    return result
+
+
 def radec_at(sat: TrackedSatellite, topos, dt: datetime) -> tuple[float, float]:
     """J2000 RA/Dec in degrees only: cheap enough for every UI frame."""
     t = sf_utils.ts.from_datetime(_as_utc(dt))
@@ -737,15 +1019,7 @@ def _describe_pass(sat, topos, difference, rise, culmination, set_time) -> SatPa
     sat_km = sat.satellite.at(samples).position.km
     sunlit = in_sunlight(sat_km, sun_km)
     phase = phase_angle_deg(sat_km, sun_km, topos.at(samples).position.km)
-    phi = np.radians(phase)
-    relative = (
-        ((np.pi - phi) * np.cos(phi) + np.sin(phi)) / np.pi / phase_function(90.0)
-    )
-    mags = (
-        sat.std_mag
-        + 5.0 * np.log10(distance.km / 1000.0)
-        - 2.5 * np.log10(np.maximum(relative, 1e-4))
-    )
+    mags = _magnitudes(sat.std_mag, distance.km, phase)
     visible = np.asarray(sunlit) & (sun_alt < DARK_SUN_ALT_DEG) & (alt.degrees > 0)
 
     culmination_alt, culmination_az, _ = difference.at(culmination).altaz()
@@ -764,19 +1038,6 @@ def _describe_pass(sat, topos, difference, rise, culmination, set_time) -> SatPa
         result.visible_end = samples[int(indices[-1])].utc_datetime()
         result.min_mag = float(np.min(mags[visible]))
     return result
-
-
-def next_visible_pass(
-    sat: TrackedSatellite,
-    topos,
-    start: datetime,
-    hours: float = 24.0,
-    min_alt: float = 10.0,
-) -> Optional[SatPass]:
-    for candidate in find_passes(sat, topos, start, hours, min_alt):
-        if candidate.visible:
-            return candidate
-    return None
 
 
 AZ_NAMES = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")

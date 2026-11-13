@@ -1186,13 +1186,17 @@ class Server:
                 return "", 404
             return send_file(path, mimetype="image/jpeg")
 
-        def _now_utc():
+        def _now_utc_source():
+            """The time, and True when it comes from the GPS."""
             now = self.shared_state.datetime()
             if now is None:
-                return datetime.datetime.now(timezone.utc)
+                return datetime.datetime.now(timezone.utc), False
             if now.tzinfo is None:
-                return now.replace(tzinfo=timezone.utc)
-            return now
+                return now.replace(tzinfo=timezone.utc), True
+            return now, True
+
+        def _now_utc():
+            return _now_utc_source()[0]
 
         def _satellites_redirect(message="", error=""):
             query = []
@@ -1205,7 +1209,7 @@ class Server:
         @app.route("/satellites")
         @auth_required
         def satellites_page():
-            now = _now_utc()
+            now, time_from_gps = _now_utc_source()
             show_all = request.args.get("all", "0") == "1"
             max_mag = request.args.get("maxmag", type=float)
             if max_mag is None and not show_all:
@@ -1221,6 +1225,9 @@ class Server:
                 max_mag=max_mag,
                 groups=web_satellites.group_status(now),
                 user_satellites=web_satellites.user_satellites(now),
+                sky_now=web_satellites.sky_now(now, self.shared_state.location()),
+                time_from_gps=time_from_gps,
+                now_utc=now.strftime("%Y-%m-%d %H:%M"),
                 status_message=request.args.get("msg", ""),
                 error_message=request.args.get("err", ""),
             )
@@ -1228,10 +1235,18 @@ class Server:
         @app.route("/satellites/add", methods=["POST"])
         @auth_required
         def satellites_add():
+            too_large = _("The file is too large. The limit is 1 MB.")
+            limit = web_satellites.MAX_UPLOAD_BYTES
+            # The request holds the file and the other form fields.
+            if (request.content_length or 0) > 2 * limit:
+                return _satellites_redirect(error=too_large)
             text = request.form.get("elements", "")
             upload = request.files.get("file")
             if upload is not None and upload.filename:
-                text += "\n" + upload.read().decode("utf-8", errors="replace")
+                content = upload.read(limit + 1)
+                if len(content) > limit:
+                    return _satellites_redirect(error=too_large)
+                text += "\n" + content.decode("utf-8", errors="replace")
             found, errors = web_satellites.add_elements(
                 text,
                 name=request.form.get("name", ""),
@@ -1259,18 +1274,29 @@ class Server:
         @app.route("/satellites/refresh", methods=["POST"])
         @auth_required
         def satellites_refresh():
-            failed = [
-                group
-                for group in satellite_data.CELESTRAK_GROUPS
-                if not satellite_data.download_group(group).success
-            ]
-            if failed:
+            # The file times come from the system clock, so the check of the
+            # last download uses the system clock too.
+            result = satellite_data.refresh_groups(
+                datetime.datetime.now(timezone.utc), force=True
+            )
+            return _satellites_redirect(*web_satellites.refresh_message(result))
+
+        @app.route("/satellites/enable", methods=["POST"])
+        @auth_required
+        def satellites_enable():
+            """Enable or disable one group or one satellite of the user."""
+            kind = request.form.get("kind", "")
+            name = request.form.get("id", "")
+            enabled = request.form.get("enabled", "0") == "1"
+            try:
+                web_satellites.set_enabled(kind, name, enabled)
+            except ValueError:
                 return _satellites_redirect(
-                    error=_("Download failed: {groups}").format(
-                        groups=", ".join(failed)
-                    )
+                    error=_("Not found: {norad}").format(norad=name)
                 )
-            return _satellites_redirect(_("Element sets downloaded"))
+            if enabled:
+                return _satellites_redirect(_("Enabled {name}").format(name=name))
+            return _satellites_redirect(_("Disabled {name}").format(name=name))
 
         @app.route("/satellites/show/<int:norad_id>", methods=["POST"])
         @auth_required
@@ -1280,7 +1306,7 @@ class Server:
             detail = web_satellites.satellite_detail(
                 norad_id, now, self.shared_state.location(), days=0.0
             )
-            if detail is None:
+            if detail is None or not detail["enabled"]:
                 return _satellites_redirect(
                     error=_("Not found: {norad}").format(norad=norad_id)
                 )
@@ -1311,15 +1337,19 @@ class Server:
         @app.route("/satellites/<int:norad_id>")
         @auth_required
         def satellite_page(norad_id):
+            now, time_from_gps = _now_utc_source()
             detail = web_satellites.satellite_detail(
-                norad_id, _now_utc(), self.shared_state.location()
+                norad_id, now, self.shared_state.location()
             )
             if detail is None:
                 return _satellites_redirect(
                     error=_("Not found: {norad}").format(norad=norad_id)
                 )
             return app.jinja_env.get_template("satellite.html").render(
-                title=detail["name"], sat=detail
+                title=detail["name"],
+                sat=detail,
+                time_from_gps=time_from_gps,
+                now_utc=now.strftime("%Y-%m-%d %H:%M"),
             )
 
         @app.route("/api/satellites/passes")

@@ -67,7 +67,9 @@ class SortOrder(Enum):
     RA = 3  # By RA
     EARTH_DISTANCE = 4  # By physical distance from Earth
     OPPOSITION = 5  # By next opposition / greatest elongation
-    NEXT_PASS = 6  # By start of the next visible satellite pass
+    # Satellites above the horizon first, the highest at the top. Then by
+    # the start of the next visible pass.
+    NEXT_PASS = 6
 
 
 def _sort_objects(objects: ObjectSequence, order: SortOrder) -> ObjectSequence:
@@ -336,8 +338,8 @@ class UIObjectList(UITextMenu):
         )
 
     def _sources_replaced(self) -> bool:
-        """True when a catalog this list shows replaced its objects (a comet
-        or asteroid update) and was not filtered since."""
+        """True when a catalog this list shows changed its objects (a comet,
+        asteroid or satellite update) and was not filtered since."""
         return any(
             catalog.catalog_filter is not None and catalog.last_filtered == 0
             for catalog in self._source_catalogs()
@@ -1075,10 +1077,19 @@ class UIObjectList(UITextMenu):
         """Refresh downloaded elements while retaining the active objects."""
         catalog = self.catalogs.get_catalog_by_code(self.item_definition.get("value"))
         if catalog and hasattr(catalog, "refresh"):
-            self.message(
-                _("Refreshing..."), 1
-            )  # TRANSLATORS: Status message when refreshing comet catalog
-            catalog.refresh()
+            # A catalog that refuses the refresh returns the seconds to wait.
+            wait_seconds = catalog.refresh()
+            if wait_seconds:
+                self.message(
+                    _("Wait {minutes} min").format(
+                        minutes=math.ceil(wait_seconds / 60)
+                    ),
+                    2,
+                )  # TRANSLATORS: A catalog download was done a moment ago
+            else:
+                self.message(
+                    _("Refreshing..."), 1
+                )  # TRANSLATORS: Status message when refreshing comet catalog
             # Keep the current objects visible and refresh the status header.
             self.refresh_object_list(force_update=True)
         return True

@@ -963,10 +963,7 @@ class CatalogBuilder:
 
         from PiFinder.satellite_catalog import SatelliteCatalog
 
-        satellite_catalog: Catalog = SatelliteCatalog(
-            timez.utc_now(),
-            shared_state=shared_state,
-        )
+        satellite_catalog: Catalog = SatelliteCatalog(shared_state=shared_state)
         all_catalogs.add(satellite_catalog)
 
         assert self.check_catalogs_sequences(all_catalogs) is True
