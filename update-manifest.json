@@ -122,6 +122,20 @@
       },
       {
         "available": true,
+        "built_at": "2026-11-14T11:52:01+00:00",
+        "kind": "pr",
+        "label": "PR#700-f7c8bd5",
+        "notes": "## Test build, not for merge\n\nThis draft PR exists so that a PiFinder can install a build of `mrosseel:test/device-build` from the unstable channel. The review of the work happens in four PRs on mrosseel/PiFinder, in this merge order:\n\n1. https://github.com/mrosseel/PiFinder/pull/125 INDI mount control\n2. https://github.com/mrosseel/PiFinder/pull/127 Satellite catalog\n3. https://github.com/mrosseel/PiFinder/pull/128 Polar alignment with the mount\n4. https://github.com/mrosseel/PiFinder/pull/129 Follow of moving targets\n\nThe branch merges #128 and #129, so it holds all four PRs. It is based on the asteroids branch (https://github.com/brickbots/PiFinder/pull/534), so the diff against `main` also holds the asteroid, Gaia chart and NixOS work.\n\n## What to test on a device\n\n- Objects > By Catalog > Satellites... > Sat groups: select CelesTrak groups. A group without a file downloads at once.\n- The Satellites list: the PASS sort lists the satellites above the horizon first.\n- The `/satellites` web page: groups, custom element sets, the \"In the sky now\" table, the pass table.\n- With an INDI mount: key 5 on a satellite follows it. The arrow keys correct the path. A corrected element set is stored when the follow ends.\n\n- With an equatorial INDI mount: the polar alignment wizard turns the RA axis between the three captures.\n\nNot tested on a real mount yet.\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)",
+        "number": 700,
+        "source_ref": "test/device-build",
+        "source_repo": "mrosseel/PiFinder",
+        "source_sha": "f7c8bd5c026181f47f63dd213ffc619204d6e543",
+        "store_path": "/nix/store/pbss7gpgf076ilcqdyi36m0rpc5qnkb0-nixos-system-pifinder-26.05.20261105.c56a87d",
+        "title": "[Test build] Satellites, moving target follow and polar alignment with INDI mount control",
+        "version": "PR#700-f7c8bd5"
+      },
+      {
+        "available": true,
         "built_at": "2026-11-14T11:12:31+00:00",
         "kind": "pr",
         "label": "PR#699-33d2f6f",
@@ -260,6 +274,6 @@
       }
     ]
   },
-  "generated_at": "2026-11-14T11:12:31+00:00",
+  "generated_at": "2026-11-14T11:52:01+00:00",
   "schema": 1
 }
